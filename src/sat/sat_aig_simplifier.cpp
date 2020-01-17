@@ -25,23 +25,26 @@ namespace sat {
     struct aig_simplifier::report {
         aig_simplifier& s;
         stopwatch       m_watch;
-        unsigned        m_num_eqs, m_num_units, m_num_cuts;
+        unsigned        m_num_eqs, m_num_units, m_num_cuts, m_num_learned_implies;
         
         report(aig_simplifier& s): s(s) { 
             m_watch.start(); 
             m_num_eqs   = s.m_stats.m_num_eqs;
             m_num_units = s.m_stats.m_num_units;
             m_num_cuts  = s.m_stats.m_num_cuts;
+            m_num_learned_implies = s.m_stats.m_num_learned_implies;
         }
         ~report() {
             unsigned ne = s.m_stats.m_num_eqs   - m_num_eqs;
             unsigned nu = s.m_stats.m_num_units - m_num_units;
             unsigned nc = s.m_stats.m_num_cuts  - m_num_cuts;
+            unsigned ni = s.m_stats.m_num_learned_implies - m_num_learned_implies;
             IF_VERBOSE(2, 
                        verbose_stream() << "(sat.aig-simplifier";
-                       if (ne > 0) verbose_stream() << " :num-eqs "   << ne;
                        if (nu > 0) verbose_stream() << " :num-units " << nu;
-                       if (nc > 0) verbose_stream() << " :num-cuts "  << nc;
+                       if (ne > 0) verbose_stream() << " :num-eqs "   << ne;
+                       if (ni > 0) verbose_stream() << " :num-bin " << ni;
+                       if (nc > 0) verbose_stream() << " :num-cuts "  << nc;                       
                        verbose_stream() << " :mb " << mem_stat() << m_watch << ")\n");
         }
     };
@@ -231,6 +234,7 @@ namespace sat {
         add_dont_cares(cuts);
         cuts2equiv(cuts);
         cuts2implies(cuts);
+        simulate_eqs();
     }
 
     void aig_simplifier::cuts2equiv(vector<cut_set> const& cuts) {
@@ -281,8 +285,8 @@ namespace sat {
     void aig_simplifier::assign_unit(cut const& c, literal lit) {
         if (s.value(lit) != l_undef) 
             return;
+        IF_VERBOSE(10, verbose_stream() << "new unit " << lit << "\n");
         validate_unit(lit);
-        IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
         s.assign_unit(lit);
         certify_unit(lit, c);
         ++m_stats.m_num_units;        
@@ -345,6 +349,8 @@ namespace sat {
         big big(s.rand());
         big.init(s, true);
         for (auto const& cs : cuts) {
+            if (s.was_eliminated(cs.var())) 
+                continue;
             for (auto const& c : cs) {
                 if (c.is_false() || c.is_true()) 
                     continue;
@@ -410,6 +416,31 @@ namespace sat {
         s.mk_clause(~u, v, true);
         // m_bins owns reference to ~u or v created by certify_implies
         m_bins.insert(p); 
+        ++m_stats.m_num_learned_implies;
+    }
+
+    void aig_simplifier::simulate_eqs() {
+        if (!m_config.m_simulate_eqs) return;
+        auto var2val = m_aig_cuts.simulate(4);
+
+        // Assign higher cutset budgets to equality candidates that come from simulation
+        // touch them to trigger recomputation of cutsets.
+        u64_map<unsigned> val2var;
+        unsigned i = 0, j = 0, num_eqs = 0;
+        for (uint64_t val : var2val) {
+            if (!s.was_eliminated(i) && s.value(i) == l_undef) {
+                if (val2var.find(val, j)) {
+                    m_aig_cuts.inc_max_cutset_size(i);
+                    m_aig_cuts.inc_max_cutset_size(j);
+                    num_eqs++;
+                }
+                else {
+                    val2var.insert(val, i);
+                }
+            }
+            ++i;
+        }
+        IF_VERBOSE(2, verbose_stream() << "(sat.aig-simplifier num simulated eqs " << num_eqs << ")\n");
     }
 
     void aig_simplifier::track_binary(bin_rel const& p) {

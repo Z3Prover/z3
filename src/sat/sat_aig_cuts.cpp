@@ -55,7 +55,7 @@ namespace sat {
         unsigned nc = n.size();
         m_insertions = 0;
         cut_set& cs = m_cuts[id];
-        if (!is_touched(n)) {
+        if (!is_touched(id, n)) {
             // no-op
         }
         else if (n.is_var()) {
@@ -89,7 +89,7 @@ namespace sat {
         if (++m_insertions > m_config.m_max_insertions) {
             return false;
         }
-        while (cs.size() >= m_config.m_max_cutset_size) {
+        while (cs.size() >= max_cutset_size(v)) {
             // never evict the first entry, it is used for the starting point
             unsigned idx = 1 + (m_rand() % (cs.size() - 1));
             evict(cs, idx);
@@ -155,17 +155,18 @@ namespace sat {
         for (auto const& a : m_cuts[l1.var()]) {
             for (auto const& b : m_cuts[l2.var()]) {
                 cut c;
-                if (c.merge(a, b)) {
-                    uint64_t t1 = a.shift_table(c);
-                    uint64_t t2 = b.shift_table(c);
-                    if (l1.sign()) t1 = ~t1;
-                    if (l2.sign()) t2 = ~t2;
-                    uint64_t t3 = n.is_and() ? (t1 & t2) : (t1 ^ t2);
-                    c.set_table(t3);
-                    if (n.sign()) c.negate();
-                    // validate_aig2(a, b, v, n, c); 
-                    if (!insert_cut(v, c, cs)) return;
+                if (!c.merge(a, b)) {
+                    continue;
                 }
+                uint64_t t1 = a.shift_table(c);
+                uint64_t t2 = b.shift_table(c);
+                if (l1.sign()) t1 = ~t1;
+                if (l2.sign()) t2 = ~t2;
+                uint64_t t3 = n.is_and() ? (t1 & t2) : (t1 ^ t2);
+                c.set_table(t3);
+                if (n.sign()) c.negate();
+                // validate_aig2(a, b, v, n, c); 
+                if (!insert_cut(v, c, cs)) return;                
             }
         }
     }
@@ -189,15 +190,16 @@ namespace sat {
             for (auto const& a : m_cut_set1) {
                 for (auto const& b : m_cuts[lit.var()]) {
                     cut c;
-                    if (c.merge(a, b)) {
-                        uint64_t t1 = a.shift_table(c);
-                        uint64_t t2 = b.shift_table(c);
-                        if (lit.sign()) t2 = ~t2;
-                        uint64_t t3 = n.is_and() ? (t1 & t2) : (t1 ^ t2);
-                        c.set_table(t3);
-                        if (i + 1 == n.size() && n.sign()) c.negate();
-                        if (!insert_cut(UINT_MAX, c, m_cut_set2)) goto next_child;
+                    if (!c.merge(a, b)) {
+                        continue;
                     }
+                    uint64_t t1 = a.shift_table(c);
+                    uint64_t t2 = b.shift_table(c);
+                    if (lit.sign()) t2 = ~t2;
+                    uint64_t t3 = n.is_and() ? (t1 & t2) : (t1 ^ t2);
+                    c.set_table(t3);
+                    if (i + 1 == n.size() && n.sign()) c.negate();
+                    if (!insert_cut(UINT_MAX, c, m_cut_set2)) goto next_child;                    
                 }
             }
         next_child:
@@ -212,20 +214,20 @@ namespace sat {
         }        
     }
 
-
-    bool aig_cuts::is_touched(node const& n) {
+    bool aig_cuts::is_touched(bool_var v, node const& n) {
         for (unsigned i = 0; i < n.size(); ++i) {
             literal lit = m_literals[n.offset() + i];
             if (is_touched(lit)) {
                 return true;
             }
         }
-        return false;
+        return is_touched(v);
     }
 
     void aig_cuts::reserve(unsigned v) {
         m_aig.reserve(v + 1);
         m_cuts.reserve(v + 1);
+        m_max_cutset_size.reserve(v + 1, m_config.m_max_cutset_size);
         m_last_touched.reserve(v + 1, 0);
     }
 
@@ -409,6 +411,69 @@ namespace sat {
         }
         return result;
     }
+
+    uint64_t aig_cuts::eval(node const& n, svector<uint64_t> const& env) const {
+        uint64_t result;
+        switch (n.op()) {
+        case var_op:
+            UNREACHABLE();
+            break;
+        case and_op:
+            result = ~0ull;
+            for (unsigned i = 0; i < n.size(); ++i) {
+                literal u = m_literals[n.offset() + i];
+                uint64_t uv = u.sign() ? ~env[u.var()] : env[u.var()];
+                result &= uv;
+            }
+            break;
+        case xor_op: 
+            result = 0ull;
+            for (unsigned i = 0; i < n.size(); ++i) {
+                literal u = m_literals[n.offset() + i];
+                uint64_t uv = u.sign() ? ~env[u.var()] : env[u.var()];
+                result ^= uv;
+            }
+            break;
+        case ite_op: {
+            literal u = m_literals[n.offset() + 0]; 
+            literal v = m_literals[n.offset() + 1]; 
+            literal w = m_literals[n.offset() + 2]; 
+            uint64_t uv = u.sign() ? ~env[u.var()] : env[u.var()];
+            uint64_t vv = v.sign() ? ~env[v.var()] : env[v.var()];
+            uint64_t wv = w.sign() ? ~env[w.var()] : env[w.var()];
+            result = (uv & vv) | ((~uv) & wv);
+            break;
+        }
+        default:
+            UNREACHABLE();
+        }
+        if (n.sign()) result = ~result;
+        return result;
+    }
+    
+    svector<uint64_t> aig_cuts::simulate(unsigned num_rounds) {
+        svector<uint64_t> result;
+        for (unsigned i = 0; i < m_cuts.size(); ++i) {
+            result.push_back((uint64_t)m_rand() + ((uint64_t)m_rand() << 16ull) + 
+                             ((uint64_t)m_rand() << 32ull) + ((uint64_t)m_rand() << 48ull));
+        }
+        for (unsigned i = 0; i < num_rounds; ++i) {
+            for (unsigned j = 0; j < m_cuts.size(); ++j) {
+                cut_set const& cs = m_cuts[j];
+                if (cs.size() <= 1) {
+                    if (!m_aig[j].empty() && !m_aig[j][0].is_var()) {
+                        result[j] = eval(m_aig[j][0], result);
+                    }
+                }
+                else if (cs.size() > 1) {
+                    cut const& c = cs[1 + (m_rand() % (cs.size() - 1))];
+                    result[j] = c.eval(result);
+                }
+            }
+        }
+        return result;
+    }
+
 
     void aig_cuts::on_node_add(unsigned v, node const& n) {
         if (m_on_clause_add) {

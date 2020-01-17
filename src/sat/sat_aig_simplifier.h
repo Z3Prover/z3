@@ -28,7 +28,7 @@ namespace sat {
     public:
         struct stats {
             unsigned m_num_eqs, m_num_units, m_num_cuts, m_num_xors, m_num_ands, m_num_ites;
-            unsigned m_num_calls, m_num_dont_care_reductions;
+            unsigned m_num_calls, m_num_dont_care_reductions, m_num_learned_implies;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -39,13 +39,15 @@ namespace sat {
             bool m_learned2aig;             // add learned clauses to AIGs used by cut-set enumeration
             bool m_validate_cuts;           // enable direct validation of generated cuts
             bool m_validate_lemmas;         // enable direct validation of learned lemmas 
+            bool m_simulate_eqs;            // use symbolic simulation to control size of cutsets.
             config():
                 m_enable_units(true),
                 m_enable_dont_cares(true),
                 m_learn_implies(false),
                 m_learned2aig(true),
                 m_validate_cuts(false), 
-                m_validate_lemmas(false) {}
+                m_validate_lemmas(false),
+                m_simulate_eqs(true) {}
         };
     private:
         struct report;
@@ -120,6 +122,7 @@ namespace sat {
 
         void clauses2aig();
         void aig2clauses();
+        void simulate_eqs();
         void cuts2equiv(vector<cut_set> const& cuts);
         void cuts2implies(vector<cut_set> const& cuts);
         void uf2equiv(union_find<> const& uf);

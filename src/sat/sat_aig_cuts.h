@@ -61,7 +61,7 @@ namespace sat {
             unsigned m_max_aux;
             unsigned m_max_insertions;
             bool     m_full;
-        config(): m_max_cutset_size(10), m_max_aux(5), m_max_insertions(10), m_full(false) {}
+        config(): m_max_cutset_size(20), m_max_aux(5), m_max_insertions(20), m_full(false) {}
         };
     private:
 
@@ -97,6 +97,7 @@ namespace sat {
         region                m_region;
         cut_set               m_cut_set1, m_cut_set2;
         vector<cut_set>       m_cuts;
+        unsigned_vector       m_max_cutset_size;
         unsigned_vector       m_last_touched;
         unsigned              m_num_cut_calls;
         unsigned              m_num_cuts;
@@ -106,12 +107,14 @@ namespace sat {
         cut_set::on_update_t  m_on_cut_add, m_on_cut_del;
         literal_vector        m_clause;
 
-        bool is_touched(node const& n);
+        bool is_touched(bool_var v, node const& n);
         bool is_touched(literal lit) const { return is_touched(lit.var()); }
         bool is_touched(bool_var v) const { return m_last_touched[v] + m_aig.size() >= m_num_cut_calls * m_aig.size(); }
         void reserve(unsigned v);
         bool insert_aux(unsigned v, node const& n);
         void init_cut_set(unsigned id);
+
+        unsigned max_cutset_size(unsigned v) const { return v == UINT_MAX ? m_config.m_max_cutset_size : m_max_cutset_size[v]; }
 
         bool eq(node const& a, node const& b);
 
@@ -129,6 +132,8 @@ namespace sat {
         void flush_roots();
         void flush_roots(literal_vector const& to_root, node& n);
         void flush_roots(literal_vector const& to_root, cut_set& cs);
+
+        uint64_t eval(node const& n, svector<uint64_t> const& env) const;
 
         std::ostream& display(std::ostream& out, node const& n) const;
 
@@ -160,6 +165,8 @@ namespace sat {
         void set_on_clause_add(on_clause_t& on_clause_add);
         void set_on_clause_del(on_clause_t& on_clause_del);
 
+        void inc_max_cutset_size(unsigned v) { m_max_cutset_size[v] += 10; touch(v); }
+
         vector<cut_set> const & operator()();
         unsigned num_cuts() const { return m_num_cuts; }
 
@@ -167,6 +174,7 @@ namespace sat {
 
         void touch(bool_var v) { m_last_touched[v] = v + m_num_cut_calls * m_aig.size(); }
 
+        svector<uint64_t> simulate(unsigned num_rounds);
 
         std::ostream& display(std::ostream& out) const;
 

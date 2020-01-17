@@ -15,6 +15,7 @@
 #include "util/region.h"
 #include "util/debug.h"
 #include "util/util.h"
+#include "util/vector.h"
 #include <algorithm>
 #include <cstring>
 #include <functional>
@@ -24,7 +25,7 @@ namespace sat {
     class cut {
         unsigned m_filter;
         unsigned m_size;
-        unsigned m_elems[4];
+        unsigned m_elems[5];
         uint64_t m_table;
         mutable uint64_t m_dont_care;
 
@@ -50,9 +51,11 @@ namespace sat {
             return *this;
         }
 
+        uint64_t eval(svector<uint64_t> const& env) const;
+
         unsigned size() const { return m_size; }
 
-        static unsigned max_cut_size() { return 4; }
+        static unsigned max_cut_size() { return 5; }
 
         unsigned const* begin() const { return m_elems; }
         unsigned const* end() const  { return m_elems + m_size; }
@@ -113,7 +116,7 @@ namespace sat {
             unsigned x = a[i];
             unsigned y = b[j];
             while (x != UINT_MAX || y != UINT_MAX) {
-                if (!add(std::min(x, y))) {
+                if (!add(std::min(x, y))) {                    
                     return false;
                 }
                 if (x < y) {
@@ -169,7 +172,7 @@ namespace sat {
         cut const & back() { return m_cuts[m_size-1]; }
         void push_back(on_update_t& on_add, cut const& c);
         void reset(on_update_t& on_del) { shrink(on_del, 0); }
-        cut const & operator[](unsigned idx) { return m_cuts[idx]; }
+        cut const & operator[](unsigned idx) const { return m_cuts[idx]; }
         void shrink(on_update_t& on_del, unsigned j); 
         void swap(cut_set& other) { 
             std::swap(m_var, other.m_var);
