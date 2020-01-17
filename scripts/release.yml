@@ -291,9 +291,9 @@ stages:
       inputs:
         artifact: 'NuGetPackage'
         path: $(Agent.TempDirectory)
-#    - task: NuGetAuthenticate@0
-#      inputs:
-#        nuGetServiceConnections: Z3Nuget
+    - task: NuGetAuthenticate@0
+      inputs:
+        nuGetServiceConnections: Z3Nuget
 #    - task: NuGetCommand@2
 #      inputs:
 #        command: push
@@ -311,11 +311,11 @@ stages:
       inputs:
         artifact: 'PythonPackage'
         path: dist
-#    - task: DownloadSecureFile@1
-#      name: pypirc
-#      inputs:
-#        secureFile: 'pypirc'
-#    - script: pip install --upgrade pip
-#    - script: python -m pip install --user -U setuptools importlib_metadata wheel twine 
-#    # Uncomment on release:
-#    - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
+    - task: DownloadSecureFile@1
+      name: pypirc
+      inputs:
+        secureFile: 'pypirc'
+    - script: pip install --upgrade pip
+    - script: python -m pip install --user -U setuptools importlib_metadata wheel twine 
+    # Uncomment on release:
+    #- script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
