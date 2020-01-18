@@ -197,7 +197,7 @@ namespace datatype {
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
-        void set_sort_size(param_size::size* p) { m_sort_size = p; p->inc_ref(); m_sort = nullptr; }
+        void set_sort_size(param_size::size* p) { m_sort_size = p; if (p) p->inc_ref(); m_sort = nullptr; }
         def* translate(ast_translation& tr, util& u);
     };
 

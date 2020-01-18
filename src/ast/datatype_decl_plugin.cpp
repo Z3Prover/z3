@@ -726,6 +726,8 @@ namespace datatype {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
             unsigned n = get_datatype_num_parameter_sorts(s);
+            if (!is_declared(s))
+                return nullptr;
             def & d = get_def(s->get_name());
             SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
