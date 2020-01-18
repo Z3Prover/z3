@@ -22,6 +22,14 @@
 
 namespace sat {
 
+    struct cut_val {
+        cut_val():m_t(0ull), m_f(0ull) {}
+        cut_val(uint64_t t, uint64_t f): m_t(t), m_f(f) {}
+        uint64_t m_t, m_f;
+    };
+    
+    typedef svector<cut_val> cut_eval;
+
     class cut {
         unsigned m_filter;
         unsigned m_size;
@@ -51,7 +59,7 @@ namespace sat {
             return *this;
         }
 
-        uint64_t eval(svector<uint64_t> const& env) const;
+        cut_val eval(cut_eval const& env) const;
 
         unsigned size() const { return m_size; }
 

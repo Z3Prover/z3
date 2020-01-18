@@ -165,7 +165,7 @@ namespace sat {
             aig2clauses();
             ++i;
         }
-        while (i < m_stats.m_num_calls && n < m_stats.m_num_eqs + m_stats.m_num_units);
+        while (i*i < m_stats.m_num_calls && n < m_stats.m_num_eqs + m_stats.m_num_units);
     }
 
     /**
@@ -425,17 +425,25 @@ namespace sat {
 
         // Assign higher cutset budgets to equality candidates that come from simulation
         // touch them to trigger recomputation of cutsets.
-        u64_map<unsigned> val2var;
+        u64_map<literal> val2lit;
         unsigned i = 0, j = 0, num_eqs = 0;
-        for (uint64_t val : var2val) {
+        for (cut_val val : var2val) {
             if (!s.was_eliminated(i) && s.value(i) == l_undef) {
-                if (val2var.find(val, j)) {
+                literal u(i, false), v;
+                if (val2lit.find(val.m_t, v)) {
+                    
                     m_aig_cuts.inc_max_cutset_size(i);
-                    m_aig_cuts.inc_max_cutset_size(j);
+                    m_aig_cuts.inc_max_cutset_size(v.var());
+                    num_eqs++;
+                }
+                else if (val2lit.find(val.m_f, v)) {
+                    m_aig_cuts.inc_max_cutset_size(i);
+                    m_aig_cuts.inc_max_cutset_size(v.var());
                     num_eqs++;
                 }
                 else {
-                    val2var.insert(val, i);
+                    val2lit.insert(val.m_t, u);
+                    val2lit.insert(val.m_f, ~u);
                 }
             }
             ++i;

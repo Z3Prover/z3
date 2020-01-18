@@ -86,7 +86,7 @@ namespace sat {
             return true;
         }
         m_num_cuts++;
-        if (++m_insertions > m_config.m_max_insertions) {
+        if (++m_insertions > max_cutset_size(v)) {
             return false;
         }
         while (cs.size() >= max_cutset_size(v)) {
@@ -412,7 +412,7 @@ namespace sat {
         return result;
     }
 
-    uint64_t aig_cuts::eval(node const& n, svector<uint64_t> const& env) const {
+    cut_val aig_cuts::eval(node const& n, cut_eval const& env) const {
         uint64_t result;
         switch (n.op()) {
         case var_op:
@@ -422,7 +422,7 @@ namespace sat {
             result = ~0ull;
             for (unsigned i = 0; i < n.size(); ++i) {
                 literal u = m_literals[n.offset() + i];
-                uint64_t uv = u.sign() ? ~env[u.var()] : env[u.var()];
+                uint64_t uv = u.sign() ? env[u.var()].m_f : env[u.var()].m_t;
                 result &= uv;
             }
             break;
@@ -430,7 +430,7 @@ namespace sat {
             result = 0ull;
             for (unsigned i = 0; i < n.size(); ++i) {
                 literal u = m_literals[n.offset() + i];
-                uint64_t uv = u.sign() ? ~env[u.var()] : env[u.var()];
+                uint64_t uv = u.sign() ? env[u.var()].m_f : env[u.var()].m_t;
                 result ^= uv;
             }
             break;
@@ -438,9 +438,9 @@ namespace sat {
             literal u = m_literals[n.offset() + 0]; 
             literal v = m_literals[n.offset() + 1]; 
             literal w = m_literals[n.offset() + 2]; 
-            uint64_t uv = u.sign() ? ~env[u.var()] : env[u.var()];
-            uint64_t vv = v.sign() ? ~env[v.var()] : env[v.var()];
-            uint64_t wv = w.sign() ? ~env[w.var()] : env[w.var()];
+            uint64_t uv = u.sign() ? env[u.var()].m_f : env[u.var()].m_t;
+            uint64_t vv = v.sign() ? env[v.var()].m_f : env[v.var()].m_t;
+            uint64_t wv = w.sign() ? env[w.var()].m_f : env[w.var()].m_t;
             result = (uv & vv) | ((~uv) & wv);
             break;
         }
@@ -448,14 +448,16 @@ namespace sat {
             UNREACHABLE();
         }
         if (n.sign()) result = ~result;
-        return result;
+        return cut_val(result, ~result);
     }
     
-    svector<uint64_t> aig_cuts::simulate(unsigned num_rounds) {
-        svector<uint64_t> result;
+    cut_eval aig_cuts::simulate(unsigned num_rounds) {
+        cut_eval result;
         for (unsigned i = 0; i < m_cuts.size(); ++i) {
-            result.push_back((uint64_t)m_rand() + ((uint64_t)m_rand() << 16ull) + 
-                             ((uint64_t)m_rand() << 32ull) + ((uint64_t)m_rand() << 48ull));
+            uint64_t r = 
+                (uint64_t)m_rand() + ((uint64_t)m_rand() << 16ull) + 
+                ((uint64_t)m_rand() << 32ull) + ((uint64_t)m_rand() << 48ull);
+            result.push_back(cut_val(r, ~r));
         }
         for (unsigned i = 0; i < num_rounds; ++i) {
             for (unsigned j = 0; j < m_cuts.size(); ++j) {
