@@ -30,6 +30,7 @@ Notes:
 #include "util/mpbqi.h"
 #include "util/rlimit.h"
 #include "util/lbool.h"
+#include "util/sign.h"
 
 class small_object_allocator;
 
@@ -43,12 +44,6 @@ namespace polynomial {
     const var null_var = UINT_MAX;
     typedef svector<var> var_vector;
     class monomial;
-
-    typedef enum { sign_neg = -1, sign_zero = 0, sign_pos = 1} sign;
-    inline sign operator-(sign s) { switch (s) { case sign_neg: return sign_pos; case sign_pos: return sign_neg; default: return sign_zero; } };
-    inline sign to_sign(int s) { return s == 0 ? sign_zero : (s > 0 ? sign_pos : sign_neg); }
-    inline sign operator*(sign a, sign b) { return to_sign((int)a * (int)b); }
-    inline bool is_zero(sign s) { return s == sign_zero; }
 
     int lex_compare(monomial const * m1, monomial const * m2);
     int lex_compare2(monomial const * m1, monomial const * m2, var min_var);

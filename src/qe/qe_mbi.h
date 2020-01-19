@@ -122,12 +122,10 @@ namespace qe {
         void add_dcert(model_ref& mdl, expr_ref_vector& lits);
         app_ref_vector get_arith_vars(expr_ref_vector const& lits);
         vector<def> arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits);
-        void substitute(vector<def> const& defs, expr_ref_vector& lits);
         void project_euf(model_ref& mdl, expr_ref_vector& lits);
         void split_arith(expr_ref_vector const& lits, 
                          expr_ref_vector& alits,
                          expr_ref_vector& uflits);
-        void prune_defs(vector<def>& defs);
     public:
         uflia_mbi(solver* s, solver* emptySolver);
         ~uflia_mbi() override {}

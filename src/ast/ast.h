@@ -1167,7 +1167,6 @@ protected:
     func_decl * m_th_assumption_add_decl;
     func_decl * m_th_lemma_add_decl;
     func_decl * m_redundant_del_decl;
-    func_decl * m_clause_trail_decl;
     ptr_vector<func_decl> m_apply_def_decls;
     ptr_vector<func_decl> m_nnf_pos_decls;
     ptr_vector<func_decl> m_nnf_neg_decls;

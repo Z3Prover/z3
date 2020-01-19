@@ -78,11 +78,11 @@ namespace nlsat {
             SASSERT(i.m_upper_open);
         }
         if (!i.m_lower_inf && !i.m_upper_inf) {
-            int s = am.compare(i.m_lower, i.m_upper);
+            auto s = am.compare(i.m_lower, i.m_upper);
             TRACE("nlsat_interval", tout << "lower: "; am.display_decimal(tout, i.m_lower); tout << ", upper: "; am.display_decimal(tout, i.m_upper);
                   tout << "\ns: " << s << "\n";);
             SASSERT(s <= 0);
-            if (s == 0) {
+            if (::is_zero(s)) {
                 SASSERT(!i.m_lower_open && !i.m_upper_open);
             }
         }

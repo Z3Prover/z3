@@ -273,12 +273,7 @@ namespace qe {
         split_arith(lits, alits, uflits);
         auto avars = get_arith_vars(lits);
         vector<def> defs = arith_project(mdl, avars, alits);
-#if 0
-        prune_defs(defs);
-        substitute(defs, uflits);
-#else
         for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
-#endif
         project_euf(mdl, uflits);
         lits.reset();
         lits.append(alits);
@@ -309,18 +304,6 @@ namespace qe {
     }
 
 
-    /**
-     * prune defs to only contain substitutions of terms with leading uninterpreted function.
-     */
-    void uflia_mbi::prune_defs(vector<def>& defs) {
-        unsigned i = 0; 
-        for (auto& d : defs) {
-            if (!is_shared(to_app(d.var)->get_decl())) {
-                defs[i++] = d;
-            }
-        }
-        defs.shrink(i);
-    }
 
     /**
        \brief add difference certificates to formula.
@@ -335,20 +318,6 @@ namespace qe {
         tg.set_vars(shared, false);
         lits.append(tg.dcert(*mdl.get(), lits));
         TRACE("qe", tout << "project: " << lits << "\n";);                
-    }
-
-    /**
-     * \brief substitute solution to arithmetical variables into lits
-     */
-    void uflia_mbi::substitute(vector<def> const& defs, expr_ref_vector& lits) {
-        TRACE("qe", tout << "start substitute: " << lits << "\n";);        
-        for (auto const& def : defs) {
-            expr_safe_replace rep(m);
-            rep.insert(def.var, def.term);
-            rep(lits);
-            TRACE("qe", tout << "substitute: " << def.var << " |-> " << def.term << ": " << lits << "\n";);
-        }
-        IF_VERBOSE(1, verbose_stream() << "substituted: " << lits << "\n");
     }
 
     /**

@@ -1992,7 +1992,9 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
         seq = mk_concat(elems.size(), elems.c_ptr());
     }
     TRACE("seq", tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
-    add_axiom(~mk_eq(len_e, m_autil.mk_numeral(lo, true), false), mk_seq_eq(seq, e));
+    literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
+    literal b = mk_seq_eq(seq, e);
+    add_axiom(~a, b);
     if (!ctx.at_base_level()) {
         m_trail_stack.push(push_replay(alloc(replay_fixed_length, m, len_e)));
     }
@@ -3398,6 +3400,7 @@ bool theory_seq::solve_ne(unsigned idx) {
 
             dependency* deps1 = nullptr;
             if (explain_eq(n.l(), n.r(), deps1)) {
+                std::cout << "updated explain\n";
                 literal diseq = mk_eq(n.l(), n.r(), false);
                 if (ctx.get_assignment(diseq) == l_false) {
                     new_lits.reset();                
@@ -5647,6 +5650,10 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
     if (l4 != null_literal && l4 != false_literal) { ctx.mark_as_relevant(l4); lits.push_back(l4); push_lit_as_expr(l4, exprs); }
     if (l5 != null_literal && l5 != false_literal) { ctx.mark_as_relevant(l5); lits.push_back(l5); push_lit_as_expr(l5, exprs); }
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:", lits) << "\n";);
+    
+    IF_VERBOSE(10, verbose_stream() << "ax ";
+               for (literal l : lits) ctx.display_literal_smt2(verbose_stream() << " ", l); 
+               verbose_stream() << "\n");
     m_new_propagation = true;
     ++m_stats.m_add_axiom;
     
@@ -6329,7 +6336,7 @@ void theory_seq::add_unit_axiom(expr* n) {
     expr* u = nullptr;
     VERIFY(m_util.str.is_unit(n, u));
     sort* s = m.get_sort(u);
-    expr_ref rhs(mk_skolem(symbol("inv-unit"), n, nullptr, nullptr, nullptr, s), m);
+    expr_ref rhs(mk_skolem(symbol("seq.inv-unit"), n, nullptr, nullptr, nullptr, s), m);
     add_axiom(mk_eq(u, rhs, false));
 }
 

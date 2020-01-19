@@ -554,7 +554,7 @@ namespace upolynomial {
         numeral_vector    m_tr_tmp;
         numeral_vector    m_push_tmp;
 
-        polynomial::sign sign_of(numeral const & c);
+        sign sign_of(numeral const & c);
         struct drs_frame;
         void pop_top_frame(numeral_vector & p_stack, svector<drs_frame> & frame_stack);
         void push_child_frames(unsigned sz, numeral const * p, numeral_vector & p_stack, svector<drs_frame> & frame_stack);
@@ -735,32 +735,32 @@ namespace upolynomial {
         /**
            \brief Evaluate the sign of p(b) 
         */
-        polynomial::sign eval_sign_at(unsigned sz, numeral const * p, mpbq const & b);
+        sign eval_sign_at(unsigned sz, numeral const * p, mpbq const & b);
         
         /**
            \brief Evaluate the sign of p(b)
         */
-        polynomial::sign eval_sign_at(unsigned sz, numeral const * p, mpq const & b);
+        sign eval_sign_at(unsigned sz, numeral const * p, mpq const & b);
 
         /**
            \brief Evaluate the sign of p(b)
         */
-        polynomial::sign eval_sign_at(unsigned sz, numeral const * p, mpz const & b);
+        sign eval_sign_at(unsigned sz, numeral const * p, mpz const & b);
 
         /**
            \brief Evaluate the sign of p(0)
         */
-        polynomial::sign eval_sign_at_zero(unsigned sz, numeral const * p);
+        sign eval_sign_at_zero(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign of p(+oo)
         */
-        polynomial::sign eval_sign_at_plus_inf(unsigned sz, numeral const * p);
+        sign eval_sign_at_plus_inf(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign of p(-oo)
         */
-        polynomial::sign eval_sign_at_minus_inf(unsigned sz, numeral const * p);
+        sign eval_sign_at_minus_inf(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign variations in the polynomial sequence at -oo
@@ -863,11 +863,11 @@ namespace upolynomial {
         // Return FALSE, if the actual root was found, it is stored in a.
         // 
         // See upolynomial.cpp for additional comments
-        bool refine_core(unsigned sz, numeral const * p, polynomial::sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b);
+        bool refine_core(unsigned sz, numeral const * p, sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b);
         
         bool refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b);
 
-        bool refine_core(unsigned sz, numeral const * p, polynomial::sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
+        bool refine_core(unsigned sz, numeral const * p, sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
         
         bool refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
         /////////////////////
