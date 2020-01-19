@@ -29,6 +29,7 @@ Notes:
 --*/
 
 #include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -42,6 +43,38 @@ Notes:
 
 
 namespace qe {
+
+    void mbi_plugin::set_shared(expr* a, expr* b) {
+        TRACE("qe", tout << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
+        struct fun_proc {
+            obj_hashtable<func_decl> s;
+            void operator()(app* a) { if (is_uninterp(a)) s.insert(a->get_decl()); }
+            void operator()(expr*) {}
+        };
+        fun_proc symbols_in_a;
+        expr_fast_mark1 marks;
+        quick_for_each_expr(symbols_in_a, marks, a);
+        marks.reset();
+        m_shared_trail.reset();
+        m_shared.reset();
+        m_is_shared.reset();
+        
+        struct intersect_proc {
+            mbi_plugin& p;
+            obj_hashtable<func_decl>& sA;
+            intersect_proc(mbi_plugin& p, obj_hashtable<func_decl>& sA):p(p), sA(sA) {}
+            void operator()(app* a) { 
+                func_decl* f = a->get_decl();
+                if (sA.contains(f) && !p.m_shared.contains(f)) {
+                    p.m_shared_trail.push_back(f);
+                    p.m_shared.insert(f);
+                }
+            }
+            void operator()(expr*) {}
+        };
+        intersect_proc symbols_in_b(*this, symbols_in_a.s);
+        quick_for_each_expr(symbols_in_b, marks, b);
+    }
 
     lbool mbi_plugin::check(expr_ref_vector& lits, model_ref& mdl) {
         while (true) {

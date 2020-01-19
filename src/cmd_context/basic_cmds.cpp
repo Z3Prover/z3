@@ -31,6 +31,8 @@ Notes:
 #include "cmd_context/cmd_util.h"
 #include "cmd_context/simplify_cmd.h"
 #include "cmd_context/eval_cmd.h"
+#include "qe/qe_mbp.h"
+#include "qe/qe_mbi.h"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;
@@ -849,6 +851,47 @@ public:
     void finalize(cmd_context & ctx) override {}
 };
 
+class get_interpolant_cmd : public cmd {
+    expr* m_a;
+    expr* m_b;
+public:
+    get_interpolant_cmd():cmd("get-interpolant") {}
+    char const * get_usage() const override { return "<expr> <expr>"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform model based interpolation"; }
+    unsigned get_arity() const override { return 2; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        return CPK_EXPR; 
+    }
+    void set_next_arg(cmd_context& ctx, expr * arg) override { 
+        if (m_a == nullptr) 
+            m_a = arg; 
+        else 
+            m_b = arg; 
+    }
+    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr;  }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        qe::interpolator mbi(m);
+        expr_ref a(m_a, m);
+        expr_ref b(m_b, m);
+        expr_ref itp(m);
+        solver_factory& sf = ctx.get_solver_factory();
+        params_ref p;
+        solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        sA->assert_expr(a);
+        sB->assert_expr(b);
+        qe::uflia_mbi pA(sA.get(), sNotA.get());
+        qe::prop_mbi_plugin pB(sB.get());
+        pA.set_shared(a, b);
+        pB.set_shared(a, b);
+        lbool res = mbi.pogo(pA, pB, itp);
+        ctx.regular_stream() << res << " " << itp << "\n";
+    }
+};
+
+
 // provides "help" for builtin cmds
 class builtin_cmd : public cmd {
     char const * m_usage;
@@ -898,6 +941,7 @@ void install_ext_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(echo_cmd));
     ctx.insert(alloc(labels_cmd));
     ctx.insert(alloc(declare_map_cmd));
+    ctx.insert(alloc(get_interpolant_cmd));
     ctx.insert(alloc(builtin_cmd, "reset", nullptr, "reset the shell (all declarations and assertions will be erased)"));
     install_simplify_cmd(ctx);
     install_eval_cmd(ctx);

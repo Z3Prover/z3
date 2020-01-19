@@ -1839,9 +1839,11 @@ namespace algebraic_numbers {
            m_compare_sturm++;
            upolynomial::scoped_upolynomial_sequence seq(upm());
            upm().sturm_tarski_seq(cell_a->m_p_sz, cell_a->m_p, cell_b->m_p_sz, cell_b->m_p, seq);
-           int V = upm().sign_variations_at(seq, a_lower) - upm().sign_variations_at(seq, a_upper);
+           unsigned V1 = upm().sign_variations_at(seq, a_lower);
+           unsigned V2 = upm().sign_variations_at(seq, a_upper); 
+           int V =  V1 - V2;
            TRACE("algebraic", tout << "comparing using sturm\n"; display_interval(tout, a); tout << "\n"; display_interval(tout, b); tout << "\n";
-                 tout << "V: " << V << ", sign_lower(a): " << sign_lower(cell_a) << ", sign_lower(b): " << sign_lower(cell_b) << "\n";);
+                 tout << "V: " << V << " V1 " << V1 << " V2 " << V2 << " sign_lower(a): " << sign_lower(cell_a) << ", sign_lower(b): " << sign_lower(cell_b) << "\n";);
            if (V == 0)
                return sign_zero;
            if ((V < 0) == (sign_lower(cell_b) < 0))

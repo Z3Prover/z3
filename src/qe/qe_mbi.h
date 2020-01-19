@@ -21,6 +21,7 @@ Revision History:
 #pragma once
 
 #include "qe/qe_arith.h"
+#include "util/lbool.h"
 
 namespace qe {
     enum mbi_result {
@@ -53,6 +54,8 @@ namespace qe {
             m_shared_trail.append(vars);
             for (auto* f : vars) m_shared.insert(f);
         }
+
+        void set_shared(expr* a, expr* b);
 
         /**
          * Set representative (shared) expression finder.
