@@ -146,6 +146,7 @@ namespace qe {
         interpolator(ast_manager& m):m(m) {}
         lbool pingpong(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
         lbool pogo(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
+        lbool pogo(solver_factory& sf, expr* a, expr* b, expr_ref& itp);
     };
 
 };

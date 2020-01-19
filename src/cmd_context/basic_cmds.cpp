@@ -872,22 +872,9 @@ public:
     void execute(cmd_context & ctx) override { 
         ast_manager& m = ctx.m();
         qe::interpolator mbi(m);
-        expr_ref a(m_a, m);
-        expr_ref b(m_b, m);
         expr_ref itp(m);
-        solver_factory& sf = ctx.get_solver_factory();
-        params_ref p;
-        solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
-        solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
-        solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);
-        sA->assert_expr(a);
-        sB->assert_expr(b);
-        qe::uflia_mbi pA(sA.get(), sNotA.get());
-        qe::prop_mbi_plugin pB(sB.get());
-        pA.set_shared(a, b);
-        pB.set_shared(a, b);
-        lbool res = mbi.pogo(pA, pB, itp);
-        ctx.regular_stream() << res << " " << itp << "\n";
+        lbool res = mbi.pogo(ctx.get_solver_factory(), m_a, m_b, itp);
+        ctx.regular_stream() << itp << "\n";
     }
 };
 

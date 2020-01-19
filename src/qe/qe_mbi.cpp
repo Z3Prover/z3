@@ -33,6 +33,7 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/arith_decl_plugin.h"
 #include "model/model_evaluator.h"
 #include "solver/solver.h"
@@ -307,11 +308,17 @@ namespace qe {
         auto avars = get_arith_vars(lits);
         vector<def> defs = arith_project(mdl, avars, alits);
         for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
+        TRACE("qe", tout << "uflits: " << uflits << "\n";);
         project_euf(mdl, uflits);
         lits.reset();
         lits.append(alits);
         lits.append(uflits);
         IF_VERBOSE(10, verbose_stream() << "projection : " << lits << "\n");
+        TRACE("qe", 
+              tout << "projection: " << lits << "\n";
+              tout << "avars: " << avars << "\n";
+              tout << "alits: " << lits << "\n";
+              tout << "uflits: " << uflits << "\n";);
     }
 
     void uflia_mbi::split_arith(expr_ref_vector const& lits, 
@@ -334,6 +341,9 @@ namespace qe {
                 uflits.push_back(lit);
             }
         }
+        TRACE("qe", 
+              tout << "alits: " << alits << "\n";
+              tout << "uflits: " << uflits << "\n";);
     }
 
 
@@ -341,9 +351,6 @@ namespace qe {
     /**
        \brief add difference certificates to formula.
        
-       First version just uses an Ackerman reduction.
-
-       It should be replaced by DCert.
     */
     void uflia_mbi::add_dcert(model_ref& mdl, expr_ref_vector& lits) {        
         term_graph tg(m);
@@ -462,19 +469,37 @@ namespace qe {
                     return l_true;
                 case l_false:
                     a.block(lits);
-                    itps.push_back(mk_not(mk_and(lits)));
+                    itps.push_back(mk_and(lits));
                     break;
                 case l_undef:
                     return l_undef;
                 }
                 break;
             case l_false:
-                itp = mk_and(itps);
+                itp = mk_or(itps);
                 return l_false;
             case l_undef:
                 return l_undef;
             }
         }
+    }
+
+    lbool interpolator::pogo(solver_factory& sf, expr* _a, expr* _b, expr_ref& itp) {
+        params_ref p;
+        expr_ref a(_a, m), b(_b, m);
+        th_rewriter rewrite(m);
+        rewrite(a);
+        rewrite(b);
+        solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        sA->assert_expr(a);
+        sB->assert_expr(b);
+        uflia_mbi pA(sA.get(), sNotA.get());
+        prop_mbi_plugin pB(sB.get());
+        pA.set_shared(a, b);
+        pB.set_shared(a, b);
+        return pogo(pA, pB, itp);
     }
 
 };
