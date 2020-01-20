@@ -130,6 +130,13 @@ struct theory_str_params {
      */
     bool m_FixedLengthRefinement;
 
+    /*
+     * If FixedLengthNaiveCounterexamples is true and the fixed-length equation solver is enabled,
+     * Z3str3 will only construct simple counterexamples to block unsatisfiable length assignments
+     * instead of attempting to learn more complex lessons.
+     */
+    bool m_FixedLengthNaiveCounterexamples;
+
     theory_str_params(params_ref const & p = params_ref()):
         m_StrongArrangements(true),
         m_AggressiveLengthTesting(false),
@@ -149,7 +156,8 @@ struct theory_str_params {
         m_RegexAutomata_FailedIntersectionThreshold(10),
         m_RegexAutomata_LengthAttemptThreshold(10),
         m_FixedLengthModels(true),
-        m_FixedLengthRefinement(false)
+        m_FixedLengthRefinement(false),
+        m_FixedLengthNaiveCounterexamples(true)
     {
         updt_params(p);
     }

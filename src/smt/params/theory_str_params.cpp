@@ -39,6 +39,7 @@ void theory_str_params::updt_params(params_ref const & _p) {
     m_RegexAutomata_LengthAttemptThreshold = p.str_regex_automata_length_attempt_threshold();
     m_FixedLengthModels = p.str_fixed_length_models();
     m_FixedLengthRefinement = p.str_fixed_length_refinement();
+    m_FixedLengthNaiveCounterexamples = p.str_fixed_length_naive_cex();
 }
 
 #define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
@@ -61,4 +62,5 @@ void theory_str_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_RegexAutomata_FailedIntersectionThreshold);
     DISPLAY_PARAM(m_RegexAutomata_LengthAttemptThreshold);
     DISPLAY_PARAM(m_FixedLengthModels);
+    DISPLAY_PARAM(m_FixedLengthNaiveCounterexamples);
 }
