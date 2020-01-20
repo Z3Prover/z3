@@ -17,7 +17,7 @@ public:
     column_type get_column_type(unsigned) const;
     const impq & get_lower_bound(unsigned) const;
     const impq & get_upper_bound(unsigned) const;
-    void try_add_bound(mpq  v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict);
+    void try_add_bound(mpq const & v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict);
     virtual bool bound_is_interesting(unsigned vi,
                                       lp::lconstraint_kind kind,
                                       const rational & bval) {return true;}

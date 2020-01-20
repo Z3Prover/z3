@@ -15,7 +15,7 @@ const impq & lp_bound_propagator::get_lower_bound(unsigned j) const {
 const impq & lp_bound_propagator::get_upper_bound(unsigned j) const {
     return m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j];
 }
-void lp_bound_propagator::try_add_bound(mpq  v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
+void lp_bound_propagator::try_add_bound(mpq const& v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
     j = m_lar_solver.adjust_column_index_to_term_index(j);    
 
     lconstraint_kind kind = is_low? GE : LE;
