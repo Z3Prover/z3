@@ -158,7 +158,7 @@ public :
     void limit_all_monoids_from_above() {
         int strict = 0;
         m_total.reset();
-        lp_assert(is_zero(total));
+        lp_assert(is_zero(m_total));
         for (const auto& p : m_row) {
             bool str;
             m_total -= monoid_min(p.coeff(), p.var(), str);
@@ -184,7 +184,7 @@ public :
     void limit_all_monoids_from_below() {
         int strict = 0;
         m_total.reset();
-        lp_assert(is_zero(total));
+        lp_assert(is_zero(m_total));
         for (const auto &p : m_row) {
             bool str;
             m_total -= monoid_max(p.coeff(), p.var(), str);
