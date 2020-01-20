@@ -875,29 +875,36 @@ namespace smt {
 
             return l_true;
         } else if (subproblem_status == l_false) {
-            // TODO replace this with something simpler for now
-            NOT_IMPLEMENTED_YET();
-            TRACE("str_fl", tout << "subsolver found UNSAT; reconstructing unsat core" << std::endl;);
-            TRACE("str_fl", tout << "unsat core has size " << subsolver.get_unsat_core_size() << std::endl;);
-            bool negate_pre = false;
-            for (unsigned i = 0; i < subsolver.get_unsat_core_size(); ++i) {
-                TRACE("str", tout << "entry " << i << " = " << mk_pp(subsolver.get_unsat_core_expr(i), m) << std::endl;);
-                rational index;
-                expr* lhs;
-                expr* rhs;
-                std::tie(index, lhs, rhs) = fixed_length_lesson.find(subsolver.get_unsat_core_expr(i));
-                TRACE("str_fl", tout << "lesson: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << " at index " << index << std::endl;);
-                cex.push_back(refine(lhs, rhs, index));
-                if (index < rational(0)) {
-                    negate_pre = true;
+            if (m_params.m_FixedLengthNaiveCounterexamples) {
+                TRACE("str_fl", tout << "subsolver found UNSAT; constructing length counterexample" << std::endl;);
+                for (auto e : fixed_length_used_len_terms) {
+                    expr * var = &e.get_key();
+                    cex.push_back(m.mk_eq(u.str.mk_length(var), mk_int(e.get_value())));
                 }
-            }
-            if (negate_pre){
-                for (auto ex : precondition) {
-                    cex.push_back(ex);
+                return l_false;
+            } else {
+                TRACE("str_fl", tout << "subsolver found UNSAT; reconstructing unsat core" << std::endl;);
+                TRACE("str_fl", tout << "unsat core has size " << subsolver.get_unsat_core_size() << std::endl;);
+                bool negate_pre = false;
+                for (unsigned i = 0; i < subsolver.get_unsat_core_size(); ++i) {
+                    TRACE("str", tout << "entry " << i << " = " << mk_pp(subsolver.get_unsat_core_expr(i), m) << std::endl;);
+                    rational index;
+                    expr* lhs;
+                    expr* rhs;
+                    std::tie(index, lhs, rhs) = fixed_length_lesson.find(subsolver.get_unsat_core_expr(i));
+                    TRACE("str_fl", tout << "lesson: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << " at index " << index << std::endl;);
+                    cex.push_back(refine(lhs, rhs, index));
+                    if (index < rational(0)) {
+                        negate_pre = true;
+                    }
                 }
+                if (negate_pre){
+                    for (auto ex : precondition) {
+                        cex.push_back(ex);
+                    }
+                }
+                return l_false;
             }
-            return l_false;
         } else { // l_undef
             TRACE("str_fl", tout << "WARNING: subsolver found UNKNOWN" << std::endl;);
             return l_undef;
