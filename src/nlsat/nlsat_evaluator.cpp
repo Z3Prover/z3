@@ -226,7 +226,7 @@ namespace nlsat {
             }
             
             // Return the sign idx of pinfo
-            ::sign sign(poly_info const & pinfo, unsigned i) const {
+            ::sign get_sign(poly_info const & pinfo, unsigned i) const {
                 return m_poly_signs[pinfo.m_first_sign + i];
             }
             
@@ -243,19 +243,19 @@ namespace nlsat {
                         else if (section_cell_id > c)
                             break;
                     }
-                    return sign(pinfo, i);
+                    return get_sign(pinfo, i);
                 }
                 else {
                     if (num_roots == 0)
-                        return sign(pinfo, 0);
+                        return get_sign(pinfo, 0);
                     unsigned root_1_cell_id = cell_id(pinfo, 0);
                     unsigned root_n_cell_id = cell_id(pinfo, num_roots - 1);
                     if (c < root_1_cell_id)
-                        return sign(pinfo, 0);
+                        return get_sign(pinfo, 0);
                     else if (c == root_1_cell_id || c == root_n_cell_id)
                         return sign_zero;
                     else if (c > root_n_cell_id)
-                        return sign(pinfo, num_roots);
+                        return get_sign(pinfo, num_roots);
                     int low  = 0;
                     int high = num_roots-1;
                     while (true) {
@@ -265,7 +265,7 @@ namespace nlsat {
                         if (high == low + 1) {
                             SASSERT(cell_id(pinfo, low) < c);
                             SASSERT(c < cell_id(pinfo, low+1));
-                            return sign(pinfo, low+1);
+                            return get_sign(pinfo, low+1);
                         }
                         SASSERT(high > low + 1);
                         int mid   = low + ((high - low)/2);
@@ -381,7 +381,7 @@ namespace nlsat {
            
            \pre All variables of p are assigned in the current interpretation.
         */
-        sign eval_sign(poly * p) {
+        ::sign eval_sign(poly * p) {
             // TODO: check if it is useful to cache results
             SASSERT(m_assignment.is_assigned(max_var(p)));
             return m_am.eval_sign_at(polynomial_ref(p, m_pm), m_assignment);
