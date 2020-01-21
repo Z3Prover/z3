@@ -301,14 +301,12 @@ public:
             } else {
                 if (p.coeff().is_int()) {
                     // m_fj will be zero and no monomial will be added
-#if 0
                     if (at_lower(j)) {
-                        m_ex.push_justification(column_lower_bound_constraint(j));            
+                        m_ex->push_justification(column_lower_bound_constraint(j));            
                     }
                     if (at_upper(j)) {
-                        m_ex.push_justification(column_upper_bound_constraint(j));
+                        m_ex->push_justification(column_upper_bound_constraint(j));
                     }
-#endif
                     continue;
                 }
                 some_int_columns = true;
