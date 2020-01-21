@@ -3400,7 +3400,6 @@ bool theory_seq::solve_ne(unsigned idx) {
 
             dependency* deps1 = nullptr;
             if (explain_eq(n.l(), n.r(), deps1)) {
-                std::cout << "updated explain\n";
                 literal diseq = mk_eq(n.l(), n.r(), false);
                 if (ctx.get_assignment(diseq) == l_false) {
                     new_lits.reset();                
