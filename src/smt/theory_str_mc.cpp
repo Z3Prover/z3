@@ -659,6 +659,10 @@ namespace smt {
         sort * bool_sort = m.mk_bool_sort();
 
         for (expr * f : formulas) {
+            if (!get_context().is_relevant(f)) {
+                TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not relevant" << std::endl;);
+                continue;
+            }
             // reduce string formulas only. ignore others
             sort * fSort = m.get_sort(f);
             if (fSort == bool_sort && !is_quantifier(f)) {
