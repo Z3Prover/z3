@@ -277,7 +277,7 @@ public:
         bool some_int_columns = false;
         mpq m_f  = fractional_part(get_value(m_inf_col));
         TRACE("gomory_cut_detail", tout << "m_f: " << m_f << ", ";
-              tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f;);
+              tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f << "\n";);
         lp_assert(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
 
         mpq one_min_m_f = 1 - m_f;
@@ -285,7 +285,7 @@ public:
             unsigned j = p.var();
             if (j == m_inf_col) {
                 lp_assert(p.coeff() == one_of_type<mpq>());
-                TRACE("gomory_cut_detail", tout << "seeing basic var";);
+                TRACE("gomory_cut_detail", tout << "seeing basic var\n";);
                 continue;
             }
 
@@ -295,11 +295,17 @@ public:
             } else {
                 if (p.coeff().is_int()) {
                     // m_fj will be zero and no monomial will be added
+                    if (at_lower(j)) {
+                        m_ex.push_justification(column_lower_bound_constraint(j));            
+                    }
+                    if (at_upper(j)) {
+                        m_ex.push_justification(column_upper_bound_constraint(j));
+                    }
                     continue;
                 }
                 some_int_columns = true;
                 m_fj = fractional_part(-p.coeff());
-				m_one_minus_fj = 1 - m_fj;
+                m_one_minus_fj = 1 - m_fj;
                 int_case_in_gomory_cut(j);
             }
         }
