@@ -285,7 +285,7 @@ lia_move int_solver::run_gcd_test() {
         settings().stats().m_gcd_calls++;
         TRACE("int_solver", tout << "gcd-test " << settings().stats().m_gcd_calls << "\n";);
         if (!gcd_test()) {
-            settings().st().m_gcd_conflicts++;
+            settings().stats().m_gcd_conflicts++;
             TRACE("gcd_test", tout << "gcd conflict\n";);
             return lia_move::conflict;
         }
