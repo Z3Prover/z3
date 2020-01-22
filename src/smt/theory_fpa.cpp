@@ -727,12 +727,6 @@ namespace smt {
         context & ctx = get_context();
         m_factory = alloc(fpa_value_factory, m, get_family_id());
         mg.register_factory(m_factory);
-
-        for (enode* n : ctx.enodes()) {
-            theory_var v = n->get_th_var(get_family_id());
-            if (v != -1 && is_uninterp_const(n->get_owner()))
-                ctx.mark_as_relevant(n->get_owner());
-        }
     }
 
     enode* theory_fpa::ensure_enode(expr* e) {
