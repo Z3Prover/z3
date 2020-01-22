@@ -9175,7 +9175,7 @@ namespace smt {
         } // RegexAutomata
 
         bool needToAssignFreeVars = false;
-        std::set<expr*> free_variables;
+        expr_ref_vector free_variables(m);
         std::set<expr*> unused_internal_variables;
         { // Z3str2 free variables check
             std::map<expr*, int>::iterator itor = varAppearInAssign.begin();
@@ -9196,7 +9196,7 @@ namespace smt {
                 if (!hasEqcValue) {
                     TRACE("str", tout << "found free variable " << mk_pp(itor->first, m) << std::endl;);
                     needToAssignFreeVars = true;
-                    free_variables.insert(itor->first);
+                    free_variables.push_back(itor->first);
                     // break;
                 } else {
                     // debug
@@ -9413,7 +9413,7 @@ namespace smt {
 
             expr_ref_vector precondition(m);
             expr_ref_vector cex(m);
-            lbool model_status = fixed_length_model_construction(assignments, precondition, candidate_model, cex);
+            lbool model_status = fixed_length_model_construction(assignments, precondition, free_variables, candidate_model, cex);
 
             if (model_status == l_true) {
                 m_stats.m_solved_by = 2;

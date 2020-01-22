@@ -842,6 +842,7 @@ protected:
     bool finalcheck_int2str(app * a);
 
     lbool fixed_length_model_construction(expr_ref_vector formulas, expr_ref_vector &precondition,
+            expr_ref_vector& free_variables,
             obj_map<expr, zstring> &model, expr_ref_vector &cex);
     ptr_vector<expr> fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term);
     bool fixed_length_get_len_value(expr * e, rational & val);
