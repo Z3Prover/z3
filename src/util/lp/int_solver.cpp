@@ -147,6 +147,9 @@ lia_move int_solver::proceed_with_gomory_cut(unsigned j) {
     if (!is_gomory_cut_target(row)) 
         return create_branch_on_column(j);
 
+    if (!m_lar_solver->row_is_correct(row_of_basic_column(j))) 
+        return lia_move::undef;
+    
     m_upper = true;
     return mk_gomory_cut(j, row);
 }

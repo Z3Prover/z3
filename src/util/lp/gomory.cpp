@@ -268,7 +268,8 @@ public:
               for (auto & p : m_row) {
                   m_int_solver.m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), tout);
               }
-              tout << "inf_col = " << m_inf_col << std::endl;);
+              tout << "inf_col = " << m_inf_col << std::endl;
+              );
         
         // gomory will be   t <= k and the current solution has a property t > k
         m_k = 1;
