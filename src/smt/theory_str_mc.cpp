@@ -614,6 +614,7 @@ namespace smt {
     }
 
     lbool theory_str::fixed_length_model_construction(expr_ref_vector formulas, expr_ref_vector &precondition,
+            expr_ref_vector& free_variables,
             obj_map<expr, zstring> &model, expr_ref_vector &cex) {
 
         ast_manager & m = get_manager();
@@ -657,6 +658,15 @@ namespace smt {
 
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();
+
+        for (expr * var : free_variables) {
+            TRACE("str_fl", tout << "initialize free variable " << mk_pp(var, m) << std::endl;);
+            rational var_lenVal;
+            if (!fixed_length_get_len_value(var, var_lenVal)) {
+                NOT_IMPLEMENTED_YET();
+            }
+            fixed_length_reduce_string_term(subsolver, var);
+        }
 
         for (expr * f : formulas) {
             if (!get_context().is_relevant(f)) {
