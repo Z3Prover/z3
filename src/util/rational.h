@@ -107,7 +107,7 @@ public:
 
     int64_t get_int64() const { return m().get_int64(m_val); }
     
-    bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32)); }
+    bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32ull)); }
 
     unsigned get_unsigned() const {
         SASSERT(is_unsigned());

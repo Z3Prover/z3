@@ -252,7 +252,6 @@ class gomory::imp {
         dump_term_le_k(out << "(assert (not ") << "))\n";
     }
 
-
     void dump_cut_and_constraints_as_smt_lemma(std::ostream& out) const {
         dump_declarations(out);
         dump_the_row(out);
@@ -260,15 +259,16 @@ class gomory::imp {
         dump_the_cut_assert(out);
         out << "(check-sat)\n";
     }
+
 public:
+
     lia_move create_cut() {
         TRACE("gomory_cut",
-              tout << "applying cut at:\n"; print_linear_combination_of_column_indices_only(m_row, tout); tout << std::endl;
+              print_linear_combination_of_column_indices_only(m_row, tout << "applying cut at:\n"); tout << std::endl;
               for (auto & p : m_row) {
                   m_int_solver.m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), tout);
               }
-              tout << "inf_col = " << m_inf_col << std::endl;
-              );
+              tout << "inf_col = " << m_inf_col << std::endl;);
         
         // gomory will be   t <= k and the current solution has a property t > k
         m_k = 1;

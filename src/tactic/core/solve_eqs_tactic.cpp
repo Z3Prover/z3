@@ -586,7 +586,9 @@ class solve_eqs_tactic : public tactic {
         bool check_eq_compat_rec(expr_mark& occ, svector<lbool>& cache, expr* f, expr* v, expr* eq, bool& all) {
             expr_ref_vector args(m());
             expr* f1 = nullptr;
-            if (!occ.is_marked(f)) {
+            // flattening may introduce fresh negations, 
+            // occ is not defined on these negations
+            if (!m().is_not(f) && !occ.is_marked(f)) {
                 all = false;
                 return true;
             }
@@ -682,7 +684,7 @@ class solve_eqs_tactic : public tactic {
             hoist_rewriter_star rw(m());
             th_rewriter thrw(m());
             expr_ref tmp(m()), tmp2(m());
-            TRACE("solve_eqs", g.display(tout););
+            // TRACE("solve_eqs", g.display(tout););
             for (unsigned idx = 0; idx < size; idx++) {
                 checkpoint();
                 if (g.is_decided_unsat()) break;
