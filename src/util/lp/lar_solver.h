@@ -99,7 +99,9 @@ class lar_solver : public column_namer {
     int_set                                             m_columns_with_changed_bound;
     int_set                                             m_rows_with_changed_bounds;
     int_set                                             m_basic_columns_with_changed_cost;
-    int_set                                             m_rounded_columns;
+    // these are basic columns with the value changed, so the the corresponding row in the tableau
+    // does not sum to zero anymore
+    int_set                                             m_incorrect_columns;
     stacked_value<int>                                  m_infeasible_column_index; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;

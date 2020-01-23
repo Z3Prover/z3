@@ -361,7 +361,7 @@ void lar_solver::pop(unsigned k) {
 
     m_mpq_lar_core_solver.pop(k);
     clean_popped_elements(n, m_columns_with_changed_bound);
-    clean_popped_elements(n, m_rounded_columns);
+    clean_popped_elements(n, m_incorrect_columns);
     
     unsigned m = A_r().row_count();
     clean_popped_elements(m, m_rows_with_changed_bounds);
@@ -399,13 +399,13 @@ vector<constraint_index> lar_solver::get_all_constraint_indices() const {
 }
 
 void lar_solver::restore_rounded_columns() {
-    for (unsigned j : m_rounded_columns.m_index) {
+    for (unsigned j : m_incorrect_columns.m_index) {
         SASSERT(is_base(j));
         unsigned i = row_of_basic_column(j);
         m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j,
                                                                    get_basic_var_value_from_row(i));
     }
-    m_rounded_columns.clear();
+    m_incorrect_columns.clear();
     SASSERT(ax_is_correct());
 }
 
@@ -1758,7 +1758,7 @@ void lar_solver::add_basic_var_to_core_fields() {
     lp_assert(!use_lu || A_r().column_count() == A_d().column_count());
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
     m_columns_with_changed_bound.increase_size_by_one();
-    m_rounded_columns.increase_size_by_one();
+    m_incorrect_columns.increase_size_by_one();
     m_rows_with_changed_bounds.increase_size_by_one();
     add_new_var_to_core_fields_for_mpq(true);
     if (use_lu)
@@ -2274,7 +2274,7 @@ bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& d
 
 
 void lar_solver::round_to_integer_solution() {
-    m_rounded_columns.resize(column_count());
+    m_incorrect_columns.resize(column_count());
     for (unsigned j = 0; j < column_count(); j++) {     
         if (!column_is_int(j)) continue;
         if (column_corresponds_to_term(j)) continue;
@@ -2291,7 +2291,7 @@ void lar_solver::round_to_integer_solution() {
         } else {
             v = flv;
         }
-        m_rounded_columns.insert(j);
+        m_incorrect_columns.insert(j);
     }
 }
 // return true if all y coords are zeroes
