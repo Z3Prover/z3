@@ -1267,11 +1267,12 @@ namespace qe {
         for (auto const& terms : partitions) {
             expr* a = nullptr;
             for (expr* b : terms) { 
-                if (is_uninterp(b)) 
+                if (is_uninterp(b)) { 
                     if (a) 
                         result.push_back(m.mk_eq(a, b));
                     else 
                         a = b;
+                }
             }
         }
         TRACE("qe", tout << result << "\n";);

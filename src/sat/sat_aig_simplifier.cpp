@@ -426,7 +426,7 @@ namespace sat {
         // Assign higher cutset budgets to equality candidates that come from simulation
         // touch them to trigger recomputation of cutsets.
         u64_map<literal> val2lit;
-        unsigned i = 0, j = 0, num_eqs = 0;
+        unsigned i = 0, num_eqs = 0;
         for (cut_val val : var2val) {
             if (!s.was_eliminated(i) && s.value(i) == l_undef) {
                 literal u(i, false), v;

@@ -398,7 +398,7 @@ public:
         ast_manager& m = ctx.m();
         qe::interpolator mbi(m);
         expr_ref itp(m);
-        lbool res = mbi.pogo(ctx.get_solver_factory(), m_a, m_b, itp);
+         mbi.pogo(ctx.get_solver_factory(), m_a, m_b, itp);
         ctx.regular_stream() << itp << "\n";
     }
 };
