@@ -276,6 +276,7 @@ void lar_solver::set_status(lp_status s) { m_status = s; }
 
 lp_status lar_solver::find_feasible_solution() {
     m_settings.st().m_make_feasible++;
+    restore_rounded_columns();
     if (A_r().column_count() > m_settings.st().m_max_cols)
         m_settings.st().m_max_cols = A_r().column_count();
     if (A_r().row_count() > m_settings.st().m_max_rows)
@@ -348,7 +349,7 @@ void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
 void lar_solver::pop(unsigned k) {
     TRACE("int_solver", tout << "pop" << std::endl;);
     TRACE("lar_solver", tout << "k = " << k << std::endl;);
-
+    restore_rounded_columns();   // if it is not done now, the basis changes and restore_rounded_columns would now work
     m_infeasible_column_index.pop(k);
     unsigned n = m_columns_to_ul_pairs.peek_size(k);
     m_var_register.shrink(n);
@@ -360,6 +361,8 @@ void lar_solver::pop(unsigned k) {
 
     m_mpq_lar_core_solver.pop(k);
     clean_popped_elements(n, m_columns_with_changed_bound);
+    clean_popped_elements(n, m_rounded_columns);
+    
     unsigned m = A_r().row_count();
     clean_popped_elements(m, m_rows_with_changed_bounds);
     clean_inf_set_of_r_solver_after_pop();
@@ -393,6 +396,17 @@ vector<constraint_index> lar_solver::get_all_constraint_indices() const {
     while ( i < m_constraints.size())
         ret.push_back(i++);
     return ret;
+}
+
+void lar_solver::restore_rounded_columns() {
+    for (unsigned j : m_rounded_columns.m_index) {
+        SASSERT(is_base(j));
+        unsigned i = row_of_basic_column(j);
+        m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j,
+                                                                   get_basic_var_value_from_row(i));
+    }
+    m_rounded_columns.clear();
+    SASSERT(ax_is_correct());
 }
 
 bool lar_solver::maximize_term_on_tableau(const lar_term & term,
@@ -745,9 +759,18 @@ bool lar_solver::row_is_correct(unsigned i) const {
     for (const auto & c : A_r().m_rows[i]) {
         r += c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
     }
+    CTRACE("lar_solver", !is_zero(r), tout << "row = " << i << ", j = " << m_mpq_lar_core_solver.m_r_basis[i] << "\n";
+           print_row(A_r().m_rows[i], tout); tout << "\n";
+           
+           );
     return is_zero(r);
 }
-    
+
+unsigned lar_solver::row_of_basic_column(unsigned j) const {
+    return m_mpq_lar_core_solver.m_r_heading[j];
+}
+
+
 bool lar_solver::ax_is_correct() const {
     for (unsigned i = 0; i < A_r().row_count(); i++) {
         if (!row_is_correct(i))
@@ -861,7 +884,7 @@ void lar_solver::solve_with_core_solver() {
 }
 
     
-numeric_pair<mpq> lar_solver::get_basic_var_value_from_row_directly(unsigned i) {
+numeric_pair<mpq> lar_solver::get_basic_var_value_from_row(unsigned i) {
     numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
         
     unsigned bj = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
@@ -874,19 +897,6 @@ numeric_pair<mpq> lar_solver::get_basic_var_value_from_row_directly(unsigned i) 
     return r;
 }
     
-numeric_pair<mpq> lar_solver::get_basic_var_value_from_row(unsigned i) {
-    if (settings().use_tableau()) {
-        return get_basic_var_value_from_row_directly(i);
-    }
-        
-    numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
-    m_mpq_lar_core_solver.calculate_pivot_row(i);
-    for (unsigned j : m_mpq_lar_core_solver.m_r_solver.m_pivot_row.m_index) {
-        lp_assert(m_mpq_lar_core_solver.m_r_solver.m_basis_heading[j] < 0);
-        r -= m_mpq_lar_core_solver.m_r_solver.m_pivot_row.m_data[j] * m_mpq_lar_core_solver.m_r_x[j];
-    }
-    return r;
-}
 
 template <typename K, typename L>
 void lar_solver::add_last_rows_to_lu(lp_primal_core_solver<K,L> & s) {
@@ -1738,7 +1748,7 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     else {
         fill_last_row_of_A_r(A_r(), term);
     }
-    m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j, get_basic_var_value_from_row_directly(A_r().row_count() - 1));
+    m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j, get_basic_var_value_from_row(A_r().row_count() - 1));
     if (use_lu())
         fill_last_row_of_A_d(A_d(), term);
 }
@@ -1748,6 +1758,7 @@ void lar_solver::add_basic_var_to_core_fields() {
     lp_assert(!use_lu || A_r().column_count() == A_d().column_count());
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
     m_columns_with_changed_bound.increase_size_by_one();
+    m_rounded_columns.increase_size_by_one();
     m_rows_with_changed_bounds.increase_size_by_one();
     add_new_var_to_core_fields_for_mpq(true);
     if (use_lu)
@@ -2263,13 +2274,15 @@ bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& d
 
 
 void lar_solver::round_to_integer_solution() {
-    for (unsigned j = 0; j < column_count(); j++) {
+    m_rounded_columns.resize(column_count());
+    for (unsigned j = 0; j < column_count(); j++) {     
         if (!column_is_int(j)) continue;
         if (column_corresponds_to_term(j)) continue;
         TRACE("cube", m_int_solver->display_column(tout, j););
         impq& v =  m_mpq_lar_core_solver.m_r_x[j];
         if (v.is_int())
             continue;
+        SASSERT(is_base(j));
         impq flv = floor(v);
         auto del = flv - v; // del is negative
         if (del < - mpq(1, 2)) {
@@ -2278,6 +2291,7 @@ void lar_solver::round_to_integer_solution() {
         } else {
             v = flv;
         }
+        m_rounded_columns.insert(j);
     }
 }
 // return true if all y coords are zeroes

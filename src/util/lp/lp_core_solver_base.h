@@ -481,6 +481,7 @@ public:
     }
 
     void change_basis_unconditionally(unsigned entering, unsigned leaving) {
+        TRACE("lar_solver", tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
         lp_assert(m_basis_heading[entering] < 0);
         int place_in_non_basis = -1 - m_basis_heading[entering];
         if (static_cast<unsigned>(place_in_non_basis) >= m_nbasis.size()) {
@@ -500,6 +501,7 @@ public:
     }
     
     void change_basis(unsigned entering, unsigned leaving) {
+        TRACE("lar_solver", tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
         lp_assert(m_basis_heading[entering] < 0);
 		lp_assert(m_basis_heading[leaving] >= 0);
         
@@ -686,6 +688,7 @@ public:
     }
 
     void update_x_and_call_tracker(unsigned j, const X & v) {
+        TRACE("lar_solver", tout << "j = " << j << "\n";);
         m_x[j] = v;
     }
 
