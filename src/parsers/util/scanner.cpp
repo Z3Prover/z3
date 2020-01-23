@@ -480,7 +480,7 @@ scanner::token scanner::scan() {
             return read_number(ch, true);
         case '#':
             return read_bv_literal();
-        case -1:
+        case static_cast<char>(-1):
             m_state = EOF_TOKEN;
             break;
         default:
