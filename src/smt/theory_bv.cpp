@@ -1134,6 +1134,9 @@ namespace smt {
     void theory_bv::apply_sort_cnstr(enode * n, sort * s) {
         if (!is_attached_to_var(n) && !approximate_term(n->get_owner())) {
             mk_bits(mk_var(n));
+            if (get_context().is_relevant(n)) {
+                relevant_eh(n->get_owner());
+            }
         }
     }
     
@@ -1773,7 +1776,6 @@ namespace smt {
         st.update("bv dynamic eqs", m_stats.m_num_eq_dynamic);
     }
 
-#ifdef Z3DEBUG
     bool theory_bv::check_assignment(theory_var v) {
         context & ctx                 = get_context();
         if (!is_root(v))
@@ -1798,9 +1800,10 @@ namespace smt {
                        tout << "equivalence class is inconsistent, i: " << i << "\n";
                        display_var(tout, v1);
                        display_var(tout, v2);
+                       tout << "relevant: " << ctx.is_relevant(bit1) << " " << ctx.is_relevant(bit2) << "\n";
                        tout << "val1: " << val1 << " lvl: " << ctx.get_assign_level(bit1.var()) << " bit " << bit1 << "\n";
                        tout << "val2: " << val2 << " lvl: " << ctx.get_assign_level(bit2.var()) << " bit " << bit2 << "\n";);
-                SASSERT(val1 == val2);
+                VERIFY(val1 == val2);
             }
             SASSERT(ctx.is_relevant(get_enode(v1)));
             v1 = next(v1);
@@ -1865,6 +1868,5 @@ namespace smt {
         return true;
     }
 
-#endif
 
 };

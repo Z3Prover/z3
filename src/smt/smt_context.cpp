@@ -518,6 +518,7 @@ namespace smt {
             enode * r1 = n1->get_root();
             enode * r2 = n2->get_root();
 
+
             if (r1 == r2) {
                 TRACE("add_eq", tout << "redundant constraint.\n";);
                 return;
