@@ -5830,27 +5830,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
         expr_ref_vector disj(m);
-        // disabled pending regression on issue 1196
-        if (false && m_seq_rewrite.reduce_contains(e1, e2, disj)) {
-            literal_vector lits;
-            literal lit = mk_literal(e);
-            lits.push_back(~lit);
-            for (expr* d : disj) {
-                lits.push_back(mk_literal(d));
-            }
-            ++m_stats.m_add_axiom;            
-
-            {
-                std::function<expr*(void)> fn = [&]() { return m.mk_implies(e, m.mk_or(disj.size(), disj.c_ptr())); };
-                scoped_trace_stream _sts(*this, fn);                
-                ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            }
-
-            for (expr* d : disj) {
-                add_axiom(lit, ~mk_literal(d));
-            }
-        }
-        else if (is_true) {
+        if (is_true) {
             expr_ref f1 = mk_skolem(m_indexof_left, e1, e2);
             expr_ref f2 = mk_skolem(m_indexof_right, e1, e2);
             f = mk_concat(f1, e2, f2);
