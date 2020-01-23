@@ -99,6 +99,7 @@ class lar_solver : public column_namer {
     int_set                                             m_columns_with_changed_bound;
     int_set                                             m_rows_with_changed_bounds;
     int_set                                             m_basic_columns_with_changed_cost;
+    int_set                                             m_rounded_columns;
     stacked_value<int>                                  m_infeasible_column_index; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
@@ -190,6 +191,8 @@ public:
     void add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
                                                             lconstraint_kind kind, const mpq & right_side);
 
+    unsigned row_of_basic_column(unsigned) const;
+    
     void decide_on_strategy_and_adjust_initial_state();
 
     void adjust_initial_state();
@@ -375,14 +378,10 @@ public:
 
     void update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
 
+    void restore_rounded_columns();
     
     void solve_with_core_solver();
 
-    
-    numeric_pair<mpq> get_basic_var_value_from_row_directly(unsigned i);
-    
-    
-    
     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i);
 
     template <typename K, typename L>
