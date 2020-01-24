@@ -848,7 +848,9 @@ namespace smt {
             return mk_var(e);
         }
         if (m_util.get_family_id() == n->get_family_id()) {
-            found_unsupported_op(n);
+            if (!m_util.is_div0(n) && !m_util.is_mod0(n) && !m_util.is_idiv0(n) && !m_util.is_rem0(n)) {
+                found_unsupported_op(n);
+            }
             if (ctx.e_internalized(n))
                 return expr2var(n);
             for (unsigned i = 0; i < n->get_num_args(); ++i) {

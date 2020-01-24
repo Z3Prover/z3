@@ -287,6 +287,8 @@ public:
     bool is_idiv0(expr const * n) const { return is_app_of(n, m_afid, OP_IDIV0); }
     bool is_mod(expr const * n) const { return is_app_of(n, m_afid, OP_MOD); }
     bool is_rem(expr const * n) const { return is_app_of(n, m_afid, OP_REM); }
+    bool is_mod0(expr const * n) const { return is_app_of(n, m_afid, OP_MOD0); }
+    bool is_rem0(expr const * n) const { return is_app_of(n, m_afid, OP_REM0); }
     bool is_to_real(expr const * n) const { return is_app_of(n, m_afid, OP_TO_REAL); }
     bool is_to_int(expr const * n) const { return is_app_of(n, m_afid, OP_TO_INT); }
     bool is_is_int(expr const * n) const { return is_app_of(n, m_afid, OP_IS_INT); }
