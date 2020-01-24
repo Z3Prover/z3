@@ -854,6 +854,7 @@ protected:
     bool fixed_length_reduce_negative_prefix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
     bool fixed_length_reduce_suffix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
     bool fixed_length_reduce_negative_suffix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
+    bool fixed_length_reduce_regex_membership(smt::kernel & subsolver, expr_ref f, expr_ref & cex, bool polarity);
 
     // strRegex
 

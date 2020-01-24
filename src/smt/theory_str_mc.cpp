@@ -396,8 +396,7 @@ namespace smt {
         if (needle_chars.size() == 0) {
             // all strings "contain" the empty one
             cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(needle), mk_int(0))));
-            th_rewriter m_rw(m);
-            m_rw(cex);
+            ctx.get_rewriter()(cex);
             return false;
         }
 
@@ -434,6 +433,148 @@ namespace smt {
         fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
 
         return true;
+    }
+
+    static inline void add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond, ast_manager & m) {
+        expr* acc;
+        if (!m.is_true(cond) && next.find(idx, acc)) {
+            expr* args[2] = { cond, acc };
+            cond = mk_or(m, 2, args);
+        }
+        trail.push_back(cond);
+        next.insert(idx, cond);
+
+    }
+
+    bool theory_str::fixed_length_reduce_regex_membership(smt::kernel & subsolver, expr_ref f, expr_ref & cex, bool polarity) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        ast_manager & sub_m = subsolver.m();
+        context & sub_ctx = subsolver.get_context();
+
+        expr * str;
+        expr * re;
+        u.str.is_in_re(f, str, re);
+
+        // TODO reuse some of the automaton framework from theory_str_regex
+        eautomaton * aut = m_mk_aut(re);
+        aut->compress();
+
+        ptr_vector<expr> str_chars(fixed_length_reduce_string_term(subsolver, str));
+
+        if (str_chars.empty()) {
+            // check 0-length solution
+            bool zero_solution = false;
+            unsigned initial_state = aut->init();
+            if (aut->is_final_state(initial_state)) {
+                zero_solution = true;
+            } else {
+                unsigned_vector eps_states;
+                aut->get_epsilon_closure(initial_state, eps_states);
+                for (unsigned_vector::iterator it = eps_states.begin(); it != eps_states.end(); ++it) {
+                    unsigned state = *it;
+                    if (aut->is_final_state(state)) {
+                        zero_solution = true;
+                        break;
+                    }
+                }
+            }
+            if (!zero_solution && polarity) {
+                TRACE("str_fl", tout << "contradiction: regex has no zero-length solutions, but our string must be a solution" << std::endl;);
+                cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(str), mk_int(0))));
+                ctx.get_rewriter()(cex);
+                return false;
+            } else if (zero_solution && !polarity) {
+                TRACE("str_fl", tout << "contradiction: regex has zero-length solutions, but our string must not be a solution" << std::endl;);
+                cex = m.mk_or(f, m.mk_not(ctx.mk_eq_atom(mk_strlen(str), mk_int(0))));
+                ctx.get_rewriter()(cex);
+                return false;
+            }
+        } else {
+            expr_ref_vector trail(m);
+            u_map<expr*> maps[2];
+            bool select_map = false;
+            expr_ref ch(m), cond(m);
+            eautomaton::moves mvs;
+            maps[0].insert(aut->init(), m.mk_true());
+            // is_accepted(a, aut) & some state in frontier is final.
+
+            for (unsigned i = 0; i < str_chars.size(); ++i) {
+                u_map<expr*>& frontier = maps[select_map];
+                u_map<expr*>& next = maps[!select_map];
+                select_map = !select_map;
+                ch = str_chars.get(i);
+                next.reset();
+                u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
+                for (; it != end; ++it) {
+                    mvs.reset();
+                    unsigned state = it->m_key;
+                    expr*    acc  = it->m_value;
+                    aut->get_moves_from(state, mvs, false);
+                    for (unsigned j = 0; j < mvs.size(); ++j) {
+                        eautomaton::move const& mv = mvs[j];
+                        SASSERT(mv.t());
+                        if (mv.t()->is_char() && m.is_value(mv.t()->get_char()) && m.is_value(ch)) {
+                            if (mv.t()->get_char() == ch) {
+                                add_next(next, trail, mv.dst(), acc, sub_m);
+                            }
+                            else {
+                                continue;
+                            }
+                        }
+                        else {
+                            cond = mv.t()->accept(ch);
+                            if (m.is_false(cond)) {
+                                continue;
+                            }
+                            if (m.is_true(cond)) {
+                                add_next(next, trail, mv.dst(), acc, sub_m);
+                                continue;
+                            }
+                            expr* args[2] = { cond, acc };
+                            cond = mk_and(m, 2, args);
+                            add_next(next, trail, mv.dst(), cond, sub_m);
+                        }
+                    }
+                }
+            }
+            u_map<expr*> const& frontier = maps[select_map];
+            expr_ref_vector ors(sub_m);
+            for (auto const& kv : frontier) {
+                unsigned_vector states;
+                bool has_final = false;
+                aut->get_epsilon_closure(kv.m_key, states);
+                for (unsigned i = 0; i < states.size() && !has_final; ++i) {
+                    has_final = aut->is_final_state(states[i]);
+                }
+                if (has_final) {
+                    ors.push_back(kv.m_value);
+                }
+            }
+            expr_ref result(mk_or(ors), sub_m);
+            sub_ctx.get_rewriter()(result);
+            TRACE("str_fl", tout << "regex path constraint: " << mk_pp(result, sub_m) << std::endl;);
+
+            if (sub_m.is_false(result)) {
+                // There are no solutions of that length in the automaton.
+                // If the membership constraint is true, we assert a conflict clause.
+                // If the membership constraint is false, we ignore the constraint.
+                if (polarity) {
+                    cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(str), mk_int(str_chars.size()))));
+                    ctx.get_rewriter()(cex);
+                    return false;
+                }
+            } else {
+                // TODO fixed_length_lesson?
+                if (polarity) {
+                    fixed_length_assumptions.push_back(result);
+                } else {
+                    fixed_length_assumptions.push_back(sub_m.mk_not(result));
+                }
+                return true;
+            }
+        }
     }
 
     /*
@@ -663,7 +804,11 @@ namespace smt {
             TRACE("str_fl", tout << "initialize free variable " << mk_pp(var, m) << std::endl;);
             rational var_lenVal;
             if (!fixed_length_get_len_value(var, var_lenVal)) {
-                NOT_IMPLEMENTED_YET();
+                TRACE("str_fl", tout << "free variable " << mk_pp(var, m) << " has no length assignment" << std::endl;);
+                expr_ref var_len_assertion(m_autil.mk_ge(mk_strlen(var), mk_int(0)), m);
+                assert_axiom(var_len_assertion);
+                add_persisted_axiom(var_len_assertion);
+                return l_undef;
             }
             fixed_length_reduce_string_term(subsolver, var);
         }
@@ -697,8 +842,14 @@ namespace smt {
                         TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not an equality over strings" << std::endl;);
                     }
                 } else if (u.str.is_in_re(f)) {
-                    TRACE("str_fl", tout << "WARNING: regex constraints not yet implemented in fixed-length model construction!" << std::endl;);
-                    return l_undef;
+                    TRACE("str_fl", tout << "reduce regex membership: " << mk_pp(f, m) << std::endl;);
+                    expr_ref cex_clause(m);
+                    expr_ref re(f, m);
+                    if (!fixed_length_reduce_regex_membership(subsolver, re, cex_clause, true)) {
+                        assert_axiom(cex_clause);
+                        add_persisted_axiom(cex_clause);
+                        return l_undef;
+                    }
                 } else if (u.str.is_contains(f)) {
                     // TODO in some cases (e.g. len(haystack) is only slightly greater than len(needle))
                     // we might be okay to assert the full disjunction because there are very few disjuncts
@@ -750,8 +901,14 @@ namespace smt {
                             }
                         }
                     } else if (u.str.is_in_re(subterm)) {
-                        TRACE("str_fl", tout << "WARNING: negative regex constraints not yet implemented in fixed-length model construction!" << std::endl;);
-                        return l_undef;
+                        TRACE("str_fl", tout << "reduce negative regex membership: " << mk_pp(f, m) << std::endl;);
+                        expr_ref cex_clause(m);
+                        expr_ref re(f, m);
+                        if (!fixed_length_reduce_regex_membership(subsolver, re, cex_clause, false)) {
+                            assert_axiom(cex_clause);
+                            add_persisted_axiom(cex_clause);
+                            return l_undef;
+                        }
                     } else if (u.str.is_contains(subterm)) {
                         TRACE("str_fl", tout << "reduce negative contains: " << mk_pp(subterm, m) << std::endl;);
                         expr_ref cex(m);
