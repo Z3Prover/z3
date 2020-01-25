@@ -283,12 +283,12 @@ lp_status lar_solver::get_status() const { return m_status; }
 void lar_solver::set_status(lp_status s) { m_status = s; }
 
 lp_status lar_solver::find_feasible_solution() {
-    m_settings.st().m_make_feasible++;
+    m_settings.stats().m_make_feasible++;
     restore_rounded_columns();
-    if (A_r().column_count() > m_settings.st().m_max_cols)
-        m_settings.st().m_max_cols = A_r().column_count();
-    if (A_r().row_count() > m_settings.st().m_max_rows)
-        m_settings.st().m_max_rows = A_r().row_count();
+    if (A_r().column_count() > m_settings.stats().m_max_cols)
+        m_settings.stats().m_max_cols = A_r().column_count();
+    if (A_r().row_count() > m_settings.stats().m_max_rows)
+        m_settings.stats().m_max_rows = A_r().row_count();
     if (strategy_is_undecided())
         decide_on_strategy_and_adjust_initial_state();
 
@@ -1917,7 +1917,7 @@ bool lar_solver::bound_is_integer_for_integer_column(unsigned j, const mpq & rig
 }
 
 constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) {
-    TRACE("lar_solver", tout << "j = " << j << std::endl;);
+    TRACE("lar_solver", tout << "j = " << j << " " << lconstraint_kind_string(kind) << " " << right_side<< std::endl;);
     constraint_index ci = m_constraints.size();
     if (!is_term(j)) { // j is a var
         lp_assert(bound_is_integer_for_integer_column(j, right_side));

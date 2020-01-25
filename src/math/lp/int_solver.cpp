@@ -403,7 +403,7 @@ lia_move int_solver::hnf_cut() {
     return lia_move::undef;
 }
 
-lia_move int_solver::check() {
+lia_move int_solver::check(lp::explanation * e) {
     ++m_number_of_calls;
     m_lar_solver->restore_rounded_columns();
     SASSERT(m_lar_solver->ax_is_correct());
