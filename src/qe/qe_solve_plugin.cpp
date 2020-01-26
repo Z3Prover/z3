@@ -100,7 +100,7 @@ namespace qe {
                     v = e;
                     a_val = rational(1)/a_val;
                     t = mk_term(is_int, a_val, sign, done);
-                    TRACE("qe", tout << mk_pp(lhs, m) << " " << mk_pp(rhs, m) << " " << mk_pp(e, m) << " := " << t << "\n";);
+                    TRACE("qe", tout << mk_pp(e, m) << " := " << t << "\n";);
                     return true;
                 }
                 else {
@@ -147,7 +147,7 @@ namespace qe {
         }
 
 
-        expr_ref mk_eq_core (expr *e1, expr *e2) {
+        expr_ref mk_eq_core(expr *e1, expr *e2) {
             expr_ref v(m), t(m);
             if (solve(e1, e2, v, t)) {
                 return expr_ref(m.mk_eq(v, t), m);
@@ -201,7 +201,7 @@ namespace qe {
             return a.mk_ge(arg, mk_zero());
         }
 
-        bool mk_le_core (expr *arg1, expr * arg2, expr_ref &result) {
+        bool mk_le_core(expr *arg1, expr * arg2, expr_ref &result) {
             // t <= -1  ==> t < 0 ==> ! (t >= 0)
             rational n;
             if (a.is_int (arg1) && a.is_minus_one (arg2)) {
@@ -220,16 +220,16 @@ namespace qe {
             return false;
         }
 
-        expr * mk_zero () {
+        expr * mk_zero() {
             return a.mk_numeral (rational (0), true);
         }
 
-        bool is_one (expr const * n) const {
+        bool is_one(expr const * n) const {
             rational val;
             return a.is_numeral (n, val) && val.is_one ();
         }
 
-        bool mk_ge_core (expr * arg1, expr * arg2, expr_ref &result) {
+        bool mk_ge_core(expr * arg1, expr * arg2, expr_ref &result) {
             // t >= 1 ==> t > 0 ==> ! (t <= 0)
             rational n;
             if (a.is_int (arg1) && is_one (arg2)) {

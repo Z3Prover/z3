@@ -123,6 +123,8 @@ namespace qe {
         void order_avars(app_ref_vector& avars);
 
         void add_dcert(model_ref& mdl, expr_ref_vector& lits);
+        void add_arith_dcert(model& mdl, expr_ref_vector& lits);
+        void add_arith_dcert(model& mdl, expr_ref_vector& lits, app* a, app* b);
         app_ref_vector get_arith_vars(expr_ref_vector const& lits);
         vector<def> arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits);
         void project_euf(model_ref& mdl, expr_ref_vector& lits);

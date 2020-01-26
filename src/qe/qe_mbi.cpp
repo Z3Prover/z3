@@ -46,7 +46,6 @@ Notes:
 namespace qe {
 
     void mbi_plugin::set_shared(expr* a, expr* b) {
-        TRACE("qe", tout << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
         struct fun_proc {
             obj_hashtable<func_decl> s;
             void operator()(app* a) { if (is_uninterp(a)) s.insert(a->get_decl()); }
@@ -75,6 +74,9 @@ namespace qe {
         };
         intersect_proc symbols_in_b(*this, symbols_in_a.s);
         quick_for_each_expr(symbols_in_b, marks, b);
+        TRACE("qe", 
+              tout << mk_pp(a, m) << "\n" << mk_pp(b, m) << "\n";
+              for (func_decl* f : m_shared) tout << f->get_name() << " "; tout << "\n";);
     }
 
     lbool mbi_plugin::check(expr_ref_vector& lits, model_ref& mdl) {
@@ -349,15 +351,56 @@ namespace qe {
 
 
     /**
-       \brief add difference certificates to formula.
-       
+       \brief add difference certificates to formula.       
     */
     void uflia_mbi::add_dcert(model_ref& mdl, expr_ref_vector& lits) {        
         term_graph tg(m);
+        add_arith_dcert(*mdl.get(), lits);
         func_decl_ref_vector shared(m_shared_trail);
         tg.set_vars(shared, false);
         lits.append(tg.dcert(*mdl.get(), lits));
         TRACE("qe", tout << "project: " << lits << "\n";);                
+    }
+
+    /**
+       Add disequalities between functions that appear in arithmetic context.
+     */
+    void uflia_mbi::add_arith_dcert(model& mdl, expr_ref_vector& lits) {
+        obj_map<func_decl, ptr_vector<app>> apps;
+        arith_util a(m);
+        for (expr* e : subterms(lits)) {
+            if (a.is_int_real(e) && is_uninterp(e) && to_app(e)->get_num_args() > 0) {
+                func_decl* f = to_app(e)->get_decl();
+                auto* v = apps.insert_if_not_there2(f, ptr_vector<app>());
+                v->get_data().m_value.push_back(to_app(e));
+            }
+        }
+        for (auto const& kv : apps) {
+            ptr_vector<app> const& es = kv.m_value;
+            expr_ref_vector values(m);
+            for (expr* e : kv.m_value) values.push_back(mdl(e));
+            for (unsigned i = 0; i < es.size(); ++i) {
+                expr* v1 = values.get(i);
+                for (unsigned j = i + 1; j < es.size(); ++j) {
+                    expr* v2 = values.get(j);
+                    if (v1 != v2) {
+                        add_arith_dcert(mdl, lits, es[i], es[j]);
+                    }
+                }
+            }
+        }
+    }
+
+    void uflia_mbi::add_arith_dcert(model& mdl, expr_ref_vector& lits, app* a, app* b) {
+        arith_util arith(m);
+        SASSERT(a->get_decl() == b->get_decl());
+        for (unsigned i = a->get_num_args(); i-- > 0; ) {
+            expr* arg1 = a->get_arg(i), *arg2 = b->get_arg(i);
+            if (arith.is_int_real(arg1) && mdl(arg1) != mdl(arg2)) {
+                lits.push_back(m.mk_not(m.mk_eq(arg1, arg2)));
+                return;
+            }                
+        }
     }
 
     /**
