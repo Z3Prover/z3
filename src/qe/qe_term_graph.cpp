@@ -1217,10 +1217,6 @@ namespace qe {
         add_lits(lits);
         svector<pair_t> todo;
 
-        // TBD: 
-        // M(f(a1 + 5)) != M(f(x1 + 5)) => a1 + 5 != x1 + 5 part of dcert.
-        // collect subterms in arith, put equal function subterms in certifiability set
-
         for (expr* e : lits) {
             expr* ne, *a, *b;
             if (m.is_not(e, ne) && m.is_eq(ne, a, b) && (is_uninterp(a) || is_uninterp(b))) {
