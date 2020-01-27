@@ -1558,9 +1558,6 @@ public:
             if (delayed_assume_eqs()) {
                 return FC_CONTINUE;
             }
-            if (assume_eqs()) {
-                return FC_CONTINUE;
-            }            
 
             switch (check_lia()) {
             case l_true:
@@ -1587,6 +1584,10 @@ public:
                 TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);        
                 st = FC_GIVEUP;
             }
+
+            if (assume_eqs()) {
+                return FC_CONTINUE;
+            }            
                 
             return st;
         case l_false:
