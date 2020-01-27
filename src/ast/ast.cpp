@@ -668,7 +668,7 @@ ast* ast_table::pop_erase() {
 // -----------------------------------
 
 /**
-     \brief Checks wether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
+     \brief Checks whether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
     to that log. The theory solver should add some description of the meaning of the term in terms of the theory's
     internal reasoning to the end of the line and insert a line break.
     
