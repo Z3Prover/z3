@@ -561,7 +561,13 @@ class theory_lra::imp {
                 app* t = to_app(n);
                 internalize_args(t);
                 mk_enode(t);
-                theory_var v = mk_var(n);
+                theory_var v;
+                if (a.is_to_real(n, n1)) {
+                    v = mk_var(n1);
+                }
+                else {
+                    v = mk_var(n);
+                }
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
                 ++index;
@@ -573,8 +579,7 @@ class theory_lra::imp {
                         mk_to_int_axiom(t);
                 }
                 else if (a.is_to_real(n, n1)) {
-                    theory_var v1 = mk_var(n1);
-                    internalize_eq(v, v1);                    
+                    // already handled
                 }
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
@@ -1004,9 +1009,12 @@ public:
             return true;
         }
         else {
-			TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
+            TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_not_handled(atom);
             return true;
+        }
+        if (is_int(v) && !r.is_int()) {
+            r = (k == lp_api::upper_t) ? floor(r) : ceil(r);
         }
         lp_api::bound* b = alloc(lp_api::bound, bv, v, is_int(v), r, k);
         m_bounds[v].push_back(b);
