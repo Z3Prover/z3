@@ -1158,7 +1158,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         result = m().mk_ite(m().mk_eq(arg1, m_util.mk_real(0)),
                             m_util.mk_real(1),
                             result);
-        return BR_REWRITE2;
+        return BR_REWRITE3;
     }
 
     if (!is_int_sort && is_num_y && !y.is_int() && !numerator(y).is_one()) {

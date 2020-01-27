@@ -273,6 +273,7 @@ lia_move int_solver::find_cube() {
     _sp.pop();
     m_lar_solver->round_to_integer_solution();
     settings().st().m_cube_success++;
+    TRACE("cube", tout << "sat with cube\n";);
     return lia_move::sat;
 }
 
