@@ -526,6 +526,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         st = mk_str_le(args[0], args[1], result);
         break;
+    case OP_STRING_LT:
+        SASSERT(num_args == 2);
+        st = mk_str_lt(args[0], args[1], result);
+        break;
     case OP_STRING_CONST:
         return BR_FAILED;
     case OP_STRING_ITOS: 
@@ -1435,7 +1439,32 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_str_le(expr* a, expr* b, expr_ref& result) {
     result = m().mk_not(m_util.str.mk_lex_lt(b, a));
-    return BR_DONE;
+    return BR_REWRITE2;
+}
+
+br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
+    zstring as, bs;
+    if (m_util.str.is_string(a, as) && m_util.str.is_string(b, bs)) {
+        unsigned sz = std::min(as.length(), bs.length());
+        for (unsigned i = 0; i < sz; ++i) {
+            if (as[i] < bs[i]) {
+                result = m().mk_true();
+                return BR_DONE;
+            }
+            if (as[i] > bs[i]) {
+                result = m().mk_false();
+                return BR_DONE;
+            }
+        }
+        if (sz <= as.length()) {
+            result = m().mk_false();
+        }
+        else {
+            result = m().mk_true();
+        }
+        return BR_DONE;
+    }
+    return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {

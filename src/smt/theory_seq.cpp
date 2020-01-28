@@ -6490,12 +6490,13 @@ void theory_seq::add_unit_axiom(expr* n) {
 }
 
 /**
-   e1 < e2 => e1 = empty or e1 = xcy
-   e1 < e2 => e1 = empty or c < d
-   e1 < e2 => e2 = xdz
-   !(e1 < e2) => e1 = e2 or e2 = empty or e2 = xdz
-   !(e1 < e2) => e1 = e2 or e2 = empty or d < c
-   !(e1 < e2) => e1 = e2 or e1 = xcy
+   e1 < e2 => prefix(e1, e2) or e1 = xcy
+   e1 < e2 => prefix(e1, e2) or c < d
+   e1 < e2 => prefix(e1, e2) or e2 = xdz
+   e1 < e2 => e1 != e2 
+   !(e1 < e2) => prefix(e2, e1) or e2 = xdz
+   !(e1 < e2) => prefix(e2, e1) or d < c
+   !(e1 < e2) => prefix(e2, e1) or e1 = xcy
    !(e1 = e2) or !(e1 < e2)
    
 optional:
@@ -6521,16 +6522,18 @@ void theory_seq::add_lt_axiom(expr* n) {
     literal emp1 = mk_eq(e1, empty_string, false);
     literal emp2 = mk_eq(e2, empty_string, false);
     literal eq   = mk_eq(e1, e2, false);
+    literal pref21 = mk_literal(m_util.str.mk_prefix(e2, e1));
+    literal pref12 = mk_literal(m_util.str.mk_prefix(e1, e2));
     literal e1xcy = mk_eq(e1, xcy, false);
     literal e2xdz = mk_eq(e2, xdz, false);
     literal ltcd = mk_literal(m_util.mk_lt(c, d));
     literal ltdc = mk_literal(m_util.mk_lt(d, c));
-    add_axiom(~lt, e2xdz);
-    add_axiom(~lt, emp1, e1xcy);
-    add_axiom(~lt, emp1, ltcd);
-    add_axiom(lt, eq, e1xcy);
-    add_axiom(lt, eq, emp2, ltdc);
-    add_axiom(lt, eq, emp2, e2xdz);
+    add_axiom(~lt, pref12, e2xdz);
+    add_axiom(~lt, pref12, e1xcy);
+    add_axiom(~lt, pref12, ltcd);
+    add_axiom(lt, pref21, e1xcy);
+    add_axiom(lt, pref21, ltdc);
+    add_axiom(lt, pref21, e2xdz);
     add_axiom(~eq, ~lt);
 }
 
