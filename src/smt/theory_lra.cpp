@@ -1075,6 +1075,8 @@ public:
             break;
         }         
         auto vi = get_lpvar(b->get_var());
+        if (vi == lp::null_lpvar)
+            return l_undef;
         return m_solver->compare_values(vi, k, b->get_value()) ? l_true : l_false;
     }
 
