@@ -225,18 +225,31 @@ public:
     
     void add(mpq const & a, mpq const & b, mpq & c) {
         STRACE("mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
-        if (is_int(a) && is_int(b)) {
+        if (is_zero(b)) {
+            set(c, a);
+        }
+        else if (is_zero(a)) {
+            set(c, b);
+        }
+        else if (is_int(a) && is_int(b)) {
             mpz_manager<SYNCH>::add(a.m_num, b.m_num, c.m_num);
             reset_denominator(c);
         }
-        else
+        else {
             rat_add(a, b, c);
+        }
         STRACE("mpq", tout << to_string(c) << "\n";);
     }
 
     void add(mpq const & a, mpz const & b, mpq & c) {
         STRACE("mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
-        if (is_int(a)) {
+        if (is_zero(b)) {
+            set(c, a);
+        }
+        else if (is_zero(a)) {
+            set(c, b);
+        }
+        else if (is_int(a)) {
             mpz_manager<SYNCH>::add(a.m_num, b, c.m_num);
             reset_denominator(c);
         }
@@ -312,6 +325,9 @@ public:
         else if (is_minus_one(b)) {
             sub(a, c, d);
         }
+        else if (is_zero(b) || is_zero(c)) {
+            set(d, a);
+        }
         else {
             if (SYNCH) {
                 mpq tmp;
@@ -333,6 +349,9 @@ public:
         }
         else if (is_minus_one(b)) {
             sub(a, c, d);
+        }
+        else if (is_zero(b) || is_zero(c)) {
+            set(d, a);
         }
         else {
             if (SYNCH) {
@@ -409,6 +428,10 @@ public:
 
     void div(mpq const & a, mpq const & b, mpq & c) {
         STRACE("mpq", tout << "[mpq] " << to_string(a) << " / " << to_string(b) << " == ";); 
+        if (is_zero(a) || is_one(b)) {
+            set(c, a);
+            return;
+        }
         if (&b == &c) {
             mpz tmp; // it is not safe to use c.m_num at this point.
             mul(a.m_num, b.m_den, tmp);
@@ -431,6 +454,10 @@ public:
 
     void div(mpq const & a, mpz const & b, mpq & c) {
         STRACE("mpq", tout << "[mpq] " << to_string(a) << " / " << to_string(b) << " == ";); 
+        if (is_zero(a) || is_one(b)) {
+            set(c, a);
+            return;
+        }
         set(c.m_num, a.m_num);
         mul(a.m_den, b, c.m_den);
         if (mpz_manager<SYNCH>::is_neg(b)) {

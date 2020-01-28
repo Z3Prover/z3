@@ -464,7 +464,7 @@ void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
     impq & val = lcs.m_r_x[j];
     bool val_is_int = val.is_int();
     if (patch_only_int_vals && !val_is_int)
-            return;
+        return;
         
     bool inf_l, inf_u;
     impq l, u;
@@ -473,11 +473,13 @@ void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
         return;
     }
     bool m_is_one = m.is_one();
-    if (m.is_one() && val_is_int)
+    if (m.is_one() && val_is_int) {
         return;
+    }
     // check whether value of j is already a multiple of m.
-    if (val_is_int && (val.x / m).is_int())
+    if (val_is_int && (val.x / m).is_int()) {
         return;
+    }
     TRACE("patch_int",
           tout << "TARGET j" << j << " -> [";
           if (inf_l) tout << "-oo"; else tout << l;
@@ -488,25 +490,21 @@ void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
     if (!inf_l) {
         l = impq(m_is_one ? ceil(l) : m * ceil(l / m));
         if (inf_u || l <= u) {
-            TRACE("patch_int",
-                  tout << "patching with l: " << l << '\n';);
+            TRACE("patch_int",    tout << "patching with l: " << l << '\n';);
             m_lar_solver->set_value_for_nbasic_column(j, l);
         }
         else {
-            TRACE("patch_int",
-                  tout << "not patching " << l << "\n";);
+            TRACE("patch_int", tout << "not patching " << l << "\n";);
         }
     }
     else if (!inf_u) {
         u = impq(m_is_one ? floor(u) : m * floor(u / m));
         m_lar_solver->set_value_for_nbasic_column(j, u);
-        TRACE("patch_int",
-              tout << "patching with u: " << u << '\n';);
+        TRACE("patch_int", tout << "patching with u: " << u << '\n';);
     }
     else {
         m_lar_solver->set_value_for_nbasic_column(j, impq(0));
-        TRACE("patch_int",
-              tout << "patching with 0\n";);
+        TRACE("patch_int", tout << "patching with 0\n";);
     }
 }
 
@@ -758,38 +756,68 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     m = mpq(1);
 
     if (has_low(j)) {
-        set_lower(l, inf_l, lower_bound(j));
+        set_lower(l, inf_l, lower_bound(j) - xj);
     }
     if (has_upper(j)) {
-        set_upper(u, inf_u, upper_bound(j));
+        set_upper(u, inf_u, upper_bound(j) - xj);
     }
 
     mpq a; // the coefficient in the column
     unsigned row_index;
     lp_assert(settings().use_tableau());
     const auto & A = m_lar_solver->A_r();
+    unsigned rounds = 0;
     for (const auto &c : A.column(j)) {
         row_index = c.var();
-        const mpq & a = c.coeff();
-        
+        const mpq & a = c.coeff();        
         unsigned i = lcs.m_r_basis[row_index];
-        impq const & xi = get_value(i);
         if (column_is_int(i) && column_is_int(j) && !a.is_int())
             m = lcm(m, denominator(a));
+    }
+    if (column_is_int(j) && m.is_one())
+        return false;
+    
+    for (const auto &c : A.column(j)) {
+        if (!inf_l && !inf_u && l >= u) break;                
+        row_index = c.var();
+        const mpq & a = c.coeff();        
+        unsigned i = lcs.m_r_basis[row_index];
+        impq const & xi = get_value(i);
+
+#define SET_BOUND(_fn_, a, b, x, y, z)                                  \
+        if (x.is_one())                                                 \
+            _fn_(a, b, y - z);                                          \
+        else if (x.is_minus_one())                                      \
+            _fn_(a, b, z - y);                                          \
+        else if (z == y)                                                \
+            _fn_(a, b, zero_of_type<impq>());                           \
+        else                                                            \
+            {  _fn_(a, b, (y - z)/x);  }   \
+
+        
         if (a.is_neg()) {
-            if (has_low(i)) 
-                set_lower(l, inf_l, xj + (xi - lcs.m_r_lower_bounds()[i]) / a);
-            if (has_upper(i))
-                set_upper(u, inf_u, xj + (xi - lcs.m_r_upper_bounds()[i]) / a);
+            if (has_low(i)) {
+                SET_BOUND(set_lower, l, inf_l, a, xi, lcs.m_r_lower_bounds()[i]);
+            }
+            if (has_upper(i)) {
+                SET_BOUND(set_upper, u, inf_u, a, xi, lcs.m_r_upper_bounds()[i]);
+            }
         }
         else {
-            if (has_upper(i))
-                set_lower(l, inf_l, xj + (xi - lcs.m_r_upper_bounds()[i]) / a);
-            if (has_low(i))
-                set_upper(u, inf_u, xj + (xi - lcs.m_r_lower_bounds()[i]) / a);
+            if (has_upper(i)) {
+                SET_BOUND(set_lower, l, inf_l, a, xi, lcs.m_r_upper_bounds()[i]);
+            }
+            if (has_low(i)) {
+                SET_BOUND(set_upper, u, inf_u, a, xi, lcs.m_r_lower_bounds()[i]);
+            }
         }
-        if (!inf_l && !inf_u && l >= u) break;                
+        ++rounds;
+        // patch always fails in this case
+        if (!inf_l && !inf_u && rounds > 2 && u - l < m && (xj.x + u.x) % m > (xj.x + l.x) % m) break;
     }
+
+    l += xj;
+    u += xj;
 
     TRACE("freedom_interval",
           tout << "freedom variable for:\n";
