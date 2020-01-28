@@ -533,7 +533,13 @@ mpq get_denominators_lcm(const row_strip<mpq> & row) {
 }
     
 bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i) {
-    mpq lcm_den = get_denominators_lcm(A.m_rows[i]);
+    auto const& row = A.m_rows[i];
+    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    unsigned basic_var = lcs.m_r_basis[i];
+
+    if (!column_is_int(basic_var) || get_value(basic_var).is_int())
+        return true;
+    mpq lcm_den = get_denominators_lcm(row);
     mpq consts(0);
     mpq gcds(0);
     mpq least_coeff(0);
@@ -771,9 +777,8 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         if (column_is_int(i) && column_is_int(j) && !a.is_int())
             m = lcm(m, denominator(a));
         if (a.is_neg()) {
-            if (has_low(i))
+            if (has_low(i)) 
                 set_lower(l, inf_l, xj + (xi - lcs.m_r_lower_bounds()[i]) / a);
-
             if (has_upper(i))
                 set_upper(u, inf_u, xj + (xi - lcs.m_r_upper_bounds()[i]) / a);
         }
