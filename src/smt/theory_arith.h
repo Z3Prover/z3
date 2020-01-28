@@ -1063,6 +1063,8 @@ namespace smt {
 
         void setup() override;
 
+        lbool get_phase(bool_var v) override;
+
         char const * get_name() const override { return "arithmetic"; }
 
         // -----------------------------------

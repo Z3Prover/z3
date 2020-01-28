@@ -2233,6 +2233,21 @@ namespace smt {
         return result < max ? result : null_theory_var;
     }
 
+    template<typename Ext>
+    lbool theory_arith<Ext>::get_phase(bool_var bv) {
+        atom* a = get_bv2a(bv);
+        theory_var v = a->get_var();
+        auto const& k = a->get_k();
+        switch (a->get_bound_kind()) {
+        case B_LOWER:
+            return get_value(v) >= k ? l_true : l_false;
+        case B_UPPER:
+            return get_value(v) <= k ? l_true : l_false;
+        default:
+            return l_undef;
+        }
+    }
+
     /**
        \brief Wrapper for select_blands_pivot_core and select_pivot_core
     */

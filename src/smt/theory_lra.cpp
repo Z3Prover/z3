@@ -120,6 +120,7 @@ struct stats {
     unsigned m_gomory_cuts;
     unsigned m_nla_explanations;
     unsigned m_nla_lemmas;
+    unsigned m_assume_eqs;
     stats() { reset(); }
     void reset() {
         memset(this, 0, sizeof(*this));
@@ -1627,6 +1628,7 @@ public:
             
         ctx().push_trail(value_trail<context, unsigned>(m_assume_eq_head));
         while (m_assume_eq_head < m_assume_eq_candidates.size()) {
+            ++m_stats.m_assume_eqs;
             std::pair<theory_var, theory_var> const & p = m_assume_eq_candidates[m_assume_eq_head];
             theory_var v1 = p.first;
             theory_var v2 = p.second;
@@ -3805,20 +3807,22 @@ public:
         st.update("arith-make-feasible", lp().settings().stats().m_make_feasible);
         st.update("arith-max-columns", lp().settings().stats().m_max_cols);
         st.update("arith-max-rows", lp().settings().stats().m_max_rows);
-        st.update("gcd-calls", lp().settings().stats().m_gcd_calls);
-        st.update("gcd-conflict", lp().settings().stats().m_gcd_conflicts);
-        st.update("cube-calls", lp().settings().stats().m_cube_calls);
-        st.update("cube-success", lp().settings().stats().m_cube_success);
+        st.update("arith-gcd-calls", lp().settings().stats().m_gcd_calls);
+        st.update("arith-gcd-conflict", lp().settings().stats().m_gcd_conflicts);
+        st.update("arith-cube-calls", lp().settings().stats().m_cube_calls);
+        st.update("arith-cube-success", lp().settings().stats().m_cube_success);
         st.update("arith-patches", lp().settings().stats().m_patches);
         st.update("arith-patches-success", lp().settings().stats().m_patches_success);
         st.update("arith-hnf-calls", lp().settings().stats().m_hnf_cutter_calls);
-        st.update("horner-calls", lp().settings().stats().m_horner_calls);
-        st.update("horner-conflicts", lp().settings().stats().m_horner_conflicts);
-        st.update("horner-cross-nested-forms", lp().settings().stats().m_cross_nested_forms);
-        st.update("grobner-calls", lp().settings().stats().m_grobner_calls);
-        st.update("grobner-conflicts", lp().settings().stats().m_grobner_conflicts);
-        st.update("nla-explanations", m_stats.m_nla_explanations);
-        st.update("nla-lemmas", m_stats.m_nla_lemmas);
+        st.update("arith-horner-calls", lp().settings().stats().m_horner_calls);
+        st.update("arith-horner-conflicts", lp().settings().stats().m_horner_conflicts);
+        st.update("arith-horner-cross-nested-forms", lp().settings().stats().m_cross_nested_forms);
+        st.update("arith-grobner-calls", lp().settings().stats().m_grobner_calls);
+        st.update("arith-grobner-conflicts", lp().settings().stats().m_grobner_conflicts);
+        st.update("arith-nla-explanations", m_stats.m_nla_explanations);
+        st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
+        st.update("arith-gomory-cuts", m_stats.m_gomory_cuts);
+        st.update("arith-assume-eqs", m_stats.m_assume_eqs);
     }        
 };
     

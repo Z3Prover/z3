@@ -4452,8 +4452,8 @@ def Update(a, i, v):
     """
     if z3_debug():
         _z3_assert(is_array_sort(a), "First argument must be a Z3 array expression")
-    i = a.domain().cast(i)
-    v = a.range().cast(v)
+    i = a.sort().domain().cast(i)
+    v = a.sort().range().cast(v)
     ctx = a.ctx
     return _to_expr_ref(Z3_mk_store(ctx.ref(), a.as_ast(), i.as_ast(), v.as_ast()), ctx)
 
