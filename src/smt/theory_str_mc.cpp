@@ -362,7 +362,7 @@ namespace smt {
                 // needle[j] == haystack[i+j]
                 ENSURE(i+j < haystack_chars.size());
                 expr_ref cLHS(needle_chars.get(j), sub_m);
-                expr_ref cRHS(haystack_chars.get(j), sub_m);
+                expr_ref cRHS(haystack_chars.get(i+j), sub_m);
                 expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
                 branch.push_back(_e);
             }
@@ -421,7 +421,7 @@ namespace smt {
                 // needle[j] == haystack[i+j]
                 ENSURE(i+j < haystack_chars.size());
                 expr_ref cLHS(needle_chars.get(j), sub_m);
-                expr_ref cRHS(haystack_chars.get(j), sub_m);
+                expr_ref cRHS(haystack_chars.get(i+j), sub_m);
                 expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
                 branch.push_back(_e);
             }
