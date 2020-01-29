@@ -2933,49 +2933,47 @@ void test_term() {
     lar_solver solver;
     unsigned _x = 0;
     unsigned _y = 1;
-    unsigned _one = 2;
-    var_index x = solver.add_var(_x, false);
-    var_index y = solver.add_var(_y, false);
-    var_index one = solver.add_var(_one, false);
-
-    vector<std::pair<mpq, var_index>> term_one;
-    term_one.push_back(std::make_pair(mpq(1), one));
+    var_index x = solver.add_named_var(_x, true, "x");
+    var_index y = solver.add_named_var(_y, true, "y");
+    enable_trace("lar_solver");
+    enable_trace("cube");
+    vector<std::pair<mpq, var_index>> pairs;
+    pairs.push_back(std::pair<mpq, var_index>(mpq(2), x));
+    pairs.push_back(std::pair<mpq, var_index>(mpq(1), y));
     int ti = 0;
-    unsigned j = solver.add_term(term_one, ti++);
-    solver.add_var_bound(j, lconstraint_kind::LE, mpq(0));
-    solver.add_var_bound(j, lconstraint_kind::GE, mpq(0));
-
-    vector<std::pair<mpq, var_index>> term_ls;
-    term_ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    term_ls.push_back(std::pair<mpq, var_index>(mpq(1), y));
-    term_ls.push_back(std::make_pair(mpq(3), one));
-    var_index z = solver.add_term(term_ls, -1);
-
-    vector<std::pair<mpq, var_index>> ls;
-    ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    ls.push_back(std::pair<mpq, var_index>(mpq(1), y));
-    ls.push_back(std::pair<mpq, var_index>(mpq(1), z));
-    j = solver.add_term(ls, ti++);
-    solver.add_var_bound(j , lconstraint_kind::LE, mpq(0));
-    solver.add_var_bound(j , lconstraint_kind::GE, mpq(0));
-    ls.clear();
-    ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    j = solver.add_term(ls, ti++);
-    solver.add_var_bound(j, lconstraint_kind::LT, mpq(0));
-    ls.push_back(std::pair<mpq, var_index>(mpq(2), y));
-    j = solver.add_term(ls, ti++);
-    solver.add_var_bound(j, lconstraint_kind::GT, mpq(0));
-    auto status = solver.solve();
+    unsigned x_plus_y = solver.add_term(pairs, ti++);
+    solver.add_var_bound(x_plus_y, lconstraint_kind::GE, mpq(5, 3));
+    solver.add_var_bound(x_plus_y, lconstraint_kind::LE, mpq(14, 3));
+    pairs.pop_back();
+    pairs.push_back(std::pair<mpq, var_index>(mpq(-1), y));
+    unsigned x_minus_y =  solver.add_term(pairs, ti++);
+    solver.add_var_bound(x_minus_y, lconstraint_kind::GE, mpq(5, 3));
+    solver.add_var_bound(x_minus_y, lconstraint_kind::LE, mpq(14, 3));
+    auto status = solver.solve();   
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<var_index, mpq> model;
-    if (status != lp_status::OPTIMAL)
+    if (status != lp_status::OPTIMAL) {
+        std::cout << "non optimal" << std::endl;
         return;
-    solver.get_model(model);
+    }
+    solver.print_constraints(std::cout);
+    std::cout << "\ntableau before cube\n";
+    solver.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
+    std::cout << "\n";
+    int_solver i_s(&solver);
+    solver.set_int_solver(&i_s);
+    lia_move m = i_s.find_cube();
     
+    std::cout <<"\n" << lia_move_to_string(m) << std::endl;
+    model.clear();
+    solver.get_model(model);
     for (auto & t : model) {
         std::cout << solver.get_variable_name(t.first) << " = " << t.second.get_double() << ",";
     }
-    std::cout << std::endl;
+
+    std::cout << "\ntableu after cube\n";
+    solver.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
+    std::cout << "Ax_is_correct = " << solver.ax_is_correct() << "\n";
     
 }
 

@@ -764,8 +764,7 @@ bool lar_solver::row_is_correct(unsigned i) const {
         r += c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
     }
     CTRACE("lar_solver", !is_zero(r), tout << "row = " << i << ", j = " << m_mpq_lar_core_solver.m_r_basis[i] << "\n";
-           print_row(A_r().m_rows[i], tout); tout << "\n";
-           
+           print_row(A_r().m_rows[i], tout);  tout << " = " << r << "\n";           
            );
     return is_zero(r);
 }
