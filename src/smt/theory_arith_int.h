@@ -1434,6 +1434,7 @@ namespace smt {
         }
         else {
             if (m_params.m_arith_int_eq_branching && branch_infeasible_int_equality()) {
+                ++m_stats.m_branch_infeasible_int;
                 return FC_CONTINUE;
             }
 
@@ -1442,6 +1443,7 @@ namespace smt {
                 TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
                 // apply branching 
                 branch_infeasible_int_var(int_var);
+                ++m_stats.m_branch_infeasible_var;
                 return FC_CONTINUE;
             }
         }

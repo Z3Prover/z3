@@ -40,7 +40,7 @@ bool int_solver::has_inf_int() const {
 int int_solver::find_inf_int_base_column() {
     unsigned inf_int_count = 0;
     int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
-    if (j != -1)
+    if (j != -1) 
         return j;
     if (inf_int_count == 0)
         return -1;
@@ -58,7 +58,7 @@ int int_solver::get_kth_inf_int(unsigned k) const {
 
 int int_solver::find_inf_int_nbasis_column() const {
     for (unsigned j : m_lar_solver->r_nbasis())
-        if (!column_is_int_inf(j))
+        if (!column_is_int_inf(j)) 
             return j;    
     return -1; 
 }
@@ -405,7 +405,6 @@ lia_move int_solver::hnf_cut() {
 }
 
 lia_move int_solver::check(lp::explanation * e) {
-    ++m_number_of_calls;
     SASSERT(m_lar_solver->ax_is_correct());
     if (!has_inf_int()) return lia_move::sat;
 
@@ -428,6 +427,7 @@ lia_move int_solver::check(lp::explanation * e) {
         m_lar_solver->pivot_fixed_vars_from_basis();
 
     CHECK_RET(patch_nbasic_columns());
+    ++m_number_of_calls;
     CHECK_RET(find_cube());        
     CHECK_RET(hnf_cut());    
     CHECK_RET(gomory_cut());

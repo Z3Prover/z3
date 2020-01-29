@@ -121,6 +121,7 @@ struct stats {
     unsigned m_nla_explanations;
     unsigned m_nla_lemmas;
     unsigned m_assume_eqs;
+    unsigned m_branch;
     stats() { reset(); }
     void reset() {
         memset(this, 0, sizeof(*this));
@@ -2058,6 +2059,7 @@ public:
             // at this point we have a new unassigned atom that the 
             // SAT core assigns a value to
             lia_check = l_false;
+            ++m_stats.m_branch;
             break;
         }
         case lp::lia_move::cut: {
@@ -3825,6 +3827,7 @@ public:
         st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
         st.update("arith-gomory-cuts", m_stats.m_gomory_cuts);
         st.update("arith-assume-eqs", m_stats.m_assume_eqs);
+        st.update("arith-branch", m_stats.m_branch);
     }        
 };
     
