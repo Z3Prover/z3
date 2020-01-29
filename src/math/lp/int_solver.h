@@ -87,7 +87,7 @@ private:
     void fill_explanation_from_fixed_columns(const row_strip<mpq> & row);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j);
     lia_move patch_nbasic_columns();
-    bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
+    bool get_freedom_interval_for_column(unsigned j, bool val_is_int, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
 private:
     bool is_boxed(unsigned j) const;
     bool is_fixed(unsigned j) const;

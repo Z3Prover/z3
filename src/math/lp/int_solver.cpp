@@ -469,7 +469,7 @@ void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
     bool inf_l, inf_u;
     impq l, u;
     mpq m;
-    if (!get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m)) {
+    if (!get_freedom_interval_for_column(j, val_is_int, inf_l, l, inf_u, u, m)) {
         return;
     }
     bool m_is_one = m.is_one();
@@ -743,7 +743,7 @@ void set_upper(impq & u,
     }
 }
 
-bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
+    bool int_solver::get_freedom_interval_for_column(unsigned j, bool val_is_int, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     if (lcs.m_r_heading[j] >= 0) // the basic var 
         return false;
@@ -774,7 +774,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         if (column_is_int(i) && column_is_int(j) && !a.is_int())
             m = lcm(m, denominator(a));
     }
-    if (column_is_int(j) && m.is_one())
+    if (val_is_int && m.is_one())
         return false;
     
     for (const auto &c : A.column(j)) {
@@ -812,8 +812,6 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
             }
         }
         ++rounds;
-        // patch always fails in this case
-        if (!inf_l && !inf_u && rounds > 2 && u - l < m && (xj.x + u.x) % m > (xj.x + l.x) % m) break;
     }
 
     l += xj;
@@ -948,7 +946,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     bool inf_l, inf_u;
     impq l, u;
     mpq m;
-    get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);
+    get_freedom_interval_for_column(j, false, inf_l, l, inf_u, u, m);
     if (inf_l && inf_u) {
         impq new_val = impq(random() % (range + 1));
         set_value_for_nbasic_column_ignore_old_values(j, new_val);
