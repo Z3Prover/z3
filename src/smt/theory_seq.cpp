@@ -6109,7 +6109,6 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
         // create an expression for the symmetric difference and imply it is empty.
         enode_pair_vector eqs;
         literal_vector lits;
-        context& ctx = get_context();
         switch (regex_are_equal(n1->get_owner(), n2->get_owner())) {
         case l_true:
             break;
@@ -6135,7 +6134,6 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     if (m_util.is_re(n1->get_owner())) {
         enode_pair_vector eqs;
         literal_vector lits;
-        context& ctx = get_context();
         switch (regex_are_equal(e1, e2)) {
         case l_false:
             return;
@@ -6518,9 +6516,6 @@ void theory_seq::add_lt_axiom(expr* n) {
     expr_ref d = mk_skolem(symbol("str.lt.d"), e1, e2, nullptr, nullptr, char_sort);
     expr_ref xcy(mk_concat(x, m_util.str.mk_unit(c), y), m);
     expr_ref xdz(mk_concat(x, m_util.str.mk_unit(d), z), m);
-    expr_ref empty_string(m_util.str.mk_empty(s), m);
-    literal emp1 = mk_eq(e1, empty_string, false);
-    literal emp2 = mk_eq(e2, empty_string, false);
     literal eq   = mk_eq(e1, e2, false);
     literal pref21 = mk_literal(m_util.str.mk_prefix(e2, e1));
     literal pref12 = mk_literal(m_util.str.mk_prefix(e1, e2));
