@@ -78,8 +78,6 @@ class lar_solver : public column_namer {
 
     
     //////////////////// fields //////////////////////////
-    std::unordered_set<unsigned>                         m_cube_rounded_columns;
-    std::unordered_set<unsigned>                         m_cube_rounded_rows;
     lp_settings                                         m_settings;
     lp_status                                           m_status;
     stacked_value<simplex_strategy_enum>                m_simplex_strategy;
@@ -420,8 +418,6 @@ public:
     void update_x_and_inf_costs_for_columns_with_changed_bounds();
 
     void update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
-
-    void restore_rounded_columns();
     
     void solve_with_core_solver();
 
@@ -637,6 +633,7 @@ public:
     var_index to_column(unsigned ext_j) const;
     bool tighten_term_bounds_by_delta(unsigned, const impq&);
     void round_to_integer_solution();
+    void fix_terms_with_rounded_columns();
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
     void fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms);
     unsigned column_count() const { return A_r().column_count(); }
@@ -648,8 +645,6 @@ public:
     lar_term get_term_to_maximize(unsigned ext_j) const;
     void set_cut_strategy(unsigned cut_frequency);
     bool sum_first_coords(const lar_term& t, mpq & val) const;
-    void fix_Ax_b_on_rounded_rows();
-    void fix_Ax_b_on_rounded_row(unsigned);
     void collect_rounded_rows_to_fix();
     void register_existing_terms();
     void register_normalized_term(const lar_term&, lpvar);

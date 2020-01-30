@@ -1666,7 +1666,6 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << m_solver->get_status() << "\n");
         m_use_nra_model = false;
         lbool is_sat = l_true;
-        lp().restore_rounded_columns();
         SASSERT(lp().ax_is_correct());
         if (lp().get_status() != lp::lp_status::OPTIMAL) {
             is_sat = make_feasible();

@@ -284,7 +284,6 @@ void lar_solver::set_status(lp_status s) { m_status = s; }
 
 lp_status lar_solver::find_feasible_solution() {
     m_settings.stats().m_make_feasible++;
-    restore_rounded_columns();
     if (A_r().column_count() > m_settings.stats().m_max_cols)
         m_settings.stats().m_max_cols = A_r().column_count();
     if (A_r().row_count() > m_settings.stats().m_max_rows)
@@ -359,7 +358,6 @@ void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
     
 void lar_solver::pop(unsigned k) {
     TRACE("lar_solver", tout << "k = " << k << std::endl;);
-    restore_rounded_columns();   // if it is not done now, the basis changes and restore_rounded_columns would now work
     m_infeasible_column.pop(k);
     unsigned n = m_columns_to_ul_pairs.peek_size(k);
     m_var_register.shrink(n);
@@ -402,7 +400,6 @@ void lar_solver::pop(unsigned k) {
     m_settings.simplex_strategy() = m_simplex_strategy;
     lp_assert(sizes_are_correct());
     lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
-    lp_assert(m_cube_rounded_columns.size() != 0 || ax_is_correct());
     set_status(lp_status::UNKNOWN);
 }
     
@@ -412,17 +409,6 @@ vector<constraint_index> lar_solver::get_all_constraint_indices() const {
     while ( i < m_constraints.size())
         ret.push_back(i++);
     return ret;
-}
-
-void lar_solver::restore_rounded_columns() {
-    for (unsigned j : m_incorrect_columns.m_index) {
-        SASSERT(is_base(j));
-        unsigned i = row_of_basic_column(j);
-        m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j,
-                                                                   get_basic_var_value_from_row(i));
-    }
-    m_incorrect_columns.clear();
-    SASSERT(ax_is_correct());
 }
 
 bool lar_solver::maximize_term_on_tableau(const lar_term & term,
@@ -866,45 +852,8 @@ void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau(
     }
 }
 
-void lar_solver::fix_Ax_b_on_rounded_row(unsigned i) {
-    if (A_r().m_rows.size() <= i)
-        return;
-    unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
-    auto v = zero_of_type<impq>();
-    for (const auto & c : A_r().m_rows[i]) {
-        if (c.var() != bj) 
-            v -= c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
-    }
-    m_mpq_lar_core_solver.m_r_solver.update_x_with_feasibility_tracking(bj, v);
-}
-void lar_solver::collect_rounded_rows_to_fix() {
-    lp_assert(m_cube_rounded_rows.size() == 0);
-    for (unsigned j : m_cube_rounded_columns) {
-        if (j >= A_r().m_columns.size())
-            continue;
-        int j_raw = m_mpq_lar_core_solver.m_r_solver.m_basis_heading[j];
-        if (j_raw >= 0) {
-            m_cube_rounded_rows.insert(j_raw);
-        } else {
-            for (const auto & c : A_r().m_columns[j]) {
-                m_cube_rounded_rows.insert(c.var());                
-            }
-        }
-    }    
-}
-void lar_solver::fix_Ax_b_on_rounded_rows() {
-    collect_rounded_rows_to_fix();
-    for (unsigned i : m_cube_rounded_rows) {
-        fix_Ax_b_on_rounded_row(i);
-    }
-    m_cube_rounded_rows.clear();
-    m_cube_rounded_columns.clear();
-    lp_assert(ax_is_correct());
-}
     
 void lar_solver::solve_with_core_solver() {
-    if (m_cube_rounded_columns.size() != 0)
-        fix_Ax_b_on_rounded_rows();
     if (!use_tableau())
         add_last_rows_to_lu(m_mpq_lar_core_solver.m_r_solver);
     if (m_mpq_lar_core_solver.need_to_presolve_with_double_solver()) {
@@ -2342,6 +2291,32 @@ void lar_solver::round_to_integer_solution() {
         m_incorrect_columns.insert(j);
         TRACE("cube", tout << "new val = " << v << "\n";);
     }
+    if (m_incorrect_columns.size()) {
+        fix_terms_with_rounded_columns();
+        m_incorrect_columns.clear();
+    }
+}
+
+void lar_solver::fix_terms_with_rounded_columns() {
+    for (unsigned i = 0; i < m_terms.size(); i++) {
+        unsigned ti = i + terms_start_index();
+        if (!term_is_used_as_row(ti))
+            continue;
+        bool need_to_fix = false;
+        const lar_term & t = *m_terms[i];
+        for (const auto & p : t) {
+            if (m_incorrect_columns.contains(p.var())) {
+                need_to_fix = true;
+                break;
+            }
+        }
+        if (need_to_fix) {
+            lpvar j = external_to_local(ti);
+            impq v = t.apply(m_mpq_lar_core_solver.m_r_x);
+            m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j, v);
+        }
+    }
+    SASSERT(ax_is_correct());
 }
 // return true if all y coords are zeroes
 bool lar_solver::sum_first_coords(const lar_term& t, mpq & val) const {
