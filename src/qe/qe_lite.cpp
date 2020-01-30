@@ -37,7 +37,7 @@ Revision History:
 #include "qe/qe_vartest.h"
 #include "qe/qe_solve_plugin.h"
 
-namespace eq {
+namespace {
 
     bool occurs_var(unsigned idx, expr* e) {
         if (is_ground(e)) return false;
@@ -64,7 +64,7 @@ namespace eq {
         return false;
     }
 
-    class der {
+    class eq_der {
         ast_manager &   m;
         arith_util      a;
         datatype_util   dt;
@@ -560,7 +560,7 @@ namespace eq {
                   tout << mk_pp(tmp, m) << "\n";);
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* c = conjs[i].get();
-                expr* l, *r;
+                expr *l = nullptr, *r = nullptr;
                 if (m.is_false(c)) {
                     conjs[0] = c;
                     conjs.resize(1);
@@ -632,7 +632,7 @@ namespace eq {
 
         bool remove_unconstrained(expr_ref_vector& conjs) {
             bool reduced = false, change = true;
-            expr* r, *l, *ne;
+            expr *r = nullptr, *l = nullptr, *ne = nullptr;
             while (change) {
                 change = false;
                 for (unsigned i = 0; i < conjs.size(); ++i) {
@@ -692,7 +692,7 @@ namespace eq {
         }
 
     public:
-        der(ast_manager & m, params_ref const & p):
+        eq_der(ast_manager & m, params_ref const & p):
             m(m),
             a(m),
             dt(m),
@@ -750,13 +750,11 @@ namespace eq {
 
 
     };
-}; // namespace eq
 
 // ------------------------------------------------------------
 // basic destructive equality (and disequality) resolution for arrays.
 
-namespace ar {
-    class der {
+    class ar_der {
         ast_manager&             m;
         array_util               a;
         is_variable_proc*        m_is_variable;
@@ -883,7 +881,7 @@ namespace ar {
 
     public:
 
-        der(ast_manager& m): m(m), a(m), m_is_variable(nullptr) {}
+        ar_der(ast_manager& m): m(m), a(m), m_is_variable(nullptr) {}
 
         void operator()(expr_ref_vector& fmls) {
             for (unsigned i = 0; i < fmls.size(); ++i) {
@@ -898,13 +896,11 @@ namespace ar {
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
 
     };
-}; // namespace ar
 
 
 // ------------------------------------------------------------
 // fm_tactic adapted to eliminate designated de-Bruijn indices.
 
-namespace fm {
     typedef ptr_vector<app> clauses;
     typedef unsigned        var;
     typedef int             bvar;
@@ -1678,7 +1674,7 @@ namespace fm {
                         expr * monomial = mons[j];
                         expr * a;
                         rational a_val;
-                        expr * x;
+                        expr * x = nullptr;
                         if (m_util.is_mul(monomial, a, x)) {
                             VERIFY(m_util.is_numeral(a, a_val));
                         }
@@ -2219,7 +2215,7 @@ namespace fm {
         }
     };
 
-} // namespace fm
+} // anonymous namespace
 
 class qe_lite::impl {
 public:
@@ -2269,9 +2265,9 @@ public:
 
 private:
     ast_manager& m;
-    eq::der      m_der;
-    fm::fm       m_fm;
-    ar::der      m_array_der;
+    eq_der       m_der;
+    fm           m_fm;
+    ar_der       m_array_der;
     elim_star    m_elim_star;
     th_rewriter  m_rewriter;
 
