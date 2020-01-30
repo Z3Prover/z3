@@ -143,11 +143,6 @@ namespace {
             for (unsigned i = 0; i < definitions.size(); i++) {
                 if (definitions[i] == nullptr)
                     continue;
-                if (is_sub_extract(vars[i]->get_idx(), definitions[i])) {
-                    order.push_back(i);
-                    done.mark(definitions[i]);
-                    continue;
-                }
                 var * v = vars[i];
                 SASSERT(v->get_idx() == i);
                 SASSERT(todo.empty());
@@ -172,6 +167,10 @@ namespace {
                                     visiting.reset_mark(t);
                                     definitions[vidx] = nullptr;
                                 }
+                                else if (is_sub_extract(vidx, definitions[vidx])) {
+                                    order.push_back(vidx);
+                                    done.mark(definitions[vidx]);
+                                }
                                 else {
                                     visiting.mark(t);
                                     fr.second = 1;
@@ -183,10 +182,8 @@ namespace {
                         else {
                             SASSERT(fr.second == 1);
                             visiting.reset_mark(t);
-                            if (!done.is_marked(t)) {
-                                if (definitions.get(vidx, nullptr) != nullptr)
-                                    order.push_back(vidx);
-                                done.mark(t);
+                            if (!done.is_marked(t) && definitions.get(vidx, nullptr) != nullptr) {
+                                order.push_back(vidx);
                             }
                         }
                         done.mark(t);
@@ -194,7 +191,6 @@ namespace {
                         break;
                     case AST_QUANTIFIER:
                         UNREACHABLE();
-                        todo.pop_back();
                         break;
                     case AST_APP:
                         num = to_app(t)->get_num_args();
@@ -210,7 +206,6 @@ namespace {
                         break;
                     default:
                         UNREACHABLE();
-                        todo.pop_back();
                         break;
                     }
                 }
@@ -325,8 +320,6 @@ namespace {
         }
 
         void get_elimination_order() {
-            m_order.reset();
-
             TRACE("top_sort",
                   tout << "DEFINITIONS: " << std::endl;
                   for(unsigned i = 0; i < m_map.size(); i++)
@@ -901,6 +894,7 @@ namespace {
 // ------------------------------------------------------------
 // fm_tactic adapted to eliminate designated de-Bruijn indices.
 
+namespace fm {
     typedef ptr_vector<app> clauses;
     typedef unsigned        var;
     typedef int             bvar;
@@ -2215,6 +2209,7 @@ namespace {
         }
     };
 
+} // namespace fm
 } // anonymous namespace
 
 class qe_lite::impl {
@@ -2266,7 +2261,7 @@ public:
 private:
     ast_manager& m;
     eq_der       m_der;
-    fm           m_fm;
+    fm::fm       m_fm;
     ar_der       m_array_der;
     elim_star    m_elim_star;
     th_rewriter  m_rewriter;
