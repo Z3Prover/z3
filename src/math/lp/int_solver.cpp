@@ -428,7 +428,6 @@ lia_move int_solver::check(lp::explanation * e) {
         m_lar_solver->pivot_fixed_vars_from_basis();
 
     CHECK_RET(patch_nbasic_columns());
-    ++m_number_of_calls;
     CHECK_RET(find_cube());        
     CHECK_RET(hnf_cut());    
     CHECK_RET(gomory_cut());
