@@ -22,6 +22,8 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "tactic/goal_util.h"
 
+namespace {
+
 class arith_degree_probe : public probe {
     struct proc {
         ast_manager &            m;
@@ -163,6 +165,8 @@ struct has_nlmul {
     }
 };
 
+}
+
 probe * mk_arith_avg_degree_probe() {
     return alloc(arith_degree_probe, true);
 }
@@ -179,6 +183,7 @@ probe * mk_arith_max_bw_probe() {
     return alloc(arith_bw_probe, false);
 }
 
+namespace {
 struct is_non_qflira_functor {
     struct found {};
     ast_manager & m;
@@ -392,6 +397,8 @@ public:
     }
 };
 
+}
+
 probe * mk_is_qflia_probe() {
     return alloc(is_qflia_probe);
 }
@@ -416,6 +423,8 @@ probe * mk_is_mip_probe() {
     return alloc(is_mip_probe);
 }
 
+
+namespace {
 
 struct is_non_nira_functor {
     struct found {};
@@ -696,6 +705,8 @@ public:
         return is_qfufnra(g);
     }
 };
+
+}
 
 probe * mk_is_qfnia_probe() {
     return alloc(is_qfnia_probe);

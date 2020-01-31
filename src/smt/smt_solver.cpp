@@ -27,7 +27,7 @@ Notes:
 #include "ast/func_decl_dependencies.h"
 #include "util/dec_ref_util.h"
 
-namespace smt {
+namespace {
 
     class smt_solver : public solver_na2as {
 
@@ -445,18 +445,20 @@ namespace smt {
             }
         }
     };
-};
-
-solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic) {
-    return alloc(smt::smt_solver, m, p, logic);
 }
 
+solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic) {
+    return alloc(smt_solver, m, p, logic);
+}
+
+namespace {
 class smt_solver_factory : public solver_factory {
 public:
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_smt_solver(m, p, logic);
     }
 };
+}
 
 solver_factory * mk_smt_solver_factory() {
     return alloc(smt_solver_factory);

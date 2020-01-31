@@ -27,6 +27,8 @@ Revision History:
 #include "smt/mam.h"
 #include "smt/smt_context.h"
 
+using namespace smt;
+
 // #define _PROFILE_MAM
 
 // -----------------------------------------
@@ -53,7 +55,7 @@ Revision History:
 
 #define IS_CGR_SUPPORT true
 
-namespace smt {
+namespace {
     // ------------------------------------
     //
     // Trail
@@ -1985,11 +1987,13 @@ namespace smt {
 
         enode * init_continue(cont const * c, unsigned expected_num_args);
 
+#ifdef _TRACE
         void display_reg(std::ostream & out, unsigned reg);
 
         void display_instr_input_reg(std::ostream & out, instruction const * instr);
 
         void display_pc_info(std::ostream & out);
+#endif
 
 #define INIT_ARGS_SIZE 16
 
@@ -2222,6 +2226,7 @@ namespace smt {
         return *(bp.m_it);
     }
 
+#ifdef _TRACE
     void interpreter::display_reg(std::ostream & out, unsigned reg) {
         out << "reg[" << reg << "]: ";
         enode * n = m_registers[reg];
@@ -2273,6 +2278,7 @@ namespace smt {
         out << "\n";
         display_instr_input_reg(out, m_pc);
     }
+#endif
 
     bool interpreter::execute_core(code_tree * t, enode * n) {
         TRACE("trigger_bug", tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_owner(), m) << "\n";);
@@ -2839,6 +2845,7 @@ namespace smt {
         return false;
     } // end of execute_core
 
+#if 0
     void display_trees(std::ostream & out, const ptr_vector<code_tree> & trees) {
         unsigned lbl = 0;
         for (code_tree * tree : trees) {
@@ -2849,6 +2856,7 @@ namespace smt {
             ++lbl;
         }
     }
+#endif
 
     // ------------------------------------
     //
@@ -4010,11 +4018,13 @@ namespace smt {
             SASSERT(approx_subset(r1->get_lbls(), r2->get_lbls()));
         }
     };
+}
 
+namespace smt {
     mam * mk_mam(context & ctx) {
         return alloc(mam_impl, ctx, true);
     }
-};
+}
 
 #ifdef Z3DEBUG
 void pp(smt::code_tree * c) {

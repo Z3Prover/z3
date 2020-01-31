@@ -1676,12 +1676,6 @@ namespace sat {
     }    
 
 
-    struct clause_size_lt {
-        bool operator()(clause const * c1, clause const * c2) const {
-            return c1->size() < c2->size();
-        }
-    };
-
     void solver::init_assumptions(unsigned num_lits, literal const* lits) {
         if (num_lits == 0 && m_user_scope_literals.empty()) {
             return;

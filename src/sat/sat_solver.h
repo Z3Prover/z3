@@ -32,7 +32,6 @@ Revision History:
 #include "sat/sat_scc.h"
 #include "sat/sat_asymm_branch.h"
 #include "sat/sat_aig_simplifier.h"
-#include "sat/sat_iff3_finder.h"
 #include "sat/sat_probing.h"
 #include "sat/sat_mus.h"
 #include "sat/sat_binspr.h"
@@ -202,7 +201,6 @@ namespace sat {
         friend class drat;
         friend class elim_eqs;
         friend class bcd;
-        friend class iff3_finder;
         friend class mus;
         friend class probing;
         friend class simplifier;
