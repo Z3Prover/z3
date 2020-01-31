@@ -21,6 +21,8 @@
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
+
+#define SMALL_CUTS 0
 namespace lp {
 
 class gomory::imp {
@@ -35,7 +37,11 @@ class gomory::imp {
     mpq                   m_one_minus_f;
     mpq                   m_fj;
     mpq                   m_one_minus_fj;
-    
+#if SMALL_CUTS
+    mpq                   m_abs_max, m_big_number;
+#endif
+    struct found_big {};
+
     const impq & get_value(unsigned j) const { return m_int_solver.get_value(j); }
     bool is_real(unsigned j) const { return m_int_solver.is_real(j); }
     bool at_lower(unsigned j) const { return m_int_solver.at_lower(j); }
@@ -71,6 +77,9 @@ class gomory::imp {
         m_t.add_monomial(new_a, j);
         m_lcm_den = lcm(m_lcm_den, denominator(new_a));
         TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << ", lcm_den = " << m_lcm_den << "\n";);
+#if SMALL_CUTS
+        if (numerator(new_a) > m_big_number) throw found_big(); 
+#endif
     }
 
     void real_case_in_gomory_cut(const mpq & a, unsigned j) {
@@ -100,6 +109,9 @@ class gomory::imp {
         }
         TRACE("gomory_cut_detail_real", tout << a << "*v" << j << " k: " << m_k << "\n";);
         m_t.add_monomial(new_a, j);
+#if SMALL_CUTS
+        if (numerator(new_a) > m_big_number) throw found_big(); 
+#endif
     }
 
     lia_move report_conflict_from_gomory_cut() {
@@ -280,6 +292,14 @@ public:
               tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f << "\n";);
         lp_assert(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
 
+#if SMALL_CUTS
+        m_abs_max = 0;
+        for (const auto & p : m_row) {
+            mpq t = abs(ceil(p.coeff()));
+            if (t > m_abs_max) m_abs_max = t;
+        }
+        m_big_number = m_abs_max; // .expt(2);
+#endif
         mpq one_min_m_f = 1 - m_f;
         for (const auto & p : m_row) {
             unsigned j = p.var();
@@ -290,20 +310,24 @@ public:
             }
 
              // use -p.coeff() to make the format compatible with the format used in: Integrating Simplex with DPLL(T)
-            if (is_real(j)) {  
-                real_case_in_gomory_cut(- p.coeff(), j);
-            } else {
-                if (p.coeff().is_int()) {
-                    // m_fj will be zero and no monomial will be added
-                    continue;
+            try {
+                if (is_real(j)) {  
+                    real_case_in_gomory_cut(- p.coeff(), j);
+                } 
+                else if (!p.coeff().is_int()) {
+                    some_int_columns = true;
+                    m_fj = fractional_part(-p.coeff());
+                    m_one_minus_fj = 1 - m_fj;
+                    int_case_in_gomory_cut(j);
                 }
-                some_int_columns = true;
-                m_fj = fractional_part(-p.coeff());
-                m_one_minus_fj = 1 - m_fj;
-                int_case_in_gomory_cut(j);
+            }
+            catch (found_big) {
+                m_ex->clear();
+                m_t.clear();
+                m_k = 1;
+                return lia_move::undef;
             }
         }
-
         if (m_t.is_empty())
             return report_conflict_from_gomory_cut();
         if (some_int_columns)

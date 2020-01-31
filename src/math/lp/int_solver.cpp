@@ -12,26 +12,25 @@
 namespace lp {
 
 
-void int_solver::trace_inf_rows() const {
-    TRACE("arith_int_rows",
-          unsigned num = m_lar_solver->A_r().column_count();
-          for (unsigned v = 0; v < num; v++) {
-              if (column_is_int(v) && !get_value(v).is_int()) {
-                  display_column(tout, v);
-              }
-          }
+std::ostream& int_solver::display_inf_rows(std::ostream& out) const {
+    unsigned num = m_lar_solver->A_r().column_count();
+    for (unsigned v = 0; v < num; v++) {
+        if (column_is_int(v) && !get_value(v).is_int()) {
+            display_column(out, v);
+        }
+    }
     
-          num = 0;
-          for (unsigned i = 0; i < m_lar_solver->A_r().row_count(); i++) {
-              unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
-              if (column_is_int_inf(j)) {
-                  num++;
-                  m_lar_solver->print_row(m_lar_solver->A_r().m_rows[i], tout);
-                  tout << "\n";
-              }
-          }
-          tout << "num of int infeasible: " << num << "\n";
-          );
+    num = 0;
+    for (unsigned i = 0; i < m_lar_solver->A_r().row_count(); i++) {
+        unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
+        if (column_is_int_inf(j)) {
+            num++;
+            m_lar_solver->print_row(m_lar_solver->A_r().m_rows[i], out);
+            out << "\n";
+        }
+    }
+    out << "num of int infeasible: " << num << "\n";
+    return out;
 }
 
 bool int_solver::has_inf_int() const {
@@ -134,7 +133,6 @@ constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
 }
 
 lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row) {
-
     lp_assert(column_is_int_inf(inf_col));
     gomory gc(m_t, m_k, m_ex, inf_col, row, *this);
     return gc.create_cut();
@@ -156,18 +154,6 @@ lia_move int_solver::proceed_with_gomory_cut(unsigned j) {
 unsigned int_solver::row_of_basic_column(unsigned j) const {
     return m_lar_solver->row_of_basic_column(j);
 }
-
-// template <typename T>
-// void int_solver::fill_cut_solver_for_constraint(constraint_index ci, cut_solver<T> & cs) {
-//     const lar_base_constraint* c = m_lar_solver->constraints()[ci];
-//     vector<std::pair<T, var_index>> coeffs;
-//     T rs;
-//     get_int_coeffs_from_constraint(c, coeffs, rs);
-//     vector<constraint_index> explanation;
-//     explanation.push_back(ci);
-//     cs.add_ineq(coeffs, -rs, explanation);
-// }
-
 
 
 // this will allow to enable and disable tracking of the pivot rows
@@ -240,8 +226,12 @@ bool int_solver::tighten_terms_for_cube() {
     return true;
 }
 
+bool int_solver::should_find_cube() {
+    return m_number_of_calls % settings().m_int_find_cube_period == 0;
+}
+
 lia_move int_solver::find_cube() {
-    if (m_number_of_calls % settings().m_int_find_cube_period != 0)
+    if (!should_find_cube())
         return lia_move::undef;
     
     settings().stats().m_cube_calls++;
@@ -280,8 +270,12 @@ void int_solver::find_feasible_solution() {
     lp_assert(lp_status::OPTIMAL == m_lar_solver->get_status() || lp_status::FEASIBLE == m_lar_solver->get_status());
 }
 
+bool int_solver::should_run_gcd_test() {
+    return settings().m_int_run_gcd_test;    
+}
+
 lia_move int_solver::run_gcd_test() {
-    if (settings().m_int_run_gcd_test) {
+    if (should_run_gcd_test()) {
         settings().stats().m_gcd_calls++;
         TRACE("int_solver", tout << "gcd-test " << settings().stats().m_gcd_calls << "\n";);
         if (!gcd_test()) {
@@ -293,19 +287,19 @@ lia_move int_solver::run_gcd_test() {
     return lia_move::undef;
 }
 
+bool int_solver::should_gomory_cut() {
+    return m_number_of_calls % settings().m_int_gomory_cut_period == 0;
+}
+
 lia_move int_solver::gomory_cut() {
     TRACE("int_solver", tout << "gomory " << m_number_of_calls << "\n";);
-    if ((m_number_of_calls) % settings().m_int_gomory_cut_period != 0)
+    if (!should_gomory_cut())
         return lia_move::undef;
 
     if (m_lar_solver->move_non_basic_columns_to_bounds()) {
-#if Z3DEBUG 
-        lp_status st =
-#endif
-            m_lar_solver->find_feasible_solution();
-#if Z3DEBUG
+        lp_status st = m_lar_solver->find_feasible_solution();
+        (void)st;
         lp_assert(st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
-#endif
     }
         
     int j = find_inf_int_base_column(); 
@@ -315,7 +309,6 @@ lia_move int_solver::gomory_cut() {
     }
     return proceed_with_gomory_cut(j);
 }
-
 
 void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     mpq rs;
@@ -344,7 +337,7 @@ const lp_settings& int_solver::settings() const {
 
 bool int_solver::hnf_has_var_with_non_integral_value() const {
     for (unsigned j : m_hnf_cutter.vars())
-        if (get_value(j).is_int() == false)
+        if (!get_value(j).is_int())
             return true;
     return false;
 }
@@ -393,14 +386,22 @@ lia_move int_solver::make_hnf_cut() {
     return r;
 }
 
+bool int_solver::should_hnf_cut() {
+    return settings().m_enable_hnf && m_number_of_calls % m_hnf_cut_period == 0;
+}
+
 lia_move int_solver::hnf_cut() {
-    if (!settings().m_enable_hnf) {
-        return lia_move::undef;
+    lia_move r = lia_move::undef;
+    if (should_hnf_cut()) {
+        r = make_hnf_cut();
+        if (r == lia_move::undef) {
+            m_hnf_cut_period *= 2;
+        }
+        else {
+            m_hnf_cut_period = settings().hnf_cut_period();
+        }
     }
-    if ((m_number_of_calls) % settings().hnf_cut_period() == 0) {
-        return make_hnf_cut();
-    }
-    return lia_move::undef;
+    return r;
 }
 
 lia_move int_solver::check(lp::explanation * e) {
@@ -441,11 +442,8 @@ lia_move int_solver::branch_or_sat() {
 
 int int_solver::find_any_inf_int_column_basis_first() {
    int j = find_inf_int_base_column();
-   if (j != -1)
-       return j;
-   return find_inf_int_nbasis_column();
+   return j != -1 ? j : find_inf_int_nbasis_column();
 }
-
 
 void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val) {
     lp_assert(!is_base(j));
@@ -454,8 +452,6 @@ void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const
     x = new_val;
     m_lar_solver->change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
-
-
 
 void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver; 
@@ -694,12 +690,13 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_number_of_calls(0),
-    m_hnf_cutter(settings()) {
+    m_hnf_cutter(settings()),
+    m_hnf_cut_period(settings().hnf_cut_period()) {
     m_lar_solver->set_int_solver(this);
 }
 
 
-bool int_solver::has_low(unsigned j) const {
+bool int_solver::has_lower(unsigned j) const {
     switch (m_lar_solver->m_mpq_lar_core_solver.m_column_types()[j]) {
     case column_type::fixed:
     case column_type::boxed:
@@ -722,9 +719,7 @@ bool int_solver::has_upper(unsigned j) const {
 }
 
 
-void set_lower(impq & l,
-               bool & inf_l,
-               impq const & v ) {
+static void set_lower(impq & l, bool & inf_l, impq const & v ) {
     if (inf_l || v > l) {
         l = v;
         inf_l = false;
@@ -732,16 +727,14 @@ void set_lower(impq & l,
 }
 
 
-void set_upper(impq & u,
-               bool & inf_u,
-               impq const & v) {
+static void set_upper(impq & u, bool & inf_u, impq const & v) {
     if (inf_u || v < u) {
         u = v;
         inf_u = false;
     }
 }
 
-    bool int_solver::get_freedom_interval_for_column(unsigned j, bool val_is_int, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
+bool int_solver::get_freedom_interval_for_column(unsigned j, bool val_is_int, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     if (lcs.m_r_heading[j] >= 0) // the basic var 
         return false;
@@ -753,7 +746,7 @@ void set_upper(impq & u,
     l = u = zero_of_type<impq>();
     m = mpq(1);
 
-    if (has_low(j)) {
+    if (has_lower(j)) {
         set_lower(l, inf_l, lower_bound(j) - xj);
     }
     if (has_upper(j)) {
@@ -794,7 +787,7 @@ void set_upper(impq & u,
 
         
         if (a.is_neg()) {
-            if (has_low(i)) {
+            if (has_lower(i)) {
                 SET_BOUND(set_lower, l, inf_l, a, xi, lcs.m_r_lower_bounds()[i]);
             }
             if (has_upper(i)) {
@@ -805,7 +798,7 @@ void set_upper(impq & u,
             if (has_upper(i)) {
                 SET_BOUND(set_lower, l, inf_l, a, xi, lcs.m_r_upper_bounds()[i]);
             }
-            if (has_low(i)) {
+            if (has_lower(i)) {
                 SET_BOUND(set_upper, u, inf_u, a, xi, lcs.m_r_lower_bounds()[i]);
             }
         }
@@ -839,9 +832,7 @@ bool int_solver::is_real(unsigned j) const {
 
 bool int_solver::value_is_int(unsigned j) const {
     return m_lar_solver->column_value_is_int(j);
-}
-
-    
+}    
 
 bool int_solver::is_feasible() const {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
@@ -1031,18 +1022,16 @@ lia_move int_solver::create_branch_on_column(int j) {
     lp_assert(j != -1);
     m_t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
     if (is_free(j)) {
-        m_upper = true;
+        m_upper = random() % 2;
         m_k = mpq(0);
     } else {
         m_upper = left_branch_is_more_narrow_than_right(j);
         m_k = m_upper? floor(get_value(j)) : ceil(get_value(j));        
     }
 
-    TRACE("int_solver", tout << "branching v" << j << " = " << get_value(j) << "\n";
-          display_column(tout, j);
-          tout << "k = " << m_k << std::endl;
-
-          );
+    TRACE("int_solver",
+          display_column(tout << "branching v" << j << " = " << get_value(j) << "\n", j);
+          tout << "k = " << m_k << std::endl;);
     return lia_move::branch;
 
 }

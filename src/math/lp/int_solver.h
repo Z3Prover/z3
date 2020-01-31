@@ -44,6 +44,7 @@ public:
     explanation         *m_ex; // the conflict explanation
     bool                m_upper; // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
     hnf_cutter          m_hnf_cutter;
+    unsigned            m_hnf_cut_period;
     // methods
     int_solver(lar_solver* lp);
 
@@ -97,7 +98,12 @@ private:
     bool non_basic_columns_are_at_bounds() const;
     bool is_feasible() const;
     bool column_is_int_inf(unsigned j) const;
-    void trace_inf_rows() const;
+    std::ostream& display_inf_rows(std::ostream&) const;
+    bool should_find_cube();
+    bool should_run_gcd_test();
+    bool should_gomory_cut();
+    bool should_hnf_cut();
+
     lia_move branch_or_sat();
     int find_any_inf_int_column_basis_first();
     int find_inf_int_base_column();
@@ -110,7 +116,7 @@ private:
     lia_move proceed_with_gomory_cut(unsigned j);
     bool is_gomory_cut_target(const row_strip<mpq>&);
     bool at_bound(unsigned j) const;
-    bool has_low(unsigned j) const;
+    bool has_lower(unsigned j) const;
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
 
