@@ -1805,7 +1805,7 @@ namespace {
         }
     };
 
-#ifdef Z3DEBUG
+#if 0
     bool check_lbls(enode * n) {
         approx_set  lbls;
         approx_set plbls;
@@ -4027,7 +4027,7 @@ namespace smt {
 }
 
 #ifdef Z3DEBUG
-void pp(smt::code_tree * c) {
+void pp(code_tree * c) {
     c->display(std::cout);
 }
 #endif
