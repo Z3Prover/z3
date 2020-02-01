@@ -69,6 +69,7 @@ namespace smt {
     class context {
         friend class model_generator;
         friend class lookahead;
+        friend class parallel;
     public:
         statistics                  m_stats;
 
@@ -82,6 +83,7 @@ namespace smt {
         ast_manager &               m;
         smt_params &                m_fparams;
         params_ref                  m_params;
+        ::statistics                m_aux_stats;
         setup                       m_setup;
         unsigned                    m_relevancy_lvl;
         timer                       m_timer;
@@ -110,6 +112,8 @@ namespace smt {
         unsigned                    m_final_check_idx; // circular counter used for implementing fairness
 
         bool                        m_is_auxiliary; // used to prevent unwanted information from being logged.
+        parallel*                   m_par;
+        unsigned                    m_par_index;
 
         // -----------------------------------
         //
@@ -409,13 +413,14 @@ namespace smt {
             return js.get_kind() == b_justification::JUSTIFICATION && js.get_justification()->get_from_theory() == th_id;
         }
 
-        int get_random_value() {
-            return m_random();
-        }
 
-        bool is_searching() const {
-            return m_searching;
-        }
+        void set_par(unsigned idx, parallel* p) { m_par = p; m_par_index = idx; }
+
+        void set_random_seed(unsigned s) { m_random.set_seed(s); }
+
+        int get_random_value() { return m_random(); }
+
+        bool is_searching() const { return m_searching; }
 
         svector<double> const & get_activity_vector() const {
             return m_activity;

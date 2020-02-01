@@ -90,7 +90,7 @@ private:
     #endif
 
     static const mpn_digit zero;
-    mpn_sbuffer u, v, t_ms, t_ab;
+//    mpn_sbuffer u, v, t_ms, t_ab;
     void display_raw(std::ostream & out, mpn_digit const * a, size_t lng) const;
 
     size_t div_normalize(mpn_digit const * numer, size_t lnum,

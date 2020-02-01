@@ -377,6 +377,7 @@ namespace smt {
     }
 
     void context::collect_statistics(::statistics & st) const {
+        st.copy(m_aux_stats);
         st.update("conflicts", m_stats.m_num_conflicts);
         st.update("decisions", m_stats.m_num_decisions);
         st.update("propagations", m_stats.m_num_propagations + m_stats.m_num_bin_propagations);

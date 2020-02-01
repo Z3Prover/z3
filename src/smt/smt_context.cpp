@@ -38,6 +38,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "smt/smt_model_checker.h"
 #include "smt/smt_model_finder.h"
+#include "smt/smt_parallel.h"
 
 namespace smt {
 
@@ -63,6 +64,8 @@ namespace smt {
         m_e_internalized_stack(m),
         m_final_check_idx(0),
         m_is_auxiliary(false),
+        m_par(nullptr),
+        m_par_index(0),
         m_cg_table(m),
         m_is_diseq_tmp(nullptr),
         m_units_to_reassert(m),
@@ -3376,6 +3379,11 @@ namespace smt {
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
 
+        if (m_fparams.m_threads > 1) {
+            parallel p(*this);
+            expr_ref_vector asms(m);
+            return p(asms);
+        }
 
         internalize_assertions();
         expr_ref_vector theory_assumptions(m);
@@ -3432,10 +3440,14 @@ namespace smt {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
+        expr_ref_vector asms(m, num_assumptions, assumptions);
+        if (m_fparams.m_threads > 1) {            
+            parallel p(*this);
+            return p(asms);
+        }
         lbool r;
         do {
             pop_to_base_lvl();
-            expr_ref_vector asms(m, num_assumptions, assumptions);
             internalize_assertions();
             add_theory_assumptions(asms);                
             TRACE("unsat_core_bug", tout << asms << "\n";);        
