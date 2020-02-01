@@ -200,9 +200,9 @@ class mpz_manager {
         mpz_t * cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
 #else
 #if SYNC
-        mpz_t * cell = reinterpret_cast<mpz_t*>(memory::allocate(sizeof(mpz_t)));
-#else
         mpz_t * cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
+#else
+        mpz_t * cell = reinterpret_cast<mpz_t*>(memory::allocate(sizeof(mpz_t)));
 #endif
 #endif
         mpz_init(*cell);
