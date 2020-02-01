@@ -112,7 +112,7 @@ namespace smt {
         unsigned                    m_final_check_idx; // circular counter used for implementing fairness
 
         bool                        m_is_auxiliary; // used to prevent unwanted information from being logged.
-        parallel*                   m_par;
+        class parallel*             m_par;
         unsigned                    m_par_index;
 
         // -----------------------------------
@@ -413,26 +413,17 @@ namespace smt {
             return js.get_kind() == b_justification::JUSTIFICATION && js.get_justification()->get_from_theory() == th_id;
         }
 
-
-        void set_par(unsigned idx, parallel* p) { m_par = p; m_par_index = idx; }
-
         void set_random_seed(unsigned s) { m_random.set_seed(s); }
 
         int get_random_value() { return m_random(); }
 
         bool is_searching() const { return m_searching; }
 
-        svector<double> const & get_activity_vector() const {
-            return m_activity;
-        }
+        svector<double> const & get_activity_vector() const { return m_activity; }
 
-        double get_activity(bool_var v) const {
-            return m_activity[v];
-        }
+        double get_activity(bool_var v) const { return m_activity[v]; }
 
-        void set_activity(bool_var v, double act) {
-            m_activity[v] = act;
-        }
+        void set_activity(bool_var v, double act) { m_activity[v] = act; }
 
         void activity_changed(bool_var v, bool increased) {
             if (increased) {
@@ -1616,6 +1607,8 @@ namespace smt {
         expr * get_unsat_core_expr(unsigned idx) const {
             return m_unsat_core.get(idx);
         }
+
+        expr_ref_vector const& unsat_core() const { return m_unsat_core; }
 
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
 

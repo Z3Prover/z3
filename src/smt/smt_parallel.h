@@ -24,18 +24,11 @@ namespace smt {
 
     class parallel {
         context& ctx;
-        expr_ref_vector     m_unit_trail;
-        obj_hashtable<expr> m_unit_set;
-        unsigned_vector     m_unit_lim;
-        std::mutex          m_mux;
     public:
-        parallel(context& ctx): ctx(ctx), m_unit_trail(ctx.m) {}
+        parallel(context& ctx): ctx(ctx) {}
 
         lbool operator()(expr_ref_vector const& asms);
 
-        void add_unit(context& ctx, expr* e);
-
-        void get_units(unsigned idx, context& pctx);
     };
 
 }
