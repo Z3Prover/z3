@@ -3449,14 +3449,15 @@ namespace smt {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
-        expr_ref_vector asms(m, num_assumptions, assumptions);
         if (m_fparams.m_threads > 1) {            
+            expr_ref_vector asms(m, num_assumptions, assumptions);
             parallel p(*this);
             return p(asms);
         }
         lbool r;
         do {
             pop_to_base_lvl();
+            expr_ref_vector asms(m, num_assumptions, assumptions);
             internalize_assertions();
             add_theory_assumptions(asms);                
             TRACE("unsat_core_bug", tout << asms << "\n";);        
