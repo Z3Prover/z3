@@ -22,7 +22,7 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
 
-#define SMALL_CUTS 0
+#define SMALL_CUTS 1
 namespace lp {
 
 class gomory::imp {

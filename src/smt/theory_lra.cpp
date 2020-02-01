@@ -2045,7 +2045,15 @@ public:
 
         case lp::lia_move::branch: {
             TRACE("arith", tout << "branch\n";);
-            app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
+            app_ref b(m);
+            bool u = m_lia->is_upper();
+            auto const & k = m_lia->get_offset();
+            if (0 == ctx().get_random_value() % 2) {
+                b = mk_bound(m_lia->get_term(), k, !u);
+            }
+            else {
+                b = mk_bound(m_lia->get_term(), u ? k - 1 : k + 1, u);
+            }
             if (m.has_trace_stream()) {
                 app_ref body(m);
                 body = m.mk_or(b, m.mk_not(b));
