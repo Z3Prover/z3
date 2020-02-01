@@ -1850,15 +1850,24 @@ namespace smt {
             else {
                 switch (m_fparams.m_phase_selection) {
                 case PS_THEORY: 
-                    if (d.is_theory_atom()) {
+                    if (m_phase_cache_on && d.m_phase_available) {
+                        is_pos = m_bdata[var].m_phase;
+                    }
+                    else if (!m_phase_cache_on && d.is_theory_atom()) {
                         theory * th = m_theories.get_plugin(d.get_theory());
                         lbool ph = th->get_phase(var);
                         if (ph != l_undef) {
                             is_pos = ph == l_true;
-                            break;
+                        }
+                        else {
+                            is_pos = m_phase_default;
                         }
                     }
-                    Z3_fallthrough;
+                    else {
+                        TRACE("phase_selection", tout << "setting to false\n";);
+                        is_pos = m_phase_default;
+                    }
+                    break;
                 case PS_CACHING:
                 case PS_CACHING_CONSERVATIVE:
                 case PS_CACHING_CONSERVATIVE2:

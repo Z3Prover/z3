@@ -45,7 +45,7 @@ namespace smt {
         unsigned error_code = 0;
         bool done = false;
         unsigned num_rounds = 0;
-        unsigned max_conflicts = 400;
+        unsigned max_conflicts = ctx.get_fparams().m_threads_max_conflicts;
 
         for (unsigned i = 0; i < num_threads; ++i) {
             ast_manager* new_m = alloc(ast_manager, m, true);
@@ -87,10 +87,10 @@ namespace smt {
                 }
             }
 
+            unsigned sz = unit_trail.size();
             for (unsigned i = 0; i < num_threads; ++i) {
                 context& pctx = *pctxs[i];
                 ast_translation tr(ctx.m, pctx.m);
-                unsigned sz = unit_trail.size();
                 for (unsigned j = unit_lim[i]; j < sz; ++j) {
                     expr_ref src(ctx.m), dst(pctx.m);
                     dst = tr(unit_trail.get(j));
@@ -105,7 +105,7 @@ namespace smt {
 
         auto worker_thread = [&](int i) {
             try {
-                IF_VERBOSE(0, verbose_stream() << "thread " << i << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "thread " << i << "\n";);
                 context& pctx = *pctxs[i];
                 ast_manager& pm = *pms[i];
                 expr_ref_vector lasms(pasms[i]);
@@ -146,14 +146,16 @@ namespace smt {
             catch (z3_error & err) {
                 error_code = err.error_code();
                 ex_kind = ERROR_EX;                
+                done = true;
             }
             catch (z3_exception & ex) {
                 ex_msg = ex.msg();
                 ex_kind = DEFAULT_EX;    
+                done = true;
             }
         };
 
-        while (!done) {
+        while (true) {
             vector<std::thread> threads(num_threads);
             for (unsigned i = 0; i < num_threads; ++i) {
                 threads[i] = std::thread([&, i]() { worker_thread(i); });
