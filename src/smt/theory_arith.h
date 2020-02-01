@@ -1000,7 +1000,7 @@ namespace smt {
         bool is_mixed_real_integer(row const & r) const;
         bool is_integer(row const & r) const;
         typedef std::pair<rational, expr *> coeff_expr; 
-        void get_polynomial_info(sbuffer<coeff_expr> const & p, sbuffer<var_num_occs> & vars);
+        bool get_polynomial_info(sbuffer<coeff_expr> const & p, sbuffer<var_num_occs> & vars);
         expr * p2expr(sbuffer<coeff_expr> & p);
         expr * power(expr * var, unsigned power);
         expr * mk_nary_mul(unsigned sz, expr * const * args, bool is_int);

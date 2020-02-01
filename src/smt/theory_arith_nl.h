@@ -1209,7 +1209,7 @@ void theory_arith<Ext>::display_coeff_exprs(std::ostream & out, sbuffer<coeff_ex
    occurrences is also stored.
 */
 template<typename Ext>
-void theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuffer<var_num_occs> & varinfo) {
+bool theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuffer<var_num_occs> & varinfo) {
     context & ctx = get_context();
     varinfo.reset();
     m_var2num_occs.reset();
@@ -1222,10 +1222,8 @@ void theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuff
         m_var2num_occs.insert(VAR, occs);                               \
     }
 
-    typename sbuffer<coeff_expr>::const_iterator it  = p.begin();
-    typename sbuffer<coeff_expr>::const_iterator end = p.end();
-    for (; it != end; ++it) {
-        expr * m = it->second;
+    for (auto const& ce : p) {
+        expr * m = ce.second;
         if (is_pure_monomial(m)) {
             unsigned num_vars = get_num_vars_in_monomial(m);
             for (unsigned i = 0; i < num_vars; i++) {
@@ -1242,6 +1240,7 @@ void theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuff
         else {
             TRACE("non_linear", tout << mk_pp(m, get_manager()) << "\n";);
             UNREACHABLE();
+            return false;
         }
     }
 
@@ -1250,6 +1249,7 @@ void theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuff
         if (vn.m_value > 1)
             varinfo.push_back(var_num_occs(vn.m_key, vn.m_value));
     }
+    return true;
 }
 
 /**
@@ -1519,7 +1519,8 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
     TRACE("non_linear", tout << "p.size: " << p.size() << "\n";);
     if (var == nullptr) {
         sbuffer<var_num_occs> varinfo;
-        get_polynomial_info(p, varinfo);
+        if (!get_polynomial_info(p, varinfo))
+            return nullptr;
         if (varinfo.empty())
             return p2expr(p);
         sbuffer<var_num_occs>::const_iterator it  = varinfo.begin();
@@ -1608,7 +1609,8 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
 template<typename Ext>
 bool theory_arith<Ext>::is_cross_nested_consistent(sbuffer<coeff_expr> & p) {
     sbuffer<var_num_occs> varinfo;
-    get_polynomial_info(p, varinfo);
+    if (!get_polynomial_info(p, varinfo))
+        return true;
     if (varinfo.empty())
         return true;
     std::stable_sort(varinfo.begin(), varinfo.end(), var_num_occs_lt());
