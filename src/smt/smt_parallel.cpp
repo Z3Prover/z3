@@ -20,6 +20,7 @@ Author:
 #include "ast/ast_translation.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
+#include <thread>
 
 namespace smt {
     
@@ -57,7 +58,7 @@ namespace smt {
             pasms.push_back(tr(asms));
         }
 
-        std::function<void(context&,expr_ref_vector&,expr_ref&)> cube = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
+        auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
             lookahead lh(ctx);
             c = lh.choose();
             if (c) lasms.push_back(c);
@@ -100,6 +101,8 @@ namespace smt {
         };
 
         std::mutex mux;
+        unsigned num_iterations = 0;
+
         auto worker_thread = [&](int i) {
             try {
                 IF_VERBOSE(0, verbose_stream() << "thread " << i << "\n";);
@@ -109,7 +112,7 @@ namespace smt {
                 expr_ref c(pm);
 
                 pctx.get_fparams().m_max_conflicts = max_conflicts;
-                if (num_iterations > 0) {
+                if (num_iterations++ > 0) {
                     cube(pctx, lasms, c);
                 }
                 lbool r = pctx.check(lasms.size(), lasms.c_ptr());
@@ -132,8 +135,8 @@ namespace smt {
                         result = r;
                         done = true;
                     }
+                    if (!first) return;
                 }
-                if (!first) return;
 
                 for (ast_manager* m : pms) {
                     if (m != &pm) m->limit().cancel();
