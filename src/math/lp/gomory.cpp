@@ -298,7 +298,7 @@ public:
             mpq t = abs(ceil(p.coeff()));
             if (t > m_abs_max) m_abs_max = t;
         }
-        m_big_number = m_abs_max; // .expt(2);
+        m_big_number = m_abs_max.expt(2);
 #endif
         mpq one_min_m_f = 1 - m_f;
         for (const auto & p : m_row) {

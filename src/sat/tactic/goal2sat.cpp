@@ -142,6 +142,11 @@ struct goal2sat::imp {
             else if (m.is_false(t)) {
                 l = sign ? mk_true() : ~mk_true();
             }
+            else if (!is_app(t)) {
+                std::ostringstream strm;
+                strm << mk_ismt2_pp(t, m);
+                throw_op_not_handled(strm.str());
+            }
             else {
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
                 sat::bool_var v = m_solver.add_var(ext);
