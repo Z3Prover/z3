@@ -101,20 +101,22 @@ namespace smt {
         };
 
         std::mutex mux;
-        unsigned num_iterations = 0;
 
         auto worker_thread = [&](int i) {
             try {
-                IF_VERBOSE(1, verbose_stream() << "thread " << i << "\n";);
                 context& pctx = *pctxs[i];
                 ast_manager& pm = *pms[i];
                 expr_ref_vector lasms(pasms[i]);
                 expr_ref c(pm);
 
                 pctx.get_fparams().m_max_conflicts = max_conflicts;
-                if (num_iterations++ > 0) {
+                if (num_rounds > 0) {
                     cube(pctx, lasms, c);
                 }
+                IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i; 
+                           if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
+                           if (c) verbose_stream() << " :cube: " << c;
+                           verbose_stream() << ")\n";);
                 lbool r = pctx.check(lasms.size(), lasms.c_ptr());
                 
                 if (r == l_undef && pctx.m_num_conflicts >= max_conflicts) {
