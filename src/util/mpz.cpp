@@ -187,15 +187,16 @@ mpz_manager<SYNCH>::~mpz_manager() {
 template<bool SYNCH>
 mpz_cell * mpz_manager<SYNCH>::allocate(unsigned capacity) {
     SASSERT(capacity >= m_init_cell_capacity);
+    mpz_cell * cell;
 #ifdef SINGLE_THREAD
-    mpz_cell * cell = reinterpret_cast<mpz_cell*>(m_allocator.allocate(cell_size(capacity)));
+    cell = reinterpret_cast<mpz_cell*>(m_allocator.allocate(cell_size(capacity)));
 #else
-#if SYNC
-    mpz_cell * cell = reinterpret_cast<mpz_cell*>(m_allocator.allocate(cell_size(capacity)));
-#else
-    mpz_cell * cell = reinterpret_cast<mpz_cell*>(memory::allocate(cell_size(capacity)));
-    
-#endif
+    if (SYNCH) {
+        cell = reinterpret_cast<mpz_cell*>(memory::allocate(cell_size(capacity)));
+    }
+    else {
+        cell = reinterpret_cast<mpz_cell*>(m_allocator.allocate(cell_size(capacity)));
+    }
 #endif
     cell->m_capacity = capacity;
     return cell;
@@ -207,11 +208,12 @@ void mpz_manager<SYNCH>::deallocate(bool is_heap, mpz_cell * ptr) {
 #ifdef SINGLE_THREAD
         m_allocator.deallocate(cell_size(ptr->m_capacity), ptr); 
 #else
-#if SYNC
-        m_allocator.deallocate(cell_size(ptr->m_capacity), ptr);        
-#else
-        memory::deallocate(ptr);
-#endif
+        if (SYNCH) {
+            memory::deallocate(ptr);
+        }
+        else {
+            m_allocator.deallocate(cell_size(ptr->m_capacity), ptr);        
+        }
 #endif
     }
 }

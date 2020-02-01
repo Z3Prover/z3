@@ -196,14 +196,16 @@ class mpz_manager {
     mutable mpz_t     m_int64_min;
 
     mpz_t * allocate() {        
+        mpz_t * cell;
 #ifdef SINGLE_THREAD
-        mpz_t * cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
+        cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
 #else
-#if SYNC
-        mpz_t * cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
-#else
-        mpz_t * cell = reinterpret_cast<mpz_t*>(memory::allocate(sizeof(mpz_t)));
-#endif
+        if (SYNCH) {
+            cell = reinterpret_cast<mpz_t*>(memory::allocate(sizeof(mpz_t)));
+        }
+        else {
+            cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
+        }
 #endif
         mpz_init(*cell);
         return cell;
@@ -215,11 +217,12 @@ class mpz_manager {
 #ifdef SINGLE_THREAD
             m_allocator.deallocate(sizeof(mpz_t), ptr); 
 #else
-#if SYNC
-            memory::deallocate(ptr);
-#else
-            m_allocator.deallocate(sizeof(mpz_t), ptr); 
-#endif
+            if (SYNCH) {
+                memory::deallocate(ptr);
+            }
+            else {
+                m_allocator.deallocate(sizeof(mpz_t), ptr); 
+            }
 #endif
         }
     }
