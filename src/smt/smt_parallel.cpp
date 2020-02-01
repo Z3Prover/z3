@@ -17,6 +17,7 @@ Author:
 
 #include "util/scoped_ptr_vector.h"
 #include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
@@ -115,7 +116,7 @@ namespace smt {
                 }
                 IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i; 
                            if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
-                           if (c) verbose_stream() << " :cube: " << c;
+                           if (c) verbose_stream() << " :cube: " << mk_pp(c, pm);
                            verbose_stream() << ")\n";);
                 lbool r = pctx.check(lasms.size(), lasms.c_ptr());
                 
