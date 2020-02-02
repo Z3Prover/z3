@@ -52,7 +52,7 @@ class core_solver_pretty_printer {
     std::string m_upp_bounds_title;
     std::string m_exact_norm_title;
     std::string m_approx_norm_title;
-
+    bool        m_squash_blanks;
 
     unsigned ncols() { return m_core_solver.m_A.column_count(); }
     unsigned nrows() { return m_core_solver.m_A.row_count(); }
@@ -124,9 +124,9 @@ public:
 
     void print_cost();
 
-    void print_given_rows(vector<string> & row, vector<string> & signs, X rst);
+    void print_given_row(vector<string> & row, vector<string> & signs, X rst);
 
     void print_row(unsigned i);
-
+    void print_blanks_local(int n, std::ostream & out);
 };
 }
