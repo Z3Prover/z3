@@ -2124,6 +2124,7 @@ namespace {
                         num_args == p2->get_num_args() &&
                         m_context.is_relevant(p2) &&
                         p2->is_cgr() &&
+                        i < num_args && 
                         p2->get_arg(i)->get_root() == p) {
                         v->push_back(p2);
                     }
