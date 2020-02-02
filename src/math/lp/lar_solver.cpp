@@ -1237,7 +1237,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
     } 
 }
 
-// (x, y) != (x', y') => (x + delty*y) != (x' + delty*y')
+// (x, y) != (x', y') => (x + delta*y) != (x' + delta*y')
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
     lp_assert(m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
     variable_values.clear();

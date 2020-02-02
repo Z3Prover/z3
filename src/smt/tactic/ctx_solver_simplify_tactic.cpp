@@ -48,10 +48,8 @@ public:
     }
 
     ~ctx_solver_simplify_tactic() override {
-        obj_map<sort, func_decl*>::iterator it = m_fns.begin(), end = m_fns.end();
-        for (; it != end; ++it) {
-            m.dec_ref(it->m_value);
-        }
+        for (auto & kv : m_fns)
+            m.dec_ref(kv.m_value);       
         m_fns.reset();
     }
 
@@ -86,6 +84,7 @@ protected:
 
     void reduce(goal& g) {
         SASSERT(g.is_well_sorted());
+        TRACE("ctx_solver_simplify_tactic", g.display(tout););
         expr_ref fml(m);
         tactic_report report("ctx-solver-simplify", g);
         if (g.inconsistent())
@@ -277,7 +276,7 @@ protected:
             m.inc_ref(fn);
             m_fns.insert(s, fn);
         }
-        return expr_ref(m.mk_app(fn, m_arith.mk_numeral(rational(id++), true)), m);
+        return expr_ref(m.mk_app(fn, m_arith.mk_int(id++)), m);
     }
     
 };

@@ -172,6 +172,8 @@ public:
         return alloc(arith_decl_plugin);
     }
 
+    bool convert_int_numerals_to_real() const { return m_convert_int_numerals_to_real; }
+
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
     func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -363,6 +365,7 @@ public:
         return plugin().am();
     }
 
+    bool convert_int_numerals_to_real() const { return plugin().convert_int_numerals_to_real(); }
     bool is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val);
     algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n);
 
