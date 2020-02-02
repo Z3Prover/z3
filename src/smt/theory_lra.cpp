@@ -468,12 +468,39 @@ class theory_lra::imp {
         }
     }
 
-    void found_not_handled(expr* n) {
-        m_not_handled = n;
+    void found_unsupported(expr* n) {
+        std::cout << "unsupported: " <<  mk_pp(n, m) << "\n";
+        ctx().push_trail(value_trail<context, expr*>(m_not_handled));
+        m_not_handled = n;    
+    }
+
+    void found_underspecified(expr* n) {
         if (is_app(n) && is_underspecified(to_app(n))) {
             TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
             m_underspecified.push_back(to_app(n));
         }
+        expr* e = nullptr;
+        if (a.is_div(n)) {                
+            e = a.mk_div0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        }
+        else if (a.is_idiv(n)) {                
+            e = a.mk_idiv0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        }
+        else if (a.is_rem(n)) {                
+            e = a.mk_rem0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        }
+        else if (a.is_mod(n)) {                
+            e = a.mk_mod0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        }
+        else if (a.is_power(n)) {                
+            e = a.mk_power0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        }
+        if (e) {
+            literal lit = th.mk_eq(e, n, false);
+            ctx().mark_as_relevant(lit);
+            ctx().assign(lit, nullptr);
+        }
+
     }
 
     bool is_numeral(expr* term, rational& r) {
@@ -584,7 +611,7 @@ class theory_lra::imp {
                     // already handled
                 }
                 else if (a.is_idiv(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     m_idiv_terms.push_back(n);
                     app * mod = a.mk_mod(n1, n2);
                     ctx().internalize(mod, false);
@@ -594,18 +621,18 @@ class theory_lra::imp {
                     if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);                    
                 }
                 else if (a.is_rem(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_rem_axiom(n1, n2);                    
                 }
                 else if (a.is_div(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
                 }
-                else if (a.is_power(n)) {
-                    found_not_handled(n);
+                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n)) {
+                    found_unsupported(n);
                 }
                 else {
-                    found_not_handled(n);
+                    // no-op
                 }
             }
             else {
@@ -709,6 +736,10 @@ class theory_lra::imp {
             case OP_IDIV:
             case OP_REM:
             case OP_MOD:
+            case OP_DIV0:
+            case OP_IDIV0:
+            case OP_REM0:
+            case OP_MOD0:
                 return true;
             default:
                 break;
@@ -1012,7 +1043,7 @@ public:
         }
         else {
             TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
-            found_not_handled(atom);
+            found_unsupported(atom);
             return true;
         }
         if (is_int(v) && !r.is_int()) {

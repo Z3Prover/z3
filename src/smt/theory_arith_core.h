@@ -39,7 +39,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::found_underspecified_op(app * n) {
-        context& ctx = get_context();
+        context& ctx = get_context();        
         m_underspecified_ops.push_back(n);
         ctx.push_trail(push_back_vector<context, ptr_vector<app>>(m_underspecified_ops));
         if (!m_found_underspecified_op) {
@@ -65,6 +65,7 @@ namespace smt {
             e = m_util.mk_power0(n->get_arg(0), n->get_arg(1));
         }
         if (e) {
+            ast_manager& m = get_manager();
             literal lit = mk_eq(e, n, false);
             ctx.mark_as_relevant(lit);
             ctx.assign(lit, nullptr);
@@ -160,6 +161,10 @@ namespace smt {
             case OP_IDIV:
             case OP_REM:
             case OP_MOD:
+            case OP_DIV0:
+            case OP_IDIV0:
+            case OP_REM0:
+            case OP_MOD0:
                 return true;
             default:
                 break;
@@ -3316,8 +3321,8 @@ namespace smt {
               });
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
-        compute_epsilon();
         if (!m_model_depends_on_computed_epsilon) {
+            compute_epsilon();
             refine_epsilon();
         }
     }

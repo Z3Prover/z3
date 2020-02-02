@@ -659,6 +659,7 @@ rational theory_arith<Ext>::get_value(theory_var v, bool & computed_epsilon) {
     inf_numeral const & val = get_value(v);
     if (!val.get_infinitesimal().is_zero() && !computed_epsilon) {
         compute_epsilon();
+        refine_epsilon();
         computed_epsilon = true;
         m_model_depends_on_computed_epsilon = true;
     }

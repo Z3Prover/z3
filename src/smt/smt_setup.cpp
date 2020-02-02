@@ -837,10 +837,7 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         case AS_NEW_ARITH:
-            if (st.m_num_non_linear != 0 && st.m_has_int) 
-                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-            else 
-                setup_lra_arith();
+            setup_lra_arith();
             break;
         default:
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
