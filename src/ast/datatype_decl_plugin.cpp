@@ -819,7 +819,8 @@ namespace datatype {
             for (constructor const* c : d) {
                 ptr_vector<param_size::size> s_mul;
                 for (accessor const* a : *c) {
-                    s_mul.push_back(get_sort_size(d.params(), a->range()));
+                    auto* sz = get_sort_size(d.params(), a->range());
+                    if (sz) s_mul.push_back(sz);
                 }
                 s_add.push_back(param_size::size::mk_times(s_mul));
             }
