@@ -444,7 +444,7 @@ namespace smt {
         if (!gate_ctx) {
             mk_enode(n, true, true, false);
             set_enode_flag(v, true);
-            SASSERT(get_assignment(v) == l_undef);
+            SASSERT(get_assignment(v) == l_undef || get_assignment(l_def) != l_undef);
         }
     }
 

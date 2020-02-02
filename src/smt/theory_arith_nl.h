@@ -1541,10 +1541,10 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
     rational a, b;
     unsigned n  = UINT_MAX;
     unsigned nm = UINT_MAX;
-    if (in_monovariate_monomials(p, var, i1, a, n, i2, b, nm)) {
+    if (in_monovariate_monomials(p, var, i1, a, n, i2, b, nm)) {        
         CTRACE("in_monovariate_monomials", n == nm,
                for (unsigned i = 0; i < p.size(); i++) {
-                                                        if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager());
+                   if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager());
                }
                tout << "\n";
                tout << "var: " << mk_pp(var, get_manager()) << "\n";
@@ -1554,6 +1554,7 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
                tout << "i2: "  << i2 << "\n";
                tout << "b: "   << b << "\n";
                tout << "nm: "  << nm << "\n";);
+        if (n == nm) return horner(p, var);
         SASSERT(n != nm);
         expr * new_expr = nullptr;
         if (nm < n) {
