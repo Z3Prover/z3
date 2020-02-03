@@ -321,7 +321,7 @@ calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row) {
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-update_x(unsigned entering, const X& delta) {
+add_delta_to_entering(unsigned entering, const X& delta) {
     m_x[entering] += delta;
     if (!use_tableau())
         for (unsigned i : m_ed.m_index) {
@@ -526,7 +526,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 update_basis_and_x(int entering, int leaving, X const & tt) {
     
     if (!is_zero(tt)) {
-        update_x(entering, tt);
+        add_delta_to_entering(entering, tt);
         if ((!numeric_traits<T>::precise()) && A_mult_x_is_off_on_index(m_ed.m_index) && !find_x_by_solving()) {
             init_factorization(m_factorization, m_A, m_basis, m_settings);
             if (!find_x_by_solving()) {

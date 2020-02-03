@@ -358,11 +358,11 @@ update_basis_and_x_tableau(int entering, int leaving, X const & tt) {
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::
 update_x_tableau(unsigned entering, const X& delta) {
-    this->add_delta_to_x_and_do_not_track_feasibility(entering, delta);
+    this->add_delta_to_x(entering, delta);
     if (!this->m_using_infeas_costs) {
         for (const auto & c : this->m_A.m_columns[entering]) {
             unsigned i = c.var();
-            this->update_x_with_delta_and_track_feasibility(this->m_basis[i], -  delta * this->m_A.get_val(c));
+            this->add_delta_to_x_and_track_feasibility(this->m_basis[i], -  delta * this->m_A.get_val(c));
         }
     } else { // m_using_infeas_costs == true
         lp_assert(this->column_is_feasible(entering));
@@ -371,7 +371,7 @@ update_x_tableau(unsigned entering, const X& delta) {
         for (const auto & c : this->m_A.m_columns[entering]) {
             unsigned i = c.var();
             unsigned j = this->m_basis[i];
-            this->add_delta_to_x_and_do_not_track_feasibility(j, -delta * this->m_A.get_val(c));
+            this->add_delta_to_x(j, -delta * this->m_A.get_val(c));
             update_inf_cost_for_column_tableau(j);
             if (is_zero(this->m_costs[j]))
                 this->remove_column_from_inf_set(j);
