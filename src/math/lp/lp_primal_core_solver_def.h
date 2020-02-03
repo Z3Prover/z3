@@ -675,7 +675,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_work
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering, X & t) {
     CASSERT("A_off", !this->A_mult_x_is_off() );
-    this->update_x(entering, t * m_sign_of_entering_delta);
+    this->add_delta_to_entering(entering, t * m_sign_of_entering_delta);
     if (this->A_mult_x_is_off_on_index(this->m_ed.m_index) && !this->find_x_by_solving()) {
         this->init_lu();
         if (!this->find_x_by_solving()) {

@@ -180,7 +180,7 @@ public:
 
     void calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row);
 
-    void update_x(unsigned entering, const X & delta);
+    void add_delta_to_entering(unsigned entering, const X & delta);
 
     const T & get_var_value(unsigned j) const {
         return m_x[j];
@@ -429,7 +429,7 @@ public:
             break;
         }
         if (ret)
-            add_delta_to_x_and_do_not_track_feasibility(j, delta);
+            add_delta_to_x(j, delta);
 
         return ret;
         
@@ -685,21 +685,25 @@ public:
     }
 
     void update_x_with_feasibility_tracking(unsigned j, const X & v) {
+        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
         m_x[j] = v;
         track_column_feasibility(j);
     }
 
-    void update_x_with_delta_and_track_feasibility(unsigned j, const X & del) {
+    void add_delta_to_x_and_track_feasibility(unsigned j, const X & del) {
+        TRACE("lar_solver", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
         m_x[j] += del;
+        TRACE("lar_solver", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
         track_column_feasibility(j);
     }
 
-    void update_x_and_call_tracker(unsigned j, const X & v) {
-        TRACE("lar_solver", tout << "j = " << j << "\n";);
+    void update_x(unsigned j, const X & v) {
+        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
         m_x[j] = v;
     }
 
-    void add_delta_to_x_and_do_not_track_feasibility(unsigned j, const X & delta) {
+    void add_delta_to_x(unsigned j, const X & delta) {
+        TRACE("lar_solver", tout << "j = " << j << ", delta = " << delta << "\n";);
         m_x[j] += delta;
     }
    

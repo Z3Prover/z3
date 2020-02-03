@@ -784,7 +784,7 @@ void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j,
             if (tableau_with_costs()) {
                 m_basic_columns_with_changed_cost.insert(bj);
             }
-            m_mpq_lar_core_solver.m_r_solver.update_x_with_delta_and_track_feasibility(bj, - A_r().get_val(c) * delta);
+            m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, - A_r().get_val(c) * delta);
             TRACE("change_x_del",
                   tout << "changed basis column " << bj << ", it is " <<
                   ( m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj)?  "feas":"inf") << std::endl;);
@@ -796,7 +796,7 @@ void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j,
         m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
         for (unsigned i : m_column_buffer.m_index) {
             unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
-            m_mpq_lar_core_solver.m_r_solver.update_x_with_delta_and_track_feasibility(bj, -m_column_buffer[i] * delta); 
+            m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, -m_column_buffer[i] * delta); 
         }
     }
 }
@@ -1439,11 +1439,15 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
         if (var >= m_terms_start_index) { // handle the term
+            lpvar j = adjust_term_index(var);
+            if (column_is_int(j))
+                continue;
             for (auto it : *m_terms[var - m_terms_start_index]) {
                 column_list.push_back(it.var());
             }
         } else {
-            column_list.push_back(var);
+            if (!column_is_int(var))
+                column_list.push_back(var);
         }
     }
 }
@@ -1728,6 +1732,7 @@ void lar_solver::add_new_var_to_core_fields_for_doubles(bool register_in_basis) 
 
 void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
     unsigned j = A_r().column_count();
+    TRACE("add_var",  tout << "j = " << j << std::endl;);
     A_r().add_column();
     lp_assert(m_mpq_lar_core_solver.m_r_x.size() == j);
     //        lp_assert(m_mpq_lar_core_solver.m_r_lower_bounds.size() == j && m_mpq_lar_core_solver.m_r_upper_bounds.size() == j);  // restore later
@@ -1841,7 +1846,7 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     else {
         fill_last_row_of_A_r(A_r(), term);
     }
-    m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j, get_basic_var_value_from_row(A_r().row_count() - 1));
+    m_mpq_lar_core_solver.m_r_solver.update_x(j, get_basic_var_value_from_row(A_r().row_count() - 1));
     if (use_lu())
         fill_last_row_of_A_d(A_d(), term);
 }
@@ -2313,7 +2318,7 @@ void lar_solver::fix_terms_with_rounded_columns() {
         if (need_to_fix) {
             lpvar j = external_to_local(ti);
             impq v = t.apply(m_mpq_lar_core_solver.m_r_x);
-            m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j, v);
+            m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
         }
     }
     SASSERT(ax_is_correct());

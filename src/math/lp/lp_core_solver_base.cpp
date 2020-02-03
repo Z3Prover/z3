@@ -56,7 +56,7 @@ template void lp::lp_core_solver_base<double, double>::solve_Bd(unsigned int);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq>>::solve_Bd(unsigned int, indexed_vector<lp::mpq>&);
 template void lp::lp_core_solver_base<double, double>::solve_yB(vector<double >&);
 template bool lp::lp_core_solver_base<double, double>::update_basis_and_x(int, int, double const&);
-template void lp::lp_core_solver_base<double, double>::update_x(unsigned int, const double&);
+template void lp::lp_core_solver_base<double, double>::add_delta_to_entering(unsigned int, const double&);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::A_mult_x_is_off() const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::A_mult_x_is_off_on_index(const vector<unsigned> &) const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::basis_heading_is_correct() const ;
@@ -73,7 +73,7 @@ template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_Ax_eq_b();
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_Bd(unsigned int);
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_yB(vector<lp::mpq>&);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::update_basis_and_x(int, int, lp::mpq const&);
-template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::update_x(unsigned int, const lp::mpq&);
+template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::add_delta_to_entering(unsigned int, const lp::mpq&);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calculate_pivot_row_of_B_1(unsigned int);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init();
@@ -87,7 +87,7 @@ template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::snap
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::solve_Ax_eq_b();
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::solve_Bd(unsigned int);
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::update_basis_and_x(int, int, lp::numeric_pair<lp::mpq> const&);
-template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::update_x(unsigned int, const lp::numeric_pair<lp::mpq>&);
+template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::add_delta_to_entering(unsigned int, const lp::numeric_pair<lp::mpq>&);
 template lp::lp_core_solver_base<lp::mpq, lp::mpq>::lp_core_solver_base(
                                                                               lp::static_matrix<lp::mpq, lp::mpq>&,
                                                                               vector<lp::mpq>&,

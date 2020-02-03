@@ -338,7 +338,7 @@ public:
             for (const auto & cc : m_r_solver.m_A.m_columns[j]){
                 unsigned i = cc.var();
                 unsigned jb = m_r_solver.m_basis[i];
-                m_r_solver.update_x_with_delta_and_track_feasibility(jb, - delta * m_r_solver.m_A.get_val(cc));
+                m_r_solver.add_delta_to_x_and_track_feasibility(jb, - delta * m_r_solver.m_A.get_val(cc));
             }
             CASSERT("A_off", m_r_solver.A_mult_x_is_off() == false);
         }
