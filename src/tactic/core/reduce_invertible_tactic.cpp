@@ -236,6 +236,7 @@ private:
     // TBD: could be made to be recursive, by walking multiple layers of parents.
     
     bool is_invertible(expr* v, expr*& p, expr_ref& new_v, generic_model_converter_ref* mc, unsigned max_var = 0) {
+        if (m_parents.size() <= v->get_id()) return false;
         p = m_parents[v->get_id()].get();
         if (!p) return false;
         if (m_inverted.is_marked(p)) return false;
