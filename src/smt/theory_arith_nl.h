@@ -1225,23 +1225,18 @@ bool theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuff
 
     for (auto const& ce : p) {
         expr * m = ce.second;
-        if (is_pure_monomial(m)) {
+        if (m_util.is_numeral(m)) {
+            continue;
+        }
+        else if (ctx.e_internalized(m) && !is_pure_monomial(m)) {
+            ADD_OCC(m);
+        }
+        else {
             unsigned num_vars = get_num_vars_in_monomial(m);
             for (unsigned i = 0; i < num_vars; i++) {
                 var_power_pair p = get_var_and_degree(m, i);
                 ADD_OCC(p.first);
             }
-        }
-        else if (m_util.is_numeral(m)) {
-            continue;
-        }
-        else if (ctx.e_internalized(m)) {
-            ADD_OCC(m);
-        }
-        else {
-            TRACE("non_linear", tout << mk_pp(m, get_manager()) << "\n";);
-            UNREACHABLE();
-            return false;
         }
     }
 
