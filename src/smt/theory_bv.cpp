@@ -161,7 +161,7 @@ namespace smt {
             e = ctx.mk_enode(n, !m_params.m_bv_reflect, false, m_params.m_bv_cc);
             mk_var(e);
         }
-        SASSERT(e->get_th_var(get_id()) != null_theory_var);
+//        SASSERT(e->get_th_var(get_id()) != null_theory_var);
         return e;
     }
 
