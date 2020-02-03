@@ -469,7 +469,6 @@ class theory_lra::imp {
     }
 
     void found_unsupported(expr* n) {
-        std::cout << "unsupported: " <<  mk_pp(n, m) << "\n";
         ctx().push_trail(value_trail<context, expr*>(m_not_handled));
         m_not_handled = n;    
     }
