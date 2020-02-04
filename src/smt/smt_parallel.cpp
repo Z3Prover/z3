@@ -27,26 +27,38 @@ namespace smt {
     
     lbool parallel::operator()(expr_ref_vector const& asms) {
 
+        lbool result = l_undef;
+        unsigned num_threads = std::min((unsigned) std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
+        flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
+        unsigned thread_max_conflicts = ctx.get_fparams().m_threads_max_conflicts;
+        unsigned max_conflicts = ctx.get_fparams().m_max_conflicts;
+
+#if 0
+        // TBD: try first sequential with a low conflict budget to make super easy problems cheap
+        ctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, 20);
+        result = ctx.check(asms.size(), asms.c_ptr());
+        if (result != l_undef || ctx.m_num_conflicts < max_conflicts) {
+            return result;
+        }        
+#else 
+        ctx.internalize_assertions();
+#endif
+
         enum par_exception_kind {
             DEFAULT_EX,
             ERROR_EX
         };
 
-        ctx.internalize_assertions();
         scoped_ptr_vector<ast_manager> pms;
         scoped_ptr_vector<context> pctxs;
         vector<expr_ref_vector> pasms;
         ast_manager& m = ctx.m;
-        lbool result = l_undef;
-        unsigned num_threads = ctx.m_fparams.m_threads;
-        flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
         unsigned finished_id = UINT_MAX;
         std::string        ex_msg;
         par_exception_kind ex_kind = DEFAULT_EX;
         unsigned error_code = 0;
         bool done = false;
         unsigned num_rounds = 0;
-        unsigned max_conflicts = ctx.get_fparams().m_threads_max_conflicts;
 
         for (unsigned i = 0; i < num_threads; ++i) {
             ast_manager* new_m = alloc(ast_manager, m, true);
@@ -110,7 +122,7 @@ namespace smt {
                 expr_ref_vector lasms(pasms[i]);
                 expr_ref c(pm);
 
-                pctx.get_fparams().m_max_conflicts = max_conflicts;
+                pctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, max_conflicts);
                 if (num_rounds > 0) {
                     cube(pctx, lasms, c);
                 }
@@ -121,10 +133,12 @@ namespace smt {
                 lbool r = pctx.check(lasms.size(), lasms.c_ptr());
                 
                 if (r == l_undef && pctx.m_num_conflicts >= max_conflicts) {
+                    // no-op
+                }
+                else if (r == l_undef && pctx.m_num_conflicts >= thread_max_conflicts) {
                     return;
                 }                
-
-                if (r == l_false && pctx.unsat_core().contains(c)) {
+                else if (r == l_false && pctx.unsat_core().contains(c)) {
                     pctx.assert_expr(mk_not(mk_and(pctx.unsat_core())));
                     return;
                 } 
@@ -170,7 +184,8 @@ namespace smt {
 
             collect_units();
             ++num_rounds;
-            max_conflicts *= 2;
+            max_conflicts = (max_conflicts < thread_max_conflicts) ? 0 : (thread_max_conflicts - max_conflicts);
+            thread_max_conflicts *= 2;            
         }
 
         for (context* c : pctxs) {

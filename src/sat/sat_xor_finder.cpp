@@ -7,7 +7,7 @@
 
   Abstract:
    
-    xor finderities
+    xor finder
 
   Author:
 
@@ -25,9 +25,6 @@ namespace sat {
 
     void xor_finder::operator()(clause_vector& clauses) {
         m_removed_clauses.reset();
-        if (!s.get_config().m_xor_solver) {
-            return;
-        }
         unsigned max_size = m_max_xor_size;
         // we better have enough bits in the combination mask to 
         // handle clauses up to max_size.
