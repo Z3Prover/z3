@@ -1623,10 +1623,8 @@ public:
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
-            if (th.is_relevant_and_shared(get_enode(v))) {
-                if (can_be_used_in_random_update(v))
-                    vars.push_back(get_lpvar(v));
-            }
+            if (can_be_used_in_random_update(v))
+                vars.push_back(get_lpvar(v));
         }
         if (vars.empty()) {
             return false;
