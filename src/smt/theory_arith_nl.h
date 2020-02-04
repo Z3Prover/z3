@@ -209,10 +209,12 @@ expr * theory_arith<Ext>::get_monomial_body(expr * m) const {
 template<typename Ext>
 rational theory_arith<Ext>::get_monomial_coeff(expr * m) const {
     SASSERT(m_util.is_mul(m));
-    rational r;
-    if (m_util.is_numeral(to_app(m)->get_arg(0), r))
-        return r;
-    return rational(1);
+    rational result(1), r;
+    for (expr* arg : *to_app(m)) {
+        if (m_util.is_numeral(arg, r))
+            result *= r;
+    }
+    return result;
 }
 
 /**
@@ -222,11 +224,14 @@ template<typename Ext>
 unsigned theory_arith<Ext>::get_num_vars_in_monomial(expr * m) const {
     SASSERT(m_util.is_mul(m));
     m = get_monomial_body(m);
-    SASSERT(!m_util.is_numeral(m));
+    if (m_util.is_numeral(m))
+        return 0;
     if (m_util.is_mul(m)) {
         unsigned num_vars = 0;
         expr * var = nullptr;
         for (expr * curr : *to_app(m)) {
+            if (m_util.is_numeral(curr))
+                continue;
             if (var != curr) {
                 num_vars++;
                 var = curr;
@@ -252,7 +257,10 @@ typename theory_arith<Ext>::var_power_pair theory_arith<Ext>::get_var_and_degree
         expr * var        = nullptr;
         unsigned power    = 0;
         for (expr * arg : *to_app(m)) {
-            if (var == nullptr) {
+            if (m_util.is_numeral(arg)) {
+                continue;
+            }
+            else if (var == nullptr) {
                 var   = arg;
                 power = 1;
             }
@@ -1465,7 +1473,7 @@ expr * theory_arith<Ext>::factor(expr * m, expr * var, unsigned d) {
    \brief Return the horner extension of p with respect to var.
 */
 template<typename Ext>
-expr * theory_arith<Ext>::horner(sbuffer<coeff_expr> & p, expr * var) {
+expr * theory_arith<Ext>::horner(unsigned depth, sbuffer<coeff_expr> & p, expr * var) {
     SASSERT(!p.empty());
     SASSERT(var != 0);
     unsigned d = get_min_degree(p, var);
@@ -1486,9 +1494,9 @@ expr * theory_arith<Ext>::horner(sbuffer<coeff_expr> & p, expr * var) {
             r.push_back(coeff_expr(kv.first, f));
         }
     }
-    expr * s = cross_nested(e, nullptr);
+    expr * s = cross_nested(depth + 1, e, nullptr);
     if (!r.empty()) {
-        expr * q = horner(r, var);
+        expr * q = horner(depth + 1, r, var);
         // TODO: improve here
         s        = m_util.mk_add(q, s);
     }
@@ -1511,12 +1519,12 @@ expr * theory_arith<Ext>::horner(sbuffer<coeff_expr> & p, expr * var) {
    If var != 0, then it is used for performing the horner extension
 */
 template<typename Ext>
-expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
+ expr * theory_arith<Ext>::cross_nested(unsigned depth, sbuffer<coeff_expr> & p, expr * var) {
     TRACE("non_linear", tout << "p.size: " << p.size() << "\n";);
     if (var == nullptr) {
         sbuffer<var_num_occs> varinfo;
         if (!get_polynomial_info(p, varinfo))
-            return nullptr;
+            return p2expr(p);
         if (varinfo.empty())
             return p2expr(p);
         unsigned max = 0;
@@ -1527,6 +1535,8 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
             }
         }
     }
+    if (depth > 20) 
+        return p2expr(p);
     SASSERT(var != nullptr);
     unsigned i1 = UINT_MAX;
     unsigned i2 = UINT_MAX;
@@ -1546,7 +1556,7 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
                tout << "i2: "  << i2 << "\n";
                tout << "b: "   << b << "\n";
                tout << "nm: "  << nm << "\n";);
-        if (n == nm) return horner(p, var);
+        if (n == nm) return horner(depth, p, var);
         SASSERT(n != nm);
         expr * new_expr = nullptr;
         if (nm < n) {
@@ -1585,14 +1595,14 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
                 if (rest.empty())
                     return new_expr;
                 TRACE("non_linear", tout << "rest size: " << rest.size() << ", i1: " << i1 << ", i2: " << i2 << "\n";);
-                expr * h = cross_nested(rest, nullptr);
+                expr * h = cross_nested(depth + 1, rest, nullptr);
                 expr * r = m_util.mk_add(new_expr, h);
                 m_nl_new_exprs.push_back(r);
                 return r;
             }
         }
     }
-    return horner(p, var);
+    return horner(depth, p, var);
 }
 
 /**
@@ -1614,7 +1624,7 @@ bool theory_arith<Ext>::is_cross_nested_consistent(sbuffer<coeff_expr> & p) {
     for (auto const& kv : varinfo) {
         m_nl_new_exprs.reset();
         expr * var  = kv.first;
-        expr * cn   = cross_nested(p, var);
+        expr * cn   = cross_nested(0, p, var);
         // Remark: cn may not be well-sorted because, since a row may contain mixed integer/real monomials.
         // This is not really a problem, since evaluate_as_interval will work even if cn is not well-sorted.
         if (!cn)

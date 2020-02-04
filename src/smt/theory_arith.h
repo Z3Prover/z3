@@ -1011,8 +1011,8 @@ namespace smt {
         unsigned get_min_degree(sbuffer<coeff_expr> & p, expr * var);
         expr * factor(expr * m, expr * var, unsigned d);
         bool in_monovariate_monomials(sbuffer<coeff_expr> & p, expr * var, unsigned & i1, rational & c1, unsigned & n1, unsigned & i2, rational & c2, unsigned & n2);
-        expr * horner(sbuffer<coeff_expr> & p, expr * var);
-        expr * cross_nested(sbuffer<coeff_expr> & p, expr * var);
+        expr * horner(unsigned depth, sbuffer<coeff_expr> & p, expr * var);
+        expr * cross_nested(unsigned depth, sbuffer<coeff_expr> & p, expr * var);
         bool is_cross_nested_consistent(sbuffer<coeff_expr> & p);
         bool is_cross_nested_consistent(row const & r);
         bool is_cross_nested_consistent(svector<theory_var> const & nl_cluster);
