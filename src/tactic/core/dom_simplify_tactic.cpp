@@ -206,9 +206,9 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
     if (m.is_true(new_c)) {
         r = simplify_arg(t);
     } 
-    else if (m.is_false(new_c) || !assert_expr(new_c, false)) {
+    else if (!assert_expr(new_c, false)) {
         r = simplify_arg(e);
-    } 
+    }
     else {
         for (expr * child : tree(ite)) {
             if (is_subexpr(child, t) && !is_subexpr(child, e)) {
@@ -381,7 +381,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
             g.update(i, r, new_pr, g.dep(i));
         }
         pop(scope_level());
-        
+
         // go backwards
         m_forward = false;
         if (!init(g)) return;
@@ -437,112 +437,145 @@ ptr_vector<expr> const & dom_simplify_tactic::tree(expr * e) {
 
 // ---------------------
 // expr_substitution_simplifier
+namespace {
 
-bool expr_substitution_simplifier::assert_expr(expr * t, bool sign) {
-    m_scoped_substitution.push();
-    expr* tt;    
-    if (!sign) {
-        update_substitution(t, nullptr);
-    }
-    else if (m.is_not(t, tt)) {
-        update_substitution(tt, nullptr);
-    }
-    else {
-        expr_ref nt(m.mk_not(t), m);
-        update_substitution(nt, nullptr);
-    }
-    return true;
-}
+class expr_substitution_simplifier : public dom_simplifier {
+    ast_manager&             m;
+    expr_substitution        m_subst;
+    scoped_expr_substitution m_scoped_substitution;
+    obj_map<expr, unsigned>  m_expr2depth;
+    expr_ref_vector          m_trail;
 
-
-bool expr_substitution_simplifier::is_gt(expr* lhs, expr* rhs) {
-    if (lhs == rhs) {
-        return false;
-    }
-    if (m.is_value(rhs)) {
-        return true;
-    }
-    SASSERT(is_ground(lhs) && is_ground(rhs));
-    if (depth(lhs) > depth(rhs)) {
-        return true;
-    }
-    if (depth(lhs) == depth(rhs) && is_app(lhs) && is_app(rhs)) {
-        app* l = to_app(lhs);
-        app* r = to_app(rhs);
-        if (l->get_decl()->get_id() != r->get_decl()->get_id()) {
-            return l->get_decl()->get_id() > r->get_decl()->get_id();
-        }
-        if (l->get_num_args() != r->get_num_args()) {
-            return l->get_num_args() > r->get_num_args();
-        }
-        for (unsigned i = 0; i < l->get_num_args(); ++i) {
-            if (l->get_arg(i) != r->get_arg(i)) {
-                return is_gt(l->get_arg(i), r->get_arg(i));
-            }
-        }
-        UNREACHABLE();
-    }
-    
-    return false;
-}
-
-void expr_substitution_simplifier::update_substitution(expr* n, proof* pr) {
-    expr* lhs, *rhs, *n1;
-    if (is_ground(n) && m.is_eq(n, lhs, rhs)) {
-        compute_depth(lhs);
-        compute_depth(rhs);
-        m_trail.push_back(lhs);
-        m_trail.push_back(rhs);
-        if (is_gt(lhs, rhs)) {
-            TRACE("propagate_values", tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
-            m_scoped_substitution.insert(lhs, rhs, pr);
-            return;
-        }
-        if (is_gt(rhs, lhs)) {
-            TRACE("propagate_values", tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
-            m_scoped_substitution.insert(rhs, lhs, m.mk_symmetry(pr));
-            return;
-        }
-        TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
-    }
-    if (m.is_not(n, n1)) {
-        m_scoped_substitution.insert(n1, m.mk_false(), m.mk_iff_false(pr)); 
-    }
-    else {
-        m_scoped_substitution.insert(n, m.mk_true(), m.mk_iff_true(pr)); 
-    }
-}
-
-void expr_substitution_simplifier::compute_depth(expr* e) {
-    ptr_vector<expr> todo;
-    todo.push_back(e);    
-    while (!todo.empty()) {
-        e = todo.back();
-        unsigned d = 0;
-        if (m_expr2depth.contains(e)) {
-            todo.pop_back();
-            continue;
-        }
-        if (is_app(e)) {
-            app* a = to_app(e);
-            bool visited = true;
-            for (expr* arg : *a) {
-                unsigned d1 = 0;
-                if (m_expr2depth.find(arg, d1)) {
-                    d = std::max(d, d1);
-                }
-                else {
-                    visited = false;
-                    todo.push_back(arg);
-                }
-            }
-            if (!visited) {
+    // move from asserted_formulas to here..
+    void compute_depth(expr* e) {
+        ptr_vector<expr> todo;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            e = todo.back();
+            unsigned d = 0;
+            if (m_expr2depth.contains(e)) {
+                todo.pop_back();
                 continue;
             }
+            if (is_app(e)) {
+                app* a = to_app(e);
+                bool visited = true;
+                for (expr* arg : *a) {
+                    unsigned d1 = 0;
+                    if (m_expr2depth.find(arg, d1)) {
+                        d = std::max(d, d1);
+                    }
+                    else {
+                        visited = false;
+                        todo.push_back(arg);
+                    }
+                }
+                if (!visited) {
+                    continue;
+                }
+            }
+            todo.pop_back();
+            m_expr2depth.insert(e, d + 1);
         }
-        todo.pop_back();
-        m_expr2depth.insert(e, d + 1);
     }
+
+    bool is_gt(expr* lhs, expr* rhs) {
+        if (lhs == rhs) {
+            return false;
+        }
+        if (m.is_value(rhs)) {
+            return true;
+        }
+        SASSERT(is_ground(lhs) && is_ground(rhs));
+        if (depth(lhs) > depth(rhs)) {
+            return true;
+        }
+        if (depth(lhs) == depth(rhs) && is_app(lhs) && is_app(rhs)) {
+            app* l = to_app(lhs);
+            app* r = to_app(rhs);
+            if (l->get_decl()->get_id() != r->get_decl()->get_id()) {
+                return l->get_decl()->get_id() > r->get_decl()->get_id();
+            }
+            if (l->get_num_args() != r->get_num_args()) {
+                return l->get_num_args() > r->get_num_args();
+            }
+            for (unsigned i = 0; i < l->get_num_args(); ++i) {
+                if (l->get_arg(i) != r->get_arg(i)) {
+                    return is_gt(l->get_arg(i), r->get_arg(i));
+                }
+            }
+            UNREACHABLE();
+        }
+
+        return false;
+    }
+
+    unsigned depth(expr* e) { return m_expr2depth[e]; }
+
+public:
+    expr_substitution_simplifier(ast_manager& m): m(m), m_subst(m), m_scoped_substitution(m_subst), m_trail(m) {}
+    ~expr_substitution_simplifier() override {}
+
+    bool assert_expr(expr * t, bool sign) override {
+        expr* tt;
+        if ((!sign && m.is_false(t)) ||
+            (sign && m.is_true(t)) ||
+            (!sign && m.is_not(t, tt) && m.is_true(tt)) ||
+            (sign && m.is_not(t, tt) && m.is_false(tt)))
+            return false;
+
+        m_scoped_substitution.push();
+        if (!sign) {
+            update_substitution(t, nullptr);
+        }
+        else if (m.is_not(t, tt)) {
+            update_substitution(tt, nullptr);
+        }
+        else {
+            expr_ref nt(m.mk_not(t), m);
+            update_substitution(nt, nullptr);
+        }
+        return true;
+    }
+
+    void update_substitution(expr* n, proof* pr) {
+        expr* lhs, *rhs, *n1;
+        if (is_ground(n) && m.is_eq(n, lhs, rhs)) {
+            compute_depth(lhs);
+            compute_depth(rhs);
+            m_trail.push_back(lhs);
+            m_trail.push_back(rhs);
+            if (is_gt(lhs, rhs)) {
+                TRACE("propagate_values", tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
+                m_scoped_substitution.insert(lhs, rhs, pr);
+                return;
+            }
+            if (is_gt(rhs, lhs)) {
+                TRACE("propagate_values", tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
+                m_scoped_substitution.insert(rhs, lhs, m.mk_symmetry(pr));
+                return;
+            }
+            TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
+        }
+        if (m.is_not(n, n1)) {
+            m_scoped_substitution.insert(n1, m.mk_false(), m.mk_iff_false(pr));
+        }
+        else {
+            m_scoped_substitution.insert(n, m.mk_true(), m.mk_iff_true(pr));
+        }
+    }
+
+    void operator()(expr_ref& r) override { r = m_scoped_substitution.find(r); }
+
+    void pop(unsigned num_scopes) override { m_scoped_substitution.pop(num_scopes); }
+
+    unsigned scope_level() const override { return m_scoped_substitution.scope_level(); }
+
+    dom_simplifier * translate(ast_manager & m) override {
+        SASSERT(m_subst.empty());
+        return alloc(expr_substitution_simplifier, m);
+    }
+};
 }
 
 tactic * mk_dom_simplify_tactic(ast_manager & m, params_ref const & p) {

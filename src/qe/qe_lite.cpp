@@ -2338,14 +2338,14 @@ public:
     }
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {
-        expr_ref_vector disjs(m);
+        expr_ref_vector disjs(m), conjs(m);
         flatten_or(fml, disjs);
-        for (unsigned i = 0; i < disjs.size(); ++i) {
-            expr_ref_vector conjs(m);
+        for (unsigned i = 0, e = disjs.size(); i != e; ++i) {
+            conjs.reset();
             conjs.push_back(disjs[i].get());
             (*this)(index_set, index_of_bound, conjs);
             bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), fml);
-            disjs[i] = fml;
+            disjs[i] = std::move(fml);
         }
         bool_rewriter(m).mk_or(disjs.size(), disjs.c_ptr(), fml);
     }

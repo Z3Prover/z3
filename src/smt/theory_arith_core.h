@@ -65,7 +65,6 @@ namespace smt {
             e = m_util.mk_power0(n->get_arg(0), n->get_arg(1));
         }
         if (e) {
-            ast_manager& m = get_manager();
             literal lit = mk_eq(e, n, false);
             ctx.mark_as_relevant(lit);
             ctx.assign(lit, nullptr);
