@@ -239,27 +239,20 @@ namespace sat {
         v = vars[i];
         vars.erase(v);
         uint64_t r = 0;
-        unsigned stride_sz = (1u << i);
-        unsigned num_strides = (1u << vars.size()) / (stride_sz * 2);
-        
-        switch (i) {
-        case 0:
-            for (unsigned j = 0; j < (1u << vars.size()); ++j) {
-                if (0 == (m_combination & (1ull << 2*j))) {
-                    r |= (1ull << j);
+        uint64_t m = m_masks[vars.size()];
+        unsigned offset = 0;
+        // example, if i = 2, then we are examining 
+        // how m_combination evaluates at position xy0uv
+        // If it evaluates to 0, then it has to evaluate to 1 on position xy1uv
+        // Offset keeps track of the value of xyuv
+        // 
+        for (unsigned j = 0; j < 64; ++j) {
+            if (0 != (m & (1ull << j))) {
+                if (0 == (m_combination & (1ull << j))) {
+                    r |= 1ull << offset;
                 }
+                ++offset;
             }
-            break;
-        case 1:
-            // (0, 2) (1, 3), (4, 6), (5, 7)
-            for (unsigned j = 0; j < (1u << vars.size()); ++j) {
-                
-            }
-            // TBD
-            break;
-        default:
-            // TBD
-            break;
         }
         return r;
     }
