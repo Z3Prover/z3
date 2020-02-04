@@ -18,6 +18,7 @@
 
 #include "sat/sat_aig_simplifier.h"
 #include "sat/sat_xor_finder.h"
+#include "sat/sat_lut_finder.h"
 #include "sat/sat_elim_eqs.h"
 
 namespace sat {
@@ -225,7 +226,23 @@ namespace sat {
         };
         xor_finder xf(s);
         xf.set(on_xor);
-        xf(clauses);       
+        xf(clauses);
+
+#if 0
+        std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
+            [&,this](uint64_t l, bool_var_vector const& vars, bool_var v) {
+            m_stats.m_num_luts++;
+        };
+        lut_finder lf(s);
+        lf.set(on_lut);
+        lf(clauses);
+
+
+        statistics st;
+        collect_statistics(st);
+        st.display(std::cout);
+        exit(0);
+#endif
     }
 
     void aig_simplifier::aig2clauses() {
@@ -675,6 +692,7 @@ namespace sat {
         st.update("sat-aig.ands", m_stats.m_num_ands);
         st.update("sat-aig.ites", m_stats.m_num_ites);
         st.update("sat-aig.xors", m_stats.m_num_xors);
+        st.update("sat-aig.luts", m_stats.m_num_luts);
         st.update("sat-aig.dc-reduce", m_stats.m_num_dont_care_reductions);
     }
 

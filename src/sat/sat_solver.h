@@ -219,6 +219,7 @@ namespace sat {
         friend class scoped_detach;
         friend class xor_finder;
         friend class aig_finder;
+        friend class lut_finder;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver() override;
