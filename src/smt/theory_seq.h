@@ -591,6 +591,7 @@ namespace smt {
         bool is_eq(expr* e, expr*& a, expr*& b) const; 
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_post(expr* e, expr*& s, expr*& i);
+        expr_ref mk_post(expr* s, expr* i);
         expr_ref mk_sk_ite(expr* c, expr* t, expr* f);
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
