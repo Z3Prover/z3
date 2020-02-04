@@ -44,5 +44,6 @@ public:
     bool need_check();
     lbool check(vector<lemma>&);
     bool is_monic_var(lpvar) const;
+    bool influences_nl_var(lpvar) const;
 };
 }

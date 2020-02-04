@@ -1712,4 +1712,25 @@ unsigned core::get_var_weight(lpvar j) const {
 }
 
 
+bool core::is_nl_var(lpvar j) const {
+    if (is_monic_var(j))
+        return true;
+    return m_emons.is_used_in_monic(j);
+}
+
+
+
+bool core::influences_nl_var(lpvar j) const {
+    if (m_lar_solver.is_term(j))
+        j = m_lar_solver.adjust_term_index(j);
+    if (is_nl_var(j))
+        return true;
+    for (const auto & c : m_lar_solver.A_r().m_columns[j]) {
+        lpvar basic_in_row = m_lar_solver.r_basis()[c.var()];
+        if (is_nl_var(basic_in_row))
+            return true;        
+    }
+    return false;
+}
+
 } // end of nla

@@ -1439,15 +1439,11 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
         if (var >= m_terms_start_index) { // handle the term
-            lpvar j = adjust_term_index(var);
-            if (column_is_int(j))
-                continue;
             for (auto it : *m_terms[var - m_terms_start_index]) {
                 column_list.push_back(it.var());
             }
         } else {
-            if (!column_is_int(var))
-                column_list.push_back(var);
+            column_list.push_back(var);
         }
     }
 }

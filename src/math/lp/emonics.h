@@ -325,6 +325,8 @@ public:
 
     bool is_monic_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
 
+    bool is_used_in_monic(lpvar v) const { return v < m_use_lists.size() && m_use_lists[v].m_head != nullptr; }
+
     bool elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector> &lists) const;
     
 }; // end of emonics

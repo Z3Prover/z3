@@ -412,6 +412,9 @@ public:
     dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*&);
     void set_level2var_for_grobner();
     void configure_grobner();
+    bool influences_nl_var(lpvar) const;
+    bool is_nl_var(lpvar) const;
+    bool is_used_in_monic(lpvar) const;
 };  // end of core
 
 struct pp_mon {
