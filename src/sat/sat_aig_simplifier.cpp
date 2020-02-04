@@ -119,7 +119,7 @@ namespace sat {
 
     void aig_simplifier::add_and(literal head, unsigned sz, literal const* lits) {
         m_aig_cuts.add_node(head, and_op, sz, lits);
-        m_stats.m_num_ands++;
+        // m_stats.m_num_ands++;
     }
 
     //      head == l1 or l2 or l3 
@@ -130,24 +130,24 @@ namespace sat {
         m_lits.append(sz, lits);
         for (unsigned i = 0; i < sz; ++i) m_lits[i].neg();
         m_aig_cuts.add_node(~head, and_op, sz, m_lits.c_ptr());
-        m_stats.m_num_ands++;
+        // m_stats.m_num_ands++;
     }
 
     void aig_simplifier::add_xor(literal head, unsigned sz, literal const* lits) {
         m_aig_cuts.add_node(head, xor_op, sz, lits);
-        m_stats.m_num_xors++;
+        // m_stats.m_num_xors++;
     }
 
     void aig_simplifier::add_ite(literal head, literal c, literal t, literal e) {
         literal lits[3] = { c, t, e };
         m_aig_cuts.add_node(head, ite_op, 3, lits);
-        m_stats.m_num_ites++;
+        // m_stats.m_num_ites++;
     }
 
     void aig_simplifier::add_iff(literal head, literal l1, literal l2) {
         literal lits[2] = { l1, ~l2 };
         m_aig_cuts.add_node(head, xor_op, 2, lits);
-        m_stats.m_num_xors++;
+        // m_stats.m_num_xors++;
     }
 
     void aig_simplifier::set_root(bool_var v, literal r) {
@@ -228,7 +228,7 @@ namespace sat {
         xf.set(on_xor);
         xf(clauses);
 
-#if 0
+#if 1
         std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
             [&,this](uint64_t l, bool_var_vector const& vars, bool_var v) {
             m_stats.m_num_luts++;
