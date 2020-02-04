@@ -82,6 +82,7 @@ namespace smt {
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
         bool get_value(enode* n, expr_ref& r) override;
+        bool include_func_interp(func_decl* f) override;
         bool get_value(enode* n, rational& r);
         bool get_lower(enode* n, expr_ref& r);
         bool get_upper(enode* n, expr_ref& r);

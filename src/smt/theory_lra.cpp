@@ -3484,6 +3484,15 @@ public:
         }
     }    
 
+    bool include_func_interp(func_decl* f) {
+        return 
+            a.is_div0(f) ||
+            a.is_idiv0(f) ||
+            a.is_power0(f) ||
+            a.is_rem0(f) ||
+            a.is_mod0(f);        
+    }
+
     bool get_lower(enode* n, rational& val, bool& is_strict) {
         theory_var v = n->get_th_var(get_id());
         if (!can_get_bound(v)) {
@@ -3979,6 +3988,9 @@ bool theory_lra::get_value(enode* n, rational& r) {
 }
 bool theory_lra::get_value(enode* n, expr_ref& r) {
     return m_imp->get_value(n, r);
+}
+bool theory_lra::include_func_interp(func_decl* f) {
+    return m_imp->include_func_interp(f);
 }
 bool theory_lra::get_lower(enode* n, expr_ref& r) {
     return m_imp->get_lower(n, r);
