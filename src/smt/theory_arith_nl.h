@@ -1519,19 +1519,15 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
             return nullptr;
         if (varinfo.empty())
             return p2expr(p);
-        sbuffer<var_num_occs>::const_iterator it  = varinfo.begin();
-        sbuffer<var_num_occs>::const_iterator end = varinfo.end();
-        var          = it->first;
-        unsigned max = it->second;
-        ++it;
-        for (; it != end; ++it) {
-            if (it->second > max) {
-                var = it->first;
-                max = it->second;
+        unsigned max = 0;
+        for (auto const& kv : varinfo) {
+            if (kv.second >= max) {
+                max = kv.second;
+                var = kv.first;
             }
         }
     }
-    SASSERT(var != 0);
+    SASSERT(var != nullptr);
     unsigned i1 = UINT_MAX;
     unsigned i2 = UINT_MAX;
     rational a, b;
@@ -1563,7 +1559,7 @@ expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
             // b*x^{n-m}*[(x^{m} + a/(2b))^2 - (a/2b)^2]
             // b*[(x^{m} + a/(2b))^2 - (a/2b)^2]  for n == m
             rational a2b   = a;
-            expr * xm      = power(var, m);
+            expr_ref xm(power(var, m), get_manager());
             a2b /= (rational(2) * b);
             // we cannot create a numeral that has sort int, but it is a rational.
             if (!m_util.is_int(var) || a2b.is_int()) {
@@ -1699,11 +1695,10 @@ bool theory_arith<Ext>::is_cross_nested_consistent(row const & r) {
 
     TRACE("non_linear", tout << "check problematic row:\n"; display_row(tout, r); display_row(tout, r, false););
     sbuffer<coeff_expr> p;
-    typename vector<row_entry>::const_iterator it  = r.begin_entries();
-    typename vector<row_entry>::const_iterator end = r.end_entries();
-    for (; it != end; ++it) {
-        if (!it->is_dead())
-            p.push_back(coeff_expr(it->m_coeff.to_rational() * c, var2expr(it->m_var)));
+    for (auto & col : r) {
+        if (!col.is_dead()) {
+            p.push_back(coeff_expr(col.m_coeff.to_rational() * c, var2expr(col.m_var)));
+        }
     }
     SASSERT(!p.empty());
     CTRACE("cross_nested_bug", !c.is_one(), tout << "c: " << c << "\n"; display_row(tout, r); tout << "---> p (coeffs, exprs):\n"; display_coeff_exprs(tout, p););
