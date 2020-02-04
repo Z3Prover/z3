@@ -28,6 +28,7 @@
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "smt_kernel.h"
+#include "model/model_smt2_pp.h"
 
 namespace smt {
 
@@ -641,7 +642,7 @@ namespace smt {
             bool len_exists = v.get_value(arg2, len);
             ENSURE(pos_exists);
             ENSURE(len_exists);
-            TRACE("str_fl", tout << "reduce substring term: base=" << mk_pp(term, m) << ", pos=" << pos.to_string() << ", len=" << len.to_string() << std::endl;);
+            TRACE("str_fl", tout << "reduce substring term: base=" << mk_pp(term, m) << " (length="<<base_chars.size()<<"), pos=" << pos.to_string() << ", len=" << len.to_string() << std::endl;);
             // Case 1: pos < 0 or pos >= strlen(base) or len < 0
             // ==> (Substr ...) = ""
             if (pos.is_neg() || pos >= rational(base_chars.size()) || len.is_neg()) {
@@ -954,6 +955,23 @@ namespace smt {
             precondition.push_back(m.mk_eq(u.str.mk_length(var), mk_int(e.get_value())));
         }
 
+        TRACE_CODE(
+            if(is_trace_enabled("str_fl")) {
+                tout << "formulas asserted to bitvector subsolver:" << std::endl;
+                for (auto e : fixed_length_assumptions) {
+                    tout << mk_pp(e, subsolver.m()) << std::endl;
+                }
+                tout << "variable to character mappings:" << std::endl;
+                for (auto &entry : var_to_char_subterm_map) {
+                    tout << mk_pp(entry.m_key, get_manager()) << ":";
+                    for (auto e : entry.m_value) {
+                        tout << " " << mk_pp(e, subsolver.m());
+                    }
+                    tout << std::endl;
+                }
+            }
+        );
+
         TRACE("str_fl", tout << "calling subsolver" << std::endl;);
 
         lbool subproblem_status = subsolver.check(fixed_length_assumptions);
@@ -966,7 +984,7 @@ namespace smt {
 
             expr_substitution subst(m);
 
-            // model_smt2_pp(std::cout, m, *subModel, 2);
+            //model_smt2_pp(std::cout, m, *subModel, 2);
             for (auto entry : var_to_char_subterm_map) {
                 svector<unsigned> assignment;
                 expr * var = entry.m_key;
@@ -984,6 +1002,13 @@ namespace smt {
                 model.insert(var, strValue);
                 subst.insert(var, mk_string(strValue));
             }
+            TRACE_CODE(
+                if (is_trace_enabled("str_fl")) {
+                    for (auto entry : model) {
+                        tout << mk_pp(entry.m_key, m) << " = " << entry.m_value << std::endl;
+                    }
+                }
+            );
             for (auto entry : uninterpreted_to_char_subterm_map) {
                 svector<unsigned> assignment;
                 expr * var = entry.m_key;

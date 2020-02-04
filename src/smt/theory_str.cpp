@@ -9621,6 +9621,21 @@ namespace smt {
         if (hasEqc) {
             return to_app(n_eqc);
         } else {
+            theory_var curr = get_var(n);
+            if (curr != null_theory_var) {
+                curr = m_find.find(curr);
+                theory_var first = curr;
+                do {
+                    expr* a = get_ast(curr);
+                    zstring val;
+                    if (candidate_model.find(a, val)) {
+                        return to_app(mk_string(val));
+                    }
+                    curr = m_find.next(curr);
+                }
+                while (curr != first && curr != null_theory_var);
+            }
+            // fail to find
             return nullptr;
         }
     }
