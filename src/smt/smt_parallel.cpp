@@ -33,9 +33,9 @@ namespace smt {
         unsigned thread_max_conflicts = ctx.get_fparams().m_threads_max_conflicts;
         unsigned max_conflicts = ctx.get_fparams().m_max_conflicts;
 
-#if 0
-        // TBD: try first sequential with a low conflict budget to make super easy problems cheap
-        ctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, 20);
+#if 1
+        // try first sequential with a low conflict budget to make super easy problems cheap
+        ctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, 40u);
         result = ctx.check(asms.size(), asms.c_ptr());
         if (result != l_undef || ctx.m_num_conflicts < max_conflicts) {
             return result;
@@ -65,7 +65,7 @@ namespace smt {
             pms.push_back(new_m);
             pctxs.push_back(alloc(context, *new_m, ctx.get_fparams(), ctx.get_params())); 
             context& new_ctx = *pctxs.back();
-            context::copy(ctx, new_ctx);
+            context::copy(ctx, new_ctx, true);
             new_ctx.set_random_seed(i + ctx.get_fparams().m_random_seed);
             ast_translation tr(*new_m, m);
             pasms.push_back(tr(asms));

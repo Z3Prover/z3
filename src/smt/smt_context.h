@@ -1539,7 +1539,7 @@ namespace smt {
         */
         context * mk_fresh(symbol const * l = nullptr,  smt_params * smtp = nullptr, params_ref const & p = params_ref());
 
-        static void copy(context& src, context& dst);
+        static void copy(context& src, context& dst, bool override_base = false);
 
         /**
            \brief Translate context to use new manager m.
