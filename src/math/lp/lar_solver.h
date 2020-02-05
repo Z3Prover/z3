@@ -518,9 +518,9 @@ public:
 
     mpq get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
 
-    void fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list);
+    void fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list, std::function<bool (lpvar)> can_be_used_in_random_update);
 
-    void random_update(unsigned sz, var_index const * vars);
+    void random_update(unsigned sz, var_index const * vars, std::function<bool (lpvar)> can_be_used_in_random_update);
     void pivot_fixed_vars_from_basis();
     void pop();
     bool column_represents_row_in_tableau(unsigned j);

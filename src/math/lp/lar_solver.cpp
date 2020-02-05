@@ -1435,22 +1435,26 @@ std::ostream& lar_solver::print_constraint_indices_only_customized(const lar_bas
     return out << " " << lconstraint_kind_string(c->m_kind) << " " << c->m_right_side << std::endl;
 }
 
-void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list) {
+void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list, std::function<bool (lpvar)> can_be_used_in_random_update) {
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
         if (var >= m_terms_start_index) { // handle the term
-            for (auto it : *m_terms[var - m_terms_start_index]) {
+            lpvar j = var - m_terms_start_index;
+            if (!can_be_used_in_random_update(j))
+                continue;
+            for (auto it : *m_terms[j]) {
                 column_list.push_back(it.var());
             }
         } else {
-            column_list.push_back(var);
+            if (can_be_used_in_random_update(var))
+                column_list.push_back(var);
         }
     }
 }
 
-void lar_solver::random_update(unsigned sz, var_index const * vars) {
+void lar_solver::random_update(unsigned sz, var_index const * vars, std::function<bool (lpvar)> can_be_used_in_random_update) {
     vector<unsigned> column_list;
-    fill_var_set_for_random_update(sz, vars, column_list);
+    fill_var_set_for_random_update(sz, vars, column_list, can_be_used_in_random_update);
     random_updater ru(*this, column_list);
     ru.update();
 }
