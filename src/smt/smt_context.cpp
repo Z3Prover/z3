@@ -161,7 +161,6 @@ namespace smt {
         src_ctx.pop_to_base_lvl();
 
         if (!override_base && src_ctx.m_base_lvl > 0) {
-            INVOKE_DEBUGGER();
             throw default_exception("Cloning contexts within a user-scope is not allowed");
         }
         SASSERT(src_ctx.m_base_lvl == 0 || override_base);
@@ -285,8 +284,7 @@ namespace smt {
         // m_false_enode->mark_as_interpreted();
     }
 
-    void context::set_progress_callback(progress_callback *cb)
-    {
+    void context::set_progress_callback(progress_callback *cb) {
         m_progress_callback = cb;
     }
 

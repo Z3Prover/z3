@@ -3470,7 +3470,7 @@ bool theory_seq::solve_nc(unsigned idx) {
 
     if (m.is_eq(c, a, b)) {
         literal eq = mk_eq(a, b, false);
-        propagate_lit(deps, 0, nullptr, ~eq);
+        propagate_lit(deps, 0, nullptr, ~eq);        
         return true;
     }
 

@@ -22,9 +22,6 @@ void lp_bound_propagator::try_add_bound(mpq const& v, unsigned j, bool is_low, b
     if (strict)
         kind = static_cast<lconstraint_kind>(kind / 2);
     
-//    static unsigned s_count = 0, a_count = 0;
-//    ++a_count;
-//    if ((a_count % 100000) == 0) std::cout << s_count << " / " << a_count << "\n";
     if (!bound_is_interesting(j, kind, v))
         return;
      unsigned k; // index to ibounds
@@ -32,12 +29,10 @@ void lp_bound_propagator::try_add_bound(mpq const& v, unsigned j, bool is_low, b
          if (try_get_value(m_improved_lower_bounds, j, k)) {
              auto & found_bound = m_ibounds[k];
              if (v > found_bound.m_bound || (v == found_bound.m_bound && found_bound.m_strict == false && strict)) {
-//                 ++s_count;
                  found_bound = implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict);
                  TRACE("try_add_bound", m_lar_solver.print_implied_bound(found_bound, tout););
              }
          } else {
-//             ++s_count;
              m_improved_lower_bounds[j] = m_ibounds.size();
              m_ibounds.push_back(implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict));
              TRACE("try_add_bound", m_lar_solver.print_implied_bound(m_ibounds.back(), tout););
@@ -46,12 +41,10 @@ void lp_bound_propagator::try_add_bound(mpq const& v, unsigned j, bool is_low, b
          if (try_get_value(m_improved_upper_bounds, j, k)) {
              auto & found_bound = m_ibounds[k];
              if (v < found_bound.m_bound || (v == found_bound.m_bound && found_bound.m_strict == false && strict)) {
-//                 ++s_count;
                  found_bound = implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict);
                  TRACE("try_add_bound", m_lar_solver.print_implied_bound(found_bound, tout););
              }
          } else {
-//             ++s_count;
              m_improved_upper_bounds[j] = m_ibounds.size();
              m_ibounds.push_back(implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict));
              TRACE("try_add_bound", m_lar_solver.print_implied_bound(m_ibounds.back(), tout););
