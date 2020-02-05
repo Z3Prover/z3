@@ -35,7 +35,6 @@ class random_updater {
     lar_solver & m_lar_solver;
     unsigned m_range;
     void add_column_to_sets(unsigned j);
-    bool random_shift_var(unsigned j);
     std::unordered_map<numeric_pair<mpq>, unsigned> m_values; // it maps a value to the number of time it occurs
     bool shift_var(unsigned j);
     void add_value(const numeric_pair<mpq>& v);

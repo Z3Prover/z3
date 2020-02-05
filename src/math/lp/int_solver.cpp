@@ -450,6 +450,7 @@ void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const
     auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
     auto delta = new_val - x;
     x = new_val;
+    TRACE("int_solver", tout << "x[" << j << "] = " << x << "\n";);
     m_lar_solver->change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
 
@@ -739,6 +740,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool val_is_int, bo
     if (lcs.m_r_heading[j] >= 0) // the basic var 
         return false;
 
+    TRACE("random_update", display_column(tout, j) << ", is_int = " << column_is_int(j) << "\n";);
     impq const & xj = get_value(j);
     
     inf_l = true;
@@ -753,7 +755,6 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool val_is_int, bo
         set_upper(u, inf_u, upper_bound(j) - xj);
     }
 
-    mpq a; // the coefficient in the column
     unsigned row_index;
     lp_assert(settings().use_tableau());
     const auto & A = m_lar_solver->A_r();
@@ -762,9 +763,11 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool val_is_int, bo
         row_index = c.var();
         const mpq & a = c.coeff();        
         unsigned i = lcs.m_r_basis[row_index];
+        TRACE("random_update", tout << "i = " << i << ", a = " << a << "\n";); 
         if (column_is_int(i) && column_is_int(j) && !a.is_int())
             m = lcm(m, denominator(a));
     }
+    TRACE("random_update", tout <<  "m = " << m << "\n";);
     if (val_is_int && m.is_one())
         return false;
     
@@ -845,8 +848,9 @@ const impq & int_solver::get_value(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
 }
 
-void int_solver::display_column(std::ostream & out, unsigned j) const {
+std::ostream& int_solver::display_column(std::ostream & out, unsigned j) const {
     m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+    return out;
 }
 
 bool int_solver::column_is_int_inf(unsigned j) const {
@@ -944,28 +948,34 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     if (column_is_int(j)) {
         if (!inf_l) {
             l = impq(ceil(l));
-            if (!m.is_one())
-                l = impq(m*ceil(l/m));
         }
         if (!inf_u) {
             u = impq(floor(u));
-            if (!m.is_one())
-                u = impq(m*floor(u/m));
         }
     }
     if (!inf_l && !inf_u && l >= u)
         return false;
     if (inf_u) {
         SASSERT(!inf_l);
-        impq delta   = impq(random() % (range + 1));
-        impq new_val = l + m*delta;
+        impq new_val = l + impq(random() % (range + 1));
+        if (!m.is_one()) {
+            impq delta = new_val - get_value(j);
+            delta = impq(m * ceil(delta)/ m);
+            new_val = get_value(j) + delta;
+            SASSERT(new_val >= l);
+        }
         set_value_for_nbasic_column_ignore_old_values(j, new_val);
         return true;
     }
     if (inf_l) {
         SASSERT(!inf_u);
-        impq delta   = impq(random() % (range + 1));
-        impq new_val = u - m*delta;
+        impq new_val = u - impq(random() % (range + 1));
+        if (!m.is_one()) {
+            impq delta = new_val - get_value(j);
+            delta = impq(m * floor(delta)/ m);
+            new_val = get_value(j) + delta;
+            SASSERT(new_val <= u);
+        }
         set_value_for_nbasic_column_ignore_old_values(j, new_val);
         return true;
     }
@@ -977,11 +987,29 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
         return true;
     }
     else {
-        mpq r = (u.x - l.x) / m;
-        if (r < mpq(range))
-            range = static_cast<unsigned>(r.get_uint64());
-        impq new_val = l + m * (impq(random() % (range + 1)));
-        set_value_for_nbasic_column_ignore_old_values(j, new_val);
+        if (m.is_one()) {
+            mpq r = u.x - l.x;
+            if (r < mpq(range))
+                range = static_cast<unsigned>(r.get_uint64());
+            impq new_val = l + impq(random() % (range + 1));
+            set_value_for_nbasic_column_ignore_old_values(j, new_val);
+            return true;
+        } else {
+            mpq r = (u.x - l.x);
+            if (r < mpq(range))
+                range = static_cast<unsigned>(r.get_uint64());
+            impq new_val = l + impq(random() % (range + 1));
+            impq delta = new_val - get_value(j);
+            if (delta.x.is_pos()) {
+                delta = impq(m * floor(delta.x / m));
+                new_val = get_value(j) + delta;
+            } else {
+                delta = impq(m * ceil(delta.x / m));
+                new_val = get_value(j) + delta;
+            }
+            SASSERT(l <= new_val && new_val <= u);
+            set_value_for_nbasic_column_ignore_old_values(j, new_val);
+        }
         return true;
     }
 }

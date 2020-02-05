@@ -1598,21 +1598,11 @@ public:
     }
 
     bool influences_nl_var(theory_var v) const {
-        if (!m_use_nla)            
+        if (!m_use_nla || !m_nla)           
             return false; // that is the legacy solver behavior
-        if (!m_nla)
-            return false;
-            
         return m_nla->influences_nl_var(get_lpvar(v));
     }
-    
-    bool can_be_used_in_random_update(theory_var v) const {
-        if (is_int(v))
-            return false;
-
-        return !influences_nl_var(v);
-    }
-    
+      
     bool assume_eqs() {        
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
@@ -1632,8 +1622,7 @@ public:
               }
               tout << "\n"; );
         if (!m_use_nra_model) {
-            lp().random_update(vars.size(), vars.c_ptr(),
-                               [this](lpvar j){ return can_be_used_in_random_update(j);});
+            lp().random_update(vars.size(), vars.c_ptr(), [this](lpvar j) { return !influences_nl_var(j); });
         }
         m_model_eqs.reset();
         TRACE("arith", display(tout););

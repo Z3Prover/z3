@@ -121,7 +121,7 @@ private:
     unsigned row_of_basic_column(unsigned j) const;
 
 public:
-    void display_column(std::ostream & out, unsigned j) const;
+    std::ostream& display_column(std::ostream & out, unsigned j) const;
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_lower_bound_constraint(unsigned j) const;
     bool current_solution_is_inf_on_cut() const;

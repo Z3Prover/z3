@@ -778,6 +778,7 @@ bool lar_solver::costs_are_used() const {
 }
     
 void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq> & delta) {
+    TRACE("change_x_del", tout << "delta = " << delta;);    
     if (use_tableau()) {
         for (const auto & c : A_r().m_columns[j]) {
             unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.var()];
@@ -786,7 +787,7 @@ void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j,
             }
             m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, - A_r().get_val(c) * delta);
             TRACE("change_x_del",
-                  tout << "changed basis column " << bj << ", it is " <<
+                  tout << "changed basis column x[" << bj << "] to " << m_mpq_lar_core_solver.m_r_x[bj] << ", it is " <<
                   ( m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj)?  "feas":"inf") << std::endl;);
                   
         }
@@ -1455,6 +1456,7 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
 void lar_solver::random_update(unsigned sz, var_index const * vars, std::function<bool (lpvar)> can_be_used_in_random_update) {
     vector<unsigned> column_list;
     fill_var_set_for_random_update(sz, vars, column_list, can_be_used_in_random_update);
+    TRACE("random_update", for (lpvar j : column_list) { print_column_info(j, tout) << "is_int = " << column_is_int(j) << "\n";});
     random_updater ru(*this, column_list);
     ru.update();
 }
