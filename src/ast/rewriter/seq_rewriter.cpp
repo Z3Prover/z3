@@ -1456,12 +1456,7 @@ br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
                 return BR_DONE;
             }
         }
-        if (sz <= as.length()) {
-            result = m().mk_false();
-        }
-        else {
-            result = m().mk_true();
-        }
+        result = m().mk_bool_val(as.length() < bs.length());
         return BR_DONE;
     }
     return BR_FAILED;
