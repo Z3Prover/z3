@@ -53,7 +53,7 @@ core_solver_pretty_printer<T, X>::core_solver_pretty_printer(lp_core_solver_base
     m_basis_heading_title = "heading";
     m_x_title = "x*";
     m_title_width = static_cast<unsigned>(std::max(std::max(m_cost_title.size(), std::max(m_basis_heading_title.size(), m_x_title.size())), m_approx_norm_title.size()));
-    m_squash_blanks = nrows() > 10 && ncols() > 10;
+    m_squash_blanks = nrows() > 10 && ncols() > 5;
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_costs() {
