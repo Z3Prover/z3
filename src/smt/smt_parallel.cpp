@@ -184,7 +184,7 @@ namespace smt {
 
             collect_units();
             ++num_rounds;
-            max_conflicts = (max_conflicts < thread_max_conflicts) ? 0 : (thread_max_conflicts - max_conflicts);
+            max_conflicts = (max_conflicts < thread_max_conflicts) ? 0 : (max_conflicts - thread_max_conflicts);
             thread_max_conflicts *= 2;            
         }
 
