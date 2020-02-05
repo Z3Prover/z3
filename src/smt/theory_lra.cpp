@@ -2394,22 +2394,16 @@ public:
 
     bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval) const {
         theory_var v = lp().local_to_external(vi);
-        if (v == null_theory_var) return false;
+        if (v == null_theory_var) 
+            return false;
 
         if (m_unassigned_bounds[v] == 0 || m_bounds.size() <= static_cast<unsigned>(v)) {
             return false;
         }
-        lp_bounds const& bounds = m_bounds[v];
-        for (unsigned i = 0; i < bounds.size(); ++i) {
-            lp_api::bound* b = bounds[i];
-            if (ctx().get_assignment(b->get_bv()) != l_undef) {
-                continue;
-            }
-            literal lit = is_bound_implied(kind, bval, *b);
-            if (lit == null_literal) {
-                continue;
-            }
-            return true;
+        for (lp_api::bound* b : m_bounds[v]) {
+            if (ctx().get_assignment(b->get_bv()) == l_undef &&
+                null_literal != is_bound_implied(kind, bval, *b))
+                return true;
         }
         return false;
     }
