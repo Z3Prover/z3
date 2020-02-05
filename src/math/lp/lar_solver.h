@@ -404,6 +404,8 @@ public:
     void update_x_and_inf_costs_for_column_with_changed_bounds(unsigned j);
 
     
+    unsigned num_changed_bounds() const { return m_rows_with_changed_bounds.size(); }
+
     void detect_rows_with_changed_bounds_for_column(unsigned j);
     
     void detect_rows_with_changed_bounds();

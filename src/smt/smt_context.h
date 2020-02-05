@@ -215,27 +215,8 @@ namespace smt {
         proto_model_ref            m_proto_model;
         model_ref                  m_model;
         std::string                m_unknown;
-        void                       mk_proto_model(lbool r);
-        struct scoped_mk_model {
-            context & m_ctx;
-            scoped_mk_model(context & ctx):m_ctx(ctx) {
-                m_ctx.m_proto_model = nullptr;
-                m_ctx.m_model       = nullptr;
-            }
-            ~scoped_mk_model() {
-                if (m_ctx.m_proto_model.get() != nullptr) {
-                    m_ctx.m_model = m_ctx.m_proto_model->mk_model();
-                    try {
-                        m_ctx.add_rec_funs_to_model();
-                    }
-                    catch (...) {
-                        // no op
-                    }
-                    m_ctx.m_proto_model = nullptr; // proto_model is not needed anymore.
-                }
-            }
-        };
-
+        void                       mk_proto_model();
+        void                       reset_model() { m_model = nullptr; m_proto_model = nullptr; }
 
         // -----------------------------------
         //
@@ -1614,11 +1595,11 @@ namespace smt {
 
         expr_ref_vector get_trail();
 
-        void get_model(model_ref & m) const;
+        void get_model(model_ref & m);
+
+        void set_model(model* m) { m_model = m; }
 
         bool update_model(bool refinalize);
-
-        void get_proto_model(proto_model_ref & m) const;
 
         bool validate_model();
 

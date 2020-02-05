@@ -3343,8 +3343,10 @@ namespace smt {
             r = l_undef;
         }
         if (r == l_true && gparams::get_value("model_validate") == "true") {
+            model_ref mdl;
+            get_model(mdl);
             for (theory* t : m_theory_set) {
-                t->validate_model(*m_model);
+                t->validate_model(*mdl);
             }
 #if 0
             for (literal lit : m_assigned_literals) {
@@ -3560,7 +3562,7 @@ namespace smt {
             return l_false;
         }
         timeit tt(get_verbosity_level() >= 100, "smt.stats");
-        scoped_mk_model smk(*this);
+        reset_model();
         SASSERT(at_search_level());
         TRACE("search", display(tout); display_enodes_lbls(tout););
         TRACE("search_detail", m_asserted_formulas.display(tout););
@@ -3594,35 +3596,34 @@ namespace smt {
     }
 
     bool context::restart(lbool& status, unsigned curr_lvl) {
+        SASSERT(status != l_true || !inconsistent());
+
+        reset_model();
 
         if (m_last_search_failure != OK) {
-            if (status != l_false) {
-                // build candidate model before returning
-                mk_proto_model(status);
-                // status = l_undef;
-            }
             return false;
         }
-
         if (status == l_false) {
             return false;
         }
-        if (status == l_true) {
-            SASSERT(!inconsistent());
-            mk_proto_model(l_true);
+        if (status == l_true && !m_qmanager->has_quantifiers()) {
+            return false;
+        }
+        if (status == l_true && m_qmanager->has_quantifiers()) {
             // possible outcomes   DONE l_true, DONE l_undef, CONTINUE
+            mk_proto_model();
             quantifier_manager::check_model_result cmr = m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value());
-            if (cmr == quantifier_manager::SAT) {
-                // done
-                status = l_true;
+            switch (cmr) {
+            case quantifier_manager::SAT:
                 return false;
-            }
-            if (cmr == quantifier_manager::UNKNOWN) {
+            case quantifier_manager::UNKNOWN:
                 IF_VERBOSE(2, verbose_stream() << "(smt.giveup quantifiers)\n";);
                 // giving up
                 m_last_search_failure = QUANTIFIERS;
                 status = l_undef;
                 return false;
+            default:
+                break;
             }
         }
         inc_limits();
@@ -3807,7 +3808,7 @@ namespace smt {
 
         
         if (m_fparams.m_model_on_final_check) {
-            mk_proto_model(l_undef);
+            mk_proto_model();
             model_pp(std::cout, *m_proto_model);
             std::cout << "END_OF_MODEL\n";
             std::cout.flush();
@@ -4395,15 +4396,16 @@ namespace smt {
         }
         TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
         if (fcs == FC_DONE) {
-            mk_proto_model(l_true);
-            m_model = m_proto_model->mk_model();
-            add_rec_funs_to_model();
+            reset_model();
+            model_ref mdl;
+            get_model(mdl);
         }
 
         return fcs == FC_DONE;
     }
 
-    void context::mk_proto_model(lbool r) {
+    void context::mk_proto_model() {
+        if (m_model || m_proto_model) return;
         TRACE("get_model",
               display(tout);
               display_normalized_enodes(tout);
@@ -4412,9 +4414,10 @@ namespace smt {
               );
         failure fl = get_last_search_failure();
         if (fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
-            TRACE("get_model", tout << "last search failure: " << fl << "\n";);
-        }
-        else if (m_fparams.m_model || m_fparams.m_model_on_final_check || m_qmanager->model_based()) {
+            TRACE("get_model", tout << "last search failure: " << fl << "\n";);   
+        }     
+        else if (m_fparams.m_model || m_fparams.m_model_on_final_check || 
+                 (m_qmanager->has_quantifiers() && m_qmanager->model_based())) {
             m_model_generator->reset();
             m_proto_model = m_model_generator->mk_model();
             m_qmanager->adjust_model(m_proto_model.get());
@@ -4427,8 +4430,7 @@ namespace smt {
         }
     }
 
-    proof * context::get_proof() {
-        
+    proof * context::get_proof() {        
         if (!m_unsat_proof) {
             m_unsat_proof = m_clause_proof.get_proof();
         }
@@ -4436,11 +4438,22 @@ namespace smt {
         return m_unsat_proof;
     }
 
-    void context::get_model(model_ref & m) const {
+    void context::get_model(model_ref & m) {
         if (inconsistent())
             m = nullptr;
-        else
-            m = const_cast<model*>(m_model.get());
+        else {
+            mk_proto_model();
+            if (!m_model && m_proto_model) {
+                m_model = m_proto_model->mk_model();
+                try {
+                    add_rec_funs_to_model();
+                }
+                catch (...) {
+                    // no op
+                }                
+            }
+            m = m_model.get();
+        }
     }
 
     void context::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
@@ -4457,10 +4470,6 @@ namespace smt {
         expr_ref_vector result(get_manager());
         get_assignments(result);
         return result;
-    }
-
-    void context::get_proto_model(proto_model_ref & m) const {
-        m = const_cast<proto_model*>(m_proto_model.get());
     }
 
     failure context::get_last_search_failure() const {

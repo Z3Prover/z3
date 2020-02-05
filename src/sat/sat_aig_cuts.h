@@ -158,6 +158,7 @@ namespace sat {
         aig_cuts();
         void add_var(unsigned v);
         void add_node(literal head, bool_op op, unsigned sz, literal const* args);
+        void add_cut(bool_var v, uint64_t lut, bool_var_vector const& args);
         void set_root(bool_var v, literal r);
 
         void set_on_clause_add(on_clause_t& on_clause_add);

@@ -230,8 +230,9 @@ namespace sat {
 
 #if 0
         std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
-            [&,this](uint64_t l, bool_var_vector const& vars, bool_var v) {
+            [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
             m_stats.m_xluts++;
+            m_aig_cuts.add_cut(v, lut, vars);
         };
         lut_finder lf(s);
         lf.set(on_lut);

@@ -206,7 +206,7 @@ namespace smt {
         case l_true: 
             pctx.get_model(mdl);
             if (mdl) {
-                ctx.m_model = mdl->translate(tr);
+                ctx.set_model(mdl->translate(tr));
             }
             break;
         case l_false:

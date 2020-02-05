@@ -153,7 +153,7 @@ namespace smt {
         /**
            \brief Return the model associated with the last check command.
         */
-        void get_model(model_ref & m) const;
+        void get_model(model_ref & m);
 
         /**
            \brief Return the proof of unsatisfiability associated with the last check command.
