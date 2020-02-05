@@ -4397,8 +4397,6 @@ namespace smt {
         TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
         if (fcs == FC_DONE) {
             reset_model();
-            model_ref mdl;
-            get_model(mdl);
         }
 
         return fcs == FC_DONE;
