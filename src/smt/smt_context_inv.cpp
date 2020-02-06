@@ -32,10 +32,8 @@ namespace smt {
     bool context::check_clause(clause const * cls) const {
         SASSERT(is_watching_clause(~cls->get_literal(0), cls));        
         SASSERT(is_watching_clause(~cls->get_literal(1), cls));        
-        if (lit_occs_enabled()) {
-            for (literal l : *cls) {
-                SASSERT(m_lit_occs[l.index()].contains(const_cast<clause*>(cls)));
-            }
+        for (literal l : *cls) {
+            SASSERT(m_lit_occs[l.index()] > 0);
         }
         return true;
     }
@@ -84,37 +82,6 @@ namespace smt {
         return true;
     }
 
-    bool context::check_lit_occs(literal l) const {
-        clause_set const & v = m_lit_occs[l.index()];
-        for (clause * cls : v) {
-            unsigned num = cls->get_num_literals();
-            unsigned i   = 0;
-            for (; i < num; i++)
-                if (cls->get_literal(i) == l)
-                    break;
-            CTRACE("lit_occs", !(i < num), tout << i << " " << num << "\n"; display_literal(tout, l); tout << "\n"; 
-                   display_clause(tout, cls); tout << "\n"; 
-                   tout << "l: " << l.index() << " cls: ";
-                   for (unsigned j = 0; j < num; j++) {
-                       tout << cls->get_literal(j).index() << " ";
-                   }
-                   tout << "\n";
-                   display_clause_detail(tout, cls); tout << "\n";);
-            SASSERT(i < num);
-        }
-        return true;
-    }
-
-    bool context::check_lit_occs() const {
-        if (lit_occs_enabled()) {
-            unsigned num_lits = get_num_bool_vars() * 2;
-            for (unsigned l_idx = 0; l_idx < num_lits; ++l_idx) {
-                check_lit_occs(to_literal(l_idx));
-            }
-        }
-        return true;
-    }
-
     bool context::check_enode(enode * n) const {
         SASSERT(n->check_invariant());
         bool is_true_eq = n->is_true_eq();
@@ -136,7 +103,6 @@ namespace smt {
     }
 
     bool context::check_invariant() const {
-        check_lit_occs();
         check_bin_watch_lists();
         check_clauses(m_aux_clauses);
         check_clauses(m_lemmas);

@@ -182,7 +182,29 @@ namespace smt {
         }
     }
 
+    bool context::split_binary(app* o, expr*& a, expr_ref& b, expr_ref& c) {
+        expr* x = nullptr, *y = nullptr, *ny = nullptr, *z = nullptr, *u = nullptr;
+        if (m.is_or(o, x, y) &&
+            m.is_not(y, ny) && 
+            m.is_or(ny, z, u)) {
+            a = x;            
+            b = m.is_not(z, z) ? z : m.mk_not(z);
+            c = m.is_not(u, u) ? u : m.mk_not(u);
+            return true;
+        }
+        if (m.is_or(o, y, x) &&
+            m.is_not(y, ny) && 
+            m.is_or(ny, z, u)) {
+            a = x;            
+            b = m.is_not(z, z) ? z : m.mk_not(z);
+            c = m.is_not(u, u) ? u : m.mk_not(u);
+            return true;
+        }
+        return false;
+    }
+
 #define DEEP_EXPR_THRESHOLD 1024
+
  
     /**
        \brief Internalize an expression asserted into the logical context using the given proof as a justification.
@@ -226,6 +248,19 @@ namespace smt {
             }
             case OP_OR: {
                 literal_buffer lits;
+                expr* a = nullptr;
+                expr_ref b(m), c(m);
+                // perform light-weight rewriting on clauses.
+                if (!relevancy() && split_binary(to_app(n), a, b, c)) {
+                    internalize(a, true);
+                    internalize(b, true);
+                    internalize(c, true);
+                    literal lits2[2] = { get_literal(a), get_literal(b) };
+                    literal lits3[2] = { get_literal(a), get_literal(c) };
+                    mk_root_clause(2, lits2, pr);
+                    mk_root_clause(2, lits3, pr);
+                    break;
+                }
                 for (expr * arg : *to_app(n)) { 
                     internalize(arg, true);
                     lits.push_back(get_literal(arg));
@@ -882,11 +917,9 @@ namespace smt {
         SASSERT(m_assignment.size() == m_watches.size());
         m_watches[l.index()]        .reset();
         m_watches[not_l.index()]    .reset();
-        if (lit_occs_enabled()) {
-            m_lit_occs.reserve(aux);
-            m_lit_occs[l.index()]     .reset();
-            m_lit_occs[not_l.index()] .reset();
-        }
+        m_lit_occs.reserve(aux, 0);
+        m_lit_occs[l.index()] = 0;
+        m_lit_occs[not_l.index()] = 0;    
         bool_var_data & data = m_bdata[v];
         unsigned iscope_lvl = m_scope_lvl; // record when the boolean variable was internalized.
         data.init(iscope_lvl); 
@@ -1357,11 +1390,14 @@ namespace smt {
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             assign(lits[0], j);
+            inc_ref(lits[0]);
             return nullptr;
         case 2:
             if (use_binary_clause_opt(lits[0], lits[1], lemma)) {
                 literal l1 = lits[0];
                 literal l2 = lits[1];
+                inc_ref(l1);
+                inc_ref(l2);
                 m_watches[(~l1).index()].insert_literal(l2);
                 m_watches[(~l2).index()].insert_literal(l1);
                 if (get_assignment(l2) == l_false) {
@@ -1425,8 +1461,7 @@ namespace smt {
                     assign(cls->get_literal(0), b_justification(cls));
             }
             
-            if (lit_occs_enabled())
-                add_lit_occs(cls);
+            add_lit_occs(*cls);
             
             TRACE("add_watch_literal_bug", display_clause_detail(tout, cls););
             TRACE("mk_clause_result", display_clause_detail(tout, cls););
@@ -1435,9 +1470,9 @@ namespace smt {
         }} 
     }
 
-    void context::add_lit_occs(clause * cls) {
-        for (literal l : *cls) {
-            m_lit_occs[l.index()].insert(cls);
+    void context::add_lit_occs(clause const& cls) {
+        for (literal l : cls) {
+            inc_ref(l);
         }
     }
 

@@ -170,7 +170,7 @@ namespace smt {
         ptr_vector<expr>            m_bool_var2expr;         // bool_var -> expr
         signed_char_vector          m_assignment;  //!< mapping literal id -> assignment lbool
         vector<watch_list>          m_watches;     //!< per literal
-        vector<clause_set>          m_lit_occs;    //!< index for backward subsumption
+        unsigned_vector             m_lit_occs;    //!< occurrence count of literals
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
         clause_vector               m_aux_clauses;
@@ -637,8 +637,6 @@ namespace smt {
 
         void remove_watch_literal(clause * cls, unsigned idx);
 
-        void remove_lit_occs(clause * cls);
-
         void remove_cls_occs(clause * cls);
 
         void del_clause(bool log, clause * cls);
@@ -841,9 +839,13 @@ namespace smt {
 
         void mk_ite_cnstr(app * n);
 
-        bool lit_occs_enabled() const { return m_fparams.m_phase_selection==PS_OCCURRENCE; }
+        void dec_ref(literal l) { SASSERT(m_lit_occs[l.index()] > 0); m_lit_occs[l.index()]--; }
 
-        void add_lit_occs(clause * cls);
+        void inc_ref(literal l) { m_lit_occs[l.index()]++; }
+
+        void remove_lit_occs(clause const& cls);
+
+        void add_lit_occs(clause const& cls);
     public:
 
         void ensure_internalized(expr* e);
@@ -1423,9 +1425,6 @@ namespace smt {
 
         bool check_missing_diseq_conflict() const;
 
-        bool check_lit_occs(literal l) const;
-
-        bool check_lit_occs() const;
 #endif
         // -----------------------------------
         //
@@ -1570,6 +1569,8 @@ namespace smt {
         void get_relevant_literals(expr_ref_vector & result);
 
         void get_guessed_literals(expr_ref_vector & result);
+
+        bool split_binary(app* o, expr*& a, expr_ref& b, expr_ref& c);
 
         void internalize_assertion(expr * n, proof * pr, unsigned generation);
 

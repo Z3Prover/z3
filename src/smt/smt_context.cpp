@@ -1387,7 +1387,7 @@ namespace smt {
             else if (d.is_theory_atom()) {
                 theory * th = m_theories.get_plugin(d.get_theory());
                 SASSERT(th);
-                th->assign_eh(v, val == l_true);
+                th->assign_eh(v, val == l_true);                
             }
             else if (d.is_quantifier()) {
                 // Remark: when RELEVANCY_LEMMA is true, a quantifier can be asserted to false and marked as relevant.
@@ -1804,7 +1804,7 @@ namespace smt {
             }
         }
         bool_var var;
-        lbool phase;
+        lbool phase = l_undef;
         m_case_split_queue->next_case_split(var, phase);
 
         if (var == null_bool_var) {
@@ -1836,13 +1836,13 @@ namespace smt {
             // assigning a quantifier to false is equivalent to make it irrelevant.
             phase = l_false;
         }
+        literal l(var, false);
 
         if (phase != l_undef) {
             is_pos = phase == l_true;
         }
         else {
             bool_var_data & d = m_bdata[var];
-
             if (d.try_true_first()) {
                 is_pos = true;
             }
@@ -1851,21 +1851,25 @@ namespace smt {
                 case PS_THEORY: 
                     if (m_phase_cache_on && d.m_phase_available) {
                         is_pos = m_bdata[var].m_phase;
+                        break;
                     }
-                    else if (!m_phase_cache_on && d.is_theory_atom()) {
+                    if (!m_phase_cache_on && d.is_theory_atom()) {
                         theory * th = m_theories.get_plugin(d.get_theory());
-                        lbool ph = th->get_phase(var);
-                        if (ph != l_undef) {
-                            is_pos = ph == l_true;
-                        }
-                        else {
-                            is_pos = m_phase_default;
+                        lbool th_phase = th->get_phase(var);
+                        if (th_phase != l_undef) {
+                            is_pos = th_phase == l_true;
+                            break;
                         }
                     }
-                    else {
-                        TRACE("phase_selection", tout << "setting to false\n";);
-                        is_pos = m_phase_default;
+                    if (m_lit_occs[l.index()] == 0) {
+                        is_pos = false;
+                        break;
                     }
+                    if (m_lit_occs[(~l).index()] == 0) {
+                        is_pos = true;
+                        break;
+                    }
+                    is_pos = m_phase_default;                    
                     break;
                 case PS_CACHING:
                 case PS_CACHING_CONSERVATIVE:
@@ -1889,8 +1893,7 @@ namespace smt {
                     is_pos = (m_random() % 2 == 0);
                     break;
                 case PS_OCCURRENCE: {
-                    literal l(var);
-                    is_pos = m_lit_occs[l.index()].size() > m_lit_occs[(~l).index()].size();
+                    is_pos = m_lit_occs[l.index()] > m_lit_occs[(~l).index()];
                     break;
                 }
                 default:
@@ -1900,10 +1903,9 @@ namespace smt {
             }
         }
 
-        TRACE("decide", tout << "case split " << (is_pos?"pos":"neg") << " p" << var << "\n"
-              << "activity: " << get_activity(var) << "\n";);
-
-        assign(literal(var, !is_pos), b_justification::mk_axiom(), true);
+        if (!is_pos) l.neg();
+        TRACE("decide", tout << "case split " << l << "\n" << "activity: " << get_activity(var) << "\n";);
+        assign(l, b_justification::mk_axiom(), true);
         return true;
     }
 
@@ -1989,19 +1991,18 @@ namespace smt {
     /**
        \brief Update the index used for backward subsumption.
     */
-    void context::remove_lit_occs(clause * cls) {
-        unsigned num_lits = cls->get_num_literals();
-        for (unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
-            m_lit_occs[l.index()].erase(cls);
+    void context::remove_lit_occs(clause const& cls) {
+        int nbv = get_num_bool_vars();
+        for (literal l : cls) {
+            if (l.var() < nbv) 
+                dec_ref(l);
         }
     }
 
     void context::remove_cls_occs(clause * cls) {
         remove_watch_literal(cls, 0);
         remove_watch_literal(cls, 1);
-        if (lit_occs_enabled())
-            remove_lit_occs(cls);
+        remove_lit_occs(*cls);
     }
 
     /**
@@ -2254,19 +2255,9 @@ namespace smt {
                         }
                     }
 
-                    unsigned num        = cls->get_num_literals();
+                    unsigned num = cls->get_num_literals();
 
-                    if (lit_occs_enabled()) {
-                        for (unsigned j = 0; j < num; j++) {
-                            literal l           = cls->get_literal(j);
-                            if (l.var() < static_cast<int>(num_bool_vars)) {
-                                // This boolean variable was not deleted during backtracking
-                                //
-                                // So, remove it from lit_occs.
-                                m_lit_occs[l.index()].erase(cls);
-                            }
-                        }
-                    }
+                    remove_lit_occs(*cls);
 
                     unsigned ilvl       = 0;
                     (void)ilvl;
@@ -2297,8 +2288,7 @@ namespace smt {
                     add_watch_literal(cls, 0);
                     add_watch_literal(cls, 1);
 
-                    if (lit_occs_enabled())
-                        add_lit_occs(cls);
+                    add_lit_occs(*cls);
 
                     literal l1 = cls->get_literal(0);
                     literal l2 = cls->get_literal(1);
@@ -2342,7 +2332,6 @@ namespace smt {
             v.reset();
         }
         CASSERT("reinit_clauses", check_clauses(m_lemmas));
-        CASSERT("reinit_clauses", check_lit_occs());
         TRACE("reinit_clauses_bug", display_watch_lists(tout););
     }
 
@@ -2498,23 +2487,24 @@ namespace smt {
 
         unsigned i = 2;
         unsigned j = i;
+        bool is_taut = false;
         for(; i < s; i++) {
             literal l = cls[i];
             switch(get_assignment(l)) {
             case l_false:
                 if (m.proofs_enabled())
                     simp_lits.push_back(~l);
-                if (lit_occs_enabled())
-                    m_lit_occs[l.index()].erase(&cls);
+                dec_ref(l);
                 break;
+            case l_true:
+                is_taut = true;
+                // fallthrough
             case l_undef:
                 if (i != j) {
                     cls.swap_lits(i, j);
                 }
                 j++;
                 break;
-            case l_true:
-                return true;
             }
         }
 
@@ -2522,6 +2512,10 @@ namespace smt {
             m_clause_proof.shrink(cls, j);
             cls.set_num_literals(j);
             SASSERT(j >= 2);
+        }
+
+        if (is_taut) {
+            return true;
         }
 
         if (m.proofs_enabled() && !simp_lits.empty()) {

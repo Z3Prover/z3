@@ -1,5 +1,6 @@
 def_module_params('nla', 
                   export=True,
+                  description='Parameters for non-linear arithmetic solving',
                   params=(
                    ('order', BOOL, True, 'run order lemmas'),
                    ('tangents', BOOL, True, 'run tangent lemmas'),

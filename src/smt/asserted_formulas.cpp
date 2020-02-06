@@ -455,7 +455,8 @@ void asserted_formulas::propagate_values() {
 
     unsigned num_prop = 0;
     unsigned num_iterations = 0;
-    while (!inconsistent() && ++num_iterations < 2) {
+    unsigned delta_prop = m_formulas.size();
+    while (!inconsistent() && m_formulas.size()/20 < delta_prop) {
         m_expr2depth.reset();
         m_scoped_substitution.push();
         unsigned prop = num_prop;
@@ -478,9 +479,7 @@ void asserted_formulas::propagate_values() {
         m_scoped_substitution.pop(1);
         flush_cache();
         TRACE("propagate_values", tout << "after:\n"; display(tout););
-        if (num_prop == prop) {
-            break;
-        }
+        delta_prop = prop - num_prop;
         num_prop = prop;
     }
     TRACE("asserted_formulas", tout << num_prop << "\n";);
@@ -493,7 +492,6 @@ unsigned asserted_formulas::propagate_values(unsigned i) {
     expr_ref new_n(m);
     proof_ref new_pr(m);
     m_rewriter(n, new_n, new_pr);
-    TRACE("propagate_values", tout << n << "\n" << new_n << "\n";);
     if (m.proofs_enabled()) {
         proof * pr  = m_formulas[i].get_proof();
         new_pr = m.mk_modus_ponens(pr, new_pr);
@@ -504,7 +502,7 @@ unsigned asserted_formulas::propagate_values(unsigned i) {
         m_inconsistent = true;
     }
     update_substitution(new_n, new_pr);
-    return n != new_n ? 1 : 0;
+    return (n != new_n) ? 1 : 0;
 }
 
 bool asserted_formulas::update_substitution(expr* n, proof* pr) {
