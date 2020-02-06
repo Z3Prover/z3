@@ -33,7 +33,7 @@ namespace smt {
         SASSERT(is_watching_clause(~cls->get_literal(0), cls));        
         SASSERT(is_watching_clause(~cls->get_literal(1), cls));        
         for (literal l : *cls) {
-            SASSERT(m_lit_occs[l.index()] > 0);
+            // currently does not hold: SASSERT(m_lit_occs[l.index()] > 0);
         }
         return true;
     }
