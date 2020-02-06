@@ -2173,32 +2173,6 @@ public:
 
     nla::lemma m_lemma;
  
-    // lp::lar_term mk_term(nla::polynomial const& poly) {
-    //     lp::lar_term term;
-    //     for (auto const& mon : poly) {
-    //         SASSERT(!mon.empty());
-    //         if (mon.size() == 1) {
-    //             term.add_var(mon[0]);
-    //         }
-    //         else {
-    //             // create the expression corresponding to the product.
-    //             // internalize it.
-    //             // extract the theory var representing the product.
-    //             // convert the theory var back to lpvar
-    //             expr_ref_vector mul(m);
-    //             for (lpvar v : mon) {
-    //                 theory_var w = lp().local_to_external(v);
-    //                 mul.push_back(get_enode(w)->get_owner());
-    //             }
-    //             app_ref t(a.mk_mul(mul.size(), mul.c_ptr()), m);
-    //             VERIFY(internalize_term(t));
-    //             theory_var w = ctx().get_enode(t)->get_th_var(get_id());
-    //             term.add_var(lp().external_to_local(w));
-    //         }
-    //     }
-    //     return term;
-    // }
-
     void false_case_of_check_nla() {
         literal_vector core;
         for (auto const& ineq : m_lemma.ineqs()) {
@@ -2354,7 +2328,6 @@ public:
 
     unsigned m_propagation_delay{1};
     unsigned m_propagation_count{0};
-
     bool should_propagate() {
         ++m_propagation_count;
         return BP_NONE != propagation_mode() && (m_propagation_count >= m_propagation_delay);
@@ -2373,15 +2346,13 @@ public:
     void propagate_bounds_with_lp_solver() {
         if (!should_propagate()) {
             return;
-        }
-        int num_of_p = lp().settings().stats().m_num_of_implied_bounds;
-        (void)num_of_p;
         local_bound_propagator bp(*this);
+        unsigned props = m_stats.m_bound_propagations1;
+
         lp().propagate_bounds_for_touched_rows(bp);
         if (m.canceled()) {
             return;
         }
-        unsigned props = m_stats.m_bound_propagations1;
         if (is_infeasible()) {
             get_infeasibility_explanation_and_set_conflict();
         }
@@ -2390,35 +2361,24 @@ public:
                 propagate_lp_solver_bound(bp.m_ibounds[i]);
             }
         }
-         
         update_propagation_threshold(props < m_stats.m_bound_propagations1);
-
     }
 
     bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval) const {
         theory_var v = lp().local_to_external(vi);
-        if (v == null_theory_var) return false;
-
+        if (v == null_theory_var) {
+            return false;
+        }
         if (m_unassigned_bounds[v] == 0 || m_bounds.size() <= static_cast<unsigned>(v)) {
             return false;
         }
-        lp_bounds const& bounds = m_bounds[v];
-        for (unsigned i = 0; i < bounds.size(); ++i) {
-            lp_api::bound* b = bounds[i];
-            if (ctx().get_assignment(b->get_bv()) != l_undef) {
-                continue;
+        for (lp_api::bound* b : m_bounds[v]) {
+            if (ctx().get_assignment(b->get_bv()) == l_undef &&
+                null_literal != is_bound_implied(kind, bval, *b)) {
+                return true;
             }
-            literal lit = is_bound_implied(kind, bval, *b);
-            if (lit == null_literal) {
-                continue;
-            }
-            return true;
         }
         return false;
-    }
-
-    nla::solver* get_nla_solver() {        
-        return m_switcher.m_nla ? m_switcher.m_nla->get() : nullptr;
     }
 
     struct local_bound_propagator: public lp::lp_bound_propagator {
@@ -2485,7 +2445,7 @@ public:
                   );
             DEBUG_CODE(
                 for (auto& lit : m_core) {
-                                          SASSERT(ctx().get_assignment(lit) == l_true);
+                    VERIFY(ctx().get_assignment(lit) == l_true);
                 });
             ++m_stats.m_bound_propagations1;
             assign(lit);

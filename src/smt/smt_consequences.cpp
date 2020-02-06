@@ -513,7 +513,7 @@ namespace smt {
         if (m_asserted_formulas.inconsistent() || inconsistent()) {
             return l_false;
         }
-        scoped_mk_model smk(*this);
+        reset_model();
         init_search();
         flet<bool> l(m_searching, true);
         unsigned level = m_scope_lvl;

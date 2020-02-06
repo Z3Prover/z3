@@ -275,6 +275,18 @@ namespace sat {
         SASSERT(!m_aig[v].empty());
     }
 
+    void aig_cuts::add_cut(bool_var v, uint64_t lut, bool_var_vector const& args) {
+        // args can be assumed to be sorted
+        DEBUG_CODE(for (unsigned i = 0; i + 1 < args.size(); ++i) VERIFY(args[i] < args[i+1]););
+        reserve(v);
+        for (bool_var w : args) reserve(w); 
+        cut c;
+        for (bool_var w : args) VERIFY(c.add(w));
+        c.set_table(lut);
+        insert_cut(v, c, m_cuts[v]);
+    }
+
+
     void aig_cuts::set_root(bool_var v, literal r) {
         IF_VERBOSE(10, verbose_stream() << "set-root " << v << " -> " << r << "\n");
         m_roots.push_back(std::make_pair(v, r));

@@ -203,17 +203,17 @@ public:
     const nex* get_child_exp(unsigned j) const override { return m_children[j].e(); }
     unsigned get_child_pow(unsigned j) const override { return m_children[j].pow(); }
 
-    unsigned number_of_child_powers() const { return m_children.size(); }
+    unsigned number_of_child_powers() const override { return m_children.size(); }
 
     nex_mul() : m_coeff(1) {}
     nex_mul(rational const& c, vector<nex_pow> const& args) : m_coeff(c), m_children(args) {}
 
-    const rational& coeff() const { return m_coeff; }
+    const rational& coeff() const override { return m_coeff; }
     
     unsigned size() const override { return m_children.size(); }
     expr_type type() const override { return expr_type::MUL; }
     // A monomial is 'pure' if does not have a numeric coefficient.
-    bool is_pure_monomial() const { return size() == 0 || !m_children[0].e()->is_scalar(); }    
+    bool is_pure_monomial() const override { return size() == 0 || !m_children[0].e()->is_scalar(); }    
 
     std::ostream & print(std::ostream& out) const override {
         bool first = true;
@@ -236,7 +236,7 @@ public:
     const nex_pow* begin() const { return m_children.begin(); }
     const nex_pow* end() const { return m_children.end(); }
 
-    bool contains(lpvar j) const {
+    bool contains(lpvar j) const override {
         for (const nex_pow& c : *this) {
             if (c.e()->contains(j))
                 return true;
@@ -269,7 +269,7 @@ public:
         return get_degree() < 2; // todo: make it more efficient
     }
 
-     bool all_factors_are_elementary() const;
+     bool all_factors_are_elementary() const override;
 
 // #ifdef Z3DEBUG
 //     virtual void sort() {

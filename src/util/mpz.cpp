@@ -1525,12 +1525,12 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
 template<bool SYNCH>
 int mpz_manager<SYNCH>::big_compare(mpz const & a, mpz const & b) {
 #ifndef _MP_GMP
-    sign_cell ca(*this, a), cb(*this, b);
 
-    if (ca.sign() > 0) {
+    if (sign(a) > 0) {
         // a is positive
-        if (cb.sign() > 0) {
+        if (sign(b) > 0) {
             // a & b are positive
+            sign_cell ca(*this, a), cb(*this, b);
             return m_mpn_manager.compare(ca.cell()->m_digits, ca.cell()->m_size,
                                          cb.cell()->m_digits, cb.cell()->m_size);
         }
@@ -1541,12 +1541,13 @@ int mpz_manager<SYNCH>::big_compare(mpz const & a, mpz const & b) {
     }
     else {
         // a is negative
-        if (cb.sign() > 0) {
+        if (sign(b) > 0) {
             // b is positive
             return -1; // a < b
         }
         else {
             // a & b are negative
+            sign_cell ca(*this, a), cb(*this, b);
             return m_mpn_manager.compare(cb.cell()->m_digits, cb.cell()->m_size,
                                          ca.cell()->m_digits, ca.cell()->m_size);
         }

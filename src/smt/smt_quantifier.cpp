@@ -165,6 +165,8 @@ namespace smt {
             m_plugin->add(q);
         }
 
+        bool has_quantifiers() const { return !m_quantifiers.empty(); }
+
         void display_stats(std::ostream & out, quantifier * q) {
             quantifier_stat * s     = get_stat(q);
             unsigned num_instances  = s->get_num_instances();
@@ -476,6 +478,10 @@ namespace smt {
 
     bool quantifier_manager::model_based() const {
         return m_imp->m_plugin->model_based();
+    }
+
+    bool quantifier_manager::has_quantifiers() const {
+        return m_imp->has_quantifiers();
     }
 
     bool quantifier_manager::mbqi_enabled(quantifier *q) const {

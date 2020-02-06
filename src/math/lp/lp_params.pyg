@@ -1,11 +1,12 @@
 def_module_params('lp', 
                   export=True,
+                  description='Parameters for the LP arithmetic solver core',
                   params=(
                   ('rep_freq', UINT, 0, 'the report frequency, in how many iterations print the cost and other info '),
                    ('min', BOOL, False, 'minimize cost'),
                    ('print_stats', BOOL, False, 'print statistic'),
                    ('simplex_strategy', UINT, 0, 'simplex strategy for the solver'),
-                   ('enable_hnf', BOOL, True, 'enable hnf cuts'),
+                   ('enable_hnf', BOOL, True, 'enable hnf (Hermite Normal Form) cuts'),
                    ('bprop_on_pivoted_rows', BOOL, True, 'propagate bounds on rows changed by the pivot operation'),
                    ('nla', BOOL, False, 'call nonlinear integer solver with incremental linearization'),
                    ('print_ext_var_names', BOOL, False, 'print external variable names')
