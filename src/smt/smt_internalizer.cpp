@@ -1373,6 +1373,15 @@ namespace smt {
             break;
         }
         TRACE("mk_clause", tout << "after simplification:\n"; display_literals_verbose(tout, num_lits, lits) << "\n";);
+#if 0
+        for (unsigned i = 0; i < num_lits; ++i) {
+            expr_ref tmp(m);
+            literal2expr(lits[i], tmp);
+            std::cout << tmp << "\n";
+        }
+        std::cout << "\n";
+#endif
+
         unsigned activity = 0;
         if (activity == 0)
             activity = 1;

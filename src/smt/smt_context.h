@@ -839,7 +839,7 @@ namespace smt {
 
         void mk_ite_cnstr(app * n);
 
-        void dec_ref(literal l) { SASSERT(m_lit_occs[l.index()] > 0); m_lit_occs[l.index()]--; }
+        void dec_ref(literal l) { if (m_lit_occs[l.index()] > 0) m_lit_occs[l.index()]--; }
 
         void inc_ref(literal l) { m_lit_occs[l.index()]++; }
 
