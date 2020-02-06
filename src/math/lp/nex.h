@@ -203,7 +203,7 @@ public:
     const nex* get_child_exp(unsigned j) const override { return m_children[j].e(); }
     unsigned get_child_pow(unsigned j) const override { return m_children[j].pow(); }
 
-    unsigned number_of_child_powers() const { return m_children.size(); }
+    unsigned number_of_child_powers() const override { return m_children.size(); }
 
     nex_mul() : m_coeff(1) {}
     nex_mul(rational const& c, vector<nex_pow> const& args) : m_coeff(c), m_children(args) {}
