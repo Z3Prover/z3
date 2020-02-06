@@ -2688,7 +2688,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
         for (unsigned i = 0; i < m; i++)
             vars[i]=all_vars[i];
         
-        solver->random_update(m, vars);
+        solver->random_update(m, vars, [] (unsigned) {return true;});
         delete []vars;
     }
 }
