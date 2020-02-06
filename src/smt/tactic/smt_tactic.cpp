@@ -16,7 +16,7 @@ Author:
 Notes:
 
 --*/
-#include "util/lp/lp_params.hpp"
+#include "math/lp/lp_params.hpp"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/ast_util.h"
 #include "smt/smt_kernel.h"

@@ -14,6 +14,7 @@
 #include "math/grobner/pdd_solver.h"
 #include "math/grobner/pdd_simplifier.h"
 #include "util/uint_set.h"
+#include <math.h>
 
 
 namespace dd {
@@ -68,8 +69,31 @@ namespace dd {
         reset();
     }
 
+
+    void solver::adjust_cfg() {
+        auto & cfg = m_config;
+        IF_VERBOSE(3, verbose_stream() << "start saturate\n"; display_statistics(verbose_stream()));
+        cfg.m_eqs_threshold = static_cast<unsigned>(cfg.m_eqs_growth * ceil(log(1 + m_to_simplify.size()))* m_to_simplify.size());
+        cfg.m_expr_size_limit = 0;
+        cfg.m_expr_degree_limit = 0;
+        for (equation* e: m_to_simplify) {
+            cfg.m_expr_size_limit = std::max(cfg.m_expr_size_limit, (unsigned)e->poly().tree_size());
+            cfg.m_expr_degree_limit = std::max(cfg.m_expr_degree_limit, e->poly().degree());            
+        }
+        cfg.m_expr_size_limit *= cfg.m_expr_size_growth;
+        cfg.m_expr_degree_limit *= cfg.m_expr_degree_growth;;
+        
+        IF_VERBOSE(3, verbose_stream() << "set m_config.m_eqs_threshold " <<  m_config.m_eqs_threshold  << "\n";
+                   verbose_stream() << "set m_config.m_expr_size_limit to " <<  m_config.m_expr_size_limit << "\n";
+                   verbose_stream() << "set m_config.m_expr_degree_limit to " <<  m_config.m_expr_degree_limit << "\n";
+                   );
+        
+    }
     void solver::saturate() {
         simplify();
+        if (done()) {
+            return;
+        }
         init_saturate();
         TRACE("dd.solver", display(tout););
         try {
@@ -89,7 +113,7 @@ namespace dd {
     void solver::scoped_process::done() {
         pdd p = e->poly();
         SASSERT(!p.is_val());
-        if (p.hi().is_val()) {
+        if (p.degree() == 1) {
             g.push_equation(solved, e);
         }
         else {
@@ -194,7 +218,7 @@ namespace dd {
         if (&src == &dst) {
             return false;
         }
-        m_stats.m_simplified++;
+        m_stats.incr_simplified();
         pdd t = src.poly();
         pdd r = dst.poly().reduce(t);
         if (r == dst.poly()){
@@ -217,7 +241,7 @@ namespace dd {
 
     void solver::simplify_using(equation & dst, equation const& src, bool& changed_leading_term) {
         if (&src == &dst) return;        
-        m_stats.m_simplified++;
+        m_stats.incr_simplified();
         pdd t = src.poly();
         pdd r = dst.poly().reduce(t);
         changed_leading_term = dst.state() == processed && m.different_leading_term(r, dst.poly());
@@ -251,6 +275,7 @@ namespace dd {
 
     bool solver::step() {
         m_stats.m_compute_steps++;
+        IF_VERBOSE(3, if (m_stats.m_compute_steps % 100 == 0) verbose_stream() << "compute steps = " << m_stats.m_compute_steps << "\n";);
         equation* e = pick_next();
         if (!e) return false;
         scoped_process sd(*this, e);
@@ -342,7 +367,8 @@ namespace dd {
     
     bool solver::done() {
         return 
-            m_to_simplify.size() + m_processed.size() >= m_config.m_eqs_threshold || 
+            m_to_simplify.size() + m_processed.size() >= m_config.m_eqs_threshold ||
+            m_stats.simplified() >= m_config.m_max_simplified ||
             canceled() || 
             m_stats.m_compute_steps > m_config.m_max_steps ||
             m_conflict != nullptr;
@@ -390,7 +416,7 @@ namespace dd {
     
     void solver::collect_statistics(statistics& st) const {
         st.update("dd.solver.steps", m_stats.m_compute_steps);
-        st.update("dd.solver.simplified", m_stats.m_simplified);
+        st.update("dd.solver.simplified", m_stats.simplified());
         st.update("dd.solver.superposed", m_stats.m_superposed);
         st.update("dd.solver.processed", m_processed.size());
         st.update("dd.solver.solved", m_solved.size());
@@ -416,10 +442,12 @@ namespace dd {
         statistics st;
         collect_statistics(st);
         st.display(out);
+        out << "\n----\n";
         return out;
     }
 
     void solver::invariant() const {
+        return; // disabling the check that seem incorrect after changing in the order of pdd expressions
         // equations in processed have correct indices
         // they are labled as processed
         unsigned i = 0;
@@ -437,7 +465,7 @@ namespace dd {
             VERIFY(e->idx() == i);
             ++i;
             pdd p = e->poly();
-            if (!p.is_val() && p.hi().is_val()) {
+            if (p.degree() == 1) {
                 unsigned v = p.var();
                 SASSERT(!head_vars.contains(v));
                 head_vars.insert(v);

@@ -182,7 +182,7 @@ namespace smt {
     }
 
     void eq_propagation_justification::get_antecedents(conflict_resolution & cr) {
-        cr.mark_eq(m_node1, m_node2);
+        if (m_node1 != m_node2) cr.mark_eq(m_node1, m_node2);
     }
 
     proof * eq_propagation_justification::mk_proof(conflict_resolution & cr) {

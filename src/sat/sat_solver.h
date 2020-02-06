@@ -32,7 +32,6 @@ Revision History:
 #include "sat/sat_scc.h"
 #include "sat/sat_asymm_branch.h"
 #include "sat/sat_aig_simplifier.h"
-#include "sat/sat_iff3_finder.h"
 #include "sat/sat_probing.h"
 #include "sat/sat_mus.h"
 #include "sat/sat_binspr.h"
@@ -196,16 +195,16 @@ namespace sat {
 
         friend class integrity_checker;
         friend class cleaner;
-        friend class simplifier;
-        friend class scc;
+        friend class asymm_branch;
         friend class big;
         friend class binspr;
-        friend class elim_eqs;
-        friend class asymm_branch;
-        friend class probing;
-        friend class iff3_finder;
-        friend class mus;
         friend class drat;
+        friend class elim_eqs;
+        friend class bcd;
+        friend class mus;
+        friend class probing;
+        friend class simplifier;
+        friend class scc;
         friend class ba_solver;
         friend class anf_simplifier;
         friend class aig_simplifier;
@@ -220,6 +219,7 @@ namespace sat {
         friend class scoped_detach;
         friend class xor_finder;
         friend class aig_finder;
+        friend class lut_finder;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver() override;

@@ -7,7 +7,7 @@
 
   Abstract:
    
-    xor finderities
+    xor finder
 
   Author:
 

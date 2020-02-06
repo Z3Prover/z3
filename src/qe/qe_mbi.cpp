@@ -29,9 +29,11 @@ Notes:
 --*/
 
 #include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/arith_decl_plugin.h"
 #include "model/model_evaluator.h"
 #include "solver/solver.h"
@@ -42,6 +44,40 @@ Notes:
 
 
 namespace qe {
+
+    void mbi_plugin::set_shared(expr* a, expr* b) {
+        struct fun_proc {
+            obj_hashtable<func_decl> s;
+            void operator()(app* a) { if (is_uninterp(a)) s.insert(a->get_decl()); }
+            void operator()(expr*) {}
+        };
+        fun_proc symbols_in_a;
+        expr_fast_mark1 marks;
+        quick_for_each_expr(symbols_in_a, marks, a);
+        marks.reset();
+        m_shared_trail.reset();
+        m_shared.reset();
+        m_is_shared.reset();
+        
+        struct intersect_proc {
+            mbi_plugin& p;
+            obj_hashtable<func_decl>& sA;
+            intersect_proc(mbi_plugin& p, obj_hashtable<func_decl>& sA):p(p), sA(sA) {}
+            void operator()(app* a) { 
+                func_decl* f = a->get_decl();
+                if (sA.contains(f) && !p.m_shared.contains(f)) {
+                    p.m_shared_trail.push_back(f);
+                    p.m_shared.insert(f);
+                }
+            }
+            void operator()(expr*) {}
+        };
+        intersect_proc symbols_in_b(*this, symbols_in_a.s);
+        quick_for_each_expr(symbols_in_b, marks, b);
+        TRACE("qe", 
+              tout << mk_pp(a, m) << "\n" << mk_pp(b, m) << "\n";
+              for (func_decl* f : m_shared) tout << f->get_name() << " "; tout << "\n";);
+    }
 
     lbool mbi_plugin::check(expr_ref_vector& lits, model_ref& mdl) {
         while (true) {
@@ -273,17 +309,18 @@ namespace qe {
         split_arith(lits, alits, uflits);
         auto avars = get_arith_vars(lits);
         vector<def> defs = arith_project(mdl, avars, alits);
-#if 0
-        prune_defs(defs);
-        substitute(defs, uflits);
-#else
         for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
-#endif
+        TRACE("qe", tout << "uflits: " << uflits << "\n";);
         project_euf(mdl, uflits);
         lits.reset();
         lits.append(alits);
         lits.append(uflits);
         IF_VERBOSE(10, verbose_stream() << "projection : " << lits << "\n");
+        TRACE("qe", 
+              tout << "projection: " << lits << "\n";
+              tout << "avars: " << avars << "\n";
+              tout << "alits: " << lits << "\n";
+              tout << "uflits: " << uflits << "\n";);
     }
 
     void uflia_mbi::split_arith(expr_ref_vector const& lits, 
@@ -306,31 +343,19 @@ namespace qe {
                 uflits.push_back(lit);
             }
         }
+        TRACE("qe", 
+              tout << "alits: " << alits << "\n";
+              tout << "uflits: " << uflits << "\n";);
     }
 
 
-    /**
-     * prune defs to only contain substitutions of terms with leading uninterpreted function.
-     */
-    void uflia_mbi::prune_defs(vector<def>& defs) {
-        unsigned i = 0; 
-        for (auto& d : defs) {
-            if (!is_shared(to_app(d.var)->get_decl())) {
-                defs[i++] = d;
-            }
-        }
-        defs.shrink(i);
-    }
 
     /**
-       \brief add difference certificates to formula.
-       
-       First version just uses an Ackerman reduction.
-
-       It should be replaced by DCert.
+       \brief add difference certificates to formula.       
     */
     void uflia_mbi::add_dcert(model_ref& mdl, expr_ref_vector& lits) {        
         term_graph tg(m);
+        add_arith_dcert(*mdl.get(), lits);
         func_decl_ref_vector shared(m_shared_trail);
         tg.set_vars(shared, false);
         lits.append(tg.dcert(*mdl.get(), lits));
@@ -338,17 +363,44 @@ namespace qe {
     }
 
     /**
-     * \brief substitute solution to arithmetical variables into lits
+       Add disequalities between functions that appear in arithmetic context.
      */
-    void uflia_mbi::substitute(vector<def> const& defs, expr_ref_vector& lits) {
-        TRACE("qe", tout << "start substitute: " << lits << "\n";);        
-        for (auto const& def : defs) {
-            expr_safe_replace rep(m);
-            rep.insert(def.var, def.term);
-            rep(lits);
-            TRACE("qe", tout << "substitute: " << def.var << " |-> " << def.term << ": " << lits << "\n";);
+    void uflia_mbi::add_arith_dcert(model& mdl, expr_ref_vector& lits) {
+        obj_map<func_decl, ptr_vector<app>> apps;
+        arith_util a(m);
+        for (expr* e : subterms(lits)) {
+            if (a.is_int_real(e) && is_uninterp(e) && to_app(e)->get_num_args() > 0) {
+                func_decl* f = to_app(e)->get_decl();
+                auto* v = apps.insert_if_not_there2(f, ptr_vector<app>());
+                v->get_data().m_value.push_back(to_app(e));
+            }
         }
-        IF_VERBOSE(1, verbose_stream() << "substituted: " << lits << "\n");
+        for (auto const& kv : apps) {
+            ptr_vector<app> const& es = kv.m_value;
+            expr_ref_vector values(m);
+            for (expr* e : kv.m_value) values.push_back(mdl(e));
+            for (unsigned i = 0; i < es.size(); ++i) {
+                expr* v1 = values.get(i);
+                for (unsigned j = i + 1; j < es.size(); ++j) {
+                    expr* v2 = values.get(j);
+                    if (v1 != v2) {
+                        add_arith_dcert(mdl, lits, es[i], es[j]);
+                    }
+                }
+            }
+        }
+    }
+
+    void uflia_mbi::add_arith_dcert(model& mdl, expr_ref_vector& lits, app* a, app* b) {
+        arith_util arith(m);
+        SASSERT(a->get_decl() == b->get_decl());
+        for (unsigned i = a->get_num_args(); i-- > 0; ) {
+            expr* arg1 = a->get_arg(i), *arg2 = b->get_arg(i);
+            if (arith.is_int_real(arg1) && mdl(arg1) != mdl(arg2)) {
+                lits.push_back(m.mk_not(m.mk_eq(arg1, arg2)));
+                return;
+            }                
+        }
     }
 
     /**
@@ -460,19 +512,37 @@ namespace qe {
                     return l_true;
                 case l_false:
                     a.block(lits);
-                    itps.push_back(mk_not(mk_and(lits)));
+                    itps.push_back(mk_and(lits));
                     break;
                 case l_undef:
                     return l_undef;
                 }
                 break;
             case l_false:
-                itp = mk_and(itps);
+                itp = mk_or(itps);
                 return l_false;
             case l_undef:
                 return l_undef;
             }
         }
+    }
+
+    lbool interpolator::pogo(solver_factory& sf, expr* _a, expr* _b, expr_ref& itp) {
+        params_ref p;
+        expr_ref a(_a, m), b(_b, m);
+        th_rewriter rewrite(m);
+        rewrite(a);
+        rewrite(b);
+        solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        sA->assert_expr(a);
+        sB->assert_expr(b);
+        uflia_mbi pA(sA.get(), sNotA.get());
+        prop_mbi_plugin pB(sB.get());
+        pA.set_shared(a, b);
+        pB.set_shared(a, b);
+        return pogo(pA, pB, itp);
     }
 
 };

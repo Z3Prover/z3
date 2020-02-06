@@ -25,7 +25,9 @@ Revision History:
 #include "util/map.h"
 #include "util/hashtable.h"
 
-namespace smt {
+using namespace smt;
+
+namespace {
 
     typedef map<bool_var, double, int_hash, default_eq<bool_var> > theory_var_priority_map;
 
@@ -1250,8 +1252,9 @@ namespace smt {
 
         ~theory_aware_branching_queue() override {};
     };
+}
 
-
+namespace smt {
     case_split_queue * mk_case_split_queue(context & ctx, smt_params & p) {
         if (ctx.relevancy_lvl() < 2 && (p.m_case_split_strategy == CS_RELEVANCY || p.m_case_split_strategy == CS_RELEVANCY_ACTIVITY || 
                 p.m_case_split_strategy == CS_RELEVANCY_GOAL)) {
@@ -1281,5 +1284,4 @@ namespace smt {
         }
     }
 
-};
-
+}

@@ -2034,7 +2034,8 @@ namespace smt2 {
             process_last_symbol(fr);
             TRACE("consume_attributes", tout << "pop_attr_expr_frame, expr_stack.size(): " << expr_stack().size() << "\n";);
             // the resultant expression is already on the top of the stack.
-            SASSERT(expr_stack().size() == fr->m_expr_spos + 1);
+            if (expr_stack().size() != fr->m_expr_spos + 1)
+                throw parser_exception("invalid expression");
             m_stack.deallocate(fr);
             m_num_expr_frames--;
         }

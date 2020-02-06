@@ -75,13 +75,14 @@ inline unsigned unsigned_ptr_hash(unsigned const* vec, unsigned len, unsigned in
 template<typename Composite, typename GetKindHashProc, typename GetChildHashProc>
 unsigned get_composite_hash(Composite app, unsigned n, GetKindHashProc const & khasher = GetKindHashProc(), GetChildHashProc const & chasher = GetChildHashProc()) {
     unsigned a, b, c;
-    SASSERT(n > 0);
     unsigned kind_hash = khasher(app);
 
     a = b = 0x9e3779b9;
     c = 11;    
 
     switch (n) {
+    case 0:
+        return c;
     case 1:
         a += kind_hash;
         b  = chasher(app, 0);

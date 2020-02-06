@@ -376,6 +376,35 @@ public:
     }
 };
 
+class get_interpolant_cmd : public cmd {
+    expr* m_a;
+    expr* m_b;
+public:
+    get_interpolant_cmd():cmd("get-interpolant") {}
+    char const * get_usage() const override { return "<expr> <expr>"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform model based interpolation"; }
+    unsigned get_arity() const override { return 2; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        return CPK_EXPR; 
+    }
+    void set_next_arg(cmd_context& ctx, expr * arg) override { 
+        if (m_a == nullptr) 
+            m_a = arg; 
+        else 
+            m_b = arg; 
+    }
+    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr;  }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        qe::interpolator mbi(m);
+        expr_ref itp(m);
+         mbi.pogo(ctx.get_solver_factory(), m_a, m_b, itp);
+        ctx.regular_stream() << itp << "\n";
+    }
+};
+
+
+
 class mbi_cmd : public cmd {
     expr* m_a;
     expr* m_b;
@@ -550,6 +579,7 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(instantiate_cmd));
     ctx.insert(alloc(instantiate_nested_cmd));
     ctx.insert(alloc(set_next_id));
+    ctx.insert(alloc(get_interpolant_cmd));
     ctx.insert(alloc(mbp_cmd));
     ctx.insert(alloc(mbi_cmd));
     ctx.insert(alloc(euf_project_cmd));

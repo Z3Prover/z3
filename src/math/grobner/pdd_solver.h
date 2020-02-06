@@ -31,28 +31,46 @@ namespace dd {
 class solver {
     friend class simplifier;
 public:
-    struct stats {
+    class stats {
         unsigned m_simplified;
+    public:
         double   m_max_expr_size;
         unsigned m_max_expr_degree;
         unsigned m_superposed;
         unsigned m_compute_steps;
         void reset() { memset(this, 0, sizeof(*this)); }
         stats() { reset(); }
+        unsigned simplified() const { return m_simplified; }
+        void incr_simplified() {
+            m_simplified++;
+        }
+        
     };
 
     struct config {
         unsigned m_eqs_threshold;
         unsigned m_expr_size_limit;
+        unsigned m_expr_degree_limit;
         unsigned m_max_steps;
+        unsigned m_max_simplified;
         unsigned m_random_seed;
         bool     m_enable_exlin;
+        unsigned m_eqs_growth;
+        unsigned m_expr_size_growth;
+        unsigned m_expr_degree_growth;
+        unsigned m_number_of_conflicts_to_report;
         config() :
             m_eqs_threshold(UINT_MAX),
             m_expr_size_limit(UINT_MAX),
+            m_expr_degree_limit(UINT_MAX),
             m_max_steps(UINT_MAX),
+            m_max_simplified(UINT_MAX),
             m_random_seed(0),
-            m_enable_exlin(false)
+            m_enable_exlin(false),
+            m_eqs_growth(10),
+            m_expr_size_growth(10),
+            m_expr_degree_growth(5),
+            m_number_of_conflicts_to_report(1)
         {}
     };
 
@@ -73,7 +91,9 @@ public:
             m_idx(0),
             m_poly(p),
             m_dep(d)
-        {}
+        {
+            
+        }
 
         const pdd& poly() const { return m_poly; }        
         u_dependency * dep() const { return m_dep; }
@@ -100,7 +120,7 @@ private:
     mutable u_dependency_manager                 m_dep_manager;
     equation_vector                              m_all_eqs;
     equation*                                    m_conflict;   
-    bool                                         m_too_complex; 
+    bool                                         m_too_complex;
 public:
     solver(reslimit& lim, pdd_manager& m);
     ~solver();
@@ -109,6 +129,7 @@ public:
 
     void set(print_dep_t& pd) { m_print_dep = pd; }
     void set(config const& c) { m_config = c; }
+    void adjust_cfg();
 
     void reset();
     void add(pdd const& p) { add(p, nullptr); }
@@ -126,6 +147,7 @@ public:
     std::ostream& display_statistics(std::ostream& out) const;
     const stats& get_stats() const { return m_stats; }
     stats& get_stats() { return m_stats; }
+    unsigned number_of_conflicts_to_report() const { return m_config.m_number_of_conflicts_to_report; }
 
 private:
     bool step();
@@ -140,19 +162,19 @@ private:
     bool try_simplify_using(equation& target, equation const& source, bool& changed_leading_term);
 
     bool is_trivial(equation const& eq) const { return eq.poly().is_zero(); }    
-    bool is_simpler(equation const& eq1, equation const& eq2) { return eq1.poly() < eq2.poly(); }
+    bool is_simpler(equation const& eq1, equation const& eq2) { return m.lm_lt(eq1.poly(), eq2.poly()); }
     bool is_conflict(equation const* eq) const { return is_conflict(*eq); }
     bool is_conflict(equation const& eq) const { return eq.poly().is_val() && !is_trivial(eq); }
     bool check_conflict(equation& eq) { return is_conflict(eq) && (set_conflict(eq), true); }    
     void set_conflict(equation& eq) { m_conflict = &eq; push_equation(solved, eq); }
     void set_conflict(equation* eq) { m_conflict = eq; push_equation(solved, eq); }
     bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
-    bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
+    bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit
+            || p.degree() > m_config.m_expr_degree_limit;  }
 
     unsigned                m_levelp1;         // index into level+1
     unsigned_vector         m_level2var;       // level -> var
     unsigned_vector         m_var2level;       // var -> level
-
     void init_saturate();
 
     void del_equation(equation& eq) { del_equation(&eq); }    

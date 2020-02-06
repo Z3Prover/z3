@@ -140,38 +140,6 @@ public:
     void cleanup() override;
 };
 
-class expr_substitution_simplifier : public dom_simplifier {
-    ast_manager&             m;
-    expr_substitution        m_subst;
-    scoped_expr_substitution m_scoped_substitution;
-    obj_map<expr, unsigned>  m_expr2depth;
-    expr_ref_vector          m_trail;
-
-    // move from asserted_formulas to here..
-    void compute_depth(expr* e);
-    bool is_gt(expr* lhs, expr* rhs);
-    unsigned depth(expr* e) { return m_expr2depth[e]; }
-
-public:
-    expr_substitution_simplifier(ast_manager& m): m(m), m_subst(m), m_scoped_substitution(m_subst), m_trail(m) {}
-    ~expr_substitution_simplifier() override {}
-    bool assert_expr(expr * t, bool sign) override;
-
-    void update_substitution(expr* n, proof* pr);
-    
-    void operator()(expr_ref& r) override { r = m_scoped_substitution.find(r); }
-    
-    void pop(unsigned num_scopes) override { m_scoped_substitution.pop(num_scopes); }
-    
-    unsigned scope_level() const override { return m_scoped_substitution.scope_level(); }
-
-    dom_simplifier * translate(ast_manager & m) override {
-        SASSERT(m_subst.empty());
-        return alloc(expr_substitution_simplifier, m);
-    }
-};
-
-
 tactic * mk_dom_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());
 
 /*

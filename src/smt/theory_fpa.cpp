@@ -740,12 +740,13 @@ namespace smt {
 
     app* theory_fpa::get_ite_value(expr* e) {
         ast_manager & m = get_manager();
+        context& ctx = get_context();
         expr* e1, *e2, *e3;
-        while (m.is_ite(e, e1, e2, e3)) {
-            if (get_root(e2) == get_root(e)) {
+        while (m.is_ite(e, e1, e2, e3) && ctx.e_internalized(e)) {
+            if (ctx.get_enode(e2)->get_root() == ctx.get_enode(e)->get_root()) {
                 e = e2;
             }
-            else if (get_root(e3) == get_root(e)) {
+            else if (ctx.get_enode(e3)->get_root() == ctx.get_enode(e)->get_root()) {
                 e = e3;
             }
             else {

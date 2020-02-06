@@ -562,6 +562,15 @@ namespace smt {
         bool propagate_eq(dependency* dep, expr* e1, expr* e2, bool add_to_eqs = true);
         bool propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs = true);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
+        void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+
+        // self-validation
+        void validate_axiom(literal_vector const& lits);
+        void validate_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_assign(literal lit, enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_assign_eq(enode* a, enode* b, enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_fmls(enode_pair_vector const& eqs, literal_vector const& lits, expr_ref_vector& fmls);
+        expr_ref elim_skolem(expr* e);
 
         u_map<unsigned> m_branch_start;
         void insert_branch_start(unsigned k, unsigned s);
@@ -578,9 +587,11 @@ namespace smt {
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_unit_nth(expr* a) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
+        bool is_tail_match(expr* a, expr*& s, expr*& idx) const;
         bool is_eq(expr* e, expr*& a, expr*& b) const; 
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_post(expr* e, expr*& s, expr*& i);
+        expr_ref mk_post(expr* s, expr* i);
         expr_ref mk_sk_ite(expr* c, expr* t, expr* f);
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
@@ -706,6 +717,7 @@ namespace smt {
         std::ostream& display_deps(std::ostream& out, dependency* deps) const;
         std::ostream& display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
         std::ostream& display_nc(std::ostream& out, nc const& nc) const;
+        std::ostream& display_lit(std::ostream& out, literal l) const;
     public:
         theory_seq(ast_manager& m, theory_seq_params const & params);
         ~theory_seq() override;

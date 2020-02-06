@@ -818,6 +818,29 @@ def Function(name, *sig):
     ctx = rng.ctx
     return FuncDeclRef(Z3_mk_func_decl(ctx.ref(), to_symbol(name, ctx), arity, dom, rng.ast), ctx)
 
+def FreshFunction(*sig):
+    """Create a new fresh Z3 uninterpreted function with the given sorts.
+
+    >>> f = FreshFunction(IntSort(), IntSort())
+    >>> f(f(0))
+    f!0(f!0(0))
+    """
+    sig = _get_args(sig)
+    if z3_debug():
+        _z3_assert(len(sig) > 0, "At least two arguments expected")
+    arity = len(sig) - 1
+    rng = sig[arity]
+    if z3_debug():
+        _z3_assert(is_sort(rng), "Z3 sort expected")
+    dom = (z3.Sort * arity)()
+    for i in range(arity):
+        if z3_debug():
+            _z3_assert(is_sort(sig[i]), "Z3 sort expected")
+        dom[i] = sig[i].ast
+    ctx = rng.ctx
+    return FuncDeclRef(Z3_mk_fresh_func_decl(ctx.ref(), 'f', arity, dom, rng.ast), ctx)
+
+
 def _to_func_decl_ref(a, ctx):
     return FuncDeclRef(a, ctx)
 
@@ -4429,8 +4452,8 @@ def Update(a, i, v):
     """
     if z3_debug():
         _z3_assert(is_array_sort(a), "First argument must be a Z3 array expression")
-    i = a.domain().cast(i)
-    v = a.range().cast(v)
+    i = a.sort().domain().cast(i)
+    v = a.sort().range().cast(v)
     ctx = a.ctx
     return _to_expr_ref(Z3_mk_store(ctx.ref(), a.as_ast(), i.as_ast(), v.as_ast()), ctx)
 

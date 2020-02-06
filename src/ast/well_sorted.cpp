@@ -25,6 +25,8 @@ Revision History:
 #include "util/warning.h"
 #include "ast/ast_smt2_pp.h"
 
+namespace {
+
 struct well_sorted_proc {
     ast_manager & m_manager;
     bool          m_error;
@@ -75,6 +77,8 @@ struct well_sorted_proc {
         }
     }
 };
+
+}
 
 bool is_well_sorted(ast_manager const & m, expr * n) {
     well_sorted_proc p(const_cast<ast_manager&>(m));

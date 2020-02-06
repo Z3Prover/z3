@@ -1992,7 +1992,9 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
         seq = mk_concat(elems.size(), elems.c_ptr());
     }
     TRACE("seq", tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
-    add_axiom(~mk_eq(len_e, m_autil.mk_numeral(lo, true), false), mk_seq_eq(seq, e));
+    literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
+    literal b = mk_seq_eq(seq, e);
+    add_axiom(~a, b);
     if (!ctx.at_base_level()) {
         m_trail_stack.push(push_replay(alloc(replay_fixed_length, m, len_e)));
     }
@@ -2037,6 +2039,12 @@ bool theory_seq::is_tail(expr* e, expr*& s, unsigned& idx) const {
         (idx = r.get_unsigned(), s = to_app(e)->get_arg(0), true);
 }
 
+bool theory_seq::is_tail_match(expr* e, expr*& s, expr*& idx) const {
+    return
+        is_skolem(m_tail, e) &&
+        (s = to_app(e)->get_arg(0), idx = to_app(e)->get_arg(1), true);
+}
+
 bool theory_seq::is_eq(expr* e, expr*& a, expr*& b) const {
     return is_skolem(m_eq, e) &&
         (a = to_app(e)->get_arg(0), b = to_app(e)->get_arg(1), true);
@@ -2046,8 +2054,12 @@ bool theory_seq::is_pre(expr* e, expr*& s, expr*& i) {
     return is_skolem(m_pre, e) && (s = to_app(e)->get_arg(0), i = to_app(e)->get_arg(1), true);
 }
 
-bool theory_seq::is_post(expr* e, expr*& s, expr*& l) {
-    return is_skolem(m_post, e) && (s = to_app(e)->get_arg(0), l = to_app(e)->get_arg(1), true);
+bool theory_seq::is_post(expr* e, expr*& s, expr*& start) {
+    return is_skolem(m_post, e) && (s = to_app(e)->get_arg(0), start = to_app(e)->get_arg(1), true);
+}
+
+expr_ref theory_seq::mk_post(expr* s, expr* i) {
+    return mk_skolem(m_post, s, i);
 }
 
 expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
@@ -2350,6 +2362,7 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
 
     m_new_propagation = true;
     ctx.assign(lit, js);
+    validate_assign(lit, eqs, lits);
     std::function<expr*(void)> fn = [&]() {
         expr* r = ctx.bool_var2expr(lit.var());
         if (lit.sign()) r = m.mk_not(r);
@@ -2359,17 +2372,22 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
 }
 
 void theory_seq::set_conflict(dependency* dep, literal_vector const& _lits) {
-    context& ctx = get_context();
     enode_pair_vector eqs;
     literal_vector lits(_lits);
     if (!linearize(dep, eqs, lits)) 
         return;
-    TRACE("seq", display_deps(tout << "assert conflict:", lits, eqs););
     m_new_propagation = true;
+    set_conflict(eqs, lits);
+}
+
+void theory_seq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
+    context& ctx = get_context();
+    TRACE("seq", display_deps(tout << "assert conflict:", lits, eqs););
     ctx.set_conflict(
         ctx.mk_justification(
             ext_theory_conflict_justification(
                 get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr)));
+    validate_conflict(eqs, lits);
 }
 
 bool theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
@@ -2403,6 +2421,7 @@ bool theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
         std::function<expr*(void)> fn = [&]() { return m.mk_eq(n1->get_owner(), n2->get_owner()); };
         scoped_trace_stream _sts(*this, fn);
         ctx.assign_eq(n1, n2, eq_justification(js));
+        validate_assign_eq(n1, n2, eqs, lits);
     }
 
     m_new_propagation = true;
@@ -2541,23 +2560,24 @@ bool theory_seq::solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs
     return false;
 }
 
+/**
+   nth(x,idx) = rhs => 
+   x = pre(x, idx) ++ unit(rhs) ++ post(x, idx + 1)
+   NB: need 0 <= idx < len(rhs)   
+*/
 bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
     expr* s = nullptr, *idx = nullptr;
     if (ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
         rational r;
         bool idx_is_zero = m_autil.is_numeral(idx, r) && r.is_zero();
         expr_ref_vector ls1(m), rs1(m); 
-        expr_ref idx1(m_autil.mk_add(m_autil.mk_int(1), idx), m);
-        expr_ref lent(m_autil.mk_sub(mk_len(ls[0]), idx1), m);
-        m_rewrite(lent);
-        expr_ref hd = mk_skolem(m_pre, s, idx);        
-        expr_ref tl = mk_skolem(m_post, s, lent);
+        expr_ref idx1(m_autil.mk_add(idx, m_autil.mk_int(1)), m);
+        m_rewrite(idx1);
         expr_ref rhs(m_util.str.mk_concat(rs.size(), rs.c_ptr()), m);
-        rhs = m_util.str.mk_unit(rhs);
-        if (!idx_is_zero) rs1.push_back(hd); 
-        rs1.push_back(rhs); 
-        rs1.push_back(tl);
         ls1.push_back(s);        
+        if (!idx_is_zero) rs1.push_back(mk_skolem(m_pre, s, idx)); 
+        rs1.push_back(m_util.str.mk_unit(rhs)); 
+        rs1.push_back(mk_post(s, idx1));
         m_eqs.push_back(eq(m_eq_id++, ls1, rs1, deps));        
         return true;
     }   
@@ -3169,37 +3189,35 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
             return true;
         }
     }
-    else if (is_post(e, s, l)) {
+    else if (is_post(e, s, i)) {
         expr_ref zero(m_autil.mk_int(0), m);
-        literal l_ge_0 = mk_simplified_literal(m_autil.mk_ge(l, zero));
-        literal l_le_len_s = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(s), l), zero));
-        literal _lits[2] = { l_ge_0, l_le_len_s };
-        if (ctx.get_assignment(l_ge_0) == l_true && 
-            ctx.get_assignment(l_le_len_s) == l_true) {
-            len = l;
+        literal i_ge_0 = mk_simplified_literal(m_autil.mk_ge(i, zero));
+        literal len_s_ge_i = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(s), i), zero));
+        literal _lits[2] = { i_ge_0, len_s_ge_i };
+        if (ctx.get_assignment(i_ge_0) == l_true && 
+            ctx.get_assignment(len_s_ge_i) == l_true) {
+            len = mk_sub(mk_len(s), i);
             lits.append(2, _lits);
-            TRACE("seq", ctx.display_literals_verbose(tout << "post length", 2, _lits); tout << "\n";);
+            TRACE("seq", ctx.display_literals_verbose(tout << "post length " << len << "\n", 2, _lits) << "\n";);
             return true;
         }
     }
-    else if (is_skolem(m_tail, e)) {
+    else if (is_tail_match(e, s, l)) {
         // e = tail(s, l), len(s) > l => len(tail(s, l)) = len(s) - l - 1
         // e = tail(s, l), len(s) <= l => len(tail(s, l)) = 0
 
-        s = to_app(e)->get_arg(0);
-        l = to_app(e)->get_arg(1);
         expr_ref len_s = mk_len(s);
         literal len_s_gt_l = mk_simplified_literal(m_autil.mk_ge(mk_sub(len_s, l), m_autil.mk_int(1)));
         switch (ctx.get_assignment(len_s_gt_l)) {
         case l_true:
-            len = mk_sub(len_s, mk_sub(l, m_autil.mk_int(1)));
-            TRACE("seq", tout << len_s << " " << len << " " << len_s_gt_l << "\n";);
+            len = mk_sub(mk_sub(len_s, l), m_autil.mk_int(1));
             lits.push_back(len_s_gt_l);
+            TRACE("seq", ctx.display_literals_verbose(tout << "tail length " << len << "\n", lits) << "\n";);
             return true;
         case l_false:
             len = m_autil.mk_int(0);
-            TRACE("seq", tout << len_s << " " << len << " " << len_s_gt_l << "\n";);
             lits.push_back(~len_s_gt_l);
+            TRACE("seq", ctx.display_literals_verbose(tout << "tail length " << len << "\n", lits) << "\n";);
             return true;
         default:
             break;
@@ -3452,7 +3470,7 @@ bool theory_seq::solve_nc(unsigned idx) {
 
     if (m.is_eq(c, a, b)) {
         literal eq = mk_eq(a, b, false);
-        propagate_lit(deps, 0, nullptr, ~eq);
+        propagate_lit(deps, 0, nullptr, ~eq);        
         return true;
     }
 
@@ -4056,7 +4074,6 @@ std::ostream& theory_seq::display_disequation(std::ostream& out, ne const& e) co
 }
 
 std::ostream& theory_seq::display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const {
-    context& ctx = get_context();
     smt2_pp_environment_dbg env(m);
     params_ref p;
     for (auto const& eq : eqs) {
@@ -4065,22 +4082,27 @@ std::ostream& theory_seq::display_deps(std::ostream& out, literal_vector const& 
             << ")\n";
     }
     for (literal l : lits) {
-        if (l == true_literal) {
-            out << "   true";
-        }
-        else if (l == false_literal) {
-            out << "   false";
+        display_lit(out, l) << "\n";
+    }
+    return out;
+}
+
+std::ostream& theory_seq::display_lit(std::ostream& out, literal l) const {
+    context& ctx = get_context();
+    if (l == true_literal) {
+        out << "   true";
+    }
+    else if (l == false_literal) {
+        out << "   false";
+    }
+    else {
+        expr* e = ctx.bool_var2expr(l.var());
+        if (l.sign()) {
+            out << "  (not " << mk_bounded_pp(e, m) << ")";
         }
         else {
-            expr* e = ctx.bool_var2expr(l.var());
-            if (l.sign()) {
-                out << "  (not " << mk_bounded_pp(e, m) << ")";
-            }
-            else {
-                out << "  " << mk_bounded_pp(e, m);
-            }
+            out << "  " << mk_bounded_pp(e, m);
         }
-        out << "\n";
     }
     return out;
 }
@@ -4401,7 +4423,166 @@ void theory_seq::validate_model(model& mdl) {
 #endif
 }
 
+expr_ref theory_seq::elim_skolem(expr* e) {
+    expr_ref result(m);
+    expr_ref_vector trail(m), args(m);
+    obj_map<expr, expr*> cache;
+    ptr_vector<expr> todo;
+    todo.push_back(e);
+    expr* x = nullptr, *y = nullptr, *b = nullptr;
+    while (!todo.empty()) {
+        expr* a = todo.back();
+        if (cache.contains(a)) {
+            todo.pop_back();
+            continue;
+        }
+        if (!is_app(a)) {
+            cache.insert(a, a);
+            todo.pop_back();
+            continue;
+        }
+        if (is_eq(a, x, y) && cache.contains(x) && cache.contains(y)) {
+            x = cache[x];
+            y = cache[y];
+            result = m.mk_eq(x, y);
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();
+            continue;
+        }
+        if (is_pre(a, x, y) && cache.contains(x) && cache.contains(y)) {
+            x = cache[x];
+            y = cache[y];
+            result = m_util.str.mk_substr(x, m_autil.mk_int(0), y);
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();
+            continue;
+        }
+        if (is_post(a, x, y) && cache.contains(x) && cache.contains(y)) {
+            x = cache[x];
+            y = cache[y];
+            result = m_util.str.mk_length(x);
+            result = m_util.str.mk_substr(x, y, m_autil.mk_sub(result, y));
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();            
+            continue;
+        }
+        if (is_tail_match(a, x, y) && cache.contains(x) && cache.contains(y)) {
+            x = cache[x];
+            y = cache[y];
+            expr_ref y1(m_autil.mk_add(y, m_autil.mk_int(1)), m);
+            expr_ref z(m_autil.mk_sub(m_util.str.mk_length(x), y1), m);
+            result = m_util.str.mk_substr(x, y1, z);
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();            
+            continue;
+        }
+        if (m_util.str.is_nth_i(a, x, y) && cache.contains(x) && cache.contains(y)) {
+            x = cache[x];
+            y = cache[y];
+            result = m_util.str.mk_nth(x, y);
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();            
+            continue;
+        }
 
+        args.reset();
+        for (expr* arg : *to_app(a)) {
+            if (cache.find(arg, b)) {
+                args.push_back(b);
+            }
+            else {
+                todo.push_back(arg);
+            }
+        }
+        if (args.size() == to_app(a)->get_num_args()) {
+            todo.pop_back();
+            result = m.mk_app(to_app(a)->get_decl(), args.size(), args.c_ptr());
+            trail.push_back(result);
+            cache.insert(a, result);
+        }        
+    }
+    return expr_ref(cache[e], m);
+}
+
+void theory_seq::validate_axiom(literal_vector const& lits) {
+    return;
+    if (get_context().get_fparams().m_seq_validate) {
+        enode_pair_vector eqs;
+        literal_vector _lits;
+        for (literal lit : lits) _lits.push_back(~lit);
+        expr_ref_vector fmls(m);
+        validate_fmls(eqs, _lits, fmls);
+    }
+}
+
+void theory_seq::validate_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
+    IF_VERBOSE(10, display_deps(verbose_stream() << "; conflict\n", lits, eqs));
+    if (get_context().get_fparams().m_seq_validate) {
+        expr_ref_vector fmls(m);
+        validate_fmls(eqs, lits, fmls);
+    }
+}
+
+void theory_seq::validate_assign(literal lit, enode_pair_vector const& eqs, literal_vector const& lits) {
+    IF_VERBOSE(10, display_deps(verbose_stream() << "; assign\n", lits, eqs); display_lit(verbose_stream(), ~lit));
+    if (get_context().get_fparams().m_seq_validate) {
+        literal_vector _lits(lits);
+        _lits.push_back(~lit);
+        expr_ref_vector fmls(m);
+        validate_fmls(eqs, _lits, fmls);
+    }
+}
+
+void theory_seq::validate_assign_eq(enode* a, enode* b, enode_pair_vector const& eqs, literal_vector const& lits) {
+    IF_VERBOSE(10, display_deps(verbose_stream() << "; assign-eq\n", lits, eqs);
+               verbose_stream() << "(not (= " << mk_bounded_pp(a->get_owner(), m) 
+               << " " << mk_bounded_pp(b->get_owner(), m) << "))\n");  
+    if (get_context().get_fparams().m_seq_validate) {
+        expr_ref_vector fmls(m);
+        fmls.push_back(m.mk_not(m.mk_eq(a->get_owner(), b->get_owner())));
+        validate_fmls(eqs, lits, fmls);
+    }
+}
+
+void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector const& lits, expr_ref_vector& fmls) {
+    context& ctx = get_context();
+    smt_params fp;
+    fp.m_seq_validate = false;
+    expr_ref fml(m);
+    kernel k(m, fp);
+    for (literal lit : lits) {
+        ctx.literal2expr(lit, fml);
+        fmls.push_back(fml);
+    }
+    for (auto const& p : eqs) {
+        fmls.push_back(m.mk_eq(p.first->get_owner(), p.second->get_owner()));
+    }
+    TRACE("seq", tout << fmls << "\n";);
+    for (unsigned i = 0; i < fmls.size(); ++i) {
+        fml = elim_skolem(fmls.get(i));
+        fmls[i] = fml;
+    }
+
+    for (expr* f : fmls) {
+        k.assert_expr(f);
+    }
+    lbool r = k.check();
+    if (r != l_false) {
+        model_ref mdl;
+        k.get_model(mdl);
+        IF_VERBOSE(0, 
+                   verbose_stream() << r << "\n" << fmls << "\n";
+                   verbose_stream() << *mdl.get() << "\n";
+                   k.display(verbose_stream()));
+        UNREACHABLE();
+    }
+
+}
 
 theory_var theory_seq::mk_var(enode* n) {
     if (!m_util.is_seq(n->get_owner()) &&
@@ -4724,7 +4905,7 @@ void theory_seq::deque_axiom(expr* n) {
 /*
   encode that s is not contained in of xs1
   where s1 is all of s, except the last element.
-
+  
   s = "" or s = s1*(unit c)
   s = "" or !contains(x*s1, s)
 */
@@ -4793,7 +4974,6 @@ void theory_seq::add_indexof_axiom(expr* i) {
     // ~contains(t,s) <=> indexof(t,s,offset) = -1
 
     add_axiom(cnt,  i_eq_m1);
-//    add_axiom(~cnt,  ~i_eq_m1);
     add_axiom(~t_eq_empty, s_eq_empty, i_eq_m1);
 
     if (!offset || (m_autil.is_numeral(offset, r) && r.is_zero())) {
@@ -4829,8 +5009,8 @@ void theory_seq::add_indexof_axiom(expr* i) {
 
         // 0 <= offset & offset < len(t) => t = xy
         // 0 <= offset & offset < len(t) => len(x) = offset
-        // 0 <= offset & offset < len(t) & -1 = indexof(y,s,0) = -1 => -1 = i
-        // 0 <= offset & offset < len(t) & indexof(y,s,0) >= 0 = -1 =>
+        // 0 <= offset & offset < len(t) & indexof(y,s,0) = -1 => -1 = i
+        // 0 <= offset & offset < len(t) & indexof(y,s,0) >= 0 =>
         //                  -1 = indexof(y,s,0) + offset = indexof(t, s, offset)
 
         add_axiom(~offset_ge_0, offset_ge_len, mk_seq_eq(t, mk_concat(x, y)));
@@ -4868,10 +5048,10 @@ void theory_seq::add_last_indexof_axiom(expr* i) {
     literal cnt  = mk_literal(m_util.str.mk_contains(t, s));
     literal cnt2 = mk_literal(m_util.str.mk_contains(mk_concat(s_tail, y), s));
     literal i_eq_m1 = mk_eq(i, minus_one, false);
-    literal i_eq_0 = mk_eq(i, zero, false);
+    literal i_eq_0  = mk_eq(i, zero, false);
     literal s_eq_empty = mk_eq_empty(s);
     literal t_eq_empty = mk_eq_empty(t);
-    expr_ref xsy         = mk_concat(x, s, y);
+    expr_ref xsy       = mk_concat(x, s, y);
 
     add_axiom(cnt, i_eq_m1);
     add_axiom(~t_eq_empty, s_eq_empty, i_eq_m1);
@@ -5184,7 +5364,6 @@ static T* get_th_arith(context& ctx, theory_id afid, expr* e) {
     }
 }
 
-
 bool theory_seq::get_num_value(expr* e, rational& val) const {
     return m_arith_value.get_value_equiv(e, val) && val.is_int();
 }
@@ -5201,8 +5380,6 @@ bool theory_seq::upper_bound(expr* e, rational& hi) const {
     bool is_strict = true;
     return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
 }
-
-
 
 // The difference with lower_bound function is that since in some cases,
 // the lower bound is not updated for all the enodes in the same eqc,
@@ -5242,7 +5419,6 @@ bool theory_seq::lower_bound2(expr* _e, rational& lo) {
     }
     return true;
 }
-
 
 bool theory_seq::get_length(expr* e, rational& val) {
     rational val1;
@@ -5339,7 +5515,7 @@ void theory_seq::add_extract_axiom(expr* e) {
     expr_ref lx = mk_len(x);
     expr_ref le = mk_len(e);
     expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, i), l), m);
-    expr_ref y(mk_skolem(m_post, s, ls_minus_i_l), m);
+    expr_ref y = mk_post(s, mk_add(i, l));
     expr_ref xe = mk_concat(x, e);
     expr_ref xey = mk_concat(x, e, y);
     expr_ref zero(m_autil.mk_int(0), m);
@@ -5354,7 +5530,7 @@ void theory_seq::add_extract_axiom(expr* e) {
     literal le_is_0   = mk_eq(le, zero, false);
 
 
-    // 0 <= i & i <= |s| => xey = s
+    // 0 <= i & i <= |s| & 0 <= l => xey = s
     // 0 <= i & i <= |s| => |x| = i
     // 0 <= i & i <= |s| & l >= 0 & |s| >= l + i => |e| = l
     // 0 <= i & i <= |s| & |s| < l + i => |e| = |s| - i
@@ -5363,7 +5539,7 @@ void theory_seq::add_extract_axiom(expr* e) {
     // |s| <= 0 => |e| = 0
     // l <= 0 => |e| = 0
     // |e| = 0 & i >= 0 & |s| > i & |s| > 0 => l <= 0
-    add_axiom(~i_ge_0, ~i_le_ls, mk_seq_eq(xey, s));
+    add_axiom(~i_ge_0, ~i_le_ls, ~l_ge_0, mk_seq_eq(xey, s));
     add_axiom(~i_ge_0, ~i_le_ls, mk_eq(lx, i, false));
     add_axiom(~i_ge_0, ~i_le_ls, ~l_ge_0, ~ls_ge_li, mk_eq(le, l, false));
     add_axiom(~i_ge_0, ~i_le_ls, ~l_ge_0, ls_ge_li, mk_eq(le, mk_sub(ls, i), false));
@@ -5437,7 +5613,7 @@ void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     expr_ref ls = mk_len(s);
     expr_ref ls_minus_l(mk_sub(ls, l), m);
     expr_ref zero(m_autil.mk_int(0), m);
-    expr_ref y(mk_skolem(m_post, s, ls_minus_l), m);
+    expr_ref y = mk_post(s, l);
     expr_ref ey = mk_concat(e, y);
     literal l_ge_0 = mk_simplified_literal(m_autil.mk_ge(l, zero));
     literal l_le_s = mk_simplified_literal(m_autil.mk_le(mk_sub(l, ls), zero));
@@ -5647,11 +5823,16 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
     if (l4 != null_literal && l4 != false_literal) { ctx.mark_as_relevant(l4); lits.push_back(l4); push_lit_as_expr(l4, exprs); }
     if (l5 != null_literal && l5 != false_literal) { ctx.mark_as_relevant(l5); lits.push_back(l5); push_lit_as_expr(l5, exprs); }
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:", lits) << "\n";);
+    
+    IF_VERBOSE(10, verbose_stream() << "ax ";
+               for (literal l : lits) ctx.display_literal_smt2(verbose_stream() << " ", l); 
+               verbose_stream() << "\n");
     m_new_propagation = true;
     ++m_stats.m_add_axiom;
     
     std::function<expr*(void)> fn = [&]() { return m.mk_or(exprs.size(), exprs.c_ptr()); };
     scoped_trace_stream _sts(*this, fn);
+    validate_axiom(lits);
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());    
 }
 
@@ -5789,10 +5970,9 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
     std::function<expr*(void)> fn = [&]() { return m.mk_eq(e1, e2); };
     scoped_trace_stream _sts(*this, fn);
     ctx.assign_eq(n1, n2, eq_justification(js));
+    validate_assign_eq(n1, n2, eqs, lits);
     return true;
 }
-
-
 
 void theory_seq::assign_eh(bool_var v, bool is_true) {
     context & ctx = get_context();
@@ -5824,27 +6004,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
         expr_ref_vector disj(m);
-        // disabled pending regression on issue 1196
-        if (false && m_seq_rewrite.reduce_contains(e1, e2, disj)) {
-            literal_vector lits;
-            literal lit = mk_literal(e);
-            lits.push_back(~lit);
-            for (expr* d : disj) {
-                lits.push_back(mk_literal(d));
-            }
-            ++m_stats.m_add_axiom;            
-
-            {
-                std::function<expr*(void)> fn = [&]() { return m.mk_implies(e, m.mk_or(disj.size(), disj.c_ptr())); };
-                scoped_trace_stream _sts(*this, fn);                
-                ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            }
-
-            for (expr* d : disj) {
-                add_axiom(lit, ~mk_literal(d));
-            }
-        }
-        else if (is_true) {
+        if (is_true) {
             expr_ref f1 = mk_skolem(m_indexof_left, e1, e2);
             expr_ref f2 = mk_skolem(m_indexof_right, e1, e2);
             f = mk_concat(f1, e2, f2);
@@ -5947,7 +6107,6 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
         // create an expression for the symmetric difference and imply it is empty.
         enode_pair_vector eqs;
         literal_vector lits;
-        context& ctx = get_context();
         switch (regex_are_equal(n1->get_owner(), n2->get_owner())) {
         case l_true:
             break;
@@ -5956,10 +6115,7 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
                 throw default_exception("could not linearlize assumptions");
             }
             eqs.push_back(enode_pair(n1, n2));
-            ctx.set_conflict(
-                ctx.mk_justification(
-                    ext_theory_conflict_justification(
-                        get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr)));
+            set_conflict(eqs, lits);
             break;
         default:
             throw default_exception("convert regular expressions into automata");            
@@ -5976,17 +6132,13 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     if (m_util.is_re(n1->get_owner())) {
         enode_pair_vector eqs;
         literal_vector lits;
-        context& ctx = get_context();
         switch (regex_are_equal(e1, e2)) {
         case l_false:
             return;
         case l_true: {
             literal lit = mk_eq(e1, e2, false);
             lits.push_back(~lit);
-            ctx.set_conflict(
-                ctx.mk_justification(
-                    ext_theory_conflict_justification(
-                        get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr)));
+            set_conflict(eqs, lits);
             return;
         }
         default:
@@ -6329,17 +6481,18 @@ void theory_seq::add_unit_axiom(expr* n) {
     expr* u = nullptr;
     VERIFY(m_util.str.is_unit(n, u));
     sort* s = m.get_sort(u);
-    expr_ref rhs(mk_skolem(symbol("inv-unit"), n, nullptr, nullptr, nullptr, s), m);
+    expr_ref rhs(mk_skolem(symbol("seq.inv-unit"), n, nullptr, nullptr, nullptr, s), m);
     add_axiom(mk_eq(u, rhs, false));
 }
 
 /**
-   e1 < e2 => e1 = empty or e1 = xcy
-   e1 < e2 => e1 = empty or c < d
-   e1 < e2 => e2 = xdz
-   !(e1 < e2) => e1 = e2 or e2 = empty or e2 = xdz
-   !(e1 < e2) => e1 = e2 or e2 = empty or d < c
-   !(e1 < e2) => e1 = e2 or e1 = xcy
+   e1 < e2 => prefix(e1, e2) or e1 = xcy
+   e1 < e2 => prefix(e1, e2) or c < d
+   e1 < e2 => prefix(e1, e2) or e2 = xdz
+   e1 < e2 => e1 != e2 
+   !(e1 < e2) => prefix(e2, e1) or e2 = xdz
+   !(e1 < e2) => prefix(e2, e1) or d < c
+   !(e1 < e2) => prefix(e2, e1) or e1 = xcy
    !(e1 = e2) or !(e1 < e2)
    
 optional:
@@ -6361,20 +6514,19 @@ void theory_seq::add_lt_axiom(expr* n) {
     expr_ref d = mk_skolem(symbol("str.lt.d"), e1, e2, nullptr, nullptr, char_sort);
     expr_ref xcy(mk_concat(x, m_util.str.mk_unit(c), y), m);
     expr_ref xdz(mk_concat(x, m_util.str.mk_unit(d), z), m);
-    expr_ref empty_string(m_util.str.mk_empty(s), m);
-    literal emp1 = mk_eq(e1, empty_string, false);
-    literal emp2 = mk_eq(e2, empty_string, false);
     literal eq   = mk_eq(e1, e2, false);
+    literal pref21 = mk_literal(m_util.str.mk_prefix(e2, e1));
+    literal pref12 = mk_literal(m_util.str.mk_prefix(e1, e2));
     literal e1xcy = mk_eq(e1, xcy, false);
     literal e2xdz = mk_eq(e2, xdz, false);
     literal ltcd = mk_literal(m_util.mk_lt(c, d));
     literal ltdc = mk_literal(m_util.mk_lt(d, c));
-    add_axiom(~lt, e2xdz);
-    add_axiom(~lt, emp1, e1xcy);
-    add_axiom(~lt, emp1, ltcd);
-    add_axiom(lt, eq, e1xcy);
-    add_axiom(lt, eq, emp2, ltdc);
-    add_axiom(lt, eq, emp2, e2xdz);
+    add_axiom(~lt, pref12, e2xdz);
+    add_axiom(~lt, pref12, e1xcy);
+    add_axiom(~lt, pref12, ltcd);
+    add_axiom(lt, pref21, e1xcy);
+    add_axiom(lt, pref21, ltdc);
+    add_axiom(lt, pref21, e2xdz);
     add_axiom(~eq, ~lt);
 }
 

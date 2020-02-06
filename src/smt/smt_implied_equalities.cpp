@@ -30,7 +30,7 @@ Revision History:
 #include "model/model.h"
 #include "solver/solver.h"
 
-namespace smt {
+namespace {
 
     class get_implied_equalities_impl {
         
@@ -177,7 +177,7 @@ namespace smt {
 
             uint_set non_values;
             
-            if (!is_value_sort(m, srt)) {
+            if (!smt::is_value_sort(m, srt)) {
                 for (unsigned i = 0; i < terms.size(); ++i) {
                     non_values.insert(i);
                 }
@@ -370,12 +370,14 @@ namespace smt {
 
     stopwatch get_implied_equalities_impl::s_timer;
     stopwatch get_implied_equalities_impl::s_stats_val_eq_timer;
+}
 
+namespace smt {
     lbool implied_equalities(ast_manager& m, solver& solver, unsigned num_terms, expr* const* terms, unsigned* class_ids) {        
         get_implied_equalities_impl gi(m, solver);
         return gi(num_terms, terms, class_ids);
     }
-};
+}
 
 
 

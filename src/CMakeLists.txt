@@ -53,7 +53,7 @@ add_subdirectory(parsers/util)
 add_subdirectory(math/grobner)
 add_subdirectory(sat)
 add_subdirectory(nlsat)
-add_subdirectory(util/lp)
+add_subdirectory(math/lp)
 add_subdirectory(math/euclid)
 add_subdirectory(tactic/core)
 add_subdirectory(math/subpaving/tactic)
@@ -97,7 +97,6 @@ add_subdirectory(tactic/portfolio)
 add_subdirectory(opt)
 add_subdirectory(api)
 add_subdirectory(api/dll)
-
 ################################################################################
 # libz3
 ################################################################################

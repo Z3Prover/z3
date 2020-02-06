@@ -377,6 +377,7 @@ namespace smt {
     }
 
     void context::collect_statistics(::statistics & st) const {
+        st.copy(m_aux_stats);
         st.update("conflicts", m_stats.m_num_conflicts);
         st.update("decisions", m_stats.m_num_decisions);
         st.update("propagations", m_stats.m_num_propagations + m_stats.m_num_bin_propagations);
@@ -451,6 +452,7 @@ namespace smt {
         std::ofstream out(strm.str());
         TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
+        TRACE("non_linear", display_lemma_as_smt_problem(tout, num_antecedents, antecedents, consequent, logic););
         out.close();
         return m_lemma_id;
     }
@@ -490,7 +492,9 @@ namespace smt {
         std::stringstream strm;
         strm << "lemma_" << (++m_lemma_id) << ".smt2";
         std::ofstream out(strm.str());
-        TRACE("lemma", tout << strm.str() << "\n";);
+        TRACE("lemma", tout << strm.str() << "\n";
+              display_lemma_as_smt_problem(tout, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
+);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
         return m_lemma_id;

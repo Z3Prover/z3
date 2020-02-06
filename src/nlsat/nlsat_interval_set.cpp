@@ -78,11 +78,11 @@ namespace nlsat {
             SASSERT(i.m_upper_open);
         }
         if (!i.m_lower_inf && !i.m_upper_inf) {
-            int s = am.compare(i.m_lower, i.m_upper);
+            auto s = am.compare(i.m_lower, i.m_upper);
             TRACE("nlsat_interval", tout << "lower: "; am.display_decimal(tout, i.m_lower); tout << ", upper: "; am.display_decimal(tout, i.m_upper);
                   tout << "\ns: " << s << "\n";);
             SASSERT(s <= 0);
-            if (s == 0) {
+            if (::is_zero(s)) {
                 SASSERT(!i.m_lower_open && !i.m_upper_open);
             }
         }
@@ -169,54 +169,58 @@ namespace nlsat {
         return new_set;
     }
 
-    inline int compare_lower_lower(anum_manager & am, interval const & i1, interval const & i2) {
+    inline ::sign compare_lower_lower(anum_manager & am, interval const & i1, interval const & i2) {
         if (i1.m_lower_inf && i2.m_lower_inf)
-            return 0;
+            return sign_zero;
         if (i1.m_lower_inf)
-            return -1;
+            return sign_neg;
         if (i2.m_lower_inf)
-            return 1;
+            return sign_pos;
         SASSERT(!i1.m_lower_inf && !i2.m_lower_inf);
-        int s = am.compare(i1.m_lower, i2.m_lower);
-        if (s != 0)
+        ::sign s = am.compare(i1.m_lower, i2.m_lower);
+        if (!is_zero(s)) 
             return s;
         if (i1.m_lower_open == i2.m_lower_open)
-            return 0;
+            return sign_zero;
         if (i1.m_lower_open)
-            return 1;
+            return sign_pos;
         else
-            return -1;
+            return sign_neg;
     }
 
-    inline int compare_upper_upper(anum_manager & am, interval const & i1, interval const & i2) {
+    inline ::sign compare_upper_upper(anum_manager & am, interval const & i1, interval const & i2) {
         if (i1.m_upper_inf && i2.m_upper_inf)
-            return 0;
+            return sign_zero;
         if (i1.m_upper_inf)
-            return 1;
+            return sign_pos;
         if (i2.m_upper_inf)
-            return -1;
+            return sign_neg;
         SASSERT(!i1.m_upper_inf && !i2.m_upper_inf);
-        int s = am.compare(i1.m_upper, i2.m_upper);
-        if (s != 0)
+        auto s = am.compare(i1.m_upper, i2.m_upper);
+        if (!::is_zero(s)) 
             return s;
         if (i1.m_upper_open == i2.m_upper_open)
-            return 0;
+            return sign_zero;
         if (i1.m_upper_open)
-            return -1;
+            return sign_neg;
         else
-            return 1;
+            return sign_pos;
     }
 
-    inline int compare_upper_lower(anum_manager & am, interval const & i1, interval const & i2) {
-        if (i1.m_upper_inf || i2.m_lower_inf)
-            return 1;
+    inline ::sign compare_upper_lower(anum_manager & am, interval const & i1, interval const & i2) {
+        if (i1.m_upper_inf || i2.m_lower_inf) {
+            TRACE("nlsat_interval", nlsat::display(tout << "i1: ", am, i1); nlsat::display(tout << "i2: ", am, i2););
+            return sign_pos;
+        }
         SASSERT(!i1.m_upper_inf && !i2.m_lower_inf);
-        int s = am.compare(i1.m_upper, i2.m_lower);
-        if (s != 0)
+        auto s = am.compare(i1.m_upper, i2.m_lower);
+        TRACE("nlsat_interval", nlsat::display(tout << "i1: ", am, i1); nlsat::display(tout << " i2: ", am, i2); 
+              tout << " compare: " << s << "\n";);
+        if (!::is_zero(s))
             return s;
         if (!i1.m_upper_open && !i2.m_lower_open)
-            return 0;
-        return -1;
+            return sign_zero;
+        return sign_neg;
     }
     
     typedef sbuffer<interval, 128> interval_buffer;
@@ -227,9 +231,9 @@ namespace nlsat {
     bool adjacent(anum_manager & am, interval const & curr, interval const & next) {
         SASSERT(!curr.m_upper_inf);
         SASSERT(!next.m_lower_inf);
-        int sign = am.compare(curr.m_upper, next.m_lower);
-        SASSERT(sign <= 0);
-        if (sign == 0) {
+        auto sign = am.compare(curr.m_upper, next.m_lower);
+        SASSERT(sign != sign_pos);
+        if (is_zero(sign)) {
             SASSERT(curr.m_upper_open || next.m_lower_open);
             return !curr.m_upper_open || !next.m_lower_open;
         }
@@ -271,6 +275,15 @@ namespace nlsat {
     }
 
     interval_set * interval_set_manager::mk_union(interval_set const * s1, interval_set const * s2) {
+#if 0
+        // issue #2867:
+        static unsigned s_count = 0;
+        s_count++;
+        if (s_count == 8442) {
+            enable_trace("nlsat_interval");
+            enable_trace("algebraic");
+        }
+#endif
         TRACE("nlsat_interval", tout << "mk_union\ns1: "; display(tout, s1); tout << "\ns2: "; display(tout, s2); tout << "\n";);
         if (s1 == nullptr || s1 == s2)
             return const_cast<interval_set*>(s2);
@@ -421,7 +434,7 @@ namespace nlsat {
                     // i2 may consume other intervals of s1
                 }
                 else {
-                    int u2_l1_sign = compare_upper_lower(m_am, int2, int1);
+                    auto u2_l1_sign = compare_upper_lower(m_am, int2, int1);
                     if (u2_l1_sign < 0) {
                         TRACE("nlsat_interval", tout << "l1_l2_sign > 0, u1_u2_sign > 0, u2_l1_sign < 0\n";);
                         // Case:
@@ -430,7 +443,7 @@ namespace nlsat {
                         push_back(m_am, result, int2);
                         i2++;
                     }
-                    else if (u2_l1_sign == 0) {
+                    else if (is_zero(u2_l1_sign)) {
                         TRACE("nlsat_interval", tout << "l1_l2_sign > 0, u1_u2_sign > 0, u2_l1_sign == 0\n";);
                         SASSERT(!int1.m_lower_open && !int2.m_upper_open);
                         SASSERT(!int1.m_lower_inf);

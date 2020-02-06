@@ -18,6 +18,7 @@
 
 #include "sat/sat_aig_simplifier.h"
 #include "sat/sat_xor_finder.h"
+#include "sat/sat_lut_finder.h"
 #include "sat/sat_elim_eqs.h"
 
 namespace sat {
@@ -25,23 +26,26 @@ namespace sat {
     struct aig_simplifier::report {
         aig_simplifier& s;
         stopwatch       m_watch;
-        unsigned        m_num_eqs, m_num_units, m_num_cuts;
+        unsigned        m_num_eqs, m_num_units, m_num_cuts, m_num_learned_implies;
         
         report(aig_simplifier& s): s(s) { 
             m_watch.start(); 
             m_num_eqs   = s.m_stats.m_num_eqs;
             m_num_units = s.m_stats.m_num_units;
             m_num_cuts  = s.m_stats.m_num_cuts;
+            m_num_learned_implies = s.m_stats.m_num_learned_implies;
         }
         ~report() {
             unsigned ne = s.m_stats.m_num_eqs   - m_num_eqs;
             unsigned nu = s.m_stats.m_num_units - m_num_units;
             unsigned nc = s.m_stats.m_num_cuts  - m_num_cuts;
+            unsigned ni = s.m_stats.m_num_learned_implies - m_num_learned_implies;
             IF_VERBOSE(2, 
                        verbose_stream() << "(sat.aig-simplifier";
-                       if (ne > 0) verbose_stream() << " :num-eqs "   << ne;
                        if (nu > 0) verbose_stream() << " :num-units " << nu;
-                       if (nc > 0) verbose_stream() << " :num-cuts "  << nc;
+                       if (ne > 0) verbose_stream() << " :num-eqs "   << ne;
+                       if (ni > 0) verbose_stream() << " :num-bin " << ni;
+                       if (nc > 0) verbose_stream() << " :num-cuts "  << nc;                       
                        verbose_stream() << " :mb " << mem_stat() << m_watch << ")\n");
         }
     };
@@ -151,6 +155,7 @@ namespace sat {
     }
 
     void aig_simplifier::operator()() {
+
         report _report(*this);
         TRACE("aig_simplifier", s.display(tout););
         unsigned n = 0, i = 0;
@@ -161,7 +166,7 @@ namespace sat {
             aig2clauses();
             ++i;
         }
-        while (i < m_stats.m_num_calls && n < m_stats.m_num_eqs + m_stats.m_num_units);
+        while (i*i < m_stats.m_num_calls && n < m_stats.m_num_eqs + m_stats.m_num_units);
     }
 
     /**
@@ -179,13 +184,13 @@ namespace sat {
         std::function<void (literal head, literal_vector const& ands)> on_and = 
             [&,this](literal head, literal_vector const& ands) {
             m_aig_cuts.add_node(head, and_op, ands.size(), ands.c_ptr());
-            m_stats.m_num_ands++;
+            m_stats.m_xands++;
         };
         std::function<void (literal head, literal c, literal t, literal e)> on_ite = 
             [&,this](literal head, literal c, literal t, literal e) {            
             literal args[3] = { c, t, e };            
             m_aig_cuts.add_node(head, ite_op, 3, args);
-            m_stats.m_num_ites++;
+            m_stats.m_xites++;
         };
         aig_finder af(s);
         af.set(on_and);
@@ -217,11 +222,28 @@ namespace sat {
             }
             m_aig_cuts.add_node(head, xor_op, sz, m_lits.c_ptr());
             m_lits.reset();
-            m_stats.m_num_xors++;            
+            m_stats.m_xxors++;            
         };
         xor_finder xf(s);
         xf.set(on_xor);
-        xf(clauses);       
+        xf(clauses);
+
+#if 0
+        std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
+            [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
+            m_stats.m_xluts++;
+            m_aig_cuts.add_cut(v, lut, vars);
+        };
+        lut_finder lf(s);
+        lf.set(on_lut);
+        lf(clauses);
+
+
+        statistics st;
+        collect_statistics(st);
+        st.display(std::cout);
+        exit(0);
+#endif
     }
 
     void aig_simplifier::aig2clauses() {
@@ -230,6 +252,7 @@ namespace sat {
         add_dont_cares(cuts);
         cuts2equiv(cuts);
         cuts2implies(cuts);
+        simulate_eqs();
     }
 
     void aig_simplifier::cuts2equiv(vector<cut_set> const& cuts) {
@@ -280,8 +303,8 @@ namespace sat {
     void aig_simplifier::assign_unit(cut const& c, literal lit) {
         if (s.value(lit) != l_undef) 
             return;
+        IF_VERBOSE(10, verbose_stream() << "new unit " << lit << "\n");
         validate_unit(lit);
-        IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
         s.assign_unit(lit);
         certify_unit(lit, c);
         ++m_stats.m_num_units;        
@@ -344,6 +367,8 @@ namespace sat {
         big big(s.rand());
         big.init(s, true);
         for (auto const& cs : cuts) {
+            if (s.was_eliminated(cs.var())) 
+                continue;
             for (auto const& c : cs) {
                 if (c.is_false() || c.is_true()) 
                     continue;
@@ -409,6 +434,39 @@ namespace sat {
         s.mk_clause(~u, v, true);
         // m_bins owns reference to ~u or v created by certify_implies
         m_bins.insert(p); 
+        ++m_stats.m_num_learned_implies;
+    }
+
+    void aig_simplifier::simulate_eqs() {
+        if (!m_config.m_simulate_eqs) return;
+        auto var2val = m_aig_cuts.simulate(4);
+
+        // Assign higher cutset budgets to equality candidates that come from simulation
+        // touch them to trigger recomputation of cutsets.
+        u64_map<literal> val2lit;
+        unsigned i = 0, num_eqs = 0;
+        for (cut_val val : var2val) {
+            if (!s.was_eliminated(i) && s.value(i) == l_undef) {
+                literal u(i, false), v;
+                if (val2lit.find(val.m_t, v)) {
+                    
+                    m_aig_cuts.inc_max_cutset_size(i);
+                    m_aig_cuts.inc_max_cutset_size(v.var());
+                    num_eqs++;
+                }
+                else if (val2lit.find(val.m_f, v)) {
+                    m_aig_cuts.inc_max_cutset_size(i);
+                    m_aig_cuts.inc_max_cutset_size(v.var());
+                    num_eqs++;
+                }
+                else {
+                    val2lit.insert(val.m_t, u);
+                    val2lit.insert(val.m_f, ~u);
+                }
+            }
+            ++i;
+        }
+        IF_VERBOSE(2, verbose_stream() << "(sat.aig-simplifier num simulated eqs " << num_eqs << ")\n");
     }
 
     void aig_simplifier::track_binary(bin_rel const& p) {
@@ -630,11 +688,15 @@ namespace sat {
     }
 
     void aig_simplifier::collect_statistics(statistics& st) const {
-        st.update("sat-aig.eqs",  m_stats.m_num_eqs);
-        st.update("sat-aig.cuts", m_stats.m_num_cuts);
-        st.update("sat-aig.ands", m_stats.m_num_ands);
-        st.update("sat-aig.ites", m_stats.m_num_ites);
-        st.update("sat-aig.xors", m_stats.m_num_xors);
+        st.update("sat-aig.eqs",   m_stats.m_num_eqs);
+        st.update("sat-aig.cuts",  m_stats.m_num_cuts);
+        st.update("sat-aig.ands",  m_stats.m_num_ands);
+        st.update("sat-aig.ites",  m_stats.m_num_ites);
+        st.update("sat-aig.xors",  m_stats.m_num_xors);
+        st.update("sat-aig.xands", m_stats.m_xands);
+        st.update("sat-aig.xites", m_stats.m_xites);
+        st.update("sat-aig.xxors", m_stats.m_xxors);
+        st.update("sat-aig.xluts", m_stats.m_xluts);
         st.update("sat-aig.dc-reduce", m_stats.m_num_dont_care_reductions);
     }
 

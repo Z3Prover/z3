@@ -288,13 +288,13 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                 m_pr  = m().mk_congruence(t, new_t, num_prs, result_pr_stack().c_ptr() + fr.m_spos);
             }
         }
-        br_status st = m_cfg.reduce_app(f, new_num_args, new_args, m_r, m_pr2);
-        SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
+        br_status st = m_cfg.reduce_app(f, new_num_args, new_args, m_r, m_pr2);       
         CTRACE("reduce_app", st != BR_FAILED,
               tout << mk_bounded_pp(t, m()) << "\n";
               tout << "st: " << st;
               if (m_r) tout << " --->\n" << mk_bounded_pp(m_r, m());
               tout << "\n";);
+        SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
         if (st != BR_FAILED) {
             result_stack().shrink(fr.m_spos);
             SASSERT(m().get_sort(m_r) == m().get_sort(t));

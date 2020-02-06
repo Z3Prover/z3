@@ -147,7 +147,8 @@ jobs:
         ./cpp_example
         ./c_example
         cd ..
-    - template: scripts/test-z3.yml
+# Skip as dead-slow in debug mode:
+#  - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
 
 

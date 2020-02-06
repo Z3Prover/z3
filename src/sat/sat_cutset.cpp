@@ -161,6 +161,29 @@ namespace sat {
         }
         return true;
     }
+
+    /**
+       sat-sweep evaluation. Given 64 bits worth of possible values per variable, 
+       find possible values for function table encoded by cut.
+    */
+    cut_val cut::eval(cut_eval const& env) const {
+        cut_val v;
+        uint64_t t = table();
+        uint64_t n = table();
+        unsigned sz = size();
+        if (sz == 1 && t == 2) {
+            return env[m_elems[0]];
+        }
+        for (unsigned i = 0; i < 64; ++i) {
+            unsigned offset = 0;
+            for (unsigned j = 0; j < sz; ++j) {
+                offset |= (((env[m_elems[j]].m_t >> i) & 0x1) << j);
+            }
+            v.m_t |= ((t >> offset) & 0x1) << i;
+            v.m_f |= ((n >> offset) & 0x1) << i;
+        }
+        return v;
+    }
     
     std::ostream& cut::display(std::ostream& out) const {
         out << "{";
@@ -173,10 +196,6 @@ namespace sat {
             if (0 != (table() & (1ull << i))) out << "1"; else out << "0";
         }    
         return out;
-    }
-
-    void cut::sort() {
-        std::sort(m_elems, m_elems + m_size);
     }
 
 }

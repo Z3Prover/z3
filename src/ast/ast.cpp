@@ -668,7 +668,7 @@ ast* ast_table::pop_erase() {
 // -----------------------------------
 
 /**
-     \brief Checks wether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
+     \brief Checks whether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
     to that log. The theory solver should add some description of the meaning of the term in terms of the theory's
     internal reasoning to the end of the line and insert a line break.
     
@@ -744,7 +744,6 @@ basic_decl_plugin::basic_decl_plugin():
     m_th_assumption_add_decl(nullptr),
     m_th_lemma_add_decl(nullptr),
     m_redundant_del_decl(nullptr),
-    m_clause_trail_decl(nullptr),
     m_hyper_res_decl0(nullptr) {
 }
 
@@ -835,9 +834,9 @@ func_decl * basic_decl_plugin::mk_compressed_proof_decl(char const * name, basic
 
 func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache) {
     if (num_parents >= cache.size()) {
-        cache.resize(num_parents+1);
+        cache.resize(num_parents+1, nullptr);
     }
-    if (cache[num_parents] == 0) {
+    if (!cache[num_parents]) {
         cache[num_parents] = mk_proof_decl(name, k, num_parents);
     }
     return cache[num_parents];
@@ -920,7 +919,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("add-th-assume", k, num_parents, m_th_assumption_add_decl);
     case PR_TH_LEMMA_ADD:                 return mk_proof_decl("add-th-lemma", k, num_parents, m_th_lemma_add_decl);
     case PR_REDUNDANT_DEL:                return mk_proof_decl("del-redundant", k, num_parents, m_redundant_del_decl);
-    case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents, m_clause_trail_decl);
+    case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents);
     default:
         UNREACHABLE();
         return nullptr;
@@ -1041,7 +1040,6 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_th_assumption_add_decl);
     DEC_REF(m_th_lemma_add_decl);
     DEC_REF(m_redundant_del_decl);
-    DEC_REF(m_clause_trail_decl);
     DEC_ARRAY_REF(m_apply_def_decls);
     DEC_ARRAY_REF(m_nnf_pos_decls);
     DEC_ARRAY_REF(m_nnf_neg_decls);
@@ -1900,6 +1898,22 @@ ast * ast_manager::register_node_core(ast * n) {
     default:
         break;
     }
+
+#if 0
+    // std::cout << n->m_id << " " << n->hash() << "\n";
+    if (n->m_id == 1523) {
+        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
+    }
+    if (n->m_id == 1524) {
+        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
+        VERIFY(false);
+    }
+    if (n->m_id == 1525) {
+        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
+    }
+    //VERIFY(n->m_id != 1549);
+    //VERIFY(s_count != 2);
+#endif
     return n;
 }
 

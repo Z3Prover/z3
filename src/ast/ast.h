@@ -1004,7 +1004,7 @@ protected:
     virtual void inherit(decl_plugin* other_p, ast_translation& ) { }
 
     /**
-       \brief Checks wether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
+       \brief Checks whether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
        to that log. The theory solver should add some description of the meaning of the term in terms of the theory's
        internal reasoning to the end of the line and insert a line break.
        
@@ -1167,7 +1167,6 @@ protected:
     func_decl * m_th_assumption_add_decl;
     func_decl * m_th_lemma_add_decl;
     func_decl * m_redundant_del_decl;
-    func_decl * m_clause_trail_decl;
     ptr_vector<func_decl> m_apply_def_decls;
     ptr_vector<func_decl> m_nnf_pos_decls;
     ptr_vector<func_decl> m_nnf_neg_decls;

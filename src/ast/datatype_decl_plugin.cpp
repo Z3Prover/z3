@@ -726,6 +726,8 @@ namespace datatype {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
             unsigned n = get_datatype_num_parameter_sorts(s);
+            if (!is_declared(s))
+                return nullptr;
             def & d = get_def(s->get_name());
             SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
@@ -817,7 +819,8 @@ namespace datatype {
             for (constructor const* c : d) {
                 ptr_vector<param_size::size> s_mul;
                 for (accessor const* a : *c) {
-                    s_mul.push_back(get_sort_size(d.params(), a->range()));
+                    auto* sz = get_sort_size(d.params(), a->range());
+                    if (sz) s_mul.push_back(sz);
                 }
                 s_add.push_back(param_size::size::mk_times(s_mul));
             }

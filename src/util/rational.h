@@ -107,7 +107,7 @@ public:
 
     int64_t get_int64() const { return m().get_int64(m_val); }
     
-    bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32)); }
+    bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32ull)); }
 
     unsigned get_unsigned() const {
         SASSERT(is_unsigned());
@@ -137,7 +137,16 @@ public:
         m().set(m_val, r.m_val);
         return *this;
     }
+private:
+    rational & operator=(bool) {
+        UNREACHABLE(); return *this;
+    }
+    inline rational operator*(bool  r1) const {
+        UNREACHABLE();
+        return *this;
+    }
 
+public:
     rational & operator=(int v) {
         *this = rational(v);
         return *this;
@@ -506,9 +515,18 @@ inline rational operator*(rational const & r1, rational const & r2) {
     return rational(r1) *= r2; 
 }
 
+inline rational operator*(rational const & r1, bool r2) {
+    UNREACHABLE();
+    return r1 * rational(r2);
+}
 inline rational operator*(rational const & r1, int r2) {
     return r1 * rational(r2);
 }
+inline rational operator*(bool  r1, rational const & r2) {
+    UNREACHABLE();
+    return rational(r1) * r2;
+}
+
 inline rational operator*(int  r1, rational const & r2) {
     return rational(r1) * r2;
 }
@@ -518,6 +536,11 @@ inline rational operator/(rational const & r1, rational const & r2) {
 }
 
 inline rational operator/(rational const & r1, int r2) {
+    return r1 / rational(r2);
+}
+
+inline rational operator/(rational const & r1, bool r2) {
+    UNREACHABLE();
     return r1 / rational(r2);
 }
 

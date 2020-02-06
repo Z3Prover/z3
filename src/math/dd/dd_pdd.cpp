@@ -181,7 +181,8 @@ namespace dd {
         case pdd_reduce_op:
             if (is_zero(q)) return p;
             if (is_val(p)) return p;
-            if (!is_val(q) && level(p) < level(q)) return p;
+            if (degree(p) < degree(q)) return p; 
+            if (level(first_leading(q)) > level(p)) return p;
             break;
         case pdd_subst_val_op:
             while (!is_val(q) && !is_val(p)) {
@@ -307,18 +308,25 @@ namespace dd {
             }
             break;
         case pdd_reduce_op:
-            if (level_p > level_q) {
+            if (level(first_leading(q)) < level_p) {
                 push(apply_rec(lo(p), q, op));
                 push(apply_rec(hi(p), q, op));
-                if (read(2) == lo(p) && read(1) == hi(p)) {
+                PDD plo = read(2), phi = read(1);
+                if (plo == lo(p) && phi == hi(p)) {
                     r = p;
                 }
-                else {
-                    r = make_node(level_p, read(2), read(1));
+                else if (level(plo) < level_p && level(phi) <= level(p)) {
+                    r = make_node(level_p, plo, phi);
                 }
+                else {
+                    push(apply_rec(phi,     m_var2pdd[var(p)], pdd_mul_op));
+                    push(apply_rec(read(1), plo, pdd_add_op));
+                    r = read(1);
+                    npop = 4;
+                }                
             }
             else {
-                SASSERT(level_p == level_q);
+                SASSERT(level(first_leading(q)) == level_p);
                 r = reduce_on_match(p, q);
                 npop = 0;
             }
@@ -381,11 +389,16 @@ namespace dd {
         return r;
     }
 
-    // q = lt(a)/lt(b), return a - b*q
+    //
+    // produce polynomial where a is reduced by b.
+    // all monomials in a that are divisible by lm(b)
+    // are replaced by (b - lt(b))/lm(b)
+    //
     pdd_manager::PDD pdd_manager::reduce_on_match(PDD a, PDD b) {
-        SASSERT(level(a) == level(b) && !is_val(a) && !is_val(b));
+        SASSERT(level(first_leading(b)) == level(a));
+        SASSERT(!is_val(a) && !is_val(b));
         push(a);
-        while (lm_divides(b, a)) {           
+        while (lm_occurs(b, a)) {           
             push(lt_quotient(b, a));
             push(apply_rec(read(1), b, pdd_mul_op));
             push(apply_rec(a, read(1), pdd_add_op));
@@ -397,47 +410,65 @@ namespace dd {
         return a;
     }
 
-    // true if leading monomial of p divides leading monomial of q
-    bool pdd_manager::lm_divides(PDD p, PDD q) const {
+    // true if leading monomial of p divides a monomial of q
+    bool pdd_manager::lm_occurs(PDD p, PDD q) const {
         p = first_leading(p);
-        q = first_leading(q);
         while (true) {
             if (is_val(p)) return true;
             if (is_val(q)) return false;
-            if (level(p) > level(q)) return false;
-            if (level(p) == level(q)) {
+            if (level(p) > level(q)) {
+                return false;
+            }
+            else if (level(p) == level(q)) {
                 p = next_leading(p);
-                q = next_leading(q);
+                q = hi(q);
+            }
+            else if (lm_occurs(p, hi(q))) {
+                return true;
             }
             else {
-                q = next_leading(q);
+                q = lo(q);
             }
         }
     }
 
-    // return minus quotient -r, such that lt(q) = lt(p)*r
-    // assume lm_divides(p, q)
+    // return minus quotient -r, such that lt(p)*r
+    // is a monomial in q.
+    // assume lm_occurs(p, q)
     pdd_manager::PDD pdd_manager::lt_quotient(PDD p, PDD q) {
-        SASSERT(lm_divides(p, q));
+        SASSERT(lm_occurs(p, q));
         p = first_leading(p);
-        q = first_leading(q);
         SASSERT(is_val(p) || !is_val(q));
-        if (is_val(p)) {
-            if (is_val(q)) {
-                SASSERT(!val(p).is_zero());
-                return imk_val(-val(q) / val(p));
+
+        while (!is_val(p)) {
+            SASSERT(level(p) <= level(q));
+            SASSERT(lm_occurs(p, q));
+            if (level(p) == level(q)) {
+                p = next_leading(p);
+                q = lm_occurs(p, hi(q)) ? hi(q) : lo(q);
+            }
+            else if (lm_occurs(p, hi(q))) {
+                return lt_quotient_hi(p, q);
+            }
+            else {            
+                q = lo(q);
             }
         }
-        else if (level(p) == level(q)) {
-            return lt_quotient(next_leading(p), next_leading(q));
+        SASSERT(!is_zero(p));
+        if (is_val(q)) {
+            return imk_val(-val(q) / val(p));
         }
+        else {
+            return lt_quotient_hi(p, q);
+        }                               
+    }
 
-        SASSERT(!is_val(q));
-        push(lt_quotient(p, next_leading(q)));
+    pdd_manager::PDD pdd_manager::lt_quotient_hi(PDD p, PDD q) {
+        SASSERT(lm_occurs(p, hi(q)));
+        push(lt_quotient(p, hi(q)));
         PDD r = apply_rec(m_var2pdd[var(q)], read(1), pdd_mul_op);
         pop(1);
         return r;  
-                         
     }
 
     //
@@ -492,12 +523,9 @@ namespace dd {
     }
 
     /*.
-     * The pdd format makes lexicographic comparison easy: compare based on
-     * the top variable and descend depending on whether hi(x) == hi(y)
-     *
-     * NB. this does not compare leading monomials.
+     * compare pdds based on leading monomials
      */
-    bool pdd_manager::lt(pdd const& a, pdd const& b) {
+    bool pdd_manager::lex_lt(pdd const& a, pdd const& b) {
         PDD x = a.root;
         PDD y = b.root;
         if (x == y) return false;
@@ -521,6 +549,48 @@ namespace dd {
                 return level(x) > level(y);
             }
         }
+    }
+
+    bool pdd_manager::lm_lt(pdd const& a, pdd const& b) {
+        PDD x = first_leading(a.root);
+        PDD y = first_leading(b.root);
+        while (true) {
+            if (x == y) break;
+            if (is_val(x) && is_val(y)) break;
+            if (is_val(x)) return true;
+            if (is_val(y)) return false;
+            if (level(x) == level(y)) {
+                x = next_leading(x);
+                y = next_leading(y);
+            }
+            else {
+                return level(x) < level(y);
+            }
+        }
+        vector<unsigned_vector> ma, mb;
+        for (auto const& m : a) {
+            ma.push_back(m.vars);
+        }
+        for (auto const& m : b) {
+            mb.push_back(m.vars);
+        }
+        std::function<bool (unsigned_vector const& a, unsigned_vector const& b)> degree_lex_gt = 
+            [this](unsigned_vector const& a, unsigned_vector const& b) {
+            unsigned i = 0;
+            if (a.size() > b.size()) return true;
+            if (a.size() < b.size()) return false;
+            for (; i < a.size() && a[i] == b[i]; ++i) {};
+            return i < a.size() && m_var2level[a[i]] > m_var2level[b[i]];
+        };
+        std::sort(ma.begin(), ma.end(), degree_lex_gt);
+        std::sort(mb.begin(), mb.end(), degree_lex_gt);
+        auto ita = ma.begin();
+        auto itb = mb.begin();
+        for (; ita != ma.end() && itb != mb.end(); ++ita, ++itb) {
+            if (degree_lex_gt(*itb, *ita)) return true;
+            if (degree_lex_gt(*ita, *itb)) return false;
+        }
+        return ita == ma.end() && itb != mb.end();
     }
 
     /**
@@ -562,19 +632,6 @@ namespace dd {
             p = lo(p);
         }
         return p;
-    }
-
-    /*
-      Determine whether p is a linear polynomials.
-      A linear polynomial is of the form x*v1 + y*v2 + .. + vn,
-      where v1, v2, .., vn are values.      
-     */
-    bool pdd_manager::is_linear(PDD p) {
-        while (true) {
-            if (is_val(p)) return true;
-            if (!is_val(hi(p))) return false;
-            p = lo(p);
-        }
     }
 
     bool pdd_manager::is_linear(pdd const& p) { 
@@ -811,6 +868,9 @@ namespace dd {
     }
 
     unsigned pdd_manager::degree(PDD p) const {
+        if (p == zero_pdd || p == one_pdd) {
+            return 0;
+        }
         if (is_dmarked(p)) {
             return m_degree[p];
         }        

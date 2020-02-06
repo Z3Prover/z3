@@ -69,6 +69,7 @@ namespace smt {
     class context {
         friend class model_generator;
         friend class lookahead;
+        friend class parallel;
     public:
         statistics                  m_stats;
 
@@ -82,6 +83,7 @@ namespace smt {
         ast_manager &               m;
         smt_params &                m_fparams;
         params_ref                  m_params;
+        ::statistics                m_aux_stats;
         setup                       m_setup;
         unsigned                    m_relevancy_lvl;
         timer                       m_timer;
@@ -110,6 +112,8 @@ namespace smt {
         unsigned                    m_final_check_idx; // circular counter used for implementing fairness
 
         bool                        m_is_auxiliary; // used to prevent unwanted information from being logged.
+        class parallel*             m_par;
+        unsigned                    m_par_index;
 
         // -----------------------------------
         //
@@ -166,7 +170,7 @@ namespace smt {
         ptr_vector<expr>            m_bool_var2expr;         // bool_var -> expr
         signed_char_vector          m_assignment;  //!< mapping literal id -> assignment lbool
         vector<watch_list>          m_watches;     //!< per literal
-        vector<clause_set>          m_lit_occs;    //!< index for backward subsumption
+        unsigned_vector             m_lit_occs;    //!< occurrence count of literals
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
         clause_vector               m_aux_clauses;
@@ -211,27 +215,8 @@ namespace smt {
         proto_model_ref            m_proto_model;
         model_ref                  m_model;
         std::string                m_unknown;
-        void                       mk_proto_model(lbool r);
-        struct scoped_mk_model {
-            context & m_ctx;
-            scoped_mk_model(context & ctx):m_ctx(ctx) {
-                m_ctx.m_proto_model = nullptr;
-                m_ctx.m_model       = nullptr;
-            }
-            ~scoped_mk_model() {
-                if (m_ctx.m_proto_model.get() != nullptr) {
-                    m_ctx.m_model = m_ctx.m_proto_model->mk_model();
-                    try {
-                        m_ctx.add_rec_funs_to_model();
-                    }
-                    catch (...) {
-                        // no op
-                    }
-                    m_ctx.m_proto_model = nullptr; // proto_model is not needed anymore.
-                }
-            }
-        };
-
+        void                       mk_proto_model();
+        void                       reset_model() { m_model = nullptr; m_proto_model = nullptr; }
 
         // -----------------------------------
         //
@@ -409,25 +394,17 @@ namespace smt {
             return js.get_kind() == b_justification::JUSTIFICATION && js.get_justification()->get_from_theory() == th_id;
         }
 
-        int get_random_value() {
-            return m_random();
-        }
+        void set_random_seed(unsigned s) { m_random.set_seed(s); }
 
-        bool is_searching() const {
-            return m_searching;
-        }
+        int get_random_value() { return m_random(); }
 
-        svector<double> const & get_activity_vector() const {
-            return m_activity;
-        }
+        bool is_searching() const { return m_searching; }
 
-        double get_activity(bool_var v) const {
-            return m_activity[v];
-        }
+        svector<double> const & get_activity_vector() const { return m_activity; }
 
-        void set_activity(bool_var v, double act) {
-            m_activity[v] = act;
-        }
+        double get_activity(bool_var v) const { return m_activity[v]; }
+
+        void set_activity(bool_var v, double act) { m_activity[v] = act; }
 
         void activity_changed(bool_var v, bool increased) {
             if (increased) {
@@ -660,8 +637,6 @@ namespace smt {
 
         void remove_watch_literal(clause * cls, unsigned idx);
 
-        void remove_lit_occs(clause * cls);
-
         void remove_cls_occs(clause * cls);
 
         void del_clause(bool log, clause * cls);
@@ -864,9 +839,13 @@ namespace smt {
 
         void mk_ite_cnstr(app * n);
 
-        bool lit_occs_enabled() const { return m_fparams.m_phase_selection==PS_OCCURRENCE; }
+        void dec_ref(literal l);
 
-        void add_lit_occs(clause * cls);
+        void inc_ref(literal l);
+
+        void remove_lit_occs(clause const& cls, unsigned num_bool_vars);
+
+        void add_lit_occs(clause const& cls);
     public:
 
         void ensure_internalized(expr* e);
@@ -1446,9 +1425,6 @@ namespace smt {
 
         bool check_missing_diseq_conflict() const;
 
-        bool check_lit_occs(literal l) const;
-
-        bool check_lit_occs() const;
 #endif
         // -----------------------------------
         //
@@ -1543,7 +1519,7 @@ namespace smt {
         */
         context * mk_fresh(symbol const * l = nullptr,  smt_params * smtp = nullptr, params_ref const & p = params_ref());
 
-        static void copy(context& src, context& dst);
+        static void copy(context& src, context& dst, bool override_base = false);
 
         /**
            \brief Translate context to use new manager m.
@@ -1612,15 +1588,17 @@ namespace smt {
             return m_unsat_core.get(idx);
         }
 
+        expr_ref_vector const& unsat_core() const { return m_unsat_core; }
+
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
 
         expr_ref_vector get_trail();
 
-        void get_model(model_ref & m) const;
+        void get_model(model_ref & m);
+
+        void set_model(model* m) { m_model = m; }
 
         bool update_model(bool refinalize);
-
-        void get_proto_model(proto_model_ref & m) const;
 
         bool validate_model();
 

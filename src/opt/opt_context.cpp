@@ -1654,7 +1654,8 @@ namespace opt {
             case O_MINIMIZE:
             case O_MAXIMIZE: {
                 inf_eps n = m_optsmt.get_lower(obj.m_index);
-                if (m_optsmt.objective_is_model_valid(obj.m_index) && 
+                if (false && // theory_lra doesn't produce infinitesimals
+                    m_optsmt.objective_is_model_valid(obj.m_index) && 
                     n.get_infinity().is_zero() &&
                     n.get_infinitesimal().is_zero() &&
                     is_numeral((*m_model)(obj.m_term), r1)) {

@@ -2781,7 +2781,8 @@ namespace z3 {
             m_opt = o.m_opt;
         }
         optimize(context& c, optimize& src):object(c) {
-            m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt);
+            m_opt = Z3_mk_optimize(c); 
+            Z3_optimize_inc_ref(c, m_opt);
             add(expr_vector(c, src.assertions()));
             for (expr const& o : expr_vector(c, src.objectives())) minimize(o);            
         }

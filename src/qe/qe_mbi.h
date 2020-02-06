@@ -21,6 +21,7 @@ Revision History:
 #pragma once
 
 #include "qe/qe_arith.h"
+#include "util/lbool.h"
 
 namespace qe {
     enum mbi_result {
@@ -53,6 +54,8 @@ namespace qe {
             m_shared_trail.append(vars);
             for (auto* f : vars) m_shared.insert(f);
         }
+
+        void set_shared(expr* a, expr* b);
 
         /**
          * Set representative (shared) expression finder.
@@ -120,14 +123,14 @@ namespace qe {
         void order_avars(app_ref_vector& avars);
 
         void add_dcert(model_ref& mdl, expr_ref_vector& lits);
+        void add_arith_dcert(model& mdl, expr_ref_vector& lits);
+        void add_arith_dcert(model& mdl, expr_ref_vector& lits, app* a, app* b);
         app_ref_vector get_arith_vars(expr_ref_vector const& lits);
         vector<def> arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits);
-        void substitute(vector<def> const& defs, expr_ref_vector& lits);
         void project_euf(model_ref& mdl, expr_ref_vector& lits);
         void split_arith(expr_ref_vector const& lits, 
                          expr_ref_vector& alits,
                          expr_ref_vector& uflits);
-        void prune_defs(vector<def>& defs);
     public:
         uflia_mbi(solver* s, solver* emptySolver);
         ~uflia_mbi() override {}
@@ -145,6 +148,7 @@ namespace qe {
         interpolator(ast_manager& m):m(m) {}
         lbool pingpong(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
         lbool pogo(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
+        lbool pogo(solver_factory& sf, expr* a, expr* b, expr_ref& itp);
     };
 
 };

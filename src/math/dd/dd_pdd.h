@@ -14,7 +14,7 @@ Abstract:
 
     Non-leaf nodes are of the form x*hi + lo
     where 
-    - maxdegree(x, lo) = 0, 
+    - maxdegree(x, lo) = 0, meaning x does not appear in lo
 
     Leaf nodes are of the form (0*idx + 0), where idx is an index into m_values.
 
@@ -37,7 +37,7 @@ Author:
 #include "util/rational.h"
 
 namespace dd {
-
+    class test;
     class pdd;
     class pdd_manager;
     class pdd_iterator;
@@ -46,6 +46,7 @@ namespace dd {
     public:
         enum semantics { free_e, mod2_e, zero_one_vars_e };
     private:
+        friend test;
         friend pdd;
         friend pdd_iterator;
 
@@ -177,8 +178,9 @@ namespace dd {
         PDD minus_rec(PDD p);
 
         PDD reduce_on_match(PDD a, PDD b);
-        bool lm_divides(PDD p, PDD q) const;
+        bool lm_occurs(PDD p, PDD q) const;
         PDD lt_quotient(PDD p, PDD q);
+        PDD lt_quotient_hi(PDD p, PDD q);
 
         PDD imk_val(rational const& r);       
         void init_value(const_info& info, rational const& r);
@@ -278,7 +280,7 @@ namespace dd {
         pdd reduce(pdd const& a, pdd const& b);
         pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
 
-        bool is_linear(PDD p);
+        bool is_linear(PDD p) { return degree(p) == 1; }
         bool is_linear(pdd const& p);
 
         bool is_binary(PDD p);
@@ -289,7 +291,12 @@ namespace dd {
         // create an spoly r if leading monomials of a and b overlap
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
 
-        bool lt(pdd const& a, pdd const& b);
+        // simple lexicographic comparison
+        bool lex_lt(pdd const& a, pdd const& b); 
+
+        // more elaborate comparison based on leading monomials
+        bool lm_lt(pdd const& a, pdd const& b);
+
         bool different_leading_term(pdd const& a, pdd const& b);
         double tree_size(pdd const& p);
         unsigned num_vars() const { return m_var2pdd.size(); }
@@ -303,6 +310,7 @@ namespace dd {
     };
 
     class pdd {
+        friend test;
         friend class pdd_manager;
         friend class pdd_iterator;
         unsigned     root;
@@ -350,9 +358,6 @@ namespace dd {
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
-        bool operator<(pdd const& other) const { return m.lt(*this, other); }
-
-
 
         unsigned dag_size() const { return m.dag_size(*this); }
         double tree_size() const { return m.tree_size(*this); }

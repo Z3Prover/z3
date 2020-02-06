@@ -725,7 +725,20 @@ namespace qe {
                     TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
                 }
             }
+            remove_duplicates(res);
             TRACE("qe", tout << "literals: " << res << "\n";);            
+        }
+
+        void remove_duplicates(expr_ref_vector& v) {
+            obj_hashtable<expr> seen;
+            unsigned j = 0;
+            for (expr* e : v) {
+                if (!seen.contains(e)) {
+                    v[j++] = e;
+                    seen.insert(e);
+                }
+            }
+            v.shrink(j);
         }
 
         vector<ptr_vector<term>> m_decl2terms; // terms that use function f
@@ -1202,22 +1215,23 @@ namespace qe {
         hashtable<pair_t, pair_t::hash, pair_t::eq> diseqs;
         expr_ref_vector result(m);        
         add_lits(lits);
-        auto const partitions = get_partition(mdl);
         svector<pair_t> todo;
+
         for (expr* e : lits) {
             expr* ne, *a, *b;
             if (m.is_not(e, ne) && m.is_eq(ne, a, b) && (is_uninterp(a) || is_uninterp(b))) {
-                todo.push_back(pair_t(a, b));
+                diseqs.insert(pair_t(a, b));
             }
             else if (is_uninterp(e)) {
-                todo.push_back(pair_t(e, m.mk_false()));
+                diseqs.insert(pair_t(e, m.mk_false()));
             }
             else if (m.is_not(e, ne) && is_uninterp(ne)) {
-                todo.push_back(pair_t(ne, m.mk_true()));
-            }
+                diseqs.insert(pair_t(ne, m.mk_true()));
+            }           
         }
-        for (auto& p : todo) diseqs.insert(p);
+        for (auto& p : diseqs) todo.push_back(p);
 
+        auto const partitions = get_partition(mdl);
         obj_map<expr, unsigned> term2pid;
         unsigned id = 0;
         for (auto const& vec : partitions) {
@@ -1261,6 +1275,17 @@ namespace qe {
                             result.push_back(m.mk_not(m.mk_eq(q.a, q.b)));
                         }
                     }
+                }
+            }
+        }
+        for (auto const& terms : partitions) {
+            expr* a = nullptr;
+            for (expr* b : terms) { 
+                if (is_uninterp(b)) { 
+                    if (a) 
+                        result.push_back(m.mk_eq(a, b));
+                    else 
+                        a = b;
                 }
             }
         }

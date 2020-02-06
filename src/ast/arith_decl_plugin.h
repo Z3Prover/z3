@@ -172,6 +172,8 @@ public:
         return alloc(arith_decl_plugin);
     }
 
+    bool convert_int_numerals_to_real() const { return m_convert_int_numerals_to_real; }
+
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
     func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -287,6 +289,8 @@ public:
     bool is_idiv0(expr const * n) const { return is_app_of(n, m_afid, OP_IDIV0); }
     bool is_mod(expr const * n) const { return is_app_of(n, m_afid, OP_MOD); }
     bool is_rem(expr const * n) const { return is_app_of(n, m_afid, OP_REM); }
+    bool is_mod0(expr const * n) const { return is_app_of(n, m_afid, OP_MOD0); }
+    bool is_rem0(expr const * n) const { return is_app_of(n, m_afid, OP_REM0); }
     bool is_to_real(expr const * n) const { return is_app_of(n, m_afid, OP_TO_REAL); }
     bool is_to_int(expr const * n) const { return is_app_of(n, m_afid, OP_TO_INT); }
     bool is_is_int(expr const * n) const { return is_app_of(n, m_afid, OP_IS_INT); }
@@ -361,6 +365,7 @@ public:
         return plugin().am();
     }
 
+    bool convert_int_numerals_to_real() const { return plugin().convert_int_numerals_to_real(); }
     bool is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val);
     algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n);
 

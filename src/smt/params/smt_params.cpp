@@ -38,6 +38,8 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_preprocess = _p.get_bool("preprocess", true); // hidden parameter
     m_max_conflicts = p.max_conflicts();
     m_restart_max   = p.restart_max();
+    m_threads       = p.threads();
+    m_threads_max_conflicts  = p.threads_max_conflicts();
     m_core_validate = p.core_validate();
     m_logic = _p.get_sym("logic", m_logic);
     m_string_solver = p.string_solver();
@@ -100,6 +102,8 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_phase_caching_off);
     DISPLAY_PARAM(m_minimize_lemmas);
     DISPLAY_PARAM(m_max_conflicts);
+    DISPLAY_PARAM(m_threads);
+    DISPLAY_PARAM(m_threads_max_conflicts);
     DISPLAY_PARAM(m_simplify_clauses);
     DISPLAY_PARAM(m_tick);
     DISPLAY_PARAM(m_display_features);

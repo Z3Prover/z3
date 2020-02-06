@@ -24,16 +24,16 @@ Revision History:
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "util/lp/lp_primal_simplex.h"
-#include "util/lp/lp_dual_simplex.h"
-#include "util/lp/lar_solver.h"
+#include "math/lp/lp_primal_simplex.h"
+#include "math/lp/lp_dual_simplex.h"
+#include "math/lp/lar_solver.h"
 #include <iostream>
 #include <fstream>
 #include <functional>
 #include <algorithm>
-#include "util/lp/mps_reader.h"
-#include "util/lp/ul_pair.h"
-#include "util/lp/lar_constraints.h"
+#include "math/lp/mps_reader.h"
+#include "math/lp/ul_pair.h"
+#include "math/lp/lar_constraints.h"
 #include <sstream>
 #include <cstdlib>
 namespace lp {
@@ -386,17 +386,19 @@ namespace lp {
             return ret;
         }
         
-        void add_constraint_to_solver(lar_solver * solver, formula_constraint & fc) {
+        void add_constraint_to_solver(lar_solver * solver, formula_constraint & fc, unsigned i) {
             vector<std::pair<mpq, var_index>> ls;
             for (auto & it : fc.m_coeffs) {
                 ls.push_back(std::make_pair(it.first, solver->add_var(register_name(it.second), false)));
             }
-            solver->add_constraint(ls, fc.m_kind, fc.m_right_side);
+            unsigned j =  solver->add_term(ls, i);
+            solver->add_var_bound(j, fc.m_kind, fc.m_right_side);
         }
 
         void fill_lar_solver(lar_solver * solver) {
+            unsigned i = 0;
             for (formula_constraint & fc : m_constraints)
-                add_constraint_to_solver(solver, fc);
+                add_constraint_to_solver(solver, fc, i++);
         }
 
 
