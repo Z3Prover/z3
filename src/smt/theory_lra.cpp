@@ -2364,13 +2364,12 @@ public:
         if (!should_propagate()) 
             return;
         local_bound_propagator bp(*this);
-        unsigned num_changed = lp().num_changed_bounds();
+        unsigned props = m_stats.m_bound_propagations1;
 
         lp().propagate_bounds_for_touched_rows(bp);
         if (m.canceled()) {
             return;
         }
-        unsigned props = m_stats.m_bound_propagations1;
 
         if (is_infeasible()) {
             get_infeasibility_explanation_and_set_conflict();
