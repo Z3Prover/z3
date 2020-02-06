@@ -231,6 +231,7 @@ bool int_solver::should_find_cube() {
 }
 
 lia_move int_solver::find_cube() {
+    SASSERT(m_lar_solver->m_incorrect_columns.size() == 0);
     if (!should_find_cube())
         return lia_move::undef;
     

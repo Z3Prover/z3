@@ -2352,8 +2352,26 @@ public:
             
     }
 
+    unsigned m_propagation_delay{1};
+    unsigned m_propagation_count{0};
+
+    bool should_propagate() {
+        ++m_propagation_count;
+        return BP_NONE != propagation_mode() && (m_propagation_count >= m_propagation_delay);
+    }
+
+    void update_propagation_threshold(bool made_progress) {
+        m_propagation_count = 0;
+        if (made_progress) {
+            m_propagation_delay = std::max(1u, m_propagation_delay-1u);
+        }
+        else {
+            m_propagation_delay += 2;
+        }
+    }
+
     void propagate_bounds_with_lp_solver() {
-        if (BP_NONE == propagation_mode()) {
+        if (!should_propagate()) {
             return;
         }
         int num_of_p = lp().settings().stats().m_num_of_implied_bounds;
@@ -2363,9 +2381,7 @@ public:
         if (m.canceled()) {
             return;
         }
-        int new_num_of_p = lp().settings().stats().m_num_of_implied_bounds;
-        (void)new_num_of_p;
-        CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
+        unsigned props = m_stats.m_bound_propagations1;
         if (is_infeasible()) {
             get_infeasibility_explanation_and_set_conflict();
         }
@@ -2374,6 +2390,9 @@ public:
                 propagate_lp_solver_bound(bp.m_ibounds[i]);
             }
         }
+         
+        update_propagation_threshold(props < m_stats.m_bound_propagations1);
+
     }
 
     bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval) const {
