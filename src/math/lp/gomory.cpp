@@ -78,6 +78,7 @@ class gomory::imp {
         m_lcm_den = lcm(m_lcm_den, denominator(new_a));
         TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << ", lcm_den = " << m_lcm_den << "\n";);
 #if SMALL_CUTS
+        // if (numerator(new_a).is_big()) throw found_big(); 
         if (numerator(new_a) > m_big_number) throw found_big(); 
 #endif
     }
@@ -110,6 +111,7 @@ class gomory::imp {
         TRACE("gomory_cut_detail_real", tout << a << "*v" << j << " k: " << m_k << "\n";);
         m_t.add_monomial(new_a, j);
 #if SMALL_CUTS
+        // if (numerator(new_a).is_big()) throw found_big(); 
         if (numerator(new_a) > m_big_number) throw found_big(); 
 #endif
     }

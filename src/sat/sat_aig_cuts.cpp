@@ -276,13 +276,13 @@ namespace sat {
     }
 
     void aig_cuts::add_cut(bool_var v, uint64_t lut, bool_var_vector const& args) {
+        // args can be assumed to be sorted
+        DEBUG_CODE(for (unsigned i = 0; i + 1 < args.size(); ++i) VERIFY(args[i] < args[i+1]););
         reserve(v);
         for (bool_var w : args) reserve(w); 
-        // optional: reshuffle lut and sort variables.
         cut c;
         for (bool_var w : args) VERIFY(c.add(w));
         c.set_table(lut);
-        // add-don't care?
         insert_cut(v, c, m_cuts[v]);
     }
 

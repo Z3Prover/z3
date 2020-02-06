@@ -1989,21 +1989,36 @@ namespace smt {
     }
 
     /**
-       \brief Update the index used for backward subsumption.
+       \brief Remove clause
     */
-    void context::remove_lit_occs(clause const& cls) {
-        int nbv = get_num_bool_vars();
-        for (literal l : cls) {
-            if (l.var() < nbv) 
-                dec_ref(l);
-        }
-    }
 
     void context::remove_cls_occs(clause * cls) {
         remove_watch_literal(cls, 0);
         remove_watch_literal(cls, 1);
-        remove_lit_occs(*cls);
+        remove_lit_occs(*cls, get_num_bool_vars());
     }
+
+    /**
+       \brief Update occurrence count of literals
+    */
+
+    void context::add_lit_occs(clause const& cls) {
+        for (literal l : cls) {
+            inc_ref(l);
+        }
+    }
+
+    void context::remove_lit_occs(clause const& cls, unsigned nbv) {
+        for (literal l : cls) {
+            if (l.var() < static_cast<int>(nbv)) 
+                dec_ref(l);
+        }
+    }
+
+    // TBD: enable as assertion when ready to re-check
+    void context::dec_ref(literal l) { if (m_lit_occs[l.index()] > 0) m_lit_occs[l.index()]--; }
+
+    void context::inc_ref(literal l) { m_lit_occs[l.index()]++; }
 
     /**
        \brief Delete the given clause.
@@ -2257,7 +2272,7 @@ namespace smt {
 
                     unsigned num = cls->get_num_literals();
 
-                    remove_lit_occs(*cls);
+                    remove_lit_occs(*cls, num_bool_vars);
 
                     unsigned ilvl       = 0;
                     (void)ilvl;

@@ -839,11 +839,11 @@ namespace smt {
 
         void mk_ite_cnstr(app * n);
 
-        void dec_ref(literal l) { if (m_lit_occs[l.index()] > 0) m_lit_occs[l.index()]--; }
+        void dec_ref(literal l);
 
-        void inc_ref(literal l) { m_lit_occs[l.index()]++; }
+        void inc_ref(literal l);
 
-        void remove_lit_occs(clause const& cls);
+        void remove_lit_occs(clause const& cls, unsigned num_bool_vars);
 
         void add_lit_occs(clause const& cls);
     public:
@@ -1569,8 +1569,6 @@ namespace smt {
         void get_relevant_literals(expr_ref_vector & result);
 
         void get_guessed_literals(expr_ref_vector & result);
-
-        bool split_binary(app* o, expr*& a, expr_ref& b, expr_ref& c);
 
         void internalize_assertion(expr * n, proof * pr, unsigned generation);
 

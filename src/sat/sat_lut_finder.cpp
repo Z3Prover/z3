@@ -59,7 +59,13 @@ namespace sat {
         s.init_visited();
         unsigned mask = 0, i = 0;        
         m_vars.reset();
+        m_clause.reset();
         for (literal l : c) {
+            m_clause.push_back(l);
+        }
+        // ensure that variables in returned LUT are sorted
+        std::sort(m_clause.begin(), m_clause.end());
+        for (literal l : m_clause) {
             m_vars.push_back(l.var());
             m_var_position[l.var()] = i;
             s.mark_visited(l.var());
@@ -67,7 +73,6 @@ namespace sat {
         }
         m_clauses_to_remove.reset();
         m_clauses_to_remove.push_back(&c);
-        m_clause.resize(c.size());
         m_combination = 0;
         m_num_combinations = 0;
         set_combination(mask);

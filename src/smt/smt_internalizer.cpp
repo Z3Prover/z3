@@ -182,27 +182,6 @@ namespace smt {
         }
     }
 
-    bool context::split_binary(app* o, expr*& a, expr_ref& b, expr_ref& c) {
-        expr* x = nullptr, *y = nullptr, *ny = nullptr, *z = nullptr, *u = nullptr;
-        if (m.is_or(o, x, y) &&
-            m.is_not(y, ny) && 
-            m.is_or(ny, z, u)) {
-            a = x;            
-            b = m.is_not(z, z) ? z : m.mk_not(z);
-            c = m.is_not(u, u) ? u : m.mk_not(u);
-            return true;
-        }
-        if (m.is_or(o, y, x) &&
-            m.is_not(y, ny) && 
-            m.is_or(ny, z, u)) {
-            a = x;            
-            b = m.is_not(z, z) ? z : m.mk_not(z);
-            c = m.is_not(u, u) ? u : m.mk_not(u);
-            return true;
-        }
-        return false;
-    }
-
 #define DEEP_EXPR_THRESHOLD 1024
 
  
@@ -251,16 +230,6 @@ namespace smt {
                 expr* a = nullptr;
                 expr_ref b(m), c(m);
                 // perform light-weight rewriting on clauses.
-                if (!relevancy() && split_binary(to_app(n), a, b, c)) {
-                    internalize(a, true);
-                    internalize(b, true);
-                    internalize(c, true);
-                    literal lits2[2] = { get_literal(a), get_literal(b) };
-                    literal lits3[2] = { get_literal(a), get_literal(c) };
-                    mk_root_clause(2, lits2, pr);
-                    mk_root_clause(2, lits3, pr);
-                    break;
-                }
                 for (expr * arg : *to_app(n)) { 
                     internalize(arg, true);
                     lits.push_back(get_literal(arg));
@@ -1477,12 +1446,6 @@ namespace smt {
             CASSERT("mk_clause", check_clause(cls));
             return cls;
         }} 
-    }
-
-    void context::add_lit_occs(clause const& cls) {
-        for (literal l : cls) {
-            inc_ref(l);
-        }
     }
 
     void context::mk_clause(literal l1, literal l2, justification * j) {
