@@ -33,16 +33,13 @@ namespace smt {
         unsigned thread_max_conflicts = ctx.get_fparams().m_threads_max_conflicts;
         unsigned max_conflicts = ctx.get_fparams().m_max_conflicts;
 
-#if 1
         // try first sequential with a low conflict budget to make super easy problems cheap
-        ctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, 40u);
+        unsigned max_c = std::min(thread_max_conflicts, 40u);
+        ctx.get_fparams().m_max_conflicts = max_c;
         result = ctx.check(asms.size(), asms.c_ptr());
-        if (result != l_undef || (result == l_undef && ctx.m_num_conflicts < ctx.get_fparams().m_max_conflicts)) {
+        if (result != l_undef || ctx.m_num_conflicts < max_c) {
             return result;
         }        
-#else 
-        ctx.internalize_assertions();
-#endif
 
         enum par_exception_kind {
             DEFAULT_EX,
