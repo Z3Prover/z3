@@ -518,11 +518,11 @@ public:
 
     bool assert_expr(expr * t, bool sign) override {
         expr* tt;
-        if ((!sign && m.is_false(t)) ||
-            (sign && m.is_true(t)) ||
-            (!sign && m.is_not(t, tt) && m.is_true(tt)) ||
-            (sign && m.is_not(t, tt) && m.is_false(tt)))
-            return false;
+        if (m.is_false(t) || (m.is_not(t, tt) && m.is_true(tt)))
+            return sign;
+
+        if (m.is_true(t) || (m.is_not(t, tt) && m.is_false(tt)))
+            return !sign;
 
         m_scoped_substitution.push();
         if (!sign) {
