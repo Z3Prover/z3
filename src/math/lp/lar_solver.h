@@ -25,15 +25,15 @@ Revision History:
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
-#include "math/lp/lar_constraints.h"
-#include <functional>
-#include "math/lp/lar_core_solver.h"
 #include <algorithm>
+#include <stack>
+#include <functional>
+#include "math/lp/lar_constraints.h"
+#include "math/lp/lar_core_solver.h"
 #include "math/lp/numeric_pair.h"
 #include "math/lp/scaler.h"
 #include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/random_updater.h"
-#include <stack>
 #include "math/lp/stacked_value.h"
 #include "math/lp/stacked_vector.h"
 #include "math/lp/implied_bound.h"
@@ -91,8 +91,11 @@ public:
     var_register                                        m_var_register;
     var_register                                        m_term_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
+    constraint_set                                      m_constraints;
+#if 0
     vector<lar_base_constraint*>                        m_constraints;
     stacked_value<unsigned>                             m_constraint_count;
+#endif
     // the set of column indices j such that bounds have changed for j
     int_set                                             m_columns_with_changed_bound;
     int_set                                             m_rows_with_changed_bounds;
@@ -112,7 +115,7 @@ public:
     unsigned terms_start_index() const { return m_terms_start_index; }
     const vector<lar_term*> & terms() const { return m_terms; }
     lar_term const& term(unsigned i) const { return *m_terms[i]; }
-    const vector<lar_base_constraint*>& constraints() const {
+    constraint_set const& constraints() const {
         return m_constraints;
     }
     void set_int_solver(int_solver * int_slv) {
@@ -121,8 +124,7 @@ public:
     int_solver * get_int_solver() {
         return m_int_solver;
     }
-    unsigned constraint_count() const;
-    const lar_base_constraint& get_constraint(unsigned ci) const;
+    const lar_base_constraint& get_constraint(unsigned ci) const { return m_constraints[ci]; }
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r();
     static_matrix<mpq, numeric_pair<mpq>> const & A_r() const;
@@ -204,15 +206,15 @@ public:
     void update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
-
-    void add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
+    
+    constraint_index add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side);
 
     void set_infeasible_column(unsigned j) {
         set_status(lp_status::INFEASIBLE);
         m_infeasible_column = j;
     }
 
-    void add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
+    constraint_index add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
                                                             lconstraint_kind kind, const mpq & right_side);
 
     unsigned row_of_basic_column(unsigned) const;
@@ -342,8 +344,6 @@ public:
     
     void pop(unsigned k);
 
-    vector<constraint_index> get_all_constraint_indices() const;
-
     bool maximize_term_on_tableau(const lar_term & term,
                                   impq &term_max);
 
@@ -432,8 +432,6 @@ public:
 
     bool var_is_registered(var_index vj) const;
 
-    unsigned constraint_stack_size() const;
-
     void fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A, const lar_term * ls);
 
     template <typename U, typename V>
@@ -491,6 +489,7 @@ public:
     void set_variable_name(var_index vi, std::string);
 
     // ********** print region start
+ private:
     std::ostream& print_constraint(constraint_index ci, std::ostream & out) const;
 
     std::ostream& print_constraints(std::ostream& out) const ;
@@ -500,18 +499,14 @@ public:
     std::ostream& print_constraint_indices_only_customized(constraint_index ci, std::function<std::string (unsigned)> var_str, std::ostream & out) const;
 
     std::ostream& print_constraint_indices_only_customized(const lar_base_constraint * c, std::function<std::string (unsigned)> var_str, std::ostream & out) const;
+ public:
 
     std::ostream& print_terms(std::ostream& out) const;
-
-    std::ostream& print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const;
-
-    std::ostream& print_left_side_of_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const;
 
     std::ostream& print_term(lar_term const& term, std::ostream & out) const;
 
     static std::ostream& print_term_as_indices(lar_term const& term, std::ostream & out);
 
-    std::ostream& print_constraint(const lar_base_constraint * c, std::ostream & out) const;
     std::ostream& print_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const;
 
     std::ostream& print_implied_bound(const implied_bound& be, std::ostream & out) const;

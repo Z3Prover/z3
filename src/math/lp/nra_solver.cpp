@@ -92,7 +92,7 @@ typedef nla::variable_map_type variable_map_type;
             vector<nlsat::assumption, false> core;
 
             // add linear inequalities from lra_solver
-            for (unsigned i = 0; i < s.constraint_count(); ++i) {
+            for (unsigned i = 0; i < s.constraints().size(); ++i) {
                 add_constraint(i);
             }
 
@@ -154,7 +154,7 @@ typedef nla::variable_map_type variable_map_type;
         }
 
         void add_constraint(unsigned idx) {
-            auto& c = s.get_constraint(idx);
+            auto& c = s.constraints()[idx];
             auto& pm = m_nlsat->pm();
             auto k = c.m_kind;
             auto rhs = c.m_right_side;

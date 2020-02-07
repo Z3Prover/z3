@@ -238,7 +238,7 @@ lia_move int_solver::find_cube() {
     TRACE("cube",
           for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++)
               display_column(tout, j);
-          m_lar_solver->print_constraints(tout);
+          tout << m_lar_solver->constraints();
           );
     
     m_lar_solver->push();
@@ -357,9 +357,9 @@ lia_move int_solver::make_hnf_cut() {
     settings().stats().m_hnf_cutter_calls++;
     TRACE("hnf_cut", tout << "settings().stats().m_hnf_cutter_calls = " << settings().stats().m_hnf_cutter_calls << "\n";
           for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
-              m_lar_solver->print_constraint(i, tout);
+              m_lar_solver->constraints().display(tout, i);
           }              
-          m_lar_solver->print_constraints(tout);
+          tout << m_lar_solver->constraints();
           );
 #ifdef Z3DEBUG
     vector<mpq> x0 = m_hnf_cutter.transform_to_local_columns(m_lar_solver->m_mpq_lar_core_solver.m_r_x);
@@ -373,7 +373,7 @@ lia_move int_solver::make_hnf_cut() {
               m_lar_solver->print_term(m_t, tout << "cut:"); 
               tout << " <= " << m_k << std::endl;
               for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
-                  m_lar_solver->print_constraint(i, tout);
+                  m_lar_solver->constraints().display(tout, i);
               }              
               );
         lp_assert(current_solution_is_inf_on_cut());

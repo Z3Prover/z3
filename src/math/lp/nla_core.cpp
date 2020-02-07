@@ -286,9 +286,7 @@ std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& 
     unsigned i = 0;
     for (auto &p : exp) {
         out << "(" << p.second << ")";
-        m_lar_solver.print_constraint_indices_only_customized(p.second,
-                                                              [this](lpvar j) { return var_str(j);},
-                                                              out);
+        m_lar_solver.constraints().display(out, [this](lpvar j) { return var_str(j);}, p.second);
         if (++i < exp.size())
             out << "      ";
     }
@@ -520,8 +518,8 @@ void core:: fill_explanation_and_lemma_sign(const monic& a, const monic & b, rat
     TRACE("nla_solver",
           tout << "used constraints: ";
           for (auto &p :  current_expl())
-              m_lar_solver.print_constraint(p.second, tout); tout << "\n";
-          );
+              m_lar_solver.constraints().display(tout, p.second); tout << "\n";
+                                                 );
     SASSERT(current_ineqs().size() == 0);
     mk_ineq(rational(1), a.var(), -sign, b.var(), llc::EQ, rational::zero());
     TRACE("nla_solver", print_lemma(tout););
@@ -1258,7 +1256,7 @@ bool core::done() const {
 }
 
 lbool core::incremental_linearization(bool constraint_derived) {
-    TRACE("nla_solver_details", print_terms(tout); m_lar_solver.print_constraints(tout););
+    TRACE("nla_solver_details", print_terms(tout); tout << m_lar_solver.constraints(););
     for (int search_level = 0; search_level < 3 && !done(); search_level++) {
         TRACE("nla_solver", tout << "constraint_derived = " << constraint_derived << ", search_level = " << search_level << "\n";);
         if (search_level == 0) {

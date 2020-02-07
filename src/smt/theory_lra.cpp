@@ -841,7 +841,7 @@ class theory_lra::imp {
         m_constraint_sources.setx(index, inequality_source, null_source);
         m_inequalities.setx(index, lit, null_literal);
         ++m_stats.m_add_rows;
-        TRACE("arith", lp().print_constraint(index, tout) << " m_stats.m_add_rows = " << m_stats.m_add_rows << "\n";);
+        TRACE("arith", lp().constraints().display(tout, index) << " m_stats.m_add_rows = " << m_stats.m_add_rows << "\n";);
     }
 
     void add_def_constraint(lp::constraint_index index) {
@@ -1288,7 +1288,7 @@ public:
         add_def_constraint(lp().add_var_bound(register_theory_var_in_lar_solver(v), lp::GE, rational::zero()));
         add_def_constraint(lp().add_var_bound(register_theory_var_in_lar_solver(v), lp::LT, abs(r)));
         SASSERT(!is_infeasible());
-        TRACE("arith", lp().print_constraints(tout << term << "\n"););
+        TRACE("arith", tout << term << "\n" << lp().constraints(););
     }
 
     void mk_idiv_mod_axioms(expr * p, expr * q) {
@@ -2029,7 +2029,7 @@ public:
     }
 
     expr_ref constraint2fml(lp::constraint_index ci) {
-        lp::lar_base_constraint const& c = *lp().constraints()[ci];
+        lp::lar_base_constraint const& c = lp().constraints()[ci];
         expr_ref fml(m);
         expr_ref_vector ts(m);
         rational rhs = c.m_right_side;
@@ -2063,7 +2063,7 @@ public:
             }
         }
         for (auto const& ev : ex) {
-            lp().print_constraint(ev.second, out << ev.first << ": ");
+            lp().constraints().display(out << ev.first << ": ", ev.second);
         }
         expr_ref_vector fmls(m);
         for (auto const& ev : ex) {
@@ -3242,7 +3242,7 @@ public:
     }
 
     lbool make_feasible() {
-        TRACE("pcs",  lp().print_constraints(tout););
+        TRACE("pcs",  tout << lp().constraints(););
         auto status = lp().find_feasible_solution();
         TRACE("arith_verbose", display(tout););
         switch (status) {
@@ -3787,7 +3787,7 @@ public:
 
     void display(std::ostream & out) {
         if (m_solver) {
-            lp().print_constraints(out);
+            out << lp().constraints();
             lp().print_terms(out);
             // the tableau
             auto pp = lp ::core_solver_pretty_printer<lp::mpq, lp::impq>(
@@ -3842,7 +3842,7 @@ public:
             }
         }
         for (auto const& ev : evidence) {
-            lp().print_constraint(ev.second, out << ev.first << ": "); 
+            lp().constraints().display(out << ev.first << ": ", ev.second); 
         }
     }
 
