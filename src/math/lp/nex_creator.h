@@ -293,12 +293,9 @@ public:
         return gt(a.e(), b.e());
     }
     void process_map_pair(nex*e, const rational& coeff, nex_sum & sum, std::unordered_set<nex const*>&);
-#ifdef Z3DEBUG
-    static
-    bool equal(const nex*, const nex* );
+    static bool equal(const nex*, const nex* );
     nex* canonize(const nex*);
     nex* canonize_mul(nex_mul*);
     unsigned find_sum_in_mul(const nex_mul* a) const;
-#endif
 };
 }

@@ -48,37 +48,50 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
     return std::string(); // it is unreachable
 }
 
-struct lar_base_constraint {
+class lar_base_constraint {
     lconstraint_kind m_kind;
-    mpq m_right_side;
+    mpq              m_right_side;
+    bool             m_active;
+public:
+
     virtual vector<std::pair<mpq, var_index>> coeffs() const = 0;
-    lar_base_constraint() {}
-    lar_base_constraint(lconstraint_kind kind, const mpq& right_side) :m_kind(kind), m_right_side(right_side) {}
+    lar_base_constraint(lconstraint_kind kind, const mpq& right_side) :m_kind(kind), m_right_side(right_side), m_active(false) {}
+    virtual ~lar_base_constraint() {}
+
+    lconstraint_kind kind() const { return m_kind; }
+    mpq const& rhs() const { return m_right_side; }
+
+    void activate() { m_active = true; }
+    void deactivate() { m_active = false; }
+    bool is_active() const { return m_active; }
 
     virtual unsigned size() const = 0;
-    virtual ~lar_base_constraint(){}
     virtual mpq get_free_coeff_of_left_side() const { return zero_of_type<mpq>();}
 };
 
 class lar_var_constraint: public lar_base_constraint {
     unsigned m_j;
 public:
+    lar_var_constraint(unsigned j, lconstraint_kind kind, const mpq& right_side) : 
+        lar_base_constraint(kind, right_side), m_j(j) {}
+
     vector<std::pair<mpq, var_index>> coeffs() const override {
         vector<std::pair<mpq, var_index>> ret;
         ret.push_back(std::make_pair(one_of_type<mpq>(), m_j));
         return ret;
     }
     unsigned size() const override { return 1;}
-    lar_var_constraint(unsigned j, lconstraint_kind kind, const mpq& right_side) : lar_base_constraint(kind, right_side), m_j(j) { }
 };
 
 
 class lar_term_constraint: public lar_base_constraint {
     const lar_term * m_term;
 public:
+    lar_term_constraint(const lar_term *t, lconstraint_kind kind, const mpq& right_side) : 
+        lar_base_constraint(kind, right_side), m_term(t) {}
+
     vector<std::pair<mpq, var_index>> coeffs() const override { return m_term->coeffs_as_vector(); }
     unsigned size() const override { return m_term->size();}
-    lar_term_constraint(const lar_term *t, lconstraint_kind kind, const mpq& right_side) : lar_base_constraint(kind, right_side), m_term(t) { }
 };
 
 
@@ -87,6 +100,8 @@ class constraint_set {
     column_namer&                  m_namer;
     vector<lar_base_constraint*>   m_constraints;
     stacked_value<unsigned>        m_constraint_count;
+    unsigned_vector                m_active;
+    stacked_value<unsigned>        m_active_lim;
 
     constraint_index add(lar_base_constraint* c) {
         constraint_index ci = m_constraints.size();
@@ -135,13 +150,24 @@ public:
         m_constraint_count = m_constraints.size();
         m_constraint_count.push();
         m_region.push_scope();
+#if 0
+        m_active_lim = m_active.size();
+        m_active_lim.push();
+#endif
     }
 
     void pop(unsigned k) {
-        m_constraint_count.pop(k);
+        m_constraint_count.pop(k);        
         for (unsigned i = m_constraints.size(); i-- > m_constraint_count; )
             m_constraints[i]->~lar_base_constraint();        
         m_constraints.shrink(m_constraint_count);
+#if 0
+        m_active_lim.pop(k);
+        for (unsigned i = m_active.size(); i-- > m_active_lim; ) {
+            m_constraints[m_active[i]]->deactivate();
+        }
+        m_active.shrink(m_active_lim);
+#endif
         m_region.pop_scope(k);
     }
 
@@ -153,19 +179,78 @@ public:
         return add(new (m_region) lar_term_constraint(t, k, rhs));
     }
 
+#if 1
+    bool is_active(constraint_index ci) const { return true; }
+
+    void activate(constraint_index ci) {}
+
+#else
+    // future behavior uses activation bit.
+    bool is_active(constraint_index ci) const { return m_constraints[ci]->is_active(); }
+
+    void activate(constraint_index ci) { m_constraints[ci]->activate(); }
+#endif
+
     lar_base_constraint const& operator[](constraint_index ci) const { return *m_constraints[ci]; }    
 
-    // TBD: would like to make this opaque
-    // and expose just active constraints
-    // constraints need not be active.
     bool valid_index(constraint_index ci) const { return ci < m_constraints.size(); }
-    vector<lar_base_constraint*>::const_iterator begin() const { return m_constraints.begin(); }
-    vector<lar_base_constraint*>::const_iterator end() const { return m_constraints.end(); }
 
+    class active_constraints {
+        friend class constraint_set;
+        constraint_set const& cs;
+    public:
+        active_constraints(constraint_set const& cs): cs(cs) {}
+        class iterator {
+            friend class constraint_set;
+            constraint_set const& cs;
+            unsigned m_index;
+            iterator(constraint_set const& cs, unsigned idx): cs(cs), m_index(idx) { forward(); }
+            void next() { ++m_index; forward(); }
+            void forward() { for (; m_index < cs.m_constraints.size() && !cs.is_active(m_index); m_index++) ; }
+        public:
+            lar_base_constraint const& operator*() { return cs[m_index]; }
+            lar_base_constraint const* operator->() const { return &cs[m_index]; }
+            iterator& operator++() { next(); return *this; }
+            iterator operator++(int) { auto tmp = *this; next(); return tmp; }
+            bool operator==(iterator const& other) const { return m_index == other.m_index; }
+            bool operator!=(iterator const& other) const { return m_index != other.m_index; }
+        };
+        iterator begin() const { return iterator(cs, 0); }
+        iterator end() const { return iterator(cs, cs.m_constraints.size()); }
+    };
+
+    active_constraints active() const { return active_constraints(*this); }
+
+    class active_indices {
+        friend class constraint_set;
+        constraint_set const& cs;
+    public:
+        active_indices(constraint_set const& cs): cs(cs) {}
+        class iterator {
+            friend class constraint_set;
+            constraint_set const& cs;
+            unsigned m_index;
+            iterator(constraint_set const& cs, unsigned idx): cs(cs), m_index(idx) { forward(); }
+            void next() { ++m_index; forward(); }
+            void forward() { for (; m_index < cs.m_constraints.size() && !cs.is_active(m_index); m_index++) ; }
+        public:
+            constraint_index operator*() { return m_index; }
+            constraint_index const* operator->() const { return &m_index; }
+            iterator& operator++() { next(); return *this; }
+            iterator operator++(int) { auto tmp = *this; next(); return tmp; }
+            bool operator==(iterator const& other) const { return m_index == other.m_index; }
+            bool operator!=(iterator const& other) const { return m_index != other.m_index; }
+        };
+        iterator begin() const { return iterator(cs, 0); }
+        iterator end() const { return iterator(cs, cs.m_constraints.size()); }
+    };
+
+    active_indices indices() const { return active_indices(*this); }
+        
     std::ostream& display(std::ostream& out) const {
         out << "number of constraints = " << m_constraints.size() << std::endl;
-        for (auto const* c : *this) {
-            display(out, *c);
+        for (auto const& c : active()) {
+            display(out, c);
         }
         return out;
     }
@@ -176,7 +261,7 @@ public:
 
     std::ostream& display(std::ostream& out, lar_base_constraint const& c) const {
         print_left_side_of_constraint(c, out);
-        return out << " " << lconstraint_kind_string(c.m_kind) << " " << c.m_right_side << std::endl;
+        return out << " " << lconstraint_kind_string(c.kind()) << " " << c.rhs() << std::endl;
     }
 
     std::ostream& display_indices_only(std::ostream& out, constraint_index ci) const {
@@ -185,7 +270,7 @@ public:
 
     std::ostream& display_indices_only(std::ostream& out, lar_base_constraint const& c) const {
         print_left_side_of_constraint_indices_only(c, out);
-        return out << " " << lconstraint_kind_string(c.m_kind) << " " << c.m_right_side << std::endl;
+        return out << " " << lconstraint_kind_string(c.kind()) << " " << c.rhs() << std::endl;
     }
 
     std::ostream& display(std::ostream& out, std::function<std::string (unsigned)> var_str, constraint_index ci) const {
@@ -194,7 +279,7 @@ public:
 
     std::ostream& display(std::ostream& out, std::function<std::string (unsigned)>& var_str, lar_base_constraint const& c) const {
         print_left_side_of_constraint(c, var_str, out); 
-        return out << " " << lconstraint_kind_string(c.m_kind) << " " << c.m_right_side << std::endl;
+        return out << " " << lconstraint_kind_string(c.kind()) << " " << c.rhs() << std::endl;
     }
 
     

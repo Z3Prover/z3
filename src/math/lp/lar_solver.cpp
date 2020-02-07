@@ -100,13 +100,13 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
         mpq coeff = it.first;
         constraint_index con_ind = it.second;
         const auto & constr = m_constraints[con_ind];
-        lconstraint_kind kind = coeff.is_pos() ? constr.m_kind : flip_kind(constr.m_kind);
+        lconstraint_kind kind = coeff.is_pos() ? constr.kind() : flip_kind(constr.kind());
         register_in_map(coeff_map, constr, coeff);
         if (kind == GT || kind == LT)
             strict = true;
         if (kind == GE || kind == GT) n_of_G++;
         else if (kind == LE || kind == LT) n_of_L++;
-        rs_of_evidence += coeff*constr.m_right_side;
+        rs_of_evidence += coeff*constr.rhs();
     }
     lp_assert(n_of_G == 0 || n_of_L == 0);
     lconstraint_kind kind = n_of_G ? GE : (n_of_L ? LE : EQ);
@@ -981,30 +981,27 @@ bool lar_solver::all_constraints_hold() const {
     std::unordered_map<var_index, mpq> var_map;
     get_model_do_not_care_about_diff_vars(var_map);
     
-    unsigned i = 0;
-    for (auto const* c : m_constraints) {
-        if (!constraint_holds(*c, var_map)) {
+    for (auto const& c : m_constraints.active()) {
+        if (!constraint_holds(c, var_map)) {
             TRACE("lar_solver",
-                  tout << "i = " << i << "; ";
-                  m_constraints.display(tout, *c) << "\n";
-                  for (auto p : c->coeffs()) {
+                  m_constraints.display(tout, c) << "\n";
+                  for (auto p : c.coeffs()) {
                       m_mpq_lar_core_solver.m_r_solver.print_column_info(p.second, tout);
                   });
             return false;
         }
-        ++i;
     }
     return true;
 }
 
 bool lar_solver::constraint_holds(const lar_base_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const {
     mpq left_side_val = get_left_side_val(constr, var_map);
-    switch (constr.m_kind) {
-    case LE: return left_side_val <= constr.m_right_side;
-    case LT: return left_side_val <  constr.m_right_side;
-    case GE: return left_side_val >= constr.m_right_side;
-    case GT: return left_side_val >  constr.m_right_side;
-    case EQ: return left_side_val == constr.m_right_side;
+    switch (constr.kind()) {
+    case LE: return left_side_val <= constr.rhs();
+    case LT: return left_side_val <  constr.rhs();
+    case GE: return left_side_val >= constr.rhs();
+    case GT: return left_side_val >  constr.rhs();
+    case EQ: return left_side_val == constr.rhs();
     default:
         lp_unreachable();
     }
@@ -1018,8 +1015,8 @@ bool lar_solver::the_relations_are_of_same_type(const vector<std::pair<mpq, unsi
         mpq coeff = it.first;
         constraint_index con_ind = it.second;
         lconstraint_kind kind = coeff.is_pos() ?
-            m_constraints[con_ind].m_kind :
-            flip_kind(m_constraints[con_ind].m_kind);
+            m_constraints[con_ind].kind() :
+            flip_kind(m_constraints[con_ind].kind());
         if (kind == GT || kind == LT)
             strict = true;
         if (kind == GE || kind == GT) 
@@ -1108,7 +1105,7 @@ mpq lar_solver::sum_of_right_sides_of_explanation(explanation& exp) const {
         mpq coeff = it.first;
         constraint_index con_ind = it.second;
         lp_assert(m_constraints.valid_index(con_ind));
-        ret += (m_constraints[con_ind].m_right_side - m_constraints[con_ind].get_free_coeff_of_left_side()) * coeff;
+        ret += (m_constraints[con_ind].rhs() - m_constraints[con_ind].get_free_coeff_of_left_side()) * coeff;
     }
     return ret;
 }
@@ -1802,6 +1799,7 @@ bool lar_solver::compare_values(impq const& lhs, lconstraint_kind k, const mpq &
 
 void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side,
                                               constraint_index constr_index) {
+    m_constraints.activate(constr_index);
     if (column_has_upper_bound(j))
         update_column_type_and_bound_with_ub(j, kind, right_side, constr_index);
     else 

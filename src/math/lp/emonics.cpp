@@ -225,6 +225,7 @@ bool emonics::elists_are_consistent(std::unordered_map<unsigned_vector, std::uno
         for (const monic& e : enum_sign_equiv_monics(m))
             c.insert(e.var());
         auto it = lists.find(m.rvars());
+        (void)it;
         
         CTRACE("nla_solver_mons",  it->second != c,
                tout << "m = " << m << "\n";

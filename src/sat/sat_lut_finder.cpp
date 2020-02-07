@@ -234,7 +234,7 @@ namespace sat {
 
     uint64_t lut_finder::convert_combination(bool_var_vector& vars, bool_var& v) {
         SASSERT(lut_is_defined(vars.size()));
-        unsigned i = 0, j = 0;
+        unsigned i = 0;
         for (; i < vars.size(); ++i) {
             if (lut_is_defined(i, vars.size())) {
                 break;

@@ -504,7 +504,6 @@ void asserted_formulas::propagate_values() {
     flush_cache();
 
     unsigned num_prop = 0;
-    unsigned num_iterations = 0;
     unsigned delta_prop = m_formulas.size();
     while (!inconsistent() && m_formulas.size()/20 < delta_prop) {
         m_expr2depth.reset();

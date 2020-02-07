@@ -9690,7 +9690,7 @@ namespace smt {
 
             std::string s = std::to_string(val.get_int32());
             extra_deps.push_back(ctx.mk_eq_atom(fromInt, mk_int(val)));
-            return s.length();
+            return static_cast<unsigned>(s.length());
 
         } else if (u.str.is_at(ex)) {
             expr* substrBase = nullptr;
@@ -9886,8 +9886,7 @@ namespace smt {
 
     expr* theory_str::refine_function(expr* f) {
         //Can we learn something better?
-        ast_manager & m = get_manager();
-        TRACE("str", tout << "learning not " << mk_pp(f, m) << std::endl;);
+        TRACE("str", tout << "learning not " << mk_pp(f, get_manager()) << std::endl;);
         return f;
     }
 

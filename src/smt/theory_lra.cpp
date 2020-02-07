@@ -2032,11 +2032,11 @@ public:
         lp::lar_base_constraint const& c = lp().constraints()[ci];
         expr_ref fml(m);
         expr_ref_vector ts(m);
-        rational rhs = c.m_right_side;
+        rational rhs = c.rhs();
         for (auto cv : c.coeffs()) {
             ts.push_back(multerm(cv.first, var2expr(cv.second)));
         }
-        switch (c.m_kind) {
+        switch (c.kind()) {
         case lp::LE: fml = a.mk_le(a.mk_add(ts.size(), ts.c_ptr()), a.mk_numeral(rhs, true)); break;
         case lp::LT: fml = a.mk_lt(a.mk_add(ts.size(), ts.c_ptr()), a.mk_numeral(rhs, true)); break;
         case lp::GE: fml = a.mk_ge(a.mk_add(ts.size(), ts.c_ptr()), a.mk_numeral(rhs, true)); break;

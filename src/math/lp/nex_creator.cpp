@@ -599,7 +599,6 @@ bool nex_creator::is_simplified(const nex& e) const {
     return true;
 }
 
-#ifdef Z3DEBUG
 unsigned nex_creator::find_sum_in_mul(const nex_mul* a) const {
     for (unsigned j = 0; j < a->size(); j++)
         if ((*a)[j].e()->is_sum())
@@ -673,5 +672,4 @@ bool nex_creator::equal(const nex* a, const nex* b) {
     TRACE("grobner_d", tout << "b = " << *b << ", canonized b = " << *cb << "\n";);
     return !(cn.gt(ca, cb) || cn.gt(cb, ca));
 }
-#endif
 
