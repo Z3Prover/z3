@@ -2363,7 +2363,6 @@ public:
         if (!should_propagate()) 
             return;
         local_bound_propagator bp(*this);
-        unsigned props = m_stats.m_bound_propagations1;
 
         lp().propagate_bounds_for_touched_rows(bp);
         if (m.canceled()) {
