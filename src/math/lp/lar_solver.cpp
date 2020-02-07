@@ -530,7 +530,7 @@ bool lar_solver::maximize_term_on_corrected_r_solver(lar_term & term,
                                                      impq &term_max) {
     settings().backup_costs = false;
     bool ret = false;
-    TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n"; print_constraints(tout); tout << ", strategy = " << (int)settings().simplex_strategy() << "\n";);
+    TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n" << constraints() << ", strategy = " << (int)settings().simplex_strategy() << "\n";);
     switch (settings().simplex_strategy()) {
         
     case simplex_strategy_enum::tableau_rows:
@@ -1286,21 +1286,6 @@ std::string lar_solver::get_variable_name(var_index j) const {
 }
 
 // ********** print region start
-std::ostream& lar_solver::print_constraint(constraint_index ci, std::ostream & out) const {
-    return m_constraints.display(out, ci);
-}
-
-std::ostream& lar_solver::print_constraint_indices_only(constraint_index ci, std::ostream & out) const {
-    return m_constraints.display_indices_only(out, ci);
-}
-
-std::ostream& lar_solver::print_constraint_indices_only_customized(constraint_index ci, std::function<std::string (unsigned)> var_str, std::ostream & out) const {
-    return m_constraints.display(out, var_str, ci);
-}
-
-std::ostream& lar_solver::print_constraints(std::ostream& out) const  {
-    return out << m_constraints;
-}
 
 std::ostream& lar_solver::print_terms(std::ostream& out) const  {
     for (auto it : m_terms) {
