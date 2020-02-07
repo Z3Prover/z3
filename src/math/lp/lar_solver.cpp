@@ -612,7 +612,7 @@ lp_status lar_solver::maximize_term(unsigned j_or_term,
                 return lp_status::FEASIBLE; // it should not happen
             }
         }
-        m_int_solver->patch_nbasic_column(j, false);
+        m_int_solver->patch_nbasic_column(j);
         if (!column_value_is_integer(j)) {
             term_max = prev_value;
             m_mpq_lar_core_solver.m_r_x = backup;

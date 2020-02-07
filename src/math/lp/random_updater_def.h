@@ -39,13 +39,6 @@ bool random_updater::shift_var(unsigned v) {
     return m_lar_solver.get_int_solver()->shift_var(v, m_range);
 }
 
-bool random_updater::random_shift_var(unsigned j) {
-    if (m_lar_solver.A_r().m_columns.size() >= 50) {
-        return false;
-    }
-
-    return shift_var(j);
-}
 
 void random_updater::update() {
     for (auto j : m_var_set) {
@@ -53,7 +46,7 @@ void random_updater::update() {
             break; // we are done
         }
         auto old_x = m_lar_solver.get_column_value(j);
-        if (random_shift_var(j)) {
+        if (shift_var(j)) {
             remove_value(old_x);
             add_value(m_lar_solver.get_column_value(j));
         }
