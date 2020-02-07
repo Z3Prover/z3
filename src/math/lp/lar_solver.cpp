@@ -1053,7 +1053,7 @@ bool lar_solver::the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned
     for (auto & it : evidence) {
         mpq coeff = it.first;
         constraint_index con_ind = it.second;
-        lp_assert(con_ind < m_constraints.size());
+        lp_assert(m_constraints.valid_index(con_ind));
         register_in_map(coeff_map, m_constraints[con_ind], coeff);
     }
 
@@ -1107,7 +1107,7 @@ mpq lar_solver::sum_of_right_sides_of_explanation(explanation& exp) const {
     for (auto & it : exp) {
         mpq coeff = it.first;
         constraint_index con_ind = it.second;
-        lp_assert(con_ind < m_constraints.size());
+        lp_assert(m_constraints.valid_index(con_ind));
         ret += (m_constraints[con_ind].m_right_side - m_constraints[con_ind].get_free_coeff_of_left_side()) * coeff;
     }
     return ret;
@@ -1201,7 +1201,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
         const ul_pair & ul = m_columns_to_ul_pairs[j];
 
         constraint_index bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
-        lp_assert(bound_constr_i < m_constraints.size());
+        lp_assert(m_constraints.valid_index(bound_constr_i));
         exp.push_justification(bound_constr_i, coeff);
     } 
 }
@@ -1830,7 +1830,7 @@ constraint_index lar_solver::add_constraint_from_term_and_create_new_column_row(
     add_row_from_term_no_constraint(term, term_j);
     unsigned j = A_r().column_count() - 1;
     constraint_index ci = m_constraints.add_term_constraint(term, kind, right_side);    
-    update_column_type_and_bound(j, kind, right_side, m_constraints.size());
+    update_column_type_and_bound(j, kind, right_side, ci);
     lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
     return ci;
 }

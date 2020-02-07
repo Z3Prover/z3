@@ -92,10 +92,6 @@ public:
     var_register                                        m_term_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
     constraint_set                                      m_constraints;
-#if 0
-    vector<lar_base_constraint*>                        m_constraints;
-    stacked_value<unsigned>                             m_constraint_count;
-#endif
     // the set of column indices j such that bounds have changed for j
     int_set                                             m_columns_with_changed_bound;
     int_set                                             m_rows_with_changed_bounds;
@@ -115,16 +111,10 @@ public:
     unsigned terms_start_index() const { return m_terms_start_index; }
     const vector<lar_term*> & terms() const { return m_terms; }
     lar_term const& term(unsigned i) const { return *m_terms[i]; }
-    constraint_set const& constraints() const {
-        return m_constraints;
-    }
-    void set_int_solver(int_solver * int_slv) {
-        m_int_solver = int_slv;
-    }
-    int_solver * get_int_solver() {
-        return m_int_solver;
-    }
-    const lar_base_constraint& get_constraint(unsigned ci) const { return m_constraints[ci]; }
+    constraint_set const& constraints() const { return m_constraints; }
+    void set_int_solver(int_solver * int_slv) { m_int_solver = int_slv; }
+    int_solver * get_int_solver() { return m_int_solver; }
+
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r();
     static_matrix<mpq, numeric_pair<mpq>> const & A_r() const;
@@ -354,12 +344,10 @@ public:
 
     void prepare_costs_for_r_solver(const lar_term & term);
     
-    bool maximize_term_on_corrected_r_solver(lar_term & term,
-                                             impq &term_max);    
+    bool maximize_term_on_corrected_r_solver(lar_term & term, impq &term_max);    
     // starting from a given feasible state look for the maximum of the term
     // return true if found and false if unbounded
-    lp_status maximize_term(unsigned j_or_term,
-                            impq &term_max);
+    lp_status maximize_term(unsigned j_or_term, impq &term_max);
     
 
     

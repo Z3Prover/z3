@@ -158,7 +158,8 @@ public:
     // TBD: would like to make this opaque
     // and expose just active constraints
     // constraints need not be active.
-    unsigned size() const { return m_constraints.size(); }
+    bool valid_index(constraint_index ci) const { return ci < m_constraints.size(); }
+//    unsigned size() const { return m_constraints.size(); }
     vector<lar_base_constraint*>::const_iterator begin() const { return m_constraints.begin(); }
     vector<lar_base_constraint*>::const_iterator end() const { return m_constraints.end(); }
 

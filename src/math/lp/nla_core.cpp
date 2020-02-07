@@ -995,7 +995,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
         }
     }
     for (const auto& p : current_expl()) {
-        const auto& c = m_lar_solver.get_constraint(p.second);
+        const auto& c = m_lar_solver.constraints()[p.second];
         for (const auto& r : c.coeffs()) {
             insert_j(r.second);
         }

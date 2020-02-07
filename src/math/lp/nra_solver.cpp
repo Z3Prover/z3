@@ -92,8 +92,11 @@ typedef nla::variable_map_type variable_map_type;
             vector<nlsat::assumption, false> core;
 
             // add linear inequalities from lra_solver
-            for (unsigned i = 0; i < s.constraints().size(); ++i) {
+            unsigned i = 0;
+            for (auto const* c : s.constraints()) {
+                (void)c;
                 add_constraint(i);
+                ++i;
             }
 
             // add polynomial definitions.
