@@ -34,7 +34,7 @@ namespace smt {
         SASSERT(is_watching_clause(~cls->get_literal(1), cls));        
         for (literal l : *cls) {
             // holds, TBD re-enable when ready to re-check
-            // SASSERT(m_lit_occs[l.index()] > 0);
+            // SASSERT(!track_occs() || m_lit_occs[l.index()] > 0);
         }
         return true;
     }

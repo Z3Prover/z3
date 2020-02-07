@@ -1922,7 +1922,6 @@ public:
             theory_var v1 = mk_var(p);
             lp::impq r1 = get_ivalue(v1);
             SASSERT(r1.y.is_zero());
-            SASSERT(r1.x.is_int());
             rational r2;
 
             if (!r1.x.is_int() || r1.x.is_neg()) {
@@ -1942,7 +1941,6 @@ public:
                 }
                 lp::impq val_v = get_ivalue(v);
                 SASSERT(val_v.y.is_zero());
-                SASSERT(val_v.x.is_int());
                 if (val_v.x == div(r1.x, r2)) continue;
             
                 TRACE("arith", tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
