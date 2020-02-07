@@ -88,7 +88,7 @@ private:
     void fill_explanation_from_fixed_columns(const row_strip<mpq> & row);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j);
     lia_move patch_nbasic_columns();
-    bool get_freedom_interval_for_column(unsigned j, bool val_is_int, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
+    bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
 private:
     bool is_boxed(unsigned j) const;
     bool is_fixed(unsigned j) const;
@@ -121,7 +121,7 @@ private:
     unsigned row_of_basic_column(unsigned j) const;
 
 public:
-    void display_column(std::ostream & out, unsigned j) const;
+    std::ostream& display_column(std::ostream & out, unsigned j) const;
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_lower_bound_constraint(unsigned j) const;
     bool current_solution_is_inf_on_cut() const;
@@ -152,6 +152,6 @@ public:
     void try_add_term_to_A_for_hnf(unsigned term_index);
     bool hnf_has_var_with_non_integral_value() const;
     bool hnf_cutter_is_full() const;
-    void patch_nbasic_column(unsigned j, bool patch_only_int_vals);
+    void patch_nbasic_column(unsigned j);
   };
 }

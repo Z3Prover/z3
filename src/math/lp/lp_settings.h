@@ -196,7 +196,6 @@ private:
 public:
     bool             m_int_run_gcd_test;
     bool             m_int_pivot_fixed_vars_from_basis;
-    bool             m_int_patch_only_integer_values;
     unsigned         limit_on_rows_for_hnf_cutter;
     unsigned         limit_on_columns_for_hnf_cutter;
     bool             m_enable_hnf;
@@ -268,7 +267,6 @@ public:
                     m_hnf_cut_period(4),
                     m_int_run_gcd_test(true),
                     m_int_pivot_fixed_vars_from_basis(false),
-                    m_int_patch_only_integer_values(true),
                     limit_on_rows_for_hnf_cutter(75),
                     limit_on_columns_for_hnf_cutter(150),
                     m_enable_hnf(true),
