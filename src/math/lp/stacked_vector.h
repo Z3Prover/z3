@@ -140,8 +140,10 @@ public:
         for (unsigned j = m_changes.size(); j-- > first_change; ) {
             const auto & p = m_changes[j];
             unsigned jc = p.first;
-            if (jc < m_vector.size())
+            if (jc < m_vector.size()) {
                 m_vector[jc] = p.second; // restore the old value
+                m_vector[jc] = p.second; // restore the old value
+            }
         }
         resize(m_changes, first_change);
 
