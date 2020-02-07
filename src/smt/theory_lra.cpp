@@ -357,7 +357,8 @@ class theory_lra::imp {
     scoped_ptr<lp::lar_solver> m_solver;
     resource_limit         m_resource_limit;
     lp_bounds              m_new_bounds;
-    switcher m_switcher;
+    switcher               m_switcher;
+    symbol                 m_farkas;
 
     context& ctx() const { return th.get_context(); }
     theory_id get_id() const { return th.get_id(); }
@@ -1001,7 +1002,8 @@ public:
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
         m_solver(nullptr),
         m_resource_limit(*this),
-        m_switcher(*this) {
+        m_switcher(*this),
+        m_farkas("farkas") {
     }
         
     ~imp() {
@@ -1911,17 +1913,19 @@ public:
         if (m_idiv_terms.empty()) {
             return true;
         }
-        init_variable_values();
+        // init_variable_values();
         bool all_divs_valid = true;        
         for (expr* n : m_idiv_terms) {
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
             theory_var v  = mk_var(n);
             theory_var v1 = mk_var(p);
-            rational r1 = get_value(v1);
+            lp::impq r1 = get_ivalue(v1);
+            SASSERT(r1.y.is_zero());
+            SASSERT(r1.x.is_int());
             rational r2;
 
-            if (!r1.is_int() || r1.is_neg()) {
+            if (!r1.x.is_int() || r1.x.is_neg()) {
                 // TBD
                 // r1 = 223/4, r2 = 2, r = 219/8 
                 // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0
@@ -1932,15 +1936,17 @@ public:
             }
 
             if (a.is_numeral(q, r2) && r2.is_pos()) {
-                rational val_v = get_value(v);
-                if (val_v == div(r1, r2)) continue;
                 if (!is_bounded(n)) {
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
+                lp::impq val_v = get_ivalue(v);
+                SASSERT(val_v.y.is_zero());
+                SASSERT(val_v.x.is_int());
+                if (val_v.x == div(r1.x, r2)) continue;
             
                 TRACE("arith", tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
-                rational div_r = div(r1, r2);
+                rational div_r = div(r1.x, r2);
                 // p <= q * div(r1, q) + q - 1 => div(p, q) <= div(r1, r2)
                 // p >= q * div(r1, q) => div(r1, q) <= div(p, q)
                 rational mul(1);
@@ -2842,7 +2848,7 @@ public:
         m_core.reset();
         m_eqs.reset();
         m_core.push_back(lit1);
-        m_params.push_back(parameter(symbol("farkas")));
+        m_params.push_back(parameter(m_farkas));
         m_params.push_back(parameter(rational(1)));
         m_params.push_back(parameter(rational(1)));
         assign(lit2);

@@ -277,6 +277,9 @@ void asserted_formulas::reduce() {
     TRACE("macros", m_macro_manager.display(tout););
     flush_cache();
     CASSERT("well_sorted",check_well_sorted());
+
+//    display(std::cout);
+//    exit(0);
 }
 
 

@@ -2003,12 +2003,14 @@ namespace smt {
     */
 
     void context::add_lit_occs(clause const& cls) {
+        if (!track_occs()) return;
         for (literal l : cls) {
             inc_ref(l);
         }
     }
 
     void context::remove_lit_occs(clause const& cls, unsigned nbv) {
+        if (!track_occs()) return;
         for (literal l : cls) {
             if (l.var() < static_cast<int>(nbv)) 
                 dec_ref(l);
@@ -2016,9 +2018,9 @@ namespace smt {
     }
 
     // TBD: enable as assertion when ready to re-check
-    void context::dec_ref(literal l) { if (m_lit_occs[l.index()] > 0) m_lit_occs[l.index()]--; }
+    void context::dec_ref(literal l) { if (track_occs() && m_lit_occs[l.index()] > 0) m_lit_occs[l.index()]--; }
 
-    void context::inc_ref(literal l) { m_lit_occs[l.index()]++; }
+    void context::inc_ref(literal l) { if (track_occs()) m_lit_occs[l.index()]++; }
 
     /**
        \brief Delete the given clause.
