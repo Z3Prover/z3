@@ -759,7 +759,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         const mpq & a = c.coeff();        
         unsigned i = lcs.m_r_basis[row_index];
         TRACE("random_update", tout << "i = " << i << ", a = " << a << "\n";); 
-        if (!a.is_int())
+        if (column_is_int(i) && !a.is_int())
             m = lcm(m, denominator(a));
     }
     TRACE("random_update", tout <<  "m = " << m << "\n";);
