@@ -40,8 +40,9 @@ bool int_solver::has_inf_int() const {
 int int_solver::find_inf_int_base_column() {
     unsigned inf_int_count = 0;
     int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
-    if (j != -1) 
+    if (j != -1) {
         return j;
+    }
     if (inf_int_count == 0)
         return -1;
     unsigned k = random() % inf_int_count;
@@ -58,8 +59,9 @@ int int_solver::get_kth_inf_int(unsigned k) const {
 
 int int_solver::find_inf_int_nbasis_column() const {
     for (unsigned j : m_lar_solver->r_nbasis())
-        if (!column_is_int_inf(j)) 
+        if (!column_is_int_inf(j)) {
             return j;    
+        }
     return -1; 
 }
 

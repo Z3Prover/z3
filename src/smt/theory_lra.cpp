@@ -1692,7 +1692,6 @@ public:
             
         ctx().push_trail(value_trail<context, unsigned>(m_assume_eq_head));
         while (m_assume_eq_head < m_assume_eq_candidates.size()) {
-            ++m_stats.m_assume_eqs;
             std::pair<theory_var, theory_var> const & p = m_assume_eq_candidates[m_assume_eq_head];
             theory_var v1 = p.first;
             theory_var v2 = p.second;
@@ -1703,6 +1702,7 @@ public:
                    is_eq(v1, v2) && n1->get_root() != n2->get_root(),
                    tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
             if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
+                std::cout << v1 << " == " << v2 << "\n"; // mk_pp(n1->get_owner(), m) << " == " << mk_pp(n2->get_owner(), m) << "\n";
                 return true;
             }
         }
@@ -1734,11 +1734,17 @@ public:
         final_check_status st = FC_DONE;
         switch (is_sat) {
         case l_true:
-                
+
             if (delayed_assume_eqs()) {
+                ++m_stats.m_assume_eqs;
                 return FC_CONTINUE;
             }
 
+            if (assume_eqs()) {
+                ++m_stats.m_assume_eqs;
+                return FC_CONTINUE;
+            }    
+                
             TRACE("arith", display(tout););
             switch (check_lia()) {
             case l_true:
@@ -1761,14 +1767,10 @@ public:
                 st = FC_GIVEUP;
                 break;
             }
-            if (assume_eqs()) {
-                return FC_CONTINUE;
-            }    
             if (m_not_handled != nullptr) {
                 TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);        
                 st = FC_GIVEUP;
-            }
-                
+            }                
             return st;
         case l_false:
             get_infeasibility_explanation_and_set_conflict();

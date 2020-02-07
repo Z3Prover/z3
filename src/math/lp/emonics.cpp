@@ -226,7 +226,6 @@ bool emonics::elists_are_consistent(std::unordered_map<unsigned_vector, std::uno
             c.insert(e.var());
         auto it = lists.find(m.rvars());
         (void)it;
-        
         CTRACE("nla_solver_mons",  it->second != c,
                tout << "m = " << m << "\n";
                tout << "c = " ; print_vector(c, tout); tout << "\n";
