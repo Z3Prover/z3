@@ -757,7 +757,6 @@ namespace {
 
         static const unsigned start_gen = 0;
         static const unsigned goal_gen_decrement = 100;
-        static const unsigned stop_gen = goal_gen_decrement + 1;
 
 
     public:

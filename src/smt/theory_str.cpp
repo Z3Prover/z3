@@ -9686,8 +9686,7 @@ namespace smt {
             arith_value v(m);
             v.init(&ctx);
             rational val;
-            bool val_exists = v.get_value(fromInt, val);
-            SASSERT(val_exists);
+            VERIFY(v.get_value(fromInt, val));
 
             std::string s = std::to_string(val.get_int32());
             extra_deps.push_back(ctx.mk_eq_atom(fromInt, mk_int(val)));
@@ -9700,9 +9699,8 @@ namespace smt {
             arith_value v(m);
             v.init(&ctx);
             rational pos;
-            bool pos_exists = v.get_value(substrPos, pos);
+            VERIFY(v.get_value(substrPos, pos));
 
-            SASSERT(pos_exists);
             extra_deps.push_back(ctx.mk_eq_atom(substrPos, mk_int(pos)));
             return 1;
 
@@ -9714,10 +9712,9 @@ namespace smt {
             arith_value v(m);
             v.init(&ctx);
             rational len, pos;
-            bool len_exists = v.get_value(substrLen, len);
-            bool pos_exists = v.get_value(substrPos, pos);
+            VERIFY(v.get_value(substrLen, len));
+            VERIFY(v.get_value(substrPos, pos));
 
-            SASSERT(len_exists && pos_exists);
             extra_deps.push_back(ctx.mk_eq_atom(substrPos, mk_int(pos)));
             return len.get_unsigned();
 

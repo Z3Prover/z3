@@ -25,13 +25,12 @@ typedef dep_intervals::interval interval;
 typedef dep_intervals::with_deps_t w_dep;
 // calculates the interval of a pdd expression based on the given intervals of the variables
 class pdd_interval {
-    pdd_manager&  m;
     dep_intervals m_dep_intervals;
     std::function<interval (unsigned, bool)> m_var2interval;
     
 public:
     
-    pdd_interval(pdd_manager& m, reslimit& lim): m(m), m_dep_intervals(lim) {}
+    pdd_interval(reslimit& lim): m_dep_intervals(lim) {}
     
     std::function<interval (unsigned, bool)>& var2interval() { return m_var2interval; } // setter
     const std::function<interval (unsigned, bool)>& var2interval() const { return m_var2interval; } // getter

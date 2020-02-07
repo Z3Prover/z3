@@ -22,13 +22,12 @@ Revision History:
 namespace dd {
 // calculates the value of a pdd expression based on the given values of the variables
 class pdd_eval {
-    pdd_manager& m;
     
     std::function<rational (unsigned)> m_var2val;
     
 public:
     
-    pdd_eval(pdd_manager& m): m(m) {}
+    pdd_eval() {}
     
     std::function<rational (unsigned)>& var2val() { return m_var2val; } // setter
     const std::function<rational (unsigned)>& var2val() const { return m_var2val; } // getter

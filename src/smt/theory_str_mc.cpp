@@ -576,6 +576,8 @@ namespace smt {
                 return true;
             }
         }
+        UNREACHABLE(); // ???
+        return false;
     }
 
     /*

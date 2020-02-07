@@ -86,29 +86,29 @@ void test_nex_order() {
     nex_var* a = r.mk_var(0);
     nex_var* b = r.mk_var(1);
     nex_var* c = r.mk_var(2);
-    SASSERT(r.gt(a, b));
-    SASSERT(r.gt(b, c));
-    SASSERT(r.gt(a, c));
+    ENSURE(r.gt(a, b));
+    ENSURE(r.gt(b, c));
+    ENSURE(r.gt(a, c));
     
 
     
     nex* ab = r.mk_mul(a, b);
     nex* ba = r.mk_mul(b, a);
     nex* ac = r.mk_mul(a, c);
-    SASSERT(r.gt(ab, ac));
-    SASSERT(!r.gt(ac, ab));
+    ENSURE(r.gt(ab, ac));
+    ENSURE(!r.gt(ac, ab));
     nex* _3ac = r.mk_mul(rational(3), a, c);
     nex* _2ab = r.mk_mul(rational(2), a, b);
-    SASSERT(r.gt(ab, _3ac));
-    SASSERT(!r.gt(_3ac, ab));
-    SASSERT(!r.gt(a, ab));
-    SASSERT(r.gt(ab, a));
-    SASSERT(r.gt(_2ab, _3ac));
-    SASSERT(!r.gt(_3ac, _2ab));
+    ENSURE(r.gt(ab, _3ac));
+    ENSURE(!r.gt(_3ac, ab));
+    ENSURE(!r.gt(a, ab));
+    ENSURE(r.gt(ab, a));
+    ENSURE(r.gt(_2ab, _3ac));
+    ENSURE(!r.gt(_3ac, _2ab));
     nex* _2a = r.mk_mul(rational(2), a);
-    SASSERT(!r.gt(_2a, _2ab));
-    SASSERT(r.gt(_2ab, _2a));
-    SASSERT(nex_creator::equal(ab, ba));
+    ENSURE(!r.gt(_2a, _2ab));
+    ENSURE(r.gt(_2ab, _2a));
+    ENSURE(nex_creator::equal(ab, ba));
     nex_sum * five_a_pl_one = r.mk_sum(r.mk_mul(rational(5), a), r.mk_scalar(rational(1)));
     nex_mul * poly = r.mk_mul(five_a_pl_one, b);
     nex * p = r.simplify(poly);
@@ -142,9 +142,9 @@ void test_simplify() {
     auto two_a_plus_bc = r.mk_mul(r.mk_scalar(rational(2)), a_plus_bc);
     auto simp_two_a_plus_bc = r.simplify(two_a_plus_bc);
     TRACE("nla_test", tout << * simp_two_a_plus_bc << "\n";);
-    SASSERT(nex_creator::equal(simp_two_a_plus_bc, two_a_plus_bc));
+    ENSURE(nex_creator::equal(simp_two_a_plus_bc, two_a_plus_bc));
     auto simp_a_plus_bc = r.simplify(a_plus_bc);
-    SASSERT(to_sum(simp_a_plus_bc)->size() > 1);
+    ENSURE(to_sum(simp_a_plus_bc)->size() > 1);
 
     auto three_ab = r.mk_mul(r.mk_scalar(rational(3)), a, b);
     auto three_ab_square = r.mk_mul(three_ab, three_ab, three_ab);
@@ -153,7 +153,7 @@ void test_simplify() {
     three_ab_square = to_mul(r.simplify(three_ab_square));
     TRACE("nla_test", tout << *three_ab_square << "\n";);
     const rational& s = three_ab_square->coeff();
-    SASSERT(s == rational(27));
+    ENSURE(s == rational(27));
     auto m = r.mk_mul(a, a);
     TRACE("nla_test_", tout << "m = " << *m << "\n";);
     /*
@@ -171,7 +171,7 @@ void test_simplify() {
     TRACE("nla_test", tout << "before simplify e = " << *e << "\n";);
     e = to_sum(r.simplify(e));
     TRACE("nla_test", tout << "simplified e = " << *e << "\n";);
-    SASSERT(e->children().size() > 2);
+    ENSURE(e->children().size() > 2);
     nex_sum * e_m = r.mk_sum();
     for (const nex* ex: to_sum(e)->children()) {
         nex* ce = r.mk_mul(r.clone(ex), r.mk_scalar(rational(3)));        
@@ -290,7 +290,7 @@ void test_cn() {
 //     nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
 //     nex * clone = cr.clone(cr.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
 //     clone = cr.simplify(clone);
-//     SASSERT(cr.is_simplified(clone));
+//     ENSURE(cr.is_simplified(clone));
 //     TRACE("nla_test", tout << "clone = " << *clone << "\n";);
 //     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
 //     test_cn_on_expr(to_sum(clone), cn);
@@ -2956,7 +2956,7 @@ void test_term() {
         std::cout << "non optimal" << std::endl;
         return;
     }
-    solver.print_constraints(std::cout);
+    std::cout << solver.constraints();
     std::cout << "\ntableau before cube\n";
     solver.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
     std::cout << "\n";
@@ -3781,7 +3781,7 @@ void test_maximize_term() {
     solver.add_var_bound(term_2x_pl_2y, LE, mpq(5));
     solver.find_feasible_solution();
     lp_assert(solver.get_status() == lp_status::OPTIMAL);
-    solver.print_constraints(std::cout);
+    std::cout << solver.constraints();
     std::unordered_map<var_index, mpq> model;
     solver.get_model(model);
     for (auto p : model) {

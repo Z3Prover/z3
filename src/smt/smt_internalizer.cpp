@@ -227,9 +227,6 @@ namespace smt {
             }
             case OP_OR: {
                 literal_buffer lits;
-                expr* a = nullptr;
-                expr_ref b(m), c(m);
-                // perform light-weight rewriting on clauses.
                 for (expr * arg : *to_app(n)) { 
                     internalize(arg, true);
                     lits.push_back(get_literal(arg));

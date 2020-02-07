@@ -1463,7 +1463,7 @@ std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
 
     // m_pdd_grobner.display(out);
 
-    dd::pdd_eval eval(m_pdd_manager);
+    dd::pdd_eval eval;
     eval.var2val() = [&](unsigned j){ return val(j); };
     for (auto* e : m_pdd_grobner.equations()) {
         dd::pdd p = e->poly();
@@ -1486,7 +1486,7 @@ std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
 }
 
 bool core::check_pdd_eq(const dd::solver::equation* e) {
-    dd::pdd_interval eval(m_pdd_manager, m_reslim);
+    dd::pdd_interval eval(m_reslim);
     eval.var2interval() =
         [this](lpvar j, bool deps) {
             intervals::interval a;
