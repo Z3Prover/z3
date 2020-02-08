@@ -19,22 +19,25 @@ Revision History:
 --*/
 
 #pragma once
-#include <unordered_map>
-#include <set>
-#include <stack>
 #include "util/vector.h"
 namespace lp {
 template < typename B> class stacked_vector {
+    struct log_entry { 
+        unsigned m_i; unsigned m_ts; B b;
+        log_entry(unsigned i, unsigned t, B const& b): m_i(i), m_ts(t), b(b) {}
+        log_entry():m_i(UINT_MAX), m_ts(0) {}
+    };
     svector<unsigned> m_stack_of_vector_sizes;
     svector<unsigned> m_stack_of_change_sizes;
-    vector<std::pair<unsigned, B>> m_changes;
-    vector<B> m_vector;
+    vector<log_entry> m_log;
+    vector<B>         m_vector;
+    svector<unsigned> m_last_update;
 public:
     class ref {
         stacked_vector<B> & m_vec;
         unsigned m_i;
     public:
-        ref(stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
+        ref(stacked_vector<B> &m, unsigned key): m_vec(m), m_i(key) {
             lp_assert(key < m.size());
         }
         ref & operator=(const B & b) {
@@ -77,13 +80,23 @@ public:
     };
 
 private:
+
+    unsigned now() const { return m_stack_of_change_sizes.size(); }
+
     void emplace_replace(unsigned i,const B & b) {
-        if (m_vector[i] != b) {
-            m_changes.push_back(std::make_pair(i, m_vector[i]));
+        unsigned n = now();
+        if (m_last_update[i] == n) {
             m_vector[i] = b;
+        }
+        else if (m_vector[i] != b) {
+            m_log.push_back(log_entry(i, m_last_update[i], m_vector[i]));
+            m_vector[i] = b;
+            m_last_update[i] = n;
         }
     }
 public:
+
+    stacked_vector() { }
 
     ref operator[] (unsigned a) {
         return ref(*this, a);
@@ -102,11 +115,10 @@ public:
     unsigned size() const {
         return m_vector.size();
     }
-
     
     void push() {
-        m_stack_of_change_sizes.push_back(m_changes.size());
-        m_stack_of_vector_sizes.push_back(m_vector.size());
+        m_stack_of_change_sizes.push_back(m_log.size());
+        m_stack_of_vector_sizes.push_back(m_vector.size());        
     }
 
     void pop() {
@@ -133,62 +145,31 @@ public:
     void pop(unsigned k) {
         lp_assert(m_stack_of_vector_sizes.size() >= k);
         lp_assert(k > 0);
-        resize(m_vector, m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k]);
+        m_vector.resize(m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k]);
+        m_last_update.resize(m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k]);
         pop_tail(m_stack_of_vector_sizes, k);
         unsigned first_change = m_stack_of_change_sizes[m_stack_of_change_sizes.size() - k];
         pop_tail(m_stack_of_change_sizes, k);
-        for (unsigned j = m_changes.size(); j-- > first_change; ) {
-            const auto & p = m_changes[j];
-            unsigned jc = p.first;
+        for (unsigned j = m_log.size(); j-- > first_change; ) {
+            const auto & p = m_log[j];
+            unsigned jc = p.m_i;
             if (jc < m_vector.size()) {
-                m_vector[jc] = p.second; // restore the old value
-                m_vector[jc] = p.second; // restore the old value
-            }
+                m_vector[jc] = p.b; // restore the old value
+                m_last_update[jc] = p.m_ts;
+            }            
         }
-        resize(m_changes, first_change);
+        resize(m_log, first_change);
 
-        /*
-          while (k-- > 0) {
-            
-          if (m_stack.empty())
-          return;
-            
-          delta & d = m_stack.back();
-          lp_assert(m_vector.size() >= d.m_size);
-          while (m_vector.size() > d.m_size)
-          m_vector.pop_back();
-            
-          for (auto & t : d.m_original_changed) {
-          lp_assert(t.first < m_vector.size());
-          m_vector[t.first] = t.second;
-          }
-          //            lp_assert(d.m_deb_copy == m_vector);
-          m_stack.pop_back();*/
     }   
-
-    
-    // void clear() {
-    //     if (m_stack.empty()) {
-    //         m_vector.clear();
-    //         return;
-    //     }
-
-    //     delta & d = m_stack.top();
-    //     auto & oc = d.m_original_changed;
-    //     for (auto & p : m_vector) {
-    //         const auto & it = oc.find(p.first);
-    //         if (it == oc.end() && d.m_new.find(p.first) == d.m_new.end())
-    //             oc.emplace(p.first, p.second);
-    //     }
-    //     m_vector.clear();
-    // }
-
+   
     void push_back(const B & b) {
         m_vector.push_back(b);
+        m_last_update.push_back(now());
     }
 
     void increase_size_by_one() {
         m_vector.resize(m_vector.size() + 1);
+        m_last_update.push_back(now());
     }
 
     unsigned peek_size(unsigned k) const {

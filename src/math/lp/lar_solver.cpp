@@ -1764,12 +1764,22 @@ bool lar_solver::bound_is_integer_for_integer_column(unsigned j, const mpq & rig
 }
 
 constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) {
+    constraint_index ci = mk_var_bound(j, kind, right_side);
+    activate(ci);
+    return ci;
+}
+
+void lar_solver::activate(constraint_index ci) {
+    auto const& c = m_constraints[ci];
+    update_column_type_and_bound(c.column(), c.kind(), c.rhs(), ci);
+}
+
+constraint_index lar_solver::mk_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) {
     TRACE("lar_solver", tout << "j = " << j << " " << lconstraint_kind_string(kind) << " " << right_side<< std::endl;);
     constraint_index ci;
     if (!is_term(j)) { // j is a var
         lp_assert(bound_is_integer_for_integer_column(j, right_side));
         ci = m_constraints.add_var_constraint(j, kind, right_side);
-        update_column_type_and_bound(j, kind, right_side, ci);
     }
     else {
         ci = add_var_bound_on_constraint_for_term(j, kind, right_side);
@@ -1811,26 +1821,20 @@ constraint_index lar_solver::add_var_bound_on_constraint_for_term(var_index j, l
     unsigned adjusted_term_index = adjust_term_index(j);
     //    lp_assert(!term_is_int(m_terms[adjusted_term_index]) || right_side.is_int());
     unsigned term_j;
-    constraint_index ci;
+    lar_term const* term = m_terms[adjusted_term_index];
     if (m_var_register.external_is_used(j, term_j)) {
-        ci = m_constraints.add_term_constraint(m_terms[adjusted_term_index], kind, right_side);
-        update_column_type_and_bound(term_j, kind, right_side, ci);
+        return m_constraints.add_term_constraint(term_j, term, kind, right_side);
     }
     else {
-        ci = add_constraint_from_term_and_create_new_column_row(j, m_terms[adjusted_term_index], kind, right_side);
+        return add_constraint_from_term_and_create_new_column_row(j, term, kind, right_side);
     }
-    return ci;
 }
 
-constraint_index lar_solver::add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
-                                                                    lconstraint_kind kind, const mpq & right_side) {
-
+constraint_index lar_solver::add_constraint_from_term_and_create_new_column_row(
+    unsigned term_j, const lar_term* term, lconstraint_kind kind, const mpq & right_side) {
     add_row_from_term_no_constraint(term, term_j);
     unsigned j = A_r().column_count() - 1;
-    constraint_index ci = m_constraints.add_term_constraint(term, kind, right_side);    
-    update_column_type_and_bound(j, kind, right_side, ci);
-    lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
-    return ci;
+    return m_constraints.add_term_constraint(j, term, kind, right_side);
 }
 
 void lar_solver::decide_on_strategy_and_adjust_initial_state() {

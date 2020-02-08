@@ -52,14 +52,16 @@ class lar_base_constraint {
     lconstraint_kind m_kind;
     mpq              m_right_side;
     bool             m_active;
+    unsigned         m_j;
 public:
 
     virtual vector<std::pair<mpq, var_index>> coeffs() const = 0;
-    lar_base_constraint(lconstraint_kind kind, const mpq& right_side) :m_kind(kind), m_right_side(right_side), m_active(false) {}
+    lar_base_constraint(unsigned j, lconstraint_kind kind, const mpq& right_side) :m_kind(kind), m_right_side(right_side), m_active(false), m_j(j) {}
     virtual ~lar_base_constraint() {}
 
     lconstraint_kind kind() const { return m_kind; }
     mpq const& rhs() const { return m_right_side; }
+    unsigned column() const { return m_j; }
 
     void activate() { m_active = true; }
     void deactivate() { m_active = false; }
@@ -70,14 +72,13 @@ public:
 };
 
 class lar_var_constraint: public lar_base_constraint {
-    unsigned m_j;
 public:
     lar_var_constraint(unsigned j, lconstraint_kind kind, const mpq& right_side) : 
-        lar_base_constraint(kind, right_side), m_j(j) {}
+        lar_base_constraint(j, kind, right_side) {}
 
     vector<std::pair<mpq, var_index>> coeffs() const override {
         vector<std::pair<mpq, var_index>> ret;
-        ret.push_back(std::make_pair(one_of_type<mpq>(), m_j));
+        ret.push_back(std::make_pair(one_of_type<mpq>(), column()));
         return ret;
     }
     unsigned size() const override { return 1;}
@@ -87,8 +88,8 @@ public:
 class lar_term_constraint: public lar_base_constraint {
     const lar_term * m_term;
 public:
-    lar_term_constraint(const lar_term *t, lconstraint_kind kind, const mpq& right_side) : 
-        lar_base_constraint(kind, right_side), m_term(t) {}
+    lar_term_constraint(unsigned j, const lar_term *t, lconstraint_kind kind, const mpq& right_side) : 
+        lar_base_constraint(j, kind, right_side), m_term(t) {}
 
     vector<std::pair<mpq, var_index>> coeffs() const override { return m_term->coeffs_as_vector(); }
     unsigned size() const override { return m_term->size();}
@@ -150,7 +151,7 @@ public:
         m_constraint_count = m_constraints.size();
         m_constraint_count.push();
         m_region.push_scope();
-#if 0
+#if 1
         m_active_lim = m_active.size();
         m_active_lim.push();
 #endif
@@ -161,7 +162,7 @@ public:
         for (unsigned i = m_constraints.size(); i-- > m_constraint_count; )
             m_constraints[i]->~lar_base_constraint();        
         m_constraints.shrink(m_constraint_count);
-#if 0
+#if 1
         m_active_lim.pop(k);
         for (unsigned i = m_active.size(); i-- > m_active_lim; ) {
             m_constraints[m_active[i]]->deactivate();
@@ -175,11 +176,11 @@ public:
         return add(new (m_region) lar_var_constraint(j, k, rhs));
     }
 
-    constraint_index add_term_constraint(const lar_term* t, lconstraint_kind k, mpq const& rhs) {
-        return add(new (m_region) lar_term_constraint(t, k, rhs));
+    constraint_index add_term_constraint(unsigned j, const lar_term* t, lconstraint_kind k, mpq const& rhs) {
+        return add(new (m_region) lar_term_constraint(j, t, k, rhs));
     }
 
-#if 1
+#if 0
     bool is_active(constraint_index ci) const { return true; }
 
     void activate(constraint_index ci) {}
@@ -188,7 +189,7 @@ public:
     // future behavior uses activation bit.
     bool is_active(constraint_index ci) const { return m_constraints[ci]->is_active(); }
 
-    void activate(constraint_index ci) { m_constraints[ci]->activate(); }
+    void activate(constraint_index ci) { auto& c = *m_constraints[ci]; if (!c.is_active()) { c.activate(); m_active.push_back(ci); } }
 #endif
 
     lar_base_constraint const& operator[](constraint_index ci) const { return *m_constraints[ci]; }    

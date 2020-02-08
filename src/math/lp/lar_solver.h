@@ -183,6 +183,10 @@ public:
 
     void add_basic_var_to_core_fields();
 
+    constraint_index mk_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side);
+
+    void activate(constraint_index ci);
+
     constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) ;
 
     bool compare_values(var_index j, lconstraint_kind kind, const mpq & right_side);
