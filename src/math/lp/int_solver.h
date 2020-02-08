@@ -35,6 +35,7 @@ struct lp_constraint;
 
 
 class int_solver {
+    friend class gomory;
 public:
     // fields
     lar_solver          *m_lar_solver;
@@ -107,15 +108,11 @@ private:
     lia_move branch_or_sat();
     int find_any_inf_int_column_basis_first();
     int find_inf_int_base_column();
-    int find_gomory_cut_column();
     int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
     int get_kth_inf_int(unsigned) const;
     lp_settings& settings();
     const lp_settings& settings() const;
     void branch_infeasible_int_var(unsigned);
-    lia_move mk_gomory_cut(unsigned inf_col, const row_strip<mpq>& row);
-    lia_move proceed_with_gomory_cut(unsigned j);
-    bool is_gomory_cut_target(const row_strip<mpq>&);
     bool at_bound(unsigned j) const;
     bool has_lower(unsigned j) const;
     bool has_upper(unsigned j) const;

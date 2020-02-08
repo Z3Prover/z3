@@ -37,52 +37,6 @@ bool int_solver::has_inf_int() const {
     return m_lar_solver->has_inf_int();
 }
 
-int int_solver::find_gomory_cut_column() {
-    int result = -1;
-    unsigned n = 0;
-    bool boxed = false;
-    unsigned min_row_size = UINT_MAX;
-    mpq min_range;
-
-    // Prefer smaller row size
-    // Prefer boxed to non-boxed
-    // Prefer smaller ranges
-
-    for (unsigned j : m_lar_solver->r_basis()) {
-        if (!column_is_int_inf(j))
-            continue;
-        const row_strip<mpq>& row = m_lar_solver->get_row(row_of_basic_column(j));
-        if (!is_gomory_cut_target(row)) 
-            continue;
-
-        if (is_boxed(j) && (min_row_size == UINT_MAX || 4*row.size() < 5*min_row_size)) {
-            lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
-            auto new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
-            if (!boxed) {
-                result = j;
-                n = 1;
-                min_row_size = row.size();
-                boxed = true;
-                min_range = new_range;
-                continue;
-            }
-            if (min_range > 2*new_range || ((5*min_range > 4*new_range && (random() % (++n)) == 0))) { 
-                result = j;
-                n = 1;
-                min_row_size = row.size();
-                min_range = std::min(min_range, new_range);
-                continue;
-            }
-        }
-        if (min_row_size == UINT_MAX || (4*row.size() < 5*min_row_size && random() % (++n) == 0)) {
-            result = j;
-            n = 1;
-            min_row_size = std::min(min_row_size, row.size());
-        }
-    }
-    return result;
-}
-
 int int_solver::find_inf_int_base_column() {
     unsigned inf_int_count = 0;
     int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
@@ -140,23 +94,7 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range(unsigned & in
             result = j;
         }
     }
-    return result;
-    
-}
-
-bool int_solver::is_gomory_cut_target(const row_strip<mpq>& row) {
-    // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
-    unsigned j;
-    for (const auto & p : row) {
-        j = p.var();
-        if (!is_base(j) && (!at_bound(j) || !is_zero(get_value(j).y))) {
-            TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
-                  display_column(tout, j);
-                  tout << "infinitesimal: " << !is_zero(get_value(j).y) << "\n";);
-            return false;
-        }
-    }
-    return true;
+    return result;    
 }
 
 
@@ -178,20 +116,6 @@ bool int_solver::current_solution_is_inf_on_cut() const {
 
 constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
     return m_lar_solver->get_column_lower_bound_witness(j);
-}
-
-lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row) {
-    lp_assert(column_is_int_inf(inf_col));
-    gomory gc(m_t, m_k, m_ex, inf_col, row, *this);
-    return gc.create_cut();
-}
-
-lia_move int_solver::proceed_with_gomory_cut(unsigned j) {
-    const row_strip<mpq>& row = m_lar_solver->get_row(row_of_basic_column(j));
-    SASSERT(m_lar_solver->row_is_correct(row_of_basic_column(j)));    
-    SASSERT(is_gomory_cut_target(row));
-    m_upper = true;
-    return mk_gomory_cut(j, row);
 }
 
 
@@ -340,18 +264,9 @@ lia_move int_solver::gomory_cut() {
     if (!should_gomory_cut())
         return lia_move::undef;
 
-    if (m_lar_solver->move_non_basic_columns_to_bounds()) {
-        lp_status st = m_lar_solver->find_feasible_solution();
-        (void)st;
-        lp_assert(st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
-    }
-        
-    int j = find_gomory_cut_column(); 
-    if (j != -1) {
-        return proceed_with_gomory_cut(j);
-    }
-    j = find_inf_int_nbasis_column();
-    return j == -1? lia_move::sat : create_branch_on_column(j);    
+    gomory gc(*this);
+    return gc.cut(m_t, m_k, m_ex, m_upper);
+
 }
 
 void int_solver::try_add_term_to_A_for_hnf(unsigned i) {

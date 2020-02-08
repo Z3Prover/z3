@@ -25,7 +25,7 @@
 #define SMALL_CUTS 1
 namespace lp {
 
-class gomory::imp {
+class create_cut {
     lar_term   &          m_t; // the term to return in the cut
     mpq        &          m_k; // the right side of the cut
     explanation*          m_ex; // the conflict explanation
@@ -281,7 +281,7 @@ public:
         out << "inf_col = " << m_inf_col << std::endl;
     }
 
-    lia_move create_cut() {
+    lia_move cut() {
         TRACE("gomory_cut", dump(tout););
         
         // gomory will be   t <= k and the current solution has a property t > k
@@ -341,7 +341,7 @@ public:
         return lia_move::cut;
     }
 
-    imp(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& int_slv ) :
+    create_cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& int_slv ) :
         m_t(t),
         m_k(k),
         m_ex(ex),
@@ -354,14 +354,95 @@ public:
     
 };
 
-lia_move gomory::create_cut() {
-    return m_imp->create_cut();
+lia_move gomory::cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row) {
+    create_cut cc(t, k, ex, basic_inf_int_j, row, s);
+    return cc.cut();
 }
 
-gomory::gomory(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& s) {
-    m_imp = alloc(imp, t, k, ex, basic_inf_int_j, row, s);
+
+bool gomory::is_gomory_cut_target(const row_strip<mpq>& row) {
+    // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
+    unsigned j;
+    for (const auto & p : row) {
+        j = p.var();
+        if (!s.is_base(j) && (!s.at_bound(j) || !is_zero(s.get_value(j).y))) {
+            TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
+                  s.display_column(tout, j);
+                  tout << "infinitesimal: " << !is_zero(s.get_value(j).y) << "\n";);
+            return false;
+        }
+    }
+    return true;
 }
 
-gomory::~gomory() { dealloc(m_imp); }
+int gomory::find_column() {
+    int result = -1;
+    unsigned n = 0;
+    bool boxed = false;
+    unsigned min_row_size = UINT_MAX;
+    mpq min_range;
+
+    // Prefer smaller row size
+    // Prefer boxed to non-boxed
+    // Prefer smaller ranges
+
+    for (unsigned j : s.m_lar_solver->r_basis()) {
+        if (!s.column_is_int_inf(j))
+            continue;
+        const row_strip<mpq>& row = s.m_lar_solver->get_row(s.row_of_basic_column(j));
+        if (!is_gomory_cut_target(row)) 
+            continue;
+
+#if 0
+        if (is_boxed(j) && (min_row_size == UINT_MAX || 4*row.size() < 5*min_row_size)) {
+            lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
+            auto new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
+            if (!boxed) {
+                result = j;
+                n = 1;
+                min_row_size = row.size();
+                boxed = true;
+                min_range = new_range;
+                continue;
+            }
+            if (min_range > 2*new_range || ((5*min_range > 4*new_range && (random() % (++n)) == 0))) { 
+                result = j;
+                n = 1;
+                min_row_size = row.size();
+                min_range = std::min(min_range, new_range);
+                continue;
+            }
+        }
+#endif
+
+        if (min_row_size == UINT_MAX || 
+            2*row.size() < min_row_size || 
+            (4*row.size() < 5*min_row_size && s.random() % (++n) == 0)) {
+            result = j;
+            n = 1;
+            min_row_size = std::min(min_row_size, row.size());
+        }
+    }
+    return result;
+}
+    
+lia_move gomory::cut(lar_term & t, mpq & k, explanation* ex, bool& upper) {
+    if (s.m_lar_solver->move_non_basic_columns_to_bounds()) {
+        lp_status st = s.m_lar_solver->find_feasible_solution();
+        (void)st;
+        lp_assert(st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
+    }
+        
+    int j = find_column();
+    if (j == -1) return lia_move::undef;
+    const row_strip<mpq>& row = s.m_lar_solver->get_row(s.row_of_basic_column(j));
+    SASSERT(s.m_lar_solver->row_is_correct(s.row_of_basic_column(j)));    
+    SASSERT(is_gomory_cut_target(row));
+    upper = true;
+    return cut(t, k, ex, j, row);
+}
+
+
+gomory::~gomory() { }
 
 }

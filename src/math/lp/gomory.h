@@ -24,11 +24,15 @@ Revision History:
 namespace lp {
 class int_solver;
 class gomory {
-    class imp;
-    imp                  *m_imp;
+    class int_solver& s;
+    int find_column();
+    lia_move cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row);
+    bool is_gomory_cut_target(const row_strip<mpq>& row);
+
 public :
-    gomory(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& s);
-    lia_move create_cut();
+    gomory(int_solver& s): s(s) {}
+
+    lia_move cut(lar_term & t, mpq & k, explanation* ex, bool& upper);
     ~gomory();
 };
 }
