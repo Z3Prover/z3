@@ -1702,7 +1702,6 @@ public:
                    is_eq(v1, v2) && n1->get_root() != n2->get_root(),
                    tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
             if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
-                std::cout << v1 << " == " << v2 << "\n"; // mk_pp(n1->get_owner(), m) << " == " << mk_pp(n2->get_owner(), m) << "\n";
                 return true;
             }
         }
