@@ -37,138 +37,63 @@ bool int_solver::has_inf_int() const {
     return m_lar_solver->has_inf_int();
 }
 
-int int_solver::find_inf_int_nbasis_column() {
-    int result = -1;
-    unsigned n = 0;
-    for (unsigned j : m_lar_solver->r_nbasis())
-        if (column_is_int_inf(j) && settings().random_next() % (++n) == 0) 
-            result = j;
-    return result;
+int int_solver::find_inf_int_base_column() {
+    unsigned inf_int_count = 0;
+    int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
+    if (j != -1) 
+        return j;
+    if (inf_int_count == 0)
+        return -1;
+    unsigned k = random() % inf_int_count;
+    return get_kth_inf_int(k);
 }
 
-int int_solver::find_inf_int_base_column() {
+int int_solver::get_kth_inf_int(unsigned k) const {
+    for (unsigned j : m_lar_solver->r_basis()) 
+        if (column_is_int_inf(j) && k-- == 0)
+            return j;
+    lp_assert(false);
+    return -1;
+}
+
+int int_solver::find_inf_int_nbasis_column() const {
+    for (unsigned j : m_lar_solver->r_nbasis())
+        if (!column_is_int_inf(j)) 
+            return j;    
+    return -1; 
+}
+
+int int_solver::find_inf_int_boxed_base_column_with_smallest_range(unsigned & inf_int_count) {
+    inf_int_count = 0;
+    int result = -1;
+    mpq range;
+    mpq new_range;
+    mpq small_range_thresold(1024);
+    unsigned n = 0;
     lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
 
-#if 1
-    mpq range, distance;
-
-    vector<unsigned> const& r_basis = m_lar_solver->r_basis();
-    if (r_basis.empty()) return -1;
-
-    struct candidate {
-        mpq range, distance;
-        unsigned j;
-        candidate(mpq const& r, mpq const& d, unsigned j):
-            range(r), distance(d), j(j) {}
-        bool operator<(candidate const& other) const {
-            return 
-                (range < other.range) || 
-                (range == other.range && 
-                 (distance < other.distance || (distance == other.distance && j < other.j)));
-        }
-    };
-    vector<candidate> candidates;
-    unsigned start = settings().random_next() % r_basis.size();
-    for (unsigned i = r_basis.size(); i-- > 0 && candidates.size() <= 20; ) {
-        unsigned j = (start + i) % r_basis.size();
-        if (!column_is_int_inf(j)) 
-            continue;
-        distance = abs(get_value(j).x - floor(get_value(j).x));
-        if (has_upper(j) && has_lower(j)) {
-            range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
-        }
-        else {
-            range = abs(get_value(j).x);
-        }
-        candidates.push_back(candidate(range, distance, j));
-    }
-    if (candidates.empty()) {
-        return -1;
-    }    
-    std::sort(candidates.begin(), candidates.end(), [](candidate const& a, candidate const& b) { return a < b; });
-    unsigned n = 1;
-    candidate c = candidates[0];
-    for (unsigned j = 1; j < candidates.size(); ++j) {
-        candidate const& c1 = candidates[j];
-        unsigned k = candidates.size() - j;
-        if (c.range == c1.range && c.distance == c1.distance && (settings().random_next() % (++n) == 0)) {
-            c = c1;
-        }
-        else if (settings().random_next() % (k+1)*(k+1) == 0) {
-            n = 1;
-            c = c1;
-        }
-        else {
-            break;
-        }
-    }
-    return c.j;
-
-#else 
-
-    int box_result = -1, inf_result = -1, small_result = -1;
-    mpq range, new_range;
-    mpq small_range_threshold(1024);
-    unsigned box_n = 0, inf_n = 0, small_n = 0;
-    
     for (unsigned j : m_lar_solver->r_basis()) {
-        if (!column_is_int_inf(j)) 
+        if (!column_is_int_inf(j))
             continue;
-
-
-        std::function<void(void)> update_small = [&,this]() { 
-            if (settings().random_next() % (++small_n) == 0) {
-                small_result = j;
-            }
-        };
- 
-        bool is_small = true;
-        if (abs(get_value(j)) < small_range_threshold) {
-            update_small();
-        }
-        else if (has_upper(j) && lcs.m_r_upper_bounds()[j].x - get_value(j).x < small_range_threshold) {
-            update_small();
-        }
-        else if (has_lower(j) && get_value(j).x - lcs.m_r_lower_bounds()[j].x < small_range_threshold) {
-            update_small();
-        }
-        else {
-            is_small = false;
-        }
-
-        if (!is_boxed(j)) {
-            if (settings().random_next() % (++inf_n) == 0) {
-                inf_result = j;
-            }
+        inf_int_count++;
+        if (!is_boxed(j))
             continue;
-        }
         lp_assert(!is_fixed(j));
         new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
-        if (new_range > small_range_threshold) {
-            if (!is_small && settings().random_next() % (++inf_n) == 0) {
-                inf_result = j;
-            }
+        if (new_range > small_range_thresold) 
+            continue;
+        if (result == -1 || new_range < range) {
+            result = j;
+            range  = new_range;
+            n      = 1;
         }
-        else if (box_result == -1 || new_range < range) {
-            box_result = j;
-            range = new_range;
-            box_n = 1;
-        }
-        else if (new_range == range) {
-            box_result = j;
-            box_n = 1;
-        }
-        else if (new_range == range && settings().random_next() % (++box_n) == 0) {
-            lp_assert(box_n > 1);
-            box_result = j;
+        else if (new_range == range && settings().random_next() % (++n) == 0) {
+            lp_assert(n > 1);
+            result = j;
         }
     }
-    IF_VERBOSE(10, verbose_stream() << box_result << " " << box_n << " " << small_result << " " << small_n << " " << inf_result << " " << inf_n << "\n");
-    if (box_result != -1 && settings().random_next() % (4*box_n + 2*small_n + inf_n) < 4*box_n) return box_result;
-    if (small_result != -1 && settings().random_next() % (2*small_n + inf_n) < 2*small_n) return small_result;
-    return inf_result;
-#endif
-
+    return result;
+    
 }
 
 bool int_solver::is_gomory_cut_target(const row_strip<mpq>& row) {
