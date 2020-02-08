@@ -36,6 +36,7 @@ struct lp_constraint;
 
 class int_solver {
     friend class gomory;
+    friend class int_cube;
 public:
     // fields
     lar_solver          *m_lar_solver;

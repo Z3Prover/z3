@@ -13,6 +13,7 @@ z3_add_component(lp
     horner.cpp
     indexed_vector.cpp
     int_solver.cpp
+    int_cube.cpp
     lar_solver.cpp
     lar_core_solver.cpp
     lp_core_solver_base.cpp

@@ -9,6 +9,7 @@
 #include <utility>
 #include "math/lp/monic.h"
 #include "math/lp/gomory.h"
+#include "math/lp/int_cube.h"
 namespace lp {
 
 
@@ -97,12 +98,6 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range(unsigned & in
     return result;    
 }
 
-
-
-constraint_index int_solver::column_upper_bound_constraint(unsigned j) const {
-    return m_lar_solver->get_column_upper_bound_witness(j);
-}
-
 bool int_solver::current_solution_is_inf_on_cut() const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     impq v = m_t.apply(x);
@@ -114,14 +109,37 @@ bool int_solver::current_solution_is_inf_on_cut() const {
     return v * sign > impq(m_k) * sign;
 }
 
+constraint_index int_solver::column_upper_bound_constraint(unsigned j) const {
+    return m_lar_solver->get_column_upper_bound_witness(j);
+}
+
 constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
     return m_lar_solver->get_column_lower_bound_witness(j);
 }
 
-
 unsigned int_solver::row_of_basic_column(unsigned j) const {
     return m_lar_solver->row_of_basic_column(j);
 }
+
+lp_settings& int_solver::settings() {  
+    return m_lar_solver->settings(); 
+}
+
+const lp_settings& int_solver::settings() const { 
+    return m_lar_solver->settings(); 
+}
+
+bool int_solver::column_is_int(unsigned j) const {
+    return m_lar_solver->column_is_int(j);
+}
+
+bool int_solver::is_real(unsigned j) const {
+    return !column_is_int(j);
+}
+
+bool int_solver::value_is_int(unsigned j) const {
+    return m_lar_solver->column_value_is_int(j);
+}    
 
 
 // this will allow to enable and disable tracking of the pivot rows
@@ -141,102 +159,20 @@ struct check_return_helper {
     }
 };
 
-
-
-impq int_solver::get_cube_delta_for_term(const lar_term& t) const {
-    if (t.size() == 2) {
-        bool seen_minus = false;
-        bool seen_plus = false;
-        for(const auto & p : t) {
-            if (!column_is_int(p.var()))
-                goto usual_delta;
-            const mpq & c = p.coeff();
-            if (c == one_of_type<mpq>()) {
-                seen_plus = true;
-            } else if (c == -one_of_type<mpq>()) {
-                seen_minus = true;
-            } else {
-                goto usual_delta;
-            }
-        }
-        if (seen_minus && seen_plus)
-            return zero_of_type<impq>();
-        return impq(0, 1);
-    }
- usual_delta:
-    mpq delta = zero_of_type<mpq>();
-    for (const auto & p : t)
-        if (column_is_int(p.var()))
-            delta += abs(p.coeff());
-    
-    delta *= mpq(1, 2);
-    return impq(delta);
-}
-
-bool int_solver::tighten_term_for_cube(unsigned i) {
-    unsigned ti = i + m_lar_solver->terms_start_index();
-    if (!m_lar_solver->term_is_used_as_row(ti))
-        return true;
-    const lar_term* t = m_lar_solver->terms()[i];
-    impq delta = get_cube_delta_for_term(*t);
-    TRACE("cube", m_lar_solver->print_term_as_indices(*t, tout); tout << ", delta = " << delta;);
-    if (is_zero(delta))
-        return true;
-    return m_lar_solver->tighten_term_bounds_by_delta(i, delta);
-}
-
-bool int_solver::tighten_terms_for_cube() {
-    for (unsigned i = 0; i < m_lar_solver->terms().size(); i++)
-        if (!tighten_term_for_cube(i)) {
-            TRACE("cube", tout << "cannot tighten";);
-            return false;
-        }
-    return true;
-}
-
 bool int_solver::should_find_cube() {
     return m_number_of_calls % settings().m_int_find_cube_period == 0;
 }
 
 lia_move int_solver::find_cube() {
-    if (!should_find_cube())
-        return lia_move::undef;
-    
-    settings().stats().m_cube_calls++;
-    TRACE("cube",
-          for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++)
-              display_column(tout, j);
-          tout << m_lar_solver->constraints();
-          );
-    
-    m_lar_solver->push();
-    if (!tighten_terms_for_cube()) {
-        m_lar_solver->pop();
+    int_cube ic(*this);
+    if (should_find_cube()) {
+        return ic();
+    }
+    else {
         return lia_move::undef;
     }
-
-    lp_status st = m_lar_solver->find_feasible_solution();
-    if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-        TRACE("cube", tout << "cannot find a feasiblie solution";);
-        m_lar_solver->pop();
-        m_lar_solver->move_non_basic_columns_to_bounds();
-        find_feasible_solution();
-        // it can happen that we found an integer solution here
-        return !m_lar_solver->r_basis_has_inf_int()? lia_move::sat: lia_move::undef;
-    }
-    m_lar_solver->pop();
-    m_lar_solver->round_to_integer_solution();
-    m_lar_solver->set_status(lp_status::FEASIBLE);
-    lp_assert(settings().get_cancel_flag() || is_feasible());
-    TRACE("cube", tout << "success";);
-    settings().stats().m_cube_success++;
-    return lia_move::sat;
 }
 
-void int_solver::find_feasible_solution() {
-    m_lar_solver->find_feasible_solution();
-    lp_assert(lp_status::OPTIMAL == m_lar_solver->get_status() || lp_status::FEASIBLE == m_lar_solver->get_status());
-}
 
 bool int_solver::should_run_gcd_test() {
     return settings().m_int_run_gcd_test;    
@@ -285,14 +221,6 @@ bool int_solver::hnf_cutter_is_full() const {
         m_hnf_cutter.terms_count() >= settings().limit_on_rows_for_hnf_cutter
                                      ||
         m_hnf_cutter.vars().size() >= settings().limit_on_columns_for_hnf_cutter;
-}
-
-lp_settings& int_solver::settings() {
-    return m_lar_solver->settings();
-}
-
-const lp_settings& int_solver::settings() const {
-    return m_lar_solver->settings();
 }
 
 bool int_solver::hnf_has_var_with_non_integral_value() const {
@@ -634,14 +562,6 @@ bool int_solver::ext_gcd_test(const row_strip<mpq> & row,
     return true;
 
 }
-/*
-linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
-    if (m_lar_solver->use_tableau())
-        return new iterator_on_column<mpq, impq>(m_lar_solver->A_r().m_columns[j], m_lar_solver->A_r());
-    return new iterator_on_indexed_vector<mpq>(m_lar_solver->get_column_in_lu_mode(j));
-}
-*/
-
 
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
@@ -674,14 +594,12 @@ bool int_solver::has_upper(unsigned j) const {
     }
 }
 
-
 static void set_lower(impq & l, bool & inf_l, impq const & v ) {
     if (inf_l || v > l) {
         l = v;
         inf_l = false;
     }
 }
-
 
 static void set_upper(impq & u, bool & inf_u, impq const & v) {
     if (inf_u || v < u) {
@@ -778,17 +696,6 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     return (inf_l || inf_u || l <= u);
 }
 
-bool int_solver::column_is_int(unsigned j) const {
-    return m_lar_solver->column_is_int(j);
-}
-
-bool int_solver::is_real(unsigned j) const {
-    return !column_is_int(j);
-}
-
-bool int_solver::value_is_int(unsigned j) const {
-    return m_lar_solver->column_value_is_int(j);
-}    
 
 bool int_solver::is_feasible() const {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
@@ -802,7 +709,7 @@ const impq & int_solver::get_value(unsigned j) const {
 }
 
 std::ostream& int_solver::display_column(std::ostream & out, unsigned j) const {
-    m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+    return m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
     return out;
 }
 
