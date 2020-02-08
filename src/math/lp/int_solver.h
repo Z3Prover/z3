@@ -142,7 +142,7 @@ public:
     bool all_columns_are_bounded() const;
     impq get_cube_delta_for_term(const lar_term&) const;
     void find_feasible_solution();
-    int find_inf_int_nbasis_column();
+    int find_inf_int_nbasis_column() const;
     lia_move run_gcd_test();
     lia_move gomory_cut();
     lia_move hnf_cut();
