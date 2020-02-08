@@ -1733,16 +1733,6 @@ public:
         final_check_status st = FC_DONE;
         switch (is_sat) {
         case l_true:
-
-            if (delayed_assume_eqs()) {
-                ++m_stats.m_assume_eqs;
-                return FC_CONTINUE;
-            }
-
-            if (assume_eqs()) {
-                ++m_stats.m_assume_eqs;
-                return FC_CONTINUE;
-            }    
                 
             TRACE("arith", display(tout););
             switch (check_lia()) {
@@ -1765,6 +1755,14 @@ public:
                 TRACE("arith", tout << "check-nra giveup\n";);
                 st = FC_GIVEUP;
                 break;
+            }
+            if (assume_eqs()) {
+                ++m_stats.m_assume_eqs;
+                return FC_CONTINUE;
+            }    
+            if (delayed_assume_eqs()) {
+                ++m_stats.m_assume_eqs;
+                return FC_CONTINUE;
             }
             if (m_not_handled != nullptr) {
                 TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);        
