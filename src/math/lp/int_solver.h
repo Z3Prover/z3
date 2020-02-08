@@ -37,6 +37,7 @@ struct lp_constraint;
 class int_solver {
     friend class gomory;
     friend class int_cube;
+    friend class int_branch;
 public:
     // fields
     lar_solver&         lra;
@@ -107,13 +108,8 @@ private:
     bool should_hnf_cut();
 
     lia_move branch_or_sat();
-    int find_any_inf_int_column_basis_first();
-    int find_inf_int_base_column();
-    int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
-    int get_kth_inf_int(unsigned) const;
     lp_settings& settings();
     const lp_settings& settings() const;
-    void branch_infeasible_int_var(unsigned);
     bool at_bound(unsigned j) const;
     bool has_lower(unsigned j) const;
     bool has_upper(unsigned j) const;
@@ -130,18 +126,12 @@ private:
     void display_row_info(std::ostream & out, unsigned row_index) const;
     unsigned random();
     bool has_inf_int() const;
-    lia_move create_branch_on_column(int j);
 public:
     bool is_term(unsigned j) const;
-    bool left_branch_is_more_narrow_than_right(unsigned);
     lia_move find_cube();
-    bool tighten_terms_for_cube();
-    bool tighten_term_for_cube(unsigned);
     unsigned column_count() const;
     bool all_columns_are_bounded() const;
-    impq get_cube_delta_for_term(const lar_term&) const;
     void find_feasible_solution();
-    int find_inf_int_nbasis_column() const;
     lia_move run_gcd_test();
     lia_move gomory_cut();
     lia_move hnf_cut();

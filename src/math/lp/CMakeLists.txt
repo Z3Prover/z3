@@ -12,8 +12,9 @@ z3_add_component(lp
     gomory.cpp
     horner.cpp
     indexed_vector.cpp
-    int_solver.cpp
+    int_branch.cpp
     int_cube.cpp
+    int_solver.cpp
     lar_solver.cpp
     lar_core_solver.cpp
     lp_core_solver_base.cpp

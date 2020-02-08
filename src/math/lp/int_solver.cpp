@@ -10,6 +10,7 @@
 #include "math/lp/monic.h"
 #include "math/lp/gomory.h"
 #include "math/lp/int_cube.h"
+#include "math/lp/int_branch.h"
 namespace lp {
 
 
@@ -32,66 +33,6 @@ std::ostream& int_solver::display_inf_rows(std::ostream& out) const {
     }
     out << "num of int infeasible: " << num << "\n";
     return out;
-}
-
-int int_solver::find_inf_int_base_column() {
-    unsigned inf_int_count = 0;
-    int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
-    if (j != -1) {
-        return j;
-    }
-    if (inf_int_count == 0)
-        return -1;
-    unsigned k = random() % inf_int_count;
-    return get_kth_inf_int(k);
-}
-
-int int_solver::get_kth_inf_int(unsigned k) const {
-    for (unsigned j : lra.r_basis()) 
-        if (column_is_int_inf(j) && k-- == 0)
-            return j;
-    lp_assert(false);
-    return -1;
-}
-
-int int_solver::find_inf_int_nbasis_column() const {
-    for (unsigned j : lra.r_nbasis())
-        if (!column_is_int_inf(j)) {
-            return j;    
-        }
-    return -1; 
-}
-
-int int_solver::find_inf_int_boxed_base_column_with_smallest_range(unsigned & inf_int_count) {
-    inf_int_count = 0;
-    int result = -1;
-    mpq range;
-    mpq new_range;
-    mpq small_range_thresold(1024);
-    unsigned n = 0;
-    lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
-
-    for (unsigned j : lra.r_basis()) {
-        if (!column_is_int_inf(j))
-            continue;
-        inf_int_count++;
-        if (!is_boxed(j))
-            continue;
-        lp_assert(!is_fixed(j));
-        new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
-        if (new_range > small_range_thresold) 
-            continue;
-        if (result == -1 || new_range < range) {
-            result = j;
-            range  = new_range;
-            n      = 1;
-        }
-        else if (new_range == range && settings().random_next() % (++n) == 0) {
-            lp_assert(n > 1);
-            result = j;
-        }
-    }
-    return result;    
 }
 
 bool int_solver::current_solution_is_inf_on_cut() const {
@@ -338,14 +279,10 @@ lia_move int_solver::check(lp::explanation * e) {
 }
 
 lia_move int_solver::branch_or_sat() {
-    int j = find_any_inf_int_column_basis_first();
-    return j == -1? lia_move::sat : create_branch_on_column(j);
+    int_branch b(*this);
+    return b();
 }
 
-int int_solver::find_any_inf_int_column_basis_first() {
-   int j = find_inf_int_base_column();
-   return j != -1 ? j : find_inf_int_nbasis_column();
-}
 
 void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val) {
     lp_assert(!is_base(j));
@@ -880,45 +817,6 @@ bool int_solver::non_basic_columns_are_at_bounds() const {
 
 const impq& int_solver::lower_bound(unsigned j) const {
     return lra.column_lower_bound(j);
-}
-
-lia_move int_solver::create_branch_on_column(int j) {
-    TRACE("check_main_int", tout << "branching" << std::endl;);
-    lp_assert(m_t.is_empty());
-    lp_assert(j != -1);
-    m_t.add_monomial(mpq(1), lra.adjust_column_index_to_term_index(j));
-    if (is_free(j)) {
-        m_upper = random() % 2;
-        m_k = mpq(0);
-    }
-    else {
-        m_upper = left_branch_is_more_narrow_than_right(j);
-        m_k = m_upper? floor(get_value(j)) : ceil(get_value(j));        
-    }
-
-    TRACE("int_solver",
-          display_column(tout << "branching v" << j << " = " << get_value(j) << "\n", j);
-          tout << "k = " << m_k << std::endl;);
-    return lia_move::branch;
-
-}
-
-bool int_solver::left_branch_is_more_narrow_than_right(unsigned j) {
-    switch (lra.m_mpq_lar_core_solver.m_r_solver.m_column_types[j] ) {
-    case column_type::fixed:
-        return false;
-    case column_type::boxed:
-        {
-            auto k = floor(get_value(j));
-            return k - lower_bound(j).x < upper_bound(j).x - (k + mpq(1));
-        }
-    case column_type::lower_bound: 
-        return true;
-    case column_type::upper_bound:
-        return false;
-    default:
-        return false;
-    }       
 }
     
 
