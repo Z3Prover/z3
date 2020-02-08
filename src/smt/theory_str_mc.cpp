@@ -576,7 +576,7 @@ namespace smt {
                 return true;
             }
         }
-        UNREACHABLE(); // ???
+        UNREACHABLE(); // added because compiler complains that not all control paths return a value.
         return false;
     }
 
