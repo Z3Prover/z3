@@ -1861,13 +1861,15 @@ namespace smt {
                             break;
                         }
                     }
-                    if (m_lit_occs[l.index()] == 0) {
-                        is_pos = false;
-                        break;
-                    }
-                    if (m_lit_occs[(~l).index()] == 0) {
-                        is_pos = true;
-                        break;
+                    if (track_occs()) {
+                        if (m_lit_occs[l.index()] == 0) {
+                            is_pos = false;
+                            break;
+                        }
+                        if (m_lit_occs[(~l).index()] == 0) {
+                            is_pos = true;
+                            break;
+                        }
                     }
                     is_pos = m_phase_default;                    
                     break;

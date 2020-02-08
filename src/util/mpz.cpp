@@ -1680,6 +1680,9 @@ double mpz_manager<SYNCH>::get_double(mpz const & a) const {
         else
             d *= static_cast<double>(UINT_MAX);   // 32-bit version
     }
+    if (!(r >= 0.0)) {
+        r = static_cast<double>(UINT64_MAX); // some large number
+    }
     return a.m_val < 0 ? -r : r;
 #else
     return mpz_get_d(*a.m_ptr);

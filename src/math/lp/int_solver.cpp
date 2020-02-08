@@ -37,6 +37,55 @@ bool int_solver::has_inf_int() const {
     return m_lar_solver->has_inf_int();
 }
 
+int int_solver::find_gomory_cut_column() {
+    int result = -1;
+    unsigned n = 0;
+    bool boxed = false;
+    unsigned min_row_size = UINT_MAX;
+    mpq min_range;
+
+    // Prefer smaller row size
+#if 0
+    // Prefer boxed to non-boxed
+    // Prefer smaller ranges
+#endif
+
+    for (unsigned j : m_lar_solver->r_basis()) {
+        if (!column_is_int_inf(j))
+            continue;
+        const row_strip<mpq>& row = m_lar_solver->get_row(row_of_basic_column(j));
+        if (!is_gomory_cut_target(row)) 
+            continue;
+#if 1
+        if (is_boxed(j) && (min_row_size == UINT_MAX || 4*row.size() < 5*min_row_size)) {
+            lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
+            auto new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
+            if (!boxed) {
+                result = j;
+                n = 1;
+                min_row_size = row.size();
+                boxed = true;
+                min_range = new_range;
+                continue;
+            }
+            if (min_range > 2*new_range || ((5*min_range > 4*new_range && (random() % (++n)) == 0))) { 
+                result = j;
+                n = 1;
+                min_row_size = row.size();
+                min_range = std::min(min_range, new_range);
+                continue;
+            }
+        }
+#endif
+        if (min_row_size == UINT_MAX || (4*row.size() < 5*min_row_size && random() % (++n) == 0)) {
+            result = j;
+            n = 1;
+            min_row_size = std::min(min_row_size, row.size());
+        }
+    }
+    return result;
+}
+
 int int_solver::find_inf_int_base_column() {
     unsigned inf_int_count = 0;
     int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
@@ -304,7 +353,8 @@ lia_move int_solver::gomory_cut() {
         lp_assert(st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
     }
         
-    int j = find_inf_int_base_column(); 
+//    int j = find_inf_int_base_column();
+    int j = find_gomory_cut_column(); 
     if (j == -1) {
         j = find_inf_int_nbasis_column();
         return j == -1? lia_move::sat : create_branch_on_column(j);
@@ -1019,7 +1069,8 @@ lia_move int_solver::create_branch_on_column(int j) {
     if (is_free(j)) {
         m_upper = random() % 2;
         m_k = mpq(0);
-    } else {
+    }
+    else {
         m_upper = left_branch_is_more_narrow_than_right(j);
         m_k = m_upper? floor(get_value(j)) : ceil(get_value(j));        
     }

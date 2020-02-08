@@ -158,10 +158,6 @@ public:
     }
 
     void pop(unsigned k) {
-        m_constraint_count.pop(k);        
-        for (unsigned i = m_constraints.size(); i-- > m_constraint_count; )
-            m_constraints[i]->~lar_base_constraint();        
-        m_constraints.shrink(m_constraint_count);
 #if 1
         m_active_lim.pop(k);
         for (unsigned i = m_active.size(); i-- > m_active_lim; ) {
@@ -169,6 +165,11 @@ public:
         }
         m_active.shrink(m_active_lim);
 #endif
+        m_constraint_count.pop(k);        
+        for (unsigned i = m_constraints.size(); i-- > m_constraint_count; )
+            m_constraints[i]->~lar_base_constraint();        
+        m_constraints.shrink(m_constraint_count);
+
         m_region.pop_scope(k);
     }
 

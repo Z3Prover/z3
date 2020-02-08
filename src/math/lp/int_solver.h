@@ -107,6 +107,7 @@ private:
     lia_move branch_or_sat();
     int find_any_inf_int_column_basis_first();
     int find_inf_int_base_column();
+    int find_gomory_cut_column();
     int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
     int get_kth_inf_int(unsigned) const;
     lp_settings& settings();

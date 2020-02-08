@@ -1864,28 +1864,6 @@ public:
         return atom;
     }
 
-    // bool make_sure_all_vars_have_bounds() {
-    //     if (!has_int()) {
-    //         return true;
-    //     }
-        
-    //     unsigned nv = std::min(th.get_num_vars(), m_theory_var2var_index.size());
-    //     bool all_bounded = true;
-    //     for (unsigned v = 0; v < nv; ++v) {
-    //         lpvar vi = m_theory_var2var_index[v];
-    //         if (vi == UINT_MAX)
-    //             continue;
-    //         if (!lp().is_term(vi) && !var_has_bound(vi, true) && !var_has_bound(vi, false)) {
-    //             lp::lar_term term;
-    //             term.add_coeff_var(rational::one(), vi);
-    //             app_ref b = mk_bound(term, rational::zero(), true);
-    //             TRACE("arith", tout << "added bound " << b << "\n";);
-    //             IF_VERBOSE(2, verbose_stream() << "bound: " << b << "\n");
-    //             all_bounded = false;
-    //         }
-    //     }
-    //     return all_bounded;
-    // }
 
     /**
      * n = (div p q)
@@ -1919,7 +1897,6 @@ public:
         if (m_idiv_terms.empty()) {
             return true;
         }
-        // init_variable_values();
         bool all_divs_valid = true;        
         for (expr* n : m_idiv_terms) {
             expr* p = nullptr, *q = nullptr;
@@ -1927,10 +1904,9 @@ public:
             theory_var v  = mk_var(n);
             theory_var v1 = mk_var(p);
             lp::impq r1 = get_ivalue(v1);
-            SASSERT(r1.y.is_zero());
             rational r2;
 
-            if (!r1.x.is_int() || r1.x.is_neg()) {
+            if (!r1.x.is_int() || r1.x.is_neg() || !r1.y.is_zero()) {
                 // TBD
                 // r1 = 223/4, r2 = 2, r = 219/8 
                 // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0
@@ -1946,8 +1922,7 @@ public:
                     continue;
                 }
                 lp::impq val_v = get_ivalue(v);
-                SASSERT(val_v.y.is_zero());
-                if (val_v.x == div(r1.x, r2)) continue;
+                if (val_v.y.is_zero() && val_v.x == div(r1.x, r2)) continue;
             
                 TRACE("arith", tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
                 rational div_r = div(r1.x, r2);

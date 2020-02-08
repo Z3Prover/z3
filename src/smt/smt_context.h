@@ -839,7 +839,7 @@ namespace smt {
 
         void mk_ite_cnstr(app * n);
 
-        bool track_occs() const { return m_fparams.m_phase_selection == PS_THEORY; }
+        bool track_occs() const { return m_fparams.m_phase_selection == PS_OCCURRENCE; }
         
         void dec_ref(literal l);
 
