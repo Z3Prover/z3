@@ -375,7 +375,7 @@ bool gomory::is_gomory_cut_target(const row_strip<mpq>& row) {
     return true;
 }
 
-int gomory::find_column() {
+int gomory::find_basic_var() {
     int result = -1;
     unsigned n = 0;
     bool boxed = false;
@@ -426,17 +426,18 @@ int gomory::find_column() {
     return result;
 }
     
-lia_move gomory::cut(lar_term & t, mpq & k, explanation* ex, bool& upper) {
+lia_move gomory::operator()(lar_term & t, mpq & k, explanation* ex, bool& upper) {
     if (s.m_lar_solver->move_non_basic_columns_to_bounds()) {
         lp_status st = s.m_lar_solver->find_feasible_solution();
         (void)st;
         lp_assert(st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
     }
         
-    int j = find_column();
+    int j = find_basic_var();
     if (j == -1) return lia_move::undef;
-    const row_strip<mpq>& row = s.m_lar_solver->get_row(s.row_of_basic_column(j));
-    SASSERT(s.m_lar_solver->row_is_correct(s.row_of_basic_column(j)));    
+    unsigned r = s.row_of_basic_column(j);
+    const row_strip<mpq>& row = s.m_lar_solver->get_row(r);
+    SASSERT(s.m_lar_solver->row_is_correct(r));
     SASSERT(is_gomory_cut_target(row));
     upper = true;
     return cut(t, k, ex, j, row);

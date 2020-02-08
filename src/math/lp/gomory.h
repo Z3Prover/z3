@@ -22,17 +22,15 @@ Revision History:
 #include "math/lp/static_matrix.h"
 
 namespace lp {
-class int_solver;
-class gomory {
-    class int_solver& s;
-    int find_column();
-    lia_move cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row);
-    bool is_gomory_cut_target(const row_strip<mpq>& row);
-
-public :
-    gomory(int_solver& s): s(s) {}
-
-    lia_move cut(lar_term & t, mpq & k, explanation* ex, bool& upper);
-    ~gomory();
-};
+    class int_solver;
+    class gomory {
+        class int_solver& s;
+        int find_basic_var();
+        bool is_gomory_cut_target(const row_strip<mpq>& row);
+        lia_move cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row);
+    public:
+        gomory(int_solver& s): s(s) {}
+        ~gomory();
+        lia_move operator()(lar_term & t, mpq & k, explanation* ex, bool& upper);
+    };
 }

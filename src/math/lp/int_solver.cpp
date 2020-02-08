@@ -261,12 +261,13 @@ bool int_solver::should_gomory_cut() {
 
 lia_move int_solver::gomory_cut() {
     TRACE("int_solver", tout << "gomory " << m_number_of_calls << "\n";);
-    if (!should_gomory_cut())
-        return lia_move::undef;
-
     gomory gc(*this);
-    return gc.cut(m_t, m_k, m_ex, m_upper);
-
+    if (should_gomory_cut()) {
+        return gc(m_t, m_k, m_ex, m_upper);
+    }
+    else {
+        return lia_move::undef;
+    }
 }
 
 void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
