@@ -39,7 +39,7 @@ class int_solver {
     friend class int_cube;
 public:
     // fields
-    lar_solver          *m_lar_solver;
+    lar_solver&         lra;
     unsigned            m_number_of_calls;
     lar_term            m_t; // the term to return in the cut
     mpq                 m_k; // the right side of the cut
@@ -48,7 +48,7 @@ public:
     hnf_cutter          m_hnf_cutter;
     unsigned            m_hnf_cut_period;
     // methods
-    int_solver(lar_solver* lp);
+    int_solver(lar_solver& lp);
 
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.

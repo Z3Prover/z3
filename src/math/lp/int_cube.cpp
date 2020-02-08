@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
@@ -15,8 +15,6 @@ Author:
 
 Revision History:
 --*/
-#pragma once
-
 
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
@@ -24,7 +22,7 @@ Revision History:
 
 namespace lp {
 
-    int_cube::int_cube(int_solver& lia):lia(lia), lra(*lia.m_lar_solver) {}
+    int_cube::int_cube(int_solver& lia):lia(lia), lra(lia.lra) {}
 
     lia_move int_cube::operator()() {
         lia.settings().stats().m_cube_calls++;

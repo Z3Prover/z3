@@ -50,7 +50,7 @@ class create_cut {
     const impq & upper_bound(unsigned j) const  { return m_int_solver.upper_bound(j); }
     constraint_index column_lower_bound_constraint(unsigned j) const { return m_int_solver.column_lower_bound_constraint(j); }
     constraint_index column_upper_bound_constraint(unsigned j) const { return m_int_solver.column_upper_bound_constraint(j); }
-    bool column_is_fixed(unsigned j) const { return m_int_solver.m_lar_solver->column_is_fixed(j); }
+    bool column_is_fixed(unsigned j) const { return m_int_solver.lra.column_is_fixed(j); }
 
     void int_case_in_gomory_cut(unsigned j) {
         lp_assert(m_int_solver.column_is_int(j) && m_fj.is_pos());
@@ -217,7 +217,7 @@ class create_cut {
         }
         for (const auto& p : m_t) {
             unsigned v = p.var();
-            if (m_int_solver.m_lar_solver->is_term(v)) {
+            if (m_int_solver.lra.is_term(v)) {
                 dump_declaration(out, v);
             }
         }
@@ -276,7 +276,7 @@ public:
     void dump(std::ostream& out) {
         out << "applying cut at:\n"; print_linear_combination_indices_only<row_strip<mpq>, mpq>(m_row, out); out << std::endl;
         for (auto & p : m_row) {
-            m_int_solver.m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), out);
+            m_int_solver.lra.m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), out);
         }
         out << "inf_col = " << m_inf_col << std::endl;
     }
@@ -336,7 +336,7 @@ public:
             adjust_term_and_k_for_some_ints_case_gomory();
         lp_assert(m_int_solver.current_solution_is_inf_on_cut());
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
-        m_int_solver.m_lar_solver->subs_term_columns(m_t);
+        m_int_solver.lra.subs_term_columns(m_t);
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }
@@ -386,16 +386,16 @@ int gomory::find_basic_var() {
     // Prefer boxed to non-boxed
     // Prefer smaller ranges
 
-    for (unsigned j : s.m_lar_solver->r_basis()) {
+    for (unsigned j : s.lra.r_basis()) {
         if (!s.column_is_int_inf(j))
             continue;
-        const row_strip<mpq>& row = s.m_lar_solver->get_row(s.row_of_basic_column(j));
+        const row_strip<mpq>& row = s.lra.get_row(s.row_of_basic_column(j));
         if (!is_gomory_cut_target(row)) 
             continue;
 
 #if 0
         if (is_boxed(j) && (min_row_size == UINT_MAX || 4*row.size() < 5*min_row_size)) {
-            lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
+            lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
             auto new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
             if (!boxed) {
                 result = j;
@@ -427,8 +427,8 @@ int gomory::find_basic_var() {
 }
     
 lia_move gomory::operator()(lar_term & t, mpq & k, explanation* ex, bool& upper) {
-    if (s.m_lar_solver->move_non_basic_columns_to_bounds()) {
-        lp_status st = s.m_lar_solver->find_feasible_solution();
+    if (s.lra.move_non_basic_columns_to_bounds()) {
+        lp_status st = s.lra.find_feasible_solution();
         (void)st;
         lp_assert(st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
     }
@@ -436,8 +436,8 @@ lia_move gomory::operator()(lar_term & t, mpq & k, explanation* ex, bool& upper)
     int j = find_basic_var();
     if (j == -1) return lia_move::undef;
     unsigned r = s.row_of_basic_column(j);
-    const row_strip<mpq>& row = s.m_lar_solver->get_row(r);
-    SASSERT(s.m_lar_solver->row_is_correct(r));
+    const row_strip<mpq>& row = s.lra.get_row(r);
+    SASSERT(s.lra.row_is_correct(r));
     SASSERT(is_gomory_cut_target(row));
     upper = true;
     return cut(t, k, ex, j, row);
