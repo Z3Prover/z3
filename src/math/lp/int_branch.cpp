@@ -49,8 +49,8 @@ namespace lp {
         }
         
         TRACE("int_solver",
-              lia.display_column(tout << "branching v" << j << " = " << get_value(j) << "\n", j);
-              tout << "k = " << m_k << std::endl;);
+              lia.display_column(tout << "branching v" << j << " = " << lia.get_value(j) << "\n", j);
+              tout << "k = " << lia.m_k << std::endl;);
         return lia_move::branch;        
     }
 
@@ -114,7 +114,7 @@ namespace lp {
             inf_int_count++;
             if (!lia.is_boxed(j))
                 continue;
-            lp_assert(!is_fixed(j));
+            lp_assert(!lia.is_fixed(j));
             new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
             if (new_range > small_range_thresold) 
                 continue;

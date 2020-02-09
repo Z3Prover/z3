@@ -28,7 +28,7 @@ namespace lp {
         lia.settings().stats().m_cube_calls++;
         TRACE("cube",
               for (unsigned j = 0; j < lra.A_r().column_count(); j++)
-                  display_column(tout, j);
+                  lia.display_column(tout, j);
               tout << lra.constraints();
               );
         
@@ -50,7 +50,7 @@ namespace lp {
         lra.pop();
         lra.round_to_integer_solution();
         lra.set_status(lp_status::FEASIBLE);
-        lp_assert(lia.settings().get_cancel_flag() || is_feasible());
+        lp_assert(lia.settings().get_cancel_flag() || lia.is_feasible());
         TRACE("cube", tout << "success";);
         lia.settings().stats().m_cube_success++;
         return lia_move::sat;
