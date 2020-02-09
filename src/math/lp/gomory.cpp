@@ -378,9 +378,12 @@ bool gomory::is_gomory_cut_target(const row_strip<mpq>& row) {
 int gomory::find_basic_var() {
     int result = -1;
     unsigned n = 0;
-    bool boxed = false;
     unsigned min_row_size = UINT_MAX;
+#if 0
+    bool boxed = false;
     mpq min_range;
+#endif
+
 
     // Prefer smaller row size
     // Prefer boxed to non-boxed

@@ -14,6 +14,7 @@ z3_add_component(lp
     indexed_vector.cpp
     int_branch.cpp
     int_cube.cpp
+    int_gcd_test.cpp
     int_solver.cpp
     lar_solver.cpp
     lar_core_solver.cpp

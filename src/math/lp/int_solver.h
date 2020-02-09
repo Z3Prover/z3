@@ -38,6 +38,7 @@ class int_solver {
     friend class gomory;
     friend class int_cube;
     friend class int_branch;
+    friend class int_gcd_test;
 public:
     // fields
     lar_solver&         lra;
@@ -107,7 +108,6 @@ private:
     bool should_gomory_cut();
     bool should_hnf_cut();
 
-    lia_move branch_or_sat();
     lp_settings& settings();
     const lp_settings& settings() const;
     bool at_bound(unsigned j) const;
@@ -128,12 +128,10 @@ private:
     bool has_inf_int() const;
 public:
     bool is_term(unsigned j) const;
-    lia_move find_cube();
     unsigned column_count() const;
     bool all_columns_are_bounded() const;
     void find_feasible_solution();
     lia_move run_gcd_test();
-    lia_move gomory_cut();
     lia_move hnf_cut();
     lia_move make_hnf_cut();
     bool init_terms_for_hnf_cut();
