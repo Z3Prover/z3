@@ -166,6 +166,8 @@ std::pair<unsigned, int> theory_arith<Ext>::analyze_monomial(expr * m) const {
     int idx          = 0;
     for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
         expr * arg = to_app(m)->get_arg(i);
+        if (m_util.is_numeral(arg))
+            continue;
         if (var == nullptr) {
             var   = arg;
             power = 1;
