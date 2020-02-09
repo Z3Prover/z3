@@ -30,28 +30,24 @@ Revision History:
 namespace lp {
 class lar_solver;
 
-template <typename T, typename X>
-struct lp_constraint;
-
-
 class int_solver {
+    friend class create_cut;
     friend class gomory;
     friend class int_cube;
     friend class int_branch;
     friend class int_gcd_test;
-public:
-    // fields
+
     lar_solver&         lra;
     unsigned            m_number_of_calls;
-    lar_term            m_t; // the term to return in the cut
-    mpq                 m_k; // the right side of the cut
-    explanation         *m_ex; // the conflict explanation
-    bool                m_upper; // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
+    lar_term            m_t;               // the term to return in the cut
+    mpq                 m_k;               // the right side of the cut
+    explanation         *m_ex;             // the conflict explanation
+    bool                m_upper;           // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
     hnf_cutter          m_hnf_cutter;
     unsigned            m_hnf_cut_period;
-    // methods
-    int_solver(lar_solver& lp);
 
+public:
+    int_solver(lar_solver& lp);
 
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
@@ -59,7 +55,7 @@ public:
     lar_term const& get_term() const { return m_t; }
     mpq const& get_offset() const { return m_k; }
     bool is_upper() const { return m_upper; }
-    lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
+    //lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
     bool is_base(unsigned j) const;
     bool is_real(unsigned j) const;
     const impq & lower_bound(unsigned j) const;
@@ -109,7 +105,6 @@ public:
     unsigned column_count() const;
     bool all_columns_are_bounded() const;
     void find_feasible_solution();
-    lia_move run_gcd_test();
     lia_move hnf_cut();
     lia_move make_hnf_cut();
     bool init_terms_for_hnf_cut();

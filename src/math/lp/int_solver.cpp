@@ -3,16 +3,25 @@
   Author: Lev Nachmanson
 */
 
+#include <utility>
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
-#include <utility>
 #include "math/lp/monic.h"
 #include "math/lp/gomory.h"
 #include "math/lp/int_branch.h"
 #include "math/lp/int_gcd_test.h"
 #include "math/lp/int_cube.h"
+
 namespace lp {
+
+int_solver::int_solver(lar_solver& lar_slv) :
+    lra(lar_slv),
+    m_number_of_calls(0),
+    m_hnf_cutter(settings()),
+    m_hnf_cut_period(settings().hnf_cut_period()) {
+    lra.set_int_solver(this);
+}
 
 // this will allow to enable and disable tracking of the pivot rows
 struct check_return_helper {
@@ -20,8 +29,7 @@ struct check_return_helper {
     bool             m_track_pivoted_rows;
     check_return_helper(lar_solver& ls) :
         lra(ls),
-        m_track_pivoted_rows(lra.get_track_pivoted_rows())
-    {
+        m_track_pivoted_rows(lra.get_track_pivoted_rows()) {
         TRACE("pivoted_rows", tout << "pivoted rows = " << lra.m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
         lra.set_track_pivoted_rows(false);
     }
@@ -42,9 +50,9 @@ lia_move int_solver::check(lp::explanation * e) {
     m_upper = false;
     lia_move r = lia_move::undef;
 
-    gomory gc(*this);
-    int_cube cube(*this);
-    int_branch branch(*this);
+    gomory       gc(*this);
+    int_cube     cube(*this);
+    int_branch   branch(*this);
     int_gcd_test gcd(*this);
 
     if (should_run_gcd_test()) r = gcd();
@@ -59,7 +67,7 @@ lia_move int_solver::check(lp::explanation * e) {
     ++m_number_of_calls;
     if (r == lia_move::undef && should_find_cube()) r = cube();
     if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
-    if (r == lia_move::undef && should_gomory_cut()) r = gc(m_t, m_k, m_ex, m_upper);
+    if (r == lia_move::undef && should_gomory_cut()) r = gc();
     if (r == lia_move::undef) r = branch();
     return r;
 }
@@ -140,6 +148,10 @@ const impq& int_solver::upper_bound(unsigned j) const {
     return lra.column_upper_bound(j);
 }
 
+const impq& int_solver::lower_bound(unsigned j) const {
+    return lra.column_lower_bound(j);
+}
+
 bool int_solver::is_term(unsigned j) const {
     return lra.column_corresponds_to_term(j);
 }
@@ -147,7 +159,6 @@ bool int_solver::is_term(unsigned j) const {
 unsigned int_solver::column_count() const  { 
     return lra.column_count(); 
 }
-
 
 bool int_solver::should_find_cube() {
     return m_number_of_calls % settings().m_int_find_cube_period == 0;
@@ -309,17 +320,6 @@ lia_move int_solver::patch_nbasic_columns() {
         return lia_move::sat;
     }
     return lia_move::undef;
-}
-
-// TBD: move to gcd-test
-
-
-int_solver::int_solver(lar_solver& lar_slv) :
-    lra(lar_slv),
-    m_number_of_calls(0),
-    m_hnf_cutter(settings()),
-    m_hnf_cut_period(settings().hnf_cut_period()) {
-    lra.set_int_solver(this);
 }
 
 
@@ -615,10 +615,6 @@ bool int_solver::non_basic_columns_are_at_bounds() const {
         }
     }
     return true;
-}
-
-const impq& int_solver::lower_bound(unsigned j) const {
-    return lra.column_lower_bound(j);
 }
     
 
