@@ -906,7 +906,7 @@ namespace smt {
                     } else if (u.str.is_in_re(subterm)) {
                         TRACE("str_fl", tout << "reduce negative regex membership: " << mk_pp(f, m) << std::endl;);
                         expr_ref cex_clause(m);
-                        expr_ref re(f, m);
+                        expr_ref re(subterm, m);
                         if (!fixed_length_reduce_regex_membership(subsolver, re, cex_clause, false)) {
                             assert_axiom(cex_clause);
                             add_persisted_axiom(cex_clause);
