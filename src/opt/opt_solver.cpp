@@ -186,6 +186,9 @@ namespace opt {
             r = m_context.check(num_assumptions, assumptions);
         }
         r = adjust_result(r);
+        if (r == l_true) {
+            m_context.get_model(m_model);
+        }
         m_first = false;
         if (dump_benchmarks()) {
             w.stop();
