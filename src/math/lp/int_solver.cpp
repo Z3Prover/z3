@@ -18,7 +18,7 @@ namespace lp {
 int_solver::int_solver(lar_solver& lar_slv) :
     lra(lar_slv),
     m_number_of_calls(0),
-    m_hnf_cutter(settings()),
+    m_hnf_cutter(*this),
     m_hnf_cut_period(settings().hnf_cut_period()) {
     lra.set_int_solver(this);
 }
@@ -172,80 +172,12 @@ bool int_solver::should_gomory_cut() {
     return m_number_of_calls % settings().m_int_gomory_cut_period == 0;
 }
 
-void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
-    mpq rs;
-    const lar_term* t = lra.terms()[i];
-    constraint_index ci;
-    bool upper_bound;
-    if (!hnf_cutter_is_full() && lra.get_equality_and_right_side_for_term_on_current_x(i, rs, ci, upper_bound)) {
-        m_hnf_cutter.add_term(t, rs, ci, upper_bound);
-    }
-}
-
-bool int_solver::hnf_cutter_is_full() const {
-    return
-        m_hnf_cutter.terms_count() >= settings().limit_on_rows_for_hnf_cutter
-                                     ||
-        m_hnf_cutter.vars().size() >= settings().limit_on_columns_for_hnf_cutter;
-}
-
-bool int_solver::hnf_has_var_with_non_integral_value() const {
-    for (unsigned j : m_hnf_cutter.vars())
-        if (!get_value(j).is_int())
-            return true;
-    return false;
-}
-
-bool int_solver::init_terms_for_hnf_cut() {
-    m_hnf_cutter.clear();
-    for (unsigned i = 0; i < lra.terms().size() && !hnf_cutter_is_full(); i++) {
-        try_add_term_to_A_for_hnf(i);
-    }
-    return hnf_has_var_with_non_integral_value();
-}
-
-lia_move int_solver::make_hnf_cut() {
-    if (!init_terms_for_hnf_cut()) {
-        return lia_move::undef;
-    }
-    settings().stats().m_hnf_cutter_calls++;
-    TRACE("hnf_cut", tout << "settings().stats().m_hnf_cutter_calls = " << settings().stats().m_hnf_cutter_calls << "\n";
-          for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
-              lra.constraints().display(tout, i);
-          }              
-          tout << lra.constraints();
-          );
-#ifdef Z3DEBUG
-    vector<mpq> x0 = m_hnf_cutter.transform_to_local_columns(lra.m_mpq_lar_core_solver.m_r_x);
-#else
-    vector<mpq> x0;
-#endif
-    lia_move r =  m_hnf_cutter.create_cut(m_t, m_k, m_ex, m_upper, x0);
-
-    if (r == lia_move::cut) {      
-        TRACE("hnf_cut",
-              lra.print_term(m_t, tout << "cut:"); 
-              tout << " <= " << m_k << std::endl;
-              for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
-                  lra.constraints().display(tout, i);
-              }              
-              );
-        lp_assert(current_solution_is_inf_on_cut());
-        settings().stats().m_hnf_cuts++;
-        m_ex->clear();        
-        for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
-             m_ex->push_justification(i);
-        }
-    } 
-    return r;
-}
-
 bool int_solver::should_hnf_cut() {
     return settings().m_enable_hnf && m_number_of_calls % m_hnf_cut_period == 0;
 }
 
 lia_move int_solver::hnf_cut() {
-    lia_move r = make_hnf_cut();
+    lia_move r = m_hnf_cutter.make_hnf_cut();
     if (r == lia_move::undef) {
         m_hnf_cut_period *= 2;
     }

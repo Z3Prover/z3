@@ -36,6 +36,7 @@ class int_solver {
     friend class int_cube;
     friend class int_branch;
     friend class int_gcd_test;
+    friend class hnf_cutter;
 
     lar_solver&         lra;
     unsigned            m_number_of_calls;
@@ -55,7 +56,6 @@ public:
     lar_term const& get_term() const { return m_t; }
     mpq const& get_offset() const { return m_k; }
     bool is_upper() const { return m_upper; }
-    //lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
     bool is_base(unsigned j) const;
     bool is_real(unsigned j) const;
     const impq & lower_bound(unsigned j) const;
@@ -106,12 +106,6 @@ public:
     bool all_columns_are_bounded() const;
     void find_feasible_solution();
     lia_move hnf_cut();
-    lia_move make_hnf_cut();
-    bool init_terms_for_hnf_cut();
-    bool hnf_matrix_is_empty() const;
-    void try_add_term_to_A_for_hnf(unsigned term_index);
-    bool hnf_has_var_with_non_integral_value() const;
-    bool hnf_cutter_is_full() const;
     void patch_nbasic_column(unsigned j);
   };
 }
