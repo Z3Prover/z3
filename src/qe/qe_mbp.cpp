@@ -64,6 +64,9 @@ expr_ref project_plugin::pick_equality(ast_manager& m, model& model, expr* t) {
     expr_ref_vector vals(m);
     obj_map<expr, expr*> val2expr;
     app* alit = to_app(t);
+    if (alit->get_num_args() == 2) {
+        return expr_ref(m.mk_eq(alit->get_arg(0), alit->get_arg(1)), m);
+    }
     for (expr * e1 : *alit) {
         expr *e2;
         val = model(e1);
@@ -79,7 +82,7 @@ expr_ref project_plugin::pick_equality(ast_manager& m, model& model, expr* t) {
             expr* e1 = alit->get_arg(i);
             expr* e2 = alit->get_arg(j);
             val = m.mk_eq(e1, e2);
-            if (model.is_true(val))
+            if (!model.is_false(val))
                 return expr_ref(m.mk_eq(e1, e2), m);
         }
     }
