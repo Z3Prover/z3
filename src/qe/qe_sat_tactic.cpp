@@ -672,9 +672,9 @@ namespace qe {
             lbool r = solver.check();
             m_assignments.reset();
             solver.get_assignments(m_assignments);
+            if(r == l_true && i == 0) solver.get_model(model);
             solver.pop(1);
-            check_success(r != l_undef);
-            if (r == l_true && i == 0) solver.get_model(model);
+            check_success(r != l_undef);            
             return r == l_true;
         }
 

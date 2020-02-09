@@ -529,6 +529,7 @@ namespace smt {
 
     bool theory_bv::get_fixed_value(app* x, numeral & result) const {
         context& ctx = get_context();
+        CTRACE("bv", !ctx.e_internalized(x), tout << "not internalized " << mk_pp(x, get_manager()) << "\n";);
         if (!ctx.e_internalized(x)) return false;
         enode * e    = ctx.get_enode(x);
         theory_var v = e->get_th_var(get_id());
