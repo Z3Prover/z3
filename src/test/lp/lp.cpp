@@ -2960,7 +2960,7 @@ void test_term() {
     std::cout << "\ntableau before cube\n";
     solver.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
     std::cout << "\n";
-    int_solver i_s(&solver);
+    int_solver i_s(solver);
     solver.set_int_solver(&i_s);
     lia_move m = i_s.find_cube();
     
@@ -3763,7 +3763,7 @@ void test_larger_generated_hnf() {
 void test_maximize_term() {
     std::cout << "test_maximize_term\n";
     lar_solver solver;
-    int_solver i_solver(&solver); // have to create it too
+    int_solver i_solver(solver); // have to create it too
     unsigned _x = 0;
     unsigned _y = 1;
     var_index x = solver.add_var(_x, false);
