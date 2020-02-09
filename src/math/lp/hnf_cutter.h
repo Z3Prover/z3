@@ -44,11 +44,12 @@ public:
     
     hnf_cutter(int_solver& lia);
 
-    lia_move hnf_cutter::make_hnf_cut();
+    lia_move make_hnf_cut();
 
-    bool hnf_cutter::init_terms_for_hnf_cut();
-    bool hnf_cutter::hnf_has_var_with_non_integral_value() const;
-    void hnf_cutter::try_add_term_to_A_for_hnf(unsigned i);
+private:
+    bool init_terms_for_hnf_cut();
+    bool hnf_has_var_with_non_integral_value() const;
+    void try_add_term_to_A_for_hnf(unsigned i);
 
     unsigned terms_count() const { return m_terms.size();  }
     const mpq & abs_max() const { return m_abs_max; }
