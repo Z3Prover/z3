@@ -52,6 +52,7 @@ public:
     // methods
     int_solver(lar_solver& lp);
 
+
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(explanation *);
@@ -69,31 +70,8 @@ public:
     bool at_upper(unsigned j) const;
     
 private:
-
-    // how to tighten bounds for integer variables.
-
-    bool gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i); 
-    
-    // gcd test
-    // 5*x + 3*y + 6*z = 5
-    // suppose x is fixed at 2.
-    // so we have 10 + 3(y + 2z) = 5
-    //             5 = -3(y + 2z)
-    // this is unsolvable because 5/3 is not an integer.
-    // so we create a lemma that rules out this condition.
-    // 
-    bool gcd_test(); // returns false in case of failure. Creates a theory lemma in case of failure.
-
-    bool branch(const lp_constraint<mpq, mpq> & new_inequality);
-    bool ext_gcd_test(const row_strip<mpq>& row,
-                      mpq const & least_coeff, 
-                      mpq const & lcm_den,
-                      mpq const & consts);
-    void fill_explanation_from_fixed_columns(const row_strip<mpq> & row);
-    void add_to_explanation_from_fixed_or_boxed_column(unsigned j);
     lia_move patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
-private:
     bool is_boxed(unsigned j) const;
     bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;

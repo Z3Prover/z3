@@ -312,12 +312,6 @@ lia_move int_solver::patch_nbasic_columns() {
 }
 
 // TBD: move to gcd-test
-void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
-    constraint_index lc, uc;
-    lra.get_bound_constraint_witnesses_for_column(j, lc, uc);
-    m_ex->push_justification(lc);
-    m_ex->push_justification(uc);
-}
 
 
 int_solver::int_solver(lar_solver& lar_slv) :

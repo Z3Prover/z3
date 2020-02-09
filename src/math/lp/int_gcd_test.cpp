@@ -158,7 +158,7 @@ namespace lp {
                     // u += ncoeff * lower_bound(j).get_rational();
                     u.addmul(ncoeff, lra.column_lower_bound(j).x);
                 }
-                lia.add_to_explanation_from_fixed_or_boxed_column(j);
+                add_to_explanation_from_fixed_or_boxed_column(j);
             }
             else if (gcds.is_zero()) {
                 gcds = abs_ncoeff; 
@@ -186,7 +186,15 @@ namespace lp {
     void int_gcd_test::fill_explanation_from_fixed_columns(const row_strip<mpq> & row) {
         for (const auto & c : row) {
             if (lra.column_is_fixed(c.var()))
-                lia.add_to_explanation_from_fixed_or_boxed_column(c.var());
+                add_to_explanation_from_fixed_or_boxed_column(c.var());
         }
     }
+
+    void int_gcd_test::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
+        constraint_index lc, uc;
+        lra.get_bound_constraint_witnesses_for_column(j, lc, uc);
+        lia.m_ex->push_justification(lc);
+        lia.m_ex->push_justification(uc);
+    }
+
 }

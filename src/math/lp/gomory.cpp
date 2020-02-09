@@ -31,7 +31,7 @@ class create_cut {
     explanation*          m_ex; // the conflict explanation
     unsigned              m_inf_col; // a basis column which has to be an integer but has a non integral value
     const row_strip<mpq>& m_row;
-    const int_solver&     m_int_solver;
+    const int_solver&     lia;
     mpq                   m_lcm_den;
     mpq                   m_f;
     mpq                   m_one_minus_f;
@@ -42,18 +42,18 @@ class create_cut {
 #endif
     struct found_big {};
 
-    const impq & get_value(unsigned j) const { return m_int_solver.get_value(j); }
-    bool is_real(unsigned j) const { return m_int_solver.is_real(j); }
-    bool at_lower(unsigned j) const { return m_int_solver.at_lower(j); }
-    bool at_upper(unsigned j) const { return m_int_solver.at_upper(j); }
-    const impq & lower_bound(unsigned j) const { return m_int_solver.lower_bound(j); }
-    const impq & upper_bound(unsigned j) const  { return m_int_solver.upper_bound(j); }
-    constraint_index column_lower_bound_constraint(unsigned j) const { return m_int_solver.column_lower_bound_constraint(j); }
-    constraint_index column_upper_bound_constraint(unsigned j) const { return m_int_solver.column_upper_bound_constraint(j); }
-    bool column_is_fixed(unsigned j) const { return m_int_solver.lra.column_is_fixed(j); }
+    const impq & get_value(unsigned j) const { return lia.get_value(j); }
+    bool is_real(unsigned j) const { return lia.is_real(j); }
+    bool at_lower(unsigned j) const { return lia.at_lower(j); }
+    bool at_upper(unsigned j) const { return lia.at_upper(j); }
+    const impq & lower_bound(unsigned j) const { return lia.lower_bound(j); }
+    const impq & upper_bound(unsigned j) const  { return lia.upper_bound(j); }
+    constraint_index column_lower_bound_constraint(unsigned j) const { return lia.column_lower_bound_constraint(j); }
+    constraint_index column_upper_bound_constraint(unsigned j) const { return lia.column_upper_bound_constraint(j); }
+    bool column_is_fixed(unsigned j) const { return lia.lra.column_is_fixed(j); }
 
     void int_case_in_gomory_cut(unsigned j) {
-        lp_assert(m_int_solver.column_is_int(j) && m_fj.is_pos());
+        lp_assert(lia.column_is_int(j) && m_fj.is_pos());
         TRACE("gomory_cut_detail", 
               tout << " k = " << m_k;
               tout << ", fj: " << m_fj << ", ";
@@ -131,7 +131,7 @@ class create_cut {
         if (pol.size() == 1) {
             TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
             unsigned v = pol[0].second;
-            lp_assert(m_int_solver.column_is_int(v));
+            lp_assert(lia.column_is_int(v));
             const mpq& a = pol[0].first;
             m_k /= a;
             if (a.is_pos()) { // we have av >= k
@@ -153,7 +153,7 @@ class create_cut {
                 // normalize coefficients of integer parameters to be integers.
                 for (auto & pi: pol) {
                     pi.first *= m_lcm_den;
-                    SASSERT(!m_int_solver.column_is_int(pi.second) || pi.first.is_int());
+                    SASSERT(!lia.column_is_int(pi.second) || pi.first.is_int());
                 }
                 m_k *= m_lcm_den;
             }
@@ -207,7 +207,7 @@ class create_cut {
     }
 
     void dump_declaration(std::ostream& out, unsigned v) const {
-        out << "(declare-const " << var_name(v) << (m_int_solver.column_is_int(v) ? " Int" : " Real") << ")\n";
+        out << "(declare-const " << var_name(v) << (lia.column_is_int(v) ? " Int" : " Real") << ")\n";
     }
     
     void dump_declarations(std::ostream& out) const {
@@ -217,7 +217,7 @@ class create_cut {
         }
         for (const auto& p : m_t) {
             unsigned v = p.var();
-            if (m_int_solver.lra.is_term(v)) {
+            if (lia.lra.is_term(v)) {
                 dump_declaration(out, v);
             }
         }
@@ -276,7 +276,7 @@ public:
     void dump(std::ostream& out) {
         out << "applying cut at:\n"; print_linear_combination_indices_only<row_strip<mpq>, mpq>(m_row, out); out << std::endl;
         for (auto & p : m_row) {
-            m_int_solver.lra.m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), out);
+            lia.lra.m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), out);
         }
         out << "inf_col = " << m_inf_col << std::endl;
     }
@@ -334,20 +334,20 @@ public:
             return report_conflict_from_gomory_cut();
         if (some_int_columns)
             adjust_term_and_k_for_some_ints_case_gomory();
-        lp_assert(m_int_solver.current_solution_is_inf_on_cut());
+        lp_assert(lia.current_solution_is_inf_on_cut());
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
-        m_int_solver.lra.subs_term_columns(m_t);
+        lia.lra.subs_term_columns(m_t);
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }
 
-    create_cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& int_slv ) :
+    create_cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& lia) :
         m_t(t),
         m_k(k),
         m_ex(ex),
         m_inf_col(basic_inf_int_j),
         m_row(row),
-        m_int_solver(int_slv),
+        lia(lia),
         m_lcm_den(1),
         m_f(fractional_part(get_value(basic_inf_int_j).x)),
         m_one_minus_f(1 - m_f) {}
@@ -358,7 +358,6 @@ lia_move gomory::cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_
     create_cut cc(t, k, ex, basic_inf_int_j, row, s);
     return cc.cut();
 }
-
 
 bool gomory::is_gomory_cut_target(const row_strip<mpq>& row) {
     // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
