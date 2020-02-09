@@ -57,6 +57,7 @@
 #include "math/lp/nla_solver.h"
 #include "math/lp/horner.h"
 #include "math/lp/cross_nested.h"
+#include "math/lp/int_cube.h"
 namespace nla {
 void test_horner();
 void test_order_lemma();
@@ -2962,7 +2963,8 @@ void test_term() {
     std::cout << "\n";
     int_solver i_s(solver);
     solver.set_int_solver(&i_s);
-    lia_move m = i_s.find_cube();
+    int_cube cuber(i_s);
+    lia_move m = cuber();
     
     std::cout <<"\n" << lia_move_to_string(m) << std::endl;
     model.clear();
