@@ -237,7 +237,8 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
             TRACE("simplify", tout << new_c << "\n" << new_t << "\n" << new_e << "\n";);
             r = m.mk_ite(new_c, new_t, new_e);
         }        
-    }    
+    }
+    reset_cache();
     return r;
 }
 
@@ -281,7 +282,12 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
         if (is_app(e)) {
             m_args.reset();
             for (expr* arg : *to_app(e)) {
-                m_args.push_back(simplify_arg(arg)); 
+                // we don't have a way to distinguish between e.g.
+                // ite(c, f(c), foo)  (which should go to ite(c, f(true), foo))
+                // from and(or(x, y), f(x)), where we do a "trial" with x=false
+                // Trials are good for boolean formula simplification but not sound
+                // for fn applications.
+                m_args.push_back(m.is_bool(arg) ? arg : simplify_arg(arg));
             }
             r = m.mk_app(to_app(e)->get_decl(), m_args.size(), m_args.c_ptr());
         }

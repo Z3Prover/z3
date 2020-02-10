@@ -114,6 +114,7 @@ class dom_simplify_tactic : public tactic {
 
     expr_ref get_cached(expr* t) { expr* r = nullptr; if (!m_result.find(t, r)) r = t; return expr_ref(r, m); }
     void cache(expr *t, expr* r) { m_result.insert(t, r); m_trail.push_back(r); }
+    void reset_cache() { m_result.reset(); }
 
     ptr_vector<expr> const & tree(expr * e);
     expr* idom(expr *e) const { return m_dominators.idom(e); }
