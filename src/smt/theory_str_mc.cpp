@@ -267,9 +267,8 @@ namespace smt {
         ast_manager & sub_m = subsolver.m();
         context & sub_ctx = subsolver.get_context();
 
-        expr * full;
-        expr * pref;
-        u.str.is_prefix(f, pref, full);
+        expr * pref = nullptr, *full = nullptr;
+        VERIFY(u.str.is_prefix(f, pref, full));
 
         expr_ref haystack(full, m);
         expr_ref needle(pref, m);
@@ -384,9 +383,8 @@ namespace smt {
         ast_manager & sub_m = subsolver.m();
         context & sub_ctx = subsolver.get_context();
 
-        expr * full;
-        expr * small;
-        u.str.is_contains(f, full, small);
+        expr * small = nullptr, *full = nullptr;
+        VERIFY(u.str.is_contains(f, full, small));
 
         expr_ref haystack(full, m);
         expr_ref needle(small, m);
@@ -1048,10 +1046,8 @@ namespace smt {
                             // do nothing
                         } else if (m.is_false(f_new)) {
                             context & ctx = get_context();
-                            if (u.str.is_contains(f)) {
-                                expr * haystack;
-                                expr * needle;
-                                u.str.is_contains(f, haystack, needle);
+                            expr * needle = nullptr, *haystack = nullptr;
+                            if (u.str.is_contains(f, haystack, needle)) {
                                 expr_ref haystack_assignment(m);
                                 expr_ref needle_assignment(m);
                                 (*replacer)(haystack, haystack_assignment);
