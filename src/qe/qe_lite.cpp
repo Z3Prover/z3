@@ -37,7 +37,7 @@ Revision History:
 #include "qe/qe_vartest.h"
 #include "qe/qe_solve_plugin.h"
 
-namespace {
+namespace qel {
 
     bool occurs_var(unsigned idx, expr* e) {
         if (is_ground(e)) return false;
@@ -616,6 +616,8 @@ namespace {
         }
 
         bool is_unconstrained(var* x, expr* t, unsigned i, expr_ref_vector const& conjs) {
+            sort* s = m.get_sort(x);
+            if (!m.is_fully_interp(s) || !s->get_num_elements().is_infinite()) return false;
             bool occ = occurs_var(x->get_idx(), t);
             for (unsigned j = 0; !occ && j < conjs.size(); ++j) {
                 occ = (i != j) && occurs_var(x->get_idx(), conjs[j]);
@@ -2259,9 +2261,9 @@ class qe_lite::impl {
 
 private:
     ast_manager& m;
-    eq_der       m_der;
-    fm::fm       m_fm;
-    ar_der       m_array_der;
+    qel::eq_der  m_der;
+    qel::fm::fm  m_fm;
+    qel::ar_der  m_array_der;
     elim_star    m_elim_star;
     th_rewriter  m_rewriter;
 
