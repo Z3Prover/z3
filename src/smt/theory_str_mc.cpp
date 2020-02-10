@@ -471,8 +471,7 @@ namespace smt {
             } else {
                 unsigned_vector eps_states;
                 aut->get_epsilon_closure(initial_state, eps_states);
-                for (unsigned_vector::iterator it = eps_states.begin(); it != eps_states.end(); ++it) {
-                    unsigned state = *it;
+                for (unsigned state : eps_states) {
                     if (aut->is_final_state(state)) {
                         zero_solution = true;
                         break;
@@ -494,16 +493,15 @@ namespace smt {
             expr_ref_vector trail(m);
             u_map<expr*> maps[2];
             bool select_map = false;
-            expr_ref ch(m), cond(m);
+            expr_ref cond(m);
             eautomaton::moves mvs;
             maps[0].insert(aut->init(), m.mk_true());
             // is_accepted(a, aut) & some state in frontier is final.
 
-            for (unsigned i = 0; i < str_chars.size(); ++i) {
+            for (auto& ch : str_chars) {
                 u_map<expr*>& frontier = maps[select_map];
                 u_map<expr*>& next = maps[!select_map];
                 select_map = !select_map;
-                ch = str_chars.get(i);
                 next.reset();
                 u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
                 for (; it != end; ++it) {
@@ -511,8 +509,7 @@ namespace smt {
                     unsigned state = it->m_key;
                     expr*    acc  = it->m_value;
                     aut->get_moves_from(state, mvs, false);
-                    for (unsigned j = 0; j < mvs.size(); ++j) {
-                        eautomaton::move const& mv = mvs[j];
+                    for (eautomaton::move& mv : mvs) {
                         SASSERT(mv.t());
                         if (mv.t()->is_char() && m.is_value(mv.t()->get_char()) && m.is_value(ch)) {
                             if (mv.t()->get_char() == ch) {
@@ -772,17 +769,15 @@ namespace smt {
             }
         }
 
-        if (is_trace_enabled("str")) {
-            TRACE_CODE(
-                    ast_manager & m = get_manager();
+        TRACE("str",
+            ast_manager & m = get_manager();
             context & ctx = get_context();
             tout << "dumping all formulas:" << std::endl;
             for (expr_ref_vector::iterator i = formulas.begin(); i != formulas.end(); ++i) {
                 expr * ex = *i;
                 tout << mk_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
             }
-            );
-        }
+        );
 
         fixed_length_subterm_trail.reset();
         fixed_length_used_len_terms.reset();
@@ -955,20 +950,18 @@ namespace smt {
             precondition.push_back(m.mk_eq(u.str.mk_length(var), mk_int(e.get_value())));
         }
 
-        TRACE_CODE(
-            if(is_trace_enabled("str_fl")) {
-                tout << "formulas asserted to bitvector subsolver:" << std::endl;
-                for (auto e : fixed_length_assumptions) {
-                    tout << mk_pp(e, subsolver.m()) << std::endl;
+        TRACE("str_fl",
+            tout << "formulas asserted to bitvector subsolver:" << std::endl;
+            for (auto e : fixed_length_assumptions) {
+                tout << mk_pp(e, subsolver.m()) << std::endl;
+            }
+            tout << "variable to character mappings:" << std::endl;
+            for (auto &entry : var_to_char_subterm_map) {
+                tout << mk_pp(entry.m_key, get_manager()) << ":";
+                for (auto e : entry.m_value) {
+                    tout << " " << mk_pp(e, subsolver.m());
                 }
-                tout << "variable to character mappings:" << std::endl;
-                for (auto &entry : var_to_char_subterm_map) {
-                    tout << mk_pp(entry.m_key, get_manager()) << ":";
-                    for (auto e : entry.m_value) {
-                        tout << " " << mk_pp(e, subsolver.m());
-                    }
-                    tout << std::endl;
-                }
+                tout << std::endl;
             }
         );
 
@@ -1002,11 +995,9 @@ namespace smt {
                 model.insert(var, strValue);
                 subst.insert(var, mk_string(strValue));
             }
-            TRACE_CODE(
-                if (is_trace_enabled("str_fl")) {
-                    for (auto entry : model) {
-                        tout << mk_pp(entry.m_key, m) << " = " << entry.m_value << std::endl;
-                    }
+            TRACE("str_fl",
+                for (auto entry : model) {
+                    tout << mk_pp(entry.m_key, m) << " = " << entry.m_value << std::endl;
                 }
             );
             for (auto entry : uninterpreted_to_char_subterm_map) {
