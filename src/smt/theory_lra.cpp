@@ -26,8 +26,6 @@
 #include "math/lp/lar_solver.h"
 #include "util/nat_set.h"
 #include "util/optional.h"
-#include "math/lp/lp_params.hpp"
-#include "math/lp/nla_params.hpp"
 #include "util/inf_rational.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
@@ -390,15 +388,15 @@ class theory_lra::imp {
         get_zero(true);
         get_zero(false);
 
-        lp_params lpar(ctx().get_params());
+        smt_params_helper lpar(ctx().get_params());
         lp().settings().set_resource_limit(m_resource_limit);
-        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.simplex_strategy());
+        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
         lp().settings().bound_propagation() = BP_NONE != propagation_mode();
-        lp().settings().m_enable_hnf = lpar.enable_hnf();
-        lp().settings().m_print_external_var_name = lpar.print_ext_var_names();
-        lp().set_track_pivoted_rows(lpar.bprop_on_pivoted_rows());
-        lp().settings().report_frequency = lpar.rep_freq();
-        lp().settings().print_statistics = lpar.print_stats();
+        lp().settings().m_enable_hnf = lpar.arith_enable_hnf();
+        lp().settings().m_print_external_var_name = lpar.arith_print_ext_var_names();
+        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
+        lp().settings().report_frequency = lpar.arith_rep_freq();
+        lp().settings().print_statistics = lpar.arith_print_stats();
 
         // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
         unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
@@ -406,7 +404,7 @@ class theory_lra::imp {
 
         lp().settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        m_switcher.m_use_nla = m_use_nla = lpar.nla();
+        m_switcher.m_use_nla = m_use_nla = lpar.arith_nla();
         m_lia = alloc(lp::int_solver, *m_solver.get());
         get_one(true);
         get_zero(true);
