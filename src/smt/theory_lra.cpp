@@ -456,23 +456,22 @@ class theory_lra::imp {
                 (void)_s;
                 m_nla->push();
             }
-            nla_params nla(ctx().get_params());
-            m_nla->get_core()->m_nla_settings.run_order() = nla.order();
-            m_nla->get_core()->m_nla_settings.run_tangents() = nla.tangents();
-            m_nla->get_core()->m_nla_settings.run_horner() = nla.horner();
-            m_nla->get_core()->m_nla_settings.horner_subs_fixed() = nla.horner_subs_fixed();
+            smt_params_helper prms(ctx().get_params());
+            m_nla->get_core()->m_nla_settings.run_order() = prms.arith_nl_order();
+            m_nla->get_core()->m_nla_settings.run_tangents() = prms.arith_nl_tangents();
+            m_nla->get_core()->m_nla_settings.run_horner() = prms.arith_nl_horner();
+            m_nla->get_core()->m_nla_settings.horner_subs_fixed() = prms.arith_nl_horner_subs_fixed();
             
-            m_nla->get_core()->m_nla_settings.horner_frequency() = nla.horner_frequency();
-            m_nla->get_core()->m_nla_settings.horner_row_length_limit() = nla.horner_row_length_limit();
-            m_nla->get_core()->m_nla_settings.run_grobner() = nla.grobner();
-            m_nla->get_core()->m_nla_settings.grobner_subs_fixed() = nla.grobner_subs_fixed();
-            m_nla->get_core()->m_nla_settings.grobner_eqs_growth() =  nla.grobner_eqs_growth();
-            m_nla->get_core()->m_nla_settings.grobner_expr_size_growth() =  nla.grobner_expr_size_growth();
-            m_nla->get_core()->m_nla_settings.grobner_expr_degree_growth() =  nla.grobner_expr_degree_growth();
-            m_nla->get_core()->m_nla_settings.grobner_max_simplified() =      nla.grobner_max_simplified();
-            m_nla->get_core()->m_nla_settings.grobner_number_of_conflicts_to_report() =      nla.grobner_cnfl_to_report();
-            m_nla->get_core()->m_grobner_quota = nla.gr_q();
-            
+            m_nla->get_core()->m_nla_settings.horner_frequency() = prms.arith_nl_horner_frequency();
+            m_nla->get_core()->m_nla_settings.horner_row_length_limit() = prms.arith_nl_horner_row_length_limit();
+            m_nla->get_core()->m_nla_settings.run_grobner() = prms.arith_nl_grobner();
+            m_nla->get_core()->m_nla_settings.grobner_subs_fixed() = prms.arith_nl_grobner_subs_fixed();
+            m_nla->get_core()->m_nla_settings.grobner_eqs_growth() =  prms.arith_nl_grobner_eqs_growth();
+            m_nla->get_core()->m_nla_settings.grobner_expr_size_growth() =  prms.arith_nl_grobner_expr_size_growth();
+            m_nla->get_core()->m_nla_settings.grobner_expr_degree_growth() =  prms.arith_nl_grobner_expr_degree_growth();
+            m_nla->get_core()->m_nla_settings.grobner_max_simplified() =      prms.arith_nl_grobner_max_simplified();
+            m_nla->get_core()->m_nla_settings.grobner_number_of_conflicts_to_report() =      prms.arith_nl_grobner_cnfl_to_report();
+            m_nla->get_core()->m_grobner_quota = prms.arith_nl_gr_q();
         }
     }
 
