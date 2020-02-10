@@ -517,7 +517,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     // the interval contains at least range multiples of m.
     // the number of multiples to the left of the value of j is floor((get_value(j) - l.x)/m)
     // shift either left or right of the current value by available multiples.
-    impq shift = impq(random() % (range + 1)) - impq(floor(x.x - l.x) / m);
+    impq shift = impq(random() % (range + 1)) - impq(floor((x.x - l.x) / m));
     impq new_val = x + m * shift;
     SASSERT(l <= new_val && new_val <= u);
     set_value_for_nbasic_column_ignore_old_values(j, new_val);    return true;
