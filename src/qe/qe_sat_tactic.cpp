@@ -652,9 +652,7 @@ namespace qe {
             m_rewriter(tmp);
             m_Ms[idx] = tmp;
             m_solvers[idx]->assert_expr(not_fml);            
-            TRACE("qe", 
-                  tout << fml << "\n--->\n";
-                  tout << tmp << "\n";);
+            TRACE("qe", tout << fml << "\n--->\n" << tmp << "\n";);
         }
 
         void checkpoint() {
