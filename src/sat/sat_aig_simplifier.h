@@ -36,6 +36,7 @@ namespace sat {
         struct config {
             bool m_enable_units;            // enable learning units
             bool m_enable_dont_cares;       // enable applying don't cares to LUTs
+            bool m_enable_lut;              // enable lut finding
             bool m_learn_implies;           // learn binary clauses
             bool m_learned2aig;             // add learned clauses to AIGs used by cut-set enumeration
             bool m_validate_cuts;           // enable direct validation of generated cuts
@@ -44,11 +45,12 @@ namespace sat {
             config():
                 m_enable_units(true),
                 m_enable_dont_cares(true),
+                m_enable_lut(false),
                 m_learn_implies(false),
                 m_learned2aig(true),
                 m_validate_cuts(false), 
                 m_validate_lemmas(false),
-                m_simulate_eqs(true) {}
+                m_simulate_eqs(false) {}
         };
     private:
         struct report;

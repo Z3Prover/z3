@@ -29,7 +29,7 @@ namespace sat {
     }
 
     vector<cut_set> const& aig_cuts::operator()() {
-        if (true || m_config.m_full) flush_roots();
+        if (m_config.m_full) flush_roots();
         unsigned_vector node_ids = filter_valid_nodes();
         TRACE("aig_simplifier", display(tout););
         augment(node_ids);
@@ -412,7 +412,7 @@ namespace sat {
     }
 
     bool aig_cuts::insert_aux(unsigned v, node const& n) {
-        if (false && !m_config.m_full) return false;
+        if (!m_config.m_full) return false;
         unsigned num_gt = 0, num_eq = 0;
         for (node const& n2 : m_aig[v]) {
             if (eq(n, n2)) return false;

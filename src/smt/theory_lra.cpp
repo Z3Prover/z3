@@ -1088,6 +1088,13 @@ public:
         if (is_arith(n1) && is_arith(n2) && n1 != n2) {
             m_arith_eq_adapter.mk_axioms(n1, n2);
         }
+        // internalization of ite expressions produces equalities of the form
+        // (= x (ite c x y)) and (= y (ite c x y))
+        // this step ensures that a shared enode is attached
+        // with the ite expression.
+        else if (m.is_ite(lhs) || m.is_ite(rhs)) {
+            m_arith_eq_adapter.mk_axioms(n1, n2);
+        }
     }
 
     void assign_eh(bool_var v, bool is_true) {
@@ -1134,6 +1141,7 @@ public:
     }
 
     void apply_sort_cnstr(enode* n, sort*) {
+        TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
         if (!th.is_attached_to_var(n)) {
             theory_var v = mk_var(n->get_owner(), false);
             register_theory_var_in_lar_solver(v);

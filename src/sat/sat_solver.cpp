@@ -1930,7 +1930,7 @@ namespace sat {
             anf.collect_statistics(m_aux_stats);
             // TBD: throttle anf_delay based on yield
         }
-
+        
         if (m_aig_simplifier && m_simplifications > m_config.m_aig_delay && !inconsistent()) {
             (*m_aig_simplifier)();
         }

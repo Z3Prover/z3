@@ -29,6 +29,7 @@ Revision History:
 
 namespace lp {
 class lar_solver;
+class lar_core_solver;
 
 class int_solver {
     friend class create_cut;
@@ -39,6 +40,7 @@ class int_solver {
     friend class hnf_cutter;
 
     lar_solver&         lra;
+    lar_core_solver&    lrac;
     unsigned            m_number_of_calls;
     lar_term            m_t;               // the term to return in the cut
     mpq                 m_k;               // the right side of the cut

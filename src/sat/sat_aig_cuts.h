@@ -63,7 +63,7 @@ namespace sat {
             unsigned m_max_aux;
             unsigned m_max_insertions;
             bool     m_full;
-        config(): m_max_cutset_size(20), m_max_aux(5), m_max_insertions(20), m_full(false) {}
+        config(): m_max_cutset_size(20), m_max_aux(5), m_max_insertions(20), m_full(true) {}
         };
     private:
 
