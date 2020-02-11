@@ -632,7 +632,7 @@ namespace sat {
             }
             unsigned num_comp = (1 << n.size());
             for (unsigned i = 0; i < num_comp; ++i) {
-                bool parity = false;
+                bool parity = n.size() % 2 == 1;
                 m_clause.reset();
                 for (unsigned j = 0; j < n.size(); ++j) {
                     literal lit = m_literals[n.offset() + j];
@@ -645,6 +645,7 @@ namespace sat {
                     m_clause.push_back(lit);
                 }
                 m_clause.push_back(parity ? r : ~r);
+                TRACE("aig_simplifier", tout << "validate: " << m_clause << "\n";);
                 on_clause(m_clause);
             }
             return;

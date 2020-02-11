@@ -105,6 +105,7 @@ namespace sat {
         m_anf_exlin         = p.anf_exlin();
         m_aig_simplify      = p.aig();
         m_aig_delay         = p.aig_delay();
+        m_aig_lut           = p.aig_lut();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();

@@ -122,6 +122,7 @@ namespace sat {
         bool               m_binspr;
         bool               m_aig_simplify;
         unsigned           m_aig_delay;
+        bool               m_aig_lut;
         bool               m_anf_simplify;
         unsigned           m_anf_delay;
         bool               m_anf_exlin;

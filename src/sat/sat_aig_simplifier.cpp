@@ -226,11 +226,14 @@ namespace sat {
             m_lits.reset();
             m_stats.m_xxors++;            
         };
+#if 0
+        // 
         xor_finder xf(s);
         xf.set(on_xor);
         xf(clauses);
+#endif
 
-        if (m_config.m_enable_lut) {
+        if (s.m_config.m_aig_lut) {
             std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
                 [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
                 m_stats.m_xluts++;
