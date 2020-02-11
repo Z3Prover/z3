@@ -17,6 +17,7 @@ namespace lp {
 
 int_solver::int_solver(lar_solver& lar_slv) :
     lra(lar_slv),
+    lrac(lra.m_mpq_lar_core_solver),
     m_number_of_calls(0),
     m_hnf_cutter(*this),
     m_hnf_cut_period(settings().hnf_cut_period()) {
@@ -26,15 +27,17 @@ int_solver::int_solver(lar_solver& lar_slv) :
 // this will allow to enable and disable tracking of the pivot rows
 struct check_return_helper {
     lar_solver&      lra;
+    lar_core_solver& lrac;
     bool             m_track_pivoted_rows;
     check_return_helper(lar_solver& ls) :
         lra(ls),
+        lrac(ls.m_mpq_lar_core_solver),
         m_track_pivoted_rows(lra.get_track_pivoted_rows()) {
-        TRACE("pivoted_rows", tout << "pivoted rows = " << lra.m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
+        TRACE("pivoted_rows", tout << "pivoted rows = " << lrac.m_r_solver.m_pivoted_rows->size() << std::endl;);
         lra.set_track_pivoted_rows(false);
     }
     ~check_return_helper() {
-        TRACE("pivoted_rows", tout << "pivoted rows = " << lra.m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
+        TRACE("pivoted_rows", tout << "pivoted rows = " << lrac.m_r_solver.m_pivoted_rows->size() << std::endl;);
         lra.set_track_pivoted_rows(m_track_pivoted_rows);
     }
 };
@@ -82,7 +85,7 @@ std::ostream& int_solver::display_inf_rows(std::ostream& out) const {
     
     num = 0;
     for (unsigned i = 0; i < lra.A_r().row_count(); i++) {
-        unsigned j = lra.m_mpq_lar_core_solver.m_r_basis[i];
+        unsigned j = lrac.m_r_basis[i];
         if (column_is_int_inf(j)) {
             num++;
             lra.print_row(lra.A_r().m_rows[i], out);
@@ -94,7 +97,7 @@ std::ostream& int_solver::display_inf_rows(std::ostream& out) const {
 }
 
 bool int_solver::current_solution_is_inf_on_cut() const {
-    const auto & x = lra.m_mpq_lar_core_solver.m_r_x;
+    const auto & x = lrac.m_r_x;
     impq v = m_t.apply(x);
     mpq sign = m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
     CTRACE("current_solution_is_inf_on_cut", v * sign <= impq(m_k) * sign,
@@ -141,7 +144,7 @@ bool int_solver::value_is_int(unsigned j) const {
 }    
 
 unsigned int_solver::random() {
-    return lra.get_core_solver().settings().random_next();
+    return settings().random_next();
 }
 
 const impq& int_solver::upper_bound(unsigned j) const {
@@ -189,7 +192,7 @@ lia_move int_solver::hnf_cut() {
 
 void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val) {
     lp_assert(!is_base(j));
-    auto & x = lra.m_mpq_lar_core_solver.m_r_x[j];
+    auto & x = lrac.m_r_x[j];
     auto delta = new_val - x;
     x = new_val;
     TRACE("int_solver", tout << "x[" << j << "] = " << x << "\n";);
@@ -197,8 +200,7 @@ void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const
 }
 
 void int_solver::patch_nbasic_column(unsigned j) {
-    auto & lcs = lra.m_mpq_lar_core_solver; 
-    impq & val = lcs.m_r_x[j];
+    impq & val = lrac.m_r_x[j];
     bool inf_l, inf_u;
     impq l, u;
     mpq m;
@@ -243,7 +245,7 @@ void int_solver::patch_nbasic_column(unsigned j) {
 lia_move int_solver::patch_nbasic_columns() {
     settings().stats().m_patches++;
     lp_assert(is_feasible());
-    for (unsigned j : lra.m_mpq_lar_core_solver.m_r_nbasis) {
+    for (unsigned j : lrac.m_r_nbasis) {
         patch_nbasic_column(j);
     }
     lp_assert(is_feasible());
@@ -256,7 +258,7 @@ lia_move int_solver::patch_nbasic_columns() {
 
 
 bool int_solver::has_lower(unsigned j) const {
-    switch (lra.m_mpq_lar_core_solver.m_column_types()[j]) {
+    switch (lrac.m_column_types()[j]) {
     case column_type::fixed:
     case column_type::boxed:
     case column_type::lower_bound:
@@ -267,7 +269,7 @@ bool int_solver::has_lower(unsigned j) const {
 }
 
 bool int_solver::has_upper(unsigned j) const {
-    switch (lra.m_mpq_lar_core_solver.m_column_types()[j]) {
+    switch (lrac.m_column_types()[j]) {
     case column_type::fixed:
     case column_type::boxed:
     case column_type::upper_bound:
@@ -292,8 +294,7 @@ static void set_upper(impq & u, bool & inf_u, impq const & v) {
 }
 
 bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
-    auto & lcs = lra.m_mpq_lar_core_solver;
-    if (lcs.m_r_heading[j] >= 0) // the basic var 
+    if (lrac.m_r_heading[j] >= 0) // the basic var 
         return false;
 
     TRACE("random_update", display_column(tout, j) << ", is_int = " << column_is_int(j) << "\n";);
@@ -318,7 +319,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     for (const auto &c : A.column(j)) {
         row_index = c.var();
         const mpq & a = c.coeff();        
-        unsigned i = lcs.m_r_basis[row_index];
+        unsigned i = lrac.m_r_basis[row_index];
         TRACE("random_update", tout << "i = " << i << ", a = " << a << "\n";); 
         if (column_is_int(i) && !a.is_int())
             m = lcm(m, denominator(a));
@@ -329,7 +330,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         if (!inf_l && !inf_u && l >= u) break;                
         row_index = c.var();
         const mpq & a = c.coeff();        
-        unsigned i = lcs.m_r_basis[row_index];
+        unsigned i = lrac.m_r_basis[row_index];
         impq const & xi = get_value(i);
 
 #define SET_BOUND(_fn_, a, b, x, y, z)                                  \
@@ -345,18 +346,18 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         
         if (a.is_neg()) {
             if (has_lower(i)) {
-                SET_BOUND(set_lower, l, inf_l, a, xi, lcs.m_r_lower_bounds()[i]);
+                SET_BOUND(set_lower, l, inf_l, a, xi, lrac.m_r_lower_bounds()[i]);
             }
             if (has_upper(i)) {
-                SET_BOUND(set_upper, u, inf_u, a, xi, lcs.m_r_upper_bounds()[i]);
+                SET_BOUND(set_upper, u, inf_u, a, xi, lrac.m_r_upper_bounds()[i]);
             }
         }
         else {
             if (has_upper(i)) {
-                SET_BOUND(set_lower, l, inf_l, a, xi, lcs.m_r_upper_bounds()[i]);
+                SET_BOUND(set_lower, l, inf_l, a, xi, lrac.m_r_upper_bounds()[i]);
             }
             if (has_lower(i)) {
-                SET_BOUND(set_upper, u, inf_u, a, xi, lcs.m_r_lower_bounds()[i]);
+                SET_BOUND(set_upper, u, inf_u, a, xi, lrac.m_r_lower_bounds()[i]);
             }
         }
         ++rounds;
@@ -381,18 +382,18 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
 
 
 bool int_solver::is_feasible() const {
-    auto & lcs = lra.m_mpq_lar_core_solver;
     lp_assert(
-        lcs.m_r_solver.calc_current_x_is_feasible_include_non_basis() ==
-        lcs.m_r_solver.current_x_is_feasible());
-    return lcs.m_r_solver.current_x_is_feasible();
+        lrac.m_r_solver.calc_current_x_is_feasible_include_non_basis() ==
+        lrac.m_r_solver.current_x_is_feasible());
+    return lrac.m_r_solver.current_x_is_feasible();
 }
+
 const impq & int_solver::get_value(unsigned j) const {
-    return lra.m_mpq_lar_core_solver.m_r_x[j];
+    return lrac.m_r_x[j];
 }
 
 std::ostream& int_solver::display_column(std::ostream & out, unsigned j) const {
-    return lra.m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+    return lrac.m_r_solver.print_column_info(j, out);
     return out;
 }
 
@@ -401,23 +402,23 @@ bool int_solver::column_is_int_inf(unsigned j) const {
 }
 
 bool int_solver::is_base(unsigned j) const {
-    return lra.m_mpq_lar_core_solver.m_r_heading[j] >= 0;
+    return lrac.m_r_heading[j] >= 0;
 }
 
 bool int_solver::is_boxed(unsigned j) const {
-    return lra.m_mpq_lar_core_solver.m_column_types[j] == column_type::boxed;
+    return lrac.m_column_types[j] == column_type::boxed;
 }
 
 bool int_solver::is_fixed(unsigned j) const {
-    return lra.m_mpq_lar_core_solver.m_column_types[j] == column_type::fixed;
+    return lrac.m_column_types[j] == column_type::fixed;
 }
 
 bool int_solver::is_free(unsigned j) const {
-    return lra.m_mpq_lar_core_solver.m_column_types[j] == column_type::free_column;
+    return lrac.m_column_types[j] == column_type::free_column;
 }
 
 bool int_solver::at_bound(unsigned j) const {
-    auto & mpq_solver = lra.m_mpq_lar_core_solver.m_r_solver;
+    auto & mpq_solver = lrac.m_r_solver;
     switch (mpq_solver.m_column_types[j] ) {
     case column_type::fixed:
     case column_type::boxed:
@@ -434,7 +435,7 @@ bool int_solver::at_bound(unsigned j) const {
 }
 
 bool int_solver::at_lower(unsigned j) const {
-    auto & mpq_solver = lra.m_mpq_lar_core_solver.m_r_solver;
+    auto & mpq_solver = lrac.m_r_solver;
     switch (mpq_solver.m_column_types[j] ) {
     case column_type::fixed:
     case column_type::boxed:
@@ -446,7 +447,7 @@ bool int_solver::at_lower(unsigned j) const {
 }
 
 bool int_solver::at_upper(unsigned j) const {
-    auto & mpq_solver = lra.m_mpq_lar_core_solver.m_r_solver;
+    auto & mpq_solver = lrac.m_r_solver;
     switch (mpq_solver.m_column_types[j] ) {
     case column_type::fixed:
     case column_type::boxed:
@@ -458,7 +459,7 @@ bool int_solver::at_upper(unsigned j) const {
 }
 
 void int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
-    auto & rslv = lra.m_mpq_lar_core_solver.m_r_solver;
+    auto & rslv = lrac.m_r_solver;
     for (const auto &c: rslv.m_A.m_rows[row_index]) {
         if (numeric_traits<mpq>::is_pos(c.coeff()))
             out << "+";
@@ -524,20 +525,19 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
 }
 
 bool int_solver::non_basic_columns_are_at_bounds() const {
-    auto & lcs = lra.m_mpq_lar_core_solver;
-    for (unsigned j :lcs.m_r_nbasis) {
-        auto & val = lcs.m_r_x[j];
-        switch (lcs.m_column_types()[j]) {
+    for (unsigned j : lrac.m_r_nbasis) {
+        auto & val = lrac.m_r_x[j];
+        switch (lrac.m_column_types()[j]) {
         case column_type::boxed:
-            if (val != lcs.m_r_lower_bounds()[j] && val != lcs.m_r_upper_bounds()[j])
+            if (val != lrac.m_r_lower_bounds()[j] && val != lrac.m_r_upper_bounds()[j])
                 return false;
             break;
         case column_type::lower_bound:
-            if (val != lcs.m_r_lower_bounds()[j])
+            if (val != lrac.m_r_lower_bounds()[j])
                 return false;
             break;
         case column_type::upper_bound:
-            if (val != lcs.m_r_upper_bounds()[j])
+            if (val != lrac.m_r_upper_bounds()[j])
                 return false;
             break;
         default:

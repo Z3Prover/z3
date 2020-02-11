@@ -1369,7 +1369,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::internalize_eq_eh(app * atom, bool_var v) {
-        expr* _lhs, *_rhs;
+        expr* _lhs = nullptr, *_rhs = nullptr;
         if (m_params.m_arith_eager_eq_axioms && get_manager().is_eq(atom, _lhs, _rhs) && is_app(_lhs) && is_app(_rhs)) {
             context & ctx  = get_context();
             app * lhs      = to_app(_lhs);

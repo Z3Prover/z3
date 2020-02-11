@@ -26,8 +26,6 @@
 #include "math/lp/lar_solver.h"
 #include "util/nat_set.h"
 #include "util/optional.h"
-#include "math/lp/lp_params.hpp"
-#include "math/lp/nla_params.hpp"
 #include "util/inf_rational.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
@@ -390,15 +388,15 @@ class theory_lra::imp {
         get_zero(true);
         get_zero(false);
 
-        lp_params lpar(ctx().get_params());
+        smt_params_helper lpar(ctx().get_params());
         lp().settings().set_resource_limit(m_resource_limit);
-        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.simplex_strategy());
+        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
         lp().settings().bound_propagation() = BP_NONE != propagation_mode();
-        lp().settings().m_enable_hnf = lpar.enable_hnf();
-        lp().settings().m_print_external_var_name = lpar.print_ext_var_names();
-        lp().set_track_pivoted_rows(lpar.bprop_on_pivoted_rows());
-        lp().settings().report_frequency = lpar.rep_freq();
-        lp().settings().print_statistics = lpar.print_stats();
+        lp().settings().m_enable_hnf = lpar.arith_enable_hnf();
+        lp().settings().m_print_external_var_name = lpar.arith_print_ext_var_names();
+        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
+        lp().settings().report_frequency = lpar.arith_rep_freq();
+        lp().settings().print_statistics = lpar.arith_print_stats();
 
         // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
         unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
@@ -406,7 +404,7 @@ class theory_lra::imp {
 
         lp().settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        m_switcher.m_use_nla = m_use_nla = lpar.nla();
+        m_switcher.m_use_nla = m_use_nla = lpar.arith_nla();
         m_lia = alloc(lp::int_solver, *m_solver.get());
         get_one(true);
         get_zero(true);
@@ -456,23 +454,22 @@ class theory_lra::imp {
                 (void)_s;
                 m_nla->push();
             }
-            nla_params nla(ctx().get_params());
-            m_nla->get_core()->m_nla_settings.run_order() = nla.order();
-            m_nla->get_core()->m_nla_settings.run_tangents() = nla.tangents();
-            m_nla->get_core()->m_nla_settings.run_horner() = nla.horner();
-            m_nla->get_core()->m_nla_settings.horner_subs_fixed() = nla.horner_subs_fixed();
+            smt_params_helper prms(ctx().get_params());
+            m_nla->get_core()->m_nla_settings.run_order() = prms.arith_nl_order();
+            m_nla->get_core()->m_nla_settings.run_tangents() = prms.arith_nl_tangents();
+            m_nla->get_core()->m_nla_settings.run_horner() = prms.arith_nl_horner();
+            m_nla->get_core()->m_nla_settings.horner_subs_fixed() = prms.arith_nl_horner_subs_fixed();
             
-            m_nla->get_core()->m_nla_settings.horner_frequency() = nla.horner_frequency();
-            m_nla->get_core()->m_nla_settings.horner_row_length_limit() = nla.horner_row_length_limit();
-            m_nla->get_core()->m_nla_settings.run_grobner() = nla.grobner();
-            m_nla->get_core()->m_nla_settings.grobner_subs_fixed() = nla.grobner_subs_fixed();
-            m_nla->get_core()->m_nla_settings.grobner_eqs_growth() =  nla.grobner_eqs_growth();
-            m_nla->get_core()->m_nla_settings.grobner_expr_size_growth() =  nla.grobner_expr_size_growth();
-            m_nla->get_core()->m_nla_settings.grobner_expr_degree_growth() =  nla.grobner_expr_degree_growth();
-            m_nla->get_core()->m_nla_settings.grobner_max_simplified() =      nla.grobner_max_simplified();
-            m_nla->get_core()->m_nla_settings.grobner_number_of_conflicts_to_report() =      nla.grobner_cnfl_to_report();
-            m_nla->get_core()->m_grobner_quota = nla.gr_q();
-            
+            m_nla->get_core()->m_nla_settings.horner_frequency() = prms.arith_nl_horner_frequency();
+            m_nla->get_core()->m_nla_settings.horner_row_length_limit() = prms.arith_nl_horner_row_length_limit();
+            m_nla->get_core()->m_nla_settings.run_grobner() = prms.arith_nl_grobner();
+            m_nla->get_core()->m_nla_settings.grobner_subs_fixed() = prms.arith_nl_grobner_subs_fixed();
+            m_nla->get_core()->m_nla_settings.grobner_eqs_growth() =  prms.arith_nl_grobner_eqs_growth();
+            m_nla->get_core()->m_nla_settings.grobner_expr_size_growth() =  prms.arith_nl_grobner_expr_size_growth();
+            m_nla->get_core()->m_nla_settings.grobner_expr_degree_growth() =  prms.arith_nl_grobner_expr_degree_growth();
+            m_nla->get_core()->m_nla_settings.grobner_max_simplified() =      prms.arith_nl_grobner_max_simplified();
+            m_nla->get_core()->m_nla_settings.grobner_number_of_conflicts_to_report() =      prms.arith_nl_grobner_cnfl_to_report();
+            m_nla->get_core()->m_grobner_quota = prms.arith_nl_gr_q();
         }
     }
 
@@ -1091,6 +1088,13 @@ public:
         if (is_arith(n1) && is_arith(n2) && n1 != n2) {
             m_arith_eq_adapter.mk_axioms(n1, n2);
         }
+        // internalization of ite expressions produces equalities of the form
+        // (= x (ite c x y)) and (= y (ite c x y))
+        // this step ensures that a shared enode is attached
+        // with the ite expression.
+        else if (m.is_ite(lhs) || m.is_ite(rhs)) {
+            m_arith_eq_adapter.mk_axioms(n1, n2);
+        }
     }
 
     void assign_eh(bool_var v, bool is_true) {
@@ -1137,6 +1141,7 @@ public:
     }
 
     void apply_sort_cnstr(enode* n, sort*) {
+        TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
         if (!th.is_attached_to_var(n)) {
             theory_var v = mk_var(n->get_owner(), false);
             register_theory_var_in_lar_solver(v);
