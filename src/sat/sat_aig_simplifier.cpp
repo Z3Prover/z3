@@ -215,7 +215,9 @@ namespace sat {
             // <=> 
             // ~head = t1 + t2 + ..
             literal head = ~xors[index];
+            TRACE("aig_simplifier", tout << xors << "\n";);
             unsigned sz = xors.size() - 1;
+            m_lits.reset();
             for (unsigned i = xors.size(); i-- > 0; ) {
                 if (i != index) 
                     m_lits.push_back(xors[i]);

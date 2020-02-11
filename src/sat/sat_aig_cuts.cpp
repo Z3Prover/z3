@@ -632,7 +632,7 @@ namespace sat {
             }
             unsigned num_comp = (1 << n.size());
             for (unsigned i = 0; i < num_comp; ++i) {
-                unsigned parity = 0;
+                bool parity = false;
                 m_clause.reset();
                 for (unsigned j = 0; j < n.size(); ++j) {
                     literal lit = m_literals[n.offset() + j];
@@ -640,11 +640,11 @@ namespace sat {
                         lit.neg();
                     }
                     else {
-                        ++parity;
+                        parity ^= true;
                     }
                     m_clause.push_back(lit);
                 }
-                m_clause.push_back(1 == (parity % 2) ? r : ~r);
+                m_clause.push_back(parity ? r : ~r);
                 on_clause(m_clause);
             }
             return;

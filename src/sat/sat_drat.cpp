@@ -469,6 +469,7 @@ namespace sat {
             std::string line;
             std::getline(std::cin, line);                
             SASSERT(false);
+            INVOKE_DEBUGGER();
             exit(0);
             UNREACHABLE();
             //display(std::cout);
