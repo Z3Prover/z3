@@ -16,7 +16,7 @@ Author:
 Notes:
 
 --*/
-#include "math/lp/lp_params.hpp"
+#include "util/debug.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/ast_util.h"
 #include "smt/smt_kernel.h"
@@ -91,7 +91,6 @@ public:
         r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
         smt_params_helper::collect_param_descrs(r);
-        lp_params::collect_param_descrs(r);
     }
 
 

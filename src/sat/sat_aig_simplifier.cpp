@@ -215,7 +215,9 @@ namespace sat {
             // <=> 
             // ~head = t1 + t2 + ..
             literal head = ~xors[index];
+            TRACE("aig_simplifier", tout << xors << "\n";);
             unsigned sz = xors.size() - 1;
+            m_lits.reset();
             for (unsigned i = xors.size(); i-- > 0; ) {
                 if (i != index) 
                     m_lits.push_back(xors[i]);
@@ -228,17 +230,18 @@ namespace sat {
         xf.set(on_xor);
         xf(clauses);
 
+        if (m_config.m_enable_lut) {
+            std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
+                [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
+                m_stats.m_xluts++;
+                m_aig_cuts.add_cut(v, lut, vars);
+            };
+            lut_finder lf(s);
+            lf.set(on_lut);
+            lf(clauses);
+        }
+
 #if 0
-        std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
-            [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
-            m_stats.m_xluts++;
-            m_aig_cuts.add_cut(v, lut, vars);
-        };
-        lut_finder lf(s);
-        lf.set(on_lut);
-        lf(clauses);
-
-
         statistics st;
         collect_statistics(st);
         st.display(std::cout);

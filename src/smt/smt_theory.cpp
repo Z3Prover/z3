@@ -105,7 +105,7 @@ namespace smt {
             out << ")";
         }
         else {
-            out << "#" << n->get_id();
+            out << mk_bounded_pp(n, get_manager(), 1);
         }
         return out;
     }

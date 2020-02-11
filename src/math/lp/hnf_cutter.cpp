@@ -127,16 +127,7 @@ namespace lp  {
                 t += H[l][k]*row[l];
             }
             row[k] = -t / H[k][k]; 
-        }
-
-        // // test region
-        // vector<mpq> ei(H.row_count(), zero_of_type<mpq>());
-        // ei[i] = one_of_type<mpq>();
-        // vector<mpq> pr = row * H;
-        // pr.shrink(ei.size());
-        // lp_assert(ei == pr);
-        // // end test region
-        
+        }        
     }
 
     void hnf_cutter::fill_term(const vector<mpq> & row, lar_term& t) {
@@ -219,7 +210,6 @@ namespace lp  {
             add_term(t, rs, ci, upper_bound);
         }
     }
-
 
     bool hnf_cutter::hnf_has_var_with_non_integral_value() const {
         for (unsigned j : vars())

@@ -61,9 +61,10 @@ namespace sat {
         for (literal l : c) {
             m_var_position[l.var()] = i;
             s.mark_visited(l.var());
-            parity ^= l.sign();
+            parity ^= !l.sign();
             mask |= (l.sign() << (i++)); 
         }
+        // parity is number of true literals in clause.
         m_clauses_to_remove.reset();
         m_clauses_to_remove.push_back(&c);
         m_clause.resize(c.size());
@@ -108,7 +109,7 @@ namespace sat {
             lits.push_back(literal(l.var(), false));
             s.set_external(l.var());
         }
-        if (parity) lits[0].neg();
+        if (parity == (lits.size() % 2 == 0)) lits[0].neg();
         m_on_xor(lits);
     }
 
