@@ -1136,7 +1136,11 @@ public:
         TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
         if (!th.is_attached_to_var(n)) {
             theory_var v = mk_var(n->get_owner(), false);
-            register_theory_var_in_lar_solver(v);
+            auto vi = register_theory_var_in_lar_solver(v);
+            expr* e = nullptr;
+            if (a.is_to_real(n->get_owner(), e)) {
+                // TBD: add a way to bind equality between vi and wi in m_solver
+            }
         }
     }
 
