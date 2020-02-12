@@ -508,7 +508,7 @@ namespace sat {
     }
 
     /**
-     * Equilvalences modulo cuts are not necessarily DRAT derivable.
+     * Equivalences modulo cuts are not necessarily DRAT derivable.
      * To ensure that there is a DRAT derivation we create all resolvents
      * of the LUT clauses until deriving binary u or ~v and ~u or v.
      * each resolvent is DRAT derivable because there are two previous lemmas that
