@@ -1093,6 +1093,7 @@ public:
         // this step ensures that a shared enode is attached
         // with the ite expression.
         else if (m.is_ite(lhs) || m.is_ite(rhs)) {
+            // std::cout << "eq\n";
             m_arith_eq_adapter.mk_axioms(n1, n2);
         }
     }
