@@ -266,7 +266,6 @@ class theory_lra::imp {
 
     // non-linear arithmetic
     scoped_ptr<nra::solver>  m_nra;
-    bool                     m_use_nla;
     scoped_ptr<nla::solver>  m_nla;
     bool                     m_use_nra_model;
     scoped_ptr<scoped_anum>  m_a1, m_a2;
@@ -292,25 +291,17 @@ class theory_lra::imp {
         }
         
         void push() {
-            if (m_use_nla) {
-                if (m_nla != nullptr)
-                    (*m_nla)->push();
-            }
-            else {
-                if (m_nra != nullptr)
-                    (*m_nra)->push();
-            }
+            if (m_nla != nullptr)
+                (*m_nla)->push();
+            if (m_nra != nullptr)
+                (*m_nra)->push();
         }
 
         void pop(unsigned scopes) {
-            if (m_use_nla) {
-                if (m_nla != nullptr)
-                    (*m_nla)->pop(scopes);
-            }
-            else {
-                if (m_nra != nullptr)
-                    (*m_nra)->pop(scopes);
-            }
+            if (m_nla != nullptr)
+                (*m_nla)->pop(scopes);
+            if (m_nra != nullptr)
+                (*m_nra)->pop(scopes);
         }
 
         
@@ -404,7 +395,7 @@ class theory_lra::imp {
 
         lp().settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        m_switcher.m_use_nla = m_use_nla = lpar.arith_nla();
+        m_switcher.m_use_nla = lpar.arith_nla();
         m_lia = alloc(lp::int_solver, *m_solver.get());
         get_one(true);
         get_zero(true);
@@ -1093,6 +1084,7 @@ public:
         // this step ensures that a shared enode is attached
         // with the ite expression.
         else if (m.is_ite(lhs) || m.is_ite(rhs)) {
+            // std::cout << "eq\n";
             m_arith_eq_adapter.mk_axioms(n1, n2);
         }
     }
@@ -1144,7 +1136,11 @@ public:
         TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
         if (!th.is_attached_to_var(n)) {
             theory_var v = mk_var(n->get_owner(), false);
-            register_theory_var_in_lar_solver(v);
+            auto vi = register_theory_var_in_lar_solver(v);
+            expr* e = nullptr;
+            if (a.is_to_real(n->get_owner(), e)) {
+                // TBD: add a way to bind equality between vi and wi in m_solver
+            }
         }
     }
 
@@ -1612,12 +1608,7 @@ public:
     }
 
     bool influences_nl_var(theory_var v) const {
-        if (!m_use_nla)            
-            return false; // that is the legacy solver behavior
-        if (!m_nla)
-            return false;
-            
-        return m_nla->influences_nl_var(get_lpvar(v));
+        return m_nla && m_nla->influences_nl_var(get_lpvar(v));
     }
     
     bool can_be_used_in_random_update(theory_var v) const {
@@ -1715,7 +1706,7 @@ public:
 
     bool is_eq(theory_var v1, theory_var v2) {
         if (m_use_nra_model) {
-            lp_assert(!m_use_nla);
+            SASSERT(!m_switcher.m_use_nla);
             return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
         }
         else {
@@ -3341,6 +3332,13 @@ public:
                 ctx().mark_as_relevant(c);
             }
             TRACE("arith", ctx().display_literals_verbose(tout, m_core) << "\n";);
+            DEBUG_CODE(
+                for (literal const& c : m_core) {
+                    if (ctx().get_assignment(c) == l_true) {
+                        TRACE("arith", ctx().display_literal_verbose(tout, c) << " is true\n";);
+                        SASSERT(false);
+                    }
+                });
             ctx().mk_th_axiom(get_id(), m_core.size(), m_core.c_ptr());
         }
     }

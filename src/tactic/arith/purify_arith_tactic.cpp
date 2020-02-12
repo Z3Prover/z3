@@ -328,12 +328,12 @@ struct purify_arith_proc {
             expr * k2 = mk_fresh_int_var();
             app_ref mod_app(m());
             proof_ref mod_pr(m());
-            mod_app = u().mk_mod(args[0], args[1]);
+            expr * x = args[0];
+            expr * y = args[1];
+            mod_app = u().mk_mod(x, y);
             mk_def_proof(k2, mod_app, mod_pr);
             cache_result(mod_app, k2, mod_pr);
             
-            expr * x = args[0];
-            expr * y = args[1];
             m_mods.push_back(bin_def(x, y, k2));
             //  (div x y) --> k1  |  y = 0  \/ x = k1 * y + k2,
             //                       y = 0  \/ 0 <= k2,
@@ -840,7 +840,7 @@ struct purify_arith_proc {
                 expr_ref body(u().mk_int(0), m());
                 expr_ref v0(m().mk_var(0, u().mk_int()), m());
                 expr_ref v1(m().mk_var(1, u().mk_int()), m());
-                for (auto const& p : divs) {
+                for (auto const& p : mods) {
                     body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
                 }
                 fmc->add(u().mk_mod0(), body);

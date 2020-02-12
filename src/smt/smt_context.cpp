@@ -2383,6 +2383,8 @@ namespace smt {
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
 
+        unsigned units_to_reassert_lim;
+
         try {
             if (m.has_trace_stream() && !m_is_auxiliary)
                 m.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
@@ -2403,7 +2405,7 @@ namespace smt {
             scope & s = m_scopes[new_lvl];
             TRACE("context", tout << "backtracking new_lvl: " << new_lvl << "\n";);
 
-            unsigned units_to_reassert_lim = s.m_units_to_reassert_lim;
+            units_to_reassert_lim = s.m_units_to_reassert_lim;
 
             if (new_lvl < m_base_lvl) {
                 base_scope & bs = m_base_scopes[new_lvl];
@@ -2449,20 +2451,22 @@ namespace smt {
                 m_base_lvl = new_lvl;
                 m_search_lvl = new_lvl; // Remark: not really necessary
             }
-
-            unsigned num_bool_vars = get_num_bool_vars();
-            // any variable >= num_bool_vars was deleted during backtracking.
-            reinit_clauses(num_scopes, num_bool_vars);
-            reassert_units(units_to_reassert_lim);
-            TRACE("pop_scope_detail", tout << "end of pop_scope: \n"; display(tout););
-            CASSERT("context", check_invariant());
-            return num_bool_vars;
         }
         catch (...) {
             // throwing inside pop is just not cool.
             UNREACHABLE();
             throw;
         }
+
+        // an exception can happen when axioms are reinitialized (because they are rewritten).
+
+        unsigned num_bool_vars = get_num_bool_vars();
+        // any variable >= num_bool_vars was deleted during backtracking.
+        reinit_clauses(num_scopes, num_bool_vars);
+        reassert_units(units_to_reassert_lim);
+        TRACE("pop_scope_detail", tout << "end of pop_scope: \n"; display(tout););
+        CASSERT("context", check_invariant());
+        return num_bool_vars;
     }
 
     void context::pop_scope(unsigned num_scopes) {

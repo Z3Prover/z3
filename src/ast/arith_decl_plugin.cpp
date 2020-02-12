@@ -561,7 +561,8 @@ void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol
     if (logic == "NRA" ||
         logic == "QF_NRA" ||
         logic == "QF_UFNRA") {
-        m_convert_int_numerals_to_real = true;
+        // TBD: remove completely pending regressions: 
+        // m_convert_int_numerals_to_real = true;
         sort_names.push_back(builtin_name("Real", REAL_SORT));
     }
     else {
