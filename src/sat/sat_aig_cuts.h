@@ -82,7 +82,7 @@ namespace sat {
             explicit node(bool sign, bool_op op, unsigned nc, unsigned o) : 
                 m_sign(sign), m_op(op), m_size(nc), m_offset(o) {}
             explicit node(uint64_t lut, unsigned nc, unsigned o):
-                m_sign(false), m_op(lut_op), m_size(nc), m_offset(o) {}
+                m_sign(false), m_op(lut_op), m_lut(lut), m_size(nc), m_offset(o) {}
             bool is_valid() const { return m_offset != UINT_MAX; }
             bool_op op() const { return m_op; }
             bool is_var() const { return m_op == var_op; }
@@ -165,11 +165,13 @@ namespace sat {
         void validate_aig2(cut const& a, cut const& b, unsigned v, node const& n, cut const& c);
         void validate_aigN(unsigned v, node const& n, cut const& c); 
 
+        void add_node(bool_var v, node const& n);
     public:
 
         aig_cuts();
         void add_var(unsigned v);
         void add_node(literal head, bool_op op, unsigned sz, literal const* args);
+        void add_node(bool_var head, uint64_t lut, unsigned sz, bool_var const* args);
         void add_cut(bool_var v, uint64_t lut, bool_var_vector const& args);
         void set_root(bool_var v, literal r);
 

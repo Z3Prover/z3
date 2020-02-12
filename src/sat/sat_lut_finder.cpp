@@ -113,12 +113,11 @@ namespace sat {
         m_removed_clauses.append(m_clauses_to_remove);
         bool_var v;
         uint64_t lut = convert_combination(m_vars, v);
-        IF_VERBOSE(12, 
-                   for (clause* cp : m_clauses_to_remove) {
-                       verbose_stream() << *cp << "\n";
-                       verbose_stream() << v << ": " << m_vars << "\n";
-                   }
-                   display_mask(verbose_stream(), lut, 1u << m_vars.size()) << "\n";);
+        TRACE("aig_simplifier",
+              for (clause* cp : m_clauses_to_remove) {
+                  tout << *cp << "\n" << v << ": " << m_vars << "\n";
+              }
+              display_mask(tout, lut, 1u << m_vars.size()) << "\n";);
         m_on_lut(lut, m_vars, v);
     }
 
