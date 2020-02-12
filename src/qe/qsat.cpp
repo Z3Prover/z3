@@ -1013,11 +1013,14 @@ namespace qe {
                     if (is_fa) {
                         tmp = ::push_not(tmp);
                     }
+                    
+                    TRACE("qe", tout << "elim-rec " << tmp << "\n";);
                     tmp = elim(vars, tmp);
                     if (is_fa) {
                         tmp = ::push_not(tmp);
                     }
                     trail.push_back(tmp);
+                    TRACE("qe", tout << vars << ": " << tmp << "\n";);
                     visited.insert(e, tmp);
                     todo.pop_back();
                     break;
@@ -1031,16 +1034,24 @@ namespace qe {
             return expr_ref(e, m);
         }
         
+        /*
+         * Solve ex (x) phi(x)
+         */
         expr_ref elim(app_ref_vector const& vars, expr* _fml) {
+            expr_ref save(_fml, m);
             expr_ref fml(_fml, m);
-            reset();
-            m_vars.push_back(app_ref_vector(m));
-            m_vars.push_back(vars);
-            initialize_levels();
-            fml = push_not(fml);            
-
-            TRACE("qe", tout << vars << " " << fml << "\n";);
             expr_ref_vector defs(m);
+            if (has_quantifiers(fml)) {
+                return fml; 
+            }
+            flet<qsat_mode> _mode(m_mode, qsat_qe);
+            reset();
+            fml = ::mk_exists(m, vars.size(), vars.c_ptr(), fml);
+            fml = ::push_not(fml);
+            hoist(fml);
+            if (!is_ground(fml)) {
+                throw tactic_exception("formula is not hoistable");
+            }
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
             m_ex.assert_expr(mk_and(defs));
@@ -1049,27 +1060,13 @@ namespace qe {
             m_fa.assert_expr(m.mk_not(fml));
             TRACE("qe", tout << "ex: " << fml << "\n";);
             lbool is_sat = check_sat();
-            fml = ::mk_and(m_answer);
-            TRACE("qe", tout << "ans: " << fml << "\n";
-                  tout << "Free vars: " << m_free_vars << "\n";);            
-            if (is_sat == l_false) {
-                obj_hashtable<app> vars;
-                for (unsigned i = 0; i < m_free_vars.size(); ++i) {
-                    app* v = m_free_vars[i].get();
-                    if (vars.contains(v)) {
-                        m_free_vars[i] = m_free_vars.back();
-                        m_free_vars.pop_back();
-                        --i;
-                    }
-                    else {
-                        vars.insert(v);
-                    }
-                }
-                fml = mk_exists(m, m_free_vars.size(), m_free_vars.c_ptr(), fml);
+            
+            switch (is_sat) {
+            case l_false:
+                fml = ::mk_and(m_answer);
                 return fml;
-            }
-            else {
-                return expr_ref(_fml, m);
+            default:
+                return save;
             }
         }
 
@@ -1223,7 +1220,6 @@ namespace qe {
         
         void collect_param_descrs(param_descrs & r) override {
         }
-
         
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
