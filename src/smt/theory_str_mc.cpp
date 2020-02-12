@@ -488,6 +488,9 @@ namespace smt {
                 cex = m.mk_or(f, m.mk_not(ctx.mk_eq_atom(mk_strlen(str), mk_int(0))));
                 ctx.get_rewriter()(cex);
                 return false;
+            } else {
+                TRACE("str_fl", tout << "regex constraint satisfied without asserting constraints to subsolver" << std::endl;);
+                return true;
             }
         } else {
             expr_ref_vector trail(m);
@@ -560,6 +563,9 @@ namespace smt {
                     cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(str), mk_int(str_chars.size()))));
                     ctx.get_rewriter()(cex);
                     return false;
+                } else {
+                    TRACE("str_fl", tout << "regex constraint satisfied without asserting constraints to subsolver" << std::endl;);
+                    return true;
                 }
             } else {
                 // TODO fixed_length_lesson?
@@ -571,8 +577,6 @@ namespace smt {
                 return true;
             }
         }
-        UNREACHABLE(); // added because compiler complains that not all control paths return a value.
-        return false;
     }
 
     /*
