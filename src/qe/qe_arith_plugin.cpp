@@ -1022,7 +1022,10 @@ namespace qe {
             //
             // The first entry in values is the constant.
             //
-            VERIFY(m_arith_solver.solve_integer_equation(values, index, is_aux));
+            if (!m_arith_solver.solve_integer_equation(values, index, is_aux)) {
+                // equation is unsat
+                return false;
+            }
 
             SASSERT(1 <= index && index <= num_vars);
             app_ref x(m_ctx.get_var(index-1), m);
