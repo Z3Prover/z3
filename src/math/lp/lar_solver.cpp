@@ -172,7 +172,7 @@ void lar_solver::analyze_new_bounds_on_row_tableau(
         return;
     lp_assert(use_tableau());
     bound_analyzer_on_row<row_strip<mpq>>::analyze_row(A_r().m_rows[row_index],
-                                       static_cast<unsigned>(-1),
+                                       null_ci,
                                        zero_of_type<numeric_pair<mpq>>(),
                                        row_index,
                                        bp
@@ -246,7 +246,7 @@ bool lar_solver::term_is_used_as_row(unsigned term) const {
     
 void lar_solver::propagate_bounds_on_terms(lp_bound_propagator & bp) {
     for (unsigned i = 0; i < m_terms.size(); i++) {
-        if (term_is_used_as_row(i + m_terms_start_index))
+        if (term_is_used_as_row(i))
             continue; // this term is used a left side of a constraint,
         // it was processed as a touched row if needed
         propagate_bounds_on_a_term(*m_terms[i], bp, i);
@@ -1118,7 +1118,7 @@ bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value
     }
     const ul_pair & ul = m_columns_to_ul_pairs[var];
     ci = ul.lower_bound_witness();
-    if (ci != static_cast<constraint_index>(-1)) {
+    if (ci != null_ci) {
         auto& p = m_mpq_lar_core_solver.m_r_lower_bounds()[var];
         value = p.x;
         is_strict = p.y.is_pos();
@@ -1137,7 +1137,7 @@ bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value
     }
     const ul_pair & ul = m_columns_to_ul_pairs[var];
     ci = ul.upper_bound_witness();
-    if (ci != static_cast<constraint_index>(-1)) {
+    if (ci != null_ci) {
         auto& p = m_mpq_lar_core_solver.m_r_upper_bounds()[var];
         value = p.x;
         is_strict = p.y.is_neg();
@@ -1363,7 +1363,7 @@ void lar_solver::pop() {
 }
 
 bool lar_solver::column_represents_row_in_tableau(unsigned j) {
-    return m_columns_to_ul_pairs()[j].m_i != static_cast<row_index>(-1);
+    return m_columns_to_ul_pairs()[j].m_i != UINT_MAX;
 }
 
 void lar_solver::make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j) {
@@ -1580,7 +1580,7 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
         return local_j;
     lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
     local_j = A_r().column_count();
-    m_columns_to_ul_pairs.push_back(ul_pair(static_cast<unsigned>(-1)));
+    m_columns_to_ul_pairs.push_back(ul_pair(UINT_MAX));
     add_non_basic_var_to_core_fields(ext_j, is_int);
     lp_assert(sizes_are_correct());
     return local_j;
@@ -2330,6 +2330,18 @@ bool lar_solver::fetch_normalized_term_column(const lar_term& c, std::pair<mpq, 
     TRACE("lar_solver_terms", tout << "have not found\n";);
     return false;
 }
+
+std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, lpvar k) {
+    vector<std::pair<mpq, var_index>> coeffs;
+    coeffs.push_back(std::make_pair(mpq(1),j));
+    coeffs.push_back(std::make_pair(mpq(-1),k));    
+    unsigned ext_term_index = m_terms.size();
+    unsigned term_index = add_term(coeffs, ext_term_index);
+    return std::pair<constraint_index, constraint_index>(
+        add_var_bound(term_index, lconstraint_kind::LE, mpq(0)),
+        add_var_bound(term_index, lconstraint_kind::GE, mpq(0)));
+}
+
 } // namespace lp
 
 
