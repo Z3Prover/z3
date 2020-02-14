@@ -1761,7 +1761,7 @@ namespace qe {
             // unless the current state is unsatisfiable.
             // 
             if (m.is_true(fml_mixed)) {
-                SASSERT(l_true == m_solver.check());
+                SASSERT(l_false != m_solver.check());
                 m_current = m_current->add_child(fml_closed);
                 for (unsigned i = 0; m_defs && i < m_current->num_free_vars(); ++i) {
                     expr_ref val(m);

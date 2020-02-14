@@ -43,11 +43,11 @@ namespace sat {
             if (m_aig[id].empty()) {
                 continue;
             }
-            IF_VERBOSE(10, m_cuts[id].display(verbose_stream() << "augment " << id << "\nbefore\n"));
+            IF_VERBOSE(20, m_cuts[id].display(verbose_stream() << "augment " << id << "\nbefore\n"));
             for (node const& n : m_aig[id]) {
                 augment(id, n);
             }
-            IF_VERBOSE(10, m_cuts[id].display(verbose_stream() << "after\n"));            
+            IF_VERBOSE(20, m_cuts[id].display(verbose_stream() << "after\n"));            
         }
     }
 
@@ -432,6 +432,9 @@ namespace sat {
             if (eq(n, n2)) return false;
             else if (n.size() < n2.size()) num_gt++;
             else if (n.size() == n2.size()) num_eq++;
+            // avoid inserting LUTs that are likely to collide
+            if (n.is_lut() && !n2.is_lut() && n.size() == n2.size()) 
+                return false;
         }
         if (m_aig[v].size() < m_config.m_max_aux) {
             on_node_add(v, n);
