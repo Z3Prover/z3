@@ -763,8 +763,15 @@ namespace qe {
             TRACE("qe", tout << fml << "\n";);
         }
 
+        void check_sort(sort* s) {
+            if (m.is_uninterp(s)) {
+                throw default_exception("qsat does not apply to uninterpreted sorts");
+            }
+        }
+
         void filter_vars(app_ref_vector const& vars) {
             for (app* v : vars) m_pred_abs.fmc()->hide(v);
+            for (app* v : vars) check_sort(m.get_sort(v));
         }        
 
         void initialize_levels() {
