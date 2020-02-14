@@ -1137,10 +1137,14 @@ public:
 #if 0
         if (!th.is_attached_to_var(n)) {
             theory_var v = mk_var(n->get_owner(), false);
-            auto vi = register_theory_var_in_lar_solver(v);
+            lpvar vj = register_theory_var_in_lar_solver(v);
             expr* e = nullptr;
             if (a.is_to_real(n->get_owner(), e)) {
-                // TBD: add a way to bind equality between vi and wi in m_solver
+                theory_var w = get_enode(e)->get_th_var(get_id());
+                lpvar wj = register_theory_var_in_lar_solver(w);
+                auto lu_constraints = lp().add_equality(vj, wj);
+                add_def_constraint(lu_constraints.first);
+                add_def_constraint(lu_constraints.second);
             }
         }
 #endif
