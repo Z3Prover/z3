@@ -162,6 +162,7 @@ void pob_queue::pop() {
 
 void pob_queue::set_root(pob& root)
 {
+    pob_ref tmp = m_root;
     m_root = &root;
     m_max_level = root.level ();
     m_min_depth = root.depth ();
