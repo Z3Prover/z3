@@ -47,6 +47,7 @@ namespace lp {
 
 typedef unsigned lpvar;
 const lpvar null_lpvar = UINT_MAX;
+const constraint_index null_ci = UINT_MAX;
 
 class lar_solver : public column_namer {
     struct term_hasher {
@@ -536,6 +537,8 @@ public:
         return m_mpq_lar_core_solver.column_is_bounded(j);
     }
 
+    std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);
+    
     void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index & lc, constraint_index & uc) const {
         const ul_pair & ul = m_columns_to_ul_pairs[j];
         lc = ul.lower_bound_witness();
