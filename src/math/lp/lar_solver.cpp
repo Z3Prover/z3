@@ -2331,14 +2331,15 @@ bool lar_solver::fetch_normalized_term_column(const lar_term& c, std::pair<mpq, 
     return false;
 }
 
-void lar_solver::add_equality(lpvar j, lpvar k) {
+std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, lpvar k) {
     vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::make_pair(mpq(1),j));
     coeffs.push_back(std::make_pair(mpq(-1),k));    
     unsigned ext_term_index = m_terms.size();
     unsigned term_index = add_term(coeffs, ext_term_index);
-    add_var_bound(term_index, lconstraint_kind::LE, mpq(0));
-    add_var_bound(term_index, lconstraint_kind::GE, mpq(0));
+    return std::pair<constraint_index, constraint_index>(
+        add_var_bound(term_index, lconstraint_kind::LE, mpq(0)),
+        add_var_bound(term_index, lconstraint_kind::GE, mpq(0)));
 }
 
 } // namespace lp

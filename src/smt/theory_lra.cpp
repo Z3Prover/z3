@@ -1149,7 +1149,9 @@ public:
             if (a.is_to_real(n->get_owner(), e)) {
                 theory_var w = get_enode(e)->get_th_var(get_id());
                 lpvar wj = register_theory_var_in_lar_solver(w);
-                lp().add_equality(vj, wj);
+                auto lu_constraints = lp().add_equality(vj, wj);
+                add_def_constraint(lu_constraints.first);
+                add_def_constraint(lu_constraints.second);
             }
         }
     }
@@ -3289,7 +3291,7 @@ public:
             break;
         }
         default:
-            // UNREACHABLE(); TODO : the source might be to_real conversion, lp().add_equality() has been called
+            UNREACHABLE();
             break;
         }
     }
