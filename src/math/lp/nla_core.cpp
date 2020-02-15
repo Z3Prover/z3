@@ -1230,11 +1230,7 @@ rational core::val(const factorization& f) const {
 }
 
 void core::add_empty_lemma() {
-    m_lemma_vec->push_back(lemma());
-    if (lp_settings().stats().m_nla_calls == 5 && m_lemma_vec->size() == 11) {
-        TRACE("nla_solver", tout << "bad lemma\n";);
-    }
-        
+    m_lemma_vec->push_back(lemma()); 
 }
     
 void core::negate_relation(unsigned j, const rational& a) {
