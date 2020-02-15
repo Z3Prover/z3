@@ -2210,11 +2210,13 @@ public:
         switch (r) {
         case l_false: {
             m_stats.m_nla_lemmas += lv.size();
+            int i = 0;
             for(const nla::lemma & l : lv) {
                 m_lemma = l; //todo avoid the copy
                 m_explanation = l.expl();
                 m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
                 false_case_of_check_nla();
+                i++;
             }
             break;
         }
@@ -3338,13 +3340,16 @@ public:
                 ctx().mark_as_relevant(c);
             }
             TRACE("arith", ctx().display_literals_verbose(tout, m_core) << "\n";);
-            DEBUG_CODE(
-                for (literal const& c : m_core) {
-                    if (ctx().get_assignment(c) == l_true) {
-                        TRACE("arith", ctx().display_literal_verbose(tout, c) << " is true\n";);
-                        SASSERT(false);
-                    }
-                });
+            // DEBUG_CODE(
+            //     for (literal const& c : m_core) {
+            //         if (ctx().get_assignment(c) == l_true) {
+            //             TRACE("arith", ctx().display_literal_verbose(tout, c) << " is true\n";);
+            //             SASSERT(false);
+            //         }
+            //     });   // TODO: this check seems to be too strict.
+            // The lemmas can come in batches
+            // and the same literal can appear in several lemmas in a batch: it becomes l_true
+            // in earlier processing, but it was not so when the lemma was produced
             ctx().mk_th_axiom(get_id(), m_core.size(), m_core.c_ptr());
         }
     }
