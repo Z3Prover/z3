@@ -513,15 +513,25 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     }
 
     SASSERT(!inf_l && !inf_u);
-    mpq r = floor((u - l) / m);
-    if (r < mpq(range)) range = static_cast<unsigned>(r.get_uint64());
-    // the interval contains at least range multiples of m.
-    // the number of multiples to the left of the value of j is floor((get_value(j) - l.x)/m)
-    // shift either left or right of the current value by available multiples.
-    impq shift = impq(random() % (range + 1)) - impq(floor((x - l) / m));
-    impq new_val = x + m * shift;
+    // The shift has to be a multiple of m: let us look for s, such that the shift is m*s.
+    // We have new_val = x+m*s <= u, so m*s <= u-x and, finally, s <= floor((u- x)/m) = a
+    // The symmetric reasoning gives us s >= ceil((l-x)/m) = b
+    // We randomly pick s in the segment [b, a]
+    mpq a = floor((u - x) / m);
+    mpq b = ceil((l - x) / m);
+    mpq r = a - b;
+    if (!r.is_pos())
+        return false;
+    TRACE("int_solver", tout << "a = " << a << ", b = " << b << ", r = " << r<< ", m = " << m << "\n";);
+    if (r < mpq(range))
+        range = static_cast<unsigned>(r.get_uint64());
+    
+    mpq s = b + mpq(random() % (range + 1));
+    impq new_val = x + m * impq(s);
+    TRACE("int_solver", tout << "new_val = " << new_val << "\n";);
     SASSERT(l <= new_val && new_val <= u);
-    set_value_for_nbasic_column_ignore_old_values(j, new_val);    return true;
+    set_value_for_nbasic_column_ignore_old_values(j, new_val);
+    return true;
 }
 
 bool int_solver::non_basic_columns_are_at_bounds() const {
