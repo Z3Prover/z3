@@ -1613,23 +1613,6 @@ public:
         m_variable_values.clear();
     }
 
-    bool influences_nl_var(theory_var v) const {
-        return m_nla && m_nla->influences_nl_var(get_lpvar(v));
-    }
-    
-    bool can_be_used_in_random_update(theory_var v) const {
-        if (!th.is_relevant_and_shared(get_enode(v)))
-            return false;
-
-        if (is_int(v))
-            return false;
-
-        if (influences_nl_var(v))
-            return false;
-        
-        return true;
-    }
-    
     bool assume_eqs() {        
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
@@ -1640,10 +1623,6 @@ public:
         if (vars.empty()) {
             return false;
         }
-        if (!m_use_nra_model) {
-            lp().random_update(vars.size(), vars.c_ptr());
-        }
-        init_variable_values();
         TRACE("arith", 
               for (theory_var v = 0; v < sz; ++v) {
                   if (th.is_relevant_and_shared(get_enode(v))) { 
@@ -1651,6 +1630,9 @@ public:
                   }
               }
               tout << "\n"; );
+        if (!m_use_nra_model && !m_nla) {
+            lp().random_update(vars.size(), vars.c_ptr());
+        }
         m_model_eqs.reset();
         TRACE("arith", display(tout););
             
