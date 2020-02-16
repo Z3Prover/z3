@@ -81,7 +81,8 @@ public:
     // Return the next variable to branch.
     var operator()(typename context_t<C>::node * n) override {
         typename context_t<C>::numeral_manager & nm = this->ctx()->nm();
-        SASSERT(this->ctx()->num_vars() > 0);
+        if (this->ctx()->num_vars() == 0)
+            return null_var;
         var x = this->ctx()->splitting_var(n);
         if (x == null_var)
             x = 0;
@@ -823,7 +824,7 @@ void context_t<C>::add_clause_core(unsigned sz, ineq * const * atoms, bool lemma
     if (watch) {
         for (unsigned i = 0; i < sz; i++) {
             var x = c->m_atoms[i]->x();
-            if (i == 0 || x != c->m_atoms[i-1]->x())
+            if (x != null_var && (i == 0 || x != c->m_atoms[i-1]->x()))
                 m_wlist[x].push_back(watched(c));
         }
     }
