@@ -111,7 +111,7 @@ func_decl * csp_decl_plugin::mk_func_decl(
     case OP_JS_RESOURCE_AVAILABLE:
         if (arity != 6) m_manager->raise_exception("add-resource-available expects 6 arguments");        
         if (domain[0] != m_resource_sort) m_manager->raise_exception("first argument of add-resource-available expects should be a resource");
-        if (domain[2] != m_int_sort) m_manager->raise_exception("2nd argument of add-resource-available expects should be an integer");
+        if (domain[1] != m_int_sort) m_manager->raise_exception("2nd argument of add-resource-available expects should be an integer");
         if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-resource-available expects should be an integer");
         if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-resource-available expects should be an integer");
         if (domain[4] != m_int_sort) m_manager->raise_exception("5th argument of add-resource-available expects should be an integer");
