@@ -399,7 +399,7 @@ template <typename T, typename X> unsigned lp_solver<T, X>::try_to_remove_some_r
 template <typename T, typename X> void lp_solver<T, X>::cleanup() {
     int n = 0; // number of deleted rows
     int d;
-    while ((d = try_to_remove_some_rows() > 0))
+    while ((d = try_to_remove_some_rows()) > 0)
         n += d;
 
      if (n == 1) {
