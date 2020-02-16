@@ -1777,6 +1777,8 @@ void context_t<C>::assert_units(node * n) {
         ineq * a = UNTAG(ineq*, *it);
         bool axiom = GET_TAG(*it) != 0;
         TRACE("subpaving_init", tout << "asserting: "; display(tout, a); tout << ", axiom: " << axiom << "\n";);
+        if (a->x() == null_var)
+            continue;
         propagate_bound(a->x(), a->value(), a->is_lower(), a->is_open(), n, justification(axiom));
         if (inconsistent(n))
             break;
