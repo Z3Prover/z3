@@ -1619,12 +1619,21 @@ void context_t<C>::propagate_monomial_downward(var x, node * n, unsigned j) {
             im().power(y, m->degree(i), yk);
             if (first)
                 im().set(d, yk);
-            else
+            else {
                 im().mul(d, yk, r);
+                im().set(d, r);
+                first = false;
+            }
+        }       
+        if (im().contains_zero(d)) {
+            im().reset_lower(r);
+            im().reset_upper(r);
         }
-        interval & aux  = m_i_tmp2;
-        aux.set_constant(n, x);
-        im().div(aux, d, r);
+        else {
+            interval& aux = m_i_tmp2;
+            aux.set_constant(n, x);
+            im().div(aux, d, r);
+        }
     }
     else {
         SASSERT(sz == 1);
@@ -1633,11 +1642,11 @@ void context_t<C>::propagate_monomial_downward(var x, node * n, unsigned j) {
         aux.set_constant(n, x);
         im().set(r, aux);
     }
-    unsigned d = m->degree(j);
-    if (d > 1) {
-        if (d % 2 == 0 && im().lower_is_neg(r))
+    unsigned deg = m->degree(j);
+    if (deg > 1) {
+        if (deg % 2 == 0 && im().lower_is_neg(r))
             return; // If d is even, we can't take the nth-root when lower(r) is negative.
-        im().xn_eq_y(r, d, m_nth_root_prec, r);
+        im().xn_eq_y(r, deg, m_nth_root_prec, r);
     }
     var y = m->x(j);
     // r contains the new bounds for y
