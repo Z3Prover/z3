@@ -25,6 +25,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
 
@@ -34,6 +35,7 @@ class fix_dl_var_tactic : public tactic {
         struct failed {};
         ast_manager &          m;
         arith_util &           m_util;
+        seq_util               m_seq;
         expr_fast_mark1 *      m_visited;
         ptr_vector<expr>       m_todo;
         obj_map<app, unsigned> m_occs;
@@ -41,7 +43,8 @@ class fix_dl_var_tactic : public tactic {
 
         is_target(arith_util & u):
             m(u.get_manager()),
-            m_util(u) {
+            m_util(u),
+            m_seq(m) {
         }
         
         void throw_failed(expr * ctx1, expr * ctx2 = nullptr) {
@@ -54,8 +57,12 @@ class fix_dl_var_tactic : public tactic {
             return s->get_family_id() == m_util.get_family_id();
         }
         // Return true if n is uninterpreted with respect to arithmetic.
+        // sequence theory is not disjoint from arithmetic
         bool is_uninterp(expr * n) {
-            return is_app(n) && to_app(n)->get_family_id() != m_util.get_family_id();
+            if (!is_app(n)) return false;
+            app* t = to_app(n);
+            family_id fid = t->get_family_id();
+            return fid != m_util.get_family_id() && fid != m_seq.get_family_id();
         }
 
         // Remark: we say an expression is nested, if it occurs inside the boolean structure of the formula.
@@ -82,9 +89,9 @@ class fix_dl_var_tactic : public tactic {
         }
         
         void process_app(app * t) {
-            unsigned num = t->get_num_args();
-            for (unsigned i = 0; i < num; i++)
-                visit(t->get_arg(i), false);
+            for (expr * arg : *t) {
+                visit(arg, false);
+            }
         }
 
         void process_arith_atom(expr * lhs, expr * rhs, bool nested) {
@@ -258,7 +265,7 @@ class fix_dl_var_tactic : public tactic {
             app * var = is_target(u)(*g);
             if (var != nullptr) {
                 IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(fixing-at-zero " << var->get_decl()->get_name() << ")\n";);
-                tactic_report report("fix-dl-var", *g);
+                TRACE("fix_dl_var", tout << "target " << mk_ismt2_pp(var, m) << "\n";);
                 
                 expr_substitution subst(m);
                 app * zero = u.mk_numeral(rational(0), u.is_int(var));
