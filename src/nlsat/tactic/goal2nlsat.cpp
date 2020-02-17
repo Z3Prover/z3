@@ -201,6 +201,7 @@ struct goal2nlsat::imp {
                 case OP_XOR:
                 case OP_NOT:
                 case OP_IMPLIES:
+                case OP_ITE:
                     throw tactic_exception("convert goal into cnf before applying nlsat");
                 case OP_DISTINCT:
                     throw tactic_exception("eliminate distinct operator (use tactic '(using-params simplify :blast-distinct true)') before applying nlsat");

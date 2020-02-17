@@ -68,6 +68,7 @@ class lia2pb_tactic : public tactic {
                 m_bm.has_upper(n, u, s) &&  
                 l.is_zero() &&
                 !u.is_neg() && 
+                u.is_int() && 
                 u.get_num_bits() <= m_max_bits) {
                 
                 return true;

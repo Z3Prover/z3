@@ -379,7 +379,7 @@ namespace smt2 {
 
     char const * scanner::cached_str(unsigned begin, unsigned end) {
         m_cache_result.reset();
-        while (isspace(m_cache[begin]) && begin < end)
+        while (begin < end && isspace(m_cache[begin]))
             begin++;
         while (begin < end && isspace(m_cache[end-1]))
             end--;

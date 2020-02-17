@@ -247,6 +247,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         // select(as-array[f], I) --> f(I)
         func_decl * f = m_util.get_as_array_func_decl(to_app(args[0]));
         result = m().mk_app(f, num_args - 1, args + 1);
+        TRACE("array", tout << mk_pp(args[0], m()) << " " << result << "\n";);
         return BR_REWRITE1;
     }
 

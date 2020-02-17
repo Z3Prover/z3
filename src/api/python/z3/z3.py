@@ -820,10 +820,6 @@ def Function(name, *sig):
 
 def FreshFunction(*sig):
     """Create a new fresh Z3 uninterpreted function with the given sorts.
-
-    >>> f = FreshFunction(IntSort(), IntSort())
-    >>> f(f(0))
-    f!0(f!0(0))
     """
     sig = _get_args(sig)
     if z3_debug():

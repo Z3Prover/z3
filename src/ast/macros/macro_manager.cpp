@@ -267,17 +267,19 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
         func_decl * d  = n->get_decl();
         TRACE("macro_manager", tout << "trying to expand:\n" << mk_pp(n, m) << "\nd:\n" << d->get_name() << "\n";);
         if (mm.m_decl2macro.find(d, q)) {
-            TRACE("macro_manager", tout << "expanding: " << mk_pp(n, m) << "\n";);
+            
             app * head = nullptr;
             expr * def = nullptr;
             mm.get_head_def(q, d, head, def);
             unsigned num = n->get_num_args();
             SASSERT(head && def);
+            TRACE("macro_manager", tout << "expanding: " << mk_pp(n, m) << "\n" << mk_pp(head, m) << " " << mk_pp(def, m) << "\n";);
             ptr_buffer<expr> subst_args;
             subst_args.resize(num, 0);
             for (unsigned i = 0; i < num; i++) {
                 var * v = to_var(head->get_arg(i));
-                SASSERT(v->get_idx() < num);
+                if (v->get_idx() >= num)
+                    return false;
                 unsigned nidx = num - v->get_idx() - 1;
                 SASSERT(subst_args[nidx] == 0);
                 subst_args[nidx] = n->get_arg(i);

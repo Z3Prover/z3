@@ -1007,6 +1007,11 @@ namespace qe {
                     break;
                 }
                 case AST_QUANTIFIER: {
+                    if (is_lambda(e)) {
+                        visited.insert(e, e);
+                        todo.pop_back();
+                        break;
+                    }
                     SASSERT(!is_lambda(e));
                     app_ref_vector vars(m);
                     quantifier* q = to_quantifier(e);
