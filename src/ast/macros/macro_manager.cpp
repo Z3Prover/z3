@@ -126,7 +126,6 @@ bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr, expr_depen
     m_decl2macro_dep.insert(f, dep);
 
     TRACE("macro_insert", tout << "A macro was successfully created for: " << f->get_name() << "\n";);
-    SASSERT(false);
 
     // Nothing's forbidden anymore; if something's bad, we detected it earlier.
     // mark_forbidden(m->get_expr());
