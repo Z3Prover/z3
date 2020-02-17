@@ -105,10 +105,8 @@ namespace smt {
 
         ptr_vector<expr> full_chars, suff_chars;
 
-        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)) {
-            return false;
-        }
-        if (!fixed_length_reduce_string_term(subsolver, needle, suff_chars, cex)) {
+        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)
+                || !fixed_length_reduce_string_term(subsolver, needle, suff_chars, cex)) {
             return false;
         }
 
@@ -169,10 +167,8 @@ namespace smt {
         expr_ref needle(suff, m);
 
         ptr_vector<expr> full_chars, suff_chars;
-        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)) {
-            return false;
-        }
-        if (!fixed_length_reduce_string_term(subsolver, needle, suff_chars, cex)) {
+        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)
+                || !fixed_length_reduce_string_term(subsolver, needle, suff_chars, cex)) {
             return false;
         }
 
@@ -226,10 +222,8 @@ namespace smt {
         expr_ref needle(pref, m);
 
         ptr_vector<expr> full_chars, pref_chars;
-        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)) {
-            return false;
-        }
-        if (!fixed_length_reduce_string_term(subsolver, needle, pref_chars, cex)) {
+        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)
+                || !fixed_length_reduce_string_term(subsolver, needle, pref_chars, cex)) {
             return false;
         }
 
@@ -290,10 +284,8 @@ namespace smt {
         expr_ref needle(pref, m);
 
         ptr_vector<expr> full_chars, pref_chars;
-        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)) {
-            return false;
-        }
-        if (!fixed_length_reduce_string_term(subsolver, needle, pref_chars, cex)) {
+        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)
+                || !fixed_length_reduce_string_term(subsolver, needle, pref_chars, cex)) {
             return false;
         }
 
@@ -347,10 +339,8 @@ namespace smt {
         expr_ref needle(small, m);
 
         ptr_vector<expr> haystack_chars, needle_chars;
-        if (!fixed_length_reduce_string_term(subsolver, haystack, haystack_chars, cex)) {
-            return false;
-        }
-        if (!fixed_length_reduce_string_term(subsolver, needle, needle_chars, cex)) {
+        if (!fixed_length_reduce_string_term(subsolver, haystack, haystack_chars, cex)
+                || !fixed_length_reduce_string_term(subsolver, needle, needle_chars, cex)) {
             return false;
         }
 
@@ -416,10 +406,8 @@ namespace smt {
         expr_ref needle(small, m);
 
         ptr_vector<expr> haystack_chars, needle_chars;
-        if (!fixed_length_reduce_string_term(subsolver, haystack, haystack_chars, cex)) {
-            return false;
-        }
-        if (!fixed_length_reduce_string_term(subsolver, needle, needle_chars, cex)) {
+        if (!fixed_length_reduce_string_term(subsolver, haystack, haystack_chars, cex)
+                || !fixed_length_reduce_string_term(subsolver, needle, needle_chars, cex)) {
             return false;
         }
 
@@ -663,10 +651,8 @@ namespace smt {
             expr_ref first(arg0, sub_m);
             expr_ref second(arg1, sub_m);
             ptr_vector<expr> chars0, chars1;
-            if (!fixed_length_reduce_string_term(subsolver, first, chars0, cex)) {
-                return false;
-            }
-            if (!fixed_length_reduce_string_term(subsolver, second, chars1, cex)) {
+            if (!fixed_length_reduce_string_term(subsolver, first, chars0, cex)
+                    || !fixed_length_reduce_string_term(subsolver, second, chars1, cex)) {
                 return false;
             }
             eqc_chars.append(chars0);
@@ -739,10 +725,8 @@ namespace smt {
 
         ptr_vector<expr> lhs_chars, rhs_chars;
 
-        if (!fixed_length_reduce_string_term(subsolver, lhs, lhs_chars, cex)) {
-            return false;
-        }
-        if (!fixed_length_reduce_string_term(subsolver, rhs, rhs_chars, cex)) {
+        if (!fixed_length_reduce_string_term(subsolver, lhs, lhs_chars, cex)
+                || !fixed_length_reduce_string_term(subsolver, rhs, rhs_chars, cex)) {
             return false;
         }
 
@@ -787,10 +771,8 @@ namespace smt {
         }
 
         ptr_vector<expr> lhs_chars, rhs_chars;
-        if (!fixed_length_reduce_string_term(subsolver, lhs, lhs_chars, cex)) {
-            return false;
-        }
-        if (!fixed_length_reduce_string_term(subsolver, rhs, rhs_chars, cex)) {
+        if (!fixed_length_reduce_string_term(subsolver, lhs, lhs_chars, cex)
+                || !fixed_length_reduce_string_term(subsolver, rhs, rhs_chars, cex)) {
             return false;
         }
 
