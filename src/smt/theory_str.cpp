@@ -1498,10 +1498,10 @@ namespace smt {
         {
             expr_ref premiseNEmpty(ctx.mk_eq_atom(N, empty_string), m);
             // range check
-            expr_ref premiseRangeLower(m_autil.mk_le(i, minus_one), m);
-            expr_ref premiseRangeUpper(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
-            expr_ref premiseRange(m.mk_or(premiseRangeLower, premiseRangeUpper), m);
-            expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
+            expr_ref premiseRangeLower(m_autil.mk_ge(i, zero), m);
+            expr_ref premiseRangeUpper(m_autil.mk_le(i, mk_strlen(H)), m);
+            expr_ref premiseRange(m.mk_and(premiseRangeLower, premiseRangeUpper), m);
+            expr_ref premise(m.mk_and(premiseNEmpty, m.mk_not(premiseRange)), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
             expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
             rw(finalAxiom);
@@ -1512,9 +1512,9 @@ namespace smt {
         {
             expr_ref premiseNEmpty(ctx.mk_eq_atom(N, empty_string), m);
             // range check
-            expr_ref premiseRangeLower(m_autil.mk_le(i, minus_one), m);
-            expr_ref premiseRangeUpper(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
-            expr_ref premiseRange(m.mk_not(m.mk_or(premiseRangeLower, premiseRangeUpper)), m);
+            expr_ref premiseRangeLower(m_autil.mk_ge(i, zero), m);
+            expr_ref premiseRangeUpper(m_autil.mk_le(i, mk_strlen(H)), m);
+            expr_ref premiseRange(m.mk_and(premiseRangeLower, premiseRangeUpper), m);
             expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, i), m);
             expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
