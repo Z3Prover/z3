@@ -103,8 +103,14 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(suff, m);
 
-        ptr_vector<expr> full_chars(fixed_length_reduce_string_term(subsolver, haystack));
-        ptr_vector<expr> suff_chars(fixed_length_reduce_string_term(subsolver, needle));
+        ptr_vector<expr> full_chars, suff_chars;
+
+        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)) {
+            return false;
+        }
+        if (!fixed_length_reduce_string_term(subsolver, needle, suff_chars, cex)) {
+            return false;
+        }
 
         if (suff_chars.size() == 0) {
             // all strings endwith the empty one
@@ -162,8 +168,13 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(suff, m);
 
-        ptr_vector<expr> full_chars(fixed_length_reduce_string_term(subsolver, haystack));
-        ptr_vector<expr> suff_chars(fixed_length_reduce_string_term(subsolver, needle));
+        ptr_vector<expr> full_chars, suff_chars;
+        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)) {
+            return false;
+        }
+        if (!fixed_length_reduce_string_term(subsolver, needle, suff_chars, cex)) {
+            return false;
+        }
 
         if (suff_chars.size() == 0) {
             // all strings endwith the empty one
@@ -214,8 +225,13 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(pref, m);
 
-        ptr_vector<expr> full_chars(fixed_length_reduce_string_term(subsolver, haystack));
-        ptr_vector<expr> pref_chars(fixed_length_reduce_string_term(subsolver, needle));
+        ptr_vector<expr> full_chars, pref_chars;
+        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)) {
+            return false;
+        }
+        if (!fixed_length_reduce_string_term(subsolver, needle, pref_chars, cex)) {
+            return false;
+        }
 
 
         if (pref_chars.size() == 0) {
@@ -273,8 +289,13 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(pref, m);
 
-        ptr_vector<expr> full_chars(fixed_length_reduce_string_term(subsolver, haystack));
-        ptr_vector<expr> pref_chars(fixed_length_reduce_string_term(subsolver, needle));
+        ptr_vector<expr> full_chars, pref_chars;
+        if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)) {
+            return false;
+        }
+        if (!fixed_length_reduce_string_term(subsolver, needle, pref_chars, cex)) {
+            return false;
+        }
 
         if (pref_chars.size() == 0) {
             // all strings startwith the empty one
@@ -325,8 +346,13 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(small, m);
 
-        ptr_vector<expr> haystack_chars(fixed_length_reduce_string_term(subsolver, haystack));
-        ptr_vector<expr> needle_chars(fixed_length_reduce_string_term(subsolver, needle));
+        ptr_vector<expr> haystack_chars, needle_chars;
+        if (!fixed_length_reduce_string_term(subsolver, haystack, haystack_chars, cex)) {
+            return false;
+        }
+        if (!fixed_length_reduce_string_term(subsolver, needle, needle_chars, cex)) {
+            return false;
+        }
 
         if (needle_chars.size() == 0) {
             // all strings "contain" the empty one
@@ -389,8 +415,13 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(small, m);
 
-        ptr_vector<expr> haystack_chars(fixed_length_reduce_string_term(subsolver, haystack));
-        ptr_vector<expr> needle_chars(fixed_length_reduce_string_term(subsolver, needle));
+        ptr_vector<expr> haystack_chars, needle_chars;
+        if (!fixed_length_reduce_string_term(subsolver, haystack, haystack_chars, cex)) {
+            return false;
+        }
+        if (!fixed_length_reduce_string_term(subsolver, needle, needle_chars, cex)) {
+            return false;
+        }
 
         if (needle_chars.size() == 0) {
             // all strings "contain" the empty one
@@ -460,7 +491,10 @@ namespace smt {
         eautomaton * aut = m_mk_aut(re);
         aut->compress();
 
-        ptr_vector<expr> str_chars(fixed_length_reduce_string_term(subsolver, str));
+        ptr_vector<expr> str_chars;
+        if (!fixed_length_reduce_string_term(subsolver, str, str_chars, cex)) {
+            return false;
+        }
 
         if (str_chars.empty()) {
             // check 0-length solution
@@ -580,9 +614,12 @@ namespace smt {
     }
 
     /*
-     * Expressions in the vector returned by this method only exist in the subsolver.
+     * Expressions in the vector eqc_chars exist only in the subsolver.
+     * If this method returns false, a conflict clause is returned in cex;
+     * this conflict clause exists in the main solver.
      */
-    ptr_vector<expr> theory_str::fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term) {
+    bool theory_str::fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term,
+            ptr_vector<expr> & eqc_chars, expr_ref & cex) {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
@@ -593,8 +630,6 @@ namespace smt {
         expr * arg0;
         expr * arg1;
         expr * arg2;
-
-        ptr_vector<expr> eqc_chars;
 
         zstring strConst;
         if (u.str.is_string(term, strConst)) {
@@ -607,9 +642,12 @@ namespace smt {
             if (!var_to_char_subterm_map.contains(term)) {
                 rational varLen_value;
                 bool var_hasLen = fixed_length_get_len_value(term, varLen_value);
-                ENSURE(var_hasLen);
+                if (!var_hasLen || varLen_value.is_neg()) {
+                    TRACE("str_fl", tout << "variable " << mk_pp(term, m) << " has no length assignment or impossible length assignment - asserting conflict axiom" << std::endl;);
+                    cex = expr_ref(m_autil.mk_ge(mk_strlen(term), mk_int(0)), m);
+                    return false;
+                }
                 TRACE("str_fl", tout << "creating character terms for variable " << mk_pp(term, m) << ", length = " << varLen_value << std::endl;);
-                // TODO what happens if the variable has length 0?
                 ptr_vector<expr> new_chars;
                 for (unsigned i = 0; i < varLen_value.get_unsigned(); ++i) {
                     // TODO we can probably name these better for the sake of debugging
@@ -620,14 +658,17 @@ namespace smt {
                 var_to_char_subterm_map.insert(term, new_chars);
                 fixed_length_used_len_terms.insert(term, varLen_value.get_unsigned());
             }
-
             var_to_char_subterm_map.find(term, eqc_chars);
-
         } else if (u.str.is_concat(term, arg0, arg1)) {
             expr_ref first(arg0, sub_m);
             expr_ref second(arg1, sub_m);
-            ptr_vector<expr> chars0(fixed_length_reduce_string_term(subsolver, first));
-            ptr_vector<expr> chars1(fixed_length_reduce_string_term(subsolver, second));
+            ptr_vector<expr> chars0, chars1;
+            if (!fixed_length_reduce_string_term(subsolver, first, chars0, cex)) {
+                return false;
+            }
+            if (!fixed_length_reduce_string_term(subsolver, second, chars1, cex)) {
+                return false;
+            }
             eqc_chars.append(chars0);
             eqc_chars.append(chars1);
         } else if (u.str.is_extract(term, arg0, arg1, arg2)) {
@@ -635,7 +676,10 @@ namespace smt {
             expr_ref first(arg0, sub_m);
             expr_ref second(arg1, sub_m);
             expr_ref third(arg2, sub_m);
-            ptr_vector<expr> base_chars(fixed_length_reduce_string_term(subsolver, first));
+            ptr_vector<expr> base_chars;
+            if (!fixed_length_reduce_string_term(subsolver, first, base_chars, cex)) {
+                return false;
+            }
             arith_value v(m);
             v.init(&get_context());
             rational pos, len;
@@ -648,7 +692,7 @@ namespace smt {
             // ==> (Substr ...) = ""
             if (pos.is_neg() || pos >= rational(base_chars.size()) || len.is_neg()) {
                 eqc_chars.reset();
-                return eqc_chars;
+                return true;
             } else {
                 if (pos + len >= rational(base_chars.size())) {
                     // take as many characters as possible up to the end of base_chars
@@ -666,7 +710,11 @@ namespace smt {
             if (!uninterpreted_to_char_subterm_map.contains(term)) {
                 rational ufLen_value;
                 bool uf_hasLen = fixed_length_get_len_value(term, ufLen_value);
-                ENSURE(uf_hasLen);
+                if (!uf_hasLen || ufLen_value.is_neg()) {
+                    TRACE("str_fl", tout << "uninterpreted function " << mk_pp(term, m) << " has no length assignment or impossible length assignment - asserting conflict axiom" << std::endl;);
+                    cex = expr_ref(m_autil.mk_ge(mk_strlen(term), mk_int(0)), m);
+                    return false;
+                }
                 TRACE("str_fl", tout << "creating character terms for uninterpreted function " << mk_pp(term, m) << ", length = " << ufLen_value << std::endl;);
                 ptr_vector<expr> new_chars;
                 for (unsigned i = 0; i < ufLen_value.get_unsigned(); ++i) {
@@ -679,8 +727,7 @@ namespace smt {
             }
             uninterpreted_to_char_subterm_map.find(term, eqc_chars);
         }
-
-        return eqc_chars;
+        return true;
     }
 
     bool theory_str::fixed_length_reduce_eq(smt::kernel & subsolver, expr_ref lhs, expr_ref rhs, expr_ref & cex) {
@@ -690,10 +737,16 @@ namespace smt {
         ast_manager & sub_m = subsolver.m();
         context & sub_ctx = subsolver.get_context();
 
-        ptr_vector<expr> lhs_chars(fixed_length_reduce_string_term(subsolver, lhs));
-        ptr_vector<expr> rhs_chars(fixed_length_reduce_string_term(subsolver, rhs));
+        ptr_vector<expr> lhs_chars, rhs_chars;
 
-        if(lhs_chars.size() != rhs_chars.size()) {
+        if (!fixed_length_reduce_string_term(subsolver, lhs, lhs_chars, cex)) {
+            return false;
+        }
+        if (!fixed_length_reduce_string_term(subsolver, rhs, rhs_chars, cex)) {
+            return false;
+        }
+
+        if (lhs_chars.size() != rhs_chars.size()) {
             TRACE("str_fl", tout << "length information inconsistent: " << mk_pp(lhs, m) << " has " << lhs_chars.size() <<
                     " chars, " << mk_pp(rhs, m) << " has " << rhs_chars.size() << " chars" << std::endl;);
             // equal strings ought to have equal lengths
@@ -733,8 +786,13 @@ namespace smt {
             return false;
         }
 
-        ptr_vector<expr> lhs_chars(fixed_length_reduce_string_term(subsolver, lhs));
-        ptr_vector<expr> rhs_chars(fixed_length_reduce_string_term(subsolver, rhs));
+        ptr_vector<expr> lhs_chars, rhs_chars;
+        if (!fixed_length_reduce_string_term(subsolver, lhs, lhs_chars, cex)) {
+            return false;
+        }
+        if (!fixed_length_reduce_string_term(subsolver, rhs, rhs_chars, cex)) {
+            return false;
+        }
 
         if (lhsLen != rhsLen) {
             TRACE("str", tout << "skip disequality: len(lhs) = " << lhsLen << ", len(rhs) = " << rhsLen << std::endl;);
@@ -810,7 +868,13 @@ namespace smt {
                 add_persisted_axiom(var_len_assertion);
                 return l_undef;
             }
-            fixed_length_reduce_string_term(subsolver, var);
+            ptr_vector<expr> var_chars;
+            expr_ref str_counterexample(m);
+            if (!fixed_length_reduce_string_term(subsolver, var, var_chars, str_counterexample)) {
+                TRACE("str_fl", tout << "free variable " << mk_pp(var, m) << " caused a conflict; asserting and continuing" << std::endl;);
+                assert_axiom(str_counterexample);
+                return l_undef;
+            }
         }
 
         for (expr * f : formulas) {
