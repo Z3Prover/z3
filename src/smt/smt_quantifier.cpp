@@ -332,7 +332,7 @@ namespace smt {
         }
 
         bool check_quantifier(quantifier* q) {
-            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // && !m().is_rec_fun_def(q);
+            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true;
         }
 
         bool quick_check_quantifiers() {

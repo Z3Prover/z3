@@ -106,6 +106,7 @@ namespace smt {
                 SASSERT(m_elems.contains(n));
                 SASSERT(m_inv.empty());
                 m_elems.erase(n);
+                TRACE("model_finder", tout << mk_pp(n, m) << "\n";);
                 m.dec_ref(n);
             }
 
@@ -361,7 +362,7 @@ namespace smt {
 
             void set_else(expr * e) {
                 SASSERT(!is_mono_proj());
-                SASSERT(get_root()->m_else == 0);
+                SASSERT(get_root()->m_else == nullptr);
                 get_root()->m_else = e;
             }
 
@@ -370,7 +371,7 @@ namespace smt {
             }
 
             void set_proj(func_decl * f) {
-                SASSERT(get_root()->m_proj == 0);
+                SASSERT(get_root()->m_proj == nullptr);
                 get_root()->m_proj = f;
             }
 
@@ -539,8 +540,9 @@ namespace smt {
             }
 
             // For each instantiation_set, remove entries that do not evaluate to values.
+            ptr_vector<expr> to_delete;
+
             void cleanup_instantiation_sets() {
-                ptr_vector<expr> to_delete;
                 for (node * curr : m_nodes) {
                     if (curr->is_root()) {
                         instantiation_set * s = curr->get_instantiation_set();
@@ -549,8 +551,10 @@ namespace smt {
                         for (auto const& kv : elems) {
                             expr * n     = kv.m_key;
                             expr * n_val = eval(n, true);
-                            if (!n_val || !m.is_value(n_val))
+                            // if (!n_val || (!m.is_value(n_val) && !m_array.is_array(n_val))) {
+                            if (!n_val || (!m.is_value(n_val))) {
                                 to_delete.push_back(n);
+                            }
                         }
                         for (expr* e : to_delete) {
                             s->remove(e);
@@ -592,19 +596,17 @@ namespace smt {
                and the interpretations of the m_else of nodes in n->get_avoid_set()
             */
             void collect_exceptions_values(node * n, ptr_buffer<expr> & r) {
-                ptr_vector<expr> const & exceptions   = n->get_exceptions();
-                ptr_vector<node> const & avoid_set    = n->get_avoid_set();
 
-                for (expr* e : exceptions) {
+                for (expr* e : n->get_exceptions()) {
                     expr * val = eval(e, true);
                     SASSERT(val != nullptr);
                     r.push_back(val);
                 }
 
-                for (node* a : avoid_set) {
-                    node * n = a->get_root();
-                    if (!n->is_mono_proj() && n->get_else() != nullptr) {
-                        expr * val = eval(n->get_else(), true);
+                for (node* a : n->get_avoid_set()) {
+                    node * p = a->get_root();
+                    if (!p->is_mono_proj() && p->get_else() != nullptr) {
+                        expr * val = eval(p->get_else(), true);
                         SASSERT(val != nullptr);
                         r.push_back(val);
                     }

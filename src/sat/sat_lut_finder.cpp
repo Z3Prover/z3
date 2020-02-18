@@ -252,7 +252,6 @@ namespace sat {
                 break;
             }
         }
-        unsigned nbits = 1u << vars.size();
         SASSERT(i < vars.size());
         v = vars[i];
         vars.erase(v);
