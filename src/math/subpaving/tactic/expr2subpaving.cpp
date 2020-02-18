@@ -267,12 +267,12 @@ struct expr2subpaving::imp {
     subpaving::var process_power(app * t, unsigned depth, mpz & n, mpz & d) {
         rational k;
         SASSERT(t->get_num_args() == 2);
-        if (!m_autil.is_numeral(t->get_arg(1), k) || !k.is_int() || !k.is_unsigned()) {
+        if (!m_autil.is_numeral(t->get_arg(1), k) || !k.is_int() || !k.is_unsigned() || k.is_zero()) {
             qm().set(n, 1);
             qm().set(d, 1);
             return mk_var_for(t);
         }
-        unsigned _k = k.get_unsigned();
+        unsigned _k = k.get_unsigned();        
         subpaving::var x = process(t->get_arg(0), depth+1, n, d);
         if (x != subpaving::null_var) {
             subpaving::power p(x, _k);
