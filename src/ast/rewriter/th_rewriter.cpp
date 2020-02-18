@@ -693,7 +693,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             SASSERT(is_well_sorted(m(), q1));
 
             if (m().proofs_enabled()) {
-                SASSERT(old_q->get_expr() == new_body);
                 p1 = m().mk_pull_quant(old_q, q1);
             }
         }
