@@ -157,10 +157,8 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
 
     if (is_forall(e)) {
         quantifier * q = to_quantifier(e);
-        expr * qe = q->get_expr();
-        if ((m_manager.is_eq(qe))) {
-            expr * lhs = to_app(qe)->get_arg(0);
-            expr * rhs = to_app(qe)->get_arg(1);
+        expr * qe = q->get_expr(), *lhs = nullptr, *rhs = nullptr;
+        if ((m_manager.is_eq(qe, lhs, rhs))) {
 
             if (is_non_ground_uninterp(lhs) && is_unique(to_app(lhs)->get_decl()) &&
                 !depends_on(rhs, to_app(lhs)->get_decl()) && fully_depends_on(to_app(lhs), q)) {
@@ -173,9 +171,9 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
                 t = lhs;
                 return true;
             }
-        } else if (m_manager.is_not(qe) && is_non_ground_uninterp(to_app(qe)->get_arg(0)) &&
-                   is_unique(to_app(to_app(qe)->get_arg(0))->get_decl())) { // this is like f(...) = false
-            a = to_app(to_app(qe)->get_arg(0));
+        } else if (m_manager.is_not(qe, lhs) && is_non_ground_uninterp(lhs) &&
+                   is_unique(to_app(lhs)->get_decl())) { // this is like f(...) = false
+            a = to_app(lhs);
             t = m_manager.mk_false();
             return true;
         } else if (is_non_ground_uninterp(qe) && is_unique(to_app(qe)->get_decl())) { // this is like f(...) = true

@@ -74,7 +74,7 @@ namespace datalog {
         }
 
         ~scoped_query() {
-            m_ctx.reopen();                                
+            m_ctx.ensure_opened();                                
             m_ctx.restrict_predicates(m_preds);
             m_ctx.replace_rules(m_rules);
             if (m_was_closed) {

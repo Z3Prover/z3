@@ -690,7 +690,7 @@ namespace datalog {
     void context::reopen() {
         SASSERT(m_closed);
         m_rule_set.reopen();
-        m_closed = false;
+        m_closed = false;        
     }
 
     void context::transform_rules(rule_transformer::plugin* plugin) {
