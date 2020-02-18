@@ -262,29 +262,30 @@ macro_finder::macro_finder(ast_manager & m, macro_manager & mm):
 macro_finder::~macro_finder() {
 }
 
-bool macro_finder::expand_macros(unsigned num, expr * const * exprs, proof * const * prs, expr_dependency * const * deps,  expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
+bool macro_finder::expand_macros(expr_ref_vector const& exprs, proof_ref_vector const& prs, expr_dependency_ref_vector const& deps,  expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
     TRACE("macro_finder", tout << "starting expand_macros:\n";
           m_macro_manager.display(tout););
     bool found_new_macro = false;
+    unsigned num = exprs.size();
     for (unsigned i = 0; i < num; i++) {
         expr * n       = exprs[i];
         proof * pr     = m.proofs_enabled() ? prs[i] : nullptr;
-        expr_dependency * depi = deps != nullptr ? deps[i] : nullptr;
+        expr_dependency * depi = i < deps.size() ? deps[i] : nullptr;
         expr_ref new_n(m), def(m);
         proof_ref new_pr(m);
         expr_dependency_ref new_dep(m);
         m_macro_manager.expand_macros(n, pr, depi, new_n, new_pr, new_dep);
         app_ref head(m), t(m);
         if (is_macro(new_n, head, def) && m_macro_manager.insert(head->get_decl(), to_quantifier(new_n.get()), new_pr, new_dep)) {
-            TRACE("macro_finder_found", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << new_n << "\n";);
+            TRACE("macro_finder", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << new_n << "\n";);
             found_new_macro = true;
         }
         else if (is_arith_macro(new_n, new_pr, new_dep, new_exprs, new_prs, new_deps)) {
-            TRACE("macro_finder_found", tout << "found new arith macro:\n" << new_n << "\n";);
+            TRACE("macro_finder", tout << "found new arith macro:\n" << new_n << "\n";);
             found_new_macro = true;
         }
         else if (m_util.is_pseudo_predicate_macro(new_n, head, t, def)) {
-            TRACE("macro_finder_found", tout << "found new pseudo macro:\n" << head << "\n" << t << "\n" << def << "\n";);
+            TRACE("macro_finder", tout << "found new pseudo macro:\n" << head << "\n" << t << "\n" << def << "\n";);
             pseudo_predicate_macro2macro(m, head, t, def, to_quantifier(new_n), new_pr, new_dep, new_exprs, new_prs, new_deps);
             found_new_macro = true;
         }
@@ -292,20 +293,21 @@ bool macro_finder::expand_macros(unsigned num, expr * const * exprs, proof * con
             new_exprs.push_back(new_n);
             if (m.proofs_enabled())
                 new_prs.push_back(new_pr);
-            if (deps != nullptr)
+            if (i < deps.size())
                 new_deps.push_back(new_dep);
         }
     }
     return found_new_macro;
 }
 
-void macro_finder::operator()(unsigned num, expr * const * exprs, proof * const * prs, expr_dependency * const * deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
+void macro_finder::operator()(expr_ref_vector const& exprs, proof_ref_vector const & prs, expr_dependency_ref_vector const & deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
     TRACE("macro_finder", tout << "processing macros...\n";);
     expr_ref_vector   _new_exprs(m);
     proof_ref_vector  _new_prs(m);
     expr_dependency_ref_vector _new_deps(m);
-    if (expand_macros(num, exprs, prs, deps, _new_exprs, _new_prs, _new_deps)) {
-        while (true) {
+    unsigned num = exprs.size();
+    if (expand_macros(exprs, prs, deps, _new_exprs, _new_prs, _new_deps)) {
+        for (unsigned i = 0; i < num; ++i) {
             expr_ref_vector  old_exprs(m);
             proof_ref_vector old_prs(m);
             expr_dependency_ref_vector old_deps(m);
@@ -315,7 +317,7 @@ void macro_finder::operator()(unsigned num, expr * const * exprs, proof * const 
             SASSERT(_new_exprs.empty());
             SASSERT(_new_prs.empty());
             SASSERT(_new_deps.empty());
-            if (!expand_macros(old_exprs.size(), old_exprs.c_ptr(), old_prs.c_ptr(), old_deps.c_ptr(),
+            if (!expand_macros(old_exprs, old_prs, old_deps,
                                _new_exprs, _new_prs, _new_deps))
                 break;
         }
@@ -340,15 +342,15 @@ bool macro_finder::expand_macros(unsigned num, justified_expr const * fmls, vect
         m_macro_manager.expand_macros(n, pr, nullptr, new_n, new_pr, new_dep);
         app_ref head(m), t(m);
         if (is_macro(new_n, head, def) && m_macro_manager.insert(head->get_decl(), to_quantifier(new_n.get()), new_pr)) {
-            TRACE("macro_finder_found", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << new_n << "\n";);
+            TRACE("macro_finder", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << new_n << "\n";);
             found_new_macro = true;
         }
         else if (is_arith_macro(new_n, new_pr, new_fmls)) {
-            TRACE("macro_finder_found", tout << "found new arith macro:\n" << new_n << "\n";);
+            TRACE("macro_finder", tout << "found new arith macro:\n" << new_n << "\n";);
             found_new_macro = true;
         }
         else if (m_util.is_pseudo_predicate_macro(new_n, head, t, def)) { 
-            TRACE("macro_finder_found", tout << "found new pseudo macro:\n" << head << "\n" << t << "\n" << def << "\n";);
+            TRACE("macro_finder", tout << "found new pseudo macro:\n" << head << "\n" << t << "\n" << def << "\n";);
             pseudo_predicate_macro2macro(m, head, t, def, to_quantifier(new_n), new_pr, new_fmls);
             found_new_macro = true;
         }

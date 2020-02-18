@@ -57,7 +57,7 @@ class macro_finder_tactic : public tactic {
                 deps.push_back(g->dep(idx));
             }
 
-            mf(forms.size(), forms.c_ptr(), proofs.c_ptr(), deps.c_ptr(), new_forms, new_proofs, new_deps);
+            mf(forms, proofs, deps, new_forms, new_proofs, new_deps);
 
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
