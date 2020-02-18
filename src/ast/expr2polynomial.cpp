@@ -181,7 +181,7 @@ struct expr2polynomial::imp {
         case OP_POWER: {
             rational k;
             SASSERT(t->get_num_args() == 2);
-            if (!m_autil.is_numeral(t->get_arg(1), k) || !k.is_unsigned()) {
+            if (!m_autil.is_numeral(t->get_arg(1), k) || !k.is_unsigned() || k.is_zero()) {
                 if (m_use_var_idxs)
                     throw_not_polynomial();
                 else
