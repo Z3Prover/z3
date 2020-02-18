@@ -142,7 +142,8 @@ namespace sat {
 
     bool lut_finder::extract_lut(clause& c2) {
         for (literal l : c2) {            
-            if (!s.is_visited(l.var())) return false;
+            if (!s.is_visited(l.var())) 
+                return false;
         }
         if (c2.size() == m_vars.size()) {
             m_clauses_to_remove.push_back(&c2);
