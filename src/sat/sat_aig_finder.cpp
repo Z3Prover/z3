@@ -217,8 +217,11 @@ namespace sat {
             if (c.size() != 3 || c.was_used()) continue;
             literal x = c[0], y = c[1], z = c[2];
             if (try_ite(x, z, y, c)) continue;
+            if (try_ite(x, y, z, c)) continue;
             if (try_ite(y, x, z, c)) continue;
-            if (try_ite(z, y, x, c)) continue;            
+            if (try_ite(z, x, y, c)) continue;
+            if (try_ite(z, y, x, c)) continue;
+            if (try_ite(y, z, x, c)) continue;
         }
         
         std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
