@@ -1879,7 +1879,7 @@ void cmd_context::validate_model() {
             if (is_ground(a)) {
                 r = nullptr;
                 evaluator(a, r);
-                TRACE("model_validate", tout << "checking\n" << mk_ismt2_pp(a, m()) << "\nresult:\n" << mk_ismt2_pp(r, m()) << "\n";);
+                TRACE("model_validate", tout << "checking\n" << mk_ismt2_pp(a, m()) << "\nresult: " << mk_ismt2_pp(r, m()) << "\n";);
                 if (m().is_true(r))
                     continue;
 
