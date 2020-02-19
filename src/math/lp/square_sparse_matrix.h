@@ -21,7 +21,6 @@ Revision History:
 #pragma once
 #include "util/vector.h"
 #include "math/lp/permutation_matrix.h"
-#include <unordered_map>
 #include "math/lp/static_matrix.h"
 #include <set>
 #include <utility>

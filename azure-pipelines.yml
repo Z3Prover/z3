@@ -38,9 +38,11 @@ jobs:
 #   test python bindings
 #   build documentation
 #   Asan, ubsan, msan
+# Disabled pending clang dependencies for std::unordered_map
 
 - job: "LinuxMSan"
   displayName: "Ubuntu build - cmake"
+  condition: eq(0,1) 
   pool:
     vmImage: "Ubuntu-16.04"
   strategy:
