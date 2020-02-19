@@ -53,8 +53,8 @@ namespace sat {
     public:
         aig_finder(solver& s);
         ~aig_finder() {}                
-        void set(std::function<void (literal head, literal_vector const& ands)>& f) { m_on_aig = f; }
-        void set(std::function<void (literal head, literal cond, literal th, literal el)>& f) { m_on_if = f; }
+        void set(std::function<void (literal head, literal_vector const& ands)> const& f) { m_on_aig = f; }
+        void set(std::function<void (literal head, literal cond, literal th, literal el)> const& f) { m_on_if = f; }
         void operator()(clause_vector& clauses);
     };
 }
