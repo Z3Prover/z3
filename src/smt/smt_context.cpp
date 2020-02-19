@@ -130,7 +130,7 @@ namespace smt {
                 v = dst_ctx.mk_bool_var(dst_f);
             }
             else {
-                dst_ctx.internalize_formula(dst_f, false);
+                dst_ctx.internalize_formula(dst_f, true);
                 v = dst_ctx.get_bool_var(dst_f);
             }
             b2v.setx(lit.var(), v, null_bool_var);
