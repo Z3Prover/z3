@@ -856,8 +856,8 @@ def shift(x, k):
     if k == 0:
         return x
     if k < 0:
-        return "(%s >> %d)" % (x,-k)
-    return "(%s << %d)" % (x, k)
+        return "(%s >> %dull)" % (x,-k)
+    return "(%s << %dull)" % (x, k)
 
 def hash(r, hashcons):
     if r in hashcons:
