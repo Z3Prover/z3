@@ -342,8 +342,8 @@ namespace smt {
             args1.push_back(k);
             args2.push_back(k);
         }
-        expr * sel1 = mk_select(args1.size(), args1.c_ptr());
-        expr * sel2 = mk_select(args2.size(), args2.c_ptr());
+        expr_ref sel1(mk_select(args1.size(), args1.c_ptr()), m);
+        expr_ref sel2(mk_select(args2.size(), args2.c_ptr()), m);
         TRACE("ext", tout << mk_bounded_pp(sel1, m) << "\n" << mk_bounded_pp(sel2, m) << "\n";);
         literal n1_eq_n2     = mk_eq(e1, e2, true);
         literal sel1_eq_sel2 = mk_eq(sel1, sel2, true);
