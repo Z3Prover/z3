@@ -119,6 +119,7 @@ namespace sat {
 
     void cut_simplifier::add_and(literal head, unsigned sz, literal const* lits) {
         m_aig_cuts.add_node(head, and_op, sz, lits);
+        for (unsigned i = 0; i < sz; ++i) VERIFY(head.var() != lits[i].var());
         m_stats.m_num_ands++;
     }
 
@@ -310,8 +311,8 @@ namespace sat {
             return;
         IF_VERBOSE(10, verbose_stream() << "new unit " << lit << "\n");
         validate_unit(lit);
-        s.assign_unit(lit);
         certify_unit(lit, c);
+        s.assign_unit(lit);
         ++m_stats.m_num_units;        
     }
 

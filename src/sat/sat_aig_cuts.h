@@ -140,7 +140,7 @@ namespace sat {
         bool insert_cut(unsigned v, cut const& c, cut_set& cs);
 
         void flush_roots();
-        void flush_roots(literal_vector const& to_root, node& n);
+        bool flush_roots(bool_var var, literal_vector const& to_root, node& n);
         void flush_roots(literal_vector const& to_root, cut_set& cs);
 
         cut_val eval(node const& n, cut_eval const& env) const;

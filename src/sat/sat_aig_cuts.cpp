@@ -103,6 +103,7 @@ namespace sat {
     void aig_cuts::augment_lut(unsigned v, node const& n, cut_set& cs) {
         IF_VERBOSE(4, display(verbose_stream() << "augment_lut " << v << " ", n) << "\n");
         literal l1 = child(n, 0);
+        VERIFY(&cs != &m_cuts[l1.var()]);
         for (auto const& a : m_cuts[l1.var()]) {
             m_tables[0] = &a;
             cut b(a);
@@ -112,6 +113,7 @@ namespace sat {
 
     void aig_cuts::augment_lut_rec(unsigned v, node const& n, cut& a, unsigned idx, cut_set& cs) {
         if (idx < n.size()) {
+            VERIFY(&cs != &m_cuts[child(n, idx).var()]);
             for (auto const& b : m_cuts[child(n, idx).var()]) {
                 cut ab;
                 if (ab.merge(a, b)) {
@@ -185,6 +187,7 @@ namespace sat {
         IF_VERBOSE(4, display(verbose_stream() << "augment_aig1 " << v << " ", n) << "\n");
         SASSERT(n.is_and());
         literal lit = child(n, 0);
+        VERIFY(&cs != &m_cuts[lit.var()]);
         for (auto const& a : m_cuts[lit.var()]) {
             cut c(a);
             if (n.sign()) c.negate();
@@ -197,6 +200,11 @@ namespace sat {
         SASSERT(n.is_and() || n.is_xor());
         literal l1 = child(n, 0);
         literal l2 = child(n, 1);
+        if (&cs == &m_cuts[l2.var()]) {
+            IF_VERBOSE(0, display(verbose_stream() << "augment_aig2 " << v << " ", n) << "\n");
+        }
+        VERIFY(&cs != &m_cuts[l1.var()]);
+        VERIFY(&cs != &m_cuts[l2.var()]);
         for (auto const& a : m_cuts[l1.var()]) {
             for (auto const& b : m_cuts[l2.var()]) {
                 cut c;
@@ -362,6 +370,7 @@ namespace sat {
             literal  r = m_roots[i].second;
             literal rr = to_root[r.var()];
             to_root[v] = r.sign() ? ~rr : rr;
+            if (rr != r) std::cout << v << " -> " << to_root[v] << "\n";
         }
         for (unsigned i = 0; i < m_aig.size(); ++i) {
             // invalidate nodes that have been rooted
@@ -370,9 +379,13 @@ namespace sat {
                 reset(m_cuts[i]);
             }
             else {
+                unsigned j = 0;
                 for (node & n : m_aig[i]) {
-                    flush_roots(to_root, n);
+                    if (flush_roots(i, to_root, n)) {
+                        m_aig[i][j++] = n;
+                    }
                 }
+                m_aig[i].shrink(j);
             }
         }
         for (cut_set& cs : m_cuts) {
@@ -382,18 +395,23 @@ namespace sat {
         TRACE("aig_simplifier", display(tout););
     }
 
-    void aig_cuts::flush_roots(literal_vector const& to_root, node& n) {
+    bool aig_cuts::flush_roots(bool_var var, literal_vector const& to_root, node& n) {
         bool changed = false;
         for (unsigned i = 0; i < n.size(); ++i) {
             literal& lit = m_literals[n.offset() + i];
-            if (to_root[lit.var()] != lit) {
+            literal r = to_root[lit.var()];
+            if (r != lit) {
                 changed = true;
-                lit = lit.sign() ? ~to_root[lit.var()] : to_root[lit.var()];
+                lit = lit.sign() ? ~r : r;
+            }
+            if (lit.var() == var) {
+                return false;
             }
         }
         if (changed && (n.is_and() || n.is_xor())) {
             std::sort(m_literals.c_ptr() + n.offset(), m_literals.c_ptr() + n.offset() + n.size());
         }
+        return true;
     }
 
     void aig_cuts::flush_roots(literal_vector const& to_root, cut_set& cs) {
