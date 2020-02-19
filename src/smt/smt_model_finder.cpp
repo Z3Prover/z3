@@ -551,8 +551,7 @@ namespace smt {
                         for (auto const& kv : elems) {
                             expr * n     = kv.m_key;
                             expr * n_val = eval(n, true);
-                            // if (!n_val || (!m.is_value(n_val) && !m_array.is_array(n_val))) {
-                            if (!n_val || (!m.is_value(n_val))) {
+                            if (!n_val || (!m.is_value(n_val) && !m_array.is_array(n_val))) {
                                 to_delete.push_back(n);
                             }
                         }
@@ -654,7 +653,6 @@ namespace smt {
                a set of values.
             */
             app * get_k_for(sort * s) {
-                TRACE("model_finder", tout << sort_ref(s, m) << "\n";);
                 SASSERT(is_infinite(s));
                 app * r = nullptr;
                 if (m_sort2k.find(s, r))
@@ -663,6 +661,7 @@ namespace smt {
                 m_model->register_aux_decl(r->get_decl());
                 m_sort2k.insert(s, r);
                 m_ks.push_back(r);
+                TRACE("model_finder", tout << sort_ref(s, m) << " := " << "\n";);
                 return r;
             }
 
@@ -877,9 +876,9 @@ namespace smt {
                 func_interp * rpi = alloc(func_interp, m, 1);
                 rpi->set_else(pi);
                 func_decl * p = m.mk_fresh_func_decl(1, &s, s);
-                TRACE("model_finder", tout << expr_ref(pi, m) << "\n";);
                 m_model->register_aux_decl(p, rpi);
                 n->set_proj(p);
+                TRACE("model_finder", n->display(tout << p->get_name() << "\n", m););
             }
 
             void mk_simple_proj(node * n) {
@@ -1060,7 +1059,8 @@ namespace smt {
                         func_interp * new_fi = alloc(func_interp, m, arity);
                         new_fi->set_else(m.mk_app(f_aux, args.size(), args.c_ptr()));
                         TRACE("model_finder", tout << "Setting new interpretation for " << f->get_name() << "\n" << 
-                              mk_pp(new_fi->get_else(), m) << "\n";);
+                              mk_pp(new_fi->get_else(), m) << "\n";
+                              tout << "old interpretation: " << mk_pp(fi->get_interp(), m) << "\n";);
                         m_model->reregister_decl(f, new_fi, f_aux);
                     }
                 }
