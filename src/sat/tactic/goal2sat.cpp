@@ -35,7 +35,7 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/ba_solver.h"
-#include "sat/sat_aig_simplifier.h"
+#include "sat/sat_cut_simplifier.h"
 #include "model/model_evaluator.h"
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
@@ -54,7 +54,7 @@ struct goal2sat::imp {
     ast_manager &               m;
     pb_util                     pb;
     sat::ba_solver*             m_ext;
-    sat::aig_simplifier*        m_aig;
+    sat::cut_simplifier*        m_aig;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
@@ -85,7 +85,7 @@ struct goal2sat::imp {
         m_is_lemma(false) {
         updt_params(p);
         m_true = sat::null_literal;
-        m_aig = s.get_aig_simplifier();
+        m_aig = s.get_cut_simplifier();
     }
         
     void updt_params(params_ref const & p) {

@@ -31,7 +31,7 @@ Revision History:
 #include "sat/sat_ddfw.h"
 #include "sat/sat_prob.h"
 #include "sat/sat_anf_simplifier.h"
-#include "sat/sat_aig_simplifier.h"
+#include "sat/sat_cut_simplifier.h"
 #if defined(_MSC_VER) && !defined(_M_ARM) && !defined(_M_ARM64)
 # include <xmmintrin.h>
 #endif
@@ -1931,8 +1931,8 @@ namespace sat {
             // TBD: throttle anf_delay based on yield
         }
         
-        if (m_aig_simplifier && m_simplifications > m_config.m_aig_delay && !inconsistent()) {
-            (*m_aig_simplifier)();
+        if (m_cut_simplifier && m_simplifications > m_config.m_cut_delay && !inconsistent()) {
+            (*m_cut_simplifier)();
         }
     }
 
@@ -3762,7 +3762,7 @@ namespace sat {
         bool_var new_v = mk_var(true, false);
         lit = literal(new_v, false);
         m_user_scope_literals.push_back(lit);
-        m_aig_simplifier = nullptr; // for simplicity, wipe it out
+        m_cut_simplifier = nullptr; // for simplicity, wipe it out
         TRACE("sat", tout << "user_push: " << lit << "\n";);
     }
 
@@ -3915,8 +3915,8 @@ namespace sat {
         m_slow_glue_backup.set_alpha(m_config.m_slow_glue_avg);
         m_trail_avg.set_alpha(m_config.m_slow_glue_avg);
 
-        if (m_config.m_aig_simplify && !m_aig_simplifier && m_user_scope_literals.empty()) {
-            m_aig_simplifier = alloc(aig_simplifier, *this);
+        if (m_config.m_cut_simplify && !m_cut_simplifier && m_user_scope_literals.empty()) {
+            m_cut_simplifier = alloc(cut_simplifier, *this);
         }
     }
 
@@ -3937,7 +3937,7 @@ namespace sat {
         m_probing.collect_statistics(st);
         if (m_ext) m_ext->collect_statistics(st);
         if (m_local_search) m_local_search->collect_statistics(st);
-        if (m_aig_simplifier) m_aig_simplifier->collect_statistics(st);
+        if (m_cut_simplifier) m_cut_simplifier->collect_statistics(st);
         st.copy(m_aux_stats);
     }
 

@@ -4,7 +4,6 @@ z3_add_component(sat
     dimacs.cpp
     sat_aig_cuts.cpp
     sat_aig_finder.cpp
-    sat_aig_simplifier.cpp
     sat_anf_simplifier.cpp
     sat_asymm_branch.cpp
     sat_big.cpp
@@ -14,6 +13,7 @@ z3_add_component(sat
     sat_clause_use_list.cpp
     sat_cleaner.cpp
     sat_config.cpp
+    sat_cut_simplifier.cpp
     sat_cutset.cpp
     sat_ddfw.cpp
     sat_drat.cpp

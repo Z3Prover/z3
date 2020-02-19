@@ -3,7 +3,7 @@
 
   Module Name:
 
-   sat_aig_simplifier.h
+   sat_cut_simplifier.h
 
   Abstract:
    
@@ -24,7 +24,7 @@
 
 namespace sat {
 
-    class aig_simplifier {
+    class cut_simplifier {
     public:
         struct stats {
             unsigned m_num_eqs, m_num_units, m_num_cuts, m_num_xors, m_num_ands, m_num_ites;
@@ -150,8 +150,8 @@ namespace sat {
         uint64_t op2dont_care(unsigned i, unsigned j, bin_rel const& p);
 
     public:
-        aig_simplifier(solver& s);
-        ~aig_simplifier();                
+        cut_simplifier(solver& s);
+        ~cut_simplifier();                
         void operator()();
         void collect_statistics(statistics& st) const;
 

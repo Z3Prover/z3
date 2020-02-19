@@ -73,9 +73,10 @@ def_module_params('sat',
 	                  ('anf', BOOL, False, 'enable ANF based simplification in-processing'),
 	                  ('anf.delay', UINT, 2, 'delay ANF simplification by in-processing round'),
                           ('anf.exlin', BOOL, False, 'enable extended linear simplification'), 
-		          ('aig', BOOL, False, 'enable AIG based simplification in-processing'),
-	                  ('aig.delay', UINT, 2, 'delay AIG simplification by in-processing round'),
-                          ('aig.lut',   BOOL, False, 'extract luts from clauses'),
+		          ('cut', BOOL, False, 'enable AIG based simplification in-processing'),
+	                  ('cut.delay', UINT, 2, 'delay cut simplification by in-processing round'),
+                          ('cut.lut',   BOOL, False, 'extract luts from clauses for cut simplification'),
+                          ('cut.xor',   BOOL, False, 'extract xors from clauses for cut simplification'),
                           ('lookahead.cube.cutoff', SYMBOL, 'depth', 'cutoff type used to create lookahead cubes: depth, freevars, psat, adaptive_freevars, adaptive_psat'),
                           # - depth: the maximal cutoff is fixed to the value of lookahead.cube.depth.
                           #          So if the value is 10, at most 1024 cubes will be generated of length 10.

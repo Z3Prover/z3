@@ -24,7 +24,7 @@ Revision History:
 
 namespace sat {
 
-    class aig_simplifier;
+    class cut_simplifier;
     class extension;
 
     class solver_core {
@@ -92,7 +92,7 @@ namespace sat {
         virtual extension* get_extension() const { return nullptr; }
         virtual void       set_extension(extension* e) { if (e) throw default_exception("optional API not supported"); }
 
-        virtual aig_simplifier* get_aig_simplifier() { return nullptr; }
+        virtual cut_simplifier* get_cut_simplifier() { return nullptr; }
 
 
         // The following methods are used when converting the state from the SAT solver back

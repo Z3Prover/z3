@@ -3,7 +3,7 @@
 
   Module Name:
 
-   sat_aig_simplifier.cpp
+   sat_cut_simplifier.cpp
 
   Abstract:
    
@@ -16,19 +16,19 @@
 
   --*/
 
-#include "sat/sat_aig_simplifier.h"
+#include "sat/sat_cut_simplifier.h"
 #include "sat/sat_xor_finder.h"
 #include "sat/sat_lut_finder.h"
 #include "sat/sat_elim_eqs.h"
 
 namespace sat {
     
-    struct aig_simplifier::report {
-        aig_simplifier& s;
+    struct cut_simplifier::report {
+        cut_simplifier& s;
         stopwatch       m_watch;
         unsigned        m_num_eqs, m_num_units, m_num_cuts, m_num_learned_implies;
         
-        report(aig_simplifier& s): s(s) { 
+        report(cut_simplifier& s): s(s) { 
             m_watch.start(); 
             m_num_eqs   = s.m_stats.m_num_eqs;
             m_num_units = s.m_stats.m_num_units;
@@ -50,7 +50,7 @@ namespace sat {
         }
     };
 
-    struct aig_simplifier::validator {
+    struct cut_simplifier::validator {
         solver& _s;
         params_ref p;
         literal_vector m_assumptions;
@@ -80,7 +80,7 @@ namespace sat {
         }
     };
 
-    void aig_simplifier::ensure_validator() {
+    void cut_simplifier::ensure_validator() {
         if (!m_validator) {
             params_ref p;
             p.set_bool("aig", false);
@@ -91,7 +91,7 @@ namespace sat {
         }
     }
 
-    aig_simplifier::aig_simplifier(solver& _s):
+    cut_simplifier::cut_simplifier(solver& _s):
         s(_s), 
         m_trail_size(0),
         m_validator(nullptr) {  
@@ -113,11 +113,11 @@ namespace sat {
         }
     }
 
-    aig_simplifier::~aig_simplifier() {
+    cut_simplifier::~cut_simplifier() {
         dealloc(m_validator);
     }
 
-    void aig_simplifier::add_and(literal head, unsigned sz, literal const* lits) {
+    void cut_simplifier::add_and(literal head, unsigned sz, literal const* lits) {
         m_aig_cuts.add_node(head, and_op, sz, lits);
         m_stats.m_num_ands++;
     }
@@ -125,7 +125,7 @@ namespace sat {
     //      head == l1 or l2 or l3 
     // <=> 
     //     ~head == ~l1 and ~l2 and ~l3
-    void aig_simplifier::add_or(literal head, unsigned sz, literal const* lits) {
+    void cut_simplifier::add_or(literal head, unsigned sz, literal const* lits) {
         m_lits.reset();
         m_lits.append(sz, lits);
         for (unsigned i = 0; i < sz; ++i) m_lits[i].neg();
@@ -133,31 +133,31 @@ namespace sat {
         m_stats.m_num_ands++;
     }
 
-    void aig_simplifier::add_xor(literal head, unsigned sz, literal const* lits) {
+    void cut_simplifier::add_xor(literal head, unsigned sz, literal const* lits) {
         m_aig_cuts.add_node(head, xor_op, sz, lits);
         m_stats.m_num_xors++;
     }
 
-    void aig_simplifier::add_ite(literal head, literal c, literal t, literal e) {
+    void cut_simplifier::add_ite(literal head, literal c, literal t, literal e) {
         literal lits[3] = { c, t, e };
         m_aig_cuts.add_node(head, ite_op, 3, lits);
         m_stats.m_num_ites++;
     }
 
-    void aig_simplifier::add_iff(literal head, literal l1, literal l2) {
+    void cut_simplifier::add_iff(literal head, literal l1, literal l2) {
         literal lits[2] = { l1, ~l2 };
         m_aig_cuts.add_node(head, xor_op, 2, lits);
         m_stats.m_num_xors++;
     }
 
-    void aig_simplifier::set_root(bool_var v, literal r) {
+    void cut_simplifier::set_root(bool_var v, literal r) {
         m_aig_cuts.set_root(v, r);
     }
 
-    void aig_simplifier::operator()() {
+    void cut_simplifier::operator()() {
 
         report _report(*this);
-        TRACE("aig_simplifier", s.display(tout););
+        TRACE("cut_simplifier", s.display(tout););
         unsigned n = 0, i = 0;
         ++m_stats.m_num_calls;
         do {
@@ -173,7 +173,7 @@ namespace sat {
        \brief extract AIG definitions from clauses
        Ensure that they are sorted and variables have unique definitions.
      */
-    void aig_simplifier::clauses2aig() {
+    void cut_simplifier::clauses2aig() {
 
         // update units
         for (; m_config.m_enable_units && m_trail_size < s.init_trail_size(); ++m_trail_size) {
@@ -215,7 +215,7 @@ namespace sat {
             // <=> 
             // ~head = t1 + t2 + ..
             literal head = ~xors[index];
-            TRACE("aig_simplifier", tout << xors << "\n";);
+            TRACE("cut_simplifier", tout << xors << "\n";);
             unsigned sz = xors.size() - 1;
             m_lits.reset();
             for (unsigned i = xors.size(); i-- > 0; ) {
@@ -226,14 +226,12 @@ namespace sat {
             m_lits.reset();
             m_stats.m_xxors++;            
         };
-#if 0
-        // 
-        xor_finder xf(s);
-        xf.set(on_xor);
-        xf(clauses);
-#endif
-
-        if (s.m_config.m_aig_lut) {
+        if (s.m_config.m_cut_xor) {
+            xor_finder xf(s);
+            xf.set(on_xor);
+            xf(clauses);
+        }
+        if (s.m_config.m_cut_lut) {
             std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
                 [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
                 m_stats.m_xluts++;
@@ -253,7 +251,7 @@ namespace sat {
 #endif
     }
 
-    void aig_simplifier::aig2clauses() {
+    void cut_simplifier::aig2clauses() {
         vector<cut_set> const& cuts = m_aig_cuts();
         m_stats.m_num_cuts = m_aig_cuts.num_cuts();
         add_dont_cares(cuts);
@@ -262,7 +260,7 @@ namespace sat {
         simulate_eqs();
     }
 
-    void aig_simplifier::cuts2equiv(vector<cut_set> const& cuts) {
+    void cut_simplifier::cuts2equiv(vector<cut_set> const& cuts) {
         map<cut const*, unsigned, cut::hash_proc, cut::eq_proc> cut2id;                
         bool new_eq = false;
         union_find_default_ctx ctx;
@@ -307,7 +305,7 @@ namespace sat {
         }
     }
 
-    void aig_simplifier::assign_unit(cut const& c, literal lit) {
+    void cut_simplifier::assign_unit(cut const& c, literal lit) {
         if (s.value(lit) != l_undef) 
             return;
         IF_VERBOSE(10, verbose_stream() << "new unit " << lit << "\n");
@@ -317,10 +315,10 @@ namespace sat {
         ++m_stats.m_num_units;        
     }
 
-    void aig_simplifier::assign_equiv(cut const& c, literal u, literal v) {
+    void cut_simplifier::assign_equiv(cut const& c, literal u, literal v) {
         if (u.var() == v.var()) return;
         IF_VERBOSE(10, verbose_stream() << u << " " << v << " " << c << "\n";);
-        TRACE("aig_simplifier", tout << u << " == " << v << "\n";);                            
+        TRACE("cut_simplifier", tout << u << " == " << v << "\n";);                            
         certify_equivalence(u, v, c);                    
         validate_eq(u, v);
     }
@@ -328,7 +326,7 @@ namespace sat {
     /**
      * Convert a union-find over literals into input for eim_eqs.
      */
-    void aig_simplifier::uf2equiv(union_find<> const& uf) {
+    void cut_simplifier::uf2equiv(union_find<> const& uf) {
         union_find_default_ctx ctx;
         union_find<> uf2(ctx);
         bool new_eq = false;
@@ -366,7 +364,7 @@ namespace sat {
      * that sets a subset of bits for LUT' of v establishes
      * that u implies v.
      */
-    void aig_simplifier::cuts2implies(vector<cut_set> const& cuts) {
+    void cut_simplifier::cuts2implies(vector<cut_set> const& cuts) {
         if (!m_config.m_learn_implies) return;
         vector<vector<std::pair<unsigned, cut const*>>> var_tables;
         map<cut const*, unsigned, cut::dom_hash_proc, cut::dom_eq_proc> cut2tables;
@@ -421,7 +419,7 @@ namespace sat {
         }
     }
 
-    void aig_simplifier::learn_implies(big& big, cut const& c, literal u, literal v) {
+    void cut_simplifier::learn_implies(big& big, cut const& c, literal u, literal v) {
         if (u == ~v) {
             assign_unit(c, v);
             return;
@@ -444,7 +442,7 @@ namespace sat {
         ++m_stats.m_num_learned_implies;
     }
 
-    void aig_simplifier::simulate_eqs() {
+    void cut_simplifier::simulate_eqs() {
         if (!m_config.m_simulate_eqs) return;
         auto var2val = m_aig_cuts.simulate(4);
 
@@ -476,7 +474,7 @@ namespace sat {
         IF_VERBOSE(2, verbose_stream() << "(sat.aig-simplifier num simulated eqs " << num_eqs << ")\n");
     }
 
-    void aig_simplifier::track_binary(bin_rel const& p) {
+    void cut_simplifier::track_binary(bin_rel const& p) {
         if (!s.m_config.m_drat) 
             return;
         literal u, v;
@@ -484,7 +482,7 @@ namespace sat {
         track_binary(u, v);
     }
 
-    void aig_simplifier::untrack_binary(bin_rel const& p) {
+    void cut_simplifier::untrack_binary(bin_rel const& p) {
         if (!s.m_config.m_drat) 
             return;
         literal u, v;
@@ -492,19 +490,19 @@ namespace sat {
         untrack_binary(u, v);
     }
 
-    void aig_simplifier::track_binary(literal u, literal v) {
+    void cut_simplifier::track_binary(literal u, literal v) {
         if (s.m_config.m_drat) {
             s.m_drat.add(u, v, true);
         }
     }
 
-    void aig_simplifier::untrack_binary(literal u, literal v) {
+    void cut_simplifier::untrack_binary(literal u, literal v) {
         if (s.m_config.m_drat) {
             s.m_drat.del(u, v);
         }
     }
 
-    void aig_simplifier::certify_unit(literal u, cut const& c) {
+    void cut_simplifier::certify_unit(literal u, cut const& c) {
         certify_implies(~u, u, c);
     }
 
@@ -515,7 +513,7 @@ namespace sat {
      * each resolvent is DRAT derivable because there are two previous lemmas that
      * contain complementary literals.
      */
-    void aig_simplifier::certify_equivalence(literal u, literal v, cut const& c) {
+    void cut_simplifier::certify_equivalence(literal u, literal v, cut const& c) {
         certify_implies(u, v, c);
         certify_implies(v, u, c);
     }
@@ -528,7 +526,7 @@ namespace sat {
      * Thus, for every clause C or u', where u' is u or ~u,
      * it follows that C or ~u or v
      */
-    void aig_simplifier::certify_implies(literal u, literal v, cut const& c) {
+    void cut_simplifier::certify_implies(literal u, literal v, cut const& c) {
         if (!s.m_config.m_drat) return;
         
         vector<literal_vector> clauses;
@@ -568,7 +566,7 @@ namespace sat {
         }                      
     }
 
-    void aig_simplifier::add_dont_cares(vector<cut_set> const& cuts) {
+    void cut_simplifier::add_dont_cares(vector<cut_set> const& cuts) {
         if (!m_config.m_enable_dont_cares) 
             return;
         cuts2bins(cuts);
@@ -579,7 +577,7 @@ namespace sat {
     /**
      * Collect binary relations between variables that occur in cut sets.
      */
-    void aig_simplifier::cuts2bins(vector<cut_set> const& cuts) {
+    void cut_simplifier::cuts2bins(vector<cut_set> const& cuts) {
         svector<bin_rel> dcs;
         for (auto const& p : m_bins) {
             if (p.op != none) 
@@ -609,7 +607,7 @@ namespace sat {
     /**
      * Compute masks for binary relations.
      */
-    void aig_simplifier::bins2dont_cares() {
+    void cut_simplifier::bins2dont_cares() {
         big b(s.rand());
         b.init(s, true);
         for (auto& p : m_bins) {
@@ -643,7 +641,7 @@ namespace sat {
      * to a cut, then ensure that the variable is "touched" so that it participates
      * in the next propagation.
      */
-    void aig_simplifier::dont_cares2cuts(vector<cut_set> const& cuts) {
+    void cut_simplifier::dont_cares2cuts(vector<cut_set> const& cuts) {
         for (auto& cs : cuts) {
             for (auto const& c : cs) {
                 if (add_dont_care(c)) {
@@ -663,7 +661,7 @@ namespace sat {
      * Don't care positions are spaced apart by 2^{j+1}, 
      * where j is the second variable position.
      */ 
-    uint64_t aig_simplifier::op2dont_care(unsigned i, unsigned j, bin_rel const& p) {
+    uint64_t cut_simplifier::op2dont_care(unsigned i, unsigned j, bin_rel const& p) {
         SASSERT(i < j && j < 6);
         if (p.op == none) return 0ull;
         // first position of mask is offset into output bits contributed by i and j
@@ -681,7 +679,7 @@ namespace sat {
      * The don't care bits are added to the LUT, so that the
      * output is always 1 on don't care combinations.
      */
-    bool aig_simplifier::add_dont_care(cut const & c) {
+    bool cut_simplifier::add_dont_care(cut const & c) {
         uint64_t dc = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
             for (unsigned j = i + 1; j < c.size(); ++j) {
@@ -694,7 +692,7 @@ namespace sat {
         return (dc != c.dont_care()) && (c.add_dont_care(dc), true);
     }
 
-    void aig_simplifier::collect_statistics(statistics& st) const {
+    void cut_simplifier::collect_statistics(statistics& st) const {
         st.update("sat-aig.eqs",   m_stats.m_num_eqs);
         st.update("sat-aig.cuts",  m_stats.m_num_cuts);
         st.update("sat-aig.ands",  m_stats.m_num_ands);
@@ -707,13 +705,13 @@ namespace sat {
         st.update("sat-aig.dc-reduce", m_stats.m_num_dont_care_reductions);
     }
 
-    void aig_simplifier::validate_unit(literal lit) {
+    void cut_simplifier::validate_unit(literal lit) {
         if (!m_config.m_validate_lemmas) return;
         ensure_validator();
         m_validator->validate(1, &lit);
     }
 
-    void aig_simplifier::validate_eq(literal a, literal b) {
+    void cut_simplifier::validate_eq(literal a, literal b) {
         if (!m_config.m_validate_lemmas) return;
         ensure_validator();
         literal lits1[2] = { a, ~b };

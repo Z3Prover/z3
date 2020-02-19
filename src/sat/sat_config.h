@@ -120,9 +120,10 @@ namespace sat {
         unsigned           m_unit_walk_threads;
         bool               m_unit_walk;
         bool               m_binspr;
-        bool               m_aig_simplify;
-        unsigned           m_aig_delay;
-        bool               m_aig_lut;
+        bool               m_cut_simplify;
+        unsigned           m_cut_delay;
+        bool               m_cut_lut;
+        bool               m_cut_xor;
         bool               m_anf_simplify;
         unsigned           m_anf_delay;
         bool               m_anf_exlin;
