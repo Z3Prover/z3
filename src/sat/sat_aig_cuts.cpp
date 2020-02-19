@@ -372,7 +372,7 @@ namespace sat {
             literal  r = m_roots[i].second;
             literal rr = to_root[r.var()];
             to_root[v] = r.sign() ? ~rr : rr;
-            if (rr != r) std::cout << v << " -> " << to_root[v] << "\n";
+            // if (rr != r) std::cout << v << " -> " << to_root[v] << "\n";
         }
         for (unsigned i = 0; i < m_aig.size(); ++i) {
             // invalidate nodes that have been rooted
@@ -439,23 +439,31 @@ namespace sat {
     bool aig_cuts::eq(node const& a, node const& b) {
         if (a.is_valid() != b.is_valid()) return false;
         if (!a.is_valid()) return true;
-        if (a.op() != b.op() || a.sign() != b.sign() || a.size() != b.size()) return false;
-        for (unsigned i = 0; i < a.size(); ++i) {
-            if (m_literals[a.offset() + i] != m_literals[b.offset() + i]) return false;
+        if (a.op() != b.op() || a.sign() != b.sign() || a.size() != b.size()) 
+            return false;
+        for (unsigned i = a.size(); i-- > 0; ) {
+            if (m_literals[a.offset() + i] != m_literals[b.offset() + i]) 
+                return false;
         }
         return true;
+    }
+
+    bool aig_cuts::similar(node const& a, node const& b) {
+        bool sim = true;
+        sim = a.is_lut() && !b.is_lut() && a.size() == b.size();
+        for (unsigned i = a.size(); sim && i-- > 0; ) {
+            sim = m_literals[a.offset() + i].var() == m_literals[b.offset() + i].var();
+        }
+        return sim;
     }
 
     bool aig_cuts::insert_aux(unsigned v, node const& n) {
         if (!m_config.m_full) return false;
         unsigned num_gt = 0, num_eq = 0;
         for (node const& n2 : m_aig[v]) {
-            if (eq(n, n2)) return false;
+            if (eq(n, n2) || similar(n, n2)) return false;
             else if (n.size() < n2.size()) num_gt++;
             else if (n.size() == n2.size()) num_eq++;
-            // avoid inserting LUTs that are likely to collide
-            if (n.is_lut() && !n2.is_lut() && n.size() == n2.size()) 
-                return false;
         }
         if (m_aig[v].size() < m_config.m_max_aux) {
             on_node_add(v, n);

@@ -124,6 +124,7 @@ namespace sat {
         void init_cut_set(unsigned id);
 
         bool eq(node const& a, node const& b);
+        bool similar(node const& a, node const& b);
 
         unsigned_vector filter_valid_nodes() const;
         void augment(unsigned_vector const& ids);

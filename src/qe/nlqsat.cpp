@@ -433,8 +433,10 @@ namespace qe {
             s.m_solver.vars(l, vs);
             TRACE("qe", s.m_solver.display(tout << vs << " ", l) << "\n";);
             for (unsigned v : vs) {
-                level.merge(s.m_rvar2level.get(v, max_level()));                
+                level.merge(s.m_rvar2level.get(v, max_level()));
             }
+            if (level == max_level()) 
+                throw default_exception("level not in NRA");
             set_level(l.var(), level);
             return level;
         }
