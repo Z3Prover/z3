@@ -140,7 +140,6 @@ namespace sat {
             r |= ((n.lut() >> w) & 0x1) << j;
         } 
         a.set_table(r);
-        std::cout << a << "\n";
         insert_cut(v, a, cs);
     }
 
@@ -149,6 +148,9 @@ namespace sat {
         literal l1 = child(n, 0);
         literal l2 = child(n, 1);
         literal l3 = child(n, 2);
+        VERIFY(&cs != &m_cuts[l1.var()]);
+        VERIFY(&cs != &m_cuts[l2.var()]);
+        VERIFY(&cs != &m_cuts[l3.var()]);
         for (auto const& a : m_cuts[l1.var()]) {
             for (auto const& b : m_cuts[l2.var()]) {
                 cut ab;

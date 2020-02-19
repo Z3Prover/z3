@@ -433,7 +433,7 @@ namespace qe {
             s.m_solver.vars(l, vs);
             TRACE("qe", s.m_solver.display(tout << vs << " ", l) << "\n";);
             for (unsigned v : vs) {
-                level.merge(s.m_rvar2level[v]);                
+                level.merge(s.m_rvar2level.get(v, max_level()));                
             }
             set_level(l.var(), level);
             return level;
