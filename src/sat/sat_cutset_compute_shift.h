@@ -880,7 +880,7 @@ def compile(S, offset, hashcons):
     S2 = S[l2:]
     if S1 == S2:
         r1 = compile(S1, offset, hashcons)        
-        return hash("(%s | (%s << %d))" % (r1, r1, l2), hashcons)
+        return hash("(%s | (%s << %dull))" % (r1, r1, l2), hashcons)
     r1 = compile(S1, offset, hashcons)
     r2 = compile(S2, offset + l2, hashcons)
     return hash("(%s | %s)" % (r1, r2), hashcons)
