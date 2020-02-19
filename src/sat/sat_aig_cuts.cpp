@@ -121,7 +121,7 @@ namespace sat {
             }
             return;
         }
-        for (unsigned i = 0; i < n.size(); ++i) {
+        for (unsigned i = n.size(); i-- > 0; ) { 
             m_luts[i] = m_tables[i]->shift_table(a);            
         }
         uint64_t r = 0;
@@ -138,6 +138,7 @@ namespace sat {
             r |= ((n.lut() >> w) & 0x1) << j;
         } 
         a.set_table(r);
+        std::cout << a << "\n";
         insert_cut(v, a, cs);
     }
 

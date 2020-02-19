@@ -41,7 +41,7 @@ class fix_dl_var_tactic : public tactic {
 
         is_target(arith_util & u):
             m(u.get_manager()),
-            m_util(u){
+            m_util(u) {
         }
         
         void throw_failed(expr * ctx1, expr * ctx2 = nullptr) {
@@ -53,6 +53,11 @@ class fix_dl_var_tactic : public tactic {
             sort * s = m.get_sort(n);
             return s->get_family_id() == m_util.get_family_id();
         }
+        // Return true if n is uninterpreted with respect to arithmetic.
+        bool is_uninterp(expr * n) {
+            return is_app(n) && to_app(n)->get_family_id() != m_util.get_family_id();
+        }
+
         // Remark: we say an expression is nested, if it occurs inside the boolean structure of the formula.
         // That is, the expression is not part of an unit clause comprising of a single inequality/equality.
         
@@ -77,9 +82,9 @@ class fix_dl_var_tactic : public tactic {
         }
         
         void process_app(app * t) {
-            for (expr * arg : *t) {
-                visit(arg, false);
-            }
+            unsigned num = t->get_num_args();
+            for (unsigned i = 0; i < num; i++)
+                visit(t->get_arg(i), false);
         }
 
         void process_arith_atom(expr * lhs, expr * rhs, bool nested) {
@@ -125,7 +130,7 @@ class fix_dl_var_tactic : public tactic {
         }
 
         void process_arith(app * t, bool nested) {
-            if (m.is_bool(t)) {
+            if (m.is_bool(t) && t->get_num_args() == 2) {
                 process_arith_atom(t->get_arg(0), t->get_arg(1), nested);
                 return;
             }
@@ -253,7 +258,7 @@ class fix_dl_var_tactic : public tactic {
             app * var = is_target(u)(*g);
             if (var != nullptr) {
                 IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(fixing-at-zero " << var->get_decl()->get_name() << ")\n";);
-                TRACE("fix_dl_var", tout << "target " << mk_ismt2_pp(var, m) << "\n";);
+                tactic_report report("fix-dl-var", *g);
                 
                 expr_substitution subst(m);
                 app * zero = u.mk_numeral(rational(0), u.is_int(var));
