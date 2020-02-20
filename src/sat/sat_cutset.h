@@ -63,6 +63,8 @@ namespace sat {
 
         unsigned size() const { return m_size; }
 
+        unsigned filter() const { return m_filter; }
+
         static unsigned max_cut_size() { return 5; }
 
         unsigned const* begin() const { return m_elems; }
@@ -158,6 +160,10 @@ namespace sat {
         }
 
         std::ostream& display(std::ostream& out) const;
+
+        static std::ostream& display_table(std::ostream& out, unsigned num_input, uint64_t table);
+
+        static std::string table2string(unsigned num_input, uint64_t table);
     };
 
     class cut_set {

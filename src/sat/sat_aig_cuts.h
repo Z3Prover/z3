@@ -115,6 +115,7 @@ namespace sat {
         literal_vector        m_clause;
         cut const*            m_tables[6];
         uint64_t              m_luts[6];
+        literal               m_lits[6];
 
         bool is_touched(bool_var v, node const& n);
         bool is_touched(literal lit) const { return is_touched(lit.var()); }
@@ -144,7 +145,10 @@ namespace sat {
         bool flush_roots(bool_var var, literal_vector const& to_root, node& n);
         void flush_roots(literal_vector const& to_root, cut_set& cs);
 
+        void flush_units(cut_set& cs);
+
         cut_val eval(node const& n, cut_eval const& env) const;
+        lbool get_value(bool_var v) const;
 
         std::ostream& display(std::ostream& out, node const& n) const;
 
@@ -181,6 +185,8 @@ namespace sat {
 
         void inc_max_cutset_size(unsigned v) { m_max_cutset_size[v] += 10; touch(v); }
         unsigned max_cutset_size(unsigned v) const { return v == UINT_MAX ? m_config.m_max_cutset_size : m_max_cutset_size[v]; }
+
+        void flush_units();
 
         vector<cut_set> const & operator()();
         unsigned num_cuts() const { return m_num_cuts; }

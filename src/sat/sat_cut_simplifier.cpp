@@ -177,9 +177,14 @@ namespace sat {
     void cut_simplifier::clauses2aig() {
 
         // update units
+        bool has_units = false;
         for (; m_config.m_enable_units && m_trail_size < s.init_trail_size(); ++m_trail_size) {
+            has_units = true;
             literal lit = s.trail_literal(m_trail_size);
             m_aig_cuts.add_node(lit, and_op, 0, 0);
+        }
+        if (has_units) {
+            m_aig_cuts.flush_units();
         }
                
         std::function<void (literal head, literal_vector const& ands)> on_and = 

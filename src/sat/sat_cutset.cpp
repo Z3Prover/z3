@@ -12,6 +12,7 @@
   --*/
 
 
+#include <sstream>
 #include "util/hashtable.h"
 #include "sat/sat_cutset.h"
 #include "sat/sat_cutset_compute_shift.h"
@@ -95,11 +96,14 @@ namespace sat {
 
     void cut_set::init(region& r, unsigned max_sz, unsigned v) { 
         m_var = v;
-        m_max_size = max_sz;
+        m_size = 0;
         SASSERT(!m_region || m_cuts);
-        if (m_region) return;
-        m_region = &r; 
-        m_cuts = new (r) cut[max_sz]; 
+        VERIFY(!m_region || m_max_size > 0);
+        if (!m_region) {
+            m_max_size = max_sz;
+            m_region = &r;
+            m_cuts = new (r) cut[max_sz];
+        }
     }
 
     /**
@@ -192,10 +196,22 @@ namespace sat {
             if (i + 1 < m_size) out << " ";
         }        
         out << "} ";
-        for (unsigned i = 0; i < (1u << m_size); ++i) {
-            if (0 != (table() & (1ull << i))) out << "1"; else out << "0";
+        display_table(out, m_size, table());
+        return out;
+    }
+
+    std::ostream& cut::display_table(std::ostream& out, unsigned num_input, uint64_t table) {
+        for (unsigned i = 0; i < (1u << num_input); ++i) {
+            if (0 != (table & (1ull << i))) out << "1"; else out << "0";
         }    
         return out;
     }
+
+    std::string cut::table2string(unsigned num_input, uint64_t table) {
+        std::ostringstream strm;
+        display_table(strm, num_input, table);
+        return strm.str();
+    }
+
 
 }
