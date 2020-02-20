@@ -26,6 +26,7 @@ z3_add_component(sat
     sat_lut_finder.cpp
     sat_model_converter.cpp
     sat_mus.cpp
+    sat_npn3_finder.cpp
     sat_parallel.cpp
     sat_prob.cpp
     sat_probing.cpp
