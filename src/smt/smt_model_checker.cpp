@@ -572,7 +572,7 @@ namespace smt {
     }
 
     void model_checker::restart_eh() {
-        IF_VERBOSE(100, verbose_stream() << "(smt.mbqi \"instantiating new instances...\")\n";);
+        IF_VERBOSE(100, if (has_new_instances()) verbose_stream() << "(smt.mbqi \"instantiating new instances...\")\n";);
         assert_new_instances();
         reset_new_instances();
     }

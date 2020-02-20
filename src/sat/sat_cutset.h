@@ -15,6 +15,7 @@
 #include "util/region.h"
 #include "util/debug.h"
 #include "util/util.h"
+#include "util/lbool.h"
 #include "util/vector.h"
 #include <algorithm>
 #include <cstring>
