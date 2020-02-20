@@ -105,9 +105,10 @@ class dom_simplify_tactic : public tactic {
     expr_ref simplify_rec(expr* t);
     expr_ref simplify_arg(expr* t);
     expr_ref simplify_ite(app * ite);
-    expr_ref simplify_and(app * ite) { return simplify_and_or(true, ite); }
-    expr_ref simplify_or(app * ite) { return simplify_and_or(false, ite); }
-    expr_ref simplify_and_or(bool is_and, app * ite);
+    expr_ref simplify_and(app * e) { return simplify_and_or(true, e); }
+    expr_ref simplify_or(app * e) { return simplify_and_or(false, e); }
+    expr_ref simplify_and_or(bool is_and, app * e);
+    expr_ref simplify_not(app * e);
     void simplify_goal(goal& g);
 
     bool is_subexpr(expr * a, expr * b);

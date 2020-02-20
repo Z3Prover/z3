@@ -275,6 +275,9 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     else if (m.is_or(e)) {
         r = simplify_or(to_app(e));
     }
+    else if (m.is_not(e)) {
+        r = simplify_not(to_app(e));
+    }
     else {
         for (expr * child : tree(e)) {
             simplify_rec(child);
@@ -329,6 +332,7 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
             r = simplify_arg(arg);                              \
             args.push_back(r);                                  \
             if (!assert_expr(r, !is_and)) {                     \
+                pop(scope_level() - old_lvl);                   \
                 r = is_and ? m.mk_false() : m.mk_true();        \
                 return r;                                       \
             }                                                   
@@ -345,10 +349,17 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
     }
     
     pop(scope_level() - old_lvl);
-    r = is_and ? mk_and(args) : mk_or(args);
-    return r;
+    return { is_and ? mk_and(args) : mk_or(args), m };
 }
 
+expr_ref dom_simplify_tactic::simplify_not(app * e) {
+    expr *ee;
+    ENSURE(m.is_not(e, ee));
+    unsigned old_lvl = scope_level();
+    expr_ref t = simplify_rec(ee);
+    pop(scope_level() - old_lvl);
+    return mk_not(t);
+}
 
 
 bool dom_simplify_tactic::init(goal& g) {
