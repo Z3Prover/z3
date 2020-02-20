@@ -340,7 +340,7 @@ class theory_lra::imp {
                 return m_th.is_int(v);
             }
             else {
-                return (unsigned)std::hash<lp::mpq>()(m_th.get_value(v)); 
+                return (unsigned)std::hash<lp::impq>()(m_th.get_ivalue(v)); 
             }
         }
     };
@@ -1645,7 +1645,7 @@ public:
             if (!th.is_relevant_and_shared(n1)) {                    
                 continue;
             }
-            if (!can_get_value(v)) {
+            if (!can_get_ivalue(v)) {
                 continue;
             }
             theory_var other = m_model_eqs.insert_if_not_there(v);
@@ -1698,7 +1698,7 @@ public:
             return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
         }
         else {
-            return get_value(v1) == get_value(v2); 
+            return get_ivalue(v1) == get_ivalue(v2); 
         }
     }
 
