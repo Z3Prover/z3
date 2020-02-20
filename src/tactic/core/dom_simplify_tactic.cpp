@@ -22,7 +22,6 @@ Notes:
 #include "ast/ast_pp.h"
 #include "tactic/core/dom_simplify_tactic.h"
 
-
 /**
    \brief compute a post-order traversal for e.
    Also populate the set of parents
@@ -358,6 +357,7 @@ expr_ref dom_simplify_tactic::simplify_not(app * e) {
     unsigned old_lvl = scope_level();
     expr_ref t = simplify_rec(ee);
     pop(scope_level() - old_lvl);
+    reset_cache();
     return mk_not(t);
 }
 
