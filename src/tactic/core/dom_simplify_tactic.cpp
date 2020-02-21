@@ -348,6 +348,9 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
     }
     
     pop(scope_level() - old_lvl);
+    // TODO: add stack for cache rather than destroy it completely everywhere
+    if (!is_and)
+        reset_cache();
     return { is_and ? mk_and(args) : mk_or(args), m };
 }
 
