@@ -608,7 +608,7 @@ namespace qe {
                 if (a.is_div(n, n1, n2) && a.is_numeral(n2, r) && !r.is_zero()) {
                     return;
                 }
-                if (a.is_power(n, n1, n2) && a.is_numeral(n2, r) && r.is_unsigned()) {
+                if (a.is_power(n, n1, n2) && a.is_numeral(n2, r) && r.is_unsigned() && r.is_pos()) {
                     return;
                 }
                 if (a.is_div(n) && s.m_mode == qsat_t && is_ground(n)) {
