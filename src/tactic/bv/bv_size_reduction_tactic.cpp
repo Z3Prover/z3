@@ -184,7 +184,7 @@ public:
         m_mc = nullptr;
         unsigned num_reduced = 0;
         {
-            tactic_report report("bv-size-reduction", g);
+            tactic_report report("reduce-bv-size", g);
             collect_bounds(g);
             
             // create substitution

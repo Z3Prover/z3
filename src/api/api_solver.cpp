@@ -695,13 +695,13 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s) {
+    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s, bool include_names) {
         Z3_TRY;
         LOG_Z3_solver_to_string(c, s);
         RESET_ERROR_CODE();
         init_solver(c, s);
         std::ostringstream buffer;
-        to_solver_ref(s)->display_dimacs(buffer);
+        to_solver_ref(s)->display_dimacs(buffer, include_names);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }

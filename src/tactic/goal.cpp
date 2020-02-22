@@ -431,10 +431,10 @@ void goal::display_ll(std::ostream & out) const {
 /**
    \brief Assumes that the formula is already in CNF.
 */
-void goal::display_dimacs(std::ostream & out) const {
+void goal::display_dimacs(std::ostream & out, bool include_names) const {
     expr_ref_vector fmls(m());
     get_formulas(fmls);
-    ::display_dimacs(out, fmls);
+    ::display_dimacs(out, fmls, include_names);
 }
 
 unsigned goal::num_exprs() const {

@@ -24,6 +24,7 @@ namespace sat {
     aig_cuts::aig_cuts() {
         m_cut_set1.init(m_region, m_config.m_max_cutset_size + 1, UINT_MAX);
         m_cut_set2.init(m_region, m_config.m_max_cutset_size + 1, UINT_MAX);
+        m_empty_cuts.init(m_region, m_config.m_max_cutset_size + 1, UINT_MAX);
         m_num_cut_calls = 0;
         m_num_cuts = 0;
     }
@@ -31,9 +32,9 @@ namespace sat {
     vector<cut_set> const& aig_cuts::operator()() {
         if (m_config.m_full) flush_roots();
         unsigned_vector node_ids = filter_valid_nodes();
-        TRACE("aig_simplifier", display(tout););
+        TRACE("cut_simplifier", display(tout););
         augment(node_ids);
-        TRACE("aig_simplifier", display(tout););
+        TRACE("cut_simplifier", display(tout););
         ++m_num_cut_calls;
         return m_cuts;
     }
@@ -326,29 +327,31 @@ namespace sat {
         }
         else if (m_aig[v][0].is_const() || !insert_aux(v, n)) {
             m_literals.shrink(m_literals.size() - n.size());
-            TRACE("aig_simplifier", tout << "duplicate\n";);
+            TRACE("cut_simplifier", tout << "duplicate\n";);
         }
         SASSERT(!m_aig[v].empty());
     }
 
     void aig_cuts::add_node(bool_var v, uint64_t lut, unsigned sz, bool_var const* args) {
-        TRACE("aig_simplifier", tout << v << " == " << cut::table2string(sz, lut) << " " << bool_var_vector(sz, args) << "\n";);
+        TRACE("cut_simplifier", tout << v << " == " << cut::table2string(sz, lut) << " " << bool_var_vector(sz, args) << "\n";);
         reserve(v);
         unsigned offset = m_literals.size();
         node n(lut, sz, offset);
         for (unsigned i = 0; i < sz; ++i) {
+            reserve(args[i]);
             m_literals.push_back(literal(args[i], false));
         }
         add_node(v, n);
     }
 
     void aig_cuts::add_node(literal head, bool_op op, unsigned sz, literal const* args) {
-        TRACE("aig_simplifier", tout << head << " == " << op << " " << literal_vector(sz, args) << "\n";);
+        TRACE("cut_simplifier", tout << head << " == " << op << " " << literal_vector(sz, args) << "\n";);
         unsigned v = head.var();
         reserve(v);
         unsigned offset = m_literals.size();
         node n(head.sign(), op, sz, offset);
         m_literals.append(sz, args);
+        for (unsigned i = 0; i < sz; ++i) reserve(args[i].var());
         if (op == and_op || op == xor_op) {
             std::sort(m_literals.c_ptr() + offset, m_literals.c_ptr() + offset + sz);
         }
@@ -374,13 +377,12 @@ namespace sat {
 
     void aig_cuts::flush_roots() {
         if (m_roots.empty()) return;
-        literal_vector to_root;
-        for (unsigned i = 0; i < m_aig.size(); ++i) {
-            to_root.push_back(literal(i, false));
-        }
+        to_root to_root;
         for (unsigned i = m_roots.size(); i-- > 0; ) {
             bool_var v = m_roots[i].first;
             literal  r = m_roots[i].second;
+            reserve(v);
+            reserve(r.var());
             literal rr = to_root[r.var()];
             to_root[v] = r.sign() ? ~rr : rr;
         }
@@ -404,10 +406,10 @@ namespace sat {
             flush_roots(to_root, cs);
         }
         m_roots.reset();
-        TRACE("aig_simplifier", display(tout););
+        TRACE("cut_simplifier", display(tout););
     }
 
-    bool aig_cuts::flush_roots(bool_var var, literal_vector const& to_root, node& n) {
+    bool aig_cuts::flush_roots(bool_var var, to_root const& to_root, node& n) {
         bool changed = false;
         for (unsigned i = 0; i < n.size(); ++i) {
             literal& lit = m_literals[n.offset() + i];
@@ -426,7 +428,7 @@ namespace sat {
         return true;
     }
 
-    void aig_cuts::flush_roots(literal_vector const& to_root, cut_set& cs) {
+    void aig_cuts::flush_roots(to_root const& to_root, cut_set& cs) {
         for (unsigned j = 0; j < cs.size(); ++j) {
             for (unsigned v : cs[j]) {
                 if (to_root[v] != literal(v, false)) {
@@ -708,7 +710,7 @@ namespace sat {
                     m_clause.push_back(lit);
                 }
                 m_clause.push_back(parity ? r : ~r);
-                TRACE("aig_simplifier", tout << "validate: " << m_clause << "\n";);
+                TRACE("cut_simplifier", tout << "validate: " << m_clause << "\n";);
                 on_clause(m_clause);
             }
             return;
@@ -723,7 +725,7 @@ namespace sat {
                     m_clause.push_back(lit);
                 }
                 m_clause.push_back(0 == (n.lut() & (1ull << i)) ? ~r : r);
-                TRACE("aig_simplifier", tout << n.lut() << " " <<  m_clause << "\n";);
+                TRACE("cut_simplifier", tout << n.lut() << " " <<  m_clause << "\n";);
                 on_clause(m_clause);
             }
             return;
@@ -769,7 +771,7 @@ namespace sat {
         svector<bool>   is_var;
 
         validator(aig_cuts& t):t(t),s(p, lim) {
-            p.set_bool("aig_simplifier", false);
+            p.set_bool("cut_simplifier", false);
             s.updt_params(p);
         }
 
