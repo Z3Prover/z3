@@ -61,7 +61,6 @@ namespace sat {
         bool extract_lut(literal l1, literal l2);
         bool extract_lut(clause& c2);
         bool update_combinations(unsigned mask);
-        void init_mask(unsigned i);
         void init_clause_filter();
         void init_clause_filter(clause_vector& clauses);
         unsigned get_clause_filter(clause const& c);
@@ -75,5 +74,6 @@ namespace sat {
 
         unsigned max_lut_size() const { return m_max_lut_size; }
         void operator()(clause_vector& clauses);        
+
     };
 }

@@ -160,6 +160,10 @@ namespace sat {
             return true;
         }
 
+        void remove_elem(unsigned i);
+
+        static uint64_t effect_mask(unsigned i);
+
         std::ostream& display(std::ostream& out) const;
 
         static std::ostream& display_table(std::ostream& out, unsigned num_input, uint64_t table);
@@ -196,6 +200,7 @@ namespace sat {
             std::swap(m_cuts, other.m_cuts); 
         }
         void evict(on_update_t& on_del, unsigned idx);
+        void evict(on_update_t& on_del, cut const& c);
 
         std::ostream& display(std::ostream& out) const;
     };

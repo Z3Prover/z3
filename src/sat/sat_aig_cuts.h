@@ -227,6 +227,8 @@ namespace sat {
 
         cut_eval simulate(unsigned num_rounds);
 
+        void simplify();
+
         std::ostream& display(std::ostream& out) const;
 
     };

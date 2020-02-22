@@ -192,12 +192,13 @@ namespace sat {
             m_aig_cuts.add_node(head, ite_op, 3, args);
             m_stats.m_xites++;
         };
+
         aig_finder af(s);
         af.set(on_and);
         af.set(on_ite);
         clause_vector clauses(s.clauses());
         if (m_config.m_learned2aig) clauses.append(s.learned());
-        af(clauses);
+        af(clauses);        
 
         std::function<void (literal_vector const&)> on_xor = 
             [&,this](literal_vector const& xors) {
@@ -231,13 +232,15 @@ namespace sat {
             xf.set(on_xor);
             xf(clauses);
         }
+
+        std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
+            [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
+            m_stats.m_xluts++;
+            // m_aig_cuts.add_cut(v, lut, vars);
+            m_aig_cuts.add_node(v, lut, vars.size(), vars.c_ptr());
+        };
+
         if (s.m_config.m_cut_lut) {
-            std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
-                [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
-                m_stats.m_xluts++;
-                // m_aig_cuts.add_cut(v, lut, vars);
-                m_aig_cuts.add_node(v, lut, vars.size(), vars.c_ptr());
-            };
             lut_finder lf(s);
             lf.set(on_lut);
             lf(clauses);
@@ -567,11 +570,12 @@ namespace sat {
     }
 
     void cut_simplifier::add_dont_cares(vector<cut_set> const& cuts) {
-        if (!m_config.m_enable_dont_cares) 
+        if (!s.m_config.m_cut_dont_cares) 
             return;
         cuts2bins(cuts);
         bins2dont_cares();
         dont_cares2cuts(cuts);        
+        m_aig_cuts.simplify();
     }
 
     /**

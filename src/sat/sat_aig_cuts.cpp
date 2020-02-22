@@ -18,6 +18,7 @@
 #include "util/trace.h"
 #include "sat/sat_aig_cuts.h"
 #include "sat/sat_solver.h"
+#include "sat/sat_lut_finder.h"
 
 namespace sat {
         
@@ -762,6 +763,34 @@ namespace sat {
         cut2def(on_clause, c, literal(v, true));
     }
 
+    /**
+     * simplify a set of cuts by removing don't cares.
+     */
+    void aig_cuts::simplify() {        
+        uint64_t masks[7];
+        for (unsigned i = 0; i <= 6; ++i) {
+            masks[i] = cut::effect_mask(i);
+        }
+        unsigned dont_cares = 0;
+        for (cut_set & cs : m_cuts) {
+            for (cut const& c : cs) {
+                uint64_t t = c.table();
+                for (unsigned i = 0; i < std::min(6u, c.size()); ++i) {
+                    uint64_t diff = masks[i] & (t ^ (t >> (1ull << i)));
+                    if (diff == 0ull) {
+                        cut d(c);
+                        d.remove_elem(i);
+                        cs.insert(m_on_cut_add, m_on_cut_del, d);
+                        cs.evict(m_on_cut_del, c);
+                        ++dont_cares;
+                        break;
+                    }
+                }
+            }
+        }
+        IF_VERBOSE(0, verbose_stream() << "#don't cares " << dont_cares << "\n");
+    }
+
     struct aig_cuts::validator {
         aig_cuts& t;
         params_ref p;
@@ -821,7 +850,7 @@ namespace sat {
         cut2def(on_clause, c, literal(v, false));
         node2def(on_clause, n, literal(v, true));
         val.check();
-    } 
+    }  
 
     std::ostream& aig_cuts::display(std::ostream& out) const {
         auto ids = filter_valid_nodes();

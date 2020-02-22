@@ -124,6 +124,7 @@ namespace sat {
         unsigned           m_cut_delay;
         bool               m_cut_lut;
         bool               m_cut_xor;
+        bool               m_cut_dont_cares;
         bool               m_anf_simplify;
         unsigned           m_anf_delay;
         bool               m_anf_exlin;

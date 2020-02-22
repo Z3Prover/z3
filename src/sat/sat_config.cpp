@@ -107,6 +107,7 @@ namespace sat {
         m_cut_delay         = p.cut_delay();
         m_cut_lut           = p.cut_lut();
         m_cut_xor           = p.cut_xor();
+        m_cut_dont_cares    = p.cut_dont_cares();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();

@@ -32,7 +32,9 @@ namespace sat {
         // max_size = 6 -> 64 bits
         SASSERT(sizeof(m_combination)*8 >= (1ull << static_cast<uint64_t>(max_size)));
         init_clause_filter();
-        for (unsigned i = 0; i <= 6; ++i) init_mask(i);
+        for (unsigned i = 0; i <= 6; ++i) {
+            m_masks[i] = cut::effect_mask(i);
+        }
         m_var_position.resize(s.num_vars());
         for (clause* cp : clauses) {
             cp->unmark_used();
@@ -201,31 +203,6 @@ namespace sat {
                 return true;
         }
         return false;
-    }
-
-    /**
-     * \brief create the masks
-     * i = 0: 101010101010101
-     * i = 1: 1100110011001100
-     * i = 2: 1111000011110000
-     * i = 3: 111111110000000011111111
-     */
-
-    void lut_finder::init_mask(unsigned i) {
-        SASSERT(i <= 6);
-        uint64_t m = 0;
-        if (i == 6) {
-            m = ~((uint64_t)0);
-        }
-        else {
-            m = (1ull << (1u << i)) - 1;   // i = 0: m = 1
-            unsigned w = 1u << (i + 1);    // i = 0: w = 2
-            while (w < 64) {
-                m |= (m << w);             // i = 0: m = 1 + 4
-                w *= 2;
-            }
-        }
-        m_masks[i] = m;
     }
 
     /**
