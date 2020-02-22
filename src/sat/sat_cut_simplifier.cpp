@@ -157,6 +157,7 @@ namespace sat {
 
     void cut_simplifier::operator()() {
 
+        bool force = s.m_config.m_cut_force;
         report _report(*this);
         TRACE("cut_simplifier", s.display(tout););
         unsigned n = 0, i = 0;
@@ -167,7 +168,7 @@ namespace sat {
             aig2clauses();
             ++i;
         }
-        while (i*i < m_stats.m_num_calls && n < m_stats.m_num_eqs + m_stats.m_num_units);
+        while ((force || i*i < m_stats.m_num_calls) && n < m_stats.m_num_eqs + m_stats.m_num_units);
     }
 
     /**

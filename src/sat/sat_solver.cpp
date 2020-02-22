@@ -1934,6 +1934,14 @@ namespace sat {
         if (m_cut_simplifier && m_simplifications > m_config.m_cut_delay && !inconsistent()) {
             (*m_cut_simplifier)();
         }
+
+        if (m_config.m_inprocess_out.is_non_empty_string()) {
+            std::ofstream fout(m_config.m_inprocess_out.str());
+            if (fout) {
+                display_dimacs(fout);
+            }
+            throw solver_exception("output generated");
+        }
     }
 
     bool solver::set_root(literal l, literal r) {

@@ -76,6 +76,7 @@ namespace sat {
         m_restart_max     = p.restart_max();
         m_propagate_prefetch = p.propagate_prefetch();
         m_inprocess_max   = p.inprocess_max();
+        m_inprocess_out   = p.inprocess_out();
 
         m_random_freq     = p.random_freq();
         m_random_seed     = p.random_seed();
@@ -108,6 +109,7 @@ namespace sat {
         m_cut_lut           = p.cut_lut();
         m_cut_xor           = p.cut_xor();
         m_cut_dont_cares    = p.cut_dont_cares();
+        m_cut_force         = p.cut_force();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
