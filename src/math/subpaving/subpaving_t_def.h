@@ -1747,9 +1747,8 @@ void context_t<C>::propagate(node * n, bound * b) {
 
 template<typename C>
 void context_t<C>::propagate(node * n) {
-    while (m_qhead < m_queue.size()) {
-        if (inconsistent(n))
-            break;
+    unsigned num_nodes = num_vars();
+    while (!inconsistent(n) && m_qhead < m_queue.size() && 2*m_qhead < num_nodes) {
         checkpoint();
         bound * b = m_queue[m_qhead];
         SASSERT(is_bound_of(b, n));
