@@ -296,7 +296,6 @@ namespace smt {
     }
 
     void theory_array::apply_sort_cnstr(enode * n, sort * s) {
-        return;
         SASSERT(is_array_sort(s));
         if (!is_attached_to_var(n))
             mk_var(n);
