@@ -221,7 +221,7 @@ private:
             if (m_bv.is_numeral(arg, r) && r != mdl)
                 return false;
 
-            if (i > 0 && (!is_app(arg) || to_app(arg)->get_num_args() > 0))
+            if (i > 0 && !is_var(arg) && (!is_app(arg) || to_app(arg)->get_num_args() > 0))
                 return false;
         }
 
