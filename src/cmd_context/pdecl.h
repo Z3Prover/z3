@@ -72,7 +72,7 @@ protected:
     virtual sort * find(sort * const * s) const;
 public:
     virtual bool is_sort_wrapper() const { return false; }
-    virtual sort * instantiate(pdecl_manager & m, sort * const * s) { return nullptr; }
+    virtual sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) { return nullptr; }
     // we use hash-consing for psorts.
     virtual char const * hcons_kind() const { UNREACHABLE(); return nullptr; }
     virtual unsigned hcons_hash() const { UNREACHABLE(); return 0; }
@@ -194,7 +194,7 @@ class paccessor_decl : public pdecl {
     size_t obj_size() const override { return sizeof(paccessor_decl); }
     bool has_missing_refs(symbol & missing) const;
     bool fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing);
-    accessor_decl * instantiate_decl(pdecl_manager & m, sort * const * s);
+    accessor_decl * instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s);
     symbol const & get_name() const { return m_name; }
     ptype const & get_type() const { return m_type; }
     ~paccessor_decl() override {}
@@ -217,7 +217,7 @@ class pconstructor_decl : public pdecl {
     bool fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing);
     symbol const & get_name() const { return m_name; }
     symbol const & get_recognizer_name() const { return m_recogniser_name; }
-    constructor_decl * instantiate_decl(pdecl_manager & m, sort * const * s);
+    constructor_decl * instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s);
     ~pconstructor_decl() override {}
 public:
     void display(std::ostream & out) const override { pdecl::display(out); }
@@ -234,7 +234,7 @@ class pdatatype_decl : public psort_decl {
     void finalize(pdecl_manager & m) override;
     size_t obj_size() const override { return sizeof(pdatatype_decl); }
     bool fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing);
-    datatype_decl * instantiate_decl(pdecl_manager & m, sort * const * s);
+    datatype_decl * instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s);
     ~pdatatype_decl() override {}
 public:
     sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override;

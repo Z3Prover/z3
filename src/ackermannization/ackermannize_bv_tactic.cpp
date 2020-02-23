@@ -32,7 +32,7 @@ public:
     ~ackermannize_bv_tactic() override { }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        tactic_report report("ackermannize", *g);
+        tactic_report report("ackermannize_bv", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
         TRACE("ackermannize", g->display(tout << "in\n"););

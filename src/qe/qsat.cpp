@@ -131,7 +131,7 @@ namespace qe {
         m_asms.resize(m_asms_lim[l]);
         m_asms_lim.shrink(l);            
     }
-        
+
     void pred_abs::insert(app* a, max_level const& lvl) {
         unsigned l = lvl.max();
         if (l == UINT_MAX) l = 0;
@@ -201,6 +201,14 @@ namespace qe {
               model_v2_pp(tout, *mdl);
               display(tout, asms););
     }
+
+    void pred_abs::ensure_expr_level(app* v, unsigned lvl) {
+        if (!m_elevel.contains(v)) {
+            max_level ml;
+            if (lvl % 2 == 0) ml.m_ex = lvl; else ml.m_fa = lvl;
+            m_elevel.insert(v, ml);
+        }
+    }
     
     void pred_abs::set_expr_level(app* v, max_level const& lvl) {
         m_elevel.insert(v, lvl);
@@ -243,6 +251,7 @@ namespace qe {
             }
             
             if (is_uninterp_const(a) && m.is_bool(a)) {
+                TRACE("qe", tout << mk_pp(a, m) << "\n";);
                 l = m_elevel.find(a);
                 level.merge(l);                
                 if (!m_pred2lit.contains(a)) {
@@ -911,16 +920,18 @@ namespace qe {
             SASSERT(m_level >= 2);
             expr_ref fml(m); 
             expr_ref_vector defs(m), core_save(m);
-            max_level level;
             model& mdl = *m_model.get();
             SASSERT(validate_core(mdl, core));
             get_vars(m_level-1);
             SASSERT(validate_project(mdl, core));
             m_mbp(force_elim(), m_avars, mdl, core);
+            TRACE("qe", tout << "aux vars: " << m_avars << "\n";);
+            for (app* v : m_avars) m_pred_abs.ensure_expr_level(v, m_level-1);
             m_free_vars.append(m_avars);
             fml = negate_core(core);
             unsigned num_scopes = 0;
             
+            max_level level;
             m_pred_abs.abstract_atoms(fml, level, defs);
             m_ex.assert_expr(mk_and(defs));
             m_fa.assert_expr(mk_and(defs));
@@ -1196,10 +1207,10 @@ namespace qe {
             //  (core[model(vars)/vars] => proj)            
             expr_ref_vector fmls(m);
             fmls.append(core.size(), core.c_ptr());
-            for (unsigned i = 0; i < m_avars.size(); ++i) {
+            for (expr* v : m_avars) {
                 expr_ref val(m);
-                VERIFY(mdl.eval(m_avars[i].get(), val));
-                fmls.push_back(m.mk_eq(m_avars[i].get(), val));
+                VERIFY(mdl.eval(v, val));
+                fmls.push_back(m.mk_eq(v, val));
             }
             fmls.push_back(m.mk_not(mk_and(proj)));
             if (!check_fmls(fmls)) {

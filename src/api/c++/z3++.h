@@ -2422,7 +2422,7 @@ namespace z3 {
                                    fml));
         }
 
-        std::string dimacs() const { return std::string(Z3_solver_to_dimacs_string(ctx(), m_solver)); }
+        std::string dimacs(bool include_names = true) const { return std::string(Z3_solver_to_dimacs_string(ctx(), m_solver, include_names)); }
 
         param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_solver_get_param_descrs(ctx(), m_solver)); }
 

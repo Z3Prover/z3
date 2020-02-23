@@ -145,7 +145,7 @@ class psort_sort : public psort {
     bool check_num_params(pdecl * other) const override { return true; }
     size_t obj_size() const override { return sizeof(psort_sort); }
     sort * get_sort() const { return m_sort; }
-    sort * instantiate(pdecl_manager & m, sort * const * s) override { return m_sort; }
+    sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override { return m_sort; }
 public:
     ~psort_sort() override {}
     bool is_sort_wrapper() const override { return true; }
@@ -165,7 +165,10 @@ class psort_var : public psort {
     friend class pdecl_manager;
     unsigned m_idx;
     psort_var(unsigned id, unsigned num_params, unsigned idx):psort(id, num_params), m_idx(idx) { SASSERT(idx < num_params); }
-    sort * instantiate(pdecl_manager & m, sort * const * s) override { return s[m_idx]; }
+    sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override { 
+        if (n <= m_idx) throw default_exception("type parameter was not declared");
+        return s[m_idx]; 
+    }
     size_t obj_size() const override { return sizeof(psort_var); }
 public:
     ~psort_var() override {}
@@ -214,14 +217,14 @@ class psort_app : public psort {
         unsigned operator()(psort_app const * d, unsigned idx) const { return d->m_args[idx]->hash(); }
     };
 
-    sort * instantiate(pdecl_manager & m, sort * const * s) override {
+    sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override {
         sort * r = find(s);
         if (r)
             return r;
         sort_ref_buffer args_i(m.m());
         unsigned sz = m_args.size();
         for (unsigned i = 0; i < sz; i++) {
-            sort * a = m_args[i]->instantiate(m, s);
+            sort * a = m_args[i]->instantiate(m, n, s);
             args_i.push_back(a);
         }
         r = m_decl->instantiate(m, args_i.size(), args_i.c_ptr());
@@ -321,7 +324,7 @@ sort * psort_user_decl::instantiate(pdecl_manager & m, unsigned n, sort * const 
         r  = m.m().mk_uninterpreted_sort(m_name, ps.size(), ps.c_ptr());
     }
     else {
-        r = m_def->instantiate(m, s);
+        r = m_def->instantiate(m, n, s);
     }
     cache(m, s, r);
     m.save_info(r, this, n, s);
@@ -457,10 +460,10 @@ bool paccessor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol
     return false;
 }
 
-accessor_decl * paccessor_decl::instantiate_decl(pdecl_manager & m, sort * const * s) {
+accessor_decl * paccessor_decl::instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s) {
     switch (m_type.kind()) {
     case PTR_REC_REF: return mk_accessor_decl(m.m(), m_name, type_ref(m_type.get_idx()));
-    case PTR_PSORT:   return mk_accessor_decl(m.m(), m_name, type_ref(m_type.get_psort()->instantiate(m, s)));
+    case PTR_PSORT:   return mk_accessor_decl(m.m(), m_name, type_ref(m_type.get_psort()->instantiate(m, n, s)));
     default:
         // missing refs must have been eliminated.
         UNREACHABLE();
@@ -504,10 +507,10 @@ bool pconstructor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, sym
     return true;
 }
 
-constructor_decl * pconstructor_decl::instantiate_decl(pdecl_manager & m, sort * const * s) {
+constructor_decl * pconstructor_decl::instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s) {
     ptr_buffer<accessor_decl> as;
     for (paccessor_decl* a : m_accessors) 
-        as.push_back(a->instantiate_decl(m, s));
+        as.push_back(a->instantiate_decl(m, n, s));
     return mk_constructor_decl(m_name, m_recogniser_name, as.size(), as.c_ptr());
 }
 
@@ -564,10 +567,10 @@ bool pdatatype_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol
     return true;
 }
 
-datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, sort * const * s) {
+datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s) {
     ptr_buffer<constructor_decl> cs;
     for (auto c : m_constructors) {
-        cs.push_back(c->instantiate_decl(m, s));
+        cs.push_back(c->instantiate_decl(m, n, s));
     }
     datatype_util util(m.m());
     return mk_datatype_decl(util, m_name, m_num_params, s, cs.size(), cs.c_ptr());
@@ -638,7 +641,7 @@ bool pdatatype_decl::commit(pdecl_manager& m) {
         ps.push_back(m.m().mk_uninterpreted_sort(symbol(i), 0, nullptr));
     }
     datatype_decl_buffer dts;
-    dts.m_buffer.push_back(instantiate_decl(m, ps.c_ptr()));
+    dts.m_buffer.push_back(instantiate_decl(m, ps.size(), ps.c_ptr()));
     datatype_decl * d_ptr = dts.m_buffer[0];
     sort_ref_vector sorts(m.m());
     bool is_ok = m.get_dt_plugin()->mk_datatypes(1, &d_ptr, m_num_params, ps.c_ptr(), sorts);
@@ -716,7 +719,7 @@ bool pdatatypes_decl::commit(pdecl_manager& m) {
         for (unsigned i = 0; i < d->get_num_params(); ++i) {
             ps.push_back(m.m().mk_uninterpreted_sort(symbol(i), 0, nullptr));
         }        
-        dts.m_buffer.push_back(d->instantiate_decl(m, ps.c_ptr()));
+        dts.m_buffer.push_back(d->instantiate_decl(m, ps.size(), ps.c_ptr()));
     }
     sort_ref_vector sorts(m.m());
     bool is_ok = m.get_dt_plugin()->mk_datatypes(m_datatypes.size(), dts.m_buffer.c_ptr(), 0, nullptr, sorts);
@@ -937,7 +940,7 @@ psort_decl * pdecl_manager::mk_psort_builtin_decl(symbol const & n, family_id fi
 
 sort * pdecl_manager::instantiate(psort * p, unsigned num, sort * const * args) {
     // ignoring stack overflows... sorts are not deeply nested
-    return p->instantiate(*this, args);
+    return p->instantiate(*this, num, args);
 }
 
 

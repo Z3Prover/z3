@@ -12,6 +12,7 @@
   --*/
 
 
+#include <sstream>
 #include "util/hashtable.h"
 #include "sat/sat_cutset.h"
 #include "sat/sat_cutset_compute_shift.h"
@@ -88,6 +89,15 @@ namespace sat {
         m_cuts[m_size++] = c; 
     }
 
+    void cut_set::evict(on_update_t& on_del, cut const& c) {
+        for (unsigned i = 0; i < m_size; ++i) {
+            if (m_cuts[i] == c) {
+                evict(on_del, i);
+                break;
+            }
+        }
+    }
+
     void cut_set::evict(on_update_t& on_del, unsigned idx) {
         if (m_var != UINT_MAX && on_del) on_del(m_var, m_cuts[idx]); 
         m_cuts[idx] = m_cuts[--m_size]; 
@@ -95,11 +105,14 @@ namespace sat {
 
     void cut_set::init(region& r, unsigned max_sz, unsigned v) { 
         m_var = v;
-        m_max_size = max_sz;
+        m_size = 0;
         SASSERT(!m_region || m_cuts);
-        if (m_region) return;
-        m_region = &r; 
-        m_cuts = new (r) cut[max_sz]; 
+        VERIFY(!m_region || m_max_size > 0);
+        if (!m_region) {
+            m_max_size = max_sz;
+            m_region = &r;
+            m_cuts = new (r) cut[max_sz];
+        }
     }
 
     /**
@@ -163,6 +176,56 @@ namespace sat {
     }
 
     /**
+     * \brief create the masks
+     * i = 0: 101010101010101
+     * i = 1: 1100110011001100
+     * i = 2: 1111000011110000
+     * i = 3: 111111110000000011111111
+     */
+
+    uint64_t cut::effect_mask(unsigned i) {
+        SASSERT(i <= 6);
+        uint64_t m = 0;
+        if (i == 6) {
+            m = ~((uint64_t)0);
+        }
+        else {
+            m = (1ull << (1u << i)) - 1;   // i = 0: m = 1
+            unsigned w = 1u << (i + 1);    // i = 0: w = 2
+            while (w < 64) {
+                m |= (m << w);             // i = 0: m = 1 + 4
+                w *= 2;
+            }
+        }
+        return m;
+    }
+
+    /**
+       remove element from cut as it is deemed a don't care
+     */
+    void cut::remove_elem(unsigned i) {
+        for (unsigned j = i + 1; j < m_size; ++j) {
+            m_elems[j-1] = m_elems[j]; 
+        }
+        --m_size;
+        uint64_t m = effect_mask(i);
+        uint64_t t = 0;
+        for (unsigned j = 0, offset = 0; j < 64; ++j) {
+            if (0 != (m & (1ull << j))) {
+                t |= ((m_table >> j) & 1u) << offset;
+                ++offset;
+            }
+        }
+        m_table = t;
+        m_dont_care = 0;
+        unsigned f = 0;
+        for (unsigned e : *this) {
+            f |= (1u << (e & 0x1F));
+        }
+        m_filter = f;
+    }
+
+    /**
        sat-sweep evaluation. Given 64 bits worth of possible values per variable, 
        find possible values for function table encoded by cut.
     */
@@ -192,10 +255,22 @@ namespace sat {
             if (i + 1 < m_size) out << " ";
         }        
         out << "} ";
-        for (unsigned i = 0; i < (1u << m_size); ++i) {
-            if (0 != (table() & (1ull << i))) out << "1"; else out << "0";
+        display_table(out, m_size, table());
+        return out;
+    }
+
+    std::ostream& cut::display_table(std::ostream& out, unsigned num_input, uint64_t table) {
+        for (unsigned i = 0; i < (1u << num_input); ++i) {
+            if (0 != (table & (1ull << i))) out << "1"; else out << "0";
         }    
         return out;
     }
+
+    std::string cut::table2string(unsigned num_input, uint64_t table) {
+        std::ostringstream strm;
+        display_table(strm, num_input, table);
+        return strm.str();
+    }
+
 
 }

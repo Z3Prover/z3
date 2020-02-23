@@ -105,6 +105,7 @@ namespace sat {
         double             m_fast_glue_avg;
         double             m_slow_glue_avg;
         unsigned           m_inprocess_max;
+        symbol             m_inprocess_out;
         double             m_random_freq;
         unsigned           m_random_seed;
         unsigned           m_burst_search;
@@ -124,6 +125,8 @@ namespace sat {
         unsigned           m_cut_delay;
         bool               m_cut_lut;
         bool               m_cut_xor;
+        bool               m_cut_dont_cares;
+        bool               m_cut_force;
         bool               m_anf_simplify;
         unsigned           m_anf_delay;
         bool               m_anf_exlin;

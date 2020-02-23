@@ -137,7 +137,7 @@ public:
     void display(std::ostream & out) const;
     void display_ll(std::ostream & out) const;
     void display_as_and(std::ostream & out) const;
-    void display_dimacs(std::ostream & out) const;
+    void display_dimacs(std::ostream & out, bool include_names) const;
     void display_with_dependencies(ast_printer & prn, std::ostream & out) const;
     void display_with_dependencies(ast_printer_context & ctx) const;
     void display_with_dependencies(std::ostream & out) const;

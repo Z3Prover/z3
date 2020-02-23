@@ -41,7 +41,7 @@ namespace sat {
             unsigned nc = s.m_stats.m_num_cuts  - m_num_cuts;
             unsigned ni = s.m_stats.m_num_learned_implies - m_num_learned_implies;
             IF_VERBOSE(2, 
-                       verbose_stream() << "(sat.aig-simplifier";
+                       verbose_stream() << "(sat.cut-simplifier";
                        if (nu > 0) verbose_stream() << " :num-units " << nu;
                        if (ne > 0) verbose_stream() << " :num-eqs "   << ne;
                        if (ni > 0) verbose_stream() << " :num-bin " << ni;
@@ -157,6 +157,7 @@ namespace sat {
 
     void cut_simplifier::operator()() {
 
+        bool force = s.m_config.m_cut_force;
         report _report(*this);
         TRACE("cut_simplifier", s.display(tout););
         unsigned n = 0, i = 0;
@@ -167,7 +168,7 @@ namespace sat {
             aig2clauses();
             ++i;
         }
-        while (i*i < m_stats.m_num_calls && n < m_stats.m_num_eqs + m_stats.m_num_units);
+        while ((force || i*i < m_stats.m_num_calls) && n < m_stats.m_num_eqs + m_stats.m_num_units);
     }
 
     /**
@@ -176,7 +177,6 @@ namespace sat {
      */
     void cut_simplifier::clauses2aig() {
 
-        // update units
         for (; m_config.m_enable_units && m_trail_size < s.init_trail_size(); ++m_trail_size) {
             literal lit = s.trail_literal(m_trail_size);
             m_aig_cuts.add_node(lit, and_op, 0, 0);
@@ -193,12 +193,13 @@ namespace sat {
             m_aig_cuts.add_node(head, ite_op, 3, args);
             m_stats.m_xites++;
         };
+
         aig_finder af(s);
         af.set(on_and);
         af.set(on_ite);
         clause_vector clauses(s.clauses());
         if (m_config.m_learned2aig) clauses.append(s.learned());
-        af(clauses);
+        af(clauses);        
 
         std::function<void (literal_vector const&)> on_xor = 
             [&,this](literal_vector const& xors) {
@@ -232,13 +233,15 @@ namespace sat {
             xf.set(on_xor);
             xf(clauses);
         }
+
+        std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
+            [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
+            m_stats.m_xluts++;
+            // m_aig_cuts.add_cut(v, lut, vars);
+            m_aig_cuts.add_node(v, lut, vars.size(), vars.c_ptr());
+        };
+
         if (s.m_config.m_cut_lut) {
-            std::function<void(uint64_t, bool_var_vector const&, bool_var)> on_lut = 
-                [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
-                m_stats.m_xluts++;
-                // m_aig_cuts.add_cut(v, lut, vars);
-                m_aig_cuts.add_node(v, lut, vars.size(), vars.c_ptr());
-            };
             lut_finder lf(s);
             lf.set(on_lut);
             lf(clauses);
@@ -472,7 +475,7 @@ namespace sat {
             }
             ++i;
         }
-        IF_VERBOSE(2, verbose_stream() << "(sat.aig-simplifier num simulated eqs " << num_eqs << ")\n");
+        IF_VERBOSE(2, verbose_stream() << "(sat.cut-simplifier num simulated eqs " << num_eqs << ")\n");
     }
 
     void cut_simplifier::track_binary(bin_rel const& p) {
@@ -568,11 +571,12 @@ namespace sat {
     }
 
     void cut_simplifier::add_dont_cares(vector<cut_set> const& cuts) {
-        if (!m_config.m_enable_dont_cares) 
+        if (!s.m_config.m_cut_dont_cares) 
             return;
         cuts2bins(cuts);
         bins2dont_cares();
         dont_cares2cuts(cuts);        
+        m_aig_cuts.simplify();
     }
 
     /**

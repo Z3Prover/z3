@@ -446,7 +446,7 @@ namespace smt {
             branches.push_back(mk_and(branch));
         }
 
-        expr_ref final_diseq(mk_not(sub_m, mk_and(branches)), sub_m);
+        expr_ref final_diseq(mk_not(sub_m, mk_or(branches)), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
         fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
 
@@ -691,6 +691,27 @@ namespace smt {
                     }
                 }
             }
+        } else if (u.str.is_at(term, arg0, arg1)) {
+            // (str.at Base Pos)
+            expr_ref base(arg0, sub_m);
+            expr_ref pos(arg1, sub_m);
+            ptr_vector<expr> base_chars;
+            if (!fixed_length_reduce_string_term(subsolver, base, base_chars, cex)) {
+                return false;
+            }
+            arith_value v(m);
+            v.init(&get_context());
+            rational pos_value;
+            bool pos_exists = v.get_value(pos, pos_value);
+            ENSURE(pos_exists);
+            TRACE("str_fl", tout << "reduce str.at: base=" << mk_pp(base, m) << ", pos=" << pos_value.to_string() << std::endl;);
+            if (pos_value.is_neg() || pos_value >= rational(base_chars.size())) {
+                // return the empty string
+                eqc_chars.reset();
+            } else {
+                eqc_chars.push_back(base_chars.get(pos_value.get_unsigned()));
+            }
+            return true;
         } else {
             TRACE("str_fl", tout << "string term " << mk_pp(term, m) << " handled as uninterpreted function" << std::endl;);
             if (!uninterpreted_to_char_subterm_map.contains(term)) {

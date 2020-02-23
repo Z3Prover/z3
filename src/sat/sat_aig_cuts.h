@@ -102,7 +102,7 @@ namespace sat {
         vector<svector<node>> m_aig;    
         literal_vector        m_literals;
         region                m_region;
-        cut_set               m_cut_set1, m_cut_set2;
+        cut_set               m_cut_set1, m_cut_set2, m_empty_cuts;
         vector<cut_set>       m_cuts;
         unsigned_vector       m_max_cutset_size;
         unsigned_vector       m_last_touched;
@@ -115,15 +115,47 @@ namespace sat {
         literal_vector        m_clause;
         cut const*            m_tables[6];
         uint64_t              m_luts[6];
+        literal               m_lits[6];
+
+        class to_root {
+            literal_vector m_to_root;
+            void reserve(bool_var v) {
+                while (v >= m_to_root.size()) {
+                    m_to_root.push_back(literal(m_to_root.size(), false));
+                }
+            }
+        public:
+            literal operator[](bool_var v) const { 
+                return (v < m_to_root.size()) ? m_to_root[v] : literal(v, false); 
+            }
+            literal& operator[](bool_var v) { 
+                reserve(v);
+                return m_to_root[v];
+            }
+        };
+
+        class lut {
+            aig_cuts& a;
+            node const* n;
+            cut const* c;
+        public:
+            lut(aig_cuts& a, node const& n) : a(a), n(&n), c(nullptr) {}
+            lut(aig_cuts& a, cut const& c) : a(a), n(nullptr), c(&c) {}
+            unsigned size() const { return n ? n->size() : c->size(); }
+            literal child(unsigned idx) const { return n ? a.child(*n, idx) : a.child(*c, idx); }
+            uint64_t table() const { return n ? n->lut() : c->table(); }
+            std::ostream& display(std::ostream& out) const { return n ? a.display(out, *n) : out << *c; }
+        };
 
         bool is_touched(bool_var v, node const& n);
         bool is_touched(literal lit) const { return is_touched(lit.var()); }
-        bool is_touched(bool_var v) const { return m_last_touched[v] + m_aig.size() >= m_num_cut_calls * m_aig.size(); }
+        bool is_touched(bool_var v) const { return v < m_last_touched.size() && m_last_touched[v] + m_aig.size() >= m_num_cut_calls * m_aig.size(); }
         void reserve(unsigned v);
         bool insert_aux(unsigned v, node const& n);
         void init_cut_set(unsigned id);
 
         bool eq(node const& a, node const& b);
+        bool similar(node const& a, node const& b);
 
         unsigned_vector filter_valid_nodes() const;
         void augment(unsigned_vector const& ids);
@@ -134,20 +166,25 @@ namespace sat {
         void augment_aig2(unsigned v, node const& n, cut_set& cs);
         void augment_aigN(unsigned v, node const& n, cut_set& cs);
 
-        void augment_lut(unsigned v,  node const& n, cut_set& cs);        
-        void augment_lut_rec(unsigned v, node const& n, cut& a, unsigned idx, cut_set& cs);
+
+        void augment_lut(unsigned v,  lut const& n, cut_set& cs);        
+        void augment_lut_rec(unsigned v, lut const& n, cut& a, unsigned idx, cut_set& cs);
+
+        cut_set const& lit2cuts(literal lit) const { return lit.var() < m_cuts.size() ? m_cuts[lit.var()] : m_empty_cuts; }
 
         bool insert_cut(unsigned v, cut const& c, cut_set& cs);
 
         void flush_roots();
-        bool flush_roots(bool_var var, literal_vector const& to_root, node& n);
-        void flush_roots(literal_vector const& to_root, cut_set& cs);
+        bool flush_roots(bool_var var, to_root const& to_root, node& n);
+        void flush_roots(to_root const& to_root, cut_set& cs);
 
         cut_val eval(node const& n, cut_eval const& env) const;
+        lbool get_value(bool_var v) const;
 
         std::ostream& display(std::ostream& out, node const& n) const;
 
         literal child(node const& n, unsigned idx) const { SASSERT(!n.is_var()); SASSERT(idx < n.size()); return m_literals[n.offset() + idx]; }
+        literal child(cut const& n, unsigned idx) const { SASSERT(idx < n.size()); return literal(n[idx], false); }
 
         void on_node_add(unsigned v, node const& n);
         void on_node_del(unsigned v, node const& n);
@@ -178,7 +215,7 @@ namespace sat {
         void set_on_clause_add(on_clause_t& on_clause_add);
         void set_on_clause_del(on_clause_t& on_clause_del);
 
-        void inc_max_cutset_size(unsigned v) { m_max_cutset_size[v] += 10; touch(v); }
+        void inc_max_cutset_size(unsigned v) { m_max_cutset_size.reserve(v + 1, 0);  m_max_cutset_size[v] += 10; touch(v); }
         unsigned max_cutset_size(unsigned v) const { return v == UINT_MAX ? m_config.m_max_cutset_size : m_max_cutset_size[v]; }
 
         vector<cut_set> const & operator()();
@@ -186,9 +223,11 @@ namespace sat {
 
         void cut2def(on_clause_t& on_clause, cut const& c, literal r);
 
-        void touch(bool_var v) { m_last_touched[v] = v + m_num_cut_calls * m_aig.size(); }
+        void touch(bool_var v) { m_last_touched.reserve(v + 1, false);  m_last_touched[v] = v + m_num_cut_calls * m_aig.size(); }
 
         cut_eval simulate(unsigned num_rounds);
+
+        void simplify();
 
         std::ostream& display(std::ostream& out) const;
 
