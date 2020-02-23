@@ -200,6 +200,7 @@ public:
     unsigned         limit_on_columns_for_hnf_cutter;
     bool             m_enable_hnf;
     bool             m_print_external_var_name;
+    bool             m_branch_flip;
 #ifdef Z3DEBUG
     unsigned         m_counter_for_debug;
 #endif
@@ -270,12 +271,15 @@ public:
                     limit_on_rows_for_hnf_cutter(75),
                     limit_on_columns_for_hnf_cutter(150),
                     m_enable_hnf(true),
-                    m_print_external_var_name(false)
+                    m_print_external_var_name(false),
+                    m_branch_flip(false)
 #ifdef Z3DEBUG
                   , m_counter_for_debug(0)
 #endif
     {}
 
+    bool branch_flip() const { return m_branch_flip; }
+    void set_branch_flip(bool f) { m_branch_flip = f; }
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
     bool get_cancel_flag() const { return m_resource_limit->get_cancel_flag(); }
 
