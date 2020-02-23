@@ -34,6 +34,7 @@ namespace lp {
         return j != -1 ? j : find_inf_int_nbasis_column();
     }
 
+
     lia_move int_branch::create_branch_on_column(int j) {
         TRACE("check_main_int", tout << "branching" << std::endl;);
         lp_assert(lia.m_t.is_empty());
@@ -44,7 +45,7 @@ namespace lp {
             lia.m_k = mpq(0);
         }
         else {
-            lia.m_upper = left_branch_is_more_narrow_than_right(j);
+            lia.m_upper = lra.settings().branch_flip()? lia.random() % 2 : left_branch_is_more_narrow_than_right(j);
             lia.m_k = lia.m_upper? floor(lia.get_value(j)) : ceil(lia.get_value(j));        
         }
         
