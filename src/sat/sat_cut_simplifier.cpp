@@ -41,7 +41,7 @@ namespace sat {
             unsigned nc = s.m_stats.m_num_cuts  - m_num_cuts;
             unsigned ni = s.m_stats.m_num_learned_implies - m_num_learned_implies;
             IF_VERBOSE(2, 
-                       verbose_stream() << "(sat.aig-simplifier";
+                       verbose_stream() << "(sat.cut-simplifier";
                        if (nu > 0) verbose_stream() << " :num-units " << nu;
                        if (ne > 0) verbose_stream() << " :num-eqs "   << ne;
                        if (ni > 0) verbose_stream() << " :num-bin " << ni;
@@ -475,7 +475,7 @@ namespace sat {
             }
             ++i;
         }
-        IF_VERBOSE(2, verbose_stream() << "(sat.aig-simplifier num simulated eqs " << num_eqs << ")\n");
+        IF_VERBOSE(2, verbose_stream() << "(sat.cut-simplifier num simulated eqs " << num_eqs << ")\n");
     }
 
     void cut_simplifier::track_binary(bin_rel const& p) {
