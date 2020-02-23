@@ -390,9 +390,10 @@ class theory_lra::imp {
         lp().settings().print_statistics = lpar.arith_print_stats();
 
         // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
+        lp().settings().set_branch_flip(lpar.arith_branch_flip());
         unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
         lp().set_cut_strategy(branch_cut_ratio);
-
+        
         lp().settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_switcher.m_use_nla = lpar.arith_nla();
@@ -2068,12 +2069,7 @@ public:
             app_ref b(m);
             bool u = m_lia->is_upper();
             auto const & k = m_lia->get_offset();
-            if (0 == ctx().get_random_value() % 2) {
-                b = mk_bound(m_lia->get_term(), k, !u);
-            }
-            else {
-                b = mk_bound(m_lia->get_term(), u ? k - 1 : k + 1, u);
-            }
+            b = mk_bound(m_lia->get_term(), k, !u);
             if (m.has_trace_stream()) {
                 app_ref body(m);
                 body = m.mk_or(b, m.mk_not(b));
