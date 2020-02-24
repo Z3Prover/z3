@@ -168,7 +168,7 @@ namespace sat {
             aig2clauses();
             ++i;
         }
-        while ((force || i*i < m_stats.m_num_calls) && n < m_stats.m_num_eqs + m_stats.m_num_units);
+        while (((force && i < 5) || i*i < m_stats.m_num_calls) && n < m_stats.m_num_eqs + m_stats.m_num_units);
     }
 
     /**

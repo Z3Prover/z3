@@ -826,6 +826,7 @@ class elim_uncnstr_tactic : public tactic {
                 m_rw = nullptr;                    
                 result.push_back(g.get());
                 g->inc_depth();
+                TRACE("elim_uncnstr_bug", g->display(tout););
                 return;
             }
             modified = false;
