@@ -159,14 +159,13 @@ std::ostream& expr_dominators::display(std::ostream& out) {
 
 std::ostream& expr_dominators::display(std::ostream& out, unsigned indent, expr* r) {
     for (unsigned i = 0; i < indent; ++i) out << " ";
-    out << expr_ref(r, m);
+    out << expr_ref(r, m) << "\n";
     if (m_tree.contains(r)) {
         for (expr* child : m_tree[r]) {
             if (child != r) 
                 display(out, indent + 1, child);
         }
     }
-    out << "\n";
     return out;
 }
 
@@ -245,7 +244,7 @@ expr_ref dom_simplify_tactic::simplify_arg(expr * e) {
     expr_ref r(m);    
     r = get_cached(e);
     (*m_simplifier)(r);
-    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e, m) << " -> " << r << "\n";);
+    CTRACE("simplify", e != r, tout << "depth: " << m_depth << " " << mk_pp(e, m) << " -> " << r << "\n";);
     return r;
 }
 
@@ -256,7 +255,6 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     expr_ref r(m);
     expr* e = nullptr;
 
-    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << "\n";);
     if (!m_result.find(e0, e)) {
         e = e0;
     }
@@ -299,7 +297,7 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     }
     (*m_simplifier)(r);
     cache(e0, r);
-    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
+    CTRACE("simplify", e0 != r, tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
     --m_depth;
     m_subexpr_cache.reset();
     return r;

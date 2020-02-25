@@ -1452,6 +1452,7 @@ namespace smt {
 
     final_check_status theory_bv::final_check_eh() {
         SASSERT(check_invariant());
+        check_invariant();
         if (m_approximates_large_bvs) {
             return FC_GIVEUP;
         }
