@@ -330,29 +330,9 @@ namespace sat {
             literal w = c[0], x = c[1], y = c[2], z = c[3];
 
             if (try_gamble(w, x, y, z, c)) continue;
-            if (try_gamble(w, x, z, y, c)) continue;
-            if (try_gamble(w, y, x, z, c)) continue;
-            if (try_gamble(w, y, z, x, c)) continue;
-            if (try_gamble(w, z, x, y, c)) continue;
-            if (try_gamble(w, z, y, x, c)) continue;
             if (try_gamble(x, w, y, z, c)) continue;
-            if (try_gamble(x, w, z, y, c)) continue;
-            if (try_gamble(x, y, w, z, c)) continue;
-            if (try_gamble(x, y, z, w, c)) continue;
-            if (try_gamble(x, z, w, y, c)) continue;
-            if (try_gamble(x, z, y, w, c)) continue;
             if (try_gamble(y, w, x, z, c)) continue;
-            if (try_gamble(y, w, z, x, c)) continue;
-            if (try_gamble(y, x, w, z, c)) continue;
-            if (try_gamble(y, x, z, w, c)) continue;
-            if (try_gamble(y, z, w, x, c)) continue;
-            if (try_gamble(y, z, x, w, c)) continue;
             if (try_gamble(z, w, x, y, c)) continue;
-            if (try_gamble(z, w, y, x, c)) continue;
-            if (try_gamble(z, x, w, y, c)) continue;
-            if (try_gamble(z, x, y, w, c)) continue;
-            if (try_gamble(z, y, w, x, c)) continue;
-            if (try_gamble(z, y, x, w, c)) continue;
         }
 
         std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
@@ -391,29 +371,17 @@ namespace sat {
             literal w = c[0], x = c[1], y = c[2], z = c[3];
 
             if (try_andxor(w, x, y, z, c)) continue;
-            if (try_andxor(w, x, z, y, c)) continue;
             if (try_andxor(w, y, x, z, c)) continue;
-            if (try_andxor(w, y, z, x, c)) continue;
             if (try_andxor(w, z, x, y, c)) continue;
-            if (try_andxor(w, z, y, x, c)) continue;
             if (try_andxor(x, w, y, z, c)) continue;
-            if (try_andxor(x, w, z, y, c)) continue;
             if (try_andxor(x, y, w, z, c)) continue;
-            if (try_andxor(x, y, z, w, c)) continue;
             if (try_andxor(x, z, w, y, c)) continue;
-            if (try_andxor(x, z, y, w, c)) continue;
             if (try_andxor(y, w, x, z, c)) continue;
-            if (try_andxor(y, w, z, x, c)) continue;
             if (try_andxor(y, x, w, z, c)) continue;
-            if (try_andxor(y, x, z, w, c)) continue;
             if (try_andxor(y, z, w, x, c)) continue;
-            if (try_andxor(y, z, x, w, c)) continue;
             if (try_andxor(z, w, x, y, c)) continue;
-            if (try_andxor(z, w, y, x, c)) continue;
             if (try_andxor(z, x, w, y, c)) continue;
-            if (try_andxor(z, x, y, w, c)) continue;
             if (try_andxor(z, y, w, x, c)) continue;
-            if (try_andxor(z, y, x, w, c)) continue;
         }
 
         std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
