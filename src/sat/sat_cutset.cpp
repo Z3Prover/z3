@@ -79,6 +79,9 @@ namespace sat {
 
     void cut_set::push_back(on_update_t& on_add, cut const& c) {
         SASSERT(m_max_size > 0);
+        if (!m_cuts) {
+            m_cuts = new (*m_region) cut[m_max_size];
+        }
         if (m_size == m_max_size) {
             m_max_size *= 2;
             cut* new_cuts = new (*m_region) cut[m_max_size]; 
@@ -109,9 +112,9 @@ namespace sat {
         SASSERT(!m_region || m_cuts);
         VERIFY(!m_region || m_max_size > 0);
         if (!m_region) {
-            m_max_size = max_sz;
+            m_max_size = 2; // max_sz;
             m_region = &r;
-            m_cuts = new (r) cut[max_sz];
+            m_cuts = nullptr;
         }
     }
 

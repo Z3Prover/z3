@@ -576,7 +576,7 @@ namespace sat {
         cuts2bins(cuts);
         bins2dont_cares();
         dont_cares2cuts(cuts);        
-        m_aig_cuts.simplify();
+        // m_aig_cuts.simplify();
     }
 
     /**
@@ -698,16 +698,16 @@ namespace sat {
     }
 
     void cut_simplifier::collect_statistics(statistics& st) const {
-        st.update("sat-aig.eqs",   m_stats.m_num_eqs);
-        st.update("sat-aig.cuts",  m_stats.m_num_cuts);
-        st.update("sat-aig.ands",  m_stats.m_num_ands);
-        st.update("sat-aig.ites",  m_stats.m_num_ites);
-        st.update("sat-aig.xors",  m_stats.m_num_xors);
-        st.update("sat-aig.xands", m_stats.m_xands);
-        st.update("sat-aig.xites", m_stats.m_xites);
-        st.update("sat-aig.xxors", m_stats.m_xxors);
-        st.update("sat-aig.xluts", m_stats.m_xluts);
-        st.update("sat-aig.dc-reduce", m_stats.m_num_dont_care_reductions);
+        st.update("sat-cut.eqs",   m_stats.m_num_eqs);
+        st.update("sat-cut.cuts",  m_stats.m_num_cuts);
+        st.update("sat-cut.ands",  m_stats.m_num_ands);
+        st.update("sat-cut.ites",  m_stats.m_num_ites);
+        st.update("sat-cut.xors",  m_stats.m_num_xors);
+        st.update("sat-cut.xands", m_stats.m_xands);
+        st.update("sat-cut.xites", m_stats.m_xites);
+        st.update("sat-cut.xxors", m_stats.m_xxors);
+        st.update("sat-cut.xluts", m_stats.m_xluts);
+        st.update("sat-cut.dc-reduce", m_stats.m_num_dont_care_reductions);
     }
 
     void cut_simplifier::validate_unit(literal lit) {
