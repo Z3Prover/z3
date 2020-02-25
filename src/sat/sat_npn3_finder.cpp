@@ -66,6 +66,7 @@ namespace sat {
         find_maj(clauses);
         find_orand(clauses);
         find_andxor(clauses);
+        find_gamble(clauses);
     }
 
     bool npn3_finder::implies(literal a, literal b) const {
@@ -297,6 +298,65 @@ namespace sat {
         };
 
         find_npn3(clauses, m_on_orand, try_orand);
+    }
+
+    void npn3_finder::find_gamble(clause_vector& clauses) {
+        if (!m_on_gamble) return;
+
+        binary_hash_table_t binaries;
+        ternary_hash_table_t ternaries;
+        quaternary_hash_table_t quaternaries;
+        process_more_clauses(clauses, binaries, ternaries, quaternaries);
+
+        const auto try_gamble = [&](literal w, literal x, literal y, literal z, clause &c) {
+          clause *c1, *c2, *c3, *c4;
+          if (!has_quaternary(quaternaries, ternaries, ~x, ~y, ~z, w, c1)) return false;
+          if (!has_ternary(ternaries, ~x, y, ~w, c2)) return false;
+          if (!has_ternary(ternaries, ~y, z, ~w, c3)) return false;
+          if (!has_ternary(ternaries, x, ~z, ~w, c4)) return false;
+
+          c.mark_used();
+          if (c1) c1->mark_used();
+          if (c2) c2->mark_used();
+          if (c3) c3->mark_used();
+          if (c4) c4->mark_used();
+          m_on_gamble(w, x, y, z);
+          return true;
+        };
+
+        for (clause* cp : clauses) {
+            clause& c = *cp;
+            if (c.size() != 4 || c.was_used()) continue;
+            literal w = c[0], x = c[1], y = c[2], z = c[3];
+
+            if (try_gamble(w, x, y, z, c)) continue;
+            if (try_gamble(w, x, z, y, c)) continue;
+            if (try_gamble(w, y, x, z, c)) continue;
+            if (try_gamble(w, y, z, x, c)) continue;
+            if (try_gamble(w, z, x, y, c)) continue;
+            if (try_gamble(w, z, y, x, c)) continue;
+            if (try_gamble(x, w, y, z, c)) continue;
+            if (try_gamble(x, w, z, y, c)) continue;
+            if (try_gamble(x, y, w, z, c)) continue;
+            if (try_gamble(x, y, z, w, c)) continue;
+            if (try_gamble(x, z, w, y, c)) continue;
+            if (try_gamble(x, z, y, w, c)) continue;
+            if (try_gamble(y, w, x, z, c)) continue;
+            if (try_gamble(y, w, z, x, c)) continue;
+            if (try_gamble(y, x, w, z, c)) continue;
+            if (try_gamble(y, x, z, w, c)) continue;
+            if (try_gamble(y, z, w, x, c)) continue;
+            if (try_gamble(y, z, x, w, c)) continue;
+            if (try_gamble(z, w, x, y, c)) continue;
+            if (try_gamble(z, w, y, x, c)) continue;
+            if (try_gamble(z, x, w, y, c)) continue;
+            if (try_gamble(z, x, y, w, c)) continue;
+            if (try_gamble(z, y, w, x, c)) continue;
+            if (try_gamble(z, y, x, w, c)) continue;
+        }
+
+        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
+        clauses.filter_update(not_used);
     }
 
     void npn3_finder::find_andxor(clause_vector& clauses) {
