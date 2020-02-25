@@ -40,6 +40,7 @@ namespace sat {
         on_function_t m_on_maj;
         on_function_t m_on_orand;
         on_function_t m_on_andxor;
+        on_function_t m_on_gamble;
 
         typedef svector<std::pair<literal, clause*>> use_list_t;
         scoped_ptr_vector<use_list_t> m_use_lists;
@@ -99,6 +100,7 @@ namespace sat {
         void find_maj(clause_vector& clauses);
         void find_orand(clause_vector& clauses);
         void find_andxor(clause_vector& clauses);
+        void find_gamble(clause_vector& clauses);
         void validate_clause(literal x, literal y, literal z, vector<literal_vector> const& clauses);
         void validate_clause(literal_vector const& clause, vector<literal_vector> const& clauses);
 
@@ -110,6 +112,7 @@ namespace sat {
         void set_on_maj(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_maj = f; }
         void set_on_orand(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_orand = f; }
         void set_on_andxor(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_andxor = f; }
+        void set_on_gamble(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_gamble = f; }
         void operator()(clause_vector& clauses);
     };
 }
