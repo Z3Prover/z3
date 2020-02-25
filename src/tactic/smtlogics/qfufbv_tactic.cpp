@@ -73,9 +73,9 @@ public:
         if (o == l_false) resg->assert_expr(m.mk_false());
         if (o != l_undef) result.push_back(resg.get());
         // report model
-        if (g->models_enabled() && (o == l_true)) {
+        if (g->models_enabled() && o == l_true) {
             model_ref abstr_model = imp.get_model();
-            g->add(mk_qfufbv_ackr_model_converter(m, imp.get_info(), abstr_model));
+            resg->add(mk_qfufbv_ackr_model_converter(m, imp.get_info(), abstr_model));
         }
     }
 

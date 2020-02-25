@@ -1801,7 +1801,7 @@ namespace smt {
         literal_vector const & bits2  = m_bits[v2];
         theory_var v1                 = v2;
         do {
-            literal_vector const & bits1   = m_bits[v1];
+            literal_vector const & bits1 = m_bits[v1];
             SASSERT(bits1.size() == bits2.size());
             unsigned sz = bits1.size();
             VERIFY(ctx.is_relevant(get_enode(v1)));
