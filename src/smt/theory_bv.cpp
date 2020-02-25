@@ -1286,7 +1286,7 @@ namespace smt {
                 continue;
             }
             theory_var v2         = next(v);
-            TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v)->get_owner_id() << "[" << idx << "] = " << val << "\n";);
+            TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v)->get_owner_id() << "[" << idx << "] = " << val << " " << ctx.get_scope_level() << "\n";);
             literal antecedent = bit;
 
             if (val == l_false) {
@@ -1298,7 +1298,7 @@ namespace smt {
                 SASSERT(bit != ~bit2);
                 lbool   val2             = ctx.get_assignment(bit2);
                 TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v2)->get_owner_id() << "[" << idx << "] = " << val2 << "\n";);
-                TRACE("bv", tout << bit << " " << bit2 << " " << val << " " << val2 << "\n";);
+                TRACE("bv", tout << bit << " -> " << bit2 << " " << val << " -> " << val2 << " " << ctx.get_scope_level() << "\n";);
                 
                 if (val != val2) {
                     literal consequent = bit2;
@@ -1432,7 +1432,6 @@ namespace smt {
     
     void theory_bv::pop_scope_eh(unsigned num_scopes) {
         m_trail_stack.pop_scope(num_scopes);
-        TRACE("bv", m_find.display(tout << num_scopes << " @ " << get_context().get_scope_level() << "\n"););
         unsigned num_old_vars = get_old_num_vars(num_scopes);
         m_bits.shrink(num_old_vars);
         m_wpos.shrink(num_old_vars);
@@ -1448,6 +1447,8 @@ namespace smt {
         m_diseq_watch_lim.shrink(m_diseq_watch_lim.size()-num_scopes);
 #endif
         theory::pop_scope_eh(num_scopes);
+        TRACE("bv", m_find.display(tout << get_context().get_scope_level() << " - " 
+                                   << num_scopes << " = " << (get_context().get_scope_level() - num_scopes) << "\n"););
     }
 
     final_check_status theory_bv::final_check_eh() {

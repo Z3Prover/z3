@@ -1634,6 +1634,9 @@ public:
         if (vars.empty()) {
             return false;
         }
+        if (!m_use_nra_model) {
+            lp().random_update(vars.size(), vars.c_ptr());
+        }
         init_variable_values();
         TRACE("arith", 
               for (theory_var v = 0; v < sz; ++v) {
@@ -1642,9 +1645,6 @@ public:
                   }
               }
               tout << "\n"; );
-        if (!m_use_nra_model) {
-            lp().random_update(vars.size(), vars.c_ptr());
-        }
         m_model_eqs.reset();
         TRACE("arith", display(tout););
             
