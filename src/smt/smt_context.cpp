@@ -3579,6 +3579,8 @@ namespace smt {
             VERIFY(!resolve_conflict());
             return l_false;
         }
+        if (get_cancel_flag())
+            return l_undef;
         timeit tt(get_verbosity_level() >= 100, "smt.stats");
         reset_model();
         SASSERT(at_search_level());
