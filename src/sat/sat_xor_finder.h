@@ -49,7 +49,7 @@ namespace sat {
         clause_vector           m_removed_clauses;
         std::function<void (literal_vector const& lits)> m_on_xor;
 
-        inline void set_combination(unsigned mask) { m_combination |= (1 << mask); }
+        void set_combination(unsigned mask);
         inline bool get_combination(unsigned mask) const { return (m_combination & (1 << mask)) != 0; }
         void extract_xor(clause& c);
         void add_xor(bool parity, clause& c);
