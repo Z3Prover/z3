@@ -123,6 +123,7 @@ namespace sat {
         bool               m_binspr;
         bool               m_cut_simplify;
         unsigned           m_cut_delay;
+        bool               m_cut_aig;
         bool               m_cut_lut;
         bool               m_cut_xor;
         bool               m_cut_dont_cares;

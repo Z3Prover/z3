@@ -181,6 +181,8 @@ namespace sat {
             literal lit = s.trail_literal(m_trail_size);
             m_aig_cuts.add_node(lit, and_op, 0, 0);
         }
+
+        clause_vector clauses(s.clauses());
                
         std::function<void (literal head, literal_vector const& ands)> on_and = 
             [&,this](literal head, literal_vector const& ands) {
@@ -193,13 +195,13 @@ namespace sat {
             m_aig_cuts.add_node(head, ite_op, 3, args);
             m_stats.m_xites++;
         };
-
-        aig_finder af(s);
-        af.set(on_and);
-        af.set(on_ite);
-        clause_vector clauses(s.clauses());
-        if (m_config.m_learned2aig) clauses.append(s.learned());
-        af(clauses);        
+        if (s.m_config.m_cut_aig) {
+            aig_finder af(s);
+            af.set(on_and);
+            af.set(on_ite);
+            if (m_config.m_learned2aig) clauses.append(s.learned());
+            af(clauses);        
+        }
 
         std::function<void (literal_vector const&)> on_xor = 
             [&,this](literal_vector const& xors) {
