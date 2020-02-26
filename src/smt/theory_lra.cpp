@@ -1134,6 +1134,7 @@ public:
 
     void apply_sort_cnstr(enode* n, sort*) {
         TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
+#if 0
         if (!th.is_attached_to_var(n)) {
             theory_var v = mk_var(n->get_owner(), false);
             auto vi = register_theory_var_in_lar_solver(v);
@@ -1142,6 +1143,7 @@ public:
                 // TBD: add a way to bind equality between vi and wi in m_solver
             }
         }
+#endif
     }
 
     void push_scope_eh() {

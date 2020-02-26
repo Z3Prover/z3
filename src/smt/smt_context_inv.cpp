@@ -32,10 +32,12 @@ namespace smt {
     bool context::check_clause(clause const * cls) const {
         SASSERT(is_watching_clause(~cls->get_literal(0), cls));        
         SASSERT(is_watching_clause(~cls->get_literal(1), cls));        
+#if 0
         for (literal l : *cls) {
             // holds, TBD re-enable when ready to re-check
             // SASSERT(!track_occs() || m_lit_occs[l.index()] > 0);
         }
+#endif
         return true;
     }
 
