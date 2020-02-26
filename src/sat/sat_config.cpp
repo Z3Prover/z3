@@ -106,6 +106,7 @@ namespace sat {
         m_anf_exlin         = p.anf_exlin();
         m_cut_simplify      = p.cut();
         m_cut_delay         = p.cut_delay();
+        m_cut_aig           = p.cut_aig();
         m_cut_lut           = p.cut_lut();
         m_cut_xor           = p.cut_xor();
         m_cut_dont_cares    = p.cut_dont_cares();

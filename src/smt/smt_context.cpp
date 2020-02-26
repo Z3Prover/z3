@@ -308,7 +308,7 @@ namespace smt {
     }
 
     void context::assign_core(literal l, b_justification j, bool decision) {
-        TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";
+        CTRACE("assign_core", l.var() == 1573 || l.var() == 1253, tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l); tout << " level: " << m_scope_lvl << "\n";
               display(tout, j););
         m_assigned_literals.push_back(l);
@@ -2066,6 +2066,7 @@ namespace smt {
         while (i != old_lim) {
             --i;
             literal l                  = m_assigned_literals[i];
+            CTRACE("assign_core", l.var() == 1573 || l.var() == 1253, tout << "unassign " << l << "\n";);
             m_assignment[l.index()]    = l_undef;
             m_assignment[(~l).index()] = l_undef;
             bool_var v                 = l.var();
@@ -3578,6 +3579,8 @@ namespace smt {
             VERIFY(!resolve_conflict());
             return l_false;
         }
+        if (get_cancel_flag())
+            return l_undef;
         timeit tt(get_verbosity_level() >= 100, "smt.stats");
         reset_model();
         SASSERT(at_search_level());

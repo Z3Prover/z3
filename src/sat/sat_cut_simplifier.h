@@ -92,7 +92,7 @@ namespace sat {
 
             struct hash {
                 unsigned operator()(bin_rel const& p) const { 
-                    return mk_mix(p.u, p.v, 1); 
+                    return p.u + 65599*p.v; // Weinberger's should be a bit cheaper mk_mix(p.u, p.v, 1); 
                 }
             };
             struct eq {
