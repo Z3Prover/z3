@@ -66,6 +66,8 @@ namespace sat {
         find_maj(clauses);
         find_orand(clauses);
         find_andxor(clauses);
+        find_xorand(clauses);
+        find_onehot(clauses);
         find_gamble(clauses);
     }
 
@@ -300,45 +302,6 @@ namespace sat {
         find_npn3(clauses, m_on_orand, try_orand);
     }
 
-    void npn3_finder::find_gamble(clause_vector& clauses) {
-        if (!m_on_gamble) return;
-
-        binary_hash_table_t binaries;
-        ternary_hash_table_t ternaries;
-        quaternary_hash_table_t quaternaries;
-        process_more_clauses(clauses, binaries, ternaries, quaternaries);
-
-        const auto try_gamble = [&](literal w, literal x, literal y, literal z, clause &c) {
-          clause *c1, *c2, *c3, *c4;
-          if (!has_quaternary(quaternaries, ternaries, ~x, ~y, ~z, w, c1)) return false;
-          if (!has_ternary(ternaries, ~x, y, ~w, c2)) return false;
-          if (!has_ternary(ternaries, ~y, z, ~w, c3)) return false;
-          if (!has_ternary(ternaries, x, ~z, ~w, c4)) return false;
-
-          c.mark_used();
-          if (c1) c1->mark_used();
-          if (c2) c2->mark_used();
-          if (c3) c3->mark_used();
-          if (c4) c4->mark_used();
-          m_on_gamble(w, x, y, z);
-          return true;
-        };
-
-        for (clause* cp : clauses) {
-            clause& c = *cp;
-            if (c.size() != 4 || c.was_used()) continue;
-            literal w = c[0], x = c[1], y = c[2], z = c[3];
-
-            if (try_gamble(w, x, y, z, c)) continue;
-            if (try_gamble(x, w, y, z, c)) continue;
-            if (try_gamble(y, w, x, z, c)) continue;
-            if (try_gamble(z, w, x, y, c)) continue;
-        }
-
-        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
-        clauses.filter_update(not_used);
-    }
-
     void npn3_finder::find_andxor(clause_vector& clauses) {
         if (!m_on_andxor) return;
 
@@ -382,6 +345,134 @@ namespace sat {
             if (try_andxor(z, w, x, y, c)) continue;
             if (try_andxor(z, x, w, y, c)) continue;
             if (try_andxor(z, y, w, x, c)) continue;
+        }
+
+        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
+        clauses.filter_update(not_used);
+    }
+
+    void npn3_finder::find_xorand(clause_vector& clauses) {
+        if (!m_on_xorand) return;
+
+        binary_hash_table_t binaries;
+        ternary_hash_table_t ternaries;
+        quaternary_hash_table_t quaternaries;
+        process_more_clauses(clauses, binaries, ternaries, quaternaries);
+
+        const auto try_xorand = [&](literal w, literal x, literal y, literal z, clause &c) {
+          clause *c1, *c2, *c3;
+          if (!has_quaternary(quaternaries, ternaries, x, ~y, ~z, w, c1)) return false;
+          if (!has_ternary(ternaries, ~y, z, ~w, c2)) return false;
+          if (!has_ternary(ternaries, y, ~z, ~w, c3)) return false;
+          if (!implies(w, ~x)) return false;
+
+          c.mark_used();
+          if (c1) c1->mark_used();
+          if (c2) c2->mark_used();
+          if (c3) c3->mark_used();
+          m_on_xorand(w, ~x, y, ~z);
+          return true;
+        };
+
+        for (clause* cp : clauses) {
+            clause& c = *cp;
+            if (c.size() != 4 || c.was_used()) continue;
+            literal w = c[0], x = c[1], y = c[2], z = c[3];
+
+            if (try_xorand(w, x, y, z, c)) continue;
+            if (try_xorand(w, y, x, z, c)) continue;
+            if (try_xorand(w, z, x, y, c)) continue;
+            if (try_xorand(x, w, y, z, c)) continue;
+            if (try_xorand(x, y, w, z, c)) continue;
+            if (try_xorand(x, z, w, y, c)) continue;
+            if (try_xorand(y, w, x, z, c)) continue;
+            if (try_xorand(y, x, w, z, c)) continue;
+            if (try_xorand(y, z, w, x, c)) continue;
+            if (try_xorand(z, w, x, y, c)) continue;
+            if (try_xorand(z, x, w, y, c)) continue;
+            if (try_xorand(z, y, w, x, c)) continue;
+        }
+
+        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
+        clauses.filter_update(not_used);
+    }
+
+    void npn3_finder::find_gamble(clause_vector& clauses) {
+        if (!m_on_gamble) return;
+
+        binary_hash_table_t binaries;
+        ternary_hash_table_t ternaries;
+        quaternary_hash_table_t quaternaries;
+        process_more_clauses(clauses, binaries, ternaries, quaternaries);
+
+        const auto try_gamble = [&](literal w, literal x, literal y, literal z, clause &c) {
+          clause *c1, *c2, *c3, *c4;
+          if (!has_quaternary(quaternaries, ternaries, ~x, ~y, ~z, w, c1)) return false;
+          if (!has_ternary(ternaries, ~x, y, ~w, c2)) return false;
+          if (!has_ternary(ternaries, ~y, z, ~w, c3)) return false;
+          if (!has_ternary(ternaries, x, ~z, ~w, c4)) return false;
+
+          c.mark_used();
+          if (c1) c1->mark_used();
+          if (c2) c2->mark_used();
+          if (c3) c3->mark_used();
+          if (c4) c4->mark_used();
+          m_on_gamble(w, x, y, z);
+          return true;
+        };
+
+        for (clause* cp : clauses) {
+            clause& c = *cp;
+            if (c.size() != 4 || c.was_used()) continue;
+            literal w = c[0], x = c[1], y = c[2], z = c[3];
+
+            if (try_gamble(w, x, y, z, c)) continue;
+            if (try_gamble(x, w, y, z, c)) continue;
+            if (try_gamble(y, w, x, z, c)) continue;
+            if (try_gamble(z, w, x, y, c)) continue;
+        }
+
+        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
+        clauses.filter_update(not_used);
+    }
+
+    void npn3_finder::find_onehot(clause_vector& clauses) {
+        if (!m_on_onehot) return;
+
+        binary_hash_table_t binaries;
+        ternary_hash_table_t ternaries;
+        quaternary_hash_table_t quaternaries;
+        process_more_clauses(clauses, binaries, ternaries, quaternaries);
+
+        const auto try_onehot = [&](literal w, literal x, literal y, literal z, clause &c) {
+          clause *c1, *c2, *c3, *c4, *c5, *c6;
+          if (!has_quaternary(quaternaries, ternaries, ~x, y, z, ~w, c1)) return false;
+          if (!has_quaternary(quaternaries, ternaries, x, ~y, z, ~w, c2)) return false;
+          if (!has_quaternary(quaternaries, ternaries, x, y, ~z, ~w, c3)) return false;
+          if (!has_ternary(ternaries, ~x, ~y, w, c4)) return false;
+          if (!has_ternary(ternaries, ~x, ~z, w, c5)) return false;
+          if (!has_ternary(ternaries, ~y, ~z, w, c6)) return false;
+
+          c.mark_used();
+          if (c1) c1->mark_used();
+          if (c2) c2->mark_used();
+          if (c3) c3->mark_used();
+          if (c4) c4->mark_used();
+          if (c5) c5->mark_used();
+          if (c6) c6->mark_used();
+          m_on_onehot(~w, x, y, z);
+          return true;
+        };
+
+        for (clause* cp : clauses) {
+            clause& c = *cp;
+            if (c.size() != 4 || c.was_used()) continue;
+            literal w = c[0], x = c[1], y = c[2], z = c[3];
+
+            if (try_onehot(w, x, y, z, c)) continue;
+            if (try_onehot(x, w, y, z, c)) continue;
+            if (try_onehot(y, w, x, z, c)) continue;
+            if (try_onehot(z, w, x, y, c)) continue;
         }
 
         std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
