@@ -43,6 +43,7 @@ namespace sat {
         on_function_t m_on_xorand;
         on_function_t m_on_gamble;
         on_function_t m_on_onehot;
+        on_function_t m_on_dot;
 
         typedef svector<std::pair<literal, clause*>> use_list_t;
         scoped_ptr_vector<use_list_t> m_use_lists;
@@ -96,6 +97,7 @@ namespace sat {
         bool has_quaternary(quaternary_hash_table_t const& quaternaries, ternary_hash_table_t const& ternaries, literal w, literal x, literal y, literal z, clause*& c) const;
 
         bool implies(literal a, literal b) const;
+        void filter(clause_vector& clauses) const;
         void find_npn3(clause_vector& clauses, on_function_t const& on_function, std::function<bool(binary_hash_table_t const&, ternary_hash_table_t const&, literal, literal, literal, clause&)> const& checker);
         void find_mux(clause_vector& clauses);
         void validate_if(literal x, literal c, literal t, literal e, clause const& c0, clause const* c1, clause const* c2, clause const* c3);
@@ -105,6 +107,7 @@ namespace sat {
         void find_xorand(clause_vector& clauses);
         void find_gamble(clause_vector& clauses);
         void find_onehot(clause_vector& clauses);
+        void find_dot(clause_vector& clauses);
         void validate_clause(literal x, literal y, literal z, vector<literal_vector> const& clauses);
         void validate_clause(literal_vector const& clause, vector<literal_vector> const& clauses);
 
@@ -119,6 +122,7 @@ namespace sat {
         void set_on_xorand(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_xorand = f; }
         void set_on_gamble(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_gamble = f; }
         void set_on_onehot(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_onehot = f; }
+        void set_on_dot(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_dot = f; }
         void operator()(clause_vector& clauses);
     };
 }

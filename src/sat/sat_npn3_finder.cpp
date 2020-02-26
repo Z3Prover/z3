@@ -69,6 +69,7 @@ namespace sat {
         find_xorand(clauses);
         find_onehot(clauses);
         find_gamble(clauses);
+        find_dot(clauses);
     }
 
     bool npn3_finder::implies(literal a, literal b) const {
@@ -173,6 +174,12 @@ namespace sat {
         return false;
     }
 
+    void npn3_finder::filter(clause_vector& clauses) const
+    {
+        //std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
+        //clauses.filter_update(not_used);
+    }
+
     void npn3_finder::find_npn3(clause_vector& clauses, on_function_t const& on_function, std::function<bool(binary_hash_table_t const&, ternary_hash_table_t const&, literal, literal, literal, clause&)> const& checker)
     {
         if (!on_function) return;
@@ -193,8 +200,7 @@ namespace sat {
             if (checker(binaries, ternaries, y, z, x, c)) continue;
         }
 
-        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
-        clauses.filter_update(not_used);
+        filter(clauses);
     }
 
     void npn3_finder::find_mux(clause_vector& clauses) {
@@ -347,8 +353,7 @@ namespace sat {
             if (try_andxor(z, y, w, x, c)) continue;
         }
 
-        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
-        clauses.filter_update(not_used);
+        filter(clauses);
     }
 
     void npn3_finder::find_xorand(clause_vector& clauses) {
@@ -393,8 +398,7 @@ namespace sat {
             if (try_xorand(z, y, w, x, c)) continue;
         }
 
-        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
-        clauses.filter_update(not_used);
+        filter(clauses);
     }
 
     void npn3_finder::find_gamble(clause_vector& clauses) {
@@ -432,8 +436,7 @@ namespace sat {
             if (try_gamble(z, w, x, y, c)) continue;
         }
 
-        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
-        clauses.filter_update(not_used);
+        filter(clauses);
     }
 
     void npn3_finder::find_onehot(clause_vector& clauses) {
@@ -475,8 +478,65 @@ namespace sat {
             if (try_onehot(z, w, x, y, c)) continue;
         }
 
-        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
-        clauses.filter_update(not_used);
+        filter(clauses);
+    }
+
+    void npn3_finder::find_dot(clause_vector& clauses) {
+        if (!m_on_dot) return;
+
+        binary_hash_table_t binaries;
+        ternary_hash_table_t ternaries;
+        quaternary_hash_table_t quaternaries;
+        process_more_clauses(clauses, binaries, ternaries, quaternaries);
+
+        const auto try_dot = [&](literal w, literal x, literal y, literal z, clause &c) {
+          clause *c1, *c2, *c3, *c4;
+          if (!has_ternary(ternaries, ~x, z, ~w, c1)) return false;
+          if (!has_ternary(ternaries, x, ~y, ~w, c2)) return false;
+          if (!has_ternary(ternaries, x, ~z, ~w, c3)) return false;
+          if (!has_ternary(ternaries, ~x, ~z, w, c4)) return false;
+
+          c.mark_used();
+          if (c1) c1->mark_used();
+          if (c2) c2->mark_used();
+          if (c3) c3->mark_used();
+          if (c4) c4->mark_used();
+          m_on_dot(w, ~x, y, z);
+          return true;
+        };
+
+        for (clause* cp : clauses) {
+            clause& c = *cp;
+            if (c.size() != 4 || c.was_used()) continue;
+            literal w = c[0], x = c[1], y = c[2], z = c[3];
+
+            if (try_dot(w, x, y, z, c)) continue;
+            if (try_dot(w, x, z, y, c)) continue;
+            if (try_dot(w, y, x, z, c)) continue;
+            if (try_dot(w, y, z, x, c)) continue;
+            if (try_dot(w, z, x, y, c)) continue;
+            if (try_dot(w, z, y, x, c)) continue;
+            if (try_dot(x, w, y, z, c)) continue;
+            if (try_dot(x, w, z, y, c)) continue;
+            if (try_dot(x, y, w, z, c)) continue;
+            if (try_dot(x, y, z, w, c)) continue;
+            if (try_dot(x, z, w, y, c)) continue;
+            if (try_dot(x, z, y, w, c)) continue;
+            if (try_dot(y, w, x, z, c)) continue;
+            if (try_dot(y, w, z, x, c)) continue;
+            if (try_dot(y, x, w, z, c)) continue;
+            if (try_dot(y, x, z, w, c)) continue;
+            if (try_dot(y, z, w, x, c)) continue;
+            if (try_dot(y, z, x, w, c)) continue;
+            if (try_dot(z, w, x, y, c)) continue;
+            if (try_dot(z, w, y, x, c)) continue;
+            if (try_dot(z, x, w, y, c)) continue;
+            if (try_dot(z, x, y, w, c)) continue;
+            if (try_dot(z, y, w, x, c)) continue;
+            if (try_dot(z, y, x, w, c)) continue;
+        }
+
+        filter(clauses);
     }
 
     void npn3_finder::validate_clause(literal_vector const& clause, vector<literal_vector> const& clauses) {
