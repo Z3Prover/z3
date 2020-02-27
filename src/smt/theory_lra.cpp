@@ -2094,7 +2094,7 @@ public:
                 th.log_axiom_instantiation(body);
                 m.trace_stream() << "[end-of-instance]\n";
             }
-            IF_VERBOSE(2, verbose_stream() << "branch " << b << "\n";);
+            IF_VERBOSE(4, verbose_stream() << "branch " << b << "\n";);
             // branch on term >= k + 1
             // branch on term <= k
             // TBD: ctx().force_phase(ctx().get_literal(b));
@@ -2113,7 +2113,7 @@ public:
                 th.log_axiom_instantiation(b);
                 m.trace_stream() << "[end-of-instance]\n";
             }
-            IF_VERBOSE(2, verbose_stream() << "cut " << b << "\n");
+            IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_explanation, m_lia->is_upper()););
             m_eqs.reset();
             m_core.reset();

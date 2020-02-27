@@ -22,15 +22,33 @@ Revision History:
 
 namespace lp {
 
-    int_gcd_test::int_gcd_test(int_solver& lia): lia(lia), lra(lia.lra) {}
+    int_gcd_test::int_gcd_test(int_solver& lia): lia(lia), lra(lia.lra), m_next_gcd(0), m_delay(0) {}
+
+    bool int_gcd_test::should_apply() {
+
+        if (!lia.settings().m_int_run_gcd_test)
+            return false;
+#if 1
+        return true;
+#else
+        if (m_delay == 0) {
+            return true;
+        }
+        --m_delay;
+        return false;
+#endif
+    }
 
     lia_move int_gcd_test::operator()() {              
         lia.settings().stats().m_gcd_calls++;
         TRACE("int_solver", tout << "gcd-test " << lia.settings().stats().m_gcd_calls << "\n";);
         if (gcd_test()) {
+            m_delay = m_next_gcd++;
             return lia_move::undef;
         }
         else {
+            m_next_gcd = 0;
+            m_delay = 0;
             lia.settings().stats().m_gcd_conflicts++;
             TRACE("gcd_test", tout << "gcd conflict\n";);
             return lia_move::conflict;

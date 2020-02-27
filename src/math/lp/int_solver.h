@@ -24,6 +24,7 @@ Revision History:
 #include "math/lp/lar_term.h"
 #include "math/lp/lar_constraints.h"
 #include "math/lp/hnf_cutter.h"
+#include "math/lp/int_gcd_test.h"
 #include "math/lp/lia_move.h"
 #include "math/lp/explanation.h"
 
@@ -39,8 +40,27 @@ class int_solver {
     friend class int_gcd_test;
     friend class hnf_cutter;
 
+    class patcher {
+        int_solver&         lia;
+        lar_solver&         lra;
+        lar_core_solver&    lrac;
+        unsigned            m_num_nbasic_patches;
+        unsigned            m_patch_cost;
+        unsigned            m_next_patch;
+        unsigned            m_delay;
+    public:
+        patcher(int_solver& lia);
+        bool should_apply();
+        lia_move operator()();
+        void patch_nbasic_column(unsigned j);
+    private:
+        lia_move patch_nbasic_columns();
+    };
+
     lar_solver&         lra;
     lar_core_solver&    lrac;
+    int_gcd_test        m_gcd;
+    patcher             m_patcher;
     unsigned            m_number_of_calls;
     lar_term            m_t;               // the term to return in the cut
     mpq                 m_k;               // the right side of the cut
@@ -68,19 +88,17 @@ public:
     bool at_upper(unsigned j) const;
     
 private:
-    lia_move patch_nbasic_columns();
+    // lia_move patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     bool is_boxed(unsigned j) const;
     bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
     void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
-    bool non_basic_columns_are_at_bounds() const;
     bool is_feasible() const;
     bool column_is_int_inf(unsigned j) const;
     std::ostream& display_inf_rows(std::ostream&) const;
     bool should_find_cube();
-    bool should_run_gcd_test();
     bool should_gomory_cut();
     bool should_hnf_cut();
 
@@ -90,6 +108,8 @@ private:
     bool has_lower(unsigned j) const;
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
+    bool non_basic_columns_are_at_bounds() const;
+
 
 public:
     std::ostream& display_column(std::ostream & out, unsigned j) const;
@@ -108,6 +128,6 @@ public:
     bool all_columns_are_bounded() const;
     void find_feasible_solution();
     lia_move hnf_cut();
-    void patch_nbasic_column(unsigned j);
+    void patch_nbasic_column(unsigned j) { m_patcher.patch_nbasic_column(j); }
   };
 }
