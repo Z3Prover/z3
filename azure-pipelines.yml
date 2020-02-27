@@ -45,6 +45,7 @@ jobs:
     - script: |
         set -e
         cd build
+        eval `opam env` 
         make -j3
         make -j3 examples
         make -j3 test-z3
