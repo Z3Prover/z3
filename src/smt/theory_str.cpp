@@ -1368,72 +1368,63 @@ namespace smt {
             }
         }
 
+        expr * exHaystack = nullptr;
+        expr * exNeedle = nullptr;
+        expr * exIndex = nullptr;
+        u.str.is_index(ex, exHaystack, exNeedle, exIndex);
+
         // if the third argument is exactly the integer 0, we can use this "simple" indexof;
         // otherwise, we call the "extended" version
-        expr * startingPosition = ex->get_arg(2);
         rational startingInteger;
-        if (!m_autil.is_numeral(startingPosition, startingInteger) || !startingInteger.is_zero()) {
+        if (!m_autil.is_numeral(exIndex, startingInteger) || !startingInteger.is_zero()) {
             // "extended" indexof term with prefix
             instantiate_axiom_Indexof_extended(e);
             return;
         }
         axiomatized_terms.insert(ex);
 
-        expr * exHaystack = nullptr;
-        expr * exNeedle = nullptr;
-        expr * exIndex = nullptr;
-        u.str.is_index(ex, exHaystack, exNeedle, exIndex);
-
         TRACE("str", tout << "instantiate str.indexof axiom for " << mk_pp(ex, m) << std::endl;);
 
         expr_ref x1(mk_str_var("x1"), m);
         expr_ref x2(mk_str_var("x2"), m);
-        expr_ref indexAst(mk_int_var("index"), m);
 
-        expr_ref condAst1(mk_contains(ex->get_arg(0), ex->get_arg(1)), m);
+        expr_ref condAst1(mk_contains(exHaystack, exNeedle), m);
         expr_ref condAst2(m.mk_not(ctx.mk_eq_atom(exNeedle, mk_string(""))), m);
         expr_ref condAst(m.mk_and(condAst1, condAst2), m);
-        //expr_ref condAst(mk_contains(ex->get_arg(0), ex->get_arg(1)), m);
         SASSERT(condAst);
 
         // -----------------------
         // true branch
         expr_ref_vector thenItems(m);
         //  args[0] = x1 . args[1] . x2
-        thenItems.push_back(ctx.mk_eq_atom(ex->get_arg(0), mk_concat(x1, mk_concat(ex->get_arg(1), x2))));
+        thenItems.push_back(ctx.mk_eq_atom(exHaystack, mk_concat(x1, mk_concat(exNeedle, x2))));
         //  indexAst = |x1|
-        thenItems.push_back(ctx.mk_eq_atom(indexAst, mk_strlen(x1)));
+        thenItems.push_back(ctx.mk_eq_atom(ex, mk_strlen(x1)));
         //     args[0]  = x3 . x4
         //  /\ |x3| = |x1| + |args[1]| - 1
         //  /\ ! contains(x3, args[1])
         expr_ref x3(mk_str_var("x3"), m);
         expr_ref x4(mk_str_var("x4"), m);
-        expr_ref tmpLen(m_autil.mk_add(indexAst, mk_strlen(ex->get_arg(1)), mk_int(-1)), m);
+        expr_ref tmpLen(m_autil.mk_add(ex, mk_strlen(ex->get_arg(1)), mk_int(-1)), m);
         SASSERT(tmpLen);
-        thenItems.push_back(ctx.mk_eq_atom(ex->get_arg(0), mk_concat(x3, x4)));
+        thenItems.push_back(ctx.mk_eq_atom(exHaystack, mk_concat(x3, x4)));
         thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-        thenItems.push_back(mk_not(m, mk_contains(x3, ex->get_arg(1))));
-        expr_ref thenBranch(m.mk_and(thenItems.size(), thenItems.c_ptr()), m);
+        thenItems.push_back(mk_not(m, mk_contains(x3, exNeedle)));
+        expr_ref thenBranch(mk_and(thenItems), m);
         SASSERT(thenBranch);
 
         // -----------------------
         // false branch
         expr_ref elseBranch(m.mk_ite(
                 ctx.mk_eq_atom(exNeedle, mk_string("")),
-                ctx.mk_eq_atom(indexAst, mk_int(0)),
-                ctx.mk_eq_atom(indexAst, mk_int(-1))
+                ctx.mk_eq_atom(ex, mk_int(0)),
+                ctx.mk_eq_atom(ex, mk_int(-1))
                 ), m);
         SASSERT(elseBranch);
 
         expr_ref breakdownAssert(m.mk_ite(condAst, thenBranch, elseBranch), m);
-        SASSERT(breakdownAssert);
-
-        expr_ref reduceToIndex(ctx.mk_eq_atom(ex, indexAst), m);
-        SASSERT(reduceToIndex);
-
-        expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
-        rw(finalAxiom);
-        assert_axiom(finalAxiom);
+        rw(breakdownAssert);
+        assert_axiom(breakdownAssert);
 
         {
             // heuristic: integrate with str.contains information
