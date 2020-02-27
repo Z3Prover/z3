@@ -375,7 +375,10 @@ namespace recfun {
         SASSERT(n_vars == d->get_arity());
                     
         is_imm_pred is_i(*u);
-        d->compute_cases(*u, r, is_i, n_vars, vars, rhs);
+#if 0
+        expr_ref reduced_rhs = preprocess_ites(*u, r, n_vars, vars, rhs);
+        d->compute_cases(*u, r, is_i, n_vars, vars, reduced_rhs);
+#endif
     }
 
     namespace decl {
