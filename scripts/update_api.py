@@ -1738,6 +1738,8 @@ _default_dirs = ['.',
                  os.path.join(sys.prefix, 'lib'),
                  None]
 _all_dirs = []
+# search the default dirs first
+_all_dirs.extend(_default_dirs)
 
 if sys.version < '3':
   import __builtin__
@@ -1753,8 +1755,6 @@ for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
     lp = os.environ[v];
     lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
     _all_dirs.extend(lds)
-
-_all_dirs.extend(_default_dirs)
 
 _failures = []
 for d in _all_dirs:
