@@ -882,8 +882,18 @@ namespace smt {
 
         for (expr * f : formulas) {
             if (!get_context().is_relevant(f)) {
-                TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not relevant" << std::endl;);
-                continue;
+                expr * subformula = nullptr;
+                if (m.is_not(f, subformula)) {
+                    if (!get_context().is_relevant(subformula)) {
+                        TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not relevant (and neither is its subformula)" << std::endl;);
+                        continue;
+                    } else {
+                        TRACE("str_fl", tout << "considering formula " << mk_pp(f, m) << ", its subformula is relevant but it is not" << std::endl;);
+                    }
+                } else {
+                    TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not relevant" << std::endl;);
+                    continue;
+                }
             }
             // reduce string formulas only. ignore others
             sort * fSort = m.get_sort(f);
