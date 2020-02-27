@@ -358,6 +358,13 @@ namespace sat {
             }
             while (first != idx);
         }
+        for (unsigned i = s.num_vars(); i-- > 0; ) {
+            literal lit(i, false);
+            if (uf2.find(lit.index()) == uf2.find((~lit).index())) {
+                s.set_conflict();
+                return;
+            }
+        }
         if (new_eq) {
             elim_eqs elim(s);
             elim(uf2);        
