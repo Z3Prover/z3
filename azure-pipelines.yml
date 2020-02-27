@@ -33,7 +33,7 @@ jobs:
 #       ./cpp_example
 #       ./c_example
 
-- job: "Ubuntu18 with ocaml"
+- job: "Ubuntu18"
   displayName: "Ubuntu 18 with ocaml"
   pool:
     vmImage: "Ubuntu-18.04"
