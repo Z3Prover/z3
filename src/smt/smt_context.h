@@ -891,6 +891,10 @@ namespace smt {
 
     public:
 
+        void internalize_rec(expr * n, bool gate_ctx);
+
+        void internalize_deep(expr * n);
+
         // helper function for trail
         void undo_th_case_split(literal l);
 

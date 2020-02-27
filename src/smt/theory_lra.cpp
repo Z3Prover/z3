@@ -1134,6 +1134,7 @@ public:
 
     void apply_sort_cnstr(enode* n, sort*) {
         TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
+#if 0
         if (!th.is_attached_to_var(n)) {
             theory_var v = mk_var(n->get_owner(), false);
             auto vi = register_theory_var_in_lar_solver(v);
@@ -1142,6 +1143,7 @@ public:
                 // TBD: add a way to bind equality between vi and wi in m_solver
             }
         }
+#endif
     }
 
     void push_scope_eh() {
@@ -2092,7 +2094,7 @@ public:
                 th.log_axiom_instantiation(body);
                 m.trace_stream() << "[end-of-instance]\n";
             }
-            IF_VERBOSE(2, verbose_stream() << "branch " << b << "\n";);
+            IF_VERBOSE(4, verbose_stream() << "branch " << b << "\n";);
             // branch on term >= k + 1
             // branch on term <= k
             // TBD: ctx().force_phase(ctx().get_literal(b));
@@ -2111,7 +2113,7 @@ public:
                 th.log_axiom_instantiation(b);
                 m.trace_stream() << "[end-of-instance]\n";
             }
-            IF_VERBOSE(2, verbose_stream() << "cut " << b << "\n");
+            IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_explanation, m_lia->is_upper()););
             m_eqs.reset();
             m_core.reset();

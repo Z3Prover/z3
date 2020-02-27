@@ -23,6 +23,7 @@
 
 namespace sat {
 
+
     void xor_finder::operator()(clause_vector& clauses) {
         m_removed_clauses.reset();
         unsigned max_size = m_max_xor_size;
@@ -63,7 +64,7 @@ namespace sat {
             m_var_position[l.var()] = i;
             s.mark_visited(l.var());
             parity ^= !l.sign();
-            mask |= (l.sign() << (i++)); 
+            mask |= (!l.sign() << (i++)); 
         }
         // parity is number of true literals in clause.
         m_clauses_to_remove.reset();
@@ -102,6 +103,11 @@ namespace sat {
         }
     }
 
+    void xor_finder::set_combination(unsigned mask) { 
+        m_combination |= (1 << mask); 
+    }
+
+
     void xor_finder::add_xor(bool parity, clause& c) {
         DEBUG_CODE(for (clause* cp : m_clauses_to_remove) VERIFY(cp->was_used()););
         m_removed_clauses.append(m_clauses_to_remove);
@@ -122,10 +128,10 @@ namespace sat {
         unsigned mask = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
             if (c[i].var() == l1.var()) {
-                mask |= (l1.sign() << i);
+                mask |= (!l1.sign() << i);
             }
             else if (c[i].var() == l2.var()) {
-                mask |= (l2.sign() << i);
+                mask |= (!l2.sign() << i);
             }
             else {
                 m_missing.push_back(i);
@@ -166,10 +172,9 @@ namespace sat {
                 m_missing.push_back(j);
             }
             else {
-                mask |= (m_clause[j].sign() << j);
+                mask |= (!m_clause[j].sign() << j);
             }
-        }        
-            
+        }                
         return update_combinations(c, parity, mask);
     }
 

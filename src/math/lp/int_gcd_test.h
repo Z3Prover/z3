@@ -34,6 +34,8 @@ namespace lp {
     class int_gcd_test {
         class int_solver& lia;
         class lar_solver& lra;
+        unsigned m_next_gcd;
+        unsigned m_delay;
 
         bool gcd_test();
         bool gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i);
@@ -47,5 +49,6 @@ namespace lp {
         int_gcd_test(int_solver& lia);
         ~int_gcd_test() {}
         lia_move operator()();
+        bool should_apply();
     };
 }

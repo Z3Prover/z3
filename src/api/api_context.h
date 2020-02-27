@@ -187,6 +187,8 @@ namespace api {
         char * mk_external_string(char const * str, unsigned n);
         char * mk_external_string(char const * str);
         char * mk_external_string(std::string && str);
+        sbuffer<char>              m_char_buffer;
+
 
         // Create a numeral of the given sort
         expr * mk_numeral_core(rational const & n, sort * s);

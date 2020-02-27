@@ -10,14 +10,113 @@
 #include "math/lp/monic.h"
 #include "math/lp/gomory.h"
 #include "math/lp/int_branch.h"
-#include "math/lp/int_gcd_test.h"
 #include "math/lp/int_cube.h"
 
 namespace lp {
 
+int_solver::patcher::patcher(int_solver& lia): 
+    lia(lia), 
+    lra(lia.lra),
+    lrac(lia.lrac),
+    m_num_nbasic_patches(0),
+    m_patch_cost(0),
+    m_delay(0),
+    m_next_patch(0) 
+{}
+    
+bool int_solver::patcher::should_apply() {
+#if 1
+    return true;
+#else
+    if (m_delay == 0) {
+        return true;
+    }
+    --m_delay;
+    return false;
+#endif
+}
+    
+lia_move int_solver::patcher::operator()() {
+    return patch_nbasic_columns();
+}
+
+lia_move int_solver::patcher::patch_nbasic_columns() {
+    lia.settings().stats().m_patches++;
+    lp_assert(lia.is_feasible());
+    m_num_nbasic_patches = 0;
+    m_patch_cost = 0;
+    for (unsigned j : lia.lrac.m_r_nbasis) {
+        patch_nbasic_column(j);
+    }
+    lp_assert(lia.is_feasible());
+    if (!lia.has_inf_int()) {
+        lia.settings().stats().m_patches_success++;
+        m_delay = 0;
+        m_next_patch = 0;
+        return lia_move::sat;
+    }
+    if (m_patch_cost > 0 && m_num_nbasic_patches * 10 < m_patch_cost) {
+        m_delay = std::min(20u, m_next_patch++);
+    }
+    else {
+        m_delay = 0;
+        m_next_patch = 0;
+    }
+    return lia_move::undef;
+}
+
+void int_solver::patcher::patch_nbasic_column(unsigned j) {
+    impq & val = lrac.m_r_x[j];
+    bool inf_l, inf_u;
+    impq l, u;
+    mpq m;
+    bool has_free = lia.get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);    
+    m_patch_cost += lra.A_r().number_of_non_zeroes_in_column(j);
+    if (!has_free) {
+        return;
+    }
+    bool m_is_one = m.is_one();
+    bool val_is_int = lia.value_is_int(j);
+
+    // check whether value of j is already a multiple of m.
+    if (val_is_int && (m_is_one || (val.x / m).is_int())) {
+        return;
+    }
+    TRACE("patch_int",
+          tout << "TARGET j" << j << " -> [";
+          if (inf_l) tout << "-oo"; else tout << l;
+          tout << ", ";
+          if (inf_u) tout << "oo"; else tout << u;
+          tout << "]";
+          tout << ", m: " << m << ", val: " << val << ", is_int: " << lra.column_is_int(j) << "\n";);
+    if (!inf_l) {
+        l = impq(m_is_one ? ceil(l) : m * ceil(l / m));
+        if (inf_u || l <= u) {
+            TRACE("patch_int",    tout << "patching with l: " << l << '\n';);
+            lra.set_value_for_nbasic_column(j, l);
+        }
+        else {
+            --m_num_nbasic_patches;
+            TRACE("patch_int", tout << "not patching " << l << "\n";);
+        }
+    }
+    else if (!inf_u) {
+        u = impq(m_is_one ? floor(u) : m * floor(u / m));
+        lra.set_value_for_nbasic_column(j, u);
+        TRACE("patch_int", tout << "patching with u: " << u << '\n';);
+    }
+    else {
+        lra.set_value_for_nbasic_column(j, impq(0));
+        TRACE("patch_int", tout << "patching with 0\n";);
+    }
+    ++m_num_nbasic_patches;
+}    
+
 int_solver::int_solver(lar_solver& lar_slv) :
     lra(lar_slv),
     lrac(lra.m_mpq_lar_core_solver),
+    m_gcd(*this),
+    m_patcher(*this),
     m_number_of_calls(0),
     m_hnf_cutter(*this),
     m_hnf_cut_period(settings().hnf_cut_period()) {
@@ -56,18 +155,16 @@ lia_move int_solver::check(lp::explanation * e) {
     gomory       gc(*this);
     int_cube     cube(*this);
     int_branch   branch(*this);
-    int_gcd_test gcd(*this);
 
-    if (should_run_gcd_test()) r = gcd();
+    if (m_gcd.should_apply()) r = m_gcd();
 
     check_return_helper pc(lra);
 
     if (settings().m_int_pivot_fixed_vars_from_basis)
         lra.pivot_fixed_vars_from_basis();
 
-
-    if (r == lia_move::undef) r = patch_nbasic_columns();
     ++m_number_of_calls;
+    if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
     if (r == lia_move::undef && should_find_cube()) r = cube();
     if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
     if (r == lia_move::undef && should_gomory_cut()) r = gc();
@@ -167,9 +264,6 @@ bool int_solver::should_find_cube() {
     return m_number_of_calls % settings().m_int_find_cube_period == 0;
 }
 
-bool int_solver::should_run_gcd_test() {
-    return settings().m_int_run_gcd_test;    
-}
 
 bool int_solver::should_gomory_cut() {
     return m_number_of_calls % settings().m_int_gomory_cut_period == 0;
@@ -199,62 +293,8 @@ void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const
     lra.change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
 
-void int_solver::patch_nbasic_column(unsigned j) {
-    impq & val = lrac.m_r_x[j];
-    bool inf_l, inf_u;
-    impq l, u;
-    mpq m;
-    if (!get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m)) {
-        return;
-    }
-    bool m_is_one = m.is_one();
-    bool val_is_int = value_is_int(j);
 
-    // check whether value of j is already a multiple of m.
-    if (val_is_int && (m_is_one || (val.x / m).is_int())) {
-        return;
-    }
-    TRACE("patch_int",
-          tout << "TARGET j" << j << " -> [";
-          if (inf_l) tout << "-oo"; else tout << l;
-          tout << ", ";
-          if (inf_u) tout << "oo"; else tout << u;
-          tout << "]";
-          tout << ", m: " << m << ", val: " << val << ", is_int: " << lra.column_is_int(j) << "\n";);
-    if (!inf_l) {
-        l = impq(m_is_one ? ceil(l) : m * ceil(l / m));
-        if (inf_u || l <= u) {
-            TRACE("patch_int",    tout << "patching with l: " << l << '\n';);
-            lra.set_value_for_nbasic_column(j, l);
-        }
-        else {
-            TRACE("patch_int", tout << "not patching " << l << "\n";);
-        }
-    }
-    else if (!inf_u) {
-        u = impq(m_is_one ? floor(u) : m * floor(u / m));
-        lra.set_value_for_nbasic_column(j, u);
-        TRACE("patch_int", tout << "patching with u: " << u << '\n';);
-    }
-    else {
-        lra.set_value_for_nbasic_column(j, impq(0));
-        TRACE("patch_int", tout << "patching with 0\n";);
-    }
-}
 
-lia_move int_solver::patch_nbasic_columns() {
-    settings().stats().m_patches++;
-    lp_assert(is_feasible());
-    for (unsigned j : lrac.m_r_nbasis) {
-        patch_nbasic_column(j);
-    }
-    lp_assert(is_feasible());
-    if (!has_inf_int()) {
-        settings().stats().m_patches_success++;
-        return lia_move::sat;
-    }
-    return lia_move::undef;
-}
 
 
 bool int_solver::has_lower(unsigned j) const {
@@ -327,7 +367,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     TRACE("random_update", tout <<  "m = " << m << "\n";);
     
     for (const auto &c : A.column(j)) {
-        if (!inf_l && !inf_u && l >= u) break;                
+        if (!inf_l && !inf_u && l >= u) break;       
         row_index = c.var();
         const mpq & a = c.coeff();        
         unsigned i = lrac.m_r_basis[row_index];
@@ -534,6 +574,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     return true;
 }
 
+// not used:
 bool int_solver::non_basic_columns_are_at_bounds() const {
     for (unsigned j : lrac.m_r_nbasis) {
         auto & val = lrac.m_r_x[j];
@@ -558,6 +599,5 @@ bool int_solver::non_basic_columns_are_at_bounds() const {
     }
     return true;
 }
-    
 
 }

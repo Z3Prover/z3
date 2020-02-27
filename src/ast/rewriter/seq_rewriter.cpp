@@ -352,7 +352,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
         TRACE("seq", display_expr1 disp(m); a->display(tout << "a:", disp); b->display(tout << "b:", disp); r->display(tout << "intersection:", disp););
         return r;
     }
-    else {
+    else {        
         TRACE("seq", tout << "not handled " << mk_pp(e, m) << "\n";);
     }
     

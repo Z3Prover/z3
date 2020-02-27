@@ -286,7 +286,7 @@ public:
         lbool is_sat = l_true;
         if (m_hill_climb) {
             /**
-               Give preference to cores that have large minmal values.
+               Give preference to cores that have large minimal values.
             */
             sort_assumptions(asms);              
             m_last_index = std::min(m_last_index, asms.size()-1);
