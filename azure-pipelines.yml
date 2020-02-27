@@ -38,8 +38,10 @@ jobs:
   pool:
     vmImage: "Ubuntu-18.04"
   steps:
-    - script: sudo apt-get install ocaml opam
-    - script: python scripts/mk_make.py --java --dotnet --ml
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: opam init
+    - script: eval `opam env`; opam install zarith ocamlfind
+    - script: python scripts/mk_make.py --ml
     - script: |
         set -e
         cd build
