@@ -23,6 +23,7 @@ Revision History:
 #include "ast/expr_functors.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 #include "util/scoped_ptr_vector.h"
 
 #define TRACEFN(x) TRACE("recfun", tout << x << '\n';)
@@ -337,6 +338,10 @@ namespace recfun {
 
     void util::set_definition(replace& subst, promise_def & d, unsigned n_vars, var * const * vars, expr * rhs) {
         d.set_definition(subst, n_vars, vars, rhs);
+#if 0
+        expr_ref rhs1 = get_plugin().redirect_ite(subst, n_vars, vars, rhs);        
+        d.set_definition(subst, n_vars, vars, rhs1);
+#endif
     }
 
     app_ref util::mk_depth_limit_pred(unsigned d) {
@@ -448,21 +453,41 @@ namespace recfun {
 
         /**
          * \brief compute ite nesting depth scores with each sub-expression of e.
+         * associate with each subterm of e its parent terms.
+         * and for every term depth the set of terms with the same depth
          */
         void plugin::compute_scores(expr* e, obj_map<expr, unsigned>& scores) {
-            unsigned max_depth = get_depth(e);
             u_map<ptr_vector<expr>> by_depth;
             obj_map<expr, ptr_vector<expr>> parents;
-            expr_mark marked;
-            ptr_vector<expr> es;
-            es.push_back(e);
-            by_depth.insert(max_depth, es);
+            expr_ref tmp(e, m());
+            parents.insert(e, ptr_vector<expr>());
+            for (expr* t : subterms(tmp)) {
+                if (is_app(t)) {
+                    for (expr* arg : *to_app(t)) {
+                        parents.insert_if_not_there2(arg, ptr_vector<expr>())->get_data().m_value.push_back(t);        
+                    }
+                }
+                by_depth.insert_if_not_there2(get_depth(t), ptr_vector<expr>())->get_data().m_value.push_back(t);
+            }
+            unsigned max_depth = get_depth(e);
+            scores.insert(e, 0);
+            // walk deepest terms first.
             for (unsigned i = max_depth; i > 0; --i) {
-                // walk deepest terms first.
+                for (expr* t : by_depth[i]) {
+                    unsigned score = 0;
+                    for (expr* parent : parents[t]) {
+                        score += scores[parent];
+                    }
+                    if (m().is_ite(t)) {
+                        score++;
+                    }
+                    scores.insert(t, score);
+                    TRACEFN("score " << mk_pp(t, m()) << ": " << score);
+                }
             }
         }
 
-        expr_ref plugin::redirect_ite(replace& subst, unsigned n, var ** vars, expr * e) {
+        expr_ref plugin::redirect_ite(replace& subst, unsigned n, var * const* vars, expr * e) {
             expr_ref result(e, m());
             while (true) {
                 obj_map<expr, unsigned> scores;
@@ -491,6 +516,7 @@ namespace recfun {
                 expr_ref new_body(m().mk_app(f, n, args.c_ptr()), m());
                 set_definition(subst, pd, n, vars, new_body);
                 subst.insert(max_expr, new_body);
+                TRACEFN("substitute " << mk_pp(max_expr, m()) << " -> " << new_body);
                 subst(result);                
             }
             return result;

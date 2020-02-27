@@ -157,7 +157,6 @@ namespace recfun {
             
             ast_manager & m() { return *m_manager; }
 
-            expr_ref redirect_ite(replace& subst, unsigned n, var ** vars, expr * e);
             void compute_scores(expr* e, obj_map<expr, unsigned>& scores);
 
         public:
@@ -199,6 +198,9 @@ namespace recfun {
                 for (auto& kv : m_defs) result.push_back(kv.m_key);
                 return result;
             }
+
+            expr_ref redirect_ite(replace& subst, unsigned n, var * const* vars, expr * e);
+
         };
     }
 
