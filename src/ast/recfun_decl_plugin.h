@@ -156,6 +156,8 @@ namespace recfun {
             case_def_map             m_case_defs;  // case_pred->def
             
             ast_manager & m() { return *m_manager; }
+
+            void compute_scores(expr* e, obj_map<expr, unsigned>& scores);
         public:
             plugin();
             ~plugin() override;
