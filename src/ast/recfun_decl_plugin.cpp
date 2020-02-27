@@ -450,7 +450,7 @@ namespace recfun {
          * \brief compute ite nesting depth scores with each sub-expression of e.
          */
         void plugin::compute_scores(expr* e, obj_map<expr, unsigned>& scores) {
-            unsigned max_depth = e->get_depth(e);
+            unsigned max_depth = get_depth(e);
             u_map<ptr_vector<expr>> by_depth;
             obj_map<expr, ptr_vector<expr>> parents;
             expr_mark marked;
@@ -462,7 +462,39 @@ namespace recfun {
             }
         }
 
-        void plugin::expand_
+        expr_ref plugin::redirect_ite(replace& subst, unsigned n, var ** vars, expr * e) {
+            expr_ref result(e, m());
+            while (true) {
+                obj_map<expr, unsigned> scores;
+                compute_scores(e, scores);
+                unsigned max_score = 0;
+                expr* max_expr = nullptr;
+                for (auto const& kv : scores) {
+                    if (kv.m_value > max_score) {
+                        max_expr = kv.m_key;
+                        max_score = kv.m_value;
+                    }
+                }
+                if (max_score <= 4) {
+                    break;
+                }
+                ptr_vector<sort> domain;
+                ptr_vector<expr> args;
+                for (unsigned i = 0; i < n; ++i) {
+                    domain.push_back(vars[i]->get_sort());
+                    args.push_back(vars[i]);
+                }
+                                
+                symbol fresh_name(m().mk_fresh_id()); 
+                auto pd = mk_def(fresh_name, n, domain.c_ptr(), m().get_sort(max_expr));
+                func_decl* f = pd.get_def()->get_decl();
+                expr_ref new_body(m().mk_app(f, n, args.c_ptr()), m());
+                set_definition(subst, pd, n, vars, new_body);
+                subst.insert(max_expr, new_body);
+                subst(result);                
+            }
+            return result;
+        }
 
     }
 }

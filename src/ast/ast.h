@@ -1517,6 +1517,8 @@ public:
 
     void update_fresh_id(ast_manager const& other);
 
+    unsigned mk_fresh_id() { return ++m_fresh_id; }
+
 protected:
     reslimit                  m_limit;
     small_object_allocator    m_alloc;

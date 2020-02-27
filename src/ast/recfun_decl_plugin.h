@@ -157,7 +157,9 @@ namespace recfun {
             
             ast_manager & m() { return *m_manager; }
 
+            expr_ref redirect_ite(replace& subst, unsigned n, var ** vars, expr * e);
             void compute_scores(expr* e, obj_map<expr, unsigned>& scores);
+
         public:
             plugin();
             ~plugin() override;
