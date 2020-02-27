@@ -39,6 +39,8 @@ namespace sat {
         on_function_t m_on_mux;
         on_function_t m_on_maj;
         on_function_t m_on_orand;
+        on_function_t m_on_and;
+        on_function_t m_on_xor;
         on_function_t m_on_andxor;
         on_function_t m_on_xorand;
         on_function_t m_on_gamble;
@@ -103,6 +105,8 @@ namespace sat {
         void validate_if(literal x, literal c, literal t, literal e, clause const& c0, clause const* c1, clause const* c2, clause const* c3);
         void find_maj(clause_vector& clauses);
         void find_orand(clause_vector& clauses);
+        void find_and(clause_vector& clauses);
+        void find_xor(clause_vector& clauses);
         void find_andxor(clause_vector& clauses);
         void find_xorand(clause_vector& clauses);
         void find_gamble(clause_vector& clauses);
@@ -118,6 +122,8 @@ namespace sat {
         void set_on_mux(std::function<void(literal head, literal cond, literal th, literal el)> const& f) { m_on_mux = f; }
         void set_on_maj(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_maj = f; }
         void set_on_orand(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_orand = f; }
+        void set_on_and(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_and = f; }
+        void set_on_xor(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_xor = f; }
         void set_on_andxor(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_andxor = f; }
         void set_on_xorand(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_xorand = f; }
         void set_on_gamble(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_gamble = f; }

@@ -65,6 +65,8 @@ namespace sat {
         find_mux(clauses);
         find_maj(clauses);
         find_orand(clauses);
+        find_and(clauses);
+        find_xor(clauses);
         find_andxor(clauses);
         find_xorand(clauses);
         find_onehot(clauses);
@@ -306,6 +308,79 @@ namespace sat {
         };
 
         find_npn3(clauses, m_on_orand, try_orand);
+    }
+
+    void npn3_finder::find_xor(clause_vector& clauses) {
+        if (!m_on_xor) return;
+
+        binary_hash_table_t binaries;
+        ternary_hash_table_t ternaries;
+        quaternary_hash_table_t quaternaries;
+        process_more_clauses(clauses, binaries, ternaries, quaternaries);
+
+        const auto try_xor = [&](literal w, literal x, literal y, literal z, clause &c) {
+          clause *c1, *c2, *c3, *c4, *c5, *c6, *c7;
+          if (!has_quaternary(quaternaries, ternaries, ~x, ~y, z, w, c1)) return false;
+          if (!has_quaternary(quaternaries, ternaries, ~x, y, ~z, w, c2)) return false;
+          if (!has_quaternary(quaternaries, ternaries, ~x, y, z, ~w, c3)) return false;
+          if (!has_quaternary(quaternaries, ternaries, ~x, ~y, ~z, ~w, c4)) return false;
+          if (!has_quaternary(quaternaries, ternaries, x, y, ~z, ~w, c5)) return false;
+          if (!has_quaternary(quaternaries, ternaries, x, ~y, z, ~w, c6)) return false;
+          if (!has_quaternary(quaternaries, ternaries, x, ~y, ~z, w, c7)) return false;
+
+          c.mark_used();
+          if (c1) c1->mark_used();
+          if (c2) c2->mark_used();
+          if (c3) c3->mark_used();
+          if (c4) c4->mark_used();
+          if (c5) c5->mark_used();
+          if (c6) c6->mark_used();
+          if (c7) c7->mark_used();
+          m_on_xor(w, ~x, y, z);
+          return true;
+        };
+
+        for (clause* cp : clauses) {
+            clause& c = *cp;
+            if (c.size() != 4 || c.was_used()) continue;
+            literal w = c[0], x = c[1], y = c[2], z = c[3];
+
+            if (try_xor(w, x, y, z, c)) continue;
+        }
+
+        filter(clauses);
+    }
+
+    void npn3_finder::find_and(clause_vector& clauses) {
+        if (!m_on_and) return;
+
+        binary_hash_table_t binaries;
+        ternary_hash_table_t ternaries;
+        quaternary_hash_table_t quaternaries;
+        process_more_clauses(clauses, binaries, ternaries, quaternaries);
+
+        const auto try_and = [&](literal w, literal x, literal y, literal z, clause &c) {
+          if (!implies(w, ~x)) return false;
+          if (!implies(w, ~y)) return false;
+          if (!implies(w, ~z)) return false;
+
+          c.mark_used();
+          m_on_and(w, ~x, ~y, ~z);
+          return true;
+        };
+
+        for (clause* cp : clauses) {
+            clause& c = *cp;
+            if (c.size() != 4 || c.was_used()) continue;
+            literal w = c[0], x = c[1], y = c[2], z = c[3];
+
+            if (try_and(w, x, y, z, c)) continue;
+            if (try_and(x, w, y, z, c)) continue;
+            if (try_and(y, w, x, z, c)) continue;
+            if (try_and(z, w, x, y, c)) continue;
+        }
+
+        filter(clauses);
     }
 
     void npn3_finder::find_andxor(clause_vector& clauses) {
