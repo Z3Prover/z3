@@ -20,8 +20,8 @@ int_solver::patcher::patcher(int_solver& lia):
     lrac(lia.lrac),
     m_num_nbasic_patches(0),
     m_patch_cost(0),
-    m_delay(0),
-    m_next_patch(0) 
+    m_next_patch(0),
+    m_delay(0)
 {}
     
 bool int_solver::patcher::should_apply() {
