@@ -445,5 +445,24 @@ namespace recfun {
             UNREACHABLE();
             return nullptr;            
         }
+
+        /**
+         * \brief compute ite nesting depth scores with each sub-expression of e.
+         */
+        void plugin::compute_scores(expr* e, obj_map<expr, unsigned>& scores) {
+            unsigned max_depth = e->get_depth(e);
+            u_map<ptr_vector<expr>> by_depth;
+            obj_map<expr, ptr_vector<expr>> parents;
+            expr_mark marked;
+            ptr_vector<expr> es;
+            es.push_back(e);
+            by_depth.insert(max_depth, es);
+            for (unsigned i = max_depth; i > 0; --i) {
+                // walk deepest terms first.
+            }
+        }
+
+        void plugin::expand_
+
     }
 }
