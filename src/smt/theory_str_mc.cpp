@@ -712,6 +712,28 @@ namespace smt {
                 eqc_chars.push_back(base_chars.get(pos_value.get_unsigned()));
             }
             return true;
+	} else if (u.str.is_itos(term, arg0)) {
+	    expr_ref i(arg0, m);
+	    arith_value v(m);
+	    v.init(&get_context());
+	    rational iValue;
+	    bool iValue_exists = v.get_value(i, iValue);
+	    if (!iValue_exists) {
+	        NOT_IMPLEMENTED_YET(); // TODO force assignment in arith solver
+	    }
+	    TRACE("str_fl", tout << "reduce int.to.str: n=" << iValue << std::endl;);
+	    if (iValue.is_neg()) {
+  	        // return the empty string
+	        eqc_chars.reset();
+	    } else {
+	        // convert iValue to a constant
+	        zstring iValue_str = zstring(iValue.to_string().c_str());
+		for (unsigned idx = 0; idx < iValue_str.length(); ++idx) {
+	            expr_ref chTerm(bitvector_character_constants.get(iValue_str[idx]), sub_m);
+		    eqc_chars.push_back(chTerm);
+		}
+            }
+	    return true;
         } else {
             TRACE("str_fl", tout << "string term " << mk_pp(term, m) << " handled as uninterpreted function" << std::endl;);
             if (!uninterpreted_to_char_subterm_map.contains(term)) {
