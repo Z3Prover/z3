@@ -216,7 +216,7 @@ namespace recfun {
         unsigned case_idx = 0;
 
         std::string name("case-");       
-        name.append(m_name.bare_str());
+        name.append(m_name.str());
 
         m_vars.append(n_vars, vars);
         m_rhs = rhs;
@@ -337,11 +337,8 @@ namespace recfun {
 
 
     void util::set_definition(replace& subst, promise_def & d, unsigned n_vars, var * const * vars, expr * rhs) {
-        d.set_definition(subst, n_vars, vars, rhs);
-#if 0
         expr_ref rhs1 = get_plugin().redirect_ite(subst, n_vars, vars, rhs);        
         d.set_definition(subst, n_vars, vars, rhs1);
-#endif
     }
 
     app_ref util::mk_depth_limit_pred(unsigned d) {
@@ -480,9 +477,9 @@ namespace recfun {
                     }
                     if (m().is_ite(t)) {
                         score++;
+                        TRACEFN("score " << mk_pp(t, m()) << ": " << score);
                     }
                     scores.insert(t, score);
-                    TRACEFN("score " << mk_pp(t, m()) << ": " << score);
                 }
             }
         }
@@ -491,11 +488,11 @@ namespace recfun {
             expr_ref result(e, m());
             while (true) {
                 obj_map<expr, unsigned> scores;
-                compute_scores(e, scores);
+                compute_scores(result, scores);
                 unsigned max_score = 0;
                 expr* max_expr = nullptr;
                 for (auto const& kv : scores) {
-                    if (kv.m_value > max_score) {
+                    if (m().is_ite(kv.m_key) && kv.m_value > max_score) {
                         max_expr = kv.m_key;
                         max_score = kv.m_value;
                     }
@@ -516,8 +513,8 @@ namespace recfun {
                 expr_ref new_body(m().mk_app(f, n, args.c_ptr()), m());
                 set_definition(subst, pd, n, vars, new_body);
                 subst.insert(max_expr, new_body);
-                TRACEFN("substitute " << mk_pp(max_expr, m()) << " -> " << new_body);
-                subst(result);                
+                result = subst(result);                
+                TRACEFN("substituted " << mk_pp(max_expr, m()) << " -> " << new_body << "\n" << result);
             }
             return result;
         }
