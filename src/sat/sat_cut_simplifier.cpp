@@ -599,12 +599,14 @@ namespace sat {
     }
 
     void cut_simplifier::add_dont_cares(vector<cut_set> const& cuts) {
-        if (!s.m_config.m_cut_dont_cares) 
-            return;
-        cuts2bins(cuts);
-        bins2dont_cares();
-        dont_cares2cuts(cuts);        
-        // m_aig_cuts.simplify();
+        if (s.m_config.m_cut_dont_cares) {
+            cuts2bins(cuts);
+            bins2dont_cares();
+            dont_cares2cuts(cuts); 
+        }    
+        if (s.m_config.m_cut_redundancies) {
+            m_aig_cuts.simplify();
+        }
     }
 
     /**

@@ -111,6 +111,7 @@ namespace sat {
         m_cut_xor           = p.cut_xor();
         m_cut_npn3          = p.cut_npn3();
         m_cut_dont_cares    = p.cut_dont_cares();
+        m_cut_redundancies  = p.cut_redundancies();
         m_cut_force         = p.cut_force();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();

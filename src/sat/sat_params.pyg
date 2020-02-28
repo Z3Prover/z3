@@ -81,6 +81,7 @@ def_module_params('sat',
                           ('cut.xor',   BOOL, False, 'extract xors from clauses for cut simplification'),
                           ('cut.npn3',  BOOL, False, 'extract 3 input functions from clauses for cut simplification'),
                           ('cut.dont_cares', BOOL, True, 'integrate dont cares with cuts'),
+                          ('cut.redundancies', BOOL, True, 'integrate redundancy checking of cuts'),
                           ('cut.force', BOOL, False, 'force redoing cut-enumeration until a fixed-point'),
                           ('lookahead.cube.cutoff', SYMBOL, 'depth', 'cutoff type used to create lookahead cubes: depth, freevars, psat, adaptive_freevars, adaptive_psat'),
                           # - depth: the maximal cutoff is fixed to the value of lookahead.cube.depth.
