@@ -511,7 +511,7 @@ namespace recfun {
                 auto pd = mk_def(fresh_name, n, domain.c_ptr(), m().get_sort(max_expr));
                 func_decl* f = pd.get_def()->get_decl();
                 expr_ref new_body(m().mk_app(f, n, args.c_ptr()), m());
-                set_definition(subst, pd, n, vars, new_body);
+                set_definition(subst, pd, n, vars, max_expr);
                 subst.insert(max_expr, new_body);
                 result = subst(result);                
                 TRACEFN("substituted " << mk_pp(max_expr, m()) << " -> " << new_body << "\n" << result);
