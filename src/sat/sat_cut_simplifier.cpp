@@ -19,6 +19,7 @@
 #include "sat/sat_cut_simplifier.h"
 #include "sat/sat_xor_finder.h"
 #include "sat/sat_lut_finder.h"
+#include "sat/sat_npn3_finder.h"
 #include "sat/sat_elim_eqs.h"
 
 namespace sat {
@@ -183,6 +184,7 @@ namespace sat {
         }
 
         clause_vector clauses(s.clauses());
+        if (m_config.m_learned2aig) clauses.append(s.learned());
                
         std::function<void (literal head, literal_vector const& ands)> on_and = 
             [&,this](literal head, literal_vector const& ands) {
@@ -199,9 +201,9 @@ namespace sat {
             aig_finder af(s);
             af.set(on_and);
             af.set(on_ite);
-            if (m_config.m_learned2aig) clauses.append(s.learned());
             af(clauses);        
         }
+
 
         std::function<void (literal_vector const&)> on_xor = 
             [&,this](literal_vector const& xors) {
@@ -242,6 +244,23 @@ namespace sat {
             // m_aig_cuts.add_cut(v, lut, vars);
             m_aig_cuts.add_node(v, lut, vars.size(), vars.c_ptr());
         };
+
+        if (s.m_config.m_cut_npn3) {
+            npn3_finder nf(s);
+            // TBD: stubs for npn3
+            // question: perhaps just use a LUT interface?
+            // nf.set_on_mux
+            // nf.set_on_maj
+            // nf.set_on_orand
+            // nf.set_on_and
+            // nf.set_on_xor
+            // nf.set_on_andxor
+            // nf.set_on_xorand
+            // nf.set_on_gamble
+            // nf.set_on_onehot
+            // nf.set_on_dot
+            // nf(clauses);
+        }
 
         if (s.m_config.m_cut_lut) {
             lut_finder lf(s);

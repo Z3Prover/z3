@@ -109,6 +109,7 @@ namespace sat {
         m_cut_aig           = p.cut_aig();
         m_cut_lut           = p.cut_lut();
         m_cut_xor           = p.cut_xor();
+        m_cut_npn3          = p.cut_npn3();
         m_cut_dont_cares    = p.cut_dont_cares();
         m_cut_force         = p.cut_force();
         m_lookahead_simplify = p.lookahead_simplify();

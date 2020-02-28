@@ -126,6 +126,7 @@ namespace sat {
         bool               m_cut_aig;
         bool               m_cut_lut;
         bool               m_cut_xor;
+        bool               m_cut_npn3;
         bool               m_cut_dont_cares;
         bool               m_cut_force;
         bool               m_anf_simplify;

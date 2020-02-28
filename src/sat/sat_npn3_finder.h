@@ -102,7 +102,6 @@ namespace sat {
         void filter(clause_vector& clauses) const;
         void find_npn3(clause_vector& clauses, on_function_t const& on_function, std::function<bool(binary_hash_table_t const&, ternary_hash_table_t const&, literal, literal, literal, clause&)> const& checker);
         void find_mux(clause_vector& clauses);
-        void validate_if(literal x, literal c, literal t, literal e, clause const& c0, clause const* c1, clause const* c2, clause const* c3);
         void find_maj(clause_vector& clauses);
         void find_orand(clause_vector& clauses);
         void find_and(clause_vector& clauses);
@@ -112,8 +111,6 @@ namespace sat {
         void find_gamble(clause_vector& clauses);
         void find_onehot(clause_vector& clauses);
         void find_dot(clause_vector& clauses);
-        void validate_clause(literal x, literal y, literal z, vector<literal_vector> const& clauses);
-        void validate_clause(literal_vector const& clause, vector<literal_vector> const& clauses);
 
 
     public:
