@@ -166,7 +166,7 @@ rational core::product_value(const unsigned_vector & m) const {
 bool core::check_monic(const monic& m) const {    
     SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());
     bool ret = product_value(m.vars()) == m_lar_solver.get_column_value_rational(m.var()); 
-    CTRACE("nla_solver", !ret, print_monic(m, tout) << '\n';);
+    CTRACE("nla_solver_check_monic", !ret, print_monic(m, tout) << '\n';);
     return ret;
 }
     

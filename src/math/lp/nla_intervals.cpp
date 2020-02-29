@@ -77,7 +77,14 @@ bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
         return false;
     }
     auto interv_wd = interval_of_expr<e_with_deps::with_deps>(n, 1);
-    TRACE("grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) <<"expr = " << *n << "\n, initial deps\n"; print_dependencies(initial_deps, tout););
+    TRACE("grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) <<"expr = " << *n << "\n, initial deps\n"; print_dependencies(initial_deps, tout);
+          tout << ", expressions vars = \n";
+          for(lpvar j: m_core->get_vars_of_expr_with_opening_terms(n)) {
+              m_core->print_var(j, tout);
+          }
+          tout << "\n";
+          );
+    
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
                                                          m_core->add_empty_lemma();
                                                          m_core->current_expl().add(e);
@@ -268,6 +275,12 @@ bool intervals::interval_from_term(const nex& e, interval& i) {
     lp::explanation exp;
     if (m_core->explain_by_equiv(norm_t, exp)) {
         set_zero_interval(i);
+        if (wd == e_with_deps::with_deps) {
+            for (auto p : exp) {
+                i.m_lower_dep = mk_join(i.m_lower_dep, mk_leaf(p.second));
+            }
+            i.m_upper_dep = i.m_lower_dep;
+        }
         TRACE("nla_intervals", tout << "explain_by_equiv\n";);
         return true;
     }
@@ -275,7 +288,7 @@ bool intervals::interval_from_term(const nex& e, interval& i) {
     if (j + 1 == 0)
         return false;
 
-    set_var_interval<e_with_deps::without_deps>(j, i);
+    set_var_interval<wd>(j, i);
     interval bi;
     m_dep_intervals.mul<wd>(a, i, bi);
     m_dep_intervals.add(b, bi);
