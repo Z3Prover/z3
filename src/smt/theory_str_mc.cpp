@@ -712,43 +712,45 @@ namespace smt {
                 eqc_chars.push_back(base_chars.get(pos_value.get_unsigned()));
             }
             return true;
-	} else if (u.str.is_itos(term, arg0)) {
-	    expr_ref i(arg0, m);
-	    arith_value v(m);
-	    v.init(&get_context());
-	    rational iValue;
-	    bool iValue_exists = v.get_value(i, iValue);
-	    if (!iValue_exists) {
-	        NOT_IMPLEMENTED_YET(); // TODO force assignment in arith solver
-	    }
-	    rational termLen;
-	    bool termLen_exists = v.get_value(mk_strlen(term), termLen);
-	    if(!termLen_exists) {
-                NOT_IMPLEMENTED_YET(); // TODO force assignment in arith solver
-	    }
-	    TRACE("str_fl", tout << "reduce int.to.str: n=" << iValue << std::endl;);
-	    if (iValue.is_neg()) {
-	        if (!termLen.is_zero()) {
-		    // conflict
-		    cex = expr_ref(m.mk_not(m.mk_and(m_autil.mk_le(arg0, mk_int(-1)), m.mk_not(mk_strlen(term)))), m);
-		    return false;
-	        }
-  	        // return the empty string
-	        eqc_chars.reset();
-		return true;
-	    } else {
-	        if (termLen.get_unsigned() != iValue.to_string().length()) {
-		    // conflict
-		    cex = expr_ref(m.mk_not(m.mk_and(get_context().mk_eq_atom(mk_strlen(term), mk_int(termLen)), get_context().mk_eq_atom(arg0, mk_int(iValue)))), m);
-		    return false;
-	        }
-	        // convert iValue to a constant
-	        zstring iValue_str = zstring(iValue.to_string().c_str());
-		for (unsigned idx = 0; idx < iValue_str.length(); ++idx) {
-	            expr_ref chTerm(bitvector_character_constants.get(iValue_str[idx]), sub_m);
-		    eqc_chars.push_back(chTerm);
-		}
-		return true;
+        } else if (u.str.is_itos(term, arg0)) {
+            expr_ref i(arg0, m);
+            arith_value v(m);
+            v.init(&get_context());
+            rational iValue;
+            bool iValue_exists = v.get_value(i, iValue);
+            if (!iValue_exists) {
+                cex = expr_ref(m.mk_or(m_autil.mk_ge(arg0, mk_int(0)), m_autil.mk_le(arg0, mk_int(0))), m);
+                return false;
+            }
+            rational termLen;
+            bool termLen_exists = v.get_value(mk_strlen(term), termLen);
+            if(!termLen_exists) {
+                cex = expr_ref(m.mk_or(m_autil.mk_ge(mk_strlen(term), mk_int(0)), m_autil.mk_le(mk_strlen(term), mk_int(0))), m);
+                return false;
+            }
+            TRACE("str_fl", tout << "reduce int.to.str: n=" << iValue << std::endl;);
+            if (iValue.is_neg()) {
+                if (!termLen.is_zero()) {
+                    // conflict
+                    cex = expr_ref(m.mk_not(m.mk_and(m_autil.mk_le(arg0, mk_int(-1)), m.mk_not(mk_strlen(term)))), m);
+                    return false;
+                }
+                // return the empty string
+                eqc_chars.reset();
+                return true;
+            } else {
+                if (termLen.get_unsigned() != iValue.to_string().length()) {
+                    // conflict
+                    cex = expr_ref(m.mk_not(m.mk_and(get_context().mk_eq_atom(mk_strlen(term), mk_int(termLen)), get_context().mk_eq_atom(arg0, mk_int(iValue)))), m);
+                    return false;
+                }
+                // convert iValue to a constant
+                zstring iValue_str = zstring(iValue.to_string().c_str());
+                for (unsigned idx = 0; idx < iValue_str.length(); ++idx) {
+                    expr_ref chTerm(bitvector_character_constants.get(iValue_str[idx]), sub_m);
+                    eqc_chars.push_back(chTerm);
+                }
+                return true;
             }
         } else {
             TRACE("str_fl", tout << "string term " << mk_pp(term, m) << " handled as uninterpreted function" << std::endl;);
