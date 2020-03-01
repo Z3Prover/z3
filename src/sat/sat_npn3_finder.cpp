@@ -354,8 +354,7 @@ namespace sat {
 
         binary_hash_table_t binaries;
         ternary_hash_table_t ternaries;
-        quaternary_hash_table_t quaternaries;
-        process_more_clauses(clauses, binaries, ternaries, quaternaries);
+        process_clauses(clauses, binaries, ternaries);
 
         const auto try_and = [&](literal w, literal x, literal y, literal z, clause &c) {
           if (!implies(w, ~x)) return false;
