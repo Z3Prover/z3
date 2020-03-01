@@ -43,6 +43,7 @@ add_executable(test-z3
   ext_numeral.cpp
   f2n.cpp
   factor_rewriter.cpp
+  finder.cpp
   fixed_bit_vector.cpp
   for_each_file.cpp
   get_consequences.cpp
