@@ -635,6 +635,16 @@ unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector c
             if (same)
                 result.push_back(i+1);
         }
+#if 0
+        if (eq_unit(ls[i], rs[0])) {
+            bool same = ls.size() - i >= rs.size();
+            for (unsigned j = 0; same && j < rs.size(); ++j) {
+                same = eq_unit(ls[i+j], rs[j]);
+            }
+            if (same)
+                result.push_back(i);
+        }
+#endif
     }
     m_overlap.insert(pair, result);
     return result;
@@ -757,12 +767,16 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     expr_ref ZxsE = mk_concat(Z, xsE);
     expr_ref y1ysZ = mk_concat(y1ys, Z);
     if (indexes.empty()) {
-        TRACE("seq", tout << "one case\n";);
-        TRACE("seq", display_equation(tout, e););
+        return false;
+#if 0
+        TRACE("seq", display_equation(tout << "one case\n", e);
+              tout << "xs: " << xs << "\n";
+              tout << "ys: " << ys << "\n";);
         literal_vector lits;
         dependency* dep = e.dep();
         propagate_eq(dep, lits, x, y1ysZ, true);
         propagate_eq(dep, lits, y2, ZxsE, true);
+#endif
     }
     else {
         expr_ref ge(m_autil.mk_ge(mk_len(y2), m_autil.mk_int(xs.size())), m);
