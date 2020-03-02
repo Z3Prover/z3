@@ -1130,7 +1130,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         result = m_util.mk_power(m_util.mk_div(m_util.mk_numeral(rational(1), false), arg1),
                                  m_util.mk_numeral(-y, false));
         result = m().mk_ite(m().mk_eq(arg1, m_util.mk_real(0)),
-                            m_util.mk_real(1),
+                            m_util.mk_real(0),
                             result);
         return BR_REWRITE3;
     }
