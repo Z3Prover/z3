@@ -188,10 +188,10 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             }
             break;
         }
-        m_mc = concat(g->mc(), m_mc.get());
         if (m_mc && md) {
             (*m_mc)(md);
         }
+        m_mc = concat(g->mc(), m_mc.get());
         TRACE("tactic", if (m_mc) m_mc->display(tout););
     }
     catch (z3_error & ex) {
