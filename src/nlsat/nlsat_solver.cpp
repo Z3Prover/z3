@@ -587,8 +587,9 @@ namespace nlsat {
             var max = null_var;
             for (unsigned i = 0; i < sz; i++) {
                 p = m_pm.flip_sign_if_lm_neg(ps[i]);
-                if (p.get() != ps[i])
+                if (p.get() != ps[i] && !is_even[i]) {
                     sign = -sign;
+                }
                 var curr_max = max_var(p.get());
                 if (curr_max > max || max == null_var)
                     max = curr_max;
