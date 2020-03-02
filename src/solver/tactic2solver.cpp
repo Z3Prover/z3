@@ -173,9 +173,6 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
     try {
         switch (::check_sat(*m_tactic, g, md, labels, pr, core, reason_unknown)) {
         case l_true: 
-            if (m_mc) {
-                (*m_mc)(md);
-            }
             m_result->set_status(l_true);
             break;
         case l_false: 
@@ -191,7 +188,10 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             }
             break;
         }
-        m_mc = g->mc();
+        m_mc = concat(g->mc(), m_mc.get());
+        if (m_mc && md) {
+            (*m_mc)(md);
+        }
         TRACE("tactic", if (m_mc) m_mc->display(tout););
     }
     catch (z3_error & ex) {

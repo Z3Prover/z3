@@ -41,6 +41,7 @@ class macro_finder_tactic : public tactic {
                         goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             tactic_report report("macro-finder", *g);
+            TRACE("macro-finder", g->display(tout););
 
             bool produce_proofs = g->proofs_enabled();
             bool unsat_core_enabled = g->unsat_core_enabled();
