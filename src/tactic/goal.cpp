@@ -337,9 +337,6 @@ void goal::display(ast_printer & prn, std::ostream & out) const {
         prn.display(out, form(i), 2);
     }
     out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
-    if (m_mc) {
-        m_mc->display(out);
-    }
 }
 
 void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) const {
@@ -373,9 +370,6 @@ void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) cons
         out << ")";
     }
     out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
-    if (m_mc) {
-        m_mc->display(out);
-    }
 }
 
 void goal::display_with_dependencies(std::ostream & out) const {
@@ -397,9 +391,6 @@ void goal::display_with_dependencies(std::ostream & out) const {
         out << "\n  " << mk_ismt2_pp(form(i), m(), 2);
     }
     out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
-    if (m_mc) {
-        m_mc->display(out);
-    }
 }
 
 void goal::display(ast_printer_context & ctx) const {
@@ -418,9 +409,6 @@ void goal::display(std::ostream & out) const {
         out << mk_ismt2_pp(form(i), m(), 2);
     }
     out << ")" << std::endl;
-    if (m_mc) {
-        m_mc->display(out);
-    }
 }
 
 void goal::display_as_and(std::ostream & out) const {

@@ -188,10 +188,6 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             }
             break;
         }
-        if (m_mc && md) {
-            // (*m_mc)(md);
-            
-        }
         TRACE("tactic", 
               if (m_mc) m_mc->display(tout << "mc:");
               if (g->mc()) g->mc()->display(tout << "g:");
