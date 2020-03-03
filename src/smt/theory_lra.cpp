@@ -955,6 +955,9 @@ class theory_lra::imp {
         }
         else {
             init_left_side(st);
+            if (m_left_side.empty()) {
+                return get_zero(a.is_int(term));
+            }
             theory_var v = mk_var(term);
             lpvar vi = get_lpvar(v);
             TRACE("arith", tout << mk_pp(term, m) << " v" << v << " vi " << vi << "\n";);
