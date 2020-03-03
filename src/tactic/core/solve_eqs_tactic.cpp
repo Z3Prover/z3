@@ -1007,7 +1007,7 @@ class solve_eqs_tactic : public tactic {
             SASSERT(g->is_well_sorted());
             model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
-            TRACE("solve_eqs", g->display(tout););
+            TRACE("goal", g->display(tout););
             m_produce_models = g->models_enabled();
             m_produce_proofs = g->proofs_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
@@ -1043,7 +1043,7 @@ class solve_eqs_tactic : public tactic {
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
-            TRACE("solve_eqs", g->display(tout););
+            TRACE("goal", g->display(tout););
             SASSERT(g->is_well_sorted());
         }
     };

@@ -59,7 +59,7 @@ public:
         fail_if_unsat_core_generation("qfufbv_ackr", g);
         fail_if_proof_generation("qfufbv_ackr", g);
 
-        TRACE("qfufbv_ackr_tactic", g->display(tout << "goal:\n"););
+        TRACE("goal", g->display(tout););
         // running implementation
         ptr_vector<expr> flas;
         const unsigned sz = g->size();
@@ -106,7 +106,7 @@ private:
     bool                                 m_inc_use_sat;
 
     solver* setup_sat() {
-        solver * sat(nullptr);
+        solver * sat = nullptr;
         if (m_use_sat) {
             if (m_inc_use_sat) {
                 sat = mk_inc_sat_solver(m_m, m_p);
