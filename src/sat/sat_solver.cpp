@@ -3681,7 +3681,7 @@ namespace sat {
         SASSERT(num_scopes <= scope_lvl());
         unsigned new_lvl = scope_lvl() - num_scopes;
         scope & s        = m_scopes[new_lvl];
-        m_inconsistent   = false;
+        m_inconsistent   = false; // TBD: use model seems to make this redundant: s.m_inconsistent;
         unassign_vars(s.m_trail_lim, new_lvl);
         m_scope_lvl -= num_scopes;
         m_scopes.shrink(new_lvl);
@@ -3766,6 +3766,7 @@ namespace sat {
     //
 
     void solver::user_push() {
+        pop_to_base_level();
         literal lit;
         bool_var new_v = mk_var(true, false);
         lit = literal(new_v, false);

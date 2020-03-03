@@ -572,6 +572,10 @@ public:
 private:
 
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
+        m_solver.pop_to_base_level();
+        if (m_solver.inconsistent()) 
+            return l_false;
+        
         m_pc.reset();
         m_subgoals.reset();
         init_preprocess();
