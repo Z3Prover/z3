@@ -35,7 +35,7 @@ public:
         tactic_report report("ackermannize_bv", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
-        TRACE("ackermannize", g->display(tout << "in\n"););
+        TRACE("goal", g->display(tout << "in\n"););
 
         ptr_vector<expr> flas;
         const unsigned sz = g->size();
@@ -58,7 +58,7 @@ public:
         }
         
         resg->inc_depth();
-        TRACE("ackermannize", resg->display(tout << "out\n"););
+        TRACE("goal", resg->display(tout << "out\n"););
         SASSERT(resg->is_well_sorted());
     }
 
