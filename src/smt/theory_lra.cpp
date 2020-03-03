@@ -955,7 +955,7 @@ class theory_lra::imp {
         }
         else {
             init_left_side(st);
-            if (m_left_side.empty()) {
+            if (m_left_side.empty() && st.offset().is_zero()) {
                 return get_zero(a.is_int(term));
             }
             theory_var v = mk_var(term);
