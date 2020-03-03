@@ -159,6 +159,7 @@ typedef enum
     Z3_ROUNDING_MODE_SORT,
     Z3_SEQ_SORT,
     Z3_RE_SORT,
+    Z3_REFINE_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -998,6 +999,11 @@ typedef enum
             3 = 011 = Z3_OP_FPA_RM_TOWARD_NEGATIVE,
             4 = 100 = Z3_OP_FPA_RM_TOWARD_ZERO.
 
+      - Z3_OP_RELAX: takes a term of refinement sort s | p, and injects to sort s.
+      
+      - Z3_OP_RESTRCIT: takes a term of sort s and projects to refinement sort s | p
+
+
       - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
         information is exposed. Tools may use the string representation of the
         function declaration to obtain more information.
@@ -1301,6 +1307,10 @@ typedef enum {
 
     Z3_OP_FPA_BVWRAP,
     Z3_OP_FPA_BV2RM,
+
+    // injection and projection to refinement sorts
+    Z3_OP_RELAX = 0xc000,
+    Z3_OP_RESTRICT,
 
     Z3_OP_INTERNAL,
 
@@ -3769,6 +3779,48 @@ extern "C" {
      */
     Z3_func_decl Z3_API Z3_mk_transitive_closure(Z3_context c, Z3_func_decl f);
 
+    /*@}*/
+
+    /** @name Refinement sort */
+    /*@{*/
+
+    /** 
+        \brief creates refinement sort given lambda expression f (of sort Array(s, Bool))
+        or given function f with signature s -> Bool
+
+        def_API('Z3_mk_refinement_sort', SORT, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_sort Z3_API Z3_mk_refinement_sort(Z3_context c, Z3_ast f);
+    
+
+    /**
+       \brief retrieve base sort from refinement sort
+
+       def_API('Z3_refine_sort_basis', SORT, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_sort Z3_API Z3_refine_sort_basis(Z3_context c, Z3_sort s);
+
+    /**
+       \brief retrieve predicate from refinement sort
+
+       def_API('Z3_refine_sort_predicate', AST, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_ast Z3_API Z3_refine_sort_predicate(Z3_context c, Z3_sort s);
+
+
+    /**
+       \brief takes term e of refinement sort s | p and produces injection into s.
+
+       def_API('Z3_mk_relax', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_relax(Z3_context c, Z3_ast e);
+
+    /**
+       \brief takes term e of refinement sort s | p and produces injection into s.
+
+       def_API('Z3_mk_restrict', AST, (_in(CONTEXT), _in(AST), _in(SORT)))
+    */
+    Z3_ast Z3_API Z3_mk_restrict(Z3_context c, Z3_ast e, Z3_sort s);
     /*@}*/
 
     /** @name Quantifiers */

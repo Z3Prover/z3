@@ -779,7 +779,7 @@ class elim_uncnstr_tactic : public tactic {
     void run(goal_ref const & g, goal_ref_buffer & result) {
         bool produce_proofs = g->proofs_enabled();
         
-        TRACE("elim_uncnstr_bug", g->display(tout););
+        TRACE("goal", g->display(tout););
         tactic_report report("elim-uncnstr", *g);
         m_vars.reset();
         collect_occs p;
@@ -826,7 +826,7 @@ class elim_uncnstr_tactic : public tactic {
                 m_rw = nullptr;                    
                 result.push_back(g.get());
                 g->inc_depth();
-                TRACE("elim_uncnstr_bug", g->display(tout););
+                TRACE("goal", g->display(tout););
                 return;
             }
             modified = false;

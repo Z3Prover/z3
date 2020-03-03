@@ -629,6 +629,8 @@ def _to_sort_ref(s, ctx):
         return ReSortRef(s, ctx)
     elif k == Z3_SEQ_SORT:
         return SeqSortRef(s, ctx)
+    elif k == Z3_REFINE_SORT:
+        return RefinementSortRef(s, ctx)
     return SortRef(s, ctx)
 
 def _sort(ctx, a):
@@ -10465,3 +10467,23 @@ def TransitiveClosure(f):
     The transitive closure R+ is a new relation.
     """
     return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
+
+# Refinement sorts
+
+class RefinementSortRef(SortRef):
+    """Refinement sort."""
+
+    def basis(self):
+        return _to_sort_ref(Z3_refine_sort_basis(self.ctx_ref(), self.ast), self.ctx)
+
+    def predicate(self):
+        return _to_expr_ref(Z3_refine_sort_predicate(self.ctx_ref(), self.ast), self.ctx)
+    
+def Relax(e):
+    return _to_expr_ref(Z3_mk_relax(e.ctx_ref(), e.as_ast()), e.ctx)
+
+def Restrict(e, s):
+    return _to_expr_ref(Z3_mk_restrict(e.ctx_ref(), e.as_ast(), s.as_ast()), e.ctx)
+
+def RefineSort(p):
+    return _to_sort_ref(Z3_mk_refinement_sort(p.ctx_ref(), p.as_ast()), p.ctx)

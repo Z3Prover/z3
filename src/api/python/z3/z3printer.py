@@ -46,7 +46,7 @@ _z3_op_to_str = {
     Z3_OP_RE_INTERSECT : 'Intersect', Z3_OP_RE_COMPLEMENT : 'Complement', 
     Z3_OP_FPA_IS_NAN : 'fpIsNaN', Z3_OP_FPA_IS_INF : 'fpIsInf', Z3_OP_FPA_IS_ZERO : 'fpIsZero',
     Z3_OP_FPA_IS_NORMAL : 'fpIsNormal', Z3_OP_FPA_IS_SUBNORMAL : 'fpIsSubnormal',
-    Z3_OP_FPA_IS_NEGATIVE : 'fpIsNegative', Z3_OP_FPA_IS_POSITIVE : 'fpIsPositive',    
+    Z3_OP_FPA_IS_NEGATIVE : 'fpIsNegative', Z3_OP_FPA_IS_POSITIVE : 'fpIsPositive',
     }
 
 # List of infix operators
@@ -566,6 +566,14 @@ class Formatter:
             return seq1('FPSort', (to_format(s.ebits()), to_format(s.sbits())))
         elif isinstance(s, z3.ReSortRef):
             return seq1('ReSort', (self.pp_sort(s.basis()), ))
+        elif isinstance(s, z3.RefinementSortRef):
+            f1 = self.pp_sort(s.basis())
+            p = s.predicate()
+            if isinstance(p, z3.ExprRef):
+                s2 = self.pp_expr(p, 0, [])
+            else:
+                s2 = self.pp_fdecl(p, 0, [])                
+            return seq1('RefineSort', [f1, to_format(s2)])
         elif isinstance(s, z3.SeqSortRef):
             if s.is_string():
                 return to_format("String")

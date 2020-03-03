@@ -188,7 +188,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             }
             break;
         }
-        m_mc = concat(g->mc(), m_mc.get());
+        m_mc = concat(m_mc.get(), g->mc());
         if (m_mc && md) {
             (*m_mc)(md);
         }

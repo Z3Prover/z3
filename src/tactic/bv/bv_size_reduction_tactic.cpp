@@ -178,7 +178,7 @@ public:
     void run(goal & g, model_converter_ref & mc) {
         if (g.inconsistent())
             return;
-        TRACE("before_bv_size_reduction", g.display(tout););
+        TRACE("goal", g.display(tout););
         m_produce_models = g.models_enabled();
         mc = nullptr;
         m_mc = nullptr;
@@ -365,7 +365,7 @@ public:
             m_fmc = nullptr;
         }
         report_tactic_progress(":bv-reduced", num_reduced);
-        TRACE("after_bv_size_reduction", g.display(tout); if (m_mc) m_mc->display(tout););
+        TRACE("goal", g.display(tout); if (m_mc) m_mc->display(tout););
     }
 
 };
