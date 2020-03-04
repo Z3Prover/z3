@@ -65,6 +65,7 @@ struct euclidean_solver::imp {
             }
         }
     }
+
     
     /**
        Equation as[0]*xs[0] + ... + as[n-1]*xs[n-1] + c = 0 with justification bs[0]*js[0] + ... + bs[m-1]*js[m-1]
@@ -139,6 +140,20 @@ struct euclidean_solver::imp {
         for (unsigned i = 0; i < num; i++) {
             m().swap(as[i], buffer[xs[i]]);
         }
+        unsigned j = 0;
+        for (unsigned i = 0; i < num; ++i) {
+            if (i > 0 && xs[j] == xs[i]) {
+                m().add(as[j], as[i], as[j]);
+                continue;
+            }
+            if (i != j) {
+                xs[j] = xs[i];
+                m().set(as[j], as[i]);
+            }
+            ++j;
+        }
+        xs.shrink(j);
+        as.shrink(j);
     }
     
     template<typename Numeral>
@@ -736,6 +751,7 @@ struct euclidean_solver::imp {
                   tout << m().to_string(as[i]) << "*x" << xs[i] << " ";
               }
               tout << "\n";);
+        
         m_norm_xs_vector.reset();
         m_norm_as_vector.reset();
         for (unsigned i = 0; i < num; i++) {
@@ -744,6 +760,7 @@ struct euclidean_solver::imp {
             m().set(m_norm_as_vector.back(), as[i]);
         }
         sort(m_norm_as_vector, m_norm_xs_vector, m_as_buffer);
+        DEBUG_CODE(for (unsigned i = 1; i < m_norm_xs_vector.size(); ++i) SASSERT(m_norm_xs_vector[i - 1] != m_norm_xs_vector[i]););
         m_norm_bs_vector.reset();
         js.reset();
         m().set(c_prime, c);
