@@ -101,6 +101,7 @@ namespace sat {
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
         m_binspr            = p.binspr();
+        m_binspr            = false;     // prevent adventurous users from trying feature that isn't ready
         m_anf_simplify      = p.anf();
         m_anf_delay         = p.anf_delay();
         m_anf_exlin         = p.anf_exlin();
