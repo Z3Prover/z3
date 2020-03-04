@@ -366,7 +366,36 @@ bool macro_util::is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t
 
    Return true if \c n is a quasi-macro. Store the macro head in \c head, and the conditions to apply the macro in \c cond.
 */
-bool macro_util::is_quasi_macro_head(expr * n, unsigned num_decls, expr * def) const {
+bool macro_util::is_quasi_macro_head(expr * n, unsigned num_decls) const {
+    if (is_app(n) &&
+         to_app(n)->get_family_id() == null_family_id &&
+         to_app(n)->get_num_args() >= num_decls) {
+        unsigned num_args = to_app(n)->get_num_args();
+        sbuffer<bool> found_vars;
+        found_vars.resize(num_decls, false);
+        unsigned num_found_vars = 0;
+        for (unsigned i = 0; i < num_args; i++) {
+            expr * arg = to_app(n)->get_arg(i);
+            if (is_var(arg)) {
+                unsigned idx = to_var(arg)->get_idx();
+                if (idx >= num_decls)
+                    return false;
+                if (found_vars[idx] == false) {
+                    found_vars[idx] = true;
+                    num_found_vars++;
+                }
+            }
+            else {
+                if (occurs(to_app(n)->get_decl(), arg))
+                    return false;
+            }
+        }
+        return num_found_vars == num_decls;
+    }
+    return false;
+}
+
+bool macro_util::is_quasi_macro_ok(expr * n, unsigned num_decls, expr * def) const {
     if (is_app(n) &&
         to_app(n)->get_family_id() == null_family_id &&
         to_app(n)->get_num_args() >= num_decls) {
@@ -440,7 +469,7 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decl
 void macro_util::mk_macro_interpretation(app * head, unsigned num_decls, expr * def, expr_ref & interp) const {
     TRACE("macro_util", tout << mk_pp(head, m_manager) << "\n";);
     SASSERT(is_macro_head(head, head->get_num_args()) ||
-            is_quasi_macro_head(head, head->get_num_args(), def));
+            is_quasi_macro_ok(head, head->get_num_args(), def));
     SASSERT(!occurs(head->get_decl(), def));
     normalize_expr(head, num_decls, def, interp);
 }
