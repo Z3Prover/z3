@@ -12,7 +12,7 @@ def_module_params('nlsat',
                           ('randomize', BOOL, True, "randomize selection of a witness in nlsat."),
                           ('max_conflicts', UINT, UINT_MAX, "maximum number of conflicts."),
                           ('shuffle_vars', BOOL, False, "use a random variable order."),
-                          ('inline_vars', BOOL, False, "inline variables that can be isolated from equations"),
+                          ('inline_vars', BOOL, False, "inline variables that can be isolated from equations (not supported in incremental mode)"),
                           ('seed', UINT, 0, "random seed."),
                           ('factor', BOOL, True, "factor polynomials produced during conflict resolution.")     
                           ))         

@@ -1565,8 +1565,9 @@ namespace nlsat {
             bool reordered = false;
 
             if (!m_incremental && m_inline_vars) 
-                simplify();
-
+                if (!simplify()) 
+                    return l_false;
+            
             if (!can_reorder()) {
 
             }
@@ -2604,7 +2605,7 @@ namespace nlsat {
            The method ignores lemmas and assumes constraints don't use roots.
         */
 
-        void simplify() {
+        bool simplify() {
             polynomial_ref p(m_pm), q(m_pm);
             var v;
             init_var_signs();
@@ -2619,12 +2620,14 @@ namespace nlsat {
                         m_patch_num.push_back(q);
                         m_patch_denom.push_back(p);
                         del_clause(c, m_clauses);
-                        substitute_var(v, p, q);
+                        if (!substitute_var(v, p, q))
+                            return false;
                         change = true;
                         break;
                     }
                 }
             }
+            return true;
         }
 
         void fix_patch() {
@@ -2645,7 +2648,8 @@ namespace nlsat {
             }
         }
 
-        void substitute_var(var x, poly* p, poly* q) {
+        bool substitute_var(var x, poly* p, poly* q) {
+            bool is_sat = true;
             polynomial_ref pr(m_pm);
             polynomial_ref_vector ps(m_pm);
             u_map<literal> b2l;
@@ -2680,14 +2684,16 @@ namespace nlsat {
                     }
                 }
             }
-            update_clauses(b2l);
+            is_sat = update_clauses(b2l);
             for (auto const& kv : b2l) {
                 dec_ref(kv.m_value);
             }
+            return is_sat;
         }
 
 
-        void update_clauses(u_map<literal> const& b2l) {
+        bool update_clauses(u_map<literal> const& b2l) {
+            bool is_sat = true;
             literal_vector lits;
             clause_vector to_delete;
             unsigned n = m_clauses.size();
@@ -2714,7 +2720,13 @@ namespace nlsat {
                 }
                 if (changed) {
                     to_delete.push_back(c);
-                    if (!is_tautology) {
+                    if (is_tautology) {
+                        continue;
+                    }
+                    if (lits.empty()) {
+                        is_sat = false;
+                    }
+                    else {
                         mk_clause(lits.size(), lits.c_ptr(), c->is_learned(), static_cast<_assumption_set>(c->assumptions()));
                     }
                 }                        
@@ -2722,6 +2734,7 @@ namespace nlsat {
             for (clause* c : to_delete) {
                 del_clause(c, m_clauses);
             }
+            return is_sat;
         }
 
         bool is_unit_ineq(clause const& c) const {
