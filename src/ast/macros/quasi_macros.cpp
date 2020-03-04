@@ -23,7 +23,7 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 
 quasi_macros::quasi_macros(ast_manager & m, macro_manager & mm) :
-  m_manager(m), 
+  m_manager(m),
   m_macro_manager(mm),
   m_rewriter(m),
   m_new_vars(m),
@@ -293,22 +293,22 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
 
 bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
     TRACE("quasi_macros", tout << "Finding quasi-macros in: " << std::endl;
-                          for (unsigned i = 0 ; i < n ; i++) 
+                          for (unsigned i = 0 ; i < n ; i++)
                               tout << i << ": " << mk_pp(exprs[i].get_fml(), m_manager) << std::endl; );
     bool res = false;
     m_occurrences.reset();
-    
+
 
     // Find out how many non-ground appearances for each uninterpreted function there are
     for ( unsigned i = 0 ; i < n ; i++ )
         find_occurrences(exprs[i].get_fml());
 
     TRACE("quasi_macros", tout << "Occurrences: " << std::endl;
-    for (occurrences_map::iterator it = m_occurrences.begin(); 
-         it != m_occurrences.end(); 
+    for (occurrences_map::iterator it = m_occurrences.begin();
+         it != m_occurrences.end();
          it++)
         tout << it->m_key->get_name() << ": " << it->m_value << std::endl; );
-   
+
     // Find all macros
     for ( unsigned i = 0 ; i < n ; i++ ) {
         app_ref a(m_manager);
@@ -329,17 +329,17 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
     return res;
 }
 
-void quasi_macros::apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const* deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector& new_deps) {     
+void quasi_macros::apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const* deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector& new_deps) {
     for ( unsigned i = 0 ; i < n ; i++ ) {
         expr_ref r(m_manager), rs(m_manager);
         proof_ref pr(m_manager), ps(m_manager);
         expr_dependency_ref dep(m_manager);
         proof * p = m_manager.proofs_enabled() ? prs[i] : nullptr;
-        
+
         m_macro_manager.expand_macros(exprs[i], p, deps[i], r, pr, dep);
         m_rewriter(r);
         new_exprs.push_back(r);
-        new_prs.push_back(ps);    
+        new_prs.push_back(ps);
         new_deps.push_back(dep);
     }
 }
@@ -348,7 +348,7 @@ bool quasi_macros::operator()(unsigned n, expr * const * exprs, proof * const * 
     if (find_macros(n, exprs)) {
         apply_macros(n, exprs, prs, deps, new_exprs, new_prs, new_deps);
         return true;
-    } 
+    }
     else {
         // just copy them over
         for ( unsigned i = 0 ; i < n ; i++ ) {
@@ -360,7 +360,7 @@ bool quasi_macros::operator()(unsigned n, expr * const * exprs, proof * const * 
     }
 }
 
-void quasi_macros::apply_macros(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls) {     
+void quasi_macros::apply_macros(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls) {
     for ( unsigned i = 0 ; i < n ; i++ ) {
         expr_ref r(m_manager), rs(m_manager);
         proof_ref pr(m_manager), ps(m_manager);
@@ -382,5 +382,5 @@ bool quasi_macros::operator()(unsigned n, justified_expr const* fmls, vector<jus
             new_fmls.push_back(fmls[i]);
         }
         return false;
-    }    
+    }
 }
