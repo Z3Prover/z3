@@ -636,17 +636,36 @@ namespace nlsat {
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
             if (sz == 0) {
                 switch (k) {
-                case atom::LT: return false_literal;  // 1 < 0
-                case atom::EQ: return false_literal;  // 1 == 0
-                case atom::GT: return true_literal;   // 1 > 0
+                case atom::LT: return false_literal;  // 0 < 0
+                case atom::EQ: return true_literal;   // 0 == 0
+                case atom::GT: return false_literal;  // 0 > 0
                 default: 
                     UNREACHABLE();
                     return null_literal;
                 }
             }
-            else {
-                return literal(mk_ineq_atom(k, sz, ps, is_even), false);
+            bool is_const = true;
+            polynomial::manager::scoped_numeral cnst(m_pm.m());
+            m_pm.m().set(cnst, 1);
+            for (unsigned i = 0; is_const && i < sz; ++i) {
+                if (m_pm.is_const(ps[i])) {
+                    auto const& c = m_pm.coeff(ps[i], 0);
+                    m_pm.m().mul(cnst, c, cnst);
+                    if (is_even[i]) {
+                        m_pm.m().mul(cnst, c, cnst);
+                    }                            
+                }
+                else {
+                    is_const = false;
+                }
             }
+            if (is_const) {
+                if (m_pm.m().is_pos(cnst) && k == atom::GT) return true_literal;
+                if (m_pm.m().is_neg(cnst) && k == atom::LT) return true_literal;
+                if (m_pm.m().is_zero(cnst) && k == atom::EQ) return true_literal;
+                return false_literal;
+            }
+            return literal(mk_ineq_atom(k, sz, ps, is_even), false);            
         }
 
         bool_var mk_root_atom(atom::kind k, var x, unsigned i, poly * p) {
@@ -1564,9 +1583,10 @@ namespace nlsat {
             m_explain.set_full_dimensional(is_full_dimensional());
             bool reordered = false;
 
-            if (!m_incremental && m_inline_vars) 
+            if (!m_incremental && m_inline_vars) {
                 if (!simplify()) 
                     return l_false;
+            }
             
             if (!can_reorder()) {
 
@@ -2675,7 +2695,7 @@ namespace nlsat {
                             change = true;
                             break;
                         }
-                    }               
+                    }        
                     if (!change) continue;
                     literal l = mk_ineq_literal(a1.get_kind(), ps.size(), ps.c_ptr(), even.c_ptr());                            
                     if (a1.m_bool_var != l.var()) {                        
