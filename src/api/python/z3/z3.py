@@ -10038,7 +10038,7 @@ class SeqRef(ExprRef):
         if self.is_string_value():
             string_length = ctypes.c_uint()
             chars = Z3_get_lstring(self.ctx_ref(), self.as_ast(), byref(string_length))
-            return string_at(chars, size=string_length.value).decode('ascii')
+            return string_at(chars, size=string_length.value).decode('latin-1')
         return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
 
     def __le__(self, other):

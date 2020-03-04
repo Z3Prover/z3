@@ -308,7 +308,7 @@ def display_args_to_z3(params):
         if i > 0:
             core_py.write(", ")
         if param_type(p) == STRING:
-            core_py.write("_to_ascii(a%s)" % i)
+            core_py.write("_str_to_bytes(a%s)" % i)
         else:
             core_py.write("a%s" % i)
         i = i + 1
@@ -1790,10 +1790,10 @@ if _lib is None:
     print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
   raise Z3Exception("libz3.%s not found." % _ext)
 
-def _to_ascii(s):
+def _str_to_bytes(s):
   if isinstance(s, str):
     try: 
-      return s.encode('ascii')
+      return s.encode('latin-1')
     except:
       # kick the bucket down the road.  :-J
       return s
@@ -1808,7 +1808,7 @@ else:
      if s != None:
         enc = sys.stdout.encoding
         if enc != None: return s.decode(enc)
-        else: return s.decode('ascii')
+        else: return s.decode('latin-1')
      else:
         return ""
 
