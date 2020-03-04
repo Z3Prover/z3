@@ -71,6 +71,7 @@ namespace sat {
         bool              m_inconsistent;
         literal_vector    m_decisions;
         unsigned          m_conflict_offset;
+        svector<lbool>    m_model;
 
         bool should_restart();
         void do_pop();

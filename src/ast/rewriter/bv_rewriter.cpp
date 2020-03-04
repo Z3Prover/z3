@@ -2602,13 +2602,14 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     }
 
     br_status st;
-    if (m_bit2bool) {
+    if (m_bit2bool && false) {
         st = mk_bit2bool(lhs, rhs, result);
         if (st != BR_FAILED)
             return st;
     }
 
     if (m_trailing) {
+        
         st = m_rm_trailing.eq_remove_trailing(lhs, rhs, result);
         m_rm_trailing.reset_cache(1 << 12);
         if (st != BR_FAILED) {

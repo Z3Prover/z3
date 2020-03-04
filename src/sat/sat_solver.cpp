@@ -1317,6 +1317,13 @@ namespace sat {
     lbool solver::do_unit_walk() {
         unit_walk srch(*this);
         lbool r = srch();
+        if (r == l_true) {
+            m_model.reset();
+            for (bool_var v = 0; v < num_vars(); ++v) {
+                m_model.push_back(m_assignment[literal(v,false).index()]);
+            }
+            m_model_is_current = true;
+        }
         return r;
     }
 
