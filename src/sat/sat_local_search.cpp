@@ -581,7 +581,6 @@ namespace sat {
             m_vars[m_units[i]].m_unit = false;
         }
         m_units.shrink(num_units); 
-        m_vars.pop_back();  // remove sentinel variable
 
         TRACE("sat", display(tout););
 
@@ -597,6 +596,7 @@ namespace sat {
         else {
             result = l_undef;
         }
+        m_vars.pop_back();  // remove sentinel variable
         IF_VERBOSE(1, verbose_stream() << "(sat.local-search " << result << ")\n";);
         IF_VERBOSE(20, display(verbose_stream()););
         return result;
@@ -638,7 +638,7 @@ namespace sat {
             propagate(~best);
         }        
         else {
-            std::cout << "no best\n";
+            IF_VERBOSE(1, verbose_stream() << "(sat.local-search no best)\n");
         }
     }
 

@@ -1288,6 +1288,7 @@ namespace sat {
         lbool r = srch.check(num_lits, lits, nullptr);
         if (r == l_true) {
             m_model = srch.get_model();
+            m_model_is_current = true;
         }
         m_local_search = nullptr;
         dealloc(&srch);
