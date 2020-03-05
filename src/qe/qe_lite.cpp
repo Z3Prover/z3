@@ -2245,7 +2245,7 @@ class qe_lite::impl {
                 q,
                 q->get_num_patterns(), new_patterns,
                 q->get_num_no_patterns(), new_no_patterns, result);
-            m_imp.m_rewriter(result);
+            m_imp.m_rewriter(result, result, result_pr);
             return true;
         }
     };
@@ -2254,7 +2254,7 @@ class qe_lite::impl {
         elim_cfg m_cfg;
     public:
         elim_star(impl& i):
-            rewriter_tpl<elim_cfg>(i.m, false, m_cfg),
+            rewriter_tpl<elim_cfg>(i.m, i.m.proofs_enabled(), m_cfg),
             m_cfg(i)
         {}
     };
@@ -2334,9 +2334,11 @@ public:
     }
 
     void operator()(expr_ref& fml, proof_ref& pr) {
-        expr_ref tmp(m);
-        m_elim_star(fml, tmp, pr);
-        fml = std::move(tmp);
+        if (!m.proofs_enabled()) {
+            expr_ref tmp(m);
+            m_elim_star(fml, tmp, pr);
+            fml = std::move(tmp);
+        }
     }
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {
@@ -2496,7 +2498,7 @@ public:
                 }
             }
             if (f != new_f) {
-                TRACE("qe", tout << mk_pp(f, m) << "\n" << new_f << "\n";);
+                TRACE("qe", tout << mk_pp(f, m) << "\n" << new_f << "\n" << new_pr << "\n";);
                 g->update(i, new_f, new_pr, g->dep(i));
             }
         }
