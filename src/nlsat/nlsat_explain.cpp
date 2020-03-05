@@ -1441,7 +1441,7 @@ namespace nlsat {
                     // literal l must be in the core
                     core.push_back(l);
                     new_todo.swap(todo);
-                    return true;
+                    return !todo.empty();
                 }
                 else {
                     new_todo.push_back(l);
@@ -1459,11 +1459,11 @@ namespace nlsat {
             todo.reset(); core.reset();
             todo.append(num, ls);
             while (true) {
-                TRACE("nlsat_minimize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core););
+                TRACE("nlsat_minimize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core) << "\n";);
                 if (!minimize_core(todo, core))
                     break;
                 std::reverse(todo.begin(), todo.end());
-                TRACE("nlsat_minimize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core););
+                TRACE("nlsat_minimize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core) << "\n";);
                 if (!minimize_core(todo, core))
                     break;
             }
