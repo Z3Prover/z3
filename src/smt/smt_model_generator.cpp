@@ -318,7 +318,7 @@ namespace smt {
         for (source const& curr : sources) {
             if (curr.is_fresh_value()) {
                 sort * s = curr.get_value()->get_sort();
-                TRACE("model_fresh_bug", tout << curr << " : " << mk_pp(s, m) << "\n";);
+                TRACE("model_fresh_bug", tout << curr << " : " << mk_pp(s, m) << " " << curr.get_value()->get_value() << "\n";);
                 expr * val = m_model->get_fresh_value(s);
                 TRACE("model_fresh_bug", tout << curr << " := #" << (val == nullptr ? UINT_MAX : val->get_id()) << "\n";);
                 m_asts.push_back(val);

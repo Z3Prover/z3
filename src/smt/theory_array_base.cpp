@@ -995,6 +995,8 @@ namespace smt {
                     // IMPORTANT:
                     // The implementation should not assume a fresh value is created for 
                     // the else_val if the range is finite
+
+                    TRACE("array", tout << mk_pp(n->get_owner(), get_manager()) << " " << mk_pp(range, get_manager()) << " " << range->is_infinite() << "\n";);
                     if (range->is_infinite())
                         else_val = TAG(void*, m.mk_extra_fresh_value(range), 1);
                     else
