@@ -178,6 +178,8 @@ void asserted_formulas::get_assertions(ptr_vector<expr> & result) const {
 }
 
 void asserted_formulas::push_scope() {
+    reduce();
+    commit();
     SASSERT(inconsistent() || m_qhead == m_formulas.size() || m.canceled());
     TRACE("asserted_formulas_scopes", tout << "before push: " << m_scopes.size() << "\n";);
     m_scoped_substitution.push();
@@ -278,8 +280,6 @@ void asserted_formulas::reduce() {
     flush_cache();
     CASSERT("well_sorted",check_well_sorted());
 
-//    display(std::cout);
-//    exit(0);
 }
 
 
