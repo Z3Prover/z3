@@ -29,6 +29,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "tactic/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/rewriter/expr_replacer.h"
 
 /*
@@ -250,9 +251,9 @@ struct purify_arith_proc {
         void mk_def_proof(expr * k, expr * def, proof_ref & result_pr) {
             result_pr = nullptr;
             if (produce_proofs()) {
-                expr * eq   = m().mk_eq(k, def);
+                expr * eq   = m().mk_eq(def, k);
                 proof * pr1 = m().mk_def_intro(eq);
-                result_pr   = m().mk_apply_def(k, def, pr1);
+                result_pr   = m().mk_apply_def(def, k, pr1);
             }
         }
 
@@ -911,7 +912,7 @@ public:
         try {
             SASSERT(g->is_well_sorted());
             tactic_report report("purify-arith", *g);
-            TRACE("purify_arith", g->display(tout););
+            TRACE("goal", g->display(tout););
             bool produce_proofs = g->proofs_enabled();
             bool produce_models = g->models_enabled();
             bool elim_root_objs = m_params.get_bool("elim_root_objects", true);
@@ -923,7 +924,7 @@ public:
             g->add(mc.get());
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("purify_arith", g->display(tout););
+            TRACE("goal", g->display(tout););
             SASSERT(g->is_well_sorted());
         }
         catch (rewriter_exception & ex) {
