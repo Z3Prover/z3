@@ -105,7 +105,6 @@ namespace sat {
         init_phase();
         lbool st = l_undef;
         while (s.rlimit().inc() && st == l_undef) {
-            std::cout << "walk " << st << "\n";
             if (inconsistent() && !m_decisions.empty()) do_pop();
             else if (inconsistent()) st = l_false; 
             else if (should_restart()) restart();
@@ -145,7 +144,6 @@ namespace sat {
     lbool unit_walk::do_backjump() {
         unsigned backjump_level = m_decisions.size(); // - (m_decisions.size()/20);
         lbool st = update_priority(backjump_level);
-        std::cout << "update " << st << "\n";
         switch (st) {
         case l_true: return l_true;
         case l_false: break; // TBD
