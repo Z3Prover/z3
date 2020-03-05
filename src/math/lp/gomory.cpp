@@ -54,8 +54,6 @@ class create_cut {
     constraint_index column_upper_bound_constraint(unsigned j) const { return lia.column_upper_bound_constraint(j); }
     bool column_is_fixed(unsigned j) const { return lia.lra.column_is_fixed(j); }
 
-   
-    
     void int_case_in_gomory_cut(unsigned j) {
         lp_assert(is_int(j) && m_fj.is_pos());
         TRACE("gomory_cut_detail", 
