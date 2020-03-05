@@ -54,8 +54,6 @@ class create_cut {
     constraint_index column_upper_bound_constraint(unsigned j) const { return lia.column_upper_bound_constraint(j); }
     bool column_is_fixed(unsigned j) const { return lia.lra.column_is_fixed(j); }
 
-   
-    
     void int_case_in_gomory_cut(unsigned j) {
         lp_assert(is_int(j) && m_fj.is_pos());
         TRACE("gomory_cut_detail", 
@@ -73,7 +71,7 @@ class create_cut {
         }
         else {
             lp_assert(at_upper(j));
-            // here we have the expression  new_a*(xj - ub), so new_a*lb(j) is added to m_k
+            // here we have the expression  new_a*(xj - ub), so new_a*ub(j) is added to m_k
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
