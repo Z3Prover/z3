@@ -2608,8 +2608,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             return st;
     }
 
-    if (m_trailing) {
-        
+    if (m_trailing) {        
         st = m_rm_trailing.eq_remove_trailing(lhs, rhs, result);
         m_rm_trailing.reset_cache(1 << 12);
         if (st != BR_FAILED) {
