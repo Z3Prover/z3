@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"
 #include "util/rational.h"
-#include "ast/ast_pp.h"
 #include "util/common_msgs.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"
+#include "ast/ast_pp.h"
 #include "ast/rewriter/rewriter_types.h"
 
 

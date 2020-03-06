@@ -1382,11 +1382,24 @@ void cmd_context::push() {
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
+    unsigned timeout = m_params.m_timeout;
     m().limit().push(m_params.rlimit());
-    if (m_solver) 
-        m_solver->push();
-    if (m_opt)
-        m_opt->push();
+    cancel_eh<reslimit> eh(m().limit());
+    scoped_ctrl_c ctrlc(eh);
+    scoped_timer timer(timeout, &eh);
+    scoped_rlimit _rlimit(m().limit(), m_params.rlimit());
+    try {
+        if (m_solver) 
+            m_solver->push();
+        if (m_opt)
+            m_opt->push();
+    }
+    catch (z3_error & ex) {
+        throw ex;
+    }
+    catch (z3_exception & ex) {
+        throw cmd_exception(ex.msg());
+    }
 }
 
 void cmd_context::push(unsigned n) {

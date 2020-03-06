@@ -49,7 +49,7 @@ public:
     bool inc(unsigned offset);
     uint64_t count() const;
 
-
+    bool suspended() const { return m_suspend;  }
     bool get_cancel_flag() const { return m_cancel > 0 && !m_suspend; }
     char const* get_cancel_msg() const;
     void cancel();
