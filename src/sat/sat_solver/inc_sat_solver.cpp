@@ -879,11 +879,11 @@ private:
         }
         TRACE("sat", m_solver.display_model(tout););
         sat::model ll_m = m_solver.get_model();
+        mdl = alloc(model, m);
         if (m_sat_mc) {
             (*m_sat_mc)(ll_m);
-        }
-        mdl = alloc(model, m);
-        for (sat::bool_var v = 0; v < ll_m.size(); ++v) {
+        }        
+        for (sat::bool_var v = 0; m_sat_mc && v < m_sat_mc->num_vars(); ++v) {
             expr* n = m_sat_mc->var2expr(v);
             if (!n || !is_app(n) || to_app(n)->get_num_args() > 0) {
                 continue;

@@ -96,6 +96,7 @@ public:
         void set_env(ast_pp_util* visitor) override;
         void display(std::ostream& out) override;
         void get_units(obj_map<expr, bool>& units) override;
+        unsigned num_vars() const { return m_var2expr.size(); }
         app* var2expr(sat::bool_var v) const { return m_var2expr.get(v, nullptr); }
         expr_ref lit2expr(sat::literal l);
         void insert(sat::bool_var v, app * atom, bool aux);
