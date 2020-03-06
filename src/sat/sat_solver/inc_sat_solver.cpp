@@ -914,7 +914,7 @@ private:
         }
         IF_VERBOSE(1, verbose_stream() << "Verifying solution\n";);
         model_evaluator eval(*mdl);
-        // eval.set_model_completion(false);
+        eval.set_model_completion(true);
         bool all_true = true;
         //unsigned i = 0;
         for (expr * f : m_fmls) {
