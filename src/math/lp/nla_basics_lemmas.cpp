@@ -390,6 +390,8 @@ bool basics::basic_lemma_for_mon_neutral_derived(const monic& rm, const factoriz
 
 // x != 0 or y = 0 => |xy| >= |y|
 void basics::proportion_lemma_model_based(const monic& rm, const factorization& factorization) {
+    if (factorization_has_real(factorization)) // todo: handle the situaiton when all factors are greater than 1,        
+        return;     // or smaller than 1
     rational rmv = abs(val(rm));
     if (rmv.is_zero()) {
         SASSERT(c().has_zero_factor(factorization));
@@ -488,6 +490,15 @@ bool basics::is_separated_from_zero(const factorization& f) const {
         }
     }
     return true;
+}
+
+bool basics::factorization_has_real(const factorization& f) const {
+    for (const factor& fc: f) {
+        lpvar j = var(fc);
+        if (!c().var_is_int(j))
+            return true;
+    }
+    return false;
 }
 
 

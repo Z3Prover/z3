@@ -283,8 +283,8 @@ public:
     const rational& get_upper_bound(unsigned j) const;
     const rational& get_lower_bound(unsigned j) const;    
     
-    bool zero_is_an_inner_point_of_bounds(lpvar j) const;
-    
+    bool zero_is_an_inner_point_of_bounds(lpvar j) const;    
+    bool var_is_int(lpvar j) const { return m_lar_solver.column_is_int(j); }
     int rat_sign(const monic& m) const;
     inline int rat_sign(lpvar j) const { return nla::rat_sign(val(j)); }
 
