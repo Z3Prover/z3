@@ -50,7 +50,7 @@ namespace lp  {
         m_constraints_for_explanation.push_back(ci);
        
         for (const auto &p : *t) {
-            m_var_register.add_var(p.var());
+            m_var_register.add_var(p.var(), true); // hnf only deals with integral variables for now
             mpq t = abs(ceil(p.coeff()));
             if (t > m_abs_max)
                 m_abs_max = t;
@@ -63,7 +63,7 @@ namespace lp  {
 
     void hnf_cutter::initialize_row(unsigned i) {
         mpq sign = m_terms_upper[i]? one_of_type<mpq>(): - one_of_type<mpq>();
-        m_A.init_row_from_container(i, * m_terms[i], [this](unsigned j) { return m_var_register.add_var(j);}, sign);
+        m_A.init_row_from_container(i, * m_terms[i], [this](unsigned j) { return m_var_register.add_var(j, true);}, sign);// hnf only deals with integral variables for now
     }
 
     void hnf_cutter::init_matrix_A() {
