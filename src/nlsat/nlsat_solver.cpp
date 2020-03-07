@@ -59,12 +59,14 @@ namespace nlsat {
         unsynch_mpq_manager    m_qm;
         pmanager               m_pm;
         anum_manager           m_am;
-        ctx(reslimit& rlim, params_ref const & p):
+        bool                   m_incremental;
+        ctx(reslimit& rlim, params_ref const & p, bool incremental):
             m_params(p),
             m_rlimit(rlim),
             m_allocator("nlsat"),
             m_pm(rlim, m_qm, &m_allocator),
-            m_am(rlim, m_qm, p, &m_allocator)
+            m_am(rlim, m_qm, p, &m_allocator),
+            m_incremental(incremental)
         {}
     };
 
@@ -215,12 +217,12 @@ namespace nlsat {
         unsigned               m_stages;
         unsigned               m_irrational_assignments; // number of irrational witnesses
 
-        imp(solver& s, ctx& c, bool incremental):
+        imp(solver& s, ctx& c):
             m_ctx(c),
             m_solver(s),
             m_rlimit(c.m_rlimit),
             m_allocator(c.m_allocator),
-            m_incremental(incremental),
+            m_incremental(c.m_incremental),
             m_qm(c.m_qm),
             m_pm(c.m_pm),
             m_cache(m_pm),
@@ -3434,13 +3436,13 @@ namespace nlsat {
     };
     
     solver::solver(reslimit& rlim, params_ref const & p, bool incremental) {
-        m_ctx = alloc(ctx, rlim, p);
-        m_imp = alloc(imp, *this, *m_ctx, incremental);
+        m_ctx = alloc(ctx, rlim, p, incremental);
+        m_imp = alloc(imp, *this, *m_ctx);
     }
 
     solver::solver(ctx& ctx) {
         m_ctx = nullptr;
-        m_imp = alloc(imp, *this, ctx, false);
+        m_imp = alloc(imp, *this, ctx);
     }
         
     solver::~solver() {
