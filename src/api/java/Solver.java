@@ -19,6 +19,7 @@ Notes:
 package com.microsoft.z3;
 
 import com.microsoft.z3.enumerations.Z3_lbool;
+import java.util.*;
 
 /**
  * Solvers.
@@ -229,15 +230,7 @@ public class Solver extends Z3Object {
                 .nCtx(), getNativeObject(), assumptions.length, AST
                 .arrayToNative(assumptions)));
         }
-        switch (r)
-        {
-        case Z3_L_TRUE:
-            return Status.SATISFIABLE;
-        case Z3_L_FALSE:
-            return Status.UNSATISFIABLE;
-        default:
-            return Status.UNKNOWN;
-        }
+	return lboolToStatus(r);
     }
 
     /**
@@ -251,6 +244,30 @@ public class Solver extends Z3Object {
     {
         return check((Expr[]) null);
     }
+
+    /**
+     * Retrieve fixed assignments to the set of variables in the form of consequences.
+     * Each consequence is an implication of the form 
+     *
+     *       relevant-assumptions Implies variable = value
+     * 
+     * where the relevant assumptions is a subset of the assumptions that are passed in
+     * and the equality on the right side of the implication indicates how a variable
+     * is fixed.
+     *
+     */
+    public Status getConsequences(BoolExpr[] assumptions, Expr[] variables, List<BoolExpr> consequences) 
+    {
+	ASTVector result = new ASTVector(getContext());
+	ASTVector asms = new ASTVector(getContext());
+	ASTVector vars = new ASTVector(getContext());
+	for (BoolExpr asm : assumptions) asms.push(asm);
+	for (Expr v : variables) vars.push(v);
+	int r = Native.solverGetConsequences(getContext().nCtx(), getNativeObject(), asms.getNativeObject(), vars.getNativeObject(), result.getNativeObject());
+        for (int i = 0; i < result.size(); ++i) consequences.add((BoolExpr)result.get(i));
+	return lboolToStatus(Z3_lbool.fromInt(r));
+    }
+
 
     /**
      * The model of the last {@code Check}.
@@ -343,6 +360,22 @@ public class Solver extends Z3Object {
     {
         return Native
                 .solverToString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * convert lifted Boolean to status
+     */
+    private Status lboolToStatus(Z3_lbool r) 
+    {
+        switch (r)
+        {
+        case Z3_L_TRUE:
+            return Status.SATISFIABLE;
+        case Z3_L_FALSE:
+            return Status.UNSATISFIABLE;
+        default:
+            return Status.UNKNOWN;
+        }
     }
 
     Solver(Context ctx, long obj)
