@@ -64,7 +64,7 @@ namespace smt {
             context& new_ctx = *pctxs.back();
             context::copy(ctx, new_ctx, true);
             new_ctx.set_random_seed(i + ctx.get_fparams().m_random_seed);
-            ast_translation tr(*new_m, m);
+            ast_translation tr(m, *new_m);
             pasms.push_back(tr(asms));
         }
 
@@ -202,11 +202,11 @@ namespace smt {
         switch (result) {
         case l_true: 
             pctx.get_model(mdl);
-            if (mdl) {
-                ctx.set_model(mdl->translate(tr));
-            }
+            if (mdl) 
+                ctx.set_model(mdl->translate(tr));            
             break;
         case l_false:
+            ctx.m_unsat_core.reset();
             for (expr* e : pctx.unsat_core()) 
                 ctx.m_unsat_core.push_back(tr(e));
             break;

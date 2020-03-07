@@ -1676,6 +1676,16 @@ void ast_manager::set_next_expr_id(unsigned id) {
 
 unsigned ast_manager::get_node_size(ast const * n) { return ::get_node_size(n); }
 
+std::ostream& ast_manager::display(std::ostream& out) const {
+    for (ast * a : m_ast_table) {
+        if (is_func_decl(a)) {
+            out << to_func_decl(a)->get_name() << " " << a->get_id() << "\n";
+        }
+    }
+    return out;
+}
+
+
 void ast_manager::register_plugin(symbol const & s, decl_plugin * plugin) {
     family_id id = m_family_manager.mk_family_id(s);
     SASSERT(is_format_manager() || s != symbol("format"));

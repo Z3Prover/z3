@@ -160,15 +160,12 @@ namespace qe {
         }
         model_evaluator eval(*mdl);
         eval.set_model_completion(true);
-        TRACE("qe", model_v2_pp(tout, *mdl););
+        TRACE("qe_assumptions", model_v2_pp(tout, *mdl););
 
         expr_ref val(m);
         for (unsigned j = 0; j < m_preds[level - 1].size(); ++j) {
-            app* p = m_preds[level - 1][j].get();
-            TRACE("qe", tout << "process level: " << level - 1 << ": " << mk_pp(p, m) << "\n";);
-            
-            eval(p, val);
-            
+            app* p = m_preds[level - 1][j].get();            
+            eval(p, val);            
             if (m.is_false(val)) {
                 m_asms.push_back(m.mk_not(p));
             }
@@ -197,7 +194,7 @@ namespace qe {
                 }
             }
         }
-        TRACE("qe", tout << "level: " << level << "\n";
+        TRACE("qe_assumptions", tout << "level: " << level << "\n";
               model_v2_pp(tout, *mdl);
               display(tout, asms););
     }
@@ -291,7 +288,7 @@ namespace qe {
     }
 
     app_ref pred_abs::fresh_bool(char const* name) {
-        app_ref r(m.mk_fresh_const(name, m.mk_bool_sort()), m);
+        app_ref r(m.mk_fresh_const(name, m.mk_bool_sort(), true), m);
         m_fmc->hide(r);
         return r;
     }
@@ -576,7 +573,7 @@ namespace qe {
         void get_core(expr_ref_vector& core) {
             core.reset();
             m_solver->get_unsat_core(core);
-            TRACE("qe", m_solver->display(tout << "core: " << core << "\n") << "\n";);
+            TRACE("qe_core", m_solver->display(tout << "core: " << core << "\n") << "\n";);
         }
     };
 
@@ -659,6 +656,7 @@ namespace qe {
                         if (m_mode == qsat_sat) {
                             return l_true; 
                         }
+
                         if (m_model.get()) {
                             SASSERT(validate_assumptions(*m_model.get(), asms));
                             if (!project_qe(asms)) return l_undef;
@@ -1106,8 +1104,7 @@ namespace qe {
             for (expr* c : core) {
                 if (!mdl.is_true(c)) {
                     TRACE("qe", tout << "component of core is not true: " << mk_pp(c, m) << "\n";
-                          tout << mdl << "\n";
-                          );
+                          tout << mdl << "\n";);
                     if (mdl.is_false(c)) {
                         return false;
                     }
@@ -1292,7 +1289,6 @@ namespace qe {
             m_fa.assert_expr(m.mk_not(fml));
             TRACE("qe", tout << "ex: " << fml << "\n";);
             lbool is_sat = check_sat();
-            
             switch (is_sat) {
             case l_false:
                 in->reset();

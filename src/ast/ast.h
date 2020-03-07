@@ -1713,6 +1713,8 @@ public:
         return m_alloc.get_allocation_size();
     }
 
+    std::ostream& display(std::ostream& out) const;
+
 protected:
     ast * register_node_core(ast * n);
 

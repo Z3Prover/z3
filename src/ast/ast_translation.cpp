@@ -168,7 +168,7 @@ void ast_translation::mk_func_decl(func_decl * f, frame & fr) {
         new_fi.set_chainable(fi->is_chainable());
         new_fi.set_pairwise(fi->is_pairwise());
         new_fi.set_injective(fi->is_injective());
-/// TBD        new_fi.set_skolem(fi->is_skolem()); 
+        new_fi.set_skolem(fi->is_skolem()); 
         new_fi.set_idempotent(fi->is_idempotent());
 
         new_f = m_to_manager.mk_func_decl(f->get_name(),
