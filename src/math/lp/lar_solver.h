@@ -159,6 +159,8 @@ public:
     
     bool term_is_int(const lar_term * t) const;
 
+    bool term_is_int(const vector<std::pair<mpq, unsigned int>> & coeffs) const;
+
     bool var_is_int(var_index v) const;
 
     void add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int);
@@ -167,6 +169,7 @@ public:
 
     void add_new_var_to_core_fields_for_mpq(bool register_in_basis);
 
+    mpq adjust_bound_for_int(lpvar j, lconstraint_kind, const mpq&);
 
 
     // terms

@@ -41,10 +41,6 @@ class var_register {
 public:
     var_register(unsigned offset) : m_local_offset(offset) {}
     
-    unsigned add_var(unsigned user_var) {
-        return add_var(user_var, true);
-    }    
-
     void set_name(unsigned j, std::string name) {
         m_local_to_external[j].set_name(name);
     }
