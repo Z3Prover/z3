@@ -2338,7 +2338,7 @@ namespace nlsat {
             for (clause* c : m_clauses) {
                 if (has_root_atom(*c)) return false;
             }
-            return true;
+            return m_patch_var.empty();
         }
 
         /**
@@ -2660,7 +2660,7 @@ namespace nlsat {
                 m_pm.eval(q, m_assignment, qv);
                 val = qv / pv;
                 TRACE("nlsat", 
-                      m_display_var(tout << "patch ", v) << "\n";
+                      m_display_var(tout << "patch v" << v << " ", v) << "\n";
                       if (m_assignment.is_assigned(v)) m_am.display(tout << "previous value: ", m_assignment.value(v)); tout << "\n";
                       m_am.display(tout << "updated value: ", val); tout << "\n";
                       );
@@ -2677,6 +2677,7 @@ namespace nlsat {
             unsigned num_atoms = m_atoms.size();
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a = m_atoms[j];
+
                 if (a && a->is_ineq_atom()) {
                     ineq_atom const& a1 = *to_ineq_atom(a);
                     unsigned sz = a1.size();
@@ -2697,7 +2698,7 @@ namespace nlsat {
                         }
                     }        
                     if (!change) continue;
-                    literal l = mk_ineq_literal(a1.get_kind(), ps.size(), ps.c_ptr(), even.c_ptr());                            
+                    literal l = mk_ineq_literal(a1.get_kind(), ps.size(), ps.c_ptr(), even.c_ptr()); 
                     if (a1.m_bool_var != l.var()) {                        
                         b2l.insert(a1.m_bool_var, l);
                         inc_ref(l);
