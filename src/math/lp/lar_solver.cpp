@@ -2184,7 +2184,6 @@ void lar_solver::round_to_integer_solution() {
         impq& v =  m_mpq_lar_core_solver.m_r_x[j];
         if (v.is_int())
             continue;
-        SASSERT(is_base(j));
         TRACE("cube", m_int_solver->display_column(tout, j););
         impq flv = impq(floor(v));
         auto del = flv - v; // del is negative
