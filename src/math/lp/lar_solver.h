@@ -174,7 +174,6 @@ public:
 
     mpq adjust_bound_for_int(lpvar j, lconstraint_kind&, const mpq&);
 
-
     // terms
     bool all_vars_are_registered(const vector<std::pair<mpq, var_index>> & coeffs);
 
