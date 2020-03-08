@@ -169,7 +169,7 @@ public:
 
     void add_new_var_to_core_fields_for_mpq(bool register_in_basis);
 
-    mpq adjust_bound_for_int(lpvar j, lconstraint_kind, const mpq&);
+    mpq adjust_bound_for_int(lpvar j, lconstraint_kind&, const mpq&);
 
 
     // terms

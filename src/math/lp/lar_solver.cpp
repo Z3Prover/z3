@@ -1781,17 +1781,19 @@ void lar_solver::activate(constraint_index ci) {
     update_column_type_and_bound(c.column(), c.kind(), c.rhs(), ci);
 }
 
-mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind k, const mpq& bound) {
+mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind& k, const mpq& bound) {
     if (!column_is_int(j))
         return bound;
     switch (k) {
-    case LT: 
+    case LT:
+        k = LE;
     case LE:
         return floor(bound);
-    case GT: 
+    case GT:
+        k = GE;
     case GE: 
         return ceil(bound);
-    case EQ:
+    case EQ:        
         return bound;
     default:
         UNREACHABLE();
@@ -2193,13 +2195,13 @@ bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& d
     }
     TRACE("cube", tout << "can tighten";);
     if (slv.column_has_upper_bound(j)) {
-        if (!is_zero(delta.y))
+        if (!is_zero(delta.y) || !is_zero(slv.m_upper_bounds[j].y))
             add_var_bound(tj, lconstraint_kind::LT, slv.m_upper_bounds[j].x - delta.x);
         else 
             add_var_bound(tj, lconstraint_kind::LE, slv.m_upper_bounds[j].x - delta.x);
     }
     if (slv.column_has_lower_bound(j)) {
-        if (!is_zero(delta.y))
+        if (!is_zero(delta.y) || !is_zero(slv.m_lower_bounds[j].y))
             add_var_bound(tj, lconstraint_kind::GT, slv.m_lower_bounds[j].x + delta.x);
         else 
             add_var_bound(tj, lconstraint_kind::GE, slv.m_lower_bounds[j].x + delta.x);
