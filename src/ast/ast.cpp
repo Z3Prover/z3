@@ -1794,6 +1794,7 @@ bool ast_manager::slow_not_contains(ast const * n) {
 }
 #endif
 
+
 ast * ast_manager::register_node_core(ast * n) {
     unsigned h = get_node_hash(n);
     n->m_hash = h;
@@ -1823,7 +1824,6 @@ ast * ast_manager::register_node_core(ast * n) {
     }
 
     n->m_id   = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
-
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
@@ -1921,8 +1921,6 @@ ast * ast_manager::register_node_core(ast * n) {
     if (n->m_id == 1525) {
         std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
     }
-    //VERIFY(n->m_id != 1549);
-    //VERIFY(s_count != 2);
 #endif
     return n;
 }

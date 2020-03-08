@@ -444,13 +444,15 @@ struct euclidean_solver::imp {
         if (idx == UINT_MAX)
             return;
         mpz const & a1 = as[idx];
+
         SASSERT(!m().is_zero(a1));
         equation const & eq2 = *(m_solution[m_solved[x]]);
-        SASSERT(eq2.pos_x(x) != UINT_MAX);
-        SASSERT(m().is_minus_one(eq2.a(eq2.pos_x(x))));
         TRACE("euclidean_solver_apply", 
               tout << "applying: " << m().to_string(a1) << " * "; display(tout, eq2); tout << "\n";
+              tout << "index: " << idx << "\n";
               for (unsigned i = 0; i < xs.size(); i++) tout << m().to_string(as[i]) << "*x" << xs[i] << " "; tout << "\n";);
+        SASSERT(eq2.pos_x(x) != UINT_MAX);
+        SASSERT(m().is_minus_one(eq2.a(eq2.pos_x(x))));
         addmul<mpz, UpdateOcc, UpdateQueue>(as, xs, a1, eq2.m_as, eq2.m_xs, m_tmp_as, m_tmp_xs, eq_idx, except_var);
         m().addmul(c, a1, eq2.m_c, c);
         m_tmp_as.swap(as);
@@ -665,7 +667,7 @@ struct euclidean_solver::imp {
         var p = mk_var(true);
         mpz new_a_i;
         equation & eq = *(m_equations[m_next_eq]);
-        TRACE("euclidean_solver", tout << "decompositing equation for x" << m_next_x << "\n"; display(tout, eq); tout << "\n";);
+        TRACE("euclidean_solver", tout << "decomposing equation for x" << m_next_x << "\n"; display(tout, eq); tout << "\n";);
         unsigned sz = eq.size();
         unsigned j  = 0;
         for (unsigned i = 0; i < sz; i++) {
@@ -713,7 +715,8 @@ struct euclidean_solver::imp {
         // new_eq doesn't need to normalized, since it has unit coefficients
         TRACE("euclidean_solver", tout << "decomposition: new parameter x" << p << " aux eq:\n";
               display(tout, *new_eq); tout << "\n";
-              display(tout, eq); tout << "\n";);
+              display(tout, eq); tout << "\n";
+              tout << "next_x " << m_next_x << "\n";);
         m_solved[m_next_x] = m_solution.size();
         m_solution.push_back(new_eq);
         substitute_most_recent_solution(m_next_x);

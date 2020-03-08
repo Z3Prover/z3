@@ -3179,6 +3179,7 @@ namespace smt {
     }
 
     mf::quantifier_info * model_finder::get_quantifier_info(quantifier * q) const {
+        TRACE("model_finder", tout << q->get_id() << ": " << q << " " << &m_q2info << " " << mk_pp(q, m) << "\n";);
         return m_q2info[q];
     }
 
@@ -3190,7 +3191,7 @@ namespace smt {
     }
 
     void model_finder::register_quantifier(quantifier * q) {
-        TRACE("model_finder", tout << "registering:\n" << mk_pp(q, m) << "\n";);
+        TRACE("model_finder", tout << "registering:\n" << q->get_id() << ": " << q << " " << &m_q2info << " " << mk_pp(q, m) << "\n";);
         quantifier_info * new_info = alloc(quantifier_info, *this, m, q);
         m_q2info.insert(q, new_info);
         m_quantifiers.push_back(q);

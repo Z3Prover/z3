@@ -1356,7 +1356,8 @@ public:
                 body = m.mk_implies(m.mk_not(m.mk_eq(q, zero)), a.mk_le(mod, upper));
                 th.log_axiom_instantiation(body);
             }
-            mk_axiom(mk_literal(a.mk_le(mod, upper)));
+            expr_ref le(a.mk_le(mod, upper), m);
+            mk_axiom(mk_literal(le));
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             if (k.is_pos()) {
                 if (m.has_trace_stream()) {

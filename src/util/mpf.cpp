@@ -1186,6 +1186,7 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
     scoped_mpf t(*this);
     scoped_mpz z(m_mpz_manager);
 
+
     set(t, x);
     unpack(t, true);
 

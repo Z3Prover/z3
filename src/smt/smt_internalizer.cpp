@@ -1323,21 +1323,27 @@ namespace smt {
         case CLS_AUX: 
         case CLS_TH_AXIOM: {
             literal_buffer simp_lits;
-            if (!simplify_aux_clause_literals(num_lits, lits, simp_lits))
-                return nullptr; // clause is equivalent to true;
-            DEBUG_CODE({
-                for (unsigned i = 0; i < simp_lits.size(); i++) {
-                    SASSERT(get_assignment(simp_lits[i]) == l_true);
+            if (!simplify_aux_clause_literals(num_lits, lits, simp_lits)) {
+                if (j && !j->in_region()) {
+                    j->del_eh(m);
+                    dealloc(j);
                 }
-            });
+                return nullptr; // clause is equivalent to true;
+            }
+            DEBUG_CODE(for (literal lit : simp_lits) SASSERT(get_assignment(lit) == l_true););
             if (!simp_lits.empty()) {
                 j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.c_ptr()));
             }
             break;
         }
         case CLS_TH_LEMMA: {
-            if (!simplify_aux_lemma_literals(num_lits, lits))
+            if (!simplify_aux_lemma_literals(num_lits, lits)) {
+                if (j && !j->in_region()) {
+                    j->del_eh(m);
+                    dealloc(j);
+                }
                 return nullptr; // clause is equivalent to true
+            }
             // simplify_aux_lemma_literals does not delete literals assigned to false, so
             // it is not necessary to create a unit_resolution_justification
             break;
@@ -1346,14 +1352,6 @@ namespace smt {
             break;
         }
         TRACE("mk_clause", tout << "after simplification:\n"; display_literals_verbose(tout, num_lits, lits) << "\n";);
-#if 0
-        for (unsigned i = 0; i < num_lits; ++i) {
-            expr_ref tmp(m);
-            literal2expr(lits[i], tmp);
-            std::cout << tmp << "\n";
-        }
-        std::cout << "\n";
-#endif
 
         unsigned activity = 0;
         if (activity == 0)

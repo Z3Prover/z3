@@ -377,8 +377,8 @@ namespace smt {
         justification(false),
         m_th_id(fid),
         m_params(num_params, params),
-        m_num_literals(num_lits) {
-        ast_manager & m   = ctx.get_manager();
+        m_num_literals(num_lits) {        
+        ast_manager& m = ctx.get_manager();
         m_literals        = alloc_svect(expr*, num_lits);
         for (unsigned i   = 0; i < num_lits; i++) {
             bool sign     = lits[i].sign();
@@ -396,7 +396,8 @@ namespace smt {
     
     void theory_lemma_justification::del_eh(ast_manager & m) {
         for (unsigned i = 0; i < m_num_literals; i++) {
-            m.dec_ref(UNTAG(expr*, m_literals[i]));
+            expr* v = UNTAG(expr*, m_literals[i]);
+            m.dec_ref(v);
         }
         m_params.reset();
     }

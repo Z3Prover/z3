@@ -1056,7 +1056,8 @@ namespace smt {
         }
 
         bool inconsistent() const {
-            return m_conflict != null_b_justification;
+            return m_conflict != null_b_justification ||
+                m_asserted_formulas.inconsistent();
         }
 
         unsigned get_num_conflicts() const {
