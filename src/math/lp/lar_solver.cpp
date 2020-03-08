@@ -1784,6 +1784,8 @@ void lar_solver::activate(constraint_index ci) {
 mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind& k, const mpq& bound) {
     if (!column_is_int(j))
         return bound;
+    if (bound.is_int())
+        return bound;
     switch (k) {
     case LT:
         k = LE;
