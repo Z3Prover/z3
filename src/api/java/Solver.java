@@ -264,7 +264,7 @@ public class Solver extends Z3Object {
 	for (BoolExpr asm : assumptions) asms.push(asm);
 	for (Expr v : variables) vars.push(v);
 	int r = Native.solverGetConsequences(getContext().nCtx(), getNativeObject(), asms.getNativeObject(), vars.getNativeObject(), result.getNativeObject());
-        for (int i = 0; i < result.size(); ++i) consequences.add((BoolExpr)result.get(i));
+        for (int i = 0; i < result.size(); ++i) consequences.add((BoolExpr) Expr.create(getContext(), result.get(i).getNativeObject()));
 	return lboolToStatus(Z3_lbool.fromInt(r));
     }
 
