@@ -29,7 +29,6 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_nl_arith_gb = p.arith_nl_gb();
     m_nl_arith_branching = p.arith_nl_branching();
     m_nl_arith_rounds = p.arith_nl_rounds();
-    m_arith_euclidean_solver = p.arith_euclidean_solver();
     m_arith_propagate_eqs = p.arith_propagate_eqs();
     m_arith_branch_cut_ratio = p.arith_branch_cut_ratio();
     m_arith_int_eq_branching = p.arith_int_eq_branch();
@@ -93,5 +92,4 @@ void theory_arith_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nl_arith_max_degree);
     DISPLAY_PARAM(m_nl_arith_branching);
     DISPLAY_PARAM(m_nl_arith_rounds);
-    DISPLAY_PARAM(m_arith_euclidean_solver);
 }

@@ -853,9 +853,9 @@ namespace smt {
         bool max_min_infeasible_int_vars();
         void patch_int_infeasible_vars();
         void fix_non_base_vars();
-        unsynch_mpq_manager m_es_num_manager; // manager for euclidean solver.
-        struct euclidean_solver_bridge;
-        bool apply_euclidean_solver();
+//        unsynch_mpq_manager m_es_num_manager; // manager for euclidean solver.
+//        struct euclidean_solver_bridge;
+//        bool apply_euclidean_solver();
         final_check_status check_int_feasibility();
 
         // -----------------------------------

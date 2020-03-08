@@ -34,7 +34,6 @@ def init_project_def():
     add_lib('tactic', ['ast', 'model'])
     add_lib('substitution', ['ast', 'rewriter'], 'ast/substitution')
     add_lib('parser_util', ['ast'], 'parsers/util')
-    add_lib('euclid', ['util'], 'math/euclid')
     add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
     add_lib('solver', ['model', 'tactic', 'proofs'])
     add_lib('cmd_context', ['solver', 'rewriter'])    
@@ -52,7 +51,7 @@ def init_project_def():
     add_lib('smt_params', ['ast', 'rewriter', 'pattern', 'bit_blaster'], 'smt/params')
     add_lib('proto_model', ['model', 'rewriter', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
-                    'substitution', 'grobner', 'euclid', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp'])
+                    'substitution', 'grobner', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp'])
     add_lib('bv_tactics', ['tactic', 'bit_blaster', 'core_tactics'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')

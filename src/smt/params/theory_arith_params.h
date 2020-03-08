@@ -106,8 +106,6 @@ struct theory_arith_params {
     bool                    m_nl_arith_branching;
     unsigned                m_nl_arith_rounds;
 
-    // euclidean solver for tighting bounds 
-    bool                    m_arith_euclidean_solver;
 
 
     theory_arith_params(params_ref const & p = params_ref()):
@@ -155,8 +153,7 @@ struct theory_arith_params {
         m_nl_arith_gb_perturbate(true),
         m_nl_arith_max_degree(6),
         m_nl_arith_branching(true),
-        m_nl_arith_rounds(1024),
-        m_arith_euclidean_solver(false) {
+        m_nl_arith_rounds(1024) {
         updt_params(p);
     }
 

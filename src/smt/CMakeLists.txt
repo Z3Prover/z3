@@ -77,7 +77,6 @@ z3_add_component(smt
   COMPONENT_DEPENDENCIES
     bit_blaster
     cmd_context
-    euclid
     fpa
     grobner
     nlsat
