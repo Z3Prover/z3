@@ -16,7 +16,7 @@ jobs:
     - script: brew cask install julia
     - script: |
         julia -e "using Pkg; Pkg.add(\"libcxxwrap_julia_jll\")"
-        JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\"))")
+        JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
         set -e
         mkdir build
         cd build
