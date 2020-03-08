@@ -93,14 +93,14 @@ namespace smt {
         expr_ref_vector                        m_new_constraints; // new constraints for fresh constants created by the model finder
 
         void restore_quantifiers(unsigned old_size);
-        quantifier_info * get_quantifier_info(quantifier * q) const;
+        quantifier_info * get_quantifier_info(quantifier * q);
         void collect_relevant_quantifiers(ptr_vector<quantifier> & qs) const;
         void cleanup_quantifier_infos(ptr_vector<quantifier> const & qs);
         void process_simple_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
         void process_hint_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
         void process_non_auf_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
         void process_auf(ptr_vector<quantifier> const & qs, proto_model * m);
-        instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i) const;
+        instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i);
         void checkpoint();
 
 
@@ -116,8 +116,8 @@ namespace smt {
         void init_search_eh();
         void fix_model(proto_model * m);
 
-        quantifier * get_flat_quantifier(quantifier * q) const;
-        expr * get_inv(quantifier * q, unsigned i, expr * val, unsigned & generation) const;
+        quantifier * get_flat_quantifier(quantifier * q);
+        expr * get_inv(quantifier * q, unsigned i, expr * val, unsigned & generation);
         bool restrict_sks_to_inst_set(context * aux_ctx, quantifier * q, expr_ref_vector const & sks);
 
         void restart_eh();

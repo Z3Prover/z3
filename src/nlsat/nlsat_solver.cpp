@@ -2691,22 +2691,20 @@ namespace nlsat {
                     for (unsigned i = 0; i < sz; ++i) {
                         poly * po = a1.p(i);
                         m_pm.substitute(po, x, q, p, pr);
+                        change |= pr != po;
                         if (m_pm.is_zero(pr)) {
                             ps.reset();
                             even.reset();
-                            change = true;
                             break;
                         }
                         if (m_pm.is_const(pr)) {
                             if (!a1.is_even(i) && m_pm.m().is_neg(m_pm.coeff(pr, 0))) {
                                 k = atom::flip(k);
                             }
-                            change = true;
                             continue;
                         }
                         ps.push_back(pr);                                
                         even.push_back(a1.is_even(i));
-                        change |= pr != po;
                     }        
                     if (!change) continue;
                     literal l = mk_ineq_literal(k, ps.size(), ps.c_ptr(), even.c_ptr()); 

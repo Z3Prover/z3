@@ -41,8 +41,6 @@ namespace smt {
 
         context & get_context() const;
 
-        void set_plugin(quantifier_manager_plugin * plugin);
-
         void add(quantifier * q, unsigned generation);
         void del(quantifier * q);
         bool empty() const;
