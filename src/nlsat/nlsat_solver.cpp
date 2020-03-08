@@ -2644,6 +2644,7 @@ namespace nlsat {
                         del_clause(c, m_clauses);
                         if (!substitute_var(v, p, q))
                             return false;
+                        TRACE("nlsat", display(tout << "simplified\n"););
                         change = true;
                         break;
                     }
@@ -2686,21 +2687,29 @@ namespace nlsat {
                     ps.reset();
                     even.reset();
                     bool change = false;
+                    auto k = a1.get_kind();
                     for (unsigned i = 0; i < sz; ++i) {
                         poly * po = a1.p(i);
                         m_pm.substitute(po, x, q, p, pr);
-                        ps.push_back(pr);                                
-                        even.push_back(a1.is_even(i));
-                        change |= pr != po;
                         if (m_pm.is_zero(pr)) {
                             ps.reset();
                             even.reset();
                             change = true;
                             break;
                         }
+                        if (m_pm.is_const(pr)) {
+                            if (!a1.is_even(i) && m_pm.m().is_neg(m_pm.coeff(pr, 0))) {
+                                k = atom::flip(k);
+                            }
+                            change = true;
+                            continue;
+                        }
+                        ps.push_back(pr);                                
+                        even.push_back(a1.is_even(i));
+                        change |= pr != po;
                     }        
                     if (!change) continue;
-                    literal l = mk_ineq_literal(a1.get_kind(), ps.size(), ps.c_ptr(), even.c_ptr()); 
+                    literal l = mk_ineq_literal(k, ps.size(), ps.c_ptr(), even.c_ptr()); 
                     if (a1.m_bool_var != l.var()) {                        
                         b2l.insert(a1.m_bool_var, l);
                         inc_ref(l);
