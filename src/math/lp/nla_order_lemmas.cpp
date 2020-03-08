@@ -222,17 +222,19 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
     bool sign = m.rsign();
     for (factor f: ab)
         sign ^= _().canonize_sign(f);
-    const rational fv = val(ab[0]) * val(ab[1]);
-    const rational mv = sign_to_rat(sign) * val(m);
+    const rational rsign = sign_to_rat(sign);
+    const rational fv = val(var(ab[0])) * val(var(ab[1]));
+    const rational mv = rsign * val(m);
     TRACE("nla_solver",
           tout << "ab.size()=" << ab.size() << "\n";
-          tout << "we should have sign*val(m):" << mv << "=(" << sign << ")*(" << val(m) <<") to be equal to " << " val(ab[0])*val(ab[1]):" << fv << "\n";);
+          tout << "we should have sign*val(m):" << mv << "=(" << rsign << ")*(" << val(m) <<") to be equal to " << " val(var(ab[0]))*val(var(ab[1])):" << fv << "\n";);
     if (mv == fv)
         return;
     bool gt = mv > fv;
+    SASSERT(mv != fv);
     TRACE("nla_solver", tout << "m="; _().print_monic_with_vars(m, tout); tout << "\nfactorization="; _().print_factorization(ab, tout););
     for (unsigned j = 0, k = 1; j < 2; j++, k--) {
-        order_lemma_on_ab(m, sign_to_rat(sign), var(ab[k]), var(ab[j]), gt);
+        order_lemma_on_ab(m, rsign, var(ab[k]), var(ab[j]), gt);
         explain(ab); explain(m);
         TRACE("nla_solver", _().print_lemma(tout););
         order_lemma_on_ac_explore(m, ab, j == 1);
@@ -340,6 +342,8 @@ void order::order_lemma_on_ab_gt(const monic& m, const rational& sign, lpvar a, 
    a < 0 & b <= value(b) => sign*ab >= value(b)*a if value(a) < 0
 */
 void order::order_lemma_on_ab_lt(const monic& m, const rational& sign, lpvar a, lpvar b) {
+    TRACE("nla_solver", tout << "sign = " << sign << ", m = "; c().print_monic(m, tout) << ", a = "; c().print_var(a, tout) <<
+          ", b = "; c().print_var(b, tout) << "\n";);
     SASSERT(sign * val(m) < val(a) * val(b));
     add_empty_lemma();
     if (val(a).is_pos()) {
