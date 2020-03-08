@@ -2893,7 +2893,7 @@ namespace smt {
         internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
         scoped_suspend_rlimit _suspend_cancel(m.limit());
         propagate();
-        if (was_consistent && inconsistent()) {
+        if (was_consistent && inconsistent() && !m_asserted_formulas.inconsistent()) {
             // logical context became inconsistent during user PUSH
             VERIFY(!resolve_conflict()); // build the proof
         }
