@@ -504,6 +504,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::calc_current_x
     unsigned j = this->m_n();
     while (j--) {
         if (!column_is_feasible(j)) {
+            TRACE("lar_solver", tout << "infeasible column: "; print_column_info(j, tout) << "\n";);
             return false;
         }
     }
