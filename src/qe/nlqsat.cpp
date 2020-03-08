@@ -89,6 +89,10 @@ namespace qe {
                 m_t2x(m)
             {}
 
+            ~solver_state() {
+                reset();
+            }
+
             void g2s(goal const& g) {
                 goal2nlsat gs;
                 gs(g, m_params, m_solver, m_a2b, m_t2x);
@@ -231,6 +235,7 @@ namespace qe {
                 m_bound_bvars.reset();
                 m_preds.reset();
                 for (auto const& kv : m_bvar2level) {
+                    
                     m_solver.dec_ref(kv.m_key);
                 }
                 m_rvar2level.reset();

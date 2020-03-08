@@ -300,7 +300,7 @@ namespace nlsat {
         }
 
         void checkpoint() {
-            if (!m_rlimit.inc()) throw solver_exception(m_rlimit.get_cancel_msg());
+            if (!m_rlimit.inc()) throw solver_exception(m_rlimit.get_cancel_msg()); 
             if (memory::get_allocation_size() > m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
 
@@ -580,6 +580,7 @@ namespace nlsat {
             }
         }
 
+
         ineq_atom* mk_ineq_atom(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even, bool& is_new) {
             SASSERT(sz >= 1);
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
@@ -602,10 +603,10 @@ namespace nlsat {
             if (sign < 0)
                 k = atom::flip(k);
             ineq_atom * tmp_atom = new (mem) ineq_atom(k, sz, uniq_ps.c_ptr(), is_even, max);
-            TRACE("nlsat_table_bug", ineq_atom::hash_proc h; 
-                  tout << "mk_ineq_atom hash: " << h(tmp_atom) << "\n"; display(tout, *tmp_atom, m_display_var); tout << "\n";);
             ineq_atom * atom = m_ineq_atoms.insert_if_not_there(tmp_atom);
-            CTRACE("nlsat_table_bug", atom->max_var() != max, display(tout, *atom, m_display_var); tout << "\n";);
+            CTRACE("nlsat_table_bug", tmp_atom != atom, ineq_atom::hash_proc h; 
+                  tout << "mk_ineq_atom hash: " << h(tmp_atom) << "\n"; display(tout, *tmp_atom, m_display_var) << "\n";);
+            CTRACE("nlsat_table_bug", atom->max_var() != max, display(tout << "nonmax: ", *atom, m_display_var) << "\n";);
             SASSERT(atom->max_var() == max);
             is_new = (atom == tmp_atom);
             if (is_new) {
@@ -2675,12 +2676,13 @@ namespace nlsat {
             bool is_sat = true;
             polynomial_ref pr(m_pm);
             polynomial_ref_vector ps(m_pm);
+
             u_map<literal> b2l;
+            scoped_literal_vector lits(m_solver);
             svector<bool> even;
             unsigned num_atoms = m_atoms.size();
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a = m_atoms[j];
-
                 if (a && a->is_ineq_atom()) {
                     ineq_atom const& a1 = *to_ineq_atom(a);
                     unsigned sz = a1.size();
@@ -2708,16 +2710,13 @@ namespace nlsat {
                     }        
                     if (!change) continue;
                     literal l = mk_ineq_literal(k, ps.size(), ps.c_ptr(), even.c_ptr()); 
+                    lits.push_back(l);
                     if (a1.m_bool_var != l.var()) {                        
                         b2l.insert(a1.m_bool_var, l);
-                        inc_ref(l);
                     }
                 }
             }
             is_sat = update_clauses(b2l);
-            for (auto const& kv : b2l) {
-                dec_ref(kv.m_value);
-            }
             return is_sat;
         }
 
