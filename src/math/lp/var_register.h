@@ -50,7 +50,7 @@ public:
     }
 
     unsigned add_var(unsigned user_var, bool is_int) {
-        if (user_var + 1) { // user_var != -1
+        if (user_var != UINT_MAX) {
             auto t = m_external_to_local.find(user_var);
             if (t != m_external_to_local.end()) {
                 return t->second;
@@ -58,7 +58,11 @@ public:
         }
         
         m_local_to_external.push_back(ext_var_info(user_var, is_int));
-        return m_external_to_local[user_var] = size() - 1 + m_local_offset;
+        unsigned local = size() - 1 + m_local_offset;
+        if (user_var != UINT_MAX)            
+            m_external_to_local[user_var] = local;
+        
+        return local;
     }
 
     svector<unsigned> vars() const {
@@ -69,15 +73,15 @@ public:
         return ret;
     }
 
-    // returns -1 if 
+    // returns UINT_MAX if 
     unsigned local_to_external(unsigned local_var) const {
-        if (local_var + 1 == 0) // local_var == -1
-            return -1;
+        if (local_var == UINT_MAX)
+            return UINT_MAX;
         if (local_var < m_local_offset)
-            return -1;
+            return UINT_MAX;
         unsigned k = local_var - m_local_offset;
         if (k >= m_local_to_external.size())
-            return -1;
+            return UINT_MAX;
         return m_local_to_external[k].external_j();
     }
     unsigned size() const {
@@ -102,7 +106,7 @@ public:
     bool external_is_used(unsigned ext_j, unsigned & local_j ) const {
         auto it = m_external_to_local.find(ext_j);
         if ( it == m_external_to_local.end()) {
-            local_j = -1;
+            local_j = UINT_MAX;
             return false;
         }
         local_j = it->second;
@@ -112,7 +116,7 @@ public:
     bool external_is_used(unsigned ext_j, unsigned & local_j, bool & is_int ) const {
         auto it = m_external_to_local.find(ext_j);
         if ( it == m_external_to_local.end()){
-            local_j = -1;
+            local_j = UINT_MAX;
             return false;
         }
         local_j = it->second;
