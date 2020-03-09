@@ -50,11 +50,13 @@ public:
     }
 
     unsigned add_var(unsigned user_var, bool is_int) {
-        auto t = m_external_to_local.find(user_var);
-        if (t != m_external_to_local.end()) {
-            return t->second;
+        if (user_var + 1) { // user_var != -1
+            auto t = m_external_to_local.find(user_var);
+            if (t != m_external_to_local.end()) {
+                return t->second;
+            }
         }
-
+        
         m_local_to_external.push_back(ext_var_info(user_var, is_int));
         return m_external_to_local[user_var] = size() - 1 + m_local_offset;
     }
