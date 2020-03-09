@@ -89,6 +89,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     ADD_SUBTYPE(m, func_entry, FuncEntry, object);
     ADD_SUBTYPE(m, stats, Stats, object);
     ADD_SUBTYPE(m, apply_result, ApplyResult, object);
+    ADD_SUBTYPE(m, fixedpoint, Fixedpoint, object);
 
     // -------------------------------------------------------------------------
 
@@ -315,6 +316,32 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         // .method("cubes", static_cast<cube_generator (solver::*)()>(&solver::cubes))
         // .method("cubes", static_cast<cube_generator (solver::*)(expr_vector &)>(&solver::cubes))
         .STRING(solver);
+
+    // -------------------------------------------------------------------------
+
+    TYPE_OBJ(fixedpoint)
+        .constructor<context &>()
+        .MM(fixedpoint, from_string)
+        .MM(fixedpoint, from_file)
+        .MM(fixedpoint, add_rule)
+        .MM(fixedpoint, add_fact)
+        .method("query", static_cast<check_result (fixedpoint::*)(expr &)>(&fixedpoint::query))
+        .method("query", static_cast<check_result (fixedpoint::*)(func_decl_vector &)>(&fixedpoint::query))
+        .MM(fixedpoint, get_answer)
+        .MM(fixedpoint, reason_unknown)
+        .MM(fixedpoint, update_rule)
+        .MM(fixedpoint, get_num_levels)
+        .MM(fixedpoint, get_cover_delta)
+        .MM(fixedpoint, add_cover)
+        .MM(fixedpoint, statistics)
+        .MM(fixedpoint, register_relation)
+        .MM(fixedpoint, assertions)
+        .MM(fixedpoint, rules)
+        .method("set", static_cast<void (fixedpoint::*)(params const &)>(&fixedpoint::set))
+        .MM(fixedpoint, help)
+        .MM(fixedpoint, get_param_descrs)
+        .method("to_string", static_cast<std::string (fixedpoint::*)(expr_vector const &)>(&fixedpoint::to_string))
+        .STRING(fixedpoint);
 
     // -------------------------------------------------------------------------
 
