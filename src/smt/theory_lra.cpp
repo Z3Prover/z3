@@ -1923,6 +1923,8 @@ public:
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
+				if (!can_get_ivalue(v))
+					continue;
                 lp::impq val_v = get_ivalue(v);
                 if (val_v.y.is_zero() && val_v.x == div(r1.x, r2)) continue;
             
