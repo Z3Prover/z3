@@ -194,7 +194,9 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
               if (g->mc()) g->mc()->display(tout << "g:");
               if (md) tout << *md.get() << "\n";
               );
-
+        if (m_mc && md) {
+            (*m_mc)(md);
+        }
         m_mc = concat(g->mc(), m_mc.get());
 
     }
