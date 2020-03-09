@@ -278,11 +278,14 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     // -------------------------------------------------------------------------
 
+    m.map_type<solver::simple>("SolverSimple");
+    m.map_type<solver::translate>("SolverTranslate");
+
     TYPE_OBJ(solver)
         .constructor<context &>()
-        // .constructor<context &, simple>()
+        .constructor<context &, solver::simple>()
         .constructor<context &, char const *>()
-        // .constructor<context &, solver const &, tranlate>()
+        .constructor<context &, solver const &, solver::translate>()
         .method("set", static_cast<void (solver::*)(params const &)>(&solver::set))
         .method("set", static_cast<void (solver::*)(char const *, double)>(&solver::set))
         .method("set", static_cast<void (solver::*)(char const *, symbol const &)>(&solver::set))
@@ -307,8 +310,15 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(solver, assertions)
         .MM(solver, non_units)
         .MM(solver, units)
-        // expr_vector trail()
-        // expr_vector trail(array<unsigned>& levels)
+        .method("trail", static_cast<expr_vector (solver::*)() const>(&solver::trail))
+        .method("trail", [](solver &s, jlcxx::ArrayRef<unsigned> levels) {
+            int sz = levels.size();
+            z3::array<unsigned> _levels(sz);
+            for (int i = 0; i < sz; i++) {
+                _levels[i] = levels[i];
+            }
+            return s.trail(_levels);
+        })
         .MM(solver, proof)
         .MM(solver, to_smt2)
         .MM(solver, dimacs)
@@ -521,8 +531,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method("array_sort", static_cast<sort (context::*)(sort, sort)>(&context::array_sort))
         .method("array_sort", static_cast<sort (context::*)(sort_vector const&, sort)>(&context::array_sort))
         .method("fpa_sort", static_cast<sort (context::*)(unsigned, unsigned)>(&context::fpa_sort))
-        //  template<size_t precision>
-        //  sort fpa_sort();
+        .method("fpa_sort_16", static_cast<sort (context::*)()>(&context::fpa_sort<16>))
+        .method("fpa_sort_32", static_cast<sort (context::*)()>(&context::fpa_sort<32>))
+        .method("fpa_sort_64", static_cast<sort (context::*)()>(&context::fpa_sort<64>))
+        .method("fpa_sort_128", static_cast<sort (context::*)()>(&context::fpa_sort<128>))
         .MM(context, fpa_rounding_mode)
         .MM(context, set_rounding_mode)
         .method("enumeration_sort", 
@@ -575,8 +587,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(context, real_const)
         .MM(context, bv_const)
         .method("fpa_const", static_cast<expr (context::*)(char const *, unsigned, unsigned)>(&context::fpa_const))
-        // template<size_t precision>
-        // expr fpa_const(char const * name);
+        .method("fpa_const_16", static_cast<expr (context::*)(char const *)>(&context::fpa_const<16>))
+        .method("fpa_const_32", static_cast<expr (context::*)(char const *)>(&context::fpa_const<32>))
+        .method("fpa_const_64", static_cast<expr (context::*)(char const *)>(&context::fpa_const<64>))
+        .method("fpa_const_128", static_cast<expr (context::*)(char const *)>(&context::fpa_const<128>))
         //
         .MM(context, bool_val)
         //
@@ -612,5 +626,4 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method("parse_string", static_cast<expr_vector (context::*)(char const*, sort_vector const&, func_decl_vector const&)>(&context::parse_string))
         .method("parse_file", static_cast<expr_vector (context::*)(char const*)>(&context::parse_file))
         .method("parse_file", static_cast<expr_vector (context::*)(char const*, sort_vector const&, func_decl_vector const&)>(&context::parse_file));
-
 }
