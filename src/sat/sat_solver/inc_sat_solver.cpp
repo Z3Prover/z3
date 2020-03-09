@@ -33,7 +33,6 @@ Notes:
 #include "tactic/arith/card2bv_tactic.h"
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/core/simplify_tactic.h"
-#include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/bv/bit_blaster_model_converter.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_v2_pp.h"
@@ -509,6 +508,7 @@ public:
             m_cached_mc = m_mcs.back();
             m_cached_mc = concat(solver::get_model_converter().get(), m_cached_mc.get());
             m_cached_mc = concat(m_cached_mc.get(), m_sat_mc.get());
+            TRACE("sat", m_cached_mc->display(tout););
             return m_cached_mc;
         }
         else {
@@ -556,12 +556,11 @@ public:
         m_preprocess =
             and_then(mk_simplify_tactic(m),
                      mk_propagate_values_tactic(m),
-                     //time consuming if done in inner loop: mk_solve_eqs_tactic(m, simp1_p),
                      mk_card2bv_tactic(m, m_params),                  // updates model converter
                      using_params(mk_simplify_tactic(m), simp1_p),
                      mk_max_bv_sharing_tactic(m),
-                     mk_bit_blaster_tactic(m, m_bb_rewriter.get())
-                     /*TBD remove and check what simplifier does with expansion */                   , using_params(mk_simplify_tactic(m), simp2_p)
+                     mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
+                     using_params(mk_simplify_tactic(m), simp2_p)
                      );
         while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
@@ -878,14 +877,18 @@ private:
             return;
         }
         TRACE("sat", m_solver.display_model(tout););
+        CTRACE("sat", m_sat_mc, m_sat_mc->display(tout););
         sat::model ll_m = m_solver.get_model();
         mdl = alloc(model, m);
         if (m_sat_mc) {
             (*m_sat_mc)(ll_m);
         }        
-        for (sat::bool_var v = 0; m_sat_mc && v < m_sat_mc->num_vars(); ++v) {
-            expr* n = m_sat_mc->var2expr(v);
-            if (!n || !is_app(n) || to_app(n)->get_num_args() > 0) {
+        app_ref_vector var2expr(m);
+        m_map.mk_var_inv(var2expr);
+        
+        for (unsigned v = 0; v < var2expr.size(); ++v) {
+            app * n = var2expr.get(v);
+            if (!n || !is_uninterp_const(n)) {
                 continue;
             }
             switch (sat::value_at(v, ll_m)) {
@@ -904,7 +907,8 @@ private:
         if (m_sat_mc) {
             (*m_sat_mc)(mdl);
         }
-        if (m_mcs.back()) {            
+        if (m_mcs.back()) {      
+            TRACE("sat", m_mcs.back()->display(tout););
             (*m_mcs.back())(mdl);
         }
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););        
@@ -916,12 +920,11 @@ private:
         model_evaluator eval(*mdl);
         eval.set_model_completion(true);
         bool all_true = true;
-        //unsigned i = 0;
         for (expr * f : m_fmls) {
             expr_ref tmp(m);
             eval(f, tmp);
             CTRACE("sat", !m.is_true(tmp),
-                   tout << "Evaluation failed: " << mk_pp(f, m) << " to " << mk_pp(f, m) << "\n";
+                   tout << "Evaluation failed: " << mk_pp(f, m) << " to " << tmp << "\n";
                    model_smt2_pp(tout, m, *(mdl.get()), 0););
             if (!m.is_true(tmp)) {
                 IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(f, m) << "\n");

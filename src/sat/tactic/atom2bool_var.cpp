@@ -33,6 +33,7 @@ void atom2bool_var::mk_inv(expr_ref_vector & lit2expr) const {
 
 void atom2bool_var::mk_var_inv(app_ref_vector & var2expr) const {
     for (auto const& kv : m_mapping) {
+        var2expr.reserve(kv.m_value + 1);
         var2expr.set(kv.m_value, to_app(kv.m_key));
     }
 }
