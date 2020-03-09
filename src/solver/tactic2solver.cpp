@@ -120,6 +120,7 @@ void tactic2solver::updt_params(params_ref const & p) {
 }
 
 void tactic2solver::collect_param_descrs(param_descrs & r) {
+    solver::collect_param_descrs(r);
     if (m_tactic.get())
         m_tactic->collect_param_descrs(r);
 }
