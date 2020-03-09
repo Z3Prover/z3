@@ -32,9 +32,6 @@ using namespace z3;
 
 namespace jlcxx
 {
-    template<> struct IsMirroredType<check_result>  : std::true_type {};
-    template<> struct IsMirroredType<rounding_mode> : std::true_type {};
-
     template<> struct SuperType<solver>       { typedef object type; };
     template<> struct SuperType<goal>         { typedef object type; };
     template<> struct SuperType<apply_result> { typedef object type; };
@@ -53,6 +50,10 @@ namespace jlcxx
     template<> struct SuperType<expr>         { typedef ast type; };
     template<> struct SuperType<sort>         { typedef ast type; };
     template<> struct SuperType<func_decl>    { typedef ast type; };
+
+    template<> struct IsMirroredType<solver::simple>    : std::false_type { };
+    template<> struct IsMirroredType<solver::translate> : std::false_type { };
+    template<> struct IsMirroredType<optimize::handle>  : std::false_type { };
 }
 
 JLCXX_MODULE define_julia_module(jlcxx::Module &m)
@@ -278,8 +279,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     // -------------------------------------------------------------------------
 
-    m.map_type<solver::simple>("SolverSimple");
-    m.map_type<solver::translate>("SolverTranslate");
+    m.add_type<solver::simple>("SolverSimple");
+    m.add_type<solver::translate>("SolverTranslate");
 
     TYPE_OBJ(solver)
         .constructor<context &>()
