@@ -516,9 +516,9 @@ class solve_eqs_tactic : public tactic {
                         occ.mark(e, occ.is_marked(body));
                         m_todo.pop_back();
                     }
-					else {
-						m_todo.push_back(body);
-					}
+                    else {
+                        m_todo.push_back(body);
+                    }
                 }
                 else {
                     visited.mark(e, true);
