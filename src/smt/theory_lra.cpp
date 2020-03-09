@@ -584,18 +584,27 @@ class theory_lra::imp {
                 coeffs[index].neg();
                 terms[index] = n1;
             }
+            else if (a.is_to_real(n, n1)) {
+                terms[index] = n1;
+                if (!ctx().e_internalized(n)) {
+                    app* t = to_app(n);
+                    internalize_args(t);
+                    mk_enode(t);
+                    theory_var v = mk_var(n);
+                    theory_var w = mk_var(n1);
+                    lpvar vj = register_theory_var_in_lar_solver(v);
+                    lpvar wj = register_theory_var_in_lar_solver(w);
+                    auto lu_constraints = lp().add_equality(vj, wj);
+                    add_def_constraint(lu_constraints.first);
+                    add_def_constraint(lu_constraints.second);
+                }
+            }
             else if (is_app(n) && a.get_family_id() == to_app(n)->get_family_id()) {
                 bool is_first = !ctx().e_internalized(n);
                 app* t = to_app(n);
                 internalize_args(t);
                 mk_enode(t);
-                theory_var v;
-                if (a.is_to_real(n, n1)) {
-                    v = mk_var(n1);
-                }
-                else {
-                    v = mk_var(n);
-                }
+                theory_var v = mk_var(n);
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
                 ++index;
@@ -605,9 +614,6 @@ class theory_lra::imp {
                 else if (a.is_to_int(n, n1)) {
                     if (!ctx().relevancy())
                         mk_to_int_axiom(t);
-                }
-                else if (a.is_to_real(n, n1)) {
-                    // already handled
                 }
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
@@ -760,7 +766,7 @@ class theory_lra::imp {
         return th.is_attached_to_var(e);
     }
 
-    theory_var mk_var(expr* n, bool internalize = true) {
+    theory_var mk_var(expr* n) {
         if (!ctx().e_internalized(n)) {
             ctx().internalize(n, false);                
         }
@@ -922,7 +928,7 @@ class theory_lra::imp {
         TRACE("arith", tout << expr_ref(term, m) << "\n";);
         if (ctx().e_internalized(term)) {
             IF_VERBOSE(0, verbose_stream() << "repeated term\n";);
-            return mk_var(term, false);
+            return mk_var(term);
         }
         linearize_term(term, st);
         if (is_unit_var(st)) {
