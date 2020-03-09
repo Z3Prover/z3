@@ -90,6 +90,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     ADD_SUBTYPE(m, stats, Stats, object);
     ADD_SUBTYPE(m, apply_result, ApplyResult, object);
     ADD_SUBTYPE(m, fixedpoint, Fixedpoint, object);
+    ADD_SUBTYPE(m, optimize, Optimize, object);
 
     // -------------------------------------------------------------------------
 
@@ -342,6 +343,36 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(fixedpoint, get_param_descrs)
         .method("to_string", static_cast<std::string (fixedpoint::*)(expr_vector const &)>(&fixedpoint::to_string))
         .STRING(fixedpoint);
+
+    // -------------------------------------------------------------------------
+
+    m.add_type<optimize::handle>("OptimizeHandle")
+        .MM(optimize::handle, h);
+
+    TYPE_OBJ(optimize)
+        .constructor<context &>()
+        .method("add", static_cast<void (optimize::*)(expr const &)>(&optimize::add))
+        .method("add", static_cast<optimize::handle (optimize::*)(expr const &, unsigned)>(&optimize::add))
+        .method("add", static_cast<void (optimize::*)(expr const &, expr const &)>(&optimize::add))
+        .method("add", static_cast<optimize::handle (optimize::*)(expr const &, char const *)>(&optimize::add))
+        .MM(optimize, maximize)
+        .MM(optimize, minimize)
+        .MM(optimize, push)
+        .MM(optimize, pop)
+        .method("check", static_cast<check_result (optimize::*)()>(&optimize::check))
+        .method("check", static_cast<check_result (optimize::*)(const expr_vector &)>(&optimize::check))
+        .MM(optimize, get_model)
+        .MM(optimize, unsat_core)
+        .MM(optimize, set)
+        .MM(optimize, lower)
+        .MM(optimize, upper)
+        .MM(optimize, assertions)
+        .MM(optimize, objectives)
+        .MM(optimize, statistics)
+        .MM(optimize, from_file)
+        .MM(optimize, from_string)
+        .MM(optimize, help)
+        .STRING(optimize);
 
     // -------------------------------------------------------------------------
 
