@@ -184,7 +184,7 @@ public:
         m_mc = nullptr;
         unsigned num_reduced = 0;
         {
-            tactic_report report("bv-size-reduction", g);
+            tactic_report report("reduce-bv-size", g);
             collect_bounds(g);
             
             // create substitution
@@ -375,6 +375,7 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-size-reduction", g);
     fail_if_unsat_core_generation("bv-size-reduction", g);
+    TRACE("goal", g->display(tout););
     result.reset();
     model_converter_ref mc;
     run(*(g.get()), mc);

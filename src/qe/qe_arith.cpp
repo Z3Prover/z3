@@ -67,6 +67,7 @@ namespace qe {
                        CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
                        SASSERT(m.is_true(val)););
 
+            TRACE("opt", tout << mk_pp(lit, m) << " " << a.is_lt(lit) << " " << a.is_gt(lit) << "\n";);
             bool is_not = m.is_not(lit, lit);
             if (is_not) {
                 mul.neg();
@@ -325,6 +326,7 @@ namespace qe {
                 }
             }
             fmls.shrink(j);
+            TRACE("qe", tout << "formulas\n" << fmls << "\n";);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope
@@ -380,7 +382,11 @@ namespace qe {
                   }
                   mbo.display(tout););
             vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.c_ptr(), compute_def);
-            TRACE("qe", mbo.display(tout););
+            TRACE("qe", mbo.display(tout << "mbo result\n");
+                  for (auto const& d : defs) {
+                      tout << "def: " << d << "\n";
+                  }
+                  );
             vector<row> rows;
             mbo.get_live_rows(rows);
             

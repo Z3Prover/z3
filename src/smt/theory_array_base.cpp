@@ -342,8 +342,8 @@ namespace smt {
             args1.push_back(k);
             args2.push_back(k);
         }
-        expr * sel1 = mk_select(args1.size(), args1.c_ptr());
-        expr * sel2 = mk_select(args2.size(), args2.c_ptr());
+        expr_ref sel1(mk_select(args1.size(), args1.c_ptr()), m);
+        expr_ref sel2(mk_select(args2.size(), args2.c_ptr()), m);
         TRACE("ext", tout << mk_bounded_pp(sel1, m) << "\n" << mk_bounded_pp(sel2, m) << "\n";);
         literal n1_eq_n2     = mk_eq(e1, e2, true);
         literal sel1_eq_sel2 = mk_eq(sel1, sel2, true);
@@ -371,10 +371,8 @@ namespace smt {
         literal n1_eq_n2 = mk_eq(e1, e2, true);
         ctx.mark_as_relevant(n1_eq_n2);
         expr_ref_vector args1(m), args2(m);
-        expr_ref f1 = instantiate_lambda(e1);
-        expr_ref f2 = instantiate_lambda(e2);
-        args1.push_back(f1);
-        args2.push_back(f2);
+        args1.push_back(instantiate_lambda(e1));
+        args2.push_back(instantiate_lambda(e2));
         svector<symbol> names;
         sort_ref_vector sorts(m);
         for (unsigned i = 0; i < dimension; i++) {
@@ -403,7 +401,7 @@ namespace smt {
         quantifier * q = m.is_lambda_def(e->get_decl());
         expr_ref f(e, m);
         if (q) {
-            var_subst sub(m, false);
+            var_subst sub(m);
             f = sub(q, e->get_num_args(), e->get_args());
         }
         return f;
@@ -997,6 +995,8 @@ namespace smt {
                     // IMPORTANT:
                     // The implementation should not assume a fresh value is created for 
                     // the else_val if the range is finite
+
+                    TRACE("array", tout << mk_pp(n->get_owner(), get_manager()) << " " << mk_pp(range, get_manager()) << " " << range->is_infinite() << "\n";);
                     if (range->is_infinite())
                         else_val = TAG(void*, m.mk_extra_fresh_value(range), 1);
                     else

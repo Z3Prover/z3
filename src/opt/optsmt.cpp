@@ -114,7 +114,7 @@ namespace opt {
             SASSERT(delta_per_step.is_int());
             SASSERT(delta_per_step.is_pos());
             is_sat = m_s->check_sat(0, nullptr);
-            if (is_sat == l_true) {                
+            if (is_sat == l_true) { 
                 bound = update_lower();
                 if (!get_max_delta(lower, delta_index)) {
                     delta_per_step = rational::one();
@@ -176,12 +176,11 @@ namespace opt {
         arith_util arith(m);
         bool is_int = arith.is_int(m_objs[obj_index].get());
         lbool is_sat = l_true;
-        expr_ref bound(m);
+        expr_ref bound(m), last_bound(m);
 
         for (unsigned i = 0; i < obj_index; ++i) {
             commit_assignment(i);
         }
-        m_s->get_model(m_model);
 
         unsigned steps = 0;
         unsigned step_incs = 0;
@@ -219,7 +218,11 @@ namespace opt {
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
                 }
                 TRACE("opt", tout << "delta: " << delta_per_step << " " << bound << "\n";);
+                if (bound == last_bound) {
+                    break;
+                }
                 m_s->assert_expr(bound);
+                last_bound = bound;
             }
             else if (is_sat == l_false && delta_per_step > rational::one()) {
                 steps = 0;

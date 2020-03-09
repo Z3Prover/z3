@@ -3474,9 +3474,9 @@ extern "C" {
 
        \pre  Z3_is_string(c, s)
 
-       def_API('Z3_get_lstring' ,STRING ,(_in(CONTEXT), _in(AST), _out(UINT)))
+       def_API('Z3_get_lstring' ,CHAR_PTR ,(_in(CONTEXT), _in(AST), _out(UINT)))
      */
-    Z3_string Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length);
+    Z3_char_ptr Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length);
 
     /**
        \brief Create an empty sequence of the sequence sort \c seq.
@@ -6633,9 +6633,9 @@ extern "C" {
        \brief Convert a solver into a DIMACS formatted string.
        \sa Z3_goal_to_diamcs_string for requirements.
 
-       def_API('Z3_solver_to_dimacs_string', STRING, (_in(CONTEXT), _in(SOLVER)))
+       def_API('Z3_solver_to_dimacs_string', STRING, (_in(CONTEXT), _in(SOLVER), _in(BOOL)))
     */
-    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s);
+    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s, bool include_names);
 
     /*@}*/
 

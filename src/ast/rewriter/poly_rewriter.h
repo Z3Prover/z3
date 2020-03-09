@@ -108,7 +108,6 @@ public:
         updt_params(p);
         SASSERT(!m_som || m_flat); // som of monomials form requires flattening to be enabled.
         SASSERT(!m_som || !m_hoist_mul); // som is mutually exclusive with hoisting multiplication.
-        updt_params(p);
     }
 
     ast_manager & m() const { return Config::m(); }

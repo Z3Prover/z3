@@ -173,7 +173,7 @@ namespace smt {
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
             bindings.push_back(n->get_arg(i)->get_owner());
         }
-        unsigned base_id = get_manager().has_trace_stream() && accessors.size() > 0 ? m_util.get_plugin()->get_axiom_base_id(d->get_name()) : 0;
+        unsigned base_id = get_manager().has_trace_stream() && accessors.size() > 0 ? m_util.plugin().get_axiom_base_id(d->get_name()) : 0;
         unsigned i = 0;
         for (func_decl * acc : accessors) {
             app_ref acc_app(m.mk_app(acc, n->get_owner()), m);

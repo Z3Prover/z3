@@ -663,16 +663,6 @@ bool interval_manager<C>::check_invariant(interval const & n) const {
 }
 
 template<typename C>
-void interval_manager<C>::set(numeral const& k, interval & b) {
-    set_lower_is_inf(b, false);
-    set_upper_is_inf(b, false);
-    m().set(lower(b), k);
-    m().set(upper(b), k);
-    set_lower_is_open(b, false);
-    set_upper_is_open(b, false);
-}
-
-template<typename C>
 void interval_manager<C>::set(interval & t, interval const & s) {
     if (&t == &const_cast<interval&>(s))
         return;
@@ -696,6 +686,17 @@ void interval_manager<C>::set(interval & t, interval const & s) {
 }
 
 template<typename C>
+void interval_manager<C>::set(interval & t, numeral const& n) {
+    m().set(lower(t), n);
+    set_lower_is_inf(t, false);
+    m().set(upper(t), n);
+    set_upper_is_inf(t, false);    
+    set_lower_is_open(t, false);
+    set_upper_is_open(t, false);
+    SASSERT(check_invariant(t));
+}
+
+template<typename C>
 bool interval_manager<C>::eq(interval const & a, interval const & b) const {
     return
         ::eq(m(), lower(a), lower_kind(a), lower(b), lower_kind(b)) &&
@@ -712,31 +713,31 @@ bool interval_manager<C>::before(interval const & a, interval const & b) const {
 }
 
 template<typename C>
-void interval_manager<C>::neg_jst(interval const & a, interval_deps & b_deps) {
+void interval_manager<C>::neg_jst(interval const & a, interval_deps_combine_rule & b_deps) {
     if (lower_is_inf(a)) {
         if (upper_is_inf(a)) {
-            b_deps.m_lower_deps = 0;
-            b_deps.m_upper_deps = 0;
+            b_deps.m_lower_combine = 0;
+            b_deps.m_upper_combine = 0;
         }
         else {
-            b_deps.m_lower_deps = DEP_IN_UPPER1;
-            b_deps.m_upper_deps = 0;
+            b_deps.m_lower_combine = DEP_IN_UPPER1;
+            b_deps.m_upper_combine = 0;
         }
     }
     else {
         if (upper_is_inf(a)) {
-            b_deps.m_lower_deps = 0;
-            b_deps.m_upper_deps = DEP_IN_LOWER1;
+            b_deps.m_lower_combine = 0;
+            b_deps.m_upper_combine = DEP_IN_LOWER1;
         }
         else {
-            b_deps.m_lower_deps = DEP_IN_UPPER1;
-            b_deps.m_upper_deps = DEP_IN_LOWER1;
+            b_deps.m_lower_combine = DEP_IN_UPPER1;
+            b_deps.m_upper_combine = DEP_IN_LOWER1;
         }
     }
 }
 
 template<typename C>
-void interval_manager<C>::neg(interval const & a, interval & b, interval_deps & b_deps) {
+void interval_manager<C>::neg(interval const & a, interval & b, interval_deps_combine_rule & b_deps) {
     neg_jst(a, b_deps);
     neg(a, b);
 }
@@ -791,13 +792,13 @@ void interval_manager<C>::neg(interval const & a, interval & b) {
 }
 
 template<typename C>
-void interval_manager<C>::add_jst(interval const & a, interval const & b, interval_deps & c_deps) {
-    c_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2;
-    c_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_UPPER2;
+void interval_manager<C>::add_jst(interval const & a, interval const & b, interval_deps_combine_rule & c_deps) {
+    c_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2;
+    c_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_UPPER2;
 }
 
 template<typename C>
-void interval_manager<C>::add(interval const & a, interval const & b, interval & c, interval_deps & c_deps) {
+void interval_manager<C>::add(interval const & a, interval const & b, interval & c, interval_deps_combine_rule & c_deps) {
     add_jst(a, b, c_deps);
     add(a, b, c);
 }
@@ -817,13 +818,13 @@ void interval_manager<C>::add(interval const & a, interval const & b, interval &
 }
 
 template<typename C>
-void interval_manager<C>::sub_jst(interval const & a, interval const & b, interval_deps & c_deps) {
-    c_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_UPPER2;
-    c_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2;
+void interval_manager<C>::sub_jst(interval const & a, interval const & b, interval_deps_combine_rule & c_deps) {
+    c_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_UPPER2;
+    c_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2;
 }
 
 template<typename C>
-void interval_manager<C>::sub(interval const & a, interval const & b, interval & c, interval_deps & c_deps) {
+void interval_manager<C>::sub(interval const & a, interval const & b, interval & c, interval_deps_combine_rule & c_deps) {
     sub_jst(a, b, c_deps);
     sub(a, b, c);
 }
@@ -843,18 +844,18 @@ void interval_manager<C>::sub(interval const & a, interval const & b, interval &
 }
 
 template<typename C>
-void interval_manager<C>::mul_jst(numeral const & k, interval const & a, interval_deps & b_deps) {
+void interval_manager<C>::mul_jst(numeral const & k, interval const & a, interval_deps_combine_rule & b_deps) {
     if (m().is_zero(k)) {
-        b_deps.m_lower_deps = 0;
-        b_deps.m_upper_deps = 0;
+        b_deps.m_lower_combine = 0;
+        b_deps.m_upper_combine = 0;
    }
     else if (m().is_neg(k)) {
-        b_deps.m_lower_deps = DEP_IN_UPPER1;
-        b_deps.m_upper_deps = DEP_IN_LOWER1;
+        b_deps.m_lower_combine = DEP_IN_UPPER1;
+        b_deps.m_upper_combine = DEP_IN_LOWER1;
     }
     else {
-        b_deps.m_lower_deps = DEP_IN_LOWER1;
-        b_deps.m_upper_deps = DEP_IN_UPPER1;
+        b_deps.m_lower_combine = DEP_IN_LOWER1;
+        b_deps.m_upper_combine = DEP_IN_UPPER1;
     }
 }
 
@@ -917,7 +918,7 @@ void interval_manager<C>::div_mul(numeral const & k, interval const & a, interva
 }
 
 template<typename C>
-void interval_manager<C>::mul(numeral const & k, interval const & a, interval & b, interval_deps & b_deps) {
+void interval_manager<C>::mul(numeral const & k, interval const & a, interval & b, interval_deps_combine_rule & b_deps) {
     mul_jst(k, a, b_deps);
     mul(k, a, b);
 }
@@ -930,57 +931,57 @@ void interval_manager<C>::mul(int n, int d, interval const & a, interval & b) {
 }
 
 template<typename C>
-void interval_manager<C>::div(interval const & a, numeral const & k, interval & b, interval_deps & b_deps) {
+void interval_manager<C>::div(interval const & a, numeral const & k, interval & b, interval_deps_combine_rule & b_deps) {
     div_jst(a, k, b_deps);
     div(a, k, b);
 }
 
 template<typename C>
-void interval_manager<C>::mul_jst(interval const & i1, interval const & i2, interval_deps & r_deps) {
+void interval_manager<C>::mul_jst(interval const & i1, interval const & i2, interval_deps_combine_rule & r_deps) {
     if (is_zero(i1)) {
-        r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
-        r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+        r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+        r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
     }
     else if (is_zero(i2)) {
-        r_deps.m_lower_deps = DEP_IN_LOWER2 | DEP_IN_UPPER2;
-        r_deps.m_upper_deps = DEP_IN_LOWER2 | DEP_IN_UPPER2;
+        r_deps.m_lower_combine = DEP_IN_LOWER2 | DEP_IN_UPPER2;
+        r_deps.m_upper_combine = DEP_IN_LOWER2 | DEP_IN_UPPER2;
     }
     else if (is_N(i1)) {
         if (is_N(i2)) {
             // x <= b <= 0, y <= d <= 0 --> b*d <= x*y
             // a <= x <= b <= 0, c <= y <= d <= 0 --> x*y <= a*c  (we can use the fact that x or y is always negative (i.e., b is neg or d is neg))
-            r_deps.m_lower_deps = DEP_IN_UPPER1 | DEP_IN_UPPER2;
-            r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER1; // we can replace DEP_IN_UPPER1 with DEP_IN_UPPER2
+            r_deps.m_lower_combine = DEP_IN_UPPER1 | DEP_IN_UPPER2;
+            r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER1; // we can replace DEP_IN_UPPER1 with DEP_IN_UPPER2
         }
         else if (is_M(i2)) {
             // a <= x <= b <= 0,  y <= d, d > 0 --> a*d <= x*y (uses the fact that b is not positive)
             // a <= x <= b <= 0,  c <= y, c < 0 --> x*y <= a*c (uses the fact that b is not positive)
-            r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_UPPER2 | DEP_IN_UPPER1;
-            r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER1;
+            r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_UPPER2 | DEP_IN_UPPER1;
+            r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER1;
         }
         else {
             // a <= x <= b <= 0, 0 <= c <= y <= d --> a*d <= x*y (uses the fact that x is neg (b is not positive) or y is pos (c is not negative))
             // x <= b <= 0,  0 <= c <= y --> x*y <= b*c
-            r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_UPPER2 | DEP_IN_UPPER1; // we can replace DEP_IN_UPPER1 with DEP_IN_UPPER2
-            r_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2;
+            r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_UPPER2 | DEP_IN_UPPER1; // we can replace DEP_IN_UPPER1 with DEP_IN_UPPER2
+            r_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2;
         }
     }
     else if (is_M(i1)) {
         if (is_N(i2)) {
             // b > 0, x <= b,  c <= y <= d <= 0 --> b*c <= x*y (uses the fact that d is not positive)
             // a < 0, a <= x,  c <= y <= d <= 0 --> x*y <= a*c (uses the fact that d is not positive)
-            r_deps.m_lower_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
-            r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
+            r_deps.m_lower_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
+            r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
         }
         else if (is_M(i2)) {
-            r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
-            r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
+            r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
+            r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
         }
         else {
             // a < 0, a <= x, 0 <= c <= y <= d --> a*d <= x*y (uses the fact that c is not negative)
             // b > 0, x <= b, 0 <= c <= y <= d --> x*y <= b*d (uses the fact that c is not negative)
-            r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_UPPER2 | DEP_IN_LOWER2;
-            r_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_UPPER2 | DEP_IN_LOWER2;
+            r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_UPPER2 | DEP_IN_LOWER2;
+            r_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_UPPER2 | DEP_IN_LOWER2;
         }
     }
     else {
@@ -988,27 +989,27 @@ void interval_manager<C>::mul_jst(interval const & i1, interval const & i2, inte
         if (is_N(i2)) {
             // 0 <= a <= x <= b,   c <= y <= d <= 0  -->  x*y <= b*c (uses the fact that x is pos (a is not neg) or y is neg (d is not pos))
             // 0 <= a <= x,  y <= d <= 0  --> a*d <= x*y
-            r_deps.m_lower_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_LOWER1; // we can replace DEP_IN_LOWER1 with DEP_IN_UPPER2
-            r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER2;
+            r_deps.m_lower_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_LOWER1; // we can replace DEP_IN_LOWER1 with DEP_IN_UPPER2
+            r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER2;
         }
         else if (is_M(i2)) {
             // 0 <= a <= x <= b,  c <= y --> b*c <= x*y (uses the fact that a is not negative)
             // 0 <= a <= x <= b,  y <= d --> x*y <= b*d (uses the fact that a is not negative)
-            r_deps.m_lower_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_LOWER1;
-            r_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_UPPER2 | DEP_IN_LOWER1;
+            r_deps.m_lower_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_LOWER1;
+            r_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_UPPER2 | DEP_IN_LOWER1;
         }
         else {
             SASSERT(is_P(i2));
             // 0 <= a <= x, 0 <= c <= y --> a*c <= x*y
             // x <= b, y <= d --> x*y <= b*d (uses the fact that x is pos (a is not negative) or y is pos (c is not negative))
-            r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2;
-            r_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_UPPER2 | DEP_IN_LOWER1; // we can replace DEP_IN_LOWER1 with DEP_IN_LOWER2
+            r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2;
+            r_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_UPPER2 | DEP_IN_LOWER1; // we can replace DEP_IN_LOWER1 with DEP_IN_LOWER2
         }
     }
 }
 
 template<typename C>
-void interval_manager<C>::mul(interval const & i1, interval const & i2, interval & r, interval_deps & r_deps) {
+void interval_manager<C>::mul(interval const & i1, interval const & i2, interval & r, interval_deps_combine_rule & r_deps) {
     mul_jst(i1, i2, r_deps);
     mul(i1, i2, r);
 }
@@ -1222,55 +1223,55 @@ void interval_manager<C>::mul(interval const & i1, interval const & i2, interval
 }
 
 template<typename C>
-void interval_manager<C>::power_jst(interval const & a, unsigned n, interval_deps & b_deps) {
+void interval_manager<C>::power_jst(interval const & a, unsigned n, interval_deps_combine_rule & b_deps) {
     if (n == 1) {
-        b_deps.m_lower_deps = DEP_IN_LOWER1;
-        b_deps.m_upper_deps = DEP_IN_UPPER1;
+        b_deps.m_lower_combine = DEP_IN_LOWER1;
+        b_deps.m_upper_combine = DEP_IN_UPPER1;
     }
     else if (n % 2 == 0) {
         if (lower_is_pos(a)) {
             // [l, u]^n = [l^n, u^n] if l > 0
             // 0 < l <= x      --> l^n <= x^n (lower bound guarantees that is positive)
             // 0 < l <= x <= u --> x^n <= u^n (use lower and upper bound -- need the fact that x is positive)
-            b_deps.m_lower_deps = DEP_IN_LOWER1;
+            b_deps.m_lower_combine = DEP_IN_LOWER1;
             if (upper_is_inf(a))
-                b_deps.m_upper_deps = 0;
+                b_deps.m_upper_combine = 0;
             else
-                b_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+                b_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
         }
         else if (upper_is_neg(a)) {
             // [l, u]^n = [u^n, l^n] if u < 0
             // l <= x <= u < 0   -->  x^n <= l^n (use lower and upper bound -- need the fact that x is negative)
             // x <= u < 0        -->  u^n <= x^n
-            b_deps.m_lower_deps = DEP_IN_UPPER1;
+            b_deps.m_lower_combine = DEP_IN_UPPER1;
             if (lower_is_inf(a))
-                b_deps.m_upper_deps = 0;
+                b_deps.m_upper_combine = 0;
             else
-                b_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+                b_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
         }
         else {
             // [l, u]^n = [0, max{l^n, u^n}] otherwise
             // we need both bounds to justify upper bound
-            b_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
-            b_deps.m_lower_deps = 0;
+            b_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+            b_deps.m_lower_combine = 0;
         }
     }
     else {
         // Remark: when n is odd x^n is monotonic.
         if (lower_is_inf(a))
-            b_deps.m_lower_deps = 0;
+            b_deps.m_lower_combine = 0;
         else
-            b_deps.m_lower_deps = DEP_IN_LOWER1;
+            b_deps.m_lower_combine = DEP_IN_LOWER1;
 
         if (upper_is_inf(a))
-            b_deps.m_upper_deps = 0;
+            b_deps.m_upper_combine = 0;
         else
-            b_deps.m_upper_deps = DEP_IN_UPPER1;
+            b_deps.m_upper_combine = DEP_IN_UPPER1;
     }
 }
 
 template<typename C>
-void interval_manager<C>::power(interval const & a, unsigned n, interval & b, interval_deps & b_deps) {
+void interval_manager<C>::power(interval const & a, unsigned n, interval & b, interval_deps_combine_rule & b_deps) {
     power_jst(a, n, b_deps);
     power(a, n, b);
 }
@@ -1391,7 +1392,7 @@ void interval_manager<C>::power(interval const & a, unsigned n, interval & b) {
 
 
 template<typename C>
-void interval_manager<C>::nth_root(interval const & a, unsigned n, numeral const & p, interval & b, interval_deps & b_deps) {
+void interval_manager<C>::nth_root(interval const & a, unsigned n, numeral const & p, interval & b, interval_deps_combine_rule & b_deps) {
     nth_root_jst(a, n, p, b_deps);
     nth_root(a, n, p, b);
 }
@@ -1436,16 +1437,16 @@ void interval_manager<C>::nth_root(interval const & a, unsigned n, numeral const
 }
 
 template<typename C>
-void interval_manager<C>::nth_root_jst(interval const & a, unsigned n, numeral const & p, interval_deps & b_deps) {
-    b_deps.m_lower_deps = DEP_IN_LOWER1;
+void interval_manager<C>::nth_root_jst(interval const & a, unsigned n, numeral const & p, interval_deps_combine_rule & b_deps) {
+    b_deps.m_lower_combine = DEP_IN_LOWER1;
     if (n % 2 == 0)
-        b_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+        b_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
     else
-        b_deps.m_upper_deps = DEP_IN_UPPER1;
+        b_deps.m_upper_combine = DEP_IN_UPPER1;
 }
 
 template<typename C>
-void interval_manager<C>::xn_eq_y(interval const & y, unsigned n, numeral const & p, interval & x, interval_deps & x_deps) {
+void interval_manager<C>::xn_eq_y(interval const & y, unsigned n, numeral const & p, interval & x, interval_deps_combine_rule & x_deps) {
     xn_eq_y_jst(y, n, p, x_deps);
     xn_eq_y(y, n, p, x);
 }
@@ -1485,29 +1486,29 @@ void interval_manager<C>::xn_eq_y(interval const & y, unsigned n, numeral const 
 }
 
 template<typename C>
-void interval_manager<C>::xn_eq_y_jst(interval const & y, unsigned n, numeral const & p, interval_deps & x_deps) {
+void interval_manager<C>::xn_eq_y_jst(interval const & y, unsigned n, numeral const & p, interval_deps_combine_rule & x_deps) {
     if (n % 2 == 0) {
-        x_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
-        x_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+        x_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+        x_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
     }
     else {
-        x_deps.m_lower_deps = DEP_IN_LOWER1;
-        x_deps.m_upper_deps = DEP_IN_UPPER1;
+        x_deps.m_lower_combine = DEP_IN_LOWER1;
+        x_deps.m_upper_combine = DEP_IN_UPPER1;
     }
 }
 
 template<typename C>
-void interval_manager<C>::inv_jst(interval const & a, interval_deps & b_deps) {
+void interval_manager<C>::inv_jst(interval const & a, interval_deps_combine_rule & b_deps) {
     SASSERT(!contains_zero(a));
     if (is_P1(a)) {
-        b_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
-        b_deps.m_upper_deps = DEP_IN_LOWER1;
+        b_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+        b_deps.m_upper_combine = DEP_IN_LOWER1;
     }
     else if (is_N1(a)) {
         // x <= u < 0 --> 1/u <= 1/x
         // l <= x <= u < 0 --> 1/l <= 1/x (use lower and upper bounds)
-        b_deps.m_lower_deps = DEP_IN_UPPER1;
-        b_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER1;
+        b_deps.m_lower_combine = DEP_IN_UPPER1;
+        b_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER1;
     }
     else {
         UNREACHABLE();
@@ -1515,7 +1516,7 @@ void interval_manager<C>::inv_jst(interval const & a, interval_deps & b_deps) {
 }
 
 template<typename C>
-void interval_manager<C>::inv(interval const & a, interval & b, interval_deps & b_deps) {
+void interval_manager<C>::inv(interval const & a, interval & b, interval_deps_combine_rule & b_deps) {
     inv_jst(a, b_deps);
     inv(a, b);
 }
@@ -1601,16 +1602,16 @@ void interval_manager<C>::inv(interval const & a, interval & b) {
 }
 
 template<typename C>
-void interval_manager<C>::div_jst(interval const & i1, interval const & i2, interval_deps & r_deps) {
+void interval_manager<C>::div_jst(interval const & i1, interval const & i2, interval_deps_combine_rule & r_deps) {
     SASSERT(!contains_zero(i2));
     if (is_zero(i1)) {
         if (is_P1(i2)) {
-            r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2;
-            r_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2;
+            r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2;
+            r_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2;
         }
         else {
-            r_deps.m_lower_deps = DEP_IN_UPPER1 | DEP_IN_UPPER2;
-            r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER2;
+            r_deps.m_lower_combine = DEP_IN_UPPER1 | DEP_IN_UPPER2;
+            r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER2;
         }
     }
     else {
@@ -1618,28 +1619,28 @@ void interval_manager<C>::div_jst(interval const & i1, interval const & i2, inte
             if (is_N1(i2)) {
                 // x <= b <= 0,      c <= y <= d < 0 --> b/c <= x/y
                 // a <= x <= b <= 0,      y <= d < 0 -->        x/y <= a/d
-                r_deps.m_lower_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
-                r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER2;
+                r_deps.m_lower_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
+                r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER2;
             }
             else {
                 // a <= x, a < 0,   0 < c <= y       -->  a/c <= x/y
                 // x <= b <= 0,     0 < c <= y <= d  -->         x/y <= b/d
-                r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2;
-                r_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
+                r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2;
+                r_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
             }
         }
         else if (is_M(i1)) {
             if (is_N1(i2)) {
                 // 0 < a <= x <= b < 0,  y <= d < 0   --> b/d <= x/y
                 // 0 < a <= x <= b < 0,  y <= d < 0   -->        x/y <= a/d
-                r_deps.m_lower_deps = DEP_IN_UPPER1 | DEP_IN_UPPER2;
-                r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_UPPER2;
+                r_deps.m_lower_combine = DEP_IN_UPPER1 | DEP_IN_UPPER2;
+                r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_UPPER2;
             }
             else {
                 // 0 < a <= x <= b < 0, 0 < c <= y  --> a/c <= x/y
                 // 0 < a <= x <= b < 0, 0 < c <= y  -->        x/y <= b/c
-                r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2;
-                r_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2;
+                r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2;
+                r_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2;
             }
         }
         else {
@@ -1647,22 +1648,22 @@ void interval_manager<C>::div_jst(interval const & i1, interval const & i2, inte
             if (is_N1(i2)) {
                 // b > 0,    x <= b,   c <= y <= d < 0    -->  b/d <= x/y
                 // 0 <= a <= x,        c <= y <= d < 0    -->         x/y  <= a/c
-                r_deps.m_lower_deps = DEP_IN_UPPER1 | DEP_IN_UPPER2;
-                r_deps.m_upper_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
+                r_deps.m_lower_combine = DEP_IN_UPPER1 | DEP_IN_UPPER2;
+                r_deps.m_upper_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
             }
             else {
                 SASSERT(is_P1(i2));
                 // 0 <= a <= x,      0 < c <= y <= d    -->   a/d <= x/y
                 // b > 0     x <= b, 0 < c <= y         -->          x/y <= b/c
-                r_deps.m_lower_deps = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
-                r_deps.m_upper_deps = DEP_IN_UPPER1 | DEP_IN_LOWER2;
+                r_deps.m_lower_combine = DEP_IN_LOWER1 | DEP_IN_LOWER2 | DEP_IN_UPPER2;
+                r_deps.m_upper_combine = DEP_IN_UPPER1 | DEP_IN_LOWER2;
             }
         }
     }
 }
 
 template<typename C>
-void interval_manager<C>::div(interval const & i1, interval const & i2, interval & r, interval_deps & r_deps) {
+void interval_manager<C>::div(interval const & i1, interval const & i2, interval & r, interval_deps_combine_rule & r_deps) {
     div_jst(i1, i2, r_deps);
     div(i1, i2, r);
 }

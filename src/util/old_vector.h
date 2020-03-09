@@ -414,20 +414,29 @@ public:
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--; 
     }
 
-    void push_back(T const & elem) {
+    old_vector& push_back(T const & elem) {
         if (m_data == nullptr || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
             expand_vector();
         }
         new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(elem); 
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]++;
+        return *this;
     }
 
-    void push_back(T && elem) {
+    template <typename ...Args> 
+    old_vector& push_back(T const& elem, T elem2, Args ... elems) {
+        push_back(elem);
+        push_back(elem2, elems ...);
+        return *this;
+    }
+
+    old_vector& push_back(T && elem) {
         if (m_data == nullptr || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
             expand_vector();
         }
         new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(std::move(elem));
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]++;
+        return *this;
     }
 
     void insert(T const & elem) {

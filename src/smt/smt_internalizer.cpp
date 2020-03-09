@@ -183,19 +183,8 @@ namespace smt {
     }
 
 #define DEEP_EXPR_THRESHOLD 1024
- 
-    /**
-       \brief Internalize an expression asserted into the logical context using the given proof as a justification.
-       
-       \remark pr is 0 if proofs are disabled.
-    */
-    void context::internalize_assertion(expr * n, proof * pr, unsigned generation) {
-        TRACE("internalize_assertion", tout << mk_pp(n, m) << "\n";); 
-        TRACE("internalize_assertion_ll", tout << mk_ll_pp(n, m) << "\n";); 
-        TRACE("generation", tout << "generation: " << m_generation << "\n";);
-        TRACE("incompleteness_bug", tout << "[internalize-assertion]: #" << n->get_id() << "\n";);
-        flet<unsigned> l(m_generation, generation);
-        m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
+
+    void context::internalize_deep(expr* n) {
         if (::get_depth(n) > DEEP_EXPR_THRESHOLD) {
             // if the expression is deep, then execute topological sort to avoid
             // stack overflow.
@@ -210,15 +199,30 @@ namespace smt {
                 if (!is_app(e) || 
                     to_app(e)->get_family_id() == null_family_id || 
                     to_app(e)->get_family_id() == m.get_basic_family_id()) 
-                    internalize(e, kv.second);
+                    internalize_rec(e, kv.second);
             }
         }
+    }
+ 
+    /**
+       \brief Internalize an expression asserted into the logical context using the given proof as a justification.
+       
+       \remark pr is 0 if proofs are disabled.
+    */
+    void context::internalize_assertion(expr * n, proof * pr, unsigned generation) {
+        TRACE("internalize_assertion", tout << mk_pp(n, m) << "\n";); 
+        TRACE("internalize_assertion_ll", tout << mk_ll_pp(n, m) << "\n";); 
+        TRACE("generation", tout << "generation: " << m_generation << "\n";);
+        TRACE("incompleteness_bug", tout << "[internalize-assertion]: #" << n->get_id() << "\n";);
+        flet<unsigned> l(m_generation, generation);
+        m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
+        internalize_deep(n);
         SASSERT(m.is_bool(n));
         if (is_gate(m, n)) {
             switch(to_app(n)->get_decl_kind()) {
             case OP_AND: {
                 for (expr * arg : *to_app(n)) {
-                    internalize(arg, true);
+                    internalize_rec(arg, true);
                     literal lit = get_literal(arg);
                     mk_root_clause(1, &lit, pr);
                 }
@@ -227,7 +231,7 @@ namespace smt {
             case OP_OR: {
                 literal_buffer lits;
                 for (expr * arg : *to_app(n)) { 
-                    internalize(arg, true);
+                    internalize_rec(arg, true);
                     lits.push_back(get_literal(arg));
                 }
                 mk_root_clause(lits.size(), lits.c_ptr(), pr);
@@ -237,8 +241,8 @@ namespace smt {
             case OP_EQ: {
                 expr * lhs = to_app(n)->get_arg(0);
                 expr * rhs = to_app(n)->get_arg(1);
-                internalize(lhs, true);
-                internalize(rhs, true);
+                internalize_rec(lhs, true);
+                internalize_rec(rhs, true);
                 literal l1 = get_literal(lhs);
                 literal l2 = get_literal(rhs);
                 mk_root_clause(l1, ~l2, pr);
@@ -249,9 +253,9 @@ namespace smt {
                 expr * c = to_app(n)->get_arg(0);
                 expr * t = to_app(n)->get_arg(1);
                 expr * e = to_app(n)->get_arg(2);
-                internalize(c, true);
-                internalize(t, true);
-                internalize(e, true);
+                internalize_rec(c, true);
+                internalize_rec(t, true);
+                internalize_rec(e, true);
                 literal cl = get_literal(c);
                 literal tl = get_literal(t);
                 literal el = get_literal(e);
@@ -316,7 +320,7 @@ namespace smt {
     void context::internalize(expr * n, bool gate_ctx, unsigned generation) {
         flet<unsigned> l(m_generation, generation);
         m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
-        internalize(n, gate_ctx);
+        internalize_rec(n, gate_ctx);
     }
 
     void context::ensure_internalized(expr* e) {
@@ -331,6 +335,11 @@ namespace smt {
        - gate_ctx is true if the expression is in the context of a logical gate.
     */
     void context::internalize(expr * n, bool gate_ctx) {
+        internalize_deep(n);
+        internalize_rec(n, gate_ctx);
+    }
+
+    void context::internalize_rec(expr * n, bool gate_ctx) {
         TRACE("internalize", tout << "internalizing:\n" << mk_pp(n, m) << "\n";);
         TRACE("internalize_bug", tout << "internalizing:\n" << mk_bounded_pp(n, m) << "\n";);
         if (is_var(n)) {
@@ -350,7 +359,6 @@ namespace smt {
         }
     }
 
-
     /**
        \brief Internalize the given formula into the logical context.
     */
@@ -363,7 +371,7 @@ namespace smt {
         if (m.is_not(n) && gate_ctx) {
             // a boolean variable does not need to be created if n a NOT gate is in
             // the context of a gate.
-            internalize(to_app(n)->get_arg(0), true);
+            internalize_rec(to_app(n)->get_arg(0), true);
             return;
         }
 
@@ -434,7 +442,7 @@ namespace smt {
         SASSERT(!b_internalized(n));
         SASSERT(m.is_distinct(n));
         expr_ref def(m.mk_distinct_expanded(n->get_num_args(), n->get_args()), m);
-        internalize(def, true);
+        internalize_rec(def, true);
         bool_var v    = mk_bool_var(n);
         literal l(v);
         literal l_def = get_literal(def);
@@ -444,7 +452,7 @@ namespace smt {
         if (!gate_ctx) {
             mk_enode(n, true, true, false);
             set_enode_flag(v, true);
-            SASSERT(get_assignment(v) == l_undef);
+            SASSERT(get_assignment(v) == l_undef || get_assignment(l_def) != l_undef);
         }
     }
 
@@ -576,7 +584,7 @@ namespace smt {
         bool _is_gate  = is_gate(m, n) || m.is_not(n);
         // process args
         for (expr * arg : *n) {
-            internalize(arg, _is_gate);
+            internalize_rec(arg, _is_gate);
         }
         
         CTRACE("internalize_bug", b_internalized(n), tout << mk_ll_pp(n, m) << "\n";);
@@ -787,11 +795,11 @@ namespace smt {
                  true /* suppress arguments, I don't want to apply CC on ite terms */,
                  false /* it is a term, so it should not be merged with true/false */,
                  false /* CC is not enabled */);
-        internalize(c, true);
-        internalize(t, false);
-        internalize(e, false);
-        internalize(eq1, true);
-        internalize(eq2, true);
+        internalize_rec(c, true);
+        internalize_rec(t, false);
+        internalize_rec(e, false);        
+        internalize_rec(eq1, true);
+        internalize_rec(eq2, true);
         literal c_lit   = get_literal(c);
         literal eq1_lit = get_literal(eq1);
         literal eq2_lit = get_literal(eq2);
@@ -835,7 +843,7 @@ namespace smt {
         SASSERT(!e_internalized(n));
         // process args
         for (expr * arg : *n) {
-            internalize(arg, false);
+            internalize_rec(arg, false);
             SASSERT(e_internalized(arg));
         }
         
@@ -882,11 +890,9 @@ namespace smt {
         SASSERT(m_assignment.size() == m_watches.size());
         m_watches[l.index()]        .reset();
         m_watches[not_l.index()]    .reset();
-        if (lit_occs_enabled()) {
-            m_lit_occs.reserve(aux);
-            m_lit_occs[l.index()]     .reset();
-            m_lit_occs[not_l.index()] .reset();
-        }
+        m_lit_occs.reserve(aux, 0);
+        m_lit_occs[l.index()] = 0;
+        m_lit_occs[not_l.index()] = 0;    
         bool_var_data & data = m_bdata[v];
         unsigned iscope_lvl = m_scope_lvl; // record when the boolean variable was internalized.
         data.init(iscope_lvl); 
@@ -1317,21 +1323,27 @@ namespace smt {
         case CLS_AUX: 
         case CLS_TH_AXIOM: {
             literal_buffer simp_lits;
-            if (!simplify_aux_clause_literals(num_lits, lits, simp_lits))
-                return nullptr; // clause is equivalent to true;
-            DEBUG_CODE({
-                for (unsigned i = 0; i < simp_lits.size(); i++) {
-                    SASSERT(get_assignment(simp_lits[i]) == l_true);
+            if (!simplify_aux_clause_literals(num_lits, lits, simp_lits)) {
+                if (j && !j->in_region()) {
+                    j->del_eh(m);
+                    dealloc(j);
                 }
-            });
+                return nullptr; // clause is equivalent to true;
+            }
+            DEBUG_CODE(for (literal lit : simp_lits) SASSERT(get_assignment(lit) == l_true););
             if (!simp_lits.empty()) {
                 j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.c_ptr()));
             }
             break;
         }
         case CLS_TH_LEMMA: {
-            if (!simplify_aux_lemma_literals(num_lits, lits))
+            if (!simplify_aux_lemma_literals(num_lits, lits)) {
+                if (j && !j->in_region()) {
+                    j->del_eh(m);
+                    dealloc(j);
+                }
                 return nullptr; // clause is equivalent to true
+            }
             // simplify_aux_lemma_literals does not delete literals assigned to false, so
             // it is not necessary to create a unit_resolution_justification
             break;
@@ -1340,6 +1352,7 @@ namespace smt {
             break;
         }
         TRACE("mk_clause", tout << "after simplification:\n"; display_literals_verbose(tout, num_lits, lits) << "\n";);
+
         unsigned activity = 0;
         if (activity == 0)
             activity = 1;
@@ -1357,11 +1370,14 @@ namespace smt {
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             assign(lits[0], j);
+            inc_ref(lits[0]);
             return nullptr;
         case 2:
             if (use_binary_clause_opt(lits[0], lits[1], lemma)) {
                 literal l1 = lits[0];
                 literal l2 = lits[1];
+                inc_ref(l1);
+                inc_ref(l2);
                 m_watches[(~l1).index()].insert_literal(l2);
                 m_watches[(~l2).index()].insert_literal(l1);
                 if (get_assignment(l2) == l_false) {
@@ -1425,20 +1441,13 @@ namespace smt {
                     assign(cls->get_literal(0), b_justification(cls));
             }
             
-            if (lit_occs_enabled())
-                add_lit_occs(cls);
+            add_lit_occs(*cls);
             
             TRACE("add_watch_literal_bug", display_clause_detail(tout, cls););
             TRACE("mk_clause_result", display_clause_detail(tout, cls););
             CASSERT("mk_clause", check_clause(cls));
             return cls;
         }} 
-    }
-
-    void context::add_lit_occs(clause * cls) {
-        for (literal l : *cls) {
-            m_lit_occs[l.index()].insert(cls);
-        }
     }
 
     void context::mk_clause(literal l1, literal l2, justification * j) {

@@ -314,15 +314,12 @@ namespace {
         }
 
         ~bv_bounds_simplifier() override {
-            for (unsigned i = 0, e = m_expr_vars.size(); i < e; ++i) {
-                dealloc(m_expr_vars[i]);
-            }
-            for (unsigned i = 0, e = m_bound_exprs.size(); i < e; ++i) {
-                dealloc(m_bound_exprs[i]);
-            }
+            for (auto* v : m_expr_vars) dealloc(v);
+            for (auto* b : m_bound_exprs) dealloc(b);
         }
 
         bool assert_expr(expr * t, bool sign) override {
+            TRACE("bv", tout << expr_ref(t, m) << "\n";);
             while (m.is_not(t, t)) {
                 sign = !sign;
             }
@@ -330,9 +327,12 @@ namespace {
             interval b;
             expr* t1;
             if (is_bound(t, t1, b)) {
-                SASSERT(!m_bv.is_numeral(t1));
-                if (sign)
-                    VERIFY(b.negate(b));
+                SASSERT(!m_bv.is_numeral(t1));                
+                if (sign) {
+                    if (!b.negate(b)) {
+                        return false;
+                    }
+                }
 
                 TRACE("bv", tout << (sign?"(not ":"") << mk_pp(t, m) << (sign ? ")" : "") << ": " << mk_pp(t1, m) << " in " << b << "\n";);
                 map::obj_map_entry* e = m_bound.find_core(t1);

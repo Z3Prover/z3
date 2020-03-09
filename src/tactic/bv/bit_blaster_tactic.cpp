@@ -57,7 +57,7 @@ class bit_blaster_tactic : public tactic {
             if (proofs_enabled && m_blast_quant)
                 throw tactic_exception("quantified variable blasting does not support proof generation");
             
-            tactic_report report("bit-blaster", *g);
+            tactic_report report("bit-blast", *g);
             
             TRACE("before_bit_blaster", g->display(tout););
             m_num_steps = 0;

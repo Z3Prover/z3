@@ -165,6 +165,8 @@ namespace smt {
             m_plugin->add(q);
         }
 
+        bool has_quantifiers() const { return !m_quantifiers.empty(); }
+
         void display_stats(std::ostream & out, quantifier * q) {
             quantifier_stat * s     = get_stat(q);
             unsigned num_instances  = s->get_num_instances();
@@ -330,7 +332,7 @@ namespace smt {
         }
 
         bool check_quantifier(quantifier* q) {
-            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // && !m().is_rec_fun_def(q);
+            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true;
         }
 
         bool quick_check_quantifiers() {
@@ -387,6 +389,7 @@ namespace smt {
     quantifier_manager::quantifier_manager(context & ctx, smt_params & fp, params_ref const & p) {
         m_imp = alloc(imp, *this, ctx, fp, mk_default_plugin());
         m_imp->m_plugin->set_manager(*this);
+        
     }
 
     quantifier_manager::~quantifier_manager() {
@@ -395,11 +398,6 @@ namespace smt {
 
     context & quantifier_manager::get_context() const {
         return m_imp->m_context;
-    }
-
-    void quantifier_manager::set_plugin(quantifier_manager_plugin * plugin) {
-        m_imp->m_plugin = plugin;
-        plugin->set_manager(*this);
     }
 
     void quantifier_manager::add(quantifier * q, unsigned generation) {
@@ -476,6 +474,10 @@ namespace smt {
 
     bool quantifier_manager::model_based() const {
         return m_imp->m_plugin->model_based();
+    }
+
+    bool quantifier_manager::has_quantifiers() const {
+        return m_imp->has_quantifiers();
     }
 
     bool quantifier_manager::mbqi_enabled(quantifier *q) const {
@@ -558,7 +560,7 @@ namespace smt {
         }
 
         void set_manager(quantifier_manager & qm) override {
-            SASSERT(m_qm == 0);
+            SASSERT(m_qm == nullptr);
             m_qm            = &qm;
             m_context       = &(qm.get_context());
             m_fparams       = &(m_context->get_fparams());
@@ -590,6 +592,7 @@ namespace smt {
            mbqi.id to be instantiated with MBQI. The default value is the
            empty string, so all quantifiers are instantiated. */
         void add(quantifier * q) override {
+            TRACE("model_finder", tout << "add " << q->get_id() << ": " << q << " " << m_fparams->m_mbqi << " " << mbqi_enabled(q) << "\n";);
             if (m_fparams->m_mbqi && mbqi_enabled(q)) {
                 m_active = true;
                 m_model_finder->register_quantifier(q);
@@ -601,25 +604,19 @@ namespace smt {
         void push() override {
             m_mam->push_scope();
             m_lazy_mam->push_scope();
-            if (m_fparams->m_mbqi) {
-                m_model_finder->push_scope();
-            }
+            m_model_finder->push_scope();            
         }
 
         void pop(unsigned num_scopes) override {
             m_mam->pop_scope(num_scopes);
             m_lazy_mam->pop_scope(num_scopes);
-            if (m_fparams->m_mbqi) {
-                m_model_finder->pop_scope(num_scopes);
-            }
+            m_model_finder->pop_scope(num_scopes);            
         }
 
         void init_search_eh() override {
             m_lazy_matching_idx = 0;
-            if (m_fparams->m_mbqi) {
-                m_model_finder->init_search_eh();
-                m_model_checker->init_search_eh();
-            }
+            m_model_finder->init_search_eh();
+            m_model_checker->init_search_eh();            
         }
 
         void assign_eh(quantifier * q) override {

@@ -99,7 +99,7 @@ namespace smt {
     }
 
     void clause_proof::update(status st, expr_ref_vector& v, proof* p) {
-        TRACE("clause_proof", tout << st << " " << v << "\n";);
+        TRACE("clause_proof", tout << m_trail.size() << " " << st << " " << v << "\n";);
         IF_VERBOSE(3, verbose_stream() << st << " " << v << "\n");
         m_trail.push_back(info(st, v, p));
     }

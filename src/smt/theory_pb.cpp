@@ -2202,7 +2202,7 @@ namespace smt {
 
     app_ref theory_pb::literal2expr(literal lit) {
         ast_manager& m = get_manager();
-        app_ref arg(m.mk_const(symbol(lit.var()), m.mk_bool_sort()), m);                
+        app_ref arg(m.mk_const(symbol((unsigned)lit.var()), m.mk_bool_sort()), m);                
         return app_ref(lit.sign() ? m.mk_not(arg) : arg, m);
     }
 

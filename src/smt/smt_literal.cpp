@@ -30,9 +30,22 @@ namespace smt {
         else if (*this == null_literal)
             out << "null";
         else if (sign())
-            out << "(not " << mk_bounded_pp(bool_var2expr_map[var()], m) << ")";
+            out << "(not " << mk_bounded_pp(bool_var2expr_map[var()], m, 3) << ")";
         else
-            out << mk_bounded_pp(bool_var2expr_map[var()], m);
+            out << mk_bounded_pp(bool_var2expr_map[var()], m, 3);
+    }
+
+    void literal::display_smt2(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
+        if (*this == true_literal)
+            out << "true";
+        else if (*this == false_literal)
+            out << "false";
+        else if (*this == null_literal)
+            out << "null";
+        else if (sign())
+            out << "(not " << mk_pp(bool_var2expr_map[var()], m, 3) << ")";
+        else
+            out << mk_pp(bool_var2expr_map[var()], m, 3);
     }
 
     void literal::display_compact(std::ostream & out, expr * const * bool_var2expr_map) const {

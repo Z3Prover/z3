@@ -166,9 +166,9 @@ model * model::translate(ast_translation & translator) const {
     model * res = alloc(model, translator.to());
 
     // Translate const interps
-    for (auto const& kv : m_interp) 
+    for (auto const& kv : m_interp) {
         res->register_decl(translator(kv.m_key), translator(kv.m_value));
-
+    }
     // Translate func interps
     for (auto const& kv : m_finterp) {
         func_interp * fi = kv.m_value;

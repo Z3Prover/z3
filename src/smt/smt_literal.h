@@ -63,6 +63,8 @@ namespace smt {
 
         void display(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const;
 
+        void display_smt2(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const;
+
         void display_compact(std::ostream & out, expr * const * bool_var2expr_map) const;
 
         unsigned hash() const { return m_val; }

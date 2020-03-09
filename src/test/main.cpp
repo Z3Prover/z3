@@ -253,6 +253,9 @@ int main(int argc, char ** argv) {
     TST_ARGV(sat_local_search);
     TST_ARGV(cnf_backbones);
     TST(bdd);
+    TST(pdd);
+    TST(pdd_solver);
     TST(solver_pool);
     //TST_ARGV(hs);
+    TST(finder);
 }

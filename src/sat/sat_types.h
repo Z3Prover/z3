@@ -225,10 +225,6 @@ namespace sat {
         return out << std::fixed << std::setprecision(2) << mem;
     }
 
-    inline std::ostream& operator<<(std::ostream& out, stopwatch const& sw) {
-        return out << " :time " << std::fixed << std::setprecision(2) << sw.get_seconds();
-    }
-
     struct dimacs_lit {
         literal m_lit;
         dimacs_lit(literal l):m_lit(l) {}

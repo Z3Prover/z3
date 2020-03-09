@@ -818,6 +818,25 @@ def Function(name, *sig):
     ctx = rng.ctx
     return FuncDeclRef(Z3_mk_func_decl(ctx.ref(), to_symbol(name, ctx), arity, dom, rng.ast), ctx)
 
+def FreshFunction(*sig):
+    """Create a new fresh Z3 uninterpreted function with the given sorts.
+    """
+    sig = _get_args(sig)
+    if z3_debug():
+        _z3_assert(len(sig) > 0, "At least two arguments expected")
+    arity = len(sig) - 1
+    rng = sig[arity]
+    if z3_debug():
+        _z3_assert(is_sort(rng), "Z3 sort expected")
+    dom = (z3.Sort * arity)()
+    for i in range(arity):
+        if z3_debug():
+            _z3_assert(is_sort(sig[i]), "Z3 sort expected")
+        dom[i] = sig[i].ast
+    ctx = rng.ctx
+    return FuncDeclRef(Z3_mk_fresh_func_decl(ctx.ref(), 'f', arity, dom, rng.ast), ctx)
+
+
 def _to_func_decl_ref(a, ctx):
     return FuncDeclRef(a, ctx)
 
@@ -3724,7 +3743,7 @@ def BV2Int(a, is_signed=False):
     [x = 2, b = 1]
     """
     if z3_debug():
-        _z3_assert(is_bv(a), "Z3 bit-vector expression expected")
+        _z3_assert(is_bv(a), "First argument must be a Z3 bit-vector expression")
     ctx = a.ctx
     ## investigate problem with bv2int
     return ArithRef(Z3_mk_bv2int(ctx.ref(), a.as_ast(), is_signed), ctx)
@@ -3875,12 +3894,12 @@ def Extract(high, low, a):
     if z3_debug():
         _z3_assert(low <= high, "First argument must be greater than or equal to second argument")
         _z3_assert(_is_int(high) and high >= 0 and _is_int(low) and low >= 0, "First and second arguments must be non negative integers")
-        _z3_assert(is_bv(a), "Third argument must be a Z3 Bitvector expression")
+        _z3_assert(is_bv(a), "Third argument must be a Z3 bit-vector expression")
     return BitVecRef(Z3_mk_extract(a.ctx_ref(), high, low, a.as_ast()), a.ctx)
 
 def _check_bv_args(a, b):
     if z3_debug():
-        _z3_assert(is_bv(a) or is_bv(b), "At least one of the arguments must be a Z3 bit-vector expression")
+        _z3_assert(is_bv(a) or is_bv(b), "First or second argument must be a Z3 bit-vector expression")
 
 def ULE(a, b):
     """Create the Z3 expression (unsigned) `other <= self`.
@@ -4097,7 +4116,7 @@ def SignExt(n, a):
     """
     if z3_debug():
         _z3_assert(_is_int(n), "First argument must be an integer")
-        _z3_assert(is_bv(a), "Second argument must be a Z3 Bitvector expression")
+        _z3_assert(is_bv(a), "Second argument must be a Z3 bit-vector expression")
     return BitVecRef(Z3_mk_sign_ext(a.ctx_ref(), n, a.as_ast()), a.ctx)
 
 def ZeroExt(n, a):
@@ -4124,7 +4143,7 @@ def ZeroExt(n, a):
     """
     if z3_debug():
         _z3_assert(_is_int(n), "First argument must be an integer")
-        _z3_assert(is_bv(a), "Second argument must be a Z3 Bitvector expression")
+        _z3_assert(is_bv(a), "Second argument must be a Z3 bit-vector expression")
     return BitVecRef(Z3_mk_zero_ext(a.ctx_ref(), n, a.as_ast()), a.ctx)
 
 def RepeatBitVec(n, a):
@@ -4147,19 +4166,19 @@ def RepeatBitVec(n, a):
     """
     if z3_debug():
         _z3_assert(_is_int(n), "First argument must be an integer")
-        _z3_assert(is_bv(a), "Second argument must be a Z3 Bitvector expression")
+        _z3_assert(is_bv(a), "Second argument must be a Z3 bit-vector expression")
     return BitVecRef(Z3_mk_repeat(a.ctx_ref(), n, a.as_ast()), a.ctx)
 
 def BVRedAnd(a):
     """Return the reduction-and expression of `a`."""
     if z3_debug():
-        _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
+        _z3_assert(is_bv(a), "First argument must be a Z3 bit-vector expression")
     return BitVecRef(Z3_mk_bvredand(a.ctx_ref(), a.as_ast()), a.ctx)
 
 def BVRedOr(a):
     """Return the reduction-or expression of `a`."""
     if z3_debug():
-        _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
+        _z3_assert(is_bv(a), "First argument must be a Z3 bit-vector expression")
     return BitVecRef(Z3_mk_bvredor(a.ctx_ref(), a.as_ast()), a.ctx)
 
 def BVAddNoOverflow(a, b, signed):
@@ -4196,7 +4215,7 @@ def BVSDivNoOverflow(a, b):
 def BVSNegNoOverflow(a):
     """A predicate the determines that bit-vector unary negation does not overflow"""
     if z3_debug():
-        _z3_assert(is_bv(a), "Argument should be a bit-vector")
+        _z3_assert(is_bv(a), "First argument must be a Z3 bit-vector expression")
     return BoolRef(Z3_mk_bvneg_no_overflow(a.ctx_ref(), a.as_ast()), a.ctx)
 
 def BVMulNoOverflow(a, b, signed):
@@ -4429,8 +4448,8 @@ def Update(a, i, v):
     """
     if z3_debug():
         _z3_assert(is_array_sort(a), "First argument must be a Z3 array expression")
-    i = a.domain().cast(i)
-    v = a.range().cast(v)
+    i = a.sort().domain().cast(i)
+    v = a.sort().range().cast(v)
     ctx = a.ctx
     return _to_expr_ref(Z3_mk_store(ctx.ref(), a.as_ast(), i.as_ast(), v.as_ast()), ctx)
 
@@ -6888,9 +6907,9 @@ class Solver(Z3PPObject):
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
-    def dimacs(self):
+    def dimacs(self, include_names=True):
         """Return a textual representation of the solver in DIMACS format."""
-        return Z3_solver_to_dimacs_string(self.ctx.ref(), self.solver)
+        return Z3_solver_to_dimacs_string(self.ctx.ref(), self.solver, include_names)
 
     def to_smt2(self):
         """return SMTLIB2 formatted benchmark for solver's assertions"""
@@ -9453,7 +9472,7 @@ def _mk_fp_bin_pred(f, a, b, ctx):
     ctx = _get_ctx(ctx)
     [a, b] = _coerce_fp_expr_list([a, b], ctx)
     if z3_debug():
-        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
+        _z3_assert(is_fp(a) or is_fp(b), "First or second argument must be a Z3 floating-point expression")
     return BoolRef(f(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
 def _mk_fp_tern(f, rm, a, b, c, ctx):
@@ -9461,7 +9480,7 @@ def _mk_fp_tern(f, rm, a, b, c, ctx):
     [a, b, c] = _coerce_fp_expr_list([a, b, c], ctx)
     if z3_debug():
         _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
-        _z3_assert(is_fp(a) or is_fp(b) or is_fp(c), "At least one of the arguments must be a Z3 floating-point expression")
+        _z3_assert(is_fp(a) or is_fp(b) or is_fp(c), "Second, third or fourth argument must be a Z3 floating-point expression")
     return FPRef(f(ctx.ref(), rm.as_ast(), a.as_ast(), b.as_ast(), c.as_ast()), ctx)
 
 def fpAdd(rm, a, b, ctx=None):
@@ -9626,7 +9645,7 @@ def fpIsPositive(a, ctx=None):
 
 def _check_fp_args(a, b):
     if z3_debug():
-        _z3_assert(is_fp(a) or is_fp(b), "At least one of the arguments must be a Z3 floating-point expression")
+        _z3_assert(is_fp(a) or is_fp(b), "First or second argument must be a Z3 floating-point expression")
 
 def fpLT(a, b, ctx=None):
     """Create the Z3 floating-point expression `other < self`.
@@ -9771,7 +9790,7 @@ def fpBVToFP(v, sort, ctx=None):
     >>> simplify(x_fp)
     1
     """
-    _z3_assert(is_bv(v), "First argument must be a Z3 floating-point rounding mode expression.")
+    _z3_assert(is_bv(v), "First argument must be a Z3 bit-vector expression")
     _z3_assert(is_fp_sort(sort), "Second argument must be a Z3 floating-point sort.")
     ctx = _get_ctx(ctx)
     return FPRef(Z3_mk_fpa_to_fp_bv(ctx.ref(), v.ast, sort.ast), ctx)
@@ -9824,7 +9843,7 @@ def fpSignedToFP(rm, v, sort, ctx=None):
     -1.25*(2**2)
     """
     _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression.")
-    _z3_assert(is_bv(v), "Second argument must be a Z3 expression or real sort.")
+    _z3_assert(is_bv(v), "Second argument must be a Z3 bit-vector expression")
     _z3_assert(is_fp_sort(sort), "Third argument must be a Z3 floating-point sort.")
     ctx = _get_ctx(ctx)
     return FPRef(Z3_mk_fpa_to_fp_signed(ctx.ref(), rm.ast, v.ast, sort.ast), ctx)
@@ -9841,7 +9860,7 @@ def fpUnsignedToFP(rm, v, sort, ctx=None):
     1*(2**32)
     """
     _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression.")
-    _z3_assert(is_bv(v), "Second argument must be a Z3 expression or real sort.")
+    _z3_assert(is_bv(v), "Second argument must be a Z3 bit-vector expression")
     _z3_assert(is_fp_sort(sort), "Third argument must be a Z3 floating-point sort.")
     ctx = _get_ctx(ctx)
     return FPRef(Z3_mk_fpa_to_fp_unsigned(ctx.ref(), rm.ast, v.ast, sort.ast), ctx)
@@ -10013,10 +10032,13 @@ class SeqRef(ExprRef):
     def is_string_value(self):
         return Z3_is_string(self.ctx_ref(), self.as_ast())
 
+
     def as_string(self):
         """Return a string representation of sequence expression."""
         if self.is_string_value():
-           return Z3_get_string(self.ctx_ref(), self.as_ast())
+            string_length = ctypes.c_uint()
+            chars = Z3_get_lstring(self.ctx_ref(), self.as_ast(), byref(string_length))
+            return string_at(chars, size=string_length.value).decode('latin-1')
         return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
 
     def __le__(self, other):

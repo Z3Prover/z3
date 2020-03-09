@@ -37,7 +37,7 @@ Revision History:
 #include "model/model_v2_pp.h"
 
 
-namespace {
+namespace mev {
 
 struct evaluator_cfg : public default_rewriter_cfg {
     ast_manager &                   m;
@@ -144,18 +144,29 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return th.reduce_quantifier(old_q, new_body, new_patterns, new_no_patterns, result, result_pr);
     }
 
-
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
+        auto st = reduce_app_core(f, num, args, result, result_pr);
+        CTRACE("model_evaluator", st != BR_FAILED, 
+               tout << f->get_name() << " ";
+               for (unsigned i = 0; i < num; ++i) tout << mk_pp(args[i], m) << " ";
+               tout << "\n";
+               tout << result << "\n";);
+               
+        return st;
+    }
+
+    br_status reduce_app_core(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;
         family_id fid = f->get_family_id();
         bool is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
         br_status st = BR_FAILED;
-        TRACE("model_evaluator", tout << f->get_name() << " " << is_uninterp << "\n";);
         if (num == 0 && (fid == null_family_id || is_uninterp)) { // || m_ar.is_as_array(f)
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
-                return m_ar.is_as_array(val)? BR_REWRITE1 : BR_DONE;
+                st = m_ar.is_as_array(val)? BR_REWRITE1 : BR_DONE;
+                TRACE("model_evaluator", tout << result << "\n";);
+                return st;
             }
             else if (m_model_completion) {
                 sort * s   = f->get_range();
@@ -197,15 +208,11 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     result = m.mk_false();
                     st = BR_DONE;
                 }
-                TRACE("model_evaluator",
-                      tout << st << " " << mk_pp(s, m) << " " << s_fid << " " << m_ar_rw.get_fid() << " "
-                      << mk_pp(args[0], m) << " " << mk_pp(args[1], m) << " " << result << "\n";);
                 if (st != BR_FAILED)
                     return st;
             }
             return m_b_rw.mk_app_core(f, num, args, result);
         }
-        CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         if (fid == m_a_rw.get_fid())
             st = m_a_rw.mk_app_core(f, num, args, result);
         else if (fid == m_bv_rw.get_fid())
@@ -227,10 +234,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         else if (evaluate(f, num, args, result)) {
             st = BR_REWRITE1;
         }
-        CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         if (st == BR_FAILED && !m.is_builtin_family_id(fid)) {
             st = evaluate_partial_theory_func(f, num, args, result, result_pr);
-            CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         }
         if (st == BR_DONE && is_app(result)) {
             app* a = to_app(result);
@@ -252,11 +257,11 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 result = ev(result);
                 m_pinned.push_back(result);
                 m_def_cache.insert(g, result);
+                TRACE("model_evaluator", tout << mk_pp(g, m) << " " << result << "\n";);
                 return BR_DONE;
             }
         }
 
-        CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         return st;
     }
 
@@ -368,7 +373,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     }
 
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
-        TRACE("model_evaluator", tout << "mk_array_eq " << m_array_equalities << "\n";);
+        TRACE("model_evaluator", tout << "mk_array_eq " << m_array_equalities << " " 
+              << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
         if (a == b) {
             result = m.mk_true();
             return BR_DONE;
@@ -394,7 +400,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 conj.push_back(m.mk_eq(else1, else2));
             }
             if (args_are_unique1 && args_are_unique2 && !stores1.empty()) {
-                TRACE("model_evalator", tout << "argss are unique";);
+                TRACE("model_evaluator", tout << "args are unique " << conj << "\n";);
                 return mk_array_eq_core(stores1, else1, stores2, else2, conj, result);
             }
 
@@ -411,8 +417,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             }
             result = mk_and(conj);
             TRACE("model_evaluator", tout << mk_pp(a, m) << " == " << mk_pp(b, m) << " -> " << conj << "\n";
-                  for (auto& s : stores1) tout << "store: " << s << "\n";
-                  );
+                  for (auto& s : stores1) tout << "store: " << s << "\n"; );
             return BR_REWRITE_FULL;
         }
         return m_ar_rw.mk_eq_core(a, b, result);
@@ -452,6 +457,13 @@ struct evaluator_cfg : public default_rewriter_cfg {
         args_eq   ae(arity);
         args_table table1(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
         args_table table2(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
+        TRACE("model_evaluator",
+              tout << "arity " << arity << "\n";
+              for (auto& v : stores1) tout << "stores1: " << v << "\n";
+              for (auto& v : stores2) tout << "stores2: " << v << "\n";
+              tout << "else1: " << mk_pp(else1, m) << "\n";
+              tout << "else2: " << mk_pp(else2, m) << "\n";
+              tout << "conj: " << conj << "\n";);
 
         // stores with smaller index take precedence
         for (unsigned i = stores1.size(); i-- > 0; ) {
@@ -461,19 +473,23 @@ struct evaluator_cfg : public default_rewriter_cfg {
         for (unsigned i = 0, sz = stores2.size(); i < sz; ++i) {
             if (table2.contains(stores2[i].c_ptr())) {
                 // first insertion takes precedence.
+                TRACE("model_evaluator", tout << "duplicate " << stores2[i] << "\n";);
                 continue;
             }
             table2.insert(stores2[i].c_ptr());
             expr * const* args = nullptr;
             expr* val = stores2[i][arity];
             if (table1.find(stores2[i].c_ptr(), args)) {
+                TRACE("model_evaluator", tout << "found value " << stores2[i] << "\n";);
+                table1.remove(args);
                 switch (compare(args[arity], val)) {
-                case l_true: table1.remove(args); break;
+                case l_true: break;
                 case l_false: result = m.mk_false(); return BR_DONE;
                 default: conj.push_back(m.mk_eq(val, args[arity])); break;
                 }
             }
             else {
+                TRACE("model_evaluator", tout << "not found value " << stores2[i] << "\n";);
                 switch (compare(else1, val)) {
                 case l_true: break;
                 case l_false: result = m.mk_false(); return BR_DONE;
@@ -576,10 +592,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
 };
 }
 
-struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
-    evaluator_cfg m_cfg;
+struct model_evaluator::imp : public rewriter_tpl<mev::evaluator_cfg> {
+    mev::evaluator_cfg m_cfg;
     imp(model_core & md, params_ref const & p):
-        rewriter_tpl<evaluator_cfg>(md.get_manager(),
+        rewriter_tpl<mev::evaluator_cfg>(md.get_manager(),
                                     false, // no proofs for evaluator
                                     m_cfg),
         m_cfg(md.get_manager(), md, p) {
@@ -587,7 +603,7 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
     }
     void expand_stores(expr_ref &val) {m_cfg.expand_stores(val);}
     void reset() {
-        rewriter_tpl<evaluator_cfg>::reset();
+        rewriter_tpl<mev::evaluator_cfg>::reset();
         m_cfg.reset();
         m_cfg.m_def_cache.reset();
     }

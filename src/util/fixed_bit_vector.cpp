@@ -48,6 +48,7 @@ fixed_bit_vector_manager::fixed_bit_vector_manager(unsigned num_bits):
     m_num_bytes = m_num_words * sizeof(unsigned);
     unsigned bit_rest = m_num_bits % 32;
     m_mask = (1U << bit_rest) - 1;
+    memset(&m_0, 0, sizeof(m_0));
     if (m_mask == 0) m_mask = UINT_MAX;
 }
 

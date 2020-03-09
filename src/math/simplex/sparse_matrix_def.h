@@ -468,6 +468,10 @@ namespace simplex {
         g.reset();
         row_iterator it = row_begin(r), end = row_end(r); 
         for (; it != end && !m.is_one(g); ++it) {
+            if (!m.is_int(it->m_coeff)) {
+                g = numeral(1);  
+                break;
+            }
             if (m.is_zero(g)) g = it->m_coeff;
             else m.gcd(g, it->m_coeff, g);
         }   

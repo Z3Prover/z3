@@ -486,25 +486,25 @@ void bv2fpa_converter::display(std::ostream & out) {
     for (auto const& kv : m_const2bv) {
         const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
-        unsigned indent = n.size() + 4;
+        unsigned indent = n.display_size() + 4;
         out << mk_ismt2_pp(kv.m_value, m, indent) << ")";
     }
     for (auto const& kv : m_rm_const2bv) {
         const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
-        unsigned indent = n.size() + 4;
+        unsigned indent = n.display_size() + 4;
         out << mk_ismt2_pp(kv.m_value, m, indent) << ")";
     }
     for (auto const& kv : m_uf2bvuf) {
         const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
-        unsigned indent = n.size() + 4;
+        unsigned indent = n.display_size() + 4;
         out << mk_ismt2_pp(kv.m_value, m, indent) << ")";
     }
     for (auto const& kv : m_min_max_specials) {
         const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
-        unsigned indent = n.size() + 4;
+        unsigned indent = n.display_size() + 4;
         out << mk_ismt2_pp(kv.m_value.first, m, indent) << "; " <<
             mk_ismt2_pp(kv.m_value.second, m, indent) << ")";
     }

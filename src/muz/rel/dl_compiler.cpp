@@ -728,7 +728,7 @@ namespace datalog {
             expr_ref renamed = m_context.get_var_subst()(filter_cond, binding.size(), binding.c_ptr());
             app_ref app_renamed(to_app(renamed), m);
             if (remove_columns.empty()) {
-                if (!dealloc)
+                if (!dealloc && filtered_res != UINT_MAX)
                     make_clone(filtered_res, filtered_res, acc);
                 acc.push_back(instruction::mk_filter_interpreted(filtered_res, app_renamed));
             } else {

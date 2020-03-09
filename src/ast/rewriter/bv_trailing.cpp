@@ -16,7 +16,7 @@
 --*/
 #include "ast/rewriter/bv_trailing.h"
 #include "ast/bv_decl_plugin.h"
-#include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 
 // The analyzer gives up analysis after going TRAILING_DEPTH deep.
 // This number shouldn't be too big.
@@ -48,7 +48,7 @@ struct bv_trailing::imp {
     }
 
     br_status eq_remove_trailing(expr * e1, expr * e2, expr_ref& result) {
-        TRACE("bv-trailing", tout << mk_ismt2_pp(e1, m) << "\n=\n" << mk_ismt2_pp(e2, m) << "\n";);
+        TRACE("bv-trailing", tout << mk_pp(e1, m) << "\n=\n" << mk_pp(e2, m) << "\n";);
         SASSERT(m_util.is_bv(e1) && m_util.is_bv(e2));
         SASSERT(m_util.get_bv_size(e1) == m_util.get_bv_size(e2));
         unsigned max1, min1, max2, min2;
@@ -60,7 +60,6 @@ struct bv_trailing::imp {
         }
         const unsigned min = std::min(min1, min2); // remove the minimum of the two lower bounds
         if (min == 0) { // nothing to remove
-            result = m.mk_eq(e1, e2);
             return BR_FAILED;
         }
         const unsigned sz  = m_util.get_bv_size(e1);
@@ -84,7 +83,7 @@ struct bv_trailing::imp {
         SASSERT(e && m_util.is_bv(e));
         if (is_cached(depth, e, min, max)) return;
         count_trailing_core(e, min, max, depth);
-        TRACE("bv-trailing", tout << mk_ismt2_pp(e, m) << "\n:" << min << " - " << max << "\n";);
+        TRACE("bv-trailing", tout << mk_pp(e, m) << "\n:" << min << " - " << max << "\n";);
         SASSERT(min <= max);
         SASSERT(max <= m_util.get_bv_size(e));
         cache(depth, e, min, max);  // store result into the cache
@@ -92,15 +91,13 @@ struct bv_trailing::imp {
 
     unsigned remove_trailing(expr * e, unsigned n, expr_ref& result, unsigned depth) {
         const unsigned retv = remove_trailing_core(e, n, result, depth);
-        CTRACE("bv-trailing", result.get(),  tout << mk_ismt2_pp(e, m) << "\n--->\n" <<  mk_ismt2_pp(result.get(), m)  << "\n";);
-        CTRACE("bv-trailing", !result.get(), tout << mk_ismt2_pp(e, m) << "\n---> [EMPTY]\n";);
+        TRACE("bv-trailing", tout << mk_pp(e, m) << "\n--->\n" <<  retv << ": " << result  << "\n";);
         return retv;
     }
 
     // Assumes that count_trailing gives me a lower bound that we can also remove from each summand.
     unsigned remove_trailing_add(app * a, unsigned n, expr_ref& result, unsigned depth) {
         SASSERT(m_util.is_bv_add(a));
-        const unsigned num  = a->get_num_args();
         if (depth <= 1) {
             result = a;
             return 0;
@@ -122,8 +119,7 @@ struct bv_trailing::imp {
 
         expr_ref_vector new_args(m);
         expr_ref tmp(m);
-        for (unsigned i = 0; i < num; ++i) {
-            expr * const curr = a->get_arg(i);
+        for (expr * curr : *a) {
             VERIFY(to_rm == remove_trailing(curr, to_rm, tmp, depth - 1));
             new_args.push_back(std::move(tmp));
         }
@@ -146,20 +142,23 @@ struct bv_trailing::imp {
             result = a;
             return 0;
         }
+        const unsigned sz = m_util.get_bv_size(coefficient);
+        const unsigned new_sz = sz - retv;
+        SASSERT(m_util.get_bv_size(tmp) == new_sz);
+
         expr_ref_vector new_args(m);
         numeral c_val;
         unsigned c_sz;
         if (!m_util.is_numeral(tmp, c_val, c_sz) || !c_val.is_one())
             new_args.push_back(std::move(tmp));
-        const unsigned sz = m_util.get_bv_size(coefficient);
-        const unsigned new_sz = sz - retv;
 
-        if (!new_sz) {
+
+        if (new_sz == 0) {
             result = nullptr;
             return retv;
         }
 
-        SASSERT(m_util.get_bv_size(tmp) == new_sz);
+
         for (unsigned i = 1; i < num; i++) {
             expr * const curr = a->get_arg(i);
             new_args.push_back(m_mk_extract(new_sz - 1, 0, curr));
@@ -223,12 +222,14 @@ struct bv_trailing::imp {
 
     unsigned remove_trailing_core(expr * e, unsigned n, expr_ref& result, unsigned depth) {
         SASSERT(m_util.is_bv(e));
-        if (!depth || !n) return 0;
+        if (!depth || !n) {
+            return 0;
+        }
         unsigned sz;
         unsigned retv = 0;
         numeral e_val;
         if (m_util.is_numeral(e, e_val, sz)) {
-            retv = remove_trailing(std::min(n, sz), e_val);
+            retv = remove_trailing(std::min(n, sz), e_val);            
             const unsigned new_sz = sz - retv;
             result = new_sz ? (retv ? m_util.mk_numeral(e_val, new_sz) : e) : nullptr;
             return retv;
@@ -343,7 +344,7 @@ struct bv_trailing::imp {
         SASSERT(!m_count_cache[depth]->contains(e));
         m.inc_ref(e);
         m_count_cache[depth]->insert(e, std::make_pair(min, max));
-        TRACE("bv-trailing", tout << "caching@" << depth <<": " << mk_ismt2_pp(e, m) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
+        TRACE("bv-trailing", tout << "caching@" << depth <<": " << mk_pp(e, m) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
     }
 
     bool is_cached(unsigned depth, expr * e, unsigned& min, unsigned& max) {
@@ -359,7 +360,7 @@ struct bv_trailing::imp {
         if (oe == nullptr) return false;
         min = oe->get_data().m_value.first;
         max = oe->get_data().m_value.second;
-        TRACE("bv-trailing", tout << "cached@" << depth << ": " << mk_ismt2_pp(e, m) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
+        TRACE("bv-trailing", tout << "cached@" << depth << ": " << mk_pp(e, m) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
         return true;
     }
 
@@ -368,11 +369,11 @@ struct bv_trailing::imp {
         for (unsigned i = 1; i <= TRAILING_DEPTH; ++i) {
             if (m_count_cache[i] == nullptr) continue;
             TRACE("bv-trailing", tout << "may reset cache " << i << " " << condition <<  "\n";);
-            if (condition && m_count_cache[i]->size() < condition) continue;
+            if (m_count_cache[i]->size() < condition) continue;
             TRACE("bv-trailing", tout << "reset cache " << i << "\n";);
-            map::iterator it = m_count_cache[i]->begin();
-            map::iterator end = m_count_cache[i]->end();
-            for (; it != end; ++it) m.dec_ref(it->m_key);
+            for (auto& kv : *m_count_cache[i]) {
+                m.dec_ref(kv.m_key);
+            }
             dealloc(m_count_cache[i]);
             m_count_cache[i] = nullptr;
         }

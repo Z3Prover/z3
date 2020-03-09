@@ -19,6 +19,7 @@ Notes:
 
 #include "util/util.h"
 #include "util/uint_set.h"
+#include "util/obj_pair_hashtable.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
@@ -217,7 +218,7 @@ namespace qe {
     bool term_graph::is_variable_proc::operator()(const expr * e) const {
         if (!is_app(e)) return false;
         const app *a = ::to_app(e);
-        TRACE("qe", tout << a->get_family_id() << " " << m_solved.contains(a->get_decl()) << " " << m_decls.contains(a->get_decl()) << "\n";);
+        TRACE("qe_verbose", tout << a->get_family_id() << " " << m_solved.contains(a->get_decl()) << " " << m_decls.contains(a->get_decl()) << "\n";);
         return
             a->get_family_id() == null_family_id &&
             !m_solved.contains(a->get_decl()) &&
@@ -584,7 +585,6 @@ namespace qe {
         u_map<expr*> m_term2app;
         u_map<expr*> m_root2rep;
 
-
         model_ref m_model;
         expr_ref_vector m_pinned;  // tracks expr in the maps
 
@@ -725,7 +725,20 @@ namespace qe {
                     TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
                 }
             }
+            remove_duplicates(res);
             TRACE("qe", tout << "literals: " << res << "\n";);            
+        }
+
+        void remove_duplicates(expr_ref_vector& v) {
+            obj_hashtable<expr> seen;
+            unsigned j = 0;
+            for (expr* e : v) {
+                if (!seen.contains(e)) {
+                    v[j++] = e;
+                    seen.insert(e);
+                }
+            }
+            v.shrink(j);
         }
 
         vector<ptr_vector<term>> m_decl2terms; // terms that use function f
@@ -1177,10 +1190,107 @@ namespace qe {
 
     }
 
-    expr* term_graph::get_model_based_rep(expr* e) {
+    expr* term_graph::rep_of(expr* e) {
         SASSERT(m_projector);
         term* t = get_term(e);
         SASSERT(t && "only get representatives");
         return m_projector->find_term2app(*t);
     }
+    
+    expr_ref_vector term_graph::dcert(model& mdl, expr_ref_vector const& lits) {
+        TRACE("qe", tout << "dcert " << lits << "\n";);
+        struct pair_t {
+            expr* a, *b;
+            pair_t(): a(nullptr), b(nullptr) {}
+            pair_t(expr* _a, expr* _b):a(_a), b(_b) {
+                if (a->get_id() > b->get_id()) std::swap(a, b);
+            }
+            struct hash {
+                unsigned operator()(pair_t const& p) const { return mk_mix(p.a ? p.a->hash() : 0, p.b ? p.b->hash() : 0, 1); }
+            };
+            struct eq {
+                bool operator()(pair_t const& a, pair_t const& b) const { return a.a == b.a && a.b == b.b; }
+            };
+        };
+        hashtable<pair_t, pair_t::hash, pair_t::eq> diseqs;
+        expr_ref_vector result(m);        
+        add_lits(lits);
+        svector<pair_t> todo;
+
+        for (expr* e : lits) {
+            expr* ne, *a, *b;
+            if (m.is_not(e, ne) && m.is_eq(ne, a, b) && (is_uninterp(a) || is_uninterp(b))) {
+                diseqs.insert(pair_t(a, b));
+            }
+            else if (is_uninterp(e)) {
+                diseqs.insert(pair_t(e, m.mk_false()));
+            }
+            else if (m.is_not(e, ne) && is_uninterp(ne)) {
+                diseqs.insert(pair_t(ne, m.mk_true()));
+            }           
+        }
+        for (auto& p : diseqs) todo.push_back(p);
+
+        auto const partitions = get_partition(mdl);
+        obj_map<expr, unsigned> term2pid;
+        unsigned id = 0;
+        for (auto const& vec : partitions) {
+            for (expr* e : vec) term2pid.insert(e, id);
+            ++id;
+        }
+        auto partition_of = [&](expr* e) { return partitions[term2pid[e]]; }; 
+        auto in_table = [&](expr* a, expr* b) { 
+            return diseqs.contains(pair_t(a, b));
+        };
+        auto same_function = [](expr* a, expr* b) {
+            return is_app(a) && is_app(b) && 
+            to_app(a)->get_decl() == to_app(b)->get_decl() && to_app(a)->get_family_id() == null_family_id;
+        };
+
+        // make sure that diseqs is closed under function applications
+        // of uninterpreted functions.
+        for (unsigned idx = 0; idx < todo.size(); ++idx) {
+            auto p = todo[idx];
+            for (expr* t1 : partition_of(p.a)) {
+                for (expr* t2 : partition_of(p.b)) {
+                    if (same_function(t1, t2)) {
+                        unsigned sz = to_app(t1)->get_num_args();
+                        bool found = false;
+                        pair_t q(t1, t2);
+                        for (unsigned i = 0; i < sz; ++i) {
+                            expr* arg1 = to_app(t1)->get_arg(i);
+                            expr* arg2 = to_app(t2)->get_arg(i);
+                            if (mdl(arg1) == mdl(t2)) {
+                                continue;
+                            }
+                            if (in_table(arg1, arg2)) {
+                                found = true;
+                                break;
+                            }
+                            q = pair_t(arg1, arg2);
+                        }
+                        if (!found) {
+                            diseqs.insert(q);
+                            todo.push_back(q);
+                            result.push_back(m.mk_not(m.mk_eq(q.a, q.b)));
+                        }
+                    }
+                }
+            }
+        }
+        for (auto const& terms : partitions) {
+            expr* a = nullptr;
+            for (expr* b : terms) { 
+                if (is_uninterp(b)) { 
+                    if (a) 
+                        result.push_back(m.mk_eq(a, b));
+                    else 
+                        a = b;
+                }
+            }
+        }
+        TRACE("qe", tout << result << "\n";);
+        return result;
+    }
+
 }

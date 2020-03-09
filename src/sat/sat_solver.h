@@ -31,7 +31,7 @@ Revision History:
 #include "sat/sat_simplifier.h"
 #include "sat/sat_scc.h"
 #include "sat/sat_asymm_branch.h"
-#include "sat/sat_iff3_finder.h"
+#include "sat/sat_cut_simplifier.h"
 #include "sat/sat_probing.h"
 #include "sat/sat_mus.h"
 #include "sat/sat_binspr.h"
@@ -89,6 +89,7 @@ namespace sat {
         config                  m_config;
         stats                   m_stats;
         scoped_ptr<extension>   m_ext;
+        scoped_ptr<cut_simplifier> m_cut_simplifier;
         parallel*               m_par;
         drat                    m_drat;          // DRAT for generating proofs
         clause_allocator        m_cls_allocator[2];
@@ -163,6 +164,9 @@ namespace sat {
         clause_wrapper_vector   m_clauses_to_reinit;
         std::string             m_reason_unknown;
 
+        svector<unsigned>       m_visited;
+        unsigned                m_visited_ts;
+
         struct scope {
             unsigned m_trail_lim;
             unsigned m_clauses_to_reinit_lim;
@@ -191,17 +195,19 @@ namespace sat {
 
         friend class integrity_checker;
         friend class cleaner;
-        friend class simplifier;
-        friend class scc;
+        friend class asymm_branch;
         friend class big;
         friend class binspr;
-        friend class elim_eqs;
-        friend class asymm_branch;
-        friend class probing;
-        friend class iff3_finder;
-        friend class mus;
         friend class drat;
+        friend class elim_eqs;
+        friend class bcd;
+        friend class mus;
+        friend class probing;
+        friend class simplifier;
+        friend class scc;
         friend class ba_solver;
+        friend class anf_simplifier;
+        friend class cut_simplifier;
         friend class parallel;
         friend class lookahead;
         friend class local_search;
@@ -211,6 +217,10 @@ namespace sat {
         friend struct mk_stat;
         friend class elim_vars;
         friend class scoped_detach;
+        friend class xor_finder;
+        friend class aig_finder;
+        friend class lut_finder;
+        friend class npn3_finder;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver() override;
@@ -244,6 +254,7 @@ namespace sat {
         bool_var add_var(bool ext) override { return mk_var(ext, true); }
 
         bool_var mk_var(bool ext = false, bool dvar = true);
+
         clause* mk_clause(literal_vector const& lits, bool learned = false) { return mk_clause(lits.size(), lits.c_ptr(), learned); }
         clause* mk_clause(unsigned num_lits, literal * lits, bool learned = false);
         clause* mk_clause(literal l1, literal l2, bool learned = false);
@@ -301,6 +312,14 @@ namespace sat {
         void detach_nary_clause(clause & c);
         void detach_ter_clause(clause & c);
         void push_reinit_stack(clause & c);
+
+        void init_visited();
+        void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
+        void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
+        bool is_visited(bool_var v) const { return is_visited(literal(v, false)); }
+        bool is_visited(literal l) const { return m_visited[l.index()] == m_visited_ts; }
+        bool all_distinct(literal_vector const& lits);
+        bool all_distinct(clause const& cl);
 
         // -----------------------
         //
@@ -383,9 +402,11 @@ namespace sat {
         bool is_incremental() const { return m_config.m_incremental; }
         extension* get_extension() const override { return m_ext.get(); }
         void       set_extension(extension* e) override;
+        cut_simplifier* get_cut_simplifier() override { return m_cut_simplifier.get(); }
         bool       set_root(literal l, literal r);
         void       flush_roots();
         typedef std::pair<literal, literal> bin_clause;
+        struct bin_clause_hash { unsigned operator()(bin_clause const& b) const { return b.first.hash() + 2*b.second.hash(); } };
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const & get_wlist(literal l) const { return m_watches[l.index()]; }

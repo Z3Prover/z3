@@ -690,7 +690,7 @@ namespace datalog {
     void context::reopen() {
         SASSERT(m_closed);
         m_rule_set.reopen();
-        m_closed = false;
+        m_closed = false;        
     }
 
     void context::transform_rules(rule_transformer::plugin* plugin) {
@@ -763,7 +763,7 @@ namespace datalog {
 
     class context::engine_type_proc {
         ast_manager&  m;
-        arith_util    a;
+        arith_util    a;        
         datatype_util dt;
         bv_util       bv;
         DL_ENGINE     m_engine_type;
@@ -790,10 +790,14 @@ namespace datalog {
             else if (is_large_bv(m.get_sort(e))) {
                 m_engine_type = SPACER_ENGINE;
             }
+            else if (!m.get_sort(e)->get_num_elements().is_finite()) {
+                m_engine_type = SPACER_ENGINE;
+            }
         }
     };
 
     void context::configure_engine(expr* q) {
+        TRACE("dl", tout << mk_pp(q, m) << " " << m_engine_type << "\n";);
         if (m_engine_type != LAST_ENGINE) {
             return;
         }

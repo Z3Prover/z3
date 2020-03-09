@@ -104,8 +104,8 @@ struct goal2nlsat::imp {
             ps.push_back(fs[i]);
             is_even.push_back(fs.get_degree(i) % 2 == 0);
         }
-        if (m_qm.is_neg(fs.get_constant()))
-            k = flip(k);
+        if (m_qm.is_neg(fs.get_constant()))             
+            k = flip(k);            
         return m_solver.mk_ineq_atom(k, ps.size(), ps.c_ptr(), is_even.c_ptr());
     }
 
@@ -201,6 +201,7 @@ struct goal2nlsat::imp {
                 case OP_XOR:
                 case OP_NOT:
                 case OP_IMPLIES:
+                case OP_ITE:
                     throw tactic_exception("convert goal into cnf before applying nlsat");
                 case OP_DISTINCT:
                     throw tactic_exception("eliminate distinct operator (use tactic '(using-params simplify :blast-distinct true)') before applying nlsat");

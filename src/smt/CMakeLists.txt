@@ -37,6 +37,7 @@ z3_add_component(smt
     smt_model_checker.cpp
     smt_model_finder.cpp
     smt_model_generator.cpp
+    smt_parallel.cpp
     smt_quantifier.cpp
     smt_quantifier_stat.cpp
     smt_quick_checker.cpp
@@ -67,6 +68,7 @@ z3_add_component(smt
     theory_seq.cpp
     theory_special_relations.cpp
     theory_str.cpp
+    theory_str_mc.cpp
     theory_str_regex.cpp
     theory_utvpi.cpp
     theory_wmaxsat.cpp
@@ -75,7 +77,6 @@ z3_add_component(smt
   COMPONENT_DEPENDENCIES
     bit_blaster
     cmd_context
-    euclid
     fpa
     grobner
     nlsat

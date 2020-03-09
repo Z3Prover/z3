@@ -16,14 +16,20 @@ Author:
 Revision History:
 
 --*/
+#if 0
+
+ // include "util/new_symbol.cpp"
+#else
+
 #include "util/symbol.h"
 #include "util/mutex.h"
 #include "util/str_hashtable.h"
 #include "util/region.h"
 #include "util/string_buffer.h"
 #include <cstring>
+#include <thread>
 
-static DECLARE_MUTEX(g_symbol_lock);
+
 
 symbol symbol::m_dummy(TAG(void*, nullptr, 2));
 const symbol symbol::null;
@@ -34,11 +40,21 @@ const symbol symbol::null;
 class internal_symbol_table {
     region        m_region; //!< Region used to store symbol strings.
     str_hashtable m_table;  //!< Table of created symbol strings.
+    DECLARE_MUTEX(lock);
+    
 public:
+
+    internal_symbol_table() {
+        ALLOC_MUTEX(lock);
+    }
+
+    ~internal_symbol_table() {
+        DEALLOC_MUTEX(lock);
+    }
 
     char const * get_str(char const * d) {
         const char * result;
-        lock_guard lock(*g_symbol_lock);
+        lock_guard _lock(*lock);
         str_hashtable::entry * e;
         if (m_table.insert_if_not_there_core(d, e)) {
             // new entry
@@ -60,30 +76,53 @@ public:
     }
 };
 
-static internal_symbol_table* g_symbol_table = nullptr;
+struct internal_symbol_tables {
+    unsigned sz;
+    internal_symbol_table** tables;
+
+    internal_symbol_tables(unsigned sz): sz(sz), tables(alloc_vect<internal_symbol_table*>(sz)) {
+        for (unsigned i = 0; i < sz; ++i) {
+            tables[i] = alloc(internal_symbol_table);
+        }
+    }
+    ~internal_symbol_tables() {
+        for (unsigned i = 0; i < sz; ++i) {
+            dealloc(tables[i]);
+        }
+        dealloc_vect<internal_symbol_table*>(tables, sz);
+    }
+
+    char const * get_str(char const * d) {
+        auto* table = tables[string_hash(d, static_cast<unsigned>(strlen(d)), 251) % sz];
+        return table->get_str(d);
+    }
+};
+
+
+static internal_symbol_tables* g_symbol_tables = nullptr;
 
 void initialize_symbols() {
-    if (!g_symbol_table) {
-        ALLOC_MUTEX(g_symbol_lock);
-        g_symbol_table = alloc(internal_symbol_table);
+    if (!g_symbol_tables) {
+        unsigned num_tables = 2 * std::min((unsigned) std::thread::hardware_concurrency(), 64u);
+        g_symbol_tables = alloc(internal_symbol_tables, num_tables);
+        
     }
 }
 
 void finalize_symbols() {
-    DEALLOC_MUTEX(g_symbol_lock);
-    dealloc(g_symbol_table);
-    g_symbol_table = nullptr;
+    dealloc(g_symbol_tables);
+    g_symbol_tables = nullptr;
 }
 
 symbol::symbol(char const * d) {
     if (d == nullptr)
         m_data = nullptr;
     else
-        m_data = g_symbol_table->get_str(d);
+        m_data = g_symbol_tables->get_str(d);
 }
 
 symbol & symbol::operator=(char const * d) {
-    m_data = g_symbol_table->get_str(d);
+    m_data = d ? g_symbol_tables->get_str(d) : nullptr;
     return *this;
 }
 
@@ -112,7 +151,7 @@ bool symbol::contains(char ch) const {
     }
 }
  
-unsigned symbol::size() const {
+unsigned symbol::display_size() const {
     SASSERT(!is_marked());
     if (GET_TAG(m_data) == 0) {
         return static_cast<unsigned>(strlen(m_data));
@@ -150,3 +189,5 @@ bool lt(symbol const & s1, symbol const & s2) {
     SASSERT(cmp != 0);
     return cmp < 0;
 }
+
+#endif

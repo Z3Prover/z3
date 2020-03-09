@@ -27,6 +27,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 
 class fix_dl_var_tactic : public tactic {
 
@@ -53,10 +54,6 @@ class fix_dl_var_tactic : public tactic {
             sort * s = m.get_sort(n);
             return s->get_family_id() == m_util.get_family_id();
         }
-        // Return true if n is uninterpreted with respect to arithmetic.
-        bool is_uninterp(expr * n) {
-            return is_app(n) && to_app(n)->get_family_id() != m_util.get_family_id();
-        }
 
         // Remark: we say an expression is nested, if it occurs inside the boolean structure of the formula.
         // That is, the expression is not part of an unit clause comprising of a single inequality/equality.
@@ -82,9 +79,11 @@ class fix_dl_var_tactic : public tactic {
         }
         
         void process_app(app * t) {
-            unsigned num = t->get_num_args();
-            for (unsigned i = 0; i < num; i++)
-                visit(t->get_arg(i), false);
+            if (!is_uninterp(t) && !is_arith(t)) {
+                throw_failed(t);
+            }
+            for (expr* arg : *t) 
+                visit(arg, false);
         }
 
         void process_arith_atom(expr * lhs, expr * rhs, bool nested) {
@@ -124,13 +123,14 @@ class fix_dl_var_tactic : public tactic {
         void process_eq(app * t, bool nested) {
             if (!is_arith(t->get_arg(0))) {
                 process_app(t);
-                return;
             }
-            process_arith_atom(t->get_arg(0), t->get_arg(1), nested);
+            else {
+                process_arith_atom(t->get_arg(0), t->get_arg(1), nested);
+            }
         }
 
         void process_arith(app * t, bool nested) {
-            if (m.is_bool(t)) {
+            if (m.is_bool(t) && t->get_num_args() == 2) {
                 process_arith_atom(t->get_arg(0), t->get_arg(1), nested);
                 return;
             }
@@ -180,12 +180,10 @@ class fix_dl_var_tactic : public tactic {
         app * most_occs(obj_map<app, unsigned> & occs, unsigned & best) {
             app * r = nullptr;
             best = 0;
-            obj_map<app, unsigned>::iterator it  = occs.begin();
-            obj_map<app, unsigned>::iterator end = occs.end();
-            for (; it != end; ++it) {
-                if (it->m_value > best) {
-                    best = it->m_value;
-                    r    = it->m_key;
+            for (auto const& kv : occs) {
+                if (kv.m_value > best) {
+                    best = kv.m_value;
+                    r    = kv.m_key;
                 }
             }
             return r;
@@ -201,7 +199,7 @@ class fix_dl_var_tactic : public tactic {
             app * r1, * r2;
             r1 = most_occs(m_non_nested_occs, best1);
             r2 = most_occs(m_occs, best2);
-            TRACE("fix_dl_var_choice", 
+            TRACE("fix_dl_var", 
                   if (r1) {
                       tout << "r1 occs: " << best1 << "\n";
                       tout << mk_ismt2_pp(r1, m) << "\n";
@@ -254,11 +252,11 @@ class fix_dl_var_tactic : public tactic {
             tactic_report report("fix-dl-var", *g);
             bool produce_proofs = g->proofs_enabled();
             m_produce_models    = g->models_enabled();
+            TRACE("fix_dl_var", g->display(tout););
 
             app * var = is_target(u)(*g);
             if (var != nullptr) {
                 IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(fixing-at-zero " << var->get_decl()->get_name() << ")\n";);
-                tactic_report report("fix-dl-var", *g);
                 
                 expr_substitution subst(m);
                 app * zero = u.mk_numeral(rational(0), u.is_int(var));

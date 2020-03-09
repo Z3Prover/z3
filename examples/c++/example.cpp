@@ -1044,6 +1044,27 @@ void opt_example() {
     }
 }
 
+/**
+ * translate from one optimization context to another.
+ */
+void opt_translate_example() {
+    context c1, c2;
+    optimize o1(c1);
+    expr x = c1.int_const("x");
+    expr y = c1.int_const("y");
+    o1.add(10 >= x && x >= 0);
+    o1.add(10 >= y && y >= 0);
+    o1.add(x + y <= 11);
+    optimize::handle h1 = o1.maximize(x);
+    optimize::handle h2 = o1.maximize(y);
+    optimize o2(c2, o1);
+    expr z = c2.int_const("z");
+    expr x2 = c2.int_const("x");
+    o2.add(x2 + z == 2);
+    o2.minimize(z);
+    std::cout << o2 << "\n";
+}
+
 void extract_example() {
     std::cout << "extract example\n";
     context c;
@@ -1305,6 +1326,7 @@ int main() {
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";
         opt_example(); std::cout << "\n";
+        opt_translate_example(); std::cout << "\n";
         extract_example(); std::cout << "\n";
         param_descrs_example(); std::cout << "\n";
         sudoku_example(); std::cout << "\n";

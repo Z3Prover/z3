@@ -91,7 +91,6 @@ VS_PROJ = False
 TRACE = False
 PYTHON_ENABLED=False
 DOTNET_CORE_ENABLED=False
-ESRP_SIGN=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
 JAVA_ENABLED=False
 ML_ENABLED=False
@@ -592,7 +591,6 @@ if os.name == 'nt':
 elif os.name == 'posix':
     if os.uname()[0] == 'Darwin':
         IS_OSX=True
-        PREFIX="/usr/local"
     elif os.uname()[0] == 'Linux':
         IS_LINUX=True
     elif os.uname()[0] == 'GNU':
@@ -679,14 +677,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED, ESRP_SIGN
+    global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
-                                                'trace', 'dotnet', 'dotnet-key=', 'esrp', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
+                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'single-threaded'])
     except:
         print("ERROR: Invalid command line option")
@@ -722,8 +720,6 @@ def parse_options():
             DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
             DOTNET_KEY_FILE = arg
-        elif opt in ('--esrp'):
-            ESRP_SIGN = True
         elif opt in ('--staticlib'):
             STATIC_LIB = True
         elif opt in ('--staticbin'):
@@ -1697,78 +1693,8 @@ class DotNetDLLComponent(Component):
         dotnetCmdLine.extend(['-o', path])
             
         MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
-        self.sign_esrp(out)
         out.write('\n')        
         out.write('%s: %s\n\n' % (self.name, dllfile))
-
-    def sign_esrp(self, out):
-        global ESRP_SIGNx
-        print("esrp-sign", ESRP_SIGN)
-        if not ESRP_SIGN:
-            return
-        
-        import uuid
-        guid = str(uuid.uuid4())
-        path = os.path.abspath(BUILD_DIR).replace("\\","\\\\")        
-        assemblySignStr = """
-{
-  "Version": "1.0.0",
-  "SignBatches"
-  :
-  [
-   {
-    "SourceLocationType": "UNC",
-    "SourceRootDirectory": "%s",
-    "DestinationLocationType": "UNC",
-    "DestinationRootDirectory": "c:\\\\ESRP\\\\output",
-    "SignRequestFiles": [
-     {
-      "CustomerCorrelationId": "%s",
-      "SourceLocation": "libz3.dll",
-      "DestinationLocation": "libz3.dll"
-     },
-     {
-      "CustomerCorrelationId": "%s",
-      "SourceLocation": "Microsoft.Z3.dll",
-      "DestinationLocation": "Microsoft.Z3.dll"
-     }
-    ],
-    "SigningInfo": {
-     "Operations": [
-      {
-       "KeyCode" : "CP-230012",
-       "OperationCode" : "SigntoolSign",
-       "Parameters" : {
-        "OpusName": "Microsoft",
-        "OpusInfo": "http://www.microsoft.com",
-        "FileDigest": "/fd \\"SHA256\\"",
-        "PageHash": "/NPH",
-        "TimeStamp": "/tr \\"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\\" /td sha256"
-       },
-       "ToolName" : "sign",
-       "ToolVersion" : "1.0"
-      },
-      {
-       "KeyCode" : "CP-230012",
-       "OperationCode" : "SigntoolVerify",
-       "Parameters" : {},
-       "ToolName" : "sign",
-       "ToolVersion" : "1.0"
-      }
-     ]
-    }
-   }
-  ]
-}       """ % (path, guid, guid)
-        assemblySign = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', 'assembly-sign-input.json')
-        with open(assemblySign, 'w') as ous:
-            ous.write(assemblySignStr)
-        outputFile = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', "esrp-out.json")
-        esrpCmdLine = ["esrpclient.exe", "sign", "-a", "C:\\esrp\\config\\authorization.json", "-p", "C:\\esrp\\config\\policy.json", "-i", assemblySign, "-o", outputFile]
-        MakeRuleCmd.write_cmd(out, ' '.join(esrpCmdLine))
-        MakeRuleCmd.write_cmd(out, "move /Y C:\\esrp\\output\\libz3.dll .")
-        MakeRuleCmd.write_cmd(out, "move /Y C:\\esrp\\output\\Microsoft.Z3.dll .")
-
 
     def main_component(self):
         return is_dotnet_core_enabled()
@@ -2289,10 +2215,10 @@ class MLExampleComponent(ExampleComponent):
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
             out.write('\n')
-            out.write('\t%s ' % OCAMLC)
+            out.write('\tocamlfind %s ' % OCAMLC)
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-custom -o ml_example.byte -I -zarith -I api/ml -cclib "-L. -lz3" zarith.cma z3ml.cma')
+            out.write('-custom -o ml_example.byte -package zarith -I api/ml -cclib "-L. -lpthread -lstdc++ -lz3" -linkpkg z3ml.cma')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
@@ -2300,10 +2226,10 @@ class MLExampleComponent(ExampleComponent):
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
             out.write('\n')
-            out.write('\t%s ' % OCAMLOPT)
+            out.write('\tocamlfind %s ' % OCAMLOPT)
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-o ml_example$(EXE_EXT) -I -zarith -I api/ml -cclib "-L. -lz3" zarith.cmxa z3ml.cmxa')
+            out.write('-o ml_example$(EXE_EXT) -package zarith -I api/ml -cclib "-L. -lpthread -lstdc++ -lz3" -linkpkg z3ml.cmxa')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')

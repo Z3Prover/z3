@@ -152,7 +152,7 @@ void bv2real_util::mk_sbv2real(expr* e, expr_ref& result) {
 
 expr* bv2real_util::mk_bv_mul(rational const& n, expr* t) {
     if (n.is_one()) return t;    
-    expr* s = mk_sbv(n);
+    expr_ref s(mk_sbv(n), m());
     return mk_bv_mul(s, t);
 }
 

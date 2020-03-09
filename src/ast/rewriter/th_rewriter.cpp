@@ -107,7 +107,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool cache_all_results() const { return m_cache_all; }
 
     bool max_steps_exceeded(unsigned num_steps) const {
-        if (memory::get_allocation_size() > m_max_memory)
+        if (m_max_memory != SIZE_MAX && 
+            memory::get_allocation_size() > m_max_memory)
             throw rewriter_exception(Z3_MAX_MEMORY_MSG);
         return num_steps > m_max_steps;
     }
@@ -692,7 +693,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             SASSERT(is_well_sorted(m(), q1));
 
             if (m().proofs_enabled()) {
-                SASSERT(old_q->get_expr() == new_body);
                 p1 = m().mk_pull_quant(old_q, q1);
             }
         }

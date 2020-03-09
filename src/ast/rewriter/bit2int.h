@@ -21,7 +21,7 @@ Revision History:
 
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
-#include "ast/act_cache.h"
+#include "ast/expr_map.h"
 #include "ast/rewriter/bv_rewriter.h"
 
 class bit2int {
@@ -55,8 +55,7 @@ protected:
 
     };
 
-    typedef act_cache expr_map;
-    ast_manager &             m_manager;
+    ast_manager &             m;
     bv_util                   m_bv_util;
     bv_rewriter               m_rewriter;
     arith_util                m_arith_util;
@@ -80,7 +79,7 @@ protected:
     bool is_cached(expr * n) const {  return get_cached(n) != nullptr; }
     void cache_result(expr * n, expr * r);
     void reset_cache() { m_cache.reset(); }
-    void flush_cache() { m_cache.cleanup(); }
+    void flush_cache() { m_cache.flush(); }
     void align_size(expr* e, unsigned sz, expr_ref& result);
     void align_sizes(expr_ref& a, expr_ref& b);
 

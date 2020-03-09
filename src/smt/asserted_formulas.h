@@ -160,6 +160,15 @@ class asserted_formulas {
         void pop(unsigned n) { m_elim.pop(n); }
     };
 
+    class flatten_clauses_fn : public simplify_fmls {
+    public:
+        flatten_clauses_fn(asserted_formulas& af): simplify_fmls(af, "flatten-clauses") {}
+        void operator()() override { af.flatten_clauses(); }
+        bool should_apply() const override { return true; }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
+    };
+    void flatten_clauses();
+
 #define MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, ARG, REDUCE)            \
     class NAME : public simplify_fmls {                                 \
         FUNCTOR m_functor;                                              \
@@ -198,6 +207,7 @@ class asserted_formulas {
     propagate_values_fn         m_propagate_values;
     nnf_cnf_fn                  m_nnf_cnf;
     apply_quasi_macros_fn       m_apply_quasi_macros;
+    flatten_clauses_fn          m_flatten_clauses;
 
     bool invoke(simplify_fmls& s);
     void swap_asserted_formulas(vector<justified_expr>& new_fmls);

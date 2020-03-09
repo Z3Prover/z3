@@ -273,12 +273,9 @@ namespace smt {
 
         bool get_fixed_value(app* x, numeral & result) const;
 
-
-#ifdef Z3DEBUG
         bool check_assignment(theory_var v);
         bool check_invariant();
         bool check_zero_one_bits(theory_var v);
-#endif
     };
 };
 

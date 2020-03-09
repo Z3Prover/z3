@@ -107,6 +107,7 @@ bool smt_logics::logic_has_bv(symbol const & s) {
         s == "QF_BVFP" ||
         logic_is_allcsp(s) ||
         s == "QF_FD" ||
+        s == "SMTFD" ||
         s == "HORN";
 }
 
@@ -129,6 +130,7 @@ bool smt_logics::logic_has_array(symbol const & s) {
         logic_is_allcsp(s) ||
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
+        s == "SMTFD" ||
         s == "HORN";
 }
 
@@ -145,7 +147,7 @@ bool smt_logics::logic_has_fpa(symbol const & s) {
 }
 
 bool smt_logics::logic_has_uf(symbol const & s) {
-    return s == "QF_UF" || s == "UF" || s == "QF_DT";
+    return s == "QF_UF" || s == "UF" || s == "QF_DT" || s == "SMTFD";
 }
 
 bool smt_logics::logic_has_horn(symbol const& s) {

@@ -138,14 +138,12 @@ namespace smt {
                 m_coeff_map.insert_if_not_there2(e, rational(0))->get_data().m_value += mul;
             }
         }
-        obj_map<expr, rational>::iterator it  = m_coeff_map.begin();
-        obj_map<expr, rational>::iterator end = m_coeff_map.end();
-        for (; it != end; ++it) {
-            rational r = it->m_value;
+        for (auto const& kv : m_coeff_map) {
+            rational r = kv.m_value;
             if (r.is_zero()) {
                 continue;
             }
-            m_terms.push_back(std::make_pair(it->m_key, r));
+            m_terms.push_back(std::make_pair(kv.m_key, r));
             if (m_terms.size() > 2) {
                 return false;
             }

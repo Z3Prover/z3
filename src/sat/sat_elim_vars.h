@@ -20,7 +20,7 @@ Revision History:
 #define SAT_ELIM_VARS_H_
 
 #include "sat/sat_types.h"
-#include "sat/sat_bdd.h"
+#include "math/dd/dd_bdd.h"
 
 namespace sat {
     class solver;
@@ -31,7 +31,7 @@ namespace sat {
 
         simplifier& simp;
         solver&     s;
-        bdd_manager m;
+        dd::bdd_manager m;
         random_gen  m_rand;
 
 
@@ -53,13 +53,13 @@ namespace sat {
         void shuffle_vars();
         bool mark_literals(clause_use_list & occs);
         bool mark_literals(literal lit);
-        bdd make_clauses(clause_use_list & occs);
-        bdd make_clauses(literal lit);
-        bdd mk_literal(literal l);
-        void get_clauses(bdd const& b, literal_vector& lits, clause_vector& clauses, literal_vector& units);
-        void add_clauses(bool_var v, bdd const& b, literal_vector& lits);
-        bool elim_var(bool_var v, bdd const& b);
-        bdd  elim_var(bool_var v);
+        dd::bdd make_clauses(clause_use_list & occs);
+        dd::bdd make_clauses(literal lit);
+        dd::bdd mk_literal(literal l);
+        void get_clauses(dd::bdd const& b, literal_vector& lits, clause_vector& clauses, literal_vector& units);
+        void add_clauses(bool_var v, dd::bdd const& b, literal_vector& lits);
+        bool elim_var(bool_var v, dd::bdd const& b);
+        dd::bdd  elim_var(bool_var v);
 
     public:
         elim_vars(simplifier& s);

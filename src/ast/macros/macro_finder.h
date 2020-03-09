@@ -31,7 +31,7 @@ class macro_finder {
     macro_manager &             m_macro_manager;
     macro_util &                m_util;
     arith_util                  m_autil;
-    bool expand_macros(unsigned num, expr * const * exprs, proof * const * prs, expr_dependency * const* deps, 
+    bool expand_macros(expr_ref_vector const& exprs, proof_ref_vector const& prs, expr_dependency_ref_vector const & deps, 
                        expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector& new_deps);
     bool expand_macros(unsigned n, justified_expr const * fmls, vector<justified_expr>& new_fmls);
     bool is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
@@ -43,7 +43,7 @@ class macro_finder {
 public:
     macro_finder(ast_manager & m, macro_manager & mm);
     ~macro_finder();
-    void operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const* deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps);
+    void operator()(expr_ref_vector const& exprs, proof_ref_vector const& prs, expr_dependency_ref_vector const& deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps);
     void operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
 };
 

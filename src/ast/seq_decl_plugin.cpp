@@ -206,31 +206,45 @@ static const char esc_table[32][6] =
 std::string zstring::encode() const {
     SASSERT(m_encoding == ascii);
     std::ostringstream strm;
+    char buffer[100];
+    unsigned offset = 0;
+#define _flush() if (offset > 0) { buffer[offset] = 0; strm << buffer; offset = 0; }
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
         unsigned char ch = m_buffer[i];
         if (0 <= ch && ch < 32) {
+            _flush();
             strm << esc_table[ch];
         }
         else if (ch == '\\') {
+            _flush();
             strm << "\\\\";
         }
         else if (ch >= 128) {
+            _flush();
             strm << "\\x" << std::hex << (unsigned)ch << std::dec; 
         }
         else {
-            strm << (char)(ch);
+            if (offset == 99) { 
+                _flush();
+            }
+            buffer[offset++] = (char)ch;
         }
     }
+    _flush();
     return strm.str();
 }
 
 std::string zstring::as_string() const {
     SASSERT(m_encoding == ascii);
     std::ostringstream strm;
+    char buffer[100];
+    unsigned offset = 0;
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
+        if (offset == 99) { _flush(); }
         unsigned char ch = m_buffer[i];
-        strm << (char)(ch);        
+        buffer[offset++] = (char)(ch);        
     }
+    _flush();
     return strm.str();
 }
 
@@ -365,11 +379,13 @@ seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_string(nullptr),
                                     m_char(nullptr),
                                     m_re(nullptr),
-                                    m_has_re(false) {}
+                                    m_has_re(false),
+                                    m_has_seq(false) {}
 
 void seq_decl_plugin::finalize() {
-    for (unsigned i = 0; i < m_sigs.size(); ++i)
-        dealloc(m_sigs[i]);
+    for (psig* s : m_sigs) {
+        dealloc(s);
+    }
     m_manager->dec_ref(m_string);
     m_manager->dec_ref(m_char);
     m_manager->dec_ref(m_re);
@@ -518,10 +534,10 @@ sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
 
 
 void seq_decl_plugin::init() {
-    if(m_init) return;
+    if (m_init) return;
     ast_manager& m = *m_manager;
     m_init = true;
-    sort* A = m.mk_uninterpreted_sort(symbol((unsigned)0));
+    sort* A = m.mk_uninterpreted_sort(symbol(0u));
     sort* strT = m_string;
     parameter paramA(A);
     parameter paramS(strT);
@@ -674,6 +690,7 @@ func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* cons
 func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
     init();
+    m_has_seq = true;
     ast_manager& m = *m_manager;
     sort_ref rng(m);
     switch(k) {
@@ -1004,8 +1021,7 @@ app* seq_util::str::mk_string(zstring const& s) const {
 }
 
 app*  seq_util::str::mk_char(zstring const& s, unsigned idx) const {
-    bv_util bvu(m);
-    return bvu.mk_numeral(s[idx], s.num_bits());
+    return u.bv().mk_numeral(s[idx], s.num_bits());
 }
 
 app*  seq_util::str::mk_char(char ch) const {
@@ -1013,26 +1029,27 @@ app*  seq_util::str::mk_char(char ch) const {
     return mk_char(s, 0);
 }
 
+bv_util& seq_util::bv() const {
+    if (!m_bv) m_bv = alloc(bv_util, m);
+    return *m_bv.get();
+}
+
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
-    bv_util bv(m);
     rational r;    
     unsigned sz;
-    return bv.is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
+    return bv().is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
 }
 
 app* seq_util::mk_char(unsigned ch) const {
-    bv_util bv(m);
-    return bv.mk_numeral(rational(ch), 8);
+    return bv().mk_numeral(rational(ch), 8);
 }
 
 app* seq_util::mk_le(expr* ch1, expr* ch2) const {
-    bv_util bv(m);
-    return bv.mk_ule(ch1, ch2);
+    return bv().mk_ule(ch1, ch2);
 }
 
 app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
-    bv_util bv(m);
-    return m.mk_not(bv.mk_ule(ch2, ch1));
+    return m.mk_not(bv().mk_ule(ch2, ch1));
 }
 
 bool seq_util::str::is_string(expr const* n, zstring& s) const {

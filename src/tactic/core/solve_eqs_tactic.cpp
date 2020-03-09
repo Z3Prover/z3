@@ -586,7 +586,9 @@ class solve_eqs_tactic : public tactic {
         bool check_eq_compat_rec(expr_mark& occ, svector<lbool>& cache, expr* f, expr* v, expr* eq, bool& all) {
             expr_ref_vector args(m());
             expr* f1 = nullptr;
-            if (!occ.is_marked(f)) {
+            // flattening may introduce fresh negations, 
+            // occ is not defined on these negations
+            if (!m().is_not(f) && !occ.is_marked(f)) {
                 all = false;
                 return true;
             }
@@ -678,19 +680,25 @@ class solve_eqs_tactic : public tactic {
         }
 
         void distribute_and_or(goal & g) {
+            if (m_produce_proofs) 
+                return;
             unsigned size = g.size();
             hoist_rewriter_star rw(m());
             th_rewriter thrw(m());
             expr_ref tmp(m()), tmp2(m());
-            TRACE("solve_eqs", g.display(tout););
+            
+            // TRACE("solve_eqs", g.display(tout););
             for (unsigned idx = 0; idx < size; idx++) {
                 checkpoint();
                 if (g.is_decided_unsat()) break;
                 expr* f = g.form(idx);
-                thrw(f, tmp);
-                rw(tmp, tmp2);
-                TRACE("solve_eqs", tout << mk_pp(f, m()) << " " << tmp2 << "\n";);
-                g.update(idx, tmp2, g.pr(idx), g.dep(idx));
+                proof_ref pr1(m()), pr2(m());
+                thrw(f, tmp, pr1);
+                rw(tmp, tmp2, pr2);
+                pr1 = m().mk_transitivity(pr1, pr2);
+                TRACE("solve_eqs", tout << mk_pp(f, m()) << " " << tmp2 << "\n" << pr1 << "\n" << mk_pp(g.pr(idx), m()) << "\n";);
+                if (!pr1) pr1 = g.pr(idx); else pr1 = m().mk_modus_ponens(g.pr(idx), pr1);
+                g.update(idx, tmp2, pr1, g.dep(idx));
             }
             
         }
@@ -1005,6 +1013,7 @@ class solve_eqs_tactic : public tactic {
             SASSERT(g->is_well_sorted());
             model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
+            TRACE("goal", g->display(tout););
             m_produce_models = g->models_enabled();
             m_produce_proofs = g->proofs_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
@@ -1040,7 +1049,7 @@ class solve_eqs_tactic : public tactic {
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
-            TRACE("solve_eqs", g->display(tout););
+            TRACE("goal", g->display(tout););
             SASSERT(g->is_well_sorted());
         }
     };

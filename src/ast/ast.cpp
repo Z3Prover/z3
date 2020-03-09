@@ -668,7 +668,7 @@ ast* ast_table::pop_erase() {
 // -----------------------------------
 
 /**
-     \brief Checks wether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
+     \brief Checks whether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
     to that log. The theory solver should add some description of the meaning of the term in terms of the theory's
     internal reasoning to the end of the line and insert a line break.
     
@@ -744,7 +744,6 @@ basic_decl_plugin::basic_decl_plugin():
     m_th_assumption_add_decl(nullptr),
     m_th_lemma_add_decl(nullptr),
     m_redundant_del_decl(nullptr),
-    m_clause_trail_decl(nullptr),
     m_hyper_res_decl0(nullptr) {
 }
 
@@ -835,9 +834,9 @@ func_decl * basic_decl_plugin::mk_compressed_proof_decl(char const * name, basic
 
 func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache) {
     if (num_parents >= cache.size()) {
-        cache.resize(num_parents+1);
+        cache.resize(num_parents+1, nullptr);
     }
-    if (cache[num_parents] == 0) {
+    if (!cache[num_parents]) {
         cache[num_parents] = mk_proof_decl(name, k, num_parents);
     }
     return cache[num_parents];
@@ -920,7 +919,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("add-th-assume", k, num_parents, m_th_assumption_add_decl);
     case PR_TH_LEMMA_ADD:                 return mk_proof_decl("add-th-lemma", k, num_parents, m_th_lemma_add_decl);
     case PR_REDUNDANT_DEL:                return mk_proof_decl("del-redundant", k, num_parents, m_redundant_del_decl);
-    case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents, m_clause_trail_decl);
+    case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents);
     default:
         UNREACHABLE();
         return nullptr;
@@ -1041,7 +1040,6 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_th_assumption_add_decl);
     DEC_REF(m_th_lemma_add_decl);
     DEC_REF(m_redundant_del_decl);
-    DEC_REF(m_clause_trail_decl);
     DEC_ARRAY_REF(m_apply_def_decls);
     DEC_ARRAY_REF(m_nnf_pos_decls);
     DEC_ARRAY_REF(m_nnf_neg_decls);
@@ -1678,6 +1676,16 @@ void ast_manager::set_next_expr_id(unsigned id) {
 
 unsigned ast_manager::get_node_size(ast const * n) { return ::get_node_size(n); }
 
+std::ostream& ast_manager::display(std::ostream& out) const {
+    for (ast * a : m_ast_table) {
+        if (is_func_decl(a)) {
+            out << to_func_decl(a)->get_name() << " " << a->get_id() << "\n";
+        }
+    }
+    return out;
+}
+
+
 void ast_manager::register_plugin(symbol const & s, decl_plugin * plugin) {
     family_id id = m_family_manager.mk_family_id(s);
     SASSERT(is_format_manager() || s != symbol("format"));
@@ -1785,6 +1793,7 @@ bool ast_manager::slow_not_contains(ast const * n) {
     return true;
 }
 #endif
+
 
 ast * ast_manager::register_node_core(ast * n) {
     unsigned h = get_node_hash(n);
@@ -1899,6 +1908,20 @@ ast * ast_manager::register_node_core(ast * n) {
     default:
         break;
     }
+
+#if 0
+    // std::cout << n->m_id << " " << n->hash() << "\n";
+    if (n->m_id == 1523) {
+        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
+    }
+    if (n->m_id == 1524) {
+        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
+        VERIFY(false);
+    }
+    if (n->m_id == 1525) {
+        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
+    }
+#endif
     return n;
 }
 
@@ -2190,6 +2213,21 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
     return false;
 }
 
+expr* ast_manager::coerce_to(expr* e, sort* s) {
+    sort* se = get_sort(e);
+    if (s != se && s->get_family_id() == m_arith_family_id && se->get_family_id() == m_arith_family_id) {
+        if (s->get_decl_kind() == REAL_SORT) {
+            return mk_app(m_arith_family_id, OP_TO_REAL, e);
+        }
+        else {
+            return mk_app(m_arith_family_id, OP_TO_INT, e);        
+        }
+    }
+    else {
+        return e;
+    }
+}
+
 app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const * args) {
     app * r = nullptr;
     app * new_node = nullptr;
@@ -2198,35 +2236,9 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
     try {
         if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
             expr_ref_buffer new_args(*this);
-            if (decl->is_associative()) {
-                sort * d = decl->get_domain(0);
-                for (unsigned i = 0; i < num_args; i++) {
-                    sort * s = get_sort(args[i]);
-                    if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
-                        if (d->get_decl_kind() == REAL_SORT)
-                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
-                        else
-                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
-                    }
-                    else {
-                        new_args.push_back(args[i]);
-                    }
-                }
-            }
-            else {
-                for (unsigned i = 0; i < num_args; i++) {
-                    sort * d = decl->get_domain(i);
-                    sort * s = get_sort(args[i]);
-                    if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
-                        if (d->get_decl_kind() == REAL_SORT)
-                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
-                        else
-                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
-                    }
-                    else {
-                        new_args.push_back(args[i]);
-                    }
-                }
+            for (unsigned i = 0; i < num_args; i++) {
+                sort * d = decl->is_associative() ? decl->get_domain(0) : decl->get_domain(i);
+                new_args.push_back(coerce_to(args[i], d));
             }
             check_args(decl, num_args, new_args.c_ptr());
             SASSERT(new_args.size() == num_args);
@@ -2446,10 +2458,9 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
 }
 
 app * ast_manager::mk_pattern(unsigned num_exprs, app * const * exprs) {
-    DEBUG_CODE({
-            for (unsigned i = 0; i < num_exprs; ++i) {
-                SASSERT(is_app(exprs[i]));
-            }});
+    for (unsigned i = 0; i < num_exprs; ++i) {
+        if (!is_app(exprs[i])) throw default_exception("patterns cannot be variables or quantifiers");
+    }
     return mk_app(m_pattern_family_id, OP_PATTERN, 0, nullptr, num_exprs, (expr*const*)exprs);
 }
 

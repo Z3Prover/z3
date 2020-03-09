@@ -30,7 +30,8 @@ public:
           info(info),
           abstr_model(abstr_model),
           fixed_model(true)
-    { }
+    { 
+    }
 
     ackr_model_converter(ast_manager & m,
                          const ackr_info_ref& info)
@@ -44,6 +45,7 @@ public:
     void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
     void operator()(model_ref & md) override {
+        TRACE("ackermannize", tout << (fixed_model? "fixed" : "nonfixed") << "\n";);
         SASSERT(!fixed_model || md.get() == 0 || (!md->get_num_constants() && !md->get_num_functions()));
         model_ref& old_model = fixed_model ? abstr_model : md;
         SASSERT(old_model.get());
@@ -100,6 +102,7 @@ void ackr_model_converter::convert_constants(model * source, model * destination
         func_decl * const c = source->get_constant(i);
         app * const term = info->find_term(c);
         expr * value = source->get_const_interp(c);
+        TRACE("ackermannize", tout << mk_ismt2_pp(c, m) << " " << term << "\n";);
         if (!term) {
             destination->register_decl(c, value);
         }

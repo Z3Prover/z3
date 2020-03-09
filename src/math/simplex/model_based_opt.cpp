@@ -824,7 +824,7 @@ namespace opt {
         rational val(c);
         SASSERT(r.m_vars.empty());
         r.m_vars.append(coeffs.size(), coeffs.c_ptr());
-        bool is_int_row = true;
+        bool is_int_row = !coeffs.empty();
         std::sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
         for (auto const& c : coeffs) {
             val += m_var2value[c.m_id] * c.m_coeff;

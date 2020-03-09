@@ -85,6 +85,8 @@ namespace smt {
             if (m_params.m_arith_reflect)
                 internalize_term_core(to_app(to_app(n)->get_arg(0)));
             theory_var s = internalize_term_core(to_app(to_app(n)->get_arg(1)));
+            if (null_theory_var == s)
+                return s;
             enode * e    = ctx.mk_enode(n, !m_params.m_arith_reflect, false, true);
             theory_var v = mk_var(e);
             add_edge(s, v, k, null_literal);
@@ -150,13 +152,13 @@ namespace smt {
         numeral offset(_k);
         app * s, * t;
         expr *arg1, *arg2;
-        if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg2, s)) {
+        if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg2, s) && !m_autil.is_arith_expr(s) && !m_autil.is_arith_expr(arg1)) {
             t = to_app(arg1);
         }
-        else if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg1, s)) {
+        else if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg1, s) && !m_autil.is_arith_expr(s) && !m_autil.is_arith_expr(arg2)) {
             t = to_app(arg2);
         }
-        else if (m_autil.is_mul(lhs, arg1, arg2) && m_autil.is_minus_one(arg1)) {
+        else if (m_autil.is_mul(lhs, arg1, arg2) && m_autil.is_minus_one(arg1) && !m_autil.is_arith_expr(arg2)) {
             s = to_app(arg2);
             t = mk_zero_for(s);
         }
@@ -182,6 +184,7 @@ namespace smt {
             std::swap(source, target);
             offset.neg();
         }
+		if (ctx.b_internalized(n)) return true;
         bool_var bv = ctx.mk_bool_var(n);
         ctx.set_var_theory(bv, get_id());
         atom * a    = alloc(atom, bv, source, target, offset);

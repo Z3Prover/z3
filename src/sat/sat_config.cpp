@@ -76,6 +76,7 @@ namespace sat {
         m_restart_max     = p.restart_max();
         m_propagate_prefetch = p.propagate_prefetch();
         m_inprocess_max   = p.inprocess_max();
+        m_inprocess_out   = p.inprocess_out();
 
         m_random_freq     = p.random_freq();
         m_random_seed     = p.random_seed();
@@ -100,6 +101,19 @@ namespace sat {
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
         m_binspr            = p.binspr();
+        m_binspr            = false;     // prevent adventurous users from trying feature that isn't ready
+        m_anf_simplify      = p.anf();
+        m_anf_delay         = p.anf_delay();
+        m_anf_exlin         = p.anf_exlin();
+        m_cut_simplify      = p.cut();
+        m_cut_delay         = p.cut_delay();
+        m_cut_aig           = p.cut_aig();
+        m_cut_lut           = p.cut_lut();
+        m_cut_xor           = p.cut_xor();
+        m_cut_npn3          = p.cut_npn3();
+        m_cut_dont_cares    = p.cut_dont_cares();
+        m_cut_redundancies  = p.cut_redundancies();
+        m_cut_force         = p.cut_force();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();

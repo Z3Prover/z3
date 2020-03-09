@@ -273,13 +273,13 @@ bool bv_rewriter::are_eq_upto_num(expr * _a, expr * _b,
         }
     }
     if (!aadd && badd) {
-        if (to_app(_a)->get_num_args() != 2 || !has_num_a || to_app(_a)->get_arg(0) != _b)
+        if (!is_app(_a) || to_app(_a)->get_num_args() != 2 || !has_num_a || to_app(_a)->get_arg(0) != _b)
             return false;
         common = _b;
         return true;
     }
     if (aadd && !badd) {
-        if (to_app(_b)->get_num_args() != 2 || !has_num_b || to_app(_b)->get_arg(0) != _a)
+        if (!is_app(_b) || to_app(_b)->get_num_args() != 2 || !has_num_b || to_app(_b)->get_arg(0) != _a)
             return false;
         common = _a;
         return true;
@@ -2024,13 +2024,24 @@ br_status bv_rewriter::mk_bv_nand(unsigned num, expr * const * args, expr_ref & 
     return BR_REWRITE2;
 }
 
-br_status bv_rewriter::mk_bv_nor(unsigned num, expr * const * args, expr_ref & result) {
-    result = m_util.mk_bv_not(m_util.mk_bv_or(num, args));
+br_status bv_rewriter::mk_bv_nor(unsigned num_args, expr * const * args, expr_ref & result) {
+    result = m_util.mk_bv_not(m_util.mk_bv_or(num_args, args));
     return BR_REWRITE2;
 }
 
 br_status bv_rewriter::mk_bv_xnor(unsigned num_args, expr * const * args, expr_ref & result) {
-    result = m_util.mk_bv_not(m_util.mk_bv_xor(num_args, args));
+    switch (num_args) {
+    case 0: result = m().mk_true(); break;
+    case 1: result = m_util.mk_bv_not(args[0]); break;
+    case 2: result = m_util.mk_bv_not(m_util.mk_bv_xor(num_args, args)); break;
+    default:
+        mk_bv_xnor(2, args, result);
+        for (unsigned i = 2; i < num_args; ++i) {
+            expr* _args[2] = { result, args[i] };
+            mk_bv_xnor(2, _args, result);
+        }
+        return BR_REWRITE_FULL;
+    }
     return BR_REWRITE2;
 }
 
@@ -2597,7 +2608,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             return st;
     }
 
-    if (m_trailing) {
+    if (m_trailing) {        
         st = m_rm_trailing.eq_remove_trailing(lhs, rhs, result);
         m_rm_trailing.reset_cache(1 << 12);
         if (st != BR_FAILED) {

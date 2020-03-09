@@ -324,7 +324,7 @@ bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, exp
         if (d.m_domain.size() != n) continue;
         bool eq = true;
         for (unsigned i = 0; eq && i < n; ++i) {
-            eq = m().compatible_sorts(d.m_domain[i], m().get_sort(args[i]));
+            eq = d.m_domain[i] == m().get_sort(args[i]);
         }
         if (eq) {
             t = d.m_body;
@@ -689,7 +689,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
         register_plugin(symbol("csp"),      alloc(csp_decl_plugin), smt_logics::logic_is_csp(m_logic));
-        register_plugin(symbol("special_relations"), alloc(special_relations_decl_plugin), !has_logic());
+        register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin), !has_logic());
     }
     else {
         // the manager was created by an external module
@@ -1077,7 +1077,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
         scoped_rlimit no_limit(m().limit(), 0);
-        result = subst(_t, num_args, args);
+        result = subst(_t, num_args, args);        
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
         return;
@@ -1085,7 +1085,6 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
 
     func_decls fs;
     if (!m_func_decls.find(s, fs)) {
-
         builtin_decl d;
         if (m_builtin_decls.find(s, d)) {
             family_id fid = d.m_fid;
@@ -1383,11 +1382,24 @@ void cmd_context::push() {
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
+    unsigned timeout = m_params.m_timeout;
     m().limit().push(m_params.rlimit());
-    if (m_solver) 
-        m_solver->push();
-    if (m_opt)
-        m_opt->push();
+    cancel_eh<reslimit> eh(m().limit());
+    scoped_ctrl_c ctrlc(eh);
+    scoped_timer timer(timeout, &eh);
+    scoped_rlimit _rlimit(m().limit(), m_params.rlimit());
+    try {
+        if (m_solver) 
+            m_solver->push();
+        if (m_opt)
+            m_opt->push();
+    }
+    catch (z3_error & ex) {
+        throw ex;
+    }
+    catch (z3_exception & ex) {
+        throw cmd_exception(ex.msg());
+    }
 }
 
 void cmd_context::push(unsigned n) {

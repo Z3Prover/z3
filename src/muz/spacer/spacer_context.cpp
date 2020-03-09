@@ -3271,7 +3271,7 @@ bool context::is_reachable(pob &n)
 
 void context::dump_json()
 {
-    if (m_params.spacer_print_json().size()) {
+    if (!m_params.spacer_print_json().is_null()) {
         std::ofstream of;
         of.open(m_params.spacer_print_json().bare_str());
         m_json_marshaller.marshal(of);
@@ -3950,7 +3950,7 @@ void context::add_constraint (expr *c, unsigned level)
 }
 
 void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
-    if (m_params.spacer_print_json().size())
+    if (!m_params.spacer_print_json().is_null())
         m_json_marshaller.register_lemma(lem);
     bool handle=false;
     for (unsigned i = 0; i < m_callbacks.size(); i++) {
@@ -3974,7 +3974,7 @@ void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
 }
 
 void context::new_pob_eh(pob *p) {
-    if (m_params.spacer_print_json().size())
+    if (!m_params.spacer_print_json().is_null())
         m_json_marshaller.register_pob(p);
 }
 

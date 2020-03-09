@@ -35,7 +35,7 @@ Notes:
 
 
 struct dl_context {
-    smt_params                    m_fparams;
+    scoped_ptr<smt_params>        m_fparams;
     params_ref                    m_params_ref;
     fp_params                     m_params;
     cmd_context &                 m_cmd;
@@ -70,10 +70,15 @@ struct dl_context {
         }
     }
 
+    smt_params& fparams() {
+        if (!m_fparams) m_fparams = alloc(smt_params);
+        return *m_fparams.get();
+    }
+
     void init() {
         ast_manager& m = m_cmd.m();
         if (!m_context) {
-            m_context = alloc(datalog::context, m, m_register_engine, m_fparams, m_params_ref);
+            m_context = alloc(datalog::context, m, m_register_engine, fparams(), m_params_ref);
         }
         if (!m_decl_plugin) {
             symbol name("datalog_relation");

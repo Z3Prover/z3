@@ -22,6 +22,7 @@ Revision History:
 #define SEQ_DECL_PLUGIN_H_
 
 #include "ast/ast.h"
+#include "ast/bv_decl_plugin.h"
 
 
 enum seq_sort_kind {
@@ -154,6 +155,7 @@ class seq_decl_plugin : public decl_plugin {
     sort*            m_char;
     sort*            m_re;
     bool             m_has_re;
+    bool             m_has_seq;
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -206,6 +208,7 @@ public:
     app* mk_string(zstring const& s);
 
     bool has_re() const { return m_has_re; }
+    bool has_seq() const { return m_has_seq; }
 
     bool is_considered_uninterpreted(func_decl * f) override;
 };
@@ -214,6 +217,8 @@ class seq_util {
     ast_manager& m;
     seq_decl_plugin& seq;
     family_id m_fid;
+    mutable scoped_ptr<bv_util> m_bv;
+    bv_util& bv() const;
 public:
 
     ast_manager& get_manager() const { return m; }
@@ -237,6 +242,7 @@ public:
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
     bool has_re() const { return seq.has_re(); }
+    bool has_seq() const { return seq.has_seq(); }
 
     class str {
         seq_util&    u;
@@ -262,6 +268,7 @@ public:
         expr* mk_concat(expr_ref_vector const& es) const { return mk_concat(es.size(), es.c_ptr()); }
         app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_at(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_AT, 2, es); }
+        app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
         app* mk_nth_i(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH_I, 2, es); }
         app* mk_nth_i(expr* s, unsigned i) const;
 

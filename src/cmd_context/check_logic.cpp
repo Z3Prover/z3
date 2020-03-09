@@ -197,6 +197,14 @@ struct check_logic::imp {
             m_dt          = true;
             m_nonlinear   = true; // non-linear 0-1 variables may get eliminated
         }
+        else if (logic == "SMTFD") {
+            m_bvs         = true;
+            m_uf          = true;
+            m_arrays      = true;
+            m_ints        = false;
+            m_dt          = false;
+            m_nonlinear   = false; 
+        }
         else {
             m_unknown_logic = true;
         }

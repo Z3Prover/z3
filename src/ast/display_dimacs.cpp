@@ -20,7 +20,7 @@ Revision History:
 #include "ast.h"
 #include "display_dimacs.h"
 
-std::ostream& display_dimacs(std::ostream& out, expr_ref_vector const& fmls) {
+std::ostream& display_dimacs(std::ostream& out, expr_ref_vector const& fmls, bool include_names) {
     ast_manager& m = fmls.m();
     unsigned_vector expr2var;
     ptr_vector<expr> exprs;
@@ -113,7 +113,7 @@ std::ostream& display_dimacs(std::ostream& out, expr_ref_vector const& fmls) {
         }
         out << "0\n";
     }
-    if (!is_from_dimacs) {
+    if (include_names && !is_from_dimacs) {
         for (expr* e : exprs) {
             if (e && is_app(e)) {
                 symbol const& n = to_app(e)->get_decl()->get_name();

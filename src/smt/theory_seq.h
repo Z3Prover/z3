@@ -45,12 +45,19 @@ namespace smt {
         typedef dependency_manager::dependency dependency;        
 
         typedef trail_stack<theory_seq> th_trail_stack;
-        typedef std::pair<expr*, dependency*> expr_dep;
-        typedef obj_map<expr, expr_dep> eqdep_map_t; 
+        struct expr_dep {
+            expr* v;
+            expr* e;
+            dependency* d;
+            expr_dep(expr* v, expr* e, dependency* d): v(v), e(e), d(d) {}
+            expr_dep():v(nullptr), e(nullptr), d(nullptr) {}
+        };
+        typedef svector<expr_dep> eqdep_map_t;
         typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
         struct validate_model_proc;
+        struct compare_depth;
         
         // cache to track evaluations under equalities
         class eval_cache {
@@ -58,8 +65,15 @@ namespace smt {
             expr_ref_vector         m_trail;
         public:
             eval_cache(ast_manager& m): m_trail(m) {}
-            bool find(expr* v, expr_dep& r) const { return m_map.find(v, r); }
-            void insert(expr* v, expr_dep& r) { m_trail.push_back(v); m_trail.push_back(r.first); m_map.insert(v, r); }
+            bool find(expr* v, expr_dep& r) const { 
+                return v->get_id() < m_map.size() && m_map[v->get_id()].e && (r = m_map[v->get_id()], true); 
+            }
+            void insert(expr_dep const& r) { 
+                m_trail.push_back(r.v); 
+                m_trail.push_back(r.e);
+                m_map.reserve(2*r.v->get_id() + 1);
+                m_map[r.v->get_id()] = r;
+            }
             void reset() { m_map.reset(); m_trail.reset(); }
         };
         
@@ -76,18 +90,25 @@ namespace smt {
             svector<map_update>    m_updates;
             unsigned_vector        m_limit;
 
+            bool find(expr* v, expr_dep& r) const { 
+                return v->get_id() < m_map.size() && m_map[v->get_id()].e && (r = m_map[v->get_id()], true); 
+            }
+            void insert(expr_dep const& r) { 
+                m_map.reserve(2*r.v->get_id() + 1);                
+                m_map[r.v->get_id()] = r;
+            }
             void add_trail(map_update op, expr* l, expr* r, dependency* d);
         public:
             solution_map(ast_manager& m, dependency_manager& dm): 
                 m(m),  m_dm(dm), m_cache(m), m_lhs(m), m_rhs(m) {}
             bool  empty() const { return m_map.empty(); }
             void  update(expr* e, expr* r, dependency* d);
-            void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
+            void  add_cache(expr_dep& r) { m_cache.insert(r); }
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
             expr* find(expr* e, dependency*& d);
             expr* find(expr* e);
             bool  find1(expr* a, expr*& b, dependency*& dep);
-            void  find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds);
+            void  find_rec(expr* e, svector<expr_dep>& finds);
             bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, dependency* d);
             void  reset_cache() { m_cache.reset(); }
@@ -382,7 +403,8 @@ namespace smt {
         symbol           m_prefix, m_suffix, m_accept, m_reject;
         symbol           m_tail, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol           m_pre, m_post, m_eq, m_seq_align;
-        ptr_vector<expr> m_todo;
+        ptr_vector<expr> m_todo, m_concat;
+        unsigned         m_internalize_depth;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
 
         // maintain automata with regular expressions.
@@ -430,7 +452,7 @@ namespace smt {
 
         void init_model(expr_ref_vector const& es);
         app* get_ite_value(expr* a);
-        void get_ite_concat(expr* e, ptr_vector<expr>& concats);
+        void get_ite_concat(ptr_vector<expr>& head, ptr_vector<expr>& tail);
         
         void len_offset(expr* e, rational val);
         void prop_arith_to_len_offset();
@@ -540,6 +562,15 @@ namespace smt {
         bool propagate_eq(dependency* dep, expr* e1, expr* e2, bool add_to_eqs = true);
         bool propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs = true);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
+        void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+
+        // self-validation
+        void validate_axiom(literal_vector const& lits);
+        void validate_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_assign(literal lit, enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_assign_eq(enode* a, enode* b, enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_fmls(enode_pair_vector const& eqs, literal_vector const& lits, expr_ref_vector& fmls);
+        expr_ref elim_skolem(expr* e);
 
         u_map<unsigned> m_branch_start;
         void insert_branch_start(unsigned k, unsigned s);
@@ -556,9 +587,11 @@ namespace smt {
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_unit_nth(expr* a) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
+        bool is_tail_match(expr* a, expr*& s, expr*& idx) const;
         bool is_eq(expr* e, expr*& a, expr*& b) const; 
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_post(expr* e, expr*& s, expr*& i);
+        expr_ref mk_post(expr* s, expr* i);
         expr_ref mk_sk_ite(expr* c, expr* t, expr* f);
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
@@ -684,6 +717,7 @@ namespace smt {
         std::ostream& display_deps(std::ostream& out, dependency* deps) const;
         std::ostream& display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
         std::ostream& display_nc(std::ostream& out, nc const& nc) const;
+        std::ostream& display_lit(std::ostream& out, literal l) const;
     public:
         theory_seq(ast_manager& m, theory_seq_params const & params);
         ~theory_seq() override;

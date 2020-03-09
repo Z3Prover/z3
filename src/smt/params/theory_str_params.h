@@ -116,6 +116,26 @@ struct theory_str_params {
      * before which we begin checking unsatisfiability of a regex term.
      */
     unsigned m_RegexAutomata_LengthAttemptThreshold;
+    
+    /*
+     * If FixedLengthModels is true, Z3str3 will use a fixed-length equation solver to construct models in final_check.
+     * If false, Z3str3 will use the legacy length tester and value tester procedure.
+     */
+    bool m_FixedLengthModels;
+
+    /*
+     * If FixedLengthRefinement is true and the fixed-length equation solver is enabled,
+     * Z3str3 will use abstraction refinement to handle formulas that would result in disjunctions or expensive
+     * reductions to fixed-length formulas.
+     */
+    bool m_FixedLengthRefinement;
+
+    /*
+     * If FixedLengthNaiveCounterexamples is true and the fixed-length equation solver is enabled,
+     * Z3str3 will only construct simple counterexamples to block unsatisfiable length assignments
+     * instead of attempting to learn more complex lessons.
+     */
+    bool m_FixedLengthNaiveCounterexamples;
 
     theory_str_params(params_ref const & p = params_ref()):
         m_StrongArrangements(true),
@@ -134,12 +154,16 @@ struct theory_str_params {
         m_RegexAutomata_IntersectionDifficultyThreshold(1000),
         m_RegexAutomata_FailedAutomatonThreshold(10),
         m_RegexAutomata_FailedIntersectionThreshold(10),
-        m_RegexAutomata_LengthAttemptThreshold(10)
+        m_RegexAutomata_LengthAttemptThreshold(10),
+        m_FixedLengthModels(true),
+        m_FixedLengthRefinement(false),
+        m_FixedLengthNaiveCounterexamples(true)
     {
         updt_params(p);
     }
 
     void updt_params(params_ref const & p);
+    void display(std::ostream & out) const;
 };
 
 #endif /* THEORY_STR_PARAMS_H */

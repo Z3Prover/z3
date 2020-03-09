@@ -202,7 +202,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, "If this is not what you want, then preprocess by optional bit-blasting and applying tseitin-cnf");
             RETURN_Z3(nullptr);
         }
-        to_goal_ref(g)->display_dimacs(buffer);
+        to_goal_ref(g)->display_dimacs(buffer, true);
         // Hack for removing the trailing '\n'
         std::string result = buffer.str();
         SASSERT(result.size() > 0);

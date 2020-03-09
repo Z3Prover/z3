@@ -632,23 +632,29 @@ namespace datalog {
     }
 
     void dl_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
-
-    }
-
-
-    dl_decl_util::ast_plugin_registrator::ast_plugin_registrator(ast_manager& m)
-    {
-        // ensure required plugins are installed into the ast_manager
-        reg_decl_plugins(m);
     }
 
     dl_decl_util::dl_decl_util(ast_manager& m):
-        m_plugin_registrator(m),
         m(m), 
-        m_arith(m),
-        m_bv(m),
-        m_fid(m.mk_family_id(symbol("datalog_relation")))
+        m_fid(null_family_id)
     {}
+
+    bv_util& dl_decl_util::bv() const {
+        if (!m_bv) m_bv = alloc(bv_util, m);
+        return *m_bv;
+    }
+
+    family_id dl_decl_util::get_family_id() const {
+        if (m_fid == null_family_id) {
+            m_fid = m.mk_family_id(symbol("datalog_relation"));
+        }
+        return m_fid;
+    };
+
+    arith_util& dl_decl_util::arith() const {
+        if (!m_arith) m_arith = alloc(arith_util, m);
+        return *m_arith;
+    }
 
     // create a constant belonging to a given finite domain.
 
@@ -659,13 +665,13 @@ namespace datalog {
                 m.raise_exception("value is out of bounds");
             }
             parameter params[2] = { parameter(rational(value, rational::ui64())), parameter(s) };
-            return m.mk_const(m.mk_func_decl(m_fid, OP_DL_CONSTANT, 2, params, 0, (sort*const*)nullptr));
+            return m.mk_const(m.mk_func_decl(get_family_id(), OP_DL_CONSTANT, 2, params, 0, (sort*const*)nullptr));
         }        
-        if (m_arith.is_int(s) || m_arith.is_real(s)) {
-            return m_arith.mk_numeral(rational(value, rational::ui64()), s);
+        if (arith().is_int(s) || arith().is_real(s)) {
+            return arith().mk_numeral(rational(value, rational::ui64()), s);
         }
-        if (m_bv.is_bv_sort(s)) {
-            return m_bv.mk_numeral(rational(value, rational::ui64()), s);
+        if (bv().is_bv_sort(s)) {
+            return bv().mk_numeral(rational(value, rational::ui64()), s);
         }
         if (m.is_bool(s)) {
             if (value == 0) {
@@ -699,7 +705,7 @@ namespace datalog {
         }
         rational val;
         unsigned bv_size = 0;
-        if (m_bv.is_numeral(e, val, bv_size) && bv_size < 64) {
+        if (bv().is_numeral(e, val, bv_size) && bv_size < 64) {
             SASSERT(val.is_uint64());
             v = val.get_uint64();
             return true;
@@ -719,8 +725,8 @@ namespace datalog {
         if (is_numeral(c)) return true;
         rational val;
         unsigned bv_size = 0;        
-        if (m_arith.is_numeral(c, val) && val.is_uint64()) return true;
-        if (m_bv.is_numeral(c, val, bv_size) && bv_size < 64) return true;
+        if (arith().is_numeral(c, val) && val.is_uint64()) return true;
+        if (bv().is_numeral(c, val, bv_size) && bv_size < 64) return true;
         return m.is_true(c) || m.is_false(c);
     }
 
@@ -731,7 +737,7 @@ namespace datalog {
             throw default_exception(sstm.str());
         }
         parameter params[2] = { parameter(name), parameter(rational(domain_size, rational::ui64())) };
-        return m.mk_sort(m_fid, DL_FINITE_SORT, 2, params);
+        return m.mk_sort(get_family_id(), DL_FINITE_SORT, 2, params);
     }
 
     bool dl_decl_util::try_get_size(const sort * s, uint64_t& size) const {
@@ -745,16 +751,16 @@ namespace datalog {
 
     app* dl_decl_util::mk_lt(expr* a, expr* b) {
         expr* args[2] = { a, b };
-        return m.mk_app(m_fid, OP_DL_LT, 0, nullptr, 2, args);
+        return m.mk_app(get_family_id(), OP_DL_LT, 0, nullptr, 2, args);
     }
 
     app* dl_decl_util::mk_le(expr* a, expr* b) {
         expr* args[2] = { b, a };
-        return m.mk_not(m.mk_app(m_fid, OP_DL_LT, 0, nullptr, 2, args));
+        return m.mk_not(m.mk_app(get_family_id(), OP_DL_LT, 0, nullptr, 2, args));
     }
 
     sort* dl_decl_util::mk_rule_sort() {
-        return m.mk_sort(m_fid, DL_RULE_SORT);
+        return m.mk_sort(get_family_id(), DL_RULE_SORT);
     }
 
     app* dl_decl_util::mk_rule(symbol const& name, unsigned num_args, expr* const* args) {

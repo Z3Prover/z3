@@ -75,11 +75,14 @@ namespace smt {
 
         void reset_eh() override;
 
+        void apply_sort_cnstr(enode * n, sort * s) override;
+
         void init_model(model_generator & m) override;
         
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
         bool get_value(enode* n, expr_ref& r) override;
+        bool include_func_interp(func_decl* f) override;
         bool get_value(enode* n, rational& r);
         bool get_lower(enode* n, expr_ref& r);
         bool get_upper(enode* n, expr_ref& r);

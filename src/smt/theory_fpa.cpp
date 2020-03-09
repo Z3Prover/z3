@@ -728,6 +728,34 @@ namespace smt {
         mg.register_factory(m_factory);
     }
 
+    enode* theory_fpa::ensure_enode(expr* e) {
+        context& ctx = get_context();
+        if (!ctx.e_internalized(e)) {
+            ctx.internalize(e, false);
+        }
+        enode* n = ctx.get_enode(e);
+        ctx.mark_as_relevant(n);
+        return n;
+    }
+
+    app* theory_fpa::get_ite_value(expr* e) {
+        ast_manager & m = get_manager();
+        context& ctx = get_context();
+        expr* e1, *e2, *e3;
+        while (m.is_ite(e, e1, e2, e3) && ctx.e_internalized(e)) {
+            if (ctx.get_enode(e2)->get_root() == ctx.get_enode(e)->get_root()) {
+                e = e2;
+            }
+            else if (ctx.get_enode(e3)->get_root() == ctx.get_enode(e)->get_root()) {
+                e = e3;
+            }
+            else {
+                break;
+            }
+        }
+        return to_app(e);
+    }
+
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
         TRACE("t_fpa", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
                             " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")\n";);
@@ -735,7 +763,7 @@ namespace smt {
         ast_manager & m = get_manager();
         context & ctx = get_context();
         app_ref owner(m);
-        owner = n->get_owner();
+        owner = get_ite_value(n->get_owner());
 
         // If the owner is not internalized, it doesn't have an enode associated.
         SASSERT(ctx.e_internalized(owner));

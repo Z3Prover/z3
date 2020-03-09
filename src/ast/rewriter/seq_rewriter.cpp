@@ -352,7 +352,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
         TRACE("seq", display_expr1 disp(m); a->display(tout << "a:", disp); b->display(tout << "b:", disp); r->display(tout << "intersection:", disp););
         return r;
     }
-    else {
+    else {        
         TRACE("seq", tout << "not handled " << mk_pp(e, m) << "\n";);
     }
     
@@ -526,6 +526,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         st = mk_str_le(args[0], args[1], result);
         break;
+    case OP_STRING_LT:
+        SASSERT(num_args == 2);
+        st = mk_str_lt(args[0], args[1], result);
+        break;
     case OP_STRING_CONST:
         return BR_FAILED;
     case OP_STRING_ITOS: 
@@ -549,7 +553,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
-    CTRACE("seq_verbose", st != BR_FAILED, tout << f->get_name() << " " << result << "\n";);
+    CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     return st;
 }
 
@@ -616,32 +620,31 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     m_util.str.get_concat(a, m_es);
     unsigned len = 0;
     unsigned j = 0;
-    for (unsigned i = 0; i < m_es.size(); ++i) {
-        if (m_util.str.is_string(m_es[i].get(), b)) {
+    for (expr* e : m_es) {
+        if (m_util.str.is_string(e, b)) {
             len += b.length();
         }
-        else if (m_util.str.is_unit(m_es[i].get())) {
+        else if (m_util.str.is_unit(e)) {
             len += 1;
         }
-        else if (m_util.str.is_empty(m_es[i].get())) {
+        else if (m_util.str.is_empty(e)) {
             // skip
         }
         else {
-            m_es[j] = m_es[i].get();
-            ++j;
+            m_es[j++] = e;
         }
     }
     if (j == 0) {
-        result = m_autil.mk_numeral(rational(len, rational::ui64()), true);
+        result = m_autil.mk_int(len);
         return BR_DONE;
     }
     if (j != m_es.size() || j != 1) {
         expr_ref_vector es(m());        
         for (unsigned i = 0; i < j; ++i) {
-            es.push_back(m_util.str.mk_length(m_es[i].get()));
+            es.push_back(m_util.str.mk_length(m_es.get(i)));
         }
         if (len != 0) {
-            es.push_back(m_autil.mk_numeral(rational(len, rational::ui64()), true));
+            es.push_back(m_autil.mk_int(len));
         }
         result = m_autil.mk_add(es.size(), es.c_ptr());
         return BR_REWRITE2;
@@ -1436,7 +1439,27 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_str_le(expr* a, expr* b, expr_ref& result) {
     result = m().mk_not(m_util.str.mk_lex_lt(b, a));
-    return BR_DONE;
+    return BR_REWRITE2;
+}
+
+br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
+    zstring as, bs;
+    if (m_util.str.is_string(a, as) && m_util.str.is_string(b, bs)) {
+        unsigned sz = std::min(as.length(), bs.length());
+        for (unsigned i = 0; i < sz; ++i) {
+            if (as[i] < bs[i]) {
+                result = m().mk_true();
+                return BR_DONE;
+            }
+            if (as[i] > bs[i]) {
+                result = m().mk_false();
+                return BR_DONE;
+            }
+        }
+        result = m().mk_bool_val(as.length() < bs.length());
+        return BR_DONE;
+    }
+    return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
@@ -1581,6 +1604,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = m().mk_true();
         return BR_DONE;
     }
+    expr* b1 = nullptr;
+    if (m_util.re.is_to_re(b, b1)) {
+        result = m().mk_eq(a, b1);
+        return BR_REWRITE1;
+    }
     scoped_ptr<eautomaton> aut;
     expr_ref_vector seq(m());
     if (!(aut = m_re2aut(b))) {
@@ -1694,6 +1722,10 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     expr* a1 = nullptr, *b1 = nullptr;
+    if (m_util.re.is_to_re(a, a1) && m_util.re.is_to_re(b, b1)) {
+        result = m_util.re.mk_to_re(m_util.str.mk_concat(a1, b1));
+        return BR_REWRITE2;
+    }
     if (m_util.re.is_star(a, a1) && m_util.re.is_star(b, b1) && a1 == b1) {
         result = a;
         return BR_DONE;

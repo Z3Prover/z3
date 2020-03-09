@@ -97,8 +97,10 @@ namespace sat {
     };
 
     lbool unit_walk::operator()() {
+        m_inconsistent = false;
         scoped_set_unit_walk _scoped_set(this, s);
-        init_runs();
+        if (init_runs())
+            return l_true;
         init_propagation();
         init_phase();
         lbool st = l_undef;
@@ -141,12 +143,14 @@ namespace sat {
 
     lbool unit_walk::do_backjump() {
         unsigned backjump_level = m_decisions.size(); // - (m_decisions.size()/20);
-        switch (update_priority(backjump_level)) {
+        lbool st = update_priority(backjump_level);
+        switch (st) {
         case l_true: return l_true;
         case l_false: break; // TBD
         default: break;
         }
-        refresh_solver();
+        if (refresh_solver())
+            return l_true;
         return l_undef;
     }
 
@@ -175,7 +179,7 @@ namespace sat {
         m_inconsistent = false;
     }
 
-    void unit_walk::init_runs() {
+    bool unit_walk::init_runs() {
         m_luby_index = 0;
         m_restart_threshold = 1000;
         m_max_trail = 0;
@@ -190,7 +194,7 @@ namespace sat {
         }
         m_ls.import(s, true);
         m_rand.set_seed(s.rand()());
-        update_priority(0);
+        return l_true == update_priority(0);
     }
 
     lbool unit_walk::do_local_search(unsigned num_rounds) {
@@ -212,7 +216,7 @@ namespace sat {
         while (m_decisions.size() > level) {
             pop_decision();
         }
-        IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk :update-priority " << m_decisions.size() << "\n");
+        IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk :update-priority " << m_decisions.size() << ")\n");
 
         unsigned num_rounds = 50;
         log_status();
@@ -221,7 +225,7 @@ namespace sat {
         switch (is_sat) {
         case l_true:
             for (unsigned v = 0; v < s.num_vars(); ++v) {
-                s.m_assignment[v] = m_ls.get_best_phase(v) ? l_true : l_false;
+                s.m_assignment[v] = m_ls.get_model()[v];
             } 
             return l_true;
         case l_false:
@@ -265,15 +269,17 @@ namespace sat {
         }
     }
 
-    void unit_walk::refresh_solver() {
+    bool unit_walk::refresh_solver() {
         m_max_conflicts += m_conflict_offset ;
         m_conflict_offset += 10000;
         if (s.m_par && s.m_par->copy_solver(s)) {
             IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk fresh copy)\n";);
             if (s.get_extension()) s.get_extension()->set_unit_walk(this);
-            init_runs();
+            if (init_runs())
+                return true;
             init_phase();
         }
+        return false;
     }
 
     bool unit_walk::should_restart() {

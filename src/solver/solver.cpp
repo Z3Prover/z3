@@ -58,10 +58,10 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     return out;
 }
 
-std::ostream& solver::display_dimacs(std::ostream& out) const {
+std::ostream& solver::display_dimacs(std::ostream& out, bool include_names) const {
     expr_ref_vector fmls(get_manager());
     get_assertions(fmls);    
-    return ::display_dimacs(out, fmls);
+    return ::display_dimacs(out, fmls, include_names);
 }
 
 void solver::get_assertions(expr_ref_vector& fmls) const {
@@ -344,7 +344,7 @@ lbool solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
 void solver::dump_state(unsigned sz, expr* const* assumptions) {
     if ((symbol::null != m_cancel_backup_file) &&
         !m_cancel_backup_file.is_numerical() && 
-        m_cancel_backup_file.c_ptr() &&
+        !m_cancel_backup_file.is_null() &&
         m_cancel_backup_file.bare_str()[0]) {
         std::string file = m_cancel_backup_file.str();
         std::ofstream ous(file);

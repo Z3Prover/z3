@@ -539,25 +539,30 @@ public:
         if (!m_bb_rewriter) {
             m_bb_rewriter = alloc(bit_blaster_rewriter, m, m_params);
         }
+        params_ref simp1_p = m_params;
+        simp1_p.set_bool("som", true);
+        simp1_p.set_bool("pull_cheap_ite", true);
+        simp1_p.set_bool("push_ite_bv", false);
+        simp1_p.set_bool("local_ctx", true);
+        simp1_p.set_uint("local_ctx_limit", 10000000);
+        simp1_p.set_bool("flat", true); // required by som
+        simp1_p.set_bool("hoist_mul", false); // required by som
+        simp1_p.set_bool("elim_and", true);
+        simp1_p.set_bool("blast_distinct", true);
+
         params_ref simp2_p = m_params;
-        simp2_p.set_bool("som", true);
-        simp2_p.set_bool("pull_cheap_ite", true);
-        simp2_p.set_bool("push_ite_bv", false);
-        simp2_p.set_bool("local_ctx", true);
-        simp2_p.set_uint("local_ctx_limit", 10000000);
-        simp2_p.set_bool("flat", true); // required by som
-        simp2_p.set_bool("hoist_mul", false); // required by som
-        simp2_p.set_bool("elim_and", true);
-        simp2_p.set_bool("blast_distinct", true);
+        simp2_p.set_bool("flat", false);
+
         m_preprocess =
             and_then(mk_simplify_tactic(m),
                      mk_propagate_values_tactic(m),
-                     //time consuming if done in inner loop: mk_solve_eqs_tactic(m, simp2_p),
+                     //time consuming if done in inner loop: mk_solve_eqs_tactic(m, simp1_p),
                      mk_card2bv_tactic(m, m_params),                  // updates model converter
-                     using_params(mk_simplify_tactic(m), simp2_p),
+                     using_params(mk_simplify_tactic(m), simp1_p),
                      mk_max_bv_sharing_tactic(m),
-                     mk_bit_blaster_tactic(m, m_bb_rewriter.get()),   // updates model converter
-                     using_params(mk_simplify_tactic(m), simp2_p));
+                     mk_bit_blaster_tactic(m, m_bb_rewriter.get())
+                     /*TBD remove and check what simplifier does with expansion */                   , using_params(mk_simplify_tactic(m), simp2_p)
+                     );
         while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
         }
@@ -567,6 +572,10 @@ public:
 private:
 
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
+        m_solver.pop_to_base_level();
+        if (m_solver.inconsistent()) 
+            return l_false;
+        
         m_pc.reset();
         m_subgoals.reset();
         init_preprocess();
@@ -870,11 +879,11 @@ private:
         }
         TRACE("sat", m_solver.display_model(tout););
         sat::model ll_m = m_solver.get_model();
+        mdl = alloc(model, m);
         if (m_sat_mc) {
             (*m_sat_mc)(ll_m);
-        }
-        mdl = alloc(model, m);
-        for (sat::bool_var v = 0; v < ll_m.size(); ++v) {
+        }        
+        for (sat::bool_var v = 0; m_sat_mc && v < m_sat_mc->num_vars(); ++v) {
             expr* n = m_sat_mc->var2expr(v);
             if (!n || !is_app(n) || to_app(n)->get_num_args() > 0) {
                 continue;
@@ -905,7 +914,7 @@ private:
         }
         IF_VERBOSE(1, verbose_stream() << "Verifying solution\n";);
         model_evaluator eval(*mdl);
-        // eval.set_model_completion(false);
+        eval.set_model_completion(true);
         bool all_true = true;
         //unsigned i = 0;
         for (expr * f : m_fmls) {

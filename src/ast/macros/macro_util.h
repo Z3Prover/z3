@@ -113,6 +113,7 @@ public:
     bool is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t, expr_ref & def);
 
     bool is_quasi_macro_head(expr * n, unsigned num_decls) const;
+    bool is_quasi_macro_ok(expr * n, unsigned num_decls, expr * def) const;
     void quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decls, app_ref & head, expr_ref & cond) const;
 
     void mk_macro_interpretation(app * head, unsigned num_decls, expr * def, expr_ref & interp) const;

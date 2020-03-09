@@ -125,55 +125,6 @@ Linux Dependencies:
 def create_nuget_package():
     subprocess.call(["nuget", "pack"], cwd="out")
 
-nuget_sign_input = """
-{
-  "Version": "1.0.0",
-  "SignBatches"
-  :
-  [
-   {
-    "SourceLocationType": "UNC",
-    "SourceRootDirectory": "%s",
-    "DestinationLocationType": "UNC",
-    "DestinationRootDirectory": "%s",
-    "SignRequestFiles": [
-     {
-      "CustomerCorrelationId": "42fc9577-af9e-4ac9-995d-1788d8721d17",
-      "SourceLocation": "Microsoft.Z3.x64.%s.nupkg",
-      "DestinationLocation": "Microsoft.Z3.x64.%s.nupkg"
-     }
-    ],
-    "SigningInfo": {
-     "Operations": [
-      {
-       "KeyCode" : "CP-401405",
-       "OperationCode" : "NuGetSign",
-       "Parameters" : {},
-       "ToolName" : "sign",
-       "ToolVersion" : "1.0"
-      },
-      {
-       "KeyCode" : "CP-401405",
-       "OperationCode" : "NuGetVerify",
-       "Parameters" : {},
-       "ToolName" : "sign",
-       "ToolVersion" : "1.0"
-      }
-     ]
-    }
-   }
-  ]
-}"""
-
-def sign_nuget_package():
-    package_name = "Microsoft.Z3.x64.%s.nupkg" % release_version
-    input_file = "out/nuget_sign_input.json"
-    output_path = os.path.abspath("out").replace("\\","\\\\") 
-    with open(input_file, 'w') as f:
-        f.write(nuget_sign_input % (output_path, output_path, release_version, release_version))
-    r = subprocess.call(["EsrpClient.exe", "sign", "-a", "authorization.json", "-p", "policy.json", "-i", input_file, "-o", "out\\diagnostics.json"], shell=True, stderr=subprocess.STDOUT)
-    print(r)
-    
 def main():
     mk_dir("packages")
     download_installs()
@@ -181,7 +132,5 @@ def main():
     mk_targets()
     create_nuget_spec()
     create_nuget_package()
-    sign_nuget_package()
-
 
 main()

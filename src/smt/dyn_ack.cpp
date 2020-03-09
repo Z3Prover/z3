@@ -25,12 +25,12 @@ namespace smt {
     /**
        \brief Justification for dynamic ackermann clause
     */
-    class dyn_ack_justification : public justification {
+    class dyn_ack_cc_justification : public justification {
         app *     m_app1;
         app *     m_app2;
     public:
-        dyn_ack_justification(app * n1, app * n2):
-            justification(false), // dyn_ack_justifications are not stored in regions.
+        dyn_ack_cc_justification(app * n1, app * n2):
+            justification(false), // dyn_ack_cc_justifications are not stored in regions.
             m_app1(n1), 
             m_app2(n2) {
             SASSERT(m_app1->get_num_args() == m_app2->get_num_args());
@@ -41,8 +41,7 @@ namespace smt {
 
         char const * get_name() const override { return "dyn-ack"; }
 
-        void get_antecedents(conflict_resolution & cr) override {
-        }
+        void get_antecedents(conflict_resolution & cr) override {}
 
         void display_debug_info(conflict_resolution & cr, std::ostream & out) override {
             ast_manager & m = cr.get_manager();
@@ -58,7 +57,7 @@ namespace smt {
            \remark if negate == true, then the hypothesis is actually (not (= lhs rhs))
         */
         proof * mk_hypothesis(ast_manager & m, app * eq, bool negate, expr * lhs, expr * rhs) {
-            SASSERT(m.is_eq(eq) || m.is_iff(eq));
+            SASSERT(m.is_eq(eq));
             SASSERT((eq->get_arg(0) == lhs && eq->get_arg(1) == rhs) ||
                     (eq->get_arg(0) == rhs && eq->get_arg(1) == lhs));
             app * h = negate ? m.mk_not(eq) : eq;
@@ -101,6 +100,29 @@ namespace smt {
             return m.mk_lemma(false_pr, lemma);
         }
 
+    };
+
+    class dyn_ack_eq_justification : public justification {
+        app *     m_app1;
+        app *     m_app2;
+    public:
+        dyn_ack_eq_justification(app * n1, app * n2):
+            justification(false), // dyn_ack_cc_justifications are not stored in regions.
+            m_app1(n1), 
+            m_app2(n2) {
+        }
+        char const * get_name() const override { return "dyn-ack-eq"; }
+        void get_antecedents(conflict_resolution & cr) override {}
+        void display_debug_info(conflict_resolution & cr, std::ostream & out) override {
+            ast_manager & m = cr.get_manager();
+            out << "m_app1:\n" << mk_pp(m_app1, m) << "\n";
+            out << "m_app2:\n" << mk_pp(m_app2, m) << "\n";
+        }
+
+        proof * mk_proof(conflict_resolution & cr) override {
+            ast_manager & m   = cr.get_manager();
+            return m.mk_symmetry(m.mk_eq(m_app1, m_app2));
+        }
     };
 
     dyn_ack_manager::dyn_ack_manager(context & ctx, dyn_ack_params & p):
@@ -180,15 +202,14 @@ namespace smt {
         if (n1->get_id() > n2->get_id())
             std::swap(n1,n2);
         TRACE("dyn_ack", 
-              tout << mk_pp(n1, m) << " = " << mk_pp(n2, m) 
-              << " = " << mk_pp(r, m) << "\n";);
+              tout << mk_pp(n1, m) << " = " << mk_pp(n2, m) << " = " << mk_pp(r, m) << "\n";);
         app_triple tr(n1, n2, r);
         if (m_triple.m_instantiated.contains(tr)) {
             return;
         }
         unsigned num_occs = 0;
         if (m_triple.m_app2num_occs.find(n1, n2, r, num_occs)) {
-            TRACE("dyn_ack", tout << mk_pp(n1, m) << "\n" << mk_pp(n2, m) 
+            TRACE("dyn_ack", tout << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n"
                   << mk_pp(r, m) << "\n" << "\nnum_occs: " << num_occs << "\n";);
             num_occs++;
         }
@@ -372,7 +393,7 @@ namespace smt {
 
         justification * js = nullptr;
         if (m.proofs_enabled())
-            js = alloc(dyn_ack_justification, n1, n2);
+            js = alloc(dyn_ack_cc_justification, n1, n2);
         clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
@@ -418,10 +439,9 @@ namespace smt {
         lits.push_back(~mk_eq(n2, r));
         lits.push_back(mk_eq(n1, n2));
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
-
         justification * js = nullptr;
-        if (m.proofs_enabled())
-            js = alloc(dyn_ack_justification, n1, n2);
+        if (m.proofs_enabled()) 
+            js = alloc(dyn_ack_eq_justification, n1, n2);
         clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);

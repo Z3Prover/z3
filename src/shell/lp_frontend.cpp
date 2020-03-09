@@ -7,15 +7,15 @@ Author:
 
 --*/
 
-#include "util/lp/lp_params.hpp"
-#include "util/lp/lp_settings.h"
-#include "util/lp/mps_reader.h"
+#include "math/lp/lp_settings.h"
+#include "math/lp/mps_reader.h"
 #include "util/timeout.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
 #include "util/rlimit.h"
 #include "util/gparams.h"
 #include <signal.h>
+#include "smt/params/smt_params_helper.hpp"
 
 namespace {
 static std::mutex *display_stats_mux = new std::mutex;
@@ -50,7 +50,7 @@ struct front_end_resource_limit : public lp::lp_resource_limit {
     bool get_cancel_flag() override { return !m_reslim.inc(); }
 };
 
-void run_solver(lp_params & params, char const * mps_file_name) {
+void run_solver(smt_params_helper & params, char const * mps_file_name) {
 
     reslimit rlim;
     unsigned timeout = gparams::get_ref().get_uint("timeout", 0);
@@ -72,19 +72,19 @@ void run_solver(lp_params & params, char const * mps_file_name) {
     lp::lp_solver<double, double> * solver =  reader.create_solver(false);  // false - to create the primal solver
     solver->settings().set_resource_limit(lp_limit);
     g_solver = solver;
-    if (params.min()) {
+    if (params.arith_min()) {
         solver->flip_costs();
     }
     solver->settings().set_message_ostream(&std::cout);
-    solver->settings().report_frequency = params.rep_freq();
-    solver->settings().print_statistics = params.print_stats();
+    solver->settings().report_frequency = params.arith_rep_freq();
+    solver->settings().print_statistics = params.arith_print_stats();
     solver->settings().simplex_strategy() = lp:: simplex_strategy_enum::lu;
 
     solver->find_maximal_solution();
 
     *(solver->settings().get_message_ostream()) << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
     if (solver->get_status() == lp::lp_status::OPTIMAL) {
-        if (params.min()) {
+        if (params.arith_min()) {
             solver->flip_costs();
         }
         solver->print_model(std::cout);
@@ -99,7 +99,7 @@ void run_solver(lp_params & params, char const * mps_file_name) {
 unsigned read_mps_file(char const * mps_file_name) {
     signal(SIGINT, on_ctrl_c);
     register_on_timeout_proc(on_timeout);
-    lp_params p;
+    smt_params_helper p;
     param_descrs r;
     p.collect_param_descrs(r);
     run_solver(p, mps_file_name);

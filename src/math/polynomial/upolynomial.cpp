@@ -1327,25 +1327,25 @@ namespace upolynomial {
         div(sz, p, 2, two_x_1, buffer);
     }
 
-    polynomial::sign manager::sign_of(numeral const & c) {
+    sign manager::sign_of(numeral const & c) {
         if (m().is_zero(c))
-            return polynomial::sign_zero;
+            return sign_zero;
         if (m().is_pos(c))
-            return polynomial::sign_pos;
+            return sign_pos;
         else
-            return polynomial::sign_neg;
+            return sign_neg;
     }
 
     // Return the number of sign changes in the coefficients of p
     unsigned manager::sign_changes(unsigned sz, numeral const * p) {
         unsigned r = 0;
-        auto prev_sign = polynomial::sign_zero;
+        auto prev_sign = sign_zero;
         unsigned i = 0;
         for (; i < sz; i++) {
             auto sign = sign_of(p[i]);
-            if (sign == polynomial::sign_zero)
+            if (sign == sign_zero)
                 continue;
-            if (sign != prev_sign && prev_sign != polynomial::sign_zero)
+            if (sign != prev_sign && prev_sign != sign_zero)
                 r++;
             prev_sign = sign;
         }
@@ -1375,7 +1375,7 @@ namespace upolynomial {
         }
         return sign_changes(Q.size(), Q.c_ptr());
 #endif
-        polynomial::sign prev_sign = polynomial::sign_zero;
+        sign prev_sign = sign_zero;
         unsigned num_vars = 0;
         //   a0 a1     a2         a3
         //   a0 a0+a1  a0+a1+a2   a0+a1+a2+a3
@@ -1389,9 +1389,9 @@ namespace upolynomial {
                 m().add(Q[k], Q[k-1], Q[k]);
             }
             auto sign = sign_of(Q[k-1]);
-            if (polynomial::is_zero(sign))
+            if (::is_zero(sign))
                 continue;
-            if (sign != prev_sign && !polynomial::is_zero(prev_sign)) {
+            if (sign != prev_sign && !::is_zero(prev_sign)) {
                 num_vars++;
                 if (num_vars > 1)
                     return num_vars;
@@ -1729,14 +1729,14 @@ namespace upolynomial {
     }
 
     // Evaluate the sign of p(b)
-    polynomial::sign manager::eval_sign_at(unsigned sz, numeral const * p, mpbq const & b) {
+    sign manager::eval_sign_at(unsigned sz, numeral const * p, mpbq const & b) {
         // Actually, given b = c/2^k, we compute the sign of (2^k)^n*p(b)
         // Original Horner Sequence
         //     ((a_n * b + a_{n-1})*b + a_{n-2})*b + a_{n-3} ...
         // Variation of the Horner Sequence for (2^k)^n*p(b)
         //     ((a_n * c + a_{n-1}*2_k)*c + a_{n-2}*(2_k)^2)*c + a_{n-3}*(2_k)^3 ... + a_0*(2_k)^n
         if (sz == 0)
-            return polynomial::sign_zero;
+            return sign_zero;
         if (sz == 1)
             return sign_of(p[0]);
         numeral const & c = b.numerator();
@@ -1762,14 +1762,14 @@ namespace upolynomial {
     }
 
     // Evaluate the sign of p(b)
-    polynomial::sign manager::eval_sign_at(unsigned sz, numeral const * p, mpq const & b) {
+    sign manager::eval_sign_at(unsigned sz, numeral const * p, mpq const & b) {
         // Actually, given b = c/d, we compute the sign of (d^n)*p(b)
         // Original Horner Sequence
         //     ((a_n * b + a_{n-1})*b + a_{n-2})*b + a_{n-3} ...
         // Variation of the Horner Sequence for (d^n)*p(b)
         //     ((a_n * c + a_{n-1}*d)*c + a_{n-2}*d^2)*c + a_{n-3}*d^3 ... + a_0*d^n
         if (sz == 0)
-            return polynomial::sign_zero;
+            return sign_zero;
         if (sz == 1)
             return sign_of(p[0]);
         numeral const & c = b.numerator();
@@ -1796,11 +1796,11 @@ namespace upolynomial {
     }
 
     // Evaluate the sign of p(b)
-    polynomial::sign manager::eval_sign_at(unsigned sz, numeral const * p, mpz const & b) {
+    sign manager::eval_sign_at(unsigned sz, numeral const * p, mpz const & b) {
         // Using Horner Sequence
         //     ((a_n * b + a_{n-1})*b + a_{n-2})*b + a_{n-3} ...
         if (sz == 0)
-            return polynomial::sign_zero;
+            return sign_zero;
         if (sz == 1)
             return sign_of(p[0]);
         scoped_numeral r(m());
@@ -1817,21 +1817,21 @@ namespace upolynomial {
         return sign_of(r);
     }
 
-    polynomial::sign manager::eval_sign_at_zero(unsigned sz, numeral const * p) {
+    sign manager::eval_sign_at_zero(unsigned sz, numeral const * p) {
         if (sz == 0)
-            return polynomial::sign_zero;
+            return sign_zero;
         return sign_of(p[0]);
     }
 
-    polynomial::sign manager::eval_sign_at_plus_inf(unsigned sz, numeral const * p) {
+    sign manager::eval_sign_at_plus_inf(unsigned sz, numeral const * p) {
         if (sz == 0)
-            return polynomial::sign_zero;
+            return sign_zero;
         return sign_of(p[sz-1]);
     }
 
-    polynomial::sign manager::eval_sign_at_minus_inf(unsigned sz, numeral const * p) {
+    sign manager::eval_sign_at_minus_inf(unsigned sz, numeral const * p) {
         if (sz == 0)
-            return polynomial::sign_zero;
+            return sign_zero;
         unsigned degree = sz - 1;
         if (degree % 2 == 0)
             return sign_of(p[sz-1]);
@@ -2751,7 +2751,7 @@ namespace upolynomial {
        The arguments sign_a and sign_b must contain the values returned by
        eval_sign_at(sz, p, a) and eval_sign_at(sz, p, b).
     */
-    bool manager::refine_core(unsigned sz, numeral const * p, polynomial::sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b) {
+    bool manager::refine_core(unsigned sz, numeral const * p, sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b) {
         SASSERT(sign_a == eval_sign_at(sz, p, a));
         SASSERT(-sign_a == eval_sign_at(sz, p, b));
         SASSERT(sign_a != 0);
@@ -2759,7 +2759,7 @@ namespace upolynomial {
         bqm.add(a, b, mid);
         bqm.div2(mid);
         auto sign_mid = eval_sign_at(sz, p, mid);
-        if (polynomial::is_zero(sign_mid)) {
+        if (::is_zero(sign_mid)) {
             swap(mid, a);
             return false;
         }
@@ -2774,8 +2774,8 @@ namespace upolynomial {
 
     // See refine_core
     bool manager::refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b) {
-        polynomial::sign sign_a = eval_sign_at(sz, p, a);
-        SASSERT(!polynomial::is_zero(sign_a));
+        sign sign_a = eval_sign_at(sz, p, a);
+        SASSERT(!::is_zero(sign_a));
         return refine_core(sz, p, sign_a, bqm, a, b);
     }
 
@@ -2784,8 +2784,8 @@ namespace upolynomial {
     //
     // Return TRUE, if interval was squeezed, and new interval is stored in (a,b).
     // Return FALSE, if the actual root was found, it is stored in a.
-    bool manager::refine_core(unsigned sz, numeral const * p, polynomial::sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k) {
-        SASSERT(sign_a != polynomial::sign_zero);
+    bool manager::refine_core(unsigned sz, numeral const * p, sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k) {
+        SASSERT(sign_a != sign_zero);
         SASSERT(sign_a  == eval_sign_at(sz, p, a));
         SASSERT(-sign_a == eval_sign_at(sz, p, b));
         scoped_mpbq w(bqm);
@@ -2802,16 +2802,16 @@ namespace upolynomial {
     }
 
     bool manager::refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k) {
-        polynomial::sign sign_a = eval_sign_at(sz, p, a);
+        sign sign_a = eval_sign_at(sz, p, a);
         SASSERT(eval_sign_at(sz, p, b) == -sign_a);
         SASSERT(sign_a != 0);
         return refine_core(sz, p, sign_a, bqm, a, b, prec_k);
     }
 
     bool manager::convert_q2bq_interval(unsigned sz, numeral const * p, mpq const & a, mpq const & b, mpbq_manager & bqm, mpbq & c, mpbq & d) {
-        polynomial::sign sign_a = eval_sign_at(sz, p, a);
-        polynomial::sign sign_b = eval_sign_at(sz, p, b);
-        SASSERT(!polynomial::is_zero(sign_a) && !polynomial::is_zero(sign_b));
+        sign sign_a = eval_sign_at(sz, p, a);
+        sign sign_b = eval_sign_at(sz, p, b);
+        SASSERT(!::is_zero(sign_a) && !::is_zero(sign_b));
         SASSERT(sign_a == -sign_b);
         bool found_d = false;
         TRACE("convert_bug",
@@ -2843,7 +2843,7 @@ namespace upolynomial {
             SASSERT(bqm.lt(upper, b));
             while (true) {
                 auto sign_upper = eval_sign_at(sz, p, upper);
-                if (polynomial::is_zero(sign_upper)) {
+                if (::is_zero(sign_upper)) {
                     // found root
                     bqm.swap(c, upper);
                     bqm.del(lower); bqm.del(upper);
@@ -2887,8 +2887,8 @@ namespace upolynomial {
                 SASSERT(bqm.lt(lower, upper));
                 SASSERT(bqm.lt(lower, b));
                 while (true) {
-                    polynomial::sign sign_lower = eval_sign_at(sz, p, lower);
-                    if (polynomial::is_zero(sign_lower)) {
+                    sign sign_lower = eval_sign_at(sz, p, lower);
+                    if (::is_zero(sign_lower)) {
                         // found root
                         bqm.swap(c, lower);
                         bqm.del(lower); bqm.del(upper);

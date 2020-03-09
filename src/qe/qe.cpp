@@ -1080,7 +1080,6 @@ namespace qe {
             return true;
         }
 
-
         bool is_unit() const { 
             return m_children.size() == 1 && 
                    m_branch_index.empty(); 
@@ -1430,7 +1429,7 @@ namespace qe {
             // set sub-formula
             m_fml = fml;
             normalize(m_fml, m_root.pos_atoms(), m_root.neg_atoms());
-            expr_ref f(m_fml);           
+            expr_ref f(m_fml);
             get_max_relevant(get_is_relevant(), f, m_subfml);
             if (f.get() != m_subfml.get()) {
                 m_fml = f;
@@ -1465,6 +1464,11 @@ namespace qe {
 
             if (!is_sat) {
                 fml = m.mk_false();
+                if (m_fml.get() != m_subfml.get()) {
+                    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m);
+                    rp->apply_substitution(to_app(m_subfml.get()), fml, m_fml);
+                    fml = m_fml;
+                }
                 reset();
                 m_solver.pop(1);
                 return;
@@ -1757,7 +1761,7 @@ namespace qe {
             // unless the current state is unsatisfiable.
             // 
             if (m.is_true(fml_mixed)) {
-                SASSERT(l_true == m_solver.check());
+                SASSERT(l_false != m_solver.check());
                 m_current = m_current->add_child(fml_closed);
                 for (unsigned i = 0; m_defs && i < m_current->num_free_vars(); ++i) {
                     expr_ref val(m);
@@ -2227,7 +2231,9 @@ namespace qe {
     }
 
     void expr_quant_elim::operator()(expr* assumption, expr* fml, expr_ref& result) {
-        TRACE("qe", tout << "elim input\n"  << mk_ismt2_pp(fml, m) << "\n";);
+        TRACE("qe", 
+              if (assumption) tout << "elim assumption\n" << mk_ismt2_pp(assumption, m) << "\n";
+              tout << "elim input\n"  << mk_ismt2_pp(fml, m) << "\n";);
         expr_ref_vector bound(m);
         result = fml;
         m_assumption = assumption;
@@ -2312,14 +2318,13 @@ namespace qe {
             case AST_APP: {
                 app* a = to_app(e);
                 expr_ref_vector args(m);
-                unsigned num_args = a->get_num_args();
                 bool all_visited = true;
-                for (unsigned i = 0; i < num_args; ++i) {
-                    if (m_visited.find(a->get_arg(i), r)) {
+                for (expr* arg : *a) {
+                    if (m_visited.find(arg, r)) {
                         args.push_back(r);
                     }
                     else {
-                        todo.push_back(a->get_arg(i));
+                        todo.push_back(arg);
                         all_visited = false;
                     }
                 }

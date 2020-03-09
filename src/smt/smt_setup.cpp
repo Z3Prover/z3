@@ -49,8 +49,8 @@ namespace smt {
     }
 
     void setup::operator()(config_mode cm) {
+        TRACE("internalize", tout << "setup " << &m_context << "\n";);
         SASSERT(m_context.get_scope_level() == 0);
-        SASSERT(!m_context.already_internalized());
         SASSERT(!m_already_configured);
         // if (m_params.m_mbqi && m_params.m_model_compact) {
         //    warning_msg("ignoring MODEL_COMPACT=true because it cannot be used with MBQI=true");
@@ -301,12 +301,6 @@ namespace smt {
         // Example: (x < 1) and (x > 0)
         if (m_manager.proofs_enabled()) {
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-        }
-        else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
-            if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small())
-                m_context.register_plugin(alloc(smt::theory_dense_smi, m_manager, m_params));
-            else
-                m_context.register_plugin(alloc(smt::theory_dense_mi, m_manager, m_params));
         }
         else {
             if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants 
@@ -843,10 +837,7 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         case AS_NEW_ARITH:
-            if (st.m_num_non_linear != 0 && st.m_has_int) 
-                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-            else 
-                setup_lra_arith();
+            setup_lra_arith();
             break;
         default:
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));

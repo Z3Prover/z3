@@ -741,7 +741,7 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
     }
 
     expr_fast_mark1 visited;
-    bool all_value = true;
+    bool all_value = true, all_diff = true;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = args[i];
         if (visited.is_marked(arg)) {
@@ -751,8 +751,13 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
         visited.mark(arg);
         if (!m().is_unique_value(arg))
             all_value = false;
+        if (!all_value && all_diff) {
+            for (unsigned j = 0; all_diff && j < i; ++j) {
+                all_diff = m().are_distinct(arg, args[j]);
+            }
+        }
     }
-    if (all_value) {
+    if (all_diff) {
         result = m().mk_true();
         return BR_DONE;
     }

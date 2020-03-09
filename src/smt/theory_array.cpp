@@ -331,17 +331,20 @@ namespace smt {
         if (!is_store(n) && !is_select(n))
             return;
         context & ctx    = get_context();
+        if (!ctx.e_internalized(n)) ctx.internalize(n, false);
         enode * arg      = ctx.get_enode(n->get_arg(0));
         theory_var v_arg = arg->get_th_var(get_id());
         SASSERT(v_arg != null_theory_var);
+        
+        enode* e = ctx.get_enode(n);
         if (is_select(n)) {
-            add_parent_select(v_arg, ctx.get_enode(n));
+            add_parent_select(v_arg, e);
         }
         else {
             SASSERT(is_store(n));
             if (m_params.m_array_laziness > 1)
-                instantiate_axiom1(ctx.get_enode(n));
-            add_parent_store(v_arg, ctx.get_enode(n));
+                instantiate_axiom1(e);
+            add_parent_store(v_arg, e);
         }
     }
      

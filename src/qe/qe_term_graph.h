@@ -87,7 +87,7 @@ namespace qe {
         void display(std::ostream &out);
 
         bool is_pure_def(expr* atom, expr *& v);
-
+        
     public:
         term_graph(ast_manager &m);
         ~term_graph();
@@ -124,6 +124,16 @@ namespace qe {
         expr_ref_vector get_ackerman_disequalities();
 
         /**
+         * Produce model-based disequality 
+         * certificate corresponding to 
+         * definition in BGVS 2020.
+         * A disequality certificate is a reduced set of 
+         * disequalities, true under mdl, such that the literals
+         * can be satisfied when non-shared symbols are projected.
+         */
+        expr_ref_vector dcert(model& mdl, expr_ref_vector const& lits);
+
+        /**
          * Produce a model-based partition.
          */
         vector<expr_ref_vector> get_partition(model& mdl);
@@ -140,7 +150,7 @@ namespace qe {
          * Map expression that occurs in added literals into representative if it exists.
          */
         void  add_model_based_terms(model& mdl, expr_ref_vector const& terms);
-        expr* get_model_based_rep(expr* e);
+        expr* rep_of(expr* e);
 
     };
 

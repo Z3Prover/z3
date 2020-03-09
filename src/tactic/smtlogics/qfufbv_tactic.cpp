@@ -59,7 +59,7 @@ public:
         fail_if_unsat_core_generation("qfufbv_ackr", g);
         fail_if_proof_generation("qfufbv_ackr", g);
 
-        TRACE("qfufbv_ackr_tactic", g->display(tout << "goal:\n"););
+        TRACE("goal", g->display(tout););
         // running implementation
         ptr_vector<expr> flas;
         const unsigned sz = g->size();
@@ -73,9 +73,9 @@ public:
         if (o == l_false) resg->assert_expr(m.mk_false());
         if (o != l_undef) result.push_back(resg.get());
         // report model
-        if (g->models_enabled() && (o == l_true)) {
+        if (g->models_enabled() && o == l_true) {
             model_ref abstr_model = imp.get_model();
-            g->add(mk_qfufbv_ackr_model_converter(m, imp.get_info(), abstr_model));
+            resg->add(mk_qfufbv_ackr_model_converter(m, imp.get_info(), abstr_model));
         }
     }
 
@@ -106,7 +106,7 @@ private:
     bool                                 m_inc_use_sat;
 
     solver* setup_sat() {
-        solver * sat(nullptr);
+        solver * sat = nullptr;
         if (m_use_sat) {
             if (m_inc_use_sat) {
                 sat = mk_inc_sat_solver(m_m, m_p);

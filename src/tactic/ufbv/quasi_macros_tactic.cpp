@@ -58,7 +58,7 @@ class quasi_macros_tactic : public tactic {
                 deps.push_back(g->dep(i));
             }
 
-            while (more) { // CMW: use repeat(...) ?
+            do { 
                 if (m().canceled())
                     throw tactic_exception(m().limit().get_cancel_msg());
 
@@ -69,7 +69,8 @@ class quasi_macros_tactic : public tactic {
                 forms.swap(new_forms);
                 proofs.swap(new_proofs);
                 deps.swap(new_deps);
-            }
+            } 
+            while (more);
 
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)

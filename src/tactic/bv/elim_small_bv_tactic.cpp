@@ -138,9 +138,9 @@ class elim_small_bv_tactic : public tactic {
             expr_ref body(old_body, m);
             for (unsigned i = num_decls-1; i != ((unsigned)-1) && !max_steps_exceeded(num_steps); i--) {
                 sort * s = q->get_decl_sort(i);
-                unsigned bv_sz = m_util.get_bv_size(s);
 
                 if (is_small_bv(s) && !max_steps_exceeded(num_steps)) {
+                    unsigned bv_sz = m_util.get_bv_size(s);
                     TRACE("elim_small_bv", tout << "eliminating " << q->get_decl_name(i) <<
                         "; sort = " << mk_ismt2_pp(s, m) <<
                         "; body = " << mk_ismt2_pp(body, m) << std::endl;);

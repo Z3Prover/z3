@@ -134,12 +134,20 @@ Note:
 #include "solver/solver.h"
 #include "solver/solver_na2as.h"
 #include "solver/solver2tactic.h"
-#include "smt/smt_solver.h"
 
 namespace smtfd {
 
+    struct stats {
+        unsigned m_num_lemmas;
+        unsigned m_num_rounds;
+        unsigned m_num_mbqi;
+        unsigned m_num_fresh_bool;
+        stats() { memset(this, 0, sizeof(stats)); }
+    };
+
     class smtfd_abs {
         ast_manager&    m;
+        stats&          m_stats;
         expr_ref_vector m_abs, m_rep, m_atoms, m_atom_defs; // abstraction and representation maps
         array_util      m_autil;
         bv_util         m_butil;
@@ -166,6 +174,7 @@ namespace smtfd {
         expr* fresh_var(expr* t) {
             symbol name = is_app(t) ? to_app(t)->get_name() : (is_quantifier(t) ? symbol("Q") : symbol("X"));
             if (m.is_bool(t)) {
+                ++m_stats.m_num_fresh_bool;
                 return m.mk_fresh_const(name, m.mk_bool_sort());
             }        
             else if (m_butil.is_bv(t)) {
@@ -207,8 +216,9 @@ namespace smtfd {
         }
         
     public:
-        smtfd_abs(ast_manager& m):
+        smtfd_abs(ast_manager& m, stats& s):
             m(m),
+            m_stats(s),
             m_abs(m),
             m_rep(m),
             m_atoms(m),
@@ -324,7 +334,6 @@ namespace smtfd {
                     else if (m.is_model_value(t)) {
                         int idx = a->get_parameter(0).get_int();
                         r = m_butil.mk_numeral(rational(idx), 24); 
-                        // std::cout << expr_ref(t, m) << " --> " << mk_pp(r, m) << "\n";
                     }
                     else {
                         r = fresh_var(t);                    
@@ -385,7 +394,6 @@ namespace smtfd {
             m_lemmas(m), 
             m_rewriter(m)
         {
-            (void)m;
         }
 
         void set_max_lemmas(unsigned max) {            
@@ -398,7 +406,7 @@ namespace smtfd {
 
         void add(expr* f, char const* msg) { m_lemmas.push_back(f); TRACE("smtfd", tout << msg << " " << mk_bounded_pp(f, m, 2) << "\n";); }
 
-        ast_manager& get_manager() { return m_lemmas.get_manager(); }
+        ast_manager& get_manager() { return m; }
 
         bool at_max() const { return m_lemmas.size() >= m_max_lemmas; }
 
@@ -920,6 +928,7 @@ namespace smtfd {
         void check_select(app* t) {
             expr* a = t->get_arg(0);
             expr_ref vA = eval_abs(a);
+            TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << "\n";);
             enforce_congruence(vA, t, m.get_sort(a));                                 
         }
 
@@ -959,13 +968,18 @@ namespace smtfd {
             for (unsigned i = 1; i < t->get_num_args(); ++i) {
                 expr* arg1 = t->get_arg(i);
                 expr* arg2 = store->get_arg(i);
-                if (arg1 == arg2) continue;
-                expr_ref v1 = eval_abs(arg1);
-                expr_ref v2 = eval_abs(arg2);
                 m_args.push_back(arg1);
-                eqs.push_back(m.mk_eq(arg1, arg2));
+                if (arg1 == arg2) {
+                    // skip
+                }
+                else if (m.are_distinct(arg1, arg2)) {
+                    eqs.push_back(m.mk_false());
+                }
+                else {
+                    eqs.push_back(m.mk_eq(arg1, arg2));
+                }
             }
-            if (eqs.empty()) return;
+            //if (eqs.empty()) return;
             expr_ref eq = mk_and(eqs);
             expr_ref eqV = eval_abs(eq);
             expr_ref val1 = eval_abs(t);
@@ -1025,9 +1039,10 @@ namespace smtfd {
         // 
         void reconcile_stores(app* t, expr* vT, table& tT, expr* vA, table& tA) {
             unsigned r = 0;
-            if (get_lambda(vA) <= 1) {
-                return;
-            }
+            //if (get_lambda(vA) <= 1) {
+            //    return;
+            //}
+            //std::cout << get_lambda(vA) << " " << get_lambda(vT) << "\n";
             inc_lambda(vT);
             for (auto& fA : tA) {
                 f_app fT;
@@ -1582,17 +1597,10 @@ namespace smtfd {
         }
     };
 
-
-    struct stats {
-        unsigned m_num_lemmas;
-        unsigned m_num_rounds;
-        unsigned m_num_mbqi;
-        stats() { memset(this, 0, sizeof(stats)); }
-    };
-
     class solver : public solver_na2as {
+        stats           m_stats;
         ast_manager&    m;
-        mutable smtfd_abs       m_abs;
+        mutable smtfd_abs m_abs;
         unsigned        m_indent;
         plugin_context  m_context;
         uf_plugin       m_uf;
@@ -1602,7 +1610,6 @@ namespace smtfd {
         pb_plugin       m_pb;
         ref<::solver>   m_fd_sat_solver;
         ref<::solver>   m_fd_core_solver;
-        ref<::solver>   m_smt_solver;
         mbqi            m_mbqi;
         expr_ref_vector m_assertions;
         unsigned_vector m_assertions_lim;
@@ -1613,8 +1620,6 @@ namespace smtfd {
         unsigned_vector m_toggles_lim;
         model_ref       m_model;
         std::string     m_reason_unknown;
-        stats           m_stats;
-        unsigned        m_max_conflicts;
 
         void set_delay_simplify() {
             params_ref p;
@@ -1690,39 +1695,6 @@ namespace smtfd {
             return r;
         }
 
-        lbool check_smt(expr_ref_vector& core) {
-            IF_VERBOSE(10, indent(); verbose_stream() << "core: " << core.size() << "\n");
-            params_ref p;
-            p.set_uint("max_conflicts", m_max_conflicts);
-            m_smt_solver->updt_params(p);
-            lbool r = m_smt_solver->check_sat(core);
-            TRACE("smtfd", tout << "core: " << core << "\nresult: " << r << "\n";);
-            update_reason_unknown(r, m_smt_solver);
-            switch (r) {
-            case l_false: {
-                unsigned sz0 = core.size();
-                m_smt_solver->get_unsat_core(core);
-                TRACE("smtfd", display(tout << core););
-                unsigned sz1 = core.size();
-                if (sz1 < sz0) {
-                    m_max_conflicts += 10;
-                }
-                else {
-                    if (m_max_conflicts > 20) m_max_conflicts -= 5;
-                }
-                break;
-            }
-            case l_undef:
-                if (m_max_conflicts > 20) m_max_conflicts -= 5;
-                break;
-            case l_true:
-                m_smt_solver->get_model(m_model);
-                break;
-            }
-            return r;
-        }
-
-
         bool add_theory_axioms(expr_ref_vector const& core) {
             m_context.reset(m_model);           
             expr_ref_vector terms(core);
@@ -1776,16 +1748,21 @@ namespace smtfd {
                   tout << *m_model.get() << "\n";
                   );
 
-            for (expr* a : subterms(core)) {
-                expr_ref val0 = (*m_model)(a);
-                expr_ref val1 = (*m_model)(abs(a));
-                if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
-                    std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
+            DEBUG_CODE(
+                bool found_bad = false;
+                for (expr* a : subterms(core)) {
+                    expr_ref val0 = (*m_model)(a);
+                    expr_ref val1 = (*m_model)(abs(a));
+                    if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                        std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
+                        found_bad = true;
+                    }
+                }
+                if (found_bad) {
                     std::cout << "core: " << core << "\n";
                     std::cout << *m_model.get() << "\n";
                     exit(0);
-                }
-            }
+                });
 
             if (!has_q) {
                 return is_decided;
@@ -1854,8 +1831,6 @@ namespace smtfd {
             if (!m_fd_sat_solver) {
                 m_fd_sat_solver = mk_fd_solver(m, get_params());
                 m_fd_core_solver = mk_fd_solver(m, get_params());
-                m_smt_solver = mk_smt_solver(m, get_params(), symbol::null);
-                m_smt_solver->updt_params(get_params());
             }
         }
 
@@ -1875,7 +1850,7 @@ namespace smtfd {
         solver(unsigned indent, ast_manager& m, params_ref const& p):
             solver_na2as(m),
             m(m),
-            m_abs(m),
+            m_abs(m, m_stats),
             m_indent(indent),
             m_context(m_abs, m),
             m_uf(m_context),
@@ -1887,8 +1862,7 @@ namespace smtfd {
             m_assertions(m),
             m_assertions_qhead(0),
             m_axioms(m),
-            m_toggles(m),
-            m_max_conflicts(50)
+            m_toggles(m)
         {            
             updt_params(p);
             add_toggle(m.mk_true());
@@ -1898,7 +1872,6 @@ namespace smtfd {
         
         ::solver* translate(ast_manager& dst_m, params_ref const& p) override {
             solver* result = alloc(solver, m_indent, dst_m, p);
-            if (m_smt_solver) result->m_smt_solver = m_smt_solver->translate(dst_m, p);
             if (m_fd_sat_solver) result->m_fd_sat_solver = m_fd_sat_solver->translate(dst_m, p);
             if (m_fd_core_solver) result->m_fd_core_solver = m_fd_core_solver->translate(dst_m, p);
             return result;
@@ -1914,7 +1887,6 @@ namespace smtfd {
             m_abs.push();
             m_fd_sat_solver->push();
             m_fd_core_solver->push();
-            m_smt_solver->push();
             m_assertions_lim.push_back(m_assertions.size());
             m_axioms_lim.push_back(m_axioms.size());
             m_toggles_lim.push_back(m_toggles.size());
@@ -1923,7 +1895,6 @@ namespace smtfd {
         void pop_core(unsigned n) override {
             m_fd_sat_solver->pop(n);
             m_fd_core_solver->pop(n);
-            m_smt_solver->pop(n);
             m_abs.pop(n);
             unsigned sz = m_toggles_lim[m_toggles_lim.size() - n];
             m_toggles.shrink(sz);
@@ -1953,6 +1924,7 @@ namespace smtfd {
                    tout << "axioms:\n" << m_axioms << "\n";
                    tout << "assertions:\n" << m_assertions << "\n";);
 
+            // if (m_axioms.contains(fml)) return;
             SASSERT(!m_axioms.contains(fml));
             m_axioms.push_back(fml);
             _fml = abs(fml);
@@ -2002,17 +1974,6 @@ namespace smtfd {
                         break;
                     case l_false:
                         break;
-                        // disable for now
-                        r = check_smt(core);
-                        switch (r) {
-                        case l_true:
-                            return r;
-                        case l_false:
-                            block_core(core);
-                            break;
-                        case l_undef:
-                            break;
-                        }
                     }
                     break;
                 case l_false:
@@ -2077,14 +2038,12 @@ namespace smtfd {
             if (m_fd_sat_solver) {
                 m_fd_sat_solver->updt_params(p);  
                 m_fd_core_solver->updt_params(p);  
-                m_smt_solver->updt_params(p);  
             }
             m_context.set_max_lemmas(UINT_MAX); // p.get_uint("max-lemmas", 100));
         }        
 
         void collect_param_descrs(param_descrs & r) override { 
             init();
-            m_smt_solver->collect_param_descrs(r); 
             m_fd_sat_solver->collect_param_descrs(r); 
             r.insert("max-lemmas", CPK_UINT, "maximal number of lemmas per round", "10");
         }    
@@ -2095,11 +2054,11 @@ namespace smtfd {
             if (m_fd_sat_solver) {
                 m_fd_sat_solver->collect_statistics(st); 
                 m_fd_core_solver->collect_statistics(st); 
-                m_smt_solver->collect_statistics(st);   
             }         
             st.update("smtfd-num-lemmas", m_stats.m_num_lemmas);
             st.update("smtfd-num-rounds", m_stats.m_num_rounds);
             st.update("smtfd-num-mbqi",   m_stats.m_num_mbqi);
+            st.update("smtfd-num-fresh-bool", m_stats.m_num_fresh_bool);
         }
         void get_unsat_core(expr_ref_vector & r) override { 
             m_fd_sat_solver->get_unsat_core(r);
@@ -2108,15 +2067,15 @@ namespace smtfd {
         void get_model_core(model_ref & mdl) override { 
             mdl = m_model;
         } 
-        
+
         model_converter_ref get_model_converter() const override {             
-            SASSERT(m_smt_solver);
-            return m_smt_solver->get_model_converter();
+            return m_fd_sat_solver->get_model_converter();
         }
+        
         proof * get_proof() override { return nullptr; }
         std::string reason_unknown() const override { return m_reason_unknown; }
         void set_reason_unknown(char const* msg) override { m_reason_unknown = msg; }
-        void get_labels(svector<symbol> & r) override { init(); m_smt_solver->get_labels(r); }
+        void get_labels(svector<symbol> & r) override { }
         ast_manager& get_manager() const override { return m;  }
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { 
             return l_undef;
@@ -2131,12 +2090,12 @@ namespace smtfd {
         
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
             init();
-            m_smt_solver->get_levels(vars, depth);
+            m_fd_sat_solver->get_levels(vars, depth);
         }
         
         expr_ref_vector get_trail() override {
             init();
-            return m_smt_solver->get_trail();
+            return m_fd_sat_solver->get_trail();
         }
         
         unsigned get_num_assertions() const override {

@@ -130,7 +130,7 @@ class wcnf {
             if (parsed_lit == 0)
                 break;
             var = abs(parsed_lit);
-            p = m.mk_const(symbol(var), m.mk_bool_sort());
+            p = m.mk_const(symbol((unsigned)var), m.mk_bool_sort());
             if (parsed_lit < 0) p = m.mk_not(p);
             ors.push_back(p);
         }
@@ -198,7 +198,7 @@ class opb {
         }
         app_ref p(m);
         int id = in.parse_int();
-        p = m.mk_const(symbol(id), m.mk_bool_sort());
+        p = m.mk_const(symbol((unsigned)id), m.mk_bool_sort());
         if (negated) p = m.mk_not(p);
         in.skip_whitespace();
         return p;

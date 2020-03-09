@@ -315,7 +315,7 @@ bool expr_context_simplifier::is_false(expr* e) const {
 expr_strong_context_simplifier::expr_strong_context_simplifier(smt_params& p, ast_manager& m): 
     m_manager(m), m_arith(m), m_fn(nullptr,m), m_solver(m, p) {
     sort* i_sort = m_arith.mk_int();
-    m_fn = m.mk_func_decl(symbol(0xbeef101), i_sort, m.mk_bool_sort());
+    m_fn = m.mk_func_decl(symbol(0xbeef101u), i_sort, m.mk_bool_sort());
 }
 
 

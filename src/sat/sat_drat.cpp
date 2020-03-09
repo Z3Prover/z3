@@ -399,7 +399,7 @@ namespace sat {
         }
         m_units.shrink(num_units);
         bool ok = m_inconsistent;
-        IF_VERBOSE(9, verbose_stream() << "is-drup " << m_inconsistent << "\n");
+        // IF_VERBOSE(9, verbose_stream() << "is-drup " << m_inconsistent << "\n");
         m_inconsistent = false;
 
         return ok;
@@ -465,8 +465,11 @@ namespace sat {
         if (!is_drup(n, c) && !is_drat(n, c)) {
             literal_vector lits(n, c);
             std::cout << "Verification of " << lits << " failed\n";
-            s.display(std::cout);
+            // s.display(std::cout);
+            std::string line;
+            std::getline(std::cin, line);                
             SASSERT(false);
+            INVOKE_DEBUGGER();
             exit(0);
             UNREACHABLE();
             //display(std::cout);
@@ -738,7 +741,6 @@ namespace sat {
     void drat::del(literal l1, literal l2) {
         ++m_num_del;
         literal ls[2] = {l1, l2};
-        SASSERT(!(l1 == literal(13923, false) && l2 == literal(14020, true)));
         if (m_out) dump(2, ls, status::deleted);
         if (m_bout) bdump(2, ls, status::deleted);
         if (m_check) append(l1, l2, status::deleted);
@@ -757,11 +759,20 @@ namespace sat {
         }
 #endif
         ++m_num_del;
-        //SASSERT(!(c.size() == 2 && c[0] == literal(13923, false) && c[1] == literal(14020, true)));
         if (m_out) dump(c.size(), c.begin(), status::deleted);
         if (m_bout) bdump(c.size(), c.begin(), status::deleted);
         if (m_check) {
             clause* c1 = m_alloc.mk_clause(c.size(), c.begin(), c.is_learned()); 
+            append(*c1, status::deleted);
+        }
+    }
+
+    void drat::del(literal_vector const& c) {
+        ++m_num_del;
+        if (m_out) dump(c.size(), c.begin(), status::deleted);
+        if (m_bout) bdump(c.size(), c.begin(), status::deleted);
+        if (m_check) {
+            clause* c1 = m_alloc.mk_clause(c.size(), c.begin(), true); 
             append(*c1, status::deleted);
         }
     }

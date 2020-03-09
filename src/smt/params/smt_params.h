@@ -103,6 +103,8 @@ struct smt_params : public preprocessor_params,
     bool             m_minimize_lemmas;
     unsigned         m_max_conflicts;
     unsigned         m_restart_max;
+    unsigned         m_threads;
+    unsigned         m_threads_max_conflicts;
     bool             m_simplify_clauses;
     unsigned         m_tick;
     bool             m_display_features;
@@ -253,6 +255,8 @@ struct smt_params : public preprocessor_params,
         m_phase_caching_off(100),
         m_minimize_lemmas(true),
         m_max_conflicts(UINT_MAX),
+        m_threads(1),
+        m_threads_max_conflicts(UINT_MAX),
         m_simplify_clauses(true),
         m_tick(1000),
         m_display_features(false),

@@ -165,6 +165,9 @@ namespace smt {
 
     void model_checker::assert_neg_q_m(quantifier * q, expr_ref_vector & sks) {
         expr_ref tmp(m);
+        
+        TRACE("model_checker", tout << "curr_model:\n"; model_pp(tout, *m_curr_model););
+
         if (!m_curr_model->eval(q->get_expr(), tmp, true)) {
             return;
         }
@@ -395,6 +398,7 @@ namespace smt {
                     args[i] = e->get_arg(i);
                 }
                 tmp = sub(q->get_expr(), num_decls, args.c_ptr());
+                TRACE("model_checker", tout << "curr_model:\n"; model_pp(tout, *m_curr_model););
                 m_curr_model->eval(tmp, result, true);
                 if (strict_rec_fun ? !m.is_true(result) : m.is_false(result)) {
                     add_instance(q, args, 0, nullptr);
@@ -437,6 +441,9 @@ namespace smt {
 
         m_curr_model = md;
         m_value2expr.reset();
+
+        TRACE("model_checker", tout << "MODEL_CHECKER INVOKED\n";
+              tout << "model:\n"; model_pp(tout, *m_curr_model););
 
         md->compress();
 
@@ -530,7 +537,7 @@ namespace smt {
             if (!(m_qm->mbqi_enabled(q) &&
                   m_context->is_relevant(q) &&
                   m_context->get_assignment(q) == l_true &&
-                  !m.is_lambda_def(q))) {
+                  (!m_context->get_fparams().m_ematching || !m.is_lambda_def(q)))) {
                 continue;
             }
 
@@ -565,7 +572,7 @@ namespace smt {
     }
 
     void model_checker::restart_eh() {
-        IF_VERBOSE(100, verbose_stream() << "(smt.mbqi \"instantiating new instances...\")\n";);
+        IF_VERBOSE(100, if (has_new_instances()) verbose_stream() << "(smt.mbqi \"instantiating new instances...\")\n";);
         assert_new_instances();
         reset_new_instances();
     }

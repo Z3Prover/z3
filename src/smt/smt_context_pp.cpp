@@ -103,9 +103,9 @@ namespace smt {
 
     std::ostream& context::display_literal_smt2(std::ostream& out, literal l) const {
         if (l.sign())
-            out << "  (not " << mk_bounded_pp(bool_var2expr(l.var()), m, 10) << ") ";
+            out << "(not " << mk_pp(bool_var2expr(l.var()), m) << ") ";
         else
-            out << "  " << mk_bounded_pp(bool_var2expr(l.var()), m, 10) << " ";
+            out << mk_pp(bool_var2expr(l.var()), m) << " ";
         return out;
     }
 
@@ -173,8 +173,7 @@ namespace smt {
     }
 
     std::ostream& context::display_clause_smt2(std::ostream & out, clause const& cls) const {
-        cls.display_smt2(out, m, m_bool_var2expr.c_ptr());
-        return out;
+        return display_literals_smt2(out, cls.get_num_literals(), cls.begin());
     }
 
     std::ostream& context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
@@ -378,6 +377,7 @@ namespace smt {
     }
 
     void context::collect_statistics(::statistics & st) const {
+        st.copy(m_aux_stats);
         st.update("conflicts", m_stats.m_num_conflicts);
         st.update("decisions", m_stats.m_num_decisions);
         st.update("propagations", m_stats.m_num_propagations + m_stats.m_num_bin_propagations);
@@ -452,6 +452,7 @@ namespace smt {
         std::ofstream out(strm.str());
         TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
+        TRACE("non_linear", display_lemma_as_smt_problem(tout, num_antecedents, antecedents, consequent, logic););
         out.close();
         return m_lemma_id;
     }
@@ -491,7 +492,9 @@ namespace smt {
         std::stringstream strm;
         strm << "lemma_" << (++m_lemma_id) << ".smt2";
         std::ofstream out(strm.str());
-        TRACE("lemma", tout << strm.str() << "\n";);
+        TRACE("lemma", tout << strm.str() << "\n";
+              display_lemma_as_smt_problem(tout, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
+);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
         return m_lemma_id;
@@ -604,7 +607,8 @@ namespace smt {
         case b_justification::JUSTIFICATION: {
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            out << "justification " << j.get_justification()->get_from_theory() << ": " << lits;
+            out << "justification " << j.get_justification()->get_from_theory() << ": ";
+            display_literals_smt2(out, lits);
             break;
         }
         default:

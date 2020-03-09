@@ -561,7 +561,8 @@ void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol
     if (logic == "NRA" ||
         logic == "QF_NRA" ||
         logic == "QF_UFNRA") {
-        m_convert_int_numerals_to_real = true;
+        // TBD: remove completely pending regressions: 
+        // m_convert_int_numerals_to_real = true;
         sort_names.push_back(builtin_name("Real", REAL_SORT));
     }
     else {
@@ -811,11 +812,22 @@ bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* con
         return true;
     }
     if (is_decl_of(f, m_afid, OP_POWER) && is_numeral(args[1], r) && r.is_zero() && is_numeral(args[0], r) && r.is_zero()) {
-        sort* rs[2] = { mk_real(), mk_real() };
-        f_out = m_manager.mk_func_decl(m_afid, OP_POWER0, 0, nullptr, 2, rs, mk_real());
+        f_out = is_int(args[0]) ? mk_ipower0() : mk_rpower0();
         return true;
     }
     return plugin().is_considered_uninterpreted(f);
+}
+
+func_decl* arith_util::mk_ipower0() {
+    sort* s = mk_int();
+    sort* rs[2] = { s, s };
+    return m_manager.mk_func_decl(m_afid, OP_POWER0, 0, nullptr, 2, rs, s);
+}
+
+func_decl* arith_util::mk_rpower0() {
+    sort* s = mk_real();
+    sort* rs[2] = { s, s };
+    return m_manager.mk_func_decl(m_afid, OP_POWER0, 0, nullptr, 2, rs, s);
 }
 
 func_decl* arith_util::mk_div0() {
@@ -826,4 +838,14 @@ func_decl* arith_util::mk_div0() {
 func_decl* arith_util::mk_idiv0() {
     sort* rs[2] = { mk_int(), mk_int() };
     return m_manager.mk_func_decl(m_afid, OP_IDIV0, 0, nullptr, 2, rs, mk_int());
+}
+
+func_decl* arith_util::mk_rem0() {
+    sort* rs[2] = { mk_int(), mk_int() };
+    return m_manager.mk_func_decl(m_afid, OP_REM0, 0, nullptr, 2, rs, mk_int());
+}
+
+func_decl* arith_util::mk_mod0() {
+    sort* rs[2] = { mk_int(), mk_int() };
+    return m_manager.mk_func_decl(m_afid, OP_MOD0, 0, nullptr, 2, rs, mk_int());
 }

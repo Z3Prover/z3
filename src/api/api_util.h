@@ -76,8 +76,8 @@ inline Z3_func_decl of_func_decl(func_decl* f) { return reinterpret_cast<Z3_func
 
 inline func_decl * const * to_func_decls(Z3_func_decl const* f) { return reinterpret_cast<func_decl*const*>(f); }
 
-inline symbol to_symbol(Z3_symbol s) { return symbol::mk_symbol_from_c_ptr(reinterpret_cast<void*>(s)); }
-inline Z3_symbol of_symbol(symbol s) { return reinterpret_cast<Z3_symbol>(const_cast<void*>(s.c_ptr())); }
+inline symbol to_symbol(Z3_symbol s) { return symbol::c_api_ext2symbol(s); }
+inline Z3_symbol of_symbol(symbol s) { return static_cast<Z3_symbol>(s.c_api_symbol2ext()); }
 
 inline Z3_pattern of_pattern(ast* a) { return reinterpret_cast<Z3_pattern>(a); }
 inline app* to_pattern(Z3_pattern p) { return reinterpret_cast<app*>(p); }

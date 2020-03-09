@@ -155,7 +155,7 @@ namespace sat {
             p.set_uint("sat.max_conflicts", 10000);
             p.set_bool("sat.binspr", false);
             s->updt_params(p);
-            lbool r = s->check(0, nullptr);
+            s->check(0, nullptr);
         }
 
         if (s->inconsistent()) {
@@ -422,7 +422,6 @@ namespace sat {
                 break;
             }
         }
-        bool first = m_state == ~0;
         m_state &= mask;
         TRACE("sat", 
               {

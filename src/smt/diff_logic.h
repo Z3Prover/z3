@@ -315,7 +315,7 @@ private:
         typename assignment_stack::iterator begin = m_assignment_stack.begin();
         while (it != begin) {
             --it;
-            TRACE("diff_logic_bug", tout << "undo assignment: " << it->get_var() << " " << it->get_old_value() << "\n";);
+            TRACE("dl_bug", tout << "undo assignment: " << it->get_var() << " " << it->get_old_value() << "\n";);
             m_assignment[it->get_var()] = it->get_old_value();
         }
         m_assignment_stack.reset();
@@ -371,7 +371,7 @@ private:
         SASSERT(m_gamma[target].is_neg());
         acc_assignment(target, gamma);
 
-        TRACE("arith", tout << id << "\n";);
+        TRACE("arith", display(tout << id << "\n"););
 
         dl_var source = target;
         while (true) {
@@ -467,7 +467,7 @@ public:
     // The graph does not have control over the ids assigned by the theory.
     // That is init_var receives the id as an argument.
     void init_var(dl_var v) {
-        TRACE("diff_logic_bug", tout << "init_var " << v << "\n";);
+        TRACE("dl_bug", tout << "init_var " << v << "\n";);
         if (static_cast<unsigned>(v) < m_out_edges.size() && (!m_out_edges[v].empty() || !m_in_edges[v].empty())) {
             return;
         }
@@ -485,7 +485,7 @@ public:
         }
         m_assignment[v].reset();
         SASSERT(static_cast<unsigned>(v) < m_heap.get_bounds());
-        TRACE("diff_logic_bug", tout << "init_var " << v << ", m_assignment[v]: " << m_assignment[v] << "\n";);
+        TRACE("dl_bug", tout << "init_var " << v << ", m_assignment[v]: " << m_assignment[v] << "\n";);
         SASSERT(m_assignment[v].is_zero());
         SASSERT(m_out_edges[v].empty());
         SASSERT(m_in_edges[v].empty());
@@ -511,6 +511,9 @@ public:
     bool enable_edge(edge_id id) {
         edge& e = m_edges[id];
         bool r = true;
+        if (!is_feasible()) {
+            return false;
+        }
         if (!e.is_enabled()) {
             e.enable(m_timestamp);
             m_last_enabled_edge = id;
@@ -915,6 +918,24 @@ public:
     // so the graph is disconnected.
     // assumption: the current assignment is feasible.
     //
+    void set_to_zero(unsigned n, dl_var const* vs) {
+        for (unsigned i = 0; i < n; ++i) {
+            dl_var v = vs[i];
+            if (!m_assignment[v].is_zero()) {
+                set_to_zero(v);
+                for (unsigned j = 0; j < n; ++j) {
+                    dl_var w = vs[j];
+                    if (!m_assignment[w].is_zero()) {
+                        enable_edge(add_edge(v, w, numeral(0), explanation()));
+                        enable_edge(add_edge(w, v, numeral(0), explanation()));
+                        SASSERT(is_feasible());                        
+                    }
+                }
+                return;
+            }
+        }
+    }
+
     void set_to_zero(dl_var v, dl_var w) {
         if (!m_assignment[v].is_zero()) {
             set_to_zero(v);
@@ -934,7 +955,7 @@ private:
     // m_assignment[v] += inc
     // This method also stores the old value of v in the assignment stack.
     void acc_assignment(dl_var v, const numeral & inc) {
-        TRACE("diff_logic_bug", tout << "update v: " << v << " += " << inc << " m_assignment[v] " << m_assignment[v] << "\n";);
+        TRACE("dl_bug", tout << "update v: " << v << " += " << inc << " m_assignment[v] " << m_assignment[v] << "\n";);
         m_assignment_stack.push_back(assignment_trail(v, m_assignment[v]));
         m_assignment[v] += inc;
     }

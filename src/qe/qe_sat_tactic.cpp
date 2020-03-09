@@ -631,7 +631,12 @@ namespace qe {
             ctx.set_projection_mode(m_projection_mode_param);
             m_solvers[idx+1]->push();
             while (ctx.get_num_vars() > 0) {
-                VERIFY(l_true == m_solvers[idx+1]->check());
+                lbool r = m_solvers[idx+1]->check();
+                SASSERT(r != l_false);
+                if (r == l_undef) {
+                    checkpoint();
+                    throw tactic_exception("inconclusive solver result");
+                }
                 ctx.project_var(ctx.get_num_vars()-1);               
             }
             m_solvers[idx+1]->pop(1);            
@@ -647,9 +652,7 @@ namespace qe {
             m_rewriter(tmp);
             m_Ms[idx] = tmp;
             m_solvers[idx]->assert_expr(not_fml);            
-            TRACE("qe", 
-                  tout << mk_pp(fml, m) << "\n--->\n";
-                  tout << mk_pp(tmp, m) << "\n";);
+            TRACE("qe", tout << fml << "\n--->\n" << tmp << "\n";);
         }
 
         void checkpoint() {
@@ -672,9 +675,9 @@ namespace qe {
             lbool r = solver.check();
             m_assignments.reset();
             solver.get_assignments(m_assignments);
+            if(r == l_true && i == 0) solver.get_model(model);
             solver.pop(1);
-            check_success(r != l_undef);
-            if (r == l_true && i == 0) solver.get_model(model);
+            check_success(r != l_undef);            
             return r == l_true;
         }
 

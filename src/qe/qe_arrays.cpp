@@ -1092,7 +1092,7 @@ namespace qe {
                 }
                 constructor_decl* constrs[1] = { mk_constructor_decl(symbol("tuple"), symbol("is-tuple"), acc.size(), acc.c_ptr()) };
                 datatype::def* dts = mk_datatype_decl(dt, symbol("tuple"), 0, nullptr, 1, constrs);
-                VERIFY(dt.get_plugin()->mk_datatypes(1, &dts, 0, nullptr, srts));
+                VERIFY(dt.plugin().mk_datatypes(1, &dts, 0, nullptr, srts));
                 del_datatype_decl(dts);
                 sort* tuple = srts.get(0);
                 ptr_vector<func_decl> const & decls = *dt.get_datatype_constructors(tuple);
@@ -1442,13 +1442,13 @@ namespace qe {
             for_each_store_proc(imp& i, term_graph& tg) : m_imp(i), tg(tg) {}
 
             void operator()(app* n) {
-                if (m_imp.a.is_array(n) && tg.get_model_based_rep(n)) {
+                if (m_imp.a.is_array(n) && tg.rep_of(n)) {
                     m_imp.add_array(n);
                 }
 
                 if (m_imp.a.is_store(n) &&
-                    (tg.get_model_based_rep(n->get_arg(0)) ||
-                     tg.get_model_based_rep(n->get_arg(n->get_num_args() - 1)))) {
+                    (tg.rep_of(n->get_arg(0)) ||
+                     tg.rep_of(n->get_arg(n->get_num_args() - 1)))) {
                     m_imp.m_stores.push_back(n);
                     for (unsigned i = 1; i + 1 < n->get_num_args(); ++i) {
                         m_imp.add_index_sort(n->get_arg(i));
@@ -1466,7 +1466,7 @@ namespace qe {
 
             void operator()(app* n) {
                 auto* v = m_imp.is_index(n);
-                if (v && tg.get_model_based_rep(n)) {
+                if (v && tg.rep_of(n)) {
                     v->push_back(n);
                 }
             }

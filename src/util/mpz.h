@@ -196,9 +196,17 @@ class mpz_manager {
     mutable mpz_t     m_int64_min;
 
     mpz_t * allocate() {        
-        MPZ_BEGIN_CRITICAL();
-        mpz_t * cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));
-        MPZ_END_CRITICAL();
+        mpz_t * cell;
+#ifdef SINGLE_THREAD
+        cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
+#else
+        if (SYNCH) {
+            cell = reinterpret_cast<mpz_t*>(memory::allocate(sizeof(mpz_t)));
+        }
+        else {
+            cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
+        }
+#endif
         mpz_init(*cell);
         return cell;
     }
@@ -206,9 +214,16 @@ class mpz_manager {
     void deallocate(bool is_heap, mpz_t * ptr) { 
         mpz_clear(*ptr); 
         if (is_heap) {
-            MPZ_BEGIN_CRITICAL();
+#ifdef SINGLE_THREAD
             m_allocator.deallocate(sizeof(mpz_t), ptr); 
-            MPZ_END_CRITICAL();
+#else
+            if (SYNCH) {
+                memory::deallocate(ptr);
+            }
+            else {
+                m_allocator.deallocate(sizeof(mpz_t), ptr); 
+            }
+#endif
         }
     }
 
