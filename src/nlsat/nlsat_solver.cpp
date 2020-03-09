@@ -800,6 +800,7 @@ namespace nlsat {
             imp& checker = *(solver2.m_imp);
             checker.m_check_lemmas = false;
             checker.m_log_lemmas = false;
+            checker.m_inline_vars = false;
 
             // need to translate Boolean variables and literals
             svector<bool_var> tr;
