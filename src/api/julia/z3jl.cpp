@@ -467,8 +467,29 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         //  sort fpa_sort();
         .MM(context, fpa_rounding_mode)
         .MM(context, set_rounding_mode)
-        // .MM(context, enumeration_sort)
-        // .MM(context, tuple_sort)
+        .method("enumeration_sort", 
+            [](context& c, char const * name, jlcxx::ArrayRef<jl_value_t*,1> names, func_decl_vector &cs, func_decl_vector &ts) {
+                int sz = names.size();
+                std::vector<const char *> _names;
+                for (int i = 0; i < sz; i++) {
+                    const char *x = jl_string_data(names[i]);
+                    _names.push_back(x);
+                }
+                return c.enumeration_sort(name, sz, _names.data(), cs, ts);
+            })
+        .method("tuple_sort", 
+            [](context& c, char const * name, jlcxx::ArrayRef<jl_value_t*,1> names, jlcxx::ArrayRef<jl_value_t*,1> sorts, func_decl_vector &projs) {
+                int sz = names.size();
+                std::vector<sort> _sorts;
+                std::vector<const char *> _names;
+                for (int i = 0; i < sz; i++) {
+                    const sort &x = jlcxx::unbox<sort&>(sorts[i]);
+                    const char *y = jl_string_data(names[i]);
+                    _sorts.push_back(x);
+                    _names.push_back(y);
+                }
+                return c.tuple_sort(name, sz, _names.data(), _sorts.data(), projs);
+            })
         .method("uninterpreted_sort", static_cast<sort (context::*)(char const*)>(&context::uninterpreted_sort))
         .method("uninterpreted_sort", static_cast<sort (context::*)(symbol const&)>(&context::uninterpreted_sort))
         //
