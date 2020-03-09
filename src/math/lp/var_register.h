@@ -66,10 +66,17 @@ public:
         }
         return ret;
     }
-    
+
+    // returns -1 if 
     unsigned local_to_external(unsigned local_var) const {
-        SASSERT(local_var >= m_local_offset);
-        return m_local_to_external[local_var - m_local_offset].external_j();
+        if (local_var + 1 == 0) // local_var == -1
+            return -1;
+        if (local_var < m_local_offset)
+            return -1;
+        unsigned k = local_var - m_local_offset;
+        if (k >= m_local_to_external.size())
+            return -1;
+        return m_local_to_external[k].external_j();
     }
     unsigned size() const {
         return m_local_to_external.size();

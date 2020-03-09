@@ -2364,7 +2364,7 @@ public:
         if (v == null_theory_var) {
             return false;
         }
-        if (m_unassigned_bounds[v] == 0 || m_bounds.size() <= static_cast<unsigned>(v)) {
+        if (m_bounds.size() <= static_cast<unsigned>(v) || m_unassigned_bounds[v] == 0) {
             return false;
         }
         for (lp_api::bound* b : m_bounds[v]) {
