@@ -1705,16 +1705,16 @@ bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>>
     return true;
 }
 
+// do not register this term if ext_i == -1
 var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs, unsigned ext_i) {
     TRACE("lar_solver_terms", print_linear_combination_of_column_indices_only(coeffs, tout) << ", ext_i =" << ext_i << "\n";); 
-          
-    m_term_register.add_var(ext_i, term_is_int(coeffs));
+    if (ext_i + 1)
+        m_term_register.add_var(ext_i, term_is_int(coeffs));
     lp_assert(all_vars_are_registered(coeffs));
     if (strategy_is_undecided())
         return add_term_undecided(coeffs);
     lar_term * t = new lar_term(coeffs);
     push_term(t);
-    SASSERT(m_term_register.size() == m_terms.size());
     unsigned adjusted_term_index = m_terms.size() - 1;
     var_index ret = m_terms_start_index + adjusted_term_index;
     if (use_tableau() && !coeffs.empty()) {
@@ -2370,10 +2370,7 @@ std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, 
     vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::make_pair(mpq(1),j));
     coeffs.push_back(std::make_pair(mpq(-1),k));    
-    unsigned ext_term_index = m_terms.size();
-    while (m_term_register.external_is_used(ext_term_index))
-        ext_term_index *= 2;
-    unsigned term_index = add_term(coeffs, ext_term_index);
+    unsigned term_index = add_term(coeffs, -1); // -1 to not register the term: only external terms are registered
     return std::pair<constraint_index, constraint_index>(
         add_var_bound(term_index, lconstraint_kind::LE, mpq(0)),
         add_var_bound(term_index, lconstraint_kind::GE, mpq(0)));
