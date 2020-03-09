@@ -2371,6 +2371,8 @@ std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, 
     coeffs.push_back(std::make_pair(mpq(1),j));
     coeffs.push_back(std::make_pair(mpq(-1),k));    
     unsigned ext_term_index = m_terms.size();
+    while (m_term_register.external_is_used(ext_term_index))
+        ext_term_index *= 2;
     unsigned term_index = add_term(coeffs, ext_term_index);
     return std::pair<constraint_index, constraint_index>(
         add_var_bound(term_index, lconstraint_kind::LE, mpq(0)),
