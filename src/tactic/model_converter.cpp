@@ -131,11 +131,11 @@ public:
             m = m_model;
             return;
         }
-        for (unsigned i = m_model->get_num_constants(); i-- > 0; ) {
+        for (unsigned i = 0; i < m_model->get_num_constants(); ++i) {
             func_decl* f = m_model->get_constant(i);
             m->register_decl(f, m_model->get_const_interp(f));
         }
-        for (unsigned i = m_model->get_num_functions(); i-- > 0; ) {
+        for (unsigned i = 0; i < m_model->get_num_functions(); ++i) {
             func_decl* f = m_model->get_function(i);
             m->register_decl(f, m_model->get_func_interp(f)->copy());
         }
