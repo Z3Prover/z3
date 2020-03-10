@@ -1279,6 +1279,7 @@ namespace sat {
     };
 
     lbool solver::invoke_local_search(unsigned num_lits, literal const* lits) {
+        if (inconsistent()) return l_false;
         scoped_limits scoped_rl(rlimit());
         SASSERT(m_local_search);
         i_local_search& srch = *m_local_search;
