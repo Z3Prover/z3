@@ -127,7 +127,18 @@ public:
     ~model2mc() override {}
 
     void operator()(model_ref & m) override {
-        m = m_model;
+        if (!m || !m_model) {
+            m = m_model;
+            return;
+        }
+        for (unsigned i = m_model->get_num_constants(); i-- > 0; ) {
+            func_decl* f = m_model->get_constant(i);
+            m->register_decl(f, m_model->get_const_interp(f));
+        }
+        for (unsigned i = m_model->get_num_functions(); i-- > 0; ) {
+            func_decl* f = m_model->get_function(i);
+            m->register_decl(f, m_model->get_func_interp(f));
+        }
     }
 
     void operator()(labels_vec & r) override {
