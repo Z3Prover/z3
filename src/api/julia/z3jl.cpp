@@ -104,7 +104,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     TYPE_OBJ(object)
         .constructor<context &>()
+        .constructor<object const &>()
         .MM(object, ctx);
+
+    m.method("check_context" , &check_context);
 
     // -------------------------------------------------------------------------
 
@@ -124,6 +127,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     // -------------------------------------------------------------------------
 
     TYPE_OBJ(symbol)
+        .constructor<symbol const &>()
         .MM(symbol, to_int)
         .method("string", &symbol::str);
 
@@ -131,6 +135,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     TYPE_OBJ(ast)
         .constructor<context &>()
+        .constructor<ast const &>()
         .MM(ast, hash)
         .method("string", &ast::to_string);
 
@@ -140,6 +145,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     TYPE_OBJ(sort)
         .constructor<context &>()
+        .constructor<sort const &>()
         .MM(sort, id)
         .MM(sort, name)
         .MM(sort, is_bool)
@@ -164,18 +170,90 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     TYPE_OBJ(expr)
         .constructor<context &>()
+        .constructor<expr const &>()
         .MM(expr, get_sort)
         .MM(expr, is_bool)
         .MM(expr, is_int)
         .MM(expr, is_real)
         .MM(expr, is_arith)
+        .MM(expr, is_bv)
+        .MM(expr, is_array)
+        .MM(expr, is_datatype)
+        .MM(expr, is_relation)
+        .MM(expr, is_seq)
+        .MM(expr, is_re)
+        .MM(expr, is_finite_domain)
+        .MM(expr, is_fpa)
+        .MM(expr, is_numeral_i64)
+        .MM(expr, is_numeral_u64)
+        .MM(expr, is_numeral_i)
+        .MM(expr, is_numeral_u)
+        .method("is_numeral", static_cast<bool (expr::*)() const>(&expr::is_numeral))
+        .method("is_numeral", static_cast<bool (expr::*)(std::string &) const>(&expr::is_numeral))
+        .method("is_numeral", static_cast<bool (expr::*)(std::string &, unsigned) const>(&expr::is_numeral))
+        .method("is_numeral", static_cast<bool (expr::*)(double &) const>(&expr::is_numeral))
+        .MM(expr, is_app)
+        .MM(expr, is_const)
+        .MM(expr, is_quantifier)
+        .MM(expr, is_forall)
+        .MM(expr, is_exists)
+        .MM(expr, is_lambda)
+        .MM(expr, is_var)
         .MM(expr, is_algebraic)
-        .MM(expr, numerator)
-        .MM(expr, denominator)
-        .MM(expr, get_numeral_int)
+        .MM(expr, is_well_sorted)
         .MM(expr, get_decimal_string)
         .MM(expr, id)
-        .MM(expr, is_true);
+        .MM(expr, get_numeral_int)
+        .MM(expr, get_numeral_uint)
+        .MM(expr, get_numeral_int64)
+        .MM(expr, get_numeral_uint64)
+        .MM(expr, numerator)
+        .MM(expr, denominator)
+        .MM(expr, is_string_value)
+        .MM(expr, get_escaped_string)
+        .MM(expr, get_string)
+        .MM(expr, fpa_rounding_mode)
+        .MM(expr, decl)
+        .MM(expr, num_args)
+        .MM(expr, arg)
+        .MM(expr, body)
+        //
+        .MM(expr, is_true)
+        .MM(expr, is_false)
+        .MM(expr, is_not)
+        .MM(expr, is_and)
+        .MM(expr, is_or)
+        .MM(expr, is_xor)
+        .MM(expr, is_implies)
+        .MM(expr, is_eq)
+        .MM(expr, is_ite)
+        .MM(expr, is_distinct)
+        //
+        .MM(expr, rotate_left)
+        .MM(expr, rotate_right)
+        .MM(expr, repeat)
+        //
+        .method("extract", static_cast<expr (expr::*)(unsigned, unsigned) const>(&expr::extract))
+        .MM(expr, lo)
+        .MM(expr, hi)
+        //
+        .method("extract", static_cast<expr (expr::*)(expr const &, expr const &) const>(&expr::extract))
+        .MM(expr, replace)
+        .MM(expr, unit)
+        .MM(expr, contains)
+        .MM(expr, at)
+        .MM(expr, nth)
+        .MM(expr, length)
+        .MM(expr, stoi)
+        .MM(expr, itos)
+        //
+        .method("loop", static_cast<expr (expr::*)(unsigned)>(&expr::loop))
+        .method("loop", static_cast<expr (expr::*)(unsigned, unsigned)>(&expr::loop))
+        //
+        .method("simplify", static_cast<expr (expr::*)() const>(&expr::simplify))
+        .method("simplify", static_cast<expr (expr::*)(params const &) const>(&expr::simplify))
+        .method("substitute", static_cast<expr (expr::*)(expr_vector const &, expr_vector const &)>(&expr::substitute))
+        .method("substitute", static_cast<expr (expr::*)(expr_vector const &)>(&expr::substitute));
 
     // Friends of z3::expr
     m.method("mk_or", &mk_or);
@@ -231,6 +309,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     TYPE_OBJ(func_decl)
         .constructor<context &>()
+        .constructor<func_decl const &>()
         .MM(func_decl, id)
         .MM(func_decl, arity)
         .MM(func_decl, domain)
@@ -253,6 +332,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     TYPE_OBJ(model)
         .constructor<context &>()
+        .constructor<model const &>()
         .MM(model, size)
         .MM(model, num_consts)
         .MM(model, num_funcs)
@@ -263,6 +343,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(model, has_interp)
         .MM(model, add_func_interp)
         .MM(model, add_const_interp)
+        // eval is a core method in Julia, therefore renaming necessary
         .method("__eval", &model::eval)
         .STRING(model);
 
@@ -287,6 +368,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .constructor<context &, solver::simple>()
         .constructor<context &, char const *>()
         .constructor<context &, solver const &, solver::translate>()
+        .constructor<solver const &>()
         .method("set", static_cast<void (solver::*)(params const &)>(&solver::set))
         .method("set", static_cast<void (solver::*)(char const *, double)>(&solver::set))
         .method("set", static_cast<void (solver::*)(char const *, symbol const &)>(&solver::set))
