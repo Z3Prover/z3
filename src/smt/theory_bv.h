@@ -173,6 +173,7 @@ namespace smt {
         void fixed_var_eh(theory_var v);
         void add_fixed_eq(theory_var v1, theory_var v2);
         bool get_fixed_value(theory_var v, numeral & result) const;
+        bool internalize_term_core(app * term);
         void internalize_num(app * n);
         void internalize_add(app * n);
         void internalize_sub(app * n);

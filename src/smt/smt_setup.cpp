@@ -152,6 +152,7 @@ namespace smt {
             ptr_vector<expr> fmls;
             m_context.get_asserted_formulas(fmls);
             st.collect(fmls.size(), fmls.c_ptr());
+            TRACE("setup", st.display_primitive(tout););
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
             if (m_logic == "QF_UF") 
                 setup_QF_UF(st);
@@ -947,7 +948,7 @@ namespace smt {
         ptr_vector<expr> fmls;
         m_context.get_asserted_formulas(fmls);
         st.collect(fmls.size(), fmls.c_ptr());
-        TRACE("setup", tout << "setup_unknown\n";);        
+        TRACE("setup", tout << "setup_unknown\n";);
         setup_arith();
         setup_arrays();
         setup_bv();

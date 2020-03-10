@@ -548,11 +548,10 @@ namespace qe {
             m_solver(mk_smt_solver(m, m_params, symbol::null))
         {
             m_params.set_bool("model", true);
-            m_params.set_uint("relevancy_lvl", 0);
+            m_params.set_uint("relevancy", 0);
             m_params.set_uint("case_split_strategy", CS_ACTIVITY_WITH_CACHE);
             m_solver->updt_params(m_params);
-        }
-        
+        }        
         
         solver& s() { return *m_solver; }
         solver const& s() const { return *m_solver; }

@@ -149,6 +149,9 @@ namespace smt {
     void context::updt_params(params_ref const& p) {
         m_params.append(p);
         m_asserted_formulas.updt_params(p);
+        if (!m_setup.already_configured()) {
+            m_fparams.updt_params(p);
+        }
     }
 
     unsigned context::relevancy_lvl() const {
@@ -308,7 +311,7 @@ namespace smt {
     }
 
     void context::assign_core(literal l, b_justification j, bool decision) {
-        CTRACE("assign_core", l.var() == 1573 || l.var() == 1253, tout << (decision?"decision: ":"propagating: ") << l << " ";
+        CTRACE("assign_core", l.var() == 2816, tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l); tout << " level: " << m_scope_lvl << "\n";
               display(tout, j););
         m_assigned_literals.push_back(l);
