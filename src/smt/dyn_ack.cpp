@@ -105,23 +105,60 @@ namespace smt {
     class dyn_ack_eq_justification : public justification {
         app *     m_app1;
         app *     m_app2;
+        app *     m_r;
+        app *     m_eq1;
+        app *     m_eq2;
+        app *     m_eq3;
     public:
-        dyn_ack_eq_justification(app * n1, app * n2):
+        dyn_ack_eq_justification(app * n1, app * n2, app* r, app* eq1, app* eq2, app* eq3):
             justification(false), // dyn_ack_cc_justifications are not stored in regions.
             m_app1(n1), 
-            m_app2(n2) {
+            m_app2(n2), 
+            m_r(r),
+            m_eq1(eq1),
+            m_eq2(eq2),
+            m_eq3(eq3) {
         }
         char const * get_name() const override { return "dyn-ack-eq"; }
         void get_antecedents(conflict_resolution & cr) override {}
         void display_debug_info(conflict_resolution & cr, std::ostream & out) override {
             ast_manager & m = cr.get_manager();
-            out << "m_app1:\n" << mk_pp(m_app1, m) << "\n";
-            out << "m_app2:\n" << mk_pp(m_app2, m) << "\n";
+            out << mk_pp(m_eq1, m) << " " << mk_pp(m_eq2, m) << " => " << mk_pp(m_eq3, m) << "\n";
         }
 
-        proof * mk_proof(conflict_resolution & cr) override {
+        /**
+         *   Create a proof of (or ~eq1 ~eq2 eq3)
+         *   eq1 := app1 = r         or symmetric
+         *   eq2 := app2 = r         or symmetric
+         *   eq3 := app1 = app2      or symmetric
+         * 
+         *   p1: trans: hyp(eq1), hyp(eq2) |- eq3
+         *   p2: unit-resolution: p1, hyp(~eq3) |- false
+         *   p3: lemma: (or ~eq1 ~eq2 eq3)
+         */
+        proof * mk_proof(conflict_resolution & cr) override {            
             ast_manager & m   = cr.get_manager();
-            return m.mk_symmetry(m.mk_eq(m_app1, m_app2));
+            proof* p1, *p2, *p3, *p4, *p5, *p6;
+            expr* x = nullptr, *y = nullptr;
+            (void)x; (void)y;
+            p1 = m.mk_hypothesis(m_eq1);
+            if (m_eq1->get_arg(1) == m_app1) p1 = m.mk_symmetry(p1);
+            p2 = m.mk_hypothesis(m_eq2);
+            if (m_eq2->get_arg(0) == m_app2) p2 = m.mk_symmetry(p2);
+            SASSERT(m.is_eq(m.get_fact(p1), x, y) && x == m_app1 && y == m_r);
+            SASSERT(m.is_eq(m.get_fact(p2), x, y) && x == m_r && y == m_app2);
+            p3 = m.mk_transitivity(p1, p2);
+            SASSERT(m.is_eq(m.get_fact(p3), x, y) && x == m_app1 && y == m_app2);
+            if (m.get_fact(p3) != m_eq3) p3 = m.mk_symmetry(p3);
+            SASSERT(m.get_fact(p3) == m_eq3);
+            p4 = m.mk_hypothesis(m.mk_not(m_eq3));
+            proof* ps[2] = { p3, p4 };
+            p5 = m.mk_unit_resolution(2, ps);
+            SASSERT(m.get_fact(p5) == m.mk_false());
+            expr* eqs[3] = { m.mk_not(m_eq1), m.mk_not(m_eq2), m_eq3 };
+            expr_ref conclusion(m.mk_or(3, eqs), m);
+            p6 = m.mk_lemma(p5, conclusion);
+            return p6;
         }
     };
 
@@ -421,9 +458,10 @@ namespace smt {
     }
 
     void dyn_ack_manager::instantiate(app * n1, app * n2, app* r) {
+        context& ctx = m_context;
         SASSERT(m_params.m_dack != DACK_DISABLED);
         SASSERT(n1 != n2 && n1 != r && n2 != r);
-        m_context.m_stats.m_num_dyn_ack++;
+        ctx.m_stats.m_num_dyn_ack++;
         TRACE("dyn_ack_inst", tout << "dyn_ack: " << n1->get_id() << " " << n2->get_id() << " " << r->get_id() << "\n";);
         TRACE("dyn_ack", tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" 
               << mk_pp(n2, m) << "\n"
@@ -435,19 +473,26 @@ namespace smt {
         // pair n1,n2 is still in m_triple.m_apps
         m_triple.m_instantiated.insert(tr);
         literal_buffer lits;
-        lits.push_back(~mk_eq(n1, r));
-        lits.push_back(~mk_eq(n2, r));
-        lits.push_back(mk_eq(n1, n2));
+        literal eq1 = mk_eq(n1, r);
+        literal eq2 = mk_eq(n2, r);
+        literal eq3 = mk_eq(n1, n2);
+        lits.push_back(~eq1);
+        lits.push_back(~eq2);
+        lits.push_back(eq3);
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
         justification * js = nullptr;
-        if (m.proofs_enabled()) 
-            js = alloc(dyn_ack_eq_justification, n1, n2);
-        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
+        if (m.proofs_enabled()) {
+            js = alloc(dyn_ack_eq_justification, n1, n2, r, 
+                       to_app(ctx.bool_var2expr(eq1.var())), 
+                       to_app(ctx.bool_var2expr(eq2.var())),
+                       to_app(ctx.bool_var2expr(eq3.var())));
+        }
+        clause * cls = ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
             return;
         }
-        TRACE("dyn_ack_clause", tout << "new clause:\n"; m_context.display_clause_detail(tout, cls); tout << "\n";);
+        TRACE("dyn_ack_clause", ctx.display_clause_detail(tout << "new clause:\n", cls); tout << "\n";);
         m_triple.m_clause2apps.insert(cls, tr);
     }
 
