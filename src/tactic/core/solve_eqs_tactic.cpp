@@ -516,6 +516,9 @@ class solve_eqs_tactic : public tactic {
                         occ.mark(e, occ.is_marked(body));
                         m_todo.pop_back();
                     }
+                    else {
+                        m_todo.push_back(body);
+                    }
                 }
                 else {
                     visited.mark(e, true);
@@ -625,10 +628,12 @@ class solve_eqs_tactic : public tactic {
             return true;
         }
 
-        void hoist_nnf(goal const& g, expr* f, vector<nnf_context> & path, unsigned idx, unsigned depth) {
-            if (depth > 4) {
+        void hoist_nnf(goal const& g, expr* f, vector<nnf_context> & path, unsigned idx, unsigned depth, ast_mark& mark) {
+            if (depth > 3 || mark.is_marked(f)) {
                 return;
             }
+            mark.mark(f, true);
+            checkpoint();
             app_ref var(m());
             expr_ref def(m());
             proof_ref pr(m());
@@ -655,7 +660,7 @@ class solve_eqs_tactic : public tactic {
                     }
                     else {
                         path.push_back(nnf_context(true, args, i));
-                        hoist_nnf(g, arg, path, idx, depth + 1);
+                        hoist_nnf(g, arg, path, idx, depth + 1, mark);
                         path.pop_back();
                     }                             
                 }
@@ -664,7 +669,7 @@ class solve_eqs_tactic : public tactic {
                 flatten_or(f, args);
                 for (unsigned i = 0; i < args.size(); ++i) {
                     path.push_back(nnf_context(false, args, i));
-                    hoist_nnf(g, args.get(i), path, idx, depth + 1);
+                    hoist_nnf(g, args.get(i), path, idx, depth + 1, mark);
                     path.pop_back();
                 }
             }
@@ -672,10 +677,11 @@ class solve_eqs_tactic : public tactic {
 
         void collect_hoist(goal const& g) {
             unsigned size = g.size();
+            ast_mark mark;
             vector<nnf_context> path;
             for (unsigned idx = 0; idx < size; idx++) {
                 checkpoint();
-                hoist_nnf(g, g.form(idx), path, idx, 0);
+                hoist_nnf(g, g.form(idx), path, idx, 0, mark);
             }
         }
 

@@ -95,6 +95,8 @@ protected:
         m_solver.push();
         reduce(fml);
         m_solver.pop(1);
+        if (m.canceled())
+            return;
         SASSERT(m_solver.get_scope_level() == 0);
         TRACE("ctx_solver_simplify_tactic",
               for (unsigned i = 0; i < fmls.size(); ++i) {

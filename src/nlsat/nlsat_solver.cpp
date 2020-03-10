@@ -335,12 +335,13 @@ namespace nlsat {
         }
 
         void inc_ref(bool_var b) {
-            TRACE("ref", tout << "inc: " << b << "\n";);
             if (b == null_bool_var)
                 return;
-            if (m_atoms[b] == nullptr)
+            atom * a = m_atoms[b];
+            if (a == nullptr)
                 return;
-            m_atoms[b]->inc_ref();
+            TRACE("ref", display(tout << "inc: " << b << " " << a->ref_count() << " ", *a) << "\n";);
+            a->inc_ref();
         }
         
         void inc_ref(literal l) {
@@ -348,7 +349,6 @@ namespace nlsat {
         }
 
         void dec_ref(bool_var b) {
-            TRACE("ref", tout << "dec: " << b << "\n";);
             if (b == null_bool_var)
                 return;
             atom * a = m_atoms[b];
@@ -356,6 +356,7 @@ namespace nlsat {
                 return;
             SASSERT(a->ref_count() > 0);
             a->dec_ref();
+            TRACE("ref", display(tout << "dec: " << b << " " << a->ref_count() << " ", *a) << "\n";);
             if (a->ref_count() == 0)
                 del(a);
         }
@@ -546,7 +547,9 @@ namespace nlsat {
         }
 
         void del(ineq_atom * a) {
-            SASSERT(a->ref_count() == 0);
+            CTRACE("nlsat_solver", a->ref_count() > 0, display(tout, *a) << "\n";);
+            // this triggers in too many benign cases:
+            // SASSERT(a->ref_count() == 0);
             m_ineq_atoms.erase(a);
             del(a->bvar());
             unsigned sz = a->size();
@@ -566,7 +569,7 @@ namespace nlsat {
         void del(atom * a) {
             if (a == nullptr)
                 return;
-            TRACE("nlsat_verbose", display(tout << "del: b" << a->m_bool_var << " ", *a) << "\n";);
+            TRACE("nlsat_verbose", display(tout << "del: b" << a->m_bool_var << " " << a->ref_count() << " ", *a) << "\n";);
             if (a->is_ineq_atom())
                 del(to_ineq_atom(a));
             else
@@ -790,6 +793,26 @@ namespace nlsat {
             }
         };
 
+        class scoped_bool_vars { 
+            imp& s;
+            svector<bool_var> vec;
+        public:
+            scoped_bool_vars(imp& s):s(s) {}
+            ~scoped_bool_vars() {
+                std::cout << "scoped del: " << vec << "\n";
+                for (bool_var v : vec) {
+                    s.dec_ref(v);
+                }
+            }
+            void push_back(bool_var v) {
+                s.inc_ref(v);
+                vec.push_back(v);
+            }
+            bool_var const* begin() const { return vec.begin(); }
+            bool_var const* end() const { return vec.end(); }
+            bool_var operator[](bool_var v) const { return vec[v]; }
+        };
+
         void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
             TRACE("nlsat", display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
@@ -800,15 +823,15 @@ namespace nlsat {
             imp& checker = *(solver2.m_imp);
             checker.m_check_lemmas = false;
             checker.m_log_lemmas = false;
+            checker.m_inline_vars = false;
 
             // need to translate Boolean variables and literals
-            svector<bool_var> tr;
+            scoped_bool_vars tr(checker);
             for (var x = 0; x < m_is_int.size(); ++x) {
                 checker.register_var(x, m_is_int[x]);
             }
             bool_var bv = 0;
             tr.push_back(bv);
-            checker.inc_ref(bv);
             for (bool_var b = 1; b < m_atoms.size(); ++b) {
                 atom* a = m_atoms[b];
                 if (a == nullptr) {
@@ -836,7 +859,6 @@ namespace nlsat {
                 else {
                     UNREACHABLE();
                 }
-                checker.inc_ref(bv);
                 tr.push_back(bv);
             }
             if (!is_valid) {
@@ -887,9 +909,6 @@ namespace nlsat {
                     }                    
                 }
                 UNREACHABLE();
-            }
-            for (bool_var b : tr) {
-                checker.dec_ref(b);
             }
         }
 
@@ -1964,7 +1983,7 @@ namespace nlsat {
 
             resolve_clause(null_bool_var, *conflict_clause);
 
-            unsigned top        = m_trail.size();
+            unsigned top = m_trail.size();
             bool found_decision;
             while (true) {
                 found_decision = false;

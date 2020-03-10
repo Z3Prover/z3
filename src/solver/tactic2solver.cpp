@@ -120,6 +120,7 @@ void tactic2solver::updt_params(params_ref const & p) {
 }
 
 void tactic2solver::collect_param_descrs(param_descrs & r) {
+    solver::collect_param_descrs(r);
     if (m_tactic.get())
         m_tactic->collect_param_descrs(r);
 }
@@ -193,7 +194,9 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
               if (g->mc()) g->mc()->display(tout << "g:");
               if (md) tout << *md.get() << "\n";
               );
-
+        if (m_mc && md) {
+            (*m_mc)(md);
+        }
         m_mc = concat(g->mc(), m_mc.get());
 
     }
