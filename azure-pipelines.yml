@@ -33,14 +33,36 @@ jobs:
 #       ./cpp_example
 #       ./c_example
 
+- job: "Ubuntu18"
+  displayName: "Ubuntu 18 with ocaml"
+  pool:
+    vmImage: "Ubuntu-18.04"
+  steps:
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: python scripts/mk_make.py --ml --staticlib
+    - script: |
+        set -e
+        cd build
+        eval `opam config env` 
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./ml_example
+        cd ..
+    - template: scripts/test-z3.yml
+    - template: scripts/test-regressions.yml
 
 # TBD: 
 #   test python bindings
 #   build documentation
 #   Asan, ubsan, msan
+# Disabled pending clang dependencies for std::unordered_map
 
 - job: "LinuxMSan"
   displayName: "Ubuntu build - cmake"
+  condition: eq(0,1) 
   pool:
     vmImage: "Ubuntu-16.04"
   strategy:
@@ -147,7 +169,8 @@ jobs:
         ./cpp_example
         ./c_example
         cd ..
-    - template: scripts/test-z3.yml
+# Skip as dead-slow in debug mode:
+#  - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
 
 
