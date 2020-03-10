@@ -2689,8 +2689,6 @@ namespace nlsat {
             u_map<literal> b2l;
             scoped_literal_vector lits(m_solver);
             svector<bool> even;
-            polynomial::manager::scoped_numeral cnst(m_pm.m());
-            m_pm.m().set(cnst, 1);
             unsigned num_atoms = m_atoms.size();
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a = m_atoms[j];
