@@ -1161,6 +1161,10 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     if (!is_num_x && !is_irrat_x)
         return BR_FAILED;
 
+    if (y.is_zero()) {
+        return BR_FAILED;
+    }
+
     rational num_y = numerator(y);
     rational den_y = denominator(y);
     bool is_neg_y  = false;
