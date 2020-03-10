@@ -180,11 +180,14 @@ jobs:
     vmImage: "macOS-10.14"
   steps:
     - script: brew install ninja
+    - script: brew cask install julia
     - script: |
+        julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.6.6\"))"
+        JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
         set -e
         mkdir build
         cd build
-        CC=clang CXX=clang++ cmake -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
+        CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
         ninja
         ninja test-z3
         cd ..
