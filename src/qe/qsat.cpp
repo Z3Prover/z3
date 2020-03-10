@@ -545,12 +545,11 @@ namespace qe {
     public:
         kernel(ast_manager& m):
             m(m),
-            m_solver(mk_smt_solver(m, m_params, symbol::null))
+            m_solver(nullptr)
         {
             m_params.set_bool("model", true);
             m_params.set_uint("relevancy", 0);
             m_params.set_uint("case_split_strategy", CS_ACTIVITY_WITH_CACHE);
-            m_solver->updt_params(m_params);
         }        
         
         solver& s() { return *m_solver; }
@@ -559,9 +558,14 @@ namespace qe {
         void init() {
             m_solver = mk_smt_solver(m, m_params, symbol::null);
         }
+        void collect_statistics(statistics & st) const {
+            if (m_solver) 
+                m_solver->collect_statistics(st);
+        }
         void reset_statistics() {
             init();
         }
+        
         void clear() {
             m_solver = nullptr;
         }
@@ -712,8 +716,8 @@ namespace qe {
         
         void clear() {
             m_st.reset();        
-            m_fa.s().collect_statistics(m_st);
-            m_ex.s().collect_statistics(m_st);        
+            m_fa.collect_statistics(m_st);
+            m_ex.collect_statistics(m_st);        
             m_pred_abs.collect_statistics(m_st);
             m_level = 0;
             m_answer.reset();
@@ -1062,6 +1066,7 @@ namespace qe {
          */
         expr_ref elim(app_ref_vector& vars, expr* _fml) {
             expr_ref fml(_fml, m);
+            TRACE("qe", tout << vars << ": " << fml << "\n";);
             expr_ref_vector defs(m);
             if (has_quantifiers(fml)) {
                 return expr_ref(m);
@@ -1236,7 +1241,6 @@ namespace qe {
             m_was_sat(false),
             m_gt(m)
         {
-            reset();
         }
         
         ~qsat() override {
@@ -1262,6 +1266,8 @@ namespace qe {
             // fail if cores.  (TBD)
             // fail if proofs. (TBD)
             
+            TRACE("qe", tout << fml << "\n";);
+
             if (m_mode == qsat_qe_rec) {
                 fml = elim_rec(fml);
                 in->reset();
@@ -1272,7 +1278,6 @@ namespace qe {
             }
                 
             reset();
-            TRACE("qe", tout << fml << "\n";);
             if (m_mode != qsat_sat) {
                 fml = push_not(fml);
             }
