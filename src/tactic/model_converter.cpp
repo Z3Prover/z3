@@ -137,7 +137,7 @@ public:
         }
         for (unsigned i = m_model->get_num_functions(); i-- > 0; ) {
             func_decl* f = m_model->get_function(i);
-            m->register_decl(f, m_model->get_func_interp(f));
+            m->register_decl(f, m_model->get_func_interp(f)->copy());
         }
     }
 
