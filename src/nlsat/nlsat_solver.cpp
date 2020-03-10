@@ -799,7 +799,6 @@ namespace nlsat {
         public:
             scoped_bool_vars(imp& s):s(s) {}
             ~scoped_bool_vars() {
-                std::cout << "scoped del: " << vec << "\n";
                 for (bool_var v : vec) {
                     s.dec_ref(v);
                 }
