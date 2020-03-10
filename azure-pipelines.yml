@@ -12,8 +12,7 @@ jobs:
   pool:
     vmImage: "macOS-10.14"
   steps:
-    - script: brew install ninja
-    - script: brew cask install julia
+    - script: brew install ninja julia
     - script: |
         julia -e "using Pkg; Pkg.add(\"libcxxwrap_julia_jll\")"
         JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\"))")
