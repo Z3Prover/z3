@@ -391,12 +391,13 @@ namespace smt {
     }
     
     void theory_array_full::relevant_eh(app* n) {
-    TRACE("array", tout << mk_pp(n, get_manager()) << "\n";);
+        TRACE("array", tout << mk_pp(n, get_manager()) << "\n";);
         theory_array::relevant_eh(n);
         if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n)){
             return;
         }
         context & ctx = get_context();
+        if (!ctx.e_internalized(n)) ctx.internalize(n, false);;
         enode* node = ctx.get_enode(n);
         if (is_select(n)) {
             enode * arg = ctx.get_enode(n->get_arg(0));
