@@ -867,8 +867,8 @@ class solve_eqs_tactic : public tactic {
             expr_dependency_ref new_dep(m());
             for (app * v : m_ordered_vars) {
                 checkpoint();
-				expr_ref new_def(m());
-				proof_ref new_pr(m());
+                expr_ref new_def(m());
+                proof_ref new_pr(m());
                 expr * def = nullptr;
                 proof * pr = nullptr;
                 expr_dependency * dep = nullptr;

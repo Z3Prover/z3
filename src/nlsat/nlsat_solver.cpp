@@ -640,16 +640,6 @@ namespace nlsat {
 
         literal mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
-            if (sz == 0) {
-                switch (k) {
-                case atom::LT: return false_literal;  // 0 < 0
-                case atom::EQ: return true_literal;   // 0 == 0
-                case atom::GT: return false_literal;  // 0 > 0
-                default: 
-                    UNREACHABLE();
-                    return null_literal;
-                }
-            }
             bool is_const = true;
             polynomial::manager::scoped_numeral cnst(m_pm.m());
             m_pm.m().set(cnst, 1);
@@ -2657,6 +2647,7 @@ namespace nlsat {
                 for (clause* c : m_clauses) {
                     if (solve_var(*c, v, p, q)) {
                         q = -q;
+                        TRACE("nlsat", tout << "p: " << p << "\nq: " << q << "\n x" << v << "\n";);
                         m_patch_var.push_back(v);
                         m_patch_num.push_back(q);
                         m_patch_denom.push_back(p);
@@ -2698,6 +2689,8 @@ namespace nlsat {
             u_map<literal> b2l;
             scoped_literal_vector lits(m_solver);
             svector<bool> even;
+            polynomial::manager::scoped_numeral cnst(m_pm.m());
+            m_pm.m().set(cnst, 1);
             unsigned num_atoms = m_atoms.size();
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a = m_atoms[j];
@@ -2712,9 +2705,12 @@ namespace nlsat {
                         poly * po = a1.p(i);
                         m_pm.substitute(po, x, q, p, pr);
                         change |= pr != po;
+                        TRACE("nlsat", tout << pr << "\n";);
                         if (m_pm.is_zero(pr)) {
                             ps.reset();
                             even.reset();
+                            even.push_back(false);
+                            ps.push_back(pr);
                             break;
                         }
                         if (m_pm.is_const(pr)) {
