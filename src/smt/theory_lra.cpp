@@ -1905,6 +1905,10 @@ public:
             VERIFY(a.is_idiv(n, p, q));
             theory_var v  = mk_var(n);
             theory_var v1 = mk_var(p);
+            if (!can_get_ivalue(v1))
+                continue;
+            if (!can_get_ivalue(v))
+                continue;
             lp::impq r1 = get_ivalue(v1);
             rational r2;
 
