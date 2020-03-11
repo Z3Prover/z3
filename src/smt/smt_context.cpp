@@ -311,9 +311,6 @@ namespace smt {
     }
 
     void context::assign_core(literal l, b_justification j, bool decision) {
-        CTRACE("assign_core", l.var() == 13, tout << (decision?"decision: ":"propagating: ") << l << " ";
-               display_literal_smt2(tout, l) << " level: " << m_scope_lvl << "\n";
-               display(tout << "relevant: " << is_relevant_core(l) << "\n", j););
         m_assigned_literals.push_back(l);
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
@@ -327,26 +324,25 @@ namespace smt {
         }
         d.m_phase_available        = true;
         d.m_phase                  = !l.sign();
+        CTRACE("assign_core", l.var() == 13, tout << (decision?"decision: ":"propagating: ") << l << " ";
+               /*display_literal(tout, l);*/
+               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
+               /*display(tout, j);*/
+               );
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
 
-        TRACE("relevancy",
+        CTRACE("relevancy", l.var() == 13,
               tout << "is_atom: " << d.is_atom() << " is relevant: " 
               << is_relevant_core(l) << " relevancy-lvl: " << relevancy_lvl() << "\n";);
-        if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l)))
+        if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l))) {
+            CTRACE("assign_core", l.var() == 13, tout << "propagation queue\n";);
             m_atom_propagation_queue.push_back(l);
+        }
 
         if (m.has_trace_stream())
             trace_assign(l, j, decision);
 
         m_case_split_queue->assign_lit_eh(l);
-
-        // a unit is asserted at search level. Mark it as relevant.
-        // this addresses bug... where a literal becomes fixed to true (false)
-        // as a conflict gets assigned misses relevancy (and quantifier instantiation).
-        //
-        if (false && !decision && relevancy() && at_search_level() && !is_relevant_core(l)) {
-            mark_as_relevant(l);
-        }
     }
 
     bool context::bcp() {
@@ -1356,13 +1352,14 @@ namespace smt {
     */
     bool context::propagate_atoms() {
         SASSERT(!inconsistent());
+        CTRACE("propagate_atoms", !m_atom_propagation_queue.empty(), tout << m_atom_propagation_queue << "\n";);
         for (unsigned i = 0; i < m_atom_propagation_queue.size() && !get_cancel_flag(); i++) {
             SASSERT(!inconsistent());
             literal  l = m_atom_propagation_queue[i];
             bool_var v = l.var();
             bool_var_data & d = get_bdata(v);
             lbool val  = get_assignment(v);
-            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode()
+            CTRACE("propagate_atoms", v == 13, tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode()
                   << " tag: " << (d.is_eq()?"eq":"") << (d.is_theory_atom()?"th":"") << (d.is_quantifier()?"q":"") << " " << l << "\n";);
             SASSERT(val != l_undef);
             if (d.is_enode())
@@ -2070,7 +2067,7 @@ namespace smt {
         while (i != old_lim) {
             --i;
             literal l                  = m_assigned_literals[i];
-            CTRACE("assign_core", l.var() == 1573 || l.var() == 1253, tout << "unassign " << l << "\n";);
+            CTRACE("assign_core", l.var() == 13, tout << "unassign " << l << "\n";);
             m_assignment[l.index()]    = l_undef;
             m_assignment[(~l).index()] = l_undef;
             bool_var v                 = l.var();
@@ -2442,6 +2439,8 @@ namespace smt {
             del_justifications(m_justifications, s.m_justifications_lim);
 
             m_asserted_formulas.pop_scope(num_scopes);
+
+            CTRACE("propagate_atoms", !m_atom_propagation_queue.empty(), tout << m_atom_propagation_queue << "\n";);
 
             m_eq_propagation_queue.reset();
             m_th_eq_propagation_queue.reset();

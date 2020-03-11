@@ -1457,7 +1457,7 @@ namespace smt {
         m_diseq_watch_lim.shrink(m_diseq_watch_lim.size()-num_scopes);
 #endif
         theory::pop_scope_eh(num_scopes);
-        TRACE("bv", m_find.display(tout << get_context().get_scope_level() << " - " 
+        TRACE("bv_verbose", m_find.display(tout << get_context().get_scope_level() << " - " 
                                    << num_scopes << " = " << (get_context().get_scope_level() - num_scopes) << "\n"););
     }
 
@@ -1888,6 +1888,8 @@ namespace smt {
     }
 
     bool theory_bv::check_invariant() {
+        if (get_context().inconsistent())
+            return true;
         unsigned num = get_num_vars();
         for (unsigned v = 0; v < num; v++) {
             check_assignment(v);
