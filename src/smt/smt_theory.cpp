@@ -57,8 +57,7 @@ namespace smt {
     std::ostream& theory::display_app(std::ostream & out, app * n) const {
         func_decl * d = n->get_decl();
         if (n->get_num_args() == 0) {
-            out << d->get_name();
-            display_parameters(out, d->get_num_parameters(), d->get_parameters());
+            out << mk_bounded_pp(n, get_manager(), 1);
         }
         else if (n->get_family_id() == get_family_id()) {
             out << "(" << d->get_name();
@@ -79,8 +78,7 @@ namespace smt {
     std::ostream& theory::display_flat_app(std::ostream & out, app * n) const {
         func_decl * d = n->get_decl();
         if (n->get_num_args() == 0) {
-            out << d->get_name();
-            display_parameters(out, d->get_num_parameters(), d->get_parameters());
+            display_app(out, n);
         }
         else if (n->get_family_id() == get_family_id()) {
             out << "(" << d->get_name();

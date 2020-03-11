@@ -3370,7 +3370,7 @@ namespace smt {
             for (theory* t : m_theory_set) {
                 t->validate_model(*mdl);
             }
-#if 0
+#if 1
             for (literal lit : m_assigned_literals) {
                 if (!is_relevant(lit)) continue;
                 expr* v = m_bool_var2expr[lit.var()];
@@ -3382,6 +3382,7 @@ namespace smt {
             }
             for (clause* cls : m_aux_clauses) {
                 bool found = false;
+                IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "check:\n", *cls) << "\n");                    
                 for (literal lit : *cls) {
                     expr* v = m_bool_var2expr[lit.var()];
                     if (lit.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
@@ -3391,6 +3392,45 @@ namespace smt {
                 }
                 if (!found) {
                     IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "not satisfied:\n", *cls) << "\n");                    
+                }
+            }
+            for (clause* cls : m_lemmas) {
+                bool found = false;
+                IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "check:\n", *cls) << "\n");                    
+                for (literal lit : *cls) {
+                    expr* v = m_bool_var2expr[lit.var()];
+                    if (lit.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "not satisfied:\n", *cls) << "\n");                    
+                }
+            }
+
+            unsigned l_idx = 0;
+            for (watch_list const& wl : m_watches) {
+                literal l1 = to_literal(l_idx++);
+                literal neg_l1 = ~l1;
+                expr* v = m_bool_var2expr[l1.var()];
+                if (neg_l1.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
+                    continue;
+                }
+                literal const * it2  = wl.begin_literals();
+                literal const * end2 = wl.end_literals();
+                for (; it2 != end2; ++it2) {
+                    literal l2 = *it2;
+                    if (l1.index() >= l2.index()) {
+                        continue;
+                    }
+                    literal lits[2] = { neg_l1, l2 };
+                    IF_VERBOSE(10, display_literals_smt2(verbose_stream() << "check: ", 2, lits) << "\n";);
+                    v = m_bool_var2expr[l2.var()];
+                    if (l2.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
+                        continue;
+                    }
+                    IF_VERBOSE(10, display_literals_smt2(verbose_stream() << "not satisfied: ", 2, lits) << "\n";);
                 }
             }
 #endif
