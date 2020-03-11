@@ -114,6 +114,15 @@ namespace smt {
             }
         };
 
+        struct if_trace_stream {
+            ast_manager& m;
+            
+            if_trace_stream(ast_manager& m, std::function<void (void)>& fn): m(m) {
+                if (m.has_trace_stream()) {
+                    fn();
+                }
+            }
+        };        
 
     protected:
         /**
@@ -416,6 +425,11 @@ namespace smt {
                 used_enodes.push_back(std::make_tuple(nullptr, blamed_enodes[i]));
             }
             log_axiom_instantiation(r, UINT_MAX, 0, nullptr, UINT_MAX, used_enodes);
+        }
+
+        void log_axiom_unit(app* r) {
+            log_axiom_instantiation(r);
+            m_manager->trace_stream() << "[end-of-instance]\n";
         }
 
     public:
