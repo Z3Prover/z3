@@ -311,9 +311,9 @@ namespace smt {
     }
 
     void context::assign_core(literal l, b_justification j, bool decision) {
-        CTRACE("assign_core", l.var() == 2816, tout << (decision?"decision: ":"propagating: ") << l << " ";
-              display_literal_smt2(tout, l); tout << " level: " << m_scope_lvl << "\n";
-              display(tout, j););
+        CTRACE("assign_core", l.var() == 13, tout << (decision?"decision: ":"propagating: ") << l << " ";
+               display_literal_smt2(tout, l) << " level: " << m_scope_lvl << "\n";
+               display(tout << "relevant: " << is_relevant_core(l) << "\n", j););
         m_assigned_literals.push_back(l);
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
@@ -330,7 +330,8 @@ namespace smt {
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
 
         TRACE("relevancy",
-              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(l) << " relevancy-lvl: " << relevancy_lvl() << "\n";);
+              tout << "is_atom: " << d.is_atom() << " is relevant: " 
+              << is_relevant_core(l) << " relevancy-lvl: " << relevancy_lvl() << "\n";);
         if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l)))
             m_atom_propagation_queue.push_back(l);
 

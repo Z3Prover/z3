@@ -91,9 +91,9 @@ public:
                 g->update(idx, f_new, new_pr, g->dep(idx));
             }  
             if (mc) g->add(mc.get());
-            result.push_back(g.get());
             g->inc_depth();
         }        
+        result.push_back(g.get());
     }
 
     void cleanup() override {}
