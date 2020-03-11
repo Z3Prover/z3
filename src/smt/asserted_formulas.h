@@ -105,7 +105,7 @@ class asserted_formulas {
     public:
         nnf_cnf_fn(asserted_formulas& af): simplify_fmls(af, "nnf-cnf") {}
         void operator()() override { af.nnf_cnf(); }
-        bool should_apply() const override { return af.m_smt_params.m_nnf_cnf || (af.m_smt_params.m_mbqi && af.has_quantifiers()); }
+        bool should_apply() const override { return af.m_smt_params.m_nnf_cnf || af.has_quantifiers(); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
