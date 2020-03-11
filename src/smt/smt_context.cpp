@@ -3369,7 +3369,7 @@ namespace smt {
             for (theory* t : m_theory_set) {
                 t->validate_model(*mdl);
             }
-#if 1
+#if 0
             for (literal lit : m_assigned_literals) {
                 if (!is_relevant(lit)) continue;
                 expr* v = m_bool_var2expr[lit.var()];
