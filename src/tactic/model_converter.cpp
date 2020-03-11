@@ -131,14 +131,9 @@ public:
             m = m_model;
             return;
         }
-        for (unsigned i = 0; i < m_model->get_num_constants(); ++i) {
-            func_decl* f = m_model->get_constant(i);
-            m->register_decl(f, m_model->get_const_interp(f));
-        }
-        for (unsigned i = 0; i < m_model->get_num_functions(); ++i) {
-            func_decl* f = m_model->get_function(i);
-            m->register_decl(f, m_model->get_func_interp(f)->copy());
-        }
+        m->copy_const_interps(*m_model.get());
+        m->copy_func_interps(*m_model.get());
+        m->copy_usort_interps(*m_model.get());
     }
 
     void operator()(labels_vec & r) override {
