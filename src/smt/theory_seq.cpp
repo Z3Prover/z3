@@ -5704,12 +5704,12 @@ void theory_seq::add_at_axiom(expr* e) {
         expr_ref xey   = mk_concat(x, e, y);
         expr_ref len_x = mk_len(x);
         add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(s, xey));
-        add_axiom(~i_ge_0, i_ge_len_s, mk_eq(one, len_e, false));
         add_axiom(~i_ge_0, i_ge_len_s, mk_eq(i, len_x, false));
     }
 
     add_axiom(i_ge_0, mk_eq(e, emp, false));
     add_axiom(~i_ge_len_s, mk_eq(e, emp, false));
+    add_axiom(~i_ge_0, i_ge_len_s, mk_eq(one, len_e, false));
     add_axiom(mk_literal(m_autil.mk_le(len_e, one)));
 }
 
