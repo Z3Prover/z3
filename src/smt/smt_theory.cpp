@@ -141,6 +141,7 @@ namespace smt {
 
     void theory::log_axiom_instantiation(app * r, unsigned axiom_id, unsigned num_bindings, app * const * bindings, unsigned pattern_id, const vector<std::tuple<enode *, enode *>> & used_enodes) {
         ast_manager & m = get_manager();
+        app_ref _r(r, m);
         std::ostream& out = m.trace_stream();
         symbol const & family_name = m.get_family_name(get_family_id());
         if (pattern_id == UINT_MAX) {
@@ -158,7 +159,8 @@ namespace smt {
                     out << " #" << substituted->get_owner_id();
                 }
             }
-        } else {
+        } 
+        else {
             SASSERT(axiom_id != UINT_MAX);
             obj_hashtable<enode> already_visited;
             for (auto n : used_enodes) {
