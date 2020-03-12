@@ -143,21 +143,19 @@ sort * model::get_uninterpreted_sort(unsigned idx) const {
 }
 
 void model::register_usort(sort * s, unsigned usize, expr * const * universe) {
-    sort2universe::obj_map_entry * entry = m_usort2universe.insert_if_not_there2(s, 0);
+    sort2universe::obj_map_entry * entry = m_usort2universe.insert_if_not_there2(s, nullptr);
     m.inc_array_ref(usize, universe);
-    if (entry->get_data().m_value == 0) {
-        // new entry
+    ptr_vector<expr> * u = entry->get_data().m_value;
+    if (!u) {
         m_usorts.push_back(s);
         m.inc_ref(s);
-        ptr_vector<expr> * new_u = alloc(ptr_vector<expr>);
-        new_u->append(usize, universe);
-        entry->get_data().m_value = new_u;
+        u = alloc(ptr_vector<expr>);
+        u->append(usize, universe);
+        entry->get_data().m_value = u;
     }
     else {
-        // updating
-        ptr_vector<expr> * u = entry->get_data().m_value;
-        SASSERT(u);
         m.dec_array_ref(u->size(), u->c_ptr());
+        u->reset();
         u->append(usize, universe);
     }
 }
