@@ -3350,7 +3350,7 @@ namespace smt {
         reset_tmp_clauses();
         m_unsat_core.reset();
         m_stats.m_num_checks++;
-        pop_to_base_lvl();
+        pop_to_base_lvl();        
         return true;
     }
 
