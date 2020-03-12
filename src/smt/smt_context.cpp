@@ -3364,10 +3364,13 @@ namespace smt {
             r = l_undef;
         }
         if (r == l_true && gparams::get_value("model_validate") == "true") {
-            model_ref mdl;
-            get_model(mdl);
-            for (theory* t : m_theory_set) {
-                t->validate_model(*mdl);
+            recfun::util u(m);
+            if (u.get_rec_funs().empty()) {
+                model_ref mdl;
+                get_model(mdl);
+                for (theory* t : m_theory_set) {
+                    t->validate_model(*mdl);
+                }
             }
 #if 0
             for (literal lit : m_assigned_literals) {

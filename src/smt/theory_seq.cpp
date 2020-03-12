@@ -4412,6 +4412,7 @@ app* theory_seq::mk_value(app* e) {
 
 
 void theory_seq::validate_model(model& mdl) {
+    return;
     for (auto const& eq : m_eqs) {
         expr_ref_vector ls = eq.ls();
         expr_ref_vector rs = eq.rs();
