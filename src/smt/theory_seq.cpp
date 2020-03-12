@@ -25,6 +25,7 @@ Outline:
    - solve_itos: itos(i) = "" -> i < 0   
 
  - check_contains
+   Original
    - (f,dep) = canonize(contains(a, b))
      lit := |b| > |a|
      f := true -> conflict
@@ -33,6 +34,14 @@ Outline:
      f := s = t -> dep -> s != t
      f := f1 & f2 -> dep -> ~f1 | ~f2
      f := f1 | f2 -> dep -> ~f1 & ~f2
+   Revised:
+   - contains(a,b) or len(a) < len(b)
+   - contains(a,b) or ~prefix(b, a) 
+   - contains(a,b) or ~contains(tail(a,0), b)
+   - a = empty or a = unit(nth_i(a,0)) + tail(a,0)
+   Note that
+     len(a) < len(b) implies ~prefix(b, a) and ~contains(tail(a,0),b)
+     So the recursive axioms are not instantiated in this case.
 
  - solve_nqs
    - s_i = t_i, d_i <- solve(s = t)
@@ -3456,12 +3465,45 @@ bool theory_seq::solve_nc(unsigned idx) {
     literal len_gt = n.len_gt();
     context& ctx = get_context();
     expr_ref c(m);
+#if 1
+    expr* a = nullptr, *b = nullptr;
+    VERIFY(m_util.str.is_contains(n.contains(), a, b));
+    expr_ref head(m), tail(m);
+    literal pre, cnt, ctail, emp;
+    lbool is_gt = ctx.get_assignment(len_gt);
+    TRACE("seq", ctx.display_literal_smt2(tout << len_gt << " := " << is_gt << "\n", len_gt) << "\n";);    
+    switch (is_gt) {
+    case l_true:
+        add_length_to_eqc(a);
+        add_length_to_eqc(b);
+        return true;
+    case l_undef:
+        ctx.mark_as_relevant(len_gt);
+        m_new_propagation = true;
+        return false;
+    case l_false: {
+        mk_decompose(a, head, tail);
+        pre = mk_literal(m_util.str.mk_prefix(b, a));
+        cnt = mk_literal(n.contains());
+        ctail = mk_literal(m_util.str.mk_contains(tail, b));
+        emp = mk_literal(m_util.str.mk_is_empty(a));
+        //expr_ref one(m_autil.mk_int(1), m);
+        add_axiom(cnt, ~pre);
+        add_axiom(cnt, ~ctail);
+        add_axiom(emp, mk_eq(a, m_util.str.mk_concat(head, tail), false));
+        return true;
+    }
+    }
+    
+#else
     if (!canonize(n.contains(), deps, c)) {
         return false;
     }
     expr* a = nullptr, *b = nullptr;
 
-    CTRACE("seq", c != n.contains(), tout << n.contains() << " =>\n" << c << "\n";);    
+    CTRACE("seq", c != n.contains(), 
+           tout << n.contains() << " =>\n" << c << "\n";
+           display_deps(tout, deps););    
 
     
     if (m.is_true(c)) {
@@ -3474,16 +3516,10 @@ bool theory_seq::solve_nc(unsigned idx) {
         return true;
     }
 
-    if (ctx.get_assignment(len_gt) == l_true) {
-        VERIFY(m_util.str.is_contains(n.contains(), a, b));
-        add_length_to_eqc(a);
-        add_length_to_eqc(b);
-        TRACE("seq", tout << len_gt << " is true\n";);
-        return true;
-    }
 
     if (m.is_eq(c, a, b)) {
         literal eq = mk_eq(a, b, false);
+        ctx.mark_as_relevant(eq);
         propagate_lit(deps, 0, nullptr, ~eq);        
         return true;
     }
@@ -3539,7 +3575,7 @@ bool theory_seq::solve_nc(unsigned idx) {
         m_new_propagation = true;
         return true;
     }
-    
+#endif    
     return false;
 }
 
@@ -4729,7 +4765,7 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
     else if (m_util.str.is_contains(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         arg2 = try_expand(e2, deps);
-        if (!arg1 || !arg2) return true;
+        if (!arg1 || !arg2) return true;        
         result = m_util.str.mk_contains(arg1, arg2);
     }
     else if (m_util.str.is_unit(e, e1)) {
@@ -5996,6 +6032,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     literal lit(v, !is_true);
     TRACE("seq", tout << (is_true?"":"not ") << mk_bounded_pp(e, m) << "\n";);
 
+
     if (m_util.str.is_prefix(e, e1, e2)) {
         if (is_true) {
             f = mk_skolem(m_prefix, e1, e2);
@@ -6017,7 +6054,11 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         }
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
-        expr_ref_vector disj(m);
+        // TBD: move this to cover all cases
+        if (canonizes(is_true, e)) {
+            return;
+        }        
+
         if (is_true) {
             expr_ref f1 = mk_skolem(m_indexof_left, e1, e2);
             expr_ref f2 = mk_skolem(m_indexof_right, e1, e2);
@@ -6026,9 +6067,10 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             //literal len2_le_len1 = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(e1), mk_len(e2)), m_autil.mk_int(0)));
             //add_axiom(~lit, len2_le_len1);
         }
-        else if (!canonizes(false, e)) {
+        else {
             propagate_non_empty(lit, e2);
             dependency* dep = m_dm.mk_leaf(assumption(lit));
+            // |e1| - |e2| <= -1
             literal len_gt = mk_simplified_literal(m_autil.mk_le(mk_sub(mk_len(e1), mk_len(e2)), 
                                                                  m_autil.mk_int(-1)));
             ctx.force_phase(len_gt);
