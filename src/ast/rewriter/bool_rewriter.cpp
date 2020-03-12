@@ -754,6 +754,12 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
         if (!all_value && all_diff) {
             for (unsigned j = 0; all_diff && j < i; ++j) {
                 all_diff = m().are_distinct(arg, args[j]);
+                if (!all_diff) { 
+                    if (m().are_equal(arg, args[j])) {
+                        result = m().mk_false();
+                        return BR_DONE;
+                    }
+                }
             }
         }
     }
