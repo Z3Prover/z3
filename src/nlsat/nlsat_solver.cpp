@@ -642,13 +642,18 @@ namespace nlsat {
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
             bool is_const = true;
             polynomial::manager::scoped_numeral cnst(m_pm.m());
-            m_pm.m().set(cnst, 1);
-            for (unsigned i = 0; is_const && i < sz; ++i) {
+            m_pm.m().set(cnst, 1);            
+            for (unsigned i = 0; i < sz; ++i) {
                 if (m_pm.is_const(ps[i])) {
+                    if (m_pm.is_zero(ps[i])) {
+                        m_pm.m().set(cnst, 0);
+                        is_const = true;
+                        break;
+                    }
                     auto const& c = m_pm.coeff(ps[i], 0);
                     m_pm.m().mul(cnst, c, cnst);
-                    if (is_even[i]) {
-                        m_pm.m().mul(cnst, c, cnst);
+                    if (is_even[i] && m_pm.m().is_neg(c)) {
+                        m_pm.m().neg(cnst);
                     }                            
                 }
                 else {
@@ -2707,8 +2712,8 @@ namespace nlsat {
                         if (m_pm.is_zero(pr)) {
                             ps.reset();
                             even.reset();
-                            even.push_back(false);
                             ps.push_back(pr);
+                            even.push_back(false);
                             break;
                         }
                         if (m_pm.is_const(pr)) {
