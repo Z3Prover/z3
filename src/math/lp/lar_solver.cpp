@@ -203,6 +203,8 @@ void lar_solver::calculate_implied_bounds_for_row(unsigned i, lp_bound_propagato
 }
 
 unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
+    if (is_term(j))
+        return j;
     unsigned ext_var_or_term = m_var_register.local_to_external(j);
     return ext_var_or_term < m_terms_start_index ? j : ext_var_or_term;
 }

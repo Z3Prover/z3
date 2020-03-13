@@ -90,7 +90,8 @@ void monotone::monotonicity_lemma(monic const& m) {
 }
 
 void monotone::monotonicity_lemma_gt(const monic& m, const rational& prod_val) {
-    TRACE("nla_solver", tout << "prod_val = " << prod_val << "\n";);
+    TRACE("nla_solver", tout << "prod_val = " << prod_val << "\n";
+          tout << "m = "; c().print_monic_with_vars(m, tout););
     add_empty_lemma();
     for (lpvar j : m.vars()) {
         c().add_abs_bound(j, llc::GT);

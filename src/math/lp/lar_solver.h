@@ -138,6 +138,9 @@ public:
     }
     
     const mpq& get_column_value_rational(unsigned j) const {
+        if (is_term(j)) {
+            j = m_var_register.external_to_local(j);
+        }
         return m_mpq_lar_core_solver.m_r_x[j].x;
     }
 
@@ -565,10 +568,16 @@ public:
     }
 
     constraint_index get_column_upper_bound_witness(unsigned j) const {
+        if (is_term(j)) {
+            j = m_var_register.external_to_local(j);
+        }
         return m_columns_to_ul_pairs()[j].upper_bound_witness();
     }
 
     constraint_index get_column_lower_bound_witness(unsigned j) const {
+        if (is_term(j)) {
+            j = m_var_register.external_to_local(j);
+        }
         return m_columns_to_ul_pairs()[j].lower_bound_witness();
     }
 
