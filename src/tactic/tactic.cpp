@@ -34,7 +34,7 @@ struct tactic_report::imp {
         m_goal(g),
         m_start_memory(static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024)) {
         m_watch.start();
-        TRACE("tactic", g.display(tout << id << "\n"););
+        TRACE("tactic", g.display_with_proofs(tout << id << "\n"););
     }
         
     ~imp() {

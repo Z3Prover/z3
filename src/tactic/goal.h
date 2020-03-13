@@ -141,6 +141,7 @@ public:
     void display_with_dependencies(ast_printer & prn, std::ostream & out) const;
     void display_with_dependencies(ast_printer_context & ctx) const;
     void display_with_dependencies(std::ostream & out) const;
+    void display_with_proofs(std::ostream& out) const;
 
     bool sat_preserved() const;
     bool unsat_preserved() const;

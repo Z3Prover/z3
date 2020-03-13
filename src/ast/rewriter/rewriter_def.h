@@ -678,9 +678,14 @@ void rewriter_tpl<Config>::update_binding_at(unsigned i, expr* binding) {
 template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::main_loop(expr * t, expr_ref & result, proof_ref & result_pr) {
-    if (m_cancel_check && m().canceled()) {
-        reset();
-        throw rewriter_exception(m().limit().get_cancel_msg());
+    if (m().canceled()) {
+        if (m_cancel_check) {
+            reset();
+            throw rewriter_exception(m().limit().get_cancel_msg());
+        }
+        result = t;
+        result_pr = nullptr;
+        return;
     }
     SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());
     SASSERT(not_rewriting());
@@ -713,9 +718,11 @@ template<bool ProofGen>
 void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr) {
     SASSERT(!frame_stack().empty());
     while (!frame_stack().empty()) {
-        if (m_cancel_check && m().canceled()) {
-            reset();
-            throw rewriter_exception(m().limit().get_cancel_msg());
+        if (m().canceled()) {
+            if (m_cancel_check) {
+                reset();
+                throw rewriter_exception(m().limit().get_cancel_msg());
+            }
         }
         SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());
         frame & fr = frame_stack().back();

@@ -393,6 +393,20 @@ void goal::display_with_dependencies(std::ostream & out) const {
     out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
 }
 
+
+void goal::display_with_proofs(std::ostream& out) const {
+    out << "(goal";
+    unsigned sz = size();
+    for (unsigned i = 0; i < sz; i++) {
+        out << "\n  |-";
+        if (pr(i)) {
+            out << mk_ismt2_pp(pr(i), m(), 4);
+        }
+        out << "\n  " << mk_ismt2_pp(form(i), m(), 2);
+    }
+    out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
+}
+
 void goal::display(ast_printer_context & ctx) const {
     display(ctx, ctx.regular_stream());
 }
