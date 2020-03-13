@@ -107,7 +107,6 @@ class emonics {
     void insert_cg_mon(monic & m);
     void remove_cg_mon(const monic & m);
     void rehash_cg(lpvar v) { remove_cg(v); insert_cg(v); }
-
     void do_canonize(monic& m) const; 
     cell* head(lpvar v) const;
     void set_visited(monic& m) const;
@@ -328,6 +327,16 @@ public:
     bool is_used_in_monic(lpvar v) const { return v < m_use_lists.size() && m_use_lists[v].m_head != nullptr; }
 
     bool elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector> &lists) const;
+
+    bool consistent() const {
+        unsigned mons = 0;
+        for (lpvar v = 0; v < m_var2index.size(); v++) {
+            if (is_monic_var(v)) {
+                mons ++;
+            }
+        }
+        return m_monics.size() == mons;
+    }
     
 }; // end of emonics
 

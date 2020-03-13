@@ -960,6 +960,7 @@ void core::clear() {
 void core::init_search() {
     clear();
     init_vars_equivalence();
+    SASSERT(m_emons.consistent());
     SASSERT(elists_are_consistent(false));
 }
 

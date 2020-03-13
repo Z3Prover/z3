@@ -42,6 +42,7 @@ void emonics::push() {
     m_region.push_scope();
     m_ve.push();
     SASSERT(monics_are_canonized());
+    SASSERT(consistent());
 }
 
 void emonics::pop(unsigned n) {
@@ -63,6 +64,7 @@ void emonics::pop(unsigned n) {
     m_monics.shrink(old_sz);
     m_region.pop_scope(n);
     m_lim.shrink(m_lim.size() - n);
+    SASSERT(consistent());
     SASSERT(monics_are_canonized());
     m_u_f_stack.pop_scope(n);
 }
@@ -288,7 +290,6 @@ void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
     lpvar last_var = UINT_MAX;
     for (unsigned i = 0; i < sz; ++i) {
         lpvar w = vs[i];
-        SASSERT(m_ve.is_root(w));
         if (w != last_var) {
             m_use_lists.reserve(w + 1);
             insert_cell(m_use_lists[w], idx);
