@@ -59,6 +59,7 @@ public:
             m_dep_intervals.mul(hi, a, t);
             m_dep_intervals.add(t, lo, ret);
         }
+        m().del(a);
     }
 	// f meant to be called when the separation happens
     template <typename T>
