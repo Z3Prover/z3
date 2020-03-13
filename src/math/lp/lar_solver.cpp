@@ -24,11 +24,11 @@ lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
                            m_infeasible_column(-1),
                            m_mpq_lar_core_solver(m_settings, *this),
                            m_int_solver(nullptr),
+                           m_need_register_terms(false),
                            m_terms_start_index(1000000),
                            m_var_register(0),
                            m_term_register(m_terms_start_index),
-                           m_constraints(*this),
-                           m_need_register_terms(false)
+                           m_constraints(*this)
 {}
     
 void lar_solver::set_track_pivoted_rows(bool v) {
