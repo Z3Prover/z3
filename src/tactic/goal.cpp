@@ -401,6 +401,7 @@ void goal::display_with_proofs(std::ostream& out) const {
         out << "\n  |-";
         if (pr(i)) {
             out << mk_ismt2_pp(pr(i), m(), 4);
+            SASSERT(m().get_fact(pr(i)) == form(i));
         }
         out << "\n  " << mk_ismt2_pp(form(i), m(), 2);
     }

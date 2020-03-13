@@ -52,6 +52,9 @@ class distribute_forall_tactic : public tactic {
                     new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
+                if (m.proofs_enabled()) {
+                    result_pr = m.mk_push_quant(old_q, result);
+                }
                 return true;
             }
 
@@ -70,6 +73,9 @@ class distribute_forall_tactic : public tactic {
                     new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
+                if (m.proofs_enabled()) {
+                    result_pr = m.mk_push_quant(old_q, result);
+                }
                 return true;
             }
 
