@@ -19,6 +19,89 @@ Revision History:
 --*/
 #include "math/lp/nla_solver.h"
 namespace nla {
+
+svector<lpvar> get_monic(int monic_size, int var_bound, random_gen& rand) {
+    svector<lpvar> v;
+    for (int i = 0; i < monic_size; i++) {
+        lpvar j = rand() % var_bound;
+        v.push_back(j);
+    }
+    return v;
+}
+
+void add_equality(int n_of_vars, var_eqs<emonics> & var_eqs, random_gen& rand, bool use_max) {
+    lpvar a = rand() % n_of_vars;
+    lpvar b = rand() % n_of_vars;
+    while (a == b) {
+        b = rand() % n_of_vars;
+    }
+    SASSERT(a != b);
+    var_eqs.merge_plus(a, b, eq_justification({0}));
+}
+
+void test_monics_on_setup(int n_of_monics ,
+                        int n_of_vars ,
+                        int max_monic_size,
+                        int min_monic_size,
+                        int number_of_pushes,
+                        int number_of_eqs,
+                        var_eqs<emonics> & var_eqs,
+                       emonics& ms, random_gen & rand) {
+    int i;
+    for ( i = 0; i < n_of_monics; i++) {
+        int size = min_monic_size + rand() % (max_monic_size - min_monic_size);
+        ms.add(n_of_vars + i, get_monic(size, n_of_vars, rand));
+    }
+    // add the monomial with the same vars    
+    ms.add(n_of_vars + i, ms[n_of_vars + i - 1].vars());
+    int eqs_left = number_of_eqs;
+    int add_max_var = 4;
+    for (int i = 0; i < number_of_pushes; i++) {
+        ms.push();
+        if (eqs_left > 0) {
+            if( i < number_of_pushes - 1) {
+                eqs_left --;
+                add_equality(n_of_vars, var_eqs, rand, add_max_var == 0);
+                add_max_var--;;
+            } else {
+                do {
+                    add_equality(n_of_vars, var_eqs, rand, add_max_var == 0);
+                    add_max_var--;;
+                } while(--eqs_left >= 0);
+            }
+        }
+        ms.pop(1);
+    }
+    
+}
+
+void test_monics() {
+    std::cout << "test monics\n";
+    random_gen rand;
+    
+    for (int reps = 1000; reps > 0; reps--){
+        int m = rand() % 100;
+        int n_of_monics = 6 * m;
+        int n_of_vars = 10 * m ;
+        int max_monic_size = 4 *m;
+        int min_monic_size = 2* m;
+        int number_of_pushes = 9*m;
+        int number_of_eqs = 7*m;
+        var_eqs<emonics> var_eqs;
+        emonics ms(var_eqs);
+        test_monics_on_setup(n_of_monics,
+                             n_of_vars,
+                             max_monic_size,
+                             min_monic_size,
+                             number_of_pushes,
+                             number_of_eqs,
+                             var_eqs,
+                             ms,
+                             rand) ;
+    }
+
+}
+
 void create_abcde(solver & nla,
                   unsigned lp_a,
                   unsigned lp_b,
