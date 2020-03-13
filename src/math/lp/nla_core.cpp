@@ -1485,24 +1485,24 @@ std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
 }
 
 bool core::check_pdd_eq(const dd::solver::equation* e) {
-    dd::pdd_interval eval(m_reslim);
+    auto& di = m_intervals.get_dep_intervals();
+    dd::pdd_interval eval(di);
     eval.var2interval() =
-        [this](lpvar j, bool deps) {
-            intervals::interval a;
-            if (deps) m_intervals.set_var_interval<dd::w_dep::with_deps>(j, a);
-            else m_intervals.set_var_interval<dd::w_dep::without_deps>(j, a);
-            return a;
-        };
-    scoped_dep_interval i(eval.m()), i_wd(eval.m());
+        [this](lpvar j, bool deps, scoped_dep_interval& a) {
+        if (deps) m_intervals.set_var_interval<dd::w_dep::with_deps>(j, a);
+        else m_intervals.set_var_interval<dd::w_dep::without_deps>(j, a);
+    };
+    scoped_dep_interval i(di), i_wd(di);
     eval.get_interval<dd::w_dep::without_deps>(e->poly(), i);    
-    if (!eval.m().separated_from_zero(i))
+    if (!di.separated_from_zero(i))
         return false;
     eval.get_interval<dd::w_dep::with_deps>(e->poly(), i_wd);  
-    std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-                                                         add_empty_lemma();
-                                                         current_expl().add(e);
-                                                     };
-    if (eval.m().check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
+    std::function<void (const lp::explanation&)> f = 
+        [this](const lp::explanation& e) {
+        add_empty_lemma();
+        current_expl().add(e);
+    };
+    if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
         lp_settings().stats().m_grobner_conflicts++;
         return true;
     }
