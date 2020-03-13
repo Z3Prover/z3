@@ -670,36 +670,25 @@ class theory_lra::imp {
 
     void internalize_mul(app* t, theory_var& v, rational& r) {
         SASSERT(a.is_mul(t));
+        internalize_args(t);
         bool _has_var = has_var(t);
-        if (!_has_var) {
-            internalize_args(t);
-            mk_enode(t);
-        }
-        r = rational::one();
-        rational r1;
+        mk_enode(t);
         v = mk_var(t);
         svector<lpvar> vars;
-        ptr_buffer<expr> todo;
-        todo.push_back(t);
-        while (!todo.empty()) {
-            expr* n = todo.back();
-            todo.pop_back();
-            if (a.is_mul(n)) {
-                for (expr* arg : *to_app(n)) {
-                    todo.push_back(arg);
-                }
-            }
-            else if (a.is_numeral(n, r1)) {
+        r = rational::one();
+        rational r1;
+
+        for (expr* n : *t) {
+            if (a.is_numeral(n, r1)) {
                 r *= r1;
             }
             else {
-                if (!ctx().e_internalized(n)) {
-                    ctx().internalize(n, false);
-                }
+                SASSERT(ctx().e_internalized(n));
                 vars.push_back(register_theory_var_in_lar_solver(mk_var(n)));
             }
         }
-        TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << " " << _has_var << "\n";);
+
+        TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n";);
         if (!_has_var) {
             if (m_solver->m_need_register_terms == false) {
                 m_solver->m_need_register_terms = true;
