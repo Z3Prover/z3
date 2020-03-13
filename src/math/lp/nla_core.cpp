@@ -134,10 +134,9 @@ void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
     for (unsigned i = 0; i < sz; i++) {
         lpvar j = vs[i];
         if (m_lar_solver.is_term(j))
-            j = m_lar_solver.adjust_term_index(j);        
+            j = m_lar_solver.map_term_index_to_column_index(j);
         m_add_buffer[i] = j;
     }
-        
     m_emons.add(v, m_add_buffer);
 }
     
