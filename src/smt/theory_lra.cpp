@@ -687,7 +687,7 @@ class theory_lra::imp {
             }
         }
 
-        TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n";);
+        TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
         if (!_has_var) {
             m_solver->register_existing_terms();            
             m_switcher.add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
