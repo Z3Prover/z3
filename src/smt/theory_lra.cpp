@@ -450,21 +450,20 @@ class theory_lra::imp {
                 m_nla->push();
             }
             smt_params_helper prms(ctx().get_params());
-            m_nla->get_core()->m_nla_settings.run_order() = prms.arith_nl_order();
-            m_nla->get_core()->m_nla_settings.run_tangents() = prms.arith_nl_tangents();
-            m_nla->get_core()->m_nla_settings.run_horner() = prms.arith_nl_horner();
-            m_nla->get_core()->m_nla_settings.horner_subs_fixed() = prms.arith_nl_horner_subs_fixed();
-            
-            m_nla->get_core()->m_nla_settings.horner_frequency() = prms.arith_nl_horner_frequency();
-            m_nla->get_core()->m_nla_settings.horner_row_length_limit() = prms.arith_nl_horner_row_length_limit();
-            m_nla->get_core()->m_nla_settings.run_grobner() = prms.arith_nl_grobner();
-            m_nla->get_core()->m_nla_settings.grobner_subs_fixed() = prms.arith_nl_grobner_subs_fixed();
-            m_nla->get_core()->m_nla_settings.grobner_eqs_growth() =  prms.arith_nl_grobner_eqs_growth();
-            m_nla->get_core()->m_nla_settings.grobner_expr_size_growth() =  prms.arith_nl_grobner_expr_size_growth();
-            m_nla->get_core()->m_nla_settings.grobner_expr_degree_growth() =  prms.arith_nl_grobner_expr_degree_growth();
-            m_nla->get_core()->m_nla_settings.grobner_max_simplified() =      prms.arith_nl_grobner_max_simplified();
-            m_nla->get_core()->m_nla_settings.grobner_number_of_conflicts_to_report() =      prms.arith_nl_grobner_cnfl_to_report();
-            m_nla->get_core()->m_grobner_quota = prms.arith_nl_gr_q();
+            m_nla->get_core().m_nla_settings.run_order() = prms.arith_nl_order();
+            m_nla->get_core().m_nla_settings.run_tangents() = prms.arith_nl_tangents();
+            m_nla->get_core().m_nla_settings.run_horner() = prms.arith_nl_horner();
+            m_nla->get_core().m_nla_settings.horner_subs_fixed() = prms.arith_nl_horner_subs_fixed();            
+            m_nla->get_core().m_nla_settings.horner_frequency() = prms.arith_nl_horner_frequency();
+            m_nla->get_core().m_nla_settings.horner_row_length_limit() = prms.arith_nl_horner_row_length_limit();
+            m_nla->get_core().m_nla_settings.run_grobner() = prms.arith_nl_grobner();
+            m_nla->get_core().m_nla_settings.grobner_subs_fixed() = prms.arith_nl_grobner_subs_fixed();
+            m_nla->get_core().m_nla_settings.grobner_eqs_growth() =  prms.arith_nl_grobner_eqs_growth();
+            m_nla->get_core().m_nla_settings.grobner_expr_size_growth() =  prms.arith_nl_grobner_expr_size_growth();
+            m_nla->get_core().m_nla_settings.grobner_expr_degree_growth() =  prms.arith_nl_grobner_expr_degree_growth();
+            m_nla->get_core().m_nla_settings.grobner_max_simplified() =      prms.arith_nl_grobner_max_simplified();
+            m_nla->get_core().m_nla_settings.grobner_number_of_conflicts_to_report() =      prms.arith_nl_grobner_cnfl_to_report();
+            m_nla->get_core().m_grobner_quota = prms.arith_nl_gr_q();
         }
     }
 
@@ -1396,7 +1395,7 @@ public:
                 th.log_axiom_unit(m.mk_implies(a.mk_lt(q, zero), a.mk_lt(a.mk_add(mod, q), zero)));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_ge_0.var())));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_le_0.var())));
-                th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_le_0.var())));            
+                th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_le_0.var())));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_ge_0.var())));
             };
             if_trace_stream _ts(m, log);
@@ -3742,6 +3741,12 @@ public:
             for (unsigned j = 0; j < lp().number_of_vars(); j++) {
                 lp().m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
             }
+        }
+        if (m_nla) {
+            m_nla->display(out);
+        }
+        if (m_nra) {
+            m_nra->display(out);
         }
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {

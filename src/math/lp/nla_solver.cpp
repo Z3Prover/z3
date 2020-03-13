@@ -58,4 +58,10 @@ bool solver::influences_nl_var(lpvar j) const {
 solver::~solver() {
     dealloc(m_core);
 }
+
+std::ostream& solver::display(std::ostream& out) const {    
+    m_core->print_monics(out);
+    return out;
+}
+
 }
