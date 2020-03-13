@@ -31,35 +31,33 @@ class pdd_interval {
 public:
     
     pdd_interval(reslimit& lim): m_dep_intervals(lim) {}
-    
+
+    dep_intervals& m() { return m_dep_intervals; }
+
     std::function<interval (unsigned, bool)>& var2interval() { return m_var2interval; } // setter
     const std::function<interval (unsigned, bool)>& var2interval() const { return m_var2interval; } // getter
 
     template <w_dep wd>
-    interval get_interval(pdd const& p) {
-        interval k;
+    void get_interval(pdd const& p, scoped_dep_interval& ret) {
         if (p.is_val()) {
-            m_dep_intervals.set_interval_for_scalar(k, p.val());
-            return k;
+            m_dep_intervals.set_interval_for_scalar(ret.get(), p.val());
+            return;
         }
         bool deps = wd == w_dep::with_deps;
         interval a = m_var2interval(p.var(), deps);
-        interval hi = get_interval<wd>(p.hi());
-        interval la = get_interval<wd>(p.lo());
-        interval t;
-        interval ret;
+        scoped_dep_interval hi(m()), lo(m()), t(m());
+        get_interval<wd>(p.hi(), hi);
+        get_interval<wd>(p.lo(), lo);
         if (deps) {
             interval_deps_combine_rule combine_rule;
             m_dep_intervals.mul(hi, a, t, combine_rule);
             m_dep_intervals.combine_deps(hi, a, combine_rule, t); 
             combine_rule.reset();
-            m_dep_intervals.add(t, la, ret, combine_rule);
-            m_dep_intervals.combine_deps(t, la, combine_rule, ret);
-            return ret;
+            m_dep_intervals.add(t, lo, ret, combine_rule);
+            m_dep_intervals.combine_deps(t, lo, combine_rule, ret);
         } else {
             m_dep_intervals.mul(hi, a, t);
-            m_dep_intervals.add(t, la, ret);
-            return ret;                
+            m_dep_intervals.add(t, lo, ret);
         }
     }
 	// f meant to be called when the separation happens

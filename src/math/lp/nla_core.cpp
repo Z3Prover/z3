@@ -1494,16 +1494,16 @@ bool core::check_pdd_eq(const dd::solver::equation* e) {
             else m_intervals.set_var_interval<dd::w_dep::without_deps>(j, a);
             return a;
         };
-    auto i = eval.get_interval<dd::w_dep::without_deps>(e->poly());    
-    dep_intervals di(m_reslim);
-    if (!di.separated_from_zero(i))
+    scoped_dep_interval i(eval.m()), i_wd(eval.m());
+    eval.get_interval<dd::w_dep::without_deps>(e->poly(), i);    
+    if (!eval.m().separated_from_zero(i))
         return false;
-    auto i_wd = eval.get_interval<dd::w_dep::with_deps>(e->poly());  
+    eval.get_interval<dd::w_dep::with_deps>(e->poly(), i_wd);  
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
                                                          add_empty_lemma();
                                                          current_expl().add(e);
                                                      };
-    if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
+    if (eval.m().check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
         lp_settings().stats().m_grobner_conflicts++;
         return true;
     }
