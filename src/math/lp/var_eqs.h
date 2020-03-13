@@ -108,6 +108,8 @@ public:
        \brief merge equivalence classes for v1, v2 with justification j
     */
     void merge(signed_var v1, signed_var v2, eq_justification const& j)  {
+        if (v1 == v2)
+            return;
         unsigned max_i = std::max(v1.index(), v2.index()) + 2;
         m_eqs.reserve(max_i);
         while (m_uf.get_num_vars() <= max_i) m_uf.mk_var();

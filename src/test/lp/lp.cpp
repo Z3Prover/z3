@@ -58,8 +58,10 @@
 #include "math/lp/horner.h"
 #include "math/lp/cross_nested.h"
 #include "math/lp/int_cube.h"
+#include "math/lp/emonics.h"
 namespace nla {
 void test_horner();
+void test_monics();
 void test_order_lemma();
 void test_monotone_lemma();
 void test_basic_sign_lemma();
@@ -2149,6 +2151,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
+    parser.add_option_with_help_string("-monics", "test emonics");
     parser.add_option_with_help_string("-nex_order", "test nex order");
     parser.add_option_with_help_string("-nla_cn", "test cross nornmal form");
     parser.add_option_with_help_string("-nla_sim", "test nex simplify");
@@ -3846,6 +3849,11 @@ void test_lp_local(int argn, char**argv) {
     }
 
     args_parser.print();
+    if (args_parser.option_is_used("-monics")) {
+        nla::test_monics();
+        return finalize(0);
+    }
+
     
     if (args_parser.option_is_used("-nla_cn")) {
 #ifdef Z3DEBUG
