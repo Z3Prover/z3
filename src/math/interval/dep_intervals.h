@@ -296,6 +296,8 @@ public:
     }
 
     void reset() { m_dep_manager.reset(); }
+
+    void del(interval& i) { m_imanager.del(i); }
     
     template <enum with_deps_t wd> interval intersect(const interval& a, const interval& b) const {
         interval i;
@@ -363,3 +365,5 @@ public:
         copy_upper_bound<wd>(b, i);
     }
 };
+
+typedef _scoped_interval<dep_intervals> scoped_dep_interval;
