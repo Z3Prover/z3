@@ -87,6 +87,7 @@ public:
     lar_core_solver                                     m_mpq_lar_core_solver;
 private:
     int_solver *                                        m_int_solver;
+    bool                                                m_need_register_terms;
 public:
     const var_index                                     m_terms_start_index;
     var_register                                        m_var_register;
@@ -104,7 +105,6 @@ public:
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
-    bool                                                m_need_register_terms;
     std::unordered_map<lar_term, std::pair<mpq, unsigned>, term_hasher, term_comparer>
                                                         m_normalized_terms_to_columns;
     // end of fields

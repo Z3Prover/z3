@@ -2344,11 +2344,14 @@ void lar_solver::deregister_normalized_term(const lar_term& t) {
 }
 
 void lar_solver::register_existing_terms() {
-    TRACE("nla_solver", tout << "registering " << m_terms.size() << " terms\n";);
-    for (unsigned k = 0; k < m_terms.size(); k++) {
-        lpvar j = m_var_register.external_to_local(k + m_terms_start_index);
-        register_normalized_term(*m_terms[k], j);
+    if (!m_need_register_terms) {
+        TRACE("nla_solver", tout << "registering " << m_terms.size() << " terms\n";);
+        for (unsigned k = 0; k < m_terms.size(); k++) {
+            lpvar j = m_var_register.external_to_local(k + m_terms_start_index);
+            register_normalized_term(*m_terms[k], j);
+        }
     }
+    m_need_register_terms = true;
 }
 // a_j.first gives the normalised coefficient,
 // a_j.second givis the column
