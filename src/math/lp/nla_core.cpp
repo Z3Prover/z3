@@ -74,8 +74,7 @@ lp::lar_term core::subs_terms_to_columns(const lp::lar_term& t) const {
 } 
     
 bool core::ineq_holds(const ineq& n) const {
-    lp::lar_term t = subs_terms_to_columns(n.term());
-    return compare_holds(value(t), n.cmp(), n.rs());
+    return compare_holds(value(n.term()), n.cmp(), n.rs());
 }
 
 bool core::lemma_holds(const lemma& l) const {
