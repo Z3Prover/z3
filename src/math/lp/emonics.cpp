@@ -55,7 +55,7 @@ void emonics::pop(unsigned n) {
         lpvar last_var = UINT_MAX;
         for (lpvar v : m.vars()) {
             if (v != last_var) {
-                remove_cell(m_use_lists[v], i);
+                remove_cell(m_use_lists[v]);
                 last_var = v;
             }
         }
@@ -69,7 +69,7 @@ void emonics::pop(unsigned n) {
     m_u_f_stack.pop_scope(n);
 }
 
-void emonics::remove_cell(head_tail& v, unsigned mIndex) {
+void emonics::remove_cell(head_tail& v) {
     cell*& cur_head = v.m_head;
     cell*& cur_tail = v.m_tail;
     cell* old_head = cur_head->m_next;

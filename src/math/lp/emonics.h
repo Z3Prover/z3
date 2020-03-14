@@ -97,7 +97,7 @@ class emonics {
 
     void inc_visited() const;
 
-    void remove_cell(head_tail& v, unsigned mIndex);
+    void remove_cell(head_tail& v);
     void insert_cell(head_tail& v, unsigned mIndex);
     void merge_cells(head_tail& root, head_tail& other);
     void unmerge_cells(head_tail& root, head_tail& other);
