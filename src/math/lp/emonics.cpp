@@ -61,7 +61,6 @@ void emonics::pop(unsigned n) {
         }
     }
     m_monics.shrink(old_sz);
-    m_monics.shrink(old_sz);
     m_region.pop_scope(n);
     m_lim.shrink(m_lim.size() - n);
     SASSERT(consistent());
