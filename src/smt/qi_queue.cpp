@@ -348,7 +348,6 @@ namespace smt {
     void qi_queue::init_search_eh() {
         m_subst.reset();
         m_new_entries.reset();
-        m_delayed_entries.reset();
     }
 
     bool qi_queue::final_check_eh() {
