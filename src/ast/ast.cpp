@@ -2816,7 +2816,7 @@ proof * ast_manager::mk_goal(expr * f) {
 }
 
 proof * ast_manager::mk_modus_ponens(proof * p1, proof * p2) {
-    if (!p1 || !p2) return nullptr;
+    if (!p2 || !p1) return p1;
     SASSERT(has_fact(p1));
     SASSERT(has_fact(p2));
     CTRACE("mk_modus_ponens", !(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2))),

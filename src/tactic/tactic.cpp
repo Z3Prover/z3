@@ -41,7 +41,6 @@ struct tactic_report::imp {
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        SASSERT(m_goal.is_well_formed());
         TRACE("tactic", m_goal.display(tout););
         IF_VERBOSE(0, 
                    verbose_stream() << "(" << m_id
@@ -51,6 +50,7 @@ struct tactic_report::imp {
                    << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
                    << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
                    << ")" << std::endl);
+        SASSERT(m_goal.is_well_formed());
     }
 };
 

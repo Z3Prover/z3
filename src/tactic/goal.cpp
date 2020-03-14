@@ -588,7 +588,7 @@ bool goal::is_well_formed() const {
         expr * t = form(i);
         if (!::is_well_sorted(m(), t))
             return false;
-#if 0
+#if 1
         SASSERT(m().get_fact(pr(i)) == form(i));
         if (m().get_fact(pr(i)) != form(i))
             return false;
