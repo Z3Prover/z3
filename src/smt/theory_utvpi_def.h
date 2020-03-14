@@ -677,7 +677,10 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::enable_edge(edge_id id) {
-        return (id == null_edge_id) || (m_graph.enable_edge(id) && m_graph.enable_edge(id+1));
+        return 
+            (id == null_edge_id) || 
+            (m_graph.enable_edge(id) && m_graph.enable_edge(id+1)) ||
+            m_non_utvpi_exprs;
     }
 
     template<typename Ext>
