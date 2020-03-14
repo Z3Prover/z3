@@ -49,7 +49,6 @@ class qe_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("qe", *g);
             m_fparams.m_model = g->models_enabled();
             proof_ref new_pr(m);
@@ -74,8 +73,6 @@ class qe_tactic : public tactic {
             g->inc_depth();
             g->elim_true();
             result.push_back(g.get());
-            TRACE("qe", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
 
         void collect_statistics(statistics & st) const {

@@ -43,7 +43,6 @@ struct simplify_tactic::imp {
     }
 
     void operator()(goal & g) {
-        SASSERT(g.is_well_sorted());
         tactic_report report("simplifier", g);
         TRACE("before_simplifier", g.display(tout););
         m_num_steps = 0;
@@ -68,7 +67,6 @@ struct simplify_tactic::imp {
         g.elim_redundancies();
         TRACE("after_simplifier", g.display(tout););
         TRACE("after_simplifier_detail", g.display_with_dependencies(tout););
-        SASSERT(g.is_well_sorted());
     }
 
     unsigned get_num_steps() const { return m_num_steps; }

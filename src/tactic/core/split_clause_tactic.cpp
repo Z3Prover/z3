@@ -101,7 +101,6 @@ public:
     
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
-        SASSERT(in->is_well_sorted());
         tactic_report report("split-clause", *in);
         TRACE("before_split_clause", in->display(tout););
         ast_manager & m = in->m();

@@ -133,7 +133,6 @@ class nlsat_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("nlsat", *g);
             
             if (g->is_decided()) {
@@ -191,8 +190,6 @@ class nlsat_tactic : public tactic {
             
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("nlsat", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

@@ -401,7 +401,6 @@ void goal::display_with_proofs(std::ostream& out) const {
         out << "\n  |-";
         if (pr(i)) {
             out << mk_ismt2_pp(pr(i), m(), 4);
-            SASSERT(m().get_fact(pr(i)) == form(i));
         }
         out << "\n  " << mk_ismt2_pp(form(i), m(), 2);
     }
@@ -583,12 +582,17 @@ void goal::elim_redundancies() {
     shrink(j);
 }
 
-bool goal::is_well_sorted() const {
+bool goal::is_well_formed() const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         expr * t = form(i);
         if (!::is_well_sorted(m(), t))
             return false;
+#if 0
+        SASSERT(m().get_fact(pr(i)) == form(i));
+        if (m().get_fact(pr(i)) != form(i))
+            return false;
+#endif
     }
     return true;
 }

@@ -1008,7 +1008,6 @@ class solve_eqs_tactic : public tactic {
         }
         
         void operator()(goal_ref const & g, goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
             TRACE("goal", g->display(tout););
@@ -1047,8 +1046,6 @@ class solve_eqs_tactic : public tactic {
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
-            TRACE("goal", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

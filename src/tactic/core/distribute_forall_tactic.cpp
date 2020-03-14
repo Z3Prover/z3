@@ -103,7 +103,6 @@ public:
 
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         ast_manager & m = g->m();
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
@@ -128,8 +127,6 @@ public:
 
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("distribute-forall", g->display(tout););
-        SASSERT(g->is_well_sorted());
         m_rw = nullptr;
     }
 

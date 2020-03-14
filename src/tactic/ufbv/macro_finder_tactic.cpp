@@ -39,7 +39,6 @@ class macro_finder_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("macro-finder", *g);
             TRACE("macro-finder", g->display(tout););
 
@@ -76,8 +75,6 @@ class macro_finder_tactic : public tactic {
             g->add(evmc);
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("macro-finder", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
 
         void updt_params(params_ref const & p) {

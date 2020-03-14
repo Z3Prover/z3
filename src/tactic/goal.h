@@ -148,7 +148,7 @@ public:
     bool is_decided_sat() const;
     bool is_decided_unsat() const;
     bool is_decided() const;
-    bool is_well_sorted() const;
+    bool is_well_formed() const;
 
     dependency_converter* dc() { return m_dc.get(); }
     model_converter* mc() const { return m_mc.get(); }

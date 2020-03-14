@@ -60,7 +60,7 @@ public:
         g->updt_prec(goal::OVER);
         result.push_back(g.get());
         TRACE("sine", result[0]->display(tout););
-        SASSERT(g->is_well_sorted());
+        SASSERT(g->is_well_formed());
     }
 
     void cleanup() override {

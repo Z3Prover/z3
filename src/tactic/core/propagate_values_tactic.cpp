@@ -123,7 +123,6 @@ class propagate_values_tactic : public tactic {
     }
 
     void run(goal_ref const & g, goal_ref_buffer & result) {
-        SASSERT(g->is_well_sorted());
         tactic_report report("propagate-values", *g);
         m_goal = g.get();
 
@@ -189,7 +188,7 @@ class propagate_values_tactic : public tactic {
         m_goal->elim_redundancies();
         m_goal->inc_depth();
         result.push_back(m_goal);
-        SASSERT(m_goal->is_well_sorted());
+        SASSERT(m_goal->is_well_formed());
         TRACE("propagate_values", tout << "end\n"; m_goal->display(tout););
         TRACE("propagate_values_core", m_goal->display_with_dependencies(tout););
         m_goal = nullptr;

@@ -55,12 +55,10 @@ class bvarray2uf_tactic : public tactic {
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result)
         {
-            SASSERT(g->is_well_sorted());
             tactic_report report("bvarray2uf", *g);
             result.reset();
             fail_if_unsat_core_generation("bvarray2uf", g);
 
-            TRACE("bvarray2uf", tout << "Before: " << std::endl; g->display(tout); );
             m_produce_models = g->models_enabled();
             model_converter_ref mc;
 
@@ -93,8 +91,6 @@ class bvarray2uf_tactic : public tactic {
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
-            TRACE("bvarray2uf", tout << "After: " << std::endl; g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
 
         void updt_params(params_ref const & p) {

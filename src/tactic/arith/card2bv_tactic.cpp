@@ -54,7 +54,6 @@ public:
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
         TRACE("card2bv-before", g->display(tout););
-        SASSERT(g->is_well_sorted());
         result.reset();
         tactic_report report("card2bv", *g);
         th_rewriter rw1(m, m_params);
@@ -92,8 +91,6 @@ public:
 
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("card2bv", g->display(tout););
-        SASSERT(g->is_well_sorted());
     }
     
     void cleanup() override {

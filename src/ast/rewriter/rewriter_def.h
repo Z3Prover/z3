@@ -527,12 +527,18 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         TRACE("reduce_quantifier_bug", tout << "rewrite patterns\n";);
         expr * const * np  = it + 1;
         expr * const * nnp = np + num_pats;
+        unsigned j = 0;
         for (unsigned i = 0; i < num_pats; i++)
             if (m_manager.is_pattern(np[i]))
-                new_pats[i] = np[i];
+                new_pats[j++] = np[i];
+        new_pats.shrink(j);
+        num_pats = j;
+        j = 0;
         for (unsigned i = 0; i < num_no_pats; i++)
             if (m_manager.is_pattern(nnp[i]))
-                new_no_pats[i] = nnp[i];
+                new_no_pats[j++] = nnp[i];
+        new_no_pats.shrink(j);
+        num_no_pats = j;
     }
     if (ProofGen) {
         quantifier_ref new_q(m().update_quantifier(q, num_pats, new_pats.c_ptr(), num_no_pats, new_no_pats.c_ptr(), new_body), m());
@@ -547,8 +553,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         if (m_cfg.reduce_quantifier(new_q, new_body, new_pats.c_ptr(), new_no_pats.c_ptr(), m_r, pr2)) {
             m_pr = m().mk_transitivity(m_pr, pr2);
         }
-        TRACE("reduce_quantifier_bug", tout << "m_pr is_null: " << (m_pr.get() == 0) << "\n";
-              if (m_pr) tout << mk_ismt2_pp(m_pr, m()) << "\n";);
+        TRACE("reduce_quantifier_bug",if (m_pr) tout << mk_ismt2_pp(m_pr, m()) << "\n"; else tout << "m_pr is_null\n";);
         result_pr_stack().shrink(fr.m_spos);
         result_pr_stack().push_back(m_pr);
     }

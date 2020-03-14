@@ -150,8 +150,8 @@ public:
                     goal_ref_buffer & result) override {
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
-            SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
+            tactic_report report("smt", *in);
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
                   << " PREPROCESS: " << fparams().m_preprocess << "\n";
                   tout << "RELEVANCY: " << fparams().m_relevancy_lvl << "\n";

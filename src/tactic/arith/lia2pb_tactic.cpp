@@ -185,7 +185,6 @@ class lia2pb_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             fail_if_proof_generation("lia2pb", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
@@ -287,8 +286,6 @@ class lia2pb_tactic : public tactic {
             g->inc_depth();
             g->add(gmc.get());
             result.push_back(g.get());
-            TRACE("lia2pb", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
 

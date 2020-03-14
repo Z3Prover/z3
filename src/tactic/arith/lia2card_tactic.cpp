@@ -170,13 +170,11 @@ public:
     }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         m_bounds.reset();
         m_mc.reset();
         expr_ref_vector axioms(m);
         expr_safe_replace rep(m);
 
-        TRACE("pb", g->display(tout););
         tactic_report report("lia2card", *g);
 
         bound_manager bounds(m);
@@ -218,8 +216,6 @@ public:
         if (m_mc) g->add(m_mc.get());
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("pb", g->display(tout););
-        SASSERT(g->is_well_sorted());
         m_bounds.reset();
     }
 

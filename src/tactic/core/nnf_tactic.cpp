@@ -55,7 +55,6 @@ public:
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         TRACE("nnf", tout << "params: " << m_params << "\n"; g->display(tout););
-        SASSERT(g->is_well_sorted());
         tactic_report report("nnf", *g);
         bool produce_proofs = g->proofs_enabled();
 
@@ -97,8 +96,6 @@ public:
             for (unsigned i = 0; i < num_extra_names; i++)
                 fmc->hide(dnames.get_name_decl(i));
         }
-        TRACE("nnf", g->display(tout););
-        SASSERT(g->is_well_sorted());
     }
     
     void cleanup() override {}

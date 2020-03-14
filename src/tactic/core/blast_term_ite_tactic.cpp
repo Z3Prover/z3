@@ -128,7 +128,6 @@ class blast_term_ite_tactic : public tactic {
         }
         
         void operator()(goal_ref const & g, goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("blast-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -153,8 +152,6 @@ class blast_term_ite_tactic : public tactic {
             report_tactic_progress(":blast-term-ite-consts", m_rw.m_cfg.m_num_fresh + num_fresh);
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("blast_term_ite", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

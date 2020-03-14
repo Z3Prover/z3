@@ -528,14 +528,13 @@ void propagate_ineqs_tactic::updt_params(params_ref const & p) {
 
 void propagate_ineqs_tactic::operator()(goal_ref const & g, 
                                         goal_ref_buffer & result) {
-    SASSERT(g->is_well_sorted());
     fail_if_proof_generation("propagate-ineqs", g);
     fail_if_unsat_core_generation("propagate-ineqs", g);
     result.reset();
     goal_ref r;
     (*m_imp)(g.get(), r);
     result.push_back(r.get());
-    SASSERT(r->is_well_sorted());
+    SASSERT(r->is_well_formed());
 }
 
  

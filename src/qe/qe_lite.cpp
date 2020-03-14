@@ -2473,7 +2473,6 @@ public:
 
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         tactic_report report("qe-lite", *g);
         proof_ref new_pr(m);
         expr_ref new_f(m);
@@ -2504,8 +2503,6 @@ public:
         }
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("qe", g->display(tout););
-        SASSERT(g->is_well_sorted());
     }
 
     void collect_statistics(statistics & st) const override {

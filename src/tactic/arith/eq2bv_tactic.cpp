@@ -151,7 +151,6 @@ public:
     }
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         m_trail.reset();
         m_fd.reset();
         m_max.reset();
@@ -209,8 +208,6 @@ public:
         g->inc_depth();
         g->add(mc1.get());
         result.push_back(g.get());
-        TRACE("pb", g->display(tout););
-        SASSERT(g->is_well_sorted());        
     }
 
 

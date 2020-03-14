@@ -59,7 +59,6 @@ public:
         
         resg->inc_depth();
         TRACE("goal", resg->display(tout << "out\n"););
-        SASSERT(resg->is_well_sorted());
     }
 
 

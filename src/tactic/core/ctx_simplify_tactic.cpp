@@ -569,7 +569,6 @@ struct ctx_simplify_tactic::imp {
     }
 
     void operator()(goal & g) {
-        SASSERT(g.is_well_sorted());
         m_occs.reset();
         m_occs(g);
         m_num_steps = 0;
@@ -588,7 +587,6 @@ struct ctx_simplify_tactic::imp {
             process_goal(g);
         }
         IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(ctx-simplify :num-steps " << m_num_steps << ")\n";);
-        SASSERT(g.is_well_sorted());
     }
 
 };

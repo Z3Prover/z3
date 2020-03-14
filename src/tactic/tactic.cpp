@@ -35,11 +35,13 @@ struct tactic_report::imp {
         m_start_memory(static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024)) {
         m_watch.start();
         TRACE("tactic", g.display_with_proofs(tout << id << "\n"););
+        SASSERT(g.is_well_formed());
     }
         
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
+        SASSERT(m_goal.is_well_formed());
         TRACE("tactic", m_goal.display(tout););
         IF_VERBOSE(0, 
                    verbose_stream() << "(" << m_id

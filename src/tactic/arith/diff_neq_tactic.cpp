@@ -314,7 +314,6 @@ class diff_neq_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             m_produce_models = g->models_enabled();
             result.reset();
             tactic_report report("diff-neq", *g);
@@ -339,8 +338,6 @@ class diff_neq_tactic : public tactic {
             }
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("diff_neq", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
 
