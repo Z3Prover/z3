@@ -1487,8 +1487,7 @@ std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
 bool core::check_pdd_eq(const dd::solver::equation* e) {
     auto& di = m_intervals.get_dep_intervals();
     dd::pdd_interval eval(di);
-    eval.var2interval() =
-        [this](lpvar j, bool deps, scoped_dep_interval& a) {
+    eval.var2interval() = [this](lpvar j, bool deps, scoped_dep_interval& a) {
         if (deps) m_intervals.set_var_interval<dd::w_dep::with_deps>(j, a);
         else m_intervals.set_var_interval<dd::w_dep::without_deps>(j, a);
     };
@@ -1497,8 +1496,7 @@ bool core::check_pdd_eq(const dd::solver::equation* e) {
     if (!di.separated_from_zero(i))
         return false;
     eval.get_interval<dd::w_dep::with_deps>(e->poly(), i_wd);  
-    std::function<void (const lp::explanation&)> f = 
-        [this](const lp::explanation& e) {
+    std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
         add_empty_lemma();
         current_expl().add(e);
     };
