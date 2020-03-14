@@ -1039,10 +1039,8 @@ namespace smt {
        \brief Return the literal associated with n.
     */
     literal context::get_literal(expr * n) const {
-        if (m.is_not(n)) {
-            CTRACE("get_literal_bug", !b_internalized(to_app(n)->get_arg(0)), tout << mk_ll_pp(n, m) << "\n";);
-            SASSERT(b_internalized(to_app(n)->get_arg(0)));
-            return literal(get_bool_var(to_app(n)->get_arg(0)), true);
+        if (m.is_not(n, n)) {
+            return ~get_literal(n);
         }
         else if (m.is_true(n)) {
             return true_literal;
