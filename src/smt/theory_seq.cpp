@@ -6601,21 +6601,23 @@ void theory_seq::add_le_axiom(expr* n) {
     add_axiom(~lt, le);
 }
 
-bool theory_seq::canonizes(bool sign, expr* e) {
+bool theory_seq::canonizes(bool is_true, expr* e) {
     context& ctx = get_context();
     dependency* deps = nullptr;
     expr_ref cont(m);
     if (!canonize(e, deps, cont)) cont = e;
-    TRACE("seq", tout << mk_bounded_pp(e, m, 2) << " -> " << mk_bounded_pp(cont, m, 2) << "\n";
+    TRACE("seq", tout << is_true << ": " << mk_bounded_pp(e, m, 2) << " -> " << mk_bounded_pp(cont, m, 2) << "\n";
           if (deps) display_deps(tout, deps););
-    if ((m.is_true(cont) && !sign) ||
-        (m.is_false(cont) && sign)) {
+    if ((m.is_true(cont) && !is_true) ||
+        (m.is_false(cont) && is_true)) {
         TRACE("seq", display(tout); tout << ctx.get_assignment(ctx.get_literal(e)) << "\n";);
-        propagate_lit(deps, 0, nullptr, ctx.get_literal(e));
+        literal lit = ctx.get_literal(e);
+        if (is_true) lit.neg();
+        propagate_lit(deps, 0, nullptr, lit);
         return true;
     }
-    if ((m.is_false(cont) && !sign) ||
-        (m.is_true(cont) && sign)) {
+    if ((m.is_false(cont) && !is_true) ||
+        (m.is_true(cont) && is_true)) {
         TRACE("seq", display(tout););
         return true;
     }
