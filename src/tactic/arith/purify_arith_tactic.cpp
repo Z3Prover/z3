@@ -757,7 +757,7 @@ struct purify_arith_proc {
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs) {
                 proof_ref_vector & cnstr_prs = r.cfg().m_new_cnstr_prs;
-                cnstr_prs.push_back(result_pr);
+                // cnstr_prs.push_back(result_pr);
                 // TODO: improve proof
                 result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), 
                                                m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr())); 
