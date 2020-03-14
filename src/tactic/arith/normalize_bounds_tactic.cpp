@@ -121,7 +121,7 @@ class normalize_bounds_tactic : public tactic {
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
             unsigned size = in->size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; !in->inconsistent() && idx < size; idx++) {
                 expr * curr = in->form(idx);
                 m_rw(curr, new_curr, new_pr);
                 if (produce_proofs) {
