@@ -168,7 +168,7 @@ struct imp {
         return out;
     }
 
-    bool  plane_is_correct_cut(const point& plane) const {
+    bool plane_is_correct_cut(const point& plane) const {
         TRACE("nla_solver", tout << "plane = " << plane << "\n";
               tout << "tang_plane() = " << tang_plane(plane) << ", v = " << m_v << ", correct_v = " << m_correct_v << "\n";);
         SASSERT((m_below && m_v < m_correct_v) ||
@@ -179,7 +179,7 @@ struct imp {
     }    
 };
 
-tangents::tangents(core * c) : common(c, nullptr) {}
+tangents::tangents(core * c) : common(c) {}
     
 void tangents::tangent_lemma() {
     if (!c().m_nla_settings.run_tangents()) {

@@ -21,7 +21,7 @@
 #include "math/lp/nla_core.h"
 namespace nla {
 
-monotone::monotone(core * c) : common(c, nullptr) {}
+monotone::monotone(core * c) : common(c) {}
 
     
 void monotone::monotonicity_lemma() {

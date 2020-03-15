@@ -22,7 +22,7 @@
 #include "math/lp/factorization_factory_imp.h"
 namespace nla {
 
-basics::basics(core * c) : common(c, nullptr) {}
+basics::basics(core * c) : common(c) {}
 
 // Monomials m and n vars have the same values, up to "sign"
 // Generate a lemma if values of m.var() and n.var() are not the same up to sign

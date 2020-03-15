@@ -46,15 +46,14 @@ inline llc negate(llc cmp) {
 class core;
 class intervals;
 struct common {
-    core*                                        m_core;
+    core&                                        m_core;
     nex_creator                                  m_nex_creator;
-    intervals*                                   m_intervals;
     
-    common(core* c, intervals* i): m_core(c), m_intervals(i) {}
-    core& c() { return *m_core; }
-    const core& c() const { return *m_core; }
-    core& _() { return *m_core; }
-    const core& _() const { return *m_core; }
+    common(core* c): m_core(*c) {}
+    core& c() { return m_core; }
+    const core& c() const { return m_core; }
+    core& _() { return m_core; }
+    const core& _() const { return m_core; }
 
     template <typename T> rational val(T const& t) const;
     rational val(lpvar) const;

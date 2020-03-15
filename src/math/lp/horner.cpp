@@ -25,7 +25,7 @@
 
 namespace nla {
 typedef intervals::interval interv;
-horner::horner(core * c, intervals * i) : common(c, i), m_row_sum(m_nex_creator) {}
+horner::horner(core * c) : common(c), m_row_sum(m_nex_creator) {}
 
 template <typename T>
 bool horner::row_has_monomial_to_refine(const T& row) const {
@@ -39,8 +39,8 @@ bool horner::row_has_monomial_to_refine(const T& row) const {
 // Returns true if the row has at least two monomials sharing a variable
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
-    TRACE("nla_solver_details", m_core->print_row(row, tout););
-    if (row.size() > m_core->m_nla_settings.horner_row_length_limit()) {
+    TRACE("nla_solver_details", c().print_row(row, tout););
+    if (row.size() > c().m_nla_settings.horner_row_length_limit()) {
         TRACE("nla_solver_details", tout << "disregard\n";);
         return false;
     }
@@ -84,7 +84,7 @@ bool horner::lemmas_on_row(const T& row) {
         return false;
     
     cross_nested cn(
-        [this, dep](const nex* n) { return m_intervals->check_nex(n, dep); },
+        [this, dep](const nex* n) { return c().m_intervals.check_nex(n, dep); },
         [this](unsigned j)   { return c().var_is_fixed(j); },
         [this]() { return c().random(); }, m_nex_creator);
     bool ret = lemmas_on_expr(cn, to_sum(e));
