@@ -60,13 +60,6 @@ public:
             m_dep_intervals.add(t, lo, ret);
         }
     }
-	// f meant to be called when the separation happens
-    template <typename T>
-    bool separated_from_zero(pdd const& p, u_dependency*& dep, std::function<void (const T)>& f) {
-        scoped_dep_interval i(m());
-        get_interval<w_dep::with_deps>(p, i);
-        return m_dep_intervals.check_interval_for_conflict_on_zero(i, dep, f);
-    }
 
 };
 }

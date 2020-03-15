@@ -150,7 +150,6 @@ monic const* emonics::find_canonical(svector<lpvar> const& vars) const {
     return result;
 }
 
-
 void emonics::remove_cg(lpvar v) {
     cell* c = m_use_lists[v].m_head;
     if (c == nullptr) {
