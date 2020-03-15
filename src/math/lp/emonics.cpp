@@ -448,6 +448,10 @@ std::ostream& emonics::display(std::ostream& out) const {
     }    
     display_use(out);
     //display_uf(out);
+    out << "table:\n";
+    for (auto const& k : m_cg_table) {
+        out << k << "\n";
+    }
     return out;
 }
  
@@ -543,6 +547,7 @@ bool emonics::invariant() const {
     };
     unsigned idx = 0;
     for (auto const& m : m_monics) {
+		CTRACE("nla_solver_mons", !m_cg_table.contains(m.var()), tout << "removed " << m << "\n";);
         SASSERT(m_cg_table.contains(m.var()));
         for (auto v : m.vars()) {
             if (!find_index(v, idx))
