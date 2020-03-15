@@ -354,6 +354,7 @@ namespace opt {
         
     smt::theory_var opt_solver::add_objective(app* term) {
         smt::theory_var v = get_optimizer().add_objective(term);
+        TRACE("opt", tout << v << " " << mk_pp(term, m) << "\n";);
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
         m_objective_terms.push_back(term);
