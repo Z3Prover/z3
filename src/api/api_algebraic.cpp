@@ -418,4 +418,48 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    unsigned Z3_API Z3_algebraic_get_poly_degree(Z3_context c, Z3_ast a) {
+        Z3_TRY;
+        LOG_Z3_algebraic_get_poly_degree(c, a);
+        RESET_ERROR_CODE();
+        CHECK_IS_ALGEBRAIC(a, 0);
+        algebraic_numbers::manager & _am = am(c);
+        algebraic_numbers::anum const & av = get_irrational(c, a);
+        return _am.degree(av);
+        Z3_CATCH_RETURN(0);
+    }
+
+    int64_t Z3_API Z3_algebraic_get_poly_coeff(Z3_context c, Z3_ast a, unsigned i) {
+        Z3_TRY;
+        LOG_Z3_algebraic_get_poly_coeff(c, a, i);
+        RESET_ERROR_CODE();
+        CHECK_IS_ALGEBRAIC(a, 0);
+        algebraic_numbers::manager & _am = am(c);
+        algebraic_numbers::anum const & av = get_irrational(c, a);
+
+        scoped_mpz_vector coeffs(_am.qm());
+        _am.get_polynomial(av, coeffs);
+        if (i >= coeffs.size()) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "Coefficient index out of range");
+            return 0;
+        }
+        rational r(coeffs[i]);
+        if (!r.is_int64()) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "Coefficient does not fit into int64_t");
+            return 0;
+        }
+        return r.get_int64();
+        Z3_CATCH_RETURN(0);
+    }
+
+    unsigned Z3_API Z3_algebraic_get_i(Z3_context c, Z3_ast a) {
+        Z3_TRY;
+        LOG_Z3_algebraic_get_i(c, a);
+        RESET_ERROR_CODE();
+        CHECK_IS_ALGEBRAIC(a, 0);
+        algebraic_numbers::manager & _am = am(c);
+        algebraic_numbers::anum const & av = get_irrational(c, a);
+        return _am.get_i(av);
+        Z3_CATCH_RETURN(0);
+    }
 };

@@ -805,6 +805,30 @@ namespace z3 {
         unsigned id() const { unsigned r = Z3_get_ast_id(ctx(), m_ast); check_error(); return r; }
 
         /**
+           \brief Return coefficients for p in an algebraic number (root-obj p i)
+         */
+        std::vector<int64_t> get_algebraic_poly() const {
+            assert(is_algebraic());
+            unsigned degree = Z3_algebraic_get_poly_degree(ctx(), m_ast);
+            std::vector<int64_t> coeffs;
+            for (unsigned i = 0; i <= degree; i++) {
+                coeffs.push_back(Z3_algebraic_get_poly_coeff(ctx(), m_ast, i));
+            }
+            check_error();
+            return coeffs;
+        }
+
+        /**
+           \brief Return i an algebraic number (root-obj p i)
+         */
+        unsigned get_algebraic_i() const {
+            assert(is_algebraic());
+            unsigned i = Z3_algebraic_get_i(ctx(), m_ast);
+            check_error();
+            return i;
+        }
+
+        /**
            \brief Return int value of numeral, throw if result cannot fit in
            machine int
 
