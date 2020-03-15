@@ -143,7 +143,7 @@ namespace opt {
                 switch (is_sat) {
                 case l_true:
                     update_assignment();
-                    SASSERT(soft.value == l_true);
+                    SASSERT(soft.value == l_true || m.canceled());
                     break;
                 case l_false:
                     soft.set_value(l_false);
