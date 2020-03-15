@@ -822,7 +822,7 @@ namespace z3 {
         unsigned id() const { unsigned r = Z3_get_ast_id(ctx(), m_ast); check_error(); return r; }
 
         /**
-           \brief Return coefficients for p in an algebraic number (root-obj p i)
+           \brief Return coefficients for p of an algebraic number (root-obj p i)
          */
         std::vector<int64_t> get_algebraic_poly() const {
             assert(is_algebraic());
@@ -836,7 +836,7 @@ namespace z3 {
         }
 
         /**
-           \brief Return i an algebraic number (root-obj p i)
+           \brief Return i of an algebraic number (root-obj p i)
          */
         unsigned get_algebraic_i() const {
             assert(is_algebraic());
