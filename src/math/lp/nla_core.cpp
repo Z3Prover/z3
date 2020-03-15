@@ -33,7 +33,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_order(this),
     m_monotone(this),
     m_intervals(this, lim),
-    m_horner(this, &m_intervals),
+    m_horner(this),
     m_pdd_manager(s.number_of_vars()),
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),

@@ -178,7 +178,7 @@ template <typename T> void common::create_sum_from_row(const T& row,
                                                        nex_creator::sum_factory& sum,
                                                        u_dependency*& dep) {
 
-    TRACE("nla_horner", tout << "row="; m_core->print_row(row, tout) << "\n";);
+    TRACE("nla_horner", tout << "row="; m_core.print_row(row, tout) << "\n";);
     SASSERT(row.size() > 1);
     sum.reset();
     for (const auto &p : row) {
