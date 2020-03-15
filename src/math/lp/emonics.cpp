@@ -514,6 +514,10 @@ bool emonics::invariant() const {
                     auto w1 = m_ve.find(w);
                     found |= v1 == w1;
                 }
+                for (lp::var_index w : m.rvars()) {
+                    auto w1 = m_ve.find(w);
+                    found |= v1 == w1;
+                }
                 CTRACE("nla_solver_mons", !found, tout << v << ": " << m << "\n";);
                 SASSERT(found);
                 c = c->m_next;
