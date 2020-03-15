@@ -159,8 +159,8 @@ monic const* emonics::find_canonical(svector<lpvar> const& vars) const {
     m_find_key = vars;
     std::sort(m_find_key.begin(), m_find_key.end());
     monic const* result = nullptr;
-    lpvar w;
-    if (m_cg_table.find(UINT_MAX, w)) {
+    if (m_cg_table.contains(UINT_MAX) && !m_cg_table[UINT_MAX].empty()) {
+        lpvar w = m_cg_table[UINT_MAX][0];
         result = &m_monics[m_var2index[w]];
     }
     return result;
@@ -188,11 +188,20 @@ void emonics::remove_cg(lpvar v) {
 }
 
 void emonics::remove_cg_mon(const monic& m) {
-    lpvar u = m.var(), w;
+    lpvar u = m.var();
     // equivalence class of u:
-    if (m_cg_table.find(u, w) && u == w) {
-        TRACE("nla_solver_mons", tout << "erase << " << m << "\n";);
-        m_cg_table.erase(u);
+    auto& v = m_cg_table[u];
+    SASSERT(v.contains(u));
+    if (v.size() == 1) {
+        m_cg_table.remove(u);
+    }
+    else if (v[0] == u) {
+        v.erase(u);
+        m_cg_table.remove(u);
+        m_cg_table.insert(v[0], v);
+    }
+    else {
+        v.erase(u);
     }
 }
 
@@ -269,11 +278,14 @@ void emonics::insert_cg_mon(monic & m) {
     do_canonize(m);
     lpvar v = m.var(), w;
     TRACE("nla_solver_mons", tout << m << " hash: " << m_cg_hash(v) << "\n";);
-    if (m_cg_table.find(v, w)) {
-        if (v == w) {
-            TRACE("nla_solver_mons", tout << "found "  << v << "\n";);
-            return;
-        }
+    auto* entry = m_cg_table.insert_if_not_there2(v, unsigned_vector());
+    auto& vec = entry->get_data().m_value;
+    if (vec.empty()) {
+        vec.push_back(v);
+    }
+    else if (!vec.contains(v)) {
+        w = vec[0];
+        vec.push_back(v);
         unsigned v_idx = m_var2index[v];
         unsigned w_idx = m_var2index[w];
         unsigned max_i = std::max(v_idx, w_idx);
@@ -283,9 +295,8 @@ void emonics::insert_cg_mon(monic & m) {
         m_u_f.merge(v_idx, w_idx);
     }
     else {
-        TRACE("nla_solver_mons", tout << "insert " << m << "\n";);
-        m_cg_table.insert(v);
-    }        
+        TRACE("nla_solver_mons", tout << "found "  << v << "\n";);
+    }
 }
 
 void emonics::set_visited(monic& m) const {
@@ -450,7 +461,7 @@ std::ostream& emonics::display(std::ostream& out) const {
     //display_uf(out);
     out << "table:\n";
     for (auto const& k : m_cg_table) {
-        out << k << "\n";
+        out << k.m_key << ": " << k.m_value << "\n";
     }
     return out;
 }
@@ -547,8 +558,9 @@ bool emonics::invariant() const {
     };
     unsigned idx = 0;
     for (auto const& m : m_monics) {
-		CTRACE("nla_solver_mons", !m_cg_table.contains(m.var()), tout << "removed " << m << "\n";);
+        CTRACE("nla_solver_mons", !m_cg_table.contains(m.var()), tout << "removed " << m << "\n";);
         SASSERT(m_cg_table.contains(m.var()));
+        SASSERT(m_cg_table[m.var()].contains(m.var()));
         for (auto v : m.vars()) {
             if (!find_index(v, idx))
                 return false;
@@ -560,6 +572,18 @@ bool emonics::invariant() const {
         }
         idx++;
     }
+    
+    // the table of monic representatives is such that the
+    // first entry in the vector is the equivalence class
+    // representative.
+    for (auto const& k : m_cg_table) {
+        auto const& v = k.m_value;
+        if (!v.empty() && v[0] != k.m_key) {
+            TRACE("nla_solver_mons", tout << "bad table entry: " << k.m_key << ": " << k.m_value << "\n";);
+            return false;
+        }
+    }
+
     return true;
 }
 
