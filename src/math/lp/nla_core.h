@@ -95,7 +95,6 @@ private:
     mutable lp::int_set      m_active_var_set;
     lp::int_set              m_rows;
 public:
-    unsigned                 m_grobner_quota;
     reslimit                 m_reslim;
 
     
