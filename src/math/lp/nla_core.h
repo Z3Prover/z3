@@ -3,20 +3,13 @@
 
   Module Name:
 
-  <name>
-
-  Abstract:
-
-  <abstract>
+  nla_core.h
 
   Author:
   Nikolaj Bjorner (nbjorner)
   Lev Nachmanson (levnach)
 
-  Revision History:
-
-
-  --*/
+--*/
 #pragma once
 #include "math/lp/factorization.h"
 #include "math/lp/lp_types.h"
