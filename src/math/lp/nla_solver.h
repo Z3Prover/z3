@@ -38,7 +38,7 @@ public:
     
     solver(lp::lar_solver& s);
     ~solver();
-    core& get_core() { return *m_core; } 
+    nla_settings& settings() { return m_core->m_nla_settings; }
     void push();
     void pop(unsigned scopes);
     bool need_check();

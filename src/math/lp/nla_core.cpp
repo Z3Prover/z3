@@ -1386,7 +1386,7 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
 
 
 void core::run_grobner() {
-    unsigned& quota = m_grobner_quota;
+    unsigned& quota = m_nla_settings.grobner_quota();
     if (quota == 1) {
         return;
     }
