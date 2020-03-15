@@ -436,7 +436,6 @@ extern "C" {
         CHECK_IS_ALGEBRAIC(a, 0);
         algebraic_numbers::manager & _am = am(c);
         algebraic_numbers::anum const & av = get_irrational(c, a);
-
         scoped_mpz_vector coeffs(_am.qm());
         _am.get_polynomial(av, coeffs);
         if (i >= coeffs.size()) {
