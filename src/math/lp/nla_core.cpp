@@ -3,18 +3,11 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    <name>
-
-Abstract:
-
-    <abstract>
+    nla_core.cpp
 
 Author:
     Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
-
-Revision History:
-
 
 --*/
 #include "math/lp/nla_core.h"
