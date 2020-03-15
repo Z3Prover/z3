@@ -183,7 +183,7 @@ public:
     void pop(unsigned n);
 
     rational mon_value_by_vars(unsigned i) const;
-    rational product_value(const unsigned_vector & m) const;
+    rational product_value(const monic & m) const;
     
     // return true iff the monic value is equal to the product of the values of the factors
     bool check_monic(const monic& m) const;

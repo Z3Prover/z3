@@ -82,16 +82,17 @@ class emonics {
     
     union_find<emonics>          m_u_f;
     trail_stack<emonics>         m_u_f_stack;
-    mutable svector<lpvar>          m_find_key; // the key used when looking for a monic with the specific variables
+    mutable svector<lpvar>       m_find_key; // the key used when looking for a monic with the specific variables
     var_eqs<emonics>&            m_ve;
-    mutable vector<monic>           m_monics;     // set of monics
-    mutable unsigned_vector         m_var2index;     // var_mIndex -> mIndex
-    unsigned_vector                 m_lim;           // backtracking point
-    mutable unsigned                m_visited;       // timestamp of visited monics during pf_iterator
-    region                          m_region;        // region for allocating linked lists
-    mutable svector<head_tail>      m_use_lists;     // use list of monics where variables occur.
-    hash_canonical                  m_cg_hash;
-    eq_canonical                    m_cg_eq;
+    mutable vector<monic>        m_monics;     // set of monics
+    mutable unsigned_vector      m_var2index;     // var_mIndex -> mIndex
+    unsigned_vector              m_lim;           // backtracking point
+    mutable unsigned             m_visited;       // timestamp of visited monics during pf_iterator
+    region                       m_region;        // region for allocating linked lists
+    mutable svector<head_tail>   m_use_lists;     // use list of monics where variables occur.
+    hash_canonical               m_cg_hash;
+    eq_canonical                 m_cg_eq;
+    unsigned_vector              m_vs;            // temporary buffer of canonized variables
     hashtable<lpvar, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
 
 
@@ -112,6 +113,8 @@ class emonics {
     void set_visited(monic& m) const;
     bool is_visited(monic const& m) const;
     std::ostream& display_use(std::ostream& out) const; 
+    std::ostream& display_uf(std::ostream& out) const; 
+    std::ostream& display(std::ostream& out, cell* c) const;
 public:
     unsigned number_of_monics() const { return m_monics.size(); }
     /**
@@ -237,8 +240,8 @@ public:
 
     class products_of {
         emonics const& m;
-        monic * mon;
-        lpvar           m_var;
+        monic *        mon;
+        lpvar          m_var;
     public:
         products_of(emonics const& m, monic & mon): m(m), mon(&mon), m_var(UINT_MAX) {}
         products_of(emonics const& m, lpvar v): m(m), mon(nullptr), m_var(v) {}
@@ -328,15 +331,7 @@ public:
 
     bool elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector> &lists) const;
 
-    bool consistent() const {
-        unsigned mons = 0;
-        for (lpvar v = 0; v < m_var2index.size(); v++) {
-            if (is_monic_var(v)) {
-                mons ++;
-            }
-        }
-        return m_monics.size() == mons;
-    }
+    bool invariant() const;
     
 }; // end of emonics
 

@@ -36,7 +36,7 @@ bool basics::basic_sign_lemma_on_two_monics(const monic& m, const monic& n) {
 }
 
 void basics::generate_zero_lemmas(const monic& m) {
-    SASSERT(!val(m).is_zero() && c().product_value(m.vars()).is_zero());
+    SASSERT(!val(m).is_zero() && c().product_value(m).is_zero());
     int sign = nla::rat_sign(val(m));
     unsigned_vector fixed_zeros;
     lpvar zero_j = find_best_zero(m, fixed_zeros);
