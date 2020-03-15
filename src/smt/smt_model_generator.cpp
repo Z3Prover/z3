@@ -424,6 +424,7 @@ namespace smt {
                 SASSERT(m_model->has_interpretation(f));
                 SASSERT(m_model->get_func_interp(f) == fi);
                 // The entry must be new because n->get_cg() == n
+                SASSERT(f->get_range() == m.get_sort(result));
                 TRACE("model", 
                       tout << "insert new entry for:\n" << mk_ismt2_pp(n->get_owner(), m) << "\nargs: ";
                       for (unsigned i = 0; i < num_args; i++) {
