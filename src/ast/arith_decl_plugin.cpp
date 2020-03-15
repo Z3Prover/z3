@@ -804,17 +804,17 @@ bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* con
         return true;
     }
     if (is_decl_of(f, m_afid, OP_IDIV) && is_numeral(args[1], r) && r.is_zero()) {
-        sort* rs[2] = { mk_real(), mk_real() };
+        sort* rs[2] = { mk_int(), mk_int() };
         f_out = m_manager.mk_func_decl(m_afid, OP_IDIV0, 0, nullptr, 2, rs, mk_int());
         return true;
     }
     if (is_decl_of(f, m_afid, OP_MOD) && is_numeral(args[1], r) && r.is_zero()) {
-        sort* rs[2] = { mk_real(), mk_real() };
+        sort* rs[2] = { mk_int(), mk_int() };
         f_out = m_manager.mk_func_decl(m_afid, OP_MOD0, 0, nullptr, 2, rs, mk_int());
         return true;
     }
     if (is_decl_of(f, m_afid, OP_REM) && is_numeral(args[1], r) && r.is_zero()) {
-        sort* rs[2] = { mk_real(), mk_real() };
+        sort* rs[2] = { mk_int(), mk_int() };
         f_out = m_manager.mk_func_decl(m_afid, OP_REM0, 0, nullptr, 2, rs, mk_int());
         return true;
     }
