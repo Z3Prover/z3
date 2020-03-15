@@ -238,9 +238,9 @@ extern "C" {
        \pre Z3_algebraic_is_value(c, a)
        \pre i < Z3_algebraic_get_poly_degree(c, a)
 
-       def_API('Z3_algebraic_get_poly_coeff', INT64, (_in(CONTEXT), _in(AST), _in(UINT)))
+       def_API('Z3_algebraic_get_poly_coeff_int64', INT64, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
-    int64_t Z3_API Z3_algebraic_get_poly_coeff(Z3_context c, Z3_ast a, unsigned i);
+    int64_t Z3_API Z3_algebraic_get_poly_coeff_int64(Z3_context c, Z3_ast a, unsigned i);
 
     /**
        \brief Return which root of the polynomial the algebraic number represents.

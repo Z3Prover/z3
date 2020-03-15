@@ -829,7 +829,7 @@ namespace z3 {
             unsigned degree = Z3_algebraic_get_poly_degree(ctx(), m_ast);
             std::vector<int64_t> coeffs;
             for (unsigned i = 0; i <= degree; i++) {
-                coeffs.push_back(Z3_algebraic_get_poly_coeff(ctx(), m_ast, i));
+                coeffs.push_back(Z3_algebraic_get_poly_coeff_int64(ctx(), m_ast, i));
             }
             check_error();
             return coeffs;

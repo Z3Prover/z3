@@ -429,9 +429,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    int64_t Z3_API Z3_algebraic_get_poly_coeff(Z3_context c, Z3_ast a, unsigned i) {
+    int64_t Z3_API Z3_algebraic_get_poly_coeff_int64(Z3_context c, Z3_ast a, unsigned i) {
         Z3_TRY;
-        LOG_Z3_algebraic_get_poly_coeff(c, a, i);
+        LOG_Z3_algebraic_get_poly_coeff_int64(c, a, i);
         RESET_ERROR_CODE();
         CHECK_IS_ALGEBRAIC(a, 0);
         algebraic_numbers::manager & _am = am(c);
