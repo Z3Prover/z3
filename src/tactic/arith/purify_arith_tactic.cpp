@@ -757,7 +757,7 @@ struct purify_arith_proc {
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs) {
                 proof_ref_vector & cnstr_prs = r.cfg().m_new_cnstr_prs;
-                cnstr_prs.push_back(result_pr);
+                // cnstr_prs.push_back(result_pr);
                 // TODO: improve proof
                 result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), 
                                                m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr())); 
@@ -910,7 +910,6 @@ public:
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
         try {
-            SASSERT(g->is_well_sorted());
             tactic_report report("purify-arith", *g);
             TRACE("goal", g->display(tout););
             bool produce_proofs = g->proofs_enabled();
@@ -924,8 +923,6 @@ public:
             g->add(mc.get());
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("goal", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

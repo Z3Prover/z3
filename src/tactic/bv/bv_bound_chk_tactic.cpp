@@ -153,7 +153,6 @@ public:
     ast_manager& m() { return m_rw.m(); }
 
     void operator()(goal_ref const & g) {
-        SASSERT(g->is_well_sorted());
         tactic_report report("bv-bound-chk", *g);
         ast_manager& m(g->m());
         expr_ref   new_curr(m);
@@ -192,16 +191,12 @@ bv_bound_chk_tactic::~bv_bound_chk_tactic() {
 }
 
 void bv_bound_chk_tactic::operator()(goal_ref const & g, goal_ref_buffer & result) {
-    SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-bound-chk", g);
     fail_if_unsat_core_generation("bv-bound-chk", g);
-    TRACE("bv-bound-chk", g->display(tout << "before:"); tout << std::endl;);
     result.reset();
     m_imp->operator()(g);
     g->inc_depth();
     result.push_back(g.get());
-    TRACE("bv-bound-chk", g->display(tout << "after:"););
-    SASSERT(g->is_well_sorted());
 }
 
 tactic * bv_bound_chk_tactic::translate(ast_manager & m) {

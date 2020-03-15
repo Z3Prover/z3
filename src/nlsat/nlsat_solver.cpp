@@ -640,25 +640,20 @@ namespace nlsat {
 
         literal mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
-            if (sz == 0) {
-                switch (k) {
-                case atom::LT: return false_literal;  // 0 < 0
-                case atom::EQ: return true_literal;   // 0 == 0
-                case atom::GT: return false_literal;  // 0 > 0
-                default: 
-                    UNREACHABLE();
-                    return null_literal;
-                }
-            }
             bool is_const = true;
             polynomial::manager::scoped_numeral cnst(m_pm.m());
-            m_pm.m().set(cnst, 1);
-            for (unsigned i = 0; is_const && i < sz; ++i) {
+            m_pm.m().set(cnst, 1);            
+            for (unsigned i = 0; i < sz; ++i) {
                 if (m_pm.is_const(ps[i])) {
+                    if (m_pm.is_zero(ps[i])) {
+                        m_pm.m().set(cnst, 0);
+                        is_const = true;
+                        break;
+                    }
                     auto const& c = m_pm.coeff(ps[i], 0);
                     m_pm.m().mul(cnst, c, cnst);
-                    if (is_even[i]) {
-                        m_pm.m().mul(cnst, c, cnst);
+                    if (is_even[i] && m_pm.m().is_neg(c)) {
+                        m_pm.m().neg(cnst);
                     }                            
                 }
                 else {
@@ -799,7 +794,6 @@ namespace nlsat {
         public:
             scoped_bool_vars(imp& s):s(s) {}
             ~scoped_bool_vars() {
-                std::cout << "scoped del: " << vec << "\n";
                 for (bool_var v : vec) {
                     s.dec_ref(v);
                 }
@@ -2658,6 +2652,7 @@ namespace nlsat {
                 for (clause* c : m_clauses) {
                     if (solve_var(*c, v, p, q)) {
                         q = -q;
+                        TRACE("nlsat", tout << "p: " << p << "\nq: " << q << "\n x" << v << "\n";);
                         m_patch_var.push_back(v);
                         m_patch_num.push_back(q);
                         m_patch_denom.push_back(p);
@@ -2713,9 +2708,12 @@ namespace nlsat {
                         poly * po = a1.p(i);
                         m_pm.substitute(po, x, q, p, pr);
                         change |= pr != po;
+                        TRACE("nlsat", tout << pr << "\n";);
                         if (m_pm.is_zero(pr)) {
                             ps.reset();
                             even.reset();
+                            ps.push_back(pr);
+                            even.push_back(false);
                             break;
                         }
                         if (m_pm.is_const(pr)) {

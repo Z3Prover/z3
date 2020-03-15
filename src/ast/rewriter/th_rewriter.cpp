@@ -718,6 +718,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                                        new_body);
             TRACE("reduce_quantifier", tout << mk_ismt2_pp(old_q, m()) << "\n----->\n" << mk_ismt2_pp(q1, m()) << "\n";);
             SASSERT(is_well_sorted(m(), q1));
+            if (m().proofs_enabled() && q1 != old_q) {
+                p1 = m().mk_rewrite(old_q, q1);
+            }
         }
         SASSERT(m().get_sort(old_q) == m().get_sort(q1));
         result = elim_unused_vars(m(), q1, params_ref());

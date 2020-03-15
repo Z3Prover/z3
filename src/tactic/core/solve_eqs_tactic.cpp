@@ -452,6 +452,7 @@ class solve_eqs_tactic : public tactic {
             for (unsigned idx = 0; idx < size; idx++) {
                 checkpoint();
                 expr * f = g.form(idx);
+                pr = nullptr;
                 if (solve(f, var, def, pr)) {
                     insert_solution(g, idx, f, var, def, pr);
                 }
@@ -643,8 +644,9 @@ class solve_eqs_tactic : public tactic {
             if (m().is_not(f, f1) && m().is_or(f1)) {
                 flatten_and(f, args);
                 for (unsigned i = 0; i < args.size(); ++i) {
+                    pr = nullptr;
                     expr* arg = args.get(i), *lhs = nullptr, *rhs = nullptr;
-                    if (m().is_eq(arg, lhs, rhs)) { 
+                    if (m().is_eq(arg, lhs, rhs)) {                         
                         if (trivial_solve1(lhs, rhs, var, def, pr) && is_compatible(g, idx, path, var, arg)) {
                             insert_solution(g, idx, arg, var, def, pr);
                         }
@@ -701,8 +703,9 @@ class solve_eqs_tactic : public tactic {
                 proof_ref pr1(m()), pr2(m());
                 thrw(f, tmp, pr1);
                 rw(tmp, tmp2, pr2);
+                TRACE("solve_eqs", tout << mk_pp(f, m()) << " " << tmp << "\n" << tmp2 
+                      << "\n" << pr1 << "\n" << pr2 << "\n" << mk_pp(g.pr(idx), m()) << "\n";);
                 pr1 = m().mk_transitivity(pr1, pr2);
-                TRACE("solve_eqs", tout << mk_pp(f, m()) << " " << tmp2 << "\n" << pr1 << "\n" << mk_pp(g.pr(idx), m()) << "\n";);
                 if (!pr1) pr1 = g.pr(idx); else pr1 = m().mk_modus_ponens(g.pr(idx), pr1);
                 g.update(idx, tmp2, pr1, g.dep(idx));
             }
@@ -860,16 +863,17 @@ class solve_eqs_tactic : public tactic {
             m_norm_subst->reset();
             m_r->set_substitution(m_norm_subst.get());
             
-            expr_ref new_def(m());
-            proof_ref new_pr(m());
+
             expr_dependency_ref new_dep(m());
             for (app * v : m_ordered_vars) {
                 checkpoint();
+                expr_ref new_def(m());
+                proof_ref new_pr(m());
                 expr * def = nullptr;
                 proof * pr = nullptr;
                 expr_dependency * dep = nullptr;
                 m_subst->find(v, def, pr, dep);
-                SASSERT(def != 0);
+                SASSERT(def);
                 m_r->operator()(def, new_def, new_pr, new_dep);
                 m_num_steps += m_r->get_num_steps() + 1;
                 if (m_produce_proofs)
@@ -889,18 +893,6 @@ class solve_eqs_tactic : public tactic {
                       m_norm_subst->find(v, def, pr, dep);
                       tout << mk_ismt2_pp(v, m()) << "\n----->\n" << mk_ismt2_pp(def, m()) << "\n\n";
                   });
-#if 0
-            DEBUG_CODE({
-                    for (expr * v : m_ordered_vars) {
-                        expr * def = 0;
-                        proof * pr = 0;
-                        expr_dependency * dep = 0;
-                        m_norm_subst->find(v, def, pr, dep);
-                        SASSERT(def != 0);
-                        CASSERT("solve_eqs_bug", !occurs(v, def));
-                    }
-                });
-#endif
         }
 
         void substitute(goal & g) {
@@ -1016,7 +1008,6 @@ class solve_eqs_tactic : public tactic {
         }
         
         void operator()(goal_ref const & g, goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
             TRACE("goal", g->display(tout););
@@ -1028,12 +1019,12 @@ class solve_eqs_tactic : public tactic {
                 m_subst      = alloc(expr_substitution, m(), m_produce_unsat_cores, m_produce_proofs);
                 m_norm_subst = alloc(expr_substitution, m(), m_produce_unsat_cores, m_produce_proofs);
                 while (true) {
-                    if (m_context_solve) {
+                    if (!m_produce_proofs && m_context_solve) {
                         distribute_and_or(*(g.get()));
                     }
                     collect_num_occs(*g);
                     collect(*g);
-                    if (m_context_solve) {
+                    if (!m_produce_proofs && m_context_solve) {
                         collect_hoist(*g);
                     }
                     if (m_subst->empty()) {
@@ -1055,8 +1046,6 @@ class solve_eqs_tactic : public tactic {
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
-            TRACE("goal", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

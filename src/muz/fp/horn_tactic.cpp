@@ -178,7 +178,6 @@ class horn_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("horn", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -296,8 +295,6 @@ class horn_tactic : public tactic {
                 // subgoal is unchanged.
                 break;
             }
-            TRACE("horn", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
 
         void bind_variables(expr_ref& f) {

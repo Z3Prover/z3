@@ -797,6 +797,23 @@ namespace z3 {
             assert(is_numeral() || is_algebraic());
             return std::string(Z3_get_numeral_decimal_string(ctx(), m_ast, precision));
         }
+
+        /**
+         * Retrieve lower and upper bounds for algebraic numerals based on a decimal precision
+         */
+        expr algebraic_lower(unsigned precision) const { 
+            assert(is_algebraic());      
+            Z3_ast r = Z3_get_algebraic_number_lower(ctx(), m_ast, precision);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        expr algebraic_upper(unsigned precision) const { 
+            assert(is_algebraic());      
+            Z3_ast r = Z3_get_algebraic_number_upper(ctx(), m_ast, precision);
+            check_error();
+            return expr(ctx(), r);
+        }
         
 
         /**

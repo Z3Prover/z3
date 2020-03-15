@@ -149,6 +149,9 @@ namespace smt {
     void context::updt_params(params_ref const& p) {
         m_params.append(p);
         m_asserted_formulas.updt_params(p);
+        if (!m_setup.already_configured()) {
+            m_fparams.updt_params(p);
+        }
     }
 
     unsigned context::relevancy_lvl() const {
@@ -308,9 +311,6 @@ namespace smt {
     }
 
     void context::assign_core(literal l, b_justification j, bool decision) {
-        CTRACE("assign_core", l.var() == 1573 || l.var() == 1253, tout << (decision?"decision: ":"propagating: ") << l << " ";
-              display_literal_smt2(tout, l); tout << " level: " << m_scope_lvl << "\n";
-              display(tout, j););
         m_assigned_literals.push_back(l);
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
@@ -324,25 +324,25 @@ namespace smt {
         }
         d.m_phase_available        = true;
         d.m_phase                  = !l.sign();
+        CTRACE("assign_core", l.var() == 13, tout << (decision?"decision: ":"propagating: ") << l << " ";
+               /*display_literal(tout, l);*/
+               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
+               /*display(tout, j);*/
+               );
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
 
-        TRACE("relevancy",
-              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(l) << " relevancy-lvl: " << relevancy_lvl() << "\n";);
-        if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l)))
+        CTRACE("relevancy", l.var() == 13,
+              tout << "is_atom: " << d.is_atom() << " is relevant: " 
+              << is_relevant_core(l) << " relevancy-lvl: " << relevancy_lvl() << "\n";);
+        if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l))) {
+            CTRACE("assign_core", l.var() == 13, tout << "propagation queue\n";);
             m_atom_propagation_queue.push_back(l);
+        }
 
         if (m.has_trace_stream())
             trace_assign(l, j, decision);
 
         m_case_split_queue->assign_lit_eh(l);
-
-        // a unit is asserted at search level. Mark it as relevant.
-        // this addresses bug... where a literal becomes fixed to true (false)
-        // as a conflict gets assigned misses relevancy (and quantifier instantiation).
-        //
-        if (false && !decision && relevancy() && at_search_level() && !is_relevant_core(l)) {
-            mark_as_relevant(l);
-        }
     }
 
     bool context::bcp() {
@@ -1352,13 +1352,14 @@ namespace smt {
     */
     bool context::propagate_atoms() {
         SASSERT(!inconsistent());
+        CTRACE("propagate_atoms", !m_atom_propagation_queue.empty(), tout << m_atom_propagation_queue << "\n";);
         for (unsigned i = 0; i < m_atom_propagation_queue.size() && !get_cancel_flag(); i++) {
             SASSERT(!inconsistent());
             literal  l = m_atom_propagation_queue[i];
             bool_var v = l.var();
             bool_var_data & d = get_bdata(v);
             lbool val  = get_assignment(v);
-            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode()
+            CTRACE("propagate_atoms", v == 13, tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode()
                   << " tag: " << (d.is_eq()?"eq":"") << (d.is_theory_atom()?"th":"") << (d.is_quantifier()?"q":"") << " " << l << "\n";);
             SASSERT(val != l_undef);
             if (d.is_enode())
@@ -2066,7 +2067,7 @@ namespace smt {
         while (i != old_lim) {
             --i;
             literal l                  = m_assigned_literals[i];
-            CTRACE("assign_core", l.var() == 1573 || l.var() == 1253, tout << "unassign " << l << "\n";);
+            CTRACE("assign_core", l.var() == 13, tout << "unassign " << l << "\n";);
             m_assignment[l.index()]    = l_undef;
             m_assignment[(~l).index()] = l_undef;
             bool_var v                 = l.var();
@@ -2438,6 +2439,8 @@ namespace smt {
             del_justifications(m_justifications, s.m_justifications_lim);
 
             m_asserted_formulas.pop_scope(num_scopes);
+
+            CTRACE("propagate_atoms", !m_atom_propagation_queue.empty(), tout << m_atom_propagation_queue << "\n";);
 
             m_eq_propagation_queue.reset();
             m_th_eq_propagation_queue.reset();
@@ -2978,7 +2981,7 @@ namespace smt {
         // If we don't use the theory case split heuristic,
         // for each pair of literals (l1, l2) we add the clause (~l1 OR ~l2)
         // to enforce the condition that at most one literal can be assigned 'true'.
-        if (!m_fparams.m_theory_case_split) {
+        if (!m_fparams.m_theory_case_split && !m.proofs_enabled()) {
             for (unsigned i = 0; i < num_lits; ++i) {
                 for (unsigned j = i+1; j < num_lits; ++j) {
                     literal l1 = lits[i];
@@ -3347,7 +3350,7 @@ namespace smt {
         reset_tmp_clauses();
         m_unsat_core.reset();
         m_stats.m_num_checks++;
-        pop_to_base_lvl();
+        pop_to_base_lvl();        
         return true;
     }
 
@@ -3361,10 +3364,13 @@ namespace smt {
             r = l_undef;
         }
         if (r == l_true && gparams::get_value("model_validate") == "true") {
-            model_ref mdl;
-            get_model(mdl);
-            for (theory* t : m_theory_set) {
-                t->validate_model(*mdl);
+            recfun::util u(m);
+            if (u.get_rec_funs().empty()) {
+                model_ref mdl;
+                get_model(mdl);
+                for (theory* t : m_theory_set) {
+                    t->validate_model(*mdl);
+                }
             }
 #if 0
             for (literal lit : m_assigned_literals) {
@@ -3378,6 +3384,7 @@ namespace smt {
             }
             for (clause* cls : m_aux_clauses) {
                 bool found = false;
+                IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "check:\n", *cls) << "\n");                    
                 for (literal lit : *cls) {
                     expr* v = m_bool_var2expr[lit.var()];
                     if (lit.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
@@ -3387,6 +3394,45 @@ namespace smt {
                 }
                 if (!found) {
                     IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "not satisfied:\n", *cls) << "\n");                    
+                }
+            }
+            for (clause* cls : m_lemmas) {
+                bool found = false;
+                IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "check:\n", *cls) << "\n");                    
+                for (literal lit : *cls) {
+                    expr* v = m_bool_var2expr[lit.var()];
+                    if (lit.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "not satisfied:\n", *cls) << "\n");                    
+                }
+            }
+
+            unsigned l_idx = 0;
+            for (watch_list const& wl : m_watches) {
+                literal l1 = to_literal(l_idx++);
+                literal neg_l1 = ~l1;
+                expr* v = m_bool_var2expr[l1.var()];
+                if (neg_l1.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
+                    continue;
+                }
+                literal const * it2  = wl.begin_literals();
+                literal const * end2 = wl.end_literals();
+                for (; it2 != end2; ++it2) {
+                    literal l2 = *it2;
+                    if (l1.index() >= l2.index()) {
+                        continue;
+                    }
+                    literal lits[2] = { neg_l1, l2 };
+                    IF_VERBOSE(10, display_literals_smt2(verbose_stream() << "check: ", 2, lits) << "\n";);
+                    v = m_bool_var2expr[l2.var()];
+                    if (l2.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
+                        continue;
+                    }
+                    IF_VERBOSE(10, display_literals_smt2(verbose_stream() << "not satisfied: ", 2, lits) << "\n";);
                 }
             }
 #endif

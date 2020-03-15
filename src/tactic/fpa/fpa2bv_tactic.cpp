@@ -48,7 +48,6 @@ class fpa2bv_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             m_proofs_enabled      = g->proofs_enabled();
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
@@ -105,7 +104,6 @@ class fpa2bv_tactic : public tactic {
             for (unsigned i = 0; i < m_conv.m_extra_assertions.size(); i++)
                 result.back()->assert_expr(m_conv.m_extra_assertions[i].get());
 
-            SASSERT(g->is_well_sorted());
             TRACE("fpa2bv", tout << "AFTER: " << std::endl; g->display(tout);
                   if (g->mc()) g->mc()->display(tout); tout << std::endl; );
         }

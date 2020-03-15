@@ -53,7 +53,8 @@ class ll_printer {
         rational val;
         bool is_int;
         if (m_autil.is_numeral(n, val, is_int)) {
-            m_out << val << "::" << (is_int ? "Int" : "Real");
+            m_out << val;
+            if (!is_int && val.is_int()) m_out << ".0";
             return true;
         }
         return false;

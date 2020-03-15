@@ -647,6 +647,13 @@ bool arith_decl_plugin::are_distinct(app * a, app * b) const {
     if (is_app_of(a, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM) && is_app_of(b, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM)) {
         return am().neq(aw().to_anum(a->get_decl()), aw().to_anum(b->get_decl()));
     }
+    if (is_app_of(a, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM) && is_app_of(b, m_family_id, OP_NUM)) {
+        std::swap(a, b);
+    }
+    if (is_app_of(a, m_family_id, OP_NUM) && is_app_of(b, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM)) {
+        rational val = a->get_decl()->get_parameter(0).get_rational();
+        return am().neq(aw().to_anum(b->get_decl()), val.to_mpq());
+    }
 
 #define is_non_zero(e) is_app_of(e,m_family_id, OP_NUM) && !to_app(e)->get_decl()->get_parameter(0).get_rational().is_zero()
 

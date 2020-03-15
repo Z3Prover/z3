@@ -82,7 +82,10 @@ namespace smt {
         unsigned nf = 0, nc = 0, ns = 0, bound = 2000, n = 0;
         for (bool_var v : vars) {
             if (!ctx.bool_var2expr(v)) continue;
-            literal lit(v, false);	
+            literal lit(v, false);
+            ctx.propagate();
+            if (ctx.inconsistent())
+                return expr_ref(m.mk_false(), m);
             ctx.push_scope();
             ctx.assign(lit, b_justification::mk_axiom(), true);
             ctx.propagate();
@@ -96,6 +99,9 @@ namespace smt {
                 continue;
             }
 
+            ctx.propagate();
+            if (ctx.inconsistent())
+                return expr_ref(m.mk_false(), m);
             ctx.push_scope();
             ctx.assign(~lit, b_justification::mk_axiom(), true);
             ctx.propagate();

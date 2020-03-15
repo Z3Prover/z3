@@ -51,43 +51,49 @@ public:
     }
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        TRACE("reduce_invertible", g->display(tout););
         tactic_report report("reduce-invertible", *g);
-        m_inverted.reset();
-        m_parents.reset();
-        collect_parents(g);
-        collect_occs occs;
-        obj_hashtable<expr> vars;
-        generic_model_converter_ref mc;
-        occs(*g, vars);
-        expr_safe_replace sub(m);
-        expr_ref new_v(m);
-        expr * p;
-        for (expr* v : vars) {
-            if (is_invertible(v, p, new_v, &mc)) {
-                mark_inverted(p);
-                sub.insert(p, new_v);
+        bool change = true;
+        while (change) {
+            change = false;
+            m_inverted.reset();
+            m_parents.reset();
+            collect_parents(g);
+            collect_occs occs;
+            obj_hashtable<expr> vars;
+            generic_model_converter_ref mc;
+            occs(*g, vars);
+            expr_safe_replace sub(m);
+            expr_ref new_v(m);
+            expr * p;
+            for (expr* v : vars) {
+                if (is_invertible(v, p, new_v, &mc)) {
+                    mark_inverted(p);
+                    sub.insert(p, new_v);
+                    TRACE("invertible_tactic", tout << mk_pp(p, m) << " " << new_v << "\n";);
+                    change = true;
+                    break;
+                }
             }
-        }
-        reduce_q_rw rw(*this);
-        unsigned sz = g->size();
-        for (unsigned idx = 0; idx < sz; idx++) {
-            checkpoint();
-            expr* f = g->form(idx);
-            expr_ref f_new(m);
-            sub(f, f_new);
-            rw(f_new, f_new);
-            if (f == f_new) continue;
-            proof_ref new_pr(m);
-            if (g->proofs_enabled()) {
-                proof * pr = g->pr(idx);
-                new_pr     = m.mk_modus_ponens(pr, new_pr);
-            }
-            g->update(idx, f_new, new_pr, g->dep(idx));
-        }  
-        if (mc) g->add(mc.get());
+            reduce_q_rw rw(*this);
+            unsigned sz = g->size();
+            for (unsigned idx = 0; idx < sz; idx++) {
+                checkpoint();
+                expr* f = g->form(idx);
+                expr_ref f_new(m);
+                sub(f, f_new);
+                rw(f_new, f_new);
+                if (f == f_new) continue;
+                proof_ref new_pr(m);
+                if (g->proofs_enabled()) {
+                    proof * pr = g->pr(idx);
+                    new_pr     = m.mk_modus_ponens(pr, new_pr);
+                }
+                g->update(idx, f_new, new_pr, g->dep(idx));
+            }  
+            if (mc) g->add(mc.get());
+            g->inc_depth();
+        }        
         result.push_back(g.get());
-        g->inc_depth();        
     }
 
     void cleanup() override {}
@@ -239,11 +245,13 @@ private:
     // TBD: could be made to be recursive, by walking multiple layers of parents.
     
     bool is_invertible(expr* v, expr*& p, expr_ref& new_v, generic_model_converter_ref* mc, unsigned max_var = 0) {
-        if (m_parents.size() <= v->get_id()) return false;
+        if (m_parents.size() <= v->get_id()) {
+            return false;
+        }
         p = m_parents[v->get_id()].get();
-        if (!p) return false;
-        if (m_inverted.is_marked(p)) return false;
-        if (mc && !is_ground(p)) return false;
+        if (!p || m_inverted.is_marked(p) || (mc && !is_ground(p))) {
+            return false;
+        }
 
         if (m_bv.is_bv_xor(p) ||
             m_bv.is_bv_not(p) ||
@@ -380,6 +388,7 @@ private:
         }
        
         if (m.is_eq(p, e1, e2)) {
+            TRACE("invertible_tactic", tout << mk_pp(v, m) << "\n";);
             if (mc && has_diagonal(e1)) {
                 ensure_mc(mc);
                 new_v = m.mk_fresh_const("eq", m.mk_bool_sort());
@@ -465,6 +474,7 @@ private:
             for (unsigned i = 0; i < vars.size(); ++i) {
                 var* v = vars[i];
                 if (!occurs_under_nested_q(v, new_body) && t.is_invertible(v, p, new_v, nullptr, vars.size())) {
+                    TRACE("invertible_tactic", tout << mk_pp(v, m) << " " << mk_pp(p, m) << "\n";);
                     t.mark_inverted(p);
                     sub.insert(p, new_v);
                     new_sorts[i] = m.get_sort(new_v);

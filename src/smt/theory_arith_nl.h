@@ -934,8 +934,8 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
         new_lower    = alloc(derived_bound, v, inf_numeral(k), B_LOWER);
         new_upper    = alloc(derived_bound, v, inf_numeral(k), B_UPPER);
     }
-    SASSERT(new_lower != 0);
-    SASSERT(new_upper != 0);
+    SASSERT(new_lower);
+    SASSERT(new_upper);
     m_bounds_to_delete.push_back(new_lower);
     m_asserted_bounds.push_back(new_lower);
     m_bounds_to_delete.push_back(new_upper);

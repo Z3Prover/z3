@@ -456,7 +456,6 @@ public:
     */
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         fail_if_proof_generation("nla2bv", g);
         fail_if_unsat_core_generation("nla2bv", g);
         result.reset();
@@ -467,7 +466,6 @@ public:
         proc(*(g.get()), mc);
         g->add(mc.get());
         result.push_back(g.get());
-        SASSERT(g->is_well_sorted());
     }
     
     void cleanup() override {

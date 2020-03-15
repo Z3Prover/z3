@@ -237,7 +237,6 @@ public:
 
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         tactic_report report("elim-small-bv", *g);
         bool produce_proofs = g->proofs_enabled();
         fail_if_proof_generation("elim-small-bv", g);
@@ -247,7 +246,7 @@ public:
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
         unsigned   size = g->size();
-        for (unsigned idx = 0; idx < size; idx++) {
+        for (unsigned idx = 0; !g->inconsistent() && idx < size; idx++) {
             expr * curr = g->form(idx);
             m_rw(curr, new_curr, new_pr);
             if (produce_proofs) {
@@ -261,8 +260,6 @@ public:
         report_tactic_progress(":elim-small-bv-num-eliminated", m_rw.m_cfg.m_num_eliminated);
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("elim-small-bv", g->display(tout););
-        SASSERT(g->is_well_sorted());
     }
 
     void cleanup() override {

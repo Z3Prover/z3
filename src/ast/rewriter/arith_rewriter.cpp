@@ -869,11 +869,14 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         }
     } 
     if (divides(arg1, arg2, result)) { 
+        expr_ref zero(m_util.mk_int(0), m()); 
+        result = m().mk_ite(m().mk_eq(zero, arg2), m_util.mk_idiv(arg1, zero), result);
         return BR_REWRITE_FULL; 
-    }  
+    } 
     return BR_FAILED;
 }
  
+
 //  
 // implement div ab ac = floor( ab / ac) = floor (b / c) = div b c 
 //
@@ -919,6 +922,7 @@ bool arith_rewriter::divides(expr* num, expr* den, expr_ref& result) {
     } 
     return false; 
 } 
+
 
 expr_ref arith_rewriter::remove_divisor(expr* arg, expr* num, expr* den) { 
     ptr_buffer<expr> args1, args2; 
@@ -1160,6 +1164,10 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
     if (!is_num_x && !is_irrat_x)
         return BR_FAILED;
+
+    if (y.is_zero()) {
+        return BR_FAILED;
+    }
 
     rational num_y = numerator(y);
     rational den_y = denominator(y);

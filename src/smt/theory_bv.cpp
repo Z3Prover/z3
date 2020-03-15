@@ -53,6 +53,7 @@ namespace smt {
         app * owner           = n->get_owner();
         unsigned bv_size      = get_bv_size(n);
         context & ctx         = get_context();
+        bool is_relevant      = ctx.is_relevant(n);
         literal_vector & bits = m_bits[v];
         TRACE("bv", tout << "v" << v << "\n";);
         bits.reset();
@@ -61,6 +62,9 @@ namespace smt {
             ctx.internalize(bit, true);
             bool_var b = ctx.get_bool_var(bit);
             bits.push_back(literal(b));
+            if (is_relevant && !ctx.is_relevant(b)) {
+                ctx.mark_as_relevant(b);
+            }
         }
     }
 
@@ -885,9 +889,7 @@ namespace smt {
         find_wpos(v);
     }
 
-    bool theory_bv::internalize_term(app * term) {
-        scoped_suspend_rlimit _suspend_cancel(get_manager().limit());
-        try {
+    bool theory_bv::internalize_term_core(app * term) {
         SASSERT(term->get_family_id() == get_family_id());
         TRACE("bv", tout << "internalizing term: " << mk_bounded_pp(term, get_manager()) << "\n";);
         if (approximate_term(term)) {
@@ -945,6 +947,12 @@ namespace smt {
             UNREACHABLE();
             return false;
         }
+    }
+
+    bool theory_bv::internalize_term(app * term) {
+        scoped_suspend_rlimit _suspend_cancel(get_manager().limit());
+        try {
+            return internalize_term_core(term);
         }
         catch (z3_exception& ex) {
             IF_VERBOSE(1, verbose_stream() << "internalize_term: " << ex.msg() << "\n";);
@@ -1129,7 +1137,6 @@ namespace smt {
             }
         }
         return false;
-
     }
 
     void theory_bv::apply_sort_cnstr(enode * n, sort * s) {
@@ -1236,7 +1243,7 @@ namespace smt {
 
     void theory_bv::assign_eh(bool_var v, bool is_true) {
         atom * a      = get_bv2a(v);
-        TRACE("bv", tout << "assert: b" << v << " #" << get_context().bool_var2expr(v)->get_id() << " is_true: " << is_true << "\n";);
+        TRACE("bv", tout << "assert: p" << v << " #" << get_context().bool_var2expr(v)->get_id() << " is_true: " << is_true << "\n";);
         if (a->is_bit()) {
             // The following optimization is not correct.
             // Boolean variables created for performing bit-blasting are reused.
@@ -1246,6 +1253,9 @@ namespace smt {
             //    TRACE("bv", tout << "has th_justification\n";);
             //    return;
             // }
+            //for (auto kv : m_prop_queue) {
+            //    std::cout << "v" << kv.first << "[" << kv.second << "]\n";
+            //}
             m_prop_queue.reset();
             bit_atom * b = static_cast<bit_atom*>(a);
             var_pos_occ * curr = b->m_occs;
@@ -1253,7 +1263,6 @@ namespace smt {
                 m_prop_queue.push_back(var_pos(curr->m_var, curr->m_idx));
                 curr = curr->m_next;
             }
-            TRACE("bv", tout << "prop queue size: " << m_prop_queue.size() << "\n";);
             propagate_bits();
 
 #if WATCH_DISEQ
@@ -1286,7 +1295,7 @@ namespace smt {
                 continue;
             }
             theory_var v2         = next(v);
-            TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v)->get_owner_id() << "[" << idx << "] = " << val << " " << ctx.get_scope_level() << "\n";);
+            TRACE("bv", tout << "propagating v" << v << " #" << get_enode(v)->get_owner_id() << "[" << idx << "] = " << val << " " << ctx.get_scope_level() << "\n";);
             literal antecedent = bit;
 
             if (val == l_false) {
@@ -1307,7 +1316,7 @@ namespace smt {
                     }
                     assign_bit(consequent, v, v2, idx, antecedent, false);
                     if (ctx.inconsistent()) {
-                        TRACE("bv_bit_prop", tout << "inconsistent " << bit <<  " " << bit2 << "\n";);
+                        TRACE("bv", tout << "inconsistent " << bit <<  " " << bit2 << "\n";);
                         m_prop_queue.reset();
                         return;
                     }
@@ -1389,7 +1398,7 @@ namespace smt {
     void theory_bv::relevant_eh(app * n) {
         ast_manager & m = get_manager();
         context & ctx   = get_context();
-        TRACE("bv", tout << "relevant: " << mk_pp(n, m) << "\n";);
+        TRACE("bv", tout << "relevant: " << ctx.e_internalized(n) << ": " << mk_pp(n, m) << "\n";);
         if (m.is_bool(n)) {
             bool_var v = ctx.get_bool_var(n);
             atom * a   = get_bv2a(v);
@@ -1425,6 +1434,7 @@ namespace smt {
     void theory_bv::push_scope_eh() {
         theory::push_scope_eh();
         m_trail_stack.push_scope();
+        // check_invariant();
 #if WATCH_DISEQ
         m_diseq_watch_lim.push_back(m_diseq_watch_trail.size());
 #endif
@@ -1447,7 +1457,7 @@ namespace smt {
         m_diseq_watch_lim.shrink(m_diseq_watch_lim.size()-num_scopes);
 #endif
         theory::pop_scope_eh(num_scopes);
-        TRACE("bv", m_find.display(tout << get_context().get_scope_level() << " - " 
+        TRACE("bv_verbose", m_find.display(tout << get_context().get_scope_level() << " - " 
                                    << num_scopes << " = " << (get_context().get_scope_level() - num_scopes) << "\n"););
     }
 
@@ -1504,7 +1514,7 @@ namespace smt {
 
     
     void theory_bv::merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
-        TRACE("bv", tout << "merging: #" << get_enode(v1)->get_owner_id() << " #" << get_enode(v2)->get_owner_id() << "\n";);
+        TRACE("bv", tout << "merging: v" << v1 << " #" << get_enode(v1)->get_owner_id() << " v" << v2 << " #" << get_enode(v2)->get_owner_id() << "\n";);
         TRACE("bv_bit_prop", tout << "merging: #" << get_enode(v1)->get_owner_id() << " #" << get_enode(v2)->get_owner_id() << "\n";);
         if (!merge_zero_one_bits(r1, r2)) {
             TRACE("bv", tout << "conflict detected\n";);
@@ -1540,6 +1550,7 @@ namespace smt {
                 SASSERT(bit1 != ~bit2);
                 lbool val1    = ctx.get_assignment(bit1);
                 lbool val2    = ctx.get_assignment(bit2);
+                TRACE("bv", tout << "merge v" << v1 << " " << bit1 << ":= " << val1 << " " << bit2 << ":= " << val2 << "\n";);
                 if (val1 == val2)
                     continue;
                 changed = true;
@@ -1741,7 +1752,7 @@ namespace smt {
         context & ctx = get_context();
         literal_vector const & bits = m_bits[v];
         for (literal lit : bits) {
-            out << " ";
+            out << " " << lit << ":";
             ctx.display_literal(out, lit);
         }
         numeral val;
@@ -1877,6 +1888,8 @@ namespace smt {
     }
 
     bool theory_bv::check_invariant() {
+        if (get_context().inconsistent())
+            return true;
         unsigned num = get_num_vars();
         for (unsigned v = 0; v < num; v++) {
             check_assignment(v);

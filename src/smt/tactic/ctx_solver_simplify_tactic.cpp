@@ -83,7 +83,6 @@ protected:
 
 
     void reduce(goal& g) {
-        SASSERT(g.is_well_sorted());
         TRACE("ctx_solver_simplify_tactic", g.display(tout););
         expr_ref fml(m);
         tactic_report report("ctx-solver-simplify", g);
@@ -125,7 +124,6 @@ protected:
         g.reset();
         g.assert_expr(fml, nullptr, nullptr);
         IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(ctx-solver-simplify :num-steps " << m_num_steps << ")\n";);
-        SASSERT(g.is_well_sorted());        
     }
 
     struct expr_pos {

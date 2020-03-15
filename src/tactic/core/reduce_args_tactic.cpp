@@ -482,14 +482,13 @@ reduce_args_tactic::~reduce_args_tactic() {
 
 void reduce_args_tactic::operator()(goal_ref const & g, 
                                     goal_ref_buffer & result) {
-    SASSERT(g->is_well_sorted());
-    fail_if_proof_generation("reduce-args", g);
     fail_if_unsat_core_generation("reduce-args", g);
     result.reset();
-    m_imp->operator()(*(g.get()));
+    if (!m_imp->m().proofs_enabled()) {
+        m_imp->operator()(*(g.get()));
+    }
     g->inc_depth();
     result.push_back(g.get());
-    SASSERT(g->is_well_sorted());
 }
 
 void reduce_args_tactic::cleanup() {

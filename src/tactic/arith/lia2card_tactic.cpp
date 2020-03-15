@@ -170,13 +170,11 @@ public:
     }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         m_bounds.reset();
         m_mc.reset();
         expr_ref_vector axioms(m);
         expr_safe_replace rep(m);
 
-        TRACE("pb", g->display(tout););
         tactic_report report("lia2card", *g);
 
         bound_manager bounds(m);
@@ -197,15 +195,21 @@ public:
                 TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
             }
         }
-        for (unsigned i = 0; i < g->size(); i++) {
+        for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {
             checkpoint();
 
             expr_ref   new_curr(m), tmp(m);
-            proof_ref  new_pr(m);
+            proof_ref  pr1(m), pr2(m), new_pr(m);
             rep(g->form(i), tmp);
+            if (g->form(i) != tmp && m.proofs_enabled()) {
+                pr1 = m.mk_rewrite(g->form(i), tmp);
+            }
             m_rw(tmp, new_curr, new_pr);
-            if (m.proofs_enabled() && !new_pr) {
-                new_pr = m.mk_rewrite(g->form(i), new_curr);
+            if (m.proofs_enabled() && tmp != new_curr) {
+                pr2 = m.mk_rewrite(tmp, new_curr);
+            }
+            if (m.proofs_enabled()) {
+                new_pr = m.mk_transitivity(pr1, pr2);
                 new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
             }
             // IF_VERBOSE(0, verbose_stream() << mk_pp(g->form(i), m) << "\n--->\n" << new_curr << "\n";);
@@ -218,8 +222,6 @@ public:
         if (m_mc) g->add(m_mc.get());
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("pb", g->display(tout););
-        SASSERT(g->is_well_sorted());
         m_bounds.reset();
     }
 

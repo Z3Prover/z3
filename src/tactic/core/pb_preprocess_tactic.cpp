@@ -110,8 +110,7 @@ public:
     void operator()(
         goal_ref const & g, 
         goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
-
+        tactic_report report("pb-preprocess", *g);
         if (g->proofs_enabled()) {
             throw tactic_exception("pb-preprocess does not support proofs");
         }

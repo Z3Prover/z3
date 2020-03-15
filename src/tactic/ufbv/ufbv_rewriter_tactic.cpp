@@ -43,7 +43,6 @@ public:
     }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         tactic_report report("ufbv-rewriter", *g);
         fail_if_unsat_core_generation("ufbv-rewriter", g);
 
@@ -71,8 +70,6 @@ public:
 
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("ufbv-rewriter", g->display(tout););
-        SASSERT(g->is_well_sorted());
     }
 
     void cleanup() override {}

@@ -1550,7 +1550,6 @@ class fm_tactic : public tactic {
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("fm", *g);
             fail_if_proof_generation("fm", g);
             m_produce_models = g->models_enabled();
@@ -1604,7 +1603,6 @@ class fm_tactic : public tactic {
             reset_constraints();
             result.push_back(m_new_goal.get());
             TRACE("fm", m_new_goal->display(tout););
-            SASSERT(m_new_goal->is_well_sorted());
         }
         
         void display_constraints(std::ostream & out, constraints const & cs) const {

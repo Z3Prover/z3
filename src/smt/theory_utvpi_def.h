@@ -546,8 +546,9 @@ namespace smt {
             // do not create an alias.
             return null_theory_var;
         }
-        for (unsigned i = 0; i < n->get_num_args(); ++i) {
-            mk_term(to_app(n->get_arg(i)));
+        for (expr* arg : *n) {
+            if (!ctx.e_internalized(arg))
+                ctx.internalize(arg, false);
         }
         th_var target = mk_var(ctx.mk_enode(n, false, false, true));
         coeffs.push_back(std::make_pair(target, rational(-1)));
@@ -571,6 +572,10 @@ namespace smt {
             SASSERT(v != null_theory_var);
         }
         else {
+            for (expr* arg : *n) {
+                if (!ctx.e_internalized(arg))
+                    ctx.internalize(arg, false);
+            }
             v = mk_var(ctx.mk_enode(n, false, false, true));
             // v = k: v <= k k <= v
             coeffs coeffs;
@@ -672,7 +677,10 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::enable_edge(edge_id id) {
-        return (id == null_edge_id) || (m_graph.enable_edge(id) && m_graph.enable_edge(id+1));
+        return 
+            (id == null_edge_id) || 
+            (m_graph.enable_edge(id) && m_graph.enable_edge(id+1)) ||
+            m_non_utvpi_exprs;
     }
 
     template<typename Ext>

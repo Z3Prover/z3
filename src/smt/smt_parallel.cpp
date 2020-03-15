@@ -35,7 +35,7 @@ namespace smt {
 
         // try first sequential with a low conflict budget to make super easy problems cheap
         unsigned max_c = std::min(thread_max_conflicts, 40u);
-        ctx.get_fparams().m_max_conflicts = max_c;
+        flet<unsigned> _mc(ctx.get_fparams().m_max_conflicts, max_c);
         result = ctx.check(asms.size(), asms.c_ptr());
         if (result != l_undef || ctx.m_num_conflicts < max_c) {
             return result;

@@ -372,7 +372,6 @@ public:
 
 void bv_size_reduction_tactic::operator()(goal_ref const & g, 
                                           goal_ref_buffer & result) {
-    SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-size-reduction", g);
     fail_if_unsat_core_generation("bv-size-reduction", g);
     TRACE("goal", g->display(tout););
@@ -382,7 +381,6 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
     g->inc_depth();
     g->add(mc.get());
     result.push_back(g.get());
-    SASSERT(g->is_well_sorted());
 }
 }
 

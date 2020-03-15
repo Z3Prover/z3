@@ -2816,7 +2816,7 @@ proof * ast_manager::mk_goal(expr * f) {
 }
 
 proof * ast_manager::mk_modus_ponens(proof * p1, proof * p2) {
-    if (!p1 || !p2) return nullptr;
+    if (!p2 || !p1) return p1;
     SASSERT(has_fact(p1));
     SASSERT(has_fact(p2));
     CTRACE("mk_modus_ponens", !(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2))),
@@ -3107,6 +3107,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
 #ifdef Z3DEBUG
         svector<bool> found;
 #endif
+        ast_mark mark;
         for (unsigned i = 0; i < num_args; i++) {
             bool found_complement = false;
             expr * lit = cls->get_arg(i);
@@ -3118,8 +3119,12 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
                     break;
                 }
             }
-            if (!found_complement)
-                new_lits.push_back(lit);
+            if (!found_complement) {
+                if (!mark.is_marked(lit)) {
+                    new_lits.push_back(lit);
+                    mark.mark(lit, true);
+                }
+            }
         }
         DEBUG_CODE({
                 for (unsigned i = 1; proofs_enabled() && i < num_proofs; i++) {
@@ -3168,7 +3173,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         SASSERT(is_or(f1));
         app * cls            = to_app(f1);
         unsigned cls_sz      = cls->get_num_args();
-        CTRACE("cunit_bug", !(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))),
+        CTRACE("unit_bug", !(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))),
           for (unsigned i = 0; i < num_proofs; i++) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
           tout << "===>\n";
           tout << mk_pp(new_fact, *this) << "\n";);
@@ -3176,7 +3181,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         // typically: num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))
         // but formula could have repeated literals that are merged in the clausal representation.
         //
-        unsigned num_matches = 0;
+        unsigned num_matches = 0, num_occ = 0;
         for (unsigned i = 0; i < cls_sz; i++) {
             expr * lit = cls->get_arg(i);
             unsigned j = 1;
@@ -3187,11 +3192,12 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
                 }
             }
             if (j == num_proofs) {
-                CTRACE("unit_bug1", new_fact != lit, tout << mk_ll_pp(new_fact, *this) << "\n" << mk_ll_pp(lit, *this) << "\n";);
+                CTRACE("unit_bug", new_fact != lit, tout << mk_pp(f1, *this) << "\n" << mk_ll_pp(new_fact, *this) << "\n" << mk_ll_pp(lit, *this) << "\n";);
                 SASSERT(new_fact == lit);
+                ++num_occ;
             }
         }
-        SASSERT(num_matches == cls_sz || num_matches == cls_sz - 1);
+        SASSERT(num_matches == cls_sz || num_matches == cls_sz - num_occ);
         SASSERT(num_matches != cls_sz || is_false(new_fact));
     }
 #endif

@@ -316,7 +316,7 @@ namespace smt {
     void qi_queue::push_scope() {
         TRACE("new_entries_bug", tout << "[qi:push-scope]\n";);
         m_scopes.push_back(scope());
-        SASSERT(m_new_entries.empty());
+        SASSERT(m_context.inconsistent() || m_new_entries.empty());
         scope & s = m_scopes.back();
         s.m_delayed_entries_lim    = m_delayed_entries.size();
         s.m_instances_lim          = m_instances.size();
@@ -347,6 +347,7 @@ namespace smt {
 
     void qi_queue::init_search_eh() {
         m_subst.reset();
+        m_new_entries.reset();
     }
 
     bool qi_queue::final_check_eh() {

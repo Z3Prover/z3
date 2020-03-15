@@ -612,7 +612,20 @@ namespace smt {
                 }
 
                 if (inst.m_def) {
-                    m_context->internalize_assertion(inst.m_def, nullptr, gen);
+                    unsigned n = 1;
+                    expr* const* args = &inst.m_def;
+                    if (m.is_and(inst.m_def)) {
+                        n = to_app(inst.m_def)->get_num_args();
+                        args = to_app(inst.m_def)->get_args();
+                    }
+                    for (unsigned i = 0; i < n; ++i) {
+                        proof* pr = nullptr;
+                        expr* arg = args[i];
+                        if (m.proofs_enabled()) {
+                            pr = m.mk_def_intro(arg);
+                        }
+                        m_context->internalize_assertion(arg, pr, gen);
+                    }
                 }
 
                 TRACE("model_checker_bug_detail", tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";

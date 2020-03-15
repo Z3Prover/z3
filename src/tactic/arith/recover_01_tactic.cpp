@@ -293,7 +293,6 @@ class recover_01_tactic : public tactic {
     
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             fail_if_proof_generation("recover-01", g);
             fail_if_unsat_core_generation("recover-01", g);
             m_produce_models      = g->models_enabled();
@@ -365,7 +364,7 @@ class recover_01_tactic : public tactic {
             }
             result.push_back(new_goal.get());
             TRACE("recover_01", new_goal->display(tout););
-            SASSERT(new_goal->is_well_sorted());
+            SASSERT(new_goal->is_well_formed());
         }
         
         ~imp() {
