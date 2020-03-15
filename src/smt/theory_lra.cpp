@@ -437,7 +437,7 @@ class theory_lra::imp {
         return add_const(1, is_int ? m_one_var : m_rone_var, is_int);
     }
 
-     lpvar get_zero(bool is_int) {
+    lpvar get_zero(bool is_int) {
         return add_const(0, is_int ? m_zero_var : m_rzero_var, is_int);
     }
 
