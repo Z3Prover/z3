@@ -24,6 +24,7 @@
 #include "math/lp/var_eqs.h"
 #include "math/lp/monic.h"
 #include "util/region.h"
+#include "util/map.h"
 
 namespace nla {
 
@@ -93,7 +94,7 @@ class emonics {
     hash_canonical               m_cg_hash;
     eq_canonical                 m_cg_eq;
     unsigned_vector              m_vs;            // temporary buffer of canonized variables
-    hashtable<lpvar, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
+    map<lpvar, unsigned_vector, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
 
 
     void inc_visited() const;
@@ -129,7 +130,7 @@ public:
         m_visited(0), 
         m_cg_hash(*this),
         m_cg_eq(*this),
-        m_cg_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_cg_hash, m_cg_eq) { 
+        m_cg_table(m_cg_hash, m_cg_eq) { 
         m_ve.set_merge_handler(this); 
     }
 
@@ -172,8 +173,7 @@ public:
     */
 
     monic const& rep(monic const& sv) const {
-        unsigned j = -1;
-        m_cg_table.find(sv.var(), j);
+        unsigned j = m_cg_table[sv.var()][0];
         return m_monics[m_var2index[j]];
     }
 

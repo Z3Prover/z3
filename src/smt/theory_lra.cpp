@@ -3120,8 +3120,8 @@ public:
     void fixed_var_eh(theory_var v1, rational const& bound) {
         theory_var v2;
         value_sort_pair key(bound, is_int(v1));
-        if (m_fixed_var_table.find(key, v2) && is_int(v1) == is_int(v2)) {
-            if (static_cast<unsigned>(v2) < th.get_num_vars() && !is_equal(v1, v2)) {
+        if (m_fixed_var_table.find(key, v2)) {
+            if (static_cast<unsigned>(v2) < th.get_num_vars() && !is_equal(v1, v2) && is_int(v1) == is_int(v2)) {
                 auto vi1 = register_theory_var_in_lar_solver(v1);
                 auto vi2 = register_theory_var_in_lar_solver(v2);
                 lp::constraint_index ci1, ci2, ci3, ci4;
