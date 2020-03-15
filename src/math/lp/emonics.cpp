@@ -47,21 +47,10 @@ void emonics::push() {
     SASSERT(invariant());
 }
 
-//
-// this assumes that all calls to m_ve.merge are after emonics::add within
-// the same scope. Suppose that m_ve.merge is used before an emonics:add in the same scope
-// then the unmerge on the variable applies to the monic during pop, which it shouldn't.
-// To fix this, the undo-stack for m_ve and monics addition have to be coordinated
-// this could be achieved in some ways, such as pushing a scope on m_ve whenever a monic is added.
-// Before fixing this it is worth adding a unit test to exercise this scenario. 
-// The scenario is difficult to trigger from the normal solving context because emonics::add
-// is triggered by internalization, which typically happens before search (except for quantifier instantiation).
-//
 void emonics::pop(unsigned n) {
     TRACE("nla_solver_mons", tout << "pop: " << n << "\n";);
     SASSERT(invariant());
     for (unsigned j = 0; j < n; ++j) {
-        m_ve.pop(1);
         unsigned old_sz = m_lim[m_lim.size() - 1];
         for (unsigned i = m_monics.size(); i-- > old_sz; ) {
             monic & m = m_monics[i];
@@ -71,12 +60,13 @@ void emonics::pop(unsigned n) {
             lpvar last_var = UINT_MAX;
             for (lpvar v : m.vars()) {
                 if (v != last_var) {
-                    TRACE("nla_solver_mons", tout << "remove cell " << v << ": " << i << " " << m_use_lists[v].m_head->m_index << "\n";);
                     remove_cell(m_use_lists[v]);
                     last_var = v;
                 }
             }
+            m_ve.pop(1);
         }
+        m_ve.pop(1);
         m_monics.shrink(old_sz);
         m_region.pop_scope(1);
         m_lim.pop_back();
@@ -318,6 +308,7 @@ void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
     TRACE("nla_solver_mons", tout << "v = " << v << "\n";);
     SASSERT(m_ve.is_root(v));
     SASSERT(!is_monic_var(v));
+    m_ve.push();
     unsigned idx = m_monics.size();
     bool sign = false; 
     m_vs.reset();
