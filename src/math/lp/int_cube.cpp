@@ -57,8 +57,7 @@ namespace lp {
     }
 
     bool int_cube::tighten_term_for_cube(unsigned i) {
-        unsigned ti = i + lra.terms_start_index();
-        if (!lra.term_is_used_as_row(ti))
+        if (!lra.term_is_used_as_row(i))
             return true;
         const lar_term* t = lra.terms()[i];
         impq delta = get_cube_delta_for_term(*t);

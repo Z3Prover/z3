@@ -89,7 +89,6 @@ private:
     int_solver *                                        m_int_solver;
     bool                                                m_need_register_terms;
 public:
-    const var_index                                     m_terms_start_index;
     var_register                                        m_var_register;
     var_register                                        m_term_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
@@ -109,7 +108,6 @@ public:
                                                         m_normalized_terms_to_columns;
     // end of fields
 
-    unsigned terms_start_index() const { return m_terms_start_index; }
     const vector<lar_term*> & terms() const { return m_terms; }
     lar_term const& term(unsigned i) const { return *m_terms[i]; }
     constraint_set const& constraints() const { return m_constraints; }
@@ -144,7 +142,6 @@ public:
         return m_mpq_lar_core_solver.m_r_x[j].x;
     }
 
-    bool is_term(var_index j) const;
     bool column_is_fixed(unsigned j) const;
     bool column_is_free(unsigned j) const;
 public:
@@ -245,9 +242,6 @@ public:
     bool get_track_pivoted_rows() const;
     
     virtual ~lar_solver();
-
-    unsigned adjust_term_index(unsigned j) const;
-
 
     bool use_lu() const;
     
@@ -591,15 +585,15 @@ public:
             t.subst_index(p.first, p.second);            
         }
     }
-
+    
     std::ostream& print_column_info(unsigned j, std::ostream& out) const {
         m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
         if (is_term(j)) {
-            const lar_term& t = * m_terms[j - m_terms_start_index];
+            const lar_term& t = * m_terms[unmask_term(j)];
             print_term_as_indices(t, out) << "\n";
             
         } else if(column_corresponds_to_term(j)) { 
-            const lar_term& t = * m_terms[m_var_register.local_to_external(j) - m_terms_start_index];
+            const lar_term& t = * m_terms[unmask_term(m_var_register.local_to_external(j))];
             print_term_as_indices(t, out) << "\n";
         }
         return out;

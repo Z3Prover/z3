@@ -66,7 +66,7 @@ lp::lar_term core::subs_terms_to_columns(const lp::lar_term& t) const {
     lp::lar_term r;
     for (const auto& p : t) {
         lpvar j = p.var();
-        if (m_lar_solver.is_term(j))
+        if (lp::is_term(j))
             j = m_lar_solver.map_term_index_to_column_index(j);
         r.add_monomial(p.coeff(), j);
     }
@@ -133,7 +133,7 @@ void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
     m_add_buffer.resize(sz);
     for (unsigned i = 0; i < sz; i++) {
         lpvar j = vs[i];
-        if (m_lar_solver.is_term(j))
+        if (lp::is_term(j))
             j = m_lar_solver.map_term_index_to_column_index(j);
         m_add_buffer[i] = j;
     }
@@ -840,10 +840,9 @@ void core::collect_equivs() {
     const lp::lar_solver& s = m_lar_solver;
 
     for (unsigned i = 0; i < s.terms().size(); i++) {
-        unsigned ti = i + s.terms_start_index();
-        if (!s.term_is_used_as_row(ti))
+        if (!s.term_is_used_as_row(i))
             continue;
-        lpvar j = s.external_to_local(ti);
+        lpvar j = s.external_to_local(lp::mask_term(i));
         if (var_is_fixed_to_zero(j)) {
             TRACE("nla_solver_eq", tout << "term = "; s.print_term_as_indices(*s.terms()[i], tout););
             add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
@@ -1364,8 +1363,8 @@ lbool core::test_check(
 }
 
 std::ostream& core::print_terms(std::ostream& out) const {
-    for (unsigned i=0; i< m_lar_solver.m_terms.size(); i++) {
-        unsigned ext = i + m_lar_solver.terms_start_index();
+    for (unsigned i = 0; i< m_lar_solver.m_terms.size(); i++) {
+        unsigned ext = lp::mask_term(i);
         if (!m_lar_solver.var_is_registered(ext)) {
             out << "term is not registered\n";
             continue;
@@ -1716,8 +1715,8 @@ bool core::is_nl_var(lpvar j) const {
 
 
 bool core::influences_nl_var(lpvar j) const {
-    if (m_lar_solver.is_term(j))
-        j = m_lar_solver.adjust_term_index(j);
+    if (lp::is_term(j))
+        j = lp::unmask_term(j);
     if (is_nl_var(j))
         return true;
     for (const auto & c : m_lar_solver.A_r().m_columns[j]) {
