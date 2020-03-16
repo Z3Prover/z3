@@ -340,7 +340,7 @@ bool core:: explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bou
     return true;
 }
 
-bool core:: explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
+bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
     const rational& a = p.coeff();
     lpvar j = lp::is_term(p.var())? m_lar_solver.map_term_index_to_column_index(p.var()) : p.var();
     SASSERT(!a.is_zero());
