@@ -329,7 +329,6 @@ namespace smt {
     template<typename Ext>
     bool theory_utvpi<Ext>::internalize_atom(app * n, bool) {
         context & ctx = get_context();
-        std::cout << mk_pp(n, ctx.get_manager()) << "\n";
         if (!a.is_le(n) && !a.is_ge(n) && !a.is_lt(n) && !a.is_gt(n)) {
             found_non_utvpi_expr(n);
             return false;
@@ -351,20 +350,20 @@ namespace smt {
         coeffs coeffs;
         mk_coeffs(m_test.get_linearization(), coeffs, w);
 
-        bool_var bv = ctx.mk_bool_var(n);
-        ctx.set_var_theory(bv, get_id());
-        literal l(bv);
-
-
         if (coeffs.empty()) {
             throw default_exception("utvi formulas require pre-processing and dont work with quantifiers");
         }
+
+        bool_var bv = ctx.mk_bool_var(n);
+        ctx.set_var_theory(bv, get_id());
+        literal l(bv);
+        m_bool_var2atom.insert(bv, m_atoms.size());
+
         numeral w1 = mk_weight(a.is_real(e1), is_strict, w);
         edge_id pos = add_ineq(coeffs, w1, l);        
         negate(coeffs, w);
         numeral w2 = mk_weight(a.is_real(e1), !is_strict, w);
         edge_id neg = add_ineq(coeffs, w2, ~l);
-        m_bool_var2atom.insert(bv, m_atoms.size());
         m_atoms.push_back(atom(bv, pos, neg));
         
         TRACE("utvpi", 
