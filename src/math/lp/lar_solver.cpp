@@ -1693,9 +1693,9 @@ bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>>
     return true;
 }
 
-// do not register this term if ext_i == UINT_MAX
+// do not register in m_var_register this term if ext_i == UINT_MAX
 var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs, unsigned ext_i) {
-    TRACE("lar_solver_terms", print_linear_combination_of_column_indices_only(coeffs, tout) << ", ext_i =" << ext_i << "\n";); 
+    TRACE("lar_solver_terms", print_linear_combination_of_column_indices_only(coeffs, tout) << ", ext_i =" << ext_i << "\n";);
     m_term_register.add_var(ext_i, term_is_int(coeffs));   
     lp_assert(all_vars_are_registered(coeffs));
     if (strategy_is_undecided())
@@ -2362,6 +2362,9 @@ std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, 
     coeffs.push_back(std::make_pair(mpq(1),j));
     coeffs.push_back(std::make_pair(mpq(-1),k));    
     unsigned term_index = add_term(coeffs, UINT_MAX); // UINT_MAX is the external null var
+    if (get_column_value(j) != get_column_value(k)) {
+        set_infeasible_column(map_term_index_to_column_index(term_index));
+    }
     return std::pair<constraint_index, constraint_index>(
         add_var_bound(term_index, lconstraint_kind::LE, mpq(0)),
         add_var_bound(term_index, lconstraint_kind::GE, mpq(0)));
