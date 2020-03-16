@@ -297,7 +297,7 @@ namespace smt {
         m_coeffs.reset();        
     }
     
-    void farkas_util::add(rational const & coef, app * c) {
+    bool farkas_util::add(rational const & coef, app * c) {
         bool is_pos = true;
         expr* e;
         while (m.is_not(c, e)) {
@@ -306,9 +306,15 @@ namespace smt {
         }
         
         if (!coef.is_zero() && !m.is_true(c)) {
-            m_coeffs.push_back(coef);                
-            m_ineqs.push_back(fix_sign(is_pos, c));                
+            if (m.is_eq(c) || a.is_le(c) || a.is_lt(c) || a.is_gt(c) || a.is_ge(c)) {
+                m_coeffs.push_back(coef);
+                m_ineqs.push_back(fix_sign(is_pos, c));
+            }
+            else {
+                return false;
+            }
         }
+        return true;
     }
     
     expr_ref farkas_util::get() {

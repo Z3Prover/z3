@@ -1227,7 +1227,8 @@ namespace smt {
                 continue;
             }
             ctx.literal2expr(lits[i], tmp);
-            farkas.add(abs(pa.get_rational()), to_app(tmp));
+            if (!farkas.add(abs(pa.get_rational()), to_app(tmp)))
+                return;
         }
         for (unsigned i = 0; i < num_eqs; ++i) {
             enode_pair const& p = eqs[i];
@@ -1236,9 +1237,11 @@ namespace smt {
             tmp = m.mk_eq(x,y);
             parameter const& pa = params[1 + num_lits + i];
             SASSERT(pa.is_rational());
-            farkas.add(abs(pa.get_rational()), to_app(tmp));
+            if (!farkas.add(abs(pa.get_rational()), to_app(tmp)))
+                return;
         }
         tmp = farkas.get();
+
         if (m.has_trace_stream()) {
             log_axiom_instantiation(tmp);
             m.trace_stream() << "[end-of-instance]\n";
