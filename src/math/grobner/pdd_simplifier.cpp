@@ -119,6 +119,9 @@ namespace dd {
             if (has_conflict) {
                 break;
             }
+            if (s.is_trivial(*src)) {
+                continue;
+            }
             unsigned v = src->poly().var();
             equation_vector const& uses = use_list[v];
             TRACE("dd.solver", 
@@ -152,8 +155,8 @@ namespace dd {
                     s.push_equation(solver::to_simplify, dst);
                 }
                 // v has been eliminated.
-                //                SASSERT(!dst->poly().free_vars().contains(v));
-                add_to_use(dst, use_list);                
+                // SASSERT(!dst->poly().free_vars().contains(v));
+                add_to_use(dst, use_list);  
             }          
             if (all_reduced) {
                 linear[j++] = src;              
