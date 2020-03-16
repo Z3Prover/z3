@@ -342,21 +342,22 @@ bool core:: explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bou
 
 bool core:: explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
     const rational& a = p.coeff();
+    lpvar j = lp::is_term(p.var())? m_lar_solver.map_term_index_to_column_index(p.var()) : p.var();
     SASSERT(!a.is_zero());
     unsigned c; // the index for the lower or the upper bound
     if (a.is_neg()) {
-        unsigned c = m_lar_solver.get_column_lower_bound_witness(p.var());
+        unsigned c = m_lar_solver.get_column_lower_bound_witness(j);
         if (c + 1 == 0)
             return false;
-        bound = a * m_lar_solver.get_lower_bound(p.var()).x;
+        bound = a * m_lar_solver.get_lower_bound(j).x;
         e.add(c);
         return true;
     }
     // a.is_pos()
-    c = m_lar_solver.get_column_upper_bound_witness(p.var());
+    c = m_lar_solver.get_column_upper_bound_witness(j);
     if (c + 1 == 0)
         return false;
-    bound = a * m_lar_solver.get_upper_bound(p.var()).x;
+    bound = a * m_lar_solver.get_upper_bound(j).x;
     e.add(c);
     return true;
 }
