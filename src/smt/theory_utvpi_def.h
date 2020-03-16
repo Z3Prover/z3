@@ -377,7 +377,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::internalize_term(app * term) {
-        bool result = null_theory_var != mk_term(term);
+        bool result = !get_context().inconsistent() && null_theory_var != mk_term(term);
         CTRACE("utvpi", !result, tout << "Did not internalize " << mk_pp(term, get_manager()) << "\n";);
         return result;
     }
@@ -649,10 +649,10 @@ namespace smt {
         if (terms.size() >= 2) {
             v2 = terms[1].first;
             pos2 = terms[1].second.is_one();
-            SASSERT(v1 != null_theory_var);
+            SASSERT(v2 != null_theory_var);
             SASSERT(pos2 || terms[1].second.is_minus_one());
         }            
-//        TRACE("utvpi", tout << (pos1?"$":"-$") << v1 << (pos2?" + $":" - $") << v2 << " + " << weight << " <= 0\n";);
+        TRACE("utvpi", tout << (pos1?"$":"-$") << v1 << (pos2?" + $":" - $") << v2 << " + " << weight << " <= 0\n";);
         edge_id id = m_graph.get_num_edges();
         th_var w1 = to_var(v1), w2 = to_var(v2);
 
