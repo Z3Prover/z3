@@ -1201,7 +1201,7 @@ namespace smt {
                 break;
             }
         }
-        if (idx == num_lits) {
+        if (idx == num_lits || num_params == 0) {
             return;
         }
         for (unsigned i = 0; i < num_lits; ++i) {

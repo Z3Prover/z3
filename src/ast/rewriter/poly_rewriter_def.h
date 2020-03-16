@@ -766,7 +766,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     }
 
     if (move && num_coeffs == 0 && is_numeral(rhs)) {
-        TRACE("mk_le_bug", tout << "no coeffs\n";);
+        TRACE("mk_le_bug", tout << "no coeffs " << mk_pp(lhs, m()) << " = " << mk_pp(rhs, m()) << "\n";);
         return BR_FAILED;
     }
 
@@ -788,8 +788,14 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     normalize(c);
 
     if (!has_multiple && num_coeffs <= 1) {
+#if 0
+        if (num_coeffs == 0 || is_numeral(rhs)) {
+            return BR_FAILED;
+        }
+#else
         if (move) {
             if (is_numeral(rhs)) {
+                std::cout << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";
                 return BR_FAILED;
             }
         }
@@ -798,7 +804,9 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
                 return BR_FAILED;
             }
         }
+#endif
     }
+    TRACE("le_bug", tout << num_coeffs << " " << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";);
     
     buffer<numeral>  coeffs;
     m_expr2pos.reset();
@@ -912,7 +920,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     new_lhs_monomials[0] = insert_c_lhs ? mk_numeral(c) : nullptr;
     lhs_result = mk_add_app(new_lhs_monomials.size() - lhs_offset, new_lhs_monomials.c_ptr() + lhs_offset);
     rhs_result = mk_add_app(new_rhs_monomials.size() - rhs_offset, new_rhs_monomials.c_ptr() + rhs_offset);
-    TRACE("mk_le_bug", tout << lhs_result << " " << rhs_result << "\n";);
+    TRACE("le_bug", tout << lhs_result << " " << rhs_result << "\n";);
     return BR_DONE;
 }
 
