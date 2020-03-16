@@ -182,14 +182,15 @@ class theory_lra::imp {
         vector<rational>    m_coeffs;
         svector<theory_var> m_vars;
         rational            m_offset;
-        ptr_vector<expr>    m_terms_to_internalize;
+        ptr_vector<expr>    m_to_ensure_enode, m_to_ensure_var;
         internalize_state(ast_manager& m): m_terms(m) {}
         void reset() {
             m_terms.reset();
             m_coeffs.reset();
             m_offset.reset();
             m_vars.reset();
-            m_terms_to_internalize.reset();
+            m_to_ensure_enode.reset();
+            m_to_ensure_var.reset();
         }
     };
     ptr_vector<internalize_state> m_internalize_states;
@@ -214,7 +215,8 @@ class theory_lra::imp {
         vector<rational>&    coeffs() { return m_st.m_coeffs; }
         svector<theory_var>& vars() { return m_st.m_vars; }
         rational&            offset() { return m_st.m_offset; }
-        ptr_vector<expr>&    terms_to_internalize() { return m_st.m_terms_to_internalize; }            
+        ptr_vector<expr>&    to_ensure_enode() { return m_st.m_to_ensure_enode; }            
+        ptr_vector<expr>&    to_ensure_var() { return m_st.m_to_ensure_var; }            
         void push(expr* e, rational c) { m_st.m_terms.push_back(e); m_st.m_coeffs.push_back(c); }
         void set_back(unsigned i) { 
             if (terms().size() == i + 1) return;
@@ -450,20 +452,20 @@ class theory_lra::imp {
                 m_nla->push();
             }
             smt_params_helper prms(ctx().get_params());
-            m_nla->settings().run_order() = prms.arith_nl_order();
-            m_nla->settings().run_tangents() = prms.arith_nl_tangents();
-            m_nla->settings().run_horner() = prms.arith_nl_horner();
-            m_nla->settings().horner_subs_fixed() = prms.arith_nl_horner_subs_fixed();            
-            m_nla->settings().horner_frequency() = prms.arith_nl_horner_frequency();
-            m_nla->settings().horner_row_length_limit() = prms.arith_nl_horner_row_length_limit();
-            m_nla->settings().run_grobner() = prms.arith_nl_grobner();
-            m_nla->settings().grobner_subs_fixed() = prms.arith_nl_grobner_subs_fixed();
-            m_nla->settings().grobner_eqs_growth() =  prms.arith_nl_grobner_eqs_growth();
-            m_nla->settings().grobner_expr_size_growth() =  prms.arith_nl_grobner_expr_size_growth();
+            m_nla->settings().run_order() =                   prms.arith_nl_order();
+            m_nla->settings().run_tangents() =                prms.arith_nl_tangents();
+            m_nla->settings().run_horner() =                  prms.arith_nl_horner();
+            m_nla->settings().horner_subs_fixed() =           prms.arith_nl_horner_subs_fixed();            
+            m_nla->settings().horner_frequency() =            prms.arith_nl_horner_frequency();
+            m_nla->settings().horner_row_length_limit() =     prms.arith_nl_horner_row_length_limit();
+            m_nla->settings().run_grobner() =                 prms.arith_nl_grobner();
+            m_nla->settings().grobner_subs_fixed() =          prms.arith_nl_grobner_subs_fixed();
+            m_nla->settings().grobner_eqs_growth() =          prms.arith_nl_grobner_eqs_growth();
+            m_nla->settings().grobner_expr_size_growth() =    prms.arith_nl_grobner_expr_size_growth();
             m_nla->settings().grobner_expr_degree_growth() =  prms.arith_nl_grobner_expr_degree_growth();
             m_nla->settings().grobner_max_simplified() =      prms.arith_nl_grobner_max_simplified();
-            m_nla->settings().grobner_number_of_conflicts_to_report() =      prms.arith_nl_grobner_cnfl_to_report();
-            m_nla->settings().grobner_quota() = prms.arith_nl_gr_q();
+            m_nla->settings().grobner_number_of_conflicts_to_report() = prms.arith_nl_grobner_cnfl_to_report();
+            m_nla->settings().grobner_quota() =                         prms.arith_nl_gr_q();
         }
     }
 
@@ -543,7 +545,7 @@ class theory_lra::imp {
         while (index < terms.size()) {
             SASSERT(index >= vars.size());
             expr* n = terms[index].get();
-            st.terms_to_internalize().push_back(n);
+            st.to_ensure_enode().push_back(n);
             if (a.is_add(n)) {
                 for (expr* arg : *to_app(n)) {
                     st.push(arg, coeffs[index]);
@@ -560,17 +562,15 @@ class theory_lra::imp {
             else if (a.is_mul(n, n1, n2) && is_numeral(n1, r)) {
                 coeffs[index] *= r;
                 terms[index] = n2;
-                st.terms_to_internalize().push_back(n1);
+                st.to_ensure_enode().push_back(n1);
             }
             else if (a.is_mul(n, n1, n2) && is_numeral(n2, r)) {
                 coeffs[index] *= r;
                 terms[index] = n1;
-                st.terms_to_internalize().push_back(n2);
+                st.to_ensure_enode().push_back(n2);
             }
             else if (a.is_mul(n)) {
-                theory_var v;
-                internalize_mul(to_app(n), v, r);
-                coeffs[index] *= r;
+                theory_var v = internalize_mul(to_app(n));
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
                 ++index;
@@ -620,18 +620,26 @@ class theory_lra::imp {
                     app_ref mod(a.mk_mod(n1, n2), m);
                     ctx().internalize(mod, false);
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
+                    st.to_ensure_var().push_back(n1);
+                    st.to_ensure_var().push_back(n2);
                 }
                 else if (a.is_mod(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
-                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);                    
+                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);           
+                    st.to_ensure_var().push_back(n1);
+                    st.to_ensure_var().push_back(n2);   
                 }
                 else if (a.is_rem(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_rem_axiom(n1, n2);                    
+                    st.to_ensure_var().push_back(n1);
+                    st.to_ensure_var().push_back(n2);
                 }
                 else if (a.is_div(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
+                    st.to_ensure_var().push_back(n1);
+                    st.to_ensure_var().push_back(n2);
                 }
                 else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n)) {
                     found_unsupported(n);
@@ -650,52 +658,55 @@ class theory_lra::imp {
                 ++index;
             }
         }
-        for (unsigned i = st.terms_to_internalize().size(); i-- > 0; ) {
-            expr* n = st.terms_to_internalize()[i];
+        for (unsigned i = st.to_ensure_enode().size(); i-- > 0; ) {
+            expr* n = st.to_ensure_enode()[i];
             if (is_app(n)) {
                 mk_enode(to_app(n));
             }
         }
-        st.terms_to_internalize().reset();
+        st.to_ensure_enode().reset();
+        for (unsigned i = st.to_ensure_var().size(); i-- > 0; ) {
+            expr* n = st.to_ensure_var()[i];
+            if (is_app(n)) {
+                internalize_term(to_app(n));
+            }
+        }
+        st.to_ensure_var().reset();
+        
     }
 
     void internalize_args(app* t) {
-        for (unsigned i = 0; reflect(t) && i < t->get_num_args(); ++i) {
-            if (!ctx().e_internalized(t->get_arg(i))) {
-                ctx().internalize(t->get_arg(i), false);
+        if (!reflect(t)) 
+            return;
+        for (expr* arg : *t) {
+            if (!ctx().e_internalized(arg)) {
+                ctx().internalize(arg, false);
             }
         }
     }
 
-    void internalize_mul(app* t, theory_var& v, rational& r) {
+    theory_var internalize_mul(app* t) {
         SASSERT(a.is_mul(t));
         internalize_args(t);
         bool _has_var = has_var(t);
         mk_enode(t);
-        v = mk_var(t);
-        svector<lpvar> vars;
-        r = rational::one();
-        rational r1;
+        theory_var v = mk_var(t);
 
-        for (expr* n : *t) {
-            if (a.is_numeral(n, r1)) {
-                r *= r1;
-            }
-            else {
-                SASSERT(ctx().e_internalized(n));
-                vars.push_back(register_theory_var_in_lar_solver(mk_var(n)));
-            }
-        }
-
-        TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
         if (!_has_var) {
+            svector<lpvar> vars;
+            for (expr* n : *t) {
+                SASSERT(ctx().e_internalized(n));
+                vars.push_back(register_theory_var_in_lar_solver(mk_var(n)));        
+            }
+            TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
             m_solver->register_existing_terms();            
             m_switcher.add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
         }
+        return v;
     }
 
     enode * mk_enode(app * n) {
-        TRACE("arith", tout << expr_ref(n, m) << "\n";);
+        TRACE("arith", tout << expr_ref(n, m) << " internalized: " << ctx().e_internalized(n) << "\n";);
         if (ctx().e_internalized(n)) {
             return get_enode(n);
         }
@@ -758,6 +769,7 @@ class theory_lra::imp {
         enode* e = get_enode(n);
         theory_var v;
         if (!th.is_attached_to_var(e)) {
+            TRACE("arith", tout << "fresh var: " << mk_pp(n, m) << "\n";);
             v = th.mk_var(e);
             SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
             if (m_bounds.size() <= static_cast<unsigned>(v)) {
@@ -1825,9 +1837,8 @@ public:
             VERIFY(a.is_idiv(n, p, q));
             theory_var v  = mk_var(n);
             theory_var v1 = mk_var(p);
+
             if (!can_get_ivalue(v1))
-                continue;
-            if (!can_get_ivalue(v))
                 continue;
             lp::impq r1 = get_ivalue(v1);
             rational r2;
@@ -1847,8 +1858,8 @@ public:
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
-				if (!can_get_ivalue(v))
-					continue;
+                if (!can_get_ivalue(v))
+                    continue;
                 lp::impq val_v = get_ivalue(v);
                 if (val_v.y.is_zero() && val_v.x == div(r1.x, r2)) continue;
             
@@ -3248,12 +3259,6 @@ public:
             m_core.push_back(lit);
         }
         // lp().shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
-        /*
-          static unsigned cn = 0;
-          static unsigned num_l = 0;
-          num_l+=m_explanation.size();
-          std::cout << num_l / (++cn) << "\n";
-        */
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
         TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
