@@ -788,14 +788,8 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     normalize(c);
 
     if (!has_multiple && num_coeffs <= 1) {
-#if 0
-        if (num_coeffs == 0 || is_numeral(rhs)) {
-            return BR_FAILED;
-        }
-#else
         if (move) {
             if (is_numeral(rhs)) {
-                std::cout << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";
                 return BR_FAILED;
             }
         }
@@ -804,7 +798,6 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
                 return BR_FAILED;
             }
         }
-#endif
     }
     TRACE("le_bug", tout << num_coeffs << " " << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";);
     
