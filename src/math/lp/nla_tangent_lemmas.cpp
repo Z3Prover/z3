@@ -134,7 +134,7 @@ struct imp {
         SASSERT(plane_is_correct_cut(a));
         int steps = 10;
         point del = a - m_xy;
-        while (steps--) {
+        while (steps-- && !c().done()) {
             del *= rational(2);
             point na = m_xy + del;
             TRACE("nla_solver_tp", tout << "del = " << del << std::endl;);
