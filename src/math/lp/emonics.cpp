@@ -225,6 +225,7 @@ void emonics::insert_cg(lpvar v) {
     do {
         unsigned idx = c->m_index;
         c = c->m_next;
+        TRACE("nla_solver_mons", tout << "inserting v" << v << " for " << idx << "\n";);
         monic & m = m_monics[idx];
         if (!is_visited(m)) {
             set_visited(m);
@@ -459,7 +460,7 @@ std::ostream& emonics::display(std::ostream& out) const {
         out << "m" << (idx++) << ": " << m << "\n";
     }    
     display_use(out);
-    //display_uf(out);
+    display_uf(out);
     out << "table:\n";
     for (auto const& k : m_cg_table) {
         out << k.m_key << ": " << k.m_value << "\n";
@@ -506,6 +507,7 @@ std::ostream& emonics::display(std::ostream& out, cell* c) const {
 
 
 bool emonics::invariant() const {
+    TRACE("nla_solver_mons", display(tout););
     // the varible index contains exactly the active monomials
     unsigned mons = 0;
     for (lpvar v = 0; v < m_var2index.size(); v++) {
@@ -528,11 +530,11 @@ bool emonics::invariant() const {
                 bool found = false;
                 for (lp::var_index w : m.vars()) {
                     auto w1 = m_ve.find(w);
-                    found |= v1 == w1;
+                    found |= v1.var() == w1.var();
                 }
                 for (lp::var_index w : m.rvars()) {
                     auto w1 = m_ve.find(w);
-                    found |= v1 == w1;
+                    found |= v1.var() == w1.var();
                 }
                 CTRACE("nla_solver_mons", !found, tout << v << ": " << m << "\n";);
                 SASSERT(found);

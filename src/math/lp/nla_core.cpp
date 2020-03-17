@@ -950,6 +950,7 @@ void core::clear() {
     
 void core::init_search() {
     TRACE("nla_solver_mons", tout << "init\n";);
+    SASSERT(m_emons.invariant());
     clear();
     init_vars_equivalence();
     SASSERT(m_emons.invariant());
