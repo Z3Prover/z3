@@ -569,8 +569,30 @@ namespace algebraic_numbers {
             }
         };
 
+        void check_triangle_inequality(numeral_vector& r) {
+            lt_proc lt(m_wrapper);
+            for (unsigned i = 0; i < r.size(); ++i) {
+                auto& a = r[i];
+                for (unsigned j = i + 1; j < r.size(); ++j) {
+                    auto& b = r[j];
+                    bool ltab = lt(a, b);
+                    for (unsigned k = j + 1; k < r.size(); ++k) {
+                        auto& c = r[k];
+                        CTRACE("algebraic", (lt(b, a) && lt(a, c) && !lt(b, c)),
+                            display_root(tout << "b ", b) << "\n";
+                        display_root(tout << "a ", a) << "\n";
+                        display_root(tout << "c ", c) << "\n";);
+                        SASSERT(!lt(a, b) || !lt(b, c) || lt(a, c));
+                        SASSERT(!lt(a, b) || !lt(c, a) || lt(c, b));
+                        SASSERT(!lt(b, a) || !lt(a, c) || lt(b, c));
+                    }
+                }
+            }
+        }
+
         void sort_roots(numeral_vector & r) {
             if (m_limit.inc()) {
+                //DEBUG_CODE(check_triangle_inequality(r););
                 std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
             }
         }
@@ -1913,6 +1935,7 @@ namespace algebraic_numbers {
         }
 
         bool lt(numeral & a, numeral & b) {
+
             return compare(a, b) < 0;
         }
 
@@ -2656,7 +2679,7 @@ namespace algebraic_numbers {
             }
         }
 
-        void display_root(std::ostream & out, numeral const & a) {
+        std::ostream& display_root(std::ostream & out, numeral const & a) {
             if (is_zero(a)) {
                 out << "(#, 1)"; // first root of polynomial #
             }
@@ -2684,9 +2707,10 @@ namespace algebraic_numbers {
                 out << ", " << c->m_i;
                 out << ")";
             }
+            return out;
         }
 
-        void display_mathematica(std::ostream & out, numeral const & a) {
+        std::ostream& display_mathematica(std::ostream & out, numeral const & a) {
             if (a.is_basic()) {
                 qm().display(out, basic_value(a));
             }
@@ -2701,10 +2725,10 @@ namespace algebraic_numbers {
                 SASSERT(c->m_i > 0);
                 out << " &, " << c->m_i << "]";
             }
-
+            return out;
         }
 
-        void display_root_smt2(std::ostream & out, numeral const & a) {
+        std::ostream& display_root_smt2(std::ostream & out, numeral const & a) {
             if (is_zero(a)) {
                 out << "(root-obj x 1)";
             }
@@ -2732,9 +2756,10 @@ namespace algebraic_numbers {
                 out << " " << c->m_i;
                 out << ")";
             }
+            return out;
         }
 
-        void display_interval(std::ostream & out, numeral const & a) {
+        std::ostream& display_interval(std::ostream & out, numeral const & a) {
             if (a.is_basic()) {
                 out << "[";
                 qm().display(out, basic_value(a));
@@ -2745,6 +2770,7 @@ namespace algebraic_numbers {
             else {
                 bqim().display(out, a.to_algebraic()->m_interval);
             }
+            return out;
         }
 
         bool get_interval(numeral const & a, mpbq & l, mpbq & u, unsigned precision) {
