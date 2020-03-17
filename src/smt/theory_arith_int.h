@@ -620,6 +620,8 @@ namespace smt {
 
         expr_ref bound(get_manager());
         if (pol.empty()) {
+            if (ante.lits().empty() && ante.eqs().empty())
+                return false;
             SASSERT(k.is_pos());
             // conflict 0 >= k where k is positive
             set_conflict(ante, ante, "gomory-cut");
