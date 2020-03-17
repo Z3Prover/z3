@@ -1246,7 +1246,9 @@ bool core::conflict_found() const {
 }
 
 bool core::done() const {
-    return m_lemma_vec->size() >= 10 || conflict_found();
+    return m_lemma_vec->size() >= 10 || 
+        conflict_found() || 
+        lp_settings().get_cancel_flag();
 }
 
 lbool core::incremental_linearization(bool constraint_derived) {
