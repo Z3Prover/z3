@@ -766,7 +766,6 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     }
 
     if (move && num_coeffs == 0 && is_numeral(rhs)) {
-        TRACE("mk_le_bug", tout << "no coeffs " << mk_pp(lhs, m()) << " = " << mk_pp(rhs, m()) << "\n";);
         return BR_FAILED;
     }
 
@@ -799,7 +798,6 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
             }
         }
     }
-    TRACE("le_bug", tout << num_coeffs << " " << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";);
     
     buffer<numeral>  coeffs;
     m_expr2pos.reset();
