@@ -50,6 +50,7 @@ namespace smt {
         scoped_ptr_vector<context> pctxs;
         vector<expr_ref_vector> pasms;
         ast_manager& m = ctx.m;
+        scoped_limits sl(m.limit());
         unsigned finished_id = UINT_MAX;
         std::string        ex_msg;
         par_exception_kind ex_kind = DEFAULT_EX;
@@ -66,6 +67,7 @@ namespace smt {
             new_ctx.set_random_seed(i + ctx.get_fparams().m_random_seed);
             ast_translation tr(m, *new_m);
             pasms.push_back(tr(asms));
+            sl.push_child(&(new_m->limit()));
         }
 
         auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
