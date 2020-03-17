@@ -1951,6 +1951,19 @@ namespace algebraic_numbers {
             }
         }
 
+        unsigned get_i(numeral const & a) {
+            if (a.is_basic()) {
+                if (is_zero(a)) {
+                    return 0;
+                }
+                return 1;
+            }
+            else {
+                algebraic_cell * c = a.to_algebraic();
+                return c->m_i;
+            }
+        }
+
         /**
            \brief "Optimistic" mapping: it assumes all variables are mapped to
            basic_values (rationals). Throws an exception if that is not the case.
@@ -2998,6 +3011,10 @@ namespace algebraic_numbers {
 
     void manager::get_polynomial(numeral const & a, svector<mpz> & r) {
         m_imp->get_polynomial(a, r);
+    }
+
+    unsigned manager::get_i(numeral const & a) {
+        return m_imp->get_i(a);
     }
 
     void manager::get_lower(numeral const & a, mpbq & l) {

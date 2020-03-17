@@ -307,6 +307,7 @@ namespace algebraic_numbers {
         sign eval_sign_at(polynomial_ref const & p, polynomial::var2anum const & x2v);
 
         void get_polynomial(numeral const & a, svector<mpz> & r);
+        unsigned get_i(numeral const & a);
         
         // Procedures for getting lower and upper bounds for irrational numbers
         void get_lower(numeral const & a, mpbq & l);
