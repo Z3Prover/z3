@@ -508,7 +508,7 @@ namespace smt {
         while (consistent && can_propagate()) {
             unsigned idx = m_asserted_atoms[m_asserted_qhead];
             m_asserted_qhead++;
-            consistent = propagate_atom(m_atoms[idx]);
+            consistent = propagate_atom(m_atoms[idx]);            
         }
     }
 
@@ -520,7 +520,7 @@ namespace smt {
             return false;
         }
         int edge_id = a.get_asserted_edge();
-        if (!enable_edge(edge_id)) {
+        if (!enable_edge(edge_id) || !is_consistent()) {
             m_graph.traverse_neg_cycle2(m_params.m_arith_stronger_lemmas, m_nc_functor);
             set_conflict();
             return false;
