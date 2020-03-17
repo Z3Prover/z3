@@ -3551,6 +3551,9 @@ public:
             TRACE("arith", tout << "cannot get bound for v" << v << "\n";);
             st = lp::lp_status::UNBOUNDED;
         }
+        else if (!m.limit().inc()) {
+            st = lp::lp_status::UNBOUNDED;
+        }
         else {
             vi = get_lpvar(v);
             st = lp().maximize_term(vi, term_max);
