@@ -24,6 +24,8 @@ Notes:
 #define _SPACER_CONTEXT_H_
 
 #include <queue>
+#include <fstream>
+
 #include "util/scoped_ptr_vector.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_prop_solver.h"
@@ -899,7 +901,7 @@ enum spacer_children_order {
 };
 
 class context {
-
+    friend class pred_transformer;
     struct stats {
         unsigned m_num_queries;
         unsigned m_num_reuse_reach;
@@ -982,6 +984,7 @@ class context {
     unsigned             m_blast_term_ite_inflation;
     scoped_ptr_vector<spacer_callback> m_callbacks;
     json_marshaller      m_json_marshaller;
+    std::fstream*        m_trace_stream;
 
     // Solve using gpdr strategy
     lbool gpdr_solve_core();
@@ -990,6 +993,12 @@ class context {
                                     expr *trans,
                                     model &mdl,
                                     pob_ref_buffer &out);
+
+    // progress logging
+    void log_enter_level(unsigned lvl);
+    void log_propagate();
+    void log_expand_pob(pob &);
+    void log_add_lemma(pred_transformer &, lemma&);
 
     // Functions used by search.
     lbool solve_core(unsigned from_lvl = 0);

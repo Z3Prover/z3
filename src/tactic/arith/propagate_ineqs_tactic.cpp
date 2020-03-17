@@ -202,8 +202,27 @@ struct propagate_ineqs_tactic::imp {
                 k = GE;
             }
         }
-        else {
-            return false;
+        else if (m_util.is_lt(t)) {
+          if (sign) {
+            k = GE;
+            strict = false;
+          } else {
+            k = LE;
+            strict = true;
+          }
+        }
+        else if (m_util.is_gt(t)) {
+            //x > y == x <=y, strict = false
+            if (sign) {
+              k = LE;
+              strict = false;
+            } else {
+              k = GE;
+              strict = true;
+            }
+        }
+         else {
+          return false;
         }
         expr * lhs = to_app(t)->get_arg(0);
         expr * rhs = to_app(t)->get_arg(1);
