@@ -699,7 +699,8 @@ std::ostream & core::print_factorization(const factorization& f, std::ostream& o
     } 
     else {
         for (unsigned k = 0; k < f.size(); k++ ) {
-            print_factor(f[k], out);
+            out << "(";
+            print_factor(f[k], out) << ")";
             if (k < f.size() - 1)
                 out << "*";
         }
