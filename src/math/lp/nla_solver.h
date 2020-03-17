@@ -46,5 +46,7 @@ public:
     bool is_monic_var(lpvar) const;
     bool influences_nl_var(lpvar) const;
     std::ostream& display(std::ostream& out) const;
+
+    core& get_core() { return *m_core; }
 };
 }
