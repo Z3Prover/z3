@@ -89,6 +89,7 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
     ptr_buffer<expr> buffer;
     expr_fast_mark1 neg_lits;
     expr_fast_mark2 pos_lits;
+    expr* atom = nullptr;
 
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg  = args[i];
@@ -100,8 +101,7 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
             result = m().mk_false();
             return BR_DONE;
         }
-        if (m().is_not(arg)) {
-            expr * atom = to_app(arg)->get_arg(0);
+        if (m().is_not(arg, atom)) {
             if (neg_lits.is_marked(atom)) {
                 s = true;
                 continue;
@@ -125,6 +125,8 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
         }
         buffer.push_back(arg);
     }
+    neg_lits.reset();
+    pos_lits.reset();
 
     unsigned sz = buffer.size();
 
@@ -217,6 +219,9 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
         prev = arg;
     }
 
+    neg_lits.reset();
+    pos_lits.reset();
+
     unsigned sz = buffer.size();
 
     switch(sz) {
@@ -228,8 +233,6 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
         return BR_DONE;
     default:
         if (m_local_ctx && m_local_ctx_cost <= m_local_ctx_limit) {
-            neg_lits.reset();
-            pos_lits.reset();
             if (local_ctx_simp(sz, buffer.c_ptr(), result))
                 return BR_DONE;
         }
