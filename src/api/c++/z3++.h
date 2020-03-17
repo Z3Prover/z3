@@ -66,6 +66,7 @@ namespace z3 {
     class func_entry;
     class statistics;
     class apply_result;
+    template<typename T> class cast_ast;
     template<typename T> class ast_vector_tpl;
     typedef ast_vector_tpl<ast>       ast_vector;
     typedef ast_vector_tpl<expr>      expr_vector;
@@ -511,6 +512,74 @@ namespace z3 {
 
     inline bool eq(ast const & a, ast const & b) { return Z3_is_eq_ast(a.ctx(), a, b); }
 
+    template<typename T>
+    class ast_vector_tpl : public object {
+        Z3_ast_vector m_vector;
+        void init(Z3_ast_vector v) { Z3_ast_vector_inc_ref(ctx(), v); m_vector = v; }
+    public:
+        ast_vector_tpl(context & c):object(c) { init(Z3_mk_ast_vector(c)); }
+        ast_vector_tpl(context & c, Z3_ast_vector v):object(c) { init(v); }
+        ast_vector_tpl(ast_vector_tpl const & s):object(s), m_vector(s.m_vector) { Z3_ast_vector_inc_ref(ctx(), m_vector); }
+        ast_vector_tpl(context& c, ast_vector_tpl const& src): object(c) { init(Z3_ast_vector_translate(src.ctx(), src, c)); }
+
+        ~ast_vector_tpl() { Z3_ast_vector_dec_ref(ctx(), m_vector); }
+        operator Z3_ast_vector() const { return m_vector; }
+        unsigned size() const { return Z3_ast_vector_size(ctx(), m_vector); }
+        T operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_ast_vector_get(ctx(), m_vector, i); check_error(); return cast_ast<T>()(ctx(), r); }
+        void push_back(T const & e) { Z3_ast_vector_push(ctx(), m_vector, e); check_error(); }
+        void resize(unsigned sz) { Z3_ast_vector_resize(ctx(), m_vector, sz); check_error(); }
+        T back() const { return operator[](size() - 1); }
+        void pop_back() { assert(size() > 0); resize(size() - 1); }
+        bool empty() const { return size() == 0; }
+        ast_vector_tpl & operator=(ast_vector_tpl const & s) {
+            Z3_ast_vector_inc_ref(s.ctx(), s.m_vector);
+            Z3_ast_vector_dec_ref(ctx(), m_vector);
+            m_ctx = s.m_ctx;
+            m_vector = s.m_vector;
+            return *this;
+        }
+        ast_vector_tpl& set(unsigned idx, ast& a) {
+            Z3_ast_vector_set(ctx(), m_vector, idx, a);
+            return *this;
+        }
+        /*
+          Disabled pending C++98 build upgrade
+        bool contains(T const& x) const {
+            for (T y : *this) if (eq(x, y)) return true;
+            return false;
+        }
+        */
+
+        class iterator {
+            ast_vector_tpl const* m_vector;
+            unsigned m_index;
+        public:
+            iterator(ast_vector_tpl const* v, unsigned i): m_vector(v), m_index(i) {}
+            iterator(iterator const& other): m_vector(other.m_vector), m_index(other.m_index) {}
+            iterator operator=(iterator const& other) { m_vector = other.m_vector; m_index = other.m_index; return *this; }
+
+            bool operator==(iterator const& other) const {
+                return other.m_index == m_index;
+            };
+            bool operator!=(iterator const& other) const {
+                return other.m_index != m_index;
+            };
+            iterator& operator++() {
+                ++m_index;
+                return *this;
+            }
+            void set(T& arg) {
+                Z3_ast_vector_set(m_vector->ctx(), *m_vector, m_index, arg);
+            }
+            iterator operator++(int) { iterator tmp = *this; ++m_index; return tmp; }
+            T * operator->() const { return &(operator*()); }
+            T operator*() const { return (*m_vector)[m_index]; }
+        };
+        iterator begin() const { return iterator(this, 0); }
+        iterator end() const { return iterator(this, size()); }
+        friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
+    };
+
 
     /**
        \brief A Z3 sort (aka type). Every expression (i.e., formula or term) in Z3 has a sort.
@@ -665,7 +734,6 @@ namespace z3 {
        \brief A Z3 expression is used to represent formulas and terms. For Z3, a formula is any expression of sort Boolean.
        Every expression has a sort.
     */
-
     class expr : public ast {
     public:
         expr(context & c):ast(c) {}
@@ -815,35 +883,30 @@ namespace z3 {
             return expr(ctx(), r);
         }
         
-
-        /**
-           \brief retrieve unique identifier for expression.
-         */
-        unsigned id() const { unsigned r = Z3_get_ast_id(ctx(), m_ast); check_error(); return r; }
-
         /**
            \brief Return coefficients for p of an algebraic number (root-obj p i)
          */
-        std::vector<int64_t> get_algebraic_poly() const {
+        expr_vector algebraic_poly() const {
             assert(is_algebraic());
-            unsigned degree = Z3_algebraic_get_poly_degree(ctx(), m_ast);
-            std::vector<int64_t> coeffs;
-            for (unsigned i = 0; i <= degree; i++) {
-                coeffs.push_back(Z3_algebraic_get_poly_coeff_int64(ctx(), m_ast, i));
-            }
+            Z3_ast_vector r = Z3_algebraic_get_poly(ctx(), m_ast);
             check_error();
-            return coeffs;
+            return expr_vector(ctx(), r);
         }
 
         /**
            \brief Return i of an algebraic number (root-obj p i)
          */
-        unsigned get_algebraic_i() const {
+        unsigned algebraic_i() const {
             assert(is_algebraic());
             unsigned i = Z3_algebraic_get_i(ctx(), m_ast);
             check_error();
             return i;
         }
+
+        /**
+           \brief retrieve unique identifier for expression.
+         */
+        unsigned id() const { unsigned r = Z3_get_ast_id(ctx(), m_ast); check_error(); return r; }
 
         /**
            \brief Return int value of numeral, throw if result cannot fit in
@@ -1872,8 +1935,6 @@ namespace z3 {
         return to_func_decl(a.ctx(), Z3_mk_tree_order(a.ctx(), a, index));
     }
 
-    template<typename T> class cast_ast;
-
     template<> class cast_ast<ast> {
     public:
         ast operator()(context & c, Z3_ast a) { return ast(c, a); }
@@ -1905,75 +1966,6 @@ namespace z3 {
             return func_decl(c, reinterpret_cast<Z3_func_decl>(a));
         }
     };
-
-    template<typename T>
-    class ast_vector_tpl : public object {
-        Z3_ast_vector m_vector;
-        void init(Z3_ast_vector v) { Z3_ast_vector_inc_ref(ctx(), v); m_vector = v; }
-    public:
-        ast_vector_tpl(context & c):object(c) { init(Z3_mk_ast_vector(c)); }
-        ast_vector_tpl(context & c, Z3_ast_vector v):object(c) { init(v); }
-        ast_vector_tpl(ast_vector_tpl const & s):object(s), m_vector(s.m_vector) { Z3_ast_vector_inc_ref(ctx(), m_vector); }
-        ast_vector_tpl(context& c, ast_vector_tpl const& src): object(c) { init(Z3_ast_vector_translate(src.ctx(), src, c)); }
-
-        ~ast_vector_tpl() { Z3_ast_vector_dec_ref(ctx(), m_vector); }
-        operator Z3_ast_vector() const { return m_vector; }
-        unsigned size() const { return Z3_ast_vector_size(ctx(), m_vector); }
-        T operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_ast_vector_get(ctx(), m_vector, i); check_error(); return cast_ast<T>()(ctx(), r); }
-        void push_back(T const & e) { Z3_ast_vector_push(ctx(), m_vector, e); check_error(); }
-        void resize(unsigned sz) { Z3_ast_vector_resize(ctx(), m_vector, sz); check_error(); }
-        T back() const { return operator[](size() - 1); }
-        void pop_back() { assert(size() > 0); resize(size() - 1); }
-        bool empty() const { return size() == 0; }
-        ast_vector_tpl & operator=(ast_vector_tpl const & s) {
-            Z3_ast_vector_inc_ref(s.ctx(), s.m_vector);
-            Z3_ast_vector_dec_ref(ctx(), m_vector);
-            m_ctx = s.m_ctx;
-            m_vector = s.m_vector;
-            return *this;
-        }
-        ast_vector_tpl& set(unsigned idx, ast& a) {
-            Z3_ast_vector_set(ctx(), m_vector, idx, a);
-            return *this;
-        }
-        /*
-          Disabled pending C++98 build upgrade
-        bool contains(T const& x) const {
-            for (T y : *this) if (eq(x, y)) return true;
-            return false;
-        }
-        */
-
-        class iterator {
-            ast_vector_tpl const* m_vector;
-            unsigned m_index;
-        public:
-            iterator(ast_vector_tpl const* v, unsigned i): m_vector(v), m_index(i) {}
-            iterator(iterator const& other): m_vector(other.m_vector), m_index(other.m_index) {}
-            iterator operator=(iterator const& other) { m_vector = other.m_vector; m_index = other.m_index; return *this; }
-
-            bool operator==(iterator const& other) const {
-                return other.m_index == m_index;
-            };
-            bool operator!=(iterator const& other) const {
-                return other.m_index != m_index;
-            };
-            iterator& operator++() {
-                ++m_index;
-                return *this;
-            }
-            void set(T& arg) {
-                Z3_ast_vector_set(m_vector->ctx(), *m_vector, m_index, arg);
-            }
-            iterator operator++(int) { iterator tmp = *this; ++m_index; return tmp; }
-            T * operator->() const { return &(operator*()); }
-            T operator*() const { return (*m_vector)[m_index]; }
-        };
-        iterator begin() const { return iterator(this, 0); }
-        iterator end() const { return iterator(this, size()); }
-        friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
-    };
-
 
     template<typename T>
     template<typename T2>

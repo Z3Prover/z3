@@ -418,37 +418,26 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    unsigned Z3_API Z3_algebraic_get_poly_degree(Z3_context c, Z3_ast a) {
+    Z3_ast_vector Z3_API Z3_algebraic_get_poly(Z3_context c, Z3_ast a) {
         Z3_TRY;
-        LOG_Z3_algebraic_get_poly_degree(c, a);
-        RESET_ERROR_CODE();
-        CHECK_IS_ALGEBRAIC(a, 0);
-        algebraic_numbers::manager & _am = am(c);
-        algebraic_numbers::anum const & av = get_irrational(c, a);
-        return _am.degree(av);
-        Z3_CATCH_RETURN(0);
-    }
-
-    int64_t Z3_API Z3_algebraic_get_poly_coeff_int64(Z3_context c, Z3_ast a, unsigned i) {
-        Z3_TRY;
-        LOG_Z3_algebraic_get_poly_coeff_int64(c, a, i);
+        LOG_Z3_algebraic_get_poly(c, a);
         RESET_ERROR_CODE();
         CHECK_IS_ALGEBRAIC(a, 0);
         algebraic_numbers::manager & _am = am(c);
         algebraic_numbers::anum const & av = get_irrational(c, a);
         scoped_mpz_vector coeffs(_am.qm());
         _am.get_polynomial(av, coeffs);
-        if (i >= coeffs.size()) {
-            SET_ERROR_CODE(Z3_INVALID_ARG, "Coefficient index out of range");
-            return 0;
+        api::context * _c = mk_c(c);
+        sort * s = _c->m().mk_sort(_c->get_arith_fid(), REAL_SORT);
+        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *_c, _c->m());
+        mk_c(c)->save_object(result);
+        for (unsigned i = 0; i < coeffs.size(); i++) {
+            rational r(coeffs[i]);
+            expr * a = _c->mk_numeral_core(r, s);
+            result->m_ast_vector.push_back(a);
         }
-        rational r(coeffs[i]);
-        if (!r.is_int64()) {
-            SET_ERROR_CODE(Z3_INVALID_ARG, "Coefficient does not fit into int64_t");
-            return 0;
-        }
-        return r.get_int64();
-        Z3_CATCH_RETURN(0);
+        RETURN_Z3(of_ast_vector(result));
+        Z3_CATCH_RETURN(nullptr);
     }
 
     unsigned Z3_API Z3_algebraic_get_i(Z3_context c, Z3_ast a) {

@@ -224,23 +224,13 @@ extern "C" {
     int Z3_API Z3_algebraic_eval(Z3_context c, Z3_ast p, unsigned n, Z3_ast a[]);
 
     /**
-       \brief Return the degree of the defining polynomial.
+       \brief Return the coefficients of the defining polynomial.
 
        \pre Z3_algebraic_is_value(c, a)
 
-       def_API('Z3_algebraic_get_poly_degree', UINT, (_in(CONTEXT), _in(AST)))
+       def_API('Z3_algebraic_get_poly', AST_VECTOR, (_in(CONTEXT), _in(AST)))
     */
-    unsigned Z3_API Z3_algebraic_get_poly_degree(Z3_context c, Z3_ast a);
-
-    /**
-       \brief Return the i-th coefficient of the defining polynomial.
-
-       \pre Z3_algebraic_is_value(c, a)
-       \pre i < Z3_algebraic_get_poly_degree(c, a)
-
-       def_API('Z3_algebraic_get_poly_coeff_int64', INT64, (_in(CONTEXT), _in(AST), _in(UINT)))
-    */
-    int64_t Z3_API Z3_algebraic_get_poly_coeff_int64(Z3_context c, Z3_ast a, unsigned i);
+    Z3_ast_vector Z3_API Z3_algebraic_get_poly(Z3_context c, Z3_ast a);
 
     /**
        \brief Return which root of the polynomial the algebraic number represents.
