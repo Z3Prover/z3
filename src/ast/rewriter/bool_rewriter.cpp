@@ -98,6 +98,8 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
             continue;
         }
         if (m().is_false(arg)) {
+            neg_lits.reset();
+            pos_lits.reset();
             result = m().mk_false();
             return BR_DONE;
         }
@@ -107,6 +109,8 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
                 continue;
             }
             if (pos_lits.is_marked(atom)) {
+                neg_lits.reset();
+                pos_lits.reset();
                 result = m().mk_false();
                 return BR_DONE;
             }
@@ -118,6 +122,8 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
                 continue;
             }
             if (neg_lits.is_marked(arg)) {
+                neg_lits.reset();
+                pos_lits.reset();
                 result = m().mk_false();
                 return BR_DONE;
             }
@@ -184,6 +190,8 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg  = args[i];
         if (m().is_true(arg)) {
+            neg_lits.reset();
+            pos_lits.reset();
             result = m().mk_true();
             return BR_DONE;
         }
@@ -198,6 +206,8 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
                 continue;
             }
             if (pos_lits.is_marked(atom)) {
+                neg_lits.reset();
+                pos_lits.reset();
                 result = m().mk_true();
                 return BR_DONE;
             }
@@ -209,6 +219,8 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
                 continue;
             }
             if (neg_lits.is_marked(arg)) {
+                neg_lits.reset();
+                pos_lits.reset();
                 result = m().mk_true();
                 return BR_DONE;
             }
@@ -221,6 +233,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
 
     neg_lits.reset();
     pos_lits.reset();
+
 
     unsigned sz = buffer.size();
 
