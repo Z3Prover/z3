@@ -19,6 +19,7 @@ Author:
 
 --*/
 
+#include "ast/ast_pp.h"
 #include "opt/opt_context.h"
 #include "opt/maxsmt.h"
 #include "opt/maxlex.h"
@@ -75,14 +76,20 @@ namespace opt {
         }
 
         void update_assignment(model_ref & mdl) {
+            mdl->set_model_completion(true);
             bool first_undef = true, second_undef = false;
             for (auto & soft : m_soft) {
                 if (first_undef && soft.value != l_undef) {
                     continue;
                 }
-                first_undef = false;
-                if (soft.value != l_false) {
-                    lbool v = mdl->is_true(soft.s) ? l_true : l_undef;;
+                if (first_undef) {
+                    SASSERT(soft.value == l_undef);
+                    soft.set_value(l_true);
+                    assert_value(soft);            
+                    first_undef = false;
+                }
+                else if (soft.value != l_false) {
+                    lbool v = mdl->is_true(soft.s) ? l_true : l_undef;
                     if (v == l_undef) {
                         second_undef = true;
                     }
