@@ -878,10 +878,6 @@ namespace sat {
         case BH_CHB:
             m_last_propagation[v] = m_stats.m_conflict;
             break;
-        case BH_LRB: 
-            m_participated[v] = 0;
-            m_reasoned[v] = 0;
-            break;
         }
 
         if (m_config.m_anti_exploration) {
@@ -3472,8 +3468,7 @@ namespace sat {
        \brief Reset the mark of the variables in the current lemma.
     */
     void solver::reset_lemma_var_marks() {
-        if (m_config.m_branching_heuristic == BH_LRB ||
-            m_config.m_branching_heuristic == BH_VSIDS) {
+        if (m_config.m_branching_heuristic == BH_VSIDS) {
             update_lrb_reasoned();
         }        
         literal_vector::iterator it  = m_lemma.begin();
@@ -3715,14 +3710,6 @@ namespace sat {
             m_assignment[(~l).index()] = l_undef;
             SASSERT(value(v) == l_undef);
             m_case_split_queue.unassign_var_eh(v);
-            if (m_config.m_branching_heuristic == BH_LRB) {
-                uint64_t interval = m_stats.m_conflict - m_last_propagation[v];
-                if (interval > 0) {
-                    auto activity = m_activity[v];
-                    auto reward = (m_config.m_reward_offset * (m_participated[v] + m_reasoned[v])) / interval;
-                    set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1 - m_step_size) * activity)));
-                }
-            }
             if (m_config.m_anti_exploration) {
                 m_canceled[v] = m_stats.m_conflict;
             }

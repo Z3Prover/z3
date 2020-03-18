@@ -204,10 +204,8 @@ namespace sat {
             m_branching_heuristic = BH_VSIDS;
         else if (p.branching_heuristic() == symbol("chb")) 
             m_branching_heuristic = BH_CHB;
-        else if (p.branching_heuristic() == symbol("lrb")) 
-            m_branching_heuristic = BH_LRB;
         else 
-            throw sat_param_exception("invalid branching heuristic: accepted heuristics are 'vsids', 'lrb' or 'chb'");
+            throw sat_param_exception("invalid branching heuristic: accepted heuristics are 'vsids' or 'chb'");
 
         m_anti_exploration = p.branching_anti_exploration();
         m_step_size_init = 0.40;

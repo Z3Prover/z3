@@ -49,8 +49,7 @@ namespace sat {
 
     enum branching_heuristic {
         BH_VSIDS,
-        BH_CHB,
-        BH_LRB
+        BH_CHB
     };
 
     enum pb_resolve {
