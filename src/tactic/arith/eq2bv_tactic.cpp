@@ -75,10 +75,18 @@ class eq2bv_tactic : public tactic {
 
     class bvmc : public model_converter {
         obj_map<func_decl, func_decl*> m_map;
+        func_decl_ref_vector m_vars;
+        unsigned_vector m_values;
     public:
+        bvmc(ast_manager& m): m_vars(m) {}
         
         void insert(func_decl* c_new, func_decl* c_old) {
             m_map.insert(c_new, c_old);
+        }
+
+        void insert(func_decl* var, unsigned val) { 
+            m_vars.push_back(var);
+            m_values.push_back(val);
         }
 
         void operator()(model_ref& mdl) override {
@@ -101,20 +109,32 @@ class eq2bv_tactic : public tactic {
                     new_m->register_decl(f, val);
                 }
             }
+            for (unsigned i = 0; i < m_vars.size(); ++i) {
+                func_decl* f = m_vars.get(i);
+                new_m->register_decl(f, a.mk_numeral(rational(m_values[i]), f->get_range()));
+            }
             mdl = new_m;
         }
         
         model_converter* translate(ast_translation & translator) override {
-            bvmc* v = alloc(bvmc);
+            bvmc* v = alloc(bvmc, translator.to());
             for (auto const& kv : m_map) {
                 v->m_map.insert(translator(kv.m_key), translator(kv.m_value));
+            }
+            for (unsigned i = 0; i < m_vars.size(); ++i) {
+                v->insert(translator(m_vars.get(i)), m_values[i]);
             }
             return v;
         }
 
         void display(std::ostream & out) override {
+            ast_manager& m = m_vars.get_manager();
             for (auto const& kv : m_map) {
                 out << "(model-set " << kv.m_key->get_name() << " " << kv.m_value->get_name() << ")\n";
+            }
+            for (unsigned i = 0; i < m_vars.size(); ++i) {
+                func_decl* v = m_vars.get(i);
+                out << "(model-add " << v->get_name() << " () " << mk_pp(v->get_range(), m) << " " << m_values[i] << ")\n";
             }
         }
 
@@ -156,7 +176,7 @@ public:
         m_max.reset();
         m_nonfd.reset();
         m_bounds.reset();
-        ref<bvmc> mc1 = alloc(bvmc);
+        ref<bvmc> mc1 = alloc(bvmc, m);
 
         tactic_report report("eq2bv", *g);
 
@@ -175,8 +195,11 @@ public:
         for (unsigned i = 0; i < g->size(); i++) {            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);  
-            if (is_bound(g->form(i))) {
+            func_decl_ref var(m);
+            unsigned val;
+            if (is_bound(g->form(i), var, val)) {
                 g->update(i, m.mk_true(), nullptr, nullptr);
+                mc1->insert(var, val);
                 continue;
             }
             m_rw(g->form(i), new_curr, new_pr);
@@ -186,9 +209,8 @@ public:
             }
             g->update(i, new_curr, new_pr, g->dep(i));
         }
-        obj_map<expr, unsigned>::iterator it = m_max.begin(), end = m_max.end();
-        for (; it != end; ++it) {
-            expr* c = it->m_key;
+        for (auto & kv : m_max) {
+            expr* c = kv.m_key;
             bool strict;
             rational r;
             expr_ref fml(m);
@@ -224,36 +246,33 @@ public:
     void cleanup_fd(ref<bvmc>& mc) {
         SASSERT(m_fd.empty());
         ptr_vector<expr> rm;
-        obj_map<expr, unsigned>::iterator it = m_max.begin(), end = m_max.end();
-        for (; it != end; ++it) {
-            if (m_nonfd.is_marked(it->m_key)) {
-                rm.push_back(it->m_key);
+        for (auto& kv : m_max) {
+            if (m_nonfd.is_marked(kv.m_key)) {
+                rm.push_back(kv.m_key);
             }
         }
         for (unsigned i = 0; i < rm.size(); ++i) {
             m_max.erase(rm[i]);
         }
-        it  = m_max.begin();
-        end = m_max.end();
-        for (; it != end; ++it) {
+        for (auto& kv : m_max) {
             // ensure there are enough elements.
             bool strict;
             rational val;
-            if (m_bounds.has_upper(it->m_key, val, strict)) {
+            if (m_bounds.has_upper(kv.m_key, val, strict)) {
                 SASSERT(!strict);
-                if (val.get_unsigned() > it->m_value) it->m_value = val.get_unsigned();
+                if (val.get_unsigned() > kv.m_value) kv.m_value = val.get_unsigned();
             }
             else {
-                ++it->m_value; 
+                ++kv.m_value; 
             }
-            unsigned p = next_power_of_two(it->m_value);            
+            unsigned p = next_power_of_two(kv.m_value);            
             if (p <= 1) p = 2;
-            if (it->m_value == p) p *= 2;
+            if (kv.m_value == p) p *= 2;
             unsigned n = log2(p);
             app* z = m.mk_fresh_const("z", bv.mk_sort(n));
             m_trail.push_back(z);
-            m_fd.insert(it->m_key, z);
-            mc->insert(z->get_decl(), to_app(it->m_key)->get_decl());
+            m_fd.insert(kv.m_key, z);
+            mc->insert(z->get_decl(), to_app(kv.m_key)->get_decl());
         }
     }
 
@@ -268,32 +287,34 @@ public:
         }
     }
 
-    bool is_upper(expr* f) {
+    bool is_upper(expr* f, func_decl_ref& var, unsigned& k) {
         expr* e1, *e2;
-        unsigned k;
         if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e1, e2, k)) {
             SASSERT(m_bounds.has_upper(e1));
+            var = to_app(e1)->get_decl();
             return true;
         } 
         return false;
     }
 
-    bool is_lower(expr* f) {
+    bool is_lower(expr* f, func_decl_ref& var, unsigned& k) {
         expr* e1, *e2;
-        unsigned k;
         if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e2, e1, k)) {
             SASSERT(m_bounds.has_lower(e2));
+            var = to_app(e2)->get_decl();
             return true;
         } 
         return false;
     }
 
-    bool is_bound(expr* f) {
-        return is_lower(f) || is_upper(f);
+    bool is_bound(expr* f, func_decl_ref& var, unsigned& val) {
+        return is_lower(f, var, val) || is_upper(f, var, val);
     }
 
     void collect_fd(expr* f) {
-        if (is_bound(f)) return;
+        func_decl_ref var(m);
+        unsigned val;
+        if (is_bound(f, var, val)) return;
         m_todo.push_back(f);
         while (!m_todo.empty()) {
             f = m_todo.back();
