@@ -528,7 +528,7 @@ public:
         preprocess_solve(model, vars, fmls);
         filter_variables(model, vars, fmls, unused_fmls);
         project_bools(model, vars, fmls);
-        while (progress && !vars.empty() && !fmls.empty()) {
+        while (progress && !vars.empty() && !fmls.empty() && m.limit().inc()) {
             app_ref_vector new_vars(m);
             progress = false;
             for (project_plugin * p : m_plugins) {
@@ -536,7 +536,7 @@ public:
                     (*p)(model, vars, fmls);
                 }
             }
-            while (!vars.empty() && !fmls.empty()) {                
+            while (!vars.empty() && !fmls.empty() && m.limit().inc()) {
                 var = vars.back();
                 vars.pop_back();
                 project_plugin* p = get_plugin(var);
@@ -547,7 +547,7 @@ public:
                     new_vars.push_back(var);
                 }
             }
-            if (!progress && !new_vars.empty() && !fmls.empty() && force_elim) {
+            if (!progress && !new_vars.empty() && !fmls.empty() && force_elim && m.limit().inc()) {
                 var = new_vars.back();
                 new_vars.pop_back();
                 expr_safe_replace sub(m);
@@ -564,7 +564,9 @@ public:
                     }
                 }            
                 progress = true;
-            }
+            }        
+            if (!m.limit().inc()) 
+                return;
             vars.append(new_vars);
             if (progress) {
                 preprocess_solve(model, vars, fmls);

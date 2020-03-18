@@ -65,7 +65,7 @@ namespace qe {
             DEBUG_CODE(expr_ref val(m); 
                        eval(lit, val); 
                        CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
-                       SASSERT(m.is_true(val)););
+                       SASSERT(m.canceled() || m.is_true(val)););
 
             TRACE("opt", tout << mk_pp(lit, m) << " " << a.is_lt(lit) << " " << a.is_gt(lit) << "\n";);
             bool is_not = m.is_not(lit, lit);
