@@ -302,6 +302,7 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_internalize_depth(0),
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
+    m_has_seq(m_util.has_seq()),
     m_res(m),
     m_max_unfolding_depth(1),
     m_max_unfolding_lit(null_literal),
@@ -344,7 +345,7 @@ struct scoped_enable_trace {
 };
 
 final_check_status theory_seq::final_check_eh() {
-    if (!m_util.has_seq()) {
+    if (!m_has_seq) {
         return FC_DONE;
     }
     m_new_propagation = false;
@@ -3755,6 +3756,7 @@ bool theory_seq::internalize_atom(app* a, bool) {
 }
 
 bool theory_seq::internalize_term(app* term) {
+    m_has_seq = true;
     context & ctx   = get_context();
     if (ctx.e_internalized(term)) {
         enode* e = ctx.get_enode(term);
@@ -6444,7 +6446,7 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
 }
 
 void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
-    if (m_util.has_seq()) {
+    if (m_has_seq) {
         TRACE("seq", tout << "add_theory_assumption\n";);
         expr_ref dlimit(m);
         dlimit = mk_max_unfolding_depth();
@@ -6456,7 +6458,7 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
 
 bool theory_seq::should_research(expr_ref_vector & unsat_core) {
     TRACE("seq", tout << unsat_core << " " << m_util.has_re() << "\n";);
-    if (!m_util.has_seq()) {
+    if (!m_has_seq) {
         return false;
     }
     for (auto & e : unsat_core) {
