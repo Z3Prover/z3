@@ -2368,9 +2368,6 @@ std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, 
     coeffs.push_back(std::make_pair(mpq(1),j));
     coeffs.push_back(std::make_pair(mpq(-1),k));    
     unsigned term_index = add_term(coeffs, UINT_MAX); // UINT_MAX is the external null var
-    if (get_column_value(j) != get_column_value(k)) {
-        set_infeasible_column(map_term_index_to_column_index(term_index));
-    }
     return std::pair<constraint_index, constraint_index>(
         add_var_bound(term_index, lconstraint_kind::LE, mpq(0)),
         add_var_bound(term_index, lconstraint_kind::GE, mpq(0)));
