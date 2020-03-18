@@ -82,7 +82,7 @@ namespace opt {
                 if (first_undef && soft.value != l_undef) {
                     continue;
                 }
-                if (first_undef) {
+                else if (first_undef) {
                     SASSERT(soft.value == l_undef);
                     soft.set_value(l_true);
                     assert_value(soft);            

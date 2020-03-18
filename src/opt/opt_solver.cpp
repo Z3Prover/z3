@@ -292,7 +292,7 @@ namespace opt {
         TRACE("opt", tout << is_sat << "\n";);
         if (is_sat != l_true) {
             // cop-out approximation
-            if (arith_util(m).is_real(m_objective_terms[i].get())) {
+            if (arith_util(m).is_real(m_objective_terms.get(i))) {
                 val -= inf_eps(inf_rational(rational(0), true));
             }
             else {
@@ -382,9 +382,13 @@ namespace opt {
         return get_optimizer().value(v);
     }
     
-    expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
-        if (!val.is_finite()) {
-            return expr_ref(val.is_pos() ? m.mk_false() : m.mk_true(), m);
+    expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& _val) {
+        if (!_val.is_finite()) {
+            return expr_ref(_val.is_pos() ? m.mk_false() : m.mk_true(), m);
+        }
+        inf_eps val = _val;
+        if (val.get_infinitesimal().is_neg()) {
+            val = inf_eps(val.get_rational());
         }
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];
