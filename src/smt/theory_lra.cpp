@@ -2044,6 +2044,13 @@ public:
             TRACE("arith", tout << "cut\n";);
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
+            for (auto const& ev : m_explanation) {
+                if (!ev.first.is_zero()) { 
+                    set_evidence(ev.second);
+                }
+            }
+			// The call mk_bound() can set the m_infeasible_column in lar_solver
+			// so the explanation is safer to take before this call.
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             if (m.has_trace_stream()) {
                 th.log_axiom_instantiation(b);
@@ -2054,11 +2061,6 @@ public:
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            for (auto const& ev : m_explanation) {
-                if (!ev.first.is_zero()) { 
-                    set_evidence(ev.second);
-                }
-            }
             literal lit(ctx().get_bool_var(b), false);
             TRACE("arith", 
                   ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
