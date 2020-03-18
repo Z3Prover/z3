@@ -136,7 +136,7 @@ public:
     }
     
     const mpq& get_column_value_rational(unsigned j) const {
-        if (is_term(j)) {
+        if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
         return m_mpq_lar_core_solver.m_r_x[j].x;
@@ -266,7 +266,7 @@ public:
 
     unsigned map_term_index_to_column_index(unsigned j) const;
     
-    var_index local_to_external(var_index idx) const { return is_term(idx)?
+    var_index local_to_external(var_index idx) const { return tv::is_term(idx)?
             m_term_register.local_to_external(idx) : m_var_register.local_to_external(idx); }
 
     unsigned number_of_vars() const { return m_var_register.size(); }
@@ -561,14 +561,14 @@ public:
     }
 
     constraint_index get_column_upper_bound_witness(unsigned j) const {
-        if (is_term(j)) {
+        if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
         return m_columns_to_ul_pairs()[j].upper_bound_witness();
     }
 
     constraint_index get_column_lower_bound_witness(unsigned j) const {
-        if (is_term(j)) {
+        if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
         return m_columns_to_ul_pairs()[j].lower_bound_witness();
@@ -588,12 +588,12 @@ public:
     
     std::ostream& print_column_info(unsigned j, std::ostream& out) const {
         m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
-        if (is_term(j)) {
-            const lar_term& t = * m_terms[unmask_term(j)];
+        if (tv::is_term(j)) {
+            const lar_term& t = * m_terms[tv::unmask_term(j)];
             print_term_as_indices(t, out) << "\n";
             
         } else if(column_corresponds_to_term(j)) { 
-            const lar_term& t = * m_terms[unmask_term(m_var_register.local_to_external(j))];
+            const lar_term& t = * m_terms[tv::unmask_term(m_var_register.local_to_external(j))];
             print_term_as_indices(t, out) << "\n";
         }
         return out;
