@@ -31,16 +31,9 @@ class tv {
     static const unsigned EF = UINT_MAX >> 1;
     tv(unsigned i): m_index(i) {}
 public:
-    // create a term index
-    struct is_term {};
-    tv(unsigned i, is_term):m_index(mask_term(i)) { SASSERT(0 == (i & left_most_bit)); }
-
-    // create a variable index
-    struct is_var {};
-    tv(unsigned i, is_var):m_index(i) { SASSERT(0 == (i & left_most_bit)); }
-
-    // create a tv from an index
-    static tv to_tv(unsigned i) { return tv(i); }
+    static tv term(unsigned i) { SASSERT(0 == (i & left_most_bit)); return tv(mask_term(i)); }
+    static tv var(unsigned i) { SASSERT(0 == (i & left_most_bit)); return tv(i); }
+    static tv raw(unsigned i) { return tv(i); }
 
     // retrieve the identifier associated with tv
     unsigned id() const { return unmask_term(m_index); }
@@ -48,8 +41,8 @@ public:
     // retrieve the raw index.
     unsigned index() const { return m_index; }
 
-    bool is_term() const { return m_index & left_most_bit; }
-    bool is_var() const { return !is_term(); }
+    bool is_term() const { return 0 != (m_index & left_most_bit); }
+    bool is_var() const { return 0 == (m_index & left_most_bit); }
 
     // utilities useful where tv isn't already encapsulating id's.
     static inline unsigned unmask_term(unsigned j) { return j & EF; }
