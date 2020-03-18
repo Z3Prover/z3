@@ -2676,6 +2676,7 @@ namespace nlsat {
                 scoped_anum pv(m_am), qv(m_am), val(m_am);
                 m_pm.eval(p, m_assignment, pv);
                 m_pm.eval(q, m_assignment, qv);
+                SASSERT(!m_am.is_zero(pv));
                 val = qv / pv;
                 TRACE("nlsat", 
                       m_display_var(tout << "patch v" << v << " ", v) << "\n";
@@ -2879,6 +2880,8 @@ namespace nlsat {
                 if (m_is_int[x]) continue;
                 if (1 == m_pm.degree(p0, x)) {                    
                     p = m_pm.coeff(p0, x, 1, q);
+                    if (!m_pm.is_const(p))
+                        break;
                     switch (m_pm.sign(p, m_var_signs)) {
                     case l_true:
                         v = x;
