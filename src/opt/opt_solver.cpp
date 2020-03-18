@@ -229,6 +229,8 @@ namespace opt {
        In this case, the model is post-processed (update_model 
        causes an additional call to final_check to propagate theory equalities
        when 'has_shared' is true).
+
+       Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
     void opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
@@ -249,6 +251,8 @@ namespace opt {
         else if (m_context.get_context().update_model(has_shared)) {
             if (has_shared && val != current_objective_value(i)) {
                 decrement_value(i, val);
+                if (l_true != m_context.check(0, nullptr)) 
+                    throw default_exception("maximization suspended");
             }
             else {
                 set_model(i);
@@ -256,7 +260,9 @@ namespace opt {
         }
         else {
             SASSERT(has_shared);
-            decrement_value(i, val);
+            decrement_value(i, val);            
+            if (l_true != m_context.check(0, nullptr)) 
+                throw default_exception("maximization suspended");
         }
         m_objective_values[i] = val;
         TRACE("opt", { 

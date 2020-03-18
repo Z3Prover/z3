@@ -1543,6 +1543,7 @@ namespace smt {
         bool inc = false;
         context& ctx = get_context();
 
+
         SASSERT(!maintain_integrality || valid_assignment());
         SASSERT(satisfy_bounds());
 
