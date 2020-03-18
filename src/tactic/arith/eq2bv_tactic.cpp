@@ -152,6 +152,7 @@ public:
     obj_map<expr, expr*>             m_fd;
     obj_map<expr, unsigned>          m_max;
     expr_mark                        m_nonfd;
+    ast_mark                         m_has_eq;
     ptr_vector<expr>                 m_todo;
         
     eq2bv_tactic(ast_manager & _m):
@@ -175,6 +176,7 @@ public:
         m_fd.reset();
         m_max.reset();
         m_nonfd.reset();
+        m_has_eq.reset();
         m_bounds.reset();
         ref<bvmc> mc1 = alloc(bvmc, m);
 
@@ -197,7 +199,7 @@ public:
             proof_ref  new_pr(m);  
             func_decl_ref var(m);
             unsigned val;
-            if (is_bound(g->form(i), var, val)) {
+            if (is_bound(g->form(i), var, val) && !m_has_eq.is_marked(var)) {
                 g->update(i, m.mk_true(), nullptr, nullptr);
                 mc1->insert(var, val);
                 continue;
@@ -311,7 +313,14 @@ public:
         return is_lower(f, var, val) || is_upper(f, var, val);
     }
 
+    void mark_has_eq(expr* e) {
+        if (is_uninterp_const(e)) {
+            m_has_eq.mark(to_app(e)->get_decl(), true);
+        }
+    }
+
     void collect_fd(expr* f) {
+        m_trail.push_back(f);
         func_decl_ref var(m);
         unsigned val;
         if (is_bound(f, var, val)) return;
@@ -325,6 +334,8 @@ public:
             m_nonfd.mark(f, true);
             expr* e1, *e2;
             if (m.is_eq(f, e1, e2)) {
+                mark_has_eq(e1);
+                mark_has_eq(e2);
                 if (is_fd(e1, e2) || is_fd(e2, e1)) {
                     continue;
                 }            
