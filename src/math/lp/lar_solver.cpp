@@ -59,9 +59,9 @@ bool lar_solver::sizes_are_correct() const {
 std::ostream& lar_solver::print_implied_bound(const implied_bound& be, std::ostream & out) const {
     out << "implied bound\n";
     unsigned v = be.m_j;
-    if (is_term(v)) {
+    if (tv::is_term(v)) {
         out << "it is a term number " << be.m_j << std::endl;
-        print_term(*m_terms[unmask_term(v)],  out);
+        print_term(*m_terms[tv::unmask_term(v)],  out);
     }
     else {
         out << get_variable_name(v);
@@ -102,7 +102,7 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
     if (strict)
         kind = static_cast<lconstraint_kind>((static_cast<int>(kind) / 2));
       
-    if (!is_term(be.m_j)) {
+    if (!tv::is_term(be.m_j)) {
         if (coeff_map.size() != 1)
             return false;
         auto it = coeff_map.find(be.m_j);
@@ -113,7 +113,7 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
         }
         rs_of_evidence /= ratio;
     } else {
-        lar_term & t = *m_terms[unmask_term(be.m_j)];
+        lar_term & t = *m_terms[tv::unmask_term(be.m_j)];
         auto first_coeff = t.begin();
         unsigned j = (*first_coeff).var();
         auto it = coeff_map.find(j);
@@ -192,14 +192,14 @@ void lar_solver::calculate_implied_bounds_for_row(unsigned i, lp_bound_propagato
 }
 
 unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
-    if (is_term(j))
+    if (tv::is_term(j))
         return j;
     unsigned ext_var_or_term = m_var_register.local_to_external(j);
-    return !is_term(ext_var_or_term) ? j : ext_var_or_term;
+    return !tv::is_term(ext_var_or_term) ? j : ext_var_or_term;
 }
 
 unsigned lar_solver::map_term_index_to_column_index(unsigned j) const {
-    SASSERT(is_term(j));
+    SASSERT(tv::is_term(j));
     return m_var_register.external_to_local(j);
 }
     
@@ -213,7 +213,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, lp_bound_propagator &
     int bound_sign = ib.m_is_lower_bound? 1: -1;
     int j_sign = (ib.m_coeff_before_j_is_pos ? 1 :-1) * bound_sign;
     unsigned bound_j = ib.m_j;
-    if (is_term(bound_j)) {
+    if (tv::is_term(bound_j)) {
         bound_j = m_var_register.external_to_local(bound_j);
     }
     for (auto const& r : A_r().m_rows[i]) {
@@ -232,7 +232,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, lp_bound_propagator &
 // here i is just the term index
 bool lar_solver::term_is_used_as_row(unsigned i) const {
     SASSERT(i < m_terms.size());
-    return m_var_register.external_is_used(mask_term(i));
+    return m_var_register.external_is_used(tv::mask_term(i));
 }
     
 void lar_solver::propagate_bounds_on_terms(lp_bound_propagator & bp) {
@@ -560,7 +560,7 @@ bool lar_solver::remove_from_basis(unsigned j) {
 }
 
 lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
-    if (is_term(j_or_term)) {
+    if (tv::is_term(j_or_term)) {
         return get_term(j_or_term);
     }
     if (j_or_term < m_mpq_lar_core_solver.m_r_x.size()) {
@@ -633,8 +633,8 @@ lp_status lar_solver::maximize_term(unsigned j_or_term,
 
     
 const lar_term &  lar_solver::get_term(unsigned j) const {
-    lp_assert(is_term(j));
-    return *m_terms[unmask_term(j)];
+    lp_assert(tv::is_term(j));
+    return *m_terms[tv::unmask_term(j)];
 }
 
 void lar_solver::pop_core_solver_params() {
@@ -674,10 +674,10 @@ void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mp
     std::unordered_map<var_index, mpq> coeffs;
     for (auto & t : left_side_with_terms) {
         unsigned j = t.second;
-        if (!is_term(j)) {
+        if (!tv::is_term(j)) {
             register_monoid_in_map(coeffs, t.first, j);
         } else {
-            const lar_term & term = * m_terms[unmask_term(t.second)];
+            const lar_term & term = * m_terms[tv::unmask_term(t.second)];
 
             for (auto p : term){
                 register_monoid_in_map(coeffs, t.first * p.coeff() , p.var());
@@ -903,8 +903,8 @@ bool lar_solver::x_is_correct() const {
 }
 
 bool lar_solver::var_is_registered(var_index vj) const {
-    if (is_term(vj)) {
-        return unmask_term(vj) < m_terms.size();
+    if (tv::is_term(vj)) {
+        return tv::unmask_term(vj) < m_terms.size();
     }
     return vj < A_r().column_count();
 }
@@ -1143,7 +1143,7 @@ bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value
 }
 
 bool lar_solver::has_value(var_index var, mpq& value) const {
-    if (is_term(var)) {
+    if (tv::is_term(var)) {
         lar_term const& t = get_term(var);
         value = 0;
         for (auto const& cv : t) {
@@ -1258,7 +1258,7 @@ void lar_solver::set_variable_name(var_index vi, std::string name) {
 }
 
 std::string lar_solver::get_variable_name(var_index j) const {
-    if (is_term(j)) 
+    if (tv::is_term(j)) 
         return std::string("_t") + T_to_string(j);
     if (j >= m_var_register.size())
         return std::string("_s") + T_to_string(j);
@@ -1330,8 +1330,8 @@ mpq lar_solver::get_left_side_val(const lar_base_constraint &  cns, const std::u
 void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list) {
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
-        if (is_term(var)) { // handle the term
-            for (auto it : *m_terms[unmask_term(var)]) {
+        if (tv::is_term(var)) { // handle the term
+            for (auto it : *m_terms[tv::unmask_term(var)]) {
                 column_list.push_back(it.var());
             }
         } else {
@@ -1541,7 +1541,7 @@ bool lar_solver::term_is_int(const vector<std::pair<mpq, unsigned int>>& coeffs)
 }
 
 bool lar_solver::var_is_int(var_index v) const {
-    if (is_term(v)) {
+    if (tv::is_term(v)) {
         lar_term const& t = get_term(v);
         return term_is_int(&t);
     }
@@ -1576,7 +1576,7 @@ var_index lar_solver::add_named_var(unsigned ext_j, bool is_int, const std::stri
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
     var_index local_j;
-    lp_assert(!is_term(ext_j));
+    lp_assert(!tv::is_term(ext_j));
     if (m_var_register.external_is_used(ext_j, local_j))
         return local_j;
     lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
@@ -1654,7 +1654,7 @@ void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
 
 var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs) {
     push_term(new lar_term(coeffs));
-    return mask_term(m_terms.size() - 1);
+    return tv::mask_term(m_terms.size() - 1);
 }
 
 #if Z3DEBUG_CHECK_UNIQUE_TERMS
@@ -1710,7 +1710,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
     push_term(t);
     SASSERT(m_terms.size() == m_term_register.size());
     unsigned adjusted_term_index = m_terms.size() - 1;
-    var_index ret = mask_term(adjusted_term_index);
+    var_index ret = tv::mask_term(adjusted_term_index);
     if (use_tableau() && !coeffs.empty()) {
         add_row_from_term_no_constraint(m_terms.back(), ret);
         if (m_settings.bound_propagation())
@@ -1802,7 +1802,7 @@ mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind& k, const mpq& bo
 constraint_index lar_solver::mk_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) {
     TRACE("lar_solver", tout << "j = " << j << " " << lconstraint_kind_string(kind) << " " << right_side<< std::endl;);
     constraint_index ci;
-    if (!is_term(j)) { // j is a var
+    if (!tv::is_term(j)) { // j is a var
         mpq rs = adjust_bound_for_int(j, kind, right_side);
         lp_assert(bound_is_integer_for_integer_column(j, rs));
         ci = m_constraints.add_var_constraint(j, kind, rs);
@@ -1815,7 +1815,7 @@ constraint_index lar_solver::mk_var_bound(var_index j, lconstraint_kind kind, co
 }
 
 bool lar_solver::compare_values(var_index j, lconstraint_kind k, const mpq & rhs) {
-    if (is_term(j))
+    if (tv::is_term(j))
         j = to_column(j);
     return compare_values(get_column_value(j), k, rhs);
 }
@@ -1843,8 +1843,8 @@ void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind
 }
 
 constraint_index lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side) {
-    lp_assert(is_term(j));
-    unsigned adjusted_term_index = unmask_term(j);
+    lp_assert(tv::is_term(j));
+    unsigned adjusted_term_index = tv::unmask_term(j);
     //    lp_assert(!term_is_int(m_terms[adjusted_term_index]) || right_side.is_int());
     unsigned term_j;
     lar_term const* term = m_terms[adjusted_term_index];    
@@ -1924,9 +1924,9 @@ void lar_solver::adjust_initial_state_for_lu() {
 
 void lar_solver::adjust_initial_state_for_tableau_rows() {
     for (unsigned i = 0; i < m_terms.size(); i++) {
-        if (m_var_register.external_is_used(mask_term(i)))
+        if (m_var_register.external_is_used(tv::mask_term(i)))
             continue;
-        add_row_from_term_no_constraint(m_terms[i], mask_term(i));
+        add_row_from_term_no_constraint(m_terms[i], tv::mask_term(i));
     }
 }
 
@@ -2168,7 +2168,7 @@ void lar_solver::update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kin
 }
 
 bool lar_solver::column_corresponds_to_term(unsigned j) const {
-    return is_term(m_var_register.local_to_external(j));
+    return tv::is_term(m_var_register.local_to_external(j));
 }
 
 var_index lar_solver::to_column(unsigned ext_j) const {
@@ -2176,8 +2176,8 @@ var_index lar_solver::to_column(unsigned ext_j) const {
 }
 
 bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& delta) {
-    SASSERT(!is_term(term_index));
-    unsigned tj = mask_term(term_index);
+    SASSERT(!tv::is_term(term_index));
+    unsigned tj = tv::mask_term(term_index);
     unsigned j;
     if (m_var_register.external_is_used(tj, j) == false)
         return true; // the term is not a column so it has no bounds
@@ -2246,7 +2246,7 @@ void lar_solver::fix_terms_with_rounded_columns() {
             }
         }
         if (need_to_fix) {
-            lpvar j = m_var_register.external_to_local(mask_term(i));
+            lpvar j = m_var_register.external_to_local(tv::mask_term(i));
             impq v = t.apply(m_mpq_lar_core_solver.m_r_x);
             m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
         }
@@ -2266,7 +2266,7 @@ bool lar_solver::sum_first_coords(const lar_term& t, mpq & val) const {
 }
 
 bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci, bool &upper_bound) const {
-    unsigned tj = mask_term(term_index);
+    unsigned tj = tv::mask_term(term_index);
     unsigned j;
     bool is_int;
     if (m_var_register.external_is_used(tj, j, is_int) == false)
@@ -2341,7 +2341,7 @@ void lar_solver::register_existing_terms() {
     if (!m_need_register_terms) {
         TRACE("nla_solver", tout << "registering " << m_terms.size() << " terms\n";);
         for (unsigned k = 0; k < m_terms.size(); k++) {
-            lpvar j = m_var_register.external_to_local(mask_term(k));
+            lpvar j = m_var_register.external_to_local(tv::mask_term(k));
             register_normalized_term(*m_terms[k], j);
         }
     }

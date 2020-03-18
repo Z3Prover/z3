@@ -59,7 +59,7 @@ lp::lar_term core::subs_terms_to_columns(const lp::lar_term& t) const {
     lp::lar_term r;
     for (const auto& p : t) {
         lpvar j = p.var();
-        if (lp::is_term(j))
+        if (lp::tv::is_term(j))
             j = m_lar_solver.map_term_index_to_column_index(j);
         r.add_monomial(p.coeff(), j);
     }
@@ -126,7 +126,7 @@ void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
     m_add_buffer.resize(sz);
     for (unsigned i = 0; i < sz; i++) {
         lpvar j = vs[i];
-        if (lp::is_term(j))
+        if (lp::tv::is_term(j))
             j = m_lar_solver.map_term_index_to_column_index(j);
         m_add_buffer[i] = j;
     }
@@ -342,7 +342,7 @@ bool core:: explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bou
 
 bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
     const rational& a = p.coeff();
-    lpvar j = lp::is_term(p.var())? m_lar_solver.map_term_index_to_column_index(p.var()) : p.var();
+    lpvar j = lp::tv::is_term(p.var())? m_lar_solver.map_term_index_to_column_index(p.var()) : p.var();
     SASSERT(!a.is_zero());
     unsigned c; // the index for the lower or the upper bound
     if (a.is_neg()) {
@@ -837,7 +837,7 @@ void core::collect_equivs() {
     for (unsigned i = 0; i < s.terms().size(); i++) {
         if (!s.term_is_used_as_row(i))
             continue;
-        lpvar j = s.external_to_local(lp::mask_term(i));
+        lpvar j = s.external_to_local(lp::tv::mask_term(i));
         if (var_is_fixed_to_zero(j)) {
             TRACE("nla_solver_eq", tout << "term = "; s.print_term_as_indices(*s.terms()[i], tout););
             add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
@@ -1363,7 +1363,7 @@ lbool core::test_check(
 
 std::ostream& core::print_terms(std::ostream& out) const {
     for (unsigned i = 0; i< m_lar_solver.m_terms.size(); i++) {
-        unsigned ext = lp::mask_term(i);
+        unsigned ext = lp::tv::mask_term(i);
         if (!m_lar_solver.var_is_registered(ext)) {
             out << "term is not registered\n";
             continue;
@@ -1714,8 +1714,8 @@ bool core::is_nl_var(lpvar j) const {
 
 
 bool core::influences_nl_var(lpvar j) const {
-    if (lp::is_term(j))
-        j = lp::unmask_term(j);
+    if (lp::tv::is_term(j))
+        j = lp::tv::unmask_term(j);
     if (is_nl_var(j))
         return true;
     for (const auto & c : m_lar_solver.A_r().m_columns[j]) {

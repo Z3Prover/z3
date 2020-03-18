@@ -17,15 +17,10 @@ Revision History:
 
 --*/
 #pragma once
+#include "math/lp/lp_types.h"
 namespace lp  {
-const unsigned EF = UINT_MAX >> 1;
-const unsigned left_most_bit  = ~EF;
 
-inline unsigned unmask_term(unsigned j) { return j & EF; }
 
-inline bool is_term(unsigned j) { return j & left_most_bit; }
-
-inline unsigned mask_term(unsigned j) { return j | left_most_bit; }
 
 class ext_var_info {
     unsigned m_external_j;
@@ -49,7 +44,7 @@ class var_register {
     unsigned m_locals_mask;
     unsigned m_locals_mask_inverted;
 public:
-    var_register(bool mask_locals): m_locals_mask(mask_locals? left_most_bit: 0), m_locals_mask_inverted(~m_locals_mask) {}
+    var_register(bool mask_locals): m_locals_mask(mask_locals? tv::left_most_bit: 0), m_locals_mask_inverted(~m_locals_mask) {}
     
     void set_name(unsigned j, std::string name) {
         m_local_to_external[j].set_name(name);

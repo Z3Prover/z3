@@ -22,6 +22,7 @@
 #include "util/map.h"
 
 namespace lp {
+
 class lar_term {
     // the term evaluates to sum of m_coeffs 
     typedef unsigned lpvar;

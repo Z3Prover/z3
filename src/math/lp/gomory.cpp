@@ -222,7 +222,7 @@ class create_cut {
         }
         for (const auto& p : m_t) {
             unsigned v = p.var();
-            if (lp::is_term(v)) {
+            if (lp::tv::is_term(v)) {
                 dump_declaration(out, v);
             }
         }

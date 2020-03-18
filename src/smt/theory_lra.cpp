@@ -978,7 +978,7 @@ class theory_lra::imp {
                 }
                 SASSERT(!m_left_side.empty());
                 vi = lp().add_term(m_left_side, v);
-                SASSERT (lp::is_term(vi));
+                SASSERT (lp::tv::is_term(vi));
                 TRACE("arith_verbose", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                       lp().print_term(lp().get_term(vi), tout) << "\n";);
             }
@@ -1493,7 +1493,7 @@ public:
     lp::impq get_ivalue(theory_var v) const {
         SASSERT(can_get_ivalue(v));
         lpvar vi = get_lpvar(v);
-        if (!lp::is_term(vi))
+        if (!lp::tv::is_term(vi))
             return lp().get_column_value(vi);
         m_todo_terms.push_back(std::make_pair(vi, rational::one()));
         lp::impq result(0);
@@ -1501,7 +1501,7 @@ public:
             vi = m_todo_terms.back().first;
             rational coeff = m_todo_terms.back().second;
             m_todo_terms.pop_back();
-            if (lp::is_term(vi)) {
+            if (lp::tv::is_term(vi)) {
                 const lp::lar_term& term = lp().get_term(vi);
                 for (const auto & i:  term) {
                     m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
@@ -1523,7 +1523,7 @@ public:
         if (m_variable_values.count(vi) > 0)
             return m_variable_values[vi];
         
-        if (!lp::is_term(vi)) {
+        if (!lp::tv::is_term(vi)) {
             return rational::zero();
         }
         
@@ -1533,7 +1533,7 @@ public:
             lpvar wi = m_todo_terms.back().first;
             rational coeff = m_todo_terms.back().second;
             m_todo_terms.pop_back();
-            if (lp::is_term(wi)) {
+            if (lp::tv::is_term(wi)) {
                 const lp::lar_term& term = lp().get_term(wi);
                 for (const auto & i : term) {
                     if (m_variable_values.count(i.var()) > 0) {
@@ -1933,7 +1933,7 @@ public:
         expr_ref_vector ts(m);
         for (auto const& p : term) {
             lpvar wi = p.var();
-            if (lp::is_term(wi)) {
+            if (lp::tv::is_term(wi)) {
                 ts.push_back(multerm(p.coeff(), term2expr(lp().get_term(wi))));
             }
             else {
@@ -1976,7 +1976,7 @@ public:
         for (auto const& p : term) {
             lpvar wi = p.var();
             out << p.coeff() << " * ";
-            if (lp::is_term(wi)) {
+            if (lp::tv::is_term(wi)) {
                 lp().print_term(lp().get_term(wi), out) << "\n";
             }
             else {
@@ -2770,7 +2770,7 @@ public:
     void add_use_lists(lp_api::bound* b) {
         theory_var v = b->get_var();
         lpvar vi = register_theory_var_in_lar_solver(v);
-        if (!lp::is_term(vi)) {
+        if (!lp::tv::is_term(vi)) {
             return;
         }
         m_todo_vars.push_back(vi);
@@ -2780,7 +2780,7 @@ public:
             lp::lar_term const& term = lp().get_term(vi);
             for (auto const& p : term) {
                 lpvar wi = p.var();
-                if (lp::is_term(wi)) {
+                if (lp::tv::is_term(wi)) {
                     m_todo_vars.push_back(wi);
                 }
                 else {
@@ -2795,7 +2795,7 @@ public:
     void del_use_lists(lp_api::bound* b) {
         theory_var v = b->get_var();
         lpvar vi = get_lpvar(v);
-        if (!lp::is_term(vi)) {
+        if (!lp::tv::is_term(vi)) {
             return;
         }
         m_todo_vars.push_back(vi);
@@ -2805,7 +2805,7 @@ public:
             lp::lar_term const& term = lp().get_term(vi);
             for (auto const& coeff : term) {
                 lpvar wi = coeff.var();
-                if (lp::is_term(wi)) {
+                if (lp::tv::is_term(wi)) {
                     m_todo_vars.push_back(wi);
                 }
                 else {
@@ -2892,14 +2892,14 @@ public:
         r.reset();
         theory_var v = b.get_var();
         lpvar vi = get_lpvar(v);
-        SASSERT(lp::is_term(vi));
+        SASSERT(lp::tv::is_term(vi));
         lp::lar_term const& term = m_solver->get_term(vi);
         for (auto const mono : term) {
             lp::var_index wi = mono.var();
             lp::constraint_index ci;
             rational value;
             bool is_strict;
-            if (lp::is_term(wi)) {
+            if (lp::tv::is_term(wi)) {
                 return false;
             }
             if (mono.coeff().is_neg() == is_lub) {
@@ -3048,8 +3048,8 @@ public:
 
     bool set_bound(lpvar vi, lp::constraint_index ci, rational const& v, bool is_lower) {
 
-        if (lp::is_term(vi)) {
-            lpvar ti = lp::unmask_term(vi);
+        if (lp::tv::is_term(vi)) {
+            lpvar ti = lp::tv::unmask_term(vi);
             auto& vec = is_lower ? m_lower_terms : m_upper_terms;
             if (vec.size() <= ti) {
                 vec.resize(ti + 1, constraint_bound(UINT_MAX, rational()));
@@ -3096,7 +3096,7 @@ public:
     bool has_lower_bound(lpvar vi, lp::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
        
     bool has_bound(lpvar vi, lp::constraint_index& ci, rational const& bound, bool is_lower) {
-        if (lp::is_term(vi)) {
+        if (lp::tv::is_term(vi)) {
             theory_var v = lp().local_to_external(vi);
             rational val;
             TRACE("arith", tout << vi << " " << v << "\n";);
@@ -3106,7 +3106,7 @@ public:
             }
 
             auto& vec = is_lower ? m_lower_terms : m_upper_terms;
-            lpvar ti = lp::unmask_term(vi);
+            lpvar ti = lp::tv::unmask_term(vi);
             if (vec.size() > ti) {
                 constraint_bound& b = vec[ti];
                 ci = b.first;
@@ -3218,6 +3218,7 @@ public:
     // lp::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is
 
     void set_evidence(lp::constraint_index idx) {
+        std::cout << idx << "\n";
         if (idx == UINT_MAX) {
             return;
         }
@@ -3235,6 +3236,7 @@ public:
             break;
         }
         case definition_source: {
+            std::cout << "def\n";
             // skip definitions (these are treated as hard constraints)
             break;
         }
@@ -3266,12 +3268,13 @@ public:
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
         TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
-        TRACE("arith", display(tout););
+        TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n"););
         for (auto const& ev : m_explanation) {
             if (!ev.first.is_zero()) { 
                 set_evidence(ev.second);
             }
         }
+        std::cout << m_core << "\n";
         // SASSERT(validate_conflict());
         dump_conflict();
         if (is_conflict) {
@@ -3336,7 +3339,7 @@ public:
         SASSERT(m_nra);
         SASSERT(m_use_nra_model);
         lpvar vi = get_lpvar(v);
-        if (lp::is_term(vi)) {
+        if (lp::tv::is_term(vi)) {
 
             m_todo_terms.push_back(std::make_pair(vi, rational::one()));
 
@@ -3357,7 +3360,7 @@ public:
                 for (auto const & arg : term) {
                     lpvar wi = arg.var();
                     c1 = arg.coeff() * wcoeff;
-                    if (lp::is_term(wi)) {
+                    if (lp::tv::is_term(wi)) {
                         m_todo_terms.push_back(std::make_pair(wi, c1));
                     }
                     else {
@@ -3628,8 +3631,8 @@ public:
     void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff) {
         for (const auto & ti : term) {
             theory_var w;
-            if (lp::is_term(ti.var())) {
-                //w = m_term_index2theory_var.get(lp::unmask_term(ti.m_key), null_theory_var);
+            if (lp::tv::is_term(ti.var())) {
+                //w = m_term_index2theory_var.get(lp::tv::unmask_term(ti.m_key), null_theory_var);
                 //if (w == null_theory_var) // if extracting expressions directly from nested term
                 lp::lar_term const& term1 = lp().get_term(ti.var());
                 rational coeff2 = coeff * ti.coeff();
@@ -3697,7 +3700,7 @@ public:
     app_ref mk_obj(theory_var v) {
         lpvar vi = get_lpvar(v);
         bool is_int = a.is_int(get_enode(v)->get_owner());
-        if (lp::is_term(vi)) {           
+        if (lp::tv::is_term(vi)) {           
             return mk_term(lp().get_term(vi), is_int);
         }
         else {
