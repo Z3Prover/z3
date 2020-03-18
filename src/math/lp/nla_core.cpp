@@ -102,7 +102,7 @@ bool core::canonize_sign(lpvar j) const {
 }
 
 bool core::canonize_sign_is_correct(const monic& m) const {
-    bool r = false;
+    bool r = m.sign();
     for (lpvar j : m.vars()) {
         r ^= canonize_sign(j);
     }
