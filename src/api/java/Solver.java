@@ -108,6 +108,16 @@ public class Solver extends Z3Object {
     }
 
     /**
+     * Interrupt the execution of the solver object.
+     * Remarks: This ensures that the interrupt applies only
+     * to the given solver object and it applies only if it is running.
+     **/
+    public void interrupt()
+    {
+        Native.solverInterrupt(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
      * Assert a multiple constraints into the solver.
      * 
      * @throws Z3Exception
