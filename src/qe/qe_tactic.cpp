@@ -66,6 +66,7 @@ class qe_tactic : public tactic {
                 m_qe(m.mk_true(), f, new_f);
                 new_pr = nullptr;
                 if (produce_proofs) {
+                    new_pr = m.mk_rewrite(f, new_f);
                     new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
                 }
                 g->update(i, new_f, new_pr, g->dep(i));                
