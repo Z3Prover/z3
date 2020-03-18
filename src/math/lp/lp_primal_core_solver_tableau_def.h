@@ -161,7 +161,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
             break;
         case lp_status::UNBOUNDED:
             if (this->current_x_is_infeasible()) {
-                init_reduced_costs();
+                init_reduced_costs_tableau();
                 this->set_status(lp_status::UNKNOWN);
             }
             break;
@@ -385,7 +385,9 @@ update_x_tableau(unsigned entering, const X& delta) {
 template <typename T, typename X> void lp_primal_core_solver<T, X>::
 update_inf_cost_for_column_tableau(unsigned j) {
     lp_assert(this->m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows);
+    
     lp_assert(this->m_using_infeas_costs);
+
     T new_cost = get_infeasibility_cost_for_column(j);
     T delta = this->m_costs[j] - new_cost;
     if (is_zero(delta))

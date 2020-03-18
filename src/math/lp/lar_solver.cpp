@@ -392,6 +392,7 @@ bool lar_solver::maximize_term_on_tableau(const lar_term & term,
     m_mpq_lar_core_solver.solve();
     lp_status st = m_mpq_lar_core_solver.m_r_solver.get_status();
     TRACE("lar_solver", tout << st << "\n";);
+    SASSERT( m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
     if (st == lp_status::UNBOUNDED) {
         return false;
     }
@@ -442,6 +443,8 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
 
 void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {        
     TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
+    m_basic_columns_with_changed_cost.clear();
+    m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
     if (move_non_basic_columns_to_bounds())
         find_feasible_solution();
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
@@ -457,6 +460,7 @@ void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
         else
             rslv.update_reduced_cost_for_basic_column_cost_change(- p.coeff(), j);
     }
+    rslv.m_costs_backup = rslv.m_costs;
     lp_assert(rslv.reduced_costs_are_correct_tableau());
 }
 
@@ -525,8 +529,8 @@ bool lar_solver::maximize_term_on_corrected_r_solver(lar_term & term,
     switch (settings().simplex_strategy()) {
         
     case simplex_strategy_enum::tableau_rows:
-        prepare_costs_for_r_solver(term);
         settings().simplex_strategy() = simplex_strategy_enum::tableau_costs;
+        prepare_costs_for_r_solver(term);
         ret = maximize_term_on_tableau(term, term_max);
         settings().simplex_strategy() = simplex_strategy_enum::tableau_rows;
         set_costs_to_zero(term);
@@ -818,9 +822,11 @@ void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau(
         update_x_and_inf_costs_for_column_with_changed_bounds(j);
 
     if (tableau_with_costs()) {
-        for (unsigned j : m_basic_columns_with_changed_cost.m_index)
-            m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
-        lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+        if (m_mpq_lar_core_solver.m_r_solver.m_using_infeas_costs) {
+            for (unsigned j : m_basic_columns_with_changed_cost.m_index)
+                m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
+            lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+        }
     }
 }
 
