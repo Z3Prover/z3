@@ -5723,19 +5723,14 @@ void theory_seq::add_at_axiom(expr* e) {
         expr_ref_vector es(m);
         expr_ref nth(m);
         unsigned k = iv.get_unsigned();
-        if (k > m_max_unfolding_depth && m_max_unfolding_lit != null_literal) {
-            add_axiom(~m_max_unfolding_lit, i_ge_len_s);
+        for (unsigned j = 0; j <= k; ++j) {
+            es.push_back(m_util.str.mk_unit(mk_nth(s, m_autil.mk_int(j))));
+            ensure_enode(es.back());
         }
-        else {
-            for (unsigned j = 0; j <= k; ++j) {
-                es.push_back(m_util.str.mk_unit(mk_nth(s, m_autil.mk_int(j))));
-                ensure_enode(es.back());
-            }
-            nth = es.back();
-            es.push_back(mk_skolem(m_tail, s, i));
-            add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(s, m_util.str.mk_concat(es)));
-            add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));        
-        }
+        nth = es.back();
+        es.push_back(mk_skolem(m_tail, s, i));
+        add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(s, m_util.str.mk_concat(es)));
+        add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));                
     }
     else {
         expr_ref x =     mk_skolem(m_pre, s, i);
@@ -5775,6 +5770,7 @@ void theory_seq::add_nth_axiom(expr* e) {
         expr_ref rhs(s, m);
         expr_ref lhs(m_util.str.mk_unit(e), m);
         if (!m_util.str.is_at(s) || zero != i) rhs = m_util.str.mk_at(s, i);
+        m_rewrite(rhs);
         add_axiom(~i_ge_0, i_ge_len_s, mk_eq(lhs, rhs, false));
     }
 }
