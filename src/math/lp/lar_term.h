@@ -118,37 +118,30 @@ public:
         m_coeffs.reset();
     }
 
-    struct ival {
+    class ival {
         unsigned m_var;
         const mpq & m_coeff;
-        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
-        }
-        unsigned var() const { return m_var;}
+    public:
+        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) { }
+        unsigned var() const { return m_var; }
         const mpq & coeff() const { return m_coeff; }
     };
     
-    struct const_iterator {
-        //fields
+    class const_iterator {
         u_map< mpq>::iterator m_it;
 
         typedef const_iterator self_type;
         typedef ival value_type;
         typedef ival reference;
-        //        typedef std::pair<const unsigned, mpq>* pointer;
         typedef int difference_type;
         typedef std::forward_iterator_tag iterator_category;
 
-        reference operator*() const {
-            return ival(m_it->m_key, m_it->m_value);
-        }
-        
+    public:
+        reference operator*() const { return ival(m_it->m_key, m_it->m_value); }        
         self_type operator++() {  self_type i = *this; m_it++; return i;  }
         self_type operator++(int) { m_it++; return *this; }
-
         const_iterator(u_map<mpq>::iterator it) : m_it(it) {}
-        bool operator==(const self_type &other) const {
-            return m_it == other.m_it;
-        }
+        bool operator==(const self_type &other) const { return m_it == other.m_it; }
         bool operator!=(const self_type &other) const { return !(*this == other); }
     };
 
