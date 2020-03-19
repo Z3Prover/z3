@@ -82,7 +82,8 @@ class lar_solver : public column_namer {
     lp_settings                                         m_settings;
     lp_status                                           m_status;
     stacked_value<simplex_strategy_enum>                m_simplex_strategy;
-    stacked_value<int>                                  m_infeasible_column; // such can be found at the initialization step
+    // such can be found at the initialization step: u < l
+    stacked_value<int>                                  m_crossed_bounds_column; 
 public:
     lar_core_solver                                     m_mpq_lar_core_solver;
 private:
@@ -100,7 +101,7 @@ public:
     // these are basic columns with the value changed, so the the corresponding row in the tableau
     // does not sum to zero anymore
     int_set                                             m_incorrect_columns;
-    stacked_value<int>                                  m_infeasible_column_index; // such can be found at the initialization step
+    stacked_value<int>                                  m_crossed_bounds_column_index; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
@@ -208,7 +209,7 @@ public:
 
     void set_infeasible_column(unsigned j) {
         set_status(lp_status::INFEASIBLE);
-        m_infeasible_column = j;
+        m_crossed_bounds_column = j;
     }
 
     constraint_index add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
@@ -322,7 +323,7 @@ public:
     
     lp_status solve();
 
-    void fill_explanation_from_infeasible_column(explanation & evidence) const;
+    void fill_explanation_from_crossed_bounds_column(explanation & evidence) const;
 
     
     unsigned get_total_iterations() const;

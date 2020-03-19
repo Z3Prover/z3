@@ -21,7 +21,7 @@ void clear() {lp_assert(false); // not implemented
 
 
 lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
-                           m_infeasible_column(-1),
+                           m_crossed_bounds_column(-1),
                            m_mpq_lar_core_solver(m_settings, *this),
                            m_int_solver(nullptr),
                            m_need_register_terms(false),
@@ -293,12 +293,12 @@ lp_status lar_solver::solve() {
     return m_status;
 }
 
-void lar_solver::fill_explanation_from_infeasible_column(explanation & evidence) const{
-    lp_assert(static_cast<int>(get_column_type(m_infeasible_column)) >= static_cast<int>(column_type::boxed));
-    lp_assert(!m_mpq_lar_core_solver.m_r_solver.column_is_feasible(m_infeasible_column));
+void lar_solver::fill_explanation_from_crossed_bounds_column(explanation & evidence) const{
+    lp_assert(static_cast<int>(get_column_type(m_crossed_bounds_column)) >= static_cast<int>(column_type::boxed));
+    lp_assert(!m_mpq_lar_core_solver.m_r_solver.column_is_feasible(m_crossed_bounds_column));
     
     // this is the case when the lower bound is in conflict with the upper one
-    const ul_pair & ul =  m_columns_to_ul_pairs[m_infeasible_column];
+    const ul_pair & ul =  m_columns_to_ul_pairs[m_crossed_bounds_column];
     evidence.push_justification(ul.upper_bound_witness(),  numeric_traits<mpq>::one());
     evidence.push_justification(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
 }
@@ -317,7 +317,7 @@ void lar_solver::push() {
     m_simplex_strategy = m_settings.simplex_strategy();
     m_simplex_strategy.push();
     m_columns_to_ul_pairs.push();
-    m_infeasible_column.push();
+    m_crossed_bounds_column.push();
     m_mpq_lar_core_solver.push();
     m_term_count = m_terms.size();
     m_term_count.push();
@@ -341,7 +341,7 @@ void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
     
 void lar_solver::pop(unsigned k) {
     TRACE("lar_solver", tout << "k = " << k << std::endl;);
-    m_infeasible_column.pop(k);
+    m_crossed_bounds_column.pop(k);
     unsigned n = m_columns_to_ul_pairs.peek_size(k);
     m_var_register.shrink(n);
     if (m_settings.use_tableau()) {
@@ -1163,8 +1163,8 @@ bool lar_solver::has_value(var_index var, mpq& value) const {
 
 void lar_solver::get_infeasibility_explanation(explanation& exp) const {
     exp.clear();
-    if (m_infeasible_column != -1) {
-        fill_explanation_from_infeasible_column(exp);
+    if (m_crossed_bounds_column != -1) {
+        fill_explanation_from_crossed_bounds_column(exp);
         return;
     }
     if (m_mpq_lar_core_solver.get_infeasible_sum_sign() == 0) {
