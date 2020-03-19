@@ -267,6 +267,10 @@ public:
             else {
                 ++kv.m_value; 
             }
+            if (m_bounds.has_lower(kv.m_key, val, strict)) {
+                SASSERT(!strict);
+                if (val.get_unsigned() > kv.m_value) kv.m_value = val.get_unsigned();
+            }
             unsigned p = next_power_of_two(kv.m_value);            
             if (p <= 1) p = 2;
             if (kv.m_value == p) p *= 2;
