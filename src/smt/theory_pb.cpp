@@ -2172,6 +2172,7 @@ namespace smt {
         TRACE("pb", display(tout << "validate: ", c, true);
               tout << "sum: " << sum << " " << maxsum << " ";
               tout << ctx.get_assignment(c.lit()) << "\n";
+              ctx.display(tout);
               );
 
         SASSERT(sum <= maxsum);

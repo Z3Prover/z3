@@ -2384,7 +2384,6 @@ namespace smt {
        \warning This method will not invoke reset_cache_generation.
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
-
         unsigned units_to_reassert_lim;
 
         try {
@@ -3871,7 +3870,6 @@ namespace smt {
     final_check_status context::final_check() {
         TRACE("final_check", tout << "final_check inconsistent: " << inconsistent() << "\n"; display(tout); display_normalized_enodes(tout););
         CASSERT("relevancy", check_relevancy());
-
         
         if (m_fparams.m_model_on_final_check) {
             mk_proto_model();
@@ -4458,6 +4456,11 @@ namespace smt {
     bool context::update_model(bool refinalize) {
         final_check_status fcs = FC_DONE;
         if (refinalize) {
+            bool_var var;
+            lbool phase = l_undef;
+            m_case_split_queue->next_case_split(var, phase);
+            if (var != null_bool_var) 
+                return false;
             fcs = final_check();
         }
         TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
