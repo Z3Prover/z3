@@ -36,8 +36,11 @@ public:
     unsigned size() const { return m_vs.size(); }
     bool sign() const { return m_sign; }
     const svector<lp::var_index>& vars() const { return m_vs; }
-    svector<lp::var_index>& vars() { return m_vs; }
     bool empty() const { return m_vs.empty(); }
+
+protected:
+    svector<lp::var_index>& vars1() { return m_vs; }
+
 };
 
 // support the congruence    
@@ -53,7 +56,7 @@ public:
     }
     monic(bool sign, lpvar v, const svector<lpvar> &vs, unsigned idx): 
         mon_eq(sign, v, vs), m_rsign(false),  m_visited(0) {
-        std::sort(vars().begin(), vars().end());
+        std::sort(vars1().begin(), vars1().end());
     }
 
     unsigned visited() const { return m_visited; }

@@ -54,7 +54,7 @@ public:
 
 
 class factorization {
-    svector<factor>       m_factors;
+    svector<factor>    m_factors;
     const monic*       m_mon;
 public:
     factorization(const monic* m): m_mon(m) {
@@ -63,18 +63,14 @@ public:
                 m_factors.push_back(factor(j, factor_type::VAR));
         }
     }
-    bool is_mon() const {
-        return m_mon != nullptr;
-    }
+    bool is_mon() const { return m_mon != nullptr; }
     bool is_empty() const { return m_factors.empty(); }
     const factor& operator[](unsigned k) const { return m_factors[k]; }
     factor& operator[](unsigned k) { return m_factors[k]; }
     size_t size() const { return m_factors.size(); }
     const factor* begin() const { return m_factors.begin(); }
     const factor* end() const { return m_factors.end(); }
-    void push_back(factor const& v) {
-        m_factors.push_back(v);
-    }
+    void push_back(factor const& v) { m_factors.push_back(v); }
     const monic& mon() const { return *m_mon; }
     void set_mon(const monic* m) { m_mon = m; }
 
