@@ -3218,7 +3218,6 @@ public:
     // lp::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is
 
     void set_evidence(lp::constraint_index idx) {
-        std::cout << idx << "\n";
         if (idx == UINT_MAX) {
             return;
         }
@@ -3236,7 +3235,6 @@ public:
             break;
         }
         case definition_source: {
-            std::cout << "def\n";
             // skip definitions (these are treated as hard constraints)
             break;
         }
@@ -3274,7 +3272,6 @@ public:
                 set_evidence(ev.second);
             }
         }
-        std::cout << m_core << "\n";
         // SASSERT(validate_conflict());
         dump_conflict();
         if (is_conflict) {
