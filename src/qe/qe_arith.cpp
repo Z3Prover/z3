@@ -67,7 +67,7 @@ namespace qe {
                        CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
                        SASSERT(m.canceled() || m.is_true(val)););
 
-            if (!m.inc()) 
+            if (!m.limit().inc()) 
                 return false;
             
             TRACE("opt", tout << mk_pp(lit, m) << " " << a.is_lt(lit) << " " << a.is_gt(lit) << "\n";);
@@ -311,7 +311,7 @@ namespace qe {
             }
             model_evaluator eval(model);
             TRACE("qe", tout << model;);
-            // eval.set_model_completion(true);
+            eval.set_model_completion(true);
 
             opt::model_based_opt mbo;
             obj_map<expr, unsigned> tids;
@@ -564,7 +564,7 @@ namespace qe {
                 if (!tids.find(v, id)) {
                     rational r;
                     expr_ref val = eval(v);
-                    a.is_numeral(val, r);
+                    VERIFY(a.is_numeral(val, r));                    
                     id = mbo.add_var(r, a.is_int(v));
                     tids.insert(v, id);
                 }
