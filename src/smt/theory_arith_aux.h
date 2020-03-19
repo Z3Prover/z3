@@ -1059,6 +1059,8 @@ namespace smt {
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         TRACE("bound_bug", display_var(tout, v); display(tout););
+        if (get_context().get_fparams().m_threads > 1)
+            throw default_exception("multi-threaded optimization is not supported");
         has_shared = false;
         if (!m_nl_monomials.empty()) {
             has_shared = true;
