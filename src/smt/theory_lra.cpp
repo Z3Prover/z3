@@ -2049,8 +2049,8 @@ public:
                     set_evidence(ev.second);
                 }
             }
-			// The call mk_bound() can set the m_infeasible_column in lar_solver
-			// so the explanation is safer to take before this call.
+            // The call mk_bound() can set the m_infeasible_column in lar_solver
+            // so the explanation is safer to take before this call.
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             if (m.has_trace_stream()) {
                 th.log_axiom_instantiation(b);
@@ -3483,6 +3483,8 @@ public:
         if (dump_lemmas()) {
             unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
             (void)id;
+            std::cout << id << "\n";
+            SASSERT(id != 49);
         }
     }
 

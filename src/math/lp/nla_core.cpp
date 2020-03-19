@@ -87,7 +87,6 @@ svector<lpvar> core::sorted_rvars(const factor& f) const {
         svector<lpvar> r; r.push_back(map_to_root(f.var()));
         return r;
     }
-    TRACE("nla_solver", tout << "nv";);
     return m_emons[f.var()].rvars();
 }
 
@@ -799,7 +798,7 @@ void core::explain(const factorization& f, lp::explanation& exp) {
     }
 }
 
-bool core:: has_zero_factor(const factorization& factorization) const {
+bool core::has_zero_factor(const factorization& factorization) const {
     for (factor f : factorization) {
         if (val(f).is_zero())
             return true;
