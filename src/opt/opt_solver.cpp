@@ -434,7 +434,6 @@ namespace opt {
             return th.mk_ge(m_fm, v, val);
         }
 
-
         if (typeid(smt::theory_lra) == typeid(opt)) {
             smt::theory_lra& th = dynamic_cast<smt::theory_lra&>(opt); 
             SASSERT(val.is_finite());
