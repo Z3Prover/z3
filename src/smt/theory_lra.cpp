@@ -863,7 +863,6 @@ class theory_lra::imp {
 
     bool is_infeasible() const {
         return lp().get_status() == lp::lp_status::INFEASIBLE;
-        // || lp().get_status() == lp::lp_status::UNKNOWN;
     }
     
     void internalize_eq(theory_var v1, theory_var v2) {  
