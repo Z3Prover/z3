@@ -4,8 +4,12 @@ on: [push, pull_request]
 
 jobs:
   build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: true
 
-    runs-on: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     
     steps:
     - uses: actions/checkout@v2
