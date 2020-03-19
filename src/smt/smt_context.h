@@ -1060,6 +1060,8 @@ namespace smt {
                 m_asserted_formulas.inconsistent();
         }
 
+        bool has_case_splits();
+
         unsigned get_num_conflicts() const {
             return m_num_conflicts;
         }

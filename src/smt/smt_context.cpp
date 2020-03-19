@@ -4456,10 +4456,7 @@ namespace smt {
     bool context::update_model(bool refinalize) {
         final_check_status fcs = FC_DONE;
         if (refinalize) {
-            bool_var var;
-            lbool phase = l_undef;
-            m_case_split_queue->next_case_split(var, phase);
-            if (var != null_bool_var) 
+            if (has_case_splits())
                 return false;
             fcs = final_check();
         }
@@ -4472,7 +4469,7 @@ namespace smt {
     }
 
     void context::mk_proto_model() {
-        if (m_model || m_proto_model) return;
+        if (m_model || m_proto_model || has_case_splits()) return;
         TRACE("get_model",
               display(tout);
               display_normalized_enodes(tout);
@@ -4505,9 +4502,16 @@ namespace smt {
         return m_unsat_proof;
     }
 
+    bool context::has_case_splits() {
+        bool_var var;
+        lbool phase = l_undef;
+        m_case_split_queue->next_case_split(var, phase);
+        return (var != null_bool_var); 
+    }
+
     void context::get_model(model_ref & m) {
         if (inconsistent())
-            m = nullptr;
+            m = nullptr;       
         else {
             mk_proto_model();
             if (!m_model && m_proto_model) {
