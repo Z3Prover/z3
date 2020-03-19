@@ -129,23 +129,15 @@ public:
     
     class const_iterator {
         u_map< mpq>::iterator m_it;
-
-        typedef const_iterator self_type;
-        typedef ival value_type;
-        typedef ival reference;
-        typedef int difference_type;
-        typedef std::forward_iterator_tag iterator_category;
-
     public:
-        reference operator*() const { return ival(m_it->m_key, m_it->m_value); }        
-        self_type operator++() {  self_type i = *this; m_it++; return i;  }
-        self_type operator++(int) { m_it++; return *this; }
+        ival operator*() const { return ival(m_it->m_key, m_it->m_value); }        
+        const_iterator operator++() { const_iterator i = *this; m_it++; return i;  }
+        const_iterator operator++(int) { m_it++; return *this; }
         const_iterator(u_map<mpq>::iterator it) : m_it(it) {}
-        bool operator==(const self_type &other) const { return m_it == other.m_it; }
-        bool operator!=(const self_type &other) const { return !(*this == other); }
+        bool operator==(const const_iterator &other) const { return m_it == other.m_it; }
+        bool operator!=(const const_iterator &other) const { return !(*this == other); }
     };
-
-    
+   
     bool is_normalized() const {
         lpvar min_var = -1;
         mpq c;
