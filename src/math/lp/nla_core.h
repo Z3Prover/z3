@@ -128,7 +128,13 @@ public:
     bool is_monic_var(lpvar j) const { return m_emons.is_monic_var(j); }
     rational val(lpvar j) const { return m_lar_solver.get_column_value_rational(j); }
 
-    rational val(const monic& m) const { return m_lar_solver.get_column_value_rational(m.var()); }
+    rational var_val(const monic& m) const { return m_lar_solver.get_column_value_rational(m.var()); }
+
+    rational mul_val(const monic& m) const { 
+        rational r(1);
+        for (lpvar v : m.vars()) r *= m_lar_solver.get_column_value_rational(v);
+        return r;
+    }
 
     bool canonize_sign_is_correct(const monic& m) const;
 
@@ -136,7 +142,7 @@ public:
 
     rational val_rooted(const monic& m) const { return m.rsign()*val(m.var()); }
 
-    rational val(const factor& f) const {  return f.rat_sign() * (f.is_var()? val(f.var()) : val(m_emons[f.var()])); }
+    rational val(const factor& f) const {  return f.rat_sign() * (f.is_var()? val(f.var()) : var_val(m_emons[f.var()])); }
 
     rational val(const factorization&) const;
     

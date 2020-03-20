@@ -28,7 +28,7 @@ basics::basics(core * c) : common(c) {}
 // Generate a lemma if values of m.var() and n.var() are not the same up to sign
 bool basics::basic_sign_lemma_on_two_monics(const monic& m, const monic& n) {
     const rational sign = sign_to_rat(m.rsign() ^ n.rsign());
-     if (val(m) == val(n) * sign)
+     if (var_val(m) == var_val(n) * sign)
         return false;
      TRACE("nla_solver", tout << "sign contradiction:\nm = " << pp_mon(c(), m) << "n= " << pp_mon(c(), n) << "sign: " << sign << "\n";);
     generate_sign_lemma(m, n, sign);
@@ -36,8 +36,8 @@ bool basics::basic_sign_lemma_on_two_monics(const monic& m, const monic& n) {
 }
 
 void basics::generate_zero_lemmas(const monic& m) {
-    SASSERT(!val(m).is_zero() && c().product_value(m).is_zero());
-    int sign = nla::rat_sign(val(m));
+    SASSERT(!var_val(m).is_zero() && c().product_value(m).is_zero());
+    int sign = nla::rat_sign(var_val(m));
     unsigned_vector fixed_zeros;
     lpvar zero_j = find_best_zero(m, fixed_zeros);
     SASSERT(is_set(zero_j));
@@ -105,7 +105,7 @@ bool basics::basic_sign_lemma_model_based() {
     unsigned sz = c().m_to_refine.size();
     for (unsigned i = sz; i-- > 0; ) {
         monic const& m = c().emons()[c().m_to_refine[(start + i) % sz]];
-        int mon_sign = nla::rat_sign(val(m));
+        int mon_sign = nla::rat_sign(var_val(m));
         int product_sign = c().rat_sign(m);
         if (mon_sign != product_sign) {
             basic_sign_lemma_model_based_one_mon(m, product_sign);
@@ -392,7 +392,7 @@ bool basics::basic_lemma_for_mon_neutral_derived(const monic& rm, const factoriz
 void basics::proportion_lemma_model_based(const monic& rm, const factorization& factorization) {
     if (factorization_has_real(factorization)) // todo: handle the situaiton when all factors are greater than 1,        
         return;     // or smaller than 1
-    rational rmv = abs(val(rm));
+    rational rmv = abs(var_val(rm));
     if (rmv.is_zero()) {
         SASSERT(c().has_zero_factor(factorization));
         return;
@@ -409,7 +409,7 @@ void basics::proportion_lemma_model_based(const monic& rm, const factorization& 
 // x != 0 or y = 0 => |xy| >= |y|
 bool basics::proportion_lemma_derived(const monic& rm, const factorization& factorization) {
     return false;
-    rational rmv = abs(val(rm));
+    rational rmv = abs(var_val(rm));
     if (rmv.is_zero()) {
         SASSERT(c().has_zero_factor(factorization));
         return false;
@@ -459,7 +459,7 @@ void basics::generate_pl(const monic& m, const factorization& fc, int factor_ind
     }
     add_empty_lemma();
     int fi = 0;
-    rational mv = val(m);
+    rational mv = var_val(m);
     rational sm = rational(nla::rat_sign(mv));
     unsigned mon_var = var(m);
     c().mk_ineq(sm, mon_var, llc::LT);
@@ -505,7 +505,7 @@ bool basics::factorization_has_real(const factorization& f) const {
 // here we use the fact xy = 0 -> x = 0 or y = 0
 void basics::basic_lemma_for_mon_zero_model_based(const monic& rm, const factorization& f) {        
     TRACE("nla_solver",  c().trace_print_monic_and_factorization(rm, f, tout););
-    SASSERT(val(rm).is_zero()&& ! c().rm_check(rm));
+    SASSERT(var_val(rm).is_zero()&& ! c().rm_check(rm));
     add_empty_lemma();
     if (!is_separated_from_zero(f)) {
         c().mk_ineq(var(rm), llc::NE);        
@@ -524,7 +524,7 @@ void basics::basic_lemma_for_mon_zero_model_based(const monic& rm, const factori
 
 void basics::basic_lemma_for_mon_model_based(const monic& rm) {
     TRACE("nla_solver_bl", tout << "rm = " << pp_mon(_(), rm) << "\n";);
-    if (val(rm).is_zero()) {
+    if (var_val(rm).is_zero()) {
         for (auto factorization : factorization_factory_imp(rm, c())) {
             if (factorization.is_empty())
                 continue;
@@ -548,7 +548,7 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based_fm(const mo
     TRACE("nla_solver_bl", c().print_monic(m, tout););
 
     lpvar mon_var = m.var();
-    const auto mv = val(mon_var);
+    const auto mv = var_val(m);
     const auto abs_mv = abs(mv);
     if (abs_mv == rational::zero()) {
         return false;
@@ -619,7 +619,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based_fm(co
     }
 
     if (not_one + 1) {  // we found the only not_one
-        if (val(m) == val(not_one) * sign) {
+        if (var_val(m) == val(not_one) * sign) {
             TRACE("nla_solver", tout << "the whole equal to the factor" << std::endl;);
             return false;
         }
@@ -740,13 +740,13 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const
 
     if (not_one + 1) {
         // we found the only not_one
-        if (val(m) == val(not_one) * sign) {
+        if (var_val(m) == val(not_one) * sign) {
             TRACE("nla_solver", tout << "the whole is equal to the factor" << std::endl;);
             return false;
         }
     } else {
         // we have +-ones only in the factorization
-        if (val(m) == sign) {
+        if (var_val(m) == sign) {
             return false;
         }
     }

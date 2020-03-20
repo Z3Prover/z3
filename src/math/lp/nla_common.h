@@ -57,6 +57,8 @@ struct common {
 
     template <typename T> rational val(T const& t) const;
     rational val(lpvar) const;
+    rational var_val(monic const& m) const; // value obtained from variable representing monomial
+    rational mul_val(monic const& m) const; // value obtained from multiplying variables of monomial
     template <typename T> lpvar var(T const& t) const;
     bool done() const;
     template <typename T> void explain(const T&);

@@ -38,7 +38,7 @@ typedef nla::variable_map_type variable_map_type;
         }
 
         void add(lp::var_index v, unsigned sz, lp::var_index const* vs) {
-            m_monics.push_back(mon_eq(false, v, sz, vs));
+            m_monics.push_back(mon_eq(v, sz, vs));
         }
 
         void push() {

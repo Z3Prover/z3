@@ -53,12 +53,15 @@ void emonics::pop(unsigned n) {
     for (unsigned j = 0; j < n; ++j) {
         unsigned old_sz = m_lim[m_lim.size() - 1];
         for (unsigned i = m_monics.size(); i-- > old_sz; ) {
+            m_ve.pop(1);
             monic & m = m_monics[i];
             TRACE("nla_solver_mons", display(tout << m << "\n"););
             remove_cg_mon(m);
             m_var2index[m.var()] = UINT_MAX;
+            do_canonize(m);
+            // variables in vs are in the same state as they were when add was called
             lpvar last_var = UINT_MAX;
-            for (lpvar v : m.vars()) {
+            for (lpvar v : m.rvars()) {
                 if (v != last_var) {
                     remove_cell(m_use_lists[v]);
                     last_var = v;
@@ -168,7 +171,7 @@ monic const* emonics::find_canonical(svector<lpvar> const& vars) const {
 
 void emonics::remove_cg(lpvar v) {
     TRACE("nla_solver_mons", tout << "remove: " << v << "\n";);
-    TRACE("nla_solver_mons", display(tout););
+//    TRACE("nla_solver_mons", display(tout););
     cell* c = m_use_lists[v].m_head;
     if (c == nullptr) {
         return;
@@ -233,7 +236,7 @@ void emonics::insert_cg(lpvar v) {
         }
     }
     while (c != first);
-    TRACE("nla_solver_mons", display(tout << "insert: " << v << "\n"););    
+    TRACE("nla_solver_mons", tout << "insert: " << v << "\n";);    
 }
 
 bool emonics::elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector>& lists) const {    
@@ -248,6 +251,7 @@ bool emonics::elists_are_consistent(std::unordered_map<unsigned_vector, std::uno
         }
     }
     for (auto const & m : m_monics) {
+        // bail out of invariant check
         SASSERT(is_canonized(m));
         if (!is_canonical_monic(m.var()))
             continue;
@@ -279,7 +283,7 @@ bool emonics::elists_are_consistent(std::unordered_map<unsigned_vector, std::uno
 void emonics::insert_cg_mon(monic & m) {
     do_canonize(m);
     lpvar v = m.var(), w;
-    TRACE("nla_solver_mons", tout << m << " hash: " << m_cg_hash(v) << "\n";);
+    TRACE("nla_solver_mons", tout << m << "\n";); //  hash: " << m_cg_hash(v) << "\n";);
     auto* entry = m_cg_table.insert_if_not_there2(v, unsigned_vector());
     auto& vec = entry->get_data().m_value;
     if (vec.empty()) {
@@ -323,21 +327,14 @@ void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
     SASSERT(!is_monic_var(v));
     m_ve.push();
     unsigned idx = m_monics.size();
-    bool sign = false; 
-    m_vs.reset();
-    for (unsigned i = 0; i < sz; ++i) {        
-        signed_var sv = m_ve.find(vs[i]);
-        m_vs.push_back(sv.var());
-        sign ^= sv.sign();
-    }
-    m_monics.push_back(monic(sign, v, sz, m_vs.c_ptr(), idx));
+    m_monics.push_back(monic(v, sz, vs, idx));
+    do_canonize(m_monics.back());
 
-    // variables in the new monic are sorted, 
+    // variables in m_vs are canonical and sorted, 
     // so use last_var to skip duplicates, 
     // while updating use-lists
     lpvar last_var = UINT_MAX;
-    for (lpvar w : m_monics[idx].vars()) {
-        SASSERT(w == m_ve.find(w).var());
+    for (lpvar w : m_monics.back().rvars()) {
         if (w != last_var) {
             m_use_lists.reserve(w + 1);
             insert_cell(m_use_lists[w], idx);
@@ -347,6 +344,7 @@ void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
     m_var2index.setx(v, idx, UINT_MAX);
     insert_cg_mon(m_monics[idx]);
     SASSERT(invariant());
+    m_ve.push();
 }
 
 void emonics::do_canonize(monic & m) const {
@@ -363,6 +361,12 @@ bool emonics::is_canonized(const monic & m) const {
     return mm.rvars() == m.rvars();
 }
 
+void emonics::ensure_canonized() {
+    for (auto & m : m_monics) {
+        do_canonize(m);
+    }
+}
+
 bool emonics::monics_are_canonized() const {
     for (auto & m: m_monics) {
         if (!is_canonized(m)) {
@@ -371,7 +375,6 @@ bool emonics::monics_are_canonized() const {
     }
     return true;
 }
-
 
 bool emonics::canonize_divides(monic& m, monic & n) const {
     if (m.size() > n.size()) return false;
@@ -398,7 +401,9 @@ bool emonics::canonize_divides(monic& m, monic & n) const {
 
 // yes, assume that monics are non-empty.
 emonics::pf_iterator::pf_iterator(emonics const& m, monic & mon, bool at_end):
-    m_em(m), m_mon(&mon), m_it(iterator(m, m.head(mon.vars()[0]), at_end)), m_end(iterator(m, m.head(mon.vars()[0]), true)) {
+    m_em(m), m_mon(&mon), 
+    m_it(iterator(m, m.head(mon.vars()[0]), at_end)), 
+    m_end(iterator(m, m.head(mon.vars()[0]), true)) {
     fast_forward();
 }
 
@@ -425,7 +430,7 @@ void emonics::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v
 }
 
 void emonics::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
-    if (m_ve.find(~r1) == m_ve.find(~r2)) { // the other sign has also been merged
+    if (m_ve.find(~r1) == m_ve.find(~r2) && r1.var() != r2.var()) { // the other sign has also been merged
         TRACE("nla_solver_mons", tout << r2 << " <- " << r1 << "\n";);
         m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
         TRACE("nla_solver_mons", tout << "rehashing " << r1.var() << "\n";);
@@ -435,7 +440,7 @@ void emonics::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed
 }
 
 void emonics::unmerge_eh(signed_var r2, signed_var r1) {
-    if (m_ve.find(~r1) != m_ve.find(~r2)) { // the other sign has also been unmerged
+    if (m_ve.find(~r1) != m_ve.find(~r2) && r1.var() != r2.var()) { // the other sign has also been unmerged
         TRACE("nla_solver_mons", tout << r2 << " -> " << r1 << "\n";);
         unmerge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);            
         rehash_cg(r1.var());

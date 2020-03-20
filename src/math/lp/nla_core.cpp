@@ -101,7 +101,7 @@ bool core::canonize_sign(lpvar j) const {
 }
 
 bool core::canonize_sign_is_correct(const monic& m) const {
-    bool r = m.sign();
+    bool r = false;
     for (lpvar j : m.vars()) {
         r ^= canonize_sign(j);
     }
@@ -145,7 +145,7 @@ void core::pop(unsigned n) {
 }
 
 rational core::product_value(const monic& m) const {
-    rational r(m.sign() ? -1 : 1);
+    rational r(1);
     for (auto j : m.vars()) {
         r *= m_lar_solver.get_column_value_rational(j);
     }
@@ -609,7 +609,7 @@ int core::rat_sign(const monic& m) const {
 
 // Returns true if the monic sign is incorrect
 bool core::sign_contradiction(const monic& m) const {
-    return  nla::rat_sign(val(m)) != rat_sign(m);
+    return  nla::rat_sign(var_val(m)) != rat_sign(m);
 }
 
 /*
@@ -741,7 +741,7 @@ void core::trace_print_monic_and_factorization(const monic& rm, const factorizat
     out << "\n";
         
     out << "mon:  " << pp_mon(*this, rm.var()) << "\n";
-    out << "value: " << val(rm) << "\n";
+    out << "value: " << var_val(rm) << "\n";
     print_factorization(f, out << "fact: ") << "\n";
 }
 
@@ -842,6 +842,7 @@ void core::collect_equivs() {
             add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
         }
     }
+    m_emons.ensure_canonized();
 }
 
 
@@ -1177,7 +1178,7 @@ bool core::find_bfc_to_refine_on_monic(const monic& m, factorization & bf) {
         if (f.size() == 2) {
             auto a = f[0];
             auto b = f[1];
-            if (val(m) != val(a) * val(b)) {
+            if (var_val(m) != val(a) * val(b)) {
                 bf = f;
                 TRACE("nla_solver", tout << "found bf";
                       tout << ":m:" << pp_mon_with_vars(*this, m) << "\n";
@@ -1208,7 +1209,7 @@ bool core::find_bfc_to_refine(const monic* & m, factorization & bf){
         if (find_bfc_to_refine_on_monic(*m, bf)) {
             TRACE("nla_solver",
                   tout << "bf = "; print_factorization(bf, tout);
-                  tout << "\nval(*m) = " << val(*m) << ", should be = (val(bf[0])=" << val(bf[0]) << ")*(val(bf[1]) = " << val(bf[1]) << ") = " << val(bf[0])*val(bf[1]) << "\n";);
+                  tout << "\nval(*m) = " << var_val(*m) << ", should be = (val(bf[0])=" << val(bf[0]) << ")*(val(bf[1]) = " << val(bf[1]) << ") = " << val(bf[0])*val(bf[1]) << "\n";);
             return true;
         } 
     }
