@@ -2602,6 +2602,7 @@ bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const&
         if (!idx_is_zero) rs1.push_back(mk_skolem(m_pre, s, idx)); 
         rs1.push_back(m_util.str.mk_unit(rhs)); 
         rs1.push_back(mk_post(s, idx1));
+        TRACE("seq", tout << ls1 << "\n"; tout << rs1 << "\n";);
         m_eqs.push_back(eq(m_eq_id++, ls1, rs1, deps));        
         return true;
     }   

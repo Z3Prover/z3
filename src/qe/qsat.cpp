@@ -1329,6 +1329,7 @@ namespace qe {
         }
         
         void collect_statistics(statistics & st) const override {
+            std::cout << "collect stats\n";
             st.copy(m_st);
             m_fa.s().collect_statistics(st);
             m_ex.s().collect_statistics(st);        
