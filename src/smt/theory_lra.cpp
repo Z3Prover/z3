@@ -3481,10 +3481,7 @@ public:
 
     void dump_conflict() {
         if (dump_lemmas()) {
-            unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
-            (void)id;
-            std::cout << id << "\n";
-            SASSERT(id != 49);
+            ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
         }
     }
 
