@@ -68,8 +68,8 @@ void order::order_lemma_on_monic(const monic& m) {
 void order::order_lemma_on_binomial(const monic& ac) {
     TRACE("nla_solver", tout << pp_mon_with_vars(c(), ac););
     SASSERT(!check_monic(ac) && ac.size() == 2);
-    const rational mult_val = val(ac.vars()[0]) * val(ac.vars()[1]);
-    const rational acv = val(ac);
+    const rational mult_val = mul_val(ac);
+    const rational acv = var_val(ac);
     bool gt = acv > mult_val;
     bool k = false;
     do {
@@ -138,11 +138,11 @@ void order::order_lemma_on_binomial_ac_bd(const monic& ac, bool k, const monic& 
           tout << "ac = " << pp_mon(_(), ac) << "a = " << pp_var(_(), a) << "c = " << pp_var(_(), c) << "\nbd = " << pp_mon(_(), bd) << "b = " << pp_fac(_(), b) << "d = " << pp_var(_(), d) << "\n";
           );
     SASSERT(_().m_evars.find(c).var() == d);
-    rational acv = val(ac);
+    rational acv = var_val(ac);
     rational av = val(a);
     rational c_sign = rrat_sign(val(c));
     rational d_sign = rrat_sign(val(d));
-    rational bdv = val(bd);
+    rational bdv = var_val(bd);
     rational bv = val(b);
     // Notice that ac/|c| = a*c_sign , and bd/|d| = b*d_sign
     auto av_c_s = av*c_sign; auto bv_d_s = bv*d_sign;
@@ -171,16 +171,9 @@ void order::generate_mon_ol(const monic& ac,
                            const rational& d_sign,
                            lpvar d,
                            llc ab_cmp) {
-    SASSERT(
-        (ab_cmp == llc::LT || ab_cmp == llc::GT) &&
-        (
-            (ab_cmp != llc::LT ||
-             (val(ac) >= val(bd) && val(a)*c_sign < val(b)*d_sign))
-            ||
-            (ab_cmp != llc::GT ||
-             (val(ac) <= val(bd) && val(a)*c_sign > val(b)*d_sign))
-         )
-            );
+    SASSERT(ab_cmp == llc::LT || ab_cmp == llc::GT);
+    SASSERT(ab_cmp != llc::LT || (var_val(ac) >= var_val(bd) && val(a)*c_sign < val(b)*d_sign));
+    SASSERT(ab_cmp != llc::GT || (var_val(ac) <= var_val(bd) && val(a)*c_sign > val(b)*d_sign));
     
     add_empty_lemma();
     mk_ineq(c_sign, c, llc::LE);
@@ -224,10 +217,10 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
         sign ^= _().canonize_sign(f);
     const rational rsign = sign_to_rat(sign);
     const rational fv = val(var(ab[0])) * val(var(ab[1]));
-    const rational mv = rsign * val(m);
+    const rational mv = rsign * var_val(m);
     TRACE("nla_solver",
           tout << "ab.size()=" << ab.size() << "\n";
-          tout << "we should have sign*val(m):" << mv << "=(" << rsign << ")*(" << val(m) <<") to be equal to " << " val(var(ab[0]))*val(var(ab[1])):" << fv << "\n";);
+          tout << "we should have sign*var_val(m):" << mv << "=(" << rsign << ")*(" << var_val(m) <<") to be equal to " << " val(var(ab[0]))*val(var(ab[1])):" << fv << "\n";);
     if (mv == fv)
         return;
     bool gt = mv > fv;
@@ -263,7 +256,7 @@ bool order::order_lemma_on_ac_explore(const monic& rm, const factorization& ac, 
 }
 
 // |c_sign| = 1, and c*c_sign > 0
-// ac > bc => ac/|c| > bc/|c| => a*c_sign > b*c_sign
+// ac > bc && ac/|c| > bc/|c| => a*c_sign > b*c_sign
 void order::generate_ol(const monic& ac,                     
                        const factor& a,
                        int c_sign,
@@ -271,11 +264,22 @@ void order::generate_ol(const monic& ac,
                        const monic& bc,
                        const factor& b,
                        llc ab_cmp) {
-    add_empty_lemma();
+
     rational rc_sign = rational(c_sign);
-    mk_ineq(rc_sign * sign_to_rat(canonize_sign(c)), var(c), llc::LE);
+    rational sign_a = rc_sign * sign_to_rat(canonize_sign(a));
+    rational sign_b = rc_sign * sign_to_rat(canonize_sign(b));
+    rational sign_c = rc_sign * sign_to_rat(canonize_sign(c));
+    add_empty_lemma();
+#if 0
+    IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
+               << " " << ab_cmp << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
+               << " a " << sign_a << "*v" << var(a) << " " << val(a) << "\n"
+               << " b " << sign_b << "*v" << var(b) << " " << val(b) << "\n"
+               << " c " << sign_c << "*v" << var(c) << " " << val(c) << "\n");
+#endif    
+    mk_ineq(sign_c, var(c), llc::LE);
     mk_ineq(canonize_sign(ac), var(ac), !canonize_sign(bc), var(bc), ab_cmp);
-    mk_ineq(sign_to_rat(canonize_sign(a))*rc_sign, var(a), - sign_to_rat(canonize_sign(b))*rc_sign, var(b), negate(ab_cmp));
+    mk_ineq(sign_a, var(a), - sign_b, var(b), negate(ab_cmp));
     explain(ac);
     explain(a);
     explain(bc);
@@ -294,8 +298,8 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
     SASSERT(c_sign != 0);
     auto av_c_s = val(a)*rational(c_sign);
     auto bv_c_s = val(b)*rational(c_sign);        
-    auto acv = val(ac); 
-    auto bcv = val(bc); 
+    auto acv = var_val(ac); 
+    auto bcv = var_val(bc); 
     TRACE("nla_solver", _().trace_print_ol(ac, a, c, bc, b, tout););
     // Suppose ac >= bc, then ac/|c| >= bc/|c|.
     // Notice that ac/|c| = a*c_sign , and bc/|c| = b*c_sign, which are correspondingly av_c_s and bv_c_s
@@ -314,7 +318,7 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
    a < 0 & b >= value(b) => sign*ab <= value(b)*a  if value(a) < 0
 */
 void order::order_lemma_on_ab_gt(const monic& m, const rational& sign, lpvar a, lpvar b) {
-    SASSERT(sign * val(m) > val(a) * val(b));
+    SASSERT(sign * var_val(m) > val(a) * val(b));
     add_empty_lemma();
     if (val(a).is_pos()) {
         TRACE("nla_solver", tout << "a is pos\n";);
@@ -344,7 +348,7 @@ void order::order_lemma_on_ab_gt(const monic& m, const rational& sign, lpvar a, 
 void order::order_lemma_on_ab_lt(const monic& m, const rational& sign, lpvar a, lpvar b) {
     TRACE("nla_solver", tout << "sign = " << sign << ", m = "; c().print_monic(m, tout) << ", a = "; c().print_var(a, tout) <<
           ", b = "; c().print_var(b, tout) << "\n";);
-    SASSERT(sign * val(m) < val(a) * val(b));
+    SASSERT(sign * var_val(m) < val(a) * val(b));
     add_empty_lemma();
     if (val(a).is_pos()) {
         //negate a > 0

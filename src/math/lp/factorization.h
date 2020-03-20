@@ -73,7 +73,6 @@ public:
     void push_back(factor const& v) { m_factors.push_back(v); }
     const monic& mon() const { return *m_mon; }
     void set_mon(const monic* m) { m_mon = m; }
-
 };
 
 struct const_iterator_mon {

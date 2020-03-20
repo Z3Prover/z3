@@ -93,7 +93,6 @@ class emonics {
     mutable svector<head_tail>   m_use_lists;     // use list of monics where variables occur.
     hash_canonical               m_cg_hash;
     eq_canonical                 m_cg_eq;
-    unsigned_vector              m_vs;            // temporary buffer of canonized variables
     map<lpvar, unsigned_vector, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
 
 
@@ -167,7 +166,8 @@ public:
     monic & operator[](lpvar v) { return m_monics[m_var2index[v]]; }
     bool is_canonized(const monic&) const;    
     bool monics_are_canonized() const;
-    
+    void ensure_canonized();
+ 
     /**
        \brief obtain the representative canonized monic 
     */

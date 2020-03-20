@@ -33,9 +33,11 @@ template void common::explain<factorization>(const factorization& t);
 void common::explain(lpvar j) { c().explain(j, c().current_expl()); }
 
 template <typename T> rational common::val(T const& t) const { return c().val(t); }
-template rational common::val<monic>(monic const& t) const;
 template rational common::val<factor>(factor const& t) const;
 rational common::val(lpvar t) const { return c().val(t); }
+rational common::var_val(monic const& m) const { return c().var_val(m); }
+rational common::mul_val(monic const& m) const { return c().mul_val(m); }
+
 template <typename T> lpvar common::var(T const& t) const { return c().var(t); }
 template lpvar common::var<factor>(factor const& t) const;
 template lpvar common::var<monic>(monic const& t) const;
