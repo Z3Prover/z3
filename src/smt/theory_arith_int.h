@@ -242,18 +242,19 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::branch_infeasible_int_equality() {
 
-        typename vector<row>::const_iterator it  = m_rows.begin();
-        typename vector<row>::const_iterator end = m_rows.end();
-
         vector<vector<rational> > rows;
         unsigned max_row = 1;                // all rows should contain a constant in the last position.
         u_map<unsigned>   var2index;         // map theory variables to positions in 'rows'.
         u_map<theory_var> index2var;         // map back positions in 'rows' to theory variables.
+        context& ctx = get_context();
 
-        for (; it != end; ++it) {
-            theory_var b = it->get_base_var();
+        if (ctx.get_cancel_flag())
+            return false;
+        
+        for (auto const& r : m_rows) {
+            theory_var b = r.get_base_var();
             if (b == null_theory_var) {
-                TRACE("arith_int", display_row(tout << "null: ", *it, true); );
+                TRACE("arith_int", display_row(tout << "null: ", r, true); );
                 continue;
             }
             bool is_tight = false;
@@ -272,7 +273,7 @@ namespace smt {
             }
             if (!is_tight) {
                 TRACE("arith_int", 
-                      display_row(tout << "!tight: ", *it, true); 
+                      display_row(tout << "!tight: ", r, true); 
                       display_var(tout, b);
                       );
                 continue;
@@ -282,8 +283,8 @@ namespace smt {
             numeral denom(1);
             unsigned index = 0;
 
-            typename vector<row_entry>::const_iterator it_r  = it->begin_entries();
-            typename vector<row_entry>::const_iterator end_r = it->end_entries();
+            typename vector<row_entry>::const_iterator it_r  = r.begin_entries();
+            typename vector<row_entry>::const_iterator end_r = r.end_entries();
 
             for (; it_r != end_r && is_tight; ++it_r) {
                 if (it_r->is_dead())
@@ -297,7 +298,7 @@ namespace smt {
                     continue;
                 }
                 if (!is_int(x)) {
-                    TRACE("theory_arith_int", display_row(tout << "!int:  ", *it, true); );
+                    TRACE("theory_arith_int", display_row(tout << "!int:  ", r, true); );
                     is_tight = false;
                     continue;
                 }
@@ -332,7 +333,7 @@ namespace smt {
                   }
                   tout << " = 0\n";
                   tout << "base value: " << get_value(b) << "\n";
-                  display_row(tout, *it, true);
+                  display_row(tout, r, true);
                   );
         }    
         // 
@@ -377,7 +378,6 @@ namespace smt {
         }
         mk_polynomial_ge(pol.size(), pol.c_ptr(), unsat_row[0]+rational(1), p2);
         
-        context& ctx = get_context();
         if (get_manager().has_trace_stream()) {
             app_ref body(get_manager());
             body = get_manager().mk_or(p1, p2);
