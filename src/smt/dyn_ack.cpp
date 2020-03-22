@@ -360,6 +360,7 @@ namespace smt {
         if (m_clause2app_pair.find(cls, p)) {
             SASSERT(p.first && p.second);
             m_instantiated.erase(p);
+            m_clause2app_pair.erase(cls);
             SASSERT(!m_app_pair2num_occs.contains(p.first, p.second));
             return;
         }
@@ -367,6 +368,7 @@ namespace smt {
         if (m_triple.m_clause2apps.find(cls, tr)) {
             SASSERT(tr.first && tr.second && tr.third);
             m_triple.m_instantiated.erase(tr);
+            m_triple.m_clause2apps.erase(cls);
             SASSERT(!m_triple.m_app2num_occs.contains(tr.first, tr.second, tr.third));
             return;
         }

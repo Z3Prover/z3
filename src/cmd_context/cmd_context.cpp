@@ -1691,7 +1691,7 @@ void cmd_context::display_model(model_ref& mdl) {
         add_declared_functions(*mdl);
         if (p.v1() || p.v2()) {
             std::ostringstream buffer;
-            model_v2_pp(buffer, *mdl, p.partial());
+            model_v2_pp(buffer, *mdl, false);
             regular_stream() << "\"" << escaped(buffer.str().c_str(), true) << "\"" << std::endl;
         } else {
             regular_stream() << "(model " << std::endl;
