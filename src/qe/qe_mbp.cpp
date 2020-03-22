@@ -207,9 +207,11 @@ class mbp::impl {
                 continue;
             }
             m_visited.mark(e);
-            if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e)) {
+            if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e) && !m.canceled()) {
                 expr_ref val = eval(e);
                 TRACE("qe", tout << "found: " << mk_pp(e, m) << "\n";);
+                if (m.canceled())
+                    continue;
                 SASSERT(m.is_true(val) || m.is_false(val));
                 if (!m_bool_visited.is_marked(e)) {
                     fmls.push_back(m.is_true(val) ? e : mk_not(m, e));
@@ -229,7 +231,7 @@ class mbp::impl {
             expr_ref tmp(m);
             sub(fml, tmp);
             expr_ref val = eval(tmp);
-            SASSERT(m.is_true(val) || m.is_false(val));
+            SASSERT(m.is_true(val) || m.is_false(val) || m.canceled());
             fmls.push_back(m.is_true(val) ? tmp : mk_not(m, tmp));
         }
         return found_bool;
