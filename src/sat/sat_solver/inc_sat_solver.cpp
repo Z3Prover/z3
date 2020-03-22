@@ -876,6 +876,10 @@ private:
             mdl = nullptr;
             return;
         }
+        if (m_fmls.size() > m_fmls_head) {
+            mdl = nullptr;
+            return;
+        }
         TRACE("sat", m_solver.display_model(tout););
         CTRACE("sat", m_sat_mc, m_sat_mc->display(tout););
         sat::model ll_m = m_solver.get_model();
