@@ -88,7 +88,7 @@ namespace sat {
 
     solver::~solver() {
         m_ext = nullptr;
-        SASSERT(check_invariant());
+        SASSERT(m_config.m_num_threads > 1 || check_invariant());
         TRACE("sat", tout << "Delete clauses\n";);
         del_clauses(m_clauses);
         TRACE("sat", tout << "Delete learned\n";);
