@@ -275,7 +275,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
 
         unsigned new_num_args   = result_stack().size() - fr.m_spos;
         expr * const * new_args = result_stack().c_ptr() + fr.m_spos;
-        app * new_t;
+        app_ref new_t(m());
         if (ProofGen) {
             elim_reflex_prs(fr.m_spos);
             unsigned num_prs    = result_pr_stack().size() - fr.m_spos;

@@ -51,6 +51,9 @@ namespace smt {
     {
     }
 
+    conflict_resolution::~conflict_resolution() {
+    }
+
     /**
        \brief Mark all enodes in a 'proof' tree branch starting at n
        n -> ... -> root
@@ -1044,7 +1047,7 @@ namespace smt {
             TRACE("proof_gen_bug", tout << "js2pr_cached: #" << js << "\n";);
             return pr;
         }
-        SASSERT(js != 0);
+        SASSERT(js != nullptr);
         TRACE("proof_gen_bug", tout << js << "\n";);
         m_todo_pr.push_back(tp_elem(js));
         return nullptr;
