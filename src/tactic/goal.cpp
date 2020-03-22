@@ -223,10 +223,12 @@ void goal::process_not_or(bool save_first, app * f, proof * pr, expr_dependency 
 }
 
 void goal::slow_process(bool save_first, expr * f, proof * pr, expr_dependency * d, expr_ref & out_f, proof_ref & out_pr) {
+    expr* g = nullptr;
+    proof_ref _pr(pr, m());
     if (m().is_and(f))
         process_and(save_first, to_app(f), pr, d, out_f, out_pr);
-    else if (m().is_not(f) && m().is_or(to_app(f)->get_arg(0)))
-        process_not_or(save_first, to_app(to_app(f)->get_arg(0)), pr, d, out_f, out_pr);
+    else if (m().is_not(f, g) && m().is_or(g))
+        process_not_or(save_first, to_app(g), pr, d, out_f, out_pr);
     else if (save_first) {
         out_f  = f;
         out_pr = pr;
