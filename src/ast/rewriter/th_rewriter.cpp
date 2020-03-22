@@ -664,7 +664,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                            expr_ref & result,
                            proof_ref & result_pr) {
         quantifier_ref q1(m());
-        proof * p1 = nullptr;
+        proof_ref p1(m()); 
         if (is_quantifier(new_body) &&
             to_quantifier(new_body)->get_kind() == old_q->get_kind() &&
             to_quantifier(new_body)->get_kind() != lambda_k && 
@@ -730,7 +730,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
         result_pr = nullptr;
         if (m().proofs_enabled()) {
-            proof * p2 = nullptr;
+            proof_ref p2(m());
             if (q1.get() != result.get() && q1->get_kind() != lambda_k) 
                 p2 = m().mk_elim_unused_vars(q1, result);
             result_pr = m().mk_transitivity(p1, p2);
