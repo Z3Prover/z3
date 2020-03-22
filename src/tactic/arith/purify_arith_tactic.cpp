@@ -271,6 +271,7 @@ struct purify_arith_proc {
 
         void push_cnstr(expr * cnstr) {
             m_new_cnstrs.push_back(cnstr);
+            TRACE("purify_arith", tout << mk_pp(cnstr, m()) << "\n";);
         }
 
         void cache_result(app * t, expr * r, proof * pr) {
@@ -723,20 +724,19 @@ struct purify_arith_proc {
         proof_ref new_body_pr(m());
         r(q->get_expr(), new_body, new_body_pr);
         unsigned num_vars = r.cfg().m_new_vars.size();
+        expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
+        cnstrs.push_back(new_body);
+        new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
         TRACE("purify_arith", 
               tout << "num_vars: " << num_vars << "\n";
               tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (num_vars == 0) {
-            SASSERT(r.cfg().m_new_cnstrs.empty());
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs)
                 result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
         }
         else {
             // Add new constraints
-            expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
-            cnstrs.push_back(new_body);
-            new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
             // Open space for new variables
             var_shifter shifter(m());
             shifter(new_body, num_vars, new_body);
