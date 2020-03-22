@@ -1947,6 +1947,7 @@ namespace smt {
         m_region.push_scope();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
+        TRACE("context", tout << "push " << m_scope_lvl << "\n";);
 
         m_relevancy_propagator->push();
         s.m_assigned_literals_lim    = m_assigned_literals.size();
@@ -3357,7 +3358,9 @@ namespace smt {
        \brief Execute some finalization code after performing the search.
     */
     lbool context::check_finalize(lbool r) {
-        TRACE("after_search", display(tout << "result: " << r << "\n"););
+        TRACE("after_search", display(tout << "result: " << r << "\n");
+              m_case_split_queue->display(tout << "case splits\n");
+              );
         display_profile(verbose_stream());
         if (r == l_true && get_cancel_flag()) {
             r = l_undef;
@@ -3584,7 +3587,7 @@ namespace smt {
     }
 
     void context::end_search() {
-        m_case_split_queue ->end_search_eh();
+        m_case_split_queue->end_search_eh();
     }
 
     void context::inc_limits() {
@@ -4503,10 +4506,11 @@ namespace smt {
     }
 
     bool context::has_case_splits() {
-        bool_var var;
-        lbool phase = l_undef;
-        m_case_split_queue->next_case_split(var, phase);
-        return (var != null_bool_var); 
+        for (unsigned i = get_num_b_internalized(); i-- > 0; ) {
+            if (get_assignment(i) == l_undef)
+                return true;
+        }
+        return false;
     }
 
     void context::get_model(model_ref & m) {
