@@ -555,6 +555,8 @@ bool emonics::invariant() const {
     std::function<bool(lpvar, unsigned)> find_index = [&,this](lpvar v, unsigned idx) {
         cell* c = m_use_lists[v].m_head;
         cell* c0 = c;
+        if (!c)
+            return false;
         bool found = false;
         do {
             found |= c->m_index == idx;
