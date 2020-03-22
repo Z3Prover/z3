@@ -1874,7 +1874,9 @@ bool theory_seq::propagate_length_coherence(expr* e) {
     elems.push_back(seq);
     tail = mk_concat(elems.size(), elems.c_ptr());
     // len(e) >= low => e = tail;
-    literal low(mk_literal(m_autil.mk_ge(mk_len(e), m_autil.mk_numeral(lo, true))));
+    expr_ref lo_e(m_autil.mk_numeral(lo, true), m);
+    expr_ref len_e_ge_lo(m_autil.mk_ge(mk_len(e), lo_e), m);
+    literal low = mk_literal(len_e_ge_lo);
     add_axiom(~low, mk_seq_eq(e, tail));
     expr_ref len_e = mk_len(e);
     if (upper_bound(len_e, hi)) {
