@@ -367,7 +367,7 @@ namespace qe {
                 m_replace->apply_substitution(ite, el, tmp2);
                 result = m.mk_ite(cond, tmp1, tmp2);
                 m_rewriter(result);
-                return true;
+                return result != fml;
             }
             else {
                 return false;
