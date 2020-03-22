@@ -4459,8 +4459,8 @@ namespace smt {
             if (has_case_splits())
                 return false;
             fcs = final_check();
+            TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
         }
-        TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
         if (fcs == FC_DONE) {
             reset_model();
         }
