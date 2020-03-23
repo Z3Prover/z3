@@ -325,6 +325,7 @@ void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
     TRACE("nla_solver_mons", tout << "v = " << v << "\n";);
     SASSERT(m_ve.is_root(v));
     SASSERT(!is_monic_var(v));
+    SASSERT(invariant());
     m_ve.push();
     unsigned idx = m_monics.size();
     m_monics.push_back(monic(v, sz, vs, idx));
@@ -520,8 +521,10 @@ bool emonics::invariant() const {
             mons++;
         }
     }
-    if (m_monics.size() != mons)
+    if (m_monics.size() != mons) {
+        TRACE("nla_solver_mons", tout << "missmatch of monic vars\n";);
         return false;
+    }
 
     // check that every monomial in the 
     // use list of v contains v.
@@ -533,15 +536,17 @@ bool emonics::invariant() const {
             do {
                 auto const& m = m_monics[c->m_index];
                 bool found = false;
+#if 0
                 for (lp::var_index w : m.vars()) {
                     auto w1 = m_ve.find(w);
                     found |= v1.var() == w1.var();
                 }
+#endif
                 for (lp::var_index w : m.rvars()) {
                     auto w1 = m_ve.find(w);
                     found |= v1.var() == w1.var();
                 }
-                CTRACE("nla_solver_mons", !found, tout << v << ": " << m << "\n";);
+                CTRACE("nla_solver_mons", !found, tout << "not found v" << v << ": " << m << "\n";);
                 SASSERT(found);
                 c = c->m_next;
             }
@@ -571,14 +576,12 @@ bool emonics::invariant() const {
         CTRACE("nla_solver_mons", !m_cg_table.contains(m.var()), tout << "removed " << m << "\n";);
         SASSERT(m_cg_table.contains(m.var()));
         SASSERT(m_cg_table[m.var()].contains(m.var()));
-        for (auto v : m.vars()) {
-            if (!find_index(v, idx))
-                return false;
-        }
         // same with rooted variables
         for (auto v : m.rvars()) {
-            if (!find_index(v, idx))
+            if (!find_index(v, idx)) {
+                TRACE("nla_solver_mons", tout << "rooted var not found in monic use list" << v << "\n";);
                 return false;
+            }
         }
         idx++;
     }
