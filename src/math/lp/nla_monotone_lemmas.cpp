@@ -32,50 +32,6 @@ void monotone::monotonicity_lemma() {
         monotonicity_lemma(c().emons()[v]);
     }
 }
-
-
-void monotone::negate_abs_a_le_abs_b(lpvar a, lpvar b, bool strict) {
-    rational av = val(a);
-    rational as = rational(nla::rat_sign(av));
-    rational bv = val(b);
-    rational bs = rational(nla::rat_sign(bv));
-    TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
-    SASSERT(as*av <= bs*bv);
-    llc mod_s = strict? (llc::LE): (llc::LT);
-    mk_ineq(as, a, mod_s); // |a| <= 0 || |a| < 0
-    if (a != b) {
-        mk_ineq(bs, b, mod_s); // |b| <= 0 || |b| < 0
-        mk_ineq(as, a, -bs, b, llc::GT); // negate |aj| <= |bj|
-    }
-}
-
-void monotone::assert_abs_val_a_le_abs_var_b(
-    const monic& a,
-    const monic& b,
-    bool strict) {
-    lpvar aj = var(a);
-    lpvar bj = var(b);
-    rational av = val(aj);
-    rational as = rational(nla::rat_sign(av));
-    rational bv = val(bj);
-    rational bs = rational(nla::rat_sign(bv));
-    //        TRACE("nla_solver", tout << "rmv = " << rmv << ", jv = " << jv << "\n";);
-    mk_ineq(as, aj, llc::LT); // |aj| < 0
-    mk_ineq(bs, bj, llc::LT); // |bj| < 0
-    mk_ineq(as, aj, -bs, bj, strict? llc::LT : llc::LE); // |aj| < |bj|
-}
-
-void monotone::negate_abs_a_lt_abs_b(lpvar a, lpvar b) {
-    rational av = val(a);
-    rational as = rational(nla::rat_sign(av));
-    rational bv = val(b);
-    rational bs = rational(nla::rat_sign(bv));
-    TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
-    SASSERT(as*av < bs*bv);
-    mk_ineq(as, a, llc::LT); // |aj| < 0
-    mk_ineq(bs, b, llc::LT); // |bj| < 0
-    mk_ineq(as, a, -bs, b, llc::GE); // negate  |aj| < |bj|
-}
    
 void monotone::monotonicity_lemma(monic const& m) {
     SASSERT(!check_monic(m));

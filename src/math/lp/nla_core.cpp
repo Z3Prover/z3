@@ -1027,6 +1027,15 @@ bool core::divide(const monic& bc, const factor& c, factor & b) const {
     return true;
 }
 
+void core::negate_var_relation_strictly(lpvar a, lpvar b) {
+    SASSERT(val(a) != val(b));
+    if (val(a) < val(b)) {
+        mk_ineq(a, -rational(1), b, llc::GT);
+    } else {
+        mk_ineq(a, -rational(1), b, llc::LT);        
+    }
+}
+
 void core::negate_factor_equality(const factor& c,
                                   const factor& d) {
     if (c == d)

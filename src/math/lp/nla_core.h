@@ -363,6 +363,8 @@ public:
     
     void negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
 
+    void negate_var_relation_strictly(lpvar a, lpvar b);
+    
     std::unordered_set<lpvar> collect_vars(const lemma& l) const;
 
     bool rm_check(const monic&) const;

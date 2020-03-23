@@ -289,7 +289,7 @@ public:
     lia_move cut() {
         TRACE("gomory_cut", dump(tout););
         
-        // gomory will be   t <= k and the current solution has a property t > k
+        // gomory will be   t >= k and the current solution has a property t < k
         m_k = 1;
         m_t.clear();
         mpq m_lcm_den(1);

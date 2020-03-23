@@ -68,15 +68,18 @@ private:
     void order_lemma_on_binomial_sign(const monic& ac, lpvar x, lpvar y, int sign);
     void order_lemma_on_binomial(const monic& ac);
     void order_lemma_on_monic(const monic& rm);
-    // |c_sign| = 1, and c*c_sign > 0
-    // ac > bc => ac/|c| > bc/|c| => a*c_sign > b*c_sign
+
     void generate_ol(const monic& ac,                     
                      const factor& a,
-                     int c_sign,
                      const factor& c,
                      const monic& bc,
-                     const factor& b,
-                     llc ab_cmp);
+                     const factor& b);
+
+    void generate_ol_eq(const monic& ac,                     
+                     const factor& a,
+                     const factor& c,
+                     const monic& bc,
+                     const factor& b);
 
     void generate_mon_ol(const monic& ac,                     
                          lpvar a,
