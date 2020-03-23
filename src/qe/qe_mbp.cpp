@@ -231,7 +231,8 @@ class mbp::impl {
             expr_ref tmp(m);
             sub(fml, tmp);
             expr_ref val = eval(tmp);
-            SASSERT(m.is_true(val) || m.is_false(val) || m.canceled());
+            if (!m.is_true(val) && !m.is_false(val))
+                return false;
             fmls.push_back(m.is_true(val) ? tmp : mk_not(m, tmp));
         }
         return found_bool;
