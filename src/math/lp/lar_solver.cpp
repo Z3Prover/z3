@@ -60,7 +60,7 @@ std::ostream& lar_solver::print_implied_bound(const implied_bound& be, std::ostr
     out << "implied bound\n";
     unsigned v = be.m_j;
     if (tv::is_term(v)) {
-        out << "it is a term number " << be.m_j << std::endl;
+        out << "it is a term number " << tv::unmask_term(be.m_j) << std::endl;
         print_term(*m_terms[tv::unmask_term(v)],  out);
     }
     else {
@@ -1259,7 +1259,7 @@ void lar_solver::set_variable_name(var_index vi, std::string name) {
 
 std::string lar_solver::get_variable_name(var_index j) const {
     if (tv::is_term(j)) 
-        return std::string("_t") + T_to_string(j);
+        return std::string("_t") + T_to_string(tv::unmask_term(j));
     if (j >= m_var_register.size())
         return std::string("_s") + T_to_string(j);
 

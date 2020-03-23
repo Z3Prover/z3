@@ -255,20 +255,12 @@ bool order::order_lemma_on_ac_explore(const monic& rm, const factorization& ac, 
     return false;
 }
 
-// |c_sign| = 1, and c*c_sign > 0
-// ac > bc && ac/|c| > bc/|c| => a*c_sign > b*c_sign
-void order::generate_ol(const monic& ac,                     
-                       const factor& a,
-                       int c_sign,
-                       const factor& c,
-                       const monic& bc,
-                       const factor& b,
-                       llc ab_cmp) {
-
-    rational rc_sign = rational(c_sign);
-    rational sign_a = rc_sign * sign_to_rat(canonize_sign(a));
-    rational sign_b = rc_sign * sign_to_rat(canonize_sign(b));
-    rational sign_c = rc_sign * sign_to_rat(canonize_sign(c));
+void order::generate_ol_eq(const monic& ac,                     
+                        const factor& a,
+                        const factor& c,
+                        const monic& bc,
+                        const factor& b)                        {
+    
     add_empty_lemma();
 #if 0
     IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
@@ -276,10 +268,11 @@ void order::generate_ol(const monic& ac,
                << " a " << sign_a << "*v" << var(a) << " " << val(a) << "\n"
                << " b " << sign_b << "*v" << var(b) << " " << val(b) << "\n"
                << " c " << sign_c << "*v" << var(c) << " " << val(c) << "\n");
-#endif    
-    mk_ineq(sign_c, var(c), llc::LE);
-    mk_ineq(canonize_sign(ac), var(ac), !canonize_sign(bc), var(bc), ab_cmp);
-    mk_ineq(sign_a, var(a), - sign_b, var(b), negate(ab_cmp));
+#endif
+    // ac == bc
+    mk_ineq(c.var(),llc::EQ); // c is not equal to zero
+    mk_ineq(ac.var(), -rational(1), bc.var(), llc::NE);
+    mk_ineq(canonize_sign(a), a.var(), !canonize_sign(b), b.var(), llc::EQ);
     explain(ac);
     explain(a);
     explain(bc);
@@ -288,27 +281,54 @@ void order::generate_ol(const monic& ac,
     TRACE("nla_solver", _().print_lemma(tout););
 }
 
+void order::generate_ol(const monic& ac,                     
+                        const factor& a,
+                        const factor& c,
+                        const monic& bc,
+                        const factor& b)                        {
+    
+    add_empty_lemma();
+#if 0
+    IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
+               << " " << ab_cmp << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
+               << " a " << sign_a << "*v" << var(a) << " " << val(a) << "\n"
+               << " b " << sign_b << "*v" << var(b) << " " << val(b) << "\n"
+               << " c " << sign_c << "*v" << var(c) << " " << val(c) << "\n");
+#endif
+    // fix the sign of c
+    _().negate_relation(c.var(), rational(0));
+    _().negate_var_relation_strictly(ac.var(), bc.var());
+    _().negate_var_relation_strictly(a.var(),  b.var());
+    explain(ac);
+    explain(a);
+    explain(bc);
+    explain(b);
+    explain(c);
+    TRACE("nla_solver", _().print_lemma(tout););
+}
+
+// We have ac = a*c and bc = b*c.
+// Suppose ac >= bc, then ac/|c| >= bc/|b|
+// Notice that ac/|c| = a*rat_sign(val(c)|, and similar fo bc/|c|.// 
 bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
                                                  const factor& a,
                                                  const factor& c,
                                                  const monic& bc,
                                                  const factor& b) {
-    auto cv = val(c); 
-    int c_sign = nla::rat_sign(cv);
-    SASSERT(c_sign != 0);
-    auto av_c_s = val(a)*rational(c_sign);
-    auto bv_c_s = val(b)*rational(c_sign);        
-    auto acv = var_val(ac); 
-    auto bcv = var_val(bc); 
-    TRACE("nla_solver", _().trace_print_ol(ac, a, c, bc, b, tout););
-    // Suppose ac >= bc, then ac/|c| >= bc/|c|.
-    // Notice that ac/|c| = a*c_sign , and bc/|c| = b*c_sign, which are correspondingly av_c_s and bv_c_s
-    if (acv >= bcv && av_c_s < bv_c_s) {
-        generate_ol(ac, a, c_sign, c, bc, b, llc::LT);
+    SASSERT(!val(c).is_zero());
+    rational c_sign = rational(nla::rat_sign(val(c)));
+    auto av_c_s = val(a) * c_sign;
+    auto bv_c_s = val(b) * c_sign;        
+    if ((var_val(ac) > var_val(bc) && av_c_s < bv_c_s)
+        ||
+        (var_val(ac) < var_val(bc) && av_c_s > bv_c_s)) {
+        TRACE("nla_solver", _().trace_print_ol(ac, a, c, bc, b, tout););        
+        generate_ol(ac, a, c, bc, b);
         return true;
-    } else if (acv <= bcv && av_c_s > bv_c_s) {
-        generate_ol(ac, a, c_sign, c, bc, b, llc::GT);
-        return true;
+    } else {
+        if((var_val(ac) == var_val(bc)) && (av_c_s != bv_c_s)) {
+            generate_ol_eq(ac, a, c, bc, b);
+        }
     }
     return false;
 }
