@@ -2044,12 +2044,10 @@ public:
             TRACE("arith", tout << "cut\n";);
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
-            m_eqs.reset();
-            m_core.reset();
-            m_params.reset();
+            reset_evidence();
             for (auto const& ev : m_explanation) {
                 if (!ev.first.is_zero()) { 
-                    set_evidence(ev.second);
+                    set_evidence(ev.second, m_core, m_eqs);
                 }
             }
             // The call mk_bound() can set the m_infeasible_column in lar_solver
@@ -2065,7 +2063,7 @@ public:
             TRACE("arith", 
                   ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
                   display(tout););
-            assign(lit);
+            assign(lit, m_core, m_eqs, m_params);
             lia_check = l_false;
             break;
         }
@@ -2323,7 +2321,7 @@ public:
         }
 
         void consume(rational const& v, lp::constraint_index j) override {
-            m_imp.set_evidence(j);
+            m_imp.set_evidence(j, m_imp.m_core, m_imp.m_eqs);
             m_imp.m_explanation.push_justification(j, v);
         }
     };
@@ -2359,9 +2357,7 @@ public:
             lp().settings().stats().m_num_of_implied_bounds ++;
             if (first) {
                 first = false;
-                m_core.reset();
-                m_eqs.reset();
-                m_params.reset();
+                reset_evidence();
                 m_explanation.clear();
                 local_bound_propagator bp(*this);
                 lp().explain_implied_bound(be, bp);
@@ -2381,25 +2377,24 @@ public:
                     VERIFY(ctx().get_assignment(lit) == l_true);
                 });
             ++m_stats.m_bound_propagations1;
-            assign(lit);
+            assign(lit, m_core, m_eqs, m_params);
         }
     }
 
     literal_vector m_core2;
 
-    void assign(literal lit) {
-        //        SASSERT(validate_assign(lit));
-        dump_assign(lit);
-        if (m_core.size() < small_lemma_size() && m_eqs.empty()) {
+    void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& params) {
+        dump_assign(lit, core, eqs);
+        if (core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
-            for (auto const& c : m_core) {
+            for (auto const& c : core) {
                 m_core2.push_back(~c);
             }
             m_core2.push_back(lit);
             justification * js = nullptr;
             if (proofs_enabled()) {
                 js = alloc(theory_lemma_justification, get_id(), ctx(), m_core2.size(), m_core2.c_ptr(),
-                           m_params.size(), m_params.c_ptr());
+                           params.size(), params.c_ptr());
             }
             ctx().mk_clause(m_core2.size(), m_core2.c_ptr(), js, CLS_TH_LEMMA, nullptr);
         }
@@ -2407,8 +2402,8 @@ public:
             ctx().assign(
                 lit, ctx().mk_justification(
                     ext_theory_propagation_justification(
-                        get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), 
-                        m_eqs.size(), m_eqs.c_ptr(), lit, m_params.size(), m_params.c_ptr())));            
+                        get_id(), ctx().get_region(), core.size(), core.c_ptr(), 
+                        eqs.size(), eqs.c_ptr(), lit, params.size(), params.c_ptr())));            
         }
     }
 
@@ -2753,14 +2748,12 @@ public:
               tout << "\n";);
         updt_unassigned_bounds(v, -1);
         ++m_stats.m_bound_propagations2;
-        m_params.reset();
-        m_core.reset();
-        m_eqs.reset();
+        reset_evidence();
         m_core.push_back(lit1);
         m_params.push_back(parameter(m_farkas));
         m_params.push_back(parameter(rational(1)));
         m_params.push_back(parameter(rational(1)));
-        assign(lit2);
+        assign(lit2, m_core, m_eqs, m_params);
         ++m_stats.m_bounds_propagations;
     }
 
@@ -2855,6 +2848,7 @@ public:
                 }
             }                
                 
+            // get_glb and get_lub set m_core, m_eqs, m_params
             if (lit != null_literal) {
                 TRACE("arith",
                       ctx().display_literals_verbose(tout, m_core);
@@ -2864,7 +2858,7 @@ public:
                       );
                 
 
-                assign(lit);
+                assign(lit, m_core, m_eqs, m_params);
             }
             else {
                 TRACE("arith_verbose", display_bound(tout << "skip ", *vb) << "\n";);
@@ -2885,9 +2879,7 @@ public:
     }
 
     bool get_bound(lp_api::bound const& b, inf_rational& r, bool is_lub) {
-        m_core.reset();
-        m_eqs.reset();
-        m_params.reset();
+        reset_evidence();
         r.reset();
         theory_var v = b.get_var();
         lpvar vi = get_lpvar(v);
@@ -2919,7 +2911,7 @@ public:
                 }
             }                
             r += value * mono.coeff();
-            set_evidence(ci);                    
+            set_evidence(ci, m_core, m_eqs);                    
         }
         TRACE("arith_verbose", tout << (is_lub?"lub":"glb") << " is " << r << "\n";);
         return true;
@@ -3147,12 +3139,11 @@ public:
                     VERIFY (has_lower_bound(vi1, ci1, bound));
                     VERIFY (has_upper_bound(vi1, ci2, bound));
                     ++m_stats.m_fixed_eqs;
-                    m_core.reset();
-                    m_eqs.reset();
-                    set_evidence(ci1);
-                    set_evidence(ci2);
-                    set_evidence(ci3);
-                    set_evidence(ci4);
+                    reset_evidence();
+                    set_evidence(ci1, m_core, m_eqs);
+                    set_evidence(ci2, m_core, m_eqs);
+                    set_evidence(ci3, m_core, m_eqs);
+                    set_evidence(ci4, m_core, m_eqs);
                     enode* x = get_enode(v1);
                     enode* y = get_enode(v2);
                     justification* js = 
@@ -3161,7 +3152,7 @@ public:
                                 get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, nullptr));
 
                     TRACE("arith",
-                          for (unsigned i = 0; i <  m_core.size(); ++i) {
+                          for (unsigned i = 0; i < m_core.size(); ++i) {
                               ctx().display_detailed_literal(tout, m_core[i]);
                               tout << "\n";
                           } 
@@ -3214,9 +3205,15 @@ public:
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
 
+    void reset_evidence() {
+        m_core.reset();
+        m_eqs.reset();
+        m_params.reset();
+    }
+
     // lp::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is
 
-    void set_evidence(lp::constraint_index idx) {
+    void set_evidence(lp::constraint_index idx, literal_vector& core, svector<enode_pair>& eqs) {
         if (idx == UINT_MAX) {
             return;
         }
@@ -3224,7 +3221,7 @@ public:
         case inequality_source: {
             literal lit = m_inequalities[idx];
             SASSERT(lit != null_literal);
-            m_core.push_back(lit);
+            core.push_back(lit);
             break;
         }
         case equality_source: {
@@ -3255,9 +3252,7 @@ public:
     }
 
     void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
-        m_eqs.reset();
-        m_core.reset();
-        m_params.reset();
+        reset_evidence();
         for (literal lit : core) {
             m_core.push_back(lit);
         }
@@ -3268,11 +3263,11 @@ public:
         TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n"););
         for (auto const& ev : m_explanation) {
             if (!ev.first.is_zero()) { 
-                set_evidence(ev.second);
+                set_evidence(ev.second, m_core, m_eqs);
             }
         }
         // SASSERT(validate_conflict());
-        dump_conflict();
+        dump_conflict(m_core, m_eqs);
         if (is_conflict) {
             ctx().set_conflict(
                 ctx().mk_justification(
@@ -3479,13 +3474,13 @@ public:
         }
     };
 
-    void dump_conflict() {
+    void dump_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
         if (dump_lemmas()) {
-            ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
+            ctx().display_lemma_as_smt_problem(core.size(), core.c_ptr(), eqs.size(), eqs.c_ptr(), false_literal);
         }
     }
 
-    bool validate_conflict() {
+    bool validate_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
         if (m_arith_params.m_arith_mode != AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
@@ -3493,18 +3488,18 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal););
+        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.c_ptr(), eqs.size(), eqs.c_ptr(), false_literal););
         return result;
     }
 
-    void dump_assign(literal lit) {
+    void dump_assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs) {
         if (dump_lemmas()) {                
-            unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
+            unsigned id = ctx().display_lemma_as_smt_problem(core.size(), core.c_ptr(), eqs.size(), eqs.c_ptr(), lit);
             (void)id;
         }
     }
 
-    bool validate_assign(literal lit) {
+    bool validate_assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs) {
         if (m_arith_params.m_arith_mode != AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
@@ -3514,7 +3509,7 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
+        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.c_ptr(), eqs.size(), eqs.c_ptr(), lit);
                display(tout););   
         return result;
     }
