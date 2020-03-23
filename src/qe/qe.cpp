@@ -367,7 +367,7 @@ namespace qe {
                 m_replace->apply_substitution(ite, el, tmp2);
                 result = m.mk_ite(cond, tmp1, tmp2);
                 m_rewriter(result);
-                return true;
+                return result != fml;
             }
             else {
                 return false;
@@ -2152,12 +2152,12 @@ namespace qe {
             
             expr_ref fml0(fml, m);
             
-            quant_elim_plugin* th;
+            scoped_ptr<quant_elim_plugin> th;
             pop_context(th);                      
             
             th->check(num_vars, vars, m_assumption, fml, get_first, free_vars, defs);
             
-            push_context(th);
+            push_context(th.detach());
             TRACE("qe", 
                   for (unsigned i = 0; i < num_vars; ++i) {
                       tout << mk_ismt2_pp(vars[i], m) << " ";
@@ -2175,7 +2175,7 @@ namespace qe {
             return l_undef;
         }
 
-        void pop_context(quant_elim_plugin*& th) {
+        void pop_context(scoped_ptr<quant_elim_plugin>& th) {
             if (m_plugins.empty()) {
                 th = alloc(quant_elim_plugin, m, *this, m_fparams);
                 th->add_plugin(mk_bool_plugin(*th));

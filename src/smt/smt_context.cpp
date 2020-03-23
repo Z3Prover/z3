@@ -1947,6 +1947,7 @@ namespace smt {
         m_region.push_scope();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
+        TRACE("context", tout << "push " << m_scope_lvl << "\n";);
 
         m_relevancy_propagator->push();
         s.m_assigned_literals_lim    = m_assigned_literals.size();
@@ -2384,7 +2385,6 @@ namespace smt {
        \warning This method will not invoke reset_cache_generation.
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
-
         unsigned units_to_reassert_lim;
 
         try {
@@ -3358,7 +3358,9 @@ namespace smt {
        \brief Execute some finalization code after performing the search.
     */
     lbool context::check_finalize(lbool r) {
-        TRACE("after_search", display(tout << "result: " << r << "\n"););
+        TRACE("after_search", display(tout << "result: " << r << "\n");
+              m_case_split_queue->display(tout << "case splits\n");
+              );
         display_profile(verbose_stream());
         if (r == l_true && get_cancel_flag()) {
             r = l_undef;
@@ -3585,7 +3587,7 @@ namespace smt {
     }
 
     void context::end_search() {
-        m_case_split_queue ->end_search_eh();
+        m_case_split_queue->end_search_eh();
     }
 
     void context::inc_limits() {
@@ -3871,7 +3873,6 @@ namespace smt {
     final_check_status context::final_check() {
         TRACE("final_check", tout << "final_check inconsistent: " << inconsistent() << "\n"; display(tout); display_normalized_enodes(tout););
         CASSERT("relevancy", check_relevancy());
-
         
         if (m_fparams.m_model_on_final_check) {
             mk_proto_model();
@@ -4458,9 +4459,11 @@ namespace smt {
     bool context::update_model(bool refinalize) {
         final_check_status fcs = FC_DONE;
         if (refinalize) {
+            if (has_case_splits())
+                return false;
             fcs = final_check();
+            TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
         }
-        TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
         if (fcs == FC_DONE) {
             reset_model();
         }
@@ -4469,7 +4472,7 @@ namespace smt {
     }
 
     void context::mk_proto_model() {
-        if (m_model || m_proto_model) return;
+        if (m_model || m_proto_model || has_case_splits()) return;
         TRACE("get_model",
               display(tout);
               display_normalized_enodes(tout);
@@ -4502,9 +4505,17 @@ namespace smt {
         return m_unsat_proof;
     }
 
+    bool context::has_case_splits() {
+        for (unsigned i = get_num_b_internalized(); i-- > 0; ) {
+            if (get_assignment(i) == l_undef)
+                return true;
+        }
+        return false;
+    }
+
     void context::get_model(model_ref & m) {
         if (inconsistent())
-            m = nullptr;
+            m = nullptr;       
         else {
             mk_proto_model();
             if (!m_model && m_proto_model) {

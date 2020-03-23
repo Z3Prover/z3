@@ -49,6 +49,7 @@ class solve_eqs_tactic : public tactic {
         expr_sparse_mark              m_candidate_vars;
         expr_sparse_mark              m_candidate_set;
         ptr_vector<expr>              m_candidates;
+        expr_ref_vector               m_marked_candidates;
         ptr_vector<app>               m_vars;
         expr_sparse_mark              m_nonzero;
         ptr_vector<app>               m_ordered_vars;
@@ -62,7 +63,8 @@ class solve_eqs_tactic : public tactic {
             m_r_owner(r == nullptr || owner),
             m_a_util(m),
             m_num_steps(0),
-            m_num_eliminated_vars(0) {
+            m_num_eliminated_vars(0),
+            m_marked_candidates(m) {
             updt_params(p);
             if (m_r == nullptr)
                 m_r       = mk_default_expr_replacer(m);
@@ -421,6 +423,7 @@ class solve_eqs_tactic : public tactic {
             m_candidates.push_back(f);
             m_candidate_set.mark(f);
             m_candidate_vars.mark(var);
+            m_marked_candidates.push_back(f);
             if (m_produce_proofs) {
                 if (!pr)
                     pr = g.pr(idx);
@@ -440,6 +443,7 @@ class solve_eqs_tactic : public tactic {
             m_candidate_vars.reset();
             m_candidate_set.reset();
             m_candidates.reset();
+            m_marked_candidates.reset();
             m_vars.reset();
             m_nonzero.reset();
             app_ref  var(m());
@@ -841,6 +845,8 @@ class solve_eqs_tactic : public tactic {
             for (expr* v : m_vars) {
                 if (!m_candidate_vars.is_marked(v)) {
                     m_candidate_set.mark(m_candidates[idx], false);
+                    m_marked_candidates.push_back(m_candidates[idx]);
+                    m_marked_candidates.push_back(v);
                 }
                 ++idx;
             }
@@ -908,6 +914,7 @@ class solve_eqs_tactic : public tactic {
                 expr * f = g.form(idx);
                 TRACE("gaussian_leak", tout << "processing:\n" << mk_ismt2_pp(f, m()) << "\n";);
                 if (m_candidate_set.is_marked(f)) {
+                    m_marked_candidates.push_back(f);
                     // f may be deleted after the following update.
                     // so, we must remove the mark before doing the update
                     m_candidate_set.mark(f, false);

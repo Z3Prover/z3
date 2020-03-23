@@ -1202,9 +1202,9 @@ bool theory_arith<Ext>::is_integer(row const & r) const {
 }
 
 template<typename Ext>
-void theory_arith<Ext>::display_coeff_exprs(std::ostream & out, sbuffer<coeff_expr> const & p) const {
-    typename sbuffer<coeff_expr>::const_iterator it  = p.begin();
-    typename sbuffer<coeff_expr>::const_iterator end = p.end();
+void theory_arith<Ext>::display_coeff_exprs(std::ostream & out, buffer<coeff_expr> const & p) const {
+    typename buffer<coeff_expr>::const_iterator it  = p.begin();
+    typename buffer<coeff_expr>::const_iterator end = p.end();
     for (bool first = true; it != end; ++it) {
         if (first)
             first = false;
@@ -1220,7 +1220,7 @@ void theory_arith<Ext>::display_coeff_exprs(std::ostream & out, sbuffer<coeff_ex
    occurrences is also stored.
 */
 template<typename Ext>
-bool theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuffer<var_num_occs> & varinfo) {
+bool theory_arith<Ext>::get_polynomial_info(buffer<coeff_expr> const & p, sbuffer<var_num_occs> & varinfo) {
     context & ctx = get_context();
     varinfo.reset();
     m_var2num_occs.reset();
@@ -1262,7 +1262,7 @@ bool theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuff
    \brief Convert p into an expression.
 */
 template<typename Ext>
-expr * theory_arith<Ext>::p2expr(sbuffer<coeff_expr> & p) {
+expr * theory_arith<Ext>::p2expr(buffer<coeff_expr> & p) {
     SASSERT(!p.empty());
     TRACE("p2expr_bug", display_coeff_exprs(tout, p););
     ptr_buffer<expr> args;
@@ -1308,7 +1308,7 @@ expr * theory_arith<Ext>::power(expr * var, unsigned power) {
    The arguments i1 and i2 contain the position in p of the two monomials.
 */
 template<typename Ext>
-bool theory_arith<Ext>::in_monovariate_monomials(sbuffer<coeff_expr> & p, expr * var,
+bool theory_arith<Ext>::in_monovariate_monomials(buffer<coeff_expr> & p, expr * var,
                                                  unsigned & i1, rational & c1, unsigned & n1, unsigned & i2, rational & c2, unsigned & n2) {
     int idx = 0;
 #define SET_RESULT(POWER) {                     \
@@ -1328,8 +1328,8 @@ bool theory_arith<Ext>::in_monovariate_monomials(sbuffer<coeff_expr> & p, expr *
             return false;                       \
     }
 
-    typename sbuffer<coeff_expr>::const_iterator it  = p.begin();
-    typename sbuffer<coeff_expr>::const_iterator end = p.end();
+    typename buffer<coeff_expr>::const_iterator it  = p.begin();
+    typename buffer<coeff_expr>::const_iterator end = p.end();
     for (unsigned i = 0; it != end; ++it, ++i) {
         expr * m = it->second;
         if (is_pure_monomial(m)) {
@@ -1418,13 +1418,13 @@ unsigned theory_arith<Ext>::get_degree_of(expr * m, expr * var) {
    \brief Return the minimal degree of var in the polynomial p.
 */
 template<typename Ext>
-unsigned theory_arith<Ext>::get_min_degree(sbuffer<coeff_expr> & p, expr * var) {
+unsigned theory_arith<Ext>::get_min_degree(buffer<coeff_expr> & p, expr * var) {
     SASSERT(!p.empty());
     SASSERT(var != 0);
     // get monomial where the degree of var is min.
     unsigned d = UINT_MAX; // min. degree of var
-    sbuffer<coeff_expr>::const_iterator it  = p.begin();
-    sbuffer<coeff_expr>::const_iterator end = p.end();
+    buffer<coeff_expr>::const_iterator it  = p.begin();
+    buffer<coeff_expr>::const_iterator end = p.end();
     for (; it != end; ++it) {
         expr * m = it->second;
         d = std::min(d, get_degree_of(m, var));
@@ -1475,7 +1475,7 @@ expr * theory_arith<Ext>::factor(expr * m, expr * var, unsigned d) {
    \brief Return the horner extension of p with respect to var.
 */
 template<typename Ext>
-expr * theory_arith<Ext>::horner(unsigned depth, sbuffer<coeff_expr> & p, expr * var) {
+expr * theory_arith<Ext>::horner(unsigned depth, buffer<coeff_expr> & p, expr * var) {
     SASSERT(!p.empty());
     SASSERT(var != 0);
     unsigned d = get_min_degree(p, var);
@@ -1483,8 +1483,8 @@ expr * theory_arith<Ext>::horner(unsigned depth, sbuffer<coeff_expr> & p, expr *
           for (unsigned i = 0; i < p.size(); i++) { if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager()); } tout << "\n";
           tout << "var: " << mk_pp(var, get_manager()) << "\n";
           tout << "min_degree: " << d << "\n";);
-    sbuffer<coeff_expr> e; // monomials/x^d where var occurs with degree d
-    sbuffer<coeff_expr> r; // rest
+    buffer<coeff_expr> e; // monomials/x^d where var occurs with degree d
+    buffer<coeff_expr> r; // rest
     for (auto const& kv : p) {
         expr * m = kv.second;
         expr * f = factor(m, var, d);
@@ -1521,7 +1521,7 @@ expr * theory_arith<Ext>::horner(unsigned depth, sbuffer<coeff_expr> & p, expr *
    If var != 0, then it is used for performing the horner extension
 */
 template<typename Ext>
- expr * theory_arith<Ext>::cross_nested(unsigned depth, sbuffer<coeff_expr> & p, expr * var) {
+ expr * theory_arith<Ext>::cross_nested(unsigned depth, buffer<coeff_expr> & p, expr * var) {
     TRACE("non_linear", tout << "p.size: " << p.size() << "\n";);
     if (var == nullptr) {
         sbuffer<var_num_occs> varinfo;
@@ -1588,7 +1588,7 @@ template<typename Ext>
                 new_expr       = b.is_one() ? rhs2 : m_util.mk_mul(m_util.mk_numeral(b, m_util.is_int(var)), rhs2);
                 m_nl_new_exprs.push_back(new_expr);
                 TRACE("non_linear", tout << "new_expr:\n"; display_nested_form(tout, new_expr); tout << "\n";);
-                sbuffer<coeff_expr> rest;
+                buffer<coeff_expr> rest;
                 unsigned sz    = p.size();
                 for (unsigned i = 0; i < sz; i++) {
                     if (i != i1 && i != i2)
@@ -1612,7 +1612,7 @@ template<typename Ext>
    bounds. The polynomial is converted into an equivalent cross nested form.
 */
 template<typename Ext>
-bool theory_arith<Ext>::is_cross_nested_consistent(sbuffer<coeff_expr> & p) {
+bool theory_arith<Ext>::is_cross_nested_consistent(buffer<coeff_expr> & p) {
     sbuffer<var_num_occs> varinfo;
     if (!get_polynomial_info(p, varinfo))
         return true;
@@ -1706,7 +1706,7 @@ bool theory_arith<Ext>::is_cross_nested_consistent(row const & r) {
         c      = r.get_denominators_lcm().to_rational();
 
     TRACE("non_linear", tout << "check problematic row:\n"; display_row(tout, r); display_row(tout, r, false););
-    sbuffer<coeff_expr> p;
+    buffer<coeff_expr> p;
     for (auto & col : r) {
         if (!col.is_dead()) {
             p.push_back(coeff_expr(col.m_coeff.to_rational() * c, var2expr(col.m_var)));

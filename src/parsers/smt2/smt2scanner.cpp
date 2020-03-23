@@ -24,7 +24,8 @@ namespace smt2 {
     void scanner::next() {
         if (m_cache_input)
             m_cache.push_back(m_curr);
-        SASSERT(!m_at_eof);
+        if (m_at_eof)
+            throw scanner_exception("unexpected end of file");
         if (m_interactive) {
             m_curr = m_stream.get();
             if (m_stream.eof())

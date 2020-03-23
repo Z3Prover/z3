@@ -585,7 +585,8 @@ struct nnf::imp {
     bool is_eq(app * t) const { return m.is_eq(t); }
 
     bool process_iff_xor(app * t, frame & fr) {
-        SASSERT(t->get_num_args() == 2);
+        if (t->get_num_args() != 2)
+            throw default_exception("apply simplification before nnf to normalize arguments to xor/=");
         switch (fr.m_i) {
         case 0:
             fr.m_i = 1;

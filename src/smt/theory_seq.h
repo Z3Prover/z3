@@ -406,6 +406,7 @@ namespace smt {
         ptr_vector<expr> m_todo, m_concat;
         unsigned         m_internalize_depth;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
+        bool             m_has_seq;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;

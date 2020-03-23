@@ -445,7 +445,7 @@ namespace sat {
         literal_vector const& get_core() const override { return m_core; }
         model_converter const & get_model_converter() const { return m_mc; }
         void flush(model_converter& mc) override { mc.flush(m_mc); }
-        void set_model(model const& mdl);
+        void set_model(model const& mdl, bool is_current);
         char const* get_reason_unknown() const override { return m_reason_unknown.c_str(); }
         bool check_clauses(model const& m) const;
         bool is_assumption(bool_var v) const;

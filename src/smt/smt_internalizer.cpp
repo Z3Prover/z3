@@ -420,13 +420,13 @@ namespace smt {
        \brief Internalize an equality.
     */
     void context::internalize_eq(app * n, bool gate_ctx) {
-        TRACE("internalize", tout << mk_pp(n, m) << "\n";);
         SASSERT(!b_internalized(n));
         SASSERT(m.is_eq(n));
         internalize_formula_core(n, gate_ctx);
         bool_var v        = get_bool_var(n);
         bool_var_data & d = get_bdata(v);
         d.set_eq_flag();
+        TRACE("internalize", tout << mk_pp(n, m) << " " << literal(v, false) << "\n";);
         
         sort * s    = m.get_sort(n->get_arg(0));
         theory * th = m_theories.get_plugin(s->get_family_id());

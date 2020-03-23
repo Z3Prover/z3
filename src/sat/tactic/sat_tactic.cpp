@@ -36,7 +36,6 @@ class sat_tactic : public tactic {
             m(_m),
             m_solver(alloc(sat::solver, p, m.limit())),
             m_params(p) {
-            SASSERT(!m.proofs_enabled());
             updt_params(p);
         }
         

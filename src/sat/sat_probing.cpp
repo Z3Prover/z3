@@ -161,7 +161,9 @@ namespace sat {
 
         if (m_probing_binary) {
             watch_list & wlist = s.get_wlist(~l);
-            for (watched & w : wlist) {
+            unsigned sz0 = wlist.size();
+            for (unsigned i = 0; i < wlist.size(); ++i) {
+                watched & w = wlist[i];
                 if (!w.is_binary_clause())
                     continue;
                 literal l2 = w.get_literal();
@@ -169,7 +171,6 @@ namespace sat {
                     continue;
                 if (s.value(l2) != l_undef)
                     continue;
-                // verbose_stream() << "probing " << l << " " << l2 << " " << m_counter << "\n";
                 // Note: that try_lit calls propagate, which may update the watch lists.
                 if (!try_lit(l2, false))
                     return;

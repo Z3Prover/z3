@@ -372,9 +372,7 @@ namespace opt {
                        else
                            verbose_stream() << "(optsmt upper bound: " << (-v) << ")\n";
                        );            
-            expr_ref tmp(m);
             for (unsigned i = idx+1; i < m_vars.size(); ++i) {
-                m_s->maximize_objective(i, tmp);
                 m_lower[i] = m_s->saved_objective_value(i);
             }
             m_best_model = m_model;

@@ -1059,6 +1059,8 @@ namespace smt {
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         TRACE("bound_bug", display_var(tout, v); display(tout););
+        if (get_context().get_fparams().m_threads > 1)
+            throw default_exception("multi-threaded optimization is not supported");
         has_shared = false;
         if (!m_nl_monomials.empty()) {
             has_shared = true;
@@ -1201,7 +1203,7 @@ namespace smt {
                 break;
             }
         }
-        if (idx == num_lits) {
+        if (idx == num_lits || num_params == 0) {
             return;
         }
         for (unsigned i = 0; i < num_lits; ++i) {
@@ -1227,7 +1229,8 @@ namespace smt {
                 continue;
             }
             ctx.literal2expr(lits[i], tmp);
-            farkas.add(abs(pa.get_rational()), to_app(tmp));
+            if (!farkas.add(abs(pa.get_rational()), to_app(tmp)))
+                return;
         }
         for (unsigned i = 0; i < num_eqs; ++i) {
             enode_pair const& p = eqs[i];
@@ -1236,9 +1239,11 @@ namespace smt {
             tmp = m.mk_eq(x,y);
             parameter const& pa = params[1 + num_lits + i];
             SASSERT(pa.is_rational());
-            farkas.add(abs(pa.get_rational()), to_app(tmp));
+            if (!farkas.add(abs(pa.get_rational()), to_app(tmp)))
+                return;
         }
         tmp = farkas.get();
+
         if (m.has_trace_stream()) {
             log_axiom_instantiation(tmp);
             m.trace_stream() << "[end-of-instance]\n";
@@ -1274,8 +1279,7 @@ namespace smt {
         }
         th_rewriter rw(m);
         rw(vq, tmp);
-        VERIFY(m_util.is_numeral(tmp, q));
-        if (m_upper_bound < q) {
+        if (m_util.is_numeral(tmp, q) && m_upper_bound < q) {
             m_upper_bound = q;
             if (strict) {
                 m_upper_bound -= get_epsilon(a->get_var());
@@ -1540,6 +1544,7 @@ namespace smt {
         unsigned best_efforts = 0;
         bool inc = false;
         context& ctx = get_context();
+
 
         SASSERT(!maintain_integrality || valid_assignment());
         SASSERT(satisfy_bounds());

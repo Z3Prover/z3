@@ -88,7 +88,7 @@ namespace sat {
 
     solver::~solver() {
         m_ext = nullptr;
-        SASSERT(check_invariant());
+        SASSERT(m_config.m_num_threads > 1 || check_invariant());
         TRACE("sat", tout << "Delete clauses\n";);
         del_clauses(m_clauses);
         TRACE("sat", tout << "Delete learned\n";);
@@ -878,10 +878,6 @@ namespace sat {
         case BH_CHB:
             m_last_propagation[v] = m_stats.m_conflict;
             break;
-        case BH_LRB: 
-            m_participated[v] = 0;
-            m_reasoned[v] = 0;
-            break;
         }
 
         if (m_config.m_anti_exploration) {
@@ -1193,7 +1189,8 @@ namespace sat {
             m_cleaner(true);
             return do_local_search(num_lits, lits);
         }
-        if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || m_config.m_ddfw_threads > 0 || m_config.m_unit_walk_threads > 0) && !m_par) {
+        if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || 
+             m_config.m_ddfw_threads > 0 || m_config.m_unit_walk_threads > 0) && !m_par) {
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
@@ -1457,17 +1454,17 @@ namespace sat {
             m_stats = par.get_solver(finished_id).m_stats;
         }
         if (result == l_true && IS_AUX_SOLVER(finished_id)) {
-            set_model(par.get_solver(finished_id).get_model());
+            set_model(par.get_solver(finished_id).get_model(), true);
         }
         else if (result == l_false && IS_AUX_SOLVER(finished_id)) {
             m_core.reset();
             m_core.append(par.get_solver(finished_id).get_core());
         }
         if (result == l_true && IS_LOCAL_SEARCH(finished_id)) {
-            set_model(ls[finished_id - local_search_offset]->get_model());
+            set_model(ls[finished_id - local_search_offset]->get_model(), true);
         }
         if (result == l_true && IS_UNIT_WALK(finished_id)) {
-            set_model(uw[finished_id - unit_walk_offset]->get_model());
+            set_model(uw[finished_id - unit_walk_offset]->get_model(), true);
         }
         if (!canceled) {
             rlimit().reset_cancel();
@@ -1967,10 +1964,10 @@ namespace sat {
         }
     }
 
-    void solver::set_model(model const& mdl) {
+    void solver::set_model(model const& mdl, bool is_current) {
         m_model.reset();
         m_model.append(mdl);
-        m_model_is_current = !m_model.empty();
+        m_model_is_current = is_current;
     }
 
     void solver::mk_model() {
@@ -2960,7 +2957,7 @@ namespace sat {
             // apply optional clause minimization by detecting subsumed literals.
             // initial experiment suggests it has no effect.
             m_mus(); // ignore return value on cancelation.
-            set_model(m_mus.get_model());
+            set_model(m_mus.get_model(), !m_mus.get_model().empty());
             IF_VERBOSE(2, verbose_stream() << "(sat.core: " << m_core << ")\n";);
         }
     }
@@ -3472,8 +3469,7 @@ namespace sat {
        \brief Reset the mark of the variables in the current lemma.
     */
     void solver::reset_lemma_var_marks() {
-        if (m_config.m_branching_heuristic == BH_LRB ||
-            m_config.m_branching_heuristic == BH_VSIDS) {
+        if (m_config.m_branching_heuristic == BH_VSIDS) {
             update_lrb_reasoned();
         }        
         literal_vector::iterator it  = m_lemma.begin();
@@ -3715,14 +3711,6 @@ namespace sat {
             m_assignment[(~l).index()] = l_undef;
             SASSERT(value(v) == l_undef);
             m_case_split_queue.unassign_var_eh(v);
-            if (m_config.m_branching_heuristic == BH_LRB) {
-                uint64_t interval = m_stats.m_conflict - m_last_propagation[v];
-                if (interval > 0) {
-                    auto activity = m_activity[v];
-                    auto reward = (m_config.m_reward_offset * (m_participated[v] + m_reasoned[v])) / interval;
-                    set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1 - m_step_size) * activity)));
-                }
-            }
             if (m_config.m_anti_exploration) {
                 m_canceled[v] = m_stats.m_conflict;
             }
@@ -4501,7 +4489,7 @@ namespace sat {
         else {
             is_sat = get_consequences(asms, lits, conseq);
         }
-        set_model(mdl);
+        set_model(mdl, !mdl.empty());
         return is_sat;
     }
 

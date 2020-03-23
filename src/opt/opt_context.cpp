@@ -376,7 +376,6 @@ namespace opt {
         if (optp.dump_models()) {
             model_ref md = m->copy();
             fix_model(md);
-            std::cout << *md << "\n";
         }
     }
 

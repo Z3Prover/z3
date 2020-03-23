@@ -229,6 +229,8 @@ namespace opt {
        In this case, the model is post-processed (update_model 
        causes an additional call to final_check to propagate theory equalities
        when 'has_shared' is true).
+
+       Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
     void opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
@@ -249,6 +251,8 @@ namespace opt {
         else if (m_context.get_context().update_model(has_shared)) {
             if (has_shared && val != current_objective_value(i)) {
                 decrement_value(i, val);
+                if (l_true != m_context.check(0, nullptr)) 
+                    throw default_exception("maximization suspended");
             }
             else {
                 set_model(i);
@@ -256,7 +260,9 @@ namespace opt {
         }
         else {
             SASSERT(has_shared);
-            decrement_value(i, val);
+            decrement_value(i, val);            
+            if (l_true != m_context.check(0, nullptr)) 
+                throw default_exception("maximization suspended");
         }
         m_objective_values[i] = val;
         TRACE("opt", { 
@@ -286,7 +292,7 @@ namespace opt {
         TRACE("opt", tout << is_sat << "\n";);
         if (is_sat != l_true) {
             // cop-out approximation
-            if (arith_util(m).is_real(m_objective_terms[i].get())) {
+            if (arith_util(m).is_real(m_objective_terms.get(i))) {
                 val -= inf_eps(inf_rational(rational(0), true));
             }
             else {
@@ -354,6 +360,7 @@ namespace opt {
         
     smt::theory_var opt_solver::add_objective(app* term) {
         smt::theory_var v = get_optimizer().add_objective(term);
+        TRACE("opt", tout << v << " " << mk_pp(term, m) << "\n";);
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
         m_objective_terms.push_back(term);
@@ -375,9 +382,13 @@ namespace opt {
         return get_optimizer().value(v);
     }
     
-    expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
-        if (!val.is_finite()) {
-            return expr_ref(val.is_pos() ? m.mk_false() : m.mk_true(), m);
+    expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& _val) {
+        if (!_val.is_finite()) {
+            return expr_ref(_val.is_pos() ? m.mk_false() : m.mk_true(), m);
+        }
+        inf_eps val = _val;
+        if (val.get_infinitesimal().is_neg()) {
+            val = inf_eps(val.get_rational());
         }
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];
@@ -422,7 +433,6 @@ namespace opt {
             smt::theory_dense_mi& th = dynamic_cast<smt::theory_dense_mi&>(opt);
             return th.mk_ge(m_fm, v, val);
         }
-
 
         if (typeid(smt::theory_lra) == typeid(opt)) {
             smt::theory_lra& th = dynamic_cast<smt::theory_lra&>(opt); 

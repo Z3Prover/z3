@@ -191,16 +191,12 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             break;
         }
         CTRACE("tactic", md.get(), tout << *md.get() << "\n";);
-        if (m_mc && md) {
-            (*m_mc)(md);
-        }
         TRACE("tactic", 
               if (m_mc) m_mc->display(tout << "mc:\n");
               if (g->mc()) g->mc()->display(tout << "\ng:\n");
               if (md) tout << "\nmodel:\n" << *md.get() << "\n";
               );
-        //m_mc = concat(m_mc.get(), g->mc());
-        m_mc = concat(g->mc(), m_mc.get());
+        m_mc = g->mc();
 
     }
     catch (z3_error & ex) {

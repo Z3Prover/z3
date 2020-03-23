@@ -766,7 +766,6 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     }
 
     if (move && num_coeffs == 0 && is_numeral(rhs)) {
-        TRACE("mk_le_bug", tout << "no coeffs\n";);
         return BR_FAILED;
     }
 
@@ -912,7 +911,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     new_lhs_monomials[0] = insert_c_lhs ? mk_numeral(c) : nullptr;
     lhs_result = mk_add_app(new_lhs_monomials.size() - lhs_offset, new_lhs_monomials.c_ptr() + lhs_offset);
     rhs_result = mk_add_app(new_rhs_monomials.size() - rhs_offset, new_rhs_monomials.c_ptr() + rhs_offset);
-    TRACE("mk_le_bug", tout << lhs_result << " " << rhs_result << "\n";);
+    TRACE("le_bug", tout << lhs_result << " " << rhs_result << "\n";);
     return BR_DONE;
 }
 

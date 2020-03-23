@@ -613,6 +613,7 @@ class theory_lra::imp {
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
                 }
                 else if (a.is_mod(n, n1, n2)) {
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);                    
                 }
                 else if (a.is_rem(n, n1, n2)) {
@@ -774,6 +775,7 @@ class theory_lra::imp {
             v = e->get_th_var(get_id());                
         }
         SASSERT(null_theory_var != v);
+        TRACE("arith", tout << mk_pp(n, m) << " " << v << "\n";);
         return v;
     }
 
@@ -3687,7 +3689,9 @@ public:
 
     theory_var add_objective(app* term) {
         TRACE("opt", tout << expr_ref(term, m) << "\n";);
-        return internalize_def(term);
+        theory_var v = internalize_def(term);
+        register_theory_var_in_lar_solver(v);
+        return v;
     }
 
     void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs) {
@@ -3770,8 +3774,8 @@ public:
             return mk_term(lp().get_term(vi), is_int);
         }
         else {
-            theory_var w = lp().external_to_local(vi);
-            return app_ref(get_enode(w)->get_owner(), m);
+            // theory_var w = lp().external_to_local(vi);
+            return app_ref(get_enode(v)->get_owner(), m);
         }
     }
 
@@ -3780,6 +3784,7 @@ public:
         bool is_strict =  val.get_infinitesimal().is_pos();
         app_ref b(m);
         bool is_int = a.is_int(get_enode(v)->get_owner());
+        TRACE("arith", display(tout << "v" << v << "\n"););
         if (is_strict) {
             b = a.mk_le(mk_obj(v), a.mk_numeral(r, is_int));
         }

@@ -271,6 +271,7 @@ struct purify_arith_proc {
 
         void push_cnstr(expr * cnstr) {
             m_new_cnstrs.push_back(cnstr);
+            TRACE("purify_arith", tout << mk_pp(cnstr, m()) << "\n";);
         }
 
         void cache_result(app * t, expr * r, proof * pr) {
@@ -533,7 +534,9 @@ struct purify_arith_proc {
             else {
                 expr_ref s(u().mk_sin(theta), m());
                 expr_ref c(u().mk_cos(theta), m());
-                push_cnstr(EQ(mk_real_one(), u().mk_add(u().mk_mul(s, s), u().mk_mul(c, c))));
+                expr_ref axm(EQ(mk_real_one(), u().mk_add(u().mk_mul(s, s), u().mk_mul(c, c))), m());
+                push_cnstr(axm);
+                push_cnstr_pr(m().mk_asserted(axm));
                 return BR_FAILED;
             }
         }
@@ -721,20 +724,19 @@ struct purify_arith_proc {
         proof_ref new_body_pr(m());
         r(q->get_expr(), new_body, new_body_pr);
         unsigned num_vars = r.cfg().m_new_vars.size();
+        expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
+        cnstrs.push_back(new_body);
+        new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
         TRACE("purify_arith", 
               tout << "num_vars: " << num_vars << "\n";
               tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (num_vars == 0) {
-            SASSERT(r.cfg().m_new_cnstrs.empty());
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs)
                 result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
         }
         else {
             // Add new constraints
-            expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
-            cnstrs.push_back(new_body);
-            new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
             // Open space for new variables
             var_shifter shifter(m());
             shifter(new_body, num_vars, new_body);
@@ -756,11 +758,9 @@ struct purify_arith_proc {
             new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body, q->get_weight());
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs) {
-                proof_ref_vector & cnstr_prs = r.cfg().m_new_cnstr_prs;
-                // cnstr_prs.push_back(result_pr);
-                // TODO: improve proof
-                result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), 
-                                               m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr())); 
+                auto& cnstr_prs = r.cfg().m_new_cnstr_prs;
+                result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr())); 
+                r.cfg().push_cnstr_pr(result_pr);
             }
         }
     }
@@ -771,7 +771,7 @@ struct purify_arith_proc {
         expr_ref   new_curr(m());
         proof_ref  new_pr(m());
         unsigned sz = m_goal.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; !m_goal.inconsistent() && i < sz; i++) {
             expr * curr = m_goal.form(i);
             r(curr, new_curr, new_pr);
             if (m_produce_proofs) {

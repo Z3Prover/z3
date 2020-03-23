@@ -1237,8 +1237,10 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
             if (is_simplex_edge(v)) {
                 unsigned edge_id = simplex2edge(v);
                 literal lit = m_graph.get_explanation(edge_id);
-                get_context().literal2expr(lit, tmp);
-                core.push_back(tmp);
+                if (lit != null_literal) {
+                    get_context().literal2expr(lit, tmp);
+                    core.push_back(tmp);
+                }
             }
         }
         compute_delta();
