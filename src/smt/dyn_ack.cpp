@@ -355,7 +355,6 @@ namespace smt {
 
     void dyn_ack_manager::del_clause_eh(clause * cls) {
         m_context.m_stats.m_num_del_dyn_ack++;
-        
         app_pair p((app*)nullptr,(app*)nullptr);
         if (m_clause2app_pair.find(cls, p)) {
             SASSERT(p.first && p.second);

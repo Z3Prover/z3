@@ -2928,12 +2928,12 @@ namespace smt {
         m_model_generator->reset();
         for (theory* t : m_theory_set) 
             t->flush_eh();
-        undo_trail_stack(0);
-        m_qmanager = nullptr;
         del_clauses(m_aux_clauses, 0);
         del_clauses(m_lemmas, 0);
         del_justifications(m_justifications, 0);
         reset_tmp_clauses();
+        undo_trail_stack(0);
+        m_qmanager = nullptr;
         if (m_is_diseq_tmp) {
             m_is_diseq_tmp->del_eh(m, false);
             m.dec_ref(m_is_diseq_tmp->get_owner());

@@ -258,7 +258,7 @@ struct purify_arith_proc {
         }
 
         void push_cnstr_pr(proof * def_pr) {
-            if (produce_proofs())
+            if (produce_proofs()) 
                 m_new_cnstr_prs.push_back(m().mk_th_lemma(u().get_family_id(), m_new_cnstrs.back(), 1, &def_pr));
         }
 
@@ -725,15 +725,15 @@ struct purify_arith_proc {
         r(q->get_expr(), new_body, new_body_pr);
         unsigned num_vars = r.cfg().m_new_vars.size();
         expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
-        cnstrs.push_back(new_body);
-        new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
+        if (true || !cnstrs.empty()) {
+            cnstrs.push_back(new_body);
+            new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
+        }
         TRACE("purify_arith", 
               tout << "num_vars: " << num_vars << "\n";
               tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (num_vars == 0) {
             result = m().update_quantifier(q, new_body);
-            if (m_produce_proofs)
-                result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
         }
         else {
             // Add new constraints
@@ -757,11 +757,12 @@ struct purify_arith_proc {
             (*replacer)(new_body, new_body);
             new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body, q->get_weight());
             result = m().update_quantifier(q, new_body);
-            if (m_produce_proofs) {
-                auto& cnstr_prs = r.cfg().m_new_cnstr_prs;
-                result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr())); 
-                r.cfg().push_cnstr_pr(result_pr);
-            }
+        }
+        if (m_produce_proofs) {
+            auto& cnstr_prs = r.cfg().m_new_cnstr_prs;
+            result_pr = m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr());
+            result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
+            r.cfg().push_cnstr_pr(result_pr);
         }
     }
 
@@ -784,6 +785,7 @@ struct purify_arith_proc {
         // add cnstraints
         sz = r.cfg().m_new_cnstrs.size();
         TRACE("purify_arith", tout << r.cfg().m_new_cnstrs << "\n";);
+        TRACE("purify_arith", tout << r.cfg().m_new_cnstr_prs << "\n";);
         for (unsigned i = 0; i < sz; i++) {
             m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : nullptr, nullptr);
         }

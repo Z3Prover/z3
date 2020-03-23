@@ -591,9 +591,11 @@ bool goal::is_well_formed() const {
         if (!::is_well_sorted(m(), t))
             return false;
 #if 0
-        SASSERT(m().get_fact(pr(i)) == form(i));
-        if (m().get_fact(pr(i)) != form(i))
+        if (m().get_fact(pr(i)) != form(i)) {
+            TRACE("tactic", tout << mk_ismt2_pp(pr(i), m()) << "\n" << mk_ismt2_pp(form(i), m()) << "\n";);
+            SASSERT(m().get_fact(pr(i)) == form(i));
             return false;
+        }
 #endif
     }
     return true;
