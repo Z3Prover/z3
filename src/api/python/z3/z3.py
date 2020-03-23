@@ -1405,7 +1405,7 @@ class BoolSortRef(SortRef):
             return BoolVal(val, self.ctx)
         if z3_debug():
             if not is_expr(val):
-               _z3_assert(is_expr(val), "True, False or Z3 Boolean expression expected. Received %s" % val)
+               _z3_assert(is_expr(val), "True, False or Z3 Boolean expression expected. Received %s of type %s" % (val, type(val)))
             if not self.eq(val.sort()):
                _z3_assert(self.eq(val.sort()), "Value cannot be converted into a Z3 Boolean value")
         return val
