@@ -1327,6 +1327,9 @@ namespace sat {
     }
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
+        if (!rlimit().inc()) {
+            return l_undef;
+        }
         scoped_ptr_vector<i_local_search> ls;
         scoped_ptr_vector<solver> uw;
         int num_extra_solvers = m_config.m_num_threads - 1;
@@ -1441,6 +1444,11 @@ namespace sat {
                 ex_kind = DEFAULT_EX;    
             }
         };
+
+        if (!rlimit().inc()) {
+            set_par(nullptr, 0);
+            return l_undef;
+        }
 
         vector<std::thread> threads(num_threads);
         for (int i = 0; i < num_threads; ++i) {
