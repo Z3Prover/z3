@@ -2044,6 +2044,9 @@ public:
             TRACE("arith", tout << "cut\n";);
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
+            m_eqs.reset();
+            m_core.reset();
+            m_params.reset();
             for (auto const& ev : m_explanation) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
@@ -2058,9 +2061,6 @@ public:
             }
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_explanation, m_lia->is_upper()););
-            m_eqs.reset();
-            m_core.reset();
-            m_params.reset();
             literal lit(ctx().get_bool_var(b), false);
             TRACE("arith", 
                   ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
