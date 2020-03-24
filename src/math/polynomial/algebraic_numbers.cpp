@@ -575,7 +575,6 @@ namespace algebraic_numbers {
                 auto& a = r[i];
                 for (unsigned j = 0; j < r.size(); ++j) {
                     auto& b = r[j];
-                    bool ltab = lt(a, b);
                     for (unsigned k = 0; k < r.size(); ++k) {
                         auto& c = r[k];
                         bool b_lt_a = lt(b, a);

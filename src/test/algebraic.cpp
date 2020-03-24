@@ -602,6 +602,10 @@ static void tst_sturm() {
     b = rs1[3];
     am.isolate_roots(q, rs2);
     c = rs2[3];
+
+    display_anums(std::cout, rs1);
+    display_anums(std::cout, rs2);
+
     am.display_decimal(std::cout << "a:", a) << "\n";
     am.display_interval(std::cout << "a:", a) << "\n";
     am.display_root(std::cout << "a:", a) << "\n";
