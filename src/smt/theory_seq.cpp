@@ -3474,7 +3474,6 @@ bool theory_seq::solve_ne(unsigned idx) {
 
 bool theory_seq::solve_nc(unsigned idx) {
     nc const& n = m_ncs[idx];
-    dependency* deps = n.deps();    
     literal len_gt = n.len_gt();
     context& ctx = get_context();
     expr_ref c(m);
@@ -3509,6 +3508,7 @@ bool theory_seq::solve_nc(unsigned idx) {
     }
     
 #else
+    dependency* deps = n.deps();    
     if (!canonize(n.contains(), deps, c)) {
         return false;
     }

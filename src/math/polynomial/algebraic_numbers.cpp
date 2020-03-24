@@ -569,22 +569,26 @@ namespace algebraic_numbers {
             }
         };
 
-        void check_triangle_inequality(numeral_vector& r) {
+        void check_transitivity(numeral_vector& r) {
             lt_proc lt(m_wrapper);
             for (unsigned i = 0; i < r.size(); ++i) {
                 auto& a = r[i];
-                for (unsigned j = i + 1; j < r.size(); ++j) {
+                for (unsigned j = 0; j < r.size(); ++j) {
                     auto& b = r[j];
                     bool ltab = lt(a, b);
-                    for (unsigned k = j + 1; k < r.size(); ++k) {
+                    for (unsigned k = 0; k < r.size(); ++k) {
                         auto& c = r[k];
-                        CTRACE("algebraic", (lt(b, a) && lt(a, c) && !lt(b, c)),
-                            display_root(tout << "b ", b) << "\n";
-                        display_root(tout << "a ", a) << "\n";
-                        display_root(tout << "c ", c) << "\n";);
-                        SASSERT(!lt(a, b) || !lt(b, c) || lt(a, c));
-                        SASSERT(!lt(a, b) || !lt(c, a) || lt(c, b));
-                        SASSERT(!lt(b, a) || !lt(a, c) || lt(b, c));
+                        bool b_lt_a = lt(b, a);
+                        bool c_lt_b = lt(c, b);
+                        bool c_lt_a = lt(c, a);
+                        // (a <= b & b <= c) => a <= c
+                        // b < a or c < b or !(c < a)
+                        CTRACE("algebraic_bug", 
+                               (!b_lt_a && !c_lt_b && c_lt_a),
+                               display_root(tout << "a ", a) << "\n";
+                               display_root(tout << "b ", b) << "\n";
+                               display_root(tout << "c ", c) << "\n";);
+                        SASSERT(b_lt_a || c_lt_b || !c_lt_a);
                     }
                 }
             }
@@ -592,7 +596,7 @@ namespace algebraic_numbers {
 
         void sort_roots(numeral_vector & r) {
             if (m_limit.inc()) {
-                //DEBUG_CODE(check_triangle_inequality(r););
+                // DEBUG_CODE(check_transitivity(r););
                 std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
             }
         }
@@ -2782,8 +2786,8 @@ namespace algebraic_numbers {
             // the precision on refine is base 2
             return upm().refine(c->m_p_sz, c->m_p, bqm(), l, u, precision * 4);
         }
-
-        void display_decimal(std::ostream & out, numeral const & a, unsigned precision) {
+        
+        std::ostream& display_decimal(std::ostream & out, numeral const & a, unsigned precision) {
             if (a.is_basic()) {
                 qm().display_decimal(out, basic_value(a), precision);
             }
@@ -2798,6 +2802,7 @@ namespace algebraic_numbers {
                     bqm().display_decimal(out, l, precision);
                 }
             }
+            return out;
         }
 
         void get_lower(numeral const & a, mpq & l, unsigned precision) {
@@ -3102,24 +3107,24 @@ namespace algebraic_numbers {
         return m_imp->eval_sign_at(p, x2v);
     }
 
-    void manager::display_interval(std::ostream & out, numeral const & a) const {
-        m_imp->display_interval(out, a);
+    std::ostream& manager::display_interval(std::ostream & out, numeral const & a) const {
+        return m_imp->display_interval(out, a);
     }
 
-    void manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
-        m_imp->display_decimal(out, a, precision);
+    std::ostream& manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
+        return m_imp->display_decimal(out, a, precision);
     }
 
-    void manager::display_root(std::ostream & out, numeral const & a) const {
-        m_imp->display_root(out, a);
+    std::ostream& manager::display_root(std::ostream & out, numeral const & a) const {
+        return m_imp->display_root(out, a);
     }
 
-    void manager::display_mathematica(std::ostream & out, numeral const & a) const {
-        m_imp->display_mathematica(out, a);
+    std::ostream& manager::display_mathematica(std::ostream & out, numeral const & a) const {
+        return m_imp->display_mathematica(out, a);
     }
 
-    void manager::display_root_smt2(std::ostream & out, numeral const & a) const {
-        m_imp->display_root_smt2(out, a);
+    std::ostream& manager::display_root_smt2(std::ostream & out, numeral const & a) const {
+        return m_imp->display_root_smt2(out, a);
     }
 
     void manager::reset_statistics() {

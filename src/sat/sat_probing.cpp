@@ -161,7 +161,6 @@ namespace sat {
 
         if (m_probing_binary) {
             watch_list & wlist = s.get_wlist(~l);
-            unsigned sz0 = wlist.size();
             for (unsigned i = 0; i < wlist.size(); ++i) {
                 watched & w = wlist[i];
                 if (!w.is_binary_clause())
