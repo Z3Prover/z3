@@ -24,6 +24,7 @@ namespace lp {
 // serves at a set of non-negative integers smaller than the set size
 class int_set {
     vector<int> m_data;
+    vector<int> m_resize_buffer;
 public:
     vector<int> m_index;
     int_set(unsigned size): m_data(size, -1) {}
@@ -56,6 +57,16 @@ public:
     int operator[](unsigned j) const { return m_index[j]; }
     
     void resize(unsigned size) {
+        if (size < data_size()) {
+            for (unsigned j: m_index) {
+                if (j > size)
+                    m_resize_buffer.push_back(j);
+            }
+            for (unsigned j : m_resize_buffer)
+                erase(j);
+            std::cout << m_resize_buffer.size() << "\n";
+            m_resize_buffer.clear();
+        }
         m_data.resize(size, -1);
     }
 

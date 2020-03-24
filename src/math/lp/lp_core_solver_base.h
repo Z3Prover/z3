@@ -244,6 +244,7 @@ public:
                     d -= this->m_costs[this->m_basis[cc.var()]] * this->m_A.get_val(cc);
                 }
                 if (m_d[j] != d) {
+                    TRACE("lar_solver", tout << "reduced costs are incorrect for column j = " << j << " should be " << d << " but we have m_d[j] = " << m_d[j] << std::endl;);
                     return false;
                 }
             }
