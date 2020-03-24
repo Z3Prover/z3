@@ -93,14 +93,14 @@ public:
     var_register                                        m_var_register;
     var_register                                        m_term_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
-    constraint_set                                      m_constraints;
+    constrau_set                                      m_constraints;
     // the set of column indices j such that bounds have changed for j
-    int_set                                             m_columns_with_changed_bound;
-    int_set                                             m_rows_with_changed_bounds;
-    int_set                                             m_basic_columns_with_changed_cost;
+    u_set                                             m_columns_with_changed_bound;
+    u_set                                             m_rows_with_changed_bounds;
+    u_set                                             m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the the corresponding row in the tableau
     // does not sum to zero anymore
-    int_set                                             m_incorrect_columns;
+    u_set                                             m_incorrect_columns;
     stacked_value<int>                                  m_crossed_bounds_column_index; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
@@ -111,7 +111,7 @@ public:
 
     const vector<lar_term*> & terms() const { return m_terms; }
     lar_term const& term(unsigned i) const { return *m_terms[i]; }
-    constraint_set const& constraints() const { return m_constraints; }
+    constrau_set const& constraints() const { return m_constraints; }
     void set_int_solver(int_solver * int_slv) { m_int_solver = int_slv; }
     int_solver * get_int_solver() { return m_int_solver; }
 
@@ -333,9 +333,9 @@ public:
     vector<unsigned> get_list_of_all_var_indices() const;
     void push();
 
-    static void clean_popped_elements(unsigned n, int_set& set);
+    static void clean_popped_elements(unsigned n, u_set& set);
 
-    static void shrink_inf_set_after_pop(unsigned n, int_set & set);
+    static void shrink_inf_set_after_pop(unsigned n, u_set & set);
     
     void pop(unsigned k);
 

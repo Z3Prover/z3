@@ -15,7 +15,7 @@ Author:
 
 Revision History:
 
-   TBD use indexed_uint_set from src/util/uint_set.h, 
+   TBD use indexed_uu_set from src/util/uu_set.h, 
 
 --*/
 #pragma once
@@ -23,14 +23,14 @@ Revision History:
 #include <ostream>
 namespace lp {
 // serves at a set of non-negative integers smaller than the set size
-class int_set {
+class u_set {
     svector<int> m_data;
     unsigned_vector m_index;
 
 public:
-    int_set(unsigned size): m_data(size, -1) {}
-    int_set() {}
-    int_set(int_set const& other):
+    u_set(unsigned size): m_data(size, -1) {}
+    u_set() {}
+    u_set(u_set const& other):
         m_data(other.m_data),
         m_index(other.m_index) {}
 

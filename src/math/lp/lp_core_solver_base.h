@@ -51,7 +51,7 @@ public:
         return m_inf_set.size() == 0;
     }
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
-    int_set m_inf_set;
+    u_set m_inf_set;
     bool m_using_infeas_costs;
 
 
@@ -83,7 +83,7 @@ public:
     vector<T>             m_steepest_edge_coefficients;
     vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool                  m_tracing_basis_changes;
-    int_set*              m_pivoted_rows;
+    u_set*              m_pivoted_rows;
     bool                  m_look_for_feasible_solution_only;
 
     void start_tracing_basis_changes() {

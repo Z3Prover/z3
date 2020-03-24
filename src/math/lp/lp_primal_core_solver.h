@@ -36,7 +36,7 @@ Revision History:
 #include "math/lp/lp_core_solver_base.h"
 #include "math/lp/breakpoint.h"
 #include "math/lp/binary_heap_priority_queue.h"
-#include "math/lp/int_set.h"
+#include "math/lp/u_set.h"
 namespace lp {
 
 // This core solver solves (Ax=b, lower_bound_values \leq x \leq upper_bound_values, maximize costs*x )
@@ -57,7 +57,7 @@ public:
     T                 m_converted_harris_eps;
     unsigned          m_inf_row_index_for_tableau;
     bool              m_bland_mode_tableau;
-    int_set           m_left_basis_tableau;
+    u_set           m_left_basis_tableau;
     unsigned          m_bland_mode_threshold;
     unsigned          m_left_basis_repeated;
     vector<unsigned>  m_leaving_candidates;

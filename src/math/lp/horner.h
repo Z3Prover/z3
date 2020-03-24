@@ -23,7 +23,7 @@
 #include "math/lp/nla_intervals.h"
 #include "math/lp/nex.h"
 #include "math/lp/cross_nested.h"
-#include "math/lp/int_set.h"
+#include "math/lp/u_set.h"
 
 namespace nla {
 class core;

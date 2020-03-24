@@ -285,11 +285,11 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::can_be_breakpo
     }
 }
 
-template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_breakpoint_set() {
-    m_breakpoint_set.clear();
+template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_breakpou_set() {
+    m_breakpou_set.clear();
     for (unsigned j : this->non_basis()) {
         if (can_be_breakpoint(j)) {
-            m_breakpoint_set.insert(j);
+            m_breakpou_set.insert(j);
         }
     }
 }
@@ -590,11 +590,11 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::tight_breakpoi
     return true;
 }
 
-template <typename T, typename X> T lp_dual_core_solver<T, X>::calculate_harris_delta_on_breakpoint_set() {
+template <typename T, typename X> T lp_dual_core_solver<T, X>::calculate_harris_delta_on_breakpou_set() {
     bool first_time = true;
     T ret = zero_of_type<T>();
-    lp_assert(m_breakpoint_set.size() > 0);
-    for (auto j : m_breakpoint_set) {
+    lp_assert(m_breakpou_set.size() > 0);
+    for (auto j : m_breakpou_set) {
         T t;
         if (this->x_is_at_lower_bound(j)) {
             t = abs((std::max(this->m_d[j], numeric_traits<T>::zero()) + m_harris_tolerance) / this->m_pivot_row[j]);
@@ -613,7 +613,7 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::calculate_harris_
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_tight_set_on_harris_delta(const T & harris_delta ){
     m_tight_set.clear();
-    for (auto j : m_breakpoint_set) {
+    for (auto j : m_breakpou_set) {
         if (this->x_is_at_lower_bound(j)) {
             if (abs(std::max(this->m_d[j], numeric_traits<T>::zero()) / this->m_pivot_row[j]) <= harris_delta){
                 m_tight_set.insert(j);
@@ -646,26 +646,26 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::find_q_on_tigh
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::find_q_and_tight_set() {
-    T harris_del = calculate_harris_delta_on_breakpoint_set();
+    T harris_del = calculate_harris_delta_on_breakpou_set();
     fill_tight_set_on_harris_delta(harris_del);
     find_q_on_tight_set();
     m_entering_boundary_position = this->get_non_basic_column_value_position(m_q);
 }
 
-template <typename T, typename X> void lp_dual_core_solver<T, X>::erase_tight_breakpoints_and_q_from_breakpoint_set() {
-    m_breakpoint_set.erase(m_q);
+template <typename T, typename X> void lp_dual_core_solver<T, X>::erase_tight_breakpoints_and_q_from_breakpou_set() {
+    m_breakpou_set.erase(m_q);
     for (auto j : m_tight_set) {
-        m_breakpoint_set.erase(j);
+        m_breakpou_set.erase(j);
     }
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::ratio_test() {
     m_sign_of_alpha_r = define_sign_of_alpha_r();
-    fill_breakpoint_set();
+    fill_breakpou_set();
     m_flipped_boxed.clear();
     int initial_delta_sign = m_delta >= numeric_traits<T>::zero()? 1: -1;
     do {
-        if (m_breakpoint_set.empty()) {
+        if (m_breakpou_set.empty()) {
             set_status_to_tentative_dual_unbounded_or_dual_unbounded();
             return false;
         }
@@ -674,13 +674,13 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::ratio_test() {
         if (!tight_breakpoinst_are_all_boxed())  break;
         T del = m_delta - delta_lost_on_flips_of_tight_breakpoints() * initial_delta_sign;
         if (!delta_keeps_the_sign(initial_delta_sign, del)) break;
-        if (m_tight_set.size() + 1 == m_breakpoint_set.size()) {
+        if (m_tight_set.size() + 1 == m_breakpou_set.size()) {
             break; // deciding not to flip since we might get stuck without finding m_q, the column entering the basis
         }
         // we can flip m_q together with the tight set and look for another breakpoint candidate for m_q and another tight set
         add_tight_breakpoints_and_q_to_flipped_set();
         m_delta = del;
-        erase_tight_breakpoints_and_q_from_breakpoint_set();
+        erase_tight_breakpoints_and_q_from_breakpou_set();
     } while (true);
     m_theta_D = this->m_d[m_q] / this->m_pivot_row[m_q];
     return true;

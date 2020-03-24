@@ -20,7 +20,7 @@ Revision History:
 #pragma once
 #include "math/lp/lp_settings.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/int_set.h"
+#include "math/lp/u_set.h"
 #include "math/lp/lar_term.h"
 #include "math/lp/lar_constraints.h"
 #include "math/lp/hnf_cutter.h"

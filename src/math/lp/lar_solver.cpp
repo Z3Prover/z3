@@ -324,7 +324,7 @@ void lar_solver::push() {
     m_constraints.push();
 }
 
-void lar_solver::clean_popped_elements(unsigned n, int_set& set) {
+void lar_solver::clean_popped_elements(unsigned n, u_set& set) {
     vector<int> to_remove;
     for (unsigned j: set)
         if (j >= n)
@@ -333,7 +333,7 @@ void lar_solver::clean_popped_elements(unsigned n, int_set& set) {
         set.erase(j);
 }
 
-void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
+void lar_solver::shrink_inf_set_after_pop(unsigned n, u_set & set) {
     clean_popped_elements(n, set);
     set.resize(n);
 }
