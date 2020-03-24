@@ -1182,7 +1182,7 @@ typename theory_diff_logic<Ext>::inf_eps theory_diff_logic<Ext>::value(theory_va
      objective_term const& objective = m_objectives[v];   
      inf_eps r = inf_eps(m_objective_consts[v]);
      for (auto const& o : objective) {
-         numeral n = m_graph.get_assignment(v);
+         numeral n = m_graph.get_assignment(o.first);
          rational r1 = n.get_rational().to_rational();
          rational r2 = n.get_infinitesimal().to_rational();
          r += o.second * inf_eps(rational(0), inf_rational(r1, r2));
