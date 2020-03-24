@@ -42,8 +42,8 @@ public:
     bool current_x_is_feasible() const {
         TRACE("feas",
               if (m_inf_set.size()) {
-                  tout << "column " << m_inf_set.m_index[0] << " is infeasible" << std::endl;
-                  print_column_info(m_inf_set.m_index[0], tout);
+                  tout << "column " << *m_inf_set.begin() << " is infeasible" << std::endl;
+                  print_column_info(*m_inf_set.begin(), tout);
               } else {
                   tout << "x is feasible\n";
               }
