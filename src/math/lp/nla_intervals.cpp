@@ -120,10 +120,10 @@ void intervals::add_linear_to_vector(const nex* e, vector<std::pair<rational, lp
 // e = a * can_t + b
 lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational& a, rational& b) {
     TRACE("nla_horner_details", tout << *e << "\n";);
-    lpvar smallest_j;
+    lpvar smallest_j = 0;
     vector<std::pair<rational, lpvar>> v;
     b = rational(0);
-    unsigned a_index;
+    unsigned a_index = UINT_MAX;
     for (const nex* c : *e) {
         if (c->is_scalar()) {
             b += c->to_scalar().value();

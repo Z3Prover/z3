@@ -55,22 +55,19 @@ namespace smt {
 
         rational val1;
         expr_ref len(m), len_val(m);
-        expr* e1, *e2;
+        expr* e1 = nullptr, *e2 = nullptr;
         expr_ref_vector todo(m);
         todo.push_back(e);
         val.reset();
         while (!todo.empty()) {
             expr* c = todo.back();
             todo.pop_back();
-            if (u.str.is_concat(to_app(c))) {
-                e1 = to_app(c)->get_arg(0);
-                e2 = to_app(c)->get_arg(1);
+            zstring tmp;
+            if (u.str.is_concat(c, e1, e2)) {
                 todo.push_back(e1);
                 todo.push_back(e2);
             }
-            else if (u.str.is_string(to_app(c))) {
-                zstring tmp;
-                u.str.is_string(to_app(c), tmp);
+            else if (u.str.is_string(c, tmp)) {
                 unsigned int sl = tmp.length();
                 val += rational(sl);
             }
@@ -96,9 +93,9 @@ namespace smt {
         ast_manager & sub_m = subsolver.m();
         context & sub_ctx = subsolver.get_context();
 
-        expr * full;
-        expr * suff;
-        u.str.is_suffix(f, suff, full);
+        expr * full = nullptr;
+        expr * suff = nullptr;
+        VERIFY(u.str.is_suffix(f, suff, full));
 
         expr_ref haystack(full, m);
         expr_ref needle(suff, m);
@@ -159,9 +156,9 @@ namespace smt {
         ast_manager & sub_m = subsolver.m();
         context & sub_ctx = subsolver.get_context();
 
-        expr * full;
-        expr * suff;
-        u.str.is_suffix(f, suff, full);
+        expr * full = nullptr;
+        expr * suff = nullptr;
+        VERIFY(u.str.is_suffix(f, suff, full));
 
         expr_ref haystack(full, m);
         expr_ref needle(suff, m);
@@ -214,9 +211,9 @@ namespace smt {
         ast_manager & sub_m = subsolver.m();
         context & sub_ctx = subsolver.get_context();
 
-        expr * full;
-        expr * pref;
-        u.str.is_prefix(f, pref, full);
+        expr * full = nullptr;
+        expr * pref = nullptr;
+        VERIFY(u.str.is_prefix(f, pref, full));
 
         expr_ref haystack(full, m);
         expr_ref needle(pref, m);
@@ -331,9 +328,9 @@ namespace smt {
         ast_manager & sub_m = subsolver.m();
         context & sub_ctx = subsolver.get_context();
 
-        expr * full;
-        expr * small;
-        u.str.is_contains(f, full, small);
+        expr * full = nullptr;
+        expr * small = nullptr;
+        VERIFY(u.str.is_contains(f, full, small));
 
         expr_ref haystack(full, m);
         expr_ref needle(small, m);
@@ -471,9 +468,8 @@ namespace smt {
         ast_manager & sub_m = subsolver.m();
         context & sub_ctx = subsolver.get_context();
 
-        expr * str;
-        expr * re;
-        u.str.is_in_re(f, str, re);
+        expr * str = nullptr, *re = nullptr;
+        VERIFY(u.str.is_in_re(f, str, re));
 
         // TODO reuse some of the automaton framework from theory_str_regex
         eautomaton * aut = m_mk_aut(re);
@@ -1630,6 +1626,7 @@ namespace smt {
                     if (indicatorHasEqcValue) {
                         zstring len_pIndiStr;
                         u.str.is_string(len_indicator_value, len_pIndiStr);
+                        // NSB: is len_indicator_value always a string? Then use VERIFY, or otherwise test return value
                         if (len_pIndiStr != "more") {
                             effectiveLenInd = len_indicator_pre;
                             effectiveLenIndiStr = len_pIndiStr;
@@ -1658,6 +1655,7 @@ namespace smt {
                                 } else {
                                     if (effectiveHasEqcValue) {
                                         u.str.is_string(effective_eqc_value, effectiveLenIndiStr);
+                                        // NSB: is argument always a string? Then use VERIFY, or otherwise test return value
                                     } else {
                                         NOT_IMPLEMENTED_YET();
                                     }
@@ -1955,6 +1953,7 @@ namespace smt {
                 // safety check
                 zstring effectiveLenIndiStr;
                 u.str.is_string(len_indicator_value, effectiveLenIndiStr);
+                // NSB: is argument always a string? Then use VERIFY, or otherwise test return value
                 if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "less") {
                     TRACE("str", tout << "ERROR: illegal state -- requesting 'more value tests' but a length tester is not yet concrete!" << std::endl;);
                     UNREACHABLE();
@@ -1982,6 +1981,7 @@ namespace smt {
                 if (indicatorHasEqcValue) {
                     zstring len_pIndiStr;
                     u.str.is_string(len_indicator_value, len_pIndiStr);
+                    // NSB: is argument always a string? Then use VERIFY, or otherwise test return value
                     if (len_pIndiStr != "more") {
                         effectiveLenInd = len_indicator_pre;
                         effectiveLenIndiStr = len_pIndiStr;
@@ -2086,6 +2086,7 @@ namespace smt {
                 }
             } else {
                 u.str.is_string(lastTesterValue, lastTesterConstant);
+                // NSB: is argument always a string? Then use VERIFY, or otherwise test return value
             }
             TRACE("str", tout << "last length tester is assigned \"" << lastTesterConstant << "\"" << "\n";);
             if (lastTesterConstant == "more" || lastTesterConstant == "less") {
@@ -2249,6 +2250,7 @@ namespace smt {
             expr * coreVal = to_app(str2RegFunc)->get_arg(0);
             zstring coreStr;
             u.str.is_string(coreVal, coreStr);
+            // NSB: is argument always a string? Then use VERIFY, or otherwise test return value
             if (oneUnroll == nullptr) {
                 oneUnroll = *itor;
                 oneCoreStr = coreStr;
@@ -2266,6 +2268,7 @@ namespace smt {
             expr * coreVal = to_app(str2RegFunc)->get_arg(0);
             zstring coreStr;
             u.str.is_string(coreVal, coreStr);
+            // NSB: is argument always a string? Then use VERIFY, or otherwise test return value
             unsigned int core1Len = coreStr.length();
             zstring uStr = get_unrolled_string(coreStr, (lcm / core1Len));
             if (uStr != lcmStr) {
@@ -2353,6 +2356,7 @@ namespace smt {
             } else {
                 zstring testerStr;
                 u.str.is_string(testerVal, testerStr);
+                // NSB: is argument always a string? Then use VERIFY, or otherwise test return value
                 TRACE("str", tout << "Tester [" << mk_pp(tester, mgr) << "] = " << testerStr << "\n";);
                 if (testerStr == "more") {
                     litems.push_back(ctx.mk_eq_atom(tester, moreAst));
@@ -2556,8 +2560,8 @@ namespace smt {
                 zstring str_lo, str_hi;
                 SASSERT(u.str.is_string(lo));
                 SASSERT(u.str.is_string(hi));
-                u.str.is_string(lo, str_lo);
-                u.str.is_string(hi, str_hi);
+                VERIFY(u.str.is_string(lo, str_lo));
+                VERIFY(u.str.is_string(hi, str_hi));
                 SASSERT(str_lo.length() == 1);
                 SASSERT(str_hi.length() == 1);
                 unsigned int c1 = str_lo[0];

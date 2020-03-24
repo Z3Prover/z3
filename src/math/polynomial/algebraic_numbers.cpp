@@ -581,6 +581,9 @@ namespace algebraic_numbers {
                         bool b_lt_a = lt(b, a);
                         bool c_lt_b = lt(c, b);
                         bool c_lt_a = lt(c, a);
+                        (void)b_lt_a;
+                        (void)c_lt_b;
+                        (void)c_lt_a;
                         // (a <= b & b <= c) => a <= c
                         // b < a or c < b or !(c < a)
                         CTRACE("algebraic_bug", 
