@@ -839,7 +839,6 @@ void lar_solver::solve_with_core_solver() {
     }
     m_mpq_lar_core_solver.prefix_r();
     if (costs_are_used()) {
-        m_basic_columns_with_changed_cost.clear();
         m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
     }
     if (use_tableau())
