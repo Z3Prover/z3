@@ -63,11 +63,17 @@ public:
     
     void resize(unsigned size) {
         if (size < data_size()) {
+            bool copy = false;
             unsigned i = 0;
             for (unsigned j : m_index) {
                 if (j < size) {
-                    m_data[j] = i;
-                    m_index[i++] = j;
+                    if (copy) {
+                        m_data[j] = i;
+                        m_index[i] = j;
+                    }
+                    i++;
+                } else {
+                    copy = true;
                 }
             }
             m_index.shrink(i);
