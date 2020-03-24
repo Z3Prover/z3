@@ -2132,7 +2132,10 @@ void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
         head = e;
         tail = m_util.str.mk_empty(m.get_sort(e));
     }
-    else if (m_util.str.is_concat(e, e1, e2) && m_util.str.is_string(e1, s)) {
+    else if (m_util.str.is_concat(e, e1, e2) && m_util.str.is_empty(e1)) {
+        mk_decompose(e2, head, tail);
+    }
+    else if (m_util.str.is_concat(e, e1, e2) && m_util.str.is_string(e1, s) && s.length() > 0) {
         head = m_util.str.mk_unit(m_util.str.mk_char(s, 0));
         tail = m_util.str.mk_concat(m_util.str.mk_string(s.extract(1, s.length()-1)), e2);
     }
