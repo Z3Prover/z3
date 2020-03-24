@@ -1775,13 +1775,25 @@ struct contains_underspecified_op_proc {
     struct found {};
     family_id m_array_fid;
     datatype_util m_dt;
+    arith_util m_arith;
     seq_util m_seq;
     family_id m_seq_id;
     
-    contains_underspecified_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")), m_dt(m), m_seq(m), m_seq_id(m_seq.get_family_id()) {}
+    contains_underspecified_op_proc(ast_manager & m):
+        m_array_fid(m.mk_family_id("array")), 
+        m_dt(m), 
+        m_arith(m),
+        m_seq(m), 
+        m_seq_id(m_seq.get_family_id()) {}
     void operator()(var * n)        {}
     void operator()(app * n)        {
         if (m_dt.is_accessor(n->get_decl())) 
+            throw found();
+        if (n->get_family_id() == m_seq_id && m_seq.is_re(n))
+            throw found();
+        if (m_arith.plugin().is_considered_uninterpreted(n->get_decl()))
+            throw found();
+        if (m_arith.is_non_algebraic(n))
             throw found();
         if (n->get_family_id() == m_array_fid) {
             decl_kind k = n->get_decl_kind();
@@ -1790,9 +1802,6 @@ struct contains_underspecified_op_proc {
                 k == OP_ARRAY_MAP ||
                 k == OP_CONST_ARRAY)
                 throw found();
-        }
-        if (n->get_family_id() == m_seq_id && m_seq.is_re(n)) {
-            throw found();
         }
     }
     void operator()(quantifier * n) {}
@@ -1896,9 +1905,6 @@ void cmd_context::validate_model() {
                 if (m().is_true(r))
                     continue;
 
-                analyze_failure(evaluator, a, true);
-                IF_VERBOSE(11, model_smt2_pp(verbose_stream(), *this, *md, 0););                
-
                 // The evaluator for array expressions is not complete
                 // If r contains as_array/store/map/const expressions, then we do not generate the error.
                 // TODO: improve evaluator for model expressions.
@@ -1913,6 +1919,9 @@ void cmd_context::validate_model() {
                 catch (const contains_underspecified_op_proc::found &) {
                     continue;
                 }
+
+                analyze_failure(evaluator, a, true);
+                IF_VERBOSE(11, model_smt2_pp(verbose_stream(), *this, *md, 0););                
                 TRACE("model_validate", model_smt2_pp(tout, *this, *md, 0););
                 invalid_model = true;
             }
