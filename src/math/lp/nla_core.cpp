@@ -838,7 +838,7 @@ void core::collect_equivs() {
             continue;
         lpvar j = s.external_to_local(lp::tv::mask_term(i));
         if (var_is_fixed_to_zero(j)) {
-            TRACE("nla_solver_eq", tout << "term = "; s.print_term_as_indices(*s.terms()[i], tout););
+            TRACE("nla_solver_mons", s.print_term_as_indices(*s.terms()[i], tout << "term = ") << "\n";);
             add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
         }
     }
