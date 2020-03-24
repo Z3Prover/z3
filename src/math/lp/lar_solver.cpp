@@ -2364,6 +2364,12 @@ bool lar_solver::fetch_normalized_term_column(const lar_term& c, std::pair<mpq, 
 
 std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, lpvar k) {
     vector<std::pair<mpq, var_index>> coeffs;
+    if (tv::is_term(j))
+        j = map_term_index_to_column_index(j);
+
+    if (tv::is_term(k))
+        k = map_term_index_to_column_index(k);
+    
     coeffs.push_back(std::make_pair(mpq(1),j));
     coeffs.push_back(std::make_pair(mpq(-1),k));    
     unsigned term_index = add_term(coeffs, UINT_MAX); // UINT_MAX is the external null var
