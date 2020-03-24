@@ -39,7 +39,7 @@ public:
     T m_theta_P;
     int m_q;
     // todo : replace by a vector later
-    std::set<unsigned> m_breakpoint_set; // it is F in "Progress in the dual simplex method ..."
+    std::set<unsigned> m_breakpou_set; // it is F in "Progress in the dual simplex method ..."
     std::set<unsigned> m_flipped_boxed;
     std::set<unsigned> m_tight_set; // it is the set of all breakpoints that become tight when m_q becomes tight
     vector<T> m_a_wave;
@@ -124,7 +124,7 @@ public:
 
     bool can_be_breakpoint(unsigned j);
 
-    void fill_breakpoint_set();
+    void fill_breakpou_set();
 
     void DSE_FTran();
     T get_delta();
@@ -183,7 +183,7 @@ public:
 
     bool tight_breakpoinst_are_all_boxed();
 
-    T calculate_harris_delta_on_breakpoint_set();
+    T calculate_harris_delta_on_breakpou_set();
 
     void fill_tight_set_on_harris_delta(const T & harris_delta );
 
@@ -191,7 +191,7 @@ public:
 
     void find_q_and_tight_set();
 
-    void erase_tight_breakpoints_and_q_from_breakpoint_set();
+    void erase_tight_breakpoints_and_q_from_breakpou_set();
 
     bool ratio_test();
 

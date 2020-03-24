@@ -79,7 +79,7 @@ public:
     var_eqs<emonics>         m_evars;
     lp::lar_solver&          m_lar_solver;
     vector<lemma> *          m_lemma_vec;
-    lp::int_set              m_to_refine;
+    lp::u_set              m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -92,13 +92,13 @@ public:
 private:
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
-    mutable lp::int_set      m_active_var_set;
-    lp::int_set              m_rows;
+    mutable lp::u_set      m_active_var_set;
+    lp::u_set              m_rows;
 public:
     reslimit                 m_reslim;
 
     
-    const lp::int_set&  active_var_set () const { return m_active_var_set;}
+    const lp::u_set&  active_var_set () const { return m_active_var_set;}
     bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
 
     void insert_to_active_var_set(unsigned j) const { m_active_var_set.insert(j); }    

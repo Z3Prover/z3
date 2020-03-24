@@ -96,7 +96,7 @@ public:
 };
 
 
-class constraint_set {
+class constrau_set {
     region                         m_region;
     column_namer&                  m_namer;
     vector<lar_base_constraint*>   m_constraints;
@@ -139,10 +139,10 @@ class constraint_set {
     }
 
 public:
-    constraint_set(column_namer& cn): 
+    constrau_set(column_namer& cn): 
         m_namer(cn) {}
 
-    ~constraint_set() {
+    ~constrau_set() {
         for (auto* c : m_constraints) 
             c->~lar_base_constraint();
     }
@@ -198,15 +198,15 @@ public:
     bool valid_index(constraint_index ci) const { return ci < m_constraints.size(); }
 
     class active_constraints {
-        friend class constraint_set;
-        constraint_set const& cs;
+        friend class constrau_set;
+        constrau_set const& cs;
     public:
-        active_constraints(constraint_set const& cs): cs(cs) {}
+        active_constraints(constrau_set const& cs): cs(cs) {}
         class iterator {
-            friend class constraint_set;
-            constraint_set const& cs;
+            friend class constrau_set;
+            constrau_set const& cs;
             unsigned m_index;
-            iterator(constraint_set const& cs, unsigned idx): cs(cs), m_index(idx) { forward(); }
+            iterator(constrau_set const& cs, unsigned idx): cs(cs), m_index(idx) { forward(); }
             void next() { ++m_index; forward(); }
             void forward() { for (; m_index < cs.m_constraints.size() && !cs.is_active(m_index); m_index++) ; }
         public:
@@ -224,15 +224,15 @@ public:
     active_constraints active() const { return active_constraints(*this); }
 
     class active_indices {
-        friend class constraint_set;
-        constraint_set const& cs;
+        friend class constrau_set;
+        constrau_set const& cs;
     public:
-        active_indices(constraint_set const& cs): cs(cs) {}
+        active_indices(constrau_set const& cs): cs(cs) {}
         class iterator {
-            friend class constraint_set;
-            constraint_set const& cs;
+            friend class constrau_set;
+            constrau_set const& cs;
             unsigned m_index;
-            iterator(constraint_set const& cs, unsigned idx): cs(cs), m_index(idx) { forward(); }
+            iterator(constrau_set const& cs, unsigned idx): cs(cs), m_index(idx) { forward(); }
             void next() { ++m_index; forward(); }
             void forward() { for (; m_index < cs.m_constraints.size() && !cs.is_active(m_index); m_index++) ; }
         public:
@@ -288,7 +288,7 @@ public:
     
 };
 
-inline std::ostream& operator<<(std::ostream& out, constraint_set const& cs) { 
+inline std::ostream& operator<<(std::ostream& out, constrau_set const& cs) { 
     return cs.display(out); 
 }
 
