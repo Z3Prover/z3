@@ -64,7 +64,6 @@ public:
             }
             for (unsigned j : m_resize_buffer)
                 erase(j);
-            std::cout << m_resize_buffer.size() << "\n";
             m_resize_buffer.clear();
         }
         m_data.resize(size, -1);
