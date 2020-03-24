@@ -25,7 +25,6 @@ namespace lp {
 // serves at a set of non-negative integers smaller than the set size
 class int_set {
     svector<int> m_data;
-    svector<int> m_resize_buffer;
     unsigned_vector m_index;
 
 public:
@@ -33,7 +32,6 @@ public:
     int_set() {}
     int_set(int_set const& other):
         m_data(other.m_data),
-        m_resize_buffer(other.m_resize_buffer),
         m_index(other.m_index) {}
 
     bool contains(unsigned j) const {
@@ -65,13 +63,14 @@ public:
     
     void resize(unsigned size) {
         if (size < data_size()) {
-            for (unsigned j: m_index) {
-                if (j > size)
-                    m_resize_buffer.push_back(j);
+            unsigned i = 0;
+            for (unsigned j : m_index) {
+                if (j < size) {
+                    m_data[j] = i;
+                    m_index[i++] = j;
+                }
             }
-            for (unsigned j : m_resize_buffer)
-                erase(j);
-            m_resize_buffer.clear();
+            m_index.shrink(i);
         }
         m_data.resize(size, -1);
     }
