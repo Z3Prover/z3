@@ -349,11 +349,13 @@ void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
 }
 
 void emonics::do_canonize(monic & m) const {
+    TRACE("nla_solver_mons", tout << m << "\n";);
     m.reset_rfields();
     for (lpvar v : m.vars()) {
         m.push_rvar(m_ve.find(v));
     }
     m.sort_rvars();
+    TRACE("nla_solver_mons", tout << m << "\n";);
 }
 
 bool emonics::is_canonized(const monic & m) const {
@@ -431,17 +433,19 @@ void emonics::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v
 }
 
 void emonics::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
-    if (m_ve.find(~r1) == m_ve.find(~r2)) { // the other sign has also been merged
-        TRACE("nla_solver_mons", tout << r2 << " <- " << r1 << "\n";);
+    TRACE("nla_solver_mons", tout << v2 << " <- " << v1 << " : " << r2 << " <- " << r1 << "\n";);
+    if (r1.var() == r2.var() || m_ve.find(~r1) == m_ve.find(~r2)) { // the other sign has also been merged
+        TRACE("nla_solver_mons", 
+              display_uf(tout << r2 << " <- " << r1 << "\n");
+              tout << "rehashing " << r1.var() << "\n";);
         m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
-        TRACE("nla_solver_mons", tout << "rehashing " << r1.var() << "\n";);
         rehash_cg(r1.var()); 
         merge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);
     }   
 }
 
 void emonics::unmerge_eh(signed_var r2, signed_var r1) {
-    if (m_ve.find(~r1) != m_ve.find(~r2)) { // the other sign has also been unmerged
+    if (r1.var() == r2.var() || m_ve.find(~r1) != m_ve.find(~r2)) { // the other sign has also been unmerged
         TRACE("nla_solver_mons", tout << r2 << " -> " << r1 << "\n";);
         unmerge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);            
         rehash_cg(r1.var());
@@ -536,12 +540,6 @@ bool emonics::invariant() const {
             do {
                 auto const& m = m_monics[c->m_index];
                 bool found = false;
-#if 0
-                for (lp::var_index w : m.vars()) {
-                    auto w1 = m_ve.find(w);
-                    found |= v1.var() == w1.var();
-                }
-#endif
                 for (lp::var_index w : m.rvars()) {
                     auto w1 = m_ve.find(w);
                     found |= v1.var() == w1.var();
@@ -573,7 +571,7 @@ bool emonics::invariant() const {
     };
     unsigned idx = 0;
     for (auto const& m : m_monics) {
-        CTRACE("nla_solver_mons", !m_cg_table.contains(m.var()), tout << "removed " << m << "\n";);
+        CTRACE("nla_solver_mons", !m_cg_table.contains(m.var()), tout << "removed " << m << "\n"; );
         SASSERT(m_cg_table.contains(m.var()));
         SASSERT(m_cg_table[m.var()].contains(m.var()));
         // same with rooted variables
