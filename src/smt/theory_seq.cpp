@@ -2132,6 +2132,10 @@ void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
         head = e;
         tail = m_util.str.mk_empty(m.get_sort(e));
     }
+    else if (m_util.str.is_concat(e, e1, e2) && m_util.str.is_string(e1, s)) {
+        head = m_util.str.mk_unit(m_util.str.mk_char(s, 0));
+        tail = m_util.str.mk_concat(m_util.str.mk_string(s.extract(1, s.length()-1)), e2);
+    }
     else if (m_util.str.is_concat(e, e1, e2) && m_util.str.is_unit(e1)) {
         head = e1;
         tail = e2;
@@ -2141,10 +2145,12 @@ void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
         expr* s = a->get_arg(0);        
         expr* idx = m_autil.mk_int(r.get_unsigned() + 1);
         head = m_util.str.mk_unit(mk_nth(s, idx));
+        m_rewrite(head);
         tail = mk_skolem(m_tail, s, idx);
     }
     else {
         head = m_util.str.mk_unit(mk_nth(e, m_autil.mk_int(0)));
+        m_rewrite(head);
         tail = mk_skolem(m_tail, e, m_autil.mk_int(0));
     }
 }
