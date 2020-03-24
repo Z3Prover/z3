@@ -431,7 +431,7 @@ void emonics::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v
 }
 
 void emonics::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
-    if (m_ve.find(~r1) == m_ve.find(~r2) && r1.var() != r2.var()) { // the other sign has also been merged
+    if (m_ve.find(~r1) == m_ve.find(~r2)) { // the other sign has also been merged
         TRACE("nla_solver_mons", tout << r2 << " <- " << r1 << "\n";);
         m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
         TRACE("nla_solver_mons", tout << "rehashing " << r1.var() << "\n";);
@@ -441,7 +441,7 @@ void emonics::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed
 }
 
 void emonics::unmerge_eh(signed_var r2, signed_var r1) {
-    if (m_ve.find(~r1) != m_ve.find(~r2) && r1.var() != r2.var()) { // the other sign has also been unmerged
+    if (m_ve.find(~r1) != m_ve.find(~r2)) { // the other sign has also been unmerged
         TRACE("nla_solver_mons", tout << r2 << " -> " << r1 << "\n";);
         unmerge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);            
         rehash_cg(r1.var());

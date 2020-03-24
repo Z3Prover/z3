@@ -15,6 +15,7 @@ Author:
 
 Revision History:
 
+   TBD use indexed_uint_set from src/util/uint_set.h, 
 
 --*/
 #pragma once
@@ -23,12 +24,18 @@ Revision History:
 namespace lp {
 // serves at a set of non-negative integers smaller than the set size
 class int_set {
-    vector<int> m_data;
-    vector<int> m_resize_buffer;
+    svector<int> m_data;
+    svector<int> m_resize_buffer;
+    unsigned_vector m_index;
+
 public:
-    vector<int> m_index;
     int_set(unsigned size): m_data(size, -1) {}
     int_set() {}
+    int_set(int_set const& other):
+        m_data(other.m_data),
+        m_resize_buffer(other.m_resize_buffer),
+        m_index(other.m_index) {}
+
     bool contains(unsigned j) const {
         if (j >= m_data.size())
             return false;
@@ -81,13 +88,15 @@ public:
             m_data[j] = -1;
         m_index.resize(0);
     }
-    void print(std::ostream & out ) const {
+
+    std::ostream& operator<<(std::ostream& out) const {
         for (unsigned j : m_index) {
             out << j << " ";
         }
         out << std::endl;
+        return out;
     }
-    const int * begin() const { return m_index.begin(); }
-    const int * end() const { return m_index.end(); }
+    const unsigned * begin() const { return m_index.begin(); }
+    const unsigned * end() const { return m_index.end(); }
 };
 }

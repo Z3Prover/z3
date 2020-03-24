@@ -450,7 +450,7 @@ public:
 
     int find_leaving_tableau_rows(X & new_val_for_leaving) {
         int j = -1;
-        for (unsigned k : this->m_inf_set.m_index) {
+        for (unsigned k : this->m_inf_set) {
             if (k < static_cast<unsigned>(j))
                 j = static_cast<int>(k);
         }

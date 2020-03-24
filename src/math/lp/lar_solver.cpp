@@ -250,7 +250,7 @@ void lar_solver::propagate_bounds_for_touched_rows(lp_bound_propagator & bp) {
     if (!use_tableau())
         return; // todo: consider to remove the restriction
     
-    for (unsigned i : m_rows_with_changed_bounds.m_index) {
+    for (unsigned i : m_rows_with_changed_bounds) {
         calculate_implied_bounds_for_row(i, bp);
         if (settings().get_cancel_flag())
             return;
@@ -326,7 +326,7 @@ void lar_solver::push() {
 
 void lar_solver::clean_popped_elements(unsigned n, int_set& set) {
     vector<int> to_remove;
-    for (unsigned j: set.m_index)
+    for (unsigned j: set)
         if (j >= n)
             to_remove.push_back(j);
     for (unsigned j : to_remove)
@@ -418,7 +418,7 @@ bool lar_solver::reduced_costs_are_zeroes_for_r_solver() const {
 void lar_solver::set_costs_to_zero(const lar_term& term) {
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
     auto & jset = m_mpq_lar_core_solver.m_r_solver.m_inf_set; // hijack this set that should be empty right now
-    lp_assert(jset.m_index.size()==0);
+    lp_assert(jset.is_empty());
         
     for (const auto & p : term) {
         unsigned j = p.var();
@@ -432,7 +432,7 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
         }
     }
 
-    for (unsigned j : jset.m_index)
+    for (unsigned j : jset)
         rslv.m_d[j] = zero_of_type<mpq>();
 
     jset.clear();
@@ -808,22 +808,22 @@ void lar_solver::detect_rows_with_changed_bounds_for_column(unsigned j) {
 }
     
 void lar_solver::detect_rows_with_changed_bounds() {
-    for (auto j : m_columns_with_changed_bound.m_index)
+    for (auto j : m_columns_with_changed_bound)
         detect_rows_with_changed_bounds_for_column(j);
 }
 
 void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds() {
-    for (auto j : m_columns_with_changed_bound.m_index)
+    for (auto j : m_columns_with_changed_bound)
         update_x_and_inf_costs_for_column_with_changed_bounds(j);
 }
 
 void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
-    for (auto j : m_columns_with_changed_bound.m_index)
+    for (auto j : m_columns_with_changed_bound)
         update_x_and_inf_costs_for_column_with_changed_bounds(j);
 
     if (tableau_with_costs()) {
         if (m_mpq_lar_core_solver.m_r_solver.m_using_infeas_costs) {
-            for (unsigned j : m_basic_columns_with_changed_cost.m_index)
+            for (unsigned j : m_basic_columns_with_changed_cost)
                 m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
             lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         }
@@ -1477,7 +1477,7 @@ void lar_solver::clean_inf_set_of_r_solver_after_pop() {
     vector<unsigned> became_feas;
     clean_popped_elements(A_r().column_count(), m_mpq_lar_core_solver.m_r_solver.m_inf_set);
     std::unordered_set<unsigned> basic_columns_with_changed_cost;
-    auto inf_index_copy = m_mpq_lar_core_solver.m_r_solver.m_inf_set.m_index;
+    auto inf_index_copy = m_mpq_lar_core_solver.m_r_solver.m_inf_set;
     for (auto j: inf_index_copy) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) {
             continue;
@@ -1498,7 +1498,7 @@ void lar_solver::clean_inf_set_of_r_solver_after_pop() {
         m_mpq_lar_core_solver.m_r_solver.m_inf_set.erase(j);
     }
     became_feas.clear();
-    for (unsigned j : m_mpq_lar_core_solver.m_r_solver.m_inf_set.m_index) {
+    for (unsigned j : m_mpq_lar_core_solver.m_r_solver.m_inf_set) {
         lp_assert(m_mpq_lar_core_solver.m_r_heading[j] >= 0);
         if (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(j))
             became_feas.push_back(j);
