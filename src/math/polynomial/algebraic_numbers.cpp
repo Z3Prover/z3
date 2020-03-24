@@ -1789,7 +1789,7 @@ namespace algebraic_numbers {
                   tout << "\ncell_a->m_minimal: " << cell_a->m_minimal << "\n";
                   tout << "b: "; upm().display(tout, cell_b->m_p_sz, cell_b->m_p); tout << "\n"; bqim().display(tout, cell_b->m_interval);
                   tout << "\ncell_b->m_minimal: " << cell_b->m_minimal << "\n";);
-
+            
             if (cell_a->m_minimal && cell_b->m_minimal) {
                 // Minimal polynomial special case.
                 // This branch is only executed when polynomial
@@ -1831,7 +1831,6 @@ namespace algebraic_numbers {
                 m_compare_refine += a_m - target_m;
                 COMPARE_INTERVAL();
             }
-
             if (target_m > m_min_magnitude) {
                 int num_refinements = target_m - m_min_magnitude;
                 for (int i = 0; i < num_refinements; i++) {
@@ -1868,8 +1867,14 @@ namespace algebraic_numbers {
            unsigned V1 = upm().sign_variations_at(seq, a_lower);
            unsigned V2 = upm().sign_variations_at(seq, a_upper); 
            int V =  V1 - V2;
-           TRACE("algebraic", tout << "comparing using sturm\n"; display_interval(tout, a); tout << "\n"; display_interval(tout, b); tout << "\n";
-                 tout << "V: " << V << " V1 " << V1 << " V2 " << V2 << " sign_lower(a): " << sign_lower(cell_a) << ", sign_lower(b): " << sign_lower(cell_b) << "\n";);
+           TRACE("algebraic", tout << "comparing using sturm\n"; 
+                 display_interval(tout, a) << "\n"; 
+                 display_interval(tout, b) << "\n";
+                 tout << "V: " << V << " V1 " << V1 << " V2 " << V2 
+                 << ", sign_lower(a): " << sign_lower(cell_a) 
+                 << ", sign_lower(b): " << sign_lower(cell_b) << "\n";
+                 /*upm().display(tout << "sequence: ", seq);*/
+                 );
            if (V == 0)
                return sign_zero;
            if ((V < 0) == (sign_lower(cell_b) < 0))

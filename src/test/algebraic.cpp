@@ -614,9 +614,10 @@ static void tst_sturm() {
     am.display_interval(std::cout << "c:", c) << "\n";
     am.display_root(std::cout << "c:", c) << "\n";
 
+    std::cout << "c < a " << am.lt(c, a) << " (expecting 0)\n";
+
     std::cout << "b < a " << am.lt(b, a) << "\n";
     std::cout << "c < b " << am.lt(c, b) << "\n";
-    std::cout << "c < a " << am.lt(c, a) << "\n";
     // it should not be the case that b < a == 0, c < b == 0 and c < a == 1.
 }
 
