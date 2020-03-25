@@ -1503,7 +1503,7 @@ public:
             if (lp::tv::is_term(vi)) {
                 const lp::lar_term& term = lp().get_term(vi);
                 for (const auto & i:  term) {
-                    m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
+                    m_todo_terms.push_back(std::make_pair(i.var().index(), coeff * i.coeff()));
                 }                    
             }
             else {
@@ -1535,11 +1535,11 @@ public:
             if (lp::tv::is_term(wi)) {
                 const lp::lar_term& term = lp().get_term(wi);
                 for (const auto & i : term) {
-                    if (m_variable_values.count(i.var()) > 0) {
-                        result += m_variable_values[i.var()] * coeff * i.coeff();
+                    if (m_variable_values.count(i.var().index()) > 0) {
+                        result += m_variable_values[i.var().index()] * coeff * i.coeff();
                     }
                     else {
-                        m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
+                        m_todo_terms.push_back(std::make_pair(i.var().index(), coeff * i.coeff()));
                     }
                 }                    
             }
@@ -1931,7 +1931,7 @@ public:
         expr_ref t(m);
         expr_ref_vector ts(m);
         for (auto const& p : term) {
-            lpvar wi = p.var();
+            lpvar wi = p.var().index();
             if (lp::tv::is_term(wi)) {
                 ts.push_back(multerm(p.coeff(), term2expr(lp().get_term(wi))));
             }
@@ -1973,7 +1973,7 @@ public:
         lp().print_term(term, out << "bound: "); 
         out << (upper?" <= ":" >= ") << k << "\n";
         for (auto const& p : term) {
-            lpvar wi = p.var();
+            lpvar wi = p.var().index();
             out << p.coeff() << " * ";
             if (lp::tv::is_term(wi)) {
                 lp().print_term(lp().get_term(wi), out) << "\n";
@@ -2771,7 +2771,7 @@ public:
             m_todo_vars.pop_back();
             lp::lar_term const& term = lp().get_term(vi);
             for (auto const& p : term) {
-                lpvar wi = p.var();
+                lpvar wi = p.var().index();
                 if (lp::tv::is_term(wi)) {
                     m_todo_vars.push_back(wi);
                 }
@@ -2796,7 +2796,7 @@ public:
             m_todo_vars.pop_back();
             lp::lar_term const& term = lp().get_term(vi);
             for (auto const& coeff : term) {
-                lpvar wi = coeff.var();
+                lpvar wi = coeff.var().index();
                 if (lp::tv::is_term(wi)) {
                     m_todo_vars.push_back(wi);
                 }
@@ -2886,7 +2886,7 @@ public:
         SASSERT(lp::tv::is_term(vi));
         lp::lar_term const& term = m_solver->get_term(vi);
         for (auto const mono : term) {
-            lp::var_index wi = mono.var();
+            lp::var_index wi = mono.var().index();
             lp::constraint_index ci;
             rational value;
             bool is_strict;
@@ -3349,7 +3349,7 @@ public:
                 m_nra->am().set(r1, c1.to_mpq());
                 m_nra->am().add(r, r1, r);                
                 for (auto const & arg : term) {
-                    lpvar wi = arg.var();
+                    lpvar wi = arg.var().index();
                     c1 = arg.coeff() * wcoeff;
                     if (lp::tv::is_term(wi)) {
                         m_todo_terms.push_back(std::make_pair(wi, c1));
@@ -3621,16 +3621,16 @@ public:
     void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff) {
         for (const auto & ti : term) {
             theory_var w;
-            if (lp::tv::is_term(ti.var())) {
+            if (ti.var().is_term()) {
                 //w = m_term_index2theory_var.get(lp::tv::unmask_term(ti.m_key), null_theory_var);
                 //if (w == null_theory_var) // if extracting expressions directly from nested term
-                lp::lar_term const& term1 = lp().get_term(ti.var());
+                lp::lar_term const& term1 = lp().get_term(ti.var().index());
                 rational coeff2 = coeff * ti.coeff();
                 term2coeffs(term1, coeffs, coeff2);
                 continue;
             }
             else {
-                w = lp().local_to_external(ti.var());
+                w = lp().local_to_external(ti.var().index());
             }
             rational c0(0);
             coeffs.find(w, c0);

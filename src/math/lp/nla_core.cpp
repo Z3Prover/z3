@@ -50,7 +50,7 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
     for (const auto & t : r) {
-        ret += t.coeff() * val(t.var());
+        ret += t.coeff() * val(t.var().index());
     }
     return ret;
 }
@@ -58,7 +58,7 @@ rational core::value(const lp::lar_term& r) const {
 lp::lar_term core::subs_terms_to_columns(const lp::lar_term& t) const {
     lp::lar_term r;
     for (const auto& p : t) {
-        lpvar j = p.var();
+        lpvar j = p.var().index();
         if (lp::tv::is_term(j))
             j = m_lar_solver.map_term_index_to_column_index(j);
         r.add_monomial(p.coeff(), j);
@@ -323,25 +323,25 @@ bool core:: explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bou
     SASSERT(!a.is_zero());
     unsigned c; // the index for the lower or the upper bound
     if (a.is_pos()) {
-        unsigned c = m_lar_solver.get_column_lower_bound_witness(p.var());
+        unsigned c = m_lar_solver.get_column_lower_bound_witness(p.var().index());
         if (c + 1 == 0)
             return false;
-        bound = a * m_lar_solver.get_lower_bound(p.var()).x;
+        bound = a * m_lar_solver.get_lower_bound(p.var().index()).x;
         e.add(c);
         return true;
     }
     // a.is_neg()
-    c = m_lar_solver.get_column_upper_bound_witness(p.var());
+    c = m_lar_solver.get_column_upper_bound_witness(p.var().index());
     if (c + 1 == 0)
         return false;
-    bound = a * m_lar_solver.get_upper_bound(p.var()).x;
+    bound = a * m_lar_solver.get_upper_bound(p.var().index()).x;
     e.add(c);
     return true;
 }
 
 bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
     const rational& a = p.coeff();
-    lpvar j = lp::tv::is_term(p.var())? m_lar_solver.map_term_index_to_column_index(p.var()) : p.var();
+    lpvar j = p.var().is_term()? m_lar_solver.map_term_index_to_column_index(p.var().index()) : p.var().index();
     SASSERT(!a.is_zero());
     unsigned c; // the index for the lower or the upper bound
     if (a.is_neg()) {
@@ -681,7 +681,7 @@ std::ostream & core::print_ineqs(const lemma& l, std::ostream & out) const {
             print_ineq(in, out);
             if (i + 1 < l.ineqs().size()) out << " or ";
             for (const auto & p: in.m_term)
-                vars.insert(p.var());
+                vars.insert(p.var().index());
         }
         out << std::endl;
         for (lpvar j : vars) {
@@ -864,9 +864,9 @@ bool core:: is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar 
             return false;
         }
         if (i == static_cast<lpvar>(-1))
-            i = p.var();
+            i = p.var().index();
         else
-            j = p.var();
+            j = p.var().index();
     }
     SASSERT(j != static_cast<unsigned>(-1));
     sign = (seen_minus && seen_plus)? false : true;
@@ -986,7 +986,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     
     for (const auto& i : current_lemma().ineqs()) {
         for (const auto& p : i.term()) {                
-            insert_j(p.var());
+            insert_j(p.var().index());
         }
     }
     for (const auto& p : current_expl()) {
@@ -1628,9 +1628,9 @@ std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e
         if (ls.column_corresponds_to_term(j)) {
             const auto& t = m_lar_solver.get_term(ls.local_to_external(j));
             for (auto p : t) {
-                if (ret.find(p.var()) == ret.end()) {
-                    added.push_back(p.var());
-                    ret.insert(p.var());
+                if (ret.find(p.var().index()) == ret.end()) {
+                    added.push_back(p.var().index());
+                    ret.insert(p.var().index());
                 }
             }
         }

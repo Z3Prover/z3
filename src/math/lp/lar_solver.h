@@ -59,7 +59,7 @@ class lar_solver : public column_namer {
             size_t seed = 0;
             int i = 0;
             for (const auto p : t) {
-                hash_combine(seed, p.var());
+                hash_combine(seed, p.var().index());
                 hash_combine(seed, p.coeff());
                 if (i++ > 10)
                     break;
@@ -578,9 +578,9 @@ public:
     void subs_term_columns(lar_term& t) {
         vector<std::pair<unsigned,unsigned>> columns_to_subs;
         for (const auto & m : t) {
-            unsigned tj = adjust_column_index_to_term_index(m.var());
-            if (tj == m.var()) continue;
-            columns_to_subs.push_back(std::make_pair(m.var(), tj));
+            unsigned tj = adjust_column_index_to_term_index(m.var().index());
+            if (tj == m.var().index()) continue;
+            columns_to_subs.push_back(std::make_pair(m.var().index(), tj));
         }
         for (const auto & p : columns_to_subs) {
             t.subst_index(p.first, p.second);            
