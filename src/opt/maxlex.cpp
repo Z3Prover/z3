@@ -129,16 +129,6 @@ namespace opt {
             for (auto & soft : m_soft) {
                 soft.set_value(l_undef);
             }
-            model_ref mdl;
-            s().get_model(mdl);
-            if (mdl) {
-                for (auto & soft : m_soft) {
-                    if (!mdl->is_true(soft.s)) {
-                        break;
-                    }
-                    soft.set_value(l_true);
-                }
-            }
         }
 
         //

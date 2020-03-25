@@ -357,11 +357,6 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("solve_eqs");
         return FC_CONTINUE;
     }    
-    if (check_contains()) {
-        ++m_stats.m_propagate_contains;
-        TRACEFIN("propagate_contains");
-        return FC_CONTINUE;
-    }
     if (check_lts()) {
         TRACEFIN("check_lts");
         return FC_CONTINUE;
@@ -369,6 +364,11 @@ final_check_status theory_seq::final_check_eh() {
     if (solve_nqs(0)) {
         ++m_stats.m_solve_nqs;
         TRACEFIN("solve_nqs");
+        return FC_CONTINUE;
+    }
+    if (check_contains()) {
+        ++m_stats.m_propagate_contains;
+        TRACEFIN("propagate_contains");
         return FC_CONTINUE;
     }
     if (fixed_length(true)) {
@@ -3483,7 +3483,8 @@ bool theory_seq::solve_nc(unsigned idx) {
     expr_ref head(m), tail(m);
     literal pre, cnt, ctail, emp;
     lbool is_gt = ctx.get_assignment(len_gt);
-    TRACE("seq", ctx.display_literal_smt2(tout << len_gt << " := " << is_gt << "\n", len_gt) << "\n";);    
+    TRACE("seq", ctx.display_literal_smt2(tout << len_gt << " := " << is_gt << "\n", len_gt) << "\n";);
+
     switch (is_gt) {
     case l_true:
         add_length_to_eqc(a);
@@ -3499,7 +3500,6 @@ bool theory_seq::solve_nc(unsigned idx) {
         cnt = mk_literal(n.contains());
         ctail = mk_literal(m_util.str.mk_contains(tail, b));
         emp = mk_literal(m_util.str.mk_is_empty(a));
-        //expr_ref one(m_autil.mk_int(1), m);
         add_axiom(cnt, ~pre);
         add_axiom(cnt, ~ctail);
         add_axiom(emp, mk_eq(a, m_util.str.mk_concat(head, tail), false));
@@ -3528,7 +3528,6 @@ bool theory_seq::solve_nc(unsigned idx) {
     if (m.is_false(c)) {
         return true;
     }
-
 
     if (m.is_eq(c, a, b)) {
         literal eq = mk_eq(a, b, false);
