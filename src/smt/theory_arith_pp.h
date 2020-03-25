@@ -48,6 +48,8 @@ namespace smt {
         st.update("arith pseudo nonlinear", m_stats.m_nl_linear);
         st.update("arith nonlinear bounds", m_stats.m_nl_bounds);
         st.update("arith nonlinear horner", m_stats.m_nl_cross_nested);
+        st.update("arith tableau max rows", m_stats.m_tableau_max_rows);
+        st.update("arith tableau max columns", m_stats.m_tableau_max_columns);
         m_arith_eq_adapter.collect_statistics(st);
     }
 

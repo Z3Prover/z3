@@ -258,6 +258,7 @@ namespace smt {
 
         c_entry.m_row_id    = r_id;
         c_entry.m_row_idx   = r_idx;
+        m_stats.m_tableau_max_columns = std::max(m_stats.m_tableau_max_columns, (unsigned)c_idx + 1);
     }
 
     /**
@@ -832,6 +833,7 @@ namespace smt {
     */
     template<typename Ext>
     unsigned theory_arith<Ext>::mk_row() {
+        
         unsigned r;
         if (m_dead_rows.empty()) {
             r = m_rows.size();
@@ -844,6 +846,7 @@ namespace smt {
         m_in_to_check.assure_domain(r);
         SASSERT(m_rows[r].size() == 0);
         SASSERT(m_rows[r].num_entries() == 0);
+        m_stats.m_tableau_max_rows = std::max(m_stats.m_tableau_max_rows, m_rows.size());
         return r;
     }
 
