@@ -683,20 +683,20 @@ void rewriter_tpl<Config>::update_binding_at(unsigned i, expr* binding) {
 template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::main_loop(expr * t, expr_ref & result, proof_ref & result_pr) {
+    result_pr = nullptr;
     if (m().canceled()) {
         if (m_cancel_check) {
             reset();
             throw rewriter_exception(m().limit().get_cancel_msg());
         }
         result = t;
-        result_pr = nullptr;
         return;
     }
     SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());
     SASSERT(not_rewriting());
     m_root      = t;
     m_num_qvars = 0;
-    m_num_steps = 0;
+    m_num_steps = 0;    
     if (visit<ProofGen>(t, RW_UNBOUNDED_DEPTH)) {
         result = result_stack().back();
         result_stack().pop_back();

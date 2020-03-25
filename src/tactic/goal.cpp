@@ -133,6 +133,7 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
             m().push_back(m_dependencies, saved_d);
     }
     else {
+        // SASSERT(!pr || m().get_fact(pr) == f);
         SASSERT(!m_inconsistent);
         m().push_back(m_forms, f);
         m().push_back(m_proofs, pr);
@@ -252,6 +253,7 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
         return;
     }
     if (pr) {
+        // SASSERT(f == m().get_fact(pr));
         slow_process(f, pr, d);
     }
     else {
@@ -282,6 +284,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
     if (m_inconsistent)
         return;
     if (pr) {
+        // SASSERT(f == m().get_fact(pr));
         expr_ref out_f(m());
         proof_ref out_pr(m());
         slow_process(true, f, pr, d, out_f, out_pr);
@@ -591,7 +594,7 @@ bool goal::is_well_formed() const {
         if (!::is_well_sorted(m(), t))
             return false;
 #if 0
-        if (m().get_fact(pr(i)) != form(i)) {
+        if (pr(i) && m().get_fact(pr(i)) != form(i)) {
             TRACE("tactic", tout << mk_ismt2_pp(pr(i), m()) << "\n" << mk_ismt2_pp(form(i), m()) << "\n";);
             SASSERT(m().get_fact(pr(i)) == form(i));
             return false;

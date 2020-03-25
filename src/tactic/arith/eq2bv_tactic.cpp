@@ -200,13 +200,19 @@ public:
             func_decl_ref var(m);
             unsigned val;
             if (is_bound(g->form(i), var, val) && !m_has_eq.is_marked(var)) {
-                g->update(i, m.mk_true(), nullptr, nullptr);
+                if (m.proofs_enabled()) {
+                    new_pr = m.mk_rewrite(g->form(i), m.mk_true());
+                    new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+                }
+                g->update(i, m.mk_true(), new_pr, nullptr);
                 mc1->insert(var, val);
                 continue;
             }
             m_rw(g->form(i), new_curr, new_pr);
-            if (m.proofs_enabled() && !new_pr) {
-                new_pr = m.mk_rewrite(g->form(i), new_curr);
+            if (g->form(i) == new_curr)
+                continue;
+            if (m.proofs_enabled()) {
+                if (!new_pr) new_pr = m.mk_rewrite(g->form(i), new_curr);
                 new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
             }
             g->update(i, new_curr, new_pr, g->dep(i));
