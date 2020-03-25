@@ -191,7 +191,7 @@ class create_cut {
     void dump_coeff(std::ostream & out, const T& c) const {
         out << "( * ";
         dump_coeff_val(out, c.coeff());
-        out << " " << var_name(c.var()) << ")";
+        out << " " << var_name(c.var().index()) << ")";
     }
     
     std::ostream& dump_row_coefficients(std::ostream & out) const {
@@ -221,7 +221,7 @@ class create_cut {
             dump_declaration(out, p.var());
         }
         for (const auto& p : m_t) {
-            unsigned v = p.var();
+            unsigned v = p.var().index();
             if (lp::tv::is_term(v)) {
                 dump_declaration(out, v);
             }
