@@ -175,6 +175,7 @@ struct purify_arith_proc {
             m_sin_cos.insert(to_app(theta), pair);
             m_pinned.push_back(pair.first);
             m_pinned.push_back(pair.second);
+            m_pinned.push_back(theta);
             // TBD for model conversion
         }
         x = pair.first;
