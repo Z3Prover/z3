@@ -675,8 +675,8 @@ class theory_lra::imp {
         
     }
 
-    void internalize_args(app* t) {
-        if (!reflect(t)) 
+    void internalize_args(app* t, bool force = false) {
+        if (!force && !reflect(t)) 
             return;
         for (expr* arg : *t) {
             if (!ctx().e_internalized(arg)) {
@@ -687,7 +687,7 @@ class theory_lra::imp {
 
     theory_var internalize_mul(app* t) {
         SASSERT(a.is_mul(t));
-        internalize_args(t);
+        internalize_args(t, true);
         bool _has_var = has_var(t);
         mk_enode(t);
         theory_var v = mk_var(t);
