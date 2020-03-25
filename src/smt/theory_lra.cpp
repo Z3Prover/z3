@@ -24,6 +24,10 @@
 #include "math/lp/lp_dual_simplex.h"
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
+#include "math/lp/nra_solver.h"
+#include "math/lp/nla_solver.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/polynomial.h"
 #include "util/nat_set.h"
 #include "util/optional.h"
 #include "util/inf_rational.h"
@@ -38,14 +42,11 @@
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
 #include "util/nat_set.h"
-#include "math/lp/nra_solver.h"
 #include "tactic/generic_model_converter.h"
-#include "math/polynomial/algebraic_numbers.h"
-#include "math/polynomial/polynomial.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
-#include "math/lp/nla_solver.h"
 
 typedef lp::var_index lpvar;
 
@@ -360,6 +361,8 @@ class theory_lra::imp {
     theory_id get_id() const { return th.get_id(); }
     bool is_int(theory_var v) const {  return is_int(get_enode(v));  }
     bool is_int(enode* n) const { return a.is_int(n->get_owner()); }
+    bool is_real(theory_var v) const {  return is_real(get_enode(v));  }
+    bool is_real(enode* n) const { return a.is_real(n->get_owner()); }
     enode* get_enode(theory_var v) const { return th.get_enode(v); }
     enode* get_enode(expr* e) const { return ctx().get_enode(e); }
     expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }        
@@ -962,7 +965,7 @@ class theory_lra::imp {
             }
             theory_var v = mk_var(term);
             lpvar vi = get_lpvar(v);
-            TRACE("arith", tout << mk_pp(term, m) << " v" << v << " vi " << vi << "\n";);
+            TRACE("arith", tout << mk_bounded_pp(term, m) << " v" << v << " vi " << vi << "\n";);
             if (vi == UINT_MAX) {
                 rational const& offset = st.offset();
                 if (!offset.is_zero()) {
@@ -1076,6 +1079,8 @@ public:
     }
         
     void internalize_eq_eh(app * atom, bool_var) {
+        if (!ctx().get_fparams().m_arith_eager_eq_axioms)
+            return;
         TRACE("arith_verbose", tout << mk_pp(atom, m) << "\n";);
         expr* lhs = nullptr, *rhs = nullptr;
         VERIFY(m.is_eq(atom, lhs, rhs));
@@ -1084,14 +1089,23 @@ public:
         if (is_arith(n1) && is_arith(n2) && n1 != n2) {
             m_arith_eq_adapter.mk_axioms(n1, n2);
         }
+#if 0
+        // this is super expensive and not used in the legacy solver.
+        // if this is really needed, some other solution has to be possible.
+
         // internalization of ite expressions produces equalities of the form
         // (= x (ite c x y)) and (= y (ite c x y))
         // this step ensures that a shared enode is attached
         // with the ite expression.
-        else if (m.is_ite(lhs) || m.is_ite(rhs)) {
-            // std::cout << "eq\n";
-            m_arith_eq_adapter.mk_axioms(n1, n2);
+        else {
+            if (m.is_ite(lhs) && !is_arith(n1)) {
+                internalize_term(to_app(lhs));
+            }
+            if (m.is_ite(rhs) && !is_arith(n2)) {
+                internalize_term(to_app(rhs));
+            }
         }
+#endif
     }
 
     void assign_eh(bool_var v, bool is_true) {
@@ -1123,8 +1137,9 @@ public:
     }
 
     void new_eq_eh(theory_var v1, theory_var v2) {
-        // or internalize_eq(v1, v2);
-        m_arith_eq_adapter.new_eq_eh(v1, v2);            
+        if (!is_int(v1) && !is_real(v1)) 
+            return;
+        m_arith_eq_adapter.new_eq_eh(v1, v2);
     }
 
     bool use_diseqs() const {
@@ -1139,16 +1154,6 @@ public:
 
     void apply_sort_cnstr(enode* n, sort*) {
         TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
-#if 0
-        if (!th.is_attached_to_var(n)) {
-            theory_var v = mk_var(n->get_owner(), false);
-            auto vi = register_theory_var_in_lar_solver(v);
-            expr* e = nullptr;
-            if (a.is_to_real(n->get_owner(), e)) {
-                // TBD: add a way to bind equality between vi and wi in m_solver
-            }
-        }
-#endif
     }
 
     void push_scope_eh() {
@@ -3880,7 +3885,7 @@ public:
         m_arith_eq_adapter.collect_statistics(st);
         st.update("arith-lower", m_stats.m_assert_lower);
         st.update("arith-upper", m_stats.m_assert_upper);
-        st.update("arith-rows", m_stats.m_add_rows);
+        st.update("arith-add-rows", m_stats.m_add_rows);
         st.update("arith-propagations", m_stats.m_bounds_propagations);
         st.update("arith-iterations", m_stats.m_num_iterations);
         st.update("arith-factorizations", lp().settings().stats().m_num_factorizations);

@@ -27,7 +27,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::collect_statistics(::statistics & st) const {
         st.update("arith conflicts", m_stats.m_conflicts);
-        st.update("arith add rows", m_stats.m_add_rows);
+        st.update("arith row summations", m_stats.m_add_rows);
+        st.update("arith num rows", m_rows.size());
         st.update("arith pivots", m_stats.m_pivots);
         st.update("arith assert lower", m_stats.m_assert_lower);
         st.update("arith assert upper", m_stats.m_assert_upper);
