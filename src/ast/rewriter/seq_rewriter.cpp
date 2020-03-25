@@ -1138,6 +1138,23 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         result = c;
         return BR_DONE;
     }
+
+    if (a == b) {
+        if (m_autil.is_numeral(c, r)) {
+            if (r.is_zero()) {
+                result = m_autil.mk_int(0);
+            }
+            else {
+                result = m_autil.mk_int(-1);            
+            }
+            return BR_DONE;
+        }
+        else {
+            result = m().mk_ite(m().mk_eq(m_autil.mk_int(0), c), m_autil.mk_int(0), m_autil.mk_int(-1));
+            return BR_REWRITE2;
+        }
+    }
+
     // Enhancement: walk segments of a, determine which segments must overlap, must not overlap, may overlap.
     return BR_FAILED;
 }
