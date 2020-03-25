@@ -190,7 +190,7 @@ bool arith_rewriter::is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref &
             case EQ: result = m().mk_false(); return true;
             }
         }
-        expr * k = m_util.mk_numeral(c, is_int);
+        expr_ref k(m_util.mk_numeral(c, is_int), m());
         switch (kind) {
         case LE: result = m_util.mk_le(pp, k); return true;
         case GE: result = m_util.mk_ge(pp, k); return true;
