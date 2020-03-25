@@ -93,7 +93,7 @@ public:
     var_register                                        m_var_register;
     var_register                                        m_term_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
-    constrau_set                                      m_constraints;
+    constraint_set                                      m_constraints;
     // the set of column indices j such that bounds have changed for j
     u_set                                             m_columns_with_changed_bound;
     u_set                                             m_rows_with_changed_bounds;
@@ -111,7 +111,7 @@ public:
 
     const vector<lar_term*> & terms() const { return m_terms; }
     lar_term const& term(unsigned i) const { return *m_terms[i]; }
-    constrau_set const& constraints() const { return m_constraints; }
+    constraint_set const& constraints() const { return m_constraints; }
     void set_int_solver(int_solver * int_slv) { m_int_solver = int_slv; }
     int_solver * get_int_solver() { return m_int_solver; }
 
