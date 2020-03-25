@@ -441,13 +441,17 @@ namespace smt {
         TRACE("distinct", tout << "internalizing distinct: " << mk_pp(n, m) << "\n";);
         SASSERT(!b_internalized(n));
         SASSERT(m.is_distinct(n));
+        bool_var v = mk_bool_var(n);
+        literal l(v);
         expr_ref def(m.mk_distinct_expanded(n->get_num_args(), n->get_args()), m);
         internalize_rec(def, true);
-        bool_var v    = mk_bool_var(n);
-        literal l(v);
         literal l_def = get_literal(def);
         mk_gate_clause(~l, l_def);
         mk_gate_clause(l, ~l_def);
+        // when n->get_num_args() == 2, then mk_distinct_expanded produces a negation.
+        // reference counts of negations are not tracked so add relevance dependency
+        // of the equality.
+        if (m.is_not(def)) def = to_app(def)->get_arg(0);
         add_relevancy_dependency(n, def);
         if (!gate_ctx) {
             mk_enode(n, true, true, false);
