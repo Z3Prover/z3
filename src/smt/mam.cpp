@@ -4027,8 +4027,3 @@ namespace smt {
     }
 }
 
-#ifdef Z3DEBUG
-void pp(code_tree * c) {
-    c->display(std::cout);
-}
-#endif

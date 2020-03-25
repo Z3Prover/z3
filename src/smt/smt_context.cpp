@@ -3370,8 +3370,10 @@ namespace smt {
             if (u.get_rec_funs().empty()) {
                 model_ref mdl;
                 get_model(mdl);
-                for (theory* t : m_theory_set) {
-                    t->validate_model(*mdl);
+                if (mdl.get()) {
+                    for (theory* t : m_theory_set) {
+                        t->validate_model(*mdl);
+                    }
                 }
             }
 #if 0
