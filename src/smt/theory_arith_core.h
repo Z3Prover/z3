@@ -258,7 +258,7 @@ namespace smt {
 
         c_entry.m_row_id    = r_id;
         c_entry.m_row_idx   = r_idx;
-        m_stats.m_tableau_max_columns = std::max(m_stats.m_tableau_max_columns, (unsigned)c_idx + 1);
+        m_stats.m_tableau_max_columns = std::max(m_stats.m_tableau_max_columns, (unsigned)v + 1);
     }
 
     /**
