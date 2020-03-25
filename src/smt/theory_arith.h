@@ -49,6 +49,7 @@ namespace smt {
         unsigned m_gb_simplify, m_gb_superpose, m_gb_compute_basis, m_gb_num_processed;
         unsigned m_nl_branching, m_nl_linear, m_nl_bounds, m_nl_cross_nested;
         unsigned m_branch_infeasible_int, m_branch_infeasible_var;
+        unsigned m_tableau_max_rows, m_tableau_max_columns;
 
         void reset() { memset(this, 0, sizeof(theory_arith_stats)); }
         theory_arith_stats() { reset(); }

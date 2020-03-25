@@ -15,7 +15,7 @@ Author:
 
 Revision History:
 
-TBD use indexed_uint_set from src/util/uu_set.h, 
+TBD use indexed_uint_set from src/util/uint_set.h, 
 
 --*/
 #pragma once
