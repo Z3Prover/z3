@@ -3485,9 +3485,11 @@ bool theory_seq::solve_nc(unsigned idx) {
     lbool is_gt = ctx.get_assignment(len_gt);
     TRACE("seq", ctx.display_literal_smt2(tout << len_gt << " := " << is_gt << "\n", len_gt) << "\n";);
 
+#if 0
     if (canonizes(false, n.contains())) {
         return true;
     }
+#endif
     
     switch (is_gt) {
     case l_true:
