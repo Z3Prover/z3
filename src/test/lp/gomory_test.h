@@ -187,7 +187,7 @@ struct gomory_test {
     void print_term(lar_term & t, std::ostream & out) {
         vector<std::pair<mpq, unsigned>>  row;
         for (auto p : t)
-            row.push_back(std::make_pair(p.coeff(), p.var()));
+            row.push_back(std::make_pair(p.coeff(), p.var().index()));
         print_row(out, row);
     }
     
