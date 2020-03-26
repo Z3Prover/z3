@@ -44,7 +44,7 @@
 #include "math/lp/numeric_pair.h"
 #include "math/lp/binary_heap_upair_queue.h"
 #include "math/lp/stacked_value.h"
-#include "math/lp/int_set.h"
+#include "math/lp/u_set.h"
 #include "util/stopwatch.h"
 #include <cstdlib>
 #include "test/lp/gomory_test.h"
@@ -3219,19 +3219,16 @@ void test_bound_propagation() {
 }
 
 void test_int_set() {
-    int_set s(4);
+    u_set s(4);
     s.insert(2);
-    s.print(std::cout);
     s.insert(1);
     s.insert(2);
-    s.print(std::cout);
     lp_assert(s.contains(2));
     lp_assert(s.size() == 2);
     s.erase(2);
     lp_assert(s.size() == 1);
     s.erase(2);
     lp_assert(s.size() == 1);
-    s.print(std::cout);
     s.insert(3);
     s.insert(2);
     s.clear();
