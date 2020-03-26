@@ -511,7 +511,7 @@ namespace qe {
         }
 
         unsigned sz1 = get_num_exprs(t1.get_expr());
-        unsigned sz2 = get_num_exprs(t1.get_expr());
+        unsigned sz2 = get_num_exprs(t2.get_expr());
         return sz1 < sz2;
     }
 
