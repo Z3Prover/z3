@@ -35,6 +35,7 @@ namespace smt {
         st.update("arith assert diseq", m_stats.m_assert_diseq);
         st.update("arith bound prop", m_stats.m_bound_props);
         st.update("arith fixed eqs", m_stats.m_fixed_eqs);
+        st.update("arith assume eqs", m_stats.m_assume_eqs);
         st.update("arith offset eqs", m_stats.m_offset_eqs);
         st.update("arith gcd tests", m_stats.m_gcd_tests);
         st.update("arith ineq splits", m_stats.m_branches);

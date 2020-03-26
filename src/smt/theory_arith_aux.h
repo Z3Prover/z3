@@ -2237,7 +2237,6 @@ namespace smt {
         if (result)
             get_context().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
         return delayed_assume_eqs();
-        // return this->assume_eqs(m_var_value_table);
     }
 
     template<typename Ext>
@@ -2258,6 +2257,7 @@ namespace smt {
             if (get_value(v1) == get_value(v2) && 
                 get_enode(v1)->get_root() != get_enode(v2)->get_root() &&
                 assume_eq(get_enode(v1), get_enode(v2))) {
+                ++m_stats.m_assume_eqs;
                 return true;
             }
         }

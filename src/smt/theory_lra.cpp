@@ -1583,13 +1583,13 @@ public:
               }
               tout << "\n"; );
         if (!m_use_nra_model && !m_nla) {
-            lp().random_update(vars.size(), vars.c_ptr());
+            // lp().random_update(vars.size(), vars.c_ptr());
         }
         m_model_eqs.reset();
         TRACE("arith", display(tout););
             
         unsigned old_sz = m_assume_eq_candidates.size();
-        bool result = false;
+        unsigned num_candidates = 0;
         int start = ctx().get_random_value();
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
@@ -1611,11 +1611,10 @@ public:
                       tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
                       tout << "v" << v << " = " << "v" << other << "\n";);
                 m_assume_eq_candidates.push_back(std::make_pair(v, other));
-                result = true;
             }
         }
             
-        if (result) {
+        if (num_candidates > 0) {
             ctx().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
         }
 
@@ -1692,14 +1691,14 @@ public:
                 st = FC_GIVEUP;
                 break;
             }
-            if (assume_eqs()) {
-                ++m_stats.m_assume_eqs;
-                return FC_CONTINUE;
-            }    
             if (delayed_assume_eqs()) {
                 ++m_stats.m_assume_eqs;
                 return FC_CONTINUE;
             }
+            if (assume_eqs()) {
+                ++m_stats.m_assume_eqs;
+                return FC_CONTINUE;
+            }    
             if (m_not_handled != nullptr) {
                 TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);        
                 st = FC_GIVEUP;
