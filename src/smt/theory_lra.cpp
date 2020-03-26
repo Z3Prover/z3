@@ -1583,7 +1583,7 @@ public:
               }
               tout << "\n"; );
         if (!m_use_nra_model && !m_nla) {
-            // lp().random_update(vars.size(), vars.c_ptr());
+            lp().random_update(vars.size(), vars.c_ptr());
         }
         m_model_eqs.reset();
         TRACE("arith", display(tout););
@@ -1611,6 +1611,7 @@ public:
                       tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
                       tout << "v" << v << " = " << "v" << other << "\n";);
                 m_assume_eq_candidates.push_back(std::make_pair(v, other));
+                num_candidates++;
             }
         }
             
