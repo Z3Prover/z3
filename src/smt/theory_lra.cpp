@@ -1567,8 +1567,10 @@ public:
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
-            if (th.is_relevant_and_shared(get_enode(v))) 
-                vars.push_back(get_lpvar(v));
+            if (th.is_relevant_and_shared(get_enode(v))) {
+                auto vi = register_theory_var_in_lar_solver(v);
+                vars.push_back(vi);
+            }
         }
         if (vars.empty()) {
             return false;
