@@ -83,7 +83,7 @@ public:
     func_decl * get_macro_func_decl(unsigned i) const { return m_decls.get(i); }
     func_decl * get_macro_interpretation(unsigned i, expr_ref & interp) const;
     quantifier * get_macro_quantifier(func_decl * f) const { quantifier * q = nullptr; m_decl2macro.find(f, q); return q; }
-    void get_head_def(quantifier * q, func_decl * d, app * & head, expr * & def) const;
+    void get_head_def(quantifier * q, func_decl * d, app * & head, expr * & def, bool& revert) const;
     void expand_macros(expr * n, proof * pr, expr_dependency * dep, expr_ref & r, proof_ref & new_pr, expr_dependency_ref & new_dep);
 
 
