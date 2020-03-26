@@ -341,7 +341,7 @@ void macro_manager::expand_macros(expr * n, proof * pr, expr_dependency * dep, e
         for (;;) {
             macro_expander_rw proc(m, *this);
             proof_ref n_eq_r_pr(m);
-            SASSERT(m.get_fact(old_pr) == old_n);
+            SASSERT(!old_pr || m.get_fact(old_pr) == old_n);
             TRACE("macro_manager_bug", tout << "expand_macros:\n" << mk_pp(n, m) << "\n";);
             proc(old_n, r, n_eq_r_pr);
             new_pr = m.mk_modus_ponens(old_pr, n_eq_r_pr);
