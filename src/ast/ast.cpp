@@ -1794,6 +1794,15 @@ bool ast_manager::slow_not_contains(ast const * n) {
 }
 #endif
 
+#if 0
+static unsigned s_count = 0;
+static void track_id(ast* n, unsigned id) {
+    if (n->get_id() != id) return;
+    ++s_count;
+    std::cout << s_count << "\n";
+//    SASSERT(s_count != 7);
+}
+#endif
 
 ast * ast_manager::register_node_core(ast * n) {
     unsigned h = get_node_hash(n);

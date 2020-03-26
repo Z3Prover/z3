@@ -3485,6 +3485,10 @@ bool theory_seq::solve_nc(unsigned idx) {
     lbool is_gt = ctx.get_assignment(len_gt);
     TRACE("seq", ctx.display_literal_smt2(tout << len_gt << " := " << is_gt << "\n", len_gt) << "\n";);
 
+    if (canonizes(false, n.contains())) {
+        return true;
+    }
+    
     switch (is_gt) {
     case l_true:
         add_length_to_eqc(a);
@@ -3494,18 +3498,41 @@ bool theory_seq::solve_nc(unsigned idx) {
         ctx.mark_as_relevant(len_gt);
         m_new_propagation = true;
         return false;
-    case l_false: {
-        mk_decompose(a, head, tail);
-        pre = mk_literal(m_util.str.mk_prefix(b, a));
-        cnt = mk_literal(n.contains());
-        ctail = mk_literal(m_util.str.mk_contains(tail, b));
-        emp = mk_literal(m_util.str.mk_is_empty(a));
-        add_axiom(cnt, ~pre);
-        add_axiom(cnt, ~ctail);
-        add_axiom(emp, mk_eq(a, m_util.str.mk_concat(head, tail), false));
+    case l_false: 
+        break;
+    }
+#if 0
+    expr_ref a1(m), b1(m);
+    dependency* deps = n.deps();    
+    if (!canonize(a, deps, a1)) {
+        return false;
+    }
+    if (!canonize(b, deps, b1)) {
+        return false;
+    }
+    if (a != a1 || b != b1) {
+        literal_vector lits;
+        expr_ref c(m_util.str.mk_contains(a1, b1), m);
+        propagate_eq(deps, lits, c, n.contains(), false);
+        m_ncs.push_back(nc(c, len_gt, deps));       
+        m_new_propagation = true;
         return true;
     }
-    }
+    IF_VERBOSE(0, verbose_stream() << n.contains() << "\n");
+#endif    
+    mk_decompose(a, head, tail);
+    expr_ref pref(m_util.str.mk_prefix(b, a), m);
+    expr_ref postf(m_util.str.mk_contains(tail, b), m);
+    m_rewrite(pref);
+    m_rewrite(postf);
+    pre = mk_literal(pref);
+    cnt = mk_literal(n.contains());
+    ctail = mk_literal(postf);
+    emp = mk_literal(m_util.str.mk_is_empty(a));
+    add_axiom(cnt, ~pre);
+    add_axiom(cnt, ~ctail);
+    add_axiom(emp, mk_eq(a, m_util.str.mk_concat(head, tail), false));
+    return true;
     
 #else
     dependency* deps = n.deps();    
@@ -3517,7 +3544,10 @@ bool theory_seq::solve_nc(unsigned idx) {
     CTRACE("seq", c != n.contains(), 
            tout << n.contains() << " =>\n" << c << "\n";
            display_deps(tout, deps););    
-
+    if (c != n.contains()) {
+        IF_VERBOSE(0, verbose_stream() << n.contains() << " =>\n" << c << "\n";
+                   display_deps(verbose_stream(), deps););
+    }
     
     if (m.is_true(c)) {
         literal_vector lits;
