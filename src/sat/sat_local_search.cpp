@@ -223,7 +223,7 @@ namespace sat {
     }    
     
     void local_search::verify_solution() const {
-        IF_VERBOSE(0, verbose_stream() << "verifying solution\n");
+        IF_VERBOSE(10, verbose_stream() << "verifying solution\n");
         for (constraint const& c : m_constraints) 
             verify_constraint(c);
     }
