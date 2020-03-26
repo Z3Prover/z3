@@ -828,6 +828,7 @@ namespace opt {
         SASSERT(result.size() == 1);
         goal* r = result[0];
         m_model_converter = r->mc();
+        CTRACE("opt", r->mc(), r->mc()->display(tout););
         fmls.reset();
         expr_ref tmp(m);
         for (unsigned i = 0; i < r->size(); ++i) {

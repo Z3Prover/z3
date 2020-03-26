@@ -184,6 +184,12 @@ public:
 
         m_bounds(*g);
 
+        if (m_bounds.inconsistent()) {
+            g->inc_depth();
+            result.push_back(g.get());
+            return;
+        }
+        
         for (unsigned i = 0; i < g->size(); i++) {            
             collect_fd(g->form(i));
         }
@@ -194,7 +200,7 @@ public:
             return;
         }
 
-        for (unsigned i = 0; i < g->size(); i++) {            
+        for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);  
             func_decl_ref var(m);
@@ -318,6 +324,7 @@ public:
         } 
         return false;
     }
+
 
     bool is_bound(expr* f, func_decl_ref& var, unsigned& val) {
         return is_lower(f, var, val) || is_upper(f, var, val);

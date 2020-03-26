@@ -259,6 +259,23 @@ void bound_manager::reset() {
     m_upper_deps.finalize();
 }
 
+bool bound_manager::inconsistent() const {
+    for (auto const& kv : m_lowers) {
+        limit const& lim1 = kv.m_value;
+        limit lim2;        
+        if (m_uppers.find(kv.m_key, lim2)) {
+            if (lim1.first > lim2.first) {
+                return true;
+            }
+            if (lim1.first == lim2.first &&
+                !lim1.second && lim2.second) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void bound_manager::display(std::ostream & out) const {
     numeral n; bool strict;
     for (iterator it = begin(); it != end(); ++it) {

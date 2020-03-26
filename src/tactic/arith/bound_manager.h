@@ -87,6 +87,8 @@ public:
             return d;
         return nullptr;
     }
+
+    bool inconsistent() const;
     
     bool has_lower(expr * c) const {
         return m_lowers.contains(c);
