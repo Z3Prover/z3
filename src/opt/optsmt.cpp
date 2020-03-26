@@ -107,7 +107,7 @@ namespace opt {
         unsigned steps = 0;
         unsigned step_incs = 0;
         rational delta_per_step(1);
-        unsigned num_scopes = 1;
+        unsigned num_scopes = 0;
         unsigned delta_index = 0;    // index of objective to speed up.
 
         while (!m.canceled()) {
