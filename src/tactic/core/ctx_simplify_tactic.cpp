@@ -585,7 +585,8 @@ struct ctx_simplify_tactic::imp {
             for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
                 expr * t = g.form(i);
                 process(t, r);
-                proof* new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite(t, r));
+                proof_ref new_pr(m.mk_rewrite(t, r), m);
+                new_pr = m.mk_modus_ponens(g.pr(i), new_pr);
                 g.update(i, r, new_pr, g.dep(i));
             }
         }
