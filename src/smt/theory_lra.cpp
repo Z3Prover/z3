@@ -3050,7 +3050,7 @@ public:
             }
             constraint_bound& b = vec[ti];
             if (b.first == UINT_MAX || (is_lower? b.second < v : b.second > v)) {
-                TRACE("arith", tout << "tighter bound " << vi << "\n";);
+                TRACE("arith", tout << "tighter bound " << lp().get_variable_name(vi) << "\n";);
                 m_history.push_back(vec[ti]);
                 ctx().push_trail(history_trail<context, constraint_bound>(vec, ti, m_history));
                 b.first = ci;
@@ -3093,7 +3093,7 @@ public:
         if (lp::tv::is_term(vi)) {
             theory_var v = lp().local_to_external(vi);
             rational val;
-            TRACE("arith", tout << vi << " " << v << "\n";);
+            TRACE("arith", tout << lp().get_variable_name(vi) << " " << v << "\n";);
             if (v != null_theory_var && a.is_numeral(get_owner(v), val) && bound == val) {
                 ci = UINT_MAX;
                 return bound == val;

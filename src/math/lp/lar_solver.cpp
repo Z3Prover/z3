@@ -1799,7 +1799,7 @@ mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind& k, const mpq& bo
 }
 
 constraint_index lar_solver::mk_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) {
-    TRACE("lar_solver", tout << "j = " << j << " " << lconstraint_kind_string(kind) << " " << right_side<< std::endl;);
+    TRACE("lar_solver", tout << "j = " << get_variable_name(j) << " " << lconstraint_kind_string(kind) << " " << right_side<< std::endl;);
     constraint_index ci;
     if (!tv::is_term(j)) { // j is a var
         mpq rs = adjust_bound_for_int(j, kind, right_side);
