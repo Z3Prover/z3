@@ -1833,8 +1833,9 @@ public:
         if (m_idiv_terms.empty()) {
             return true;
         }
-        bool all_divs_valid = true;        
-        for (expr* n : m_idiv_terms) {
+        bool all_divs_valid = true; 
+        for (unsigned i = 0; i < m_idiv_terms.size(); ++i) {
+            expr* n = m_idiv_terms[i];
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
             theory_var v  = mk_var(n);
