@@ -30,6 +30,7 @@ random_updater::random_updater(
                                const vector<unsigned> & column_indices) :
     m_lar_solver(lar_solver),
     m_range(100000) {
+    m_var_set.resize(m_lar_solver.number_of_vars());
     for (unsigned j : column_indices)
         add_column_to_sets(j);
 }
