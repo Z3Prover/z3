@@ -401,7 +401,7 @@ class theory_lra::imp {
         
         lp().settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        m_switcher.m_use_nla = lpar.arith_nla();
+        m_switcher.m_use_nla = true;
         m_lia = alloc(lp::int_solver, *m_solver.get());
         get_one(true);
         get_zero(true);
