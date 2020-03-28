@@ -965,7 +965,6 @@ struct pb2bv_rewriter::imp {
                 r = e;
                 return;
             }
-            proof_ref rp(m());
             if (m_cfg.m_r.mk_app(full, e, r)) {
                 ee = r;
             }
