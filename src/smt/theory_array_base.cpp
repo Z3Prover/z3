@@ -509,26 +509,42 @@ namespace smt {
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }
 #else
+    bool theory_array_base::has_array_ext(enode* n) {
+        enode* r = n;
+        do {
+            if (is_array_ext(n->get_owner()))
+                return true;
+            n = n->get_next();
+        }
+        while (r != n);
+        return false;
+    }
+
     void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
-        TRACE("array_shared", tout << "collecting shared vars...\n";);
+        TRACE("array", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
         ptr_buffer<enode> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
-        enode * n = get_enode(i);
-            if (ctx.is_relevant(n)) {
+            enode * n = get_enode(i);
+            if (!ctx.is_relevant(n) || !is_array_sort(n)) {
+                continue;
+            }
             enode * r = n->get_root();
-        if (!r->is_marked()){
-            if(is_array_sort(r) && ctx.is_shared(r)) {
-              TRACE("array_shared", tout << "new shared var: #" << r->get_owner_id() << "\n";);
-              theory_var r_th_var = r->get_th_var(get_id());
-              SASSERT(r_th_var != null_theory_var);
-              result.push_back(r_th_var);
+            if (r->is_marked()) {
+                continue;
+            }
+            // array extensionality terms may be produced in nested arrays.
+            // they have to be treated as shared to resolve equalities.
+            // issue #3532
+            if (ctx.is_shared(r) || has_array_ext(r)) {
+                TRACE("array", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+                theory_var r_th_var = r->get_th_var(get_id());
+                SASSERT(r_th_var != null_theory_var);
+                result.push_back(r_th_var);
             }
             r->set_mark();
-            to_unmark.push_back(r);
-        }
-            }
+            to_unmark.push_back(r);            
         }
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }

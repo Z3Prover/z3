@@ -60,6 +60,7 @@ namespace smt {
         bool is_array_sort(enode const* n) const { return is_array_sort(n->get_owner()); }
         bool is_set_has_size(enode const* n) const { return is_set_has_size(n->get_owner()); }
         bool is_set_carde(enode const* n) const { return is_set_card(n->get_owner()); }
+        bool has_array_ext(enode* n);
 
 
         app * mk_select(unsigned num_args, expr * const * args);

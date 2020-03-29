@@ -72,6 +72,7 @@ expr * array_factory::get_some_value(sort * s) {
 }
 
 bool array_factory::mk_two_diff_values_for(sort * s) {
+    TRACE("array_factory", tout << mk_pp(s, m_manager) << "\n";);
     DEBUG_CODE({
         value_set * set = 0;
         SASSERT(!m_sort2value_set.find(s, set) || set->size() <= 1);
@@ -112,6 +113,7 @@ bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     v1 = *it;
     ++it;
     v2 = *it;
+    TRACE("array_factory", tout << v1 << " " << v2 << "\n";);
     return true;    
 }
 
