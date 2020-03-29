@@ -164,6 +164,7 @@ namespace opt {
     }
 
     void context::pop(unsigned n) {
+        n = std::min(n, m_scoped_state.num_scopes());
         for (unsigned i = 0; i < n; ++i) {
             m_scoped_state.pop();
         }
