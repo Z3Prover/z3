@@ -971,7 +971,8 @@ void core::init_to_refine() {
     
     TRACE("nla_solver", 
           tout << m_to_refine.size() << " mons to refine:\n";
-          for (lpvar v : m_to_refine) tout << pp_mon(*this, m_emons[v]) << "\n";);
+          for (lpvar v : m_to_refine) tout << pp_mon(*this, m_emons[v]) << ":error = " <<
+                                          (val(v) - mul_val(m_emons[v])).get_double() << "\n";);
 }
         
 std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
@@ -1329,6 +1330,59 @@ bool core::elists_are_consistent(bool check_in_model) const {
     return true;
 }
 
+bool core::var_is_used_in_a_correct_monic(lpvar j) const {
+    for (const monic & m : emons().get_use_list(j)) {
+        if (!m_to_refine.contains(m.var()))
+            return true;
+    }
+    return false;
+}
+
+void core::update_to_refine_of_var(lpvar j) {
+    for (const monic & m : emons().get_use_list(j)) {
+        if (val(var(m)) == mul_val(m))
+            m_to_refine.erase(var(m));
+        else
+            m_to_refine.insert(var(m));
+    }
+    if (is_monic_var(j)) {
+        const monic& m = emons()[j];
+        if (val(var(m)) == mul_val(m))
+            m_to_refine.erase(j);
+        else
+            m_to_refine.insert(j);
+        
+    }
+}
+
+
+
+void core::patch_real_var(lpvar j) {
+    SASSERT(!var_is_int(j));
+    rational v = mul_val(emons()[j]);
+    if (val(j) == v)
+        return;
+    if (var_is_used_in_a_correct_monic(j))
+        return;
+    if(m_lar_solver.try_to_patch(j, v,
+                              [this](lpvar k) { return var_is_used_in_a_correct_monic(k);},
+                              [this](lpvar k) { update_to_refine_of_var(k); }))
+        m_to_refine.erase(j);
+                              
+}
+
+
+void core::patch_real_vars() {
+    auto to_refine = m_to_refine.index();
+    // the rest of the function might change m_to_refine, so have to copy
+    for (lpvar j : to_refine) {
+        if (var_is_int(j))
+            continue;
+        patch_real_var(j);
+    }
+    SASSERT(m_lar_solver.ax_is_correct());
+}
+
 lbool core::check(vector<lemma>& l_vec) {
     lp_settings().stats().m_nla_calls++;
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
@@ -1340,10 +1394,13 @@ lbool core::check(vector<lemma>& l_vec) {
     }
 
     init_to_refine();
+    patch_real_vars();
     if (m_to_refine.is_empty()) {
         return l_true;
     }
+    
     init_search();
+    
     lbool ret = inner_check(true);
     if (ret == l_undef)
         ret = inner_check(false);

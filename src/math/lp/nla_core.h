@@ -79,7 +79,7 @@ public:
     var_eqs<emonics>         m_evars;
     lp::lar_solver&          m_lar_solver;
     vector<lemma> *          m_lemma_vec;
-    lp::u_set              m_to_refine;
+    lp::u_set                m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -415,6 +415,10 @@ public:
     bool influences_nl_var(lpvar) const;
     bool is_nl_var(lpvar) const;
     bool is_used_in_monic(lpvar) const;
+    void patch_real_vars();
+    void patch_real_var(lpvar);
+    bool var_is_used_in_a_correct_monic(lpvar) const;
+    void update_to_refine_of_var(lpvar j);
 };  // end of core
 
 struct pp_mon {

@@ -2381,6 +2381,47 @@ std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, 
         add_var_bound(term_index, lconstraint_kind::GE, mpq(0)));
 }
 
+bool lar_solver::inside_bounds(lpvar j, const impq& val) const {
+    if (column_has_upper_bound(j) && val > get_upper_bound(j))
+        return false;
+    if (column_has_lower_bound(j) && val < get_lower_bound(j))
+        return false;
+    return true;
+}
+
+bool lar_solver::try_to_patch(lpvar j, const mpq& val, std::function<bool (lpvar)> blocker, std::function<void (lpvar)> report_change) {
+    if (is_base(j)) {        
+        bool r = remove_from_basis(j);
+        SASSERT(r);
+        (void)r;        
+    }
+    impq ival(val);
+    if (!inside_bounds(j, ival))
+        return false;
+
+    impq delta = ival - get_column_value(j);
+    for (const auto &c : A_r().column(j)) {
+        unsigned row_index = c.var();
+        const mpq & a = c.coeff();        
+        unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
+        impq rj_new_val = a * delta + get_column_value(rj);
+        if (column_is_int(rj) && ! rj_new_val.is_int())
+            return  false;
+        if (!inside_bounds(rj, rj_new_val) || blocker(rj))
+            return  false;
+    }
+
+    set_column_value(j, ival);
+    for (const auto &c : A_r().column(j)) {
+        unsigned row_index = c.var();
+        const mpq & a = c.coeff();        
+        unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
+        set_column_value(rj,a * delta + get_column_value(rj));
+        report_change(rj);
+    }
+    return true;
+}
+
 } // namespace lp
 
 

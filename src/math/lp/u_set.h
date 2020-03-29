@@ -103,5 +103,6 @@ public:
     }
     const unsigned * begin() const { return m_index.begin(); }
     const unsigned * end() const { return m_index.end(); }
+    const unsigned_vector& index() { return m_index; }
 };
 }
