@@ -509,14 +509,17 @@ namespace smt {
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }
 #else
-    bool theory_array_base::has_array_ext(enode* n) {
-        enode* r = n;
-        do {
-            if (is_array_ext(n->get_owner()))
-                return true;
-            n = n->get_next();
+
+    bool theory_array_base::is_select_arg(enode* r) {
+        for (enode* n : r->get_parents()) {
+            if (is_select(n)) {
+                for (unsigned i = 1; i < n->get_num_args(); ++i) {
+                    if (r == n->get_arg(i)->get_root()) {
+                        return true;
+                    }
+                }
+            }
         }
-        while (r != n);
         return false;
     }
 
@@ -534,10 +537,10 @@ namespace smt {
             if (r->is_marked()) {
                 continue;
             }
-            // array extensionality terms may be produced in nested arrays.
-            // they have to be treated as shared to resolve equalities.
-            // issue #3532
-            if (ctx.is_shared(r) || has_array_ext(r)) {
+            // arrays used as indices in other arrays have to be treated as shared.
+            // issue #3532, #3529
+            // 
+            if (ctx.is_shared(r) || is_select_arg(r)) {
                 TRACE("array", tout << "new shared var: #" << r->get_owner_id() << "\n";);
                 theory_var r_th_var = r->get_th_var(get_id());
                 SASSERT(r_th_var != null_theory_var);
