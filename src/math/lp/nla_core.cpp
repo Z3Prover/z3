@@ -1357,7 +1357,7 @@ void core::update_to_refine_of_var(lpvar j) {
 
 
 
-void core::patch_real_var(lpvar j) {
+void core::patch_real_var(lpvar j) {    
     SASSERT(!var_is_int(j));
     rational v = mul_val(emons()[j]);
     if (val(j) == v)
