@@ -101,7 +101,7 @@ namespace opt {
     lbool optsmt::geometric_opt() {
         lbool is_sat = l_true;
 
-        expr_ref bound(m);
+        expr_ref bound(m), last_bound(m);
 
         vector<inf_eps> lower(m_lower);
         unsigned steps = 0;
@@ -134,21 +134,30 @@ namespace opt {
                     bound = m_s->mk_ge(delta_index, m_lower[delta_index] + inf_eps(delta_per_step));
                 }
                 TRACE("opt", tout << "index: " << delta_index << " delta: " << delta_per_step << " : " << bound << "\n";);
-                m_s->assert_expr(bound);                
+                if (bound == last_bound) {
+                    is_sat = l_false;
+                }
+                else {
+                    m_s->assert_expr(bound);                
+                    last_bound = bound;                    
+                    continue;
+                }
             }
-            else if (is_sat == l_false && delta_per_step > rational::one()) {
+            if (is_sat == l_false && delta_per_step > rational::one()) {
                 steps = 0;
                 step_incs = 0;
                 delta_per_step = 1;
                 SASSERT(num_scopes > 0);
                 --num_scopes;
-                m_s->pop(1);             
+                m_s->pop(1);       
+                last_bound = nullptr;
             }
             else if (is_sat == l_false) {
                 // we are done with this delta_index.
                 m_upper[delta_index] = m_lower[delta_index];
                 if (num_scopes > 0) m_s->pop(num_scopes); 
                 num_scopes = 0;
+                last_bound = nullptr;
                 bool all_tight = true;
                 for (unsigned i = 0; i < m_lower.size(); ++i) {
                     all_tight &= m_lower[i] == m_upper[i];
