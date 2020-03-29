@@ -1750,11 +1750,13 @@ namespace nlsat {
         }
 
         void process_antecedent(literal antecedent) {
+            checkpoint();
             bool_var b  = antecedent.var();
             TRACE("nlsat_resolve", display(tout << "resolving antecedent: ", antecedent) << "\n";);
             if (assigned_value(antecedent) == l_undef) {
+                checkpoint();
                 // antecedent must be false in the current arith interpretation
-                SASSERT(value(antecedent) == l_false);
+                SASSERT(value(antecedent) == l_false || m_rlimit.get_cancel_flag());
                 if (!is_marked(b)) {
                     SASSERT(is_arith_atom(b) && max_var(b) < m_xk); // must be in a previous stage
                     TRACE("nlsat_resolve", tout << "literal is unassigned, but it is false in arithmetic interpretation, adding it to lemma\n";); 
@@ -1826,21 +1828,22 @@ namespace nlsat {
             if (m_check_lemmas) {
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.c_ptr(), false, nullptr));
             }
-
+            
             DEBUG_CODE({
                 unsigned sz = m_lazy_clause.size();
                 for (unsigned i = 0; i < sz; i++) {
                     literal l = m_lazy_clause[i];
                     if (l.var() != b) {
-                        SASSERT(value(l) == l_false);
+                        SASSERT(value(l) == l_false || m_rlimit.get_cancel_flag());
                     }
                     else {
-                        SASSERT(value(l) == l_true);
+                        SASSERT(value(l) == l_true || m_rlimit.get_cancel_flag());
                         SASSERT(!l.sign() || m_bvalues[b] == l_false);
                         SASSERT(l.sign()  || m_bvalues[b] == l_true);
                     }
                 }
             });
+            checkpoint();
             resolve_clause(b, m_lazy_clause.size(), m_lazy_clause.c_ptr());
 
             for (unsigned i = 0; i < jst.num_clauses(); ++i) {
@@ -1982,6 +1985,7 @@ namespace nlsat {
             while (true) {
                 found_decision = false;
                 while (m_num_marks > 0) {
+                    checkpoint();
                     SASSERT(top > 0);
                     trail & t = m_trail[top-1];
                     SASSERT(t.m_kind != trail::NEW_STAGE); // we only mark literals that are in the same stage
