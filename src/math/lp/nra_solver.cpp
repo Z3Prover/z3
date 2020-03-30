@@ -208,7 +208,7 @@ typedef nla::variable_map_type variable_map_type;
             if (!m_lp2nl.find(v, r)) {
                 r = m_nlsat->mk_var(is_int(v));
                 m_lp2nl.insert(v, r);
-                TRACE("arith", tout << "v" << v << " := x" << r << "\n";);
+                TRACE("arith", tout << "j" << v << " := x" << r << "\n";);
             }
             return r;
         }
@@ -227,9 +227,9 @@ typedef nla::variable_map_type variable_map_type;
 
         std::ostream& display(std::ostream& out) const {
             for (auto m : m_monics) {
-                out << "v" << m.var() << " = ";
+                out << "j" << m.var() << " = ";
                 for (auto v : m.vars()) {
-                    out << "v" << v << " ";
+                    out << "j" << v << " ";
                 }
                 out << "\n";
             }

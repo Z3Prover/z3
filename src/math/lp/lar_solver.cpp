@@ -1267,10 +1267,10 @@ std::string lar_solver::get_variable_name(var_index j) const {
         return s;
     }
     if (m_settings.m_print_external_var_name) {
-        return std::string("v") + T_to_string(m_var_register.local_to_external(j));
+        return std::string("j") + T_to_string(m_var_register.local_to_external(j));
     }
     else {
-        std::string s = column_corresponds_to_term(j)? "t":"v";
+        std::string s = column_corresponds_to_term(j)? "t":"j";
         return s + T_to_string(j);
     }
 }

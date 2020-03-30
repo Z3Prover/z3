@@ -185,7 +185,7 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
         if (lp_settings().m_print_external_var_name)
             out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
         else
-            out << "(v" << v << " =" << val(v) << ")";
+            out << "(j" << v << " =" << val(v) << ")";
             
     }
     return out;
@@ -199,7 +199,7 @@ std::string core::product_indices_str(const T & m) const {
             out << "*";
         else
             first = false;
-        out << "v" << v;;
+        out << "j" << v;;
     }
     return out.str();
 }
@@ -232,7 +232,7 @@ std::ostream& core::print_monic(const monic& m, std::ostream& out) const {
     if (lp_settings().m_print_external_var_name)
         out << "([" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
     else 
-        out << "(v" << m.var() << " = " << val(m.var()) << " = ";
+        out << "(j" << m.var() << " = " << val(m.var()) << " = ";
     print_product(m.vars(), out) << ")\n";
     return out;
 }
@@ -1445,7 +1445,7 @@ std::ostream& core::print_terms(std::ostream& out) const {
 
 std::string core::var_str(lpvar j) const {
     return is_monic_var(j)?
-        (product_indices_str(m_emons[j].vars()) + (check_monic(m_emons[j])? "": "_")) : (std::string("v") + lp::T_to_string(j));        
+        (product_indices_str(m_emons[j].vars()) + (check_monic(m_emons[j])? "": "_")) : (std::string("j") + lp::T_to_string(j));        
 }
 
 std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const {

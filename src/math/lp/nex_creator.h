@@ -48,7 +48,7 @@ class nex_creator {
 public:
     static std::string ch(unsigned j) {
         std::stringstream s;
-        s << "v" << j;
+        s << "j" << j;
         return s.str();
     }
 

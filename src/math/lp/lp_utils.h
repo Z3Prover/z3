@@ -120,7 +120,7 @@ std::ostream& print_linear_combination_of_column_indices_only(const vector<std::
             if (tv::is_term(j)) {
                 ss << "t" << tv::unmask_term(j);
             } else {
-                ss << "v" << j;
+                ss << "j" << j;
             }
             return ss.str();},
         out); 
