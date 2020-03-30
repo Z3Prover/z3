@@ -1780,10 +1780,10 @@ void mpz_manager<SYNCH>::display_hex(std::ostream & out, mpz const & a, unsigned
     out.copyfmt(fmt);
 }
 
-void display_binary_data(std::ostream &out, unsigned val, unsigned numBits) {
-	for (unsigned shift = numBits; shift-- > 32; ) out << "0";
-    for (unsigned shift = std::min(32u, numBits); shift-- > 0; ) {
-        if (val & (1 << shift)) {
+static void display_binary_data(std::ostream &out, uint64_t val, uint64_t numBits) {
+	for (uint64_t shift = numBits; shift-- > 64ull; ) out << "0";
+    for (uint64_t shift = std::min(64ull, numBits); shift-- > 0; ) {
+        if (val & (1ull << shift)) {
             out << "1";
         } else {
             out << "0";
@@ -1793,9 +1793,9 @@ void display_binary_data(std::ostream &out, unsigned val, unsigned numBits) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::display_bin(std::ostream & out, mpz const & a, unsigned num_bits) const {
-    if (is_uint(a)) {
-        display_binary_data(out, get_uint(a), num_bits);
-    } 
+    if (is_small(a)) {
+        display_binary_data(out, get_uint64(a), num_bits);
+    }
     else {
 #ifndef _MP_GMP
         digit_t *ds = digits(a);
