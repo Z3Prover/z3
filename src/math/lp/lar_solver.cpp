@@ -2389,7 +2389,7 @@ bool lar_solver::inside_bounds(lpvar j, const impq& val) const {
     return true;
 }
 
-bool lar_solver::try_to_patch(lpvar j, const mpq& val, std::function<bool (lpvar)> blocker, std::function<void (lpvar)> report_change) {
+bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool (lpvar)>& blocker, const std::function<void (lpvar)>& report_change) {
     if (is_base(j)) {        
         bool r = remove_from_basis(j);
         SASSERT(r);

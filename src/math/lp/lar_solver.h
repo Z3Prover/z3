@@ -641,7 +641,7 @@ public:
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
     bool fetch_normalized_term_column(const lar_term& t, std::pair<mpq, lpvar>& ) const;
-    bool try_to_patch(lpvar, const mpq&, std::function<bool (lpvar)> blocker, std::function<void (lpvar)> change_report);
+    bool try_to_patch(lpvar, const mpq&, const std::function<bool (lpvar)>& blocker,const std::function<void (lpvar)>& change_report);
     bool inside_bounds(lpvar, const impq&) const;
 };
 }
