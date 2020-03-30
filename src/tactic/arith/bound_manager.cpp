@@ -244,6 +244,8 @@ bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
 }
 
 void bound_manager::operator()(goal const & g) {
+    if (g.proofs_enabled())
+        return;
     unsigned sz = g.size();
     for (unsigned i = 0; i < sz; i++) {
         operator()(g.form(i), g.dep(i));
