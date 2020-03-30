@@ -76,7 +76,7 @@ public:
             }
             reduce_q_rw rw(*this);
             unsigned sz = g->size();
-            for (unsigned idx = 0; idx < sz; idx++) {
+            for (unsigned idx = 0; !g->inconsistent() && idx < sz; idx++) {
                 checkpoint();
                 expr* f = g->form(idx);
                 expr_ref f_new(m);
@@ -86,6 +86,7 @@ public:
                 proof_ref new_pr(m);
                 if (g->proofs_enabled()) {
                     proof * pr = g->pr(idx);
+                    new_pr     = m.mk_rewrite(f, f_new);
                     new_pr     = m.mk_modus_ponens(pr, new_pr);
                 }
                 g->update(idx, f_new, new_pr, g->dep(idx));
