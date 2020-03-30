@@ -374,15 +374,17 @@ namespace smt {
             case l_undef:
                 break;
             case l_true:
-                if (!m_proto_model->eval(n, res, false)) return true;
-                CTRACE("mbqi_bug", !m.is_true(res), tout << n << " evaluates to " << res << "\n";); 
+                if (!m_proto_model->eval(n, res, false)) 
+                    return true;
+                CTRACE("model", !m.is_true(res), tout << n << " evaluates to " << res << "\n";); 
                 if (m.is_false(res)) {
                     return false;
                 }
                 break;
             case l_false:
-                if (!m_proto_model->eval(n, res, false)) return true;
-                CTRACE("mbqi_bug", !m.is_false(res), tout << n << " evaluates to " << res << "\n";); 
+                if (!m_proto_model->eval(n, res, false)) 
+                    return true;
+                CTRACE("model", !m.is_false(res), tout << n << " evaluates to " << res << "\n";); 
                 if (m.is_true(res)) {
                     return false;
                 }

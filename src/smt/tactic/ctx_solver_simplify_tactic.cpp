@@ -98,13 +98,14 @@ protected:
             return;
         SASSERT(m_solver.get_scope_level() == 0);
         TRACE("ctx_solver_simplify_tactic",
-              for (unsigned i = 0; i < fmls.size(); ++i) {
-                  tout << mk_pp(fmls[i], m) << "\n";
+              for (expr* f : fmls) {
+                  tout << mk_pp(f, m) << "\n";
               }
               tout << "=>\n";
-              tout << mk_pp(fml, m) << "\n";);
+              tout << fml << "\n";);
         DEBUG_CODE(
         {
+            // enable_trace("after_search");
             m_solver.push();
             expr_ref fml1(m);
             fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
@@ -114,9 +115,14 @@ protected:
             lbool is_sat = m_solver.check();
             TRACE("ctx_solver_simplify_tactic", tout << "is non-equivalence sat?: " << is_sat << "\n";);
             if (is_sat == l_true) {
+                model_ref mdl;
+                m_solver.get_model(mdl);
                 TRACE("ctx_solver_simplify_tactic", 
                       tout << "result is not equivalent to input\n";
-                      tout << mk_pp(fml1, m) << "\n";);
+                      tout << mk_pp(fml1, m) << "\n";
+                      tout << "evaluates to: " << (*mdl)(fml1) << "\n";
+                      m_solver.display(tout) << "\n";
+                      );
                 UNREACHABLE();
             }
             m_solver.pop(1);

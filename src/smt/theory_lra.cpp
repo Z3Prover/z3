@@ -1659,6 +1659,7 @@ public:
     }
 
     final_check_status final_check_eh() {
+        reset_variable_values();
         IF_VERBOSE(12, verbose_stream() << "final-check " << m_solver->get_status() << "\n");
         m_use_nra_model = false;
         lbool is_sat = l_true;

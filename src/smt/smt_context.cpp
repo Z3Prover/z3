@@ -3368,9 +3368,9 @@ namespace smt {
         }
         if (r == l_true && gparams::get_value("model_validate") == "true") {
             recfun::util u(m);
+            model_ref mdl;
+            get_model(mdl);            
             if (u.get_rec_funs().empty()) {
-                model_ref mdl;
-                get_model(mdl);
                 if (mdl.get()) {
                     for (theory* t : m_theory_set) {
                         t->validate_model(*mdl);
@@ -3384,7 +3384,7 @@ namespace smt {
                 if (lit.sign() ? m_model->is_true(v) : m_model->is_false(v)) {
                     IF_VERBOSE(10, verbose_stream() 
                                << "invalid assignment " << (lit.sign() ? "true" : "false") 
-                               << " to #" << v->get_id() << " := " << mk_bounded_pp(v, m, 2) << "\n");
+                               << " to #" << v->get_id() << " := " << mk_bounded_pp(v, m, 3) << "\n");
                 }
             }
             for (clause* cls : m_aux_clauses) {
