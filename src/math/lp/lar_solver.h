@@ -95,18 +95,19 @@ public:
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
     constraint_set                                      m_constraints;
     // the set of column indices j such that bounds have changed for j
-    u_set                                             m_columns_with_changed_bound;
-    u_set                                             m_rows_with_changed_bounds;
-    u_set                                             m_basic_columns_with_changed_cost;
+    u_set                                               m_columns_with_changed_bound;
+    u_set                                               m_rows_with_changed_bounds;
+    u_set                                               m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the the corresponding row in the tableau
     // does not sum to zero anymore
-    u_set                                             m_incorrect_columns;
+    u_set                                               m_incorrect_columns;
     stacked_value<int>                                  m_crossed_bounds_column_index; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
     std::unordered_map<lar_term, std::pair<mpq, unsigned>, term_hasher, term_comparer>
                                                         m_normalized_terms_to_columns;
+    vector<impq>                                        m_backup_x;
     // end of fields
 
     const vector<lar_term*> & terms() const { return m_terms; }
@@ -127,6 +128,7 @@ public:
     bool column_value_is_int(unsigned j) const {
         return m_mpq_lar_core_solver.m_r_x[j].is_int();
     }
+    
 
     const impq& get_column_value(unsigned j) const {
         return m_mpq_lar_core_solver.m_r_x[j];
@@ -643,5 +645,7 @@ public:
     bool fetch_normalized_term_column(const lar_term& t, std::pair<mpq, lpvar>& ) const;
     bool try_to_patch(lpvar, const mpq&, const std::function<bool (lpvar)>& blocker,const std::function<void (lpvar)>& change_report);
     bool inside_bounds(lpvar, const impq&) const;
+    void backup_x() { m_backup_x = m_mpq_lar_core_solver.m_r_x; }
+    void restore_x() { m_mpq_lar_core_solver.m_r_x = m_backup_x; }
 };
 }
