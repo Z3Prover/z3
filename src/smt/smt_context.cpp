@@ -4172,7 +4172,7 @@ namespace smt {
             update_phase_cache_counter();
             return true;
         }
-        else if (m_fparams.m_clause_proof) {
+        else if (m_fparams.m_clause_proof && !m.proofs_enabled()) {
             m_unsat_proof = m_clause_proof.get_proof();
         }
         else if (m.proofs_enabled()) {
