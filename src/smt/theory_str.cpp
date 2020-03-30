@@ -7633,6 +7633,17 @@ namespace smt {
     void theory_str::init_search_eh() {
         context & ctx = get_context();
 
+        axiomatized_terms.reset();
+        candidate_model.reset();
+        fixed_length_subterm_trail.reset();
+        fixed_length_assumptions.reset();
+        fixed_length_used_len_terms.reset();
+        var_to_char_subterm_map.reset();
+        uninterpreted_to_char_subterm_map.reset();
+        fixed_length_lesson.reset();
+        bitvector_character_constants.reset();
+        m_persisted_axioms.reset();
+
         TRACE("str",
               tout << "dumping all asserted formulas:" << std::endl;
               unsigned nFormulas = ctx.get_num_asserted_formulas();
@@ -7763,6 +7774,7 @@ namespace smt {
     }
 
     void theory_str::pop_scope_eh(unsigned num_scopes) {
+        context & ctx = get_context();
         sLevel -= num_scopes;
         TRACE("str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
         candidate_model.reset();
@@ -7808,9 +7820,11 @@ namespace smt {
         m_basicstr_axiom_todo.reset();
         m_basicstr_axiom_todo = new_m_basicstr;
 
-        for (expr * e : m_persisted_axioms) {
-            TRACE("str", tout << "persist axiom: " << mk_pp(e, get_manager()) << std::endl;);
-            m_persisted_axiom_todo.push_back(e);
+        if (ctx.is_searching()) {
+            for (expr * e : m_persisted_axioms) {
+                TRACE("str", tout << "persist axiom: " << mk_pp(e, get_manager()) << std::endl;);
+                m_persisted_axiom_todo.push_back(e);
+            }
         }
 
         m_trail_stack.pop_scope(num_scopes);
