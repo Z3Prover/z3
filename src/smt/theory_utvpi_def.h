@@ -545,7 +545,7 @@ namespace smt {
         if (coeffs.empty()) {
             return mk_num(n, w);
         }
-        if (coeffs.size() == 1 && coeffs[0].second.is_one()) {
+        if (coeffs.size() == 1 && coeffs[0].second.is_one() && ctx.e_internalized(n)) {
             return coeffs[0].first;
         }
         if (coeffs.size() == 2) {
