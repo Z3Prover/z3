@@ -1781,8 +1781,9 @@ void mpz_manager<SYNCH>::display_hex(std::ostream & out, mpz const & a, unsigned
 }
 
 static void display_binary_data(std::ostream &out, uint64_t val, uint64_t numBits) {
-	for (uint64_t shift = numBits; shift-- > 64ull; ) out << "0";
-    for (uint64_t shift = std::min(64ull, numBits); shift-- > 0; ) {
+    for (uint64_t shift = numBits; shift-- > 64ull; ) out << "0";
+    if (numBits > 64) numBits = 64;
+    for (uint64_t shift = numBits; shift-- > 0; ) {
         if (val & (1ull << shift)) {
             out << "1";
         } else {
