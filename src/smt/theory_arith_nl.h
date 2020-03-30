@@ -811,7 +811,7 @@ bool theory_arith<Ext>::branch_nl_int_var(theory_var v) {
     }
     ctx.internalize(bound, true);
     if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-    ctx.mark_as_relevant(bound);
+    ctx.mark_as_relevant(bound.get());
     literal l     = ctx.get_literal(bound);
     SASSERT(!l.sign());
     ctx.set_true_first_flag(l.var()); // force the context to case split to true first, independently of the phase selection strategy.
