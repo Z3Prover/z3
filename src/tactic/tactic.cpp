@@ -236,3 +236,13 @@ void fail_if_model_generation(char const * tactic_name, goal_ref const & in) {
         throw tactic_exception(std::move(msg));
     }
 }
+
+void fail_if_has_quantifiers(char const* tactic_name, goal_ref const& g) {
+    for (unsigned i = 0; i < g->size(); ++i)
+        if (has_quantifiers(g->form(i))) {
+            std::string msg = tactic_name;
+            msg += " does not apply to quantified goals";
+            throw tactic_exception(std::move(msg));
+        }
+}
+

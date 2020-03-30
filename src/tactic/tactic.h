@@ -125,5 +125,6 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
 void fail_if_proof_generation(char const * tactic_name, goal_ref const & in);
 void fail_if_unsat_core_generation(char const * tactic_name, goal_ref const & in);
 void fail_if_model_generation(char const * tactic_name, goal_ref const & in);
+void fail_if_has_quantifiers(char const* tactic_name, goal_ref const& in);
 
 #endif
