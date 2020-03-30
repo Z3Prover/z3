@@ -813,13 +813,13 @@ func_decl * basic_decl_plugin::mk_proof_decl(
     return m_manager->mk_func_decl(symbol(name), num_parents+1, domain.c_ptr(), m_proof_sort, info);
 }
 
-func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents) {
+func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, bool inc_ref) {
     ptr_buffer<sort> domain;
     for (unsigned i = 0; i < num_parents; i++)
         domain.push_back(m_proof_sort);
     domain.push_back(m_bool_sort);
     func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents+1, domain.c_ptr(), m_proof_sort, func_decl_info(m_family_id, k));
-    m_manager->inc_ref(d);
+    if (inc_ref) m_manager->inc_ref(d);
     return d;
 }
 
@@ -837,7 +837,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k,
         cache.resize(num_parents+1, nullptr);
     }
     if (!cache[num_parents]) {
-        cache[num_parents] = mk_proof_decl(name, k, num_parents);
+        cache[num_parents] = mk_proof_decl(name, k, num_parents, true);
     }
     return cache[num_parents];
 }
@@ -865,7 +865,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_param
 
 func_decl * basic_decl_plugin::mk_proof_decl(char const* name, basic_op_kind k, unsigned num_parents, func_decl*& fn) {
     if (!fn) {
-        fn = mk_proof_decl(name, k, num_parents);
+        fn = mk_proof_decl(name, k, num_parents, true);
     }
     return fn;
 }
@@ -919,7 +919,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("add-th-assume", k, num_parents, m_th_assumption_add_decl);
     case PR_TH_LEMMA_ADD:                 return mk_proof_decl("add-th-lemma", k, num_parents, m_th_lemma_add_decl);
     case PR_REDUNDANT_DEL:                return mk_proof_decl("del-redundant", k, num_parents, m_redundant_del_decl);
-    case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents);
+    case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents, false);
     default:
         UNREACHABLE();
         return nullptr;
@@ -1794,13 +1794,13 @@ bool ast_manager::slow_not_contains(ast const * n) {
 }
 #endif
 
-#if 0
+#if 1
 static unsigned s_count = 0;
 static void track_id(ast* n, unsigned id) {
     if (n->get_id() != id) return;
     ++s_count;
     std::cout << s_count << "\n";
-    //SASSERT(s_count != 23);
+    SASSERT(s_count != 1);
 }
 #endif
 
@@ -1833,6 +1833,8 @@ ast * ast_manager::register_node_core(ast * n) {
     }
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
+
+    // track_id(n, 2147483792);
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);

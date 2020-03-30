@@ -141,7 +141,8 @@ namespace smt {
                 break;
             }
         }
-        return proof_ref(m.mk_clause_trail(ps.size(), ps.c_ptr()), m);
+        proof_ref result(m.mk_clause_trail(ps.size(), ps.c_ptr()), m);
+        return result;
     }
 
     std::ostream& operator<<(std::ostream& out, clause_proof::status st) {

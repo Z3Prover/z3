@@ -1180,7 +1180,7 @@ protected:
     func_decl * mk_bool_op_decl(char const * name, basic_op_kind k, unsigned num_args = 0,
                                 bool asooc = false, bool comm = false, bool idempotent = false, bool flat_associative = false, bool chainable = false);
     func_decl * mk_implies_decl();
-    func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents);
+    func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, bool inc_ref);
     func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, func_decl*& fn);
     func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache);
     func_decl * mk_compressed_proof_decl(char const * name, basic_op_kind k, unsigned num_parents);
