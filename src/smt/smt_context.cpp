@@ -3075,12 +3075,11 @@ namespace smt {
         return true;
     }
 
-    bool context::reduce_assertions() {
+    void context::reduce_assertions() {
         if (!m_asserted_formulas.inconsistent()) {
             // SASSERT(at_base_level());
             m_asserted_formulas.reduce();
         }
-        return m_asserted_formulas.inconsistent();
     }
 
     static bool is_valid_assumption(ast_manager & m, expr * assumption) {

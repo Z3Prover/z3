@@ -242,7 +242,7 @@ void asserted_formulas::reduce() {
         return;
     if (m_qhead == m_formulas.size())
         return;
-    if (!m_smt_params.m_preprocess)
+    if (!m_has_quantifiers && !m_smt_params.m_preprocess)
         return;
     if (m_macro_manager.has_macros())
         invoke(m_find_macros);

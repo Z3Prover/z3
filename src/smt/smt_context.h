@@ -1561,8 +1561,7 @@ namespace smt {
 
         lbool setup_and_check(bool reset_cancel = true);
 
-        // return 'true' if assertions are inconsistent.
-        bool reduce_assertions();
+        void reduce_assertions();
 
         bool resource_limits_exceeded();
 
