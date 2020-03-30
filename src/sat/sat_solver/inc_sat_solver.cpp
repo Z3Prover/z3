@@ -222,7 +222,17 @@ public:
     }
 
     void push() override {
-        internalize_formulas();
+        try {
+            internalize_formulas();
+        }
+        catch (...) {
+            push_internal();
+            throw;
+        }
+        push_internal();
+    }
+
+    void push_internal() {
         m_solver.user_push();
         ++m_num_scopes;
         m_mcs.push_back(m_mcs.back());
@@ -599,6 +609,11 @@ private:
             m_bb_rewriter = nullptr;
             return l_undef;
         }        
+        catch (...) {
+            m_preprocess = nullptr;
+            m_bb_rewriter = nullptr;
+            throw;
+        }
         if (m_subgoals.size() != 1) {
             IF_VERBOSE(0, verbose_stream() << "size of subgoals is not 1, it is: " << m_subgoals.size() << "\n");
             return l_undef;

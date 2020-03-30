@@ -921,7 +921,7 @@ template<typename Ext>
 bool theory_diff_logic<Ext>::is_consistent() const {
     DEBUG_CODE(
         context& ctx = get_context();
-        for (unsigned i = 0; i < m_atoms.size(); ++i) {
+        for (unsigned i = 0; m_graph.is_feasible() && i < m_atoms.size(); ++i) {
             atom* a = m_atoms[i];
             bool_var bv = a->get_bool_var();
             lbool asgn = ctx.get_assignment(bv);        
