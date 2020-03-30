@@ -823,9 +823,12 @@ bool theory_arith<Ext>::branch_nl_int_var(theory_var v) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::is_monomial_linear(expr * m) const {
+
     SASSERT(is_pure_monomial(m));
     unsigned num_nl_vars = 0;
     for (expr* arg : *to_app(m)) {
+        if (!get_context().e_internalized(arg))
+            return false;
         theory_var _var = expr2var(arg);
         if (!is_fixed(_var)) {
             num_nl_vars++;
@@ -846,8 +849,7 @@ template<typename Ext>
 typename theory_arith<Ext>::numeral theory_arith<Ext>::get_monomial_fixed_var_product(expr * m) const {
     SASSERT(is_pure_monomial(m));
     numeral r(1);
-    for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-        expr * arg = to_app(m)->get_arg(i);
+    for (expr * arg : *to_app(m)) {
         theory_var _var = expr2var(arg);
         if (is_fixed(_var))
             r *= lower_bound(_var).get_rational();
