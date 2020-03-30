@@ -3353,7 +3353,6 @@ proof * ast_manager::mk_redundant_del(expr* e) {
 proof * ast_manager::mk_clause_trail(unsigned n, proof* const* ps) {    
     ptr_buffer<expr> args;
     args.append(n, (expr**) ps);
-    args.push_back(mk_false());
     return mk_app(m_basic_family_id, PR_CLAUSE_TRAIL, 0, nullptr, args.size(), args.c_ptr());
 }
 

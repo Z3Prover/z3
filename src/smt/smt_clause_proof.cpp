@@ -114,7 +114,7 @@ namespace smt {
         }
     }
 
-    proof_ref clause_proof::get_proof() {
+    proof_ref clause_proof::get_proof(bool inconsistent) {
         TRACE("context", tout << "get-proof " << ctx.get_fparams().m_clause_proof << "\n";);
         if (!ctx.get_fparams().m_clause_proof) {
             return proof_ref(m);
@@ -141,8 +141,8 @@ namespace smt {
                 break;
             }
         }
-        proof_ref result(m.mk_clause_trail(ps.size(), ps.c_ptr()), m);
-        return result;
+        ps.push_back(m.mk_bool_val(!inconsistent));
+        return proof_ref(m.mk_clause_trail(ps.size(), ps.c_ptr()), m);
     }
 
     std::ostream& operator<<(std::ostream& out, clause_proof::status st) {

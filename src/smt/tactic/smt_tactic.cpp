@@ -208,7 +208,7 @@ public:
             }
             SASSERT(m_ctx);
             m_ctx->collect_statistics(m_stats);
-            proof * pr = m_ctx->get_proof();
+            proof_ref pr(m_ctx->get_proof(), m);
             TRACE("smt_tactic", tout << r << " " << pr << "\n";);
             switch (r) {
             case l_true: {
@@ -267,7 +267,7 @@ public:
                 result.push_back(in.get());
                 if (pr) {
                     in->reset();
-                    in->assert_expr(m.mk_const(symbol("trail"), m.mk_bool_sort()), pr, nullptr);
+                    in->assert_expr(m.get_fact(pr), pr, nullptr);
                 }
                 if (m_candidate_models) {
                     switch (m_ctx->last_failure()) {

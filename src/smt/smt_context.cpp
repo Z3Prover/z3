@@ -4173,7 +4173,7 @@ namespace smt {
             return true;
         }
         else if (m_fparams.m_clause_proof && !m.proofs_enabled()) {
-            m_unsat_proof = m_clause_proof.get_proof();
+            m_unsat_proof = m_clause_proof.get_proof(inconsistent());
         }
         else if (m.proofs_enabled()) {
             m_unsat_proof = m_conflict_resolution->get_lemma_proof();
@@ -4500,7 +4500,7 @@ namespace smt {
 
     proof * context::get_proof() {        
         if (!m_unsat_proof) {
-            m_unsat_proof = m_clause_proof.get_proof();
+            m_unsat_proof = m_clause_proof.get_proof(inconsistent());
         }
         TRACE("context", tout << m_unsat_proof << "\n";);
         return m_unsat_proof;
