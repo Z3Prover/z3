@@ -125,6 +125,13 @@ public:
         return true;
     }
 
+    bool has_int_var() const {
+        for (const auto & vi : m_local_to_external) {
+            if (vi.is_integer())
+                return true;
+        }
+        return false;
+    }
     
     bool local_is_int(unsigned j) const {
         return m_local_to_external[j & m_locals_mask_inverted].is_integer();

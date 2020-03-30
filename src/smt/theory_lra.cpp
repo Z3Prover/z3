@@ -3548,6 +3548,9 @@ public:
         lp::impq term_max;
         lp::lp_status st;
         lpvar vi = 0;
+        if (has_int()) {
+            lp().backup_x();
+        }
         if (!can_get_bound(v)) {
             TRACE("arith", tout << "cannot get bound for v" << v << "\n";);
             st = lp::lp_status::UNBOUNDED;
@@ -3558,6 +3561,11 @@ public:
         else {
             vi = get_lpvar(v);
             st = lp().maximize_term(vi, term_max);
+            if (has_int() && lp().has_inf_int()) {
+                st = lp::lp_status::FEASIBLE;
+                lp().restore_x();
+            }
+                
         }
         switch (st) {
         case lp::lp_status::OPTIMAL: {

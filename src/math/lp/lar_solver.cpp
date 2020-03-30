@@ -1586,6 +1586,10 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     return local_j;
 }
 
+bool lar_solver::has_int_var() const {
+    return m_var_register.has_int_var();
+}
+
 void lar_solver::register_new_ext_var_index(unsigned ext_v, bool is_int) {
     lp_assert(!m_var_register.external_is_used(ext_v));
     m_var_register.add_var(ext_v, is_int);
