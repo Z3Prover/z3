@@ -657,7 +657,7 @@ namespace smt {
             case OP_DISTINCT:
             case OP_IMPLIES:
             case OP_XOR:
-                UNREACHABLE();
+                throw default_exception("formula has not been simplified");
             case OP_OEQ:
                 UNREACHABLE();
             default:
