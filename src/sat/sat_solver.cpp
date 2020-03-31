@@ -1276,20 +1276,20 @@ namespace sat {
     };
 
     lbool solver::invoke_local_search(unsigned num_lits, literal const* lits) {
+        SASSERT(m_local_search);
+        scoped_ptr<i_local_search> _ptr = m_local_search;
         if (inconsistent()) return l_false;
         scoped_limits scoped_rl(rlimit());
         SASSERT(m_local_search);
-        i_local_search& srch = *m_local_search;
-        srch.add(*this);
-        srch.updt_params(m_params);
-        scoped_rl.push_child(&srch.rlimit());
-        lbool r = srch.check(num_lits, lits, nullptr);
+        m_local_search->add(*this);
+        m_local_search->updt_params(m_params);
+        scoped_rl.push_child(&(m_local_search->rlimit()));
+        lbool r = m_local_search->check(num_lits, lits, nullptr);
         if (r == l_true) {
-            m_model = srch.get_model();
+            m_model = m_local_search->get_model();
             m_model_is_current = true;
         }
         m_local_search = nullptr;
-        dealloc(&srch);
         return r;
     }
 
