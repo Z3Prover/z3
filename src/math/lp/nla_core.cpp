@@ -1332,8 +1332,10 @@ bool core::elists_are_consistent(bool check_in_model) const {
 
 bool core::var_is_used_in_a_correct_monic(lpvar j) const {
     for (const monic & m : emons().get_use_list(j)) {
-        if (!m_to_refine.contains(m.var()))
+        if (!m_to_refine.contains(m.var())) {
+            TRACE("nla_solver", tout << "j" << j << " is used in a correct monic \n";);
             return true;
+        }
     }
     return false;
 }
@@ -1356,29 +1358,44 @@ void core::update_to_refine_of_var(lpvar j) {
 }
 
 
+bool core::try_to_patch(lpvar k, const rational& v) {
+    return m_lar_solver.try_to_patch(k, v,
+                                     [this](lpvar u) { return var_is_used_in_a_correct_monic(u);},
+                                     [this](lpvar u) { update_to_refine_of_var(u); });
+}
 
-void core::patch_real_var(lpvar j) {    
-    SASSERT(!var_is_int(j));
-    rational v = mul_val(emons()[j]);
-    if (val(j) == v)
+
+// looking for any real var to patch
+void core::patch_monomial_with_real_var(lpvar j) {    
+    const monic& m = emons()[j];
+    rational v = mul_val(m);
+    if (val(j) == v || val(j).is_zero() || v.is_zero()) // correct or a lemma will catch it
         return;
-    if (var_is_used_in_a_correct_monic(j))
-        return;
-    if(m_lar_solver.try_to_patch(j, v,
-                              [this](lpvar k) { return var_is_used_in_a_correct_monic(k);},
-                              [this](lpvar k) { update_to_refine_of_var(k); }))
+    if (!var_is_int(j)  &&
+        !var_is_used_in_a_correct_monic(j)
+        &&  try_to_patch(j, v)) {
         m_to_refine.erase(j);
+    } else {
+        rational r = val(j) / v;
+        for (lpvar k: m.vars()) {
+            if (var_is_int(k)) continue;            
+            if (var_is_used_in_a_correct_monic(k))
+                continue;
+            if (try_to_patch(k, r * val(k))) { // r * val(k) gives the right value of k
+                m_to_refine.erase(j);
+            }
+        }
+    }
+    
                               
 }
 
 
-void core::patch_real_vars() {
+void core::patch_monomials_with_real_vars() {
     auto to_refine = m_to_refine.index();
     // the rest of the function might change m_to_refine, so have to copy
     for (lpvar j : to_refine) {
-        if (var_is_int(j))
-            continue;
-        patch_real_var(j);
+        patch_monomial_with_real_var(j);
     }
     SASSERT(m_lar_solver.ax_is_correct());
 }
@@ -1394,7 +1411,7 @@ lbool core::check(vector<lemma>& l_vec) {
     }
 
     init_to_refine();
-    patch_real_vars();
+    patch_monomials_with_real_vars();
     if (m_to_refine.is_empty()) {
         return l_true;
     }
