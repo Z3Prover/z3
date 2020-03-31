@@ -3205,7 +3205,7 @@ namespace sat {
             recompile(c.to_pb());
             break;
         case xr_t:
-            NOT_IMPLEMENTED_YET();
+            //NOT_IMPLEMENTED_YET();
             break;
         default:
             UNREACHABLE();
