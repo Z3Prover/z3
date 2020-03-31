@@ -141,7 +141,12 @@ namespace smt {
                 break;
             }
         }
-        ps.push_back(m.mk_bool_val(!inconsistent));
+        if (inconsistent) {
+            ps.push_back(m.mk_false());
+        }
+        else {
+            ps.push_back(m.mk_const("clause-trail-end", m.mk_bool_sort()));
+        }
         return proof_ref(m.mk_clause_trail(ps.size(), ps.c_ptr()), m);
     }
 
