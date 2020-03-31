@@ -1016,7 +1016,10 @@ class context {
     /**
        \brief Retrieve satisfying assignment with explanation.
     */
-    expr_ref mk_sat_answer() const {return get_ground_sat_answer();}
+    expr_ref mk_sat_answer() const {
+        proof_ref pr = get_ground_refutation();
+        return expr_ref(pr.get(), pr.get_manager());
+    }
     expr_ref mk_unsat_answer() const;
     unsigned get_cex_depth ();
 
