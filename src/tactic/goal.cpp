@@ -115,6 +115,7 @@ void goal::copy_to(goal & target) const {
 }
 
 void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
+    SASSERT(!m().proofs_enabled() || pr);
     if (m().is_true(f))
         return;
     if (m().is_false(f)) {
@@ -252,6 +253,7 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
     if (m_inconsistent) {
         return;
     }
+    SASSERT(!m().proofs_enabled() || pr);
     if (pr) {
         SASSERT(f == m().get_fact(pr));
         slow_process(f, pr, d);
@@ -301,6 +303,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         }
     }
     else {
+        SASSERT(!m().proofs_enabled());
         expr_ref fr(f, m());
         quick_process(true, fr, d);
         if (!m_inconsistent) {

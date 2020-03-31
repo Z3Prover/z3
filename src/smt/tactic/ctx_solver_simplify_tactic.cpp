@@ -83,6 +83,8 @@ protected:
 
 
     void reduce(goal& g) {
+        if (m.proofs_enabled())
+            return;
         TRACE("ctx_solver_simplify_tactic", g.display(tout););
         expr_ref fml(m);
         tactic_report report("ctx-solver-simplify", g);
