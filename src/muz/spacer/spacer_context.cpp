@@ -55,6 +55,9 @@ Notes:
 
 #include "muz/spacer/spacer_sat_answer.h"
 
+#include <set>
+#include <stack>
+
 #define WEAKNESS_MAX 65535
 
 namespace spacer {
@@ -2950,6 +2953,14 @@ proof_ref context::get_ground_refutation() const {
     return op(*m_query);
 }
 
+/**
+    Convert a ground refutation into a linear or nonlinear counterexample.
+    The counterexample is given as a conjunction of implications of the form
+    `premises => conclusion` where `premises` is the conjunction of predicates
+    from the body of nonlinear clauses, representing the proof graph.
+    Note that if there are no nonlinear clauses, `premises` is always `true`
+    and the counterexample is linear.
+*/
 expr_ref context::get_ground_sat_answer() const {
     if (m_last_result != l_true) {
         IF_VERBOSE(0, verbose_stream()
@@ -2957,41 +2968,58 @@ expr_ref context::get_ground_sat_answer() const {
         return expr_ref(m);
     }
 
-    // convert a ground refutation into a linear counterexample
-    // only works for linear CHC systems
-    expr_ref_vector cex(m);
-    proof_ref pf = get_ground_refutation();
-
     proof_ref_vector premises(m);
     expr_ref conclusion(m);
     svector<std::pair<unsigned, unsigned>> positions;
     vector<expr_ref_vector> substs;
-    unsigned count = 0;
-    while (m.is_hyper_resolve(pf, premises, conclusion, positions, substs)) {
-        // skip the first fact since it is query!X introduced by the encoding
-        // and not a user-visible predicate
-        if (count++ > 0)
-            cex.push_back(m.get_fact(pf));
-        if (premises.size() > 1) {
-            SASSERT(premises.size() == 2 && "Non linear CHC detected");
-            pf = premises.get(1);
-        } else {
-            pf.reset();
-            break;
-    }
+    expr_ref_vector cex(m);
 
-        premises.reset();
-        conclusion.reset();
-        positions.reset();
-        substs.reset();
+    proof_ref p = get_ground_refutation();
+
+    std::stack<proof_ref> proof_stack;
+    proof_stack.push(p);
+
+    std::set<unsigned> visited;
+    visited.insert(p);
+
+    unsigned count = 0;
+    while (!proof_stack.empty()) {
+        proof_ref pf = proof_stack.top();
+        proof_stack.pop();
+
+        if (m.is_hyper_resolve(pf, premises, conclusion, positions, substs)) {
+            expr_ref_vector premise_conj(m);
+            for (unsigned i = 1; i < premises.size(); ++i)
+            {
+                pf = premises.get(i);
+                premise_conj.push_back(m.get_fact(pf));
+                if (!visited.count(pf->get_id())) {
+                    visited.insert(pf->get_id());
+                    proof_stack.push(pf);
+                }
+            }
+            // skip the first fact since it is query!X introduced by the encoding
+            // and not a user-visible predicate
+            if (count++ > 0) {
+                if (premise_conj.empty())
+                    cex.push_back(conclusion);
+                else
+                    // if this was automatically simplified when `premise_conj = {}`
+                    // we could remove the if
+                    cex.push_back(m.mk_implies(mk_and(premise_conj), conclusion));
+            }
+
+            pf.reset();
+            premises.reset();
+            conclusion.reset();
+            positions.reset();
+            substs.reset();
+        } else if (pf) {
+            cex.push_back(m.get_fact(pf));
         }
-    SASSERT(!pf || !m.is_hyper_resolve(pf));
-    if (pf) {
-        cex.push_back(m.get_fact(pf));
     }
 
     TRACE ("spacer", tout << "ground cex\n" << cex << "\n";);
-
     return mk_and(cex);
 }
 
