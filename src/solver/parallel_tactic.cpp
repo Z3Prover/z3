@@ -183,6 +183,7 @@ class parallel_tactic : public tactic {
         ref<solver>     m_solver;                 // solver state
         unsigned        m_depth;                  // number of nested calls to cubing
         double          m_width;                  // estimate of fraction of problem handled by state
+        bool            m_giveup;
 
     public:
         solver_state(ast_manager* m, solver* s, params_ref const& p): 
@@ -192,7 +193,8 @@ class parallel_tactic : public tactic {
             m_params(p),
             m_solver(s),
             m_depth(0),
-            m_width(1.0)
+            m_width(1.0),
+            m_giveup(false)
         {
         }
 
@@ -264,7 +266,9 @@ class parallel_tactic : public tactic {
 
         bool giveup() {
             std::string r = get_solver().reason_unknown(); 
-            return r == "(incomplete quantifiers)";
+            std::string inc("(incomplete");
+            m_giveup |= r.compare(0, inc.size(), inc) == 0;
+            return m_giveup;
         }
 
         void assert_cube(expr_ref_vector const& cube) {
@@ -309,7 +313,7 @@ class parallel_tactic : public tactic {
         }
 
         bool canceled() { 
-            return m().canceled();
+            return m_giveup || m().canceled();
         }
 
         std::ostream& display(std::ostream& out) {
@@ -469,7 +473,7 @@ private:
         case l_false: report_unsat(s); return;                
         }
         if (canceled(s)) return;
-        if (s.giveup()) return;
+        if (s.giveup()) { report_undef(s); return; }
         
         if (memory_pressure()) {
             goto simplify_again;
