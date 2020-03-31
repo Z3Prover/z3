@@ -3769,6 +3769,7 @@ public:
         for (unsigned v = 0; v < nv; ++v) {
             if (!ctx().is_relevant(get_enode(v))) out << "irr: ";
             out << "v" << v;
+            out << " j" << get_lpvar(v); 
             if (can_get_value(v)) out << " = " << get_value(v); 
             if (is_int(v)) out << ", int";
             if (ctx().is_shared(get_enode(v))) out << ", shared";
