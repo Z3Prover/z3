@@ -167,9 +167,10 @@ namespace sat {
         init_goodvars();
         set_best_unsat();
 
-        for (bool_var v : m_units) {
+        unsigned sz = m_units.size();
+        for (unsigned i = 0; !m_is_unsat && i < m_units.size(); ++i) {
+            bool_var v = m_units[i];
             propagate(literal(v, !cur_solution(v)));
-            if (m_is_unsat) break;
         }
         if (m_is_unsat) {
             IF_VERBOSE(0, verbose_stream() << "unsat during reinit\n");
