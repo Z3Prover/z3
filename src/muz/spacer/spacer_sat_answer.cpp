@@ -15,27 +15,25 @@ struct ground_sat_answer_op::frame {
     unsigned m_visit;
     expr_ref_vector m_kids;
 
-    frame(reach_fact *rf, pred_transformer &pt, const expr_ref_vector &gnd_subst) :
-        m_rf(rf), m_pt(pt),
-        m_gnd_subst(gnd_subst),
-        m_gnd_eq(pt.get_ast_manager()),
-        m_fact(pt.get_ast_manager()),
-        m_visit(0),
-        m_kids(pt.get_ast_manager()) {
+    frame(reach_fact *rf, pred_transformer &pt,
+          const expr_ref_vector &gnd_subst)
+        : m_rf(rf), m_pt(pt), m_gnd_subst(gnd_subst),
+          m_gnd_eq(pt.get_ast_manager()), m_fact(pt.get_ast_manager()),
+          m_visit(0), m_kids(pt.get_ast_manager()) {
 
         ast_manager &m = pt.get_ast_manager();
         spacer::manager &pm = pt.get_manager();
 
         m_fact = m.mk_app(head(), m_gnd_subst.size(), m_gnd_subst.c_ptr());
-        if (pt.head()->get_arity() == 0)
-            m_gnd_eq = m.mk_true();
-        else {
-            SASSERT(m_gnd_subst.size() == pt.head()->get_arity());
-            for (unsigned i = 0, sz = pt.sig_size(); i < sz; ++i) {
-                m_gnd_eq = m.mk_eq(m.mk_const(pm.o2n(pt.sig(i), 0)),
-                                      m_gnd_subst.get(i));
-            }
+
+        // compute ground equalities implied by the fact
+        SASSERT(m_gnd_subst.size() == pt.head()->get_arity());
+        expr_ref_vector eqs(m);
+        for (unsigned i = 0, sz = pt.sig_size(); i < sz; ++i) {
+            eqs.push_back(
+                m.mk_eq(m.mk_const(pm.o2n(pt.sig(i), 0)), m_gnd_subst.get(i)));
         }
+        m_gnd_eq = mk_and(eqs);
     }
 
     func_decl* head() {return m_pt.head();}
@@ -142,6 +140,9 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
                              m_ctx.get_pred_transformer(preds.get(i)), subst));
         fr.m_kids.push_back(todo.back().fact());
     }
+    TRACE("spacer_sat", tout << "Children for fact: " << fr.m_fact << " are " << fr.m_kids << "\n";
+          tout << "gnd_eq for fact are: " << fr.m_gnd_eq << "\n";
+          );
 }
 
 
@@ -181,6 +182,9 @@ proof *ground_sat_answer_op::mk_proof_step(frame &fr) {
                                           premises.c_ptr(),
                                           fr.fact(),
                                           positions, substs));
+    TRACE("spacer_sat", tout << "pf step:\n"
+          << "premises: " << premises << "\n"
+          << "fact: " << mk_pp(fr.fact(), m) << "\n";);
     return to_app(m_pinned.back());
 }
 
