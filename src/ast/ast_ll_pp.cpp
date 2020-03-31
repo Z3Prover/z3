@@ -42,11 +42,7 @@ class ll_printer {
     }
 
     void display_name(func_decl * decl) {
-        symbol n = decl->get_name();
-        if (decl->is_skolem() && n.is_numerical())
-            m_out << "z3.sk." << n.get_num();
-        else 
-            m_out << n;
+        m_out << decl->get_name();
     }
 
     bool process_numeral(expr * n) {

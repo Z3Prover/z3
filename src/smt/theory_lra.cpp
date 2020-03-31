@@ -695,8 +695,10 @@ class theory_lra::imp {
         if (!_has_var) {
             svector<lpvar> vars;
             for (expr* n : *t) {
+                if (is_app(n)) VERIFY(internalize_term(to_app(n)));
                 SASSERT(ctx().e_internalized(n));
-                vars.push_back(register_theory_var_in_lar_solver(mk_var(n)));        
+                theory_var v = mk_var(n);
+                vars.push_back(register_theory_var_in_lar_solver(v));
             }
             TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
             m_solver->register_existing_terms();            
@@ -769,8 +771,8 @@ class theory_lra::imp {
         enode* e = get_enode(n);
         theory_var v;
         if (!th.is_attached_to_var(e)) {
-            TRACE("arith", tout << "fresh var: " << mk_pp(n, m) << "\n";);
             v = th.mk_var(e);
+            TRACE("arith", tout << "fresh var: v" << v << " " << mk_pp(n, m) << "\n";);
             SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
             if (m_bounds.size() <= static_cast<unsigned>(v)) {
                 m_bounds.push_back(lp_bounds());
@@ -875,13 +877,15 @@ class theory_lra::imp {
         theory_var z = internalize_linearized_def(term, st);      
         lpvar vi = register_theory_var_in_lar_solver(z);
         add_def_constraint(lp().add_var_bound(vi, lp::LE, rational::zero()));
-        // if (is_infeasible()) {
+        if (is_infeasible()) {
+            IF_VERBOSE(0, verbose_stream() << "infeasible\n";);
         //     process_conflict(); // exit here?
-        // }
+        }
         add_def_constraint(lp().add_var_bound(vi, lp::GE, rational::zero()));
-        // if (is_infeasible()) {
-        //     process_conflict();
-        // }
+        if (is_infeasible()) {
+            IF_VERBOSE(0, verbose_stream() << "infeasible\n";);
+        //     process_conflict(); // exit here?
+        }
         TRACE("arith", 
               {
                   expr*  o1 = get_enode(v1)->get_owner();
@@ -969,7 +973,7 @@ class theory_lra::imp {
             }
             theory_var v = mk_var(term);
             lpvar vi = get_lpvar(v);
-            TRACE("arith", tout << mk_bounded_pp(term, m) << " v" << v << " vi " << vi << "\n";);
+            TRACE("arith", tout << mk_bounded_pp(term, m) << " v" << v << " j" << vi << "\n";);
             if (vi == UINT_MAX) {
                 rational const& offset = st.offset();
                 if (!offset.is_zero()) {
@@ -980,6 +984,9 @@ class theory_lra::imp {
                 SASSERT (lp::tv::is_term(vi));
                 TRACE("arith_verbose", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                       lp().print_term(lp().get_term(vi), tout) << "\n";);
+            }
+            else {                
+                SASSERT(lp::tv::is_term(vi));
             }
             rational val;
             if (a.is_numeral(term, val)) {
