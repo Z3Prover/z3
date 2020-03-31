@@ -420,7 +420,7 @@ namespace smt {
                     scoped_trace_stream _sts(*this, fn);
                     ctx.internalize(bound, true);
                 }
-                ctx.mark_as_relevant(bound);
+                ctx.mark_as_relevant(bound.get());
                 result = true;
             }
         }
