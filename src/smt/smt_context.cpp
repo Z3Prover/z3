@@ -252,6 +252,8 @@ namespace smt {
         // copy theory plugins
         for (theory* old_th : src.m_theory_set) {
             theory * new_th = old_th->mk_fresh(&dst);
+            if (!new_th)
+                throw default_exception("theory cannot be copied");
             dst.register_plugin(new_th);
         }
     }
