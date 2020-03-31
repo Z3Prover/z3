@@ -500,8 +500,7 @@ namespace smt {
 
         // literal lits[2] = {l_ante, l_conseq};
         if (m.has_trace_stream()) {
-            app_ref body(m);
-            body = m.mk_or(ante, conseq);
+            app_ref body(m.mk_or(ante, conseq), m);
             log_axiom_instantiation(body);
         }
         mk_clause(l_ante, l_conseq, 0, nullptr);

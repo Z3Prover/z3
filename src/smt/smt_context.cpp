@@ -2929,8 +2929,9 @@ namespace smt {
         TRACE("flush", tout << "m_scope_lvl: " << m_scope_lvl << "\n";);
         m_relevancy_propagator = nullptr;
         m_model_generator->reset();
-        for (theory* t : m_theory_set) 
+        for (theory* t : m_theory_set) {
             t->flush_eh();
+        }
         del_clauses(m_aux_clauses, 0);
         del_clauses(m_lemmas, 0);
         del_justifications(m_justifications, 0);

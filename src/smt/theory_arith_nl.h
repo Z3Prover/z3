@@ -804,13 +804,11 @@ bool theory_arith<Ext>::branch_nl_int_var(theory_var v) {
     TRACE("non_linear", tout << "new bound:\n" << mk_pp(bound, get_manager()) << "\n";);
     context & ctx = get_context();
     ast_manager & m = get_manager();
-    if (m.has_trace_stream()) {
-        app_ref body(m);
-        body = m.mk_or(bound, m.mk_not(bound));
-        log_axiom_instantiation(body);
+    {
+        std::function<expr*(void)> fn = [&]() { return m.mk_or(bound, m.mk_not(bound)); };
+        scoped_trace_stream _sts(*this, fn);
+        ctx.internalize(bound, true);
     }
-    ctx.internalize(bound, true);
-    if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     ctx.mark_as_relevant(bound.get());
     literal l     = ctx.get_literal(bound);
     SASSERT(!l.sign());
