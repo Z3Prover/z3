@@ -667,13 +667,15 @@ private:
     std::ostream& display(std::ostream& out) {
         unsigned n_models, n_unsat;
         double n_progress;
+        statistics st;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             n_models   = m_models.size();
             n_unsat    = m_num_unsat;
             n_progress = m_progress;
+            st.copy(m_stats);
         }
-        m_stats.display(out);
+        st.display(out);
         m_queue.display(out);
         out << "(tactic.parallel :unsat " << n_unsat << " :progress " << n_progress << "% :models " << n_models << ")\n";
         return out;
