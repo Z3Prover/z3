@@ -415,7 +415,7 @@ private:
                 return false;
             }
             else if (is_var(v) && is_non_singleton_sort(m.get_sort(v))) {
-                new_v = m.mk_var(to_var(v)->get_idx(), m.mk_bool_sort());                
+                new_v = m.mk_var(to_var(v)->get_idx(), m.mk_bool_sort());
                 return true;
             }
         }
@@ -424,13 +424,13 @@ private:
 
     bool has_diagonal(expr* e) {
         return 
-            m_bv.is_bv(e) || 
+            m_bv.is_bv(e) ||
             m.is_bool(e) ||
             m_arith.is_int_real(e);
     }
 
     expr * mk_diagonal(expr* e) {
-        if (m_bv.is_bv(e)) return m_bv.mk_bv_neg(e);
+        if (m_bv.is_bv(e)) return m_bv.mk_bv_not(e);
         if (m.is_bool(e)) return m.mk_not(e);
         if (m_arith.is_int(e)) return m_arith.mk_add(m_arith.mk_int(1), e);
         if (m_arith.is_real(e)) return m_arith.mk_add(m_arith.mk_real(1), e);
