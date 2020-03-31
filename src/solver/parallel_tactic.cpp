@@ -262,7 +262,13 @@ class parallel_tactic : public tactic {
             return r;            
         }
 
+        bool giveup() {
+            std::string r = get_solver().reason_unknown(); 
+            return r == "(incomplete quantifiers)";
+        }
+
         void assert_cube(expr_ref_vector const& cube) {
+            IF_VERBOSE(3, verbose_stream() << "assert cube: " << cube << "\n");
             get_solver().assert_expr(cube);
             m_asserted_cubes.append(cube);
         }
@@ -463,6 +469,7 @@ private:
         case l_false: report_unsat(s); return;                
         }
         if (canceled(s)) return;
+        if (s.giveup()) return;
         
         if (memory_pressure()) {
             goto simplify_again;
