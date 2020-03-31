@@ -187,8 +187,9 @@ namespace smt {
         ptr_vector<enode> & as_arrays = m_var_data_full[v]->m_as_arrays;
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(as_arrays));
         as_arrays.push_back(arr);
-        instantiate_default_as_array_axiom(arr);
-        for (enode * n : d->m_parent_selects) {
+        instantiate_default_as_array_axiom(arr);        
+        for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
+            enode* n = d->m_parent_selects[i];
             SASSERT(is_select(n));
             instantiate_select_as_array_axiom(n, arr);
         }
