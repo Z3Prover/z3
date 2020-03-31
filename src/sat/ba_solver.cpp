@@ -2048,7 +2048,40 @@ namespace sat {
         return lit;
     }
 
-    ba_solver::constraint* ba_solver::add_xr(literal_vector const& lits, bool learned) {
+    ba_solver::constraint* ba_solver::add_xr(literal_vector const& _lits, bool learned) {
+        struct parity { 
+            bool sign; bool lit; 
+            parity(): sign(false), lit(false) {}
+            // {false, false},  p => {false, true}
+            // {false, false}, !p => {true, true}
+            // {false, true},   p => {true, false}
+            // {false, true},  !p => {true, false}            
+            void add(literal l) {
+                lit = !lit;
+                sign = sign != l.sign();
+            }                
+        };
+        literal_vector lits;
+        u_map<parity> var2parity;
+        for (literal lit : _lits) {
+            var2parity.insert_if_not_there2(lit.var(), parity())->get_data().m_value.add(lit);
+        }       
+        
+        bool polarity = false;
+        for (auto const& kv : var2parity) {
+            bool lit = kv.m_value.lit;
+            bool sign = kv.m_value.sign;
+            if (lit)
+                lits.push_back(literal(kv.m_key, sign));
+            else 
+                polarity = polarity ^ sign;
+        }
+        if (lits.empty()) {
+            throw default_exception("empty xor is TBD");
+        }
+        if (polarity) {
+            lits[0].neg();
+        }
         void * mem = m_allocator.allocate(xr::get_obj_size(lits.size()));
         xr* x = new (mem) xr(next_id(), lits);
         x->set_learned(learned);

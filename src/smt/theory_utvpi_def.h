@@ -759,8 +759,8 @@ namespace smt {
 
             int_vector zero_v;
             m_graph.compute_zero_succ(v1, zero_v);
-            for (unsigned j = 0; j < zero_v.size(); ++j) {
-                if (zero_v[j] == v2) {
+            for (auto v0 : zero_v) {
+                if (v0 == v2) {
                     zero_v.reset();
                     m_graph.compute_zero_succ(v2, zero_v);
                     break;
@@ -769,13 +769,13 @@ namespace smt {
 
             TRACE("utvpi", 
                   tout << "Disparity: " << v1 << "\n";
-                  for (unsigned j = 0; j < zero_v.size(); ++j) {
-                      tout << "decrement: " << zero_v[j] << "\n";
-                  });
+                  for (auto v : zero_v) {
+                      tout << "decrement: " << v << "\n";
+                  }
+                  display(tout);
+                  );
 
-            for (unsigned j = 0; j < zero_v.size(); ++j) {
-                int v = zero_v[j];
-                
+            for (auto v : zero_v) {                
                 m_graph.inc_assignment(v, numeral(-1));
                 th_var k = from_var(v);
                 if (!is_parity_ok(k)) {
