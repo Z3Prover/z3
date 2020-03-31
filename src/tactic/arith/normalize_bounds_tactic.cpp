@@ -124,9 +124,6 @@ class normalize_bounds_tactic : public tactic {
                 expr * curr = in->form(idx);
                 proof_ref  new_pr(m);
                 m_rw(curr, new_curr, new_pr);
-                std::cout << new_curr << "\n";
-                std::cout << new_pr << "\n";
-                std::cout << expr_ref(in->pr(idx), m) << "\n";
                 if (produce_proofs) {
                     proof * pr = in->pr(idx);
                     new_pr     = m.mk_modus_ponens(pr, new_pr);
