@@ -1978,14 +1978,8 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
         if (m_util.is_bv_mul(arg, s, t)) {
             // ~(-1 * x) --> (x - 1)
             bv_size = m_util.get_bv_size(s);
-            if (m_util.is_allone(s)) {
-                rational minus_one = (rational::power_of_two(bv_size) - rational::one());
-                result = m_util.mk_bv_add(m_util.mk_numeral(minus_one, bv_size), t);
-                return BR_REWRITE1;
-            }
-            if (m_util.is_allone(t)) {
-                rational minus_one = (rational::power_of_two(bv_size) - rational::one());
-                result = m_util.mk_bv_add(m_util.mk_numeral(minus_one, bv_size), s);
+            if (m_util.is_allone(s) || m_util.is_allone(t)) {
+                result = m_util.mk_bv_add(s, t);
                 return BR_REWRITE1;
             }
         }
