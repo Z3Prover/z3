@@ -700,7 +700,7 @@ class solve_eqs_tactic : public tactic {
             expr_ref tmp(m()), tmp2(m());
             
             // TRACE("solve_eqs", g.display(tout););
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; !g.inconsistent() && idx < size; idx++) {
                 checkpoint();
                 if (g.is_decided_unsat()) break;
                 expr* f = g.form(idx);
