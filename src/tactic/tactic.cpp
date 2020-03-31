@@ -178,7 +178,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
 
     if (r.size() > 0) {
         pr = r[0]->pr(0);
-        TRACE("tactic", tout << pr << "\n";);
+        CTRACE("tactic", pr, tout << pr << "\n";);
     }
     
 

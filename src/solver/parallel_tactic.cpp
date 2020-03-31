@@ -33,6 +33,7 @@ Notes:
 #include <cmath>
 #include <condition_variable>
 #include "util/scoped_ptr_vector.h"
+#include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/ast_translation.h"
 #include "solver/solver.h"
@@ -141,6 +142,8 @@ class parallel_tactic : public tactic {
             for (auto* t : m_active) dealloc(t);
             m_tasks.reset();
             m_active.reset();
+            m_num_waiters = 0;
+            m_shutdown = false;
         }
 
         std::ostream& display(std::ostream& out) {
@@ -696,6 +699,7 @@ public:
     }
 
     void operator ()(const goal_ref & g,goal_ref_buffer & result) override {
+        cleanup();
         fail_if_proof_generation("parallel-tactic", g);
         ast_manager& m = g->m();        
         solver* s = m_solver->translate(m, m_params);
@@ -744,6 +748,8 @@ public:
 
     void cleanup() override {
         m_queue.reset();
+        m_models.reset();
+        m_stats.reset();
     }
 
     tactic* translate(ast_manager& m) override {
