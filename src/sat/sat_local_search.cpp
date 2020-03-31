@@ -490,7 +490,7 @@ namespace sat {
                     break;
                 }
                 case ba_solver::xr_t:
-                    NOT_IMPLEMENTED_YET();
+                    throw default_exception("local search is incompatible with enabling xor solving");
                     break;
                 }
             }

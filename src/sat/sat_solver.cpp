@@ -1278,8 +1278,12 @@ namespace sat {
     lbool solver::invoke_local_search(unsigned num_lits, literal const* lits) {
         literal_vector _lits(num_lits, lits);
         for (literal lit : m_user_scope_literals) _lits.push_back(~lit);
-        SASSERT(m_local_search);
-        scoped_ptr<i_local_search> _ptr = m_local_search;
+        struct scoped_ls {
+            solver& s;
+            scoped_ls(solver& s): s(s) {}
+            ~scoped_ls() { dealloc(s.m_local_search); s.m_local_search = nullptr; }
+        };
+        scoped_ls _ls(*this);
         if (inconsistent()) return l_false;
         scoped_limits scoped_rl(rlimit());
         SASSERT(m_local_search);
@@ -1291,7 +1295,6 @@ namespace sat {
             m_model = m_local_search->get_model();
             m_model_is_current = true;
         }
-        m_local_search = nullptr;
         return r;
     }
 
