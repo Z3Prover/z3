@@ -772,7 +772,8 @@ namespace smt {
         v = find(v);
         var_data* d = m_var_data[v];
         bool result = false;
-        for (enode * store : d->m_parent_stores) {
+        for (unsigned i = 0; i < d->m_parent_stores.size(); ++i) {
+            enode* store = d->m_parent_stores[i];
             SASSERT(is_store(store));
             if ((!m_params.m_array_cg || store->is_cgr()) && 
                 instantiate_default_store_axiom(store)) {
