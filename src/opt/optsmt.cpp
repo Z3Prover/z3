@@ -162,7 +162,7 @@ namespace opt {
                 for (unsigned i = 0; i < m_lower.size(); ++i) {
                     all_tight &= m_lower[i] == m_upper[i];
                 }
-                if (all_tight)
+                if (all_tight || delta_index + 1 == m_lower.size())
                     break;
                 delta_per_step = 1;
                 steps = 0;
