@@ -1795,6 +1795,8 @@ struct contains_underspecified_op_proc {
             throw found();
         if (m_arith.is_non_algebraic(n))
             throw found();
+        if (m_arith.is_irrational_algebraic_numeral(n))
+            throw found();
         if (n->get_family_id() == m_array_fid) {
             decl_kind k = n->get_decl_kind();
             if (k == OP_AS_ARRAY ||

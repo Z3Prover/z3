@@ -110,7 +110,6 @@ class propagate_values_tactic : public tactic {
         expr * curr = m_goal->form(m_idx);
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
-        std::cout << m_goal->pr(m_idx) << "\n";
         
         if (!m_subst->empty()) {
             m_r(curr, new_curr, new_pr);
