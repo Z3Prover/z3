@@ -105,6 +105,17 @@ private:
             throw tactic_exception(m.limit().get_cancel_msg());
     }
 
+    bool is_bv_neg(expr * e) {
+        if (m_bv.is_bv_neg(e))
+            return true;
+
+        expr *a, *b;
+        if (m_bv.is_bv_mul(e, a, b)) {
+            return m_bv.is_allone(a) || m_bv.is_allone(b);
+        }
+        return false;
+    }
+
     expr_mark        m_inverted;
     void mark_inverted(expr *p) {
         ptr_buffer<expr> todo;
@@ -256,7 +267,7 @@ private:
 
         if (m_bv.is_bv_xor(p) ||
             m_bv.is_bv_not(p) ||
-            m_bv.is_bv_neg(p)) {
+            is_bv_neg(p)) {
             if (mc) {
                 ensure_mc(mc);
                 (*mc)->add(v, p);
