@@ -2057,8 +2057,8 @@ namespace sat {
             // {false, true},   p => {true, false}
             // {false, true},  !p => {true, false}            
             void add(literal l) {
+                sign = lit == (sign == l.sign());
                 lit = !lit;
-                sign = sign != l.sign();
             }                
         };
         literal_vector lits;
