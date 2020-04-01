@@ -1154,6 +1154,7 @@ namespace sat {
                 if (mdl[v] != l_true) l.neg();
                 push();
                 assign_core(l, justification(scope_lvl()));
+                propagate(false);
             }
             mk_model();
             break;
