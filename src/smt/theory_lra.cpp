@@ -1038,8 +1038,6 @@ public:
 
     bool internalize_atom(app * atom, bool gate_ctx) {
         SASSERT(!ctx().b_internalized(atom));
-        bool_var bv = ctx().mk_bool_var(atom);
-        ctx().set_var_theory(bv, get_id());
         expr* n1, *n2;
         rational r;
         lp_api::bound_kind k;
@@ -1059,8 +1057,10 @@ public:
         else {
             TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_unsupported(atom);
-            return true;
+            return false;
         }
+        bool_var bv = ctx().mk_bool_var(atom);
+        ctx().set_var_theory(bv, get_id());
         if (is_int(v) && !r.is_int()) {
             r = (k == lp_api::upper_t) ? floor(r) : ceil(r);
         }
@@ -1069,7 +1069,7 @@ public:
         updt_unassigned_bounds(v, +1);
         m_bounds_trail.push_back(v);
         m_bool_var2bound.insert(bv, b);
-        TRACE("arith_verbose", tout << "Internalized " << mk_pp(atom, m) << "\n";);
+        TRACE("arith_verbose", tout << "Internalized " << bv << ": " << mk_pp(atom, m) << "\n";);
         mk_bound_axioms(*b);
         //add_use_lists(b);
         return true;
