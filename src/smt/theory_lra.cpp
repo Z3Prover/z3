@@ -1042,6 +1042,8 @@ public:
         rational r;
         lp_api::bound_kind k;
         theory_var v = null_theory_var;
+        bool_var bv = ctx().mk_bool_var(atom);
+        ctx().set_var_theory(bv, get_id());
         if (a.is_le(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
             v = internalize_def(to_app(n1));
             k = lp_api::upper_t;
@@ -1057,10 +1059,9 @@ public:
         else {
             TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_unsupported(atom);
-            return false;
+            return true;
         }
-        bool_var bv = ctx().mk_bool_var(atom);
-        ctx().set_var_theory(bv, get_id());
+
         if (is_int(v) && !r.is_int()) {
             r = (k == lp_api::upper_t) ? floor(r) : ceil(r);
         }
@@ -2241,12 +2242,14 @@ public:
             return;
         }
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent()) {
-            bool_var bv  = m_asserted_atoms[m_asserted_qhead].m_bv;
-            bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;                
+            bool_var bv = m_asserted_atoms[m_asserted_qhead].m_bv;
+            bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;
             m_to_check.push_back(bv);
-            lp_api::bound& b = *m_bool_var2bound.find(bv);
-            assert_bound(bv, is_true, b);                
-            ++m_asserted_qhead;
+            lp_api::bound* b = nullptr;
+            if (m_bool_var2bound.find(bv, b)) {
+                assert_bound(bv, is_true, *b);
+                ++m_asserted_qhead;
+            }
         }
         if (ctx().inconsistent()) {
             m_to_check.reset();
@@ -2691,11 +2694,12 @@ public:
     }
 
     void propagate_basic_bounds() {
-        for (auto const& bv : m_to_check) {                
-            lp_api::bound& b = *m_bool_var2bound.find(bv);
-            propagate_bound(bv, ctx().get_assignment(bv) == l_true, b);
-            if (ctx().inconsistent()) break;
-
+        for (auto const& bv : m_to_check) {
+            lp_api::bound* b = nullptr;
+            if (m_bool_var2bound.find(bv, b)) {
+                propagate_bound(bv, ctx().get_assignment(bv) == l_true, *b);
+                if (ctx().inconsistent()) break;
+            }
         }
         m_to_check.reset();
     }
