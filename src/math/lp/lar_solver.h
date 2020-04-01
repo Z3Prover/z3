@@ -578,7 +578,7 @@ public:
     }
 
     void subs_term_columns(lar_term& t) {
-        vector<std::pair<unsigned,unsigned>> columns_to_subs;
+        svector<std::pair<unsigned,unsigned>> columns_to_subs;
         for (const auto & m : t) {
             unsigned tj = adjust_column_index_to_term_index(m.var().index());
             if (tj == m.var().index()) continue;

@@ -42,6 +42,16 @@ void rewriter_core::del_cache_stack() {
     }
 }
 
+bool rewriter_core::rewrites_from(expr* t, proof* p) {
+    return !p || (to_app(m().get_fact(p))->get_arg(0) == t);
+}
+
+bool rewriter_core::rewrites_to(expr* t, proof* p) {
+    return !p || (to_app(m().get_fact(p))->get_arg(1) == t); 
+}
+
+
+
 void rewriter_core::cache_shifted_result(expr * k, unsigned offset, expr * v) {
 #if 0
     // trace for tracking cache usage

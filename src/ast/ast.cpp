@@ -1834,7 +1834,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
 
-    // track_id(n, 70);
+    //track_id(n, 1354);
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
@@ -1920,19 +1920,6 @@ ast * ast_manager::register_node_core(ast * n) {
         break;
     }
 
-#if 0
-    // std::cout << n->m_id << " " << n->hash() << "\n";
-    if (n->m_id == 1523) {
-        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
-    }
-    if (n->m_id == 1524) {
-        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
-        VERIFY(false);
-    }
-    if (n->m_id == 1525) {
-        std::cout << n->m_id << ": " << mk_ll_pp(n, *this) << "\n";
-    }
-#endif
     return n;
 }
 
