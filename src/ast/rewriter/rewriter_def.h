@@ -101,7 +101,7 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
         result_stack().push_back(m_r.get());
         if (ProofGen) {
             SASSERT(rewrites_from(t0, m_pr));
-            SASSERT(rewrites_to(t0, m_pr));
+            SASSERT(rewrites_to(m_r, m_pr));
             if (m_pr)
                 result_pr_stack().push_back(m_pr);
             else
@@ -296,16 +296,14 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                 SASSERT(rewrites_to(new_t, m_pr));
             }
         }
-        m_pr2 = nullptr;
         br_status st = m_cfg.reduce_app(f, new_num_args, new_args, m_r, m_pr2);       
         
-        if (st != BR_FAILED && !rewrites_to(m_r, m_pr2)) enable_trace("reduce_app");
         CTRACE("reduce_app", st != BR_FAILED,
-              tout << mk_bounded_pp(t, m()) << "\n";
-              tout << "st: " << st;
-              if (m_r) tout << " --->\n" << mk_bounded_pp(m_r, m());
-              tout << "\n";
-              tout << m_pr2 << "\n";
+               tout << mk_bounded_pp(t, m()) << "\n";
+               tout << "st: " << st;
+               if (m_r) tout << " --->\n" << mk_bounded_pp(m_r, m());
+               tout << "\n";
+               if (m_pr2) tout << mk_bounded_pp(m_pr2, m()) << "\n";
               );
         SASSERT(st == BR_FAILED || rewrites_to(m_r, m_pr2));
         SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
