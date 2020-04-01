@@ -23,7 +23,7 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 
 quasi_macros::quasi_macros(ast_manager & m, macro_manager & mm) :
-  m_manager(m),
+  m(m),
   m_macro_manager(mm),
   m_rewriter(m),
   m_new_vars(m),
@@ -153,12 +153,12 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     // Our definition of a quasi-macro:
     // Forall X. f[X] = T[X], where f[X] is a term starting with symbol f, f is uninterpreted,
     // f[X] contains all universally quantified variables, and f does not occur in T[X].
-    TRACE("quasi_macros", tout << "Checking for quasi macro: " << mk_pp(e, m_manager) << std::endl;);
+    TRACE("quasi_macros", tout << "Checking for quasi macro: " << mk_pp(e, m) << std::endl;);
 
     if (is_forall(e)) {
         quantifier * q = to_quantifier(e);
         expr * qe = q->get_expr(), *lhs = nullptr, *rhs = nullptr;
-        if ((m_manager.is_eq(qe, lhs, rhs))) {
+        if ((m.is_eq(qe, lhs, rhs))) {
 
             if (is_non_ground_uninterp(lhs) && is_unique(to_app(lhs)->get_decl()) &&
                 !depends_on(rhs, to_app(lhs)->get_decl()) && fully_depends_on(to_app(lhs), q)) {
@@ -171,14 +171,14 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
                 t = lhs;
                 return true;
             }
-        } else if (m_manager.is_not(qe, lhs) && is_non_ground_uninterp(lhs) &&
+        } else if (m.is_not(qe, lhs) && is_non_ground_uninterp(lhs) &&
                    is_unique(to_app(lhs)->get_decl())) { // this is like f(...) = false
             a = to_app(lhs);
-            t = m_manager.mk_false();
+            t = m.mk_false();
             return true;
         } else if (is_non_ground_uninterp(qe) && is_unique(to_app(qe)->get_decl())) { // this is like f(...) = true
             a = to_app(qe);
-            t = m_manager.mk_true();
+            t = m.mk_true();
             return true;
         }
     }
@@ -208,8 +208,8 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
             m_new_var_names.push_back(symbol(m_new_name.str().c_str()));
             m_new_qsorts.push_back(f->get_domain()[i]);
 
-            m_new_vars.push_back(m_manager.mk_var(inx + q->get_num_decls(), f->get_domain()[i]));
-            m_new_eqs.push_back(m_manager.mk_eq(m_new_vars.back(), a->get_arg(i)));
+            m_new_vars.push_back(m.mk_var(inx + q->get_num_decls(), f->get_domain()[i]));
+            m_new_eqs.push_back(m.mk_eq(m_new_vars.back(), a->get_arg(i)));
         } else {
             var * v = to_var(a->get_arg(i));
             m_new_vars.push_back(v);
@@ -219,7 +219,7 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     // Reverse the new variable names and sorts. [CMW: There is a smarter way to do this.]
     vector<symbol> new_var_names_rev;
-    sort_ref_vector new_qsorts_rev(m_manager);
+    sort_ref_vector new_qsorts_rev(m);
     unsigned i = m_new_var_names.size();
     while (i > 0) {
         i--;
@@ -235,28 +235,28 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     // Macro  :=  Forall m_new_vars . appl = ITE( m_new_eqs, t, f_else)
 
-    app_ref appl(m_manager);
-    expr_ref eq(m_manager);
-    appl = m_manager.mk_app(f, m_new_vars.size(), m_new_vars.c_ptr());
+    app_ref appl(m);
+    expr_ref eq(m);
+    appl = m.mk_app(f, m_new_vars.size(), m_new_vars.c_ptr());
 
-    func_decl * fd = m_manager.mk_fresh_func_decl(f->get_name(), symbol("else"),
+    func_decl * fd = m.mk_fresh_func_decl(f->get_name(), symbol("else"),
                                                   f->get_arity(), f->get_domain(),
                                                   f->get_range());
-    expr * f_else = m_manager.mk_app(fd, m_new_vars.size(), m_new_vars.c_ptr());
+    expr * f_else = m.mk_app(fd, m_new_vars.size(), m_new_vars.c_ptr());
 
-    expr_ref ite(m_manager);
-    ite = m_manager.mk_ite(m_manager.mk_and(m_new_eqs.size(), m_new_eqs.c_ptr()), t, f_else);
+    expr_ref ite(m);
+    ite = m.mk_ite(m.mk_and(m_new_eqs.size(), m_new_eqs.c_ptr()), t, f_else);
 
-    eq = m_manager.mk_eq(appl, ite);
+    eq = m.mk_eq(appl, ite);
 
-    macro = m_manager.mk_quantifier(forall_k, new_var_names_rev.size(),
+    macro = m.mk_quantifier(forall_k, new_var_names_rev.size(),
                                     new_qsorts_rev.c_ptr(), new_var_names_rev.c_ptr(), eq);
 }
 
 bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
     TRACE("quasi_macros", tout << "Finding quasi-macros in: " << std::endl;
                           for (unsigned i = 0 ; i < n ; i++)
-                              tout << i << ": " << mk_pp(exprs[i], m_manager) << std::endl; );
+                              tout << i << ": " << mk_pp(exprs[i], m) << std::endl; );
     bool res = false;
     m_occurrences.reset();
 
@@ -272,16 +272,16 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
 
     // Find all macros
     for (unsigned i = 0 ; i < n ; i++) {
-        app_ref a(m_manager);
-        expr_ref t(m_manager);
+        app_ref a(m);
+        expr_ref t(m);
         if (is_quasi_macro(exprs[i], a, t)) {
-            quantifier_ref macro(m_manager);
+            quantifier_ref macro(m);
             quasi_macro_to_macro(to_quantifier(exprs[i]), a, t, macro);
-            TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i], m_manager) << std::endl;
-                                  tout << "Macro: " << mk_pp(macro, m_manager) << std::endl; );
+            TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i], m) << std::endl;
+                                  tout << "Macro: " << mk_pp(macro, m) << std::endl; );
             proof * pr = nullptr;
-            if (m_manager.proofs_enabled())
-                pr = m_manager.mk_def_axiom(macro);
+            if (m.proofs_enabled())
+                pr = m.mk_def_axiom(macro);
             expr_dependency * dep = nullptr;
             if (m_macro_manager.insert(a->get_decl(), macro, pr, dep))
                 res = true;
@@ -294,7 +294,7 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
 bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
     TRACE("quasi_macros", tout << "Finding quasi-macros in: " << std::endl;
                           for (unsigned i = 0 ; i < n ; i++)
-                              tout << i << ": " << mk_pp(exprs[i].get_fml(), m_manager) << std::endl; );
+                              tout << i << ": " << mk_pp(exprs[i].get_fml(), m) << std::endl; );
     bool res = false;
     m_occurrences.reset();
 
@@ -311,16 +311,16 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
 
     // Find all macros
     for ( unsigned i = 0 ; i < n ; i++ ) {
-        app_ref a(m_manager);
-        expr_ref t(m_manager);
+        app_ref a(m);
+        expr_ref t(m);
         if (is_quasi_macro(exprs[i].get_fml(), a, t)) {
-            quantifier_ref macro(m_manager);
+            quantifier_ref macro(m);
             quasi_macro_to_macro(to_quantifier(exprs[i].get_fml()), a, t, macro);
-            TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i].get_fml(), m_manager) << std::endl;
-                                  tout << "Macro: " << mk_pp(macro, m_manager) << std::endl; );
+            TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i].get_fml(), m) << std::endl;
+                                  tout << "Macro: " << mk_pp(macro, m) << std::endl; );
             proof * pr = nullptr;
-            if (m_manager.proofs_enabled())
-                pr = m_manager.mk_def_axiom(macro);
+            if (m.proofs_enabled())
+                pr = m.mk_def_axiom(macro);
             if (m_macro_manager.insert(a->get_decl(), macro, pr))
                 res = true;
         }
@@ -330,16 +330,15 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
 }
 
 void quasi_macros::apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const* deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector& new_deps) {
-    for ( unsigned i = 0 ; i < n ; i++ ) {
-        expr_ref r(m_manager), rs(m_manager);
-        proof_ref pr(m_manager), ps(m_manager);
-        expr_dependency_ref dep(m_manager);
-        proof * p = m_manager.proofs_enabled() ? prs[i] : nullptr;
-
+    for (unsigned i = 0 ; i < n ; i++ ) {
+        expr_ref r(m);
+        proof_ref pr(m);
+        expr_dependency_ref dep(m);
+        proof * p = m.proofs_enabled() ? prs[i] : nullptr;
         m_macro_manager.expand_macros(exprs[i], p, deps[i], r, pr, dep);
         m_rewriter(r);
         new_exprs.push_back(r);
-        new_prs.push_back(ps);
+        new_prs.push_back(pr);
         new_deps.push_back(dep);
     }
 }
@@ -353,7 +352,7 @@ bool quasi_macros::operator()(unsigned n, expr * const * exprs, proof * const * 
         // just copy them over
         for ( unsigned i = 0 ; i < n ; i++ ) {
             new_exprs.push_back(exprs[i]);
-            if (m_manager.proofs_enabled())
+            if (m.proofs_enabled())
                 new_prs.push_back(prs[i]);
         }
         return false;
@@ -361,14 +360,14 @@ bool quasi_macros::operator()(unsigned n, expr * const * exprs, proof * const * 
 }
 
 void quasi_macros::apply_macros(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls) {
-    for ( unsigned i = 0 ; i < n ; i++ ) {
-        expr_ref r(m_manager), rs(m_manager);
-        proof_ref pr(m_manager), ps(m_manager);
-        proof * p = m_manager.proofs_enabled() ? fmls[i].get_proof() : nullptr;
-        expr_dependency_ref dep(m_manager);
+    for (unsigned i = 0 ; i < n ; i++) {
+        expr_ref r(m);
+        proof_ref pr(m);
+        proof * p = m.proofs_enabled() ? fmls[i].get_proof() : nullptr;
+        expr_dependency_ref dep(m);
         m_macro_manager.expand_macros(fmls[i].get_fml(), p, nullptr, r, pr, dep);
         m_rewriter(r);
-        new_fmls.push_back(justified_expr(m_manager, r, pr));
+        new_fmls.push_back(justified_expr(m, r, pr));
     }
 }
 
@@ -376,7 +375,8 @@ bool quasi_macros::operator()(unsigned n, justified_expr const* fmls, vector<jus
     if (find_macros(n, fmls)) {
         apply_macros(n, fmls, new_fmls);
         return true;
-    } else {
+    } 
+    else {
         // just copy them over
         for ( unsigned i = 0 ; i < n ; i++ ) {
             new_fmls.push_back(fmls[i]);

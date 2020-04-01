@@ -30,7 +30,7 @@ Revision History:
 class quasi_macros {
     typedef obj_map<func_decl, unsigned> occurrences_map;
 
-    ast_manager &             m_manager;
+    ast_manager &             m;
     macro_manager &           m_macro_manager;
     th_rewriter               m_rewriter;
     occurrences_map           m_occurrences;
