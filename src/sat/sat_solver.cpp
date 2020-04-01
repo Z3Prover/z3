@@ -1317,6 +1317,7 @@ namespace sat {
 
     lbool solver::do_prob_search(unsigned num_lits, literal const* lits) {
         if (m_ext) return l_undef;
+        if (num_lits > 0 || !m_user_scope_literals.empty()) return l_undef;
         SASSERT(!m_local_search);
         m_local_search = alloc(prob);
         return invoke_local_search(num_lits, lits);
