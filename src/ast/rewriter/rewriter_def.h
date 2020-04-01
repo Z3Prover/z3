@@ -100,6 +100,8 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
     case BR_DONE:
         result_stack().push_back(m_r.get());
         if (ProofGen) {
+            SASSERT(rewrites_from(t0, m_pr));
+            SASSERT(rewrites_to(m_r, m_pr));
             if (m_pr)
                 result_pr_stack().push_back(m_pr);
             else
@@ -139,6 +141,8 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
         SASSERT(m().get_sort(t) == m().get_sort(new_t));
         result_stack().push_back(new_t);
         set_new_child_flag(t, new_t);
+        SASSERT(rewrites_from(t, new_t_pr));
+        SASSERT(rewrites_to(new_t, new_t_pr));
         if (ProofGen)
             result_pr_stack().push_back(new_t_pr);
         return true;
@@ -167,6 +171,8 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
             if (ProofGen) {
                 proof * pr = get_cached_pr(t);
                 result_pr_stack().push_back(pr);
+                SASSERT(rewrites_from(t, pr));
+                SASSERT(rewrites_to(r, pr));
             }
             return true;
         }
@@ -286,14 +292,20 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             else {
                 new_t = m().mk_app(f, new_num_args, new_args);
                 m_pr  = m().mk_congruence(t, new_t, num_prs, result_pr_stack().c_ptr() + fr.m_spos);
+                SASSERT(rewrites_from(t, m_pr));
+                SASSERT(rewrites_to(new_t, m_pr));
             }
         }
         br_status st = m_cfg.reduce_app(f, new_num_args, new_args, m_r, m_pr2);       
+        
         CTRACE("reduce_app", st != BR_FAILED,
-              tout << mk_bounded_pp(t, m()) << "\n";
-              tout << "st: " << st;
-              if (m_r) tout << " --->\n" << mk_bounded_pp(m_r, m());
-              tout << "\n";);
+               tout << mk_bounded_pp(t, m()) << "\n";
+               tout << "st: " << st;
+               if (m_r) tout << " --->\n" << mk_bounded_pp(m_r, m());
+               tout << "\n";
+               if (m_pr2) tout << mk_bounded_pp(m_pr2, m()) << "\n";
+              );
+        SASSERT(st == BR_FAILED || rewrites_to(m_r, m_pr2));
         SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
         if (st != BR_FAILED) {
             result_stack().shrink(fr.m_spos);
@@ -490,6 +502,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
         break;
     }
 }
+
 
 template<typename Config>
 template<bool ProofGen>

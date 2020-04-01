@@ -40,7 +40,9 @@ struct unit_subsumption_tactic : public tactic {
     void cleanup() override {}
 
     void operator()(/* in */  goal_ref const & in, 
-                    /* out */ goal_ref_buffer & result) override {        
+                    /* out */ goal_ref_buffer & result) override {  
+        tactic_report report("unit-subsume-simplify", *in);
+        fail_if_proof_generation("unit-subsume-simplify", in);
         reduce_core(in, result);
     }
 
@@ -75,7 +77,8 @@ struct unit_subsumption_tactic : public tactic {
 
     void assert_clauses(goal_ref const& g) {
         for (unsigned i = 0; i < g->size(); ++i) {
-            m_context.assert_expr(m.mk_iff(new_clause(), g->form(i)));
+            expr_ref fml(m.mk_iff(new_clause(), g->form(i)), m);
+            m_context.assert_expr(fml);
         }
     }
 
@@ -106,7 +109,7 @@ struct unit_subsumption_tactic : public tactic {
     }
 
     void insert_result(goal_ref& result) {        
-        for (auto  d : m_deleted) result->update(d, m.mk_true()); // TBD proof?
+        for (auto  d : m_deleted) result->update(d, m.mk_true()); 
     }
 
     void init(goal_ref const& g) {

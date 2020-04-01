@@ -66,6 +66,8 @@ std::ostream& expr_substitution::display(std::ostream& out) {
 
 void expr_substitution::insert(expr * c, expr * def, proof * def_pr, expr_dependency * def_dep) {
     obj_map<expr, expr*>::obj_map_entry * entry = m_subst.insert_if_not_there2(c, nullptr); 
+    SASSERT(!def_pr || to_app(m_manager.get_fact(def_pr))->get_arg(0) == c);
+    SASSERT(!def_pr || to_app(m_manager.get_fact(def_pr))->get_arg(1) == def);
     if (entry->get_data().m_value == nullptr) {
         // new entry
         m_manager.inc_ref(c);

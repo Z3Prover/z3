@@ -60,13 +60,13 @@ class propagate_values_tactic : public tactic {
         if (m.is_value(arg1) && is_shared(arg2)) {
             lhs   = arg2;
             value = arg1;
-            inverted = false;
+            inverted = true;
             return true;
         }
         if (m.is_value(arg2) && is_shared(arg1)) {
             lhs   = arg1;
             value = arg2;
-            inverted = true;
+            inverted = false;
             return true;
         }
         return false;

@@ -374,7 +374,7 @@ namespace opt {
     void context::set_model(model_ref& m) { 
         m_model = m; 
         opt_params optp(m_params);
-        if (optp.dump_models()) {
+        if (optp.dump_models() && m) {
             model_ref md = m->copy();
             fix_model(md);
         }

@@ -571,7 +571,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         }
     }
 
-    void log_rewrite_axiom_instantiation(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
+    void log_rewrite_axiom_instantiation(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
         family_id fid = f->get_family_id();
         if (fid == m_b_rw.get_fid()) {
             decl_kind k = f->get_decl_kind();
@@ -587,8 +587,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         app_ref tmp(m());
         tmp = m().mk_app(f, num, args);
         m().trace_stream() << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << m().get_family_name(fid) << "# ; #" << tmp->get_id() << "\n";
-        if (m().proofs_enabled())
-            result_pr = m().mk_rewrite(tmp, result);
         tmp = m().mk_eq(tmp, result);
         m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
 
@@ -618,7 +616,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         br_status st = reduce_app_core(f, num, args, result);
 
         if (st != BR_FAILED && m().has_trace_stream()) {
-            log_rewrite_axiom_instantiation(f, num, args, result, result_pr);
+            log_rewrite_axiom_instantiation(f, num, args, result);
         }
 
         if (st != BR_DONE && st != BR_FAILED) {

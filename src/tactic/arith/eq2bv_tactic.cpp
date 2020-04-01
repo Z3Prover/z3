@@ -184,7 +184,7 @@ public:
 
         m_bounds(*g);
 
-        if (m_bounds.inconsistent()) {
+        if (m_bounds.inconsistent() || g->proofs_enabled()) {
             g->inc_depth();
             result.push_back(g.get());
             return;
