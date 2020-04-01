@@ -3246,7 +3246,8 @@ namespace sat {
             recompile(c.to_pb());
             break;
         case xr_t:
-            //NOT_IMPLEMENTED_YET();
+            add_xr(c.to_xr().literals(), c.learned());
+            remove_constraint(c, "recompile xor");
             break;
         default:
             UNREACHABLE();
