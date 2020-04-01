@@ -19,6 +19,7 @@ Notes:
 #include "util/debug.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/ast_util.h"
+#include "ast/ast_ll_pp.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "smt/params/smt_params_helper.hpp"
@@ -249,8 +250,11 @@ public:
                         lcore = m.mk_join(lcore, m.mk_leaf(d));
                     }
                 }
-                if (!pr && m.proofs_enabled()) pr = m.mk_asserted(m.mk_false()); // bail out
+
+                if (m.proofs_enabled() && !pr) pr = m.mk_asserted(m.mk_false()); // bail out
+                if (pr && m.get_fact(pr) != m.mk_false()) pr = m.mk_asserted(m.mk_false()); // could happen in clause_proof mode
                 in->assert_expr(m.mk_false(), pr, lcore);
+                
                 result.push_back(in.get());
                 return;
             }
