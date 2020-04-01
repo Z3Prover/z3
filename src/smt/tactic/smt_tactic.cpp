@@ -249,6 +249,7 @@ public:
                         lcore = m.mk_join(lcore, m.mk_leaf(d));
                     }
                 }
+                if (!pr && m.proofs_enabled()) pr = m.mk_asserted(m.mk_false()); // bail out
                 in->assert_expr(m.mk_false(), pr, lcore);
                 result.push_back(in.get());
                 return;

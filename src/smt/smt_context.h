@@ -1138,6 +1138,8 @@ namespace smt {
 
         void internalize_assertions();
 
+        void asserted_inconsistent();
+
         bool validate_assumptions(expr_ref_vector const& asms);
 
         void init_assumptions(expr_ref_vector const& asms);
