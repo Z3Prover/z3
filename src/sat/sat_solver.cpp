@@ -1282,7 +1282,10 @@ namespace sat {
         struct scoped_ls {
             solver& s;
             scoped_ls(solver& s): s(s) {}
-            ~scoped_ls() { dealloc(s.m_local_search); s.m_local_search = nullptr; }
+            ~scoped_ls() { 
+                dealloc(s.m_local_search); 
+                s.m_local_search = nullptr; 
+            }
         };
         scoped_ls _ls(*this);
         if (inconsistent()) return l_false;
