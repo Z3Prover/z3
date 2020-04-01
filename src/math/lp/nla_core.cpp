@@ -1342,18 +1342,17 @@ bool core::var_is_used_in_a_correct_monic(lpvar j) const {
 
 void core::update_to_refine_of_var(lpvar j) {
     for (const monic & m : emons().get_use_list(j)) {
-        if (val(var(m)) == mul_val(m))
+        if (var_val(m) == mul_val(m)) 
             m_to_refine.erase(var(m));
         else
             m_to_refine.insert(var(m));
     }
     if (is_monic_var(j)) {
         const monic& m = emons()[j];
-        if (val(var(m)) == mul_val(m))
+        if (var_val(m) == mul_val(m))
             m_to_refine.erase(j);
         else
-            m_to_refine.insert(j);
-        
+            m_to_refine.insert(j);        
     }
 }
 
@@ -1373,15 +1372,15 @@ void core::patch_monomial_with_real_var(lpvar j) {
         return;
     if (!var_is_int(j)  &&
         !var_is_used_in_a_correct_monic(j)
-        &&  try_to_patch(j, v)) {
+        && try_to_patch(j, v) 
+        ) {
         m_to_refine.erase(j);
     } else {
         rational r = val(j) / v;
         for (lpvar k: m.vars()) {
-            if (var_is_int(k)) continue;            
-            if (var_is_used_in_a_correct_monic(k))
-                continue;
-            if (try_to_patch(k, r * val(k))) { // r * val(k) gives the right value of k
+            if (!var_is_int(k) && 
+                !var_is_used_in_a_correct_monic(k) &&
+                try_to_patch(k, r * val(k))) { // r * val(k) gives the right value of k
                 m_to_refine.erase(j);
                 break;
             }
@@ -1394,7 +1393,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
 
 void core::patch_monomials_with_real_vars() {
     auto to_refine = m_to_refine.index();
-    // the rest of the function might change m_to_refine, so have to copy
+    // the rest of the function might change m_to_refine, so have to copy    
     for (lpvar j : to_refine) {
         patch_monomial_with_real_var(j);
     }

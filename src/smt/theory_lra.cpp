@@ -1561,8 +1561,8 @@ public:
 
     void init_variable_values() {
         reset_variable_values();
-        if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
-            TRACE("arith", tout << "update variable values\n";);
+        if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {            
+            TRACE("arith", display(tout << "update variable values\n"););
             lp().get_model(m_variable_values);
         }
     }

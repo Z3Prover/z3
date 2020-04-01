@@ -2395,9 +2395,7 @@ bool lar_solver::inside_bounds(lpvar j, const impq& val) const {
 
 bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool (lpvar)>& blocker, const std::function<void (lpvar)>& report_change) {
     if (is_base(j)) {        
-        bool r = remove_from_basis(j);
-        SASSERT(r);
-        (void)r;        
+        VERIFY(remove_from_basis(j));
     }
     impq ival(val);
     if (!inside_bounds(j, ival))
@@ -2409,10 +2407,10 @@ bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool 
         const mpq & a = c.coeff();        
         unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
         impq rj_new_val = a * delta + get_column_value(rj);
-        if (column_is_int(rj) && ! rj_new_val.is_int())
-            return  false;
+        if (column_is_int(rj) && !rj_new_val.is_int())
+            return false;
         if (!inside_bounds(rj, rj_new_val) || blocker(rj))
-            return  false;
+            return false;
     }
 
     set_column_value(j, ival);
@@ -2423,6 +2421,7 @@ bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool 
         m_mpq_lar_core_solver.m_r_solver.add_delta_to_x(rj, a * delta);
         report_change(rj);
     }
+
     return true;
 }
 
