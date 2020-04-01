@@ -1405,7 +1405,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
     for (unsigned l = 0; l < m.size(); l++) {
         lpvar k = m.vars()[l];
         if (!in_power(m.vars(), l) &&
-            var_is_int(k) && 
+            !var_is_int(k) && 
             !var_is_used_in_a_correct_monic(k) &&
             try_to_patch(k, r * val(k), m)) { // r * val(k) gives the right value of k
             SASSERT(mul_val(m) == var_val(m));
