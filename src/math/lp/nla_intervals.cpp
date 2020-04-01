@@ -72,11 +72,12 @@ std::ostream & intervals::print_dependencies(u_dependency* deps , std::ostream& 
 // return true iff the interval of n is does not contain 0
 bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
-    auto i = interval_of_expr<e_with_deps::without_deps>(n, 1);
+    scoped_dep_interval sdi(get_dep_intervals());
+    auto i = interval_of_expr<e_with_deps::without_deps>(n, 1, sdi);
     if (!m_dep_intervals.separated_from_zero(i)) {
         return false;
     }
-    auto interv_wd = interval_of_expr<e_with_deps::with_deps>(n, 1);
+    auto interv_wd = interval_of_expr<e_with_deps::with_deps>(n, 1, sdi);
     TRACE("grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) <<"expr = " << *n << "\n, initial deps\n"; print_dependencies(initial_deps, tout);
           tout << ", expressions vars = \n";
           for(lpvar j: m_core->get_vars_of_expr_with_opening_terms(n)) {
@@ -302,15 +303,15 @@ bool intervals::interval_from_term(const nex& e, interval& i) {
 }
 
 template <e_with_deps wd>
-intervals::interval intervals::interval_of_sum_no_term(const nex_sum& e) {
+intervals::interval intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval& sdi) {
     const nex* inf_e = get_inf_interval_child(e);
     if (inf_e) {
         return interval();
     }
-    interval a = interval_of_expr<wd>(e[0], 1);
+    interval a = interval_of_expr<wd>(e[0], 1, sdi);
     for (unsigned k = 1; k < e.size(); k++) {
         TRACE("nla_intervals_details_sum", tout << "e[" << k << "]= " << *e[k] << "\n";);
-        interval b = interval_of_expr<wd>(e[k], 1);
+        interval b = interval_of_expr<wd>(e[k], 1, sdi);
         interval c;
 
         TRACE("nla_intervals_details_sum", tout << "a = "; display(tout, a) << "\nb = "; display(tout, b) << "\n";);
@@ -332,9 +333,9 @@ intervals::interval intervals::interval_of_sum_no_term(const nex_sum& e) {
 }
 
 template <e_with_deps wd>
-intervals::interval intervals::interval_of_sum(const nex_sum& e) {
+intervals::interval intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& sdi) {
     TRACE("nla_intervals_details", tout << "e=" << e << "\n";);
-    interval i_e = interval_of_sum_no_term<wd>(e);
+    interval i_e = interval_of_sum_no_term<wd>(e, sdi);
     if (e.is_a_linear_term()) {
         SASSERT(e.is_sum() && e.size() > 1);
         interval i_from_term;
@@ -352,11 +353,11 @@ intervals::interval intervals::interval_of_sum(const nex_sum& e) {
 }
 
 template <e_with_deps wd>
-intervals::interval intervals::interval_of_mul(const nex_mul& e) {
+intervals::interval intervals::interval_of_mul(const nex_mul& e,  scoped_dep_interval& sdi) {
     TRACE("nla_intervals_details", tout << "e = " << e << "\n";);
     const nex* zero_interval_child = get_zero_interval_child(e);
     if (zero_interval_child) {
-        interval a = interval_of_expr<wd>(zero_interval_child, 1);
+        interval a = interval_of_expr<wd>(zero_interval_child, 1, sdi);
         if(wd == e_with_deps::with_deps)
             set_zero_interval_deps_for_mult(a);
         TRACE("nla_intervals_details", tout << "zero_interval_child = " << *zero_interval_child << std::endl << "a = "; display(tout, a); );
@@ -367,7 +368,7 @@ intervals::interval intervals::interval_of_mul(const nex_mul& e) {
     m_dep_intervals.set_interval_for_scalar(a, e.coeff());
     TRACE("nla_intervals_details", tout << "a = "; display(tout, a); );
     for (const auto& ep : e) {
-        interval b = interval_of_expr<wd>(ep.e(), ep.pow());
+        interval b = interval_of_expr<wd>(ep.e(), ep.pow(), sdi);
         TRACE("nla_intervals_details", tout << "ep = " << ep << ", "; display(tout, b); );
         interval c;
         if (wd == e_with_deps::with_deps) {
@@ -389,7 +390,7 @@ intervals::interval intervals::interval_of_mul(const nex_mul& e) {
 }
 
 template <e_with_deps wd>
-intervals::interval intervals::interval_of_expr(const nex* e, unsigned p) {
+intervals::interval intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& sdi) {
     interval a;
     switch (e->type()) {
     case expr_type::SCALAR:
@@ -399,13 +400,13 @@ intervals::interval intervals::interval_of_expr(const nex* e, unsigned p) {
         }
         return a;
     case expr_type::SUM: {
-        interval b = interval_of_sum<wd>(e->to_sum());
+        interval b = interval_of_sum<wd>(e->to_sum(), sdi);
         if (p != 1)
             return m_dep_intervals.power<wd>(b, p);
         return b;
     }
     case expr_type::MUL: {
-        interval b = interval_of_mul<wd>(e->to_mul());
+        interval b = interval_of_mul<wd>(e->to_mul(), sdi);
         if (p != 1)
             return m_dep_intervals.power<wd>(b, p);
         return b;
