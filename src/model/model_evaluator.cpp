@@ -162,7 +162,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
         br_status st = BR_FAILED;
         if (num == 0 && (fid == null_family_id || _is_uninterp || m_ar.is_as_array(f))) {
             expr * val = m_model.get_const_interp(f);
-            func_decl* g = nullptr;
             if (val != nullptr) {
                 result = val;
                 st = m_ar.is_as_array(val)? BR_REWRITE1 : BR_DONE;
@@ -171,8 +170,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             }
             if (!m_model_completion)
                 return BR_FAILED;
-
-            std::cout << mk_pp(f, m) << "\n";
+            
             if (!m_ar.is_as_array(f)) {
                 sort * s   = f->get_range();
                 expr * val = m_model.get_some_value(s);
@@ -180,6 +178,13 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 result = val;
                 return BR_DONE;
             }
+#if 0
+            func_decl* g = nullptr;
+            VERIFY(m_ar.is_as_array(f, g));
+            auto* fi = m_model.get_func_interp(g);
+            result = fi->get_array_interp(g);
+            if (result) return BR_REWRITE_FULL;
+#endif
             return BR_FAILED;            
         }
 
