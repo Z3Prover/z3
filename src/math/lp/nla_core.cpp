@@ -1374,6 +1374,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
     if (!var_is_int(j)  &&
         !var_is_used_in_a_correct_monic(j)
         &&  try_to_patch(j, v)) {
+        SASSERT(v == val(j));
         m_to_refine.erase(j);
     } else {
         rational r = val(j) / v;
@@ -1383,6 +1384,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
                 continue;
             if (try_to_patch(k, r * val(k))) { // r * val(k) gives the right value of k
                 m_to_refine.erase(j);
+                SASSERT(mul_val(m) == val(j));
                 break;
             }
         }
