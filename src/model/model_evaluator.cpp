@@ -172,6 +172,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             if (!m_model_completion)
                 return BR_FAILED;
 
+            std::cout << mk_pp(f, m) << "\n";
             if (!m_ar.is_as_array(f)) {
                 sort * s   = f->get_range();
                 expr * val = m_model.get_some_value(s);
