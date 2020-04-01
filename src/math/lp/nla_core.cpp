@@ -1383,6 +1383,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
                 continue;
             if (try_to_patch(k, r * val(k))) { // r * val(k) gives the right value of k
                 m_to_refine.erase(j);
+                break;
             }
         }
     }
