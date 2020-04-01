@@ -269,6 +269,7 @@ public:
                 if (pr) {
                     in->reset();
                     in->assert_expr(m.get_fact(pr), pr, nullptr);
+                    in->updt_prec(goal::UNDER_OVER);
                 }
                 if (m_candidate_models) {
                     switch (m_ctx->last_failure()) {
