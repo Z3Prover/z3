@@ -2076,11 +2076,19 @@ namespace sat {
             else 
                 polarity = polarity ^ sign;
         }
-        if (lits.empty()) {
-            throw default_exception("empty xor is TBD");
-        }
-        if (polarity) {
+        if (polarity && !lits.empty()) {
             lits[0].neg();
+        }
+        switch (lits.size()) {
+        case 0:
+            if (polarity)
+                s().set_conflict(justification(0));
+            return nullptr;
+        case 1:            
+            s().assign_scoped(lits[0]);
+            return nullptr;
+        default:
+            break;
         }
         void * mem = m_allocator.allocate(xr::get_obj_size(lits.size()));
         xr* x = new (mem) xr(next_id(), lits);
