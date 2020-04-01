@@ -172,7 +172,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             if (!m_model_completion)
                 return BR_FAILED;
 
-            if (!m_ar.is_as_array(f, g) || g->get_family_id() == null_family_id) {
+            if (!m_ar.is_as_array(f)) {
                 sort * s   = f->get_range();
                 expr * val = m_model.get_some_value(s);
                 m_model.register_decl(f, val);
