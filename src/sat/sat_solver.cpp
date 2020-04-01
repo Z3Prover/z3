@@ -1729,6 +1729,7 @@ namespace sat {
 
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
+            set_external(lit.var());
             SASSERT(is_external(lit.var()));
             add_assumption(lit);
             assign_scoped(lit);
