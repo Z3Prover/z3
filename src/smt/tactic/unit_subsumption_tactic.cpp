@@ -40,7 +40,8 @@ struct unit_subsumption_tactic : public tactic {
     void cleanup() override {}
 
     void operator()(/* in */  goal_ref const & in, 
-                    /* out */ goal_ref_buffer & result) override {        
+                    /* out */ goal_ref_buffer & result) override {     
+        fail_if_proof_generation("unit-subsumption", in);
         reduce_core(in, result);
     }
 
@@ -106,7 +107,7 @@ struct unit_subsumption_tactic : public tactic {
     }
 
     void insert_result(goal_ref& result) {        
-        for (auto  d : m_deleted) result->update(d, m.mk_true()); // TBD proof?
+        for (auto  d : m_deleted) result->update(d, m.mk_true()); 
     }
 
     void init(goal_ref const& g) {
