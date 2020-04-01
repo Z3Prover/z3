@@ -94,7 +94,7 @@ public:
         m_index.resize(0);
     }
 
-    std::ostream& operator<<(std::ostream& out) const {
+    std::ostream& display(std::ostream& out) const {
         for (unsigned j : m_index) {
             out << j << " ";
         }
@@ -105,4 +105,10 @@ public:
     const unsigned * end() const { return m_index.end(); }
     const unsigned_vector& index() { return m_index; }
 };
+
+
+}
+
+inline std::ostream& operator<<(std::ostream& out, lp::u_set const& s) {
+    return s.display(out);
 }

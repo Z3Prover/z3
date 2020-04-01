@@ -419,7 +419,7 @@ public:
     void patch_monomial_with_real_var(lpvar);
     bool var_is_used_in_a_correct_monic(lpvar) const;
     void update_to_refine_of_var(lpvar j);
-    bool try_to_patch(lpvar, const rational&);
+    bool try_to_patch(lpvar, const rational&, const monic&);
 };  // end of core
 
 struct pp_mon {

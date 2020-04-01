@@ -1331,72 +1331,94 @@ bool core::elists_are_consistent(bool check_in_model) const {
 }
 
 bool core::var_is_used_in_a_correct_monic(lpvar j) const {
+    if (emons().is_monic_var(j)) {
+        if (!m_to_refine.contains(j))
+            return true;
+    }
     for (const monic & m : emons().get_use_list(j)) {
         if (!m_to_refine.contains(m.var())) {
             TRACE("nla_solver", tout << "j" << j << " is used in a correct monic \n";);
             return true;
         }
     }
+
     return false;
 }
 
 void core::update_to_refine_of_var(lpvar j) {
     for (const monic & m : emons().get_use_list(j)) {
-        if (val(var(m)) == mul_val(m))
+        if (var_val(m) == mul_val(m)) 
             m_to_refine.erase(var(m));
         else
             m_to_refine.insert(var(m));
     }
     if (is_monic_var(j)) {
         const monic& m = emons()[j];
-        if (val(var(m)) == mul_val(m))
+        if (var_val(m) == mul_val(m))
             m_to_refine.erase(j);
         else
-            m_to_refine.insert(j);
-        
+            m_to_refine.insert(j);        
     }
 }
 
 
-bool core::try_to_patch(lpvar k, const rational& v) {
+bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
     return m_lar_solver.try_to_patch(k, v,
-                                     [this](lpvar u) { return var_is_used_in_a_correct_monic(u);},
+                                     [this, m](lpvar u) { return
+                                             u == m.var()
+                                             ||
+                                             var_is_used_in_a_correct_monic(u)
+                                             ||
+                                             m.contains_var(u);
+                                     },
                                      [this](lpvar u) { update_to_refine_of_var(u); });
 }
 
+bool in_power(const svector<lpvar>& vs, unsigned l) {
+    unsigned k = vs[l];
+    return (l != 0 && vs[l - 1] == k) || (l + 1 < vs.size() && k == vs[l + 1]);
+}
 
 // looking for any real var to patch
 void core::patch_monomial_with_real_var(lpvar j) {    
     const monic& m = emons()[j];
+    TRACE("nla_solver", tout << "m = "; print_monic(m, tout) << "\n";);
     rational v = mul_val(m);
-    if (val(j) == v || val(j).is_zero() || v.is_zero()) // correct or a lemma will catch it
-        return;
-    if (!var_is_int(j)  &&
-        !var_is_used_in_a_correct_monic(j)
-        &&  try_to_patch(j, v)) {
-        SASSERT(v == val(j));
+    SASSERT(j == var(m));
+    if (var_val(m) == v) {
         m_to_refine.erase(j);
-    } else {
-        rational r = val(j) / v;
-        for (lpvar k: m.vars()) {
-            if (var_is_int(k)) continue;            
-            if (var_is_used_in_a_correct_monic(k))
-                continue;
-            if (try_to_patch(k, r * val(k))) { // r * val(k) gives the right value of k
-                m_to_refine.erase(j);
-                SASSERT(mul_val(m) == val(j));
-                break;
-            }
+        return;
+    }
+    if (val(j).is_zero() || v.is_zero()) // a lemma will catch it
+        return;
+
+    if (!var_is_int(j) && !var_is_used_in_a_correct_monic(j) && try_to_patch(j, v, m)) {
+        // SASSERT(mul_val(m) == var_val(m));        
+        m_to_refine.erase(j);
+        return;
+    } 
+
+    // We have v != abc. Let us suppose we patch b. Then b should
+    // be equal to v/ac = v/(abc/b) = b(v/abc)
+    rational r = val(j) / v;
+    SASSERT(m.is_sorted());
+    for (unsigned l = 0; l < m.size(); l++) {
+        lpvar k = m.vars()[l];
+        if (!in_power(m.vars(), l) &&
+            var_is_int(k) && 
+            !var_is_used_in_a_correct_monic(k) &&
+            try_to_patch(k, r * val(k), m)) { // r * val(k) gives the right value of k
+            SASSERT(mul_val(m) == var_val(m));
+            m_to_refine.erase(j);
+            break;
         }
     }
-    
                               
 }
 
-
 void core::patch_monomials_with_real_vars() {
     auto to_refine = m_to_refine.index();
-    // the rest of the function might change m_to_refine, so have to copy
+    // the rest of the function might change m_to_refine, so have to copy    
     for (lpvar j : to_refine) {
         patch_monomial_with_real_var(j);
     }

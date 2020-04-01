@@ -421,7 +421,7 @@ void asserted_formulas::nnf_cnf() {
     for (; i < sz; i++) {
         expr * n    = m_formulas[i].get_fml();
         TRACE("nnf_bug", tout << "processing:\n" << mk_pp(n, m) << "\n";);
-        proof * pr  = m_formulas[i].get_proof();
+        proof_ref pr(m_formulas[i].get_proof(), m);
         expr_ref   r1(m);
         proof_ref  pr1(m);
         push_todo.reset();

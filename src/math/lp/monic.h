@@ -16,6 +16,7 @@
 #include "util/vector.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_defs.h"
+#include <algorithm>
 namespace nla {
 
 class mon_eq {
@@ -38,7 +39,15 @@ public:
     unsigned size() const { return m_vs.size(); }
     const svector<lp::var_index>& vars() const { return m_vs; }
     bool empty() const { return m_vs.empty(); }
-
+    bool is_sorted() const {
+        for (unsigned i = 0; i + 1 < size(); i++)
+            if (m_vs[i] > m_vs[i + 1])
+                return false;
+        return true;
+    }
+    bool contains_var(lpvar j) const {
+        return std::binary_search(m_vs.begin(), m_vs.end(), j);
+    }
 protected:
     svector<lp::var_index>& vars1() { return m_vs; }
 };

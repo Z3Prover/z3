@@ -31,7 +31,9 @@ namespace sat {
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
             add_clause(1, m_assumptions.c_ptr() + i);
         }
-
+        if (m_is_unsat)
+            return;
+        
         // add sentinel variable.
         m_vars.push_back(var_info());
 
@@ -334,7 +336,12 @@ namespace sat {
 
     void local_search::add_unit(literal lit, literal exp) {
         bool_var v = lit.var();
-        if (is_unit(lit)) return;
+        if (is_unit(lit)) {
+            if (m_vars[v].m_value == lit.sign()) {
+                m_is_unsat = true;                
+            }
+            return;
+        }
         SASSERT(!m_units.contains(v));
         if (m_vars[v].m_value == lit.sign() && !m_initializing) {
             flip_walksat(v);
@@ -575,8 +582,11 @@ namespace sat {
         m_assumptions.append(sz, assumptions);
         unsigned num_units = m_units.size();
         init();
+        if (m_is_unsat)
+            return l_false;
         walksat();
-        
+
+        TRACE("sat", tout << m_units << "\n";);
         // remove unit clauses
         for (unsigned i = m_units.size(); i-- > num_units; ) {
             m_vars[m_units[i]].m_unit = false;

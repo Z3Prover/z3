@@ -249,6 +249,7 @@ public:
                         lcore = m.mk_join(lcore, m.mk_leaf(d));
                     }
                 }
+                if (!pr && m.proofs_enabled()) pr = m.mk_asserted(m.mk_false()); // bail out
                 in->assert_expr(m.mk_false(), pr, lcore);
                 result.push_back(in.get());
                 return;
@@ -268,6 +269,7 @@ public:
                 if (pr) {
                     in->reset();
                     in->assert_expr(m.get_fact(pr), pr, nullptr);
+                    in->updt_prec(goal::UNDER_OVER);
                 }
                 if (m_candidate_models) {
                     switch (m_ctx->last_failure()) {

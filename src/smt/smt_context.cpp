@@ -2950,7 +2950,7 @@ namespace smt {
     void context::assert_expr_core(expr * e, proof * pr) {
         if (get_cancel_flag()) return;
         SASSERT(is_well_sorted(m, e));
-        TRACE("begin_assert_expr", tout << this << " " << mk_pp(e, m) << "\n";);
+        TRACE("begin_assert_expr", tout << mk_pp(e, m) << " " << mk_pp(pr, m) << "\n";);
         TRACE("begin_assert_expr_ll", tout << mk_ll_pp(e, m) << "\n";);
         pop_to_base_lvl();
         if (pr == nullptr)
@@ -3141,18 +3141,22 @@ namespace smt {
             m_asserted_formulas.commit();
         }
         if (m_asserted_formulas.inconsistent() && !inconsistent()) {
-            proof * pr = m_asserted_formulas.get_inconsistency_proof();
-            if (pr == nullptr) {
-                set_conflict(b_justification::mk_axiom());
-            }
-            else {
-                set_conflict(mk_justification(justification_proof_wrapper(*this, pr)));
-                m_unsat_proof = pr;
-            }
+            asserted_inconsistent();
         }
         TRACE("internalize_assertions", tout << "after internalize_assertions()...\n";
               tout << "inconsistent: " << inconsistent() << "\n";);
         TRACE("after_internalize_assertions", display(tout););
+    }
+
+    void context::asserted_inconsistent() {
+        proof * pr = m_asserted_formulas.get_inconsistency_proof();
+        m_unsat_proof = pr;
+        if (!pr) {
+            set_conflict(b_justification::mk_axiom());
+        }
+        else {
+            set_conflict(mk_justification(justification_proof_wrapper(*this, pr)));
+        }
     }
 
     /**
@@ -3626,8 +3630,10 @@ namespace smt {
 
 
     lbool context::search() {
-        if (m_asserted_formulas.inconsistent()) 
+        if (m_asserted_formulas.inconsistent()) {
+            asserted_inconsistent();
             return l_false;
+        }
         if (inconsistent()) {
             VERIFY(!resolve_conflict());
             return l_false;

@@ -160,7 +160,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         family_id fid = f->get_family_id();
         bool is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
         br_status st = BR_FAILED;
-        if (num == 0 && (fid == null_family_id || is_uninterp)) { // || m_ar.is_as_array(f)
+        if (num == 0 && (fid == null_family_id || is_uninterp)) { // || m_ar.is_as_array(f)) {
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
@@ -168,7 +168,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 TRACE("model_evaluator", tout << result << "\n";);
                 return st;
             }
-            else if (m_model_completion) {
+            else if (m_model_completion && !m_ar.is_as_array(f)) {
                 sort * s   = f->get_range();
                 expr * val = m_model.get_some_value(s);
                 m_model.register_decl(f, val);
