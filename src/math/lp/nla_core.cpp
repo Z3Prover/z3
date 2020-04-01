@@ -1368,25 +1368,31 @@ bool core::try_to_patch(lpvar k, const rational& v) {
 void core::patch_monomial_with_real_var(lpvar j) {    
     const monic& m = emons()[j];
     rational v = mul_val(m);
-    if (val(j) == v || val(j).is_zero() || v.is_zero()) // correct or a lemma will catch it
-        return;
-    if (!var_is_int(j)  &&
-        !var_is_used_in_a_correct_monic(j)
-        && try_to_patch(j, v) 
-        ) {
+    SASSERT(j == var(m));
+    if (var_val(m) == v) {
         m_to_refine.erase(j);
-    } else {
-        rational r = val(j) / v;
-        for (lpvar k: m.vars()) {
-            if (!var_is_int(k) && 
-                !var_is_used_in_a_correct_monic(k) &&
-                try_to_patch(k, r * val(k))) { // r * val(k) gives the right value of k
-                m_to_refine.erase(j);
-                break;
-            }
+        return;
+    }
+    if (val(j).is_zero() || v.is_zero()) // a lemma will catch it
+        return;
+
+    if (!var_is_int(j) && !var_is_used_in_a_correct_monic(j) && try_to_patch(j, v)) {
+        // SASSERT(mul_val(m) == var_val(m));        
+        m_to_refine.erase(j);
+        return;
+    } 
+
+    // nsb code review: k could occur multiple times in m
+    rational r = val(j) / v;
+    for (lpvar k: m.vars()) {
+        if (!var_is_int(k) && 
+            !var_is_used_in_a_correct_monic(k) &&
+            try_to_patch(k, r * val(k))) { // r * val(k) gives the right value of k
+            // SASSERT(mul_val(m) == var_val(m));
+            m_to_refine.erase(j);
+            break;
         }
     }
-    
                               
 }
 
