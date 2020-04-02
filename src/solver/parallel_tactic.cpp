@@ -271,6 +271,8 @@ class parallel_tactic : public tactic {
             std::string r = get_solver().reason_unknown(); 
             std::string inc("(incomplete");
             m_giveup |= r.compare(0, inc.size(), inc) == 0;
+            inc = "(sat.giveup";
+            m_giveup |= r.compare(0, inc.size(), inc) == 0;
             return m_giveup;
         }
 

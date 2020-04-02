@@ -194,12 +194,16 @@ public:
 
         init_reason_unknown();
         m_internalized_converted = false;
+        bool reason_set = false;
         try {
             // IF_VERBOSE(0, m_solver.display(verbose_stream()));
             r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         }
         catch (z3_exception& ex) {
             IF_VERBOSE(10, verbose_stream() << "exception: " << ex.msg() << "\n";);
+            reason_set = true;
+            std::string msg = std::string("(sat.giveup ") + ex.msg() + std::string(")");
+            set_reason_unknown(msg.c_str());
             r = l_undef;            
         }
         switch (r) {
@@ -215,7 +219,9 @@ public:
             }
             break;
         default:
-            set_reason_unknown(m_solver.get_reason_unknown());
+            if (!reason_set) {
+                set_reason_unknown(m_solver.get_reason_unknown());
+            }
             break;
         }
         return r;
@@ -604,6 +610,7 @@ private:
         }
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
+            set_reason_unknown(ex.msg());
             TRACE("sat", tout << "exception: " << ex.msg() << "\n";);
             m_preprocess = nullptr;
             m_bb_rewriter = nullptr;
