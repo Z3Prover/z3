@@ -90,7 +90,7 @@ void solver_na2as::push() {
 }
 
 void solver_na2as::pop(unsigned n) {
-    if (n > 0) {
+    if (n > 0 && !m_scopes.empty()) { 
         unsigned lvl = m_scopes.size();
         n = std::min(lvl, n);
         pop_core(n);
