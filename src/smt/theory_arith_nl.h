@@ -71,9 +71,11 @@ void theory_arith<Ext>::mark_dependents(theory_var v, svector<theory_var> & vars
         expr * n     = var2expr(v);
         SASSERT(m_util.is_mul(n));
         for (expr * curr : *to_app(n)) {
-            theory_var v = expr2var(curr);
-            SASSERT(v != null_theory_var);
-            mark_var(v, vars, already_found);
+            if (get_context().e_internalized(curr)) {
+                theory_var v = expr2var(curr);
+                SASSERT(v != null_theory_var);
+                mark_var(v, vars, already_found);
+            }
         }
     }
     if (is_fixed(v))
@@ -1122,6 +1124,8 @@ bool theory_arith<Ext>::propagate_linear_monomials() {
 template<typename Ext>
 bool theory_arith<Ext>::is_problematic_non_linear_row(row const & r) {
     m_tmp_var_set.reset();
+    if (!reflection_enabled())
+        return false;
     typename vector<row_entry>::const_iterator it  = r.begin_entries();
     typename vector<row_entry>::const_iterator end = r.end_entries();
     for (; it != end; ++it) {
@@ -2380,9 +2384,11 @@ bool theory_arith<Ext>::max_min_nl_vars() {
         expr * n     = var2expr(v);
         SASSERT(is_pure_monomial(n));
         for (expr * curr : *to_app(n)) {
-            theory_var v = expr2var(curr);
-            SASSERT(v != null_theory_var);
-            mark_var(v, vars, already_found);
+            if (get_context().e_internalized(curr)) {
+                theory_var v = expr2var(curr);
+                SASSERT(v != null_theory_var);
+                mark_var(v, vars, already_found);
+            }
         }
     }
     return max_min(vars);
