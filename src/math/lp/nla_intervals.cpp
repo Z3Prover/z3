@@ -305,8 +305,10 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
 
 template <e_with_deps wd>
 void intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & sdi) {
-    if (has_inf_interval(e))
+    if (has_inf_interval(e)) {
+        SASSERT(m_dep_intervals.lower_is_inf(sdi) && m_dep_intervals.upper_is_inf(sdi));
         return;
+    }
     
     interval_of_expr<wd>(e[0], 1, sdi);
     for (unsigned k = 1; k < e.size(); k++) {
