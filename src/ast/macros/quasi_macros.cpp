@@ -329,45 +329,43 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
     return res;
 }
 
-void quasi_macros::apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const* deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector& new_deps) {
+void quasi_macros::apply_macros(expr_ref_vector & exprs, proof_ref_vector & prs, expr_dependency_ref_vector& deps) {
+    unsigned n = exprs.size();
     for (unsigned i = 0 ; i < n ; i++ ) {
-        expr_ref r(m);
-        proof_ref pr(m);
+        expr_ref r(m), rr(m);
+        proof_ref pr(m), prr(m);
         expr_dependency_ref dep(m);
-        proof * p = m.proofs_enabled() ? prs[i] : nullptr;
-        m_macro_manager.expand_macros(exprs[i], p, deps[i], r, pr, dep);
-        m_rewriter(r);
-        new_exprs.push_back(r);
-        new_prs.push_back(pr);
-        new_deps.push_back(dep);
+        proof * p = m.proofs_enabled() ? prs.get(i) : nullptr;
+        m_macro_manager.expand_macros(exprs.get(i), p, deps.get(i), r, pr, dep);
+        m_rewriter(r, rr, prr);
+        if (pr) pr = m.mk_modus_ponens(pr, prr);
+        exprs[i] = rr;
+        prs[i] = pr;
+        deps[i] = dep;
     }
 }
 
-bool quasi_macros::operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const * deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
-    if (find_macros(n, exprs)) {
-        apply_macros(n, exprs, prs, deps, new_exprs, new_prs, new_deps);
+bool quasi_macros::operator()(expr_ref_vector & exprs, proof_ref_vector & prs, expr_dependency_ref_vector & deps) {
+    unsigned n = exprs.size();
+    if (find_macros(n, exprs.c_ptr())) {
+        apply_macros(exprs, prs, deps);
         return true;
     }
     else {
-        // just copy them over
-        for ( unsigned i = 0 ; i < n ; i++ ) {
-            new_exprs.push_back(exprs[i]);
-            if (m.proofs_enabled())
-                new_prs.push_back(prs[i]);
-        }
         return false;
     }
 }
 
 void quasi_macros::apply_macros(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls) {
     for (unsigned i = 0 ; i < n ; i++) {
-        expr_ref r(m);
-        proof_ref pr(m);
+        expr_ref r(m), rr(m);
+        proof_ref pr(m), prr(m);
         proof * p = m.proofs_enabled() ? fmls[i].get_proof() : nullptr;
         expr_dependency_ref dep(m);
         m_macro_manager.expand_macros(fmls[i].get_fml(), p, nullptr, r, pr, dep);
-        m_rewriter(r);
-        new_fmls.push_back(justified_expr(m, r, pr));
+        m_rewriter(r, rr, prr);
+        if (pr) pr = m.mk_modus_ponens(pr, prr);
+        new_fmls.push_back(justified_expr(m, rr, pr));
     }
 }
 
@@ -378,7 +376,7 @@ bool quasi_macros::operator()(unsigned n, justified_expr const* fmls, vector<jus
     } 
     else {
         // just copy them over
-        for ( unsigned i = 0 ; i < n ; i++ ) {
+        for (unsigned i = 0 ; i < n ; i++ ) {
             new_fmls.push_back(fmls[i]);
         }
         return false;

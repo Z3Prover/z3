@@ -55,8 +55,7 @@ class quasi_macros {
     void find_occurrences(expr * e);
     bool find_macros(unsigned n, expr * const * exprs);
     bool find_macros(unsigned n, justified_expr const* expr);
-    void apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const* deps,
-                      expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector& new_deps);
+    void apply_macros(expr_ref_vector & exprs, proof_ref_vector & prs, expr_dependency_ref_vector& deps);
     void apply_macros(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
 
 public:
@@ -68,7 +67,7 @@ public:
     */
     // bool operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);    
     bool operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
-    bool operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const * deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps);
+    bool operator()(expr_ref_vector & exprs, proof_ref_vector & prs, expr_dependency_ref_vector & deps);
 
 };
 

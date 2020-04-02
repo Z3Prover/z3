@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
 #include "ast/display_dimacs.h"
@@ -255,6 +256,7 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
     }
     SASSERT(!m().proofs_enabled() || pr);
     if (pr) {
+        CTRACE("goal", f != m().get_fact(pr), tout << mk_pp(f, m()) << "\n" << mk_pp(pr, m()) << "\n";);
         SASSERT(f == m().get_fact(pr));
         slow_process(f, pr, d);
     }
