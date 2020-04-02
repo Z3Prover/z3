@@ -737,6 +737,7 @@ namespace smt {
      */
     template<typename Ext>
     void theory_utvpi<Ext>::enforce_parity() {
+        SASSERT(m_graph.is_feasible());
         unsigned_vector todo;        
         unsigned sz = get_num_vars();
         for (unsigned i = 0; i < sz; ++i) {
@@ -774,6 +775,7 @@ namespace smt {
                   }
                   display(tout);
                   );
+            SASSERT(m_graph.is_feasible());
 
             for (auto v : zero_v) {                
                 m_graph.inc_assignment(v, numeral(-1));
@@ -782,8 +784,8 @@ namespace smt {
                     todo.push_back(k);
                 }
             }         
+            TRACE("utvpi", display(tout););
         }
-        SASSERT(m_graph.is_feasible());
         DEBUG_CODE(
             for (unsigned i = 0; i < sz; ++i) {
                 enode* e = get_enode(i);
@@ -792,6 +794,7 @@ namespace smt {
                     UNREACHABLE();
                 }            
             });
+        SASSERT(m_graph.is_feasible());
     }
     
 

@@ -15,6 +15,7 @@ Author:
 
 --*/
 
+#include "ast/ast_util.h"
 #include "smt/tactic/unit_subsumption_tactic.h"
 #include "smt/smt_context.h"
 
@@ -92,7 +93,8 @@ struct unit_subsumption_tactic : public tactic {
         m_context.push();
         for (unsigned j = 0; j < m_clause_count; ++j) {
             if (i == j) {
-                m_context.assert_expr(m.mk_not(m_clauses.get(j)));
+                expr_ref fml(mk_not(m, m_clauses.get(j)), m);
+                m_context.assert_expr(fml);
             }
             else if (!m_is_deleted.get(j)) {
                 m_context.assert_expr(m_clauses.get(j));
