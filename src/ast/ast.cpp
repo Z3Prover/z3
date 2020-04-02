@@ -1794,7 +1794,7 @@ bool ast_manager::slow_not_contains(ast const * n) {
 }
 #endif
 
-#if 1
+#if 0
 static unsigned s_count = 0;
 static void track_id(ast* n, unsigned id) {
     if (n->get_id() != id) return;
