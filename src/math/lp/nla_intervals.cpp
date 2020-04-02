@@ -367,7 +367,7 @@ void intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a) {
         scoped_dep_interval b(get_dep_intervals());
         interval_of_expr<wd>(ep.e(), ep.pow(), b);
         TRACE("nla_intervals_details", tout << "ep = " << ep << ", "; display(tout, b); );
-        interval c;
+        scoped_dep_interval c(get_dep_intervals());
         if (wd == e_with_deps::with_deps) {
             interval_deps_combine_rule comb_rule;
             m_dep_intervals.mul(a, b, c, comb_rule);
