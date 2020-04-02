@@ -283,7 +283,7 @@ bool zstring::contains(zstring const& other) const {
 int zstring::indexofu(zstring const& other, unsigned offset) const {
     if (offset <= length() && other.length() == 0) return offset;
     if (offset == length()) return -1;
-    if (offset < other.length() + offset) return -1;
+    if (offset > other.length() + offset) return -1;
     if (other.length() + offset > length()) return -1;
     unsigned last = length() - other.length();
     for (unsigned i = offset; i <= last; ++i) {
