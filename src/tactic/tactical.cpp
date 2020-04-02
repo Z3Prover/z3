@@ -814,7 +814,7 @@ class repeat_tactical : public unary_tactical {
             if (r1[0]->is_decided()) {
                 result.push_back(r1[0]);  
                 return;                                                                                     
-            }                                                                                               
+            }                          
             goal_ref r1_0 = r1[0];                                                                          
             operator()(depth+1, r1_0, result); 
         }                                                                                                   

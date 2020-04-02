@@ -636,7 +636,6 @@ goal * goal::translate(ast_translation & translator) const {
     return res;
 }
 
-
 bool goal::sat_preserved() const {
     return prec() == PRECISE || prec() == UNDER;
 }
