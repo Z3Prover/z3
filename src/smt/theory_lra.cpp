@@ -967,6 +967,7 @@ class theory_lra::imp {
             return get_zero(a.is_int(term));
         }
         else {
+            TRACE("arith", tout << st.offset() << " " << st.coeffs().size() << " " << st.coeffs()[0] << "\n";);
             init_left_side(st);
             if (m_left_side.empty() && st.offset().is_zero()) {
                 return get_zero(a.is_int(term));
@@ -985,9 +986,10 @@ class theory_lra::imp {
                 TRACE("arith_verbose", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                       lp().print_term(lp().get_term(vi), tout) << "\n";);
             }
-            else {                
-                SASSERT(lp::tv::is_term(vi));
+            else {
+                SASSERT(lp::tv::is_term(vi) || a.is_to_real(term));
             }
+
             rational val;
             if (a.is_numeral(term, val)) {
                 m_fixed_var_table.insert(value_sort_pair(val, is_int(v)), v);
