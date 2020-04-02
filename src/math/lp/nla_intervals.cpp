@@ -72,11 +72,13 @@ std::ostream & intervals::print_dependencies(u_dependency* deps , std::ostream& 
 // return true iff the interval of n is does not contain 0
 bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
-    auto i = interval_of_expr<e_with_deps::without_deps>(n, 1);
+    scoped_dep_interval i(get_dep_intervals());
+    interval_of_expr<e_with_deps::without_deps>(n, 1, i);
     if (!m_dep_intervals.separated_from_zero(i)) {
         return false;
     }
-    auto interv_wd = interval_of_expr<e_with_deps::with_deps>(n, 1);
+    scoped_dep_interval interv_wd(get_dep_intervals());
+    interval_of_expr<e_with_deps::with_deps>(n, 1, interv_wd);
     TRACE("grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) <<"expr = " << *n << "\n, initial deps\n"; print_dependencies(initial_deps, tout);
           tout << ", expressions vars = \n";
           for(lpvar j: m_core->get_vars_of_expr_with_opening_terms(n)) {
@@ -269,7 +271,7 @@ void intervals::set_var_interval(lpvar v, interval& b) {
 }
 
 template <e_with_deps wd>
-bool intervals::interval_from_term(const nex& e, interval& i) {
+bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
     rational a, b;
     lp::lar_term norm_t = expression_to_normalized_term(&e.to_sum(), a, b);
     lp::explanation exp;
@@ -277,9 +279,9 @@ bool intervals::interval_from_term(const nex& e, interval& i) {
         set_zero_interval(i);
         if (wd == e_with_deps::with_deps) {
             for (auto p : exp) {
-                i.m_lower_dep = mk_join(i.m_lower_dep, mk_leaf(p.second));
+                i.get().m_lower_dep = mk_join(i.get().m_lower_dep, mk_leaf(p.second));
             }
-            i.m_upper_dep = i.m_lower_dep;
+            i.get().m_upper_dep = i.get().m_lower_dep;
         }
         TRACE("nla_intervals", tout << "explain_by_equiv\n";);
         return true;
@@ -302,72 +304,68 @@ bool intervals::interval_from_term(const nex& e, interval& i) {
 }
 
 template <e_with_deps wd>
-intervals::interval intervals::interval_of_sum_no_term(const nex_sum& e) {
-    const nex* inf_e = get_inf_interval_child(e);
-    if (inf_e) {
-        return interval();
-    }
-    interval a = interval_of_expr<wd>(e[0], 1);
+void intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & sdi) {
+    if (has_inf_interval(e))
+        return;
+    
+    interval_of_expr<wd>(e[0], 1, sdi);
     for (unsigned k = 1; k < e.size(); k++) {
         TRACE("nla_intervals_details_sum", tout << "e[" << k << "]= " << *e[k] << "\n";);
-        interval b = interval_of_expr<wd>(e[k], 1);
-        interval c;
+        scoped_dep_interval  b(get_dep_intervals());
+        interval_of_expr<wd>(e[k], 1, b);
+        scoped_dep_interval  c(get_dep_intervals());
 
-        TRACE("nla_intervals_details_sum", tout << "a = "; display(tout, a) << "\nb = "; display(tout, b) << "\n";);
+        TRACE("nla_intervals_details_sum", tout << "sdi = "; display(tout, sdi) << "\nb = "; display(tout, b) << "\n";);
         if (wd == e_with_deps::with_deps) {
             interval_deps_combine_rule combine_rule;
-            m_dep_intervals.add(a, b, c, combine_rule);
-            m_dep_intervals.combine_deps(a, b, combine_rule, c);
+            m_dep_intervals.add(sdi, b, c, combine_rule);
+            m_dep_intervals.combine_deps(sdi, b, combine_rule, c);
         }
         else {
-            m_dep_intervals.add(a, b, c);
+            m_dep_intervals.add(sdi, b, c);
         }
-        m_dep_intervals.set<wd>(a, c);
+        m_dep_intervals.set<wd>(sdi, c);
         TRACE("nla_intervals_details_sum", tout << *e[k] << ", ";
-              display(tout, a); tout << "\n";);
+              display(tout, sdi); tout << "\n";);
     }
     TRACE("nla_intervals_details", tout << "e=" << e << "\n";
-          tout << " interv = "; display(tout, a););
-    return a;
+          tout << " interv = "; display(tout, sdi););
 }
 
 template <e_with_deps wd>
-intervals::interval intervals::interval_of_sum(const nex_sum& e) {
+void intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a) {
     TRACE("nla_intervals_details", tout << "e=" << e << "\n";);
-    interval i_e = interval_of_sum_no_term<wd>(e);
+    interval_of_sum_no_term<wd>(e, a);
     if (e.is_a_linear_term()) {
         SASSERT(e.is_sum() && e.size() > 1);
-        interval i_from_term;
+        scoped_dep_interval i_from_term(get_dep_intervals());
         if (interval_from_term<wd>(e, i_from_term)) {
-            interval r = m_dep_intervals.intersect<wd>(i_e, i_from_term);
+            interval r = m_dep_intervals.intersect<wd>(a, i_from_term);
             TRACE("nla_intervals_details", tout << "intersection="; display(tout, r) << "\n";);
             if (m_dep_intervals.is_empty(r)) {
                 SASSERT(false); // not implemented
             }
-            return r;
-
+            m_dep_intervals.set<wd>(a, r);
         }
     }
-    return i_e;
 }
 
 template <e_with_deps wd>
-intervals::interval intervals::interval_of_mul(const nex_mul& e) {
+void intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a) {
     TRACE("nla_intervals_details", tout << "e = " << e << "\n";);
     const nex* zero_interval_child = get_zero_interval_child(e);
     if (zero_interval_child) {
-        interval a = interval_of_expr<wd>(zero_interval_child, 1);
+        interval_of_expr<wd>(zero_interval_child, 1, a);
         if(wd == e_with_deps::with_deps)
             set_zero_interval_deps_for_mult(a);
         TRACE("nla_intervals_details", tout << "zero_interval_child = " << *zero_interval_child << std::endl << "a = "; display(tout, a); );
-        return a;
     }
 
-    interval a;
     m_dep_intervals.set_interval_for_scalar(a, e.coeff());
     TRACE("nla_intervals_details", tout << "a = "; display(tout, a); );
     for (const auto& ep : e) {
-        interval b = interval_of_expr<wd>(ep.e(), ep.pow());
+        scoped_dep_interval b(get_dep_intervals());
+        interval_of_expr<wd>(ep.e(), ep.pow(), b);
         TRACE("nla_intervals_details", tout << "ep = " << ep << ", "; display(tout, b); );
         interval c;
         if (wd == e_with_deps::with_deps) {
@@ -385,40 +383,46 @@ intervals::interval intervals::interval_of_mul(const nex_mul& e) {
     }
     TRACE("nla_intervals_details", tout << "e=" << e << "\n";
           tout << " return "; display(tout, a););
-    return a;
 }
 
 template <e_with_deps wd>
-intervals::interval intervals::interval_of_expr(const nex* e, unsigned p) {
-    interval a;
+void intervals::to_power(scoped_dep_interval& a, unsigned p) {
+    if (p == 1) return;
+    interval b = m_dep_intervals.power<wd>(a, p);
+    m_dep_intervals.set<wd>(a, b);
+
+}
+template <e_with_deps wd>
+void intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& a) {
     switch (e->type()) {
     case expr_type::SCALAR:
-        m_dep_intervals.set_interval_for_scalar(a, to_scalar(e)->value());
-        if (p != 1) {
-            return m_dep_intervals.power<wd>(a, p);
+        {
+            m_dep_intervals.set_interval_for_scalar(a, power(to_scalar(e)->value(), p));
         }
-        return a;
+        break;
     case expr_type::SUM: {
-        interval b = interval_of_sum<wd>(e->to_sum());
-        if (p != 1)
-            return m_dep_intervals.power<wd>(b, p);
-        return b;
+        interval_of_sum<wd>(e->to_sum(), a);        
+        if (p != 1) {
+            to_power<wd>(a, p);
+        }
+        break;
     }
     case expr_type::MUL: {
-        interval b = interval_of_mul<wd>(e->to_mul());
-        if (p != 1)
-            return m_dep_intervals.power<wd>(b, p);
-        return b;
+        interval_of_mul<wd>(e->to_mul(), a);
+        if (p != 1) {
+            to_power<wd>(a, p);
+        }
+        break;
     }
     case expr_type::VAR:
         set_var_interval<wd>(e->to_var().var(), a);
-        if (p != 1)
-            return m_dep_intervals.power<wd>(a, p);;
-        return a;
+        if (p != 1) {
+            to_power<wd>(a, p);
+        }
+        break;
     default:
         TRACE("nla_intervals_details", tout << e->type() << "\n";);
-        UNREACHABLE();
-        return interval();
+        UNREACHABLE();        
     }
 }
 

@@ -64,20 +64,22 @@ public:
     void set_var_interval(lpvar v, interval& b);
 
     template <dep_intervals::with_deps_t wd>
-    bool interval_from_term(const nex& e, interval& i); 
+    bool interval_from_term(const nex& e, scoped_dep_interval& i); 
 
 
     template <dep_intervals::with_deps_t wd>
-    interval interval_of_sum_no_term(const nex_sum& e);
+    void interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval&);
 
     template <dep_intervals::with_deps_t wd>
-    interval interval_of_sum(const nex_sum& e);
+    void interval_of_sum(const nex_sum& e, scoped_dep_interval&);
 
     template <dep_intervals::with_deps_t wd>
-    interval interval_of_mul(const nex_mul& e); 
+    void interval_of_mul(const nex_mul& e, scoped_dep_interval&); 
 
     template <dep_intervals::with_deps_t wd>
-    interval interval_of_expr(const nex* e, unsigned p); 
+    void to_power(scoped_dep_interval&, unsigned);
+    template <dep_intervals::with_deps_t wd>
+    void interval_of_expr(const nex* e, unsigned p, scoped_dep_interval&); 
     bool upper_is_inf(const interval& a) const { return m_dep_intervals.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_dep_intervals.lower_is_inf(a); }
 
