@@ -119,9 +119,9 @@ public:
     bool suffixof(zstring const& other) const;
     bool prefixof(zstring const& other) const;
     bool contains(zstring const& other) const;
-    int  indexof(zstring const& other, int offset) const;
+    int  indexofu(zstring const& other, unsigned offset) const;
     int  last_indexof(zstring const& other) const;
-    zstring extract(int lo, int hi) const;
+    zstring extract(unsigned lo, unsigned hi) const;
     zstring operator+(zstring const& other) const;
     bool operator==(const zstring& other) const;
     bool operator!=(const zstring& other) const;

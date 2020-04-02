@@ -1125,7 +1125,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     bool isc2 = m_util.str.is_string(b, s2);
 
     if (isc1 && isc2 && m_autil.is_numeral(c, r) && r.is_unsigned()) {
-        int idx = s1.indexof(s2, r.get_unsigned());
+        int idx = s1.indexofu(s2, r.get_unsigned());
         result = m_autil.mk_numeral(rational(idx), true);
         return BR_DONE;
     }
