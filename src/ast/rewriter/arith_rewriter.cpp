@@ -89,7 +89,7 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     CTRACE("arith_rewriter", st != BR_FAILED, tout << st << ": " << mk_pp(f, m());
            for (unsigned i = 0; i < num_args; ++i) tout << mk_pp(args[i], m()) << " ";
            tout << "\n==>\n" << mk_pp(result.get(), m()) << "\n";
-           tout << "args: " << to_app(result)->get_num_args() << "\n";
+           if (is_app(result)) tout << "args: " << to_app(result)->get_num_args() << "\n";
            );
     return st;
 }

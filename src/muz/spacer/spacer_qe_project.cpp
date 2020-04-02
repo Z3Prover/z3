@@ -1163,7 +1163,7 @@ namespace spacer_qe {
                         tout << "substituting " << mk_pp (m_var->x (), m) << " by " << mk_pp (x_term, m) << "\n";
                       );
             }
-            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer (m);
+            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer (m, false);
             rep->set_substitution (&sub);
             (*rep)(fml);
         }

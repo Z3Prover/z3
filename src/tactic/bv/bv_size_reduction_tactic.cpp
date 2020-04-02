@@ -47,7 +47,7 @@ public:
     bv_size_reduction_tactic(ast_manager & m) :
         m(m),
         m_util(m),
-        m_replacer(mk_default_expr_replacer(m)) {
+        m_replacer(mk_default_expr_replacer(m, false)) {
     }
 
     tactic * translate(ast_manager & m) override {

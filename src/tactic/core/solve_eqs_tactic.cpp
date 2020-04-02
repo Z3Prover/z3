@@ -67,7 +67,7 @@ class solve_eqs_tactic : public tactic {
             m_marked_candidates(m) {
             updt_params(p);
             if (m_r == nullptr)
-                m_r       = mk_default_expr_replacer(m);
+                m_r = mk_default_expr_replacer(m, true);
         }
         
         ~imp() {

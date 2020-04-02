@@ -226,6 +226,7 @@ namespace smt {
 
             return;
         }
+        TRACE("qi_queue", tout << "simplified instance:\n" << s_instance << "\n";);
         quantifier_stat * stat = m_qm.get_stat(q);
         stat->inc_num_instances();
         if (stat->get_num_instances() % m_params.m_qi_profile_freq == 0) {

@@ -753,7 +753,7 @@ struct purify_arith_proc {
                 unsigned idx = num_vars - i - 1;
                 subst.insert(c, m().mk_var(idx, s));
             }
-            scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m());
+            scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m(), false);
             replacer->set_substitution(&subst);
             (*replacer)(new_body, new_body);
             new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body, q->get_weight());

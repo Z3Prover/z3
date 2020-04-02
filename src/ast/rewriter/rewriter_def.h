@@ -35,47 +35,49 @@ void rewriter_tpl<Config>::process_var(var * v) {
         m_r = nullptr;
         return;
     }
-    if (!ProofGen) {
-        // bindings are only used when Proof Generation is not enabled.
-        unsigned idx = v->get_idx();
+    unsigned idx = v->get_idx();
+    if (ProofGen) {
+        result_pr_stack().push_back(nullptr); // implicit reflexivity
 
-        if (idx < m_bindings.size()) {
-            unsigned index = m_bindings.size() - idx - 1;
-            expr * r = m_bindings[index];
-            if (r != nullptr) {
-                CTRACE("rewriter", v->get_sort() != m().get_sort(r),
-                       tout << expr_ref(v, m()) << ":" << sort_ref(v->get_sort(), m()) << " != " << expr_ref(r, m()) << ":" << sort_ref(m().get_sort(r), m());
-                       tout << "index " << index << " bindings " << m_bindings.size() << "\n";
-                       display_bindings(tout););
-                SASSERT(v->get_sort() == m().get_sort(r));
-                if (!is_ground(r) && m_shifts[index] != m_bindings.size()) {
-
-                    unsigned shift_amount = m_bindings.size() - m_shifts[index];
-                    expr* c = get_cached(r, shift_amount);
-                    if (c) {
-                        result_stack().push_back(c);
-                        set_new_child_flag(v);
-                        return;
-                    }
-                    expr_ref tmp(m());
-                    m_shifter(r, shift_amount, tmp);
-                    result_stack().push_back(tmp);
-                    TRACE("rewriter", tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n";
-                          display_bindings(tout););
-                    cache_shifted_result(r, shift_amount, tmp);                    
-                }
-                else {
-                    result_stack().push_back(r);
-                    TRACE("rewriter", tout << idx << " " << mk_ismt2_pp(r, m()) << "\n";);
-                }
+        SASSERT(
+            true || // disabled for now
+            idx >= m_bindings.size() ||
+            !m_bindings[m_bindings.size() - idx - 1] ||
+            v == m_bindings[m_bindings.size() - idx - 1]);
+    }
+    unsigned index = 0;
+    expr * r;
+    if (!ProofGen && idx < m_bindings.size() && 
+        (index = m_bindings.size() - idx - 1, r = m_bindings[index])) {
+        CTRACE("rewriter", v->get_sort() != m().get_sort(r),
+               tout << expr_ref(v, m()) << ":" << sort_ref(v->get_sort(), m()) << " != " << expr_ref(r, m()) << ":" << sort_ref(m().get_sort(r), m());
+               tout << "index " << index << " bindings " << m_bindings.size() << "\n";
+               display_bindings(tout););
+        SASSERT(v->get_sort() == m().get_sort(r));
+        if (!is_ground(r) && m_shifts[index] != m_bindings.size()) {
+            
+            unsigned shift_amount = m_bindings.size() - m_shifts[index];
+            expr* c = get_cached(r, shift_amount);
+            if (c) {
+                result_stack().push_back(c);
                 set_new_child_flag(v);
                 return;
             }
+            expr_ref tmp(m());
+            m_shifter(r, shift_amount, tmp);
+            result_stack().push_back(tmp);
+            TRACE("rewriter", tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n";
+                  display_bindings(tout););
+            cache_shifted_result(r, shift_amount, tmp);                    
         }
+        else {
+            result_stack().push_back(r);
+            TRACE("rewriter", tout << idx << " " << mk_ismt2_pp(r, m()) << "\n";);
+        }
+        set_new_child_flag(v);
+        return;
     }
     result_stack().push_back(v);
-    if (ProofGen)
-        result_pr_stack().push_back(nullptr); // implicit reflexivity
 }
 
 template<typename Config>

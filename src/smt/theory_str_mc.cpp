@@ -1136,7 +1136,7 @@ namespace smt {
             }
             // TODO insert length values into substitution table as well?
             if (m_params.m_FixedLengthRefinement) {
-                scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m);
+                scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m, false);
                 replacer->set_substitution(&subst);
                 th_rewriter rw(m);
                 if (!abstracted_boolean_formulas.empty()) {

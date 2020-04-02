@@ -351,7 +351,7 @@ namespace qe {
         scoped_ptr<expr_replacer> m_replace;
     public:
         lift_ite(ast_manager& m, i_expr_pred& is_relevant) : 
-            m(m), m_is_relevant(is_relevant), m_rewriter(m), m_replace(mk_default_expr_replacer(m)) {}
+            m(m), m_is_relevant(is_relevant), m_rewriter(m), m_replace(mk_default_expr_replacer(m, false)) {}
 
         bool operator()(expr* fml, expr_ref& result) {
             if (m.is_ite(fml)) {
@@ -1465,7 +1465,7 @@ namespace qe {
             if (!is_sat) {
                 fml = m.mk_false();
                 if (m_fml.get() != m_subfml.get()) {
-                    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m);
+                    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
                     rp->apply_substitution(to_app(m_subfml.get()), fml, m_fml);
                     fml = m_fml;
                 }
@@ -1497,7 +1497,7 @@ namespace qe {
             if (!m_free_vars.empty() || m_solver.inconsistent()) {
 
                 if (m_fml.get() != m_subfml.get()) {
-                    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m);
+                    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
                     rp->apply_substitution(to_app(m_subfml.get()), fml, m_fml);
                     fml = m_fml;
                 }

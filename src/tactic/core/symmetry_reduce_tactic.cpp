@@ -114,7 +114,7 @@ class symmetry_reduce_tactic::imp {
     ast_manager& m() const { return m_manager; }
 public:
     imp(ast_manager& m) : m_manager(m), m_rewriter(m) {
-        m_replace = mk_default_expr_replacer(m);
+        m_replace = mk_default_expr_replacer(m, false);
     }
 
     ~imp() {}

@@ -1124,7 +1124,7 @@ expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
         v = m.mk_var(i, sig(i)->get_range());
         sub.insert(c, v);
     }
-    scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+    scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m, false);
     rep->set_substitution(&sub);
     (*rep)(result);
 
@@ -1216,7 +1216,7 @@ void pred_transformer::add_cover(unsigned level, expr* property, bool bg)
         v = m.mk_var(i, sig(i)->get_range());
         sub.insert(v, c, pr);
     }
-    scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+    scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m, false);
     rep->set_substitution(&sub);
     (*rep)(result);
     TRACE("spacer", tout << "cover:\n" << mk_pp(result, m) << "\n";);
