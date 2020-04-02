@@ -2398,7 +2398,7 @@ bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool 
         VERIFY(remove_from_basis(j));
     }
     impq ival(val);
-    if (!inside_bounds(j, ival))
+    if (!inside_bounds(j, ival) || blocker(j))
         return false;
 
     impq delta = get_column_value(j) - ival;
@@ -2414,6 +2414,7 @@ bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool 
     }
 
     set_column_value(j, ival);
+    report_change(j);
     for (const auto &c : A_r().column(j)) {
         unsigned row_index = c.var();
         const mpq & a = c.coeff();        

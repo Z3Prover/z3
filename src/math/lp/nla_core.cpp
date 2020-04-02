@@ -1379,6 +1379,21 @@ bool in_power(const svector<lpvar>& vs, unsigned l) {
     return (l != 0 && vs[l - 1] == k) || (l + 1 < vs.size() && k == vs[l + 1]);
 }
 
+bool core::to_refine_is_correct() const {
+    for (unsigned j = 0; j < m_lar_solver.number_of_vars(); j++) {
+        if (!emons().is_monic_var(j)) continue;
+        bool valid = check_monic(emons()[j]);
+        if (valid != m_to_refine.contains(j)) {
+            TRACE("nla_solver", tout << "inconstency in m_to_refine : ";
+                  print_monic(emons()[j], tout) << "\n";
+                  if (valid) tout << "should NOT be there\n";
+                  else tout << "should be there\n";);
+            return false;
+        }
+    }
+    return true;
+}
+
 // looking for any real var to patch
 void core::patch_monomial_with_real_var(lpvar j) {    
     const monic& m = emons()[j];
@@ -1393,11 +1408,23 @@ void core::patch_monomial_with_real_var(lpvar j) {
         return;
 
     if (!var_is_int(j) && !var_is_used_in_a_correct_monic(j) && try_to_patch(j, v, m)) {
-        // SASSERT(mul_val(m) == var_val(m));        
-        m_to_refine.erase(j);
+        SASSERT(to_refine_is_correct());        
         return;
-    } 
+    }
 
+    // handle perfect squares
+    if (m.vars().size() == 2 && m.vars()[0] == m.vars()[1]) {        
+        rational root;
+        if (v.is_perfect_square(root)) {
+            lpvar k = m.vars()[0];
+            if (!var_is_int(k) && 
+                !var_is_used_in_a_correct_monic(k) &&
+                (try_to_patch(k, root, m) || try_to_patch(k, -root, m))
+                ) { 
+            }
+        }
+        return;
+    }
     // We have v != abc. Let us suppose we patch b. Then b should
     // be equal to v/ac = v/(abc/b) = b(v/abc)
     rational r = val(j) / v;
