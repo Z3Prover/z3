@@ -83,7 +83,6 @@ namespace smt {
         SASSERT(m_antecedent);
         ast_manager& m = cr.get_manager();
         proof_ref_vector prs(m);
-        cr.init_mk_proof();
         proof * pr = cr.get_proof(m_antecedent);
         if (!pr)
             return pr;

@@ -45,8 +45,8 @@ namespace smt {
     protected:
         typedef obj_pair_set<enode, enode> enode_pair_set;
 
-        ast_manager &                  m_manager;
-        smt_params const &       m_params;
+        ast_manager &                  m;
+        smt_params const &             m_params;
         context &                      m_ctx;
         dyn_ack_manager &              m_dyn_ack_manager;
         literal_vector const &         m_assigned_literals;
@@ -104,6 +104,7 @@ namespace smt {
         eq2proof                       m_eq2proof;
         lit2proof                      m_lit2proof;
         proof_ref_vector               m_new_proofs;
+        ast_ref_vector                 m_trail;
         proof_ref                      m_lemma_proof;
 
         literal_vector                 m_assumptions;
@@ -157,7 +158,7 @@ namespace smt {
         bool visit_eq_justications(enode * lhs, enode * rhs);
         void mk_proof(enode * lhs, enode * rhs, ptr_buffer<proof> & result);
         void mk_proof(enode * lhs, enode * rhs);
-        void init_mk_proof();
+        void reset();
         void mk_conflict_proof(b_justification conflict, literal not_l);
 
     protected:
@@ -217,7 +218,7 @@ namespace smt {
         }
 
         ast_manager & get_manager() {
-            return m_manager;
+            return m;
         }
         
         unsigned get_new_scope_lvl() const { 

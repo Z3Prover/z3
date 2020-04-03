@@ -866,17 +866,6 @@ namespace smt {
         //SASSERT(!m.is_not(n));
         unsigned id = n->get_id();
         bool_var v  = m_b_internalized_stack.size();
-#ifndef _EXTERNAL_RELEASE 
-        if (m_fparams.m_display_bool_var2expr) {
-            char const * header = "(iff z3@";
-            int  id_sz = 6;
-            std::cerr.width(id_sz);
-            std::cerr << header << std::left << v << " " << mk_pp(n, m, static_cast<unsigned>(strlen(header)) + id_sz + 1) << ")\n";
-        }
-        if (m_fparams.m_display_ll_bool_var2expr) {
-            std::cerr << v << " ::=\n" << mk_ll_pp(n, m) << "<END-OF-FORMULA>\n";
-        }
-#endif
         TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m) << " " << n->get_id() << "\n";);
         TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);                
         set_bool_var(id, v);
