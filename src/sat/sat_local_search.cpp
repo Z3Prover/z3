@@ -754,10 +754,12 @@ namespace sat {
             }
             add_unit(~lit, null_literal);
             if (!propagate(~lit)) {
-                IF_VERBOSE(0, verbose_stream() << "unsat\n");
+                IF_VERBOSE(2, verbose_stream() << "unsat\n");
                 m_is_unsat = true;
                 return;
             }
+            if (m_unsat_stack.empty())
+                return;
             goto reflip;
         }
 
