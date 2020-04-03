@@ -1330,8 +1330,10 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
     TRACE("lar_solver_rand", tout << "sz = " << sz << "\n";);
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
-        if (tv::is_term(var) && term_is_used_as_row(tv::unmask_term(var))) {
-            column_list.push_back(map_term_index_to_column_index(var));
+        if (tv::is_term(var)) {
+            if (term_is_used_as_row(tv::unmask_term(var))) {
+                column_list.push_back(map_term_index_to_column_index(var));
+            }
         } else {
             column_list.push_back(var);
         }
