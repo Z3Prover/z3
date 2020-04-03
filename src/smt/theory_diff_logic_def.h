@@ -841,8 +841,8 @@ void theory_diff_logic<Ext>::reset_eh() {
         dealloc(m_atoms[i]);
     }
     m_graph            .reset();
-    m_izero              = null_theory_var;
-    m_rzero              = null_theory_var;
+    m_izero            = null_theory_var;
+    m_rzero            = null_theory_var;
     m_atoms            .reset();
     m_asserted_atoms   .reset();
     m_stats            .reset();
@@ -1109,6 +1109,7 @@ unsigned theory_diff_logic<Ext>::simplex2edge(unsigned e) {
 
 template<typename Ext> 
 void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
+    m_graph.set_to_zero(get_zero(true), get_zero(false));
     unsynch_mpq_inf_manager inf_mgr;
     unsynch_mpq_manager& mgr = inf_mgr.get_mpq_manager();
     unsigned num_nodes = m_graph.get_num_nodes();
@@ -1193,7 +1194,8 @@ typename theory_diff_logic<Ext>::inf_eps theory_diff_logic<Ext>::value(theory_va
 template<typename Ext>
 typename theory_diff_logic<Ext>::inf_eps 
 theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
-    
+    SASSERT(is_consistent());
+
     has_shared = false;
     Simplex& S = m_S;
     ast_manager& m = get_manager();
