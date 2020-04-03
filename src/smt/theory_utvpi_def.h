@@ -550,6 +550,7 @@ namespace smt {
         }
         if (coeffs.size() == 2) {
             // do not create an alias.
+            found_non_utvpi_expr(n);
             return null_theory_var;
         }
         for (expr* arg : *n) {
@@ -572,6 +573,7 @@ namespace smt {
         if (r.is_zero()) {            
             v = get_zero(n);
             if (!ctx.e_internalized(n)) {
+                found_non_utvpi_expr(n);
                 v = null_theory_var;
             }
         }
