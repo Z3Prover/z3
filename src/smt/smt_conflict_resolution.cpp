@@ -1043,7 +1043,7 @@ namespace smt {
     */
     proof * conflict_resolution::get_proof(justification * js) {
         proof * pr;
-        if (m_js2proof.find(js, pr)) {
+        if (false && m_js2proof.find(js, pr)) {
             TRACE("proof_gen_bug", tout << "js2pr_cached: #" << js << "\n";);
             return pr;
         }
@@ -1313,10 +1313,9 @@ namespace smt {
         }
         else {
             proof * prs[2] = { nullptr, nullptr};
-            m_lit2proof.find(not_l, prs[0]);
-            SASSERT(prs[0]);
-            prs[1]         = get_proof(consequent, conflict);
-            SASSERT(prs[1]);
+            prs[0] = m_lit2proof.find(not_l);
+            prs[1] = get_proof(consequent, conflict);
+            SASSERT(prs[0] && prs[1]);
             pr = m_manager.mk_unit_resolution(2, prs);
         }
         expr_ref_buffer lits(m_manager);

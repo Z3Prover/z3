@@ -3135,6 +3135,7 @@ namespace smt {
                 }
                 expr * f   = m_asserted_formulas.get_formula(qhead);
                 proof * pr = m_asserted_formulas.get_formula_proof(qhead);
+                SASSERT(!pr || f == m.get_fact(pr));
                 internalize_assertion(f, pr, 0);
                 qhead++;
             }

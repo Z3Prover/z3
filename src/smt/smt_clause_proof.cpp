@@ -15,6 +15,7 @@ Revision History:
 #include "smt/smt_clause_proof.h"
 #include "smt/smt_context.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 namespace smt {
     clause_proof::clause_proof(context& ctx): ctx(ctx), m(ctx.get_manager()), m_lits(m) {}
@@ -42,18 +43,19 @@ namespace smt {
     void clause_proof::add(clause& c) {
         if (ctx.get_fparams().m_clause_proof) {  
             justification* j = c.get_justification();
-            proof* pr = justification2proof(j);
+            proof_ref pr(justification2proof(j), m);
+            CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
             update(c, kind2st(c.get_kind()), pr);
         }
     }
 
     void clause_proof::add(unsigned n, literal const* lits, clause_kind k, justification* j) {
-        if (ctx.get_fparams().m_clause_proof) {  
-            proof* pr = justification2proof(j);
+        if (ctx.get_fparams().m_clause_proof) {              
+            proof_ref pr(justification2proof(j), m);
+            CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
             m_lits.reset();
             for (unsigned i = 0; i < n; ++i) {
-                literal lit = lits[i];
-                m_lits.push_back(ctx.literal2expr(lit));
+                m_lits.push_back(ctx.literal2expr(lits[i]));
             }
             update(kind2st(k), m_lits, pr);
         }
