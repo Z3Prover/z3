@@ -1124,8 +1124,6 @@ bool theory_arith<Ext>::propagate_linear_monomials() {
 template<typename Ext>
 bool theory_arith<Ext>::is_problematic_non_linear_row(row const & r) {
     m_tmp_var_set.reset();
-    if (!reflection_enabled())
-        return false;
     typename vector<row_entry>::const_iterator it  = r.begin_entries();
     typename vector<row_entry>::const_iterator end = r.end_entries();
     for (; it != end; ++it) {
@@ -2402,6 +2400,9 @@ final_check_status theory_arith<Ext>::process_non_linear() {
     m_model_depends_on_computed_epsilon = false;
     if (m_nl_monomials.empty())
         return FC_DONE;
+
+    if (!reflection_enabled())
+        return FC_GIVEUP;
 
     if (check_monomial_assignments()) {
         return FC_DONE;
