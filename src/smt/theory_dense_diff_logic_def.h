@@ -927,8 +927,8 @@ namespace smt {
         for (unsigned i = 0; i < num_nodes; ++i) {
             enode * n = get_enode(i);
             if (m_autil.is_zero(n->get_owner())) {
-                S.set_lower(v, mpq_inf(mpq(0), mpq(0)));
-                S.set_upper(v, mpq_inf(mpq(0), mpq(0)));
+                S.set_lower(i, mpq_inf(mpq(0), mpq(0)));
+                S.set_upper(i, mpq_inf(mpq(0), mpq(0)));
                 break;
             }
         }
@@ -949,7 +949,8 @@ namespace smt {
             vars[2] = base_var;
             S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());
             // t - s <= w
-            // t - s - b = 0, b >= w
+            // =>
+            // t - s - b = 0, b <= w
             numeral const& w = e.m_offset;
             rational fin = w.get_rational().to_rational();
             rational inf = w.get_infinitesimal().to_rational();
