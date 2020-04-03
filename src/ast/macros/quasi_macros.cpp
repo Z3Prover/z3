@@ -186,7 +186,7 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     return false;
 }
 
-void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quantifier_ref & macro) {
+bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quantifier_ref & macro) {
     m_new_var_names.reset();
     m_new_vars.reset();
     m_new_qsorts.reset();
@@ -199,9 +199,11 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     bit_vector v_seen;
     v_seen.resize(q->get_num_decls(), false);
-    for (unsigned i = 0 ; i < a->get_num_args() ; i++) {
-        if (!is_var(a->get_arg(i)) ||
-            v_seen.get(to_var(a->get_arg(i))->get_idx())) {
+    for (unsigned i = 0; i < a->get_num_args(); ++i) {
+        expr* arg = a->get_arg(i);
+        if (!is_var(arg) && !is_ground(arg))
+            return false;
+        if (!is_var(arg) || v_seen.get(to_var(arg)->get_idx())) {
             unsigned inx = m_new_var_names.size();
             m_new_name.str("");
             m_new_name << "X" << inx;
@@ -211,7 +213,7 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
             m_new_vars.push_back(m.mk_var(inx + q->get_num_decls(), f->get_domain()[i]));
             m_new_eqs.push_back(m.mk_eq(m_new_vars.back(), a->get_arg(i)));
         } else {
-            var * v = to_var(a->get_arg(i));
+            var * v = to_var(arg);
             m_new_vars.push_back(v);
             v_seen.set(v->get_idx(), true);
         }
@@ -235,22 +237,20 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     // Macro  :=  Forall m_new_vars . appl = ITE( m_new_eqs, t, f_else)
 
-    app_ref appl(m);
-    expr_ref eq(m);
-    appl = m.mk_app(f, m_new_vars.size(), m_new_vars.c_ptr());
+    app_ref appl(m.mk_app(f, m_new_vars.size(), m_new_vars.c_ptr()), m);
 
     func_decl * fd = m.mk_fresh_func_decl(f->get_name(), symbol("else"),
                                                   f->get_arity(), f->get_domain(),
                                                   f->get_range());
-    expr * f_else = m.mk_app(fd, m_new_vars.size(), m_new_vars.c_ptr());
+    expr_ref f_else(m.mk_app(fd, m_new_vars.size(), m_new_vars.c_ptr()), m);
+    expr_ref ite(m.mk_ite(m.mk_and(m_new_eqs.size(), m_new_eqs.c_ptr()), t, f_else), m);
 
-    expr_ref ite(m);
-    ite = m.mk_ite(m.mk_and(m_new_eqs.size(), m_new_eqs.c_ptr()), t, f_else);
-
-    eq = m.mk_eq(appl, ite);
+    expr_ref eq(m.mk_eq(appl, ite), m);
 
     macro = m.mk_quantifier(forall_k, new_var_names_rev.size(),
                                     new_qsorts_rev.c_ptr(), new_var_names_rev.c_ptr(), eq);
+
+    return true;
 }
 
 bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
@@ -274,9 +274,9 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
     for (unsigned i = 0 ; i < n ; i++) {
         app_ref a(m);
         expr_ref t(m);
-        if (is_quasi_macro(exprs[i], a, t)) {
-            quantifier_ref macro(m);
-            quasi_macro_to_macro(to_quantifier(exprs[i]), a, t, macro);
+        quantifier_ref macro(m);
+        if (is_quasi_macro(exprs[i], a, t) && 
+            quasi_macro_to_macro(to_quantifier(exprs[i]), a, t, macro)) {
             TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i], m) << std::endl;
                                   tout << "Macro: " << mk_pp(macro, m) << std::endl; );
             proof * pr = nullptr;
@@ -313,9 +313,9 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
     for ( unsigned i = 0 ; i < n ; i++ ) {
         app_ref a(m);
         expr_ref t(m);
-        if (is_quasi_macro(exprs[i].get_fml(), a, t)) {
-            quantifier_ref macro(m);
-            quasi_macro_to_macro(to_quantifier(exprs[i].get_fml()), a, t, macro);
+        quantifier_ref macro(m);
+        if (is_quasi_macro(exprs[i].get_fml(), a, t) && 
+            quasi_macro_to_macro(to_quantifier(exprs[i].get_fml()), a, t, macro)) {
             TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i].get_fml(), m) << std::endl;
                                   tout << "Macro: " << mk_pp(macro, m) << std::endl; );
             proof * pr = nullptr;
