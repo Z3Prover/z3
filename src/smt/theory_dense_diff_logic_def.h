@@ -146,7 +146,10 @@ namespace smt {
         SASSERT(m_autil.is_le(n) || m_autil.is_ge(n));
         app * lhs      = to_app(n->get_arg(0));
         app * rhs      = to_app(n->get_arg(1));
-        SASSERT(m_autil.is_numeral(rhs));
+        if (!m_autil.is_numeral(rhs)) {
+            found_non_diff_logic_expr(n);
+            return false;
+        }
         rational _k;
         m_autil.is_numeral(rhs, _k);
         numeral offset(_k);
