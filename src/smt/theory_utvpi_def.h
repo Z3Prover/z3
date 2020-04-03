@@ -571,6 +571,9 @@ namespace smt {
         context& ctx = get_context();
         if (r.is_zero()) {            
             v = get_zero(n);
+            if (!ctx.e_internalized(n)) {
+                v = null_theory_var;
+            }
         }
         else if (ctx.e_internalized(n)) {
             enode* e = ctx.get_enode(n);
