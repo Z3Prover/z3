@@ -128,9 +128,6 @@ namespace smt {
             else if (a.is_numeral(e, num)) {
                 m_weight += num*mul;
             }
-            else if (a.is_to_real(e, e1)) {
-                m_terms.push_back(std::make_pair(e1, mul));
-            }
             else if (!is_uninterp_const(e)) {
                 return false;
             }
