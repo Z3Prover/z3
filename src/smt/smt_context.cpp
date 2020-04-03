@@ -109,34 +109,6 @@ namespace smt {
         m_model_generator->set_context(this);
     }
 
-    literal context::translate_literal(
-        literal lit, context& src_ctx, context& dst_ctx,
-        vector<bool_var> b2v, ast_translation& tr) {
-        ast_manager& dst_m = dst_ctx.get_manager();
-        ast_manager& src_m = src_ctx.get_manager();
-        expr_ref dst_f(dst_m);
-
-        SASSERT(lit != false_literal && lit != true_literal);
-        bool_var v = b2v.get(lit.var(), null_bool_var);
-        if (v == null_bool_var) {
-            expr* e = src_ctx.m_bool_var2expr.get(lit.var(), 0);
-            SASSERT(e);
-            dst_f = tr(e);
-            v = dst_ctx.get_bool_var_of_id_option(dst_f->get_id());
-            if (v != null_bool_var) {
-            }
-            else if (src_m.is_not(e) || src_m.is_and(e) || src_m.is_or(e) ||
-                     src_m.is_iff(e) || src_m.is_ite(e)) {
-                v = dst_ctx.mk_bool_var(dst_f);
-            }
-            else {
-                dst_ctx.internalize_formula(dst_f, true);
-                v = dst_ctx.get_bool_var(dst_f);
-            }
-            b2v.setx(lit.var(), v, null_bool_var);
-        }
-        return literal(v, lit.sign());
-    }
 
     /**
        \brief retrieve flag for when cancelation is possible.
@@ -191,51 +163,17 @@ namespace smt {
         if (!src_ctx.m_setup.already_configured()) {
             return;
         }
+
+        for (unsigned i = 0; !src_m.proofs_enabled() && i < src_ctx.m_assigned_literals.size(); ++i) {
+            literal lit = src_ctx.m_assigned_literals[i];
+            expr_ref fml0(src_m), fml1(dst_m);
+            src_ctx.literal2expr(lit, fml0);
+            fml1 = tr(fml0.get());
+            dst_ctx.assert_expr(fml1);
+        }
+
         dst_ctx.setup_context(dst_ctx.m_fparams.m_auto_config);
         dst_ctx.internalize_assertions();
-
-        vector<bool_var> b2v;
-
-#define TRANSLATE(_lit) translate_literal(_lit, src_ctx, dst_ctx, b2v, tr)
-
-        for (unsigned i = 0; i < src_ctx.m_assigned_literals.size(); ++i) {
-            literal lit;
-            lit = TRANSLATE(src_ctx.m_assigned_literals[i]);
-            dst_ctx.mk_clause(1, &lit, nullptr, CLS_AUX, nullptr);
-        }
-#if 0
-        literal_vector lits;
-        expr_ref_vector cls(src_m);
-        for (unsigned i = 0; i < src_ctx.m_lemmas.size(); ++i) {
-            lits.reset();
-            cls.reset();
-            clause& src_cls = *src_ctx.m_lemmas[i];
-            unsigned sz = src_cls.get_num_literals();
-            for (unsigned j = 0; j < sz; ++j) {
-                literal lit = TRANSLATE(src_cls.get_literal(j));
-                lits.push_back(lit);
-            }
-            dst_ctx.mk_clause(lits.size(), lits.c_ptr(), 0, src_cls.get_kind(), 0);
-        }
-        vector<watch_list>::const_iterator it  = src_ctx.m_watches.begin();
-        vector<watch_list>::const_iterator end = src_ctx.m_watches.end();
-        literal ls[2];
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            literal l1 = to_literal(l_idx);
-            literal neg_l1 = ~l1;
-            watch_list const & wl = *it;
-            literal const * it2  = wl.begin();
-            literal const * end2 = wl.end();
-            for (; it2 != end2; ++it2) {
-                literal l2 = *it2;
-                if (l1.index() < l2.index()) {
-                    ls[0] = TRANSLATE(neg_l1);
-                    ls[1] = TRANSLATE(l2);
-                    dst_ctx.mk_clause(2, ls, 0, CLS_AUX, 0);
-                }
-            }
-        }
-#endif
 
         TRACE("smt_context",
               src_ctx.display(tout);

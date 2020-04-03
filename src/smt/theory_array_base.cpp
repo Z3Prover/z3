@@ -524,7 +524,6 @@ namespace smt {
     }
 
     void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
-        TRACE("array", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
         ptr_buffer<enode> to_unmark;
         unsigned num_vars = get_num_vars();
@@ -549,6 +548,7 @@ namespace smt {
             r->set_mark();
             to_unmark.push_back(r);            
         }
+        TRACE("array", tout << "collecting shared vars...\n" << unsigned_vector(result.size(), (unsigned*)result.c_ptr())  << "\n";);
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }
 #endif
