@@ -73,6 +73,8 @@ namespace sat {
         literal lit = literal(v, !m_values[v]);
         literal nlit = ~lit;
         SASSERT(is_true(lit));
+        SASSERT(lit.index() < m_use_list.size());
+        SASSERT(m_use_list_index.size() == m_use_list.size() + 1);
         for (unsigned cls_idx : use_list(*this, lit)) {
             clause_info& ci = m_clauses[cls_idx];
             ci.del(lit);
@@ -114,7 +116,7 @@ namespace sat {
         for (literal lit : *cls) {
             m_values.reserve(lit.var()+1);
             m_breaks.reserve(lit.var()+1);
-            m_use_list.reserve(lit.index()+1);
+            m_use_list.reserve((1+lit.var())*2);
             m_use_list[lit.index()].push_back(idx);
         }
         m_probs.reserve(n+1);
