@@ -715,6 +715,8 @@ public:
         cleanup();
         fail_if_proof_generation("parallel-tactic", g);
         ast_manager& m = g->m();        
+        if (m.has_trace_stream())
+            throw default_exception("parallel tactic does not work with trace");
         solver* s = m_solver->translate(m, m_params);
         solver_state* st = alloc(solver_state, nullptr, s, m_params);
         m_queue.add_task(st);

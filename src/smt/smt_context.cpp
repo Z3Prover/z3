@@ -3466,7 +3466,7 @@ namespace smt {
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
 
-        if (m_fparams.m_threads > 1) {
+        if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {
             parallel p(*this);
             expr_ref_vector asms(m);
             return p(asms);

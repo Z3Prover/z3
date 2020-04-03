@@ -391,6 +391,9 @@ public:
         
         ast_manager & m = in->m();
         
+        if (m.has_trace_stream())
+            throw default_exception("threads and trace are incompatible");
+
         scoped_ptr_vector<ast_manager> managers;
         scoped_limits scl(m.limit());
         goal_ref_vector                in_copies;
@@ -661,6 +664,9 @@ public:
                     }                                                                                           
                 }
             };
+
+            if (m.has_trace_stream())
+                throw default_exception("threads and trace are incompatible");
 
             vector<std::thread> threads(r1_size);
             for (unsigned i = 0; i < r1_size; ++i) {
