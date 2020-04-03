@@ -18,6 +18,7 @@ Notes:
 --*/
 #include "tactic/arith/bound_manager.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "tactic/goal.h"
 
 bound_manager::bound_manager(ast_manager & m):
