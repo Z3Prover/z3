@@ -2449,9 +2449,9 @@ namespace smt {
             m_th_eq_propagation_queue.reset();
             m_th_diseq_propagation_queue.reset();
             m_atom_propagation_queue.reset();
-
             m_region.pop_scope(num_scopes);
             m_scopes.shrink(new_lvl);
+            m_conflict_resolution->reset();
 
             m_scope_lvl = new_lvl;
             if (new_lvl < m_base_lvl) {

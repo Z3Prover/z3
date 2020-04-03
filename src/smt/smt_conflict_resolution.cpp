@@ -1335,6 +1335,7 @@ namespace smt {
         else
             m_lemma_proof = m.mk_lemma(pr, fact);
         m_new_proofs.reset();
+        reset();
     }
 
     void conflict_resolution::process_antecedent_for_unsat_core(literal antecedent) {
