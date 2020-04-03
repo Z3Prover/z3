@@ -384,7 +384,18 @@ public:
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
         for (sat::literal l : lits) {
-            fmls.push_back(lit2expr[l.index()].get());
+            expr* e = lit2expr.get(l.index());
+            if (!e) {
+                std::cout << l << "\n";
+                std::cout << lits << "\n";
+                std::cout << vars << "\n";
+                std::cout << lit2expr << "\n";
+                for (auto const& kv : m_map) {
+                    std::cout << kv.m_value << " " << mk_pp(kv.m_key, m) << "\n";
+                }
+            }
+            SASSERT(e);
+            fmls.push_back(e);
         }
         vs.reset();
         for (sat::bool_var v : vars) {

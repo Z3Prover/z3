@@ -364,6 +364,7 @@ public:
     void extract_literals(model& model, expr_ref_vector& fmls) {
         expr_ref val(m);
         model_evaluator eval(model);
+        eval.set_expand_array_equalities(true);
         TRACE("qe", tout << fmls << "\n";);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get(), *nfml, *f1, *f2, *f3;

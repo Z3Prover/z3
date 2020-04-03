@@ -236,7 +236,9 @@ class parallel_tactic : public tactic {
         vector<cube_var> split_cubes(unsigned n) {
             vector<cube_var> result;
             while (n-- > 0 && !m_cubes.empty()) {
+                for (expr* c : m_cubes.back().cube()) SASSERT(c);
                 result.push_back(m_cubes.back());
+
                 m_cubes.pop_back();
             }
             return result;
@@ -244,6 +246,7 @@ class parallel_tactic : public tactic {
 
         void set_cubes(vector<cube_var>& c) {
             m_cubes.reset();
+            for (auto & cb : c) for (expr* e : cb.cube()) SASSERT(e);
             m_cubes.append(c);
         }
 
@@ -454,6 +457,7 @@ private:
         ast_manager& m = s.m();
         vector<cube_var> cube, hard_cubes, cubes;
         expr_ref_vector vars(m);
+        unsigned num_simplifications = 0;
 
     cube_again:
         // extract up to one cube and add it.
@@ -467,8 +471,10 @@ private:
             vars.reset();
             vars.append(cube.get(0).vars());
         }
+        num_simplifications = 0;
 
     simplify_again:
+        ++num_simplifications;
         s.inc_depth(1);
         // simplify
         if (canceled(s)) return;
@@ -493,7 +499,11 @@ private:
         unsigned num_backtracks = 0, width = 0;
         while (cutoff > 0 && !canceled(s)) {
             expr_ref_vector c = s.get_solver().cube(vars, cutoff);
-            if (c.empty()) {
+            if (c.empty() || (cube.size() == 1 && m.is_true(c.back()))) {
+                if (num_simplifications > 1) {
+                    report_undef(s); 
+                    return;
+                }
                 goto simplify_again;
             }
             if (m.is_false(c.back())) {                
@@ -507,6 +517,7 @@ private:
             if (conquer) {
                 is_sat = conquer->check_sat(c);
             }
+            for (expr* e : c) SASSERT(e);
             switch (is_sat) {
             case l_false: 
                 cutoff = c.size();
