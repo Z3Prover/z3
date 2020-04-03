@@ -33,6 +33,7 @@ random_updater::random_updater(
     m_var_set.resize(m_lar_solver.number_of_vars());
     for (unsigned j : column_indices)
         add_column_to_sets(j);
+    TRACE("lar_solver_rand", tout << "size = " << m_var_set.size() << "\n";);
 }
 
 
@@ -52,6 +53,7 @@ void random_updater::update() {
             add_value(m_lar_solver.get_column_value(j));
         }
     }
+    TRACE("lar_solver_rand", tout << "m_var_set.size() = " << m_var_set.size() << ", m_values.size() = " << m_values.size() << "\n";);
 }
 
 void random_updater::add_value(const numeric_pair<mpq>& v) {

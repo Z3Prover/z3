@@ -1327,12 +1327,11 @@ mpq lar_solver::get_left_side_val(const lar_base_constraint &  cns, const std::u
 
 
 void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list) {
+    TRACE("lar_solver_rand", tout << "sz = " << sz << "\n";);
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
-        if (tv::is_term(var)) { // handle the term
-            for (auto it : *m_terms[tv::unmask_term(var)]) {
-                column_list.push_back(it.var().index());
-            }
+        if (tv::is_term(var)) {
+            column_list.push_back(map_term_index_to_column_index(var));
         } else {
             column_list.push_back(var);
         }
