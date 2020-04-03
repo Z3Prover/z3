@@ -26,6 +26,7 @@ Revision History:
 #include "ast/scoped_proof.h"
 #include "smt/smt_solver.h"
 #include "tactic/fd_solver/fd_solver.h"
+#include "tactic/tactic.h"
 #include "muz/base/dl_context.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/bmc/dl_bmc_engine.h"
@@ -34,6 +35,7 @@ Revision History:
 #include "muz/transforms/dl_transforms.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
 #include "muz/base/fp_params.hpp"
+
 
 namespace datalog {
 
@@ -485,7 +487,7 @@ namespace datalog {
         }
 
         proof_ref get_proof(model_ref& md, func_decl* pred, app* prop, unsigned level) {
-            if (m.canceled()) {
+            if (!m.inc()) {
                 return proof_ref(nullptr, m);
             }
             TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
@@ -1173,7 +1175,7 @@ namespace datalog {
     private:
 
         void get_model(unsigned level) {
-            if (m.canceled()) {
+            if (!m.inc()) {
                 return;
             }
             rule_manager& rm = b.m_ctx.get_rule_manager();
@@ -1520,9 +1522,7 @@ namespace datalog {
     }
 
     void bmc::checkpoint() {
-        if (m.canceled()) {
-            throw default_exception(Z3_CANCELED_MSG);
-        }
+        tactic::checkpoint(m);
     }
 
     void bmc::display_certificate(std::ostream& out) const {

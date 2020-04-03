@@ -1862,7 +1862,10 @@ namespace smt {
                     literal l = lits[i];
                     if (l.var() == true_bool_var) {
                         unsigned is_true = (l == true_literal);
-                        SASSERT(!bits[!is_true][i]); // no complementary bits
+                        if (bits[!is_true][i]) {
+                            // expect a conflict later on.
+                            return true;
+                        }
                         if (!bits[is_true][i]) {
                             bits[is_true][i] = true;
                             num_bits++;
@@ -1888,6 +1891,8 @@ namespace smt {
     }
 
     bool theory_bv::check_invariant() {
+        if (get_manager().limit().get_cancel_flag())
+            return true;
         if (get_context().inconsistent())
             return true;
         unsigned num = get_num_vars();

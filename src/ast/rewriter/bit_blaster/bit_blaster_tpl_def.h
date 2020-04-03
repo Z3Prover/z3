@@ -27,7 +27,7 @@ template<typename Cfg>
 void bit_blaster_tpl<Cfg>::checkpoint() {
     if (memory::get_allocation_size() > m_max_memory)
         throw rewriter_exception(Z3_MAX_MEMORY_MSG);
-    if (m().canceled())
+    if (!m().inc())
         throw rewriter_exception(m().limit().get_cancel_msg());
 }
 

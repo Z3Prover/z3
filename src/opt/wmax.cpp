@@ -77,9 +77,9 @@ namespace opt {
             TRACE("opt", 
                   s().display(tout)<< "\n";
                   tout << "lower: " << m_lower << " upper: " << m_upper << "\n";);
-            while (!m.canceled() && m_lower < m_upper) {
+            while (m.inc() && m_lower < m_upper) {
                 is_sat = s().check_sat(0, nullptr);
-                if (m.canceled()) {
+                if (!m.inc()) {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_undef) {
@@ -106,7 +106,7 @@ namespace opt {
 
             update_assignment();
             
-            if (!m.canceled() && is_sat == l_undef && m_lower == m_upper) {
+            if (m.inc() && is_sat == l_undef && m_lower == m_upper) {
                 is_sat = l_true;
             }
             if (is_sat == l_false) {

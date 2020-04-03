@@ -33,8 +33,7 @@ struct cofactor_elim_term_ite::imp {
     void checkpoint() { 
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
-        if (m.canceled())
-            throw tactic_exception(m.limit().get_cancel_msg());
+        tactic::checkpoint(m);
     }
 
     // Collect atoms that contain term if-then-else

@@ -35,8 +35,7 @@ class occf_tactic : public tactic {
         }
 
         void checkpoint() {
-            if (m.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+            tactic::checkpoint(m);
         }
 
         bool is_literal(expr * t) const {

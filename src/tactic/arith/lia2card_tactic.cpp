@@ -164,7 +164,7 @@ public:
     }
 
     void checkpoint() {
-        if (m.canceled()) {
+        if (!m.inc()) {
             throw tactic_exception(m.limit().get_cancel_msg());
         }
     }

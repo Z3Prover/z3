@@ -71,7 +71,7 @@ namespace opt {
         expr* vars[1];
 
         solver::scoped_push _push(*m_s);
-        while (is_sat == l_true && !m.canceled()) {
+        while (is_sat == l_true && m.inc()) {
 
             tmp = m.mk_fresh_const("b", m.mk_bool_sort());            
             vars[0] = tmp;
@@ -83,7 +83,7 @@ namespace opt {
             }
         }      
         
-        if (m.canceled() || is_sat == l_undef) {
+        if (!m.inc() || is_sat == l_undef) {
             return l_undef;
         }
 
@@ -110,7 +110,7 @@ namespace opt {
         unsigned num_scopes = 0;
         unsigned delta_index = 0;    // index of objective to speed up.
 
-        while (!m.canceled()) {
+        while (m.inc()) {
             SASSERT(delta_per_step.is_int());
             SASSERT(delta_per_step.is_pos());
             is_sat = m_s->check_sat(0, nullptr);
@@ -176,7 +176,7 @@ namespace opt {
             }
         }
         
-        if (m.canceled() || is_sat == l_undef) {
+        if (!m.inc() || is_sat == l_undef) {
             return l_undef;
         }
         
@@ -208,7 +208,7 @@ namespace opt {
         rational delta_per_step(1);
         unsigned num_scopes = 0;
 
-        while (!m.canceled()) {
+        while (m.inc()) {
             SASSERT(delta_per_step.is_int());
             SASSERT(delta_per_step.is_pos());
             is_sat = m_s->check_sat(0, nullptr);
@@ -265,7 +265,7 @@ namespace opt {
             return l_false;
         }
         
-        if (m.canceled() || is_sat == l_undef) {
+        if (!m.inc() || is_sat == l_undef) {
             return l_undef;
         }
 
@@ -315,7 +315,7 @@ namespace opt {
             lbool is_sat = l_true;
 
             solver::scoped_push _push(*m_s);
-            while (!m.canceled()) {
+            while (m.inc()) {
                 m_s->assert_expr(fml);
                 TRACE("opt", tout << fml << "\n";);
                 is_sat = m_s->check_sat(1,vars);
@@ -349,7 +349,7 @@ namespace opt {
         bound = mk_or(m_lower_fmls);
         m_s->assert_expr(bound);
         
-        if (m.canceled()) {
+        if (!m.inc()) {
             return l_undef;
         }
         return geometric_opt();
@@ -418,7 +418,7 @@ namespace opt {
 
         vector<inf_eps> mid;
 
-        for (unsigned i = 0; i < m_lower.size() && !m.canceled(); ++i) {
+        for (unsigned i = 0; i < m_lower.size() && m.inc(); ++i) {
             if (m_lower[i] < m_upper[i]) {
                 mid.push_back((m_upper[i]+m_lower[i])/rational(2));
                 bound = m_s->mk_ge(i, mid[i]);
@@ -430,7 +430,7 @@ namespace opt {
             }
         }
         bool progress = false;
-        for (unsigned i = 0; i < m_lower.size() && !m.canceled(); ++i) {
+        for (unsigned i = 0; i < m_lower.size() && m.inc(); ++i) {
             if (m_lower[i] <= mid[i] && mid[i] <= m_upper[i] && m_lower[i] < m_upper[i]) {
                 th.enable_record_conflict(bounds[i].get());
                 lbool is_sat = m_s->check_sat(1, bounds.c_ptr() + i);
@@ -460,7 +460,7 @@ namespace opt {
                 progress = true;
             }
         }
-        if (m.canceled()) {
+        if (!m.inc()) {
             return l_undef;
         }
         if (!progress) {

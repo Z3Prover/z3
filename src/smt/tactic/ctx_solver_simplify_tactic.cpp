@@ -96,7 +96,7 @@ protected:
         m_solver.push();
         reduce(fml);
         m_solver.pop(1);
-        if (m.canceled())
+        if (!m.inc())
             return;
         SASSERT(m_solver.get_scope_level() == 0);
         TRACE("ctx_solver_simplify_tactic",
@@ -172,7 +172,7 @@ protected:
         names.push_back(n);
         m_solver.push();
 
-        while (!todo.empty() && !m.canceled()) {            
+        while (!todo.empty() && m.inc()) {            
             expr_ref res(m);
             args.reset();
             expr* e    = todo.back().m_expr;
@@ -244,7 +244,7 @@ protected:
             names.pop_back();
             m_solver.pop(1);
         }
-        if (!m.canceled()) {
+        if (m.inc()) {
             VERIFY(cache.find(fml, path_r));
             result = path_r.m_expr;
         }

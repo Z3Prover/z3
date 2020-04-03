@@ -164,7 +164,7 @@ class theory_lra::imp {
         imp& m_imp;
     public:
         resource_limit(imp& i): m_imp(i) { }
-        bool get_cancel_flag() override { return m_imp.m.canceled(); }
+        bool get_cancel_flag() override { return !m_imp.m.inc(); }
     };
 
 
@@ -1563,7 +1563,7 @@ public:
 
     void init_variable_values() {
         reset_variable_values();
-        if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {            
+        if (m.inc() && m_solver.get() && th.get_num_vars() > 0) {            
             TRACE("arith", display(tout << "update variable values\n"););
             lp().get_model(m_variable_values);
         }
@@ -1721,7 +1721,7 @@ public:
             return FC_CONTINUE;
         case l_undef:
             TRACE("arith", tout << "check feasiable is undef\n";);
-            return m.canceled() ? FC_CONTINUE : FC_GIVEUP;
+            return m.inc() ? FC_CONTINUE : FC_GIVEUP;
         default:
             UNREACHABLE();
             break;
@@ -2019,7 +2019,7 @@ public:
 
     lbool check_lia() {
         TRACE("arith",);
-        if (m.canceled()) {
+        if (!m.inc()) {
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
@@ -2177,7 +2177,7 @@ public:
 
     lbool check_nra() {
         m_use_nra_model = false;
-        if (m.canceled()) {
+        if (!m.inc()) {
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
@@ -2259,7 +2259,7 @@ public:
         }
 
         lbool lbl = make_feasible();
-        if (m.canceled())
+        if (!m.inc())
             return;
         
         switch(lbl) {
@@ -2297,7 +2297,7 @@ public:
 
         lp().propagate_bounds_for_touched_rows(bp);
 
-        if (m.canceled()) {
+        if (!m.inc()) {
             return;
         }
 
@@ -2305,7 +2305,7 @@ public:
             get_infeasibility_explanation_and_set_conflict();
         }
         else {
-            for (unsigned i = 0; !m.canceled() && !ctx().inconsistent() && i < bp.m_ibounds.size(); ++i) {
+            for (unsigned i = 0; m.inc() && !ctx().inconsistent() && i < bp.m_ibounds.size(); ++i) {
                 propagate_lp_solver_bound(bp.m_ibounds[i]);
             }
         }
@@ -3398,7 +3398,7 @@ public:
         else {
             rational r = get_value(v);
             TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
-            SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.canceled()));
+            SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().get_cancel_flag()));
             if (a.is_int(o) && !r.is_int()) r = floor(r);
             return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
         }

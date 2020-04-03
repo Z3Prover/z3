@@ -779,7 +779,7 @@ struct goal2sat::imp {
         }
         while (!m_frame_stack.empty()) {
         loop:
-            if (m.canceled())
+            if (!m.inc())
                 throw tactic_exception(m.limit().get_cancel_msg());
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
@@ -1098,7 +1098,7 @@ struct sat2goal::imp {
     }
 
     void checkpoint() {
-        if (m.canceled())
+        if (!m.inc())
             throw tactic_exception(m.limit().get_cancel_msg());
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);

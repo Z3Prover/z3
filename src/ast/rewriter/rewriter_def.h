@@ -699,7 +699,7 @@ template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::main_loop(expr * t, expr_ref & result, proof_ref & result_pr) {
     result_pr = nullptr;
-    if (m().canceled()) {
+    if (!m().inc()) {
         if (m_cancel_check) {
             reset();
             throw rewriter_exception(m().limit().get_cancel_msg());
@@ -738,7 +738,7 @@ template<bool ProofGen>
 void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr) {
     SASSERT(!frame_stack().empty());
     while (!frame_stack().empty()) {
-        if (m().canceled()) {
+        if (!m().inc()) {
             if (m_cancel_check) {
                 reset();
                 throw rewriter_exception(m().limit().get_cancel_msg());

@@ -2759,11 +2759,8 @@ lbool context::solve(unsigned from_lvl)
 }
 
 
-void context::checkpoint()
-{
-    if (m.canceled ()) {
-        throw default_exception("spacer canceled");
-    }
+void context::checkpoint() {
+    tactic::checkpoint(m);
 }
 
 unsigned context::get_cex_depth()

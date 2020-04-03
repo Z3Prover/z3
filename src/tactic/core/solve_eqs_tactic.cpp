@@ -86,8 +86,7 @@ class solve_eqs_tactic : public tactic {
         }
                 
         void checkpoint() {
-            if (m().canceled())
-                throw tactic_exception(m().limit().get_cancel_msg());
+            tactic::checkpoint(m());
         }
         
         // Check if the number of occurrences of t is below the specified threshold :solve-eqs-max-occs

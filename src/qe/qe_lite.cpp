@@ -682,8 +682,7 @@ namespace qel {
         }
 
         void checkpoint() {
-            if (m.canceled())
-                throw tactic_exception(m.limit().get_cancel_msg());
+            tactic::checkpoint(m);
         }
 
     public:
@@ -870,8 +869,7 @@ namespace qel {
         }
 
         void checkpoint() {
-            if (m.canceled())
-                throw tactic_exception(m.limit().get_cancel_msg());
+            tactic::checkpoint(m);
     }
 
     public:
@@ -2144,8 +2142,7 @@ namespace fm {
         }
 
         void checkpoint() {
-            if (m.canceled())
-                throw tactic_exception(m.limit().get_cancel_msg());
+            tactic::checkpoint(m);
         }
     public:
 
@@ -2411,8 +2408,7 @@ class qe_lite_tactic : public tactic {
     qe_lite                  m_qe;
 
     void checkpoint() {
-        if (m.canceled())
-            throw tactic_exception(m.limit().get_cancel_msg());
+        tactic::checkpoint(m);
     }
 
 #if 0

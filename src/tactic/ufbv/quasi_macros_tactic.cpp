@@ -57,8 +57,7 @@ class quasi_macros_tactic : public tactic {
             }
 
             do { 
-                if (m().canceled())
-                    throw tactic_exception(m().limit().get_cancel_msg());
+                tactic::checkpoint(m());
             } 
             while (qm(forms, proofs, deps));
 

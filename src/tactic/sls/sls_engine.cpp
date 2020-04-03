@@ -93,8 +93,7 @@ void sls_engine::collect_statistics(statistics& st) const {
 }
 
 void sls_engine::checkpoint() {
-    if (m_manager.canceled())
-        throw tactic_exception(m_manager.limit().get_cancel_msg());
+    tactic::checkpoint(m_manager);
 }
 
 bool sls_engine::full_eval(model & mdl) {

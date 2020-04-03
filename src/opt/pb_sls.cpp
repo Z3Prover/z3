@@ -194,7 +194,7 @@ namespace smt {
                 while (m_max_flips > 0) {
                     --m_max_flips;
                     literal lit = flip();
-                    if (m.canceled()) {
+                    if (!m.inc()) {
                         return l_undef;
                     }
                     IF_VERBOSE(3, verbose_stream() 

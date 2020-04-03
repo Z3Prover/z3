@@ -43,8 +43,7 @@ class qe_tactic : public tactic {
         }
 
         void checkpoint() {
-            if (m.canceled()) 
-                throw tactic_exception(m.limit().get_cancel_msg());
+            tactic::checkpoint(m);
         }
 
         void operator()(goal_ref const & g, 

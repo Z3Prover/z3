@@ -1815,9 +1815,7 @@ namespace smtfd {
         }
 
         void checkpoint() {
-            if (m.canceled()) {
-                throw tactic_exception(m.limit().get_cancel_msg());
-            }
+            tactic::checkpoint(m);
         }
 
         expr* rep(expr* e) { return m_abs.rep(e); }

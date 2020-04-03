@@ -246,3 +246,7 @@ void fail_if_has_quantifiers(char const* tactic_name, goal_ref const& g) {
         }
 }
 
+void tactic::checkpoint(ast_manager& m) {
+    if (!m.inc())
+        throw tactic_exception(m.limit().get_cancel_msg());
+}

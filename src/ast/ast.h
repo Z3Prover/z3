@@ -1621,7 +1621,8 @@ public:
     }
 
     reslimit& limit() { return m_limit; }
-    bool canceled() { return !limit().inc(); }
+    // bool canceled() { return !limit().inc(); }
+    bool inc() { return limit().inc(); }
 
     void register_plugin(symbol const & s, decl_plugin * plugin);
 

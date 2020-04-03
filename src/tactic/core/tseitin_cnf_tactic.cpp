@@ -786,8 +786,7 @@ class tseitin_cnf_tactic : public tactic {
         
         
         void checkpoint() {
-            if (m.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+            tactic::checkpoint(m);
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         }

@@ -172,7 +172,7 @@ public:
     }
 
     bool checkpoint() {
-        return !m.canceled();
+        return m.inc();
     }
 
     void set_name(symbol const& n) {

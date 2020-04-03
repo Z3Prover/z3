@@ -215,7 +215,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::valid_assignment() const {
-        if (get_manager().canceled())
+        if (get_manager().limit().get_cancel_flag())
             return true;
         if (valid_row_assignment() &&
             satisfy_bounds() &&

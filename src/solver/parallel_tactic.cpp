@@ -321,7 +321,7 @@ class parallel_tactic : public tactic {
         }
 
         bool canceled() { 
-            return m_giveup || m().canceled();
+            return m_giveup ||! m().inc();
         }
 
         std::ostream& display(std::ostream& out) {
@@ -634,7 +634,7 @@ private:
                 cube_and_conquer(*st);
                 collect_statistics(*st);
                 m_queue.task_done(st);
-                if (st->m().canceled()) m_queue.shutdown();
+                if (!st->m().inc()) m_queue.shutdown();
                 IF_VERBOSE(1, display(verbose_stream()););
                 dealloc(st);
             }
@@ -748,7 +748,7 @@ public:
             g->assert_expr(m.mk_false(), pr, lcore);            
             break;
         case l_undef:
-            if (m.canceled()) {
+            if (!m.inc()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
             break;

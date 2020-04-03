@@ -615,7 +615,7 @@ namespace opt {
 
 
     std::string context::reason_unknown() const { 
-        if (m.canceled()) {
+        if (!m.inc()) {
             return Z3_CANCELED_MSG;
         }
         if (m_solver.get()) {

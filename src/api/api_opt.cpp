@@ -162,11 +162,11 @@ extern "C" {
                 r = to_optimize_ptr(o)->optimize(asms);
             }
             catch (z3_exception& ex) {
-                if (!mk_c(c)->m().canceled()) {
+                if (mk_c(c)->m().inc()) {
                     mk_c(c)->handle_exception(ex);
                 }
                 r = l_undef;
-                if (ex.msg() == std::string("canceled") && mk_c(c)->m().canceled()) {
+                if (ex.msg() == std::string("canceled") && !mk_c(c)->m().inc()) {
                     to_optimize_ptr(o)->set_reason_unknown(ex.msg());
                 }
                 else {

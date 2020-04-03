@@ -101,8 +101,7 @@ public:
 
 private:
     void checkpoint() { 
-        if (m.canceled())
-            throw tactic_exception(m.limit().get_cancel_msg());
+        tactic::checkpoint(m);
     }
 
     bool is_bv_neg(expr * e) {
