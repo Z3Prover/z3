@@ -22,7 +22,8 @@ Notes:
 #include "tactic/goal.h"
 
 bound_manager::bound_manager(ast_manager & m):
-    m_util(m) {
+    m_util(m),
+    m_bounded_vars(m) {
 }
 
 bound_manager::~bound_manager() {
@@ -164,7 +165,6 @@ void bound_manager::insert_upper(expr * v, bool strict, numeral const & n, expr_
             m_upper_deps.insert(v, d);
         if (!m_lowers.contains(v)) {
             m_bounded_vars.push_back(v);
-            m().inc_ref(v);
         }
     }
 }
@@ -185,7 +185,6 @@ void bound_manager::insert_lower(expr * v, bool strict, numeral const & n, expr_
             m_lower_deps.insert(v, d);
         if (!m_uppers.contains(v)) {
             m_bounded_vars.push_back(v);
-            m().inc_ref(v);
         }
     }
 }
@@ -253,8 +252,8 @@ void bound_manager::operator()(goal const & g) {
     }
 }
 
+
 void bound_manager::reset() {
-    m().dec_array_ref(m_bounded_vars.size(), m_bounded_vars.c_ptr());
     m_bounded_vars.finalize();
     m_lowers.finalize();
     m_uppers.finalize();

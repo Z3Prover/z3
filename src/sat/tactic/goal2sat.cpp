@@ -153,7 +153,7 @@ struct goal2sat::imp {
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << "\n";);
-                if (ext && !is_uninterp_const(t)) {
+                if (!is_uninterp_const(t)) {
                     m_interpreted_atoms.push_back(t);
                 }
             }
