@@ -1002,22 +1002,14 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::propagate_linear_monomials() {
+    if (!reflection_enabled())
+        return false;
     TRACE("non_linear", tout << "propagating linear monomials...\n";);
     bool p = false;
-    // CMW: m_nl_monomials is sometimes modified while executing
-    // propagate_linear_monomial(...), invalidating the iterator `it'.
-    // (Via the relevancy propagation that internalizes a new axiom
-    // in mk_div_axiom and possibly others.) I'm replacing the iterator
-    // with an index `i'.
-
-    // Was previously:
-    // svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-    // svector<theory_var>::const_iterator end = m_nl_monomials.end();
-    // for (; it != end; ++it) {
-    //     theory_var v = *it;
+    // CMW: m_nl_monomials can grow during this loop, so
+    // don't use iterators.
     for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
-        theory_var v = m_nl_monomials[i];
-        if (propagate_linear_monomial(v))
+        if (propagate_linear_monomial(m_nl_monomials[i]))
             p = true;
     }
     CTRACE("non_linear", p, display(tout););
