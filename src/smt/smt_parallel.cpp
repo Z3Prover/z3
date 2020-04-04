@@ -151,7 +151,11 @@ namespace smt {
                         result = r;
                         done = true;
                     }
-                    if (!first) return;
+                    if (!first && r != l_undef && result == l_undef) {
+                        finished_id = i;
+                        result = r;                        
+                    }
+                    else if (!first) return;
                 }
 
                 for (ast_manager* m : pms) {
