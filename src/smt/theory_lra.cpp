@@ -587,7 +587,7 @@ class theory_lra::imp {
                 terms[index] = n1;
                 if (!ctx().e_internalized(n)) {
                     app* t = to_app(n);
-                    internalize_args(t);
+                    VERIFY(internalize_term(to_app(n1)));
                     mk_enode(t);
                     theory_var v = mk_var(n);
                     theory_var w = mk_var(n1);
