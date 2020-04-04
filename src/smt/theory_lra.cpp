@@ -978,15 +978,19 @@ class theory_lra::imp {
                 if (!st.offset().is_zero()) {
                     m_left_side.push_back(std::make_pair(st.offset(), get_one(a.is_int(term))));
                 }
-                vi = lp().add_term(m_left_side, v);
-                SASSERT(lp::tv::is_term(vi));
-                TRACE("arith_verbose", 
-                      tout << "v" << v << " := " << mk_pp(term, m) 
-                      << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
-                      lp().print_term(lp().get_term(vi), tout) << "\n";);
-            }
-            else {
-                SASSERT(lp::tv::is_term(vi) || a.is_to_real(term));
+                if (m_left_side.empty()) {
+                    vi = lp().add_var(v, a.is_int(term));
+                    add_def_constraint(lp().add_var_bound(vi, lp::GE, rational(0)));
+                    add_def_constraint(lp().add_var_bound(vi, lp::LE, rational(0)));
+                }
+                else {
+                    vi = lp().add_term(m_left_side, v);
+                    SASSERT(lp::tv::is_term(vi));
+                    TRACE("arith_verbose", 
+                          tout << "v" << v << " := " << mk_pp(term, m) 
+                          << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
+                          lp().print_term(lp().get_term(vi), tout) << "\n";);
+                }
             }
 
             rational val;
