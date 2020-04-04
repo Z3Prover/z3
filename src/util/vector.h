@@ -32,10 +32,12 @@ using char_vector        = old_svector<char>;
 using signed_char_vector = old_svector<signed char>;
 using double_vector      = old_svector<double>;
 
-inline std::ostream& operator<<(std::ostream& out, unsigned_vector const& v) {
+template<typename T>
+inline std::ostream& operator<<(std::ostream& out, old_svector<T> const& v) {
     for (unsigned u : v) out << u << " ";
     return out;
 }
+
 
 template<typename Hash, typename Vec>
 struct vector_hash_tpl {
