@@ -159,6 +159,10 @@ public:
 
     // a is the coefficient by which we divided the term to normalize it
     lar_term get_normalized_by_min_var(mpq& a) const {
+        if (m_coeffs.empty()) {
+            a = mpq(1, 1);
+            return *this;
+        }
         a = m_coeffs.begin()->m_value;
         if (a.is_one()) {
             return *this;
