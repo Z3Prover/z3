@@ -757,7 +757,7 @@ namespace smt {
             }
 
             TRACE("utvpi", 
-                  tout << "Disparity: " << v1 << "\n";
+                  tout << "Disparity: " << v1 << " - " << v2 << "\n";
                   tout << "decrement: " << zero_v << "\n";
                   display(tout);
                   );

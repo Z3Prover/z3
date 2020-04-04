@@ -1268,7 +1268,8 @@ public:
         m_dfs_time[v] = 0;
         succ.push_back(v);
         numeral gamma;
-        for (dl_var w : succ) {
+        for (unsigned i = 0; i < succ.size(); ++i) { // succ is updated inside of lopp
+            dl_var w = succ[i];
             for (edge_id e_id : m_out_edges[w]) {
                 edge & e = m_edges[e_id];
                 if (e.is_enabled() && set_gamma(e, gamma).is_zero()) {
