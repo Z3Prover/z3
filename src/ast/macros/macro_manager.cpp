@@ -369,5 +369,6 @@ void macro_manager::expand_macros(expr * n, proof * pr, expr_dependency * dep, e
     }
 
     SASSERT(!new_pr || m.get_fact(new_pr) == r);
+    SASSERT(!dep || new_dep);
 }
 

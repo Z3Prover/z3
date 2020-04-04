@@ -45,7 +45,7 @@ bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
 
    For case 2 & 3, the new quantifiers are stored in new_exprs and new_prs.
 */
-bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_dependency * dep, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
+bool macro_finder::is_arith_macro(expr * n, proof * pr, bool deps_valid, expr_dependency * dep, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
     if (!is_forall(n))
         return false;
     expr * body        = to_quantifier(n)->get_expr();
@@ -109,7 +109,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_dependency * dep, e
         new_prs.push_back(pr1);
         new_prs.push_back(pr2);
     }
-    if (dep) {
+    if (deps_valid) {
         new_deps.push_back(new_dep);
         new_deps.push_back(new_dep);
     }
@@ -193,7 +193,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, vector<justified_expr>& 
 
    The new quantifiers and proofs are stored in new_exprs and new_prs
 */
-static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, expr * def, quantifier * q, proof * pr, expr_dependency * dep,
+static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, expr * def, quantifier * q, proof * pr, bool deps_valid, expr_dependency * dep,
                                          expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps ) {
     func_decl * f = head->get_decl();
     func_decl * k = m.mk_fresh_func_decl(f->get_name(), symbol::null, f->get_arity(), f->get_domain(), f->get_range());
@@ -220,8 +220,10 @@ static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, e
         new_prs.push_back(pr1);
         new_prs.push_back(pr2);
     }
-    new_deps.push_back(dep);
-    new_deps.push_back(dep);
+    if (deps_valid) {
+        new_deps.push_back(dep);
+        new_deps.push_back(dep);
+    }
 }
 
 static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, expr * def, quantifier * q, proof * pr, 
@@ -267,35 +269,42 @@ bool macro_finder::expand_macros(expr_ref_vector const& exprs, proof_ref_vector 
           m_macro_manager.display(tout););
     bool found_new_macro = false;
     unsigned num = exprs.size();
+    bool deps_valid = deps.size() == exprs.size();
+    SASSERT(deps_valid || deps.empty());
     for (unsigned i = 0; i < num; i++) {
         expr * n       = exprs[i];
         proof * pr     = m.proofs_enabled() ? prs[i] : nullptr;
-        expr_dependency * depi = i < deps.size() ? deps[i] : nullptr;
+        expr_dependency * dep = deps.get(i, nullptr);
         expr_ref new_n(m), def(m);
         proof_ref new_pr(m);
         expr_dependency_ref new_dep(m);
-        m_macro_manager.expand_macros(n, pr, depi, new_n, new_pr, new_dep);
+        m_macro_manager.expand_macros(n, pr, dep, new_n, new_pr, new_dep);
         app_ref head(m), t(m);
         if (is_macro(new_n, head, def) && m_macro_manager.insert(head->get_decl(), to_quantifier(new_n.get()), new_pr, new_dep)) {
             TRACE("macro_finder", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << new_n << "\n";);
             found_new_macro = true;
         }
-        else if (is_arith_macro(new_n, new_pr, new_dep, new_exprs, new_prs, new_deps)) {
+        else if (is_arith_macro(new_n, new_pr, deps_valid, new_dep, new_exprs, new_prs, new_deps)) {
             TRACE("macro_finder", tout << "found new arith macro:\n" << new_n << "\n";);
             found_new_macro = true;
         }
         else if (m_util.is_pseudo_predicate_macro(new_n, head, t, def)) {
             TRACE("macro_finder", tout << "found new pseudo macro:\n" << head << "\n" << t << "\n" << def << "\n";);
-            pseudo_predicate_macro2macro(m, head, t, def, to_quantifier(new_n), new_pr, new_dep, new_exprs, new_prs, new_deps);
+            pseudo_predicate_macro2macro(m, head, t, def, to_quantifier(new_n), new_pr, deps_valid, new_dep, new_exprs, new_prs, new_deps);
             found_new_macro = true;
         }
         else {
             new_exprs.push_back(new_n);
             if (m.proofs_enabled())
                 new_prs.push_back(new_pr);
-            if (i < deps.size())
+            if (deps_valid)
                 new_deps.push_back(new_dep);
         }
+        TRACE("macro_finder", tout << exprs.size() << " " << deps.size() << " : ";
+              tout << new_exprs.size() << " " << new_deps.size() << "\n";);
+        SASSERT(exprs.size() != deps.size() || new_exprs.size() == new_deps.size());
+        // SASSERT(!m.proofs_enabled() || new_exprs.size() == new_prs.size());
+
     }
     return found_new_macro;
 }
