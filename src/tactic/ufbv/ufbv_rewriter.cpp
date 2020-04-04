@@ -50,67 +50,59 @@ ufbv_rewriter::~ufbv_rewriter() {
 }
 
 bool ufbv_rewriter::is_demodulator(expr * e, expr_ref & large, expr_ref & small) const {
-    if (is_quantifier(e)) {
-        quantifier * q = to_quantifier(e);
-        if (is_forall(q)) {
-            expr * qe = q->get_expr();
-            expr * lhs = nullptr, *rhs = nullptr;
-            if (m.is_eq(qe, lhs, rhs)) {
-                int subset = is_subset(lhs, rhs);
-                int smaller = is_smaller(lhs, rhs);
-                TRACE("demodulator", tout << "testing is_demodulator:\n"
-                      << mk_pp(lhs, m) << "\n"
-                      << mk_pp(rhs, m) << "\n"
-                      << "subset: " << subset << ", smaller: " << smaller << "\n";);
-                // We only track uninterpreted functions, everything else is likely too expensive.
-                if ((subset == +1 || subset == +2) && smaller == +1) {
-                    if (is_uninterp(rhs)) {
-                        large = rhs;
-                        small = lhs;
-                        return true;
-                    }
-#if 1
-                    // lhs = (not rhs) --> (not lhs) = rhs
-                    expr * not_rhs;
-                    if (m.is_not(rhs, not_rhs) && is_uninterp(not_rhs)) {
-                        large = not_rhs;
-                        small = m.mk_not(lhs);
-                        return true;
-                    }
-#endif
-                }
-
-                if ((subset == -1 || subset == +2) && smaller == -1) {
-                    if (is_uninterp(lhs)) {
-                        large = lhs;
-                        small = rhs;
-                        return true;
-                    }
-#if 1
-                    // (not lhs) = rhs --> lhs = (not rhs)
-                    expr * not_lhs;
-                    if (m.is_not(lhs, not_lhs) && is_uninterp(not_lhs)) {
-                        large = not_lhs;
-                        small = m.mk_not(rhs);
-                        return true;
-                    }
-#endif
-                }
-
-            } else if (m.is_not(qe) && is_uninterp(to_app(qe)->get_arg(0))) {
-                // this is like (not (f ... )) --> (= (f ...) false)
-                large = to_app(qe)->get_arg(0);
-                small = m.mk_false();
+    if (!is_forall(e)) {
+        return false;
+    }
+    expr * qe = to_quantifier(e)->get_expr();
+    expr * lhs = nullptr, *rhs = nullptr, *n;
+    if (m.is_eq(qe, lhs, rhs)) {
+        int subset  = is_subset(lhs, rhs);
+        int smaller = is_smaller(lhs, rhs);
+        TRACE("demodulator", tout << "testing is_demodulator:\n"
+              << mk_pp(lhs, m) << "\n"
+              << mk_pp(rhs, m) << "\n"
+              << "subset: " << subset << ", smaller: " << smaller << "\n";);
+        // We only track uninterpreted functions, everything else is likely too expensive.
+        if ((subset == +1 || subset == +2) && smaller == +1) {
+            if (is_uninterp(rhs)) {
+                large = rhs;
+                small = lhs;
                 return true;
-            } else if (is_uninterp(qe)) {
-                // this is like (f ... ) --> (= (f ...) true)
-                large = to_app(qe);
-                small = m.mk_true();
+            }
+            // lhs = (not rhs) --> (not lhs) = rhs
+            if (m.is_not(rhs, n) && is_uninterp(n)) {
+                large = n;
+                small = m.mk_not(lhs);
                 return true;
             }
         }
+        
+        if ((subset == -1 || subset == +2) && smaller == -1) {
+            if (is_uninterp(lhs)) {
+                large = lhs;
+                small = rhs;
+                return true;
+            }
+            // (not lhs) = rhs --> lhs = (not rhs)
+            if (m.is_not(lhs, n) && is_uninterp(n)) {
+                large = n;
+                small = m.mk_not(rhs);
+                return true;
+            }
+        }        
+    } 
+    else if (m.is_not(qe, n)) {
+        // this is like (not (f ... )) --> (= (f ...) false)
+        large = n;
+        small = m.mk_false();
+        return true;
+    } 
+    else if (is_uninterp(qe)) {
+        // this is like (f ... ) --> (= (f ...) true)
+        large = to_app(qe);
+        small = m.mk_true();
+        return true;
     }
-
     return false;
 }
 
@@ -171,20 +163,8 @@ int ufbv_rewriter::is_smaller(expr * e1, expr * e2) const {
                 return -1;
         }
     }
-
-    switch (e1->get_kind()) {
-        case AST_VAR: sz1 = 1; break;
-        case AST_QUANTIFIER: sz1 = to_quantifier(e1)->get_depth(); break;
-        case AST_APP: sz1 = to_app(e1)->get_depth(); break;
-        default: UNREACHABLE();
-    }
-
-    switch (e2->get_kind()) {
-        case AST_VAR: sz2 = 1; break;
-        case AST_QUANTIFIER: sz2 = to_quantifier(e2)->get_depth(); break;
-        case AST_APP: sz2 = to_app(e2)->get_depth(); break;
-        default: UNREACHABLE();
-    }
+    sz1 = get_depth(e1);
+    sz2 = get_depth(e2);
 
     return (sz1 == sz2) ?  0 :
            (sz1  < sz2) ? +1 :
@@ -891,7 +871,9 @@ bool ufbv_rewriter::match_subst::operator()(expr * t, expr * i) {
     m_todo.reset();
     if (is_var(t))
         return true;
-    if (is_app(t) && is_app(i) && to_app(t)->get_decl() == to_app(i)->get_decl() && to_app(t)->get_num_args() == to_app(i)->get_num_args()) {
+    if (is_app(t) && is_app(i) && 
+        to_app(t)->get_decl() == to_app(i)->get_decl() && 
+        to_app(t)->get_num_args() == to_app(i)->get_num_args()) {
         return match_args(to_app(t), to_app(i)->get_args());
     }
     return false;
