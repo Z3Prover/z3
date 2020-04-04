@@ -331,7 +331,7 @@ namespace smt {
                         return l_undef;
                     }  
                     literal lit = mk_eq(sz, m_arith.mk_int(value));
-                    if (is_true(lit)) {
+                    if (lit != true_literal && is_true(lit)) {
                         ctx().push_trail(value_trail<context, rational>(i.m_size, value));
                         continue;
                     }
