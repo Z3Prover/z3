@@ -957,33 +957,32 @@ class theory_lra::imp {
     }
     
     theory_var internalize_linearized_def(app* term, scoped_internalize_state& st) {
-        if (is_unit_var(st)) {
+        theory_var v = mk_var(term);
+        TRACE("arith", 
+              tout << mk_bounded_pp(term, m) << " v" << v << "\n";
+              tout << st.offset() << " " << st.coeffs().size() << " " << st.coeffs()[0] << "\n";);
+
+        if (is_unit_var(st) && v == st.vars()[0]) {
             return st.vars()[0];
         }
-        else if (is_one(st)) {
+        else if (is_one(st) && a.is_numeral(term)) {
             return get_one(a.is_int(term));
         }
-        else if (is_zero(st)) {
+        else if (is_zero(st) && a.is_numeral(term)) {
             return get_zero(a.is_int(term));
         }
         else {
-            TRACE("arith", tout << st.offset() << " " << st.coeffs().size() << " " << st.coeffs()[0] << "\n";);
             init_left_side(st);
-            if (m_left_side.empty() && st.offset().is_zero()) {
-                return get_zero(a.is_int(term));
-            }
-            theory_var v = mk_var(term);
             lpvar vi = get_lpvar(v);
-            TRACE("arith", tout << mk_bounded_pp(term, m) << " v" << v << " j" << vi << "\n";);
             if (vi == UINT_MAX) {
-                rational const& offset = st.offset();
-                if (!offset.is_zero()) {
-                    m_left_side.push_back(std::make_pair(offset, get_one(a.is_int(term))));
+                if (!st.offset().is_zero()) {
+                    m_left_side.push_back(std::make_pair(st.offset(), get_one(a.is_int(term))));
                 }
-                SASSERT(!m_left_side.empty());
                 vi = lp().add_term(m_left_side, v);
-                SASSERT (lp::tv::is_term(vi));
-                TRACE("arith_verbose", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
+                SASSERT(lp::tv::is_term(vi));
+                TRACE("arith_verbose", 
+                      tout << "v" << v << " := " << mk_pp(term, m) 
+                      << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                       lp().print_term(lp().get_term(vi), tout) << "\n";);
             }
             else {
@@ -1151,6 +1150,7 @@ public:
     }
 
     void new_eq_eh(theory_var v1, theory_var v2) {
+        TRACE("arith", tout << "eq " << v1 << " == " << v2 << "\n";);
         if (!is_int(v1) && !is_real(v1)) 
             return;
         m_arith_eq_adapter.new_eq_eh(v1, v2);
