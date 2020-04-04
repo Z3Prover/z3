@@ -136,10 +136,17 @@ public:
 
     void del(mpz & a) { mpz_manager<SYNCH>::del(a); }
 
+
     void del(mpq & a) {
         del(a.m_num);
         del(a.m_den);
     }
+
+    static void del(mpq_manager* m, mpq & a) {
+        mpz_manager<SYNCH>::del(m, a.m_num);
+        mpz_manager<SYNCH>::del(m, a.m_den);
+    }
+
     
     void get_numerator(mpq const & a, mpz & n) { set(n, a.m_num); }
 

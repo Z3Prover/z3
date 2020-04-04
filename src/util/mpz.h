@@ -401,7 +401,9 @@ public:
 
     static mpz mk_z(int val) { return mpz(val); }
     
-    void del(mpz & a);
+    void del(mpz & a) { del(this, a); }
+
+    static void del(mpz_manager* m, mpz & a);
     
     void add(mpz const & a, mpz const & b, mpz & c);
 

@@ -230,9 +230,10 @@ mpz_manager<SYNCH>::sign_cell::sign_cell(mpz_manager& m, mpz const& a):
 
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::del(mpz & a) { 
+void mpz_manager<SYNCH>::del(mpz_manager<SYNCH>* m, mpz & a) { 
     if (a.m_ptr) {
-        deallocate(a.m_owner == mpz_self, a.m_ptr); 
+        SASSERT(m);
+        m->deallocate(a.m_owner == mpz_self, a.m_ptr); 
         a.m_ptr = nullptr;
         a.m_kind = mpz_small;
         a.m_owner = mpz_self;

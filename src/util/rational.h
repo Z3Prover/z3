@@ -63,7 +63,7 @@ public:
     struct ui64 {};
     rational(uint64_t i, ui64) { m().set(m_val, i); }
     
-    ~rational() { m().del(m_val); }
+    ~rational() { synch_mpq_manager::del(g_mpq_manager, m_val); }
     
     mpq const & to_mpq() const { return m_val; }
 

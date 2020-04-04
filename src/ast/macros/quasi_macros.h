@@ -65,7 +65,6 @@ public:
     /**
        \brief Find pure function macros and apply them.
     */
-    // bool operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);    
     bool operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
     bool operator()(expr_ref_vector & exprs, proof_ref_vector & prs, expr_dependency_ref_vector & deps);
 
