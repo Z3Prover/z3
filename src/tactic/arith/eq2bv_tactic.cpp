@@ -212,7 +212,7 @@ public:
                 bool strict = true;
                 rational v;
                 bool has_val = 
-                    (m_bounds.has_upper(var, v, strict) && !strict) && v.is_unsigned() ||
+                    (m_bounds.has_upper(var, v, strict) && !strict && v.is_unsigned()) ||
                     (m_bounds.has_lower(var, v, strict) && !strict && v.is_unsigned());
 
                 if (has_val) {
