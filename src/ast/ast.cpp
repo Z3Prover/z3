@@ -3089,15 +3089,22 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         SASSERT(has_fact(proofs[i]));
     }
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
     expr * fact;
     expr * f1 = get_fact(proofs[0]);
-    expr * f2 = get_fact(proofs[1]);
-    if (num_proofs == 2 && is_complement(f1, f2)) {
-        fact = mk_false();
+
+    bool found_complement = false;
+    for (unsigned i = 1; !found_complement && i < num_proofs; ++i) {
+        expr* f2 = get_fact(proofs[i]);
+        if (is_complement(f1, f2)) {
+            args.push_back(proofs[0]);
+            args.push_back(proofs[i]);
+            args.push_back(mk_false());
+            found_complement = true;
+        }
     }
-    else {
-        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n" << mk_ll_pp(f2, *this) << "\n";);
+    if (!found_complement) {
+        args.append(num_proofs, (expr**)proofs);
+        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";);
         SASSERT(is_or(f1));
         ptr_buffer<expr> new_lits;
         app const * cls   = to_app(f1);
@@ -3145,8 +3152,9 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
             fact = mk_or(new_lits.size(), new_lits.c_ptr());
             break;
         }
+        args.push_back(fact);
     }
-    args.push_back(fact);
+    
     proof * pr = mk_app(m_basic_family_id, PR_UNIT_RESOLUTION, args.size(), args.c_ptr());
     TRACE("unit_resolution", tout << "unit_resolution generating fact\n" << mk_ll_pp(pr, *this););
     return pr;
