@@ -19,6 +19,7 @@ Notes:
 
 
 #include "util/gparams.h"
+#include "util/stacked_value.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 #include "ast/ast_util.h"
@@ -47,6 +48,7 @@ Notes:
 class inc_sat_solver : public solver {
     ast_manager&    m;
     mutable sat::solver     m_solver;
+    stacked_value<bool> m_has_uninterpreted;
     goal2sat        m_goal2sat;
     params_ref      m_params;
     expr_ref_vector m_fmls;
@@ -83,6 +85,7 @@ public:
     inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode):
         m(m), 
         m_solver(p, m.limit()),
+        m_has_uninterpreted(false),
         m_fmls(m),
         m_asmsf(m),
         m_fmls_head(0),
@@ -128,6 +131,7 @@ public:
         for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
         if (m_mcs.back()) result->m_mcs.push_back(m_mcs.back()->translate(tr));
         if (m_sat_mc) result->m_sat_mc = dynamic_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
+        result->m_has_uninterpreted = m_has_uninterpreted;
         // copy m_bb_rewriter?
         result->m_internalized_converted = m_internalized_converted;
         return result;
@@ -208,7 +212,11 @@ public:
         }
         switch (r) {
         case l_true:
-            if (sz > 0) {
+            if (m_has_uninterpreted()) {
+                set_reason_unknown("(sat.giveup has-uninterpreted)");
+                r = l_undef;
+            }
+            else if (sz > 0) {
                 check_assumptions(dep2asm);
             }
             break;
@@ -247,6 +255,7 @@ public:
         m_fmls_head_lim.push_back(m_fmls_head);
         if (m_bb_rewriter) m_bb_rewriter->push();
         m_map.push();
+        m_has_uninterpreted.push();
     }
 
     void pop(unsigned n) override {
@@ -260,6 +269,7 @@ public:
         m_solver.user_pop(n);
         m_num_scopes -= n;
         // ? m_internalized_converted = false;
+        m_has_uninterpreted.pop(n);
         while (n > 0) {
             m_mcs.pop_back();
             m_fmls_head = m_fmls_head_lim.back();
@@ -640,8 +650,9 @@ private:
         if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
         m_sat_mc->flush_smc(m_solver, m_map);
         if (!atoms.empty()) {
+            m_has_uninterpreted = true;
             std::stringstream strm;
-            strm << "interpreted atoms sent to SAT solver " << atoms;
+            strm << "(sat.giveup interpreted atoms sent to SAT solver " << atoms <<")";
             TRACE("sat", tout << strm.str() << "\n";);
             IF_VERBOSE(1, verbose_stream() << strm.str() << "\n";);
             set_reason_unknown(strm.str().c_str());

@@ -21,11 +21,12 @@ Revision History:
 #pragma once
 // add to value the stack semantics
 #include <stack>
-namespace lp {
 template <typename T> class stacked_value {
     T m_value;    
     std::stack<T> m_stack;
 public:
+
+
     void push() {
         m_stack.push(m_value);
     }
@@ -63,6 +64,12 @@ public:
         return m_value;
     }
 
+    stacked_value& operator=(stacked_value const& other) {
+        m_value = other.m_value;
+        m_stack = other.m_stack;
+        return *this;
+    }
+
     operator T&() {
         return m_value;
     }
@@ -81,4 +88,3 @@ public:
 
 
 };
-}

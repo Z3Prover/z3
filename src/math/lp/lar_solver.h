@@ -34,7 +34,7 @@ Revision History:
 #include "math/lp/scaler.h"
 #include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/random_updater.h"
-#include "math/lp/stacked_value.h"
+#include "util/stacked_value.h"
 #include "math/lp/stacked_vector.h"
 #include "math/lp/implied_bound.h"
 #include "math/lp/bound_analyzer_on_row.h"

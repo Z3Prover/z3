@@ -11,8 +11,8 @@
   <abstract>
 
   Author:
-  Nikolaj Bjorner (nbjorner)
   Lev Nachmanson (levnach)
+  Nikolaj Bjorner (nbjorner)
 
   Revision History:
 

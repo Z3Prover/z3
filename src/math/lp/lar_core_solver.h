@@ -29,7 +29,7 @@ Revision History:
 #include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/stacked_vector.h"
 #include "math/lp/lar_solution_signature.h"
-#include "math/lp/stacked_value.h"
+#include "util/stacked_value.h"
 namespace lp {
 
 class lar_core_solver  {
