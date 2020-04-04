@@ -3644,18 +3644,26 @@ public:
     }
 
     void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff) {
+        TRACE("arith", lp().print_term(term, tout) << "\n";);
         for (const auto & ti : term) {
             theory_var w;
             if (ti.var().is_term()) {
-                //w = m_term_index2theory_var.get(lp::tv::unmask_term(ti.m_key), null_theory_var);
-                //if (w == null_theory_var) // if extracting expressions directly from nested term
                 lp::lar_term const& term1 = lp().get_term(ti.var().index());
                 rational coeff2 = coeff * ti.coeff();
                 term2coeffs(term1, coeffs, coeff2);
                 continue;
             }
+            else if (lp().column_corresponds_to_term(ti.var().index())) {
+                lp::tv t = lp::tv::term(ti.var().index());
+                lp::lar_term const& term1 = lp().get_term(t.index());
+                rational coeff2 = coeff * ti.coeff();
+                term2coeffs(term1, coeffs, coeff2);
+                continue;                
+            }
             else {
                 w = lp().local_to_external(ti.var().index());
+                SASSERT(w >= 0);
+                TRACE("arith", tout << (ti.var().index()) << ": " << w << "\n";);
             }
             rational c0(0);
             coeffs.find(w, c0);

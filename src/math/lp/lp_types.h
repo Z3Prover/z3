@@ -54,3 +54,7 @@ public:
 
 };
 }
+
+inline std::ostream& operator<<(lp::tv const& t, std::ostream& out) {
+    return out << (t.is_term() ? "t":"j") << t.id() << "\n";
+}

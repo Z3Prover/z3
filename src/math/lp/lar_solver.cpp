@@ -192,10 +192,12 @@ void lar_solver::calculate_implied_bounds_for_row(unsigned i, lp_bound_propagato
 }
 
 unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
-    if (tv::is_term(j))
-        return j;
-    unsigned ext_var_or_term = m_var_register.local_to_external(j);
-    return !tv::is_term(ext_var_or_term) ? j : ext_var_or_term;
+    if (!tv::is_term(j)) {
+        unsigned ext_var_or_term = m_var_register.local_to_external(j);
+        TRACE("arith", tout << j << " " << ext_var_or_term << "\n";);
+        j = !tv::is_term(ext_var_or_term) ? j : ext_var_or_term;
+    }
+    return j;
 }
 
 unsigned lar_solver::map_term_index_to_column_index(unsigned j) const {
@@ -1689,7 +1691,18 @@ bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & co
 }
 #endif
 void lar_solver::push_term(lar_term* t) {
+    // SASSERT(well_formed(*t));
     m_terms.push_back(t);
+}
+
+bool lar_solver::well_formed(lar_term const& t) const {
+    for (auto const& ti : t) {
+        if (!ti.var().is_term() && 
+            column_corresponds_to_term(ti.var().index())) {
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -2374,10 +2387,11 @@ std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, 
 
     if (tv::is_term(k))
         k = map_term_index_to_column_index(k);
-    
+
     coeffs.push_back(std::make_pair(mpq(1),j));
     coeffs.push_back(std::make_pair(mpq(-1),k));    
     unsigned term_index = add_term(coeffs, UINT_MAX); // UINT_MAX is the external null var
+
     if (get_column_value(j) != get_column_value(k))
         set_status(lp_status::UNKNOWN);
 

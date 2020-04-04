@@ -147,6 +147,8 @@ public:
 
     bool column_is_fixed(unsigned j) const;
     bool column_is_free(unsigned j) const;
+
+    bool well_formed(lar_term const& t) const;
 public:
 
     // init region
