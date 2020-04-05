@@ -2055,6 +2055,29 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
 }
 
 
+expr_ref_vector cmd_context::tracked_assertions() {
+    expr_ref_vector result(m());
+    if (assertion_names().size() == assertions().size()) {
+        for (unsigned i = 0; i < assertions().size(); ++i) {
+            expr* an  = assertion_names()[i];
+            expr* asr = assertions()[i];
+            if (an) {
+                result.push_back(m().mk_implies(an, asr));
+            }
+            else {
+                result.push_back(asr);
+            }
+        }
+    }
+    else {
+        for (expr * e : assertions()) {
+            result.push_back(e);
+        }
+    }
+    return result;
+}
+
+
 void cmd_context::display_assertions() {
     if (!m_interactive_mode)
         throw cmd_exception("command is only available in interactive mode, use command (set-option :interactive-mode true)");

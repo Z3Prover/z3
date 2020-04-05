@@ -457,6 +457,7 @@ public:
 
     ptr_vector<expr> const& assertions() const { return m_assertions; }
     ptr_vector<expr> const& assertion_names() const { return m_assertion_names; }
+    expr_ref_vector tracked_assertions();
 
     /**
        \brief Hack: consume assertions if there are no scopes.

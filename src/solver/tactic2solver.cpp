@@ -19,10 +19,11 @@ Author:
 Notes:
 
 --*/
+#include "ast/ast_translation.h"
+#include "ast/ast_pp.h"
+#include "tactic/tactic.h"
 #include "solver/tactic2solver.h"
 #include "solver/solver_na2as.h"
-#include "tactic/tactic.h"
-#include "ast/ast_translation.h"
 #include "solver/mus.h"
 
 /**
