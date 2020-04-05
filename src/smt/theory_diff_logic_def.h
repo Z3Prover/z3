@@ -359,6 +359,8 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
     }
 
     TRACE("arith_final", display(tout); );
+    if (!is_consistent())
+        return FC_CONTINUE;
     SASSERT(is_consistent());
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
