@@ -347,6 +347,7 @@ class horn_tactic : public tactic {
                 (*rep)(fml);
                 g->assert_expr(fml);
             }
+            g->set_prec(goal::UNDER_OVER);
         }
 
     };
