@@ -244,7 +244,12 @@ private:
                 premise = mk_modus_ponens(premise, p1);
                 fml = fml1;
             }
+            else if (fml1 != fml) {
+                premise = mk_modus_ponens(premise, m.mk_rewrite(fml, fml1));
+                fml = fml1;
+            }
         }
+        SASSERT(!premise || (fml1 == fml && fml == m.get_fact(premise)));
         head = fml0;
         while (m.is_implies(head, e1, e2)) {
             m_body.push_back(e1);
