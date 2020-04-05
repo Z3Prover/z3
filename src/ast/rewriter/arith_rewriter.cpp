@@ -441,6 +441,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         if ((first || !g.is_one()) && num_consts <= 1)
             get_coeffs_gcd(arg2, g, first, num_consts);
         TRACE("arith_rewriter_gcd", tout << "[step2] g: " << g << ", num_consts: " << num_consts << "\n";);
+        g = abs(g);
         if (!first && !g.is_one() && num_consts <= 1) {
             bool is_sat = div_polynomial(arg1, g, (kind == LE ? CT_CEIL : (kind == GE ? CT_FLOOR : CT_FALSE)), new_arg1);
             if (!is_sat) {

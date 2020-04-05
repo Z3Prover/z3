@@ -741,6 +741,7 @@ template<typename Config>
 br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool move, expr_ref & lhs_result, expr_ref & rhs_result) {
     set_curr_sort(m().get_sort(lhs));
     mon_lt lt(*this);
+    TRACE("le_bug", tout << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";);
     unsigned lhs_sz;
     expr * const * lhs_monomials = get_monomials(lhs, lhs_sz);
     unsigned rhs_sz;
