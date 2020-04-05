@@ -583,6 +583,11 @@ public:
         return m_columns_to_ul_pairs()[j].lower_bound_witness();
     }
 
+    // NSB code review - seems superfluous to translate back and forth because
+    // get_term(..) that is exposed over API does not ensure that columns that
+    // are based on terms are translated back to term indices.
+    // would be better to have consistent typing, either lar_term uses cv (and not tv)
+    // or they are created to use tv consistently.
     void subs_term_columns(lar_term& t) {
         svector<std::pair<unsigned,unsigned>> columns_to_subs;
         for (const auto & m : t) {
@@ -594,15 +599,15 @@ public:
             t.subst_index(p.first, p.second);            
         }
     }
+
     
     std::ostream& print_column_info(unsigned j, std::ostream& out) const {
         m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
         if (tv::is_term(j)) {
-            const lar_term& t = * m_terms[tv::unmask_term(j)];
-            print_term_as_indices(t, out) << "\n";
+            print_term_as_indices(get_term(j), out) << "\n";
             
-        } else if(column_corresponds_to_term(j)) { 
-            const lar_term& t = * m_terms[tv::unmask_term(m_var_register.local_to_external(j))];
+        } else if (column_corresponds_to_term(j)) { 
+            const lar_term& t = get_term(m_var_register.local_to_external(j));
             print_term_as_indices(t, out) << "\n";
         }
         return out;
@@ -630,7 +635,7 @@ public:
     bool column_corresponds_to_term(unsigned) const;
     void catch_up_in_updating_int_solver();
     var_index to_column(unsigned ext_j) const;
-    bool tighten_term_bounds_by_delta(unsigned, const impq&);
+    bool tighten_term_bounds_by_delta(tv const& t, const impq&);
     void round_to_integer_solution();
     void fix_terms_with_rounded_columns();
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
@@ -639,7 +644,7 @@ public:
     unsigned row_count() const { return A_r().row_count(); }
     const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
     const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
-    bool get_equality_and_right_side_for_term_on_current_x(unsigned i, mpq &rs, constraint_index& ci, bool &upper_bound) const;
+    bool get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq &rs, constraint_index& ci, bool &upper_bound) const;
     bool remove_from_basis(unsigned);
     lar_term get_term_to_maximize(unsigned ext_j) const;
     void set_cut_strategy(unsigned cut_frequency);

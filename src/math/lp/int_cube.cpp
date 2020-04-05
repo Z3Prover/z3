@@ -64,7 +64,7 @@ namespace lp {
         TRACE("cube", lra.print_term_as_indices(*t, tout); tout << ", delta = " << delta;);
         if (is_zero(delta))
             return true;
-        return lra.tighten_term_bounds_by_delta(i, delta);
+        return lra.tighten_term_bounds_by_delta(tv::term(i), delta);
     }
     
     bool int_cube::tighten_terms_for_cube() {

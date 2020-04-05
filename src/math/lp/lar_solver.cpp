@@ -113,7 +113,7 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
         }
         rs_of_evidence /= ratio;
     } else {
-        lar_term & t = *m_terms[tv::unmask_term(be.m_j)];
+        lar_term const& t = get_term(be.m_j);
         auto first_coeff = t.begin();
         unsigned j = (*first_coeff).var().index();
         auto it = coeff_map.find(j);
@@ -182,7 +182,7 @@ void lar_solver::substitute_basis_var_in_terms_for_row(unsigned i) {
 }
     
 void lar_solver::calculate_implied_bounds_for_row(unsigned i, lp_bound_propagator & bp) {
-    if(use_tableau()) {
+    if (use_tableau()) {
         analyze_new_bounds_on_row_tableau(i, bp);
     } else {
         m_mpq_lar_core_solver.calculate_pivot_row(i);
@@ -2192,9 +2192,9 @@ var_index lar_solver::to_column(unsigned ext_j) const {
     return m_var_register.external_to_local(ext_j);
 }
 
-bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& delta) {
-    SASSERT(!tv::is_term(term_index));
-    unsigned tj = tv::mask_term(term_index);
+bool lar_solver::tighten_term_bounds_by_delta(tv const& t, const impq& delta) {
+    SASSERT(t.is_term());
+    unsigned tj = t.index();
     unsigned j;
     if (m_var_register.external_is_used(tj, j) == false)
         return true; // the term is not a column so it has no bounds
@@ -2282,21 +2282,21 @@ bool lar_solver::sum_first_coords(const lar_term& t, mpq & val) const {
     return true;
 }
 
-bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci, bool &upper_bound) const {
-    unsigned tj = tv::mask_term(term_index);
+bool lar_solver::get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq & rs, constraint_index& ci, bool &upper_bound) const {
+    lp_assert(t.is_term())
     unsigned j;
     bool is_int;
-    if (m_var_register.external_is_used(tj, j, is_int) == false)
+    if (m_var_register.external_is_used(t.index(), j, is_int) == false)
         return false; // the term does not have a bound because it does not correspond to a column
     if (!is_int) // todo - allow for the next version of hnf
         return false;
     bool rs_is_calculated = false;
     mpq b;
     bool is_strict;
-    const lar_term& t = *terms()[term_index];
+    const lar_term& term = get_term(t);
     if (has_upper_bound(j, ci, b, is_strict) && !is_strict) {
         lp_assert(b.is_int());
-        if (!sum_first_coords(t, rs))
+        if (!sum_first_coords(term, rs))
             return false;
         rs_is_calculated = true;
         if (rs == b) {
@@ -2306,7 +2306,7 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term
     }
     if (has_lower_bound(j, ci, b, is_strict) && !is_strict) {
         if (!rs_is_calculated){
-            if (!sum_first_coords(t, rs))
+            if (!sum_first_coords(term, rs))
                 return false;
         }
         lp_assert(b.is_int());
