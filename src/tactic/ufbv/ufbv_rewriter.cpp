@@ -49,7 +49,7 @@ ufbv_rewriter::~ufbv_rewriter() {
     }
 }
 
-bool ufbv_rewriter::is_demodulator(expr * e, expr_ref & large, expr_ref & small) const {
+bool ufbv_rewriter::is_demodulator(expr * e, app_ref & large, expr_ref & small) const {
     if (!is_forall(e)) {
         return false;
     }
@@ -65,13 +65,13 @@ bool ufbv_rewriter::is_demodulator(expr * e, expr_ref & large, expr_ref & small)
         // We only track uninterpreted functions, everything else is likely too expensive.
         if ((subset == +1 || subset == +2) && smaller == +1) {
             if (is_uninterp(rhs)) {
-                large = rhs;
+                large = to_app(rhs);
                 small = lhs;
                 return true;
             }
             // lhs = (not rhs) --> (not lhs) = rhs
             if (m.is_not(rhs, n) && is_uninterp(n)) {
-                large = n;
+                large = to_app(n);
                 small = m.mk_not(lhs);
                 return true;
             }
@@ -79,21 +79,21 @@ bool ufbv_rewriter::is_demodulator(expr * e, expr_ref & large, expr_ref & small)
         
         if ((subset == -1 || subset == +2) && smaller == -1) {
             if (is_uninterp(lhs)) {
-                large = lhs;
+                large = to_app(lhs);
                 small = rhs;
                 return true;
             }
             // (not lhs) = rhs --> lhs = (not rhs)
             if (m.is_not(lhs, n) && is_uninterp(n)) {
-                large = n;
+                large = to_app(n);
                 small = m.mk_not(rhs);
                 return true;
             }
         }        
     } 
-    else if (m.is_not(qe, n)) {
+    else if (m.is_not(qe, n) && is_app(n)) {
         // this is like (not (f ... )) --> (= (f ...) false)
-        large = n;
+        large = to_app(n);
         small = m.mk_false();
         return true;
     } 
@@ -649,7 +649,8 @@ void ufbv_rewriter::operator()(unsigned n, expr * const * exprs, proof * const *
         // SASSERT(rewrite(np)==np);
 
         //    if (n' is not a demodulator) {
-        expr_ref large(m), small(m);
+        app_ref large(m);
+        expr_ref small(m);
         if (!is_demodulator(np, large, small)) {
             // insert n' into m_processed
             m_processed.insert(np);
@@ -672,8 +673,7 @@ void ufbv_rewriter::operator()(unsigned n, expr * const * exprs, proof * const *
                                        tout << mk_pp(small.get(), m) << std::endl; );
 
             // let f be the top symbol of n'
-            SASSERT(is_app(large));
-            func_decl * f = to_app(large)->get_decl();
+            func_decl * f = large->get_decl();
 
             reschedule_processed(f);
             reschedule_demodulators(f, large);

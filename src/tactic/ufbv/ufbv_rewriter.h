@@ -175,7 +175,7 @@ class ufbv_rewriter {
     void remove_fwd_idx(func_decl * f, quantifier * demodulator);
     bool check_fwd_idx_consistency();
     void show_fwd_idx(std::ostream & out);
-    bool is_demodulator(expr * e, expr_ref & large, expr_ref & small) const;
+    bool is_demodulator(expr * e, app_ref & large, expr_ref & small) const;
     bool can_rewrite(expr * n, expr * lhs);
     
     expr * rewrite(expr * n);
