@@ -387,7 +387,7 @@ namespace {
 
             if (!is_true && !m.is_false(v)) return;
 
-            expr *na = nullptr, *f1 = nullptr, *f2 = nullptr, *f3 = nullptr;
+            expr* na = nullptr, * f1 = nullptr, * f2 = nullptr, * f3 = nullptr;
 
             SASSERT(!m.is_false(a));
             if (m.is_true(a)) {
@@ -404,8 +404,8 @@ namespace {
             }
             else if (m.is_distinct(a)) {
                 if (!is_true) {
-                    f1 = qe::project_plugin::pick_equality(m, m_model, a);
-                    m_todo.push_back(f1);
+                    expr_ref tmp = qe::project_plugin::pick_equality(m, m_model, a);
+                    m_todo.push_back(tmp);
                 }
                 else if (a->get_num_args() == 2) {
                     add_literal(a, out);
@@ -497,15 +497,15 @@ namespace {
             if (m_visited.is_marked(e) || !is_app(e)) return;
 
             m_todo.push_back(e);
-            do {
+            for (unsigned i = 0; i < m_todo.size(); ++i) {
                 e = m_todo.back();
                 if (!is_app(e)) continue;
-                app * a = to_app(e);
+                app* a = to_app(e);
                 m_todo.pop_back();
                 process_app(a, out);
                 m_visited.mark(a, true);
             } 
-            while (!m_todo.empty());
+            m_todo.reset();
         }
 
         bool pick_implicant(const expr_ref_vector &in, expr_ref_vector &out) {
