@@ -7496,6 +7496,12 @@ namespace smt {
         ast_manager & m = get_manager();
         context & ctx = get_context();
 
+        // workaround for #3756:
+        // the map existing_toplevel_exprs is never cleared on backtracking.
+        // to ensure the expressions are valid we persist validity of the
+        // expression throughout the lifetime of theory_str
+        m_trail.push_back(ex);
+
         sort * ex_sort = m.get_sort(ex);
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();
@@ -7689,6 +7695,10 @@ namespace smt {
         candidate_model.reset();
         expr * e = get_context().bool_var2expr(v);
         TRACE("str", tout << "assert: v" << v << " " << mk_pp(e, get_manager()) << " is_true: " << is_true << std::endl;);
+        DEBUG_CODE(
+            for (auto * f : existing_toplevel_exprs) {
+                SASSERT(f->get_ref_count() > 0);
+            });
         if (!existing_toplevel_exprs.contains(e)) {
             existing_toplevel_exprs.insert(e);
             set_up_axioms(e);
