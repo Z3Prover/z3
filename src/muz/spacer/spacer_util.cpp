@@ -533,19 +533,20 @@ namespace {
     };
 }
 
-    void compute_implicant_literals(model &mdl,
-                                     expr_ref_vector &formula,
-                                     expr_ref_vector &res) {
+    expr_ref_vector compute_implicant_literals(model &mdl,
+                                     expr_ref_vector &formula) {
         // flatten the formula and remove all trivial literals
 
         // TBD: not clear why there is a dependence on it(other than
         // not handling of Boolean constants by implicant_picker), however,
         // it was a source of a problem on a benchmark
+        expr_ref_vector res(formula.get_manager());
         flatten_and(formula);
-        if (formula.empty()) {return;}
-
-        implicant_picker ipick(mdl);
-        ipick(formula, res);
+        if (!formula.empty()) {
+            implicant_picker ipick(mdl);
+            ipick(formula, res);
+        }
+        return res;
     }
 
     void simplify_bounds_old(expr_ref_vector& cube) {

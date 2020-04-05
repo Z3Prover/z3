@@ -87,7 +87,7 @@ void pob::set_post(expr* post, app_ref_vector const &binding) {
               m_pt.get_context().use_euf_gen());
 
     m_binding.reset();
-    if (!binding.empty()) {m_binding.append(binding);}
+    m_binding.append(binding);
 }
 
 void pob::inherit(pob const &p) {
@@ -110,12 +110,12 @@ void pob::inherit(pob const &p) {
 }
 
 void pob::close () {
-    if (!m_open) { return; }
-
-    m_derivation = nullptr;
-    m_open = false;
-    for (unsigned i = 0, sz = m_kids.size (); i < sz; ++i)
-    { m_kids [i]->close(); }
+    if (m_open) {
+        m_derivation = nullptr;
+        m_open = false;
+        for (auto* k : m_kids)
+            k->close();
+    }
 }
 
 void pob::get_skolems(app_ref_vector &v) {
@@ -139,8 +139,7 @@ void pob::get_skolems(app_ref_vector &v) {
 // ----------------
 // pob_queue
 
-pob* pob_queue::top ()
-{
+pob* pob_queue::top() {
     /// nothing in the queue
     if (m_data.empty()) { return nullptr; }
     /// top queue element is above max level
@@ -150,7 +149,7 @@ pob* pob_queue::top ()
         m_data.top()->depth() > m_min_depth) { return nullptr; }
 
     /// there is something good in the queue
-    return m_data.top ();
+    return m_data.top();
 }
 
 void pob_queue::pop() {
@@ -160,16 +159,14 @@ void pob_queue::pop() {
 }
 
 
-void pob_queue::set_root(pob& root)
-{
+void pob_queue::set_root(pob& root) {
     m_root = &root;
     m_max_level = root.level ();
     m_min_depth = root.depth ();
     reset();
 }
 
-void pob_queue::reset()
-{
+void pob_queue::reset() {
     while (!m_data.empty()) {
         pob *p = m_data.top();
         m_data.pop();
@@ -210,53 +207,45 @@ void derivation::add_premise (pred_transformer &pt,
                               unsigned oidx,
                               expr* summary,
                               bool must,
-                              const ptr_vector<app> *aux_vars)
-{m_premises.push_back (premise (pt, oidx, summary, must, aux_vars));}
+                              const ptr_vector<app> *aux_vars) {
+    m_premises.push_back (premise (pt, oidx, summary, must, aux_vars));
+}
 
 
 
 pob *derivation::create_first_child (model &mdl) {
-    if (m_premises.empty()) { return nullptr; }
+    if (m_premises.empty()) 
+        return nullptr; 
     m_active = 0;
     return create_next_child(mdl);
 }
 
-void derivation::exist_skolemize(expr* fml, app_ref_vector &vars, expr_ref &res) {
-    ast_manager &m = get_ast_manager();
-    if (vars.empty()) {res = fml; return;}
-    if (m.is_true(fml) || m.is_false(fml)) {res = fml; return;}
-
-    {
-        std::stable_sort (vars.c_ptr(), vars.c_ptr() + vars.size(), sk_lt_proc());
-        unsigned i, j, end;
-        app_ref v(m);
-        for (i = 1, j = 1, end = vars.size(); i < end; ++i) {
-            if (vars.get(j-1) != vars.get(i)) {
-                v = vars.get(i);   // keep ref
-                vars.set(j++, v);
-            }
-        }
-        vars.shrink(j);
+void derivation::exist_skolemize(expr* fml, app_ref_vector& vars, expr_ref& res) {
+    ast_manager& m = get_ast_manager();
+    if (vars.empty() || m.is_true(fml) || m.is_false(fml)) {
+        res = fml;
+        return;
     }
-
+    
+    std::stable_sort(vars.c_ptr(), vars.c_ptr() + vars.size(), sk_lt_proc());
+    unsigned j = 1;
+    for (unsigned i = 1; i < vars.size(); ++i) 
+        if (vars.get(i) != vars.get(j - 1)) 
+            vars[j++] = vars.get(i);
+    vars.shrink(j);
+    
     TRACE("spacer", tout << "Skolemizing: " << vars << "\n";
-          tout << "from " << mk_pp(fml, m) << "\n";
-        );
-
-    app_ref_vector pinned(m);
+          tout << "from " << mk_pp(fml, m) << "\n";);
 
     expr_safe_replace sub(m);
     for (unsigned i = 0, sz = vars.size(); i < sz; ++i) {
-        expr* e;
-        e = vars.get(i);
-        pinned.push_back (mk_zk_const (m, i, get_sort(e)));
-        sub.insert (e, pinned.back());
+        expr* e = vars.get(i);
+        sub.insert(e, mk_zk_const(m, i, get_sort(e)));
     }
     sub(fml, res);
 }
 
-pob *derivation::create_next_child(model &mdl)
-{
+pob *derivation::create_next_child(model &mdl) {
     timeit _timer (is_trace_enabled("spacer_timeit"),
                    "spacer::derivation::create_next_child",
                    verbose_stream ());
@@ -385,11 +374,9 @@ pob *derivation::create_next_child ()
     reach_fact *rf = pt.get_used_rf (*mdl, true);
 
     // get an implicant of the summary
-    expr_ref_vector u(m), lits(m);
-    u.push_back (rf->get ());
-    compute_implicant_literals (*mdl, u, lits);
-    expr_ref v(m);
-    v = mk_and (lits);
+    expr_ref_vector u(m);
+    u.push_back (rf->get ());    
+    expr_ref v = mk_and (compute_implicant_literals(*mdl, u));
 
     // XXX The summary is not used by anyone after this point
     m_premises[m_active].set_summary (v, true, &(rf->aux_vars ()));
@@ -413,8 +400,9 @@ pob *derivation::create_next_child ()
 
         // variables to eliminate
         vars.append (rf->aux_vars ().size (), rf->aux_vars ().c_ptr ());
-        for (unsigned i = 0, sz = pt.head ()->get_arity (); i < sz; ++i)
-        { vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); }
+        for (unsigned i = 0, sz = pt.head ()->get_arity (); i < sz; ++i) { 
+            vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); 
+        }
 
         if (!vars.empty ()) {
             vars.append(m_evars);
@@ -448,12 +436,13 @@ derivation::premise::premise (pred_transformer &pt, unsigned oidx,
     manager &sm = m_pt.get_manager ();
 
     unsigned sig_sz = m_pt.head ()->get_arity ();
-    for (unsigned i = 0; i < sig_sz; ++i)
-    { m_ovars.push_back(m.mk_const(sm.o2o(pt.sig(i), 0, m_oidx))); }
+    for (unsigned i = 0; i < sig_sz; ++i) { 
+        m_ovars.push_back(m.mk_const(sm.o2o(pt.sig(i), 0, m_oidx))); 
+    }
 
-    if (aux_vars)
-        for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
-        { m_ovars.push_back(m.mk_const(sm.n2o(aux_vars->get(i)->get_decl(), m_oidx))); }
+    if (aux_vars) 
+        for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i) 
+            m_ovars.push_back(m.mk_const(sm.n2o(aux_vars->get(i)->get_decl(), m_oidx))); 
 }
 
 derivation::premise::premise (const derivation::premise &p) :
@@ -802,7 +791,8 @@ void pred_transformer::init_sig()
 
 void pred_transformer::ensure_level(unsigned level)
 {
-    if (is_infty_level(level)) { return; }
+    if (is_infty_level(level)) 
+        return; 
 
     while (m_frames.size() <= level) {
         m_frames.add_frame ();
@@ -816,7 +806,8 @@ bool pred_transformer::is_must_reachable(expr* state, model_ref* model)
     SASSERT (state);
     // XXX This seems to mis-handle the case when state is
     // reachable using the init rule of the current transformer
-    if (m_reach_facts.empty()) { return false; }
+    if (m_reach_facts.empty()) 
+        return false;     
 
     m_reach_solver->push ();
     m_reach_solver->assert_expr (state);
@@ -1195,9 +1186,8 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
     }
     
     // -- pick an implicant
-    expr_ref_vector lits(m);
-    compute_implicant_literals (mdl, summary, lits);
-    return mk_and(lits);
+    
+    return mk_and(compute_implicant_literals(mdl, summary));
 }
 
 
@@ -2484,8 +2474,9 @@ void context::add_cover(int level, func_decl* p, expr* property, bool bg)
     pt->add_cover(lvl, property, bg);
 }
 
-void context::add_invariant (func_decl *p, expr *property)
-{add_cover (infty_level(), p, property, use_bg_invs());}
+void context::add_invariant (func_decl *p, expr *property) {
+    add_cover (infty_level(), p, property, use_bg_invs());
+}
 
 expr_ref context::get_reachable(func_decl *p) {
     pred_transformer* pt = nullptr;
@@ -3664,16 +3655,15 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
 
     // -- pick an implicant from the path condition
     if (ctx.reach_dnf()) {
-        expr_ref_vector u(m), lits(m);
+        expr_ref_vector u(m);
         u.push_back (res);
-        compute_implicant_literals (mdl, u, lits);
-        res = mk_and (lits);
+        res = mk_and (compute_implicant_literals(mdl, u));
     }
 
 
     TRACE ("spacer",
            tout << "Reach fact, before QE:\n";
-           tout << mk_pp (res, m) << "\n";
+           tout << res << "\n";
            tout << "Vars:\n" << vars << "\n";);        
 
     {
@@ -3686,7 +3676,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
 
     TRACE ("spacer",
            tout << "Reach fact, after QE project:\n";
-           tout << mk_pp (res, m) << "\n";
+           tout << res << "\n";
            tout << "Vars:\n" << vars << "\n";
         );
 
@@ -3695,8 +3685,8 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
     m_stats.m_num_reach_queries++;
     ptr_vector<app> empty;
     reach_fact *f = alloc(reach_fact, m, r, res, elim_aux ? empty : aux_vars);
-    for (unsigned i = 0, sz = child_reach_facts.size (); i < sz; ++i)
-    { f->add_justification(child_reach_facts.get(i)); }
+    for (reach_fact* cf : child_reach_facts)
+        f->add_justification(cf);
     return f;
 }
 
@@ -3726,11 +3716,11 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
 
     // obtain all formulas to consider for model generalization
-    expr_ref_vector forms(m), lits(m);
+    expr_ref_vector forms(m);
     forms.push_back(pt.get_transition(r));
     forms.push_back(n.post());
 
-    compute_implicant_literals (mdl, forms, lits);
+    expr_ref_vector lits = compute_implicant_literals (mdl, forms);
     expr_ref phi = mk_and (lits);
 
     // primed variables of the head
@@ -3823,7 +3813,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
 void context::collect_statistics(statistics& st) const
 {
-	// m_params is not necessarily live when collect_statistics is called.
+    // m_params is not necessarily live when collect_statistics is called.
     m_pool0->collect_statistics(st);
     m_pool1->collect_statistics(st);
     m_pool2->collect_statistics(st);
