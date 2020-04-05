@@ -380,6 +380,8 @@ public:
             }
         }
         convert_internalized();
+        if (m_solver.inconsistent())
+            return last_cube(false);
         obj_hashtable<expr> _vs;
         for (expr* v : vs) _vs.insert(v);
         sat::bool_var_vector vars;

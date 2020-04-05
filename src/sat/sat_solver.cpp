@@ -1152,6 +1152,8 @@ namespace sat {
                 }
                 literal l(v, false);
                 if (mdl[v] != l_true) l.neg();
+                if (inconsistent())
+                    return l_undef;
                 push();
                 assign_core(l, justification(scope_lvl()));
                 propagate(false);
