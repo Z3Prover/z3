@@ -1073,12 +1073,12 @@ bool fpa_util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* cons
         expr* x = args[1];
         unsigned bv_sz = f->get_parameter(0).get_int();
         mpf_rounding_mode rmv;
-        mpf v;
-        if (!is_rm_numeral(rm, rmv) || !is_numeral(x, v)) return false;
+        scoped_mpf sv(fm());
+        if (!is_rm_numeral(rm, rmv) || !is_numeral(x, sv)) return false;
         if (is_nan(x) || is_inf(x)) return true;
         unsynch_mpq_manager& mpqm = plugin().fm().mpq_manager();
         scoped_mpq r(mpqm);
-        plugin().fm().to_sbv_mpq(rmv, v, r);
+        plugin().fm().to_sbv_mpq(rmv, sv, r);
         if (is_signed)
             return mpqm.bitsize(r) >= bv_sz;
         else

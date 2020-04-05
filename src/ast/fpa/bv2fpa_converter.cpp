@@ -101,13 +101,12 @@ expr_ref bv2fpa_converter::convert_bv2fp(sort * s, expr * sgn, expr * exp, expr 
     rational exp_unbiased_q;
     exp_unbiased_q = exp_q - m_fpa_util.fm().m_powers2.m1(ebits - 1);
 
-    mpz sig_z; mpf_exp_t exp_z;
+    scoped_mpz sig_z(mpzm); 
+    mpf_exp_t exp_z;
     mpzm.set(sig_z, sig_q.to_mpq().numerator());
     exp_z = mpzm.get_int64(exp_unbiased_q.to_mpq().numerator());
 
     m_fpa_util.fm().set(fp_val, ebits, sbits, !mpqm.is_zero(sgn_q.to_mpq()), exp_z, sig_z);
-
-    mpzm.del(sig_z);
 
     res = m_fpa_util.mk_value(fp_val);
 
@@ -257,7 +256,7 @@ bv2fpa_converter::array_model bv2fpa_converter::convert_array_func_interp(model_
 
 func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl * f, func_decl * bv_f) {
     SASSERT(f->get_arity() > 0);
-    func_interp * result = nullptr;
+    scoped_ptr<func_interp> result = nullptr;
     sort * rng = f->get_range();
     sort * const * dmn = f->get_domain();
 
@@ -322,7 +321,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
         }
     }
 
-    return result;
+    return result.detach();
 }
 
 void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen) {
@@ -444,8 +443,7 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
         func_decl * f_uf = kv.m_value;
         seen.insert(f_uf);
 
-        if (f->get_arity() == 0)
-        {
+        if (f->get_arity() == 0) {
             array_util au(m);
             if (au.is_array(f->get_range())) {
                 array_model am = convert_array_func_interp(mc, f, f_uf);
