@@ -53,8 +53,7 @@ namespace spacer {
             m_proxies.push_back (res);
             
             // -- add the new proxy to proxy eliminator
-            proof_ref pr(m);
-            pr = m.mk_asserted (m.mk_true ());
+            proof_ref pr(m.mk_rewrite(res, m.mk_true()), m);
             m_elim_proxies_sub.insert (res, m.mk_true (), pr);
             
         }
