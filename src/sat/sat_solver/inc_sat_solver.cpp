@@ -621,7 +621,7 @@ private:
             }
         }
         catch (tactic_exception & ex) {
-            IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
             set_reason_unknown(ex.msg());
             TRACE("sat", tout << "exception: " << ex.msg() << "\n";);
             m_preprocess = nullptr;

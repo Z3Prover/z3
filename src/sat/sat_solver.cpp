@@ -3910,6 +3910,7 @@ namespace sat {
             gc_var(lit.var());            
         }
         m_qhead = 0;
+        scoped_suspend_rlimit _sp(m_rlimit);
         propagate(false);
     }
 
