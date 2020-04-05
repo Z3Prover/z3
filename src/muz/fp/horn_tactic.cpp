@@ -269,7 +269,7 @@ class horn_tactic : public tactic {
                 if (produce_proofs) {
                     proof_ref proof = m_ctx.get_proof();
                     pc = proof2proof_converter(m, proof);
-                    g->assert_expr(m.mk_false(), proof, nullptr);
+                    g->assert_expr(m.get_fact(proof), proof, nullptr);
                 }
                 else {
                     g->assert_expr(m.mk_false());
