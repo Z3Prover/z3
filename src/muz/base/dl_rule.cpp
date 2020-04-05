@@ -912,7 +912,7 @@ namespace datalog {
     // Quantifiers may appear only in the interpreted tail, it is therefore
     // sufficient only to check the interpreted tail.
     //
-    void rule_manager::has_quantifiers(rule const& r, bool& existential, bool& universal) const {
+    void rule_manager::has_quantifiers(rule const& r, bool& existential, bool& universal, bool& lam) const {
         unsigned sz = r.get_tail_size();
         m_qproc.reset();
         m_visited.reset();
@@ -921,12 +921,13 @@ namespace datalog {
         }
         existential = m_qproc.m_exist;
         universal = m_qproc.m_univ;
+        lam = m_qproc.m_lambda;
     }
 
     bool rule_manager::has_quantifiers(rule const& r) const {
-        bool exist, univ;
-        has_quantifiers(r, exist, univ);
-        return exist || univ;
+        bool exist, univ, lam;
+        has_quantifiers(r, exist, univ, lam);
+        return exist || univ || lam;
     }
 
     bool rule_manager::is_finite_domain(rule const& r) const {

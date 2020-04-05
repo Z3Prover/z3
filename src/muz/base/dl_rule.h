@@ -79,17 +79,18 @@ namespace datalog {
     struct quantifier_finder_proc {
         bool m_exist;
         bool m_univ;
-        quantifier_finder_proc() : m_exist(false), m_univ(false) {}
+        bool m_lambda;
+        quantifier_finder_proc() : m_exist(false), m_univ(false), m_lambda(false) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) {
             switch (n->get_kind()) {
             case forall_k: m_univ = true; break;
             case exists_k: m_exist = true; break;
-            case lambda_k: UNREACHABLE();
+            case lambda_k: m_lambda = true; break;
             }
         }
         void operator()(app * n) { }
-        void reset() { m_exist = m_univ = false; }
+        void reset() { m_exist = m_univ = m_lambda = false; }
     };
 
     struct fd_finder_proc {
@@ -278,7 +279,7 @@ namespace datalog {
         std::ostream& display_smt2(rule const& r, std::ostream & out);
 
         bool has_uninterpreted_non_predicates(rule const& r, func_decl*& f) const;
-        void has_quantifiers(rule const& r, bool& existential, bool& universal) const;
+        void has_quantifiers(rule const& r, bool& existential, bool& universal, bool& lam) const;
         bool has_quantifiers(rule const& r) const;
         bool is_finite_domain(rule const& r) const;
 
