@@ -1752,7 +1752,7 @@ std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e
     for (unsigned i = 0; i < added.size(); ++i) {
         lpvar j = added[i];
         if (ls.column_corresponds_to_term(j)) {
-            const auto& t = m_lar_solver.get_term(ls.local_to_external(j));
+            const auto& t = m_lar_solver.get_term(lp::tv::raw(ls.local_to_external(j)));
             for (auto p : t) {
                 if (ret.find(p.var().index()) == ret.end()) {
                     added.push_back(p.var().index());

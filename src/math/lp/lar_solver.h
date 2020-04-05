@@ -42,6 +42,7 @@ Revision History:
 #include "math/lp/int_solver.h"
 #include "math/lp/nra_solver.h"
 #include "math/lp/lp_bound_propagator.h"
+#include "math/lp/lp_types.h"
 
 namespace lp {
 
@@ -149,6 +150,9 @@ public:
     bool column_is_free(unsigned j) const;
 
     bool well_formed(lar_term const& t) const;
+
+    const lar_term & get_term(unsigned j) const;
+
 public:
 
     // init region
@@ -358,10 +362,10 @@ public:
     // return true if found and false if unbounded
     lp_status maximize_term(unsigned j_or_term, impq &term_max);
     
-
     
-    const lar_term &  get_term(unsigned j) const;
 
+    const lar_term & get_term(tv const& t) const { lp_assert(t.is_term()); return *m_terms[t.id()]; }
+    
     void pop_core_solver_params();
 
     void pop_core_solver_params(unsigned k);

@@ -800,7 +800,6 @@ namespace smt {
     template<typename Ext>    
     void theory_utvpi<Ext>::model_validate() {
         context& ctx = get_context();
-        unsigned sz = m_atoms.size();
         for (auto const& a : m_atoms) {
             bool_var b = a.get_bool_var();
             if (!ctx.is_relevant(b)) {

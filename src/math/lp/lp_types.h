@@ -18,6 +18,9 @@ Revision History:
 
 --*/
 #pragma once
+
+#include <sstream>
+
 namespace lp {
 typedef unsigned var_index;
 typedef unsigned constraint_index;
@@ -52,9 +55,15 @@ public:
     // used by var_register. could we encapsulate even this?
     static const unsigned left_most_bit  = ~EF;
 
+    std::string to_string() const { 
+        std::ostringstream strm;
+        strm << (is_term() ? "t" : "j") << id();
+        return strm.str();
+    }
+
 };
 }
 
-inline std::ostream& operator<<(lp::tv const& t, std::ostream& out) {
+inline std::ostream& operator<<(std::ostream& out, lp::tv const& t) {
     return out << (t.is_term() ? "t":"j") << t.id() << "\n";
 }

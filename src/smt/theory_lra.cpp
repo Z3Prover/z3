@@ -26,6 +26,7 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/nra_solver.h"
 #include "math/lp/nla_solver.h"
+#include "math/lp/lp_types.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "util/nat_set.h"
@@ -955,6 +956,10 @@ class theory_lra::imp {
     lpvar get_lpvar(theory_var v) const {
         return lp().external_to_local(v);
     }
+
+    lp::tv get_tv(theory_var v) const {
+        return lp::tv::raw(get_lpvar(v));
+    }
     
     theory_var internalize_linearized_def(app* term, scoped_internalize_state& st) {
         theory_var v = mk_var(term);
@@ -989,7 +994,7 @@ class theory_lra::imp {
                     TRACE("arith_verbose", 
                           tout << "v" << v << " := " << mk_pp(term, m) 
                           << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
-                          lp().print_term(lp().get_term(vi), tout) << "\n";);
+                          lp().print_term(lp().get_term(lp::tv::raw(vi)), tout) << "\n";);
                 }
             }
 
@@ -1320,11 +1325,12 @@ public:
                                  a.mk_mul(a.mk_numeral(r, true), 
                                           get_enode(w)->get_owner())));
         theory_var z = internalize_def(term);
-        lpvar vi = register_theory_var_in_lar_solver(z);
+        lpvar zi = register_theory_var_in_lar_solver(z);
+        lpvar vi = register_theory_var_in_lar_solver(v);
+        add_def_constraint(lp().add_var_bound(zi, lp::GE, rational::zero()));
+        add_def_constraint(lp().add_var_bound(zi, lp::LE, rational::zero()));
         add_def_constraint(lp().add_var_bound(vi, lp::GE, rational::zero()));
-        add_def_constraint(lp().add_var_bound(vi, lp::LE, rational::zero()));
-        add_def_constraint(lp().add_var_bound(register_theory_var_in_lar_solver(v), lp::GE, rational::zero()));
-        add_def_constraint(lp().add_var_bound(register_theory_var_in_lar_solver(v), lp::LT, abs(r)));
+        add_def_constraint(lp().add_var_bound(vi, lp::LT, abs(r)));
         SASSERT(!is_infeasible());
         TRACE("arith", tout << term << "\n" << lp().constraints(););
     }
@@ -1501,27 +1507,27 @@ public:
         return can_get_bound(v);
     }
 
-    mutable vector<std::pair<lpvar, rational>> m_todo_terms;
+    mutable vector<std::pair<lp::tv, rational>> m_todo_terms;
  
     lp::impq get_ivalue(theory_var v) const {
         SASSERT(can_get_ivalue(v));
-        lpvar vi = get_lpvar(v);
-        if (!lp::tv::is_term(vi))
-            return lp().get_column_value(vi);
-        m_todo_terms.push_back(std::make_pair(vi, rational::one()));
+        auto t = get_tv(v);
+        if (!t.is_term()) 
+            return lp().get_column_value(t.id());
+        m_todo_terms.push_back(std::make_pair(t, rational::one()));
         lp::impq result(0);
         while (!m_todo_terms.empty()) {
-            vi = m_todo_terms.back().first;
+            t = m_todo_terms.back().first;
             rational coeff = m_todo_terms.back().second;
             m_todo_terms.pop_back();
-            if (lp::tv::is_term(vi)) {
-                const lp::lar_term& term = lp().get_term(vi);
+            if (t.is_term()) {
+                const lp::lar_term& term = lp().get_term(t);
                 for (const auto & i:  term) {
-                    m_todo_terms.push_back(std::make_pair(i.var().index(), coeff * i.coeff()));
+                    m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
                 }                    
             }
             else {
-                result += lp().get_column_value(vi) * coeff;
+                result += lp().get_column_value(t.id()) * coeff;
             }
         }
         return result;
@@ -1532,36 +1538,36 @@ public:
             return rational::zero();
         }
             
-        lpvar vi = get_lpvar(v);
-        if (m_variable_values.count(vi) > 0)
-            return m_variable_values[vi];
+        auto t = get_tv(v);
+        if (m_variable_values.count(t.index()) > 0)
+            return m_variable_values[t.index()];
         
-        if (!lp::tv::is_term(vi)) {
+        if (!t.is_term()) {
             return rational::zero();
         }
         
-        m_todo_terms.push_back(std::make_pair(vi, rational::one()));
+        m_todo_terms.push_back(std::make_pair(t, rational::one()));
         rational result(0);
         while (!m_todo_terms.empty()) {
-            lpvar wi = m_todo_terms.back().first;
+            auto t2 = m_todo_terms.back().first;
             rational coeff = m_todo_terms.back().second;
             m_todo_terms.pop_back();
-            if (lp::tv::is_term(wi)) {
-                const lp::lar_term& term = lp().get_term(wi);
+            if (t2.is_term()) {
+                const lp::lar_term& term = lp().get_term(t2);
                 for (const auto & i : term) {
                     if (m_variable_values.count(i.var().index()) > 0) {
                         result += m_variable_values[i.var().index()] * coeff * i.coeff();
                     }
                     else {
-                        m_todo_terms.push_back(std::make_pair(i.var().index(), coeff * i.coeff()));
+                        m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
                     }
                 }                    
             }
             else {
-                result += m_variable_values[wi] * coeff;
+                result += m_variable_values[t2.index()] * coeff;
             }
         }
-        m_variable_values[vi] = result;
+        m_variable_values[t.index()] = result;
         return result;
     }
 
@@ -1949,12 +1955,12 @@ public:
         expr_ref t(m);
         expr_ref_vector ts(m);
         for (auto const& p : term) {
-            lpvar wi = p.var().index();
-            if (lp::tv::is_term(wi)) {
-                ts.push_back(multerm(p.coeff(), term2expr(lp().get_term(wi))));
+            auto ti = p.var();
+            if (ti.is_term()) {
+                ts.push_back(multerm(p.coeff(), term2expr(lp().get_term(ti))));
             }
             else {
-                ts.push_back(multerm(p.coeff(), var2expr(wi)));
+                ts.push_back(multerm(p.coeff(), var2expr(ti.id())));
             }
         }
         if (ts.size() == 1) {
@@ -1991,13 +1997,13 @@ public:
         lp().print_term(term, out << "bound: "); 
         out << (upper?" <= ":" >= ") << k << "\n";
         for (auto const& p : term) {
-            lpvar wi = p.var().index();
+            auto ti = p.var();
             out << p.coeff() << " * ";
-            if (lp::tv::is_term(wi)) {
-                lp().print_term(lp().get_term(wi), out) << "\n";
+            if (ti.is_term()) {
+                lp().print_term(lp().get_term(ti), out) << "\n";
             }
             else {
-                out << "v" << lp().local_to_external(wi) << "\n";
+                out << "v" << lp().local_to_external(ti.id()) << "\n";
             }
         }
         for (auto const& ev : ex) {
@@ -2777,7 +2783,7 @@ public:
         ++m_stats.m_bounds_propagations;
     }
 
-    svector<lpvar> m_todo_vars;
+    svector<lp::tv> m_todo_vars;
 
     void add_use_lists(lp_api::bound* b) {
         theory_var v = b->get_var();
@@ -2785,18 +2791,19 @@ public:
         if (!lp::tv::is_term(vi)) {
             return;
         }
-        m_todo_vars.push_back(vi);
+        m_todo_vars.push_back(lp::tv::raw(vi));
         while (!m_todo_vars.empty()) {
-            vi = m_todo_vars.back();
+            auto ti = m_todo_vars.back();
+            SASSERT(ti.is_term());
             m_todo_vars.pop_back();
-            lp::lar_term const& term = lp().get_term(vi);
+            lp::lar_term const& term = lp().get_term(ti);
             for (auto const& p : term) {
-                lpvar wi = p.var().index();
-                if (lp::tv::is_term(wi)) {
+                lp::tv wi = p.var();
+                if (wi.is_term()) {
                     m_todo_vars.push_back(wi);
                 }
                 else {
-                    unsigned w = lp().local_to_external(wi);
+                    unsigned w = lp().local_to_external(wi.id());
                     m_use_list.reserve(w + 1, ptr_vector<lp_api::bound>());
                     m_use_list[w].push_back(b);
                 }
@@ -2810,18 +2817,19 @@ public:
         if (!lp::tv::is_term(vi)) {
             return;
         }
-        m_todo_vars.push_back(vi);
+        m_todo_vars.push_back(lp::tv::raw(vi));
         while (!m_todo_vars.empty()) {
-            vi = m_todo_vars.back();
+            auto ti = m_todo_vars.back();
+            SASSERT(ti.is_term());
             m_todo_vars.pop_back();
-            lp::lar_term const& term = lp().get_term(vi);
+            lp::lar_term const& term = lp().get_term(ti);
             for (auto const& coeff : term) {
-                lpvar wi = coeff.var().index();
-                if (lp::tv::is_term(wi)) {
+                auto wi = coeff.var();
+                if (wi.is_term()) {
                     m_todo_vars.push_back(wi);
                 }
                 else {
-                    unsigned w = lp().local_to_external(wi);
+                    unsigned w = lp().local_to_external(wi.id());
                     SASSERT(m_use_list[w].back() == b);
                     m_use_list[w].pop_back();
                 }
@@ -2902,20 +2910,20 @@ public:
         reset_evidence();
         r.reset();
         theory_var v = b.get_var();
-        lpvar vi = get_lpvar(v);
-        SASSERT(lp::tv::is_term(vi));
-        lp::lar_term const& term = m_solver->get_term(vi);
+        auto ti = get_tv(v);
+        SASSERT(ti.is_term());
+        lp::lar_term const& term = m_solver->get_term(ti);
         for (auto const mono : term) {
-            lp::var_index wi = mono.var().index();
+            auto wi = mono.var();
             lp::constraint_index ci;
             rational value;
             bool is_strict;
-            if (lp::tv::is_term(wi)) {
+            if (wi.is_term()) {
                 return false;
             }
             if (mono.coeff().is_neg() == is_lub) {
                 // -3*x ... <= lub based on lower bound for x.
-                if (!lp().has_lower_bound(wi, ci, value, is_strict)) {
+                if (!lp().has_lower_bound(wi.id(), ci, value, is_strict)) {
                     return false;
                 }
                 if (is_strict) {
@@ -2923,7 +2931,7 @@ public:
                 }
             }
             else {
-                if (!lp().has_upper_bound(wi, ci, value, is_strict)) {
+                if (!lp().has_upper_bound(wi.id(), ci, value, is_strict)) {
                     return false;
                 }
                 if (is_strict) {
@@ -3349,34 +3357,34 @@ public:
     nlsat::anum const& nl_value(theory_var v, scoped_anum& r) {
         SASSERT(m_nra);
         SASSERT(m_use_nra_model);
-        lpvar vi = get_lpvar(v);
-        if (lp::tv::is_term(vi)) {
+        auto t = get_tv(v);
+        if (t.is_term()) {
 
-            m_todo_terms.push_back(std::make_pair(vi, rational::one()));
+            m_todo_terms.push_back(std::make_pair(t, rational::one()));
 
-            TRACE("arith", tout << "v" << v << " := w" << vi << "\n";
-                  lp().print_term(lp().get_term(vi), tout) << "\n";);
+            TRACE("arith", tout << "v" << v << " := w" << t.to_string() << "\n";
+                  lp().print_term(lp().get_term(t), tout) << "\n";);
 
             m_nra->am().set(r, 0);
             while (!m_todo_terms.empty()) {
                 rational wcoeff = m_todo_terms.back().second;
-                vi = m_todo_terms.back().first;
+                t = m_todo_terms.back().first;
                 m_todo_terms.pop_back();
-                lp::lar_term const& term = lp().get_term(vi);
+                lp::lar_term const& term = lp().get_term(t);
                 TRACE("arith", lp().print_term(term, tout) << "\n";);
                 scoped_anum r1(m_nra->am());
                 rational c1(0);
                 m_nra->am().set(r1, c1.to_mpq());
                 m_nra->am().add(r, r1, r);                
                 for (auto const & arg : term) {
-                    lpvar wi = arg.var().index();
+                    auto wi = arg.var();
                     c1 = arg.coeff() * wcoeff;
-                    if (lp::tv::is_term(wi)) {
+                    if (wi.is_term()) {
                         m_todo_terms.push_back(std::make_pair(wi, c1));
                     }
                     else {
                         m_nra->am().set(r1, c1.to_mpq());
-                        m_nra->am().mul(m_nra->value(wi), r1, r1);
+                        m_nra->am().mul(m_nra->value(wi.id()), r1, r1);
                         m_nra->am().add(r1, r, r);
                     }
                 }
@@ -3384,7 +3392,7 @@ public:
             return r;
         }
         else {
-            return m_nra->value(vi);
+            return m_nra->value(t.id());
         }
     }
 
@@ -3651,14 +3659,14 @@ public:
         for (const auto & ti : term) {
             theory_var w;
             if (ti.var().is_term()) {
-                lp::lar_term const& term1 = lp().get_term(ti.var().index());
+                lp::lar_term const& term1 = lp().get_term(ti.var());
                 rational coeff2 = coeff * ti.coeff();
                 term2coeffs(term1, coeffs, coeff2);
                 continue;
             }
             else if (lp().column_corresponds_to_term(ti.var().index())) {
                 lp::tv t = lp::tv::term(ti.var().index());
-                lp::lar_term const& term1 = lp().get_term(t.index());
+                lp::lar_term const& term1 = lp().get_term(t);
                 rational coeff2 = coeff * ti.coeff();
                 term2coeffs(term1, coeffs, coeff2);
                 continue;                
@@ -3724,10 +3732,10 @@ public:
     }
 
     app_ref mk_obj(theory_var v) {
-        lpvar vi = get_lpvar(v);
+        auto t = get_tv(v);
         bool is_int = a.is_int(get_enode(v)->get_owner());
-        if (lp::tv::is_term(vi)) {           
-            return mk_term(lp().get_term(vi), is_int);
+        if (t.is_term()) {
+            return mk_term(lp().get_term(t), is_int);
         }
         else {
             // theory_var w = lp().external_to_local(vi);
@@ -3791,9 +3799,10 @@ public:
         }
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {
+            auto t = get_tv(v);
             if (!ctx().is_relevant(get_enode(v))) out << "irr: ";
-            out << "v" << v;
-            out << " j" << get_lpvar(v); 
+            out << "v" << v << " ";
+            out << (t.is_term() ? "t":"j") << t.id();
             if (can_get_value(v)) out << " = " << get_value(v); 
             if (is_int(v)) out << ", int";
             if (ctx().is_shared(get_enode(v))) out << ", shared";
