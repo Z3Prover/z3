@@ -628,6 +628,9 @@ namespace datalog {
         );
     }
 
+    mk_explanations::~mk_explanations() {
+    }
+
     func_decl * mk_explanations::get_union_decl(context & ctx) {
         ast_manager & m = ctx.get_manager();
         sort_ref s(ctx.get_decl_util().mk_rule_sort(), m);
@@ -669,7 +672,7 @@ namespace datalog {
 
     func_decl * mk_explanations::get_e_decl(func_decl * orig_decl) {
         decl_map::obj_map_entry * e = m_e_decl_map.insert_if_not_there2(orig_decl, 0);
-        if (e->get_data().m_value==0) {
+        if (e->get_data().m_value == nullptr) {
             relation_signature e_domain;
             e_domain.append(orig_decl->get_arity(), orig_decl->get_domain());
             e_domain.push_back(m_e_sort);
@@ -790,8 +793,11 @@ namespace datalog {
 
         product_relation & prod_rel = static_cast<product_relation &>(e_rel);
         SASSERT(prod_rel.size()==2);
-        SASSERT(prod_rel[0].get_plugin().is_sieve_relation());
-        SASSERT(prod_rel[1].get_plugin().is_sieve_relation());
+       
+        if (!prod_rel[0].get_plugin().is_sieve_relation())
+            throw default_exception("explanations are not supported for this query");
+        if (!prod_rel[1].get_plugin().is_sieve_relation())
+            throw default_exception("explanations are not supported for this query");
         sieve_relation * srels[] = { 
             static_cast<sieve_relation *>(&prod_rel[0]),
             static_cast<sieve_relation *>(&prod_rel[1]) };
@@ -876,10 +882,10 @@ namespace datalog {
         if (!m_context.generate_explanations()) {
             return nullptr;
         }
-        rule_set * res = alloc(rule_set, m_context);
+        scoped_ptr<rule_set> res = alloc(rule_set, m_context);
         transform_facts(m_context.get_rel_context()->get_rmanager(), source, *res);
         transform_rules(source, *res);
-        return res;
+        return res.detach();
     }
     
 };
