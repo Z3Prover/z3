@@ -2404,8 +2404,8 @@ namespace algebraic_numbers {
                 // all remaining variables are assigned.
                 // the unassigned variable vanished when we replaced the rational values.
                 DEBUG_CODE({
-                    for (unsigned i = 0; i < xs.size(); i++) {
-                        SASSERT(x2v.contains(xs[i]));
+                    for (auto x : xs) {
+                        SASSERT(x2v.contains(x));
                     }
                 });
                 return;
@@ -2415,7 +2415,7 @@ namespace algebraic_numbers {
             polynomial_ref q(ext_pm);
             q = p_prime;
             polynomial_ref p_y(ext_pm);
-            for (unsigned i = 0; i < xs.size() - 1; i++) {
+            for (unsigned i = 0; i + 1 < xs.size(); i++) {
                 checkpoint();
                 polynomial::var y = xs[i];
                 SASSERT(x2v.contains(y));
