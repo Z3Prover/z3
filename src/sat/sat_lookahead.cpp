@@ -2082,7 +2082,7 @@ namespace sat {
         }
     }
 
-    bool lookahead::backtrack(literal_vector& trail, svector<bool> & is_decision) {
+    bool lookahead::backtrack(literal_vector& trail, bool_vector & is_decision) {
         m_cube_state.m_backtracks++;
         while (inconsistent()) {
             if (trail.empty()) return false;

@@ -258,10 +258,10 @@ public:
 
 template<typename Ctx>
 class set_bitvector_trail : public trail<Ctx> {
-    svector<bool> & m_vector;
+    bool_vector & m_vector;
     unsigned        m_idx;
 public:
-    set_bitvector_trail(svector<bool> & v, unsigned idx):
+    set_bitvector_trail(bool_vector & v, unsigned idx):
         m_vector(v),
         m_idx(idx) {
         SASSERT(m_vector[m_idx] == false);

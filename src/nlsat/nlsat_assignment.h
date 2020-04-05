@@ -30,7 +30,7 @@ namespace nlsat {
     */
     class assignment : public polynomial::var2anum {
         scoped_anum_vector m_values;
-        svector<bool>      m_assigned;
+        bool_vector      m_assigned;
     public:
         assignment(anum_manager & _m):m_values(_m) {}
         virtual ~assignment() {}

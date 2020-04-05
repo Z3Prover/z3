@@ -90,7 +90,7 @@ namespace sat {
     private:
         vector<entry>          m_entries;           // entries accumulated during SAT search
         unsigned               m_exposed_lim;       // last entry that was exposed to model converter.
-        svector<bool>          m_mark;              // literals that are used in asserted clauses.
+        bool_vector          m_mark;              // literals that are used in asserted clauses.
         solver const*          m_solver;
         elim_stackv            m_elim_stack;
 

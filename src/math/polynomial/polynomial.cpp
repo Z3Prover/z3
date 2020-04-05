@@ -1272,7 +1272,7 @@ namespace polynomial {
             SASSERT(sz == num_vars());
             DEBUG_CODE({
                 // check whether xs is really a permutation
-                svector<bool> found;
+                bool_vector found;
                 found.resize(num_vars(), false);
                 for (unsigned i = 0; i < sz; i++) {
                     SASSERT(xs[i] < num_vars());
@@ -3218,7 +3218,7 @@ namespace polynomial {
             }
         };
 
-        svector<bool>  m_found_vars;
+        bool_vector  m_found_vars;
         void vars(polynomial const * p, var_vector & xs) {
             xs.reset();
             m_found_vars.reserve(num_vars(), false);

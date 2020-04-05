@@ -3989,7 +3989,7 @@ namespace smt {
 
 #ifdef Z3DEBUG
             expr_ref_vector expr_lits(m);
-            svector<bool>   expr_signs;
+            bool_vector   expr_signs;
             for (unsigned i = 0; i < num_lits; i++) {
                 literal l = lits[i];
                 if (get_assignment(l) != l_false) {

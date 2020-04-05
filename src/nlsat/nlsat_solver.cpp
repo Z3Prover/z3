@@ -114,10 +114,10 @@ namespace nlsat {
         unsigned_vector        m_levels;       // bool_var -> level
         svector<justification> m_justifications;
         vector<clause_vector>  m_bwatches;     // bool_var (that are not attached to atoms) -> clauses where it is maximal
-        svector<bool>          m_dead;         // mark dead boolean variables
+        bool_vector          m_dead;         // mark dead boolean variables
         id_gen                 m_bid_gen;
 
-        svector<bool>          m_is_int;     // m_is_int[x] is true if variable is integer
+        bool_vector          m_is_int;     // m_is_int[x] is true if variable is integer
         vector<clause_vector>  m_watches;    // var -> clauses where variable is maximal
         interval_set_vector    m_infeasible; // var -> to a set of interval where the variable cannot be assigned to.
         atom_vector            m_var2eq;     // var -> to asserted equality
@@ -497,7 +497,7 @@ namespace nlsat {
             SASSERT(m_is_int.size() == m_inv_perm.size());
         }
 
-        svector<bool> m_found_vars;
+        bool_vector m_found_vars;
         void vars(literal l, var_vector& vs) {                
             vs.reset();
             atom * a = m_atoms[l.var()];
@@ -835,7 +835,7 @@ namespace nlsat {
                     ineq_atom& ia = *to_ineq_atom(a);
                     unsigned sz = ia.size();
                     ptr_vector<poly> ps;
-                    svector<bool> is_even;
+                    bool_vector is_even;
                     for (unsigned i = 0; i < sz; ++i) {
                         ps.push_back(ia.p(i));
                         is_even.push_back(ia.is_even(i));
@@ -2400,7 +2400,7 @@ namespace nlsat {
                 new_inv_perm[ext_x] = p[m_inv_perm[ext_x]];
                 m_perm.set(new_inv_perm[ext_x], ext_x);
             }
-            svector<bool> is_int;
+            bool_vector is_int;
             is_int.swap(m_is_int);
             for (var x = 0; x < sz; x++) {
                 m_is_int.setx(p[x], is_int[x], false);
@@ -2698,7 +2698,7 @@ namespace nlsat {
 
             u_map<literal> b2l;
             scoped_literal_vector lits(m_solver);
-            svector<bool> even;
+            bool_vector even;
             unsigned num_atoms = m_atoms.size();
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a = m_atoms[j];

@@ -124,7 +124,7 @@ namespace smt {
         atoms                 m_bv2atoms;
         edges                 m_edges;  // list of asserted edges
         matrix                m_matrix;
-        svector<bool>         m_is_int;
+        bool_vector         m_is_int;
         vector<cell_trail>    m_cell_trail;
         svector<scope>        m_scopes;
         bool                  m_non_diff_logic_exprs;

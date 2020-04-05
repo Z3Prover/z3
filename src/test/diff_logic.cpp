@@ -86,7 +86,7 @@ static void tst2() {
     ENSURE(!g.is_feasible());
     TRACE("diff_logic", g.display(tout););
     struct proc {
-        svector<bool> found;
+        bool_vector found;
         proc():
             found(7, false) {
         }

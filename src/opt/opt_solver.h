@@ -78,7 +78,7 @@ namespace opt {
         vector<inf_eps>     m_objective_values;
         sref_vector<model>  m_models;
         expr_ref_vector     m_objective_terms;
-        svector<bool>       m_valid_objectives;
+        bool_vector       m_valid_objectives;
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
         statistics          m_stats;

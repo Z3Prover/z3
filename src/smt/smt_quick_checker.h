@@ -42,7 +42,7 @@ namespace smt {
             ast_manager &        m_manager;
             bool                 m_conservative;
             unsigned             m_num_vars;
-            svector<bool>        m_already_found;     // mapping from var_idx -> bool
+            bool_vector        m_already_found;     // mapping from var_idx -> bool
             vector<enode_set>    m_candidates;        // mapping from var_idx -> set of candidates
             vector<enode_set>    m_tmp_candidates;    // auxiliary mapping from var_idx -> set of candidates
 

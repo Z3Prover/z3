@@ -76,7 +76,7 @@ namespace datalog {
            unless skipped_index is equal to UINT_MAX
         */        
         void apply(rule const& r, bool is_tgt, unsigned skipped_index, app_ref_vector& res, 
-                   svector<bool>& res_neg);
+                   bool_vector& res_neg);
         
     };
 
@@ -85,15 +85,15 @@ namespace datalog {
         class visitor : public st_visitor {
             context& m_context;
             unsigned_vector m_unifiers;
-            svector<bool> m_can_remove, m_can_expand;
+            bool_vector m_can_remove, m_can_expand;
             obj_map<expr, unsigned_vector> m_positions;
         public:
             visitor(context& c, substitution & s): st_visitor(s), m_context(c) { (void) m_context; }
             bool operator()(expr* e) override;
             void         reset() { m_unifiers.reset(); }
             void         reset(unsigned sz);
-            svector<bool>& can_remove() { return m_can_remove; }
-            svector<bool>& can_expand() { return m_can_expand; }
+            bool_vector& can_remove() { return m_can_remove; }
+            bool_vector& can_expand() { return m_can_expand; }
             unsigned_vector const& add_position(expr* e, unsigned j);
             unsigned_vector const& del_position(expr* e, unsigned j);
             unsigned_vector const& get_unifiers() { return m_unifiers; }

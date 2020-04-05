@@ -91,7 +91,7 @@ namespace datalog {
 
     void rule_unifier::apply(
         rule const& r, bool is_tgt, unsigned skipped_index,
-        app_ref_vector& res, svector<bool>& res_neg) {
+        app_ref_vector& res, bool_vector& res_neg) {
         unsigned rule_len = r.get_tail_size();
         for (unsigned i = 0; i < rule_len; i++) {
             if (i != skipped_index) { //i can never be UINT_MAX, so we'll never skip if we're not supposed to
@@ -107,7 +107,7 @@ namespace datalog {
         SASSERT(m_ready);
         app_ref new_head(m);
         app_ref_vector tail(m);
-        svector<bool> tail_neg;
+        bool_vector tail_neg;
         rule_ref simpl_rule(m_rm);
         apply(tgt.get_head(), true, new_head);
         apply(tgt, true,  tail_index, tail, tail_neg);
@@ -647,8 +647,8 @@ namespace datalog {
     }
 
     void mk_rule_inliner::add_rule(rule_set const& source, rule* r, unsigned i) {
-        svector<bool>& can_remove = m_head_visitor.can_remove();
-        svector<bool>& can_expand = m_head_visitor.can_expand();
+        bool_vector& can_remove = m_head_visitor.can_remove();
+        bool_vector& can_expand = m_head_visitor.can_expand();
         app* head = r->get_head();
         func_decl* headd = head->get_decl();
         m_head_visitor.add_position(head, i);
@@ -705,8 +705,8 @@ namespace datalog {
         }
 
         // set up unification index.
-        svector<bool>& can_remove = m_head_visitor.can_remove();
-        svector<bool>& can_expand = m_head_visitor.can_expand();
+        bool_vector& can_remove = m_head_visitor.can_remove();
+        bool_vector& can_expand = m_head_visitor.can_expand();
 
         for (unsigned i = 0; i < sz; ++i) {
             add_rule(*rules, acc[i].get(), i);
@@ -727,7 +727,7 @@ namespace datalog {
         m_subst.reserve_vars(max_var+1);
         m_subst.reserve_offsets(std::max(m_tail_index.get_approx_num_regs(), 2+m_head_index.get_approx_num_regs()));
 
-        svector<bool> valid;
+        bool_vector valid;
         valid.reset();
         valid.resize(sz, true);
 

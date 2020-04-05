@@ -100,7 +100,7 @@ protected:
 };
 
 class default_expr2polynomial : public expr2polynomial {
-    svector<bool> m_is_int;
+    bool_vector m_is_int;
 public:
     default_expr2polynomial(ast_manager & am, polynomial::manager & pm);
     ~default_expr2polynomial() override;

@@ -77,7 +77,7 @@ public:
 
 struct const_iterator_mon {
     // fields
-    svector<bool>                  m_mask;
+    bool_vector                  m_mask;
     const factorization_factory *  m_ff;
     bool                           m_full_factorization_returned;
 
@@ -97,7 +97,7 @@ struct const_iterator_mon {
     self_type operator++();
     self_type operator++(int);
 
-    const_iterator_mon(const svector<bool>& mask, const factorization_factory *f);
+    const_iterator_mon(const bool_vector& mask, const factorization_factory *f);
     
     bool operator==(const self_type &other) const;
     bool operator!=(const self_type &other) const;
@@ -119,15 +119,15 @@ struct factorization_factory {
         m_vars(vars), m_monic(m) {
     }
 
-    svector<bool> get_mask() const {
+    bool_vector get_mask() const {
         // we keep the last element always in the first factor to avoid
         // repeating a pair twice, that is why m_mask is shorter by one then m_vars
         
         return
             m_vars.size() != 2 ?
-            svector<bool>(m_vars.size() - 1, false)
+            bool_vector(m_vars.size() - 1, false)
             :
-            svector<bool>(1, true); // init mask as in the end() since the full iteration will do the job
+            bool_vector(1, true); // init mask as in the end() since the full iteration will do the job
     }
     
     const_iterator_mon begin() const {
@@ -135,7 +135,7 @@ struct factorization_factory {
     }
     
     const_iterator_mon end() const {
-        svector<bool> mask(m_vars.size() - 1, true);
+        bool_vector mask(m_vars.size() - 1, true);
         auto it = const_iterator_mon(mask, this);
         it.m_full_factorization_returned = true;
         return it;

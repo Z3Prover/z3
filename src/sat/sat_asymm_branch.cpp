@@ -170,7 +170,7 @@ namespace sat {
         CASSERT("asymm_branch", s.check_invariant());
         TRACE("asymm_branch_detail", s.display(tout););
         report rpt(*this);
-        svector<bool> saved_phase(s.m_phase);
+        bool_vector saved_phase(s.m_phase);
 
         bool change = true;
         unsigned counter = 0;

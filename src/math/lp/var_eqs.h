@@ -74,7 +74,7 @@ class var_eqs {
 
     trail_stack<var_eqs>              m_stack;
     mutable svector<var_frame>        m_todo;
-    mutable svector<bool>             m_marked;
+    mutable bool_vector             m_marked;
     mutable unsigned_vector           m_marked_trail;
     mutable svector<eq_justification> m_justtrail;
         

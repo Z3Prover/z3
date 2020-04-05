@@ -440,7 +440,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
         inv[mv.dst()].push_back(move_t(m, mv.dst(), mv.src(), mv.t())); 
     }
     
-    svector<bool> back_reachable(n, false);
+    bool_vector back_reachable(n, false);
     for (unsigned f : final) {
         back_reachable[f] = true;
     }

@@ -138,7 +138,7 @@ namespace upolynomial {
         // the factors to select from
         factors_type const   & m_factors;
         // which factors are enabled
-        svector<bool>          m_enabled;
+        bool_vector          m_enabled;
         // the size of the current selection
         int                    m_current_size;
         // the current selection: indices at positions < m_current_size, other values are maxed out

@@ -66,12 +66,12 @@ namespace sat {
 
         solver&        s;
         config         m_config;
-        svector<bool>  m_relevant;
+        bool_vector  m_relevant;
         stats          m_stats;
         statistics     m_st;
         unsigned_vector m_eval_cache;
         unsigned        m_eval_ts;
-        svector<bool>   m_used_for_evaluation;
+        bool_vector   m_used_for_evaluation;
 
         void clauses2anf(pdd_solver& solver);
         void anf2clauses(pdd_solver& solver);

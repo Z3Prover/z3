@@ -127,7 +127,7 @@ namespace datalog {
         rule_ref new_rule(rm);
         app_ref_vector tail(m);
         app_ref head(m);
-        svector<bool> neg;
+        bool_vector neg;
         ptr_vector<sort> vars;
         ref<scale_model_converter> smc;
         if (m_ctx.get_model_converter()) {

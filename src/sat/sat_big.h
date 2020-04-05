@@ -30,7 +30,7 @@ namespace sat {
         random_gen&            m_rand;
         unsigned               m_num_vars;
         vector<literal_vector> m_dag;
-        svector<bool>          m_roots;
+        bool_vector          m_roots;
         svector<int>           m_left, m_right;
         literal_vector         m_root, m_parent;
         bool                   m_learned;

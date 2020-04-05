@@ -415,7 +415,7 @@ namespace qe {
         expr_ref_vector  m_trail;          // trail for generated terms
         expr_ref_vector  m_args; 
         ptr_vector<expr> m_todo;           // stack of formulas to visit
-        svector<bool>    m_pols;           // stack of polarities
+        bool_vector    m_pols;           // stack of polarities
         bool_rewriter    m_rewriter;
         
     public:

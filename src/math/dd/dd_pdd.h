@@ -227,7 +227,7 @@ namespace dd {
         bool var_is_leaf(PDD p, unsigned v);
 
         bool is_reachable(PDD p);
-        void compute_reachable(svector<bool>& reachable);
+        void compute_reachable(bool_vector& reachable);
         void try_gc();
         void reserve_var(unsigned v);
         bool well_formed();

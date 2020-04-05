@@ -711,7 +711,7 @@ namespace datalog {
                 }
 
                 ptr_vector<app> tail(content);
-                svector<bool> negs(tail.size(), false);
+                bool_vector negs(tail.size(), false);
                 unsigned or_len = orig_r->get_tail_size();
                 for (unsigned i=orig_r->get_positive_tail_size(); i < or_len; i++) {
                     tail.push_back(orig_r->get_tail(i));

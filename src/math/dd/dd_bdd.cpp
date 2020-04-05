@@ -748,7 +748,7 @@ namespace dd {
     void bdd_manager::gc() {
         m_free_nodes.reset();
         IF_VERBOSE(13, verbose_stream() << "(bdd :gc " << m_nodes.size() << ")\n";);
-        svector<bool> reachable(m_nodes.size(), false);
+        bool_vector reachable(m_nodes.size(), false);
         for (unsigned i = m_bdd_stack.size(); i-- > 0; ) {
             reachable[m_bdd_stack[i]] = true;
             m_todo.push_back(m_bdd_stack[i]);

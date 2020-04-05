@@ -112,7 +112,7 @@ struct static_features {
     u_map<unsigned>          m_expr2formula_depth;
 
     unsigned                 m_num_theories; 
-    svector<bool>            m_theories;       // mapping family_id -> bool
+    bool_vector            m_theories;       // mapping family_id -> bool
 
     symbol                   m_label_sym;
     symbol                   m_pattern_sym;

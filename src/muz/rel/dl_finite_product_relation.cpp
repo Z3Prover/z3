@@ -92,12 +92,12 @@ namespace datalog {
     family_id finite_product_relation_plugin::get_relation_kind(finite_product_relation & r,
             const bool * table_columns) {
         const relation_signature & sig = r.get_signature();
-        svector<bool> table_cols_vect(sig.size(), table_columns);
+        bool_vector table_cols_vect(sig.size(), table_columns);
         return m_spec_store.get_relation_kind(sig, rel_spec(table_cols_vect));
     }
 
     void finite_product_relation_plugin::get_all_possible_table_columns(relation_manager & rmgr,
-            const relation_signature & s, svector<bool> & table_columns) {
+            const relation_signature & s, bool_vector & table_columns) {
         SASSERT(table_columns.empty());
         unsigned s_sz = s.size();
         for(unsigned i=0; i<s_sz; i++) {
@@ -148,7 +148,7 @@ namespace datalog {
     }
 
     relation_base * finite_product_relation_plugin::mk_empty(const relation_signature & s) {
-        svector<bool> table_columns;
+        bool_vector table_columns;
         get_all_possible_table_columns(s, table_columns);
 #ifndef _EXTERNAL_RELEASE
         unsigned s_sz = s.size();
@@ -275,7 +275,7 @@ namespace datalog {
         SASSERT(join_fun);
         scoped_rel<table_base> res_table = (*join_fun)(t, *idx_singleton);
 
-        svector<bool> table_cols(sig.size(), true);
+        bool_vector table_cols(sig.size(), true);
         finite_product_relation * res = mk_empty(sig, table_cols.c_ptr());
 
         //this one does not need to be deleted -- it will be taken over by \c res in the \c init function
@@ -301,7 +301,7 @@ namespace datalog {
         idx_singleton_fact.push_back(0);
         idx_singleton->add_fact(idx_singleton_fact);
 
-        svector<bool> table_cols(sig.size(), false);
+        bool_vector table_cols(sig.size(), false);
         finite_product_relation * res = mk_empty(sig, table_cols.c_ptr());
 
         relation_vector rels;
@@ -378,7 +378,7 @@ namespace datalog {
         scoped_ptr<table_transformer_fn> m_tjoined_second_rel_remover;
 
         //determines which columns of the result are table columns and which are in the inner relation
-        svector<bool> m_res_table_columns;
+        bool_vector m_res_table_columns;
 
     public:
         class join_maker : public table_row_mutator_fn {
@@ -529,7 +529,7 @@ namespace datalog {
         scoped_ptr<relation_union_fn> m_inner_rel_union;
 
         //determines which columns of the result are table columns and which are in the inner relation
-        svector<bool> m_res_table_columns;
+        bool_vector m_res_table_columns;
     public:
         project_fn(const finite_product_relation & r, unsigned col_cnt, const unsigned * removed_cols)
                 : convenient_relation_project_fn(r.get_signature(), col_cnt, removed_cols) {
@@ -665,7 +665,7 @@ namespace datalog {
         unsigned_vector m_rel_permutation;
 
         //determines which columns of the result are table columns and which are in the inner relation
-        svector<bool> m_res_table_columns;
+        bool_vector m_res_table_columns;
     public:
         rename_fn(const finite_product_relation & r, unsigned cycle_len, const unsigned * permutation_cycle)
                 : convenient_relation_rename_fn(r.get_signature(), cycle_len, permutation_cycle) {
@@ -2156,7 +2156,7 @@ namespace datalog {
             return true;
         }
         unsigned sig_sz = rels.back()->get_signature().size();
-        svector<bool> table_cols(sig_sz, true);
+        bool_vector table_cols(sig_sz, true);
 
         ptr_vector<finite_product_relation>::iterator it = rels.begin();
         ptr_vector<finite_product_relation>::iterator end = rels.end();
@@ -2221,7 +2221,7 @@ namespace datalog {
         scoped_rel<relation_base> moved_cols_trel =
             rmgr.get_table_relation_plugin(moved_cols_table->get_plugin()).mk_from_table(moved_cols_sig, moved_cols_table);
 
-        svector<bool> moved_cols_table_flags(moved_cols_sig.size(), false);
+        bool_vector moved_cols_table_flags(moved_cols_sig.size(), false);
 
         scoped_rel<finite_product_relation> moved_cols_rel = get_plugin().mk_empty(moved_cols_sig,
             moved_cols_table_flags.c_ptr());

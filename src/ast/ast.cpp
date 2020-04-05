@@ -3110,7 +3110,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         app const * cls   = to_app(f1);
         unsigned num_args = cls->get_num_args();
 #ifdef Z3DEBUG
-        svector<bool> found;
+        bool_vector found;
 #endif
         ast_mark mark;
         for (unsigned i = 0; i < num_args; i++) {

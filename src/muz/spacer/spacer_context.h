@@ -487,7 +487,7 @@ public:
     bool is_ctp_blocked(lemma *lem);
     const datalog::rule *find_rule(model &mdl);
     const datalog::rule *find_rule(model &mev, bool& is_concrete,
-                                   vector<bool>& reach_pred_used,
+                                   bool_vector& reach_pred_used,
                                    unsigned& num_reuse_reach);
     expr* get_transition(datalog::rule const& r) {
         pt_rule *p;
@@ -530,7 +530,7 @@ public:
     lbool is_reachable(pob& n, expr_ref_vector* core, model_ref *model,
                        unsigned& uses_level, bool& is_concrete,
                        datalog::rule const*& r,
-                       vector<bool>& reach_pred_used,
+                       bool_vector& reach_pred_used,
                        unsigned& num_reuse_reach);
     bool is_invariant(unsigned level, lemma* lem,
                       unsigned& solver_level,
@@ -1010,7 +1010,7 @@ class context {
     lbool expand_pob(pob &n, pob_ref_buffer &out);
     bool create_children(pob& n, const datalog::rule &r,
                          model &mdl,
-                         const vector<bool>& reach_pred_used,
+                         const bool_vector& reach_pred_used,
                          pob_ref_buffer &out);
 
     /**

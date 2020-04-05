@@ -59,7 +59,7 @@ namespace sat {
         clause_allocator m_alloc;
         clause_vector    m_clause_db;     
         svector<clause_info> m_clauses;
-        svector<bool>    m_values, m_best_values;
+        bool_vector    m_values, m_best_values;
         unsigned         m_best_min_unsat;
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;

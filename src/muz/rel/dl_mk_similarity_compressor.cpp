@@ -373,7 +373,7 @@ namespace datalog {
 
         app * new_head = r->get_head();
         ptr_vector<app> new_tail;
-        svector<bool> new_negs;
+        bool_vector new_negs;
         unsigned tail_sz = r->get_tail_size();
         for (unsigned i=0; i<tail_sz; i++) {
             new_tail.push_back(r->get_tail(i));

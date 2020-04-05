@@ -582,7 +582,7 @@ namespace datalog {
             const unsigned_vector m_cols2;
             bool m_all_neg_bound; //all columns are bound at least once
             bool m_overlap; //one column in negated table is bound multiple times
-            svector<bool> m_bound;
+            bool_vector m_bound;
 
             convenient_negation_filter_fn(const base_object & tgt, const base_object & neg_t,
                     unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * negated_cols)

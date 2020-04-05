@@ -300,7 +300,7 @@ class test_doc_cls {
             d->neg().push_back(t);
         }
         fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
-        svector<bool> to_merge(N, false);
+        bool_vector to_merge(N, false);
         bit_vector discard_cols;
         discard_cols.resize(N, false);
         unsigned num_bits = 1;

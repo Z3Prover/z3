@@ -149,7 +149,7 @@ namespace datalog {
     }
 
     void sieve_relation_plugin::extract_inner_columns(const relation_signature & s, relation_plugin & inner, 
-            svector<bool> & inner_columns) {
+            bool_vector & inner_columns) {
         SASSERT(inner_columns.size()==s.size());
         unsigned n = s.size();
         relation_signature inner_sig_singleton;
@@ -168,7 +168,7 @@ namespace datalog {
     }
 
     void sieve_relation_plugin::collect_inner_signature(const relation_signature & s, 
-            const svector<bool> & inner_columns, relation_signature & inner_sig) {
+            const bool_vector & inner_columns, relation_signature & inner_sig) {
         SASSERT(inner_columns.size()==s.size());
         inner_sig.reset();
         unsigned n = s.size();
@@ -183,7 +183,7 @@ namespace datalog {
             relation_signature & inner_sig) {
         UNREACHABLE();
 #if 0
-        svector<bool> inner_cols(s.size());
+        bool_vector inner_cols(s.size());
         extract_inner_columns(s, inner_cols.c_ptr());
         collect_inner_signature(s, inner_cols, inner_sig);
 #endif
@@ -228,7 +228,7 @@ namespace datalog {
         UNREACHABLE();
         return nullptr;
 #if 0
-        svector<bool> inner_cols(s.size());
+        bool_vector inner_cols(s.size());
         extract_inner_columns(s, inner_cols.c_ptr());
         return mk_empty(s, inner_cols.c_ptr());
 #endif
@@ -236,7 +236,7 @@ namespace datalog {
 
     sieve_relation * sieve_relation_plugin::mk_empty(const relation_signature & s, relation_plugin & inner_plugin) {
         SASSERT(!inner_plugin.is_sieve_relation()); //it does not make sense to make a sieve of a sieve
-        svector<bool> inner_cols(s.size());
+        bool_vector inner_cols(s.size());
         extract_inner_columns(s, inner_plugin, inner_cols);
         relation_signature inner_sig;
         collect_inner_signature(s, inner_cols, inner_sig);
@@ -248,14 +248,14 @@ namespace datalog {
         relation_signature empty_sig;
         relation_plugin& plugin = get_manager().get_appropriate_plugin(s);
         relation_base * inner = plugin.mk_full(p, empty_sig, null_family_id);
-        svector<bool> inner_cols;
+        bool_vector inner_cols;
         inner_cols.resize(s.size(), false);
         return mk_from_inner(s, inner_cols, inner);
     }
 
     sieve_relation * sieve_relation_plugin::full(func_decl* p, const relation_signature & s, relation_plugin & inner_plugin) {
         SASSERT(!inner_plugin.is_sieve_relation()); //it does not make sense to make a sieve of a sieve
-        svector<bool> inner_cols(s.size());
+        bool_vector inner_cols(s.size());
         extract_inner_columns(s, inner_plugin, inner_cols);
         relation_signature inner_sig;
         collect_inner_signature(s, inner_cols, inner_sig);
@@ -267,7 +267,7 @@ namespace datalog {
         sieve_relation_plugin & m_plugin;
         unsigned_vector m_inner_cols_1;
         unsigned_vector m_inner_cols_2;
-        svector<bool> m_result_inner_cols;
+        bool_vector m_result_inner_cols;
 
         scoped_ptr<relation_join_fn> m_inner_join_fun;
     public:
@@ -347,7 +347,7 @@ namespace datalog {
 
 
     class sieve_relation_plugin::transformer_fn : public convenient_relation_transformer_fn {
-        svector<bool> m_result_inner_cols;
+        bool_vector m_result_inner_cols;
 
         scoped_ptr<relation_transformer_fn> m_inner_fun;
     public:
@@ -383,7 +383,7 @@ namespace datalog {
             }
         }
 
-        svector<bool> result_inner_cols = r.m_inner_cols;
+        bool_vector result_inner_cols = r.m_inner_cols;
         project_out_vector_columns(result_inner_cols, col_cnt, removed_cols);
 
         relation_signature result_sig;
@@ -419,7 +419,7 @@ namespace datalog {
         unsigned_vector inner_permutation;
         collect_sub_permutation(permutation, r.m_sig2inner, inner_permutation, inner_identity);
 
-        svector<bool> result_inner_cols = r.m_inner_cols;
+        bool_vector result_inner_cols = r.m_inner_cols;
         permutate_by_cycle(result_inner_cols, cycle_len, permutation_cycle);
 
         relation_signature result_sig;

@@ -295,7 +295,7 @@ namespace sat {
         bool                      m_clause_removed;
         bool                      m_constraint_removed;
         literal_vector            m_roots;
-        svector<bool>             m_root_vars;
+        bool_vector             m_root_vars;
         unsigned_vector           m_weights;
         svector<wliteral>         m_wlits;
         bool subsumes(card& c1, card& c2, literal_vector& comp);

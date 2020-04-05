@@ -244,7 +244,7 @@ namespace qe {
      */
     app_ref_vector uflia_mbi::get_arith_vars(expr_ref_vector const& lits) {
         app_ref_vector avars(m); 
-        svector<bool> seen;
+        bool_vector seen;
         arith_util a(m);
         for (expr* e : subterms(lits)) {
             if ((m.is_eq(e) && a.is_int_real(to_app(e)->get_arg(0))) || a.is_arith_expr(e)) {

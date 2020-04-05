@@ -1385,7 +1385,7 @@ public:
     template<typename Functor>
     bool find_shortest_path_aux(dl_var source, dl_var target, unsigned timestamp, Functor & f, bool zero_edge) {
         svector<bfs_elem> bfs_todo;
-        svector<bool>     bfs_mark;
+        bool_vector     bfs_mark;
         bfs_mark.resize(m_assignment.size(), false);
         
         bfs_todo.push_back(bfs_elem(source, -1, null_edge_id));

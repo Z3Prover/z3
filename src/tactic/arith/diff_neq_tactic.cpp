@@ -202,7 +202,7 @@ class diff_neq_tactic : public tactic {
             }
         }
         
-        svector<bool>  m_forbidden;
+        bool_vector  m_forbidden;
         
         // make sure m_forbidden.size() > max upper bound
         void init_forbidden() {

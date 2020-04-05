@@ -239,9 +239,8 @@ void derivation::exist_skolemize(expr* fml, app_ref_vector &vars, expr_ref &res)
         vars.shrink(j);
     }
 
-    TRACE("spacer", tout << "Skolemizing: ";
-          for (auto v : vars) tout << " " << mk_pp(v, m) << " ";
-          tout << "\nfrom " << mk_pp(fml, m) << "\n";
+    TRACE("spacer", tout << "Skolemizing: " << vars << "\n";
+          tout << "from " << mk_pp(fml, m) << "\n";
         );
 
     app_ref_vector pinned(m);
@@ -868,7 +867,7 @@ const datalog::rule *pred_transformer::find_rule(model &model) {
 
 const datalog::rule *pred_transformer::find_rule(model &model,
                                                  bool& is_concrete,
-                                                 vector<bool>& reach_pred_used,
+                                                 bool_vector& reach_pred_used,
                                                  unsigned& num_reuse_reach)
 {
     // find a rule whose tag is true in the model;
@@ -1188,14 +1187,13 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
     // (skip quantified lemmas cause we can't validate them in the model)
     // TBD: for quantified lemmas use current instances
     flatten_and(summary);
-    for (auto *s : summary) {
+
+    for (auto* s : summary) {
         if (!is_quantifier(s) && !mdl.is_true(s)) {
-            TRACE("spacer", tout << "Summary not true in the model: "
-                  << mk_pp(s, m) << "\n";);
-            // return expr_ref(m);
+            TRACE("spacer", tout << "Summary not true in the model: " << mk_pp(s, m) << "\n";);
         }
     }
-
+    
     // -- pick an implicant
     expr_ref_vector lits(m);
     compute_implicant_literals (mdl, summary, lits);
@@ -1209,12 +1207,10 @@ void pred_transformer::add_cover(unsigned level, expr* property, bool bg)
     // replace bound variables by local constants.
     expr_ref result(property, m), v(m), c(m);
     expr_substitution sub(m);
-    proof_ref pr(m);
-    pr = m.mk_asserted(m.mk_true());
     for (unsigned i = 0; i < sig_size(); ++i) {
         c = m.mk_const(pm.o2n(sig(i), 0));
         v = m.mk_var(i, sig(i)->get_range());
-        sub.insert(v, c, pr);
+        sub.insert(v, c);
     }
     scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m, false);
     rep->set_substitution(&sub);
@@ -1224,13 +1220,14 @@ void pred_transformer::add_cover(unsigned level, expr* property, bool bg)
     // add the property.
     expr_ref_vector lemmas(m);
     flatten_and(result, lemmas);
-    for (unsigned i = 0, sz = lemmas.size(); i < sz; ++i) {
-        add_lemma(lemmas.get(i), level, bg);
+    for (expr * f: lemmas) {
+        add_lemma(f, level, bg);
     }
 }
 
-void pred_transformer::propagate_to_infinity (unsigned level)
-{m_frames.propagate_to_infinity (level);}
+void pred_transformer::propagate_to_infinity (unsigned level) {
+    m_frames.propagate_to_infinity (level);
+}
 
 // compute a conjunction of all background facts
 void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
@@ -1274,7 +1271,9 @@ bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
     // XXX quic3: not all lemmas are asserted at the post-condition
     lbool res = m_solver->check_assumptions (post, _aux, _aux,
                                             0, nullptr, 0);
-    if (res == l_false) { uses_level = m_solver->uses_level(); }
+    if (res == l_false) { 
+        uses_level = m_solver->uses_level(); 
+    }
     return res == l_false;
 }
 
@@ -1298,10 +1297,9 @@ bool pred_transformer::is_qblocked (pob &n) {
 
     // assert all lemmas
     bool has_quant = false;
-    for (unsigned i = 0, sz = frame_lemmas.size (); i < sz; ++i)
-    {
-        has_quant = has_quant || is_quantifier(frame_lemmas.get(i));
-        s->assert_expr(frame_lemmas.get(i));
+    for (expr* f : frame_lemmas) {
+        has_quant |= is_quantifier(f);
+        s->assert_expr(f);
     }
     if (!has_quant) return false;
 
@@ -1335,7 +1333,7 @@ void pred_transformer::mbp(app_ref_vector &vars, expr_ref &fml, model &mdl,
 lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                                      model_ref* model, unsigned& uses_level,
                                      bool& is_concrete, datalog::rule const*& r,
-                                     vector<bool>& reach_pred_used,
+                                     bool_vector& reach_pred_used,
                                      unsigned& num_reuse_reach)
 {
     TRACE("spacer",
@@ -1388,14 +1386,8 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
         }
     }
 
-    TRACE ("spacer",
-           if (!reach_assumps.empty ()) {
-               tout << "reach assumptions\n";
-               for (unsigned i = 0; i < reach_assumps.size (); i++) {
-                   tout << mk_pp (reach_assumps.get (i), m) << "\n";
-               }
-           }
-        );
+    CTRACE("spacer", !reach_assumps.empty(),
+        tout << "reach assumptions\n" << reach_assumps << "\n";);
 
     // check local reachability;
     // result is either sat (with some reach assumps) or
@@ -1404,24 +1396,15 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     lbool is_sat = m_solver->check_assumptions (post, reach_assumps,
                                                m_transition_clause, 1, &bg, 0);
 
-    TRACE ("spacer",
-           if (!reach_assumps.empty ()) {
-               tout << "reach assumptions used\n";
-               for (unsigned i = 0; i < reach_assumps.size (); i++) {
-                   tout << mk_pp (reach_assumps.get (i), m) << "\n";
-               }
-           }
-        );
+    CTRACE("spacer", !reach_assumps.empty(),
+        tout << "reach assumptions\n" << reach_assumps << "\n";);
 
     if (is_sat == l_true || is_sat == l_undef) {
         if (core) { core->reset(); }
         if (model && model->get()) {
             r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
-            TRACE ("spacer", tout << "reachable "
-                   << "is_concrete " << is_concrete << " rused: ";
-                   for (unsigned i = 0, sz = reach_pred_used.size (); i < sz; ++i)
-                       tout << reach_pred_used [i];
-                   tout << "\n";);
+            TRACE("spacer", 
+                tout << "reachable " << r << " is_concrete " << is_concrete << " rused: " << reach_pred_used << "\n";);
         }
 
         return is_sat;
@@ -2924,8 +2907,6 @@ expr_ref context::get_answer()
     }
 }
 
-
-
 expr_ref context::mk_unsat_answer() const
 {
     expr_ref_vector refs(m);
@@ -2934,7 +2915,6 @@ expr_ref context::mk_unsat_answer() const
     inductive_property ex(m, const_cast<model_converter_ref&>(m_mc), rs);
     return ex.to_expr();
 }
-
 
 proof_ref context::get_ground_refutation() const {
     if (m_last_result != l_true) {
@@ -3272,7 +3252,7 @@ bool context::is_reachable(pob &n)
     bool is_concrete;
     const datalog::rule * r = nullptr;
     // denotes which predecessor's (along r) reach facts are used
-    vector<bool> reach_pred_used;
+    bool_vector reach_pred_used;
     unsigned num_reuse_reach = 0;
 
     unsigned saved = n.level ();
@@ -3382,7 +3362,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     bool is_concrete;
     const datalog::rule * r = nullptr;
     // denotes which predecessor's (along r) reach facts are used
-    vector<bool> reach_pred_used;
+    bool_vector reach_pred_used;
     unsigned num_reuse_reach = 0;
 
 
@@ -3694,11 +3674,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
     TRACE ("spacer",
            tout << "Reach fact, before QE:\n";
            tout << mk_pp (res, m) << "\n";
-           tout << "Vars:\n";
-           for (unsigned i = 0; i < vars.size(); ++i) {
-               tout << mk_pp(vars.get (i), m) << "\n";
-           }
-        );
+           tout << "Vars:\n" << vars << "\n";);        
 
     {
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
@@ -3711,10 +3687,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
     TRACE ("spacer",
            tout << "Reach fact, after QE project:\n";
            tout << mk_pp (res, m) << "\n";
-           tout << "Vars:\n";
-           for (unsigned i = 0; i < vars.size(); ++i) {
-               tout << mk_pp(vars.get (i), m) << "\n";
-           }
+           tout << "Vars:\n" << vars << "\n";
         );
 
     SASSERT (vars.empty ());
@@ -3733,7 +3706,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
 */
 bool context::create_children(pob& n, datalog::rule const& r,
                               model &mdl,
-                              const vector<bool> &reach_pred_used,
+                              const bool_vector &reach_pred_used,
                               pob_ref_buffer &out)
 {
     scoped_watch _w_ (m_create_children_watch);
@@ -4075,13 +4048,12 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
         if (p1->get_id() != p2->get_id()) { return p1->get_id() < p2->get_id(); }
 
         if (n1.pt().head()->get_id() == n2.pt().head()->get_id()) {
-            IF_VERBOSE (1,
-                        verbose_stream ()
-                        << "dup: " << n1.pt ().head ()->get_name ()
-                        << "(" << n1.level () << ", " << n1.depth () << ") "
-                        << p1->get_id () << "\n";
+            IF_VERBOSE(1,
+                verbose_stream()
+                << "dup: " << n1.pt().head()->get_name()
+                << "(" << n1.level() << ", " << n1.depth() << ") "
+                << p1->get_id() << "\n";);
                         //<< " p1: " << mk_pp (const_cast<expr*>(p1), m) << "\n"
-                );
         }
 
         // XXX see comment below on identical nodes

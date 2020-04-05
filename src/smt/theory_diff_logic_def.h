@@ -399,7 +399,7 @@ void theory_diff_logic<Ext>::del_atoms(unsigned old_size) {
 
 
 template<typename Ext>
-bool theory_diff_logic<Ext>::decompose_linear(app_ref_vector& terms, svector<bool>& signs) {
+bool theory_diff_logic<Ext>::decompose_linear(app_ref_vector& terms, bool_vector& signs) {
     for (unsigned i = 0; i < terms.size(); ++i) {
         app* n = terms.get(i);
         bool sign;

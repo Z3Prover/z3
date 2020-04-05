@@ -1200,7 +1200,7 @@ namespace smt {
 
         bool is_relevant_core(expr * n) const { return m_relevancy_propagator->is_relevant(n); }
 
-        svector<bool>  m_relevant_conflict_literals;
+        bool_vector  m_relevant_conflict_literals;
         void record_relevancy(unsigned n, literal const* lits);
         void restore_relevancy(unsigned n, literal const* lits);
 

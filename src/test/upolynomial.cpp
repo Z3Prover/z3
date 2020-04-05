@@ -156,7 +156,7 @@ static void tst_isolate_roots(polynomial_ref const & p, unsigned prec = 5) {
 
 static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, mpbq_vector const & uppers, unsigned expected_sz, rational const * expected_roots) {
     ENSURE(expected_sz == roots.size() + lowers.size());
-    svector<bool> visited;
+    bool_vector visited;
     visited.resize(expected_sz, false);
     for (unsigned i = 0; i < expected_sz; i++) {
         rational const & r = expected_roots[i];
