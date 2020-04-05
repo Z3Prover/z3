@@ -29,6 +29,7 @@ Notes:
 #include "ast/rewriter/expr_replacer.h"
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
+#include "model/model_evaluator_params.hpp"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "smt/smt_solver.h"
@@ -1254,6 +1255,9 @@ namespace qe {
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
             tactic_report report("qsat-tactic", *in);
+            model_evaluator_params mp(m_params);
+            if (!mp.array_equalities())
+                throw tactic_exception("array equalities cannot be disabled for qsat");
             ptr_vector<expr> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);
