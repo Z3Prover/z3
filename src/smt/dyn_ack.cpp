@@ -145,6 +145,7 @@ namespace smt {
             if (m_eq1->get_arg(1) == m_app1) p1 = m.mk_symmetry(p1);
             p2 = m.mk_hypothesis(m_eq2);
             if (m_eq2->get_arg(0) == m_app2) p2 = m.mk_symmetry(p2);
+            (void)m_r;
             SASSERT(m.is_eq(m.get_fact(p1), x, y) && x == m_app1 && y == m_r);
             SASSERT(m.is_eq(m.get_fact(p2), x, y) && x == m_r && y == m_app2);
             p3 = m.mk_transitivity(p1, p2);

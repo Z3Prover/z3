@@ -43,7 +43,7 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/numeric_pair.h"
 #include "math/lp/binary_heap_upair_queue.h"
-#include "math/lp/stacked_value.h"
+#include "util/stacked_value.h"
 #include "math/lp/u_set.h"
 #include "util/stopwatch.h"
 #include <cstdlib>

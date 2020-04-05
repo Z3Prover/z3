@@ -236,7 +236,7 @@ class parallel_tactic : public tactic {
         vector<cube_var> split_cubes(unsigned n) {
             vector<cube_var> result;
             while (n-- > 0 && !m_cubes.empty()) {
-                for (expr* c : m_cubes.back().cube()) SASSERT(c);
+                DEBUG_CODE(for (expr* c : m_cubes.back().cube()) SASSERT(c););
                 result.push_back(m_cubes.back());
 
                 m_cubes.pop_back();
@@ -246,7 +246,7 @@ class parallel_tactic : public tactic {
 
         void set_cubes(vector<cube_var>& c) {
             m_cubes.reset();
-            for (auto & cb : c) for (expr* e : cb.cube()) SASSERT(e);
+            DEBUG_CODE(for (auto & cb : c) for (expr* e : cb.cube()) SASSERT(e););
             m_cubes.append(c);
         }
 
@@ -517,7 +517,7 @@ private:
             if (conquer) {
                 is_sat = conquer->check_sat(c);
             }
-            for (expr* e : c) SASSERT(e);
+            DEBUG_CODE(for (expr* e : c) SASSERT(e););
             switch (is_sat) {
             case l_false: 
                 cutoff = c.size();

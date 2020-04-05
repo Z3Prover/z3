@@ -2513,7 +2513,6 @@ public:
 
 
     void mk_bound_axiom(lp_api::bound& b1, lp_api::bound& b2) {
-        theory_var v = b1.get_var();
         literal   l1(b1.get_bv());
         literal   l2(b2.get_bv());
         rational const& k1 = b1.get_value();
@@ -2521,7 +2520,7 @@ public:
         lp_api::bound_kind kind1 = b1.get_bound_kind();
         lp_api::bound_kind kind2 = b2.get_bound_kind();
         bool v_is_int = b1.is_int();
-        SASSERT(v == b2.get_var());
+        SASSERT(b1.get_var() == b2.get_var());
         if (k1 == k2 && kind1 == kind2) return;
         SASSERT(k1 != k2 || kind1 != kind2);
         parameter coeffs[3] = { parameter(symbol("farkas")), 
