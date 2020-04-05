@@ -159,6 +159,25 @@ namespace smt {
         arith_factory *         m_factory;
         rational                m_delta;
         
+        struct var_value_hash;
+        friend struct var_value_hash;
+        struct var_value_hash {
+            theory_utvpi & m_th;
+            var_value_hash(theory_utvpi & th):m_th(th) {}
+            unsigned operator()(theory_var v) const { return m_th.mk_value(v, false).hash(); }
+        };
+
+        struct var_value_eq;
+        friend struct var_value_eq;
+        struct var_value_eq {
+            theory_utvpi & m_th;
+            var_value_eq(theory_utvpi & th):m_th(th) {}
+            bool operator()(theory_var v1, theory_var v2) const { return m_th.mk_value(v1, false) == m_th.mk_value(v2, false) && m_th.is_int(v1) == m_th.is_int(v2); }
+        };
+
+        typedef int_hashtable<var_value_hash, var_value_eq> var_value_table;
+        var_value_table             m_var_value_table;
+
 
         // Set a conflict due to a negative cycle.
         void set_conflict();
@@ -257,6 +276,10 @@ namespace smt {
 
     private:        
 
+        void init_model();
+
+        bool assume_eqs_core();
+
         rational mk_value(theory_var v, bool is_int);
 
         bool is_parity_ok(unsigned v) const;
@@ -270,6 +293,8 @@ namespace smt {
         rational eval_num(expr* e);
 
         bool check_z_consistency();
+
+        bool has_shared();
 
         virtual void new_eq_eh(th_var v1, th_var v2, justification& j) {
             m_stats.m_num_core2th_eqs++;
@@ -299,6 +324,8 @@ namespace smt {
 
         void new_eq_or_diseq(bool is_eq, th_var v1, th_var v2, justification& eq_just);
         
+        bool is_int(theory_var v) const { return a.is_int(get_enode(v)->get_owner()); }
+
         th_var get_zero(sort* s) { return a.is_int(s) ? m_izero : m_rzero; }
 
         th_var get_zero(expr* e) { return get_zero(get_manager().get_sort(e)); }

@@ -69,6 +69,7 @@ namespace smt {
         m_lia(false),
         m_lra(false),
         m_non_utvpi_exprs(false),
+        m_var_value_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
         m_test(m),
         m_factory(nullptr) {
         }            
@@ -203,7 +204,7 @@ namespace smt {
         inc_conflicts();
         literal_vector const& lits = m_nc_functor.get_lits();
         context & ctx = get_context();
-        IF_VERBOSE(2, ctx.display_literals_smt2(verbose_stream() << "conflict:\n", lits));
+        IF_VERBOSE(20, ctx.display_literals_smt2(verbose_stream() << "conflict:\n", lits));
         TRACE("utvpi", ctx.display_literals_smt2(tout << "conflict:\n", lits););
         
         if (m_params.m_arith_dump_lemmas) {
@@ -410,6 +411,9 @@ namespace smt {
         else if (!check_z_consistency()) {
             return FC_CONTINUE;
         }
+        else if (has_shared() && assume_eqs_core()) {
+            return FC_CONTINUE;
+        }
         else if (m_non_utvpi_exprs) {
             return FC_GIVEUP;
         }
@@ -417,6 +421,17 @@ namespace smt {
             return FC_DONE;
         }
     }
+
+    template<typename Ext>
+    bool theory_utvpi<Ext>::has_shared() {
+        auto sz = static_cast<theory_var>(get_num_vars());
+        for (theory_var v = 0; v < sz; ++v) {
+            if (is_relevant_and_shared(get_enode(v)))
+                return true;
+        }
+        return false;
+    }
+
 
     template<typename Ext>
     bool theory_utvpi<Ext>::check_z_consistency() {
@@ -789,6 +804,11 @@ namespace smt {
     void theory_utvpi<Ext>::init_model(model_generator & m) {            
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
+        init_model();
+    }
+
+    template<typename Ext>
+    void theory_utvpi<Ext>::init_model() {            
         enforce_parity();
         init_zero();
         dl_var vs[4] = { to_var(m_izero), neg(to_var(m_izero)), to_var(m_rzero), neg(to_var(m_rzero)) };
@@ -796,6 +816,13 @@ namespace smt {
         compute_delta();   
         DEBUG_CODE(model_validate(););
     }
+
+    template<typename Ext>
+    bool theory_utvpi<Ext>::assume_eqs_core() {
+        init_model();
+        return assume_eqs(m_var_value_table);
+    }
+
 
     template<typename Ext>    
     void theory_utvpi<Ext>::model_validate() {
