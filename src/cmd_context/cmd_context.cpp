@@ -1925,7 +1925,7 @@ void cmd_context::validate_model() {
                 analyze_failure(evaluator, a, true);
                 IF_VERBOSE(11, model_smt2_pp(verbose_stream(), *this, *md, 0););                
                 TRACE("model_validate", model_smt2_pp(tout, *this, *md, 0););
-                invalid_model = true;
+                invalid_model |= m().is_false(r);
             }
         }
         if (invalid_model) {
