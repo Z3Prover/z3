@@ -97,6 +97,8 @@ private:
 public:
     reslimit                 m_reslim;
 
+    void insert_to_refine(lpvar j);
+    void erase_from_to_refine(lpvar j);
     
     const lp::u_set&  active_var_set () const { return m_active_var_set;}
     bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
@@ -421,6 +423,7 @@ public:
     void update_to_refine_of_var(lpvar j);
     bool try_to_patch(lpvar, const rational&, const monic&);
     bool to_refine_is_correct() const;
+    bool patch_blocker(lpvar patched_j, lpvar u, const monic& m) const;
 };  // end of core
 
 struct pp_mon {

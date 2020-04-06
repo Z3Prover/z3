@@ -956,6 +956,17 @@ void core::init_search() {
     SASSERT(elists_are_consistent(false));
 }
 
+void core::insert_to_refine(lpvar j) {
+    TRACE("lar_solver", tout << "j=" << j << '\n';);
+    m_to_refine.insert(j);
+}
+
+void core::erase_from_to_refine(lpvar j) {
+    TRACE("lar_solver", tout << "j=" << j << '\n';);
+    m_to_refine.erase(j);
+}
+
+
 void core::init_to_refine() {
     TRACE("nla_solver_details", tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.clear();
@@ -964,7 +975,7 @@ void core::init_to_refine() {
     for (unsigned k = 0; k < sz; k++) {
         auto const & m = *(m_emons.begin() + (k + r)% sz);
         if (!check_monic(m)) 
-            m_to_refine.insert(m.var());
+            insert_to_refine(m.var());
     }
     
     TRACE("nla_solver", 
@@ -1346,29 +1357,41 @@ bool core::var_is_used_in_a_correct_monic(lpvar j) const {
 void core::update_to_refine_of_var(lpvar j) {
     for (const monic & m : emons().get_use_list(j)) {
         if (var_val(m) == mul_val(m)) 
-            m_to_refine.erase(var(m));
+            erase_from_to_refine(var(m));
         else
-            m_to_refine.insert(var(m));
+            insert_to_refine(var(m));
     }
     if (is_monic_var(j)) {
         const monic& m = emons()[j];
         if (var_val(m) == mul_val(m))
-            m_to_refine.erase(j);
+            erase_from_to_refine(j);
         else
-            m_to_refine.insert(j);        
+            insert_to_refine(j);        
     }
 }
 
+bool core::patch_blocker(lpvar patched_j, lpvar u, const monic& m) const {
+        SASSERT(m_to_refine.contains(m.var()));
+        if (var_is_used_in_a_correct_monic(u)) {
+            TRACE("nla_solver", tout << "u = " << u << " blocked as used in a correct monomial\n";);
+            return true;
+        }
+        if (u == patched_j) {
+            TRACE("nla_solver", tout << "u = " << u << " is equal to patched\n";);            
+            return false;
+        }
+
+        bool ret = u == m.var() || m.contains_var(u);
+    
+        TRACE("nla_solver", tout << "u = " << u << ", m  = "; print_monic(m, tout) <<
+              "ret = " << ret << "\n";);
+        
+        return ret;
+    }
 
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
     return m_lar_solver.try_to_patch(k, v,
-                                     [this, m](lpvar u) { return
-                                             u == m.var()
-                                             ||
-                                             var_is_used_in_a_correct_monic(u)
-                                             ||
-                                             m.contains_var(u);
-                                     },
+                                     [this, k, m](lpvar u) { return patch_blocker(k, u, m); },
                                      [this](lpvar u) { update_to_refine_of_var(u); });
 }
 
@@ -1381,11 +1404,11 @@ bool core::to_refine_is_correct() const {
     for (unsigned j = 0; j < m_lar_solver.number_of_vars(); j++) {
         if (!emons().is_monic_var(j)) continue;
         bool valid = check_monic(emons()[j]);
-        if (valid != m_to_refine.contains(j)) {
+        if (valid == m_to_refine.contains(j)) {
             TRACE("nla_solver", tout << "inconstency in m_to_refine : ";
                   print_monic(emons()[j], tout) << "\n";
-                  if (valid) tout << "should NOT be there\n";
-                  else tout << "should be there\n";);
+                  if (valid) tout << "should NOT be in to_refine\n";
+                  else tout << "should be in to_refine\n";);
             return false;
         }
     }
@@ -1399,7 +1422,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
     rational v = mul_val(m);
     SASSERT(j == var(m));
     if (var_val(m) == v) {
-        m_to_refine.erase(j);
+        erase_from_to_refine(j);
         return;
     }
     if (val(j).is_zero() || v.is_zero()) // a lemma will catch it
@@ -1434,7 +1457,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
             !var_is_used_in_a_correct_monic(k) &&
             try_to_patch(k, r * val(k), m)) { // r * val(k) gives the right value of k
             SASSERT(mul_val(m) == var_val(m));
-            m_to_refine.erase(j);
+            erase_from_to_refine(j);
             break;
         }
     }
@@ -1443,10 +1466,16 @@ void core::patch_monomial_with_real_var(lpvar j) {
 
 void core::patch_monomials_with_real_vars() {
     auto to_refine = m_to_refine.index();
-    // the rest of the function might change m_to_refine, so have to copy    
-    for (lpvar j : to_refine) {
-        patch_monomial_with_real_var(j);
+    // the rest of the function might change m_to_refine, so have to copy
+    unsigned sz = to_refine.size();
+    TRACE("nla_solver", tout << "sz = " << sz << "\n";);
+    unsigned start = random();
+    for (unsigned i = 0; i < sz; i++) {
+        patch_monomial_with_real_var(to_refine[(start + i) % sz]);
+        if (m_to_refine.size() == 0)
+            break;
     }
+    TRACE("nla_solver", tout << "sz = " << m_to_refine.size() << "\n";);
     SASSERT(m_lar_solver.ax_is_correct());
 }
 
