@@ -78,7 +78,6 @@ namespace sat {
             pbcoeff(unsigned id, unsigned coeff):
                 m_constraint_id(id), m_coeff(coeff) {}
         };
-        typedef bool_vector bool_vector;
         typedef svector<pbcoeff> coeff_vector;
 
 
