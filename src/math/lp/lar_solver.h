@@ -60,7 +60,7 @@ class lar_solver : public column_namer {
             size_t seed = 0;
             int i = 0;
             for (const auto p : t) {
-                hash_combine(seed, p.var().index());
+                hash_combine(seed, (unsigned)p.column());
                 hash_combine(seed, p.coeff());
                 if (i++ > 10)
                     break;
@@ -125,15 +125,11 @@ public:
     
     static bool valid_index(unsigned j){ return static_cast<int>(j) >= 0;}
 
-    bool column_is_int(unsigned j) const;
-    bool column_value_is_int(unsigned j) const {
-        return m_mpq_lar_core_solver.m_r_x[j].is_int();
-    }
-    
+    bool column_is_int(column_index const& j) const { return column_is_int((unsigned)j); }
 
-    const impq& get_column_value(unsigned j) const {
-        return m_mpq_lar_core_solver.m_r_x[j];
-    }
+    bool column_is_int(unsigned j) const;
+    bool column_value_is_int(unsigned j) const { return m_mpq_lar_core_solver.m_r_x[j].is_int(); }
+    const impq& get_column_value(unsigned j) const { return m_mpq_lar_core_solver.m_r_x[j]; }
 
     void set_column_value(unsigned j, const impq& v) {
         m_mpq_lar_core_solver.m_r_x[j] = v;
@@ -583,23 +579,9 @@ public:
         return m_columns_to_ul_pairs()[j].lower_bound_witness();
     }
 
-    // NSB code review - seems superfluous to translate back and forth because
-    // get_term(..) that is exposed over API does not ensure that columns that
-    // are based on terms are translated back to term indices.
-    // would be better to have consistent typing, either lar_term uses cv (and not tv)
-    // or they are created to use tv consistently.
-    void subs_term_columns(lar_term& t) {
-        svector<std::pair<unsigned,unsigned>> columns_to_subs;
-        for (const auto & m : t) {
-            unsigned tj = adjust_column_index_to_term_index(m.var().index());
-            if (tj == m.var().index()) continue;
-            columns_to_subs.push_back(std::make_pair(m.var().index(), tj));
-        }
-        for (const auto & p : columns_to_subs) {
-            t.subst_index(p.first, p.second);            
-        }
+    tv column2tv(column_index const& c) const {
+        return tv::raw(adjust_column_index_to_term_index(c));
     }
-
     
     std::ostream& print_column_info(unsigned j, std::ostream& out) const {
         m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);

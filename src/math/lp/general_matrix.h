@@ -109,7 +109,7 @@ public:
         auto & row = m_data[adjust_row(i)];
         lp_assert(row_is_initialized_correctly(row));
         for (const auto & p : c) {
-            unsigned j = adjust_column(column_fix(p.var().index()));
+            unsigned j = adjust_column(column_fix(p.column().index()));
             row[j] = sign * p.coeff();
         }
     }

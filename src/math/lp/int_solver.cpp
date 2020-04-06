@@ -228,7 +228,7 @@ const lp_settings& int_solver::settings() const {
     return lra.settings(); 
 }
 
-bool int_solver::column_is_int(unsigned j) const {
+bool int_solver::column_is_int(column_index const& j) const {
     return lra.column_is_int(j);
 }
 

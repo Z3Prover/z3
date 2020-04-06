@@ -123,8 +123,7 @@ public:
         const mpq & m_coeff;
     public:
         ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) { }
-        unsigned raw() const { return m_var; }
-        tv var() const { return tv::raw(m_var); }
+        column_index column() const { return column_index(m_var); }
         const mpq & coeff() const { return m_coeff; }
     };
     
@@ -143,13 +142,13 @@ public:
         lpvar min_var = -1;
         mpq c;
         for (const auto & p : *this) {
-            if (p.var().index() < min_var) {
-                min_var = p.var().index();
+            if (p.column() < min_var) {
+                min_var = p.column();
             }
         }
         lar_term r;
         for (const auto & p : *this) {
-            if (p.var().index() == min_var) {
+            if (p.column() == min_var) {
                 return p.coeff().is_one();
             }
         }

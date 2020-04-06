@@ -21,6 +21,11 @@ Revision History:
 
 #include <sstream>
 
+
+namespace nla {
+    class core;
+}
+
 namespace lp {
 typedef unsigned var_index;
 typedef unsigned constraint_index;
@@ -62,8 +67,23 @@ public:
     }
 
 };
+
+class column_index {
+    unsigned m_index;
+    friend class lar_solver;
+    friend class lar_term;
+    friend nla::core;
+
+    operator unsigned() const { return m_index; }
+    
+public:
+    column_index(unsigned j): m_index(j) {}    
+    unsigned index() const { return m_index; }
+};
+
 }
 
 inline std::ostream& operator<<(std::ostream& out, lp::tv const& t) {
     return out << (t.is_term() ? "t":"j") << t.id() << "\n";
 }
+

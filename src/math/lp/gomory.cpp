@@ -191,7 +191,8 @@ class create_cut {
     void dump_coeff(std::ostream & out, const T& c) const {
         out << "( * ";
         dump_coeff_val(out, c.coeff());
-        out << " " << var_name(c.var().index()) << ")";
+        auto t = lia.lra.column2tv(c.column());
+        out << " " << var_name(t.id()) << ")";
     }
     
     std::ostream& dump_row_coefficients(std::ostream & out) const {
@@ -221,9 +222,9 @@ class create_cut {
             dump_declaration(out, p.var());
         }
         for (const auto& p : m_t) {
-            unsigned v = p.var().index();
-            if (lp::tv::is_term(v)) {
-                dump_declaration(out, v);
+            auto t = lia.lra.column2tv(p.column());
+            if (t.is_term()) {
+                dump_declaration(out, t.id());
             }
         }
     }
@@ -349,7 +350,6 @@ public:
         // NSB code review: this is also used in nla_core.
         // but it isn't consistent: when theory_lra accesses lar_solver::get_term, the term that is returned uses
         // column indices, not terms.
-        lia.lra.subs_term_columns(m_t);
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }

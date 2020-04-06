@@ -115,13 +115,13 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
     } else {
         lar_term const& t = get_term(be.m_j);
         auto first_coeff = t.begin();
-        unsigned j = (*first_coeff).var().index();
+        unsigned j = (*first_coeff).column();
         auto it = coeff_map.find(j);
         if (it == coeff_map.end())
             return false;
         mpq ratio = it->second / (*first_coeff).coeff();
         for (auto p : t) {
-            it = coeff_map.find(p.var().index());
+            it = coeff_map.find(p.column());
             if (it == coeff_map.end())
                 return false;
             if (p.coeff() * ratio != it->second)
@@ -231,6 +231,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, lp_bound_propagator &
     }
     // lp_assert(implied_bound_is_correctly_explained(ib, explanation));
 }
+
 // here i is just the term index
 bool lar_solver::term_is_used_as_row(unsigned i) const {
     SASSERT(i < m_terms.size());
@@ -245,7 +246,6 @@ void lar_solver::propagate_bounds_on_terms(lp_bound_propagator & bp) {
         propagate_bounds_on_a_term(*m_terms[i], bp, i);
     }
 }
-
 
 // goes over touched rows and tries to induce bounds
 void lar_solver::propagate_bounds_for_touched_rows(lp_bound_propagator & bp) {
@@ -423,7 +423,7 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
     lp_assert(jset.is_empty());
         
     for (const auto & p : term) {
-        unsigned j = p.var().index();
+        unsigned j = p.column();
         rslv.m_costs[j] = zero_of_type<mpq>();
         int i = rslv.m_basis_heading[j];
         if (i < 0)
@@ -454,7 +454,7 @@ void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
     lp_assert(reduced_costs_are_zeroes_for_r_solver());
     rslv.m_costs.resize(A_r().column_count(), zero_of_type<mpq>());
     for (const auto & p : term) {
-        unsigned j = p.var().index();
+        unsigned j = p.column();
         rslv.m_costs[j] = p.coeff();
         if (rslv.m_basis_heading[j] < 0)
             rslv.m_d[j] += p.coeff();
@@ -681,7 +681,7 @@ void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mp
             const lar_term & term = * m_terms[tv::unmask_term(t.second)];
 
             for (auto p : term){
-                register_monoid_in_map(coeffs, t.first * p.coeff() , p.var().index());
+                register_monoid_in_map(coeffs, t.first * p.coeff() , p.column());
             }
         }
     }
@@ -917,7 +917,7 @@ void lar_solver::fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A,
     lp_assert(A.m_rows[last_row].size() == 0);
     for (auto t : *ls) {
         lp_assert(!is_zero(t.coeff()));
-        var_index j = t.var().index();
+        var_index j = t.column();
         A.set(last_row, j, - t.coeff());
     }
     unsigned basis_j = A.column_count() - 1;
@@ -1147,7 +1147,7 @@ bool lar_solver::has_value(var_index var, mpq& value) const {
         lar_term const& t = get_term(var);
         value = 0;
         for (auto const& cv : t) {
-            impq const& r = get_column_value(cv.var().index());
+            impq const& r = get_column_value(cv.column());
             if (!numeric_traits<mpq>::is_zero(r.y)) return false;
             value += r.x * cv.coeff();
         }
@@ -1306,7 +1306,7 @@ std::ostream& lar_solver::print_term(lar_term const& term, std::ostream & out) c
             out << " - ";
         else if (val != numeric_traits<mpq>::one())
             out << T_to_string(val);
-        out << this->get_variable_name(p.var().index());
+        out << this->get_variable_name(p.column());
     }
     return out;
 }
@@ -1530,7 +1530,7 @@ bool lar_solver::model_is_int_feasible() const {
 
 bool lar_solver::term_is_int(const lar_term * t) const {
     for (auto const p :  *t)
-        if (! (column_is_int(p.var().index())  && p.coeff().is_int()))
+        if (! (column_is_int(p.column())  && p.coeff().is_int()))
             return false;
     return true;
 }
@@ -1691,19 +1691,9 @@ bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & co
 }
 #endif
 void lar_solver::push_term(lar_term* t) {
-    // SASSERT(well_formed(*t));
     m_terms.push_back(t);
 }
 
-bool lar_solver::well_formed(lar_term const& t) const {
-    for (auto const& ti : t) {
-        if (!ti.var().is_term() && 
-            column_corresponds_to_term(ti.var().index())) {
-            return false;
-        }
-    }
-    return true;
-}
 
 
 // terms
@@ -1956,7 +1946,7 @@ void lar_solver::fill_last_row_of_A_d(static_matrix<double, double> & A, const l
 
     for (auto t : *ls) {
         lp_assert(!is_zero(t.coeff()));
-        var_index j = t.var().index();
+        var_index j = t.column();
         A.set(last_row, j, -t.coeff().get_double());
     }
 
@@ -2257,7 +2247,7 @@ void lar_solver::fix_terms_with_rounded_columns() {
         bool need_to_fix = false;
         const lar_term & t = *m_terms[i];
         for (const auto & p : t) {
-            if (m_incorrect_columns.contains(p.var().index())) {
+            if (m_incorrect_columns.contains(p.column())) {
                 need_to_fix = true;
                 break;
             }
@@ -2274,7 +2264,7 @@ void lar_solver::fix_terms_with_rounded_columns() {
 bool lar_solver::sum_first_coords(const lar_term& t, mpq & val) const {
     val = zero_of_type<mpq>();
     for (const auto & c : t) {
-        const auto & x = m_mpq_lar_core_solver.m_r_x[c.var().index()];
+        const auto & x = m_mpq_lar_core_solver.m_r_x[c.column()];
         if (!is_zero(x.y))
             return false;
         val += x.x * c.coeff();

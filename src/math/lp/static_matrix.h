@@ -357,14 +357,14 @@ public:
          // we use the form -it + 1 = 0
         m_work_vector.set_value(one_of_type<T>(), bj);
         for (auto p : row) {
-            m_work_vector.set_value(-p.coeff(), p.var().index());
+            m_work_vector.set_value(-p.coeff(), p.column().index());
             // but take care of the basis 1 later
         }
     
         // now iterate with pivoting
         fill_last_row_with_pivoting_loop_block(bj, basis_heading);
         for (auto p : row) {
-            fill_last_row_with_pivoting_loop_block(p.var().index(), basis_heading);
+            fill_last_row_with_pivoting_loop_block(p.column().index(), basis_heading);
         }
         lp_assert(m_work_vector.is_OK());
         unsigned last_row = row_count() - 1;
