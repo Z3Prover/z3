@@ -1376,10 +1376,6 @@ bool core::patch_blocker(lpvar u, const monic& m) const {
             TRACE("nla_solver", tout << "u = " << u << " blocked as used in a correct monomial\n";);
             return true;
         }
-        if (u == patched_j) {
-            TRACE("nla_solver", tout << "u = " << u << " is equal to patched\n";);            
-            return false;
-        }
 
         bool ret = u == m.var() || m.contains_var(u);
     
