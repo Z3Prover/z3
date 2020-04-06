@@ -331,6 +331,8 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
             if (!assert_expr(r, !is_and)) {                     \
                 pop(scope_level() - old_lvl);                   \
                 r = is_and ? m.mk_false() : m.mk_true();        \
+                if (!is_and)                                    \
+                    reset_cache();                              \
                 return r;                                       \
             }                                                   
             _SIMP_ARG(arg);
