@@ -1031,26 +1031,27 @@ namespace qe {
             app_ref x(m_ctx.get_var(index-1), m);
             app_ref z(m);
             expr_ref p1(m);
+            sort* s = m.get_sort(p);
             if (is_aux) {
                 // An auxiliary variable was introduced in lieu of 'x'.
                 // it has coefficient 'm' = values[index].
                 SASSERT(values[index] >= rational(3));
-                z  = m.mk_fresh_const("x", m_arith.mk_int());
+                z  = m.mk_fresh_const("x", s);
                 add_var(z);
-                p1 = m_arith.mk_mul(m_arith.mk_numeral(values[index], true), z);
+                p1 = m_arith.mk_mul(m_arith.mk_numeral(values[index], s), z);
             }
             else {                
                 // the coefficient to 'x' is -1.
-                p1 = m_arith.mk_numeral(numeral(0), true);
+                p1 = m_arith.mk_numeral(numeral(0), s);
             }
             
             for (unsigned i = 1; i <= num_vars; ++i) {
                 numeral k = values[i];
                 if (!k.is_zero() && i != index) {
-                    p1 = m_arith.mk_add(p1, m_arith.mk_mul(m_arith.mk_numeral(k, true), m_ctx.get_var(i-1)));
+                    p1 = m_arith.mk_add(p1, m_arith.mk_mul(m_arith.mk_numeral(k, s), m_ctx.get_var(i-1)));
                 }
             }
-            p1 = m_arith.mk_add(p1, m_arith.mk_numeral(values[0], true));
+            p1 = m_arith.mk_add(p1, m_arith.mk_numeral(values[0], s));
             
             TRACE("qe", 
                   tout << "is linear:\n" 
