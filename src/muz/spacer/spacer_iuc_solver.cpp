@@ -280,6 +280,9 @@ namespace spacer {
         else {
             // NEW IUC
             proof_ref res(get_proof(), m);
+
+            if (!res)
+                throw default_exception("iuc assumes a proof object");
             
             // -- old hypothesis reducer while the new one is broken
             if (m_old_hyp_reducer) {
