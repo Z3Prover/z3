@@ -50,8 +50,7 @@ namespace lp  {
         m_constraints_for_explanation.push_back(ci);
        
         for (const auto &p : *t) {
-            auto tv = lia.lra.column2tv(p.column());
-            m_var_register.add_var(tv.id(), true); // hnf only deals with integral variables for now
+            m_var_register.add_var(p.column().index(), true); // hnf only deals with integral variables for now
             mpq t = abs(ceil(p.coeff()));
             if (t > m_abs_max)
                 m_abs_max = t;
