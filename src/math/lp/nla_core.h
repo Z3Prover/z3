@@ -423,7 +423,7 @@ public:
     void update_to_refine_of_var(lpvar j);
     bool try_to_patch(lpvar, const rational&, const monic&);
     bool to_refine_is_correct() const;
-    bool patch_blocker(lpvar patched_j, lpvar u, const monic& m) const;
+    bool patch_blocker(lpvar u, const monic& m) const;
 };  // end of core
 
 struct pp_mon {

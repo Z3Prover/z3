@@ -1370,7 +1370,7 @@ void core::update_to_refine_of_var(lpvar j) {
     }
 }
 
-bool core::patch_blocker(lpvar patched_j, lpvar u, const monic& m) const {
+bool core::patch_blocker(lpvar u, const monic& m) const {
         SASSERT(m_to_refine.contains(m.var()));
         if (var_is_used_in_a_correct_monic(u)) {
             TRACE("nla_solver", tout << "u = " << u << " blocked as used in a correct monomial\n";);
@@ -1391,7 +1391,10 @@ bool core::patch_blocker(lpvar patched_j, lpvar u, const monic& m) const {
 
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
     return m_lar_solver.try_to_patch(k, v,
-                                     [this, k, m](lpvar u) { return patch_blocker(k, u, m); },
+                                     [this, k, m](lpvar u) {
+                                         if (u == k)
+                                             return false; // ok to patch
+                                         return patch_blocker(u, m); },
                                      [this](lpvar u) { update_to_refine_of_var(u); });
 }
 
