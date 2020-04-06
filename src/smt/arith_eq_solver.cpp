@@ -161,10 +161,7 @@ bool arith_eq_solver::solve_integer_equation(
     bool&            is_fresh
     )
 {
-    TRACE("arith_eq_solver",
-          tout << "solving: ";
-          print_row(tout, values);
-          );
+    TRACE("arith_eq_solver", print_row(tout << "solving: ", values); );
     //
     // perform one step of the omega test equality elimination.
     //
@@ -201,8 +198,7 @@ bool arith_eq_solver::solve_integer_equation(
             return false;
     gcd_normalize(values);
     if (!gcd_test(values)) {
-        TRACE("arith_eq_solver", tout << "not sat\n";
-              print_row(tout, values););
+        TRACE("arith_eq_solver", print_row(tout << "not sat\n", values););
         return false;
     }
     index = find_abs_min(values);

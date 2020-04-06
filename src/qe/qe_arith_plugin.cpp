@@ -1013,6 +1013,14 @@ namespace qe {
                 return false;
             }
 
+            bool has_non_zero = false;
+            for (unsigned i = 1; !has_non_zero && i < values.size(); ++i) {
+                has_non_zero |= !values[i].is_zero(); 
+            }
+            if (!has_non_zero) {
+                return false;
+            }
+
             TRACE("qe", tout << "is linear: " << mk_pp(p, m) << "\n";);
             SASSERT(values.size() == num_vars + 1);
             SASSERT(num_vars > 0);
@@ -1035,7 +1043,7 @@ namespace qe {
             if (is_aux) {
                 // An auxiliary variable was introduced in lieu of 'x'.
                 // it has coefficient 'm' = values[index].
-                SASSERT(values[index] >= rational(3));
+                SASSERT(values[index] >= numeral(3));
                 z  = m.mk_fresh_const("x", s);
                 add_var(z);
                 p1 = m_arith.mk_mul(m_arith.mk_numeral(values[index], s), z);
@@ -1115,9 +1123,8 @@ namespace qe {
                 p = todo.back();
                 todo.pop_back();
                 if (m_arith.is_add(p)) {
-                    for (unsigned i = 0; i < to_app(p)->get_num_args(); ++i) {
-                        todo.push_back(to_app(p)->get_arg(i));
-                    }
+                    for (expr* arg : *to_app(p))
+                        todo.push_back(arg);
                 }
                 else if (m_arith.is_mul(p, e1, e2) &&
                          m_arith.is_numeral(e1, k) &&
