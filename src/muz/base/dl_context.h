@@ -528,6 +528,8 @@ namespace datalog {
          */
         model_ref get_model();
 
+        bool is_monotone();
+
         /**
            \brief retrieve proof from derivation of the query.
 

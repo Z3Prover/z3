@@ -266,7 +266,10 @@ class horn_tactic : public tactic {
             switch (is_reachable) {
             case l_true: {
                 // goal is unsat
-                if (produce_proofs) {
+                if (!m_ctx.is_monotone()) {
+                    is_reachable = l_undef;
+                }
+                else if (produce_proofs) {
                     proof_ref proof = m_ctx.get_proof();
                     pc = proof2proof_converter(m, proof);
                     g->assert_expr(m.get_fact(proof), proof, nullptr);

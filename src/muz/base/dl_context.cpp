@@ -880,6 +880,17 @@ namespace datalog {
         return r;
     }
 
+    bool context::is_monotone() {
+        try {
+            m_rule_properties.check_for_negated_predicates();
+            return true;
+        }
+        catch (...) {
+            return false;
+        }
+    }
+
+
     lbool context::query_from_lvl (expr* query, unsigned lvl) {
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
