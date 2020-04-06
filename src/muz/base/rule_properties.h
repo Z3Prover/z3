@@ -24,6 +24,7 @@ Notes:
 #include "ast/ast.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "muz/base/dl_rule.h"
 
 namespace datalog {
@@ -35,6 +36,7 @@ namespace datalog {
         datatype_util m_dt;
         dl_decl_util  m_dl;
         bv_util       m_bv;
+        array_util    m_ar;
         bool          m_generate_proof;
         rule*         m_rule;
         obj_map<quantifier, rule*> m_quantifiers;

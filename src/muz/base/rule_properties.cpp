@@ -26,16 +26,14 @@ Notes:
 
 using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 
-    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_bv(m), m_generate_proof(false) {}
+    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_bv(m), m_ar(m), m_generate_proof(false) {}
 
 rule_properties::~rule_properties() {}
 
 void rule_properties::collect(rule_set const& rules) {
     reset();
-    rule_set::iterator it = rules.begin(), end = rules.end();
     expr_sparse_mark visited;
-    for (; it != end; ++it) {
-        rule* r = *it;
+    for (rule* r : rules) {
         m_rule = r;
         unsigned ut_size = r->get_uninterpreted_tail_size();
         unsigned t_size  = r->get_tail_size();  
@@ -51,7 +49,7 @@ void rule_properties::collect(rule_set const& rules) {
         for (unsigned i = 0; m_inf_sort.empty() && i < r->get_decl()->get_arity(); ++i) {
             sort* d = r->get_decl()->get_domain(i);
             sort_size sz = d->get_num_elements();
-            if (!sz.is_finite() && !m_dl.is_rule_sort(d)) {
+            if (m_ar.is_array(d) || (!sz.is_finite() && !m_dl.is_rule_sort(d))) {
                 TRACE("dl", tout << "sort " << mk_pp(d, m) << " is not finite " << sz << "\n";);
                 m_inf_sort.push_back(m_rule);
             }
