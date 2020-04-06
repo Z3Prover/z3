@@ -69,9 +69,9 @@ namespace smt {
         m_lia(false),
         m_lra(false),
         m_non_utvpi_exprs(false),
-        m_var_value_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
         m_test(m),
-        m_factory(nullptr) {
+        m_factory(nullptr),
+        m_var_value_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)) {
         }            
 
     template<typename Ext>
