@@ -45,34 +45,32 @@ namespace datalog {
             for (auto const& kv : m_new2old) {
                 func_decl* old_p = kv.m_value;
                 func_decl* new_p = kv.m_key;
-                func_interp* old_fi = alloc(func_interp, m, old_p->get_arity());
+				func_interp* new_fi = md->get_func_interp(new_p);
+				expr_ref_vector subst(m);
+				var_subst vs(m, false);
+				expr_ref tmp(m);
 
-                if (new_p->get_arity() == 0) {
-                    old_fi->set_else(md->get_const_interp(new_p));
-                }
-                else {
-                    func_interp* new_fi = md->get_func_interp(new_p);
-                    expr_ref_vector subst(m);
-                    var_subst vs(m, false);
-                    expr_ref tmp(m);
+				if (!new_fi) {
+					TRACE("dl", tout << new_p->get_name() << " has no value in the current model\n";);
+					continue;
+				}
+				for (unsigned i = 0; i < old_p->get_arity(); ++i) {
+					subst.push_back(m.mk_var(i, old_p->get_domain(i)));
+				}
+				subst.push_back(a.mk_numeral(rational(1), a.mk_real()));
 
-                    if (!new_fi) {
-                        TRACE("dl", tout << new_p->get_name() << " has no value in the current model\n";);
-                        dealloc(old_fi);
-                        continue;
-                    }
-                    for (unsigned i = 0; i < old_p->get_arity(); ++i) {
-                        subst.push_back(m.mk_var(i, old_p->get_domain(i)));
-                    }
-                    subst.push_back(a.mk_numeral(rational(1), a.mk_real()));
-
-                    // Hedge that we don't have to handle the general case for models produced
-                    // by Horn clause solvers.
-                    SASSERT(!new_fi->is_partial() && new_fi->num_entries() == 0);
-                    tmp = vs(new_fi->get_else(), subst.size(), subst.c_ptr());
-                    old_fi->set_else(tmp);
-                    old_model->register_decl(old_p, old_fi);
-                }
+				SASSERT(!new_fi->is_partial() && new_fi->num_entries() == 0);
+				tmp = vs(new_fi->get_else(), subst.size(), subst.c_ptr());
+				if (old_p->get_arity() == 0) {
+					old_model->register_decl(old_p, tmp);
+				}
+				else {
+					func_interp* old_fi = alloc(func_interp, m, old_p->get_arity());
+					// Hedge that we don't have to handle the general case for models produced
+					// by Horn clause solvers.
+					old_fi->set_else(tmp);
+					old_model->register_decl(old_p, old_fi);
+				}
             }
 
             // register values that have not been scaled.
