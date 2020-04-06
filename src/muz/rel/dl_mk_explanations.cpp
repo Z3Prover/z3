@@ -838,10 +838,7 @@ namespace datalog {
             m_e_fact_relation = static_cast<explanation_relation *>(expl_singleton);
         }
         func_decl_set predicates(m_context.get_predicates());
-        decl_set::iterator it = predicates.begin();
-        decl_set::iterator end = predicates.end();
-        for (; it!=end; ++it) {
-            func_decl * orig_decl = *it;
+        for (func_decl* orig_decl : predicates) {
             TRACE("dl", tout << mk_pp(orig_decl, m_manager) << "\n";);
             func_decl * e_decl = get_e_decl(orig_decl);
 

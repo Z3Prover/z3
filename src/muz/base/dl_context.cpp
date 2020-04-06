@@ -299,7 +299,7 @@ namespace datalog {
     bool context::xform_coi() const { return m_params->xform_coi(); }
     bool context::xform_slice() const { return m_params->xform_slice(); }
     bool context::xform_bit_blast() const { return m_params->xform_bit_blast(); }
-    bool context::karr() const { return m_params->xform_karr(); }
+    bool context::karr() const { return false; }
     bool context::scale() const { return m_params->xform_scale(); }
     bool context::magic() const { return m_params->xform_magic(); }
     bool context::compress_unbound() const { return m_params->xform_compress_unbound(); }
