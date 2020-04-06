@@ -38,17 +38,10 @@ void rewriter_tpl<Config>::process_var(var * v) {
     unsigned idx = v->get_idx();
     if (ProofGen) {
         result_pr_stack().push_back(nullptr); // implicit reflexivity
-
-        SASSERT(
-            true || // disabled for now
-            idx >= m_bindings.size() ||
-            !m_bindings[m_bindings.size() - idx - 1] ||
-            v == m_bindings[m_bindings.size() - idx - 1]);
     }
     unsigned index = 0;
     expr * r;
-    if (!ProofGen && idx < m_bindings.size() && 
-        (index = m_bindings.size() - idx - 1, r = m_bindings[index])) {
+    if (idx < m_bindings.size() && (index = m_bindings.size() - idx - 1, r = m_bindings[index])) {
         CTRACE("rewriter", v->get_sort() != m().get_sort(r),
                tout << expr_ref(v, m()) << ":" << sort_ref(v->get_sort(), m()) << " != " << expr_ref(r, m()) << ":" << sort_ref(m().get_sort(r), m());
                tout << "index " << index << " bindings " << m_bindings.size() << "\n";
@@ -60,24 +53,25 @@ void rewriter_tpl<Config>::process_var(var * v) {
             expr* c = get_cached(r, shift_amount);
             if (c) {
                 result_stack().push_back(c);
-                set_new_child_flag(v);
-                return;
             }
-            expr_ref tmp(m());
-            m_shifter(r, shift_amount, tmp);
-            result_stack().push_back(tmp);
-            TRACE("rewriter", tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n";
-                  display_bindings(tout););
-            cache_shifted_result(r, shift_amount, tmp);                    
+            else {
+                expr_ref tmp(m());
+                m_shifter(r, shift_amount, tmp);
+                result_stack().push_back(tmp);
+                TRACE("rewriter", tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n";
+                      display_bindings(tout););
+                cache_shifted_result(r, shift_amount, tmp);                    
+            }
         }
         else {
             result_stack().push_back(r);
             TRACE("rewriter", tout << idx << " " << mk_ismt2_pp(r, m()) << "\n";);
         }
         set_new_child_flag(v);
-        return;
     }
-    result_stack().push_back(v);
+    else {
+        result_stack().push_back(v);
+    }
 }
 
 template<typename Config>

@@ -240,7 +240,7 @@ namespace datalog {
             m_context.get_rule_manager().to_formula(*r2.get(), fml1);
             m_blaster(fml1, fml2, pr);
             m_rewriter(fml2, fml3);
-            TRACE("dl", tout << mk_pp(fml, m) << " -> " << mk_pp(fml2, m) << " -> " << mk_pp(fml3, m) << "\n";);
+            TRACE("dl", tout << fml << "\n-> " << fml1 << "\n-> " << fml2 << "\n-> " << fml3 << "\n";);
             if (fml3 != fml) {
                 fml = fml3;
                 return true;
@@ -268,6 +268,8 @@ namespace datalog {
             if (!m_context.xform_bit_blast()) {
                 return nullptr;
             }
+            if (m.proofs_enabled())
+                return nullptr;
             rule_manager& rm = m_context.get_rule_manager();
             unsigned sz = source.get_num_rules();
             expr_ref fml(m);
@@ -277,7 +279,9 @@ namespace datalog {
             for (unsigned i = 0; !m_context.canceled() && i < sz; ++i) {
                 rule * r = source.get_rule(i);
                 rm.to_formula(*r, fml);
+                TRACE("dl", tout << fml << "\n";);
                 if (blast(r, fml)) {
+                    TRACE("dl", tout << "blasted: " << fml << "\n";);
                     proof_ref pr(m);
                     if (r->get_proof()) {
                         scoped_proof _sc(m);
@@ -295,10 +299,9 @@ namespace datalog {
 
             // copy output predicates without any rule (bit-blasting not really needed)
             const func_decl_set& decls = source.get_output_predicates();
-            for (func_decl_set::iterator I = decls.begin(), E = decls.end(); I != E; ++I) {
-                if (!source.contains(*I))
-                    result->set_output_predicate(*I);
-            }
+            for (func_decl* p : decls)
+                if (!source.contains(p))
+                    result->set_output_predicate(p);            
 
             if (m_context.get_model_converter()) {
                 generic_model_converter* fmc = alloc(generic_model_converter, m, "dl_mk_bit_blast");

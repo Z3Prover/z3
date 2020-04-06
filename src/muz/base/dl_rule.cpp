@@ -570,6 +570,7 @@ namespace datalog {
         default: fml = m.mk_implies(m.mk_and(body.size(), body.c_ptr()), fml); break;
         }
 
+        m_free_vars.reset();        
         m_free_vars(fml);
         if (m_free_vars.empty()) {
             return;
