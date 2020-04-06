@@ -28,44 +28,44 @@ Notes:
 #include <sstream>
 #include <algorithm>
 
+#include "util/util.h"
 #include "ast/ast.h"
 #include "ast/occurs.h"
 #include "ast/ast_pp.h"
-#include "ast/rewriter/bool_rewriter.h"
-#include "muz/base/dl_util.h"
-#include "ast/for_each_expr.h"
-#include "smt/params/smt_params.h"
-#include "model/model.h"
-#include "model/model_evaluator.h"
-#include "util/ref_vector.h"
-#include "ast/rewriter/rewriter.h"
-#include "ast/rewriter/rewriter_def.h"
-#include "util/util.h"
-#include "muz/spacer/spacer_manager.h"
-#include "muz/spacer/spacer_util.h"
-#include "ast/rewriter/expr_replacer.h"
-#include "model/model_smt2_pp.h"
 #include "ast/scoped_proof.h"
-#include "qe/qe_lite.h"
-#include "muz/spacer/spacer_qe_project.h"
-#include "model/model_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
-
 #include "ast/array_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/factor_equivs.h"
+#include "ast/rewriter/expr_replacer.h"
 
-#include "muz/spacer/spacer_legacy_mev.h"
+
+#include "smt/params/smt_params.h"
+#include "model/model.h"
+#include "model/model_evaluator.h"
+#include "model/model_smt2_pp.h"
+#include "model/model_pp.h"
+
+#include "qe/qe_lite.h"
 #include "qe/qe_mbp.h"
+#include "qe/qe_term_graph.h"
 
 #include "tactic/tactical.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/arith/propagate_ineqs_tactic.h"
 #include "tactic/arith/arith_bounds_tactic.h"
 
-#include "ast/rewriter/factor_equivs.h"
-#include "qe/qe_term_graph.h"
+#include "muz/base/dl_util.h"
+#include "muz/spacer/spacer_legacy_mev.h"
+#include "muz/spacer/spacer_qe_project.h"
+#include "muz/spacer/spacer_manager.h"
+#include "muz/spacer/spacer_util.h"
 
 namespace spacer {
 
