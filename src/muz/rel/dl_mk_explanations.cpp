@@ -389,7 +389,7 @@ namespace datalog {
             explanation_relation_plugin & plugin = tgt.get_plugin();
 
             if (!src.no_undefined() || !tgt.no_undefined() || (delta && !delta->no_undefined())) {
-                UNREACHABLE();
+                throw default_exception("explanations are not supported with undefined predicates");
             }
             if (src.empty()) {
                 return;
@@ -460,7 +460,7 @@ namespace datalog {
             explanation_relation & r = static_cast<explanation_relation &>(r0);
 
             if (!r.is_undefined(m_col_idx)) {
-                UNREACHABLE();
+                throw default_exception("explanations are not supported with undefined predicates");
             }
 
             unsigned sz = r.get_signature().size();
