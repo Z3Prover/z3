@@ -456,11 +456,15 @@ namespace datalog {
               m_col_idx(col_idx), 
               m_new_rule(std::move(new_rule)) {}
 
+        void not_handled() {
+            throw default_exception("explanations are not supported with undefined predicates");
+        }
+
         void operator()(relation_base & r0) override {
             explanation_relation & r = static_cast<explanation_relation &>(r0);
 
             if (!r.is_undefined(m_col_idx)) {
-                throw default_exception("explanations are not supported with undefined predicates");
+                not_handled();
             }
 
             unsigned sz = r.get_signature().size();
@@ -468,7 +472,8 @@ namespace datalog {
             subst_arg.resize(sz);
             unsigned ofs = sz-1;
             for (unsigned i=0; i<sz; i++) {
-                SASSERT(!r.is_undefined(i) || !contains_var(m_new_rule, i));
+                if (r.is_undefined(i) && contains_var(m_new_rule, i))
+                    not_handled();
                 subst_arg[ofs-i] = r.m_data.get(i);
             }
             expr_ref res = m_subst(m_new_rule, subst_arg.size(), subst_arg.c_ptr());
