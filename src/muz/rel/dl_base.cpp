@@ -366,7 +366,7 @@ namespace datalog {
      */
     table_base * table_base::complement(func_decl* p, const table_element * func_columns) const {
         const table_signature & sig = get_signature();
-        SASSERT(sig.functional_columns()==0 || func_columns!=0);
+        SASSERT(sig.functional_columns() == 0 || func_columns != 0);
         SASSERT(sig.first_functional() <= 1);
 
         table_base * res = get_plugin().mk_empty(sig);
@@ -377,6 +377,8 @@ namespace datalog {
 
         if (sig.first_functional() == 0) {
             if (empty()) {
+                if (fact.empty())
+                    throw default_exception("empty relations cannot be complemented");
                 res->add_fact(fact);
             }
             return res;

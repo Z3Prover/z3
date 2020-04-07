@@ -260,7 +260,7 @@ namespace datalog {
     unsigned bitvector_table::fact2offset(const table_element* f) const {
         unsigned result = 0;
         for (unsigned i = 0; i < m_num_cols; ++i) {
-            SASSERT(f[i]<get_signature()[i]);
+            SASSERT(f[i] < get_signature()[i]);
             result +=  ((unsigned)f[i]) << m_shift[i];
         }
         return result;
@@ -274,15 +274,19 @@ namespace datalog {
     }
     
     void bitvector_table::add_fact(const table_fact & f) {
-        m_bv.set(fact2offset(f.c_ptr()));
+        if (m_num_cols > 0) {
+            m_bv.set(fact2offset(f.c_ptr()));
+        }
     }
 
-    void bitvector_table::remove_fact(const table_element* fact) {
-        m_bv.unset(fact2offset(fact));
+    void bitvector_table::remove_fact(const table_element* fact) {    
+        if (m_num_cols > 0) {
+            m_bv.unset(fact2offset(fact));
+        }
     }
 
     bool bitvector_table::contains_fact(const table_fact & f) const {
-        return m_bv.get(fact2offset(f.c_ptr()));
+        return !f.empty() && m_bv.get(fact2offset(f.c_ptr()));
     }
 
     table_base::iterator bitvector_table::begin() const {
