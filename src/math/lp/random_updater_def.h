@@ -38,6 +38,7 @@ random_updater::random_updater(
 
 
 bool random_updater::shift_var(unsigned v) {
+    SASSERT(!m_lar_solver.column_is_fixed(v));
     return m_lar_solver.get_int_solver()->shift_var(v, m_range);
 }
 
@@ -81,7 +82,7 @@ void random_updater::add_column_to_sets(unsigned j) {
         unsigned row = m_lar_solver.get_core_solver().m_r_heading[j];
         for (auto & row_c : m_lar_solver.get_core_solver().m_r_A.m_rows[row]) {
             unsigned cj = row_c.var();
-            if (m_lar_solver.get_core_solver().m_r_heading[cj] < 0) {
+            if (m_lar_solver.get_core_solver().m_r_heading[cj] < 0 && !m_lar_solver.column_is_fixed(cj)) {
                 m_var_set.insert(cj);
                 add_value(m_lar_solver.get_core_solver().m_r_x[cj]);
             }

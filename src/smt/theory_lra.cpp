@@ -265,8 +265,10 @@ class theory_lra::imp {
 
     svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
     unsigned                                          m_assume_eq_head;
-
-    unsigned                 m_num_conflicts;
+    std::unordered_map<lp::impq, theory_var>          m_var_value_table;
+    lp::u_set                                         m_tmp_var_set;
+    
+    unsigned                                          m_num_conflicts;
 
     // non-linear arithmetic
     scoped_ptr<nra::solver>  m_nra;
@@ -1586,12 +1588,49 @@ public:
 
     bool assume_eqs() {        
         svector<lpvar> vars;
+        m_var_value_table.clear();
+        m_tmp_var_set.clear();
+        m_tmp_var_set.resize(th.get_num_vars());
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
-            if (th.is_relevant_and_shared(get_enode(v))) {
-                auto vi = register_theory_var_in_lar_solver(v);
+            if (!can_get_ivalue(v)) {
+                continue;
+            }
+            enode * n1 = get_enode(v);
+            if (!th.is_relevant_and_shared(n1)) {
+                continue;
+            }
+            lpvar vi = lp().external_to_local(v);            
+            if (vi == lp::null_lpvar)
+                continue;
+
+            if (lp::tv::is_term(vi)) {
+                vi = lp().map_term_index_to_column_index(vi);
+            }
+            const auto& vi_val = lp().get_column_value(vi);
+            auto it = m_var_value_table.find(vi_val);
+            if (it == m_var_value_table.end()) {
+                m_var_value_table[vi_val] = v;
+                continue;
+            }
+            theory_var other = it->second;
+            SASSERT(other != v);
+            enode * n2 = get_enode(other);
+            if (n1->get_root() == n2->get_root())
+                continue;
+            if (!lp().column_is_fixed(vi)) {
                 vars.push_back(vi);
             }
+            else if (!m_tmp_var_set.contains(other)) {
+                m_tmp_var_set.insert(other);
+                lpvar other_j = lp().external_to_local(other);
+                if (lp::tv::is_term(other_j)) {
+                    other_j = lp().map_term_index_to_column_index(other_j);
+                }               
+                if (!lp().column_is_fixed(other_j)) {
+                    vars.push_back(other_j);
+                }
+            }            
         }
         if (vars.empty()) {
             return false;
