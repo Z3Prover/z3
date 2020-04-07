@@ -554,8 +554,13 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         m_pr = nullptr;
         if (q != new_q) {
             m_pr = result_pr_stack().get(fr.m_spos);
-            m_pr = m().mk_bind_proof(q, m_pr);
-            m_pr = m().mk_quant_intro(q, new_q, m_pr);
+            if (m_pr) {
+                m_pr = m().mk_bind_proof(q, m_pr);
+                m_pr = m().mk_quant_intro(q, new_q, m_pr);
+            }
+            else {
+                m_pr = m().mk_rewrite(q, new_q);
+            }
         }
         m_r = new_q;
         proof_ref pr2(m());
