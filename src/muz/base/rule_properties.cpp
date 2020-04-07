@@ -26,7 +26,7 @@ Notes:
 
 using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 
-    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_bv(m), m_ar(m), m_generate_proof(false) {}
+    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_a(m), m_bv(m), m_ar(m), m_generate_proof(false) {}
 
 rule_properties::~rule_properties() {}
 
@@ -173,12 +173,14 @@ void rule_properties::insert(ptr_vector<rule>& rules, rule* r) {
 }
 
 void rule_properties::operator()(var* n) { 
+    check_sort(m.get_sort(n));
 }
 
 void rule_properties::operator()(quantifier* n) {
     m_quantifiers.insert(n, m_rule);
 }
 void rule_properties::operator()(app* n) {
+    func_decl_ref f_out(m);
     if (m_is_predicate(n)) {
         insert(m_interp_pred, m_rule);
     }    
@@ -204,7 +206,13 @@ void rule_properties::operator()(app* n) {
             }
         }
     }
-    sort* s = m.get_sort(n);
+    else if (m_a.is_considered_uninterpreted(n->get_decl(), n->get_num_args(), n->get_args(), f_out)) {
+        m_uninterp_funs.insert(n->get_decl(), m_rule);
+    }
+    check_sort(m.get_sort(n));
+}
+
+void rule_properties::check_sort(sort* s) {
     sort_size sz = s->get_num_elements();
     if (m_ar.is_array(s) || (!sz.is_finite() && !m_dl.is_rule_sort(s))) {
         m_inf_sort.push_back(m_rule);
