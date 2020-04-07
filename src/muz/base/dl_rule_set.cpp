@@ -188,12 +188,10 @@ namespace datalog {
         unsigned curr_index = init_len;
         rule_dependencies reversed(*this, true);
 
-        iterator pit = begin();
-        iterator pend = end();
-        for (; pit!=pend; ++pit) {
-            func_decl * pred = pit->m_key;
+        for (auto& kv : *this) {
+            func_decl * pred = kv.m_key;
             unsigned deg = in_degree(pred);
-            if (deg==0) {
+            if (deg == 0) {
                 res.push_back(pred);
             }
             else {
@@ -201,13 +199,10 @@ namespace datalog {
             }
         }
 
-        while (curr_index<res.size()) { //res.size() can change in the loop iteration
+        while (curr_index < res.size()) { //res.size() can change in the loop iteration
             func_decl * curr = res[curr_index];
             const item_set & children = reversed.get_deps(curr);
-            item_set::iterator cit = children.begin();
-            item_set::iterator cend = children.end();
-            for (; cit!=cend; ++cit) {
-                func_decl * child = *cit;
+            for (func_decl * child : children) {
                 deg_map::obj_map_entry * e = degs.find_core(child);
                 SASSERT(e);
                 unsigned & child_deg = e->get_data().m_value;
@@ -227,20 +222,14 @@ namespace datalog {
         return true;
     }
 
-    void rule_dependencies::display(std::ostream & out ) const
-    {
-        iterator pit = begin();
-        iterator pend = end();
-        for (; pit != pend; ++pit) {
-            func_decl * pred = pit->m_key;
-            const item_set & deps = *pit->m_value;
-            item_set::iterator dit=deps.begin();
-            item_set::iterator dend=deps.end();
-            if (dit == dend) {
-                out<<pred->get_name()<<" - <none>\n";
+    void rule_dependencies::display(std::ostream & out ) const {
+        for (auto const& kv : *this) {
+            func_decl * pred = kv.m_key;
+            const item_set & deps = *kv.m_value;
+            if (deps.empty()) {
+                out << pred->get_name()<<" - <none>\n";
             }
-            for (; dit != dend; ++dit) {
-                func_decl * dep = *dit;
+            for (func_decl* dep : deps) {
                 out << pred->get_name() << " -> " << dep->get_name() << "\n";
             }
         }
@@ -473,9 +462,8 @@ namespace datalog {
         bool change = true;
         while (change) {
             change = false;
-            func_decl_set::iterator it = non_founded.begin(), end = non_founded.end();
-            for (; it != end; ++it) {
-                rule_vector const& rv = get_predicate_rules(*it);
+            for (func_decl * f : non_founded) {
+                rule_vector const& rv = get_predicate_rules(f);
                 bool found = false;
                 for (unsigned i = 0; !found && i < rv.size(); ++i) {
                     rule const& r = *rv[i];
@@ -484,8 +472,8 @@ namespace datalog {
                         is_founded = founded.contains(r.get_decl(j));
                     }
                     if (is_founded) {
-                        founded.insert(*it);
-                        non_founded.remove(*it);
+                        founded.insert(f);
+                        non_founded.remove(f);
                         change = true;
                         found  = true;
                     }
@@ -497,19 +485,12 @@ namespace datalog {
     void rule_set::display(std::ostream & out) const {
         out << "; rule count: " << get_num_rules() << "\n";
         out << "; predicate count: " << m_head2rules.size() << "\n";
-        func_decl_set::iterator pit = m_output_preds.begin();
-        func_decl_set::iterator pend = m_output_preds.end();
-        for (; pit != pend; ++pit) {
-            out << "; output: " << (*pit)->get_name() << '\n';
+        for (func_decl * f : m_output_preds) {
+            out << "; output: " << f->get_name() << '\n';
         }
-        decl2rules::iterator it  = m_head2rules.begin();
-        decl2rules::iterator end = m_head2rules.end();
-        for (; it != end; ++it) {
-            ptr_vector<rule> * rules = it->m_value;
-            ptr_vector<rule>::iterator it2  = rules->begin();
-            ptr_vector<rule>::iterator end2 = rules->end();
-            for (; it2 != end2; ++it2) {
-                rule * r = *it2;
+        for (auto const& kv : m_head2rules) {
+            ptr_vector<rule> * rules = kv.m_value;
+            for (rule* r : *rules) {
                 if (!r->passes_output_thresholds(m_context)) {
                     continue;
                 }
@@ -722,8 +703,8 @@ namespace datalog {
     void rule_stratifier::display(std::ostream& out) const {
         m_deps.display(out << "dependencies\n");
         out << "strata\n";
-        for (unsigned i = 0; i < m_strats.size(); ++i) {
-            for (auto * item : *m_strats[i]) {
+        for (auto * s : m_strats) {
+            for (auto * item : *s) {
                 out << item->get_name() << " ";
             }
             out << "\n";

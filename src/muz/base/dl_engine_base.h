@@ -96,8 +96,9 @@ namespace datalog {
             throw default_exception(std::string("certificates are not supported for ") + m_name);
         }
         virtual model_ref get_model() {
-            return model_ref(alloc(model, m));
+            return model_ref();
         }
+
         virtual void get_rules_along_trace (rule_ref_vector& rules) {
             throw default_exception(std::string("get_rules_along_trace is not supported for ") + m_name);
         }

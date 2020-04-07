@@ -47,7 +47,12 @@ bool model_core::eval(func_decl* f, expr_ref & r) const {
 }
 
 void model_core::register_decl(func_decl * d, expr * v) {
-    SASSERT(d->get_arity() == 0);
+    if (d->get_arity() > 0) {
+        func_interp* fi = alloc(func_interp, m, d->get_arity());
+        fi->set_else(v);
+        register_decl(d, fi);
+        return;
+    }
     TRACE("model", tout << "register " << d->get_name() << "\n";
           if (v) tout << mk_pp(v, m) << "\n";
           );

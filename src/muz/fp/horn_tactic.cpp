@@ -283,13 +283,8 @@ class horn_tactic : public tactic {
                 g->reset();
                 if (produce_models) {
                     model_ref md = m_ctx.get_model();
-                    model_converter_ref mc2 = model2model_converter(&*md);
-                    if (mc) {
-                        mc = concat(mc.get(), mc2.get());
-                    }
-                    else {
-                        mc = mc2;
-                    }
+                    model_converter_ref mc2 = model2model_converter(md.get());
+                    mc = concat(mc.get(), mc2.get());
                 }
                 break;
             }
@@ -314,14 +309,12 @@ class horn_tactic : public tactic {
         }
 
         void simplify(expr* q,
-                    goal_ref const& g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc) {
+                      goal_ref const& g,
+                      goal_ref_buffer & result,
+                      model_converter_ref & mc,
+                      proof_converter_ref & pc) {
 
             expr_ref fml(m);
-
-
             func_decl* query_pred = to_app(q)->get_decl();
             m_ctx.set_output_predicate(query_pred);
             m_ctx.get_rules(); // flush adding rules.
