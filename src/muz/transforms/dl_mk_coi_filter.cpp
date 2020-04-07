@@ -112,7 +112,7 @@ namespace datalog {
             }
             m_context.add_model_converter(mc0);
         }
-        CTRACE("dl", 0 != res, res->display(tout););
+        CTRACE("dl", res, res->display(tout););
         return res.detach();
     }
 

@@ -264,7 +264,6 @@ namespace datalog {
         }
 
         rule_set * operator()(rule_set const & source) {
-            // TODO pc
             if (!m_context.xform_bit_blast()) {
                 return nullptr;
             }
@@ -300,8 +299,7 @@ namespace datalog {
             // copy output predicates without any rule (bit-blasting not really needed)
             const func_decl_set& decls = source.get_output_predicates();
             for (func_decl* p : decls)
-                if (!source.contains(p))
-                    result->set_output_predicate(p);            
+                result->set_output_predicate(p);            
 
             if (m_context.get_model_converter()) {
                 generic_model_converter* fmc = alloc(generic_model_converter, m, "dl_mk_bit_blast");
@@ -314,7 +312,7 @@ namespace datalog {
                 }
                 m_context.add_model_converter(concat(bvmc, fmc));
             }
-
+            CTRACE("dl", result, result->display(tout););
             return result;
         }
     };
