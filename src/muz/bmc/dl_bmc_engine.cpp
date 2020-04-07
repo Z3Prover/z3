@@ -1530,7 +1530,7 @@ namespace datalog {
     }
 
     void bmc::collect_statistics(statistics& st) const {
-        m_solver->collect_statistics(st);
+        if (m_solver) m_solver->collect_statistics(st);
     }
 
     void bmc::reset_statistics() {
