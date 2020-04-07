@@ -518,6 +518,10 @@ namespace datalog {
             b.m_rule_trace.push_back(r);
             rm.to_formula(*r, fml);
             IF_VERBOSE(1, verbose_stream() << mk_pp(fml, m) << "\n";);
+            if (!r->get_proof()) {
+                IF_VERBOSE(0, r->display(b.m_ctx, verbose_stream() << "no proof associated with rule"));
+                throw default_exception("no proof associated with rule");
+            }
             prs.push_back(r->get_proof());
             unsigned sz = r->get_uninterpreted_tail_size();
 
