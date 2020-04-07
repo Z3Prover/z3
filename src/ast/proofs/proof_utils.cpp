@@ -463,6 +463,8 @@ public:
     reduce_hypotheses0(ast_manager& m): m(m), m_refs(m) {}
     
     void operator()(proof_ref& pr) {
+        if (!pr)
+            throw default_exception("proof reduction requires well defined proofs");
         proof_ref tmp(m);
         tmp = pr;
         elim(pr);
