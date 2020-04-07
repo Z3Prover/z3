@@ -1417,6 +1417,8 @@ namespace datalog {
                 relation_base * new_rel = old_rel.clone();
 
                 scoped_ptr<relation_mutator_fn> filter = rmgr.mk_filter_interpreted_fn(*new_rel, to_app(inner_cond));
+                if (!filter)
+                    throw default_exception("rules do not belong to supported finite domain fragment");
                 (*filter)(*new_rel);
 
                 if(new_rel->empty()) {
