@@ -292,14 +292,16 @@ namespace datalog {
                     rm.mk_rule(fml, pr, *result, r->name());
                 }
                 else {
-                    result->add_rule(r);
+                    result->add_rule(r);     
+                    result->inherit_output_predicate(source, r->get_decl());
                 }
             }
 
             // copy output predicates without any rule (bit-blasting not really needed)
             const func_decl_set& decls = source.get_output_predicates();
             for (func_decl* p : decls)
-                result->set_output_predicate(p);            
+                if (!source.contains(p))
+                    result->set_output_predicate(p);            
 
             if (m_context.get_model_converter()) {
                 generic_model_converter* fmc = alloc(generic_model_converter, m, "dl_mk_bit_blast");

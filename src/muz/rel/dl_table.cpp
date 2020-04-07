@@ -229,7 +229,7 @@ namespace datalog {
     };
 
     bitvector_table::bitvector_table(bitvector_table_plugin & plugin, const table_signature & sig)
-        : table_base(plugin, sig) {
+        : table_base(plugin, sig){
         SASSERT(plugin.can_handle_signature(sig));
 
         m_num_cols = sig.size();
@@ -237,7 +237,7 @@ namespace datalog {
         for (unsigned i = 0; i < m_num_cols; ++i) {            
             unsigned s = static_cast<unsigned>(sig[i]);
             if (s != sig[i] || !is_power_of_two(s)) {
-                  throw default_exception("bit-vector table is specialized to small domains that are powers of two");
+                throw default_exception("bit-vector table is specialized to small domains that are powers of two");
             }
             m_shift.push_back(shift);
             m_mask.push_back(s - 1);
@@ -253,8 +253,8 @@ namespace datalog {
             if (shift >= 32) {
                   throw default_exception("bit-vector table is specialized to small domains that are powers of two");
             }
-            m_bv.reserve(1 << shift);
         }
+        m_bv.reserve(1 << shift);
     }
     
     unsigned bitvector_table::fact2offset(const table_element* f) const {
@@ -274,19 +274,15 @@ namespace datalog {
     }
     
     void bitvector_table::add_fact(const table_fact & f) {
-        if (m_num_cols > 0) {
-            m_bv.set(fact2offset(f.c_ptr()));
-        }
+        m_bv.set(fact2offset(f.c_ptr()));        
     }
 
     void bitvector_table::remove_fact(const table_element* fact) {    
-        if (m_num_cols > 0) {
-            m_bv.unset(fact2offset(fact));
-        }
+        m_bv.unset(fact2offset(fact));        
     }
 
     bool bitvector_table::contains_fact(const table_fact & f) const {
-        return !f.empty() && m_bv.get(fact2offset(f.c_ptr()));
+        return m_bv.get(fact2offset(f.c_ptr()));
     }
 
     table_base::iterator bitvector_table::begin() const {

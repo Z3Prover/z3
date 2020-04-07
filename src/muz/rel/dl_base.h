@@ -1231,7 +1231,7 @@ namespace datalog {
 
             bool populated() const { return !m_current.empty(); }
             void ensure_populated() const {
-                if(!populated()) {
+                if (!populated()) {
                     get_fact(m_current);
                 }
             }

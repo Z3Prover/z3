@@ -254,6 +254,7 @@ namespace datalog {
 
         void set_output_predicate(func_decl * pred) { m_refs.push_back(pred); m_output_preds.insert(pred); }
         bool is_output_predicate(func_decl * pred) const { return m_output_preds.contains(pred); }
+        void inherit_output_predicate(rule_set const& src, func_decl* pred) { if (src.is_output_predicate(pred) && !is_output_predicate(pred)) set_output_predicate(pred); }
         const func_decl_set & get_output_predicates() const { return m_output_preds; }
         func_decl* get_output_predicate() const { SASSERT(m_output_preds.size() == 1); return *m_output_preds.begin(); }
 

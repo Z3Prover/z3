@@ -377,8 +377,6 @@ namespace datalog {
 
         if (sig.first_functional() == 0) {
             if (empty()) {
-                if (fact.empty())
-                    throw default_exception("empty relations cannot be complemented");
                 res->add_fact(fact);
             }
             return res;
