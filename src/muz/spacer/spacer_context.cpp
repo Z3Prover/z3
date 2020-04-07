@@ -2924,12 +2924,12 @@ expr_ref context::get_ground_sat_answer() const {
                    << "Sat answer unavailable when result is false\n";);
         return expr_ref(m);
     }
-
+    
     // convert a ground refutation into a linear counterexample
     // only works for linear CHC systems
     expr_ref_vector cex(m);
     proof_ref pf = get_ground_refutation();
-
+    
     proof_ref_vector premises(m);
     expr_ref conclusion(m);
     svector<std::pair<unsigned, unsigned>> positions;
@@ -2946,18 +2946,18 @@ expr_ref context::get_ground_sat_answer() const {
         } else {
             pf.reset();
             break;
-    }
-
+        }
+        
         premises.reset();
         conclusion.reset();
         positions.reset();
         substs.reset();
-        }
+    }
     SASSERT(!pf || !m.is_hyper_resolve(pf));
     if (pf) {
         cex.push_back(m.get_fact(pf));
     }
-
+    
     TRACE ("spacer", tout << "ground cex\n" << cex << "\n";);
 
     return mk_and(cex);

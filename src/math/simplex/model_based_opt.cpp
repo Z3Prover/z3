@@ -1088,6 +1088,7 @@ namespace opt {
         if (D.is_zero()) {
             throw default_exception("modulo 0 is not defined");
         }
+        if (D.is_neg()) D = abs(D);
         TRACE("opt1", display(tout << "lcm: " << D << " x: v" << x << " tableau\n"););
         rational val_x = m_var2value[x];
         rational u = mod(val_x, D);

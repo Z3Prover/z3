@@ -251,7 +251,7 @@ namespace datalog {
             }
             shift += num_bits;
             if (shift >= 32) {
-                  throw default_exception("bit-vector table is specialized to small domains that are powers of two");
+                throw default_exception("bit-vector table is specialized to small domains that are powers of two");
             }
         }
         m_bv.reserve(1 << shift);
