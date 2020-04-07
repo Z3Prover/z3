@@ -885,13 +885,8 @@ namespace datalog {
     }
 
     bool context::is_monotone() {
-        try {
-            m_rule_properties.check_for_negated_predicates();
-            return true;
-        }
-        catch (...) {
-            return false;
-        }
+        // only the spacer engine uses monotone semantics.
+        return get_engine() == SPACER_ENGINE;
     }
 
 

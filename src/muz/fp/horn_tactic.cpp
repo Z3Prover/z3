@@ -249,7 +249,6 @@ class horn_tactic : public tactic {
                     proof_converter_ref & pc) {
 
             lbool is_reachable = l_undef;
-
             try {
                 is_reachable = m_ctx.query(q);
             }

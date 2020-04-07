@@ -348,7 +348,7 @@ namespace datalog {
 
     void resolve_rule(rule_manager& rm, rule const& r1, rule const& r2, unsigned idx, 
                       expr_ref_vector const& s1, expr_ref_vector const& s2, rule& res) {
-        if (!r1.get_proof()) {
+        if (!r1.get_proof() || !r2.get_proof()) {
             return;
         }
         SASSERT(r2.get_proof());
