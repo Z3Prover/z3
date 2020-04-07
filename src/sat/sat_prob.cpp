@@ -123,6 +123,7 @@ namespace sat {
     }
 
     void prob::add(solver const& s) {
+        m_values.reserve(s.num_vars(), false);
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
             add(1, s.m_trail.c_ptr() + i);
