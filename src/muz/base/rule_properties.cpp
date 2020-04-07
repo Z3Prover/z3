@@ -46,7 +46,8 @@ void rule_properties::collect(rule_set const& rules) {
         if (m_generate_proof && !r->get_proof()) {
             rm.mk_rule_asserted_proof(*r);
         }
-        for (unsigned i = 0; m_inf_sort.empty() && i < r->get_decl()->get_arity(); ++i) {
+        
+        for (unsigned i = 0; m_inf_sort.empty() && i < r->get_decl()->get_arity(); ++i) {            
             sort* d = r->get_decl()->get_domain(i);
             sort_size sz = d->get_num_elements();
             if (m_ar.is_array(d) || (!sz.is_finite() && !m_dl.is_rule_sort(d))) {
@@ -203,7 +204,11 @@ void rule_properties::operator()(app* n) {
             }
         }
     }
-
+    sort* s = m.get_sort(n);
+    sort_size sz = s->get_num_elements();
+    if (m_ar.is_array(s) || (!sz.is_finite() && !m_dl.is_rule_sort(s))) {
+        m_inf_sort.push_back(m_rule);
+    }
 }
 
 void rule_properties::reset() {
