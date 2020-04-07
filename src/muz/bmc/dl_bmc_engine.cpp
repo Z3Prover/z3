@@ -502,13 +502,18 @@ namespace datalog {
             rule* r = nullptr;
             for (unsigned i = 0; i < rls.size(); ++i) {
                 func_decl_ref rule_i = mk_level_rule(pred, i, level);
-                TRACE("bmc", rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
                 prop_r = m.mk_app(rule_i, prop->get_num_args(), prop->get_args());
+                TRACE("bmc", rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " ");
+                      tout << (*md)(prop_r) << "\n";
+                      tout << *md << "\n";
+                      );
                 if (md->is_true(prop_r)) {
                     r = rls[i];
                     break;
                 }
             }
+            if (!r) 
+                throw default_exception("could not expand BMC rule");
             SASSERT(r);
             b.m_rule_trace.push_back(r);
             rm.to_formula(*r, fml);
