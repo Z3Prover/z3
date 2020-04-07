@@ -800,9 +800,9 @@ namespace datalog {
         SASSERT(prod_rel.size()==2);
        
         if (!prod_rel[0].get_plugin().is_sieve_relation())
-            throw default_exception("explanations are not supported for this query");
+            throw default_exception("explanations are not supported with undefined predicates");
         if (!prod_rel[1].get_plugin().is_sieve_relation())
-            throw default_exception("explanations are not supported for this query");
+            throw default_exception("explanations are not supported with undefined predicates");
         sieve_relation * srels[] = { 
             static_cast<sieve_relation *>(&prod_rel[0]),
             static_cast<sieve_relation *>(&prod_rel[1]) };
