@@ -597,6 +597,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     end_scope();
     cache_result<ProofGen>(q, m_r, m_pr, fr.m_cache_result);
     m_r = nullptr;
+    m_pr = nullptr;
     frame_stack().pop_back();
     set_new_child_flag(q, m_r);
 }

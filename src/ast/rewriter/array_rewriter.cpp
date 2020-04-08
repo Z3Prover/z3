@@ -644,8 +644,6 @@ bool array_rewriter::add_store(expr_ref_vector& args, unsigned num_idxs, expr* e
 bool array_rewriter::is_expandable_store(expr* s) {
     unsigned count = 0;
     unsigned depth = 0;
-    if (false && !is_ground(s))
-        return false;
     while (m_util.is_store(s)) {
         s = to_app(s)->get_arg(0);
         count += s->get_ref_count();
