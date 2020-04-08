@@ -300,7 +300,7 @@ namespace datalog {
             // copy output predicates without any rule (bit-blasting not really needed)
             const func_decl_set& decls = source.get_output_predicates();
             for (func_decl* p : decls)
-                if (!source.contains(p))
+                if (!source.contains(p) || result->contains(p))
                     result->set_output_predicate(p);            
 
             if (m_context.get_model_converter()) {
