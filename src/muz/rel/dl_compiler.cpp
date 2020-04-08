@@ -819,15 +819,15 @@ namespace datalog {
                 aci.domain=head_sig[i];
 
                 expr * exp = h->get_arg(i);
-                if(is_var(exp)) {
-                    unsigned var_num=to_var(exp)->get_idx();
-                    int2ints::entry * e = var_indexes.find_core(var_num);
-                    if(e) {
-                        unsigned_vector & binding_indexes = e->get_data().m_value;
-                        aci.kind=ACK_BOUND_VAR;
-                        aci.source_column=binding_indexes.back();
-                        SASSERT(aci.source_column<single_res_expr.size()); //we bind only to existing columns
-                        if(binding_indexes.size()>1) {
+                if (is_var(exp)) {
+                    unsigned var_num = to_var(exp)->get_idx();
+                    int2ints::entry* e = var_indexes.find_core(var_num);
+                    if (e) {
+                        unsigned_vector& binding_indexes = e->get_data().m_value;
+                        aci.kind = ACK_BOUND_VAR;
+                        aci.source_column = binding_indexes.back();
+                        SASSERT(aci.source_column < single_res_expr.size()); //we bind only to existing columns
+                        if (binding_indexes.size() > 1) {
                             //if possible, we do not want multiple head columns
                             //point to a single column in the intermediate table,
                             //since then we would have to duplicate the column
@@ -836,13 +836,14 @@ namespace datalog {
                         }
                     }
                     else {
-                        aci.kind=ACK_UNBOUND_VAR;
-                        aci.var_index=var_num;
+                        aci.kind = ACK_UNBOUND_VAR;
+                        aci.var_index = var_num;
                     }
                 }
                 else {
                     SASSERT(is_app(exp));
-                    SASSERT(m_context.get_decl_util().is_numeral_ext(exp));
+                    if (!m_context.get_decl_util().is_numeral_ext(exp))
+                        throw default_exception("could not process non-numeral in Datalog engine");
                     aci.kind=ACK_CONSTANT;
                     aci.constant=to_app(exp);
                 }

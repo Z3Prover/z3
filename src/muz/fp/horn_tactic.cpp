@@ -16,20 +16,20 @@ Author:
 Revision History:
 
 --*/
+#include "ast/ast_util.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_replacer.h"
 #include "tactic/tactical.h"
 #include "tactic/model_converter.h"
 #include "tactic/proof_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "muz/fp/horn_tactic.h"
 #include "muz/base/dl_context.h"
 #include "muz/fp/dl_register_engine.h"
-#include "ast/rewriter/expr_replacer.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/transforms/dl_mk_slice.h"
-#include "tactic/generic_model_converter.h"
 #include "muz/transforms/dl_transforms.h"
 #include "muz/base/fp_params.hpp"
-#include "ast/ast_util.h"
-#include "ast/rewriter/var_subst.h"
 
 class horn_tactic : public tactic {
     struct imp {
@@ -193,6 +193,8 @@ class horn_tactic : public tactic {
             expr_ref q(m), f(m);
             expr_ref_vector queries(m);
             std::stringstream msg;
+            
+            check_parameters();
 
             m_ctx.reset();
             m_ctx.ensure_opened();
@@ -228,6 +230,7 @@ class horn_tactic : public tactic {
                 mc1->hide(q);
                 g->add(mc1);
             }
+            
             SASSERT(queries.size() == 1);
             q = queries[0].get();
             proof_converter_ref pc = g->pc();
@@ -343,7 +346,23 @@ class horn_tactic : public tactic {
             g->set_prec(goal::UNDER_OVER);
         }
 
+        void check_parameters() {
+            fp_params const& p = m_ctx.get_params();
+            if (p.engine() == symbol("datalog"))
+                not_supported();
+            if (p.datalog_generate_explanations())
+                not_supported(); 
+            if (p.datalog_magic_sets_for_queries())
+                not_supported();
+        }
+
+        void not_supported() {
+            throw default_exception("unsupported parameter combination passed to HORN tactic");
+        }
+
     };
+
+
 
     bool       m_is_simplify;
     params_ref m_params;
