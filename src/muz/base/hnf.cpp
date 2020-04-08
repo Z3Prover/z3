@@ -473,7 +473,7 @@ private:
             p2 = m.mk_oeq_congruence(e2, fml, defs.size(), defs.c_ptr());
             p3 = mk_transitivity(p1, p2);
             defs.reset();
-            return proof_ref(p3, m);
+            return p3;
         }
     }
 

@@ -2823,7 +2823,7 @@ proof * ast_manager::mk_modus_ponens(proof * p1, proof * p2) {
     SASSERT(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2)));
     CTRACE("mk_modus_ponens", to_app(get_fact(p2))->get_arg(0) != get_fact(p1),
            tout << mk_pp(get_fact(p1), *this) << "\n" << mk_pp(get_fact(p2), *this) << "\n";);
-    SASSERT(to_app(get_fact(p2))->get_arg(0) == get_fact(p1));
+    SASSERT(!proofs_enabled() || to_app(get_fact(p2))->get_arg(0) == get_fact(p1));
     CTRACE("mk_modus_ponens", !is_ground(p2) && !has_quantifiers(p2), tout << "Non-ground: " << mk_pp(p2, *this) << "\n";);
     CTRACE("mk_modus_ponens", !is_ground(p1) && !has_quantifiers(p1), tout << "Non-ground: " << mk_pp(p1, *this) << "\n";);
     if (is_reflexivity(p2))
@@ -2887,6 +2887,8 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
         return p2;
     if (!p2)
         return p1;
+    if (proofs_disabled())
+        return nullptr;
     SASSERT(has_fact(p1));
     SASSERT(has_fact(p2));
     SASSERT(is_app(get_fact(p1)));

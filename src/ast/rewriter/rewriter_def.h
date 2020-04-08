@@ -242,7 +242,6 @@ bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
 template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
-    // SASSERT(t->get_num_args() > 0);
     SASSERT(!frame_stack().empty());
     switch (fr.m_state) {
     case PROCESS_CHILDREN: {
@@ -311,13 +310,14 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             result_stack().push_back(m_r);
             if (ProofGen) {
                 result_pr_stack().shrink(fr.m_spos);
-                if (!m_pr2)
+                if (!m_pr2) {
                     m_pr2 = m().mk_rewrite(new_t, m_r);
+                }
                 m_pr  = m().mk_transitivity(m_pr, m_pr2);
-                m_pr2 = nullptr;
                 result_pr_stack().push_back(m_pr);
                 SASSERT(rewrites_to(m_r, m_pr));
                 SASSERT(rewrites_from(t, m_pr));
+                m_pr2 = nullptr;
             }
             if (st == BR_DONE) {
                 cache_result<ProofGen>(t, m_r, m_pr, fr.m_cache_result);
@@ -346,12 +346,14 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                         result_pr_stack().pop_back();
                         pr1 = result_pr_stack().back();
                         result_pr_stack().pop_back();
+                        SASSERT(rewrites_from(t, pr1));
+                        SASSERT(rewrites_to(m_r, pr1));
+                        SASSERT(rewrites_from(m_r, pr2));
+                        SASSERT(rewrites_to(result_stack().back(), pr2));
                         m_pr = m().mk_transitivity(pr1, pr2);
                         result_pr_stack().push_back(m_pr);
                     }
-                    m_r = result_stack().back();
-                    SASSERT(rewrites_to(m_r, m_pr));
-                    SASSERT(rewrites_from(t, m_pr));
+                    m_r = result_stack().back();                    
                     result_stack().pop_back();
                     result_stack().pop_back();
                     result_stack().push_back(m_r);
