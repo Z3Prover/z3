@@ -2915,10 +2915,8 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
     // OEQ is compatible with EQ for transitivity.
     func_decl* f = to_app(get_fact(p1))->get_decl();
     if (is_oeq(get_fact(p2))) f = to_app(get_fact(p2))->get_decl();
-    proof* p = mk_app(m_basic_family_id, PR_TRANSITIVITY, p1, p2, mk_app(f, to_app(get_fact(p1))->get_arg(0), to_app(get_fact(p2))->get_arg(1)));
+    return  mk_app(m_basic_family_id, PR_TRANSITIVITY, p1, p2, mk_app(f, to_app(get_fact(p1))->get_arg(0), to_app(get_fact(p2))->get_arg(1)));
 
-//    SASSERT(p->get_id() != 202);
-    return p;
 }
 
 proof * ast_manager::mk_transitivity(proof * p1, proof * p2, proof * p3) {
@@ -2961,7 +2959,6 @@ proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_app(R, f1, f2));
     proof* p = mk_app(m_basic_family_id, PR_MONOTONICITY, args.size(), args.c_ptr());
-    SASSERT(p->get_id() != 202);
     return p;
 }
 
