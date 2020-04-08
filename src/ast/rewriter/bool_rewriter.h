@@ -145,6 +145,27 @@ public:
         if (mk_or_core(num_args, args, result) == BR_FAILED)
             result = m().mk_or(num_args, args);
     }
+    expr_ref mk_or(unsigned num_args, expr * const * args) {
+        expr_ref result(m());
+        mk_or(num_args, args, result);
+        return result;
+    }
+    expr_ref mk_and(unsigned num_args, expr * const * args) {
+        expr_ref result(m());
+        mk_and(num_args, args, result);
+        return result;
+    }
+    expr_ref mk_or(expr_ref_vector const& args) {
+        expr_ref result(m());
+        mk_or(args.size(), args.c_ptr(), result);
+        return result;
+    }
+    expr_ref mk_and(expr_ref_vector const& args) {
+        expr_ref result(m());
+        mk_and(args.size(), args.c_ptr(), result);
+        return result;
+    }
+
     void mk_and(expr * arg1, expr * arg2, expr_ref & result) {
         expr * args[2] = {arg1, arg2};
         mk_and(2, args, result);
