@@ -57,6 +57,9 @@ namespace smt {
         unsigned error_code = 0;
         bool done = false;
         unsigned num_rounds = 0;
+        if (m.has_trace_stream())
+            throw default_exception("trace streams have to be off in parallel mode");
+
 
         for (unsigned i = 0; i < num_threads; ++i) {
             ast_manager* new_m = alloc(ast_manager, m, true);
