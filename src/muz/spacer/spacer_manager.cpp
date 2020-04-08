@@ -73,7 +73,7 @@ expr_ref inductive_property::fixup_clauses(expr* fml) const
     expr_ref result(m);
     flatten_and(fml, conjs);
     for (unsigned i = 0; i < conjs.size(); ++i) {
-        conjs[i] = fixup_clause(conjs[i].get());
+        conjs[i] = fixup_clause(conjs.get(i));
     }
     bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), result);
     return result;
@@ -83,19 +83,17 @@ std::string inductive_property::to_string() const
 {
     std::stringstream stm;
     model_ref md;
-    expr_ref result(m);
     to_model(md);
-    model_smt2_pp(stm, m, *md.get(), 0);
+    stm << *md;
     return stm.str();
 }
 
-void inductive_property::to_model(model_ref& md) const
-{
+void inductive_property::to_model(model_ref& md) const {
     md = alloc(model, m);
     vector<relation_info> const& rs = m_relation_info;
     expr_ref_vector conjs(m);
-    for (unsigned i = 0; i < rs.size(); ++i) {
-        relation_info ri(rs[i]);
+    for (relation_info const& ri_ : rs) {
+        relation_info ri(ri_);
         func_decl * pred = ri.m_pred;
         expr_ref prop = fixup_clauses(ri.m_body);
         func_decl_ref_vector const& sig = ri.m_vars;
@@ -105,16 +103,11 @@ void inductive_property::to_model(model_ref& md) const
             sig_vars.push_back(m.mk_const(sig[sig.size() - j - 1]));
         }
         expr_abstract(m, 0, sig_vars.size(), sig_vars.c_ptr(), prop, q);
-        if (sig.empty()) {
-            md->register_decl(pred, q);
-        } else {
-            func_interp* fi = alloc(func_interp, m, sig.size());
-            fi->set_else(q);
-            md->register_decl(pred, fi);
-        }
+        md->register_decl(pred, q);
     }
-    TRACE("spacer", model_smt2_pp(tout, m, *md, 0););
+    TRACE("spacer", tout << *md;);
     apply(const_cast<model_converter_ref&>(m_mc), md);
+    md->compress();
 }
 
 expr_ref inductive_property::to_expr() const

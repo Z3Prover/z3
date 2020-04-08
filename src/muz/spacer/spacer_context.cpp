@@ -1121,13 +1121,7 @@ expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
     // adjust result according to model converter.
     unsigned arity = m_head->get_arity();
     model_ref md = alloc(model, m);
-    if (arity == 0) {
-        md->register_decl(m_head, result);
-    } else {
-        func_interp* fi = alloc(func_interp, m, arity);
-        fi->set_else(result);
-        md->register_decl(m_head, fi);
-    }
+    md->register_decl(m_head, result);    
     model_converter_ref mc = ctx.get_model_converter();
     apply(mc, md);
     if (p_orig->get_arity() == 0) {
