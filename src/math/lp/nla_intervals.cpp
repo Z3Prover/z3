@@ -69,34 +69,40 @@ std::ostream & intervals::print_dependencies(u_dependency* deps , std::ostream& 
     return out;
 }
 
+std::ostream& intervals::display_separating_interval(std::ostream& out, const nex*n, const scoped_dep_interval& interv_wd, u_dependency* initial_deps) {
+     out << "conflict: interv_wd = "; display(out, interv_wd ) <<"expr = " << *n << "\n, initial deps\n"; print_dependencies(initial_deps, out);
+          out << ", expressions vars = \n";
+          for(lpvar j: m_core->get_vars_of_expr_with_opening_terms(n)) {
+              m_core->print_var(j, out);
+          }
+          out << "\n";
+          return out;
+}
+
 // return true iff the interval of n is does not contain 0
 bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
     scoped_dep_interval i(get_dep_intervals());
-    interval_of_expr<e_with_deps::without_deps>(n, 1, i);
-    if (!m_dep_intervals.separated_from_zero(i)) {
-        return false;
-    }
-    scoped_dep_interval interv_wd(get_dep_intervals());
-    interval_of_expr<e_with_deps::with_deps>(n, 1, interv_wd);
-    TRACE("grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) <<"expr = " << *n << "\n, initial deps\n"; print_dependencies(initial_deps, tout);
-          tout << ", expressions vars = \n";
-          for(lpvar j: m_core->get_vars_of_expr_with_opening_terms(n)) {
-              m_core->print_var(j, tout);
-          }
-          tout << "\n";
-          );
-    
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
                                                          m_core->add_empty_lemma();
                                                          m_core->current_expl().add(e);
                                                      };
+    if (!interval_of_expr<e_with_deps::without_deps>(n, 1, i, f)) {
+        // found a conflict during the interval calculation
+        return true;
+    }
+    if (!m_dep_intervals.separated_from_zero(i)) {
+        return false;
+    }
+    scoped_dep_interval interv_wd(get_dep_intervals());
+    interval_of_expr<e_with_deps::with_deps>(n, 1, interv_wd, f);
+    TRACE("nla_intervals", display_separating_interval(tout, n, interv_wd, initial_deps););    
     m_dep_intervals.check_interval_for_conflict_on_zero(interv_wd, initial_deps, f);
     return true;
 }
 
 void intervals::add_mul_of_degree_one_to_vector(const nex_mul* e, vector<std::pair<rational, lpvar>> &v) {
-    TRACE("nla_horner_details", tout << *e << "\n";);
+    TRACE("nla_intervals_details", tout << *e << "\n";);
     SASSERT(e->size() == 1);
     SASSERT((*e)[0].pow() == 1);
     const nex *ev = (*e)[0].e();
@@ -105,7 +111,7 @@ void intervals::add_mul_of_degree_one_to_vector(const nex_mul* e, vector<std::pa
 }
 
 void intervals::add_linear_to_vector(const nex* e, vector<std::pair<rational, lpvar>> &v) {
-    TRACE("nla_horner_details", tout << *e << "\n";);
+    TRACE("nla_intervals_details", tout << *e << "\n";);
     switch (e->type()) {
     case expr_type::MUL:
         add_mul_of_degree_one_to_vector(to_mul(e), v);
@@ -121,7 +127,7 @@ void intervals::add_linear_to_vector(const nex* e, vector<std::pair<rational, lp
 
 // e = a * can_t + b
 lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational& a, rational& b) {
-    TRACE("nla_horner_details", tout << *e << "\n";);
+    TRACE("nla_intervals_details", tout << *e << "\n";);
     lpvar smallest_j = 0;
     vector<std::pair<rational, lpvar>> v;
     b = rational(0);
@@ -139,7 +145,7 @@ lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational
             }
         }
     }
-    TRACE("nla_horner_details", tout << "a_index = " << a_index << ", v="; print_vector(v, tout) << "\n";);
+    TRACE("nla_intervals_details", tout << "a_index = " << a_index << ", v="; print_vector(v, tout) << "\n";);
     a = v[a_index].first;
     lp::lar_term t;
 
@@ -156,7 +162,7 @@ lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational
                 t.add_var(p.second);
         }
     }
-    TRACE("nla_horner_details", tout << a << "* (";
+    TRACE("nla_intervals_details", tout << a << "* (";
           lp::lar_solver::print_term_as_indices(t, tout) << ") + " << b << std::endl;);
     SASSERT(t.is_normalized());
     return t;
@@ -303,21 +309,24 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
     return true;
 }
 
-template <e_with_deps wd>
-void intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & sdi) {
+template <e_with_deps wd, typename T>
+bool intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & sdi, const std::function<void (const T&)>& f) {
     if (has_inf_interval(e)) {
         SASSERT(m_dep_intervals.lower_is_inf(sdi) && m_dep_intervals.upper_is_inf(sdi));
-        return;
+        return true; // no conflict
     }
     
-    interval_of_expr<wd>(e[0], 1, sdi);
+    if (!interval_of_expr<wd>(e[0], 1, sdi, f))
+        return false;
     for (unsigned k = 1; k < e.size(); k++) {
-        TRACE("nla_intervals_details_sum", tout << "e[" << k << "]= " << *e[k] << "\n";);
+        TRACE("nla_intervals_details", tout << "e[" << k << "]= " << *e[k] << "\n";);
         scoped_dep_interval  b(get_dep_intervals());
-        interval_of_expr<wd>(e[k], 1, b);
+        if (!interval_of_expr<wd>(e[k], 1, b, f)) {
+            return false;
+        }
         scoped_dep_interval  c(get_dep_intervals());
 
-        TRACE("nla_intervals_details_sum", tout << "sdi = "; display(tout, sdi) << "\nb = "; display(tout, b) << "\n";);
+        TRACE("nla_intervals_details", tout << "sdi = "; display(tout, sdi) << "\nb = "; display(tout, b) << "\n";);
         if (wd == e_with_deps::with_deps) {
             interval_deps_combine_rule combine_rule;
             m_dep_intervals.add(sdi, b, c, combine_rule);
@@ -327,47 +336,68 @@ void intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & 
             m_dep_intervals.add(sdi, b, c);
         }
         m_dep_intervals.set<wd>(sdi, c);
-        TRACE("nla_intervals_details_sum", tout << *e[k] << ", ";
+        TRACE("nla_intervals_details", tout << *e[k] << ", ";
               display(tout, sdi); tout << "\n";);
     }
     TRACE("nla_intervals_details", tout << "e=" << e << "\n";
           tout << " interv = "; display(tout, sdi););
+    return true; // no conflict
 }
 
-template <e_with_deps wd>
-void intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a) {
+template <e_with_deps wd, typename T>
+bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const std::function<void (const T&)>& f) {
     TRACE("nla_intervals_details", tout << "e=" << e << "\n";);
-    interval_of_sum_no_term<wd>(e, a);
+    if(! interval_of_sum_no_term<wd>(e, a, f)) {
+        return false;
+    }
     if (e.is_a_linear_term()) {
         SASSERT(e.is_sum() && e.size() > 1);
         scoped_dep_interval i_from_term(get_dep_intervals());
         if (interval_from_term<wd>(e, i_from_term)) {
             interval r = m_dep_intervals.intersect<wd>(a, i_from_term);
             TRACE("nla_intervals_details", tout << "intersection="; display(tout, r) << "\n";);
+            
             if (m_dep_intervals.is_empty(r)) {
-                SASSERT(false); // not implemented
+                TRACE("nla_intervals_details", tout << "empty\n";);
+                if (wd == e_with_deps::with_deps) {
+                    T expl;
+                    get_dep_intervals().linearize(r.m_upper_dep, expl);
+                    get_dep_intervals().linearize(r.m_lower_dep, expl);
+                    f(expl);
+                } else {
+                    // need to recalculate the interval with dependencies
+                    scoped_dep_interval sa(get_dep_intervals());
+                    interval_of_sum<e_with_deps::with_deps>(e, sa, f);
+                }
+                return false;
             }
             m_dep_intervals.set<wd>(a, r);
+            
         }
     }
+    return true;
 }
 
-template <e_with_deps wd>
-void intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a) {
+template <e_with_deps wd, typename T>
+bool intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a, const std::function<void (const T&)>& f) {
     TRACE("nla_intervals_details", tout << "e = " << e << "\n";);
     const nex* zero_interval_child = get_zero_interval_child(e);
     if (zero_interval_child) {
-        interval_of_expr<wd>(zero_interval_child, 1, a);
+        bool r = interval_of_expr<wd>(zero_interval_child, 1, a, f);
+        SASSERT(r);
+        (void)r;        
         if(wd == e_with_deps::with_deps)
             set_zero_interval_deps_for_mult(a);
         TRACE("nla_intervals_details", tout << "zero_interval_child = " << *zero_interval_child << std::endl << "a = "; display(tout, a); );
+         return true; // regural calculation: no conflict
     }
 
     m_dep_intervals.set_interval_for_scalar(a, e.coeff());
     TRACE("nla_intervals_details", tout << "a = "; display(tout, a); );
     for (const auto& ep : e) {
         scoped_dep_interval b(get_dep_intervals());
-        interval_of_expr<wd>(ep.e(), ep.pow(), b);
+        if (!interval_of_expr<wd>(ep.e(), ep.pow(), b, f))
+            return false;
         TRACE("nla_intervals_details", tout << "ep = " << ep << ", "; display(tout, b); );
         scoped_dep_interval c(get_dep_intervals());
         if (wd == e_with_deps::with_deps) {
@@ -385,6 +415,7 @@ void intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a) {
     }
     TRACE("nla_intervals_details", tout << "e=" << e << "\n";
           tout << " return "; display(tout, a););
+    return true;
 }
 
 template <e_with_deps wd>
@@ -394,8 +425,8 @@ void intervals::to_power(scoped_dep_interval& a, unsigned p) {
     m_dep_intervals.set<wd>(a, b);
 
 }
-template <e_with_deps wd>
-void intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& a) {
+template <e_with_deps wd, typename T>
+bool intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& a, const std::function<void (const T&)>& f) {
     switch (e->type()) {
     case expr_type::SCALAR:
         {
@@ -403,14 +434,16 @@ void intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& 
         }
         break;
     case expr_type::SUM: {
-        interval_of_sum<wd>(e->to_sum(), a);        
+        if (!interval_of_sum<wd>(e->to_sum(), a, f))
+            return false;
         if (p != 1) {
             to_power<wd>(a, p);
         }
         break;
     }
     case expr_type::MUL: {
-        interval_of_mul<wd>(e->to_mul(), a);
+        if (!interval_of_mul<wd>(e->to_mul(), a, f))
+            return false;
         if (p != 1) {
             to_power<wd>(a, p);
         }
@@ -426,6 +459,7 @@ void intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& 
         TRACE("nla_intervals_details", tout << e->type() << "\n";);
         UNREACHABLE();        
     }
+    return true; // no conflict
 }
 
 
