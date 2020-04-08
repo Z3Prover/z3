@@ -165,7 +165,8 @@ namespace datalog {
         head = ground(head);
 
         fml2 = m.mk_implies(body, head);
-        SASSERT(!has_term_ite(fml2));
+        if (has_term_ite(fml2))
+            return false;
         app_ref_vector consts(m);
         collect_uninterp_consts(fml2, consts);
         fml2 = mk_forall(m, consts.size(), consts.c_ptr(), fml2);
