@@ -151,8 +151,6 @@ namespace datalog {
 
         void remove_labels(expr_ref& fml, proof_ref& pr);
 
-        app_ref ensure_app(expr* e);
-
         void check_app(expr* e);
 
         bool contains_predicate(expr* fml) const;
@@ -273,6 +271,8 @@ namespace datalog {
         static bool is_forall(ast_manager& m, expr* e, quantifier*& q);
 
         rule_counter& get_counter() { return m_counter; }
+
+        app_ref ensure_app(expr* e);
 
         void to_formula(rule const& r, expr_ref& result);
 

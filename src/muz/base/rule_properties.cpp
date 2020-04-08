@@ -26,12 +26,15 @@ Notes:
 
 using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 
-    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_a(m), m_bv(m), m_ar(m), m_generate_proof(false) {}
+    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), 
+    m_dt(m), m_dl(m), m_a(m), m_bv(m), m_ar(m), 
+    m_generate_proof(false), m_collected(false) {}
 
 rule_properties::~rule_properties() {}
 
 void rule_properties::collect(rule_set const& rules) {
     reset();
+    m_collected = true;
     expr_sparse_mark visited;
     for (rule* r : rules) {
         m_rule = r;
@@ -115,12 +118,11 @@ void rule_properties::check_nested_free() {
 void rule_properties::check_existential_tail() {
     ast_mark visited;
     ptr_vector<expr> todo, tocheck;
-    for (unsigned i = 0; i < m_interp_pred.size(); ++i) {
-        rule& r = *m_interp_pred[i];
-        unsigned ut_size = r.get_uninterpreted_tail_size();
-        unsigned t_size  = r.get_tail_size();   
+    for (rule* r : m_interp_pred) {
+        unsigned ut_size = r->get_uninterpreted_tail_size();
+        unsigned t_size  = r->get_tail_size();   
         for (unsigned i = ut_size; i < t_size; ++i) {
-            todo.push_back(r.get_tail(i));
+            todo.push_back(r->get_tail(i));
         }
     }
     context::contains_pred contains_p(m_ctx);
@@ -155,8 +157,7 @@ void rule_properties::check_existential_tail() {
             tocheck.push_back(e);
         }
     }
-    for (unsigned i = 0; i < tocheck.size(); ++i) {
-        expr* e = tocheck[i];
+    for (expr* e : tocheck) {
         if (check_pred(e)) {
             std::ostringstream out;
             out << "recursive predicate " << mk_ismt2_pp(e, m) << " occurs nested in the body of a rule";
@@ -225,5 +226,6 @@ void rule_properties::reset() {
     m_interp_pred.reset();
     m_negative_rules.reset();
     m_inf_sort.reset();
+    m_collected = false;
 }
 

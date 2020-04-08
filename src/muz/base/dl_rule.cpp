@@ -1000,19 +1000,18 @@ namespace datalog {
 
         var_subst vs(m, false);
 
-        expr_ref new_head_e = vs(m_head, subst_vals.size(), subst_vals.c_ptr());
-
-        m.inc_ref(new_head_e);
+        app_ref new_head_a = rm.ensure_app(vs(m_head, subst_vals.size(), subst_vals.c_ptr()));
+        m.inc_ref(new_head_a);
         m.dec_ref(m_head);
-        m_head = to_app(new_head_e);
+        m_head = new_head_a;
 
         for (unsigned i = 0; i < m_tail_size; i++) {
             app * old_tail = get_tail(i);
-            expr_ref new_tail_e = vs(old_tail, subst_vals.size(), subst_vals.c_ptr());
+            app_ref new_tail_a = rm.ensure_app(vs(old_tail, subst_vals.size(), subst_vals.c_ptr()));
             bool  sign     = is_neg_tail(i);
-            m.inc_ref(new_tail_e);
+            m.inc_ref(new_tail_a);
             m.dec_ref(old_tail);
-            m_tail[i] = TAG(app *, to_app(new_tail_e), sign);
+            m_tail[i] = TAG(app *, new_tail_a.get(), sign);
         }
     }
 

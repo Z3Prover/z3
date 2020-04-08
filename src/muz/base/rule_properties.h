@@ -46,6 +46,7 @@ namespace datalog {
         ptr_vector<rule>           m_interp_pred;
         ptr_vector<rule>           m_negative_rules;
         ptr_vector<rule>           m_inf_sort;
+        bool                       m_collected;
 
         void insert(ptr_vector<rule>& rules, rule* r);
         void check_sort(sort* s);
@@ -61,6 +62,7 @@ namespace datalog {
         void check_for_negated_predicates();
         void check_nested_free();
         void check_infinite_sorts();
+        bool is_monotone() { SASSERT(m_collected); return m_negative_rules.empty(); }
         void operator()(var* n);
         void operator()(quantifier* n);
         void operator()(app* n);
