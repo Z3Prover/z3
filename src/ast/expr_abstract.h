@@ -33,7 +33,7 @@ public:
 };
 
 void expr_abstract(ast_manager& m, unsigned base, unsigned num_bound, expr* const* bound, expr* n, expr_ref&  result);
-inline expr_ref expr_abstract(ast_manager& m, unsigned base, unsigned num_bound, expr* const* bound, expr* n) { expr_ref r(m); expr_abstract(m, base, num_bound, bound, n); return r; }
+inline expr_ref expr_abstract(ast_manager& m, unsigned base, unsigned num_bound, expr* const* bound, expr* n) { expr_ref r(m); expr_abstract(m, base, num_bound, bound, n, r); return r; }
 expr_ref mk_forall(ast_manager& m, unsigned num_bound, app* const* bound, expr* n);
 expr_ref mk_exists(ast_manager& m, unsigned num_bound, app* const* bound, expr* n);
 

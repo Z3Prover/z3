@@ -24,35 +24,32 @@ Notes:
 #include <sstream>
 #include <iomanip>
 
-#include "muz/base/dl_util.h"
+#include "util/util.h"
+#include "util/timeit.h"
+#include "util/luby.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/var_subst.h"
-#include "util/util.h"
-#include "muz/spacer/spacer_prop_solver.h"
-#include "muz/spacer/spacer_context.h"
-#include "muz/spacer/spacer_generalizers.h"
-#include "ast/for_each_expr.h"
-#include "muz/base/dl_rule_set.h"
-#include "smt/tactic/unit_subsumption_tactic.h"
-#include "model/model_smt2_pp.h"
-#include "muz/transforms/dl_mk_rule_inliner.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
 #include "ast/proofs/proof_checker.h"
-#include "smt/smt_value_sort.h"
+#include "ast/for_each_expr.h"
 #include "ast/scoped_proof.h"
-#include "muz/spacer/spacer_qe_project.h"
-#include "tactic/core/blast_term_ite_tactic.h"
-
-#include "util/timeit.h"
-#include "util/luby.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/expr_abstract.h"
-
+#include "model/model_smt2_pp.h"
+#include "tactic/core/blast_term_ite_tactic.h"
+#include "smt/tactic/unit_subsumption_tactic.h"
+#include "smt/smt_value_sort.h"
 #include "smt/smt_solver.h"
-
+#include "muz/base/dl_util.h"
+#include "muz/spacer/spacer_prop_solver.h"
+#include "muz/spacer/spacer_context.h"
+#include "muz/spacer/spacer_generalizers.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "muz/spacer/spacer_qe_project.h"
 #include "muz/spacer/spacer_sat_answer.h"
 
 #define WEAKNESS_MAX 65535
@@ -441,8 +438,8 @@ derivation::premise::premise (pred_transformer &pt, unsigned oidx,
     }
 
     if (aux_vars) 
-        for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i) 
-            m_ovars.push_back(m.mk_const(sm.n2o(aux_vars->get(i)->get_decl(), m_oidx))); 
+        for (app* v : *aux_vars) 
+            m_ovars.push_back(m.mk_const(sm.n2o(v->get_decl(), m_oidx))); 
 }
 
 derivation::premise::premise (const derivation::premise &p) :
@@ -466,9 +463,8 @@ void derivation::premise::set_summary (expr * summary, bool must,
     { m_ovars.push_back(m.mk_const(sm.o2o(m_pt.sig(i), 0, m_oidx))); }
 
     if (aux_vars)
-        for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
-            m_ovars.push_back (m.mk_const (sm.n2o (aux_vars->get (i)->get_decl (),
-                                                   m_oidx)));
+        for (app* v : *aux_vars)
+            m_ovars.push_back (m.mk_const (sm.n2o (v->get_decl (), m_oidx)));
 }
 
 
@@ -541,25 +537,25 @@ void lemma::mk_expr_core() {
     m_body = ::push_not(m_body);
 
     if (!m_zks.empty() && has_zk_const(m_body)) {
-            app_ref_vector zks(m);
-            zks.append(m_zks);
-            zks.reverse();
-            expr_abstract(m, 0,
-                          zks.size(), (expr* const*)zks.c_ptr(), m_body,
-                          m_body);
-            ptr_buffer<sort> sorts;
-            svector<symbol> names;
-            for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
-                sorts.push_back(get_sort(zks.get(i)));
-                names.push_back(zks.get(i)->get_decl()->get_name());
-            }
-            m_body = m.mk_quantifier(forall_k, zks.size(),
-                                     sorts.c_ptr(),
-                                     names.c_ptr(),
-                                     m_body, 15, symbol(m_body->get_id()));
+        app_ref_vector zks(m);
+        zks.append(m_zks);
+        zks.reverse();
+        m_body = expr_abstract(m, 0,
+                               zks.size(), (expr* const*)zks.c_ptr(), m_body);
+        ptr_buffer<sort> sorts;
+        svector<symbol> names;
+        for (app* z : zks) {
+            sorts.push_back(get_sort(z));
+            names.push_back(z->get_decl()->get_name());
+        }
+        m_body = m.mk_quantifier(forall_k, zks.size(),
+                                 sorts.c_ptr(),
+                                 names.c_ptr(),
+                                 m_body, 15, symbol(m_body->get_id()));
     }
     SASSERT(m_body);
 }
+
 void lemma::mk_cube_core() {
     if (!m_cube.empty()) {return;}
     expr_ref cube(m);
