@@ -1800,7 +1800,7 @@ static void track_id(ast* n, unsigned id) {
     if (n->get_id() != id) return;
     ++s_count;
     std::cout << s_count << "\n";
-    //SASSERT(s_count != 2);
+    SASSERT(s_count != 1);
 }
 #endif
 
@@ -1834,7 +1834,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
 
-    // track_id(n, 48);
+    //    track_id(n, 323);
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
@@ -2902,8 +2902,8 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
               (is_eq(get_fact(p2)) || is_oeq(get_fact(p2)))));
     CTRACE("mk_transitivity", to_app(get_fact(p1))->get_arg(1) != to_app(get_fact(p2))->get_arg(0),
            tout << mk_pp(get_fact(p1), *this) << "\n\n" << mk_pp(get_fact(p2), *this) << "\n";
-           tout << mk_bounded_pp(p1, *this, 5) << "\n\n";
-           tout << mk_bounded_pp(p2, *this, 5) << "\n\n";
+           tout << p1->get_id() << ": " << mk_bounded_pp(p1, *this, 5) << "\n\n";
+           tout << p2->get_id() << ": " << mk_bounded_pp(p2, *this, 5) << "\n\n";
     );
     SASSERT(to_app(get_fact(p1))->get_arg(1) == to_app(get_fact(p2))->get_arg(0));
     if (is_reflexivity(p1))
@@ -2913,7 +2913,10 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
     // OEQ is compatible with EQ for transitivity.
     func_decl* f = to_app(get_fact(p1))->get_decl();
     if (is_oeq(get_fact(p2))) f = to_app(get_fact(p2))->get_decl();
-    return mk_app(m_basic_family_id, PR_TRANSITIVITY, p1, p2, mk_app(f, to_app(get_fact(p1))->get_arg(0), to_app(get_fact(p2))->get_arg(1)));
+    proof* p = mk_app(m_basic_family_id, PR_TRANSITIVITY, p1, p2, mk_app(f, to_app(get_fact(p1))->get_arg(0), to_app(get_fact(p2))->get_arg(1)));
+
+//    SASSERT(p->get_id() != 202);
+    return p;
 }
 
 proof * ast_manager::mk_transitivity(proof * p1, proof * p2, proof * p3) {
@@ -2955,7 +2958,9 @@ proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_app(R, f1, f2));
-    return mk_app(m_basic_family_id, PR_MONOTONICITY, args.size(), args.c_ptr());
+    proof* p = mk_app(m_basic_family_id, PR_MONOTONICITY, args.size(), args.c_ptr());
+    SASSERT(p->get_id() != 202);
+    return p;
 }
 
 proof * ast_manager::mk_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {

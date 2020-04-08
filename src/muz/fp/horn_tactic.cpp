@@ -349,15 +349,19 @@ class horn_tactic : public tactic {
         void check_parameters() {
             fp_params const& p = m_ctx.get_params();
             if (p.engine() == symbol("datalog"))
-                not_supported();
+                not_supported("engine=datalog");
             if (p.datalog_generate_explanations())
-                not_supported(); 
+                not_supported("datalog.generate_explanations"); 
             if (p.datalog_magic_sets_for_queries())
-                not_supported();
+                not_supported("datalog.magic_sets_for_queries");
+            if (p.xform_instantiate_arrays())
+                not_supported("xform.instantiate_arrays");
+            if (p.xform_magic())
+                not_supported("xform.magic");
         }
 
-        void not_supported() {
-            throw default_exception("unsupported parameter combination passed to HORN tactic");
+        void not_supported(char const* s) {
+            throw default_exception(std::string("unsupported parameter ") + s);
         }
 
     };

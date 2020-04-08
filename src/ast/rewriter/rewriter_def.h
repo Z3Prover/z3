@@ -184,6 +184,7 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
         if (to_app(t)->get_num_args() == 0) {
             if (process_const<ProofGen>(to_app(t))) 
                 return true; 
+            TRACE("rewriter", tout << "process const: " << mk_bounded_pp(t, m()) << " -> " << mk_bounded_pp(m_r,m()) << "\n";);
             t = m_r;
         }
         if (max_depth != RW_UNBOUNDED_DEPTH)
@@ -302,6 +303,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                if (m_pr2) tout << mk_bounded_pp(m_pr2, m()) << "\n";
               );
         SASSERT(st == BR_FAILED || rewrites_to(m_r, m_pr2));
+        SASSERT(st == BR_FAILED || rewrites_from(new_t, m_pr2));
         SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
         if (st != BR_FAILED) {
             result_stack().shrink(fr.m_spos);
@@ -314,6 +316,8 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                 m_pr  = m().mk_transitivity(m_pr, m_pr2);
                 m_pr2 = nullptr;
                 result_pr_stack().push_back(m_pr);
+                SASSERT(rewrites_to(m_r, m_pr));
+                SASSERT(rewrites_from(t, m_pr));
             }
             if (st == BR_DONE) {
                 cache_result<ProofGen>(t, m_r, m_pr, fr.m_cache_result);
@@ -346,6 +350,8 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                         result_pr_stack().push_back(m_pr);
                     }
                     m_r = result_stack().back();
+                    SASSERT(rewrites_to(m_r, m_pr));
+                    SASSERT(rewrites_from(t, m_pr));
                     result_stack().pop_back();
                     result_stack().pop_back();
                     result_stack().push_back(m_r);

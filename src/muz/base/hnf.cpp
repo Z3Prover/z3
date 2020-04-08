@@ -165,10 +165,7 @@ public:
             }
         }
         TRACE("hnf",
-              tout << mk_pp(n, m) << "\n==>\n";
-              for (unsigned i = 0; i < result.size(); ++i) {
-                  tout << mk_pp(result[i].get(), m) << "\n";
-              });
+            tout << mk_pp(n, m) << "\n==>\n" << result << "\n";);
     }
 
     bool checkpoint() {
@@ -458,13 +455,13 @@ private:
     }
 
 
-    proof_ref mk_congruence(proof* p1, expr_ref_vector const& body, expr* head, proof_ref_vector& defs) {
+    proof_ref mk_congruence(proof* p, expr_ref_vector const& body, expr* head, proof_ref_vector& defs) {
         if (defs.empty()) {
-            return proof_ref(p1, m);
+            return proof_ref(p, m);
         }
         else {
-            SASSERT(p1);
-            proof_ref p2(m), p3(m);
+            SASSERT(p);
+            proof_ref p1(p, m), p2(m), p3(m);
             app_ref fml = mk_implies(body, head);
             expr* fact = m.get_fact(p1);
             if (m.is_iff(fact)) {
