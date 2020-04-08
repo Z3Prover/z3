@@ -47,8 +47,7 @@ void rewriter_tpl<Config>::process_var(var * v) {
                tout << "index " << index << " bindings " << m_bindings.size() << "\n";
                display_bindings(tout););
         SASSERT(v->get_sort() == m().get_sort(r));
-        if (!is_ground(r) && m_shifts[index] != m_bindings.size()) {
-            
+        if (!is_ground(r) && m_shifts[index] != m_bindings.size()) {            
             unsigned shift_amount = m_bindings.size() - m_shifts[index];
             expr* c = get_cached(r, shift_amount);
             if (c) {
@@ -58,8 +57,7 @@ void rewriter_tpl<Config>::process_var(var * v) {
                 expr_ref tmp(m());
                 m_shifter(r, shift_amount, tmp);
                 result_stack().push_back(tmp);
-                TRACE("rewriter", tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n";
-                      display_bindings(tout););
+                TRACE("rewriter", display_bindings(tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n"););
                 cache_shifted_result(r, shift_amount, tmp);                    
             }
         }
@@ -514,14 +512,12 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     SASSERT(fr.m_state == PROCESS_CHILDREN);
     unsigned num_decls = q->get_num_decls();
     if (fr.m_i == 0) {
-        if (!ProofGen) {
-            begin_scope();
-            m_root       = q->get_expr();
-            unsigned sz = m_bindings.size();
-            for (unsigned i = 0; i < num_decls; i++) {
-                m_bindings.push_back(nullptr);
-                m_shifts.push_back(sz);
-            }
+        begin_scope();
+        m_root       = q->get_expr();
+        unsigned sz = m_bindings.size();
+        for (unsigned i = 0; i < num_decls; i++) {
+            m_bindings.push_back(nullptr);
+            m_shifts.push_back(sz);
         }
         m_num_qvars += num_decls;
     }
@@ -595,17 +591,11 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     result_stack().shrink(fr.m_spos);
     result_stack().push_back(m_r.get());
     SASSERT(m().get_sort(q) == m().get_sort(m_r));
-    if (!ProofGen) {
-        SASSERT(num_decls <= m_bindings.size());
-        m_bindings.shrink(m_bindings.size() - num_decls);
-        m_shifts.shrink(m_shifts.size() - num_decls);
-        end_scope();
-        cache_result<ProofGen>(q, m_r, m_pr, fr.m_cache_result);
-    }
-    else {
-        cache_result<ProofGen>(q, m_r, m_pr, fr.m_cache_result);
-        m_pr = nullptr;
-    }
+    SASSERT(num_decls <= m_bindings.size());
+    m_bindings.shrink(m_bindings.size() - num_decls);
+    m_shifts.shrink(m_shifts.size() - num_decls);
+    end_scope();
+    cache_result<ProofGen>(q, m_r, m_pr, fr.m_cache_result);
     m_r = nullptr;
     frame_stack().pop_back();
     set_new_child_flag(q, m_r);

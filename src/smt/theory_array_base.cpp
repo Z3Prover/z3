@@ -401,8 +401,21 @@ namespace smt {
         quantifier * q = m.is_lambda_def(e->get_decl());
         expr_ref f(e, m);
         if (q) {
-            var_subst sub(m);
-            f = sub(q, e->get_num_args(), e->get_args());
+            // the variables in q are maybe not consecutive.
+            var_subst sub(m, false);
+            expr_free_vars fv;
+            fv(q);
+            expr_ref_vector es(m);
+            es.resize(fv.size());
+            for (unsigned i = 0, j = 0; i < e->get_num_args(); ++i) {
+                SASSERT(j < es.size());
+                while (!fv[j]) {
+                    ++j; 
+                    SASSERT(j < es.size());
+                }
+                es[j++] = e->get_arg(i);
+            }
+            f = sub(q, es.size(), es.c_ptr());
         }
         return f;
     }
