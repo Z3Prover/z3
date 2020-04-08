@@ -2077,7 +2077,7 @@ namespace qe {
             if (num_vars > 0) {
                 ptr_vector<sort> sorts;
                 vector<symbol> names;
-                ptr_vector<app> free_vars;
+                app_ref_vector free_vars(m);
                 for (unsigned i = 0; i < num_vars; ++i) {
                     contains_app contains_x(m, vars[i]);
                     if (contains_x(fml)) {
@@ -2087,8 +2087,7 @@ namespace qe {
                     }
                 }
                 if (!free_vars.empty()) {
-                    expr_ref tmp(m);
-                    expr_abstract(m, 0, free_vars.size(), (expr*const*)free_vars.c_ptr(), fml, tmp);
+                    expr_ref tmp = expr_abstract(free_vars, fml);
                     fml = m.mk_exists(free_vars.size(), sorts.c_ptr(), names.c_ptr(), tmp, 1);
                   }
             }
@@ -2279,9 +2278,7 @@ namespace qe {
 
     void expr_quant_elim::abstract_expr(unsigned sz, expr* const* bound, expr_ref& fml) {
         if (sz > 0) {
-            expr_ref tmp(m);
-            expr_abstract(m, 0, sz, bound, fml, tmp);
-            fml = tmp;
+            fml = expr_abstract(m, 0, sz, bound, fml);
         }    
     }
 
@@ -2620,7 +2617,7 @@ namespace qe {
             }       
             var_shifter shift(m);
             shift(result, vars.size(), result);
-            expr_abstract(m, 0, vars.size(), (expr*const*)vars.c_ptr(), result, result);
+            result = expr_abstract(vars, result);
             TRACE("qe", tout << "abstracted" << mk_pp(result, m) << "\n";);
             ptr_vector<sort> sorts;
             svector<symbol> names;

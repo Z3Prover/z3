@@ -305,7 +305,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         }
     }
     else {
-        SASSERT(!m().proofs_enabled());
+        SASSERT(!proofs_enabled());
         expr_ref fr(f, m());
         quick_process(true, fr, d);
         if (!m_inconsistent) {

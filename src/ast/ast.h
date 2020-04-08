@@ -1883,6 +1883,22 @@ public:
 
     app * mk_app(func_decl * decl, unsigned num_args, expr * const * args);
 
+    app* mk_app(func_decl* decl, ref_vector<expr, ast_manager> const& args) {
+        return mk_app(decl, args.size(), args.c_ptr());
+    }
+
+    app* mk_app(func_decl* decl, ref_vector<app, ast_manager> const& args) {
+        return mk_app(decl, args.size(), (expr*const*)args.c_ptr());
+    }
+
+    app * mk_app(func_decl * decl, ptr_vector<expr> const& args) {
+        return mk_app(decl, args.size(), args.c_ptr());
+    }
+
+    app * mk_app(func_decl * decl, ptr_vector<app> const& args) {
+        return mk_app(decl, args.size(), (expr*const*)args.c_ptr());
+    }
+
     app * mk_app(func_decl * decl, expr * const * args) {
         return mk_app(decl, decl->get_arity(), args);
     }

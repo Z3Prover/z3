@@ -85,10 +85,10 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
             unsigned new_base = base + q->get_num_decls();
         
             for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
-                expr_abstract(m, new_base, num_bound, bound, q->get_pattern(i), result1);
+                result1 = expr_abstract(m, new_base, num_bound, bound, q->get_pattern(i));
                 patterns.push_back(result1.get());
             }
-            expr_abstract(m, new_base, num_bound, bound, q->get_expr(), result1);
+            result1 = expr_abstract(m, new_base, num_bound, bound, q->get_expr());
             b = m.update_quantifier(q, patterns.size(), patterns.c_ptr(), result1.get());
             m_pinned.push_back(b);            
             m_map.insert(curr, b);

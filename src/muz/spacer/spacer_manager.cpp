@@ -94,7 +94,7 @@ void inductive_property::to_model(model_ref& md) const {
         for (unsigned j = 0; j < sig.size(); ++j) {
             sig_vars.push_back(m.mk_const(sig[sig.size() - j - 1]));
         }
-        expr_ref q = expr_abstract(m, 0, sig_vars.size(), sig_vars.c_ptr(), prop);
+        expr_ref q = expr_abstract(sig_vars, prop);
         md->register_decl(ri.m_pred, q);
     }
     TRACE("spacer", tout << *md;);
