@@ -350,6 +350,7 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
     if(! interval_of_sum_no_term<wd>(e, a, f)) {
         return false;
     }
+    TRACE("nla_intervals_details", tout << "a = "; display(tout, a););
     if (e.is_a_linear_term()) {
         SASSERT(e.is_sum() && e.size() > 1);
         scoped_dep_interval i_from_term(get_dep_intervals());
@@ -363,6 +364,8 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
                     T expl;
                     get_dep_intervals().linearize(r.m_upper_dep, expl);
                     get_dep_intervals().linearize(r.m_lower_dep, expl);
+                    get_dep_intervals().linearize(a.get().m_upper_dep, expl);
+                    get_dep_intervals().linearize(a.get().m_lower_dep, expl);
                     f(expl);
                 } else {
                     // need to recalculate the interval with dependencies
@@ -372,7 +375,6 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
                 return false;
             }
             m_dep_intervals.set<wd>(a, r);
-            
         }
     }
     return true;
