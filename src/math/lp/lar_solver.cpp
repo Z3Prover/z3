@@ -1575,9 +1575,22 @@ var_index lar_solver::add_named_var(unsigned ext_j, bool is_int, const std::stri
     m_var_register.set_name(j, name);
     return j;
 }
+
+unsigned lar_solver::external_to_column_index(unsigned ext_j) const {
+    unsigned j = external_to_local(ext_j);            
+    if (j == null_lpvar)
+        return j;
+    
+    if (tv::is_term(j))
+        return map_term_index_to_column_index(j);
+    
+    return j;
+}
+
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
     var_index local_j;
+    SASSERT(!m_term_register.external_is_used(ext_j));
     lp_assert(!tv::is_term(ext_j));
     if (m_var_register.external_is_used(ext_j, local_j))
         return local_j;
@@ -1709,6 +1722,7 @@ bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>>
 // do not register in m_var_register this term if ext_i == UINT_MAX
 var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs, unsigned ext_i) {
     TRACE("lar_solver_terms", print_linear_combination_of_column_indices_only(coeffs, tout) << ", ext_i =" << ext_i << "\n";);
+    SASSERT(!m_var_register.external_is_used(ext_i));
     m_term_register.add_var(ext_i, term_is_int(coeffs));   
     lp_assert(all_vars_are_registered(coeffs));
     if (strategy_is_undecided())

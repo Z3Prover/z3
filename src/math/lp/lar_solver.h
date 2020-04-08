@@ -134,6 +134,8 @@ public:
     void set_column_value(unsigned j, const impq& v) {
         m_mpq_lar_core_solver.m_r_x[j] = v;
     }
+
+    unsigned external_to_column_index(unsigned) const;
     
     const mpq& get_column_value_rational(unsigned j) const {
         if (tv::is_term(j)) {
