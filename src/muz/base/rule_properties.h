@@ -47,10 +47,11 @@ namespace datalog {
         ptr_vector<rule>           m_negative_rules;
         ptr_vector<rule>           m_inf_sort;
         bool                       m_collected;
+        bool                       m_is_monotone;
 
         void insert(ptr_vector<rule>& rules, rule* r);
         void check_sort(sort* s);
-
+        void visit_rules(expr_sparse_mark& visited, rule_set const& rules);
     public:
         rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& is_predicate);
         ~rule_properties();    
@@ -62,7 +63,7 @@ namespace datalog {
         void check_for_negated_predicates();
         void check_nested_free();
         void check_infinite_sorts();
-        bool is_monotone() { SASSERT(m_collected); return m_negative_rules.empty(); }
+        bool is_monotone() { return m_is_monotone; }
         void operator()(var* n);
         void operator()(quantifier* n);
         void operator()(app* n);

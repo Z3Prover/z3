@@ -28,7 +28,7 @@ using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 
     m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), 
     m_dt(m), m_dl(m), m_a(m), m_bv(m), m_ar(m), 
-    m_generate_proof(false), m_collected(false) {}
+    m_generate_proof(false), m_collected(false), m_is_monotone(true) {}
 
 rule_properties::~rule_properties() {}
 
@@ -36,11 +36,16 @@ void rule_properties::collect(rule_set const& rules) {
     reset();
     m_collected = true;
     expr_sparse_mark visited;
+    visit_rules(visited, rules);
+}
+
+void rule_properties::visit_rules(expr_sparse_mark& visited, rule_set const& rules) {
     for (rule* r : rules) {
         m_rule = r;
         unsigned ut_size = r->get_uninterpreted_tail_size();
         unsigned t_size  = r->get_tail_size();  
         if (r->has_negation()) {
+            m_is_monotone = false;
             m_negative_rules.push_back(r);            
         }
         for (unsigned i = ut_size; i < t_size; ++i) {
@@ -52,11 +57,7 @@ void rule_properties::collect(rule_set const& rules) {
         
         for (unsigned i = 0; m_inf_sort.empty() && i < r->get_decl()->get_arity(); ++i) {            
             sort* d = r->get_decl()->get_domain(i);
-            sort_size sz = d->get_num_elements();
-            if (m_ar.is_array(d) || (!sz.is_finite() && !m_dl.is_rule_sort(d))) {
-                TRACE("dl", tout << "sort " << mk_pp(d, m) << " is not finite " << sz << "\n";);
-                m_inf_sort.push_back(m_rule);
-            }
+            check_sort(d);
         }
     }     
 }

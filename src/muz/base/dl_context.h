@@ -608,7 +608,6 @@ namespace datalog {
         */
         void reset_tables();
 
-
         void flush_add_rules();
 
         void ensure_engine(expr* e = nullptr);

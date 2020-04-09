@@ -84,7 +84,6 @@ class horn_tactic : public tactic {
             if (!is_positive) {
                 f = m.mk_not(f);
             }
-
         }
 
         bool is_predicate(expr* a) {
