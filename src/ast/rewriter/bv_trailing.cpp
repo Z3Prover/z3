@@ -168,7 +168,6 @@ struct bv_trailing::imp {
         case 1: result = new_args.get(0); break;
         default: result = m.mk_app(m_util.get_fid(), OP_BMUL, new_args.size(), new_args.c_ptr());
         }
-        SASSERT(retv == m_util.get_bv_size(result));
         return retv;
     }
 
