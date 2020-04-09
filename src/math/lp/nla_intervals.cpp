@@ -344,6 +344,26 @@ bool intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & 
     return true; // no conflict
 }
 
+// return true iff a.upper < b.lower, or a.upper == b.lower and one of these bounds is open
+bool intervals::conflict_u_l(const interval& a, const interval& b) const {
+     if (a.m_upper_inf) {
+         return false;
+     }
+     if (b.m_lower_inf) {
+         return false;
+     }
+
+     if (m_dep_intervals.num_manager().lt(a.m_upper, b.m_lower)) {
+         return true;
+     }
+
+     if (m_dep_intervals.num_manager().gt(a.m_upper, b.m_lower)) {
+            return false;
+     }
+
+     return a.m_upper_open || b.m_upper_open;
+}
+
 template <e_with_deps wd, typename T>
 bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const std::function<void (const T&)>& f) {
     TRACE("nla_intervals_details", tout << "e=" << e << "\n";);
@@ -362,10 +382,13 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
                 TRACE("nla_intervals_details", tout << "empty\n";);
                 if (wd == e_with_deps::with_deps) {
                     T expl;
-                    get_dep_intervals().linearize(r.m_upper_dep, expl);
-                    get_dep_intervals().linearize(r.m_lower_dep, expl);
-                    get_dep_intervals().linearize(a.get().m_upper_dep, expl);
-                    get_dep_intervals().linearize(a.get().m_lower_dep, expl);
+                    if (conflict_u_l(a, i_from_term)) {
+                        get_dep_intervals().linearize(a.get().m_upper_dep, expl);
+                        get_dep_intervals().linearize(r.m_lower_dep, expl);                        
+                    } else {
+                        get_dep_intervals().linearize(r.m_upper_dep, expl);
+                        get_dep_intervals().linearize(a.get().m_lower_dep, expl);                        
+                    }                        
                     f(expl);
                 } else {
                     // need to recalculate the interval with dependencies

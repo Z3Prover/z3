@@ -100,5 +100,7 @@ public:
     static void add_mul_of_degree_one_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>>&);
     lpvar find_term_column(const lp::lar_term&, rational& a) const;
     std::ostream& display_separating_interval(std::ostream& out, const nex*n, const scoped_dep_interval& interv_wd, u_dependency* initial_deps);
+    bool conflict_u_l(const interval& a, const interval& b) const;
+
 }; // end of intervals
 } // end of namespace nla
