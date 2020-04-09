@@ -345,8 +345,6 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                         pr1 = result_pr_stack().back();
                         result_pr_stack().pop_back();
                         SASSERT(rewrites_from(t, pr1));
-                        SASSERT(rewrites_to(m_r, pr1));
-                        SASSERT(rewrites_from(m_r, pr2));
                         SASSERT(rewrites_to(result_stack().back(), pr2));
                         m_pr = m().mk_transitivity(pr1, pr2);
                         result_pr_stack().push_back(m_pr);
