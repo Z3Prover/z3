@@ -4585,6 +4585,10 @@ expr_ref theory_seq::elim_skolem(expr* e) {
             todo.pop_back();            
             continue;
         }
+        else if (m_util.is_skolem(a)) {
+            IF_VERBOSE(0, verbose_stream() << "unhandled skolem " << mk_pp(a, m) << "\n");
+            return expr_ref(m.mk_false(), m);
+        }
 
         args.reset();
         for (expr* arg : *to_app(a)) {
