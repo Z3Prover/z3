@@ -564,7 +564,11 @@ namespace qe {
                 if (!tids.find(v, id)) {
                     rational r;
                     expr_ref val = eval(v);
-                    VERIFY(a.is_numeral(val, r));                    
+                    if (!a.is_numeral(val, r)) {
+                        TRACE("qe", tout << eval.get_model() << "\n";);
+
+                        throw default_exception("mbp evaluation was only partial");
+                    }
                     id = mbo.add_var(r, a.is_int(v));
                     tids.insert(v, id);
                 }

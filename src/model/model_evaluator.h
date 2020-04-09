@@ -37,6 +37,7 @@ public:
     ~model_evaluator();
 
     ast_manager & m () const;
+    model_core const& get_model() const;
     void set_model_completion(bool f);
     bool get_model_completion() const; 
     void set_expand_array_equalities(bool f);
