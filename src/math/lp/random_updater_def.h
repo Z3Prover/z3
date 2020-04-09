@@ -75,7 +75,7 @@ void random_updater::update() {
             }
         }            
     }
-    TRACE("lar_solver_rand", tout << "m_var_set.size() = " << m_var_set.size() << ", m_values.size() = " << m_values.size() << "\n";);
+    TRACE("lar_solver_rand", tout << "m_var_set.size() = " << m_var_set.size() << "\n";);
 }
 
 }
