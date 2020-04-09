@@ -1585,11 +1585,9 @@ public:
         m_variable_values.clear();
     }
 
-    bool assume_eqs() {        
-        svector<lpvar> vars;
+    void random_update() {
         m_model_eqs.reset();
-        m_tmp_var_set.clear();
-        m_tmp_var_set.resize(th.get_num_vars());
+        svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
             if (!can_get_ivalue(v)) {
@@ -1599,7 +1597,7 @@ public:
             if (!th.is_relevant_and_shared(n1)) {
                 continue;
             }
-            lpvar vj = lp().external_to_column_index(v);            
+            lpvar vj = lp().external_to_column_index(v);
             if (vj == lp::null_lpvar)
                 continue;
             theory_var other = m_model_eqs.insert_if_not_there(v);
@@ -1620,9 +1618,6 @@ public:
                 }
             } 
         }
-        if (vars.empty()) {
-            return false;
-        }
         TRACE("arith", 
               for (theory_var v = 0; v < sz; ++v) {
                   if (th.is_relevant_and_shared(get_enode(v))) { 
@@ -1630,12 +1625,16 @@ public:
                   }
               }
               tout << "\n"; );
-        if (!m_use_nra_model && !m_nla) {
+        if (!vars.empty() && !m_use_nra_model && !m_nla) {
             lp().random_update(vars.size(), vars.c_ptr());
         }
-        m_model_eqs.reset();
+    }
+
+    bool assume_eqs() {        
         TRACE("arith", display(tout););
-            
+        random_update();
+        m_model_eqs.reset();
+        theory_var sz = static_cast<theory_var>(th.get_num_vars());            
         unsigned old_sz = m_assume_eq_candidates.size();
         unsigned num_candidates = 0;
         int start = ctx().get_random_value();
@@ -2908,9 +2907,7 @@ public:
             if (lit != null_literal) {
                 TRACE("arith",
                       ctx().display_literals_verbose(tout, m_core);
-                      tout << "\n --> ";
-                      ctx().display_literal_verbose(tout, lit);
-                      tout << "\n";
+                      ctx().display_literal_verbose(tout << "\n --> ", lit) << "\n";
                       );
                 
 
