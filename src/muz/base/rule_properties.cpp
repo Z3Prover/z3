@@ -182,6 +182,8 @@ void rule_properties::operator()(quantifier* n) {
 }
 void rule_properties::operator()(app* n) {
     func_decl_ref f_out(m);
+    expr* n1 = nullptr, *n2 = nullptr;
+    rational r;
     if (m_is_predicate(n)) {
         insert(m_interp_pred, m_rule);
     }    
@@ -208,6 +210,11 @@ void rule_properties::operator()(app* n) {
         }
     }
     else if (m_a.is_considered_uninterpreted(n->get_decl(), n->get_num_args(), n->get_args(), f_out)) {
+        m_uninterp_funs.insert(n->get_decl(), m_rule);
+    }
+    else if ((m_a.is_mod(n, n1, n2) || m_a.is_div(n, n1, n2) ||
+              m_a.is_idiv(n, n1, n2) || m_a.is_rem(n, n1, n2))
+             && (!m_a.is_numeral(n2, r) || r.is_zero())) {
         m_uninterp_funs.insert(n->get_decl(), m_rule);
     }
     check_sort(m.get_sort(n));
