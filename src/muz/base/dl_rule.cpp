@@ -491,12 +491,12 @@ namespace datalog {
             }
             app * tail_entry = TAG(app *, curr, is_neg);
             if (m_ctx.is_predicate(curr)) {
-                *uninterp_tail=tail_entry;
+                *uninterp_tail = tail_entry;
                 uninterp_tail++;
             }
             else {
                 interp_tail--;
-                *interp_tail=tail_entry;
+                *interp_tail = tail_entry;
             }
             m.inc_ref(curr);
         }

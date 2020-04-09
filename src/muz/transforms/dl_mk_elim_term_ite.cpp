@@ -75,7 +75,7 @@ namespace datalog {
 
     mk_elim_term_ite::~mk_elim_term_ite() {}
 
-    expr_ref mk_elim_term_ite::ground(expr_ref &e) {
+    expr_ref mk_elim_term_ite::ground(expr* e) {
         expr_free_vars fv;
         fv(e);
         if (m_ground.size() < fv.size())
@@ -98,7 +98,7 @@ namespace datalog {
         expr_ref_vector new_conjs(m);
         expr_ref tmp(m);
 
-        for (unsigned i = 0; i < tsz; ++i)
+        for (unsigned i = utsz; i < tsz; ++i)
             new_conjs.push_back(r.get_tail(i));
         flatten_and(new_conjs);
 
@@ -116,12 +116,17 @@ namespace datalog {
         rw(body);
 
         if (!has_term_ite(body)) {
-            head = r.get_head();
-
-            fml2 = m.mk_implies(body, head);
-            proof_ref p(m);
-            rm.mk_rule(fml2, p, new_rules, r.name());
-            rm.mk_rule_rewrite_proof(r, *new_rules.last());
+            app_ref_vector tail(m);
+            flatten_and(body, new_conjs);
+            for (unsigned i = 0; i < utsz; ++i) {
+                tail.push_back(r.get_tail(i));
+            }
+            for (expr* e : new_conjs) {
+                tail.push_back(rm.ensure_app(e));
+            }
+            rule_ref new_rule(rm.mk(r.get_head(), tail.size(), tail.c_ptr(), nullptr, r.name(), false), rm);           
+            rm.mk_rule_rewrite_proof(r, *new_rule.get());
+            new_rules.add_rule(new_rule);
             TRACE("dl_term_ite", tout << "No term-ite after blast_term_ite\n";);
             return true;
         }
@@ -131,14 +136,14 @@ namespace datalog {
         body = ground(body);
         // elim ite
         tactic_ref elim_term_ite = mk_elim_term_ite_tactic(m);
-        goal_ref goal = alloc(class goal, m);
+        goal_ref g = alloc(goal, m);
         goal_ref_buffer result;
         flatten_and(body, new_conjs);
         for (auto *e : new_conjs) {
-            goal->assert_expr(e);
+            g->assert_expr(e);
         }
-        unsigned sz = goal->num_exprs();
-        (*elim_term_ite)(goal, result);
+        unsigned sz = g->num_exprs();
+        (*elim_term_ite)(g, result);
         if (result.size() == 1) {
             goal_ref new_goal = result[0];
             if (new_goal->num_exprs() != sz) {
@@ -148,19 +153,14 @@ namespace datalog {
             }
         }
 
-        expr_ref_vector conjs(m);
         for (unsigned i = 0; i < utsz; ++i) {
-            tmp = r.get_tail(i);
-            tmp = ground(tmp);
-            conjs.push_back(tmp);
+            new_conjs.push_back(ground(r.get_tail(i)));
         }
-        conjs.append(new_conjs);
 
-        body = mk_and(conjs);
+        body = mk_and(new_conjs);
         rw(body);
 
-        head = r.get_head();
-        head = ground(head);
+        head = ground(r.get_head());
 
         fml2 = m.mk_implies(body, head);
         if (has_term_ite(fml2))
@@ -169,10 +169,11 @@ namespace datalog {
         collect_uninterp_consts(fml2, consts);
         fml2 = mk_forall(m, consts.size(), consts.c_ptr(), fml2);
         proof_ref p(m);
-        rm.mk_rule(fml2, p, new_rules, r.name());
+        rm.mk_rule(fml2, p, new_rules, r.name()); 
+        // TBD: breaks abstraction barrier: mk_rule could convert a single formula
+        // into multiple rules
         rm.mk_rule_rewrite_proof(r, *new_rules.last());
         TRACE("dl_term_ite", tout << "New rule: " << fml2 << "\n";);
-
         return true;
     }
 

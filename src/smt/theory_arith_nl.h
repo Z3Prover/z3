@@ -1804,9 +1804,9 @@ grobner::monomial * theory_arith<Ext>::mk_gb_monomial(rational const & _coeff, e
         coeff *= get_monomial_coeff(m);
         m      = get_monomial_body(m);
         if (m_util.is_mul(m)) {
-            SASSERT(is_pure_monomial(m));
-            for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-                expr * arg = to_app(m)->get_arg(i);
+            if (!is_pure_monomial(m))
+                return nullptr;
+            for (expr* arg : *to_app(m)) {
                 PROC_VAR(arg);
             }
         }
