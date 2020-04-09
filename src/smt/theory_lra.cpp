@@ -1586,6 +1586,9 @@ public:
     }
 
     void random_update() {
+        if (m_use_nra_model || m_nla)
+            return;
+
         m_model_eqs.reset();
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
@@ -1625,7 +1628,7 @@ public:
                   }
               }
               tout << "\n"; );
-        if (!vars.empty() && !m_use_nra_model && !m_nla) {
+        if (!vars.empty()) {
             lp().random_update(vars.size(), vars.c_ptr());
         }
     }
