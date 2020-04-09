@@ -98,17 +98,15 @@ namespace datalog {
         expr_ref_vector new_conjs(m);
         expr_ref tmp(m);
 
-
-        for (unsigned i = utsz; i < tsz; ++i)
+        for (unsigned i = 0; i < tsz; ++i)
             new_conjs.push_back(r.get_tail(i));
         flatten_and(new_conjs);
 
         expr_ref fml1(m), fml2(m), body(m), head(m);
 
         // blast ite
-        body = m.mk_and(new_conjs.size(), new_conjs.c_ptr());
+        body = mk_and(new_conjs);
         if (!has_term_ite(body)) {
-            TRACE("dl_term_ite", tout << "No term-ite, skipping a rule\n";);
             new_rules.add_rule(&r);
             return false;
         }
