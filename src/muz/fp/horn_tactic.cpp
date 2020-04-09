@@ -358,6 +358,8 @@ class horn_tactic : public tactic {
                 not_supported("xform.instantiate_arrays");
             if (p.xform_magic())
                 not_supported("xform.magic");
+            if (p.xform_quantify_arrays())
+                not_supported("xform.quantify_arrays");
         }
 
         void not_supported(char const* s) {

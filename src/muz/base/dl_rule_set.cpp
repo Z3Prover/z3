@@ -394,19 +394,18 @@ namespace datalog {
     */
     bool rule_set::stratified_negation() {
         ptr_vector<rule>::const_iterator it  = m_rules.c_ptr();
-        ptr_vector<rule>::const_iterator end = m_rules.c_ptr()+m_rules.size();
+        ptr_vector<rule>::const_iterator end = m_rules.c_ptr() + m_rules.size();
         for (; it != end; it++) {
             rule * r = *it;
-            app * head = r->get_head();
-            func_decl * head_decl = head->get_decl();
+            func_decl * head_decl = r->get_decl();
             unsigned n = r->get_uninterpreted_tail_size();
             for (unsigned i = r->get_positive_tail_size(); i < n; i++) {
                 SASSERT(r->is_neg_tail(i));
-                func_decl * tail_decl = r->get_tail(i)->get_decl();
+                func_decl * tail_decl = r->get_decl(i);
                 unsigned neg_strat = get_predicate_strat(tail_decl);
                 unsigned head_strat = get_predicate_strat(head_decl);
 
-                SASSERT(head_strat>=neg_strat); //head strat can never be lower than that of a tail
+                SASSERT(head_strat >= neg_strat); // head strat can never be lower than that of a tail
                 if (head_strat == neg_strat) {
                     return false;
                 }
