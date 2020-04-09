@@ -1588,7 +1588,8 @@ public:
     void random_update() {
         if (m_use_nra_model || m_nla)
             return;
-
+        m_tmp_var_set.clear();
+        m_tmp_var_set.resize(th.get_num_vars());
         m_model_eqs.reset();
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
