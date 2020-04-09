@@ -4585,10 +4585,6 @@ expr_ref theory_seq::elim_skolem(expr* e) {
             todo.pop_back();            
             continue;
         }
-        else if (m_util.is_skolem(a)) {
-            IF_VERBOSE(0, verbose_stream() << "unhandled skolem " << mk_pp(a, m) << "\n");
-            return expr_ref(m.mk_false(), m);
-        }
 
         args.reset();
         for (expr* arg : *to_app(a)) {
@@ -4599,12 +4595,19 @@ expr_ref theory_seq::elim_skolem(expr* e) {
                 todo.push_back(arg);
             }
         }
-        if (args.size() == to_app(a)->get_num_args()) {
-            todo.pop_back();
-            result = m.mk_app(to_app(a)->get_decl(), args.size(), args.c_ptr());
-            trail.push_back(result);
-            cache.insert(a, result);
-        }        
+        if (args.size() < to_app(a)->get_num_args()) {
+            continue;
+        }
+
+        if (m_util.is_skolem(a)) {
+            IF_VERBOSE(0, verbose_stream() << "unhandled skolem " << mk_pp(a, m) << "\n");
+            return expr_ref(m.mk_false(), m);
+        }
+
+        todo.pop_back();
+        result = m.mk_app(to_app(a)->get_decl(), args.size(), args.c_ptr());
+        trail.push_back(result);
+        cache.insert(a, result);                
     }
     return expr_ref(cache[e], m);
 }
@@ -4672,7 +4675,7 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
         k.assert_expr(f);
     }
     lbool r = k.check();
-    if (r != l_false) {
+    if (r != l_false && !m.limit().get_cancel_flag()) {
         model_ref mdl;
         k.get_model(mdl);
         IF_VERBOSE(0, 
