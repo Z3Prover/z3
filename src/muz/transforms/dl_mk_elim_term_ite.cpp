@@ -181,9 +181,10 @@ namespace datalog {
 
 
     rule_set * mk_elim_term_ite::operator()(rule_set const & source) {
-        if (!m_ctx.elim_term_ite ()) {return nullptr;}
+        if (!m_ctx.elim_term_ite ()) 
+            return nullptr;
 
-        rule_set* rules = alloc(rule_set, m_ctx);
+        scoped_ptr<rule_set> rules = alloc(rule_set, m_ctx);
         rules->inherit_predicates(source);
         bool change = false;
         for (auto *rule : source) {
@@ -194,10 +195,9 @@ namespace datalog {
             change |= elim(*rule, *rules);
         }
         if (!change) {
-            dealloc(rules);
             rules = nullptr;
         }
-        return rules;
+        return rules.detach();
     }
 
 
