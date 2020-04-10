@@ -172,6 +172,7 @@ namespace datalog {
         rw(body);
 
         fml2 = m.mk_implies(body, ground(r.get_head()));
+        SASSERT(!has_term_ite(fml2));
         if (has_term_ite(fml2))
             return false;
         app_ref_vector consts(m);
