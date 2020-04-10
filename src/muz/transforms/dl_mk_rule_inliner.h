@@ -82,6 +82,8 @@ namespace datalog {
 
     class mk_rule_inliner : public rule_transformer::plugin {
 
+        struct has_new_quantifier {};
+
         class visitor : public st_visitor {
             context& m_context;
             unsigned_vector m_unifiers;

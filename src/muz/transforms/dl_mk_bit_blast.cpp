@@ -190,13 +190,17 @@ namespace datalog {
                     m_g_vars.push_back(m_f_vars.back());
                 }
             }
+            if (f->get_family_id() != null_family_id) {
+                return BR_FAILED;
+            }
             func_decl* g = nullptr;
+
 
             if (!m_pred2blast.find(f, g)) {
 
                 ptr_vector<sort> domain;
-                for (unsigned i = 0; i < m_args.size(); ++i) {
-                    domain.push_back(m.get_sort(m_args[i].get()));
+                for (expr* arg : m_args) {
+                    domain.push_back(m.get_sort(arg));
                 }
                 g = m_context.mk_fresh_head_predicate(f->get_name(), symbol("bv"), m_args.size(), domain.c_ptr(), f);
                 m_old_funcs.push_back(f);
@@ -205,7 +209,7 @@ namespace datalog {
 
                 m_dst->inherit_predicate(*m_src, f, g);
             }
-            result = m.mk_app(g, m_args.size(), m_args.c_ptr());
+            result = m.mk_app(g, m_args);
             result_pr = nullptr;
             return BR_DONE;
         }

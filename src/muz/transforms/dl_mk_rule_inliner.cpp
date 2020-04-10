@@ -172,7 +172,8 @@ namespace datalog {
 
         tgt.norm_vars(m_context.get_rule_manager());
 
-        SASSERT(!has_quantifier(src));
+        if (has_quantifier(src))
+            throw has_new_quantifier();
 
         if (!m_unifier.unify_rules(tgt, tail_index, src)) {
             return false;
@@ -425,7 +426,11 @@ namespace datalog {
             unsigned i = 0;
             for  (; i < pt_len && !inlining_allowed(orig, r->get_decl(i)); ++i) {};
 
-            SASSERT(!has_quantifier(*r.get()));
+            CTRACE("dl", has_quantifier(*r.get()), r->display(m_context, tout););
+            if (has_quantifier(*r.get())) {
+                tgt.add_rule(r);
+                continue;
+            }
 
             if (i == pt_len) {
                 //there's nothing we can inline in this rule
@@ -842,7 +847,12 @@ namespace datalog {
         if (m_context.get_params().xform_inline_eager()) {
             TRACE("dl", source.display(tout << "before eager inlining\n"););
             plan_inlining(source);
-            something_done = transform_rules(source, *res);
+            try {
+                something_done = transform_rules(source, *res);
+            }
+            catch (has_new_quantifier) {
+                return nullptr;
+            }
             VERIFY(res->close()); //this transformation doesn't break the negation stratification
             // try eager inlining
             if (do_eager_inlining(res)) {

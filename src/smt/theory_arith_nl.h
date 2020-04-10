@@ -166,8 +166,7 @@ std::pair<unsigned, int> theory_arith<Ext>::analyze_monomial(expr * m) const {
     unsigned c       = 0;
     int free_var_idx = -1;
     int idx          = 0;
-    for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-        expr * arg = to_app(m)->get_arg(i);
+    for (expr * arg : *to_app(m)) { 
         if (m_util.is_numeral(arg))
             continue;
         if (var == nullptr) {
@@ -202,7 +201,7 @@ std::pair<unsigned, int> theory_arith<Ext>::analyze_monomial(expr * m) const {
 template<typename Ext>
 expr * theory_arith<Ext>::get_monomial_body(expr * m) const {
     SASSERT(m_util.is_mul(m));
-    if (m_util.is_numeral(to_app(m)->get_arg(0)))
+    if (to_app(m)->get_num_args() == 2 && m_util.is_numeral(to_app(m)->get_arg(0)))
         return to_app(m)->get_arg(1);
     return m;
 }
