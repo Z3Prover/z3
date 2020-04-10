@@ -152,7 +152,7 @@ public:
     obj_map<expr, expr*>             m_fd;
     obj_map<expr, unsigned>          m_max;
     expr_mark                        m_nonfd;
-    ast_mark                         m_has_eq;
+    expr_mark                        m_has_eq;
     ptr_vector<expr>                 m_todo;
         
     eq2bv_tactic(ast_manager & _m):
@@ -203,7 +203,7 @@ public:
         for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);  
-            expr_ref var(m);
+            app_ref var(m);
             if (is_bound(g->form(i), var) && !m_has_eq.is_marked(var)) {
                 if (m.proofs_enabled()) {
                     new_pr = m.mk_rewrite(g->form(i), m.mk_true());
@@ -312,42 +312,42 @@ public:
         }
     }
 
-    bool is_upper(expr* f, expr_ref& var) {
+    bool is_upper(expr* f, app_ref& var) {
         expr* e1, *e2;
         unsigned k;
         if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e1, e2, k)) {
             SASSERT(m_bounds.has_upper(e1));
-            var = e1;
+            var = to_app(e1);
             return true;
         } 
         return false;
     }
 
-    bool is_lower(expr* f, expr_ref& var) {
+    bool is_lower(expr* f, app_ref& var) {
         expr* e1, *e2;
         unsigned k;
         if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e2, e1, k)) {
             SASSERT(m_bounds.has_lower(e2));
-            var = e2;
+            var = to_app(e2);
             return true;
         } 
         return false;
     }
 
 
-    bool is_bound(expr* f, expr_ref& var) {
+    bool is_bound(expr* f, app_ref& var) {
         return is_lower(f, var) || is_upper(f, var);
     }
 
     void mark_has_eq(expr* e) {
         if (is_uninterp_const(e)) {
-            m_has_eq.mark(to_app(e)->get_decl(), true);
+            m_has_eq.mark(e, true);
         }
     }
 
     void collect_fd(expr* f) {
         m_trail.push_back(f);
-        expr_ref var(m);
+        app_ref var(m);
         if (is_bound(f, var)) return;
         m_todo.push_back(f);
         while (!m_todo.empty()) {

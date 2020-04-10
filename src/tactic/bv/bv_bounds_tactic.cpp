@@ -241,64 +241,6 @@ namespace {
             return false;
         }
 
-#if 0
-        expr_set* get_expr_vars(expr* t) {
-            unsigned id = t->get_id();
-            m_expr_vars.reserve(id + 1);
-            expr_set*& entry = m_expr_vars[id];
-            if (entry)
-                return entry;
-
-            expr_set* set = alloc(expr_set);
-            entry = set;
-
-            if (!m_bv.is_numeral(t))
-                set->insert(t, true);
-
-            if (!is_app(t))
-                return set;
-
-            app* a = to_app(t);
-            for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                expr_set* set_arg = get_expr_vars(a->get_arg(i));
-                for (expr_set::iterator I = set_arg->begin(), E = set_arg->end(); I != E; ++I) {
-                    set->insert(I->m_key, true);
-                }
-            }
-            return set;
-        }
-#endif
-
-#if 0
-        expr_cnt* get_expr_bounds(expr* t) {
-            unsigned id = t->get_id();
-            m_bound_exprs.reserve(id + 1);
-            expr_cnt*& entry = m_bound_exprs[id];
-            if (entry)
-                return entry;
-
-            expr_cnt* set = alloc(expr_cnt);
-            entry = set;
-
-            if (!is_app(t))
-                return set;
-
-            interval b;
-            expr* e;
-            if (is_bound(t, e, b)) {
-                set->insert_if_not_there2(e, 0)->get_data().m_value++;
-            }
-
-            app* a = to_app(t);
-            for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                expr_cnt* set_arg = get_expr_bounds(a->get_arg(i));
-                for (expr_cnt::iterator I = set_arg->begin(), E = set_arg->end(); I != E; ++I) {
-                    set->insert_if_not_there2(I->m_key, 0)->get_data().m_value += I->m_value;
-                }
-            }
-            return set;
-        }
-#endif
 
     public:
         bv_bounds_simplifier(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_bv(m) {
@@ -475,15 +417,6 @@ namespace {
                 if (contains(t, v.m_key)) return true;
             }
 
-#if 0
-            expr_set* used_exprs = get_expr_vars(t);
-            for (map::iterator I = m_bound.begin(), E = m_bound.end(); I != E; ++I) {
-                if (contains(t, I->m_key)) return true;
-                if (I->m_value.is_singleton() && used_exprs->contains(I->m_key))
-                    return true;
-            }
-#endif
-
             expr* t1;
             interval b;
             // skip common case: single bound constraint without any context for simplification
@@ -494,13 +427,6 @@ namespace {
             if (contains_bound(t)) {
                 return true;
             }
-#if 0
-            expr_cnt* bounds = get_expr_bounds(t);
-            for (expr_cnt::iterator I = bounds->begin(), E = bounds->end(); I != E; ++I) {
-                if (I->m_value > 1 || m_bound.contains(I->m_key))
-                    return true;
-            }
-#endif
             return false;
         }
 
