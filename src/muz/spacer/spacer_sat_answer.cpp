@@ -127,8 +127,14 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
     m_solver->assert_expr(fr.pt().transition());
     m_solver->assert_expr(fr.pt().rule2tag(&r));
 
+    TRACE("spacer_sat",
+          tout << "Solver in mk_children\n";
+          m_solver->display(tout) << "\n";);
+
     lbool res = m_solver->check_sat(0, nullptr);
     (void)res;
+    CTRACE("spacer_sat", res != l_true,
+           tout << "Result: " << res << "\n";);
     VERIFY(res == l_true);
 
     model_ref mdl;

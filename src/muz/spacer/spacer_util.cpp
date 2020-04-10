@@ -496,15 +496,16 @@ namespace {
             SASSERT(m_todo.empty());
             if (m_visited.is_marked(e) || !is_app(e)) return;
 
+            m_todo.reset();
             m_todo.push_back(e);
-            for (unsigned i = 0; i < m_todo.size(); ++i) {
+            while(!m_todo.empty()) {
                 e = m_todo.back();
+                m_todo.pop_back();
                 if (!is_app(e)) continue;
                 app* a = to_app(e);
-                m_todo.pop_back();
                 process_app(a, out);
                 m_visited.mark(a, true);
-            } 
+            }
             m_todo.reset();
         }
 
