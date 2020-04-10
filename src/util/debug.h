@@ -90,6 +90,9 @@ bool is_debug_enabled(const char * tag);
 
 #define NOT_IMPLEMENTED_YET() { std::cerr << "NOT IMPLEMENTED YET!\n"; UNREACHABLE(); exit(ERR_NOT_IMPLEMENTED_YET); } ((void) 0)
 
+#define CABORT(COND, MSG) if(!(COND)) { throw new default_exception(MSG); }
+#define ABORT(MSG) if(true) { throw new default_exception(MSG); }
+
 #define VERIFY(_x_) if (!(_x_)) {                               \
         std::cerr << "Failed to verify: " << #_x_ << "\n";      \
         UNREACHABLE();                                          \

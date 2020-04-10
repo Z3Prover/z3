@@ -68,7 +68,7 @@ void rule_properties::check_quantifier_free() {
         std::stringstream stm;
         stm << "cannot process quantifier in rule ";
         r->display(m_ctx, stm);
-        throw default_exception(stm.str());
+        ABORT(stm.str());
     }
 }
 
@@ -78,7 +78,7 @@ void rule_properties::check_for_negated_predicates() {
         std::stringstream stm;
         stm << "Rule contains negative predicate ";
         r->display(m_ctx, stm);
-        throw default_exception(stm.str());        
+        ABORT(stm.str());        
     }
 }
 
@@ -92,7 +92,7 @@ void rule_properties::check_uninterpreted_free() {
             << f->get_name() 
             << "' in ";
         r->display(m_ctx, stm);
-        throw default_exception(stm.str());
+        ABORT(stm.str());
     }
 }
 
@@ -102,7 +102,7 @@ void rule_properties::check_infinite_sorts() {
         rule* r = m_inf_sort.back();
         stm << "Rule contains infinite sorts in rule ";
         r->display(m_ctx, stm);
-        throw default_exception(stm.str());
+        ABORT(stm.str());
     }
 }
 
@@ -112,7 +112,7 @@ void rule_properties::check_nested_free() {
         rule* r = m_interp_pred[0];
         stm << "Rule contains nested predicates ";
         r->display(m_ctx, stm);
-        throw default_exception(stm.str());
+        ABORT(stm.str());
     }
 }
 
@@ -162,7 +162,7 @@ void rule_properties::check_existential_tail() {
         if (check_pred(e)) {
             std::ostringstream out;
             out << "recursive predicate " << mk_ismt2_pp(e, m) << " occurs nested in the body of a rule";
-            throw default_exception(out.str());            
+            ABORT(out.str());
         }
     }
 }
