@@ -62,7 +62,7 @@ namespace smt {
         if (m.has_trace_stream())
             throw default_exception("trace streams have to be off in parallel mode");
 
-
+        
         for (unsigned i = 0; i < num_threads; ++i) {
             smt_params.push_back(ctx.get_fparams());
         }
@@ -182,6 +182,8 @@ namespace smt {
                 done = true;
             }
         };
+
+        num_threads = 1;
 
         while (true) {
             vector<std::thread> threads(num_threads);

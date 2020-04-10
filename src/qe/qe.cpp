@@ -2500,8 +2500,12 @@ namespace qe {
                     qe_solver_plugin* p = m_plugins[i];
                     solved = p && p->solve(conjs, fml);
                 }                
-                TRACE("qe", tout << (solved?"solved":"not solved") << "\n";
-                            if (solved) tout << mk_ismt2_pp(fml, m) << "\n";);
+                TRACE("qe", 
+                      tout << (solved?"solved":"not solved") << "\n";
+                      if (solved) tout << mk_ismt2_pp(fml, m) << "\n";
+                      tout << *m_vars << "\n";
+                      tout << "contains: " << m_contains.size() << "\n";
+                      );
             }
             while (solved);
         }
@@ -2531,7 +2535,7 @@ namespace qe {
 
         // callback to replace variable at index 'idx' with definition 'def' and updated formula 'fml'
         void elim_var(unsigned idx, expr* fml, expr* def) override {
-            TRACE("qe", tout << mk_pp(m_vars->get(idx), m) << " " << mk_pp(fml, m) << "\n";);
+            TRACE("qe", tout << idx << ": " << mk_pp(m_vars->get(idx), m) << " " << mk_pp(fml, m) << " " << m_contains.size() << "\n";);
             *m_fml = fml;
             m_vars->set(idx, m_vars->get(m_vars->size()-1));
             m_vars->pop_back();
@@ -2544,6 +2548,7 @@ namespace qe {
         void add_var(app* x) override {
             TRACE("qe", tout << "add var: " << mk_pp(x, m) << "\n";);
             m_vars->push_back(x);
+            m_contains.push_back(alloc(contains_app, m, x));
         }
 
         // callback to add constraints in branch.
@@ -2557,9 +2562,8 @@ namespace qe {
 
     private:
         void reset() {
-            for (unsigned i = 0; i < m_contains.size(); ++i) {
-                dealloc (m_contains[i]);
-            }  
+            for (auto* c : m_contains) 
+                dealloc (c);            
             m_contains.reset();
         }
 
@@ -2567,8 +2571,9 @@ namespace qe {
             reset();
             m_fml = &fml;
             m_vars = &vars;
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                m_contains.push_back(alloc(contains_app, m, vars[i].get()));
+            TRACE("qe", tout << "Vars: " << vars << "\n";);
+            for (auto* v  : vars) {
+                m_contains.push_back(alloc(contains_app, m, v));
             }
         }
     };
@@ -2621,9 +2626,9 @@ namespace qe {
             TRACE("qe", tout << "abstracted" << mk_pp(result, m) << "\n";);
             ptr_vector<sort> sorts;
             svector<symbol> names;
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                sorts.push_back(vars[i]->get_decl()->get_range());
-                names.push_back(vars[i]->get_decl()->get_name());
+            for (app* v : vars) {
+                sorts.push_back(v->get_decl()->get_range());
+                names.push_back(v->get_decl()->get_name());
             }
             if (!vars.empty()) {
                 result = m.mk_quantifier(old_q->get_kind(), vars.size(), sorts.c_ptr(), names.c_ptr(), result, 1);

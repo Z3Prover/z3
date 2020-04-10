@@ -735,7 +735,7 @@ namespace qe {
         bool solve(conj_enum& conjs, expr* fml) {
             expr_ref_vector eqs(m);
             extract_equalities(conjs, eqs);
-            return reduce_equations(eqs.size(), eqs.c_ptr(), fml);
+            return reduce_equations(eqs, fml);
         }
 
         // ----------------------------------------------------------------------
@@ -934,9 +934,9 @@ namespace qe {
         // Linear equations eliminate original variables and introduce auxiliary variables.
         // 
         
-        bool reduce_equations(unsigned num_eqs, expr * const* eqs, expr* fml) {
-            for (unsigned i = 0; i < num_eqs; ++i) {
-                if (reduce_equation(eqs[i], fml)) {
+        bool reduce_equations(expr_ref_vector const& eqs, expr* fml) {
+            for (expr* eq : eqs) {
+                if (reduce_equation(eq, fml)) {
                     return true;
                 }
             }
@@ -1077,7 +1077,7 @@ namespace qe {
             m_replace.apply_substitution(x, p1, result);
             simplify(result);            
             m_ctx.elim_var(index-1, result, p1);
-            TRACE("qe", tout << "Reduced: " << mk_pp(result, m) << "\n";);
+            TRACE("qe", tout << "Reduced " << index-1 << " : " << result << "\n";);
             return true;
         }        
 
