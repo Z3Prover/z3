@@ -268,6 +268,7 @@ public:
     // Macros
     //
     // -----------------------------------
+    macro_manager& get_macro_manager() { return m_macro_manager; }
     unsigned get_num_macros() const { return m_macro_manager.get_num_macros(); }
     unsigned get_first_macro_last_level() const { return m_macro_manager.get_first_macro_last_level(); }
     func_decl * get_macro_func_decl(unsigned i) const { return m_macro_manager.get_macro_func_decl(i); }

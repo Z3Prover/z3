@@ -160,6 +160,8 @@ namespace smt {
             dst_af.assert_expr(fml, pr);
         }
 
+        src_af.get_macro_manager().copy_to(dst_af.get_macro_manager());
+
         if (!src_ctx.m_setup.already_configured()) {
             return;
         }

@@ -65,6 +65,7 @@ class macro_manager {
 public:
     macro_manager(ast_manager & m);
     ~macro_manager();
+    void copy_to(macro_manager& dst);
     ast_manager & get_manager() const { return m; }
     macro_util & get_util() { return m_util; }
     bool insert(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep = nullptr);

@@ -25,6 +25,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_translation.h"
 #include "ast/recurse_expr_def.h"
 
 
@@ -93,6 +94,26 @@ void macro_manager::reset() {
     m_forbidden_set.reset();
     m_forbidden.reset();
     m_deps.reset();
+}
+
+void macro_manager::copy_to(macro_manager& dst) {
+    ast_manager& tm = dst.get_manager();
+    ast_translation tr(m, tm);
+    for (func_decl* f : m_decls) {
+        func_decl_ref f2(tr(f), tm);
+        quantifier_ref q2(tr(m_decl2macro[f]), tm);
+        proof_ref pr2(tm);
+        expr_dependency_ref dep2(tm);
+        proof* pr1 = nullptr;
+        if (m_decl2macro_pr.find(f, pr1)) {
+            pr2 = tr(pr1);
+        }
+        expr_dependency* dep1 = m_decl2macro_dep[f];
+        if (dep1) {
+            dep2 = ::translate(dep1, m, tm);
+        }
+        dst.insert(f2, q2, pr2, dep2);        
+    }
 }
 
 bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr, expr_dependency* dep) {
