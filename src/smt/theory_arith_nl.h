@@ -1339,20 +1339,23 @@ expr * theory_arith<Ext>::factor(expr * m, expr * var, unsigned d) {
         m_nl_new_exprs.push_back(result);
         return result;
     }
-    SASSERT(is_pure_monomial(m));
-    unsigned idx = 0;
+
     ptr_buffer<expr> new_args;
-    for (expr * arg : *to_app(m)) {
-        if (arg == var) {
-            if (idx < d)
-                idx++;
-            else
-                new_args.push_back(arg);
-        }
-        else {
+    unsigned idx = 0;
+    auto insert = [&](expr* arg) {
+        if (idx < d && var == arg)
+            ++idx;
+        else
             new_args.push_back(arg);
+    };
+    while (m_util.is_mul(m) && idx < d) {
+        unsigned sz = to_app(m)->get_num_args();
+        for (unsigned i = 0; i + 1 < sz; ++i) {
+            insert(to_app(m)->get_arg(i));
         }
+        m = to_app(m)->get_arg(sz - 1);
     }
+    insert(m);
     SASSERT(idx == d);
     TRACE("factor_bug", tout << "new_args:\n"; for(unsigned i = 0; i < new_args.size(); i++) tout << mk_pp(new_args[i], get_manager()) << "\n";);
     expr * result = mk_nary_mul(new_args.size(), new_args.c_ptr(), m_util.is_int(var));
