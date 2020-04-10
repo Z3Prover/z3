@@ -901,7 +901,6 @@ class theory_lra::imp {
         for (unsigned i = m_bounds_trail.size(); i-- > old_size; ) {
             unsigned v = m_bounds_trail[i];
             lp_api::bound* b = m_bounds[v].back();
-            m_bool_var2bound.erase(v);
             // del_use_lists(b);
             dealloc(b);
             m_bounds[v].pop_back();                        
@@ -1054,6 +1053,7 @@ public:
         lp_api::bound_kind k;
         theory_var v = null_theory_var;
         bool_var bv = ctx().mk_bool_var(atom);
+        m_bool_var2bound.erase(bv);
         ctx().set_var_theory(bv, get_id());
         if (a.is_le(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
             v = internalize_def(to_app(n1));
@@ -1063,7 +1063,7 @@ public:
             v = internalize_def(to_app(n1));
             k = lp_api::lower_t;
         }  
-        if (a.is_le(atom, n1, n2) && is_numeral(n1, r) && is_app(n2)) {
+        else if (a.is_le(atom, n1, n2) && is_numeral(n1, r) && is_app(n2)) {
             v = internalize_def(to_app(n2));
             k = lp_api::lower_t;
         }
@@ -2300,8 +2300,11 @@ public:
             TRACE("arith", tout << "propagate: " << bv << "\n";);
             if (m_bool_var2bound.find(bv, b)) {
                 assert_bound(bv, is_true, *b);
-                ++m_asserted_qhead;
             }
+            else {
+                TRACE("arith", tout << "not found " << bv << "\n";);
+            }
+            ++m_asserted_qhead;
         }
         if (ctx().inconsistent()) {
             m_to_check.reset();
@@ -3790,6 +3793,7 @@ public:
         if (!ctx().b_internalized(b)) {
             fm.hide(b->get_decl());
             bool_var bv =  ctx().mk_bool_var(b);
+            m_bool_var2bound.erase(bv);
             ctx().set_var_theory(bv, get_id());
             // ctx().set_enode_flag(bv, true);
             lp_api::bound_kind bkind = lp_api::bound_kind::lower_t;
