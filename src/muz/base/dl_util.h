@@ -369,7 +369,7 @@ namespace datalog {
     proof_converter* mk_skip_proof_converter();
 
 
-    void reverse_renaming(ast_manager & m, const expr_ref_vector & src, expr_ref_vector & tgt);
+    void reverse_renaming(const var_ref_vector & src, var_ref_vector & tgt);
 
 
     void print_renaming(const expr_ref_vector & cont, std::ostream & out);

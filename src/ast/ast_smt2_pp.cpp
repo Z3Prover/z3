@@ -1372,6 +1372,12 @@ std::ostream& operator<<(std::ostream& out, expr_ref_vector const&  e) {
     return ast_smt2_pp(out, e.size(), e.c_ptr(), env, p, 0, 0, nullptr);
 }
 
+std::ostream& operator<<(std::ostream& out, var_ref_vector const&  e) {
+    smt2_pp_environment_dbg env(e.get_manager());
+    params_ref p;
+    return ast_smt2_pp(out, e.size(), (expr*const*)e.c_ptr(), env, p, 0, 0, nullptr);
+}
+
 std::ostream& operator<<(std::ostream& out, app_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;

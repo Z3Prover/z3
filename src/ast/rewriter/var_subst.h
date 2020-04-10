@@ -50,6 +50,8 @@ public:
     */
     expr_ref operator()(expr * n, unsigned num_args, expr * const * args);
     inline expr_ref operator()(expr * n, expr_ref_vector const& args) { return (*this)(n, args.size(), args.c_ptr()); }
+    inline expr_ref operator()(expr * n, var_ref_vector const& args) { return (*this)(n, args.size(), (expr*const*)args.c_ptr()); }
+    inline expr_ref operator()(expr * n, app_ref_vector const& args) { return (*this)(n, args.size(), (expr*const*)args.c_ptr()); }
     inline expr_ref operator()(expr * n, ptr_vector<expr> const& args) { return (*this)(n, args.size(), args.c_ptr()); }
     void reset() { m_reducer.reset(); }
 };
