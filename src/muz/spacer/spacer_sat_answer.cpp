@@ -68,6 +68,7 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
         SASSERT(res == l_true);
         model_ref mdl;
         m_solver->get_model(mdl);
+        mdl->compress();
         model::scoped_model_completion _scm(mdl, true);
         for (unsigned i = 0, sz = query.sig_size(); i < sz; ++i) {
             expr_ref arg(m), val(m);
@@ -132,6 +133,7 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
 
     model_ref mdl;
     m_solver->get_model(mdl);
+    mdl->compress();
     expr_ref_vector subst(m);
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
         subst.reset();
