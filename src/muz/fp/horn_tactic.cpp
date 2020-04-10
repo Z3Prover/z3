@@ -359,6 +359,8 @@ class horn_tactic : public tactic {
                 not_supported("xform.magic");
             if (p.xform_quantify_arrays())
                 not_supported("xform.quantify_arrays");
+            if (p.xform_scale())
+                not_supported("xform.scale");
         }
 
         void not_supported(char const* s) {
