@@ -74,6 +74,7 @@ namespace sat {
         m_par_syncing_clauses(false) {
         init_reason_unknown();
         updt_params(p);
+        m_best_phase_size         = 0;
         m_conflicts_since_gc      = 0;
         m_conflicts_since_init    = 0;
         m_next_simplify           = 0;
