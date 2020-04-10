@@ -1004,19 +1004,19 @@ app_ref pred_transformer::mk_fresh_rf_tag ()
     return app_ref(m.mk_const (pm.get_n_pred (decl)), m);
 }
 
-void pred_transformer::add_rf (reach_fact *rf)
+void pred_transformer::add_rf (reach_fact *rf, bool force)
 {
     timeit _timer (is_trace_enabled("spacer_timeit"),
                    "spacer::pred_transformer::add_rf",
                    verbose_stream ());
 
-    TRACE ("spacer",
-           tout << "add_rf: " << head()->get_name() << " "
-           << (rf->is_init () ? "INIT " : "")
-           << mk_pp(rf->get (), m) << "\n";);
+    if (!rf) return;
+    TRACE("spacer", tout << "add_rf: " << head()->get_name() << " "
+                         << (rf->is_init() ? "INIT " : "")
+                         << mk_pp(rf->get(), m) << "\n";);
 
-    // -- avoid duplicates
-    if (!rf || get_rf(rf->get())) {return;}
+    // -- avoid duplicates unless forced
+    if (!force && get_rf(rf->get())) {return;}
 
     // all initial facts are grouped together
     SASSERT (!rf->is_init () || m_reach_facts.empty () ||
@@ -1384,7 +1384,11 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
         if (model && model->get()) {
             r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
             TRACE("spacer", 
-                tout << "reachable " << r << " is_concrete " << is_concrete << " rused: " << reach_pred_used << "\n";);
+                  tout << "reachable is_sat: " << is_sat << " "
+                  << r << " is_concrete " << is_concrete << " rused: " << reach_pred_used << "\n";
+                  ctx.get_datalog_context().get_rule_manager().display_smt2(*r, tout) << "\n";
+                  );
+            TRACE("spacer_sat", tout << "model is:\n" << **model << "\n";);
         }
 
         return is_sat;
@@ -1392,13 +1396,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     if (is_sat == l_false) {
         SASSERT (reach_assumps.empty ());
         TRACE ("spacer", tout << "unreachable with lemmas\n";
-               if (core) {
-                   tout << "Core:\n";
-                   for (unsigned i = 0; i < core->size (); i++) {
-                       tout << mk_pp (core->get(i), m) << "\n";
-                   }
-               }
-            );
+               if (core) tout << "Core:\n" << *core << "\n";);
         uses_level = m_solver->uses_level();
         return l_false;
     }
@@ -3378,10 +3376,15 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         // must-reachable
         if (is_concrete) {
             // -- update must summary
-            if (r && r->get_uninterpreted_tail_size() > 0) {
-                reach_fact_ref rf = n.pt().mk_rf (n, *model, *r);
+            CTRACE("spacer_sat", r,
+                   tout << "Concrete reachable with a rule:\n";
+                   get_datalog_context().get_rule_manager().display_smt2(*r, tout) << "\n";
+                   );
+            bool is_root = m_pob_queue.is_root(n);
+            if (r && (r->get_uninterpreted_tail_size() > 0 || is_root )) {
+                reach_fact_ref rf = n.pt().mk_rf(n, *model, *r);
                 checkpoint ();
-                n.pt ().add_rf (rf.get ());
+                n.pt ().add_rf(rf.get (), is_root);
                 checkpoint ();
             }
 

@@ -510,7 +510,7 @@ public:
     /// initialize reachability facts using initial rules
     void init_rfs ();
     reach_fact *mk_rf(pob &n, model &mdl, const datalog::rule &r);
-    void add_rf (reach_fact *fact);  // add reachability fact
+    void add_rf (reach_fact *fact, bool force = false);  // add reachability fact
     reach_fact* get_last_rf () const { return m_reach_facts.back (); }
     expr* get_last_rf_tag () const;
 

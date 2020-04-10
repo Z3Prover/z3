@@ -64,8 +64,9 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
         solver::scoped_push _s_(*m_solver);
         m_solver->assert_expr(query.get_last_rf()->get());
         lbool res = m_solver->check_sat(0, nullptr);
-        (void)res;
-        SASSERT(res == l_true);
+        CTRACE("spacer_sat", res != l_true, tout << "solver at check:\n";
+               m_solver->display(tout) << "res: " << res << "\n";);
+        VERIFY(res == l_true);
         model_ref mdl;
         m_solver->get_model(mdl);
         mdl->compress();
