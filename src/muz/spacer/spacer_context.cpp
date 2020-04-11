@@ -1683,7 +1683,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
     if (ut_size > 0 && !is_ground(trans)) {
         std::stringstream stm;
         stm << "spacer: quantifier in a recursive rule:\n";
-        rule.display(get_context().get_datalog_context(), tout);
+        rule.display(get_context().get_datalog_context(), stm);
         throw default_exception(stm.str());
     }
 
