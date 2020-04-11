@@ -27,10 +27,14 @@ namespace nla {
 }
 
 namespace lp {
+
 typedef unsigned var_index;
 typedef unsigned constraint_index;
 typedef unsigned row_index;
 enum lconstraint_kind { LE = -2, LT = -1 , GE = 2, GT = 1, EQ = 0, NE = 3 };
+typedef unsigned lpvar;
+const lpvar null_lpvar = UINT_MAX;
+const constraint_index null_ci = UINT_MAX;
 
 
 // index that comes from term or variable.
@@ -79,6 +83,7 @@ class column_index {
 public:
     column_index(unsigned j): m_index(j) {}    
     unsigned index() const { return m_index; }
+    bool is_null() const { return m_index == null_lpvar; }
 };
 
 }

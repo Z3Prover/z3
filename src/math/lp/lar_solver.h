@@ -46,9 +46,6 @@ Revision History:
 
 namespace lp {
 
-typedef unsigned lpvar;
-const lpvar null_lpvar = UINT_MAX;
-const constraint_index null_ci = UINT_MAX;
 
 class lar_solver : public column_namer {
     struct term_hasher {
@@ -123,9 +120,7 @@ public:
     static_matrix<double, double> & A_d();
     static_matrix<double, double > const & A_d() const;
     
-    static bool valid_index(unsigned j){ return static_cast<int>(j) >= 0;}
-
-    bool column_is_int(column_index const& j) const { return column_is_int((unsigned)j); }
+    static bool valid_index(unsigned j) { return static_cast<int>(j) >= 0;}
 
     bool column_is_int(unsigned j) const;
     bool column_value_is_int(unsigned j) const { return m_mpq_lar_core_solver.m_r_x[j].is_int(); }
@@ -136,7 +131,8 @@ public:
     }
 
     unsigned external_to_column_index(unsigned) const;
-    
+
+    // NSB code review: function seems misnamed. 'j' can be a term index. Columns are not term indices.    
     const mpq& get_column_value_rational(unsigned j) const {
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
@@ -146,8 +142,6 @@ public:
 
     bool column_is_fixed(unsigned j) const;
     bool column_is_free(unsigned j) const;
-
-    bool well_formed(lar_term const& t) const;
 
     const lar_term & get_term(unsigned j) const;
 
@@ -202,6 +196,14 @@ public:
     bool compare_values(var_index j, lconstraint_kind kind, const mpq & right_side);
 
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq & rhs);
+
+    // columns
+
+    bool column_is_int(column_index const& j) const { return column_is_int((unsigned)j); }
+    column_index to_column_index(unsigned v) const { return column_index(external_to_column_index(v)); }
+    bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
+    const impq& get_value(column_index const& j) const { return get_column_value(j); }
+
 
     void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
@@ -280,14 +282,13 @@ public:
     
     var_index external_to_local(unsigned j) const {
         var_index local_j;
-        if (
-            m_var_register.external_is_used(j, local_j) ||
-            m_term_register.external_is_used(j, local_j))
-            {
-                return local_j;
-            }
-        else
+        if (m_var_register.external_is_used(j, local_j) ||
+            m_term_register.external_is_used(j, local_j)) {
+            return local_j;
+        }
+        else {
             return -1;
+        }
     }
 
     bool column_has_upper_bound(unsigned j) const {
@@ -298,11 +299,11 @@ public:
         return m_mpq_lar_core_solver.m_r_solver.column_has_lower_bound(j);
     }
 
-    const impq& get_upper_bound(unsigned j) const {
+    const impq& get_upper_bound(column_index j) const {
         return m_mpq_lar_core_solver.m_r_solver.m_upper_bounds[j];
     }
 
-    const impq& get_lower_bound(unsigned j) const {
+    const impq& get_lower_bound(column_index j) const {
         return m_mpq_lar_core_solver.m_r_solver.m_lower_bounds[j];
     }
     

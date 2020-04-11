@@ -974,9 +974,6 @@ namespace {
         }
 
         void assign_lit_eh(literal l) override {
-            // if (m_current_generation > stop_gen)
-            //    m_current_generation--;
-
             expr * e = m_context.bool_var2expr(l.var());
             if (e == m_current_goal)
                 return;
@@ -1096,7 +1093,6 @@ namespace {
 
         void set_goal(expr * e)
         {
-
             if (e == m_current_goal) return;
 
             GOAL_START();

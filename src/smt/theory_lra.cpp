@@ -84,7 +84,7 @@ public:
     }
     virtual ~bound() {}
     smt::theory_var get_var() const { return m_var; }
-    lpvar lp_solver_var() const { return m_vi; }
+    lp::tv tv() const { return lp::tv::raw(m_vi); }
     smt::bool_var get_bv() const { return m_bv; }
     bound_kind get_bound_kind() const { return m_bound_kind; }
     bool is_int() const { return m_is_int; }
@@ -114,7 +114,6 @@ std::ostream& operator<<(std::ostream& out, bound const& b) {
 struct stats {
     unsigned m_assert_lower;
     unsigned m_assert_upper;
-    unsigned m_add_rows;
     unsigned m_bounds_propagations;
     unsigned m_num_iterations;
     unsigned m_num_iterations_with_no_progress;
@@ -842,26 +841,21 @@ class theory_lra::imp {
     void add_eq_constraint(lp::constraint_index index, enode* n1, enode* n2) {
         m_constraint_sources.setx(index, equality_source, null_source);
         m_equalities.setx(index, enode_pair(n1, n2), enode_pair(0, 0));
-        ++m_stats.m_add_rows;
     }
         
     void add_ineq_constraint(lp::constraint_index index, literal lit) {
         m_constraint_sources.setx(index, inequality_source, null_source);
         m_inequalities.setx(index, lit, null_literal);
-        ++m_stats.m_add_rows;
-        TRACE("arith", lp().constraints().display(tout, index) << " m_stats.m_add_rows = " << m_stats.m_add_rows << "\n";);
     }
 
     void add_def_constraint(lp::constraint_index index) {
         m_constraint_sources.setx(index, definition_source, null_source);
         m_definitions.setx(index, null_theory_var, null_theory_var);
-        ++m_stats.m_add_rows;
     }
         
     void add_def_constraint(lp::constraint_index index, theory_var v) {
         m_constraint_sources.setx(index, definition_source, null_source);
         m_definitions.setx(index, v, null_theory_var);
-        ++m_stats.m_add_rows;
     }
 
 
@@ -1609,8 +1603,8 @@ public:
             if (!th.is_relevant_and_shared(n1)) {
                 continue;
             }
-            lpvar vj = lp().external_to_column_index(v);
-            if (vj == lp::null_lpvar)
+            lp::column_index vj = lp().to_column_index(v);
+            if (vj.is_null()) 
                 continue;
             theory_var other = m_model_eqs.insert_if_not_there(v);
             if (other == v) {
@@ -1619,14 +1613,14 @@ public:
             enode * n2 = get_enode(other);
             if (n1->get_root() == n2->get_root())
                 continue;
-            if (!lp().column_is_fixed(vj)) {
-                vars.push_back(vj);
+            if (!lp().is_fixed(vj)) {
+                vars.push_back(vj.index());
             }
             else if (!m_tmp_var_set.contains(other) ) {
-                unsigned other_j = lp().external_to_column_index(other);
-                if (!lp().column_is_fixed(other_j)) {
+                lp::column_index other_j = lp().to_column_index(other);
+                if (!lp().is_fixed(other_j)) {
                     m_tmp_var_set.insert(other);
-                    vars.push_back(other_j);
+                    vars.push_back(other_j.index());
                 }
             } 
         }
@@ -2447,6 +2441,7 @@ public:
                 });
             ++m_stats.m_bound_propagations1;
             assign(lit, m_core, m_eqs, m_params);
+      
         }
     }
 
@@ -2999,6 +2994,8 @@ public:
 
     void assert_bound(bool_var bv, bool is_true, lp_api::bound& b) {
         lp::constraint_index ci = b.get_constraint(is_true);
+        lp::column_index j = lp().to_column_index(b.get_var());
+        bool was_fixed = lp().is_fixed(j);
         m_solver->activate(ci);
         if (is_infeasible()) {
             return;
@@ -3010,7 +3007,10 @@ public:
         else {
             ++m_stats.m_assert_upper;
         }
-        propagate_eqs(b.lp_solver_var(), ci, k, b);
+        inf_rational const& value = b.get_value(is_true);
+        if (value.is_rational()) {
+            propagate_eqs(b.tv(), ci, k, b, value.get_rational());
+        }
     }
 
     lp_api::bound* mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound) {
@@ -3054,21 +3054,29 @@ public:
     typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
     value2var               m_fixed_var_table;
 
-    void propagate_eqs(lpvar vi, lp::constraint_index ci, lp::lconstraint_kind k, lp_api::bound& b) {
-        if (propagate_eqs()) {
-            rational const& value = b.get_value();
+    void propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, lp_api::bound& b, rational const& value) {
+        bool best_bound = false;
+        if (k == lp::GE) {
+            best_bound = set_lower_bound(t, ci, value);
+        }
+        else if (k == lp::LE) {
+            best_bound = set_upper_bound(t, ci, value);
+        }
+
+        if (propagate_eqs() && best_bound) {
             if (k == lp::GE) {
-                if (set_lower_bound(vi, ci, value) && has_upper_bound(vi, ci, value)) {
+                if (has_upper_bound(t.index(), ci, value)) {
                     fixed_var_eh(b.get_var(), value);
                 }
             }
             else if (k == lp::LE) {
-                if (set_upper_bound(vi, ci, value) && has_lower_bound(vi, ci, value)) {
+                if (has_lower_bound(t.index(), ci, value)) {
                     fixed_var_eh(b.get_var(), value);
                 }
             }
         }
     }
+
 
     bool dump_lemmas() const { return m_arith_params.m_arith_dump_lemmas; }
 
@@ -3080,9 +3088,9 @@ public:
 
     bool proofs_enabled() const { return m.proofs_enabled(); }
 
-    bool set_upper_bound(lpvar vi, lp::constraint_index ci, rational const& v) { return set_bound(vi, ci, v, false);  }
+    bool set_upper_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, false);  }
 
-    bool set_lower_bound(lpvar vi, lp::constraint_index ci, rational const& v) { return set_bound(vi, ci, v, true);   }
+    bool set_lower_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, true);   }
 
     vector<constraint_bound> m_history;
     template<typename Ctx, typename T, bool CallDestructors=true>
@@ -3106,17 +3114,16 @@ public:
     };
 
 
-    bool set_bound(lpvar vi, lp::constraint_index ci, rational const& v, bool is_lower) {
-
-        if (lp::tv::is_term(vi)) {
-            lpvar ti = lp::tv::unmask_term(vi);
+    bool set_bound(lp::tv tv, lp::constraint_index ci, rational const& v, bool is_lower) {
+        if (tv.is_term()) {
+            lpvar ti = tv.id();
             auto& vec = is_lower ? m_lower_terms : m_upper_terms;
             if (vec.size() <= ti) {
                 vec.resize(ti + 1, constraint_bound(UINT_MAX, rational()));
             }
             constraint_bound& b = vec[ti];
             if (b.first == UINT_MAX || (is_lower? b.second < v : b.second > v)) {
-                TRACE("arith", tout << "tighter bound " << lp().get_variable_name(vi) << "\n";);
+                TRACE("arith", tout << "tighter bound " << tv.to_string() << "\n";);
                 m_history.push_back(vec[ti]);
                 ctx().push_trail(history_trail<context, constraint_bound>(vec, ti, m_history));
                 b.first = ci;
@@ -3125,17 +3132,16 @@ public:
             return true;
         }
         else {
-            TRACE("arith", tout << "not a term " << vi << "\n";);
+            TRACE("arith", tout << "not a term " << tv.to_string() << "\n";);
             // m_solver already tracks bounds on proper variables, but not on terms.
             bool is_strict = false;
             rational b;
             if (is_lower) {
-                return lp().has_lower_bound(vi, ci, b, is_strict) && !is_strict && b == v;
+                return lp().has_lower_bound(tv.id(), ci, b, is_strict) && !is_strict && b == v;
             }
             else {
-                return lp().has_upper_bound(vi, ci, b, is_strict) && !is_strict && b == v;
-            }
-            
+                return lp().has_upper_bound(tv.id(), ci, b, is_strict) && !is_strict && b == v;
+            }            
         }
     }
 
@@ -3188,11 +3194,13 @@ public:
         }
     }
 
-
-    bool is_equal(theory_var x, theory_var y) const { return get_enode(x)->get_root() == get_enode(y)->get_root(); }
-
+    bool is_equal(theory_var x, theory_var y) const { 
+        return get_enode(x)->get_root() == get_enode(y)->get_root(); 
+    }
 
     void fixed_var_eh(theory_var v1, rational const& bound) {
+        // IF_VERBOSE(0, verbose_stream() << "fix " << mk_bounded_pp(get_owner(v1), m) << " " << bound << "\n");
+
         theory_var v2;
         value_sort_pair key(bound, is_int(v1));
         if (m_fixed_var_table.find(key, v2)) {
@@ -3888,7 +3896,6 @@ public:
         m_arith_eq_adapter.collect_statistics(st);
         st.update("arith-lower", m_stats.m_assert_lower);
         st.update("arith-upper", m_stats.m_assert_upper);
-        st.update("arith-add-rows", m_stats.m_add_rows);
         st.update("arith-propagations", m_stats.m_bounds_propagations);
         st.update("arith-iterations", m_stats.m_num_iterations);
         st.update("arith-factorizations", lp().settings().stats().m_num_factorizations);

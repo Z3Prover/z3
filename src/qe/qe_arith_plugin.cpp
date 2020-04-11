@@ -750,9 +750,7 @@ namespace qe {
             expr_ref tmp1(m), tmp2(m);
             expr *a0, *a1;
             eqs.reset();
-            conj_enum::iterator it = conjs.begin(), end = conjs.end();
-            for (; it != end; ++it) {
-                expr* e = *it;
+            for (expr* e : conjs) {
                 bool is_leq = false;
                 
                 if (m.is_eq(e, a0, a1) && is_arith(a0)) {
@@ -1548,10 +1546,8 @@ public:
         {}
 
         ~arith_plugin() override {
-            bounds_cache::iterator it = m_bounds_cache.begin(), end = m_bounds_cache.end();
-            for (; it != end; ++it) {
-                dealloc(it->get_value());
-            }
+            for (auto & kv : m_bounds_cache) 
+                dealloc(kv.get_value());
         }
 
         void assign(contains_app& contains_x, expr* fml, rational const& vl) override {
@@ -2397,9 +2393,7 @@ public:
         bool update_bounds(bounds_proc& bounds, contains_app& contains_x, expr* fml, atom_set const& tbl, bool is_pos) 
         {
             app_ref tmp(m);
-            atom_set::iterator it = tbl.begin(), end = tbl.end();
-            for (; it != end; ++it) {
-                app* e = *it; 
+            for (app* e : tbl) {
                 if (!contains_x(e)) {
                     continue;
                 }
@@ -2468,14 +2462,10 @@ public:
         }
 
         ~nlarith_plugin() override {
-            bcs_t::iterator it = m_cache.begin(), end = m_cache.end();
-            for (; it != end; ++it) {
-                dealloc(it->get_value());
-            }
-            weights_t::iterator it2 = m_weights.begin(), e2 = m_weights.end();
-            for (; it2 != e2; ++it2) {
-                dealloc(it2->get_value());
-            }                        
+            for (auto & kv : m_cache) 
+                dealloc(kv.get_value());
+            for (auto& kv : m_weights)
+                dealloc(kv.get_value());
         }
 
         bool simplify(expr_ref& fml) override {
@@ -2605,9 +2595,7 @@ public:
         }
 
         void update_bounds(expr_ref_vector& lits, atom_set const& tbl, bool is_pos) {
-            atom_set::iterator it = tbl.begin(), end = tbl.end();
-            for (; it != end; ++it) {
-                app* e = *it; 
+            for (app* e : tbl) {
                 lits.push_back(is_pos?e:m.mk_not(e));                
             }                
         }

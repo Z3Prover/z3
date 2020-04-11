@@ -313,7 +313,7 @@ class parallel_tactic : public tactic {
             unsigned mult = static_cast<unsigned>(pow(exp, m_depth - 1));
             p.set_uint("inprocess.max", pp.simplify_inprocess_max() * mult);
             p.set_uint("restart.max", pp.simplify_restart_max() * mult);
-            p.set_bool("lookahead_simplify", true);
+            p.set_bool("lookahead_simplify", m_depth > 2);
             p.set_bool("retain_blocked_clauses", retain_blocked);
             p.set_uint("max_conflicts", pp.simplify_max_conflicts());
             if (m_depth > 1) p.set_uint("bce_delay", 0);
@@ -475,8 +475,8 @@ private:
 
     simplify_again:
         ++num_simplifications;
-        s.inc_depth(1);
         // simplify
+        s.inc_depth(1);
         if (canceled(s)) return;
         switch (s.simplify()) {
         case l_undef: break;
