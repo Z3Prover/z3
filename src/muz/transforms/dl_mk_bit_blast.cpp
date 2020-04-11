@@ -276,9 +276,10 @@ namespace datalog {
             rule_manager& rm = m_context.get_rule_manager();
             unsigned sz = source.get_num_rules();
             expr_ref fml(m);
-            rule_set * result = alloc(rule_set, m_context);
+            // scoped_ptr in case exception is thrown from somewhere 
+            scoped_ptr<rule_set> result = alloc(rule_set, m_context);
             m_rewriter.m_cfg.set_src(&source);
-            m_rewriter.m_cfg.set_dst(result);
+            m_rewriter.m_cfg.set_dst(result.get());
             for (unsigned i = 0; !m_context.canceled() && i < sz; ++i) {
                 rule * r = source.get_rule(i);
                 rm.to_formula(*r, fml);
@@ -319,7 +320,7 @@ namespace datalog {
                 m_context.add_model_converter(concat(bvmc, fmc));
             }
             CTRACE("dl", result, result->display(tout););
-            return result;
+            return result.detach();
         }
     };
 
