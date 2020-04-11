@@ -1623,12 +1623,12 @@ void pred_transformer::init_rules(decl2rel const& pts) {
     if (not_inits.empty ()) {m_all_init = true;}
 }
 
-#ifdef Z3DEBUG
-static bool is_all_non_null(app_ref_vector const& apps) {
-    for (auto *a : apps) if (!a) return false;
-    return true;
-}
-#endif
+// #ifdef Z3DEBUG
+// static bool is_all_non_null(app_ref_vector const& apps) {
+//     for (auto *a : apps) if (!a) return false;
+//     return true;
+// }
+// #endif
 
 void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule) {
     scoped_watch _t_(m_initialize_watch);
@@ -1659,7 +1659,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
         trans= mk_and (tail);
 
         ground_free_vars(trans, var_reprs, aux_vars, ut_size == 0);
-        SASSERT(is_all_non_null(var_reprs));
+       // SASSERT(is_all_non_null(var_reprs));
 
         expr_ref tmp = var_subst(m, false)(trans, var_reprs.size (), (expr*const*)var_reprs.c_ptr());
         flatten_and (tmp, side);
