@@ -73,10 +73,11 @@ void rule_properties::check_quantifier_free() {
 }
 
 static const std::string qkind_str(quantifier_kind qkind) {
-    switch(qkind) {
+    switch (qkind) {
     case forall_k: return "FORALL";
     case exists_k: return "EXISTS";
     case lambda_k: return "LAMBDA";
+    default: UNREACHABLE(); return "";
     }
 }
 

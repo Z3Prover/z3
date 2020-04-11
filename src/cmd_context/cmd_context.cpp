@@ -928,12 +928,6 @@ void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& b
 
 void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* rhs) {
 
-    if (gparams::get_value("smt.recfun.native") != "true") {
-        // just use an axiom
-        insert_rec_fun_as_axiom(f, binding, ids, rhs);
-        return;
-    }
-
     TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
 
     recfun::decl::plugin& p = get_recfun_plugin();
