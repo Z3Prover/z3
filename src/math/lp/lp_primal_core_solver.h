@@ -280,8 +280,8 @@ public:
         // a short row produces short infeasibility explanation and benefits at least one pivot operation
         int choice = -1;
         int nchoices = 0;
-        unsigned prev_damage = UINT_MAX;
-        unsigned len = UINT_MAX;
+        unsigned num_of_non_free_basics = 1000000;
+        unsigned len = 100000000;
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
         for (unsigned k = 0; k < this->m_A.m_rows[i].size(); k++) {
@@ -296,18 +296,14 @@ public:
                 if (!monoid_can_increase(rc))
                     continue;
             }
-            unsigned damage = numeric_traits<T>::is_big(rc.coeff())? prev_damage:
-                get_number_of_basic_vars_that_might_become_inf(j);
-            if (damage < prev_damage) {
-                prev_damage = damage;
+            unsigned damage = get_number_of_basic_vars_that_might_become_inf(j);
+            if (damage < num_of_non_free_basics) {
+                num_of_non_free_basics = damage;
                 len = this->m_A.m_columns[j].size();
                 choice = k;
                 nchoices = 1;
-            } else if (damage == prev_damage
-                        &&
-                        this->m_A.m_columns[j].size() <= len
-                        &&
-                        (this->m_settings.random_next() % (++nchoices))) {
+            } else if (damage == num_of_non_free_basics &&
+                       this->m_A.m_columns[j].size() <= len && (this->m_settings.random_next() % (++nchoices))) {
                 choice = k;
                 len = this->m_A.m_columns[j].size();
             }
