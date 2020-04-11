@@ -335,7 +335,8 @@ namespace smt {
         mk_coeffs(m_test.get_linearization(), coeffs, w);
 
         if (coeffs.empty()) {
-            throw default_exception("utvi formulas require pre-processing and dont work with quantifiers");
+            found_non_utvpi_expr(n);
+            return false;
         }
 
         bool_var bv = ctx.mk_bool_var(n);

@@ -1800,7 +1800,7 @@ static void track_id(ast* n, unsigned id) {
     if (n->get_id() != id) return;
     ++s_count;
     std::cout << s_count << "\n";
-    SASSERT(s_count != 1);
+    //SASSERT(s_count != 1);
 }
 #endif
 
@@ -1834,7 +1834,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
 
-    //    track_id(n, 323);
+    // track_id(n, 77);
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
