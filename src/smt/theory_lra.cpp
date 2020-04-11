@@ -3005,7 +3005,7 @@ public:
         else {
             ++m_stats.m_assert_upper;
         }
-        inf_rational const& value = b.get_value(is_true);
+        inf_rational value = b.get_value(is_true);
         if (propagate_eqs() && value.is_rational()) {
             propagate_eqs(b.tv(), ci, k, b, value.get_rational());
         }
