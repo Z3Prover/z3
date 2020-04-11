@@ -2994,8 +2994,6 @@ public:
 
     void assert_bound(bool_var bv, bool is_true, lp_api::bound& b) {
         lp::constraint_index ci = b.get_constraint(is_true);
-        lp::column_index j = lp().to_column_index(b.get_var());
-        bool was_fixed = lp().is_fixed(j);
         m_solver->activate(ci);
         if (is_infeasible()) {
             return;
@@ -3008,7 +3006,7 @@ public:
             ++m_stats.m_assert_upper;
         }
         inf_rational const& value = b.get_value(is_true);
-        if (value.is_rational()) {
+        if (propagate_eqs() && value.is_rational()) {
             propagate_eqs(b.tv(), ci, k, b, value.get_rational());
         }
     }
@@ -3052,28 +3050,14 @@ public:
     typedef std::pair<rational, bool> value_sort_pair;
     typedef pair_hash<obj_hash<rational>, bool_hash> value_sort_pair_hash;
     typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
-    value2var               m_fixed_var_table;
+    value2var                       m_fixed_var_table;
 
     void propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, lp_api::bound& b, rational const& value) {
-        bool best_bound = false;
-        if (k == lp::GE) {
-            best_bound = set_lower_bound(t, ci, value);
+        if (k == lp::GE && set_lower_bound(t, ci, value) && has_upper_bound(t.index(), ci, value)) {
+            fixed_var_eh(b.get_var(), value);
         }
-        else if (k == lp::LE) {
-            best_bound = set_upper_bound(t, ci, value);
-        }
-
-        if (propagate_eqs() && best_bound) {
-            if (k == lp::GE) {
-                if (has_upper_bound(t.index(), ci, value)) {
-                    fixed_var_eh(b.get_var(), value);
-                }
-            }
-            else if (k == lp::LE) {
-                if (has_lower_bound(t.index(), ci, value)) {
-                    fixed_var_eh(b.get_var(), value);
-                }
-            }
+        else if (k == lp::LE && set_upper_bound(t, ci, value) && has_lower_bound(t.index(), ci, value)) {
+            fixed_var_eh(b.get_var(), value);
         }
     }
 

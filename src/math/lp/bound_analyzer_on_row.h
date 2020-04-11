@@ -59,7 +59,9 @@ public :
     void analyze() {
         for (const auto & c : m_row) {
             if ((m_column_of_l == -2) && (m_column_of_u == -2))
-                break;
+                return;
+            if (c.coeff().is_big()) 
+                return;
             analyze_bound_on_var_on_coeff(c.var(), c.coeff());
         }
         if (m_column_of_u >= 0)
