@@ -113,7 +113,6 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p) {
 
     params_ref hoist_p;
     hoist_p.set_bool("hoist_mul", true);
-    // hoist_p.set_bool("hoist_cmul", true);
     hoist_p.set_bool("som", false);
 
     params_ref gaussian_p;
