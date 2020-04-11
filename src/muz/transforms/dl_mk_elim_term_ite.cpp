@@ -172,7 +172,7 @@ namespace datalog {
         rw(body);
 
         fml2 = m.mk_implies(body, ground(r.get_head()));
-        SASSERT(!has_term_ite(fml2));
+        CTRACE("dl", has_term_ite(fml2), tout << "Rule has term-ite after elimination. Giving up\n";);
         if (has_term_ite(fml2))
             return false;
         app_ref_vector consts(m);
