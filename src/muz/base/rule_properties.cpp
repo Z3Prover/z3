@@ -72,6 +72,27 @@ void rule_properties::check_quantifier_free() {
     }
 }
 
+static const std::string qkind_str(quantifier_kind qkind) {
+    switch(qkind) {
+    case forall_k: return "FORALL";
+    case exists_k: return "EXISTS";
+    case lambda_k: return "LAMBDA";
+    }
+}
+
+void rule_properties::check_quantifier_free(quantifier_kind qkind) {
+    for (auto &kv : m_quantifiers) {
+        if (kv.get_key().get_kind() == qkind) {
+            rule *r = kv.get_value();
+            std::stringstream stm;
+            stm << "cannot process " << qkind_str(qkind) << " quantifier in rule ";
+            r->display(m_ctx, stm);
+            throw default_exception(stm.str());
+        } 
+    }
+
+}
+
 void rule_properties::check_for_negated_predicates() {
     if (!m_negative_rules.empty()) {
         rule* r = m_negative_rules[0];
@@ -235,5 +256,7 @@ void rule_properties::reset() {
     m_negative_rules.reset();
     m_inf_sort.reset();
     m_collected = false;
+    m_is_monotone = true;
+    m_generate_proof = false;
 }
 

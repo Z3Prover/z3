@@ -27,6 +27,7 @@ Notes:
 #include "ast/array_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "muz/base/dl_rule.h"
+#include "ast/expr_functors.h"
 
 namespace datalog {
     class rule_properties {
@@ -58,6 +59,7 @@ namespace datalog {
         void set_generate_proof(bool generate_proof) { m_generate_proof = generate_proof; } 
         void collect(rule_set const& r);
         void check_quantifier_free();
+        void check_quantifier_free(quantifier_kind qkind);
         void check_uninterpreted_free();
         void check_existential_tail();
         void check_for_negated_predicates();
