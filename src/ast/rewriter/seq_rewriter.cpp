@@ -1892,10 +1892,15 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
     case 1: 
         np = f->get_num_parameters();
         lo2 = np > 0 ? f->get_parameter(0).get_int() : 0;
-        hi2 = np > 1 ? f->get_parameter(1).get_int() : 0;
+        hi2 = np > 1 ? f->get_parameter(1).get_int() : lo2;
+        // (loop a 0 0) = ""
         if  (np == 2 && lo2 > hi2) {
-            result = m_util.re.mk_loop(args[0], lo2, lo2);
-            return BR_REWRITE1;
+            result = m_util.re.mk_empty(m().get_sort(args[0]));
+            return BR_DONE;
+        }
+        if (np == 2 && hi2 == 0) {
+            result = m_util.re.mk_to_re(m_util.str.mk_empty(m_util.re.to_seq(m().get_sort(args[0]))));
+            return BR_DONE;
         }
         // (loop (loop a lo) lo2) = (loop lo*lo2)
         if (m_util.re.is_loop(args[0], a, lo) && np == 1) {
@@ -1906,11 +1911,6 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
         if (m_util.re.is_loop(args[0], a, lo, hi) && np == 2 && lo == hi && lo2 == hi2) {
             result = m_util.re.mk_loop(a, lo2 * lo, hi2 * hi);
             return BR_REWRITE1;
-        }
-        // (loop a 0 0) = ""
-        if (np == 2 && hi2 == 0) {
-            result = m_util.re.mk_to_re(m_util.str.mk_empty(m_util.re.to_seq(m().get_sort(args[0]))));
-            return BR_DONE;
         }
         // (loop a 1 1) = a
         if (np == 2 && lo2 == 1 && hi2 == 1) {
