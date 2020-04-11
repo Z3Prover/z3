@@ -16,6 +16,7 @@ Author:
 Revision History:
 
 --*/
+#include "ast/ast.h"
 #include "util/top_sort.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -189,11 +190,13 @@ model * model::translate(ast_translation & translator) const {
 }
 
 struct model::top_sort : public ::top_sort<func_decl> {
+    func_decl_ref_vector         m_pinned; // protect keys in m_occur_count
     th_rewriter                  m_rewrite;
     obj_map<func_decl, unsigned> m_occur_count;
 
+
     top_sort(ast_manager& m):
-        m_rewrite(m)
+        m_pinned(m), m_rewrite(m) 
     {
         params_ref p;
         p.set_bool("elim_ite", false);
@@ -201,6 +204,7 @@ struct model::top_sort : public ::top_sort<func_decl> {
     }
 
     void add_occurs(func_decl* f) {
+        m_pinned.push_back(f);
         m_occur_count.insert(f, occur_count(f) + 1);
     }
 
