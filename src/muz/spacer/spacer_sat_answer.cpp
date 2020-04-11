@@ -105,7 +105,12 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
         }
     }
     m_solver.reset();
-    return proof_ref(m_cache.find(root_fact), m);
+
+    // turn proof of root fact into a refutation
+    proof_ref pf1(m_cache.find(root_fact), m);
+    proof_ref pf2(m.mk_asserted(m.mk_implies(m.get_fact(pf1), m.mk_false())), m);
+    pf1 = m.mk_modus_ponens(pf1, pf2);
+    return pf1;
 }
 
 
