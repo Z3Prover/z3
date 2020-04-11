@@ -496,13 +496,17 @@ namespace {
             SASSERT(m_todo.empty());
             if (m_visited.is_marked(e) || !is_app(e)) return;
 
+            // -- keep track of all created expressions to
+            // -- make sure that expression ids are stable
+            expr_ref_vector pinned(m);
+
             m_todo.reset();
             m_todo.push_back(e);
             while(!m_todo.empty()) {
-                e = m_todo.back();
+                pinned.push_back(m_todo.back());
                 m_todo.pop_back();
-                if (!is_app(e)) continue;
-                app* a = to_app(e);
+                if (!is_app(pinned.back())) continue;
+                app* a = to_app(pinned.back());
                 process_app(a, out);
                 m_visited.mark(a, true);
             }
