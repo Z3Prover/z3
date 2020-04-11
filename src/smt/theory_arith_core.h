@@ -349,7 +349,7 @@ namespace smt {
     */
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_mul_core(app * m) {
-        TRACE("internalize_mul_core", tout << "internalizing...\n" << mk_pp(m,get_manager()) << "\n";);
+        TRACE("internalize_mul_core", tout << "internalizing...\n" << mk_pp(m, get_manager()) << "\n";);
         if (!m_util.is_mul(m))
             return internalize_term_core(m);       
         for (expr* arg : *m) {
