@@ -42,6 +42,7 @@ class eq2bv_tactic : public tactic {
                 return false;
             }
         }
+        
 
         br_status mk_app_core(func_decl* f, unsigned sz, expr*const* es, expr_ref& result) {
             if (m.is_eq(f)) {
@@ -221,7 +222,17 @@ public:
                     continue;
                 }
             }
+            if (is_bound(g->form(i), var) && m_max.contains(var)) {
+                new_curr = m.mk_true();
+                if (m.proofs_enabled()) {
+                    new_pr = m.mk_rewrite(g->form(i), new_curr);
+                    new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+                }
+                g->update(i, new_curr, new_pr);
+                continue;
+            }
             m_rw(g->form(i), new_curr, new_pr);
+
             if (g->form(i) == new_curr)
                 continue;
             if (m.proofs_enabled()) {
@@ -312,9 +323,8 @@ public:
         }
     }
 
-    bool is_upper(expr* f, app_ref& var) {
+    bool is_upper(expr* f, unsigned& k, app_ref& var) {
         expr* e1, *e2;
-        unsigned k;
         if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e1, e2, k)) {
             SASSERT(m_bounds.has_upper(e1));
             var = to_app(e1);
@@ -323,9 +333,8 @@ public:
         return false;
     }
 
-    bool is_lower(expr* f, app_ref& var) {
+    bool is_lower(expr* f, unsigned& k, app_ref& var) {
         expr* e1, *e2;
-        unsigned k;
         if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e2, e1, k)) {
             SASSERT(m_bounds.has_lower(e2));
             var = to_app(e2);
@@ -336,7 +345,8 @@ public:
 
 
     bool is_bound(expr* f, app_ref& var) {
-        return is_lower(f, var) || is_upper(f, var);
+        unsigned k;
+        return is_lower(f, k, var) || is_upper(f, k, var);
     }
 
     void mark_has_eq(expr* e) {
@@ -348,7 +358,9 @@ public:
     void collect_fd(expr* f) {
         m_trail.push_back(f);
         app_ref var(m);
-        if (is_bound(f, var)) return;
+        if (is_bound(f, var)) {
+            return;
+        }
         m_todo.push_back(f);
         while (!m_todo.empty()) {
             f = m_todo.back();
