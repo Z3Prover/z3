@@ -1676,8 +1676,17 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
     }
     TRACE("spacer_init_rule", tout << mk_pp(trans, m) << "\n";);
 
-    // allow quantifiers in init rule
-    SASSERT(ut_size == 0 || is_ground(trans));
+    // no (universal) quantifiers in recursive rules
+    CTRACE("spacer", ut_size > 0 && !is_ground(trans),
+           tout << "Warning: quantifier in recursive rule: " << trans << "\n";);
+
+    if (ut_size > 0 && !is_ground(trans)) {
+        std::stringstream stm;
+        stm << "spacer: quantifier in a recursive rule:\n";
+        rule.display(get_context().get_datalog_context(), tout);
+        throw default_exception(stm.str());
+    }
+
     if (!m.is_false(trans)) {
         pt_rule &ptr = m_pt_rules.mk_rule(m, rule);
         ptr.set_trans(trans);
