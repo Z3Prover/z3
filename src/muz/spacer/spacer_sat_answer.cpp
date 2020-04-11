@@ -66,7 +66,7 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
         lbool res = m_solver->check_sat(0, nullptr);
         CTRACE("spacer_sat", res != l_true, tout << "solver at check:\n";
                m_solver->display(tout) << "res: " << res << "\n";);
-        VERIFY(res == l_true);
+        if (res != l_true) throw default_exception("spacer: could not validate first proof step");
         model_ref mdl;
         m_solver->get_model(mdl);
         mdl->compress();
@@ -133,10 +133,10 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
           m_solver->display(tout) << "\n";);
 
     lbool res = m_solver->check_sat(0, nullptr);
-    (void)res;
     CTRACE("spacer_sat", res != l_true,
-           tout << "Result: " << res << "\n";);
-    VERIFY(res == l_true);
+           m_solver->display(tout) << "\n" "Result: " << res << "\n";);
+    if(res != l_true)
+        throw default_exception("spacer: could not validate a proof step");
 
     model_ref mdl;
     m_solver->get_model(mdl);
