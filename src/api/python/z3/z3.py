@@ -3060,7 +3060,8 @@ def IntVector(prefix, sz, ctx=None):
     >>> Sum(X)
     x__0 + x__1 + x__2
     """
-    return [ Int('%s__%s' % (prefix, i)) for i in range(sz) ]
+    ctx = _get_ctx(ctx)
+    return [ Int('%s__%s' % (prefix, i), ctx) for i in range(sz) ]
 
 def FreshInt(prefix='x', ctx=None):
     """Return a fresh integer constant in the given context using the given prefix.
@@ -3112,7 +3113,8 @@ def RealVector(prefix, sz, ctx=None):
     >>> Sum(X).sort()
     Real
     """
-    return [ Real('%s__%s' % (prefix, i)) for i in range(sz) ]
+    ctx = _get_ctx(ctx)
+    return [ Real('%s__%s' % (prefix, i), ctx) for i in range(sz) ]
 
 def FreshReal(prefix='b', ctx=None):
     """Return a fresh real constant in the given context using the given prefix.
