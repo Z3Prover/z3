@@ -70,6 +70,8 @@ public:
         return strm.str();
     }
 
+    bool is_null() const { return m_index == UINT_MAX; }
+
 };
 
 class column_index {

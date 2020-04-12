@@ -210,7 +210,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    bool theory_dense_diff_logic<Ext>::internalize_term(app * term) {
+    bool theory_dense_diff_logic<Ext>::internalize_term(app * term) {        
         if (memory::above_high_watermark()) {
             found_non_diff_logic_expr(term); // little hack... TODO: change to no_memory and return l_undef if SAT
             return false;
@@ -225,6 +225,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
+        TRACE("ddl", tout << "eq-eh: " << mk_pp(atom, get_manager()) << "\n";);
         if (memory::above_high_watermark())
             return;
         context & ctx  = get_context();
@@ -243,8 +244,10 @@ namespace smt {
             enode * n1 = ctx.get_enode(lhs);
             enode * n2 = ctx.get_enode(rhs);
             if (n1->get_th_var(get_id()) != null_theory_var &&
-                n2->get_th_var(get_id()) != null_theory_var)
-                m_arith_eq_adapter.mk_axioms(n1, n2);
+                n2->get_th_var(get_id()) != null_theory_var) {
+                m_arith_eq_adapter.mk_axioms(n1, n2); 
+                return;
+            }
         }
     }
     

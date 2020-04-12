@@ -194,7 +194,6 @@ void lar_solver::calculate_implied_bounds_for_row(unsigned i, lp_bound_propagato
 unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
     if (!tv::is_term(j)) {
         unsigned ext_var_or_term = m_var_register.local_to_external(j);
-        TRACE("arith", tout << j << " " << ext_var_or_term << "\n";);
         j = !tv::is_term(ext_var_or_term) ? j : ext_var_or_term;
     }
     return j;
