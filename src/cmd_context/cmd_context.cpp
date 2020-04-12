@@ -902,30 +902,6 @@ recfun::promise_def cmd_context::decl_rec_fun(const symbol &name, unsigned int a
     return get_recfun_plugin().mk_def(name, arity, domain, range);
 }
 
-// insert a recursive function as a regular quantified axiom
-void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& binding, svector<symbol> const &ids, expr* e) {
-    expr_ref eq(m());
-    app_ref lhs(m());
-    lhs = m().mk_app(f, binding.size(), binding.c_ptr());
-    eq  = m().mk_eq(lhs, e);
-    if (!ids.empty()) {
-        if (is_var(e)) {
-            ptr_vector<sort> domain;
-            for (expr* b : binding) domain.push_back(m().get_sort(b));
-            insert_macro(f->get_name(), domain.size(), domain.c_ptr(), e);
-            return;
-        }
-        if (!is_app(e)) {
-            throw cmd_exception("Z3 only supports recursive definitions that are proper terms (not binders or variables)");
-        }
-        expr* pats[2] = { m().mk_pattern(lhs), m().mk_pattern(to_app(e)) };
-        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, m().rec_fun_qid(), symbol::null, 2, pats);
-    }
-
-    assert_expr(eq);
-}
-
-
 void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* rhs) {
 
     TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);

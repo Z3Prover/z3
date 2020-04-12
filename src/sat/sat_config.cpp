@@ -248,6 +248,9 @@ namespace sat {
 
         sat_simplifier_params sp(_p);
         m_elim_vars = sp.elim_vars();
+
+        if (m_drat && (m_xor_solver || m_card_solver)) 
+            throw sat_param_exception("DRAT checking only works for pure CNF");
     }
 
     void config::collect_param_descrs(param_descrs & r) {
