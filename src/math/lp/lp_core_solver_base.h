@@ -685,6 +685,11 @@ public:
         return m_inf_set.contains(j);
     }
 
+    bool column_is_base(unsigned j) const {
+        return m_basis_heading[j] >= 0;
+    }
+
+    
     void update_x_with_feasibility_tracking(unsigned j, const X & v) {
         TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
         m_x[j] = v;

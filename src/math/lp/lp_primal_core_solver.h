@@ -447,46 +447,47 @@ public:
         this->track_column_feasibility(entering);
     }
 
-
-    int find_leaving_tableau_rows(X & new_val_for_leaving) {
+    int find_smallest_inf_column() {
         int j = -1;
-        for (unsigned k : this->m_inf_set) {
-            if (k < static_cast<unsigned>(j))
-                j = static_cast<int>(k);
+        for (unsigned k : this->m_inf_set) {            
+            if (k < static_cast<unsigned>(j)) {
+                j = k;
+            }
         }
-        if (j == -1)
-            return -1;
+        return j;
+    }
 
+    const X& get_val_for_leaving(unsigned j) const {
         lp_assert(!this->column_is_feasible(j));
         switch (this->m_column_types[j]) {
         case column_type::fixed:
         case column_type::upper_bound:
-            new_val_for_leaving = this->m_upper_bounds[j];
-            break;
+            return this->m_upper_bounds[j];
         case column_type::lower_bound:
-            new_val_for_leaving = this->m_lower_bounds[j];
+            return this->m_lower_bounds[j];
             break;
         case column_type::boxed:
             if (this->x_above_upper_bound(j))
-                new_val_for_leaving = this->m_upper_bounds[j];
+                return this->m_upper_bounds[j];
             else
-                new_val_for_leaving = this->m_lower_bounds[j];
+                return this->m_lower_bounds[j];
             break;
         default:
-            lp_assert(false);
-            new_val_for_leaving = numeric_traits<X>::zero(); // does not matter
+            UNREACHABLE();
+            return  this->m_lower_bounds[j];
         }
-        return j;
     }
     
+    
     void one_iteration_tableau_rows() {
-        X new_val_for_leaving;
-        int leaving = find_leaving_tableau_rows(new_val_for_leaving);
+        int leaving = find_smallest_inf_column();
         if (leaving == -1) {
             this->set_status(lp_status::OPTIMAL);
             return;
         }
-
+       
+        SASSERT(this->column_is_base(leaving));
+        
         if (!m_bland_mode_tableau) {
             if (m_left_basis_tableau.contains(leaving)) {
                 if (++m_left_basis_repeated > m_bland_mode_threshold) {
@@ -502,9 +503,11 @@ public:
             this->set_status(lp_status::INFEASIBLE);
             return;
         }
+        const X& new_val_for_leaving = get_val_for_leaving(leaving);
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
         advance_on_entering_and_leaving_tableau_rows(entering, leaving, theta );
         lp_assert(this->m_x[leaving] == new_val_for_leaving);
+        lp_assert(this->column_is_feasible(leaving));
         if (this->current_x_is_feasible())
             this->set_status(lp_status::OPTIMAL);
     }
