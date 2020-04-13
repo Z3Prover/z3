@@ -95,6 +95,7 @@ public:
             g->inc_depth();
         }        
         result.push_back(g.get());
+        CTRACE("invertible_tactic", g->mc(), g->mc()->display(tout););
     }
 
     void cleanup() override {}

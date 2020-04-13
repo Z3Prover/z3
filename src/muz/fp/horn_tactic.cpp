@@ -282,11 +282,13 @@ class horn_tactic : public tactic {
             }
             case l_false: {
                 // goal is sat
+                mc = concat(g->mc(), mc.get());
                 g->reset();
                 if (produce_models) {
                     model_ref md = m_ctx.get_model();
                     model_converter_ref mc2 = model2model_converter(md.get());
                     mc = concat(mc.get(), mc2.get());
+                    TRACE("dl", mc->display(tout << *md << "\n"););
                 }
                 break;
             }
