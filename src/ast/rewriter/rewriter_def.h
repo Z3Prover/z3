@@ -81,6 +81,14 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
     SASSERT(t->get_num_args() == 0);
     br_status st = m_cfg.reduce_app(t->get_decl(), 0, nullptr, m_r, m_pr);
     SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
+    TRACE("reduce_app",
+          tout << "t0:" << mk_bounded_pp(t0, m()) << "\n";
+          if (t != t0) tout << "t: " << mk_bounded_pp(t, m()) << "\n";
+          tout << "st: " << st;
+          if (m_r) tout << " --->\n" << mk_bounded_pp(m_r, m());
+          tout << "\n";
+          if (m_pr) tout << mk_bounded_pp(m_pr, m()) << "\n";
+          );
     switch (st) {
     case BR_FAILED:
         if (!retried) {
@@ -252,8 +260,6 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             fr.m_i++;
             if (!visit<ProofGen>(arg, fr.m_max_depth))
                 return;
-
-
         }
         func_decl * f = t->get_decl();
 
@@ -292,12 +298,13 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
         }
         br_status st = m_cfg.reduce_app(f, new_num_args, new_args, m_r, m_pr2);       
         
-        CTRACE("reduce_app", st != BR_FAILED,
+        CTRACE("reduce_app", true || st != BR_FAILED || new_t,
                tout << mk_bounded_pp(t, m()) << "\n";
                tout << "st: " << st;
                if (m_r) tout << " --->\n" << mk_bounded_pp(m_r, m());
                tout << "\n";
                if (m_pr2) tout << mk_bounded_pp(m_pr2, m()) << "\n";
+               if (new_t) tout << new_t << "\n";
               );
         SASSERT(st == BR_FAILED || rewrites_to(m_r, m_pr2));
         SASSERT(st == BR_FAILED || rewrites_from(new_t, m_pr2));
@@ -422,17 +429,15 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             }
         }
         else {
-            if (ProofGen) {
-                m_r = new_t;
+            if (fr.m_new_child) {
+                m_r = m().mk_app(f, new_num_args, new_args);
+                if (ProofGen) {
+                    m_pr = m().mk_rewrite(t, m_r);
+                }
             }
             else {
-                if (fr.m_new_child) {
-                    m_r = m().mk_app(f, new_num_args, new_args);
-                }
-                else {
-                    TRACE("rewriter_reuse", tout << "reusing:\n" << mk_ismt2_pp(t, m()) << "\n";);
-                    m_r = t;
-                }
+                TRACE("rewriter_reuse", tout << "reusing:\n" << mk_ismt2_pp(t, m()) << "\n";);
+                m_r = t;
             }
         }
         result_stack().shrink(fr.m_spos);

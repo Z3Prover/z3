@@ -1174,6 +1174,11 @@ public:
 
     void apply_sort_cnstr(enode* n, sort*) {
         TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
+#if 0
+        if (!th.is_attached_to_var(n)) {
+            mk_var(n->get_owner());
+        }
+#endif
     }
 
     void push_scope_eh() {
