@@ -257,7 +257,6 @@ void rule_properties::reset() {
     m_negative_rules.reset();
     m_inf_sort.reset();
     m_collected = false;
-    m_is_monotone = true;
     m_generate_proof = false;
 }
 

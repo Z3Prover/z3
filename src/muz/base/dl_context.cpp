@@ -569,6 +569,7 @@ namespace datalog {
 
     void context::check_rules(rule_set& r) {
         m_rule_properties.set_generate_proof(generate_proof_trace());
+        TRACE("dl", m_rule_set.display(tout););
         switch(get_engine()) {
         case DATALOG_ENGINE:
             m_rule_properties.collect(r);
