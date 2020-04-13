@@ -1796,11 +1796,11 @@ bool ast_manager::slow_not_contains(ast const * n) {
 
 #if 0
 static unsigned s_count = 0;
-static void track_id(ast* n, unsigned id) {
+static void track_id(ast_manager& m, ast* n, unsigned id) {
     if (n->get_id() != id) return;
     ++s_count;
-    std::cout << s_count << "\n";
-    //SASSERT(s_count != 1);
+    std::cout << &m << " " << s_count << "\n";
+    SASSERT(s_count != 240);
 }
 #endif
 
@@ -1834,7 +1834,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
 
-    // track_id(n, 77);
+    // track_id(*this, n, 254);
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
