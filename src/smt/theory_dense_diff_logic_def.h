@@ -392,6 +392,8 @@ namespace smt {
 
     template<typename Ext>
     final_check_status theory_dense_diff_logic<Ext>::final_check_eh() {
+        //fix_zero();
+        //compute_epsilon();
         init_model();
         if (assume_eqs(m_var_value_table))
             return FC_CONTINUE;
@@ -768,7 +770,7 @@ namespace smt {
     */
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::compute_epsilon() {
-        m_epsilon = rational(1);
+        m_epsilon = rational(1, 2);
         typename edges::const_iterator it  = m_edges.begin();
         typename edges::const_iterator end = m_edges.end();
         // first edge is null
