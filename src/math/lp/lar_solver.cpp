@@ -1207,7 +1207,11 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
 
 // (x, y) != (x', y') => (x + delta*y) != (x' + delta*y')
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
-    lp_assert(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
+    if (!(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE)) {
+        variable_values.clear();
+        return;
+    }
+    
     lp_assert(m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
     variable_values.clear();
     mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(mpq(1, 2)); // start from 0.5 to have less clashes
