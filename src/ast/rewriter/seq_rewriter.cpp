@@ -676,8 +676,7 @@ bool seq_rewriter::is_suffix(expr* s, expr* offset, expr* len) {
         (a.neg(), m_autil.is_numeral(offset, b) && 
          b.is_pos() && 
          a == b && 
-         lens.size() == 1 && 
-         lens[0] == s);
+         lens.contains(s));
 }
 
 bool seq_rewriter::sign_is_determined(expr* e, sign& s) {
@@ -694,18 +693,6 @@ bool seq_rewriter::sign_is_determined(expr* e, sign& s) {
             else if (s1 != s)
                 return false;
         }
-        return true;
-    }
-    if (m_util.str.is_length(e)) {
-        s = sign_pos;
-        return true;
-    }
-    rational pos;
-    if (m_autil.is_numeral(e, pos)) {
-        if (pos.is_pos())
-            s = sign_pos;
-        else if (pos.is_neg())
-            s = sign_neg;
         return true;
     }
     if (m_autil.is_mul(e)) {
@@ -726,7 +713,19 @@ bool seq_rewriter::sign_is_determined(expr* e, sign& s) {
         }
         return true;
     }
-    return true;
+    if (m_util.str.is_length(e)) {
+        s = sign_pos;
+        return true;
+    }
+    rational r;
+    if (m_autil.is_numeral(e, r)) {
+        if (r.is_pos())
+            s = sign_pos;
+        else if (r.is_neg())
+            s = sign_neg;
+        return true;
+    }
+    return false;
 }
 
 br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result) {
