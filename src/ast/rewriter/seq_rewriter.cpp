@@ -673,7 +673,60 @@ bool seq_rewriter::is_suffix(expr* s, expr* offset, expr* len) {
     rational a, b;
     return 
         get_lengths(len, lens, a) && 
-        (a.neg(), m_autil.is_numeral(offset, b) && b.is_pos() && a == b);
+        (a.neg(), m_autil.is_numeral(offset, b) && 
+         b.is_pos() && 
+         a == b && 
+         lens.size() == 1 && 
+         lens[0] == s);
+}
+
+bool seq_rewriter::sign_is_determined(expr* e, sign& s) {
+    s = sign_zero;
+    if (m_autil.is_add(e)) {
+        for (expr* arg : *to_app(e)) {
+            sign s1;
+            if (!sign_is_determined(arg, s1))
+                return false;
+            if (s == sign_zero) 
+                s = s1;
+            else if (s1 == sign_zero)
+                continue;
+            else if (s1 != s)
+                return false;
+        }
+        return true;
+    }
+    if (m_util.str.is_length(e)) {
+        s = sign_pos;
+        return true;
+    }
+    rational pos;
+    if (m_autil.is_numeral(e, pos)) {
+        if (pos.is_pos())
+            s = sign_pos;
+        else if (pos.is_neg())
+            s = sign_neg;
+        return true;
+    }
+    if (m_autil.is_mul(e)) {
+        for (expr* arg : *to_app(e)) {
+            sign s1;
+            if (!sign_is_determined(arg, s1))
+                return false;
+            if (s1 == sign_zero) {
+                s = sign_zero;
+                return true;
+            }
+            if (s == sign_zero)
+                s = s1;
+            else if (s != s1)
+                s = sign_neg;
+            else 
+                s = sign_pos;
+        }
+        return true;
+    }
+    return true;
 }
 
 br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result) {
@@ -686,6 +739,11 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     bool constantLen = m_autil.is_numeral(c, len);
     bool lengthPos   = m_util.str.is_length(b) || m_autil.is_add(b);
 
+    sign sg;
+    if (sign_is_determined(c, sg) && sg == sign_neg) {
+        result = m_util.str.mk_empty(m().get_sort(a));
+        return BR_DONE;
+    }
     
     // case 1: pos<0 or len<=0
     // rewrite to ""

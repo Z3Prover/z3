@@ -24,6 +24,7 @@ Notes:
 #include "ast/rewriter/rewriter_types.h"
 #include "util/params.h"
 #include "util/lbool.h"
+#include "util/sign.h"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata.h"
 
@@ -141,6 +142,7 @@ class seq_rewriter {
     bool cannot_contain_suffix(expr* a, expr* b);
 
     bool is_suffix(expr* s, expr* offset, expr* len);
+    bool sign_is_determined(expr* len, sign& s);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
