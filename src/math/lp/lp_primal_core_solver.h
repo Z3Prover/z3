@@ -442,8 +442,43 @@ public:
     void one_iteration();
     void one_iteration_tableau();
 
+    // this version assumes that the leaving already has the right value, and does not update it
+    void update_x_tableau_rows(unsigned entering, unsigned leaving, const X& delta) {
+        this->add_delta_to_x(entering, delta);
+        if (!this->m_using_infeas_costs) {
+            for (const auto & c : this->m_A.m_columns[entering]) {
+                if (leaving != this->m_basis[c.var()]) {
+                    this->add_delta_to_x_and_track_feasibility(this->m_basis[c.var()], -  delta * this->m_A.get_val(c));
+                }
+            }
+        } else { // m_using_infeas_costs == true
+            lp_assert(this->column_is_feasible(entering));
+            lp_assert(this->m_costs[entering] == zero_of_type<T>());
+            // m_d[entering] can change because of the cost change for basic columns.
+            for (const auto & c : this->m_A.m_columns[entering]) {
+                unsigned j = this->m_basis[c.var()];
+                if (j != leaving)
+                    this->add_delta_to_x(j, -delta * this->m_A.get_val(c));
+                update_inf_cost_for_column_tableau(j);
+            if (is_zero(this->m_costs[j]))
+                this->remove_column_from_inf_set(j);
+            else
+                this->insert_column_into_inf_set(j);
+            }
+        }
+    }
+    
+    void update_basis_and_x_tableau_rows(int entering, int leaving, X const & tt) {
+        lp_assert(this->use_tableau());
+        lp_assert(entering != leaving);
+        update_x_tableau_rows(entering, leaving, tt);
+        this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);
+        this->change_basis(entering, leaving);
+    }
+
+    
     void advance_on_entering_and_leaving_tableau_rows(int entering, int leaving, const X &theta ) {
-        this->update_basis_and_x_tableau(entering, leaving, theta);
+        update_basis_and_x_tableau_rows(entering, leaving, theta);
         this->track_column_feasibility(entering);
     }
 
@@ -505,9 +540,9 @@ public:
         }
         const X& new_val_for_leaving = get_val_for_leaving(leaving);
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
+        this->m_x[leaving] = new_val_for_leaving;
+        this->remove_column_from_inf_set(leaving);
         advance_on_entering_and_leaving_tableau_rows(entering, leaving, theta );
-        lp_assert(this->m_x[leaving] == new_val_for_leaving);
-        lp_assert(this->column_is_feasible(leaving));
         if (this->current_x_is_feasible())
             this->set_status(lp_status::OPTIMAL);
     }
