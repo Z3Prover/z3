@@ -44,7 +44,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_total
         ref_t cond(m_ba.mk_not(m_ba.mk_or(vs.size(), vs.c_ptr())), m);
         lbool is_sat = m_ba.is_sat(cond);
         if (is_sat == l_undef) {
-            return 0;
+            return nullptr;
         }
         if (is_sat == l_true) {
             new_mvs.push_back(move_t(m, i, dead_state, cond));
@@ -191,7 +191,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
                                 p1.insert(q);
                                 break;
                             case l_undef:
-                                return 0;
+                                return nullptr;
                             default:
                                 break;
                             }                            
@@ -200,7 +200,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
                             ref_t psi_min_phi(m_ba.mk_and(psi, m_ba.mk_not(phi)), m);
                             lbool is_sat = m_ba.is_sat(psi_min_phi);
                             if (is_sat == l_undef) {
-                                return 0;
+                                return nullptr;
                             }
                             if (is_sat == l_true) {
                                 psi = psi_min_phi;
@@ -211,7 +211,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
                             ref_t phi_min_psi(m_ba.mk_and(phi, m_ba.mk_not(psi)), m);
                             is_sat = m_ba.is_sat(phi_min_psi);
                             if (is_sat == l_undef) {
-                                return 0;
+                                return nullptr;
                             }
                             else if (is_sat == l_false) {
                                 p1.insert(q); // psi and phi are equivalent

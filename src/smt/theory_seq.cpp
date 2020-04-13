@@ -6366,8 +6366,8 @@ bool theory_seq::is_accept(expr* e, expr*& s, expr*& idx, expr*& re, unsigned& i
         VERIFY(m_autil.is_numeral(to_app(e)->get_arg(3), r));
         SASSERT(r.is_unsigned());
         i = r.get_unsigned();
-        aut = get_automaton(re);
-        return true;
+        aut = get_automaton(re);        
+        return aut != nullptr;
     }
     else {
         return false;
@@ -6444,7 +6444,8 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     context& ctx = get_context();
     rational _idx;
     eautomaton* aut = nullptr;
-    VERIFY(is_accept(acc, e, idx, re, src, aut));
+    if (!is_accept(acc, e, idx, re, src, aut))
+        return;
     VERIFY(m_autil.is_numeral(idx, _idx));
     VERIFY(aut);
     if (aut->is_sink_state(src)) {
