@@ -392,8 +392,6 @@ namespace smt {
 
     template<typename Ext>
     final_check_status theory_dense_diff_logic<Ext>::final_check_eh() {
-        //fix_zero();
-        //compute_epsilon();
         init_model();
         if (assume_eqs(m_var_value_table))
             return FC_CONTINUE;
