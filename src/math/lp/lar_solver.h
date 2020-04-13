@@ -144,7 +144,7 @@ public:
     bool column_is_free(unsigned j) const;
 
     const lar_term & get_term(unsigned j) const;
-
+    bool row_has_a_big_num(unsigned i) const;
 public:
 
     // init region

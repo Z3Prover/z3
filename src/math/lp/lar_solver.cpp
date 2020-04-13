@@ -153,11 +153,20 @@ void lar_solver::analyze_new_bounds_on_row(
     ra_pos.analyze();
 }
 
+bool lar_solver::row_has_a_big_num(unsigned i) const {
+    for (const auto& c : A_r().m_rows[i]) {
+        if (c.coeff().is_big())
+            return true;
+    }
+    return false;
+}
+
 void lar_solver::analyze_new_bounds_on_row_tableau(
     unsigned row_index,
     lp_bound_propagator & bp ) {
 
-    if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
+    if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation
+        || row_has_a_big_num(row_index))
         return;
     lp_assert(use_tableau());
     bound_analyzer_on_row<row_strip<mpq>>::analyze_row(A_r().m_rows[row_index],
