@@ -252,7 +252,6 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
         k -= numeral(1);
     }
     else {
-        m_is_lia = false;
         k -= this->m_epsilon; 
     }
     edge_id neg = m_graph.add_edge(target, source, k, ~l);
@@ -647,7 +646,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     }
     ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, nullptr);
     if (dump_lemmas()) {
-        symbol logic(m_is_lia ? "QF_LIA" : "QF_LRA");
+        symbol logic(m_lia_or_lra == is_lia ? "QF_LIA" : "QF_LRA");
         ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
     }
 
@@ -693,7 +692,7 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
           );
 
     if (dump_lemmas()) {
-        symbol logic(m_is_lia ? "QF_LIA" : "QF_LRA");
+        symbol logic(m_lia_or_lra == is_lia ? "QF_LIA" : "QF_LRA");
         ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
     }
 
@@ -742,6 +741,7 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
     context& ctx = get_context();
 
     TRACE("arith", tout << mk_pp(n, get_manager()) << "\n";);
+
 
     rational r;
     if (m_util.is_numeral(n, r)) {
@@ -808,7 +808,24 @@ theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
     TRACE("diff_logic_vars", tout << "mk_var: " << v << "\n";);
     m_graph.init_var(v);
     get_context().attach_th_var(n, this, v);
+    set_sort(n->get_owner());
     return v;
+}
+
+template<typename Ext>
+theory_var theory_diff_logic<Ext>::set_sort(exir* n) {
+    if (m_util.is_int(n->get_owner())) {
+        if (m_lia_or_lra == is_lra) {
+            throw default_exception("difference logic does not work with mixed sorts");
+        }
+        m_lia_or_lra = is_lia;
+    }
+    else {
+        if (m_lia_or_lra == is_lia) {
+            throw default_exception("difference logic does not work with mixed sorts");
+        }
+        m_lia_or_lra = is_lra;
+    }
 }
 
 
@@ -853,7 +870,7 @@ void theory_diff_logic<Ext>::reset_eh() {
     m_num_core_conflicts    = 0;
     m_num_propagation_calls = 0;
     m_agility               = 0.5;
-    m_is_lia                = true;
+    m_lia_or_lra            = not_set;
     m_non_diff_logic_exprs  = false;
     m_objectives      .reset();
     m_objective_consts.reset();

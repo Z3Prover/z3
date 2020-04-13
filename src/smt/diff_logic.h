@@ -371,7 +371,9 @@ private:
         SASSERT(m_gamma[target].is_neg());
         acc_assignment(target, gamma);
 
-        TRACE("arith", display(tout << id << "\n"););
+        TRACE("arith", display(tout << id << " " << gamma << "\n");
+              display_edge(tout, last_e);
+              );
 
         dl_var source = target;
         while (true) {
