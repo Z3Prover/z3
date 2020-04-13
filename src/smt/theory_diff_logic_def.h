@@ -814,6 +814,8 @@ theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
 
 template<typename Ext>
 void theory_diff_logic<Ext>::set_sort(expr* n) {
+    if (m_util.is_numeral(n))
+        return;
     if (m_util.is_int(n)) {
         if (m_lia_or_lra == is_lra) {
             throw default_exception("difference logic does not work with mixed sorts");
