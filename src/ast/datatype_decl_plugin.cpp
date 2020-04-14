@@ -1140,7 +1140,8 @@ namespace datatype {
         TRACE("util_bug", tout << "invoke get-non-rec: " << sort_ref(ty, m) << "\n";);
         cd = get_non_rec_constructor_core(ty, forbidden_set);
         SASSERT(forbidden_set.back() == ty);
-        SASSERT(cd.first);
+        if (!cd.first) // datatypes are not completed on parse errors
+            throw default_exception("constructor not available");
         return cd.first;
     }
 
