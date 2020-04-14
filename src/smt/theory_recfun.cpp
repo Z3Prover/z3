@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2018 Microsoft Corporation, Simon Cuares
+Copyright (c) 2018 Microsoft Corporation, Simon Cruanes
 
 Module Name:
 
@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    Simon Cuares December 2017
+    Simon Cruanes December 2017
 
 Revision History:
 

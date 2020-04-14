@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    Simon Cuares December 2017
+    Simon Cruanes December 2017
 
 Revision History:
 
