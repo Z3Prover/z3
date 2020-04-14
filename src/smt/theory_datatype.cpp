@@ -46,14 +46,18 @@ namespace smt {
     }
 
     theory_datatype::final_check_st::~final_check_st() {
-        unmark_enodes(th->m_to_unmark.size(), th->m_to_unmark.c_ptr());
-        unmark_enodes2(th->m_to_unmark2.size(), th->m_to_unmark2.c_ptr());
-        th->m_to_unmark.reset();
-        th->m_to_unmark2.reset();
-        th->m_used_eqs.reset();
-        th->m_stack.reset();
-        th->m_parent.reset();
-    }   
+        th->clear_mark();
+    }
+
+    void theory_datatype::clear_mark() {
+        unmark_enodes(m_to_unmark.size(), m_to_unmark.c_ptr());
+        unmark_enodes2(m_to_unmark2.size(), m_to_unmark2.c_ptr());
+        m_to_unmark.reset();
+        m_to_unmark2.reset();
+        m_used_eqs.reset();
+        m_stack.reset();
+        m_parent.reset();
+    }
     
     void theory_datatype::oc_mark_on_stack(enode * n) {
         n = n->get_root();
@@ -210,6 +214,7 @@ namespace smt {
         SASSERT(ctx.get_assignment(l) == l_true);
         enode_pair p(c, r->get_arg(0));
         region & reg = ctx.get_region();
+        clear_mark();
         ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), reg, 1, &l, 1, &p)));
     }
 
@@ -476,7 +481,7 @@ namespace smt {
     final_check_status theory_datatype::final_check_eh() {
         int num_vars = get_num_vars();
         final_check_status r = FC_DONE;
-        final_check_st _guard(this); // RAII for managing state
+        final_check_st _guard(this); 
         for (int v = 0; v < num_vars; v++) {
             if (v == static_cast<int>(m_find.find(v))) {
                 enode * node = get_enode(v);
@@ -489,6 +494,7 @@ namespace smt {
                     // using lazy case splits...
                     var_data * d = m_var_data[v];
                     if (d->m_constructor == nullptr) {
+                        clear_mark();
                         mk_split(v);
                         r = FC_CONTINUE;
                     }
@@ -668,6 +674,7 @@ namespace smt {
             // m_used_eqs should contain conflict
             context & ctx = get_context();
             region & r    = ctx.get_region();
+            clear_mark();
             ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, m_used_eqs.size(), m_used_eqs.c_ptr())));
         }
         return res;
