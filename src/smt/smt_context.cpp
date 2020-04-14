@@ -3035,9 +3035,7 @@ namespace smt {
             return true;
         if (!is_app(assumption))
             return false;
-        if (to_app(assumption)->get_num_args() == 0)
-            return true;
-        if (m.is_not(assumption, arg) && is_app(arg) && to_app(arg)->get_num_args() == 0)
+        if (m.is_true(assumption) || m.is_false(assumption))
             return true;
         return false;
     }
@@ -3203,18 +3201,13 @@ namespace smt {
                 literal l = get_literal(curr_assumption);
                 if (l == true_literal)
                     continue;
-                if (l == false_literal) {
-                    set_conflict(b_justification::mk_axiom());
+                if (inconsistent())
                     break;
-                }
+                SASSERT(get_assignment(l) == l_true);
                 m_literal2assumption.insert(l.index(), orig_assumption);
                 // internalize_assertion marked l as relevant.
                 SASSERT(is_relevant(l));
                 TRACE("assumptions", tout << l << ":" << curr_assumption << " " << mk_pp(orig_assumption, m) << "\n";);
-                if (m.proofs_enabled())
-                    assign(l, mk_justification(justification_proof_wrapper(*this, pr)));
-                else
-                    assign(l, b_justification::mk_axiom());
                 m_assumptions.push_back(l);
                 get_bdata(l.var()).m_assumption = true;                
             }

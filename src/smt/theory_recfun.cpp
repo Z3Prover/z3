@@ -42,7 +42,7 @@ namespace smt {
         }
 
     theory_recfun::~theory_recfun() {
-        reset_queues();
+        reset_eh();
     }
 
     char const * theory_recfun::get_name() const { return "recfun"; }
@@ -107,7 +107,7 @@ namespace smt {
             dealloc(e);
         }
         m_q_body_expand.reset();
-        m_q_clauses.clear();
+        m_q_clauses.clear();        
     }
 
     void theory_recfun::reset_eh() {
@@ -116,6 +116,11 @@ namespace smt {
         theory::reset_eh();
         m_disabled_guards.reset();
         m_enabled_guards.reset();
+        m_q_guards.reset();
+        for (auto & kv : m_guard2pending) {
+            dealloc(kv.m_value);
+        }
+        m_guard2pending.reset();
     }
 
     /*
@@ -164,10 +169,18 @@ namespace smt {
         return 
             !m_q_case_expand.empty() ||
             !m_q_body_expand.empty() ||
-            !m_q_clauses.empty();
+            !m_q_clauses.empty() ||
+            !m_q_guards.empty();
     }
     
     void theory_recfun::propagate() {
+
+        for (expr* g : m_q_guards) {
+            expr* ng = nullptr;
+            VERIFY(m.is_not(g, ng));
+            activate_guard(ng, *m_guard2pending[g]);
+        }
+        m_q_guards.reset();
 
         for (literal_vector & c : m_q_clauses) {
             TRACEFN("add axiom " << pp_lits(ctx(), c));
@@ -205,15 +218,18 @@ namespace smt {
      * make clause `depth_limit => ~guard`
      * the guard appears at a depth below the current cutoff.
      */
-    void theory_recfun::disable_guard(expr* guard) {
+    void theory_recfun::disable_guard(expr* guard, expr_ref_vector const& guards) {
         expr_ref nguard(m.mk_not(guard), m);
         if (is_disabled_guard(nguard)) 
             return;
+        SASSERT(!is_enabled_guard(nguard));
         literal_vector c;
         app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
         c.push_back(~mk_literal(dlimit));
         c.push_back(~mk_literal(guard)); 
         m_disabled_guards.push_back(nguard);
+        SASSERT(!m_guard2pending.contains(nguard));
+        m_guard2pending.insert(nguard, alloc(expr_ref_vector, guards));
         TRACEFN("add clause\n" << pp_lits(ctx(), c));
         m_q_clauses.push_back(std::move(c));
     }
@@ -260,7 +276,7 @@ namespace smt {
         if (is_true && u().is_case_pred(e)) {
             TRACEFN("assign_case_pred_true " << mk_pp(e, m));
             // body-expand
-            push_body_expand(alloc(body_expansion, u(), to_app(e)));          
+            push_body_expand(alloc(body_expansion, u(), to_app(e)));            
         }
     }
 
@@ -319,7 +335,7 @@ namespace smt {
         unsigned depth = get_depth(e.m_lhs);
         expr_ref rhs(apply_args(depth, vars, e.m_args, e.m_def->get_rhs()), m);
         literal lit = mk_eq_lit(lhs, rhs);
-        std::function<expr*(void)> fn = [&]() { return ctx().bool_var2expr(lit.var()); };
+        std::function<literal(void)> fn = [&]() { return lit; };
         scoped_trace_stream _tr(*this, fn);
         ctx().mk_th_axiom(get_id(), 1, &lit);
         TRACEFN("macro expansion yields " << pp_lit(ctx(), lit));
@@ -338,50 +354,54 @@ namespace smt {
         SASSERT(e.m_def->is_fun_defined());
         // add case-axioms for all case-paths
         // assert this was not defined before.
-        auto & vars = e.m_def->get_vars();
         literal_vector preds;
-        expr_ref_vector pred_exprs(m);
+        auto & vars = e.m_def->get_vars();
+            
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
             app_ref pred_applied = c.apply_case_predicate(e.m_args);
-
-            unsigned depth = get_depth(e.m_lhs);
-            set_depth(depth, pred_applied);
             SASSERT(u().owns_app(pred_applied));
             literal concl = mk_literal(pred_applied);
             preds.push_back(concl);
-            pred_exprs.push_back(pred_applied);
 
+            unsigned depth = get_depth(e.m_lhs);
+            set_depth(depth, pred_applied);
+            expr_ref_vector guards(m);
+            for (auto & g : c.get_guards()) {
+                guards.push_back(apply_args(depth, vars, e.m_args, g));
+            }
             if (c.is_immediate()) {
                 body_expansion be(pred_applied, c, e.m_args);
                 assert_body_axiom(be);            
             }
             else if (!is_enabled_guard(pred_applied)) {
-                disable_guard(pred_applied);
+                disable_guard(pred_applied, guards);
                 continue;
             }
-            literal_vector guards;
-            expr_ref_vector exprs(m);
-            guards.push_back(concl);
-            for (auto & g : c.get_guards()) {
-                expr_ref ga = apply_args(depth, vars, e.m_args, g);
-                literal guard = mk_literal(ga);
-                guards.push_back(~guard);
-                exprs.push_back(m.mk_not(ga));
-                literal c[2] = {~concl, guard};
-                std::function<expr*(void)> fn = [&]() { return m.mk_implies(pred_applied, ga); };
-                scoped_trace_stream _tr(*this, fn);
-                ctx().mk_th_axiom(get_id(), 2, c);
-            }
-            std::function<expr*(void)> fn1 = [&]() { return m.mk_implies(m.mk_not(pred_applied), m.mk_or(exprs)); };
-            scoped_trace_stream _tr1(*this, fn1);
-            ctx().mk_th_axiom(get_id(), guards);
+            activate_guard(pred_applied, guards);
         }
         // the disjunction of branches is asserted
         // to close the available cases. 
-        std::function<expr*(void)> fn2 = [&]() { return m.mk_or(pred_exprs); };
+        std::function<literal_vector(void)> fn2 = [&]() { return preds; };
         scoped_trace_stream _tr2(*this, fn2);
         ctx().mk_th_axiom(get_id(), preds);
+    }
+
+    void theory_recfun::activate_guard(expr* pred_applied, expr_ref_vector const& guards) {
+        literal concl = mk_literal(pred_applied);
+        literal_vector lguards;
+        lguards.push_back(concl);
+        for (expr* ga : guards) {
+            literal guard = mk_literal(ga);
+            lguards.push_back(~guard);
+            literal c[2] = {~concl, guard};
+            std::function<literal_vector(void)> fn = [&]() { return literal_vector(2, c); };
+            scoped_trace_stream _tr(*this, fn);
+            ctx().mk_th_axiom(get_id(), 2, c);
+        }
+        std::function<literal_vector(void)> fn1 = [&]() { return lguards; };
+        scoped_trace_stream _tr1(*this, fn1);
+        ctx().mk_th_axiom(get_id(), lguards);        
     }
 
     /**
@@ -401,11 +421,9 @@ namespace smt {
         expr_ref lhs(u().mk_fun_defined(d, args), m);
         expr_ref rhs = apply_args(depth, vars, args, e.m_cdef->get_rhs());
         literal_vector clause;
-        expr_ref_vector exprs(m);
         for (auto & g : e.m_cdef->get_guards()) {
             expr_ref guard = apply_args(depth, vars, args, g);
             clause.push_back(~mk_literal(guard));
-            exprs.push_back(guard);
             if (clause.back() == true_literal) {
                 TRACEFN("body " << pp_body_expansion(e,m) << "\n" << clause << "\n" << guard);
                 return;
@@ -415,7 +433,7 @@ namespace smt {
             }
         }        
         clause.push_back(mk_eq_lit(lhs, rhs));
-        std::function<expr*(void)> fn = [&]() { return m.mk_implies(m.mk_and(exprs), m.mk_eq(lhs, rhs)); };
+        std::function<literal_vector(void)> fn = [&]() { return clause; };
         scoped_trace_stream _tr(*this, fn);
         ctx().mk_th_axiom(get_id(), clause);
         TRACEFN("body " << pp_body_expansion(e,m));
@@ -434,7 +452,7 @@ namespace smt {
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
         if (u().has_defs() || !m_disabled_guards.empty()) {
             app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
-            TRACEFN("add_theory_assumption " << mk_pp(dlimit.get(), m));
+            TRACEFN("add_theory_assumption " << dlimit);
             assumptions.push_back(dlimit);
             assumptions.append(m_disabled_guards);
         }
@@ -468,6 +486,7 @@ namespace smt {
             if (to_delete) {
                 m_disabled_guards.erase(to_delete);
                 m_enabled_guards.push_back(to_delete);
+                m_q_guards.push_back(to_delete);
                 IF_VERBOSE(1, verbose_stream() << "(smt.recfun :enable-guard)\n");
             }
             else {

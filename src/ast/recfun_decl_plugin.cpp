@@ -239,7 +239,6 @@ namespace recfun {
         st.push_branch(branch(st.mk_unfold_lst(rhs)));        
 
         while (! st.empty()) {
-            TRACEFN("main loop iter");
 
             branch b = st.pop_branch();
 
@@ -254,7 +253,6 @@ namespace recfun {
                 while (! stack.empty()) {
                     expr * e = stack.back();
                     stack.pop_back();
-                    TRACEFN("unfold: " << mk_pp(e, m));
 
                     if (m.is_ite(e)) {
                         // need to do a case split on `e`, forking the search space
@@ -305,7 +303,6 @@ namespace recfun {
                 
                 // substitute, to get rid of `ite` terms
                 expr_ref case_rhs = subst(rhs);
-                TRACEFN("case_rhs: " << case_rhs);
                 for (unsigned i = 0; i < conditions.size(); ++i) {
                     conditions[i] = subst(conditions.get(i));
                 }
