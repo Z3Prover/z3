@@ -32,7 +32,7 @@ template <typename T, typename X>
 class core_solver_pretty_printer {
     std::ostream & m_out;
     typedef std::string string;
-    lp_core_solver_base<T, X> & m_core_solver;
+    const lp_core_solver_base<T, X> & m_core_solver;
     vector<unsigned> m_column_widths;
     vector<vector<string>> m_A;
     vector<vector<string>> m_signs;
@@ -62,7 +62,7 @@ class core_solver_pretty_printer {
     vector<T> m_exact_column_norms;
 
 public:
-    core_solver_pretty_printer(lp_core_solver_base<T, X > & core_solver, std::ostream & out);
+    core_solver_pretty_printer(const lp_core_solver_base<T, X > & core_solver, std::ostream & out);
 
     void init_costs();
 

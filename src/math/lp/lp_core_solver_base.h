@@ -143,11 +143,13 @@ public:
         return m_status;
     }
 
-    void fill_cb(T * y);
+    void fill_cb(T * y) const;
 
-    void fill_cb(vector<T> & y);
+    void fill_cb(vector<T> & y) const;
 
-    void solve_yB(vector<T> & y);
+    void solve_yB(vector<T> & y) const;
+    
+    void solve_Bd(unsigned entering, indexed_vector<T> & d_buff, indexed_vector<T>& w_buff) const;
 
     void solve_Bd(unsigned entering);
 
@@ -159,7 +161,7 @@ public:
 
     void restore_state(T * w_buffer, T * d_buffer);
 
-    X get_cost() {
+    X get_cost() const {
         return dot_product(m_costs, m_x);
     }
 
