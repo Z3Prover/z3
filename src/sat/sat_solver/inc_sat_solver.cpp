@@ -971,7 +971,6 @@ private:
                 IF_VERBOSE(0, verbose_stream() << "evaluated to " << tmp << "\n");
                 all_true = false;
             }
-            //IF_VERBOSE(0, verbose_stream() << (i++) << ": " << mk_pp(f, m) << "\n");
         }
         if (!all_true) {
             IF_VERBOSE(0, verbose_stream() << m_params << "\n");

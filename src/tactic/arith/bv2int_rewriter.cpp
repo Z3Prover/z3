@@ -234,7 +234,7 @@ br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
     if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
         align_sizes(s1, t1, false);
         result = m_bv.mk_bv2int(m_bv.mk_bv_urem(s1, t1));
-        TRACE("bv2int_rewriter", tout << mk_pp(result,m()) << "\n";);
+        TRACE("bv2int_rewriter", tout << result << "\n";);
         return BR_DONE;
     }
 
@@ -243,13 +243,13 @@ br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
     //
     if (is_bv2int_diff(s, s1, s2) && is_bv2int(t, t1)) {
         expr_ref u1(m());
-        align_sizes(s1, t1, false);
-        u1 = m_bv.mk_bv_urem(s1, t1);
+        align_sizes(s2, t1, false);
+        u1 = m_bv.mk_bv_urem(s2, t1);
         u1 = m_bv.mk_bv_sub(t1, u1);
         u1 = mk_bv_add(s1, u1, false);
         align_sizes(u1, t1, false);
         result = m_bv.mk_bv2int(m_bv.mk_bv_urem(u1, t1));
-        TRACE("bv2int_rewriter", tout << mk_pp(result,m()) << "\n";);
+        TRACE("bv2int_rewriter", tout << result << "\n";);
         return BR_DONE;
     }
     
