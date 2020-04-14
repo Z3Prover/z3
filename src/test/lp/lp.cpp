@@ -2962,7 +2962,7 @@ void test_term() {
     }
     std::cout << solver.constraints();
     std::cout << "\ntableau before cube\n";
-    solver.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
+    solver.pp(std::cout).print();
     std::cout << "\n";
     int_solver i_s(solver);
     solver.set_int_solver(&i_s);
@@ -2977,7 +2977,7 @@ void test_term() {
     }
 
     std::cout << "\ntableu after cube\n";
-    solver.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
+    solver.pp(std::cout).print();
     std::cout << "Ax_is_correct = " << solver.ax_is_correct() << "\n";
     
 }
