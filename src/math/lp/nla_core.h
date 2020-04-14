@@ -128,13 +128,13 @@ public:
     bool ineq_holds(const ineq& n) const;
     bool lemma_holds(const lemma& l) const;
     bool is_monic_var(lpvar j) const { return m_emons.is_monic_var(j); }
-    rational val(lpvar j) const { return m_lar_solver.get_column_value_rational(j); }
+    const rational& val(lpvar j) const { return m_lar_solver.get_column_value(j).x; }
 
-    rational var_val(const monic& m) const { return m_lar_solver.get_column_value_rational(m.var()); }
+    const rational& var_val(const monic& m) const { return m_lar_solver.get_column_value(m.var()).x; }
 
     rational mul_val(const monic& m) const { 
         rational r(1);
-        for (lpvar v : m.vars()) r *= m_lar_solver.get_column_value_rational(v);
+        for (lpvar v : m.vars()) r *= m_lar_solver.get_column_value(v).x;
         return r;
     }
 

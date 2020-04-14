@@ -7,13 +7,13 @@ namespace lp {
 lp_bound_propagator::lp_bound_propagator(lar_solver & ls):
     m_lar_solver(ls) {}
 column_type lp_bound_propagator::get_column_type(unsigned j) const {
-    return m_lar_solver.m_mpq_lar_core_solver.m_column_types()[j];
+    return m_lar_solver.get_column_type(j);
 }
 const impq & lp_bound_propagator::get_lower_bound(unsigned j) const {
-    return m_lar_solver.m_mpq_lar_core_solver.m_r_lower_bounds()[j];
+    return m_lar_solver.get_lower_bound(j);
 }
 const impq & lp_bound_propagator::get_upper_bound(unsigned j) const {
-    return m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j];
+    return m_lar_solver.get_upper_bound(j);
 }
 void lp_bound_propagator::try_add_bound(mpq const& v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
     j = m_lar_solver.adjust_column_index_to_term_index(j);    

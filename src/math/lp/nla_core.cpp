@@ -147,7 +147,7 @@ void core::pop(unsigned n) {
 rational core::product_value(const monic& m) const {
     rational r(1);
     for (auto j : m.vars()) {
-        r *= m_lar_solver.get_column_value_rational(j);
+        r *= m_lar_solver.get_column_value(j).x;
     }
     return r;
 }
@@ -155,7 +155,7 @@ rational core::product_value(const monic& m) const {
 // return true iff the monic value is equal to the product of the values of the factors
 bool core::check_monic(const monic& m) const {    
     SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());
-    bool ret = product_value(m) == m_lar_solver.get_column_value_rational(m.var()); 
+    bool ret = product_value(m) == m_lar_solver.get_column_value(m.var()).x; 
     CTRACE("nla_solver_check_monic", !ret, print_monic(m, tout) << '\n';);
     return ret;
 }
@@ -1523,14 +1523,14 @@ lbool core::test_check(
 }
 
 std::ostream& core::print_terms(std::ostream& out) const {
-    for (unsigned i = 0; i< m_lar_solver.m_terms.size(); i++) {
+    for (unsigned i = 0; i< m_lar_solver.terms().size(); i++) {
         unsigned ext = lp::tv::mask_term(i);
         if (!m_lar_solver.var_is_registered(ext)) {
             out << "term is not registered\n";
             continue;
         }
         
-        const lp::lar_term & t = *m_lar_solver.m_terms[i];
+        const lp::lar_term & t = *m_lar_solver.terms()[i];
         out << "term:"; print_term(t, out) << std::endl;        
         lpvar j = m_lar_solver.external_to_local(ext);
         print_var(j, out);
@@ -1631,7 +1631,7 @@ std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
         }
     }  
   
-    for (unsigned j = 0; j < m_lar_solver.column_count(); ++j) {
+    for (unsigned j = 0; j < m_lar_solver.number_of_vars(); ++j) {
         if (m_lar_solver.column_has_lower_bound(j) || m_lar_solver.column_has_upper_bound(j)) {
             out << j << ": [";
                 if (m_lar_solver.column_has_lower_bound(j)) out << m_lar_solver.get_lower_bound(j);

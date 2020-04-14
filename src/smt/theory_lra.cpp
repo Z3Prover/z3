@@ -3814,11 +3814,9 @@ public:
             out << lp().constraints();
             lp().print_terms(out);
             // the tableau
-            auto pp = lp ::core_solver_pretty_printer<lp::mpq, lp::impq>(
-                lp().m_mpq_lar_core_solver.m_r_solver, out);
-            pp.print();
+            lp().pp(out).print();
             for (unsigned j = 0; j < lp().number_of_vars(); j++) {
-                lp().m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+                lp().print_column_info(j, out);
             }
         }
         if (m_nla) {

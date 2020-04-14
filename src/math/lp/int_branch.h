@@ -17,6 +17,8 @@ Revision History:
 --*/
 #pragma once
 
+#include "math/lp/lar_solver.h"
+#include "math/lp/int_solver.h"
 #include "math/lp/lia_move.h"
 
 namespace lp {

@@ -56,7 +56,7 @@ namespace lp {
     }
 
     bool int_branch::left_branch_is_more_narrow_than_right(unsigned j) {
-        switch (lra.m_mpq_lar_core_solver.m_r_solver.m_column_types[j] ) {
+        switch (lra.get_column_type(j)) {
         case column_type::fixed:
             return false;
         case column_type::boxed: {
