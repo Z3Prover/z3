@@ -25,6 +25,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "tactic/tactic.h"
 #include "tactic/core/reduce_invertible_tactic.h"
 #include "tactic/core/collect_occs.h"
@@ -306,6 +307,11 @@ private:
             }
             if (!rest) return false;
 
+            // so far just support numeral
+            rational r;
+            if (!m_bv.is_numeral(rest, r)) 
+                return false;
+
             // create case split on
             // divisbility of 2
             // v * t -> 
@@ -318,31 +324,30 @@ private:
             // to reproduce the original v from t
             // solve for v*t = extract[sz-1:i](v') ++ zero[i-1:0]
             // using values for t and v'
-            // thus
-            //
-            //    udiv(extract[sz-1:i](v') ++ zero[i-1:0], t)
+            // thus let t' = t / 2^i
+            // and t'' = the multiplicative inverse of t'
+            // then t'' * v' * t = t'' * v' * t' * 2^i = v' * 2^i = extract[sz-1:i](v') ++ zero[i-1:0]
+            // so t'' *v' works 
             // 
-            // TBD: this argument is flawed. Unit test breaks with either
-            // the above or udiv(v, t)
-
             unsigned sz = m_bv.get_bv_size(p);
             expr_ref bit1(m_bv.mk_numeral(1, 1), m);
             new_v = m_bv.mk_numeral(0, sz);
-            for (unsigned i = sz; i-- > 0; ) {
-                expr_ref extr_i(m_bv.mk_extract(i, i, rest), m);
-                expr_ref cond(m.mk_eq(extr_i, bit1), m);
-                expr_ref part(v, m);
-                if (i > 0) {
-                    part = m_bv.mk_concat(m_bv.mk_extract(sz-1, i, v), m_bv.mk_numeral(0, i));
-                }
-                new_v = m.mk_ite(cond, part, new_v);
+
+            
+            unsigned sh = 0;
+            while (r.is_pos() && r.is_even()) {
+                r /= rational(2);
+                ++sh;
             }
-            if (mc) {
+            if (r.is_pos() && sh > 0) {
+                new_v = m_bv.mk_concat(m_bv.mk_extract(sz-1, sh, v), m_bv.mk_numeral(0, sh));
+            }
+            if (mc && !r.is_zero()) {
                 ensure_mc(mc);
-                expr_ref div(m), def(m);
-                div = m.mk_app(m_bv.get_fid(), OP_BUDIV_I, v, rest);
-                def = m_bv.mk_numeral(0, sz);
-                def = m.mk_ite(m.mk_eq(def, rest), def, div);
+                expr_ref def(m);
+                rational inv_r;
+                VERIFY(m_bv.mult_inverse(r, sz, inv_r));
+                def = m_bv.mk_bv_mul(m_bv.mk_numeral(inv_r, sz), v);
                 (*mc)->add(v, def);
                 TRACE("invertible_tactic", tout << def << "\n";);
             }

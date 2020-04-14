@@ -133,6 +133,11 @@ public:
         if (mk_eq_core(lhs, rhs, result) == BR_FAILED)
             result = mk_eq(lhs, rhs);
     }
+    expr_ref mk_eq_rw(expr* lhs, expr* rhs) {
+        expr_ref r(m());
+        mk_eq(lhs, rhs, r);
+        return r;
+    }
     void mk_iff(expr * lhs, expr * rhs, expr_ref & result) { mk_eq(lhs, rhs, result); }
     void mk_xor(expr * lhs, expr * rhs, expr_ref & result);
     void mk_and(unsigned num_args, expr * const * args, expr_ref & result) {
@@ -187,6 +192,11 @@ public:
         if (mk_ite_core(c, t, e, result) == BR_FAILED)
             result = m().mk_ite(c, t, e);
     }
+    expr_ref mk_ite(expr * c, expr * t, expr * e) {
+        expr_ref r(m());
+        mk_ite(c, t, e, r);
+        return r;
+    }
     void mk_distinct(unsigned num_args, expr * const * args, expr_ref & result) {
         if (mk_distinct_core(num_args, args, result) == BR_FAILED)
             result = m().mk_distinct(num_args, args);
@@ -194,6 +204,11 @@ public:
     void mk_not(expr * t, expr_ref & result) {
         if (mk_not_core(t, result) == BR_FAILED)
             result = m().mk_not(t);
+    }
+    expr_ref mk_not(expr* t) {
+        expr_ref r(m());
+        mk_not(t, r);
+        return r;
     }
 
     void mk_nand(unsigned num_args, expr * const * args, expr_ref & result);
