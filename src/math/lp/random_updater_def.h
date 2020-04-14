@@ -43,9 +43,7 @@ bool random_updater::shift_var(unsigned j) {
     if (ret) {
         const auto & A = m_lar_solver.A_r();
         for (const auto& c : A.m_columns[j]) {
-            unsigned row_index = c.var();
-            unsigned changed_basic = m_lar_solver.get_core_solver().m_r_basis[row_index];
-            m_var_set.erase(changed_basic);
+            m_var_set.erase(m_lar_solver.r_basis()[c.var()]);
         }
     }
     return ret;
@@ -62,8 +60,8 @@ void random_updater::update() {
         if (!m_lar_solver.is_base(j)) {
             shift_var(j);
         } else {
-            unsigned row = m_lar_solver.get_core_solver().m_r_heading[j];
-            for (auto & row_c : m_lar_solver.get_core_solver().m_r_A.m_rows[row]) {
+            unsigned row_index = m_lar_solver.r_heading()[j];
+            for (auto & row_c : m_lar_solver.get_row(row_index)) {
                 unsigned cj = row_c.var();
                 if (!m_lar_solver.is_base(cj) &&
                     !m_lar_solver.column_is_fixed(cj)

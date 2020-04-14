@@ -7,8 +7,6 @@
 namespace lp {
 
 ////////////////// methods ////////////////////////////////
-static_matrix<mpq, numeric_pair<mpq>> & lar_solver::A_r() { return m_mpq_lar_core_solver.m_r_A;}
-static_matrix<mpq, numeric_pair<mpq>> const & lar_solver::A_r() const { return m_mpq_lar_core_solver.m_r_A;}
 static_matrix<double, double> & lar_solver::A_d() { return m_mpq_lar_core_solver.m_d_A;}
 static_matrix<double, double > const & lar_solver::A_d() const { return m_mpq_lar_core_solver.m_d_A;}
     
@@ -963,10 +961,6 @@ bool lar_solver::try_to_set_fixed(column_info<mpq> & ci) {
         return true;
     }
     return false;
-}
-
-column_type lar_solver::get_column_type(unsigned j) const{
-    return m_mpq_lar_core_solver.m_column_types[j];
 }
 
 bool lar_solver::all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side) {

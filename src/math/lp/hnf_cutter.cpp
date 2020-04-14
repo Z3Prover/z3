@@ -155,10 +155,12 @@ namespace lp  {
 
     bool hnf_cutter::overflow() const { return m_overflow; }
     
-    lia_move hnf_cutter::create_cut(lar_term& t, mpq& k, explanation* ex, bool & upper, const vector<mpq> & x0) {
-        // we suppose that x0 has at least one non integer element 
-        (void)x0;
-
+    lia_move hnf_cutter::create_cut(lar_term& t, mpq& k, explanation* ex, bool & upper
+#ifdef Z3DEBUG
+                                    , const vector<mpq> & x0
+                                    // we suppose that x0 has at least one non integer element 
+#endif                                                                                                            
+                                    ) {
         init_matrix_A();
         svector<unsigned> basis_rows;
         mpq big_number = m_abs_max.expt(3);
@@ -179,7 +181,10 @@ namespace lp  {
         
         hnf<general_matrix> h(m_A, d);        
         vector<mpq> b = create_b(basis_rows);
+#ifdef Z3DEBUG
         lp_assert(m_A * x0 == b);
+#endif
+
         find_h_minus_1_b(h.W(), b);
         int cut_row = find_cut_row_index(b);
 
@@ -238,11 +243,13 @@ namespace lp  {
               tout << lra.constraints();
               );
 #ifdef Z3DEBUG
-        vector<mpq> x0 = transform_to_local_columns(lra.m_mpq_lar_core_solver.m_r_x);
-#else
-        vector<mpq> x0;
+        vector<mpq> x0 = transform_to_local_columns(lra.r_x());
 #endif
-        lia_move r =  create_cut(lia.m_t, lia.m_k, lia.m_ex, lia.m_upper, x0);
+        lia_move r =  create_cut(lia.m_t, lia.m_k, lia.m_ex, lia.m_upper
+#ifdef Z3DEBUG
+                                 , x0
+#endif
+                                 );
 
         if (r == lia_move::cut) {      
             TRACE("hnf_cut",
