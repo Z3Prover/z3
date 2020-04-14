@@ -53,6 +53,7 @@ namespace datalog {
         void insert(ptr_vector<rule>& rules, rule* r);
         void check_sort(sort* s);
         void visit_rules(expr_sparse_mark& visited, rule_set const& rules);
+        bool evaluates_to_numeral(expr * n, rational& val);
     public:
         rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& is_predicate);
         ~rule_properties();    

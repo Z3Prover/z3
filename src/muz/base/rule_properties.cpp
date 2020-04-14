@@ -19,9 +19,10 @@ Notes:
 --*/
 
 #include "ast/expr_functors.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "muz/base/rule_properties.h"
 #include "muz/base/dl_rule_set.h"
-#include "ast/for_each_expr.h"
 #include "muz/base/dl_context.h"
 
 using namespace datalog;
@@ -237,11 +238,21 @@ void rule_properties::operator()(app* n) {
     }
     else if ((m_a.is_mod(n, n1, n2) || m_a.is_div(n, n1, n2) ||
               m_a.is_idiv(n, n1, n2) || m_a.is_rem(n, n1, n2))
-             && (!m_a.is_numeral(n2, r) || r.is_zero())) {
+             && (!evaluates_to_numeral(n2, r) || r.is_zero())) {
         m_uninterp_funs.insert(n->get_decl(), m_rule);
     }
     check_sort(m.get_sort(n));
 }
+
+bool rule_properties::evaluates_to_numeral(expr * n, rational& val) {    
+    if (m_a.is_numeral(n, val))
+        return true;
+    th_rewriter rw(m);
+    expr_ref tmp(n, m);
+    rw(tmp);
+    return m_a.is_numeral(tmp, val);
+}
+
 
 void rule_properties::check_sort(sort* s) {
     sort_size sz = s->get_num_elements();

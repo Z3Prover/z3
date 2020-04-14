@@ -698,6 +698,7 @@ bool arith_recognizers::is_numeral(expr const * n, rational & val, bool & is_int
     return true;
 }
 
+
 bool arith_recognizers::is_irrational_algebraic_numeral(expr const * n) const { 
     return is_app(n) && to_app(n)->is_app_of(m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM); 
 }
