@@ -95,14 +95,19 @@ namespace smt {
         stats                   m_stats;
 
         // book-keeping for depth of predicates
+        expr_ref_vector          m_disabled_guards;
+        expr_ref_vector          m_enabled_guards;
         obj_map<expr, unsigned>  m_pred_depth;
         expr_ref_vector          m_preds;
         unsigned_vector          m_preds_lim;
-        unsigned                 m_max_depth; // for fairness and termination
+        unsigned                 m_num_rounds;
 
         ptr_vector<case_expansion> m_q_case_expand;
         ptr_vector<body_expansion> m_q_body_expand;
         vector<literal_vector> m_q_clauses;
+
+        bool is_enabled_guard(expr* guard) { expr_ref ng(m.mk_not(guard), m); return m_enabled_guards.contains(ng); }
+        bool is_disabled_guard(expr* guard) { return m_disabled_guards.contains(guard); }
 
         recfun::util & u() const { return m_util; }
         bool is_defined(app * f) const { return u().is_defined(f); }
@@ -118,7 +123,7 @@ namespace smt {
         void assert_body_axiom(body_expansion & e);
         literal mk_literal(expr* e);
 
-        void assert_max_depth_limit(expr* guard);
+        void disable_guard(expr* guard);
         unsigned get_depth(expr* e);
         void set_depth(unsigned d, expr* e);
         void set_depth_rec(unsigned d, expr* e);

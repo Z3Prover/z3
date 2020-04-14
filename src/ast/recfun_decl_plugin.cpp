@@ -341,10 +341,10 @@ namespace recfun {
         d.set_definition(subst, n_vars, vars, rhs1);
     }
 
-    app_ref util::mk_depth_limit_pred(unsigned d) {
+    app_ref util::mk_num_rounds_pred(unsigned d) {
         parameter p(d);
-        func_decl_info info(m_fid, OP_DEPTH_LIMIT, 1, &p);
-        func_decl* decl = m().mk_const_decl(symbol("recfun-depth-limit"), m().mk_bool_sort(), info);
+        func_decl_info info(m_fid, OP_NUM_ROUNDS, 1, &p);
+        func_decl* decl = m().mk_const_decl(symbol("recfun-num-rounds"), m().mk_bool_sort(), info);
         return app_ref(m().mk_const(decl), m());
     }
 
