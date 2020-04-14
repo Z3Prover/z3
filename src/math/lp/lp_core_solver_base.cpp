@@ -53,8 +53,9 @@ template void lp::lp_core_solver_base<double, double>::snap_xN_to_bounds_and_fre
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::snap_xN_to_bounds_and_free_columns_to_zeroes();
 template void lp::lp_core_solver_base<double, double>::solve_Ax_eq_b();
 template void lp::lp_core_solver_base<double, double>::solve_Bd(unsigned int);
+template void lp::lp_core_solver_base<double, double>::solve_Bd(unsigned int, lp::indexed_vector<double>&, lp::indexed_vector<double>&) const;
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq>>::solve_Bd(unsigned int, indexed_vector<lp::mpq>&);
-template void lp::lp_core_solver_base<double, double>::solve_yB(vector<double >&);
+template void lp::lp_core_solver_base<double, double>::solve_yB(vector<double >&) const;
 template bool lp::lp_core_solver_base<double, double>::update_basis_and_x(int, int, double const&);
 template void lp::lp_core_solver_base<double, double>::add_delta_to_entering(unsigned int, const double&);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::A_mult_x_is_off() const;
@@ -71,7 +72,7 @@ template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::restore_x(unsigned int,
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::set_non_basic_x_to_correct_bounds();
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_Ax_eq_b();
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_Bd(unsigned int);
-template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_yB(vector<lp::mpq>&);
+template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::solve_yB(vector<lp::mpq>&) const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::update_basis_and_x(int, int, lp::mpq const&);
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::add_delta_to_entering(unsigned int, const lp::mpq&);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calculate_pivot_row_of_B_1(unsigned int);
@@ -113,7 +114,7 @@ template std::string lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> 
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::pretty_print(std::ostream & out);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::restore_state(lp::mpq*, lp::mpq*);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::save_state(lp::mpq*, lp::mpq*);
-template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::solve_yB(vector<lp::mpq>&);
+template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::solve_yB(vector<lp::mpq>&) const;
 template void lp::lp_core_solver_base<double, double>::init_lu();
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::init_lu();
 template int lp::lp_core_solver_base<double, double>::pivots_in_column_and_row_are_different(int, int) const;
@@ -147,3 +148,5 @@ template bool lp::lp_core_solver_base<lp::mpq, lp::mpq >::infeasibility_costs_ar
 template bool lp::lp_core_solver_base<double, double >::infeasibility_costs_are_correct() const;
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calculate_pivot_row(unsigned int);
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::remove_from_basis(unsigned int);
+template void lp::lp_core_solver_base<rational, rational>::solve_Bd(unsigned int, lp::indexed_vector<rational>&, lp::indexed_vector<rational>&) const;
+template void lp::lp_core_solver_base<rational, lp::numeric_pair<rational> >::solve_Bd(unsigned int, lp::indexed_vector<rational>&, lp::indexed_vector<rational>&) const;
