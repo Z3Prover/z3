@@ -3924,7 +3924,9 @@ void theory_seq::add_itos_axiom(expr* e) {
     // itos(n) does not start with "0" when n > 0
     // n = 0 or at(itos(n),0) != "0"
     // alternative: n >= 0 => itos(stoi(itos(n))) = itos(n)
-    add_axiom(mk_eq(n, zero, false), ~mk_eq(m_util.str.mk_at(e,zero), m_util.str.mk_string(symbol("0")), false));
+    add_axiom(mk_eq(n, zero, false), 
+              ~mk_eq(m_util.str.mk_at(e,zero), 
+                     m_util.str.mk_string(symbol("0")), false));
     // add_axiom(~ge0, mk_preferred_eq(m_util.str.mk_itos(stoi), e));
 }
 
@@ -4869,46 +4871,7 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
         }
     }
     else if (m_util.str.is_itos(e, e1)) {
-        rational val;
-        TRACE("seq", tout << mk_bounded_pp(e, m, 2) << "\n";);
-        if (get_num_value(e1, val)) {
-            TRACE("seq", tout << mk_bounded_pp(e, m, 2) << " -> " << val << "\n";);
-            expr_ref num(m), res(m);
-            num = m_autil.mk_numeral(val, true);
-            if (!ctx.e_internalized(num)) {
-                ctx.internalize(num, false);
-            }
-            enode* n1 = ctx.get_enode(num);
-            enode* n2 = ctx.get_enode(e1);
-            res = m_util.str.mk_string(symbol(val.to_string().c_str()));
-#if 1
-            if (val.is_neg()) {
-                result = e;
-            }
-            // TBD remove this: using roots is unsound for propagation.
-            else if (n1->get_root() == n2->get_root()) {
-                result = res;
-                deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(n1, n2)));
-            }
-            else {
-                TRACE("seq", tout << "mk equalities\n";);
-                literal l1 = mk_preferred_eq(num, e1);
-                literal l2 = mk_preferred_eq(e, res);
-                TRACE("seq", tout << "add axiom " << l1 << " " << l2 << "\n";);                
-                add_axiom(l1, ~l2);
-                add_axiom(~l1, l2);
-                result = e;
-            }
-#else
-            TRACE("seq", tout << "add axiom\n";);                
-            add_axiom(~mk_eq(num, e1, false), mk_eq(e, res, false));
-            add_axiom(mk_eq(num, e1, false), ~mk_eq(e, res, false));
-            result = e;
-#endif
-        }
-        else {
-            result = e;
-        }
+        result = e;        
     }
     else {
         result = e;
