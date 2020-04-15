@@ -240,6 +240,10 @@ struct check_logic::imp {
             if (!m_bvs)
                 fail("logic does not support bitvectors");
         }
+        else if (m_dt_util.is_datatype(s)) {
+            if (!m_dt) 
+                fail("logic does not support algebraic datatypes");
+        }
         else if (m_ar_util.is_array(s)) {
             if (m_arrays) {
                 return;

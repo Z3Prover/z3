@@ -47,4 +47,5 @@ z3_add_component(rewriter
     fpa_rewriter_params.pyg
     poly_rewriter_params.pyg
     rewriter_params.pyg
+    seq_rewriter_params.pyg
 )

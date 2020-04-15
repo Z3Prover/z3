@@ -27,6 +27,7 @@ Notes:
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/seq_rewriter_params.hpp"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata_def.h"
 
@@ -387,6 +388,17 @@ eautomaton* re2automaton::seq2aut(expr* e) {
     return nullptr;
 }
 
+void seq_rewriter::updt_params(params_ref const & p) {
+    seq_rewriter_params sp(p);
+    m_coalesce_chars = sp.coalesce_chars();
+}
+
+static void get_param_descrs(param_descrs & r) {
+    seq_rewriter_params::collect_param_descrs(r);
+}
+
+
+
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
     br_status st = BR_FAILED;
@@ -531,7 +543,11 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         st = mk_str_lt(args[0], args[1], result);
         break;
     case OP_STRING_CONST:
-        return BR_FAILED;
+        st = BR_FAILED;
+        if (!m_coalesce_chars) {
+            st = mk_str_units(f, result);
+        }
+        break;
     case OP_STRING_ITOS: 
         SASSERT(num_args == 1);
         st = mk_str_itos(args[0], result);
@@ -563,7 +579,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
 br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
     unsigned ch;
     // specifically we want (_ BitVector 8)
-    if (m_util.is_const_char(e, ch)) {
+    if (m_util.is_const_char(e, ch) && m_coalesce_chars) {
         // convert to string constant
         zstring str(ch);
         TRACE("seq_verbose", tout << "rewrite seq.unit of 8-bit value " << ch << " to string constant \"" << str<< "\"" << std::endl;);
@@ -584,8 +600,8 @@ br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
 br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     zstring s1, s2;
     expr* c, *d;
-    bool isc1 = m_util.str.is_string(a, s1);
-    bool isc2 = m_util.str.is_string(b, s2);
+    bool isc1 = m_util.str.is_string(a, s1) && m_coalesce_chars;
+    bool isc2 = m_util.str.is_string(b, s2) && m_coalesce_chars;
     if (isc1 && isc2) {
         result = m_util.str.mk_string(s1 + s2);
         return BR_DONE;
@@ -1509,6 +1525,23 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
     }
 
     return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_str_units(func_decl* f, expr_ref& result) {
+    zstring s;
+    VERIFY(m_util.str.is_string(f, s));
+    expr_ref_vector es(m());
+    unsigned sz = s.length();
+    for (unsigned j = 0; j < sz; ++j) {
+        es.push_back(m_util.str.mk_unit(m_util.str.mk_char(s, j)));
+    }        
+    if (es.empty()) {
+        result = m_util.str.mk_empty(f->get_range());
+    }
+    else {
+        result = m_util.str.mk_concat(es);
+    }
+    return BR_DONE;
 }
 
 br_status seq_rewriter::mk_str_le(expr* a, expr* b, expr_ref& result) {
