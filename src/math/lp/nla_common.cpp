@@ -194,4 +194,4 @@ template <typename T> void common::create_sum_from_row(const T& row,
 
 
 }
-template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_creator::sum_factory&, u_dependency*&);  
+template void nla::common::create_sum_from_row<vector<lp::row_cell<rational>, true, unsigned int> >(vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_creator::sum_factory&, u_dependency*&);  

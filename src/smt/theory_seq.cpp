@@ -1640,6 +1640,7 @@ bool theory_seq::enforce_length(expr_ref_vector const& es, vector<rational> & le
             len.push_back(rational(s.length()));
         }
         else if (get_length(e, val)) {
+			SASSERT(!val.is_neg());
             len.push_back(val);
         }
         else {
@@ -3916,6 +3917,8 @@ void theory_seq::add_itos_axiom(expr* e) {
     // itos(n) = "" or n >= 0
     add_axiom(~eq1, ~ge0);
     add_axiom(eq1, ge0);
+
+    add_axiom(mk_literal(m_autil.mk_ge(mk_len(e), m_autil.mk_int(0))));    
     
     // n >= 0 => stoi(itos(n)) = n
     app_ref stoi(m_util.str.mk_stoi(e), m);
@@ -5240,8 +5243,8 @@ void theory_seq::add_itos_length_axiom(expr* len) {
         num_char2 = len2.get_unsigned();
     }
     unsigned num_char = std::max(num_char1, num_char2);
-    
 
+    add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(0))));    
     literal len_le(mk_literal(m_autil.mk_le(len, m_autil.mk_int(num_char))));
     literal len_ge(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(num_char))));
     literal n_ge_0(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
@@ -5519,7 +5522,7 @@ bool theory_seq::get_length(expr* e, rational& val) {
         }
         else {            
             len = mk_len(c);
-            if (m_arith_value.get_value(len, val1)) {
+            if (m_arith_value.get_value(len, val1) && !val1.is_neg()) {
                 val += val1;
             }
             else {
