@@ -20,6 +20,7 @@ Notes:
 
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "tactic/core/dom_simplify_tactic.h"
 
 /**
@@ -92,7 +93,7 @@ bool expr_dominators::compute_dominators() {
         change = false;
         TRACE("simplify", 
               for (auto & kv : m_doms) {
-                  tout << expr_ref(kv.m_key, m) << " |-> " << expr_ref(kv.m_value, m) << "\n";
+                  tout << mk_bounded_pp(kv.m_key, m) << " |-> " << mk_bounded_pp(kv.m_value, m) << "\n";
               });
 
         SASSERT(m_post2expr.empty() || m_post2expr.back() == e);
@@ -159,7 +160,7 @@ std::ostream& expr_dominators::display(std::ostream& out) {
 
 std::ostream& expr_dominators::display(std::ostream& out, unsigned indent, expr* r) {
     for (unsigned i = 0; i < indent; ++i) out << " ";
-    out << expr_ref(r, m) << "\n";
+    out << r->get_id() << ": " << mk_bounded_pp(r, m, 1) << "\n";
     if (m_tree.contains(r)) {
         for (expr* child : m_tree[r]) {
             if (child != r) 
@@ -295,6 +296,7 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
             r = e;
         }
     }
+    CTRACE("simplify", e0 != r, tout << "depth before: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
     (*m_simplifier)(r);
     cache(e0, r);
     CTRACE("simplify", e0 != r, tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
@@ -318,39 +320,40 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
     };
 
     expr_ref_vector args(m);
+
+    auto simp_arg = [&](expr* arg) {
+        for (expr * child : tree(arg)) {                    
+            if (is_subexpr_arg(child, arg)) {               
+                simplify_rec(child);                        
+            }                                               
+        }                                                   
+        r = simplify_arg(arg);                              
+        args.push_back(r);                                  
+        if (!assert_expr(r, !is_and)) {                     
+            pop(scope_level() - old_lvl);                   
+            r = is_and ? m.mk_false() : m.mk_true();        
+            reset_cache();
+            return true;
+        }                     
+        return false;
+    };
+
     if (m_forward) {
         for (expr * arg : *e) {
-#define _SIMP_ARG(arg)                                          \
-            for (expr * child : tree(arg)) {                    \
-                if (is_subexpr_arg(child, arg)) {               \
-                    simplify_rec(child);                        \
-                }                                               \
-            }                                                   \
-            r = simplify_arg(arg);                              \
-            args.push_back(r);                                  \
-            if (!assert_expr(r, !is_and)) {                     \
-                pop(scope_level() - old_lvl);                   \
-                r = is_and ? m.mk_false() : m.mk_true();        \
-                if (!is_and)                                    \
-                    reset_cache();                              \
-                return r;                                       \
-            }                                                   
-            _SIMP_ARG(arg);
+            if (simp_arg(arg)) 
+                return r;
         }                                                                  
     }
     else {        
-        for (unsigned i = e->get_num_args(); i > 0; ) {
-            --i;
-            expr* arg = e->get_arg(i);
-            _SIMP_ARG(arg);
+        for (unsigned i = e->get_num_args(); i-- > 0; ) {
+            if (simp_arg(e->get_arg(i)))
+                return r;
         }
         args.reverse();
     }
     
     pop(scope_level() - old_lvl);
-    // TODO: add stack for cache rather than destroy it completely everywhere
-    if (!is_and)
-        reset_cache();
+    reset_cache();
     return { is_and ? mk_and(args) : mk_or(args), m };
 }
 
@@ -545,6 +548,8 @@ public:
             return sign;
         if (m.is_true(t))
             return !sign;
+
+        TRACE("simplify", tout << t->get_id() << ": " << mk_bounded_pp(t, m) << " " << (sign?" - neg":" - pos") << "\n";);
 
         m_scoped_substitution.push();
         if (!sign) {
