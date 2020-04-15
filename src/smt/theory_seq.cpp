@@ -4320,6 +4320,7 @@ public:
                     dependency* deps = nullptr;
                     expr_ref tmp(th.m);
                     if (!th.canonize(m_strings[k], deps, tmp)) tmp = m_strings[k];
+                    th.m_str_rewrite(tmp);
                     zstring zs;
                     if (th.m_util.str.is_string(tmp, zs)) {
                         add_buffer(sbuffer, zs);
