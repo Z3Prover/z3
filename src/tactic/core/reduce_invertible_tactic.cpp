@@ -258,6 +258,7 @@ private:
     // TBD: could be made to be recursive, by walking multiple layers of parents.
     
     bool is_invertible(expr* v, expr*& p, expr_ref& new_v, generic_model_converter_ref* mc, unsigned max_var = 0) {
+        rational r;
         if (m_parents.size() <= v->get_id()) {
             return false;
         }
@@ -308,7 +309,6 @@ private:
             if (!rest) return false;
 
             // so far just support numeral
-            rational r;
             if (!m_bv.is_numeral(rest, r)) 
                 return false;
 
@@ -373,6 +373,8 @@ private:
                 }
             }
             if (!rest) return false;
+            if (!m_arith.is_numeral(rest, r) || r.is_zero())
+                return false;
             expr_ref zero(m_arith.mk_real(0), m);
             new_v = m.mk_ite(m.mk_eq(zero, rest), zero, v);
             if (mc) {
@@ -385,23 +387,15 @@ private:
 
 
         expr* e1 = nullptr, *e2 = nullptr;
-
-        // t / v -> if t = 0 then 0 else v 
-        // inverse: t = 0 then 1 else v / t
-        if (m_arith.is_div(p, e1, e2) && e2 == v) {
-            expr_ref zero(m_arith.mk_real(0), m);
-            new_v = m.mk_ite(m.mk_eq(zero, e1), zero, v);
-            if (mc) {
-                ensure_mc(mc);
-                expr_ref def(m.mk_ite(m.mk_eq(zero, e1), m_arith.mk_real(1), m_arith.mk_div(e1, v)), m);
-                (*mc)->add(v, def);
-            }
-            return true;
-        }
         
         // v / t unless t != 0
-        if (m_arith.is_div(p, e1, e2) && e1 == v) {
-            return false;
+        if (m_arith.is_div(p, e1, e2) && e1 == v && m_arith.is_numeral(e2, r) && !r.is_zero()) {
+            new_v = v;
+            if (mc) {
+                ensure_mc(mc);
+                (*mc)->add(v, m_arith.mk_mul(e1, e2));
+            }
+            return true;
         }
        
         if (m.is_eq(p, e1, e2)) {
