@@ -54,9 +54,6 @@ namespace smt {
         unmark_enodes2(m_to_unmark2.size(), m_to_unmark2.c_ptr());
         m_to_unmark.reset();
         m_to_unmark2.reset();
-        m_used_eqs.reset();
-        m_stack.reset();
-        m_parent.reset();
     }
     
     void theory_datatype::oc_mark_on_stack(enode * n) {
