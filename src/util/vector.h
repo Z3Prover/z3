@@ -17,10 +17,10 @@ Abstract:
 Author:
 
     Leonardo de Moura (leonardo) 2006-09-11.
+    Daniel Schemmel 2019-2-23
 
 Revision History:
 
-   2019-2-23 Renamed from vector to vector to provide new implementation
 
 --*/
 #ifndef VECTOR_H_

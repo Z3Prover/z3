@@ -13,6 +13,7 @@ Abstract:
 Author:
 
     Leonardo de Moura (leonardo) 2006-10-16.
+    Daniel Schemmel 2019-2-23
 
 Revision History:
 

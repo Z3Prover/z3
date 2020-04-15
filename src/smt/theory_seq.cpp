@@ -1640,7 +1640,6 @@ bool theory_seq::enforce_length(expr_ref_vector const& es, vector<rational> & le
             len.push_back(rational(s.length()));
         }
         else if (get_length(e, val)) {
-			SASSERT(!val.is_neg());
             len.push_back(val);
         }
         else {
