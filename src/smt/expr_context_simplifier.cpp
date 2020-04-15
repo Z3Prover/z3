@@ -81,29 +81,11 @@ void expr_context_simplifier::reduce_rec(expr * m, expr_ref & result) {
 
 void expr_context_simplifier::reduce_rec(quantifier* q, expr_ref & result) {
     result = q;
-
-#if 0
-    //
-    // The context assumes that asserted expressions are in NNF with
-    // respect to the quantifier occurrences.
-    // This can be disabled if the strong context simplifier
-    // is called from the API over the Z3_simplify method.
-    //
-    expr_context_simplifier nested(m_manager);
-    expr_ref body_r(m_manager);
-    nested.reduce(q->get_expr(), body_r);
-    if (body_r.get() != q->get_expr()) {
-        result = m_manager.update_quantifier(q, body_r.get());
-    }
-    else {
-        result = q;
-    }
-#endif
 }
 
 void expr_context_simplifier::reduce_rec(app * a, expr_ref & result) {    
     if (m_manager.get_basic_family_id() == a->get_family_id()) {
-        switch(a->get_decl_kind()) {
+        switch (a->get_decl_kind()) {
         case OP_AND: 
             reduce_and(a->get_num_args(), a->get_args(), result);
             return;
@@ -168,18 +150,18 @@ void expr_context_simplifier::reduce_rec(app * a, expr_ref & result) {
     }
 
     expr_ref_vector args(m_manager);
-    for (unsigned i = 0; i < a->get_num_args(); ++i) {
+    for (expr* arg : *a) {
         expr_ref tmp(m_manager);
-        reduce_rec(a->get_arg(i), tmp);
+        reduce_rec(arg, tmp);
         args.push_back(tmp.get());
     }
-    result = m_manager.mk_app(a->get_decl(), args.size(), args.c_ptr());
+    result = m_manager.mk_app(a->get_decl(), args);
 }
 
 void expr_context_simplifier::clean_trail(unsigned old_lim) {
     for (unsigned i = m_trail.size(); i > old_lim; ) {
         --i;
-        m_context.erase(m_trail[i].get());
+        m_context.erase(m_trail.get(i));
     }
     m_trail.resize(old_lim);
 }
@@ -436,7 +418,7 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
                 args.push_back(arg);
             }
         }
-        r = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+        r = m.mk_app(a->get_decl(), args);
         trail.push_back(r);
         if (n2) {
             m_solver.push();
@@ -712,7 +694,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
                 args.push_back(arg);
             }
         }
-        r = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+        r = m.mk_app(a->get_decl(), args);
         trail.push_back(r);
         if (n2) {
             m_solver.push();

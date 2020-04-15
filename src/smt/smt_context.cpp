@@ -3025,17 +3025,21 @@ namespace smt {
         }
     }
 
-    static bool is_valid_assumption(ast_manager & m, expr * assumption) {
+    static bool is_valid_assumption(ast_manager & m, expr * a) {
         expr* arg;
-        if (!m.is_bool(assumption))
+        if (!m.is_bool(a))
             return false;
-        if (is_uninterp_const(assumption))
+        if (is_uninterp_const(a))
             return true;
-        if (m.is_not(assumption, arg) && is_uninterp_const(arg))
+        if (m.is_not(a, arg) && is_uninterp_const(arg))
             return true;
-        if (!is_app(assumption))
+        if (!is_app(a))
             return false;
-        if (m.is_true(assumption) || m.is_false(assumption))
+        if (m.is_true(a) || m.is_false(a))
+            return true;
+        if (is_app(a) && to_app(a)->get_family_id() == m.get_basic_family_id())
+            return false;
+        if (is_app(a) && to_app(a)->get_num_args() == 0)
             return true;
         return false;
     }
@@ -3192,6 +3196,8 @@ namespace smt {
             vector<std::pair<expr*,expr_ref>> asm2proxy;
             internalize_proxies(asms, asm2proxy);
             for (auto const& p: asm2proxy) {
+                if (inconsistent())
+                    break;
                 expr_ref curr_assumption = p.second;
                 expr* orig_assumption = p.first;
                 if (m.is_true(curr_assumption)) continue;
@@ -3199,17 +3205,16 @@ namespace smt {
                 proof * pr = m.mk_asserted(curr_assumption);
                 internalize_assertion(curr_assumption, pr, 0);
                 literal l = get_literal(curr_assumption);
-                if (l == true_literal)
+                SASSERT(get_assignment(l) != l_undef);
+                SASSERT(l != false_literal || inconsistent());
+                if (l == true_literal || l == false_literal) {
                     continue;
-                if (inconsistent())
-                    break;
-                SASSERT(get_assignment(l) == l_true);
+                }
                 m_literal2assumption.insert(l.index(), orig_assumption);
-                // internalize_assertion marked l as relevant.
-                SASSERT(is_relevant(l));
-                TRACE("assumptions", tout << l << ":" << curr_assumption << " " << mk_pp(orig_assumption, m) << "\n";);
                 m_assumptions.push_back(l);
                 get_bdata(l.var()).m_assumption = true;                
+                SASSERT(is_relevant(l));
+                TRACE("assumptions", tout << l << ":" << curr_assumption << " " << mk_pp(orig_assumption, m) << "\n";);
             }
         }
         m_search_lvl = m_scope_lvl;

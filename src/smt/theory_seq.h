@@ -696,8 +696,7 @@ namespace smt {
         bool is_step(expr* e) const;
         bool is_max_unfolding(expr* e) const { return is_skolem(symbol("seq.max_unfolding_depth"), e); }
         expr_ref mk_max_unfolding_depth() { 
-            return mk_skolem(symbol("seq.max_unfolding_depth"), 
-                             m_autil.mk_int(m_max_unfolding_depth), 
+            return mk_skolem(symbol("seq.max_unfolding_depth"), m_autil.mk_int(m_max_unfolding_depth), 
                              nullptr, nullptr, nullptr, m.mk_bool_sort());
         }
         void propagate_not_prefix(expr* e);

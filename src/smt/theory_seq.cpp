@@ -4610,7 +4610,7 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         }
 
         todo.pop_back();
-        result = m.mk_app(to_app(a)->get_decl(), args.size(), args.c_ptr());
+        result = m.mk_app(to_app(a)->get_decl(), args);
         trail.push_back(result);
         cache.insert(a, result);                
     }
@@ -4618,7 +4618,6 @@ expr_ref theory_seq::elim_skolem(expr* e) {
 }
 
 void theory_seq::validate_axiom(literal_vector const& lits) {
-    return;
     if (get_context().get_fparams().m_seq_validate) {
         enode_pair_vector eqs;
         literal_vector _lits;
@@ -4744,7 +4743,7 @@ bool theory_seq::canonize(expr* e, expr_ref_vector& es, dependency*& eqs, bool& 
                 return false;
             }
             change |= e4 != e3;
-            m_util.str.get_concat_units(e4, es);
+            m_util.str.get_concat(e4, es);
             break;
         }
     }
@@ -4793,9 +4792,12 @@ expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
 }
 bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
     result = try_expand(e0, eqs);
-    if (result) return true;
+    if (result) {
+        return true;
+    }
     dependency* deps = nullptr;
     expr* e = m_rep.find(e0, deps);
+
     expr* e1, *e2, *e3;
     expr_ref arg1(m), arg2(m);
     context& ctx = get_context();
@@ -4869,9 +4871,6 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
                   tout << lit << "@ level: " << ctx.get_scope_level() << "\n";);
             return false;
         }
-    }
-    else if (m_util.str.is_itos(e, e1)) {
-        result = e;        
     }
     else {
         result = e;
@@ -5905,7 +5904,7 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
 
 expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1, expr* e2, expr* e3, expr*e4, sort* range) {
     expr* es[4] = { e1, e2, e3, e4 };
-    unsigned len = e4?4:(e3?3:(e2?2:1));
+    unsigned len = e4?4:(e3?3:(e2?2:(e1?1:0)));
 
     if (!range) {
         range = m.get_sort(e1);
