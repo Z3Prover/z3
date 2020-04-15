@@ -1899,6 +1899,10 @@ public:
         return mk_app(decl, args.size(), args.c_ptr());
     }
 
+    app * mk_app(func_decl * decl, ptr_buffer<expr> const& args) {
+        return mk_app(decl, args.size(), args.c_ptr());
+    }
+
     app * mk_app(func_decl * decl, ptr_vector<app> const& args) {
         return mk_app(decl, args.size(), (expr*const*)args.c_ptr());
     }

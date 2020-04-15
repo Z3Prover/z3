@@ -682,6 +682,7 @@ bool pdatatypes_decl::fix_missing_refs(symbol & missing) {
 
 sort* pdecl_manager::instantiate_datatype(psort_decl* p, symbol const& name, unsigned n, sort * const* s) {
     TRACE("datatype", tout << name << " "; for (unsigned i = 0; i < n; ++i) tout << s[i]->get_name() << " "; tout << "\n";);
+
     pdecl_manager& m = *this;
     sort * r = p->find(s);
     if (r)

@@ -623,7 +623,7 @@ namespace datatype {
             for (unsigned i = 0; i < c->get_arity(); i++) {
                 args.push_back(m_manager->get_some_value(c->get_domain(i)));
             }
-            return m_manager->mk_app(c, args.size(), args.c_ptr());
+            return m_manager->mk_app(c, args);
         }
 
         bool plugin::is_fully_interp(sort * s) const {
@@ -1045,7 +1045,7 @@ namespace datatype {
     }
 
     app* util::mk_is(func_decl * c, expr *f) {
-        return m.mk_app(get_constructor_is(c), 1, &f);
+        return m.mk_app(get_constructor_is(c), f);
     }
 
     func_decl * util::get_recognizer_constructor(func_decl * recognizer) const {

@@ -28,7 +28,9 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_ematching   = p.ematching();
     m_clause_proof = p.clause_proof();
     m_phase_selection = static_cast<phase_selection>(p.phase_selection());
+    if (m_phase_selection > PS_THEORY) throw default_exception("illegal phase selection numeral");
     m_restart_strategy = static_cast<restart_strategy>(p.restart_strategy());
+    if (m_restart_strategy > RS_ARITHMETIC) throw default_exception("illegal restart strategy numeral");
     m_restart_factor = p.restart_factor();
     m_case_split_strategy = static_cast<case_split_strategy>(p.case_split());
     m_theory_case_split = p.theory_case_split();
