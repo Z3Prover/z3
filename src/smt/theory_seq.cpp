@@ -1485,7 +1485,7 @@ bool theory_seq::branch_variable_mb() {
         }
 
         if (!enforce_length(e.ls(), len1) || !enforce_length(e.rs(), len2)) {
-            change = true;
+            // change = true;
             continue;
         }
         rational l1, l2;
@@ -5522,7 +5522,7 @@ bool theory_seq::get_length(expr* e, rational& val) {
         else {            
             len = mk_len(c);
             if (m_arith_value.get_value(len, val1) && !val1.is_neg()) {
-                val += val1;
+                val += val1;                
             }
             else {
                 TRACE("seq", tout << "length has not been internalized " << mk_pp(c, m) << "\n";);
