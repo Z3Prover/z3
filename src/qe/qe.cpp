@@ -1333,7 +1333,7 @@ namespace qe {
         conjunctions                m_conjs;
 
         // maintain queue for variables.
-
+        
         app_ref_vector               m_free_vars;    // non-quantified variables
         app_ref_vector               m_trail;
 
@@ -1588,6 +1588,7 @@ namespace qe {
 
         void add_constraint(bool use_current_val, expr* l1 = nullptr, expr* l2 = nullptr, expr* l3 = nullptr) override {
             search_tree* node = m_current;           
+            expr_ref _l1(l1, m), _l2(l2, m), _l3(l3, m);
             if (!use_current_val) {
                 node = m_current->parent();
             }
@@ -1600,7 +1601,7 @@ namespace qe {
             add_literal(l2);
             add_literal(l3);
             expr_ref fml(m);
-            fml = m.mk_or(m_literals.size(), m_literals.c_ptr());
+            fml = m.mk_or(m_literals);
             TRACE("qe", tout << fml << "\n";);
             m_solver.assert_expr(fml);
         }            
