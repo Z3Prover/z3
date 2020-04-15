@@ -549,7 +549,7 @@ bool theory_seq::branch_unit_variable() {
             break;
         }
     }
-    CTRACE("seq", result, tout << "branch unit variable";);
+    CTRACE("seq", result, tout << "branch unit variable\n";);
     return result;
 }
 
@@ -5516,6 +5516,8 @@ bool theory_seq::get_length(expr* e, rational& val) {
             val += rational(s.length());
         }
         else if (!has_length(c)) {
+            len = mk_len(c);
+            add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(0))));
             TRACE("seq", tout << "literal has no length " << mk_pp(c, m) << "\n";);
             return false;            
         }
