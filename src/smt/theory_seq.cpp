@@ -3918,6 +3918,8 @@ void theory_seq::add_itos_axiom(expr* e) {
     add_axiom(eq1, ge0);
 
     add_axiom(mk_literal(m_autil.mk_ge(mk_len(e), m_autil.mk_int(0))));    
+
+
     
     // n >= 0 => stoi(itos(n)) = n
     app_ref stoi(m_util.str.mk_stoi(e), m);
@@ -3954,7 +3956,8 @@ bool theory_seq::add_itos_val_axiom(expr* e) {
     }
     add_length_to_eqc(e);
 
-    if (get_length(e, val) && val.is_pos()  && val.is_unsigned() && (!m_si_axioms.find(e, val2) || val != val2)) {
+    if (get_length(e, val) && val.is_pos()  && val.is_unsigned() && 
+        (!m_si_axioms.find(e, val2) || val != val2)) {
         add_si_axiom(e, n, val.get_unsigned());
         m_si_axioms.insert(e, val);
         m_trail_stack.push(push_replay(alloc(replay_is_axiom, m, e)));
@@ -3977,7 +3980,8 @@ bool theory_seq::add_stoi_val_axiom(expr* e) {
     }
     add_length_to_eqc(n);
 
-    if (get_length(n, val) && val.is_pos() && val.is_unsigned() && (!m_si_axioms.find(e, val2) || val2 != val)) {
+    if (get_length(n, val) && val.is_pos() && val.is_unsigned() && 
+        (!m_si_axioms.find(e, val2) || val2 != val)) {
         add_si_axiom(n, e, val.get_unsigned());        
         m_si_axioms.insert(e, val);
         m_trail_stack.push(push_replay(alloc(replay_is_axiom, m, e)));
@@ -4013,6 +4017,7 @@ expr_ref theory_seq::digit2int(expr* ch) {
 // 10^k <= n < 10^{k+1}-1 => len(e) => k
 
 void theory_seq::add_si_axiom(expr* e, expr* n, unsigned k) {
+
     context& ctx = get_context();
     zstring s;
     expr_ref ith_char(m), num(m), coeff(m);
