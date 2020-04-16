@@ -5883,13 +5883,12 @@ void theory_seq::push_lit_as_expr(literal l, expr_ref_vector& buf) {
 void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, literal l5) {
     context& ctx = get_context();
     literal_vector lits;
-    expr_ref_vector exprs(m);
     if (l1 == true_literal || l2 == true_literal || l3 == true_literal || l4 == true_literal || l5 == true_literal) return;
-    if (l1 != null_literal && l1 != false_literal) { ctx.mark_as_relevant(l1); lits.push_back(l1); push_lit_as_expr(l1, exprs); }
-    if (l2 != null_literal && l2 != false_literal) { ctx.mark_as_relevant(l2); lits.push_back(l2); push_lit_as_expr(l2, exprs); }
-    if (l3 != null_literal && l3 != false_literal) { ctx.mark_as_relevant(l3); lits.push_back(l3); push_lit_as_expr(l3, exprs); }
-    if (l4 != null_literal && l4 != false_literal) { ctx.mark_as_relevant(l4); lits.push_back(l4); push_lit_as_expr(l4, exprs); }
-    if (l5 != null_literal && l5 != false_literal) { ctx.mark_as_relevant(l5); lits.push_back(l5); push_lit_as_expr(l5, exprs); }
+    if (l1 != null_literal && l1 != false_literal) { ctx.mark_as_relevant(l1); lits.push_back(l1); }
+    if (l2 != null_literal && l2 != false_literal) { ctx.mark_as_relevant(l2); lits.push_back(l2); }
+    if (l3 != null_literal && l3 != false_literal) { ctx.mark_as_relevant(l3); lits.push_back(l3); }
+    if (l4 != null_literal && l4 != false_literal) { ctx.mark_as_relevant(l4); lits.push_back(l4); }
+    if (l5 != null_literal && l5 != false_literal) { ctx.mark_as_relevant(l5); lits.push_back(l5); }
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:", lits) << "\n";);
     
     IF_VERBOSE(10, verbose_stream() << "ax ";
@@ -5898,7 +5897,7 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
     m_new_propagation = true;
     ++m_stats.m_add_axiom;
     
-    std::function<expr*(void)> fn = [&]() { return m.mk_or(exprs.size(), exprs.c_ptr()); };
+    std::function<literal_vector(void)> fn = [&]() { return lits; };
     scoped_trace_stream _sts(*this, fn);
     validate_axiom(lits);
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());    
@@ -6468,7 +6467,6 @@ void theory_seq::propagate_not_prefix(expr* e) {
     add_axiom(lit, e1_gt_e2, mk_seq_eq(e2, mk_concat(x, m_util.str.mk_unit(d), z)), mk_seq_eq(e2, x));
     add_axiom(lit, e1_gt_e2, ~mk_eq(c, d, false));
 }
-
 
 /*
   !suffix(e1,e2) => e1 != ""

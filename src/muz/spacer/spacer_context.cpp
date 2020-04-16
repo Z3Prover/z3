@@ -2594,6 +2594,7 @@ void context::init_global_smt_params() {
         p.set_bool("arith.eager_eq_axioms", false);
     }
     p.set_uint("random_seed", m_params.spacer_random_seed());
+    p.set_bool("clause_proof", false);
 
     p.set_bool("dump_benchmarks", m_params.spacer_dump_benchmarks());
     p.set_double("dump_threshold", m_params.spacer_dump_threshold());
