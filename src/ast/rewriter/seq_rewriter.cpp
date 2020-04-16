@@ -393,7 +393,7 @@ void seq_rewriter::updt_params(params_ref const & p) {
     m_coalesce_chars = sp.coalesce_chars();
 }
 
-static void get_param_descrs(param_descrs & r) {
+void seq_rewriter::get_param_descrs(param_descrs & r) {
     seq_rewriter_params::collect_param_descrs(r);
 }
 

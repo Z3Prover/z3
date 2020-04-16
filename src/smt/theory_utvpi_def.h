@@ -507,6 +507,7 @@ namespace smt {
         while (consistent && can_propagate()) {
             unsigned idx = m_asserted_atoms[m_asserted_qhead];
             m_asserted_qhead++;
+            std::cout << "propagate atom " << idx << "\n";
             consistent = propagate_atom(m_atoms[idx]);            
         }
     }
@@ -656,7 +657,9 @@ namespace smt {
             SASSERT(v2 != null_theory_var);
             SASSERT(pos2 || terms[1].second.is_minus_one());
         }            
-        TRACE("utvpi", tout << (pos1?"$":"-$") << v1 << (pos2?" + $":" - $") << v2 << " + " << weight << " <= 0\n";);
+        TRACE("utvpi", tout << (pos1?"$":"-$") << v1;
+              if (terms.size() == 2) tout << (pos2?" + $":" - $") << v2;
+              tout << " + " << weight << " <= 0\n";);
         edge_id id = m_graph.get_num_edges();
         th_var w1 = to_var(v1), w2 = to_var(v2);
 

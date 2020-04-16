@@ -74,7 +74,6 @@ namespace datalog {
                 bool_vector const& is_bound  = m_bound[i];
                 func_interp* f = old_model->get_func_interp(p);
                 expr_ref body(m);
-                unsigned arity_q = q->get_arity();
                 SASSERT(0 < p->get_arity());
 
                 if (f) {

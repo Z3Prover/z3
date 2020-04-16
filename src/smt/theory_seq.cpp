@@ -4442,7 +4442,6 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
 
 app* theory_seq::mk_value(app* e) {
     expr_ref result(m);
-    expr* e0 = e;
     e = get_ite_value(e);
     result = m_rep.find(e);
 
