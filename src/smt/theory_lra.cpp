@@ -1652,6 +1652,7 @@ public:
             if (!th.is_relevant_and_shared(n1)) {                    
                 continue;
             }
+            ensure_column(v);
             if (!can_get_ivalue(v)) {
                 continue;
             }
