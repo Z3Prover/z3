@@ -34,8 +34,8 @@ namespace smt {
           m_plugin(*reinterpret_cast<recfun::decl::plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
           m_disabled_guards(m),
-          m_preds(m),
           m_enabled_guards(m),
+          m_preds(m),
           m_num_rounds(0),
           m_q_case_expand(), 
           m_q_body_expand() {

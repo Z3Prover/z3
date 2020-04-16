@@ -507,7 +507,6 @@ namespace smt {
         while (consistent && can_propagate()) {
             unsigned idx = m_asserted_atoms[m_asserted_qhead];
             m_asserted_qhead++;
-            std::cout << "propagate atom " << idx << "\n";
             consistent = propagate_atom(m_atoms[idx]);            
         }
     }
