@@ -1492,8 +1492,8 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     if (m_ignore_check)
         return;
     IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;);
-    TRACE("before_check_sat", dump_assertions(tout););
     init_manager();
+    TRACE("before_check_sat", dump_assertions(tout););
     unsigned timeout = m_params.m_timeout;
     unsigned rlimit  = m_params.rlimit();
     scoped_watch sw(*this);
@@ -1613,10 +1613,6 @@ void cmd_context::get_consequences(expr_ref_vector const& assumptions, expr_ref_
 
 
 void cmd_context::reset_assertions() {
-    if (!m_global_decls) {
-        reset(false);
-        return;
-    }
 
     if (m_opt) {
         m_opt = nullptr;
