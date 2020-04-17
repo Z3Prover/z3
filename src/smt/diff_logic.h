@@ -409,10 +409,13 @@ private:
                         if (gamma < m_gamma[target]) {
                             m_gamma[target]  = gamma;
                             m_parent[target] = e_id;
+                            SASSERT(m_heap.contains(target));
                             m_heap.decreased(target);
                         }
                         break;
                     case DL_PROCESSED:
+                        // if two edges with the same source/target occur in the graph.
+                        break;
                     default:
                         UNREACHABLE();
                     }
@@ -425,7 +428,6 @@ private:
                 m_assignment_stack.reset();
                 return true;
             }
-
             source = m_heap.erase_min();
             m_mark[source] = DL_PROCESSED;
             acc_assignment(source, m_gamma[source]);
