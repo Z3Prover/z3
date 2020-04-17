@@ -182,7 +182,7 @@ jobs:
     - script: brew install ninja
     - script: brew cask install julia
     - script: |
-        julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.6.6\"))"
+        julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"
         JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
         set -e
         mkdir build
