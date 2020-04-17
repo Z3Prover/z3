@@ -25,11 +25,11 @@ Revision History:
 
 #include "util/vector.h"
 #include "util/region.h"
+#include "util/stacked_value.h"
 #include "math/lp/lp_utils.h"
 #include "math/lp/ul_pair.h"
 #include "math/lp/lar_term.h"
 #include "math/lp/column_namer.h"
-#include "math/lp/stacked_value.h"
 namespace lp {
 inline lconstraint_kind flip_kind(lconstraint_kind t) {
     return static_cast<lconstraint_kind>( - static_cast<int>(t));

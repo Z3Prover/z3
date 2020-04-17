@@ -280,13 +280,13 @@ bool zstring::contains(zstring const& other) const {
     return cont;
 }
 
-int zstring::indexof(zstring const& other, int offset) const {
-    SASSERT(offset >= 0);
-    if (static_cast<unsigned>(offset) <= length() && other.length() == 0) return offset;
-    if (static_cast<unsigned>(offset) == length()) return -1;
+int zstring::indexofu(zstring const& other, unsigned offset) const {
+    if (offset <= length() && other.length() == 0) return offset;
+    if (offset == length()) return -1;
+    if (offset > other.length() + offset) return -1;
     if (other.length() + offset > length()) return -1;
     unsigned last = length() - other.length();
-    for (unsigned i = static_cast<unsigned>(offset); i <= last; ++i) {
+    for (unsigned i = offset; i <= last; ++i) {
         bool prefix = true;
         for (unsigned j = 0; prefix && j < other.length(); ++j) {
             prefix = m_buffer[i + j] == other[j];
@@ -313,10 +313,10 @@ int zstring::last_indexof(zstring const& other) const {
     return -1;
 }
 
-zstring zstring::extract(int offset, int len) const {
+zstring zstring::extract(unsigned offset, unsigned len) const {
     zstring result(m_encoding);
-    SASSERT(0 <= offset && 0 <= len);
-    int last = std::min(offset+len, static_cast<int>(length()));
+    if (offset + len < offset) return result;
+    int last = std::min(offset+len, length());
     for (int i = offset; i < last; ++i) {
         result.m_buffer.push_back(m_buffer[i]);
     }
@@ -1052,14 +1052,18 @@ app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
     return m.mk_not(bv().mk_ule(ch2, ch1));
 }
 
-bool seq_util::str::is_string(expr const* n, zstring& s) const {
-    if (is_string(n)) {
-        s = zstring(to_app(n)->get_decl()->get_parameter(0).get_symbol().bare_str());
+bool seq_util::str::is_string(func_decl const* f, zstring& s) const {
+    if (is_string(f)) {
+        s = zstring(f->get_parameter(0).get_symbol().bare_str());
         return true;
     }
     else {
         return false;
     }
+}
+
+bool seq_util::str::is_string(expr const* n, zstring& s) const {
+    return is_app(n) && is_string(to_app(n)->get_decl(), s);
 }
 
 bool seq_util::str::is_nth_i(expr const* n, expr*& s, unsigned& idx) const {

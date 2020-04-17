@@ -33,7 +33,6 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_urem_simpl = p.bv_urem_simpl();
     m_blast_eq_value = p.blast_eq_value();
     m_split_concat_eq = p.split_concat_eq();
-    m_udiv2mul = p.udiv2mul();
     m_bvnot2arith = p.bvnot2arith();
     m_bvnot_simpl = p.bv_not_simpl();
     m_bv_sort_ac = p.bv_sort_ac();
@@ -1046,8 +1045,6 @@ br_status bv_rewriter::mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, e
 
     TRACE("bv_udiv", tout << "hi_div0: " << hi_div0 << "\n";);
 
-    TRACE("udiv2mul", tout << mk_ismt2_pp(arg2, m()) << " udiv2mul: " << m_udiv2mul << "\n";);
-
     if (is_numeral(arg2, r2, bv_size)) {
         r2 = m_util.norm(r2, bv_size);
         if (r2.is_zero()) {
@@ -1080,14 +1077,6 @@ br_status bv_rewriter::mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, e
             return BR_REWRITE1;
         }
 
-        if (m_udiv2mul) {
-            TRACE("udiv2mul", tout << "using udiv2mul\n";);
-            numeral inv_r2;
-            if (m_util.mult_inverse(r2, bv_size, inv_r2)) {
-                result = m().mk_app(get_fid(), OP_BMUL, mk_numeral(inv_r2, bv_size), arg1);
-                return BR_REWRITE1;
-            }
-        }
 
         result = m().mk_app(get_fid(), OP_BUDIV_I, arg1, arg2);
         return BR_DONE;
@@ -1978,14 +1967,8 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
         if (m_util.is_bv_mul(arg, s, t)) {
             // ~(-1 * x) --> (x - 1)
             bv_size = m_util.get_bv_size(s);
-            if (m_util.is_allone(s)) {
-                rational minus_one = (rational::power_of_two(bv_size) - rational::one());
-                result = m_util.mk_bv_add(m_util.mk_numeral(minus_one, bv_size), t);
-                return BR_REWRITE1;
-            }
-            if (m_util.is_allone(t)) {
-                rational minus_one = (rational::power_of_two(bv_size) - rational::one());
-                result = m_util.mk_bv_add(m_util.mk_numeral(minus_one, bv_size), s);
+            if (m_util.is_allone(s) || m_util.is_allone(t)) {
+                result = m_util.mk_bv_add(s, t);
                 return BR_REWRITE1;
             }
         }

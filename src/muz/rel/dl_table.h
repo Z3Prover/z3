@@ -127,8 +127,8 @@ namespace datalog {
         friend class bitvector_table_plugin;
 
         class bv_iterator;
-        bit_vector m_bv;
-        unsigned   m_num_cols;
+        bit_vector      m_bv;
+        unsigned        m_num_cols;
         unsigned_vector m_shift;
         unsigned_vector m_mask;
 

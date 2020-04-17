@@ -184,7 +184,7 @@ class nla2bv_tactic : public tactic {
         
         // substitute variables by bit-vectors
         void substitute_vars(goal & g) {
-            scoped_ptr<expr_replacer> er = mk_default_expr_replacer(m_manager);
+            scoped_ptr<expr_replacer> er = mk_default_expr_replacer(m_manager, false);
             er->set_substitution(&m_subst);
             expr_ref r(m_manager);
             for (unsigned i = 0; i < g.size(); ++i) {

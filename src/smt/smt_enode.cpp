@@ -16,6 +16,7 @@ Author:
 Revision History:
 
 --*/
+#include "ast/ast_pp.h"
 #include "smt/smt_context.h"
 #include "smt/smt_enode.h"
 

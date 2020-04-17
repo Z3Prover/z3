@@ -32,6 +32,7 @@ namespace smt {
 
     void justification_proof_wrapper::del_eh(ast_manager & m) {
         m.dec_ref(m_proof);
+        m_proof = nullptr;
     }
     
     proof * justification_proof_wrapper::mk_proof(conflict_resolution & cr) {
@@ -47,11 +48,7 @@ namespace smt {
         SASSERT(!js || js->in_region());
         m_literals = new (r) literal[num_lits];
         memcpy(m_literals, lits, sizeof(literal) * num_lits);
-        TRACE("unit_resolution_justification_bug",
-              for (unsigned i = 0; i < num_lits; i++) {
-                  tout << lits[i] << " ";
-              }
-              tout << "\n";);
+        TRACE("unit_resolution_justification_bug", tout << literal_vector(num_lits, lits) << "\n";);
         SASSERT(m_num_literals > 0);
     }
 
@@ -64,11 +61,7 @@ namespace smt {
         SASSERT(!js || !js->in_region());
         m_literals = alloc_vect<literal>(num_lits);
         memcpy(m_literals, lits, sizeof(literal) * num_lits);
-        TRACE("unit_resolution_justification_bug",
-              for (unsigned i = 0; i < num_lits; i++) {
-                  tout << lits[i] << " ";
-              }
-              tout << "\n";);
+        TRACE("unit_resolution_justification_bug", tout << literal_vector(num_lits, lits) << "\n";);
         SASSERT(num_lits != 0);
     }
 
@@ -88,29 +81,22 @@ namespace smt {
 
     proof * unit_resolution_justification::mk_proof(conflict_resolution & cr) {
         SASSERT(m_antecedent);
-        ptr_buffer<proof> prs;
-        proof * pr   = cr.get_proof(m_antecedent);
-        bool visited = pr != nullptr;
+        ast_manager& m = cr.get_manager();
+        proof_ref_vector prs(m);
+        proof * pr = cr.get_proof(m_antecedent);
+        if (!pr)
+            return pr;
         prs.push_back(pr);
         for (unsigned i = 0; i < m_num_literals; i++) {
             proof * pr = cr.get_proof(m_literals[i]);
-            if (pr == nullptr)
-                visited = false;
+            if (!pr)
+                return pr;
             else
                 prs.push_back(pr);
         }
-        if (!visited)
-            return nullptr;
-        ast_manager & m = cr.get_manager();
         TRACE("unit_resolution_justification_bug",
-              tout << "in mk_proof\n";
-              for (unsigned i = 0; i < m_num_literals; i++) {
-                  tout << m_literals[i] << " ";
-              }
-              tout << "\n";
-              for (unsigned i = 0; i < prs.size(); i++) {
-                  tout << mk_ll_pp(m.get_fact(prs[i]), m);
-              });
+            tout << "in mk_proof\n" << literal_vector(m_num_literals, m_literals) << "\n";
+            for (proof* p : prs) tout << mk_ll_pp(m.get_fact(p), m););
         return m.mk_unit_resolution(prs.size(), prs.c_ptr());
     }
 

@@ -326,32 +326,32 @@ namespace algebraic_numbers {
            \brief Display algebraic number as a rational if is_rational(n)
            Otherwise, display it as an interval.
         */
-        void display_interval(std::ostream & out, numeral const & a) const;
+        std::ostream& display_interval(std::ostream & out, numeral const & a) const;
 
         /**
            \brief Display algebraic number in decimal notation.
            A question mark is added based on the precision requested.
         */
-        void display_decimal(std::ostream & out, numeral const & a, unsigned precision = 10) const;
+        std::ostream& display_decimal(std::ostream & out, numeral const & a, unsigned precision = 10) const;
 
         /**
            \brief Display algebraic number as a root object: (p, i)
            That is, 'a' is the i-th root of p.
         */
-        void display_root(std::ostream & out, numeral const & a) const;
+        std::ostream& display_root(std::ostream & out, numeral const & a) const;
         
         /**
            \brief Display algebraic number as a root object in SMT 2.0 style: (root-obj p i)
            That is, 'a' is the i-th root of p.
         */
-        void display_root_smt2(std::ostream & out, numeral const & a) const;
+        std::ostream& display_root_smt2(std::ostream & out, numeral const & a) const;
 
         /**
            \brief Display algebraic number in Mathematica format.
         */
-        void display_mathematica(std::ostream & out, numeral const & a) const;
+        std::ostream& display_mathematica(std::ostream & out, numeral const & a) const;
 
-        void display(std::ostream & out, numeral const & a) { return display_decimal(out, a); }
+        std::ostream& display(std::ostream & out, numeral const & a) { return display_decimal(out, a); }
 
         void reset_statistics();
         

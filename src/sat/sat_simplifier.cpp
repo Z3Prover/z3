@@ -1002,7 +1002,7 @@ namespace sat {
         literal_vector m_intersection;                // current resolution intersection
         literal_vector m_tautology;                   // literals that are used in blocking tautology
         literal_vector m_new_intersection;
-        svector<bool>  m_in_intersection;
+        bool_vector  m_in_intersection;
         unsigned       m_ala_qhead;
         clause_wrapper m_clause;
         unsigned       m_ala_cost;

@@ -742,7 +742,7 @@ namespace sat {
      * Assume only the first definition for a node is used for all cuts.
      */
     void aig_cuts::cut2clauses(on_clause_t& on_clause, unsigned v, cut const& c) {
-        svector<bool> visited(m_aig.size(), false);
+        bool_vector visited(m_aig.size(), false);
         for (unsigned u : c) visited[u] = true;
         unsigned_vector todo;
         todo.push_back(v);
@@ -797,7 +797,7 @@ namespace sat {
         reslimit lim;
         solver s;
         unsigned_vector vars;
-        svector<bool>   is_var;
+        bool_vector   is_var;
 
         validator(aig_cuts& t):t(t),s(p, lim) {
             p.set_bool("cut_simplifier", false);

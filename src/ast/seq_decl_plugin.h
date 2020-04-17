@@ -119,9 +119,9 @@ public:
     bool suffixof(zstring const& other) const;
     bool prefixof(zstring const& other) const;
     bool contains(zstring const& other) const;
-    int  indexof(zstring const& other, int offset) const;
+    int  indexofu(zstring const& other, unsigned offset) const;
     int  last_indexof(zstring const& other) const;
-    zstring extract(int lo, int hi) const;
+    zstring extract(unsigned lo, unsigned hi) const;
     zstring operator+(zstring const& other) const;
     bool operator==(const zstring& other) const;
     bool operator!=(const zstring& other) const;
@@ -295,7 +295,9 @@ public:
         bool is_string(expr const* n, symbol& s) const {
             return is_string(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol(), true);
         }
+        bool is_string(func_decl const* f) const { return is_decl_of(f, m_fid, OP_STRING_CONST); }
         bool is_string(expr const* n, zstring& s) const;
+        bool is_string(func_decl const* f, zstring& s) const;
         bool is_empty(expr const* n) const { symbol s;
             return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0);
         }

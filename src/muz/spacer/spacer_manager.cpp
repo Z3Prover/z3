@@ -61,60 +61,45 @@ typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
 expr_ref inductive_property::fixup_clause(expr* fml) const
 {
     expr_ref_vector disjs(m);
-    flatten_or(fml, disjs);
-    expr_ref result(m);
-    bool_rewriter(m).mk_or(disjs.size(), disjs.c_ptr(), result);
-    return result;
+    flatten_or(fml, disjs);    
+    return bool_rewriter(m).mk_or(disjs);
 }
 
 expr_ref inductive_property::fixup_clauses(expr* fml) const
 {
     expr_ref_vector conjs(m);
-    expr_ref result(m);
     flatten_and(fml, conjs);
-    for (unsigned i = 0; i < conjs.size(); ++i) {
-        conjs[i] = fixup_clause(conjs[i].get());
+    unsigned i = 0;
+    for (expr* c : conjs) {
+        conjs[i++] = fixup_clause(c);
     }
-    bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), result);
-    return result;
+    return bool_rewriter(m).mk_and(conjs);
 }
 
 std::string inductive_property::to_string() const
 {
     std::stringstream stm;
     model_ref md;
-    expr_ref result(m);
     to_model(md);
-    model_smt2_pp(stm, m, *md.get(), 0);
+    stm << *md;
     return stm.str();
 }
 
-void inductive_property::to_model(model_ref& md) const
-{
+void inductive_property::to_model(model_ref& md) const {
     md = alloc(model, m);
-    vector<relation_info> const& rs = m_relation_info;
-    expr_ref_vector conjs(m);
-    for (unsigned i = 0; i < rs.size(); ++i) {
-        relation_info ri(rs[i]);
-        func_decl * pred = ri.m_pred;
+    for (relation_info const& ri : m_relation_info) {
         expr_ref prop = fixup_clauses(ri.m_body);
         func_decl_ref_vector const& sig = ri.m_vars;
-        expr_ref q(m);
         expr_ref_vector sig_vars(m);
         for (unsigned j = 0; j < sig.size(); ++j) {
             sig_vars.push_back(m.mk_const(sig[sig.size() - j - 1]));
         }
-        expr_abstract(m, 0, sig_vars.size(), sig_vars.c_ptr(), prop, q);
-        if (sig.empty()) {
-            md->register_decl(pred, q);
-        } else {
-            func_interp* fi = alloc(func_interp, m, sig.size());
-            fi->set_else(q);
-            md->register_decl(pred, fi);
-        }
+        expr_ref q = expr_abstract(sig_vars, prop);
+        md->register_decl(ri.m_pred, q);
     }
-    TRACE("spacer", model_smt2_pp(tout, m, *md, 0););
+    TRACE("spacer", tout << *md;);
     apply(const_cast<model_converter_ref&>(m_mc), md);
+    md->compress();
 }
 
 expr_ref inductive_property::to_expr() const
@@ -132,37 +117,33 @@ void inductive_property::display(datalog::rule_manager& rm, ptr_vector<datalog::
     func_decl_set bound_decls, aux_decls;
     collect_decls_proc collect_decls(bound_decls, aux_decls);
 
-    for (unsigned i = 0; i < m_relation_info.size(); ++i) {
-        bound_decls.insert(m_relation_info[i].m_pred);
-        func_decl_ref_vector const& sig = m_relation_info[i].m_vars;
-        for (unsigned j = 0; j < sig.size(); ++j) {
-            bound_decls.insert(sig[j]);
+    for (auto const& ri : m_relation_info) {
+        bound_decls.insert(ri.m_pred);
+        for (func_decl* b : ri.m_vars) {
+            bound_decls.insert(b);
         }
-        for_each_expr(collect_decls, m_relation_info[i].m_body);
+        for_each_expr(collect_decls, ri.m_body);
     }
-    for (unsigned i = 0; i < rules.size(); ++i) {
-        bound_decls.insert(rules[i]->get_decl());
+    for (auto* r : rules) {
+        bound_decls.insert(r->get_decl());
     }
-    for (unsigned i = 0; i < rules.size(); ++i) {
-        unsigned u_sz = rules[i]->get_uninterpreted_tail_size();
-        unsigned t_sz = rules[i]->get_tail_size();
+    for (auto* r : rules) {
+        unsigned u_sz = r->get_uninterpreted_tail_size();
+        unsigned t_sz =  r->get_tail_size();
         for (unsigned j = u_sz; j < t_sz; ++j) {
-            for_each_expr(collect_decls, rules[i]->get_tail(j));
+            for_each_expr(collect_decls, r->get_tail(j));
         }
     }
     smt2_pp_environment_dbg env(m);
-    func_decl_set::iterator it = aux_decls.begin(), end = aux_decls.end();
-    for (; it != end; ++it) {
-        func_decl* f = *it;
-        ast_smt2_pp(out, f, env);
-        out << "\n";
+    for (func_decl* f : aux_decls) {
+        ast_smt2_pp(out, f, env) << "\n";
     }
 
     out << to_string() << "\n";
-    for (unsigned i = 0; i < rules.size(); ++i) {
+    for (auto* r : rules) {
         out << "(push)\n";
         out << "(assert (not\n";
-        rm.display_smt2(*rules[i], out);
+        rm.display_smt2(*r, out);
         out << "))\n";
         out << "(check-sat)\n";
         out << "(pop)\n";

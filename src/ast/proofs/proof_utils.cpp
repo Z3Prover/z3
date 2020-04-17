@@ -24,17 +24,18 @@ Revision History:
 #include "util/container_util.h"
 
 
-proof_post_order::proof_post_order(proof* root, ast_manager& manager) : m(manager)
-{m_todo.push_back(root);}
+proof_post_order::proof_post_order(proof* root, ast_manager& manager) : m(manager) {
+    m_todo.push_back(root);
+}
 
-bool proof_post_order::hasNext()
-{return !m_todo.empty();}
+bool proof_post_order::hasNext() {
+    return !m_todo.empty();
+}
 
 /*
  * iterative post-order depth-first search (DFS) through the proof DAG
  */
-proof* proof_post_order::next()
-{
+proof* proof_post_order::next() {
     while (!m_todo.empty()) {
         proof* currentNode = m_todo.back();
 
@@ -93,8 +94,7 @@ class reduce_hypotheses {
     // stack
     ptr_vector<proof> m_todo;
 
-    void reset()
-    {
+    void reset() {
         m_cache.reset();
         m_units.reset();
         m_hyps.reset();
@@ -102,8 +102,7 @@ class reduce_hypotheses {
         m_pinned.reset();
     }
 
-    bool compute_mark1(proof *pr)
-    {
+    bool compute_mark1(proof *pr) {
         bool hyp_mark = false;
         // lemmas clear all hypotheses
         if (!m.is_lemma(pr)) {
@@ -168,7 +167,7 @@ class reduce_hypotheses {
                 pp = m.get_parent(p, i);
                 if (m_cache.find(pp, tmp)) {
                     args.push_back(tmp);
-                    dirty = dirty || pp != tmp;
+                    dirty |= pp != tmp;
                 } else {
                     m_todo.push_back(pp);
                 }
@@ -200,11 +199,11 @@ class reduce_hypotheses {
                 if (m.has_fact(p)) { args.push_back(to_app(m.get_fact(p))); }
                 SASSERT(p->get_decl()->get_arity() == args.size());
                 res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
-                m_pinned.push_back(res);
                 compute_mark1(res);
             }
 
             SASSERT(res);
+            m_pinned.push_back(res);
             m_cache.insert(p, res);
 
             if (m.has_fact(res) && m.is_false(m.get_fact(res))) { break; }
@@ -216,10 +215,7 @@ class reduce_hypotheses {
     // returns true if (hypothesis (not a)) would be reduced
     bool is_reduced(expr *a)
     {
-        expr_ref e(m);
-        if (m.is_not(a)) { e = to_app(a)->get_arg(0); }
-        else { e = m.mk_not(a); }
-
+        expr_ref e(mk_not(m, a), m);
         return m_units.contains(e);
     }
 
@@ -229,21 +225,20 @@ class reduce_hypotheses {
         expr_ref lemma(m);
 
         if (m.is_or(fact)) {
-            for (unsigned i = 0, sz = to_app(fact)->get_num_args(); i < sz; ++i) {
-                expr *a = to_app(fact)->get_arg(i);
+            for (expr* a : *to_app(fact)) {
                 if (!is_reduced(a))
-                { args.push_back(a); }
+                    args.push_back(a); 
             }
-        } else if (!is_reduced(fact))
-        { args.push_back(fact); }
-
-
-        if (args.empty()) { return pf; }
-        else if (args.size() == 1) {
-            lemma = args.get(0);
-        } else {
-            lemma = m.mk_or(args.size(), args.c_ptr());
+        } 
+        else if (!is_reduced(fact)) { 
+            args.push_back(fact); 
         }
+
+
+        if (args.empty()) { 
+            return pf; 
+        }
+        lemma = mk_or(m, args.size(), args.c_ptr());
         proof* res = m.mk_lemma(pf, lemma);
         m_pinned.push_back(res);
 
@@ -468,6 +463,8 @@ public:
     reduce_hypotheses0(ast_manager& m): m(m), m_refs(m) {}
     
     void operator()(proof_ref& pr) {
+        if (!pr)
+            throw default_exception("proof reduction requires well defined proofs");
         proof_ref tmp(m);
         tmp = pr;
         elim(pr);

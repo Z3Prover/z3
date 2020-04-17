@@ -65,9 +65,9 @@ namespace qe {
             DEBUG_CODE(expr_ref val(m); 
                        eval(lit, val); 
                        CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
-                       SASSERT(m.canceled() || m.is_true(val)););
+                       SASSERT(m.limit().get_cancel_flag() || !m.is_false(val)););
 
-            if (!m.limit().inc()) 
+            if (!m.inc()) 
                 return false;
             
             TRACE("opt", tout << mk_pp(lit, m) << " " << a.is_lt(lit) << " " << a.is_gt(lit) << "\n";);
@@ -564,7 +564,11 @@ namespace qe {
                 if (!tids.find(v, id)) {
                     rational r;
                     expr_ref val = eval(v);
-                    VERIFY(a.is_numeral(val, r));                    
+                    if (!a.is_numeral(val, r)) {
+                        TRACE("qe", tout << eval.get_model() << "\n";);
+
+                        throw default_exception("mbp evaluation was only partial");
+                    }
                     id = mbo.add_var(r, a.is_int(v));
                     tids.insert(v, id);
                 }

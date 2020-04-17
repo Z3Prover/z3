@@ -207,7 +207,7 @@ public:
                   s().display(tout << m_asms << "\n") << "\n";
                   display(tout););
             is_sat = check_sat_hill_climb(m_asms);
-            if (m.canceled()) {
+            if (!m.inc()) {
                 return l_undef;
             }
             switch (is_sat) {
@@ -247,7 +247,7 @@ public:
         if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
             is_sat = check_sat_hill_climb(m_asms);
-            if (m.canceled()) {
+            if (!m.inc()) {
                 return l_undef;
             }
             switch (is_sat) {
@@ -862,7 +862,7 @@ public:
                tout << "other solver\n";
                s().display(tout);
                );
-        VERIFY(is_sat == l_false || m.canceled());
+        VERIFY(is_sat == l_false || !m.inc());
     }
 
     void verify_assumptions() {

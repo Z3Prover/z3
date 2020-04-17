@@ -89,7 +89,7 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     CTRACE("arith_rewriter", st != BR_FAILED, tout << st << ": " << mk_pp(f, m());
            for (unsigned i = 0; i < num_args; ++i) tout << mk_pp(args[i], m()) << " ";
            tout << "\n==>\n" << mk_pp(result.get(), m()) << "\n";
-           tout << "args: " << to_app(result)->get_num_args() << "\n";
+           if (is_app(result)) tout << "args: " << to_app(result)->get_num_args() << "\n";
            );
     return st;
 }
@@ -190,7 +190,7 @@ bool arith_rewriter::is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref &
             case EQ: result = m().mk_false(); return true;
             }
         }
-        expr * k = m_util.mk_numeral(c, is_int);
+        expr_ref k(m_util.mk_numeral(c, is_int), m());
         switch (kind) {
         case LE: result = m_util.mk_le(pp, k); return true;
         case GE: result = m_util.mk_ge(pp, k); return true;
@@ -441,6 +441,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         if ((first || !g.is_one()) && num_consts <= 1)
             get_coeffs_gcd(arg2, g, first, num_consts);
         TRACE("arith_rewriter_gcd", tout << "[step2] g: " << g << ", num_consts: " << num_consts << "\n";);
+        g = abs(g);
         if (!first && !g.is_one() && num_consts <= 1) {
             bool is_sat = div_polynomial(arg1, g, (kind == LE ? CT_CEIL : (kind == GE ? CT_FLOOR : CT_FALSE)), new_arg1);
             if (!is_sat) {

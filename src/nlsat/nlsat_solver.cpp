@@ -114,10 +114,10 @@ namespace nlsat {
         unsigned_vector        m_levels;       // bool_var -> level
         svector<justification> m_justifications;
         vector<clause_vector>  m_bwatches;     // bool_var (that are not attached to atoms) -> clauses where it is maximal
-        svector<bool>          m_dead;         // mark dead boolean variables
+        bool_vector          m_dead;         // mark dead boolean variables
         id_gen                 m_bid_gen;
 
-        svector<bool>          m_is_int;     // m_is_int[x] is true if variable is integer
+        bool_vector          m_is_int;     // m_is_int[x] is true if variable is integer
         vector<clause_vector>  m_watches;    // var -> clauses where variable is maximal
         interval_set_vector    m_infeasible; // var -> to a set of interval where the variable cannot be assigned to.
         atom_vector            m_var2eq;     // var -> to asserted equality
@@ -497,7 +497,7 @@ namespace nlsat {
             SASSERT(m_is_int.size() == m_inv_perm.size());
         }
 
-        svector<bool> m_found_vars;
+        bool_vector m_found_vars;
         void vars(literal l, var_vector& vs) {                
             vs.reset();
             atom * a = m_atoms[l.var()];
@@ -835,7 +835,7 @@ namespace nlsat {
                     ineq_atom& ia = *to_ineq_atom(a);
                     unsigned sz = ia.size();
                     ptr_vector<poly> ps;
-                    svector<bool> is_even;
+                    bool_vector is_even;
                     for (unsigned i = 0; i < sz; ++i) {
                         ps.push_back(ia.p(i));
                         is_even.push_back(ia.is_even(i));
@@ -1750,11 +1750,13 @@ namespace nlsat {
         }
 
         void process_antecedent(literal antecedent) {
+            checkpoint();
             bool_var b  = antecedent.var();
             TRACE("nlsat_resolve", display(tout << "resolving antecedent: ", antecedent) << "\n";);
             if (assigned_value(antecedent) == l_undef) {
+                checkpoint();
                 // antecedent must be false in the current arith interpretation
-                SASSERT(value(antecedent) == l_false);
+                SASSERT(value(antecedent) == l_false || m_rlimit.get_cancel_flag());
                 if (!is_marked(b)) {
                     SASSERT(is_arith_atom(b) && max_var(b) < m_xk); // must be in a previous stage
                     TRACE("nlsat_resolve", tout << "literal is unassigned, but it is false in arithmetic interpretation, adding it to lemma\n";); 
@@ -1826,21 +1828,22 @@ namespace nlsat {
             if (m_check_lemmas) {
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.c_ptr(), false, nullptr));
             }
-
+            
             DEBUG_CODE({
                 unsigned sz = m_lazy_clause.size();
                 for (unsigned i = 0; i < sz; i++) {
                     literal l = m_lazy_clause[i];
                     if (l.var() != b) {
-                        SASSERT(value(l) == l_false);
+                        SASSERT(value(l) == l_false || m_rlimit.get_cancel_flag());
                     }
                     else {
-                        SASSERT(value(l) == l_true);
+                        SASSERT(value(l) == l_true || m_rlimit.get_cancel_flag());
                         SASSERT(!l.sign() || m_bvalues[b] == l_false);
                         SASSERT(l.sign()  || m_bvalues[b] == l_true);
                     }
                 }
             });
+            checkpoint();
             resolve_clause(b, m_lazy_clause.size(), m_lazy_clause.c_ptr());
 
             for (unsigned i = 0; i < jst.num_clauses(); ++i) {
@@ -1982,6 +1985,7 @@ namespace nlsat {
             while (true) {
                 found_decision = false;
                 while (m_num_marks > 0) {
+                    checkpoint();
                     SASSERT(top > 0);
                     trail & t = m_trail[top-1];
                     SASSERT(t.m_kind != trail::NEW_STAGE); // we only mark literals that are in the same stage
@@ -2396,7 +2400,7 @@ namespace nlsat {
                 new_inv_perm[ext_x] = p[m_inv_perm[ext_x]];
                 m_perm.set(new_inv_perm[ext_x], ext_x);
             }
-            svector<bool> is_int;
+            bool_vector is_int;
             is_int.swap(m_is_int);
             for (var x = 0; x < sz; x++) {
                 m_is_int.setx(p[x], is_int[x], false);
@@ -2694,7 +2698,7 @@ namespace nlsat {
 
             u_map<literal> b2l;
             scoped_literal_vector lits(m_solver);
-            svector<bool> even;
+            bool_vector even;
             unsigned num_atoms = m_atoms.size();
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a = m_atoms[j];

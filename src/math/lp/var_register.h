@@ -17,7 +17,11 @@ Revision History:
 
 --*/
 #pragma once
+#include "math/lp/lp_types.h"
 namespace lp  {
+
+
+
 class ext_var_info {
     unsigned m_external_j;
     bool m_is_integer;
@@ -37,14 +41,11 @@ public:
 class var_register {
     svector<ext_var_info> m_local_to_external;
     std::unordered_map<unsigned, unsigned> m_external_to_local;
-    unsigned m_local_offset;
+    unsigned m_locals_mask;
+    unsigned m_locals_mask_inverted;
 public:
-    var_register(unsigned offset) : m_local_offset(offset) {}
+    var_register(bool mask_locals): m_locals_mask(mask_locals? tv::left_most_bit: 0), m_locals_mask_inverted(~m_locals_mask) {}
     
-    unsigned add_var(unsigned user_var) {
-        return add_var(user_var, true);
-    }    
-
     void set_name(unsigned j, std::string name) {
         m_local_to_external[j].set_name(name);
     }
@@ -54,13 +55,19 @@ public:
     }
 
     unsigned add_var(unsigned user_var, bool is_int) {
-        auto t = m_external_to_local.find(user_var);
-        if (t != m_external_to_local.end()) {
-            return t->second;
+        if (user_var != UINT_MAX) {
+            auto t = m_external_to_local.find(user_var);
+            if (t != m_external_to_local.end()) {
+                return t->second;
+            }
         }
-
+        
         m_local_to_external.push_back(ext_var_info(user_var, is_int));
-        return m_external_to_local[user_var] = size() - 1 + m_local_offset;
+        unsigned local = ( size() - 1 ) | m_locals_mask;
+        if (user_var != UINT_MAX)            
+            m_external_to_local[user_var] = local;
+        
+        return local;
     }
 
     svector<unsigned> vars() const {
@@ -70,10 +77,13 @@ public:
         }
         return ret;
     }
-    
+
+    // returns UINT_MAX if 
     unsigned local_to_external(unsigned local_var) const {
-        SASSERT(local_var >= m_local_offset);
-        return m_local_to_external[local_var - m_local_offset].external_j();
+        unsigned k = local_var & m_locals_mask_inverted;
+        if (k >= m_local_to_external.size())
+            return UINT_MAX;
+        return m_local_to_external[k].external_j();
     }
     unsigned size() const {
         return m_local_to_external.size();
@@ -97,7 +107,7 @@ public:
     bool external_is_used(unsigned ext_j, unsigned & local_j ) const {
         auto it = m_external_to_local.find(ext_j);
         if ( it == m_external_to_local.end()) {
-            local_j = -1;
+            local_j = UINT_MAX;
             return false;
         }
         local_j = it->second;
@@ -107,19 +117,24 @@ public:
     bool external_is_used(unsigned ext_j, unsigned & local_j, bool & is_int ) const {
         auto it = m_external_to_local.find(ext_j);
         if ( it == m_external_to_local.end()){
-            local_j = -1;
+            local_j = UINT_MAX;
             return false;
         }
-        local_j = it->second;
-        SASSERT(local_j >= m_local_offset);
-        is_int = m_local_to_external[local_j - m_local_offset].is_integer();
+        local_j = it->second & m_locals_mask_inverted;
+        is_int = m_local_to_external[local_j].is_integer();
         return true;
     }
 
+    bool has_int_var() const {
+        for (const auto & vi : m_local_to_external) {
+            if (vi.is_integer())
+                return true;
+        }
+        return false;
+    }
     
     bool local_is_int(unsigned j) const {
-        SASSERT(j >= m_local_offset);
-        return m_local_to_external[j - m_local_offset].is_integer();
+        return m_local_to_external[j & m_locals_mask_inverted].is_integer();
     }
 
     void shrink(unsigned shrunk_size) {

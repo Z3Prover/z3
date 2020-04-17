@@ -306,14 +306,29 @@ public:
     bool is_sin(expr const* n) const { return is_app_of(n, m_afid, OP_SIN); }
     bool is_cos(expr const* n) const { return is_app_of(n, m_afid, OP_COS); }
     bool is_tan(expr const* n) const { return is_app_of(n, m_afid, OP_TAN); }
+    bool is_tanh(expr const* n) const { return is_app_of(n, m_afid, OP_TANH); }
     bool is_asin(expr const* n) const { return is_app_of(n, m_afid, OP_ASIN); }
     bool is_acos(expr const* n) const { return is_app_of(n, m_afid, OP_ACOS); }
     bool is_atan(expr const* n) const { return is_app_of(n, m_afid, OP_ATAN); }
     bool is_asinh(expr const* n) const { return is_app_of(n, m_afid, OP_ASINH); }
     bool is_acosh(expr const* n) const { return is_app_of(n, m_afid, OP_ACOSH); }
     bool is_atanh(expr const* n) const { return is_app_of(n, m_afid, OP_ATANH); }
-    bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
-    bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
+    bool is_pi(expr const * arg) const { return is_app_of(arg, m_afid, OP_PI); }
+    bool is_e(expr const * arg) const { return is_app_of(arg, m_afid, OP_E); }
+    bool is_non_algebraic(expr const* n) const {
+        return is_sin(n) ||
+            is_cos(n) ||
+            is_tan(n) ||
+            is_tanh(n) || 
+            is_asin(n) ||
+            is_acos(n) ||
+            is_atan(n) ||
+            is_asinh(n) ||
+            is_acosh(n) ||
+            is_atanh(n) ||
+            is_e(n) ||
+            is_pi(n);
+    }
 
     MATCH_UNARY(is_uminus);
     MATCH_UNARY(is_to_real);
@@ -350,16 +365,16 @@ class arith_util : public arith_recognizers {
 
     void init_plugin();
 
+public:
+    arith_util(ast_manager & m);
+
+    ast_manager & get_manager() const { return m_manager; }
+
     arith_decl_plugin & plugin() const {
         if (!m_plugin) const_cast<arith_util*>(this)->init_plugin();
         SASSERT(m_plugin != 0);
         return *m_plugin;
     }
-
-public:
-    arith_util(ast_manager & m);
-
-    ast_manager & get_manager() const { return m_manager; }
 
     algebraic_numbers::manager & am() {
         return plugin().am();

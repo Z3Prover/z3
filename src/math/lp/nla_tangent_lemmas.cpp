@@ -76,10 +76,11 @@ struct imp {
 
     void generate_tang_plane(const point & pl) {
         c().add_empty_lemma();
-        c().negate_relation(m_jx, pl.x);
-        c().negate_relation(m_jy, pl.y);
+        c().negate_relation(m_jx, m_x.rat_sign()*pl.x);
+        c().negate_relation(m_jy, m_y.rat_sign()*pl.y);
 #if Z3DEBUG
-        int mult_sign = nla::rat_sign(pl.x - c().val(m_jx))*nla::rat_sign(pl.y - c().val(m_jy));
+        SASSERT(c().val(m_x) == m_xy.x && c().val(m_y) == m_xy.y);
+        int mult_sign = nla::rat_sign(pl.x - m_xy.x)*nla::rat_sign(pl.y - m_xy.y);
         SASSERT((mult_sign == 1) == m_below);
         // If "mult_sign is 1"  then (a - x)(b-y) > 0 and ab - bx - ay + xy > 0
         // or -ab + bx + ay < xy or -ay - bx + xy > -ab
@@ -87,20 +88,21 @@ struct imp {
 #endif
             
         lp::lar_term t;
-        t.add_monomial(- pl.x, m_jy);
-        t.add_monomial(- pl.y, m_jx);
+        t.add_monomial(- m_y.rat_sign()*pl.x, m_jy);
+        t.add_monomial(- m_x.rat_sign()*pl.y, m_jx);
         t.add_var(m_j);
         c().mk_ineq(t, m_below? llc::GT : llc::LT, - pl.x*pl.y);            
     }
     
     void generate_two_tang_lines() {
         m_tang.add_empty_lemma();
-        c().mk_ineq(m_jx, llc::NE, m_xy.x);
-        c().mk_ineq(m_j, - m_xy.x, m_jy, llc::EQ);
+        // Should be  v = val(m_x)*val(m_y), and val(factor) = factor.rat_sign()*var(factor.var())
+        c().mk_ineq(m_jx, llc::NE, c().val(m_jx));
+        c().mk_ineq(m_j,  - m_y.rat_sign() * m_xy.x,  m_jy, llc::EQ);
         
         m_tang.add_empty_lemma();
-        c().mk_ineq(m_jy, llc::NE, m_xy.y);
-        c().mk_ineq(m_j, - m_xy.y, m_jx, llc::EQ);
+        c().mk_ineq(m_jy, llc::NE, c().val(m_jy));
+        c().mk_ineq(m_j, - m_x.rat_sign() * m_xy.y, m_jx, llc::EQ);
     }
     // Get two planes tangent to surface z = xy, one at point a,  and another at point b, creating a cut
     void get_initial_tang_points() {
@@ -116,7 +118,7 @@ struct imp {
             m_b = point(x + delta, y - delta);
         }
         else {
-            // denote x = xy.x and y = xy.y, and vx, vy - the value of x and y.
+            // denote x = xy.x and y = xy.y, and vx, vy - the values of x and y.
             // we have val(xy) <  vx*y + vy*x - vx*vy = pl(x, y);
             // The plane with delta (1, 1) is  (vx + 1)y + (vy + 1)x - (vx + 1)(vy + 1) =
             // vx*y + vy*x - vx*vy + y + x - xv*vy - vx - vy - 1 = pl(x, y) - 1
@@ -134,7 +136,7 @@ struct imp {
         SASSERT(plane_is_correct_cut(a));
         int steps = 10;
         point del = a - m_xy;
-        while (steps--) {
+        while (steps-- && !c().done()) {
             del *= rational(2);
             point na = m_xy + del;
             TRACE("nla_solver_tp", tout << "del = " << del << std::endl;);
@@ -168,7 +170,7 @@ struct imp {
         return out;
     }
 
-    bool  plane_is_correct_cut(const point& plane) const {
+    bool plane_is_correct_cut(const point& plane) const {
         TRACE("nla_solver", tout << "plane = " << plane << "\n";
               tout << "tang_plane() = " << tang_plane(plane) << ", v = " << m_v << ", correct_v = " << m_correct_v << "\n";);
         SASSERT((m_below && m_v < m_correct_v) ||
@@ -179,7 +181,7 @@ struct imp {
     }    
 };
 
-tangents::tangents(core * c) : common(c, nullptr) {}
+tangents::tangents(core * c) : common(c) {}
     
 void tangents::tangent_lemma() {
     if (!c().m_nla_settings.run_tangents()) {

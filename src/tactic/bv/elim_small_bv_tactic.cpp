@@ -136,34 +136,48 @@ class elim_small_bv_tactic : public tactic {
             unsigned max_var_idx_p1 = uv.get_max_found_var_idx_plus_1();
 
             expr_ref body(old_body, m);
-            for (unsigned i = num_decls-1; i != ((unsigned)-1) && !max_steps_exceeded(num_steps); i--) {
+            for (unsigned i = num_decls; i-- > 0 && !max_steps_exceeded(num_steps); ) {
                 sort * s = q->get_decl_sort(i);
-
+                expr_ref_vector new_bodies(m);
                 if (is_small_bv(s) && !max_steps_exceeded(num_steps)) {
                     unsigned bv_sz = m_util.get_bv_size(s);
                     TRACE("elim_small_bv", tout << "eliminating " << q->get_decl_name(i) <<
                         "; sort = " << mk_ismt2_pp(s, m) <<
                         "; body = " << mk_ismt2_pp(body, m) << std::endl;);
 
-                    expr_ref_vector new_bodies(m);
-                    for (unsigned j = 0; j < bv_sz && !max_steps_exceeded(num_steps); j ++) {
+                    if (bv_sz >= 31ul || ((unsigned)(1ul << bv_sz)) + num_steps > m_max_steps) {
+                        return false;
+                    }
+                    
+                    for (unsigned j = 0; j < (1ul << bv_sz) && !max_steps_exceeded(num_steps); j++) {
                         expr_ref n(m_util.mk_numeral(j, bv_sz), m);
                         new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, n));
                         num_steps++;
                     }
-
-                    TRACE("elim_small_bv", tout << "new bodies: " << std::endl;
-                                           for (unsigned k = 0; k < new_bodies.size(); k++)
-                                               tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
-
-                    body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
-                                          m.mk_or(new_bodies.size(), new_bodies.c_ptr());
-                    SASSERT(is_well_sorted(m, body));
-
-                    proof_ref pr(m);
-                    m_simp(body, body, pr);
-                    m_num_eliminated++;
                 }
+                else if (m.is_bool(s)) {
+                    new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, m.mk_true()));
+                    new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, m.mk_false()));
+                }
+                else {
+                    continue;
+                }
+                
+                if (max_steps_exceeded(num_steps)) {
+                    return false;
+                }
+                
+                TRACE("elim_small_bv", tout << "new bodies: " << std::endl;
+                      for (unsigned k = 0; k < new_bodies.size(); k++)
+                          tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
+                
+                body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
+                    m.mk_or(new_bodies.size(), new_bodies.c_ptr());
+                SASSERT(is_well_sorted(m, body));
+                
+                proof_ref pr(m);
+                m_simp(body, body, pr);
+                m_num_eliminated++;                
             }
 
             quantifier_ref new_q(m);

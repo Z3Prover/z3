@@ -244,10 +244,13 @@ namespace sat {
             throw sat_param_exception("invalid PB lemma format: 'cardinality' or 'pb' expected");
         
         m_card_solver = p.cardinality_solver();
-        m_xor_solver = p.xor_solver();
+        m_xor_solver = false; // prevent users from playing with this option
 
         sat_simplifier_params sp(_p);
         m_elim_vars = sp.elim_vars();
+
+        if (m_drat && (m_xor_solver || m_card_solver)) 
+            throw sat_param_exception("DRAT checking only works for pure CNF");
     }
 
     void config::collect_param_descrs(param_descrs & r) {

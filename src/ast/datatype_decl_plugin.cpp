@@ -21,6 +21,7 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 
 
@@ -353,6 +354,7 @@ namespace datatype {
         }
 
 #define VALIDATE_PARAM(_pred_) if (!(_pred_)) m_manager->raise_exception("invalid parameter to datatype function "  #_pred_);
+#define VALIDATE_PARAM_PP(_pred_, _msg_) if (!(_pred_)) m_manager->raise_exception(_msg_);
         
         func_decl * decl::plugin::mk_constructor(unsigned num_parameters, parameter const * parameters, 
                                                  unsigned arity, sort * const * domain, sort * range) {
@@ -368,8 +370,10 @@ namespace datatype {
         func_decl * decl::plugin::mk_recognizer(unsigned num_parameters, parameter const * parameters, 
                                                 unsigned arity, sort * const * domain, sort *) {
             ast_manager& m = *m_manager;
-            VALIDATE_PARAM(arity == 1 && num_parameters == 2 && parameters[1].is_symbol() && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
+            VALIDATE_PARAM(arity == 1 && num_parameters == 2 && parameters[1].is_symbol());
+            VALIDATE_PARAM(parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
             VALIDATE_PARAM(u().is_datatype(domain[0]));
+            VALIDATE_PARAM(to_func_decl(parameters[0].get_ast())->get_range()== domain[0])
             // blindly trust that parameter is a constructor
             sort* range = m_manager->mk_bool_sort();
             func_decl_info info(m_family_id, OP_DT_RECOGNISER, num_parameters, parameters);
@@ -382,6 +386,7 @@ namespace datatype {
             ast_manager& m = *m_manager;
             VALIDATE_PARAM(arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
             VALIDATE_PARAM(u().is_datatype(domain[0]));
+            VALIDATE_PARAM_PP(domain[0] == to_func_decl(parameters[0].get_ast())->get_range(), "invalid sort argument passed to recognizer");
             // blindly trust that parameter is a constructor
             sort* range = m_manager->mk_bool_sort();
             func_decl_info info(m_family_id, OP_DT_IS, num_parameters, parameters);
@@ -537,10 +542,15 @@ namespace datatype {
             sort_ref_vector ps(*m_manager);
             for (symbol const& s : m_def_block) {                
                 new_sorts.push_back(m_defs[s]->instantiate(ps));
-                if (m_manager->has_trace_stream()) {
-                    log_axiom_definitions(s, new_sorts.back());
+            }
+            if (m_manager->has_trace_stream()) {
+                for (unsigned i = 0; i < m_def_block.size(); ++i) {
+                    symbol const& s = m_def_block[i];
+                    sort* srt = new_sorts.get(i);
+                    log_axiom_definitions(s, srt);
                 }
             }
+
             return true;
         }
 
@@ -613,7 +623,7 @@ namespace datatype {
             for (unsigned i = 0; i < c->get_arity(); i++) {
                 args.push_back(m_manager->get_some_value(c->get_domain(i)));
             }
-            return m_manager->mk_app(c, args.size(), args.c_ptr());
+            return m_manager->mk_app(c, args);
         }
 
         bool plugin::is_fully_interp(sort * s) const {
@@ -1035,7 +1045,7 @@ namespace datatype {
     }
 
     app* util::mk_is(func_decl * c, expr *f) {
-        return m.mk_app(get_constructor_is(c), 1, &f);
+        return m.mk_app(get_constructor_is(c), f);
     }
 
     func_decl * util::get_recognizer_constructor(func_decl * recognizer) const {
@@ -1130,7 +1140,8 @@ namespace datatype {
         TRACE("util_bug", tout << "invoke get-non-rec: " << sort_ref(ty, m) << "\n";);
         cd = get_non_rec_constructor_core(ty, forbidden_set);
         SASSERT(forbidden_set.back() == ty);
-        SASSERT(cd.first);
+        if (!cd.first) // datatypes are not completed on parse errors
+            throw default_exception("constructor not available");
         return cd.first;
     }
 
@@ -1228,7 +1239,7 @@ namespace datatype {
     }
 
     unsigned util::get_datatype_num_constructors(sort * ty) {
-		if (!is_declared(ty)) return 0;
+        if (!is_declared(ty)) return 0;
         def const& d = get_def(ty->get_name());
         return d.constructors().size();
     }

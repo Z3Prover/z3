@@ -143,7 +143,7 @@ namespace sat {
     typedef svector<lbool> model;
 
     inline void negate(literal_vector& ls) { for (unsigned i = 0; i < ls.size(); ++i) ls[i].neg(); }
-    inline lbool value_at(bool_var v, model const & m) { return m[v]; }
+    inline lbool value_at(bool_var v, model const & m) { return  m[v]; }
     inline lbool value_at(literal l, model const & m) { lbool r = value_at(l.var(), m); return l.sign() ? ~r : r; }
 
     inline std::ostream & operator<<(std::ostream & out, model const & m) {
@@ -169,10 +169,7 @@ namespace sat {
         literal_set() {}
         literal_vector to_vector() const {
             literal_vector result;
-            iterator it = begin(), e = end();
-            for (; it != e; ++it) {
-                result.push_back(*it);
-            }
+            for (literal lit : *this) result.push_back(lit);
             return result;
         }
         literal_set& operator=(literal_vector const& v) {

@@ -546,7 +546,7 @@ namespace nlarith {
                 sqrt_form e0(*this, mk_uminus(c), 0,   z(), b);
                 // a_i = 0 /\ b_i != 0 /\ phi[e_i/x]
                 TRACE("nlarith", display(tout << "a_i != 0 & b_i != 0 & hi[e_i / x]", p);tout<<"\n";);
-                scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m());
+                scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m(), false);
                 expr_substitution sub(m());
                 sub.insert(a, z());
                 rp->set_substitution(&sub);
@@ -610,7 +610,7 @@ namespace nlarith {
                 sqrt_form e0(*this, mk_uminus(c), 0,     z(), b);
                 es.reset();
                 subst.reset();
-                scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m());
+                scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m(), false);
                 expr_substitution sub(m());
                 sub.insert(a, z());
                 rp->set_substitution(&sub);

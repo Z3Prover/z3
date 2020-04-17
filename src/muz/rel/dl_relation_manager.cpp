@@ -115,6 +115,14 @@ namespace datalog {
         e->get_data().m_value = rel;
     }
 
+    decl_set relation_manager::collect_predicates() const {
+        decl_set res;
+        for (auto const& kv : m_relations) {
+            res.insert(kv.m_key);
+        }
+        return res;
+    }
+
     void relation_manager::collect_non_empty_predicates(decl_set & res) const {
         for (auto const& kv : m_relations) {
             if (!kv.m_value->fast_empty()) {

@@ -377,9 +377,11 @@ namespace {
 
                 for (expr* c : core) {
                     expr_ref name(c, m);
-                    SASSERT(m_name2assertion.contains(name));
-                    expr_ref assrtn(m_name2assertion.find(name), m);
-                    collect_pattern_fds(assrtn, pattern_fds);
+                    expr* f = nullptr;
+                    if (m_name2assertion.find(name, f)) {
+                        expr_ref assrtn(f, m);
+                        collect_pattern_fds(assrtn, pattern_fds);
+                    }
                 }
 
                 if (!pattern_fds.empty()) {

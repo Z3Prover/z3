@@ -476,7 +476,7 @@ private:
     interval_manager          m_im;
     scoped_numeral_vector     m_num_buffer;
 
-    svector<bool>             m_is_int;
+    bool_vector             m_is_int;
     ptr_vector<definition>    m_defs;
     vector<watch_list>        m_wlist;
 

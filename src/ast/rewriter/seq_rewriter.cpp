@@ -27,6 +27,7 @@ Notes:
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/seq_rewriter_params.hpp"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata_def.h"
 
@@ -387,6 +388,17 @@ eautomaton* re2automaton::seq2aut(expr* e) {
     return nullptr;
 }
 
+void seq_rewriter::updt_params(params_ref const & p) {
+    seq_rewriter_params sp(p);
+    m_coalesce_chars = sp.coalesce_chars();
+}
+
+void seq_rewriter::get_param_descrs(param_descrs & r) {
+    seq_rewriter_params::collect_param_descrs(r);
+}
+
+
+
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
     br_status st = BR_FAILED;
@@ -531,7 +543,11 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         st = mk_str_lt(args[0], args[1], result);
         break;
     case OP_STRING_CONST:
-        return BR_FAILED;
+        st = BR_FAILED;
+        if (!m_coalesce_chars) {
+            st = mk_str_units(f, result);
+        }
+        break;
     case OP_STRING_ITOS: 
         SASSERT(num_args == 1);
         st = mk_str_itos(args[0], result);
@@ -563,7 +579,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
 br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
     unsigned ch;
     // specifically we want (_ BitVector 8)
-    if (m_util.is_const_char(e, ch)) {
+    if (m_util.is_const_char(e, ch) && m_coalesce_chars) {
         // convert to string constant
         zstring str(ch);
         TRACE("seq_verbose", tout << "rewrite seq.unit of 8-bit value " << ch << " to string constant \"" << str<< "\"" << std::endl;);
@@ -584,8 +600,8 @@ br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
 br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     zstring s1, s2;
     expr* c, *d;
-    bool isc1 = m_util.str.is_string(a, s1);
-    bool isc2 = m_util.str.is_string(b, s2);
+    bool isc1 = m_util.str.is_string(a, s1) && m_coalesce_chars;
+    bool isc2 = m_util.str.is_string(b, s2) && m_coalesce_chars;
     if (isc1 && isc2) {
         result = m_util.str.mk_string(s1 + s2);
         return BR_DONE;
@@ -673,7 +689,59 @@ bool seq_rewriter::is_suffix(expr* s, expr* offset, expr* len) {
     rational a, b;
     return 
         get_lengths(len, lens, a) && 
-        (a.neg(), m_autil.is_numeral(offset, b) && b.is_pos() && a == b);
+        (a.neg(), m_autil.is_numeral(offset, b) && 
+         b.is_pos() && 
+         a == b && 
+         lens.contains(s));
+}
+
+bool seq_rewriter::sign_is_determined(expr* e, sign& s) {
+    s = sign_zero;
+    if (m_autil.is_add(e)) {
+        for (expr* arg : *to_app(e)) {
+            sign s1;
+            if (!sign_is_determined(arg, s1))
+                return false;
+            if (s == sign_zero) 
+                s = s1;
+            else if (s1 == sign_zero)
+                continue;
+            else if (s1 != s)
+                return false;
+        }
+        return true;
+    }
+    if (m_autil.is_mul(e)) {
+        for (expr* arg : *to_app(e)) {
+            sign s1;
+            if (!sign_is_determined(arg, s1))
+                return false;
+            if (s1 == sign_zero) {
+                s = sign_zero;
+                return true;
+            }
+            if (s == sign_zero)
+                s = s1;
+            else if (s != s1)
+                s = sign_neg;
+            else 
+                s = sign_pos;
+        }
+        return true;
+    }
+    if (m_util.str.is_length(e)) {
+        s = sign_pos;
+        return true;
+    }
+    rational r;
+    if (m_autil.is_numeral(e, r)) {
+        if (r.is_pos())
+            s = sign_pos;
+        else if (r.is_neg())
+            s = sign_neg;
+        return true;
+    }
+    return false;
 }
 
 br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result) {
@@ -686,6 +754,11 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     bool constantLen = m_autil.is_numeral(c, len);
     bool lengthPos   = m_util.str.is_length(b) || m_autil.is_add(b);
 
+    sign sg;
+    if (sign_is_determined(c, sg) && sg == sign_neg) {
+        result = m_util.str.mk_empty(m().get_sort(a));
+        return BR_DONE;
+    }
     
     // case 1: pos<0 or len<=0
     // rewrite to ""
@@ -1125,7 +1198,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     bool isc2 = m_util.str.is_string(b, s2);
 
     if (isc1 && isc2 && m_autil.is_numeral(c, r) && r.is_unsigned()) {
-        int idx = s1.indexof(s2, r.get_unsigned());
+        int idx = s1.indexofu(s2, r.get_unsigned());
         result = m_autil.mk_numeral(rational(idx), true);
         return BR_DONE;
     }
@@ -1138,6 +1211,23 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         result = c;
         return BR_DONE;
     }
+
+    if (a == b) {
+        if (m_autil.is_numeral(c, r)) {
+            if (r.is_zero()) {
+                result = m_autil.mk_int(0);
+            }
+            else {
+                result = m_autil.mk_int(-1);            
+            }
+            return BR_DONE;
+        }
+        else {
+            result = m().mk_ite(m().mk_eq(m_autil.mk_int(0), c), m_autil.mk_int(0), m_autil.mk_int(-1));
+            return BR_REWRITE2;
+        }
+    }
+
     // Enhancement: walk segments of a, determine which segments must overlap, must not overlap, may overlap.
     return BR_FAILED;
 }
@@ -1435,6 +1525,23 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
     }
 
     return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_str_units(func_decl* f, expr_ref& result) {
+    zstring s;
+    VERIFY(m_util.str.is_string(f, s));
+    expr_ref_vector es(m());
+    unsigned sz = s.length();
+    for (unsigned j = 0; j < sz; ++j) {
+        es.push_back(m_util.str.mk_unit(m_util.str.mk_char(s, j)));
+    }        
+    if (es.empty()) {
+        result = m_util.str.mk_empty(f->get_range());
+    }
+    else {
+        result = m_util.str.mk_concat(es);
+    }
+    return BR_DONE;
 }
 
 br_status seq_rewriter::mk_str_le(expr* a, expr* b, expr_ref& result) {
@@ -1875,10 +1982,15 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
     case 1: 
         np = f->get_num_parameters();
         lo2 = np > 0 ? f->get_parameter(0).get_int() : 0;
-        hi2 = np > 1 ? f->get_parameter(1).get_int() : 0;
+        hi2 = np > 1 ? f->get_parameter(1).get_int() : lo2;
+        // (loop a 0 0) = ""
         if  (np == 2 && lo2 > hi2) {
-            result = m_util.re.mk_loop(args[0], lo2, lo2);
-            return BR_REWRITE1;
+            result = m_util.re.mk_empty(m().get_sort(args[0]));
+            return BR_DONE;
+        }
+        if (np == 2 && hi2 == 0) {
+            result = m_util.re.mk_to_re(m_util.str.mk_empty(m_util.re.to_seq(m().get_sort(args[0]))));
+            return BR_DONE;
         }
         // (loop (loop a lo) lo2) = (loop lo*lo2)
         if (m_util.re.is_loop(args[0], a, lo) && np == 1) {
@@ -1889,11 +2001,6 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
         if (m_util.re.is_loop(args[0], a, lo, hi) && np == 2 && lo == hi && lo2 == hi2) {
             result = m_util.re.mk_loop(a, lo2 * lo, hi2 * hi);
             return BR_REWRITE1;
-        }
-        // (loop a 0 0) = ""
-        if (np == 2 && hi2 == 0) {
-            result = m_util.re.mk_to_re(m_util.str.mk_empty(m_util.re.to_seq(m().get_sort(args[0]))));
-            return BR_DONE;
         }
         // (loop a 1 1) = a
         if (np == 2 && lo2 == 1 && hi2 == 1) {

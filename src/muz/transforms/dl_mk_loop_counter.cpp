@@ -73,7 +73,7 @@ namespace datalog {
         rule_ref new_rule(rm);
         app_ref_vector tail(m);
         app_ref head(m);
-        svector<bool> neg;
+        bool_vector neg;
         rule_counter& vc = rm.get_counter();
         for (unsigned i = 0; i < sz; ++i) {            
             tail.reset();
@@ -129,7 +129,7 @@ namespace datalog {
         rule_ref new_rule(rm);
         app_ref_vector tail(m);
         app_ref head(m);
-        svector<bool> neg;
+        bool_vector neg;
         for (unsigned i = 0; i < sz; ++i) {            
             tail.reset();
             neg.reset();

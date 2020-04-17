@@ -1033,7 +1033,7 @@ namespace smt {
         unsigned sz = g.get_num_nodes();
         svector<dl_var> nodes;
         num_children.resize(sz, 0);
-        svector<bool> processed(sz, false);
+        bool_vector processed(sz, false);
         for (unsigned i = 0; i < sz; ++i) nodes.push_back(i);
         while (!nodes.empty()) {
             dl_var v = nodes.back();

@@ -115,7 +115,7 @@ namespace datalog {
           m_next_relation_fid(0) {}
 
         virtual ~relation_manager();
-
+        
         void reset();
         void reset_relations();
 
@@ -155,6 +155,7 @@ namespace datalog {
             }
         }
 
+        decl_set collect_predicates() const;
         void collect_non_empty_predicates(decl_set & res) const;
         void restrict_predicates(const decl_set & preds);
 

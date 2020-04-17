@@ -382,7 +382,7 @@ struct nnf::imp {
     void checkpoint() {
         if (memory::get_allocation_size() > m_max_memory)
             throw nnf_exception(Z3_MAX_MEMORY_MSG);
-        if (m.canceled()) 
+        if (!m.inc()) 
             throw nnf_exception(m.limit().get_cancel_msg());
     }
 

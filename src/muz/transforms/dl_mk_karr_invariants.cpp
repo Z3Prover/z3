@@ -214,7 +214,7 @@ namespace datalog {
 
         get_invariants(*src_loop);
 
-        if (m.canceled()) {
+        if (!m.inc()) {
             return nullptr;
         }
 

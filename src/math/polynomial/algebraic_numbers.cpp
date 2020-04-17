@@ -569,22 +569,28 @@ namespace algebraic_numbers {
             }
         };
 
-        void check_triangle_inequality(numeral_vector& r) {
+        void check_transitivity(numeral_vector& r) {
             lt_proc lt(m_wrapper);
             for (unsigned i = 0; i < r.size(); ++i) {
                 auto& a = r[i];
-                for (unsigned j = i + 1; j < r.size(); ++j) {
+                for (unsigned j = 0; j < r.size(); ++j) {
                     auto& b = r[j];
-                    bool ltab = lt(a, b);
-                    for (unsigned k = j + 1; k < r.size(); ++k) {
+                    for (unsigned k = 0; k < r.size(); ++k) {
                         auto& c = r[k];
-                        CTRACE("algebraic", (lt(b, a) && lt(a, c) && !lt(b, c)),
-                            display_root(tout << "b ", b) << "\n";
-                        display_root(tout << "a ", a) << "\n";
-                        display_root(tout << "c ", c) << "\n";);
-                        SASSERT(!lt(a, b) || !lt(b, c) || lt(a, c));
-                        SASSERT(!lt(a, b) || !lt(c, a) || lt(c, b));
-                        SASSERT(!lt(b, a) || !lt(a, c) || lt(b, c));
+                        bool b_lt_a = lt(b, a);
+                        bool c_lt_b = lt(c, b);
+                        bool c_lt_a = lt(c, a);
+                        (void)b_lt_a;
+                        (void)c_lt_b;
+                        (void)c_lt_a;
+                        // (a <= b & b <= c) => a <= c
+                        // b < a or c < b or !(c < a)
+                        CTRACE("algebraic_bug", 
+                               (!b_lt_a && !c_lt_b && c_lt_a),
+                               display_root(tout << "a ", a) << "\n";
+                               display_root(tout << "b ", b) << "\n";
+                               display_root(tout << "c ", c) << "\n";);
+                        SASSERT(b_lt_a || c_lt_b || !c_lt_a);
                     }
                 }
             }
@@ -592,7 +598,7 @@ namespace algebraic_numbers {
 
         void sort_roots(numeral_vector & r) {
             if (m_limit.inc()) {
-                //DEBUG_CODE(check_triangle_inequality(r););
+                // DEBUG_CODE(check_transitivity(r););
                 std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
             }
         }
@@ -1785,7 +1791,7 @@ namespace algebraic_numbers {
                   tout << "\ncell_a->m_minimal: " << cell_a->m_minimal << "\n";
                   tout << "b: "; upm().display(tout, cell_b->m_p_sz, cell_b->m_p); tout << "\n"; bqim().display(tout, cell_b->m_interval);
                   tout << "\ncell_b->m_minimal: " << cell_b->m_minimal << "\n";);
-
+            
             if (cell_a->m_minimal && cell_b->m_minimal) {
                 // Minimal polynomial special case.
                 // This branch is only executed when polynomial
@@ -1827,7 +1833,6 @@ namespace algebraic_numbers {
                 m_compare_refine += a_m - target_m;
                 COMPARE_INTERVAL();
             }
-
             if (target_m > m_min_magnitude) {
                 int num_refinements = target_m - m_min_magnitude;
                 for (int i = 0; i < num_refinements; i++) {
@@ -1864,8 +1869,14 @@ namespace algebraic_numbers {
            unsigned V1 = upm().sign_variations_at(seq, a_lower);
            unsigned V2 = upm().sign_variations_at(seq, a_upper); 
            int V =  V1 - V2;
-           TRACE("algebraic", tout << "comparing using sturm\n"; display_interval(tout, a); tout << "\n"; display_interval(tout, b); tout << "\n";
-                 tout << "V: " << V << " V1 " << V1 << " V2 " << V2 << " sign_lower(a): " << sign_lower(cell_a) << ", sign_lower(b): " << sign_lower(cell_b) << "\n";);
+           TRACE("algebraic", tout << "comparing using sturm\n"; 
+                 display_interval(tout, a) << "\n"; 
+                 display_interval(tout, b) << "\n";
+                 tout << "V: " << V << " V1 " << V1 << " V2 " << V2 
+                 << ", sign_lower(a): " << sign_lower(cell_a) 
+                 << ", sign_lower(b): " << sign_lower(cell_b) << "\n";
+                 /*upm().display(tout << "sequence: ", seq);*/
+                 );
            if (V == 0)
                return sign_zero;
            if ((V < 0) == (sign_lower(cell_b) < 0))
@@ -2393,8 +2404,8 @@ namespace algebraic_numbers {
                 // all remaining variables are assigned.
                 // the unassigned variable vanished when we replaced the rational values.
                 DEBUG_CODE({
-                    for (unsigned i = 0; i < xs.size(); i++) {
-                        SASSERT(x2v.contains(xs[i]));
+                    for (auto x : xs) {
+                        SASSERT(x2v.contains(x));
                     }
                 });
                 return;
@@ -2404,7 +2415,7 @@ namespace algebraic_numbers {
             polynomial_ref q(ext_pm);
             q = p_prime;
             polynomial_ref p_y(ext_pm);
-            for (unsigned i = 0; i < xs.size() - 1; i++) {
+            for (unsigned i = 0; i + 1 < xs.size(); i++) {
                 checkpoint();
                 polynomial::var y = xs[i];
                 SASSERT(x2v.contains(y));
@@ -2782,8 +2793,8 @@ namespace algebraic_numbers {
             // the precision on refine is base 2
             return upm().refine(c->m_p_sz, c->m_p, bqm(), l, u, precision * 4);
         }
-
-        void display_decimal(std::ostream & out, numeral const & a, unsigned precision) {
+        
+        std::ostream& display_decimal(std::ostream & out, numeral const & a, unsigned precision) {
             if (a.is_basic()) {
                 qm().display_decimal(out, basic_value(a), precision);
             }
@@ -2798,6 +2809,7 @@ namespace algebraic_numbers {
                     bqm().display_decimal(out, l, precision);
                 }
             }
+            return out;
         }
 
         void get_lower(numeral const & a, mpq & l, unsigned precision) {
@@ -3102,24 +3114,24 @@ namespace algebraic_numbers {
         return m_imp->eval_sign_at(p, x2v);
     }
 
-    void manager::display_interval(std::ostream & out, numeral const & a) const {
-        m_imp->display_interval(out, a);
+    std::ostream& manager::display_interval(std::ostream & out, numeral const & a) const {
+        return m_imp->display_interval(out, a);
     }
 
-    void manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
-        m_imp->display_decimal(out, a, precision);
+    std::ostream& manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
+        return m_imp->display_decimal(out, a, precision);
     }
 
-    void manager::display_root(std::ostream & out, numeral const & a) const {
-        m_imp->display_root(out, a);
+    std::ostream& manager::display_root(std::ostream & out, numeral const & a) const {
+        return m_imp->display_root(out, a);
     }
 
-    void manager::display_mathematica(std::ostream & out, numeral const & a) const {
-        m_imp->display_mathematica(out, a);
+    std::ostream& manager::display_mathematica(std::ostream & out, numeral const & a) const {
+        return m_imp->display_mathematica(out, a);
     }
 
-    void manager::display_root_smt2(std::ostream & out, numeral const & a) const {
-        m_imp->display_root_smt2(out, a);
+    std::ostream& manager::display_root_smt2(std::ostream & out, numeral const & a) const {
+        return m_imp->display_root_smt2(out, a);
     }
 
     void manager::reset_statistics() {

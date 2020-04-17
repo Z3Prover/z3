@@ -1029,6 +1029,7 @@ namespace smt {
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
             if (lhs->get_root() != rhs->get_root()) {
+                SASSERT(m.get_sort(lhs->get_owner()) == m.get_sort(rhs->get_owner()));
                 m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
             }
         }
@@ -1137,6 +1138,8 @@ namespace smt {
 
         void internalize_assertions();
 
+        void asserted_inconsistent();
+
         bool validate_assumptions(expr_ref_vector const& asms);
 
         void init_assumptions(expr_ref_vector const& asms);
@@ -1197,7 +1200,7 @@ namespace smt {
 
         bool is_relevant_core(expr * n) const { return m_relevancy_propagator->is_relevant(n); }
 
-        svector<bool>  m_relevant_conflict_literals;
+        bool_vector  m_relevant_conflict_literals;
         void record_relevancy(unsigned n, literal const* lits);
         void restore_relevancy(unsigned n, literal const* lits);
 
@@ -1473,10 +1476,6 @@ namespace smt {
         // copy plugins into a fresh context.
         void copy_plugins(context& src, context& dst);
 
-        static literal translate_literal(
-            literal lit, context& src_ctx, context& dst_ctx,
-            vector<bool_var> b2v, ast_translation& tr);
-
         /*
           \brief Utilities for consequence finding.
         */
@@ -1560,8 +1559,7 @@ namespace smt {
 
         lbool setup_and_check(bool reset_cancel = true);
 
-        // return 'true' if assertions are inconsistent.
-        bool reduce_assertions();
+        void reduce_assertions();
 
         bool resource_limits_exceeded();
 

@@ -85,7 +85,7 @@ namespace opt {
         static const unsigned   m_objective_id = 0;
         vector<unsigned_vector> m_var2row_ids;
         vector<rational>        m_var2value;
-        svector<bool>           m_var2is_int;
+        bool_vector           m_var2is_int;
         vector<var>             m_new_vars;
         unsigned_vector         m_lub, m_glb, m_mod;
         unsigned_vector         m_above, m_below;

@@ -112,8 +112,7 @@ struct reduce_args_tactic::imp {
     }
 
     void checkpoint() { 
-        if (m_manager.canceled())
-            throw tactic_exception(m_manager.limit().get_cancel_msg());
+        tactic::checkpoint(m_manager);
     }
     
     struct find_non_candidates_proc {

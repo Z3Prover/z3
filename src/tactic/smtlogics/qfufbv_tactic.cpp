@@ -70,8 +70,15 @@ public:
         flas.reset();
         // report result
         goal_ref resg(alloc(goal, *g, true));
-        if (o == l_false) resg->assert_expr(m.mk_false());
-        if (o != l_undef) result.push_back(resg.get());
+        if (o == l_false) 
+            resg->assert_expr(m.mk_false());
+        if (o == l_undef) {
+            g->inc_depth();
+            result.push_back(g.get());
+        }
+        else {
+            result.push_back(resg.get());
+        }
         // report model
         if (g->models_enabled() && o == l_true) {
             model_ref abstr_model = imp.get_model();

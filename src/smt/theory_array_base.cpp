@@ -401,8 +401,21 @@ namespace smt {
         quantifier * q = m.is_lambda_def(e->get_decl());
         expr_ref f(e, m);
         if (q) {
-            var_subst sub(m);
-            f = sub(q, e->get_num_args(), e->get_args());
+            // the variables in q are maybe not consecutive.
+            var_subst sub(m, false);
+            expr_free_vars fv;
+            fv(q);
+            expr_ref_vector es(m);
+            es.resize(fv.size());
+            for (unsigned i = 0, j = 0; i < e->get_num_args(); ++i) {
+                SASSERT(j < es.size());
+                while (!fv[j]) {
+                    ++j; 
+                    SASSERT(j < es.size());
+                }
+                es[j++] = e->get_arg(i);
+            }
+            f = sub(q, es.size(), es.c_ptr());
         }
         return f;
     }
@@ -509,27 +522,46 @@ namespace smt {
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }
 #else
+
+    bool theory_array_base::is_select_arg(enode* r) {
+        for (enode* n : r->get_parents()) {
+            if (is_select(n)) {
+                for (unsigned i = 1; i < n->get_num_args(); ++i) {
+                    if (r == n->get_arg(i)->get_root()) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
-        TRACE("array_shared", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
         ptr_buffer<enode> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
-        enode * n = get_enode(i);
-            if (ctx.is_relevant(n)) {
+            enode * n = get_enode(i);
+            if (!ctx.is_relevant(n) || !is_array_sort(n)) {
+                continue;
+            }
             enode * r = n->get_root();
-        if (!r->is_marked()){
-            if(is_array_sort(r) && ctx.is_shared(r)) {
-              TRACE("array_shared", tout << "new shared var: #" << r->get_owner_id() << "\n";);
-              theory_var r_th_var = r->get_th_var(get_id());
-              SASSERT(r_th_var != null_theory_var);
-              result.push_back(r_th_var);
+            if (r->is_marked()) {
+                continue;
+            }
+            // arrays used as indices in other arrays have to be treated as shared.
+            // issue #3532, #3529
+            // 
+            if (ctx.is_shared(r) || is_select_arg(r)) {
+                TRACE("array", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+                theory_var r_th_var = r->get_th_var(get_id());
+                SASSERT(r_th_var != null_theory_var);
+                result.push_back(r_th_var);
             }
             r->set_mark();
-            to_unmark.push_back(r);
+            to_unmark.push_back(r);            
         }
-            }
-        }
+        TRACE("array", tout << "collecting shared vars...\n" << unsigned_vector(result.size(), (unsigned*)result.c_ptr())  << "\n";);
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }
 #endif

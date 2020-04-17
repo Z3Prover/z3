@@ -371,7 +371,9 @@ private:
         SASSERT(m_gamma[target].is_neg());
         acc_assignment(target, gamma);
 
-        TRACE("arith", display(tout << id << "\n"););
+        TRACE("arith", display(tout << id << " " << gamma << "\n");
+              display_edge(tout, last_e);
+              );
 
         dl_var source = target;
         while (true) {
@@ -407,10 +409,13 @@ private:
                         if (gamma < m_gamma[target]) {
                             m_gamma[target]  = gamma;
                             m_parent[target] = e_id;
+                            SASSERT(m_heap.contains(target));
                             m_heap.decreased(target);
                         }
                         break;
                     case DL_PROCESSED:
+                        // if two edges with the same source/target occur in the graph.
+                        break;
                     default:
                         UNREACHABLE();
                     }
@@ -423,7 +428,6 @@ private:
                 m_assignment_stack.reset();
                 return true;
             }
-
             source = m_heap.erase_min();
             m_mark[source] = DL_PROCESSED;
             acc_assignment(source, m_gamma[source]);
@@ -1268,7 +1272,8 @@ public:
         m_dfs_time[v] = 0;
         succ.push_back(v);
         numeral gamma;
-        for (dl_var w : succ) {
+        for (unsigned i = 0; i < succ.size(); ++i) { // succ is updated inside of lopp
+            dl_var w = succ[i];
             for (edge_id e_id : m_out_edges[w]) {
                 edge & e = m_edges[e_id];
                 if (e.is_enabled() && set_gamma(e, gamma).is_zero()) {
@@ -1384,7 +1389,7 @@ public:
     template<typename Functor>
     bool find_shortest_path_aux(dl_var source, dl_var target, unsigned timestamp, Functor & f, bool zero_edge) {
         svector<bfs_elem> bfs_todo;
-        svector<bool>     bfs_mark;
+        bool_vector     bfs_mark;
         bfs_mark.resize(m_assignment.size(), false);
         
         bfs_todo.push_back(bfs_elem(source, -1, null_edge_id));

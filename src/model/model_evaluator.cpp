@@ -158,9 +158,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
     br_status reduce_app_core(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;
         family_id fid = f->get_family_id();
-        bool is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
+        bool _is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
         br_status st = BR_FAILED;
-        if (num == 0 && (fid == null_family_id || is_uninterp)) { // || m_ar.is_as_array(f)
+        if (num == 0 && (fid == null_family_id || _is_uninterp || m_ar.is_as_array(f))) {
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
@@ -168,16 +168,24 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 TRACE("model_evaluator", tout << result << "\n";);
                 return st;
             }
-            else if (m_model_completion) {
+            if (!m_model_completion)
+                return BR_FAILED;
+            
+            if (!m_ar.is_as_array(f)) {
                 sort * s   = f->get_range();
                 expr * val = m_model.get_some_value(s);
                 m_model.register_decl(f, val);
                 result = val;
                 return BR_DONE;
             }
-            else {
-                return BR_FAILED;
-            }
+#if 0
+            func_decl* g = nullptr;
+            VERIFY(m_ar.is_as_array(f, g));
+            auto* fi = m_model.get_func_interp(g);
+            result = fi->get_array_interp(g);
+            if (result) return BR_REWRITE_FULL;
+#endif
+            return BR_FAILED;            
         }
 
 
@@ -735,4 +743,8 @@ void model_evaluator::set_solver(expr_solver* solver) {
 
 bool model_evaluator::has_solver() {
     return m_imp->m_cfg.m_seq_rw.has_solver();
+}
+
+model_core const & model_evaluator::get_model() const {
+    return m_imp->cfg().m_model;
 }

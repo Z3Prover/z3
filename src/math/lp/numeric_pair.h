@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
+  Author:
 
-    Lev Nachmanson (levnach)
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 #pragma once
 #define lp_for_z3
 #include <string>
@@ -27,14 +27,14 @@ Revision History:
 #include "util/sstream.h"
 #include "util/z3_exception.h"
 #else
- // include "util/numerics/mpq.h"
- // include "util/numerics/numeric_traits.h"
+// include "util/numerics/mpq.h"
+// include "util/numerics/numeric_traits.h"
 #endif
 namespace lp {
 #ifdef lp_for_z3 // rename rationals
-    typedef rational mpq;
+typedef rational mpq;
 #else
-    typedef lp::mpq mpq;
+typedef lp::mpq mpq;
 #endif
 
 
@@ -70,41 +70,42 @@ public:
 
 
 template <>  class numeric_traits<double> {
-    public:
-        static bool precise() { return false; }
-        static double g_zero;
-        static double const &zero() { return g_zero;  }
-        static double g_one;
-        static double const &one() { return g_one; }
-        static bool is_zero(double v) { return v == 0.0; }
-        static double const & get_double(double const & d) { return d;}
-        static double log(double const & d) { NOT_IMPLEMENTED_YET(); return d;}
-        static double from_string(std::string const & str) { return atof(str.c_str()); }
-        static bool is_pos(const double & d) {return d > 0.0;}
-        static bool is_neg(const double & d) {return d < 0.0;}
-    };
+public:
+    static bool precise() { return false; }
+    static double g_zero;
+    static double const &zero() { return g_zero;  }
+    static double g_one;
+    static double const &one() { return g_one; }
+    static bool is_zero(double v) { return v == 0.0; }
+    static double const & get_double(double const & d) { return d;}
+    static double log(double const & d) { NOT_IMPLEMENTED_YET(); return d;}
+    static double from_string(std::string const & str) { return atof(str.c_str()); }
+    static bool is_pos(const double & d) {return d > 0.0;}
+    static bool is_neg(const double & d) {return d < 0.0;}
+    static bool is_big(const double & d) { return false; }
+};
 
-    template<>
-    class numeric_traits<rational> {
-    public:
-        static bool precise() { return true; }
-        static rational const & zero() { return rational::zero(); }
-        static rational const & one() { return rational::one(); }
-        static bool is_zero(const rational & v) { return v.is_zero(); }
-        static double get_double(const rational  & d) { return d.get_double();}
-        static rational log(rational const& r) { UNREACHABLE(); return r; }
-        static rational from_string(std::string const & str) { return rational(str.c_str()); }
-        static bool is_pos(const rational & d) {return d.is_pos();}
-        static bool is_neg(const rational & d) {return d.is_neg();}
-        static bool is_int(const rational & d) {return d.is_int();}
-        static mpq ceil_ratio(const mpq & a, const mpq & b) {
-            return ceil(a / b);
-        }
-        static mpq floor_ratio(const mpq & a, const mpq & b) {
-            return floor(a / b);
-        }
-
-    };
+template<>
+class numeric_traits<rational> {
+public:
+    static bool precise() { return true; }
+    static rational const & zero() { return rational::zero(); }
+    static rational const & one() { return rational::one(); }
+    static bool is_zero(const rational & v) { return v.is_zero(); }
+    static double get_double(const rational  & d) { return d.get_double();}
+    static rational log(rational const& r) { UNREACHABLE(); return r; }
+    static rational from_string(std::string const & str) { return rational(str.c_str()); }
+    static bool is_pos(const rational & d) {return d.is_pos();}
+    static bool is_neg(const rational & d) {return d.is_neg();}
+    static bool is_int(const rational & d) {return d.is_int();}
+    static bool is_big(const rational & d) {return d.is_big();}
+    static mpq ceil_ratio(const mpq & a, const mpq & b) {
+        return ceil(a / b);
+    }
+    static mpq floor_ratio(const mpq & a, const mpq & b) {
+        return floor(a / b);
+    }
+};
 #endif
 
 template <typename X, typename Y>
@@ -295,7 +296,7 @@ numeric_pair<T> operator/(const numeric_pair<T> & r, const X & a) {
 template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* lp_unreachable(); */ return 0;}
 template <typename T>
 class numeric_traits<lp::numeric_pair<T>> {
-  public:
+public:
     static bool precise() { return numeric_traits<T>::precise();}
     static lp::numeric_pair<T> zero() { return lp::numeric_pair<T>(numeric_traits<T>::zero(), numeric_traits<T>::zero()); }
     static bool is_zero(const lp::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }

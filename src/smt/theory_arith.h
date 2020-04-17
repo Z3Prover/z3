@@ -46,9 +46,11 @@ namespace smt {
         unsigned m_assert_lower, m_assert_upper, m_assert_diseq, m_core2th_eqs, m_core2th_diseqs;
         unsigned m_th2core_eqs, m_th2core_diseqs, m_bound_props, m_offset_eqs, m_fixed_eqs, m_offline_eqs;
         unsigned m_max_min; 
+        unsigned m_assume_eqs;
         unsigned m_gb_simplify, m_gb_superpose, m_gb_compute_basis, m_gb_num_processed;
         unsigned m_nl_branching, m_nl_linear, m_nl_bounds, m_nl_cross_nested;
         unsigned m_branch_infeasible_int, m_branch_infeasible_var;
+        unsigned m_tableau_max_rows, m_tableau_max_columns;
 
         void reset() { memset(this, 0, sizeof(theory_arith_stats)); }
         theory_arith_stats() { reset(); }
@@ -971,20 +973,21 @@ namespace smt {
         /**
            \brief A monomial is 'pure' if does not have a numeric coefficient.
         */
-        bool is_pure_monomial(expr * m) const { return m_util.is_mul(m) && !m_util.is_numeral(to_app(m)->get_arg(0)); }
+        bool is_pure_monomial(expr * m) const { return m_util.is_mul(m) && (to_app(m)->get_num_args() > 2 || !m_util.is_numeral(to_app(m)->get_arg(0))); }
         bool is_pure_monomial(theory_var v) const { return is_pure_monomial(get_enode(v)->get_owner()); }
         void mark_var(theory_var v, svector<theory_var> & vars, var_set & already_found);
         void mark_dependents(theory_var v, svector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows);
         void get_non_linear_cluster(svector<theory_var> & vars);
-        std::pair<unsigned, int> analyze_monomial(expr * m) const;
-        expr * get_monomial_body(expr * m) const;
-        rational get_monomial_coeff(expr * m) const;
-        unsigned get_num_vars_in_monomial(expr * m) const;
+
         typedef std::pair<expr *, unsigned> var_power_pair;
-        var_power_pair get_var_and_degree(expr * m, unsigned i) const;
+        typedef std::pair<unsigned, var_power_pair> n_var_power_pair;
+        n_var_power_pair analyze_monomial(expr * m) const;
+        
+        rational decompose_monomial(expr* m, buffer<var_power_pair>& vp) const;
+
         void display_monomial(std::ostream & out, expr * m) const;
         bool propagate_nl_upward(expr * m);
-        bool propagate_nl_downward(expr * m, unsigned i);
+        bool propagate_nl_downward(expr * m, var_power_pair const& p);
         interval mk_interval_for(theory_var v);
         interval mk_interval_for(expr * n);
         void mul_bound_of(expr * var, unsigned power, interval & target);
@@ -994,14 +997,13 @@ namespace smt {
         bool update_bounds_using_interval(theory_var v, interval const & i);
         bool update_bounds_using_interval(expr * n, interval const & i);
         bool propagate_nl_bounds(expr * m);
-        bool propagate_nl_bound(expr * m, int i);
         bool propagate_nl_bounds();
         bool is_problematic_non_linear_row(row const & r);
         bool is_mixed_real_integer(row const & r) const;
         bool is_integer(row const & r) const;
         typedef std::pair<rational, expr *> coeff_expr; 
         bool get_polynomial_info(buffer<coeff_expr> const & p, sbuffer<var_num_occs> & vars);
-        expr * p2expr(buffer<coeff_expr> & p);
+        expr_ref p2expr(buffer<coeff_expr> & p);
         expr * power(expr * var, unsigned power);
         expr * mk_nary_mul(unsigned sz, expr * const * args, bool is_int);
         expr * mk_nary_add(unsigned sz, expr * const * args, bool is_int);
@@ -1011,8 +1013,8 @@ namespace smt {
         unsigned get_min_degree(buffer<coeff_expr> & p, expr * var);
         expr * factor(expr * m, expr * var, unsigned d);
         bool in_monovariate_monomials(buffer<coeff_expr> & p, expr * var, unsigned & i1, rational & c1, unsigned & n1, unsigned & i2, rational & c2, unsigned & n2);
-        expr * horner(unsigned depth, buffer<coeff_expr> & p, expr * var);
-        expr * cross_nested(unsigned depth, buffer<coeff_expr> & p, expr * var);
+        expr_ref horner(unsigned depth, buffer<coeff_expr> & p, expr * var);
+        expr_ref cross_nested(unsigned depth, buffer<coeff_expr> & p, expr * var);
         bool is_cross_nested_consistent(buffer<coeff_expr> & p);
         bool is_cross_nested_consistent(row const & r);
         bool is_cross_nested_consistent(svector<theory_var> const & nl_cluster);

@@ -38,12 +38,15 @@ public:
     
     solver(lp::lar_solver& s);
     ~solver();
-    inline core * get_core() { return m_core; } 
+    nla_settings& settings() { return m_core->m_nla_settings; }
     void push();
     void pop(unsigned scopes);
     bool need_check();
     lbool check(vector<lemma>&);
     bool is_monic_var(lpvar) const;
     bool influences_nl_var(lpvar) const;
+    std::ostream& display(std::ostream& out) const;
+
+    core& get_core() { return *m_core; }
 };
 }

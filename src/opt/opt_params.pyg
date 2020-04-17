@@ -1,7 +1,7 @@
 def_module_params('opt', 
                   description='optimization parameters',
                   export=True,
-                  params=(('optsmt_engine', SYMBOL, 'basic', "select optimization engine: 'basic', 'farkas', 'symba'"),
+                  params=(('optsmt_engine', SYMBOL, 'basic', "select optimization engine: 'basic', 'symba'"),
                           ('maxsat_engine', SYMBOL, 'maxres', "select engine for maxsat: 'core_maxsat', 'wmax', 'maxres', 'pd-maxres'"),
                           ('priority', SYMBOL, 'lex', "select how to priortize objectives: 'lex' (lexicographic), 'pareto', 'box'"),
                           ('dump_benchmarks', BOOL, False, 'dump benchmarks for profiling'),

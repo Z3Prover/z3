@@ -23,7 +23,7 @@
 #include "math/lp/nla_intervals.h"
 #include "math/lp/nex.h"
 #include "math/lp/cross_nested.h"
-#include "math/lp/int_set.h"
+#include "math/lp/u_set.h"
 
 namespace nla {
 class core;
@@ -34,7 +34,7 @@ class horner : common {
     unsigned         m_row_index;                      
 public:
     typedef intervals::interval interv;
-    horner(core *core, intervals*);
+    horner(core *core);
     bool horner_lemmas();
     template <typename T> // T has an iterator of (coeff(), var())
     bool lemmas_on_row(const T&);
@@ -48,6 +48,6 @@ public:
     
     template <typename T> // T has an iterator of (coeff(), var())
     bool row_has_monomial_to_refine(const T&) const;
-    bool interval_from_term_with_deps(const nex* e, interv&) const;
+    bool interval_from_term_with_deps(const nex* e, intervals::interval&) const;
 }; // end of horner
 }

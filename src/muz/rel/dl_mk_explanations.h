@@ -66,6 +66,8 @@ namespace datalog {
         */
         mk_explanations(context & ctx);
 
+        ~mk_explanations() override;
+
         /**
            \brief Return explanation predicate that corresponds to \c orig_decl.
         */

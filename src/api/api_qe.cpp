@@ -119,8 +119,7 @@ extern "C"
         facts.push_back (to_expr (fml));
         flatten_and (facts);
 
-        expr_ref_vector lits (mk_c(c)->m());
-        spacer::compute_implicant_literals (*model, facts, lits);
+        expr_ref_vector lits = spacer::compute_implicant_literals (*model, facts);
 
         expr_ref result (mk_c(c)->m ());
         result = mk_and (lits);

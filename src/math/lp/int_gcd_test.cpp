@@ -56,7 +56,7 @@ namespace lp {
     }
 
     bool int_gcd_test::gcd_test() {
-        auto & A = lra.A_r(); // getting the matrix
+        const auto & A = lra.A_r(); // getting the matrix
         for (unsigned i = 0; i < A.row_count(); i++)
             if (!gcd_test_for_row(A, i)) 
                 return false;        
@@ -71,10 +71,9 @@ namespace lp {
         return r;
     }
     
-    bool int_gcd_test::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i) {
+    bool int_gcd_test::gcd_test_for_row(const static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i) {
         auto const& row = A.m_rows[i];
-        auto & lcs = lra.m_mpq_lar_core_solver;
-        unsigned basic_var = lcs.m_r_basis[i];
+        unsigned basic_var = lra.r_basis()[i];
         
         if (!lia.column_is_int(basic_var) || lia.get_value(basic_var).is_int())
             return true;
@@ -154,7 +153,7 @@ namespace lp {
         unsigned j;
         for (const auto & c : row) {
             j = c.var();
-            TRACE("ext_gcd_test", tout << "col = "; lra.m_mpq_lar_core_solver.m_r_solver.print_column_bound_info(j, tout););
+            TRACE("ext_gcd_test", tout << "col = "; lra.print_column_info(j, tout););
             const mpq & a = c.coeff();
             if (lra.column_is_fixed(j))
                 continue;

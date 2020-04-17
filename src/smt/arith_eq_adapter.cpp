@@ -212,7 +212,7 @@ namespace smt {
 
         if (m_params.m_arith_add_binary_bounds) {
             TRACE("arith_eq_adapter", tout << "adding binary bounds...\n";);
-            ctx.mk_th_axiom(tid, le_lit, ge_lit, 3, m_proof_hint.c_ptr());
+            ctx.mk_th_axiom(tid, le_lit, ge_lit, m_proof_hint.size(), m_proof_hint.c_ptr());
         }
         if (ctx.relevancy()) {
             relevancy_eh * eh = ctx.mk_relevancy_eh(arith_eq_relevancy_eh(n1->get_owner(), n2->get_owner(), t1_eq_t2, le, ge));

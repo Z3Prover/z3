@@ -2383,6 +2383,7 @@ namespace smt {
                 if (m.is_lambda_def(q)) return;
                 expr * e = q->get_expr();
                 reset_cache();
+                if (!m.inc()) return;
                 SASSERT(m_ttodo.empty());
                 SASSERT(m_ftodo.empty());
 

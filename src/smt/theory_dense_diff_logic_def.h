@@ -146,7 +146,10 @@ namespace smt {
         SASSERT(m_autil.is_le(n) || m_autil.is_ge(n));
         app * lhs      = to_app(n->get_arg(0));
         app * rhs      = to_app(n->get_arg(1));
-        SASSERT(m_autil.is_numeral(rhs));
+        if (!m_autil.is_numeral(rhs)) {
+            found_non_diff_logic_expr(n);
+            return false;
+        }
         rational _k;
         m_autil.is_numeral(rhs, _k);
         numeral offset(_k);
@@ -207,7 +210,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    bool theory_dense_diff_logic<Ext>::internalize_term(app * term) {
+    bool theory_dense_diff_logic<Ext>::internalize_term(app * term) {        
         if (memory::above_high_watermark()) {
             found_non_diff_logic_expr(term); // little hack... TODO: change to no_memory and return l_undef if SAT
             return false;
@@ -222,6 +225,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
+        TRACE("ddl", tout << "eq-eh: " << mk_pp(atom, get_manager()) << "\n";);
         if (memory::above_high_watermark())
             return;
         context & ctx  = get_context();
@@ -240,8 +244,10 @@ namespace smt {
             enode * n1 = ctx.get_enode(lhs);
             enode * n2 = ctx.get_enode(rhs);
             if (n1->get_th_var(get_id()) != null_theory_var &&
-                n2->get_th_var(get_id()) != null_theory_var)
-                m_arith_eq_adapter.mk_axioms(n1, n2);
+                n2->get_th_var(get_id()) != null_theory_var) {
+                m_arith_eq_adapter.mk_axioms(n1, n2); 
+                return;
+            }
         }
     }
     
@@ -762,7 +768,7 @@ namespace smt {
     */
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::compute_epsilon() {
-        m_epsilon = rational(1);
+        m_epsilon = rational(1, 2);
         typename edges::const_iterator it  = m_edges.begin();
         typename edges::const_iterator end = m_edges.end();
         // first edge is null
@@ -924,8 +930,8 @@ namespace smt {
         for (unsigned i = 0; i < num_nodes; ++i) {
             enode * n = get_enode(i);
             if (m_autil.is_zero(n->get_owner())) {
-                S.set_lower(v, mpq_inf(mpq(0), mpq(0)));
-                S.set_upper(v, mpq_inf(mpq(0), mpq(0)));
+                S.set_lower(i, mpq_inf(mpq(0), mpq(0)));
+                S.set_upper(i, mpq_inf(mpq(0), mpq(0)));
                 break;
             }
         }
@@ -946,7 +952,8 @@ namespace smt {
             vars[2] = base_var;
             S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());
             // t - s <= w
-            // t - s - b = 0, b >= w
+            // =>
+            // t - s - b = 0, b <= w
             numeral const& w = e.m_offset;
             rational fin = w.get_rational().to_rational();
             rational inf = w.get_infinitesimal().to_rational();

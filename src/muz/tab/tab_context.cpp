@@ -581,7 +581,7 @@ namespace tb {
 
         // extract pre_cond => post_cond validation obligation from match.
         bool find_match(unsigned& subsumer) {
-            for (unsigned i = 0; !m.canceled() && i < m_index.size(); ++i) {
+            for (unsigned i = 0; m.inc() && i < m_index.size(); ++i) {
                 if (match_rule(i)) {
                     subsumer = m_index[i]->get_seqno();
                     return true;
@@ -618,7 +618,7 @@ namespace tb {
 
             app* q = g.get_predicate(predicate_index);
 
-            for (unsigned i = 0; !m.canceled() && i < m_preds.size(); ++i) {
+            for (unsigned i = 0; m.inc() && i < m_preds.size(); ++i) {
                 app* p = m_preds[i].get();
                 m_subst.push_scope();
                 unsigned limit = m_sideconds.size();
@@ -647,7 +647,7 @@ namespace tb {
             expr_ref_vector fmls(m_sideconds);
             m_subst.reset_cache();
 
-            for (unsigned i = 0; !m.canceled() && i < fmls.size(); ++i) {
+            for (unsigned i = 0; m.inc() && i < fmls.size(); ++i) {
                 m_subst.apply(2, deltas, expr_offset(fmls[i].get(), 0), q);
                 fmls[i] = q;
             }
@@ -664,7 +664,7 @@ namespace tb {
                 }
             }
             m_rw.mk_and(fmls.size(), fmls.c_ptr(), postcond);
-            if (m.canceled()) {
+            if (!m.inc()) {
                 return false;
             }
             if (m.is_false(postcond)) {
@@ -1493,7 +1493,7 @@ namespace datalog {
             m_status      = l_undef;
             while (true) {
                 IF_VERBOSE(2, verbose_stream() << m_instruction << "\n";);
-                if (m.canceled()) {
+                if (!m.inc()) {
                     cleanup();
                     return l_undef;
                 }

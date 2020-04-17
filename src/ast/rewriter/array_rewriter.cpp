@@ -653,8 +653,11 @@ bool array_rewriter::is_expandable_store(expr* s) {
 }
 
 expr_ref array_rewriter::expand_store(expr* s) {
+    sort* srt = m().get_sort(s);    
+    unsigned arity = get_array_arity(srt);
     ptr_vector<app> stores;
-    expr_ref result(m());
+    expr_ref result(m()), tmp(m());
+    var_shifter sh(m());
     while (m_util.is_store(s)) {
         stores.push_back(to_app(s));
         s = to_app(s)->get_arg(0);
@@ -663,9 +666,9 @@ expr_ref array_rewriter::expand_store(expr* s) {
     expr_ref_vector args(m()), eqs(m());
     ptr_vector<sort> sorts;
     svector<symbol> names;
-    sort* srt = m().get_sort(s);    
-    args.push_back(s);
-    for (unsigned i = get_array_arity(srt); i-- > 0; ) {
+    sh(s, arity, tmp);
+    args.push_back(tmp);
+    for (unsigned i = arity; i-- > 0; ) {
         args.push_back(m().mk_var(i, get_array_domain(srt, i)));
         sorts.push_back(get_array_domain(srt, i));
         names.push_back(symbol(i));
@@ -676,9 +679,11 @@ expr_ref array_rewriter::expand_store(expr* s) {
     for (app* st : stores) {
         eqs.reset();
         for (unsigned i = 1; i < args.size(); ++i) {
-            eqs.push_back(m().mk_eq(args.get(i), st->get_arg(i)));
+            sh(st->get_arg(i), arity, tmp);
+            eqs.push_back(m().mk_eq(args.get(i), tmp));
         }
-        result = m().mk_ite(mk_and(eqs), st->get_arg(args.size()), result);
+        sh(st->get_arg(args.size()), arity, tmp);
+        result = m().mk_ite(mk_and(eqs), tmp, result);
     }
     result = m().mk_lambda(sorts.size(), sorts.c_ptr(), names.c_ptr(), result);
     return result;

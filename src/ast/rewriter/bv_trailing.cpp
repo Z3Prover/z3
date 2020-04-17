@@ -17,6 +17,7 @@
 #include "ast/rewriter/bv_trailing.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 // The analyzer gives up analysis after going TRAILING_DEPTH deep.
 // This number shouldn't be too big.
@@ -69,6 +70,7 @@ struct bv_trailing::imp {
         }
         expr_ref out1(m);
         expr_ref out2(m);
+        TRACE("bv-trailing", tout << min << "\n";);
         VERIFY(min == remove_trailing(e1, min, out1, TRAILING_DEPTH));
         VERIFY(min == remove_trailing(e2, min, out2, TRAILING_DEPTH));
         const bool are_eq = m.are_equal(out1, out2);
@@ -152,12 +154,10 @@ struct bv_trailing::imp {
         if (!m_util.is_numeral(tmp, c_val, c_sz) || !c_val.is_one())
             new_args.push_back(std::move(tmp));
 
-
         if (new_sz == 0) {
             result = nullptr;
             return retv;
         }
-
 
         for (unsigned i = 1; i < num; i++) {
             expr * const curr = a->get_arg(i);
@@ -179,22 +179,28 @@ struct bv_trailing::imp {
         }
         const unsigned num  = a->get_num_args();
         unsigned retv = 0;
-        unsigned i = num;
+        unsigned i;
         expr_ref new_last(nullptr, m);
-        while (i && retv < n) {
-            i--;
+        for (i = num; retv < n && i-- > 0; ) {  
+            new_last = nullptr;
             expr * const curr = a->get_arg(i);
-            const unsigned cur_rm = remove_trailing(curr, n, new_last, depth - 1);
-            const unsigned curr_sz = m_util.get_bv_size(curr);
+            unsigned cur_rm = remove_trailing(curr, n, new_last, depth - 1);
+            unsigned curr_sz = m_util.get_bv_size(curr);
             retv += cur_rm;
-            if (cur_rm < curr_sz) break;
+            if (cur_rm < curr_sz) {
+                break;
+            }            
         }
+
         if (retv == 0) {
             result = a;
             return 0;
         }
 
-        if (!i && !new_last) {// all args eaten completely
+        if (i == 0 && retv != m_util.get_bv_size(a))
+            new_last = a->get_arg(0);
+
+        if (i == 0 && !new_last) { // all args eaten completely
             SASSERT(retv == m_util.get_bv_size(a));
             result = nullptr;
             return retv;
@@ -222,7 +228,10 @@ struct bv_trailing::imp {
 
     unsigned remove_trailing_core(expr * e, unsigned n, expr_ref& result, unsigned depth) {
         SASSERT(m_util.is_bv(e));
-        if (!depth || !n) {
+        if (depth == 0) {            
+            return 0;
+        }
+        if (n == 0) {
             return 0;
         }
         unsigned sz;

@@ -234,9 +234,9 @@ namespace sat {
         for (bool newbies = false; ; newbies = true) {
             sum = init_candidates(level, newbies);
             if (!m_candidates.empty()) break;
-            if (is_sat()) {
+            if (is_sat() || newbies) {
                 return false;
-            }         
+            }                     
         }
         SASSERT(!m_candidates.empty());
         // cut number of candidates down to max_num_cand.
@@ -334,7 +334,7 @@ namespace sat {
                 }                
             }
         }
-        if (m_candidates.empty() && (m_select_lookahead_vars.empty() || newbies)) {
+        if (m_candidates.empty() && (m_select_lookahead_vars.empty() && newbies)) {
             for (bool_var x : m_freevars) {
                 SASSERT(is_undef(x));
                 if (newbies || active_prefix(x)) {
@@ -635,9 +635,7 @@ namespace sat {
             if (sz-- == 0) break;
             tsum += h[b.m_u.index()] * h[b.m_v.index()];
         }
-        // std::cout << "sum: " << sum << " afactor " << afactor << " sqfactor " << sqfactor << " tsum " << tsum << "\n";
         sum = (double)(0.1 + afactor*sum + sqfactor*tsum);
-        // std::cout << "sum: " << sum << " max score " << m_config.m_max_score << "\n";
         return std::min(m_config.m_max_score, sum);
     }
 
@@ -2084,7 +2082,7 @@ namespace sat {
         }
     }
 
-    bool lookahead::backtrack(literal_vector& trail, svector<bool> & is_decision) {
+    bool lookahead::backtrack(literal_vector& trail, bool_vector & is_decision) {
         m_cube_state.m_backtracks++;
         while (inconsistent()) {
             if (trail.empty()) return false;
@@ -2224,9 +2222,10 @@ namespace sat {
                 for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
                 m_model.reset();
                 init_model();
-                return l_true;
+                return m_freevars.empty() ? l_true : l_undef;
             }
             TRACE("sat", tout << "choose: " << lit << " cube: " << m_cube_state.m_cube << "\n";);
+            SASSERT(vars.empty() || vars.contains(lit.var()));
             ++m_stats.m_decisions;
             push(lit, c_fixed_truth);
             m_cube_state.m_cube.push_back(lit);
@@ -2512,7 +2511,6 @@ namespace sat {
                     }
                 }
             }
-            // std::cout << candidates.size() << " -> " << k << "\n";
             if (k == candidates.size()) break;
             candidates.shrink(k);
             if (k == 0) break;

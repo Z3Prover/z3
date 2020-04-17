@@ -202,7 +202,7 @@ class diff_neq_tactic : public tactic {
             }
         }
         
-        svector<bool>  m_forbidden;
+        bool_vector  m_forbidden;
         
         // make sure m_forbidden.size() > max upper bound
         void init_forbidden() {
@@ -288,7 +288,7 @@ class diff_neq_tactic : public tactic {
             init_forbidden();
             unsigned nvars = num_vars();
             while (m_stack.size() < nvars) {
-                if (m.canceled())
+                if (!m.inc())
                     throw tactic_exception(m.limit().get_cancel_msg());
                 TRACE("diff_neq_tactic", display_model(tout););
                 var x = m_stack.size();

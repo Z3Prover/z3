@@ -133,6 +133,11 @@ public:
         if (mk_eq_core(lhs, rhs, result) == BR_FAILED)
             result = mk_eq(lhs, rhs);
     }
+    expr_ref mk_eq_rw(expr* lhs, expr* rhs) {
+        expr_ref r(m());
+        mk_eq(lhs, rhs, r);
+        return r;
+    }
     void mk_iff(expr * lhs, expr * rhs, expr_ref & result) { mk_eq(lhs, rhs, result); }
     void mk_xor(expr * lhs, expr * rhs, expr_ref & result);
     void mk_and(unsigned num_args, expr * const * args, expr_ref & result) {
@@ -145,6 +150,27 @@ public:
         if (mk_or_core(num_args, args, result) == BR_FAILED)
             result = m().mk_or(num_args, args);
     }
+    expr_ref mk_or(unsigned num_args, expr * const * args) {
+        expr_ref result(m());
+        mk_or(num_args, args, result);
+        return result;
+    }
+    expr_ref mk_and(unsigned num_args, expr * const * args) {
+        expr_ref result(m());
+        mk_and(num_args, args, result);
+        return result;
+    }
+    expr_ref mk_or(expr_ref_vector const& args) {
+        expr_ref result(m());
+        mk_or(args.size(), args.c_ptr(), result);
+        return result;
+    }
+    expr_ref mk_and(expr_ref_vector const& args) {
+        expr_ref result(m());
+        mk_and(args.size(), args.c_ptr(), result);
+        return result;
+    }
+
     void mk_and(expr * arg1, expr * arg2, expr_ref & result) {
         expr * args[2] = {arg1, arg2};
         mk_and(2, args, result);
@@ -166,6 +192,11 @@ public:
         if (mk_ite_core(c, t, e, result) == BR_FAILED)
             result = m().mk_ite(c, t, e);
     }
+    expr_ref mk_ite(expr * c, expr * t, expr * e) {
+        expr_ref r(m());
+        mk_ite(c, t, e, r);
+        return r;
+    }
     void mk_distinct(unsigned num_args, expr * const * args, expr_ref & result) {
         if (mk_distinct_core(num_args, args, result) == BR_FAILED)
             result = m().mk_distinct(num_args, args);
@@ -173,6 +204,11 @@ public:
     void mk_not(expr * t, expr_ref & result) {
         if (mk_not_core(t, result) == BR_FAILED)
             result = m().mk_not(t);
+    }
+    expr_ref mk_not(expr* t) {
+        expr_ref r(m());
+        mk_not(t, r);
+        return r;
     }
 
     void mk_nand(unsigned num_args, expr * const * args, expr_ref & result);

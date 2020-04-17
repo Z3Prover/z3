@@ -178,7 +178,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
 
     if (r.size() > 0) {
         pr = r[0]->pr(0);
-        TRACE("tactic", tout << pr << "\n";);
+        CTRACE("tactic", pr, tout << pr << "\n";);
     }
     
 
@@ -235,4 +235,18 @@ void fail_if_model_generation(char const * tactic_name, goal_ref const & in) {
         msg += " does not generate models";
         throw tactic_exception(std::move(msg));
     }
+}
+
+void fail_if_has_quantifiers(char const* tactic_name, goal_ref const& g) {
+    for (unsigned i = 0; i < g->size(); ++i)
+        if (has_quantifiers(g->form(i))) {
+            std::string msg = tactic_name;
+            msg += " does not apply to quantified goals";
+            throw tactic_exception(std::move(msg));
+        }
+}
+
+void tactic::checkpoint(ast_manager& m) {
+    if (!m.inc())
+        throw tactic_exception(m.limit().get_cancel_msg());
 }

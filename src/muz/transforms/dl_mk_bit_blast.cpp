@@ -190,13 +190,17 @@ namespace datalog {
                     m_g_vars.push_back(m_f_vars.back());
                 }
             }
+            if (f->get_family_id() != null_family_id) {
+                return BR_FAILED;
+            }
             func_decl* g = nullptr;
+
 
             if (!m_pred2blast.find(f, g)) {
 
                 ptr_vector<sort> domain;
-                for (unsigned i = 0; i < m_args.size(); ++i) {
-                    domain.push_back(m.get_sort(m_args[i].get()));
+                for (expr* arg : m_args) {
+                    domain.push_back(m.get_sort(arg));
                 }
                 g = m_context.mk_fresh_head_predicate(f->get_name(), symbol("bv"), m_args.size(), domain.c_ptr(), f);
                 m_old_funcs.push_back(f);
@@ -205,7 +209,7 @@ namespace datalog {
 
                 m_dst->inherit_predicate(*m_src, f, g);
             }
-            result = m.mk_app(g, m_args.size(), m_args.c_ptr());
+            result = m.mk_app(g, m_args);
             result_pr = nullptr;
             return BR_DONE;
         }
@@ -240,7 +244,7 @@ namespace datalog {
             m_context.get_rule_manager().to_formula(*r2.get(), fml1);
             m_blaster(fml1, fml2, pr);
             m_rewriter(fml2, fml3);
-            TRACE("dl", tout << mk_pp(fml, m) << " -> " << mk_pp(fml2, m) << " -> " << mk_pp(fml3, m) << "\n";);
+            TRACE("dl", tout << fml << "\n-> " << fml1 << "\n-> " << fml2 << "\n-> " << fml3 << "\n";);
             if (fml3 != fml) {
                 fml = fml3;
                 return true;
@@ -264,20 +268,24 @@ namespace datalog {
         }
 
         rule_set * operator()(rule_set const & source) {
-            // TODO pc
             if (!m_context.xform_bit_blast()) {
                 return nullptr;
             }
+            if (m.proofs_enabled())
+                return nullptr;
             rule_manager& rm = m_context.get_rule_manager();
             unsigned sz = source.get_num_rules();
             expr_ref fml(m);
-            rule_set * result = alloc(rule_set, m_context);
+            // scoped_ptr in case exception is thrown from somewhere 
+            scoped_ptr<rule_set> result = alloc(rule_set, m_context);
             m_rewriter.m_cfg.set_src(&source);
-            m_rewriter.m_cfg.set_dst(result);
+            m_rewriter.m_cfg.set_dst(result.get());
             for (unsigned i = 0; !m_context.canceled() && i < sz; ++i) {
                 rule * r = source.get_rule(i);
                 rm.to_formula(*r, fml);
+                TRACE("dl", tout << fml << "\n";);
                 if (blast(r, fml)) {
+                    TRACE("dl", tout << "blasted: " << fml << "\n";);
                     proof_ref pr(m);
                     if (r->get_proof()) {
                         scoped_proof _sc(m);
@@ -289,16 +297,16 @@ namespace datalog {
                     rm.mk_rule(fml, pr, *result, r->name());
                 }
                 else {
-                    result->add_rule(r);
+                    result->add_rule(r);     
+                    result->inherit_output_predicate(source, r->get_decl());
                 }
             }
 
             // copy output predicates without any rule (bit-blasting not really needed)
             const func_decl_set& decls = source.get_output_predicates();
-            for (func_decl_set::iterator I = decls.begin(), E = decls.end(); I != E; ++I) {
-                if (!source.contains(*I))
-                    result->set_output_predicate(*I);
-            }
+            for (func_decl* p : decls)
+                if (!source.contains(p) || result->contains(p))
+                    result->set_output_predicate(p);            
 
             if (m_context.get_model_converter()) {
                 generic_model_converter* fmc = alloc(generic_model_converter, m, "dl_mk_bit_blast");
@@ -311,8 +319,8 @@ namespace datalog {
                 }
                 m_context.add_model_converter(concat(bvmc, fmc));
             }
-
-            return result;
+            CTRACE("dl", result, result->display(tout););
+            return result.detach();
         }
     };
 

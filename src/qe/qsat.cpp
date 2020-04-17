@@ -29,6 +29,7 @@ Notes:
 #include "ast/rewriter/expr_replacer.h"
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
+#include "model/model_evaluator_params.hpp"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "smt/smt_solver.h"
@@ -856,9 +857,7 @@ namespace qe {
         }
         
         void check_cancel() {
-            if (m.canceled()) {
-                throw tactic_exception(m.limit().get_cancel_msg());
-            }
+            tactic::checkpoint(m);
         }
         
         void display(std::ostream& out) const {
@@ -1125,7 +1124,7 @@ namespace qe {
             expr_ref_vector fmls(m);
             fmls.append(core.size(), core.c_ptr());
             s.get_assertions(fmls);
-            return check_fmls(fmls) || m.canceled();
+            return check_fmls(fmls) || !m.inc();
 #endif
         }
 
@@ -1138,7 +1137,7 @@ namespace qe {
             lbool is_sat = solver.check();
             CTRACE("qe", is_sat != l_false, 
                    tout << fmls << "\nare not unsat\n";);
-            return (is_sat == l_false) || m.canceled();
+            return (is_sat == l_false) || !m.inc();
         }
 
         bool validate_model(expr_ref_vector const& asms) {
@@ -1157,7 +1156,7 @@ namespace qe {
         bool validate_model(model& mdl, unsigned sz, expr* const* fmls) {
             expr_ref val(m);
             for (unsigned i = 0; i < sz; ++i) {
-                if (!m_model->is_true(fmls[i]) && !m.canceled()) {
+                if (!m_model->is_true(fmls[i]) && m.inc()) {
                     TRACE("qe", tout << "Formula does not evaluate to true in model: " << mk_pp(fmls[i], m) << "\n";);
                     return false;
                 } 
@@ -1189,7 +1188,7 @@ namespace qe {
                 TRACE("qe", tout << "Projection is false in model\n";);
                 return false;
             }
-            if (m.canceled()) {
+            if (!m.inc()) {
                 return true;
             }
             for (unsigned i = 0; i < m_avars.size(); ++i) {
@@ -1256,6 +1255,9 @@ namespace qe {
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
             tactic_report report("qsat-tactic", *in);
+            model_evaluator_params mp(m_params);
+            if (!mp.array_equalities())
+                throw tactic_exception("array equalities cannot be disabled for qsat");
             ptr_vector<expr> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);

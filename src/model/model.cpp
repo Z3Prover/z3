@@ -16,12 +16,14 @@ Author:
 Revision History:
 
 --*/
+#include "ast/ast.h"
 #include "util/top_sort.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/well_sorted.h"
 #include "ast/used_symbols.h"
 #include "ast/for_each_expr.h"
@@ -188,11 +190,13 @@ model * model::translate(ast_translation & translator) const {
 }
 
 struct model::top_sort : public ::top_sort<func_decl> {
+    func_decl_ref_vector         m_pinned; // protect keys in m_occur_count
     th_rewriter                  m_rewrite;
     obj_map<func_decl, unsigned> m_occur_count;
 
+
     top_sort(ast_manager& m):
-        m_rewrite(m)
+        m_pinned(m), m_rewrite(m) 
     {
         params_ref p;
         p.set_bool("elim_ite", false);
@@ -200,6 +204,7 @@ struct model::top_sort : public ::top_sort<func_decl> {
     }
 
     void add_occurs(func_decl* f) {
+        m_pinned.push_back(f);
         m_occur_count.insert(f, occur_count(f) + 1);
     }
 
@@ -410,6 +415,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
     ptr_buffer<expr> args;
     todo.push_back(e);
     array_util autil(m);
+    bv_util bv(m);
     func_interp* fi = nullptr;
     unsigned pid = 0;
     expr_ref new_t(m);
@@ -456,6 +462,10 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
                      fi->get_interp() && (!ts.partition_ids().find(f, pid) || pid != current_partition)) {
                 var_subst vs(m, false);
                 new_t = vs(fi->get_interp(), args.size(), args.c_ptr());
+            }
+            else if (bv.is_bit2bool(t)) {
+                unsigned idx = f->get_parameter(0).get_int();
+                new_t = m.mk_eq(bv.mk_extract(idx, idx, args[0]), bv.mk_numeral(1, 1));
             }
 #if 0
             else if (is_uninterp_const(a) && !get_const_interp(f)) {

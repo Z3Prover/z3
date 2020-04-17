@@ -329,7 +329,7 @@ private:
             for (expr* a : m_assertions) {
                 sub(a, fml1);
                 m_rewriter(fml1, fml2, proof);
-                if (m.canceled()) {
+                if (!m.inc()) {
                     m_rewriter.reset();
                     return;
                 }

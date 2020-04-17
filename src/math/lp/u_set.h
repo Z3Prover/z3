@@ -15,6 +15,7 @@ Author:
 
 Revision History:
 
+TBD use indexed_uint_set from src/util/uint_set.h, 
 
 --*/
 #pragma once
@@ -22,12 +23,17 @@ Revision History:
 #include <ostream>
 namespace lp {
 // serves at a set of non-negative integers smaller than the set size
-class int_set {
-    vector<int> m_data;
+class u_set {
+    svector<int> m_data;
+    unsigned_vector m_index;
+
 public:
-    vector<int> m_index;
-    int_set(unsigned size): m_data(size, -1) {}
-    int_set() {}
+    u_set(unsigned size): m_data(size, -1) {}
+    u_set() {}
+    u_set(u_set const& other):
+        m_data(other.m_data),
+        m_index(other.m_index) {}
+
     bool contains(unsigned j) const {
         if (j >= m_data.size())
             return false;
@@ -56,6 +62,22 @@ public:
     int operator[](unsigned j) const { return m_index[j]; }
     
     void resize(unsigned size) {
+        if (size < data_size()) {
+            bool copy = false;
+            unsigned i = 0;
+            for (unsigned j : m_index) {
+                if (j < size) {
+                    if (copy) {
+                        m_data[j] = i;
+                        m_index[i] = j;
+                    }
+                    i++;
+                } else {
+                    copy = true;
+                }
+            }
+            m_index.shrink(i);
+        }
         m_data.resize(size, -1);
     }
 
@@ -71,13 +93,22 @@ public:
             m_data[j] = -1;
         m_index.resize(0);
     }
-    void print(std::ostream & out ) const {
+
+    std::ostream& display(std::ostream& out) const {
         for (unsigned j : m_index) {
             out << j << " ";
         }
         out << std::endl;
+        return out;
     }
-    const int * begin() const { return m_index.begin(); }
-    const int * end() const { return m_index.end(); }
+    const unsigned * begin() const { return m_index.begin(); }
+    const unsigned * end() const { return m_index.end(); }
+    const unsigned_vector& index() { return m_index; }
 };
+
+
+}
+
+inline std::ostream& operator<<(std::ostream& out, lp::u_set const& s) {
+    return s.display(out);
 }

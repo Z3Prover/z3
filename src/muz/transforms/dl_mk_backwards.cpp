@@ -38,7 +38,7 @@ namespace datalog {
         rule_ref new_rule(rm);
         app_ref_vector tail(m);
         app_ref head(m);
-        svector<bool> neg;
+        bool_vector neg;
         app_ref query(m);
         query = m.mk_fresh_const("Q", m.mk_bool_sort());
         result->set_output_predicate(query->get_decl());

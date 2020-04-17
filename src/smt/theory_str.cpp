@@ -89,6 +89,97 @@ namespace smt {
         regex_automata.clear();
     }
 
+    void theory_str::reset_internal_data_structures() {
+        //m_trail.reset();
+        m_delayed_axiom_setup_terms.reset();
+        m_basicstr_axiom_todo.reset();
+        m_concat_axiom_todo.reset();
+        m_string_constant_length_todo.reset();
+        m_concat_eval_todo.reset();
+        m_delayed_assertions_todo.reset();
+        m_library_aware_axiom_todo.reset();
+        m_persisted_axioms.reset();
+        m_persisted_axiom_todo.reset();
+        axiomatized_terms.reset();
+        existing_toplevel_exprs.reset();
+
+        varForBreakConcat.clear();
+        loopDetected = false;
+        cut_var_map.reset();
+        m_cut_allocs.reset();
+
+        //variable_set.reset();
+        //internal_variable_set.reset();
+        //regex_variable_set.reset();
+        //internal_variable_scope_levels.clear();
+
+        internal_lenTest_vars.reset();
+        internal_valTest_vars.reset();
+        internal_unrollTest_vars.reset();
+
+        input_var_in_len.reset();
+
+        fvar_len_count_map.reset();
+        fvar_lenTester_map.reset();
+        lenTester_fvar_map.reset();
+        fvar_valueTester_map.reset();
+        valueTester_fvar_map.reset();
+        val_range_map.reset();
+        unroll_tries_map.reset();
+        unroll_var_map.reset();
+        concat_eq_unroll_ast_map.reset();
+        contains_map.reset();
+        contain_pair_bool_map.reset();
+        contain_pair_idx_map.reset();
+        regex_in_bool_map.clear();
+        regex_in_var_reg_str_map.reset();
+
+        m_automata.reset();
+        regex_automata.reset();
+        regex_terms.reset();
+        regex_terms_by_string.reset();
+        regex_automaton_assumptions.reset();
+        regex_nfa_cache.reset();
+        regex_terms_with_path_constraints.reset();
+        regex_terms_with_length_constraints.reset();
+        regex_term_to_length_constraint.reset();
+        regex_term_to_extra_length_vars.reset();
+        regex_last_lower_bound.reset();
+        regex_last_upper_bound.reset();
+        regex_length_attempt_count.reset();
+        regex_fail_count.reset();
+        regex_intersection_fail_count.reset();
+
+        string_chars.reset();
+
+        concat_astNode_map.reset();
+        string_int_conversion_terms.reset();
+        string_int_axioms.reset();
+        lengthTesterCache.reset();
+        valueTesterCache.reset();
+        stringConstantCache.reset();
+
+        length_ast_map.reset();
+        //m_trail_stack.reset();
+        // m_find.reset();
+        binary_search_len_tester_stack.reset();
+        binary_search_len_tester_info.reset();
+        binary_search_starting_len_tester.reset();
+        binary_search_next_var_low.reset();
+        binary_search_next_var_high.reset();
+
+        finite_model_test_varlists.reset();
+
+        fixed_length_subterm_trail.reset();
+        fixed_length_assumptions.reset();
+        fixed_length_used_len_terms.reset();
+        var_to_char_subterm_map.reset();
+        uninterpreted_to_char_subterm_map.reset();
+        fixed_length_lesson.reset();
+        candidate_model.reset();
+        bitvector_character_constants.reset();
+    }
+
     expr * theory_str::mk_string(zstring const& str) {
         if (m_params.m_StringConstantCache) {
             ++totalCacheAccessCount;
@@ -7496,6 +7587,12 @@ namespace smt {
         ast_manager & m = get_manager();
         context & ctx = get_context();
 
+        // workaround for #3756:
+        // the map existing_toplevel_exprs is never cleared on backtracking.
+        // to ensure the expressions are valid we persist validity of the
+        // expression throughout the lifetime of theory_str
+        m_trail.push_back(ex);
+
         sort * ex_sort = m.get_sort(ex);
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();
@@ -7633,6 +7730,8 @@ namespace smt {
     void theory_str::init_search_eh() {
         context & ctx = get_context();
 
+        reset_internal_data_structures();
+
         TRACE("str",
               tout << "dumping all asserted formulas:" << std::endl;
               unsigned nFormulas = ctx.get_num_asserted_formulas();
@@ -7641,6 +7740,16 @@ namespace smt {
                   tout << mk_pp(ex, get_manager()) << (ctx.is_relevant(ex) ? " (rel)" : " (NOT REL)") << std::endl;
               }
               );
+
+        TRACE("str",
+            expr_ref_vector formulas(get_manager());
+            ctx.get_assignments(formulas);
+            tout << "dumping all formulas:" << std::endl;
+            for (expr_ref_vector::iterator i = formulas.begin(); i != formulas.end(); ++i) {
+                expr * ex = *i;
+                tout << mk_pp(ex, get_manager()) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
+            }
+        );
         /*
          * Recursive descent through all asserted formulas to set up axioms.
          * Note that this is just the input structure and not necessarily things
@@ -7689,6 +7798,10 @@ namespace smt {
         candidate_model.reset();
         expr * e = get_context().bool_var2expr(v);
         TRACE("str", tout << "assert: v" << v << " " << mk_pp(e, get_manager()) << " is_true: " << is_true << std::endl;);
+        DEBUG_CODE(
+            for (auto * f : existing_toplevel_exprs) {
+                SASSERT(f->get_ref_count() > 0);
+            });
         if (!existing_toplevel_exprs.contains(e)) {
             existing_toplevel_exprs.insert(e);
             set_up_axioms(e);
@@ -7763,6 +7876,7 @@ namespace smt {
     }
 
     void theory_str::pop_scope_eh(unsigned num_scopes) {
+        context & ctx = get_context();
         sLevel -= num_scopes;
         TRACE("str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
         candidate_model.reset();
@@ -7808,9 +7922,11 @@ namespace smt {
         m_basicstr_axiom_todo.reset();
         m_basicstr_axiom_todo = new_m_basicstr;
 
-        for (expr * e : m_persisted_axioms) {
-            TRACE("str", tout << "persist axiom: " << mk_pp(e, get_manager()) << std::endl;);
-            m_persisted_axiom_todo.push_back(e);
+        if (ctx.is_searching()) {
+            for (expr * e : m_persisted_axioms) {
+                TRACE("str", tout << "persist axiom: " << mk_pp(e, get_manager()) << std::endl;);
+                m_persisted_axiom_todo.push_back(e);
+            }
         }
 
         m_trail_stack.pop_scope(num_scopes);

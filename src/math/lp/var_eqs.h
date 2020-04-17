@@ -74,7 +74,7 @@ class var_eqs {
 
     trail_stack<var_eqs>              m_stack;
     mutable svector<var_frame>        m_todo;
-    mutable svector<bool>             m_marked;
+    mutable bool_vector             m_marked;
     mutable unsigned_vector           m_marked_trail;
     mutable svector<eq_justification> m_justtrail;
         
@@ -98,7 +98,7 @@ public:
             m_eqs[sv.first.index()].pop_back();
             m_eqs[sv.second.index()].pop_back();
             m_eqs[(~sv.first).index()].pop_back();
-            m_eqs[(~sv.second).index()].pop_back();
+            m_eqs[(~sv.second).index()].pop_back();            
         }
         m_trail.pop_scope(n);
         m_stack.pop_scope(n); // this cass takes care of unmerging through union_find m_uf
@@ -108,12 +108,17 @@ public:
        \brief merge equivalence classes for v1, v2 with justification j
     */
     void merge(signed_var v1, signed_var v2, eq_justification const& j)  {
+        if (v1 == v2)
+            return;
+        if (find(v1).var() == find(v2).var())
+            return;
         unsigned max_i = std::max(v1.index(), v2.index()) + 2;
         m_eqs.reserve(max_i);
         while (m_uf.get_num_vars() <= max_i) m_uf.mk_var();
+        TRACE("nla_solver_mons", tout << v1 << " == " << v2 << " " << m_uf.find(v1.index()) << " == " << m_uf.find(v2.index()) << "\n";);
         m_trail.push_back(std::make_pair(v1, v2));
         m_uf.merge(v1.index(), v2.index());
-        m_uf.merge((~v1).index(), (~v2).index());
+        m_uf.merge((~v1).index(), (~v2).index());        
         m_eqs[v1.index()].push_back(eq_edge(v2, j));
         m_eqs[v2.index()].push_back(eq_edge(v1, j));
         m_eqs[(~v1).index()].push_back(eq_edge(~v2, j));
@@ -144,7 +149,7 @@ public:
     }
     inline bool is_root(svector<lpvar> v) const {
         for (lpvar j : v)
-            if (! is_root(j))
+            if (!is_root(j))
                 return false;
         return true;
     }

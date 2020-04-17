@@ -93,7 +93,7 @@ struct expr2subpaving::imp {
     }
 
     void checkpoint() {
-        if (m().canceled())
+        if (!m().inc())
             throw default_exception(Z3_CANCELED_MSG);
     }
 

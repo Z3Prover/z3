@@ -43,8 +43,8 @@ namespace sat {
         svector<bclause>  m_L, m_R, m_live_clauses, m_new_L;
         clause_vector     m_bin_clauses;
         svector<uint64_t> m_rbits;
-        svector<bool>     m_marked;
-        svector<bool>     m_removed; // set of clauses removed (not considered in clause set during BCE)
+        bool_vector     m_marked;
+        bool_vector     m_removed; // set of clauses removed (not considered in clause set during BCE)
 
         void init(use_list& ul);
         void register_clause(clause* cls);

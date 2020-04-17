@@ -151,6 +151,14 @@ extern "C" {
             init_solver_core(c, s);
     }
 
+    static void init_solver_log(Z3_context c, Z3_solver s) {
+        solver_params sp(to_solver(s)->m_params);
+        symbol smt2log = sp.smtlib2_log();
+        if (smt2log.is_non_empty_string() && !to_solver(s)->m_pp) {
+            to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), smt2log.str().c_str());
+        }
+    }
+
     Z3_solver Z3_API Z3_mk_simple_solver(Z3_context c) {
         Z3_TRY;
         LOG_Z3_mk_simple_solver(c);
@@ -158,6 +166,7 @@ extern "C" {
         Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_solver_factory());
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
+        init_solver_log(c, r);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -169,6 +178,7 @@ extern "C" {
         Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory());
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
+        init_solver_log(c, r);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -187,6 +197,7 @@ extern "C" {
             Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory(to_symbol(logic)));
             mk_c(c)->save_object(s);
             Z3_solver r = of_solver(s);
+            init_solver_log(c, r);
             RETURN_Z3(r);
         }
         Z3_CATCH_RETURN(nullptr);
@@ -199,6 +210,7 @@ extern "C" {
         Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_tactic2solver_factory(to_tactic_ref(t)));
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
+        init_solver_log(c, r);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -213,6 +225,7 @@ extern "C" {
         sr->m_solver = to_solver(s)->m_solver->translate(mk_c(target)->m(), p);
         mk_c(target)->save_object(sr);
         Z3_solver r = of_solver(sr);
+        init_solver_log(target, r);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -241,7 +254,7 @@ extern "C" {
         bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
-        for (expr * e : ctx->assertions()) {
+        for (expr* e : ctx->tracked_assertions()) {
             to_solver(s)->assert_expr(e);
         }
         to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
@@ -343,18 +356,15 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+
     void Z3_API Z3_solver_set_params(Z3_context c, Z3_solver s, Z3_params p) {
         Z3_TRY;
         LOG_Z3_solver_set_params(c, s, p);
         RESET_ERROR_CODE();
 
         symbol logic = to_param_ref(p).get_sym("smt.logic", symbol::null);
-        symbol smt2log = to_param_ref(p).get_sym("solver.smtlib2_log", symbol::null);
         if (logic != symbol::null) {
             to_solver(s)->m_logic = logic;
-        }
-        if (smt2log != symbol::null && !to_solver(s)->m_pp) {
-            to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), smt2log.str().c_str());
         }
         if (to_solver(s)->m_solver) {
             bool old_model = to_solver(s)->m_params.get_bool("model", true);
@@ -368,6 +378,8 @@ extern "C" {
             to_solver_ref(s)->updt_params(to_param_ref(p));
         }
         to_solver(s)->m_params.append(to_param_ref(p));
+
+        init_solver_log(c, s);
         
         Z3_CATCH;
     }
@@ -571,7 +583,7 @@ extern "C" {
             catch (z3_exception & ex) {
                 to_solver_ref(s)->set_reason_unknown(eh);
                 to_solver(s)->set_eh(nullptr);
-                if (!mk_c(c)->m().canceled()) {
+                if (mk_c(c)->m().inc()) {
                     mk_c(c)->handle_exception(ex);
                 }
                 return Z3_L_UNDEF;

@@ -24,6 +24,7 @@
 #include "math/lp/var_eqs.h"
 #include "math/lp/monic.h"
 #include "util/region.h"
+#include "util/map.h"
 
 namespace nla {
 
@@ -82,22 +83,22 @@ class emonics {
     
     union_find<emonics>          m_u_f;
     trail_stack<emonics>         m_u_f_stack;
-    mutable svector<lpvar>          m_find_key; // the key used when looking for a monic with the specific variables
+    mutable svector<lpvar>       m_find_key; // the key used when looking for a monic with the specific variables
     var_eqs<emonics>&            m_ve;
-    mutable vector<monic>           m_monics;     // set of monics
-    mutable unsigned_vector         m_var2index;     // var_mIndex -> mIndex
-    unsigned_vector                 m_lim;           // backtracking point
-    mutable unsigned                m_visited;       // timestamp of visited monics during pf_iterator
-    region                          m_region;        // region for allocating linked lists
-    mutable svector<head_tail>      m_use_lists;     // use list of monics where variables occur.
-    hash_canonical                  m_cg_hash;
-    eq_canonical                    m_cg_eq;
-    hashtable<lpvar, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
+    mutable vector<monic>        m_monics;     // set of monics
+    mutable unsigned_vector      m_var2index;     // var_mIndex -> mIndex
+    unsigned_vector              m_lim;           // backtracking point
+    mutable unsigned             m_visited;       // timestamp of visited monics during pf_iterator
+    region                       m_region;        // region for allocating linked lists
+    mutable svector<head_tail>   m_use_lists;     // use list of monics where variables occur.
+    hash_canonical               m_cg_hash;
+    eq_canonical                 m_cg_eq;
+    map<lpvar, unsigned_vector, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
 
 
     void inc_visited() const;
 
-    void remove_cell(head_tail& v, unsigned mIndex);
+    void remove_cell(head_tail& v);
     void insert_cell(head_tail& v, unsigned mIndex);
     void merge_cells(head_tail& root, head_tail& other);
     void unmerge_cells(head_tail& root, head_tail& other);
@@ -107,12 +108,13 @@ class emonics {
     void insert_cg_mon(monic & m);
     void remove_cg_mon(const monic & m);
     void rehash_cg(lpvar v) { remove_cg(v); insert_cg(v); }
-
     void do_canonize(monic& m) const; 
     cell* head(lpvar v) const;
     void set_visited(monic& m) const;
     bool is_visited(monic const& m) const;
     std::ostream& display_use(std::ostream& out) const; 
+    std::ostream& display_uf(std::ostream& out) const; 
+    std::ostream& display(std::ostream& out, cell* c) const;
 public:
     unsigned number_of_monics() const { return m_monics.size(); }
     /**
@@ -127,7 +129,7 @@ public:
         m_visited(0), 
         m_cg_hash(*this),
         m_cg_eq(*this),
-        m_cg_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_cg_hash, m_cg_eq) { 
+        m_cg_table(m_cg_hash, m_cg_eq) { 
         m_ve.set_merge_handler(this); 
     }
 
@@ -164,14 +166,14 @@ public:
     monic & operator[](lpvar v) { return m_monics[m_var2index[v]]; }
     bool is_canonized(const monic&) const;    
     bool monics_are_canonized() const;
-    
+    void ensure_canonized();
+ 
     /**
        \brief obtain the representative canonized monic 
     */
 
     monic const& rep(monic const& sv) const {
-        unsigned j = -1;
-        m_cg_table.find(sv.var(), j);
+        unsigned j = m_cg_table[sv.var()][0];
         return m_monics[m_var2index[j]];
     }
 
@@ -238,8 +240,8 @@ public:
 
     class products_of {
         emonics const& m;
-        monic * mon;
-        lpvar           m_var;
+        monic *        mon;
+        lpvar          m_var;
     public:
         products_of(emonics const& m, monic & mon): m(m), mon(&mon), m_var(UINT_MAX) {}
         products_of(emonics const& m, lpvar v): m(m), mon(nullptr), m_var(v) {}
@@ -328,6 +330,8 @@ public:
     bool is_used_in_monic(lpvar v) const { return v < m_use_lists.size() && m_use_lists[v].m_head != nullptr; }
 
     bool elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector> &lists) const;
+
+    bool invariant() const;
     
 }; // end of emonics
 

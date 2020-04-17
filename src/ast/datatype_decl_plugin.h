@@ -14,9 +14,10 @@ Author:
     Nikolaj Bjorner (nbjorner) 2017-9-1 
 
 Revision History:
-
+   
     rewritten to support SMTLIB-2.6 parameters from
      Leonardo de Moura (leonardo) 2008-01-09.
+
 
 --*/
 #ifndef DATATYPE_DECL_PLUGIN_H_

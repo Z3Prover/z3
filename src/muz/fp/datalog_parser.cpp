@@ -724,7 +724,7 @@ protected:
 
     dtoken parse_body(app* head) {
         app_ref_vector body(m_manager);
-        svector<bool> polarity_vect;
+        bool_vector polarity_vect;
         dtoken tok = m_lexer->next_token();
         while (tok != TK_ERROR && tok != TK_EOS) {            
             if (tok == TK_PERIOD) {

@@ -64,20 +64,23 @@ public:
     void set_var_interval(lpvar v, interval& b);
 
     template <dep_intervals::with_deps_t wd>
-    bool interval_from_term(const nex& e, interval& i); 
+    bool interval_from_term(const nex& e, scoped_dep_interval& i); 
 
+
+    template <dep_intervals::with_deps_t wd, typename T>
+    bool interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval&, const std::function<void (const T&)>& f );
+
+    template <dep_intervals::with_deps_t wd, typename T>
+    bool interval_of_sum(const nex_sum& e, scoped_dep_interval&, const std::function<void (const T&)>& );
+
+    template <dep_intervals::with_deps_t wd, typename T>
+    bool interval_of_mul(const nex_mul& e, scoped_dep_interval&, const std::function<void (const T&)>&); 
 
     template <dep_intervals::with_deps_t wd>
-    interval interval_of_sum_no_term(const nex_sum& e);
-
-    template <dep_intervals::with_deps_t wd>
-    interval interval_of_sum(const nex_sum& e);
-
-    template <dep_intervals::with_deps_t wd>
-    interval interval_of_mul(const nex_mul& e); 
-
-    template <dep_intervals::with_deps_t wd>
-    interval interval_of_expr(const nex* e, unsigned p); 
+    void to_power(scoped_dep_interval&, unsigned);
+    
+    template <dep_intervals::with_deps_t wd, typename T>
+    bool interval_of_expr(const nex* e, unsigned p, scoped_dep_interval&, const std::function<void (const T&)>& f); 
     bool upper_is_inf(const interval& a) const { return m_dep_intervals.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_dep_intervals.lower_is_inf(a); }
 
@@ -96,5 +99,8 @@ public:
     static void add_linear_to_vector(const nex*, vector<std::pair<rational, lpvar>>&);
     static void add_mul_of_degree_one_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>>&);
     lpvar find_term_column(const lp::lar_term&, rational& a) const;
+    std::ostream& display_separating_interval(std::ostream& out, const nex*n, const scoped_dep_interval& interv_wd, u_dependency* initial_deps);
+    bool conflict_u_l(const interval& a, const interval& b) const;
+
 }; // end of intervals
 } // end of namespace nla

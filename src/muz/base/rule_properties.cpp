@@ -19,27 +19,34 @@ Notes:
 --*/
 
 #include "ast/expr_functors.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "muz/base/rule_properties.h"
 #include "muz/base/dl_rule_set.h"
-#include "ast/for_each_expr.h"
 #include "muz/base/dl_context.h"
 
 using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 
-    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_bv(m), m_generate_proof(false) {}
+    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), 
+    m_dt(m), m_dl(m), m_a(m), m_bv(m), m_ar(m), 
+    m_generate_proof(false), m_collected(false), m_is_monotone(true) {}
 
 rule_properties::~rule_properties() {}
 
 void rule_properties::collect(rule_set const& rules) {
     reset();
-    rule_set::iterator it = rules.begin(), end = rules.end();
+    m_collected = true;
     expr_sparse_mark visited;
-    for (; it != end; ++it) {
-        rule* r = *it;
+    visit_rules(visited, rules);
+}
+
+void rule_properties::visit_rules(expr_sparse_mark& visited, rule_set const& rules) {
+    for (rule* r : rules) {
         m_rule = r;
         unsigned ut_size = r->get_uninterpreted_tail_size();
         unsigned t_size  = r->get_tail_size();  
         if (r->has_negation()) {
+            m_is_monotone = false;
             m_negative_rules.push_back(r);            
         }
         for (unsigned i = ut_size; i < t_size; ++i) {
@@ -48,13 +55,10 @@ void rule_properties::collect(rule_set const& rules) {
         if (m_generate_proof && !r->get_proof()) {
             rm.mk_rule_asserted_proof(*r);
         }
-        for (unsigned i = 0; m_inf_sort.empty() && i < r->get_decl()->get_arity(); ++i) {
+        
+        for (unsigned i = 0; m_inf_sort.empty() && i < r->get_decl()->get_arity(); ++i) {            
             sort* d = r->get_decl()->get_domain(i);
-            sort_size sz = d->get_num_elements();
-            if (!sz.is_finite() && !m_dl.is_rule_sort(d)) {
-                TRACE("dl", tout << "sort " << mk_pp(d, m) << " is not finite " << sz << "\n";);
-                m_inf_sort.push_back(m_rule);
-            }
+            check_sort(d);
         }
     }     
 }
@@ -67,6 +71,28 @@ void rule_properties::check_quantifier_free() {
         r->display(m_ctx, stm);
         throw default_exception(stm.str());
     }
+}
+
+static const std::string qkind_str(quantifier_kind qkind) {
+    switch (qkind) {
+    case forall_k: return "FORALL";
+    case exists_k: return "EXISTS";
+    case lambda_k: return "LAMBDA";
+    default: UNREACHABLE(); return "";
+    }
+}
+
+void rule_properties::check_quantifier_free(quantifier_kind qkind) {
+    for (auto &kv : m_quantifiers) {
+        if (kv.get_key().get_kind() == qkind) {
+            rule *r = kv.get_value();
+            std::stringstream stm;
+            stm << "cannot process " << qkind_str(qkind) << " quantifier in rule ";
+            r->display(m_ctx, stm);
+            throw default_exception(stm.str());
+        } 
+    }
+
 }
 
 void rule_properties::check_for_negated_predicates() {
@@ -116,12 +142,11 @@ void rule_properties::check_nested_free() {
 void rule_properties::check_existential_tail() {
     ast_mark visited;
     ptr_vector<expr> todo, tocheck;
-    for (unsigned i = 0; i < m_interp_pred.size(); ++i) {
-        rule& r = *m_interp_pred[i];
-        unsigned ut_size = r.get_uninterpreted_tail_size();
-        unsigned t_size  = r.get_tail_size();   
+    for (rule* r : m_interp_pred) {
+        unsigned ut_size = r->get_uninterpreted_tail_size();
+        unsigned t_size  = r->get_tail_size();   
         for (unsigned i = ut_size; i < t_size; ++i) {
-            todo.push_back(r.get_tail(i));
+            todo.push_back(r->get_tail(i));
         }
     }
     context::contains_pred contains_p(m_ctx);
@@ -156,8 +181,7 @@ void rule_properties::check_existential_tail() {
             tocheck.push_back(e);
         }
     }
-    for (unsigned i = 0; i < tocheck.size(); ++i) {
-        expr* e = tocheck[i];
+    for (expr* e : tocheck) {
         if (check_pred(e)) {
             std::ostringstream out;
             out << "recursive predicate " << mk_ismt2_pp(e, m) << " occurs nested in the body of a rule";
@@ -174,12 +198,16 @@ void rule_properties::insert(ptr_vector<rule>& rules, rule* r) {
 }
 
 void rule_properties::operator()(var* n) { 
+    check_sort(m.get_sort(n));
 }
 
 void rule_properties::operator()(quantifier* n) {
     m_quantifiers.insert(n, m_rule);
 }
 void rule_properties::operator()(app* n) {
+    func_decl_ref f_out(m);
+    expr* n1 = nullptr, *n2 = nullptr;
+    rational r;
     if (m_is_predicate(n)) {
         insert(m_interp_pred, m_rule);
     }    
@@ -205,7 +233,32 @@ void rule_properties::operator()(app* n) {
             }
         }
     }
+    else if (m_a.is_considered_uninterpreted(n->get_decl(), n->get_num_args(), n->get_args(), f_out)) {
+        m_uninterp_funs.insert(n->get_decl(), m_rule);
+    }
+    else if ((m_a.is_mod(n, n1, n2) || m_a.is_div(n, n1, n2) ||
+              m_a.is_idiv(n, n1, n2) || m_a.is_rem(n, n1, n2))
+             && (!evaluates_to_numeral(n2, r) || r.is_zero())) {
+        m_uninterp_funs.insert(n->get_decl(), m_rule);
+    }
+    check_sort(m.get_sort(n));
+}
 
+bool rule_properties::evaluates_to_numeral(expr * n, rational& val) {    
+    if (m_a.is_numeral(n, val))
+        return true;
+    th_rewriter rw(m);
+    expr_ref tmp(n, m);
+    rw(tmp);
+    return m_a.is_numeral(tmp, val);
+}
+
+
+void rule_properties::check_sort(sort* s) {
+    sort_size sz = s->get_num_elements();
+    if (m_ar.is_array(s) || (!sz.is_finite() && !m_dl.is_rule_sort(s))) {
+        m_inf_sort.push_back(m_rule);
+    }
 }
 
 void rule_properties::reset() {
@@ -214,5 +267,7 @@ void rule_properties::reset() {
     m_interp_pred.reset();
     m_negative_rules.reset();
     m_inf_sort.reset();
+    m_collected = false;
+    m_generate_proof = false;
 }
 

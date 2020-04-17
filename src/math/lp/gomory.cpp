@@ -71,7 +71,7 @@ class create_cut {
         }
         else {
             lp_assert(at_upper(j));
-            // here we have the expression  new_a*(xj - ub), so new_a*lb(j) is added to m_k
+            // here we have the expression  new_a*(xj - ub), so new_a*ub(j) is added to m_k
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
@@ -191,7 +191,8 @@ class create_cut {
     void dump_coeff(std::ostream & out, const T& c) const {
         out << "( * ";
         dump_coeff_val(out, c.coeff());
-        out << " " << var_name(c.var()) << ")";
+        auto t = lia.lra.column2tv(c.column());
+        out << " " << var_name(t.id()) << ")";
     }
     
     std::ostream& dump_row_coefficients(std::ostream & out) const {
@@ -221,9 +222,9 @@ class create_cut {
             dump_declaration(out, p.var());
         }
         for (const auto& p : m_t) {
-            unsigned v = p.var();
-            if (lia.lra.is_term(v)) {
-                dump_declaration(out, v);
+            auto t = lia.lra.column2tv(p.column());
+            if (t.is_term()) {
+                dump_declaration(out, t.id());
             }
         }
     }
@@ -281,7 +282,7 @@ public:
     void dump(std::ostream& out) {
         out << "applying cut at:\n"; print_linear_combination_indices_only<row_strip<mpq>, mpq>(m_row, out); out << std::endl;
         for (auto & p : m_row) {
-            lia.lra.m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), out);
+            lia.lra.print_column_info(p.var(), out);
         }
         out << "inf_col = " << m_inf_col << std::endl;
     }
@@ -289,7 +290,7 @@ public:
     lia_move cut() {
         TRACE("gomory_cut", dump(tout););
         
-        // gomory will be   t <= k and the current solution has a property t > k
+        // gomory will be   t >= k and the current solution has a property t < k
         m_k = 1;
         m_t.clear();
         mpq m_lcm_den(1);
@@ -346,7 +347,9 @@ public:
             adjust_term_and_k_for_some_ints_case_gomory();
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
         lp_assert(lia.current_solution_is_inf_on_cut());
-        lia.lra.subs_term_columns(m_t);
+        // NSB code review: this is also used in nla_core.
+        // but it isn't consistent: when theory_lra accesses lar_solver::get_term, the term that is returned uses
+        // column indices, not terms.
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }

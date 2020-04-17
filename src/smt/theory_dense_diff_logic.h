@@ -124,7 +124,7 @@ namespace smt {
         atoms                 m_bv2atoms;
         edges                 m_edges;  // list of asserted edges
         matrix                m_matrix;
-        svector<bool>         m_is_int;
+        bool_vector         m_is_int;
         vector<cell_trail>    m_cell_trail;
         svector<scope>        m_scopes;
         bool                  m_non_diff_logic_exprs;
@@ -162,7 +162,7 @@ namespace smt {
         struct var_value_eq {
             theory_dense_diff_logic & m_th;
             var_value_eq(theory_dense_diff_logic & th):m_th(th) {}
-            bool operator()(theory_var v1, theory_var v2) const { return m_th.m_assignment[v1] == m_th.m_assignment[v2] && m_th.is_int(v1) == m_th.is_int(v2); }
+            bool operator()(theory_var v1, theory_var v2) const { return m_th.m_assignment[v1] == m_th.m_assignment[v2]; }
         };
 
         typedef int_hashtable<var_value_hash, var_value_eq> var_value_table;

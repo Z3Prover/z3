@@ -4,6 +4,5 @@ def_module_params(module_name='rewriter',
                   params=(("som", BOOL, False, "put polynomials in sum-of-monomials form"),
                           ("som_blowup", UINT, 10, "maximum increase of monomials generated when putting a polynomial in sum-of-monomials normal form"),
                           ("hoist_mul", BOOL, False, "hoist multiplication over summation to minimize number of multiplications"),
-                          ("hoist_cmul", BOOL, False, "hoist constant multiplication over summation to minimize number of multiplications"),
                           ("hoist_ite", BOOL, False, "hoist shared summands under ite expressions"),
                           ("flat", BOOL, True, "create nary applications for and,or,+,*,bvadd,bvmul,bvand,bvor,bvxor")))

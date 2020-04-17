@@ -100,9 +100,8 @@ namespace smt {
         struct sz_info {
             bool                  m_is_leaf;   // has it been split into disjoint subsets already?
             rational              m_size;      // set to >= integer if fixed in final check, otherwise -1
-            literal               m_literal;   // literal that enforces value is set.
             obj_map<enode, expr*> m_selects;
-            sz_info(): m_is_leaf(true), m_size(rational::minus_one()), m_literal(null_literal) {}
+            sz_info(): m_is_leaf(true), m_size(rational::minus_one()) {}
         };
 
         typedef std::pair<func_decl*, func_decl*> func_decls;
@@ -137,8 +136,13 @@ namespace smt {
         bool is_select(enode* n) { return th.is_select(n); }
         app_ref mk_select(expr* a, expr* i) { expr* args[2] = { a, i }; return app_ref(m_autil.mk_select(2, args), m); }
         literal get_literal(expr* e) { return ctx().get_literal(e); }
-        literal mk_literal(expr* e) { if (!ctx().e_internalized(e)) ctx().internalize(e, false); literal lit = get_literal(e); ctx().mark_as_relevant(lit); return lit; }
-        literal mk_eq(expr* a, expr* b) { literal lit = th.mk_eq(a, b, false); ctx().mark_as_relevant(lit); return lit; }
+        literal mk_literal(expr* e) { expr_ref _e(e, m); if (!ctx().e_internalized(e)) ctx().internalize(e, false); literal lit = get_literal(e); ctx().mark_as_relevant(lit); return lit; }
+        literal mk_eq(expr* a, expr* b) { 
+            expr_ref _a(a, m), _b(b, m); 
+            literal lit = th.mk_eq(a, b, false); 
+            ctx().mark_as_relevant(lit); 
+            return lit; 
+        }
         void mk_th_axiom(literal l1, literal l2) {
             literal lits[2] = { l1, l2 };
             mk_th_axiom(2, lits);
@@ -148,7 +152,8 @@ namespace smt {
             mk_th_axiom(3, lits);
         }
         void mk_th_axiom(unsigned n, literal* lits) {
-            TRACE("array", ctx().display_literals_verbose(tout, n, lits) << "\n";);
+            TRACE("card", ctx().display_literals_verbose(tout, n, lits) << "\n";);
+            IF_VERBOSE(10, ctx().display_literals_verbose(verbose_stream(), n, lits) << "\n");
             ctx().mk_th_axiom(th.get_id(), n, lits);            
         }
 
@@ -314,21 +319,23 @@ namespace smt {
         /**
            Enforce V
          */
-        lbool ensure_values_assigned() {
+        lbool ensure_values_assigned() {            
             lbool result = l_true;
             for (auto const& kv : m_sizeof) {
                 app* k = kv.m_key;
                 sz_info& i = *kv.m_value;
-                if (is_leaf(&i) && (i.m_literal == null_literal || !is_true(i.m_literal))) {
+                if (is_leaf(&i)) {
                     rational value;
                     expr* sz  = k->get_arg(1);
                     if (!m_arith_value.get_value(sz, value)) {
                         return l_undef;
                     }  
                     literal lit = mk_eq(sz, m_arith.mk_int(value));
+                    if (lit != true_literal && is_true(lit)) {
+                        ctx().push_trail(value_trail<context, rational>(i.m_size, value));
+                        continue;
+                    }
                     ctx().set_true_first_flag(lit.var());
-                    ctx().push_trail(value_trail<context, literal>(i.m_literal, lit));
-                    ctx().push_trail(value_trail<context, rational>(i.m_size, value));
                     result = l_false;
                 }
             }
@@ -351,7 +358,7 @@ namespace smt {
                         expr_ref idx = mk_index_skolem(set_sz, set, k);
                         app_ref sel(mk_select(set, idx), m);
                         mk_th_axiom(~sz_lit, le_lit, mk_literal(sel));
-                        TRACE("array", tout << idx << " " << sel << " " << i.m_size << "\n";);
+                        TRACE("card", tout << idx << " " << sel << " " << i.m_size << "\n";);
                     }
                     return l_false;
                 }
@@ -378,8 +385,9 @@ namespace smt {
             expr_ref nV(m_arith.mk_int(n), m);
             expr_ref result(m.mk_app(fg.first, a, nV), m);   
             expr_ref le(m_arith.mk_le(sz->get_arg(1), nV), m);
+            expr_ref fr(m.mk_app(fg.second, result), m);
             // set-has-size(a, k) => k <= n or g(f(a,n)) = n 
-            mk_th_axiom(~mk_literal(sz), mk_literal(le), mk_eq(nV, m.mk_app(fg.second, result)));
+            mk_th_axiom(~mk_literal(sz), mk_literal(le), mk_eq(nV, fr));
             return result;
         }
 
@@ -418,8 +426,13 @@ namespace smt {
                     for (auto const& kv : info.m_selects) {
                         args.push_back(kv.m_key->get_owner());
                     }
-                    expr_ref diff(m.mk_distinct(args.size(), args.c_ptr()), m);
-                    lits.push_back(~mk_literal(diff));
+                    if (info.m_selects.size() == 2) {
+                        lits.push_back(mk_eq(args[0], args[1]));
+                    }
+                    else {
+                        expr_ref diff(m.mk_distinct_expanded(args.size(), args.c_ptr()), m);
+                        lits.push_back(~mk_literal(diff));
+                    }
                 }
                 expr_ref ge(m_arith.mk_ge(sz->get_arg(1), m_arith.mk_int(info.m_selects.size())), m);
                 lits.push_back(mk_literal(ge));
@@ -430,12 +443,13 @@ namespace smt {
         }
 
         class remove_sz : public trail<context> {
+            ast_manager& m;
             obj_map<app, sz_info*> & m_table;
             app*                     m_obj;
         public:
-            remove_sz(obj_map<app, sz_info*>& tab, app* t): m_table(tab), m_obj(t) {}
+            remove_sz(ast_manager& m, obj_map<app, sz_info*>& tab, app* t): m(m), m_table(tab), m_obj(t) { }
             ~remove_sz() override {}
-            void undo(context& ctx) override { dealloc(m_table[m_obj]); m_table.remove(m_obj); }
+            void undo(context& ctx) override { m.dec_ref(m_obj); dealloc(m_table[m_obj]); m_table.remove(m_obj); }
         };
 
         std::ostream& display(std::ostream& out) {
@@ -498,7 +512,8 @@ namespace smt {
             m_sizeof.insert(term, alloc(sz_info));
             m_size_limit.insert(s, rational(2));
             assert_size_limit(s, n);
-            ctx().push_trail(remove_sz(m_sizeof, term));
+            m.inc_ref(term);
+            ctx().push_trail(remove_sz(m, m_sizeof, term));
         }
 
         /**
@@ -525,10 +540,10 @@ namespace smt {
             lbool r = trace_call("ensure_functional", ensure_functional());
             if (r == l_true) update_indices();
             if (r == l_true) r = trace_call("ensure_disjoint", ensure_disjoint());
-            if (r == l_true) r = trace_call("eensure_values_assigned", ensure_values_assigned());
+            if (r == l_true) r = trace_call("ensure_values_assigned", ensure_values_assigned());
             if (r == l_true) r = trace_call("ensure_non_empty", ensure_non_empty());
             if (r == l_true) r = trace_call("ensure_no_overflow", ensure_no_overflow());
-            CTRACE("array", r != l_true, display(tout););
+            CTRACE("card", r != l_true, display(tout););
             switch (r) {
             case l_true:
                 return FC_DONE;
@@ -607,7 +622,7 @@ namespace smt {
                 expr* sz =  kv.m_key->get_arg(1);
                 assumptions.push_back(mk_size_limit(set, sz));
             }            
-            TRACE("array", tout << "ASSUMPTIONS: " << assumptions << "\n";);
+            TRACE("card", tout << "ASSUMPTIONS: " << assumptions << "\n";);
         }
     
     };

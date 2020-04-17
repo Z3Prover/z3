@@ -175,7 +175,7 @@ namespace sat {
 
         struct cube_state {
             bool           m_first;
-            svector<bool>  m_is_decision;
+            bool_vector  m_is_decision;
             literal_vector m_cube;
             double         m_freevars_threshold;
             double         m_psat_threshold;
@@ -540,7 +540,7 @@ namespace sat {
         void assign(literal l);
         void propagated(literal l);
         bool backtrack(literal_vector& trail);
-        bool backtrack(literal_vector& trail, svector<bool> & is_decision);
+        bool backtrack(literal_vector& trail, bool_vector & is_decision);
         lbool search();
         void init_model();
         std::ostream& display_binary(std::ostream& out) const;

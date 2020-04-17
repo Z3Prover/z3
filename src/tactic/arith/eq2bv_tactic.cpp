@@ -42,6 +42,7 @@ class eq2bv_tactic : public tactic {
                 return false;
             }
         }
+        
 
         br_status mk_app_core(func_decl* f, unsigned sz, expr*const* es, expr_ref& result) {
             if (m.is_eq(f)) {
@@ -76,7 +77,7 @@ class eq2bv_tactic : public tactic {
     class bvmc : public model_converter {
         obj_map<func_decl, func_decl*> m_map;
         func_decl_ref_vector m_vars;
-        unsigned_vector m_values;
+        vector<rational> m_values;
     public:
         bvmc(ast_manager& m): m_vars(m) {}
         
@@ -84,7 +85,7 @@ class eq2bv_tactic : public tactic {
             m_map.insert(c_new, c_old);
         }
 
-        void insert(func_decl* var, unsigned val) { 
+        void insert(func_decl* var, rational const& val) { 
             m_vars.push_back(var);
             m_values.push_back(val);
         }
@@ -111,7 +112,7 @@ class eq2bv_tactic : public tactic {
             }
             for (unsigned i = 0; i < m_vars.size(); ++i) {
                 func_decl* f = m_vars.get(i);
-                new_m->register_decl(f, a.mk_numeral(rational(m_values[i]), f->get_range()));
+                new_m->register_decl(f, a.mk_numeral(m_values[i], f->get_range()));
             }
             mdl = new_m;
         }
@@ -152,7 +153,7 @@ public:
     obj_map<expr, expr*>             m_fd;
     obj_map<expr, unsigned>          m_max;
     expr_mark                        m_nonfd;
-    ast_mark                         m_has_eq;
+    expr_mark                        m_has_eq;
     ptr_vector<expr>                 m_todo;
         
     eq2bv_tactic(ast_manager & _m):
@@ -184,6 +185,12 @@ public:
 
         m_bounds(*g);
 
+        if (m_bounds.inconsistent() || g->proofs_enabled()) {
+            g->inc_depth();
+            result.push_back(g.get());
+            return;
+        }
+        
         for (unsigned i = 0; i < g->size(); i++) {            
             collect_fd(g->form(i));
         }
@@ -194,19 +201,42 @@ public:
             return;
         }
 
-        for (unsigned i = 0; i < g->size(); i++) {            
+        for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);  
-            func_decl_ref var(m);
-            unsigned val;
-            if (is_bound(g->form(i), var, val) && !m_has_eq.is_marked(var)) {
-                g->update(i, m.mk_true(), nullptr, nullptr);
-                mc1->insert(var, val);
+            app_ref var(m);
+            if (is_bound(g->form(i), var) && !m_has_eq.is_marked(var)) {
+                if (m.proofs_enabled()) {
+                    new_pr = m.mk_rewrite(g->form(i), m.mk_true());
+                    new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+                }
+                bool strict = true;
+                rational v;
+                bool has_val = 
+                    (m_bounds.has_upper(var, v, strict) && !strict && v.is_unsigned()) ||
+                    (m_bounds.has_lower(var, v, strict) && !strict && v.is_unsigned());
+
+                if (has_val) {
+                    mc1->insert(to_app(var)->get_decl(), v);
+                    g->update(i, m.mk_true(), new_pr, nullptr);
+                    continue;
+                }
+            }
+            if (is_bound(g->form(i), var) && m_max.contains(var)) {
+                new_curr = m.mk_true();
+                if (m.proofs_enabled()) {
+                    new_pr = m.mk_rewrite(g->form(i), new_curr);
+                    new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+                }
+                g->update(i, new_curr, new_pr);
                 continue;
             }
             m_rw(g->form(i), new_curr, new_pr);
-            if (m.proofs_enabled() && !new_pr) {
-                new_pr = m.mk_rewrite(g->form(i), new_curr);
+
+            if (g->form(i) == new_curr)
+                continue;
+            if (m.proofs_enabled()) {
+                if (!new_pr) new_pr = m.mk_rewrite(g->form(i), new_curr);
                 new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
             }
             g->update(i, new_curr, new_pr, g->dep(i));
@@ -293,41 +323,44 @@ public:
         }
     }
 
-    bool is_upper(expr* f, func_decl_ref& var, unsigned& k) {
+    bool is_upper(expr* f, unsigned& k, app_ref& var) {
         expr* e1, *e2;
         if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e1, e2, k)) {
             SASSERT(m_bounds.has_upper(e1));
-            var = to_app(e1)->get_decl();
+            var = to_app(e1);
             return true;
         } 
         return false;
     }
 
-    bool is_lower(expr* f, func_decl_ref& var, unsigned& k) {
+    bool is_lower(expr* f, unsigned& k, app_ref& var) {
         expr* e1, *e2;
         if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e2, e1, k)) {
             SASSERT(m_bounds.has_lower(e2));
-            var = to_app(e2)->get_decl();
+            var = to_app(e2);
             return true;
         } 
         return false;
     }
 
-    bool is_bound(expr* f, func_decl_ref& var, unsigned& val) {
-        return is_lower(f, var, val) || is_upper(f, var, val);
+
+    bool is_bound(expr* f, app_ref& var) {
+        unsigned k;
+        return is_lower(f, k, var) || is_upper(f, k, var);
     }
 
     void mark_has_eq(expr* e) {
         if (is_uninterp_const(e)) {
-            m_has_eq.mark(to_app(e)->get_decl(), true);
+            m_has_eq.mark(e, true);
         }
     }
 
     void collect_fd(expr* f) {
         m_trail.push_back(f);
-        func_decl_ref var(m);
-        unsigned val;
-        if (is_bound(f, var, val)) return;
+        app_ref var(m);
+        if (is_bound(f, var)) {
+            return;
+        }
         m_todo.push_back(f);
         while (!m_todo.empty()) {
             f = m_todo.back();

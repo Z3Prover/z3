@@ -36,7 +36,7 @@ class ackr_info {
     public:
         ackr_info(ast_manager& m) : 
             m(m),
-            m_er(mk_default_expr_replacer(m)),
+            m_er(mk_default_expr_replacer(m, false)),
             m_subst(m),
             m_ref_count(0),
             m_sealed(false)

@@ -36,7 +36,7 @@ Revision History:
 #include "math/lp/lp_core_solver_base.h"
 #include "math/lp/breakpoint.h"
 #include "math/lp/binary_heap_priority_queue.h"
-#include "math/lp/int_set.h"
+#include "math/lp/u_set.h"
 namespace lp {
 
 // This core solver solves (Ax=b, lower_bound_values \leq x \leq upper_bound_values, maximize costs*x )
@@ -57,7 +57,7 @@ public:
     T                 m_converted_harris_eps;
     unsigned          m_inf_row_index_for_tableau;
     bool              m_bland_mode_tableau;
-    int_set           m_left_basis_tableau;
+    u_set           m_left_basis_tableau;
     unsigned          m_bland_mode_threshold;
     unsigned          m_left_basis_repeated;
     vector<unsigned>  m_leaving_candidates;
@@ -442,51 +442,87 @@ public:
     void one_iteration();
     void one_iteration_tableau();
 
+    // this version assumes that the leaving already has the right value, and does not update it
+    void update_x_tableau_rows(unsigned entering, unsigned leaving, const X& delta) {
+        this->add_delta_to_x(entering, delta);
+        if (!this->m_using_infeas_costs) {
+            for (const auto & c : this->m_A.m_columns[entering]) {
+                if (leaving != this->m_basis[c.var()]) {
+                    this->add_delta_to_x_and_track_feasibility(this->m_basis[c.var()], -  delta * this->m_A.get_val(c));
+                }
+            }
+        } else { // m_using_infeas_costs == true
+            lp_assert(this->column_is_feasible(entering));
+            lp_assert(this->m_costs[entering] == zero_of_type<T>());
+            // m_d[entering] can change because of the cost change for basic columns.
+            for (const auto & c : this->m_A.m_columns[entering]) {
+                unsigned j = this->m_basis[c.var()];
+                if (j != leaving)
+                    this->add_delta_to_x(j, -delta * this->m_A.get_val(c));
+                update_inf_cost_for_column_tableau(j);
+            if (is_zero(this->m_costs[j]))
+                this->remove_column_from_inf_set(j);
+            else
+                this->insert_column_into_inf_set(j);
+            }
+        }
+    }
+    
+    void update_basis_and_x_tableau_rows(int entering, int leaving, X const & tt) {
+        lp_assert(this->use_tableau());
+        lp_assert(entering != leaving);
+        update_x_tableau_rows(entering, leaving, tt);
+        this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);
+        this->change_basis(entering, leaving);
+    }
+
+    
     void advance_on_entering_and_leaving_tableau_rows(int entering, int leaving, const X &theta ) {
-        this->update_basis_and_x_tableau(entering, leaving, theta);
+        update_basis_and_x_tableau_rows(entering, leaving, theta);
         this->track_column_feasibility(entering);
     }
 
-
-    int find_leaving_tableau_rows(X & new_val_for_leaving) {
+    int find_smallest_inf_column() {
         int j = -1;
-        for (unsigned k : this->m_inf_set.m_index) {
-            if (k < static_cast<unsigned>(j))
-                j = static_cast<int>(k);
+        for (unsigned k : this->m_inf_set) {            
+            if (k < static_cast<unsigned>(j)) {
+                j = k;
+            }
         }
-        if (j == -1)
-            return -1;
+        return j;
+    }
 
+    const X& get_val_for_leaving(unsigned j) const {
         lp_assert(!this->column_is_feasible(j));
         switch (this->m_column_types[j]) {
         case column_type::fixed:
         case column_type::upper_bound:
-            new_val_for_leaving = this->m_upper_bounds[j];
-            break;
+            return this->m_upper_bounds[j];
         case column_type::lower_bound:
-            new_val_for_leaving = this->m_lower_bounds[j];
+            return this->m_lower_bounds[j];
             break;
         case column_type::boxed:
             if (this->x_above_upper_bound(j))
-                new_val_for_leaving = this->m_upper_bounds[j];
+                return this->m_upper_bounds[j];
             else
-                new_val_for_leaving = this->m_lower_bounds[j];
+                return this->m_lower_bounds[j];
             break;
         default:
-            lp_assert(false);
-            new_val_for_leaving = numeric_traits<X>::zero(); // does not matter
+            UNREACHABLE();
+            return  this->m_lower_bounds[j];
         }
-        return j;
     }
     
+    
     void one_iteration_tableau_rows() {
-        X new_val_for_leaving;
-        int leaving = find_leaving_tableau_rows(new_val_for_leaving);
+        int leaving = find_smallest_inf_column();
         if (leaving == -1) {
             this->set_status(lp_status::OPTIMAL);
             return;
         }
-
+       
+        SASSERT(this->column_is_base(leaving));
+        
         if (!m_bland_mode_tableau) {
             if (m_left_basis_tableau.contains(leaving)) {
                 if (++m_left_basis_repeated > m_bland_mode_threshold) {
@@ -502,9 +538,11 @@ public:
             this->set_status(lp_status::INFEASIBLE);
             return;
         }
+        const X& new_val_for_leaving = get_val_for_leaving(leaving);
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
+        this->m_x[leaving] = new_val_for_leaving;
+        this->remove_column_from_inf_set(leaving);
         advance_on_entering_and_leaving_tableau_rows(entering, leaving, theta );
-        lp_assert(this->m_x[leaving] == new_val_for_leaving);
         if (this->current_x_is_feasible())
             this->set_status(lp_status::OPTIMAL);
     }

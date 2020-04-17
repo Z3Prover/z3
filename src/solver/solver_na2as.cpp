@@ -83,13 +83,14 @@ lbool solver_na2as::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_ve
 }
 
 
-void solver_na2as::push() {
-    m_scopes.push_back(m_assumptions.size());
+void solver_na2as::push() {    
+    unsigned n = m_assumptions.size();
     push_core();
+    m_scopes.push_back(n);
 }
 
 void solver_na2as::pop(unsigned n) {
-    if (n > 0) {
+    if (n > 0 && !m_scopes.empty()) { 
         unsigned lvl = m_scopes.size();
         n = std::min(lvl, n);
         pop_core(n);

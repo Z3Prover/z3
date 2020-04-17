@@ -801,7 +801,7 @@ struct pb2bv_rewriter::imp {
                 case OP_NUM:
                     VERIFY(au.is_numeral(a, r));
                     m_k -= mul * r;
-                    return true;
+                    return m_k.is_int();
                 case OP_MUL:
                     if (sz != 2) {
                         return false;
@@ -832,7 +832,7 @@ struct pb2bv_rewriter::imp {
                     m_coeffs.push_back(r1-r2);
                     m_k -= r2;
                 }
-                return true;
+                return m_k.is_int();
             }
             return false;
         }
@@ -936,6 +936,9 @@ struct pb2bv_rewriter::imp {
         bool flat_assoc(func_decl * f) const { return false; }
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             result_pr = nullptr;
+            if (m_r.m.proofs_enabled()) {
+                return BR_FAILED;
+            }
             return m_r.mk_app_core(f, num, args, result);
         }
         card2bv_rewriter_cfg(imp& i, ast_manager & m):m_r(i, m) {}
@@ -958,9 +961,12 @@ struct pb2bv_rewriter::imp {
         void set_min_arity(unsigned ma) { m_cfg.set_min_arity(ma); }
         void rewrite(bool full, expr* e, expr_ref& r, proof_ref& p) {
             expr_ref ee(e, m());
+            if (m().proofs_enabled()) {
+                r = e;
+                return;
+            }
             if (m_cfg.m_r.mk_app(full, e, r)) {
                 ee = r;
-                // mp proof?
             }
             (*this)(ee, r, p);
         }

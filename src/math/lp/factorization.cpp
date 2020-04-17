@@ -75,7 +75,7 @@ void const_iterator_mon::advance_mask() {
 const_iterator_mon::self_type const_iterator_mon::operator++() {  self_type i = *this; operator++(1); return i;  }
 const_iterator_mon::self_type const_iterator_mon::operator++(int) { advance_mask(); return *this; }
 
-const_iterator_mon::const_iterator_mon(const svector<bool>& mask, const factorization_factory *f) : 
+const_iterator_mon::const_iterator_mon(const bool_vector& mask, const factorization_factory *f) : 
     m_mask(mask),
     m_ff(f) ,
     m_full_factorization_returned(false)

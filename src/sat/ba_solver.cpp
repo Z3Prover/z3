@@ -2048,7 +2048,38 @@ namespace sat {
         return lit;
     }
 
-    ba_solver::constraint* ba_solver::add_xr(literal_vector const& lits, bool learned) {
+
+    ba_solver::constraint* ba_solver::add_xr(literal_vector const& _lits, bool learned) {
+        literal_vector lits;
+        u_map<bool> var2sign;
+        bool sign = false, odd = false;
+        for (literal lit : _lits) {
+            if (var2sign.find(lit.var(), sign)) {
+                var2sign.erase(lit.var());
+                odd ^= (sign ^ lit.sign());
+            }
+            else {
+                var2sign.insert(lit.var(), lit.sign());
+            }
+        }       
+        
+        for (auto const& kv : var2sign) {
+            lits.push_back(literal(kv.m_key, kv.m_value));
+        }
+        if (odd && !lits.empty()) {
+            lits[0].neg();
+        }
+        switch (lits.size()) {
+        case 0:
+            if (!odd)
+                s().set_conflict(justification(0));
+            return nullptr;
+        case 1:            
+            s().assign_scoped(lits[0]);
+            return nullptr;
+        default:
+            break;
+        }
         void * mem = m_allocator.allocate(xr::get_obj_size(lits.size()));
         xr* x = new (mem) xr(next_id(), lits);
         x->set_learned(learned);
@@ -3205,7 +3236,8 @@ namespace sat {
             recompile(c.to_pb());
             break;
         case xr_t:
-            NOT_IMPLEMENTED_YET();
+            add_xr(c.to_xr().literals(), c.learned());
+            remove_constraint(c, "recompile xor");
             break;
         default:
             UNREACHABLE();

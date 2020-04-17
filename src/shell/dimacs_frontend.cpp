@@ -228,9 +228,6 @@ unsigned read_dimacs(char const * file_name) {
     sat_params sp(p);
     reslimit limit;
     sat::solver solver(p, limit);
-    if (sp.xor_solver()) {
-        solver.set_extension(alloc(sat::ba_solver));
-    }
     g_solver = &solver;
 
     if (file_name) {

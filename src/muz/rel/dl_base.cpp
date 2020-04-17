@@ -39,21 +39,19 @@ namespace datalog {
     }
 
     void dealloc_ptr_vector_content(ptr_vector<relation_base> & v) {
-        ptr_vector<relation_base>::iterator it = v.begin();
-        ptr_vector<relation_base>::iterator end = v.end();
-        for(; it!=end; ++it) {
-            (*it)->deallocate();
+        for (auto& r : v) {
+            r->deallocate();
         }
     }
 
     void get_renaming_args(const unsigned_vector & map, const relation_signature & orig_sig, 
-            expr_ref_vector & renaming_arg) {
+                           expr_ref_vector & renaming_arg) {
         ast_manager & m = renaming_arg.get_manager();
         unsigned sz = map.size();
         unsigned ofs = sz-1;
         renaming_arg.resize(sz, static_cast<expr *>(nullptr));
-        for(unsigned i=0; i<sz; i++) {
-            if(map[i]!=UINT_MAX) {
+        for (unsigned i = 0; i < sz; i++) {
+            if (map[i] != UINT_MAX) {
                 renaming_arg.set(ofs-i, m.mk_var(map[i], orig_sig[i]));
             }
         }
@@ -74,13 +72,13 @@ namespace datalog {
 #endif
 
     void relation_signature::output(ast_manager & m, std::ostream & out) const {
-        unsigned sz=size();
-        out<<"(";
-        for(unsigned i=0; i<sz; i++) {
-            if(i) { out<<","; }
+        unsigned sz = size();
+        out << "(";
+        for (unsigned i = 0; i < sz; i++) {
+            if (i != 0) out << ","; 
             out << mk_pp((*this)[i], m);
         }
-        out<<")";
+        out << ")";
     }
 
 
@@ -90,8 +88,8 @@ namespace datalog {
         ast_manager & m = get_plugin().get_ast_manager();
         app_ref bottom_ref(m.mk_false(), m);
         scoped_ptr<relation_mutator_fn> reset_fn = get_manager().mk_filter_interpreted_fn(*this, bottom_ref);
-        if(!reset_fn) {
-            NOT_IMPLEMENTED_YET();
+        if (!reset_fn) {
+            throw default_exception("filter function does not exist");
         }
         (*reset_fn)(*this);
     }
@@ -106,16 +104,16 @@ namespace datalog {
         unsigned s2sz=s2.size();
         unsigned s1first_func=s1sz-s1.functional_columns();
         unsigned s2first_func=s2sz-s2.functional_columns();
-        for(unsigned i=0; i<s1first_func; i++) {
+        for (unsigned i=0; i<s1first_func; i++) {
             result.push_back(s1[i]);
         }
-        for(unsigned i=0; i<s2first_func; i++) {
+        for (unsigned i=0; i<s2first_func; i++) {
             result.push_back(s2[i]);
         }
-        for(unsigned i=s1first_func; i<s1sz; i++) {
+        for (unsigned i=s1first_func; i<s1sz; i++) {
             result.push_back(s1[i]);
         }
-        for(unsigned i=s2first_func; i<s2sz; i++) {
+        for (unsigned i=s2first_func; i<s2sz; i++) {
             result.push_back(s2[i]);
         }
         result.set_functional_columns(s1.functional_columns()+s2.functional_columns());
@@ -127,13 +125,13 @@ namespace datalog {
 
         unsigned func_cnt = src.functional_columns();
 
-        if(removed_cols==nullptr) {
+        if (removed_cols==nullptr) {
             result.set_functional_columns(func_cnt);
             return;
         }
 
         unsigned first_src_fun = src.first_functional();
-        if(removed_cols[0]<first_src_fun) {
+        if (removed_cols[0]<first_src_fun) {
             //if we remove at least one non-functional column, all the columns in the result are non-functional
             result.set_functional_columns(0);
         }
@@ -150,8 +148,8 @@ namespace datalog {
 
         unsigned remaining_fun = src.functional_columns();
         unsigned first_src_fun = src.first_functional();
-        for(int i=col_cnt-1; i>=0; i--) {
-            if(removed_cols[i]<first_src_fun) {
+        for (int i=col_cnt-1; i>=0; i--) {
+            if (removed_cols[i]<first_src_fun) {
                 break;
             }
             remaining_fun--;
@@ -168,7 +166,7 @@ namespace datalog {
         //after the join the column order is
         //(non-functional of s1)(non-functional of s2)(functional of s1)(functional of s2)
 
-        if(s1.functional_columns()==0 && s2.functional_columns()==0) {
+        if (s1.functional_columns()==0 && s2.functional_columns()==0) {
             from_project(aux, removed_col_cnt, removed_cols, result);
             SASSERT(result.functional_columns()==0);
             return;
@@ -187,27 +185,27 @@ namespace datalog {
 
         union_find_default_ctx uf_ctx;
         union_find<> uf(uf_ctx); //the numbers in uf correspond to column indexes after the join
-        for(unsigned i=0; i<join_sig_sz; i++) {
+        for (unsigned i=0; i<join_sig_sz; i++) {
             VERIFY(uf.mk_var() == i);
         }
 
-        for(unsigned i=0; i<joined_col_cnt; i++) {
+        for (unsigned i=0; i<joined_col_cnt; i++) {
             unsigned idx1 = (s1_first_func>cols1[i]) ? cols1[i] : (first_func_ofs+cols1[i]-s1_first_func);
             unsigned idx2 = (s2_first_func>cols2[i]) ? (second_ofs+cols2[i]) : (second_func_ofs+cols2[i]-s2_first_func);
             uf.merge(idx1, idx2);
         }
-        for(unsigned i=0; i<first_func_ofs; i++) { //we only count the non-functional columns
+        for (unsigned i=0; i<first_func_ofs; i++) { //we only count the non-functional columns
             remaining_in_equivalence_class[uf.find(i)]++;
         }
 
-        for(unsigned i=0; i<removed_col_cnt; i++) {
+        for (unsigned i=0; i<removed_col_cnt; i++) {
             unsigned rc = removed_cols[i];
-            if(rc>=first_func_ofs) {
+            if (rc>=first_func_ofs) {
                 //removing functional columns won't make us merge rows
                 continue;
             }
             unsigned eq_class_idx = uf.find(rc);
-            if(remaining_in_equivalence_class[eq_class_idx]>1) {
+            if (remaining_in_equivalence_class[eq_class_idx]>1) {
                 remaining_in_equivalence_class[eq_class_idx]--;
             }
             else {
@@ -216,7 +214,7 @@ namespace datalog {
             }
         }
 
-        if(merging_rows_can_happen) {
+        if (merging_rows_can_happen) {
             //this one marks all columns as non-functional
             from_project(aux, removed_col_cnt, removed_cols, result);
             SASSERT(result.functional_columns()==0);
@@ -227,9 +225,6 @@ namespace datalog {
         }
     }
 
-
-
-
     // -----------------------------------
     //
     // table_base
@@ -239,17 +234,17 @@ namespace datalog {
     //here we give generic implementation of table operations using iterators
 
     bool table_base::empty() const {
-        return begin()==end();
+        return begin() == end();
     }
     
     void table_base::remove_facts(unsigned fact_cnt, const table_fact * facts) {
-        for(unsigned i=0; i<fact_cnt; i++) {
+        for (unsigned i = 0; i < fact_cnt; i++) {
             remove_fact(facts[i]);
         }
     }
 
     void table_base::remove_facts(unsigned fact_cnt, const table_element * facts) {
-        for(unsigned i=0; i<fact_cnt; i++) {
+        for (unsigned i = 0; i < fact_cnt; i++) {
             remove_fact(facts + i*get_signature().size());
         }
     }
@@ -257,25 +252,19 @@ namespace datalog {
 
     void table_base::reset() {
         vector<table_fact> to_remove;
-        table_base::iterator it = begin();
-        table_base::iterator iend = end();
         table_fact row;
-        for(; it!=iend; ++it) {
-            it->get_fact(row);
+        for (auto& k : *this) {
+            k.get_fact(row);
             to_remove.push_back(row);
         }
         remove_facts(to_remove.size(), to_remove.c_ptr());
     }
 
     bool table_base::contains_fact(const table_fact & f) const {
-        iterator it = begin();
-        iterator iend = end();
-
         table_fact row;
-
-        for(; it!=iend; ++it) {
-            it->get_fact(row);
-            if(vectors_equal(row, f)) {
+        for (auto const& k : *this) {
+            k.get_fact(row);
+            if (vectors_equal(row, f)) {
                 return true;
             }
         }
@@ -283,27 +272,25 @@ namespace datalog {
     }
 
     bool table_base::fetch_fact(table_fact & f) const {
-        if(get_signature().functional_columns()==0) {
+        if (get_signature().functional_columns() == 0) {
             return contains_fact(f);
         }
         else {
             unsigned sig_sz = get_signature().size();
             unsigned non_func_cnt = sig_sz-get_signature().functional_columns();
-            table_base::iterator it = begin();
-            table_base::iterator iend = end();
             table_fact row;
-            for(; it!=iend; ++it) {
-                it->get_fact(row);
+            for (auto& k : *this) {
+                k.get_fact(row);
                 bool differs = false;
-                for(unsigned i=0; i<non_func_cnt; i++) {
-                    if(row[i]!=f[i]) {
+                for (unsigned i=0; i<non_func_cnt; i++) {
+                    if (row[i]!=f[i]) {
                         differs = true;
                     }
                 }
-                if(differs) {
+                if (differs) {
                     continue;
                 }
-                for(unsigned i=non_func_cnt; i<sig_sz; i++) {
+                for (unsigned i=non_func_cnt; i<sig_sz; i++) {
                     f[i]=row[i];
                 }
                 return true;
@@ -313,15 +300,15 @@ namespace datalog {
     }
 
     bool table_base::suggest_fact(table_fact & f) {
-        if(get_signature().functional_columns()==0) {
-            if(contains_fact(f)) {
+        if (get_signature().functional_columns()==0) {
+            if (contains_fact(f)) {
                 return false;
             }
             add_new_fact(f);
             return true;
         }
         else {
-            if(fetch_fact(f)) {
+            if (fetch_fact(f)) {
                 return false;
             }
             add_new_fact(f);
@@ -330,7 +317,7 @@ namespace datalog {
     }
 
     void table_base::ensure_fact(const table_fact & f) {
-        if(get_signature().functional_columns()==0) {
+        if (get_signature().functional_columns() == 0) {
             add_fact(f);
         }
         else {
@@ -341,14 +328,9 @@ namespace datalog {
 
     table_base * table_base::clone() const {
         table_base * res = get_plugin().mk_empty(get_signature());
-
-        iterator it = begin();
-        iterator iend = end();
-
         table_fact row;
-
-        for(; it!=iend; ++it) {
-            it->get_fact(row);
+        for (auto& k : *this) {
+            k.get_fact(row);
             res->add_new_fact(row);
         }
         return res;
@@ -366,7 +348,7 @@ namespace datalog {
      */
     table_base * table_base::complement(func_decl* p, const table_element * func_columns) const {
         const table_signature & sig = get_signature();
-        SASSERT(sig.functional_columns()==0 || func_columns!=0);
+        SASSERT(sig.functional_columns() == 0 || func_columns != 0);
         SASSERT(sig.first_functional() <= 1);
 
         table_base * res = get_plugin().mk_empty(sig);
@@ -394,9 +376,9 @@ namespace datalog {
             warning_msg("%s", buffer.str().c_str());
         }
 
-        for(table_element i = 0; i < upper_bound; i++) {
+        for (table_element i = 0; i < upper_bound; i++) {
             fact[0] = i;
-            if(empty_table || !contains_fact(fact)) {
+            if (empty_table || !contains_fact(fact)) {
                 res->add_fact(fact);
             }
         }
@@ -407,12 +389,9 @@ namespace datalog {
         out << "table with signature ";
         print_container(get_signature(), out);
         out << ":\n";
-
-        iterator it = begin();
-        iterator iend = end();
-        for(; it!=iend; ++it) {
-            const row_interface & r = *it;
-            r.display(out);
+        
+        for (auto& k : *this) {
+            k.display(out);
         }
 
         out << "\n";
@@ -448,8 +427,8 @@ namespace datalog {
 
     void table_base::row_interface::get_fact(table_fact & result) const {
         result.reset();
-        unsigned n=size();
-        for(unsigned i=0; i<n; i++) {
+        unsigned n = size();
+        for (unsigned i = 0; i < n; i++) {
             result.push_back((*this)[i]);
         }
     }
@@ -470,10 +449,7 @@ namespace datalog {
         dl_decl_util util(m);
         bool_rewriter brw(m);
         table_fact fact;
-        iterator it = begin();
-        iterator iend = end();
-        for(; it != iend; ++it) {
-            const row_interface & r = *it;   
+        for (row_interface const& r : *this) {
             r.get_fact(fact);
             conjs.reset();
             for (unsigned i = 0; i < fact.size(); ++i) {

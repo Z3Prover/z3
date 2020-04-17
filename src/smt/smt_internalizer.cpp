@@ -441,13 +441,17 @@ namespace smt {
         TRACE("distinct", tout << "internalizing distinct: " << mk_pp(n, m) << "\n";);
         SASSERT(!b_internalized(n));
         SASSERT(m.is_distinct(n));
+        bool_var v = mk_bool_var(n);
+        literal l(v);
         expr_ref def(m.mk_distinct_expanded(n->get_num_args(), n->get_args()), m);
         internalize_rec(def, true);
-        bool_var v    = mk_bool_var(n);
-        literal l(v);
         literal l_def = get_literal(def);
         mk_gate_clause(~l, l_def);
         mk_gate_clause(l, ~l_def);
+        // when n->get_num_args() == 2, then mk_distinct_expanded produces a negation.
+        // reference counts of negations are not tracked so add relevance dependency
+        // of the equality.
+        if (m.is_not(def)) def = to_app(def)->get_arg(0);
         add_relevancy_dependency(n, def);
         if (!gate_ctx) {
             mk_enode(n, true, true, false);
@@ -653,7 +657,7 @@ namespace smt {
             case OP_DISTINCT:
             case OP_IMPLIES:
             case OP_XOR:
-                UNREACHABLE();
+                throw default_exception("formula has not been simplified");
             case OP_OEQ:
                 UNREACHABLE();
             default:
@@ -862,17 +866,6 @@ namespace smt {
         //SASSERT(!m.is_not(n));
         unsigned id = n->get_id();
         bool_var v  = m_b_internalized_stack.size();
-#ifndef _EXTERNAL_RELEASE 
-        if (m_fparams.m_display_bool_var2expr) {
-            char const * header = "(iff z3@";
-            int  id_sz = 6;
-            std::cerr.width(id_sz);
-            std::cerr << header << std::left << v << " " << mk_pp(n, m, static_cast<unsigned>(strlen(header)) + id_sz + 1) << ")\n";
-        }
-        if (m_fparams.m_display_ll_bool_var2expr) {
-            std::cerr << v << " ::=\n" << mk_ll_pp(n, m) << "<END-OF-FORMULA>\n";
-        }
-#endif
         TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m) << " " << n->get_id() << "\n";);
         TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);                
         set_bool_var(id, v);
@@ -1075,6 +1068,7 @@ namespace smt {
        clauses because they are deleted during backtracking.
     */
     bool context::simplify_aux_clause_literals(unsigned & num_lits, literal * lits, literal_buffer & simp_lits) {
+        TRACE("simplify_aux_clause_literals", display_literals(tout, num_lits, lits); tout << "\n";);
         std::sort(lits, lits + num_lits);
         literal prev = null_literal;
         unsigned j = 0;
@@ -1083,7 +1077,7 @@ namespace smt {
             lbool   val  = get_assignment(curr);
             switch(val) {
             case l_false:
-                TRACE("simplify_aux_clause_literals", display_literal(tout << get_assign_level(curr) << " " << get_scope_level() << " ", curr); tout << "\n"; );
+                TRACE("simplify_aux_clause_literals", display_literal_verbose(tout << get_assign_level(curr) << " " << get_scope_level() << " " << curr << ":", curr); tout << "\n"; );
                 simp_lits.push_back(~curr);
                 break; // ignore literal                
                 // fall through
@@ -1127,9 +1121,9 @@ namespace smt {
        kind of simplification.
     */
     bool context::simplify_aux_lemma_literals(unsigned & num_lits, literal * lits) {
-        TRACE("simplify_aux_lemma_literals", tout << "1) "; display_literals(tout, num_lits, lits); tout << "\n";);
+        TRACE("simplify_aux_lemma_literals", display_literals(tout << "1) ", num_lits, lits) << "\n";);
         std::sort(lits, lits + num_lits);
-        TRACE("simplify_aux_lemma_literals", tout << "2) "; display_literals(tout, num_lits, lits); tout << "\n";);
+        TRACE("simplify_aux_lemma_literals", display_literals(tout << "2) ", num_lits, lits) << "\n";);
         literal prev = null_literal;
         unsigned i = 0;
         unsigned j = 0;
@@ -1151,7 +1145,7 @@ namespace smt {
             }
         }
         num_lits = j;
-        TRACE("simplify_aux_lemma_literals", tout << "3) "; display_literals(tout, num_lits, lits); tout << "\n";);
+        TRACE("simplify_aux_lemma_literals", display_literals(tout << "3) ", num_lits, lits) << "\n";);
         return true;
     }
     
@@ -1334,7 +1328,7 @@ namespace smt {
             }
             break;
         }
-        case CLS_TH_LEMMA: {
+        case CLS_TH_LEMMA: 
             if (!simplify_aux_lemma_literals(num_lits, lits)) {
                 if (j && !j->in_region()) {
                     j->del_eh(m);
@@ -1344,16 +1338,13 @@ namespace smt {
             }
             // simplify_aux_lemma_literals does not delete literals assigned to false, so
             // it is not necessary to create a unit_resolution_justification
-            break;
-        }
+            break;        
         default:
             break;
         }
-        TRACE("mk_clause", tout << "after simplification:\n"; display_literals_verbose(tout, num_lits, lits) << "\n";);
+        TRACE("mk_clause", display_literals_verbose(tout << "after simplification:\n", num_lits, lits) << "\n";);
 
-        unsigned activity = 0;
-        if (activity == 0)
-            activity = 1;
+        unsigned activity = 1;
         bool  lemma = is_lemma(k);
         m_stats.m_num_mk_lits += num_lits;
         switch (num_lits) {

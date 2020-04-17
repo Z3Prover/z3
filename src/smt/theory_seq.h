@@ -171,8 +171,8 @@ namespace smt {
 
         eq mk_eqdep(expr* l, expr* r, dependency* dep) {
             expr_ref_vector ls(m), rs(m);
-            m_util.str.get_concat(l, ls);
-            m_util.str.get_concat(r, rs);
+            m_util.str.get_concat_units(l, ls);
+            m_util.str.get_concat_units(r, rs);
             return eq(m_eq_id++, ls, rs, dep);
         }        
 
@@ -393,7 +393,8 @@ namespace smt {
         expr_ref_vector     m_length;             // length applications themselves
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
-        th_rewriter      m_rewrite;
+        th_rewriter      m_rewrite;               // rewriter that converts strings to character concats
+        th_rewriter      m_str_rewrite;           // rewriter that coonverts character concats to strings
         seq_rewriter     m_seq_rewrite;
         seq_util         m_util;
         arith_util       m_autil;
@@ -678,7 +679,6 @@ namespace smt {
         bool get_length(expr* s, rational& val);
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
-        expr_ref coalesce_chars(expr* const& str);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, expr* e4 = nullptr, sort* range = nullptr);
         bool is_skolem(symbol const& s, expr* e) const;
 
@@ -696,8 +696,7 @@ namespace smt {
         bool is_step(expr* e) const;
         bool is_max_unfolding(expr* e) const { return is_skolem(symbol("seq.max_unfolding_depth"), e); }
         expr_ref mk_max_unfolding_depth() { 
-            return mk_skolem(symbol("seq.max_unfolding_depth"), 
-                             m_autil.mk_int(m_max_unfolding_depth), 
+            return mk_skolem(symbol("seq.max_unfolding_depth"), m_autil.mk_int(m_max_unfolding_depth), 
                              nullptr, nullptr, nullptr, m.mk_bool_sort());
         }
         void propagate_not_prefix(expr* e);

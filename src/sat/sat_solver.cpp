@@ -74,6 +74,7 @@ namespace sat {
         m_par_syncing_clauses(false) {
         init_reason_unknown();
         updt_params(p);
+        m_best_phase_size         = 0;
         m_conflicts_since_gc      = 0;
         m_conflicts_since_init    = 0;
         m_next_simplify           = 0;
@@ -1152,8 +1153,11 @@ namespace sat {
                 }
                 literal l(v, false);
                 if (mdl[v] != l_true) l.neg();
+                if (inconsistent())
+                    return l_undef;
                 push();
                 assign_core(l, justification(scope_lvl()));
+                propagate(false);
             }
             mk_model();
             break;
@@ -1276,20 +1280,28 @@ namespace sat {
     };
 
     lbool solver::invoke_local_search(unsigned num_lits, literal const* lits) {
+        literal_vector _lits(num_lits, lits);
+        for (literal lit : m_user_scope_literals) _lits.push_back(~lit);
+        struct scoped_ls {
+            solver& s;
+            scoped_ls(solver& s): s(s) {}
+            ~scoped_ls() { 
+                dealloc(s.m_local_search); 
+                s.m_local_search = nullptr; 
+            }
+        };
+        scoped_ls _ls(*this);
         if (inconsistent()) return l_false;
         scoped_limits scoped_rl(rlimit());
         SASSERT(m_local_search);
-        i_local_search& srch = *m_local_search;
-        srch.add(*this);
-        srch.updt_params(m_params);
-        scoped_rl.push_child(&srch.rlimit());
-        lbool r = srch.check(num_lits, lits, nullptr);
+        m_local_search->add(*this);
+        m_local_search->updt_params(m_params);
+        scoped_rl.push_child(&(m_local_search->rlimit()));
+        lbool r = m_local_search->check(_lits.size(), _lits.c_ptr(), nullptr);
         if (r == l_true) {
-            m_model = srch.get_model();
+            m_model = m_local_search->get_model();
             m_model_is_current = true;
         }
-        m_local_search = nullptr;
-        dealloc(&srch);
         return r;
     }
 
@@ -1308,6 +1320,7 @@ namespace sat {
 
     lbool solver::do_prob_search(unsigned num_lits, literal const* lits) {
         if (m_ext) return l_undef;
+        if (num_lits > 0 || !m_user_scope_literals.empty()) return l_undef;
         SASSERT(!m_local_search);
         m_local_search = alloc(prob);
         return invoke_local_search(num_lits, lits);
@@ -1327,6 +1340,9 @@ namespace sat {
     }
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
+        if (!rlimit().inc()) {
+            return l_undef;
+        }
         scoped_ptr_vector<i_local_search> ls;
         scoped_ptr_vector<solver> uw;
         int num_extra_solvers = m_config.m_num_threads - 1;
@@ -1441,6 +1457,11 @@ namespace sat {
                 ex_kind = DEFAULT_EX;    
             }
         };
+
+        if (!rlimit().inc()) {
+            set_par(nullptr, 0);
+            return l_undef;
+        }
 
         vector<std::thread> threads(num_threads);
         for (int i = 0; i < num_threads; ++i) {
@@ -1711,6 +1732,7 @@ namespace sat {
 
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
+            set_external(lit.var());
             SASSERT(is_external(lit.var()));
             add_assumption(lit);
             assign_scoped(lit);
@@ -3891,6 +3913,7 @@ namespace sat {
             gc_var(lit.var());            
         }
         m_qhead = 0;
+        scoped_suspend_rlimit _sp(m_rlimit);
         propagate(false);
     }
 

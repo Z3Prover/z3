@@ -153,7 +153,7 @@ struct goal2sat::imp {
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << "\n";);
-                if (ext && !is_uninterp_const(t)) {
+                if (!is_uninterp_const(t)) {
                     m_interpreted_atoms.push_back(t);
                 }
             }
@@ -779,7 +779,7 @@ struct goal2sat::imp {
         }
         while (!m_frame_stack.empty()) {
         loop:
-            if (m.canceled())
+            if (!m.inc())
                 throw tactic_exception(m.limit().get_cancel_msg());
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
@@ -1098,7 +1098,7 @@ struct sat2goal::imp {
     }
 
     void checkpoint() {
-        if (m.canceled())
+        if (!m.inc())
             throw tactic_exception(m.limit().get_cancel_msg());
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);

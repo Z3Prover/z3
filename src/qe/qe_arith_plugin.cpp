@@ -735,7 +735,7 @@ namespace qe {
         bool solve(conj_enum& conjs, expr* fml) {
             expr_ref_vector eqs(m);
             extract_equalities(conjs, eqs);
-            return reduce_equations(eqs.size(), eqs.c_ptr(), fml);
+            return reduce_equations(eqs, fml);
         }
 
         // ----------------------------------------------------------------------
@@ -750,9 +750,7 @@ namespace qe {
             expr_ref tmp1(m), tmp2(m);
             expr *a0, *a1;
             eqs.reset();
-            conj_enum::iterator it = conjs.begin(), end = conjs.end();
-            for (; it != end; ++it) {
-                expr* e = *it;
+            for (expr* e : conjs) {
                 bool is_leq = false;
                 
                 if (m.is_eq(e, a0, a1) && is_arith(a0)) {
@@ -934,9 +932,9 @@ namespace qe {
         // Linear equations eliminate original variables and introduce auxiliary variables.
         // 
         
-        bool reduce_equations(unsigned num_eqs, expr * const* eqs, expr* fml) {
-            for (unsigned i = 0; i < num_eqs; ++i) {
-                if (reduce_equation(eqs[i], fml)) {
+        bool reduce_equations(expr_ref_vector const& eqs, expr* fml) {
+            for (expr* eq : eqs) {
+                if (reduce_equation(eq, fml)) {
                     return true;
                 }
             }
@@ -1013,6 +1011,14 @@ namespace qe {
                 return false;
             }
 
+            bool has_non_zero = false;
+            for (unsigned i = 1; !has_non_zero && i < values.size(); ++i) {
+                has_non_zero |= !values[i].is_zero(); 
+            }
+            if (!has_non_zero) {
+                return false;
+            }
+
             TRACE("qe", tout << "is linear: " << mk_pp(p, m) << "\n";);
             SASSERT(values.size() == num_vars + 1);
             SASSERT(num_vars > 0);
@@ -1031,26 +1037,27 @@ namespace qe {
             app_ref x(m_ctx.get_var(index-1), m);
             app_ref z(m);
             expr_ref p1(m);
+            sort* s = m.get_sort(p);
             if (is_aux) {
                 // An auxiliary variable was introduced in lieu of 'x'.
                 // it has coefficient 'm' = values[index].
-                SASSERT(values[index] >= rational(3));
-                z  = m.mk_fresh_const("x", m_arith.mk_int());
+                SASSERT(values[index] >= numeral(3));
+                z  = m.mk_fresh_const("x", s);
                 add_var(z);
-                p1 = m_arith.mk_mul(m_arith.mk_numeral(values[index], true), z);
+                p1 = m_arith.mk_mul(m_arith.mk_numeral(values[index], s), z);
             }
             else {                
                 // the coefficient to 'x' is -1.
-                p1 = m_arith.mk_numeral(numeral(0), true);
+                p1 = m_arith.mk_numeral(numeral(0), s);
             }
             
             for (unsigned i = 1; i <= num_vars; ++i) {
                 numeral k = values[i];
                 if (!k.is_zero() && i != index) {
-                    p1 = m_arith.mk_add(p1, m_arith.mk_mul(m_arith.mk_numeral(k, true), m_ctx.get_var(i-1)));
+                    p1 = m_arith.mk_add(p1, m_arith.mk_mul(m_arith.mk_numeral(k, s), m_ctx.get_var(i-1)));
                 }
             }
-            p1 = m_arith.mk_add(p1, m_arith.mk_numeral(values[0], true));
+            p1 = m_arith.mk_add(p1, m_arith.mk_numeral(values[0], s));
             
             TRACE("qe", 
                   tout << "is linear:\n" 
@@ -1068,7 +1075,7 @@ namespace qe {
             m_replace.apply_substitution(x, p1, result);
             simplify(result);            
             m_ctx.elim_var(index-1, result, p1);
-            TRACE("qe", tout << "Reduced: " << mk_pp(result, m) << "\n";);
+            TRACE("qe", tout << "Reduced " << index-1 << " : " << result << "\n";);
             return true;
         }        
 
@@ -1114,9 +1121,8 @@ namespace qe {
                 p = todo.back();
                 todo.pop_back();
                 if (m_arith.is_add(p)) {
-                    for (unsigned i = 0; i < to_app(p)->get_num_args(); ++i) {
-                        todo.push_back(to_app(p)->get_arg(i));
-                    }
+                    for (expr* arg : *to_app(p))
+                        todo.push_back(arg);
                 }
                 else if (m_arith.is_mul(p, e1, e2) &&
                          m_arith.is_numeral(e1, k) &&
@@ -1540,10 +1546,8 @@ public:
         {}
 
         ~arith_plugin() override {
-            bounds_cache::iterator it = m_bounds_cache.begin(), end = m_bounds_cache.end();
-            for (; it != end; ++it) {
-                dealloc(it->get_value());
-            }
+            for (auto & kv : m_bounds_cache) 
+                dealloc(kv.get_value());
         }
 
         void assign(contains_app& contains_x, expr* fml, rational const& vl) override {
@@ -2389,9 +2393,7 @@ public:
         bool update_bounds(bounds_proc& bounds, contains_app& contains_x, expr* fml, atom_set const& tbl, bool is_pos) 
         {
             app_ref tmp(m);
-            atom_set::iterator it = tbl.begin(), end = tbl.end();
-            for (; it != end; ++it) {
-                app* e = *it; 
+            for (app* e : tbl) {
                 if (!contains_x(e)) {
                     continue;
                 }
@@ -2460,14 +2462,10 @@ public:
         }
 
         ~nlarith_plugin() override {
-            bcs_t::iterator it = m_cache.begin(), end = m_cache.end();
-            for (; it != end; ++it) {
-                dealloc(it->get_value());
-            }
-            weights_t::iterator it2 = m_weights.begin(), e2 = m_weights.end();
-            for (; it2 != e2; ++it2) {
-                dealloc(it2->get_value());
-            }                        
+            for (auto & kv : m_cache) 
+                dealloc(kv.get_value());
+            for (auto& kv : m_weights)
+                dealloc(kv.get_value());
         }
 
         bool simplify(expr_ref& fml) override {
@@ -2597,9 +2595,7 @@ public:
         }
 
         void update_bounds(expr_ref_vector& lits, atom_set const& tbl, bool is_pos) {
-            atom_set::iterator it = tbl.begin(), end = tbl.end();
-            for (; it != end; ++it) {
-                app* e = *it; 
+            for (app* e : tbl) {
                 lits.push_back(is_pos?e:m.mk_not(e));                
             }                
         }

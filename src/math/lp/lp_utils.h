@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 #include <string>
 #include "math/lp/numeric_pair.h"
+#include "math/lp/lp_types.h"
 #include "util/debug.h"
 #include <unordered_map>
 #include <unordered_set>
@@ -115,7 +116,13 @@ template <typename T>
 std::ostream& print_linear_combination_of_column_indices_only(const vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) {
     return print_linear_combination_customized(
         coeffs,
-        [](unsigned j) {std::stringstream ss; ss << "v" << j; return ss.str();},
+        [](unsigned j) {std::stringstream ss;
+            if (tv::is_term(j)) {
+                ss << "t" << tv::unmask_term(j);
+            } else {
+                ss << "j" << j;
+            }
+            return ss.str();},
         out); 
 }
 template <typename T, typename K>

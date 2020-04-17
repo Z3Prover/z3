@@ -37,7 +37,6 @@ namespace sat {
             clause_filter(unsigned f, clause* cp):
                 m_filter(f), m_clause(cp) {}
         };
-        typedef svector<bool> bool_vector;
         unsigned                m_max_xor_size;
         vector<svector<clause_filter>>   m_clause_filters;      // index of clauses.
         unsigned                m_combination;  // bit-mask of parities that have been found

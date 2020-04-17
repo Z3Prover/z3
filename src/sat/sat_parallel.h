@@ -36,7 +36,7 @@ namespace sat {
             unsigned        m_size;
             unsigned        m_tail;
             unsigned_vector m_heads;
-            svector<bool>   m_at_end;
+            bool_vector   m_at_end;
             void next(unsigned& index);
             unsigned get_owner(unsigned index) const { return m_vectors[index]; }
             unsigned get_length(unsigned index) const { return m_vectors[index+1]; }

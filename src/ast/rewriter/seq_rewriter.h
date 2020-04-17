@@ -24,6 +24,7 @@ Notes:
 #include "ast/rewriter/rewriter_types.h"
 #include "util/params.h"
 #include "util/lbool.h"
+#include "util/sign.h"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata.h"
 
@@ -107,6 +108,7 @@ class seq_rewriter {
     arith_util     m_autil;
     re2automaton   m_re2aut;
     expr_ref_vector m_es, m_lhs, m_rhs;
+    bool           m_coalesce_chars;
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
@@ -121,6 +123,7 @@ class seq_rewriter {
     br_status mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_suffix(expr* a, expr* b, expr_ref& result);
+    br_status mk_str_units(func_decl* f, expr_ref& result);
     br_status mk_str_itos(expr* a, expr_ref& result);
     br_status mk_str_stoi(expr* a, expr_ref& result);
     br_status mk_str_in_regexp(expr* a, expr* b, expr_ref& result);
@@ -141,6 +144,7 @@ class seq_rewriter {
     bool cannot_contain_suffix(expr* a, expr* b);
 
     bool is_suffix(expr* s, expr* offset, expr* len);
+    bool sign_is_determined(expr* len, sign& s);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
@@ -162,15 +166,16 @@ class seq_rewriter {
     bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
 
 
+
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m) {
+        m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
 
-    void updt_params(params_ref const & p) {}
-    static void get_param_descrs(param_descrs & r) {}
+    void updt_params(params_ref const & p);
+    static void get_param_descrs(param_descrs & r);
 
     void set_solver(expr_solver* solver) { m_re2aut.set_solver(solver); }
     bool has_solver() { return m_re2aut.has_solver(); }

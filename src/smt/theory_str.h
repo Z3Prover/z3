@@ -622,6 +622,8 @@ protected:
     stats m_stats;
 
 protected:
+    void reset_internal_data_structures();
+
     void assert_axiom(expr * e);
     void assert_implication(expr * premise, expr * conclusion);
     expr * rewrite_implication(expr * premise, expr * conclusion);
@@ -909,7 +911,7 @@ protected:
     void new_eq_eh(theory_var, theory_var) override;
     void new_diseq_eh(theory_var, theory_var) override;
 
-    theory* mk_fresh(context*) override { return alloc(theory_str, get_manager(), m_params); }
+    theory* mk_fresh(context* c) override { return alloc(theory_str, c->get_manager(), m_params); }
     void init(context * ctx) override;
     void init_search_eh() override;
     void add_theory_assumptions(expr_ref_vector & assumptions) override;

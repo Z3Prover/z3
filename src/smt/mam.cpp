@@ -797,7 +797,7 @@ namespace {
         code_tree *             m_tree;
         unsigned                m_num_choices;
         bool                    m_is_tmp_tree;
-        svector<bool>           m_mp_already_processed;
+        bool_vector           m_mp_already_processed;
         obj_map<expr, unsigned> m_matched_exprs;
 
         struct pcheck_checked {
@@ -3106,10 +3106,10 @@ namespace {
 
         // m_is_plbl[f] is true, then when f(c_1, ..., c_n) becomes relevant,
         //  for each c_i. c_i->get_root()->lbls().insert(lbl_hash(f))
-        svector<bool>               m_is_plbl;
+        bool_vector               m_is_plbl;
         // m_is_clbl[f] is true, then when n=f(c_1, ..., c_n) becomes relevant,
         //  n->get_root()->lbls().insert(lbl_hash(f))
-        svector<bool>               m_is_clbl;    // children labels
+        bool_vector               m_is_clbl;    // children labels
 
         // auxiliary field used to update data-structures...
         typedef ptr_vector<func_decl> func_decls;
@@ -4027,8 +4027,3 @@ namespace smt {
     }
 }
 
-#ifdef Z3DEBUG
-void pp(code_tree * c) {
-    c->display(std::cout);
-}
-#endif

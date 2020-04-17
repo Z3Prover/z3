@@ -461,6 +461,9 @@ void fpa2bv_converter::add_core(unsigned sbits, unsigned ebits,
     big_d_sig = m_bv_util.mk_concat(d_sig, m_bv_util.mk_numeral(0, sbits+3));
 
     SASSERT(is_well_sorted(m, big_d_sig));
+    if (ebits > sbits)
+        throw default_exception("there is no floating point support for division for representations with non-standard bit representations");
+
 
     expr_ref shifted_big(m), shifted_d_sig(m), sticky_raw(m), sticky(m);
     shifted_big = m_bv_util.mk_bv_lshr(big_d_sig, m_bv_util.mk_concat(m_bv_util.mk_numeral(0, (2*(sbits+3))-ebits), exp_delta));
@@ -937,6 +940,8 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     // else comes the actual division.
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
+    if (ebits > sbits)
+        throw default_exception("there is no floating point support for division for representations with non-standard bit representations");
     SASSERT(ebits <= sbits);
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), a_lz(m), b_sgn(m), b_sig(m), b_exp(m), b_lz(m);
@@ -1104,7 +1109,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     // else the actual remainder.
     // max. exponent difference is (2^ebits) - 3
     const mpz & two_to_ebits = fu().fm().m_powers2(ebits);
-    mpz max_exp_diff;
+    scoped_mpz max_exp_diff(m_mpz_manager);
     m_mpz_manager.sub(two_to_ebits, 3, max_exp_diff);
     if (m_mpz_manager.gt(max_exp_diff, INT32_MAX))
         // because zero-extend allows only int params...
@@ -1134,7 +1139,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     // (using the lazy bit-blaster helps on simple instances).
     expr_ref lshift(m), rshift(m), shifted(m), huge_rem(m), huge_div(m), huge_div_is_even(m);
     expr_ref a_sig_ext_l = a_sig, b_sig_ext_l = b_sig;
-    mpz remaining;
+    scoped_mpz remaining(m_mpz_manager);
     m_mpz_manager.set(remaining, max_exp_diff);
     while (m_mpz_manager.gt(remaining, INT32_MAX)) {
         SASSERT(false); // zero-extend ast's expect int params which would overflow.
@@ -1151,14 +1156,14 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     a_sig_ext = m_bv_util.mk_concat(a_sig_ext_l, m_bv_util.mk_numeral(0, 3));
     b_sig_ext = m_bv_util.mk_concat(b_sig_ext_l, m_bv_util.mk_numeral(0, 3));
 
-    mpz max_exp_diff_adj;
+    scoped_mpz max_exp_diff_adj(m_mpz_manager);
     m_mpz_manager.add(max_exp_diff, sbits, max_exp_diff_adj);
     m_mpz_manager.sub(max_exp_diff_adj, ebits, max_exp_diff_adj);
     m_mpz_manager.add(max_exp_diff_adj, 1, max_exp_diff_adj);
     expr_ref edr_tmp = exp_diff, nedr_tmp = neg_exp_diff;
     m_mpz_manager.set(remaining, max_exp_diff_adj);
     while (m_mpz_manager.gt(remaining, INT32_MAX)) {
-        SASSERT(false); // zero-extend ast's expect int params which would overflow.
+        throw default_exception("zero extension overflow floating point types are too large");
         edr_tmp = m_bv_util.mk_zero_extend(INT32_MAX, edr_tmp);
         nedr_tmp = m_bv_util.mk_zero_extend(INT32_MAX, nedr_tmp);
         m_mpz_manager.sub(remaining, INT32_MAX, remaining);
@@ -1169,10 +1174,6 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     }
     lshift = edr_tmp;
     rshift = nedr_tmp;
-
-    m_mpz_manager.del(remaining);
-    m_mpz_manager.del(max_exp_diff);
-    m_mpz_manager.del(max_exp_diff_adj);
 
     shifted = m.mk_ite(exp_diff_is_neg, m_bv_util.mk_bv_ashr(a_sig_ext, rshift),
                                         m_bv_util.mk_bv_shl(a_sig_ext, lshift));

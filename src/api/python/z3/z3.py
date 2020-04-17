@@ -1405,7 +1405,7 @@ class BoolSortRef(SortRef):
             return BoolVal(val, self.ctx)
         if z3_debug():
             if not is_expr(val):
-               _z3_assert(is_expr(val), "True, False or Z3 Boolean expression expected. Received %s" % val)
+               _z3_assert(is_expr(val), "True, False or Z3 Boolean expression expected. Received %s of type %s" % (val, type(val)))
             if not self.eq(val.sort()):
                _z3_assert(self.eq(val.sort()), "Value cannot be converted into a Z3 Boolean value")
         return val
@@ -1716,11 +1716,10 @@ def And(*args):
         ctx = args[0].ctx
         args = [a for a in args[0]]
     else:
-        ctx = main_ctx()
+        ctx = None
     args = _get_args(args)
-    ctx_args  = _ctx_from_ast_arg_list(args, ctx)
+    ctx  = _get_ctx(_ctx_from_ast_arg_list(args, ctx))
     if z3_debug():
-        _z3_assert(ctx_args is None or ctx_args == ctx, "context mismatch")
         _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression or probe")
     if _has_probe(args):
         return _probe_and(args, ctx)
@@ -1745,12 +1744,14 @@ def Or(*args):
     if isinstance(last_arg, Context):
         ctx = args[len(args)-1]
         args = args[:len(args)-1]
+    elif len(args) == 1 and isinstance(args[0], AstVector):
+        ctx = args[0].ctx
+        args = [a for a in args[0]]
     else:
-        ctx = main_ctx()
+        ctx = None
     args = _get_args(args)
-    ctx_args  = _ctx_from_ast_arg_list(args, ctx)
+    ctx  = _get_ctx(_ctx_from_ast_arg_list(args, ctx))
     if z3_debug():
-        _z3_assert(ctx_args is None or ctx_args == ctx, "context mismatch")
         _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression or probe")
     if _has_probe(args):
         return _probe_or(args, ctx)
@@ -3059,7 +3060,8 @@ def IntVector(prefix, sz, ctx=None):
     >>> Sum(X)
     x__0 + x__1 + x__2
     """
-    return [ Int('%s__%s' % (prefix, i)) for i in range(sz) ]
+    ctx = _get_ctx(ctx)
+    return [ Int('%s__%s' % (prefix, i), ctx) for i in range(sz) ]
 
 def FreshInt(prefix='x', ctx=None):
     """Return a fresh integer constant in the given context using the given prefix.
@@ -3111,7 +3113,8 @@ def RealVector(prefix, sz, ctx=None):
     >>> Sum(X).sort()
     Real
     """
-    return [ Real('%s__%s' % (prefix, i)) for i in range(sz) ]
+    ctx = _get_ctx(ctx)
+    return [ Real('%s__%s' % (prefix, i), ctx) for i in range(sz) ]
 
 def FreshReal(prefix='b', ctx=None):
     """Return a fresh real constant in the given context using the given prefix.

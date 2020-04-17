@@ -165,14 +165,11 @@ public:
             }
         }
         TRACE("hnf",
-              tout << mk_pp(n, m) << "\n==>\n";
-              for (unsigned i = 0; i < result.size(); ++i) {
-                  tout << mk_pp(result[i].get(), m) << "\n";
-              });
+            tout << mk_pp(n, m) << "\n==>\n" << result << "\n";);
     }
 
     bool checkpoint() {
-        return !m.canceled();
+        return m.inc();
     }
 
     void set_name(symbol const& n) {
@@ -244,7 +241,12 @@ private:
                 premise = mk_modus_ponens(premise, p1);
                 fml = fml1;
             }
+            else if (fml1 != fml) {
+                premise = mk_modus_ponens(premise, m.mk_rewrite(fml, fml1));
+                fml = fml1;
+            }
         }
+        SASSERT(!premise || (fml1 == fml && fml == m.get_fact(premise)));
         head = fml0;
         while (m.is_implies(head, e1, e2)) {
             m_body.push_back(e1);
@@ -453,13 +455,13 @@ private:
     }
 
 
-    proof_ref mk_congruence(proof* p1, expr_ref_vector const& body, expr* head, proof_ref_vector& defs) {
+    proof_ref mk_congruence(proof* p, expr_ref_vector const& body, expr* head, proof_ref_vector& defs) {
         if (defs.empty()) {
-            return proof_ref(p1, m);
+            return proof_ref(p, m);
         }
         else {
-            SASSERT(p1);
-            proof_ref p2(m), p3(m);
+            SASSERT(p);
+            proof_ref p1(p, m), p2(m), p3(m);
             app_ref fml = mk_implies(body, head);
             expr* fact = m.get_fact(p1);
             if (m.is_iff(fact)) {
@@ -471,7 +473,7 @@ private:
             p2 = m.mk_oeq_congruence(e2, fml, defs.size(), defs.c_ptr());
             p3 = mk_transitivity(p1, p2);
             defs.reset();
-            return proof_ref(p3, m);
+            return p3;
         }
     }
 

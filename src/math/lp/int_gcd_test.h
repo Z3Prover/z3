@@ -38,7 +38,7 @@ namespace lp {
         unsigned m_delay;
 
         bool gcd_test();
-        bool gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i);
+        bool gcd_test_for_row(const static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i);
         bool ext_gcd_test(const row_strip<mpq> & row,
                                         mpq const & least_coeff, 
                                         mpq const & lcm_den,

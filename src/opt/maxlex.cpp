@@ -131,7 +131,16 @@ namespace opt {
             }
             model_ref mdl;
             s().get_model(mdl);
-            if (mdl) update_assignment(mdl);           
+            if (mdl) {
+                for (auto & soft : m_soft) {
+                    if (!mdl->is_true(soft.s)) {
+                        break;
+                    }
+                    soft.set_value(l_true);
+                    assert_value(soft);
+                }
+                update_bounds();
+            }
         }
 
         //
@@ -150,7 +159,7 @@ namespace opt {
                 switch (is_sat) {
                 case l_true:
                     update_assignment();
-                    SASSERT(soft.value == l_true || m.canceled());
+                    SASSERT(soft.value == l_true || m.limit().get_cancel_flag());
                     break;
                 case l_false:
                     soft.set_value(l_false);

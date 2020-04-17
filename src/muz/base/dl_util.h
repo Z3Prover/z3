@@ -88,7 +88,7 @@ namespace datalog {
         for (unsigned i = 0; i < n; i++) {
             expr * arg = src->get_arg(i);
             if (!is_var(arg)) {
-                tgt[i]=arg;
+                tgt[i] = arg;
             }
         }
     }
@@ -168,12 +168,12 @@ namespace datalog {
         }
 
         bool empty() const {
-            return size()==0;
+            return size() == 0;
         }
 
         void get(unsigned i, unsigned & index1, unsigned & index2) const {
-            index1=m_args1[i];
-            index2=m_args2[i];
+            index1 = m_args1[i];
+            index2 = m_args2[i];
         }
 
         void reset() {
@@ -192,11 +192,11 @@ namespace datalog {
         */
         template<typename T>
         void fill_into_second(const app * f1, T & tgt) const {
-            unsigned n=size();
-            for(unsigned i=0; i<n; i++) {
+            unsigned n = size();
+            for (unsigned i = 0; i < n; i++) {
                 unsigned f1_index, tgt_index;
                 get(i, f1_index, tgt_index);
-                tgt[tgt_index]=f1->get_arg(f1_index);
+                tgt[tgt_index] = f1->get_arg(f1_index);
             }
         }
 
@@ -216,19 +216,19 @@ namespace datalog {
             //TODO: optimize number of checks when variable occurs multiple times
             unsigned a1num = expr_cont_get_size(a1);
             unsigned a2num = expr_cont_get_size(a2);
-            for(unsigned i1=0; i1<a1num; i1++) {
-                expr * e1=expr_cont_get(a1,i1);
-                if(!is_var(e1)) {
+            for (unsigned i1 = 0; i1<a1num; i1++) {
+                expr * e1 = expr_cont_get(a1,i1);
+                if (!is_var(e1)) {
                     continue;
                 }
-                var* v1=to_var(e1);
-                for(unsigned i2=0; i2<a2num; i2++) {
-                    expr * e2=expr_cont_get(a2,i2);
-                    if(!is_var(e2)) {
+                var* v1 = to_var(e1);
+                for (unsigned i2 = 0; i2<a2num; i2++) {
+                    expr * e2 = expr_cont_get(a2,i2);
+                    if (!is_var(e2)) {
                         continue;
                     }
-                    var* v2=to_var(e2);
-                    if(v1->get_idx()==v2->get_idx()) {
+                    var* v2 = to_var(e2);
+                    if (v1->get_idx() == v2->get_idx()) {
                         add_pair(i1, i2);
                     }
                 }
@@ -244,14 +244,14 @@ namespace datalog {
 
     template<class T>
     void project_out_vector_columns(T & container, unsigned removed_col_cnt, const unsigned * removed_cols) {
-        if(removed_col_cnt==0) {
+        if (removed_col_cnt==0) {
             return;
         }
         unsigned n = container.size();
         unsigned ofs = 1;
         unsigned r_i = 1;
-        for(unsigned i=removed_cols[0]+1; i<n; i++) {
-            if(r_i!=removed_col_cnt && removed_cols[r_i]==i) {
+        for (unsigned i=removed_cols[0]+1; i<n; i++) {
+            if (r_i!=removed_col_cnt && removed_cols[r_i]==i) {
                 r_i++;
                 ofs++;
                 continue;
@@ -271,14 +271,14 @@ namespace datalog {
     template<class T, class M>
     void project_out_vector_columns(ref_vector<T,M> & container, unsigned removed_col_cnt, 
             const unsigned * removed_cols) {
-        if(removed_col_cnt==0) {
+        if (removed_col_cnt==0) {
             return;
         }
         unsigned n = container.size();
         unsigned ofs = 1;
         unsigned r_i = 1;
-        for(unsigned i=removed_cols[0]+1; i<n; i++) {
-            if(r_i!=removed_col_cnt && removed_cols[r_i]==i) {
+        for (unsigned i=removed_cols[0]+1; i<n; i++) {
+            if (r_i!=removed_col_cnt && removed_cols[r_i]==i) {
                 r_i++;
                 ofs++;
                 continue;
@@ -319,11 +319,11 @@ namespace datalog {
 
     template<class T>
     void permutate_by_cycle(T & container, unsigned cycle_len, const unsigned * permutation_cycle) {
-        if(cycle_len<2) {
+        if (cycle_len<2) {
             return;
         }
         typename T::data aux = container[permutation_cycle[0]];
-        for(unsigned i=1; i<cycle_len; i++) {
+        for (unsigned i=1; i<cycle_len; i++) {
             container[permutation_cycle[i-1]]=container[permutation_cycle[i]];
         }
         container[permutation_cycle[cycle_len-1]]=aux;
@@ -331,11 +331,11 @@ namespace datalog {
 
     template<class T, class M>
     void permutate_by_cycle(ref_vector<T,M> & container, unsigned cycle_len, const unsigned * permutation_cycle) {
-        if(cycle_len<2) {
+        if (cycle_len<2) {
             return;
         }
         T * aux = container.get(permutation_cycle[0]);
-        for(unsigned i=1; i<cycle_len; i++) {
+        for (unsigned i=1; i<cycle_len; i++) {
             container.set(permutation_cycle[i-1], container.get(permutation_cycle[i]));
         }
         container.set(permutation_cycle[cycle_len-1], aux);
@@ -369,7 +369,7 @@ namespace datalog {
     proof_converter* mk_skip_proof_converter();
 
 
-    void reverse_renaming(ast_manager & m, const expr_ref_vector & src, expr_ref_vector & tgt);
+    void reverse_renaming(const var_ref_vector & src, var_ref_vector & tgt);
 
 
     void print_renaming(const expr_ref_vector & cont, std::ostream & out);
@@ -385,14 +385,14 @@ namespace datalog {
 
     template<class T, class U>
     bool vectors_equal(const T & c1, const U & c2) {
-        if(c1.size()!=c2.size()) {
+        if (c1.size()!=c2.size()) {
             return false;
         }
         typename T::data * it1 = c1.c_ptr();
         typename T::data * end1 = c1.c_ptr()+c1.size();
         typename U::data * it2 = c2.c_ptr();
-        for(; it1!=end1; ++it1, ++it2) {
-            if(*it1!=*it2) { 
+        for (; it1!=end1; ++it1, ++it2) {
+            if (*it1!=*it2) { 
                 return false;
             }
         }
@@ -436,7 +436,7 @@ namespace datalog {
     void dealloc_ptr_vector_content(ptr_vector<T> & v) {
         typename ptr_vector<T>::iterator it = v.begin();
         typename ptr_vector<T>::iterator end = v.end();
-        for(; it!=end; ++it) {
+        for (; it!=end; ++it) {
             dealloc(*it);
         }
     }
@@ -448,7 +448,7 @@ namespace datalog {
     void push_into_vector(VectType & vector, const U & src) {
         typename U::iterator it = src.begin();
         typename U::iterator end = src.end();
-        for(; it!=end; ++it) {
+        for (; it!=end; ++it) {
             vector.push_back(*it);
         }
     }
@@ -457,7 +457,7 @@ namespace datalog {
     void push_into_vector(VectType & vector, const ref_vector<U,M> & src) {
         U * const * it = src.begin();
         U * const * end = src.end();
-        for(; it!=end; ++it) {
+        for (; it!=end; ++it) {
             vector.push_back(*it);
         }
     }
@@ -466,7 +466,7 @@ namespace datalog {
     void insert_into_set(SetType & tgt, const U & src) {
         typename U::const_iterator it = src.begin();
         typename U::const_iterator end = src.end();
-        for(; it!=end; ++it) {
+        for (; it!=end; ++it) {
             tgt.insert(*it);
         }
     }
@@ -480,8 +480,8 @@ namespace datalog {
     template<class T>
     bool remove_from_vector(T & v, const typename T::data & el) {
         unsigned sz = v.size();
-        for(unsigned i=0; i<sz; i++) {
-            if(v[i]==el) {
+        for (unsigned i=0; i<sz; i++) {
+            if (v[i]==el) {
                 std::swap(v[i], v.back());
                 v.pop_back();
                 return true;
@@ -515,28 +515,28 @@ namespace datalog {
 
     template<class T, class U>
     void sort_two_arrays(unsigned len, T* keys, U* vals) {
-        if(len<2) {
+        if (len<2) {
             return;
         }
-        if(len==2) {
-            if(keys[0]>keys[1]) {
+        if (len==2) {
+            if (keys[0]>keys[1]) {
                 std::swap(keys[0], keys[1]);
                 std::swap(vals[0], vals[1]);
             }
             return;
         }
         unsigned_vector numbers;
-        for(unsigned i=0; i<len; i++) {
+        for (unsigned i=0; i<len; i++) {
             numbers.push_back(i);
         }
         aux__index_comparator<T> cmp(keys);
         std::sort(numbers.begin(), numbers.end(), cmp);
-        for(unsigned i=0; i<len; i++) {
+        for (unsigned i=0; i<len; i++) {
             unsigned prev_i = i;
-            for(;;) {
+            for (;;) {
                 unsigned src_i = numbers[prev_i];
                 numbers[prev_i]=prev_i;
-                if(src_i==i) {
+                if (src_i==i) {
                     break;
                 }
                 std::swap(keys[prev_i], keys[src_i]);
@@ -565,8 +565,8 @@ namespace datalog {
     template<class Container>
     void add_sequence_without_set(unsigned start, unsigned count, const Container & complement, unsigned_vector & v) {
         unsigned after_last = start+count;
-        for(unsigned i=start; i<after_last; i++) {
-            if(!complement.contains(i)) {
+        for (unsigned i=start; i<after_last; i++) {
+            if (!complement.contains(i)) {
                 v.push_back(i);
             }
         }

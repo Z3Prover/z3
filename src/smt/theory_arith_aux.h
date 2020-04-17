@@ -468,7 +468,7 @@ namespace smt {
         SASSERT(upper  || new_bound->get_bound_kind() == B_LOWER);
         theory_var v = new_bound->get_var();
         set_bound_core(v, new_bound, upper);
-        if ((propagate_eqs() || propagate_diseqs()) && is_fixed(v))
+        if ((propagate_eqs() || propagate_diseqs()) && is_fixed(v)) 
             fixed_var_eh(v);
     }
     
@@ -2146,6 +2146,8 @@ namespace smt {
                 candidates.push_back(other);
             }
         }
+        TRACE("arith_rand", tout << "candidates.size() == " << candidates.size() << "\n";);
+
         if (candidates.empty())
             return;
         m_tmp_var_set.reset();
@@ -2237,7 +2239,6 @@ namespace smt {
         if (result)
             get_context().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
         return delayed_assume_eqs();
-        // return this->assume_eqs(m_var_value_table);
     }
 
     template<typename Ext>
@@ -2258,6 +2259,7 @@ namespace smt {
             if (get_value(v1) == get_value(v2) && 
                 get_enode(v1)->get_root() != get_enode(v2)->get_root() &&
                 assume_eq(get_enode(v1), get_enode(v2))) {
+                ++m_stats.m_assume_eqs;
                 return true;
             }
         }

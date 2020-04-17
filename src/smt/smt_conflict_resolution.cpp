@@ -37,7 +37,7 @@ namespace smt {
                                              literal_vector const & assigned_literals,
                                              vector<watch_list> & watches
                                              ):
-        m_manager(m),
+        m(m),
         m_params(params),
         m_ctx(ctx),
         m_dyn_ack_manager(dyn_ack_manager),
@@ -47,6 +47,7 @@ namespace smt {
         m_antecedents(nullptr),
         m_watches(watches),
         m_new_proofs(m),
+        m_trail(m),
         m_lemma_proof(m)
     {
     }
@@ -412,7 +413,7 @@ namespace smt {
         // of justification are considered level zero.
         if (m_conflict_lvl <= m_ctx.get_search_level()) {
             TRACE("conflict", tout << "problem is unsat\n";);
-            if (m_manager.proofs_enabled())
+            if (m.proofs_enabled())
                 mk_conflict_proof(conflict, not_l);
             if (m_ctx.tracking_assumptions())
                 mk_unsat_core(conflict, not_l);
@@ -474,7 +475,7 @@ namespace smt {
               tout << "new scope level:     " << m_new_scope_lvl << "\n";
               tout << "intern. scope level: " << m_lemma_iscope_lvl << "\n";);
 
-        if (m_manager.proofs_enabled())
+        if (m.proofs_enabled())
             mk_conflict_proof(conflict, not_l);
     }
 
@@ -782,39 +783,39 @@ namespace smt {
     proof * conflict_resolution::norm_eq_proof(enode * n1, enode * n2, proof * pr) {
         if (!pr)
             return nullptr;
-        SASSERT(m_manager.has_fact(pr));
-        app * fact     = to_app(m_manager.get_fact(pr));
+        SASSERT(m.has_fact(pr));
+        app * fact     = to_app(m.get_fact(pr));
         app * n1_owner = n1->get_owner();
         app * n2_owner = n2->get_owner();
-        bool is_eq = m_manager.is_eq(fact);
+        bool is_eq = m.is_eq(fact);
         if (!is_eq || (fact->get_arg(0) != n2_owner && fact->get_arg(1) != n2_owner)) {
             CTRACE("norm_eq_proof_bug", !m_ctx.is_true(n2) && !m_ctx.is_false(n2),
                    tout << "n1: #" << n1->get_owner_id() << ", n2: #" << n2->get_owner_id() << "\n";
                    if (fact->get_num_args() == 2) {
                        tout << "fact(0): #" << fact->get_arg(0)->get_id() << ", fact(1): #" << fact->get_arg(1)->get_id() << "\n";
                    }
-                   tout << mk_bounded_pp(n1->get_owner(), m_manager, 10) << "\n";
-                   tout << mk_bounded_pp(n2->get_owner(), m_manager, 10) << "\n";
-                   tout << mk_bounded_pp(fact, m_manager, 10) << "\n";
-                   tout << mk_ll_pp(pr, m_manager, true, false););
+                   tout << mk_bounded_pp(n1->get_owner(), m, 10) << "\n";
+                   tout << mk_bounded_pp(n2->get_owner(), m, 10) << "\n";
+                   tout << mk_bounded_pp(fact, m, 10) << "\n";
+                   tout << mk_ll_pp(pr, m, true, false););
             SASSERT(m_ctx.is_true(n2) || m_ctx.is_false(n2));
-            SASSERT(fact == n1_owner || (m_manager.is_not(fact) && fact->get_arg(0) == n1_owner));
+            SASSERT(fact == n1_owner || (m.is_not(fact) && fact->get_arg(0) == n1_owner));
             if (m_ctx.is_true(n2))
-                pr = m_manager.mk_iff_true(pr);
+                pr = m.mk_iff_true(pr);
             else
-                pr = m_manager.mk_iff_false(pr);
+                pr = m.mk_iff_false(pr);
             m_new_proofs.push_back(pr);
             return pr;
         }
         TRACE("norm_eq_proof",
               tout << "#" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";
-              tout << mk_ll_pp(pr, m_manager, true, false););
-        SASSERT(m_manager.is_eq(fact));
+              tout << mk_ll_pp(pr, m, true, false););
+        SASSERT(m.is_eq(fact));
         SASSERT((fact->get_arg(0) == n1->get_owner() && fact->get_arg(1) == n2->get_owner()) ||
                 (fact->get_arg(1) == n1->get_owner() && fact->get_arg(0) == n2->get_owner()));
         if (fact->get_arg(0) == n1_owner && fact->get_arg(1) == n2_owner)
             return pr;
-        pr = m_manager.mk_symmetry(pr);
+        pr = m.mk_symmetry(pr);
         m_new_proofs.push_back(pr);
         return pr;
     }
@@ -863,20 +864,20 @@ namespace smt {
                     return nullptr;
                 app * e1 = n1->get_owner();
                 app * e2 = n2->get_owner();
-                app * e2_prime = m_manager.mk_app(e2->get_decl(), e2->get_arg(1), e2->get_arg(0));
+                app * e2_prime = m.mk_app(e2->get_decl(), e2->get_arg(1), e2->get_arg(0));
                 proof * pr1 = nullptr;
                 if (!prs.empty()) {
-                    pr1 = m_manager.mk_congruence(e1, e2_prime, prs.size(), prs.c_ptr());
+                    pr1 = m.mk_congruence(e1, e2_prime, prs.size(), prs.c_ptr());
                     m_new_proofs.push_back(pr1);
                 }
                 else {
-                    TRACE("comm_proof_bug", tout << "e1: #" << e1->get_id() << " e2: #" << e2->get_id() << "\n" << mk_bounded_pp(e1, m_manager, 10) <<
-                          "\n" << mk_bounded_pp(e2, m_manager, 10) << "\n";);
+                    TRACE("comm_proof_bug", tout << "e1: #" << e1->get_id() << " e2: #" << e2->get_id() << "\n" << mk_bounded_pp(e1, m, 10) <<
+                          "\n" << mk_bounded_pp(e2, m, 10) << "\n";);
                     // SASSERT(e1 == e2);
                 }
-                proof * pr2 = m_manager.mk_commutativity(e2_prime);
+                proof * pr2 = m.mk_commutativity(e2_prime);
                 m_new_proofs.push_back(pr2);
-                return m_manager.mk_transitivity(pr1, pr2);
+                return m.mk_transitivity(pr1, pr2);
             }
             else {
                 bool visited = true;
@@ -893,7 +894,7 @@ namespace smt {
                 }
                 if (!visited)
                     return nullptr;
-                proof * pr = m_manager.mk_congruence(n1->get_owner(), n2->get_owner(), prs.size(), prs.c_ptr());
+                proof * pr = m.mk_congruence(n1->get_owner(), n2->get_owner(), prs.size(), prs.c_ptr());
                 m_new_proofs.push_back(pr);
                 return pr;
             }
@@ -910,7 +911,7 @@ namespace smt {
     proof * conflict_resolution::get_proof(literal l) {
         proof * pr;
         if (m_lit2proof.find(l, pr)) {
-            TRACE("proof_gen_bug", tout << "lit2pr_cached: #" << l << "\n";);
+            TRACE("proof_gen_bug", tout << "lit2pr_cached: #" << l << " " << pr << " " << pr->get_id() << "\n";);
             return pr;
         }
         m_todo_pr.push_back(tp_elem(l));
@@ -945,9 +946,9 @@ namespace smt {
         // So, the test "m_ctx.get_justification(l.var()) == js" is used to check
         // if l was assigned before ~l.
         if ((m_ctx.is_marked(l.var()) && m_ctx.get_justification(l.var()) == js) || (js.get_kind() == b_justification::AXIOM)) {
-            expr_ref l_expr(m_manager);
+            expr_ref l_expr(m);
             m_ctx.literal2expr(l, l_expr);
-            proof * pr = m_manager.mk_hypothesis(l_expr.get());
+            proof * pr = m.mk_hypothesis(l_expr.get());
             m_new_proofs.push_back(pr);
             return pr;
         }
@@ -989,45 +990,45 @@ namespace smt {
                 }
                 if (!visited)
                     return nullptr;
-                expr_ref l_exr(m_manager);
+                expr_ref l_exr(m);
                 m_ctx.literal2expr(l, l_exr);
                 TRACE("get_proof_bug",
                       tout << "clause:\n";
                       for (unsigned i = 0; i < num_lits; i++) {
                           tout << cls->get_literal(i).index() << "\n";
-                          expr_ref l_expr(m_manager);
+                          expr_ref l_expr(m);
                           m_ctx.literal2expr(cls->get_literal(i), l_expr);
-                          tout << mk_pp(l_expr, m_manager) << "\n";
+                          tout << mk_pp(l_expr, m) << "\n";
                       }
                       tout << "antecedents:\n";
                       for (unsigned i = 0; i < prs.size(); i++) {
-                          tout << mk_pp(m_manager.get_fact(prs[i]), m_manager) << "\n";
+                          tout << mk_pp(m.get_fact(prs[i]), m) << "\n";
                       }
-                      tout << "consequent:\n" << mk_pp(l_exr, m_manager) << "\n";);
+                      tout << "consequent:\n" << mk_pp(l_exr, m) << "\n";);
                 CTRACE("get_proof_bug_after",
                        invocation_counter >= DUMP_AFTER_NUM_INVOCATIONS,
                        tout << "clause, num_lits: " << num_lits << ":\n";
                        for (unsigned i = 0; i < num_lits; i++) {
                            tout << cls->get_literal(i).index() << "\n";
-                           expr_ref l_expr(m_manager);
+                           expr_ref l_expr(m);
                            m_ctx.literal2expr(cls->get_literal(i), l_expr);
-                           tout << mk_pp(l_expr, m_manager) << "\n";
+                           tout << mk_pp(l_expr, m) << "\n";
                        }
                        tout << "antecedents:\n";
                        for (unsigned i = 0; i < prs.size(); i++) {
-                           tout << mk_pp(m_manager.get_fact(prs[i]), m_manager) << "\n";
+                           tout << mk_pp(m.get_fact(prs[i]), m) << "\n";
                        }
-                       tout << "consequent:\n" << mk_pp(l_exr, m_manager) << "\n";);
+                       tout << "consequent:\n" << mk_pp(l_exr, m) << "\n";);
                 TRACE("get_proof",
                       tout << l.index() << " " << true_literal.index() << " " << false_literal.index() << " ";
                       m_ctx.display_literal(tout, l); tout << " --->\n";
-                      tout << mk_ll_pp(l_exr, m_manager););
+                      tout << mk_ll_pp(l_exr, m););
                 CTRACE("get_proof_bug_after",
                        invocation_counter >= DUMP_AFTER_NUM_INVOCATIONS,
                        tout << l.index() << " " << true_literal.index() << " " << false_literal.index() << " ";
                        m_ctx.display_literal(tout, l); tout << " --->\n";
-                       tout << mk_ll_pp(l_exr, m_manager););
-                pr = m_manager.mk_unit_resolution(prs.size(), prs.c_ptr(), l_exr);
+                       tout << mk_ll_pp(l_exr, m););
+                pr = m.mk_unit_resolution(prs.size(), prs.c_ptr(), l_exr);
                 m_new_proofs.push_back(pr);
                 return pr;
             }
@@ -1044,7 +1045,7 @@ namespace smt {
     proof * conflict_resolution::get_proof(justification * js) {
         proof * pr;
         if (m_js2proof.find(js, pr)) {
-            TRACE("proof_gen_bug", tout << "js2pr_cached: #" << js << "\n";);
+            TRACE("proof_gen_bug", tout << "js2pr_cached: #" << js << " " << pr << " " << pr->get_id() << "\n";);
             return pr;
         }
         SASSERT(js != nullptr);
@@ -1053,15 +1054,14 @@ namespace smt {
         return nullptr;
     }
 
-    void conflict_resolution::init_mk_proof() {
+    void conflict_resolution::reset() {
         TRACE("proof_gen_bug", tout << "reset_caches\n";);
         m_new_proofs.reset();
         m_todo_pr.reset();
         m_eq2proof.reset();
         m_lit2proof.reset();
         m_js2proof.reset();
-        for (literal lit : m_lemma)
-            m_ctx.set_mark(lit.var());
+        m_trail.reset();
     }
 
     bool conflict_resolution::visit_b_justification(literal l, b_justification js) {
@@ -1106,12 +1106,13 @@ namespace smt {
         SASSERT(!m_lit2proof.contains(l));
         proof * pr = get_proof(l, js);
         SASSERT(pr);
-        TRACE("proof_gen_bug", tout << "lit2pr_saved: #" << l << "\n";);
+        TRACE("proof_gen_bug", tout << "lit2pr_saved: #" << l << " " << pr << " " << pr->get_id() << "\n";);
         m_lit2proof.insert(l, pr);
+        m_trail.push_back(pr);
         TRACE("mk_proof",
-              tout << mk_bounded_pp(m_ctx.bool_var2expr(l.var()), m_manager, 10) << "\n";
+              tout << mk_bounded_pp(m_ctx.bool_var2expr(l.var()), m, 10) << "\n";
               tout << "storing proof for: "; m_ctx.display_literal(tout, l); tout << "\n";
-              tout << mk_ll_pp(pr, m_manager););
+              tout << mk_ll_pp(pr, m););
     }
 
     /**
@@ -1210,8 +1211,8 @@ namespace smt {
         mk_proof(rhs, c, prs2);
         while (!prs2.empty()) {
             proof * pr = prs2.back();
-            if (m_manager.proofs_enabled()) {
-                pr = m_manager.mk_symmetry(pr);
+            if (m.proofs_enabled()) {
+                pr = m.mk_symmetry(pr);
                 m_new_proofs.push_back(pr);
                 prs1.push_back(pr);
             }
@@ -1228,9 +1229,9 @@ namespace smt {
             TRACE("mk_transitivity",
                   unsigned sz = prs1.size();
                   for (unsigned i = 0; i < sz; i++) {
-                      tout << mk_ll_pp(prs1[i], m_manager) << "\n";
+                      tout << mk_ll_pp(prs1[i], m) << "\n";
                   });
-            pr = m_manager.mk_transitivity(prs1.size(), prs1.c_ptr(), lhs->get_owner(), rhs->get_owner());
+            pr = m.mk_transitivity(prs1.size(), prs1.c_ptr(), lhs->get_owner(), rhs->get_owner());
         }
         m_new_proofs.push_back(pr);
         TRACE("proof_gen_bug", tout << "eq2pr_saved: #" << lhs->get_owner_id() << " #" << rhs->get_owner_id() << "\n";);
@@ -1241,12 +1242,10 @@ namespace smt {
         SASSERT(conflict.get_kind() != b_justification::BIN_CLAUSE);
         SASSERT(conflict.get_kind() != b_justification::AXIOM);
         SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::JUSTIFICATION);
-        TRACE("mk_conflict_proof", tout << "lemma literals:";
-              for (literal lit : m_lemma) {
-                  m_ctx.display_literal(tout << " ", lit);
-              }
-              tout << "\n";);
-        init_mk_proof();
+        TRACE("mk_conflict_proof", m_ctx.display_literals(tout << "lemma literals:", m_lemma) << "\n";);
+
+        reset();
+        for (literal lit : m_lemma) m_ctx.set_mark(lit.var());
         literal consequent;
         if (not_l == null_literal) {
             consequent = false_literal;
@@ -1282,6 +1281,7 @@ namespace smt {
                         m_todo_pr.pop_back();
                         m_new_proofs.push_back(pr);
                         TRACE("proof_gen_bug", tout << "js2pr_saved: #" << js << "\n";);
+                        m_trail.push_back(pr);
                         m_js2proof.insert(js, pr);
                     }
                 }
@@ -1312,17 +1312,15 @@ namespace smt {
             SASSERT(pr);
         }
         else {
-            proof * prs[2] = { nullptr, nullptr};
-            m_lit2proof.find(not_l, prs[0]);
-            SASSERT(prs[0]);
-            prs[1]         = get_proof(consequent, conflict);
-            SASSERT(prs[1]);
-            pr = m_manager.mk_unit_resolution(2, prs);
+            pr = get_proof(consequent, conflict);
+            proof * prs[2] = { m_lit2proof[not_l], pr};
+            SASSERT(prs[0] && prs[1]);
+            pr = m.mk_unit_resolution(2, prs);
         }
-        expr_ref_buffer lits(m_manager);
+        expr_ref_buffer lits(m);
         for (literal lit : m_lemma) {
             m_ctx.unset_mark(lit.var());
-            expr_ref l_expr(m_manager);
+            expr_ref l_expr(m);
             m_ctx.literal2expr(lit, l_expr);
             lits.push_back(l_expr);
         }
@@ -1330,13 +1328,14 @@ namespace smt {
         switch (lits.size()) {
         case 0:  fact = nullptr; break;
         case 1:  fact = lits[0]; break;
-        default: fact = m_manager.mk_or(lits.size(), lits.c_ptr());
+        default: fact = m.mk_or(lits.size(), lits.c_ptr());
         }
         if (fact == nullptr)
             m_lemma_proof = pr;
         else
-            m_lemma_proof = m_manager.mk_lemma(pr, fact);
+            m_lemma_proof = m.mk_lemma(pr, fact);
         m_new_proofs.reset();
+        reset();
     }
 
     void conflict_resolution::process_antecedent_for_unsat_core(literal antecedent) {

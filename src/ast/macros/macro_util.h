@@ -34,9 +34,9 @@ public:
         ptr_vector<func_decl> m_fs;
         expr_ref_vector       m_defs;
         expr_ref_vector       m_conds;
-        svector<bool>         m_ineq; // true if the macro is based on an inequality instead of equality.
-        svector<bool>         m_satisfy;
-        svector<bool>         m_hint; // macro did not contain all universal variables in the quantifier.
+        bool_vector         m_ineq; // true if the macro is based on an inequality instead of equality.
+        bool_vector         m_satisfy;
+        bool_vector         m_hint; // macro did not contain all universal variables in the quantifier.
         friend class macro_util;
         ast_manager & get_manager() { return m_conds.get_manager(); }
 

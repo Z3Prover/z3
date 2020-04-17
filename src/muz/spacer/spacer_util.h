@@ -106,9 +106,8 @@ namespace spacer {
 
     // TBD: sort out
     void expand_literals(ast_manager &m, expr_ref_vector& conjs);
-    void compute_implicant_literals(model &mdl,
-                                    expr_ref_vector &formula,
-                                    expr_ref_vector &res);
+    expr_ref_vector compute_implicant_literals(model &mdl,
+                                    expr_ref_vector &formula);
     void simplify_bounds (expr_ref_vector &lemmas);
     void normalize(expr *e, expr_ref &out, bool use_simplify_bounds = true, bool factor_eqs = false);
 

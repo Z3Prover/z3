@@ -656,7 +656,7 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
             simplify(target);
         }
     }
-    while (simplified && !m_manager.canceled());
+    while (simplified && m_manager.inc());
     TRACE("grobner", tout << "result: "; display_equation(tout, *target););
     return result ? target : nullptr;
 }
@@ -680,7 +680,7 @@ grobner::equation * grobner::simplify_using_processed(equation * eq) {
                 simplified = true;
                 eq         = new_eq;
             }
-            if (m_manager.canceled()) {
+            if (!m_manager.inc()) {
                 return nullptr;
             }
         }        
@@ -736,7 +736,7 @@ bool grobner::simplify_processed(equation * eq) {
     ptr_buffer<equation> to_delete;
     equation_set::iterator it  = m_processed.begin();
     equation_set::iterator end = m_processed.end();
-    for (; it != end && !m_manager.canceled(); ++it) {
+    for (; it != end && m_manager.inc(); ++it) {
         equation * curr        = *it;
         m_changed_leading_term = false;
         // if the leading term is simplified, then the equation has to be moved to m_to_process
@@ -770,7 +770,7 @@ bool grobner::simplify_processed(equation * eq) {
         m_processed.erase(eq);
     for (equation* eq : to_delete) 
         del_equation(eq);
-    return !m_manager.canceled();
+    return m_manager.inc();
 }
 
 /**
@@ -908,7 +908,7 @@ bool grobner::compute_basis_step() {
         m_equations_to_unfreeze.push_back(eq);
         eq = new_eq;
     }
-    if (m_manager.canceled()) return false;
+    if (!m_manager.inc()) return false;
     if (!simplify_processed(eq)) return false;
     superpose(eq);
     m_processed.insert(eq);
@@ -919,7 +919,7 @@ bool grobner::compute_basis_step() {
 
 bool grobner::compute_basis(unsigned threshold) {
     compute_basis_init();
-    while (m_num_new_equations < threshold && !m_manager.canceled()) {
+    while (m_num_new_equations < threshold && m_manager.inc()) {
         if (compute_basis_step()) return true;
     }
     return false;

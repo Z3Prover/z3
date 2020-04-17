@@ -180,13 +180,13 @@ void asserted_formulas::get_assertions(ptr_vector<expr> & result) const {
 void asserted_formulas::push_scope() {
     reduce();
     commit();
-    SASSERT(inconsistent() || m_qhead == m_formulas.size() || m.canceled());
+    SASSERT(inconsistent() || m_qhead == m_formulas.size() || m.limit().get_cancel_flag());
     TRACE("asserted_formulas_scopes", tout << "before push: " << m_scopes.size() << "\n";);
     m_scoped_substitution.push();
     m_scopes.push_back(scope());
     scope & s = m_scopes.back();
     s.m_formulas_lim = m_formulas.size();
-    SASSERT(inconsistent() || s.m_formulas_lim == m_qhead || m.canceled());
+    SASSERT(inconsistent() || s.m_formulas_lim == m_qhead || m.limit().get_cancel_flag());
     s.m_inconsistent_old = m_inconsistent;
     m_defined_names.push();
     m_elim_term_ite.push();
@@ -242,7 +242,7 @@ void asserted_formulas::reduce() {
         return;
     if (m_qhead == m_formulas.size())
         return;
-    if (!m_smt_params.m_preprocess)
+    if (!m_has_quantifiers && !m_smt_params.m_preprocess)
         return;
     if (m_macro_manager.has_macros())
         invoke(m_find_macros);
@@ -421,7 +421,7 @@ void asserted_formulas::nnf_cnf() {
     for (; i < sz; i++) {
         expr * n    = m_formulas[i].get_fml();
         TRACE("nnf_bug", tout << "processing:\n" << mk_pp(n, m) << "\n";);
-        proof * pr  = m_formulas[i].get_proof();
+        proof_ref pr(m_formulas[i].get_proof(), m);
         expr_ref   r1(m);
         proof_ref  pr1(m);
         push_todo.reset();

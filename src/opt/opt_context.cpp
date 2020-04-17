@@ -164,6 +164,7 @@ namespace opt {
     }
 
     void context::pop(unsigned n) {
+        n = std::min(n, m_scoped_state.num_scopes());
         for (unsigned i = 0; i < n; ++i) {
             m_scoped_state.pop();
         }
@@ -373,7 +374,7 @@ namespace opt {
     void context::set_model(model_ref& m) { 
         m_model = m; 
         opt_params optp(m_params);
-        if (optp.dump_models()) {
+        if (optp.dump_models() && m) {
             model_ref md = m->copy();
             fix_model(md);
         }
@@ -614,7 +615,7 @@ namespace opt {
 
 
     std::string context::reason_unknown() const { 
-        if (m.canceled()) {
+        if (!m.inc()) {
             return Z3_CANCELED_MSG;
         }
         if (m_solver.get()) {
@@ -810,7 +811,7 @@ namespace opt {
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
         tactic_ref tac1, tac2, tac3, tac4;
-        if (optp.elim_01()) {
+        if (optp.elim_01() && m_logic.is_null()) {
             tac1 = mk_dt2bv_tactic(m);
             tac2 = mk_lia2card_tactic(m);
             tac3 = mk_eq2bv_tactic(m);
@@ -828,6 +829,7 @@ namespace opt {
         SASSERT(result.size() == 1);
         goal* r = result[0];
         m_model_converter = r->mc();
+        CTRACE("opt", r->mc(), r->mc()->display(tout););
         fmls.reset();
         expr_ref tmp(m);
         for (unsigned i = 0; i < r->size(); ++i) {

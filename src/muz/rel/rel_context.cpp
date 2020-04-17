@@ -257,16 +257,6 @@ namespace datalog {
                     is_approx = true;
                 }
                 rel.to_formula(e);
-#if 0
-                // Alternative format: 
-                // List the signature of the relation as 
-                // part of the answer.
-                expr_ref_vector args(m);
-                for (unsigned j = 0; j < q->get_arity(); ++j) {
-                    args.push_back(m.mk_var(j, q->get_domain(j)));
-                }
-                e = m.mk_implies(m.mk_app(q, args.size(), args.c_ptr()), e);
-#endif
                 ans.push_back(e);
             }
             SASSERT(!m_last_result_relation);
@@ -292,6 +282,19 @@ namespace datalog {
             break;
         }
         return res;
+    }
+
+    model_ref rel_context::get_model() {
+        model_ref md = alloc(model, m);
+        auto& rm = get_rmanager();
+        func_decl_set decls = rm.collect_predicates();
+        expr_ref fml(m);
+        for (func_decl* p : decls) {
+            rm.get_relation(p).to_formula(fml);
+            md->register_decl(p, fml);
+        }
+        (*m_context.get_model_converter())(md);
+        return md;
     }
 
     void rel_context::transform_rules() {

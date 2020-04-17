@@ -71,7 +71,7 @@ class lackr {
         //  timeout mechanism
         //
         void checkpoint() {
-            if (m.canceled()) {
+            if (!m.inc()) {
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             }
         }

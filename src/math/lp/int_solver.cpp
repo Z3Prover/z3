@@ -126,17 +126,13 @@ int_solver::int_solver(lar_solver& lar_slv) :
 // this will allow to enable and disable tracking of the pivot rows
 struct check_return_helper {
     lar_solver&      lra;
-    lar_core_solver& lrac;
     bool             m_track_pivoted_rows;
     check_return_helper(lar_solver& ls) :
         lra(ls),
-        lrac(ls.m_mpq_lar_core_solver),
         m_track_pivoted_rows(lra.get_track_pivoted_rows()) {
-        TRACE("pivoted_rows", tout << "pivoted rows = " << lrac.m_r_solver.m_pivoted_rows->size() << std::endl;);
         lra.set_track_pivoted_rows(false);
     }
     ~check_return_helper() {
-        TRACE("pivoted_rows", tout << "pivoted rows = " << lrac.m_r_solver.m_pivoted_rows->size() << std::endl;);
         lra.set_track_pivoted_rows(m_track_pivoted_rows);
     }
 };
@@ -228,7 +224,7 @@ const lp_settings& int_solver::settings() const {
     return lra.settings(); 
 }
 
-bool int_solver::column_is_int(unsigned j) const {
+bool int_solver::column_is_int(column_index const& j) const {
     return lra.column_is_int(j);
 }
 

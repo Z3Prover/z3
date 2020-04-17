@@ -650,13 +650,13 @@ namespace qe {
             SASSERT(idx <= eqs.num_eqs());
             
             if (idx < eqs.num_eqs()) {
-                expr* t = eqs.eq(idx);
-                m_ctx.add_constraint(true, m.mk_eq(x, t));
+                expr_ref eq(m.mk_eq(x, eqs.eq(idx)), m);
+                m_ctx.add_constraint(true, eq);
             }
             else {
                 for (unsigned i = 0; i < eqs.num_eqs(); ++i) {
-                    expr* t = eqs.eq(i);
-                    m_ctx.add_constraint(true, m.mk_not(m.mk_eq(x, t)));
+                    expr_ref ne(m.mk_not(m.mk_eq(x, eqs.eq(i))), m);
+                    m_ctx.add_constraint(true, ne);
                 }
             }
         }

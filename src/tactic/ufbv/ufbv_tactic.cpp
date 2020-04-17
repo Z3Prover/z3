@@ -32,7 +32,7 @@ Notes:
 
 
 static tactic * mk_der_fp_tactic(ast_manager & m, params_ref const & p) {
-    return repeat(and_then(mk_der_tactic(m), mk_simplify_tactic(m, p)));
+    return repeat(and_then(mk_der_tactic(m), mk_simplify_tactic(m, p)), 5);
 }
 
 static tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p) {

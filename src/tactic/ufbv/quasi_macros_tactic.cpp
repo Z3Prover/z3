@@ -44,11 +44,10 @@ class quasi_macros_tactic : public tactic {
                             
             macro_manager mm(m_manager);
             quasi_macros qm(m_manager, mm);
-            bool more = true;
 
-            expr_ref_vector forms(m_manager), new_forms(m_manager);
-            proof_ref_vector proofs(m_manager), new_proofs(m_manager);
-            expr_dependency_ref_vector deps(m_manager), new_deps(m_manager);
+            expr_ref_vector forms(m_manager);
+            proof_ref_vector proofs(m_manager);
+            expr_dependency_ref_vector deps(m_manager);
 
             unsigned size = g->size();
             for (unsigned i = 0; i < size; i++) {
@@ -58,24 +57,15 @@ class quasi_macros_tactic : public tactic {
             }
 
             do { 
-                if (m().canceled())
-                    throw tactic_exception(m().limit().get_cancel_msg());
-
-                new_forms.reset();
-                new_proofs.reset();
-                new_deps.reset();
-                more = qm(forms.size(), forms.c_ptr(), proofs.c_ptr(), deps.c_ptr(), new_forms, new_proofs, new_deps);
-                forms.swap(new_forms);
-                proofs.swap(new_proofs);
-                deps.swap(new_deps);
+                tactic::checkpoint(m());
             } 
-            while (more);
+            while (qm(forms, proofs, deps));
 
             g->reset();
-            for (unsigned i = 0; i < new_forms.size(); i++)
+            for (unsigned i = 0; i < forms.size(); i++)
                 g->assert_expr(forms.get(i),
                                produce_proofs ? proofs.get(i) : nullptr,
-                               produce_unsat_cores ? deps.get(i) : nullptr);
+                               produce_unsat_cores ? deps.get(i, nullptr) : nullptr);
 
             generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager(), "quasi_macros");
             unsigned num = mm.get_num_macros();

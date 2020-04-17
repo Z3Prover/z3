@@ -67,7 +67,7 @@ namespace smt {
         void add(clause& c);
         void add(unsigned n, literal const* lits, clause_kind k, justification* j);
         void del(clause& c);
-        proof_ref get_proof();
+        proof_ref get_proof(bool inconsistent);
     };
 
     std::ostream& operator<<(std::ostream& out, clause_proof::status st);

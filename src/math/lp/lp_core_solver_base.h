@@ -42,8 +42,8 @@ public:
     bool current_x_is_feasible() const {
         TRACE("feas",
               if (m_inf_set.size()) {
-                  tout << "column " << m_inf_set.m_index[0] << " is infeasible" << std::endl;
-                  print_column_info(m_inf_set.m_index[0], tout);
+                  tout << "column " << *m_inf_set.begin() << " is infeasible" << std::endl;
+                  print_column_info(*m_inf_set.begin(), tout);
               } else {
                   tout << "x is feasible\n";
               }
@@ -51,7 +51,7 @@ public:
         return m_inf_set.size() == 0;
     }
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
-    int_set m_inf_set;
+    u_set m_inf_set;
     bool m_using_infeas_costs;
 
 
@@ -83,7 +83,7 @@ public:
     vector<T>             m_steepest_edge_coefficients;
     vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool                  m_tracing_basis_changes;
-    int_set*              m_pivoted_rows;
+    u_set*              m_pivoted_rows;
     bool                  m_look_for_feasible_solution_only;
 
     void start_tracing_basis_changes() {
@@ -143,11 +143,13 @@ public:
         return m_status;
     }
 
-    void fill_cb(T * y);
+    void fill_cb(T * y) const;
 
-    void fill_cb(vector<T> & y);
+    void fill_cb(vector<T> & y) const;
 
-    void solve_yB(vector<T> & y);
+    void solve_yB(vector<T> & y) const;
+    
+    void solve_Bd(unsigned entering, indexed_vector<T> & d_buff, indexed_vector<T>& w_buff) const;
 
     void solve_Bd(unsigned entering);
 
@@ -159,7 +161,7 @@ public:
 
     void restore_state(T * w_buffer, T * d_buffer);
 
-    X get_cost() {
+    X get_cost() const {
         return dot_product(m_costs, m_x);
     }
 
@@ -244,6 +246,7 @@ public:
                     d -= this->m_costs[this->m_basis[cc.var()]] * this->m_A.get_val(cc);
                 }
                 if (m_d[j] != d) {
+                    TRACE("lar_solver", tout << "reduced costs are incorrect for column j = " << j << " should be " << d << " but we have m_d[j] = " << m_d[j] << std::endl;);
                     return false;
                 }
             }
@@ -556,7 +559,7 @@ public:
         return true;
     }
 
-    void print_column_bound_info(unsigned j, std::ostream & out) const {
+    std::ostream& print_column_bound_info(unsigned j, std::ostream & out) const {
         out << column_name(j) << " type = " << column_type_to_string(m_column_types[j]) << std::endl;
         switch (m_column_types[j]) {
         case column_type::fixed:
@@ -572,6 +575,7 @@ public:
         default:
             break;
         }
+        return out;
     }
 
     std::ostream& print_column_info(unsigned j, std::ostream & out) const {
@@ -684,6 +688,11 @@ public:
         return m_inf_set.contains(j);
     }
 
+    bool column_is_base(unsigned j) const {
+        return m_basis_heading[j] >= 0;
+    }
+
+    
     void update_x_with_feasibility_tracking(unsigned j, const X & v) {
         TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
         m_x[j] = v;

@@ -562,7 +562,75 @@ static void tst_root() {
 
 }
 
+static void tst_sturm() {
+    reslimit rl;
+    unsynch_mpq_manager nm;
+    polynomial::manager m(rl, nm);
+    polynomial_ref x(m);
+    x = m.mk_polynomial(m.mk_var());
+    polynomial_ref p(m);
+    polynomial_ref q(m);
+
+#define N(s) (rational(#s).to_mpq())
+
+    p = N(507962865083498496)*(x^10) + 
+        N(102100535881783197696)*(x^9) -
+        N(14783112447185507561472)*(x^8) - 
+        N(2001324733200883839555072)*(x^7) + 
+        N(195168383210843217999079936)*(x^6) + 
+        N(38119811955608999164032)*(x^5) + 
+        N(9215524544769908136049956)*(x^4) - 
+        N(733241058456905205563830332)*(x^3) - 
+        N(15888459782104331950227)*(x^2) - 
+        N(10235992917286431461226534)*x + 
+        N(688689757310708660505387921);    
+
+    q = N(1286741608255488)*(x^6) + 
+        N(129317531629676544)*(x^5) - 
+        N(25384908626459170944)*(x^4) + 
+        N(16014650289587907456)*(x^3) + 
+        N(2042137943326838560)*(x^2) + 
+        N(44729821875714513846)*x - 
+        N(29154410578758924855);
+
+    algebraic_numbers::manager am(rl, nm);
+    scoped_anum_vector rs1(am), rs2(am);
+    std::cout << "p: " << p << "\n";
+    am.isolate_roots(p, rs1);
+    scoped_anum a(am), b(am), c(am);
+    a = rs1[2];
+    b = rs1[3];
+    am.isolate_roots(q, rs2);
+    c = rs2[3];
+
+    display_anums(std::cout, rs1);
+    display_anums(std::cout, rs2);
+
+    am.display_decimal(std::cout << "a:", a) << "\n";
+    am.display_interval(std::cout << "a:", a) << "\n";
+    am.display_root(std::cout << "a:", a) << "\n";
+
+    am.display_decimal(std::cout << "b:", b) << "\n";
+    am.display_interval(std::cout << "b:", b) << "\n";
+    am.display_root(std::cout << "b:", b) << "\n";
+
+    am.display_decimal(std::cout << "c:", c) << "\n";
+    am.display_interval(std::cout << "c:", c) << "\n";
+    am.display_root(std::cout << "c:", c) << "\n";
+
+    std::cout << "c < a " << am.lt(c, a) << " (expecting 0)\n";
+
+    std::cout << "b < a " << am.lt(b, a) << "\n";
+    std::cout << "c < b " << am.lt(c, b) << "\n";
+    // it should not be the case that b < a == 0, c < b == 0 and c < a == 1.
+}
+
+
+
+
 void tst_algebraic() {
+    tst_sturm();
+
     // enable_trace("resultant_bug");
     // enable_trace("poly_sign");
     disable_trace("algebraic");

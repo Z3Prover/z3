@@ -55,7 +55,7 @@ namespace sat {
         solver&           s;
         local_search      m_ls;
         random_gen        m_rand;
-        svector<bool>     m_phase;
+        bool_vector     m_phase;
         svector<ema>      m_phase_tf;
         var_priority      m_priorities;
         unsigned          m_luby_index;

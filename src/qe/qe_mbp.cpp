@@ -207,10 +207,10 @@ class mbp::impl {
                 continue;
             }
             m_visited.mark(e);
-            if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e) && !m.canceled()) {
+            if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e) && m.inc()) {
                 expr_ref val = eval(e);
                 TRACE("qe", tout << "found: " << mk_pp(e, m) << "\n";);
-                if (m.canceled())
+                if (!m.inc())
                     continue;
                 SASSERT(m.is_true(val) || m.is_false(val));
                 if (!m_bool_visited.is_marked(e)) {
@@ -364,6 +364,7 @@ public:
     void extract_literals(model& model, expr_ref_vector& fmls) {
         expr_ref val(m);
         model_evaluator eval(model);
+        eval.set_expand_array_equalities(true);
         TRACE("qe", tout << fmls << "\n";);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get(), *nfml, *f1, *f2, *f3;

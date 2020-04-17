@@ -32,7 +32,6 @@ void poly_rewriter<Config>::updt_params(params_ref const & _p) {
     m_flat = p.flat();
     m_som  = p.som();
     m_hoist_mul = p.hoist_mul();
-    m_hoist_cmul = p.hoist_cmul();
     m_hoist_ite = p.hoist_ite();
     m_som_blowup = p.som_blowup();
     if (!m_flat) m_som = false;
@@ -270,8 +269,8 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
             }
         }
         
-        if (num_add == 0 || m_hoist_cmul) {
-            SASSERT(!is_add(var) || m_hoist_cmul);
+        if (num_add == 0) {
+            SASSERT(!is_add(var));
             if (num_args == 2 && args[1] == var) {
                 DEBUG_CODE({ 
                     numeral c_prime;
@@ -452,67 +451,6 @@ bool poly_rewriter<Config>::is_mul(expr * t, numeral & c, expr * & pp) {
     return true;
 }
 
-template<typename Config>
-struct poly_rewriter<Config>::hoist_cmul_lt {
-    poly_rewriter<Config> & m_r;
-    hoist_cmul_lt(poly_rewriter<Config> & r):m_r(r) {}
-
-    bool operator()(expr * t1, expr * t2) const {
-        expr * pp1 = nullptr;
-        expr * pp2 = nullptr;
-        numeral c1, c2;
-        bool is_mul1 = m_r.is_mul(t1, c1, pp1);
-        bool is_mul2 = m_r.is_mul(t2, c2, pp2);
-        if (!is_mul1 && is_mul2)
-            return true;
-        if (is_mul1 && !is_mul2)
-            return false;
-        if (!is_mul1 && !is_mul2)
-            return t1->get_id() < t2->get_id();
-        if (c1 < c2)
-            return true;
-        if (c1 > c2)
-            return false;
-        return pp1->get_id() < pp2->get_id();
-    }
-};
-
-template<typename Config>
-void poly_rewriter<Config>::hoist_cmul(expr_ref_buffer & args) {
-    unsigned sz = args.size();
-    std::sort(args.c_ptr(), args.c_ptr() + sz, hoist_cmul_lt(*this));
-    numeral c, c_prime;
-    ptr_buffer<expr> pps;
-    expr * pp, * pp_prime;
-    unsigned j = 0;
-    unsigned i = 0;
-    while (i < sz) {
-        expr * mon = args[i];
-        if (is_mul(mon, c, pp) && i < sz - 1) {
-            expr * mon_prime = args[i+1];
-            if (is_mul(mon_prime, c_prime, pp_prime) && c == c_prime) {
-                // found target
-                pps.reset();
-                pps.push_back(pp);
-                pps.push_back(pp_prime);
-                i += 2;
-                while (i < sz && is_mul(args[i], c_prime, pp_prime) && c == c_prime) {
-                    pps.push_back(pp_prime);
-                    i++;
-                }
-                SASSERT(is_numeral(to_app(mon)->get_arg(0), c_prime) && c == c_prime);
-                expr * mul_args[2] = { to_app(mon)->get_arg(0), mk_add_app(pps.size(), pps.c_ptr()) };
-                args.set(j, mk_mul_app(2, mul_args));
-                j++;
-                continue;
-            }
-        }
-        args.set(j, mon);
-        j++;
-        i++;
-    }
-    args.resize(j);
-}
 
 template<typename Config>
 bool poly_rewriter<Config>::mon_lt::operator()(expr* e1, expr * e2) const {
@@ -638,10 +576,7 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
                     new_args.push_back(mk_mul_app(a, pp));
             }
         }
-        if (m_hoist_cmul) {
-            hoist_cmul(new_args);
-        }
-        else if (m_sort_sums) {
+        if (m_sort_sums) {
             TRACE("rewriter_bug", tout << "new_args.size(): " << new_args.size() << "\n";);
             if (c.is_zero())
                 std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), mon_lt(*this));
@@ -660,7 +595,7 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
     }
     else {
         SASSERT(!has_multiple);
-        if (ordered && !m_hoist_mul && !m_hoist_cmul && !m_hoist_ite) {
+        if (ordered && !m_hoist_mul && !m_hoist_ite) {
             if (num_coeffs == 0)
                 return BR_FAILED; 
             if (num_coeffs == 1 && is_numeral(args[0], a) && !a.is_zero())
@@ -675,10 +610,7 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
                 continue;
             new_args.push_back(arg);
         }
-        if (m_hoist_cmul) {
-            hoist_cmul(new_args);
-        }
-        else if (!ordered) {
+        if (!ordered) {
             if (c.is_zero())
                 std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), lt);
             else 

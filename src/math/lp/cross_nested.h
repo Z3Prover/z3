@@ -185,7 +185,7 @@ public:
     static std::ostream& dump_occurences(std::ostream& out, const T& occurences) {
         out << "{";
         for (const auto& p: occurences) {
-            out << "(v" << p.first << "->" << p.second << ")";
+            out << "(j" << p.first << "->" << p.second << ")";
         }
         out << "}" << std::endl;
         return out;

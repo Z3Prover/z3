@@ -299,7 +299,7 @@ namespace datalog {
     bool context::xform_coi() const { return m_params->xform_coi(); }
     bool context::xform_slice() const { return m_params->xform_slice(); }
     bool context::xform_bit_blast() const { return m_params->xform_bit_blast(); }
-    bool context::karr() const { return m_params->xform_karr(); }
+    bool context::karr() const { return false; }
     bool context::scale() const { return m_params->xform_scale(); }
     bool context::magic() const { return m_params->xform_magic(); }
     bool context::compress_unbound() const { return m_params->xform_compress_unbound(); }
@@ -569,6 +569,7 @@ namespace datalog {
 
     void context::check_rules(rule_set& r) {
         m_rule_properties.set_generate_proof(generate_proof_trace());
+        TRACE("dl", m_rule_set.display(tout););
         switch(get_engine()) {
         case DATALOG_ENGINE:
             m_rule_properties.collect(r);
@@ -582,6 +583,7 @@ namespace datalog {
             m_rule_properties.check_existential_tail();
             m_rule_properties.check_for_negated_predicates();
             m_rule_properties.check_uninterpreted_free();
+            m_rule_properties.check_quantifier_free(exists_k);
             break;
         case BMC_ENGINE:
             m_rule_properties.collect(r);
@@ -766,6 +768,7 @@ namespace datalog {
         arith_util    a;        
         datatype_util dt;
         bv_util       bv;
+        array_util    ar;
         DL_ENGINE     m_engine_type;
 
         bool is_large_bv(sort* s) {
@@ -773,7 +776,7 @@ namespace datalog {
         }
 
     public:
-        engine_type_proc(ast_manager& m): m(m), a(m), dt(m), bv(m), m_engine_type(DATALOG_ENGINE) {}
+        engine_type_proc(ast_manager& m): m(m), a(m), dt(m), bv(m), ar(m), m_engine_type(DATALOG_ENGINE) {}
 
         DL_ENGINE get_engine() const { return m_engine_type; }
 
@@ -791,6 +794,9 @@ namespace datalog {
                 m_engine_type = SPACER_ENGINE;
             }
             else if (!m.get_sort(e)->get_num_elements().is_finite()) {
+                m_engine_type = SPACER_ENGINE;
+            }
+            else if (ar.is_array(e)) {
                 m_engine_type = SPACER_ENGINE;
             }
         }
@@ -879,6 +885,12 @@ namespace datalog {
         }
         return r;
     }
+
+    bool context::is_monotone() {
+        // assumes flush_add_rules was called
+        return m_rule_properties.is_monotone();
+    }
+
 
     lbool context::query_from_lvl (expr* query, unsigned lvl) {
         m_mc = mk_skip_model_converter();

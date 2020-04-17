@@ -43,7 +43,7 @@ namespace sat {
         unsigned                             m_stopped_at;
         vector<clause_vector>                m_use_list;
         unsigned                             m_limit1, m_limit2;
-        svector<bool>                        m_mark, m_mark2;
+        bool_vector                        m_mark, m_mark2;
         literal_vector                       m_must_candidates, m_may_candidates;
         unsigned                             m_state;
 

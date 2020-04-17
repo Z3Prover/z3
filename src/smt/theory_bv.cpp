@@ -1850,7 +1850,7 @@ namespace smt {
         if (get_context().inconsistent())
             return true; // property is only valid if the context is not in a conflict.
         if (is_root(v) && is_bv(v)) {
-            svector<bool> bits[2];
+            bool_vector bits[2];
             unsigned      num_bits = 0;
             unsigned      bv_sz    = get_bv_size(v);
             bits[0].resize(bv_sz, false);
@@ -1862,7 +1862,10 @@ namespace smt {
                     literal l = lits[i];
                     if (l.var() == true_bool_var) {
                         unsigned is_true = (l == true_literal);
-                        SASSERT(!bits[!is_true][i]); // no complementary bits
+                        if (bits[!is_true][i]) {
+                            // expect a conflict later on.
+                            return true;
+                        }
                         if (!bits[is_true][i]) {
                             bits[is_true][i] = true;
                             num_bits++;
@@ -1875,7 +1878,7 @@ namespace smt {
 
             zero_one_bits const & _bits = m_zero_one_bits[v];
             SASSERT(_bits.size() == num_bits);
-            svector<bool> already_found;
+            bool_vector already_found;
             already_found.resize(bv_sz, false);
             for (auto & zo : _bits) {
                 SASSERT(find(zo.m_owner) == v);
@@ -1888,6 +1891,8 @@ namespace smt {
     }
 
     bool theory_bv::check_invariant() {
+        if (get_manager().limit().get_cancel_flag())
+            return true;
         if (get_context().inconsistent())
             return true;
         unsigned num = get_num_vars();

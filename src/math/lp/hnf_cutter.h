@@ -49,7 +49,7 @@ public:
 private:
     bool init_terms_for_hnf_cut();
     bool hnf_has_var_with_non_integral_value() const;
-    void try_add_term_to_A_for_hnf(unsigned i);
+    void try_add_term_to_A_for_hnf(tv const& i);
 
     unsigned terms_count() const { return m_terms.size();  }
     const mpq & abs_max() const { return m_abs_max; }
@@ -81,7 +81,11 @@ private:
 #endif
     void shrink_explanation(const svector<unsigned>& basis_rows);
     bool overflow() const;    
-    lia_move create_cut(lar_term& t, mpq& k, explanation* ex, bool & upper, const vector<mpq> & x0);
+    lia_move create_cut(lar_term& t, mpq& k, explanation* ex, bool & upper
+#ifdef Z3DEBUG
+                        , const vector<mpq> & x0
+#endif
+                        );
     svector<unsigned> vars() const;
 };
 }

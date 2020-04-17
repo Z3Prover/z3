@@ -32,7 +32,7 @@ namespace datalog {
         expr_ref_vector m_ground;
 
         bool elim(rule &r, rule_set &new_rules);
-        expr_ref ground(expr_ref &e);
+        expr_ref ground(expr* e);
     public:
         mk_elim_term_ite(context &ctx, unsigned priority);
         ~mk_elim_term_ite() override;

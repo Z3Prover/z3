@@ -216,16 +216,14 @@ namespace smt {
         expr_ref bound(m);
         expr* e = get_enode(v)->get_owner();
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
-        if (m.has_trace_stream()) {
-            app_ref body(m);
-            body = m.mk_or(to_app(bound), m.mk_not(to_app(bound)));
-            log_axiom_instantiation(body);
-        }
-        TRACE("arith_int", tout << mk_bounded_pp(bound, m) << "\n";);
         context & ctx = get_context();
-        ctx.internalize(bound, true);
-        ctx.mark_as_relevant(bound.get());
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+        {
+            std::function<expr*(void)> fn = [&]() { return m.mk_or(bound, m.mk_not(bound)); };
+            scoped_trace_stream _sts(*this, fn);
+            TRACE("arith_int", tout << mk_bounded_pp(bound, m) << "\n";);
+            ctx.internalize(bound, true);
+            ctx.mark_as_relevant(bound.get());
+        }
     }
 
     
@@ -247,6 +245,7 @@ namespace smt {
         u_map<unsigned>   var2index;         // map theory variables to positions in 'rows'.
         u_map<theory_var> index2var;         // map back positions in 'rows' to theory variables.
         context& ctx = get_context();
+        ast_manager& m = get_manager();
 
         if (ctx.get_cancel_flag())
             return false;
@@ -378,19 +377,16 @@ namespace smt {
         }
         mk_polynomial_ge(pol.size(), pol.c_ptr(), unsat_row[0]+rational(1), p2);
         
-        if (get_manager().has_trace_stream()) {
-            app_ref body(get_manager());
-            body = get_manager().mk_or(p1, p2);
-            log_axiom_instantiation(body);
+        {
+            std::function<expr*(void)> fn = [&]() { return m.mk_or(p1, p2); };
+            scoped_trace_stream _sts(*this, fn);
+            ctx.internalize(p1, false);
+            ctx.internalize(p2, false);
+            literal l1(ctx.get_literal(p1)), l2(ctx.get_literal(p2));
+            ctx.mark_as_relevant(p1.get());
+            ctx.mark_as_relevant(p2.get());
+            ctx.mk_th_axiom(get_id(), l1, l2);
         }
-        ctx.internalize(p1, false);
-        ctx.internalize(p2, false);
-        literal l1(ctx.get_literal(p1)), l2(ctx.get_literal(p2));
-        ctx.mark_as_relevant(p1.get());
-        ctx.mark_as_relevant(p2.get());
-        
-        ctx.mk_th_axiom(get_id(), l1, l2);
-        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
        
         TRACE("arith_int", 
               tout << "cut: (or " << mk_pp(p1, get_manager()) << " " << mk_pp(p2, get_manager()) << ")\n";
@@ -417,12 +413,14 @@ namespace smt {
                 theory_var v  = it->m_var;
                 expr* e = get_enode(v)->get_owner();
                 bool _is_int = m_util.is_int(e);
-                expr * bound  = m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int));
+                expr_ref bound(m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int)), get_manager());
                 context & ctx = get_context();
-                if (get_manager().has_trace_stream()) log_axiom_instantiation(bound);
-                ctx.internalize(bound, true);
-                if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
-                ctx.mark_as_relevant(bound);
+                {
+                    std::function<expr*(void)> fn = [&]() { return bound; };
+                    scoped_trace_stream _sts(*this, fn);
+                    ctx.internalize(bound, true);
+                }
+                ctx.mark_as_relevant(bound.get());
                 result = true;
             }
         }
@@ -669,9 +667,11 @@ namespace smt {
         TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
         literal l     = null_literal;
         context & ctx = get_context();
-        if (get_manager().has_trace_stream()) log_axiom_instantiation(bound);
-        ctx.internalize(bound, true);
-        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
+        {
+            std::function<expr*(void)> fn = [&]() { return bound; };
+            scoped_trace_stream _sts(*this, fn);
+            ctx.internalize(bound, true);
+        }
         l = ctx.get_literal(bound);
         ctx.mark_as_relevant(l);
         dump_lemmas(l, ante);

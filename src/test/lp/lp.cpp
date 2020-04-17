@@ -43,8 +43,8 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/numeric_pair.h"
 #include "math/lp/binary_heap_upair_queue.h"
-#include "math/lp/stacked_value.h"
-#include "math/lp/int_set.h"
+#include "util/stacked_value.h"
+#include "math/lp/u_set.h"
 #include "util/stopwatch.h"
 #include <cstdlib>
 #include "test/lp/gomory_test.h"
@@ -58,8 +58,10 @@
 #include "math/lp/horner.h"
 #include "math/lp/cross_nested.h"
 #include "math/lp/int_cube.h"
+#include "math/lp/emonics.h"
 namespace nla {
 void test_horner();
+void test_monics();
 void test_order_lemma();
 void test_monotone_lemma();
 void test_basic_sign_lemma();
@@ -2149,6 +2151,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
+    parser.add_option_with_help_string("-monics", "test emonics");
     parser.add_option_with_help_string("-nex_order", "test nex order");
     parser.add_option_with_help_string("-nla_cn", "test cross nornmal form");
     parser.add_option_with_help_string("-nla_sim", "test nex simplify");
@@ -2959,7 +2962,7 @@ void test_term() {
     }
     std::cout << solver.constraints();
     std::cout << "\ntableau before cube\n";
-    solver.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
+    solver.pp(std::cout).print();
     std::cout << "\n";
     int_solver i_s(solver);
     solver.set_int_solver(&i_s);
@@ -2974,7 +2977,7 @@ void test_term() {
     }
 
     std::cout << "\ntableu after cube\n";
-    solver.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
+    solver.pp(std::cout).print();
     std::cout << "Ax_is_correct = " << solver.ax_is_correct() << "\n";
     
 }
@@ -3216,19 +3219,16 @@ void test_bound_propagation() {
 }
 
 void test_int_set() {
-    int_set s(4);
+    u_set s(4);
     s.insert(2);
-    s.print(std::cout);
     s.insert(1);
     s.insert(2);
-    s.print(std::cout);
     lp_assert(s.contains(2));
     lp_assert(s.size() == 2);
     s.erase(2);
     lp_assert(s.size() == 1);
     s.erase(2);
     lp_assert(s.size() == 1);
-    s.print(std::cout);
     s.insert(3);
     s.insert(2);
     s.clear();
@@ -3846,6 +3846,11 @@ void test_lp_local(int argn, char**argv) {
     }
 
     args_parser.print();
+    if (args_parser.option_is_used("-monics")) {
+        nla::test_monics();
+        return finalize(0);
+    }
+
     
     if (args_parser.option_is_used("-nla_cn")) {
 #ifdef Z3DEBUG

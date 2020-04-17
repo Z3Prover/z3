@@ -34,7 +34,7 @@ Revision History:
 #include "math/lp/eta_matrix.h"
 #include "math/lp/binary_heap_upair_queue.h"
 #include "math/lp/numeric_pair.h"
-#include "math/lp/int_set.h"
+#include "math/lp/u_set.h"
 namespace lp {
 // it is a square matrix
 template <typename T, typename X>

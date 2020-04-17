@@ -481,7 +481,8 @@ namespace smt {
             case OP_FPA_TO_IEEE_BV: {
                 expr_ref conv(m);
                 conv = convert(term);
-                assert_cnstr(m.mk_eq(term, conv));
+                expr_ref eq(m.mk_eq(term, conv), m);
+                assert_cnstr(eq);
                 assert_cnstr(mk_side_conditions());
                 break;
             }

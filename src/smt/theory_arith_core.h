@@ -258,6 +258,7 @@ namespace smt {
 
         c_entry.m_row_id    = r_id;
         c_entry.m_row_idx   = r_idx;
+        m_stats.m_tableau_max_columns = std::max(m_stats.m_tableau_max_columns, (unsigned)v + 1);
     }
 
     /**
@@ -348,7 +349,7 @@ namespace smt {
     */
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_mul_core(app * m) {
-        TRACE("internalize_mul_core", tout << "internalizing...\n" << mk_pp(m,get_manager()) << "\n";);
+        TRACE("internalize_mul_core", tout << "internalizing...\n" << mk_pp(m, get_manager()) << "\n";);
         if (!m_util.is_mul(m))
             return internalize_term_core(m);       
         for (expr* arg : *m) {
@@ -499,8 +500,7 @@ namespace smt {
 
         // literal lits[2] = {l_ante, l_conseq};
         if (m.has_trace_stream()) {
-            app_ref body(m);
-            body = m.mk_or(ante, conseq);
+            app_ref body(m.mk_or(ante, conseq), m);
             log_axiom_instantiation(body);
         }
         mk_clause(l_ante, l_conseq, 0, nullptr);
@@ -832,6 +832,7 @@ namespace smt {
     */
     template<typename Ext>
     unsigned theory_arith<Ext>::mk_row() {
+        
         unsigned r;
         if (m_dead_rows.empty()) {
             r = m_rows.size();
@@ -844,6 +845,7 @@ namespace smt {
         m_in_to_check.assure_domain(r);
         SASSERT(m_rows[r].size() == 0);
         SASSERT(m_rows[r].num_entries() == 0);
+        m_stats.m_tableau_max_rows = std::max(m_stats.m_tableau_max_rows, m_rows.size());
         return r;
     }
 
@@ -1273,7 +1275,6 @@ namespace smt {
         expr * rhs2;
         if (m_util.is_to_real(rhs, rhs2) && is_app(rhs2)) { rhs = to_app(rhs2); }
         if (!m_util.is_numeral(rhs)) {
-            UNREACHABLE();
             throw default_exception("malformed atomic constraint");
         }
         theory_var v   = internalize_term_core(lhs);
@@ -3028,10 +3029,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::propagate_bounds() {
         TRACE("propagate_bounds_detail", display(tout););
-        typename svector<unsigned>::iterator it  = m_to_check.begin();
-        typename svector<unsigned>::iterator end = m_to_check.end();
-        for (; it != end; ++it) {
-            row & r = m_rows[*it];
+        for (unsigned r_idx : m_to_check) {
+            row & r = m_rows[r_idx];
             if (r.get_base_var() != null_theory_var) {
                 if (r.size() < max_lemma_size()) { // Ignore big rows.
                     int lower_idx;
@@ -3053,7 +3052,7 @@ namespace smt {
                     }
 
                     // sneaking cheap eq detection in this loop
-                    propagate_cheap_eq(*it);
+                    propagate_cheap_eq(r_idx);
                 }
 
 #if 0

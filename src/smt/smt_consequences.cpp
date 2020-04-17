@@ -522,7 +522,7 @@ namespace smt {
         unsigned num_restarts = 0;
 
         while (true) {
-            if (m.canceled()) {
+            if (!m.inc()) {
                 is_sat = l_undef;
                 break;
             }

@@ -84,6 +84,8 @@ namespace smt {
         parent_tbl            m_parent; // parent explanation for occurs_check
         svector<stack_entry>  m_stack; // stack for DFS for occurs_check
 
+        void clear_mark();
+
         void oc_mark_on_stack(enode * n);
         bool oc_on_stack(enode * n) const { return n->get_root()->is_marked(); }
 

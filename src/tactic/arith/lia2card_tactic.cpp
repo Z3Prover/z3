@@ -164,7 +164,7 @@ public:
     }
 
     void checkpoint() {
-        if (m.canceled()) {
+        if (!m.inc()) {
             throw tactic_exception(m.limit().get_cancel_msg());
         }
     }
@@ -204,11 +204,11 @@ public:
             if (g->form(i) != tmp && m.proofs_enabled()) {
                 pr1 = m.mk_rewrite(g->form(i), tmp);
             }
-            m_rw(tmp, new_curr, new_pr);
-            if (m.proofs_enabled() && tmp != new_curr) {
+            m_rw(tmp, new_curr, pr2);
+            if (m.proofs_enabled() && tmp != new_curr && !pr2) {
                 pr2 = m.mk_rewrite(tmp, new_curr);
             }
-            if (m.proofs_enabled()) {
+            if (m.proofs_enabled() && g->pr(i)) {
                 new_pr = m.mk_transitivity(pr1, pr2);
                 new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
             }

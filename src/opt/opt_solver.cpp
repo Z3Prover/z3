@@ -53,6 +53,7 @@ namespace opt {
             m_params.m_relevancy_lvl = 0;
         }
         m_params.m_arith_auto_config_simplex = false;
+        m_was_sat = false;
         // m_params.m_auto_config = false;
     }
 
@@ -87,6 +88,7 @@ namespace opt {
             m_params.m_relevancy_lvl = 2;
         }
         m_context.assert_expr(t);
+        m_was_sat = false;
     }
     
     void opt_solver::push_core() {
@@ -186,6 +188,7 @@ namespace opt {
             r = m_context.check(num_assumptions, assumptions);
         }
         r = adjust_result(r);
+        m_was_sat = r == l_true;
         if (r == l_true) {
             m_context.get_model(m_model);
         }
@@ -253,6 +256,7 @@ namespace opt {
                 decrement_value(i, val);
                 if (l_true != m_context.check(0, nullptr)) 
                     throw default_exception("maximization suspended");
+                m_was_sat = true;
             }
             else {
                 set_model(i);
@@ -263,6 +267,7 @@ namespace opt {
             decrement_value(i, val);            
             if (l_true != m_context.check(0, nullptr)) 
                 throw default_exception("maximization suspended");
+            m_was_sat = true;
         }
         m_objective_values[i] = val;
         TRACE("opt", { 
@@ -285,6 +290,7 @@ namespace opt {
         assert_expr(ge);
         lbool is_sat = m_context.check(0, nullptr);
         is_sat = adjust_result(is_sat);
+        m_was_sat = is_sat == l_true;
         if (is_sat == l_true) {
             set_model(i);
         }
@@ -321,8 +327,13 @@ namespace opt {
     }
 
     void opt_solver::get_model_core(model_ref & m) {
-        m_context.get_model(m);
-        if (!m) m = m_model; else m_model = m;
+        if (m_was_sat) {
+            m_context.get_model(m);
+            if (!m) m = m_model; else m_model = m;
+        }
+        else {
+            m = nullptr;
+        }
     }
     
     proof * opt_solver::get_proof() {

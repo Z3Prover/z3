@@ -49,7 +49,7 @@ public:
 /**
    \brief Create a vanilla replacer. It just applies the substitution.
 */
-expr_replacer * mk_default_expr_replacer(ast_manager & m);
+expr_replacer * mk_default_expr_replacer(ast_manager & m, bool proofs_allowed);
 
 /**
    \brief Apply substitution and simplify.

@@ -22,6 +22,7 @@
 #include "util/map.h"
 
 namespace lp {
+
 class lar_term {
     // the term evaluates to sum of m_coeffs 
     typedef unsigned lpvar;
@@ -117,52 +118,37 @@ public:
         m_coeffs.reset();
     }
 
-    struct ival {
+    class ival {
         unsigned m_var;
         const mpq & m_coeff;
-        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
-        }
-        unsigned var() const { return m_var;}
+    public:
+        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) { }
+        column_index column() const { return column_index(m_var); }
         const mpq & coeff() const { return m_coeff; }
     };
     
-    struct const_iterator {
-        //fields
+    class const_iterator {
         u_map< mpq>::iterator m_it;
-
-        typedef const_iterator self_type;
-        typedef ival value_type;
-        typedef ival reference;
-        //        typedef std::pair<const unsigned, mpq>* pointer;
-        typedef int difference_type;
-        typedef std::forward_iterator_tag iterator_category;
-
-        reference operator*() const {
-            return ival(m_it->m_key, m_it->m_value);
-        }
-        
-        self_type operator++() {  self_type i = *this; m_it++; return i;  }
-        self_type operator++(int) { m_it++; return *this; }
-
+    public:
+        ival operator*() const { return ival(m_it->m_key, m_it->m_value); }        
+        const_iterator operator++() { const_iterator i = *this; m_it++; return i;  }
+        const_iterator operator++(int) { m_it++; return *this; }
         const_iterator(u_map<mpq>::iterator it) : m_it(it) {}
-        bool operator==(const self_type &other) const {
-            return m_it == other.m_it;
-        }
-        bool operator!=(const self_type &other) const { return !(*this == other); }
+        bool operator==(const const_iterator &other) const { return m_it == other.m_it; }
+        bool operator!=(const const_iterator &other) const { return !(*this == other); }
     };
-
-    
+   
     bool is_normalized() const {
         lpvar min_var = -1;
         mpq c;
         for (const auto & p : *this) {
-            if (p.var() < min_var) {
-                min_var = p.var();
+            if (p.column() < min_var) {
+                min_var = p.column();
             }
         }
         lar_term r;
         for (const auto & p : *this) {
-            if (p.var() == min_var) {
+            if (p.column() == min_var) {
                 return p.coeff().is_one();
             }
         }
@@ -172,6 +158,10 @@ public:
 
     // a is the coefficient by which we divided the term to normalize it
     lar_term get_normalized_by_min_var(mpq& a) const {
+        if (m_coeffs.empty()) {
+            a = mpq(1, 1);
+            return *this;
+        }
         a = m_coeffs.begin()->m_value;
         if (a.is_one()) {
             return *this;

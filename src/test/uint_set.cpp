@@ -22,7 +22,7 @@ Revision History:
 
 static void tst1(unsigned n) {
     uint_set       s1;
-    svector<bool>  s2(n, false);
+    bool_vector  s2(n, false);
     unsigned       size = 0;
 
     unsigned num_op = rand()%1000;

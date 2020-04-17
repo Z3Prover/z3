@@ -32,7 +32,7 @@ namespace datalog {
         ast_manager & m;
         context & m_context;
         vector<app*> m_new_tail;
-        svector<bool> m_new_tail_neg;
+        bool_vector m_new_tail_neg;
         rule_set * bottom_up(rule_set const & source);
         rule_set * top_down(rule_set const & source);
 

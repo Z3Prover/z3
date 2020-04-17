@@ -77,7 +77,7 @@ namespace datalog {
         rule_ref new_rule(rm);
         app_ref_vector tail(m);
         app_ref head(m);
-        svector<bool> neg;
+        bool_vector neg;
         for (unsigned i = 0; i < sz; ++i) {            
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();

@@ -952,12 +952,12 @@ namespace dd {
     }
 
     bool pdd_manager::is_reachable(PDD p) {
-        svector<bool> reachable(m_nodes.size(), false);
+        bool_vector reachable(m_nodes.size(), false);
         compute_reachable(reachable);
         return reachable[p];
     }
 
-    void pdd_manager::compute_reachable(svector<bool>& reachable) {
+    void pdd_manager::compute_reachable(bool_vector& reachable) {
         for (unsigned i = m_pdd_stack.size(); i-- > 0; ) {
             reachable[m_pdd_stack[i]] = true;
             m_todo.push_back(m_pdd_stack[i]);
@@ -994,7 +994,7 @@ namespace dd {
         m_free_nodes.reset();
         SASSERT(well_formed());
         IF_VERBOSE(13, verbose_stream() << "(pdd :gc " << m_nodes.size() << ")\n";);
-        svector<bool> reachable(m_nodes.size(), false);
+        bool_vector reachable(m_nodes.size(), false);
         compute_reachable(reachable);
         for (unsigned i = m_nodes.size(); i-- > pdd_no_op; ) {
             if (!reachable[i]) {

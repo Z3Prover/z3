@@ -89,7 +89,8 @@ namespace smt {
         d_full->m_parent_maps.push_back(s);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d_full->m_parent_maps));
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
-            for (enode * n : d->m_parent_selects) {
+            for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
+                enode * n = d->m_parent_selects[i];
                 if (!m_params.m_array_cg || n->is_cgr()) {
                     instantiate_select_map_axiom(n, s);
                 }                
@@ -172,7 +173,8 @@ namespace smt {
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(consts));
         consts.push_back(cnst);
         instantiate_default_const_axiom(cnst);
-        for (enode * n : d->m_parent_selects) {
+        for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
+            enode * n = d->m_parent_selects[i];
             SASSERT(is_select(n));
             instantiate_select_const_axiom(n, cnst);
         }
@@ -187,8 +189,9 @@ namespace smt {
         ptr_vector<enode> & as_arrays = m_var_data_full[v]->m_as_arrays;
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(as_arrays));
         as_arrays.push_back(arr);
-        instantiate_default_as_array_axiom(arr);
-        for (enode * n : d->m_parent_selects) {
+        instantiate_default_as_array_axiom(arr);        
+        for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
+            enode* n = d->m_parent_selects[i];
             SASSERT(is_select(n));
             instantiate_select_as_array_axiom(n, arr);
         }
@@ -772,7 +775,8 @@ namespace smt {
         v = find(v);
         var_data* d = m_var_data[v];
         bool result = false;
-        for (enode * store : d->m_parent_stores) {
+        for (unsigned i = 0; i < d->m_parent_stores.size(); ++i) {
+            enode* store = d->m_parent_stores[i];
             SASSERT(is_store(store));
             if ((!m_params.m_array_cg || store->is_cgr()) && 
                 instantiate_default_store_axiom(store)) {

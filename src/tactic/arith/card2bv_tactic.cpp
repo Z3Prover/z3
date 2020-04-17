@@ -65,8 +65,8 @@ public:
         }
                 
         expr_ref new_f1(m), new_f2(m);
-        proof_ref new_pr1(m), new_pr2(m);
         for (unsigned idx = 0; !g->inconsistent() && idx < g->size(); idx++) {
+            proof_ref new_pr1(m), new_pr2(m);
             rw1(g->form(idx), new_f1, new_pr1);
             TRACE("card2bv", tout << "Rewriting " << new_f1 << "\n" << new_pr1 << std::endl;);
             rw2(false, new_f1, new_f2, new_pr2);
