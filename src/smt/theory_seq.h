@@ -602,7 +602,6 @@ namespace smt {
         // terms whose meaning are encoded using axioms.
         void enque_axiom(expr* e);
         void deque_axiom(expr* e);
-        void push_lit_as_expr(literal l, expr_ref_vector& buf);
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal, literal l5 = null_literal);        
         void add_length_axiom(expr* n);
         

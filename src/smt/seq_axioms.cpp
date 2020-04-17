@@ -39,6 +39,13 @@ literal seq_axioms::mk_eq(expr* a, expr* b) {
     return th.mk_eq(a, b, false);
 }
 
+expr_ref seq_axioms::mk_sub(expr* x, expr* y) {
+    expr_ref result(a.mk_sub(x, y), m);
+    m_rewrite(result);
+    return result;
+}
+
+
 literal seq_axioms::mk_literal(expr* _e) {
     expr_ref e(_e, m);
     if (a.is_arith_expr(e)) {
@@ -510,7 +517,7 @@ void seq_axioms::add_itos_axiom(expr* e) {
     // itos(n) = "" or n >= 0
     add_axiom(~eq1, ~ge0);
     add_axiom(eq1, ge0);
-    add_axiom(mk_literal(a.mk_ge(mk_len(e), a.mk_int(0))));    
+    add_axiom(mk_literal(a.mk_ge(mk_len(e), zero)));    
     
     // n >= 0 => stoi(itos(n)) = n
     app_ref stoi(seq.str.mk_stoi(e), m);
@@ -519,9 +526,12 @@ void seq_axioms::add_itos_axiom(expr* e) {
     // itos(n) does not start with "0" when n > 0
     // n = 0 or at(itos(n),0) != "0"
     // alternative: n >= 0 => itos(stoi(itos(n))) = itos(n)
-    add_axiom(mk_eq(n, zero), 
-              ~mk_eq(seq.str.mk_at(e,zero), 
-                     seq.str.mk_string(symbol("0"))));
+    expr_ref zs(seq.str.mk_string(symbol("0")), m);
+    m_rewrite(zs);
+    literal eq0 = mk_eq(n, zero);
+    literal at0 = mk_eq(seq.str.mk_at(e, zero), zs);
+    add_axiom(eq0, ~at0);
+    add_axiom(~eq0, mk_eq(e, zs));
 }
 
 /**

@@ -42,7 +42,7 @@ namespace smt {
         literal mk_seq_eq(expr* a, expr* b) { SASSERT(seq.is_seq(a) && seq.is_seq(b)); return mk_literal(m_sk.mk_eq(a, b)); }
 
         expr_ref mk_len(expr* s) { return expr_ref(seq.str.mk_length(s), m); }
-        expr_ref mk_sub(expr* x, expr* y) { return expr_ref(a.mk_sub(x, y), m); }
+        expr_ref mk_sub(expr* x, expr* y);
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(seq.str.mk_concat(e1, e2, e3), m); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(seq.str.mk_concat(e1, e2), m); }
         expr_ref mk_nth(expr* e, expr* i) { return expr_ref(seq.str.mk_nth_i(e, i), m); }

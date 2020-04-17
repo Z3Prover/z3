@@ -12,6 +12,7 @@ Author:
 --*/
 
 #include "smt/seq_skolem.h"
+#include "ast/ast_pp.h"
 
 using namespace smt;
 
@@ -60,6 +61,8 @@ void seq_skolem::decompose(expr* e, expr_ref& head, expr_ref& tail) {
     expr* e1 = nullptr, *e2 = nullptr;
     zstring s;
     rational r;
+
+decompose_main:
     if (seq.str.is_empty(e)) {
         head = seq.str.mk_unit(seq.str.mk_nth(e, a.mk_int(0)));
         tail = e;
@@ -69,11 +72,13 @@ void seq_skolem::decompose(expr* e, expr_ref& head, expr_ref& tail) {
         tail = seq.str.mk_string(s.extract(1, s.length()-1));
     }
     else if (seq.str.is_unit(e)) {
-        head = e;
+        head = e;        
         tail = seq.str.mk_empty(m.get_sort(e));
+        m_rewrite(head);
     }
     else if (seq.str.is_concat(e, e1, e2) && seq.str.is_empty(e1)) {
-        decompose(e2, head, tail);
+        e = e2;
+        goto decompose_main;
     }
     else if (seq.str.is_concat(e, e1, e2) && seq.str.is_string(e1, s) && s.length() > 0) {
         head = seq.str.mk_unit(seq.str.mk_char(s, 0));
@@ -82,6 +87,8 @@ void seq_skolem::decompose(expr* e, expr_ref& head, expr_ref& tail) {
     else if (seq.str.is_concat(e, e1, e2) && seq.str.is_unit(e1)) {
         head = e1;
         tail = e2;
+        m_rewrite(head);
+        m_rewrite(tail);
     }
     else if (is_skolem(m_tail, e) && a.is_numeral(to_app(e)->get_arg(1), r)) {        
         expr* s = to_app(e)->get_arg(0);        
@@ -92,8 +99,9 @@ void seq_skolem::decompose(expr* e, expr_ref& head, expr_ref& tail) {
     }
     else {
         head = seq.str.mk_unit(seq.str.mk_nth(e, a.mk_int(0)));
-        m_rewrite(head);
         tail = mk(m_tail, e, a.mk_int(0));
+        m_rewrite(head);
+        m_rewrite(tail);
     }
 }
 

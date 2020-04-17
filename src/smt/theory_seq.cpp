@@ -5263,13 +5263,10 @@ literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
     return lit;
 }
 
-void theory_seq::push_lit_as_expr(literal l, expr_ref_vector& buf) {
-    expr* e = get_context().bool_var2expr(l.var());
-    if (l.sign()) e = m.mk_not(e);
-    buf.push_back(e);
-}
-
 void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, literal l5) {
+    static unsigned s_count = 0;
+    ++s_count;
+    // SASSERT(s_count != 5);
     context& ctx = get_context();
     literal_vector lits;
     if (l1 == true_literal || l2 == true_literal || l3 == true_literal || l4 == true_literal || l5 == true_literal) return;

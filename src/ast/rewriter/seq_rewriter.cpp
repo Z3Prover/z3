@@ -1146,7 +1146,7 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
 
     expr* es[2] = { a, b};
     expr* la = m_util.str.mk_length(a);
-    result = m().mk_ite(m().mk_and(m_autil.mk_ge(b, m_autil.mk_int(0)), m().mk_not(m_autil.mk_ge(b, la))), 
+    result = m().mk_ite(m().mk_and(m_autil.mk_ge(b, m_autil.mk_int(0)), m().mk_not(m_autil.mk_le(la, b))), 
                         m().mk_app(m_util.get_family_id(), OP_SEQ_NTH_I, 2, es), 
                         m().mk_app(m_util.get_family_id(), OP_SEQ_NTH_U, 2, es));
     return BR_REWRITE_FULL;
