@@ -913,12 +913,12 @@ namespace smt {
             enode * parent = *it;
             if (parent->is_cgc_enabled()) {
                 CTRACE("add_eq", !parent->is_cgr() || !m_cg_table.contains_ptr(parent),
-                       tout << "old num_parents: " << r2_num_parents << ", num_parents: " << r2->m_parents.size() << ", parent: #" <<
-                       parent->get_owner_id() << ", parents: \n";
-                       for (unsigned i = 0; i < r2->m_parents.size(); i++) {
-                           tout << "#" << r2->m_parents[i]->get_owner_id() << " ";
-                       }
-                       display(tout););
+                       tout << "old num_parents: " << r2_num_parents 
+                            << "\nnum_parents: " << r2->m_parents.size() 
+                            << "\nparent: #" << parent->get_owner_id() 
+                            << "\nparents: ";
+                       for (enode* p : r2->m_parents) tout << "#" << p->get_owner_id() << " ";
+                       display(tout << "\n"););
                 SASSERT(parent->is_cgr());
                 SASSERT(m_cg_table.contains_ptr(parent));
                 m_cg_table.erase(parent);
@@ -930,7 +930,7 @@ namespace smt {
             curr->m_root = r1;
             curr = curr->m_next;
         }
-        while(curr != r1);
+        while (curr != r1);
 
         // restore parents of r2
         r2->m_parents.shrink(r2_num_parents);
@@ -939,6 +939,7 @@ namespace smt {
         for (enode * parent : enode::parents(r1)) {
             TRACE("add_eq_parents", tout << "visiting: #" << parent->get_owner_id() << "\n";);
             if (parent->is_cgc_enabled()) {
+                
                 enode * cg = parent->m_cg;
                 if (!parent->is_true_eq() &&
                     (parent == cg ||           // parent was root of the congruence class before and after the merge
