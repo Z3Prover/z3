@@ -129,6 +129,24 @@ namespace smt {
         return ctx.get_literal(eq);
     }
 
+    literal theory::mk_preferred_eq(expr* a, expr* b) {
+        context& ctx = get_context();
+        ctx.assume_eq(ensure_enode(a), ensure_enode(b));
+        literal lit = mk_eq(a, b, false);
+        ctx.force_phase(lit);
+        return lit;
+    }
+
+    enode* theory::ensure_enode(expr* e) {
+        context& ctx = get_context();
+        if (!ctx.e_internalized(e)) {
+            ctx.internalize(e, false);
+        }
+        enode* n = ctx.get_enode(e);
+        ctx.mark_as_relevant(n);
+        return n;
+    }
+
     theory::theory(family_id fid):
         m_id(fid),
         m_context(nullptr),

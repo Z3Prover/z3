@@ -31,6 +31,8 @@ Revision History:
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
 #include "smt/theory_seq_empty.h"
+#include "smt/seq_skolem.h"
+#include "smt/seq_axioms.h"
 
 namespace smt {
 
@@ -398,12 +400,11 @@ namespace smt {
         seq_rewriter     m_seq_rewrite;
         seq_util         m_util;
         arith_util       m_autil;
+        seq_skolem       m_sk;
+        seq_axioms       m_ax;
         arith_value      m_arith_value;
         th_trail_stack   m_trail_stack;
         stats            m_stats;
-        symbol           m_prefix, m_suffix, m_accept, m_reject;
-        symbol           m_tail, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
-        symbol           m_pre, m_post, m_eq, m_seq_align;
         ptr_vector<expr> m_todo, m_concat;
         unsigned         m_internalize_depth;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
@@ -588,16 +589,7 @@ namespace smt {
         bool is_var(expr* b) const;
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_unit_nth(expr* a) const;
-        bool is_tail(expr* a, expr*& s, unsigned& idx) const;
-        bool is_tail_match(expr* a, expr*& s, expr*& idx) const;
-        bool is_eq(expr* e, expr*& a, expr*& b) const; 
-        bool is_pre(expr* e, expr*& s, expr*& i);
-        bool is_post(expr* e, expr*& s, expr*& i);
-        expr_ref mk_post(expr* s, expr* i);
-        expr_ref mk_sk_ite(expr* c, expr* t, expr* f);
         expr_ref mk_nth(expr* s, expr* idx);
-        expr_ref mk_last(expr* e);
-        expr_ref mk_first(expr* e);
         bool canonize(expr* e, dependency*& eqs, expr_ref& result);
         bool canonize(expr* e, expr_ref_vector& es, dependency*& eqs, bool& change);
         bool canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs, bool& change);
@@ -612,21 +604,8 @@ namespace smt {
         void deque_axiom(expr* e);
         void push_lit_as_expr(literal l, expr_ref_vector& buf);
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal, literal l5 = null_literal);        
-        void add_indexof_axiom(expr* e);
-        void add_last_indexof_axiom(expr* e);
-        void add_replace_axiom(expr* e);
-        void add_extract_axiom(expr* e);
         void add_length_axiom(expr* n);
-        void add_tail_axiom(expr* e, expr* s);
-        void add_drop_last_axiom(expr* e, expr* s);
-        void add_extract_prefix_axiom(expr* e, expr* s, expr* l);
-        void add_extract_suffix_axiom(expr* e, expr* s, expr* i);
-        bool is_tail(expr* s, expr* i, expr* l);
-        bool is_drop_last(expr* s, expr* i, expr* l);
-        bool is_extract_prefix0(expr* s, expr* i, expr* l);
-        bool is_extract_suffix(expr* s, expr* i, expr* l);
         
-
         bool has_length(expr *e) const { return m_has_length.contains(e); }
         void add_length(expr* e, expr* l);
         bool add_length_to_eqc(expr* n);
@@ -639,31 +618,21 @@ namespace smt {
         bool check_int_string(expr* e);
 
         expr_ref add_elim_string_axiom(expr* n);
-        void add_at_axiom(expr* n);
-        void add_lt_axiom(expr* n);
-        void add_le_axiom(expr* n);
-        void add_unit_axiom(expr* n);
-        void add_nth_axiom(expr* n);
         void add_in_re_axiom(expr* n);
-        void add_itos_axiom(expr* n);
-        void add_stoi_axiom(expr* n);
-        bool add_stoi_val_axiom(expr* n);
         bool add_itos_val_axiom(expr* n);
+        bool add_stoi_val_axiom(expr* n);
         void add_si_axiom(expr* s, expr* i, unsigned sz);
         void ensure_digit_axiom();
         literal is_digit(expr* ch);
-        expr_ref digit2int(expr* ch);
         void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_simplified_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
-        literal mk_preferred_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
         expr_ref mk_add(expr* a, expr* b);
         expr_ref mk_len(expr* s);
-        enode* ensure_enode(expr* a);
         ptr_vector<expr> m_ensure_todo;
         void ensure_enodes(expr* e);
         enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
@@ -679,8 +648,6 @@ namespace smt {
         bool get_length(expr* s, rational& val);
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
-        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, expr* e4 = nullptr, sort* range = nullptr);
-        bool is_skolem(symbol const& s, expr* e) const;
 
         void set_incomplete(app* term);
 
@@ -689,16 +656,8 @@ namespace smt {
         eautomaton* get_automaton(expr* e);
         literal mk_accept(expr* s, expr* idx, expr* re, expr* state);
         literal mk_accept(expr* s, expr* idx, expr* re, unsigned i) { return mk_accept(s, idx, re, m_autil.mk_int(i)); }
-        bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
+        bool is_accept(expr* acc) const {  return m_sk.is_accept(acc); }
         bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
-        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
-        bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
-        bool is_step(expr* e) const;
-        bool is_max_unfolding(expr* e) const { return is_skolem(symbol("seq.max_unfolding_depth"), e); }
-        expr_ref mk_max_unfolding_depth() { 
-            return mk_skolem(symbol("seq.max_unfolding_depth"), m_autil.mk_int(m_max_unfolding_depth), 
-                             nullptr, nullptr, nullptr, m.mk_bool_sort());
-        }
         void propagate_not_prefix(expr* e);
         void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);

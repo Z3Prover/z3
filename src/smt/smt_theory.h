@@ -503,6 +503,10 @@ namespace smt {
 
         literal mk_eq(expr * a, expr * b, bool gate_ctx);
 
+        literal mk_preferred_eq(expr* a, expr* b);
+
+        enode* ensure_enode(expr* e);
+
         // -----------------------------------
         //
         // Model generation
