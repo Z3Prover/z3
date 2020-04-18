@@ -1970,8 +1970,9 @@ bool theory_seq::check_length_coherence() {
 }
 
 bool theory_seq::fixed_length(bool is_zero) {
-    bool found = false;
-    for (auto e : m_length) {
+    bool found = false;    
+    for (unsigned i = 0; i < m_length.size(); ++i) {
+        expr* e = m_length.get(i);
         if (fixed_length(e, is_zero)) {
             found = true;
         }

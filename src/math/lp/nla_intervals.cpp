@@ -446,7 +446,8 @@ bool intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a, const 
 template <e_with_deps wd>
 void intervals::to_power(scoped_dep_interval& a, unsigned p) {
     if (p == 1) return;
-    interval b = m_dep_intervals.power<wd>(a, p);
+    scoped_dep_interval b(m_dep_intervals);
+    m_dep_intervals.power<wd>(a, p, b);
     m_dep_intervals.set<wd>(a, b);
 
 }
