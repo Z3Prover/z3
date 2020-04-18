@@ -5,15 +5,24 @@
 
   bv_trailing.cpp
 
- Abstract:
-
-
  Author:
 
  Mikolas Janota (MikolasJanota)
 
  Revision History:
+
+NSB code review: 
+This code needs to be rewritten or just removed.
+
+The main issue is that the analysis and extraction steps are separated.
+They are out of sync and therefore buggy.
+A saner implementation does the trailing elimination on a pair of vectors.
+The vectors are initially singltons. They are expanded when processing a concat.
+The vector with the largest bit-width is reduced maximally. 
+If it cannot be reduced, then bits are padded to align the two vectors.
+
 --*/
+
 #include "ast/rewriter/bv_trailing.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -39,12 +48,11 @@ struct bv_trailing::imp {
         , m(mk_extract.m()) {
         TRACE("bv-trailing", tout << "ctor\n";);
 
-            for (unsigned i = 0; i <= TRAILING_DEPTH; ++i)
-                m_count_cache[i] = nullptr;
+        for (unsigned i = 0; i <= TRAILING_DEPTH; ++i)
+            m_count_cache[i] = nullptr;
     }
 
     virtual ~imp() {
-        TRACE("bv-trailing", tout << "dtor\n";);
         reset_cache(0);
     }
 
@@ -73,6 +81,10 @@ struct bv_trailing::imp {
         TRACE("bv-trailing", tout << min << "\n";);
         VERIFY(min == remove_trailing(e1, min, out1, TRAILING_DEPTH));
         VERIFY(min == remove_trailing(e2, min, out2, TRAILING_DEPTH));
+        if (m.get_sort(out1) != m.get_sort(out2)) {
+            TRACE("bv-trailing", tout << "bug\n";);
+            return BR_FAILED;
+        }
         const bool are_eq = m.are_equal(out1, out2);
         result = are_eq ? m.mk_true() : m.mk_eq(out1, out2);
         return are_eq ? BR_DONE : BR_REWRITE2;
@@ -413,3 +425,71 @@ unsigned bv_trailing::remove_trailing(expr * e, unsigned n, expr_ref& result) {
 void bv_trailing::reset_cache(unsigned condition) {
     m_imp->reset_cache(condition);
 }
+
+#if 0
+sketch
+
+
+    void remove_trailing(expr* e1, expr* e2, expr_ref& result) {
+        SASSERT(m_util.is_bv(e1) && m_util.is_bv(e2));
+        SASSERT(m_util.get_bv_size(e1) == m_util.get_bv_size(e2));
+        unsigned sz1 = m_util.get_bv_size(e1);
+        unsigned sz2 = sz1;
+        expr_ref_vector ls(m), rs(m);
+        ls.push_back(e1);
+        rs.push_back(e2);
+        while (true) {
+            if (sz1 < sz2) {
+                std::swap(sz1, sz2);
+                ls.swap(rs);
+            }
+            if (sz2 == 0) {
+                result = m.mk_true();
+                return BR_DONE;
+            }
+            if (try_remove(sz1, ls)) 
+                continue;
+            if (sz1 == m_util.get_bv_size(e1))
+                return BR_FAILED;
+            if (sz1 > sz2) {
+                rs.push_back(m_util.mk_numeral(0, sz1 - sz2));
+            }
+            expr_ref l(m_util.mk_concat(ls.size(), ls.c_ptr()), m);
+            expr_ref r(m_util.mk_concat(rs.size(), rs.c_ptr()), m);
+            result = m.mk_eq(l, r);
+            return BR_REWRITE3;
+        }
+    }
+
+    bool try_remove(unsigned& sz, expr_ref_vector& es) {
+        SASSERT(!es.empty());
+        expr_ref b(es.back(), m);
+        if (m_util.is_concat(b)) {
+            es.pop_back();
+            for (expr* arg : *to_app(b)) {
+                es.push_back(arg);
+            }
+            return true;
+        }
+        if (m_util.is_numeral(e, e_val, e_sz)) {
+            unsigned new_sz = remove_trailing(e_sz, a); 
+            if (new_sz == 0) {
+                es.pop_back(b);
+                sz -= e_sz;
+                return true;
+            }
+            if (new_sz == e_sz) {
+                return false;
+            }
+            sz -= (e_sz - new_sz);
+            es.pop_back(b);
+            es.push_back(m_util.mk_numeral(a, new_sz));
+            return true;
+        }
+        if (m_util.is_bv_mul(e)) {
+            
+        }
+        return false;
+    }
+
+#endif

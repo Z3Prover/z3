@@ -39,7 +39,7 @@ namespace smt {
         symbol         m_pre, m_post;                     // inverse of at: (pre s i) + (at s i) + (post s i) = s if 0 <= i < (len s)
         symbol         m_eq;                              // equality atom
         symbol         m_seq_align;
-        symbol         m_max_unfolding;
+        symbol         m_max_unfolding, m_length_limit;
 
     public:
 
@@ -79,8 +79,8 @@ namespace smt {
         expr_ref mk_digit2int(expr* ch) { return mk(symbol("seq.digit2int"), ch, nullptr, nullptr, nullptr, a.mk_int()); }
         expr_ref mk_left(expr* x, expr* y, expr* z = nullptr) { return mk("seq.left", x, y, z); }
         expr_ref mk_right(expr* x, expr* y, expr* z = nullptr) { return mk("seq.right", x, y, z); }
-        bool is_max_unfolding(expr* e) const { return is_skolem(m_max_unfolding, e); }
         expr_ref mk_max_unfolding_depth(unsigned d);
+        expr_ref mk_length_limit(expr* e, unsigned d);
         
         bool is_skolem(symbol const& s, expr* e) const;
         bool is_skolem(expr* e) const { return seq.is_skolem(e); }
@@ -98,6 +98,10 @@ namespace smt {
         bool is_tail_match(expr* e, expr*& s, expr*& idx) const;
         bool is_tail(expr* e, expr*& s, unsigned& idx) const;
         bool is_digit(expr* e) const { return is_skolem(symbol("seq.is_digit"), e); }
+        bool is_max_unfolding(expr* e) const { return is_skolem(m_max_unfolding, e); }
+        bool is_length_limit(expr* e) const { return is_skolem(m_length_limit, e); }
+        bool is_length_limit(expr* p, unsigned& lim, expr*& s) const; 
+
 
         void decompose(expr* e, expr_ref& head, expr_ref& tail);
 

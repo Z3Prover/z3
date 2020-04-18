@@ -29,6 +29,7 @@ class bv_trailing {
         // Remove trailing zeros from both sides of an equality (might give False).
         br_status eq_remove_trailing(expr * e1, expr * e2,  expr_ref& result);
 
+ private:
         // Gives a lower and upper bound on trailing zeros in e.
         void count_trailing(expr * e, unsigned& min, unsigned& max);
 
@@ -37,6 +38,7 @@ class bv_trailing {
         // Removing the bit-width of e, sets result to NULL.
         unsigned remove_trailing(expr * e, unsigned n, expr_ref& result);
 
+ public:
         // Reset cache(s) if it exceeded size condition.
         void reset_cache(unsigned condition);
     protected:

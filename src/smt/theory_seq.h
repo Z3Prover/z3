@@ -390,9 +390,11 @@ namespace smt {
         unsigned                   m_axioms_head; // index of first axiom to add.
         bool                       m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector     m_int_string;
-        obj_map<expr, rational> m_si_axioms;
-        obj_hashtable<expr> m_has_length;          // is length applied
+        obj_map<expr, unsigned> m_si_axioms;
+        obj_hashtable<expr> m_has_length;         // is length applied
         expr_ref_vector     m_length;             // length applications themselves
+        obj_map<expr, unsigned> m_length_limit_map;   // sequences that have length limit predicates
+        expr_ref_vector         m_length_limit;       // length limit predicates
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
         th_rewriter      m_rewrite;               // rewriter that converts strings to character concats
@@ -556,7 +558,7 @@ namespace smt {
         bool explain_empty(expr_ref_vector& es, dependency*& dep);
 
         // asserting consequences
-        bool linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
+        void linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, nullptr, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         bool propagate_eq(dependency* dep, enode* n1, enode* n2);
@@ -611,6 +613,8 @@ namespace smt {
         bool enforce_length(expr_ref_vector const& es, vector<rational>& len);
         void enforce_length_coherence(enode* n1, enode* n2);
 
+        void add_length_limit(expr* s, unsigned k, bool is_searching);
+
         // model-check the functions that convert integers to strings and the other way.
         void add_int_string(expr* e);
         bool check_int_string();
@@ -620,9 +624,7 @@ namespace smt {
         void add_in_re_axiom(expr* n);
         bool add_itos_val_axiom(expr* n);
         bool add_stoi_val_axiom(expr* n);
-        void add_si_axiom(expr* s, expr* i, unsigned sz);
-        void ensure_digit_axiom();
-        literal is_digit(expr* ch);
+        bool add_si_axiom(expr* e, expr* n);
         void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_simplified_literal(expr* n);
