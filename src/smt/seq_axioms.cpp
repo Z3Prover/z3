@@ -127,7 +127,7 @@ void seq_axioms::add_extract_axiom(expr* e) {
     literal l_ge_0    = mk_ge(l, 0);
     literal l_le_0    = mk_le(l, 0);
     literal ls_le_0   = mk_le(ls, 0);
-    literal le_is_0   = mk_eq(le, 0);
+    literal le_is_0   = mk_eq(le, zero);
 
 
     // 0 <= i & i <= |s| & 0 <= l => xey = s
