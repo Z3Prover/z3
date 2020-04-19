@@ -3054,7 +3054,10 @@ void theory_seq::enque_axiom(expr* e) {
 void theory_seq::deque_axiom(expr* n) {
     TRACE("seq", tout << "deque: " << mk_bounded_pp(n, m, 2) << "\n";);
     if (m_util.str.is_length(n)) {
-        add_length_axiom(n);
+        m_ax.add_length_axiom(n);
+        if (!get_context().at_base_level()) {
+            m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
+        }
     }
     else if (m_util.str.is_empty(n) && !has_length(n) && !m_has_length.empty()) {
         add_length_to_eqc(n);
@@ -3115,38 +3118,6 @@ expr_ref theory_seq::add_elim_string_axiom(expr* n) {
     m_new_solution = true;
     return result;
 }
-
-
-/*
-    let n = len(x)
-    - len(a ++ b) = len(a) + len(b) if x = a ++ b
-    - len(unit(u)) = 1              if x = unit(u)
-    - len(str) = str.length()       if x = str
-    - len(empty) = 0                if x = empty
-    - len(int.to.str(i)) >= 1       if x = int.to.str(i) and more generally if i = 0 then 1 else 1+floor(log(|i|))
-    - len(x) >= 0                   otherwise
- */
-void theory_seq::add_length_axiom(expr* n) {
-    context& ctx = get_context();
-    expr* x = nullptr;
-    VERIFY(m_util.str.is_length(n, x));
-    if (m_util.str.is_concat(x) ||
-        m_util.str.is_unit(x) ||
-        m_util.str.is_empty(x) ||
-        m_util.str.is_string(x)) {
-        expr_ref len(n, m);
-        m_rewrite(len);
-        SASSERT(n != len);
-        add_axiom(mk_eq(len, n, false));
-    }
-    else {
-        add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
-    }
-    if (!ctx.at_base_level()) {
-        m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
-    }
-}
-
 
 void theory_seq::propagate_in_re(expr* n, bool is_true) {
     TRACE("seq", tout << mk_pp(n, m) << " <- " << (is_true?"true":"false") << "\n";);

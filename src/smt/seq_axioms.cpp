@@ -63,7 +63,7 @@ literal seq_axioms::mk_literal(expr* _e) {
     return ctx().get_literal(e);
 }
 
-/*
+/***
 
   let e = extract(s, i, l)
 
@@ -608,6 +608,18 @@ void seq_axioms::add_stoi_axiom(expr* e, unsigned k) {
    |s| >= 2 => e >= 10
    |s| >= 3 => e >= 100
 
+   There are no constraints to ensure that the string itos(e) 
+   contains the valid digits corresponding to e >= 0.
+   The validity of itos(e) is ensured by the following property:
+   e is either of the form stoi(s) for some s, or there is a term
+   stoi(itos(e)) and axiom e >= 0 => stoi(itos(e)) = e.
+   Then the axioms for stoi(itos(e)) ensure that the characters of
+   itos(e) are valid digits and the axiom stoi(itos(e)) = e ensures 
+   these digits encode e.
+   The option of constraining itos(e) digits directly does not
+   seem appealing becaues it requires an order of quadratic number
+   of constraints for all possible lengths of itos(e) (e.g, log_10(e)).
+
 */
 
 void seq_axioms::add_itos_axiom(expr* s, unsigned k) {
@@ -637,6 +649,10 @@ literal seq_axioms::is_digit(expr* ch) {
     add_axiom(~isd, hi);
     return isd;
 }
+
+/**
+   Bridge character digits to integers.
+*/
 
 void seq_axioms::ensure_digit_axiom() {
     if (!m_digits_initialized) {
@@ -740,6 +756,32 @@ void seq_axioms::add_prefix_axiom(expr* e) {
     add_axiom(lit, e1_gt_e2, mk_seq_eq(e1, mk_concat(x, seq.str.mk_unit(c), y)));
     add_axiom(lit, e1_gt_e2, mk_seq_eq(e2, mk_concat(x, seq.str.mk_unit(d), z)), mk_seq_eq(e2, x));
     add_axiom(lit, e1_gt_e2, ~mk_eq(c, d));
+}
+
+/***
+    let n = len(x)
+    - len(a ++ b) = len(a) + len(b) if x = a ++ b
+    - len(unit(u)) = 1              if x = unit(u)
+    - len(str) = str.length()       if x = str
+    - len(empty) = 0                if x = empty
+    - len(int.to.str(i)) >= 1       if x = int.to.str(i) and more generally if i = 0 then 1 else 1+floor(log(|i|))
+    - len(x) >= 0                   otherwise
+ */
+void seq_axioms::add_length_axiom(expr* n) {
+    expr* x = nullptr;
+    VERIFY(seq.str.is_length(n, x));
+    if (seq.str.is_concat(x) ||
+        seq.str.is_unit(x) ||
+        seq.str.is_empty(x) ||
+        seq.str.is_string(x)) {
+        expr_ref len(n, m);
+        m_rewrite(len);
+        SASSERT(n != len);
+        add_axiom(mk_eq(len, n));
+    }
+    else {
+        add_axiom(mk_ge(n, 0));
+    }
 }
 
 

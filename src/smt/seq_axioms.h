@@ -89,6 +89,7 @@ namespace smt {
         void add_lt_axiom(expr* n);
         void add_le_axiom(expr* n);
         void add_unit_axiom(expr* n);
+        void add_length_axiom(expr* n);
         literal is_digit(expr* ch);
 
         expr_ref add_length_limit(expr* s, unsigned k);
