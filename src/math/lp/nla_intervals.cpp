@@ -375,7 +375,8 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
         SASSERT(e.is_sum() && e.size() > 1);
         scoped_dep_interval i_from_term(get_dep_intervals());
         if (interval_from_term<wd>(e, i_from_term)) {
-            interval r = m_dep_intervals.intersect<wd>(a, i_from_term);
+            scoped_dep_interval r(get_dep_intervals());
+            m_dep_intervals.intersect<wd>(a, i_from_term, r);
             TRACE("nla_intervals_details", tout << "intersection="; display(tout, r) << "\n";);
             
             if (m_dep_intervals.is_empty(r)) {
@@ -384,9 +385,9 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
                     T expl;
                     if (conflict_u_l(a, i_from_term)) {
                         get_dep_intervals().linearize(a.get().m_upper_dep, expl);
-                        get_dep_intervals().linearize(r.m_lower_dep, expl);                        
+                        get_dep_intervals().linearize(r.get().m_lower_dep, expl);                        
                     } else {
-                        get_dep_intervals().linearize(r.m_upper_dep, expl);
+                        get_dep_intervals().linearize(r.get().m_upper_dep, expl);
                         get_dep_intervals().linearize(a.get().m_lower_dep, expl);                        
                     }                        
                     f(expl);
