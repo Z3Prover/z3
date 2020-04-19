@@ -52,8 +52,6 @@ expr_ref seq_axioms::mk_len(expr* s) {
     return result;
 }
 
-
-
 literal seq_axioms::mk_literal(expr* _e) {
     expr_ref e(_e, m);
     if (a.is_arith_expr(e)) {
@@ -86,9 +84,7 @@ this translates to:
   It follows that: 
   |e| = min(l, |s| - i) for 0 <= i < |s| and 0 < |l|
 
-
 */
-
 
 void seq_axioms::add_extract_axiom(expr* e) {
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
@@ -718,44 +714,59 @@ void seq_axioms::add_le_axiom(expr* n) {
     add_axiom(~lt, le);
 }
 
+/**
+Unit is injective:
+
+   u = inv-unit(unit(u)) 
+*/
+
 void seq_axioms::add_unit_axiom(expr* n) {
     expr* u = nullptr;
     VERIFY(seq.str.is_unit(n, u));
     add_axiom(mk_eq(u, m_sk.mk_unit_inv(n)));
 }
 
+/**
+
+ suffix(s, t) => s = seq.suffix_inv(s, t) + t
+~suffix(s, t) => len(s) > len(t) or s = y(s, t) + unit(c(s, t)) + x(s, t)
+~suffix(s, t) => len(s) > len(t) or t = z(s, t) + unit(d(s, t)) + x(s, t)
+~suffix(s, t) => len(s) > len(t) or c(s,t) != d(s,t)
+
+*/
+
 void seq_axioms::add_suffix_axiom(expr* e) {
-    expr* e1 = nullptr, *e2 = nullptr;
-    VERIFY(seq.str.is_suffix(e, e1, e2));
+    expr* s = nullptr, *t = nullptr;
+    VERIFY(seq.str.is_suffix(e, s, t));
     literal lit = mk_literal(e);
-    literal e1_gt_e2 = mk_ge(mk_sub(mk_len(e1), mk_len(e2)), 1);
+    literal s_gt_t = mk_ge(mk_sub(mk_len(s), mk_len(t)), 1);
     sort* char_sort = nullptr;
-    VERIFY(seq.is_seq(m.get_sort(e1), char_sort));
-    expr_ref x = m_sk.mk(symbol("seq.suffix.x"), e1, e2);
-    expr_ref y = m_sk.mk(symbol("seq.suffix.y"), e1, e2);
-    expr_ref z = m_sk.mk(symbol("seq.suffix.z"), e1, e2);
-    expr_ref c = m_sk.mk(symbol("seq.suffix.c"), e1, e2, nullptr, nullptr, char_sort);
-    expr_ref d = m_sk.mk(symbol("seq.suffix.d"), e1, e2, nullptr, nullptr, char_sort);
-    add_axiom(lit, e1_gt_e2, mk_seq_eq(e1, mk_concat(y, seq.str.mk_unit(c), x)));
-    add_axiom(lit, e1_gt_e2, mk_seq_eq(e2, mk_concat(z, seq.str.mk_unit(d), x)));
-    add_axiom(lit, e1_gt_e2, ~mk_eq(c, d));
+    VERIFY(seq.is_seq(m.get_sort(s), char_sort));
+    expr_ref x = m_sk.mk("seq.suffix.x", s, t);
+    expr_ref y = m_sk.mk("seq.suffix.y", s, t);
+    expr_ref z = m_sk.mk("seq.suffix.z", s, t);
+    expr_ref c = m_sk.mk("seq.suffix.c", s, t, char_sort);
+    expr_ref d = m_sk.mk("seq.suffix.d", s, t, char_sort);
+    add_axiom(lit, s_gt_t, mk_seq_eq(s, mk_concat(y, seq.str.mk_unit(c), x)));
+    add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(z, seq.str.mk_unit(d), x)));
+    add_axiom(lit, s_gt_t, ~mk_eq(c, d));
 }
 
 void seq_axioms::add_prefix_axiom(expr* e) {
-    expr* e1 = nullptr, *e2 = nullptr;
-    VERIFY(seq.str.is_prefix(e, e1, e2));
+    expr* s = nullptr, *t = nullptr;
+    VERIFY(seq.str.is_prefix(e, s, t));
     literal lit = mk_literal(e);
-    literal e1_gt_e2 = mk_ge(mk_sub(mk_len(e1), mk_len(e2)), 1);
+    literal s_gt_t = mk_ge(mk_sub(mk_len(s), mk_len(t)), 1);
     sort* char_sort = nullptr;
-    VERIFY(seq.is_seq(m.get_sort(e1), char_sort));
-    expr_ref x = m_sk.mk(symbol("seq.prefix.x"), e1, e2);
-    expr_ref y = m_sk.mk(symbol("seq.prefix.y"), e1, e2);
-    expr_ref z = m_sk.mk(symbol("seq.prefix.z"), e1, e2);
-    expr_ref c = m_sk.mk(symbol("seq.prefix.c"), e1, e2, nullptr, nullptr, char_sort);
-    expr_ref d = m_sk.mk(symbol("seq.prefix.d"), e1, e2, nullptr, nullptr, char_sort);
-    add_axiom(lit, e1_gt_e2, mk_seq_eq(e1, mk_concat(x, seq.str.mk_unit(c), y)));
-    add_axiom(lit, e1_gt_e2, mk_seq_eq(e2, mk_concat(x, seq.str.mk_unit(d), z)), mk_seq_eq(e2, x));
-    add_axiom(lit, e1_gt_e2, ~mk_eq(c, d));
+    VERIFY(seq.is_seq(m.get_sort(s), char_sort));
+    expr_ref x = m_sk.mk("seq.prefix.x", s, t);
+    expr_ref y = m_sk.mk("seq.prefix.y", s, t);
+    expr_ref z = m_sk.mk("seq.prefix.z", s, t);
+    expr_ref c = m_sk.mk("seq.prefix.c", s, t, char_sort);
+    expr_ref d = m_sk.mk("seq.prefix.d", s, t, char_sort);
+    add_axiom(lit, s_gt_t, mk_seq_eq(s, mk_concat(x, seq.str.mk_unit(c), y)));
+    add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, seq.str.mk_unit(d), z)), mk_seq_eq(t, x));
+    add_axiom(lit, s_gt_t, ~mk_eq(c, d));
 }
 
 /***
