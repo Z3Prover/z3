@@ -407,7 +407,6 @@ namespace smt {
         th_trail_stack   m_trail_stack;
         stats            m_stats;
         ptr_vector<expr> m_todo, m_concat;
-        unsigned         m_internalize_depth;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
         bool             m_has_seq;
 
@@ -630,8 +629,6 @@ namespace smt {
         expr_ref mk_sub(expr* a, expr* b);
         expr_ref mk_add(expr* a, expr* b);
         expr_ref mk_len(expr* s);
-        ptr_vector<expr> m_ensure_todo;
-        void ensure_enodes(expr* e);
         enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
         dependency* mk_join(dependency* deps, literal lit);
         dependency* mk_join(dependency* deps, literal_vector const& lits);
