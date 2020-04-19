@@ -46,7 +46,7 @@ namespace smt {
         expr_ref mk_sub(expr* x, expr* y);
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(seq.str.mk_concat(e1, e2, e3), m); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(seq.str.mk_concat(e1, e2), m); }
-        expr_ref mk_nth(expr* e, expr* i) { return expr_ref(seq.str.mk_nth_i(e, i), m); }
+        expr_ref mk_nth(expr* e, unsigned i) { return expr_ref(seq.str.mk_nth_i(e, a.mk_int(i)), m); }
         literal mk_ge(expr* e, int k) { return mk_ge_e(e, a.mk_int(k)); }
         literal mk_le(expr* e, int k) { return mk_le_e(e, a.mk_int(k)); }
         literal mk_ge(expr* e, rational const& k) { return mk_ge_e(e, a.mk_int(k)); }

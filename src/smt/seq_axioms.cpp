@@ -461,7 +461,7 @@ void seq_axioms::add_at_axiom(expr* e) {
         expr_ref nth(m);
         unsigned k = iv.get_unsigned();
         for (unsigned j = 0; j <= k; ++j) {
-            es.push_back(seq.str.mk_unit(mk_nth(s, a.mk_int(j))));
+            es.push_back(seq.str.mk_unit(mk_nth(s, j)));
         }
         nth = es.back();
         es.push_back(m_sk.mk_tail(s, i));
@@ -562,12 +562,15 @@ void seq_axioms::add_stoi_axiom(expr* e) {
    0 < i, len(s) > i  =>        stoi(s, i) = 10*stoi(s, i - 1) + digit(nth_i(s, i - 1))   
 
 Define auxiliary function with the property:
-   for 0 <= i < len(s)
+   for 0 <= i < k
      stoi(s, i) := stoi(extract(s, 0, i+1)) 
 
-   for 0 < i < len(s):
+   for 0 < i < k:
      len(s) > i  => stoi(s, i) := stoi(extract(s, 0, i))*10 + stoi(extract(s, i, 1))
      len(s) <= i => stoi(s, i) := stoi(extract(s, 0, i-1), i-1)
+
+   for i <= i < k:
+     stoi(s) > = 0, len(s) > i => is_digit(nth(s, i))     
 
  */
 void seq_axioms::add_stoi_axiom(expr* e, unsigned k) {
@@ -575,16 +578,18 @@ void seq_axioms::add_stoi_axiom(expr* e, unsigned k) {
     expr* s = nullptr;
     VERIFY (seq.str.is_stoi(e, s));    
     auto stoi2 = [&](unsigned j) { return m_sk.mk("seq.stoi", s, a.mk_int(j), a.mk_int()); }; 
-    auto digit = [&](unsigned j) { return m_sk.mk_digit2int(mk_nth(s, a.mk_int(j))); };
+    auto digit = [&](unsigned j) { return m_sk.mk_digit2int(mk_nth(s, j)); };
     expr_ref len = mk_len(s);
     literal ge0 = mk_ge(e, 0);
     literal lek = mk_le(len, k);
     add_axiom(~ge0, ~mk_eq(len, a.mk_int(0)));
     add_axiom(~ge0, ~lek, mk_eq(e, stoi2(k-1)));
-    add_axiom(mk_eq(len, a.mk_int(0)), mk_eq(stoi2(0), digit(0)));
+    add_axiom(mk_le(len, 0), mk_eq(stoi2(0), digit(0)));
+    add_axiom(~ge0, is_digit(mk_nth(s, 0)));
     for (unsigned i = 1; i < k; ++i) {
         add_axiom(mk_le(len, i),   mk_eq(stoi2(i), a.mk_add(a.mk_mul(a.mk_int(10), stoi2(i-1)), digit(i))));
         add_axiom(~mk_le(len, i),  mk_eq(stoi2(i), stoi2(i-1)));
+        add_axiom(~ge0, mk_le(len, i), is_digit(mk_nth(s, i)));
     }
 }
 
@@ -618,6 +623,32 @@ void seq_axioms::add_itos_axiom(expr* s, unsigned k) {
         add_axiom(mk_le(e, lo - 1), mk_ge(len, i + 1));
     }
 }
+
+literal seq_axioms::is_digit(expr* ch) {
+    ensure_digit_axiom();
+    literal isd = mk_literal(m_sk.mk_is_digit(ch));
+    expr_ref d2i = m_sk.mk_digit2int(ch);
+    expr_ref _lo(seq.mk_le(seq.mk_char('0'), ch), m);
+    expr_ref _hi(seq.mk_le(ch, seq.mk_char('9')), m);
+    literal lo = mk_literal(_lo);
+    literal hi = mk_literal(_hi);
+    add_axiom(~lo, ~hi, isd);
+    add_axiom(~isd, lo);
+    add_axiom(~isd, hi);
+    return isd;
+}
+
+void seq_axioms::ensure_digit_axiom() {
+    if (!m_digits_initialized) {
+        for (unsigned i = 0; i < 10; ++i) {
+            expr_ref cnst(seq.mk_char('0'+i), m);
+            add_axiom(mk_eq(m_sk.mk_digit2int(cnst), a.mk_int(i)));
+        }
+        ctx().push_trail(value_trail<context, bool>(m_digits_initialized));
+        m_digits_initialized = true;
+    }
+}
+
 
 /**
    e1 < e2 => prefix(e1, e2) or e1 = xcy e1 < e2 => prefix(e1, e2) or
@@ -709,30 +740,6 @@ void seq_axioms::add_prefix_axiom(expr* e) {
     add_axiom(lit, e1_gt_e2, mk_seq_eq(e1, mk_concat(x, seq.str.mk_unit(c), y)));
     add_axiom(lit, e1_gt_e2, mk_seq_eq(e2, mk_concat(x, seq.str.mk_unit(d), z)), mk_seq_eq(e2, x));
     add_axiom(lit, e1_gt_e2, ~mk_eq(c, d));
-}
-
-literal seq_axioms::is_digit(expr* ch) {
-    literal isd = mk_literal(m_sk.mk_is_digit(ch));
-    expr_ref d2i = m_sk.mk_digit2int(ch);
-    expr_ref _lo(seq.mk_le(seq.mk_char('0'), ch), m);
-    expr_ref _hi(seq.mk_le(ch, seq.mk_char('9')), m);
-    literal lo = mk_literal(_lo);
-    literal hi = mk_literal(_hi);
-    add_axiom(~lo, ~hi, isd);
-    add_axiom(~isd, lo);
-    add_axiom(~isd, hi);
-    return isd;
-}
-
-void seq_axioms::ensure_digit_axiom() {
-    if (!m_digits_initialized) {
-        for (unsigned i = 0; i < 10; ++i) {
-            expr_ref cnst(seq.mk_char('0'+i), m);
-            add_axiom(mk_eq(m_sk.mk_digit2int(cnst), a.mk_int(i)));
-        }
-        ctx().push_trail(value_trail<context, bool>(m_digits_initialized));
-        m_digits_initialized = true;
-    }
 }
 
 

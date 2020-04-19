@@ -197,6 +197,7 @@ namespace smt {
             for (auto & kv : sorted_exprs) {
                 expr* e = kv.first;
                 if (!is_app(e) || 
+                    !m.is_bool(e) ||
                     to_app(e)->get_family_id() == null_family_id || 
                     to_app(e)->get_family_id() == m.get_basic_family_id()) 
                     internalize_rec(e, kv.second);
