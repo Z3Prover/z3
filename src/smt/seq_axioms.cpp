@@ -120,14 +120,14 @@ void seq_axioms::add_extract_axiom(expr* e) {
     expr_ref xey = mk_concat(x, e, y);
     expr_ref zero(a.mk_int(0), m);
 
-    literal i_ge_0    = mk_ge(i, zero);
-    literal i_le_ls   = mk_le(mk_sub(i, ls), zero);
-    literal ls_le_i   = mk_le(mk_sub(ls, i), zero);
-    literal ls_ge_li  = mk_ge(ls_minus_i_l, zero);
-    literal l_ge_0    = mk_ge(l, zero);
-    literal l_le_0    = mk_le(l, zero);
-    literal ls_le_0   = mk_le(ls, zero);
-    literal le_is_0   = mk_eq(le, zero);
+    literal i_ge_0    = mk_ge(i, 0);
+    literal i_le_ls   = mk_le(mk_sub(i, ls), 0);
+    literal ls_le_i   = mk_le(mk_sub(ls, i), 0);
+    literal ls_ge_li  = mk_ge(ls_minus_i_l, 0);
+    literal l_ge_0    = mk_ge(l, 0);
+    literal l_le_0    = mk_le(l, 0);
+    literal ls_le_0   = mk_le(ls, 0);
+    literal le_is_0   = mk_eq(le, 0);
 
 
     // 0 <= i & i <= |s| & 0 <= l => xey = s
@@ -214,8 +214,8 @@ void seq_axioms::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     expr_ref zero(a.mk_int(0), m);
     expr_ref y = m_sk.mk_post(s, l);
     expr_ref ey = mk_concat(e, y);
-    literal l_ge_0 = mk_ge(l, zero);
-    literal l_le_s = mk_le(mk_sub(l, ls), zero);
+    literal l_ge_0 = mk_ge(l, 0);
+    literal l_le_s = mk_le(mk_sub(l, ls), 0);
     add_axiom(~l_ge_0, ~l_le_s, mk_seq_eq(s, ey));
     add_axiom(~l_ge_0, ~l_le_s, mk_eq(l, le));
     add_axiom(~l_ge_0, ~l_le_s, mk_eq(ls_minus_l, mk_len(y)));
@@ -236,8 +236,8 @@ void seq_axioms::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
     expr_ref zero(a.mk_int(0), m);
     expr_ref xe = mk_concat(x, e);
     literal le_is_0 = mk_eq_empty(e);
-    literal i_ge_0 = mk_ge(i, zero);
-    literal i_le_s = mk_le(mk_sub(i, ls), zero);
+    literal i_ge_0 = mk_ge(i, 0);
+    literal i_le_s = mk_le(mk_sub(i, ls), 0);
     add_axiom(~i_ge_0, ~i_le_s, mk_seq_eq(s, xe));
     add_axiom(~i_ge_0, ~i_le_s, mk_eq(i, lx));
     add_axiom(i_ge_0, le_is_0);
@@ -328,7 +328,7 @@ void seq_axioms::add_indexof_axiom(expr* i) {
         add_axiom(~s_eq_empty, i_eq_0);
         add_axiom(~cnt, s_eq_empty, mk_seq_eq(t, xsy));
         add_axiom(~cnt, s_eq_empty, mk_eq(i, lenx));
-        add_axiom(~cnt, mk_ge(i, zero));
+        add_axiom(~cnt, mk_ge(i, 0));
         tightest_prefix(s, x);
     }
     else {
@@ -336,8 +336,8 @@ void seq_axioms::add_indexof_axiom(expr* i) {
         // offset > len(t) => indexof(t, s, offset) = -1
         // offset = len(t) & |s| = 0 => indexof(t, s, offset) = offset
         expr_ref len_t = mk_len(t);
-        literal offset_ge_len = mk_ge(mk_sub(offset, len_t), zero);
-        literal offset_le_len = mk_le(mk_sub(offset, len_t), zero);
+        literal offset_ge_len = mk_ge(mk_sub(offset, len_t), 0);
+        literal offset_le_len = mk_le(mk_sub(offset, len_t), 0);
         literal i_eq_offset = mk_eq(i, offset);
         add_axiom(~offset_ge_len, s_eq_empty, i_eq_m1);
         add_axiom(offset_le_len, i_eq_m1);
@@ -347,7 +347,7 @@ void seq_axioms::add_indexof_axiom(expr* i) {
         expr_ref y = m_sk.mk_indexof_right(t, s, offset);
         expr_ref indexof0(seq.str.mk_index(y, s, zero), m);
         expr_ref offset_p_indexof0(a.mk_add(offset, indexof0), m);
-        literal offset_ge_0 = mk_ge(offset, zero);
+        literal offset_ge_0 = mk_ge(offset, 0);
 
         // 0 <= offset & offset < len(t) => t = xy
         // 0 <= offset & offset < len(t) => len(x) = offset
@@ -360,7 +360,7 @@ void seq_axioms::add_indexof_axiom(expr* i) {
         add_axiom(~offset_ge_0, offset_ge_len,
                   ~mk_eq(indexof0, minus_one), i_eq_m1);
         add_axiom(~offset_ge_0, offset_ge_len,
-                  ~mk_ge(indexof0, zero),
+                  ~mk_ge(indexof0, 0),
                   mk_eq(offset_p_indexof0, i));
 
         // offset < 0 => -1 = i        
@@ -451,8 +451,8 @@ void seq_axioms::add_at_axiom(expr* e) {
     expr_ref one(a.mk_int(1), m);
     expr_ref emp(seq.str.mk_empty(m.get_sort(e)), m);
     expr_ref len_s = mk_len(s);
-    literal i_ge_0 = mk_ge(i, zero);
-    literal i_ge_len_s = mk_ge(mk_sub(i, mk_len(s)), zero);
+    literal i_ge_0 = mk_ge(i, 0);
+    literal i_ge_len_s = mk_ge(mk_sub(i, mk_len(s)), 0);
     expr_ref len_e = mk_len(e);
 
     rational iv;
@@ -480,7 +480,7 @@ void seq_axioms::add_at_axiom(expr* e) {
     add_axiom(i_ge_0, mk_eq(e, emp));
     add_axiom(~i_ge_len_s, mk_eq(e, emp));
     add_axiom(~i_ge_0, i_ge_len_s, mk_eq(one, len_e));
-    add_axiom(mk_le(len_e, one));
+    add_axiom(mk_le(len_e, 1));
 }
 
 /**
@@ -500,8 +500,8 @@ void seq_axioms::add_nth_axiom(expr* e) {
     }
     else {
         expr_ref zero(a.mk_int(0), m);
-        literal i_ge_0 =     mk_ge(i, zero);
-        literal i_ge_len_s = mk_ge(mk_sub(i, mk_len(s)), zero);
+        literal i_ge_0 =     mk_ge(i, 0);
+        literal i_ge_len_s = mk_ge(mk_sub(i, mk_len(s)), 0);
         // at(s,i) = [nth(s,i)]
         expr_ref rhs(s, m);
         expr_ref lhs(seq.str.mk_unit(e), m);
@@ -520,7 +520,7 @@ void seq_axioms::add_itos_axiom(expr* e) {
     // itos(n) = "" <=> n < 0
     expr_ref zero(a.mk_int(0), m);
     literal eq1 = mk_literal(seq.str.mk_is_empty(e));
-    literal ge0 = mk_ge(n, zero);
+    literal ge0 = mk_ge(n, 0);
     // n >= 0 => itos(n) != ""
     // itos(n) = "" or n >= 0
     add_axiom(~eq1, ~ge0);

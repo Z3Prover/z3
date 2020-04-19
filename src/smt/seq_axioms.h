@@ -47,12 +47,12 @@ namespace smt {
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(seq.str.mk_concat(e1, e2, e3), m); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(seq.str.mk_concat(e1, e2), m); }
         expr_ref mk_nth(expr* e, expr* i) { return expr_ref(seq.str.mk_nth_i(e, i), m); }
-        literal mk_ge(expr* e, int k) { return mk_ge(e, a.mk_int(k)); }
-        literal mk_le(expr* e, int k) { return mk_le(e, a.mk_int(k)); }
-        literal mk_ge(expr* e, rational const& k) { return mk_ge(e, a.mk_int(k)); }
-        literal mk_le(expr* e, rational const& k) { return mk_le(e, a.mk_int(k)); }
-        literal mk_ge(expr* x, expr* y) { return mk_literal(a.mk_ge(x, y)); }
-        literal mk_le(expr* x, expr* y) { return mk_literal(a.mk_le(x, y)); }
+        literal mk_ge(expr* e, int k) { return mk_ge_e(e, a.mk_int(k)); }
+        literal mk_le(expr* e, int k) { return mk_le_e(e, a.mk_int(k)); }
+        literal mk_ge(expr* e, rational const& k) { return mk_ge_e(e, a.mk_int(k)); }
+        literal mk_le(expr* e, rational const& k) { return mk_le_e(e, a.mk_int(k)); }
+        literal mk_ge_e(expr* x, expr* y) { return mk_literal(a.mk_ge(x, y)); }
+        literal mk_le_e(expr* x, expr* y) { return mk_literal(a.mk_le(x, y)); }
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, 
                        literal l4 = null_literal, literal l5 = null_literal) { add_axiom5(l1, l2, l3, l4, l5); }
 
