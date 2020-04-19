@@ -29,7 +29,6 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_elim_sign_ext = p.elim_sign_ext();
     m_mul2concat = p.mul2concat();
     m_bit2bool = p.bit2bool();
-    m_trailing = p.bv_trailing();
     m_urem_simpl = p.bv_urem_simpl();
     m_blast_eq_value = p.blast_eq_value();
     m_split_concat_eq = p.split_concat_eq();
@@ -2589,15 +2588,6 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
         st = mk_bit2bool(lhs, rhs, result);
         if (st != BR_FAILED)
             return st;
-    }
-
-    if (m_trailing) {        
-        st = m_rm_trailing.eq_remove_trailing(lhs, rhs, result);
-        m_rm_trailing.reset_cache(1 << 12);
-        if (st != BR_FAILED) {
-            TRACE("eq_remove_trailing", tout << mk_ismt2_pp(lhs, m()) << "\n=\n" << mk_ismt2_pp(rhs, m()) << "\n----->\n" << mk_ismt2_pp(result, m()) << "\n";);
-            return st;
-        }
     }
 
     st = mk_mul_eq(lhs, rhs, result);

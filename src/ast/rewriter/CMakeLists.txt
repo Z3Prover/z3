@@ -33,7 +33,6 @@ z3_add_component(rewriter
     seq_rewriter.cpp
     th_rewriter.cpp
     var_subst.cpp
-    bv_trailing.cpp
     mk_extract_proc.cpp
   COMPONENT_DEPENDENCIES
     ast
