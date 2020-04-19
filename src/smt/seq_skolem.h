@@ -95,8 +95,9 @@ namespace smt {
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_eq(expr* e, expr*& a, expr*& b) const;
-        bool is_tail_match(expr* e, expr*& s, expr*& idx) const;
-        bool is_tail(expr* e, expr*& s, unsigned& idx) const;
+        bool is_tail(expr* e, expr*& s, expr*& idx) const;
+        bool is_tail_u(expr* e, expr*& s, unsigned& idx) const;
+        bool is_tail(expr* e, expr*& s) const;
         bool is_digit(expr* e) const { return is_skolem(symbol("seq.is_digit"), e); }
         bool is_max_unfolding(expr* e) const { return is_skolem(m_max_unfolding, e); }
         bool is_length_limit(expr* e) const { return is_skolem(m_length_limit, e); }

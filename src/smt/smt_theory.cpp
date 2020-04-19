@@ -122,7 +122,7 @@ namespace smt {
             return true_literal;
         }
         context & ctx = get_context();
-        app * eq = ctx.mk_eq_atom(a, b);
+        app_ref eq(ctx.mk_eq_atom(a, b), get_manager());
         TRACE("mk_var_bug", tout << "mk_eq: " << eq->get_id() << " " << a->get_id() << " " << b->get_id() << "\n";
               tout << mk_ll_pp(a, get_manager()) << "\n" << mk_ll_pp(b, get_manager()););		
         ctx.internalize(eq, gate_ctx);

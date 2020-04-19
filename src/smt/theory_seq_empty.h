@@ -19,9 +19,10 @@ Revision History:
 #ifndef THEORY_SEQ_EMPTY_H_
 #define THEORY_SEQ_EMPTY_H_
 
-#include "smt/smt_theory.h"
 #include "ast/seq_decl_plugin.h"
 #include "model/seq_factory.h"
+#include "smt/smt_theory.h"
+#include "smt/smt_model_generator.h"
 
 namespace smt {
 

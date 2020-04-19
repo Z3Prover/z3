@@ -389,13 +389,12 @@ namespace smt {
         obj_hashtable<expr>        m_axiom_set;
         unsigned                   m_axioms_head; // index of first axiom to add.
         bool                       m_incomplete;             // is the solver (clearly) incomplete for the fragment.
-        expr_ref_vector     m_int_string;
-        obj_map<expr, unsigned> m_si_axioms;
-        obj_hashtable<expr> m_has_length;         // is length applied
-        expr_ref_vector     m_length;             // length applications themselves
-        obj_map<expr, unsigned> m_length_limit_map;   // sequences that have length limit predicates
-        expr_ref_vector         m_length_limit;       // length limit predicates
-        scoped_ptr_vector<apply> m_replay;        // set of actions to replay
+        expr_ref_vector            m_int_string;
+        obj_hashtable<expr>        m_has_length;         // is length applied
+        expr_ref_vector            m_length;             // length applications themselves
+        obj_map<expr, unsigned>    m_length_limit_map;   // sequences that have length limit predicates
+        expr_ref_vector            m_length_limit;       // length limit predicates
+        scoped_ptr_vector<apply>   m_replay;        // set of actions to replay
         model_generator* m_mg;
         th_rewriter      m_rewrite;               // rewriter that converts strings to character concats
         th_rewriter      m_str_rewrite;           // rewriter that coonverts character concats to strings
@@ -518,6 +517,7 @@ namespace smt {
         bool solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
+        bool solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep);
         bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr_ref& y);
         bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
         bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
@@ -541,7 +541,7 @@ namespace smt {
         bool solve_ne(unsigned i);
         bool solve_nc(unsigned i);
         bool branch_nqs();
-        void branch_nq(ne const& n);
+        lbool branch_nq(ne const& n);
 
         struct cell {
             cell*       m_parent;
@@ -622,10 +622,6 @@ namespace smt {
 
         expr_ref add_elim_string_axiom(expr* n);
         void add_in_re_axiom(expr* n);
-        bool add_itos_val_axiom(expr* n);
-        bool add_stoi_val_axiom(expr* n);
-        bool add_si_axiom(expr* e, expr* n);
-        void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_simplified_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
@@ -649,6 +645,9 @@ namespace smt {
         bool get_length(expr* s, rational& val);
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
+
+        // unfold definitions based on length limits
+        void propagate_length_limit(expr* n);
 
         void set_incomplete(app* term);
 

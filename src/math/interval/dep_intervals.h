@@ -209,7 +209,7 @@ public:
     }
 
     template <enum with_deps_t wd>
-        void power(const interval& a, unsigned n, interval& b) {
+    void power(const interval& a, unsigned n, interval& b) {
         if (with_deps == wd) {
             interval_deps_combine_rule combine_rule;
             m_imanager.power(a, n, b, combine_rule);

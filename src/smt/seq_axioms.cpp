@@ -120,13 +120,13 @@ void seq_axioms::add_extract_axiom(expr* e) {
     expr_ref xey = mk_concat(x, e, y);
     expr_ref zero(a.mk_int(0), m);
 
-    literal i_ge_0    = mk_literal(a.mk_ge(i, zero));
-    literal i_le_ls   = mk_literal(a.mk_le(mk_sub(i, ls), zero));
-    literal ls_le_i   = mk_literal(a.mk_le(mk_sub(ls, i), zero));
-    literal ls_ge_li  = mk_literal(a.mk_ge(ls_minus_i_l, zero));
-    literal l_ge_0    = mk_literal(a.mk_ge(l, zero));
-    literal l_le_0    = mk_literal(a.mk_le(l, zero));
-    literal ls_le_0   = mk_literal(a.mk_le(ls, zero));
+    literal i_ge_0    = mk_ge(i, zero);
+    literal i_le_ls   = mk_le(mk_sub(i, ls), zero);
+    literal ls_le_i   = mk_le(mk_sub(ls, i), zero);
+    literal ls_ge_li  = mk_ge(ls_minus_i_l, zero);
+    literal l_ge_0    = mk_ge(l, zero);
+    literal l_le_0    = mk_le(l, zero);
+    literal ls_le_0   = mk_le(ls, zero);
     literal le_is_0   = mk_eq(le, zero);
 
 
@@ -214,8 +214,8 @@ void seq_axioms::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     expr_ref zero(a.mk_int(0), m);
     expr_ref y = m_sk.mk_post(s, l);
     expr_ref ey = mk_concat(e, y);
-    literal l_ge_0 = mk_literal(a.mk_ge(l, zero));
-    literal l_le_s = mk_literal(a.mk_le(mk_sub(l, ls), zero));
+    literal l_ge_0 = mk_ge(l, zero);
+    literal l_le_s = mk_le(mk_sub(l, ls), zero);
     add_axiom(~l_ge_0, ~l_le_s, mk_seq_eq(s, ey));
     add_axiom(~l_ge_0, ~l_le_s, mk_eq(l, le));
     add_axiom(~l_ge_0, ~l_le_s, mk_eq(ls_minus_l, mk_len(y)));
@@ -236,8 +236,8 @@ void seq_axioms::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
     expr_ref zero(a.mk_int(0), m);
     expr_ref xe = mk_concat(x, e);
     literal le_is_0 = mk_eq_empty(e);
-    literal i_ge_0 = mk_literal(a.mk_ge(i, zero));
-    literal i_le_s = mk_literal(a.mk_le(mk_sub(i, ls), zero));
+    literal i_ge_0 = mk_ge(i, zero);
+    literal i_le_s = mk_le(mk_sub(i, ls), zero);
     add_axiom(~i_ge_0, ~i_le_s, mk_seq_eq(s, xe));
     add_axiom(~i_ge_0, ~i_le_s, mk_eq(i, lx));
     add_axiom(i_ge_0, le_is_0);
@@ -328,7 +328,7 @@ void seq_axioms::add_indexof_axiom(expr* i) {
         add_axiom(~s_eq_empty, i_eq_0);
         add_axiom(~cnt, s_eq_empty, mk_seq_eq(t, xsy));
         add_axiom(~cnt, s_eq_empty, mk_eq(i, lenx));
-        add_axiom(~cnt, mk_literal(a.mk_ge(i, zero)));
+        add_axiom(~cnt, mk_ge(i, zero));
         tightest_prefix(s, x);
     }
     else {
@@ -336,8 +336,8 @@ void seq_axioms::add_indexof_axiom(expr* i) {
         // offset > len(t) => indexof(t, s, offset) = -1
         // offset = len(t) & |s| = 0 => indexof(t, s, offset) = offset
         expr_ref len_t = mk_len(t);
-        literal offset_ge_len = mk_literal(a.mk_ge(mk_sub(offset, len_t), zero));
-        literal offset_le_len = mk_literal(a.mk_le(mk_sub(offset, len_t), zero));
+        literal offset_ge_len = mk_ge(mk_sub(offset, len_t), zero);
+        literal offset_le_len = mk_le(mk_sub(offset, len_t), zero);
         literal i_eq_offset = mk_eq(i, offset);
         add_axiom(~offset_ge_len, s_eq_empty, i_eq_m1);
         add_axiom(offset_le_len, i_eq_m1);
@@ -347,7 +347,7 @@ void seq_axioms::add_indexof_axiom(expr* i) {
         expr_ref y = m_sk.mk_indexof_right(t, s, offset);
         expr_ref indexof0(seq.str.mk_index(y, s, zero), m);
         expr_ref offset_p_indexof0(a.mk_add(offset, indexof0), m);
-        literal offset_ge_0 = mk_literal(a.mk_ge(offset, zero));
+        literal offset_ge_0 = mk_ge(offset, zero);
 
         // 0 <= offset & offset < len(t) => t = xy
         // 0 <= offset & offset < len(t) => len(x) = offset
@@ -360,7 +360,7 @@ void seq_axioms::add_indexof_axiom(expr* i) {
         add_axiom(~offset_ge_0, offset_ge_len,
                   ~mk_eq(indexof0, minus_one), i_eq_m1);
         add_axiom(~offset_ge_0, offset_ge_len,
-                  ~mk_literal(a.mk_ge(indexof0, zero)),
+                  ~mk_ge(indexof0, zero),
                   mk_eq(offset_p_indexof0, i));
 
         // offset < 0 => -1 = i        
@@ -451,8 +451,8 @@ void seq_axioms::add_at_axiom(expr* e) {
     expr_ref one(a.mk_int(1), m);
     expr_ref emp(seq.str.mk_empty(m.get_sort(e)), m);
     expr_ref len_s = mk_len(s);
-    literal i_ge_0 = mk_literal(a.mk_ge(i, zero));
-    literal i_ge_len_s = mk_literal(a.mk_ge(mk_sub(i, mk_len(s)), zero));
+    literal i_ge_0 = mk_ge(i, zero);
+    literal i_ge_len_s = mk_ge(mk_sub(i, mk_len(s)), zero);
     expr_ref len_e = mk_len(e);
 
     rational iv;
@@ -480,7 +480,7 @@ void seq_axioms::add_at_axiom(expr* e) {
     add_axiom(i_ge_0, mk_eq(e, emp));
     add_axiom(~i_ge_len_s, mk_eq(e, emp));
     add_axiom(~i_ge_0, i_ge_len_s, mk_eq(one, len_e));
-    add_axiom(mk_literal(a.mk_le(len_e, one)));
+    add_axiom(mk_le(len_e, one));
 }
 
 /**
@@ -500,8 +500,8 @@ void seq_axioms::add_nth_axiom(expr* e) {
     }
     else {
         expr_ref zero(a.mk_int(0), m);
-        literal i_ge_0 =     mk_literal(a.mk_ge(i, zero));
-        literal i_ge_len_s = mk_literal(a.mk_ge(mk_sub(i, mk_len(s)), zero));
+        literal i_ge_0 =     mk_ge(i, zero);
+        literal i_ge_len_s = mk_ge(mk_sub(i, mk_len(s)), zero);
         // at(s,i) = [nth(s,i)]
         expr_ref rhs(s, m);
         expr_ref lhs(seq.str.mk_unit(e), m);
@@ -520,12 +520,12 @@ void seq_axioms::add_itos_axiom(expr* e) {
     // itos(n) = "" <=> n < 0
     expr_ref zero(a.mk_int(0), m);
     literal eq1 = mk_literal(seq.str.mk_is_empty(e));
-    literal ge0 = mk_literal(a.mk_ge(n, zero));
+    literal ge0 = mk_ge(n, zero);
     // n >= 0 => itos(n) != ""
     // itos(n) = "" or n >= 0
     add_axiom(~eq1, ~ge0);
     add_axiom(eq1, ge0);
-    add_axiom(mk_literal(a.mk_ge(mk_len(e), zero)));    
+    add_axiom(mk_ge(mk_len(e), 0));
     
     // n >= 0 => stoi(itos(n)) = n
     app_ref stoi(seq.str.mk_stoi(e), m);
@@ -550,37 +550,74 @@ void seq_axioms::add_stoi_axiom(expr* e) {
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
     expr* s = nullptr;
     VERIFY (seq.str.is_stoi(e, s));    
-    add_axiom(mk_literal(a.mk_ge(e, a.mk_int(-1))));
+    add_axiom(mk_ge(e, -1));
     add_axiom(~mk_literal(seq.str.mk_is_empty(s)), mk_eq(seq.str.mk_stoi(s), a.mk_int(-1)));   
 }
 
 /**
-   stoi(s) >= 0 => 
-          s != empty
-          s = unit(head) + tail
-          stoi(s) = 10*digit(head) + stoi(tail) or tail = empty
-          stoi(s) = digit(head) or tail != empty
-          is_digit(head)
-          (tail = empty or stoi(tail) >= 0)
+
+   stoi(s) >= 0, len(s) <= k => stoi(s) = stoi(s, k)
+   len(s) > 0  =>               stoi(s, 0) = digit(nth_i(s, 0))
+   0 < i, len(s) <= i =>        stoi(s, i) = stoi(s, i - 1)
+   0 < i, len(s) > i  =>        stoi(s, i) = 10*stoi(s, i - 1) + digit(nth_i(s, i - 1))   
+
+Define auxiliary function with the property:
+   for 0 <= i < len(s)
+     stoi(s, i) := stoi(extract(s, 0, i+1)) 
+
+   for 0 < i < len(s):
+     len(s) > i  => stoi(s, i) := stoi(extract(s, 0, i))*10 + stoi(extract(s, i, 1))
+     len(s) <= i => stoi(s, i) := stoi(extract(s, 0, i-1), i-1)
+
  */
-void seq_axioms::add_stoi_non_empty_axiom(expr* e) {
+void seq_axioms::add_stoi_axiom(expr* e, unsigned k) {
+    SASSERT(k > 0);
     expr* s = nullptr;
     VERIFY (seq.str.is_stoi(e, s));    
-    expr_ref head(m), tail(m);
-    m_sk.decompose(s, head, tail);
-    expr_ref first_char = mk_nth(s, a.mk_int(0));
-    literal ge0 = mk_literal(a.mk_ge(e, a.mk_int(0)));
-    literal tail_empty = mk_eq_empty(tail);
-    expr_ref first_digit = m_sk.mk_digit2int(first_char);
-    expr_ref stoi_tail(seq.str.mk_stoi(tail), m);
-    add_axiom(~ge0, ~mk_literal(seq.str.mk_is_empty(s)));
-    add_axiom(~ge0, mk_seq_eq(s, mk_concat(head, tail)));
-    add_axiom(~ge0, tail_empty, mk_eq(a.mk_add(a.mk_mul(a.mk_int(10), first_digit), stoi_tail), e));
-    add_axiom(~ge0, ~tail_empty, mk_eq(first_digit, e));
-    add_axiom(~ge0, is_digit(first_char));
-    add_axiom(~ge0, tail_empty, mk_literal(a.mk_ge(stoi_tail, a.mk_int(0))));    
+    auto stoi2 = [&](unsigned j) { return m_sk.mk("seq.stoi", s, a.mk_int(j), a.mk_int()); }; 
+    auto digit = [&](unsigned j) { return m_sk.mk_digit2int(mk_nth(s, a.mk_int(j))); };
+    expr_ref len = mk_len(s);
+    literal ge0 = mk_ge(e, 0);
+    literal lek = mk_le(len, k);
+    add_axiom(~ge0, ~mk_eq(len, a.mk_int(0)));
+    add_axiom(~ge0, ~lek, mk_eq(e, stoi2(k-1)));
+    add_axiom(mk_eq(len, a.mk_int(0)), mk_eq(stoi2(0), digit(0)));
+    for (unsigned i = 1; i < k; ++i) {
+        add_axiom(mk_le(len, i),   mk_eq(stoi2(i), a.mk_add(a.mk_mul(a.mk_int(10), stoi2(i-1)), digit(i))));
+        add_axiom(~mk_le(len, i),  mk_eq(stoi2(i), stoi2(i-1)));
+    }
 }
 
+/**
+   Let s := itos(e)
+
+   Relate values of e with len(s) where len(s) is bounded by k.
+
+   |s| = 0 => e < 0
+
+   |s| <= 1 => e < 10
+   |s| <= 2 => e < 100
+   |s| <= 3 => e < 1000
+
+   |s| >= 1 => e >= 0
+   |s| >= 2 => e >= 10
+   |s| >= 3 => e >= 100
+
+*/
+
+void seq_axioms::add_itos_axiom(expr* s, unsigned k) {
+    expr* e = nullptr;
+    VERIFY(seq.str.is_itos(s, e));
+    expr_ref len = mk_len(s);
+    add_axiom(mk_ge(e, 10), mk_le(len, 1));
+    add_axiom(mk_le(e, -1), mk_ge(len, 1));
+    rational lo(1);
+    for (unsigned i = 1; i <= k; ++i) {
+        lo *= rational(10);
+        add_axiom(mk_ge(e, lo), mk_le(len, i));
+        add_axiom(mk_le(e, lo - 1), mk_ge(len, i + 1));
+    }
+}
 
 /**
    e1 < e2 => prefix(e1, e2) or e1 = xcy e1 < e2 => prefix(e1, e2) or
@@ -644,7 +681,7 @@ void seq_axioms::add_suffix_axiom(expr* e) {
     expr* e1 = nullptr, *e2 = nullptr;
     VERIFY(seq.str.is_suffix(e, e1, e2));
     literal lit = mk_literal(e);
-    literal e1_gt_e2 = mk_literal(a.mk_ge(mk_sub(mk_len(e1), mk_len(e2)), a.mk_int(1)));    
+    literal e1_gt_e2 = mk_ge(mk_sub(mk_len(e1), mk_len(e2)), 1);
     sort* char_sort = nullptr;
     VERIFY(seq.is_seq(m.get_sort(e1), char_sort));
     expr_ref x = m_sk.mk(symbol("seq.suffix.x"), e1, e2);
@@ -661,7 +698,7 @@ void seq_axioms::add_prefix_axiom(expr* e) {
     expr* e1 = nullptr, *e2 = nullptr;
     VERIFY(seq.str.is_prefix(e, e1, e2));
     literal lit = mk_literal(e);
-    literal e1_gt_e2 = mk_literal(a.mk_ge(mk_sub(mk_len(e1), mk_len(e2)), a.mk_int(1)));
+    literal e1_gt_e2 = mk_ge(mk_sub(mk_len(e1), mk_len(e2)), 1);
     sort* char_sort = nullptr;
     VERIFY(seq.is_seq(m.get_sort(e1), char_sort));
     expr_ref x = m_sk.mk(symbol("seq.prefix.x"), e1, e2);
@@ -686,50 +723,6 @@ literal seq_axioms::is_digit(expr* ch) {
     add_axiom(~isd, hi);
     return isd;
 }
-// n >= 0 & len(e) >= i + 1 => is_digit(e_i) for i = 0..k-1
-// n >= 0 & len(e) = k => n = sum 10^i*digit(e_i)
-// n < 0  & len(e) = k => \/_i ~is_digit(e_i) for i = 0..k-1
-// 10^k <= n < 10^{k+1}-1 => len(e) => k
-
-void seq_axioms::add_si_axiom(expr* e, expr* n, unsigned k) {
-    zstring s;
-    expr_ref ith_char(m), num(m), coeff(m);
-    expr_ref_vector nums(m), chars(m);
-    expr_ref len = mk_len(e);
-    literal len_eq_k = th.mk_preferred_eq(len, a.mk_int(k));
-    literal ge0 = mk_literal(a.mk_ge(n, a.mk_int(0)));
-    literal_vector digits;
-    digits.push_back(~len_eq_k);
-    digits.push_back(ge0);
-    ensure_digit_axiom();
-    for (unsigned i = 0; i < k; ++i) {
-        ith_char = mk_nth(e, a.mk_int(i));
-        literal isd = is_digit(ith_char);
-        literal len_ge_i1 = mk_literal(a.mk_ge(len, a.mk_int(i+1)));
-        add_axiom(~len_ge_i1, ~ge0, isd);
-        digits.push_back(~isd);
-        chars.push_back(seq.str.mk_unit(ith_char));
-        nums.push_back(m_sk.mk_digit2int(ith_char));
-    }        
-    ctx().mk_th_axiom(th.get_id(), digits.size(), digits.c_ptr());
-    rational c(1);
-    for (unsigned i = k; i-- > 0; c *= rational(10)) {
-        coeff = a.mk_int(c);
-        nums[i] = a.mk_mul(coeff, nums.get(i));
-    }
-    num = a.mk_add(nums.size(), nums.c_ptr());
-    m_rewrite(num);
-    add_axiom(~len_eq_k, ~ge0, th.mk_preferred_eq(n, num));
-    add_axiom(~len_eq_k, ~ge0, th.mk_preferred_eq(e, seq.str.mk_concat(chars)));
-
-    SASSERT(k > 0);
-    rational lb = power(rational(10), k - 1);
-    rational ub = power(rational(10), k) - 1;
-    literal lbl = mk_literal(a.mk_ge(n, a.mk_int(lb)));
-    literal ge_k = mk_literal(a.mk_ge(len, a.mk_int(k)));
-    // n >= lb => len(s) >= k
-    add_axiom(~lbl, ge_k);
-}
 
 void seq_axioms::ensure_digit_axiom() {
     if (!m_digits_initialized) {
@@ -745,7 +738,10 @@ void seq_axioms::ensure_digit_axiom() {
 
 expr_ref seq_axioms::add_length_limit(expr* s, unsigned k) {
     expr_ref bound_tracker  = m_sk.mk_length_limit(s, k);
-    literal bound_predicate = mk_literal(a.mk_le(mk_len(s), a.mk_int(k)));
+    expr* s0 = nullptr;
+    if (seq.str.is_stoi(s, s0)) 
+        s = s0; 
+    literal bound_predicate = mk_le(mk_len(s), k);
     add_axiom(~mk_literal(bound_tracker), bound_predicate);
     return bound_tracker;
 }

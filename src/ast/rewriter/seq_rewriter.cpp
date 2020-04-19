@@ -2566,31 +2566,34 @@ bool seq_rewriter::is_string(unsigned n, expr* const* es, zstring& s) const {
 
 bool seq_rewriter::solve_itos(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs, 
                               expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat) {
-
-    expr* l, *r;
+    expr* n = nullptr;
     is_sat = true;
-    if (szl == 1 && m_util.str.is_itos(ls[0], l)) {
-        if (szr == 1 && m_util.str.is_itos(rs[0], r)) {
-            lhs.push_back(l);
-            rhs.push_back(r);
+    if (szl == 1 && m_util.str.is_itos(ls[0], n) &&
+        solve_itos(n, szr, rs, lhs, rhs)) {
+        return true;
+    }
+    if (szr == 1 && m_util.str.is_itos(rs[0], n) &&
+        solve_itos(n, szl, ls, rhs, lhs)) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * itos(n) = <numeric string> -> n = numeric
+ */
+
+bool seq_rewriter::solve_itos(expr* n, unsigned sz, expr* const* es, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+    zstring s;
+    if (is_string(sz, es, s)) {
+        std::string s1 = s.encode();
+        rational r(s1.c_str());
+        if (s1 == r.to_string()) {
+            lhs.push_back(n);
+            rhs.push_back(m_autil.mk_numeral(r, true));
             return true;
         }
-        zstring s;
-        if (is_string(szr, rs, s)) {
-            std::string s1 = s.encode();
-            rational r(s1.c_str());
-            if (s1 == r.to_string()) {
-                lhs.push_back(l);
-                rhs.push_back(m_autil.mk_numeral(r, true));
-                return true;
-            }
-        }
-    }
-
-    if (szr == 1 && szl >= 1 && m_util.str.is_itos(rs[0], r) && !m_util.str.is_itos(ls[0])) {
-        return solve_itos(szr, rs, szl, ls, rhs, lhs, is_sat);
-    }
-
+    }        
     return false;
 }
 

@@ -136,13 +136,18 @@ bool seq_skolem::is_step(expr* e, expr*& s, expr*& idx, expr*& re, expr*& i, exp
     }
 }
 
-bool seq_skolem::is_tail(expr* e, expr*& s, unsigned& idx) const {
+bool seq_skolem::is_tail_u(expr* e, expr*& s, unsigned& idx) const {
     expr* i = nullptr;
     rational r;
-    return is_tail_match(e, s, i) && a.is_numeral(i, r) && r.is_unsigned() && (idx = r.get_unsigned(), true);
+    return is_tail(e, s, i) && a.is_numeral(i, r) && r.is_unsigned() && (idx = r.get_unsigned(), true);
 }
 
-bool seq_skolem::is_tail_match(expr* e, expr*& s, expr*& idx) const {
+bool seq_skolem::is_tail(expr* e, expr*& s) const {
+    expr* i = nullptr;
+    return is_tail(e, s, i);
+}
+
+bool seq_skolem::is_tail(expr* e, expr*& s, expr*& idx) const {
     return is_tail(e) && (s = to_app(e)->get_arg(0), idx = to_app(e)->get_arg(1), true);
 }
 

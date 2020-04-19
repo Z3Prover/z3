@@ -153,6 +153,7 @@ class seq_rewriter {
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
     bool solve_itos(unsigned n, expr* const* l, unsigned m, expr* const* r, 
                     expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
+    bool solve_itos(expr* n, unsigned sz, expr* const* es, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool min_length(unsigned n, expr* const* es, unsigned& len);
     expr* concat_non_empty(unsigned n, expr* const* es);
 
