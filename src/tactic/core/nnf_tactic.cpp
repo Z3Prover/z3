@@ -81,7 +81,7 @@ public:
         }
         
         sz = defs.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; !g->inconsistent() && i < sz; i++) {
             if (produce_proofs)
                 g->assert_expr(defs.get(i), def_prs.get(i), nullptr);
             else
@@ -90,7 +90,7 @@ public:
         g->inc_depth();
         result.push_back(g.get());
         unsigned num_extra_names = dnames.get_num_names();
-        if (num_extra_names > 0) {
+        if (num_extra_names > 0 && !g->inconsistent()) {
             generic_model_converter * fmc = alloc(generic_model_converter, m, "nnf");
             g->add(fmc);
             for (unsigned i = 0; i < num_extra_names; i++)
