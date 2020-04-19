@@ -401,15 +401,19 @@ void seq_axioms::add_last_indexof_axiom(expr* i) {
 }
 
 /*
-  let r = replace(a, s, t)
+  let r = replace(u, s, t)
 
-  a = "" => s = "" or r = a
-  contains(a, s) or r = a
-  s = "" => r = t+a
+  
+  - if s is empty, the result is to prepend t to u; 
+  - if s does not occur in u then the result is u.
+
+  s = "" => r = t+u
+  u = "" => s = "" or r = u
+  ~contains(u,s) => r = u
   
   tightest_prefix(s, x)
-  (contains(a, s) -> r = xty & a = xsy) &
-  (!contains(a, s) -> r = a)
+  contains(u, s) => r = xty & u = xsy
+  ~contains(u, s) => r = u
 
 */
 void seq_axioms::add_replace_axiom(expr* r) {
@@ -419,14 +423,14 @@ void seq_axioms::add_replace_axiom(expr* r) {
     expr_ref y  = m_sk.mk_indexof_right(u, s);
     expr_ref xty = mk_concat(x, t, y);
     expr_ref xsy = mk_concat(x, s, y);
-    literal a_emp = mk_eq_empty(u, true);
-    literal s_emp = mk_eq_empty(u, true);
+    literal u_emp = mk_eq_empty(u, true);
+    literal s_emp = mk_eq_empty(s, true);
     literal cnt = mk_literal(seq.str.mk_contains(u, s));
-    add_axiom(~a_emp, s_emp, mk_seq_eq(r, u));
-    add_axiom(cnt,  mk_seq_eq(r, u));
     add_axiom(~s_emp, mk_seq_eq(r, mk_concat(t, u)));
-    add_axiom(~cnt, a_emp, s_emp, mk_seq_eq(u, xsy));
-    add_axiom(~cnt, a_emp, s_emp, mk_seq_eq(r, xty));
+    add_axiom(~u_emp, s_emp, mk_seq_eq(r, u));
+    add_axiom(cnt,  mk_seq_eq(r, u));
+    add_axiom(~cnt, u_emp, s_emp, mk_seq_eq(u, xsy));
+    add_axiom(~cnt, u_emp, s_emp, mk_seq_eq(r, xty));
     ctx().force_phase(cnt);
     tightest_prefix(s, x);
 }
