@@ -28,7 +28,7 @@ Notes:
 using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 
     m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), 
-    m_dt(m), m_dl(m), m_a(m), m_bv(m), m_ar(m), 
+    m_dt(m), m_dl(m), m_a(m), m_bv(m), m_ar(m), m_rec(m), 
     m_generate_proof(false), m_collected(false), m_is_monotone(true) {}
 
 rule_properties::~rule_properties() {}
@@ -207,19 +207,20 @@ void rule_properties::operator()(quantifier* n) {
 void rule_properties::operator()(app* n) {
     func_decl_ref f_out(m);
     expr* n1 = nullptr, *n2 = nullptr;
+    func_decl* f = n->get_decl();
     rational r;
     if (m_is_predicate(n)) {
         insert(m_interp_pred, m_rule);
     }    
-    else if (is_uninterp(n) && !m_dl.is_rule_sort(n->get_decl()->get_range())) {
-        m_uninterp_funs.insert(n->get_decl(), m_rule);
+    else if (is_uninterp(n) && !m_dl.is_rule_sort(f->get_range())) {
+        m_uninterp_funs.insert(f, m_rule);
     }
     else if (m_dt.is_accessor(n)) {
         sort* s = m.get_sort(n->get_arg(0));
         SASSERT(m_dt.is_datatype(s));
         if (m_dt.get_datatype_constructors(s)->size() > 1) {
             bool found = false;
-            func_decl * c = m_dt.get_accessor_constructor(n->get_decl());
+            func_decl * c = m_dt.get_accessor_constructor(f);
             unsigned ut_size = m_rule->get_uninterpreted_tail_size();
             unsigned t_size  = m_rule->get_tail_size();  
             for (unsigned i = ut_size; !found && i < t_size; ++i) {
@@ -229,17 +230,20 @@ void rule_properties::operator()(app* n) {
                 }
             }
             if (!found) {
-                m_uninterp_funs.insert(n->get_decl(), m_rule);
+                m_uninterp_funs.insert(f, m_rule);
             }
         }
     }
-    else if (m_a.is_considered_uninterpreted(n->get_decl(), n->get_num_args(), n->get_args(), f_out)) {
-        m_uninterp_funs.insert(n->get_decl(), m_rule);
+    else if (m_a.is_considered_uninterpreted(f, n->get_num_args(), n->get_args(), f_out)) {
+        m_uninterp_funs.insert(f, m_rule);
     }
     else if ((m_a.is_mod(n, n1, n2) || m_a.is_div(n, n1, n2) ||
               m_a.is_idiv(n, n1, n2) || m_a.is_rem(n, n1, n2))
              && (!evaluates_to_numeral(n2, r) || r.is_zero())) {
-        m_uninterp_funs.insert(n->get_decl(), m_rule);
+        m_uninterp_funs.insert(f, m_rule);
+    }
+    else if (m_rec.is_defined(f)) {
+        m_uninterp_funs.insert(f, m_rule);
     }
     check_sort(m.get_sort(n));
 }

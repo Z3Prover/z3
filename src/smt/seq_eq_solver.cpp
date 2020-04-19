@@ -1618,3 +1618,158 @@ bool theory_seq::is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
     return true;
 }
 
+/**
+   match X abc = defg Y, for abc, defg non-empty
+*/
+
+bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y) {
+    if (ls.size() > 1 && is_var(ls[0]) &&
+        rs.size() > 1 && is_var(rs.back())) {
+        xs.reset();
+        ys.reset();
+        x = ls[0];
+        y = rs.back();
+        for (unsigned i = 1; i < ls.size(); ++i) {
+            if (!m_util.str.is_unit(ls[i])) return false;
+        }
+        for (unsigned i = 0; i < rs.size()-1; ++i) {
+            if (!m_util.str.is_unit(rs[i])) return false;
+        }
+        xs.append(ls.size()-1, ls.c_ptr() + 1);
+        ys.append(rs.size()-1, rs.c_ptr());
+        return true;
+    }
+    return false;
+}
+
+/*
+  match: Description TBD
+*/
+
+bool theory_seq::is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, 
+                            expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, 
+                            expr_ref& y1, expr_ref_vector& ys, expr_ref& y2) {
+    if (ls.size() > 1 && is_var(ls[0]) && is_var(ls.back()) &&
+        rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
+        unsigned l_start = 1;
+        for (; l_start < ls.size()-1; ++l_start) {
+            if (m_util.str.is_unit(ls[l_start])) break;
+        }
+        if (l_start == ls.size()-1) return false;
+        unsigned l_end = l_start;
+        for (; l_end < ls.size()-1; ++l_end) {
+            if (!m_util.str.is_unit(ls[l_end])) break;
+        }
+        --l_end;
+        unsigned r_start = 1;
+        for (; r_start < rs.size()-1; ++r_start) {
+            if (m_util.str.is_unit(rs[r_start])) break;
+        }
+        if (r_start == rs.size()-1) return false;
+        unsigned r_end = r_start;
+        for (; r_end < rs.size()-1; ++r_end) {
+            if (!m_util.str.is_unit(rs[r_end])) break;
+        }
+        --r_end;
+        for (unsigned i = l_start; i < l_end+1; ++i) {
+            if (!m_util.str.is_unit(ls[i])) return false;
+        }
+        for (unsigned i = r_start; i < r_end+1; ++i) {
+            if (!m_util.str.is_unit(rs[i])) return false;
+        }
+        xs.reset();
+        xs.append(l_end-l_start+1, ls.c_ptr()+l_start);
+        x1 = m_util.str.mk_concat(l_start, ls.c_ptr());
+        x2 = m_util.str.mk_concat(ls.size()-l_end-1, ls.c_ptr()+l_end+1);
+        ys.reset();
+        ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
+        y1 = m_util.str.mk_concat(r_start, rs.c_ptr());
+        y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1);
+        return true;
+    }
+    return false;
+}
+
+/*
+  match: Description TBD
+*/
+
+bool theory_seq::is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, 
+                               expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1) {
+    if (ls.size() > 1 && (is_var(ls[0]) || flag1) &&
+        rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
+        unsigned l_start = ls.size()-1;
+        for (; l_start > 0; --l_start) {
+            if (!m_util.str.is_unit(ls[l_start])) break;
+        }
+        if (l_start == ls.size()-1) return false;
+        ++l_start;
+        unsigned r_end = rs.size()-2;
+        for (; r_end > 0; --r_end) {
+            if (m_util.str.is_unit(rs[r_end])) break;
+        }
+        if (r_end == 0) return false;
+        unsigned r_start = r_end;
+        for (; r_start > 0; --r_start) {
+            if (!m_util.str.is_unit(rs[r_start])) break;
+        }
+        ++r_start;
+        for (unsigned i = l_start; i < ls.size(); ++i) {
+            if (!m_util.str.is_unit(ls[i])) return false;
+        }
+        for (unsigned i = r_start; i < r_end+1; ++i) {
+            if (!m_util.str.is_unit(rs[i])) return false;
+        }
+        xs.reset();
+        xs.append(ls.size()-l_start, ls.c_ptr()+l_start);
+        x = m_util.str.mk_concat(l_start, ls.c_ptr());
+        ys.reset();
+        ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
+        y1 = m_util.str.mk_concat(r_start, rs.c_ptr());
+        y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1);
+        return true;
+    }
+    return false;
+}
+
+/*
+  match: Description TBD
+*/
+
+bool theory_seq::is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, 
+                                expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1) {
+    if (ls.size() > 1 && (is_var(ls.back()) || flag1) &&
+        rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
+        unsigned l_start = 0;
+        for (; l_start < ls.size()-1; ++l_start) {
+            if (!m_util.str.is_unit(ls[l_start])) break;
+        }
+        if (l_start == 0) return false;
+        unsigned r_start = 1;
+        for (; r_start < rs.size()-1; ++r_start) {
+            if (m_util.str.is_unit(rs[r_start])) break;
+        }
+        if (r_start == rs.size()-1) return false;
+        unsigned r_end = r_start;
+        for (; r_end < rs.size()-1; ++r_end) {
+            if (!m_util.str.is_unit(rs[r_end])) break;
+        }
+        --r_end;
+        for (unsigned i = 0; i < l_start; ++i) {
+            if (!m_util.str.is_unit(ls[i])) return false;
+        }
+        for (unsigned i = r_start; i < r_end+1; ++i) {
+            if (!m_util.str.is_unit(rs[i])) return false;
+        }
+        xs.reset();
+        xs.append(l_start, ls.c_ptr());
+        x = m_util.str.mk_concat(ls.size()-l_start, ls.c_ptr()+l_start);
+        ys.reset();
+        ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
+        y1 = m_util.str.mk_concat(r_start, rs.c_ptr());
+        y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1);
+        return true;
+    }
+    return false;
+}
+
