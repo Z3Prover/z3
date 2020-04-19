@@ -89,6 +89,7 @@ class re2automaton {
     scoped_ptr<boolean_algebra_t>   m_ba;
     scoped_ptr<symbolic_automata_t> m_sa;
 
+    bool is_unit_char(expr* e, expr_ref& ch);
     eautomaton* re2aut(expr* e);
     eautomaton* seq2aut(expr* e);
 public:

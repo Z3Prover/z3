@@ -2388,7 +2388,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
 
     // Shortcut for well-founded values to avoid some quadratic overhead
     expr* x = nullptr, *y = nullptr, *z = nullptr;
-    if (m_util.str.is_concat(e, x, y) && m_util.str.is_unit(x, z) && 
+    if (false && m_util.str.is_concat(e, x, y) && m_util.str.is_unit(x, z) && 
         ctx.e_internalized(z) && ctx.e_internalized(y)) {
         sort* srt = m.get_sort(e);
         seq_value_proc* sv = alloc(seq_value_proc, *this, n, srt);
@@ -3466,15 +3466,23 @@ void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
     new_eq_eh(deps, n1, n2);
 }
 
-lbool theory_seq::regex_are_equal(expr* r1, expr* r2) {
-    if (r1 == r2) {
+lbool theory_seq::regex_are_equal(expr* _r1, expr* _r2) {
+    if (_r1 == _r2) {
         return l_true;
     }
+    expr_ref r1(_r1, m);
+    expr_ref r2(_r2, m);
+    m_rewrite(r1);
+    m_rewrite(r2);
+    if (r1 == r2) 
+        return l_true;
     expr* d1 = m_util.re.mk_inter(r1, m_util.re.mk_complement(r2));
     expr* d2 = m_util.re.mk_inter(r2, m_util.re.mk_complement(r1));
     expr_ref diff(m_util.re.mk_union(d1, d2), m);
+    m_rewrite(diff);
     eautomaton* aut = get_automaton(diff);
     if (!aut) {
+        std::cout << diff << "\n";
         return l_undef;
     }
     else if (aut->is_empty()) {
@@ -3487,26 +3495,28 @@ lbool theory_seq::regex_are_equal(expr* r1, expr* r2) {
 
 
 void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
-    TRACE("seq", tout << mk_bounded_pp(n1->get_owner(), m) << " = " << mk_bounded_pp(n2->get_owner(), m) << "\n";);
-    if (n1 != n2 && m_util.is_seq(n1->get_owner())) {
+    expr* e1 = n1->get_owner();
+    expr* e2 = n2->get_owner();
+    TRACE("seq", tout << mk_bounded_pp(e1, m) << " = " << mk_bounded_pp(e2, m) << "\n";);
+    if (n1 != n2 && m_util.is_seq(e1)) {
         theory_var v1 = n1->get_th_var(get_id());
         theory_var v2 = n2->get_th_var(get_id());
         if (m_find.find(v1) == m_find.find(v2)) {
             return;
         }
         m_find.merge(v1, v2);
-        expr_ref o1(n1->get_owner(), m);
-        expr_ref o2(n2->get_owner(), m);
+        expr_ref o1(e1, m);
+        expr_ref o2(e2, m);
         TRACE("seq", tout << mk_bounded_pp(o1, m) << " = " << mk_bounded_pp(o2, m) << "\n";);
         m_eqs.push_back(mk_eqdep(o1, o2, deps));
         solve_eqs(m_eqs.size()-1);
         enforce_length_coherence(n1, n2);
     }
-    else if (n1 != n2 && m_util.is_re(n1->get_owner())) {
+    else if (n1 != n2 && m_util.is_re(e1)) {
         // create an expression for the symmetric difference and imply it is empty.
         enode_pair_vector eqs;
         literal_vector lits;
-        switch (regex_are_equal(n1->get_owner(), n2->get_owner())) {
+        switch (regex_are_equal(e1, e2)) {
         case l_true:
             break;
         case l_false:
@@ -3515,7 +3525,9 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
             set_conflict(eqs, lits);
             break;
         default:
-            throw default_exception("convert regular expressions into automata");            
+            std::stringstream strm;
+            strm << "could not decide equality over: " << mk_pp(e1, m) << "\n" << mk_pp(e2, m) << "\n";
+            throw default_exception(strm.str());
         }
     }
 }

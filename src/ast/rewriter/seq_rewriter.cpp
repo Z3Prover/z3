@@ -257,6 +257,19 @@ eautomaton* re2automaton::operator()(expr* e) {
     return r;
 } 
 
+bool re2automaton::is_unit_char(expr* e, expr_ref& ch) {
+    zstring s;
+    expr* c = nullptr;
+    if (u.str.is_string(e, s) && s.length() == 1) {
+        ch = u.mk_char(s[0]);
+        return true;
+    }
+    if (u.str.is_unit(e, c)) {
+        ch = c;
+        return true;
+    }
+    return false;
+}
 
 eautomaton* re2automaton::re2aut(expr* e) {
     SASSERT(u.is_re(e));
@@ -287,15 +300,12 @@ eautomaton* re2automaton::re2aut(expr* e) {
         return a.detach();                    
     }
     else if (u.re.is_range(e, e1, e2)) {
-        if (u.str.is_string(e1, s1) && u.str.is_string(e2, s2) &&
-            s1.length() == 1 && s2.length() == 1) {
-            unsigned start = s1[0];
-            unsigned stop = s2[0];
-            expr_ref _start(u.mk_char(start), m);
-            expr_ref _stop(u.mk_char(stop), m);
-            TRACE("seq", tout << "Range: " << start << " " << stop << "\n";);
+        expr_ref _start(m), _stop(m);
+        if (is_unit_char(e1, _start) &&
+            is_unit_char(e2, _stop)) {
+            TRACE("seq", tout << "Range: " << _start << " " << _stop << "\n";);
             a = alloc(eautomaton, sm, sym_expr::mk_range(_start, _stop));
-            return a.detach();
+            return a.detach();            
         }
         else {
             TRACE("seq", tout << "Range expression is not handled: " << mk_pp(e, m) << "\n";);
@@ -569,7 +579,11 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
+    if (st != BR_FAILED && m().get_sort(result) != f->get_range()) {
+        std::cout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";
+    }
     CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
+    SASSERT(st == BR_FAILED || m().get_sort(result) == f->get_range());
     return st;
 }
 
@@ -1804,9 +1818,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     TRACE("seq", tout << result << "\n";);
     return BR_REWRITE_FULL;
 }
+
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     if (m_util.re.is_full_seq(a) && m_util.re.is_full_seq(b)) {
         result = a;
@@ -1965,9 +1981,7 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
     expr* ac = nullptr, *bc = nullptr;
     if ((m_util.re.is_complement(a, ac) && ac == b) ||
         (m_util.re.is_complement(b, bc) && bc == a)) {
-        sort* seq_sort = nullptr;
-        VERIFY(m_util.is_re(a, seq_sort));
-        result = m_util.re.mk_empty(seq_sort);
+        result = m_util.re.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
     return BR_FAILED;
