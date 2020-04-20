@@ -528,9 +528,7 @@ void theory_diff_logic<Ext>::propagate() {
             break;
         }
         default:
-            std::cout << m_params.m_arith_propagation_strategy << "\n";
             SASSERT(false);
-            UNREACHABLE();
             propagate_core();
         }
     }

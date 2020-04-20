@@ -979,7 +979,7 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
         literal lit = mk_simplified_literal(m_autil.mk_le(n, m_autil.mk_int(-1)));
         propagate_lit(dep, 0, nullptr, lit);
         return true;
-    } 
+    }
     expr_ref num(m), digit(m);
     expr* u = nullptr;
     for (expr* r : rs) {
@@ -992,6 +992,7 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
         else {
             num = m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), num), digit);
         }
+        propagate_lit(dep, 0, nullptr, m_ax.is_digit(u));
     }
     propagate_lit(dep, 0, nullptr, mk_simplified_literal(m.mk_eq(n, num)));
     if (rs.size() > 1) {
