@@ -492,7 +492,7 @@ template<typename Ext>
 void theory_diff_logic<Ext>::propagate() {
     if (m_params.m_arith_adaptive) {
 
-        switch(m_params.m_arith_propagation_strategy) {
+        switch (m_params.m_arith_propagation_strategy) {
 
         case ARITH_PROP_PROPORTIONAL: {
 
@@ -528,6 +528,8 @@ void theory_diff_logic<Ext>::propagate() {
             break;
         }
         default:
+            std::cout << m_params.m_arith_propagation_strategy << "\n";
+            SASSERT(false);
             UNREACHABLE();
             propagate_core();
         }
@@ -1416,7 +1418,7 @@ bool theory_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, 
 
 template<typename Ext>
 theory* theory_diff_logic<Ext>::mk_fresh(context* new_ctx) {
-    return alloc(theory_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
+    return alloc(theory_diff_logic<Ext>, new_ctx->get_manager(), new_ctx->get_fparams());
 }
 
 template<typename Ext>

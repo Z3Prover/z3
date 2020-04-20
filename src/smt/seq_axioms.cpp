@@ -667,12 +667,19 @@ void seq_axioms::ensure_digit_axiom() {
 
 
 /**
-   e1 < e2 => prefix(e1, e2) or e1 = xcy e1 < e2 => prefix(e1, e2) or
-   c < d e1 < e2 => prefix(e1, e2) or e2 = xdz e1 < e2 => e1 != e2
-   !(e1 < e2) => prefix(e2, e1) or e2 = xdz !(e1 < e2) => prefix(e2,
-   e1) or d < c !(e1 < e2) => prefix(e2, e1) or e1 = xcy !(e1 = e2) or
-   !(e1 < e2) optional: e1 < e2 or e1 = e2 or e2 < e1 !(e1 = e2) or
-   !(e2 < e1) !(e1 < e2) or !(e2 < e1)
+   e1 < e2 => prefix(e1, e2) or e1 = xcy 
+   e1 < e2 => prefix(e1, e2) or c < d 
+   e1 < e2 => prefix(e1, e2) or e2 = xdz 
+   e1 < e2 => e1 != e2
+   !(e1 < e2) => prefix(e2, e1) or e2 = xdz 
+   !(e1 < e2) => prefix(e2, e1) or d < c 
+   !(e1 < e2) => prefix(e2, e1) or e1 = xcy 
+   !(e1 = e2) or !(e1 < e2) 
+
+   optional: 
+   e1 < e2 or e1 = e2 or e2 < e1 
+   !(e1 = e2) or !(e2 < e1) 
+   !(e1 < e2) or !(e2 < e1)
  */
 void seq_axioms::add_lt_axiom(expr* n) {
     expr* e1 = nullptr, *e2 = nullptr;

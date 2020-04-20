@@ -41,7 +41,7 @@ namespace smt {
 
     template<typename Ext>
     theory* theory_dense_diff_logic<Ext>::mk_fresh(context * new_ctx) { 
-        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
+        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), new_ctx->get_fparams());
     }
 
     template<typename Ext>
