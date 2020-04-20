@@ -1002,65 +1002,6 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
     return true;
 }
 
-/**
-   nth(x,idx) = rhs => 
-   x = pre(x, idx) ++ unit(rhs) ++ post(x, idx + 1)
-   NB: need 0 <= idx < len(rhs)   
-*/
-bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
-    expr* s = nullptr, *idx = nullptr;
-    if (ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
-        rational r;
-        bool idx_is_zero = m_autil.is_numeral(idx, r) && r.is_zero();
-        expr_ref_vector ls1(m), rs1(m); 
-        expr_ref idx1(m_autil.mk_add(idx, m_autil.mk_int(1)), m);
-        m_rewrite(idx1);
-        expr_ref rhs(m_util.str.mk_concat(rs.size(), rs.c_ptr()), m);
-        ls1.push_back(s);        
-        if (!idx_is_zero) rs1.push_back(m_sk.mk_pre(s, idx)); 
-        rs1.push_back(m_util.str.mk_unit(rhs)); 
-        rs1.push_back(m_sk.mk_post(s, idx1));
-        TRACE("seq", tout << ls1 << "\n"; tout << rs1 << "\n";);
-        m_eqs.push_back(eq(m_eq_id++, ls1, rs1, deps));        
-        return true;
-    }   
-    return false;
-}
-
-bool theory_seq::solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
-    if (solve_nth_eq2(ls, rs, dep)) {
-        return true;
-    }
-    if (ls.size() != 1 || rs.size() <= 1) {
-        return false;
-    }
-    expr* l = ls.get(0);
-    rational val;
-    if (!get_length(l, val) || val != rational(rs.size())) {
-        return false;
-    }
-    for (unsigned i = 0; i < rs.size(); ++i) {
-        unsigned k = 0;
-        expr* ru = nullptr, *r = nullptr;
-        if (m_util.str.is_unit(rs.get(i), ru) && m_util.str.is_nth_i(ru, r, k) && k == i && r == l) {
-            continue;
-        }
-        return false;
-    }
-    add_solution(l, mk_concat(rs, m.get_sort(l)), dep);
-    return true;
-}
-
-bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* deps) {
-    if (l.size() == 1 && is_var(l[0]) && !occurs(l[0], r) && add_solution(l[0], mk_concat(r, m.get_sort(l[0])), deps)) {
-        return true;
-    }
-    if (r.size() == 1 && is_var(r[0]) && !occurs(r[0], l) && add_solution(r[0], mk_concat(l, m.get_sort(r[0])), deps)) {
-        return true;
-    }
-
-    return false;
-}
 
 
 bool theory_seq::reduce_length(expr* l, expr* r, literal_vector& lits) {
@@ -2847,6 +2788,14 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
         if (!arg1 || !arg2) return true;
         result = m_util.str.mk_index(arg1, arg2, e3);
     }
+#if 0
+    else if (m_util.str.is_nth_i(e, e1, e2)) {
+        arg1 = try_expand(e1, deps);
+        if (!arg1) return true;
+        result = m_util.str.mk_nth_i(arg1, e2);
+        // m_rewrite(result);
+    }
+#endif
     else if (m_util.str.is_last_index(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         arg2 = try_expand(e2, deps);
