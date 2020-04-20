@@ -92,6 +92,11 @@ namespace smt {
         bool is_step(expr* e) const { return is_skolem(m_aut_step, e); }
         bool is_step(expr* e, expr*& s, expr*& idx, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
+        bool is_accept(expr* a, expr*& s, expr*& i, expr*& r, expr*& n) const { 
+            return is_accept(a) && (s = to_app(a)->get_arg(0), i = to_app(a)->get_arg(1), 
+                                    r = to_app(a)->get_arg(2), n = to_app(a)->get_arg(3), 
+                                    true); 
+        }
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_eq(expr* e, expr*& a, expr*& b) const;

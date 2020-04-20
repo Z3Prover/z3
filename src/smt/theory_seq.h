@@ -334,7 +334,6 @@ namespace smt {
             }
         };
 
-
         struct s_in_re {
             literal     m_lit;
             expr*       m_s;
@@ -457,7 +456,8 @@ namespace smt {
         app* get_ite_value(expr* a);
         void get_ite_concat(ptr_vector<expr>& head, ptr_vector<expr>& tail);
         
-        void len_offset(expr* e, rational val);
+        bool match_x_minus_y(expr* e, expr*& x, expr*& y) const;
+        void len_offset(expr* e, int val);
         void prop_arith_to_len_offset();
         int find_fst_non_empty_idx(expr_ref_vector const& x);
         expr* find_fst_non_empty_var(expr_ref_vector const& x);
@@ -489,8 +489,10 @@ namespace smt {
         bool eq_unit(expr* const& l, expr* const &r) const;       
         unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
         unsigned_vector overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        bool branch_ternary_variable_base(dependency* dep, unsigned_vector const & indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
-        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector const& indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base(dependency* dep, unsigned_vector const & indexes, expr* const& x, 
+                                          expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector const& indexes, expr_ref_vector const& xs, 
+                                           expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
         bool branch_ternary_variable(eq const& e, bool flag1 = false);
         bool branch_ternary_variable2(eq const& e, bool flag1 = false);
         bool branch_quat_variable(eq const& e);
@@ -508,7 +510,7 @@ namespace smt {
         bool check_contains();
         bool check_lts();
         bool solve_eqs(unsigned start);
-        bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep, unsigned idx);
+        bool solve_eq(eq const& e, unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool lift_ite(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
@@ -531,6 +533,7 @@ namespace smt {
 
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
         expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
+        expr_ref mk_concat(unsigned n, expr*const* es, sort* s) { return n == 0 ? expr_ref(m_util.str.mk_empty(s), m) : expr_ref(m_util.str.mk_concat(n, es), m); }
         expr_ref mk_concat(expr_ref_vector const& es, sort* s) { if (es.empty()) return mk_empty(s); return mk_concat(es.size(), es.c_ptr()); }
         expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return expr_ref(m_util.str.mk_concat(es.size(), es.c_ptr()), m); }
         expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr()); }
