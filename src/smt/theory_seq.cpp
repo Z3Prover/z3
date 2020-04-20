@@ -980,6 +980,7 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
         propagate_lit(dep, 0, nullptr, lit);
         return true;
     }
+
     expr_ref num(m), digit(m);
     expr* u = nullptr;
     for (expr* r : rs) {
@@ -992,8 +993,12 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
         else {
             num = m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), num), digit);
         }
+    }
+    for (expr* r : rs) {
+        VERIFY(m_util.str.is_unit(r, u));
         propagate_lit(dep, 0, nullptr, m_ax.is_digit(u));
     }
+
     propagate_lit(dep, 0, nullptr, mk_simplified_literal(m.mk_eq(n, num)));
     if (rs.size() > 1) {
         VERIFY (m_util.str.is_unit(rs[0], u));
@@ -1015,55 +1020,6 @@ bool theory_seq::reduce_length(expr* l, expr* r, literal_vector& lits) {
     else {
         return false;
     }
-}
-
-bool theory_seq::solve_unit_eq(expr* l, expr* r, dependency* deps) {
-    if (l == r) {
-        return true;
-    }
-    if (is_var(l) && !occurs(l, r) && add_solution(l, r, deps)) {
-        return true;
-    }
-    if (is_var(r) && !occurs(r, l) && add_solution(r, l, deps)) {
-        return true;
-    }
-
-    return false;
-}
-
-
-bool theory_seq::occurs(expr* a, expr_ref_vector const& b) {
-    for (auto const& elem : b) {
-        if (a == elem || m.is_ite(elem)) return true;
-    }
-    return false;
-}
-
-bool theory_seq::occurs(expr* a, expr* b) {
-     // true if a occurs under an interpreted function or under left/right selector.
-    SASSERT(is_var(a));
-    SASSERT(m_todo.empty());
-    expr* e1 = nullptr, *e2 = nullptr;
-    m_todo.push_back(b);
-    while (!m_todo.empty()) {
-        b = m_todo.back();
-        if (a == b || m.is_ite(b)) {
-            m_todo.reset();
-            return true;
-        }
-        m_todo.pop_back();
-        if (m_util.str.is_concat(b, e1, e2)) {
-            m_todo.push_back(e1);
-            m_todo.push_back(e2);
-        }
-        else if (m_util.str.is_unit(b, e1)) {
-            m_todo.push_back(e1);
-        }
-        else if (m_util.str.is_nth_i(b, e1, e2)) {
-            m_todo.push_back(e1);
-        }
-    }
-    return false;
 }
 
 
@@ -1234,64 +1190,6 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
     }
 }
 
-bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
-    context& ctx = get_context();
-    ptr_vector<expr> xs, ys;
-    expr_ref x(m), y(m);
-    bool is_binary = is_binary_eq(ls, rs, x, xs, ys, y);
-    if (!is_binary) {
-        is_binary = is_binary_eq(rs, ls, x, xs, ys, y);
-    }
-    if (!is_binary) {
-        return false;
-    }
-    // Equation is of the form x ++ xs = ys ++ y
-    // where xs, ys are units.
-    if (x != y) {
-        return false;
-    }
-    if (xs.size() != ys.size()) {
-        TRACE("seq", tout << "binary conflict\n";);
-        set_conflict(dep);
-        return false;
-    }
-    if (xs.empty()) {
-        // this should have been solved already
-        UNREACHABLE();
-        return false;
-    }
-
-    // Equation is of the form x ++ xs = ys ++ x
-    // where |xs| = |ys| are units of same length
-    // then xs is a wrap-around of ys
-    // x ++ ab = ba ++ x
-    // 
-    if (xs.size() == 1) {
-        enode* n1 = ensure_enode(xs[0]);
-        enode* n2 = ensure_enode(ys[0]);
-        if (n1->get_root() == n2->get_root()) {
-            return false;
-        }
-        literal eq = mk_eq(xs[0], ys[0], false);
-        switch (ctx.get_assignment(eq)) {
-        case l_false: {
-            literal_vector conflict;
-            conflict.push_back(~eq);
-            TRACE("seq", tout << conflict << "\n";);
-            set_conflict(dep, conflict);
-            break;
-        }
-        case l_true:
-            break;
-        case l_undef: 
-            ctx.mark_as_relevant(eq);
-            propagate_lit(dep, 0, nullptr, eq);
-            m_new_propagation = true;
-            break;
-        }
-    }
-    return false;
-}
 
 bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
     context& ctx = get_context();

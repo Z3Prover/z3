@@ -47,10 +47,6 @@ namespace smt {
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(seq.str.mk_concat(e1, e2, e3), m); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(seq.str.mk_concat(e1, e2), m); }
         expr_ref mk_nth(expr* e, unsigned i) { return expr_ref(seq.str.mk_nth_i(e, a.mk_int(i)), m); }
-        literal mk_ge(expr* e, int k) { return mk_ge_e(e, a.mk_int(k)); }
-        literal mk_le(expr* e, int k) { return mk_le_e(e, a.mk_int(k)); }
-        literal mk_ge(expr* e, rational const& k) { return mk_ge_e(e, a.mk_int(k)); }
-        literal mk_le(expr* e, rational const& k) { return mk_le_e(e, a.mk_int(k)); }
         literal mk_ge_e(expr* x, expr* y) { return mk_literal(a.mk_ge(x, y)); }
         literal mk_le_e(expr* x, expr* y) { return mk_literal(a.mk_le(x, y)); }
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, 
@@ -90,7 +86,12 @@ namespace smt {
         void add_le_axiom(expr* n);
         void add_unit_axiom(expr* n);
         void add_length_axiom(expr* n);
+
         literal is_digit(expr* ch);
+        literal mk_ge(expr* e, int k) { return mk_ge_e(e, a.mk_int(k)); }
+        literal mk_le(expr* e, int k) { return mk_le_e(e, a.mk_int(k)); }
+        literal mk_ge(expr* e, rational const& k) { return mk_ge_e(e, a.mk_int(k)); }
+        literal mk_le(expr* e, rational const& k) { return mk_le_e(e, a.mk_int(k)); }
 
         expr_ref add_length_limit(expr* s, unsigned k);
     };

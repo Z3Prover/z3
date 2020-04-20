@@ -489,8 +489,8 @@ namespace smt {
         bool eq_unit(expr* const& l, expr* const &r) const;       
         unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
         unsigned_vector overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        bool branch_ternary_variable_base(dependency* dep, unsigned_vector indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
-        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base(dependency* dep, unsigned_vector const & indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector const& indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
         bool branch_ternary_variable(eq const& e, bool flag1 = false);
         bool branch_ternary_variable2(eq const& e, bool flag1 = false);
         bool branch_quat_variable(eq const& e);
