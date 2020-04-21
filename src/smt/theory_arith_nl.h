@@ -182,14 +182,23 @@ template<typename Ext>
 rational theory_arith<Ext>::decompose_monomial(expr* m, buffer<var_power_pair>& vp) const {
     rational coeff(1);
     vp.reset();
+    expr_fast_mark1 mark;
     auto insert = [&](expr* arg) {
         rational r;
         if (m_util.is_numeral(arg, r)) 
             coeff *= r;
-        else if (!vp.empty() && vp.back().first == arg) 
-            vp.back().second += 1;
-        else 
+        else if (mark.is_marked(arg)) {
+            for (unsigned i = vp.size(); i-- > 0; ) {
+                if (vp[i].first == arg) {
+                    vp[i].second++;
+                    break;
+                }
+            }
+        }
+        else {
+            mark.mark(arg);
             vp.push_back(var_power_pair(arg, 1));
+        }
     };
     while (m_util.is_mul(m)) {
         unsigned sz = to_app(m)->get_num_args();
@@ -394,7 +403,8 @@ bool theory_arith<Ext>::update_bounds_using_interval(theory_var v, interval cons
         }
         bound * old_lower = lower(v);
         if (old_lower == nullptr || new_lower > old_lower->get_value()) {
-            TRACE("non_linear", tout << "NEW lower bound for v" << v << " " << new_lower << "\n";
+            TRACE("non_linear", tout << "NEW lower bound for v" << v << " " << mk_pp(var2expr(v), get_manager()) 
+                  << " " << new_lower << "\n";
                   display_interval(tout, i); tout << "\n";);
             mk_derived_nl_bound(v, new_lower, B_LOWER, i.get_lower_dependencies());
             r = true;
@@ -722,19 +732,19 @@ bool theory_arith<Ext>::branch_nl_int_var(theory_var v) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::is_monomial_linear(expr * m) const {
-
     SASSERT(is_pure_monomial(m));
     unsigned num_nl_vars = 0;
     for (expr* arg : *to_app(m)) {
         if (!get_context().e_internalized(arg))
             return false;
         theory_var _var = expr2var(arg);
+        CTRACE("non_linear", is_fixed(_var), 
+               tout << mk_pp(arg, get_manager()) << " is fixed: " << lower_bound(_var) << "\n";);
         if (!is_fixed(_var)) {
             num_nl_vars++;
         }
-        else {
-            if (lower_bound(_var).is_zero())
-                return true;
+        else if (lower_bound(_var).is_zero()) {
+            return true;
         }
     }
     return num_nl_vars <= 1;
