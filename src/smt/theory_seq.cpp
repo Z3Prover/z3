@@ -2304,8 +2304,9 @@ void theory_seq::validate_model(model& mdl) {
     for (auto const& eq : m_eqs) {
         expr_ref_vector ls = eq.ls();
         expr_ref_vector rs = eq.rs();
-        expr_ref l(m_util.str.mk_concat(ls), m);
-        expr_ref r(m_util.str.mk_concat(rs), m);
+        sort* srt = m.get_sort(ls.get(0));
+        expr_ref l(m_util.str.mk_concat(ls, srt), m);
+        expr_ref r(m_util.str.mk_concat(rs, srt), m);
         if (!mdl.are_equal(l, r)) {
             IF_VERBOSE(0, verbose_stream() << "equality failed: " << l << " = " << r << "\nbut\n" << mdl(l) << " != " << mdl(r) << "\n");
         }

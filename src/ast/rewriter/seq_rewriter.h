@@ -111,6 +111,18 @@ class seq_rewriter {
     expr_ref_vector m_es, m_lhs, m_rhs;
     bool           m_coalesce_chars;
 
+    enum length_comparison {
+        shorter_c, 
+        longer_c,
+        same_length_c,
+        unknown_c
+    };
+
+    length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
+        return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
+    }
+    length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
+
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
