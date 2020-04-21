@@ -73,6 +73,7 @@ src/api/ml/z3enums.ml
 src/api/ml/z3native.mli
 src/api/ml/z3enums.mli
 src/api/ml/z3.mllib
+out/**
 *.bak
 doc/api
 doc/code
