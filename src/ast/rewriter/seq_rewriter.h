@@ -155,6 +155,9 @@ class seq_rewriter {
 
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
+    expr_ref zero() { return expr_ref(m_autil.mk_int(0), m()); }
+    expr_ref one() { return expr_ref(m_autil.mk_int(1), m()); }
+    expr_ref minus_one() { return expr_ref(m_autil.mk_int(-1), m()); }
 
     bool is_suffix(expr* s, expr* offset, expr* len);
     bool sign_is_determined(expr* len, sign& s);

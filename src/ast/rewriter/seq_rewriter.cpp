@@ -519,7 +519,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         break;
     case OP_SEQ_INDEX:
         if (num_args == 2) {
-            expr_ref arg3(m_autil.mk_int(0), m());
+            expr_ref arg3(zero(), m());
             result = m_util.str.mk_index(args[0], args[1], arg3);
             st = BR_REWRITE1;
         }
@@ -689,9 +689,8 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     // len(extract(s, offs, len(s) - offs)) = max(0, len(s) - offs)
     // 
     if (m_util.str.is_extract(a, s, offs, l) && is_suffix(s, offs, l)) {
-        expr_ref zero(m_autil.mk_int(0), m());
         result = m_autil.mk_sub(m_util.str.mk_length(s), offs);
-        result = m().mk_ite(m_autil.mk_ge(result, zero), result, zero);
+        result = m().mk_ite(m_autil.mk_ge(result, zero()), result, zero());
         return BR_REWRITE_FULL;
     }
 #endif
@@ -1157,7 +1156,7 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
 
     expr* es[2] = { a, b};
     expr* la = m_util.str.mk_length(a);
-    result = m().mk_ite(m().mk_and(m_autil.mk_ge(b, m_autil.mk_int(0)), m().mk_not(m_autil.mk_le(la, b))), 
+    result = m().mk_ite(m().mk_and(m_autil.mk_ge(b, zero()), m().mk_not(m_autil.mk_le(la, b))), 
                         m().mk_app(m_util.get_family_id(), OP_SEQ_NTH_I, 2, es), 
                         m().mk_app(m_util.get_family_id(), OP_SEQ_NTH_U, 2, es));
     return BR_REWRITE_FULL;
@@ -1234,22 +1233,17 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     
     if (m_util.str.is_empty(a)) {
         expr* emp = m_util.str.mk_is_empty(b);
-        result = m().mk_ite(emp, m_autil.mk_int(0), m_autil.mk_int(-1));
+        result = m().mk_ite(emp, zero(), minus_one());
         return BR_REWRITE2;
     }
 
     if (a == b) {
         if (m_autil.is_numeral(c, r)) {
-            if (r.is_zero()) {
-                result = m_autil.mk_int(0);
-            }
-            else {
-                result = m_autil.mk_int(-1);            
-            }
+            result = r.is_zero() ? zero() : minus_one();            
             return BR_DONE;
         }
         else {
-            result = m().mk_ite(m().mk_eq(m_autil.mk_int(0), c), m_autil.mk_int(0), m_autil.mk_int(-1));
+            result = m().mk_ite(m().mk_eq(zero(), c), zero(), minus_one());
             return BR_REWRITE2;
         }
     }
@@ -1288,15 +1282,15 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     switch (compare_lengths(as, bs)) {
     case shorter_c:
         if (is_zero) {
-            result = m_autil.mk_int(-1);
+            result = minus_one();
             return BR_DONE;
         }
         break;
     case same_length_c:
-        result = m().mk_ite(m_autil.mk_le(c, m_autil.mk_int(-1)), m_autil.mk_int(-1), 
-                            m().mk_ite(m().mk_eq(c, m_autil.mk_int(0)), 
-                                       m().mk_ite(m().mk_eq(a, b), m_autil.mk_int(0), m_autil.mk_int(-1)),
-                                       m_autil.mk_int(-1)));
+        result = m().mk_ite(m_autil.mk_le(c, minus_one()), minus_one(), 
+                            m().mk_ite(m().mk_eq(c, zero()), 
+                                       m().mk_ite(m().mk_eq(a, b), zero(), minus_one()),
+                                       minus_one()));
         return BR_REWRITE_FULL;
     default:
         break;
@@ -1304,8 +1298,8 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     if (is_zero && !as.empty() && m_util.str.is_unit(as.get(0))) {
         expr_ref a1(m_util.str.mk_concat(as.size() - 1, as.c_ptr() + 1, m().get_sort(as.get(0))), m());
         expr_ref b1(m_util.str.mk_index(a1, b, c), m());
-        result = m().mk_ite(m_util.str.mk_prefix(b, a), m_autil.mk_int(0), 
-                            m().mk_ite(m_autil.mk_ge(b1, m_autil.mk_int(0)), m_autil.mk_add(m_autil.mk_int(1), b1), m_autil.mk_int(-1)));
+        result = m().mk_ite(m_util.str.mk_prefix(b, a), zero(), 
+                            m().mk_ite(m_autil.mk_ge(b1, zero()), m_autil.mk_add(one(), b1), minus_one()));
         return BR_REWRITE3;
     }
     // Enhancement: walk segments of a, determine which segments must overlap, must not overlap, may overlap.
@@ -1653,12 +1647,12 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     if (m_util.str.is_string(a, str)) {
         std::string s = str.encode();
         if (s.length() == 0) {
-            result = m_autil.mk_int(-1);
+            result = minus_one();
             return BR_DONE;
         } 
         for (unsigned i = 0; i < s.length(); ++i) {
             if (!('0' <= s[i] && s[i] <= '9')) {
-                result = m_autil.mk_int(-1);
+                result = minus_one();
                 return BR_DONE;
             }
         }
@@ -1668,7 +1662,7 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     }
     expr* b;
     if (m_util.str.is_itos(a, b)) {
-        result = m().mk_ite(m_autil.mk_ge(b, m_autil.mk_int(0)), b, m_autil.mk_int(-1));
+        result = m().mk_ite(m_autil.mk_ge(b, zero()), b, minus_one());
         return BR_DONE;
     }
     return BR_FAILED;
