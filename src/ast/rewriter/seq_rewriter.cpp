@@ -1431,69 +1431,7 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         result = m_util.str.mk_is_empty(a);
         return BR_REWRITE3;
     }
-
-    bool isc1 = false;
-    bool isc2 = false;
-    expr *a1 = nullptr, *a2 = nullptr, *b1 = nullptr, *b2 = nullptr;
-    if (m_util.str.is_concat(a, a1, a2) && m_util.str.is_string(a2, s1)) {
-        isc1 = true;
-    }
-    else if (m_util.str.is_string(a, s1)) {
-        isc1 = true;
-        a2 = a;
-        a1 = nullptr;
-    }
-
-    if (m_util.str.is_concat(b, b1, b2) && m_util.str.is_string(b2, s2)) {
-        isc2 = true;
-    }
-    else if (m_util.str.is_string(b, s2)) {
-        isc2 = true;
-        b2 = b;
-        b1 = nullptr;
-    }
-    if (isc1 && isc2) {
-        if (s1.length() == s2.length()) {
-            //SASSERT(s1 != s2);
-            result = m().mk_false();
-            return BR_DONE;
-        }
-        else if (s1.length() < s2.length()) {
-            bool suffix = s1.suffixof(s2);
-            if (suffix && a1 == nullptr) {
-                result = m().mk_true();
-                return BR_DONE;
-            }
-            else if (suffix) {
-                s2 = s2.extract(0, s2.length()-s1.length());
-                b2 = m_util.str.mk_string(s2);
-                result = m_util.str.mk_suffix(a1, b1?m_util.str.mk_concat(b1, b2):b2);
-                return BR_DONE;
-            }
-            else {
-                result = m().mk_false();
-                return BR_DONE;
-            }
-        }
-        else {
-            SASSERT(s1.length() > s2.length());
-            if (b1 == nullptr) {
-                result = m().mk_false();
-                return BR_DONE;
-            }
-            bool suffix = s2.suffixof(s1);
-            if (suffix) {
-                s1 = s1.extract(0, s1.length()-s2.length());
-                a2 = m_util.str.mk_string(s1);
-                result = m_util.str.mk_suffix(a1?m_util.str.mk_concat(a1, a2):a2, b1);
-                return BR_DONE;
-            }
-            else {
-                result = m().mk_false();
-                return BR_DONE;
-            }            
-        }
-    }
+    
     expr_ref_vector as(m()), bs(m()), eqs(m());
     m_util.str.get_concat_units(a, as);
     m_util.str.get_concat_units(b, bs);
