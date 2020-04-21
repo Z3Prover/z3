@@ -282,9 +282,9 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_lts_checked(false),
     m_eq_id(0),
     m_find(*this),
+    m_offset_eq(*this, m),
     m_overlap(m),
     m_overlap2(m),
-    m_len_prop_lvl(-1),
     m_factory(nullptr),
     m_exclude(m),
     m_axioms(m),
@@ -3443,10 +3443,7 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
     if (ctx.get_base_level() > ctx.get_scope_level() - num_scopes) {
         m_replay.reset();
     }
-    if (m_len_prop_lvl > (int) ctx.get_scope_level()) {
-        m_len_prop_lvl = ctx.get_scope_level();
-        m_len_offset.reset();
-    }
+    m_offset_eq.pop_scope_eh(num_scopes);
 }
 
 void theory_seq::restart_eh() {
