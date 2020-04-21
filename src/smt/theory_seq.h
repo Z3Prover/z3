@@ -33,6 +33,7 @@ Revision History:
 #include "smt/theory_seq_empty.h"
 #include "smt/seq_skolem.h"
 #include "smt/seq_axioms.h"
+#include "smt/seq_offset_eq.h"
 
 namespace smt {
 
@@ -376,11 +377,11 @@ namespace smt {
         bool                       m_lts_checked; 
         unsigned                   m_eq_id;
         th_union_find              m_find;
+        seq_offset_eq              m_offset_eq;
 
         obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap;
         obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap2;
-        obj_map<enode, obj_map<enode, int>>   m_len_offset;
-        int                                   m_len_prop_lvl;
+
 
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
@@ -631,7 +632,6 @@ namespace smt {
         expr_ref mk_sub(expr* a, expr* b);
         expr_ref mk_add(expr* a, expr* b);
         expr_ref mk_len(expr* s);
-        enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
         dependency* mk_join(dependency* deps, literal lit);
         dependency* mk_join(dependency* deps, literal_vector const& lits);
 

@@ -92,21 +92,16 @@ bool theory_seq::solve_eq(const eq& e, unsigned idx) {
     }
     if (!ctx.inconsistent() && change) {
         // The propagation step from arithmetic state (e.g. length offset) to length constraints
-        if (get_context().get_scope_level() == 0) {
-            prop_arith_to_len_offset();
-        }
         TRACE("seq", tout << "inserting equality\n";);
-        bool updated = false;
         expr_ref_vector new_ls(m);
-        if (!m_len_offset.empty() && 
-            find_better_rep(ls, rs, idx, deps, new_ls)) {
+        if (!m_offset_eq.empty() && find_better_rep(ls, rs, idx, deps, new_ls)) {
             // Find a better equivalent term for lhs of an equation based on length constraints            
             m_eqs.push_back(eq(m_eq_id++, new_ls, rs, deps));
+            return true;
         }
         else {
-            m_eqs.push_back(eq(m_eq_id++, ls, rs, deps));
+            m_eqs.set(idx, eq(m_eq_id++, ls, rs, deps)); 
         }
-        return true;
     }
     return false;
 }
@@ -138,10 +133,8 @@ bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector cons
     context& ctx = get_context();
     ptr_vector<expr> xs, ys;
     expr_ref x(m), y(m);
-    bool is_binary = 
-        is_binary_eq(ls, rs, x, xs, ys, y) || 
-        is_binary_eq(rs, ls, x, xs, ys, y);
-    if (!is_binary) {
+    if (!is_binary_eq(ls, rs, x, xs, ys, y) &&
+        !is_binary_eq(rs, ls, x, xs, ys, y)) {
         return false;
     }
     // Equation is of the form x ++ xs = ys ++ y
@@ -227,9 +220,44 @@ bool theory_seq::occurs(expr* a, expr* b) {
     return false;
 }
 
-// TODO: propagate length offsets for last vars
+/**
+   \brief
+
+   This step performs destructive superposition
+
+   Based on the implementation it would do the following:
+  
+   e:   l1 + l2 + l3 + l = r1 + r2 + r
+   G |- len(l1) = len(l2) = len(r1) = 0
+   e':  l1 + l2 + l3 + l = r3 + r'         occurs prior to e among equations
+   G |- len(r3) = len(r2)
+   r2, r3 are not identical
+   ----------------------------------
+   e'' : l1 + l2 + l3 + l = r3 + r'
+
+   e:   l1 + l2 + l3 + l = r1 + r2 + r
+   G |- len(l1) = len(l2) = len(r1) = 0
+   e':  l1 + l2 + l3 + l = r3 + r'         occurs prior to e among equations
+   G |- len(r3) = len(r2) + offset
+   r2, r3 are not identical
+   ----------------------------------
+   e'' : l1 + l2 + l3 + l = r3 + r'       
+
+   NB, this doesn't make sense because e'' is just e', which already occurs.
+   It doesn't inherit the constraints from e either, which would get lost.
+
+   NB, if len(r3) = len(r2) would be used, then the justification for the equality
+   needs to be tracked in dependencies.
+    
+   TODO: propagate length offsets for last vars
+
+*/
 bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned idx,
                                  dependency*& deps, expr_ref_vector & res) {
+
+    // disabled until functionality is clarified
+    return false;
+
     context& ctx = get_context();
 
     if (ls.empty() || rs.empty())
@@ -251,7 +279,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
 
     // Offset = 0, No change
     if (l_fst && get_root(len_l_fst) == root2) {
-        TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
+        TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst, m) << ")\n";);
         return false;
     }
 
@@ -273,36 +301,25 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
     // Offset != 0, No change
     if (l_fst && ctx.e_internalized(len_l_fst)) {
         enode * root1 = get_root(len_l_fst);
-        obj_map<enode, int> tmp;
-        int offset;
-        if (!m_autil.is_numeral(root1->get_owner()) && !m_autil.is_numeral(root2->get_owner())) {
-            if (m_len_offset.find(root1, tmp) && tmp.find(root2, offset)) {
-                TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
-                find_max_eq_len(ls, rs);
-                return false;
-            }
-            else if (m_len_offset.find(root2, tmp) && tmp.find(root1, offset)) {
-                TRACE("seq", tout << "(" << mk_pp(r_fst, m) << ", " << mk_pp(l_fst,m) << ")\n";);
-                find_max_eq_len(ls ,rs);
-                return false;
-            }
+        if (m_offset_eq.contains(root1, root2)) {
+            TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
+            find_max_eq_len(ls, rs);
+            return false;
         }
     }
     // Offset != 0, Changed
-    obj_map<enode, int> tmp;
-    if (!m_autil.is_numeral(root2->get_owner()) && m_len_offset.find(root2, tmp)) {
+    if (m_offset_eq.contains(root2)) {
         for (unsigned i = 0; i < idx; ++i) {
             eq const& e = m_eqs[i];
             if (e.ls() != ls) continue;
             expr* nl_fst = nullptr;
-            if (e.rs().size()>1 && is_var(e.rs().get(0)))
+            if (e.rs().size() > 1 && is_var(e.rs().get(0)))
                 nl_fst = e.rs().get(0);
             if (nl_fst && nl_fst != r_fst) {
-                int offset;
                 expr_ref len_nl_fst = mk_len(nl_fst);
                 if (ctx.e_internalized(len_nl_fst)) {
-                    enode * root1 = ctx.get_enode(len_nl_fst)->get_root();
-                    if (!m_autil.is_numeral(root1->get_owner()) && tmp.find(root1, offset)) {
+                    enode * root1 = get_root(len_nl_fst);
+                    if (m_offset_eq.contains(root2, root1)) {
                         res.reset();
                         res.append(e.rs());
                         deps = m_dm.mk_join(e.dep(), deps);
@@ -329,12 +346,12 @@ bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const
     expr_ref len_l_fst = mk_len(l_fst);
     if (!ctx.e_internalized(len_l_fst)) 
         return false;
-    enode * root1 = ctx.get_enode(len_l_fst)->get_root();
+    enode * root1 = get_root(len_l_fst);
 
     expr_ref len_r_fst = mk_len(r_fst);
     if (!ctx.e_internalized(len_r_fst))
         return false;
-    enode* root2 = ctx.get_enode(len_r_fst)->get_root();
+    enode* root2 = get_root(len_r_fst);
 
     if (root1 == root2) {
         TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
@@ -342,43 +359,30 @@ bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const
         return true;
     }
 
-    if (m_autil.is_numeral(root1->get_owner()) || m_autil.is_numeral(root2->get_owner())) 
-        return false;
-
-    obj_map<enode, int> tmp;
-    if (m_len_offset.find(root1, tmp) && tmp.find(root2, offset)) {
-        TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
-        return true;
-    }
-    if (m_len_offset.find(root2, tmp) && tmp.find(root1, offset)) {
-        offset = -offset;
-        TRACE("seq", tout << "(" << mk_pp(r_fst, m) << ", " << mk_pp(l_fst,m) << ")\n";);
+    if (m_offset_eq.find(root1, root2, offset)) {
+        TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << " " << offset << ")\n";);
         return true;
     }
     return false;
 }
 
 bool theory_seq::len_based_split() {
-    unsigned sz = m_eqs.size();
-    if (sz == 0)
-        return false;
 
-    if ((int) get_context().get_scope_level() > m_len_prop_lvl) {
-        m_len_prop_lvl = get_context().get_scope_level();
-        prop_arith_to_len_offset();
-        if (!m_len_offset.empty()) {
-            for (unsigned i = sz; i-- > 0; ) {
-                eq const& e = m_eqs[i];
-                expr_ref_vector new_ls(m);
-                dependency *deps = e.dep();
-                if (find_better_rep(e.ls(), e.rs(), i, deps, new_ls)) {
-                    expr_ref_vector rs(m);
-                    rs.append(e.rs());
-                    m_eqs.set(i, eq(m_eq_id++, new_ls, rs, deps));
-                    TRACE("seq", display_equation(tout, m_eqs[i]););
-                }
+    if (false && m_offset_eq.propagate() && !m_offset_eq.empty()) {
+        // NB: disabled until find_better_rep is handled.
+#if 0
+        for (unsigned i = m_eqs.size(); i-- > 0; ) {
+            eq const& e = m_eqs[i];
+            expr_ref_vector new_ls(m);
+            dependency *deps = e.dep();
+            if (find_better_rep(e.ls(), e.rs(), i, deps, new_ls)) {
+                expr_ref_vector rs(m);
+                rs.append(e.rs());
+                m_eqs.set(i, eq(m_eq_id++, new_ls, rs, deps));
+                TRACE("seq", display_equation(tout, m_eqs[i]););
             }
         }
+#endif
     }
 
     for (auto const& e : m_eqs) {
@@ -657,13 +661,9 @@ bool theory_seq::branch_binary_variable(eq const& e) {
     }
     ptr_vector<expr> xs, ys;
     expr_ref x(m), y(m);
-    bool is_binary = is_binary_eq(e.ls(), e.rs(), x, xs, ys, y);
-    if (!is_binary) {
-        is_binary = is_binary_eq(e.rs(), e.ls(), x, xs, ys, y);
-    }
-    if (!is_binary) {
+    if (!is_binary_eq(e.ls(), e.rs(), x, xs, ys, y) &&
+        !is_binary_eq(e.rs(), e.ls(), x, xs, ys, y))
         return false;
-    }
     if (x == y) {
         return false;
     }
@@ -1027,13 +1027,9 @@ bool theory_seq::branch_ternary_variable_base2(dependency* dep, unsigned_vector 
 bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
     expr_ref_vector xs(m), ys(m);
     expr_ref x(m), y1(m), y2(m);
-    bool is_ternary = is_ternary_eq2(e.ls(), e.rs(), xs, x, y1, ys, y2, flag1);
-    if (!is_ternary) {
-        is_ternary = is_ternary_eq2(e.rs(), e.ls(), xs, x, y1, ys, y2, flag1);
-    }
-    if (!is_ternary) {
+    if (!is_ternary_eq2(e.ls(), e.rs(), xs, x, y1, ys, y2, flag1) && 
+        !is_ternary_eq2(e.rs(), e.ls(), xs, x, y1, ys, y2, flag1))
         return false;
-    }
 
     rational lenX, lenY1, lenY2;
     context& ctx = get_context();
@@ -1068,21 +1064,18 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
     }
     else {
         literal ge = m_ax.mk_ge(mk_len(y1), xs.size());
-        if (ctx.get_assignment(ge) == l_undef) {
+        switch (ctx.get_assignment(ge)) {
+        case l_undef:
             TRACE("seq", tout << "rec case init\n";);
             ctx.mark_as_relevant(ge);
             ctx.force_phase(ge);
-        }
-        else if (ctx.get_assignment(ge) == l_true) {
-            TRACE("seq", tout << "true branch\n";);
-            TRACE("seq", display_equation(tout, e););
-            literal_vector lits;
-            lits.push_back(ge);
-            dependency* dep = e.dep();
-            propagate_eq(dep, lits, x, Zysy2, true);
-            propagate_eq(dep, lits, y1, xsZ, true);
-        }
-        else {
+            break;
+        case l_true:
+            TRACE("seq", display_equation(tout << "true branch\n", e););
+            propagate_eq(e.dep(), ge, x, Zysy2, true);
+            propagate_eq(e.dep(), ge, y1, xsZ, true);
+            break;
+        default:
             return branch_ternary_variable_base2(e.dep(), indexes, xs, x, y1, ys, y2);
         }
     }
@@ -1102,19 +1095,17 @@ bool theory_seq::branch_quat_variable() {
 // Equation is of the form x1 ++ xs ++ x2 = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_quat_variable(eq const& e) {
     expr_ref_vector xs(m), ys(m);
-    expr_ref x1_l(m), x2(m), y1_l(m), y2(m);
-    bool is_quat = is_quat_eq(e.ls(), e.rs(), x1_l, xs, x2, y1_l, ys, y2);
-    if (!is_quat) {
+    expr_ref x1(m), x2(m), y1(m), y2(m);
+    if (!is_quat_eq(e.ls(), e.rs(), x1, xs, x2, y1, ys, y2))
         return false;
-    }
     
     rational lenX1, lenX2, lenY1, lenY2;
     context& ctx = get_context();
-    if (!get_length(x1_l, lenX1)) {
-        add_length_to_eqc(x1_l);
+    if (!get_length(x1, lenX1)) {
+        add_length_to_eqc(x1);
     }
-    if (!get_length(y1_l, lenY1)) {
-        add_length_to_eqc(y1_l);
+    if (!get_length(y1, lenY1)) {
+        add_length_to_eqc(y1);
     }
     if (!get_length(x2, lenX2)) {
         add_length_to_eqc(x2);
@@ -1128,106 +1119,44 @@ bool theory_seq::branch_quat_variable(eq const& e) {
     expr_ref xsx2 = mk_concat(xs);
     ys.push_back(y2);
     expr_ref ysy2 = mk_concat(ys);
-    expr_ref x1(x1_l, m);
-    expr_ref y1(y1_l, m);
-    expr_ref sub(mk_sub(mk_len(x1_l), mk_len(y1_l)), m);
+    expr_ref sub(mk_sub(mk_len(x1), mk_len(y1)), m);
     literal le = m_ax.mk_le(sub, 0);
-    literal_vector lits;
-    if (ctx.get_assignment(le) == l_undef) {
+
+    switch (ctx.get_assignment(le)) {
+    case l_undef:
         TRACE("seq", tout << "init branch\n";);
         TRACE("seq", display_equation(tout, e););
         ctx.mark_as_relevant(le);
         ctx.force_phase(le);
-    }
-    else if (ctx.get_assignment(le) == l_false) {
+        break;
+    case l_false: {
         // |x1| > |y1| => x1 = y1 ++ z1, z1 ++ xs ++ x2 = ys ++ y2
         TRACE("seq", tout << "false branch\n";);
         TRACE("seq", display_equation(tout, e););
         expr_ref Z1 = m_sk.mk_align(ysy2, xsx2, x1, y1);
         expr_ref y1Z1 = mk_concat(y1, Z1);
         expr_ref Z1xsx2 = mk_concat(Z1, xsx2);
-        lits.push_back(~le);
         dependency* dep = e.dep();
-        propagate_eq(dep, lits, x1, y1Z1, true);
-        propagate_eq(dep, lits, Z1xsx2, ysy2, true);
+        propagate_eq(dep, ~le, x1, y1Z1, true);
+        propagate_eq(dep, ~le, Z1xsx2, ysy2, true);
+        break;
     }
-    else if (ctx.get_assignment(le) == l_true) {
+    case l_true: {
         // |x1| <= |y1| => x1 ++ z2 = y1, xs ++ x2 = z2 ++ ys ++ y2
         TRACE("seq", tout << "true branch\n";);
         TRACE("seq", display_equation(tout, e););
         expr_ref Z2 = m_sk.mk_align(xsx2, ysy2, y1, x1);
         expr_ref x1Z2 = mk_concat(x1, Z2);
         expr_ref Z2ysy2 = mk_concat(Z2, ysy2);
-        lits.push_back(le);
         dependency* dep = e.dep();
-        propagate_eq(dep, lits, x1Z2, y1, true);
-        propagate_eq(dep, lits, xsx2, Z2ysy2, true);
+        propagate_eq(dep, le, x1Z2, y1, true);
+        propagate_eq(dep, le, xsx2, Z2ysy2, true);
+        break;
+    }
     }
     return true;
 }
 
-/**
-Match:
-  e  == val      where val is an integer
-  e  == r1 - r2
-  r1 == len(e1)
-  r2 == len(e2)
-update m_len_offset to contain.
-  r1 |-> [r2 |-> val]
-*/
-
-bool theory_seq::match_x_minus_y(expr* e, expr*& x, expr*& y) const {
-    expr* z = nullptr, *u = nullptr;
-    rational fact;
-    return 
-        m_autil.is_add(e, x, z) && m_autil.is_mul(z, u, y) &&
-        m_autil.is_numeral(u, fact) && fact.is_minus_one();
-}
-
-
-void theory_seq::len_offset(expr* e, int val) {
-    context & ctx = get_context();
-    
-    expr *x = nullptr, *y = nullptr;
-    expr *e1 = nullptr, *e2 = nullptr;
-    if (match_x_minus_y(e, x, y) && 
-        ctx.e_internalized(x) && 
-        ctx.e_internalized(y)) {
-        enode* r1 = get_root(x);
-        enode* r2 = get_root(y);
-        obj_map<enode, int> tmp;
-        for (enode* n1 : *r1) {
-            if (!m_util.str.is_length(n1->get_owner(), e1)) 
-                continue;
-            for (enode* n2 : *r2) {
-                if (!m_util.str.is_length(n2->get_owner(), e2)) 
-                    continue;
-                m_len_offset.find(r1, tmp);
-                tmp.insert(r2, val);
-                m_len_offset.insert(r1, tmp);
-                TRACE("seq", tout << "a length pair: " << mk_pp(e1, m) << ", " << mk_pp(e2, m) << "\n";);
-                return;
-            }
-            return;
-        }
-    }
-}
-
-// Find the length offset from the congruence closure core
-void theory_seq::prop_arith_to_len_offset() {
-    rational val;
-    for (enode* n : get_context().enodes()) {
-        if (m_autil.is_numeral(n->get_owner(), val) && val.is_neg() && val.is_int()) {
-            TRACE("seq", tout << "offset: " << mk_pp(n->get_owner(), m) << "\n";);
-            enode *next = n->get_next();
-            while (next != n) {
-                TRACE("seq", tout << "eqc: " << mk_pp(next->get_owner(), m) << "\n";);
-                len_offset(next->get_owner(), val.get_int32());
-                next = next->get_next();
-            }
-        }
-    }
-}
 
 int theory_seq::find_fst_non_empty_idx(expr_ref_vector const& xs) {
     context & ctx = get_context();    
