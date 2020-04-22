@@ -41,6 +41,8 @@ namespace smt {
             return result;
         }        
 
+        num_threads = 1;
+
         enum par_exception_kind {
             DEFAULT_EX,
             ERROR_EX
