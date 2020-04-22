@@ -873,36 +873,33 @@ bool theory_seq::branch_ternary_variable_base(
         xs2E = m_util.str.mk_concat(xs.size()-ind, xs.c_ptr()+ind, m.get_sort(x));
         
         literal lit1 = mk_literal(m_autil.mk_le(mk_len(y2), m_autil.mk_int(xs.size()-ind)));
-        if (ctx.get_assignment(lit1) == l_undef) {
+        switch (ctx.get_assignment(lit1)) {
+        case l_undef:
             TRACE("seq", tout << "base case init\n";);
             ctx.mark_as_relevant(lit1);
             ctx.force_phase(lit1);
             change = true;
-            continue;
-        }
-        else if (ctx.get_assignment(lit1) == l_true) {
+            break;
+        case l_true: 
             TRACE("seq", tout << "base case: true branch\n";);
-            literal_vector lits;
-            lits.push_back(lit1);
-            propagate_eq(dep, lits, y2, xs2E, true);
+            propagate_eq(dep, lit1, y2, xs2E, true);
             if (ind > ys.size()) {
                 expr_ref xs1E(m_util.str.mk_concat(ind-ys.size(), xs.c_ptr(), m.get_sort(x)), m);
                 expr_ref xxs1E = mk_concat(x, xs1E);
-                propagate_eq(dep, lits, xxs1E, y1, true);
+                propagate_eq(dep, lit1, xxs1E, y1, true);
             }
             else if (ind == ys.size()) {
-                propagate_eq(dep, lits, x, y1, true);
+                propagate_eq(dep, lit1, x, y1, true);
             }
             else {
                 expr_ref ys1E(m_util.str.mk_concat(ys.size()-ind, ys.c_ptr(), m.get_sort(x)), m);
                 expr_ref y1ys1E = mk_concat(y1, ys1E);
-                propagate_eq(dep, lits, x, y1ys1E, true);
+                propagate_eq(dep, lit1, x, y1ys1E, true);
             }
             return true;
-        }
-        else {
+        default:
             TRACE("seq", tout << "base case: false branch\n";);
-            continue;
+            break;
         }
     }
     return change;
@@ -1066,7 +1063,7 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
             break;
         case l_true:
             TRACE("seq", display_equation(tout << "true branch\n", e););
-            propagate_eq(e.dep(), ge, x, Zysy2, true);
+            propagate_eq(e.dep(), ge, x,  Zysy2, true);
             propagate_eq(e.dep(), ge, y1, xsZ, true);
             break;
         default:
@@ -1333,26 +1330,7 @@ unsigned theory_seq::find_branch_start(unsigned k) {
     return 0;
 }
 
-expr_ref_vector theory_seq::expand_strings(expr_ref_vector const& es) {
-    expr_ref_vector ls(m);
-    for (expr* e : es) {
-        zstring s;
-        if (m_util.str.is_string(e, s)) {
-            for (unsigned i = 0; i < s.length(); ++i) {
-                ls.push_back(m_util.str.mk_unit(m_util.str.mk_char(s, i)));
-            }
-        }
-        else {
-            ls.push_back(e);
-        }
-    }
-    return ls;
-}
-
-bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& _ls, expr_ref_vector const& _rs) {
-    expr_ref_vector ls = expand_strings(_ls);
-    expr_ref_vector rs = expand_strings(_rs);
-
+bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs) {
     if (ls.empty()) {
         return false;
     }
@@ -1392,10 +1370,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
 
     bool all_units = true;
     for (expr* r : rs) {
-        if (!m_util.str.is_unit(r)) {
-            all_units = false;
-            break;
-        }
+        all_units &= m_util.str.is_unit(r);
     }
     if (all_units) {
         context& ctx = get_context();

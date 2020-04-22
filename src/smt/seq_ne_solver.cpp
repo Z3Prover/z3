@@ -47,8 +47,8 @@ bool theory_seq::solve_ne(unsigned idx) {
     return 
         (!check_ne_literals(idx, num_undef_lits))
         || (num_undef_lits <= 1 && propagate_ne2lit(idx))
-        || reduce_ne(idx)
-        || (num_undef_lits == 0 && propagate_ne2eq(idx));
+        || (num_undef_lits == 0 && propagate_ne2eq(idx))
+        || reduce_ne(idx);
 }
         
 bool theory_seq::check_ne_literals(unsigned idx, unsigned& num_undef_lits) {
