@@ -99,7 +99,6 @@ void inductive_property::to_model(model_ref& md) const {
     }
     TRACE("spacer", tout << *md;);
     apply(const_cast<model_converter_ref&>(m_mc), md);
-    md->compress();
 }
 
 expr_ref inductive_property::to_expr() const
@@ -107,6 +106,7 @@ expr_ref inductive_property::to_expr() const
     model_ref md;
     expr_ref result(m);
     to_model(md);
+    md->compress();
     model2expr(md, result);
     return result;
 }

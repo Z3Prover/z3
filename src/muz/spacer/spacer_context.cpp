@@ -2895,8 +2895,7 @@ expr_ref context::get_answer()
     }
 }
 
-expr_ref context::mk_unsat_answer() const
-{
+expr_ref context::mk_unsat_answer() const {
     expr_ref_vector refs(m);
     vector<relation_info> rs;
     get_level_property(m_inductive_lvl, refs, rs, use_bg_invs());
@@ -2961,7 +2960,7 @@ expr_ref context::get_ground_sat_answer() const {
 }
 
 void context::display_certificate(std::ostream &out) const {
-    switch(m_last_result) {
+    switch (m_last_result) {
     case l_false:
         out << mk_pp(mk_unsat_answer(), m);
         break;
