@@ -513,6 +513,8 @@ namespace smt {
 
         enode* ensure_enode(expr* e);
 
+        enode* get_root(expr* e) { return ensure_enode(e)->get_root(); }
+
         // -----------------------------------
         //
         // Model generation

@@ -22,11 +22,14 @@ Notes:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
+#include "util/ref_pair_vector.h"
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/sign.h"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata.h"
+
+typedef ref_pair_vector<expr, ast_manager> expr_ref_pair_vector;
 
 class sym_expr {
     enum ty {
@@ -111,6 +114,18 @@ class seq_rewriter {
     expr_ref_vector m_es, m_lhs, m_rhs;
     bool           m_coalesce_chars;
 
+    enum length_comparison {
+        shorter_c, 
+        longer_c,
+        same_length_c,
+        unknown_c
+    };
+
+    length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
+        return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
+    }
+    length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
+
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
@@ -143,18 +158,21 @@ class seq_rewriter {
 
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
+    expr_ref zero() { return expr_ref(m_autil.mk_int(0), m()); }
+    expr_ref one() { return expr_ref(m_autil.mk_int(1), m()); }
+    expr_ref minus_one() { return expr_ref(m_autil.mk_int(-1), m()); }
 
     bool is_suffix(expr* s, expr* offset, expr* len);
     bool sign_is_determined(expr* len, sign& s);
 
-    bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
+    bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_pair_vector& eqs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                        expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
+                        expr_ref_pair_vector& eqs, bool& is_sat);
     bool length_constrained(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                        expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
+                        expr_ref_pair_vector& eqs, bool& is_sat);
     bool solve_itos(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                    expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
-    bool solve_itos(expr* n, unsigned sz, expr* const* es, expr_ref_vector& lhs, expr_ref_vector& rhs);
+                    expr_ref_pair_vector& eqs, bool& is_sat);
+    bool solve_itos(expr* n, unsigned sz, expr* const* es, expr_ref_pair_vector& eqs);
     bool min_length(unsigned n, expr* const* es, unsigned& len);
     expr* concat_non_empty(unsigned n, expr* const* es);
 
@@ -164,7 +182,7 @@ class seq_rewriter {
     bool is_sequence(expr* e, expr_ref_vector& seq);
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool is_epsilon(expr* e) const;
-    void split_units(expr_ref_vector& lhs, expr_ref_vector& rhs);
+    void split_units(expr_ref_pair_vector& eqs);
     bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
 
 
@@ -186,13 +204,13 @@ public:
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
 
-    bool reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change);
+    bool reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bool& change);
 
-    bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change);
+    bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change);
 
     bool reduce_contains(expr* a, expr* b, expr_ref_vector& disj);
 
-    void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& lhs, expr_ref_vector& rhs);
+    void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
 
 };

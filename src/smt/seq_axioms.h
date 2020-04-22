@@ -86,6 +86,7 @@ namespace smt {
         void add_le_axiom(expr* n);
         void add_unit_axiom(expr* n);
         void add_length_axiom(expr* n);
+        void unroll_not_contains(expr* n);
 
         literal is_digit(expr* ch);
         literal mk_ge(expr* e, int k) { return mk_ge_e(e, a.mk_int(k)); }

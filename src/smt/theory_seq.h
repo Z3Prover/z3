@@ -33,6 +33,7 @@ Revision History:
 #include "smt/theory_seq_empty.h"
 #include "smt/seq_skolem.h"
 #include "smt/seq_axioms.h"
+#include "smt/seq_offset_eq.h"
 
 namespace smt {
 
@@ -178,9 +179,12 @@ namespace smt {
             return eq(m_eq_id++, ls, rs, dep);
         }        
 
+        // equalities that are decomposed by conacatenations
+        typedef std::pair<expr_ref_vector, expr_ref_vector> decomposed_eq;
+
         class ne {      
             expr_ref                 m_l, m_r;
-            vector<expr_ref_vector>  m_lhs, m_rhs;
+            vector<decomposed_eq>    m_eqs;
             literal_vector           m_lits;
             dependency*              m_dep;
         public:
@@ -188,36 +192,34 @@ namespace smt {
                 m_l(l), m_r(r), m_dep(dep) {
                     expr_ref_vector ls(l.get_manager()); ls.push_back(l);
                     expr_ref_vector rs(r.get_manager()); rs.push_back(r);
-                    m_lhs.push_back(ls);
-                    m_rhs.push_back(rs);
+                    m_eqs.push_back(std::make_pair(ls, rs));
                 }
 
-            ne(expr_ref const& _l, expr_ref const& _r, vector<expr_ref_vector> const& l, vector<expr_ref_vector> const& r, literal_vector const& lits, dependency* dep):
+            ne(expr_ref const& _l, expr_ref const& _r, vector<decomposed_eq> const& eqs, literal_vector const& lits, dependency* dep):
                 m_l(_l), m_r(_r),
-                m_lhs(l),
-                m_rhs(r),
+                m_eqs(eqs),
                 m_lits(lits),
-                m_dep(dep) {}
+                m_dep(dep) {
+                }
 
             ne(ne const& other): 
                 m_l(other.m_l), m_r(other.m_r),
-                m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_lits(other.m_lits), m_dep(other.m_dep) {}
+                m_eqs(other.m_eqs), 
+                m_lits(other.m_lits), m_dep(other.m_dep) {}
 
             ne& operator=(ne const& other) { 
                 if (this != &other) {
                     m_l = other.m_l;
                     m_r = other.m_r;
-                    m_lhs.reset();  m_lhs.append(other.m_lhs);
-                    m_rhs.reset();  m_rhs.append(other.m_rhs); 
+                    m_eqs.reset();  m_eqs.append(other.m_eqs);
                     m_lits.reset(); m_lits.append(other.m_lits); 
                     m_dep = other.m_dep; 
                 }
                 return *this; 
             }            
-            vector<expr_ref_vector> const& ls() const { return m_lhs; }
-            vector<expr_ref_vector> const& rs() const { return m_rhs; }
-            expr_ref_vector const& ls(unsigned i) const { return m_lhs[i]; }
-            expr_ref_vector const& rs(unsigned i) const { return m_rhs[i]; }
+            vector<decomposed_eq> const& eqs() const { return m_eqs; }
+            decomposed_eq const& operator[](unsigned i) const { return m_eqs[i]; }
+
             literal_vector const& lits() const { return m_lits; }
             literal lits(unsigned i) const { return m_lits[i]; }
             dependency* dep() const { return m_dep; }
@@ -334,7 +336,6 @@ namespace smt {
             }
         };
 
-
         struct s_in_re {
             literal     m_lit;
             expr*       m_s;
@@ -377,11 +378,11 @@ namespace smt {
         bool                       m_lts_checked; 
         unsigned                   m_eq_id;
         th_union_find              m_find;
+        seq_offset_eq              m_offset_eq;
 
         obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap;
         obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap2;
-        obj_map<enode, obj_map<enode, int>>   m_len_offset;
-        int                                   m_len_prop_lvl;
+
 
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
@@ -408,6 +409,7 @@ namespace smt {
         stats            m_stats;
         ptr_vector<expr> m_todo, m_concat;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
+        expr_ref_pair_vector m_new_eqs;
         bool             m_has_seq;
 
         // maintain automata with regular expressions.
@@ -457,8 +459,6 @@ namespace smt {
         app* get_ite_value(expr* a);
         void get_ite_concat(ptr_vector<expr>& head, ptr_vector<expr>& tail);
         
-        void len_offset(expr* e, rational val);
-        void prop_arith_to_len_offset();
         int find_fst_non_empty_idx(expr_ref_vector const& x);
         expr* find_fst_non_empty_var(expr_ref_vector const& x);
         void find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector const& rs);
@@ -486,11 +486,13 @@ namespace smt {
         void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
         bool branch_variable_eq(eq const& e);
         bool branch_binary_variable(eq const& e);
-        bool eq_unit(expr* const& l, expr* const &r) const;       
+        bool eq_unit(expr* l, expr* r) const;       
         unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
         unsigned_vector overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        bool branch_ternary_variable_base(dependency* dep, unsigned_vector const & indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
-        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector const& indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base(dependency* dep, unsigned_vector const & indexes, expr * x, 
+                                          expr_ref_vector const& xs, expr * y1, expr_ref_vector const& ys, expr * y2);
+        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector const& indexes, expr_ref_vector const& xs, 
+                                           expr * x, expr * y1, expr_ref_vector const& ys, expr * y2);
         bool branch_ternary_variable(eq const& e, bool flag1 = false);
         bool branch_ternary_variable2(eq const& e, bool flag1 = false);
         bool branch_quat_variable(eq const& e);
@@ -508,7 +510,7 @@ namespace smt {
         bool check_contains();
         bool check_lts();
         bool solve_eqs(unsigned start);
-        bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep, unsigned idx);
+        bool solve_eq(unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool lift_ite(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
@@ -530,15 +532,21 @@ namespace smt {
         bool reduce_length(unsigned i, unsigned j, bool front, expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps);
 
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
-        expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
-        expr_ref mk_concat(expr_ref_vector const& es, sort* s) { if (es.empty()) return mk_empty(s); return mk_concat(es.size(), es.c_ptr()); }
-        expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return expr_ref(m_util.str.mk_concat(es.size(), es.c_ptr()), m); }
-        expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr()); }
+        expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es, m.get_sort(es[0])), m); }
+        expr_ref mk_concat(unsigned n, expr*const* es, sort* s) { return expr_ref(m_util.str.mk_concat(n, es, s), m); }
+        expr_ref mk_concat(expr_ref_vector const& es, sort* s) { return mk_concat(es.size(), es.c_ptr(), s); }
+        expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return expr_ref(m_util.str.mk_concat(es.size(), es.c_ptr(), m.get_sort(es[0])), m); }
+        expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr(), m.get_sort(es[0])); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(m_util.str.mk_concat(e1, e2), m); }
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(m_util.str.mk_concat(e1, e2, e3), m); }
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
         bool solve_nc(unsigned i);
+        bool check_ne_literals(unsigned idx, unsigned& num_undef_lits);
+        bool propagate_ne2lit(unsigned idx);
+        bool propagate_ne2eq(unsigned idx);
+        bool propagate_ne2eq(unsigned idx, expr_ref_vector const& es);
+        bool reduce_ne(unsigned idx);
         bool branch_nqs();
         lbool branch_nq(ne const& n);
 
@@ -628,7 +636,6 @@ namespace smt {
         expr_ref mk_sub(expr* a, expr* b);
         expr_ref mk_add(expr* a, expr* b);
         expr_ref mk_len(expr* s);
-        enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
         dependency* mk_join(dependency* deps, literal lit);
         dependency* mk_join(dependency* deps, literal_vector const& lits);
 

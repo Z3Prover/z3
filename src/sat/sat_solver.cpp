@@ -27,7 +27,6 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/sat_integrity_checker.h"
 #include "sat/sat_lookahead.h"
-#include "sat/sat_unit_walk.h"
 #include "sat/sat_ddfw.h"
 #include "sat/sat_prob.h"
 #include "sat/sat_anf_simplifier.h"
@@ -1194,7 +1193,7 @@ namespace sat {
             return do_local_search(num_lits, lits);
         }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || 
-             m_config.m_ddfw_threads > 0 || m_config.m_unit_walk_threads > 0) && !m_par) {
+             m_config.m_ddfw_threads > 0) && !m_par) {
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
@@ -1213,10 +1212,6 @@ namespace sat {
             propagate(false);
             if (check_inconsistent()) return l_false;
             if (m_config.m_force_cleanup) do_cleanup(true);
-
-            if (m_config.m_unit_walk) {
-                return do_unit_walk();
-            }
 
             if (m_config.m_gc_burst) {
                 // force gc
@@ -1326,19 +1321,6 @@ namespace sat {
         return invoke_local_search(num_lits, lits);
     }
 
-    lbool solver::do_unit_walk() {
-        unit_walk srch(*this);
-        lbool r = srch();
-        if (r == l_true) {
-            m_model.reset();
-            for (bool_var v = 0; v < num_vars(); ++v) {
-                m_model.push_back(m_assignment[literal(v,false).index()]);
-            }
-            m_model_is_current = true;
-        }
-        return r;
-    }
-
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         if (!rlimit().inc()) {
             return l_undef;
@@ -1347,9 +1329,8 @@ namespace sat {
         scoped_ptr_vector<solver> uw;
         int num_extra_solvers = m_config.m_num_threads - 1;
         int num_local_search  = static_cast<int>(m_config.m_local_search_threads);
-        int num_unit_walk = static_cast<int>(m_config.m_unit_walk_threads);
         int num_ddfw      = m_ext ? 0 : static_cast<int>(m_config.m_ddfw_threads);
-        int num_threads = num_extra_solvers + 1 + num_local_search + num_unit_walk + num_ddfw;        
+        int num_threads = num_extra_solvers + 1 + num_local_search + num_ddfw;        
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
             l->updt_params(m_params);
@@ -1357,6 +1338,8 @@ namespace sat {
             l->set_seed(m_config.m_random_seed + i);
             ls.push_back(l);
         }
+
+        vector<reslimit> lims(num_ddfw);            
         // set up ddfw search
         for (int i = 0; i < num_ddfw; ++i) {
             ddfw* d = alloc(ddfw);
@@ -1365,23 +1348,11 @@ namespace sat {
             d->add(*this);
             ls.push_back(d);
         }
-
-        // set up unit walk
-        vector<reslimit> lims(num_unit_walk + num_ddfw);            
-        for (int i = 0; i < num_unit_walk; ++i) {
-            solver* s = alloc(solver, m_params,  lims[i]);
-            s->copy(*this);
-            s->m_config.m_unit_walk = true;
-            uw.push_back(s);
-        }
-
         int local_search_offset = num_extra_solvers;
-        int unit_walk_offset = num_extra_solvers + num_local_search + num_ddfw;
-        int main_solver_offset = unit_walk_offset + num_unit_walk;
+        int main_solver_offset = num_extra_solvers + num_local_search + num_ddfw;
 
 #define IS_AUX_SOLVER(i)   (0 <= i && i < num_extra_solvers)
-#define IS_LOCAL_SEARCH(i) (local_search_offset <= i && i < unit_walk_offset)
-#define IS_UNIT_WALK(i)    (unit_walk_offset <= i && i < main_solver_offset)
+#define IS_LOCAL_SEARCH(i) (local_search_offset <= i && i < main_solver_offset)
 #define IS_MAIN_SOLVER(i)  (i == main_solver_offset)
 
         sat::parallel par(*this);
@@ -1412,9 +1383,6 @@ namespace sat {
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
                     r = ls[i-local_search_offset]->check(num_lits, lits, &par);
-                }
-                else if (IS_UNIT_WALK(i)) {
-                    r = uw[i-unit_walk_offset]->check(num_lits, lits);
                 }
                 else {
                     r = check(num_lits, lits);
@@ -1483,9 +1451,6 @@ namespace sat {
         }
         if (result == l_true && IS_LOCAL_SEARCH(finished_id)) {
             set_model(ls[finished_id - local_search_offset]->get_model(), true);
-        }
-        if (result == l_true && IS_UNIT_WALK(finished_id)) {
-            set_model(uw[finished_id - unit_walk_offset]->get_model(), true);
         }
         if (!canceled) {
             rlimit().reset_cancel();

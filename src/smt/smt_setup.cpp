@@ -682,6 +682,7 @@ namespace smt {
         // 
         setup_mi_arith();
         setup_arrays(); 
+        setup_card();
     }
 
     void setup::setup_UFNIA() {

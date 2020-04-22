@@ -204,6 +204,9 @@ See [``examples/python``](examples/python) for examples.
 
 [WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.
 
+### ``Julia```
+Julia bindings can be enabled using the build option Z3_BUILD_JULIA_BINDINGS from the CMake system.
+
 ## System Overview
 
 ![System Diagram](https://github.com/Z3Prover/doc/blob/master/programmingz3/images/Z3Overall.jpg)

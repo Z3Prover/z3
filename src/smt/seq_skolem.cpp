@@ -112,6 +112,7 @@ decompose_main:
         head = seq.str.mk_unit(seq.str.mk_nth_i(s, idx));
         tail = mk(m_tail, s, idx);
         m_rewrite(head);
+        m_rewrite(tail);
     }
     else {
         head = seq.str.mk_unit(seq.str.mk_nth_i(e, a.mk_int(0)));

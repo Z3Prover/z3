@@ -24,7 +24,6 @@ Revision History:
 #include "sat/sat_extension.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_lookahead.h"
-#include "sat/sat_unit_walk.h"
 #include "sat/sat_big.h"
 #include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
@@ -230,7 +229,6 @@ namespace sat {
 
         solver*                m_solver;
         lookahead*             m_lookahead;
-        unit_walk*             m_unit_walk;
         stats                  m_stats; 
         small_object_allocator m_allocator;
        
@@ -445,23 +443,20 @@ namespace sat {
         inline lbool value(model const& m, literal l) const { return l.sign() ? ~m[l.var()] : m[l.var()]; }
         inline bool is_false(literal lit) const { return l_false == value(lit); }
 
-        inline unsigned lvl(literal lit) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(lit); }
-        inline unsigned lvl(bool_var v) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(v); }
+        inline unsigned lvl(literal lit) const { return m_lookahead ? 0 : m_solver->lvl(lit); }
+        inline unsigned lvl(bool_var v) const { return m_lookahead ? 0 : m_solver->lvl(v); }
         inline bool inconsistent() const { 
             if (m_lookahead) return m_lookahead->inconsistent(); 
-            if (m_unit_walk) return m_unit_walk->inconsistent();
             return m_solver->inconsistent(); 
         }
         inline watch_list& get_wlist(literal l) { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
         inline watch_list const& get_wlist(literal l) const { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
         inline void assign(literal l, justification j) { 
             if (m_lookahead) m_lookahead->assign(l); 
-            else if (m_unit_walk) m_unit_walk->assign(l);
             else m_solver->assign(l, j);
         }
         inline void set_conflict(justification j, literal l) { 
             if (m_lookahead) m_lookahead->set_conflict(); 
-            else if (m_unit_walk) m_unit_walk->set_conflict();
             else m_solver->set_conflict(j, l); 
         }
         inline config const& get_config() const { return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); }
@@ -544,7 +539,6 @@ namespace sat {
         ~ba_solver() override;
         void set_solver(solver* s) override { m_solver = s; }
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
-        void set_unit_walk(unit_walk* u) override { m_unit_walk = u; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xr(literal_vector const& lits);

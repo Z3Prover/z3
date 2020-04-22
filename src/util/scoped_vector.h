@@ -135,7 +135,8 @@ public:
 
     void erase_and_swap(unsigned i) {
         if (i + 1 < size()) {
-            set(i, m_elems[m_index[size()-1]]);
+            auto n = m_elems[m_index[size() - 1]];
+            set(i, n);
         }
         pop_back();
     }

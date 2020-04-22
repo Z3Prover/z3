@@ -140,6 +140,7 @@ namespace simplex {
         bool well_formed_row(unsigned row_id) const;
         bool well_formed_column(unsigned column_id) const;
         void del_row_entry(_row& r, unsigned pos);
+        void reset_rows();
 
     public:
 
