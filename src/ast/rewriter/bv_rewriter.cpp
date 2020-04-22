@@ -29,7 +29,6 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_elim_sign_ext = p.elim_sign_ext();
     m_mul2concat = p.mul2concat();
     m_bit2bool = p.bit2bool();
-    m_urem_simpl = p.bv_urem_simpl();
     m_blast_eq_value = p.blast_eq_value();
     m_split_concat_eq = p.split_concat_eq();
     m_bvnot2arith = p.bvnot2arith();
@@ -2608,7 +2607,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             return st;
     }
 
-    if (m_urem_simpl) {
+    {
         expr * dividend;
         expr * divisor;
         numeral divisor_val, rhs_val;
@@ -2616,7 +2615,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
         if (is_urem_any(lhs, dividend, divisor)
             && is_numeral(rhs, rhs_val, rhs_sz)
             && is_numeral(divisor, divisor_val, divisor_sz)) {
-            if (rhs_val >= divisor_val) {//(= (bvurem x c1) c2) where c2 >= c1
+            if (!divisor_val.is_zero() && rhs_val >= divisor_val) {//(= (bvurem x c1) c2) where c2 >= c1
                 result = m().mk_false();
                 return BR_DONE;
             }
