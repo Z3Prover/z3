@@ -856,7 +856,6 @@ void seq_axioms::unroll_not_contains(expr* e) {
     literal emp = mk_eq_empty(a, true);
     add_axiom(cnt, ~pre);
     add_axiom(cnt, ~ctail);
-    add_axiom(cnt, emp, mk_eq_empty(b, false));
     add_axiom(~emp, mk_eq_empty(tail));
     add_axiom(emp, mk_eq(a, seq.str.mk_concat(head, tail)));
 }
