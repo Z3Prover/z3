@@ -835,6 +835,32 @@ void seq_axioms::add_length_axiom(expr* n) {
     }
 }
 
+/**
+   ~contains(a, b) => ~prefix(b, a)
+   ~contains(a, b) => ~contains(tail(a), b) or a = empty
+   ~contains(a, b) & a = empty => b != empty
+   ~(a = empty) => a = head + tail 
+ */
+void seq_axioms::unroll_not_contains(expr* e) {
+    expr_ref head(m), tail(m);
+    expr* a = nullptr, *b = nullptr;
+    VERIFY(seq.str.is_contains(e, a, b));
+    m_sk.decompose(a, head, tail);
+    expr_ref pref(seq.str.mk_prefix(b, a), m);
+    expr_ref postf(seq.str.mk_contains(tail, b), m);
+    m_rewrite(pref);
+    m_rewrite(postf);
+    literal pre = mk_literal(pref);
+    literal cnt = mk_literal(e);
+    literal ctail = mk_literal(postf);
+    literal emp = mk_eq_empty(a, true);
+    add_axiom(cnt, ~pre);
+    add_axiom(cnt, ~ctail);
+    add_axiom(cnt, emp, mk_eq_empty(b, false));
+    add_axiom(~emp, mk_eq_empty(tail));
+    add_axiom(emp, mk_eq(a, seq.str.mk_concat(head, tail)));
+}
+
 
 expr_ref seq_axioms::add_length_limit(expr* s, unsigned k) {
     expr_ref bound_tracker  = m_sk.mk_length_limit(s, k);

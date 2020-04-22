@@ -13,9 +13,10 @@ z3_add_component(smt
     old_interval.cpp
     qi_queue.cpp
     seq_axioms.cpp
-    seq_offset_eq.cpp
     seq_skolem.cpp
     seq_eq_solver.cpp
+    seq_ne_solver.cpp
+    seq_offset_eq.cpp
     smt_almost_cg_table.cpp
     smt_arith_value.cpp
     smt_case_split_queue.cpp

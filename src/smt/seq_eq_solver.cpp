@@ -1515,7 +1515,7 @@ bool theory_seq::propagate_length_coherence(expr* e) {
     expr_ref_vector elems(m);
     unsigned _lo = lo.get_unsigned();
     for (unsigned j = 0; j < _lo; ++j) {
-        mk_decompose(seq, head, tail);
+        m_sk.decompose(seq, head, tail);
         elems.push_back(head);
         seq = tail;
     }
@@ -1552,7 +1552,7 @@ bool theory_seq::check_length_coherence(expr* e) {
             expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
             expr_ref head(m), tail(m);
             // e = emp \/ e = unit(head.elem(e))*tail(e)
-            mk_decompose(e, head, tail);
+            m_sk.decompose(e, head, tail);
             expr_ref conc = mk_concat(head, tail);
             if (propagate_is_conc(e, conc)) {
                 assume_equality(tail, emp);

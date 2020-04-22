@@ -513,7 +513,7 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
         expr_ref_vector elems(m);
         
         for (unsigned j = 0; j < _lo; ++j) {
-            mk_decompose(seq, head, tail);
+            m_sk.decompose(seq, head, tail);
             elems.push_back(head);
             seq = tail;
         }
@@ -563,9 +563,10 @@ expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
     return result;
 }
 
-
 void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
     m_sk.decompose(e, head, tail);
+    add_axiom(~mk_eq_empty(e), mk_eq_empty(tail));;
+    add_axiom(mk_eq_empty(e), mk_eq(e, mk_concat(head, tail), false));
 }
 
 /*
@@ -1284,248 +1285,6 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
 }
 
 
-bool theory_seq::branch_nqs() {
-   for (unsigned i = 0; i < m_nqs.size(); ++i) {
-       ne n = m_nqs[i];
-       lbool r = branch_nq(n);
-       switch (r) {
-       case l_undef: // needs assignment to a literal.
-           return true;
-       case l_true:  // disequality is satisfied.
-           break;
-       case l_false: // needs to be expanded.
-           if (m_nqs.size() > 1) {
-               ne n2 = m_nqs[m_nqs.size() - 1];
-               m_nqs.set(0, n2);
-           }
-           m_nqs.pop_back();           
-           return true;
-       }
-   }
-   return false;
-}
-
-lbool theory_seq::branch_nq(ne const& n) {
-    context& ctx = get_context();
-    literal eq_len = mk_eq(mk_len(n.l()), mk_len(n.r()), false);
-    ctx.mark_as_relevant(eq_len);
-    switch (ctx.get_assignment(eq_len)) {
-    case l_false:
-        TRACE("seq", ctx.display_literal_smt2(tout << "lengths are different: ", eq_len) << "\n";);
-        return l_true;
-    case l_undef:
-        return l_undef;
-    default:
-        break;
-    }
-    literal eq = mk_eq(n.l(), n.r(), false);
-    literal len_gt = mk_literal(m_autil.mk_ge(mk_len(n.l()), m_autil.mk_int(1)));
-    ctx.mark_as_relevant(len_gt);
-    switch (ctx.get_assignment(len_gt)) {
-    case l_false:
-        add_axiom(eq, ~eq_len, len_gt);
-        return l_false;
-    case l_undef:
-        return l_undef;
-    default:
-        break;
-    }
-    expr_ref h1(m), t1(m), h2(m), t2(m);
-    mk_decompose(n.l(), h1, t1);
-    mk_decompose(n.r(), h2, t2);
-    literal eq_head = mk_eq(h1, h2, false);
-    ctx.mark_as_relevant(eq_head);
-    switch (ctx.get_assignment(eq_head)) {
-    case l_false:
-        TRACE("seq", ctx.display_literal_smt2(tout << "heads are different: ", eq_head) << "\n";);
-        return l_true;
-    case l_undef:
-        return l_undef;
-    default:
-        break;
-    }
-    // l = r or |l| != |r| or |l| > 0
-    // l = r or |l| != |r| or h1 != h2 or t1 != t2
-    add_axiom(eq, ~eq_len, len_gt);
-    add_axiom(eq, ~eq_len, ~eq_head, ~mk_eq(t1, t2, false));
-    return l_false;
-}
-
-bool theory_seq::solve_nqs(unsigned i) {
-    context & ctx = get_context();
-    for (; !ctx.inconsistent() && i < m_nqs.size(); ++i) {
-        if (solve_ne(i)) {
-            if (i + 1 != m_nqs.size()) {
-                ne n = m_nqs[m_nqs.size()-1];
-                m_nqs.set(i, n);
-                --i;
-            }
-            m_nqs.pop_back();
-        }
-    }
-    return m_new_propagation || ctx.inconsistent();
-}
-
-
-bool theory_seq::solve_ne(unsigned idx) {
-    context& ctx = get_context();
-    ne const& n = m_nqs[idx];
-
-    TRACE("seq", display_disequation(tout << "solve: ", n););
-
-    unsigned num_undef_lits = 0;
-    for (literal lit : n.lits()) {
-        switch (ctx.get_assignment(lit)) {
-        case l_false:
-            TRACE("seq", display_disequation(tout << "has false literal\n", n);
-                  ctx.display_literal_verbose(tout, lit);
-                  tout << "\n" << lit << " " << ctx.is_relevant(lit) << "\n";
-                  );
-            return true;
-        case l_true:
-            break;
-        case l_undef:
-            ++num_undef_lits;
-            break;
-        }
-    }
-
-    bool updated = false;
-    dependency* new_deps = n.dep();
-    vector<expr_ref_vector> new_ls, new_rs;
-    literal_vector new_lits(n.lits());
-    for (unsigned i = 0; i < n.ls().size(); ++i) {
-        expr_ref_vector& ls = m_ls;
-        expr_ref_vector& rs = m_rs;
-        expr_ref_vector& lhs = m_lhs;
-        expr_ref_vector& rhs = m_rhs;
-        ls.reset(); rs.reset(); lhs.reset(); rhs.reset();
-        dependency* deps = nullptr;
-        bool change = false;
-        if (!canonize(n.ls(i), ls, deps, change)) return false;
-        if (!canonize(n.rs(i), rs, deps, change)) return false;
-
-        if (!m_seq_rewrite.reduce_eq(ls, rs, lhs, rhs, change)) {
-            TRACE("seq", display_disequation(tout << "reduces to false: ", n);
-                  tout << n.ls(i) << " -> " << ls << "\n";
-                  tout << n.rs(i) << " -> " << rs << "\n";);
-            
-            return true;
-        }
-        else if (!change) {
-            TRACE("seq", tout << "no change " << n.ls(i) << " " << n.rs(i) << "\n";);
-            if (updated) {
-                new_ls.push_back(n.ls(i));
-                new_rs.push_back(n.rs(i));
-            }
-            continue;
-        }
-        else {
-            if (!updated) {
-                for (unsigned j = 0; j < i; ++j) {
-                    new_ls.push_back(n.ls(j));
-                    new_rs.push_back(n.rs(j));
-                }
-            }
-            updated = true;
-            if (!ls.empty() || !rs.empty()) {
-                new_ls.push_back(ls);
-                new_rs.push_back(rs);
-            }
-            TRACE("seq",
-                  tout << lhs << " != " << rhs << "\n";
-                  for (unsigned j = 0; j < new_ls.size(); ++j) tout << new_ls[j] << " != " << new_rs[j] << "\n";
-                  tout << n.ls(i) << " != " << n.rs(i) << "\n";);
-
-            for (unsigned j = 0; j < lhs.size(); ++j) {
-                expr* nl = lhs[j].get();
-                expr* nr = rhs[j].get();
-                if (m_util.is_seq(nl) || m_util.is_re(nl)) {
-                    ls.reset();
-                    rs.reset(); 
-                    m_util.str.get_concat_units(nl, ls);
-                    m_util.str.get_concat_units(nr, rs);
-                    new_ls.push_back(ls);
-                    new_rs.push_back(rs);
-                }
-                else if (nl != nr) {                
-                    literal lit(mk_eq(nl, nr, false));
-                    ctx.mark_as_relevant(lit);
-                    new_lits.push_back(lit);
-                    switch (ctx.get_assignment(lit)) {
-                    case l_false:
-                        return true;
-                    case l_true:
-                        break;
-                    case l_undef:
-                        ++num_undef_lits;
-                        m_new_propagation = true;
-                        break;
-                    }
-                }
-            }
-            new_deps = m_dm.mk_join(deps, new_deps);
-        }
-    }
-
-    TRACE("seq", display_disequation(tout << "updated: " << updated << " undef lits: " << num_undef_lits << "\n", n););
-
-    if (!updated && num_undef_lits == 0) {
-        return false;
-    }
-    if (!updated) {
-        for (unsigned j = 0; j < n.ls().size(); ++j) {
-            new_ls.push_back(n.ls(j));
-            new_rs.push_back(n.rs(j));
-        }
-    }
-
-    if (num_undef_lits == 1 && new_ls.empty()) {
-        literal_vector lits;
-        literal undef_lit = null_literal;
-        for (literal lit : new_lits) {
-            switch (ctx.get_assignment(lit)) {
-            case l_true:
-                lits.push_back(lit);
-                break;
-            case l_false:
-                UNREACHABLE();
-                break;
-            case l_undef:
-                SASSERT(undef_lit == null_literal);
-                undef_lit = lit;
-                break;
-            }
-        }
-        TRACE("seq", tout << "propagate: " << undef_lit << "\n";);
-        SASSERT(undef_lit != null_literal);
-        propagate_lit(new_deps, lits.size(), lits.c_ptr(), ~undef_lit);
-        return true;
-    }
-    if (updated) {
-        if (num_undef_lits == 0 && new_ls.empty()) {
-            TRACE("seq", tout << "conflict\n";);
-
-            dependency* deps1 = nullptr;
-            if (explain_eq(n.l(), n.r(), deps1)) {
-                literal diseq = mk_eq(n.l(), n.r(), false);
-                if (ctx.get_assignment(diseq) == l_false) {
-                    new_lits.reset();                
-                    new_lits.push_back(~diseq);
-                    new_deps = deps1;
-                    TRACE("seq", tout << "conflict explained\n";);
-                }
-            }
-            set_conflict(new_deps, new_lits);
-            SASSERT(m_new_propagation);
-        }
-        else {
-            m_nqs.push_back(ne(n.l(), n.r(), new_ls, new_rs, new_lits, new_deps));
-            TRACE("seq", display_disequation(tout << "updated: ", m_nqs[m_nqs.size()-1]););
-        }
-    }    
-    return updated;
-}
 
 
 bool theory_seq::solve_nc(unsigned idx) {
@@ -1536,7 +1295,6 @@ bool theory_seq::solve_nc(unsigned idx) {
 #if 1
     expr* a = nullptr, *b = nullptr;
     VERIFY(m_util.str.is_contains(n.contains(), a, b));
-    expr_ref head(m), tail(m);
     literal pre, cnt, ctail, emp;
     lbool is_gt = ctx.get_assignment(len_gt);
     TRACE("seq", ctx.display_literal_smt2(tout << len_gt << " := " << is_gt << "\n", len_gt) << "\n";);
@@ -1578,18 +1336,7 @@ bool theory_seq::solve_nc(unsigned idx) {
     }
     IF_VERBOSE(0, verbose_stream() << n.contains() << "\n");
 #endif    
-    mk_decompose(a, head, tail);
-    expr_ref pref(m_util.str.mk_prefix(b, a), m);
-    expr_ref postf(m_util.str.mk_contains(tail, b), m);
-    m_rewrite(pref);
-    m_rewrite(postf);
-    pre = mk_literal(pref);
-    cnt = mk_literal(n.contains());
-    ctail = mk_literal(postf);
-    emp = mk_literal(m_util.str.mk_is_empty(a));
-    add_axiom(cnt, ~pre);
-    add_axiom(cnt, ~ctail);
-    add_axiom(emp, mk_eq(a, m_util.str.mk_concat(head, tail), false));
+    m_ax.unroll_not_contains(n.contains());
     return true;
     
 #endif    
@@ -1979,12 +1726,12 @@ std::ostream& theory_seq::display_disequation(std::ostream& out, ne const& e) co
     if (!e.lits().empty()) {
         out << "\n";
     }
-    for (unsigned j = 0; j < e.ls().size(); ++j) {
-        for (expr* t : e.ls(j)) {
+    for (unsigned j = 0; j < e.eqs().size(); ++j) {
+        for (expr* t : e[j].first) {
             out << mk_bounded_pp(t, m, 2) << " ";
         }
         out << " != ";
-        for (expr* t : e.rs(j)) {
+        for (expr* t : e[j].second) {
             out << mk_bounded_pp(t, m, 2) << " ";
         }
         out << "\n";
@@ -2084,9 +1831,9 @@ void theory_seq::init_model(model_generator & mg) {
         m_factory->register_value(n.r());  
     }
     for (ne const& n : m_nqs) {
-        for (unsigned i = 0; i < n.ls().size(); ++i) {
-            init_model(n.ls(i));
-            init_model(n.rs(i));
+        for (unsigned i = 0; i < n.eqs().size(); ++i) {
+            init_model(n[i].first);
+            init_model(n[i].second);
         }
     }
 }
@@ -3068,7 +2815,7 @@ void theory_seq::ensure_nth(literal lit, expr* s, expr* idx) {
 
     expr* s2 = s;
     for (unsigned j = 0; j <= _idx; ++j) {
-        mk_decompose(s2, head, tail);
+        m_sk.decompose(s2, head, tail);
         elems.push_back(head);
         len1 = mk_len(s2);
         len2 = m_autil.mk_add(m_autil.mk_int(1), mk_len(tail));

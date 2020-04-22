@@ -179,9 +179,12 @@ namespace smt {
             return eq(m_eq_id++, ls, rs, dep);
         }        
 
+        // equalities that are decomposed by conacatenations
+        typedef std::pair<expr_ref_vector, expr_ref_vector> decomposed_eq;
+
         class ne {      
             expr_ref                 m_l, m_r;
-            vector<expr_ref_vector>  m_lhs, m_rhs;
+            vector<decomposed_eq>    m_eqs;
             literal_vector           m_lits;
             dependency*              m_dep;
         public:
@@ -189,36 +192,34 @@ namespace smt {
                 m_l(l), m_r(r), m_dep(dep) {
                     expr_ref_vector ls(l.get_manager()); ls.push_back(l);
                     expr_ref_vector rs(r.get_manager()); rs.push_back(r);
-                    m_lhs.push_back(ls);
-                    m_rhs.push_back(rs);
+                    m_eqs.push_back(std::make_pair(ls, rs));
                 }
 
-            ne(expr_ref const& _l, expr_ref const& _r, vector<expr_ref_vector> const& l, vector<expr_ref_vector> const& r, literal_vector const& lits, dependency* dep):
+            ne(expr_ref const& _l, expr_ref const& _r, vector<decomposed_eq> const& eqs, literal_vector const& lits, dependency* dep):
                 m_l(_l), m_r(_r),
-                m_lhs(l),
-                m_rhs(r),
+                m_eqs(eqs),
                 m_lits(lits),
-                m_dep(dep) {}
+                m_dep(dep) {
+                }
 
             ne(ne const& other): 
                 m_l(other.m_l), m_r(other.m_r),
-                m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_lits(other.m_lits), m_dep(other.m_dep) {}
+                m_eqs(other.m_eqs), 
+                m_lits(other.m_lits), m_dep(other.m_dep) {}
 
             ne& operator=(ne const& other) { 
                 if (this != &other) {
                     m_l = other.m_l;
                     m_r = other.m_r;
-                    m_lhs.reset();  m_lhs.append(other.m_lhs);
-                    m_rhs.reset();  m_rhs.append(other.m_rhs); 
+                    m_eqs.reset();  m_eqs.append(other.m_eqs);
                     m_lits.reset(); m_lits.append(other.m_lits); 
                     m_dep = other.m_dep; 
                 }
                 return *this; 
             }            
-            vector<expr_ref_vector> const& ls() const { return m_lhs; }
-            vector<expr_ref_vector> const& rs() const { return m_rhs; }
-            expr_ref_vector const& ls(unsigned i) const { return m_lhs[i]; }
-            expr_ref_vector const& rs(unsigned i) const { return m_rhs[i]; }
+            vector<decomposed_eq> const& eqs() const { return m_eqs; }
+            decomposed_eq const& operator[](unsigned i) const { return m_eqs[i]; }
+
             literal_vector const& lits() const { return m_lits; }
             literal lits(unsigned i) const { return m_lits[i]; }
             dependency* dep() const { return m_dep; }
@@ -543,6 +544,11 @@ namespace smt {
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
         bool solve_nc(unsigned i);
+        bool check_ne_literals(unsigned idx, unsigned& num_undef_lits);
+        bool propagate_ne2lit(unsigned idx);
+        bool propagate_ne2eq(unsigned idx);
+        bool propagate_ne2eq(unsigned idx, expr_ref_vector const& es);
+        bool reduce_ne(unsigned idx);
         bool branch_nqs();
         lbool branch_nq(ne const& n);
 
