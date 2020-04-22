@@ -243,13 +243,10 @@ bool theory_seq::branch_nqs() {
        case l_undef: // needs assignment to a literal.
            return true;
        case l_true:  // disequality is satisfied.
+           m_nqs.erase_and_swap(i);
            break;
        case l_false: // needs to be expanded.
-           if (m_nqs.size() > 1) {
-               ne n2 = m_nqs[m_nqs.size() - 1];
-               m_nqs.set(0, n2);
-           }
-           m_nqs.pop_back();           
+           m_nqs.erase_and_swap(i);
            return true;
        }
    }

@@ -31,14 +31,9 @@ bool theory_seq::solve_eqs(unsigned i) {
     context& ctx = get_context();
     bool change = false;
     for (; !ctx.inconsistent() && i < m_eqs.size(); ++i) {
-        if (solve_eq(m_eqs[i], i)) {
-            if (i + 1 != m_eqs.size()) {
-                eq e1 = m_eqs[m_eqs.size()-1];
-                m_eqs.set(i, e1);
-                --i;
-            }
+        if (solve_eq(i)) {
+            m_eqs.erase_and_swap(i--);
             ++m_stats.m_num_reductions;
-            m_eqs.pop_back();
             change = true;
         }
         TRACE("seq_verbose", display_equations(tout););
@@ -46,7 +41,8 @@ bool theory_seq::solve_eqs(unsigned i) {
     return change || m_new_propagation || ctx.inconsistent();
 }
 
-bool theory_seq::solve_eq(const eq& e, unsigned idx) {
+bool theory_seq::solve_eq(unsigned idx) {
+    const eq& e = m_eqs[idx];
     context& ctx = get_context();
     expr_ref_vector& ls = m_ls;
     expr_ref_vector& rs = m_rs;

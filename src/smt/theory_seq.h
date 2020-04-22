@@ -513,7 +513,7 @@ namespace smt {
         bool check_contains();
         bool check_lts();
         bool solve_eqs(unsigned start);
-        bool solve_eq(eq const& e, unsigned idx);
+        bool solve_eq(unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool lift_ite(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);

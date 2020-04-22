@@ -636,12 +636,7 @@ bool theory_seq::check_contains() {
     context & ctx = get_context();
     for (unsigned i = 0; !ctx.inconsistent() && i < m_ncs.size(); ++i) {
         if (solve_nc(i)) {
-            if (i + 1 != m_ncs.size()) {
-                nc n = m_ncs[m_ncs.size()-1];
-                m_ncs.set(i, n);
-                --i;
-            }
-            m_ncs.pop_back();
+            m_ncs.erase_and_swap(i--);
         }
     }
     return m_new_propagation || ctx.inconsistent();
