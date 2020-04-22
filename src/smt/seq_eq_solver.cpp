@@ -624,7 +624,7 @@ bool theory_seq::split_lengths(dependency* dep,
     else if (m_util.str.is_unit(Y)) {
         SASSERT(lenB == lenX);
         bs.push_back(Y);
-        expr_ref bY(m_util.str.mk_concat(bs, m.get_sort(Y)), m);
+        expr_ref bY = mk_concat(bs, m.get_sort(Y));
         propagate_eq(dep, lits, X, bY, true);
     }
     else {
@@ -758,7 +758,7 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
     else {
         literal lit = mk_eq(m_autil.mk_int(lX), mk_len(X), false);
         if (l_true == ctx.get_assignment(lit)) {
-            expr_ref R(m_util.str.mk_concat(lX, units.c_ptr(), m.get_sort(X)), m);
+            expr_ref R = mk_concat(lX, units.c_ptr(), m.get_sort(X));
             propagate_eq(dep, lit, X, R);
             TRACE("seq", tout << "propagate " << mk_pp(X, m) << " " << R << "\n";);
         }
@@ -870,7 +870,7 @@ bool theory_seq::branch_ternary_variable_base(
     for (auto ind : indexes) {
         TRACE("seq", tout << "ind = " << ind << "\n";);
         expr_ref xs2E(m);
-        xs2E = m_util.str.mk_concat(xs.size()-ind, xs.c_ptr()+ind, m.get_sort(x));
+        xs2E = mk_concat(xs.size()-ind, xs.c_ptr()+ind, m.get_sort(x));
         
         literal lit1 = mk_literal(m_autil.mk_le(mk_len(y2), m_autil.mk_int(xs.size()-ind)));
         switch (ctx.get_assignment(lit1)) {
@@ -884,7 +884,7 @@ bool theory_seq::branch_ternary_variable_base(
             TRACE("seq", tout << "base case: true branch\n";);
             propagate_eq(dep, lit1, y2, xs2E, true);
             if (ind > ys.size()) {
-                expr_ref xs1E(m_util.str.mk_concat(ind-ys.size(), xs.c_ptr(), m.get_sort(x)), m);
+                expr_ref xs1E  = mk_concat(ind-ys.size(), xs.c_ptr(), m.get_sort(x));
                 expr_ref xxs1E = mk_concat(x, xs1E);
                 propagate_eq(dep, lit1, xxs1E, y1, true);
             }
@@ -892,7 +892,7 @@ bool theory_seq::branch_ternary_variable_base(
                 propagate_eq(dep, lit1, x, y1, true);
             }
             else {
-                expr_ref ys1E(m_util.str.mk_concat(ys.size()-ind, ys.c_ptr(), m.get_sort(x)), m);
+                expr_ref ys1E   = mk_concat(ys.size()-ind, ys.c_ptr(), m.get_sort(x));
                 expr_ref y1ys1E = mk_concat(y1, ys1E);
                 propagate_eq(dep, lit1, x, y1ys1E, true);
             }
@@ -993,7 +993,7 @@ bool theory_seq::branch_ternary_variable_base2(
             TRACE("seq", tout << "base case: true branch\n";);
             propagate_eq(dep, le, y1, xs1E, true);
             if (xs.size() - ind > ys.size()) {
-                expr_ref xs2E(m_util.str.mk_concat(xs.size()-ind-ys.size(), xs.c_ptr()+ind+ys.size(), srt), m);
+                expr_ref xs2E = mk_concat(xs.size()-ind-ys.size(), xs.c_ptr()+ind+ys.size(), srt);
                 expr_ref xs2x = mk_concat(xs2E, x);
                 propagate_eq(dep, le, xs2x, y2, true);
             }
@@ -1001,7 +1001,7 @@ bool theory_seq::branch_ternary_variable_base2(
                 propagate_eq(dep, le, x, y2, true);
             }
             else {
-                expr_ref ys1E(m_util.str.mk_concat(ys.size()-xs.size()+ind, ys.c_ptr()+xs.size()-ind, srt), m);
+                expr_ref ys1E  = mk_concat(ys.size()-xs.size()+ind, ys.c_ptr()+xs.size()-ind, srt);
                 expr_ref ys1y2 = mk_concat(ys1E, y2);
                 propagate_eq(dep, le, x, ys1y2, true);
             }
@@ -1677,12 +1677,12 @@ bool theory_seq::is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
         }
         xs.reset();
         xs.append(l_end-l_start+1, ls.c_ptr()+l_start);
-        x1 = m_util.str.mk_concat(l_start, ls.c_ptr(), srt);
-        x2 = m_util.str.mk_concat(ls.size()-l_end-1, ls.c_ptr()+l_end+1, srt);
+        x1 = mk_concat(l_start, ls.c_ptr(), srt);
+        x2 = mk_concat(ls.size()-l_end-1, ls.c_ptr()+l_end+1, srt);
         ys.reset();
         ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
-        y1 = m_util.str.mk_concat(r_start, rs.c_ptr(), srt);
-        y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
+        y1 = mk_concat(r_start, rs.c_ptr(), srt);
+        y2 = mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
         return true;
     }
     return false;
@@ -1721,11 +1721,11 @@ bool theory_seq::is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const&
         }
         xs.reset();
         xs.append(ls.size()-l_start, ls.c_ptr()+l_start);
-        x = m_util.str.mk_concat(l_start, ls.c_ptr(), srt);
+        x = mk_concat(l_start, ls.c_ptr(), srt);
         ys.reset();
         ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
-        y1 = m_util.str.mk_concat(r_start, rs.c_ptr(), srt);
-        y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
+        y1 = mk_concat(r_start, rs.c_ptr(), srt);
+        y2 = mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
         return true;
     }
     return false;
@@ -1763,11 +1763,11 @@ bool theory_seq::is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const
         }
         xs.reset();
         xs.append(l_start, ls.c_ptr());
-        x = m_util.str.mk_concat(ls.size()-l_start, ls.c_ptr()+l_start, srt);
+        x = mk_concat(ls.size()-l_start, ls.c_ptr()+l_start, srt);
         ys.reset();
         ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
-        y1 = m_util.str.mk_concat(r_start, rs.c_ptr(), srt);
-        y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
+        y1 = mk_concat(r_start, rs.c_ptr(), srt);
+        y2 = mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
         return true;
     }
     return false;
@@ -1786,7 +1786,7 @@ bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const&
         expr_ref_vector ls1(m), rs1(m); 
         expr_ref idx1(m_autil.mk_add(idx, m_autil.mk_int(1)), m);
         m_rewrite(idx1);
-        expr_ref rhs(m_util.str.mk_concat(rs.size(), rs.c_ptr(), m.get_sort(ls[0])), m);
+        expr_ref rhs = mk_concat(rs.size(), rs.c_ptr(), m.get_sort(ls[0]));
         ls1.push_back(s);        
         if (!idx_is_zero) rs1.push_back(m_sk.mk_pre(s, idx)); 
         rs1.push_back(m_util.str.mk_unit(rhs)); 

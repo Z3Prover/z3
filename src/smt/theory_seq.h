@@ -459,9 +459,6 @@ namespace smt {
         app* get_ite_value(expr* a);
         void get_ite_concat(ptr_vector<expr>& head, ptr_vector<expr>& tail);
         
-        bool match_x_minus_y(expr* e, expr*& x, expr*& y) const;
-        void len_offset(expr* e, int val);
-        void prop_arith_to_len_offset();
         int find_fst_non_empty_idx(expr_ref_vector const& x);
         expr* find_fst_non_empty_var(expr_ref_vector const& x);
         void find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector const& rs);
