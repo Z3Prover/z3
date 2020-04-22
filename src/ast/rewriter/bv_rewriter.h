@@ -62,7 +62,6 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     bool       m_extract_prop;
     bool       m_bvnot_simpl;
     bool       m_le_extra;
-    bool       m_urem_simpl;
 
     bool is_zero_bit(expr * x, unsigned idx);
 
