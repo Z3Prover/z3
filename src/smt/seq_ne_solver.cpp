@@ -159,16 +159,15 @@ bool theory_seq::reduce_ne(unsigned idx) {
         auto const& p = n[i];
         expr_ref_vector& ls = m_ls;
         expr_ref_vector& rs = m_rs;
-        expr_ref_vector& lhs = m_lhs;
-        expr_ref_vector& rhs = m_rhs;
-        ls.reset(); rs.reset(); lhs.reset(); rhs.reset();
+        expr_ref_pair_vector& eqs = m_new_eqs;
+        ls.reset(); rs.reset(); eqs.reset();
         dependency* deps = nullptr;
         bool change = false;
         if (!canonize(p.first,  ls, deps, change)) return false;
         if (!canonize(p.second, rs, deps, change)) return false;
         new_deps = m_dm.mk_join(deps, new_deps);
 
-        if (!m_seq_rewrite.reduce_eq(ls, rs, lhs, rhs, change)) {
+        if (!m_seq_rewrite.reduce_eq(ls, rs, eqs, change)) {
             TRACE("seq", display_disequation(tout << "reduces to false: ", n);
                   tout << p.first << " -> " << ls << "\n";
                   tout << p.second << " -> " << rs << "\n";);
@@ -194,13 +193,13 @@ bool theory_seq::reduce_ne(unsigned idx) {
             new_eqs.push_back(decomposed_eq(ls, rs));
         }
         TRACE("seq",
-              tout << lhs << " != " << rhs << "\n";
+              for (auto const& p : eqs) tout << mk_pp(p.first, m) << " != " << mk_pp(p.second, m) << "\n";
               for (auto const& p : new_eqs) tout << p.first << " != " << p.second << "\n";
               tout << p.first << " != " << p.second << "\n";);
         
-        for (unsigned j = 0; j < lhs.size(); ++j) {
-            expr* nl = lhs.get(j);
-            expr* nr = rhs.get(j);
+        for (auto const& p : eqs) {
+            expr* nl = p.first;
+            expr* nr = p.second;
             if (m_util.is_seq(nl) || m_util.is_re(nl)) {
                 ls.reset();
                 rs.reset(); 

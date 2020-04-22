@@ -304,6 +304,7 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_trail_stack(*this),
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
+    m_new_eqs(m),
     m_has_seq(m_util.has_seq()),
     m_res(m),
     m_max_unfolding_depth(1),
@@ -601,24 +602,24 @@ bool theory_seq::check_extensionality() {
                 if (!canonize(n2->get_owner(), dep, e2)) {
                     return false;
                 }
-                m_lhs.reset(); m_rhs.reset();
+                m_new_eqs.reset();
                 bool change = false;
-                if (!m_seq_rewrite.reduce_eq(e1, e2, m_lhs, m_rhs, change)) {
+                if (!m_seq_rewrite.reduce_eq(e1, e2, m_new_eqs, change)) {
                     TRACE("seq", tout << "exclude " << mk_pp(o1, m) << " " << mk_pp(o2, m) << "\n";);
                     m_exclude.update(o1, o2);
                     continue;
                 }
                 bool excluded = false;
-                for (unsigned j = 0; !excluded && j < m_lhs.size(); ++j) {
-                    if (m_exclude.contains(m_lhs.get(j), m_rhs.get(j))) {
-                        TRACE("seq", tout << "excluded " << j << " " << m_lhs << " " << m_rhs << "\n";);
+                for (auto const& p : m_new_eqs) {
+                    if (m_exclude.contains(p.first, p.second)) {
+                        TRACE("seq", tout << "excluded " << mk_pp(p.first, m) << " " << mk_pp(p.second, m) << "\n";);
                         excluded = true;
+                        break;
                     }
                 }
                 if (excluded) {
                     continue;
                 }
-                TRACE("seq", tout << m_lhs << " = " << m_rhs << "\n";);
                 ctx.assume_eq(n1, n2);
                 return false;
             }
@@ -908,14 +909,15 @@ bool theory_seq::lift_ite(expr_ref_vector const& ls, expr_ref_vector const& rs, 
 
 bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependency* deps) {
     context& ctx = get_context();
-    expr_ref_vector lhs(m), rhs(m);
+    expr_ref_pair_vector& new_eqs = m_new_eqs;
+    new_eqs.reset();
     bool changed = false;
     TRACE("seq", 
           for (expr* l : ls) tout << "s#" << l->get_id() << " " << mk_bounded_pp(l, m, 2) << "\n";
           tout << " = \n";
           for (expr* r : rs) tout << "s#" << r->get_id() << " " << mk_bounded_pp(r, m, 2) << "\n";);
 
-    if (!m_seq_rewrite.reduce_eq(ls, rs, lhs, rhs, changed)) {
+    if (!m_seq_rewrite.reduce_eq(ls, rs, new_eqs, changed)) {
         // equality is inconsistent.
         TRACE("seq_verbose", tout << ls << " != " << rs << "\n";);
         set_conflict(deps);
@@ -923,27 +925,29 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     }
 
     if (!changed) {
-        SASSERT(lhs.empty() && rhs.empty());
+        SASSERT(new_eqs.empty());
         return false;
     }
     TRACE("seq",
           tout << "reduced to\n";
-          for (expr* l : lhs) tout << mk_bounded_pp(l, m, 2) << "\n";
-          tout << " = \n";
-          for (expr* r : rhs) tout << mk_bounded_pp(r, m, 2) << "\n";
+          for (auto p : new_eqs) {
+              tout << mk_bounded_pp(p.first, m, 2) << "\n";
+              tout << " = \n";
+              tout << mk_bounded_pp(p.second, m, 2) << "\n";
+          }
           );
-    SASSERT(lhs.size() == rhs.size());
-    m_seq_rewrite.add_seqs(ls, rs, lhs, rhs);
-    if (lhs.empty()) {
+    m_seq_rewrite.add_seqs(ls, rs, new_eqs);
+    if (new_eqs.empty()) {
         TRACE("seq", tout << "solved\n";);
         return true;
     }
     TRACE("seq_verbose", 
-          tout << ls << " = " << rs << "\n";
-          tout << lhs << " = " << rhs << "\n";);
-    for (unsigned i = 0; !ctx.inconsistent() && i < lhs.size(); ++i) {
-        expr_ref li(lhs.get(i), m);
-        expr_ref ri(rhs.get(i), m);
+          tout << ls << " = " << rs << "\n";);
+    for (auto const& p : new_eqs) {
+        if (ctx.inconsistent())
+            break;
+        expr_ref li(p.first, m);
+        expr_ref ri(p.second, m);
         if (solve_unit_eq(li, ri, deps)) {
             // no-op
         }
@@ -957,8 +961,8 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     }
     TRACE("seq_verbose",
           if (!ls.empty() || !rs.empty()) tout << ls << " = " << rs << ";\n";
-          for (unsigned i = 0; i < lhs.size(); ++i) {
-              tout << mk_pp(lhs.get(i), m) << " = " << mk_pp(rhs.get(i), m) << ";\n";
+          for (auto const& p : new_eqs) {
+              tout << mk_pp(p.first, m) << " = " << mk_pp(p.second, m) << ";\n";
           });
 
 
