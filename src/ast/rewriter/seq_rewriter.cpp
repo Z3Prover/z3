@@ -1202,10 +1202,19 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
 }
 
 /**
+
+  Index of first occurrence of second string in first one starting at 
+  the position specified by the third argument.
+  (str.indexof s t i), with 0 <= i <= |s| is the position of the first
+  occurrence of t in s at or after position i, if any. 
+  Otherwise, it is -1. Note that the result is i whenever i is within
+  the range [0, |s|] and t is empty.
+  (str.indexof String String Int Int)
+
    indexof(s, b, c) -> -1 if c < 0
-   indexof(a, "", 0) -> 0
-   indexof("", b, r) -> if b = "" then 0 else -1
-   indexof(unit(x)+a, b, r+1) -> indexof(a, b, r)
+   indexof(a, "", 0) -> if a = "" then 0 else -1
+   indexof("", b, r) -> if b = "" and r = 0 then 0 else -1
+   indexof(unit(x)+a, b, r+1) -> indexof(a, b, r) 
    indexof(unit(x)+a, unit(y)+b, 0) -> indexof(a,unit(y)+b, 0) if x != y
 */
 br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result) {
@@ -1233,7 +1242,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     
     if (m_util.str.is_empty(a)) {
         expr* emp = m_util.str.mk_is_empty(b);
-        result = m().mk_ite(emp, zero(), minus_one());
+        result = m().mk_ite(m().mk_and(m().mk_eq(c, zero()), emp), zero(), minus_one());
         return BR_REWRITE2;
     }
 
@@ -1279,6 +1288,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             m_util.str.mk_concat(as.size() - i, as.c_ptr() + i, sort_a), b, c);
         return BR_REWRITE1;
     }
+
     switch (compare_lengths(as, bs)) {
     case shorter_c:
         if (is_zero) {
