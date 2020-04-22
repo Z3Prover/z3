@@ -99,6 +99,9 @@ struct check_logic::imp {
             m_bv_arrays = true;
             m_bvs       = true;
         }
+        else if (logic == "QF_FP") {
+            m_bvs       = true;
+        }
         else if (logic == "QF_AUFBV") {
             m_uf        = true;
             m_bv_arrays = true;
