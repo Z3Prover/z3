@@ -200,9 +200,10 @@ void emonics::remove_cg_mon(const monic& m) {
     }
     else if (v[0] == u) {
         v.erase(u);
+        auto v0 = v[0];
         unsigned_vector vv(v);
         m_cg_table.remove(u);
-        m_cg_table.insert(v[0], vv);
+        m_cg_table.insert(v0, vv);
     }
     else {
         v.erase(u);
