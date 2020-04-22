@@ -980,9 +980,17 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
         propagate_lit(dep, 0, nullptr, lit);
         return true;
     }
+    expr* u = nullptr;
+    for (expr* r : rs) {
+        if (m_util.str.is_unit(r, u)) {
+            literal is_digit = m_ax.is_digit(u);
+            if (get_context().get_assignment(is_digit) != l_true) {
+                propagate_lit(dep, 0, nullptr, is_digit);
+            }
+        }
+    }
 
     expr_ref num(m), digit(m);
-    expr* u = nullptr;
     for (expr* r : rs) {
         if (!m_util.str.is_unit(r, u))
             return false;
@@ -993,10 +1001,6 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
         else {
             num = m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), num), digit);
         }
-    }
-    for (expr* r : rs) {
-        VERIFY(m_util.str.is_unit(r, u));
-        propagate_lit(dep, 0, nullptr, m_ax.is_digit(u));
     }
 
     propagate_lit(dep, 0, nullptr, mk_simplified_literal(m.mk_eq(n, num)));
@@ -2964,9 +2968,12 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
 
     if (m_util.str.is_prefix(e, e1, e2)) {
         if (is_true) {
-            f = m_sk.mk_prefix_inv(e1, e2);
-            f = mk_concat(e1, f);
-            propagate_eq(lit, f, e2, true);
+            expr_ref se1(e1, m), se2(e2, m);
+            m_rewrite(se1);
+            m_rewrite(se2);
+            f = m_sk.mk_prefix_inv(se1, se2);
+            f = mk_concat(se1, f);
+            propagate_eq(lit, f, se2, true);
         }
         else {
             propagate_not_prefix(e);
@@ -2974,9 +2981,12 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (m_util.str.is_suffix(e, e1, e2)) {
         if (is_true) {
-            f = m_sk.mk_suffix_inv(e1, e2);
-            f = mk_concat(f, e1);
-            propagate_eq(lit, f, e2, true);
+            expr_ref se1(e1, m), se2(e2, m);
+            m_rewrite(se1);
+            m_rewrite(se2);
+            f = m_sk.mk_suffix_inv(se1, se2);
+            f = mk_concat(f, se1);
+            propagate_eq(lit, f, se2, true);
         }
         else {
             propagate_not_suffix(e);
