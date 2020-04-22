@@ -117,8 +117,6 @@ namespace sat {
         bool               m_local_search;
         local_search_mode  m_local_search_mode;
         bool               m_local_search_dbg_flips;
-        unsigned           m_unit_walk_threads;
-        bool               m_unit_walk;
         bool               m_binspr;
         bool               m_cut_simplify;
         unsigned           m_cut_delay;
