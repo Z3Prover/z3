@@ -167,7 +167,10 @@ public:
 template<typename T, typename TManager>
 class ref_pair_vector : public ref_pair_vector_core<T, ref_manager_wrapper<T, TManager> > {
     typedef ref_pair_vector_core<T, ref_manager_wrapper<T, TManager> > super;
+
 public:
+    typedef std::pair<T*,T*> elem_t;
+
     ref_pair_vector(TManager & m):
         super(ref_manager_wrapper<T, TManager>(m)) {
     }
