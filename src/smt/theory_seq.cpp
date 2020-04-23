@@ -3000,19 +3000,20 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             return;
         }        
 
+        expr_ref se1(e1, m), se2(e2, m);
+        m_rewrite(se1);
+        m_rewrite(se2);
         if (is_true) {
-            expr_ref f1 = m_sk.mk_indexof_left(e1, e2);
-            expr_ref f2 = m_sk.mk_indexof_right(e1, e2);
-            f = mk_concat(f1, e2, f2);
+            expr_ref f1 = m_sk.mk_indexof_left(se1, se2);
+            expr_ref f2 = m_sk.mk_indexof_right(se1, se2);
+            f = mk_concat(f1, se2, f2);
             propagate_eq(lit, f, e1, true);
-            //literal len2_le_len1 = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(e1), mk_len(e2)), m_autil.mk_int(0)));
-            //add_axiom(~lit, len2_le_len1);
         }
         else {
-            propagate_non_empty(lit, e2);
+            propagate_non_empty(lit, se2);
             dependency* dep = m_dm.mk_leaf(assumption(lit));
             // |e1| - |e2| <= -1
-            literal len_gt = m_ax.mk_le(mk_sub(mk_len(e1), mk_len(e2)), -1);
+            literal len_gt = m_ax.mk_le(mk_sub(mk_len(se1), mk_len(se2)), -1);
             ctx.force_phase(len_gt);
             m_ncs.push_back(nc(expr_ref(e, m), len_gt, dep));
         }
