@@ -52,6 +52,8 @@ namespace opt {
         if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {            
             m_params.m_relevancy_lvl = 0;
         }
+        m_params.m_arith_auto_config_simplex = false;
+        m_was_sat = false;
         // m_params.m_auto_config = false;
     }
 
@@ -65,6 +67,7 @@ namespace opt {
         m_dump_benchmarks = p.dump_benchmarks();
         m_params.updt_params(_p);
         m_context.updt_params(_p);
+        m_params.m_arith_auto_config_simplex = false;
     }
 
     solver* opt_solver::translate(ast_manager& m, params_ref const& p) {
@@ -85,6 +88,7 @@ namespace opt {
             m_params.m_relevancy_lvl = 2;
         }
         m_context.assert_expr(t);
+        m_was_sat = false;
     }
     
     void opt_solver::push_core() {
@@ -184,6 +188,10 @@ namespace opt {
             r = m_context.check(num_assumptions, assumptions);
         }
         r = adjust_result(r);
+        m_was_sat = r == l_true;
+        if (r == l_true) {
+            m_context.get_model(m_model);
+        }
         m_first = false;
         if (dump_benchmarks()) {
             w.stop();
@@ -224,6 +232,8 @@ namespace opt {
        In this case, the model is post-processed (update_model 
        causes an additional call to final_check to propagate theory equalities
        when 'has_shared' is true).
+
+       Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
     void opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
@@ -233,7 +243,8 @@ namespace opt {
         get_model(m_model);
         inf_eps val2;
         m_valid_objectives[i] = true;
-        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << "\n";);
+        has_shared = true;
+        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";);
         if (!m_models[i]) {
             set_model(i);
         }
@@ -243,6 +254,9 @@ namespace opt {
         else if (m_context.get_context().update_model(has_shared)) {
             if (has_shared && val != current_objective_value(i)) {
                 decrement_value(i, val);
+                if (l_true != m_context.check(0, nullptr)) 
+                    throw default_exception("maximization suspended");
+                m_was_sat = true;
             }
             else {
                 set_model(i);
@@ -250,7 +264,10 @@ namespace opt {
         }
         else {
             SASSERT(has_shared);
-            decrement_value(i, val);
+            decrement_value(i, val);            
+            if (l_true != m_context.check(0, nullptr)) 
+                throw default_exception("maximization suspended");
+            m_was_sat = true;
         }
         m_objective_values[i] = val;
         TRACE("opt", { 
@@ -273,6 +290,7 @@ namespace opt {
         assert_expr(ge);
         lbool is_sat = m_context.check(0, nullptr);
         is_sat = adjust_result(is_sat);
+        m_was_sat = is_sat == l_true;
         if (is_sat == l_true) {
             set_model(i);
         }
@@ -280,7 +298,7 @@ namespace opt {
         TRACE("opt", tout << is_sat << "\n";);
         if (is_sat != l_true) {
             // cop-out approximation
-            if (arith_util(m).is_real(m_objective_terms[i].get())) {
+            if (arith_util(m).is_real(m_objective_terms.get(i))) {
                 val -= inf_eps(inf_rational(rational(0), true));
             }
             else {
@@ -309,8 +327,13 @@ namespace opt {
     }
 
     void opt_solver::get_model_core(model_ref & m) {
-        m_context.get_model(m);
-        if (!m) m = m_model; else m_model = m;
+        if (m_was_sat) {
+            m_context.get_model(m);
+            if (!m) m = m_model; else m_model = m;
+        }
+        else {
+            m = nullptr;
+        }
     }
     
     proof * opt_solver::get_proof() {
@@ -348,6 +371,7 @@ namespace opt {
         
     smt::theory_var opt_solver::add_objective(app* term) {
         smt::theory_var v = get_optimizer().add_objective(term);
+        TRACE("opt", tout << v << " " << mk_pp(term, m) << "\n";);
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
         m_objective_terms.push_back(term);
@@ -369,9 +393,13 @@ namespace opt {
         return get_optimizer().value(v);
     }
     
-    expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
-        if (!val.is_finite()) {
-            return expr_ref(val.is_pos() ? m.mk_false() : m.mk_true(), m);
+    expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& _val) {
+        if (!_val.is_finite()) {
+            return expr_ref(_val.is_pos() ? m.mk_false() : m.mk_true(), m);
+        }
+        inf_eps val = _val;
+        if (val.get_infinitesimal().is_neg()) {
+            val = inf_eps(val.get_rational());
         }
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];
@@ -400,8 +428,7 @@ namespace opt {
             return th.mk_ge(m_fm, v, val);
         }
 
-        if (typeid(smt::theory_rdl) == typeid(opt) &&
-            val.get_infinitesimal().is_zero()) {
+        if (typeid(smt::theory_rdl) == typeid(opt)) {
             smt::theory_rdl& th = dynamic_cast<smt::theory_rdl&>(opt);
             return th.mk_ge(m_fm, v, val);
         }
@@ -417,7 +444,6 @@ namespace opt {
             smt::theory_dense_mi& th = dynamic_cast<smt::theory_dense_mi&>(opt);
             return th.mk_ge(m_fm, v, val);
         }
-
 
         if (typeid(smt::theory_lra) == typeid(opt)) {
             smt::theory_lra& th = dynamic_cast<smt::theory_lra&>(opt); 
@@ -435,6 +461,11 @@ namespace opt {
         if (typeid(smt::theory_dense_smi) == typeid(opt) &&
             val.get_infinitesimal().is_zero()) {
             smt::theory_dense_smi& th = dynamic_cast<smt::theory_dense_smi&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+
+        if (typeid(smt::theory_dense_mi) == typeid(opt)) {
+            smt::theory_dense_mi& th = dynamic_cast<smt::theory_dense_mi&>(opt);
             return th.mk_ge(m_fm, v, val);
         }
         

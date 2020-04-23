@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "smt/smt_kernel.h"
 #include "smt/smt_context.h"
+#include "smt/smt_lookahead.h"
 #include "ast/ast_smt2_pp.h"
 #include "smt/params/smt_params_helper.hpp"
 
@@ -131,7 +132,7 @@ namespace smt {
             return m_kernel.find_mutexes(vars, mutexes);
         }
         
-        void get_model(model_ref & m) const {
+        void get_model(model_ref & m) {
             m_kernel.get_model(m);
         }
 
@@ -153,21 +154,6 @@ namespace smt {
 
         expr_ref_vector get_trail() {
             return m_kernel.get_trail();
-        }
-
-        void set_activity(expr* lit, double act) {
-            SASSERT(m().is_bool(lit));
-            m().is_not(lit, lit);
-            if (!m_kernel.b_internalized(lit)) {
-                m_kernel.internalize(lit, false);
-            }
-            if (!m_kernel.b_internalized(lit)) {
-                return;
-            }
-            auto v = m_kernel.get_bool_var(lit);
-            double old_act = m_kernel.get_activity(v);
-            m_kernel.set_activity(v, act);
-            m_kernel.activity_changed(v, act > old_act);
         }
         
         failure last_failure() const {
@@ -202,8 +188,9 @@ namespace smt {
             m_kernel.get_guessed_literals(result);
         }
 
-        expr* next_decision() {
-            return m_kernel.next_decision();
+        expr_ref next_cube() {
+            lookahead lh(m_kernel);
+            return lh.choose();
         }
                 
         void collect_statistics(::statistics & st) const {
@@ -293,11 +280,8 @@ namespace smt {
         ast_manager & _m = m();
         smt_params & fps = m_imp->fparams();
         params_ref ps    = m_imp->params();
-        #pragma omp critical (smt_kernel)
-        {
-            m_imp->~imp();
-            m_imp = new (m_imp) imp(_m, fps, ps);
-        }
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(_m, fps, ps);        
     }
 
     bool kernel::inconsistent() {
@@ -331,7 +315,7 @@ namespace smt {
         return m_imp->find_mutexes(vars, mutexes);
     }
 
-    void kernel::get_model(model_ref & m) const {
+    void kernel::get_model(model_ref & m) {
         m_imp->get_model(m);
     }
 
@@ -379,12 +363,13 @@ namespace smt {
         m_imp->get_guessed_literals(result);
     }
 
-    expr* kernel::next_decision() {
-        return m_imp->next_decision();
+    expr_ref kernel::next_cube() {
+        return m_imp->next_cube();
     }        
 
-    void kernel::display(std::ostream & out) const {
+    std::ostream& kernel::display(std::ostream & out) const {
         m_imp->display(out);
+        return out;
     }
 
     void kernel::collect_statistics(::statistics & st) const {
@@ -425,10 +410,6 @@ namespace smt {
 
     expr_ref_vector kernel::get_trail() {
         return m_imp->get_trail();
-    }
-
-    void kernel::set_activity(expr* lit, double activity) {
-        m_imp->set_activity(lit, activity);
     }
 
 

@@ -2,7 +2,7 @@
 # TPTP example
 ################################################################################
 project(Z3_TPTP5 CXX)
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.4)
 find_package(Z3
   REQUIRED
   CONFIG
@@ -13,6 +13,13 @@ find_package(Z3
   # use this option.
   NO_DEFAULT_PATH
 )
+
+################################################################################
+# Z3 C++ API bindings require C++11
+################################################################################
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 message(STATUS "Z3_FOUND: ${Z3_FOUND}")
 message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
 message(STATUS "Z3_DIR: ${Z3_DIR}")

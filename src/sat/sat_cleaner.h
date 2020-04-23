@@ -40,6 +40,7 @@ namespace sat {
     public:
         cleaner(solver & s);
 
+        bool is_clean() const;
         bool operator()(bool force = false);
 
         void collect_statistics(statistics & st) const;

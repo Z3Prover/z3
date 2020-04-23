@@ -15,21 +15,21 @@
 // Unit tests fail by asserting.
 // If they return, we assume the unit test succeeds
 // and print "PASS" to indicate success.
-// 
+//
 
 #define TST(MODULE) {                                        \
         std::string s("test ");                              \
         s += #MODULE;                                        \
         void tst_##MODULE();                                 \
         if (do_display_usage)                                \
-            std::cout << #MODULE << "\n";                    \
+            std::cout << "    " << #MODULE << "\n";          \
         for (int i = 0; i < argc; i++)                       \
             if (test_all || strcmp(argv[i], #MODULE) == 0) { \
                 enable_trace(#MODULE);                       \
                 enable_debug(#MODULE);                       \
                 timeit timeit(true, s.c_str());              \
                 tst_##MODULE();                              \
-                    std::cout << "PASS" << std::endl;        \
+                std::cout << "PASS" << std::endl;            \
             }                                                \
     }
 
@@ -38,15 +38,15 @@
     s += #MODULE;                                       \
     void tst_##MODULE(char** argv, int argc, int& i);   \
     if (do_display_usage)                               \
-        std::cout << #MODULE << "\n";                   \
+        std::cout << "    " << #MODULE << "(...)\n";    \
     for (int i = 0; i < argc; i++)                      \
-    if (strcmp(argv[i], #MODULE) == 0) {            \
-            enable_trace(#MODULE);                      \
-        enable_debug(#MODULE);                      \
-        timeit timeit(true, s.c_str());             \
-        tst_##MODULE(argv, argc, i);                \
-            std::cout << "PASS" << std::endl;           \
-    }                                               \
+    if (strcmp(argv[i], #MODULE) == 0) {                \
+        enable_trace(#MODULE);                          \
+        enable_debug(#MODULE);                          \
+        timeit timeit(true, s.c_str());                 \
+        tst_##MODULE(argv, argc, i);                    \
+        std::cout << "PASS" << std::endl;               \
+    }                                                   \
 }
 
 void error(const char * msg) {
@@ -72,14 +72,19 @@ void display_usage() {
 #ifdef Z3DEBUG
     std::cout << "  /dbg:tag    enable assertions tagged with <tag>.\n";
 #endif
+    std::cout << "\nModule names:\n";
 }
 
 void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& test_all) {
     int i = 1;
+    if (argc == 1) {
+        display_usage();
+        do_display_usage = true;
+    }
     while (i < argc) {
-	char * arg = argv[i];    
+        char * arg = argv[i];
         char * eq_pos = nullptr;
-        
+
         if (arg[0] == '-' || arg[0] == '/') {
             char * opt_name = arg + 1;
             char * opt_arg  = nullptr;
@@ -124,15 +129,15 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
         else if (arg[0] != '"' && (eq_pos = strchr(arg, '='))) {
             char * key   = arg;
             *eq_pos      = 0;
-            char * value = eq_pos+1; 
+            char * value = eq_pos+1;
             try {
                 gparams::set(key, value);
             }
             catch (z3_exception& ex) {
                 std::cerr << ex.msg() << "\n";
             }
-        }            
-    i++;
+        }
+        i++;
     }
 }
 
@@ -248,10 +253,9 @@ int main(int argc, char ** argv) {
     TST_ARGV(sat_local_search);
     TST_ARGV(cnf_backbones);
     TST(bdd);
+    TST(pdd);
+    TST(pdd_solver);
     TST(solver_pool);
     //TST_ARGV(hs);
+    TST(finder);
 }
-
-void initialize_mam() {}
-void finalize_mam() {}
-

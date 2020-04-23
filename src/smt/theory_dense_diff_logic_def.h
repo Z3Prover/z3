@@ -41,7 +41,7 @@ namespace smt {
 
     template<typename Ext>
     theory* theory_dense_diff_logic<Ext>::mk_fresh(context * new_ctx) { 
-        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
+        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), new_ctx->get_fparams());
     }
 
     template<typename Ext>
@@ -55,10 +55,8 @@ namespace smt {
         bool is_int  = m_autil.is_int(n->get_owner());
         m_is_int.push_back(is_int);
         m_f_targets.push_back(f_target());
-        typename matrix::iterator it  = m_matrix.begin();
-        typename matrix::iterator end = m_matrix.end();
-        for (; it != end; ++it) {
-            it->push_back(cell());
+        for (auto& rows : m_matrix) {
+            rows.push_back(cell());
         }
         m_matrix.push_back(row());
         row & r = m_matrix.back();
@@ -87,6 +85,8 @@ namespace smt {
             if (m_params.m_arith_reflect)
                 internalize_term_core(to_app(to_app(n)->get_arg(0)));
             theory_var s = internalize_term_core(to_app(to_app(n)->get_arg(1)));
+            if (null_theory_var == s)
+                return s;
             enode * e    = ctx.mk_enode(n, !m_params.m_arith_reflect, false, true);
             theory_var v = mk_var(e);
             add_edge(s, v, k, null_literal);
@@ -146,19 +146,22 @@ namespace smt {
         SASSERT(m_autil.is_le(n) || m_autil.is_ge(n));
         app * lhs      = to_app(n->get_arg(0));
         app * rhs      = to_app(n->get_arg(1));
-        SASSERT(m_autil.is_numeral(rhs));
+        if (!m_autil.is_numeral(rhs)) {
+            found_non_diff_logic_expr(n);
+            return false;
+        }
         rational _k;
         m_autil.is_numeral(rhs, _k);
         numeral offset(_k);
         app * s, * t;
         expr *arg1, *arg2;
-        if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg2, s)) {
+        if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg2, s) && !m_autil.is_arith_expr(s) && !m_autil.is_arith_expr(arg1)) {
             t = to_app(arg1);
         }
-        else if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg1, s)) {
+        else if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg1, s) && !m_autil.is_arith_expr(s) && !m_autil.is_arith_expr(arg2)) {
             t = to_app(arg2);
         }
-        else if (m_autil.is_mul(lhs, arg1, arg2) && m_autil.is_minus_one(arg1)) {
+        else if (m_autil.is_mul(lhs, arg1, arg2) && m_autil.is_minus_one(arg1) && !m_autil.is_arith_expr(arg2)) {
             s = to_app(arg2);
             t = mk_zero_for(s);
         }
@@ -184,6 +187,7 @@ namespace smt {
             std::swap(source, target);
             offset.neg();
         }
+		if (ctx.b_internalized(n)) return true;
         bool_var bv = ctx.mk_bool_var(n);
         ctx.set_var_theory(bv, get_id());
         atom * a    = alloc(atom, bv, source, target, offset);
@@ -206,7 +210,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    bool theory_dense_diff_logic<Ext>::internalize_term(app * term) {
+    bool theory_dense_diff_logic<Ext>::internalize_term(app * term) {        
         if (memory::above_high_watermark()) {
             found_non_diff_logic_expr(term); // little hack... TODO: change to no_memory and return l_undef if SAT
             return false;
@@ -221,6 +225,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
+        TRACE("ddl", tout << "eq-eh: " << mk_pp(atom, get_manager()) << "\n";);
         if (memory::above_high_watermark())
             return;
         context & ctx  = get_context();
@@ -239,8 +244,10 @@ namespace smt {
             enode * n1 = ctx.get_enode(lhs);
             enode * n2 = ctx.get_enode(rhs);
             if (n1->get_th_var(get_id()) != null_theory_var &&
-                n2->get_th_var(get_id()) != null_theory_var)
-                m_arith_eq_adapter.mk_axioms(n1, n2);
+                n2->get_th_var(get_id()) != null_theory_var) {
+                m_arith_eq_adapter.mk_axioms(n1, n2); 
+                return;
+            }
         }
     }
     
@@ -367,10 +374,8 @@ namespace smt {
             m_is_int.shrink(old_num_vars);
             m_f_targets.shrink(old_num_vars);
             m_matrix.shrink(old_num_vars);
-            typename matrix::iterator it  = m_matrix.begin();
-            typename matrix::iterator end = m_matrix.end();
-            for (; it != end; ++it) {
-                it->shrink(old_num_vars);
+            for (auto& cells : m_matrix) {
+                cells.shrink(old_num_vars);
             }
         }
     }
@@ -429,11 +434,6 @@ namespace smt {
         theory::reset_eh();
     }
     
-    template<typename Ext>
-    bool theory_dense_diff_logic<Ext>::validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
-        return is_true ? m_assignment[v1] == m_assignment[v2] : m_assignment[v1] != m_assignment[v2];
-    }
-
     /**
        \brief Store in results the antecedents that justify that the distance between source and target.
     */
@@ -768,7 +768,7 @@ namespace smt {
     */
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::compute_epsilon() {
-        m_epsilon = rational(1);
+        m_epsilon = rational(1, 2);
         typename edges::const_iterator it  = m_edges.begin();
         typename edges::const_iterator end = m_edges.end();
         // first edge is null
@@ -930,8 +930,8 @@ namespace smt {
         for (unsigned i = 0; i < num_nodes; ++i) {
             enode * n = get_enode(i);
             if (m_autil.is_zero(n->get_owner())) {
-                S.set_lower(v, mpq_inf(mpq(0), mpq(0)));
-                S.set_upper(v, mpq_inf(mpq(0), mpq(0)));
+                S.set_lower(i, mpq_inf(mpq(0), mpq(0)));
+                S.set_upper(i, mpq_inf(mpq(0), mpq(0)));
                 break;
             }
         }
@@ -952,7 +952,8 @@ namespace smt {
             vars[2] = base_var;
             S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());
             // t - s <= w
-            // t - s - b = 0, b >= w
+            // =>
+            // t - s - b = 0, b <= w
             numeral const& w = e.m_offset;
             rational fin = w.get_rational().to_rational();
             rational inf = w.get_infinitesimal().to_rational();

@@ -80,7 +80,7 @@ namespace datalog {
         unsigned tsz  = r.get_tail_size();
         app_ref_vector tail(m);
         app_ref p(m);
-        svector<bool> neg;
+        bool_vector neg;
         for (unsigned i = 0; i < ptsz; ++i) {
             tail.push_back(r.get_tail(i));
             neg.push_back(false);

@@ -30,8 +30,6 @@ class bvarray2uf_tactic : public tactic {
 
     struct imp {
         ast_manager &       m_manager;
-        bool                m_produce_models;
-        bool                m_produce_proofs;
         bool                m_produce_cores;
         bvarray2uf_rewriter m_rw;
 
@@ -39,8 +37,6 @@ class bvarray2uf_tactic : public tactic {
 
         imp(ast_manager & m, params_ref const & p) :
             m_manager(m),
-            m_produce_models(false),
-            m_produce_proofs(false),
             m_produce_cores(false),
             m_rw(m, p) {
             updt_params(p);
@@ -48,23 +44,22 @@ class bvarray2uf_tactic : public tactic {
 
 
         void checkpoint() {
-            if (m_manager.canceled())
+            if (!m_manager.inc())
                 throw tactic_exception(m_manager.limit().get_cancel_msg());
         }
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result)
         {
-            SASSERT(g->is_well_sorted());
             tactic_report report("bvarray2uf", *g);
             result.reset();
             fail_if_unsat_core_generation("bvarray2uf", g);
 
-            TRACE("bvarray2uf", tout << "Before: " << std::endl; g->display(tout); );
-            m_produce_models = g->models_enabled();
+            bool produce_models = g->models_enabled();
+            bool produce_proofs = g->proofs_enabled();
             model_converter_ref mc;
 
-            if (m_produce_models) {
+            if (produce_models) {
                 generic_model_converter * fmc = alloc(generic_model_converter, m_manager, "bvarray2uf");
                 mc = fmc;
                 m_rw.set_mcs(fmc);
@@ -78,23 +73,21 @@ class bvarray2uf_tactic : public tactic {
             for (unsigned idx = 0; idx < size; idx++) {
                 if (g->inconsistent())
                     break;
-                expr * curr = g->form(idx);
+                expr* curr = g->form(idx);
                 m_rw(curr, new_curr, new_pr);
-                if (m_produce_proofs) {
+                if (produce_proofs) {
                     proof * pr = g->pr(idx);
                     new_pr = m_manager.mk_modus_ponens(pr, new_pr);
                 }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
             }
 
-            for (unsigned i = 0; i < m_rw.m_cfg.extra_assertions.size(); i++)
-                g->assert_expr(m_rw.m_cfg.extra_assertions[i].get());
+            for (expr* a : m_rw.m_cfg.extra_assertions)
+                g->assert_expr(a);
 
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
-            TRACE("bvarray2uf", tout << "After: " << std::endl; g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
 
         void updt_params(params_ref const & p) {

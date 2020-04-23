@@ -39,7 +39,8 @@ enum phase_selection {
     PS_CACHING_CONSERVATIVE,
     PS_CACHING_CONSERVATIVE2, // similar to the previous one, but alternated default config from time to time.
     PS_RANDOM,
-    PS_OCCURRENCE
+    PS_OCCURRENCE,
+    PS_THEORY
 };
 
 enum restart_strategy {
@@ -102,11 +103,14 @@ struct smt_params : public preprocessor_params,
     bool             m_minimize_lemmas;
     unsigned         m_max_conflicts;
     unsigned         m_restart_max;
+    unsigned         m_threads;
+    unsigned         m_threads_max_conflicts;
     bool             m_simplify_clauses;
     unsigned         m_tick;
     bool             m_display_features;
     bool             m_new_core2th_eq;
     bool             m_ematching;
+    bool             m_clause_proof;
 
     // -----------------------------------
     //
@@ -179,7 +183,6 @@ struct smt_params : public preprocessor_params,
     bool              m_profile_res_sub;
     bool              m_display_bool_var2expr;
     bool              m_display_ll_bool_var2expr;
-    bool              m_abort_after_preproc;
 
     // -----------------------------------
     //
@@ -187,7 +190,6 @@ struct smt_params : public preprocessor_params,
     //
     // -----------------------------------
     bool             m_model;
-    bool             m_model_compact;
     bool             m_model_on_timeout;
     bool             m_model_on_final_check;
 
@@ -203,7 +205,6 @@ struct smt_params : public preprocessor_params,
     // Debugging goodies
     //
     // -----------------------------------
-    bool             m_display_installed_theories;
     bool             m_core_validate;
 
     // -----------------------------------
@@ -214,8 +215,6 @@ struct smt_params : public preprocessor_params,
     bool                m_preprocess;  // temporary hack for disabling all preprocessing..
     bool                m_user_theory_preprocess_axioms;
     bool                m_user_theory_persist_axioms;
-    unsigned            m_timeout;
-    unsigned            m_rlimit;
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
     bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.
     bool                m_dump_goal_as_smt;
@@ -256,11 +255,14 @@ struct smt_params : public preprocessor_params,
         m_phase_caching_off(100),
         m_minimize_lemmas(true),
         m_max_conflicts(UINT_MAX),
+        m_threads(1),
+        m_threads_max_conflicts(UINT_MAX),
         m_simplify_clauses(true),
         m_tick(1000),
         m_display_features(false),
         m_new_core2th_eq(true),
         m_ematching(true),
+        m_clause_proof(false),
         m_case_split_strategy(CS_ACTIVITY_DELAY_NEW),
         m_rel_case_split_order(0),
         m_lookahead_diseq(false),
@@ -291,19 +293,14 @@ struct smt_params : public preprocessor_params,
         m_profile_res_sub(false),
         m_display_bool_var2expr(false),
         m_display_ll_bool_var2expr(false),
-        m_abort_after_preproc(false),
         m_model(true),
-        m_model_compact(false),
         m_model_on_timeout(false),
         m_model_on_final_check(false),
         m_progress_sampling_freq(0),
-        m_display_installed_theories(false),
         m_core_validate(false),
         m_preprocess(true), // temporary hack for disabling all preprocessing..
         m_user_theory_preprocess_axioms(false),
         m_user_theory_persist_axioms(false),
-        m_timeout(0),
-        m_rlimit(0),
         m_at_labels_cex(false),
         m_check_at_labels(false),
         m_dump_goal_as_smt(false),

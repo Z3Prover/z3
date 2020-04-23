@@ -23,10 +23,10 @@ Revision History:
 #include "util/hashtable.h"
 #include "util/map.h"
 #include "util/rlimit.h"
+#include "util/scoped_ptr_vector.h"
+#include <mutex>
 
 namespace sat {
-
-    class local_search;
 
     class parallel {
 
@@ -36,7 +36,7 @@ namespace sat {
             unsigned        m_size;
             unsigned        m_tail;
             unsigned_vector m_heads;
-            svector<bool>   m_at_end;
+            bool_vector   m_at_end;
             void next(unsigned& index);
             unsigned get_owner(unsigned index) const { return m_vectors[index]; }
             unsigned get_length(unsigned index) const { return m_vectors[index+1]; }
@@ -52,20 +52,23 @@ namespace sat {
 
         bool enable_add(clause const& c) const;
         void _get_clauses(solver& s);
-        void _get_phase(solver& s);
-        void _set_phase(solver& s);
+        void _from_solver(solver& s);
+        bool _to_solver(solver& s);
+        bool _from_solver(i_local_search& s);
+        void _to_solver(i_local_search& s);
 
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         literal_vector m_units;
         index_set      m_unit_set;
         literal_vector m_lits;
         vector_pool    m_pool;
+        std::mutex     m_mux;
 
         // for exchange with local search:
-        svector<lbool>     m_phase;
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
         bool               m_consumer_ready;
+        svector<double>    m_priorities;
 
         scoped_limits      m_scoped_rlimit;
         vector<reslimit>   m_limits;
@@ -99,13 +102,13 @@ namespace sat {
         // receive clauses from shared clause pool
         void get_clauses(solver& s);
 
-        // exchange phase of variables.
-        void set_phase(solver& s);
-
-        void get_phase(solver& s);
+        // exchange from solver state to local search and back.
+        void from_solver(solver& s);
+        bool to_solver(solver& s);
         
-        bool get_phase(local_search& s);
-
+        bool from_solver(i_local_search& s);
+        void to_solver(i_local_search& s);
+        
         bool copy_solver(solver& s);
     };
 

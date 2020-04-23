@@ -1,7 +1,7 @@
 # Uninstall assembly from the GAC
 set(GAC_ROOT "$ENV{DESTDIR}@CMAKE_INSTALL_FULL_LIBDIR@")
 execute_process(COMMAND
-  "@DOTNET_GACUTIL_EXECUTABLE@"
+  "@Z3_DOTNET_GACUTIL_EXECUTABLE@"
   # Note ``-us`` takes assembly file name rather than
   # ``-u`` which takes an assembly display name
   "-us"

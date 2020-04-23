@@ -43,6 +43,7 @@ add_executable(test-z3
   ext_numeral.cpp
   f2n.cpp
   factor_rewriter.cpp
+  finder.cpp
   fixed_bit_vector.cpp
   for_each_file.cpp
   get_consequences.cpp
@@ -82,6 +83,8 @@ add_executable(test-z3
   optional.cpp
   parray.cpp
   pb2bv.cpp
+  pdd.cpp
+  pdd_solver.cpp
   permutation.cpp
   polynomial.cpp
   polynorm.cpp
@@ -122,6 +125,7 @@ add_executable(test-z3
   var_subst.cpp
   vector.cpp
   lp/lp.cpp
+  lp/nla_solver_test.cpp
   ${z3_test_extra_object_files}
 )
 z3_add_install_tactic_rule(${z3_test_deps})

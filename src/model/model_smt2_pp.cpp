@@ -194,10 +194,12 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
     ptr_buffer<format> f_entry_conds;
     ptr_buffer<func_decl> func_decls;
     sort_fun_decls(m, md, func_decls);
-    for (unsigned i = 0; i < func_decls.size(); i++) {
-        func_decl * f     = func_decls[i]; 
-        if (recfun_util.is_defined(f)) {
+    for (func_decl * f : func_decls) {
+        if (recfun_util.is_defined(f) && !recfun_util.is_generated(f)) {
             continue;
+        }
+        if (!m.is_considered_uninterpreted(f)) {
+            continue;            
         }
         func_interp * f_i = md.get_func_interp(f);
         SASSERT(f->get_arity() == f_i->get_arity());
@@ -216,8 +218,8 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
         }
         TRACE("model_smt2_pp", for (unsigned i = 0; i < var_names.size(); i++) tout << var_names[i] << "\n";);
         f_var_names.reset();
-        for (unsigned i = 0; i < f->get_arity(); i++)
-            f_var_names.push_back(mk_string(m, var_names[i].bare_str()));
+        for (auto const& vn : var_names) 
+            f_var_names.push_back(mk_string(m, vn.bare_str()));
         f_arg_decls.reset();
         for (unsigned i = 0; i < f->get_arity(); i++) {
             format_ref f_domain(fm(m));

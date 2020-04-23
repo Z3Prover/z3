@@ -6,19 +6,10 @@
 # C++ we will use the C linker rather than the C++ linker and will not link
 # the C++ standard library in resulting in a link failure.
 project(Z3_C_EXAMPLE C CXX)
-cmake_minimum_required(VERSION 2.8.12)
-
-# Set C version required to C99
-if ("${CMAKE_VERSION}" VERSION_LESS "3.1")
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR
-      ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 ")
-  endif()
-else()
-  set(CMAKE_C_STANDARD_REQUIRED ON)
-  set(CMAKE_C_STANDARD 99)
-  set(CMAKE_C_EXTENSIONS OFF)
-endif()
+cmake_minimum_required(VERSION 3.4)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_EXTENSIONS OFF)
 
 find_package(Z3
   REQUIRED

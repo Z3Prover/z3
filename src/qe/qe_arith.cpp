@@ -65,8 +65,12 @@ namespace qe {
             DEBUG_CODE(expr_ref val(m); 
                        eval(lit, val); 
                        CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
-                       SASSERT(m.is_true(val)););
+                       SASSERT(m.limit().get_cancel_flag() || !m.is_false(val)););
 
+            if (!m.inc()) 
+                return false;
+            
+            TRACE("opt", tout << mk_pp(lit, m) << " " << a.is_lt(lit) << " " << a.is_gt(lit) << "\n";);
             bool is_not = m.is_not(lit, lit);
             if (is_not) {
                 mul.neg();
@@ -307,7 +311,7 @@ namespace qe {
             }
             model_evaluator eval(model);
             TRACE("qe", tout << model;);
-            // eval.set_model_completion(true);
+            eval.set_model_completion(true);
 
             opt::model_based_opt mbo;
             obj_map<expr, unsigned> tids;
@@ -325,6 +329,7 @@ namespace qe {
                 }
             }
             fmls.shrink(j);
+            TRACE("qe", tout << "formulas\n" << fmls << "\n";);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope
@@ -380,7 +385,11 @@ namespace qe {
                   }
                   mbo.display(tout););
             vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.c_ptr(), compute_def);
-            TRACE("qe", mbo.display(tout););
+            TRACE("qe", mbo.display(tout << "mbo result\n");
+                  for (auto const& d : defs) {
+                      tout << "def: " << d << "\n";
+                  }
+                  );
             vector<row> rows;
             mbo.get_live_rows(rows);
             
@@ -555,7 +564,11 @@ namespace qe {
                 if (!tids.find(v, id)) {
                     rational r;
                     expr_ref val = eval(v);
-                    a.is_numeral(val, r);
+                    if (!a.is_numeral(val, r)) {
+                        TRACE("qe", tout << eval.get_model() << "\n";);
+
+                        throw default_exception("mbp evaluation was only partial");
+                    }
                     id = mbo.add_var(r, a.is_int(v));
                     tids.insert(v, id);
                 }
@@ -603,6 +616,11 @@ namespace qe {
     opt::inf_eps arith_project_plugin::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
         return m_imp->maximize(fmls, mdl, t, ge, gt);
     }
+
+    void arith_project_plugin::saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {
+        UNREACHABLE();
+    }
+
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits) {
         ast_manager& m = lits.get_manager();

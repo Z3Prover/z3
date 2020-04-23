@@ -41,8 +41,6 @@ namespace smt {
 
         context & get_context() const;
 
-        void set_plugin(quantifier_manager_plugin * plugin);
-
         void add(quantifier * q, unsigned generation);
         void del(quantifier * q);
         bool empty() const;
@@ -51,6 +49,8 @@ namespace smt {
 
         quantifier_stat * get_stat(quantifier * q) const;
         unsigned get_generation(quantifier * q) const;
+
+        static void log_justification_to_root(std::ostream & log, enode *en, obj_hashtable<enode> &already_visited, context &ctx, ast_manager &m);
 
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
@@ -77,6 +77,7 @@ namespace smt {
         };
 
         bool model_based() const;
+        bool has_quantifiers() const;
         bool mbqi_enabled(quantifier *q) const; // can mbqi instantiate this quantifier?
         void adjust_model(proto_model * m);
         check_model_result check_model(proto_model * m, obj_map<enode, app *> const & root2value);

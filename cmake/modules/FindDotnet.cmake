@@ -136,11 +136,11 @@ EXECUTE_PROCESS(
 )
 
 IF(WIN32)
-   FIND_PROGRAM(NUGET_EXE nuget PATHS ${CMAKE_BINARY_DIR}/tools)
+   FIND_PROGRAM(NUGET_EXE nuget PATHS ${PROJECT_BINARY_DIR}/tools)
    IF(NUGET_EXE)
        MESSAGE("-- Found nuget: ${NUGET_EXE}")
    ELSE()
-        SET(NUGET_EXE ${CMAKE_BINARY_DIR}/tools/nuget.exe)
+        SET(NUGET_EXE ${PROJECT_BINARY_DIR}/tools/nuget.exe)
         MESSAGE("-- Downloading nuget...")
         FILE(DOWNLOAD https://dist.nuget.org/win-x86-commandline/latest/nuget.exe ${NUGET_EXE})
         MESSAGE("nuget.exe downloaded and saved to ${NUGET_EXE}")
@@ -158,7 +158,7 @@ FUNCTION(DOTNET_REGISTER_LOCAL_REPOSITORY repo_name repo_path)
     ELSE()
         GET_FILENAME_COMPONENT(nuget_config ~/.nuget/NuGet/NuGet.Config ABSOLUTE)
         EXECUTE_PROCESS(COMMAND ${DOTNET_EXE} nuget locals all --list OUTPUT_QUIET)
-        EXECUTE_PROCESS(COMMAND sed -i "/${repo_name}/d" "${nuget_config}")
+        EXECUTE_PROCESS(COMMAND sed -i "#${repo_name}#d" "${nuget_config}") 
         EXECUTE_PROCESS(COMMAND sed -i "s#</packageSources>#  <add key=\\\"${repo_name}\\\" value=\\\"${repo_path}\\\" />\\n  </packageSources>#g" "${nuget_config}")
     ENDIF()
 ENDFUNCTION()
@@ -238,11 +238,11 @@ FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
         SET(_DN_OUTPUT_PATH ${_DN_projname_noext})
     ENDIF()
 
-    GET_FILENAME_COMPONENT(_DN_OUTPUT_PATH ${CMAKE_BINARY_DIR}/${_DN_OUTPUT_PATH} ABSOLUTE)
+    GET_FILENAME_COMPONENT(_DN_OUTPUT_PATH ${PROJECT_BINARY_DIR}/${_DN_OUTPUT_PATH} ABSOLUTE)
 
     # In a cmake build, the XPLAT libraries are always copied over.
     # Set the proper directory for .NET projects.
-    SET(_DN_XPLAT_LIB_DIR ${CMAKE_BINARY_DIR})
+    SET(_DN_XPLAT_LIB_DIR ${PROJECT_BINARY_DIR})
 
     SET(DOTNET_PACKAGES ${_DN_PACKAGE}  PARENT_SCOPE)
     SET(DOTNET_CONFIG   ${_DN_CONFIG}   PARENT_SCOPE)
@@ -403,7 +403,7 @@ FUNCTION(TEST_DOTNET DOTNET_PROJECT)
     ENDIF()
 
     ADD_TEST(NAME              ${DOTNET_PROJNAME}
-             COMMAND           ${DOTNET_EXE} test ${test_framework_args} --results-directory "${CMAKE_BINARY_DIR}" --logger trx ${DOTNET_ARGUMENTS}
+             COMMAND           ${DOTNET_EXE} test ${test_framework_args} --results-directory "${PROJECT_BINARY_DIR}" --logger trx ${DOTNET_ARGUMENTS}
              WORKING_DIRECTORY ${DOTNET_OUTPUT_PATH})
 
 ENDFUNCTION()
@@ -457,8 +457,8 @@ FUNCTION(GEN_DOTNET_PROPS target_props_file)
         SET(_DN_CUSTOM_BUILDPROPS ${_DNP_XML_INJECT})
     ENDIF()
 
-    SET(_DN_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-    SET(_DN_XPLAT_LIB_DIR ${CMAKE_BINARY_DIR})
+    SET(_DN_OUTPUT_PATH ${PROJECT_BINARY_DIR})
+    SET(_DN_XPLAT_LIB_DIR ${PROJECT_BINARY_DIR})
     SET(_DN_VERSION ${_DNP_PACKAGE_VERSION})
     CONFIGURE_FILE(${DOTNET_IMPORTS_TEMPLATE} ${target_props_file})
     UNSET(_DN_OUTPUT_PATH)

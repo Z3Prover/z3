@@ -52,7 +52,7 @@ namespace nlsat {
            Let x be a->max_var(). Then, the resultant set specifies which
            values of x falsify the given literal.
         */
-        interval_set_ref infeasible_intervals(atom * a, bool neg);
+        interval_set_ref infeasible_intervals(atom * a, bool neg, clause const* cls);
 
         void push();
         void pop(unsigned num_scopes);

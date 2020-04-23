@@ -56,7 +56,7 @@ namespace sat{
         
         // associate index with each variable.
         sort_marked();
-        bdd b1 = elim_var(v);
+        dd::bdd b1 = elim_var(v);
         double sz1 = b1.cnf_size();
         if (sz1 > 2*clause_size) {
             ++m_miss;
@@ -76,7 +76,7 @@ namespace sat{
         return false;
     }
 
-    bool elim_vars::elim_var(bool_var v, bdd const& b) {
+    bool elim_vars::elim_var(bool_var v, dd::bdd const& b) {
         literal pos_l(v, false);
         literal neg_l(v, true);
         clause_use_list & pos_occs = simp.m_use_list.get(pos_l);
@@ -105,7 +105,7 @@ namespace sat{
         return true;
     }
 
-    bdd elim_vars::elim_var(bool_var v) {
+    dd::bdd elim_vars::elim_var(bool_var v) {
         unsigned index = 0;
         for (bool_var w : m_vars) {
             m_var2index[w] = index++;
@@ -115,12 +115,12 @@ namespace sat{
         clause_use_list & pos_occs = simp.m_use_list.get(pos_l);
         clause_use_list & neg_occs = simp.m_use_list.get(neg_l);
 
-        bdd b1 = make_clauses(pos_l);
-        bdd b2 = make_clauses(neg_l);
-        bdd b3 = make_clauses(pos_occs);
-        bdd b4 = make_clauses(neg_occs);
-        bdd b0 = b1 && b2 && b3 && b4;
-        bdd b =  m.mk_exists(m_var2index[v], b0);       
+        dd::bdd b1 = make_clauses(pos_l);
+        dd::bdd b2 = make_clauses(neg_l);
+        dd::bdd b3 = make_clauses(pos_occs);
+        dd::bdd b4 = make_clauses(neg_occs);
+        dd::bdd b0 = b1 && b2 && b3 && b4;
+        dd::bdd b =  m.mk_exists(m_var2index[v], b0);       
         TRACE("elim_vars",
               tout << "eliminate " << v << "\n";
               for (watched const& w : simp.get_wlist(~pos_l)) {
@@ -157,7 +157,7 @@ namespace sat{
         return b;
     }
 
-    void elim_vars::add_clauses(bool_var v0, bdd const& b, literal_vector& lits) {
+    void elim_vars::add_clauses(bool_var v0, dd::bdd const& b, literal_vector& lits) {
         if (b.is_true()) {
             // no-op
         }
@@ -207,7 +207,7 @@ namespace sat{
     }
 
 
-    void elim_vars::get_clauses(bdd const& b, literal_vector & lits, clause_vector& clauses, literal_vector& units) {
+    void elim_vars::get_clauses(dd::bdd const& b, literal_vector & lits, clause_vector& clauses, literal_vector& units) {
         if (b.is_true()) {
             return;
         }
@@ -303,11 +303,11 @@ namespace sat{
         return num_vars() <= m_max_literals;
     }
 
-    bdd elim_vars::make_clauses(clause_use_list & occs) {
-        bdd result = m.mk_true();       
+    dd::bdd elim_vars::make_clauses(clause_use_list & occs) {
+        dd::bdd result = m.mk_true();       
         for (auto it = occs.mk_iterator(); !it.at_end(); it.next()) {
             clause const& c = it.curr();
-            bdd cl = m.mk_false();
+            dd::bdd cl = m.mk_false();
             for (literal l : c) {
                 cl |= mk_literal(l);
             }           
@@ -316,8 +316,8 @@ namespace sat{
         return result;
     }
 
-    bdd elim_vars::make_clauses(literal lit) {
-        bdd result = m.mk_true();
+    dd::bdd elim_vars::make_clauses(literal lit) {
+        dd::bdd result = m.mk_true();
         watch_list& wl = simp.get_wlist(~lit);
         for (watched const& w : wl) {
             if (w.is_binary_non_learned_clause()) {
@@ -327,7 +327,7 @@ namespace sat{
         return result;
     }
 
-    bdd elim_vars::mk_literal(literal l) {
+    dd::bdd elim_vars::mk_literal(literal l) {
         return l.sign() ? m.mk_nvar(m_var2index[l.var()]) : m.mk_var(m_var2index[l.var()]);
     }
 

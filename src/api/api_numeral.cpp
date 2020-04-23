@@ -15,6 +15,7 @@ Author:
 Revision History:
 
 --*/
+#include<cmath>
 #include<iostream>
 #include "api/z3.h"
 #include "api/api_log_macros.h"
@@ -38,7 +39,7 @@ bool is_numeral_sort(Z3_context c, Z3_sort ty) {
     return true;
 }
 
-bool check_numeral_sort(Z3_context c, Z3_sort ty) {
+static bool check_numeral_sort(Z3_context c, Z3_sort ty) {
     bool is_num = is_numeral_sort(c, ty);
     if (!is_num) {
         SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
@@ -61,7 +62,6 @@ extern "C" {
         }
         sort * _ty = to_sort(ty);
         bool is_float = mk_c(c)->fpautil().is_float(_ty);
-        std::string fixed_num;
         char const* m = n;
         while (*m) {
             if (!(('0' <= *m && *m <= '9') ||
@@ -69,7 +69,7 @@ extern "C" {
                 (' ' == *m) || ('\n' == *m) ||
                 ('.' == *m) || ('e' == *m) ||
                 ('E' == *m) || ('+' == *m) ||
-                (is_float && 
+                (is_float &&
                     (('p' == *m) ||
                      ('P' == *m))))) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR, nullptr);
@@ -82,7 +82,7 @@ extern "C" {
             // avoid expanding floats into huge rationals.
             fpa_util & fu = mk_c(c)->fpautil();
             scoped_mpf t(fu.fm());
-            fu.fm().set(t, fu.get_ebits(_ty), fu.get_sbits(_ty), MPF_ROUND_TOWARD_ZERO, n);
+            fu.fm().set(t, fu.get_ebits(_ty), fu.get_sbits(_ty), MPF_ROUND_NEAREST_TEVEN, n);
             a = fu.mk_value(t);
             mk_c(c)->save_ast_trail(a);
         }
@@ -145,7 +145,7 @@ extern "C" {
     bool Z3_API Z3_is_numeral_ast(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_is_numeral_ast(c, a);
-        RESET_ERROR_CODE();        
+        RESET_ERROR_CODE();
         CHECK_IS_EXPR(a, false);
         expr* e = to_expr(a);
         return
@@ -192,7 +192,6 @@ extern "C" {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
-            // floats are separated from all others to avoid huge rationals.
             fpa_util & fu = mk_c(c)->fpautil();
             scoped_mpf tmp(fu.fm());
             mpf_rounding_mode rm;
@@ -217,7 +216,9 @@ extern "C" {
                 }
             }
             else if (mk_c(c)->fpautil().is_numeral(to_expr(a), tmp)) {
-                return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
+                std::ostringstream buffer;
+                fu.fm().display_smt2(buffer, tmp, false);
+                return mk_c(c)->mk_external_string(buffer.str());
             }
             else {
                 SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
@@ -228,8 +229,30 @@ extern "C" {
     }
 
     double Z3_API Z3_get_numeral_double(Z3_context c, Z3_ast a) {
-        Z3_string s = Z3_get_numeral_decimal_string(c, a, 12);
-        return std::stod(std::string(s));
+        LOG_Z3_get_numeral_double(c, a);
+        RESET_ERROR_CODE();
+        if (!is_expr(a)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return NAN;
+        }
+        expr* e = to_expr(a);
+        fpa_util & fu = mk_c(c)->fpautil();
+        scoped_mpf tmp(fu.fm());
+        if (mk_c(c)->fpautil().is_numeral(e, tmp)) {
+            if (tmp.get().get_ebits() > 11 ||
+                tmp.get().get_sbits() > 53) {
+                SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+                return NAN;
+            }
+            return fu.fm().to_double(tmp);
+        }
+        rational r;
+        arith_util & u = mk_c(c)->autil();
+        if (u.is_numeral(e, r)) {
+            return r.get_double();
+        }
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+        return 0.0;
     }
 
     Z3_string Z3_API Z3_get_numeral_decimal_string(Z3_context c, Z3_ast a, unsigned precision) {
@@ -240,6 +263,9 @@ extern "C" {
         expr* e = to_expr(a);
         rational r;
         arith_util & u = mk_c(c)->autil();
+        fpa_util & fu = mk_c(c)->fpautil();
+        scoped_mpf ftmp(fu.fm());
+        mpf_rounding_mode rm;
         if (u.is_numeral(e, r) && !r.is_int()) {
             std::ostringstream buffer;
             r.display_decimal(buffer, precision);
@@ -252,8 +278,14 @@ extern "C" {
             am.display_decimal(buffer, n, precision);
             return mk_c(c)->mk_external_string(buffer.str());
         }
-        bool ok = Z3_get_numeral_rational(c, a, r);
-        if (ok) {
+        else if (mk_c(c)->fpautil().is_rm_numeral(to_expr(a), rm))
+            return Z3_get_numeral_string(c, a);
+        else if (mk_c(c)->fpautil().is_numeral(to_expr(a), ftmp)) {
+            std::ostringstream buffer;
+            fu.fm().display_decimal(buffer, ftmp, 12);
+            return mk_c(c)->mk_external_string(buffer.str());
+        }
+        else if (Z3_get_numeral_rational(c, a, r)) {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {

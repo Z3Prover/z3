@@ -53,7 +53,7 @@ public:
 
     rational(mpz const & z) { m().set(m_val, z); }
 
-    rational(double  z) { UNREACHABLE(); }
+    explicit rational(double  z) { UNREACHABLE(); }
     
     explicit rational(char const * v) { m().set(m_val, v); }
 
@@ -63,7 +63,7 @@ public:
     struct ui64 {};
     rational(uint64_t i, ui64) { m().set(m_val, i); }
     
-    ~rational() { m().del(m_val); }
+    ~rational() { synch_mpq_manager::del(g_mpq_manager, m_val); }
     
     mpq const & to_mpq() const { return m_val; }
 
@@ -93,6 +93,12 @@ public:
     
     void display_decimal(std::ostream & out, unsigned prec, bool truncate = false) const { return m().display_decimal(out, m_val, prec, truncate); }
 
+    void display_smt2(std::ostream & out) const { return m().display_smt2(out, m_val, false); }
+
+    void display_hex(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_hex(out, m_val.numerator(), num_bits); }
+
+    void display_bin(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_bin(out, m_val.numerator(), num_bits); }
+
     bool is_uint64() const { return m().is_uint64(m_val); }
 
     bool is_int64() const { return m().is_int64(m_val); }
@@ -101,7 +107,7 @@ public:
 
     int64_t get_int64() const { return m().get_int64(m_val); }
     
-    bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32)); }
+    bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32ull)); }
 
     unsigned get_unsigned() const {
         SASSERT(is_unsigned());
@@ -131,7 +137,16 @@ public:
         m().set(m_val, r.m_val);
         return *this;
     }
+private:
+    rational & operator=(bool) {
+        UNREACHABLE(); return *this;
+    }
+    inline rational operator*(bool  r1) const {
+        UNREACHABLE();
+        return *this;
+    }
 
+public:
     rational & operator=(int v) {
         *this = rational(v);
         return *this;
@@ -415,6 +430,8 @@ public:
         }
         return num_bits;
     }
+
+    static bool limit_denominator(rational &num, rational const& limit);
 };
 
 inline bool operator!=(rational const & r1, rational const & r2) { 
@@ -498,9 +515,18 @@ inline rational operator*(rational const & r1, rational const & r2) {
     return rational(r1) *= r2; 
 }
 
+inline rational operator*(rational const & r1, bool r2) {
+    UNREACHABLE();
+    return r1 * rational(r2);
+}
 inline rational operator*(rational const & r1, int r2) {
     return r1 * rational(r2);
 }
+inline rational operator*(bool  r1, rational const & r2) {
+    UNREACHABLE();
+    return rational(r1) * r2;
+}
+
 inline rational operator*(int  r1, rational const & r2) {
     return rational(r1) * r2;
 }
@@ -510,6 +536,11 @@ inline rational operator/(rational const & r1, rational const & r2) {
 }
 
 inline rational operator/(rational const & r1, int r2) {
+    return r1 / rational(r2);
+}
+
+inline rational operator/(rational const & r1, bool r2) {
+    UNREACHABLE();
     return r1 / rational(r2);
 }
 

@@ -1,17 +1,8 @@
 # Enforce some CMake policies
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.4)
+
 if (POLICY CMP0054)
-  # FIXME: This is horrible. With the old behaviour,
-  # quoted strings like "MSVC" in if() conditionals
-  # get implicitly dereferenced. The NEW behaviour
-  # doesn't do this but CMP0054 was only introduced
-  # in CMake 3.1 and we support lower versions as the
-  # minimum. We could set NEW here but it would be very
-  # confusing to use NEW for some builds and OLD for others
-  # which could lead to some subtle bugs. Instead when the
-  # minimum version is 3.1 change this policy to NEW and remove
-  # the hacks in place to work around it.
-  cmake_policy(SET CMP0054 OLD)
+  cmake_policy(SET CMP0054 NEW)
 endif()
 
 if (POLICY CMP0042)
@@ -20,38 +11,20 @@ if (POLICY CMP0042)
 endif()
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 CXX)
-
-if ("${CMAKE_VERSION}" VERSION_LESS "3.4")
-  # FIXME: Drop this when we upgrade to newer CMake versions.
-  # HACK: Although we don't need C language support if it is not
-  # enabled CMake's `FindThreads` module fails in old CMake versions.
-  enable_language(C)
-endif()
+project(Z3 VERSION 4.8.8.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
 ################################################################################
-set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 8)
-set(Z3_VERSION_PATCH 5)
-set(Z3_VERSION_TWEAK 0)
-set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
 message(STATUS "Z3 version ${Z3_VERSION}")
 
 ################################################################################
 # Set various useful variables depending on CMake version
 ################################################################################
-if (("${CMAKE_VERSION}" VERSION_EQUAL "3.2") OR ("${CMAKE_VERSION}" VERSION_GREATER "3.2"))
-  # In CMake >= 3.2 add_custom_command() and add_custom_target()
-  # supports a ``USES_TERMINAL`` argument
-  set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
-  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
-else()
-  set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "")
-  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "")
-endif()
+
+set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
+set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
 
 ################################################################################
 # Message for polluted source tree sanity checks
@@ -69,7 +42,7 @@ set(z3_polluted_tree_msg
 ################################################################################
 # Sanity check - Disallow building in source
 ################################################################################
-if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
+if ("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
   message(FATAL_ERROR "In source builds are not allowed. You should invoke "
           "CMake from a different directory.")
 endif()
@@ -77,31 +50,31 @@ endif()
 ################################################################################
 # Add our CMake module directory to the list of module search directories
 ################################################################################
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 
 ################################################################################
 # Handle git hash and description
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/git_utils.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/git_utils.cmake)
 macro(disable_git_describe)
-  message(WARNING "Disabling INCLUDE_GIT_DESCRIBE")
-  set(INCLUDE_GIT_DESCRIBE OFF CACHE BOOL "Include git describe output in version output" FORCE)
+  message(WARNING "Disabling Z3_INCLUDE_GIT_DESCRIBE")
+  set(Z3_INCLUDE_GIT_DESCRIBE OFF CACHE BOOL "Include git describe output in version output" FORCE)
 endmacro()
 macro(disable_git_hash)
-  message(WARNING "Disabling INCLUDE_GIT_HASH")
-  set(INCLUDE_GIT_HASH OFF CACHE BOOL "Include git hash in version output" FORCE)
+  message(WARNING "Disabling Z3_INCLUDE_GIT_HASH")
+  set(Z3_INCLUDE_GIT_HASH OFF CACHE BOOL "Include git hash in version output" FORCE)
   unset(Z3GITHASH) # Used in configure_file()
 endmacro()
-option(INCLUDE_GIT_HASH "Include git hash in version output" ON)
-option(INCLUDE_GIT_DESCRIBE "Include git describe output in version output" ON)
+option(Z3_INCLUDE_GIT_HASH "Include git hash in version output" ON)
+option(Z3_INCLUDE_GIT_DESCRIBE "Include git describe output in version output" ON)
 
-set(GIT_DIR "${CMAKE_SOURCE_DIR}/.git")
+set(GIT_DIR "${PROJECT_SOURCE_DIR}/.git")
 if (EXISTS "${GIT_DIR}")
   # Try to make CMake configure depend on the current git HEAD so that
   # a re-configure is triggered when the HEAD changes.
-  add_git_dir_dependency("${CMAKE_SOURCE_DIR}" ADD_GIT_DEP_SUCCESS)
+  add_git_dir_dependency("${PROJECT_SOURCE_DIR}" ADD_GIT_DEP_SUCCESS)
   if (ADD_GIT_DEP_SUCCESS)
-    if (INCLUDE_GIT_HASH)
+    if (Z3_INCLUDE_GIT_HASH)
       get_git_head_hash("${GIT_DIR}" Z3GITHASH)
       if (NOT Z3GITHASH)
         message(WARNING "Failed to get Git hash")
@@ -114,7 +87,7 @@ if (EXISTS "${GIT_DIR}")
       message(STATUS "Not using Git hash in version output")
       unset(Z3GITHASH) # Used in configure_file()
     endif()
-    if (INCLUDE_GIT_DESCRIBE)
+    if (Z3_INCLUDE_GIT_DESCRIBE)
       get_git_head_describe("${GIT_DIR}" Z3_GIT_DESCRIPTION)
       if (NOT Z3_GIT_DESCRIPTION)
         message(WARNING "Failed to get Git description")
@@ -141,6 +114,7 @@ endif()
 # Useful CMake functions/Macros
 ################################################################################
 include(CheckCXXSourceCompiles)
+include(CMakeDependentOption)
 
 ################################################################################
 # Compiler flags for Z3 components.
@@ -189,7 +163,6 @@ endif()
 # Note for some reason we have to leave off ``-D`` here otherwise
 # we get ``-D-DZ3DEBUG`` passed to the compiler
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:Z3DEBUG>)
-list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:LEAN_DEBUG>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Release>:_EXTERNAL_RELEASE>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>)
 
@@ -202,7 +175,7 @@ message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
 ################################################################################
 # Target architecture detection
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/target_arch_detect.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/target_arch_detect.cmake)
 detect_target_architecture(TARGET_ARCHITECTURE)
 message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
 
@@ -210,22 +183,13 @@ message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
 ################################################################################
 # Function for detecting C++ compiler flag support
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 
 ################################################################################
 # C++ language version
 ################################################################################
-if ("${CMAKE_VERSION}" VERSION_LESS "3.1")
-  # FIXME: Drop this when we upgrade to newer CMake versions.
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-    z3_add_cxx_flag("-std=c++11" REQUIRED)
-  else()
-    message(AUTHOR_WARNING "Not setting C++ language version for compiler")
-  endif()
-else ()
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif ()
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ################################################################################
 # Platform detection
@@ -236,6 +200,9 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
     list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
   endif()
+elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "GNU")
+  message(STATUS "Platform: GNU/Hurd")
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_HURD_")
 elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
   # Does macOS really not need any special flags?
   message(STATUS "Platform: Darwin")
@@ -268,54 +235,15 @@ else()
 endif()
 
 list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS 
-  "${CMAKE_BINARY_DIR}/src"
-  "${CMAKE_SOURCE_DIR}/src"
+  "${PROJECT_BINARY_DIR}/src"
+  "${PROJECT_SOURCE_DIR}/src"
 )
-
-################################################################################
-# Linux specific configuration
-################################################################################
-if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-  # Try to detect if it is necessary to link against librt.
-  # Note that glibc < 2.17 required librt to be linked to use clock_gettime()
-  # and friends.
-  set(CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE
-    "
-    #include <time.h>
-    int main() {
-      timespec res;
-      int result = clock_gettime(CLOCK_REALTIME, &res);
-      return result == 0;
-    }
-    "
-  )
-  check_cxx_source_compiles(
-    "${CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE}"
-    CLOCK_GETTIME_NO_REQUIRE_LIBRT
-  )
-  if (NOT CLOCK_GETTIME_NO_REQUIRE_LIBRT)
-    # Try again with librt
-    message(STATUS "Failed to link against clock_gettime(), trying with librt")
-    set(CMAKE_REQUIRED_LIBRARIES_OLD "${CMAKE_REQUIRED_LIBRARIES}")
-    set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES} rt")
-    check_cxx_source_compiles(
-      "${CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE}"
-      CLOCK_GETTIME_REQUIRES_LIBRT
-    )
-    set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES_OLD}")
-    if (CLOCK_GETTIME_REQUIRES_LIBRT)
-      list(APPEND Z3_DEPENDENT_LIBS "rt")
-    else()
-      message(FATAL_ERROR "Failed to link against clock_gettime()")
-    endif()
-  endif()
-endif()
 
 ################################################################################
 # GNU multiple precision library support
 ################################################################################
-option(USE_LIB_GMP "Use GNU Multiple Precision Library" OFF)
-if (USE_LIB_GMP)
+option(Z3_USE_LIB_GMP "Use GNU Multiple Precision Library" OFF)
+if (Z3_USE_LIB_GMP)
   # Because this is off by default we will make the configure fail if libgmp
   # can't be found
   find_package(GMP REQUIRED)
@@ -328,57 +256,33 @@ else()
   message(STATUS "Not using libgmp")
 endif()
 
-################################################################################
-# OpenMP support
-################################################################################
-find_package(OpenMP)
-if (OPENMP_FOUND)
-  set(USE_OPENMP_DEFAULT ON)
-else()
-  set(USE_OPENMP_DEFAULT OFF)
-endif()
-# By setting `USE_OPENMP` this way configuration will fail during the first
-# configure if the user explicitly passes `-DUSE_OPENMP=ON` and the compiler
-# does not support OpenMP. However if the option is not set explicitly during
-# the first configure OpenMP support will be automatically enabled/disabled
-# depending on whether OpenMP is available.
-option(USE_OPENMP "Use OpenMP" ${USE_OPENMP_DEFAULT})
-
-if (USE_OPENMP)
-  if (NOT OPENMP_FOUND)
-    message(FATAL_ERROR "USE_OPENMP is ON but your compiler does not support OpenMP")
-  endif()
-
-  list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
-  # GCC and Clang need to have additional flags passed to the linker.
-  # We can't do ``target_link_libraries(libz3 INTERFACE ${OpenMP_CXX_FLAGS})``
-  # because ``/openmp`` is interpreted as file name rather than a linker
-  # flag by MSVC and breaks the build
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
-      ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
-    list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
-  endif()
-  message(STATUS "Using OpenMP")
-else()
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
-  message(STATUS "Not using OpenMP")
-endif()
 
 ################################################################################
 # API Log sync
 ################################################################################
-option(API_LOG_SYNC
+option(Z3_API_LOG_SYNC
   "Use locking when logging Z3 API calls (experimental)"
   OFF
 )
-if (API_LOG_SYNC)
-  if (NOT USE_OPENMP)
-    message(FATAL_ERROR "API_LOG_SYNC feature requires OpenMP")
-  endif()
+if (Z3_API_LOG_SYNC)
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
-  message(STATUS "Using API_LOG_SYNC")
+  message(STATUS "Using Z3_API_LOG_SYNC")
 else()
-  message(STATUS "Not using API_LOG_SYNC")
+  message(STATUS "Not using Z3_API_LOG_SYNC")
+endif()
+
+################################################################################
+# Thread safe or not?
+################################################################################
+option(Z3_SINGLE_THREADED
+  "Non-thread-safe build"
+  OFF
+)
+if (Z3_SINGLE_THREADED)
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DSINGLE_THREAD")
+  message(STATUS "Non-thread-safe build")
+else()
+  message(STATUS "Thread-safe build")
 endif()
 
 ################################################################################
@@ -392,12 +296,11 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
       list(APPEND Z3_DEPENDENT_LIBS "iomp5")
     endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-    # FIXME: Remove "x.." when CMP0054 is set to NEW
   elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # Intel's compiler requires linking with libiomp5 
     list(APPEND Z3_DEPENDENT_LIBS "iomp5") 
-  elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
     message(FATAL_ERROR "Unknown compiler ${CMAKE_CXX_COMPILER_ID}")
@@ -409,17 +312,6 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
   unset(SSE_FLAGS)
 endif()
 
-
-
-# FIXME: Remove "x.." when CMP0054 is set to NEW
-if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
-  # This is the default for MSVC already but to replicate the
-  # python/Makefile build system behaviour this flag is set
-  # explicitly.
-  z3_add_cxx_flag("/fp:precise" REQUIRED)
-endif()
-# There doesn't seem to be an equivalent for clang/gcc
-
 ################################################################################
 # Threading support
 ################################################################################
@@ -429,14 +321,14 @@ list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
 ################################################################################
 # Compiler warnings
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 
 ################################################################################
 # Save Clang optimization records
 ################################################################################
-option(SAVE_CLANG_OPTIMIZATION_RECORDS "Enable saving Clang optimization records." OFF)
+option(Z3_SAVE_CLANG_OPTIMIZATION_RECORDS "Enable saving Clang optimization records." OFF)
 
-if (SAVE_CLANG_OPTIMIZATION_RECORDS)
+if (Z3_SAVE_CLANG_OPTIMIZATION_RECORDS)
   z3_add_cxx_flag("-fsave-optimization-record" REQUIRED)
 endif()
 
@@ -457,7 +349,7 @@ endif()
 ################################################################################
 # Option to control what type of library we build
 ################################################################################
-option(BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
+option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
 
 
 ################################################################################
@@ -470,8 +362,8 @@ endif()
 ################################################################################
 # Tracing
 ################################################################################
-option(ENABLE_TRACING_FOR_NON_DEBUG "Enable tracing in non-debug builds." OFF)
-if (ENABLE_TRACING_FOR_NON_DEBUG)
+option(Z3_ENABLE_TRACING_FOR_NON_DEBUG "Enable tracing in non-debug builds." OFF)
+if (Z3_ENABLE_TRACING_FOR_NON_DEBUG)
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_TRACE")
 else()
   # Tracing is always enabled in debug builds
@@ -482,31 +374,30 @@ endif()
 # Position independent code
 ################################################################################
 # This is required because code built in the components will end up in a shared
-# library. If not building a shared library ``-fPIC`` isn't needed and would add
-# unnecessary overhead.
-if (BUILD_LIBZ3_SHARED)
-  # Avoid adding -fPIC compiler switch if we compile with MSVC (which does not
-  # support the flag) or if we target Windows, which generally does not use
-  # position independent code for native code shared libraries (DLLs).
-  if (NOT (MSVC OR MINGW OR WIN32))
-    z3_add_cxx_flag("-fPIC" REQUIRED)
-  endif()
+# library.
+
+# Avoid adding -fPIC compiler switch if we compile with MSVC (which does not
+# support the flag) or if we target Windows, which generally does not use
+# position independent code for native code shared libraries (DLLs).
+if (NOT (MSVC OR MINGW OR WIN32))
+  z3_add_cxx_flag("-fPIC" REQUIRED)
 endif()
+
 
 ################################################################################
 # Link time optimization
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/compiler_lto.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/compiler_lto.cmake)
 
 ################################################################################
 # Control flow integrity
 ################################################################################
-option(ENABLE_CFI "Enable control flow integrity checking" OFF)
-if (ENABLE_CFI)
+option(Z3_ENABLE_CFI "Enable control flow integrity checking" OFF)
+if (Z3_ENABLE_CFI)
   set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
-  if (NOT LINK_TIME_OPTIMIZATION)
+  if (NOT Z3_LINK_TIME_OPTIMIZATION)
     message(FATAL_ERROR "Cannot enable control flow integrity checking without link-time optimization."
-      "You should set LINK_TIME_OPTIMIZATION to ON or ENABLE_CFI to OFF.")
+      "You should set Z3_LINK_TIME_OPTIMIZATION to ON or Z3_ENABLE_CFI to OFF.")
   endif()
   if (DEFINED CMAKE_CONFIGURATION_TYPES)
     # Multi configuration generator
@@ -526,16 +417,23 @@ if (ENABLE_CFI)
     endforeach()
   else()
     message(FATAL_ERROR "Can't enable control flow integrity for compiler \"${CMAKE_CXX_COMPILER_ID}\"."
-      "You should set ENABLE_CFI to OFF or use Clang or MSVC to compile.")
+      "You should set Z3_ENABLE_CFI to OFF or use Clang or MSVC to compile.")
   endif()
 endif()
 
 ################################################################################
 # MSVC specific flags inherited from old build system
 ################################################################################
-# FIXME: Remove "x.." when CMP0054 is set to NEW
-if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
-  include(${CMAKE_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  include(${PROJECT_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
+endif()
+
+################################################################################
+# Pass /RELEASE to the linker so that checksums in PE files are calculated.
+################################################################################
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  string(APPEND CMAKE_EXE_LINKER_FLAGS " /RELEASE")
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS " /RELEASE")
 endif()
 
 ################################################################################
@@ -596,7 +494,7 @@ message(STATUS "CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR: \"${CMAKE_INSTALL_Z3_CMAKE_P
 # Uninstall rule
 ################################################################################
 configure_file(
-  "${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+  "${PROJECT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
   "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
   @ONLY
 )
@@ -616,9 +514,9 @@ add_custom_target(uninstall
 ################################################################################
 # To mimic the python build system output these into the root of the build
 # directory
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 
 ################################################################################
 # Extra dependencies for build rules that use the Python infrastructure to
@@ -628,14 +526,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 # Note: ``update_api.py`` is deliberately not here because it not used
 # to generate every generated file. The targets that need it list it explicitly.
 set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
-  "${CMAKE_SOURCE_DIR}/scripts/mk_genfile_common.py"
+  "${PROJECT_SOURCE_DIR}/scripts/mk_genfile_common.py"
 )
 
 ################################################################################
 # Z3 components, library and executables
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/z3_add_component.cmake)
-include(${CMAKE_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
 add_subdirectory(src)
 
 ################################################################################
@@ -643,26 +541,18 @@ add_subdirectory(src)
 # use Z3 via CMake.
 ################################################################################
 include(CMakePackageConfigHelpers)
-if ("${CMAKE_VERSION}" VERSION_LESS "3.0")
-  # FIXME: Remove this once we drop support for CMake 2.8.12
-  export(TARGETS libz3
-    NAMESPACE z3::
-    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
-  )
-else()
-  export(EXPORT Z3_EXPORTED_TARGETS
-    NAMESPACE z3::
-    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
-  )
-endif()
-set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/src/api")
-set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api")
-set(Z3_CXX_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api/c++")
+export(EXPORT Z3_EXPORTED_TARGETS
+   NAMESPACE z3::
+   FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
+)
+set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${PROJECT_BINARY_DIR}/src/api")
+set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api")
+set(Z3_CXX_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api/c++")
 set(AUTO_GEN_MSG "Automatically generated. DO NOT EDIT")
 set(CONFIG_FILE_TYPE "build tree")
-configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
+configure_package_config_file("${PROJECT_SOURCE_DIR}/cmake/Z3Config.cmake.in"
   "Z3Config.cmake"
-  INSTALL_DESTINATION "${CMAKE_BINARY_DIR}"
+  INSTALL_DESTINATION "${PROJECT_BINARY_DIR}"
   PATH_VARS
     Z3_FIRST_PACKAGE_INCLUDE_DIR
     Z3_SECOND_PACKAGE_INCLUDE_DIR
@@ -673,8 +563,10 @@ unset(Z3_SECOND_PACKAGE_INCLUDE_DIR)
 unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
 unset(AUTO_GEN_MSG)
 unset(CONFIG_FILE_TYPE)
-# TODO: Provide a `Z3Version.cmake` file so that clients can specify the version
-# of Z3 they want.
+
+write_basic_package_version_file("${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
+  COMPATIBILITY SameMajorVersion
+)
 
 ################################################################################
 # Create `Z3Config.cmake` and related files for install tree so clients can use
@@ -686,7 +578,7 @@ install(EXPORT
   NAMESPACE z3::
   DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
 )
-set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${CMAKE_BINARY_DIR}/cmake/Z3Config.cmake")
+set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${PROJECT_BINARY_DIR}/cmake/Z3Config.cmake")
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
 set(Z3_SECOND_INCLUDE_DIR "")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "")
@@ -695,7 +587,7 @@ set(CONFIG_FILE_TYPE "install tree")
 # We use `configure_package_config_file()` to try and create CMake files
 # that are re-locatable so that it doesn't matter if the files aren't placed
 # in the original install prefix.
-configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
+configure_package_config_file("${PROJECT_SOURCE_DIR}/cmake/Z3Config.cmake.in"
   "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
   INSTALL_DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
   PATH_VARS Z3_FIRST_PACKAGE_INCLUDE_DIR
@@ -712,22 +604,27 @@ install(
   DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
 )
 
-# TODO: Provide a `Z3Version.cmake` file so that clients can specify the version
-# of Z3 they want.
+# Add install rule to install ${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake
+install(
+  FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
+  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+)
 
 ################################################################################
 # Examples
 ################################################################################
-option(ENABLE_EXAMPLE_TARGETS "Build Z3 api examples" ON)
-if (ENABLE_EXAMPLE_TARGETS)
+cmake_dependent_option(Z3_ENABLE_EXAMPLE_TARGETS 
+    "Build Z3 api examples" ON
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
+if (Z3_ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()
 
 ################################################################################
 # Documentation
 ################################################################################
-option(BUILD_DOCUMENTATION "Build API documentation" OFF)
-if (BUILD_DOCUMENTATION)
+option(Z3_BUILD_DOCUMENTATION "Build API documentation" OFF)
+if (Z3_BUILD_DOCUMENTATION)
   message(STATUS "Building documentation enabled")
   add_subdirectory(doc)
 else()

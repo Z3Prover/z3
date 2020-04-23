@@ -16,9 +16,10 @@ Author:
 Notes:
 
 --*/
-#include "util/lp/lp_params.hpp"
+#include "util/debug.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/ast_util.h"
+#include "ast/ast_ll_pp.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "smt/params/smt_params_helper.hpp"
@@ -59,7 +60,7 @@ public:
     }
 
     ~smt_tactic() override {
-        SASSERT(m_ctx == 0);
+        SASSERT(m_ctx == nullptr);
     }
 
     smt_params & fparams() {
@@ -91,7 +92,6 @@ public:
         r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
         smt_params_helper::collect_param_descrs(r);
-        lp_params::collect_param_descrs(r);
     }
 
 
@@ -132,7 +132,6 @@ public:
                 new_ctx->set_progress_callback(o.m_callback);
             }
             o.m_ctx = new_ctx;
-
         }
 
         ~scoped_init_ctx() {
@@ -144,13 +143,16 @@ public:
         }
     };
 
+    void handle_canceled(goal_ref const & in,
+                         goal_ref_buffer & result) {
+    }
 
     void operator()(goal_ref const & in,
                     goal_ref_buffer & result) override {
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
-            SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
+            tactic_report report("smt", *in);
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
                   << " PREPROCESS: " << fparams().m_preprocess << "\n";
                   tout << "RELEVANCY: " << fparams().m_relevancy_lvl << "\n";
@@ -189,7 +191,7 @@ public:
                     m_ctx->assert_expr(in->form(i));
                 }
             }
-            if (m_ctx->canceled()) {
+            if (m_ctx->canceled()) {                
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
 
@@ -201,10 +203,14 @@ public:
                     r = m_ctx->check(assumptions.size(), assumptions.c_ptr());
             }
             catch(...) {
+                TRACE("smt_tactic", tout << "exception\n";);
                 m_ctx->collect_statistics(m_stats);
                 throw;
             }
+            SASSERT(m_ctx);
             m_ctx->collect_statistics(m_stats);
+            proof_ref pr(m_ctx->get_proof(), m);
+            TRACE("smt_tactic", tout << r << " " << pr << "\n";);
             switch (r) {
             case l_true: {
                 if (m_fail_if_inconclusive && !in->sat_preserved())
@@ -234,10 +240,7 @@ public:
                 }
                 // formula is unsat, reset the goal, and store false there.
                 in->reset();
-                proof * pr              = nullptr;
                 expr_dependency * lcore = nullptr;
-                if (in->proofs_enabled())
-                    pr = m_ctx->get_proof();
                 if (in->unsat_core_enabled()) {
                     unsigned sz = m_ctx->get_unsat_core_size();
                     for (unsigned i = 0; i < sz; i++) {
@@ -247,20 +250,31 @@ public:
                         lcore = m.mk_join(lcore, m.mk_leaf(d));
                     }
                 }
+
+                if (m.proofs_enabled() && !pr) pr = m.mk_asserted(m.mk_false()); // bail out
+                if (pr && m.get_fact(pr) != m.mk_false()) pr = m.mk_asserted(m.mk_false()); // could happen in clause_proof mode
                 in->assert_expr(m.mk_false(), pr, lcore);
+                
                 result.push_back(in.get());
                 return;
             }
             case l_undef:
-                if (m_ctx->canceled()) {
+
+                if (m_ctx->canceled() && !pr) {
                     throw tactic_exception(Z3_CANCELED_MSG);
                 }
-                if (m_fail_if_inconclusive && !m_candidate_models) {
+
+                if (m_fail_if_inconclusive && !m_candidate_models && !pr) {
                     std::stringstream strm;
                     strm << "smt tactic failed to show goal to be sat/unsat " << m_ctx->last_failure_as_string();
                     throw tactic_exception(strm.str());
                 }
                 result.push_back(in.get());
+                if (pr) {
+                    in->reset();
+                    in->assert_expr(m.get_fact(pr), pr, nullptr);
+                    in->updt_prec(goal::UNDER_OVER);
+                }
                 if (m_candidate_models) {
                     switch (m_ctx->last_failure()) {
                     case smt::NUM_CONFLICTS:
@@ -279,6 +293,9 @@ public:
                     default:
                         break;
                     }
+                }
+                if (pr) {
+                    return;
                 }
                 throw tactic_exception(m_ctx->last_failure_as_string());
             }

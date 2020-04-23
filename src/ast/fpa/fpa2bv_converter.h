@@ -74,7 +74,7 @@ public:
 
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
-    void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
+    // void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
     void split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const;
     void join_fp(expr * e, expr_ref & res);
 
@@ -219,6 +219,7 @@ private:
     void mk_to_fp_float(sort * s, expr * rm, expr * x, expr_ref & result);
 
     func_decl * mk_bv_uf(func_decl * f, sort * const * domain, sort * range);
+
     expr_ref nan_wrap(expr * n);
 
     expr_ref extra_quantify(expr * e);

@@ -56,8 +56,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   list(APPEND WARNING_FLAGS_TO_CHECK ${CLANG_ONLY_WARNINGS})
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${GCC_AND_CLANG_WARNINGS_AS_ERRORS})
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${CLANG_WARNINGS_AS_ERRORS})
-  # FIXME: Remove "x.." when CMP0054 is set to NEW
-elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   list(APPEND WARNING_FLAGS_TO_CHECK ${MSVC_WARNINGS})
 
   # CMake's default flags include /W3 already so remove them if
@@ -111,8 +110,7 @@ if ("${WARNINGS_AS_ERRORS}" STREQUAL "ON")
   message(STATUS "Treating compiler warnings as errors")
   if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
     list(APPEND Z3_COMPONENT_CXX_FLAGS "-Werror")
-    # FIXME: Remove "x.." when CMP0054 is set to NEW
-  elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     list(APPEND Z3_COMPONENT_CXX_FLAGS "/WX")
   else()
     message(AUTHOR_WARNING "Unknown compiler")
@@ -126,8 +124,7 @@ elseif ("${WARNINGS_AS_ERRORS}" STREQUAL "SERIOUS_ONLY")
   endforeach()
 elseif ("${WARNINGS_AS_ERRORS}" STREQUAL "OFF")
   message(STATUS "Not treating compiler warnings as errors")
-  # FIXME: Remove "x.." when CMP0054 is set to NEW
-  if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     # Warnings as errors is off by default for MSVC so setting this
     # is not necessary but this duplicates the behaviour of the old
     # build system.

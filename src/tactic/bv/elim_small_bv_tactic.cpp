@@ -19,7 +19,6 @@ Revision History:
 #include "tactic/tactical.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "tactic/generic_model_converter.h"
-#include "util/cooperate.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/used_vars.h"
 #include "ast/well_sorted.h"
@@ -56,7 +55,6 @@ class elim_small_bv_tactic : public tactic {
         }
 
         bool max_steps_exceeded(unsigned long long num_steps) const {
-            cooperate("elim-small-bv");
             if (num_steps > m_max_steps)
                 return true;
             if (memory::get_allocation_size() > m_max_memory)
@@ -138,34 +136,48 @@ class elim_small_bv_tactic : public tactic {
             unsigned max_var_idx_p1 = uv.get_max_found_var_idx_plus_1();
 
             expr_ref body(old_body, m);
-            for (unsigned i = num_decls-1; i != ((unsigned)-1) && !max_steps_exceeded(num_steps); i--) {
+            for (unsigned i = num_decls; i-- > 0 && !max_steps_exceeded(num_steps); ) {
                 sort * s = q->get_decl_sort(i);
-                unsigned bv_sz = m_util.get_bv_size(s);
-
+                expr_ref_vector new_bodies(m);
                 if (is_small_bv(s) && !max_steps_exceeded(num_steps)) {
+                    unsigned bv_sz = m_util.get_bv_size(s);
                     TRACE("elim_small_bv", tout << "eliminating " << q->get_decl_name(i) <<
                         "; sort = " << mk_ismt2_pp(s, m) <<
                         "; body = " << mk_ismt2_pp(body, m) << std::endl;);
 
-                    expr_ref_vector new_bodies(m);
-                    for (unsigned j = 0; j < bv_sz && !max_steps_exceeded(num_steps); j ++) {
+                    if (bv_sz >= 31ul || ((unsigned)(1ul << bv_sz)) + num_steps > m_max_steps) {
+                        return false;
+                    }
+                    
+                    for (unsigned j = 0; j < (1ul << bv_sz) && !max_steps_exceeded(num_steps); j++) {
                         expr_ref n(m_util.mk_numeral(j, bv_sz), m);
                         new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, n));
                         num_steps++;
                     }
-
-                    TRACE("elim_small_bv", tout << "new bodies: " << std::endl;
-                                           for (unsigned k = 0; k < new_bodies.size(); k++)
-                                               tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
-
-                    body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
-                                          m.mk_or(new_bodies.size(), new_bodies.c_ptr());
-                    SASSERT(is_well_sorted(m, body));
-
-                    proof_ref pr(m);
-                    m_simp(body, body, pr);
-                    m_num_eliminated++;
                 }
+                else if (m.is_bool(s)) {
+                    new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, m.mk_true()));
+                    new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, m.mk_false()));
+                }
+                else {
+                    continue;
+                }
+                
+                if (max_steps_exceeded(num_steps)) {
+                    return false;
+                }
+                
+                TRACE("elim_small_bv", tout << "new bodies: " << std::endl;
+                      for (unsigned k = 0; k < new_bodies.size(); k++)
+                          tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
+                
+                body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
+                    m.mk_or(new_bodies.size(), new_bodies.c_ptr());
+                SASSERT(is_well_sorted(m, body));
+                
+                proof_ref pr(m);
+                m_simp(body, body, pr);
+                m_num_eliminated++;                
             }
 
             quantifier_ref new_q(m);
@@ -239,7 +251,6 @@ public:
 
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         tactic_report report("elim-small-bv", *g);
         bool produce_proofs = g->proofs_enabled();
         fail_if_proof_generation("elim-small-bv", g);
@@ -249,7 +260,7 @@ public:
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
         unsigned   size = g->size();
-        for (unsigned idx = 0; idx < size; idx++) {
+        for (unsigned idx = 0; !g->inconsistent() && idx < size; idx++) {
             expr * curr = g->form(idx);
             m_rw(curr, new_curr, new_pr);
             if (produce_proofs) {
@@ -263,8 +274,6 @@ public:
         report_tactic_progress(":elim-small-bv-num-eliminated", m_rw.m_cfg.m_num_eliminated);
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("elim-small-bv", g->display(tout););
-        SASSERT(g->is_well_sorted());
     }
 
     void cleanup() override {

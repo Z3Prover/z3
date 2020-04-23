@@ -82,6 +82,7 @@ namespace smt {
         void setup_QF_S();
         void setup_LRA();
         void setup_CSP();
+        void setup_special_relations();
         void setup_AUFLIA(bool simple_array = true);
         void setup_AUFLIA(static_features const & st);
         void setup_AUFLIRA(bool simple_array = true);

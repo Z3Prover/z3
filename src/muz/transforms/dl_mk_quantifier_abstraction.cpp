@@ -39,7 +39,7 @@ namespace datalog {
         func_decl_ref_vector    m_new_funcs;
         vector<expr_ref_vector> m_subst;
         vector<sort_ref_vector> m_sorts;
-        vector<svector<bool> >  m_bound;
+        vector<bool_vector >  m_bound;
 
     public:
 
@@ -56,7 +56,7 @@ namespace datalog {
 
         void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
-        void insert(func_decl* old_p, func_decl* new_p, expr_ref_vector& sub, sort_ref_vector& sorts, svector<bool> const& bound) {
+        void insert(func_decl* old_p, func_decl* new_p, expr_ref_vector& sub, sort_ref_vector& sorts, bool_vector const& bound) {
             m_old_funcs.push_back(old_p);
             m_new_funcs.push_back(new_p);
             m_subst.push_back(sub);
@@ -67,16 +67,14 @@ namespace datalog {
         void operator()(model_ref & old_model) override {
             model_ref new_model = alloc(model, m);
             for (unsigned i = 0; i < m_new_funcs.size(); ++i) {
-                func_decl* p = m_new_funcs[i].get();
-                func_decl* q = m_old_funcs[i].get();
+                func_decl* p = m_new_funcs.get(i);
+                func_decl* q = m_old_funcs.get(i);
                 expr_ref_vector const& sub = m_subst[i];
                 sort_ref_vector const& sorts = m_sorts[i];
-                svector<bool> const& is_bound  = m_bound[i];
+                bool_vector const& is_bound  = m_bound[i];
                 func_interp* f = old_model->get_func_interp(p);
                 expr_ref body(m);
-                unsigned arity_q = q->get_arity();
                 SASSERT(0 < p->get_arity());
-                func_interp* g = alloc(func_interp, m, arity_q);
 
                 if (f) {
                     body = f->get_interp();
@@ -88,11 +86,11 @@ namespace datalog {
                     for (unsigned i = 0; i < p->get_arity(); ++i) {
                         args.push_back(m.mk_var(i, p->get_domain(i)));
                     }
-                    body = m.mk_app(p, args.size(), args.c_ptr());
+                    body = m.mk_app(p, args);
                 }
                 // Create quantifier wrapper around body.
 
-                TRACE("dl", tout << mk_pp(body, m) << "\n";);
+                TRACE("dl", tout << body << "\n";);
                 // 1. replace variables by the compound terms from
                 //    the original predicate.
                 expr_safe_replace rep(m);
@@ -102,7 +100,7 @@ namespace datalog {
                 rep(body);
                 rep.reset();
 
-                TRACE("dl", tout << mk_pp(body, m) << "\n";);
+                TRACE("dl", tout << body << "\n";);
                 // 2. replace bound variables by constants.
                 expr_ref_vector consts(m), bound(m), _free(m);
                 svector<symbol> names;
@@ -123,21 +121,21 @@ namespace datalog {
                 rep(body);
                 rep.reset();
 
-                TRACE("dl", tout << mk_pp(body, m) << "\n";);
+                TRACE("dl", tout << body << "\n";);
                 // 3. abstract and quantify those variables that should be bound.
-                expr_abstract(m, 0, bound.size(), bound.c_ptr(), body, body);
+                body = expr_abstract(bound, body);
                 body = m.mk_forall(names.size(), bound_sorts.c_ptr(), names.c_ptr(), body);
 
-                TRACE("dl", tout << mk_pp(body, m) << "\n";);
+                TRACE("dl", tout << body << "\n";);
                 // 4. replace remaining constants by variables.
-                for (unsigned i = 0; i < _free.size(); ++i) {
-                    rep.insert(_free[i].get(), m.mk_var(i, m.get_sort(_free[i].get())));
+                unsigned j = 0;
+                for (expr* f : _free) {
+                    rep.insert(f, m.mk_var(j++, m.get_sort(f)));
                 }
                 rep(body);
-                g->set_else(body);
-                TRACE("dl", tout << mk_pp(body, m) << "\n";);
 
-                new_model->register_decl(q, g);
+                new_model->register_decl(q, body);
+                TRACE("dl", tout << body << "\n";);
             }
             old_model = new_model;
         }
@@ -177,7 +175,7 @@ namespace datalog {
         func_decl* new_p = nullptr;
         if (!m_old2new.find(old_p, new_p)) {
             expr_ref_vector sub(m), vars(m);
-            svector<bool> bound;
+            bool_vector bound;
             sort_ref_vector domain(m), sorts(m);
             expr_ref arg(m);
             for (unsigned i = 0; i < sz; ++i) {

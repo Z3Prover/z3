@@ -76,17 +76,16 @@ void arith_eq_solver::prop_mod_const(expr * e, unsigned depth, numeral const& k,
 
 void arith_eq_solver::gcd_normalize(vector<numeral>& values) {
     numeral g(0);
-    for (unsigned i = 0; !g.is_one() && i < values.size(); ++i) {
-        SASSERT(values[i].is_int());
-        if (!values[i].is_zero()) {
-            if (g.is_zero()) {
-                g = abs(values[i]);
-            }
-            else {
-                g = gcd(abs(values[i]), g);
-            }
-        }
+    for (auto const& n : values) {
+        SASSERT(n.is_int());
+        if (g.is_zero())
+            g = abs(n);
+        else
+            g = gcd(abs(n), g);
+        if (g.is_one())
+            break;
     }
+
     if (g.is_zero() || g.is_one()) {
         return;
     }
@@ -162,10 +161,7 @@ bool arith_eq_solver::solve_integer_equation(
     bool&            is_fresh
     )
 {
-    TRACE("arith_eq_solver",
-          tout << "solving: ";
-          print_row(tout, values);
-          );
+    TRACE("arith_eq_solver", print_row(tout << "solving: ", values); );
     //
     // perform one step of the omega test equality elimination.
     //
@@ -197,10 +193,12 @@ bool arith_eq_solver::solve_integer_equation(
     // Instead used the coefficient 'm' at position 'index'.
     //
 
+    for (auto const& n : values)
+        if (!n.is_int())
+            return false;
     gcd_normalize(values);
     if (!gcd_test(values)) {
-        TRACE("arith_eq_solver", tout << "not sat\n";
-              print_row(tout, values););
+        TRACE("arith_eq_solver", print_row(tout << "not sat\n", values););
         return false;
     }
     index = find_abs_min(values);

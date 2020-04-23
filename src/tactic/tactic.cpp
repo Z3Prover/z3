@@ -34,11 +34,14 @@ struct tactic_report::imp {
         m_goal(g),
         m_start_memory(static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024)) {
         m_watch.start();
+        TRACE("tactic", g.display_with_proofs(tout << id << "\n"););
+        SASSERT(g.is_well_formed());
     }
         
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
+        TRACE("tactic", m_goal.display(tout););
         IF_VERBOSE(0, 
                    verbose_stream() << "(" << m_id
                    << " :num-exprs " << m_goal.num_exprs()
@@ -47,6 +50,7 @@ struct tactic_report::imp {
                    << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
                    << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
                    << ")" << std::endl);
+        SASSERT(m_goal.is_well_formed());
     }
 };
 
@@ -154,7 +158,6 @@ void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result) {
 
 lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown) {
     bool models_enabled = g->models_enabled();
-    bool proofs_enabled = g->proofs_enabled();
     bool cores_enabled  = g->unsat_core_enabled();
     md   = nullptr;
     pr   = nullptr;
@@ -164,13 +167,20 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     try {
         exec(t, g, r);
     }
-    catch (tactic_exception & ex) {
+    catch (z3_exception & ex) {
         reason_unknown = ex.msg();
+        if (r.size() > 0) pr = r[0]->pr(0);
         return l_undef;
     }
-    TRACE("tactic_check_sat",
+    TRACE("tactic",
           tout << "r.size(): " << r.size() << "\n";
-          for (unsigned i = 0; i < r.size(); i++) r[i]->display(tout););
+          for (unsigned i = 0; i < r.size(); i++) r[i]->display_with_dependencies(tout););
+
+    if (r.size() > 0) {
+        pr = r[0]->pr(0);
+        CTRACE("tactic", pr, tout << pr << "\n";);
+    }
+    
 
     if (is_decided_sat(r)) {
         model_converter_ref mc = r[0]->mc();            
@@ -187,13 +197,13 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     else if (is_decided_unsat(r)) {
         goal * final = r[0];
         SASSERT(m.is_false(final->form(0)));
-        if (proofs_enabled) pr   = final->pr(0);
+        pr = final->pr(0);
         if (cores_enabled)  core = final->dep(0);
         return l_false;
     }
     else {
         if (models_enabled && !r.empty()) {
-        model_converter_ref mc = r[0]->mc();            
+            model_converter_ref mc = r[0]->mc();            
             model_converter2model(m, mc.get(), md);
             if (mc)
                 (*mc)(labels);
@@ -225,4 +235,18 @@ void fail_if_model_generation(char const * tactic_name, goal_ref const & in) {
         msg += " does not generate models";
         throw tactic_exception(std::move(msg));
     }
+}
+
+void fail_if_has_quantifiers(char const* tactic_name, goal_ref const& g) {
+    for (unsigned i = 0; i < g->size(); ++i)
+        if (has_quantifiers(g->form(i))) {
+            std::string msg = tactic_name;
+            msg += " does not apply to quantified goals";
+            throw tactic_exception(std::move(msg));
+        }
+}
+
+void tactic::checkpoint(ast_manager& m) {
+    if (!m.inc())
+        throw tactic_exception(m.limit().get_cancel_msg());
 }

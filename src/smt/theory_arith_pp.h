@@ -27,17 +27,21 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::collect_statistics(::statistics & st) const {
         st.update("arith conflicts", m_stats.m_conflicts);
-        st.update("arith add rows", m_stats.m_add_rows);
+        st.update("arith row summations", m_stats.m_add_rows);
+        st.update("arith num rows", m_rows.size());
         st.update("arith pivots", m_stats.m_pivots);
         st.update("arith assert lower", m_stats.m_assert_lower);
         st.update("arith assert upper", m_stats.m_assert_upper);
         st.update("arith assert diseq", m_stats.m_assert_diseq);
         st.update("arith bound prop", m_stats.m_bound_props);
         st.update("arith fixed eqs", m_stats.m_fixed_eqs);
+        st.update("arith assume eqs", m_stats.m_assume_eqs);
         st.update("arith offset eqs", m_stats.m_offset_eqs);
         st.update("arith gcd tests", m_stats.m_gcd_tests);
         st.update("arith ineq splits", m_stats.m_branches);
         st.update("arith gomory cuts", m_stats.m_gomory_cuts);
+        st.update("arith branch int", m_stats.m_branch_infeasible_int);
+        st.update("arith branch var", m_stats.m_branch_infeasible_var);
         st.update("arith patches", m_stats.m_patches);
         st.update("arith patches_succ", m_stats.m_patches_succ);
         st.update("arith max-min", m_stats.m_max_min);
@@ -45,6 +49,8 @@ namespace smt {
         st.update("arith pseudo nonlinear", m_stats.m_nl_linear);
         st.update("arith nonlinear bounds", m_stats.m_nl_bounds);
         st.update("arith nonlinear horner", m_stats.m_nl_cross_nested);
+        st.update("arith tableau max rows", m_stats.m_tableau_max_rows);
+        st.update("arith tableau max columns", m_stats.m_tableau_max_columns);
         m_arith_eq_adapter.collect_statistics(st);
     }
 
@@ -65,10 +71,8 @@ namespace smt {
         if (m_nl_monomials.empty())
             return;
         out << "non linear monomials:\n";
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
-        for (; it != end; ++it)
-            display_var(out, *it);
+        for (auto nl : m_nl_monomials) 
+            display_var(out, nl);
     }
 
     template<typename Ext>

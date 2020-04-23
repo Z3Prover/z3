@@ -2,7 +2,7 @@
 # Example C++ project
 ################################################################################
 project(Z3_C_EXAMPLE CXX)
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.4)
 find_package(Z3
   REQUIRED
   CONFIG
@@ -17,17 +17,8 @@ find_package(Z3
 ################################################################################
 # Z3 C++ API bindings require C++11
 ################################################################################
-if ("${CMAKE_VERSION}" VERSION_LESS "3.1")
-  # Legacy CMake support
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-  else()
-    message(FATAL_ERROR "Setting C++ version to C++11 not supported for \"${CMAKE_CXX_COMPILER_ID}\"")
-  endif()
-else ()
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif ()
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 message(STATUS "Z3_FOUND: ${Z3_FOUND}")
 message(STATUS "Found Z3 ${Z3_VERSION_STRING}")

@@ -1,8 +1,7 @@
 def_module_params(module_name='rewriter',
                   class_name='bv_rewriter_params',
                   export=True,
-                  params=(("udiv2mul", BOOL, False, "convert constant udiv to mul"),
-                          ("split_concat_eq", BOOL, False, "split equalities of the form (= (concat t1 t2) t3)"),
+                  params=(("split_concat_eq", BOOL, False, "split equalities of the form (= (concat t1 t2) t3)"),
                           ("bit2bool", BOOL, True, "try to convert bit-vector terms of size 1 into Boolean terms"),
                           ("blast_eq_value", BOOL, False, "blast (some) Bit-vector equalities into bits"),
                           ("elim_sign_ext", BOOL, True, "expand sign-ext operator using concat and extract"),
@@ -10,10 +9,8 @@ def_module_params(module_name='rewriter',
                           ("mul2concat", BOOL, False, "replace multiplication by a power of two into a concatenation"),
                           ("bvnot2arith", BOOL, False, "replace (bvnot x) with (bvsub -1 x)"),
                           ("bv_sort_ac", BOOL, False, "sort the arguments of all AC operators"),
-                          ("bv_trailing", BOOL, False, "lean removal of trailing zeros"),
                           ("bv_extract_prop", BOOL, False, "attempt to partially propagate extraction inwards"),
                           ("bv_not_simpl", BOOL, False, "apply simplifications for bvnot"),
                           ("bv_ite2id", BOOL, False, "rewrite ite that can be simplified to identity"),
-                          ("bv_le_extra", BOOL, False, "additional bu_(u/s)le simplifications"),
-                          ("bv_urem_simpl", BOOL, False, "additional simplification for bvurem")
+                          ("bv_le_extra", BOOL, False, "additional bu_(u/s)le simplifications")
                           ))

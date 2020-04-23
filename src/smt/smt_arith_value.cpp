@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 
+#include "ast/ast_pp.h"
 #include "smt/smt_arith_value.h"
 
 namespace smt {
@@ -50,6 +51,7 @@ namespace smt {
             next = next->get_next();
         }
         while (n != next);
+        CTRACE("arith_value", !found, tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
         return found;
     }
 
@@ -69,6 +71,7 @@ namespace smt {
             next = next->get_next();
         }
         while (n != next);
+        CTRACE("arith_value", !found, tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
         return found;
     }
 
@@ -79,6 +82,7 @@ namespace smt {
         if (m_tha) return m_tha->get_upper(n, up, is_strict);
         if (m_thi) return m_thi->get_upper(n, up, is_strict);
         if (m_thr) return m_thr->get_upper(n, up, is_strict);
+        TRACE("arith_value", tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
         return false;
     }
 
@@ -89,6 +93,7 @@ namespace smt {
         if (m_tha) return m_tha->get_lower(n, up, is_strict);
         if (m_thi) return m_thi->get_lower(n, up, is_strict);
         if (m_thr) return m_thr->get_lower(n, up, is_strict);
+        TRACE("arith_value", tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
         return false;
     }
 
@@ -99,6 +104,7 @@ namespace smt {
         if (m_tha && m_tha->get_value(n, _val) && a.is_numeral(_val, val)) return true;
         if (m_thi && m_thi->get_value(n, _val) && a.is_numeral(_val, val)) return true;
         if (m_thr && m_thr->get_value(n, val)) return true;
+        TRACE("arith_value", tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
         return false;
     }
 
@@ -115,6 +121,7 @@ namespace smt {
             next = next->get_next();
         }
         while (next != n);
+        TRACE("arith_value", tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
         return false;
     }
 

@@ -35,8 +35,8 @@ class prime_generator {
     svector<uint64_t> m_primes;
     void process_next_k_numbers(uint64_t k);
 public:
-    prime_generator();
     uint64_t operator()(unsigned idx);
+    void initialize();
     void finalize();
 };
 
@@ -47,8 +47,10 @@ class prime_iterator {
 public:
     prime_iterator(prime_generator * g = nullptr);
     uint64_t next();
+    static void initialize();
     static void finalize();
     /*
+      ADD_INITIALIZER('prime_iterator::initialize();')
       ADD_FINALIZER('prime_iterator::finalize();')
     */
 };

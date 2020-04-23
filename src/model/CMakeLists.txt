@@ -1,5 +1,7 @@
 z3_add_component(model
   SOURCES
+    array_factory.cpp
+    datatype_factory.cpp
     func_interp.cpp
     model2expr.cpp
     model_core.cpp
@@ -9,6 +11,9 @@ z3_add_component(model
     model_pp.cpp
     model_smt2_pp.cpp
     model_v2_pp.cpp
+    numeral_factory.cpp
+    struct_factory.cpp
+    value_factory.cpp
   COMPONENT_DEPENDENCIES
     rewriter
   PYG_FILES

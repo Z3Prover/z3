@@ -4,9 +4,10 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "muz/fp/datalog_parser.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "muz/fp/datalog_parser.h"
 #include "muz/base/dl_context.h"
 #include "smt/params/smt_params.h"
 #include "muz/fp/dl_register_engine.h"
@@ -62,6 +63,7 @@ static lbool dl_context_eval_unary_predicate(ast_manager & m, context & ctx, cha
 
 static void dl_context_simple_query_test(params_ref & params) {
     ast_manager m;
+    reg_decl_plugins(m);
     dl_decl_util decl_util(m);
     register_engine re;
     smt_params fparams;

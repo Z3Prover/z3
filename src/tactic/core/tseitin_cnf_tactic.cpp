@@ -49,12 +49,12 @@ Author:
 Notes:
 
 --*/
+#include "ast/ast_pp.h"
 #include "tactic/tactical.h"
 #include "tactic/goal_shared_occs.h"
 #include "tactic/generic_model_converter.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "tactic/core/simplify_tactic.h"
-#include "util/cooperate.h"
 
 static void swap_if_gt(expr * & n1, expr * & n2) {
     if (n1->get_id() > n2->get_id())
@@ -269,6 +269,7 @@ class tseitin_cnf_tactic : public tactic {
                 !m.is_or(c1, c1, c2))
                 return false;
             
+            SASSERT(to_app(n)->get_num_args() == 3);
             swap_if_gt(a1, a2);
             swap_if_gt(b1, b2);
             swap_if_gt(c1, c2);
@@ -785,9 +786,7 @@ class tseitin_cnf_tactic : public tactic {
         
         
         void checkpoint() {
-            cooperate("tseitin cnf");
-            if (m.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+            tactic::checkpoint(m);
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         }
@@ -830,11 +829,12 @@ class tseitin_cnf_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("tseitin-cnf", *g);
             fail_if_proof_generation("tseitin-cnf", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled(); 
+
+            TRACE("tseitin_cnf", g->display(tout););
 
             m_occs(*g);
             reset_cache();
@@ -872,8 +872,6 @@ class tseitin_cnf_tactic : public tactic {
                 g->add(m_mc.get());
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("tseitin_cnf", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

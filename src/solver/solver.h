@@ -32,6 +32,8 @@ public:
     virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) = 0;
 };
 
+solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
+
 /**
    \brief Abstract interface for making solvers available in the Z3
    API and front-ends such as SMT 2.0 and (legacy) SMT 1.0.
@@ -232,7 +234,7 @@ public:
     /**
        \brief Display the content of this solver in DIMACS format
     */
-    std::ostream& display_dimacs(std::ostream & out) const;
+    std::ostream& display_dimacs(std::ostream & out, bool include_names = true) const;
 
     /**
        \brief expose model converter when solver produces partially reduced set of assertions.
@@ -250,8 +252,6 @@ public:
     virtual expr_ref_vector get_trail() = 0; // { return expr_ref_vector(get_manager()); }
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
-
-    virtual void set_activity(expr* lit, double activity) = 0;
 
     class scoped_push {
         solver& s;

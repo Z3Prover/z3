@@ -23,18 +23,16 @@ Revision History:
 namespace smt {
 
     bool checker::all_args(app * a, bool is_true) {
-        unsigned num_args = a->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
-            if (!check(a->get_arg(i), is_true))
+        for (expr* arg : *a) {
+            if (!check(arg, is_true))
                 return false;
         }
         return true;
     }
 
     bool checker::any_arg(app * a, bool is_true) {
-        unsigned num_args = a->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
-            if (check(a->get_arg(i), is_true))
+        for (expr* arg : *a) {
+            if (check(arg, is_true))
                 return true;
         }
         return false;

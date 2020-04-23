@@ -348,7 +348,7 @@ namespace datalog {
 
     void resolve_rule(rule_manager& rm, rule const& r1, rule const& r2, unsigned idx, 
                       expr_ref_vector const& s1, expr_ref_vector const& s2, rule& res) {
-        if (!r1.get_proof()) {
+        if (!r1.get_proof() || !r2.get_proof()) {
             return;
         }
         SASSERT(r2.get_proof());
@@ -420,32 +420,31 @@ namespace datalog {
 
 
 
-    void reverse_renaming(ast_manager & m, const expr_ref_vector & src, expr_ref_vector & tgt) {
+    void reverse_renaming(const var_ref_vector & src, var_ref_vector & tgt) {
+        ast_manager& m = src.m();
         SASSERT(tgt.empty());
         unsigned src_sz = src.size();
-        unsigned src_ofs = src_sz-1;
+        unsigned src_ofs = src_sz - 1;
 
         unsigned max_var_idx = 0;
         for(unsigned i=0; i<src_sz; i++) {
-            if(!src[i]) {
+            if (!src[i]) {
                 continue;
             }
-            SASSERT(is_var(src[i]));
-            unsigned var_idx = to_var(src[i])->get_idx();
-            if(var_idx>max_var_idx) {
-                max_var_idx=var_idx;
+            unsigned var_idx = src[i]->get_idx();
+            if (var_idx > max_var_idx) {
+                max_var_idx = var_idx;
             }
         }
 
         unsigned tgt_sz = max_var_idx+1;
-        unsigned tgt_ofs = tgt_sz-1;
+        unsigned tgt_ofs = tgt_sz - 1;
         tgt.resize(tgt_sz, nullptr);
-        for(unsigned i=0; i<src_sz; i++) {
-            expr * e = src[src_ofs-i];
-            if(!e) {
+        for(unsigned i = 0; i < src_sz; i++) {
+            var* v = src[src_ofs-i];
+            if (!v) {
                 continue;
             }
-            var * v = to_var(e);
             unsigned var_idx = v->get_idx();
             tgt[tgt_ofs-var_idx] = m.mk_var(i, v->get_sort());
         }

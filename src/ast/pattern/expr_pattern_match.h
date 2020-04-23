@@ -80,13 +80,7 @@ class expr_pattern_match {
         }
 
         void operator()(var* v) {
-            var* b = nullptr;
-            if (m_bound.find(v, b)) {
-                m_memoize.insert(v, b);
-            }
-            else {
-                UNREACHABLE();
-            }
+            m_memoize.insert(v, m_bound[v]);
         }
                 
         void operator()(app * n) {  
@@ -98,15 +92,9 @@ class expr_pattern_match {
             if (m_subst.find(decl, r)) {
                 decl = to_app(m_regs[r])->get_decl();
             }
-            for (unsigned i = 0; i < num_args; ++i) {
-                expr* arg = nullptr;
-                if (m_memoize.find(n->get_arg(i), arg)) {
-                    SASSERT(arg);
-                    args.push_back(arg);
-                }
-                else {
-                    UNREACHABLE();
-                }
+            for (expr* arg : *n) {
+                arg = m_memoize[arg];
+                args.push_back(arg);
             }
             if (m_manager.is_pattern(n)) {
                 result = m_manager.mk_pattern(num_args, reinterpret_cast<app**>(args.c_ptr()));
@@ -116,7 +104,6 @@ class expr_pattern_match {
             }
             m_pinned.push_back(result);
             m_memoize.insert(n, result);
-            return;
         }
     };
 
@@ -131,11 +118,14 @@ class expr_pattern_match {
  public:
     expr_pattern_match(ast_manager & manager);
     ~expr_pattern_match();
-    virtual bool match_quantifier(quantifier * qf, app_ref_vector & patterns, unsigned & weight);
-    virtual void initialize(char const * database);
+    bool match_quantifier(quantifier * qf, app_ref_vector & patterns, unsigned & weight);
+    bool match_quantifier_index(quantifier* qf, app_ref_vector & patterns, unsigned& index);
+    unsigned initialize(quantifier* qf);
+    void initialize(char const * database);
     void display(std::ostream& out) const;
 
  private:
+    bool match_quantifier(unsigned i, quantifier * qf, app_ref_vector & patterns, unsigned & weight);
     void instantiate(expr* a, unsigned num_bound, subst& s, expr_ref& result);
     void compile(expr* q);
     bool match(expr* a, unsigned init, subst& s);

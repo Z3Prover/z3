@@ -19,6 +19,7 @@ Revision History:
 --*/
 
 #include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
@@ -99,7 +100,7 @@ namespace qe {
                     v = e;
                     a_val = rational(1)/a_val;
                     t = mk_term(is_int, a_val, sign, done);
-                    TRACE("qe", tout << mk_pp(lhs, m) << " " << mk_pp(rhs, m) << " " << mk_pp(e, m) << " := " << t << "\n";);
+                    TRACE("qe", tout << mk_pp(e, m) << " := " << t << "\n";);
                     return true;
                 }
                 else {
@@ -146,7 +147,7 @@ namespace qe {
         }
 
 
-        expr_ref mk_eq_core (expr *e1, expr *e2) {
+        expr_ref mk_eq_core(expr *e1, expr *e2) {
             expr_ref v(m), t(m);
             if (solve(e1, e2, v, t)) {
                 return expr_ref(m.mk_eq(v, t), m);
@@ -200,7 +201,7 @@ namespace qe {
             return a.mk_ge(arg, mk_zero());
         }
 
-        bool mk_le_core (expr *arg1, expr * arg2, expr_ref &result) {
+        bool mk_le_core(expr *arg1, expr * arg2, expr_ref &result) {
             // t <= -1  ==> t < 0 ==> ! (t >= 0)
             rational n;
             if (a.is_int (arg1) && a.is_minus_one (arg2)) {
@@ -219,16 +220,16 @@ namespace qe {
             return false;
         }
 
-        expr * mk_zero () {
+        expr * mk_zero() {
             return a.mk_numeral (rational (0), true);
         }
 
-        bool is_one (expr const * n) const {
+        bool is_one(expr const * n) const {
             rational val;
             return a.is_numeral (n, val) && val.is_one ();
         }
 
-        bool mk_ge_core (expr * arg1, expr * arg2, expr_ref &result) {
+        bool mk_ge_core(expr * arg1, expr * arg2, expr_ref &result) {
             // t >= 1 ==> t > 0 ==> ! (t <= 0)
             rational n;
             if (a.is_int (arg1) && is_one (arg2)) {
@@ -359,10 +360,46 @@ namespace qe {
     };
 
     class bv_solve_plugin : public solve_plugin {
+        bv_util m_bv;
+        bool solve_eq(expr*& lhs, expr*& rhs) {
+            unsigned lo, hi;
+            expr* e = nullptr;
+            if (m_bv.is_extract(lhs, lo, hi, e) && is_variable(e)) {
+                lhs = e;
+                unsigned sz = m_bv.get_bv_size(e);
+                if (lo > 0 && hi + 1 < sz) {
+                    expr* args[3] = { m_bv.mk_extract(sz-1, hi + 1, e), rhs, m_bv.mk_extract(lo - 1, 0, e)};
+                    rhs = m_bv.mk_concat(3, args);
+                }
+                else if (lo == 0 && hi + 1 < sz) {
+                    expr* args[2] = { m_bv.mk_extract(sz-1, hi + 1, e), rhs };
+                    rhs = m_bv.mk_concat(2, args);
+                }
+                else if (lo > 0 && hi + 1 == sz) {
+                    expr* args[3] = { rhs, m_bv.mk_extract(lo - 1, 0, e) };
+                    rhs = m_bv.mk_concat(2, args);                    
+                }
+                else {
+                    return false;
+                }
+                return true;
+            }
+            return false;
+        }
     public:
-        bv_solve_plugin(ast_manager& m, is_variable_proc& is_var): solve_plugin(m, m.get_family_id("bv"), is_var) {}
+        bv_solve_plugin(ast_manager& m, is_variable_proc& is_var): 
+            solve_plugin(m, m.get_family_id("bv"), is_var), m_bv(m) {}
         expr_ref solve(expr *atom, bool is_pos) override {
             expr_ref res(atom, m);
+            expr* lhs = nullptr, *rhs = nullptr;
+            if (is_pos && m.is_eq(atom, lhs, rhs) && solve_eq(lhs, rhs)) {
+                res = m.mk_eq(lhs, rhs);
+                return res;
+            }
+            if (is_pos && m.is_eq(atom, lhs, rhs) && solve_eq(rhs, lhs)) {
+                res = m.mk_eq(rhs, lhs);
+                return res;
+            }
             return is_pos ? res : mk_not(res);
         }
     };
@@ -388,11 +425,11 @@ namespace qe {
         return alloc(dt_solve_plugin, m, is_var);
     }
 
-#if 0
     solve_plugin* mk_bv_solve_plugin(ast_manager& m, is_variable_proc& is_var) {
         return alloc(bv_solve_plugin, m, is_var);
     }
 
+#if 0
     solve_plugin* mk_array_solve_plugin(ast_manager& m, is_variable_proc& is_var) {
         return alloc(array_solve_plugin, m, is_var);
     }

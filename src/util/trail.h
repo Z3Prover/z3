@@ -43,6 +43,12 @@ public:
         m_old_value(value) {
     }
 
+    value_trail(T & value, T const& new_value):
+        m_value(value),
+        m_old_value(value) {
+        m_value = new_value;
+    }
+
     ~value_trail() override {
     }
 
@@ -130,6 +136,17 @@ public:
     insert_obj_map(obj_map<D,R>& t, D* o) : m_map(t), m_obj(o) {}
     ~insert_obj_map() override {}
     void undo(Ctx & ctx) override { m_map.remove(m_obj); }
+};
+
+template<typename Ctx, typename D, typename R>
+class remove_obj_map : public trail<Ctx> {
+    obj_map<D,R>&     m_map;
+    D*                m_obj;
+    R                 m_value;
+public:
+    remove_obj_map(obj_map<D,R>& t, D* o, R v) : m_map(t), m_obj(o), m_value(v) {}
+    ~remove_obj_map() override {}
+    void undo(Ctx & ctx) override { m_map.insert(m_obj, m_value); }
 };
 
 template<typename Ctx, typename M, typename D>
@@ -252,10 +269,10 @@ public:
 
 template<typename Ctx>
 class set_bitvector_trail : public trail<Ctx> {
-    svector<bool> & m_vector;
+    bool_vector & m_vector;
     unsigned        m_idx;
 public:
-    set_bitvector_trail(svector<bool> & v, unsigned idx):
+    set_bitvector_trail(bool_vector & v, unsigned idx):
         m_vector(v),
         m_idx(idx) {
         SASSERT(m_vector[m_idx] == false);

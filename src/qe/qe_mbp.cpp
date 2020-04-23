@@ -64,14 +64,27 @@ expr_ref project_plugin::pick_equality(ast_manager& m, model& model, expr* t) {
     expr_ref_vector vals(m);
     obj_map<expr, expr*> val2expr;
     app* alit = to_app(t);
+    if (alit->get_num_args() == 2) {
+        return expr_ref(m.mk_eq(alit->get_arg(0), alit->get_arg(1)), m);
+    }
     for (expr * e1 : *alit) {
         expr *e2;
         val = model(e1);
+        TRACE("qe", tout << mk_pp(e1, m) << " |-> " << val << "\n";);
         if (val2expr.find(val, e2)) {
             return expr_ref(m.mk_eq(e1, e2), m);
         }
         val2expr.insert(val, e1);
         vals.push_back(val);
+    }
+    for (unsigned i = 0; i < alit->get_num_args(); ++i) {
+        for (unsigned j = i + 1; j < alit->get_num_args(); ++j) {
+            expr* e1 = alit->get_arg(i);
+            expr* e2 = alit->get_arg(j);
+            val = m.mk_eq(e1, e2);
+            if (!model.is_false(val))
+                return expr_ref(m.mk_eq(e1, e2), m);
+        }
     }
     UNREACHABLE();
     return expr_ref(nullptr, m);
@@ -194,9 +207,11 @@ class mbp::impl {
                 continue;
             }
             m_visited.mark(e);
-            if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e)) {
+            if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e) && m.inc()) {
                 expr_ref val = eval(e);
                 TRACE("qe", tout << "found: " << mk_pp(e, m) << "\n";);
+                if (!m.inc())
+                    continue;
                 SASSERT(m.is_true(val) || m.is_false(val));
                 if (!m_bool_visited.is_marked(e)) {
                     fmls.push_back(m.is_true(val) ? e : mk_not(m, e));
@@ -216,7 +231,8 @@ class mbp::impl {
             expr_ref tmp(m);
             sub(fml, tmp);
             expr_ref val = eval(tmp);
-            SASSERT(m.is_true(val) || m.is_false(val));
+            if (!m.is_true(val) && !m.is_false(val))
+                return false;
             fmls.push_back(m.is_true(val) ? tmp : mk_not(m, tmp));
         }
         return found_bool;
@@ -348,6 +364,7 @@ public:
     void extract_literals(model& model, expr_ref_vector& fmls) {
         expr_ref val(m);
         model_evaluator eval(model);
+        eval.set_expand_array_equalities(true);
         TRACE("qe", tout << fmls << "\n";);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get(), *nfml, *f1, *f2, *f3;
@@ -515,7 +532,7 @@ public:
         preprocess_solve(model, vars, fmls);
         filter_variables(model, vars, fmls, unused_fmls);
         project_bools(model, vars, fmls);
-        while (progress && !vars.empty() && !fmls.empty()) {
+        while (progress && !vars.empty() && !fmls.empty() && m.limit().inc()) {
             app_ref_vector new_vars(m);
             progress = false;
             for (project_plugin * p : m_plugins) {
@@ -523,7 +540,7 @@ public:
                     (*p)(model, vars, fmls);
                 }
             }
-            while (!vars.empty() && !fmls.empty()) {                
+            while (!vars.empty() && !fmls.empty() && m.limit().inc()) {
                 var = vars.back();
                 vars.pop_back();
                 project_plugin* p = get_plugin(var);
@@ -534,7 +551,7 @@ public:
                     new_vars.push_back(var);
                 }
             }
-            if (!progress && !new_vars.empty() && !fmls.empty() && force_elim) {
+            if (!progress && !new_vars.empty() && !fmls.empty() && force_elim && m.limit().inc()) {
                 var = new_vars.back();
                 new_vars.pop_back();
                 expr_safe_replace sub(m);
@@ -551,7 +568,9 @@ public:
                     }
                 }            
                 progress = true;
-            }
+            }        
+            if (!m.limit().inc()) 
+                return;
             vars.append(new_vars);
             if (progress) {
                 preprocess_solve(model, vars, fmls);

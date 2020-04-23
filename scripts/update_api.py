@@ -54,6 +54,8 @@ PRINT_MODE = 10
 ERROR_CODE = 11
 DOUBLE     = 12
 FLOAT      = 13
+CHAR       = 14
+CHAR_PTR   = 15
 
 FIRST_OBJ_ID = 100
 
@@ -62,33 +64,33 @@ def is_obj(ty):
 
 Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : 'int64_t', UINT64 : 'uint64_t', DOUBLE : 'double',
              FLOAT : 'float', STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'bool', SYMBOL : 'Z3_symbol',
-             PRINT_MODE : 'Z3_ast_print_mode', ERROR_CODE : 'Z3_error_code'
+             PRINT_MODE : 'Z3_ast_print_mode', ERROR_CODE : 'Z3_error_code', CHAR: 'char', CHAR_PTR: 'Z3_char_ptr'
              }
 
 Type2PyStr = { VOID_PTR : 'ctypes.c_void_p', INT : 'ctypes.c_int', UINT : 'ctypes.c_uint', INT64 : 'ctypes.c_longlong',
                UINT64 : 'ctypes.c_ulonglong', DOUBLE : 'ctypes.c_double', FLOAT : 'ctypes.c_float',
                STRING : 'ctypes.c_char_p', STRING_PTR : 'ctypes.POINTER(ctypes.c_char_p)', BOOL : 'ctypes.c_bool', SYMBOL : 'Symbol',
-               PRINT_MODE : 'ctypes.c_uint', ERROR_CODE : 'ctypes.c_uint'
+               PRINT_MODE : 'ctypes.c_uint', ERROR_CODE : 'ctypes.c_uint', CHAR : 'ctypes.c_char', CHAR_PTR: 'ctypes.POINTER(ctypes.c_char)'
                }
 
 # Mapping to .NET types
 Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', INT64 : 'Int64', UINT64 : 'UInt64', DOUBLE : 'double',
                 FLOAT : 'float', STRING : 'string', STRING_PTR : 'byte**', BOOL : 'byte', SYMBOL : 'IntPtr',
-                PRINT_MODE : 'uint', ERROR_CODE : 'uint' }
+                PRINT_MODE : 'uint', ERROR_CODE : 'uint', CHAR : 'char', CHAR_PTR : 'IntPtr' }
 
 # Mapping to Java types
 Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
               FLOAT : 'float', STRING : 'String', STRING_PTR : 'StringPtr',
-              BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int'}
+              BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'long' }
 
 Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', INT64 : 'jlong', UINT64 : 'jlong', DOUBLE : 'jdouble',
                FLOAT : 'jfloat', STRING : 'jstring', STRING_PTR : 'jobject',
-               BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint'}
+               BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint', CHAR : 'jchar', CHAR_PTR : 'jlong'}
 
 # Mapping to ML types
 Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
             FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**',
-            BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int' }
+            BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'string' }
 
 next_type_id = FIRST_OBJ_ID
 
@@ -306,7 +308,7 @@ def display_args_to_z3(params):
         if i > 0:
             core_py.write(", ")
         if param_type(p) == STRING:
-            core_py.write("_to_ascii(a%s)" % i)
+            core_py.write("_str_to_bytes(a%s)" % i)
         else:
             core_py.write("a%s" % i)
         i = i + 1
@@ -751,7 +753,7 @@ def mk_java(java_dir, package_name):
 
 Type2Napi = { VOID : '', VOID_PTR : '', INT : 'number', UINT : 'number', INT64 : 'number', UINT64 : 'number', DOUBLE : 'number',
             FLOAT : 'number', STRING : 'string', STRING_PTR : 'array',
-            BOOL : 'number', SYMBOL : 'external', PRINT_MODE : 'number', ERROR_CODE : 'number' }
+            BOOL : 'number', SYMBOL : 'external', PRINT_MODE : 'number', ERROR_CODE : 'number', CHAR : 'number' }
 
 def type2napi(t):
     try:
@@ -761,7 +763,7 @@ def type2napi(t):
 
 Type2NapiBuilder = { VOID : '', VOID_PTR : '', INT : 'int32', UINT : 'uint32', INT64 : 'int64', UINT64 : 'uint64', DOUBLE : 'double',
             FLOAT : 'float', STRING : 'string', STRING_PTR : 'array',
-            BOOL : 'bool', SYMBOL : 'external', PRINT_MODE : 'int32', ERROR_CODE : 'int32' }
+            BOOL : 'bool', SYMBOL : 'external', PRINT_MODE : 'int32', ERROR_CODE : 'int32', CHAR : 'char' }
 
 def type2napibuilder(t):
     try:
@@ -1686,9 +1688,10 @@ def write_log_h_preamble(log_h):
   log_h.write('#endif\n')
   #
   log_h.write('#include<iostream>\n')
+  log_h.write('#include<atomic>\n')
   log_h.write('extern std::ostream * g_z3_log;\n')
-  log_h.write('extern bool           g_z3_log_enabled;\n')
-  log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx():m_prev(g_z3_log_enabled) { g_z3_log_enabled = false; } ~z3_log_ctx() { g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')
+  log_h.write('extern std::atomic<bool>      g_z3_log_enabled;\n')
+  log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx() { m_prev = g_z3_log && g_z3_log_enabled.exchange(false); } ~z3_log_ctx() { if (g_z3_log) g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')
   log_h.write('inline void SetR(void * obj) { *g_z3_log << "= " << obj << "\\n"; }\ninline void SetO(void * obj, unsigned pos) { *g_z3_log << "* " << obj << " " << pos << "\\n"; } \ninline void SetAO(void * obj, unsigned pos, unsigned idx) { *g_z3_log << "@ " << obj << " " << pos << " " << idx << "\\n"; }\n')
   log_h.write('#define RETURN_Z3(Z3RES) if (_LOG_CTX.enabled()) { SetR(Z3RES); } return Z3RES\n')
   log_h.write('void _Z3_append_log(char const * msg);\n')
@@ -1735,6 +1738,8 @@ _default_dirs = ['.',
                  os.path.join(sys.prefix, 'lib'),
                  None]
 _all_dirs = []
+# search the default dirs first
+_all_dirs.extend(_default_dirs)
 
 if sys.version < '3':
   import __builtin__
@@ -1750,8 +1755,6 @@ for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
     lp = os.environ[v];
     lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
     _all_dirs.extend(lds)
-
-_all_dirs.extend(_default_dirs)
 
 _failures = []
 for d in _all_dirs:
@@ -1787,10 +1790,10 @@ if _lib is None:
     print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
   raise Z3Exception("libz3.%s not found." % _ext)
 
-def _to_ascii(s):
+def _str_to_bytes(s):
   if isinstance(s, str):
     try: 
-      return s.encode('ascii')
+      return s.encode('latin-1')
     except:
       # kick the bucket down the road.  :-J
       return s
@@ -1805,7 +1808,7 @@ else:
      if s != None:
         enc = sys.stdout.encoding
         if enc != None: return s.decode(enc)
-        else: return s.decode('ascii')
+        else: return s.decode('latin-1')
      else:
         return ""
 

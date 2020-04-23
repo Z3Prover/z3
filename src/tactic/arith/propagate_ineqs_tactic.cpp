@@ -202,8 +202,27 @@ struct propagate_ineqs_tactic::imp {
                 k = GE;
             }
         }
-        else {
-            return false;
+        else if (m_util.is_lt(t)) {
+          if (sign) {
+            k = GE;
+            strict = false;
+          } else {
+            k = LE;
+            strict = true;
+          }
+        }
+        else if (m_util.is_gt(t)) {
+            //x > y == x <=y, strict = false
+            if (sign) {
+              k = LE;
+              strict = false;
+            } else {
+              k = GE;
+              strict = true;
+            }
+        }
+         else {
+          return false;
         }
         expr * lhs = to_app(t)->get_arg(0);
         expr * rhs = to_app(t)->get_arg(1);
@@ -528,14 +547,13 @@ void propagate_ineqs_tactic::updt_params(params_ref const & p) {
 
 void propagate_ineqs_tactic::operator()(goal_ref const & g, 
                                         goal_ref_buffer & result) {
-    SASSERT(g->is_well_sorted());
     fail_if_proof_generation("propagate-ineqs", g);
     fail_if_unsat_core_generation("propagate-ineqs", g);
     result.reset();
     goal_ref r;
     (*m_imp)(g.get(), r);
     result.push_back(r.get());
-    SASSERT(r->is_well_sorted());
+    SASSERT(r->is_well_formed());
 }
 
  

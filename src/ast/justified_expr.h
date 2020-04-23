@@ -43,6 +43,8 @@ public:
     ~justified_expr() {
         m.dec_ref(m_fml);
         m.dec_ref(m_proof);
+		m_fml = nullptr;
+		m_proof = nullptr;
     }
     
     expr* get_fml() const { return m_fml; }

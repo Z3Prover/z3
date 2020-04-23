@@ -32,6 +32,7 @@ Revision History:
 #include "smt/smt_types.h"
 #include "util/obj_hashtable.h"
 #include "util/map.h"
+#include "util/ref.h"
 
 class value_factory;
 class proto_model;
@@ -83,7 +84,7 @@ namespace smt {
         extra_fresh_value(sort * s, unsigned idx):m_sort(s), m_idx(idx), m_value(nullptr) {}
         sort * get_sort() const { return m_sort; }
         unsigned get_idx() const { return m_idx; }
-        void set_value(expr * n) { SASSERT(m_value == 0); m_value = n; }
+        void set_value(expr * n) { SASSERT(!m_value); m_value = n; }
         expr * get_value() const { return m_value; }
     };
 
@@ -146,7 +147,7 @@ namespace smt {
            \brief The array values has size equal to the size of the argument \c result in get_dependencies.
            It contain the values built for the dependencies.
         */
-        virtual app * mk_value(model_generator & m, ptr_vector<expr> & values) = 0;
+        virtual app * mk_value(model_generator & m, expr_ref_vector const & values) = 0;
         /**
            \brief Return true if it is associated with a fresh value.
         */
@@ -161,7 +162,7 @@ namespace smt {
         app * m_value;
     public:
         expr_wrapper_proc(app * v):m_value(v) {}
-        app * mk_value(model_generator & m, ptr_vector<expr> & values) override { return m_value; }
+        app * mk_value(model_generator & m, expr_ref_vector const & values) override { return m_value; }
     };
 
     class fresh_value_proc : public model_value_proc {
@@ -169,7 +170,7 @@ namespace smt {
     public:
         fresh_value_proc(extra_fresh_value * v):m_value(v) {}
         void get_dependencies(buffer<model_value_dependency> & result) override;
-        app * mk_value(model_generator & m, ptr_vector<expr> & values) override { return to_app(values[0]); }
+        app * mk_value(model_generator & m, expr_ref_vector const & values) override { return to_app(values[0]); }
         bool is_fresh() const override { return true; }
     };
 
@@ -177,13 +178,13 @@ namespace smt {
        \brief Auxiliary class used during model generation.
     */
     class model_generator {
-        ast_manager &                 m_manager;
+        ast_manager &                 m;
         context *                     m_context;
         ptr_vector<extra_fresh_value> m_extra_fresh_values;
         unsigned                      m_fresh_idx;
         obj_map<enode, app *>         m_root2value;
         ast_ref_vector                m_asts;
-        proto_model *                 m_model;
+        ref<proto_model>              m_model;
         obj_hashtable<func_decl>      m_hidden_ufs;
 
         void init_model();
@@ -205,6 +206,13 @@ namespace smt {
 
         void top_sort_sources(ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, svector<source> & sorted_sources);
 
+        struct scoped_reset {
+            model_generator& mg;
+            ptr_vector<model_value_proc>& procs;
+            scoped_reset(model_generator& mg, ptr_vector<model_value_proc>& procs);
+            ~scoped_reset();            
+        };
+
     public:
         model_generator(ast_manager & m);
         ~model_generator();
@@ -218,8 +226,8 @@ namespace smt {
         expr * get_some_value(sort * s);
         proto_model & get_model() { SASSERT(m_model); return *m_model; }
         void register_value(expr * val);
-        ast_manager & get_manager() { return m_manager; }
-        proto_model * mk_model();
+        ast_manager & get_manager() { return m; }
+        proto_model* mk_model();
 
         obj_map<enode, app *> const & get_root2value() const { return m_root2value; }
         app * get_value(enode * n) const;
@@ -227,7 +235,7 @@ namespace smt {
         void hide(func_decl * f) { 
             if (!m_hidden_ufs.contains(f)) {
                 m_hidden_ufs.insert(f);
-                m_manager.inc_ref(f); 
+                m.inc_ref(f); 
             }
         }
     };

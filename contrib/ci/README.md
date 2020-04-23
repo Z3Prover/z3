@@ -37,9 +37,8 @@ the future.
 * `TARGET_ARCH` - Target architecture (`x86_64` or `i686`)
 * `TEST_INSTALL` - Test running `install` target (`0` or `1`)
 * `UBSAN_BUILD` - Do [UndefinedBehaviourSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) build (`0` or `1`)
-* `USE_LIBGMP` - Use [GNU multiple precision library](https://gmplib.org/) (`0` or `1`)
+* `Z3_USE_LIBGMP` - Use [GNU multiple precision library](https://gmplib.org/) (`0` or `1`)
 * `USE_LTO` - Link binaries using link time optimization (`0` or `1`)
-* `USE_OPENMP` - Use OpenMP (`0` or `1`)
 * `Z3_BUILD_TYPE` - CMake build type (`RelWithDebInfo`, `Release`, `Debug`, or `MinSizeRel`)
 * `Z3_CMAKE_GENERATOR` - CMake generator (`Ninja` or `Unix Makefiles`)
 * `Z3_VERBOSE_BUILD_OUTPUT` - Show compile commands in CMake builds (`0` or `1`)
@@ -133,8 +132,7 @@ To reproduce a build (e.g. like the one shown below)
 ```yaml
 - os: osx
   osx_image: xcode8.3
-  # Note: Apple Clang does not support OpenMP
-  env: Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0
+  env: Z3_BUILD_TYPE=RelWithDebInfo 
 ```
 
 Run the following:
@@ -142,7 +140,6 @@ Run the following:
 ```bash
 TRAVIS_BUILD_DIR=$(pwd) \
 Z3_BUILD_TYPE=RelWithDebInfo \
-USE_OPEN_MP=0 \
 contrib/ci/scripts/travis_ci_osx_entry_point.sh
 ```
 

@@ -69,7 +69,7 @@ class nla2bv_tactic : public tactic {
             m_arith(m), 
             m_bv(m), 
             m_bv2real(m, rational(p.get_uint("nla2bv_root",2)), rational(p.get_uint("nla2bv_divisor",2)), p.get_uint("nla2bv_max_bv_size", UINT_MAX)),
-            m_bv2int_ctx(m, p),
+            m_bv2int_ctx(m, p, p.get_uint("nla2bv_max_bv_size", UINT_MAX)),
             m_bounds(m), 
             m_subst(m), 
             m_vars(m), 
@@ -80,7 +80,8 @@ class nla2bv_tactic : public tactic {
         }
 
         ~imp() {}
-        
+
+        void updt_params(params_ref const& p)  {} 
         
         void operator()(goal & g, model_converter_ref & mc) {
             TRACE("nla2bv", g.display(tout);
@@ -129,14 +130,13 @@ class nla2bv_tactic : public tactic {
             m_bv2int_ctx.collect_power2(g);
             obj_map<expr, expr*> const& p2 = m_bv2int_ctx.power2();
             if (p2.empty()) return;
-            obj_map<expr, expr*>::iterator it = p2.begin(), end = p2.end();
-            for (; it != end; ++it) {
-                expr* v = it->m_value;
+            for (auto const& kv : p2) {
+                expr* v = kv.m_value;
                 unsigned num_bits = m_bv.get_bv_size(v);
                 expr* w = m_bv.mk_bv2int(m_bv.mk_bv_shl(m_bv.mk_numeral(1, num_bits), v));
                 m_trail.push_back(w);
-                m_subst.insert(it->m_key, w);
-                TRACE("nla2bv", tout << mk_ismt2_pp(it->m_key, m_manager) << " " << mk_ismt2_pp(w, m_manager) << "\n";);
+                m_subst.insert(kv.m_key, w);
+                TRACE("nla2bv", tout << mk_ismt2_pp(kv.m_key, m_manager) << " " << mk_ismt2_pp(w, m_manager) << "\n";);
             }
             // eliminate the variables that are power of two.
             substitute_vars(g);
@@ -184,7 +184,7 @@ class nla2bv_tactic : public tactic {
         
         // substitute variables by bit-vectors
         void substitute_vars(goal & g) {
-            scoped_ptr<expr_replacer> er = mk_default_expr_replacer(m_manager);
+            scoped_ptr<expr_replacer> er = mk_default_expr_replacer(m_manager, false);
             er->set_substitution(&m_subst);
             expr_ref r(m_manager);
             for (unsigned i = 0; i < g.size(); ++i) {
@@ -235,8 +235,7 @@ class nla2bv_tactic : public tactic {
                 set_satisfiability_preserving(false);
             }
             bv_sort = m_bv.mk_sort(num_bits);
-            std::string name = n->get_decl()->get_name().str();
-            s_bv = m_manager.mk_fresh_const(name.c_str(), bv_sort);
+            s_bv = m_manager.mk_fresh_const(n->get_decl()->get_name(), bv_sort);
             m_fmc->hide(s_bv);
             s_bv = m_bv.mk_bv2int(s_bv);
             if (low) {
@@ -272,9 +271,9 @@ class nla2bv_tactic : public tactic {
             bv_sort = m_bv.mk_sort(m_num_bits);
             set_satisfiability_preserving(false);
             std::string name = n->get_decl()->get_name().str();
-            s = m_manager.mk_fresh_const(name.c_str(), bv_sort);
+            s = m_manager.mk_fresh_const(name, bv_sort);
             name += "_r";
-            t = m_manager.mk_fresh_const(name.c_str(), bv_sort);
+            t = m_manager.mk_fresh_const(name, bv_sort);
             m_fmc->hide(s);
             m_fmc->hide(t);
             s_bv = m_bv2real.mk_bv2real(s, t);
@@ -440,7 +439,7 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
+		m_params.append(p);
     }
 
     void collect_param_descrs(param_descrs & r) override {
@@ -457,7 +456,6 @@ public:
     */
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         fail_if_proof_generation("nla2bv", g);
         fail_if_unsat_core_generation("nla2bv", g);
         result.reset();
@@ -468,7 +466,6 @@ public:
         proc(*(g.get()), mc);
         g->add(mc.get());
         result.push_back(g.get());
-        SASSERT(g->is_well_sorted());
     }
     
     void cleanup() override {

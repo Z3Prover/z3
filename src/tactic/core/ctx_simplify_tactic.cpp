@@ -18,7 +18,6 @@ Notes:
 --*/
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "ast/rewriter/mk_simplified_app.h"
-#include "util/cooperate.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 
@@ -202,11 +201,9 @@ struct ctx_simplify_tactic::imp {
     }
 
     void checkpoint() {
-        cooperate("ctx_simplify_tactic");
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
-        if (m.canceled())
-            throw tactic_exception(m.limit().get_cancel_msg());
+        tactic::checkpoint(m);
     }
 
     bool shared(expr * t) const {
@@ -525,6 +522,7 @@ struct ctx_simplify_tactic::imp {
     void process_goal(goal & g) {
         SASSERT(scope_level() == 0);
         // go forwards
+        expr_ref_vector pinned(m);
         unsigned old_lvl = scope_level();
         unsigned sz = g.size();
         expr_ref r(m);
@@ -534,6 +532,7 @@ struct ctx_simplify_tactic::imp {
             if (i < sz - 1 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
+            pinned.push_back(r);
             g.update(i, r, nullptr, g.dep(i));
         }
         pop(scope_level() - old_lvl);
@@ -571,18 +570,22 @@ struct ctx_simplify_tactic::imp {
     }
 
     void operator()(goal & g) {
-        SASSERT(g.is_well_sorted());
         m_occs.reset();
+        expr_ref_vector pinned(m);
         m_occs(g);
+        unsigned sz = g.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            pinned.push_back(g.form(i));
+        }
         m_num_steps = 0;
         tactic_report report("ctx-simplify", g);
         if (g.proofs_enabled()) {
             expr_ref r(m);
-            unsigned sz = g.size();
             for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
                 expr * t = g.form(i);
                 process(t, r);
-                proof* new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite(t, r));
+                proof_ref new_pr(m.mk_rewrite(t, r), m);
+                new_pr = m.mk_modus_ponens(g.pr(i), new_pr);
                 g.update(i, r, new_pr, g.dep(i));
             }
         }
@@ -590,7 +593,6 @@ struct ctx_simplify_tactic::imp {
             process_goal(g);
         }
         IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(ctx-simplify :num-steps " << m_num_steps << ")\n";);
-        SASSERT(g.is_well_sorted());
     }
 
 };

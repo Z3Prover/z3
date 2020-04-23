@@ -4,14 +4,16 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "smt/smt_context.h"
 #include "ast/dl_decl_plugin.h"
-#include "ast/ast_pp.h"
-#include "model/model_v2_pp.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "smt/smt_context.h"
+#include "model/model_v2_pp.h"
 
 void tst_theory_dl() {
     ast_manager m;
+    reg_decl_plugins(m);
     smt_params params;
     params.m_model = true;
     datalog::dl_decl_util u(m);

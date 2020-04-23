@@ -21,6 +21,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/bv_decl_plugin.h"
 
+
 bit_blaster_cfg::bit_blaster_cfg(bv_util & u, bit_blaster_params const & p, bool_rewriter& rw):
     m_util(u),
     m_params(p),

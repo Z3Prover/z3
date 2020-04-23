@@ -19,10 +19,6 @@ Revision History:
 #ifndef DL_CONTEXT_H_
 #define DL_CONTEXT_H_
 
-#ifdef _CYGWIN
-#undef min
-#undef max
-#endif
 #include "ast/arith_decl_plugin.h"
 #include "util/map.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -231,13 +227,13 @@ namespace datalog {
         bool saturation_was_run() const { return m_saturation_was_run; }
         void notify_saturation_was_run() { m_saturation_was_run = true; }
 
-        void configure_engine();
+        void configure_engine(expr* e);
 
         ast_manager & get_manager() const { return m; }
         rule_manager & get_rule_manager() { return m_rule_manager; }
         smt_params & get_fparams() const { return m_fparams; }
         fp_params const&  get_params() const { return *m_params; }
-        DL_ENGINE get_engine() { configure_engine(); return m_engine_type; }
+        DL_ENGINE get_engine(expr* e = nullptr) { configure_engine(e); return m_engine_type; }
         register_engine_base& get_register_engine() { return m_register_engine; }
         th_rewriter& get_rewriter() { return m_rewriter; }
         var_subst & get_var_subst() { return m_var_subst; }
@@ -501,7 +497,7 @@ namespace datalog {
         // -----------------------------------
 
         bool canceled() {
-            return m.canceled() && (m_last_status = CANCELED, true);
+            return !m.inc() && (m_last_status = CANCELED, true);
         }
 
         void cleanup();
@@ -531,6 +527,8 @@ namespace datalog {
            for PDR mode and Duality mode.
          */
         model_ref get_model();
+
+        bool is_monotone();
 
         /**
            \brief retrieve proof from derivation of the query.
@@ -581,7 +579,7 @@ namespace datalog {
         /**
            \brief Display a certificate for reachability and/or unreachability.
         */
-        void display_certificate(std::ostream& out);
+        std::ostream& display_certificate(std::ostream& out);
 
         /**
            \brief query result if it contains fact.
@@ -610,10 +608,9 @@ namespace datalog {
         */
         void reset_tables();
 
-
         void flush_add_rules();
 
-        void ensure_engine();
+        void ensure_engine(expr* e = nullptr);
 
         // auxiliary functions for SMT2 pretty-printer.
         void declare_vars(expr_ref_vector& rules, mk_fresh_name& mk_fresh, std::ostream& out);

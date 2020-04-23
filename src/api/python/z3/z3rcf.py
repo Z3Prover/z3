@@ -21,21 +21,21 @@ def _to_rcfnum(num, ctx=None):
         return RCFNum(num, ctx)
 
 def Pi(ctx=None):
-    ctx = z3._get_ctx(ctx)
+    ctx = z3.get_ctx(ctx)
     return RCFNum(Z3_rcf_mk_pi(ctx.ref()), ctx)
 
 def E(ctx=None):
-    ctx = z3._get_ctx(ctx)
+    ctx = z3.get_ctx(ctx)
     return RCFNum(Z3_rcf_mk_e(ctx.ref()), ctx)
 
 def MkInfinitesimal(name="eps", ctx=None):
     # Todo: remove parameter name.
     # For now, we keep it for backward compatibility.
-    ctx = z3._get_ctx(ctx)
+    ctx = z3.get_ctx(ctx)
     return RCFNum(Z3_rcf_mk_infinitesimal(ctx.ref()), ctx)
 
 def MkRoots(p, ctx=None):
-    ctx = z3._get_ctx(ctx)
+    ctx = z3.get_ctx(ctx)
     num = len(p)
     _tmp = [] 
     _as  = (RCFNumObj * num)()
@@ -55,9 +55,9 @@ class RCFNum:
         # TODO: add support for converting AST numeral values into RCFNum
         if isinstance(num, RCFNumObj):
             self.num = num
-            self.ctx = z3._get_ctx(ctx)
+            self.ctx = z3.get_ctx(ctx)
         else:
-            self.ctx = z3._get_ctx(ctx)
+            self.ctx = z3.get_ctx(ctx)
             self.num = Z3_rcf_mk_rational(self.ctx_ref(), str(num))
 
     def __del__(self):

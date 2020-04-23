@@ -223,6 +223,24 @@ extern "C" {
     */
     int Z3_API Z3_algebraic_eval(Z3_context c, Z3_ast p, unsigned n, Z3_ast a[]);
 
+    /**
+       \brief Return the coefficients of the defining polynomial.
+
+       \pre Z3_algebraic_is_value(c, a)
+
+       def_API('Z3_algebraic_get_poly', AST_VECTOR, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast_vector Z3_API Z3_algebraic_get_poly(Z3_context c, Z3_ast a);
+
+    /**
+       \brief Return which root of the polynomial the algebraic number represents.
+
+       \pre Z3_algebraic_is_value(c, a)
+
+       def_API('Z3_algebraic_get_i', UINT, (_in(CONTEXT), _in(AST)))
+    */
+    unsigned Z3_API Z3_algebraic_get_i(Z3_context c, Z3_ast a);
+
     /*@}*/
     /*@}*/
 

@@ -957,8 +957,8 @@ class smt2_printer {
         unsigned num_lets = 0;
         format * f_body = pp_let(m_format_stack.back(), num_lets);
         // The current SMT2 frontend uses weight 1 as default.
-#define MIN_WEIGHT 1
-        if (q->has_patterns() || q->get_weight() > MIN_WEIGHT ||
+#define DEFAULT_WEIGHT 1
+        if (q->has_patterns() || q->get_weight() != DEFAULT_WEIGHT ||
             q->get_skid() != symbol::null || (q->get_qid() != symbol::null && !q->get_qid().is_numerical())) {
             ptr_buffer<format> buf;
             buf.push_back(f_body);
@@ -976,7 +976,7 @@ class smt2_printer {
                     buf.push_back(pp_attribute(":no-pattern ", *it));
                 }
             }
-            if (q->get_weight() > MIN_WEIGHT) {
+            if (q->get_weight() != DEFAULT_WEIGHT) {
                 buf.push_back(pp_simple_attribute(":weight ", q->get_weight()));
             }
             if (q->get_skid() != symbol::null) {
@@ -1188,7 +1188,7 @@ public:
         format * args[2];
         args[0] = r1;
         args[1] = r2;
-        r = mk_seq1<format**, f2f>(m(), args, args+2, f2f(), "define-rec-funs");
+        r = mk_seq1<format**, f2f>(m(), args, args+2, f2f(), "define-funs-rec");
     }
 
 
@@ -1308,7 +1308,7 @@ std::ostream & ast_smt2_pp_recdefs(std::ostream & out, vector<std::pair<func_dec
     smt2_printer pr(env, p);
     pr(funs, r);
     pp(out, r.get(), m, p);
-    return out;
+    return out << "\n";
 }
 
 
@@ -1370,6 +1370,12 @@ std::ostream& operator<<(std::ostream& out, expr_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;
     return ast_smt2_pp(out, e.size(), e.c_ptr(), env, p, 0, 0, nullptr);
+}
+
+std::ostream& operator<<(std::ostream& out, var_ref_vector const&  e) {
+    smt2_pp_environment_dbg env(e.get_manager());
+    params_ref p;
+    return ast_smt2_pp(out, e.size(), (expr*const*)e.c_ptr(), env, p, 0, 0, nullptr);
 }
 
 std::ostream& operator<<(std::ostream& out, app_ref_vector const&  e) {

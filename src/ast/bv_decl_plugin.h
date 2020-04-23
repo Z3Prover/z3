@@ -126,6 +126,7 @@ inline func_decl * get_div0_decl(ast_manager & m, func_decl * decl) {
 }
 
 class bv_decl_plugin : public decl_plugin {
+    friend class bv_util;
 protected:
     symbol m_bv_sym;
     symbol m_concat_sym;
@@ -432,7 +433,53 @@ public:
     app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_UDFL, n, m); }
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
 
-    app * mk_bv(unsigned n, expr* const* es) { return m_manager.mk_app(get_fid(), OP_MKBV, n, es); }
+    private:
+    void log_bv_from_exprs(app * r, unsigned n, expr* const* es) {
+        if (m_manager.has_trace_stream()) {
+            for (unsigned i = 0; i < n; ++i) {
+                if (!m_manager.is_true(es[i]) && !m_manager.is_false(es[i]))
+                    return;
+            } 
+
+            if (m_plugin->log_constant_meaning_prelude(r)) {
+                if (n % 4 == 0) {
+                    m_manager.trace_stream() << " #x";
+
+                    m_manager.trace_stream() << std::hex;
+                    uint8_t hexDigit = 0;
+                    unsigned curLength = (4 - n % 4) % 4;
+                    for (unsigned i = 0; i < n; ++i) {
+                        hexDigit <<= 1;
+                        ++curLength;
+                        if (m_manager.is_true(es[i])) {
+                            hexDigit |= 1;
+                        }
+                        if (curLength == 4) {
+                            m_manager.trace_stream() << hexDigit;
+                            hexDigit = 0;
+                        }
+                    }
+                    m_manager.trace_stream() << std::dec;
+                } else {
+                    m_manager.trace_stream() << " #b";
+                    for (unsigned i = 0; i < n; ++i) {
+                        m_manager.trace_stream() << (m_manager.is_true(es[i]) ? 1 : 0);
+                    }
+                }
+
+                m_manager.trace_stream() << ")\n";
+            }
+        }
+    }
+
+public:
+    app * mk_bv(unsigned n, expr* const* es) {
+        app * r = m_manager.mk_app(get_fid(), OP_MKBV, n, es);
+
+        log_bv_from_exprs(r, n, es);
+
+        return r;
+    }
 
 };
 

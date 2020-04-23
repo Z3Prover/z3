@@ -44,7 +44,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_total
         ref_t cond(m_ba.mk_not(m_ba.mk_or(vs.size(), vs.c_ptr())), m);
         lbool is_sat = m_ba.is_sat(cond);
         if (is_sat == l_undef) {
-            return 0;
+            return nullptr;
         }
         if (is_sat == l_true) {
             new_mvs.push_back(move_t(m, i, dead_state, cond));
@@ -191,7 +191,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
                                 p1.insert(q);
                                 break;
                             case l_undef:
-                                return 0;
+                                return nullptr;
                             default:
                                 break;
                             }                            
@@ -200,7 +200,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
                             ref_t psi_min_phi(m_ba.mk_and(psi, m_ba.mk_not(phi)), m);
                             lbool is_sat = m_ba.is_sat(psi_min_phi);
                             if (is_sat == l_undef) {
-                                return 0;
+                                return nullptr;
                             }
                             if (is_sat == l_true) {
                                 psi = psi_min_phi;
@@ -211,7 +211,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
                             ref_t phi_min_psi(m_ba.mk_and(phi, m_ba.mk_not(psi)), m);
                             is_sat = m_ba.is_sat(phi_min_psi);
                             if (is_sat == l_undef) {
-                                return 0;
+                                return nullptr;
                             }
                             else if (is_sat == l_false) {
                                 p1.insert(q); // psi and phi are equivalent
@@ -379,9 +379,24 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
     pair2id.insert(init_pair, 0);
     moves_t mvs;
     unsigned_vector final;
-    if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
-        final.push_back(0);
+    unsigned_vector a_init, b_init;
+    a.get_epsilon_closure(a.init(), a_init);
+    bool a_init_is_final = false, b_init_is_final = false;
+    for (unsigned ia : a_init) {
+        if (a.is_final_state(ia)) {
+            a_init_is_final = true;
+            b.get_epsilon_closure(b.init(), b_init);
+            for (unsigned ib : b_init) {
+                if (b.is_final_state(ib)) {
+                    b_init_is_final = true;
+                    final.push_back(0);
+                    break;
+                }
+            }
+            break;
+        }
     }
+    
     unsigned n = 1;
     moves_t mvsA, mvsB;
     while (!todo.empty()) {
@@ -425,9 +440,9 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
         inv[mv.dst()].push_back(move_t(m, mv.dst(), mv.src(), mv.t())); 
     }
     
-    svector<bool> back_reachable(n, false);
-    for (unsigned i = 0; i < final.size(); ++i) {
-        back_reachable[final[i]] = true;
+    bool_vector back_reachable(n, false);
+    for (unsigned f : final) {
+        back_reachable[f] = true;
     }
     
     unsigned_vector stack(final);
@@ -452,7 +467,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
         }
     }
     if (mvs1.empty()) {
-        if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
+        if (a_init_is_final && b_init_is_final) {
             // special case: automaton has no moves, but the initial state is final on both sides
             // this results in the automaton which accepts the empty sequence and nothing else
             final.clear();

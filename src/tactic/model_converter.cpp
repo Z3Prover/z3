@@ -127,7 +127,13 @@ public:
     ~model2mc() override {}
 
     void operator()(model_ref & m) override {
-        m = m_model;
+        if (!m || !m_model) {
+            m = m_model;
+            return;
+        }
+        m->copy_const_interps(*m_model.get());
+        m->copy_func_interps(*m_model.get());
+        m->copy_usort_interps(*m_model.get());
     }
 
     void operator()(labels_vec & r) override {

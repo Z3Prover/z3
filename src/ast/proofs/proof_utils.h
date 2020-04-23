@@ -107,6 +107,7 @@ public:
     {
         ast_manager &m = args.get_manager();
         bool_rewriter brwr(m);
+        brwr.set_flat(false);
 
         if (m.is_or(decl))
         { mk_or_core(args, res); }

@@ -167,5 +167,47 @@ unsigned get_num_exprs(expr * n, expr_fast_mark1 & visited);
 
 bool has_skolem_functions(expr * n);
 
+// pre-order traversal of subterms
+class subterms {
+    expr_ref_vector m_es;
+public:
+    class iterator {
+        expr_ref_vector m_es;
+        expr_mark       m_visited;        
+    public:
+        iterator(subterms& f, bool start);
+        expr* operator*();
+        iterator operator++(int);
+        iterator& operator++();
+        bool operator==(iterator const& other) const;
+        bool operator!=(iterator const& other) const;
+    };
+    subterms(expr_ref_vector const& es);
+    subterms(expr_ref& e);
+    iterator begin();
+    iterator end();
+};
+
+class subterms_postorder {
+    expr_ref_vector m_es;
+public:
+    class iterator {
+        expr_ref_vector m_es;
+        expr_mark       m_visited, m_seen; 
+        void next();
+    public:
+        iterator(subterms_postorder& f, bool start);
+        expr* operator*();
+        iterator operator++(int);
+        iterator& operator++();
+        bool operator==(iterator const& other) const;
+        bool operator!=(iterator const& other) const;
+    };
+    subterms_postorder(expr_ref_vector const& es);
+    subterms_postorder(expr_ref& e);
+    iterator begin();
+    iterator end();
+};
+
 #endif /* FOR_EACH_EXPR_H_ */
 

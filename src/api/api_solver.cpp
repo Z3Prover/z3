@@ -21,6 +21,7 @@ Revision History:
 #include "util/cancel_eh.h"
 #include "util/file_path.h"
 #include "util/scoped_timer.h"
+#include "util/file_path.h"
 #include "ast/ast_pp.h"
 #include "api/z3.h"
 #include "api/api_log_macros.h"
@@ -30,15 +31,12 @@ Revision History:
 #include "api/api_model.h"
 #include "api/api_stats.h"
 #include "api/api_ast_vector.h"
-#include "solver/tactic2solver.h"
-#include "util/scoped_ctrl_c.h"
-#include "util/cancel_eh.h"
-#include "util/scoped_timer.h"
-#include "util/file_path.h"
-#include "tactic/portfolio/smt_strategic_solver.h"
+#include "model/model_params.hpp"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
 #include "solver/smt_logics.h"
+#include "solver/tactic2solver.h"
+#include "solver/solver_params.hpp"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "sat/dimacs.h"
@@ -47,6 +45,92 @@ Revision History:
 
 
 extern "C" {
+
+    void solver2smt2_pp::assert_expr(expr* e) {
+        m_pp_util.collect(e);
+        m_pp_util.display_decls(m_out);
+        m_pp_util.display_assert(m_out, e, true);
+    }
+
+    void solver2smt2_pp::assert_expr(expr* e, expr* t) {
+        m_pp_util.collect(e);
+        m_pp_util.collect(t);
+        m_pp_util.display_decls(m_out);
+        m_pp_util.display_assert_and_track(m_out, e, t, true);
+        m_tracked.push_back(t);
+    }
+
+    void solver2smt2_pp::push() {
+        m_out << "(push)\n";
+        m_pp_util.push();
+        m_tracked_lim.push_back(m_tracked.size());
+    }
+
+    void solver2smt2_pp::pop(unsigned n) {
+        m_out << "(pop " << n << ")\n";
+        m_pp_util.pop(n);
+        m_tracked.shrink(m_tracked_lim[m_tracked_lim.size() - n]);
+        m_tracked_lim.shrink(m_tracked_lim.size() - n);
+    }
+
+    void solver2smt2_pp::reset() {
+        m_out << "(reset)\n";
+        m_pp_util.reset();        
+    }
+
+    void solver2smt2_pp::check(unsigned n, expr* const* asms) {
+        m_out << "(check-sat";        
+        for (unsigned i = 0; i < n; ++i) {
+            m_pp_util.display_expr(m_out << "\n", asms[i]);            
+        }
+        for (expr* e : m_tracked) {
+            m_pp_util.display_expr(m_out << "\n", e);
+        }
+        m_out << ")\n";
+        m_out.flush();
+    }
+
+    void solver2smt2_pp::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& variables) {
+        m_out << "(get-consequences (";
+        for (expr* f : assumptions) {
+            m_out << "\n";
+            m_pp_util.display_expr(m_out, f);
+        }
+        m_out << ") (";
+        for (expr* f : variables) {
+            m_out << "\n";
+            m_pp_util.display_expr(m_out, f);
+        }
+        m_out << ")\n";
+        m_out.flush();
+    }
+
+    solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): 
+        m_pp_util(m), m_out(file), m_tracked(m) {
+        if (!m_out) {
+            throw default_exception("could not open " + std::string(file) + " for output");
+        }
+    }
+
+    void Z3_solver_ref::set_eh(event_handler* eh) {
+        std::lock_guard<std::mutex> lock(m_mux);
+        m_eh = eh;
+    }
+
+    void Z3_solver_ref::set_cancel() {
+        std::lock_guard<std::mutex> lock(m_mux);
+        if (m_eh) (*m_eh)(API_INTERRUPT_EH_CALLER);
+    }
+
+    void Z3_solver_ref::assert_expr(expr * e) {
+        if (m_pp) m_pp->assert_expr(e);
+        m_solver->assert_expr(e);
+    }
+
+    void Z3_solver_ref::assert_expr(expr * e, expr* t) {
+        if (m_pp) m_pp->assert_expr(e, t);
+        m_solver->assert_expr(e, t);
+    }
 
     static void init_solver_core(Z3_context c, Z3_solver _s) {
         Z3_solver_ref * s = to_solver(_s);
@@ -67,6 +151,14 @@ extern "C" {
             init_solver_core(c, s);
     }
 
+    static void init_solver_log(Z3_context c, Z3_solver s) {
+        solver_params sp(to_solver(s)->m_params);
+        symbol smt2log = sp.smtlib2_log();
+        if (smt2log.is_non_empty_string() && !to_solver(s)->m_pp) {
+            to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), smt2log.str().c_str());
+        }
+    }
+
     Z3_solver Z3_API Z3_mk_simple_solver(Z3_context c) {
         Z3_TRY;
         LOG_Z3_mk_simple_solver(c);
@@ -74,6 +166,7 @@ extern "C" {
         Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_solver_factory());
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
+        init_solver_log(c, r);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -85,6 +178,7 @@ extern "C" {
         Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory());
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
+        init_solver_log(c, r);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -103,6 +197,7 @@ extern "C" {
             Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory(to_symbol(logic)));
             mk_c(c)->save_object(s);
             Z3_solver r = of_solver(s);
+            init_solver_log(c, r);
             RETURN_Z3(r);
         }
         Z3_CATCH_RETURN(nullptr);
@@ -115,6 +210,7 @@ extern "C" {
         Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_tactic2solver_factory(to_tactic_ref(t)));
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
+        init_solver_log(c, r);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -129,6 +225,7 @@ extern "C" {
         sr->m_solver = to_solver(s)->m_solver->translate(mk_c(target)->m(), p);
         mk_c(target)->save_object(sr);
         Z3_solver r = of_solver(sr);
+        init_solver_log(target, r);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -157,8 +254,8 @@ extern "C" {
         bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
-        for (expr * e : ctx->assertions()) {
-            to_solver_ref(s)->assert_expr(e);
+        for (expr* e : ctx->tracked_assertions()) {
+            to_solver(s)->assert_expr(e);
         }
         to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
     }
@@ -181,7 +278,7 @@ extern "C" {
         goal g(m);            
         s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);
         for (unsigned i = 0; i < g.size(); ++i) {
-            to_solver_ref(s)->assert_expr(g.form(i));
+            to_solver(s)->assert_expr(g.form(i));
         }
     }
 
@@ -259,6 +356,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+
     void Z3_API Z3_solver_set_params(Z3_context c, Z3_solver s, Z3_params p) {
         Z3_TRY;
         LOG_Z3_solver_set_params(c, s, p);
@@ -268,7 +366,6 @@ extern "C" {
         if (logic != symbol::null) {
             to_solver(s)->m_logic = logic;
         }
-
         if (to_solver(s)->m_solver) {
             bool old_model = to_solver(s)->m_params.get_bool("model", true);
             bool new_model = to_param_ref(p).get_bool("model", true);
@@ -281,6 +378,9 @@ extern "C" {
             to_solver_ref(s)->updt_params(to_param_ref(p));
         }
         to_solver(s)->m_params.append(to_param_ref(p));
+
+        init_solver_log(c, s);
+        
         Z3_CATCH;
     }
     
@@ -306,7 +406,12 @@ extern "C" {
         RESET_ERROR_CODE();
         init_solver(c, s);
         to_solver_ref(s)->push();
+        if (to_solver(s)->m_pp) to_solver(s)->m_pp->push();
         Z3_CATCH;
+    }
+
+    void Z3_API Z3_solver_interrupt(Z3_context c, Z3_solver s) {
+        to_solver(s)->set_cancel();
     }
 
     void Z3_API Z3_solver_pop(Z3_context c, Z3_solver s, unsigned n) {
@@ -318,8 +423,10 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return;
         }
-        if (n > 0)
+        if (n > 0) {
             to_solver_ref(s)->pop(n);
+            if (to_solver(s)->m_pp) to_solver(s)->m_pp->pop(n);
+        }
         Z3_CATCH;
     }
 
@@ -328,6 +435,7 @@ extern "C" {
         LOG_Z3_solver_reset(c, s);
         RESET_ERROR_CODE();
         to_solver(s)->m_solver = nullptr;
+        if (to_solver(s)->m_pp) to_solver(s)->m_pp->reset();
         Z3_CATCH;
     }
     
@@ -346,7 +454,7 @@ extern "C" {
         RESET_ERROR_CODE();
         init_solver(c, s);
         CHECK_FORMULA(a,);
-        to_solver_ref(s)->assert_expr(to_expr(a));
+        to_solver(s)->assert_expr(to_expr(a));
         Z3_CATCH;
     }
 
@@ -357,7 +465,7 @@ extern "C" {
         init_solver(c, s);
         CHECK_FORMULA(a,);
         CHECK_FORMULA(p,);
-        to_solver_ref(s)->assert_expr(to_expr(a), to_expr(p));
+        to_solver(s)->assert_expr(to_expr(a), to_expr(p));
         Z3_CATCH;
     }
 
@@ -431,15 +539,6 @@ extern "C" {
         Z3_CATCH;
     }
 
-    void Z3_API Z3_solver_set_activity(Z3_context c, Z3_solver s, Z3_ast a, double activity) {
-        Z3_TRY;
-        LOG_Z3_solver_set_activity(c, s, a, activity);
-        RESET_ERROR_CODE();
-        init_solver(c, s);
-        to_solver_ref(s)->set_activity(to_expr(a), activity);
-        Z3_CATCH;
-    }
-
     Z3_ast_vector Z3_API Z3_solver_get_trail(Z3_context c, Z3_solver s) {
         Z3_TRY;
         LOG_Z3_solver_get_trail(c, s);
@@ -462,28 +561,40 @@ extern "C" {
                 return Z3_L_UNDEF;
             }
         }
-        expr * const * _assumptions = to_exprs(assumptions);
-        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        expr * const * _assumptions = to_exprs(num_assumptions, assumptions);
+        solver_params sp(to_solver(s)->m_params);
+        unsigned timeout     = mk_c(c)->get_timeout();
+        timeout              = to_solver(s)->m_params.get_uint("timeout", timeout);
+        timeout              = sp.timeout() != UINT_MAX ? sp.timeout() : timeout;
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        to_solver(s)->set_eh(&eh);
         api::context::set_interruptable si(*(mk_c(c)), eh);
-        lbool result;
+        lbool result = l_undef;
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
+                if (to_solver(s)->m_pp) to_solver(s)->m_pp->check(num_assumptions, _assumptions); 
                 result = to_solver_ref(s)->check_sat(num_assumptions, _assumptions);
             }
             catch (z3_exception & ex) {
                 to_solver_ref(s)->set_reason_unknown(eh);
-                if (!mk_c(c)->m().canceled()) {
+                to_solver(s)->set_eh(nullptr);
+                if (mk_c(c)->m().inc()) {
                     mk_c(c)->handle_exception(ex);
                 }
                 return Z3_L_UNDEF;
             }
+            catch (...) {
+                to_solver_ref(s)->set_reason_unknown(eh);
+                to_solver(s)->set_eh(nullptr);
+                return Z3_L_UNDEF;
+            }
         }
+        to_solver(s)->set_eh(nullptr);
         if (result == l_undef) {
             to_solver_ref(s)->set_reason_unknown(eh);
         }
@@ -520,7 +631,8 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
         if (_m) {
-            if (mk_c(c)->params().m_model_compress) _m->compress();
+            model_params mp(to_solver_ref(s)->get_params());
+            if (mp.compact()) _m->compress();
         }
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         m_ref->m_model = _m;
@@ -595,13 +707,13 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s) {
+    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s, bool include_names) {
         Z3_TRY;
         LOG_Z3_solver_to_string(c, s);
         RESET_ERROR_CODE();
         init_solver(c, s);
         std::ostringstream buffer;
-        to_solver_ref(s)->display_dimacs(buffer);
+        to_solver_ref(s)->display_dimacs(buffer, include_names);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }
@@ -618,7 +730,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
         init_solver(c, s);
-        lbool result = smt::implied_equalities(m, *to_solver_ref(s), num_terms, to_exprs(terms), class_ids);
+        lbool result = smt::implied_equalities(m, *to_solver_ref(s), num_terms, to_exprs(num_terms, terms), class_ids);
         return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
@@ -656,23 +768,29 @@ extern "C" {
         lbool result = l_undef;
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        to_solver(s)->set_eh(&eh);
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
+                if (to_solver(s)->m_pp) to_solver(s)->m_pp->get_consequences(_assumptions, _variables); 
                 result = to_solver_ref(s)->get_consequences(_assumptions, _variables, _consequences);
             }
             catch (z3_exception & ex) {
+                to_solver(s)->set_eh(nullptr);
                 to_solver_ref(s)->set_reason_unknown(eh);
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;
             }
+            catch (...) {
+            }
         }
+        to_solver(s)->set_eh(nullptr);
         if (result == l_undef) {
             to_solver_ref(s)->set_reason_unknown(eh);
         }
@@ -698,8 +816,9 @@ extern "C" {
         }
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        to_solver(s)->set_eh(&eh);
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
@@ -709,10 +828,14 @@ extern "C" {
                 result.append(to_solver_ref(s)->cube(vars, cutoff));
             }
             catch (z3_exception & ex) {
+                to_solver(s)->set_eh(nullptr);
                 mk_c(c)->handle_exception(ex);
                 return nullptr;
             }
+            catch (...) {
+            }
         }
+        to_solver(s)->set_eh(nullptr);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         for (expr* e : result) {

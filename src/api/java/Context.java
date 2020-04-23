@@ -33,7 +33,7 @@ import java.util.Map;
  * to them. 
  **/
 public class Context implements AutoCloseable {
-    private final long m_ctx;
+    private long m_ctx;
     static final Object creation_lock = new Object();
 
     public Context () {
@@ -3965,6 +3965,8 @@ public class Context implements AutoCloseable {
 
     long nCtx()
     {
+        if (m_ctx == 0) 
+            throw new Z3Exception("Context closed");
         return m_ctx;
     }
 
@@ -4133,5 +4135,6 @@ public class Context implements AutoCloseable {
         synchronized (creation_lock) {
             Native.delContext(m_ctx);
         }
+        m_ctx = 0;
     }
 }

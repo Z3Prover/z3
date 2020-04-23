@@ -17,12 +17,13 @@ Notes:
 
 --*/
 #include "tactic/arith/bv2int_rewriter.h"
+#include "tactic/tactic_exception.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 
 void bv2int_rewriter_ctx::update_params(params_ref const& p) {
-    m_max_size = p.get_uint("max_bv_size", UINT_MAX);
+    m_max_size = p.get_uint("max_bv_size", m_max_size);
 }
 
 struct lt_rational {
@@ -233,7 +234,7 @@ br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
     if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
         align_sizes(s1, t1, false);
         result = m_bv.mk_bv2int(m_bv.mk_bv_urem(s1, t1));
-        TRACE("bv2int_rewriter", tout << mk_pp(result,m()) << "\n";);
+        TRACE("bv2int_rewriter", tout << result << "\n";);
         return BR_DONE;
     }
 
@@ -242,13 +243,13 @@ br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
     //
     if (is_bv2int_diff(s, s1, s2) && is_bv2int(t, t1)) {
         expr_ref u1(m());
-        align_sizes(s1, t1, false);
-        u1 = m_bv.mk_bv_urem(s1, t1);
+        align_sizes(s2, t1, false);
+        u1 = m_bv.mk_bv_urem(s2, t1);
         u1 = m_bv.mk_bv_sub(t1, u1);
         u1 = mk_bv_add(s1, u1, false);
         align_sizes(u1, t1, false);
         result = m_bv.mk_bv2int(m_bv.mk_bv_urem(u1, t1));
-        TRACE("bv2int_rewriter", tout << mk_pp(result,m()) << "\n";);
+        TRACE("bv2int_rewriter", tout << result << "\n";);
         return BR_DONE;
     }
     
@@ -617,6 +618,9 @@ expr* bv2int_rewriter::mk_extend(unsigned sz, expr* b, bool is_signed) {
     if (sz == 0) {
         return b;
     }
+	if (sz > m_ctx.get_max_num_bits()) {
+		throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
+	}
     rational r;
     unsigned bv_sz;
     if (is_signed) {

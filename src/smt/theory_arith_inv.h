@@ -191,6 +191,8 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::satisfy_bounds() const {
+        if (get_manager().limit().get_cancel_flag())
+            return true;
         int num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             CTRACE("bound_bug", below_lower(v) || above_upper(v), display_var(tout, v); display(tout););
@@ -215,6 +217,8 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::valid_assignment() const {
+        if (get_manager().limit().get_cancel_flag())
+            return true;
         if (valid_row_assignment() &&
             satisfy_bounds() &&
             satisfy_integrality()) {

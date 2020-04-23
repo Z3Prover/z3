@@ -428,7 +428,7 @@ void mpq_manager<SYNCH>::rat_sub(mpq const & a, mpq const & b, mpq & c) {
 }
 
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 template class mpq_manager<true>;
 #endif
 template class mpq_manager<false>;

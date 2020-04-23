@@ -52,27 +52,49 @@ expr_pattern_match::match_quantifier(quantifier* qf, app_ref_vector& patterns, u
     }
     m_regs[0] = qf->get_expr();
     for (unsigned i = 0; i < m_precompiled.size(); ++i) {
-        quantifier* qf2 = m_precompiled[i].get();
-        if (qf2->get_kind() != qf->get_kind() || is_lambda(qf)) {
-            continue;
+        if (match_quantifier(i, qf, patterns, weight)) 
+            return true;
+    }    
+    return false;
+}
+
+bool
+expr_pattern_match::match_quantifier(unsigned i, quantifier* qf, app_ref_vector& patterns, unsigned& weight) {
+    quantifier* qf2 = m_precompiled[i].get();
+    if (qf2->get_kind() != qf->get_kind() || is_lambda(qf)) {
+        return false;
+    }
+    if (qf2->get_num_decls() != qf->get_num_decls()) {
+        return false;
+    }
+    subst s;
+    if (match(qf->get_expr(), m_first_instrs[i], s)) {
+        for (unsigned j = 0; j < qf2->get_num_patterns(); ++j) {
+            app* p = static_cast<app*>(qf2->get_pattern(j));
+            expr_ref p_result(m_manager);
+            instantiate(p, qf->get_num_decls(), s, p_result);
+            patterns.push_back(to_app(p_result.get()));
         }
-        if (qf2->get_num_decls() != qf->get_num_decls()) {
-            continue;
-        }
-        subst s;
-        if (match(qf->get_expr(), m_first_instrs[i], s)) {
-            for (unsigned j = 0; j < qf2->get_num_patterns(); ++j) {
-                app* p = static_cast<app*>(qf2->get_pattern(j));
-                expr_ref p_result(m_manager);
-                instantiate(p, qf->get_num_decls(), s, p_result);
-                patterns.push_back(to_app(p_result.get()));
-            }
-            weight = qf2->get_weight();
-            return true;            
-        }
+        weight = qf2->get_weight();
+        return true;            
     }
     return false;
 }
+
+bool expr_pattern_match::match_quantifier_index(quantifier* qf, app_ref_vector& patterns, unsigned& index) {
+    if (m_regs.empty()) return false;
+    m_regs[0] = qf->get_expr();
+
+    for (unsigned i = 0; i < m_precompiled.size(); ++i) {
+        unsigned weight = 0;
+        if (match_quantifier(i, qf, patterns, weight)) {
+            index = i;
+            return true;
+        }
+    }    
+    return false;
+}
+
 
 void
 expr_pattern_match::instantiate(expr* a, unsigned num_bound, subst& s, expr_ref& result) {
@@ -80,7 +102,7 @@ expr_pattern_match::instantiate(expr* a, unsigned num_bound, subst& s, expr_ref&
     for (unsigned i = 0; i < num_bound; ++i) {
         b.insert(m_bound_dom[i], m_bound_rng[i]);
     }
-    
+    TRACE("expr_pattern_match", tout << mk_pp(a, m_manager) << " " << num_bound << "\n";);
     inst_proc proc(m_manager, s, b, m_regs);
     for_each_ast(proc, a);
     expr* v = nullptr;
@@ -251,11 +273,7 @@ expr_pattern_match::match(expr* a, unsigned init, subst& s)
             break;
         }
         case CHECK_BOUND:
-            TRACE("expr_pattern_match", 
-                  tout 
-                  << "check bound " 
-                  << pc.m_num_bound << " " << pc.m_reg;
-                  );
+            TRACE("expr_pattern_match", tout << "check bound " << pc.m_num_bound << " " << pc.m_reg << "\n";);
             ok = m_bound_rng[pc.m_num_bound] == m_regs[pc.m_reg];
             break;            
         case BIND:
@@ -396,11 +414,18 @@ expr_pattern_match::initialize(char const * spec_string) {
     for (expr * e : ctx.assertions()) {
         compile(e);
     }
-    TRACE("expr_pattern_match", display(tout); );
 }
 
-void 
-expr_pattern_match::display(std::ostream& out) const {
+unsigned expr_pattern_match::initialize(quantifier* q) {
+    if (m_instrs.empty()) {
+        m_instrs.push_back(instr(BACKTRACK));
+    }    
+    compile(q);
+    return m_precompiled.size() - 1;
+}
+
+
+void expr_pattern_match::display(std::ostream& out) const {
     for (unsigned i = 0; i < m_instrs.size(); ++i) {
         display(out, m_instrs[i]);
     }
@@ -414,7 +439,6 @@ expr_pattern_match::display(std::ostream& out, instr const& pc) const {
         break;
     case BIND:
         out << "bind       ";
-        out << mk_pp(to_app(pc.m_pat)->get_decl(), m_manager) << " ";
         out << mk_pp(pc.m_pat, m_manager) << "\n";
         out << "next:      " << pc.m_next << "\n";
         out << "offset:    " << pc.m_offset << "\n";
@@ -422,7 +446,6 @@ expr_pattern_match::display(std::ostream& out, instr const& pc) const {
         break;
     case BIND_AC:
         out << "bind_ac    ";
-        out << mk_pp(to_app(pc.m_pat)->get_decl(), m_manager) << " ";
         out << mk_pp(pc.m_pat, m_manager) << "\n";
         out << "next:      " << pc.m_next << "\n";
         out << "offset:    " << pc.m_offset << "\n";
@@ -430,7 +453,6 @@ expr_pattern_match::display(std::ostream& out, instr const& pc) const {
         break;
     case BIND_C:
         out << "bind_c     ";
-        out << mk_pp(to_app(pc.m_pat)->get_decl(), m_manager) << " ";
         out << mk_pp(pc.m_pat, m_manager) << "\n";
         out << "next:      " << pc.m_next << "\n";
         out << "offset:    " << pc.m_offset << "\n";

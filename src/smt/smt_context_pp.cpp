@@ -31,8 +31,6 @@ namespace smt {
             return out << "OK";
         case UNKNOWN:
             return out << "UNKNOWN";
-        case TIMEOUT:
-            return out << "TIMEOUT";
         case MEMOUT:
             return out << "MEMOUT";
         case CANCELED:
@@ -64,7 +62,6 @@ namespace smt {
         std::string r;
         switch(m_last_search_failure) {
         case OK: r = m_unknown; break;
-        case TIMEOUT: r = "timeout"; break;
         case MEMOUT: r = "memout"; break;
         case CANCELED: r = "canceled"; break;
         case NUM_CONFLICTS: r = "max-conflicts-reached"; break;
@@ -101,15 +98,27 @@ namespace smt {
     }
 
     std::ostream& context::display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_verbose(out, m_manager, num_lits, lits, m_bool_var2expr.c_ptr(), "\n"); return out;
+        display_verbose(out, m, num_lits, lits, m_bool_var2expr.c_ptr(), "\n"); return out;
+    }
+
+    std::ostream& context::display_literal_smt2(std::ostream& out, literal l) const {
+        if (l.sign())
+            out << "(not " << mk_pp(bool_var2expr(l.var()), m) << ") ";
+        else
+            out << mk_pp(bool_var2expr(l.var()), m) << " ";
+        return out;
+    }
+
+    std::ostream& context::display_literals_smt2(std::ostream& out, unsigned num_lits, literal const* lits) const {
+        for (unsigned i = 0; i < num_lits; ++i) {
+            display_literal_smt2(out, lits[i]) << "\n";
+        }
+        return out;
     }
 
     void context::display_literal_info(std::ostream & out, literal l) const {
         l.display_compact(out, m_bool_var2expr.c_ptr());
-        if (l.sign())
-            out << "  (not " << mk_bounded_pp(bool_var2expr(l.var()), m_manager, 10) << ") ";
-        else
-            out << "  " << mk_bounded_pp(bool_var2expr(l.var()), m_manager, 10) << " ";
+        display_literal_smt2(out, l);
         out << "relevant: " << is_relevant(bool_var2expr(l.var())) << ", val: " << get_assignment(l) << "\n";
     }
 
@@ -135,7 +144,7 @@ namespace smt {
     void context::display_enode_defs(std::ostream & out) const {
         for (enode * x : m_enodes) {
             expr * n = x->get_owner();
-            ast_def_ll_pp(out, m_manager, n, get_pp_visited(), true, false);
+            ast_def_ll_pp(out, m, n, get_pp_visited(), true, false);
         }
     }
 
@@ -143,34 +152,39 @@ namespace smt {
         unsigned num = get_num_bool_vars();
         for (unsigned v = 0; v < num; v++) {
             expr * n = m_bool_var2expr[v];
-            ast_def_ll_pp(out, m_manager, n, get_pp_visited(), true, false);
+            ast_def_ll_pp(out, m, n, get_pp_visited(), true, false);
         }
     }
 
-    void context::display_clause_detail(std::ostream & out, clause const * cls) const {
+    std::ostream& context::display_clause_detail(std::ostream & out, clause const * cls) const {
         out << "lemma: " << cls->is_lemma() << "\n";
-        unsigned num_lits = cls->get_num_literals();
-        for (unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             display_literal(out, l);
             out << ", val: " << get_assignment(l) << ", lvl: " << get_assign_level(l)
                 << ", ilvl: " << get_intern_level(l.var()) << ", var: " << l.var() << "\n"
-                << mk_pp(bool_var2expr(l.var()), m_manager) << "\n\n";
+                << mk_bounded_pp(bool_var2expr(l.var()), m, 2) << "\n\n";
         }
+        return out;
     }
 
-    void context::display_clause(std::ostream & out, clause const * cls) const {
-        cls->display_smt2(out, m_manager, m_bool_var2expr.c_ptr());
+    std::ostream& context::display_clause(std::ostream & out, clause const * cls) const {
+        cls->display_compact(out, m, m_bool_var2expr.c_ptr());
+        return out;
     }
 
-    void context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
+    std::ostream& context::display_clause_smt2(std::ostream & out, clause const& cls) const {
+        return display_literals_smt2(out, cls.get_num_literals(), cls.begin());
+    }
+
+    std::ostream& context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
         for (clause* cp : v) {
-            display_clause(out, cp);
+            display_clause_smt2(out, *cp);
             out << "\n";
         }
+        return out;
     }
 
-    void context::display_binary_clauses(std::ostream & out) const {
+    std::ostream& context::display_binary_clauses(std::ostream & out) const {
         bool first = true;
         unsigned l_idx = 0;
         for (watch_list const& wl : m_watches) {
@@ -185,11 +199,11 @@ namespace smt {
                         out << "binary clauses:\n";
                         first = false;
                     }
-                    expr_ref t1(m_manager), t2(m_manager);
+                    expr_ref t1(m), t2(m);
                     literal2expr(neg_l1, t1);
                     literal2expr(l2, t2);
-                    expr_ref disj(m_manager.mk_or(t1, t2), m_manager);
-                    out << disj << "\n";
+                    expr_ref disj(m.mk_or(t1, t2), m);
+                    out << mk_bounded_pp(disj, m, 3) << "\n";
 #if 0
                     out << "(clause ";
                     display_literal(out, neg_l1);
@@ -200,6 +214,7 @@ namespace smt {
                 }
             }
         }
+        return out;
     }
 
     void context::display_assignment(std::ostream & out) const {
@@ -209,23 +224,23 @@ namespace smt {
                 display_literal(out, lit);
                 if (!is_relevant(lit)) out << " n ";
                 out << ": ";
-                display_verbose(out, m_manager, 1, &lit, m_bool_var2expr.c_ptr());
+                display_verbose(out, m, 1, &lit, m_bool_var2expr.c_ptr());
                 out << "\n";
             }
         }
     }
 
     void context::display_assignment_as_smtlib2(std::ostream& out, symbol const&  logic) const {
-        ast_smt_pp pp(m_manager);
+        ast_smt_pp pp(m);
         pp.set_benchmark_name("lemma");
         pp.set_status("unknown");
         pp.set_logic(logic);
         for (literal lit : m_assigned_literals) {
-            expr_ref n(m_manager);
+            expr_ref n(m);
             literal2expr(lit, n);
             pp.add_assumption(n);
         }
-        pp.display_smt2(out, m_manager.mk_true());
+        pp.display_smt2(out, m.mk_true());
     }
 
     void context::display_eqc(std::ostream & out) const {
@@ -239,7 +254,7 @@ namespace smt {
                     first = false;
                 }
                 out << "#" << n->get_id() << " -> #" << r->get_id() << ": ";
-                out << mk_pp(n, m_manager) << " -> " << mk_pp(r, m_manager) << "\n";
+                out << mk_pp(n, m) << " -> " << mk_pp(r, m) << "\n";
             }
         }
     }
@@ -357,11 +372,12 @@ namespace smt {
 
     void context::display_unsat_core(std::ostream & out) const {
         for (expr* c : m_unsat_core) {
-            out << mk_pp(c, m_manager) << "\n";
+            out << mk_pp(c, m) << "\n";
         }
     }
 
     void context::collect_statistics(::statistics & st) const {
+        st.copy(m_aux_stats);
         st.update("conflicts", m_stats.m_num_conflicts);
         st.update("decisions", m_stats.m_num_decisions);
         st.update("propagations", m_stats.m_num_propagations + m_stats.m_num_bin_propagations);
@@ -410,10 +426,10 @@ namespace smt {
     }
 
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
-        ast_pp_util visitor(m_manager);
-        expr_ref_vector fmls(m_manager);
+        ast_pp_util visitor(m);
+        expr_ref_vector fmls(m);
         visitor.collect(fmls);
-        expr_ref n(m_manager);
+        expr_ref n(m);
         for (unsigned i = 0; i < num_antecedents; i++) {
             literal l = antecedents[i];
             literal2expr(l, n);
@@ -436,6 +452,7 @@ namespace smt {
         std::ofstream out(strm.str());
         TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
+        TRACE("non_linear", display_lemma_as_smt_problem(tout, num_antecedents, antecedents, consequent, logic););
         out.close();
         return m_lemma_id;
     }
@@ -443,10 +460,10 @@ namespace smt {
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, symbol const& logic) const {
-        ast_pp_util visitor(m_manager);
-        expr_ref_vector fmls(m_manager);
+        ast_pp_util visitor(m);
+        expr_ref_vector fmls(m);
         visitor.collect(fmls);
-        expr_ref n(m_manager);
+        expr_ref n(m);
         for (unsigned i = 0; i < num_antecedents; i++) {
             literal l = antecedents[i];
             literal2expr(l, n);
@@ -454,7 +471,7 @@ namespace smt {
         }
         for (unsigned i = 0; i < num_eq_antecedents; i++) {
             enode_pair const & p = eq_antecedents[i];
-            n = m_manager.mk_eq(p.first->get_owner(), p.second->get_owner());
+            n = m.mk_eq(p.first->get_owner(), p.second->get_owner());
             fmls.push_back(n);
         }
         if (consequent != false_literal) {
@@ -475,7 +492,9 @@ namespace smt {
         std::stringstream strm;
         strm << "lemma_" << (++m_lemma_id) << ".smt2";
         std::ofstream out(strm.str());
-        TRACE("lemma", tout << strm.str() << "\n";);
+        TRACE("lemma", tout << strm.str() << "\n";
+              display_lemma_as_smt_problem(tout, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
+              );
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
         return m_lemma_id;
@@ -548,7 +567,7 @@ namespace smt {
             out.width(6);
             out << std::left << n->get_id();
             out << ", relevant: " << is_relevant(n);
-            if (m_manager.is_bool(n)) {
+            if (m.is_bool(n)) {
                 out << ", val: ";
                 out.width(7);
                 out << std::right;
@@ -582,12 +601,14 @@ namespace smt {
             clause * cls = j.get_clause();
             out << "clause ";
             if (cls) out << literal_vector(cls->get_num_literals(), cls->begin());
+            if (cls) display_literals_smt2(out << "\n", cls->get_num_literals(), cls->begin());
             break;
         }
         case b_justification::JUSTIFICATION: {
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            out << "justification " << j.get_justification()->get_from_theory() << ": " << lits;
+            out << "justification " << j.get_justification()->get_from_theory() << ": ";
+            display_literals_smt2(out, lits);
             break;
         }
         default:
@@ -598,8 +619,8 @@ namespace smt {
     }
 
     void context::trace_assign(literal l, b_justification j, bool decision) const {
-        SASSERT(m_manager.has_trace_stream());
-        std::ostream & out = m_manager.trace_stream();
+        SASSERT(m.has_trace_stream());
+        std::ostream & out = m.trace_stream();
         out << "[assign] ";
         display_literal(out, l);
         if (decision)

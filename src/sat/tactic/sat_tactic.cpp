@@ -36,7 +36,6 @@ class sat_tactic : public tactic {
             m(_m),
             m_solver(alloc(sat::solver, p, m.limit())),
             m_params(p) {
-            SASSERT(!m.proofs_enabled());
             updt_params(p);
         }
         
@@ -163,7 +162,6 @@ public:
         m_imp(nullptr),
         m_params(p) {
         sat_params p1(p);
-        m_params.set_bool("xor_solver", p1.xor_solver());
     }
 
     tactic * translate(ast_manager & m) override {
@@ -176,8 +174,6 @@ public:
 
     void updt_params(params_ref const & p) override {
         m_params = p;
-        sat_params p1(p);
-        m_params.set_bool("xor_solver", p1.xor_solver());
         if (m_imp) m_imp->updt_params(p);
     }
 

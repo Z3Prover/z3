@@ -16,7 +16,6 @@ Author:
 Notes:
 
 --*/
-#include "util/cooperate.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/scoped_proof.h"
@@ -60,7 +59,6 @@ class blast_term_ite_tactic : public tactic {
         
 
         bool max_steps_exceeded(unsigned num_steps) const { 
-            cooperate("blast term ite");
             // if (memory::get_allocation_size() > m_max_memory) 
             //    throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
             return num_steps >= m_max_steps;
@@ -130,7 +128,6 @@ class blast_term_ite_tactic : public tactic {
         }
         
         void operator()(goal_ref const & g, goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("blast-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -155,8 +152,6 @@ class blast_term_ite_tactic : public tactic {
             report_tactic_progress(":blast-term-ite-consts", m_rw.m_cfg.m_num_fresh + num_fresh);
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("blast_term_ite", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

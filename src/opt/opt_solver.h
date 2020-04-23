@@ -74,11 +74,12 @@ namespace opt {
         progress_callback * m_callback;
         symbol              m_logic;
         model_ref           m_model;
+        bool                m_was_sat;
         svector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
         sref_vector<model>  m_models;
         expr_ref_vector     m_objective_terms;
-        svector<bool>       m_valid_objectives;
+        bool_vector       m_valid_objectives;
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
         statistics          m_stats;
@@ -110,7 +111,6 @@ namespace opt {
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override;
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override; 
         expr_ref_vector get_trail() override { return m_context.get_trail(); }
-        void set_activity(expr* lit, double act) override { m_context.set_activity(lit, act); }
         expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
 
         void set_logic(symbol const& logic);

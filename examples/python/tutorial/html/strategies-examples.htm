@@ -1,0 +1,350 @@
+<html>
+<head>
+<title>Z3Py Strategies</title>
+<link rel="StyleSheet" href="style.css" type="text/css">
+</head>
+<body>
+
+<h1>Strategies</h1>
+
+<p>
+High-performance solvers, such as Z3, contain many tightly integrated, handcrafted heuristic 
+combinations of algorithmic proof methods. While these heuristic
+combinations tend to be highly tuned for known classes of problems, 
+they may easily perform very badly on new classes of problems.
+This issue is becoming increasingly pressing
+as solvers begin to gain the attention of practitioners in diverse areas of science and engineering. 
+In many cases, changes to the solver heuristics can make a
+tremendous difference.
+</p>
+
+<p>
+In this tutorial we show how to create custom strategies using the basic building blocks
+available in Z3. Z3Py and Z3 4.0 implement the ideas proposed in this <a target="_blank" href="http://research.microsoft.com/en-us/um/people/leonardo/strategy.pdf">article</a>.
+</p>
+
+<p>
+Please send feedback, comments and/or corrections to <a href="mailto:leonardo@microsoft.com">leonardo@microsoft.com</a>.
+Your comments are very valuable.
+</p>
+
+<h2>Introduction</h2>
+
+<p>
+Z3 implements  a methodology for orchestrating reasoning
+engines where "big" symbolic reasoning steps are represented as
+functions known as <b>tactics</b>, and tactics are composed using
+combinators known as <b>tacticals</b>. Tactics process sets of 
+formulas called <b>Goals</b>.
+</p>
+
+<p>
+When a tactic is applied to some goal <tt>G</tt>, four different outcomes 
+are possible. The tactic succeeds in showing <tt>G</tt> to be satisfiable (i.e., feasible);
+succeeds in showing <tt>G</tt> to be unsatisfiable (i.e., infeasible); produces a sequence of subgoals; or fails.
+When reducing a goal <tt>G</tt> to a sequence of subgoals <tt>G1</tt>, ...,
+<tt>Gn</tt>, we face the problem of model conversion.
+A <b>model converter</b> construct a model for <tt>G</tt>
+using a model for some subgoal <tt>Gi</tt>. 
+</p>
+
+<p>In the following example, we create a goal <tt>g</tt> consisting of three formulas, and a tactic <tt>t</tt>
+composed of two built-in tactics: <tt>simplify</tt> and <tt>solve-eqs</tt>. The tactic <tt>simplify</tt>
+apply transformations equivalent to the ones found in the command <tt>simplify</tt>. The tactic <tt>solver-eqs</tt>
+eliminate variables using Gaussian elimination. Actually, <tt>solve-eqs</tt> is not restricted only to linear arithmetic.
+It can also eliminate arbitrary variables. Then, combinator <tt>Then</tt> applies <tt>simplify</tt> to the input goal
+and <tt>solve-eqs</tt> to each subgoal produced by <tt>simplify</tt>. In this example, only one subgoal is produced.
+</p>
+
+<example pref="tactic.1"><html><body>
+<div class="highlight"><pre><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">Reals</span><span class="p">(</span><span class="s">'x y'</span><span class="p">)</span>
+<span class="n">g</span>  <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">y</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span> <span class="o">==</span> <span class="n">y</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">g</span>
+
+<span class="n">t1</span> <span class="o">=</span> <span class="n">Tactic</span><span class="p">(</span><span class="s">'simplify'</span><span class="p">)</span>
+<span class="n">t2</span> <span class="o">=</span> <span class="n">Tactic</span><span class="p">(</span><span class="s">'solve-eqs'</span><span class="p">)</span>
+<span class="n">t</span>  <span class="o">=</span> <span class="n">Then</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">t</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+</pre></div>
+</body></html></example>
+
+<p>In the example above, variable <tt>x</tt> is eliminated, and is not present the resultant goal.
+</p>
+
+<p>In Z3, we say a <b>clause</b> is any constraint of the form <tt>Or(f_1, ..., f_n)</tt>.
+The tactic <tt>split-clause</tt> will select a clause <tt>Or(f_1, ..., f_n)</tt> in the input goal, and split it 
+<tt>n</tt> subgoals. One for each subformula <tt>f_i</tt>.
+</p>
+
+<example pref="tactic.2"><html><body>
+<div class="highlight"><pre><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">Reals</span><span class="p">(</span><span class="s">'x y'</span><span class="p">)</span>
+<span class="n">g</span>  <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Or</span><span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="n">x</span> <span class="o">==</span> <span class="n">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">y</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="n">t</span> <span class="o">=</span> <span class="n">Tactic</span><span class="p">(</span><span class="s">'split-clause'</span><span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">t</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">r</span><span class="p">:</span> 
+    <span class="k">print</span> <span class="n">g</span>
+</pre></div>
+</body></html></example>
+
+<h2>Tactics</h2>
+
+<p>Z3 comes equipped with many built-in tactics.
+The command <tt>describe_tactics()</tt> provides a short description of all built-in tactics.
+</p>
+
+<example pref="tactic.3"><html><body>
+<div class="highlight"><pre><span class="n">describe_tactics</span><span class="p">()</span>
+</pre></div>
+</body></html></example>
+
+<p>Z3Py comes equipped with the following tactic combinators (aka tacticals):
+</p>
+
+<ul>
+<li> <tt>Then(t, s)</tt>
+applies <tt>t</tt> to the input goal and <tt>s</tt>
+  to every subgoal produced by <tt>t</tt>.
+</li>
+<li> <tt>OrElse(t, s)</tt>
+first applies <tt>t</tt> to the given goal,
+if it fails then returns the result of <tt>s</tt> applied to the given goal.
+</li>
+<li> <tt>Repeat(t)</tt> Keep applying the given tactic until no subgoal is modified by it.
+</li>
+<li> <tt>Repeat(t, n)</tt> Keep applying the given tactic until no subgoal is modified by it, or
+the number of iterations is greater than <tt>n</tt>.
+</li>
+<li> <tt>TryFor(t, ms)</tt> Apply tactic <tt>t</tt> to the input goal, if it does not return in
+<tt>ms</tt> milliseconds, it fails.
+</li>
+<li> <tt>With(t, params)</tt> Apply the given tactic using the given parameters.
+</li>
+</ul>
+
+<p>The following example demonstrate how to use these combinators.</p>
+
+<example pref="tactic.4"><html><body>
+<div class="highlight"><pre><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">Reals</span><span class="p">(</span><span class="s">'x y z'</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Or</span><span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span> 
+      <span class="n">Or</span><span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span> 
+      <span class="n">Or</span><span class="p">(</span><span class="n">z</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">z</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span>
+      <span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">+</span> <span class="n">z</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="c"># Split all clauses"</span>
+<span class="n">split_all</span> <span class="o">=</span> <span class="n">Repeat</span><span class="p">(</span><span class="n">OrElse</span><span class="p">(</span><span class="n">Tactic</span><span class="p">(</span><span class="s">'split-clause'</span><span class="p">),</span>
+                          <span class="n">Tactic</span><span class="p">(</span><span class="s">'skip'</span><span class="p">)))</span>
+<span class="k">print</span> <span class="n">split_all</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+
+<span class="n">split_at_most_2</span> <span class="o">=</span> <span class="n">Repeat</span><span class="p">(</span><span class="n">OrElse</span><span class="p">(</span><span class="n">Tactic</span><span class="p">(</span><span class="s">'split-clause'</span><span class="p">),</span>
+                          <span class="n">Tactic</span><span class="p">(</span><span class="s">'skip'</span><span class="p">)),</span>
+                         <span class="mi">1</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">split_at_most_2</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+
+<span class="c"># Split all clauses and solve equations</span>
+<span class="n">split_solve</span> <span class="o">=</span> <span class="n">Then</span><span class="p">(</span><span class="n">Repeat</span><span class="p">(</span><span class="n">OrElse</span><span class="p">(</span><span class="n">Tactic</span><span class="p">(</span><span class="s">'split-clause'</span><span class="p">),</span>
+                                 <span class="n">Tactic</span><span class="p">(</span><span class="s">'skip'</span><span class="p">))),</span>
+                   <span class="n">Tactic</span><span class="p">(</span><span class="s">'solve-eqs'</span><span class="p">))</span>
+
+<span class="k">print</span> <span class="n">split_solve</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+</pre></div>
+</body></html></example>
+
+<p>In the tactic <tt>split_solver</tt>, the tactic <tt>solve-eqs</tt> discharges all but one goal.
+Note that, this tactic generates one goal: the empty goal which is trivially satisfiable (i.e., feasible) </p>
+
+<p>The list of subgoals can be easily traversed using the Python <tt>for</tt> statement.</p>
+
+<example pref="tactic.5"><html><body>
+<div class="highlight"><pre><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">Reals</span><span class="p">(</span><span class="s">'x y z'</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Or</span><span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span> 
+      <span class="n">Or</span><span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span> 
+      <span class="n">Or</span><span class="p">(</span><span class="n">z</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">z</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span>
+      <span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">+</span> <span class="n">z</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="c"># Split all clauses"</span>
+<span class="n">split_all</span> <span class="o">=</span> <span class="n">Repeat</span><span class="p">(</span><span class="n">OrElse</span><span class="p">(</span><span class="n">Tactic</span><span class="p">(</span><span class="s">'split-clause'</span><span class="p">),</span>
+                          <span class="n">Tactic</span><span class="p">(</span><span class="s">'skip'</span><span class="p">)))</span>
+<span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">split_all</span><span class="p">(</span><span class="n">g</span><span class="p">):</span>
+    <span class="k">print</span> <span class="n">s</span>
+</pre></div>
+</body></html></example>
+
+<p>A tactic can be converted into a solver object using the method <tt>solver()</tt>.
+If the tactic produces the empty goal, then the associated solver returns <tt>sat</tt>.
+If the tactic produces a single goal containing <tt>False</tt>, then the solver returns <tt>unsat</tt>.
+Otherwise, it returns <tt>unknown</tt>.
+</p>
+
+<example pref="tactic.6"><html><body>
+<div class="highlight"><pre><span class="n">bv_solver</span> <span class="o">=</span> <span class="n">Then</span><span class="p">(</span><span class="s">'simplify'</span><span class="p">,</span> 
+                 <span class="s">'solve-eqs'</span><span class="p">,</span> 
+                 <span class="s">'bit-blast'</span><span class="p">,</span> 
+                 <span class="s">'sat'</span><span class="p">)</span><span class="o">.</span><span class="n">solver</span><span class="p">()</span>
+
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">BitVecs</span><span class="p">(</span><span class="s">'x y'</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="n">solve_using</span><span class="p">(</span><span class="n">bv_solver</span><span class="p">,</span> <span class="n">x</span> <span class="o">|</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">13</span><span class="p">,</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</body></html></example>
+
+<p>In the example above, the tactic <tt>bv_solver</tt> implements a basic bit-vector solver using equation solving,
+bit-blasting, and a propositional SAT solver. Note that, the command <tt>Tactic</tt> is suppressed.
+All Z3Py combinators automatically invoke <tt>Tactic</tt> command if the argument is a string.
+Finally, the command <tt>solve_using</tt> is a variant of the <tt>solve</tt> command where the first
+argument specifies the solver to be used.
+</p>
+
+<p>In the following example, we use the solver API directly instead of the command <tt>solve_using</tt>.
+We use the combinator <tt>With</tt> to configure our little solver. We also include the tactic <tt>aig</tt>
+which tries to compress Boolean formulas using And-Inverted Graphs.
+</p>
+
+<example pref="tactic.7"><html><body>
+<div class="highlight"><pre><span class="n">bv_solver</span> <span class="o">=</span> <span class="n">Then</span><span class="p">(</span><span class="n">With</span><span class="p">(</span><span class="s">'simplify'</span><span class="p">,</span> <span class="n">mul2concat</span><span class="o">=</span><span class="bp">True</span><span class="p">),</span>
+                 <span class="s">'solve-eqs'</span><span class="p">,</span> 
+                 <span class="s">'bit-blast'</span><span class="p">,</span> 
+                 <span class="s">'aig'</span><span class="p">,</span>
+                 <span class="s">'sat'</span><span class="p">)</span><span class="o">.</span><span class="n">solver</span><span class="p">()</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">BitVecs</span><span class="p">(</span><span class="s">'x y'</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="n">bv_solver</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span><span class="o">*</span><span class="mi">32</span> <span class="o">+</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">13</span><span class="p">,</span> <span class="n">x</span> <span class="o">&amp;</span> <span class="n">y</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">,</span> <span class="n">y</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">100</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">bv_solver</span><span class="o">.</span><span class="n">check</span><span class="p">()</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">bv_solver</span><span class="o">.</span><span class="n">model</span><span class="p">()</span>
+<span class="k">print</span> <span class="n">m</span>
+<span class="k">print</span> <span class="n">x</span><span class="o">*</span><span class="mi">32</span> <span class="o">+</span> <span class="n">y</span><span class="p">,</span> <span class="s">"=="</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="o">*</span><span class="mi">32</span> <span class="o">+</span> <span class="n">y</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">x</span> <span class="o">&amp;</span> <span class="n">y</span><span class="p">,</span> <span class="s">"=="</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span> <span class="o">&amp;</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</body></html></example>
+
+<p>The tactic <tt>smt</tt> wraps the main solver in Z3 as a tactic.</p>
+
+<example pref="tactic.8"><html><body>
+<div class="highlight"><pre><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">Ints</span><span class="p">(</span><span class="s">'x y'</span><span class="p">)</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">Tactic</span><span class="p">(</span><span class="s">'smt'</span><span class="p">)</span><span class="o">.</span><span class="n">solver</span><span class="p">()</span>
+<span class="n">s</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">check</span><span class="p">()</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">model</span><span class="p">()</span>
+</pre></div>
+</body></html></example>
+
+<p>Now, we show how to implement a solver for integer arithmetic using SAT. The solver is complete
+only for problems where every variable has a lower and upper bound.
+</p>
+
+<example pref="tactic.9"><html><body>
+<div class="highlight"><pre><span class="n">s</span> <span class="o">=</span> <span class="n">Then</span><span class="p">(</span><span class="n">With</span><span class="p">(</span><span class="s">'simplify'</span><span class="p">,</span> <span class="n">arith_lhs</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">som</span><span class="o">=</span><span class="bp">True</span><span class="p">),</span>
+         <span class="s">'normalize-bounds'</span><span class="p">,</span> <span class="s">'lia2pb'</span><span class="p">,</span> <span class="s">'pb2bv'</span><span class="p">,</span> 
+         <span class="s">'bit-blast'</span><span class="p">,</span> <span class="s">'sat'</span><span class="p">)</span><span class="o">.</span><span class="n">solver</span><span class="p">()</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">Ints</span><span class="p">(</span><span class="s">'x y z'</span><span class="p">)</span>
+<span class="n">solve_using</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> 
+            <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">,</span> 
+            <span class="n">y</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">y</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">,</span> 
+            <span class="n">z</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">z</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">,</span>
+            <span class="mi">3</span><span class="o">*</span><span class="n">y</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">x</span> <span class="o">==</span> <span class="n">z</span><span class="p">)</span>
+<span class="c"># It fails on the next example (it is unbounded)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+<span class="n">solve_using</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">3</span><span class="o">*</span><span class="n">y</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">x</span> <span class="o">==</span> <span class="n">z</span><span class="p">)</span>
+</pre></div>
+</body></html></example>
+
+<p>
+Tactics can be combined with solvers. For example, we can apply a tactic to a goal, produced a set of subgoals, 
+then select one of the subgoals and solve it using a solver. The next example demonstrates how to do that, and how to
+use model converters to convert a model for a subgoal into a model for the original goal.
+</p>
+
+<example pref="tactic.10"><html><body>
+<div class="highlight"><pre><span class="n">t</span> <span class="o">=</span> <span class="n">Then</span><span class="p">(</span><span class="s">'simplify'</span><span class="p">,</span> 
+         <span class="s">'normalize-bounds'</span><span class="p">,</span> 
+         <span class="s">'solve-eqs'</span><span class="p">)</span>
+
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">Ints</span><span class="p">(</span><span class="s">'x y z'</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">,</span> <span class="n">y</span> <span class="o">==</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">z</span> <span class="o">&gt;</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="n">r</span> <span class="o">=</span> <span class="n">t</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+<span class="c"># r contains only one subgoal</span>
+<span class="k">print</span> <span class="n">r</span>
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">Solver</span><span class="p">()</span>
+<span class="n">s</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">check</span><span class="p">()</span>
+<span class="c"># Model for the subgoal</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">model</span><span class="p">()</span>
+<span class="c"># Model for the original goal</span>
+<span class="k">print</span> <span class="n">r</span><span class="o">.</span><span class="n">convert_model</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">model</span><span class="p">())</span>
+</pre></div>
+</body></html></example>
+
+<h2>Probes</h2>
+
+<p>
+<b>Probes</b> (aka formula measures) are evaluated over goals.
+Boolean expressions over them can be built using relational operators and Boolean connectives.
+The tactic <tt>FailIf(cond)</tt> fails if the given goal does not satisfy the condition <tt>cond</tt>.
+Many numeric and Boolean measures are available in Z3Py. The command <tt>describe_probes()</tt> provides the list of 
+all built-in probes.
+</p>
+
+<example pref="probe.1"><html><body>
+<div class="highlight"><pre><span class="n">describe_probes</span><span class="p">()</span>
+</pre></div>
+</body></html></example>
+
+<p>In the following example, we build a simple tactic using <tt>FailIf</tt>. It also shows that a probe can be applied directly 
+to a goal.</p>
+
+<example pref="probe.2"><html><body>
+<div class="highlight"><pre><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">Reals</span><span class="p">(</span><span class="s">'x y z'</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">+</span> <span class="n">z</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="n">p</span> <span class="o">=</span> <span class="n">Probe</span><span class="p">(</span><span class="s">'num-consts'</span><span class="p">)</span>
+<span class="k">print</span> <span class="s">"num-consts:"</span><span class="p">,</span> <span class="n">p</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+
+<span class="n">t</span> <span class="o">=</span> <span class="n">FailIf</span><span class="p">(</span><span class="n">p</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">t</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+<span class="k">except</span> <span class="n">Z3Exception</span><span class="p">:</span>
+    <span class="k">print</span> <span class="s">"tactic failed"</span>
+
+<span class="k">print</span> <span class="s">"trying again..."</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">t</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+</pre></div>
+</body></html></example>
+
+<p>Z3Py also provides the combinator (tactical) <tt>If(p, t1, t2)</tt> which is a shorthand for:</p>
+
+<pre>OrElse(Then(FailIf(Not(p)), t1), t2)</pre>
+
+<p>The combinator <tt>When(p, t)</tt> is a shorthand for:</p>
+
+<pre>If(p, t, 'skip')</pre>
+
+<p>The tactic <tt>skip</tt> just returns the input goal.
+The following example demonstrates how to use the <tt>If</tt> combinator.</p>
+
+<example pref="probe.3"><html><body>
+<div class="highlight"><pre><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">Reals</span><span class="p">(</span><span class="s">'x y z'</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="n">p</span> <span class="o">=</span> <span class="n">Probe</span><span class="p">(</span><span class="s">'num-consts'</span><span class="p">)</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">If</span><span class="p">(</span><span class="n">p</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">,</span> <span class="s">'simplify'</span><span class="p">,</span> <span class="s">'factor'</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="n">t</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+
+<span class="n">g</span> <span class="o">=</span> <span class="n">Goal</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">+</span> <span class="n">z</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="n">t</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+</pre></div>
+</body></html></example>
+
+</body>
+</html>

@@ -1,6 +1,6 @@
-#include "sat/sat_bdd.h"
+#include "math/dd/dd_bdd.h"
 
-namespace sat {
+namespace dd {
     static void test1() {
         bdd_manager m(20);
         bdd v0 = m.mk_var(0);
@@ -58,7 +58,7 @@ namespace sat {
         SASSERT(c2 == ((v0 && v1) || v1 || !v0));
     }
 
-    void test4() {
+    static void test4() {
         bdd_manager m(3);
         bdd v0 = m.mk_var(0);
         bdd v1 = m.mk_var(1);
@@ -76,8 +76,8 @@ namespace sat {
 }
 
 void tst_bdd() {
-    sat::test1();
-    sat::test2();
-    sat::test3();
-    sat::test4();
+    dd::test1();
+    dd::test2();
+    dd::test3();
+    dd::test4();
 }

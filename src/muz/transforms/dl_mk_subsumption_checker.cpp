@@ -125,7 +125,7 @@ namespace datalog {
         app_ref head(r->get_head(), m);
 
         app_ref_vector tail(m);
-        svector<bool> tail_neg;
+        bool_vector tail_neg;
 
         for(unsigned i=0; i<u_len; i++) {
             app * tail_atom = r->get_tail(i);

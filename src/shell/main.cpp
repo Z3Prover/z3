@@ -39,16 +39,20 @@ Revision History:
 #include "util/file_path.h"
 #include "shell/lp_frontend.h"
 
+#if defined( _WINDOWS ) && defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
+#include <crtdbg.h>
+#endif
+
 typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS } input_kind;
 
-std::string         g_aux_input_file;
-char const *        g_input_file          = nullptr;
-bool                g_standard_input      = false;
-input_kind          g_input_kind          = IN_UNSPECIFIED;
+static std::string  g_aux_input_file;
+static char const * g_input_file          = nullptr;
+static bool         g_standard_input      = false;
+static input_kind   g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
-bool                g_display_istatistics = false;
+static bool         g_display_istatistics = false;
 
-void error(const char * msg) {
+static void error(const char * msg) {
     std::cerr << "Error: " << msg << "\n";
     std::cerr << "For usage information: z3 -h\n";
     exit(ERR_CMD_LINE);
@@ -114,7 +118,7 @@ void display_usage() {
     std::cout << "Use 'z3 -p' for the complete list of global and module parameters.\n";
 }
    
-void parse_cmd_line_args(int argc, char ** argv) {
+static void parse_cmd_line_args(int argc, char ** argv) {
     long timeout = 0;
     int i = 1;
     char * eq_pos = nullptr;
@@ -258,13 +262,11 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 enable_trace(opt_arg);
             }
 #endif
-#ifdef Z3DEBUG
             else if (strcmp(opt_name, "dbg") == 0) {
                 if (!opt_arg)
                     error("option argument (-dbg:tag) is missing.");
                 enable_debug(opt_arg);
             }
-#endif
             else if (strcmp(opt_name, "memory") == 0) {
                 if (!opt_arg)
                     error("option argument (-memory:val) is missing.");
@@ -299,12 +301,6 @@ void parse_cmd_line_args(int argc, char ** argv) {
 
 
 int STD_CALL main(int argc, char ** argv) {
-#ifdef DUMP_ARGS
-     std::cout << "args are: ";
-     for (int i = 0; i < argc; i++)
-         std::cout << argv[i] <<" ";
-     std::cout << std::endl;
-#endif
      try{
         unsigned return_value = 0;
         memory::initialize(0);

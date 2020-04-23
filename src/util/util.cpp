@@ -17,11 +17,16 @@ Revision History:
 
 --*/
 
-#ifdef _WINDOWS
-#include <windows.h>
-#endif
-#include <thread>
 #include "util/util.h"
+
+#ifndef SINGLE_THREAD
+#include <mutex>
+#include <thread>
+
+static std::mutex g_verbose_mux;
+void verbose_lock() { g_verbose_mux.lock(); }
+void verbose_unlock() { g_verbose_mux.unlock(); }
+#endif
 
 static unsigned g_verbosity_level = 0;
 
@@ -39,24 +44,16 @@ void set_verbose_stream(std::ostream& str) {
     g_verbose_stream = &str;
 }
 
-#ifdef _WINDOWS
-static int g_thread_id = 0;
-#else
+#ifndef SINGLE_THREAD
 static std::thread::id g_thread_id = std::this_thread::get_id();
-#endif
 static bool g_is_threaded = false;
 
 bool is_threaded() {
     if (g_is_threaded) return true;
-#ifdef _WINDOWS
-    int thid = GetCurrentThreadId();
-    g_is_threaded = g_thread_id != thid && g_thread_id != 0;
-    g_thread_id = thid;
-#else
     g_is_threaded = std::this_thread::get_id() != g_thread_id;
-#endif
     return g_is_threaded;
 }
+#endif
 
 std::ostream& verbose_stream() {
     return *g_verbose_stream;

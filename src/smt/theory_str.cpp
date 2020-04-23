@@ -26,7 +26,10 @@
 #include "smt/theory_arith.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/var_subst.h"
 #include "smt_kernel.h"
+#include "model/model_smt2_pp.h"
 
 namespace smt {
 
@@ -70,7 +73,10 @@ namespace smt {
         cacheMissCount(0),
         m_fresh_id(0),
         m_trail_stack(*this),
-        m_find(*this)
+        m_find(*this),
+        fixed_length_subterm_trail(m),
+        fixed_length_assumptions(m),
+        bitvector_character_constants(m)
     {
         initialize_charset();
     }
@@ -81,6 +87,97 @@ namespace smt {
             dealloc(aut);
         }
         regex_automata.clear();
+    }
+
+    void theory_str::reset_internal_data_structures() {
+        //m_trail.reset();
+        m_delayed_axiom_setup_terms.reset();
+        m_basicstr_axiom_todo.reset();
+        m_concat_axiom_todo.reset();
+        m_string_constant_length_todo.reset();
+        m_concat_eval_todo.reset();
+        m_delayed_assertions_todo.reset();
+        m_library_aware_axiom_todo.reset();
+        m_persisted_axioms.reset();
+        m_persisted_axiom_todo.reset();
+        axiomatized_terms.reset();
+        existing_toplevel_exprs.reset();
+
+        varForBreakConcat.clear();
+        loopDetected = false;
+        cut_var_map.reset();
+        m_cut_allocs.reset();
+
+        //variable_set.reset();
+        //internal_variable_set.reset();
+        //regex_variable_set.reset();
+        //internal_variable_scope_levels.clear();
+
+        internal_lenTest_vars.reset();
+        internal_valTest_vars.reset();
+        internal_unrollTest_vars.reset();
+
+        input_var_in_len.reset();
+
+        fvar_len_count_map.reset();
+        fvar_lenTester_map.reset();
+        lenTester_fvar_map.reset();
+        fvar_valueTester_map.reset();
+        valueTester_fvar_map.reset();
+        val_range_map.reset();
+        unroll_tries_map.reset();
+        unroll_var_map.reset();
+        concat_eq_unroll_ast_map.reset();
+        contains_map.reset();
+        contain_pair_bool_map.reset();
+        contain_pair_idx_map.reset();
+        regex_in_bool_map.clear();
+        regex_in_var_reg_str_map.reset();
+
+        m_automata.reset();
+        regex_automata.reset();
+        regex_terms.reset();
+        regex_terms_by_string.reset();
+        regex_automaton_assumptions.reset();
+        regex_nfa_cache.reset();
+        regex_terms_with_path_constraints.reset();
+        regex_terms_with_length_constraints.reset();
+        regex_term_to_length_constraint.reset();
+        regex_term_to_extra_length_vars.reset();
+        regex_last_lower_bound.reset();
+        regex_last_upper_bound.reset();
+        regex_length_attempt_count.reset();
+        regex_fail_count.reset();
+        regex_intersection_fail_count.reset();
+
+        string_chars.reset();
+
+        concat_astNode_map.reset();
+        string_int_conversion_terms.reset();
+        string_int_axioms.reset();
+        lengthTesterCache.reset();
+        valueTesterCache.reset();
+        stringConstantCache.reset();
+
+        length_ast_map.reset();
+        //m_trail_stack.reset();
+        // m_find.reset();
+        binary_search_len_tester_stack.reset();
+        binary_search_len_tester_info.reset();
+        binary_search_starting_len_tester.reset();
+        binary_search_next_var_low.reset();
+        binary_search_next_var_high.reset();
+
+        finite_model_test_varlists.reset();
+
+        fixed_length_subterm_trail.reset();
+        fixed_length_assumptions.reset();
+        fixed_length_used_len_terms.reset();
+        var_to_char_subterm_map.reset();
+        uninterpreted_to_char_subterm_map.reset();
+        fixed_length_lesson.reset();
+        candidate_model.reset();
+        bitvector_character_constants.reset();
     }
 
     expr * theory_str::mk_string(zstring const& str) {
@@ -123,6 +220,13 @@ namespace smt {
         theory::init(ctx);
         m_mk_aut.set_solver(alloc(seq_expr_solver, get_manager(),
                                   get_context().get_fparams()));
+    }
+
+    void theory_str::collect_statistics(::statistics & st) const {
+        st.update("str refine equation", m_stats.m_refine_eq);
+        st.update("str refine negated equation", m_stats.m_refine_neq);
+        st.update("str refine function", m_stats.m_refine_f);
+        st.update("str refine negated function", m_stats.m_refine_nf);
     }
 
     void theory_str::initialize_charset() {
@@ -217,13 +321,24 @@ namespace smt {
         }
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
+        if (m.has_trace_stream()) log_axiom_instantiation(e);
         ctx.mk_th_axiom(get_id(), 1, &lit);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
         // crash/error avoidance: add all axioms to the trail
         m_trail.push_back(e);
 
         //TRACE("str", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+    }
 
+    void theory_str::assert_axiom_rw(expr * e) {
+        if (e == nullptr)
+            return;
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+        expr_ref _e(e, m);
+        ctx.get_rewriter()(_e);
+        assert_axiom(_e);
     }
 
     expr * theory_str::rewrite_implication(expr * premise, expr * conclusion) {
@@ -602,7 +717,7 @@ namespace smt {
         }
     }
 
-    app * theory_str::mk_nonempty_str_var() {
+    app_ref theory_str::mk_nonempty_str_var() {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
@@ -614,7 +729,7 @@ namespace smt {
         TRACE("str", tout << "creating nonempty string variable " << name << " at scope level " << sLevel << std::endl;);
 
         sort * string_sort = u.str.mk_string_sort();
-        app * a = mk_fresh_const(name.c_str(), string_sort);
+        app_ref a(mk_fresh_const(name.c_str(), string_sort), m);
 
         ctx.internalize(a, false);
         SASSERT(ctx.get_enode(a) != nullptr);
@@ -831,7 +946,7 @@ namespace smt {
     }
 
     bool theory_str::can_propagate() {
-        return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty()
+        return !m_basicstr_axiom_todo.empty()
             || !m_concat_axiom_todo.empty() || !m_concat_eval_todo.empty()
             || !m_library_aware_axiom_todo.empty()
             || !m_delayed_axiom_setup_terms.empty()
@@ -842,6 +957,7 @@ namespace smt {
 
     void theory_str::propagate() {
         context & ctx = get_context();
+        candidate_model.reset();
         while (can_propagate()) {
             TRACE("str", tout << "propagating..." << std::endl;);
             while(true) {
@@ -861,13 +977,6 @@ namespace smt {
             }
             m_basicstr_axiom_todo.reset();
             TRACE("str", tout << "reset m_basicstr_axiom_todo" << std::endl;);
-
-            for (auto const& pair : m_str_eq_todo) {
-                enode * lhs = pair.first;
-                enode * rhs = pair.second;
-                handle_equality(lhs->get_owner(), rhs->get_owner());
-            }
-            m_str_eq_todo.reset();
 
             for (auto const& el : m_concat_axiom_todo) {
                 instantiate_concat_axiom(el);
@@ -1084,7 +1193,9 @@ namespace smt {
 
             literal lit(mk_eq(len_str, len, false));
             ctx.mark_as_relevant(lit);
+            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(lit.var()));
             ctx.mk_th_axiom(get_id(), 1, &lit);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         } else {
             // build axiom 1: Length(a_str) >= 0
             {
@@ -1126,7 +1237,9 @@ namespace smt {
                 TRACE("str", tout << "string axiom 2: " << mk_ismt2_pp(lhs, m) << " <=> " << mk_ismt2_pp(rhs, m) << std::endl;);
                 literal l(mk_eq(lhs, rhs, true));
                 ctx.mark_as_relevant(l);
+                if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
                 ctx.mk_th_axiom(get_id(), 1, &l);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             }
 
         }
@@ -1320,6 +1433,7 @@ namespace smt {
 
     void theory_str::instantiate_axiom_Indexof(enode * e) {
         context & ctx = get_context();
+        th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
         app * ex = e->get_owner();
@@ -1328,11 +1442,32 @@ namespace smt {
             return;
         }
         SASSERT(ex->get_num_args() == 3);
+
+        {
+            // Attempt to rewrite to an integer constant. If this succeeds,
+            // assert equality with that constant.
+            // The rewriter normally takes care of this for terms that are in scope
+            // at the beginning of the search.
+            // We perform the check here to catch terms that are added during the search.
+            expr_ref rwex(ex, m);
+            rw(rwex);
+            if (m_autil.is_numeral(rwex)) {
+                TRACE("str", tout << "constant expression " << mk_pp(ex, m) << " simplifies to " << mk_pp(rwex, m) << std::endl;);
+                assert_axiom(ctx.mk_eq_atom(ex, rwex));
+                axiomatized_terms.insert(ex);
+                return;
+            }
+        }
+
+        expr * exHaystack = nullptr;
+        expr * exNeedle = nullptr;
+        expr * exIndex = nullptr;
+        u.str.is_index(ex, exHaystack, exNeedle, exIndex);
+
         // if the third argument is exactly the integer 0, we can use this "simple" indexof;
         // otherwise, we call the "extended" version
-        expr * startingPosition = ex->get_arg(2);
         rational startingInteger;
-        if (!m_autil.is_numeral(startingPosition, startingInteger) || !startingInteger.is_zero()) {
+        if (!m_autil.is_numeral(exIndex, startingInteger) || !startingInteger.is_zero()) {
             // "extended" indexof term with prefix
             instantiate_axiom_Indexof_extended(e);
             return;
@@ -1343,45 +1478,44 @@ namespace smt {
 
         expr_ref x1(mk_str_var("x1"), m);
         expr_ref x2(mk_str_var("x2"), m);
-        expr_ref indexAst(mk_int_var("index"), m);
 
-        expr_ref condAst(mk_contains(ex->get_arg(0), ex->get_arg(1)), m);
+        expr_ref condAst1(mk_contains(exHaystack, exNeedle), m);
+        expr_ref condAst2(m.mk_not(ctx.mk_eq_atom(exNeedle, mk_string(""))), m);
+        expr_ref condAst(m.mk_and(condAst1, condAst2), m);
         SASSERT(condAst);
 
         // -----------------------
         // true branch
         expr_ref_vector thenItems(m);
         //  args[0] = x1 . args[1] . x2
-        thenItems.push_back(ctx.mk_eq_atom(ex->get_arg(0), mk_concat(x1, mk_concat(ex->get_arg(1), x2))));
+        thenItems.push_back(ctx.mk_eq_atom(exHaystack, mk_concat(x1, mk_concat(exNeedle, x2))));
         //  indexAst = |x1|
-        thenItems.push_back(ctx.mk_eq_atom(indexAst, mk_strlen(x1)));
+        thenItems.push_back(ctx.mk_eq_atom(ex, mk_strlen(x1)));
         //     args[0]  = x3 . x4
         //  /\ |x3| = |x1| + |args[1]| - 1
         //  /\ ! contains(x3, args[1])
         expr_ref x3(mk_str_var("x3"), m);
         expr_ref x4(mk_str_var("x4"), m);
-        expr_ref tmpLen(m_autil.mk_add(indexAst, mk_strlen(ex->get_arg(1)), mk_int(-1)), m);
+        expr_ref tmpLen(m_autil.mk_add(ex, mk_strlen(ex->get_arg(1)), mk_int(-1)), m);
         SASSERT(tmpLen);
-        thenItems.push_back(ctx.mk_eq_atom(ex->get_arg(0), mk_concat(x3, x4)));
+        thenItems.push_back(ctx.mk_eq_atom(exHaystack, mk_concat(x3, x4)));
         thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-        thenItems.push_back(mk_not(m, mk_contains(x3, ex->get_arg(1))));
-        expr_ref thenBranch(m.mk_and(thenItems.size(), thenItems.c_ptr()), m);
+        thenItems.push_back(mk_not(m, mk_contains(x3, exNeedle)));
+        expr_ref thenBranch(mk_and(thenItems), m);
         SASSERT(thenBranch);
 
         // -----------------------
         // false branch
-        expr_ref elseBranch(ctx.mk_eq_atom(indexAst, mk_int(-1)), m);
+        expr_ref elseBranch(m.mk_ite(
+                ctx.mk_eq_atom(exNeedle, mk_string("")),
+                ctx.mk_eq_atom(ex, mk_int(0)),
+                ctx.mk_eq_atom(ex, mk_int(-1))
+                ), m);
         SASSERT(elseBranch);
 
         expr_ref breakdownAssert(m.mk_ite(condAst, thenBranch, elseBranch), m);
-        SASSERT(breakdownAssert);
-
-        expr_ref reduceToIndex(ctx.mk_eq_atom(ex, indexAst), m);
-        SASSERT(reduceToIndex);
-
-        expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
-        SASSERT(finalAxiom);
-        assert_axiom(finalAxiom);
+        rw(breakdownAssert);
+        assert_axiom(breakdownAssert);
 
         {
             // heuristic: integrate with str.contains information
@@ -1402,6 +1536,7 @@ namespace smt {
 
     void theory_str::instantiate_axiom_Indexof_extended(enode * _e) {
         context & ctx = get_context();
+        th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
         app * e = _e->get_owner();
@@ -1421,7 +1556,7 @@ namespace smt {
         // 0 < i < len(H) -->
         //     H = hd ++ tl
         //     len(hd) = i
-        //     str.indexof(tl, N, 0)
+        //     i + str.indexof(tl, N, 0)
 
         expr * H = nullptr; // "haystack"
         expr * N = nullptr; // "needle"
@@ -1430,6 +1565,7 @@ namespace smt {
 
         expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
         expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
+        expr_ref empty_string(mk_string(""), m);
 
         // case split
 
@@ -1440,9 +1576,40 @@ namespace smt {
             assert_implication(premise, conclusion);
         }
 
+        // case 1.1: N == "" and i out of range
+        {
+            expr_ref premiseNEmpty(ctx.mk_eq_atom(N, empty_string), m);
+            // range check
+            expr_ref premiseRangeLower(m_autil.mk_ge(i, zero), m);
+            expr_ref premiseRangeUpper(m_autil.mk_le(i, mk_strlen(H)), m);
+            expr_ref premiseRange(m.mk_and(premiseRangeLower, premiseRangeUpper), m);
+            expr_ref premise(m.mk_and(premiseNEmpty, m.mk_not(premiseRange)), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
+            rw(finalAxiom);
+            assert_axiom(finalAxiom);
+        }
+
+        // case 1.2: N == "" and i within range
+        {
+            expr_ref premiseNEmpty(ctx.mk_eq_atom(N, empty_string), m);
+            // range check
+            expr_ref premiseRangeLower(m_autil.mk_ge(i, zero), m);
+            expr_ref premiseRangeUpper(m_autil.mk_le(i, mk_strlen(H)), m);
+            expr_ref premiseRange(m.mk_and(premiseRangeLower, premiseRangeUpper), m);
+            expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, i), m);
+            expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
+            rw(finalAxiom);
+            assert_axiom(finalAxiom);
+        }
+
         // case 2: i = 0
         {
-            expr_ref premise(ctx.mk_eq_atom(i, zero), m);
+            expr_ref premise1(ctx.mk_eq_atom(i, zero), m);
+            expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
+            expr_ref premise(m.mk_and(premise1, premise2), m);
+            rw(premise);
             // reduction to simpler case
             expr_ref conclusion(ctx.mk_eq_atom(e, mk_indexof(H, N)), m);
             assert_implication(premise, conclusion);
@@ -1453,18 +1620,35 @@ namespace smt {
             //expr_ref premise(_premise);
             //th_rewriter rw(m);
             //rw(premise);
-            expr_ref premise(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
+            expr_ref premise1(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
+            expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
+            expr_ref premise(m.mk_and(premise1, premise2), m);
+            rw(premise);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
             assert_implication(premise, conclusion);
         }
-        // case 4: 0 < i < len(H)
+        // case 3.5: H doesn't contain N
+        {
+            expr_ref premise(m.mk_not(u.str.mk_contains(H, N)), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            rw(premise);
+            assert_implication(premise, conclusion);
+        }
+        // case 4: 0 < i < len(H), N non-empty, and H contains N
         {
             expr_ref premise1(m_autil.mk_gt(i, zero), m);
             //expr_ref premise2(m_autil.mk_lt(i, mk_strlen(H)), m);
             expr_ref premise2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
-            expr_ref _premise(m.mk_and(premise1, premise2), m);
+            expr_ref premise3(u.str.mk_contains(H, N), m);
+            expr_ref premise4(m.mk_not(ctx.mk_eq_atom(N, mk_string(""))), m);
+
+            expr_ref_vector premises(m);
+            premises.push_back(premise1);
+            premises.push_back(premise2);
+            premises.push_back(premise3);
+            premises.push_back(premise4);
+            expr_ref _premise(mk_and(premises), m);
             expr_ref premise(_premise);
-            th_rewriter rw(m);
             rw(premise);
 
             expr_ref hd(mk_str_var("hd"), m);
@@ -1473,7 +1657,8 @@ namespace smt {
             expr_ref_vector conclusion_terms(m);
             conclusion_terms.push_back(ctx.mk_eq_atom(H, mk_concat(hd, tl)));
             conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(hd), i));
-            conclusion_terms.push_back(ctx.mk_eq_atom(e, mk_indexof(tl, N)));
+            conclusion_terms.push_back(u.str.mk_contains(tl, N));
+            conclusion_terms.push_back(ctx.mk_eq_atom(e, m_autil.mk_add(i, mk_indexof(tl, N))));
 
             expr_ref conclusion(mk_and(conclusion_terms), m);
             assert_implication(premise, conclusion);
@@ -1486,9 +1671,8 @@ namespace smt {
             expr_ref precondition1(m_autil.mk_gt(i, minus_one), m);
             //expr_ref precondition2(m_autil.mk_lt(i, mk_strlen(H)), m);
             expr_ref precondition2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
-            expr_ref _precondition(m.mk_and(precondition1, precondition2), m);
-            expr_ref precondition(_precondition);
-            th_rewriter rw(m);
+            expr_ref precondition3(m.mk_not(ctx.mk_eq_atom(N, mk_string(""))), m);
+            expr_ref precondition(m.mk_and(precondition1, precondition2, precondition3), m);
             rw(precondition);
 
             expr_ref premise(u.str.mk_contains(H, N), m);
@@ -1794,6 +1978,18 @@ namespace smt {
             SASSERT(axiom1);
             assert_axiom(axiom1);
         }
+
+        // axiom 2: The only (str.from-int N) that starts with a "0" is "0".
+        {
+            expr_ref zero(mk_string("0"), m);
+            // let (the result starts with a "0") be p
+            expr_ref starts_with_zero(u.str.mk_prefix(zero, ex), m);
+            // let (the result is "0") be q  
+            expr_ref is_zero(ctx.mk_eq_atom(ex, zero), m);
+            // encoding: the result does NOT start with a "0" (~p) xor the result is "0" (q)
+            // ~p xor q == (~p or q) and (p or ~q)
+            assert_axiom(m.mk_and(m.mk_or(m.mk_not(starts_with_zero), is_zero), m.mk_or(starts_with_zero, m.mk_not(is_zero))));
+        }
     }
 
     expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
@@ -1852,13 +2048,23 @@ namespace smt {
             u.str.is_string(range2, range2val);
             return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
         } else if (u.re.is_loop(a_regex)) {
-        	expr * body;
-        	unsigned lo, hi;
-        	u.re.is_loop(a_regex, body, lo, hi);
-        	rational rLo(lo);
-        	rational rHi(hi);
-        	zstring bodyStr = get_std_regex_str(body);
-        	return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring(",") + zstring(rHi.to_string().c_str()) + zstring("})");
+            expr * body;
+            unsigned lo, hi;
+            // There are two variants of loop: a 2-argument version and a 3-argument version.
+            if (u.re.is_loop(a_regex, body, lo, hi)) {
+                rational rLo(lo);
+                rational rHi(hi);
+                zstring bodyStr = get_std_regex_str(body);
+                return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring(",") + zstring(rHi.to_string().c_str()) + zstring("})");
+            } else if (u.re.is_loop(a_regex, body, lo)) {
+                rational rLo(lo);
+                zstring bodyStr = get_std_regex_str(body);
+                return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring("+") + zstring("})");
+            }
+            else {
+                TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
+                UNREACHABLE(); return zstring("");
+            }
         } else if (u.re.is_full_seq(a_regex)) {
             return zstring("(.*)");
         } else if (u.re.is_full_char(a_regex)) {
@@ -1867,6 +2073,7 @@ namespace smt {
             TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
             UNREACHABLE(); return zstring("");
         }
+        
     }
 
     void theory_str::instantiate_axiom_RegexIn(enode * e) {
@@ -2017,8 +2224,8 @@ namespace smt {
         TRACE("str", tout << "resetting" << std::endl;);
         m_trail_stack.reset();
 
+        candidate_model.reset();
         m_basicstr_axiom_todo.reset();
-        m_str_eq_todo.reset();
         m_concat_axiom_todo.reset();
         pop_scope_eh(get_context().get_scope_level());
     }
@@ -3203,8 +3410,7 @@ namespace smt {
               << "split type " << splitType << std::endl;
               );
 
-        expr * t1 = nullptr;
-        expr * t2 = nullptr;
+        expr_ref t1(mgr), t2(mgr);
         expr * xorFlag = nullptr;
 
         std::pair<expr*, expr*> key1(concatAst1, concatAst2);
@@ -3311,7 +3517,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ax_l, ax_r);
                 }
@@ -3374,7 +3580,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ax_l, ax_r);
                 }
@@ -3521,7 +3727,7 @@ namespace smt {
                 expr_ref conclusion(mk_or(arrangement_disjunction), mgr);
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(premise, conclusion), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(premise, conclusion);
                 }
@@ -3608,7 +3814,7 @@ namespace smt {
         // setup
 
         expr * xorFlag = nullptr;
-        expr * temp1 = nullptr;
+        expr_ref temp1(mgr);
         std::pair<expr*, expr*> key1(concatAst1, concatAst2);
         std::pair<expr*, expr*> key2(concatAst2, concatAst1);
 
@@ -3725,7 +3931,7 @@ namespace smt {
 
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ax_l, ax_r);
                     }
@@ -3802,7 +4008,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ax_l, ax_r);
                 }
@@ -3885,7 +4091,7 @@ namespace smt {
                 if (m_params.m_StrongArrangements) {
                     expr_ref implyLHS(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
                     expr_ref ax_strong(ctx.mk_eq_atom(implyLHS, implyR), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                 }
@@ -4076,7 +4282,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, mk_and(r_items)), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ax_l, mk_and(r_items));
                 }
@@ -4134,7 +4340,7 @@ namespace smt {
 
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ax_l, ax_r);
                     }
@@ -4187,6 +4393,7 @@ namespace smt {
                     // adding length constraint for _ = constStr seems slowing things down.
 
                     expr_ref option1(mk_and(and_item), mgr);
+                    ctx.get_rewriter()(option1);
                     arrangement_disjunction.push_back(option1);
                     double priority;
                     if (i == strValue.length()) {
@@ -4247,7 +4454,7 @@ namespace smt {
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_lhs(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_lhs, implyR), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                 }
@@ -4326,7 +4533,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(n, tmpAst), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4338,7 +4545,7 @@ namespace smt {
 
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4351,7 +4558,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(y, tmpAst), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4426,7 +4633,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(m, x_deltaStr), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4437,7 +4644,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(x, m), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4449,7 +4656,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(x, m_deltaStr), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4545,7 +4752,7 @@ namespace smt {
         }
 
         //----------------------------------------------------------------
-        expr * commonVar = nullptr;
+        expr_ref commonVar(mgr);
         expr * xorFlag = nullptr;
         std::pair<expr*, expr*> key1(concatAst1, concatAst2);
         std::pair<expr*, expr*> key2(concatAst2, concatAst1);
@@ -4689,7 +4896,7 @@ namespace smt {
 
         if (m_params.m_StrongArrangements) {
             expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-            assert_axiom(ax_strong);
+            assert_axiom_rw(ax_strong);
         } else {
             assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
         }
@@ -4860,10 +5067,10 @@ namespace smt {
          enode * en_e = ctx.get_enode(e);
          enode * root_e = en_e->get_root();
          if (m_autil.is_numeral(root_e->get_owner(), val) && val.is_int()) {
-             TRACE("str", tout << mk_pp(e, m) << " ~= " << mk_pp(root_e->get_owner(), m) << std::endl;);
+             TRACE("str", tout << mk_pp(e, get_manager()) << " ~= " << mk_pp(root_e->get_owner(), get_manager()) << std::endl;);
              return true;
          } else {
-             TRACE("str", tout << "root of eqc of " << mk_pp(e, m) << " is not a numeral" << std::endl;);
+             TRACE("str", tout << "root of eqc of " << mk_pp(e, get_manager()) << " is not a numeral" << std::endl;);
              return false;
          }
 
@@ -4964,7 +5171,7 @@ namespace smt {
         }
 
         TRACE("str", tout << "length of " << mk_ismt2_pp(e, m) << " is " << val << std::endl;);
-        return val.is_int();
+        return val.is_int() && val.is_nonneg();
     }
 
     /*
@@ -6593,870 +6800,6 @@ namespace smt {
         }
     }
 
-    void theory_str::regex_inc_counter(obj_map<expr, unsigned> & counter_map, expr * key) {
-        unsigned old_v;
-        if (counter_map.find(key, old_v)) {
-            unsigned new_v = old_v += 1;
-            counter_map.insert(key, new_v);
-        } else {
-            counter_map.insert(key, 1);
-        }
-    }
-
-    unsigned theory_str::regex_get_counter(obj_map<expr, unsigned> & counter_map, expr * key) {
-        unsigned v;
-        if (counter_map.find(key, v)) {
-            return v;
-        } else {
-            counter_map.insert(key, 0);
-            return 0;
-        }
-    }
-
-    // saturating unsigned addition
-    unsigned inline _qadd(unsigned a, unsigned b) {
-        if (a == UINT_MAX || b == UINT_MAX) {
-            return UINT_MAX;
-        }
-        unsigned result = a + b;
-        if (result < a || result < b) {
-            return UINT_MAX;
-        }
-        return result;
-    }
-
-    // saturating unsigned multiply
-    unsigned inline _qmul(unsigned a, unsigned b) {
-        if (a == UINT_MAX || b == UINT_MAX) {
-            return UINT_MAX;
-        }
-        if (a == 0 || b == 0) {
-            return 0;
-        }
-        unsigned result = a * b;
-        if (result < a || result < b) {
-            return UINT_MAX;
-        }
-        return result;
-    }
-
-    unsigned theory_str::estimate_regex_complexity(expr * re) {
-        ENSURE(u.is_re(re));
-        expr * sub1;
-        expr * sub2;
-        unsigned lo, hi;
-        if (u.re.is_to_re(re, sub1)) {
-            if (!u.str.is_string(sub1))
-                throw default_exception("regular expressions must be built from string literals");
-            zstring str;
-            u.str.is_string(sub1, str);
-            return str.length();
-        } else if (u.re.is_complement(re, sub1)) {
-            return estimate_regex_complexity_under_complement(sub1);
-        } else if (u.re.is_concat(re, sub1, sub2)) {
-            unsigned cx1 = estimate_regex_complexity(sub1);
-            unsigned cx2 = estimate_regex_complexity(sub2);
-            return _qadd(cx1, cx2);
-        } else if (u.re.is_union(re, sub1, sub2)) {
-            unsigned cx1 = estimate_regex_complexity(sub1);
-            unsigned cx2 = estimate_regex_complexity(sub2);
-            return _qadd(cx1, cx2);
-        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
-            unsigned cx = estimate_regex_complexity(sub1);
-            return _qmul(2, cx);
-        } else if (u.re.is_loop(re, sub1, lo, hi)) {
-        	unsigned cx = estimate_regex_complexity(sub1);
-        	return _qadd(lo, cx);
-        } else if (u.re.is_range(re, sub1, sub2)) {
-            SASSERT(u.str.is_string(sub1));
-            SASSERT(u.str.is_string(sub2));
-            zstring str1, str2;
-            u.str.is_string(sub1, str1);
-            u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            return 1 + str2[0] - str1[0];
-        } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
-            return 1;
-        } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
-            return 1;
-        }
-    }
-
-    unsigned theory_str::estimate_regex_complexity_under_complement(expr * re) {
-        ENSURE(u.is_re(re));
-        expr * sub1;
-        expr * sub2;
-        unsigned lo, hi;
-        if (u.re.is_to_re(re, sub1)) {
-            SASSERT(u.str.is_string(sub1));
-            zstring str;
-            u.str.is_string(sub1, str);
-            return str.length();
-        } else if (u.re.is_complement(re, sub1)) {
-            // Why don't we return the regular complexity here?
-            // We could, but this might be called from under another complemented subexpression.
-            // It's better to give a worst-case complexity.
-            return estimate_regex_complexity_under_complement(sub1);
-        } else if (u.re.is_concat(re, sub1, sub2)) {
-            unsigned cx1 = estimate_regex_complexity_under_complement(sub1);
-            unsigned cx2 = estimate_regex_complexity_under_complement(sub2);
-            return _qadd(_qmul(2, cx1), cx2);
-        } else if (u.re.is_union(re, sub1, sub2)) {
-            unsigned cx1 = estimate_regex_complexity_under_complement(sub1);
-            unsigned cx2 = estimate_regex_complexity_under_complement(sub2);
-            return _qmul(cx1, cx2);
-        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1) || u.re.is_loop(re, sub1, lo, hi)) {
-            unsigned cx = estimate_regex_complexity_under_complement(sub1);
-            return _qmul(2, cx);
-        } else if (u.re.is_range(re, sub1, sub2)) {
-            SASSERT(u.str.is_string(sub1));
-            SASSERT(u.str.is_string(sub2));
-            zstring str1, str2;
-            u.str.is_string(sub1, str1);
-            u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            return 1 + str2[0] - str1[0];
-        } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
-            return 1;
-        } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
-            return 1;
-        }
-    }
-
-    unsigned theory_str::estimate_automata_intersection_difficulty(eautomaton * aut1, eautomaton * aut2) {
-        ENSURE(aut1 != nullptr);
-        ENSURE(aut2 != nullptr);
-        return _qmul(aut1->num_states(), aut2->num_states());
-    }
-
-    // Check whether a regex translates well to a linear set of length constraints.
-    bool theory_str::check_regex_length_linearity(expr * re) {
-        return check_regex_length_linearity_helper(re, false);
-    }
-
-    bool theory_str::check_regex_length_linearity_helper(expr * re, bool already_star) {
-        expr * sub1;
-        expr * sub2;
-        unsigned lo, hi;
-        if (u.re.is_to_re(re)) {
-            return true;
-        } else if (u.re.is_concat(re, sub1, sub2)) {
-            return check_regex_length_linearity_helper(sub1, already_star) && check_regex_length_linearity_helper(sub2, already_star);
-        } else if (u.re.is_union(re, sub1, sub2)) {
-            return check_regex_length_linearity_helper(sub1, already_star) && check_regex_length_linearity_helper(sub2, already_star);
-        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
-            if (already_star) {
-                return false;
-            } else {
-                return check_regex_length_linearity_helper(sub1, true);
-            }
-        } else if (u.re.is_range(re)) {
-            return true;
-        } else if (u.re.is_full_char(re)) {
-            return true;
-        } else if (u.re.is_full_seq(re)) {
-            return true;
-        } else if (u.re.is_complement(re)) {
-            // TODO can we do better?
-            return false;
-        } else if (u.re.is_loop(re, sub1, lo, hi)) {
-        	return check_regex_length_linearity_helper(sub1, already_star);
-        } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
-            UNREACHABLE(); return false;
-        }
-    }
-
-    // note: returns an empty set `lens` if something went wrong
-    void theory_str::check_subterm_lengths(expr * re, integer_set & lens) {
-        expr * sub1;
-        expr * sub2;
-        unsigned lo, hi;
-        if (u.re.is_to_re(re, sub1)) {
-            SASSERT(u.str.is_string(sub1));
-            zstring str;
-            u.str.is_string(sub1, str);
-            lens.insert(str.length());
-        } else if (u.re.is_concat(re, sub1, sub2)) {
-            integer_set lens_1, lens_2;
-            check_subterm_lengths(sub1, lens_1);
-            check_subterm_lengths(sub2, lens_2);
-            if (lens_1.empty() || lens_2.empty()) {
-                lens.reset();
-            } else {
-                // take all pairwise lengths
-                for (integer_set::iterator it1 = lens_1.begin(); it1 != lens_1.end(); ++it1) {
-                    for(integer_set::iterator it2 = lens_2.begin(); it2 != lens_2.end(); ++it2) {
-                        int l1 = *it1;
-                        int l2 = *it2;
-                        lens.insert(l1 + l2);
-                    }
-                }
-            }
-        } else if (u.re.is_union(re, sub1, sub2)) {
-            integer_set lens_1, lens_2;
-            check_subterm_lengths(sub1, lens_1);
-            check_subterm_lengths(sub2, lens_2);
-            if (lens_1.empty() || lens_2.empty()) {
-                lens.reset();
-            } else {
-                // take all possibilities from either side
-                for (integer_set::iterator it1 = lens_1.begin(); it1 != lens_1.end(); ++it1) {
-                    lens.insert(*it1);
-                }
-                for (integer_set::iterator it2 = lens_2.begin(); it2 != lens_2.end(); ++it2) {
-                    lens.insert(*it2);
-                }
-            }
-        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
-            // this is bad -- term generation requires this not to appear
-            lens.reset();
-        } else if (u.re.is_range(re, sub1, sub2)) {
-            SASSERT(u.str.is_string(sub1));
-            SASSERT(u.str.is_string(sub2));
-            zstring str1, str2;
-            u.str.is_string(sub1, str1);
-            u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            lens.insert(1);
-        } else if (u.re.is_full_char(re)) {
-            lens.insert(1);
-        } else if (u.re.is_full_seq(re)) {
-            lens.reset();
-        } else if (u.re.is_complement(re)) {
-            lens.reset();
-        } else if (u.re.is_loop(re, sub1, lo, hi)) {
-        	integer_set lens_1;
-        	check_subterm_lengths(sub1, lens_1);
-        	for (unsigned i = lo; i <= hi; ++i) {
-        		for (auto j : lens_1) {
-        			lens.insert(i * j);
-        		}
-        	}
-        } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
-            lens.reset();
-        }
-    }
-
-    /*
-     * Infer all length constraints implied by the given regular expression `re`
-     * in order to constrain `lenVar` (which must be of sort Int).
-     * This assumes that `re` appears in a positive context.
-     * Returns a Boolean formula expressing the appropriate constraints over `lenVar`.
-     * In some cases, the returned formula requires one or more free integer variables to be created.
-     * These variables are returned in the reference parameter `freeVariables`.
-     * Extra assertions should be made for these free variables constraining them to be non-negative.
-     */
-    expr_ref theory_str::infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables) {
-        ENSURE(u.is_re(re));
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-        expr * sub1;
-        expr * sub2;
-        unsigned lo, hi;
-        if (u.re.is_to_re(re, sub1)) {
-            if (!u.str.is_string(sub1))
-                throw default_exception("regular expressions must be built from string literals");
-            zstring str;
-            u.str.is_string(sub1, str);
-            rational strlen(str.length());
-            expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_numeral(strlen, true)), m);
-            return retval;
-        } else if (u.re.is_union(re, sub1, sub2)) {
-            expr_ref r1 = infer_all_regex_lengths(lenVar, sub1, freeVariables);
-            expr_ref r2 = infer_all_regex_lengths(lenVar, sub2, freeVariables);
-            expr_ref retval(m.mk_or(r1, r2), m);
-            return retval;
-        } else if (u.re.is_concat(re, sub1, sub2)) {
-            expr * v1 = mk_int_var("rlen1");
-            expr * v2 = mk_int_var("rlen2");
-            freeVariables.push_back(v1);
-            freeVariables.push_back(v2);
-            expr_ref r1 = infer_all_regex_lengths(v1, sub1, freeVariables);
-            expr_ref r2 = infer_all_regex_lengths(v2, sub2, freeVariables);
-            expr_ref_vector finalResult(m);
-            finalResult.push_back(ctx.mk_eq_atom(lenVar, m_autil.mk_add(v1, v2)));
-            finalResult.push_back(r1);
-            finalResult.push_back(r2);
-            expr_ref retval(mk_and(finalResult), m);
-            return retval;
-        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
-            // stars are generated as a linear combination of all possible subterm lengths;
-            // this requires that there are no stars under this one
-            /*
-            expr * v = mk_int_var("rlen");
-            expr * n = mk_int_var("rstar");
-            freeVariables.push_back(v);
-            freeVariables.push_back(n);
-            expr_ref rsub = infer_all_regex_lengths(v, sub1, freeVariables);
-            expr_ref_vector finalResult(m);
-            finalResult.push_back(rsub);
-            finalResult.push_back(ctx.mk_eq_atom(lenVar, m_autil.mk_mul(v, n)));
-            expr_ref retval(mk_and(finalResult), m);
-            return retval;
-            */
-            integer_set subterm_lens;
-            check_subterm_lengths(sub1, subterm_lens);
-            if (subterm_lens.empty()) {
-                // somehow generation was impossible
-                expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
-                return retval;
-            } else {
-                TRACE("str", tout << "subterm lengths:";
-                for(integer_set::iterator it = subterm_lens.begin(); it != subterm_lens.end(); ++it) {
-                    tout << " " << *it;
-                }
-                tout << std::endl;);
-                expr_ref_vector sum_terms(m);
-                for (integer_set::iterator it = subterm_lens.begin(); it != subterm_lens.end(); ++it) {
-                    rational lenOption(*it);
-                    expr * n = mk_int_var("rstar");
-                    freeVariables.push_back(n);
-                    expr_ref term(m_autil.mk_mul(m_autil.mk_numeral(lenOption, true), n), m);
-                    expr_ref term2(term, m);
-                    if (u.re.is_plus(re)) {
-                        // n effectively starts at 1
-                        term2 = m_autil.mk_add(m_autil.mk_numeral(lenOption, true), term);
-                    }
-                    sum_terms.push_back(term2);
-                }
-                expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_add_simplify(sum_terms)), m);
-                return retval;
-            }
-        } else if (u.re.is_loop(re, sub1, lo, hi)) {
-        	expr * v1 = mk_int_var("rlen");
-        	freeVariables.push_back(v1);
-        	expr_ref r1 = infer_all_regex_lengths(v1, sub1, freeVariables);
-        	expr_ref_vector v1_choices(m);
-        	for (unsigned i = lo; i <= hi; ++i) {
-        		rational rI(i);
-        		expr_ref v1_i(ctx.mk_eq_atom(lenVar, m_autil.mk_mul(m_autil.mk_numeral(rI, true), v1)), m);
-        		v1_choices.push_back(v1_i);
-        	}
-        	expr_ref_vector finalResult(m);
-        	finalResult.push_back(r1);
-        	finalResult.push_back(mk_or(v1_choices));
-        	expr_ref retval(mk_and(finalResult), m);
-        	SASSERT(retval);
-        	return retval;
-        } else if (u.re.is_range(re, sub1, sub2)) {
-            SASSERT(u.str.is_string(sub1));
-            SASSERT(u.str.is_string(sub2));
-            zstring str1, str2;
-            u.str.is_string(sub1, str1);
-            u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_numeral(rational::one(), true)), m);
-            return retval;
-        } else if (u.re.is_full_char(re)) {
-            expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_numeral(rational::one(), true)), m);
-            return retval;
-        } else if (u.re.is_full_seq(re)) {
-            // match any unbounded string
-            expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
-            return retval;
-        } else if (u.re.is_complement(re)) {
-            // skip complement for now, in general this is difficult to predict
-            expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
-            return retval;
-        } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, m) << std::endl;);
-            expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
-            return retval;
-        }
-    }
-
-    /*
-     * Assert initial lower and upper bounds for the positive constraint (str in re) corresponding
-     * to the automaton `aut`.
-     * This asserts a constraint of the form:
-     *   str_in_re --> (len(str) ?= 0 OR len(str) >= lb) AND len(str) <= ub
-     * where the upper bound clause is omitted if the upper bound doesn't exist
-     * and the equality with 0 is based on whether solutions of length 0 are allowed.
-     */
-    void theory_str::find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut) {
-        ENSURE(aut != nullptr);
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-
-        expr_ref_vector rhs(m);
-        expr * str = nullptr;
-        expr * re = nullptr;
-        u.str.is_in_re(str_in_re, str, re);
-        expr_ref strlen(mk_strlen(str), m);
-
-        // lower bound first
-        rational nonzero_lower_bound;
-        bool zero_sol_exists = refine_automaton_lower_bound(aut, rational::zero(), nonzero_lower_bound);
-        if (zero_sol_exists) {
-            regex_last_lower_bound.insert(str, rational::zero());
-            // solution at 0
-            if (!nonzero_lower_bound.is_minus_one()) {
-                expr_ref rhs1(ctx.mk_eq_atom(strlen, m_autil.mk_numeral(rational::zero(), true)), m);
-                expr_ref rhs2(m_autil.mk_ge(strlen, m_autil.mk_numeral(nonzero_lower_bound, true)), m);
-                rhs.push_back(m.mk_or(rhs1, rhs2));
-            } else {
-                // shouldn't happen
-                UNREACHABLE();
-            }
-        } else {
-            // no solution at 0
-            if (!nonzero_lower_bound.is_minus_one()) {
-                regex_last_lower_bound.insert(str, nonzero_lower_bound);
-                expr_ref rhs2(m_autil.mk_ge(strlen, m_autil.mk_numeral(nonzero_lower_bound, true)), m);
-                rhs.push_back(rhs2);
-            } else {
-                // shouldn't happen
-                UNREACHABLE();
-            }
-        }
-        // TODO upper bound check
-
-        if (!rhs.empty()) {
-            expr_ref lhs(str_in_re, m);
-            expr_ref _rhs(mk_and(rhs), m);
-            assert_implication(lhs, _rhs);
-        }
-    }
-
-    /*
-     * Refine the lower bound on the length of a solution to a given automaton.
-     * The method returns TRUE if a solution of length `current_lower_bound` exists,
-     * and FALSE otherwise. In addition, the reference parameter `refined_lower_bound`
-     * is assigned the length of the shortest solution longer than `current_lower_bound`
-     * if it exists, or -1 otherwise.
-     */
-    bool theory_str::refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound) {
-        ENSURE(aut != nullptr);
-
-        if (aut->final_states().empty()) {
-            // no solutions at all
-            refined_lower_bound = rational::minus_one();
-            return false;
-        }
-
-        // from here we assume that there is a final state reachable from the initial state
-
-        unsigned_vector search_queue;
-        // populate search_queue with all states reachable from the epsilon-closure of start state
-        aut->get_epsilon_closure(aut->init(), search_queue);
-
-        unsigned search_depth = 0;
-        hashtable<unsigned, unsigned_hash, default_eq<unsigned>> next_states;
-        unsigned_vector next_search_queue;
-
-        bool found_solution_at_lower_bound = false;
-
-        while (!search_queue.empty()) {
-            // if we are at the lower bound, check for final states
-            if (search_depth == current_lower_bound.get_unsigned()) {
-                for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
-                    unsigned state = *it;
-                    if (aut->is_final_state(state)) {
-                        found_solution_at_lower_bound = true;
-                        break;
-                    }
-                }
-                // end phase 1
-                break;
-            }
-            next_states.reset();
-            next_search_queue.clear();
-            // move one step along all states
-            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
-                unsigned src = *it;
-                eautomaton::moves next_moves;
-                aut->get_moves_from(src, next_moves, true);
-                for (eautomaton::moves::iterator move_it = next_moves.begin();
-                        move_it != next_moves.end(); ++move_it) {
-                    unsigned dst = move_it->dst();
-                    if (!next_states.contains(dst)) {
-                        next_states.insert(dst);
-                        next_search_queue.push_back(dst);
-                    }
-                }
-            }
-            search_queue.clear();
-            search_queue.append(next_search_queue);
-            search_depth += 1;
-        } // !search_queue.empty()
-
-        // if we got here before reaching the lower bound,
-        // there aren't any solutions at or above it, so stop
-        if (search_depth < current_lower_bound.get_unsigned()) {
-            refined_lower_bound = rational::minus_one();
-            return false;
-        }
-
-        // phase 2: continue exploring the automaton above the lower bound
-        SASSERT(search_depth == current_lower_bound.get_unsigned());
-
-        while (!search_queue.empty()) {
-            if (search_depth > current_lower_bound.get_unsigned()) {
-                // check if we have found a solution above the lower bound
-                for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
-                    unsigned state = *it;
-                    if (aut->is_final_state(state)) {
-                        // this is a solution at a depth higher than the lower bound
-                        refined_lower_bound = rational(search_depth);
-                        return found_solution_at_lower_bound;
-                    }
-                }
-            }
-            next_states.reset();
-            next_search_queue.clear();
-            // move one step along all states
-            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
-                unsigned src = *it;
-                eautomaton::moves next_moves;
-                aut->get_moves_from(src, next_moves, true);
-                for (eautomaton::moves::iterator move_it = next_moves.begin();
-                        move_it != next_moves.end(); ++move_it) {
-                    unsigned dst = move_it->dst();
-                    if (!next_states.contains(dst)) {
-                        next_states.insert(dst);
-                        next_search_queue.push_back(dst);
-                    }
-                }
-            }
-            search_queue.clear();
-            search_queue.append(next_search_queue);
-            search_depth += 1;
-        }
-        // if we reached this point, we explored the whole automaton and didn't find any
-        // solutions above the lower bound
-        refined_lower_bound = rational::minus_one();
-        return found_solution_at_lower_bound;
-    }
-
-    /*
-     * Refine the upper bound on the length of a solution to a given automaton.
-     * The method returns TRUE if a solution of length `current_upper_bound` exists,
-     * and FALSE otherwise. In addition, the reference parameter `refined_upper_bound`
-     * is assigned the length of the longest solution shorter than `current_upper_bound`,
-     * if a shorter solution exists, or -1 otherwise.
-     */
-    bool theory_str::refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound) {
-        ENSURE(aut != nullptr);
-
-        if (aut->final_states().empty()) {
-            // no solutions at all!
-            refined_upper_bound = rational::minus_one();
-            return false;
-        }
-
-        // from here we assume there is a final state reachable from the initial state
-        unsigned_vector search_queue;
-        // populate search queue with all states reachable from the epsilon-closure of the start state
-        aut->get_epsilon_closure(aut->init(), search_queue);
-
-        rational last_solution_depth = rational::minus_one();
-        bool found_solution_at_upper_bound = false;
-
-        unsigned search_depth = 0;
-        hashtable<unsigned, unsigned_hash, default_eq<unsigned> > next_states;
-        unsigned_vector next_search_queue;
-
-        while(!search_queue.empty()) {
-            // see if any of the current states are final
-            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
-                unsigned src = *it;
-                if (aut->is_final_state(src)) {
-                    if (search_depth == current_upper_bound.get_unsigned()) {
-                        found_solution_at_upper_bound = true;
-                    } else {
-                        last_solution_depth = rational(search_depth);
-                    }
-                    break;
-                }
-            }
-
-            if (search_depth == current_upper_bound.get_unsigned()) {
-                break;
-            }
-
-            next_states.reset();
-            next_search_queue.clear();
-            // move one step along all states
-            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
-                unsigned src = *it;
-                eautomaton::moves next_moves;
-                aut->get_moves_from(src, next_moves, true);
-                for (eautomaton::moves::iterator moves_it = next_moves.begin();
-                        moves_it != next_moves.end(); ++moves_it) {
-                    unsigned dst = moves_it->dst();
-                    if (!next_states.contains(dst)) {
-                        next_states.insert(dst);
-                        next_search_queue.push_back(dst);
-                    }
-                }
-            }
-            search_queue.clear();
-            search_queue.append(next_search_queue);
-            search_depth += 1;
-        } //!search_queue.empty()
-
-        refined_upper_bound = last_solution_depth;
-        return found_solution_at_upper_bound;
-    }
-
-    void theory_str::aut_path_add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond) {
-        expr* acc;
-        if (!get_manager().is_true(cond) && next.find(idx, acc)) {
-            expr* args[2] = { cond, acc };
-            cond = mk_or(get_manager(), 2, args);
-        }
-        trail.push_back(cond);
-        next.insert(idx, cond);
-    }
-
-    expr_ref theory_str::aut_path_rewrite_constraint(expr * cond, expr * ch_var) {
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-
-        expr_ref retval(m);
-        
-        unsigned char_val = 0;
-
-        expr * lhs;
-        expr * rhs;
-
-        if (u.is_const_char(cond, char_val)) {
-            SASSERT(char_val < 256);
-            TRACE("str", tout << "rewrite character constant " << char_val << std::endl;);
-            zstring str_const(char_val);
-            retval = u.str.mk_string(str_const);
-            return retval;
-        } else if (is_var(cond)) {
-            TRACE("str", tout << "substitute var" << std::endl;);
-            retval = ch_var;
-            return retval;
-        } else if (m.is_eq(cond, lhs, rhs)) {
-            // handle this specially because the sort of the equality will change
-            expr_ref new_lhs(aut_path_rewrite_constraint(lhs, ch_var), m);
-            SASSERT(new_lhs);
-            expr_ref new_rhs(aut_path_rewrite_constraint(rhs, ch_var), m);
-            SASSERT(new_rhs);
-            retval = ctx.mk_eq_atom(new_lhs, new_rhs);
-            return retval;
-        } else if (m.is_bool(cond)) {
-            TRACE("str", tout << "rewrite boolean term " << mk_pp(cond, m) << std::endl;);
-            app * a_cond = to_app(cond);
-            expr_ref_vector rewritten_args(m);
-            for (unsigned i = 0; i < a_cond->get_num_args(); ++i) {
-                expr * argI = a_cond->get_arg(i);
-                expr_ref new_arg(aut_path_rewrite_constraint(argI, ch_var), m);
-                SASSERT(new_arg);
-                rewritten_args.push_back(new_arg);
-            }
-            retval = m.mk_app(a_cond->get_decl(), rewritten_args.c_ptr());
-            TRACE("str", tout << "final rewritten term is " << mk_pp(retval, m) << std::endl;);
-            return retval;
-        } else {
-            TRACE("str", tout << "ERROR: unrecognized automaton path constraint " << mk_pp(cond, m) << ", cannot translate" << std::endl;);
-            retval = nullptr;
-            return retval;
-        }
-    }
-
-    /*
-     * Create finite path constraints for the string variable `str` with respect to the automaton `aut`.
-     * The returned expression is the right-hand side of a constraint of the form
-     * (str in re) AND (|str| = len) AND (any applicable length assumptions on aut) -> (rhs AND character constraints).
-     * The character constraints, which are (str = c0 . c1 . (...) . cn) and (|c0| = 1, ...),
-     * are returned in `characterConstraints`.
-     */
-    expr_ref theory_str::generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints) {
-        ENSURE(aut != nullptr);
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-
-        if (lenVal.is_zero()) {
-            // if any state in the epsilon-closure of the start state is accepting,
-            // then the empty string is in this language
-            unsigned_vector states;
-            bool has_final = false;
-            aut->get_epsilon_closure(aut->init(), states);
-            for (unsigned i = 0; i < states.size() && !has_final; ++i) {
-                has_final = aut->is_final_state(states[i]);
-            }
-            if (has_final) {
-                // empty string is OK, assert axiom
-                expr_ref rhs(ctx.mk_eq_atom(stringTerm, mk_string("")), m);
-                SASSERT(rhs);
-                //regex_automata_assertions.insert(stringTerm, final_axiom);
-                //m_trail_stack.push(insert_obj_map<theory_str, expr, expr* >(regex_automata_assertions, stringTerm) );
-                return rhs;
-            } else {
-                // negate -- the empty string isn't in the language
-                //expr_ref conflict(m.mk_not(mk_and(toplevel_lhs)), m);
-                //assert_axiom(conflict);
-                expr_ref conflict(m.mk_false(), m);
-                return conflict;
-            }
-        } // lenVal.is_zero()
-
-        expr_ref_vector pathChars(m);
-        expr_ref_vector pathChars_len_constraints(m);
-
-        // reuse character terms over the same string
-        if (string_chars.contains(stringTerm)) {
-            // find out whether we have enough characters already
-            ptr_vector<expr> old_chars;
-            string_chars.find(stringTerm, old_chars);
-            if (old_chars.size() < lenVal.get_unsigned()) {
-                for (unsigned i = old_chars.size(); i < lenVal.get_unsigned(); ++i) {
-                    std::stringstream ss;
-                    ss << "ch" << i;
-                    expr_ref ch(mk_str_var(ss.str()), m);
-                    m_trail.push_back(ch);
-                    old_chars.push_back(ch);
-                }
-            }
-            string_chars.insert(stringTerm, old_chars);
-            // now we're guaranteed to have at least the right number of characters in old_chars
-            for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
-                expr_ref ch(old_chars.get(i), m);
-                refresh_theory_var(ch);
-                pathChars.push_back(ch);
-                pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));
-            }
-        } else {
-            ptr_vector<expr> new_chars;
-            for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
-                std::stringstream ss;
-                ss << "ch" << i;
-                expr_ref ch(mk_str_var(ss.str()), m);
-                pathChars.push_back(ch);
-                pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));
-                new_chars.push_back(ch);
-            }
-            string_chars.insert(stringTerm, new_chars);
-        }
-
-        // modification of code in seq_rewriter::mk_str_in_regexp()
-        expr_ref_vector trail(m);
-        u_map<expr*> maps[2];
-        bool select_map = false;
-        expr_ref ch(m), cond(m);
-        eautomaton::moves mvs;
-        maps[0].insert(aut->init(), m.mk_true());
-        // is_accepted(a, aut) & some state in frontier is final.
-        for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
-            u_map<expr*>& frontier = maps[select_map];
-            u_map<expr*>& next = maps[!select_map];
-            select_map = !select_map;
-            ch = pathChars.get(i);
-            next.reset();
-            u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
-            for (; it != end; ++it) {
-                mvs.reset();
-                unsigned state = it->m_key;
-                expr*    acc  = it->m_value;
-                aut->get_moves_from(state, mvs, false);
-                for (unsigned j = 0; j < mvs.size(); ++j) {
-                    eautomaton::move const& mv = mvs[j];
-                    SASSERT(mv.t());
-                    if (mv.t()->is_char() && m.is_value(mv.t()->get_char())) {
-                        // change this to a string constraint
-                        expr_ref cond_rhs = aut_path_rewrite_constraint(mv.t()->get_char(), ch);
-                        SASSERT(cond_rhs);
-                        cond = ctx.mk_eq_atom(ch, cond_rhs);
-                        SASSERT(cond);
-                        expr * args[2] = {cond, acc};
-                        cond = mk_and(m, 2, args);
-                        aut_path_add_next(next, trail, mv.dst(), cond);
-                    } else if (mv.t()->is_range()) {
-                        expr_ref range_lo(mv.t()->get_lo(), m);
-                        expr_ref range_hi(mv.t()->get_hi(), m);
-
-                        unsigned lo_val, hi_val;
-
-                        if (u.is_const_char(range_lo, lo_val) && u.is_const_char(range_hi, hi_val)) {
-                            TRACE("str", tout << "make range predicate from " << lo_val << " to " << hi_val << std::endl;);
-                            expr_ref cond_rhs(m);
-
-                            if (hi_val < lo_val) {
-                                // NSB: why? The range would be empty. 
-                                std::swap(lo_val, hi_val);
-                            }
-
-                            expr_ref_vector cond_rhs_terms(m);
-                            for (unsigned i = lo_val; i <= hi_val; ++i) {
-                                zstring str_const(i);
-                                expr_ref str_expr(u.str.mk_string(str_const), m);
-                                cond_rhs_terms.push_back(ctx.mk_eq_atom(ch, str_expr));
-                            }
-                            cond_rhs = mk_or(cond_rhs_terms);
-                            SASSERT(cond_rhs);
-                            expr * args[2] = {cond_rhs, acc};
-                            cond = mk_and(m, 2, args);
-                            aut_path_add_next(next, trail, mv.dst(), cond);
-                        } else {
-                            TRACE("str", tout << "warning: non-bitvectors in automaton range predicate" << std::endl;);
-                            UNREACHABLE();
-                        }
-                    } else if (mv.t()->is_pred()) {
-                        // rewrite this constraint over string terms
-                        expr_ref cond_rhs = aut_path_rewrite_constraint(mv.t()->get_pred(), ch);
-                        SASSERT(cond_rhs);
-
-                        if (m.is_false(cond_rhs)) {
-                            continue;
-                        } else if (m.is_true(cond_rhs)) {
-                            aut_path_add_next(next, trail, mv.dst(), acc);
-                            continue;
-                        }
-                        expr * args[2] = {cond_rhs, acc};
-                        cond = mk_and(m, 2, args);
-                        aut_path_add_next(next, trail, mv.dst(), cond);
-                    }
-                }
-            }
-        }
-        u_map<expr*> const& frontier = maps[select_map];
-        u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
-        expr_ref_vector ors(m);
-        for (; it != end; ++it) {
-            unsigned_vector states;
-            bool has_final = false;
-            aut->get_epsilon_closure(it->m_key, states);
-            for (unsigned i = 0; i < states.size() && !has_final; ++i) {
-                has_final = aut->is_final_state(states[i]);
-            }
-            if (has_final) {
-                ors.push_back(it->m_value);
-            }
-        }
-        expr_ref result(mk_or(ors));
-        TRACE("str", tout << "regex path constraint: " << mk_pp(result, m) << "\n";);
-
-        expr_ref concat_rhs(m);
-        if (pathChars.size() == 1) {
-            concat_rhs = ctx.mk_eq_atom(stringTerm, pathChars.get(0));
-        } else {
-            expr_ref acc(pathChars.get(0), m);
-            for (unsigned i = 1; i < pathChars.size(); ++i) {
-                acc = mk_concat(acc, pathChars.get(i));
-            }
-            concat_rhs = ctx.mk_eq_atom(stringTerm, acc);
-        }
-
-        //expr_ref toplevel_rhs(m.mk_and(result, mk_and(pathChars_len_constraints), concat_rhs), m);
-        characterConstraints = m.mk_and(mk_and(pathChars_len_constraints), concat_rhs);
-        //expr_ref final_axiom(rewrite_implication(mk_and(toplevel_lhs), toplevel_rhs), m);
-        //regex_automata_assertions.insert(stringTerm, final_axiom);
-        //m_trail_stack.push(insert_obj_map<theory_str, expr, expr* >(regex_automata_assertions, stringTerm) );
-        return result;
-    }
-
     /*
      * strArgmt::solve_concat_eq_str()
      * Solve concatenations of the form:
@@ -7962,99 +7305,6 @@ namespace smt {
         } // (s == "yes")
     }
 
-    void theory_str::more_len_tests(expr * lenTester, zstring lenTesterValue) {
-        ast_manager & m = get_manager();
-        if (lenTester_fvar_map.contains(lenTester)) {
-            expr * fVar = lenTester_fvar_map[lenTester];
-            expr_ref toAssert(gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue), m);
-            TRACE("str", tout << "asserting more length tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
-            if (toAssert) {
-                assert_axiom(toAssert);
-            }
-        }
-    }
-
-    void theory_str::more_value_tests(expr * valTester, zstring valTesterValue) {
-        ast_manager & m = get_manager(); (void)m;
-
-        expr * fVar = valueTester_fvar_map[valTester];
-        if (m_params.m_UseBinarySearch) {
-            if (!binary_search_len_tester_stack.contains(fVar) || binary_search_len_tester_stack[fVar].empty()) {
-                TRACE("str", tout << "WARNING: no active length testers for " << mk_pp(fVar, m) << std::endl;);
-                NOT_IMPLEMENTED_YET();
-            }
-            expr * effectiveLenInd = binary_search_len_tester_stack[fVar].back();
-            bool hasEqcValue;
-            expr * len_indicator_value = get_eqc_value(effectiveLenInd, hasEqcValue);
-            if (!hasEqcValue) {
-                TRACE("str", tout << "WARNING: length tester " << mk_pp(effectiveLenInd, m) << " at top of stack for " << mk_pp(fVar, m) << " has no EQC value" << std::endl;);
-            } else {
-                // safety check
-                zstring effectiveLenIndiStr;
-                u.str.is_string(len_indicator_value, effectiveLenIndiStr);
-                if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "less") {
-                    TRACE("str", tout << "ERROR: illegal state -- requesting 'more value tests' but a length tester is not yet concrete!" << std::endl;);
-                    UNREACHABLE();
-                }
-                expr * valueAssert = gen_free_var_options(fVar, effectiveLenInd, effectiveLenIndiStr, valTester, valTesterValue);
-                TRACE("str", tout << "asserting more value tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
-                if (valueAssert != nullptr) {
-                    assert_axiom(valueAssert);
-                }
-            }
-        } else {
-            int lenTesterCount;
-            if (fvar_lenTester_map.contains(fVar)) {
-                lenTesterCount = fvar_lenTester_map[fVar].size();
-            } else {
-                lenTesterCount = 0;
-            }
-
-            expr * effectiveLenInd = nullptr;
-            zstring effectiveLenIndiStr = "";
-            for (int i = 0; i < lenTesterCount; ++i) {
-                expr * len_indicator_pre = fvar_lenTester_map[fVar][i];
-                bool indicatorHasEqcValue = false;
-                expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
-                if (indicatorHasEqcValue) {
-                    zstring len_pIndiStr;
-                    u.str.is_string(len_indicator_value, len_pIndiStr);
-                    if (len_pIndiStr != "more") {
-                        effectiveLenInd = len_indicator_pre;
-                        effectiveLenIndiStr = len_pIndiStr;
-                        break;
-                    }
-                }
-            }
-            expr * valueAssert = gen_free_var_options(fVar, effectiveLenInd, effectiveLenIndiStr, valTester, valTesterValue);
-            TRACE("str", tout << "asserting more value tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
-            if (valueAssert != nullptr) {
-                assert_axiom(valueAssert);
-            }
-        }
-    }
-
-    bool theory_str::free_var_attempt(expr * nn1, expr * nn2) {
-        zstring nn2_str;
-        if (internal_lenTest_vars.contains(nn1) && u.str.is_string(nn2, nn2_str)) {
-            TRACE("str", tout << "acting on equivalence between length tester var " << mk_pp(nn1, get_manager())
-                  << " and constant " << mk_pp(nn2, get_manager()) << std::endl;);
-            more_len_tests(nn1, nn2_str);
-            return true;
-        } else if (internal_valTest_vars.contains(nn1) && u.str.is_string(nn2, nn2_str)) {
-            if (nn2_str == "more") {
-                TRACE("str", tout << "acting on equivalence between value var " << mk_pp(nn1, get_manager())
-                      << " and constant " << mk_pp(nn2, get_manager()) << std::endl;);
-                more_value_tests(nn1, nn2_str);
-            }
-            return true;
-        } else if (internal_unrollTest_vars.contains(nn1)) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
     void theory_str::handle_equality(expr * lhs, expr * rhs) {
         ast_manager & m = get_manager();
         context & ctx = get_context();
@@ -8062,6 +7312,18 @@ namespace smt {
         sort * lhs_sort = m.get_sort(lhs);
         sort * rhs_sort = m.get_sort(rhs);
         sort * str_sort = u.str.mk_string_sort();
+
+        // Pick up new terms added during the search (e.g. recursive function expansion).
+        if (!existing_toplevel_exprs.contains(lhs)) {
+            existing_toplevel_exprs.insert(lhs);
+            set_up_axioms(lhs);
+            propagate();
+        }
+        if (!existing_toplevel_exprs.contains(rhs)) {
+            existing_toplevel_exprs.insert(rhs);
+            set_up_axioms(rhs);
+            propagate();
+        }
 
         if (lhs_sort != str_sort || rhs_sort != str_sort) {
             TRACE("str", tout << "skip equality: not String sort" << std::endl;);
@@ -8306,9 +7568,30 @@ namespace smt {
         }
     }
 
+    bool theory_str::is_var(expr * e) const {
+        ast_manager & m = get_manager();
+        sort * ex_sort = m.get_sort(e);
+        sort * str_sort = u.str.mk_string_sort();
+        // non-string-sort terms cannot be string variables
+        if (ex_sort != str_sort) return false;
+        // string constants cannot be variables
+        if (u.str.is_string(e)) return false;
+        if (u.str.is_concat(e) || u.str.is_at(e) || u.str.is_extract(e) || u.str.is_replace(e) || u.str.is_itos(e))
+            return false;
+        if (m.is_ite(e))
+            return false;
+        return true;
+    }
+
     void theory_str::set_up_axioms(expr * ex) {
         ast_manager & m = get_manager();
         context & ctx = get_context();
+
+        // workaround for #3756:
+        // the map existing_toplevel_exprs is never cleared on backtracking.
+        // to ensure the expressions are valid we persist validity of the
+        // expression throughout the lifetime of theory_str
+        m_trail.push_back(ex);
 
         sort * ex_sort = m.get_sort(ex);
         sort * str_sort = u.str.mk_string_sort();
@@ -8349,7 +7632,7 @@ namespace smt {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
-                } else if (ap->get_num_args() == 0 && !u.str.is_string(ap)) {
+                } else if (is_var(ex)) {
                     // if ex is a variable, add it to our list of variables
                     TRACE("str", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
                     variable_set.insert(ex);
@@ -8400,6 +7683,10 @@ namespace smt {
                 }
             }
         } else {
+            if (u.str.is_non_string_sequence(ex)) {
+                TRACE("str", tout << "ERROR: Z3str3 does not support non-string sequence terms. Aborting." << std::endl;);
+                m.raise_exception("Z3str3 does not support non-string sequence terms.");
+            }
             TRACE("str", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
                   ": expr is of wrong sort, ignoring" << std::endl;);
         }
@@ -8417,7 +7704,6 @@ namespace smt {
     void theory_str::add_theory_assumptions(expr_ref_vector & assumptions) {
         TRACE("str", tout << "add overlap assumption for theory_str" << std::endl;);
         const char* strOverlap = "!!TheoryStrOverlapAssumption!!";
-        seq_util m_sequtil(get_manager());
         sort * s = get_manager().mk_bool_sort();
         m_theoryStrOverlapAssumption_term = expr_ref(mk_fresh_const(strOverlap, s), get_manager());
         assumptions.push_back(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
@@ -8426,11 +7712,11 @@ namespace smt {
     lbool theory_str::validate_unsat_core(expr_ref_vector & unsat_core) {
         app * target_term = to_app(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
         get_context().internalize(target_term, false);
-		enode* e1 = get_context().get_enode(target_term);
+        enode* e1 = get_context().get_enode(target_term);
         for (unsigned i = 0; i < unsat_core.size(); ++i) {
             app * core_term = to_app(unsat_core.get(i));
             // not sure if this is the correct way to compare terms in this context
-			if (!get_context().e_internalized(core_term)) continue;
+            if (!get_context().e_internalized(core_term)) continue;
             enode *e2 = get_context().get_enode(core_term);
             if (e1 == e2) {
                 TRACE("str", tout << "overlap detected in unsat core, changing UNSAT to UNKNOWN" << std::endl;);
@@ -8444,6 +7730,8 @@ namespace smt {
     void theory_str::init_search_eh() {
         context & ctx = get_context();
 
+        reset_internal_data_structures();
+
         TRACE("str",
               tout << "dumping all asserted formulas:" << std::endl;
               unsigned nFormulas = ctx.get_num_asserted_formulas();
@@ -8452,6 +7740,16 @@ namespace smt {
                   tout << mk_pp(ex, get_manager()) << (ctx.is_relevant(ex) ? " (rel)" : " (NOT REL)") << std::endl;
               }
               );
+
+        TRACE("str",
+            expr_ref_vector formulas(get_manager());
+            ctx.get_assignments(formulas);
+            tout << "dumping all formulas:" << std::endl;
+            for (expr_ref_vector::iterator i = formulas.begin(); i != formulas.end(); ++i) {
+                expr * ex = *i;
+                tout << mk_pp(ex, get_manager()) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
+            }
+        );
         /*
          * Recursive descent through all asserted formulas to set up axioms.
          * Note that this is just the input structure and not necessarily things
@@ -8464,10 +7762,6 @@ namespace smt {
             set_up_axioms(ex);
         }
 
-        // this might be cheating but we need to make sure that certain maps are populated
-        // before the first call to new_eq_eh()
-        propagate();
-
         TRACE("str", tout << "search started" << std::endl;);
         search_started = true;
     }
@@ -8476,6 +7770,7 @@ namespace smt {
         //TRACE("str", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
         TRACE("str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
               mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
+        candidate_model.reset();
 
         /*
           if (m_find.find(x) == m_find.find(y)) {
@@ -8492,6 +7787,7 @@ namespace smt {
         //TRACE("str", tout << "new diseq: v#" << x << " != v#" << y << std::endl;);
         TRACE("str", tout << "new diseq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
               mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
+        candidate_model.reset();
     }
 
     void theory_str::relevant_eh(app * n) {
@@ -8499,7 +7795,18 @@ namespace smt {
     }
 
     void theory_str::assign_eh(bool_var v, bool is_true) {
-        TRACE("str", tout << "assert: v" << v << " #" << get_context().bool_var2expr(v)->get_id() << " is_true: " << is_true << std::endl;);
+        candidate_model.reset();
+        expr * e = get_context().bool_var2expr(v);
+        TRACE("str", tout << "assert: v" << v << " " << mk_pp(e, get_manager()) << " is_true: " << is_true << std::endl;);
+        DEBUG_CODE(
+            for (auto * f : existing_toplevel_exprs) {
+                SASSERT(f->get_ref_count() > 0);
+            });
+        if (!existing_toplevel_exprs.contains(e)) {
+            existing_toplevel_exprs.insert(e);
+            set_up_axioms(e);
+            propagate();
+        }
     }
 
     void theory_str::push_scope_eh() {
@@ -8509,6 +7816,7 @@ namespace smt {
         sLevel += 1;
         TRACE("str", tout << "push to " << sLevel << std::endl;);
         TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
+        candidate_model.reset();
     }
 
     void theory_str::recursive_check_variable_scope(expr * ex) {
@@ -8568,8 +7876,10 @@ namespace smt {
     }
 
     void theory_str::pop_scope_eh(unsigned num_scopes) {
+        context & ctx = get_context();
         sLevel -= num_scopes;
         TRACE("str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
+        candidate_model.reset();
 
         TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
 
@@ -8612,9 +7922,11 @@ namespace smt {
         m_basicstr_axiom_todo.reset();
         m_basicstr_axiom_todo = new_m_basicstr;
 
-        for (expr * e : m_persisted_axioms) {
-            TRACE("str", tout << "persist axiom: " << mk_pp(e, get_manager()) << std::endl;);
-            m_persisted_axiom_todo.push_back(e);
+        if (ctx.is_searching()) {
+            for (expr * e : m_persisted_axioms) {
+                TRACE("str", tout << "persist axiom: " << mk_pp(e, get_manager()) << std::endl;);
+                m_persisted_axiom_todo.push_back(e);
+            }
         }
 
         m_trail_stack.pop_scope(num_scopes);
@@ -9817,732 +9129,6 @@ namespace smt {
         }
     }
 
-    void theory_str::solve_regex_automata() {
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-
-        // TODO since heuristics might fail, the "no progress" flag might need to be handled specially here
-        bool regex_axiom_add = false;
-        for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
-            expr * str_in_re = *it;
-            expr * str = nullptr;
-            expr * re = nullptr;
-            u.str.is_in_re(str_in_re, str, re);
-            lbool current_assignment = ctx.get_assignment(str_in_re);
-            TRACE("str", tout << "regex term: " << mk_pp(str, m) << " in " << mk_pp(re, m) << " : " << current_assignment << std::endl;);
-            if (current_assignment == l_undef) {
-                continue;
-            }
-
-            if (!regex_terms_with_length_constraints.contains(str_in_re)) {
-                if (current_assignment == l_true && check_regex_length_linearity(re)) {
-                    TRACE("str", tout << "regex length constraints expected to be linear -- generating and asserting them" << std::endl;);
-
-                    if (regex_term_to_length_constraint.contains(str_in_re)) {
-                        // use existing length constraint
-                        expr * top_level_length_constraint = nullptr;
-                        regex_term_to_length_constraint.find(str_in_re, top_level_length_constraint);
-
-                        ptr_vector<expr> extra_length_vars;
-                        regex_term_to_extra_length_vars.find(str_in_re, extra_length_vars);
-
-                        assert_axiom(top_level_length_constraint);
-                        for(ptr_vector<expr>::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
-                            expr * v = *it;
-                            refresh_theory_var(v);
-                            expr_ref len_constraint(m_autil.mk_ge(v, m_autil.mk_numeral(rational::zero(), true)), m);
-                            assert_axiom(len_constraint);
-                        }
-                    } else {
-                        // generate new length constraint
-                        expr_ref_vector extra_length_vars(m);
-                        expr_ref _top_level_length_constraint = infer_all_regex_lengths(mk_strlen(str), re, extra_length_vars);
-                        expr_ref top_level_length_constraint(_top_level_length_constraint, m);
-                        th_rewriter rw(m);
-                        rw(top_level_length_constraint);
-                        TRACE("str", tout << "top-level length constraint: " << mk_pp(top_level_length_constraint, m) << std::endl;);
-                        // assert and track length constraint
-                        assert_axiom(top_level_length_constraint);
-                        for(expr_ref_vector::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
-                            expr * v = *it;
-                            expr_ref len_constraint(m_autil.mk_ge(v, m_autil.mk_numeral(rational::zero(), true)), m);
-                            assert_axiom(len_constraint);
-                        }
-
-                        regex_term_to_length_constraint.insert(str_in_re, top_level_length_constraint);
-                        ptr_vector<expr> vtmp;
-                        for(expr_ref_vector::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
-                            vtmp.push_back(*it);
-                        }
-                        regex_term_to_extra_length_vars.insert(str_in_re, vtmp);
-                    }
-
-                    regex_terms_with_length_constraints.insert(str_in_re);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_length_constraints, str_in_re));
-                    regex_axiom_add = true;
-                }
-            } // re not in regex_terms_with_length_constraints
-
-            rational exact_length_value;
-            if (get_len_value(str, exact_length_value)) {
-                TRACE("str", tout << "exact length of " << mk_pp(str, m) << " is " << exact_length_value << std::endl;);
-
-                if (regex_terms_with_path_constraints.contains(str_in_re)) {
-                    TRACE("str", tout << "term " << mk_pp(str_in_re, m) << " already has path constraints set up" << std::endl;);
-                    continue;
-                }
-
-                // find a consistent automaton for this term
-                bool found = false;
-                regex_automaton_under_assumptions assumption;
-                if (regex_automaton_assumptions.contains(re) &&
-                        !regex_automaton_assumptions[re].empty()){
-                    for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
-                            it != regex_automaton_assumptions[re].end(); ++it) {
-                        regex_automaton_under_assumptions autA = *it;
-                        rational assumed_upper_bound, assumed_lower_bound;
-                        bool assumes_upper_bound = autA.get_upper_bound(assumed_upper_bound);
-                        bool assumes_lower_bound = autA.get_lower_bound(assumed_lower_bound);
-                        if (!assumes_upper_bound && !assumes_lower_bound) {
-                            // automaton with no assumptions is always usable
-                            assumption = autA;
-                            found = true;
-                            break;
-                        }
-                        // TODO check consistency of bounds assumptions
-                    } // foreach(a in regex_automaton_assumptions)
-                }
-                if (found) {
-                    if (exact_length_value.is_zero()) {
-                        // check consistency of 0-length solution with automaton
-                        eautomaton * aut = assumption.get_automaton();
-                        bool zero_solution = false;
-                        unsigned initial_state = aut->init();
-                        if (aut->is_final_state(initial_state)) {
-                            zero_solution = true;
-                        } else {
-                            unsigned_vector eps_states;
-                            aut->get_epsilon_closure(initial_state, eps_states);
-                            for (unsigned_vector::iterator it = eps_states.begin(); it != eps_states.end(); ++it) {
-                                unsigned state = *it;
-                                if (aut->is_final_state(state)) {
-                                    zero_solution = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        // now check polarity of automaton wrt. original term
-                        if ( (current_assignment == l_true && !assumption.get_polarity())
-                                || (current_assignment == l_false && assumption.get_polarity())) {
-                            // invert sense
-                            zero_solution = !zero_solution;
-                        }
-
-                        if (zero_solution) {
-                            TRACE("str", tout << "zero-length solution OK -- asserting empty path constraint" << std::endl;);
-                            expr_ref_vector lhs_terms(m);
-                            if (current_assignment == l_true) {
-                                lhs_terms.push_back(str_in_re);
-                            } else {
-                                lhs_terms.push_back(m.mk_not(str_in_re));
-                            }
-                            lhs_terms.push_back(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(exact_length_value, true)));
-                            expr_ref lhs(mk_and(lhs_terms), m);
-                            expr_ref rhs(ctx.mk_eq_atom(str, mk_string("")), m);
-                            assert_implication(lhs, rhs);
-                            regex_terms_with_path_constraints.insert(str_in_re);
-                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
-                        } else {
-                            TRACE("str", tout << "zero-length solution not admitted by this automaton -- asserting conflict clause" << std::endl;);
-                            expr_ref_vector lhs_terms(m);
-                            if (current_assignment == l_true) {
-                                lhs_terms.push_back(str_in_re);
-                            } else {
-                                lhs_terms.push_back(m.mk_not(str_in_re));
-                            }
-                            lhs_terms.push_back(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(exact_length_value, true)));
-                            expr_ref lhs(mk_and(lhs_terms), m);
-                            expr_ref conflict(m.mk_not(lhs), m);
-                            assert_axiom(conflict);
-                        }
-                        regex_axiom_add = true;
-                        regex_inc_counter(regex_length_attempt_count, re);
-                        continue;
-                    } else {
-                        expr_ref pathConstraint(m);
-                        expr_ref characterConstraints(m);
-                        pathConstraint = generate_regex_path_constraints(str, assumption.get_automaton(), exact_length_value, characterConstraints);
-                        TRACE("str", tout << "generated regex path constraint " << mk_pp(pathConstraint, m) << std::endl;);
-                        TRACE("str", tout << "character constraints are " << mk_pp(characterConstraints, m) << std::endl;);
-
-                        expr_ref_vector lhs_terms(m);
-                        if (current_assignment == l_true) {
-                            lhs_terms.push_back(str_in_re);
-                        } else {
-                            lhs_terms.push_back(m.mk_not(str_in_re));
-                        }
-                        lhs_terms.push_back(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(exact_length_value, true)));
-                        expr_ref lhs(mk_and(lhs_terms), m);
-
-                        // If the path constraint comes out as "false", this means there are no paths of that length
-                        // in the automaton. If the polarity is the same, we can assert a conflict clause.
-                        // If the polarity is opposite, we ignore the path constraint.
-
-                        if (m.is_false(pathConstraint)) {
-                            if ( (current_assignment == l_true && assumption.get_polarity())
-                                    || (current_assignment == l_false && !assumption.get_polarity())) {
-                                // automaton and constraint have same polarity -- assert conflict clause
-                                TRACE("str", tout << "path constraint is false with matching polarity; asserting conflict clause" << std::endl;);
-                                expr_ref conflict(m.mk_not(mk_and(lhs_terms)), m);
-                                assert_axiom(conflict);
-                                // don't set up "regex_terms_with_path_constraints" as a conflict clause is not a path constraint
-                            } else {
-                                // automaton and constraint have opposite polarity -- ignore path constraint
-                                TRACE("str", tout << "path constraint is false with opposite polarity; ignoring path constraint" << std::endl;);
-                                assert_implication(lhs, characterConstraints);
-                                regex_terms_with_path_constraints.insert(str_in_re);
-                                m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
-                            }
-                            regex_axiom_add = true;
-                        } else {
-                            // If the automaton was built with the same polarity as the constraint,
-                            // assert directly. Otherwise, negate the path constraint
-                            if ( (current_assignment == l_true && assumption.get_polarity())
-                                    || (current_assignment == l_false && !assumption.get_polarity())) {
-                                TRACE("str", tout << "automaton and regex term have same polarity" << std::endl;);
-                                expr_ref rhs(m.mk_and(pathConstraint, characterConstraints), m);
-                                assert_implication(lhs, rhs);
-                            } else {
-                                TRACE("str", tout << "automaton and regex term have opposite polarity" << std::endl;);
-                                expr_ref rhs(m.mk_and(m.mk_not(pathConstraint), characterConstraints), m);
-                                assert_implication(lhs, rhs);
-                            }
-                            regex_terms_with_path_constraints.insert(str_in_re);
-                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
-                            regex_axiom_add = true;
-                        }
-
-                        // increment LengthAttemptCount
-                        regex_inc_counter(regex_length_attempt_count, re);
-
-                        TRACE("str",
-                              {
-                                  unsigned v = regex_get_counter(regex_length_attempt_count, re);
-                                  tout << "length attempt count for " << mk_pp(re, m) << " is " << v << std::endl;
-                              });
-
-                        continue;
-                    }
-                } else {
-                    // no automata available, or else all bounds assumptions are invalid
-                    unsigned expected_complexity = estimate_regex_complexity(re);
-                    if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold) {
-                        CTRACE("str", regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold,
-                                tout << "failed automaton threshold reached for " << mk_pp(str_in_re, m) << " -- automatically constructing full automaton" << std::endl;);
-                        eautomaton * aut = m_mk_aut(re);
-                        aut->compress();
-                        regex_automata.push_back(aut);
-                        regex_automaton_under_assumptions new_aut(re, aut, true);
-                        if (!regex_automaton_assumptions.contains(re)) {
-                            regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
-                        }
-                        regex_automaton_assumptions[re].push_back(new_aut);
-                        TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
-                        regex_axiom_add = true;
-                        find_automaton_initial_bounds(str_in_re, aut);
-                    } else {
-                        regex_inc_counter(regex_fail_count, str_in_re);
-                    }
-                    continue;
-                }
-            } // get_len_value()
-            expr_ref str_len(mk_strlen(str), m);
-            rational lower_bound_value;
-            rational upper_bound_value;
-            bool lower_bound_exists = lower_bound(str_len, lower_bound_value);
-            bool upper_bound_exists = upper_bound(str_len, upper_bound_value);
-            CTRACE("str", lower_bound_exists, tout << "lower bound of " << mk_pp(str, m) << " is " << lower_bound_value << std::endl;);
-            CTRACE("str", upper_bound_exists, tout << "upper bound of " << mk_pp(str, m) << " is " << upper_bound_value << std::endl;);
-
-            bool new_lower_bound_info = true;
-            bool new_upper_bound_info = true;
-            // check last seen lower/upper bound to avoid performing duplicate work
-            if (regex_last_lower_bound.contains(str)) {
-                rational last_lb_value;
-                regex_last_lower_bound.find(str, last_lb_value);
-                if (last_lb_value == lower_bound_value) {
-                    new_lower_bound_info = false;
-                }
-            }
-            if (regex_last_upper_bound.contains(str)) {
-                rational last_ub_value;
-                regex_last_upper_bound.find(str, last_ub_value);
-                if (last_ub_value == upper_bound_value) {
-                    new_upper_bound_info = false;
-                }
-            }
-
-            if (new_lower_bound_info) {
-                regex_last_lower_bound.insert(str, lower_bound_value);
-            }
-            if (new_upper_bound_info) {
-                regex_last_upper_bound.insert(str, upper_bound_value);
-            }
-
-            if (upper_bound_exists && new_upper_bound_info) {
-                // check current assumptions
-                if (regex_automaton_assumptions.contains(re) &&
-                        !regex_automaton_assumptions[re].empty()){
-                    // one or more existing assumptions.
-                    // see if the (current best) upper bound can be refined
-                    // (note that if we have an automaton with no assumption,
-                    // this automatically counts as best)
-                    bool need_assumption = true;
-                    regex_automaton_under_assumptions last_assumption;
-                    rational last_ub = rational::minus_one();
-                    for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
-                            it != regex_automaton_assumptions[re].end(); ++it) {
-                        regex_automaton_under_assumptions autA = *it;
-                        if ((current_assignment == l_true && autA.get_polarity() == false)
-                                || (current_assignment == l_false && autA.get_polarity() == true)) {
-                            // automaton uses incorrect polarity
-                            continue;
-                        }
-                        rational this_ub;
-                        if (autA.get_upper_bound(this_ub)) {
-                            if (last_ub == rational::minus_one() || this_ub < last_ub) {
-                                last_ub = this_ub;
-                                last_assumption = autA;
-                            }
-                        } else {
-                            need_assumption = false;
-                            last_assumption = autA;
-                            break;
-                        }
-                    }
-                    if (!last_ub.is_minus_one() || !need_assumption) {
-                        CTRACE("str", !need_assumption, tout << "using automaton with full length information" << std::endl;);
-                        CTRACE("str", need_assumption, tout << "using automaton with assumed upper bound of " << last_ub << std::endl;);
-
-                        rational refined_upper_bound;
-                        bool solution_at_upper_bound = refine_automaton_upper_bound(last_assumption.get_automaton(),
-                                upper_bound_value, refined_upper_bound);
-                        TRACE("str", tout << "refined upper bound is " << refined_upper_bound <<
-                                (solution_at_upper_bound?", solution at upper bound":", no solution at upper bound") << std::endl;);
-
-                        expr_ref_vector lhs(m);
-                        if (current_assignment == l_false) {
-                            lhs.push_back(m.mk_not(str_in_re));
-                        } else {
-                            lhs.push_back(str_in_re);
-                        }
-                        if (need_assumption) {
-                            lhs.push_back(m_autil.mk_le(str_len, m_autil.mk_numeral(last_ub, true)));
-                        }
-                        lhs.push_back(m_autil.mk_le(str_len, m_autil.mk_numeral(upper_bound_value, true)));
-
-                        expr_ref_vector rhs(m);
-
-                        if (solution_at_upper_bound) {
-                            if (refined_upper_bound.is_minus_one()) {
-                                // If there are solutions at the upper bound but not below it, make the bound exact.
-                                rhs.push_back(ctx.mk_eq_atom(str_len, m_autil.mk_numeral(upper_bound_value, true)));
-                            } else {
-                                // If there are solutions at and below the upper bound, add an additional bound.
-                                rhs.push_back(m.mk_or(
-                                        ctx.mk_eq_atom(str_len, m_autil.mk_numeral(upper_bound_value, true)),
-                                        m_autil.mk_le(str_len, m_autil.mk_numeral(refined_upper_bound, true))
-                                        ));
-                            }
-                        } else {
-                            if (refined_upper_bound.is_minus_one()) {
-                                // If there are no solutions at or below the upper bound, assert a conflict clause.
-                                rhs.push_back(m.mk_not(m_autil.mk_le(str_len, m_autil.mk_numeral(upper_bound_value, true))));
-                            } else {
-                                // If there are solutions below the upper bound but not at it, refine the bound.
-                                rhs.push_back(m_autil.mk_le(str_len, m_autil.mk_numeral(refined_upper_bound, true)));
-                            }
-                        }
-
-                        if (!rhs.empty()) {
-                            expr_ref lhs_terms(mk_and(lhs), m);
-                            expr_ref rhs_terms(mk_and(rhs), m);
-                            assert_implication(lhs_terms, rhs_terms);
-                            regex_axiom_add = true;
-                        }
-                    }
-                } else {
-                    // no existing automata/assumptions.
-                    // if it's easy to construct a full automaton for R, do so
-                    unsigned expected_complexity = estimate_regex_complexity(re);
-                    bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
-                    if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
-                        eautomaton * aut = m_mk_aut(re);
-                        aut->compress();
-                        regex_automata.push_back(aut);
-                        regex_automaton_under_assumptions new_aut(re, aut, true);
-                        if (!regex_automaton_assumptions.contains(re)) {
-                            regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
-                        }
-                        regex_automaton_assumptions[re].push_back(new_aut);
-                        TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
-                        regex_axiom_add = true;
-                        find_automaton_initial_bounds(str_in_re, aut);
-                    } else {
-                        // TODO check negation?
-                        // TODO construct a partial automaton for R to the given upper bound?
-                        if (false) {
-
-                        } else {
-                            regex_inc_counter(regex_fail_count, str_in_re);
-                        }
-                    }
-                    continue;
-                }
-                // if we have *any* automaton for R, and the upper bound is not too large,
-                // finitize the automaton (if we have not already done so) and assert all solutions
-                if (upper_bound_value < 50) { // TODO better metric for threshold
-                    // NOT_IMPLEMENTED_YET(); // TODO(mtrberzi)
-                }
-            } else { // !upper_bound_exists
-                // no upper bound information
-                if (lower_bound_exists && !lower_bound_value.is_zero() && new_lower_bound_info) {
-                    // nonzero lower bound, no upper bound
-
-                    // check current assumptions
-                    if (regex_automaton_assumptions.contains(re) &&
-                            !regex_automaton_assumptions[re].empty()){
-                        // one or more existing assumptions.
-                        // see if the (current best) lower bound can be refined
-                        // (note that if we have an automaton with no assumption,
-                        // this automatically counts as best)
-                        bool need_assumption = true;
-                        regex_automaton_under_assumptions last_assumption;
-                        rational last_lb = rational::zero(); // the default
-                        for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
-                                it != regex_automaton_assumptions[re].end(); ++it) {
-                            regex_automaton_under_assumptions autA = *it;
-                            if ((current_assignment == l_true && autA.get_polarity() == false)
-                                    || (current_assignment == l_false && autA.get_polarity() == true)) {
-                                // automaton uses incorrect polarity
-                                continue;
-                            }
-                            rational this_lb;
-                            if (autA.get_lower_bound(this_lb)) {
-                                if (this_lb > last_lb) {
-                                    last_lb = this_lb;
-                                    last_assumption = autA;
-                                }
-                            } else {
-                                need_assumption = false;
-                                last_assumption = autA;
-                                break;
-                            }
-                        }
-                        if (!last_lb.is_zero() || !need_assumption) {
-                            CTRACE("str", !need_assumption, tout << "using automaton with full length information" << std::endl;);
-                            CTRACE("str", need_assumption, tout << "using automaton with assumed lower bound of " << last_lb << std::endl;);
-                            rational refined_lower_bound;
-                            bool solution_at_lower_bound = refine_automaton_lower_bound(last_assumption.get_automaton(),
-                                    lower_bound_value, refined_lower_bound);
-                            TRACE("str", tout << "refined lower bound is " << refined_lower_bound <<
-                                    (solution_at_lower_bound?", solution at lower bound":", no solution at lower bound") << std::endl;);
-
-                            expr_ref_vector lhs(m);
-                            if (current_assignment == l_false) {
-                                lhs.push_back(m.mk_not(str_in_re));
-                            } else {
-                                lhs.push_back(str_in_re);
-                            }
-                            if (need_assumption) {
-                                lhs.push_back(m_autil.mk_ge(str_len, m_autil.mk_numeral(last_lb, true)));
-                            }
-                            lhs.push_back(m_autil.mk_ge(str_len, m_autil.mk_numeral(lower_bound_value, true)));
-
-                            expr_ref_vector rhs(m);
-
-                            if (solution_at_lower_bound) {
-                                if (refined_lower_bound.is_minus_one()) {
-                                    // If there are solutions at the lower bound but not above it, make the bound exact.
-                                    rhs.push_back(ctx.mk_eq_atom(str_len, m_autil.mk_numeral(lower_bound_value, true)));
-                                } else {
-                                    // If there are solutions at and above the lower bound, add an additional bound.
-                                    // DISABLED as this is causing non-termination in the integer solver. --mtrberzi
-                                    /*
-                                    rhs.push_back(m.mk_or(
-                                            ctx.mk_eq_atom(str_len, m_autil.mk_numeral(lower_bound_value, true)),
-                                            m_autil.mk_ge(str_len, m_autil.mk_numeral(refined_lower_bound, true))
-                                    ));
-                                    */
-                                }
-                            } else {
-                                if (refined_lower_bound.is_minus_one()) {
-                                    // If there are no solutions at or above the lower bound, assert a conflict clause.
-                                    rhs.push_back(m.mk_not(m_autil.mk_ge(str_len, m_autil.mk_numeral(lower_bound_value, true))));
-                                } else {
-                                    // If there are solutions above the lower bound but not at it, refine the bound.
-                                    rhs.push_back(m_autil.mk_ge(str_len, m_autil.mk_numeral(refined_lower_bound, true)));
-                                }
-                            }
-
-                            if (!rhs.empty()) {
-                                expr_ref lhs_terms(mk_and(lhs), m);
-                                expr_ref rhs_terms(mk_and(rhs), m);
-                                assert_implication(lhs_terms, rhs_terms);
-                                regex_axiom_add = true;
-                            }
-                        }
-                    } else {
-                        // no existing automata/assumptions.
-                        // if it's easy to construct a full automaton for R, do so
-                        unsigned expected_complexity = estimate_regex_complexity(re);
-                        bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
-                        if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
-                            eautomaton * aut = m_mk_aut(re);
-                            aut->compress();
-                            regex_automata.push_back(aut);
-                            regex_automaton_under_assumptions new_aut(re, aut, true);
-                            if (!regex_automaton_assumptions.contains(re)) {
-                                regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
-                            }
-                            regex_automaton_assumptions[re].push_back(new_aut);
-                            TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
-                            regex_axiom_add = true;
-                            find_automaton_initial_bounds(str_in_re, aut);
-                        } else {
-                            // TODO check negation?
-                            // TODO construct a partial automaton for R to the given lower bound?
-                            if (false) {
-
-                            } else {
-                                regex_inc_counter(regex_fail_count, str_in_re);
-                            }
-                        }
-                        continue;
-                    }
-                } else { // !lower_bound_exists
-                    // no bounds information
-                    // check for existing automata;
-                    // try to construct an automaton if we don't have one yet
-                    // and doing so without bounds is not difficult
-                    bool existingAutomata = (regex_automaton_assumptions.contains(re) && !regex_automaton_assumptions[re].empty());
-                    bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
-                    if (!existingAutomata) {
-                        unsigned expected_complexity = estimate_regex_complexity(re);
-                        if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold
-                                || failureThresholdExceeded) {
-                            eautomaton * aut = m_mk_aut(re);
-                            aut->compress();
-                            regex_automata.push_back(aut);
-                            regex_automaton_under_assumptions new_aut(re, aut, true);
-                            if (!regex_automaton_assumptions.contains(re)) {
-                                regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
-                            }
-                            regex_automaton_assumptions[re].push_back(new_aut);
-                            TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
-                            regex_axiom_add = true;
-                            find_automaton_initial_bounds(str_in_re, aut);
-                        } else {
-                            regex_inc_counter(regex_fail_count, str_in_re);
-                        }
-                    } else {
-                        regex_inc_counter(regex_fail_count, str_in_re);
-                    }
-                }
-            }
-        } // foreach (entry in regex_terms)
-
-        for (obj_map<expr, ptr_vector<expr> >::iterator it = regex_terms_by_string.begin();
-                it != regex_terms_by_string.end(); ++it) {
-            // TODO do we need to check equivalence classes of strings here?
-
-            expr * str = it->m_key;
-            ptr_vector<expr> str_in_re_terms = it->m_value;
-
-            svector<regex_automaton_under_assumptions> intersect_constraints;
-            // we may find empty intersection before checking every constraint;
-            // this vector keeps track of which ones actually take part in intersection
-            svector<regex_automaton_under_assumptions> used_intersect_constraints;
-
-            // choose an automaton/assumption for each assigned (str.in.re)
-            // that's consistent with the current length information
-            for (ptr_vector<expr>::iterator term_it = str_in_re_terms.begin();
-                    term_it != str_in_re_terms.end(); ++term_it) {
-                expr * _unused = nullptr;
-                expr * re = nullptr;
-                SASSERT(u.str.is_in_re(*term_it));
-                u.str.is_in_re(*term_it, _unused, re);
-
-                rational exact_len;
-                bool has_exact_len = get_len_value(str, exact_len);
-
-                rational lb, ub;
-                bool has_lower_bound = lower_bound(mk_strlen(str), lb);
-                bool has_upper_bound = upper_bound(mk_strlen(str), ub);
-
-                if (regex_automaton_assumptions.contains(re) &&
-                                                !regex_automaton_assumptions[re].empty()){
-                    for (svector<regex_automaton_under_assumptions>::iterator aut_it = regex_automaton_assumptions[re].begin();
-                                                       aut_it != regex_automaton_assumptions[re].end(); ++aut_it) {
-                        regex_automaton_under_assumptions aut = *aut_it;
-                        rational aut_ub;
-                        bool assume_ub = aut.get_upper_bound(aut_ub);
-                        rational aut_lb;
-                        bool assume_lb = aut.get_lower_bound(aut_lb);
-                        bool consistent = true;
-
-                        if (assume_ub) {
-                            // check consistency of assumed upper bound
-                            if (has_exact_len) {
-                                if (exact_len > aut_ub) {
-                                    consistent = false;
-                                }
-                            } else {
-                                if (has_upper_bound && ub > aut_ub) {
-                                    consistent = false;
-                                }
-                            }
-                        }
-
-                        if (assume_lb) {
-                            // check consistency of assumed lower bound
-                            if (has_exact_len) {
-                                if (exact_len < aut_lb) {
-                                    consistent = false;
-                                }
-                            } else {
-                                if (has_lower_bound && lb < aut_lb) {
-                                    consistent = false;
-                                }
-                            }
-                        }
-
-                        if (consistent) {
-                            intersect_constraints.push_back(aut);
-                            break;
-                        }
-                    }
-                }
-            } // foreach(term in str_in_re_terms)
-
-            eautomaton * aut_inter = nullptr;
-            CTRACE("str", !intersect_constraints.empty(), tout << "check intersection of automata constraints for " << mk_pp(str, m) << std::endl;);
-            for (svector<regex_automaton_under_assumptions>::iterator aut_it = intersect_constraints.begin();
-                    aut_it != intersect_constraints.end(); ++aut_it) {
-                regex_automaton_under_assumptions aut = *aut_it;
-                if (aut_inter == nullptr) {
-                    // start somewhere
-                    aut_inter = aut.get_automaton();
-                    used_intersect_constraints.push_back(aut);
-                    continue;
-                }
-
-                TRACE("str",
-                      {
-                          unsigned v = regex_get_counter(regex_length_attempt_count, aut.get_regex_term());
-                          tout << "length attempt count of " << mk_pp(aut.get_regex_term(), m) << " is " << v
-                               << ", threshold is " << m_params.m_RegexAutomata_LengthAttemptThreshold << std::endl;
-                      });
-
-                if (regex_get_counter(regex_length_attempt_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_LengthAttemptThreshold) {
-                    unsigned intersectionDifficulty = estimate_automata_intersection_difficulty(aut_inter, aut.get_automaton());
-                    TRACE("str", tout << "intersection difficulty is " << intersectionDifficulty << std::endl;);
-                    if (intersectionDifficulty <= m_params.m_RegexAutomata_IntersectionDifficultyThreshold
-                            || regex_get_counter(regex_intersection_fail_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_FailedIntersectionThreshold) {
-
-                        expr * str_in_re_term(u.re.mk_in_re(str, aut.get_regex_term()));
-                        lbool current_assignment = ctx.get_assignment(str_in_re_term);
-                        // if the assignment is consistent with our assumption, use the automaton directly;
-                        // otherwise, complement it (and save that automaton for next time)
-                        // TODO we should cache these intermediate results
-                        // TODO do we need to push the intermediates into a vector for deletion anyway?
-                        if ( (current_assignment == l_true && aut.get_polarity())
-                                || (current_assignment == l_false && !aut.get_polarity())) {
-                            aut_inter = m_mk_aut.mk_product(aut_inter, aut.get_automaton());
-                            m_automata.push_back(aut_inter);
-                        } else {
-                            // need to complement first
-                            expr_ref rc(u.re.mk_complement(aut.get_regex_term()), m);
-                            eautomaton * aut_c = m_mk_aut(rc);
-                            regex_automata.push_back(aut_c);
-                            // TODO is there any way to build a complement automaton from an existing one?
-                            // this discards length information
-                            aut_inter = m_mk_aut.mk_product(aut_inter, aut_c);
-                            m_automata.push_back(aut_inter);
-                        }
-                        used_intersect_constraints.push_back(aut);
-                        if (aut_inter->is_empty()) {
-                            break;
-                        }
-                    } else {
-                        // failed intersection
-                        regex_inc_counter(regex_intersection_fail_count, aut.get_regex_term());
-                    }
-                }
-            } // foreach(entry in intersect_constraints)
-            if (aut_inter != nullptr) {
-                aut_inter->compress();
-            }
-            TRACE("str", tout << "intersected " << used_intersect_constraints.size() << " constraints" << std::endl;);
-
-            expr_ref_vector conflict_terms(m);
-            expr_ref conflict_lhs(m);
-            for (svector<regex_automaton_under_assumptions>::iterator aut_it = used_intersect_constraints.begin();
-                    aut_it != used_intersect_constraints.end(); ++aut_it) {
-                regex_automaton_under_assumptions aut = *aut_it;
-                expr * str_in_re_term(u.re.mk_in_re(str, aut.get_regex_term()));
-                lbool current_assignment = ctx.get_assignment(str_in_re_term);
-                if (current_assignment == l_true) {
-                    conflict_terms.push_back(str_in_re_term);
-                } else if (current_assignment == l_false) {
-                    conflict_terms.push_back(m.mk_not(str_in_re_term));
-                }
-                // add length assumptions, if any
-                rational ub;
-                if (aut.get_upper_bound(ub)) {
-                    expr_ref ub_term(m_autil.mk_le(mk_strlen(str), m_autil.mk_numeral(ub, true)), m);
-                    conflict_terms.push_back(ub_term);
-                }
-                rational lb;
-                if (aut.get_lower_bound(lb)) {
-                    expr_ref lb_term(m_autil.mk_ge(mk_strlen(str), m_autil.mk_numeral(lb, true)), m);
-                    conflict_terms.push_back(lb_term);
-                }
-            }
-            conflict_lhs = mk_and(conflict_terms);
-
-            if (used_intersect_constraints.size() > 1 && aut_inter != nullptr) {
-                // check whether the intersection is only the empty string
-                unsigned initial_state = aut_inter->init();
-                if (aut_inter->final_states().size() == 1 && aut_inter->is_final_state(initial_state)) {
-                    // initial state is final and it is the only final state
-                    // if there are no moves from the initial state,
-                    // the only solution is the empty string
-                    if (aut_inter->get_moves_from(initial_state).empty()) {
-                        TRACE("str", tout << "product automaton only accepts empty string" << std::endl;);
-                        expr_ref rhs1(ctx.mk_eq_atom(str, mk_string("")), m);
-                        expr_ref rhs2(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(rational::zero(), true)), m);
-                        expr_ref rhs(m.mk_and(rhs1, rhs2), m);
-                        assert_implication(conflict_lhs, rhs);
-                        regex_axiom_add = true;
-                    }
-                }
-            }
-
-            if (aut_inter != nullptr && aut_inter->is_empty()) {
-                TRACE("str", tout << "product automaton is empty; asserting conflict clause" << std::endl;);
-                expr_ref conflict_clause(m.mk_not(mk_and(conflict_terms)), m);
-                assert_axiom(conflict_clause);
-                add_persisted_axiom(conflict_clause);
-                regex_axiom_add = true;
-            }
-        } // foreach (entry in regex_terms_by_string)
-        if (regex_axiom_add) {
-            //return FC_CONTINUE;
-        }
-    }
-
     final_check_status theory_str::final_check_eh() {
         context & ctx = get_context();
         ast_manager & m = get_manager();
@@ -10617,6 +9203,7 @@ namespace smt {
         std::map<expr*, std::map<expr*, int> > var_eq_concat_map;
         int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, unrollGroup_map, var_eq_concat_map);
         if (conflictInDep == -1) {
+            m_stats.m_solved_by = 2;
             return FC_DONE;
         }
 
@@ -10695,7 +9282,7 @@ namespace smt {
         } // RegexAutomata
 
         bool needToAssignFreeVars = false;
-        std::set<expr*> free_variables;
+        expr_ref_vector free_variables(m);
         std::set<expr*> unused_internal_variables;
         { // Z3str2 free variables check
             std::map<expr*, int>::iterator itor = varAppearInAssign.begin();
@@ -10716,7 +9303,7 @@ namespace smt {
                 if (!hasEqcValue) {
                     TRACE("str", tout << "found free variable " << mk_pp(itor->first, m) << std::endl;);
                     needToAssignFreeVars = true;
-                    free_variables.insert(itor->first);
+                    free_variables.push_back(itor->first);
                     // break;
                 } else {
                     // debug
@@ -10773,6 +9360,7 @@ namespace smt {
 
             if (unused_internal_variables.empty()) {
                 TRACE("str", tout << "All variables are assigned. Done!" << std::endl;);
+                m_stats.m_solved_by = 2;
                 return FC_DONE;
             } else {
                 TRACE("str", tout << "Assigning decoy values to free internal variables." << std::endl;);
@@ -10913,43 +9501,82 @@ namespace smt {
             }
         }
 
-        // --------
-        // experimental free variable assignment - begin
-        //   * special handling for variables that are not used in concat
-        // --------
-        bool testAssign = true;
-        if (!testAssign) {
-            for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
-                expr * freeVar = fvIt->first;
-                /*
+        if (m_params.m_FixedLengthModels) {
+            // TODO if we're using fixed-length testing, do we care about finding free variables any more?
+            // that work might be useless
+            TRACE("str", tout << "using fixed-length model construction" << std::endl;);
+
+            arith_value v(get_manager());
+            v.init(&get_context());
+            final_check_status arith_fc_status = v.final_check();
+            if (arith_fc_status != FC_DONE) {
+                TRACE("str", tout << "arithmetic solver not done yet, continuing search" << std::endl;);
+                return FC_CONTINUE;
+            }
+            TRACE("str", tout << "arithmetic solver done in final check" << std::endl;);
+
+            expr_ref_vector assignments(m);
+            ctx.get_assignments(assignments);
+
+            expr_ref_vector precondition(m);
+            expr_ref_vector cex(m);
+            lbool model_status = fixed_length_model_construction(assignments, precondition, free_variables, candidate_model, cex);
+
+            if (model_status == l_true) {
+                m_stats.m_solved_by = 2;
+                return FC_DONE;
+            } else if (model_status == l_false) {
+                // whatever came back in CEX is the conflict clause.
+                // negate its conjunction and assert that
+                expr_ref conflict(m.mk_not(mk_and(cex)), m);
+                assert_axiom(conflict);
+                add_persisted_axiom(conflict);
+                return FC_CONTINUE;
+            } else { // model_status == l_undef
+                TRACE("str", tout << "fixed-length model construction found missing side conditions; continuing search" << std::endl;);
+                return FC_CONTINUE;
+            }
+        } else {
+            // Legacy (Z3str2) length+value testing
+
+            // --------
+            // experimental free variable assignment - begin
+            //   * special handling for variables that are not used in concat
+            // --------
+            bool testAssign = true;
+            if (!testAssign) {
+                for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
+                    expr * freeVar = fvIt->first;
+                    /*
                   std::string vName = std::string(Z3_ast_to_string(ctx, freeVar));
                   if (vName.length() >= 9 && vName.substr(0, 9) == "$$_regVar") {
                   continue;
                   }
-                */
-                expr * toAssert = gen_len_val_options_for_free_var(freeVar, nullptr, "");
-                if (toAssert != nullptr) {
-                    assert_axiom(toAssert);
+                     */
+                    expr * toAssert = gen_len_val_options_for_free_var(freeVar, nullptr, "");
+                    if (toAssert != nullptr) {
+                        assert_axiom(toAssert);
+                    }
                 }
-            }
-        } else {
-            process_free_var(freeVar_map);
-        }
-        // experimental free variable assignment - end
-
-        // now deal with removed free variables that are bounded by an unroll
-        TRACE("str", tout << "fv_unrolls_map (#" << fv_unrolls_map.size() << "):" << std::endl;);
-        for (std::map<expr*, std::set<expr*> >::iterator fvIt1 = fv_unrolls_map.begin();
-             fvIt1 != fv_unrolls_map.end(); fvIt1++) {
-            expr * var = fvIt1->first;
-            fSimpUnroll.clear();
-            get_eqc_simpleUnroll(var, constValue, fSimpUnroll);
-            if (fSimpUnroll.empty()) {
-                gen_assign_unroll_reg(fv_unrolls_map[var]);
             } else {
-                expr * toAssert = gen_assign_unroll_Str2Reg(var, fSimpUnroll);
-                if (toAssert != nullptr) {
-                    assert_axiom(toAssert);
+                process_free_var(freeVar_map);
+            }
+            // experimental free variable assignment - end
+
+            // now deal with removed free variables that are bounded by an unroll
+            TRACE("str", tout << "fv_unrolls_map (#" << fv_unrolls_map.size() << "):" << std::endl;);
+            for (std::map<expr*, std::set<expr*> >::iterator fvIt1 = fv_unrolls_map.begin();
+                    fvIt1 != fv_unrolls_map.end(); fvIt1++) {
+                expr * var = fvIt1->first;
+                fSimpUnroll.clear();
+                get_eqc_simpleUnroll(var, constValue, fSimpUnroll);
+                if (fSimpUnroll.size() == 0) {
+                    gen_assign_unroll_reg(fv_unrolls_map[var]);
+                } else {
+                    expr * toAssert = gen_assign_unroll_Str2Reg(var, fSimpUnroll);
+                    if (toAssert != nullptr) {
+                        assert_axiom(toAssert);
+                    }
                 }
             }
         }
@@ -10973,1272 +9600,6 @@ namespace smt {
         std::stringstream ss;
         ss << i;
         return ss.str();
-    }
-
-    void theory_str::print_value_tester_list(svector<std::pair<int, expr*> > & testerList) {
-        TRACE("str",
-              int ss = testerList.size();
-              tout << "valueTesterList = {";
-              for (int i = 0; i < ss; ++i) {
-                  if (i % 4 == 0) {
-                      tout << std::endl;
-                  }
-                  tout << "(" << testerList[i].first << ", ";
-                  tout << mk_pp(testerList[i].second, get_manager());
-                  tout << "), ";
-              }
-              tout << std::endl << "}" << std::endl;
-              );
-    }
-
-    zstring theory_str::gen_val_string(int len, int_vector & encoding) {
-        SASSERT(charSetSize > 0);
-        SASSERT(!char_set.empty());
-
-        std::string re(len, char_set[0]);
-        for (int i = 0; i < (int) encoding.size() - 1; i++) {
-            int idx = encoding[i];
-            re[len - 1 - i] = char_set[idx];
-        }
-        return zstring(re.c_str());
-    }
-
-    /*
-     * The return value indicates whether we covered the search space.
-     *   - If the next encoding is valid, return false
-     *   - Otherwise, return true
-     */
-    bool theory_str::get_next_val_encode(int_vector & base, int_vector & next) {
-        SASSERT(charSetSize > 0);
-
-        TRACE("str", tout << "base vector: [ ";
-              for (unsigned i = 0; i < base.size(); ++i) {
-                  tout << base[i] << " ";
-              }
-              tout << "]" << std::endl;
-              );
-
-        int s = 0;
-        int carry = 0;
-        next.reset();
-
-        for (int i = 0; i < (int) base.size(); i++) {
-            if (i == 0) {
-                s = base[i] + 1;
-                carry = s / charSetSize;
-                s = s % charSetSize;
-                next.push_back(s);
-            } else {
-                s = base[i] + carry;
-                carry = s / charSetSize;
-                s = s % charSetSize;
-                next.push_back(s);
-            }
-        }
-        if (next[next.size() - 1] > 0) {
-            next.reset();
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    expr* theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
-                                       zstring lenStr, int tries) {
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
-
-        int distance = 32;
-
-        // ----------------------------------------------------------------------------------------
-        // generate value options encoding
-        // encoding is a vector of size (len + 1)
-        // e.g, len = 2,
-        //      encoding {1, 2, 0} means the value option is "charSet[2]"."charSet[1]"
-        //      the last item in the encoding indicates whether the whole space is covered
-        //      for example, if the charSet = {a, b}. All valid encodings are
-        //        {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}
-        //      if add 1 to the last one, we get
-        //        {0, 0, 1}
-        //      the last item "1" shows this is not a valid encoding, and we have covered all space
-        // ----------------------------------------------------------------------------------------
-        int len = atoi(lenStr.encode().c_str());
-        bool coverAll = false;
-        vector<int_vector, true, size_t> options;
-        int_vector base;
-
-        TRACE("str", tout
-              << "freeVar = " << mk_ismt2_pp(freeVar, m) << std::endl
-              << "len_indicator = " << mk_ismt2_pp(len_indicator, m) << std::endl
-              << "val_indicator = " << mk_ismt2_pp(val_indicator, m) << std::endl
-              << "lenstr = " << lenStr << "\n"
-              << "tries = " << tries << "\n";
-              if (m_params.m_AggressiveValueTesting) {
-                  tout << "note: aggressive value testing is enabled" << std::endl;
-              }
-              );
-
-        if (tries == 0) {
-            base = int_vector(len + 1, 0);
-            coverAll = false;
-        } else {
-            expr * lastestValIndi = fvar_valueTester_map[freeVar][len][tries - 1].second;
-            TRACE("str", tout << "last value tester = " << mk_ismt2_pp(lastestValIndi, m) << std::endl;);
-            coverAll = get_next_val_encode(val_range_map[lastestValIndi], base);
-        }
-
-        size_t l = (tries) * distance;
-        size_t h = l;
-        for (int i = 0; i < distance; i++) {
-            if (coverAll)
-                break;
-            options.push_back(base);
-            h++;
-            coverAll = get_next_val_encode(options[options.size() - 1], base);
-        }
-        val_range_map.insert(val_indicator, options[options.size() - 1]);
-
-        TRACE("str",
-              tout << "value tester encoding " << "{" << std::endl;
-              int_vector vec = val_range_map[val_indicator];
-
-              for (int_vector::iterator it = vec.begin(); it != vec.end(); ++it) {
-                  tout << *it << std::endl;
-              }
-              tout << "}" << std::endl;
-              );
-
-        // ----------------------------------------------------------------------------------------
-
-        expr_ref_vector orList(m), andList(m);
-
-        for (size_t i = l; i < h; i++) {
-            orList.push_back(m.mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()) ));
-            if (m_params.m_AggressiveValueTesting) {
-                literal lit = mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()), false);
-                ctx.mark_as_relevant(lit);
-                ctx.force_phase(lit);
-            }
-
-            zstring aStr = gen_val_string(len, options[i - l]);
-            expr * strAst;
-            if (m_params.m_UseFastValueTesterCache) {
-                if (!valueTesterCache.find(aStr, strAst)) {
-                    strAst = mk_string(aStr);
-                    valueTesterCache.insert(aStr, strAst);
-                    m_trail.push_back(strAst);
-                }
-            } else {
-                strAst = mk_string(aStr);
-            }
-            andList.push_back(m.mk_eq(orList[orList.size() - 1].get(), m.mk_eq(freeVar, strAst)));
-        }
-        if (!coverAll) {
-            orList.push_back(m.mk_eq(val_indicator, mk_string("more")));
-            if (m_params.m_AggressiveValueTesting) {
-                literal l = mk_eq(val_indicator, mk_string("more"), false);
-                ctx.mark_as_relevant(l);
-                ctx.force_phase(~l);
-            }
-        }
-
-        andList.push_back(mk_or(orList));
-        expr_ref valTestAssert = mk_and(andList);
-
-        // ---------------------------------------
-        // If the new value tester is $$_val_x_16_i
-        // Should add ($$_len_x_j = 16) /\ ($$_val_x_16_i = "more")
-        // ---------------------------------------
-        andList.reset();
-        andList.push_back(m.mk_eq(len_indicator, mk_string(lenStr)));
-        for (int i = 0; i < tries; i++) {
-            expr * vTester = fvar_valueTester_map[freeVar][len][i].second;
-            if (vTester != val_indicator)
-                andList.push_back(m.mk_eq(vTester, mk_string("more")));
-        }
-        expr_ref assertL = mk_and(andList);
-        // (assertL => valTestAssert) <=> (!assertL OR valTestAssert)
-        return m.mk_or(m.mk_not(assertL), valTestAssert);
-    }
-
-    expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
-                                            zstring len_valueStr, expr * valTesterInCbEq, zstring valTesterValueStr) {
-        ast_manager & m = get_manager();
-
-        int len = atoi(len_valueStr.encode().c_str());
-
-        // check whether any value tester is actually in scope
-        TRACE("str", tout << "checking scope of previous value testers" << std::endl;);
-        bool map_effectively_empty = true;
-        if (fvar_valueTester_map.contains(freeVar) &&
-            fvar_valueTester_map[freeVar].find(len) != fvar_valueTester_map[freeVar].end()) {
-            // there's *something* in the map, but check its scope
-            for (auto const& entry : fvar_valueTester_map[freeVar][len]) {
-                expr * aTester = entry.second;
-                if (!internal_variable_set.contains(aTester)) {
-                    TRACE("str", tout << mk_pp(aTester, m) << " out of scope" << std::endl;);
-                } else {
-                    TRACE("str", tout << mk_pp(aTester, m) << " in scope" << std::endl;);
-                    map_effectively_empty = false;
-                    break;
-                }
-            }
-        }
-
-        if (map_effectively_empty) {
-            TRACE("str", tout << "no previous value testers, or none of them were in scope" << std::endl;);
-            int tries = 0;
-            expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
-            valueTester_fvar_map.insert(val_indicator, freeVar);
-            if (!fvar_valueTester_map.contains(freeVar)) {
-                fvar_valueTester_map.insert(freeVar, std::map<int, svector<std::pair<int, expr*> > >());
-            }
-            fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, val_indicator));
-            print_value_tester_list(fvar_valueTester_map[freeVar][len]);
-            return gen_val_options(freeVar, len_indicator, val_indicator, len_valueStr, tries);
-        } else {
-            TRACE("str", tout << "checking previous value testers" << std::endl;);
-            print_value_tester_list(fvar_valueTester_map[freeVar][len]);
-
-            // go through all previous value testers
-            // If some doesn't have an eqc value, add its assertion again.
-            int testerTotal = fvar_valueTester_map[freeVar][len].size();
-            int i = 0;
-            for (; i < testerTotal; i++) {
-                expr * aTester = fvar_valueTester_map[freeVar][len][i].second;
-
-                // it's probably worth checking scope here, actually
-                if (!internal_variable_set.contains(aTester)) {
-                    TRACE("str", tout << "value tester " << mk_pp(aTester, m) << " out of scope, skipping" << std::endl;);
-                    continue;
-                }
-
-                if (aTester == valTesterInCbEq) {
-                    break;
-                }
-
-                bool anEqcHasValue = false;
-                get_eqc_value(aTester, anEqcHasValue);
-                if (!anEqcHasValue) {
-                    TRACE("str", tout << "value tester " << mk_ismt2_pp(aTester, m)
-                          << " doesn't have an equivalence class value." << std::endl;);
-                    refresh_theory_var(aTester);
-
-                    expr_ref makeupAssert(gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i), m);
-
-                    TRACE("str", tout << "var: " << mk_ismt2_pp(freeVar, m) << std::endl
-                          << mk_ismt2_pp(makeupAssert, m) << std::endl;);
-                    assert_axiom(makeupAssert);
-                } else {
-                    // TRACE("str", tout << "value tester " << mk_ismt2_pp(aTester, m)
-                    //      << " == " << mk_ismt2_pp(aTester_eqc_value, m) << std::endl;);
-                }
-            }
-
-            if (valTesterValueStr == "more") {
-                expr * valTester = nullptr;
-                if (i + 1 < testerTotal) {
-                    valTester = fvar_valueTester_map[freeVar][len][i + 1].second;
-                    refresh_theory_var(valTester);
-                } else {
-                    valTester = mk_internal_valTest_var(freeVar, len, i + 1);
-                    valueTester_fvar_map.insert(valTester, freeVar);
-                    fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, valTester));
-                    print_value_tester_list(fvar_valueTester_map[freeVar][len]);
-                }
-                return gen_val_options(freeVar, len_indicator, valTester, len_valueStr, i + 1);
-            }
-
-            return nullptr;
-        }
-    }
-
-    void theory_str::reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items) {
-        context & ctx = get_context();
-        ast_manager & mgr = get_manager();
-
-        TRACE("str", tout << "reduce regex " << mk_pp(regex, mgr) << " with respect to variable " << mk_pp(var, mgr) << std::endl;);
-
-        app * regexFuncDecl = to_app(regex);
-        if (u.re.is_to_re(regexFuncDecl)) {
-            // ---------------------------------------------------------
-            // var \in Str2Reg(s1)
-            //   ==>
-            // var = s1 /\ length(var) = length(s1)
-            // ---------------------------------------------------------
-            expr * strInside = to_app(regex)->get_arg(0);
-            items.push_back(ctx.mk_eq_atom(var, strInside));
-            items.push_back(ctx.mk_eq_atom(mk_strlen(var), mk_strlen(strInside)));
-            return;
-        }
-        // RegexUnion
-        else if (u.re.is_union(regexFuncDecl)) {
-            // ---------------------------------------------------------
-            // var \in RegexUnion(r1, r2)
-            //   ==>
-            // (var = newVar1 \/ var = newVar2)
-            // (var = newVar1 --> length(var) = length(newVar1)) /\ (var = newVar2 --> length(var) = length(newVar2))
-            //  /\ (newVar1 \in r1) /\  (newVar2 \in r2)
-            // ---------------------------------------------------------
-            expr_ref newVar1(mk_regex_rep_var(), mgr);
-            expr_ref newVar2(mk_regex_rep_var(), mgr);
-            items.push_back(mgr.mk_or(ctx.mk_eq_atom(var, newVar1), ctx.mk_eq_atom(var, newVar2)));
-            items.push_back(mgr.mk_or(
-                                mgr.mk_not(ctx.mk_eq_atom(var, newVar1)),
-                                ctx.mk_eq_atom(mk_strlen(var), mk_strlen(newVar1))));
-            items.push_back(mgr.mk_or(
-                                mgr.mk_not(ctx.mk_eq_atom(var, newVar2)),
-                                ctx.mk_eq_atom(mk_strlen(var), mk_strlen(newVar2))));
-
-            expr * regArg1 = to_app(regex)->get_arg(0);
-            reduce_virtual_regex_in(newVar1, regArg1, items);
-
-            expr * regArg2 = to_app(regex)->get_arg(1);
-            reduce_virtual_regex_in(newVar2, regArg2, items);
-
-            return;
-        }
-        // RegexConcat
-        else if (u.re.is_concat(regexFuncDecl)) {
-            // ---------------------------------------------------------
-            // var \in RegexConcat(r1, r2)
-            //   ==>
-            //    (var = newVar1 . newVar2) /\ (length(var) = length(vewVar1 . newVar2) )
-            // /\ (newVar1 \in r1) /\  (newVar2 \in r2)
-            // ---------------------------------------------------------
-            expr_ref newVar1(mk_regex_rep_var(), mgr);
-            expr_ref newVar2(mk_regex_rep_var(), mgr);
-            expr_ref concatAst(mk_concat(newVar1, newVar2), mgr);
-            items.push_back(ctx.mk_eq_atom(var, concatAst));
-            items.push_back(ctx.mk_eq_atom(mk_strlen(var),
-                                           m_autil.mk_add(mk_strlen(newVar1), mk_strlen(newVar2))));
-
-            expr * regArg1 = to_app(regex)->get_arg(0);
-            reduce_virtual_regex_in(newVar1, regArg1, items);
-            expr * regArg2 = to_app(regex)->get_arg(1);
-            reduce_virtual_regex_in(newVar2, regArg2, items);
-            return;
-        }
-        // Unroll
-        else if (u.re.is_star(regexFuncDecl)) {
-            // ---------------------------------------------------------
-            // var \in Star(r1)
-            //   ==>
-            // var = unroll(r1, t1) /\ |var| = |unroll(r1, t1)|
-            // ---------------------------------------------------------
-            expr * regArg = to_app(regex)->get_arg(0);
-            expr_ref unrollCnt(mk_unroll_bound_var(), mgr);
-            expr_ref unrollFunc(mk_unroll(regArg, unrollCnt), mgr);
-            items.push_back(ctx.mk_eq_atom(var, unrollFunc));
-            items.push_back(ctx.mk_eq_atom(mk_strlen(var), mk_strlen(unrollFunc)));
-            return;
-        }
-        // re.range
-        else if (u.re.is_range(regexFuncDecl)) {
-            // var in range("a", "z")
-            // ==>
-            // (var = "a" or var = "b" or ... or var = "z")
-            expr_ref lo(regexFuncDecl->get_arg(0), mgr);
-            expr_ref hi(regexFuncDecl->get_arg(1), mgr);
-            zstring str_lo, str_hi;
-            SASSERT(u.str.is_string(lo));
-            SASSERT(u.str.is_string(hi));
-            u.str.is_string(lo, str_lo);
-            u.str.is_string(hi, str_hi);
-            SASSERT(str_lo.length() == 1);
-            SASSERT(str_hi.length() == 1);
-            unsigned int c1 = str_lo[0];
-            unsigned int c2 = str_hi[0];
-            if (c1 > c2) {
-                // exchange
-                unsigned int tmp = c1;
-                c1 = c2;
-                c2 = tmp;
-            }
-            expr_ref_vector range_cases(mgr);
-            for (unsigned int ch = c1; ch <= c2; ++ch) {
-                zstring s_ch(ch);
-                expr_ref rhs(ctx.mk_eq_atom(var, u.str.mk_string(s_ch)), mgr);
-                range_cases.push_back(rhs);
-            }
-            expr_ref rhs(mk_or(range_cases), mgr);
-            SASSERT(rhs);
-            assert_axiom(rhs);
-            return;
-        } else {
-            get_manager().raise_exception("unrecognized regex operator");
-            UNREACHABLE();
-        }
-    }
-
-    void theory_str::gen_assign_unroll_reg(std::set<expr*> & unrolls) {
-        context & ctx = get_context();
-        ast_manager & mgr = get_manager();
-
-        expr_ref_vector items(mgr);
-        for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
-            expr * unrFunc = *itor;
-            TRACE("str", tout << "generating assignment for unroll " << mk_pp(unrFunc, mgr) << std::endl;);
-
-            expr * regexInUnr = to_app(unrFunc)->get_arg(0);
-            expr * cntInUnr = to_app(unrFunc)->get_arg(1);
-            items.reset();
-
-            rational low, high;
-            bool low_exists = lower_bound(cntInUnr, low); (void)low_exists;
-            bool high_exists = upper_bound(cntInUnr, high); (void)high_exists;
-
-            TRACE("str",
-                  tout << "unroll " << mk_pp(unrFunc, mgr) << std::endl;
-                  rational unrLenValue;
-                  bool unrLenValue_exists = get_len_value(unrFunc, unrLenValue);
-                  tout << "unroll length: " << (unrLenValue_exists ? unrLenValue.to_string() : "?") << std::endl;
-                  rational cntInUnrValue;
-                  bool cntHasValue = get_arith_value(cntInUnr, cntInUnrValue);
-                  tout << "unroll count: " << (cntHasValue ? cntInUnrValue.to_string() : "?")
-                  << " low = "
-                  << (low_exists ? low.to_string() : "?")
-                  << " high = "
-                  << (high_exists ? high.to_string() : "?")
-                  << std::endl;
-                  );
-
-            expr_ref toAssert(mgr);
-            if (low.is_neg()) {
-                toAssert = m_autil.mk_ge(cntInUnr, mk_int(0));
-            } else {
-                if (!unroll_var_map.contains(unrFunc)) {
-
-                    expr_ref newVar1(mk_regex_rep_var(), mgr);
-                    expr_ref newVar2(mk_regex_rep_var(), mgr);
-                    expr_ref concatAst(mk_concat(newVar1, newVar2), mgr);
-                    expr_ref newCnt(mk_unroll_bound_var(), mgr);
-                    expr_ref newUnrollFunc(mk_unroll(regexInUnr, newCnt), mgr);
-
-                    // unroll(r1, t1) = newVar1 . newVar2
-                    items.push_back(ctx.mk_eq_atom(unrFunc, concatAst));
-                    items.push_back(ctx.mk_eq_atom(mk_strlen(unrFunc), m_autil.mk_add(mk_strlen(newVar1), mk_strlen(newVar2))));
-                    // mk_strlen(unrFunc) >= mk_strlen(newVar{1,2})
-                    items.push_back(m_autil.mk_ge(m_autil.mk_add(mk_strlen(unrFunc), m_autil.mk_mul(mk_int(-1), mk_strlen(newVar1))), mk_int(0)));
-                    items.push_back(m_autil.mk_ge(m_autil.mk_add(mk_strlen(unrFunc), m_autil.mk_mul(mk_int(-1), mk_strlen(newVar2))), mk_int(0)));
-                    // newVar1 \in r1
-                    reduce_virtual_regex_in(newVar1, regexInUnr, items);
-                    items.push_back(ctx.mk_eq_atom(cntInUnr, m_autil.mk_add(newCnt, mk_int(1))));
-                    items.push_back(ctx.mk_eq_atom(newVar2, newUnrollFunc));
-                    items.push_back(ctx.mk_eq_atom(mk_strlen(newVar2), mk_strlen(newUnrollFunc)));
-                    toAssert = ctx.mk_eq_atom(
-                        m_autil.mk_ge(cntInUnr, mk_int(1)),
-                        mk_and(items));
-
-                    // option 0
-                    expr_ref op0(ctx.mk_eq_atom(cntInUnr, mk_int(0)), mgr);
-                    expr_ref ast1(ctx.mk_eq_atom(unrFunc, mk_string("")), mgr);
-                    expr_ref ast2(ctx.mk_eq_atom(mk_strlen(unrFunc), mk_int(0)), mgr);
-                    expr_ref and1(mgr.mk_and(ast1, ast2), mgr);
-
-                    // put together
-                    toAssert = mgr.mk_and(ctx.mk_eq_atom(op0, and1), toAssert);
-
-                    unroll_var_map.insert(unrFunc, toAssert);
-                } 
-                else {
-                    toAssert = unroll_var_map[unrFunc];
-                }
-            }
-            m_trail.push_back(toAssert);
-            assert_axiom(toAssert);
-        }
-    }
-
-    static int computeGCD(int x, int y) {
-        if (x == 0) {
-            return y;
-        }
-        while (y != 0) {
-            if (x > y) {
-                x = x - y;
-            } else {
-                y = y - x;
-            }
-        }
-        return x;
-    }
-
-    static int computeLCM(int a, int b) {
-        int temp = computeGCD(a, b);
-        return temp ? (a / temp * b) : 0;
-    }
-
-    static zstring get_unrolled_string(zstring core, int count) {
-        zstring res("");
-        for (int i = 0; i < count; i++) {
-            res = res + core;
-        }
-        return res;
-    }
-
-    expr * theory_str::gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls) {
-        context & ctx = get_context();
-        ast_manager & mgr = get_manager();
-
-        int lcm = 1;
-        int coreValueCount = 0;
-        expr * oneUnroll = nullptr;
-        zstring oneCoreStr("");
-        for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
-            expr * str2RegFunc = to_app(*itor)->get_arg(0);
-            expr * coreVal = to_app(str2RegFunc)->get_arg(0);
-            zstring coreStr;
-            u.str.is_string(coreVal, coreStr);
-            if (oneUnroll == nullptr) {
-                oneUnroll = *itor;
-                oneCoreStr = coreStr;
-            }
-            coreValueCount++;
-            int core1Len = coreStr.length();
-            lcm = computeLCM(lcm, core1Len);
-        }
-        //
-        bool canHaveNonEmptyAssign = true;
-        expr_ref_vector litems(mgr);
-        zstring lcmStr = get_unrolled_string(oneCoreStr, (lcm / oneCoreStr.length()));
-        for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
-            expr * str2RegFunc = to_app(*itor)->get_arg(0);
-            expr * coreVal = to_app(str2RegFunc)->get_arg(0);
-            zstring coreStr;
-            u.str.is_string(coreVal, coreStr);
-            unsigned int core1Len = coreStr.length();
-            zstring uStr = get_unrolled_string(coreStr, (lcm / core1Len));
-            if (uStr != lcmStr) {
-                canHaveNonEmptyAssign = false;
-            }
-            litems.push_back(ctx.mk_eq_atom(n, *itor));
-        }
-
-        if (canHaveNonEmptyAssign) {
-            return gen_unroll_conditional_options(n, unrolls, lcmStr);
-        } else {
-            expr_ref implyL(mk_and(litems), mgr);
-            expr_ref implyR(ctx.mk_eq_atom(n, mk_string("")), mgr);
-            // want to return (implyL -> implyR)
-            expr * final_axiom = rewrite_implication(implyL, implyR);
-            return final_axiom;
-        }
-    }
-
-    expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, zstring lcmStr) {
-        context & ctx = get_context();
-        ast_manager & mgr = get_manager();
-
-        int dist = opt_LCMUnrollStep;
-        expr_ref_vector litems(mgr);
-        expr_ref moreAst(mk_string("more"), mgr);
-        for (expr * e : unrolls) {
-            expr_ref item(ctx.mk_eq_atom(var, e), mgr);
-            TRACE("str", tout << "considering unroll " << mk_pp(item, mgr) << std::endl;);
-            litems.push_back(item);
-        }
-
-        // handle out-of-scope entries in unroll_tries_map
-
-        ptr_vector<expr> outOfScopeTesters;
-
-        for (expr * tester : unroll_tries_map[var][unrolls]) {
-            bool inScope = internal_unrollTest_vars.contains(tester);
-            TRACE("str", tout << "unroll test var " << mk_pp(tester, mgr)
-                  << (inScope ? " in scope" : " out of scope")
-                  << std::endl;);
-            if (!inScope) {
-                outOfScopeTesters.push_back(tester);
-            }
-        }
-
-        for (expr* e : outOfScopeTesters) {
-            unroll_tries_map[var][unrolls].erase(e);
-        }
-
-        if (unroll_tries_map[var][unrolls].empty()) {
-            unroll_tries_map[var][unrolls].push_back(mk_unroll_test_var());
-        }
-
-        int tries = unroll_tries_map[var][unrolls].size();
-        for (int i = 0; i < tries; i++) {
-            expr * tester = unroll_tries_map[var][unrolls][i];
-            // TESTING
-            refresh_theory_var(tester);
-            bool testerHasValue = false;
-            expr * testerVal = get_eqc_value(tester, testerHasValue);
-            if (!testerHasValue) {
-                // generate make-up assertion
-                int l = i * dist;
-                int h = (i + 1) * dist;
-                expr_ref lImp(mk_and(litems), mgr);
-                expr_ref rImp(gen_unroll_assign(var, lcmStr, tester, l, h), mgr);
-
-                SASSERT(lImp);
-                TRACE("str", tout << "lImp = " << mk_pp(lImp, mgr) << std::endl;);
-                SASSERT(rImp);
-                TRACE("str", tout << "rImp = " << mk_pp(rImp, mgr) << std::endl;);
-
-                expr_ref toAssert(mgr.mk_or(mgr.mk_not(lImp), rImp), mgr);
-                SASSERT(toAssert);
-                TRACE("str", tout << "Making up assignments for variable which is equal to unbounded Unroll" << std::endl;);
-                m_trail.push_back(toAssert);
-                return toAssert;
-
-                // note: this is how the code looks in Z3str2's strRegex.cpp:genUnrollConditionalOptions.
-                // the return is in the same place
-
-                // insert [tester = "more"] to litems so that the implyL for next tester is correct
-                litems.push_back(ctx.mk_eq_atom(tester, moreAst));
-            } else {
-                zstring testerStr;
-                u.str.is_string(testerVal, testerStr);
-                TRACE("str", tout << "Tester [" << mk_pp(tester, mgr) << "] = " << testerStr << "\n";);
-                if (testerStr == "more") {
-                    litems.push_back(ctx.mk_eq_atom(tester, moreAst));
-                }
-            }
-        }
-        expr * tester = mk_unroll_test_var();
-        unroll_tries_map[var][unrolls].push_back(tester);
-        int l = tries * dist;
-        int h = (tries + 1) * dist;
-        expr_ref lImp(mk_and(litems), mgr);
-        expr_ref rImp(gen_unroll_assign(var, lcmStr, tester, l, h), mgr);
-        SASSERT(lImp);
-        SASSERT(rImp);
-        expr_ref toAssert(mgr.mk_or(mgr.mk_not(lImp), rImp), mgr);
-        SASSERT(toAssert);
-        TRACE("str", tout << "Generating assignment for variable which is equal to unbounded Unroll" << std::endl;);
-        m_trail.push_back(toAssert);
-        return toAssert;
-    }
-
-    expr * theory_str::gen_unroll_assign(expr * var, zstring lcmStr, expr * testerVar, int l, int h) {
-        context & ctx = get_context();
-        ast_manager & mgr = get_manager();
-
-        TRACE("str", tout << "entry: var = " << mk_pp(var, mgr) << ", lcmStr = " << lcmStr
-              << ", l = " << l << ", h = " << h << "\n";);
-
-        if (m_params.m_AggressiveUnrollTesting) {
-            TRACE("str", tout << "note: aggressive unroll testing is active" << std::endl;);
-        }
-
-        expr_ref_vector orItems(mgr);
-        expr_ref_vector andItems(mgr);
-
-        for (int i = l; i < h; i++) {
-            zstring iStr = int_to_string(i);
-            expr_ref testerEqAst(ctx.mk_eq_atom(testerVar, mk_string(iStr)), mgr);
-            TRACE("str", tout << "testerEqAst = " << mk_pp(testerEqAst, mgr) << std::endl;);
-            if (m_params.m_AggressiveUnrollTesting) {
-                literal l = mk_eq(testerVar, mk_string(iStr), false);
-                ctx.mark_as_relevant(l);
-                ctx.force_phase(l);
-            }
-
-            orItems.push_back(testerEqAst);
-            zstring unrollStrInstance = get_unrolled_string(lcmStr, i);
-
-            expr_ref x1(ctx.mk_eq_atom(testerEqAst, ctx.mk_eq_atom(var, mk_string(unrollStrInstance))), mgr);
-            TRACE("str", tout << "x1 = " << mk_pp(x1, mgr) << std::endl;);
-            andItems.push_back(x1);
-
-            expr_ref x2(ctx.mk_eq_atom(testerEqAst, ctx.mk_eq_atom(mk_strlen(var), mk_int(i * lcmStr.length()))), mgr);
-            TRACE("str", tout << "x2 = " << mk_pp(x2, mgr) << std::endl;);
-            andItems.push_back(x2);
-        }
-        expr_ref testerEqMore(ctx.mk_eq_atom(testerVar, mk_string("more")), mgr);
-        TRACE("str", tout << "testerEqMore = " << mk_pp(testerEqMore, mgr) << std::endl;);
-        if (m_params.m_AggressiveUnrollTesting) {
-            literal l = mk_eq(testerVar, mk_string("more"), false);
-            ctx.mark_as_relevant(l);
-            ctx.force_phase(~l);
-        }
-
-        orItems.push_back(testerEqMore);
-        int nextLowerLenBound = h * lcmStr.length();
-        expr_ref more2(ctx.mk_eq_atom(testerEqMore,
-                                      //Z3_mk_ge(mk_length(t, var), mk_int(ctx, nextLowerLenBound))
-                                      m_autil.mk_ge(m_autil.mk_add(mk_strlen(var), mk_int(-1 * nextLowerLenBound)), mk_int(0))
-                                      ), mgr);
-        TRACE("str", tout << "more2 = " << mk_pp(more2, mgr) << std::endl;);
-        andItems.push_back(more2);
-
-        expr_ref finalOR(mgr.mk_or(orItems.size(), orItems.c_ptr()), mgr);
-        TRACE("str", tout << "finalOR = " << mk_pp(finalOR, mgr) << std::endl;);
-        andItems.push_back(mk_or(orItems));
-
-        expr_ref finalAND(mgr.mk_and(andItems.size(), andItems.c_ptr()), mgr);
-        TRACE("str", tout << "finalAND = " << mk_pp(finalAND, mgr) << std::endl;);
-
-        // doing the following avoids a segmentation fault
-        m_trail.push_back(finalAND);
-        return finalAND;
-    }
-
-    expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
-
-        expr_ref freeVarLen(mk_strlen(freeVar), m);
-        SASSERT(freeVarLen);
-
-        {
-            rational freeVar_len_value;
-            if (get_len_value(freeVar, freeVar_len_value)) {
-                TRACE("str", tout << "special case: length of freeVar is known to be " << freeVar_len_value << std::endl;);
-                expr_ref concreteOption(ctx.mk_eq_atom(indicator, mk_string(freeVar_len_value.to_string().c_str()) ), m);
-                expr_ref concreteValue(ctx.mk_eq_atom(
-                        ctx.mk_eq_atom(indicator, mk_string(freeVar_len_value.to_string().c_str()) ),
-                        ctx.mk_eq_atom(freeVarLen, m_autil.mk_numeral(freeVar_len_value, true))), m);
-                expr_ref finalAxiom(m.mk_and(concreteOption, concreteValue), m);
-                SASSERT(finalAxiom);
-                m_trail.push_back(finalAxiom);
-                return finalAxiom;
-            }
-        }
-
-        expr_ref_vector orList(m);
-        expr_ref_vector andList(m);
-
-        int distance = 3;
-        int l = (tries - 1) * distance;
-        int h = tries * distance;
-
-        TRACE("str",
-              tout << "building andList and orList" << std::endl;
-              if (m_params.m_AggressiveLengthTesting) {
-                  tout << "note: aggressive length testing is active" << std::endl;
-              }
-              );
-
-        // experimental theory-aware case split support
-        literal_vector case_split_literals;
-
-        for (int i = l; i < h; ++i) {
-            expr_ref str_indicator(m);
-            if (m_params.m_UseFastLengthTesterCache) {
-                rational ri(i);
-                expr * lookup_val;
-                if(lengthTesterCache.find(ri, lookup_val)) {
-                    str_indicator = expr_ref(lookup_val, m);
-                } else {
-                    // no match; create and insert
-                    zstring i_str = int_to_string(i);
-                    expr_ref new_val(mk_string(i_str), m);
-                    lengthTesterCache.insert(ri, new_val);
-                    m_trail.push_back(new_val);
-                    str_indicator = expr_ref(new_val, m);
-                }
-            } else {
-                zstring i_str = int_to_string(i);
-                str_indicator = expr_ref(mk_string(i_str), m);
-            }
-            expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
-            orList.push_back(or_expr);
-
-            double priority;
-            // give high priority to small lengths if this is available
-            if (i <= 5) {
-                priority = 0.3;
-            } else {
-                // prioritize over "more"
-                priority = 0.2;
-            }
-            add_theory_aware_branching_info(or_expr, priority, l_true);
-
-            if (m_params.m_AggressiveLengthTesting) {
-                literal l = mk_eq(indicator, str_indicator, false);
-                ctx.mark_as_relevant(l);
-                ctx.force_phase(l);
-            }
-
-            case_split_literals.insert(mk_eq(freeVarLen, mk_int(i), false));
-
-            expr_ref and_expr(ctx.mk_eq_atom(orList.get(orList.size() - 1), m.mk_eq(freeVarLen, mk_int(i))), m);
-            andList.push_back(and_expr);
-        }
-
-        expr_ref more_option(ctx.mk_eq_atom(indicator, mk_string("more")), m);
-        orList.push_back(more_option);
-        // decrease priority of this option
-        add_theory_aware_branching_info(more_option, -0.1, l_true);
-        if (m_params.m_AggressiveLengthTesting) {
-            literal l = mk_eq(indicator, mk_string("more"), false);
-            ctx.mark_as_relevant(l);
-            ctx.force_phase(~l);
-        }
-
-        andList.push_back(ctx.mk_eq_atom(orList.get(orList.size() - 1), m_autil.mk_ge(freeVarLen, mk_int(h))));
-
-        /*
-          { // more experimental theory case split support
-          expr_ref tmp(m_autil.mk_ge(freeVarLen, mk_int(h)), m);
-          ctx.internalize(m_autil.mk_ge(freeVarLen, mk_int(h)), false);
-          case_split_literals.push_back(ctx.get_literal(tmp));
-          ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
-          }
-        */
-
-        expr_ref_vector or_items(m);
-        expr_ref_vector and_items(m);
-
-        for (unsigned i = 0; i < orList.size(); ++i) {
-            or_items.push_back(orList.get(i));
-        }
-
-        and_items.push_back(mk_or(or_items));
-        for(unsigned i = 0; i < andList.size(); ++i) {
-            and_items.push_back(andList.get(i));
-        }
-
-        TRACE("str", tout << "check: " << mk_pp(mk_and(and_items), m) << std::endl;);
-
-        expr_ref lenTestAssert = mk_and(and_items);
-        SASSERT(lenTestAssert);
-        TRACE("str", tout << "crash avoidance lenTestAssert: " << mk_pp(lenTestAssert, m) << std::endl;);
-
-        int testerCount = tries - 1;
-        if (testerCount > 0) {
-            expr_ref_vector and_items_LHS(m);
-            expr_ref moreAst(mk_string("more"), m);
-            for (int i = 0; i < testerCount; ++i) {
-                expr * indicator = fvar_lenTester_map[freeVar][i];
-                if (internal_variable_set.find(indicator) == internal_variable_set.end()) {
-                    TRACE("str", tout << "indicator " << mk_pp(indicator, m) << " out of scope; continuing" << std::endl;);
-                    continue;
-                } else {
-                    TRACE("str", tout << "indicator " << mk_pp(indicator, m) << " in scope" << std::endl;);
-                    and_items_LHS.push_back(ctx.mk_eq_atom(indicator, moreAst));
-                }
-            }
-            expr_ref assertL(mk_and(and_items_LHS), m);
-            SASSERT(assertL);
-            expr * finalAxiom = m.mk_or(m.mk_not(assertL), lenTestAssert.get());
-            SASSERT(finalAxiom != nullptr);
-            TRACE("str", tout << "crash avoidance finalAxiom: " << mk_pp(finalAxiom, m) << std::endl;);
-            return finalAxiom;
-        } else {
-            TRACE("str", tout << "crash avoidance lenTestAssert.get(): " << mk_pp(lenTestAssert.get(), m) << std::endl;);
-            m_trail.push_back(lenTestAssert.get());
-            return lenTestAssert.get();
-        }
-    }
-
-    // Return an expression of the form
-    // (tester = "less" | tester = "N" | tester = "more") &
-    //   (tester = "less" iff len(freeVar) < N) & (tester = "more" iff len(freeVar) > N) & (tester = "N" iff len(freeVar) = N))
-    expr_ref theory_str::binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds, literal_vector & case_split) {
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-        rational N = bounds.midPoint;
-        rational N_minus_one = N - rational::one();
-        rational N_plus_one = N + rational::one();
-        expr_ref lenFreeVar(mk_strlen(freeVar), m);
-
-        TRACE("str", tout << "create case split for free var " << mk_pp(freeVar, m)
-              << " over " << mk_pp(tester, m) << " with midpoint " << N << std::endl;);
-
-        expr_ref_vector combinedCaseSplit(m);
-        expr_ref_vector testerCases(m);
-
-        expr_ref caseLess(ctx.mk_eq_atom(tester, mk_string("less")), m);
-        testerCases.push_back(caseLess);
-        combinedCaseSplit.push_back(ctx.mk_eq_atom(caseLess, m_autil.mk_le(lenFreeVar, m_autil.mk_numeral(N_minus_one, true) )));
-
-        expr_ref caseMore(ctx.mk_eq_atom(tester, mk_string("more")), m);
-        testerCases.push_back(caseMore);
-        combinedCaseSplit.push_back(ctx.mk_eq_atom(caseMore, m_autil.mk_ge(lenFreeVar, m_autil.mk_numeral(N_plus_one, true) )));
-
-        expr_ref caseEq(ctx.mk_eq_atom(tester, mk_string(N.to_string().c_str())), m);
-        testerCases.push_back(caseEq);
-        combinedCaseSplit.push_back(ctx.mk_eq_atom(caseEq, ctx.mk_eq_atom(lenFreeVar, m_autil.mk_numeral(N, true))));
-
-        combinedCaseSplit.push_back(mk_or(testerCases));
-
-        // force internalization on all terms in testerCases so we can extract literals
-        for (unsigned i = 0; i < testerCases.size(); ++i) {
-            expr * testerCase = testerCases.get(i);
-            if (!ctx.b_internalized(testerCase)) {
-                ctx.internalize(testerCase, false);
-            }
-            literal l = ctx.get_literal(testerCase);
-            case_split.push_back(l);
-        }
-
-        expr_ref final_term(mk_and(combinedCaseSplit), m);
-        SASSERT(final_term);
-        TRACE("str", tout << "final term: " << mk_pp(final_term, m) << std::endl;);
-        return final_term;
-    }
-
-    expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenTester, zstring previousLenTesterValue) {
-        ast_manager & m = get_manager();
-
-        if (binary_search_len_tester_stack.contains(freeVar) && !binary_search_len_tester_stack[freeVar].empty()) {
-            TRACE("str", tout << "checking existing length testers for " << mk_pp(freeVar, m) << std::endl;
-                  for (ptr_vector<expr>::const_iterator it = binary_search_len_tester_stack[freeVar].begin();
-                       it != binary_search_len_tester_stack[freeVar].end(); ++it) {
-                      expr * tester = *it;
-                      tout << mk_pp(tester, m) << ": ";
-                      if (binary_search_len_tester_info.contains(tester)) {
-                          binary_search_info & bounds = binary_search_len_tester_info[tester];
-                          tout << "[" << bounds.lowerBound << " | " << bounds.midPoint << " | " << bounds.upperBound << "]!" << bounds.windowSize;
-                      } else {
-                          tout << "[WARNING: no bounds info available]";
-                      }
-                      bool hasEqcValue;
-                      expr * testerEqcValue = get_eqc_value(tester, hasEqcValue);
-                      if (hasEqcValue) {
-                          tout << " = " << mk_pp(testerEqcValue, m);
-                      } else {
-                          tout << " [no eqc value]";
-                      }
-                      tout << std::endl;
-                  }
-                  );
-            expr * lastTester = binary_search_len_tester_stack[freeVar].back();
-            bool lastTesterHasEqcValue;
-            expr * lastTesterValue = get_eqc_value(lastTester, lastTesterHasEqcValue);
-            zstring lastTesterConstant;
-            if (!lastTesterHasEqcValue) {
-                TRACE("str", tout << "length tester " << mk_pp(lastTester, m) << " at top of stack doesn't have an EQC value yet" << std::endl;);
-                // check previousLenTester
-                if (previousLenTester == lastTester) {
-                    lastTesterConstant = previousLenTesterValue;
-                    TRACE("str", tout << "invoked with previousLenTester info matching top of stack" << std::endl;);
-                } else {
-                    TRACE("str", tout << "WARNING: unexpected reordering of length testers!" << std::endl;);
-                    UNREACHABLE(); return nullptr;
-                }
-            } else {
-                u.str.is_string(lastTesterValue, lastTesterConstant);
-            }
-            TRACE("str", tout << "last length tester is assigned \"" << lastTesterConstant << "\"" << "\n";);
-            if (lastTesterConstant == "more" || lastTesterConstant == "less") {
-                // use the previous bounds info to generate a new midpoint
-                binary_search_info lastBounds;
-                if (!binary_search_len_tester_info.find(lastTester, lastBounds)) {
-                    // unexpected
-                    TRACE("str", tout << "WARNING: no bounds information available for last tester!" << std::endl;);
-                    UNREACHABLE();
-                }
-                TRACE("str", tout << "last bounds are [" << lastBounds.lowerBound << " | " << lastBounds.midPoint << " | " << lastBounds.upperBound << "]!" << lastBounds.windowSize << std::endl;);
-                binary_search_info newBounds;
-                expr * newTester = nullptr;
-                if (lastTesterConstant == "more") {
-                    // special case: if the midpoint, upper bound, and window size are all equal,
-                    // we double the window size and adjust the bounds
-                    if (lastBounds.midPoint == lastBounds.upperBound && lastBounds.upperBound == lastBounds.windowSize) {
-                        TRACE("str", tout << "search hit window size; expanding" << std::endl;);
-                        newBounds.lowerBound = lastBounds.windowSize + rational::one();
-                        newBounds.windowSize = lastBounds.windowSize * rational(2);
-                        newBounds.upperBound = newBounds.windowSize;
-                        newBounds.calculate_midpoint();
-                    } else if (false) {
-                        // handle the case where the midpoint can't be increased further
-                        // (e.g. a window like [50 | 50 | 50]!64 and we don't answer "50")
-                    } else {
-                        // general case
-                        newBounds.lowerBound = lastBounds.midPoint + rational::one();
-                        newBounds.windowSize = lastBounds.windowSize;
-                        newBounds.upperBound = lastBounds.upperBound;
-                        newBounds.calculate_midpoint();
-                    }
-                    if (!binary_search_next_var_high.find(lastTester, newTester)) {
-                        newTester = mk_internal_lenTest_var(freeVar, newBounds.midPoint.get_int32());
-                        binary_search_next_var_high.insert(lastTester, newTester);
-                    }
-                    refresh_theory_var(newTester);
-                } else if (lastTesterConstant == "less") {
-                    if (false) {
-                        // handle the case where the midpoint can't be decreased further
-                        // (e.g. a window like [0 | 0 | 0]!64 and we don't answer "0"
-                    } else {
-                        // general case
-                        newBounds.upperBound = lastBounds.midPoint - rational::one();
-                        newBounds.windowSize = lastBounds.windowSize;
-                        newBounds.lowerBound = lastBounds.lowerBound;
-                        newBounds.calculate_midpoint();
-                    }
-                    if (!binary_search_next_var_low.find(lastTester, newTester)) {
-                        newTester = mk_internal_lenTest_var(freeVar, newBounds.midPoint.get_int32());
-                        binary_search_next_var_low.insert(lastTester, newTester);
-                    }
-                    refresh_theory_var(newTester);
-                }
-                TRACE("str", tout << "new bounds are [" << newBounds.lowerBound << " | " << newBounds.midPoint << " | " << newBounds.upperBound << "]!" << newBounds.windowSize << std::endl;);
-                binary_search_len_tester_stack[freeVar].push_back(newTester);
-                m_trail_stack.push(binary_search_trail<theory_str>(binary_search_len_tester_stack, freeVar));
-                binary_search_len_tester_info.insert(newTester, newBounds);
-                m_trail_stack.push(insert_obj_map<theory_str, expr, binary_search_info>(binary_search_len_tester_info, newTester));
-
-                literal_vector case_split_literals;
-                expr_ref next_case_split(binary_search_case_split(freeVar, newTester, newBounds, case_split_literals));
-                m_trail.push_back(next_case_split);
-                // ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
-                return next_case_split;
-            } else { // lastTesterConstant is a concrete value
-                TRACE("str", tout << "length is fixed; generating models for free var" << std::endl;);
-                // defensive check that this length did not converge on a negative value.
-                binary_search_info lastBounds;
-                if (!binary_search_len_tester_info.find(lastTester, lastBounds)) {
-                    // unexpected
-                    TRACE("str", tout << "WARNING: no bounds information available for last tester!" << std::endl;);
-                    UNREACHABLE();
-                }
-                if (lastBounds.midPoint.is_neg()) {
-                    TRACE("str", tout << "WARNING: length search converged on a negative value. Negating this constraint." << std::endl;);
-                    expr_ref axiom(m_autil.mk_ge(mk_strlen(freeVar), m_autil.mk_numeral(rational::zero(), true)), m);
-                    return axiom;
-                }
-                // length is fixed
-                expr * valueAssert = gen_free_var_options(freeVar, lastTester, lastTesterConstant, nullptr, zstring(""));
-                return valueAssert;
-            }
-        } else {
-            // no length testers yet
-            TRACE("str", tout << "no length testers for " << mk_pp(freeVar, m) << std::endl;);
-            binary_search_len_tester_stack.insert(freeVar, ptr_vector<expr>());
-
-            expr * firstTester;
-            rational lowerBound(0);
-            rational upperBound(m_params.m_BinarySearchInitialUpperBound);
-            rational windowSize(upperBound);
-            rational midPoint(floor(upperBound / rational(2)));
-            if (!binary_search_starting_len_tester.find(freeVar, firstTester)) {
-                firstTester = mk_internal_lenTest_var(freeVar, midPoint.get_int32());
-                binary_search_starting_len_tester.insert(freeVar, firstTester);
-            }
-            refresh_theory_var(firstTester);
-
-            {
-                rational freeVar_len_value;
-                if (get_len_value(freeVar, freeVar_len_value)) {
-                    TRACE("str", tout << "special case: length of freeVar is known to be " << freeVar_len_value << std::endl;);
-                    midPoint = freeVar_len_value;
-                    upperBound = midPoint * 2;
-                    windowSize = upperBound;
-                }
-            }
-
-            binary_search_len_tester_stack[freeVar].push_back(firstTester);
-            m_trail_stack.push(binary_search_trail<theory_str>(binary_search_len_tester_stack, freeVar));
-            binary_search_info new_info(lowerBound, midPoint, upperBound, windowSize);
-            binary_search_len_tester_info.insert(firstTester, new_info);
-            m_trail_stack.push(insert_obj_map<theory_str, expr, binary_search_info>(binary_search_len_tester_info, firstTester));
-
-            literal_vector case_split_literals;
-            expr_ref initial_case_split(binary_search_case_split(freeVar, firstTester, new_info, case_split_literals));
-            m_trail.push_back(initial_case_split);
-            // ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
-            return initial_case_split;
-        }
-    }
-
-    // -----------------------------------------------------------------------------------------------------
-    // True branch will be taken in final_check:
-    //   - When we discover a variable is "free" for the first time
-    //     lenTesterInCbEq = NULL
-    //     lenTesterValue = ""
-    // False branch will be taken when invoked by new_eq_eh().
-    //   - After we set up length tester for a "free" var in final_check,
-    //     when the tester is assigned to some value (e.g. "more" or "4"),
-    //     lenTesterInCbEq != NULL, and its value will be passed by lenTesterValue
-    // The difference is that in new_eq_eh(), lenTesterInCbEq and its value have NOT been put into a same eqc
-    // -----------------------------------------------------------------------------------------------------
-    expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, zstring lenTesterValue) {
-
-        ast_manager & m = get_manager();
-
-        TRACE("str", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
-
-        if (m_params.m_UseBinarySearch) {
-            TRACE("str", tout << "using binary search heuristic" << std::endl;);
-            return binary_search_length_test(freeVar, lenTesterInCbEq, lenTesterValue);
-        } else {
-            bool map_effectively_empty = false;
-            if (!fvar_len_count_map.contains(freeVar)) {
-                TRACE("str", tout << "fvar_len_count_map is empty" << std::endl;);
-                map_effectively_empty = true;
-            }
-
-            if (!map_effectively_empty) {
-                // check whether any entries correspond to variables that went out of scope;
-                // if every entry is out of scope then the map counts as being empty
-
-                // assume empty and find a counterexample
-                map_effectively_empty = true;
-                if (fvar_lenTester_map.contains(freeVar)) {
-                    for (expr * indicator : fvar_lenTester_map[freeVar]) {
-                        if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
-                            TRACE("str", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
-                                    << " in fvar_lenTester_map[freeVar]" << std::endl;);
-                            map_effectively_empty = false;
-                            break;
-                        }
-                    }
-                }
-                CTRACE("str", map_effectively_empty, tout << "all variables in fvar_lenTester_map[freeVar] out of scope" << std::endl;);
-            }
-
-            if (map_effectively_empty) {
-                // no length assertions for this free variable have ever been added.
-                TRACE("str", tout << "no length assertions yet" << std::endl;);
-
-                fvar_len_count_map.insert(freeVar, 1);
-                unsigned int testNum = fvar_len_count_map[freeVar];
-
-                expr_ref indicator(mk_internal_lenTest_var(freeVar, testNum), m);
-                SASSERT(indicator);
-
-                // since the map is "effectively empty", we can remove those variables that have left scope...
-                if (!fvar_lenTester_map.contains(freeVar)) {
-                    fvar_lenTester_map.insert(freeVar, ptr_vector<expr>());
-                }
-                fvar_lenTester_map[freeVar].shrink(0);
-                fvar_lenTester_map[freeVar].push_back(indicator);
-                lenTester_fvar_map.insert(indicator, freeVar);
-
-                expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
-                SASSERT(lenTestAssert != nullptr);
-                return lenTestAssert;
-            } else {
-                TRACE("str", tout << "found previous in-scope length assertions" << std::endl;);
-
-                expr * effectiveLenInd = nullptr;
-                zstring effectiveLenIndiStr("");
-                int lenTesterCount;
-                if (fvar_lenTester_map.contains(freeVar)) {
-                    lenTesterCount = fvar_lenTester_map[freeVar].size();
-                } else {
-                    lenTesterCount = 0;
-                }
-
-                TRACE("str",
-                      tout << lenTesterCount << " length testers in fvar_lenTester_map[" << mk_pp(freeVar, m) << "]:" << std::endl;
-                      for (int i = 0; i < lenTesterCount; ++i) {
-                          expr * len_indicator = fvar_lenTester_map[freeVar][i];
-                          tout << mk_pp(len_indicator, m) << ": ";
-                          bool effectiveInScope = (internal_variable_set.find(len_indicator) != internal_variable_set.end());
-                          tout << (effectiveInScope ? "in scope" : "NOT in scope");
-                          tout << std::endl;
-                      }
-                      );
-
-                int i = 0;
-                for (; i < lenTesterCount; ++i) {
-                    expr * len_indicator_pre = fvar_lenTester_map[freeVar][i];
-                    // check whether this is in scope as well
-                    if (internal_variable_set.find(len_indicator_pre) == internal_variable_set.end()) {
-                        TRACE("str", tout << "length indicator " << mk_pp(len_indicator_pre, m) << " not in scope" << std::endl;);
-                        continue;
-                    }
-
-                    bool indicatorHasEqcValue = false;
-                    expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
-                    TRACE("str", tout << "length indicator " << mk_ismt2_pp(len_indicator_pre, m) <<
-                          " = " << mk_ismt2_pp(len_indicator_value, m) << std::endl;);
-                    if (indicatorHasEqcValue) {
-                        zstring len_pIndiStr;
-                        u.str.is_string(len_indicator_value, len_pIndiStr);
-                        if (len_pIndiStr != "more") {
-                            effectiveLenInd = len_indicator_pre;
-                            effectiveLenIndiStr = len_pIndiStr;
-                            break;
-                        }
-                    } else {
-                        if (lenTesterInCbEq != len_indicator_pre) {
-                            TRACE("str", tout << "WARNING: length indicator " << mk_ismt2_pp(len_indicator_pre, m)
-                                  << " does not have an equivalence class value."
-                                  << " i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
-                            if (i > 0) {
-                                effectiveLenInd = fvar_lenTester_map[freeVar][i - 1];
-                                bool effectiveHasEqcValue;
-                                expr * effective_eqc_value = get_eqc_value(effectiveLenInd, effectiveHasEqcValue);
-                                bool effectiveInScope = (internal_variable_set.find(effectiveLenInd) != internal_variable_set.end());
-                                TRACE("str", tout << "checking effective length indicator " << mk_pp(effectiveLenInd, m) << ": "
-                                      << (effectiveInScope ? "in scope" : "NOT in scope") << ", ";
-                                      if (effectiveHasEqcValue) {
-                                          tout << "~= " << mk_pp(effective_eqc_value, m);
-                                      } else {
-                                          tout << "no eqc string constant";
-                                      }
-                                      tout << std::endl;); (void)effectiveInScope;
-                                if (effectiveLenInd == lenTesterInCbEq) {
-                                    effectiveLenIndiStr = lenTesterValue;
-                                } else {
-                                    if (effectiveHasEqcValue) {
-                                        u.str.is_string(effective_eqc_value, effectiveLenIndiStr);
-                                    } else {
-                                        NOT_IMPLEMENTED_YET();
-                                    }
-                                }
-                            }
-                            break;
-                        }
-                        // lenTesterInCbEq == len_indicator_pre
-                        else {
-                            if (lenTesterValue != "more") {
-                                effectiveLenInd = len_indicator_pre;
-                                effectiveLenIndiStr = lenTesterValue;
-                                break;
-                            }
-                        }
-                    } // !indicatorHasEqcValue
-                } // for (i : [0..lenTesterCount-1])
-                if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "") {
-                    TRACE("str", tout << "length is not fixed; generating length tester options for free var" << std::endl;);
-                    expr_ref indicator(m);
-                    unsigned int testNum = 0;
-
-                    TRACE("str", tout << "effectiveLenIndiStr = " << effectiveLenIndiStr
-                          << ", i = " << i << ", lenTesterCount = " << lenTesterCount << "\n";);
-
-                    if (i == lenTesterCount) {
-                        fvar_len_count_map[freeVar] = fvar_len_count_map[freeVar] + 1;
-                        testNum = fvar_len_count_map[freeVar];
-                        indicator = mk_internal_lenTest_var(freeVar, testNum);
-                        fvar_lenTester_map[freeVar].push_back(indicator);
-                        lenTester_fvar_map.insert(indicator, freeVar);
-                    } else {
-                        indicator = fvar_lenTester_map[freeVar][i];
-                        refresh_theory_var(indicator);
-                        testNum = i + 1;
-                    }
-                    expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
-                    SASSERT(lenTestAssert != nullptr);
-                    return lenTestAssert;
-                } else {
-                    // if we are performing automata-based reasoning and the term associated with
-                    // this length tester is in any way constrained by regex terms,
-                    // do not perform value testing -- this term is not a free variable.
-                    if (m_params.m_RegexAutomata) {
-                        std::map<std::pair<expr*, zstring>, expr*>::iterator it = regex_in_bool_map.begin();
-                        for (; it != regex_in_bool_map.end(); ++it) {
-                            expr * re = it->second;
-                            expr * re_str = to_app(re)->get_arg(0);
-                            // recursive descent through all subterms of re_str to see if any of them are
-                            // - the same as freeVar
-                            // - in the same EQC as freeVar
-                            if (term_appears_as_subterm(freeVar, re_str)) {
-                                TRACE("str", tout << "prevent value testing on free var " << mk_pp(freeVar, m) << " as it belongs to one or more regex constraints." << std::endl;);
-                                return nullptr;
-                            }
-                        }
-                    }
-
-                    TRACE("str", tout << "length is fixed; generating models for free var" << std::endl;);
-                    // length is fixed
-                    expr * valueAssert = gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, nullptr, zstring(""));
-                    return valueAssert;
-                }
-            } // fVarLenCountMap.find(...)
-
-        } // !UseBinarySearch
     }
 
     void theory_str::get_concats_in_eqc(expr * n, std::set<expr*> & concats) {
@@ -12266,92 +9627,6 @@ namespace smt {
         symbol lhs_name = to_app(lhs)->get_decl()->get_name();
         symbol rhs_name = to_app(rhs)->get_decl()->get_name();
         return lhs_name.str() < rhs_name.str();
-    }
-
-    void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
-        context & ctx = get_context();
-
-        obj_hashtable<expr> eqcRepSet;
-        obj_hashtable<expr> leafVarSet;
-        std::map<int, obj_hashtable<expr> > aloneVars;
-
-        for (auto const& kv : freeVar_map) {
-            expr * freeVar = kv.first;
-            // skip all regular expression vars
-            if (regex_variable_set.contains(freeVar)) {
-                continue;
-            }
-
-            // Iterate the EQC of freeVar, its eqc variable should not be in the eqcRepSet.
-            // If found, have to filter it out
-            std::set<expr*> eqVarSet;
-            get_var_in_eqc(freeVar, eqVarSet);
-            bool duplicated = false;
-            expr * dupVar = nullptr;
-            for (expr* eq : eqVarSet) {
-                if (eqcRepSet.contains(eq)) {
-                    duplicated = true;
-                    dupVar = eq;
-                    break;
-                }
-            }
-            if (duplicated && dupVar != nullptr) {
-                TRACE("str", tout << "Duplicated free variable found:" << mk_pp(freeVar, get_manager())
-                      << " = " << mk_ismt2_pp(dupVar, get_manager()) << " (SKIP)" << std::endl;);
-                continue;
-            } else {
-                eqcRepSet.insert(freeVar);
-            }
-        }
-
-        for (expr * freeVar : eqcRepSet) {
-            // has length constraint initially
-            bool standAlone = !input_var_in_len.contains(freeVar);
-            // iterate parents
-            if (standAlone) {
-                // I hope this works!
-                if (!ctx.e_internalized(freeVar)) {
-                    ctx.internalize(freeVar, false);
-                }
-                enode * e_freeVar = ctx.get_enode(freeVar);
-                enode_vector::iterator it = e_freeVar->begin_parents();
-                for (; it != e_freeVar->end_parents(); ++it) {
-                    expr * parentAst = (*it)->get_owner();
-                    if (u.str.is_concat(to_app(parentAst))) {
-                        standAlone = false;
-                        break;
-                    }
-                }
-            }
-
-            if (standAlone) {
-                rational len_value;
-                bool len_value_exists = get_len_value(freeVar, len_value);
-                if (len_value_exists) {
-                    leafVarSet.insert(freeVar);
-                } else {
-                    aloneVars[-1].insert(freeVar);
-                }
-            } else {
-                leafVarSet.insert(freeVar);
-            }
-        }
-
-        for (expr* lv : leafVarSet) {
-            expr * toAssert = gen_len_val_options_for_free_var(lv, nullptr, "");
-            // gen_len_val_options_for_free_var() can legally return NULL,
-            // as methods that it calls may assert their own axioms instead.
-            if (toAssert) assert_axiom(toAssert);
-            
-        }
-
-        for (auto const& kv : aloneVars) {
-            for (expr* av : kv.second) {
-                expr * toAssert = gen_len_val_options_for_free_var(av, nullptr, "");
-                // same deal with returning a NULL axiom here
-                if (toAssert) assert_axiom(toAssert);                
-            }
-        }
     }
 
     /*
@@ -12432,13 +9707,42 @@ namespace smt {
                 return to_app(mk_string(result));
             }
         }
+
+        if (m_params.m_FixedLengthModels) {
+            zstring assignedValue;
+            if (candidate_model.find(n, assignedValue)) {
+                return to_app(mk_string(assignedValue));
+            }
+        }
+
         // fallback path
         // try to find some constant string, anything, in the equivalence class of n
+        if (!candidate_model.empty()) {
+            zstring val;
+            if (candidate_model.find(n, val)) {
+                return to_app(mk_string(val));
+            }
+        }
         bool hasEqc = false;
         expr * n_eqc = get_eqc_value(n, hasEqc);
         if (hasEqc) {
             return to_app(n_eqc);
         } else {
+            theory_var curr = get_var(n);
+            if (curr != null_theory_var) {
+                curr = m_find.find(curr);
+                theory_var first = curr;
+                do {
+                    expr* a = get_ast(curr);
+                    zstring val;
+                    if (candidate_model.find(a, val)) {
+                        return to_app(mk_string(val));
+                    }
+                    curr = m_find.next(curr);
+                }
+                while (curr != first && curr != null_theory_var);
+            }
+            // fail to find
             return nullptr;
         }
     }
@@ -12470,4 +9774,253 @@ namespace smt {
         out << "TODO: theory_str display" << std::endl;
     }
 
+    unsigned theory_str::get_refine_length(expr* ex, expr_ref_vector& extra_deps){
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        TRACE("str_fl", tout << "finding length for " << mk_ismt2_pp(ex, m) << std::endl;);
+        if (u.str.is_string(ex)) {
+            bool str_exists;
+            expr * str = get_eqc_value(ex, str_exists);
+            SASSERT(str_exists);
+            zstring str_const;
+            u.str.is_string(str, str_const);
+            return str_const.length();
+        } else if (u.str.is_itos(ex)) {
+            expr* fromInt = nullptr;
+            u.str.is_itos(ex, fromInt);
+            
+            arith_value v(m);
+            v.init(&ctx);
+            rational val;
+            VERIFY(v.get_value(fromInt, val));
+
+            std::string s = std::to_string(val.get_int32());
+            extra_deps.push_back(ctx.mk_eq_atom(fromInt, mk_int(val)));
+            return static_cast<unsigned>(s.length());
+
+        } else if (u.str.is_at(ex)) {
+            expr* substrBase = nullptr;
+            expr* substrPos = nullptr;
+            u.str.is_at(ex, substrBase, substrPos);
+            arith_value v(m);
+            v.init(&ctx);
+            rational pos;
+            VERIFY(v.get_value(substrPos, pos));
+
+            extra_deps.push_back(ctx.mk_eq_atom(substrPos, mk_int(pos)));
+            return 1;
+
+        } else if (u.str.is_extract(ex)) {
+            expr* substrBase = nullptr;
+            expr* substrPos = nullptr;
+            expr* substrLen = nullptr;
+            u.str.is_extract(ex, substrBase, substrPos, substrLen);
+            arith_value v(m);
+            v.init(&ctx);
+            rational len, pos;
+            VERIFY(v.get_value(substrLen, len));
+            VERIFY(v.get_value(substrPos, pos));
+
+            extra_deps.push_back(ctx.mk_eq_atom(substrPos, mk_int(pos)));
+            return len.get_unsigned();
+
+        } else if (u.str.is_replace(ex)) {
+            TRACE("str_fl", tout << "replace is like contains---not in conjunctive fragment!" << std::endl;);
+            UNREACHABLE();
+        }
+        //find asserts that it exists
+        return fixed_length_used_len_terms.find(ex);
+    }
+
+    expr* theory_str::refine(expr* lhs, expr* rhs, rational offset) {
+        // TRACE("str", tout << "refine with " << offset.get_unsigned() << std::endl;);
+        if (offset >= rational(0)) {
+            ++m_stats.m_refine_eq;
+            return refine_eq(lhs, rhs, offset.get_unsigned());
+        }
+        // Let's just giveup if we find ourselves in the disjunctive fragment.
+        if (offset == rational(-1)) { // negative equation
+            ++m_stats.m_refine_neq;
+            return refine_dis(lhs, rhs);
+        }
+        if (offset == rational(-2)) { // function like contains, prefix,...
+            SASSERT(rhs == lhs);
+            ++m_stats.m_refine_f;
+            return refine_function(lhs);
+        }
+        if (offset == rational(-3)) { // negated function
+            SASSERT(rhs == lhs);
+            ++m_stats.m_refine_nf;
+            ast_manager & m = get_manager();
+            return refine_function(m.mk_not(lhs));
+        }
+        UNREACHABLE();
+        return nullptr;
+    }
+
+    expr* theory_str::refine_eq(expr* lhs, expr* rhs, unsigned offset) {
+        TRACE("str_fl", tout << "refine eq " << offset << std::endl;);
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        expr_ref_vector Gamma(m);
+        expr_ref_vector Delta(m);
+
+        if (!flatten(lhs, Gamma) || !flatten(rhs, Delta)){
+            UNREACHABLE();
+        }
+
+        expr_ref_vector extra_deps(m);
+
+        // find len(Gamma[:i])
+        unsigned left_count = 0, left_length = 0, last_length = 0;
+        while(left_count < Gamma.size() && left_length <= offset) {
+            last_length = get_refine_length(Gamma.get(left_count), extra_deps);
+            left_length += last_length;
+            left_count++;
+        }
+        left_count--;
+        SASSERT(left_count >= 0 && left_count < Gamma.size());
+        left_length -= last_length;
+
+        expr* left_sublen = nullptr;
+        for (unsigned i = 0; i < left_count; i++) {
+            expr* len;
+            if (!u.str.is_string(to_app(Gamma.get(i)))) {
+                len =  u.str.mk_length(Gamma.get(i));
+            } else {
+                len = mk_int(offset - left_length);
+            }
+            if (left_sublen == nullptr) {
+                left_sublen = len;
+            } else {
+                left_sublen = m_autil.mk_add(left_sublen, len);
+            }
+        }
+        if (offset - left_length != 0) {
+            if (left_sublen == nullptr) {
+                left_sublen =  mk_int(offset - left_length);
+            } else {
+                left_sublen = m_autil.mk_add(left_sublen, mk_int(offset - left_length));
+            }
+        }
+        expr* extra_left_cond = nullptr;
+        if (!u.str.is_string(to_app(Gamma.get(left_count)))) {
+            extra_left_cond = m_autil.mk_ge(u.str.mk_length(Gamma.get(left_count)), mk_int(offset - left_length + 1));
+        } 
+
+        // find len(Delta[:j])
+        unsigned right_count = 0, right_length = 0;
+        last_length = 0;
+        while(right_count < Delta.size() && right_length <= offset) {
+            last_length = get_refine_length(Delta.get(right_count), extra_deps);
+            right_length += last_length;
+            right_count++;
+        }
+        right_count--;
+        SASSERT(right_count >= 0 && right_count < Delta.size());
+        right_length -= last_length;
+
+        expr* right_sublen = nullptr;
+        for (unsigned i = 0; i < right_count; i++) {
+            expr* len;
+            if (!u.str.is_string(to_app(Delta.get(i)))) {
+                len =  u.str.mk_length(Delta.get(i));
+            } else {
+                len = mk_int(offset - right_length);
+            }
+            if (right_sublen == nullptr) {
+                right_sublen = len;
+            } else {
+                right_sublen = m_autil.mk_add(right_sublen, len);
+            }
+        }
+        if (offset - right_length != 0) {
+            if (right_sublen == nullptr) {
+                right_sublen =  mk_int(offset - right_length);
+            } else {
+                right_sublen = m_autil.mk_add(right_sublen, mk_int(offset - right_length));
+            }
+        }
+        expr* extra_right_cond = nullptr;
+        if (!u.str.is_string(to_app(Delta.get(right_count)))) {
+            extra_right_cond = m_autil.mk_ge(u.str.mk_length(Delta.get(right_count)), mk_int(offset - right_length + 1));
+        }
+
+        // Offset tells us that Gamma[i+1:]) != Delta[j+1:]
+        // so learn that len(Gamma[:i]) != len(Delta[:j])
+        expr_ref_vector diseqs(m);
+        diseqs.push_back(ctx.mk_eq_atom(lhs, rhs));
+        if (left_sublen != right_sublen) { //nullptr actually means zero
+            if (left_sublen == nullptr) {
+                left_sublen = mk_int(0);
+            }
+            if (right_sublen == nullptr) {
+                right_sublen = mk_int(0);
+            }
+            // len(Gamma[:i]) == len(Delta[:j])
+            expr* sublen_eq = ctx.mk_eq_atom(left_sublen, right_sublen);
+            TRACE("str", tout << "sublen_eq " << mk_pp(sublen_eq, m) << std::endl;);
+            diseqs.push_back(sublen_eq);
+        }
+        if (extra_left_cond != nullptr) {
+            TRACE("str", tout << "extra_left_cond " << mk_pp(extra_left_cond, m) << std::endl;);
+            diseqs.push_back(extra_left_cond);
+        }
+        if (extra_right_cond != nullptr) {
+            TRACE("str", tout << "extra_right_cond " << mk_pp(extra_right_cond, m) << std::endl;);
+            diseqs.push_back(extra_right_cond);
+        }
+        if (extra_deps.size() > 0) {
+            diseqs.push_back(m.mk_and(extra_deps.size(), extra_deps.c_ptr()));
+            TRACE("str", tout << "extra_deps " << mk_pp(diseqs.get(diseqs.size()-1), m) << std::endl;);
+        }
+        expr* final_diseq = m.mk_and(diseqs.size(), diseqs.c_ptr());
+        TRACE("str", tout << "learning not " << mk_pp(final_diseq, m) << std::endl;);
+        return final_diseq;
+    }
+
+    expr* theory_str::refine_dis(expr* lhs, expr* rhs) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+        
+        expr_ref lesson(m);
+        lesson = m.mk_not(ctx.mk_eq_atom(lhs, rhs));
+        TRACE("str", tout << "learning not " << mk_pp(lesson, m) << std::endl;);
+        return lesson;
+    }
+
+    expr* theory_str::refine_function(expr* f) {
+        //Can we learn something better?
+        TRACE("str", tout << "learning not " << mk_pp(f, get_manager()) << std::endl;);
+        return f;
+    }
+
+    bool theory_str::flatten(expr* ex, expr_ref_vector & flat) {
+        ast_manager & m = get_manager();
+        // TRACE("str", tout << "ex " << mk_pp(ex, m)  << " target " << target << " length " << length << " sublen " << mk_pp(sublen, m) << " extra " << mk_pp(extra, m) << std::endl;);
+
+        sort * ex_sort = m.get_sort(ex);
+        sort * str_sort = u.str.mk_string_sort();
+
+        if (ex_sort == str_sort) {
+            if (is_app(ex)) {
+                app * ap = to_app(ex);
+                if(u.str.is_concat(ap)){
+                    unsigned num_args = ap->get_num_args();
+                    bool success = true;
+                    for (unsigned i = 0; i < num_args; i++) {
+                        success = success && flatten(ap->get_arg(i), flat);
+                    }
+                    return success;
+                } else {
+                    flat.push_back(ex);
+                    return true;
+                }
+            }
+        }
+        TRACE("str", tout << "non string term!" << mk_pp(ex, m) << std::endl;);
+        return false;
+    }
 }; /* namespace smt */

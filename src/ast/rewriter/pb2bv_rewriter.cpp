@@ -28,7 +28,7 @@ Notes:
 #include "util/uint_set.h"
 #include "util/gparams.h"
 
-const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
+static const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
 
 
 struct pb2bv_rewriter::imp {
@@ -161,12 +161,16 @@ struct pb2bv_rewriter::imp {
             }
 
             if (m_pb_solver == "segmented") {
-                expr_ref result(m);
                 switch (is_le) {
                 case l_true:  return mk_seg_le(k);
                 case l_false: return mk_seg_ge(k);
                 case l_undef: break;
                 }
+            }
+
+            if (m_pb_solver == "binary_merge") {
+                expr_ref result = binary_merge(is_le, k);
+                if (result) return result;
             }
 
             // fall back to divide and conquer encoding.
@@ -366,7 +370,7 @@ struct pb2bv_rewriter::imp {
         rational         m_min_cost;
         vector<rational> m_base;
 
-        void create_basis(vector<rational> const& seq, rational carry_in, rational cost) {
+        void create_basis(vector<rational> const& seq, rational const& carry_in, rational const& cost) {
             if (cost >= m_min_cost) {
                 return;
             }
@@ -492,6 +496,37 @@ struct pb2bv_rewriter::imp {
             }
             TRACE("pb", tout << "bound: " << bound << " Carry: " << carry << " result: " << result << "\n";);
             return true;
+        }
+
+        /**
+           \brief binary merge encoding.
+        */
+        expr_ref binary_merge(lbool is_le, rational const& k) {
+            expr_ref result(m);
+            unsigned_vector coeffs;
+            for (rational const& c : m_coeffs) {
+                if (c.is_unsigned()) {
+                    coeffs.push_back(c.get_unsigned());
+                }
+                else {
+                    return result;
+                }
+            }
+            if (!k.is_unsigned()) {
+                return result;
+            }
+            switch (is_le) {
+            case l_true: 
+                result = m_sort.le(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                break;
+            case l_false:
+                result = m_sort.ge(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                break;
+            case l_undef:
+                result = m_sort.eq(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                break;
+            }
+            return result;
         }
 
         /**
@@ -766,7 +801,7 @@ struct pb2bv_rewriter::imp {
                 case OP_NUM:
                     VERIFY(au.is_numeral(a, r));
                     m_k -= mul * r;
-                    return true;
+                    return m_k.is_int();
                 case OP_MUL:
                     if (sz != 2) {
                         return false;
@@ -797,7 +832,7 @@ struct pb2bv_rewriter::imp {
                     m_coeffs.push_back(r1-r2);
                     m_k -= r2;
                 }
-                return true;
+                return m_k.is_int();
             }
             return false;
         }
@@ -891,6 +926,8 @@ struct pb2bv_rewriter::imp {
 
         void set_cardinality_encoding(sorting_network_encoding enc) { m_sort.cfg().m_encoding = enc; }
 
+        void set_min_arity(unsigned ma) { m_min_arity = ma; }
+
     };
 
     struct card2bv_rewriter_cfg : public default_rewriter_cfg {
@@ -899,12 +936,16 @@ struct pb2bv_rewriter::imp {
         bool flat_assoc(func_decl * f) const { return false; }
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             result_pr = nullptr;
+            if (m_r.m.proofs_enabled()) {
+                return BR_FAILED;
+            }
             return m_r.mk_app_core(f, num, args, result);
         }
         card2bv_rewriter_cfg(imp& i, ast_manager & m):m_r(i, m) {}
         void keep_cardinality_constraints(bool f) { m_r.keep_cardinality_constraints(f); }
         void set_pb_solver(symbol const& s) { m_r.set_pb_solver(s); }
         void set_cardinality_encoding(sorting_network_encoding enc) { m_r.set_cardinality_encoding(enc); }
+        void set_min_arity(unsigned ma) { m_r.set_min_arity(ma); }
 
     };
     
@@ -917,11 +958,15 @@ struct pb2bv_rewriter::imp {
         void keep_cardinality_constraints(bool f) { m_cfg.keep_cardinality_constraints(f); }
         void set_pb_solver(symbol const& s) { m_cfg.set_pb_solver(s); }
         void set_cardinality_encoding(sorting_network_encoding e) { m_cfg.set_cardinality_encoding(e); }
+        void set_min_arity(unsigned ma) { m_cfg.set_min_arity(ma); }
         void rewrite(bool full, expr* e, expr_ref& r, proof_ref& p) {
             expr_ref ee(e, m());
+            if (m().proofs_enabled()) {
+                r = e;
+                return;
+            }
             if (m_cfg.m_r.mk_app(full, e, r)) {
                 ee = r;
-                // mp proof?
             }
             (*this)(ee, r, p);
         }
@@ -945,6 +990,15 @@ struct pb2bv_rewriter::imp {
         s = p.get_sym("pb.solver", symbol());
         if (s != symbol()) return s;
         return gparams::get_module("sat").get_sym("pb.solver", symbol("solver"));
+    }
+
+    unsigned min_arity() const {
+        params_ref const& p = m_params;
+        unsigned r = p.get_uint("sat.pb.min_arity", UINT_MAX);
+        if (r != UINT_MAX) return r;
+        r = p.get_uint("pb.min_arity", UINT_MAX);
+        if (r != UINT_MAX) return r;
+        return gparams::get_module("sat").get_uint("pb.min_arity", 9);
     }
 
     sorting_network_encoding cardinality_encoding() const {
@@ -976,6 +1030,7 @@ struct pb2bv_rewriter::imp {
         m_rw.keep_cardinality_constraints(keep_cardinality());
         m_rw.set_pb_solver(pb_solver());
         m_rw.set_cardinality_encoding(cardinality_encoding());
+        m_rw.set_min_arity(min_arity());
     }
 
     void collect_param_descrs(param_descrs& r) const {

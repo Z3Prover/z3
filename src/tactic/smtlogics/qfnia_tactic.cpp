@@ -43,18 +43,21 @@ static tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {
     simp2_p.set_bool("local_ctx", true);
     simp2_p.set_uint("local_ctx_limit", 10000000);
 
+    params_ref mem_p = p;
+    mem_p.set_uint("max_memory", 100);
+
     
     tactic * r = using_params(and_then(mk_simplify_tactic(m),
                                        mk_propagate_values_tactic(m),
                                        using_params(mk_simplify_tactic(m), simp2_p),
                                        mk_max_bv_sharing_tactic(m),
-                                       mk_bit_blaster_tactic(m),
+                                       using_params(mk_bit_blaster_tactic(m), mem_p),
                                        mk_sat_tactic(m)),
                               p);
     return r;
 }
 
-static tactic * mk_qfnia_premable(ast_manager & m, params_ref const & p_ref) {
+static tactic * mk_qfnia_preamble(ast_manager & m, params_ref const & p_ref) {
     params_ref pull_ite_p = p_ref;
     pull_ite_p.set_bool("pull_cheap_ite", true);
     pull_ite_p.set_bool("local_ctx", true);
@@ -75,7 +78,7 @@ static tactic * mk_qfnia_premable(ast_manager & m, params_ref const & p_ref) {
                  using_params(mk_simplify_tactic(m), pull_ite_p),
                  mk_elim_uncnstr_tactic(m),
                  mk_lia2card_tactic(m), 
-                 mk_card2bv_tactic(m, p_ref),
+			     mk_card2bv_tactic(m, p_ref),
                  skip_if_failed(using_params(mk_cofactor_term_ite_tactic(m), elim_p)));
 }
 
@@ -87,7 +90,7 @@ static tactic * mk_qfnia_sat_solver(ast_manager & m, params_ref const & p) {
 
     return and_then(using_params(mk_simplify_tactic(m), simp_p),
                     mk_nla2bv_tactic(m, nia2sat_p),
-                    mk_qfnia_bv_solver(m, p),
+                    skip_if_failed(mk_qfnia_bv_solver(m, p)),
                     mk_fail_if_undecided_tactic());
 }
 
@@ -97,7 +100,6 @@ static tactic * mk_qfnia_nlsat_solver(ast_manager & m, params_ref const & p) {
     params_ref simp_p = p;
     simp_p.set_bool("som", true); // expand into sums of monomials
     simp_p.set_bool("factor", false);
-
 
     return and_then(using_params(mk_simplify_tactic(m), simp_p),
                     try_for(mk_qfnra_nlsat_tactic(m, simp_p), 3000),
@@ -113,14 +115,14 @@ static tactic * mk_qfnia_smt_solver(ast_manager& m, params_ref const& p) {
 }
 
 tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p) {
-
     return and_then(
         mk_report_verbose_tactic("(qfnia-tactic)", 10),
-        mk_qfnia_premable(m, p),
-                
+        mk_qfnia_preamble(m, p),
         or_else(mk_qfnia_sat_solver(m, p),
-                try_for(mk_qfnia_smt_solver(m, p), 2000),
-                mk_qfnia_nlsat_solver(m, p),
-                mk_qfnia_smt_solver(m, p))
-        );
+                 try_for(mk_qfnia_smt_solver(m, p), 2000),
+                 mk_qfnia_nlsat_solver(m, p),        
+                 mk_qfnia_smt_solver(m, p))
+                    )
+        ;
 }
+

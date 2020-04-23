@@ -39,8 +39,8 @@ class macro_finder_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("macro-finder", *g);
+            TRACE("macro-finder", g->display(tout););
 
             bool produce_proofs = g->proofs_enabled();
             bool unsat_core_enabled = g->unsat_core_enabled();
@@ -57,7 +57,7 @@ class macro_finder_tactic : public tactic {
                 deps.push_back(g->dep(idx));
             }
 
-            mf(forms.size(), forms.c_ptr(), proofs.c_ptr(), deps.c_ptr(), new_forms, new_proofs, new_deps);
+            mf(forms, proofs, deps, new_forms, new_proofs, new_deps);
 
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
@@ -75,8 +75,6 @@ class macro_finder_tactic : public tactic {
             g->add(evmc);
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("macro-finder", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
 
         void updt_params(params_ref const & p) {

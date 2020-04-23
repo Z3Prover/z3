@@ -19,10 +19,11 @@ Author:
 Notes:
 
 --*/
+#include "ast/ast_translation.h"
+#include "ast/ast_pp.h"
+#include "tactic/tactic.h"
 #include "solver/tactic2solver.h"
 #include "solver/solver_na2as.h"
-#include "tactic/tactic.h"
-#include "ast/ast_translation.h"
 #include "solver/mus.h"
 
 /**
@@ -36,6 +37,8 @@ Notes:
 namespace {
 class tactic2solver : public solver_na2as {
     expr_ref_vector              m_assertions;
+    expr_ref_vector              m_last_assertions;
+    unsigned                     m_last_assertions_valid;
     unsigned_vector              m_scopes;
     ref<simple_check_sat_result> m_result;
     tactic_ref                   m_tactic;
@@ -80,6 +83,7 @@ public:
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {
         set_reason_unknown("cubing is not supported on tactics");
+        IF_VERBOSE(1, verbose_stream() << "cubing is not supported on tactics\n");
         return expr_ref_vector(get_manager());
     }
 
@@ -93,10 +97,6 @@ public:
         throw default_exception("cannot retrieve trail from solvers created using tactcis");
     }
 
-    void set_activity(expr* var, double activity) override {
-        throw default_exception("cannot set activity for solvers created using tactcis");
-    }
-
 
 };
 
@@ -104,7 +104,9 @@ ast_manager& tactic2solver::get_manager() const { return m_assertions.get_manage
 
 tactic2solver::tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic):
     solver_na2as(m),
-    m_assertions(m) {
+    m_assertions(m),
+    m_last_assertions(m),
+    m_last_assertions_valid(false) {
 
     m_tactic = t;
     m_logic  = logic;
@@ -123,23 +125,27 @@ void tactic2solver::updt_params(params_ref const & p) {
 }
 
 void tactic2solver::collect_param_descrs(param_descrs & r) {
+    solver::collect_param_descrs(r);
     if (m_tactic.get())
         m_tactic->collect_param_descrs(r);
 }
 
 void tactic2solver::assert_expr_core(expr * t) {
+    m_last_assertions_valid = false;
     m_assertions.push_back(t);
     m_result = nullptr;
 }
 
 
 void tactic2solver::push_core() {
+    m_last_assertions_valid = false;
     m_scopes.push_back(m_assertions.size());
     m_result = nullptr;
     TRACE("pop", tout << m_scopes.size() << "\n";);
 }
 
 void tactic2solver::pop_core(unsigned n) {
+    m_last_assertions_valid = false;
     TRACE("pop", tout << m_scopes.size() << " " << n << "\n";);
     n = std::min(m_scopes.size(), n);
     unsigned new_lvl = m_scopes.size() - n;
@@ -152,6 +158,7 @@ void tactic2solver::pop_core(unsigned n) {
 lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * assumptions) {
     if (m_tactic.get() == nullptr)
         return l_false;
+    m_last_assertions_valid = false;
     ast_manager & m = m_assertions.m();
     m_result = alloc(simple_check_sat_result, m);
     m_tactic->cleanup();
@@ -173,6 +180,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
     labels_vec labels;
+    TRACE("tactic", g->display(tout););
     try {
         switch (::check_sat(*m_tactic, g, md, labels, pr, core, reason_unknown)) {
         case l_true: 
@@ -186,22 +194,31 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             if (!reason_unknown.empty())
                 m_result->m_unknown = reason_unknown;
             if (num_assumptions == 0 && m_scopes.empty()) {
-                m_assertions.reset();
-                g->get_formulas(m_assertions);
+                m_last_assertions.reset();
+                g->get_formulas(m_last_assertions);
+                m_last_assertions_valid = true;
             }
             break;
         }
+        CTRACE("tactic", md.get(), tout << *md.get() << "\n";);
+        TRACE("tactic", 
+              if (m_mc) m_mc->display(tout << "mc:\n");
+              if (g->mc()) g->mc()->display(tout << "\ng:\n");
+              if (md) tout << "\nmodel:\n" << *md.get() << "\n";
+              );
         m_mc = g->mc();
-        TRACE("tactic", if (m_mc) m_mc->display(tout););
+
     }
     catch (z3_error & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
+        m_result->m_proof = pr;
         throw ex;
     }
     catch (z3_exception & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
         m_result->set_status(l_undef);
         m_result->m_unknown = ex.msg();
+        m_result->m_proof = pr;
     }
     m_tactic->collect_statistics(m_result->m_stats);
     m_tactic->collect_statistics(m_stats);
@@ -271,11 +288,11 @@ void tactic2solver::set_reason_unknown(char const* msg) {
 }
 
 unsigned tactic2solver::get_num_assertions() const {
-    return m_assertions.size();
+    return m_last_assertions_valid ? m_last_assertions.size() : m_assertions.size();
 }
 
 expr * tactic2solver::get_assertion(unsigned idx) const {
-    return m_assertions.get(idx);
+    return m_last_assertions_valid ? m_last_assertions.get(idx) : m_assertions.get(idx);
 }
 }
 

@@ -1,14 +1,15 @@
-rem Supply argument x64 or x86
+rem Supply argument x64, x86 or amd64_arm64
 
 echo "Build"
 md build
 cd build
 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %1
-cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "NMake Makefiles" ../
+cmake -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "NMake Makefiles" ../
 nmake
 if ERRORLEVEL 1 exit 1
 
-if %1 == "x86" goto :BUILD_EXAMPLES
+if %1==x86 goto BUILD_EXAMPLES
+if %1==amd64_arm64 goto BUILD_EXAMPLES
 echo "Test python bindings"
 pushd python
 python z3test.py z3
@@ -20,10 +21,13 @@ popd
 :BUILD_EXAMPLES
 echo "Build and run examples"
 nmake cpp_example
+if %1==amd64_arm64 goto C_EXAMPLE
 examples\cpp_example_build_dir\cpp_example.exe
 if ERRORLEVEL 1 exit 1
 
+:C_EXAMPLE
 nmake c_example
+if %1==amd64_arm64 goto ALL_DONE
 examples\c_example_build_dir\c_example.exe
 if ERRORLEVEL 1 exit 1
 
@@ -49,3 +53,5 @@ python z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
 if ERRORLEVEL 1 exit 1
 echo "benchmarks tested"
 
+:ALL_DONE
+echo "All done"

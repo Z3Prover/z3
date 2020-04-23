@@ -105,7 +105,7 @@ class asserted_formulas {
     public:
         nnf_cnf_fn(asserted_formulas& af): simplify_fmls(af, "nnf-cnf") {}
         void operator()() override { af.nnf_cnf(); }
-        bool should_apply() const override { return af.m_smt_params.m_nnf_cnf || (af.m_smt_params.m_mbqi && af.has_quantifiers()); }
+        bool should_apply() const override { return af.m_smt_params.m_nnf_cnf || af.has_quantifiers(); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
@@ -156,7 +156,18 @@ class asserted_formulas {
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_elim(j.get_fml(), n, p); }
         bool should_apply() const override { return af.m_smt_params.m_eliminate_term_ite && af.m_smt_params.m_lift_ite != LI_FULL; }
         void post_op() override { af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
+        void push() { m_elim.push(); }
+        void pop(unsigned n) { m_elim.pop(n); }
     };
+
+    class flatten_clauses_fn : public simplify_fmls {
+    public:
+        flatten_clauses_fn(asserted_formulas& af): simplify_fmls(af, "flatten-clauses") {}
+        void operator()() override { af.flatten_clauses(); }
+        bool should_apply() const override { return true; }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
+    };
+    void flatten_clauses();
 
 #define MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, ARG, REDUCE)            \
     class NAME : public simplify_fmls {                                 \
@@ -196,11 +207,12 @@ class asserted_formulas {
     propagate_values_fn         m_propagate_values;
     nnf_cnf_fn                  m_nnf_cnf;
     apply_quasi_macros_fn       m_apply_quasi_macros;
+    flatten_clauses_fn          m_flatten_clauses;
 
     bool invoke(simplify_fmls& s);
     void swap_asserted_formulas(vector<justified_expr>& new_fmls);
     void push_assertion(expr * e, proof * pr, vector<justified_expr>& result);
-    bool canceled() { return m.canceled(); }
+    bool canceled() { return !m.inc(); }
     bool check_well_sorted() const;
     unsigned get_total_size() const;
 
@@ -213,7 +225,7 @@ class asserted_formulas {
     void set_eliminate_and(bool flag);
     void propagate_values();
     unsigned propagate_values(unsigned i);
-    void update_substitution(expr* n, proof* p);
+    bool update_substitution(expr* n, proof* p);
     bool is_gt(expr* lhs, expr* rhs);
     void compute_depth(expr* e);
     unsigned depth(expr* e) { return m_expr2depth[e]; }
@@ -223,6 +235,7 @@ class asserted_formulas {
 public:
     asserted_formulas(ast_manager & m, smt_params & smtp, params_ref const& p);
     ~asserted_formulas();
+    void finalize();
 
     void updt_params(params_ref const& p);
     bool has_quantifiers() const { return m_has_quantifiers; }
@@ -243,7 +256,7 @@ public:
     expr *  get_formula(unsigned idx) const { return m_formulas[idx].get_fml(); }
     proof * get_formula_proof(unsigned idx) const { return m_formulas[idx].get_proof(); }
     
-    th_rewriter & get_rewriter() { return m_rewriter; }
+    params_ref const& get_params() const { return m_params; }
     void get_assertions(ptr_vector<expr> & result) const;
     bool empty() const { return m_formulas.empty(); }
     void display(std::ostream & out) const;
@@ -255,6 +268,7 @@ public:
     // Macros
     //
     // -----------------------------------
+    macro_manager& get_macro_manager() { return m_macro_manager; }
     unsigned get_num_macros() const { return m_macro_manager.get_num_macros(); }
     unsigned get_first_macro_last_level() const { return m_macro_manager.get_first_macro_last_level(); }
     func_decl * get_macro_func_decl(unsigned i) const { return m_macro_manager.get_macro_func_decl(i); }

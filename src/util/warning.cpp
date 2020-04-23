@@ -25,6 +25,10 @@ Revision History:
 #include "util/vector.h"
 
 #ifdef _WINDOWS
+#if defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
+#include <crtdbg.h>
+#endif
+
 #define VPRF vsprintf_s
 
 void STD_CALL myInvalidParameterHandler(

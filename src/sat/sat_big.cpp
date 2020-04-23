@@ -191,7 +191,7 @@ namespace sat {
                 watched& w = *it;
                 if (learned() ? w.is_binary_learned_clause() : w.is_binary_clause()) {
                     literal v = w.get_literal();
-                    if (u != get_parent(v) && safe_reach(u, v)) {
+                    if (u != get_parent(v) && ~u != get_parent(v) && safe_reach(u, v)) {
                         ++elim;
                         add_del(~u, v);
                         if (s.get_config().m_drat) s.m_drat.del(~u, v);
@@ -267,7 +267,7 @@ namespace sat {
         for (auto& next : m_dag) {
             if (!next.empty()) {
                 out << to_literal(idx) << " : " << m_left[idx] << ":" << m_right[idx] << " -> " << next << "\n";
-#if 0
+#if 1
                 for (literal n : next) {
                     out << n << "[" << m_left[n.index()] << ":" << m_right[n.index()] << "] ";
                 }

@@ -16,7 +16,6 @@ z3_add_component(util
     bit_vector.cpp
     cmd_context_types.cpp
     common_msgs.cpp
-    cooperate.cpp
     debug.cpp
     env_params.cpp
     fixed_bit_vector.cpp
@@ -67,6 +66,7 @@ z3_add_component(util
     gparams.h
     prime_generator.h
     rational.h
+    rlimit.h
     symbol.h
     trace.h
 )

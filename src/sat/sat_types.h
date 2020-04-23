@@ -29,6 +29,10 @@ Revision History:
 #include "util/stopwatch.h"
 #include<iomanip>
 
+class params_ref;
+class reslimit;
+class statistics;
+
 namespace sat {
 #define SAT_VB_LVL 10
 
@@ -120,11 +124,8 @@ namespace sat {
 
     typedef approx_set_tpl<bool_var, u2u, unsigned> var_approx_set;
 
-    enum phase {
-        POS_PHASE, NEG_PHASE, PHASE_NOT_AVAILABLE
-    };
-
     class solver;
+    class parallel;
     class lookahead;
     class unit_walk;
     class clause;
@@ -142,7 +143,7 @@ namespace sat {
     typedef svector<lbool> model;
 
     inline void negate(literal_vector& ls) { for (unsigned i = 0; i < ls.size(); ++i) ls[i].neg(); }
-    inline lbool value_at(bool_var v, model const & m) { return m[v]; }
+    inline lbool value_at(bool_var v, model const & m) { return  m[v]; }
     inline lbool value_at(literal l, model const & m) { lbool r = value_at(l.var(), m); return l.sign() ? ~r : r; }
 
     inline std::ostream & operator<<(std::ostream & out, model const & m) {
@@ -168,10 +169,7 @@ namespace sat {
         literal_set() {}
         literal_vector to_vector() const {
             literal_vector result;
-            iterator it = begin(), e = end();
-            for (; it != e; ++it) {
-                result.push_back(*it);
-            }
+            for (literal lit : *this) result.push_back(lit);
             return result;
         }
         literal_set& operator=(literal_vector const& v) {
@@ -224,10 +222,6 @@ namespace sat {
         return out << std::fixed << std::setprecision(2) << mem;
     }
 
-    inline std::ostream& operator<<(std::ostream& out, stopwatch const& sw) {
-        return out << " :time " << std::fixed << std::setprecision(2) << sw.get_seconds();
-    }
-
     struct dimacs_lit {
         literal m_lit;
         dimacs_lit(literal l):m_lit(l) {}
@@ -257,6 +251,22 @@ namespace sat {
     inline std::ostream & operator<<(std::ostream & out, literal_vector const & ls) {
         return out << mk_lits_pp(ls.size(), ls.c_ptr());
     }
+
+    class i_local_search {
+    public:
+        virtual ~i_local_search() {}
+        virtual void add(solver const& s) = 0;
+        virtual void updt_params(params_ref const& p) = 0;
+        virtual void set_seed(unsigned s) = 0;
+        virtual lbool check(unsigned sz, literal const* assumptions, parallel* par) = 0;
+        virtual void reinit(solver& s) = 0;        
+        virtual unsigned num_non_binary_clauses() const = 0;
+        virtual reslimit& rlimit() = 0;
+        virtual model const& get_model() const = 0;
+        virtual void collect_statistics(statistics& st) const = 0;        
+        virtual double get_priority(bool_var v) const { return 0; }
+
+    };
 };
 
 #endif

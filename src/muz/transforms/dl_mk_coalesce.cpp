@@ -64,7 +64,7 @@ namespace datalog {
         expr_ref_vector revsub(m), conjs(m);
         rl.get_vars(m, sorts);
         revsub.resize(sorts.size());  
-        svector<bool> valid(sorts.size(), true);
+        bool_vector valid(sorts.size(), true);
         for (unsigned i = 0; i < sub.size(); ++i) {
             expr* e = sub[i];
             sort* s = m.get_sort(e);
@@ -116,7 +116,7 @@ namespace datalog {
         expr_ref_vector conjs1(m), conjs(m);
         rule_ref res(rm);
         bool_rewriter bwr(m);
-        svector<bool> is_neg;
+        bool_vector is_neg;
         tgt->get_vars(m, sorts1);
         src.get_vars(m, sorts2);
 

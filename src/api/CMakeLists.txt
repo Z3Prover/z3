@@ -19,15 +19,15 @@ endforeach()
 
 add_custom_command(OUTPUT ${generated_files}
   COMMAND "${PYTHON_EXECUTABLE}"
-  "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
+  "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
   ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
   "--api_output_dir"
   "${CMAKE_CURRENT_BINARY_DIR}"
-  DEPENDS "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
+  DEPENDS "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
           ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
           ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
           # FIXME: When update_api.py no longer uses ``mk_util`` drop this dependency
-          "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+          "${PROJECT_SOURCE_DIR}/scripts/mk_util.py"
   COMMENT "Generating ${generated_files}"
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
   VERBATIM
@@ -61,6 +61,7 @@ z3_add_component(api
     api_rcf.cpp
     api_seq.cpp
     api_solver.cpp
+    api_special_relations.cpp
     api_stats.cpp
     api_tactic.cpp
     z3_replayer.cpp

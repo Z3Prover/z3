@@ -117,6 +117,8 @@ namespace simplex {
             m_bland(false),
             m_blands_rule_threshold(1000) {}
 
+        ~simplex();
+
         typedef typename matrix::row row;
         typedef typename matrix::row_iterator row_iterator;
         typedef typename matrix::col_iterator col_iterator;

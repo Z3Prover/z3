@@ -47,7 +47,7 @@ namespace smt {
     /**
        \brief return the complement of variables that are currently assigned.
     */
-    void theory_wmaxsat::get_assignment(svector<bool>& result) {
+    void theory_wmaxsat::get_assignment(bool_vector& result) {
         result.reset();
         
         if (!m_found_optimal) {

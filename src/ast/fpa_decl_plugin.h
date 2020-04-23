@@ -163,8 +163,6 @@ class fpa_decl_plugin : public decl_plugin {
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
 
-    bool is_considered_uninterpreted(func_decl * f) override { return false; }
-
 public:
     fpa_decl_plugin();
 
@@ -199,6 +197,8 @@ public:
 
     void del(parameter const & p) override;
     parameter translate(parameter const & p, decl_plugin & target) override;
+
+    bool is_considered_uninterpreted(func_decl * f) override;
 };
 
 class fpa_util {
@@ -226,7 +226,7 @@ public:
     bool is_rm(sort * s) const { return is_sort_of(s, m_fid, ROUNDING_MODE_SORT); }
     bool is_float(expr * e) const { return is_float(m_manager.get_sort(e)); }
     bool is_rm(expr * e) const { return is_rm(m_manager.get_sort(e)); }
-    bool is_fp(expr * e) const { return is_app_of(e, m_fid, OP_FPA_FP); }
+    bool is_fp(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_FP); }
     unsigned get_ebits(sort * s) const;
     unsigned get_sbits(sort * s) const;
 
@@ -354,8 +354,13 @@ public:
     bool is_bv2rm(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BV2RM; }
     bool is_to_ubv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_UBV; }
     bool is_to_sbv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_SBV; }
+    bool is_to_ieee_bv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_IEEE_BV; }
 
     bool contains_floats(ast * a);
+
+    bool is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args);
+
+    MATCH_TERNARY(is_fp);
 };
 
 #endif

@@ -101,7 +101,7 @@ namespace datalog {
         app_ref replacing = product_application(apps);
 
         ptr_vector<app> new_tail;
-        svector<bool> new_tail_neg;
+        bool_vector new_tail_neg;
         unsigned n = r.get_tail_size() - apps.size() + 1;
         unsigned tail_idx = 0;
         new_tail.resize(n);
@@ -176,7 +176,7 @@ namespace datalog {
 
     void mk_synchronize::add_rec_tail(vector< ptr_vector<app> > & recursive_calls,
                                       app_ref_vector & new_tail,
-                                      svector<bool> & new_tail_neg,
+                                      bool_vector & new_tail_neg,
                                       unsigned & tail_idx) {
         unsigned max_sz = 0;
         for (auto &rc : recursive_calls)
@@ -200,7 +200,7 @@ namespace datalog {
     }
 
     void mk_synchronize::add_non_rec_tail(rule & r, app_ref_vector & new_tail,
-                                          svector<bool> & new_tail_neg,
+                                          bool_vector & new_tail_neg,
                                           unsigned & tail_idx) {
         for (unsigned i = 0, sz = r.get_positive_tail_size(); i < sz; ++i) {
             app* tail = r.get_tail(i);
@@ -287,7 +287,7 @@ namespace datalog {
         }
 
         app_ref_vector new_tail(m);
-        svector<bool> new_tail_neg;
+        bool_vector new_tail_neg;
         new_tail.resize(product_tail_length);
         new_tail_neg.resize(product_tail_length);
         unsigned tail_idx = -1;

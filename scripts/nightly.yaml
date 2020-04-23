@@ -1,0 +1,243 @@
+variables:
+  z3Version: '4.8.7'
+
+jobs:
+
+- job: Mac
+  displayName: "Mac Build"
+  pool:
+    vmImage: "macOS-10.14"
+  steps:
+  - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+  - script: git clone https://github.com/z3prover/z3test z3test
+  - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+  - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Mac'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+- job: Ubuntu
+  displayName: "Ubuntu build"
+  pool:
+    vmImage: "ubuntu-16.04"
+  steps:
+  - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+  - script: git clone https://github.com/z3prover/z3test z3test
+  - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+  - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Ubuntu'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+- job: Manylinux
+  displayName: "Manylinux build"
+  pool:
+    vmImage: "ubuntu-16.04"
+  container: "rhelmot/manylinux1_x86_64:latest"
+  variables:
+    python: "/opt/python/cp35-cp35m/bin/python"
+  steps:
+  - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
+  - script: git clone https://github.com/z3prover/z3test z3test
+  - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+  - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Manylinux'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+- job: Windows32
+  displayName: "Windows 32-bit build"
+  pool:
+    vmImage: "vs2017-win2016"
+  steps:
+  - task: CmdLine@2
+    inputs:
+      script:
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat" &&
+        python scripts\mk_win_dist.py
+            --x86-only
+            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+            --zip
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: dist
+      contents: '*.zip'
+      targetFolder: $(Build.ArtifactStagingDirectory)
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)
+      artifactName: 'Windows32'
+
+- job: Windows64
+  displayName: "Windows 64-bit build"
+  pool:
+    vmImage: "vs2017-win2016"
+  steps:
+  - task: CmdLine@2
+    inputs:
+      script:
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
+        python scripts\mk_win_dist.py
+            --x64-only
+            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+            --zip
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: dist
+      contents: '*.zip'
+      targetFolder: $(Build.ArtifactStagingDirectory)
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)
+      artifactName: 'Windows64'
+
+- job: NuGet
+  displayName: "Create Nuget Package"
+  dependsOn:
+  - Mac
+  - Ubuntu
+  - Windows32
+  - Windows64
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows32'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows64'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Mac'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Ubuntu'
+     targetPath: tmp
+  - script: |
+       cd scripts 
+       python mk_nuget_task.py ../tmp $(z3Version) $(Build.SourceVersion)
+       cd ..
+#  - task: NuGetCommand@2
+#    inputs:
+#      command: pack
+#      packagesToPack: scripts/out/*.nuspec
+#      packDestination: $(Build.ArtifactStagingDirectory)
+#  - task: NuGetCommand@2
+#    inputs: 
+#      command: 'pack'
+#      packagesToPack: scripts/out/*.nuspec
+#      includesymbols: true
+#      packDestination: $(Build.ArtifactStagingDirectory)
+
+# Not available as a task?
+#  - script: | 
+#      cd scripts
+#      EsprClient.exe sign -a authorization.json -p policy.json -i out/nuget_sign_input.json -o out/diagnostics.json       
+#      cd ..
+
+- job: Python
+  displayName: "Python packaging"
+  dependsOn:
+  - Manylinux
+  - Windows32
+  - Windows64
+  - Mac
+  pool:
+    vmImage: "ubuntu-16.04"
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows32'
+     targetPath: $(Agent.TempDirectory)
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows64'
+     targetPath: $(Agent.TempDirectory)
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Manylinux'
+     targetPath: $(Agent.TempDirectory)
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Mac'
+     targetPath: $(Agent.TempDirectory)
+  - script: cd $(Agent.TempDirectory); mkdir osx-bin; cd osx-bin; unzip ../*osx*.zip
+  - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
+  - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
+  - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
+  - script: python -m pip install --user -U setuptools wheel
+  - script: cd src/api/python; python setup.py sdist
+  # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Python packages'
+      targetPath: src/api/python/dist
+
+- job: Deploy
+  displayName: "Deploy into GitHub"
+  dependsOn: 
+  - Mac
+  - Ubuntu
+  - Windows32
+  - Windows64
+  - Python
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows32'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows64'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Mac'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Ubuntu'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Python packages'
+     targetPath: tmp
+#  - task: DownloadPipelineArtifact@0
+#    inputs:
+#     artifactName: 'NuGet'
+#     targetPath: tmp
+  - task: GitHubRelease@0
+    inputs:
+      gitHubConnection: Z3GitHub
+      repositoryName: 'Z3Prover/z3'
+      action: 'delete'
+#     target: '$(Build.SourceVersion)'
+      tagSource: 'manual'
+      tag: 'Nightly'
+  - task: GitHubRelease@0
+    inputs:
+      gitHubConnection: Z3GitHub
+      repositoryName: 'Z3Prover/z3'
+      action: 'create'
+#     target: '$(Build.SourceVersion)'
+      tagSource: 'manual'
+      tag: 'Nightly'
+      title: 'Nightly'
+      releaseNotesSource: 'input'
+      releaseNotes: 'nightly build'
+      assets: 'tmp/*'
+      assetUploadMode: 'replace'
+      isDraft: false
+      isPreRelease: true
+
+
+# TBD: run regression tests on generated binaries.

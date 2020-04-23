@@ -22,14 +22,23 @@ Revision History:
 
 void csp_decl_plugin::set_manager(ast_manager* m, family_id fid) {
     decl_plugin::set_manager(m, fid);
-    m_int_sort = m_manager->mk_sort(m_manager->mk_family_id("arith"), INT_SORT);
-    m_alist_sort = m_manager->mk_sort(symbol("AList"), sort_info(m_family_id, ALIST_SORT));
-    m_job_sort = m_manager->mk_sort(symbol("Job"), sort_info(m_family_id, JOB_SORT));
-    m_resource_sort = m_manager->mk_sort(symbol("Resource"), sort_info(m_family_id, RESOURCE_SORT));
-    m_manager->inc_ref(m_int_sort);
-    m_manager->inc_ref(m_resource_sort);
-    m_manager->inc_ref(m_job_sort);
-    m_manager->inc_ref(m_alist_sort);
+    m_int_sort = nullptr;
+    m_alist_sort = nullptr;
+    m_job_sort = nullptr;
+    m_resource_sort = nullptr;
+}
+
+void csp_decl_plugin::init() {
+    if (!m_int_sort) {
+        m_int_sort = m_manager->mk_sort(m_manager->mk_family_id("arith"), INT_SORT);
+        m_alist_sort = m_manager->mk_sort(symbol("AList"), sort_info(m_family_id, ALIST_SORT));
+        m_job_sort = m_manager->mk_sort(symbol("Job"), sort_info(m_family_id, JOB_SORT));
+        m_resource_sort = m_manager->mk_sort(symbol("Resource"), sort_info(m_family_id, RESOURCE_SORT));
+        m_manager->inc_ref(m_int_sort);
+        m_manager->inc_ref(m_resource_sort);
+        m_manager->inc_ref(m_job_sort);
+        m_manager->inc_ref(m_alist_sort);
+    }
 }
 
 void csp_decl_plugin::finalize() {
@@ -40,6 +49,7 @@ void csp_decl_plugin::finalize() {
 }
 
 sort * csp_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
+    init();
     if (num_parameters != 0) {
         m_manager->raise_exception("no parameters expected with job-shop sort");
     }
@@ -53,6 +63,7 @@ sort * csp_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
 
 func_decl * csp_decl_plugin::mk_func_decl(
     decl_kind k, unsigned num_parameters, parameter const * parameters, unsigned arity, sort * const * domain, sort *) {
+    init();
     symbol name;
     sort* rng = nullptr;
     switch (static_cast<js_op_kind>(k)) {
@@ -111,7 +122,7 @@ func_decl * csp_decl_plugin::mk_func_decl(
     case OP_JS_RESOURCE_AVAILABLE:
         if (arity != 6) m_manager->raise_exception("add-resource-available expects 6 arguments");        
         if (domain[0] != m_resource_sort) m_manager->raise_exception("first argument of add-resource-available expects should be a resource");
-        if (domain[2] != m_int_sort) m_manager->raise_exception("2nd argument of add-resource-available expects should be an integer");
+        if (domain[1] != m_int_sort) m_manager->raise_exception("2nd argument of add-resource-available expects should be an integer");
         if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-resource-available expects should be an integer");
         if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-resource-available expects should be an integer");
         if (domain[4] != m_int_sort) m_manager->raise_exception("5th argument of add-resource-available expects should be an integer");
@@ -203,6 +214,7 @@ void csp_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
 }
 
 expr * csp_decl_plugin::get_some_value(sort * s) {
+    init();
     parameter p(0);
     if (is_sort_of(s, m_family_id, JOB_SORT))
         return m_manager->mk_const(mk_func_decl(OP_JS_JOB, 1, &p, 0, nullptr, nullptr));

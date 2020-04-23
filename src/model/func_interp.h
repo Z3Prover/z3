@@ -73,9 +73,13 @@ class func_interp {
 
     expr *                 m_interp; //!< cache for representing the whole interpretation as a single expression (it uses ite terms).
 
+    expr *                 m_array_interp; // <! interp with lambda abstraction
+
     void reset_interp_cache();
 
     expr * get_interp_core() const;
+
+    expr * get_array_interp_core(func_decl * f) const;
 
 public:
     func_interp(ast_manager & m, unsigned arity);
@@ -111,6 +115,8 @@ public:
     void compress();
 
     expr * get_interp() const;
+
+    expr * get_array_interp(func_decl* f) const;
 
     func_interp * translate(ast_translation & translator) const;
 

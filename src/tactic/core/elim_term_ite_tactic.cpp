@@ -21,7 +21,6 @@ Notes:
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "tactic/generic_model_converter.h"
-#include "util/cooperate.h"
 
 class elim_term_ite_tactic : public tactic {
 
@@ -35,7 +34,6 @@ class elim_term_ite_tactic : public tactic {
         unsigned                    m_num_fresh;
 
         bool max_steps_exceeded(unsigned num_steps) const { 
-            cooperate("elim term ite");
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
             return false;
@@ -101,7 +99,6 @@ class elim_term_ite_tactic : public tactic {
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("elim-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
             m_rw.cfg().m_produce_models = g->models_enabled();
@@ -124,8 +121,6 @@ class elim_term_ite_tactic : public tactic {
             report_tactic_progress(":elim-term-ite-consts", m_rw.m_cfg.m_num_fresh);
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("elim_term_ite", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

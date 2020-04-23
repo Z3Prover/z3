@@ -63,7 +63,7 @@ private:
     rational           m_number;
     unsigned           m_bv_size;
     token              m_state;
-    char               m_normalized[256];
+    char        m_normalized[256];
     vector<char>       m_string;
     std::istream&      m_stream;
     std::ostream&      m_err;
@@ -76,8 +76,8 @@ private:
     bool               m_smt2;
     bool               m_bv_token;
 
-    char read_char();
-    token read_symbol(char ch);
+    int read_char();
+    token read_symbol(int ch);
     void unread_char();
     void comment(char delimiter);
     token read_id(char first_char);

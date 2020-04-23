@@ -19,6 +19,7 @@ z3_add_component(rewriter
     factor_equivs.cpp
     factor_rewriter.cpp
     fpa_rewriter.cpp
+    func_decl_replace.cpp
     hoist_rewriter.cpp
     inj_axiom.cpp
     label_rewriter.cpp
@@ -32,7 +33,6 @@ z3_add_component(rewriter
     seq_rewriter.cpp
     th_rewriter.cpp
     var_subst.cpp
-    bv_trailing.cpp
     mk_extract_proc.cpp
   COMPONENT_DEPENDENCIES
     ast
@@ -46,4 +46,5 @@ z3_add_component(rewriter
     fpa_rewriter_params.pyg
     poly_rewriter_params.pyg
     rewriter_params.pyg
+    seq_rewriter_params.pyg
 )

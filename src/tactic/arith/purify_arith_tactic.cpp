@@ -29,6 +29,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "tactic/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/rewriter/expr_replacer.h"
 
 /*
@@ -174,6 +175,7 @@ struct purify_arith_proc {
             m_sin_cos.insert(to_app(theta), pair);
             m_pinned.push_back(pair.first);
             m_pinned.push_back(pair.second);
+            m_pinned.push_back(theta);
             // TBD for model conversion
         }
         x = pair.first;
@@ -181,6 +183,10 @@ struct purify_arith_proc {
         return true;
     }
   
+    struct bin_def {
+        expr* x, *y, *d;
+        bin_def(expr* x, expr* y, expr* d): x(x), y(y), d(d) {}
+    };
 
     struct rw_cfg : public default_rewriter_cfg {
         purify_arith_proc &  m_owner;
@@ -189,6 +195,8 @@ struct purify_arith_proc {
         expr_ref_vector      m_pinned;
         expr_ref_vector      m_new_cnstrs;
         proof_ref_vector     m_new_cnstr_prs;
+        svector<bin_def>     m_divs, m_idivs, m_mods;
+        expr_ref             m_ipower0, m_rpower0;
         expr_ref             m_subst;
         proof_ref            m_subst_pr;
         expr_ref_vector      m_new_vars;
@@ -198,7 +206,9 @@ struct purify_arith_proc {
             m_pinned(o.m()),
             m_new_cnstrs(o.m()),
             m_new_cnstr_prs(o.m()),
-            m_subst(o.m()),
+            m_ipower0(o.m()),
+            m_rpower0(o.m()),
+            m_subst(o.m()),           
             m_subst_pr(o.m()),
             m_new_vars(o.m()) {
         }
@@ -242,14 +252,14 @@ struct purify_arith_proc {
         void mk_def_proof(expr * k, expr * def, proof_ref & result_pr) {
             result_pr = nullptr;
             if (produce_proofs()) {
-                expr * eq   = m().mk_eq(k, def);
+                expr * eq   = m().mk_eq(def, k);
                 proof * pr1 = m().mk_def_intro(eq);
-                result_pr   = m().mk_apply_def(k, def, pr1);
+                result_pr   = m().mk_apply_def(def, k, pr1);
             }
         }
 
         void push_cnstr_pr(proof * def_pr) {
-            if (produce_proofs())
+            if (produce_proofs()) 
                 m_new_cnstr_prs.push_back(m().mk_th_lemma(u().get_family_id(), m_new_cnstrs.back(), 1, &def_pr));
         }
 
@@ -262,6 +272,7 @@ struct purify_arith_proc {
 
         void push_cnstr(expr * cnstr) {
             m_new_cnstrs.push_back(cnstr);
+            TRACE("purify_arith", tout << mk_pp(cnstr, m()) << "\n";);
         }
 
         void cache_result(app * t, expr * r, proof * pr) {
@@ -297,12 +308,13 @@ struct purify_arith_proc {
                           EQ(u().mk_mul(y, k), x)));
             push_cnstr_pr(result_pr);
             rational r;
-            if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
+            if (complete()) {
                 // y != 0 \/ k = div-0(x)
                 push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
                               EQ(k, u().mk_div(x, mk_real_zero()))));
                 push_cnstr_pr(result_pr);
             }
+            m_divs.push_back(bin_def(x, y, k));
         }
    
         void process_idiv(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
@@ -319,12 +331,13 @@ struct purify_arith_proc {
             expr * k2 = mk_fresh_int_var();
             app_ref mod_app(m());
             proof_ref mod_pr(m());
-            mod_app = u().mk_mod(args[0], args[1]);
+            expr * x = args[0];
+            expr * y = args[1];
+            mod_app = u().mk_mod(x, y);
             mk_def_proof(k2, mod_app, mod_pr);
             cache_result(mod_app, k2, mod_pr);
             
-            expr * x = args[0];
-            expr * y = args[1];
+            m_mods.push_back(bin_def(x, y, k2));
             //  (div x y) --> k1  |  y = 0  \/ x = k1 * y + k2,
             //                       y = 0  \/ 0 <= k2,
             //                       y = 0  \/ k2 < |y|,
@@ -355,6 +368,7 @@ struct purify_arith_proc {
                 push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod(x, zero))));
                 push_cnstr_pr(mod_pr);
             }
+            m_idivs.push_back(bin_def(x, y, k1));
         }
    
         void process_mod(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
@@ -400,21 +414,31 @@ struct purify_arith_proc {
             if (already_processed(t, result, result_pr))
                 return BR_DONE;
 
-            bool is_int = u().is_int(args[0]);
+            expr * x = args[0];
+            bool is_int = u().is_int(x);
 
             expr * k = mk_fresh_var(is_int);
             result = k;
             mk_def_proof(k, t, result_pr);
             cache_result(t, result, result_pr);
             
-            expr * x = args[0];
-            expr * zero = u().mk_numeral(rational(0), is_int);
-            expr * one  = u().mk_numeral(rational(1), is_int);
+            expr_ref zero(u().mk_numeral(rational(0), is_int), m());
+            expr_ref one(u().mk_numeral(rational(1), is_int), m());
             if (y.is_zero()) {
+                expr* p0;
+                if (is_int) {
+                    if (!m_ipower0) m_ipower0 = mk_fresh_var(true);
+                    p0 = m_ipower0;
+                }
+                else {
+                    if (!m_rpower0) m_rpower0 = mk_fresh_var(false);
+                    p0 = m_rpower0;
+                }
+
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, u().mk_power(zero, zero))));
+                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, p0)));
                 push_cnstr_pr(result_pr);
             }
             else if (!is_int) {
@@ -511,7 +535,9 @@ struct purify_arith_proc {
             else {
                 expr_ref s(u().mk_sin(theta), m());
                 expr_ref c(u().mk_cos(theta), m());
-                push_cnstr(EQ(mk_real_one(), u().mk_add(u().mk_mul(s, s), u().mk_mul(c, c))));
+                expr_ref axm(EQ(mk_real_one(), u().mk_add(u().mk_mul(s, s), u().mk_mul(c, c))), m());
+                push_cnstr(axm);
+                push_cnstr_pr(m().mk_asserted(axm));
                 return BR_FAILED;
             }
         }
@@ -699,20 +725,19 @@ struct purify_arith_proc {
         proof_ref new_body_pr(m());
         r(q->get_expr(), new_body, new_body_pr);
         unsigned num_vars = r.cfg().m_new_vars.size();
+        expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
+        if (true || !cnstrs.empty()) {
+            cnstrs.push_back(new_body);
+            new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
+        }
         TRACE("purify_arith", 
               tout << "num_vars: " << num_vars << "\n";
               tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (num_vars == 0) {
-            SASSERT(r.cfg().m_new_cnstrs.empty());
             result = m().update_quantifier(q, new_body);
-            if (m_produce_proofs)
-                result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
         }
         else {
             // Add new constraints
-            expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
-            cnstrs.push_back(new_body);
-            new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
             // Open space for new variables
             var_shifter shifter(m());
             shifter(new_body, num_vars, new_body);
@@ -728,18 +753,17 @@ struct purify_arith_proc {
                 unsigned idx = num_vars - i - 1;
                 subst.insert(c, m().mk_var(idx, s));
             }
-            scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m());
+            scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m(), false);
             replacer->set_substitution(&subst);
             (*replacer)(new_body, new_body);
-            new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body);
+            new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body, q->get_weight());
             result = m().update_quantifier(q, new_body);
-            if (m_produce_proofs) {
-                proof_ref_vector & cnstr_prs = r.cfg().m_new_cnstr_prs;
-                cnstr_prs.push_back(result_pr);
-                // TODO: improve proof
-                result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), 
-                                               m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr())); 
-            }
+        }
+        if (m_produce_proofs) {
+            auto& cnstr_prs = r.cfg().m_new_cnstr_prs;
+            result_pr = m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr());
+            result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
+            r.cfg().push_cnstr_pr(result_pr);
         }
     }
 
@@ -749,7 +773,7 @@ struct purify_arith_proc {
         expr_ref   new_curr(m());
         proof_ref  new_pr(m());
         unsigned sz = m_goal.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; !m_goal.inconsistent() && i < sz; i++) {
             expr * curr = m_goal.form(i);
             r(curr, new_curr, new_pr);
             if (m_produce_proofs) {
@@ -762,8 +786,39 @@ struct purify_arith_proc {
         // add cnstraints
         sz = r.cfg().m_new_cnstrs.size();
         TRACE("purify_arith", tout << r.cfg().m_new_cnstrs << "\n";);
+        TRACE("purify_arith", tout << r.cfg().m_new_cnstr_prs << "\n";);
         for (unsigned i = 0; i < sz; i++) {
             m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : nullptr, nullptr);
+        }
+        auto const& divs  = r.cfg().m_divs;
+        auto const& idivs = r.cfg().m_idivs;
+        auto const& mods  = r.cfg().m_mods;
+        for (unsigned i = 0; i < divs.size(); ++i) {
+            auto const& p1 = divs[i];
+            for (unsigned j = i + 1; j < divs.size(); ++j) {
+                auto const& p2 = divs[j];
+                m_goal.assert_expr(m().mk_implies(
+                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
+                                       m().mk_eq(p1.d, p2.d)));
+            }
+        }
+        for (unsigned i = 0; i < mods.size(); ++i) {
+            auto const& p1 = mods[i];
+            for (unsigned j = i + 1; j < mods.size(); ++j) {
+                auto const& p2 = mods[j];
+                m_goal.assert_expr(m().mk_implies(
+                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
+                                       m().mk_eq(p1.d, p2.d)));
+            }
+        }
+        for (unsigned i = 0; i < idivs.size(); ++i) {
+            auto const& p1 = idivs[i];
+            for (unsigned j = i + 1; j < idivs.size(); ++j) {
+                auto const& p2 = idivs[j];
+                m_goal.assert_expr(m().mk_implies(
+                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
+                                       m().mk_eq(p1.d, p2.d)));
+            }
         }
         
         // add generic_model_converter to eliminate auxiliary variables from model
@@ -775,6 +830,39 @@ struct purify_arith_proc {
                 app * v = to_app(kv.m_value);
                 SASSERT(is_uninterp_const(v));
                 fmc->hide(v->get_decl());
+            }
+            if (!divs.empty()) {
+                expr_ref body(u().mk_real(0), m());
+                expr_ref v0(m().mk_var(0, u().mk_real()), m());
+                expr_ref v1(m().mk_var(1, u().mk_real()), m());
+                for (auto const& p : divs) {
+                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                }
+                fmc->add(u().mk_div0(), body);
+            }
+            if (!mods.empty()) {
+                expr_ref body(u().mk_int(0), m());
+                expr_ref v0(m().mk_var(0, u().mk_int()), m());
+                expr_ref v1(m().mk_var(1, u().mk_int()), m());
+                for (auto const& p : mods) {
+                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                }
+                fmc->add(u().mk_mod0(), body);
+            }
+            if (!idivs.empty()) {
+                expr_ref body(u().mk_int(0), m());
+                expr_ref v0(m().mk_var(0, u().mk_int()), m());
+                expr_ref v1(m().mk_var(1, u().mk_int()), m());
+                for (auto const& p : idivs) {
+                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                }
+                fmc->add(u().mk_idiv0(), body);
+            }
+            if (r.cfg().m_ipower0) {
+                fmc->add(u().mk_ipower0(), r.cfg().m_ipower0);
+            }
+            if (r.cfg().m_rpower0) {
+                fmc->add(u().mk_rpower0(), r.cfg().m_rpower0);
             }
         }
         if (produce_models && !m_sin_cos.empty()) {
@@ -825,9 +913,8 @@ public:
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
         try {
-            SASSERT(g->is_well_sorted());
             tactic_report report("purify-arith", *g);
-            TRACE("purify_arith", g->display(tout););
+            TRACE("goal", g->display(tout););
             bool produce_proofs = g->proofs_enabled();
             bool produce_models = g->models_enabled();
             bool elim_root_objs = m_params.get_bool("elim_root_objects", true);
@@ -839,8 +926,6 @@ public:
             g->add(mc.get());
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("purify_arith", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

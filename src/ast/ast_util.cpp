@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "ast/ast_util.h"
+#include "ast/arith_decl_plugin.h"
 
 app * mk_list_assoc_app(ast_manager & m, func_decl * f, unsigned num_args, expr * const * args) {
     SASSERT(f->is_associative());
@@ -360,4 +361,14 @@ void flatten_or(expr* fml, expr_ref_vector& result) {
     SASSERT(result.get_manager().is_bool(fml));
     result.push_back(fml);
     flatten_or(result);
+}
+
+static app_ref plus(ast_manager& m, expr* a, expr* b) {
+    arith_util arith(m);
+    return app_ref(arith.mk_add(a, b), m);
+}
+
+
+app_ref operator+(expr_ref& a, expr_ref& b) { 
+    return plus(a.m(), a.get(), b.get()); 
 }

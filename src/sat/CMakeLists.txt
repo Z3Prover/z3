@@ -2,32 +2,43 @@ z3_add_component(sat
   SOURCES
     ba_solver.cpp
     dimacs.cpp
+    sat_aig_cuts.cpp
+    sat_aig_finder.cpp
+    sat_anf_simplifier.cpp
     sat_asymm_branch.cpp
-    sat_bdd.cpp
     sat_big.cpp
+    sat_binspr.cpp
     sat_clause.cpp
     sat_clause_set.cpp
     sat_clause_use_list.cpp
     sat_cleaner.cpp
     sat_config.cpp
+    sat_cut_simplifier.cpp
+    sat_cutset.cpp
+    sat_ddfw.cpp
     sat_drat.cpp
     sat_elim_eqs.cpp
     sat_elim_vars.cpp
-    sat_iff3_finder.cpp
+    sat_bcd.cpp
     sat_integrity_checker.cpp
     sat_local_search.cpp
     sat_lookahead.cpp
+    sat_lut_finder.cpp
     sat_model_converter.cpp
     sat_mus.cpp
+    sat_npn3_finder.cpp
     sat_parallel.cpp
+    sat_prob.cpp
     sat_probing.cpp
     sat_scc.cpp
     sat_simplifier.cpp
     sat_solver.cpp
-    sat_unit_walk.cpp
     sat_watched.cpp
+    sat_xor_finder.cpp
   COMPONENT_DEPENDENCIES
     util
+    dd
+    grobner
   PYG_FILES
     sat_asymm_branch_params.pyg
     sat_params.pyg

@@ -177,19 +177,14 @@ static tactic * mk_bounded_tactic(ast_manager & m) {
                  mk_fail_if_undecided_tactic()));
 }
 
-tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
-    params_ref main_p;
-    main_p.set_bool("elim_and", true);
-    main_p.set_bool("som", true);
-    main_p.set_bool("blast_distinct", true);
-    main_p.set_uint("blast_distinct_threshold", 128);
-    // main_p.set_bool("push_ite_arith", true);
-    
+tactic * mk_preamble_tactic(ast_manager& m) {
+
     params_ref pull_ite_p;
     pull_ite_p.set_bool("pull_cheap_ite", true);
     pull_ite_p.set_bool("push_ite_arith", false);
     pull_ite_p.set_bool("local_ctx", true);
     pull_ite_p.set_uint("local_ctx_limit", 10000000);
+    pull_ite_p.set_bool("hoist_ite", true);
 
     params_ref ctx_simp_p;
     ctx_simp_p.set_uint("max_depth", 30);
@@ -198,18 +193,35 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref lhs_p;
     lhs_p.set_bool("arith_lhs", true);
 
-    tactic * preamble_st = and_then(and_then(mk_simplify_tactic(m),
-                                             mk_propagate_values_tactic(m),
-                                             using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
-                                             using_params(mk_simplify_tactic(m), pull_ite_p)),
-                                    mk_solve_eqs_tactic(m),
-                                    mk_elim_uncnstr_tactic(m),
-                                    using_params(mk_simplify_tactic(m), lhs_p) 
+    tactic * preamble_st = and_then(mk_simplify_tactic(m),
+                                    mk_propagate_values_tactic(m),
+                                    using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
+                                    using_params(mk_simplify_tactic(m), pull_ite_p)
                                     );
+
+    preamble_st = and_then(preamble_st,
+                           mk_solve_eqs_tactic(m),
+                           mk_elim_uncnstr_tactic(m),
+                           using_params(mk_simplify_tactic(m), lhs_p) 
+                           );
+
+    return preamble_st;
+}
+
+tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
+    params_ref main_p;
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("som", true);
+    main_p.set_bool("blast_distinct", true);
+    main_p.set_uint("blast_distinct_threshold", 128);
+    // main_p.set_bool("push_ite_arith", true);
+    
+
 
     params_ref quasi_pb_p;
     quasi_pb_p.set_uint("lia2pb_max_bits", 64);
     
+    tactic * preamble_st = mk_preamble_tactic(m);
 
     tactic * st = using_params(and_then(preamble_st,
                                         or_else(mk_ilp_model_finder_tactic(m),

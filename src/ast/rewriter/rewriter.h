@@ -87,6 +87,8 @@ protected:
         push_frame_core(t, must_cache(t), st);
     } 
 
+    bool rewrites_to(expr* t, proof* p);
+    bool rewrites_from(expr* t, proof* p);
     void init_cache_stack();
     void del_cache_stack();
     void reset_cache();
@@ -300,7 +302,7 @@ protected:
     void process_var(var * v);
 
     template<bool ProofGen>
-    void process_const(app * t);
+    bool process_const(app * t);
 
     template<bool ProofGen>
     bool visit(expr * t, unsigned max_depth);

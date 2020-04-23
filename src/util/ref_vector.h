@@ -249,7 +249,6 @@ public:
         }
 
         element_ref & operator=(T * n) {
-            SASSERT(n);
             m_manager.inc_ref(n);
             m_manager.dec_ref(m_ref);
             m_ref = n;

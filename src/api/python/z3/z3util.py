@@ -75,7 +75,7 @@ def ehash(v):
     x_783810685_1 x_783810685_1 x_783810685_2
     
     """
-    if __debug__:
+    if z3_debug():
         assert is_expr(v)
 
     return "{}_{}_{}".format(str(v),v.hash(),v.sort_kind())
@@ -148,7 +148,7 @@ def get_vars(f,rs=[]):
     [x, y, a, b]
 
     """
-    if __debug__:
+    if z3_debug():
         assert is_expr(f)
 
     if is_const(f):
@@ -228,13 +228,13 @@ def prove(claim,assume=None,verbose=0):
 
     """
 
-    if __debug__:
+    if z3_debug():
         assert not assume or is_expr(assume)
 
 
     to_prove = claim
     if assume:
-        if __debug__:
+        if z3_debug():
             is_proved,_ = prove(Not(assume))
 
             def _f():
@@ -266,7 +266,7 @@ def prove(claim,assume=None,verbose=0):
     elif models == False: #unsat
         return True,None   
     else: #sat
-        if __debug__:
+        if z3_debug():
             assert isinstance(models,list)
 
         if models:
@@ -312,7 +312,7 @@ def get_models(f,k):
 
     """
 
-    if __debug__:
+    if z3_debug():
         assert is_expr(f)
         assert k>=1
     
@@ -448,13 +448,13 @@ def myBinOp(op,*L):
     AssertionError
     """
 
-    if __debug__:
+    if z3_debug():
         assert op == Z3_OP_OR or op == Z3_OP_AND or op == Z3_OP_IMPLIES
     
     if len(L)==1 and (isinstance(L[0],list) or isinstance(L[0],tuple)):
         L = L[0]
 
-    if __debug__:
+    if z3_debug():
         assert all(not isinstance(l,bool) for l in L)
 
     L = [l for l in L if is_expr(l)]
@@ -493,7 +493,7 @@ def model_str(m,as_str=True):
     see doctest exampels from function prove() 
 
     """
-    if __debug__:
+    if z3_debug():
         assert m is None or m == [] or isinstance(m,ModelRef)
 
     if m :

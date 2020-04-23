@@ -16,6 +16,9 @@ Author:
 Revision History:
 
 --*/
+#if 0
+  // include "util/new_symbol.h"
+#else
 #ifndef SYMBOL_H_
 #define SYMBOL_H_
 #include<ostream>
@@ -66,6 +69,8 @@ public:
     friend bool operator==(symbol const & s1, symbol const & s2) { return s1.m_data == s2.m_data; }
     friend bool operator!=(symbol const & s1, symbol const & s2) { return s1.m_data != s2.m_data; }
     bool is_numerical() const { return GET_TAG(m_data) == 1; }
+    bool is_null() const { return m_data == nullptr; }
+    bool is_non_empty_string() const { return !is_null() && !is_numerical() && 0 != bare_str()[0]; }
     unsigned int get_num() const { SASSERT(is_numerical()); return UNBOXINT(m_data); }
     std::string str() const;
     friend bool operator==(symbol const & s1, char const * s2) {
@@ -78,11 +83,10 @@ public:
         return s1.str() == s2;
     }
     friend bool operator!=(symbol const & s1, char const * s2) { return !operator==(s1, s2); }
-    void const * c_ptr() const { return m_data; }
-    // Low level function.
-    // It is the inverse of c_ptr().
-    // It was made public to simplify the implementation of the C API.
-    static symbol mk_symbol_from_c_ptr(void const * ptr) { 
+    
+    // C-API only functions
+    void * c_api_symbol2ext() const { return const_cast<char*>(m_data); }
+    static symbol c_api_ext2symbol(void const * ptr) { 
         return symbol(ptr);
     }
     unsigned hash() const { 
@@ -91,7 +95,7 @@ public:
         else return static_cast<unsigned>(reinterpret_cast<size_t const *>(m_data)[-1]);
     }
     bool contains(char c) const;
-    unsigned size() const;
+    unsigned display_size() const;
     char const * bare_str() const { SASSERT(!is_numerical()); return m_data; }
     friend std::ostream & operator<<(std::ostream & target, symbol s) {
         SASSERT(!s.is_marked());
@@ -153,3 +157,4 @@ bool lt(symbol const & s1, symbol const & s2);
 
 #endif /* SYMBOL_H_ */
 
+#endif

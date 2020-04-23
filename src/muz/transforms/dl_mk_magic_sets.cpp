@@ -187,7 +187,7 @@ namespace datalog {
     void mk_magic_sets::create_magic_rules(app * head, unsigned tail_cnt, app * const * tail, bool const* negated, rule_set& result) {
         //TODO: maybe include relevant interpreted predicates from the original rule
         ptr_vector<app> new_tail;
-        svector<bool> negations;
+        bool_vector negations;
         new_tail.push_back(create_magic_literal(head));
         new_tail.append(tail_cnt, tail);
         negations.push_back(false);
@@ -231,7 +231,7 @@ namespace datalog {
         }
 
         ptr_vector<app> new_tail;
-        svector<bool> negations;
+        bool_vector negations;
         while (new_tail.size()!=processed_tail_len) {
             bool intentional = false;
             int curr_index = pop_bound(exten_tails, r, bound_vars);

@@ -108,8 +108,8 @@ namespace smt {
         rational         m_penalty;      // current penalty of soft constraints
         rational         m_best_penalty;
         vector<unsigned_vector>  m_hard_occ, m_soft_occ;  // variable occurrence
-        svector<bool>    m_assignment;   // current assignment.
-        svector<bool>    m_best_assignment;
+        bool_vector    m_assignment;   // current assignment.
+        bool_vector    m_best_assignment;
         expr_ref_vector  m_trail;
         obj_map<expr, unsigned> m_decl2var; // map declarations to Boolean variables.
         ptr_vector<expr> m_var2decl;        // reverse map
@@ -188,13 +188,13 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "(pb.sls initial penalty: " << m_best_penalty << ")\n";
                        verbose_stream() << "(pb.sls violated: " << m_hard_false.num_elems()
                        << " penalty: " << m_penalty << ")\n";);
-            svector<bool> assignment(m_assignment);
+            bool_vector assignment(m_assignment);
             for (unsigned round = 0; round < 40; ++round) {
                 init_max_flips();
                 while (m_max_flips > 0) {
                     --m_max_flips;
                     literal lit = flip();
-                    if (m.canceled()) {
+                    if (!m.inc()) {
                         return l_undef;
                     }
                     IF_VERBOSE(3, verbose_stream() 

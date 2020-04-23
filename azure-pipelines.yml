@@ -1,0 +1,197 @@
+
+variables:
+  cmakeStdArgs: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
+  asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" CFLAGS="${CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
+  ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
+  msanEnv: 'CC=clang LDFLAGS="-L../libcxx/libcxx_msan/lib -lc++abi -Wl,-rpath=../libcxx/libcxx_msan/lib" CXX=clang++ CXXFLAGS="${CXXFLAGS} -stdlib=libc++ -fsanitize-memory-track-origins -fsanitize=memory -fPIE -fno-omit-frame-pointer -g -O2" CFLAGS="${CFLAGS} -stdlib=libc -fsanitize=memory -fsanitize-memory-track-origins -fno-omit-frame-pointer -g -O2"'
+
+jobs:
+
+- job: "LinuxPythonDebug"
+  displayName: "Ubuntu build - python make - debug"
+  pool:
+    vmImage: "Ubuntu-16.04"
+  strategy:
+    matrix:
+      MT:
+        cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
+      ST:
+        cmdLine: './configure --single-threaded'
+  steps:
+    - script: $(cmdLine)
+    - script: |
+        set -e
+        cd build
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        cd ..
+    - template: scripts/test-z3.yml
+    - template: scripts/test-regressions.yml
+    - template: scripts/generate-doc.yml
+
+#       ./cpp_example
+#       ./c_example
+
+- job: "Ubuntu18"
+  displayName: "Ubuntu 18 with ocaml"
+  pool:
+    vmImage: "Ubuntu-18.04"
+  steps:
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: python scripts/mk_make.py --ml --staticlib
+    - script: |
+        set -e
+        cd build
+        eval `opam config env` 
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./ml_example
+        cd ..
+    - template: scripts/test-z3.yml
+    - template: scripts/test-regressions.yml
+
+# TBD: 
+#   test python bindings
+#   build documentation
+#   Asan, ubsan, msan
+# Disabled pending clang dependencies for std::unordered_map
+
+- job: "LinuxMSan"
+  displayName: "Ubuntu build - cmake"
+  condition: eq(0,1) 
+  pool:
+    vmImage: "Ubuntu-16.04"
+  strategy:
+    matrix:
+      msanClang:
+        cmdLine: '$(msanEnv) cmake $(cmakeStdArgs)'
+        runUnitTest: 'True'
+        runExample: 'False' # Examples don't seem to build with MSAN
+  steps:
+    - script: sudo apt-get install ninja-build libc++-dev libc++abi-dev
+    - script: ./scripts/build_libcxx_msan.sh
+    - script: |
+        set -e
+        mkdir build
+        cd build
+        $(cmdLine)
+        ninja
+        ninja test-z3
+        cd ..
+    - script: |
+         cd build
+         export MSAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
+         ./test-z3 -a
+         cd ..
+      condition: eq(variables['runUnitTest'], 'True')
+    - ${{if eq(variables['runExample'], 'True')}}:
+      - template: scripts/test-examples-cmake.yml
+#   - template: scripts/test-jupyter.yml
+#   - template: scripts/test-java-cmake.yml
+#   - template: scripts/test-regressions.yml
+
+
+- job: "LinuxCMake"
+  displayName: "Ubuntu build - cmake"
+  pool:
+    vmImage: "Ubuntu-16.04"
+  strategy:
+    matrix:
+      debugClang:
+        cmdLine: 'CC=clang CXX=clang++ cmake $(cmakeStdArgs)'
+        runUnitTest: 'True'
+      releaseClang:
+        cmdLine: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release $(cmakeStdArgs)'
+        runUnitTest: 'True'
+      debugGcc:
+        cmdLine: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
+        runUnitTest: 'True'
+      releaseSTGcc:
+        cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
+        runUnitTest: 'True'
+#      gccX86:
+#        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
+#        runUnitTest: 'True'
+#      asan:
+#        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
+#        runUnitTest: 'False'
+  steps:
+    - script: sudo apt-get install ninja-build 
+    - script: |
+        set -e
+        mkdir build
+        cd build
+        $(cmdLine)
+        ninja
+        ninja test-z3
+        cd ..
+    - script: |
+         cd build
+         ./test-z3 -a
+         cd ..
+      condition: eq(variables['runUnitTest'], 'True')
+    - template: scripts/test-examples-cmake.yml
+#   - template: scripts/test-jupyter.yml
+#   - template: scripts/test-java-cmake.yml
+    - template: scripts/test-regressions.yml
+
+
+- job: "Windows2017"
+  displayName: "Windows 2017 build"
+  pool:
+    vmImage: "vs2017-win2016"
+  steps:
+    - script: scripts\vsts-vs2017.cmd x64
+
+- job: "Windows2017ARM64"
+  displayName: "Windows 2017 ARM64 build"
+  pool:
+    vmImage: "vs2017-win2016"
+  steps:
+    - script: scripts\vsts-vs2017.cmd amd64_arm64
+
+- job: "MacOS"
+  displayName: "MacOS build"
+  pool:
+    vmImage: "macOS-10.14"
+  steps:
+    - script: python scripts/mk_make.py -d --java --dotnet
+    - script: |
+        set -e
+        cd build
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./cpp_example
+        ./c_example
+        cd ..
+# Skip as dead-slow in debug mode:
+#  - template: scripts/test-z3.yml
+    - template: scripts/test-regressions.yml
+
+
+- job: "MacOSCMake"
+  displayName: "MacOS build with CMake"
+  pool:
+    vmImage: "macOS-10.14"
+  steps:
+    - script: brew install ninja
+    - script: brew cask install julia
+    - script: |
+        julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.6.6\"))"
+        JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
+        set -e
+        mkdir build
+        cd build
+        CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
+        ninja
+        ninja test-z3
+        cd ..
+    - template: scripts/test-z3.yml
+    - template: scripts/test-examples-cmake.yml
+    - template: scripts/test-regressions.yml
+#   - template: scripts/test-java-cmake.yml

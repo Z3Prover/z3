@@ -23,7 +23,6 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 #include "ast/well_sorted.h"
 #include "ast/ast_smt2_pp.h"
-#include "math/euclid/euclidean_solver.h"
 
 namespace smt {
 
@@ -102,10 +101,8 @@ namespace smt {
         numeral new_range;
         numeral small_range_thresold(1024);
         unsigned n = 0;
-        typename vector<row>::const_iterator it  = m_rows.begin();
-        typename vector<row>::const_iterator end = m_rows.end();
-        for (; it != end; ++it) {
-            theory_var v = it->get_base_var();
+        for (row const& row : m_rows) {
+            theory_var v = row.get_base_var();
             if (v == null_theory_var)
                 continue;
             if (!is_base(v))
@@ -120,26 +117,19 @@ namespace smt {
             numeral const & u = upper_bound(v).get_rational();
             new_range  = u;
             new_range -= l;
-            if (new_range > small_range_thresold) 
-                continue;
-            if (result == null_theory_var) {
+            if (new_range > small_range_thresold) {
+                //
+            }
+            else if (result == null_theory_var || new_range < range) {
                 result = v;
                 range  = new_range;
                 n      = 1;
-                continue;
             }
-            if (new_range < range) {
-                n      = 1;
-                result = v;
-                range  = new_range;
-                continue;
-            }
-            if (new_range == range) {
+            else if (new_range == range) {
                 n++;
                 if (m_random() % n == 0) {
                     result = v;
                     range  = new_range;
-                    continue;
                 }
             }
         }
@@ -166,25 +156,41 @@ namespace smt {
         
 #define SELECT_VAR(VAR) if (r == null_theory_var) { n = 1; r = VAR; } else { n++; SASSERT(n >= 2); if (m_random() % n == 0) r = VAR; }
 
-        typename vector<row>::const_iterator it  = m_rows.begin();
-        typename vector<row>::const_iterator end = m_rows.end();
-        for (; it != end; ++it) {
-            theory_var v = it->get_base_var();
-            if (v != null_theory_var && is_base(v) && is_int(v) && !get_value(v).is_int()) {
-                SELECT_VAR(v);
+        numeral small_value(1024);
+        if (r == null_theory_var) {
+            for (auto const& row : m_rows) {
+                theory_var v = row.get_base_var();
+                if (v != null_theory_var && is_base(v) && is_int(v) && !get_value(v).is_int()) {
+                    if (abs(get_value(v)) < small_value) {
+                        SELECT_VAR(v);
+                    }
+                    else if (upper(v) && small_value > upper_bound(v) - get_value(v)) {
+                        SELECT_VAR(v);
+                    }
+                    else if (lower(v) && small_value > get_value(v) - lower_bound(v)) {
+                        SELECT_VAR(v);
+                    }
+                }
             }
         }
+
         if (r == null_theory_var) {
-            it  = m_rows.begin();
-            for (; it != end; ++it) {
-                theory_var v = it->get_base_var();
+            for (auto const& row : m_rows) {
+                theory_var v = row.get_base_var();
+                if (v != null_theory_var && is_base(v) && is_int(v) && !get_value(v).is_int()) {
+                    SELECT_VAR(v);
+                }
+            }
+        }
+
+        if (r == null_theory_var) {
+            for (auto const& row : m_rows) {
+                theory_var v = row.get_base_var();
                 if (v != null_theory_var && is_quasi_base(v) && is_int(v) && !get_value(v).is_int()) {
                     quasi_base_row2base_row(get_var_row(v));
                     SELECT_VAR(v);
                 }
             }
-            if (r == null_theory_var)
-                return null_theory_var;
         }
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
@@ -199,6 +205,7 @@ namespace smt {
     void theory_arith<Ext>::branch_infeasible_int_var(theory_var v) {
         SASSERT(is_int(v));
         SASSERT(!get_value(v).is_int());
+        ast_manager & m = get_manager();
         m_stats.m_branches++;
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
@@ -206,13 +213,17 @@ namespace smt {
               display_var(tout, v);
               tout << "k = " << k << ", _k = "<< _k << std::endl;
               );
-        expr_ref bound(get_manager());
+        expr_ref bound(m);
         expr* e = get_enode(v)->get_owner();
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
-        TRACE("arith_int", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
         context & ctx = get_context();
-        ctx.internalize(bound, true);
-        ctx.mark_as_relevant(bound.get());
+        {
+            std::function<expr*(void)> fn = [&]() { return m.mk_or(bound, m.mk_not(bound)); };
+            scoped_trace_stream _sts(*this, fn);
+            TRACE("arith_int", tout << mk_bounded_pp(bound, m) << "\n";);
+            ctx.internalize(bound, true);
+            ctx.mark_as_relevant(bound.get());
+        }
     }
 
     
@@ -229,18 +240,20 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::branch_infeasible_int_equality() {
 
-        typename vector<row>::const_iterator it  = m_rows.begin();
-        typename vector<row>::const_iterator end = m_rows.end();
-
         vector<vector<rational> > rows;
         unsigned max_row = 1;                // all rows should contain a constant in the last position.
         u_map<unsigned>   var2index;         // map theory variables to positions in 'rows'.
         u_map<theory_var> index2var;         // map back positions in 'rows' to theory variables.
+        context& ctx = get_context();
+        ast_manager& m = get_manager();
 
-        for (; it != end; ++it) {
-            theory_var b = it->get_base_var();
+        if (ctx.get_cancel_flag())
+            return false;
+        
+        for (auto const& r : m_rows) {
+            theory_var b = r.get_base_var();
             if (b == null_theory_var) {
-                TRACE("arith_int", display_row(tout << "null: ", *it, true); );
+                TRACE("arith_int", display_row(tout << "null: ", r, true); );
                 continue;
             }
             bool is_tight = false;
@@ -259,7 +272,7 @@ namespace smt {
             }
             if (!is_tight) {
                 TRACE("arith_int", 
-                      display_row(tout << "!tight: ", *it, true); 
+                      display_row(tout << "!tight: ", r, true); 
                       display_var(tout, b);
                       );
                 continue;
@@ -269,8 +282,8 @@ namespace smt {
             numeral denom(1);
             unsigned index = 0;
 
-            typename vector<row_entry>::const_iterator it_r  = it->begin_entries();
-            typename vector<row_entry>::const_iterator end_r = it->end_entries();
+            typename vector<row_entry>::const_iterator it_r  = r.begin_entries();
+            typename vector<row_entry>::const_iterator end_r = r.end_entries();
 
             for (; it_r != end_r && is_tight; ++it_r) {
                 if (it_r->is_dead())
@@ -284,7 +297,7 @@ namespace smt {
                     continue;
                 }
                 if (!is_int(x)) {
-                    TRACE("theory_arith_int", display_row(tout << "!int:  ", *it, true); );
+                    TRACE("theory_arith_int", display_row(tout << "!int:  ", r, true); );
                     is_tight = false;
                     continue;
                 }
@@ -319,7 +332,7 @@ namespace smt {
                   }
                   tout << " = 0\n";
                   tout << "base value: " << get_value(b) << "\n";
-                  display_row(tout, *it, true);
+                  display_row(tout, r, true);
                   );
         }    
         // 
@@ -364,14 +377,16 @@ namespace smt {
         }
         mk_polynomial_ge(pol.size(), pol.c_ptr(), unsat_row[0]+rational(1), p2);
         
-        context& ctx = get_context();
-        ctx.internalize(p1, false);
-        ctx.internalize(p2, false);
-        literal l1(ctx.get_literal(p1)), l2(ctx.get_literal(p2));
-        ctx.mark_as_relevant(p1.get());
-        ctx.mark_as_relevant(p2.get());
-        
-        ctx.mk_th_axiom(get_id(), l1, l2);
+        {
+            std::function<expr*(void)> fn = [&]() { return m.mk_or(p1, p2); };
+            scoped_trace_stream _sts(*this, fn);
+            ctx.internalize(p1, false);
+            ctx.internalize(p2, false);
+            literal l1(ctx.get_literal(p1)), l2(ctx.get_literal(p2));
+            ctx.mark_as_relevant(p1.get());
+            ctx.mark_as_relevant(p2.get());
+            ctx.mk_th_axiom(get_id(), l1, l2);
+        }
        
         TRACE("arith_int", 
               tout << "cut: (or " << mk_pp(p1, get_manager()) << " " << mk_pp(p2, get_manager()) << ")\n";
@@ -398,10 +413,14 @@ namespace smt {
                 theory_var v  = it->m_var;
                 expr* e = get_enode(v)->get_owner();
                 bool _is_int = m_util.is_int(e);
-                expr * bound  = m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int));
+                expr_ref bound(m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int)), get_manager());
                 context & ctx = get_context();
-                ctx.internalize(bound, true);
-                ctx.mark_as_relevant(bound);
+                {
+                    std::function<expr*(void)> fn = [&]() { return bound; };
+                    scoped_trace_stream _sts(*this, fn);
+                    ctx.internalize(bound, true);
+                }
+                ctx.mark_as_relevant(bound.get());
                 result = true;
             }
         }
@@ -599,6 +618,8 @@ namespace smt {
 
         expr_ref bound(get_manager());
         if (pol.empty()) {
+            if (ante.lits().empty() && ante.eqs().empty())
+                return false;
             SASSERT(k.is_pos());
             // conflict 0 >= k where k is positive
             set_conflict(ante, ante, "gomory-cut");
@@ -646,15 +667,26 @@ namespace smt {
         TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
         literal l     = null_literal;
         context & ctx = get_context();
-        ctx.internalize(bound, true);
+        {
+            std::function<expr*(void)> fn = [&]() { return bound; };
+            scoped_trace_stream _sts(*this, fn);
+            ctx.internalize(bound, true);
+        }
         l = ctx.get_literal(bound);
         ctx.mark_as_relevant(l);
         dump_lemmas(l, ante);
-        ctx.assign(l, ctx.mk_justification(
-                       gomory_cut_justification(
-                           get_id(), ctx.get_region(), 
-                           ante.lits().size(), ante.lits().c_ptr(), 
-                           ante.eqs().size(), ante.eqs().c_ptr(), ante, l)));
+        auto js = ctx.mk_justification(
+            gomory_cut_justification(
+                get_id(), ctx.get_region(),
+                ante.lits().size(), ante.lits().c_ptr(),
+                ante.eqs().size(), ante.eqs().c_ptr(), ante, l));
+
+        if (l == false_literal) {
+            ctx.mk_clause(0, nullptr, js, CLS_TH_LEMMA, nullptr);
+        }
+        else {
+            ctx.assign(l, js);
+        }
         return true;
     }
     
@@ -933,335 +965,6 @@ namespace smt {
             failed();
     }
 
-    template<typename Ext>
-    struct theory_arith<Ext>::euclidean_solver_bridge {
-        typedef numeral_buffer<mpz, euclidean_solver::numeral_manager> mpz_buffer;
-        theory_arith &                t;
-        euclidean_solver              m_solver;
-        unsigned_vector               m_tv2v; // theory var to euclidean solver var
-        svector<theory_var>           m_j2v;  // justification to theory var
-        
-        // aux fields
-        unsigned_vector               m_xs;
-        mpz_buffer                    m_as;
-        unsigned_vector               m_js;
-
-        typedef euclidean_solver::var            evar;
-        typedef euclidean_solver::justification  ejustification;
-        euclidean_solver_bridge(theory_arith & _t):t(_t), m_solver(&t.m_es_num_manager), m_as(m_solver.m()) {}
-        
-        evar mk_var(theory_var v) {
-            m_tv2v.reserve(v+1, UINT_MAX);
-            if (m_tv2v[v] == UINT_MAX)
-                m_tv2v[v] = m_solver.mk_var();
-            return m_tv2v[v];
-        }
-
-        /**
-           \brief Given a monomial, retrieve its coefficient and the power product
-           That is, mon = a * pp
-        */
-        void get_monomial(expr * mon, rational & a, expr * & pp) {
-            expr * a_expr;
-            if (t.m_util.is_mul(mon, a_expr, pp) && t.m_util.is_numeral(a_expr, a))
-                return;
-            a  = rational(1);
-            pp = mon;
-        }
-
-        /**
-           \brief Return the theory var associated with the given power product.
-         */
-        theory_var get_theory_var(expr * pp) {
-            context & ctx = t.get_context();
-            if (ctx.e_internalized(pp)) {
-                enode * e    = ctx.get_enode(pp);
-                if (t.is_attached_to_var(e))
-                    return e->get_th_var(t.get_id());
-            }
-            return null_theory_var;
-        }
-
-        /**
-           \brief Create an euclidean_solver variable for the given
-           power product, if it has a theory variable associated with
-           it.
-        */
-        evar mk_var(expr * pp) {
-            theory_var v = get_theory_var(pp);
-            if (v == null_theory_var)
-                return UINT_MAX;
-            return mk_var(v);
-        }
-        
-        /**
-           \brief Return the euclidean_solver variable associated with the given
-           power product. Return UINT_MAX, if it doesn't have one.
-        */
-        evar get_var(expr * pp) {
-            theory_var v = get_theory_var(pp);
-            if (v == null_theory_var || v >= static_cast<int>(m_tv2v.size()))
-                return UINT_MAX;
-            return m_tv2v[v];
-        }
-        
-        void assert_eqs() {
-            // traverse definitions looking for equalities
-            mpz c, a;
-            mpz one;
-            euclidean_solver::numeral_manager & m = m_solver.m();
-            m.set(one, 1);
-            mpz_buffer & as = m_as;
-            unsigned_vector & xs = m_xs;
-            int num = t.get_num_vars();
-            for (theory_var v = 0; v < num; v++) {
-                if (!t.is_fixed(v)) 
-                    continue;
-                if (!t.is_int(v))
-                    continue; // only integer variables
-                expr * n = t.get_enode(v)->get_owner();
-                if (t.m_util.is_numeral(n))
-                    continue; // skip stupid equality c - c = 0
-                inf_numeral const & val = t.get_value(v);
-                rational num = val.get_rational().to_rational();
-                SASSERT(num.is_int());
-                num.neg();
-                m.set(c, num.to_mpq().numerator());
-                ejustification j = m_solver.mk_justification();
-                m_j2v.reserve(j+1, null_theory_var);
-                m_j2v[j] = v;
-                as.reset();
-                xs.reset();
-                bool failed = false;
-                unsigned num_args;
-                expr * const * args;
-                if (t.m_util.is_add(n)) {
-                    num_args = to_app(n)->get_num_args();
-                    args     = to_app(n)->get_args();
-                }
-                else {
-                    num_args = 1;
-                    args     = &n;
-                }
-                for (unsigned i = 0; i < num_args; i++) {
-                    expr * arg = args[i];
-                    expr * pp;
-                    rational a_val;
-                    get_monomial(arg, a_val, pp);
-                    if (!a_val.is_int()) {
-                        failed = true;
-                        break;
-                    }
-                    evar x = mk_var(pp);
-                    if (x == UINT_MAX) {
-                        failed = true;
-                        break; 
-                    }
-                    m.set(a, a_val.to_mpq().numerator());
-                    as.push_back(a);
-                    xs.push_back(x);
-                }
-                if (!failed) {
-                    m_solver.assert_eq(as.size(), as.c_ptr(), xs.c_ptr(), c, j);
-                    TRACE("euclidean_solver", tout << "add definition: v" << v << " := " << mk_ismt2_pp(n, t.get_manager()) << "\n";);
-                }
-                else {
-                    TRACE("euclidean_solver", tout << "failed for:\n" << mk_ismt2_pp(n, t.get_manager()) << "\n";);
-                }
-            }
-            m.del(a);
-            m.del(c);
-            m.del(one);
-        }
-
-        void mk_bound(theory_var v, rational k, bool lower, bound * old_bound, unsigned_vector const & js) {
-            derived_bound * new_bound = alloc(derived_bound, v, inf_numeral(k), lower ? B_LOWER : B_UPPER);
-            t.m_tmp_lit_set.reset();
-            t.m_tmp_eq_set.reset();
-            if (old_bound != nullptr) {
-                t.accumulate_justification(*old_bound, *new_bound, numeral(0) /* refine for proof gen */, t.m_tmp_lit_set, t.m_tmp_eq_set); 
-            }
-            unsigned_vector::const_iterator it  = js.begin();
-            unsigned_vector::const_iterator end = js.end();
-            for (; it != end; ++it) {
-                ejustification    j = *it;
-                theory_var fixed_v = m_j2v[j];
-                SASSERT(fixed_v != null_theory_var);
-                t.accumulate_justification(*(t.lower(fixed_v)), *new_bound, numeral(0) /* refine for proof gen */, t.m_tmp_lit_set, t.m_tmp_eq_set); 
-                t.accumulate_justification(*(t.upper(fixed_v)), *new_bound, numeral(0) /* refine for proof gen */, t.m_tmp_lit_set, t.m_tmp_eq_set); 
-            }
-            t.m_bounds_to_delete.push_back(new_bound);
-            t.m_asserted_bounds.push_back(new_bound);
-        }
-
-        void mk_lower(theory_var v, rational k, bound * old_bound, unsigned_vector const & js) {
-            mk_bound(v, k, true, old_bound, js);
-        }
-
-        void mk_upper(theory_var v, rational k, bound * old_bound, unsigned_vector const & js) {
-            mk_bound(v, k, false, old_bound, js);
-        }
-        
-        bool tight_bounds(theory_var v) {
-            SASSERT(!t.is_fixed(v));
-            euclidean_solver::numeral_manager & m = m_solver.m();
-            expr * n = t.get_enode(v)->get_owner();
-            SASSERT(!t.m_util.is_numeral(n)); // should not be a numeral since v is not fixed.
-            bool propagated = false;
-            mpz a;
-            mpz c;
-            rational  g; // gcd of the coefficients of the variables that are not in m_solver
-            rational c2;
-            bool init_g = false;
-            mpz_buffer & as      = m_as;
-            unsigned_vector & xs = m_xs;
-            as.reset();
-            xs.reset();
-
-            unsigned num_args;
-            expr * const * args;
-            if (t.m_util.is_add(n)) {
-                num_args = to_app(n)->get_num_args();
-                args     = to_app(n)->get_args();
-            }
-            else {
-                num_args = 1;
-                args     = &n;
-            }
-            for (unsigned j = 0; j < num_args; j++) {
-                expr * arg = args[j];
-                expr * pp;
-                rational a_val;
-                get_monomial(arg, a_val, pp);
-                if (!a_val.is_int())
-                    goto cleanup;
-                evar x = get_var(pp);
-                if (x == UINT_MAX) {
-                    a_val = abs(a_val);
-                    if (init_g)
-                        g  = gcd(g, a_val);
-                    else
-                        g  = a_val;
-                    init_g = true;
-                    if (g.is_one())
-                        goto cleanup; // gcd of the coeffs is one.
-                }
-                else {
-                    m.set(a, a_val.to_mpq().numerator());
-                    as.push_back(a);
-                    xs.push_back(x);
-                }
-            }
-            m_js.reset();
-            m_solver.normalize(as.size(), as.c_ptr(), xs.c_ptr(), c, a, c, m_js);
-            if (init_g) {
-                if (!m.is_zero(a))
-                    g = gcd(g, rational(a));
-            }
-            else {
-                g = rational(a);
-            }
-            TRACE("euclidean_solver", tout << "tightening " << mk_ismt2_pp(t.get_enode(v)->get_owner(), t.get_manager()) << "\n";
-                  tout << "g: " << g << ", a: " << m.to_string(a) << ", c: " << m.to_string(c) << "\n";
-                  t.display_var(tout, v););
-            if (g.is_one())
-                goto cleanup;
-            CTRACE("euclidean_solver_zero", g.is_zero(), tout << "tightening " << mk_ismt2_pp(t.get_enode(v)->get_owner(), t.get_manager()) << "\n";
-                   tout << "g: " << g << ", a: " << m.to_string(a) << ", c: " << m.to_string(c) << "\n";
-                   t.display(tout);
-                   tout << "------------\nSolver state:\n";
-                   m_solver.display(tout););
-            if (g.is_zero()) {
-                // The definition of v is equal to (0 + c).
-                // That is, v is fixed at c. 
-                // The justification is just m_js, the existing bounds of v are not needed for justifying the new bounds for v.
-                c2 = rational(c);
-                TRACE("euclidean_solver_new", tout << "new fixed: " << c2 << "\n";);
-                propagated = true;
-                mk_lower(v, c2, nullptr, m_js);
-                mk_upper(v, c2, nullptr, m_js);
-            }
-            else {
-                TRACE("euclidean_solver", tout << "inequality can be tightned, since all coefficients are multiple of: " << g << "\n";);
-                // Let l and u be the current lower and upper bounds.
-                // Then, the following new bounds can be generated:
-                //
-                // l' := g*ceil((l - c)/g) + c 
-                // u' := g*floor((l - c)/g) + c
-                bound * l = t.lower(v);
-                bound * u = t.upper(v);
-                c2 = rational(c);
-                if (l != nullptr) {
-                    rational l_old = l->get_value().get_rational().to_rational();
-                    rational l_new = g*ceil((l_old - c2)/g) + c2;
-                    TRACE("euclidean_solver_new", tout << "new lower: " << l_new << " old: " << l_old << "\n";
-                          tout << "c: " << c2 << " ceil((l_old - c2)/g): " << (ceil((l_old - c2)/g)) << "\n";);
-                    if (l_new > l_old) {
-                        propagated = true;
-                        mk_lower(v, l_new, l, m_js);
-                    }
-                }
-                if (u != nullptr) {
-                    rational u_old  = u->get_value().get_rational().to_rational();
-                    rational u_new  = g*floor((u_old - c2)/g) + c2;
-                    TRACE("euclidean_solver_new", tout << "new upper: " << u_new << " old: " << u_old << "\n";);
-                    if (u_new < u_old) {
-                        propagated = true;
-                        mk_upper(v, u_new, u, m_js);
-                    }
-                }
-            }
-        cleanup:
-            m.del(a);
-            m.del(c);
-            return propagated;
-        }
-
-        bool tight_bounds() {
-            bool propagated = false;
-            context & ctx = t.get_context();
-            // try to apply solution set to every definition
-            int num = t.get_num_vars();
-            for (theory_var v = 0; v < num; v++) {
-                if (t.is_fixed(v)) 
-                    continue; // skip equations...
-                if (!t.is_int(v))
-                    continue; // skip non integer definitions...
-                if (t.lower(v) == nullptr && t.upper(v) == nullptr)
-                    continue; // there is nothing to be tightned
-                if (tight_bounds(v))
-                    propagated = true;
-                if (ctx.inconsistent())
-                    break;
-            }
-            return propagated;
-        }
-
-        bool operator()() {
-            TRACE("euclidean_solver", t.display(tout););
-            assert_eqs();
-            m_solver.solve();
-            if (m_solver.inconsistent()) {
-                // TODO: set conflict
-                TRACE("euclidean_solver_conflict", tout << "conflict detected...\n"; m_solver.display(tout););
-                return false;
-            }
-            return tight_bounds();
-        }
-    };
-
-
-    template<typename Ext>
-    bool theory_arith<Ext>::apply_euclidean_solver() {
-        TRACE("euclidean_solver", tout << "executing euclidean solver...\n";);
-        euclidean_solver_bridge esb(*this);
-        if (esb()) {
-            propagate_core();
-            return true;
-        }
-        return false;
-    }
-
     /**
        \brief Return FC_DONE if the assignment is int feasible. Otherwise, apply GCD test,
        branch and bound and Gomory Cuts.
@@ -1310,9 +1013,6 @@ namespace smt {
 
         if (!gcd_test())
             return FC_CONTINUE;
-
-        if (m_params.m_arith_euclidean_solver)
-            apply_euclidean_solver();
         
         if (get_context().inconsistent())
             return FC_CONTINUE;
@@ -1410,6 +1110,7 @@ namespace smt {
         }
         else {
             if (m_params.m_arith_int_eq_branching && branch_infeasible_int_equality()) {
+                ++m_stats.m_branch_infeasible_int;
                 return FC_CONTINUE;
             }
 
@@ -1418,6 +1119,7 @@ namespace smt {
                 TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
                 // apply branching 
                 branch_infeasible_int_var(int_var);
+                ++m_stats.m_branch_infeasible_var;
                 return FC_CONTINUE;
             }
         }

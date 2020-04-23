@@ -14,9 +14,10 @@
 
  Revision History:
 --*/
+#include "ast/array_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
 #include "ackermannization/ackr_helper.h"
 #include "ackermannization/ackr_bound_probe.h"
-#include "ast/ast_smt2_pp.h"
 
 /*
   For each function f, calculate the number of its occurrences o_f and compute "o_f choose 2".
@@ -24,33 +25,37 @@
   This upper bound might be crude because some congruence lemmas trivially simplify to true.
 */
 class ackr_bound_probe : public probe {
+
     struct proc {
         typedef ackr_helper::fun2terms_map fun2terms_map;
+        typedef ackr_helper::sel2terms_map sel2terms_map;
         typedef ackr_helper::app_set       app_set;
-        ast_manager&                 m_m;
+        ast_manager&                 m;
         fun2terms_map                m_fun2terms; // a map from functions to occurrences
+        sel2terms_map                m_sel2terms; // a map from functions to occurrences
         ackr_helper                  m_ackr_helper;
+        expr_mark                    m_non_select;
 
-        proc(ast_manager & m) : m_m(m), m_ackr_helper(m) { }
+        proc(ast_manager & m) : m(m), m_ackr_helper(m) { }
 
         ~proc() {
-            fun2terms_map::iterator it = m_fun2terms.begin();
-            const fun2terms_map::iterator end = m_fun2terms.end();
-            for (; it != end; ++it) dealloc(it->get_value());
+            for (auto & kv : m_fun2terms) {
+                dealloc(kv.m_value);
+            }
+            for (auto & kv : m_sel2terms) {
+                dealloc(kv.m_value);
+            }
+        }
+
+        void prune_non_select() {
+            m_ackr_helper.prune_non_select(m_sel2terms, m_non_select);
         }
 
         void operator()(quantifier *) {}
         void operator()(var *) {}
-        void operator()(app * a) {
-            if (a->get_num_args() == 0) return;
-            if (!m_ackr_helper.should_ackermannize(a)) return;
-            func_decl* const fd = a->get_decl();
-            app_set* ts = nullptr;
-            if (!m_fun2terms.find(fd, ts)) {
-                ts = alloc(app_set);
-                m_fun2terms.insert(fd, ts);
-            }
-            ts->insert(a);
+        void operator()(app * a) { 
+            m_ackr_helper.mark_non_select(a, m_non_select);
+            m_ackr_helper.insert(m_fun2terms, m_sel2terms, a); 
         }
     };
 
@@ -64,7 +69,8 @@ public:
         for (unsigned i = 0; i < sz; i++) {
             for_each_expr_core<proc, expr_fast_mark1, true, true>(p, visited, g.form(i));
         }
-        const double total = ackr_helper::calculate_lemma_bound(p.m_fun2terms);
+        p.prune_non_select();
+        double total = ackr_helper::calculate_lemma_bound(p.m_fun2terms, p.m_sel2terms);
         TRACE("ackermannize", tout << "total=" << total << std::endl;);
         return result(total);
     }

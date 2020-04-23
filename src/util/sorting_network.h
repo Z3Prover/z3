@@ -357,6 +357,112 @@ Notes:
             }
         }
 
+        /**
+           \brief encode clauses for ws*xs >= k
+           
+           - normalize inequality to ws'*xs' >= a*2^(bits-1)
+           - for each binary digit, sort contributions
+           - merge with even digits from lower layer - creating 2*n vector
+           - for last layer return that index a is on.
+        */
+
+        literal le(unsigned k, unsigned n, unsigned const* ws, literal const* xs) {
+            unsigned sum = 0;
+            literal_vector Xs;
+            for (unsigned i = 0; i < n; ++i) {
+                sum += ws[i];
+                Xs.push_back(mk_not(xs[i]));
+            }
+            if (k >= sum) {
+                return ctx.mk_true();
+            }
+            return ge(sum - k, n, ws, Xs.begin());
+        }
+
+        literal ge(unsigned k, unsigned n, unsigned const* ws, literal const* xs) {
+            m_t = GE_FULL;
+            return cmp(k, n, ws, xs);
+        }
+
+        literal eq(unsigned k, unsigned n, unsigned const* ws, literal const* xs) {
+            return mk_and(ge(k, n, ws, xs), le(k, n, ws, xs));
+#if 0
+            m_t = EQ;
+            return cmp(k, n, ws, xs);
+#endif
+        }
+
+        literal cmp(unsigned k, unsigned n, unsigned const* ws, literal const* xs) {
+            unsigned w_max = 0, sum = 0;
+            literal_vector Xs;
+            unsigned_vector Ws;
+            for (unsigned i = 0; i < n; ++i) {
+                sum += ws[i];
+                w_max = std::max(ws[i], w_max);
+                Xs.push_back(xs[i]);
+                Ws.push_back(ws[i]);
+            }
+            if (sum < k) {
+                return ctx.mk_false();                
+            }
+
+            // Normalize to form Ws*Xs ~ a*2^{q-1}
+            SASSERT(w_max > 0);
+            unsigned bits = 0;
+            while (w_max > 0) {
+                bits++;
+                w_max >>= 1;
+            }
+            unsigned pow = (1ul << (bits-1));
+            unsigned a = (k + pow - 1) / pow; // a*pow >= k
+            SASSERT(a*pow >= k);
+            SASSERT((a-1)*pow < k);
+            if (a*pow > k) {
+                Ws.push_back(a*pow - k);
+                Xs.push_back(ctx.mk_true());
+                ++n;
+                k = a*pow;
+            }
+            literal_vector W, We, B, S, E;
+            for (unsigned i = 0; i < bits; ++i) {
+
+                // B is digits from Xs that are set at bit position i
+                B.reset(); 
+                for (unsigned j = 0; j < n; ++j) {
+                    if (0 != ((1 << i) & Ws[j])) {
+                        B.push_back(Xs[j]);
+                    }
+                }                
+
+                // We is every second position of W
+                We.reset();
+                for (unsigned j = 0; j + 2 <= W.size(); j += 2) {
+                    We.push_back(W[j+1]);
+                } 
+                // if we test for equality, then what is not included has to be false.
+                if (m_t == EQ && W.size() % 2 == 1) {
+                    E.push_back(mk_not(W.back()));
+                }
+
+                // B is the sorted (from largest to smallest bit) version of S
+                S.reset();
+                sorting(B.size(), B.begin(), S);
+
+                // W is the merge of S and We
+                W.reset();
+                merge(S.size(), S.begin(), We.size(), We.begin(), W);
+            } 
+            
+            if (m_t == EQ) {
+                E.push_back(W[a - 1]);
+                if (a < W.size()) E.push_back(mk_not(W[a]));
+                return mk_and(E);
+            }
+            SASSERT(m_t == GE_FULL);
+            return W[a - 1];
+        }
+        
+
         
     private:
 

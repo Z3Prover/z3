@@ -321,6 +321,8 @@ public:
 // Implement old dependency manager used by interval and groebner 
 typedef scoped_dependency_manager<void*>             v_dependency_manager;
 typedef scoped_dependency_manager<void*>::dependency v_dependency;
+typedef scoped_dependency_manager<unsigned>             u_dependency_manager;
+typedef scoped_dependency_manager<unsigned>::dependency u_dependency;
 
 #endif /* DEPENDENCY_H_ */
 

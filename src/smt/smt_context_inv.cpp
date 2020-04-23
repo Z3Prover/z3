@@ -32,13 +32,12 @@ namespace smt {
     bool context::check_clause(clause const * cls) const {
         SASSERT(is_watching_clause(~cls->get_literal(0), cls));        
         SASSERT(is_watching_clause(~cls->get_literal(1), cls));        
-        if (lit_occs_enabled()) {
-            unsigned num_lits = cls->get_num_literals();
-            for (unsigned i = 0; i < num_lits; i++) {
-                literal l = cls->get_literal(i);
-                SASSERT(m_lit_occs[l.index()].contains(const_cast<clause*>(cls)));
-            }
+#if 0
+        for (literal l : *cls) {
+            // holds, TBD re-enable when ready to re-check
+            // SASSERT(!track_occs() || m_lit_occs[l.index()] > 0);
         }
+#endif
         return true;
     }
 
@@ -86,37 +85,6 @@ namespace smt {
         return true;
     }
 
-    bool context::check_lit_occs(literal l) const {
-        clause_set const & v = m_lit_occs[l.index()];
-        for (clause * cls : v) {
-            unsigned num = cls->get_num_literals();
-            unsigned i   = 0;
-            for (; i < num; i++)
-                if (cls->get_literal(i) == l)
-                    break;
-            CTRACE("lit_occs", !(i < num), tout << i << " " << num << "\n"; display_literal(tout, l); tout << "\n"; 
-                   display_clause(tout, cls); tout << "\n"; 
-                   tout << "l: " << l.index() << " cls: ";
-                   for (unsigned j = 0; j < num; j++) {
-                       tout << cls->get_literal(j).index() << " ";
-                   }
-                   tout << "\n";
-                   display_clause_detail(tout, cls); tout << "\n";);
-            SASSERT(i < num);
-        }
-        return true;
-    }
-
-    bool context::check_lit_occs() const {
-        if (lit_occs_enabled()) {
-            unsigned num_lits = get_num_bool_vars() * 2;
-            for (unsigned l_idx = 0; l_idx < num_lits; ++l_idx) {
-                check_lit_occs(to_literal(l_idx));
-            }
-        }
-        return true;
-    }
-
     bool context::check_enode(enode * n) const {
         SASSERT(n->check_invariant());
         bool is_true_eq = n->is_true_eq();
@@ -138,7 +106,6 @@ namespace smt {
     }
 
     bool context::check_invariant() const {
-        check_lit_occs();
         check_bin_watch_lists();
         check_clauses(m_aux_clauses);
         check_clauses(m_lemmas);
@@ -193,7 +160,7 @@ namespace smt {
                     if (n->is_true_eq() && n2->is_true_eq())
                         continue;
                     CTRACE("missing_propagation", congruent(n, n2),
-                           tout << mk_pp(n->get_owner(), m_manager) << "\n" << mk_pp(n2->get_owner(), m_manager) << "\n";
+                           tout << mk_pp(n->get_owner(), m) << "\n" << mk_pp(n2->get_owner(), m) << "\n";
                            display(tout););
                     SASSERT(!congruent(n, n2));
                 }
@@ -204,12 +171,12 @@ namespace smt {
 
     bool context::check_missing_bool_enode_propagation() const {
         for (enode* n : m_enodes) {
-            if (m_manager.is_bool(n->get_owner()) && get_assignment(n) == l_undef) {
+            if (m.is_bool(n->get_owner()) && get_assignment(n) == l_undef) {
                 enode * first = n;
                 do {
                     CTRACE("missing_propagation", get_assignment(n) != l_undef,
-                           tout << mk_pp(first->get_owner(), m_manager) << "\nassignment: " << get_assignment(first) << "\n" 
-                           << mk_pp(n->get_owner(), m_manager) << "\nassignment: " << get_assignment(n) << "\n";);
+                           tout << mk_pp(first->get_owner(), m) << "\nassignment: " << get_assignment(first) << "\n" 
+                           << mk_pp(n->get_owner(), m) << "\nassignment: " << get_assignment(n) << "\n";);
                     SASSERT(get_assignment(n) == l_undef);
                     n = n->get_next();
                 }
@@ -241,18 +208,18 @@ namespace smt {
         unsigned sz = m_asserted_formulas.get_num_formulas();
         for (unsigned i = 0; i < sz; i++) {
             expr * n = m_asserted_formulas.get_formula(i);
-            if (m_manager.is_or(n)) {
-                CTRACE("relevancy_bug", !is_relevant(n), tout << "n: " << mk_ismt2_pp(n, m_manager) << "\n";);
+            if (m.is_or(n)) {
+                CTRACE("relevancy_bug", !is_relevant(n), tout << "n: " << mk_ismt2_pp(n, m) << "\n";);
                 SASSERT(is_relevant(n));
-                TRACE("check_relevancy", tout << "checking:\n" << mk_ll_pp(n, m_manager) << "\n";);
+                TRACE("check_relevancy", tout << "checking:\n" << mk_ll_pp(n, m) << "\n";);
                 SASSERT(m_relevancy_propagator->check_relevancy_or(to_app(n), true));
             }
-            else if (m_manager.is_not(n)) {
-                CTRACE("relevancy_bug", !is_relevant(to_app(n)->get_arg(0)), tout << "n: " << mk_ismt2_pp(n, m_manager) << "\n";);
+            else if (m.is_not(n)) {
+                CTRACE("relevancy_bug", !is_relevant(to_app(n)->get_arg(0)), tout << "n: " << mk_ismt2_pp(n, m) << "\n";);
                 SASSERT(is_relevant(to_app(n)->get_arg(0)));
             }
             else {
-                CTRACE("relevancy_bug", !is_relevant(n), tout << "n: " << mk_ismt2_pp(n, m_manager) << "\n";);
+                CTRACE("relevancy_bug", !is_relevant(n), tout << "n: " << mk_ismt2_pp(n, m) << "\n";);
                 SASSERT(is_relevant(n));
             }
         }
@@ -265,11 +232,11 @@ namespace smt {
     */
     bool context::check_eqc_bool_assignment() const {
         for (enode* e : m_enodes) {
-            if (m_manager.is_bool(e->get_owner())) {
+            if (m.is_bool(e->get_owner())) {
                 enode * r = e->get_root();
                 CTRACE("eqc_bool", get_assignment(e) != get_assignment(r), 
-                       tout << "#" << e->get_owner_id() << "\n" << mk_pp(e->get_owner(), m_manager) << "\n";
-                       tout << "#" << r->get_owner_id() << "\n" << mk_pp(r->get_owner(), m_manager) << "\n";
+                       tout << "#" << e->get_owner_id() << "\n" << mk_pp(e->get_owner(), m) << "\n";
+                       tout << "#" << r->get_owner_id() << "\n" << mk_pp(r->get_owner(), m) << "\n";
                        tout << "assignments: " << get_assignment(e) << " " << get_assignment(r) << "\n";
                        display(tout););
                 SASSERT(get_assignment(e) == get_assignment(r));
@@ -297,25 +264,25 @@ namespace smt {
     bool context::check_th_diseq_propagation() const {
         TRACE("check_th_diseq_propagation", tout << "m_propagated_th_diseqs.size() " << m_propagated_th_diseqs.size() << "\n";);
         int num = get_num_bool_vars();
-        if (inconsistent()) {
+        if (inconsistent() || get_manager().limit().get_cancel_flag()) { 
             return true;
         }
         for (bool_var v = 0; v < num; v++) {
             if (has_enode(v)) {
                 enode * n = bool_var2enode(v);
-                if (n->is_eq() && is_relevant(n) && get_assignment(v) == l_false && !m_manager.is_iff(n->get_owner())) {
-                    TRACE("check_th_diseq_propagation", tout << "checking: #" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m_manager) << "\n";);
+                if (n->is_eq() && is_relevant(n) && get_assignment(v) == l_false && !m.is_iff(n->get_owner())) {
+                    TRACE("check_th_diseq_propagation", tout << "checking: #" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m) << "\n";);
                     enode * lhs = n->get_arg(0)->get_root();
                     enode * rhs = n->get_arg(1)->get_root();
                     if (rhs->is_interpreted() && lhs->is_interpreted())
                         continue;
                     TRACE("check_th_diseq_propagation", tout << "num. theory_vars: " << lhs->get_num_th_vars() << " " 
-                          << mk_pp(m_manager.get_sort(lhs->get_owner()), m_manager) << "\n";);
+                          << mk_pp(m.get_sort(lhs->get_owner()), m) << "\n";);
                     theory_var_list * l = lhs->get_th_var_list();
                     while (l) {
                         theory_id th_id = l->get_th_id();
                         theory * th = get_theory(th_id);
-                        TRACE("check_th_diseq_propagation", tout << "checking theory: " << m_manager.get_family_name(th_id) << "\n";);
+                        TRACE("check_th_diseq_propagation", tout << "checking theory: " << m.get_family_name(th_id) << "\n";);
                         // if the theory doesn't use diseqs, then the diseqs are not propagated.
                         if (th->use_diseqs() && rhs->get_th_var(th_id) != null_theory_var) {
                             bool found = false;
@@ -325,7 +292,7 @@ namespace smt {
                                     enode * lhs_prime = th->get_enode(eq.m_lhs)->get_root();
                                     enode * rhs_prime = th->get_enode(eq.m_rhs)->get_root();
                                     TRACE("check_th_diseq_propagation", 
-                                          tout << m_manager.get_family_name(eq.m_th_id) << "\n";);
+                                          tout << m.get_family_name(eq.m_th_id) << "\n";);
 
                                     if ((lhs == lhs_prime && rhs == rhs_prime) ||
                                         (rhs == lhs_prime && lhs == rhs_prime)) {
@@ -338,11 +305,11 @@ namespace smt {
                             if (!found) {
                             // missed theory diseq propagation
                                 display(std::cout);
-                                std::cout << "checking theory: " << m_manager.get_family_name(th_id) << "\n";
+                                std::cout << "checking theory: " << m.get_family_name(th_id) << "\n";
                                 std::cout << "root: #" << n->get_root()->get_owner_id() << " node: #" << n->get_owner_id() << "\n";
-                                std::cout << mk_pp(n->get_owner(), m_manager) << "\n";
+                                std::cout << mk_pp(n->get_owner(), m) << "\n";
                                 std::cout << "lhs: #" << lhs->get_owner_id() << ", rhs: #" << rhs->get_owner_id() << "\n";
-                                std::cout << mk_bounded_pp(lhs->get_owner(), m_manager) << " " << mk_bounded_pp(rhs->get_owner(), m_manager) << "\n";
+                                std::cout << mk_bounded_pp(lhs->get_owner(), m) << " " << mk_bounded_pp(rhs->get_owner(), m) << "\n";
                             }
                             VERIFY(found);
                         }
@@ -391,7 +358,6 @@ namespace smt {
         if (!m_proto_model) {
             return true;
         }
-        ast_manager& m = m_manager;
         for (literal lit : m_assigned_literals) {
             if (!is_relevant(lit)) {
                 continue;
@@ -408,15 +374,17 @@ namespace smt {
             case l_undef:
                 break;
             case l_true:
-                if (!m_proto_model->eval(n, res, false)) return true;
-                CTRACE("mbqi_bug", !m.is_true(res), tout << n << " evaluates to " << res << "\n";); 
+                if (!m_proto_model->eval(n, res, false)) 
+                    return true;
+                CTRACE("model", !m.is_true(res), tout << n << " evaluates to " << res << "\n";); 
                 if (m.is_false(res)) {
                     return false;
                 }
                 break;
             case l_false:
-                if (!m_proto_model->eval(n, res, false)) return true;
-                CTRACE("mbqi_bug", !m.is_false(res), tout << n << " evaluates to " << res << "\n";); 
+                if (!m_proto_model->eval(n, res, false)) 
+                    return true;
+                CTRACE("model", !m.is_false(res), tout << n << " evaluates to " << res << "\n";); 
                 if (m.is_true(res)) {
                     return false;
                 }
@@ -433,6 +401,7 @@ namespace smt {
         if (!get_fparams().m_core_validate) {
             return;
         }
+        warning_msg("Users should not set smt.core.validate. This option is for debugging only.");
         context ctx(get_manager(), get_fparams(), get_params());
         ptr_vector<expr> assertions;
         get_assertions(assertions);
@@ -446,10 +415,13 @@ namespace smt {
         }
         lbool res = ctx.check();
         switch (res) {
-        case l_false:
+        case l_false:        
             break;
-        default: 
+        case l_true:
             throw default_exception("Core could not be validated");
+        case l_undef:
+            IF_VERBOSE(1, verbose_stream() << "core validation produced unknown\n");
+            break;
         }
     }
 

@@ -363,10 +363,10 @@ namespace test_mapi
 
             Console.WriteLine("Model = " + s.Model);
 
-            //Console.WriteLine("Interpretation of MyArray:\n" + s.Model.ConstInterp(aex.FuncDecl));
+	    Console.WriteLine("Interpretation of MyArray:\n" + s.Model.ConstInterp(aex.FuncDecl));
             Console.WriteLine("Interpretation of x:\n" + s.Model.ConstInterp(xc));
             Console.WriteLine("Interpretation of f:\n" + s.Model.FuncInterp(fd));
-            //Console.WriteLine("Interpretation of MyArray as Term:\n" + s.Model.ConstInterp(aex.FuncDecl));
+            Console.WriteLine("Interpretation of MyArray as Term:\n" + s.Model.ConstInterp(aex.FuncDecl));
         }
 
         /// <summary>

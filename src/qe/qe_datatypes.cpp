@@ -303,6 +303,11 @@ namespace qe {
     vector<def> datatype_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         return vector<def>();
     }
+
+    void datatype_project_plugin::saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {
+        NOT_IMPLEMENTED_YET();
+    }
+
     
     family_id datatype_project_plugin::get_family_id() {
         return m_imp->dt.get_family_id();

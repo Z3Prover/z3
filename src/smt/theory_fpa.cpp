@@ -125,7 +125,7 @@ namespace smt {
         m_is_initialized = true;
     }
 
-    app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
+    app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
         TRACE("t_fpa_detail",
               ast_manager & m = m_th.get_manager();
               for (unsigned i = 0; i < values.size(); i++)
@@ -200,7 +200,7 @@ namespace smt {
         return result;
     }
 
-    app * theory_fpa::fpa_rm_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
+    app * theory_fpa::fpa_rm_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
         SASSERT(values.size() == 1);
 
         TRACE("t_fpa_detail",
@@ -409,7 +409,9 @@ namespace smt {
         if (get_manager().is_true(e)) return;
         TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
         context & ctx = get_context();
+        if (get_manager().has_trace_stream()) log_axiom_instantiation(e);
         ctx.internalize(e, false);
+        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), 1, &lit);
@@ -479,7 +481,8 @@ namespace smt {
             case OP_FPA_TO_IEEE_BV: {
                 expr_ref conv(m);
                 conv = convert(term);
-                assert_cnstr(m.mk_eq(term, conv));
+                expr_ref eq(m.mk_eq(term, conv), m);
+                assert_cnstr(eq);
                 assert_cnstr(mk_side_conditions());
                 break;
             }
@@ -726,6 +729,34 @@ namespace smt {
         mg.register_factory(m_factory);
     }
 
+    enode* theory_fpa::ensure_enode(expr* e) {
+        context& ctx = get_context();
+        if (!ctx.e_internalized(e)) {
+            ctx.internalize(e, false);
+        }
+        enode* n = ctx.get_enode(e);
+        ctx.mark_as_relevant(n);
+        return n;
+    }
+
+    app* theory_fpa::get_ite_value(expr* e) {
+        ast_manager & m = get_manager();
+        context& ctx = get_context();
+        expr* e1, *e2, *e3;
+        while (m.is_ite(e, e1, e2, e3) && ctx.e_internalized(e)) {
+            if (ctx.get_enode(e2)->get_root() == ctx.get_enode(e)->get_root()) {
+                e = e2;
+            }
+            else if (ctx.get_enode(e3)->get_root() == ctx.get_enode(e)->get_root()) {
+                e = e3;
+            }
+            else {
+                break;
+            }
+        }
+        return to_app(e);
+    }
+
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
         TRACE("t_fpa", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
                             " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")\n";);
@@ -733,7 +764,7 @@ namespace smt {
         ast_manager & m = get_manager();
         context & ctx = get_context();
         app_ref owner(m);
-        owner = n->get_owner();
+        owner = get_ite_value(n->get_owner());
 
         // If the owner is not internalized, it doesn't have an enode associated.
         SASSERT(ctx.e_internalized(owner));

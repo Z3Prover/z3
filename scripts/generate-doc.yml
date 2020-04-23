@@ -1,0 +1,7 @@
+steps:
+- script: |
+   cd doc
+   sudo apt-get install doxygen
+   sudo apt-get install graphviz
+   python mk_api_doc.py --z3py-package-path=../build/python/z3
+   cd ..

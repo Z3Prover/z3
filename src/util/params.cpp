@@ -20,6 +20,7 @@ Notes:
 #include "util/rational.h"
 #include "util/symbol.h"
 #include "util/dictionary.h"
+#include <atomic>
 
 params_ref params_ref::g_empty_params_ref;
 
@@ -305,6 +306,9 @@ void insert_rlimit(param_descrs & r) {
     r.insert("rlimit", CPK_UINT, "default resource limit used for solvers. Unrestricted when set to 0.", "0");
 }
 
+void insert_ctrl_c(param_descrs & r) {
+    r.insert("ctrl_c", CPK_BOOL, "enable interrupts from ctrl-c", "true");
+}
 
 class params {
     friend class params_ref;
@@ -315,13 +319,26 @@ class params {
             unsigned      m_uint_value;
             double        m_double_value;
             char const *  m_str_value;
-            char const *  m_sym_value;
+            symbol        m_sym_value;
             rational *    m_rat_value;
         };
+        value() : m_kind(CPK_BOOL), m_bool_value(false) {}
+        value& operator=(value const& other) {
+            m_kind = other.m_kind;
+            switch (m_kind) {
+            case CPK_BOOL: m_bool_value = other.m_bool_value; break;
+            case CPK_UINT: m_uint_value = other.m_uint_value; break;
+            case CPK_DOUBLE: m_double_value = other.m_double_value; break;
+            case CPK_STRING: m_str_value = other.m_str_value; break;
+            case CPK_SYMBOL: m_sym_value = other.m_sym_value; break;
+            default: m_rat_value = other.m_rat_value; break;
+            }
+            return *this;
+        }
     };
     typedef std::pair<symbol, value> entry;
-    svector<entry> m_entries;
-    unsigned       m_ref_count;
+    svector<entry>        m_entries;
+    std::atomic<unsigned> m_ref_count;
     void del_value(entry & e);
     void del_values();
 
@@ -333,7 +350,7 @@ public:
 
     void inc_ref() { m_ref_count++; }
     void dec_ref() { 
-        SASSERT(m_ref_count > 0); 
+        SASSERT(m_ref_count > 0);
         if (--m_ref_count == 0) dealloc(this); 
     }
 
@@ -418,7 +435,7 @@ public:
                 out << " " << *(e.second.m_rat_value);
                 break;
             case CPK_SYMBOL:
-                out << " " << symbol::mk_symbol_from_c_ptr(e.second.m_sym_value);
+                out << " " << e.second.m_sym_value;
                 break;
             case CPK_STRING:
                 out << " " << e.second.m_str_value;
@@ -451,7 +468,7 @@ public:
                 out << " " << *(e.second.m_rat_value);
                 break;
             case CPK_SYMBOL:
-                out << " " << symbol::mk_symbol_from_c_ptr(e.second.m_sym_value);
+                out << " " << e.second.m_sym_value;
                 break;
             case CPK_STRING:
                 out << " " << e.second.m_str_value;
@@ -482,7 +499,7 @@ public:
                 out << *(e.second.m_rat_value);
                 return;
             case CPK_SYMBOL:
-                out << symbol::mk_symbol_from_c_ptr(e.second.m_sym_value);
+                out << e.second.m_sym_value;
                 return;
             case CPK_STRING:
                 out << e.second.m_str_value;
@@ -572,7 +589,7 @@ void params_ref::copy_core(params const * src) {
             m_params->set_rat(p.first, *(p.second.m_rat_value));
             break;
         case CPK_SYMBOL:
-            m_params->set_sym(p.first, symbol::mk_symbol_from_c_ptr(p.second.m_sym_value));
+            m_params->set_sym(p.first, p.second.m_sym_value);
             break;
         case CPK_STRING:
             m_params->set_str(p.first, p.second.m_str_value);
@@ -883,11 +900,11 @@ rational params::get_rat(char const * k, rational const & _default) const {
 }
 
 symbol params::get_sym(symbol const & k, symbol const & _default) const {
-    GET_VALUE(return symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);, CPK_SYMBOL);
+    GET_VALUE(return it->second.m_sym_value;, CPK_SYMBOL);
 }
 
 symbol params::get_sym(char const * k, symbol const & _default) const {
-    GET_VALUE(return symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);, CPK_SYMBOL);
+    GET_VALUE(return it->second.m_sym_value;, CPK_SYMBOL);
 }
 
 #define GET_VALUE2(MATCH_CODE, KIND) {                                  \
@@ -921,7 +938,7 @@ char const * params::get_str(char const * k, params_ref const & fallback, char c
 }
 
 symbol params::get_sym(char const * k, params_ref const & fallback, symbol const & _default) const {
-    GET_VALUE2(return symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);, CPK_SYMBOL);
+    GET_VALUE2(return it->second.m_sym_value;, CPK_SYMBOL);
     return fallback.get_sym(k, _default);
 }
 

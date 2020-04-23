@@ -30,8 +30,7 @@ Revision History:
 
 #include "model/model_core.h"
 #include "model/model_evaluator.h"
-#include "smt/proto_model/value_factory.h"
-#include "util/plugin_manager.h"
+#include "model/value_factory.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/func_decl_dependencies.h"
 #include "model/model.h"
@@ -56,8 +55,8 @@ class proto_model : public model_core {
     // Invariant: m_const_decls subset m_decls
     
     void remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, func_decl_set const & s);
-    void cleanup_func_interp(func_interp * fi, func_decl_set & found_aux_fs);
-
+    void cleanup_func_interp(expr_ref_vector& trail, func_interp * fi, func_decl_set & found_aux_fs);
+    expr* cleanup_expr(expr_ref_vector& trail, expr* fi_else, func_decl_set& found_aux_fs);
 
 public:
     proto_model(ast_manager & m, params_ref const & p = params_ref());
@@ -71,10 +70,10 @@ public:
     value_factory * get_factory(family_id fid);
 
     expr * get_some_value(sort * s) override;
+    expr * get_fresh_value(sort * s) override;
 
-    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
 
-    expr * get_fresh_value(sort * s);
 
     void register_value(expr * n);
 

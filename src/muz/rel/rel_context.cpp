@@ -74,7 +74,7 @@ namespace datalog {
         }
 
         ~scoped_query() {
-            m_ctx.reopen();                                
+            m_ctx.ensure_opened();                                
             m_ctx.restrict_predicates(m_preds);
             m_ctx.replace_rules(m_rules);
             if (m_was_closed) {
@@ -156,8 +156,8 @@ namespace datalog {
             TRACE("dl", m_context.display(tout););
             //IF_VERBOSE(3, m_context.display_smt2(0,0,verbose_stream()););
 
-            if (m_context.print_aig().size()) {
-                const char *filename = static_cast<const char*>(m_context.print_aig().c_ptr());
+            if (m_context.print_aig().is_non_empty_string()) {
+                const char *filename = m_context.print_aig().bare_str();
                 aig_exporter aig(m_context.get_rules(), get_context(), &m_table_facts);
                 std::ofstream strm(filename, std::ios_base::binary);
                 aig(strm);
@@ -257,16 +257,6 @@ namespace datalog {
                     is_approx = true;
                 }
                 rel.to_formula(e);
-#if 0
-                // Alternative format: 
-                // List the signature of the relation as 
-                // part of the answer.
-                expr_ref_vector args(m);
-                for (unsigned j = 0; j < q->get_arity(); ++j) {
-                    args.push_back(m.mk_var(j, q->get_domain(j)));
-                }
-                e = m.mk_implies(m.mk_app(q, args.size(), args.c_ptr()), e);
-#endif
                 ans.push_back(e);
             }
             SASSERT(!m_last_result_relation);
@@ -292,6 +282,19 @@ namespace datalog {
             break;
         }
         return res;
+    }
+
+    model_ref rel_context::get_model() {
+        model_ref md = alloc(model, m);
+        auto& rm = get_rmanager();
+        func_decl_set decls = rm.collect_predicates();
+        expr_ref fml(m);
+        for (func_decl* p : decls) {
+            rm.get_relation(p).to_formula(fml);
+            md->register_decl(p, fml);
+        }
+        (*m_context.get_model_converter())(md);
+        return md;
     }
 
     void rel_context::transform_rules() {
@@ -549,7 +552,7 @@ namespace datalog {
     void rel_context::add_fact(func_decl* pred, relation_fact const& fact) {
         get_rmanager().reset_saturated_marks();
         get_relation(pred).add_fact(fact);
-        if (m_context.print_aig().size()) {
+        if (!m_context.print_aig().is_null()) {
             m_table_facts.push_back(std::make_pair(pred, fact));
         }
     }

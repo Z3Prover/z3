@@ -205,7 +205,7 @@ namespace datalog {
         SASSERT(dtail_args.size()==dtail_pred->get_arity());
         app_ref dtail(m.mk_app(dtail_pred, dtail_args.size(), dtail_args.c_ptr()), m);
 
-        svector<bool> tails_negated;
+        bool_vector tails_negated;
         app_ref_vector tails(m);
         unsigned tail_len = r->get_tail_size();
         for (unsigned i = 0; i < tail_len; i++) {

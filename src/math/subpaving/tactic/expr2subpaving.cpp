@@ -21,7 +21,6 @@ Notes:
 #include "ast/expr2var.h"
 #include "util/ref_util.h"
 #include "util/z3_exception.h"
-#include "util/cooperate.h"
 #include "ast/arith_decl_plugin.h"
 #include "util/scoped_numeral_buffer.h"
 #include "util/common_msgs.h"
@@ -94,9 +93,8 @@ struct expr2subpaving::imp {
     }
 
     void checkpoint() {
-        if (m().canceled())
+        if (!m().inc())
             throw default_exception(Z3_CANCELED_MSG);
-        cooperate("expr2subpaving");
     }
 
     subpaving::var mk_var_for(expr * t) {
@@ -149,19 +147,20 @@ struct expr2subpaving::imp {
 
     // Put t as a^k.
     void as_power(expr * t, expr * & a, unsigned & k) {
-        if (!m_autil.is_power(t)) {
+        expr* p = nullptr;
+        if (!m_autil.is_power(t, a, p)) {
             a = t;
             k = 1;
             return;
         }
         rational _k;
-        if (!m_autil.is_numeral(to_app(t)->get_arg(1), _k) || !_k.is_int() || !_k.is_unsigned()) {
+        if (m_autil.is_numeral(p, _k) && _k.is_unsigned() && !_k.is_zero()) {
+            k = _k.get_unsigned();
+        }
+        else {
             a = t;
             k = 1;
-            return;
         }
-        a = to_app(t)->get_arg(0);
-        k = _k.get_unsigned();
     }
 
     subpaving::var process_mul(app * t, unsigned depth, mpz & n, mpz & d) {
@@ -170,7 +169,7 @@ struct expr2subpaving::imp {
             found_non_simplified();
         rational k;
         expr * m;
-        if (m_autil.is_numeral(t->get_arg(0), k)) {
+        if (m_autil.is_numeral(t->get_arg(0), k) && !k.is_zero()) {
             if (num_args != 2)
                 found_non_simplified();
             qm().set(n, k.to_mpq().numerator());
@@ -269,12 +268,12 @@ struct expr2subpaving::imp {
     subpaving::var process_power(app * t, unsigned depth, mpz & n, mpz & d) {
         rational k;
         SASSERT(t->get_num_args() == 2);
-        if (!m_autil.is_numeral(t->get_arg(1), k) || !k.is_int() || !k.is_unsigned()) {
+        if (!m_autil.is_numeral(t->get_arg(1), k) || !k.is_int() || !k.is_unsigned() || k.is_zero()) {
             qm().set(n, 1);
             qm().set(d, 1);
             return mk_var_for(t);
         }
-        unsigned _k = k.get_unsigned();
+        unsigned _k = k.get_unsigned();        
         subpaving::var x = process(t->get_arg(0), depth+1, n, d);
         if (x != subpaving::null_var) {
             subpaving::power p(x, _k);

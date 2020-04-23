@@ -16,20 +16,20 @@ Author:
 Revision History:
 
 --*/
+#include "ast/ast_util.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_replacer.h"
 #include "tactic/tactical.h"
 #include "tactic/model_converter.h"
 #include "tactic/proof_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "muz/fp/horn_tactic.h"
 #include "muz/base/dl_context.h"
 #include "muz/fp/dl_register_engine.h"
-#include "ast/rewriter/expr_replacer.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/transforms/dl_mk_slice.h"
-#include "tactic/generic_model_converter.h"
 #include "muz/transforms/dl_transforms.h"
 #include "muz/base/fp_params.hpp"
-#include "ast/ast_util.h"
-#include "ast/rewriter/var_subst.h"
 
 class horn_tactic : public tactic {
     struct imp {
@@ -84,7 +84,6 @@ class horn_tactic : public tactic {
             if (!is_positive) {
                 f = m.mk_not(f);
             }
-
         }
 
         bool is_predicate(expr* a) {
@@ -178,7 +177,6 @@ class horn_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("horn", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -194,6 +192,8 @@ class horn_tactic : public tactic {
             expr_ref q(m), f(m);
             expr_ref_vector queries(m);
             std::stringstream msg;
+            
+            check_parameters();
 
             m_ctx.reset();
             m_ctx.ensure_opened();
@@ -229,6 +229,7 @@ class horn_tactic : public tactic {
                 mc1->hide(q);
                 g->add(mc1);
             }
+            
             SASSERT(queries.size() == 1);
             q = queries[0].get();
             proof_converter_ref pc = g->pc();
@@ -250,7 +251,6 @@ class horn_tactic : public tactic {
                     proof_converter_ref & pc) {
 
             lbool is_reachable = l_undef;
-
             try {
                 is_reachable = m_ctx.query(q);
             }
@@ -267,10 +267,13 @@ class horn_tactic : public tactic {
             switch (is_reachable) {
             case l_true: {
                 // goal is unsat
-                if (produce_proofs) {
+                if (!m_ctx.is_monotone()) {
+                    is_reachable = l_undef;
+                }
+                else if (produce_proofs) {
                     proof_ref proof = m_ctx.get_proof();
                     pc = proof2proof_converter(m, proof);
-                    g->assert_expr(m.mk_false(), proof, nullptr);
+                    g->assert_expr(m.get_fact(proof), proof, nullptr);
                 }
                 else {
                     g->assert_expr(m.mk_false());
@@ -279,16 +282,13 @@ class horn_tactic : public tactic {
             }
             case l_false: {
                 // goal is sat
+                mc = concat(g->mc(), mc.get());
                 g->reset();
                 if (produce_models) {
                     model_ref md = m_ctx.get_model();
-                    model_converter_ref mc2 = model2model_converter(&*md);
-                    if (mc) {
-                        mc = concat(mc.get(), mc2.get());
-                    }
-                    else {
-                        mc = mc2;
-                    }
+                    model_converter_ref mc2 = model2model_converter(md.get());
+                    mc = concat(mc.get(), mc2.get());
+                    TRACE("dl", mc->display(tout << *md << "\n"););
                 }
                 break;
             }
@@ -296,8 +296,6 @@ class horn_tactic : public tactic {
                 // subgoal is unchanged.
                 break;
             }
-            TRACE("horn", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
 
         void bind_variables(expr_ref& f) {
@@ -315,14 +313,12 @@ class horn_tactic : public tactic {
         }
 
         void simplify(expr* q,
-                    goal_ref const& g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc) {
+                      goal_ref const& g,
+                      goal_ref_buffer & result,
+                      model_converter_ref & mc,
+                      proof_converter_ref & pc) {
 
             expr_ref fml(m);
-
-
             func_decl* query_pred = to_app(q)->get_decl();
             m_ctx.set_output_predicate(query_pred);
             m_ctx.get_rules(); // flush adding rules.
@@ -337,22 +333,45 @@ class horn_tactic : public tactic {
 
             expr_substitution sub(m);
             sub.insert(q, m.mk_false());
-            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m, false);
             rep->set_substitution(&sub);
             g->inc_depth();
             g->reset();
             result.push_back(g.get());
             datalog::rule_set const& rules = m_ctx.get_rules();
-            datalog::rule_set::iterator it = rules.begin(), end = rules.end();
-            for (; it != end; ++it) {
-                datalog::rule* r = *it;
+            for (datalog::rule* r : rules) {
                 m_ctx.get_rule_manager().to_formula(*r, fml);
                 (*rep)(fml);
                 g->assert_expr(fml);
             }
+            g->set_prec(goal::UNDER_OVER);
+        }
+
+        void check_parameters() {
+            fp_params const& p = m_ctx.get_params();
+            if (p.engine() == symbol("datalog"))
+                not_supported("engine=datalog");
+            if (p.datalog_generate_explanations())
+                not_supported("datalog.generate_explanations"); 
+            if (p.datalog_magic_sets_for_queries())
+                not_supported("datalog.magic_sets_for_queries");
+            if (p.xform_instantiate_arrays())
+                not_supported("xform.instantiate_arrays");
+            if (p.xform_magic())
+                not_supported("xform.magic");
+            if (p.xform_quantify_arrays())
+                not_supported("xform.quantify_arrays");
+            if (p.xform_scale())
+                not_supported("xform.scale");
+        }
+
+        void not_supported(char const* s) {
+            throw default_exception(std::string("unsupported parameter ") + s);
         }
 
     };
+
+
 
     bool       m_is_simplify;
     params_ref m_params;

@@ -19,6 +19,7 @@ z3_add_component(core_tactics
     reduce_invertible_tactic.cpp
     simplify_tactic.cpp
     solve_eqs_tactic.cpp
+    special_relations_tactic.cpp
     split_clause_tactic.cpp
     symmetry_reduce_tactic.cpp
     tseitin_cnf_tactic.cpp
@@ -46,6 +47,7 @@ z3_add_component(core_tactics
     reduce_invertible_tactic.h
     simplify_tactic.h
     solve_eqs_tactic.h
+    special_relations_tactic.h
     split_clause_tactic.h
     symmetry_reduce_tactic.h
     tseitin_cnf_tactic.h

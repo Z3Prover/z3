@@ -21,6 +21,7 @@ Revision History:
 #define SAT_PROBING_H_
 
 #include "sat/sat_types.h"
+#include "sat/sat_big.h"
 #include "util/params.h"
 #include "util/statistics.h"
 
@@ -43,7 +44,7 @@ namespace sat {
         unsigned long long m_probing_cache_limit; // memory limit for enabling caching.
 
         // stats
-        unsigned           m_num_assigned;
+        unsigned           m_num_assigned;        
         
         struct cache_entry {
             bool           m_available;
@@ -59,6 +60,11 @@ namespace sat {
         bool try_lit(literal l, bool updt_cache);
         void process(bool_var v);
         void process_core(bool_var v);
+
+        // learn equivalences from probing.
+        svector<std::pair<literal, literal>> m_equivs;
+        big                                  m_big;
+        bool implies(literal a, literal b);
 
     public:
         probing(solver & s, params_ref const & p);

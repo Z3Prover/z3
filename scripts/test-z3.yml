@@ -1,0 +1,5 @@
+steps:
+- script: |
+    cd build
+    ./test-z3 -a
+    cd ..

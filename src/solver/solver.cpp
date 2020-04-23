@@ -26,6 +26,7 @@ Notes:
 #include "solver/solver.h"
 #include "solver/solver_params.hpp"
 #include "model/model_evaluator.h"
+#include "model/model_params.hpp"
 
 
 unsigned solver::get_num_assertions() const {
@@ -57,10 +58,10 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     return out;
 }
 
-std::ostream& solver::display_dimacs(std::ostream& out) const {
+std::ostream& solver::display_dimacs(std::ostream& out, bool include_names) const {
     expr_ref_vector fmls(get_manager());
     get_assertions(fmls);    
-    return ::display_dimacs(out, fmls);
+    return ::display_dimacs(out, fmls, include_names);
 }
 
 void solver::get_assertions(expr_ref_vector& fmls) const {
@@ -88,7 +89,7 @@ lbool solver::get_consequences(expr_ref_vector const& asms, expr_ref_vector cons
         return get_consequences_core(asms, vars, consequences);
     }
     catch (z3_exception& ex) {
-        if (asms.get_manager().canceled()) {
+        if (!asms.get_manager().inc()) {
             set_reason_unknown(Z3_CANCELED_MSG);
             return l_undef;
         }
@@ -223,13 +224,13 @@ void solver::assert_expr(expr* f, expr* t) {
     assert_expr_core2(fml, a);    
 }
 
-static void insert_ctrl_c(param_descrs & r) {
-    r.insert("ctrl_c", CPK_BOOL, "enable interrupts from ctrl-c", "false");
-}
 
 
 void solver::collect_param_descrs(param_descrs & r) {
-    r.insert("solver.enforce_model_conversion", CPK_BOOL, "(default: false) enforce model conversion when asserting formulas");
+    solver_params sp(m_params);
+    sp.collect_param_descrs(r);
+    model_params mp(m_params);
+    mp.collect_param_descrs(r);
     insert_timeout(r);
     insert_rlimit(r);
     insert_max_memory(r);
@@ -329,12 +330,12 @@ lbool solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
         r = check_sat_core(num_assumptions, assumptions);
     }
     catch (...) {
-        if (get_manager().canceled()) {
+        if (!get_manager().limit().inc(0)) {
             dump_state(num_assumptions, assumptions);
         }
         throw;
     }
-    if (r == l_undef && get_manager().canceled()) {
+    if (r == l_undef && !get_manager().inc()) {
         dump_state(num_assumptions, assumptions);        
     }
     return r;
@@ -343,7 +344,7 @@ lbool solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
 void solver::dump_state(unsigned sz, expr* const* assumptions) {
     if ((symbol::null != m_cancel_backup_file) &&
         !m_cancel_backup_file.is_numerical() && 
-        m_cancel_backup_file.c_ptr() &&
+        !m_cancel_backup_file.is_null() &&
         m_cancel_backup_file.bare_str()[0]) {
         std::string file = m_cancel_backup_file.str();
         std::ofstream ous(file);

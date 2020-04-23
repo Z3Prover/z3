@@ -30,8 +30,7 @@ static void display_uninterp_sorts(std::ostream & out, model_core const & md) {
     for (unsigned i = 0; i < sz; i++) {
         sort * s = md.get_uninterpreted_sort(i);
         out << "(define-sort " << mk_pp(s, m); 
-        ptr_vector<expr> const & univ  = md.get_universe(s);
-        for (expr* e : univ) {
+        for (expr* e : md.get_universe(s)) {
             out << " " << mk_ismt2_pp(e, m);
         }
         out << ")\n";

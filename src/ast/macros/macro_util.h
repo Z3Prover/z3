@@ -34,9 +34,9 @@ public:
         ptr_vector<func_decl> m_fs;
         expr_ref_vector       m_defs;
         expr_ref_vector       m_conds;
-        svector<bool>         m_ineq; // true if the macro is based on an inequality instead of equality.
-        svector<bool>         m_satisfy;
-        svector<bool>         m_hint; // macro did not contain all universal variables in the quantifier.
+        bool_vector         m_ineq; // true if the macro is based on an inequality instead of equality.
+        bool_vector         m_satisfy;
+        bool_vector         m_hint; // macro did not contain all universal variables in the quantifier.
         friend class macro_util;
         ast_manager & get_manager() { return m_conds.get_manager(); }
 
@@ -113,6 +113,7 @@ public:
     bool is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t, expr_ref & def);
 
     bool is_quasi_macro_head(expr * n, unsigned num_decls) const;
+    bool is_quasi_macro_ok(expr * n, unsigned num_decls, expr * def) const;
     void quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decls, app_ref & head, expr_ref & cond) const;
 
     void mk_macro_interpretation(app * head, unsigned num_decls, expr * def, expr_ref & interp) const;

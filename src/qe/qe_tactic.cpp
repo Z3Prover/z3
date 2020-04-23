@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include "tactic/tactical.h"
-#include "util/cooperate.h"
 #include "qe/qe.h"
 
 class qe_tactic : public tactic {
@@ -44,14 +43,11 @@ class qe_tactic : public tactic {
         }
 
         void checkpoint() {
-            if (m.canceled()) 
-                throw tactic_exception(m.limit().get_cancel_msg());
-            cooperate("qe");
+            tactic::checkpoint(m);
         }
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("qe", *g);
             m_fparams.m_model = g->models_enabled();
             proof_ref new_pr(m);
@@ -69,6 +65,7 @@ class qe_tactic : public tactic {
                 m_qe(m.mk_true(), f, new_f);
                 new_pr = nullptr;
                 if (produce_proofs) {
+                    new_pr = m.mk_rewrite(f, new_f);
                     new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
                 }
                 g->update(i, new_f, new_pr, g->dep(i));                
@@ -76,8 +73,6 @@ class qe_tactic : public tactic {
             g->inc_depth();
             g->elim_true();
             result.push_back(g.get());
-            TRACE("qe", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
 
         void collect_statistics(statistics & st) const {

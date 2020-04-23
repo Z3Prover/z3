@@ -348,6 +348,7 @@ public:
     //
     void compress() {
         SASSERT(!m_delta.empty());
+        TRACE("seq", display(tout););
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             for (unsigned j = 0; j < m_delta[i].size(); ++j) {
                 move const& mv = m_delta[i][j];
@@ -460,6 +461,7 @@ public:
             }
         }
         sinkify_dead_states();
+        TRACE("seq", display(tout););
     }
 
     bool is_sequence(unsigned& length) const {
@@ -493,7 +495,7 @@ public:
     moves const& get_moves_to(unsigned state) const { return m_delta_inv[state]; }
     bool initial_state_is_source() const { return m_delta_inv[m_init].empty(); }
     bool is_final_state(unsigned s) const { return m_final_set.contains(s); }
-    bool is_final_configuration(uint_set s) const {
+    bool is_final_configuration(uint_set const& s) const {
         for (unsigned i : s) {
             if (is_final_state(i))
                 return true;
@@ -545,7 +547,7 @@ public:
     void get_moves_from(unsigned state, moves& mvs, bool epsilon_closure = true) const {
         get_moves(state, m_delta, mvs, epsilon_closure);
     }
-    void get_moves_from_states(uint_set states, moves& mvs, bool epsilon_closure = true) const {
+    void get_moves_from_states(uint_set const& states, moves& mvs, bool epsilon_closure = true) const {
         for (unsigned i : states) {
             moves curr;
             get_moves(i, m_delta, curr, epsilon_closure);
@@ -559,9 +561,8 @@ public:
     template<class D>
     std::ostream& display(std::ostream& out, D& displayer = D()) const {
         out << "init: " << init() << "\n";
-        out << "final: ";
-        for (unsigned i = 0; i < m_final_states.size(); ++i) out << m_final_states[i] << " ";
-        out << "\n";
+        out << "final: " << m_final_states << "\n";
+
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             moves const& mvs = m_delta[i];
             for (move const& mv : mvs) {
@@ -577,6 +578,22 @@ public:
     }
 private:
 
+    std::ostream& display(std::ostream& out) const {
+        out << "init: " << init() << "\n";
+        out << "final: " << m_final_states << "\n";
+
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+            moves const& mvs = m_delta[i];
+            for (move const& mv : mvs) {
+                out << i << " -> " << mv.dst() << " ";
+                if (mv.t()) {
+                    out << "if *** "; 
+                }
+                out << "\n";
+            }
+        }
+        return out;
+    }
     void sinkify_dead_states() {
         uint_set dead_states;
         for (unsigned i = 0; i < m_delta.size(); ++i) {
@@ -604,7 +621,9 @@ private:
             }
             to_remove.reset();
         }
-        TRACE("seq", tout << "remove: " << dead_states << "\n";);
+        TRACE("seq", tout << "remove: " << dead_states << "\n"; 
+              tout << "final: " << m_final_states << "\n";
+              );
         for (unsigned s : dead_states) {
             CTRACE("seq", !m_delta[s].empty(), tout << "live state " << s << "\n";); 
             m_delta[s].reset();

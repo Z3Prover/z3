@@ -19,7 +19,6 @@ Notes:
 --*/
 
 #include "util/warning.h"
-#include "util/cooperate.h"
 #include "ast/normal_forms/nnf.h"
 #include "ast/normal_forms/nnf_params.hpp"
 #include "ast/used_vars.h"
@@ -27,7 +26,6 @@ Notes:
 #include "ast/act_cache.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/name_exprs.h"
-
 #include "ast/ast_smt2_pp.h"
 
 /**
@@ -72,6 +70,8 @@ class skolemizer {
     bool          m_sk_hack_enabled;
     cache         m_cache;
     cache         m_cache_pr;
+    bool          m_proofs_enabled;
+
 
     void process(quantifier * q, expr_ref & r, proof_ref & p) {
         if (q->get_kind() == lambda_k) {
@@ -144,7 +144,7 @@ class skolemizer {
         }
         r = s(body, substitution.size(), substitution.c_ptr());
         p = nullptr;
-        if (m.proofs_enabled()) {
+        if (m_proofs_enabled) {
             if (q->get_kind() == forall_k) 
                 p = m.mk_skolemization(m.mk_not(q), m.mk_not(r));
             else
@@ -158,7 +158,8 @@ public:
         m_sk_hack("sk_hack"),
         m_sk_hack_enabled(false),
         m_cache(m),
-        m_cache_pr(m) {
+        m_cache_pr(m),
+        m_proofs_enabled(m.proofs_enabled()) {
     }
 
     void set_sk_hack(bool f) {
@@ -169,13 +170,13 @@ public:
         r = m_cache.find(q);
         if (r.get() != nullptr) {
             p = nullptr;
-            if (m.proofs_enabled())
+            if (m_proofs_enabled)
                 p = static_cast<proof*>(m_cache_pr.find(q));
         }
         else {
             process(q, r, p);
             m_cache.insert(q, r);
-            if (m.proofs_enabled())
+            if (m_proofs_enabled)
                 m_cache_pr.insert(q, p);
         }
     }
@@ -275,14 +276,12 @@ struct nnf::imp {
         updt_params(p);
         for (unsigned i = 0; i < 4; i++) {
             m_cache[i] = alloc(act_cache, m);
-            if (m.proofs_enabled())
+            if (proofs_enabled())
                 m_cache_pr[i] = alloc(act_cache, m);
         }
         m_name_nested_formulas = mk_nested_formula_namer(m, n);
         m_name_quant           = mk_quantifier_label_namer(m, n);
     }
-
-    // ast_manager & m() const { return m; }
 
     bool proofs_enabled() const { return m.proofs_enabled(); }
 
@@ -381,10 +380,9 @@ struct nnf::imp {
 
 
     void checkpoint() {
-        cooperate("nnf");
         if (memory::get_allocation_size() > m_max_memory)
             throw nnf_exception(Z3_MAX_MEMORY_MSG);
-        if (m.canceled()) 
+        if (!m.inc()) 
             throw nnf_exception(m.limit().get_cancel_msg());
     }
 
@@ -587,7 +585,8 @@ struct nnf::imp {
     bool is_eq(app * t) const { return m.is_eq(t); }
 
     bool process_iff_xor(app * t, frame & fr) {
-        SASSERT(t->get_num_args() == 2);
+        if (t->get_num_args() != 2)
+            throw default_exception("apply simplification before nnf to normalize arguments to xor/=");
         switch (fr.m_i) {
         case 0:
             fr.m_i = 1;
@@ -754,8 +753,7 @@ struct nnf::imp {
         if (fr.m_i == 0) {
             fr.m_i = 1;
             if (is_lambda(q)) {
-                if (!visit(q->get_expr(), fr.m_pol, true))
-                    return false;
+                // skip
             }
             else if (is_forall(q) == fr.m_pol) {
                 if (!visit(q->get_expr(), fr.m_pol, true))
@@ -769,19 +767,9 @@ struct nnf::imp {
         }
 
         if (is_lambda(q)) {
-            expr * new_expr = m_result_stack.back();
-            quantifier * new_q = m.update_quantifier(q, new_expr);
-            proof * new_q_pr   = nullptr;
+            m_result_stack.push_back(q);
             if (proofs_enabled()) {
-                // proof * new_expr_pr = m_result_pr_stack.back();
-                new_q_pr = m.mk_rewrite(q, new_q);  // TBD use new_expr_pr
-            }
-                                                      
-            m_result_stack.pop_back();
-            m_result_stack.push_back(new_q);
-            if (proofs_enabled()) {
-                m_result_pr_stack.pop_back();
-                m_result_pr_stack.push_back(new_q_pr);
+                m_result_pr_stack.push_back(nullptr);
                 SASSERT(m_result_stack.size() == m_result_pr_stack.size());
             }
             return true;
@@ -948,7 +936,6 @@ void nnf::updt_params(params_ref const & p) {
 void nnf::get_param_descrs(param_descrs & r) {
     imp::get_param_descrs(r);
 }
-
 
 void nnf::reset() {
     m_imp->reset();

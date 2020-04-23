@@ -24,7 +24,6 @@ Revision History:
 #include "tactic/tactical.h"
 #include "tactic/core/occf_tactic.h"
 #include "tactic/generic_model_converter.h"
-#include "util/cooperate.h"
 
 class occf_tactic : public tactic {
     struct     imp {
@@ -36,9 +35,7 @@ class occf_tactic : public tactic {
         }
 
         void checkpoint() {
-            if (m.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
-            cooperate("occf");
+            tactic::checkpoint(m);
         }
 
         bool is_literal(expr * t) const {
@@ -129,7 +126,6 @@ class occf_tactic : public tactic {
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             fail_if_proof_generation("occf", g);
 
             bool produce_models = g->models_enabled();
@@ -183,8 +179,6 @@ class occf_tactic : public tactic {
             }
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("occf", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

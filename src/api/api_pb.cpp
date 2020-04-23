@@ -30,7 +30,7 @@ extern "C" {
         RESET_ERROR_CODE();
         parameter param(k);
         pb_util util(mk_c(c)->m());
-        ast* a = util.mk_at_most_k(num_args, to_exprs(args), k);
+        ast* a = util.mk_at_most_k(num_args, to_exprs(num_args, args), k);
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));
@@ -44,7 +44,7 @@ extern "C" {
         RESET_ERROR_CODE();
         parameter param(k);
         pb_util util(mk_c(c)->m());
-        ast* a = util.mk_at_least_k(num_args, to_exprs(args), k);
+        ast* a = util.mk_at_least_k(num_args, to_exprs(num_args, args), k);
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));
@@ -62,7 +62,7 @@ extern "C" {
         for (unsigned i = 0; i < num_args; ++i) {
             coeffs.push_back(rational(_coeffs[i]));
         }
-        ast* a = util.mk_le(num_args, coeffs.c_ptr(), to_exprs(args), rational(k));
+        ast* a = util.mk_le(num_args, coeffs.c_ptr(), to_exprs(num_args, args), rational(k));
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));
@@ -80,7 +80,7 @@ extern "C" {
         for (unsigned i = 0; i < num_args; ++i) {
             coeffs.push_back(rational(_coeffs[i]));
         }
-        ast* a = util.mk_ge(num_args, coeffs.c_ptr(), to_exprs(args), rational(k));
+        ast* a = util.mk_ge(num_args, coeffs.c_ptr(), to_exprs(num_args, args), rational(k));
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));
@@ -98,7 +98,7 @@ extern "C" {
         for (unsigned i = 0; i < num_args; ++i) {
             coeffs.push_back(rational(_coeffs[i]));
         }
-        ast* a = util.mk_eq(num_args, coeffs.c_ptr(), to_exprs(args), rational(k));
+        ast* a = util.mk_eq(num_args, coeffs.c_ptr(), to_exprs(num_args, args), rational(k));
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));

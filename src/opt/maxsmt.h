@@ -78,7 +78,7 @@ namespace opt {
         svector<symbol>  m_labels;
         //const expr_ref_vector  m_soft;
         //vector<rational> m_weights;
-        //svector<bool>    m_assignment;       // truth assignment to soft constraints
+        //bool_vector    m_assignment;       // truth assignment to soft constraints
         params_ref       m_params;           // config
 
     public:

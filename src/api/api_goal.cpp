@@ -189,7 +189,7 @@ extern "C" {
         std::string result = buffer.str();
         SASSERT(result.size() > 0);
         result.resize(result.size()-1);
-        return mk_c(c)->mk_external_string(result);
+        return mk_c(c)->mk_external_string(std::move(result));
         Z3_CATCH_RETURN("");
     }
 
@@ -202,12 +202,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, "If this is not what you want, then preprocess by optional bit-blasting and applying tseitin-cnf");
             RETURN_Z3(nullptr);
         }
-        to_goal_ref(g)->display_dimacs(buffer);
+        to_goal_ref(g)->display_dimacs(buffer, true);
         // Hack for removing the trailing '\n'
         std::string result = buffer.str();
         SASSERT(result.size() > 0);
         result.resize(result.size()-1);
-        return mk_c(c)->mk_external_string(result);
+        return mk_c(c)->mk_external_string(std::move(result));
         Z3_CATCH_RETURN("");
     }
 

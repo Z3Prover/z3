@@ -57,6 +57,13 @@ namespace qe {
         */
         virtual vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) = 0;
 
+        /**
+           \brief model based saturation. Saturates theory axioms to equi-satisfiable literals over EUF,
+           such that 'shared' are not retained for EUF.
+         */
+        virtual void saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) = 0;
+
+
         static expr_ref pick_equality(ast_manager& m, model& model, expr* t);
         static void erase(expr_ref_vector& lits, unsigned& i);
         static void push_back(expr_ref_vector& lits, expr* lit);

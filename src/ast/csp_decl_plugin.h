@@ -99,6 +99,7 @@ enum js_optimization_objective {
 };
 
 class csp_decl_plugin : public decl_plugin {
+    void init();
 public:
     csp_decl_plugin() {}
     ~csp_decl_plugin() override {}

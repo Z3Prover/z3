@@ -19,7 +19,6 @@ Notes:
 #include "tactic/aig/aig.h"
 #include "tactic/goal.h"
 #include "ast/ast_smt2_pp.h"
-#include "util/cooperate.h"
 
 #define USE_TWO_LEVEL_RULES
 #define FIRST_NODE_ID (UINT_MAX/2)
@@ -127,9 +126,8 @@ struct aig_manager::imp {
     void checkpoint() {
         if (memory::get_allocation_size() > m_max_memory)
             throw aig_exception(TACTIC_MAX_MEMORY_MSG);
-        if (m().canceled())
+        if (!m().inc())
             throw aig_exception(m().limit().get_cancel_msg());
-        cooperate("aig");
     }
 
     void dec_ref_core(aig_lit const & r) { dec_ref_core(r.ptr()); }
@@ -548,14 +546,34 @@ struct aig_manager::imp {
         }
 
         void mk_iff(unsigned spos) {
+            if (spos + 2 != m_result_stack.size())
+                throw default_exception("aig conversion assumes expressions have been simplified");
             SASSERT(spos + 2 == m_result_stack.size());
             aig_lit r = m.mk_iff(m_result_stack[spos], m_result_stack[spos+1]);
             save_node_result(spos, r);
         }
         
         void mk_xor(unsigned spos) {
-            SASSERT(spos + 2 == m_result_stack.size());
-            aig_lit r = m.mk_xor(m_result_stack[spos], m_result_stack[spos+1]);
+            SASSERT(spos <= m_result_stack.size());
+            unsigned num = m_result_stack.size() - spos;
+            aig_lit r;
+            switch (num) {
+            case 0:
+                r = m.m_true;
+                break;
+            case 1:
+                r = m_result_stack[spos];
+                break;
+            case 2:
+                r = m.mk_xor(m_result_stack[spos], m_result_stack[spos+1]);                
+                break;
+            default:
+                r = m.mk_xor(m_result_stack[spos], m_result_stack[spos+1]);
+                for (unsigned i = 2; i < num; ++i) {
+                    r = m.mk_xor(r, m_result_stack[spos + i]);
+                }
+                break;
+            }
             save_node_result(spos, r);
         }
 

@@ -44,7 +44,6 @@ public:
     
 private:
 
-    typedef svector<bool> bool_vector;
     struct edge { unsigned node; unsigned weight; edge(unsigned n, unsigned w): node(n), weight(w) {} edge(): node(0), weight(0) {} };
     typedef svector<edge> edge_vector;
         

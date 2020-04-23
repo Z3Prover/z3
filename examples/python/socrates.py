@@ -26,7 +26,7 @@ axioms = [ForAll([x], Implies(Human(x), Mortal(x))),
 s = Solver()
 s.add(axioms)
 
-print(s.check()) # prints sat so axioms are coherents
+print(s.check()) # prints sat so axioms are coherent
 
 # classical refutation
 s.add(Not(Mortal(socrates)))

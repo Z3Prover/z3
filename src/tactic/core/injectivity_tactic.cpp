@@ -145,7 +145,6 @@ class injectivity_tactic : public tactic {
 
         void operator()(goal_ref const & goal,
                         goal_ref_buffer & result) {
-            SASSERT(goal->is_well_sorted());
             tactic_report report("injectivity", *goal);
             fail_if_unsat_core_generation("injectivity", goal); // TODO: Support UNSAT cores
             fail_if_proof_generation("injectivity", goal);

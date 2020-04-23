@@ -12,12 +12,18 @@ z3_add_component(smt
     mam.cpp
     old_interval.cpp
     qi_queue.cpp
+    seq_axioms.cpp
+    seq_skolem.cpp
+    seq_eq_solver.cpp
+    seq_ne_solver.cpp
+    seq_offset_eq.cpp
     smt_almost_cg_table.cpp
     smt_arith_value.cpp
     smt_case_split_queue.cpp
     smt_cg_table.cpp
     smt_checker.cpp
     smt_clause.cpp
+    smt_clause_proof.cpp
     smt_conflict_resolution.cpp
     smt_consequences.cpp
     smt_context.cpp
@@ -32,9 +38,11 @@ z3_add_component(smt
     smt_justification.cpp
     smt_kernel.cpp
     smt_literal.cpp
+    smt_lookahead.cpp
     smt_model_checker.cpp
     smt_model_finder.cpp
     smt_model_generator.cpp
+    smt_parallel.cpp
     smt_quantifier.cpp
     smt_quantifier_stat.cpp
     smt_quick_checker.cpp
@@ -46,6 +54,7 @@ z3_add_component(smt
     smt_value_sort.cpp
     smt2_extra_cmds.cpp
     theory_arith.cpp
+    theory_array_bapa.cpp
     theory_array_base.cpp
     theory_array.cpp
     theory_array_full.cpp
@@ -62,7 +71,10 @@ z3_add_component(smt
     theory_pb.cpp
     theory_recfun.cpp
     theory_seq.cpp
+    theory_special_relations.cpp
     theory_str.cpp
+    theory_str_mc.cpp
+    theory_str_regex.cpp
     theory_utvpi.cpp
     theory_wmaxsat.cpp
     uses_theory.cpp
@@ -70,7 +82,6 @@ z3_add_component(smt
   COMPONENT_DEPENDENCIES
     bit_blaster
     cmd_context
-    euclid
     fpa
     grobner
     nlsat

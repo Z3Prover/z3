@@ -14,9 +14,10 @@ Author:
     Nikolaj Bjorner (nbjorner) 2017-9-1 
 
 Revision History:
-
+   
     rewritten to support SMTLIB-2.6 parameters from
      Leonardo de Moura (leonardo) 2008-01-09.
+
 
 --*/
 #ifndef DATATYPE_DECL_PLUGIN_H_
@@ -108,7 +109,7 @@ namespace datatype {
             size(): m_ref(0) {}
             virtual ~size() {}
             void inc_ref() { ++m_ref; }
-            void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
+            void dec_ref();
             static size* mk_offset(sort_size const& s); 
             static size* mk_param(sort_ref& p); 
             static size* mk_plus(size* a1, size* a2); 
@@ -159,13 +160,13 @@ namespace datatype {
     };
 
     class def {
-        ast_manager&        m;
-        util&               m_util;
-        symbol              m_name;
-        unsigned            m_class_id;
-        param_size::size*   m_sort_size;
-        sort_ref_vector     m_params;
-        mutable sort_ref    m_sort;
+        ast_manager&            m;
+        util&                   m_util;
+        symbol                  m_name;
+        unsigned                m_class_id;
+        param_size::size*       m_sort_size;
+        sort_ref_vector         m_params;
+        mutable sort_ref        m_sort;
         ptr_vector<constructor> m_constructors;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
@@ -197,7 +198,7 @@ namespace datatype {
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
-        void set_sort_size(param_size::size* p) { m_sort_size = p; p->inc_ref(); m_sort = nullptr; }
+        void set_sort_size(param_size::size* p) { m_sort_size = p; if (p) p->inc_ref(); m_sort = nullptr; }
         def* translate(ast_translation& tr, util& u);
     };
 
@@ -206,13 +207,18 @@ namespace datatype {
         class plugin : public decl_plugin {
             mutable scoped_ptr<util> m_util;
             map<symbol, def*, symbol_hash_proc, symbol_eq_proc> m_defs; 
+            map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> m_axiom_bases;
+            unsigned                 m_id_counter;
             svector<symbol>          m_def_block;
             unsigned                 m_class_id;
+            mutable bool             m_has_nested_arrays;
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
+            void log_axiom_definitions(symbol const& s, sort * new_sort);
+
         public:
-            plugin(): m_class_id(0) {}
+            plugin(): m_id_counter(0), m_class_id(0), m_has_nested_arrays(false) {}
             ~plugin() override;
 
             void finalize() override;
@@ -247,7 +253,10 @@ namespace datatype {
             def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
             bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
+            unsigned get_axiom_base_id(symbol const& s) { return m_axiom_bases[s]; }
             util & u() const;
+
+            bool has_nested_arrays() const { return m_has_nested_arrays; }
 
         private:
             bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
@@ -282,12 +291,14 @@ namespace datatype {
 
     class util {
         ast_manager & m;
-        family_id     m_family_id;
+        mutable family_id     m_family_id;
         mutable decl::plugin* m_plugin;
+        typedef std::pair<func_decl*, unsigned> cnstr_depth;
 
+        family_id fid() const;
                 
         obj_map<sort, ptr_vector<func_decl> *>      m_datatype2constructors;
-        obj_map<sort, func_decl *>                  m_datatype2nonrec_constructor;
+        obj_map<sort, cnstr_depth>                  m_datatype2nonrec_constructor;
         obj_map<func_decl, ptr_vector<func_decl> *> m_constructor2accessors;
         obj_map<func_decl, func_decl *>             m_constructor2recognizer;
         obj_map<func_decl, func_decl *>             m_recognizer2constructor;
@@ -296,11 +307,12 @@ namespace datatype {
         obj_map<sort, bool>                         m_is_enum;
         mutable obj_map<sort, bool>                 m_is_fully_interp;
         mutable ast_ref_vector                      m_asts;
+        sref_vector<param_size::size>               m_refs;
         ptr_vector<ptr_vector<func_decl> >          m_vectors;
         unsigned                                    m_start;
         mutable ptr_vector<sort>                    m_fully_interp_trail;
         
-        func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
+        cnstr_depth get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
 
         friend class decl::plugin;
 
@@ -309,7 +321,9 @@ namespace datatype {
         void compute_datatype_size_functions(svector<symbol> const& names);
         param_size::size* get_sort_size(sort_ref_vector const& params, sort* s);
         bool is_well_founded(unsigned num_types, sort* const* sorts);
-        def& get_def(symbol const& s) { return m_plugin->get_def(s); }
+        bool is_covariant(unsigned num_types, sort* const* sorts) const;
+        bool is_covariant(ast_mark& mark, ptr_vector<sort>& subsorts, sort* s) const;
+        def& get_def(symbol const& s) { return plugin().get_def(s); }        
         void get_subsorts(sort* s, ptr_vector<sort>& sorts) const;        
 
     public:
@@ -317,23 +331,23 @@ namespace datatype {
         ~util();
         ast_manager & get_manager() const { return m; }
         // sort * mk_datatype_sort(symbol const& name, unsigned n, sort* const* params); 
-        bool is_datatype(sort const* s) const { return is_sort_of(s, m_family_id, DATATYPE_SORT); }
+        bool is_datatype(sort const* s) const { return is_sort_of(s, fid(), DATATYPE_SORT); }
         bool is_enum_sort(sort* s);
         bool is_recursive(sort * ty);
-        bool is_constructor(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_CONSTRUCTOR); }
+        bool is_constructor(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_CONSTRUCTOR); }
         bool is_recognizer(func_decl * f) const { return is_recognizer0(f) || is_is(f); }
-        bool is_recognizer0(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_RECOGNISER); }
-        bool is_is(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_IS); }
-        bool is_accessor(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_ACCESSOR); }
-        bool is_update_field(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
-        bool is_constructor(app * f) const { return is_app_of(f, m_family_id, OP_DT_CONSTRUCTOR); }
+        bool is_recognizer0(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_RECOGNISER); }
+        bool is_is(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_IS); }
+        bool is_accessor(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_ACCESSOR); }
+        bool is_update_field(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_UPDATE_FIELD); }
+        bool is_constructor(app * f) const { return is_app_of(f, fid(), OP_DT_CONSTRUCTOR); }
         bool is_constructor(expr* e) const { return is_app(e) && is_constructor(to_app(e)); }
-        bool is_recognizer0(app * f) const { return is_app_of(f, m_family_id, OP_DT_RECOGNISER);} 
-        bool is_is(app * f) const { return is_app_of(f, m_family_id, OP_DT_IS);} 
+        bool is_recognizer0(app * f) const { return is_app_of(f, fid(), OP_DT_RECOGNISER);} 
+        bool is_is(app * f) const { return is_app_of(f, fid(), OP_DT_IS);} 
         bool is_is(expr * e) const { return is_app(e) && is_is(to_app(e)); }
         bool is_recognizer(app * f) const { return is_recognizer0(f) || is_is(f); }
-        bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
-        bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
+        bool is_accessor(app * f) const { return is_app_of(f, fid(), OP_DT_ACCESSOR); }
+        bool is_update_field(app * f) const { return is_app_of(f, fid(), OP_DT_UPDATE_FIELD); }
         app* mk_is(func_decl * c, expr *f);
         ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
         unsigned get_datatype_num_constructors(sort * ty);
@@ -345,7 +359,10 @@ namespace datatype {
         ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
-        family_id get_family_id() const { return m_family_id; }
+        func_decl * get_update_accessor(func_decl * update) const;
+        bool has_nested_arrays() const { return plugin().has_nested_arrays(); }
+        family_id get_family_id() const { return fid(); }
+        decl::plugin& plugin() const;
         bool are_siblings(sort * s1, sort * s2);
         bool is_func_decl(op_kind k, unsigned num_params, parameter const* params, func_decl* f);
         bool is_constructor_of(unsigned num_params, parameter const* params, func_decl* f);
@@ -356,9 +373,14 @@ namespace datatype {
         sort_ref_vector datatype_params(sort * s) const;
         unsigned get_constructor_idx(func_decl * f) const;
         unsigned get_recognizer_constructor_idx(func_decl * f) const;
-        decl::plugin* get_plugin() { return m_plugin; }
         void get_defs(sort* s, ptr_vector<def>& defs);
         def const& get_def(sort* s) const;
+        sort_ref mk_list_datatype(sort* elem, symbol const& name,
+                                  func_decl_ref& cons, func_decl_ref& is_cons, 
+                                  func_decl_ref& hd, func_decl_ref& tl, 
+                                  func_decl_ref& nil, func_decl_ref& is_nil);
+        sort_ref mk_pair_datatype(sort* a, sort* b, func_decl_ref& fst, func_decl_ref& snd, func_decl_ref& pair);
+        sort_ref mk_tuple_datatype(svector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs);
     };
 
 };

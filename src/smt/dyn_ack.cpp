@@ -25,12 +25,12 @@ namespace smt {
     /**
        \brief Justification for dynamic ackermann clause
     */
-    class dyn_ack_justification : public justification {
+    class dyn_ack_cc_justification : public justification {
         app *     m_app1;
         app *     m_app2;
     public:
-        dyn_ack_justification(app * n1, app * n2):
-            justification(false), // dyn_ack_justifications are not stored in regions.
+        dyn_ack_cc_justification(app * n1, app * n2):
+            justification(false), // dyn_ack_cc_justifications are not stored in regions.
             m_app1(n1), 
             m_app2(n2) {
             SASSERT(m_app1->get_num_args() == m_app2->get_num_args());
@@ -41,8 +41,7 @@ namespace smt {
 
         char const * get_name() const override { return "dyn-ack"; }
 
-        void get_antecedents(conflict_resolution & cr) override {
-        }
+        void get_antecedents(conflict_resolution & cr) override {}
 
         void display_debug_info(conflict_resolution & cr, std::ostream & out) override {
             ast_manager & m = cr.get_manager();
@@ -58,7 +57,7 @@ namespace smt {
            \remark if negate == true, then the hypothesis is actually (not (= lhs rhs))
         */
         proof * mk_hypothesis(ast_manager & m, app * eq, bool negate, expr * lhs, expr * rhs) {
-            SASSERT(m.is_eq(eq) || m.is_iff(eq));
+            SASSERT(m.is_eq(eq));
             SASSERT((eq->get_arg(0) == lhs && eq->get_arg(1) == rhs) ||
                     (eq->get_arg(0) == rhs && eq->get_arg(1) == lhs));
             app * h = negate ? m.mk_not(eq) : eq;
@@ -103,9 +102,70 @@ namespace smt {
 
     };
 
+    class dyn_ack_eq_justification : public justification {
+        app *     m_app1;
+        app *     m_app2;
+        app *     m_r;
+        app *     m_eq1;
+        app *     m_eq2;
+        app *     m_eq3;
+    public:
+        dyn_ack_eq_justification(app * n1, app * n2, app* r, app* eq1, app* eq2, app* eq3):
+            justification(false), // dyn_ack_cc_justifications are not stored in regions.
+            m_app1(n1), 
+            m_app2(n2), 
+            m_r(r),
+            m_eq1(eq1),
+            m_eq2(eq2),
+            m_eq3(eq3) {
+        }
+        char const * get_name() const override { return "dyn-ack-eq"; }
+        void get_antecedents(conflict_resolution & cr) override {}
+        void display_debug_info(conflict_resolution & cr, std::ostream & out) override {
+            ast_manager & m = cr.get_manager();
+            out << mk_pp(m_eq1, m) << " " << mk_pp(m_eq2, m) << " => " << mk_pp(m_eq3, m) << "\n";
+        }
+
+        /**
+         *   Create a proof of (or ~eq1 ~eq2 eq3)
+         *   eq1 := app1 = r         or symmetric
+         *   eq2 := app2 = r         or symmetric
+         *   eq3 := app1 = app2      or symmetric
+         * 
+         *   p1: trans: hyp(eq1), hyp(eq2) |- eq3
+         *   p2: unit-resolution: p1, hyp(~eq3) |- false
+         *   p3: lemma: (or ~eq1 ~eq2 eq3)
+         */
+        proof * mk_proof(conflict_resolution & cr) override {            
+            ast_manager & m   = cr.get_manager();
+            proof* p1, *p2, *p3, *p4, *p5, *p6;
+            expr* x = nullptr, *y = nullptr;
+            (void)x; (void)y;
+            p1 = m.mk_hypothesis(m_eq1);
+            if (m_eq1->get_arg(1) == m_app1) p1 = m.mk_symmetry(p1);
+            p2 = m.mk_hypothesis(m_eq2);
+            if (m_eq2->get_arg(0) == m_app2) p2 = m.mk_symmetry(p2);
+            (void)m_r;
+            SASSERT(m.is_eq(m.get_fact(p1), x, y) && x == m_app1 && y == m_r);
+            SASSERT(m.is_eq(m.get_fact(p2), x, y) && x == m_r && y == m_app2);
+            p3 = m.mk_transitivity(p1, p2);
+            SASSERT(m.is_eq(m.get_fact(p3), x, y) && x == m_app1 && y == m_app2);
+            if (m.get_fact(p3) != m_eq3) p3 = m.mk_symmetry(p3);
+            SASSERT(m.get_fact(p3) == m_eq3);
+            p4 = m.mk_hypothesis(m.mk_not(m_eq3));
+            proof* ps[2] = { p3, p4 };
+            p5 = m.mk_unit_resolution(2, ps);
+            SASSERT(m.get_fact(p5) == m.mk_false());
+            expr* eqs[3] = { m.mk_not(m_eq1), m.mk_not(m_eq2), m_eq3 };
+            expr_ref conclusion(m.mk_or(3, eqs), m);
+            p6 = m.mk_lemma(p5, conclusion);
+            return p6;
+        }
+    };
+
     dyn_ack_manager::dyn_ack_manager(context & ctx, dyn_ack_params & p):
         m_context(ctx),
-        m_manager(ctx.get_manager()),
+        m(ctx.get_manager()),
         m_params(p) {
     }
 
@@ -115,12 +175,9 @@ namespace smt {
     }
 
     void dyn_ack_manager::reset_app_pairs() {
-        svector<app_pair>::iterator it  = m_app_pairs.begin();
-        svector<app_pair>::iterator end = m_app_pairs.end();
-        for (; it != end; ++it) {
-            app_pair & p = *it;
-            m_manager.dec_ref(p.first);
-            m_manager.dec_ref(p.second);
+        for (app_pair& p : m_app_pairs) {
+            m.dec_ref(p.first);
+            m.dec_ref(p.second);
         }
         m_app_pairs.reset();
     }
@@ -144,22 +201,24 @@ namespace smt {
         SASSERT(n1->get_decl() == n2->get_decl());
         SASSERT(n1->get_num_args() == n2->get_num_args());
         SASSERT(n1 != n2);
-        if (m_manager.is_eq(n1))
+        if (m.is_eq(n1)) {
             return;
+        }
         if (n1->get_id() > n2->get_id())
             std::swap(n1,n2);
         app_pair p(n1, n2);
-        if (m_instantiated.contains(p))
+        if (m_instantiated.contains(p)) {
             return;
+        }
         unsigned num_occs = 0;
         if (m_app_pair2num_occs.find(n1, n2, num_occs)) {
-            TRACE("dyn_ack", tout << "used_cg_eh:\n" << mk_pp(n1, m_manager) << "\n" << mk_pp(n2, m_manager) << "\nnum_occs: " << num_occs << "\n";);
+            TRACE("dyn_ack", tout << "used_cg_eh:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\nnum_occs: " << num_occs << "\n";);
             num_occs++;
         }
         else {
             num_occs = 1;
-            m_manager.inc_ref(n1);
-            m_manager.inc_ref(n2);
+            m.inc_ref(n1);
+            m.inc_ref(n2);
             m_app_pairs.push_back(p);
         }
         SASSERT(num_occs > 0);
@@ -169,34 +228,34 @@ namespace smt {
         SASSERT(m_app_pair2num_occs.find(n1, n2, num_occs2) && num_occs == num_occs2);
 #endif
         if (num_occs == m_params.m_dack_threshold) {
-            TRACE("dyn_ack", tout << "found candidate:\n" << mk_pp(n1, m_manager) << "\n" << mk_pp(n2, m_manager) << "\nnum_occs: " << num_occs << "\n";);
+            TRACE("dyn_ack", tout << "found candidate:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\nnum_occs: " << num_occs << "\n";);
             m_to_instantiate.push_back(p);
         }
     }
 
     void dyn_ack_manager::eq_eh(app * n1, app * n2, app* r) {
-        if (n1 == n2 || r == n1 || r == n2 || m_manager.is_bool(n1)) {
+        if (n1 == n2 || r == n1 || r == n2 || m.is_bool(n1)) {
             return;
         }
         if (n1->get_id() > n2->get_id())
             std::swap(n1,n2);
         TRACE("dyn_ack", 
-              tout << mk_pp(n1, m_manager) << " = " << mk_pp(n2, m_manager) 
-              << " = " << mk_pp(r, m_manager) << "\n";);
+              tout << mk_pp(n1, m) << " = " << mk_pp(n2, m) << " = " << mk_pp(r, m) << "\n";);
         app_triple tr(n1, n2, r);
-        if (m_triple.m_instantiated.contains(tr))
+        if (m_triple.m_instantiated.contains(tr)) {
             return;
+        }
         unsigned num_occs = 0;
         if (m_triple.m_app2num_occs.find(n1, n2, r, num_occs)) {
-            TRACE("dyn_ack", tout << mk_pp(n1, m_manager) << "\n" << mk_pp(n2, m_manager) 
-                  << mk_pp(r, m_manager) << "\n" << "\nnum_occs: " << num_occs << "\n";);
+            TRACE("dyn_ack", tout << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n"
+                  << mk_pp(r, m) << "\n" << "\nnum_occs: " << num_occs << "\n";);
             num_occs++;
         }
         else {
             num_occs = 1;
-            m_manager.inc_ref(n1);
-            m_manager.inc_ref(n2);
-            m_manager.inc_ref(r);
+            m.inc_ref(n1);
+            m.inc_ref(n2);
+            m.inc_ref(r);
             m_triple.m_apps.push_back(tr);
         }
         SASSERT(num_occs > 0);
@@ -206,8 +265,8 @@ namespace smt {
         SASSERT(m_triple.m_app2num_occs.find(n1, n2, r, num_occs2) && num_occs == num_occs2);
 #endif
         if (num_occs == m_params.m_dack_threshold) {
-            TRACE("dyn_ack", tout << "found candidate:\n" << mk_pp(n1, m_manager) << "\n" << mk_pp(n2, m_manager) 
-                  << "\n" << mk_pp(r, m_manager) 
+            TRACE("dyn_ack", tout << "found candidate:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) 
+                  << "\n" << mk_pp(r, m) 
                   << "\nnum_occs: " << num_occs << "\n";);
             m_triple.m_to_instantiate.push_back(tr);
         }
@@ -245,9 +304,9 @@ namespace smt {
         for (; it != end; ++it) {
             app_pair & p = *it;
             if (m_instantiated.contains(p)) {
-                TRACE("dyn_ack", tout << "1) erasing:\n" << mk_pp(p.first, m_manager) << "\n" << mk_pp(p.second, m_manager) << "\n";);
-                m_manager.dec_ref(p.first);
-                m_manager.dec_ref(p.second);
+                TRACE("dyn_ack", tout << "1) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
+                m.dec_ref(p.first);
+                m.dec_ref(p.second);
                 SASSERT(!m_app_pair2num_occs.contains(p.first, p.second));
                 continue;
             }
@@ -261,10 +320,10 @@ namespace smt {
             num_occs = static_cast<unsigned>(num_occs * m_params.m_dack_gc_inv_decay);
             if (num_occs <= 1) {
                 num_deleted++;
-                TRACE("dyn_ack", tout << "2) erasing:\n" << mk_pp(p.first, m_manager) << "\n" << mk_pp(p.second, m_manager) << "\n";);
+                TRACE("dyn_ack", tout << "2) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
                 m_app_pair2num_occs.erase(p.first, p.second);
-                m_manager.dec_ref(p.first);
-                m_manager.dec_ref(p.second);
+                m.dec_ref(p.first);
+                m.dec_ref(p.second);
                 continue;
             }
             *it2 = p;
@@ -283,26 +342,25 @@ namespace smt {
     }
 
     class dyn_ack_clause_del_eh : public clause_del_eh {
-        dyn_ack_manager & m_manager;
+        dyn_ack_manager & m;
     public:
         dyn_ack_clause_del_eh(dyn_ack_manager & m):
-            m_manager(m) {
+            m(m) {
         }
         ~dyn_ack_clause_del_eh() override {}
-        void operator()(ast_manager & m, clause * cls) override {
-            m_manager.del_clause_eh(cls);
+        void operator()(ast_manager & _m, clause * cls) override {
+            m.del_clause_eh(cls);
             dealloc(this);
         }
     };
 
     void dyn_ack_manager::del_clause_eh(clause * cls) {
-        TRACE("dyn_ack", tout << "del_clause_eh: "; m_context.display_clause(tout, cls); tout << "\n";);
         m_context.m_stats.m_num_del_dyn_ack++;
-        
         app_pair p((app*)nullptr,(app*)nullptr);
         if (m_clause2app_pair.find(cls, p)) {
             SASSERT(p.first && p.second);
             m_instantiated.erase(p);
+            m_clause2app_pair.erase(cls);
             SASSERT(!m_app_pair2num_occs.contains(p.first, p.second));
             return;
         }
@@ -310,6 +368,7 @@ namespace smt {
         if (m_triple.m_clause2apps.find(cls, tr)) {
             SASSERT(tr.first && tr.second && tr.third);
             m_triple.m_instantiated.erase(tr);
+            m_triple.m_clause2apps.erase(cls);
             SASSERT(!m_triple.m_app2num_occs.contains(tr.first, tr.second, tr.third));
             return;
         }
@@ -342,7 +401,7 @@ namespace smt {
         app * eq  = m_context.mk_eq_atom(n1, n2);
         m_context.internalize(eq, true);
         literal l = m_context.get_literal(eq);
-        TRACE("dyn_ack", tout << "eq:\n" << mk_pp(eq, m_manager) << "\nliteral: "; 
+        TRACE("dyn_ack", tout << "eq:\n" << mk_pp(eq, m) << "\nliteral: "; 
               m_context.display_literal(tout, l); tout << "\n";);
         return l;
     }
@@ -354,7 +413,7 @@ namespace smt {
         SASSERT(n1 != n2);
         m_context.m_stats.m_num_dyn_ack++;
         TRACE("dyn_ack_inst", tout << "dyn_ack: " << n1->get_id() << " " << n2->get_id() << "\n";);
-        TRACE("dyn_ack", tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m_manager) << "\n" << mk_pp(n2, m_manager) << "\n";);
+        TRACE("dyn_ack", tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n";);
         unsigned num_args = n1->get_num_args();
         literal_buffer lits;
         for (unsigned i = 0; i < num_args; i++) {
@@ -372,9 +431,9 @@ namespace smt {
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
 
         justification * js = nullptr;
-        if (m_manager.proofs_enabled())
-            js = alloc(dyn_ack_justification, n1, n2);
-        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
+        if (m.proofs_enabled())
+            js = alloc(dyn_ack_cc_justification, n1, n2);
+        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
             return;
@@ -392,25 +451,23 @@ namespace smt {
     }
 
     void dyn_ack_manager::reset_app_triples() {
-        svector<app_triple>::iterator it  = m_triple.m_apps.begin();
-        svector<app_triple>::iterator end = m_triple.m_apps.end();
-        for (; it != end; ++it) {
-            app_triple & p = *it;
-            m_manager.dec_ref(p.first);
-            m_manager.dec_ref(p.second);
-            m_manager.dec_ref(p.third);
+        for (app_triple& p : m_triple.m_apps) {
+            m.dec_ref(p.first);
+            m.dec_ref(p.second);
+            m.dec_ref(p.third);
         }
         m_triple.m_apps.reset();
     }
 
     void dyn_ack_manager::instantiate(app * n1, app * n2, app* r) {
+        context& ctx = m_context;
         SASSERT(m_params.m_dack != DACK_DISABLED);
         SASSERT(n1 != n2 && n1 != r && n2 != r);
-        m_context.m_stats.m_num_dyn_ack++;
+        ctx.m_stats.m_num_dyn_ack++;
         TRACE("dyn_ack_inst", tout << "dyn_ack: " << n1->get_id() << " " << n2->get_id() << " " << r->get_id() << "\n";);
-        TRACE("dyn_ack", tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m_manager) << "\n" 
-              << mk_pp(n2, m_manager) << "\n"
-              << mk_pp(r,  m_manager) << "\n";
+        TRACE("dyn_ack", tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" 
+              << mk_pp(n2, m) << "\n"
+              << mk_pp(r,  m) << "\n";
               );
         app_triple tr(n1, n2, r);
         SASSERT(m_triple.m_app2num_occs.contains(n1, n2, r));
@@ -418,20 +475,26 @@ namespace smt {
         // pair n1,n2 is still in m_triple.m_apps
         m_triple.m_instantiated.insert(tr);
         literal_buffer lits;
-        lits.push_back(~mk_eq(n1, r));
-        lits.push_back(~mk_eq(n2, r));
-        lits.push_back(mk_eq(n1, n2));
+        literal eq1 = mk_eq(n1, r);
+        literal eq2 = mk_eq(n2, r);
+        literal eq3 = mk_eq(n1, n2);
+        lits.push_back(~eq1);
+        lits.push_back(~eq2);
+        lits.push_back(eq3);
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
-
         justification * js = nullptr;
-        if (m_manager.proofs_enabled())
-            js = alloc(dyn_ack_justification, n1, n2);
-        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
+        if (m.proofs_enabled()) {
+            js = alloc(dyn_ack_eq_justification, n1, n2, r, 
+                       to_app(ctx.bool_var2expr(eq1.var())), 
+                       to_app(ctx.bool_var2expr(eq2.var())),
+                       to_app(ctx.bool_var2expr(eq3.var())));
+        }
+        clause * cls = ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
             return;
         }
-        TRACE("dyn_ack_clause", tout << "new clause:\n"; m_context.display_clause_detail(tout, cls); tout << "\n";);
+        TRACE("dyn_ack_clause", ctx.display_clause_detail(tout << "new clause:\n", cls); tout << "\n";);
         m_triple.m_clause2apps.insert(cls, tr);
     }
 
@@ -467,10 +530,10 @@ namespace smt {
         for (; it != end; ++it) {
             app_triple & p = *it;
             if (m_triple.m_instantiated.contains(p)) {
-                TRACE("dyn_ack", tout << "1) erasing:\n" << mk_pp(p.first, m_manager) << "\n" << mk_pp(p.second, m_manager) << "\n";);
-                m_manager.dec_ref(p.first);
-                m_manager.dec_ref(p.second);
-                m_manager.dec_ref(p.third);
+                TRACE("dyn_ack", tout << "1) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
+                m.dec_ref(p.first);
+                m.dec_ref(p.second);
+                m.dec_ref(p.third);
                 SASSERT(!m_triple.m_app2num_occs.contains(p.first, p.second, p.third));
                 continue;
             }
@@ -484,11 +547,11 @@ namespace smt {
             num_occs = static_cast<unsigned>(num_occs * m_params.m_dack_gc_inv_decay);
             if (num_occs <= 1) {
                 num_deleted++;
-                TRACE("dyn_ack", tout << "2) erasing:\n" << mk_pp(p.first, m_manager) << "\n" << mk_pp(p.second, m_manager) << "\n";);
+                TRACE("dyn_ack", tout << "2) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
                 m_triple.m_app2num_occs.erase(p.first, p.second, p.third);
-                m_manager.dec_ref(p.first);
-                m_manager.dec_ref(p.second);
-                m_manager.dec_ref(p.third);
+                m.dec_ref(p.first);
+                m.dec_ref(p.second);
+                m.dec_ref(p.third);
                 continue;
             }
             *it2 = p;
@@ -509,10 +572,8 @@ namespace smt {
 
 #ifdef Z3DEBUG
     bool dyn_ack_manager::check_invariant() const {
-        clause2app_pair::iterator it  = m_clause2app_pair.begin();
-        clause2app_pair::iterator end = m_clause2app_pair.end();
-        for (; it != end; ++it) {
-            app_pair const & p = it->get_value();
+        for (auto const& kv : m_clause2app_pair) {
+            app_pair const & p = kv.get_value();
             SASSERT(m_instantiated.contains(p));
             SASSERT(!m_app_pair2num_occs.contains(p.first, p.second));
         }

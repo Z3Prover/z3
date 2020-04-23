@@ -230,16 +230,23 @@ namespace sat {
             literal  l(v, false);
             literal r  = roots[v];
             SASSERT(v != r.var());
-            bool root_ok = !m_solver.is_external(v) || m_solver.set_root(l, r);
+            if (m_solver.m_cut_simplifier) m_solver.m_cut_simplifier->set_root(v, r);
+            bool set_root = m_solver.set_root(l, r);
+            bool root_ok = !m_solver.is_external(v) || set_root;
             if (m_solver.is_assumption(v) || (m_solver.is_external(v) && (m_solver.is_incremental() || !root_ok))) {
                 // cannot really eliminate v, since we have to notify extension of future assignments
+                if (m_solver.m_config.m_drat && m_solver.m_config.m_drat_file.is_null()) {
+                    std::cout << "DRAT\n";
+                    m_solver.m_drat.add(~l, r, true);
+                    m_solver.m_drat.add(l, ~r, true);
+                }
                 m_solver.mk_bin_clause(~l, r, false);
                 m_solver.mk_bin_clause(l, ~r, false);
             }
             else {
                 model_converter::entry & e = mc.mk(model_converter::ELIM_VAR, v);
                 TRACE("save_elim", tout << "marking as deleted: " << v << " l: " << l << " r: " << r << "\n";);
-                m_solver.m_eliminated[v] = true;
+                m_solver.set_eliminated(v, true);
                 mc.insert(e, ~l, r);
                 mc.insert(e,  l, ~r);
             }
@@ -282,5 +289,22 @@ namespace sat {
         m_solver.propagate(false);
         SASSERT(check_clauses(roots));
         TRACE("elim_eqs", tout << "after full cleanup\n"; m_solver.display(tout););
+    }
+
+    void elim_eqs::operator()(union_find<>& uf) {
+        literal_vector roots(m_solver.num_vars(), null_literal);
+        bool_var_vector to_elim;
+        for (unsigned i = m_solver.num_vars(); i-- > 0; ) {
+            literal l1(i, false);
+            unsigned idx = uf.find(l1.index());
+            if (idx != l1.index()) {
+                roots[i] = to_literal(idx);
+                to_elim.push_back(i);
+            }
+            else {
+                roots[i] = l1;
+            }
+        }
+        (*this)(roots, to_elim);
     }
 };

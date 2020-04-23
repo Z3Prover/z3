@@ -38,5 +38,11 @@ namespace Microsoft.Z3
             Debug.Assert(ctx != null);
         }
         #endregion
+
+        /// <summary> Access the nth element of a sequence </summary>
+        public Expr this[Expr index] 
+        {
+            get { return Context.MkNth(this, index); }
+        }
     }
 }

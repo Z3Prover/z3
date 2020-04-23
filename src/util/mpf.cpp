@@ -1186,8 +1186,11 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
     scoped_mpf t(*this);
     scoped_mpz z(m_mpz_manager);
 
+
     set(t, x);
     unpack(t, true);
+    if (t.exponent() >= INT_MAX)
+        throw default_exception("exponents over 31 bits are not supported");
 
     SASSERT(t.exponent() < INT_MAX);
 

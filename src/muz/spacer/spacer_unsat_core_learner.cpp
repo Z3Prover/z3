@@ -15,7 +15,6 @@ Revision History:
 
 
 --*/
-#include <unordered_map>
 
 #include "ast/for_each_expr.h"
 #include "ast/proofs/proof_utils.h"

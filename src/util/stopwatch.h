@@ -22,6 +22,9 @@ Revision History:
 
 #include "util/debug.h"
 #include <chrono>
+#include <iostream>
+#include<iomanip>
+
 
 class stopwatch
 {
@@ -30,10 +33,8 @@ class stopwatch
 
     clock_t m_start;
     duration_t m_elapsed;
-#if Z3DEBUG
     bool m_running = false;
-#endif
-    
+
     // FIXME: just use auto with VS 2015+
     static clock_t get() {
         return std::chrono::steady_clock::now();
@@ -50,27 +51,32 @@ public:
 
     void reset() {
         m_elapsed = duration_t::zero();
-        DEBUG_CODE(m_running = false;);
     }
     
     void start() {
-        SASSERT(!m_running);
-        DEBUG_CODE(m_running = true;);
-        m_start = get();
+        if (!m_running) {
+            m_start = get();
+            m_running = true;
+        }
     }
 
     void stop() {
-        SASSERT(m_running);
-        DEBUG_CODE(m_running = false;);
-        m_elapsed += get() - m_start;
+        if (m_running) {
+            m_elapsed += get() - m_start;
+            m_running = false;
+        }
     }
 
     double get_seconds() const {
+        if (m_running) {
+            const_cast<stopwatch*>(this)->stop();
+            const_cast<stopwatch*>(this)->start();
+        }
         return std::chrono::duration_cast<std::chrono::milliseconds>(m_elapsed).count() / 1000.0;
     }
 
     double get_current_seconds() const {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(get() - m_start).count() / 1000.0;
+        return get_seconds();
     }
 };
 
@@ -85,5 +91,10 @@ struct scoped_watch {
         m_sw.stop ();
     }
 };
+
+inline std::ostream& operator<<(std::ostream& out, stopwatch const& sw) {
+    return out << " :time " << std::fixed << std::setprecision(2) << sw.get_seconds();
+}
+
 
 #endif

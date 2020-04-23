@@ -25,10 +25,11 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/special_relations_decl_plugin.h"
 #include "util/map.h"
 
 struct static_features {
-    ast_manager &            m_manager;
+    ast_manager &            m;
     arith_util               m_autil;
     bv_util                  m_bvutil;
     array_util               m_arrayutil;
@@ -38,6 +39,7 @@ struct static_features {
     family_id                m_afid;
     family_id                m_lfid;    
     family_id                m_arrfid;
+    family_id                m_srfid;
     ast_mark                 m_already_visited;
     bool                     m_cnf;
     unsigned                 m_num_exprs;             // 
@@ -79,6 +81,7 @@ struct static_features {
     bool                     m_has_real;        //
     bool                     m_has_bv;          //
     bool                     m_has_fpa;         //
+    bool                     m_has_sr;          // has special relations
     bool                     m_has_str;         // has String-typed terms
     bool                     m_has_seq_non_str; // has non-String-typed Sequence terms
     bool                     m_has_arrays;      //
@@ -109,7 +112,7 @@ struct static_features {
     u_map<unsigned>          m_expr2formula_depth;
 
     unsigned                 m_num_theories; 
-    svector<bool>            m_theories;       // mapping family_id -> bool
+    bool_vector            m_theories;       // mapping family_id -> bool
 
     symbol                   m_label_sym;
     symbol                   m_pattern_sym;
@@ -117,7 +120,7 @@ struct static_features {
 
     bool is_marked(ast * e) const { return m_already_visited.is_marked(e); }
     void mark(ast * e) { m_already_visited.mark(e, true); }
-    bool is_bool(expr const * e) const { return m_manager.is_bool(e); }
+    bool is_bool(expr const * e) const { return m.is_bool(e); }
     bool is_basic_expr(expr const * e) const { return is_app(e) && to_app(e)->get_family_id() == m_bfid; }
     bool is_arith_expr(expr const * e) const { return is_app(e) && to_app(e)->get_family_id() == m_afid; }
     bool is_numeral(expr const * e) const { return m_autil.is_numeral(e); }
@@ -127,7 +130,7 @@ struct static_features {
     bool is_diff_atom(expr const * e) const;
     bool is_gate(expr const * e) const;
     void mark_theory(family_id fid) { 
-        if (fid != null_family_id && !m_manager.is_builtin_family_id(fid) && !m_theories.get(fid, false)) {
+        if (fid != null_family_id && !m.is_builtin_family_id(fid) && !m_theories.get(fid, false)) {
             m_theories.setx(fid, true, false);
             m_num_theories++; 
         }

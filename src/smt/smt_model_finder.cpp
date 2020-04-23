@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include "util/cooperate.h"
 #include "util/backtrackable_set.h"
 #include "ast/ast_util.h"
 #include "ast/macros/macro_util.h"
@@ -93,8 +92,9 @@ namespace smt {
             obj_map<expr, unsigned> const & get_elems() const { return m_elems; }
 
             void insert(expr * n, unsigned generation) {
-                if (m_elems.contains(n) || contains_model_value(n))
+                if (m_elems.contains(n) || contains_model_value(n)) {
                     return;
+                }
                 TRACE("model_finder", tout << mk_pp(n, m) << "\n";);
                 m.inc_ref(n);
                 m_elems.insert(n, generation);
@@ -106,6 +106,7 @@ namespace smt {
                 SASSERT(m_elems.contains(n));
                 SASSERT(m_inv.empty());
                 m_elems.erase(n);
+                TRACE("model_finder", tout << mk_pp(n, m) << "\n";);
                 m.dec_ref(n);
             }
 
@@ -256,8 +257,8 @@ namespace smt {
             void merge(node * other) {
                 node * r1 = get_root();
                 node * r2 = other->get_root();
-                SASSERT(r1->m_set == 0);
-                SASSERT(r2->m_set == 0);
+                SASSERT(r1->m_set == nullptr);
+                SASSERT(r2->m_set == nullptr);
                 SASSERT(r1->get_sort() == r2->get_sort());
                 if (r1 == r2)
                     return;
@@ -361,7 +362,7 @@ namespace smt {
 
             void set_else(expr * e) {
                 SASSERT(!is_mono_proj());
-                SASSERT(get_root()->m_else == 0);
+                SASSERT(get_root()->m_else == nullptr);
                 get_root()->m_else = e;
             }
 
@@ -370,7 +371,7 @@ namespace smt {
             }
 
             void set_proj(func_decl * f) {
-                SASSERT(get_root()->m_proj == 0);
+                SASSERT(get_root()->m_proj == nullptr);
                 get_root()->m_proj = f;
             }
 
@@ -484,7 +485,7 @@ namespace smt {
             }
 
             void set_context(context * ctx) {
-                SASSERT(m_context==0);
+                SASSERT(m_context== nullptr);
                 m_context = ctx;
             }
             
@@ -523,7 +524,6 @@ namespace smt {
             }
 
             instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i) const {
-                SASSERT(!has_quantifiers(q->get_expr()));
                 ast_idx_pair k(q, i);
                 node * r = nullptr;
                 if (m_uvars.find(k, r))
@@ -540,8 +540,9 @@ namespace smt {
             }
 
             // For each instantiation_set, remove entries that do not evaluate to values.
+            ptr_vector<expr> to_delete;
+
             void cleanup_instantiation_sets() {
-                ptr_vector<expr> to_delete;
                 for (node * curr : m_nodes) {
                     if (curr->is_root()) {
                         instantiation_set * s = curr->get_instantiation_set();
@@ -550,8 +551,9 @@ namespace smt {
                         for (auto const& kv : elems) {
                             expr * n     = kv.m_key;
                             expr * n_val = eval(n, true);
-                            if (!n_val || !m.is_value(n_val))
+                            if (!n_val || (!m.is_value(n_val) && !m_array.is_array(n_val))) {
                                 to_delete.push_back(n);
+                            }
                         }
                         for (expr* e : to_delete) {
                             s->remove(e);
@@ -593,20 +595,18 @@ namespace smt {
                and the interpretations of the m_else of nodes in n->get_avoid_set()
             */
             void collect_exceptions_values(node * n, ptr_buffer<expr> & r) {
-                ptr_vector<expr> const & exceptions   = n->get_exceptions();
-                ptr_vector<node> const & avoid_set    = n->get_avoid_set();
 
-                for (expr* e : exceptions) {
+                for (expr* e : n->get_exceptions()) {
                     expr * val = eval(e, true);
-                    SASSERT(val != 0);
+                    SASSERT(val != nullptr);
                     r.push_back(val);
                 }
 
-                for (node* a : avoid_set) {
-                    node * n = a->get_root();
-                    if (!n->is_mono_proj() && n->get_else() != nullptr) {
-                        expr * val = eval(n->get_else(), true);
-                        SASSERT(val != 0);
+                for (node* a : n->get_avoid_set()) {
+                    node * p = a->get_root();
+                    if (!p->is_mono_proj() && p->get_else() != nullptr) {
+                        expr * val = eval(p->get_else(), true);
+                        SASSERT(val != nullptr);
                         r.push_back(val);
                     }
                 }
@@ -629,7 +629,7 @@ namespace smt {
                     expr *     t = kv.m_key;
                     unsigned gen = kv.m_value;
                     expr * t_val = eval(t, true);
-                    SASSERT(t_val != 0);
+                    SASSERT(t_val != nullptr);
                     bool found = false;
                     for (expr* v : ex_vals) {
                         if (!m.are_distinct(t_val, v)) {
@@ -653,7 +653,6 @@ namespace smt {
                a set of values.
             */
             app * get_k_for(sort * s) {
-                TRACE("model_finder", tout << sort_ref(s, m) << "\n";);
                 SASSERT(is_infinite(s));
                 app * r = nullptr;
                 if (m_sort2k.find(s, r))
@@ -662,6 +661,7 @@ namespace smt {
                 m_model->register_aux_decl(r->get_decl());
                 m_sort2k.insert(s, r);
                 m_ks.push_back(r);
+                TRACE("model_finder", tout << sort_ref(s, m) << " := " << "\n";);
                 return r;
             }
 
@@ -740,7 +740,7 @@ namespace smt {
                     }
                     // TBD: add support for the else of bitvectors.
                     // Idea: get the term t with the minimal interpretation and use t - 1.
-                }
+                } 
                 n->set_else((*(elems.begin())).m_key);
             }
 
@@ -876,13 +876,12 @@ namespace smt {
                 func_interp * rpi = alloc(func_interp, m, 1);
                 rpi->set_else(pi);
                 func_decl * p = m.mk_fresh_func_decl(1, &s, s);
-                TRACE("model_finder", tout << expr_ref(pi, m) << "\n";);
                 m_model->register_aux_decl(p, rpi);
                 n->set_proj(p);
+                TRACE("model_finder", n->display(tout << p->get_name() << "\n", m););
             }
 
             void mk_simple_proj(node * n) {
-                TRACE("model_finder", n->display(tout, m););
                 set_projection_else(n);
                 ptr_buffer<expr> values;
                 get_instantiation_set_values(n, values);
@@ -898,6 +897,7 @@ namespace smt {
                     pi->insert_new_entry(&v, v);
                 }
                 n->set_proj(p);
+                TRACE("model_finder", n->display(tout << p->get_name() << "\n", m););
             }
 
             void mk_projections() {
@@ -1059,7 +1059,8 @@ namespace smt {
                         func_interp * new_fi = alloc(func_interp, m, arity);
                         new_fi->set_else(m.mk_app(f_aux, args.size(), args.c_ptr()));
                         TRACE("model_finder", tout << "Setting new interpretation for " << f->get_name() << "\n" << 
-                              mk_pp(new_fi->get_else(), m) << "\n";);
+                              mk_pp(new_fi->get_else(), m) << "\n";
+                              tout << "old interpretation: " << mk_pp(fi->get_interp(), m) << "\n";);
                         m_model->reregister_decl(f, new_fi, f_aux);
                     }
                 }
@@ -1067,12 +1068,14 @@ namespace smt {
 
             void mk_inverse(node * n) {
                 SASSERT(n->is_root());
-                instantiation_set * s                 = n->get_instantiation_set();
+                instantiation_set * s = n->get_instantiation_set();
                 s->mk_inverse(*this);
             }
 
             void mk_inverses() {
-                for (node * n : m_root_nodes) {
+                unsigned offset = m_context->get_random_value();
+                for (unsigned i = m_root_nodes.size(); i-- > 0; ) {
+                    node* n = m_root_nodes[(i + offset) % m_root_nodes.size()];
                     SASSERT(n->is_root());
                     mk_inverse(n);
                 }
@@ -1203,7 +1206,7 @@ namespace smt {
                 if (uvar_inst_sets[m_var_j] == 0)
                     uvar_inst_sets[m_var_j] = alloc(instantiation_set, ctx->get_manager());
                 instantiation_set * s = uvar_inst_sets[m_var_j];
-                SASSERT(s != 0);
+                SASSERT(s != nullptr);
 
                 for (enode * n : ctx->enodes_of(m_f)) {
                     if (ctx->is_relevant(n)) {
@@ -1689,6 +1692,7 @@ namespace smt {
         */
         class quantifier_info {
             model_finder&            m_mf;
+            quantifier_ref           m_q;      // original quantifier
             quantifier_ref           m_flat_q; // flat version of the quantifier
             bool                     m_is_auf;
             bool                     m_has_x_eq_y;
@@ -1728,18 +1732,13 @@ namespace smt {
 
             quantifier_info(model_finder& mf, ast_manager & m, quantifier * q):
                 m_mf(mf),
+                m_q(q, m),
                 m_flat_q(m),
                 m_is_auf(true),
                 m_has_x_eq_y(false),
                 m_the_one(nullptr),
                 m_uvar_inst_sets(nullptr) {
                 if (has_quantifiers(q->get_expr()) && !m.is_lambda_def(q)) {
-                    static bool displayed_flat_msg = false;
-                    if (!displayed_flat_msg) {
-                        // [Leo]: This warning message is not useful.
-                        // warning_msg("For problems containing quantifiers, the model finding capabilities of Z3 work better when the formula does not contain nested quantifiers. You can use PULL_NESTED_QUANTIFIERS=true to eliminate nested quantifiers.");
-                        displayed_flat_msg = true;
-                    }
                     proof_ref pr(m);
                     expr_ref  new_q(m);
                     pull_quant pull(m);
@@ -1752,7 +1751,6 @@ namespace smt {
                 }
                 CTRACE("model_finder_bug", has_quantifiers(m_flat_q->get_expr()),
                        tout << mk_pp(q, m) << "\n" << mk_pp(m_flat_q, m) << "\n";);
-                SASSERT(m.is_lambda_def(q) || !has_quantifiers(m_flat_q->get_expr()));
             }
 
             ~quantifier_info() {
@@ -1845,7 +1843,7 @@ namespace smt {
                 for (qinfo* qi : m_qinfo_vect)
                     qi->populate_inst_sets(m_flat_q, m_the_one, *m_uvar_inst_sets, ctx);
                 for (instantiation_set * s : *m_uvar_inst_sets) {
-                    if (s != nullptr)
+                    if (s != nullptr) 
                         s->mk_inverse(ev);
                 }
             }
@@ -2198,8 +2196,7 @@ namespace smt {
                         m_info->m_is_auf = false; // unexpected occurrence of variable.
                     }
                     else {
-                        SASSERT(is_quantifier(curr)); // no nested quantifiers
-                        UNREACHABLE();
+                        SASSERT(is_lambda(curr)); 
                     }
                 }
             }
@@ -2331,7 +2328,8 @@ namespace smt {
                     }
                     else {
                         SASSERT(is_quantifier(curr));
-                        UNREACHABLE(); // can't happen, the quantifier is supposed to be flat.
+                        SASSERT(is_lambda(curr));
+                        //UNREACHABLE(); // can't happen, the quantifier is supposed to be flat.
                     }
                 }
             }
@@ -2384,8 +2382,8 @@ namespace smt {
                 quantifier * q = d->get_flat_q();
                 if (m.is_lambda_def(q)) return;
                 expr * e = q->get_expr();
-                SASSERT(!has_quantifiers(e));
                 reset_cache();
+                if (!m.inc()) return;
                 SASSERT(m_ttodo.empty());
                 SASSERT(m_ftodo.empty());
 
@@ -2418,14 +2416,11 @@ namespace smt {
             proto_model *                                  m_model;
 
             quantifier_info * get_qinfo(quantifier * q) const {
-                quantifier_info * qi = nullptr;
-                m_q2info.find(q, qi);
-                SASSERT(qi != 0);
-                return qi;
+                return m_q2info[q];
             }
 
             void set_else_interp(func_decl * f, expr * f_else) {
-                SASSERT(f_else != 0);
+                SASSERT(f_else != nullptr);
                 func_interp * fi = m_model->get_func_interp(f);
                 if (fi == nullptr) {
                     fi = alloc(func_interp, m, f->get_arity());
@@ -2494,7 +2489,7 @@ namespace smt {
                     if (!contains(f, qs, q)) {
                         qi->set_the_one(f);
                         expr * f_else = m->get_def();
-                        SASSERT(f_else != 0);
+                        SASSERT(f_else != nullptr);
                         // Remark: I can ignore the conditions of m because
                         // I know the (partial) interpretation of f satisfied the ground part.
                         // MBQI will force extra instantiations if the (partial) interpretation of f
@@ -2587,7 +2582,7 @@ namespace smt {
                     m_q_f.insert(f, s);
                     m_qsets.push_back(s);
                 }
-                SASSERT(s != 0);
+                SASSERT(s != nullptr);
                 s->insert(q);
             }
 
@@ -2598,7 +2593,7 @@ namespace smt {
                     m_f2defs.insert(f, s);
                     m_esets.push_back(s);
                 }
-                SASSERT(s != 0);
+                SASSERT(s != nullptr);
                 s->insert(def);
             }
 
@@ -2611,7 +2606,7 @@ namespace smt {
                     insert_f2def(f, def);
                     m_qsets.push_back(s);
                 }
-                SASSERT(s != 0);
+                SASSERT(s != nullptr);
                 s->insert(q);
             }
 
@@ -2620,7 +2615,7 @@ namespace smt {
             quantifier_set * get_q_f_def(func_decl * f, expr * def) {
                 quantifier_set * s = nullptr;
                 m_q_f_def.find(f, def, s);
-                SASSERT(s != 0);
+                SASSERT(s != nullptr);
                 return s;
             }
 
@@ -2771,8 +2766,8 @@ namespace smt {
                     for (quantifier * q : m_satisfied) {
                         SASSERT(!m_residue.contains(q));
                         quantifier_info * qi = get_qinfo(q);
-                        SASSERT(qi != 0);
-                        SASSERT(qi->get_the_one() != 0);
+                        SASSERT(qi != nullptr);
+                        SASSERT(qi->get_the_one() != nullptr);
                     });
                 return true;
             }
@@ -3060,7 +3055,7 @@ namespace smt {
                             func_decl * f = m->get_f();
                             TRACE("model_finder", tout << "considering macro for: " << f->get_name() << "\n";
                                   m->display(tout); tout << "\n";);
-                            SASSERT(m_qi_params != 0);
+                            SASSERT(m_qi_params != nullptr);
                             if (m->is_unconditional() && (!qi->is_auf() || m->get_weight() >= m_qi_params->m_mbqi_force_template)) {
                                 full_macros.insert(f, std::make_pair(m, q));
                                 cond_macros.erase(f);
@@ -3180,16 +3175,17 @@ namespace smt {
     }
 
     void model_finder::checkpoint(char const* msg) {
-        cooperate(msg);
         if (m_context && m_context->get_cancel_flag())
             throw tactic_exception(m_context->get_manager().limit().get_cancel_msg());
     }
 
-    mf::quantifier_info * model_finder::get_quantifier_info(quantifier * q) const {
-        quantifier_info * info = nullptr;
-        m_q2info.find(q, info);
-        SASSERT(info != 0);
-        return info;
+    mf::quantifier_info * model_finder::get_quantifier_info(quantifier * q) {
+        mf::quantifier_info* qi = nullptr;
+        if (!m_q2info.find(q, qi)) {
+            register_quantifier(q);
+            qi = m_q2info[q];
+        }
+        return qi;
     }
 
     void model_finder::set_context(context * ctx) {
@@ -3200,7 +3196,7 @@ namespace smt {
     }
 
     void model_finder::register_quantifier(quantifier * q) {
-        TRACE("model_finder", tout << "registering:\n" << mk_pp(q, m) << "\n";);
+        TRACE("model_finder", tout << "registering:\n" << q->get_id() << ": " << q << " " << &m_q2info << " " << mk_pp(q, m) << "\n";);
         quantifier_info * new_info = alloc(quantifier_info, *this, m, q);
         m_q2info.insert(q, new_info);
         m_quantifiers.push_back(q);
@@ -3221,8 +3217,8 @@ namespace smt {
             quantifier * q = m_quantifiers[i];
             SASSERT(m_q2info.contains(q));
             quantifier_info * info = get_quantifier_info(q);
-            dealloc(info);
             m_q2info.erase(q);
+            dealloc(info);
         }
         m_quantifiers.shrink(old_size);
     }
@@ -3274,7 +3270,7 @@ namespace smt {
               for (quantifier * q : qs) {
                   quantifier_info * qi = get_quantifier_info(q);
                   quantifier * fq = qi->get_flat_q();
-                  tout << "#" << fq->get_id() << " ->\n" << mk_pp(fq, m) << "\n";
+                  tout << "#" << fq->get_id() << " ->\n" << mk_pp(fq, m) << "\n";                  
               }
               m_auf_solver->display_nodes(tout););
     }
@@ -3332,9 +3328,8 @@ namespace smt {
         process_auf(qs, m);
     }
 
-    quantifier * model_finder::get_flat_quantifier(quantifier * q) const {
+    quantifier * model_finder::get_flat_quantifier(quantifier * q) {
         quantifier_info * qinfo = get_quantifier_info(q);
-        SASSERT(qinfo);
         return qinfo->get_flat_q();
     }
 
@@ -3343,7 +3338,7 @@ namespace smt {
 
        \remark q is the quantifier before flattening.
     */
-    mf::instantiation_set const * model_finder::get_uvar_inst_set(quantifier * q, unsigned i) const {
+    mf::instantiation_set const * model_finder::get_uvar_inst_set(quantifier * q, unsigned i) {
         quantifier * flat_q = get_flat_quantifier(q);
         SASSERT(flat_q->get_num_decls() >= q->get_num_decls());
         instantiation_set const * r = m_auf_solver->get_uvar_inst_set(flat_q, flat_q->get_num_decls() - q->get_num_decls() + i);
@@ -3355,8 +3350,7 @@ namespace smt {
         // it must have been satisfied by "macro"/"hint".
         quantifier_info * qinfo = get_quantifier_info(q);
         SASSERT(qinfo);
-        SASSERT(qinfo->get_the_one() != 0);
-        return qinfo->get_macro_based_inst_set(i, m_context, *(m_auf_solver.get()));
+        return qinfo->get_macro_based_inst_set(i, m_context, *(m_auf_solver.get()));        
     }
 
     /**
@@ -3366,7 +3360,7 @@ namespace smt {
 
        Store in generation the generation of the result
     */
-    expr * model_finder::get_inv(quantifier * q, unsigned i, expr * val, unsigned & generation) const {
+    expr * model_finder::get_inv(quantifier * q, unsigned i, expr * val, unsigned & generation) {
         instantiation_set const * s = get_uvar_inst_set(q, i);
         if (s == nullptr)
             return nullptr;

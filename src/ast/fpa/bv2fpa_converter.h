@@ -35,7 +35,7 @@ class bv2fpa_converter {
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
-    obj_map<func_decl, std::pair<app*, app*> > m_specials;
+    obj_map<func_decl, std::pair<app*, app*> > m_min_max_specials;
 
 public:
     bv2fpa_converter(ast_manager & m);
@@ -46,9 +46,9 @@ public:
     bv2fpa_converter * translate(ast_translation & translator);
 
     expr_ref convert_bv2fp(sort * s, expr * sgn, expr * exp, expr * sig);
-    expr_ref convert_bv2fp(model_core * mc, sort * s, app * bv);
+    expr_ref convert_bv2fp(model_core * mc, sort * s, expr * bv);
     expr_ref convert_bv2rm(expr * eval_v);
-    expr_ref convert_bv2rm(model_core * mc, app * val);
+    expr_ref convert_bv2rm(model_core * mc, expr * val);
 
     void convert_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);
     void convert_rm_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);
@@ -56,7 +56,7 @@ public:
     void convert_uf2bvuf(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);
 
     func_interp * convert_func_interp(model_core * mc, func_decl * f, func_decl * bv_f);
-    expr_ref rebuild_floats(model_core * mc, sort * s, app * e);
+    expr_ref rebuild_floats(model_core * mc, sort * s, expr * e);
 
     class array_model {
     public:

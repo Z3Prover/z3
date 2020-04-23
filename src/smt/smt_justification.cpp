@@ -32,6 +32,7 @@ namespace smt {
 
     void justification_proof_wrapper::del_eh(ast_manager & m) {
         m.dec_ref(m_proof);
+        m_proof = nullptr;
     }
     
     proof * justification_proof_wrapper::mk_proof(conflict_resolution & cr) {
@@ -47,11 +48,7 @@ namespace smt {
         SASSERT(!js || js->in_region());
         m_literals = new (r) literal[num_lits];
         memcpy(m_literals, lits, sizeof(literal) * num_lits);
-        TRACE("unit_resolution_justification_bug",
-              for (unsigned i = 0; i < num_lits; i++) {
-                  tout << lits[i] << " ";
-              }
-              tout << "\n";);
+        TRACE("unit_resolution_justification_bug", tout << literal_vector(num_lits, lits) << "\n";);
         SASSERT(m_num_literals > 0);
     }
 
@@ -64,11 +61,7 @@ namespace smt {
         SASSERT(!js || !js->in_region());
         m_literals = alloc_vect<literal>(num_lits);
         memcpy(m_literals, lits, sizeof(literal) * num_lits);
-        TRACE("unit_resolution_justification_bug",
-              for (unsigned i = 0; i < num_lits; i++) {
-                  tout << lits[i] << " ";
-              }
-              tout << "\n";);
+        TRACE("unit_resolution_justification_bug", tout << literal_vector(num_lits, lits) << "\n";);
         SASSERT(num_lits != 0);
     }
 
@@ -88,29 +81,22 @@ namespace smt {
 
     proof * unit_resolution_justification::mk_proof(conflict_resolution & cr) {
         SASSERT(m_antecedent);
-        ptr_buffer<proof> prs;
-        proof * pr   = cr.get_proof(m_antecedent);
-        bool visited = pr != nullptr;
+        ast_manager& m = cr.get_manager();
+        proof_ref_vector prs(m);
+        proof * pr = cr.get_proof(m_antecedent);
+        if (!pr)
+            return pr;
         prs.push_back(pr);
         for (unsigned i = 0; i < m_num_literals; i++) {
             proof * pr = cr.get_proof(m_literals[i]);
-            if (pr == nullptr)
-                visited = false;
+            if (!pr)
+                return pr;
             else
                 prs.push_back(pr);
         }
-        if (!visited)
-            return nullptr;
-        ast_manager & m = cr.get_manager();
         TRACE("unit_resolution_justification_bug",
-              tout << "in mk_proof\n";
-              for (unsigned i = 0; i < m_num_literals; i++) {
-                  tout << m_literals[i] << " ";
-              }
-              tout << "\n";
-              for (unsigned i = 0; i < prs.size(); i++) {
-                  tout << mk_ll_pp(m.get_fact(prs[i]), m);
-              });
+            tout << "in mk_proof\n" << literal_vector(m_num_literals, m_literals) << "\n";
+            for (proof* p : prs) tout << mk_ll_pp(m.get_fact(p), m););
         return m.mk_unit_resolution(prs.size(), prs.c_ptr());
     }
 
@@ -182,7 +168,7 @@ namespace smt {
     }
 
     void eq_propagation_justification::get_antecedents(conflict_resolution & cr) {
-        cr.mark_eq(m_node1, m_node2);
+        if (m_node1 != m_node2) cr.mark_eq(m_node1, m_node2);
     }
 
     proof * eq_propagation_justification::mk_proof(conflict_resolution & cr) {
@@ -191,7 +177,8 @@ namespace smt {
 
 
     void mp_iff_justification::get_antecedents(conflict_resolution & cr) {
-        SASSERT(m_node1 != m_node2);
+        if (m_node1 == m_node2)
+            return;
         cr.mark_eq(m_node1, m_node2);
         context & ctx = cr.get_context();
         bool_var v    = ctx.enode2bool_var(m_node1);
@@ -201,6 +188,9 @@ namespace smt {
     }
 
     proof * mp_iff_justification::mk_proof(conflict_resolution & cr) {
+        ast_manager& m = cr.get_manager();
+        if (m_node1 == m_node2)
+            return m.mk_reflexivity(m_node1->get_owner());
         proof * pr1   = cr.get_proof(m_node1, m_node2);
         context & ctx = cr.get_context();
         bool_var v    = ctx.enode2bool_var(m_node1);
@@ -208,7 +198,7 @@ namespace smt {
         literal l(v, val == l_false);
         proof * pr2   = cr.get_proof(l);
         if (pr1 && pr2) {
-            ast_manager & m = cr.get_manager();
+            
             proof * pr;
             SASSERT(m.has_fact(pr1));
             SASSERT(m.has_fact(pr2));
@@ -377,8 +367,8 @@ namespace smt {
         justification(false),
         m_th_id(fid),
         m_params(num_params, params),
-        m_num_literals(num_lits) {
-        ast_manager & m   = ctx.get_manager();
+        m_num_literals(num_lits) {        
+        ast_manager& m = ctx.get_manager();
         m_literals        = alloc_svect(expr*, num_lits);
         for (unsigned i   = 0; i < num_lits; i++) {
             bool sign     = lits[i].sign();
@@ -396,7 +386,8 @@ namespace smt {
     
     void theory_lemma_justification::del_eh(ast_manager & m) {
         for (unsigned i = 0; i < m_num_literals; i++) {
-            m.dec_ref(UNTAG(expr*, m_literals[i]));
+            expr* v = UNTAG(expr*, m_literals[i]);
+            m.dec_ref(v);
         }
         m_params.reset();
     }

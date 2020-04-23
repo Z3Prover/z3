@@ -21,11 +21,11 @@
     <Company>Microsoft Corporation</Company>
     <AssemblyCompany>Microsoft Corporation</AssemblyCompany>
 
-    <Version>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</Version>
-    <AssemblyVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</AssemblyVersion>
+    <Version>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_TWEAK@</Version>
+    <AssemblyVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_TWEAK@</AssemblyVersion>
 
-    <FileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</FileVersion>
-    <AssemblyFileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</AssemblyFileVersion>
+    <FileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_TWEAK@</FileVersion>
+    <AssemblyFileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_TWEAK@</AssemblyFileVersion>
 
     <PackageVersion>${DOTNET_PACKAGE_VERSION}</PackageVersion>
     <PackageTags>smt constraint solver theorem prover</PackageTags>

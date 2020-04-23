@@ -49,7 +49,7 @@ class lackr_model_constructor {
     private:
         struct imp;
         imp * m_imp;
-        ast_manager &                      m_m;
+        ast_manager &                      m;
         enum {CHECKED, CONFLICT, UNKNOWN}  m_state;
         conflict_list                      m_conflicts;
         const ackr_info_ref                m_info;

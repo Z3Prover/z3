@@ -33,6 +33,7 @@ Revision History:
 #include "smt/theory_dl.h"
 #include "smt/theory_seq_empty.h"
 #include "smt/theory_seq.h"
+#include "smt/theory_special_relations.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
@@ -48,8 +49,8 @@ namespace smt {
     }
 
     void setup::operator()(config_mode cm) {
+        TRACE("internalize", tout << "setup " << &m_context << "\n";);
         SASSERT(m_context.get_scope_level() == 0);
-        SASSERT(!m_context.already_internalized());
         SASSERT(!m_already_configured);
         // if (m_params.m_mbqi && m_params.m_model_compact) {
         //    warning_msg("ignoring MODEL_COMPACT=true because it cannot be used with MBQI=true");
@@ -151,6 +152,7 @@ namespace smt {
             ptr_vector<expr> fmls;
             m_context.get_asserted_formulas(fmls);
             st.collect(fmls.size(), fmls.c_ptr());
+            TRACE("setup", st.display_primitive(tout););
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
             if (m_logic == "QF_UF") 
                 setup_QF_UF(st);
@@ -301,12 +303,6 @@ namespace smt {
         if (m_manager.proofs_enabled()) {
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         }
-        else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
-            if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small())
-                m_context.register_plugin(alloc(smt::theory_dense_smi, m_manager, m_params));
-            else
-                m_context.register_plugin(alloc(smt::theory_dense_mi, m_manager, m_params));
-        }
         else {
             if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants 
                 || st.m_num_ite_terms > 0 /* theory_rdl and theory_frdl do not support ite-terms */) {
@@ -316,6 +312,7 @@ namespace smt {
                 // }
                 // else {
                 TRACE("rdl_bug", tout << "using theory_mi_arith\n";);
+                //setup_lra_arith();
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
                 // }
             }
@@ -407,7 +404,7 @@ namespace smt {
         m_params.m_nnf_cnf          = false;
         m_params.m_arith_eq_bounds  = true;
         m_params.m_arith_eq2ineq    = true;
-        m_params.m_phase_selection  = PS_ALWAYS_FALSE;
+        // m_params.m_phase_selection  = PS_THEORY;
         m_params.m_restart_strategy = RS_GEOMETRIC;
         m_params.m_restart_factor   = 1.5;
         m_params.m_restart_adaptive = false;
@@ -440,7 +437,7 @@ namespace smt {
             }
         }
         m_params.m_arith_eq_bounds  = true;
-        m_params.m_phase_selection  = PS_ALWAYS_FALSE;
+        // m_params.m_phase_selection  = PS_THEORY;
         m_params.m_restart_strategy = RS_GEOMETRIC;
         m_params.m_restart_factor   = 1.5;
         m_params.m_restart_adaptive = false;
@@ -454,13 +451,14 @@ namespace smt {
     }
 
     void setup::setup_QF_LRA() {
-        TRACE("setup", tout << "setup_QF_LRA(st)\n";);
+        TRACE("setup", tout << "setup_QF_LRA()\n";);
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false;
         m_params.m_arith_propagate_eqs = false;
         m_params.m_eliminate_term_ite  = true;
         m_params.m_nnf_cnf             = false;
+        m_params.m_phase_selection       = PS_THEORY;
         setup_lra_arith();
     }
 
@@ -476,13 +474,10 @@ namespace smt {
             m_params.m_relevancy_lvl       = 2;
             m_params.m_relevancy_lemma     = false;
         }
-        if (st.m_cnf) {
-            m_params.m_phase_selection = PS_CACHING_CONSERVATIVE2;
-        }
-        else {
+        m_params.m_phase_selection       = PS_THEORY;
+        if (!st.m_cnf) {
             m_params.m_restart_strategy      = RS_GEOMETRIC;
             m_params.m_arith_stronger_lemmas = false;
-            m_params.m_phase_selection       = PS_ALWAYS_FALSE;
             m_params.m_restart_adaptive      = false;
         }
         m_params.m_arith_small_lemma_size = 32;
@@ -532,7 +527,6 @@ namespace smt {
         } 
         else {
             m_params.m_eliminate_term_ite   = true;
-            m_params.m_phase_selection      = PS_CACHING;
             m_params.m_restart_adaptive     = false;
             m_params.m_restart_strategy     = RS_GEOMETRIC;
             m_params.m_restart_factor       = 1.5;
@@ -688,6 +682,7 @@ namespace smt {
         // 
         setup_mi_arith();
         setup_arrays(); 
+        setup_card();
     }
 
     void setup::setup_UFNIA() {
@@ -733,6 +728,13 @@ namespace smt {
         }
         else if (m_params.m_string_solver == "auto") {
             setup_unknown();
+        }
+ 
+        else if (m_params.m_string_solver == "empty") {
+            m_context.register_plugin(alloc(smt::theory_seq_empty, m_manager));
+        }
+        else if (m_params.m_string_solver == "none") {
+            // don't register any solver.
         }
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
@@ -837,10 +839,7 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         case AS_NEW_ARITH:
-            if (st.m_num_non_linear != 0) 
-                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-            else 
-                setup_lra_arith();
+            setup_lra_arith();
             break;
         default:
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
@@ -899,6 +898,12 @@ namespace smt {
         else if (m_params.m_string_solver == "seq") {
             setup_seq();
         } 
+        else if (m_params.m_string_solver == "empty") {
+            m_context.register_plugin(alloc(smt::theory_seq_empty, m_manager));
+        }
+        else if (m_params.m_string_solver == "none") {
+            // don't register any solver.
+        }
         else if (m_params.m_string_solver == "auto") {
             if (st.m_has_seq_non_str) {
                 setup_seq();
@@ -935,12 +940,16 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_jobscheduler, m_manager));
     }
 
+    void setup::setup_special_relations() {
+        m_context.register_plugin(alloc(smt::theory_special_relations, m_manager));
+    }
+
     void setup::setup_unknown() {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
         m_context.get_asserted_formulas(fmls);
         st.collect(fmls.size(), fmls.c_ptr());
-        TRACE("setup", tout << "setup_unknown\n";);        
+        TRACE("setup", tout << "setup_unknown\n";);
         setup_arith();
         setup_arrays();
         setup_bv();
@@ -950,6 +959,7 @@ namespace smt {
         setup_seq_str(st);
         setup_card();
         setup_fpa();
+        if (st.m_has_sr) setup_special_relations();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -966,6 +976,7 @@ namespace smt {
             setup_card();
             setup_fpa();
             setup_recfuns();
+            if (st.m_has_sr) setup_special_relations();
             return;
         }
 

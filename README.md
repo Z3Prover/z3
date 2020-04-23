@@ -1,12 +1,11 @@
 # Z3
 
-Z3 is a theorem prover from Microsoft Research. It is licensed
-under the [MIT license](LICENSE.txt).
+Z3 is a theorem prover from Microsoft Research. 
+It is licensed under the [MIT license](LICENSE.txt).
 
 If you are not familiar with Z3, you can start [here](https://github.com/Z3Prover/z3/wiki#background).
 
-Pre-built binaries for releases are available from [here](https://github.com/Z3Prover/z3/releases), 
-and nightly builds from [here](https://github.com/Z3Prover/bin/tree/master/nightly).
+Pre-built binaries for stable and nightly releases are available from [here](https://github.com/Z3Prover/z3/releases).
 
 Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. It provides
 [bindings for several programming languages][4]. 
@@ -15,9 +14,9 @@ See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z
 
 ## Build status
 
-| Windows x64 | Windows x86 | Windows x64 | Ubuntu x64 | Debian x64 | macOS | TravisCI |
-| ----------- | ----------- | ----------- | ---------- | ---------- | ----- | -------- |
-[![win64-badge](https://z3build.visualstudio.com/_apis/public/build/definitions/2e0aa542-a22c-4b1a-8dcd-3ebae8e12db4/4/badge)](https://z3build.visualstudio.com/Z3Build/_build/index?definitionId=4) | [![win32-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/4/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=4) | [![win64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/7/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=7) | [![ubuntu-x64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/3/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=3) | [![debian-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/5/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=5) | [![Build status](https://cz3.visualstudio.com/Z3/_apis/build/status/OSX)](https://cz3.visualstudio.com/Z3/_build/latest?definitionId=2) | [![Build Status](https://travis-ci.org/Z3Prover/z3.svg?branch=master)](https://travis-ci.org/Z3Prover/z3)
+| Azure Pipelines | TravisCI |
+| --------------- | -------- |
+[![Build Status](https://z3build.visualstudio.com/Z3Build/_apis/build/status/Z3Build-CI?branchName=master)](https://z3build.visualstudio.com/Z3Build/_build/latest?definitionId=10) | [![Build Status](https://travis-ci.org/Z3Prover/z3.svg?branch=master)](https://travis-ci.org/Z3Prover/z3)
 
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
@@ -98,14 +97,17 @@ To clean Z3 you can delete the build directory and run the ``mk_make.py`` script
 
 ## Building Z3 using CMake
 
-Z3 has an unofficial build system using CMake. Read the [README-CMake.md](README-CMake.md)
-file for details.
+Z3 has a build system using CMake. Read the [README-CMake.md](README-CMake.md)
+file for details. It is recommended for most build tasks, 
+except for building OCaml bindings.
 
 ## Z3 bindings
 
 Z3 has bindings for various programming languages.
 
 ### ``.NET``
+
+You can install a nuget package for the latest release Z3 from [nuget.org](https://www.nuget.org/packages/Microsoft.Z3.x64/).
 
 Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
 
@@ -157,6 +159,12 @@ See [``examples/ml``](examples/ml) for examples.
 
 ### ``Python``
 
+You can install the Python wrapper for Z3 for the latest release from pypi using the command
+
+```bash
+   pip install z3-solver
+```
+
 Use the ``--python`` command line flag with ``mk_make.py`` to enable building these.
 
 Note that is required on certain platforms that the Python package directory
@@ -194,4 +202,25 @@ See [``examples/python``](examples/python) for examples.
 
 ### ``Web Assembly``
 
-[WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.
+[WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by ClÃ©ment Pit-Claudel.
+
+### ``Julia```
+Julia bindings can be enabled using the build option Z3_BUILD_JULIA_BINDINGS from the CMake system.
+
+## System Overview
+
+![System Diagram](https://github.com/Z3Prover/doc/blob/master/programmingz3/images/Z3Overall.jpg)
+
+## Interfaces
+
+* Default input format is [SMTLIB2](http://smtlib.cs.uiowa.edu)
+
+* Other native foreign function interfaces:
+ * [C++ API](https://z3prover.github.io/api/html/group__cppapi.html)
+ * [.NET API](https://z3prover.github.io/api/html/namespace_microsoft_1_1_z3.html)
+ * [Java API](https://z3prover.github.io/api/html/namespacecom_1_1microsoft_1_1z3.html)
+ * [Python API](https://z3prover.github.io/api/html/namespacez3py.html) (also available in [pydoc format](https://z3prover.github.io/api/html/z3.html))
+  * C
+  * OCaml
+
+

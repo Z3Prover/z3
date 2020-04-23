@@ -824,7 +824,7 @@ namespace opt {
         rational val(c);
         SASSERT(r.m_vars.empty());
         r.m_vars.append(coeffs.size(), coeffs.c_ptr());
-        bool is_int_row = true;
+        bool is_int_row = !coeffs.empty();
         std::sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
         for (auto const& c : coeffs) {
             val += m_var2value[c.m_id] * c.m_coeff;
@@ -1088,6 +1088,7 @@ namespace opt {
         if (D.is_zero()) {
             throw default_exception("modulo 0 is not defined");
         }
+        if (D.is_neg()) D = abs(D);
         TRACE("opt1", display(tout << "lcm: " << D << " x: v" << x << " tableau\n"););
         rational val_x = m_var2value[x];
         rational u = mod(val_x, D);

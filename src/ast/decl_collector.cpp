@@ -53,17 +53,21 @@ void decl_collector::visit_func(func_decl * n) {
             m_decls.push_back(n);
         }
         m_visited.mark(n, true);
+        m_trail.push_back(n);
     }
 }
 
 decl_collector::decl_collector(ast_manager & m):
     m_manager(m),
+    m_trail(m),
     m_dt_util(m) {
     m_basic_fid = m_manager.get_basic_family_id();
     m_dt_fid = m_dt_util.get_family_id();
 }
 
 void decl_collector::visit(ast* n) {
+    if (m_visited.is_marked(n)) 
+        return;
     datatype_util util(m());
     m_todo.push_back(n);
     while (!m_todo.empty()) {
@@ -109,16 +113,22 @@ void decl_collector::visit(ast* n) {
                 UNREACHABLE();
             }
             m_visited.mark(n, true);
+            m_trail.push_back(n);
         }
     }
 }
 
-void decl_collector::order_deps() {
+void decl_collector::order_deps(unsigned n) {
     top_sort<sort> st;
-    for (sort * s : m_sorts) st.insert(s, collect_deps(s));
+    for (unsigned i = n; i < m_sorts.size(); ++i) {
+        sort* s = m_sorts.get(i);
+        st.insert(s, collect_deps(s));
+    }
     st.topological_sort();
-    m_sorts.reset();
-    for (sort* s : st.top_sorted()) m_sorts.push_back(s);
+    m_sorts.shrink(n);
+    for (sort* s : st.top_sorted()) {
+        m_sorts.push_back(s);
+    }
 }
 
 decl_collector::sort_set* decl_collector::collect_deps(sort* s) {
@@ -153,4 +163,23 @@ void decl_collector::collect_deps(sort* s, sort_set& set) {
     }
 }
 
+void decl_collector::push() {
+    m_trail_lim.push_back(m_trail.size());
+    m_sorts_lim.push_back(m_sorts.size());
+    m_decls_lim.push_back(m_decls.size());
+}
+
+void decl_collector::pop(unsigned n) {
+    SASSERT(n > 0);
+    unsigned sz = m_trail_lim[m_trail_lim.size() - n];
+    for (unsigned i = m_trail.size(); i-- > sz; ) {
+        m_visited.mark(m_trail.get(i), false);
+    }
+    m_trail.shrink(sz);
+    m_sorts.shrink(m_sorts_lim[m_sorts_lim.size() - n]);
+    m_decls.shrink(m_decls_lim[m_decls_lim.size() - n]);
+    m_trail_lim.shrink(m_trail_lim.size() - n);
+    m_sorts_lim.shrink(m_sorts_lim.size() - n);
+    m_decls_lim.shrink(m_decls_lim.size() - n);
+}
 

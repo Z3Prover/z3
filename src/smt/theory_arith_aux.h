@@ -468,7 +468,7 @@ namespace smt {
         SASSERT(upper  || new_bound->get_bound_kind() == B_LOWER);
         theory_var v = new_bound->get_var();
         set_bound_core(v, new_bound, upper);
-        if ((propagate_eqs() || propagate_diseqs()) && is_fixed(v))
+        if ((propagate_eqs() || propagate_diseqs()) && is_fixed(v)) 
             fixed_var_eh(v);
     }
     
@@ -1059,6 +1059,8 @@ namespace smt {
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         TRACE("bound_bug", display_var(tout, v); display(tout););
+        if (get_context().get_fparams().m_threads > 1)
+            throw default_exception("multi-threaded optimization is not supported");
         has_shared = false;
         if (!m_nl_monomials.empty()) {
             has_shared = true;
@@ -1201,7 +1203,7 @@ namespace smt {
                 break;
             }
         }
-        if (idx == num_lits) {
+        if (idx == num_lits || num_params == 0) {
             return;
         }
         for (unsigned i = 0; i < num_lits; ++i) {
@@ -1227,7 +1229,8 @@ namespace smt {
                 continue;
             }
             ctx.literal2expr(lits[i], tmp);
-            farkas.add(abs(pa.get_rational()), to_app(tmp));
+            if (!farkas.add(abs(pa.get_rational()), to_app(tmp)))
+                return;
         }
         for (unsigned i = 0; i < num_eqs; ++i) {
             enode_pair const& p = eqs[i];
@@ -1236,9 +1239,15 @@ namespace smt {
             tmp = m.mk_eq(x,y);
             parameter const& pa = params[1 + num_lits + i];
             SASSERT(pa.is_rational());
-            farkas.add(abs(pa.get_rational()), to_app(tmp));
+            if (!farkas.add(abs(pa.get_rational()), to_app(tmp)))
+                return;
         }
         tmp = farkas.get();
+
+        if (m.has_trace_stream()) {
+            log_axiom_instantiation(tmp);
+            m.trace_stream() << "[end-of-instance]\n";
+        }
         // IF_VERBOSE(1, verbose_stream() << "Farkas result: " << tmp << "\n";);
         atom* a = get_bv2a(m_bound_watch);
         SASSERT(a);
@@ -1270,8 +1279,7 @@ namespace smt {
         }
         th_rewriter rw(m);
         rw(vq, tmp);
-        VERIFY(m_util.is_numeral(tmp, q));
-        if (m_upper_bound < q) {
+        if (m_util.is_numeral(tmp, q) && m_upper_bound < q) {
             m_upper_bound = q;
             if (strict) {
                 m_upper_bound -= get_epsilon(a->get_var());
@@ -1536,6 +1544,7 @@ namespace smt {
         unsigned best_efforts = 0;
         bool inc = false;
         context& ctx = get_context();
+
 
         SASSERT(!maintain_integrality || valid_assignment());
         SASSERT(satisfy_bounds());
@@ -2137,6 +2146,8 @@ namespace smt {
                 candidates.push_back(other);
             }
         }
+        TRACE("arith_rand", tout << "candidates.size() == " << candidates.size() << "\n";);
+
         if (candidates.empty())
             return;
         m_tmp_var_set.reset();
@@ -2228,7 +2239,6 @@ namespace smt {
         if (result)
             get_context().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
         return delayed_assume_eqs();
-        // return this->assume_eqs(m_var_value_table);
     }
 
     template<typename Ext>
@@ -2249,6 +2259,7 @@ namespace smt {
             if (get_value(v1) == get_value(v2) && 
                 get_enode(v1)->get_root() != get_enode(v2)->get_root() &&
                 assume_eq(get_enode(v1), get_enode(v2))) {
+                ++m_stats.m_assume_eqs;
                 return true;
             }
         }

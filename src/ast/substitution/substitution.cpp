@@ -205,8 +205,8 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
             subst.apply(num_actual_offsets, deltas, body, s1, t1, er);
             er = m_manager.update_quantifier(q, pats.size(), pats.c_ptr(), no_pats.size(), no_pats.c_ptr(), er);
             m_todo.pop_back();
+            m_apply_cache.insert(n, er);
             m_new_exprs.push_back(std::move(er));
-            m_apply_cache.insert(n, er);            
             break;
         }            
         default:

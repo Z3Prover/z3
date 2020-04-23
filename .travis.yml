@@ -54,9 +54,6 @@ env:
     # Test with LibGMP and API docs
     - LINUX_BASE=ubuntu_16.04 TARGET_ARCH=x86_64 USE_LIBGMP=1 BUILD_DOCS=1 PYTHON_EXECUTABLE=/usr/bin/python2.7
 
-    # Test without OpenMP
-    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0
-
     # Unix Makefile generator build
     - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_CMAKE_GENERATOR="Unix Makefiles"
 
@@ -83,14 +80,13 @@ matrix:
     # OS to a minimum.
     - os: osx
       osx_image: xcode8.3
-      # Note: Apple Clang does not support OpenMP
-      env: Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0 DOTNET_BINDINGS=0
+      env: Z3_BUILD_TYPE=RelWithDebInfo DOTNET_BINDINGS=0
 script:
   # Use `travis_wait` when doing LTO builds because this configuration will
   # have long link times during which it will not show any output which
   # TravisCI might kill due to perceived inactivity.
   - if [ "X${USE_LTO}" = "X1" ]; then
-      travis_wait 45 contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
+      travis_wait 55 contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
     else
       contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
     fi

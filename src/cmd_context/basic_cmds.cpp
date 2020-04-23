@@ -174,14 +174,19 @@ public:
 };
 
 ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
-    if (!ctx.produce_proofs())
-        throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
-    if (!ctx.has_manager() ||
-        ctx.cs_state() != cmd_context::css_unsat)
+    if (!ctx.has_manager())
         throw cmd_exception("proof is not available");
+
+    if (ctx.ignore_check())
+        return;
     expr_ref pr(ctx.m());
-    pr = ctx.get_check_sat_result()->get_proof();
-    if (pr == 0)
+    auto* chsr = ctx.get_check_sat_result();
+    if (!chsr)
+        throw cmd_exception("proof is not available");
+    pr = chsr->get_proof();
+    if (!pr && !ctx.produce_proofs())
+        throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
+    if (!pr) 
         throw cmd_exception("proof is not available");
     if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) {
         throw cmd_exception("proof is not well sorted");
@@ -209,6 +214,8 @@ ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it 
         ctx.cs_state() != cmd_context::css_unsat)
         throw cmd_exception("proof is not available");
     proof_ref pr(ctx.m());
+    if (ctx.ignore_check())
+        return;
     pr = ctx.get_check_sat_result()->get_proof();
     if (pr == 0)
         throw cmd_exception("proof is not available");
@@ -238,6 +245,8 @@ static void print_core(cmd_context& ctx) {
 }
 
 ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
+        if (ctx.ignore_check())
+            return;
         if (!ctx.produce_unsat_cores())
             throw cmd_exception("unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)");
         if (!ctx.has_manager() ||
@@ -247,6 +256,8 @@ ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
     });
 
 ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset of assumptions sufficient for unsatisfiability", {
+        if (ctx.ignore_check())
+            return;
         if (!ctx.produce_unsat_assumptions())
             throw cmd_exception("unsat assumptions construction is not enabled, use command (set-option :produce-unsat-assumptions true)");
         if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) {
@@ -629,6 +640,7 @@ class get_info_cmd : public cmd {
     symbol   m_reason_unknown;
     symbol   m_all_statistics;
     symbol   m_assertion_stack_levels;
+    symbol   m_rlimit;
 public:
     get_info_cmd():
         cmd("get-info"),
@@ -639,7 +651,8 @@ public:
         m_status(":status"),
         m_reason_unknown(":reason-unknown"),
         m_all_statistics(":all-statistics"),
-        m_assertion_stack_levels(":assertion-stack-levels") {
+        m_assertion_stack_levels(":assertion-stack-levels"),
+        m_rlimit(":rlimit") {
     }
     char const * get_usage() const override { return "<keyword>"; }
     char const * get_descr(cmd_context & ctx) const override { return "get information."; }
@@ -670,6 +683,9 @@ public:
         }
         else if (opt == m_reason_unknown) {
             ctx.regular_stream() << "(:reason-unknown \"" << escaped(ctx.reason_unknown().c_str()) << "\")" << std::endl;
+        }
+        else if (opt == m_rlimit) {
+            ctx.regular_stream() << "(:rlimit " << ctx.m().limit().count() << ")" << std::endl;
         }
         else if (opt == m_all_statistics) {
             ctx.display_statistics();
@@ -832,6 +848,7 @@ public:
     }
     void finalize(cmd_context & ctx) override {}
 };
+
 
 // provides "help" for builtin cmds
 class builtin_cmd : public cmd {

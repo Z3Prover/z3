@@ -24,12 +24,14 @@ Revision History:
 #include "sat/sat_extension.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_lookahead.h"
-#include "sat/sat_unit_walk.h"
 #include "sat/sat_big.h"
+#include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
 
 namespace sat {
+
+    class xor_finder;
     
     class ba_solver : public extension {
 
@@ -227,7 +229,6 @@ namespace sat {
 
         solver*                m_solver;
         lookahead*             m_lookahead;
-        unit_walk*             m_unit_walk;
         stats                  m_stats; 
         small_object_allocator m_allocator;
        
@@ -286,15 +287,13 @@ namespace sat {
 
         // simplification routines
 
-        svector<unsigned>             m_visited;
-        unsigned                      m_visited_ts;
         vector<svector<constraint*>>    m_cnstr_use_list;
         use_list                  m_clause_use_list;
         bool                      m_simplify_change;
         bool                      m_clause_removed;
         bool                      m_constraint_removed;
         literal_vector            m_roots;
-        svector<bool>             m_root_vars;
+        bool_vector             m_root_vars;
         unsigned_vector           m_weights;
         svector<wliteral>         m_wlits;
         bool subsumes(card& c1, card& c2, literal_vector& comp);
@@ -306,11 +305,6 @@ namespace sat {
         void binary_subsumption(card& c1, literal lit);
         void clause_subsumption(card& c1, literal lit, clause_vector& removed_clauses);
         void card_subsumption(card& c1, literal lit);
-        void init_visited();
-        void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
-        void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
-        bool is_visited(bool_var v) const { return is_visited(literal(v, false)); }
-        bool is_visited(literal l) const { return m_visited[l.index()] == m_visited_ts; }
         unsigned get_num_unblocked_bin(literal l);
         literal get_min_occurrence_literal(card const& c);
         void init_use_lists();
@@ -327,10 +321,12 @@ namespace sat {
         void update_psm(constraint& c) const;
         void mutex_reduction();
         void update_pure();
+        void reserve_roots();
 
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
         void cleanup_clauses();
+        void cleanup_clauses(clause_vector& clauses);
         void cleanup_constraints();
         void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
         void remove_constraint(constraint& c, char const* reason);
@@ -347,7 +343,9 @@ namespace sat {
         void init_watch(bool_var v);
         void clear_watch(constraint& c);
         lbool add_assign(constraint& c, literal l);
+        bool incremental_mode() const;
         void simplify(constraint& c);
+        void pre_simplify(xor_finder& xu, constraint& c);
         void nullify_tracking_literal(constraint& c);
         void set_conflict(constraint& c, literal lit);
         void assign(constraint& c, literal lit);
@@ -355,6 +353,8 @@ namespace sat {
         void get_antecedents(literal l, constraint const& c, literal_vector & r);
         bool validate_conflict(constraint const& c) const;
         bool validate_unit_propagation(constraint const& c, literal alit) const;
+        void validate_eliminated();
+        void validate_eliminated(ptr_vector<constraint> const& cs);
         void attach_constraint(constraint const& c);
         void detach_constraint(constraint const& c);
         lbool eval(constraint const& c) const;
@@ -365,6 +365,7 @@ namespace sat {
         void recompile(constraint& c);
         void split_root(constraint& c);
         unsigned next_id() { return m_constraint_id++; }
+        void set_non_learned(constraint& c);
 
 
         // cardinality
@@ -391,6 +392,8 @@ namespace sat {
         void get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r);
         void get_antecedents(literal l, xr const& x, literal_vector & r);
         void simplify(xr& x);
+        void extract_xor();
+        void merge_xor();
         bool clausify(xr& x);
         void flush_roots(xr& x);
         lbool eval(xr const& x) const;
@@ -427,29 +430,33 @@ namespace sat {
 
         void bail_resolve_conflict(unsigned idx);        
 
+        void init_visited();
+        void mark_visited(literal l);
+        void mark_visited(bool_var v);
+        bool is_visited(bool_var v) const;
+        bool is_visited(literal l) const;
+
+
         // access solver
         inline lbool value(bool_var v) const { return value(literal(v, false)); }
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
         inline lbool value(model const& m, literal l) const { return l.sign() ? ~m[l.var()] : m[l.var()]; }
         inline bool is_false(literal lit) const { return l_false == value(lit); }
 
-        inline unsigned lvl(literal lit) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(lit); }
-        inline unsigned lvl(bool_var v) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(v); }
+        inline unsigned lvl(literal lit) const { return m_lookahead ? 0 : m_solver->lvl(lit); }
+        inline unsigned lvl(bool_var v) const { return m_lookahead ? 0 : m_solver->lvl(v); }
         inline bool inconsistent() const { 
             if (m_lookahead) return m_lookahead->inconsistent(); 
-            if (m_unit_walk) return m_unit_walk->inconsistent();
             return m_solver->inconsistent(); 
         }
         inline watch_list& get_wlist(literal l) { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
         inline watch_list const& get_wlist(literal l) const { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
         inline void assign(literal l, justification j) { 
             if (m_lookahead) m_lookahead->assign(l); 
-            else if (m_unit_walk) m_unit_walk->assign(l);
-            else m_solver->assign(l, j); 
+            else m_solver->assign(l, j);
         }
         inline void set_conflict(justification j, literal l) { 
             if (m_lookahead) m_lookahead->set_conflict(); 
-            else if (m_unit_walk) m_unit_walk->set_conflict();
             else m_solver->set_conflict(j, l); 
         }
         inline config const& get_config() const { return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); }
@@ -519,6 +526,10 @@ namespace sat {
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
         constraint* add_xr(literal_vector const& lits, bool learned);
+        literal     add_xor_def(literal_vector& lits, bool learned = false);
+        bool        all_distinct(literal_vector const& lits);
+        bool        all_distinct(clause const& c);
+        bool        all_distinct(xr const& x);
 
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
@@ -528,7 +539,6 @@ namespace sat {
         ~ba_solver() override;
         void set_solver(solver* s) override { m_solver = s; }
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
-        void set_unit_walk(unit_walk* u) override { m_unit_walk = u; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xr(literal_vector const& lits);
@@ -540,6 +550,7 @@ namespace sat {
         check_result check() override;
         void push() override;
         void pop(unsigned n) override;
+        void pre_simplify() override;
         void simplify() override;
         void clauses_modifed() override;
         lbool get_phase(bool_var v) override;
@@ -562,7 +573,7 @@ namespace sat {
         bool check_model(model const& m) const override;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
-        void display(std::ostream& out, constraint const& c, bool values) const;
+        std::ostream& display(std::ostream& out, constraint const& c, bool values) const;
 
         bool validate() override;
 

@@ -170,7 +170,7 @@ void peq::mk_eq (app_ref_vector& aux_consts, app_ref& result, bool stores_on_rhs
             store_args.push_back (rhs);
             store_args.push_back (*it);
             store_args.push_back (val);
-            rhs = m_arr_u.mk_store (store_args.size (), store_args.c_ptr ());
+            rhs = m_arr_u.mk_store (store_args);
             aux_consts.push_back (val);
         }
         m_eq = m.mk_eq (lhs, rhs);
@@ -211,8 +211,8 @@ namespace spacer_qe {
         expr_ref_vector  m_terms;
         vector<rational> m_coeffs;
         vector<rational> m_divs;
-        svector<bool>    m_strict;
-        svector<bool>    m_eq;
+        bool_vector    m_strict;
+        bool_vector    m_eq;
         scoped_ptr<contains_app> m_var;
 
         bool is_linear(rational const& mul, expr* t, rational& c, expr_ref_vector& ts) {
@@ -1163,7 +1163,7 @@ namespace spacer_qe {
                         tout << "substituting " << mk_pp (m_var->x (), m) << " by " << mk_pp (x_term, m) << "\n";
                       );
             }
-            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer (m);
+            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer (m, false);
             rep->set_substitution (&sub);
             (*rep)(fml);
         }

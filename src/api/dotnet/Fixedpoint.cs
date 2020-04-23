@@ -162,26 +162,6 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Creates a backtracking point.
-        /// </summary>
-        /// <seealso cref="Pop"/>
-        public void Push()
-        {
-            Native.Z3_fixedpoint_push(Context.nCtx, NativeObject);
-        }
-
-        /// <summary>
-        /// Backtrack one backtracking point.
-        /// </summary>
-        /// <remarks>Note that an exception is thrown if Pop is called without a corresponding <c>Push</c></remarks>
-        /// <seealso cref="Push"/>
-        public void Pop()
-        {
-            Native.Z3_fixedpoint_pop(Context.nCtx, NativeObject);
-        }
-
-
-        /// <summary>
         /// Update named rule into in the fixedpoint solver.
         /// </summary>        
         public void UpdateRule(BoolExpr rule, Symbol name)

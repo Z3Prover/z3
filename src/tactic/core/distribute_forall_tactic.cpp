@@ -52,6 +52,9 @@ class distribute_forall_tactic : public tactic {
                     new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
+                if (m.proofs_enabled()) {
+                    result_pr = m.mk_push_quant(old_q, result);
+                }
                 return true;
             }
 
@@ -70,6 +73,9 @@ class distribute_forall_tactic : public tactic {
                     new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
+                if (m.proofs_enabled()) {
+                    result_pr = m.mk_push_quant(old_q, result);
+                }
                 return true;
             }
 
@@ -97,7 +103,6 @@ public:
 
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());
         ast_manager & m = g->m();
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
@@ -122,8 +127,6 @@ public:
 
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("distribute-forall", g->display(tout););
-        SASSERT(g->is_well_sorted());
         m_rw = nullptr;
     }
 

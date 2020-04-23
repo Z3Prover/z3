@@ -133,7 +133,7 @@ public:
         m_max_core_size(3),
         m_maximize_assignment(false),
         m_max_correction_set_size(3),
-        m_pivot_on_cs(true)
+        m_pivot_on_cs(true)       
     {
         switch(st) {
         case s_primal:
@@ -207,7 +207,7 @@ public:
                   s().display(tout << m_asms << "\n") << "\n";
                   display(tout););
             is_sat = check_sat_hill_climb(m_asms);
-            if (m.canceled()) {
+            if (!m.inc()) {
                 return l_undef;
             }
             switch (is_sat) {
@@ -247,7 +247,7 @@ public:
         if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
             is_sat = check_sat_hill_climb(m_asms);
-            if (m.canceled()) {
+            if (!m.inc()) {
                 return l_undef;
             }
             switch (is_sat) {
@@ -286,7 +286,7 @@ public:
         lbool is_sat = l_true;
         if (m_hill_climb) {
             /**
-               Give preference to cores that have large minmal values.
+               Give preference to cores that have large minimal values.
             */
             sort_assumptions(asms);              
             m_last_index = std::min(m_last_index, asms.size()-1);
@@ -435,7 +435,9 @@ public:
         maxres& mr;
         compare_asm(maxres& mr):mr(mr) {}
         bool operator()(expr* a, expr* b) const {
-            return mr.get_weight(a) > mr.get_weight(b);
+            rational w1 = mr.get_weight(a);
+            rational w2 = mr.get_weight(b);
+            return w1 > w2 || (w1 == w2 && a->get_id() > b->get_id());
         }
     };
 
@@ -860,7 +862,7 @@ public:
                tout << "other solver\n";
                s().display(tout);
                );
-        VERIFY(is_sat == l_false || m.canceled());
+        VERIFY(is_sat == l_false || !m.inc());
     }
 
     void verify_assumptions() {

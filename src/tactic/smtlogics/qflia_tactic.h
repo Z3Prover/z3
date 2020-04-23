@@ -23,6 +23,8 @@ Notes:
 class ast_manager;
 class tactic;
 
+tactic * mk_preamble_tactic(ast_manager& m);
+
 tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*
   ADD_TACTIC("qflia", "builtin strategy for solving QF_LIA problems.", "mk_qflia_tactic(m, p)")

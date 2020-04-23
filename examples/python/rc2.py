@@ -8,6 +8,8 @@
 
 from z3 import *
 
+from z3 import *
+
 def tt(s, f):
     return is_true(s.model().eval(f))
 
@@ -38,7 +40,7 @@ class RC2:
         name = Bool("%s" % fml)
         self.solver.add(Implies(name, fml))
         self.bounds[name] = (S, k)
-        sel.names[fml] = name
+        self.names[fml] = name
         return name
 
     def print_cost(self):
@@ -51,16 +53,18 @@ class RC2:
     # sort W, and incrementally add elements of W
     # in sorted order to prefer cores with high weight.
     def check(self, Ws):
-        ws = sorted(list(Ws), lambda f,w : -w)
-        # print(ws)
+        def compare(fw):
+            f, w = fw
+            return -w
+        ws = sorted([(k,Ws[k]) for k in Ws], key = compare)
         i = 0
         while i < len(ws):
            j = i
            # increment j until making 5% progress or exhausting equal weight entries
-           while (j < len(ws) and ws[j][1] == ws[i][1]) or (i > 0 and (i - j)*20 < len(ws)):
+           while (j < len(ws) and ws[j][1] == ws[i][1]) or (i > 0 and (j - i)*20 < len(ws)):
               j += 1
            i = j
-           r = self.solver.check(ws[j][0] for j in range(i))
+           r = self.solver.check([ws[j][0] for j in range(i)])
            if r == sat:
               self.update_max_cost()
            else:
@@ -70,7 +74,7 @@ class RC2:
     def get_cost(self):
         return sum(self.Ws0[c] for c in self.Ws0 if not tt(self.solver, c))
 
-    # Retrieve independendent cores from Ws
+    # Retrieve independent cores from Ws
     def get_cores(self, Ws):
         cores = []
         while unsat == self.check(Ws):            
@@ -121,7 +125,7 @@ class RC2:
                self.min_cost += w
                self.print_cost()
                self.update_bounds(Ws, core, w)            
-        return sel.min_cost, { f for f in self.Ws0 if not tt(self.solver, f) }
+        return self.min_cost, { f for f in self.Ws0 if not tt(self.solver, f) }
 
     def from_file(self, file):
         opt = Optimize()
@@ -133,6 +137,14 @@ class RC2:
             assert(f.arg(1).as_long() == 0)
             add(Ws, f.arg(0), f.arg(2).as_long())
         return self.maxsat(Ws)
+    
+    def from_formulas(self, hard, soft):      
+        self.solver.add(hard)
+        Ws = {}        
+        for f, cost in soft:
+            add(Ws, f, cost)
+        return self.maxsat(Ws)
+
 
 def main(file):
     s = SolverFor("QF_FD")

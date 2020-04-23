@@ -25,15 +25,17 @@ class ackermannize_bv_tactic : public tactic {
 public:
     ackermannize_bv_tactic(ast_manager& m, params_ref const& p)
         : m(m), m_p(p)
-    {}
+    {
+        updt_params(p);
+    }
 
     ~ackermannize_bv_tactic() override { }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        tactic_report report("ackermannize", *g);
+        tactic_report report("ackermannize_bv", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
-        TRACE("ackermannize", g->display(tout << "in\n"););
+        TRACE("goal", g->display(tout << "in\n"););
 
         ptr_vector<expr> flas;
         const unsigned sz = g->size();
@@ -56,8 +58,7 @@ public:
         }
         
         resg->inc_depth();
-        TRACE("ackermannize", resg->display(tout << "out\n"););
-        SASSERT(resg->is_well_sorted());
+        TRACE("goal", resg->display(tout << "out\n"););
     }
 
 

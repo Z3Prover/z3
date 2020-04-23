@@ -158,25 +158,6 @@ public class Fixedpoint extends Z3Object
     }
 
     /**
-     * Creates a backtracking point. 
-     * @see #pop
-     **/
-    public void push() {
-        Native.fixedpointPush(getContext().nCtx(), getNativeObject());
-    }
-
-    /**
-     * Backtrack one backtracking point.
-     * Remarks: Note that an exception is thrown if {@code pop} 
-     * is called without a corresponding {@code push}
-     *  
-     * @see #push
-     **/
-    public void pop() {
-        Native.fixedpointPop(getContext().nCtx(), getNativeObject());
-    }
-
-    /**
      * Update named rule into in the fixedpoint solver.
      *
      * @param rule implication (Horn clause) representing rule

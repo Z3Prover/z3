@@ -28,6 +28,10 @@ struct ast_to_lt {
     bool operator()(ast * n1, ast * n2) const { return lt(n1, n2); }
 };
 
+struct ast_lt {
+    bool operator()(ast * n1, ast * n2) const { return n1->get_id() < n2->get_id(); }
+};
+
 bool lex_lt(unsigned num, ast * const * n1, ast * const * n2);
 inline bool lex_lt(unsigned num, expr * const * n1, expr * const * n2) {
     return lex_lt(num, reinterpret_cast<ast*const*>(n1), reinterpret_cast<ast*const*>(n2));

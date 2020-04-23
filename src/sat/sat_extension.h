@@ -52,7 +52,6 @@ namespace sat {
         virtual ~extension() {}
         virtual void set_solver(solver* s) = 0;
         virtual void set_lookahead(lookahead* s) = 0;
-        virtual void set_unit_walk(unit_walk* u) = 0;
         virtual bool propagate(literal l, ext_constraint_idx idx) = 0;
         virtual double get_reward(literal l, ext_constraint_idx idx, literal_occs_fun& occs) const = 0;
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) = 0;
@@ -62,6 +61,7 @@ namespace sat {
         virtual lbool resolve_conflict() { return l_undef; } // stores result in sat::solver::m_lemma
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
+        virtual void pre_simplify() = 0;
         virtual void simplify() = 0;
         // have a way to replace l by r in all constraints
         virtual bool set_root(literal l, literal r) { return false; }

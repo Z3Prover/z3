@@ -23,7 +23,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 
 class cost_evaluator {
-    ast_manager &   m_manager;
+    ast_manager &   m;
     arith_util      m_util;
     unsigned        m_num_args;
     float const *   m_args;

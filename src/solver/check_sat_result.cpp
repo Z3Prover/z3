@@ -64,7 +64,7 @@ void simple_check_sat_result::get_model_core(model_ref & m) {
 }
 
 proof * simple_check_sat_result::get_proof() { 
-    return m_status == l_false ? m_proof.get() : nullptr;
+    return m_proof;
 }
 
 std::string simple_check_sat_result::reason_unknown() const { 

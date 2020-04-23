@@ -334,29 +334,6 @@ extern "C" {
                                                  Z3_fixedpoint f,
                                                  Z3_string s);
 
-    /**
-       \brief Create a backtracking point.
-
-       The fixedpoint solver contains a set of rules, added facts and assertions.
-       The set of rules, facts and assertions are restored upon calling #Z3_fixedpoint_pop.
-
-       \sa Z3_fixedpoint_pop
-
-       def_API('Z3_fixedpoint_push', VOID, (_in(CONTEXT), _in(FIXEDPOINT)))
-    */
-    void Z3_API Z3_fixedpoint_push(Z3_context c, Z3_fixedpoint d);
-
-    /**
-       \brief Backtrack one backtracking point.
-
-       \sa Z3_fixedpoint_push
-
-       \pre The number of calls to pop cannot exceed calls to push.
-
-       def_API('Z3_fixedpoint_pop', VOID, (_in(CONTEXT), _in(FIXEDPOINT)))
-    */
-    void Z3_API Z3_fixedpoint_pop(Z3_context c, Z3_fixedpoint d);
-
     /** \brief The following utilities allows adding user-defined domains. */
 
     typedef void Z3_fixedpoint_reduce_assign_callback_fptr(

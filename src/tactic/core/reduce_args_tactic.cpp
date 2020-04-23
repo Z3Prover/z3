@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "util/cooperate.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/has_free_vars.h"
 #include "util/map.h"
@@ -113,9 +112,7 @@ struct reduce_args_tactic::imp {
     }
 
     void checkpoint() { 
-        if (m_manager.canceled())
-            throw tactic_exception(m_manager.limit().get_cancel_msg());
-        cooperate("reduce-args");
+        tactic::checkpoint(m_manager);
     }
     
     struct find_non_candidates_proc {
@@ -484,14 +481,13 @@ reduce_args_tactic::~reduce_args_tactic() {
 
 void reduce_args_tactic::operator()(goal_ref const & g, 
                                     goal_ref_buffer & result) {
-    SASSERT(g->is_well_sorted());
-    fail_if_proof_generation("reduce-args", g);
     fail_if_unsat_core_generation("reduce-args", g);
     result.reset();
-    m_imp->operator()(*(g.get()));
+    if (!m_imp->m().proofs_enabled()) {
+        m_imp->operator()(*(g.get()));
+    }
     g->inc_depth();
     result.push_back(g.get());
-    SASSERT(g->is_well_sorted());
 }
 
 void reduce_args_tactic::cleanup() {

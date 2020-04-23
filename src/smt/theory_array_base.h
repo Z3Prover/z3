@@ -20,16 +20,24 @@ Revision History:
 #define THEORY_ARRAY_BASE_H_
 
 #include "smt/smt_theory.h"
+#include "smt/theory_array_bapa.h"
 #include "ast/array_decl_plugin.h"
-#include "smt/proto_model/array_factory.h"
+#include "model/array_factory.h"
 
 namespace smt {
 
     class theory_array_base : public theory {
+        friend class theory_array_bapa;
     protected:
         bool m_found_unsupported_op;
-
+        unsigned m_array_weak_head;
+        svector<theory_var> m_array_weak_trail;
+        bool has_propagate_up_trail() const { return m_array_weak_head < m_array_weak_trail.size(); }
+        void add_weak_var(theory_var v);
+        virtual void set_prop_upward(theory_var v) {}
         void found_unsupported_op(expr * n);
+        void found_unsupported_op(enode* n) { found_unsupported_op(n->get_owner()); }
+        void found_unsupported_op(theory_var v) { found_unsupported_op(get_enode(v)->get_owner()); }
         
         bool is_store(app const* n) const { return n->is_app_of(get_id(), OP_STORE); }
         bool is_map(app const* n) const { return n->is_app_of(get_id(), OP_ARRAY_MAP); }
@@ -40,6 +48,8 @@ namespace smt {
         bool is_as_array(app const * n) const { return n->is_app_of(get_id(), OP_AS_ARRAY); }
         bool is_array_sort(sort const* s) const { return s->is_sort_of(get_id(), ARRAY_SORT); }
         bool is_array_sort(app const* n) const { return is_array_sort(get_manager().get_sort(n)); }
+        bool is_set_has_size(app const* n) const { return n->is_app_of(get_id(), OP_SET_HAS_SIZE); }
+        bool is_set_card(app const* n) const { return n->is_app_of(get_id(), OP_SET_CARD); }
 
         bool is_store(enode const * n) const { return is_store(n->get_owner()); }
         bool is_map(enode const* n) const { return is_map(n->get_owner()); }
@@ -48,7 +58,9 @@ namespace smt {
         bool is_as_array(enode const * n) const { return is_as_array(n->get_owner()); }
         bool is_default(enode const* n) const { return is_default(n->get_owner()); }
         bool is_array_sort(enode const* n) const { return is_array_sort(n->get_owner()); }
-
+        bool is_set_has_size(enode const* n) const { return is_set_has_size(n->get_owner()); }
+        bool is_set_carde(enode const* n) const { return is_set_card(n->get_owner()); }
+        bool is_select_arg(enode* r);
 
         app * mk_select(unsigned num_args, expr * const * args);
         app * mk_store(unsigned num_args, expr * const * args);
@@ -60,6 +72,8 @@ namespace smt {
         ptr_vector<enode>                   m_axiom1_todo;
         enode_pair_vector                   m_axiom2_todo;
         enode_pair_vector                   m_extensionality_todo;
+        enode_pair_vector                   m_congruent_todo;
+        scoped_ptr<theory_array_bapa>       m_bapa;
 
         void assert_axiom(unsigned num_lits, literal * lits);
         void assert_axiom(literal l1, literal l2);
@@ -71,6 +85,10 @@ namespace smt {
 
         void assert_extensionality_core(enode * a1, enode * a2);
         bool assert_extensionality(enode * a1, enode * a2);
+
+        expr_ref instantiate_lambda(app* e);
+        void assert_congruent_core(enode * a1, enode * a2);
+        void assert_congruent(enode * a1, enode * a2);
 
         // --------------------------------------------------
         // Array sort -> extensionality skolems
@@ -187,7 +205,7 @@ namespace smt {
         select_set * get_select_set(enode * n);
         void finalize_model(model_generator & m) override;
         model_value_proc * mk_value(enode * n, model_generator & m) override;
-        
+        bool include_func_interp(func_decl* f) override;
     public:
         theory_array_base(ast_manager & m);
         ~theory_array_base() override { restore_sorts(0); }

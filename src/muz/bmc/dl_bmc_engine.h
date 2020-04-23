@@ -63,7 +63,8 @@ namespace datalog {
         void reset_statistics() override;
         void get_rules_along_trace(datalog::rule_ref_vector& rules) override;
 
-        expr_ref get_answer() override;
+        expr_ref get_answer()  override;
+        proof_ref get_proof() override; 
 
         // direct access to (new) non-linear compiler.
         void compile(rule_set const& rules, expr_ref_vector& fmls, unsigned level);

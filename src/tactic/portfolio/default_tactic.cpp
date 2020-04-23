@@ -48,7 +48,7 @@ tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
                                         cond(mk_is_qffp_probe(), mk_qffp_tactic(m, p),
                                         cond(mk_is_qffplra_probe(), mk_qffplra_tactic(m, p),
                                         //cond(mk_is_qfufnra_probe(), mk_qfufnra_tactic(m, p),
-                                             mk_smt_tactic(m)))))))))))))),
+                                             and_then(mk_preamble_tactic(m), mk_smt_tactic(m))))))))))))))),
                                p);
     return st;
 }

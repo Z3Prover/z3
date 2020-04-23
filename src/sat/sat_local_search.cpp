@@ -31,7 +31,9 @@ namespace sat {
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
             add_clause(1, m_assumptions.c_ptr() + i);
         }
-
+        if (m_is_unsat)
+            return;
+        
         // add sentinel variable.
         m_vars.push_back(var_info());
 
@@ -167,9 +169,9 @@ namespace sat {
         init_goodvars();
         set_best_unsat();
 
-        for (bool_var v : m_units) {
+        for (unsigned i = 0; !m_is_unsat && i < m_units.size(); ++i) {
+            bool_var v = m_units[i];
             propagate(literal(v, !cur_solution(v)));
-            if (m_is_unsat) break;
         }
         if (m_is_unsat) {
             IF_VERBOSE(0, verbose_stream() << "unsat during reinit\n");
@@ -216,14 +218,14 @@ namespace sat {
 
     void local_search::set_best_unsat() {
         m_best_unsat = m_unsat_stack.size();
-        if (m_best_unsat == 1) {
-            constraint const& c = m_constraints[m_unsat_stack[0]];
-            IF_VERBOSE(2, display(verbose_stream() << "single unsat:", c));
-        }
+        m_best_phase.reserve(m_vars.size());
+        for (unsigned i = m_vars.size(); i-- > 0; ) {
+            m_best_phase[i] = m_vars[i].m_value;
+        }        
     }    
     
     void local_search::verify_solution() const {
-        IF_VERBOSE(0, verbose_stream() << "verifying solution\n");
+        IF_VERBOSE(10, verbose_stream() << "verifying solution\n");
         for (constraint const& c : m_constraints) 
             verify_constraint(c);
     }
@@ -333,7 +335,12 @@ namespace sat {
 
     void local_search::add_unit(literal lit, literal exp) {
         bool_var v = lit.var();
-        if (is_unit(lit)) return;
+        if (is_unit(lit)) {
+            if (m_vars[v].m_value == lit.sign()) {
+                m_is_unsat = true;                
+            }
+            return;
+        }
         SASSERT(!m_units.contains(v));
         if (m_vars[v].m_value == lit.sign() && !m_initializing) {
             flip_walksat(v);
@@ -351,7 +358,16 @@ namespace sat {
         m_par(nullptr) {
     }
 
-    void local_search::import(solver& s, bool _init) {        
+    void local_search::reinit(solver& s) {
+        import(s, true); 
+        if (s.m_best_phase_size > 0) {
+            for (unsigned i = num_vars(); i-- > 0; ) {
+                set_phase(i, s.m_best_phase[i]);
+            }
+        }
+    }
+
+    void local_search::import(solver const& s, bool _init) {        
         flet<bool> linit(m_initializing, true);
         m_is_pb = false;
         m_vars.reset();
@@ -364,7 +380,7 @@ namespace sat {
         if (m_config.phase_sticky()) {
             unsigned v = 0;
             for (var_info& vi : m_vars) {
-                vi.m_bias = s.m_phase[v++] == POS_PHASE ? 98 : 2;
+                vi.m_bias = s.m_phase[v++] ? 98 : 2;
             }
         }
 
@@ -480,7 +496,7 @@ namespace sat {
                     break;
                 }
                 case ba_solver::xr_t:
-                    NOT_IMPLEMENTED_YET();
+                    throw default_exception("local search is incompatible with enabling xor solving");
                     break;
                 }
             }
@@ -495,7 +511,7 @@ namespace sat {
     
 
     lbool local_search::check() {
-        return check(0, nullptr);
+        return check(0, nullptr, nullptr);
     }
 
 #define PROGRESS(tries, flips)                                          \
@@ -530,7 +546,25 @@ namespace sat {
             }
             total_flips += step;
             PROGRESS(tries, total_flips);
-            if (m_par && m_par->get_phase(*this)) {
+            if (m_par) {
+                double max_avg = 0;
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    max_avg = std::max(max_avg, (double)m_vars[v].m_slow_break);
+                }
+                double sum = 0;
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    sum += exp(m_config.itau() * (m_vars[v].m_slow_break - max_avg));
+                }
+                if (sum == 0) {
+                    sum = 0.01;
+                }
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    m_vars[v].m_break_prob = exp(m_config.itau() * (m_vars[v].m_slow_break - max_avg)) / sum;
+                }
+                
+                m_par->to_solver(*this);
+            }
+            if (m_par && m_par->from_solver(*this)) {
                 reinit();
             }
             if (tries % 10 == 0 && !m_unsat_stack.empty()) {
@@ -547,14 +581,16 @@ namespace sat {
         m_assumptions.append(sz, assumptions);
         unsigned num_units = m_units.size();
         init();
+        if (m_is_unsat)
+            return l_false;
         walksat();
-        
+
+        TRACE("sat", tout << m_units << "\n";);
         // remove unit clauses
         for (unsigned i = m_units.size(); i-- > num_units; ) {
             m_vars[m_units[i]].m_unit = false;
         }
         m_units.shrink(num_units); 
-        m_vars.pop_back();  // remove sentinel variable
 
         TRACE("sat", display(tout););
 
@@ -570,6 +606,7 @@ namespace sat {
         else {
             result = l_undef;
         }
+        m_vars.pop_back();  // remove sentinel variable
         IF_VERBOSE(1, verbose_stream() << "(sat.local-search " << result << ")\n";);
         IF_VERBOSE(20, display(verbose_stream()););
         return result;
@@ -611,7 +648,7 @@ namespace sat {
             propagate(~best);
         }        
         else {
-            std::cout << "no best\n";
+            IF_VERBOSE(1, verbose_stream() << "(sat.local-search no best)\n");
         }
     }
 
@@ -716,10 +753,12 @@ namespace sat {
             }
             add_unit(~lit, null_literal);
             if (!propagate(~lit)) {
-                IF_VERBOSE(0, verbose_stream() << "unsat\n");
+                IF_VERBOSE(2, verbose_stream() << "unsat\n");
                 m_is_unsat = true;
                 return;
             }
+            if (m_unsat_stack.empty())
+                return;
             goto reflip;
         }
 
@@ -834,11 +873,10 @@ namespace sat {
     }
 
 
-    void local_search::set_phase(bool_var v, lbool f) {
+    void local_search::set_phase(bool_var v, bool f) {
         unsigned& bias = m_vars[v].m_bias;
-        if (f == l_true && bias < 100) bias++;
-        if (f == l_false && bias > 0) bias--;
-        // f == l_undef ?
+        if (f  && bias < 100) bias++;
+        if (!f && bias > 0) bias--;
     }
 
     void local_search::set_bias(bool_var v, lbool f) {

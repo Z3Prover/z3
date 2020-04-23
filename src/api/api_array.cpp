@@ -168,7 +168,7 @@ extern "C" {
         }
         ast_manager & m = mk_c(c)->m();
         func_decl* _f      = to_func_decl(f);
-        expr* const* _args = to_exprs(args);
+        expr* const* _args = to_exprs(n, args);
 
         ptr_vector<sort> domain;
         for (unsigned i = 0; i < n; ++i) {
@@ -263,6 +263,7 @@ extern "C" {
     MK_UNARY(Z3_mk_set_complement, mk_c(c)->get_array_fid(), OP_SET_COMPLEMENT, SKIP);
     MK_BINARY(Z3_mk_set_subset, mk_c(c)->get_array_fid(), OP_SET_SUBSET, SKIP);
     MK_BINARY(Z3_mk_array_ext, mk_c(c)->get_array_fid(), OP_ARRAY_EXT, SKIP);
+    MK_BINARY(Z3_mk_set_has_size, mk_c(c)->get_array_fid(), OP_SET_HAS_SIZE, SKIP);
 
     Z3_ast Z3_API Z3_mk_as_array(Z3_context c, Z3_func_decl f) {
         Z3_TRY;

@@ -20,12 +20,12 @@ Revision History:
 #define MPZ_H_
 
 #include<string>
+#include<mutex>
 #include "util/util.h"
 #include "util/small_object_allocator.h"
 #include "util/trace.h"
 #include "util/scoped_numeral.h"
 #include "util/scoped_numeral_vector.h"
-#include "util/z3_omp.h"
 #include "util/mpn.h"
 
 unsigned u_gcd(unsigned u, unsigned v);
@@ -135,9 +135,14 @@ inline void swap(mpz & m1, mpz & m2) { m1.swap(m2); }
 template<bool SYNCH = true>
 class mpz_manager {
     mutable small_object_allocator  m_allocator;
-    mutable omp_nest_lock_t         m_lock;
-#define MPZ_BEGIN_CRITICAL() if (SYNCH) omp_set_nest_lock(&m_lock);
-#define MPZ_END_CRITICAL()   if (SYNCH) omp_unset_nest_lock(&m_lock);
+#ifndef SINGLE_THREAD
+    mutable std::recursive_mutex    m_lock;
+#define MPZ_BEGIN_CRITICAL() if (SYNCH) m_lock.lock()
+#define MPZ_END_CRITICAL()   if (SYNCH) m_lock.unlock()
+#else
+#define MPZ_BEGIN_CRITICAL() {}
+#define MPZ_END_CRITICAL()   {}
+#endif
     mutable mpn_manager             m_mpn_manager;
 
 #ifndef _MP_GMP
@@ -191,9 +196,17 @@ class mpz_manager {
     mutable mpz_t     m_int64_min;
 
     mpz_t * allocate() {        
-        MPZ_BEGIN_CRITICAL();
-        mpz_t * cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));
-        MPZ_END_CRITICAL();
+        mpz_t * cell;
+#ifdef SINGLE_THREAD
+        cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
+#else
+        if (SYNCH) {
+            cell = reinterpret_cast<mpz_t*>(memory::allocate(sizeof(mpz_t)));
+        }
+        else {
+            cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
+        }
+#endif
         mpz_init(*cell);
         return cell;
     }
@@ -201,9 +214,16 @@ class mpz_manager {
     void deallocate(bool is_heap, mpz_t * ptr) { 
         mpz_clear(*ptr); 
         if (is_heap) {
-            MPZ_BEGIN_CRITICAL();
+#ifdef SINGLE_THREAD
             m_allocator.deallocate(sizeof(mpz_t), ptr); 
-            MPZ_END_CRITICAL();
+#else
+            if (SYNCH) {
+                memory::deallocate(ptr);
+            }
+            else {
+                m_allocator.deallocate(sizeof(mpz_t), ptr); 
+            }
+#endif
         }
     }
 
@@ -381,7 +401,9 @@ public:
 
     static mpz mk_z(int val) { return mpz(val); }
     
-    void del(mpz & a);
+    void del(mpz & a) { del(this, a); }
+
+    static void del(mpz_manager* m, mpz & a);
     
     void add(mpz const & a, mpz const & b, mpz & c);
 
@@ -592,6 +614,17 @@ public:
     */
     void display_smt2(std::ostream & out, mpz const & a, bool decimal) const;
 
+    /**
+       \brief Displays the num_bits least significant bits of a mpz number in hexadecimal format.
+       num_bits must be divisible by 4.
+    */
+    void display_hex(std::ostream & out, mpz const & a, unsigned num_bits) const;
+
+    /**
+       \brief Displays the num_bits least significant bits of a mpz number in binary format.
+    */
+    void display_bin(std::ostream & out, mpz const & a, unsigned num_bits) const;
+
     static unsigned hash(mpz const & a);
 
     static bool is_one(mpz const & a) {
@@ -691,7 +724,7 @@ public:
     bool decompose(mpz const & n, svector<digit_t> & digits);
 };
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 typedef mpz_manager<true> synch_mpz_manager;
 #else
 typedef mpz_manager<false> synch_mpz_manager;

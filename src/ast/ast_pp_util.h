@@ -27,11 +27,17 @@ class ast_pp_util {
     ast_manager&        m;
     obj_hashtable<func_decl> m_removed;
     smt2_pp_environment_dbg m_env;
+    unsigned                m_num_sorts, m_num_decls;
+    unsigned_vector         m_num_sorts_trail, m_num_decls_trail;
+    
  public:        
 
     decl_collector      coll;
 
-    ast_pp_util(ast_manager& m): m(m), m_env(m), coll(m) {}
+    ast_pp_util(ast_manager& m): m(m), m_env(m), m_num_sorts(0), m_num_decls(0), coll(m) {}
+
+    void reset() { coll.reset(); m_removed.reset(); m_num_sorts = 0; m_num_decls = 0; }
+
 
     void collect(expr* e);
 
@@ -44,6 +50,16 @@ class ast_pp_util {
     void display_decls(std::ostream& out);
 
     void display_asserts(std::ostream& out, expr_ref_vector const& fmls, bool neat = true);
+
+    void display_assert(std::ostream& out, expr* f, bool neat = true);
+
+    void display_assert_and_track(std::ostream& out, expr* f, expr* t, bool neat = true);
+
+    std::ostream& display_expr(std::ostream& out, expr* f, bool neat = true);
+
+    void push();
+    
+    void pop(unsigned n);
 
     smt2_pp_environment& env() { return m_env; }
 };

@@ -46,7 +46,7 @@ inline br_status unsigned2br_status(unsigned u) {
 
 class rewriter_exception : public default_exception {
 public:                                                
-    rewriter_exception(char const * msg):default_exception(msg) {}
+    rewriter_exception(std::string && msg) : default_exception(std::move(msg)) {}
 };
 
 #endif

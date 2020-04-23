@@ -29,14 +29,16 @@ Revision History:
 #include "cmd_context/extra_cmds/polynomial_cmds.h"
 #include "cmd_context/extra_cmds/subpaving_cmds.h"
 #include "smt/smt2_extra_cmds.h"
-#include "tactic/portfolio/smt_strategic_solver.h"
 #include "smt/smt_solver.h"
+
+static std::mutex *display_stats_mux = new std::mutex;
 
 extern bool g_display_statistics;
 static clock_t             g_start_time;
 static cmd_context *       g_cmd_context = nullptr;
 
 static void display_statistics() {
+    std::lock_guard<std::mutex> lock(*display_stats_mux);
     clock_t end_time = clock();
     if (g_cmd_context && g_display_statistics) {
         std::cout.flush();
@@ -49,19 +51,13 @@ static void display_statistics() {
 }
 
 static void on_timeout() {
-    #pragma omp critical (g_display_stats)
-    {
-        display_statistics();
-        exit(0);
-    }
+    display_statistics();
+    exit(0);    
 }
 
 static void STD_CALL on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
-    #pragma omp critical (g_display_stats)
-    {
-        display_statistics();
-    }
+    display_statistics();
     raise(SIGINT);
 }
 
@@ -73,7 +69,6 @@ unsigned read_smtlib2_commands(char const * file_name) {
     cmd_context ctx;
 
     ctx.set_solver_factory(mk_smt_strategic_solver_factory());
-
     install_dl_cmds(ctx);
     install_dbg_cmds(ctx);
     install_polynomial_cmds(ctx);
@@ -98,11 +93,8 @@ unsigned read_smtlib2_commands(char const * file_name) {
     }
 
 
-    #pragma omp critical (g_display_stats)
-    {
-        display_statistics();
-        g_cmd_context = nullptr;
-    }
+    display_statistics();
+    g_cmd_context = nullptr;
     return result ? 0 : 1;
 }
 

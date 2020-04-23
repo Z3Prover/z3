@@ -376,7 +376,7 @@ void mpff_manager::set(mpff & n, unsynch_mpz_manager & m, mpz const & v) {
     set_core(n, m, v); 
 }
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 void mpff_manager::set(mpff & n, synch_mpz_manager & m, mpz const & v) { 
     set_core(n, m, v); 
 }
@@ -399,7 +399,7 @@ void mpff_manager::set(mpff & n, unsynch_mpq_manager & m, mpq const & v) {
     set_core(n, m, v); 
 }
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 void mpff_manager::set(mpff & n, synch_mpq_manager & m, mpq const & v) { 
     set_core(n, m, v); 
 }
@@ -1081,7 +1081,7 @@ void mpff_manager::significand(mpff const & n, unsynch_mpz_manager & m, mpz & t)
     significand_core(n, m, t);
 }
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 void mpff_manager::significand(mpff const & n, synch_mpz_manager & m, mpz & t) {
     significand_core(n, m, t);
 }
@@ -1115,7 +1115,7 @@ void mpff_manager::to_mpz(mpff const & n, unsynch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 void mpff_manager::to_mpz(mpff const & n, synch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
@@ -1162,7 +1162,7 @@ void mpff_manager::to_mpq(mpff const & n, unsynch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 void mpff_manager::to_mpq(mpff const & n, synch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }

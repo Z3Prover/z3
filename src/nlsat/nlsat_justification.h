@@ -38,16 +38,28 @@ namespace nlsat {
 
     class lazy_justification {
         unsigned m_num_literals;
-        literal  m_literals[0];
+        unsigned m_num_clauses;
+        char     m_data[0];
+        nlsat::clause* const* clauses() const { return (nlsat::clause *const*)(m_data); }
     public:
-        static unsigned get_obj_size(unsigned num) { return sizeof(lazy_justification) + sizeof(literal)*num; }
-        lazy_justification(unsigned num, literal const * lits):
-            m_num_literals(num) {
-            memcpy(m_literals, lits, sizeof(literal)*num);
+        static unsigned get_obj_size(unsigned nl, unsigned nc) { return sizeof(lazy_justification) + sizeof(literal)*nl + sizeof(nlsat::clause*)*nc; }
+        lazy_justification(unsigned nl, literal const * lits, unsigned nc, nlsat::clause * const* clss):
+            m_num_literals(nl),
+            m_num_clauses(nc) {
+            if (nc > 0) {
+                memcpy(m_data + 0,                         clss, sizeof(nlsat::clause*)*nc);
+            }
+            if (nl > 0) {
+                memcpy(m_data + sizeof(nlsat::clause*)*nc, lits, sizeof(literal)*nl);
+            }
         }
-        unsigned size() const { return m_num_literals; }
-        literal operator[](unsigned i) const { SASSERT(i < size()); return m_literals[i]; }
-        literal const * lits() const { return m_literals; }
+        unsigned num_lits() const { return m_num_literals; }
+        literal lit(unsigned i) const { SASSERT(i < num_lits()); return lits()[i]; }
+        literal const * lits() const { return (literal const*)(m_data + m_num_clauses*sizeof(nlsat::clause*)); }
+
+        unsigned num_clauses() const { return m_num_clauses; }
+        nlsat::clause const& clause(unsigned i) const { SASSERT(i < num_clauses()); return *(clauses()[i]); }
+
     };
 
     class justification {
@@ -68,20 +80,30 @@ namespace nlsat {
         bool operator==(justification other) const { return m_data == other.m_data; }
         bool operator!=(justification other) const { return m_data != other.m_data; }
     };
+
+    inline std::ostream& operator<<(std::ostream& out, justification::kind k) {
+        switch (k) {
+        case justification::NULL_JST: return out << "null";
+        case justification::DECISION: return out << "decision";
+        case justification::CLAUSE: return out << "clause";
+        case justification::LAZY: return out << "lazy";
+        default: return out << "??";
+        }
+    }
     
     const justification null_justification;
     const justification decided_justification(true);
 
     inline justification mk_clause_jst(clause const * c) { return justification(const_cast<clause*>(c)); }
-    inline justification mk_lazy_jst(small_object_allocator & a, unsigned num, literal const * lits) {
-        void * mem = a.allocate(lazy_justification::get_obj_size(num));
-        return justification(new (mem) lazy_justification(num, lits));
+    inline justification mk_lazy_jst(small_object_allocator & a, unsigned nl, literal const * lits, unsigned nc, clause *const* clauses) {
+        void * mem = a.allocate(lazy_justification::get_obj_size(nl, nc));
+        return justification(new (mem) lazy_justification(nl, lits, nc, clauses));
     }
 
     inline void del_jst(small_object_allocator & a, justification jst) {
         if (jst.is_lazy()) {
             lazy_justification * ptr = jst.get_lazy();
-            unsigned obj_sz = lazy_justification::get_obj_size(ptr->size());
+            unsigned obj_sz = lazy_justification::get_obj_size(ptr->num_lits(), ptr->num_clauses());
             a.deallocate(obj_sz, ptr);
         }
     }

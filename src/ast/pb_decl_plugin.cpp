@@ -70,7 +70,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
             }
             else if (p.is_rational()) {
                 // HACK: ast pretty printer does not work with rationals.
-                rational r = p.get_rational();
+                rational const& r = p.get_rational();
                 if (r.is_int32()) {
                     params.push_back(parameter(r.get_int32()));
                 }
@@ -134,8 +134,8 @@ app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * 
         all_ones &= m_coeffs[i].is_one();
         m_params.push_back(parameter(m_coeffs[i]));
     }
-    if (all_ones && k.is_unsigned()) {
-        m_params[0] = parameter(floor(m_k).get_unsigned());
+    if (all_ones && k.is_unsigned() && floor(m_k).is_int32()) {
+        m_params[0] = parameter(floor(m_k).get_int32());
         return m.mk_app(m_fid, OP_AT_MOST_K, 1, m_params.c_ptr(), num_args, args, m.mk_bool_sort());
     }
     return m.mk_app(m_fid, OP_PB_LE, m_params.size(), m_params.c_ptr(), num_args, args, m.mk_bool_sort());

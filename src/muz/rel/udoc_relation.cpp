@@ -1112,7 +1112,7 @@ namespace datalog {
             SASSERT(joined_col_cnt > 0 || neg.get_signature().size() == 0);
             m_is_subtract = (joined_col_cnt == t.get_signature().size());
             m_is_subtract &= (joined_col_cnt == neg.get_signature().size());
-            svector<bool> found(joined_col_cnt, false);
+            bool_vector found(joined_col_cnt, false);
             for (unsigned i = 0; m_is_subtract && i < joined_col_cnt; ++i) {
                 m_is_subtract = !found[t_cols[i]] && (t_cols[i] == neg_cols[i]);
                 found[t_cols[i]] = true;

@@ -54,6 +54,7 @@ struct enum2bv_rewriter::imp {
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             expr_ref a0(m), a1(m);
             expr_ref_vector _args(m);
+            result_pr = nullptr;
             if (m.is_eq(f) && reduce_arg(args[0], a0) && reduce_arg(args[1], a1)) {
                 result = m.mk_eq(a0, a1);
                 return BR_DONE;
@@ -86,7 +87,7 @@ struct enum2bv_rewriter::imp {
         void throw_non_fd(expr* e) {
             std::stringstream strm;
             strm << "unable to handle nested data-type expression " << mk_pp(e, m);
-            throw rewriter_exception(strm.str().c_str());
+            throw rewriter_exception(strm.str());
         }
 
         void check_for_fd(unsigned n, expr* const* args) {
@@ -124,7 +125,7 @@ struct enum2bv_rewriter::imp {
 
                 // create a fresh variable, add bounds constraints for it.
                 unsigned nc = m_dt.get_datatype_num_constructors(s);
-                result = m.mk_fresh_const(f->get_name().str().c_str(), m_bv.mk_sort(bv_size));
+                result = m.mk_fresh_const(f->get_name(), m_bv.mk_sort(bv_size));
                 f_fresh = to_app(result)->get_decl();
                 if (!is_power_of_two(nc) || nc == 1) {
                     m_imp.m_bounds.push_back(m_bv.mk_ule(result, m_bv.mk_numeral(nc-1, bv_size)));
@@ -201,7 +202,8 @@ struct enum2bv_rewriter::imp {
                                      q->get_weight(), q->get_qid(), q->get_skid(), 
                                      q->get_num_patterns(), new_patterns,
                                      q->get_num_no_patterns(), new_no_patterns);
-            result_pr = nullptr;
+            if (m.proofs_enabled())
+                result_pr = m.mk_rewrite(q, result);
             return true;
         }
 

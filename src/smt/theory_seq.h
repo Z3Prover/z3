@@ -31,6 +31,9 @@ Revision History:
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
 #include "smt/theory_seq_empty.h"
+#include "smt/seq_skolem.h"
+#include "smt/seq_axioms.h"
+#include "smt/seq_offset_eq.h"
 
 namespace smt {
 
@@ -45,11 +48,19 @@ namespace smt {
         typedef dependency_manager::dependency dependency;        
 
         typedef trail_stack<theory_seq> th_trail_stack;
-        typedef std::pair<expr*, dependency*> expr_dep;
-        typedef obj_map<expr, expr_dep> eqdep_map_t; 
+        struct expr_dep {
+            expr* v;
+            expr* e;
+            dependency* d;
+            expr_dep(expr* v, expr* e, dependency* d): v(v), e(e), d(d) {}
+            expr_dep():v(nullptr), e(nullptr), d(nullptr) {}
+        };
+        typedef svector<expr_dep> eqdep_map_t;
         typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
+        struct validate_model_proc;
+        struct compare_depth;
         
         // cache to track evaluations under equalities
         class eval_cache {
@@ -57,8 +68,15 @@ namespace smt {
             expr_ref_vector         m_trail;
         public:
             eval_cache(ast_manager& m): m_trail(m) {}
-            bool find(expr* v, expr_dep& r) const { return m_map.find(v, r); }
-            void insert(expr* v, expr_dep& r) { m_trail.push_back(v); m_trail.push_back(r.first); m_map.insert(v, r); }
+            bool find(expr* v, expr_dep& r) const { 
+                return v->get_id() < m_map.size() && m_map[v->get_id()].e && (r = m_map[v->get_id()], true); 
+            }
+            void insert(expr_dep const& r) { 
+                m_trail.push_back(r.v); 
+                m_trail.push_back(r.e);
+                m_map.reserve(2*r.v->get_id() + 1);
+                m_map[r.v->get_id()] = r;
+            }
             void reset() { m_map.reset(); m_trail.reset(); }
         };
         
@@ -75,29 +93,40 @@ namespace smt {
             svector<map_update>    m_updates;
             unsigned_vector        m_limit;
 
+            bool find(expr* v, expr_dep& r) const { 
+                return v->get_id() < m_map.size() && m_map[v->get_id()].e && (r = m_map[v->get_id()], true); 
+            }
+            void insert(expr_dep const& r) { 
+                m_map.reserve(2*r.v->get_id() + 1);                
+                m_map[r.v->get_id()] = r;
+            }
             void add_trail(map_update op, expr* l, expr* r, dependency* d);
         public:
             solution_map(ast_manager& m, dependency_manager& dm): 
                 m(m),  m_dm(dm), m_cache(m), m_lhs(m), m_rhs(m) {}
             bool  empty() const { return m_map.empty(); }
             void  update(expr* e, expr* r, dependency* d);
-            void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
+            void  add_cache(expr_dep& r) { m_cache.insert(r); }
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
             expr* find(expr* e, dependency*& d);
             expr* find(expr* e);
             bool  find1(expr* a, expr*& b, dependency*& dep);
-            void  find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds);
+            void  find_rec(expr* e, svector<expr_dep>& finds);
             bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, dependency* d);
             void  reset_cache() { m_cache.reset(); }
             void  push_scope() { m_limit.push_back(m_updates.size()); }
             void  pop_scope(unsigned num_scopes);
             void  display(std::ostream& out) const;
+            eqdep_map_t::iterator begin() { return m_map.begin(); }
+            eqdep_map_t::iterator end() { return m_map.end(); }
         };
 
         // Table of current disequalities
         class exclusion_table {
+        public:
             typedef obj_pair_hashtable<expr, expr> table_t;
+        protected:
             ast_manager&                      m;
             table_t                           m_table;
             expr_ref_vector                   m_lhs, m_rhs;
@@ -111,6 +140,8 @@ namespace smt {
             void push_scope() { m_limit.push_back(m_lhs.size()); }
             void pop_scope(unsigned num_scopes);
             void display(std::ostream& out) const;            
+            table_t::iterator begin() const { return m_table.begin(); }
+            table_t::iterator end() const { return m_table.end(); }
         };
 
         // Asserted or derived equality with dependencies
@@ -143,14 +174,17 @@ namespace smt {
 
         eq mk_eqdep(expr* l, expr* r, dependency* dep) {
             expr_ref_vector ls(m), rs(m);
-            m_util.str.get_concat(l, ls);
-            m_util.str.get_concat(r, rs);
+            m_util.str.get_concat_units(l, ls);
+            m_util.str.get_concat_units(r, rs);
             return eq(m_eq_id++, ls, rs, dep);
         }        
 
+        // equalities that are decomposed by conacatenations
+        typedef std::pair<expr_ref_vector, expr_ref_vector> decomposed_eq;
+
         class ne {      
             expr_ref                 m_l, m_r;
-            vector<expr_ref_vector>  m_lhs, m_rhs;
+            vector<decomposed_eq>    m_eqs;
             literal_vector           m_lits;
             dependency*              m_dep;
         public:
@@ -158,36 +192,34 @@ namespace smt {
                 m_l(l), m_r(r), m_dep(dep) {
                     expr_ref_vector ls(l.get_manager()); ls.push_back(l);
                     expr_ref_vector rs(r.get_manager()); rs.push_back(r);
-                    m_lhs.push_back(ls);
-                    m_rhs.push_back(rs);
+                    m_eqs.push_back(std::make_pair(ls, rs));
                 }
 
-            ne(expr_ref const& _l, expr_ref const& _r, vector<expr_ref_vector> const& l, vector<expr_ref_vector> const& r, literal_vector const& lits, dependency* dep):
+            ne(expr_ref const& _l, expr_ref const& _r, vector<decomposed_eq> const& eqs, literal_vector const& lits, dependency* dep):
                 m_l(_l), m_r(_r),
-                m_lhs(l),
-                m_rhs(r),
+                m_eqs(eqs),
                 m_lits(lits),
-                m_dep(dep) {}
+                m_dep(dep) {
+                }
 
             ne(ne const& other): 
                 m_l(other.m_l), m_r(other.m_r),
-                m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_lits(other.m_lits), m_dep(other.m_dep) {}
+                m_eqs(other.m_eqs), 
+                m_lits(other.m_lits), m_dep(other.m_dep) {}
 
             ne& operator=(ne const& other) { 
                 if (this != &other) {
                     m_l = other.m_l;
                     m_r = other.m_r;
-                    m_lhs.reset();  m_lhs.append(other.m_lhs);
-                    m_rhs.reset();  m_rhs.append(other.m_rhs); 
+                    m_eqs.reset();  m_eqs.append(other.m_eqs);
                     m_lits.reset(); m_lits.append(other.m_lits); 
                     m_dep = other.m_dep; 
                 }
                 return *this; 
             }            
-            vector<expr_ref_vector> const& ls() const { return m_lhs; }
-            vector<expr_ref_vector> const& rs() const { return m_rhs; }
-            expr_ref_vector const& ls(unsigned i) const { return m_lhs[i]; }
-            expr_ref_vector const& rs(unsigned i) const { return m_rhs[i]; }
+            vector<decomposed_eq> const& eqs() const { return m_eqs; }
+            decomposed_eq const& operator[](unsigned i) const { return m_eqs[i]; }
+
             literal_vector const& lits() const { return m_lits; }
             literal lits(unsigned i) const { return m_lits[i]; }
             dependency* dep() const { return m_dep; }
@@ -260,6 +292,20 @@ namespace smt {
             }
         };
 
+        class replay_unit_literal : public apply {
+            expr_ref m_e;
+            bool     m_sign;
+        public:
+            replay_unit_literal(ast_manager& m, expr* e, bool sign) : m_e(e, m), m_sign(sign) {}
+            ~replay_unit_literal() override {}
+            void operator()(theory_seq& th) override {
+                literal lit = th.mk_literal(m_e);
+                if (m_sign) lit.neg();
+                th.add_axiom(lit);
+                m_e.reset();
+            }
+
+        };
 
         class replay_is_axiom : public apply {
             expr_ref m_e;
@@ -310,6 +356,7 @@ namespace smt {
             unsigned m_propagate_automata;
             unsigned m_check_length_coherence;
             unsigned m_branch_variable;
+            unsigned m_branch_nqs;
             unsigned m_solve_nqs;
             unsigned m_solve_eqs;
             unsigned m_add_axiom;
@@ -324,17 +371,17 @@ namespace smt {
         theory_seq_params const&   m_params;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
-        bool                       m_reset_cache; // invalidate cache.
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
+        scoped_vector<expr*>       m_lts;        // set of asserted str.<, str.<= literals
+        bool                       m_lts_checked; 
         unsigned                   m_eq_id;
         th_union_find              m_find;
+        seq_offset_eq              m_offset_eq;
 
         obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap;
         obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap2;
-        obj_map<enode, obj_map<enode, int>>   m_len_offset;
-        int                                   m_len_prop_lvl;
 
 
         seq_factory*               m_factory;    // value factory
@@ -342,25 +389,28 @@ namespace smt {
         expr_ref_vector            m_axioms;     // list of axioms to add.
         obj_hashtable<expr>        m_axiom_set;
         unsigned                   m_axioms_head; // index of first axiom to add.
-        bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
-        expr_ref_vector     m_int_string;
-        obj_map<expr, rational> m_si_axioms;
-        obj_hashtable<expr> m_has_length;          // is length applied
-        expr_ref_vector     m_length;             // length applications themselves
-        scoped_ptr_vector<apply> m_replay;        // set of actions to replay
+        bool                       m_incomplete;             // is the solver (clearly) incomplete for the fragment.
+        expr_ref_vector            m_int_string;
+        obj_hashtable<expr>        m_has_length;         // is length applied
+        expr_ref_vector            m_length;             // length applications themselves
+        obj_map<expr, unsigned>    m_length_limit_map;   // sequences that have length limit predicates
+        expr_ref_vector            m_length_limit;       // length limit predicates
+        scoped_ptr_vector<apply>   m_replay;        // set of actions to replay
         model_generator* m_mg;
-        th_rewriter      m_rewrite;
+        th_rewriter      m_rewrite;               // rewriter that converts strings to character concats
+        th_rewriter      m_str_rewrite;           // rewriter that coonverts character concats to strings
         seq_rewriter     m_seq_rewrite;
         seq_util         m_util;
         arith_util       m_autil;
+        seq_skolem       m_sk;
+        seq_axioms       m_ax;
         arith_value      m_arith_value;
         th_trail_stack   m_trail_stack;
         stats            m_stats;
-        symbol           m_prefix, m_suffix, m_accept, m_reject;
-        symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
-        symbol           m_pre, m_post, m_eq, m_seq_align;
-        ptr_vector<expr> m_todo;
+        ptr_vector<expr> m_todo, m_concat;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
+        expr_ref_pair_vector m_new_eqs;
+        bool             m_has_seq;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
@@ -375,6 +425,7 @@ namespace smt {
         re2automaton                   m_mk_aut;
 
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
+        obj_hashtable<expr>            m_is_digit;         // expressions that have been constrained to be digits
 
         void init(context* ctx) override;
         final_check_status final_check_eh() override;
@@ -394,6 +445,7 @@ namespace smt {
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
         theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), m_params); }
         char const * get_name() const override { return "seq"; }
+        bool include_func_interp(func_decl* f) override { return m_util.str.is_nth_u(f); }
         theory_var mk_var(enode* n) override;
         void apply_sort_cnstr(enode* n, sort* s) override;
         void display(std::ostream & out) const override;
@@ -402,15 +454,14 @@ namespace smt {
         void init_model(model_generator & mg) override;
         void finalize_model(model_generator & mg) override;
         void init_search_eh() override;
+        void validate_model(model& mdl) override;
 
         void init_model(expr_ref_vector const& es);
         app* get_ite_value(expr* a);
-        void get_ite_concat(expr* e, ptr_vector<expr>& concats);
+        void get_ite_concat(ptr_vector<expr>& head, ptr_vector<expr>& tail);
         
-        void len_offset(expr* e, rational val);
-        void prop_arith_to_len_offset();
-        int find_fst_non_empty_idx(expr_ref_vector const& x) const;
-        expr* find_fst_non_empty_var(expr_ref_vector const& x) const;
+        int find_fst_non_empty_idx(expr_ref_vector const& x);
+        expr* find_fst_non_empty_var(expr_ref_vector const& x);
         void find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & diff);
         bool find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned idx, dependency*& deps, expr_ref_vector & res);
@@ -436,11 +487,13 @@ namespace smt {
         void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
         bool branch_variable_eq(eq const& e);
         bool branch_binary_variable(eq const& e);
-        bool eq_unit(expr* const& l, expr* const &r) const;       
+        bool eq_unit(expr* l, expr* r) const;       
         unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
         unsigned_vector overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        bool branch_ternary_variable_base(dependency* dep, unsigned_vector indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
-        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base(dependency* dep, unsigned_vector const & indexes, expr * x, 
+                                          expr_ref_vector const& xs, expr * y1, expr_ref_vector const& ys, expr * y2);
+        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector const& indexes, expr_ref_vector const& xs, 
+                                           expr * x, expr * y1, expr_ref_vector const& ys, expr * y2);
         bool branch_ternary_variable(eq const& e, bool flag1 = false);
         bool branch_ternary_variable2(eq const& e, bool flag1 = false);
         bool branch_quat_variable(eq const& e);
@@ -456,13 +509,17 @@ namespace smt {
 
         bool check_extensionality();
         bool check_contains();
+        bool check_lts();
         bool solve_eqs(unsigned start);
-        bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep, unsigned idx);
+        bool solve_eq(unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
+        bool lift_ite(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
         bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
-        bool solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
+        bool solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
+        bool solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
+        bool solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep);
         bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr_ref& y);
         bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
         bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
@@ -476,15 +533,23 @@ namespace smt {
         bool reduce_length(unsigned i, unsigned j, bool front, expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps);
 
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
-        expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
-        expr_ref mk_concat(expr_ref_vector const& es, sort* s) { if (es.empty()) return mk_empty(s); return mk_concat(es.size(), es.c_ptr()); }
-        expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return expr_ref(m_util.str.mk_concat(es.size(), es.c_ptr()), m); }
-        expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr()); }
+        expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es, m.get_sort(es[0])), m); }
+        expr_ref mk_concat(unsigned n, expr*const* es, sort* s) { return expr_ref(m_util.str.mk_concat(n, es, s), m); }
+        expr_ref mk_concat(expr_ref_vector const& es, sort* s) { return mk_concat(es.size(), es.c_ptr(), s); }
+        expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return expr_ref(m_util.str.mk_concat(es.size(), es.c_ptr(), m.get_sort(es[0])), m); }
+        expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr(), m.get_sort(es[0])); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(m_util.str.mk_concat(e1, e2), m); }
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(m_util.str.mk_concat(e1, e2, e3), m); }
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
         bool solve_nc(unsigned i);
+        bool check_ne_literals(unsigned idx, unsigned& num_undef_lits);
+        bool propagate_ne2lit(unsigned idx);
+        bool propagate_ne2eq(unsigned idx);
+        bool propagate_ne2eq(unsigned idx, expr_ref_vector const& es);
+        bool reduce_ne(unsigned idx);
+        bool branch_nqs();
+        lbool branch_nq(ne const& n);
 
         struct cell {
             cell*       m_parent;
@@ -501,15 +566,24 @@ namespace smt {
         bool explain_empty(expr_ref_vector& es, dependency*& dep);
 
         // asserting consequences
-        bool linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
+        void linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, nullptr, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
-        void propagate_eq(dependency* dep, enode* n1, enode* n2);
-        void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
-        void propagate_eq(dependency* dep, literal_vector const& lits, expr* e1, expr* e2, bool add_to_eqs = true);
-        void propagate_eq(dependency* dep, expr* e1, expr* e2, bool add_to_eqs = true);
-        void propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs = true);
+        bool propagate_eq(dependency* dep, enode* n1, enode* n2);
+        bool propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
+        bool propagate_eq(dependency* dep, literal_vector const& lits, expr* e1, expr* e2, bool add_to_eqs = true);
+        bool propagate_eq(dependency* dep, expr* e1, expr* e2, bool add_to_eqs = true);
+        bool propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs = true);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
+        void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+
+        // self-validation
+        void validate_axiom(literal_vector const& lits);
+        void validate_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_assign(literal lit, enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_assign_eq(enode* a, enode* b, enode_pair_vector const& eqs, literal_vector const& lits);
+        void validate_fmls(enode_pair_vector const& eqs, literal_vector const& lits, expr_ref_vector& fmls);
+        expr_ref elim_skolem(expr* e);
 
         u_map<unsigned> m_branch_start;
         void insert_branch_start(unsigned k, unsigned s);
@@ -525,23 +599,13 @@ namespace smt {
         bool is_var(expr* b) const;
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_unit_nth(expr* a) const;
-        bool is_var_nth(expr* a) const;
-        bool is_nth(expr* a) const;
-        bool is_nth(expr* a, expr*& e1, expr*& e2) const;
-        bool is_tail(expr* a, expr*& s, unsigned& idx) const;
-        bool is_eq(expr* e, expr*& a, expr*& b) const; 
-        bool is_pre(expr* e, expr*& s, expr*& i);
-        bool is_post(expr* e, expr*& s, expr*& i);
-        expr_ref mk_sk_ite(expr* c, expr* t, expr* f);
         expr_ref mk_nth(expr* s, expr* idx);
-        expr_ref mk_last(expr* e);
-        expr_ref mk_first(expr* e);
-        expr_ref canonize(expr* e, dependency*& eqs);
-        bool canonize(expr* e, expr_ref_vector& es, dependency*& eqs);
-        bool canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs);
+        bool canonize(expr* e, dependency*& eqs, expr_ref& result);
+        bool canonize(expr* e, expr_ref_vector& es, dependency*& eqs, bool& change);
+        bool canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs, bool& change);
         ptr_vector<expr> m_expand_todo;
-        expr_ref expand(expr* e, dependency*& eqs);
-        expr_ref expand1(expr* e, dependency*& eqs);
+        bool expand(expr* e, dependency*& eqs, expr_ref& result);
+        bool expand1(expr* e, dependency*& eqs, expr_ref& result);
         expr_ref try_expand(expr* e, dependency*& eqs);
         void add_dependency(dependency*& dep, enode* a, enode* b);
     
@@ -549,25 +613,14 @@ namespace smt {
         void enque_axiom(expr* e);
         void deque_axiom(expr* e);
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal, literal l5 = null_literal);        
-        void add_indexof_axiom(expr* e);
-        void add_replace_axiom(expr* e);
-        void add_extract_axiom(expr* e);
-        void add_length_axiom(expr* n);
-        void add_tail_axiom(expr* e, expr* s);
-        void add_drop_last_axiom(expr* e, expr* s);
-        void add_extract_prefix_axiom(expr* e, expr* s, expr* l);
-        void add_extract_suffix_axiom(expr* e, expr* s, expr* i);
-        bool is_tail(expr* s, expr* i, expr* l);
-        bool is_drop_last(expr* s, expr* i, expr* l);
-        bool is_extract_prefix0(expr* s, expr* i, expr* l);
-        bool is_extract_suffix(expr* s, expr* i, expr* l);
         
-
         bool has_length(expr *e) const { return m_has_length.contains(e); }
-        void add_length(expr* e);
-        void enforce_length(expr* n);
+        void add_length(expr* e, expr* l);
+        bool add_length_to_eqc(expr* n);
         bool enforce_length(expr_ref_vector const& es, vector<rational>& len);
         void enforce_length_coherence(enode* n1, enode* n2);
+
+        void add_length_limit(expr* s, unsigned k, bool is_searching);
 
         // model-check the functions that convert integers to strings and the other way.
         void add_int_string(expr* e);
@@ -575,29 +628,15 @@ namespace smt {
         bool check_int_string(expr* e);
 
         expr_ref add_elim_string_axiom(expr* n);
-        void add_at_axiom(expr* n);
-        void add_nth_axiom(expr* n);
         void add_in_re_axiom(expr* n);
-        void add_itos_axiom(expr* n);
-        void add_stoi_axiom(expr* n);
-        bool add_stoi_val_axiom(expr* n);
-        bool add_itos_val_axiom(expr* n);
-        void add_si_axiom(expr* s, expr* i, unsigned sz);
-        void ensure_digit_axiom();
-        literal is_digit(expr* ch);
-        expr_ref digit2int(expr* ch);
-        void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_simplified_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
-        literal mk_preferred_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
         expr_ref mk_add(expr* a, expr* b);
-        expr_ref mk_len(expr* s) const { return expr_ref(m_util.str.mk_length(s), m); }
-        enode* ensure_enode(expr* a);
-        enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
+        expr_ref mk_len(expr* s);
         dependency* mk_join(dependency* deps, literal lit);
         dependency* mk_join(dependency* deps, literal_vector const& lits);
 
@@ -607,12 +646,12 @@ namespace smt {
         bool lower_bound(expr* s, rational& lo) const;
         bool lower_bound2(expr* s, rational& lo);
         bool upper_bound(expr* s, rational& hi) const;
-        bool get_length(expr* s, rational& val) const;
+        bool get_length(expr* s, rational& val);
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
-        expr_ref coalesce_chars(expr* const& str);
-        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, expr* e4 = nullptr, sort* range = nullptr);
-        bool is_skolem(symbol const& s, expr* e) const;
+
+        // unfold definitions based on length limits
+        void propagate_length_limit(expr* n);
 
         void set_incomplete(app* term);
 
@@ -621,17 +660,8 @@ namespace smt {
         eautomaton* get_automaton(expr* e);
         literal mk_accept(expr* s, expr* idx, expr* re, expr* state);
         literal mk_accept(expr* s, expr* idx, expr* re, unsigned i) { return mk_accept(s, idx, re, m_autil.mk_int(i)); }
-        bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
+        bool is_accept(expr* acc) const {  return m_sk.is_accept(acc); }
         bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
-        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
-        bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
-        bool is_step(expr* e) const;
-        bool is_max_unfolding(expr* e) const { return is_skolem(symbol("seq.max_unfolding_depth"), e); }
-        expr_ref mk_max_unfolding_depth() { 
-            return mk_skolem(symbol("seq.max_unfolding_depth"), 
-                             m_autil.mk_int(m_max_unfolding_depth), 
-                             nullptr, nullptr, nullptr, m.mk_bool_sort());
-        }
         void propagate_not_prefix(expr* e);
         void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);
@@ -650,6 +680,7 @@ namespace smt {
         std::ostream& display_deps(std::ostream& out, dependency* deps) const;
         std::ostream& display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
         std::ostream& display_nc(std::ostream& out, nc const& nc) const;
+        std::ostream& display_lit(std::ostream& out, literal l) const;
     public:
         theory_seq(ast_manager& m, theory_seq_params const & params);
         ~theory_seq() override;

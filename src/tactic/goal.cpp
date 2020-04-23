@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
 #include "ast/display_dimacs.h"
@@ -115,6 +116,7 @@ void goal::copy_to(goal & target) const {
 }
 
 void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
+    SASSERT(!proofs_enabled() || pr);
     if (m().is_true(f))
         return;
     if (m().is_false(f)) {
@@ -128,16 +130,15 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
         m().del(m_dependencies);
         m_inconsistent = true;
         m().push_back(m_forms, m().mk_false());
-        if (proofs_enabled())
-            m().push_back(m_proofs, saved_pr);
+        m().push_back(m_proofs, saved_pr);
         if (unsat_core_enabled())
             m().push_back(m_dependencies, saved_d);
     }
     else {
+        SASSERT(!pr || m().get_fact(pr) == f);
         SASSERT(!m_inconsistent);
         m().push_back(m_forms, f);
-        if (proofs_enabled())
-            m().push_back(m_proofs, pr);
+        m().push_back(m_proofs, pr);
         if (unsat_core_enabled())
             m().push_back(m_dependencies, d);
     }
@@ -225,10 +226,12 @@ void goal::process_not_or(bool save_first, app * f, proof * pr, expr_dependency 
 }
 
 void goal::slow_process(bool save_first, expr * f, proof * pr, expr_dependency * d, expr_ref & out_f, proof_ref & out_pr) {
+    expr* g = nullptr;
+    proof_ref _pr(pr, m());
     if (m().is_and(f))
         process_and(save_first, to_app(f), pr, d, out_f, out_pr);
-    else if (m().is_not(f) && m().is_or(to_app(f)->get_arg(0)))
-        process_not_or(save_first, to_app(to_app(f)->get_arg(0)), pr, d, out_f, out_pr);
+    else if (m().is_not(f, g) && m().is_or(g))
+        process_not_or(save_first, to_app(g), pr, d, out_f, out_pr);
     else if (save_first) {
         out_f  = f;
         out_pr = pr;
@@ -248,11 +251,15 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
     expr_ref _f(f, m());
     proof_ref _pr(pr, m());
     expr_dependency_ref _d(d, m());
-    SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
-    if (m_inconsistent)
+    if (m_inconsistent) {
         return;
-    if (proofs_enabled())
+    }
+    SASSERT(!proofs_enabled() || pr);
+    if (pr) {
+        CTRACE("goal", f != m().get_fact(pr), tout << mk_pp(f, m()) << "\n" << mk_pp(pr, m()) << "\n";);
+        SASSERT(f == m().get_fact(pr));
         slow_process(f, pr, d);
+    }
     else {
         expr_ref fr(f, m());
         quick_process(false, fr, d);
@@ -278,11 +285,10 @@ void goal::get_formulas(expr_ref_vector & result) const {
 }
 
 void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
-    // KLM: don't know why this assertion is no longer true
-    // SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
     if (m_inconsistent)
         return;
-    if (proofs_enabled()) {
+    if (pr) {
+        SASSERT(f == m().get_fact(pr));
         expr_ref out_f(m());
         proof_ref out_pr(m());
         slow_process(true, f, pr, d, out_f, out_pr);
@@ -299,6 +305,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         }
     }
     else {
+        SASSERT(!proofs_enabled());
         expr_ref fr(f, m());
         quick_process(true, fr, d);
         if (!m_inconsistent) {
@@ -396,6 +403,20 @@ void goal::display_with_dependencies(std::ostream & out) const {
     out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
 }
 
+
+void goal::display_with_proofs(std::ostream& out) const {
+    out << "(goal";
+    unsigned sz = size();
+    for (unsigned i = 0; i < sz; i++) {
+        out << "\n  |-";
+        if (pr(i)) {
+            out << mk_ismt2_pp(pr(i), m(), 4);
+        }
+        out << "\n  " << mk_ismt2_pp(form(i), m(), 2);
+    }
+    out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
+}
+
 void goal::display(ast_printer_context & ctx) const {
     display(ctx, ctx.regular_stream());
 }
@@ -434,10 +455,10 @@ void goal::display_ll(std::ostream & out) const {
 /**
    \brief Assumes that the formula is already in CNF.
 */
-void goal::display_dimacs(std::ostream & out) const {
+void goal::display_dimacs(std::ostream & out, bool include_names) const {
     expr_ref_vector fmls(m());
     get_formulas(fmls);
-    ::display_dimacs(out, fmls);
+    ::display_dimacs(out, fmls, include_names);
 }
 
 unsigned goal::num_exprs() const {
@@ -455,9 +476,8 @@ void goal::shrink(unsigned j) {
     unsigned sz = size();
     for (unsigned i = j; i < sz; i++)
         m().pop_back(m_forms);
-    if (proofs_enabled()) 
-        for (unsigned i = j; i < sz; i++)
-            m().pop_back(m_proofs);
+    for (unsigned i = j; i < sz; i++)
+        m().pop_back(m_proofs);
     if (unsat_core_enabled()) 
         for (unsigned i = j; i < sz; i++)
             m().pop_back(m_dependencies);
@@ -478,8 +498,7 @@ void goal::elim_true() {
             continue;
         }
         m().set(m_forms, j, f);
-        if (proofs_enabled())
-            m().set(m_proofs, j, m().get(m_proofs, i));
+        m().set(m_proofs, j, m().get(m_proofs, i));
         if (unsat_core_enabled())
             m().set(m_dependencies, j, m().get(m_dependencies, i));
         j++;
@@ -565,8 +584,7 @@ void goal::elim_redundancies() {
             continue;
         }
         m().set(m_forms, j, f);
-        if (proofs_enabled())
-            m().set(m_proofs, j, pr(i));
+        m().set(m_proofs, j, pr(i));
         if (unsat_core_enabled())
             m().set(m_dependencies, j, dep(i));
         j++;
@@ -574,12 +592,19 @@ void goal::elim_redundancies() {
     shrink(j);
 }
 
-bool goal::is_well_sorted() const {
+bool goal::is_well_formed() const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         expr * t = form(i);
         if (!::is_well_sorted(m(), t))
             return false;
+#if 0
+        if (pr(i) && m().get_fact(pr(i)) != form(i)) {
+            TRACE("tactic", tout << mk_ismt2_pp(pr(i), m()) << "\n" << mk_ismt2_pp(form(i), m()) << "\n";);
+            SASSERT(m().get_fact(pr(i)) == form(i));
+            return false;
+        }
+#endif
     }
     return true;
 }
@@ -596,8 +621,7 @@ goal * goal::translate(ast_translation & translator) const {
     unsigned sz = m().size(m_forms);
     for (unsigned i = 0; i < sz; i++) {
         res->m().push_back(res->m_forms, translator(m().get(m_forms, i)));
-        if (res->proofs_enabled())
-            res->m().push_back(res->m_proofs, translator(m().get(m_proofs, i)));
+        res->m().push_back(res->m_proofs, translator(m().get(m_proofs, i)));
         if (res->unsat_core_enabled())
             res->m().push_back(res->m_dependencies, dep_translator(m().get(m_dependencies, i)));
     }
@@ -611,7 +635,6 @@ goal * goal::translate(ast_translation & translator) const {
 
     return res;
 }
-
 
 bool goal::sat_preserved() const {
     return prec() == PRECISE || prec() == UNDER;

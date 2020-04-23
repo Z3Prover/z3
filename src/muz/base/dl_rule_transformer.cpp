@@ -36,21 +36,15 @@ namespace datalog {
     }
 
     void rule_transformer::reset() {
-        plugin_vector::iterator it = m_plugins.begin();
-        plugin_vector::iterator end = m_plugins.end();
-        for(; it!=end; ++it) {            
-            dealloc(*it);
-        }
+        for (auto* p : m_plugins) 
+            dealloc(p);
         m_plugins.reset();
         m_dirty = false;
     }
 
     void rule_transformer::cancel() {
-        plugin_vector::iterator it = m_plugins.begin();
-        plugin_vector::iterator end = m_plugins.end();
-        for(; it!=end; ++it) {
-            (*it)->cancel();
-        }
+        for (auto* p : m_plugins) 
+            p->cancel();
     }
 
     struct rule_transformer::plugin_comparator {
@@ -69,7 +63,7 @@ namespace datalog {
     void rule_transformer::register_plugin(plugin * p) {
         m_plugins.push_back(p);
         p->attach(*this);
-        m_dirty=true;
+        m_dirty = true;
     }
 
     bool rule_transformer::operator()(rule_set & rules) {
@@ -81,7 +75,7 @@ namespace datalog {
             tout<<"init:\n";
             rules.display(tout);
         );
-        rule_set* new_rules = alloc(rule_set, rules);
+        scoped_ptr<rule_set> new_rules = alloc(rule_set, rules);      
         plugin_vector::iterator it = m_plugins.begin();
         plugin_vector::iterator end = m_plugins.end();
         for(; it!=end && !m_context.canceled(); ++it) {
@@ -91,7 +85,7 @@ namespace datalog {
             IF_VERBOSE(1, verbose_stream() << "(transform " << typeid(p).name() << "...";);
             stopwatch sw;
             sw.start();
-            rule_set * new_rules1 = p(*new_rules);
+            scoped_ptr<rule_set> new_rules1 = p(*new_rules);
             sw.stop();
             double sec = sw.get_seconds();
             if (sec < 0.001) sec = 0.0;
@@ -104,13 +98,12 @@ namespace datalog {
                 !new_rules1->close()) {
                 warning_msg("a rule transformation skipped "
                             "because it destratified negation");
-                dealloc(new_rules1);
+                new_rules1 = nullptr;
                 IF_VERBOSE(1, verbose_stream() << "no-op " << sec << "s)\n";);
                 continue;
             }
             modified = true;
-            dealloc(new_rules);
-            new_rules = new_rules1;
+            new_rules = new_rules1.detach();
             new_rules->ensure_closed();
 
             IF_VERBOSE(1, verbose_stream() << new_rules->get_num_rules() << " rules " << sec << "s)\n";);
@@ -122,7 +115,6 @@ namespace datalog {
         if (modified) {
             rules.replace_rules(*new_rules);
         }
-        dealloc(new_rules);
         return modified;
     }
 
@@ -132,7 +124,7 @@ namespace datalog {
     //
     //------------------------------
 
-    void rule_transformer::plugin::remove_duplicate_tails(app_ref_vector& tail, svector<bool>& tail_neg)
+    void rule_transformer::plugin::remove_duplicate_tails(app_ref_vector& tail, bool_vector& tail_neg)
     {
         //one set for positive and one for negative
         obj_hashtable<app> tail_apps[2];

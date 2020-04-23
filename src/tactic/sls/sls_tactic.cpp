@@ -61,7 +61,6 @@ public:
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
-        SASSERT(g->is_well_sorted());        
         result.reset();
         
         TRACE("sls", g->display(tout););
@@ -72,8 +71,6 @@ public:
         g->add(mc.get());
         g->inc_depth();
         result.push_back(g.get());
-        TRACE("sls", g->display(tout););
-        SASSERT(g->is_well_sorted());
     }
 
     void cleanup() override {
@@ -104,7 +101,6 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p) {
     // main_p.set_bool("pull_cheap_ite", true);
     main_p.set_bool("push_ite_bv", true);
     main_p.set_bool("blast_distinct", true);
-    // main_p.set_bool("udiv2mul", true);
     main_p.set_bool("hi_div0", true);
 
     params_ref simp2_p = p;
@@ -116,7 +112,6 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p) {
 
     params_ref hoist_p;
     hoist_p.set_bool("hoist_mul", true);
-    // hoist_p.set_bool("hoist_cmul", true);
     hoist_p.set_bool("som", false);
 
     params_ref gaussian_p;

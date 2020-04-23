@@ -24,7 +24,6 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "util/obj_pair_hashtable.h"
 #include "ast/ast_lt.h"
-#include "util/cooperate.h"
 
 class max_bv_sharing_tactic : public tactic {
     
@@ -61,7 +60,6 @@ class max_bv_sharing_tactic : public tactic {
         }
 
         bool max_steps_exceeded(unsigned num_steps) const { 
-            cooperate("max bv sharing");
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
             return num_steps > m_max_steps;
@@ -238,7 +236,6 @@ class max_bv_sharing_tactic : public tactic {
                 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             tactic_report report("max-bv-sharing", *g);
             bool produce_proofs = g->proofs_enabled();
             
@@ -261,8 +258,6 @@ class max_bv_sharing_tactic : public tactic {
             m_rw.cfg().cleanup();
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("max_bv_sharing", g->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

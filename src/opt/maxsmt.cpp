@@ -171,8 +171,8 @@ namespace opt {
         if (is_sat != l_true) {
             return is_sat;
         }
-        for (unsigned i = 0; i < mutexes.size(); ++i) {
-            process_mutex(mutexes[i], new_soft);
+        for (auto& mux : mutexes) {
+            process_mutex(mux, new_soft);
         }
         return l_true;
     }
@@ -187,8 +187,8 @@ namespace opt {
 
     void maxsmt_solver_base::process_mutex(expr_ref_vector& mutex, obj_map<expr, rational>& new_soft) {
         TRACE("opt", 
-              for (unsigned i = 0; i < mutex.size(); ++i) {
-                  tout << mk_pp(mutex[i].get(), m) << " |-> " << new_soft.find(mutex[i].get()) << "\n";
+              for (expr* e : mutex) {
+                  tout << mk_pp(e, m) << " |-> " << new_soft.find(e) << "\n";
               });
         if (mutex.size() <= 1) {
             return;
@@ -201,14 +201,13 @@ namespace opt {
 
         rational weight(0), sum1(0), sum2(0);
         vector<rational> weights;
-        for (unsigned i = 0; i < mutex.size(); ++i) {
-            rational w = new_soft.find(mutex[i].get());
+        for (expr* e : mutex) {
+            rational w = new_soft.find(e);
             weights.push_back(w);
             sum1 += w;
-            new_soft.remove(mutex[i].get());
+            new_soft.remove(e);
         }
-        for (unsigned i = mutex.size(); i > 0; ) {
-            --i;
+        for (unsigned i = mutex.size(); i-- > 0; ) {
             expr_ref soft(m.mk_or(i+1, mutex.c_ptr()), m);
             m_trail.push_back(soft);
             rational w = weights[i];

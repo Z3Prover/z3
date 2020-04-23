@@ -21,7 +21,6 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "tactic/generic_model_converter.h"
-#include "util/cooperate.h"
 #include "ast/arith_decl_plugin.h"
 #include "tactic/core/simplify_tactic.h"
 #include "ast/ast_smt2_pp.h"
@@ -98,9 +97,8 @@ class degree_shift_tactic : public tactic {
 
 
         void checkpoint() {
-            if (m.canceled())
+            if (!m.inc())
                 throw tactic_exception(m.limit().get_cancel_msg());
-            cooperate("degree_shift");
         }
 
         void visit(expr * t, expr_fast_mark1 & visited) {
@@ -224,7 +222,6 @@ class degree_shift_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
             m_produce_proofs = g->proofs_enabled();
             m_produce_models = g->models_enabled();
             tactic_report report("degree_shift", *g);
@@ -270,7 +267,6 @@ class degree_shift_tactic : public tactic {
             g->add(mc.get());
             result.push_back(g.get());
             TRACE("degree_shift", g->display(tout); if (mc) mc->display(tout););
-            SASSERT(g->is_well_sorted());
         }
     };
     

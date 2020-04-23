@@ -460,13 +460,13 @@ namespace upolynomial {
         bool eq(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2);
         bool eq(numeral_vector const & p1, numeral_vector const & p2) { return eq(p1.size(), p1.c_ptr(), p2.size(), p2.c_ptr()); }
 
-        void display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const;
-        void display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { display(out, p.size(), p.c_ptr(), var_name); }
-        void display_star(std::ostream & out, unsigned sz, numeral const * p) { display(out, sz, p, "x", true); }
-        void display_star(std::ostream & out, numeral_vector const & p) { display_star(out, p.size(), p.c_ptr()); }
+        std::ostream& display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const;
+        std::ostream& display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { return display(out, p.size(), p.c_ptr(), var_name); }
+        std::ostream& display_star(std::ostream & out, unsigned sz, numeral const * p) { return display(out, sz, p, "x", true); }
+        std::ostream& display_star(std::ostream & out, numeral_vector const & p) { return display_star(out, p.size(), p.c_ptr()); }
 
-        void display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x") const;
-        void display_smt2(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
+        std::ostream& display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x") const;
+        std::ostream& display_smt2(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
             return display_smt2(out, p.size(), p.c_ptr(), var_name); 
         }
     };
@@ -554,7 +554,7 @@ namespace upolynomial {
         numeral_vector    m_tr_tmp;
         numeral_vector    m_push_tmp;
 
-        int sign_of(numeral const & c);
+        sign sign_of(numeral const & c);
         struct drs_frame;
         void pop_top_frame(numeral_vector & p_stack, svector<drs_frame> & frame_stack);
         void push_child_frames(unsigned sz, numeral const * p, numeral_vector & p_stack, svector<drs_frame> & frame_stack);
@@ -735,32 +735,32 @@ namespace upolynomial {
         /**
            \brief Evaluate the sign of p(b) 
         */
-        int eval_sign_at(unsigned sz, numeral const * p, mpbq const & b);
+        sign eval_sign_at(unsigned sz, numeral const * p, mpbq const & b);
+        
+        /**
+           \brief Evaluate the sign of p(b)
+        */
+        sign eval_sign_at(unsigned sz, numeral const * p, mpq const & b);
 
         /**
            \brief Evaluate the sign of p(b)
         */
-        int eval_sign_at(unsigned sz, numeral const * p, mpq const & b);
-
-        /**
-           \brief Evaluate the sign of p(b)
-        */
-        int eval_sign_at(unsigned sz, numeral const * p, mpz const & b);
+        sign eval_sign_at(unsigned sz, numeral const * p, mpz const & b);
 
         /**
            \brief Evaluate the sign of p(0)
         */
-        int eval_sign_at_zero(unsigned sz, numeral const * p);
+        sign eval_sign_at_zero(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign of p(+oo)
         */
-        int eval_sign_at_plus_inf(unsigned sz, numeral const * p);
+        sign eval_sign_at_plus_inf(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign of p(-oo)
         */
-        int eval_sign_at_minus_inf(unsigned sz, numeral const * p);
+        sign eval_sign_at_minus_inf(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign variations in the polynomial sequence at -oo
@@ -863,11 +863,11 @@ namespace upolynomial {
         // Return FALSE, if the actual root was found, it is stored in a.
         // 
         // See upolynomial.cpp for additional comments
-        bool refine_core(unsigned sz, numeral const * p, int sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b);
+        bool refine_core(unsigned sz, numeral const * p, sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b);
         
         bool refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b);
 
-        bool refine_core(unsigned sz, numeral const * p, int sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
+        bool refine_core(unsigned sz, numeral const * p, sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
         
         bool refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
         /////////////////////
@@ -908,13 +908,13 @@ namespace upolynomial {
         bool factor(unsigned sz, numeral const * p, factors & r, factor_params const & params = factor_params());
         bool factor(numeral_vector const & p, factors & r, factor_params const & params = factor_params()) { return factor(p.size(), p.c_ptr(), r, params); }
 
-        void display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const { 
+        std::ostream& display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const { 
             return core_manager::display(out, sz, p, var_name); 
         }
-        void display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
+        std::ostream& display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
             return core_manager::display(out, p, var_name); 
         }
-        void display(std::ostream & out, upolynomial_sequence const & seq, char const * var_name = "x") const;
+        std::ostream& display(std::ostream & out, upolynomial_sequence const & seq, char const * var_name = "x") const;
     };
 
 };

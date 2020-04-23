@@ -20,9 +20,11 @@ Revision History:
 #ifndef API_CONTEXT_H_
 #define API_CONTEXT_H_
 
-#include "api/z3.h"
+
+#include "util/hashtable.h"
+#include "util/mutex.h"
+#include "util/event_handler.h"
 #include "ast/ast.h"
-#include "api/api_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
@@ -30,17 +32,18 @@ Revision History:
 #include "ast/dl_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
-#include "smt/smt_kernel.h"
+#include "ast/special_relations_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "smt/params/smt_params.h"
-#include "util/event_handler.h"
+#include "smt/smt_kernel.h"
+#include "smt/smt_solver.h"
 #include "cmd_context/tactic_manager.h"
 #include "cmd_context/context_params.h"
 #include "cmd_context/cmd_context.h"
-#include "api/api_polynomial.h"
-#include "util/hashtable.h"
-#include "ast/rewriter/seq_rewriter.h"
-#include "smt/smt_solver.h"
 #include "solver/solver.h"
+#include "api/z3.h"
+#include "api/api_util.h"
+#include "api/api_polynomial.h"
 
 namespace smtlib {
     class parser;
@@ -78,6 +81,7 @@ namespace api {
         scoped_ptr<ast_manager>    m_manager;
         scoped_ptr<cmd_context>    m_cmd;
         add_plugins                m_plugins;
+        mutex                      m_mux;
 
         arith_util                 m_arith_util;
         bv_util                    m_bv_util;
@@ -106,6 +110,7 @@ namespace api {
         family_id                  m_pb_fid;
         family_id                  m_fpa_fid;
         family_id                  m_seq_fid;
+        family_id                  m_special_relations_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
         std::string                m_string_buffer; // temporary buffer used to cache strings sent to the "external" world.
@@ -162,6 +167,7 @@ namespace api {
         family_id get_fpa_fid() const { return m_fpa_fid; }
         family_id get_seq_fid() const { return m_seq_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
+        family_id get_special_relations_fid() const { return m_special_relations_fid; }
 
         Z3_error_code get_error_code() const { return m_error_code; }
         void reset_error_code();
@@ -178,8 +184,11 @@ namespace api {
 
         // Store a copy of str in m_string_buffer, and return a reference to it.
         // This method is used to communicate local/internal strings with the "external world"
+        char * mk_external_string(char const * str, unsigned n);
         char * mk_external_string(char const * str);
-        char * mk_external_string(std::string const & str);
+        char * mk_external_string(std::string && str);
+        sbuffer<char>              m_char_buffer;
+
 
         // Create a numeral of the given sort
         expr * mk_numeral_core(rational const & n, sort * s);

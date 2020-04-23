@@ -44,7 +44,7 @@ namespace smt {
         typedef obj_map<clause, app_triple>         clause2app_triple;
 
         context &                                  m_context;
-        ast_manager &                              m_manager;
+        ast_manager &                              m;
         dyn_ack_params &                           m_params;
         app_pair2num_occs                          m_app_pair2num_occs;
         app_pair_vector                            m_app_pairs;

@@ -24,6 +24,7 @@ void tst_prime_generator() {
     scoped_mpz sqrt_p(m);
 
     prime_generator gen;
+    gen.initialize();
     for (unsigned i = 0; i < 10000; i++) {
         uint64_t p = gen(i);
         std::cout << p << ", ";
@@ -38,5 +39,6 @@ void tst_prime_generator() {
             ENSURE(p % i != 0);
         }
     }
+    gen.finalize();
     std::cout << std::endl;
 }

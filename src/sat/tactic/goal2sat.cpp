@@ -27,14 +27,15 @@ Notes:
 
 --*/
 #include "util/ref_util.h"
-#include "util/cooperate.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/ba_solver.h"
+#include "sat/sat_cut_simplifier.h"
 #include "model/model_evaluator.h"
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
@@ -53,6 +54,7 @@ struct goal2sat::imp {
     ast_manager &               m;
     pb_util                     pb;
     sat::ba_solver*             m_ext;
+    sat::cut_simplifier*        m_aig;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
@@ -73,6 +75,7 @@ struct goal2sat::imp {
         m(_m),
         pb(m),
         m_ext(nullptr),
+        m_aig(nullptr),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
@@ -82,6 +85,7 @@ struct goal2sat::imp {
         m_is_lemma(false) {
         updt_params(p);
         m_true = sat::null_literal;
+        m_aig = s.get_cut_simplifier();
     }
         
     void updt_params(params_ref const & p) {
@@ -108,9 +112,9 @@ struct goal2sat::imp {
         m_solver.add_clause(l1, l2, m_is_lemma);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
+    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, bool is_lemma = false) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_lemma);
+        m_solver.add_clause(l1, l2, l3, m_is_lemma || is_lemma);
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
@@ -138,13 +142,18 @@ struct goal2sat::imp {
             else if (m.is_false(t)) {
                 l = sign ? mk_true() : ~mk_true();
             }
+            else if (!is_app(t)) {
+                std::ostringstream strm;
+                strm << mk_ismt2_pp(t, m);
+                throw_op_not_handled(strm.str());
+            }
             else {
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
                 sat::bool_var v = m_solver.add_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
-                TRACE("sat", tout << "new_var: " << v << ": " << mk_ismt2_pp(t, m) << "\n";);
-                if (ext && !is_uninterp_const(t)) {
+                TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << "\n";);
+                if (!is_uninterp_const(t)) {
                     m_interpreted_atoms.push_back(t);
                 }
             }
@@ -228,8 +237,10 @@ struct goal2sat::imp {
         }
     }
 
+    sat::literal_vector aig_lits;
+
     void convert_or(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_or:\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_or:\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned num = t->get_num_args();
         if (root) {
             SASSERT(num == m_result_stack.size());
@@ -251,15 +262,23 @@ struct goal2sat::imp {
             sat::bool_var k = m_solver.add_var(false);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
-            sat::literal * lits = m_result_stack.end() - num;
+            sat::literal * lits = m_result_stack.end() - num;           
+
             for (unsigned i = 0; i < num; i++) {
                 mk_clause(~lits[i], l);
             }
             m_result_stack.push_back(~l);
             lits = m_result_stack.end() - num - 1;
+            if (m_aig) {
+                aig_lits.reset();
+                aig_lits.append(num, lits);
+            }
             // remark: mk_clause may perform destructive updated to lits.
             // I have to execute it after the binary mk_clause above.
             mk_clause(num+1, lits);
+            if (m_aig) {
+                m_aig->add_or(l, num, aig_lits.c_ptr());
+            }
             unsigned old_sz = m_result_stack.size() - num - 1;
             m_result_stack.shrink(old_sz);
             if (sign)
@@ -290,8 +309,10 @@ struct goal2sat::imp {
             sat::bool_var k = m_solver.add_var(false);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
-            // l => /\ lits
             sat::literal * lits = m_result_stack.end() - num;
+
+
+            // l => /\ lits
             for (unsigned i = 0; i < num; i++) {
                 mk_clause(~l, lits[i]);
             }
@@ -301,7 +322,14 @@ struct goal2sat::imp {
             }
             m_result_stack.push_back(l);
             lits = m_result_stack.end() - num - 1;
+            if (m_aig) {
+                aig_lits.reset();
+                aig_lits.append(num, lits);
+            }
             mk_clause(num+1, lits);
+            if (m_aig) {
+                m_aig->add_and(l, num, aig_lits.c_ptr());
+            }
             unsigned old_sz = m_result_stack.size() - num - 1;
             m_result_stack.shrink(old_sz);
             if (sign)
@@ -338,9 +366,10 @@ struct goal2sat::imp {
             mk_clause(l,  ~c, ~t);
             mk_clause(l,   c, ~e);
             if (m_ite_extra) {
-                mk_clause(~t, ~e, l);
-                mk_clause(t,  e, ~l);
+                mk_clause(~t, ~e, l, false);
+                mk_clause(t,  e, ~l, false);
             }
+            if (m_aig) m_aig->add_ite(l, c, t, e);
             m_result_stack.shrink(sz-3);
             if (sign)
                 l.neg();
@@ -349,7 +378,7 @@ struct goal2sat::imp {
     }
 
     void convert_iff2(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 2);
         sat::literal  l1 = m_result_stack[sz-1];
@@ -374,6 +403,7 @@ struct goal2sat::imp {
             mk_clause(~l, ~l1, l2);
             mk_clause(l,  l1, l2);
             mk_clause(l, ~l1, ~l2);
+            if (m_aig) m_aig->add_iff(l, l1, l2);
             m_result_stack.shrink(sz-2);
             if (sign)
                 l.neg();
@@ -382,7 +412,7 @@ struct goal2sat::imp {
     }
 
     void convert_iff(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned sz = m_result_stack.size();
         unsigned num = get_num_args(t);
         SASSERT(sz >= num && num >= 2);
@@ -400,6 +430,7 @@ struct goal2sat::imp {
         }
         ensure_extension();
         m_ext->add_xr(lits);
+        if (m_aig) m_aig->add_xor(~lits.back(), lits.size() - 1, lits.c_ptr() + 1);
         sat::literal lit(v, sign);
         if (root) {            
             m_result_stack.reset();
@@ -513,7 +544,6 @@ struct goal2sat::imp {
     }
 
     void convert_pb_eq(app* t, bool root, bool sign) {
-        //IF_VERBOSE(0, verbose_stream() << "pbeq: " << mk_pp(t, m) << "\n";);
         rational k = pb.get_k(t);
         SASSERT(k.is_unsigned());
         svector<wliteral> wlits;
@@ -549,9 +579,14 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
+        unsigned k2 = k.get_unsigned();
         if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
-            m_ext->add_at_least(sat::null_bool_var, lits, k.get_unsigned());
+            if (sign) {
+                for (sat::literal& l : lits) l.neg();
+                k2 = lits.size() + 1 - k2;
+            }
+            m_ext->add_at_least(sat::null_bool_var, lits, k2);
         }
         else {
             sat::bool_var v = m_solver.add_var(true);
@@ -571,14 +606,19 @@ struct goal2sat::imp {
         for (sat::literal& l : lits) {
             l.neg();
         }
+        unsigned k2 = lits.size() - k.get_unsigned();
         if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
-            m_ext->add_at_least(sat::null_bool_var, lits, lits.size() - k.get_unsigned());
+            if (sign) {
+                for (sat::literal& l : lits) l.neg();
+                k2 = lits.size() + 1 - k2;
+            }
+            m_ext->add_at_least(sat::null_bool_var, lits, k2);
         }
         else {
             sat::bool_var v = m_solver.add_var(true);
             sat::literal lit(v, false);
-            m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
+            m_ext->add_at_least(v, lits, k2);
             m_cache.insert(t, lit);
             if (sign) lit.neg();
             push_result(root, lit, t->get_num_args());
@@ -625,7 +665,7 @@ struct goal2sat::imp {
                 m_ext = alloc(sat::ba_solver);
                 m_solver.set_extension(m_ext);
             }
-        }
+        }        
     }
 
     void convert(app * t, bool root, bool sign) {
@@ -732,15 +772,14 @@ struct goal2sat::imp {
     
     void process(expr * n) {
         //SASSERT(m_result_stack.empty());
-        TRACE("goal2sat", tout << "converting: " << mk_ismt2_pp(n, m) << "\n";);
+        TRACE("goal2sat", tout << "converting: " << mk_bounded_pp(n, m, 2) << "\n";);
         if (visit(n, true, false)) {
             SASSERT(m_result_stack.empty());
             return;
         }
         while (!m_frame_stack.empty()) {
         loop:
-            cooperate("goal2sat");
-            if (m.canceled())
+            if (!m.inc())
                 throw tactic_exception(m.limit().get_cancel_msg());
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
@@ -831,7 +870,7 @@ struct goal2sat::imp {
                 }                
                 f = m.mk_or(fmls.size(), fmls.c_ptr());
             }
-            TRACE("goal2sat", tout << f << "\n";);
+            TRACE("goal2sat", tout << mk_bounded_pp(f, m, 2) << "\n";);
             process(f);
         skip_dep:
             ;
@@ -926,7 +965,6 @@ void sat2goal::mc::flush_smc(sat::solver_core& s, atom2bool_var const& map) {
 void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
     m_smc.expand(updates);    
-    m_smc.reset();
     if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
     // now gmc owns the model converter
     sat::literal_vector clause;
@@ -995,47 +1033,15 @@ void sat2goal::mc::get_units(obj_map<expr, bool>& units) {
 }
 
 
+void sat2goal::mc::operator()(sat::model& md) {
+    m_smc(md);
+}
+
 void sat2goal::mc::operator()(model_ref & md) {
-    model_evaluator ev(*md);
-    ev.set_model_completion(false);
-    
-    // create a SAT model using md
-    sat::model sat_md;
-    expr_ref val(m);
-    VERIFY(!m_var2expr.empty());
-    for (expr * atom : m_var2expr) {
-        if (!atom) {
-            sat_md.push_back(l_undef);
-            continue;
-        }
-        ev(atom, val);
-        if (m.is_true(val)) 
-            sat_md.push_back(l_true);
-        else if (m.is_false(val))
-            sat_md.push_back(l_false);
-        else 
-            sat_md.push_back(l_undef);
-    }
-    
-    // apply SAT model converter
-    m_smc(sat_md);
-            
-    // register value of non-auxiliary boolean variables back into md
-    unsigned sz = m_var2expr.size();
-    for (sat::bool_var v = 0; v < sz; v++) {
-        app * atom = m_var2expr.get(v);
-        if (atom && is_uninterp_const(atom)) {
-            func_decl * d = atom->get_decl();
-            lbool new_val = sat_md[v];
-            if (new_val == l_true)
-                md->register_decl(d, m.mk_true());
-            else if (new_val == l_false)
-                md->register_decl(d, m.mk_false());
-        }
-    }    
     // apply externalized model converter
+    CTRACE("sat_mc", m_gmc, m_gmc->display(tout << "before sat_mc\n"); model_v2_pp(tout, *md););
     if (m_gmc) (*m_gmc)(md);
-    TRACE("sat_mc", tout << "after sat_mc\n"; model_v2_pp(tout, *md););
+    CTRACE("sat_mc", m_gmc, m_gmc->display(tout << "after sat_mc\n"); model_v2_pp(tout, *md););
 }
 
 
@@ -1054,6 +1060,7 @@ void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
         if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
         m_gmc->hide(atom->get_decl());
     }
+    TRACE("sat_mc", tout << "insert " << v << "\n";);
 }
 
 expr_ref sat2goal::mc::lit2expr(sat::literal l) {
@@ -1091,7 +1098,7 @@ struct sat2goal::imp {
     }
 
     void checkpoint() {
-        if (m.canceled())
+        if (!m.inc())
             throw tactic_exception(m.limit().get_cancel_msg());
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
