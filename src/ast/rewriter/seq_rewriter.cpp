@@ -1262,7 +1262,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     unsigned i = 0;
     if (m_autil.is_numeral(c, r)) {
         i = 0;
-        while (r.is_pos() && m_util.str.is_unit(as.get(i))) {
+        while (r.is_pos() && i < as.size() && m_util.str.is_unit(as.get(i))) {
             r -= rational(1);
             ++i;
         }
