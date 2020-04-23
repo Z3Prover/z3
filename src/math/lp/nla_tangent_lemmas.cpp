@@ -75,7 +75,7 @@ struct imp {
 
 
     void generate_tang_plane(const point & pl) {
-        c().add_empty_lemma();
+        c().add_lemma();
         c().negate_relation(m_jx, m_x.rat_sign()*pl.x);
         c().negate_relation(m_jy, m_y.rat_sign()*pl.y);
 #if Z3DEBUG
@@ -95,12 +95,12 @@ struct imp {
     }
     
     void generate_two_tang_lines() {
-        m_tang.add_empty_lemma();
+        m_tang.add_lemma();
         // Should be  v = val(m_x)*val(m_y), and val(factor) = factor.rat_sign()*var(factor.var())
         c().mk_ineq(m_jx, llc::NE, c().val(m_jx));
         c().mk_ineq(m_j,  - m_y.rat_sign() * m_xy.x,  m_jy, llc::EQ);
         
-        m_tang.add_empty_lemma();
+        m_tang.add_lemma();
         c().mk_ineq(m_jy, llc::NE, c().val(m_jy));
         c().mk_ineq(m_j, - m_x.rat_sign() * m_xy.y, m_jx, llc::EQ);
     }

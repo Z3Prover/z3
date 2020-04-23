@@ -161,7 +161,7 @@ public:
     svector<lpvar> sorted_rvars(const factor& f) const;
     bool done() const;
 
-    void add_empty_lemma();
+    void add_lemma();
     // the value of the factor is equal to the value of the variable multiplied
     // by the canonize_sign
     bool canonize_sign(const factor& f) const;

@@ -314,13 +314,6 @@ void lar_solver::fill_explanation_from_crossed_bounds_column(explanation & evide
     
 unsigned lar_solver::get_total_iterations() const { return m_mpq_lar_core_solver.m_r_solver.total_iterations(); }
 
-vector<unsigned> lar_solver::get_list_of_all_var_indices() const {
-    vector<unsigned> ret;
-    for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_heading.size(); j++)
-        ret.push_back(j);
-    return ret;
-}
-
 void lar_solver::push() {
     m_simplex_strategy = m_settings.simplex_strategy();
     m_simplex_strategy.push();

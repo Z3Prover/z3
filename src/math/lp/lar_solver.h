@@ -269,7 +269,6 @@ class lar_solver : public column_namer {
         m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
     }
 public:
-    vector<unsigned> get_list_of_all_var_indices() const;
     inline void set_column_value_test(unsigned j, const impq& v) {
         set_column_value(j, v);
     }

@@ -133,9 +133,6 @@ template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::A_mult_x_is_off_on_index(vector<unsigned int> const&) const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::find_x_by_solving();
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::restore_x(unsigned int, lp::numeric_pair<lp::mpq> const&);
-template bool lp::lp_core_solver_base<double, double>::pivot_for_tableau_on_basis();
-template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::pivot_for_tableau_on_basis();
-template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq>>::pivot_for_tableau_on_basis();
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq>>::pivot_column_tableau(unsigned int, unsigned int);
 template bool lp::lp_core_solver_base<double, double>::pivot_column_tableau(unsigned int, unsigned int);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::pivot_column_tableau(unsigned int, unsigned int);

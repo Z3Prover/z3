@@ -1243,7 +1243,7 @@ rational core::val(const factorization& f) const {
     return r;
 }
 
-void core::add_empty_lemma() {
+void core::add_lemma() {
     m_lemma_vec->push_back(lemma()); 
 }
     
@@ -1656,7 +1656,7 @@ bool core::check_pdd_eq(const dd::solver::equation* e) {
         return false;
     eval.get_interval<dd::w_dep::with_deps>(e->poly(), i_wd);  
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-        add_empty_lemma();
+        add_lemma();
         current_expl().add(e);
     };
     if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
