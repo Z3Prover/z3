@@ -702,7 +702,7 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     m_reach_facts(), m_rf_init_sz(0),
     m_transition_clause(m), m_transition(m), m_init(m),
     m_extend_lit0(m), m_extend_lit(m),
-    m_all_init(false)
+    m_all_init(false), m_has_quantified_frame(false)
 {
     m_solver = alloc(prop_solver, m, ctx.mk_solver0(), ctx.mk_solver1(),
                      ctx.get_params(), head->get_name());
@@ -1001,6 +1001,7 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
             inst.set(j, m.mk_implies(a, inst.get(j)));
         }
         if (lemma->is_ground() || (get_context().use_qlemmas() && !ground_only)) {
+            m_has_quantified_frame = true;
             inst.push_back(fmls.get(i));
         }
         SASSERT (!inst.empty ());
@@ -1872,8 +1873,10 @@ void pred_transformer::updt_solver(prop_solver *solver) {
         }
 
         // (quantified) lemma
-        if (u->is_ground() || get_context().use_qlemmas())
+        if (u->is_ground() || get_context().use_qlemmas()) {
+            m_has_quantified_frame = true;
             fmls.push_back(u->get_expr());
+        }
 
         // send to solver
         if (is_infty_level(u->level()))
