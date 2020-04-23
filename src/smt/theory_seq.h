@@ -462,7 +462,6 @@ namespace smt {
         
         int find_fst_non_empty_idx(expr_ref_vector const& x);
         expr* find_fst_non_empty_var(expr_ref_vector const& x);
-        void find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & diff);
         bool find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned idx, dependency*& deps, expr_ref_vector & res);
         
@@ -472,8 +471,8 @@ namespace smt {
         bool branch_unit_variable();     // branch on XYZ = abcdef
         bool branch_binary_variable();   // branch on abcX = Ydefg 
         bool branch_variable();          // branch on 
-        bool branch_ternary_variable1(); // branch on XabcY = Zdefg or XabcY = defgZ
-        bool branch_ternary_variable2(); // branch on XabcY = defgZmnpq
+        bool branch_ternary_variable1(); // branch on XabcY = Zdefg 
+        bool branch_ternary_variable2(); // branch on XabcY = defgZ 
         bool branch_quat_variable();     // branch on XabcY = ZdefgT
         bool len_based_split();          // split based on len offset
         bool branch_variable_mb();       // branch on a variable, model based on length
