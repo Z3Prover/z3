@@ -212,6 +212,7 @@ class pred_transformer {
         unsigned m_num_is_invariant; // num of times lemmas are pushed
         unsigned m_num_lemma_level_jump; // lemma learned at higher level than expected
         unsigned m_num_reach_queries;
+        unsigned m_num_model_reach_all_rf;
 
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
@@ -439,7 +440,7 @@ class pred_transformer {
 public:
     pred_transformer(context& ctx, manager& pm, func_decl* head);
     ~pred_transformer() {}
-
+    bool check_models_reach(const datalog::rule* r, model* mdl);
     inline bool use_native_mbp ();
     reach_fact *get_rf (expr *v) {
         for (auto *rf : m_reach_facts) {
@@ -480,6 +481,8 @@ public:
     reach_fact *get_used_rf(model& mdl, bool all = true);
     /// \brief Returns reachability fact active in the origin of the given model
     reach_fact* get_used_origin_rf(model &mdl, unsigned oidx);
+    /// \brief Collects all the reachable facts true in mdl
+    void get_all_used_rf(model &mdl, unsigned oidx, reach_fact_ref_vector& res);
     expr_ref get_origin_summary(model &mdl,
                                 unsigned level, unsigned oidx, bool must,
                                 const ptr_vector<app> **aux);
@@ -1051,7 +1054,10 @@ class context {
     void predecessor_eh();
 
     void updt_params();
-public:
+    lbool handle_unknown(pob& n, const datalog::rule* r, model_ref model);
+    //check whether mdl satisfies all reachable facts whose tag is true in mdl
+    bool check_models_reach(model* mdl);
+  public:
     /**
        Initial values of predicates are stored in corresponding relations in dctx.
        We check whether there is some reachable state of the relation checked_relation.
