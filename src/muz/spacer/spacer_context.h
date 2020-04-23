@@ -410,6 +410,7 @@ class pred_transformer {
     stopwatch                    m_must_reachable_watch;
     stopwatch                    m_ctp_watch;
     stopwatch                    m_mbp_watch;
+    bool                         m_has_quantified_frame; // True when a quantified lemma is in the frame
 
     void init_sig();
     app_ref mk_extend_lit();
