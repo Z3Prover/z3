@@ -425,6 +425,7 @@ namespace smt {
         re2automaton                   m_mk_aut;
 
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
+        obj_hashtable<expr>            m_is_digit;         // expressions that have been constrained to be digits
 
         void init(context* ctx) override;
         final_check_status final_check_eh() override;

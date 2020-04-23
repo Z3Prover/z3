@@ -982,7 +982,9 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
     }
     expr* u = nullptr;
     for (expr* r : rs) {
-        if (m_util.str.is_unit(r, u)) {
+        if (m_util.str.is_unit(r, u) && !m_is_digit.contains(u)) {
+            m_is_digit.insert(u);
+            m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_is_digit, u));
             literal is_digit = m_ax.is_digit(u);
             if (get_context().get_assignment(is_digit) != l_true) {
                 propagate_lit(dep, 0, nullptr, is_digit);
