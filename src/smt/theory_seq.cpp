@@ -1761,6 +1761,19 @@ std::ostream& theory_seq::display_deps(std::ostream& out, literal_vector const& 
     return out;
 }
 
+std::ostream& theory_seq::display_deps_smt2(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const {
+    params_ref p;
+    for (auto const& eq : eqs) {
+        out << "  (= " << mk_pp(eq.first->get_owner(), m)
+            << "\n     " << mk_pp(eq.second->get_owner(), m) 
+            << ")\n";
+    }
+    for (literal l : lits) {
+        get_context().display_literal_smt2(out, l) << "\n";
+    }
+    return out;
+}
+
 std::ostream& theory_seq::display_lit(std::ostream& out, literal l) const {
     context& ctx = get_context();
     if (l == true_literal) {
@@ -2181,6 +2194,12 @@ expr_ref theory_seq::elim_skolem(expr* e) {
             todo.pop_back();            
             continue;
         }
+        if (m_sk.is_unit_inv(a, x) && cache.contains(x) && m_util.str.is_unit(cache[x], y)) {
+            result = y;
+            cache.insert(a, result);
+            todo.pop_back();
+            continue;            
+        }
 
         args.reset();
         for (expr* arg : *to_app(a)) {
@@ -2219,7 +2238,7 @@ void theory_seq::validate_axiom(literal_vector const& lits) {
 }
 
 void theory_seq::validate_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
-    IF_VERBOSE(10, display_deps(verbose_stream() << "; conflict\n", lits, eqs));
+    IF_VERBOSE(10, display_deps_smt2(verbose_stream() << "cn ", lits, eqs));
     if (get_context().get_fparams().m_seq_validate) {
         expr_ref_vector fmls(m);
         validate_fmls(eqs, lits, fmls);
@@ -2227,7 +2246,7 @@ void theory_seq::validate_conflict(enode_pair_vector const& eqs, literal_vector 
 }
 
 void theory_seq::validate_assign(literal lit, enode_pair_vector const& eqs, literal_vector const& lits) {
-    IF_VERBOSE(10, display_deps(verbose_stream() << "; assign\n", lits, eqs); display_lit(verbose_stream(), ~lit) << "\n");
+    IF_VERBOSE(10, display_deps_smt2(verbose_stream() << "eq ", lits, eqs); display_lit(verbose_stream(), ~lit) << "\n");
     if (get_context().get_fparams().m_seq_validate) {
         literal_vector _lits(lits);
         _lits.push_back(~lit);
@@ -2269,6 +2288,7 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
     for (expr* f : fmls) {
         k.assert_expr(f);
     }
+    IF_VERBOSE(0, verbose_stream() << "validate: " << fmls << "\n";);
     lbool r = k.check();
     if (r != l_false && !m.limit().get_cancel_flag()) {
         model_ref mdl;

@@ -29,12 +29,7 @@ bool theory_seq::solve_nqs(unsigned i) {
     context & ctx = get_context();
     for (; !ctx.inconsistent() && i < m_nqs.size(); ++i) {
         if (solve_ne(i)) {
-            if (i + 1 != m_nqs.size()) {
-                ne n = m_nqs[m_nqs.size()-1];
-                m_nqs.set(i, n);
-                --i;
-            }
-            m_nqs.pop_back();
+            m_nqs.erase_and_swap(i--);
         }
     }
     return m_new_propagation || ctx.inconsistent();
@@ -100,6 +95,7 @@ bool theory_seq::propagate_ne2lit(unsigned idx) {
         }
     }
     if (undef_lit == null_literal) {
+        display_disequation(verbose_stream() << "conflict:", n) << "\n";
         dependency* dep = n.dep();
         dependency* dep1 = nullptr;
         if (explain_eq(n.l(), n.r(), dep1)) {
@@ -166,12 +162,15 @@ bool theory_seq::reduce_ne(unsigned idx) {
         if (!canonize(p.first,  ls, deps, change)) return false;
         if (!canonize(p.second, rs, deps, change)) return false;
         new_deps = m_dm.mk_join(deps, new_deps);
+        bool is_sat = m_seq_rewrite.reduce_eq(ls, rs, eqs, change);
 
-        if (!m_seq_rewrite.reduce_eq(ls, rs, eqs, change)) {
-            TRACE("seq", display_disequation(tout << "reduces to false: ", n);
-                  tout << p.first << " -> " << ls << "\n";
-                  tout << p.second << " -> " << rs << "\n";);
-            
+        TRACE("seq", display_disequation(tout << "reduced\n", n);
+              tout << p.first << " -> " << ls << "\n";
+              tout << p.second << " -> " << rs << "\n";
+              tout << eqs << "\n";
+              );
+        
+        if (!is_sat) {
             return true;
         }
         
@@ -193,7 +192,9 @@ bool theory_seq::reduce_ne(unsigned idx) {
             new_eqs.push_back(decomposed_eq(ls, rs));
         }
         TRACE("seq",
-              for (auto const& p : eqs) tout << mk_pp(p.first, m) << " != " << mk_pp(p.second, m) << "\n";
+              tout << "num eqs: " << eqs.size() << "\n";
+              tout << "num new eqs: " << new_eqs.size() << "\n";
+              tout << eqs << "\n";
               for (auto const& p : new_eqs) tout << p.first << " != " << p.second << "\n";
               tout << p.first << " != " << p.second << "\n";);
         
@@ -225,11 +226,15 @@ bool theory_seq::reduce_ne(unsigned idx) {
     }
 
 
-    TRACE("seq", display_disequation(tout << "updated: " << updated << "\n", n););
+    TRACE("seq", display_disequation(tout << "updated: " << updated << "\n", n);
+          
+          );
 
     if (updated) {
-        m_nqs.set(idx, ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
-        TRACE("seq", display_disequation(tout << "updated: ", m_nqs[idx]););
+        auto new_n(ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
+        m_nqs.set(idx, new_n);
+        TRACE("seq", display_disequation(tout << "updated:\n", m_nqs[idx]););
+        TRACE("seq", display_disequation(tout << "updated:\n", new_n););
     }
     return false;
 }

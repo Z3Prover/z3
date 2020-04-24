@@ -403,7 +403,6 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
     if (is_sort_param(sP, idx)) {
         if (binding.size() <= idx) binding.resize(idx+1);
         if (binding[idx] && (binding[idx] != s)) return false;
-        TRACE("seq_verbose", tout << "setting binding @ " << idx << " to " << mk_pp(s, *m_manager) << "\n";);
         binding[idx] = s;
         return true;
     }
@@ -433,11 +432,6 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
 void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
     ptr_vector<sort> binding;
     ast_manager& m = *m_manager;
-    TRACE("seq_verbose",
-          tout << sig.m_name << ": ";
-          for (unsigned i = 0; i < dsz; ++i) tout << mk_pp(dom[i], m) << " ";
-          if (range) tout << " range: " << mk_pp(range, m);
-          tout << "\n";);
     if (dsz == 0) {
         std::ostringstream strm;
         strm << "Unexpected number of arguments to '" << sig.m_name << "' ";
@@ -466,7 +460,6 @@ void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* do
     }
     range_out = apply_binding(binding, sig.m_range);
     SASSERT(range_out);
-    TRACE("seq_verbose", tout << mk_pp(range_out, m) << "\n";);
 }
 
 void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {

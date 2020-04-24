@@ -168,7 +168,7 @@ expr_ref seq_skolem::mk_unit_inv(expr* n) {
     expr* u = nullptr;
     VERIFY(seq.str.is_unit(n, u));
     sort* s = m.get_sort(u);
-    return mk(symbol("seq.unit-inv"), n, nullptr, nullptr, nullptr, s);
+    return mk(symbol("seq.unit-inv"), n, s);
 }
 
 

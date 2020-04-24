@@ -678,6 +678,7 @@ namespace smt {
         std::ostream& display_disequation(std::ostream& out, ne const& e) const;
         std::ostream& display_deps(std::ostream& out, dependency* deps) const;
         std::ostream& display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
+        std::ostream& display_deps_smt2(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
         std::ostream& display_nc(std::ostream& out, nc const& nc) const;
         std::ostream& display_lit(std::ostream& out, literal l) const;
     public:

@@ -20,6 +20,7 @@ Notes:
 #define SEQ_REWRITER_H_
 
 #include "ast/seq_decl_plugin.h"
+#include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "util/ref_pair_vector.h"
@@ -30,6 +31,13 @@ Notes:
 #include "math/automata/symbolic_automata.h"
 
 typedef ref_pair_vector<expr, ast_manager> expr_ref_pair_vector;
+
+inline std::ostream& operator<<(std::ostream& out, expr_ref_pair_vector const& es) {
+    for (auto const& p : es) {
+        out << expr_ref(p.first, es.get_manager()) << "; " << expr_ref(p.second, es.get_manager()) << "\n";
+    }
+    return out;
+}
 
 class sym_expr {
     enum ty {
@@ -166,15 +174,12 @@ class seq_rewriter {
     bool sign_is_determined(expr* len, sign& s);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_pair_vector& eqs);
-    bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                        expr_ref_pair_vector& eqs, bool& is_sat);
-    bool length_constrained(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                        expr_ref_pair_vector& eqs, bool& is_sat);
-    bool solve_itos(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                    expr_ref_pair_vector& eqs, bool& is_sat);
-    bool solve_itos(expr* n, unsigned sz, expr* const* es, expr_ref_pair_vector& eqs);
-    bool min_length(unsigned n, expr* const* es, unsigned& len);
-    expr* concat_non_empty(unsigned n, expr* const* es);
+    bool reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs, bool& change);
+    bool reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs, bool& change);
+    bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs, bool& change);
+    bool solve_itos(expr* n, expr_ref_vector const& es, expr_ref_pair_vector& eqs);
+    bool min_length(expr_ref_vector const& es, unsigned& len);
+    expr* concat_non_empty(expr_ref_vector& es);
 
     bool is_string(unsigned n, expr* const* es, zstring& s) const;
 
@@ -182,10 +187,11 @@ class seq_rewriter {
     bool is_sequence(expr* e, expr_ref_vector& seq);
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool is_epsilon(expr* e) const;
-    void split_units(expr_ref_pair_vector& eqs);
     bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
-
-
+    bool reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change);
+    bool reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change);
+    void remove_empty(expr_ref_vector& es);
+    void remove_leading(unsigned n, expr_ref_vector& es);
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):

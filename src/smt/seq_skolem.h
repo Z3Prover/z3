@@ -85,6 +85,8 @@ namespace smt {
         bool is_skolem(symbol const& s, expr* e) const;
         bool is_skolem(expr* e) const { return seq.is_skolem(e); }
 
+        bool is_unit_inv(expr* e) const { return is_skolem(symbol("seq.unit-inv"), e); }
+        bool is_unit_inv(expr* e, expr*& u) const { return is_unit_inv(e) && (u = to_app(e)->get_arg(0), true); }
         bool is_tail(expr* e) const { return is_skolem(m_tail, e); }
         bool is_seq_first(expr* e) const { return is_skolem(m_seq_first, e); }
         bool is_indexof_left(expr* e) const { return is_skolem(m_indexof_left, e); }

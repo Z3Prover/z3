@@ -103,7 +103,10 @@ public:
     }
 
     ref_pair_vector_core& push_back(T * a, T* b) {
-        return push_back(std::make_pair(a, b));
+        inc_ref(a);
+        inc_ref(b);
+        m_nodes.push_back(elem_t(a, b));
+        return *this;
     }
 
     template <typename M>
