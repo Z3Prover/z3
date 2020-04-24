@@ -28,11 +28,10 @@ namespace smt {
 
     expr_ref context::antecedent2fml(index_set const& vars) {
         expr_ref_vector premises(m);
-        index_set::iterator it = vars.begin(), end = vars.end();
-        for (; it != end; ++it) {
-            expr* e =  bool_var2expr(*it);
+		for (unsigned v : vars) {
+            expr* e =  bool_var2expr(v);
             e = m_assumption2orig.find(e);
-            premises.push_back(get_assignment(*it) != l_false ? e : m.mk_not(e));
+            premises.push_back(get_assignment(v) != l_false ? e : m.mk_not(e));
         }
         return mk_and(premises);
     }
@@ -62,9 +61,7 @@ namespace smt {
         }
         m_antecedents.insert(lit.var(), s);
         TRACE("context", display_literal_verbose(tout, lit); 
-              for (index_set::iterator it = s.begin(), end = s.end(); it != end; ++it) {
-                  tout << " " << *it;
-              }
+              for (auto v : s) tout << " " << v;
               tout << "\n";);
         bool found = false;
         if (m_var2val.contains(e)) {
@@ -162,10 +159,9 @@ namespace smt {
 
     unsigned context::delete_unfixed(expr_ref_vector& unfixed) {
         ptr_vector<expr> to_delete;
-        obj_map<expr,expr*>::iterator it = m_var2val.begin(), end = m_var2val.end();
-        for (; it != end; ++it) {
-            expr* k = it->m_key;
-            expr* v = it->m_value;
+		for (auto const& kv : m_var2val) {
+            expr* k = kv.m_key;
+            expr* v = kv.m_value;
             if (m.is_bool(k)) {
                 literal lit = get_literal(k);
                 switch (get_assignment(lit)) {
@@ -215,10 +211,9 @@ namespace smt {
         TRACE("context", tout << "extract fixed consequences\n";);
         ptr_vector<expr> to_delete;
         expr_ref fml(m), eq(m);
-        obj_map<expr,expr*>::iterator it = m_var2val.begin(), end = m_var2val.end();
-        for (; it != end; ++it) {
-            expr* k = it->m_key;
-            expr* v = it->m_value;
+		for (auto const& kv : m_var2val) {
+            expr* k = kv.m_key;
+            expr* v = kv.m_value;
             if (!m.is_bool(k) && are_equal(k, v)) {
                 literal_vector literals;
                 m_conflict_resolution->eq2literals(get_enode(v), get_enode(k), literals);
@@ -294,8 +289,7 @@ namespace smt {
                 m_var2orig.insert(c, v);
             }
         }
-        for (unsigned i = 0; i < assumptions0.size(); ++i) {
-            expr* a = assumptions0[i];
+        for (expr* a : assumptions0) {
             if (is_uninterp_const(a)) {
                 assumptions.push_back(a);
                 m_assumption2orig.insert(a, a);
@@ -318,10 +312,12 @@ namespace smt {
             if (pushed) pop(1);            
             return is_sat;
         }
+        TRACE("context", display(tout););
 
         index_set _assumptions;
-        for (unsigned i = 0; i < assumptions.size(); ++i) {
-            _assumptions.insert(get_literal(assumptions[i].get()).var());
+        for (expr* e : assumptions) {
+            if (!e_internalized(e)) internalize(e, false);
+            _assumptions.insert(get_literal(e).var());
         }
         model_ref mdl;
         get_model(mdl);
@@ -329,14 +325,14 @@ namespace smt {
         model_evaluator eval(*mdl.get());
         expr_ref val(m);
         TRACE("context", model_pp(tout, *mdl););
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            eval(vars[i].get(), val);
+        for (expr* v : vars) {
+            eval(v, val);
             if (m.is_value(val)) {
                 trail.push_back(val);
-                m_var2val.insert(vars[i].get(), val);
+                m_var2val.insert(v, val);
             } 
             else {
-                unfixed.push_back(vars[i].get());
+                unfixed.push_back(v);
             }
         }
         unsigned num_units = 0;
@@ -576,8 +572,7 @@ namespace smt {
         unsigned_vector ps;
         max_cliques<neg_literal> mc;
         expr_ref lit(m);
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            expr* n = vars[i];
+        for (expr* n : vars) {
             bool neg = m.is_not(n, n);
             if (b_internalized(n)) {
                 ps.push_back(literal(get_bool_var(n), neg).index());
@@ -595,10 +590,10 @@ namespace smt {
         }
         vector<unsigned_vector> _mutexes;
         mc.cliques(ps, _mutexes);
-        for (unsigned i = 0; i < _mutexes.size(); ++i) {
+        for (auto const& mux : _mutexes) {
             expr_ref_vector lits(m);
-            for (unsigned j = 0; j < _mutexes[i].size(); ++j) {
-                literal2expr(to_literal(_mutexes[i][j]), lit);
+            for (unsigned idx : mux) {
+                literal2expr(to_literal(idx), lit);
                 lits.push_back(lit);
             }
             mutexes.push_back(lits);
@@ -614,30 +609,30 @@ namespace smt {
                                         expr_ref_vector const& conseq, expr_ref_vector const& unfixed) {
         expr_ref tmp(m);
         SASSERT(!inconsistent());
-        for (unsigned i = 0; i < conseq.size(); ++i) {
+        for (expr* c : conseq) {
             push();            
-            for (unsigned j = 0; j < assumptions.size(); ++j) {
-                assert_expr(assumptions[j]);
+            for (expr* a : assumptions) {
+                assert_expr(a);
             }
-            TRACE("context", tout << "checking: " << mk_pp(conseq[i], m) << "\n";);
-            tmp = m.mk_not(conseq[i]);
+            TRACE("context", tout << "checking: " << mk_pp(c, m) << "\n";);
+            tmp = m.mk_not(c);
             assert_expr(tmp);
             VERIFY(check() != l_true);
             pop(1);
         }
         model_ref mdl;
-        for (unsigned i = 0; i < unfixed.size(); ++i) {
+        for (expr* uf : unfixed) {
             push();            
             for (expr* a : assumptions) 
                 assert_expr(a);
-            TRACE("context", tout << "checking unfixed: " << mk_pp(unfixed[i], m) << "\n";);
+            TRACE("context", tout << "checking unfixed: " << mk_pp(uf, m) << "\n";);
             lbool is_sat = check();            
             SASSERT(is_sat != l_false);
             if (is_sat == l_true) {
                 get_model(mdl);
-                tmp = (*mdl)(unfixed[i]);
+                tmp = (*mdl)(uf);
                 if (m.is_value(tmp)) {
-                    tmp = m.mk_not(m.mk_eq(unfixed[i], tmp));
+                    tmp = m.mk_not(m.mk_eq(uf, tmp));
                     assert_expr(tmp);
                     is_sat = check();
                     SASSERT(is_sat != l_false);

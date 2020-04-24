@@ -2432,9 +2432,8 @@ namespace smt {
     }
 
     void context::pop_to_search_lvl() {
-        unsigned num_levels = m_scope_lvl - get_search_level();
-        if (num_levels > 0) {
-            pop_scope(num_levels);
+        if (m_scope_lvl > get_search_level()) {
+            pop_scope(m_scope_lvl - get_search_level());
         }
     }
 

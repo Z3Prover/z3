@@ -95,7 +95,6 @@ bool theory_seq::propagate_ne2lit(unsigned idx) {
         }
     }
     if (undef_lit == null_literal) {
-        display_disequation(verbose_stream() << "conflict:", n) << "\n";
         dependency* dep = n.dep();
         dependency* dep1 = nullptr;
         if (explain_eq(n.l(), n.r(), dep1)) {
