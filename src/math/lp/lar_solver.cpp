@@ -448,7 +448,7 @@ void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
     if (move_non_basic_columns_to_bounds())
         find_feasible_solution();
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
-    rslv.m_using_infeas_costs = false;
+    rslv.set_using_infeas_costs(false);
     lp_assert(costs_are_zeros_for_r_solver());
     lp_assert(reduced_costs_are_zeroes_for_r_solver());
     rslv.m_costs.resize(A_r().column_count(), zero_of_type<mpq>());
@@ -574,16 +574,19 @@ lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
 lp_status lar_solver::maximize_term(unsigned j_or_term,
                                impq &term_max) {
     TRACE("lar_solver", print_values(tout););
-    bool was_feasible = m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis();
-    impq prev_value;
     lar_term term = get_term_to_maximize(j_or_term);
     if (term.is_empty()) {
         return lp_status::UNBOUNDED;
     }
-        
+    
+    impq prev_value;        
     auto backup = m_mpq_lar_core_solver.m_r_x;
-    if (was_feasible) {
+    if (m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis()) {
         prev_value = term.apply(m_mpq_lar_core_solver.m_r_x);
+    } else {
+        m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = false;
+        if (solve() != lp_status::OPTIMAL)                    
+            return lp_status::UNBOUNDED;        
     }
             
     m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = false;
@@ -618,7 +621,7 @@ lp_status lar_solver::maximize_term(unsigned j_or_term,
     if (change) {
         term_max = term.apply(m_mpq_lar_core_solver.m_r_x);
     }
-    if (was_feasible && term_max < prev_value) {
+    if (term_max < prev_value) {
         term_max = prev_value;
         m_mpq_lar_core_solver.m_r_x = backup;
     }
@@ -822,7 +825,7 @@ void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau(
         update_x_and_inf_costs_for_column_with_changed_bounds(j);
 
     if (tableau_with_costs()) {
-        if (m_mpq_lar_core_solver.m_r_solver.m_using_infeas_costs) {
+        if (m_mpq_lar_core_solver.m_r_solver.using_infeas_costs()) {
             for (unsigned j : m_basic_columns_with_changed_cost)
                 m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
             lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());

@@ -199,7 +199,7 @@ void lar_core_solver::calculate_pivot_row(unsigned i) {
             m_r_solver.m_breakpoint_indices_queue.resize(m_r_solver.m_n());
         m_r_solver.m_costs.resize(m_r_solver.m_n());
         m_r_solver.m_d.resize(m_r_solver.m_n());
-        m_r_solver.m_using_infeas_costs = true;
+        m_r_solver.set_using_infeas_costs(true);
     }
 }
 

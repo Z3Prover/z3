@@ -116,7 +116,7 @@ template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
     if (numeric_traits<T>::precise())
         return column_is_benefitial_for_entering_basis_precise(j);
-    if (this->m_using_infeas_costs && this->m_settings.use_breakpoints_in_feasibility_search)
+    if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
         return column_is_benefitial_for_entering_on_breakpoints(j);
     const T& dj = this->m_d[j];
     switch (this->m_column_types[j]) {
@@ -150,7 +150,7 @@ bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsign
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis_precise(unsigned j) const {
     lp_assert (numeric_traits<T>::precise());
-    if (this->m_using_infeas_costs && this->m_settings.use_breakpoints_in_feasibility_search)
+    if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
         return column_is_benefitial_for_entering_on_breakpoints(j);    
     const T& dj = this->m_d[j];
     TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
@@ -223,7 +223,7 @@ int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_
         return -1;
     unsigned entering = *entering_iter;
     m_sign_of_entering_delta = this->m_d[entering] > 0 ? 1 : -1;
-    if (this->m_using_infeas_costs && this->m_settings.use_breakpoints_in_feasibility_search)
+    if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
         m_sign_of_entering_delta = -m_sign_of_entering_delta;
     m_non_basis_list.erase(entering_iter);
     m_non_basis_list.push_back(entering);
@@ -263,7 +263,7 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
     if (entering_iter != m_non_basis_list.end()) {
         unsigned entering = *entering_iter;
         m_sign_of_entering_delta = this->m_d[entering] > 0? 1 : -1;
-        if (this->m_using_infeas_costs && this->m_settings.use_breakpoints_in_feasibility_search)
+        if (this->using_infeas_costs() && this->m_settings.use_breakpoints_in_feasibility_search)
             m_sign_of_entering_delta = - m_sign_of_entering_delta;
         m_non_basis_list.erase(entering_iter);
         m_non_basis_list.push_back(entering);
@@ -648,7 +648,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
     init_inf_set();
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
         return;
-    this->m_using_infeas_costs = false;
+    this->set_using_infeas_costs(false);
     if (this->m_settings.backup_costs)
         backup_and_normalize_costs();
     m_epsilon_of_reduced_cost = numeric_traits<X>::precise()? zero_of_type<T>(): T(1)/T(10000000);
@@ -685,7 +685,7 @@ void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering
             return;
         }
     }
-    if (this->m_using_infeas_costs) {
+    if (this->using_infeas_costs()) {
         lp_assert(is_zero(this->m_costs[entering])); 
         init_infeasibility_costs_for_changed_basis_only();
     }
@@ -700,7 +700,7 @@ void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
     lp_assert(entering >= 0 && m_non_basis_list.back() == static_cast<unsigned>(entering));
-    lp_assert(this->m_using_infeas_costs || t >= zero_of_type<X>());
+    lp_assert(this->using_infeas_costs() || t >= zero_of_type<X>());
     lp_assert(leaving >= 0 && entering >= 0);
     lp_assert(entering != leaving || !is_zero(t)); // otherwise nothing changes
     if (entering == leaving) {
@@ -879,13 +879,13 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         return 0;
     }
     do {
-        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over((this->m_using_infeas_costs? "inf" : "feas"), * this->m_settings.get_message_ostream())) {
+        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over((this->using_infeas_costs()? "inf" : "feas"), * this->m_settings.get_message_ostream())) {
             return this->total_iterations();
         }
         one_iteration();
 
         TRACE("lar_solver", tout << "one iteration: " << this->get_status() << "\n";);
-        lp_assert(!this->m_using_infeas_costs || this->costs_on_nbasis_are_zeros());
+        lp_assert(!this->using_infeas_costs() || this->costs_on_nbasis_are_zeros());
         switch (this->get_status()) {
         case lp_status::OPTIMAL:  // double check that we are at optimum
         case lp_status::INFEASIBLE:
@@ -1109,7 +1109,7 @@ template <typename T, typename X>
 void lp_primal_core_solver<T, X>::init_infeasibility_costs_for_changed_basis_only() {
     for (unsigned i :  this->m_ed.m_index)
         init_infeasibility_cost_for_column(this->m_basis[i]);
-    this->m_using_infeas_costs = true;
+    this->set_using_infeas_costs(true);
 }
 
 
@@ -1119,7 +1119,7 @@ void lp_primal_core_solver<T, X>::init_infeasibility_costs() {
     lp_assert(this->m_column_types.size() >= this->m_n());
     for (unsigned j = this->m_n(); j--;)
         init_infeasibility_cost_for_column(j);
-    this->m_using_infeas_costs = true;
+    this->set_using_infeas_costs(true);
 }
 
 template <typename T, typename X> T
@@ -1297,13 +1297,13 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_breakp
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::init_reduced_costs() {
     lp_assert(!this->use_tableau());
-    if (this->current_x_is_infeasible() && !this->m_using_infeas_costs) {
+    if (this->current_x_is_infeasible() && !this->using_infeas_costs()) {
         init_infeasibility_costs();
-    } else if (this->current_x_is_feasible() && this->m_using_infeas_costs) {
+    } else if (this->current_x_is_feasible() && this->using_infeas_costs()) {
         if (this->m_look_for_feasible_solution_only)
             return;
         this->m_costs = m_costs_backup;
-        this->m_using_infeas_costs = false;
+        this->set_using_infeas_costs(false);
     }
     
     this->init_reduced_costs_for_one_iteration();
