@@ -902,7 +902,11 @@ namespace smt {
             return true;
         } else if (u.re.is_complement(re)) {
             // TODO can we do better?
-                    return false;
+            return false;
+        } else if (u.re.is_intersection(re)) {
+            return false;
+        } else if (u.re.is_complement(re)) {
+            return false;
         } else if (u.re.is_loop(re, sub1, lo, hi) || u.re.is_loop(re, sub1, lo)) {
             return check_regex_length_linearity_helper(sub1, already_star);
         } else {

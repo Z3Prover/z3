@@ -2069,6 +2069,18 @@ namespace smt {
             return zstring("(.*)");
         } else if (u.re.is_full_char(a_regex)) {
             return zstring("str.allchar");
+        } else if (u.re.is_intersection(a_regex)) {
+            expr * a0;
+            expr * a1;
+            u.re.is_intersection(a_regex, a0, a1);
+            zstring a0str = get_std_regex_str(a0);
+            zstring a1str = get_std_regex_str(a1);
+            return zstring("(") + a0str + zstring("&&") + a1str + zstring(")");
+        } else if (u.re.is_complement(a_regex)) {
+            expr * body;
+            u.re.is_complement(a_regex, body);
+            zstring bodyStr = get_std_regex_str(body);
+            return zstring("(^") + bodyStr + zstring(")");
         } else {
             TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
             UNREACHABLE(); return zstring("");
