@@ -225,9 +225,7 @@ bool theory_seq::reduce_ne(unsigned idx) {
     }
 
 
-    TRACE("seq", display_disequation(tout << "updated: " << updated << "\n", n);
-          
-          );
+    TRACE("seq", display_disequation(tout << "updated: " << updated << "\n", n););
 
     if (updated) {
         auto new_n(ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
@@ -247,10 +245,10 @@ bool theory_seq::branch_nqs() {
        case l_undef: // needs assignment to a literal.
            return true;
        case l_true:  // disequality is satisfied.
-           m_nqs.erase_and_swap(i);
+           m_nqs.erase_and_swap(i--);
            break;
        case l_false: // needs to be expanded.
-           m_nqs.erase_and_swap(i);
+           m_nqs.erase_and_swap(i--);
            return true;
        }
    }
@@ -264,7 +262,9 @@ lbool theory_seq::branch_nq(ne const& n) {
     ctx.mark_as_relevant(eq_len);
     switch (ctx.get_assignment(eq_len)) {
     case l_false:
-        TRACE("seq", ctx.display_literal_smt2(tout << "lengths are different: ", eq_len) << "\n";);
+        TRACE("seq", 
+              display_disequation(tout, n);
+              ctx.display_literal_smt2(tout << "lengths are different: ", eq_len) << "\n";);
         return l_true;
     case l_undef:
         return l_undef;
