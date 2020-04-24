@@ -1286,6 +1286,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     if (i > 0) {
         result = m_util.str.mk_index(
             m_util.str.mk_concat(as.size() - i, as.c_ptr() + i, sort_a), b, c);
+        result = m().mk_ite(m_autil.mk_ge(result, zero()), m_autil.mk_add(m_autil.mk_int(i), result), minus_one());
         return BR_REWRITE1;
     }
 
