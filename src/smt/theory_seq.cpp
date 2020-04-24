@@ -1199,6 +1199,17 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
     }
 }
 
+/**
+   Skolem predicates for automata acceptance are stateful. 
+   They depend on the shape of automata that were used when the predicates
+   were created. It is unsafe to copy assertions about automata from one context
+   to another.
+*/
+bool theory_seq::is_safe_to_copy(bool_var v) const {
+    context & ctx = get_context();
+    expr* e = ctx.bool_var2expr(v);
+    return !m_sk.is_skolem(e);
+}
 
 bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
     context& ctx = get_context();
@@ -3352,6 +3363,7 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     VERIFY(m_autil.is_numeral(idx, _idx));
     VERIFY(aut);
     if (aut->is_sink_state(src)) {
+        TRACE("seq", { display_expr d(m); aut->display(tout << "sink " << src << "\n", d); });
         propagate_lit(nullptr, 1, &lit, false_literal);
         return;
     }

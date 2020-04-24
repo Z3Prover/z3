@@ -404,6 +404,8 @@ namespace smt {
         bool is_representative(theory_var v) const {
             return get_representative(v) == v;
         }
+
+        virtual bool is_safe_to_copy(bool_var v) const { return true; }
         
         unsigned get_num_vars() const {
             return m_var2enode.size();

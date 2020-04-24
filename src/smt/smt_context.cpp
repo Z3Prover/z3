@@ -168,6 +168,10 @@ namespace smt {
 
         for (unsigned i = 0; !src_m.proofs_enabled() && i < src_ctx.m_assigned_literals.size(); ++i) {
             literal lit = src_ctx.m_assigned_literals[i];
+            bool_var_data const & d = src_ctx.get_bdata(lit.var());
+            if (d.is_theory_atom() && !src_ctx.m_theories.get_plugin(d.get_theory())->is_safe_to_copy(lit.var())) {
+                continue;
+            }
             expr_ref fml0(src_m), fml1(dst_m);
             src_ctx.literal2expr(lit, fml0);
             fml1 = tr(fml0.get());
