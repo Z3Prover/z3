@@ -2210,13 +2210,21 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     return BR_REWRITE3;
 }
 
-void seq_rewriter::remove_empty(expr_ref_vector& es) {
+void seq_rewriter::remove_empty_and_concats(expr_ref_vector& es) {
     unsigned j = 0;
+    bool has_concat = false;
     for (expr* e : es) {
+        has_concat |= m_util.str.is_concat(e);
         if (!m_util.str.is_empty(e))
             es[j++] = e;
     }
     es.shrink(j);
+    if (has_concat) {
+        expr_ref_vector fs(m());
+        for (expr* e : es) 
+            m_util.str.get_concat(e, fs);
+        es.swap(fs);
+    }
 }
 
 void seq_rewriter::remove_leading(unsigned n, expr_ref_vector& es) {
@@ -2229,7 +2237,7 @@ void seq_rewriter::remove_leading(unsigned n, expr_ref_vector& es) {
     es.shrink(es.size() - n);
 }
 
-bool seq_rewriter::reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change) {    
+bool seq_rewriter::reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs) {    
     expr* a, *b;    
     zstring s, s1, s2;
     while (true) {
@@ -2237,7 +2245,7 @@ bool seq_rewriter::reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_re
             break;
         }
         expr* l = ls.back();
-        expr* r = rs.back();
+        expr* r = rs.back();            
         if (m_util.str.is_unit(r) && m_util.str.is_string(l)) {
             std::swap(l, r);
             ls.swap(rs);
@@ -2289,12 +2297,11 @@ bool seq_rewriter::reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_re
         else {
             break;
         }
-        change = true;
     }
     return true;
 }
 
-bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change) {    
+bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs) {    
     expr* a, *b;    
     zstring s, s1, s2;
     unsigned head1 = 0, head2 = 0;
@@ -2364,7 +2371,6 @@ bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_r
         else {
             break;
         }
-        change = true;
     }
     remove_leading(head1, ls);
     remove_leading(head2, rs);
@@ -2376,17 +2382,24 @@ bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_r
    - New equalities are inserted into eqs.
    - Last remaining equalities that cannot be simplified further are kept in ls, rs
    - returns false if equality is unsatisfiable   
+   - sets change to true if some simplification occurred
 */
 bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs, bool& change) {
     TRACE("seq_verbose", tout << ls << "\n"; tout << rs << "\n";);
-    remove_empty(ls);
-    remove_empty(rs);
+    unsigned hash_l = ls.hash();
+    unsigned hash_r = rs.hash();
+    unsigned sz_eqs = eqs.size();
+    remove_empty_and_concats(ls);
+    remove_empty_and_concats(rs);
     return 
-        reduce_back(ls, rs, eqs, change) && 
-        reduce_front(ls, rs, eqs, change) &&
-        reduce_itos(ls, rs, eqs, change) &&
-        reduce_by_length(ls, rs, eqs, change) &&
-        reduce_subsequence(ls, rs, eqs, change); 
+        reduce_back(ls, rs, eqs) && 
+        reduce_front(ls, rs, eqs) &&
+        reduce_itos(ls, rs, eqs) &&
+        reduce_itos(rs, ls, eqs) &&
+        reduce_by_length(ls, rs, eqs) &&
+        reduce_subsequence(ls, rs, eqs) &&
+        (change = (hash_l != ls.hash() || hash_r != rs.hash() || eqs.size() != sz_eqs), 
+         true);
 }
 
 bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bool& changed) {
@@ -2552,41 +2565,31 @@ bool seq_rewriter::is_string(unsigned n, expr* const* es, zstring& s) const {
     return true;
 }
 
-bool seq_rewriter::reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs,
-                              expr_ref_pair_vector& eqs, bool& change) {
-    expr* n = nullptr;
-    if (ls.size() == 1 && m_util.str.is_itos(ls.get(0), n) &&
-        solve_itos(n, rs, eqs)) {
-        ls.reset(); rs.reset();
-        change = true;
-    }
-    else if (rs.size() == 1 && m_util.str.is_itos(rs.get(0), n) &&
-        solve_itos(n, ls, eqs)) {
-        ls.reset(); rs.reset();
-        change = true;
-    }
-    return true;
-}
-
 /**
  * itos(n) = <numeric string> -> n = numeric
  */
 
-bool seq_rewriter::solve_itos(expr* n, expr_ref_vector const& es, expr_ref_pair_vector& eqs) {
+bool seq_rewriter::reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs,
+                              expr_ref_pair_vector& eqs) {
+    expr* n = nullptr;
     zstring s;
-    if (is_string(es.size(), es.c_ptr(), s)) {
+    if (ls.size() == 1 && 
+        m_util.str.is_itos(ls.get(0), n) &&
+        is_string(rs.size(), rs.c_ptr(), s)) {
         std::string s1 = s.encode();
         rational r(s1.c_str());
         if (s1 == r.to_string()) {
             eqs.push_back(n, m_autil.mk_numeral(r, true));
+            ls.reset(); 
+            rs.reset();
             return true;
         }
-    }        
-    return false;
+    }
+    return true;
 }
 
 bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
-                                    expr_ref_pair_vector& eqs, bool& change) {
+                                    expr_ref_pair_vector& eqs) {
 
     if (ls.empty() && rs.empty())
         return true;
@@ -2599,7 +2602,6 @@ bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
     if (bounded2 && len2 < len1) 
         return false;
     if (bounded1 && len1 == len2 && len1 > 0) {
-        change = true;
         if (!set_empty(rs.size(), rs.c_ptr(), false, eqs))
             return false;
         eqs.push_back(concat_non_empty(ls), concat_non_empty(rs));
@@ -2607,7 +2609,6 @@ bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
         rs.reset();
     }
     else if (bounded2 && len1 == len2 && len1 > 0) {
-        change = true;
         if (!set_empty(ls.size(), ls.c_ptr(), false, eqs))
             return false;
         eqs.push_back(concat_non_empty(ls), concat_non_empty(rs));
@@ -2623,7 +2624,7 @@ bool seq_rewriter::is_epsilon(expr* e) const {
     return m_util.re.is_to_re(e, e1) && m_util.str.is_empty(e1);
 }
 
-bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs, bool& change) {
+bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs) {
     
     if (ls.size() > rs.size()) 
         ls.swap(rs);
@@ -2663,7 +2664,6 @@ bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, 
     if (j == rs.size()) {
         return true;
     }
-    change = true;
     rs.shrink(j);
     SASSERT(ls.size() == rs.size());
     if (!ls.empty()) {

@@ -2288,7 +2288,6 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
     for (expr* f : fmls) {
         k.assert_expr(f);
     }
-    IF_VERBOSE(0, verbose_stream() << "validate: " << fmls << "\n";);
     lbool r = k.check();
     if (r != l_false && !m.limit().get_cancel_flag()) {
         model_ref mdl;

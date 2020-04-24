@@ -41,6 +41,11 @@ protected:
             dec_ref(*it);
     }
 
+    struct hash_proc {
+        unsigned operator()(ref_vector_core const* v, unsigned idx) const {
+            return (*v)[idx]->get_id();
+        }
+    };
 public:
     typedef T * data;
 
@@ -128,6 +133,14 @@ public:
     typedef T* const* iterator;
 
     T ** c_ptr() { return m_nodes.begin(); }
+
+    unsigned hash() const {
+        unsigned sz = size();
+        if (sz == 0) {
+            return 0;
+        }
+        return get_composite_hash(this, sz, default_kind_hash_proc<ref_vector_core const*>(), hash_proc());
+    }
 
     iterator begin() const { return m_nodes.begin(); }
     iterator end() const { return begin() + size(); }
@@ -400,21 +413,8 @@ struct ref_vector_ptr_hash {
 
     typedef ref_vector<T,TM> RefV;
 
-    struct hash_proc {
-        unsigned operator()(RefV* v, unsigned idx) const {
-            return (*v)[idx]->get_id();
-        }
-    };
-
     unsigned operator()(RefV* v) const {
-        if (!v) {
-            return 0;
-        }
-        unsigned sz = v->size();
-        if (sz == 0) {
-            return 0;
-        }
-        return get_composite_hash(v, sz, default_kind_hash_proc<RefV*>(), hash_proc());
+        return v ? v->hash() : 0;
     }
 };
 
