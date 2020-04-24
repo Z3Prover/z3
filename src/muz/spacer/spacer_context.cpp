@@ -3545,15 +3545,27 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             return next ? l_undef : l_true;
         }
 
-        // create a child of n
-
-        out.push_back(&n);
-        VERIFY(create_children (n, *r, *model, reach_pred_used, out));
-        IF_VERBOSE(1, verbose_stream () << " U "
-                   << std::fixed << std::setprecision(2)
-                   << watch.get_seconds () << "\n";);
-        return l_undef;
-
+        // Try to create child with model
+        // create_children() might return false if solver is incomplete (e.g.,
+        // due to weak_abs)
+        if (create_children(n, *r, *model, reach_pred_used, out)) {
+          out.push_back(&n);
+          IF_VERBOSE(1, verbose_stream()
+                            << " U " << std::fixed << std::setprecision(2)
+                            << watch.get_seconds() << "\n";);
+          return l_undef;
+        } else if (n.weakness() < 10) {
+          // Cannot create child. Increase weakness and try again.
+          SASSERT(out.empty());
+          n.bump_weakness();
+          IF_VERBOSE(1, verbose_stream()
+                            << " UNDEF " << std::fixed << std::setprecision(2)
+                            << watch.get_seconds() << "\n";);
+          // Recursion bounded by weakness (atmost 10 right now)
+          return expand_pob(n, out);
+        }
+        TRACE("spacer", tout << "unknown state: " << mk_and(cube) << "\n";);
+        throw unknown_exception();
     }
     case l_false: {
         // n is unreachable, create new summary facts
