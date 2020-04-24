@@ -988,6 +988,7 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
         !is_ternary_eq2(e.rs(), e.ls(), xs, x, y1, ys, y2, flag1))
         return false;
 
+    dependency* dep = e.dep();
     rational lenX, lenY1, lenY2;
     context& ctx = get_context();
     if (!get_length(x, lenX)) {
@@ -1001,7 +1002,7 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
     }
     SASSERT(!xs.empty() && !ys.empty());
     unsigned_vector indexes = overlap2(xs, ys);
-    if (branch_ternary_variable_base2(e.dep(), indexes, xs, x, y1, ys, y2))
+    if (branch_ternary_variable_base2(dep, indexes, xs, x, y1, ys, y2))
         return true;
     
     // xs ++ x = y1 ++ ys ++ y2 => xs ++ z = y1, x = z ++ ys ++ y2 
@@ -1015,7 +1016,6 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
         TRACE("seq", tout << "one case\n";);
         TRACE("seq", display_equation(tout, e););
         literal_vector lits;
-        dependency* dep = e.dep();
         propagate_eq(dep, lits, x, Zysy2, true);
         propagate_eq(dep, lits, y1, xsZ, true);
     }
@@ -1029,11 +1029,11 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
             break;
         case l_true:
             TRACE("seq", display_equation(tout << "true branch\n", e););
-            propagate_eq(e.dep(), ge, x,  Zysy2, true);
-            propagate_eq(e.dep(), ge, y1, xsZ, true);
+            propagate_eq(dep, ge, x,  Zysy2, true);
+            propagate_eq(dep, ge, y1, xsZ, true);
             break;
         default:
-            return branch_ternary_variable_base2(e.dep(), indexes, xs, x, y1, ys, y2);
+            return branch_ternary_variable_base2(dep, indexes, xs, x, y1, ys, y2);
         }
     }
 
@@ -1055,6 +1055,7 @@ bool theory_seq::branch_quat_variable(eq const& e) {
     expr_ref x1(m), x2(m), y1(m), y2(m);
     if (!is_quat_eq(e.ls(), e.rs(), x1, xs, x2, y1, ys, y2))
         return false;
+    dependency* dep = e.dep();
     
     rational lenX1, lenX2, lenY1, lenY2;
     context& ctx = get_context();
@@ -1093,7 +1094,6 @@ bool theory_seq::branch_quat_variable(eq const& e) {
         expr_ref Z1 = m_sk.mk_align(ysy2, xsx2, x1, y1);
         expr_ref y1Z1 = mk_concat(y1, Z1);
         expr_ref Z1xsx2 = mk_concat(Z1, xsx2);
-        dependency* dep = e.dep();
         propagate_eq(dep, ~le, x1, y1Z1, true);
         propagate_eq(dep, ~le, Z1xsx2, ysy2, true);
         break;
@@ -1105,7 +1105,6 @@ bool theory_seq::branch_quat_variable(eq const& e) {
         expr_ref Z2 = m_sk.mk_align(xsx2, ysy2, y1, x1);
         expr_ref x1Z2 = mk_concat(x1, Z2);
         expr_ref Z2ysy2 = mk_concat(Z2, ysy2);
-        dependency* dep = e.dep();
         propagate_eq(dep, le, x1Z2, y1, true);
         propagate_eq(dep, le, xsx2, Z2ysy2, true);
         break;

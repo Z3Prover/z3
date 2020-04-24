@@ -1367,6 +1367,8 @@ namespace {
         */
         bool is_semi_compatible(check * instr) const {
             unsigned reg  = instr->m_reg;
+            if (instr->m_enode && !instr->m_enode->has_lbl_hash())
+                instr->m_enode->set_lbl_hash(m_context);
             return
                 m_registers[reg] != 0 &&
                 // if the register was already checked by another filter, then it doesn't make sense
