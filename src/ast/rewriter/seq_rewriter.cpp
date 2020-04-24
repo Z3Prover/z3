@@ -1420,45 +1420,43 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
     }
 
     // is b a prefix of m_lhs at position i?
+    auto compare_at_i = [&](unsigned i) {
+        for (unsigned j = 0; j < m_rhs.size() && i + j < m_lhs.size(); ++j) {
+            expr* b0 = m_rhs.get(j);
+            expr* a0 = m_lhs.get(i + j);
+            if (m().are_equal(a0, b0))
+                continue;
+            if (!m_util.str.is_unit(b0) || !m_util.str.is_unit(a0)) 
+                return l_undef;
+            if (m().are_distinct(a0, b0)) 
+                return l_false;
+            return l_undef;
+        }
+        return l_true;
+    };
 
     unsigned i = 0;
     for (; i < m_lhs.size(); ++i) {
-        lbool is_prefix = l_true;
-        for (unsigned j = 0; j < m_rhs.size(); ++j) {
-            if (i + j >= m_lhs.size()) {                
-                expr_ref a1(m_util.str.mk_concat(i, m_lhs.c_ptr(), sort_a), m());
-                expr_ref a2(m_util.str.mk_concat(m_lhs.size()-i, m_lhs.c_ptr()+i, sort_a), m());
-                result = m().mk_ite(m().mk_eq(a2, b), m_util.str.mk_concat(a1, c), a);
-                return BR_REWRITE_FULL;
-            }
-            expr* b0 = m_rhs.get(j);
-            expr* a0 = m_lhs.get(i+j);
-            if (!m_util.str.is_unit(b0) || !m_util.str.is_unit(a0)) {
-                is_prefix = l_undef;
-                break;
-            }
-            if (m().are_equal(a0, b0))
-                continue;
-            if (m().are_distinct(a0, b0)) {
-                is_prefix = l_false;
-                break;
-            }
-            is_prefix = l_undef;
-            break;
-        }
-        if (is_prefix == l_undef)
-            break;
-        if (is_prefix == l_false)
+        lbool cmp = compare_at_i(i);
+        if (cmp == l_false && m_util.str.is_unit(m_lhs.get(i)))
             continue;
-        expr_ref_vector es(m());
-        //std::cout << i << " " << m_lhs << "\n";
-        //std::cout << "rhs: " << m_rhs << "\n";
-        es.append(i, m_lhs.c_ptr());
-        es.push_back(c);
-        es.append(m_lhs.size()-i-m_rhs.size(), m_lhs.c_ptr()+i+m_rhs.size());
-        result = m_util.str.mk_concat(es, sort_a);
-        return BR_REWRITE_FULL;        
+        if (cmp == l_true && m_lhs.size() < i + m_rhs.size()) {
+            expr_ref a1(m_util.str.mk_concat(i, m_lhs.c_ptr(), sort_a), m());
+            expr_ref a2(m_util.str.mk_concat(m_lhs.size()-i, m_lhs.c_ptr()+i, sort_a), m());
+            result = m().mk_ite(m().mk_eq(a2, b), m_util.str.mk_concat(a1, c), a);
+            return BR_REWRITE_FULL;            
+        }
+        if (cmp == l_true) {
+            expr_ref_vector es(m());
+            es.append(i, m_lhs.c_ptr());
+            es.push_back(c);
+            es.append(m_lhs.size()-i-m_rhs.size(), m_lhs.c_ptr()+i+m_rhs.size());
+            result = m_util.str.mk_concat(es, sort_a);
+            return BR_REWRITE_FULL;        
+        }
+        break;
     }
+
     if (i > 0) {
         expr_ref a1(m_util.str.mk_concat(i, m_lhs.c_ptr(), sort_a), m());
         expr_ref a2(m_util.str.mk_concat(m_lhs.size()-i, m_lhs.c_ptr()+i, sort_a), m());
