@@ -270,7 +270,7 @@ namespace qe {
             bool is_boolop = 
                 (a->get_family_id() == m.get_basic_family_id()) &&
                 (!m.is_eq(a)       || m.is_bool(a->get_arg(0))) && 
-                (!m.is_distinct(a) || m.is_bool(a->get_arg(0)));
+                (!m.is_distinct(a) || a->get_num_args() == 0 || m.is_bool(a->get_arg(0)));
             
             if (!is_boolop && m.is_bool(a)) {
                 TRACE("qe", tout << mk_pp(a, m) << "\n";);
