@@ -1271,7 +1271,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             a1 = m_util.str.mk_concat(as.size() - i, as.c_ptr() + i, sort_a);
             result = m_util.str.mk_index(a1, b, m_autil.mk_int(r));
             result = m().mk_ite(m_autil.mk_ge(result, zero()), m_autil.mk_add(m_autil.mk_int(i), result), minus_one());
-            return BR_REWRITE2;
+            return BR_REWRITE_FULL;
         }
     }
     bool is_zero = m_autil.is_numeral(c, r) && r.is_zero();
@@ -1288,7 +1288,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         result = m_util.str.mk_index(
             m_util.str.mk_concat(as.size() - i, as.c_ptr() + i, sort_a), b, c);
         result = m().mk_ite(m_autil.mk_ge(result, zero()), m_autil.mk_add(m_autil.mk_int(i), result), minus_one());
-        return BR_REWRITE1;
+        return BR_REWRITE_FULL;
     }
 
     switch (compare_lengths(as, bs)) {
