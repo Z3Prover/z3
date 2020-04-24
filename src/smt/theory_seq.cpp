@@ -1821,6 +1821,10 @@ void theory_seq::init_search_eh() {
     m_re2aut.reset();
     m_res.reset();
     m_automata.reset();
+    auto as = get_context().get_fparams().m_arith_mode;
+    if (m_has_seq && as != AS_OLD_ARITH && as != AS_NEW_ARITH) {
+        throw default_exception("illegal arithmetic solver used with string solver");
+    }
 }
 
 void theory_seq::init_model(expr_ref_vector const& es) {
