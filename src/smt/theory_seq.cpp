@@ -1049,6 +1049,9 @@ bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
     }
     m_new_solution = true;
     m_rep.update(l, r, deps);
+    expr_ref sl(l, m);
+    m_rewrite(sl);
+    m_rep.update(sl, r, deps);
     enode* n1 = ensure_enode(l);
     enode* n2 = ensure_enode(r);    
     TRACE("seq", tout << mk_bounded_pp(l, m, 2) << " ==> " << mk_bounded_pp(r, m, 2) << "\n"; display_deps(tout, deps);
