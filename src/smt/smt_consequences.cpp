@@ -347,15 +347,16 @@ namespace smt {
         unsigned chunk_size = 100; 
         
         while (!m_var2val.empty()) {
-            obj_map<expr,expr*>::iterator it = m_var2val.begin(), end = m_var2val.end();
             unsigned num_vars = 0;
-            for (; it != end && num_vars < chunk_size; ++it) {
+            for (auto const& kv : m_var2val) {
+                if (num_vars >= chunk_size)
+                    break;
                 if (get_cancel_flag()) {
                     if (pushed) pop(1);
                     return l_undef;
                 }
-                expr* e = it->m_key;
-                expr* val = it->m_value;
+                expr* e = kv.m_key;
+                expr* val = kv.m_value;
                 literal lit = mk_diseq(e, val);
                 mark_as_relevant(lit);
                 if (get_assignment(lit) != l_undef) {
@@ -364,14 +365,12 @@ namespace smt {
                 ++num_vars;
                 push_scope();
                 assign(lit, b_justification::mk_axiom(), true);
-                if (!propagate()) {
-                    if (!resolve_conflict() || inconsistent()) {
-                        TRACE("context", tout << "inconsistent\n";);
-                        SASSERT(inconsistent());
-                        m_conflict = null_b_justification;
-                        m_not_l = null_literal;
-                        SASSERT(m_search_lvl == get_search_level());
-                    }
+                if (!propagate() && (!resolve_conflict() || inconsistent())) {
+                    TRACE("context", tout << "inconsistent\n";);
+                    SASSERT(inconsistent());
+                    m_conflict = null_b_justification;
+                    m_not_l = null_literal;
+                    SASSERT(m_search_lvl == get_search_level());                    
                 }
             }
             SASSERT(!inconsistent());

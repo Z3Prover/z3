@@ -1891,7 +1891,7 @@ namespace smt {
         m_region.push_scope();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
-        TRACE("context", tout << "push " << m_scope_lvl << "\n";);
+        // TRACE("context", tout << "push " << m_scope_lvl << "\n";);
 
         m_relevancy_propagator->push();
         s.m_assigned_literals_lim    = m_assigned_literals.size();
@@ -2335,7 +2335,7 @@ namespace smt {
             if (m.has_trace_stream() && !m_is_auxiliary)
                 m.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
 
-            TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
+            // TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
             TRACE("pop_scope_detail", display(tout););
             SASSERT(num_scopes > 0);
             SASSERT(num_scopes <= m_scope_lvl);

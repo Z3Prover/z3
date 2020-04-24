@@ -750,10 +750,10 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 bool theory_seq::branch_ternary_variable1() {
     int start = get_context().get_random_value();
     for (unsigned i = 0; i < m_eqs.size(); ++i) {
-        eq const& e = m_eqs[(i + start) % m_eqs.size()];
-        if (branch_ternary_variable(e) || branch_ternary_variable2(e)) {
+        if (branch_ternary_variable(m_eqs[(i + start) % m_eqs.size()]))
             return true;
-        }
+        if (branch_ternary_variable2(m_eqs[(i + start) % m_eqs.size()])) 
+            return true;
     }
     return false;
 }
@@ -917,20 +917,10 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     expr_ref y1ysZ = mk_concat(y1ys, Z);
     if (indexes.empty()) {
         return false;
-#if 0
-        TRACE("seq", display_equation(tout << "one case\n", e);
-              tout << "xs: " << xs << "\n";
-              tout << "ys: " << ys << "\n";);
-        literal_vector lits;
-        dependency* dep = e.dep();
-        propagate_eq(dep, lits, x, y1ysZ, true);
-        propagate_eq(dep, lits, y2, ZxsE, true);
-#endif
     }
 
     literal ge = m_ax.mk_ge(mk_len(y2), xs.size());
     dependency* dep = e.dep();
-    literal_vector lits;
     switch (ctx.get_assignment(ge)) {
     case l_undef:
         TRACE("seq", tout << "rec case init\n";);
@@ -940,12 +930,11 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     case l_true:
         TRACE("seq", tout << "true branch\n";);
         TRACE("seq", display_equation(tout, e););
-        lits.push_back(ge);
-        propagate_eq(dep, lits, x, y1ysZ, true);
-        propagate_eq(dep, lits, y2, ZxsE, true);
+        propagate_eq(dep, ge, x, y1ysZ, true);
+        propagate_eq(dep, ge, y2, ZxsE, true);
         break;
     default:
-        return branch_ternary_variable_base(e.dep(), indexes, x, xs, y1, ys, y2);
+        return branch_ternary_variable_base(dep, indexes, x, xs, y1, ys, y2);
     }
     return true;
 }
