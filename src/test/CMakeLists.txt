@@ -122,6 +122,7 @@ add_executable(test-z3
   udoc_relation.cpp
   uint_set.cpp
   upolynomial.cpp
+  value_generator.cpp
   var_subst.cpp
   vector.cpp
   lp/lp.cpp
