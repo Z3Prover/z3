@@ -454,9 +454,7 @@ namespace tb {
             unsigned idx = m_rules.size();
             m_rules.push_back(g);
             func_decl* f = g->get_decl();
-            map::obj_map_entry* e = m_index.insert_if_not_there2(f, unsigned_vector());
-            SASSERT(e);
-            e->get_data().m_value.push_back(idx);
+            m_index.insert_if_not_there(f, unsigned_vector()).push_back(idx);
         }
 
         unsigned get_num_rules(func_decl* p) const {

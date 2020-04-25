@@ -309,8 +309,7 @@ public:
         unsigned na = n->get_num_args();
         for (unsigned i = 0; i < na; i++) {
             expr * c = n->get_arg(i); 
-            uplinks_type::obj_map_entry * entry = m_uplinks.insert_if_not_there2(c, ptr_vector<expr>());
-            entry->get_data().m_value.push_back(n);
+            m_uplinks.insert_if_not_there(c, ptr_vector<expr>()).push_back(n);
         }
 
         func_decl * d = n->get_decl();

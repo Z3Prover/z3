@@ -25,11 +25,11 @@ void counter::update(unsigned el, int delta) {
 }
 
 int & counter::get(unsigned el) {
-    return m_data.insert_if_not_there2(el, 0)->get_data().m_value;
+    return m_data.insert_if_not_there(el, 0);
 }
 
 counter & counter::count(unsigned sz, const unsigned * els, int delta) {
-    for(unsigned i=0; i<sz; i++) {
+    for(unsigned i = 0; i < sz; i++) {
         update(els[i], delta);
     }
     return *this;
@@ -37,32 +37,24 @@ counter & counter::count(unsigned sz, const unsigned * els, int delta) {
 
 unsigned counter::get_positive_count() const {
     unsigned cnt = 0;
-    iterator eit = begin();
-    iterator eend = end();
-    for(; eit!=eend; ++eit) {
-        if( eit->m_value>0 ) { 
+    for (auto const& kv : *this)
+        if (kv.m_value > 0) 
             cnt++;
-        }
-    }
     return cnt;
 }
 
 void counter::collect_positive(uint_set & acc) const {
-    iterator eit = begin();
-    iterator eend = end();
-    for(; eit!=eend; ++eit) {
-        if(eit->m_value>0) { acc.insert(eit->m_key); }
-    }
+    for (auto const& kv : *this) 
+        if(kv.m_value > 0) 
+            acc.insert(kv.m_key); 
 }
 
 bool counter::get_max_positive(unsigned & res) const {
     bool found = false;
-    iterator eit = begin();
-    iterator eend = end();
-    for(; eit!=eend; ++eit) {
-        if( eit->m_value>0 && (!found || eit->m_key>res) ) { 
+    for (auto const& kv : *this) {
+        if (kv.m_value > 0 && (!found || kv.m_key > res) ) { 
             found = true;
-            res = eit->m_key;
+            res = kv.m_key;
         }
     }
     return found;
@@ -76,12 +68,9 @@ unsigned counter::get_max_positive() const {
 
 int counter::get_max_counter_value() const {
     int res = 0;
-    iterator eit = begin();
-    iterator eend = end();
-    for (; eit!=eend; ++eit) {
-        if( eit->m_value>res ) { 
-            res = eit->m_value;
-        }
+    for (auto const& kv : *this) {
+        if (kv.m_value > res) 
+            res = kv.m_value;
     }
     return res;
 }

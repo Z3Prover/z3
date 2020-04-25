@@ -2357,10 +2357,10 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
         func_decl* pred = dit->m_key;
         TRACE("spacer", tout << mk_pp(pred, m) << "\n";);
         SASSERT(!rels.contains(pred));
-        auto *e = rels.insert_if_not_there2(pred, alloc(pred_transformer, *this,
+        auto* pt = rels.insert_if_not_there(pred, alloc(pred_transformer, *this,
                                                         get_manager(), pred));
         datalog::rule_vector const& pred_rules = *dit->m_value;
-        for (auto rule : pred_rules) {e->get_data().m_value->add_rule(rule);}
+        for (auto rule : pred_rules) {pt->add_rule(rule);}
     }
 
     // Allocate predicate transformers for predicates that are used

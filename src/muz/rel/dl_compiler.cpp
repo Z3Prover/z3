@@ -37,15 +37,15 @@ namespace datalog {
     }
 
     void compiler::ensure_predicate_loaded(func_decl * pred, instruction_block & acc) {
-        pred2idx::obj_map_entry * e = m_pred_regs.insert_if_not_there2(pred, UINT_MAX);
-        if(e->get_data().m_value!=UINT_MAX) {
+        auto& value = m_pred_regs.insert_if_not_there(pred, UINT_MAX);
+        if (value != UINT_MAX) {
             //predicate is already loaded
             return;
         }
         relation_signature sig;
         m_context.get_rel_context()->get_rmanager().from_predicate(pred, sig);
         reg_idx reg = get_fresh_register(sig);
-        e->get_data().m_value=reg;
+        value = reg;
 
         acc.push_back(instruction::mk_load(m_context.get_manager(), pred, reg));
     }
@@ -570,8 +570,8 @@ namespace datalog {
                 else {
                     SASSERT(is_var(exp));
                     unsigned var_num=to_var(exp)->get_idx();
-                    int2ints::entry * e = var_indexes.insert_if_not_there2(var_num, unsigned_vector());
-                    e->get_data().m_value.push_back(i);
+                    auto& value = var_indexes.insert_if_not_there(var_num, unsigned_vector());
+                    value.push_back(i);
                 }
             }
         }
@@ -631,8 +631,8 @@ namespace datalog {
                     src_col = single_res_expr.size();
                     single_res_expr.push_back(m.mk_var(v, unbound_sort));
 
-                    entry = var_indexes.insert_if_not_there2(v, unsigned_vector());
-                    entry->get_data().m_value.push_back(src_col);
+
+                    var_indexes.insert_if_not_there(v, unsigned_vector()).push_back(src_col);
                 }
                 relation_sort var_sort = m_reg_signatures[filtered_res][src_col];
                 binding[m_free_vars.size()-v] = m.mk_var(src_col, var_sort);
@@ -790,7 +790,7 @@ namespace datalog {
                     unsigned unbound_column_index = single_res_expr.size();
                     single_res_expr.push_back(m.mk_var(v, unbound_sort));
 
-                    e = var_indexes.insert_if_not_there2(v, unsigned_vector());
+                    e = var_indexes.insert_if_not_there3(v, unsigned_vector());
                     e->get_data().m_value.push_back(unbound_column_index);
                 }
                 unsigned src_col=e->get_data().m_value.back();

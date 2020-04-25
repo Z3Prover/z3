@@ -65,15 +65,15 @@ namespace datalog {
             for (rule* cur : m_rules) {
                 for (unsigned i = 0; i < cur->get_uninterpreted_tail_size(); ++i) {
                     func_decl *d = cur->get_decl(i);
-                    rule_set::decl2rules::obj_map_entry *e = m_body2rules.insert_if_not_there2(d, 0);
-                    if (!e->get_data().m_value) {
-                        e->get_data().m_value = alloc(ptr_vector<rule>);
+                    auto& value = m_body2rules.insert_if_not_there(d, nullptr);
+                    if (!value) {
+                        value = alloc(ptr_vector<rule>);
                     }
-                    e->get_data().m_value->push_back(cur);
+                    value->push_back(cur);
                 }
                 if (cur->get_positive_tail_size() == 0) {
                     func_decl *sym = cur->get_head()->get_decl();
-                    bool new_info = m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value.init_up(m_context, cur);
+                    bool new_info = m_facts.insert_if_not_there(sym, Fact()).init_up(m_context, cur);
                     if (new_info) {
                         m_todo[m_todo_idx].insert(sym);
                     }
@@ -86,7 +86,7 @@ namespace datalog {
                 TRACE("dl", tout << sym->get_name() << "\n";);
                 const rule_vector& output_rules = m_rules.get_predicate_rules(sym);
                 for (rule* r : output_rules) {
-                    m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value.init_down(m_context, r);
+                    m_facts.insert_if_not_there(sym, Fact()).init_down(m_context, r);
                     m_todo[m_todo_idx].insert(sym);
                 }
             }
@@ -100,7 +100,7 @@ namespace datalog {
                 for (rule* r : *rules) {
                     func_decl* head_sym = r->get_head()->get_decl();
                     fact_reader<Fact> tail_facts(m_facts, r);
-                    bool new_info = m_facts.insert_if_not_there2(head_sym, Fact())->get_data().m_value.propagate_up(m_context, r, tail_facts);
+                    bool new_info = m_facts.insert_if_not_there(head_sym, Fact()).propagate_up(m_context, r, tail_facts);
                     if (new_info) {
                         m_todo[!m_todo_idx].insert(head_sym);
                     }
@@ -238,7 +238,7 @@ namespace datalog {
 
         Fact& get(unsigned idx) {
             func_decl *sym = m_rule->get_decl(idx);
-            return m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value;
+            return m_facts.insert_if_not_there(sym, Fact());
         }
 
         void set_changed(unsigned idx) {

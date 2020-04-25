@@ -458,10 +458,10 @@ namespace recfun {
             for (expr* t : subterms(tmp)) {
                 if (is_app(t)) {
                     for (expr* arg : *to_app(t)) {
-                        parents.insert_if_not_there2(arg, ptr_vector<expr>())->get_data().m_value.push_back(t);        
+                        parents.insert_if_not_there(arg, ptr_vector<expr>()).push_back(t);        
                     }
                 }
-                by_depth.insert_if_not_there2(get_depth(t), ptr_vector<expr>())->get_data().m_value.push_back(t);
+                by_depth.insert_if_not_there(get_depth(t), ptr_vector<expr>()).push_back(t);
             }
             unsigned max_depth = get_depth(e);
             scores.insert(e, 0);

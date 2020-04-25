@@ -1188,11 +1188,11 @@ class wpa_parser_impl : public wpa_parser, dparser {
     bool m_use_map_names;
 
     uint64_set& ensure_sort_content(symbol sort_name) {
-        sym2nums::entry * e = m_sort_contents.insert_if_not_there2(sort_name, nullptr);
-        if(!e->get_data().m_value) {
-            e->get_data().m_value = alloc(uint64_set);
+        auto& value = m_sort_contents.insert_if_not_there(sort_name, nullptr);
+        if (!value) {
+            value = alloc(uint64_set);
         }
-        return *e->get_data().m_value;
+        return *value;
     }
 
 public:        
@@ -1527,10 +1527,10 @@ private:
             sort_elements.insert(num);
             
             if(m_use_map_names) {
-                num2sym::entry * e = m_number_names.insert_if_not_there2(num, el_name);
-                if(e->get_data().m_value!=el_name) {
+                auto const & value = m_number_names.insert_if_not_there(num, el_name);
+                if (value!=el_name) {
                     warning_msg("mismatch of number names on line %d in file %s. old: \"%s\" new: \"%s\"", 
-                        m_current_line, fname.c_str(), e->get_data().m_value.bare_str(), el_name.bare_str());
+                        m_current_line, fname.c_str(), value.bare_str(), el_name.bare_str());
                 }
             }
         }

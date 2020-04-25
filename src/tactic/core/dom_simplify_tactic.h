@@ -41,7 +41,7 @@ private:
     tree_t                m_tree;
 
     void add_edge(tree_t& tree, expr * src, expr* dst) {        
-        tree.insert_if_not_there2(src, ptr_vector<expr>())->get_data().m_value.push_back(dst);        
+        tree.insert_if_not_there(src, ptr_vector<expr>()).push_back(dst);        
     }
 
     void compute_post_order();

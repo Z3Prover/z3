@@ -101,9 +101,9 @@ class recover_01_tactic : public tactic {
             }
             
             if (x != nullptr) {
-                var2clauses::obj_map_entry * entry = m_var2clauses.insert_if_not_there2(x, ptr_vector<app>());
-                if (entry->get_data().m_value.empty() || entry->get_data().m_value.back()->get_num_args() == cls->get_num_args()) {
-                    entry->get_data().m_value.push_back(cls);
+                auto& value = m_var2clauses.insert_if_not_there(x, ptr_vector<app>());
+                if (value.empty() || value.back()->get_num_args() == cls->get_num_args()) {
+                    value.push_back(cls);
                     return true;
                 }
             }

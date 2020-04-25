@@ -1326,7 +1326,7 @@ seq_rewriter::length_comparison seq_rewriter::compare_lengths(unsigned sza, expr
         if (m_util.str.is_unit(as[i]))
             units_a++;
         else 
-            mults.insert_if_not_there2(as[i], 0)->get_data().m_value++;
+            mults.insert_if_not_there(as[i], 0)++;
     }
     for (unsigned i = 0; i < szb; ++i) {
         if (m_util.str.is_unit(bs[i]))

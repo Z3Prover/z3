@@ -302,7 +302,7 @@ namespace datalog {
             index_map::entry * e = m_map.find_core(ofs);
             if (!e) {
                 TRACE("dl_table_relation", tout << "inserting\n";);
-                e = m_map.insert_if_not_there2(ofs, offset_vector());
+                e = m_map.insert_if_not_there3(ofs, offset_vector());
             }
             return e->get_data().m_value;
         }
@@ -473,7 +473,7 @@ namespace datalog {
 #endif
         key_spec kspec;
         kspec.append(key_len, key_cols);
-        key_index_map::entry * key_map_entry = m_key_indexes.insert_if_not_there2(kspec, nullptr);
+        key_index_map::entry * key_map_entry = m_key_indexes.insert_if_not_there3(kspec, nullptr);
         if (!key_map_entry->get_data().m_value) {
             if (full_signature_key_indexer::can_handle(key_len, key_cols, *this)) {
                 key_map_entry->get_data().m_value = alloc(full_signature_key_indexer, key_len, key_cols, *this);
@@ -777,8 +777,7 @@ namespace datalog {
         const table_signature & sig = t->get_signature();
         t->reset();
 
-        table_pool::entry * e = m_pool.insert_if_not_there2(sig, nullptr);
-        sp_table_vector * & vect = e->get_data().m_value;
+        sp_table_vector * & vect = m_pool.insert_if_not_there(sig, nullptr);
         if (vect == nullptr) {
             vect = alloc(sp_table_vector);
         }

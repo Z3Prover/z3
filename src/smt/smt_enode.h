@@ -201,6 +201,10 @@ namespace smt {
             return m_root; 
         }
 
+        bool is_root() const {
+            return m_root == this;
+        }
+
         void set_root(enode* r) {
             m_root = r;
         }

@@ -676,21 +676,21 @@ namespace datalog {
     }
 
     func_decl * mk_explanations::get_e_decl(func_decl * orig_decl) {
-        decl_map::obj_map_entry * e = m_e_decl_map.insert_if_not_there2(orig_decl, 0);
-        if (e->get_data().m_value == nullptr) {
+        auto& value = m_e_decl_map.insert_if_not_there(orig_decl, 0);
+        if (value == nullptr) {
             relation_signature e_domain;
             e_domain.append(orig_decl->get_arity(), orig_decl->get_domain());
             e_domain.push_back(m_e_sort);
             func_decl * new_decl = m_context.mk_fresh_head_predicate(orig_decl->get_name(), symbol("expl"), 
                 e_domain.size(), e_domain.c_ptr(), orig_decl);
             m_pinned.push_back(new_decl);
-            e->get_data().m_value = new_decl;
+            value = new_decl;
 
             if (m_relation_level) {
                 assign_rel_level_kind(new_decl, orig_decl);
             }
         }
-        return e->get_data().m_value;
+        return value;
     }
 
     app * mk_explanations::get_e_lit(app * lit, unsigned e_var_idx) {

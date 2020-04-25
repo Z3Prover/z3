@@ -285,8 +285,7 @@ void emonics::insert_cg_mon(monic & m) {
     do_canonize(m);
     lpvar v = m.var(), w;
     TRACE("nla_solver_mons", tout << m << "\n";); //  hash: " << m_cg_hash(v) << "\n";);
-    auto* entry = m_cg_table.insert_if_not_there2(v, unsigned_vector());
-    auto& vec = entry->get_data().m_value;
+    auto& vec = m_cg_table.insert_if_not_there(v, unsigned_vector());
     if (vec.empty()) {
         vec.push_back(v);
     }
