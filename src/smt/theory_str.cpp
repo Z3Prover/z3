@@ -8933,11 +8933,19 @@ namespace smt {
         if (Sval_expr_exists) {
             zstring Sval;
             u.str.is_string(Sval_expr, Sval);
-            TRACE("str", tout << "string theory assigns \"" << mk_pp(a, m) << " = " << Sval << "\n";);
+            TRACE("str", tout << "string theory assigns " << mk_pp(a, m) << " = \"" << Sval << "\"\n";);
             // empty string --> integer value < 0
             if (Sval.empty()) {
                 // ignore this. we should already assert the axiom for what happens when the string is ""
             } else {
+                // check for leading zeroes. if the first character is '0', the entire string must be "0"
+                char firstChar = (int)Sval[0];
+                if (firstChar == '0' && !(Sval == zstring("0"))) {
+                    TRACE("str", tout << "str.to-int argument " << Sval << " contains leading zeroes" << std::endl;);
+                    expr_ref axiom(m.mk_not(ctx.mk_eq_atom(a, mk_string(Sval))), m);
+                    assert_axiom(axiom);
+                    return true;
+                }
                 // nonempty string --> convert to correct integer value, or disallow it
                 rational convertedRepresentation(0);
                 rational ten(10);
