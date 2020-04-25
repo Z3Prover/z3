@@ -80,11 +80,11 @@ class manager {
     sym_mux               m_mux;
 
 
-    unsigned n_index() const { return 0; }
     unsigned o_index(unsigned i) const { return i + 1; }
 
 public:
-    manager(ast_manager & manager);
+    unsigned n_index() const { return 0; }
+    manager(ast_manager &manager);
 
     ast_manager& get_manager() const { return m; }
 
