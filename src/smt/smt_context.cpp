@@ -4507,32 +4507,6 @@ namespace smt {
 
     void context::add_rec_funs_to_model() {
         if (!m_model) return;
-        for (unsigned i = 0; !get_cancel_flag() && i < m_asserted_formulas.get_num_formulas(); ++i) {
-            expr* e = m_asserted_formulas.get_formula(i);
-            if (is_quantifier(e)) {
-                quantifier* q = to_quantifier(e);
-                if (!m.is_rec_fun_def(q)) continue;
-                TRACE("context", tout << mk_pp(e, m) << "\n";);
-                SASSERT(q->get_num_patterns() == 2);
-                expr* fn = to_app(q->get_pattern(0))->get_arg(0);
-                expr* body = to_app(q->get_pattern(1))->get_arg(0);
-                SASSERT(is_app(fn));
-                // reverse argument order so that variable 0 starts at the beginning.
-                expr_ref_vector subst(m);
-                unsigned idx = 0;
-                for (expr* arg : *to_app(fn)) {
-                    subst.push_back(m.mk_var(idx++, m.get_sort(arg)));
-                }
-                expr_ref bodyr(m);
-                var_subst sub(m, true);
-                TRACE("context", tout << expr_ref(q, m) << " " << subst << "\n";);
-                bodyr = sub(body, subst.size(), subst.c_ptr());
-                func_decl* f = to_app(fn)->get_decl();
-                func_interp* fi = alloc(func_interp, m, f->get_arity());
-                fi->set_else(bodyr);
-                m_model->register_decl(f, fi);
-            }
-        }
         recfun::util u(m);
         func_decl_ref_vector recfuns = u.get_rec_funs();
         for (func_decl* f : recfuns) {

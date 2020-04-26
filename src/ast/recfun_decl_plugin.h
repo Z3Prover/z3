@@ -220,6 +220,7 @@ namespace recfun {
         ~util();
 
         ast_manager & m() { return m_manager; }
+        family_id get_family_id() const { return m_fid; }
         decl::plugin& get_plugin() { return *m_plugin; }
 
         bool is_case_pred(expr * e) const { return is_app_of(e, m_fid, OP_FUN_CASE_PRED); }

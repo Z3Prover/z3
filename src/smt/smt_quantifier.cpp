@@ -625,9 +625,6 @@ namespace smt {
             if (!m_fparams->m_ematching) {
                 return;
             }
-            if (false && m.is_rec_fun_def(q) && mbqi_enabled(q)) {
-                return;
-            }
             bool has_unary_pattern = false;
             unsigned num_patterns = q->get_num_patterns();
             for (unsigned i = 0; i < num_patterns; i++) {
@@ -644,11 +641,7 @@ namespace smt {
                 app * mp = to_app(q->get_pattern(i));
                 SASSERT(m.is_pattern(mp));
                 bool unary = (mp->get_num_args() == 1);
-                if (m.is_rec_fun_def(q) && i > 0) {
-                    // add only the first pattern
-                    TRACE("quantifier", tout << "skip recursive function body " << mk_ismt2_pp(mp, m) << "\n";);
-                }
-                else if (!unary && j >= num_eager_multi_patterns) {
+                if (!unary && j >= num_eager_multi_patterns) {
                     TRACE("quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n"
                           << "j: " << j << " unary: " << unary << " m_params.m_qi_max_eager_multipatterns: " << m_fparams->m_qi_max_eager_multipatterns
                           << " num_eager_multi_patterns: " << num_eager_multi_patterns << "\n";);

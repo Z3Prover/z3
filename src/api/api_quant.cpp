@@ -72,14 +72,11 @@ extern "C" {
         expr * const* ps = reinterpret_cast<expr * const*>(patterns);
         expr * const* no_ps = reinterpret_cast<expr * const*>(no_patterns);
         symbol qid = to_symbol(quantifier_id);
-        bool is_rec = mk_c(c)->m().rec_fun_qid() == qid;
-        if (!is_rec) {
-            pattern_validator v(mk_c(c)->m());
-            for (unsigned i = 0; i < num_patterns; i++) {
-                if (!v(num_decls, ps[i], 0, 0)) {
-                    SET_ERROR_CODE(Z3_INVALID_PATTERN, nullptr);
-                    return nullptr;
-                }
+        pattern_validator v(mk_c(c)->m());
+        for (unsigned i = 0; i < num_patterns; i++) {
+            if (!v(num_decls, ps[i], 0, 0)) {
+                SET_ERROR_CODE(Z3_INVALID_PATTERN, nullptr);
+                return nullptr;
             }
         }
         sort* const* ts = reinterpret_cast<sort * const*>(sorts);
