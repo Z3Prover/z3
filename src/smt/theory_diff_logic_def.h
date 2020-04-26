@@ -923,8 +923,11 @@ template<typename Ext>
 model_value_proc * theory_diff_logic<Ext>::mk_value(enode * n, model_generator & mg) {
     theory_var v = n->get_th_var(get_id());
     SASSERT(v != null_theory_var);
-    numeral val = m_graph.get_assignment(v);
-    rational num = val.get_rational().to_rational() + m_delta * val.get_infinitesimal().to_rational();
+    rational num;
+    if (!m_util.is_numeral(n->get_owner(), num)) {
+        numeral val = m_graph.get_assignment(v);
+        num = val.get_rational().to_rational() + m_delta * val.get_infinitesimal().to_rational();
+    }
     TRACE("arith", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
     return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, m_util.is_int(n->get_owner())));
 }
