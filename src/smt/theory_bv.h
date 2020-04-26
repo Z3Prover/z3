@@ -106,7 +106,6 @@ namespace smt {
         atom * get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, 0); }
 #endif
         theory_bv_stats          m_stats;
-        theory_bv_params const & m_params;
         bv_util                  m_util;
         arith_util               m_autil;
         bit_blaster              m_bb;
@@ -253,8 +252,9 @@ namespace smt {
         void init_model(model_generator & m) override;
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
+        smt_params const& params() const;
     public:
-        theory_bv(ast_manager & m, theory_bv_params const & params, bit_blaster_params const & bb_params);
+        theory_bv(ast_manager & m, bit_blaster_params const & bb_params);
         ~theory_bv() override;
         
         theory * mk_fresh(context * new_ctx) override;

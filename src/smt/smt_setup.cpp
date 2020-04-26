@@ -566,7 +566,7 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
-        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
+        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
     }
 
     void setup::setup_QF_AUFBV() {
@@ -575,7 +575,7 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
-        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
+        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
         setup_arrays();
     }
 
@@ -853,7 +853,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("bv"), "no bit-vector"));
             break;
         case BS_BLASTER:
-            m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
+            m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
             break;
         }
     }

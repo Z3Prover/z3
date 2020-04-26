@@ -451,7 +451,7 @@ namespace smt {
     }
 
     theory * theory_pb::mk_fresh(context * new_ctx) { 
-        return alloc(theory_pb, new_ctx->get_manager(), m_params); 
+        return alloc(theory_pb, new_ctx->get_manager(), new_ctx->get_fparams());
     }
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
