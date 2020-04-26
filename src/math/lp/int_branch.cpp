@@ -45,7 +45,7 @@ namespace lp {
             lia.m_k = mpq(0);
         }
         else {
-            lia.m_upper = lra.settings().branch_flip()? lia.random() % 2 : left_branch_is_more_narrow_than_right(j);
+            lia.m_upper = lia.random() % 2;
             lia.m_k = lia.m_upper? floor(lia.get_value(j)) : ceil(lia.get_value(j));        
         }
         
@@ -53,23 +53,6 @@ namespace lp {
               lia.display_column(tout << "branching v" << j << " = " << lia.get_value(j) << "\n", j);
               tout << "k = " << lia.m_k << std::endl;);
         return lia_move::branch;        
-    }
-
-    bool int_branch::left_branch_is_more_narrow_than_right(unsigned j) {
-        switch (lra.get_column_type(j)) {
-        case column_type::fixed:
-            return false;
-        case column_type::boxed: {
-            auto k = floor(lia.get_value(j));
-            return k - lia.lower_bound(j).x < lia.upper_bound(j).x - (k + mpq(1));
-        }
-        case column_type::lower_bound: 
-            return true;
-        case column_type::upper_bound:
-            return false;
-        default:
-            return false;
-        }       
     }
 
     int int_branch::find_inf_int_base_column() {
@@ -93,8 +76,9 @@ namespace lp {
     }
     
     int int_branch::find_inf_int_nbasis_column() const {
+        
         for (unsigned j : lra.r_nbasis())
-            if (!lia.column_is_int_inf(j)) {
+            if (lia.column_is_int_inf(j)) {
                 return j;    
             }
         return -1; 

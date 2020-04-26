@@ -28,7 +28,6 @@ namespace lp {
         class int_solver& lia;
         class lar_solver& lra;
         lia_move create_branch_on_column(int j);
-        bool left_branch_is_more_narrow_than_right(unsigned j);
         int find_inf_int_base_column();
         int get_kth_inf_int(unsigned k) const;
         int find_inf_int_nbasis_column() const;

@@ -421,7 +421,7 @@ public:
     inline int_solver * get_int_solver() { return m_int_solver; }
     inline const lar_term & get_term(tv const& t) const { lp_assert(t.is_term()); return *m_terms[t.id()]; }
     lp_status find_feasible_solution();   
-    bool move_non_basic_columns_to_bounds();
+    void move_non_basic_columns_to_bounds();
     bool move_non_basic_column_to_bounds(unsigned j);
     inline bool r_basis_has_inf_int() const {
         for (unsigned j : r_basis()) {

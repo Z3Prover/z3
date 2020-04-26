@@ -445,8 +445,7 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
 void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {        
     TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
     m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
-    if (move_non_basic_columns_to_bounds())
-        find_feasible_solution();
+    move_non_basic_columns_to_bounds();
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
     rslv.set_using_infeas_costs(false);
     lp_assert(costs_are_zeros_for_r_solver());
@@ -464,17 +463,26 @@ void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
     lp_assert(rslv.reduced_costs_are_correct_tableau());
 }
 
-bool lar_solver::move_non_basic_columns_to_bounds() {
+bool feasible(lp_status st) {
+    return st == lp_status::FEASIBLE || st == lp_status::OPTIMAL;
+}
+
+void lar_solver::move_non_basic_columns_to_bounds() {
     auto & lcs = m_mpq_lar_core_solver;
     bool change = false;
+    bool feas = feasible(get_status());
     for (unsigned j : lcs.m_r_nbasis) {
         if (move_non_basic_column_to_bounds(j))
             change = true;
     }
 
-    if (settings().simplex_strategy() == simplex_strategy_enum::tableau_costs)
+    if (settings().simplex_strategy() == simplex_strategy_enum::tableau_costs && change)
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
-    return change;
+    
+    if (feas && change) {
+        find_feasible_solution();
+        SASSERT(feasible(get_status()));
+    }
 }
 
 bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {

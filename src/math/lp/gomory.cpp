@@ -442,12 +442,7 @@ int gomory::find_basic_var() {
 }
     
 lia_move gomory::operator()() {
-    if (lra.move_non_basic_columns_to_bounds()) {
-        lp_status st = lra.find_feasible_solution();
-        (void)st;
-        lp_assert(st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
-    }
-        
+    lra.move_non_basic_columns_to_bounds();
     int j = find_basic_var();
     if (j == -1) return lia_move::undef;
     unsigned r = lia.row_of_basic_column(j);
