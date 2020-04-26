@@ -292,7 +292,7 @@ namespace algebraic_numbers {
                 return false; // we know for sure a is not a rational
             TRACE("algebraic_bug", tout << "is_rational(a):\n"; display_root(tout, a); tout << "\n"; display_interval(tout, a); tout << "\n";);
             algebraic_cell * c = a.to_algebraic();
-            save_intervals saved_a(*this, c);
+            save_intervals saved_a(*this, a);
             mpz & a_n = c->m_p[c->m_p_sz - 1];
             scoped_mpz & abs_a_n = m_is_rational_tmp;
             qm().set(abs_a_n, a_n);
@@ -965,6 +965,7 @@ namespace algebraic_numbers {
                 if (m_num.is_basic())
                     return; // m_num is not algebraic anymore
                 algebraic_cell * cell = m_num.to_algebraic();
+                
                 if (m_owner.magnitude(cell) < m_owner.m_min_magnitude) {
                     // restore old interval
                     m_owner.bqim().swap(cell->m_interval, m_old_interval);
