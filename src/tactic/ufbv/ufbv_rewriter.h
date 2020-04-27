@@ -165,6 +165,7 @@ class ufbv_rewriter {
     demodulator2lhs_rhs m_demodulator2lhs_rhs;
     expr_ref_buffer     m_todo;
     obj_hashtable<expr> m_processed;
+    expr_ref_vector     m_in_processed;
     expr_ref_vector     m_new_args;
 
     expr_ref_buffer     m_rewrite_todo;

@@ -142,7 +142,7 @@ class skolemizer {
                 }
             }
         }
-        r = s(body, substitution.size(), substitution.c_ptr());
+        r = s(body, substitution);
         p = nullptr;
         if (m_proofs_enabled) {
             if (q->get_kind() == forall_k) 

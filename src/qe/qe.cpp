@@ -2464,6 +2464,27 @@ namespace qe {
         fml = tmp;
     }
 
+    bool has_quantified_uninterpreted(ast_manager& m, expr* fml) {
+        struct found {};
+        struct proc {
+            ast_manager& m;
+            proc(ast_manager& m):m(m) {}
+            void operator()(quantifier* q) {
+                if (has_uninterpreted(m, q->get_expr()))
+                    throw found();
+            }
+            void operator()(expr*) {}
+        };
+
+        try {
+            proc p(m);
+            for_each_expr(p, fml);
+            return false;
+        }
+        catch (found) {
+            return true;
+        }
+    }
     
     class simplify_solver_context : public i_solver_context {
         ast_manager&             m;

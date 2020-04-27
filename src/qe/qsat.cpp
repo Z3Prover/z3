@@ -740,6 +740,9 @@ namespace qe {
            \brief create a quantifier prefix formula.
         */
         void hoist(expr_ref& fml) {
+            if (has_quantified_uninterpreted(m, fml)) {
+                throw tactic_exception("formula contains uninterpreted functions");
+            }
             proof_ref pr(m);
             label_rewriter rw(m);
             rw.remove_labels(fml, pr);
@@ -770,9 +773,6 @@ namespace qe {
             while (!vars.empty());
             SASSERT(m_vars.back().empty()); 
             initialize_levels();
-            if (has_uninterpreted(m, fml))
-                throw tactic_exception("formula contains uninterpreted functions");
-
             TRACE("qe", tout << fml << "\n";);
         }
 
@@ -834,8 +834,8 @@ namespace qe {
             expr_ref_vector core1(m), core2(m), dels(m);
             TRACE("qe", tout << core.size() << "\n";);
             mus mus(get_kernel(level).s());
-            for (unsigned i = 0; i < core.size(); ++i) {
-                app* a = to_app(core[i].get());                
+            for (expr* arg : core) {
+                app* a = to_app(arg);
                 max_level lvl = m_pred_abs.compute_level(a);
                 if (lvl.max() + 2 <= level) {     
                     VERIFY(core1.size() == mus.add_soft(a));
@@ -1194,9 +1194,9 @@ namespace qe {
                 return true;
             }
             for (unsigned i = 0; i < m_avars.size(); ++i) {
-                contains_app cont(m, m_avars[i].get());
+                contains_app cont(m, m_avars.get(i));
                 if (cont(proj)) {
-                    TRACE("qe", tout << "Projection contains free variable: " << mk_pp(m_avars[i].get(), m) << "\n";);
+                    TRACE("qe", tout << "Projection contains free variable: " << mk_pp(m_avars.get(i), m) << "\n";);
                     return false;
                 }
             }

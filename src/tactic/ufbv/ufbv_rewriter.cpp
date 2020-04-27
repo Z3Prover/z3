@@ -34,7 +34,8 @@ ufbv_rewriter::ufbv_rewriter(ast_manager & m):
     m_new_args(m), 
     m_rewrite_todo(m),
     m_rewrite_cache(m),
-    m_new_exprs(m) {
+    m_new_exprs(m),
+    m_in_processed(m) {
     params_ref p;
     p.set_bool("elim_and", true);
     m_bsimp.updt_params(p);
@@ -304,8 +305,9 @@ bool ufbv_rewriter::rewrite_visit_children(app * a) {
             expr * v = e;
             if (m_rewrite_cache.contains(e)) {
                 expr_bool_pair const & ebp = m_rewrite_cache.get(e);
-                if (ebp.second)
+                if (ebp.second) {
                     v = ebp.first;
+                }
             }
             for (unsigned i = sz; i-- > 0;) {
                 if (m_rewrite_todo[i] == v) {
@@ -342,7 +344,7 @@ expr * ufbv_rewriter::rewrite(expr * n) {
     m_rewrite_todo.push_back(n);
     while (!m_rewrite_todo.empty()) {
         TRACE("demodulator_stack", tout << "STACK: " << std::endl;
-              for ( unsigned i = 0; i<m_rewrite_todo.size(); i++)
+              for (unsigned i = 0; i < m_rewrite_todo.size(); i++)
                   tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] <<
                   " = " << mk_pp(m_rewrite_todo[i], m) << std::endl;
               );
@@ -385,7 +387,8 @@ expr * ufbv_rewriter::rewrite(expr * n) {
                 if (rewrite1(f, m_new_args, np)) {
                     rewrite_cache(e, np, false);
                     // No pop.
-                } else {
+                } 
+                else {
                     if (all_untouched) {
                         rewrite_cache(e, actual, true);
                     }
@@ -398,7 +401,7 @@ expr * ufbv_rewriter::rewrite(expr * n) {
                         TRACE("demodulator_bug", tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
                               tout << m_new_args << "\n";
                               tout << "=====>\n";
-                              tout << "na:\n " << mk_pp(na, m) << "\n";);
+                              tout << "na:\n " << na << "\n";);
                         rewrite_cache(e, na, true);
                     }
                     m_rewrite_todo.pop_back();
@@ -654,6 +657,7 @@ void ufbv_rewriter::operator()(unsigned n, expr * const * exprs, proof * const *
         if (!is_demodulator(np, large, small)) {
             // insert n' into m_processed
             m_processed.insert(np);
+            m_in_processed.push_back(np);
             // update m_back_idx (traverse n' and for each uninterpreted function declaration f in n' add the entry f->n' to m_back_idx)
             add_back_idx_proc proc(m_back_idx, np);
             for_each_expr(proc, np);

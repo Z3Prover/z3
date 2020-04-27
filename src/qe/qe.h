@@ -328,6 +328,8 @@ namespace qe {
 
     void mk_exists(unsigned num_vars, app* const* vars, expr_ref& fml);
 
+    bool has_quantified_uninterpreted(ast_manager& m, expr* fml);
+
     void get_nnf(expr_ref& fml, i_expr_pred& pred, i_nnf_atom& mk_atom, atom_set& pos, atom_set& neg); 
 
     class simplify_rewriter_cfg : public default_rewriter_cfg {
