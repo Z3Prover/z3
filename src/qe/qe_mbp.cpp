@@ -191,6 +191,11 @@ class mbp::impl {
         vars.shrink(j);
     }
 
+    // over-approximation
+    bool contains_uninterpreted(expr* v) {
+        return true;
+    }
+
     bool extract_bools(model_evaluator& eval, expr_ref_vector& fmls, expr* fml) {
         TRACE("qe", tout << "extract bools: " << mk_pp(fml, m) << "\n";);
         ptr_vector<expr> todo;
@@ -209,10 +214,14 @@ class mbp::impl {
             m_visited.mark(e);
             if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e) && m.inc()) {
                 expr_ref val = eval(e);
-                TRACE("qe", tout << "found: " << mk_pp(e, m) << "\n";);
+                TRACE("qe", tout << "found: " << mk_pp(e, m) << " " << val << "\n";);
                 if (!m.inc())
                     continue;
+                if (!m.is_true(val) && !m.is_false(val) && contains_uninterpreted(val)) {
+                    throw default_exception("could not evaluate Boolean in model");
+                }
                 SASSERT(m.is_true(val) || m.is_false(val));
+
                 if (!m_bool_visited.is_marked(e)) {
                     fmls.push_back(m.is_true(val) ? e : mk_not(m, e));
                 }

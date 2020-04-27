@@ -331,7 +331,7 @@ namespace qe {
             } 
             if (sz == args.size()) {
                 if (diff) {
-                    r = m.mk_app(a->get_decl(), sz, args.c_ptr());
+                    r = m.mk_app(a->get_decl(), args);
                     trail.push_back(r);
                 }
                 else {
@@ -424,7 +424,7 @@ namespace qe {
             } 
             if (args.size() == sz) {
                 if (diff) {
-                    r = m.mk_app(a->get_decl(), sz, args.c_ptr());
+                    r = m.mk_app(a->get_decl(), args);
                 }
                 else {
                     r = to_app(a);
@@ -456,9 +456,8 @@ namespace qe {
         
     void pred_abs::display(std::ostream& out) const {
         out << "pred2lit:\n";
-        obj_map<expr, expr*>::iterator it = m_pred2lit.begin(), end = m_pred2lit.end();
-        for (; it != end; ++it) {
-            out << mk_pp(it->m_key, m) << " |-> " << mk_pp(it->m_value, m) << "\n";
+        for (auto const& kv : m_pred2lit) {
+            out << mk_pp(kv.m_key, m) << " |-> " << mk_pp(kv.m_value, m) << "\n";
         }
         for (unsigned i = 0; i < m_preds.size(); ++i) {
             out << "level " << i << "\n";
@@ -477,10 +476,10 @@ namespace qe {
     
     void pred_abs::display(std::ostream& out, expr_ref_vector const& asms) const {
         max_level lvl;       
-        for (unsigned i = 0; i < asms.size(); ++i) {
-            expr* e = asms[i];
-            bool is_not = m.is_not(asms[i], e);
-            out << mk_pp(asms[i], m);
+        for (expr* a : asms) {
+            expr* e = a;
+            bool is_not = m.is_not(a, e);
+            out << mk_pp(a, m);
             if (m_elevel.find(e, lvl)) {
                 lvl.display(out << " - ");
             }
@@ -1010,7 +1009,7 @@ namespace qe {
                         }
                     }
                     if (all_visited) {
-                        r = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+                        r = m.mk_app(a->get_decl(), args);
                         todo.pop_back();
                         trail.push_back(r);
                         visited.insert(e, r);
