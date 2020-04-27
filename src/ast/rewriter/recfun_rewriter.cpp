@@ -27,6 +27,8 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
                 return BR_FAILED;
         }
         recfun::def const& d = m_rec.get_def(f);
+        if (!d.get_rhs())
+            return BR_FAILED;
         var_subst sub(m);
         result = sub(d.get_rhs(), num_args, args);
         return BR_REWRITE_FULL;
