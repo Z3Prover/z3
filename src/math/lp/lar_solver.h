@@ -101,6 +101,7 @@ class lar_solver : public column_namer {
     std::unordered_map<lar_term, std::pair<mpq, unsigned>, term_hasher, term_comparer>
     m_normalized_terms_to_columns;
     vector<impq>                                        m_backup_x;
+    stacked_vector<unsigned>                            m_usage_in_terms;
     // end of fields
 
     ////////////////// methods ////////////////////////////////
@@ -467,9 +468,13 @@ public:
             return -1;
         }
     }
-
+    unsigned usage_in_terms(column_index j) const {
+        if (j >= m_usage_in_terms.size())
+            return 0;
+        return m_usage_in_terms[j];
+    }
     friend int_solver;
     friend int_branch;
-
+    
 };
 }
