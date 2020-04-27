@@ -2653,6 +2653,9 @@ namespace polynomial {
                 m_tmp_linear_ms.push_back(mk_unit());
             }
             polynomial * p = mk_polynomial(m_tmp_linear_as.size(), m_tmp_linear_as.c_ptr(), m_tmp_linear_ms.c_ptr());
+            for (auto& a : m_tmp_linear_as) {
+                m_manager.del(a);
+            }
             m_tmp_linear_as.reset();
             m_tmp_linear_ms.reset();
             return p;
