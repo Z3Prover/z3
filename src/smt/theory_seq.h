@@ -446,7 +446,7 @@ namespace smt {
         theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), new_ctx->get_fparams()); }
         char const * get_name() const override { return "seq"; }
         bool include_func_interp(func_decl* f) override { return m_util.str.is_nth_u(f); }
-        bool is_safe_to_copy(bool_var v) const;
+        bool is_safe_to_copy(bool_var v) const override;
         theory_var mk_var(enode* n) override;
         void apply_sort_cnstr(enode* n, sort* s) override;
         void display(std::ostream & out) const override;

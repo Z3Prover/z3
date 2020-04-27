@@ -745,6 +745,7 @@ bool theory_seq::is_solved() {
 */
 void theory_seq::linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const {
     context & ctx = get_context();    
+    (void)ctx;
     DEBUG_CODE(for (literal lit : lits) SASSERT(ctx.get_assignment(lit) == l_true); );
     svector<assumption> assumptions;
     const_cast<dependency_manager&>(m_dm).linearize(dep, assumptions);
@@ -1885,6 +1886,7 @@ class theory_seq::seq_value_proc : public model_value_proc {
     svector<source_t>               m_source;
 public:
     seq_value_proc(theory_seq& th, enode* n, sort* s): th(th), m_node(n), m_sort(s) {
+        (void)m_node;
     }
     ~seq_value_proc() override {}
     void add_unit(enode* n) { 
@@ -3458,7 +3460,7 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
 
 void theory_seq::propagate_length_limit(expr* e) {
     unsigned k = 0;
-    expr* s = nullptr, *i = nullptr;
+    expr* s = nullptr;
     VERIFY(m_sk.is_length_limit(e, k, s));
     if (m_util.str.is_stoi(s)) {
         m_ax.add_stoi_axiom(s, k);

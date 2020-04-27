@@ -371,7 +371,6 @@ expr * ufbv_rewriter::rewrite(expr * n) {
             if (rewrite_visit_children(a)) {
                 func_decl * f = a->get_decl();
                 m_new_args.reset();
-                unsigned num_args = a->get_num_args();
                 bool all_untouched = true;
                 for (expr* o_child : *a) {
                     expr * n_child;

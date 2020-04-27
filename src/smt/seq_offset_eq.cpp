@@ -32,8 +32,9 @@ update m_offset_equalities to contain.
   r1 |-> [r2 |-> val]
 */
 
-seq_offset_eq::seq_offset_eq(theory& th, ast_manager& m): 
-    th(th), m(m), seq(m), a(m), m_propagation_level(-1) {
+seq_offset_eq::seq_offset_eq(theory& th, ast_manager& _m): 
+    th(th), m(_m), seq(m), a(m), m_propagation_level(-1) {
+    (void)m;
 }
 
 bool seq_offset_eq::match_x_minus_y(expr* e, expr*& x, expr*& y) const {
