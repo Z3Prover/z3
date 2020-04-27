@@ -323,6 +323,7 @@ void lar_solver::push() {
     m_term_count = m_terms.size();
     m_term_count.push();
     m_constraints.push();
+    m_usage_in_terms.push();
 }
 
 void lar_solver::clean_popped_elements(unsigned n, u_set& set) {
@@ -380,6 +381,7 @@ void lar_solver::pop(unsigned k) {
     m_settings.simplex_strategy() = m_simplex_strategy;
     lp_assert(sizes_are_correct());
     lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+    m_usage_in_terms.pop(k);
     set_status(lp_status::UNKNOWN);
 }
 
@@ -1599,14 +1601,17 @@ unsigned lar_solver::external_to_column_index(unsigned ext_j) const {
 
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
-    var_index local_j;
+    var_index local_j;    
     SASSERT(!m_term_register.external_is_used(ext_j));
     lp_assert(!tv::is_term(ext_j));
     if (m_var_register.external_is_used(ext_j, local_j))
-        return local_j;
+        return local_j;    
     lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
     local_j = A_r().column_count();
     m_columns_to_ul_pairs.push_back(ul_pair(UINT_MAX));
+    while (m_usage_in_terms.size() <= ext_j) {
+        m_usage_in_terms.push_back(0);
+    }
     add_non_basic_var_to_core_fields(ext_j, is_int);
     lp_assert(sizes_are_correct());
     return local_j;
@@ -1775,6 +1780,9 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     m_mpq_lar_core_solver.m_r_solver.update_x(j, get_basic_var_value_from_row(A_r().row_count() - 1));
     if (use_lu())
         fill_last_row_of_A_d(A_d(), term);
+    for (const auto & c : *term)
+        m_usage_in_terms[c.column()] = m_usage_in_terms[c.column()] + 1;
+        
 }
 
 void lar_solver::add_basic_var_to_core_fields() {

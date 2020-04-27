@@ -25,13 +25,9 @@ namespace lp {
 int_branch::int_branch(int_solver& lia):lia(lia), lra(lia.lra) {}
 
 lia_move int_branch::operator()() {
-    int j = find_any_inf_int_column_basis_first();
-    return j == -1? lia_move::sat : create_branch_on_column(j);        
-}
-
-int int_branch::find_any_inf_int_column_basis_first() {
+    lra.move_non_basic_columns_to_bounds();
     int j = find_inf_int_base_column();
-    return j != -1 ? j : find_inf_int_nbasis_column();
+    return j == -1? lia_move::sat : create_branch_on_column(j);        
 }
 
 lia_move int_branch::create_branch_on_column(int j) {
@@ -55,22 +51,6 @@ lia_move int_branch::create_branch_on_column(int j) {
 }
 
     
-int int_branch::find_inf_int_nbasis_column() const {
-    unsigned n = 0;
-    int r = -1;
-    for (unsigned j : lra.r_nbasis()) {
-        SASSERT(!lia.column_is_int_inf(j) || !lia.is_fixed(j));
-        if (lia.column_is_int_inf(j)) {
-            if (n == 0) {
-                r = j;
-                n = 1;                    
-            } else if (lia.random() % (++n) == 0) {
-                r = j;
-            }
-        }
-    }
-    return r; 
-}
     
 int int_branch::find_inf_int_base_column() {
     int result = -1;
@@ -80,15 +60,17 @@ int int_branch::find_inf_int_base_column() {
     unsigned n = 0;
     lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
     bool small = false;
+    unsigned prev_usage;
     for (unsigned j : lra.r_basis()) {
         SASSERT(!lia.column_is_int_inf(j) || !lia.is_fixed(j));
         if (!lia.column_is_int_inf(j))
             continue;
         bool boxed = lia.is_boxed(j);
+        unsigned usage =  2 * lra.usage_in_terms(j);
         if (small) {
             if (!boxed)
                 continue;
-            new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
+            new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(usage);
             if (new_range <= small_range_thresold) {
                 if (new_range < range) {
                     n = 1;
@@ -98,16 +80,17 @@ int int_branch::find_inf_int_base_column() {
                     result = j;                    
                 }
             }
-        } else if (boxed &&
-                   (range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x)
-                   <= small_range_thresold) {
+        } else if (boxed && (
+                   (range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(usage))
+                   <= small_range_thresold)) {
             small = true;
             result = j;
             n = 1;
-        } else if (result == -1) {
+        } else if (result == -1 || prev_usage < usage) {
             result = j;
+            prev_usage = usage;
             n      = 1;
-        } else if (lia.random() % (++n) == 0) {
+        } else if (prev_usage == usage && lia.random() % (++n) == 0) {
             result = j;
         }
     }
