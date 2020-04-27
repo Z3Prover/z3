@@ -99,11 +99,10 @@ int int_branch::find_inf_int_base_column() {
                 }
             }
         } else if (boxed &&
-                   (new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x)
+                   (range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x)
                    <= small_range_thresold) {
             small = true;
             result = j;
-            range = new_range;
             n = 1;
         } else if (result == -1) {
             result = j;
