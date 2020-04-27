@@ -1986,6 +1986,7 @@ void ast_manager::delete_node(ast * n) {
     }
 }
 
+
 sort * ast_manager::mk_sort(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters) {
     decl_plugin * p = get_plugin(fid);
     if (p)

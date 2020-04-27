@@ -515,7 +515,6 @@ private:
     public:
         num_occurrences(app_map& occs): m_occs(occs) {}
         void operator()(app* n) {
-            app_map::obj_map_entry* e;
             m_occs.insert_if_not_there(n, 0);
             unsigned sz = n->get_num_args();
             for (unsigned i = 0; i < sz; ++i) {
