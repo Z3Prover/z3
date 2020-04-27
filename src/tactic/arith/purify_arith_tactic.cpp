@@ -745,7 +745,7 @@ struct purify_arith_proc {
         else {
             result = q;
             if (m_produce_proofs) {
-                r.cfg().push_cnstr_pr(nullptr);
+                r.cfg().push_cnstr_pr(m().mk_reflexivity(q));
             }
         }
     }
