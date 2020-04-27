@@ -1774,8 +1774,13 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     m_mpq_lar_core_solver.m_r_solver.update_x(j, get_basic_var_value_from_row(A_r().row_count() - 1));
     if (use_lu())
         fill_last_row_of_A_d(A_d(), term);
-    for (const auto & c : *term)
-        m_usage_in_terms[c.column()] = m_usage_in_terms[c.column()] + 1;
+    for (const auto & c : *term) {
+        unsigned j = c.column();
+        while (m_usage_in_terms.size() <= j) {
+            m_usage_in_terms.push_back(0);
+        }
+        m_usage_in_terms[j] = m_usage_in_terms[j] + 1;
+    }
         
 }
 
