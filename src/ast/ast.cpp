@@ -1981,7 +1981,7 @@ void ast_manager::delete_node(ast * n) {
         }
         if (m_debug_ref_count) {
             m_debug_free_indices.insert(n->m_id,0);
-        }
+        }       
         deallocate_node(n, ::get_node_size(n));
     }
 }

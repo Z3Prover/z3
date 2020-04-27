@@ -10,6 +10,7 @@ z3_add_component(smt
     expr_context_simplifier.cpp
     fingerprints.cpp
     mam.cpp
+    model_sweeper.cpp
     old_interval.cpp
     qi_queue.cpp
     seq_axioms.cpp

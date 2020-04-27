@@ -489,7 +489,7 @@ protected:
 
     void dec_ref() {
         SASSERT(m_ref_count > 0);
-        m_ref_count --;
+        --m_ref_count;
     }
 
     ast(ast_kind k):m_id(UINT_MAX), m_kind(k), m_mark1(false), m_mark2(false), m_mark_shared_occs(false), m_ref_count(0) {

@@ -726,44 +726,27 @@ struct purify_arith_proc {
         r(q->get_expr(), new_body, new_body_pr);
         unsigned num_vars = r.cfg().m_new_vars.size();
         expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
-        if (true || !cnstrs.empty()) {
+        if (num_vars == 0 && !cnstrs.empty()) {
             cnstrs.push_back(new_body);
-            new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
+            new_body = m().mk_and(cnstrs);
         }
         TRACE("purify_arith", 
               tout << "num_vars: " << num_vars << "\n";
-              tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << mk_ismt2_pp(new_body, m()) << "\n";);
+              tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << new_body << "\n";);
         if (num_vars == 0) {
             result = m().update_quantifier(q, new_body);
+            if (m_produce_proofs) {
+                auto& cnstr_prs = r.cfg().m_new_cnstr_prs;
+                result_pr = m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr());
+                result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
+                r.cfg().push_cnstr_pr(result_pr);
+            }
         }
         else {
-            // Add new constraints
-            // Open space for new variables
-            var_shifter shifter(m());
-            shifter(new_body, num_vars, new_body);
-            // Rename fresh constants in r.cfg().m_new_vars to variables
-            ptr_buffer<sort> sorts;
-            buffer<symbol>   names;
-            expr_substitution subst(m(), false, false);
-            for (unsigned i = 0; i < num_vars; i++) {
-                expr * c = r.cfg().m_new_vars.get(i);
-                sort * s = get_sort(c);
-                sorts.push_back(s);
-                names.push_back(m().mk_fresh_var_name("x"));
-                unsigned idx = num_vars - i - 1;
-                subst.insert(c, m().mk_var(idx, s));
+            result = q;
+            if (m_produce_proofs) {
+                r.cfg().push_cnstr_pr(nullptr);
             }
-            scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m(), false);
-            replacer->set_substitution(&subst);
-            (*replacer)(new_body, new_body);
-            new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body, q->get_weight());
-            result = m().update_quantifier(q, new_body);
-        }
-        if (m_produce_proofs) {
-            auto& cnstr_prs = r.cfg().m_new_cnstr_prs;
-            result_pr = m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr());
-            result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
-            r.cfg().push_cnstr_pr(result_pr);
         }
     }
 
