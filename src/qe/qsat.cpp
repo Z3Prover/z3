@@ -770,6 +770,9 @@ namespace qe {
             while (!vars.empty());
             SASSERT(m_vars.back().empty()); 
             initialize_levels();
+            if (has_uninterpreted(m, fml))
+                throw tactic_exception("formula contains uninterpreted functions");
+
             TRACE("qe", tout << fml << "\n";);
         }
 
