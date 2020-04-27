@@ -1406,6 +1406,21 @@ namespace qe {
             m_conjs.add_plugin(p);
         }
 
+        bool has_uninterpreted(expr* _e) {
+            expr_ref e(_e, m);
+            arith_util au(m);
+            func_decl_ref f_out(m);
+            for (expr* arg : subterms(e)) {
+                if (!is_app(arg)) continue;
+                app* a = to_app(arg);
+                func_decl* f = a->get_decl();
+                if (m.is_considered_uninterpreted(f))
+                    return true;
+                if (au.is_considered_uninterpreted(f, a->get_num_args(), a->get_args(), f_out))
+                    return true;
+            }
+            return false;
+        }
 
         void check(unsigned num_vars, app* const* vars, 
                    expr* assumption, expr_ref& fml, bool get_first,
@@ -1445,6 +1460,8 @@ namespace qe {
             if (assumption) m_solver.assert_expr(assumption);
             bool is_sat = false;   
             lbool res = l_true;
+            if (has_uninterpreted(m_fml))
+                res = l_undef;
             while (res == l_true) {
                 res = m_solver.check();
                 if (res == l_true) {
