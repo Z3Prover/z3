@@ -1460,10 +1460,10 @@ namespace qe {
             if (assumption) m_solver.assert_expr(assumption);
             bool is_sat = false;   
             lbool res = l_true;
-            if (has_uninterpreted(m_fml))
-                res = l_undef;
             while (res == l_true) {
                 res = m_solver.check();
+                if (res == l_true && has_uninterpreted(m_fml))
+                    res = l_undef;
                 if (res == l_true) {
                     is_sat = true;
                     final_check();
