@@ -929,10 +929,9 @@ namespace qe {
             CHECK_COND(m_children.empty() || fml());
             CHECK_COND(!is_root() || fml());
             CHECK_COND(!fml() || has_var() || m_num_branches.is_zero() || is_unit());
-            branch_map::iterator it = m_branch_index.begin(), end = m_branch_index.end();
-            for (; it != end; ++it) {
-                CHECK_COND(it->m_value < m_children.size());
-                CHECK_COND(it->m_key < get_num_branches());
+            for (auto const & kv : m_branch_index) {
+                CHECK_COND(kv.m_value < m_children.size());
+                CHECK_COND(kv.m_key < get_num_branches());
             }
             for (unsigned i = 0; i < m_children.size(); ++i) {
                 CHECK_COND(m_children[i]);
@@ -1388,9 +1387,8 @@ namespace qe {
         void reset() {
             m_free_vars.reset();
             m_trail.reset();
-            obj_map<app, contains_app*>::iterator it = m_var2contains.begin(), end = m_var2contains.end();
-            for (; it != end; ++it) {
-                dealloc(it->m_value);
+            for (auto & kv : m_var2contains) {
+                dealloc(kv.m_value);
             }
             m_var2contains.reset();
             m_var2branch.reset();
@@ -1404,22 +1402,6 @@ namespace qe {
         void add_plugin(qe_solver_plugin* p) {
             i_solver_context::add_plugin(p);
             m_conjs.add_plugin(p);
-        }
-
-        bool has_uninterpreted(expr* _e) {
-            expr_ref e(_e, m);
-            arith_util au(m);
-            func_decl_ref f_out(m);
-            for (expr* arg : subterms(e)) {
-                if (!is_app(arg)) continue;
-                app* a = to_app(arg);
-                func_decl* f = a->get_decl();
-                if (m.is_considered_uninterpreted(f))
-                    return true;
-                if (au.is_considered_uninterpreted(f, a->get_num_args(), a->get_args(), f_out))
-                    return true;
-            }
-            return false;
         }
 
         void check(unsigned num_vars, app* const* vars, 
@@ -1462,7 +1444,7 @@ namespace qe {
             lbool res = l_true;
             while (res == l_true) {
                 res = m_solver.check();
-                if (res == l_true && has_uninterpreted(m_fml))
+                if (res == l_true && has_uninterpreted(m, m_fml))
                     res = l_undef;
                 if (res == l_true) {
                     is_sat = true;
