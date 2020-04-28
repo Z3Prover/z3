@@ -123,6 +123,7 @@ add_executable(test-z3
   uint_set.cpp
   upolynomial.cpp
   value_generator.cpp
+  value_sweep.cpp
   var_subst.cpp
   vector.cpp
   lp/lp.cpp

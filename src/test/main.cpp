@@ -218,6 +218,7 @@ int main(int argc, char ** argv) {
     TST(ext_numeral);
     TST(interval);
     TST(value_generator);
+    TST(value_sweep);
     TST(vector);
     TST(f2n);
     TST(hwf);
