@@ -264,13 +264,11 @@ class dl_graph {
 public:
     // An assignment is feasible if all edges are feasible.
     bool is_feasible() const {
-#ifdef Z3DEBUG
         for (unsigned i = 0; i < m_edges.size(); ++i) {
             if (!is_feasible(m_edges[i])) {
                 return false;
             }
         }
-#endif
         return true;
     }
 

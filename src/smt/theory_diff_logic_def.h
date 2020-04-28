@@ -341,9 +341,8 @@ void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
     m_scopes.shrink(new_lvl);
     unsigned num_edges = m_graph.get_num_edges();
     m_graph.pop(num_scopes);
-    TRACE("arith", m_graph.display(tout););
-    SASSERT(m_graph.is_feasible());
-    if (true || (num_edges != m_graph.get_num_edges() && m_num_simplex_edges > 0)) {
+    CTRACE("arith", !m_graph.is_feasible(), m_graph.display(tout););
+    if (num_edges != m_graph.get_num_edges() && m_num_simplex_edges > 0) {
         m_S.reset();
         m_num_simplex_edges = 0;
         m_objective_rows.reset();
