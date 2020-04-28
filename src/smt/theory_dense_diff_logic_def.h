@@ -985,6 +985,8 @@ namespace smt {
         TRACE("opt", S.display(tout); );    
         SASSERT(is_sat != l_false);
         lbool is_fin = S.minimize(w);
+
+        ensure_rational_solution(S);
         
         switch (is_fin) {
         case l_true: {
@@ -1010,10 +1012,10 @@ namespace smt {
             }
             for (unsigned i = 0; i < num_nodes; ++i) {
                 mpq_inf const& val = S.get_value(i);
-                rational q(val.first), eps(val.second);
+                rational q(val.first);
+                SASSERT(rational(val.second).is_zero());
                 numeral  a(q);
                 m_assignment[i] = a;
-                // TBD: if epsilon is != 0, then adjust a by some small fraction.
             }
             inf_eps result(rational(0), r);
             blocker = mk_gt(v, result);

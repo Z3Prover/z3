@@ -414,6 +414,7 @@ private:
                         }
                         break;
                     case DL_PROCESSED:
+                        TRACE("arith", display_edge(tout << "processed twice: ", e););
                         // if two edges with the same source/target occur in the graph.
                         break;
                     default:
@@ -514,10 +515,8 @@ public:
     // The method assumes the graph is feasible before the invocation.
     bool enable_edge(edge_id id) {
         edge& e = m_edges[id];
+        SASSERT(is_feasible());
         bool r = true;
-        if (!is_feasible()) {
-            return false;
-        }
         if (!e.is_enabled()) {
             e.enable(m_timestamp);
             m_last_enabled_edge = id;
