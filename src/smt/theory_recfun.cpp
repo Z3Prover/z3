@@ -22,6 +22,7 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "smt/theory_recfun.h"
 #include "smt/params/smt_params_helper.hpp"
+#include "smt/model_sweeper.h"
 
 
 #define TRACEFN(x) TRACE("recfun", tout << x << '\n';)
@@ -442,6 +443,7 @@ namespace smt {
     
     final_check_status theory_recfun::final_check_eh() {
         TRACEFN("final\n");
+        generate_induction_lemmas(get_context());
         if (can_propagate()) {
             propagate();
             return FC_CONTINUE;
