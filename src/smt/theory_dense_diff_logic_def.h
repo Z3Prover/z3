@@ -884,8 +884,16 @@ namespace smt {
             if (v == null_theory_var) {
                 v = mk_var(e);                
             }
-
-            objective.push_back(std::make_pair(v, m));
+            bool found = false;
+            for (auto& p : objective) {
+                if (p.first == v) {
+                    p.second += m;
+                    found = true;
+                }
+            }
+            if (!found) {
+                objective.push_back(std::make_pair(v, m));
+            }
         }
         return true;
     }
@@ -912,9 +920,8 @@ namespace smt {
         has_shared = false;
         
         IF_VERBOSE(4,
-                   for (unsigned i = 0; i < objective.size(); ++i) {
-                       verbose_stream() << objective[i].second 
-                                        << " * v" << objective[i].first << " ";
+                   for (auto const& o : objective) {
+                       verbose_stream() << o.second << " * v" << o.first << " ";
                    }
                    verbose_stream() << " + " << m_objective_consts[v] << "\n";);
 
@@ -970,9 +977,9 @@ namespace smt {
         // add objective function as row.
         coeffs.reset();
         vars.reset();
-        for (unsigned i = 0; i < objective.size(); ++i) {
-            coeffs.push_back(objective[i].second.to_mpq());
-            vars.push_back(objective[i].first);
+        for (auto const& o : objective) {
+            coeffs.push_back(o.second.to_mpq());
+            vars.push_back(o.first);
         }
         coeffs.push_back(mpq(1));
         vars.push_back(w);
