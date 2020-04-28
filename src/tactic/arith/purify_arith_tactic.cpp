@@ -726,14 +726,13 @@ struct purify_arith_proc {
         r(q->get_expr(), new_body, new_body_pr);
         unsigned num_vars = r.cfg().m_new_vars.size();
         expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
-        if (num_vars == 0 && !cnstrs.empty()) {
-            cnstrs.push_back(new_body);
-            new_body = m().mk_and(cnstrs);
-        }
+
         TRACE("purify_arith", 
               tout << "num_vars: " << num_vars << "\n";
               tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << new_body << "\n";);
         if (num_vars == 0) {
+            cnstrs.push_back(new_body);
+            new_body = m().mk_and(cnstrs);            
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs) {
                 auto& cnstr_prs = r.cfg().m_new_cnstr_prs;
@@ -745,7 +744,7 @@ struct purify_arith_proc {
         else {
             result = q;
             if (m_produce_proofs) {
-                r.cfg().push_cnstr_pr(m().mk_reflexivity(q));
+                result_pr = m().mk_reflexivity(q);
             }
         }
     }
