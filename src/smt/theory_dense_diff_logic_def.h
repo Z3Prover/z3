@@ -797,7 +797,7 @@ namespace smt {
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::fix_zero() {
         int num_vars = get_num_vars();
-        for (int v = 0; v < num_vars; ++v) {
+        for (int v = 0; v < num_vars && v < (int)m_assignment.size(); ++v) {
             enode * n = get_enode(v);
             if (m_autil.is_zero(n->get_owner()) && !m_assignment[v].is_zero()) {
                 numeral val = m_assignment[v];
@@ -823,14 +823,18 @@ namespace smt {
     void theory_dense_diff_logic<Ext>::init_model(model_generator & m) {
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
-        fix_zero();
-        compute_epsilon();
+        if (!m_assignment.empty()) {
+            fix_zero();
+            compute_epsilon();
+        }
     }
 
     template<typename Ext>
     model_value_proc * theory_dense_diff_logic<Ext>::mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         SASSERT(v != null_theory_var);
+        if (v >= (int)m_assignment.size())
+            return alloc(expr_wrapper_proc, m_factory->mk_num_value(rational::zero(), is_int(v)));
         numeral const & val = m_assignment[v];
         rational num = val.get_rational().to_rational() +  m_epsilon *  val.get_infinitesimal().to_rational();
         return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int(v)));
