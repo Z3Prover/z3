@@ -207,7 +207,7 @@ class seq_value_generator : public value_generator_core {
     value_generator& g;
     seq_util      seq;
 public:
-    seq_value_generator(value_generator& g, ast_manager& m): g(g), m(m), seq(m) {}
+    seq_value_generator(value_generator& g, ast_manager& m): m(m), g(g), seq(m) {}
 
     family_id get_fid() const override { 
         return seq.get_family_id(); 
@@ -256,7 +256,7 @@ class array_value_generator : public value_generator_core {
     value_generator& g;
     array_util       a;
 public:
-    array_value_generator(value_generator& g, ast_manager& m): g(g), m(m), a(m) {}
+    array_value_generator(value_generator& g, ast_manager& m): m(m), g(g), a(m) {}
 
     family_id get_fid() const override { 
         return a.get_family_id(); 
