@@ -466,6 +466,7 @@ void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
 }
 
 void lar_solver::move_non_basic_columns_to_bounds() {
+    SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
     auto & lcs = m_mpq_lar_core_solver;
     bool change = false;
     for (unsigned j : lcs.m_r_nbasis) {
