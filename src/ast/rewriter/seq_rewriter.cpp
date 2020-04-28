@@ -457,8 +457,14 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         st = mk_re_range(args[0], args[1], result);
         break;
     case OP_RE_INTERSECT:
-        SASSERT(num_args == 2);
-        st = mk_re_inter(args[0], args[1], result);
+        if (num_args == 1) {
+            result = args[0];
+            st = BR_DONE;
+        }
+        else {
+            SASSERT(num_args == 2);
+            st = mk_re_inter(args[0], args[1], result);
+        }
         break;
     case OP_RE_COMPLEMENT:
         SASSERT(num_args == 1);
