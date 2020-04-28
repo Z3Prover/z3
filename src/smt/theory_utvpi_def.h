@@ -61,6 +61,7 @@ namespace smt {
         theory(m.mk_family_id("arith")),
         a(m),
         m_arith_eq_adapter(*this, m_params, a),
+        m_consistent(true),
         m_izero(null_theory_var),
         m_rzero(null_theory_var),
         m_nc_functor(*this),
@@ -192,6 +193,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_utvpi<Ext>::inc_conflicts() {
+        get_context().push_trail(value_trail<context, bool>(m_consistent));
+        m_consistent = false;
         m_stats.m_num_conflicts++;   
         if (m_params.m_arith_adaptive) {
             double g = m_params.m_arith_adaptive_propagation_threshold;
@@ -312,6 +315,8 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::internalize_atom(app * n, bool) {
+        if (!m_consistent)
+            return false;
         context & ctx = get_context();
         if (!a.is_le(n) && !a.is_ge(n) && !a.is_lt(n) && !a.is_gt(n)) {
             found_non_utvpi_expr(n);
@@ -362,6 +367,8 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::internalize_term(app * term) {
+        if (!m_consistent)
+            return false;
         bool result = !get_context().inconsistent() && null_theory_var != mk_term(term);
         CTRACE("utvpi", !result, tout << "Did not internalize " << mk_pp(term, get_manager()) << "\n";);
         return result;
@@ -698,8 +705,8 @@ namespace smt {
     }
 
     template<typename Ext>
-    bool theory_utvpi<Ext>::is_consistent() const {
-        return m_graph.is_feasible();
+    bool theory_utvpi<Ext>::is_consistent() const {        
+        return m_consistent;
     }
 
 
@@ -743,7 +750,7 @@ namespace smt {
      */
     template<typename Ext>
     void theory_utvpi<Ext>::enforce_parity() {
-        SASSERT(m_graph.is_feasible());
+        SASSERT(m_graph.is_feasible_dbg());
         unsigned_vector todo;        
         unsigned sz = get_num_vars();
         for (unsigned i = 0; i < sz; ++i) {
@@ -788,7 +795,7 @@ namespace smt {
                 }
             }    
             TRACE("utvpi", display(tout););
-            SASSERT(m_graph.is_feasible());     
+            SASSERT(m_graph.is_feasible_dbg());     
         }
         DEBUG_CODE(
             for (unsigned i = 0; i < sz; ++i) {
@@ -798,7 +805,7 @@ namespace smt {
                     UNREACHABLE();
                 }            
             });
-        SASSERT(m_graph.is_feasible());
+        SASSERT(m_graph.is_feasible_dbg());
     }
     
 

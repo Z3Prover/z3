@@ -72,6 +72,8 @@ void theory_diff_logic<Ext>::init(context * ctx) {
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_term(app * term) {
+    if (!m_consistent)
+        return false;
     bool result = null_theory_var != mk_term(term);
     CTRACE("arith", !result, tout << "Did not internalize " << mk_pp(term, get_manager()) << "\n";);
     if (!result) {
@@ -161,6 +163,8 @@ void theory_diff_logic<Ext>::found_non_diff_logic_expr(expr * n) {
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
+    if (!m_consistent)
+        return false;
     context & ctx = get_context();
     if (!m_util.is_le(n) && !m_util.is_ge(n)) {
         found_non_diff_logic_expr(n);
@@ -341,7 +345,7 @@ void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
     m_scopes.shrink(new_lvl);
     unsigned num_edges = m_graph.get_num_edges();
     m_graph.pop(num_scopes);
-    CTRACE("arith", !m_graph.is_feasible(), m_graph.display(tout););
+    CTRACE("arith", !m_graph.is_feasible_dbg(), m_graph.display(tout););
     if (num_edges != m_graph.get_num_edges() && m_num_simplex_edges > 0) {
         m_S.reset();
         m_num_simplex_edges = 0;
@@ -540,11 +544,13 @@ void theory_diff_logic<Ext>::propagate() {
 
 template<typename Ext>
 void theory_diff_logic<Ext>::inc_conflicts() {
-     m_stats.m_num_conflicts++;   
-     if (m_params.m_arith_adaptive) {
-         double g = m_params.m_arith_adaptive_propagation_threshold;
-         m_agility = m_agility*g + 1 - g;
-     }
+    get_context().push_trail(value_trail<context, bool>(m_consistent));
+    m_consistent = false;
+    m_stats.m_num_conflicts++;   
+    if (m_params.m_arith_adaptive) {
+        double g = m_params.m_arith_adaptive_propagation_threshold;
+        m_agility = m_agility*g + 1 - g;
+    }
 }
 
 template<typename Ext>
@@ -568,6 +574,7 @@ bool theory_diff_logic<Ext>::propagate_atom(atom* a) {
     if (!m_graph.enable_edge(edge_id)) {
         TRACE("arith", display(tout););
         set_neg_cycle_conflict();
+        
         return false;
     }
     return true;
@@ -740,7 +747,6 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
     context& ctx = get_context();
 
     TRACE("arith", tout << mk_pp(n, get_manager()) << "\n";);
-
 
     rational r;
     if (m_util.is_numeral(n, r)) {
@@ -944,10 +950,10 @@ void theory_diff_logic<Ext>::display(std::ostream & out) const {
 }
 
 template<typename Ext>
-bool theory_diff_logic<Ext>::is_consistent() const {
+bool theory_diff_logic<Ext>::is_consistent() const {    
     DEBUG_CODE(
         context& ctx = get_context();
-        for (unsigned i = 0; m_graph.is_feasible() && i < m_atoms.size(); ++i) {
+        for (unsigned i = 0; m_graph.is_feasible_dbg() && i < m_atoms.size(); ++i) {
             atom* a = m_atoms[i];
             bool_var bv = a->get_bool_var();
             lbool asgn = ctx.get_assignment(bv);        
@@ -958,7 +964,7 @@ bool theory_diff_logic<Ext>::is_consistent() const {
                 SASSERT(m_graph.is_feasible(edge_id));
             }
         });
-    return m_graph.is_feasible();
+    return m_consistent;
 }
 
 
@@ -1230,8 +1236,8 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
     Simplex& S = m_S;
     ast_manager& m = get_manager();
 
-    CTRACE("arith",!m_graph.is_feasible(), m_graph.display(tout););
-    SASSERT(m_graph.is_feasible());
+    CTRACE("arith",!m_graph.is_feasible_dbg(), m_graph.display(tout););
+    SASSERT(m_graph.is_feasible_dbg());
 
     update_simplex(S);
 
@@ -1294,8 +1300,8 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
             rational r = rational(val.first);
             m_graph.set_assignment(i, numeral(r));
         }
-        CTRACE("arith",!m_graph.is_feasible(), m_graph.display(tout););
-        SASSERT(m_graph.is_feasible());
+        CTRACE("arith",!m_graph.is_feasible_dbg(), m_graph.display(tout););
+        SASSERT(m_graph.is_feasible_dbg());
         inf_eps r1(rational(0), r);
         blocker = mk_gt(v, r1);
         return inf_eps(rational(0), r + m_objective_consts[v]);

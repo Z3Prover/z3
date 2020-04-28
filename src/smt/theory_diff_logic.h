@@ -171,6 +171,7 @@ namespace smt {
         arith_eq_adapter               m_arith_eq_adapter;
         theory_diff_logic_statistics   m_stats;
         Graph                          m_graph;
+        bool                           m_consistent;
         theory_var                     m_izero, m_rzero; // cache the variable representing the zero variable.
         int_vector                     m_scc_id;                  // Cheap equality propagation
         eq_prop_info_set               m_eq_prop_info_set;        // set of existing equality prop infos
@@ -230,6 +231,7 @@ namespace smt {
             m_params(params),
             m_util(m),
             m_arith_eq_adapter(*this, params, m_util),
+            m_consistent(true),
             m_izero(null_theory_var),
             m_rzero(null_theory_var),
             m_terms(m),

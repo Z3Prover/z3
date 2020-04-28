@@ -263,7 +263,7 @@ class dl_graph {
 
 public:
     // An assignment is feasible if all edges are feasible.
-    bool is_feasible() const {
+    bool is_feasible_dbg() const {
         for (unsigned i = 0; i < m_edges.size(); ++i) {
             if (!is_feasible(m_edges[i])) {
                 return false;
@@ -422,7 +422,7 @@ private:
             }
 
             if (m_heap.empty()) {
-                SASSERT(is_feasible());
+                SASSERT(is_feasible_dbg());
                 reset_marks();
                 m_assignment_stack.reset();
                 return true;
@@ -498,7 +498,7 @@ public:
 
     // Add an new weighted edge "source --weight--> target" with explanation ex.
     edge_id add_edge(dl_var source, dl_var target, const numeral & weight, const explanation & ex) {
-        // SASSERT(is_feasible());
+        // SASSERT(is_feasible_dbg());
         edge_id new_id = m_edges.size();
         m_edges.push_back(edge(source, target, weight, m_timestamp, ex));
         m_activity.push_back(0);
@@ -513,7 +513,7 @@ public:
     // The method assumes the graph is feasible before the invocation.
     bool enable_edge(edge_id id) {
         edge& e = m_edges[id];
-        SASSERT(is_feasible());
+        SASSERT(is_feasible_dbg());
         bool r = true;
         if (!e.is_enabled()) {
             e.enable(m_timestamp);
@@ -523,7 +523,7 @@ public:
                 r = make_feasible(id);
             }
             SASSERT(check_invariant());
-            SASSERT(!r || is_feasible()); 
+            SASSERT(!r || is_feasible_dbg()); 
             m_enabled_edges.push_back(id);
         }
         return r;
@@ -862,7 +862,7 @@ public:
     // Create a new scope.
     // That is, save the number of edges in the graph.
     void push() {
-        // SASSERT(is_feasible()); <<< I relaxed this condition
+        // SASSERT(is_feasible_dbg()); <<< I relaxed this condition
         m_trail_stack.push_back(scope(m_edges.size(), m_enabled_edges.size(), m_timestamp));
     }
     
@@ -896,20 +896,20 @@ public:
         }
         m_trail_stack.shrink(new_lvl);
         SASSERT(check_invariant()); 
-        // SASSERT(is_feasible()); <<< I relaxed the condition in push(), so this assertion is not valid anymore.
+        // SASSERT(is_feasible_dbg()); <<< I relaxed the condition in push(), so this assertion is not valid anymore.
     }
 
     // Make m_assignment[v] == zero
     // The whole assignment is adjusted in a way feasibility is preserved.
     // This method should only be invoked if the current assignment if feasible.
     void set_to_zero(dl_var v) {
-        SASSERT(is_feasible());
+        SASSERT(is_feasible_dbg());
         if (!m_assignment[v].is_zero()) {
             numeral k = m_assignment[v];
             for (auto& a : m_assignment) {
                 a -= k;
             }
-            SASSERT(is_feasible());
+            SASSERT(is_feasible_dbg());
         }
     }
 
@@ -929,7 +929,7 @@ public:
                     if (!m_assignment[w].is_zero()) {
                         enable_edge(add_edge(v, w, numeral(0), explanation()));
                         enable_edge(add_edge(w, v, numeral(0), explanation()));
-                        SASSERT(is_feasible());                        
+                        SASSERT(is_feasible_dbg());                        
                     }
                 }
                 return;
@@ -947,7 +947,7 @@ public:
         if (!m_assignment[v].is_zero() || !m_assignment[w].is_zero()) {
             enable_edge(add_edge(v, w, numeral(0), explanation()));
             enable_edge(add_edge(w, v, numeral(0), explanation()));
-            SASSERT(is_feasible());
+            SASSERT(is_feasible_dbg());
         }
     }
 
