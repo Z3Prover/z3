@@ -34,8 +34,8 @@ ufbv_rewriter::ufbv_rewriter(ast_manager & m):
     m_new_args(m), 
     m_rewrite_todo(m),
     m_rewrite_cache(m),
-    m_new_exprs(m),
-    m_in_processed(m) {
+    m_in_processed(m),
+    m_new_exprs(m) {
     params_ref p;
     p.set_bool("elim_and", true);
     m_bsimp.updt_params(p);

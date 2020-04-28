@@ -622,6 +622,7 @@ namespace smt {
         void assign_eh(quantifier * q) override {
             m_active = true;
             ast_manager& m = m_context->get_manager();
+            (void)m;
             if (!m_fparams->m_ematching) {
                 return;
             }
