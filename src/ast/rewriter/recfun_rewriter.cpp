@@ -26,6 +26,8 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
             if (!m.is_value(args[i]))
                 return BR_FAILED;
         }
+        if (!m_rec.has_def(f))
+            return BR_FAILED;
         recfun::def const& d = m_rec.get_def(f);
         if (!d.get_rhs())
             return BR_FAILED;

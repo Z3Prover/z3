@@ -236,8 +236,12 @@ namespace recfun {
         //<! add a function declaration
         def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range, bool is_generated);
 
+        bool has_def(func_decl* f) const {
+            return m_plugin->has_def(f);
+        }
+
         def& get_def(func_decl* f) {
-            SASSERT(m_plugin->has_def(f));
+            SASSERT(has_def(f));
             return m_plugin->get_def(f);
         }
 
