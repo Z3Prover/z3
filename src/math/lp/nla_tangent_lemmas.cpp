@@ -64,7 +64,6 @@ struct imp {
         c().explain(m_x, exp);
         c().explain(m_y, exp);
     }
-    void generate_simple_tangent_lemma(const monic& m, const factorization&);    
     void tangent_lemma_on_bf() {    
         get_tang_points();
         TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(tout) << std::endl;);
