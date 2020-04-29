@@ -35,7 +35,7 @@ void value_sweep::set_value_core(expr* e, expr* v) {
 }
 
 void value_sweep::set_value(expr* e, expr* v) {
-    if (!is_reducible(e)) {
+    if (!is_reducible(e) || m_dt.is_accessor(e)) {
         set_value_core(e, v);
         m_pinned.push_back(e);
     }

@@ -510,7 +510,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_utvpi<Ext>::propagate() {
-        bool consistent = true;
+        bool consistent = is_consistent() && !get_context().inconsistent();
         while (consistent && can_propagate()) {
             unsigned idx = m_asserted_atoms[m_asserted_qhead];
             m_asserted_qhead++;
@@ -520,13 +520,9 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::propagate_atom(atom const& a) {
-        context& ctx = get_context();
-        TRACE("utvpi", a.display(*this, tout); tout << "\n";);
-        if (ctx.inconsistent()) {
-            return false;
-        }
+        TRACE("utvpi", a.display(*this, tout); tout << "\n";);       
         int edge_id = a.get_asserted_edge();
-        if (!enable_edge(edge_id) || !is_consistent()) {
+        if (!enable_edge(edge_id)) {
             m_graph.traverse_neg_cycle2(m_params.m_arith_stronger_lemmas, m_nc_functor);
             set_conflict();
             return false;
@@ -698,10 +694,9 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::enable_edge(edge_id id) {
-        return 
-            (id == null_edge_id) || 
-            (m_graph.enable_edge(id) && m_graph.enable_edge(id+1)) ||
-            m_non_utvpi_exprs;
+        return
+            (id == null_edge_id) ||
+            (m_graph.enable_edge(id) && m_graph.enable_edge(id + 1));
     }
 
     template<typename Ext>
