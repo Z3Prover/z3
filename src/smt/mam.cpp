@@ -588,10 +588,12 @@ namespace {
         }
     };
 
+#ifdef _TRACE
     std::ostream & operator<<(std::ostream & out, code_tree const & tree) {
         tree.display(out);
         return out;
     }
+#endif
 
     // ------------------------------------
     //
