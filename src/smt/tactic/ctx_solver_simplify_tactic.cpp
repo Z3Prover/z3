@@ -15,6 +15,16 @@ Author:
 
 Notes:
 
+Implement the inference rule
+
+     n = V |- F[n] = F[x]
+     --------------------
+         F[x] = F[V]
+
+where n is an uninterpreted variable (fresh for F[x])
+and V is a value (true or false) and x is a subterm 
+(different from V).
+
 --*/
 
 #include "smt/tactic/ctx_solver_simplify_tactic.h"
@@ -184,9 +194,14 @@ protected:
             if (cache.contains(e)) {
                 goto done;
             }
+            if (m.is_true(e) || m.is_false(e)) {
+                res = e;
+                goto done;
+            }
             if (m.is_bool(e) && simplify_bool(n, res)) {
-                TRACE("ctx_solver_simplify_tactic", 
-                      tout << "simplified: " << mk_pp(e, m) << " |-> " << mk_pp(res, m) << "\n";);
+                TRACE("ctx_solver_simplify_tactic",
+                    m_solver.display(tout) << "\n";
+                      tout << "simplified: " << mk_pp(n, m) << "\n" << mk_pp(e, m) << " |-> " << mk_pp(res, m) << "\n";);
                 goto done;
             }
             if (!is_app(e)) {
@@ -214,7 +229,7 @@ protected:
                         args.push_back(arg);
                     }
                 }
-                else if (!n2) {
+                else if (!n2 && !m.is_value(arg)) {
                     n2 = mk_fresh(id, m.get_sort(arg));
                     trail.push_back(n2);
                     todo.push_back(expr_pos(self_pos, ++child_id, i, arg));

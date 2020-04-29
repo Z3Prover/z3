@@ -563,16 +563,15 @@ void seq_axioms::add_itos_axiom(expr* e) {
 /**
    stoi(s) >= -1
    stoi("") = -1
-   stoi(s) >= 0 => len(s) > 0
    stoi(s) >= 0 => is_digit(nth(s,0))
 */
 void seq_axioms::add_stoi_axiom(expr* e) {
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
+    literal ge0 = mk_ge(e, 0);      
     expr* s = nullptr;
     VERIFY (seq.str.is_stoi(e, s));    
     add_axiom(mk_ge(e, -1));                             // stoi(s) >= -1
     add_axiom(~mk_eq_empty(s), mk_eq(e, a.mk_int(-1)));  // s = "" => stoi(s) = -1
-    literal ge0 = mk_ge(e, 0);      
     add_axiom(~ge0, is_digit(mk_nth(s, 0)));             // stoi(s) >= 0 => is_digit(nth(s,0))
 
 }
@@ -614,9 +613,9 @@ void seq_axioms::add_stoi_axiom(expr* e, unsigned k) {
     expr_ref len = mk_len(s);
     literal ge0 = mk_ge(e, 0);
     literal lek = mk_le(len, k);
-    add_axiom(~lek, mk_eq(e, stoi2(k-1)));                                          // len(s) <= k  => stoi(s) = stoi(s, k-1)
-    add_axiom(mk_le(len, 0), ~is_digit_(0), mk_eq(stoi2(0), digit(0)));             // len(s) > 0, is_digit(nth(s, 0)) => stoi(s,0) = digit(s,0)
-    add_axiom(mk_le(len, 0), is_digit_(0),  mk_eq(stoi2(0), a.mk_int(-1)));         // len(s) > 0, ~is_digit(nth(s, 0)) => stoi(s,0) = -1
+    add_axiom(~lek, mk_eq(e, stoi2(k-1)));                                    // len(s) <= k  => stoi(s) = stoi(s, k-1)
+    add_axiom(mk_le(len, 0), ~is_digit_(0), mk_eq(stoi2(0), digit(0)));       // len(s) > 0, is_digit(nth(s, 0)) => stoi(s,0) = digit(s,0)
+    add_axiom(mk_le(len, 0), is_digit_(0),  mk_eq(stoi2(0), a.mk_int(-1)));   // len(s) > 0, ~is_digit(nth(s, 0)) => stoi(s,0) = -1
     for (unsigned i = 1; i < k; ++i) {
 
         // len(s) <= i => stoi(s, i) = stoi(s, i - 1)

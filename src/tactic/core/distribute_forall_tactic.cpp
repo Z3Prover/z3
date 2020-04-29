@@ -15,6 +15,7 @@ Author:
 
 --*/
 #include "tactic/tactical.h"
+#include "ast/ast_util.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/var_subst.h"
 
@@ -46,7 +47,7 @@ class distribute_forall_tactic : public tactic {
                 expr_ref_buffer new_args(m);
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg     = or_e->get_arg(i);
-                    expr * not_arg = m.mk_not(arg);
+                    expr * not_arg = mk_not(m, arg);
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, not_arg);
                     new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
