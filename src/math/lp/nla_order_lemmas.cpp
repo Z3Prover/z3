@@ -212,7 +212,24 @@ bool order::order_lemma_on_ac_and_bc(const monic& rm_ac,
 // We try to find a monic n = cd, such that |b| = |d| 
 // and get a lemma m R n & |b| = |d| => ab/|b| R cd /|d|, where R is a relation
 void order::order_lemma_on_factorization(const monic& m, const factorization& ab) {
+    bool sign = m.rsign();
+    for (factor f: ab)
+        sign ^= _().canonize_sign(f);
+    const rational rsign = sign_to_rat(sign);
+    const rational fv = val(var(ab[0])) * val(var(ab[1]));
+    const rational mv = rsign * var_val(m);
+    TRACE("nla_solver",
+          tout << "ab.size()=" << ab.size() << "\n";
+          tout << "we should have sign*var_val(m):" << mv << "=(" << rsign << ")*(" << var_val(m) <<") to be equal to " << " val(var(ab[0]))*val(var(ab[1])):" << fv << "\n";);
     TRACE("nla_solver", tout << "m="; _().print_monic_with_vars(m, tout); tout << "\nfactorization="; _().print_factorization(ab, tout););
+    if (mv != fv) {
+        bool gt = mv > fv;
+        for (unsigned j = 0, k = 1; j < 2; j++, k--) {
+            order_lemma_on_ab(m, rsign, var(ab[k]), var(ab[j]), gt);
+            explain(ab); explain(m);
+            TRACE("nla_solver", _().print_lemma(tout););
+        }
+    }
     for (unsigned j = 0, k = 1; j < 2; j++, k--) {
         order_lemma_on_ac_explore(m, ab, j == 1);
     }
@@ -315,6 +332,39 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
         }
     }
     return false;
+}
+/*
+   given: sign * m = ab
+   lemma b != val(b) || sign 0 m <= a*val(b)
+*/
+void order::order_lemma_on_ab_gt(const monic& m, const rational& sign, lpvar a, lpvar b) {
+    SASSERT(sign * var_val(m) > val(a) * val(b));
+    add_lemma();
+    // negate b == val(b)
+    mk_ineq(b, llc::NE, val(b));
+    // ab <= val(b)a
+    mk_ineq(sign, m.var(), -val(b), a, llc::LE);
+}
+/*
+   given: sign * m = ab
+   lemma b != val(b) || sign*m >= a*val(b)
+*/
+void order::order_lemma_on_ab_lt(const monic& m, const rational& sign, lpvar a, lpvar b) {
+    TRACE("nla_solver", tout << "sign = " << sign << ", m = "; c().print_monic(m, tout) << ", a = "; c().print_var(a, tout) <<
+          ", b = "; c().print_var(b, tout) << "\n";);
+    SASSERT(sign * var_val(m) < val(a) * val(b));
+    add_lemma();
+    // negate b == val(b)
+    mk_ineq(b, llc::NE, val(b));
+    // ab >= val(b)a
+    mk_ineq(sign, m.var(), -val(b), a, llc::GE);
+}
+
+void order::order_lemma_on_ab(const monic& m, const rational& sign, lpvar a, lpvar b, bool gt) {
+    if (gt)
+        order_lemma_on_ab_gt(m, sign, a, b);
+    else 
+        order_lemma_on_ab_lt(m, sign, a, b);
 }
 
 }
