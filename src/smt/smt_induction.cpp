@@ -240,7 +240,6 @@ void create_induction_lemmas::create_lemmas(expr* t, expr* sk, abstraction& a, l
     sort* s = m.get_sort(sk);
     if (!m_dt.is_datatype(s))
         return;
-    family_id fid = s->get_family_id();
     expr_ref alpha = a.m_term;
     auto const& eqs = a.m_eqs;
     literal_vector common_literals; 

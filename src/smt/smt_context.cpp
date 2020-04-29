@@ -270,18 +270,14 @@ namespace smt {
         }
         d.m_phase_available        = true;
         d.m_phase                  = !l.sign();
-        CTRACE("assign_core", l.var() == 13, tout << (decision?"decision: ":"propagating: ") << l << " ";
-               /*display_literal(tout, l);*/
-               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
-               /*display(tout, j);*/
-               );
+        TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";
+              display_literal_smt2(tout, l) << "\n";
+              tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
+              /*display(tout, j);*/
+              );
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
 
-        CTRACE("relevancy", l.var() == 13,
-              tout << "is_atom: " << d.is_atom() << " is relevant: " 
-              << is_relevant_core(l) << " relevancy-lvl: " << relevancy_lvl() << "\n";);
         if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l))) {
-            CTRACE("assign_core", l.var() == 13, tout << "propagation queue\n";);
             m_atom_propagation_queue.push_back(l);
         }
 
@@ -1653,6 +1649,16 @@ namespace smt {
             !m_eq_propagation_queue.empty() ||
             !m_th_eq_propagation_queue.empty() ||
             !m_th_diseq_propagation_queue.empty();
+    }
+
+    /**
+       \brief retrieve facilities for creating induction lemmas.
+     */
+    induction& context::get_induction() {
+        if (!m_induction) {
+            m_induction = alloc(induction, *this, get_manager());
+        }
+        return *m_induction;
     }
 
     /**

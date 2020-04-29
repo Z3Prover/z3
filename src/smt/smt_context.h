@@ -34,6 +34,7 @@ Revision History:
 #include "smt/smt_statistics.h"
 #include "smt/smt_conflict_resolution.h"
 #include "smt/smt_relevancy.h"
+#include "smt/smt_induction.h"
 #include "smt/smt_case_split_queue.h"
 #include "smt/smt_almost_cg_table.h"
 #include "smt/smt_failure.h"
@@ -185,6 +186,7 @@ namespace smt {
         unsigned                    m_simp_qhead;
         int                         m_simp_counter; //!< can become negative
         scoped_ptr<case_split_queue> m_case_split_queue;
+        scoped_ptr<induction>       m_induction;
         double                      m_bvar_inc;
         bool                        m_phase_cache_on;
         unsigned                    m_phase_counter; //!< auxiliary variable used to decide when to turn on/off phase caching
@@ -848,7 +850,7 @@ namespace smt {
         void remove_lit_occs(clause const& cls, unsigned num_bool_vars);
 
         void add_lit_occs(clause const& cls);
-    public:
+    public:        
 
         void ensure_internalized(expr* e);
 
@@ -1266,6 +1268,8 @@ namespace smt {
 
     public:
         bool can_propagate() const;
+
+        induction& get_induction(); 
 
         // Retrieve arithmetic values. 
         bool get_arith_lo(expr* e, rational& lo, bool& strict);
