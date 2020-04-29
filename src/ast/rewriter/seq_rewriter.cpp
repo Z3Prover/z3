@@ -882,6 +882,17 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (offset == 0 && _pos > 0) {
         return BR_FAILED;
     }
+    std::function<bool(expr*)> is_unit = [&](expr *e) { return m_util.str.is_unit(e); };
+
+    if (_pos == 0 && as.forall(is_unit)) {
+        result = m_util.str.mk_empty(m().get_sort(a));
+        for (unsigned i = 1; i <= as.size(); ++i) {
+            result = m().mk_ite(m_autil.mk_ge(c, m_autil.mk_int(i)), 
+                                m_util.str.mk_concat(i, as.c_ptr(), m().get_sort(a)), 
+                                result);
+        }
+        return BR_REWRITE_FULL;
+    }
     if (_pos == 0 && !constantLen) {
         return BR_FAILED;
     }
@@ -1736,6 +1747,50 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
         result = m().mk_ite(m_autil.mk_ge(b, zero()), b, minus_one());
         return BR_DONE;
     }
+    expr* c = nullptr, *t = nullptr, *e = nullptr;
+    if (m().is_ite(a, c, t, e)) {
+        result = m().mk_ite(c, m_util.str.mk_stoi(t), m_util.str.mk_stoi(e));
+        return BR_REWRITE_FULL;
+    }
+
+    expr* u = nullptr;
+    unsigned ch = 0;
+    if (m_util.str.is_unit(a, u) && m_util.is_const_char(u, ch)) {
+        if ('0' <= ch && ch <= '9') {
+            result = m_autil.mk_int(ch - '0');
+        }
+        else {
+            result = m_autil.mk_int(-1);
+        }
+        return BR_DONE;
+    }        
+
+    expr_ref_vector as(m());
+    m_util.str.get_concat_units(a, as);
+    if (as.empty()) {
+        result = m_autil.mk_int(-1);
+        return BR_DONE;
+    }
+    if (m_util.str.is_unit(as.back())) {
+        // if head = "" then tail else
+        // if tail < 0 then tail else 
+        // if stoi(head) >= 0 and then stoi(head)*10+tail else -1
+        expr_ref tail(m_util.str.mk_stoi(as.back()), m());
+        expr_ref head(m_util.str.mk_concat(as.size() - 1, as.c_ptr(), m().get_sort(a)), m());
+        expr_ref stoi_head(m_util.str.mk_stoi(head), m());
+        result = m().mk_ite(m_autil.mk_ge(stoi_head, m_autil.mk_int(0)), 
+                            m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), stoi_head), tail),
+                            m_autil.mk_int(-1));
+        
+        result = m().mk_ite(m_autil.mk_ge(tail, m_autil.mk_int(0)), 
+                            result,
+                            tail);
+        result = m().mk_ite(m_util.str.mk_is_empty(head), 
+                            tail,
+                            result);
+        return BR_REWRITE_FULL;
+    }
+
     return BR_FAILED;
 }
 
