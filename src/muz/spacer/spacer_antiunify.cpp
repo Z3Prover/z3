@@ -203,6 +203,7 @@ public:
 bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m,
                                            expr_ref& result) {
     NOT_IMPLEMENTED_YET();
+    return false;
 #if 0
     arith_util util(m);
 

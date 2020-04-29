@@ -217,11 +217,22 @@ void create_induction_lemmas::filter_abstractions(bool sign, abstractions& abs) 
  * lit & a.eqs() => alpha
  * lit & a.eqs() & is-c(t) => ~beta
  *
- * where alpha = a.term()
+ * where 
+ *       lit   = is a formula containing t
+ *       alpha = a.term(), a variant of lit 
+ *               with some occurrences of t replaced by sk
  *       beta  = alpha[sk/access_k(sk)]
  * for each constructor c, that is recursive 
  * and contains argument of datatype sort s
  *
+ * The main claim is that the lemmas are valid and that
+ * they approximate induction reasoning.
+ * 
+ * alpha approximates minimal instance of the datatype s where 
+ * the instance of s is true. In the limit one can
+ * set beta to all instantiations of smaller values than sk.
+ * 
+ * 
  * TBD: consider k-inductive lemmas.
  */
 void create_induction_lemmas::create_lemmas(expr* t, expr* sk, abstraction& a, literal lit) {

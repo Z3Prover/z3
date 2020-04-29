@@ -638,8 +638,10 @@ public:
             return get_random_bv(s);
         else if (m_manager.is_bool(s))
             return m_mpz_manager.dup(get_random_bool());
-        else
+        else {
             NOT_IMPLEMENTED_YET(); // This only works for bit-vectors for now.
+            return get_random_bv(nullptr);
+        }
     }    
 
     void randomize(ptr_vector<expr> const & as) {
@@ -962,8 +964,10 @@ public:
             return score_bool(n);
         else if (m_bv_util.is_bv(n))
             return score_bv(n);
-        else
+        else {
             NOT_IMPLEMENTED_YET();
+            return 0;
+        }
     }    
 
     ptr_vector<func_decl> & get_constants(expr * e) {
