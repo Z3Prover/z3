@@ -136,6 +136,10 @@ namespace spacer {
     mk_epp(ast *t, ast_manager &m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
         void rw(expr *e, expr_ref &out);
     };
+
+    bool is_clause(ast_manager &m, expr *n); 
+    bool is_literal(ast_manager &m, expr *n);
+    bool is_atom(ast_manager &m, expr *n);
 }
 
 #endif
