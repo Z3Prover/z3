@@ -312,12 +312,14 @@ namespace smt {
 
     void theory_array::new_diseq_eh(theory_var v1, theory_var v2) {
         v1 = find(v1);
-        v2 = find(v2);
+        v2 = find(v2);        
         var_data * d1 = m_var_data[v1];
+        TRACE("ext", tout << "extensionality: " << d1->m_is_array << "\n" 
+              << mk_bounded_pp(get_enode(v1)->get_owner(), get_manager(), 5) << "\n" 
+              << mk_bounded_pp(get_enode(v2)->get_owner(), get_manager(), 5) << "\n";);
+        
         if (d1->m_is_array) {
             SASSERT(m_var_data[v2]->m_is_array);
-            TRACE("ext", tout << "extensionality:\n" << mk_bounded_pp(get_enode(v1)->get_owner(), get_manager(), 5) << "\n" << 
-                  mk_bounded_pp(get_enode(v2)->get_owner(), get_manager(), 5) << "\n";);
             instantiate_extensionality(get_enode(v1), get_enode(v2));
         }
     }
