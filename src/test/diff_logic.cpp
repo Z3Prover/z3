@@ -79,11 +79,11 @@ static void tst2() {
     ENSURE(g.get_edge_weight(1, 4, w, d) && w == rational(1));
     ENSURE(!g.get_edge_weight(1, 3, w, d));
     ENSURE(g.enable_edge(g.add_edge(2, 4, rational(10), l6)));
-    ENSURE(g.is_feasible());
+    ENSURE(g.is_feasible_dbg());
     g.push();
     ENSURE(g.enable_edge(g.add_edge(3, 0, rational(2), l4)));
     ENSURE(!g.enable_edge(g.add_edge(0, 1, rational(-1), l5)));
-    ENSURE(!g.is_feasible());
+    ENSURE(!g.is_feasible_dbg());
     TRACE("diff_logic", g.display(tout););
     struct proc {
         bool_vector found;
@@ -104,7 +104,7 @@ static void tst2() {
     ENSURE(p.found[5] == true);
     ENSURE(p.found[6] == false);
     g.pop(1);
-    ENSURE(g.is_feasible());
+    ENSURE(g.is_feasible_dbg());
     TRACE("diff_logic", g.display(tout););
 }
 
