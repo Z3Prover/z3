@@ -61,6 +61,13 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, bool deps_valid, expr_de
     if (!m_util.is_arith_macro(body, num_decls, head, def, inv))
         return false;
     app_ref new_body(m);
+    func_decl * f   = head->get_decl();
+    // functions introduced within macros are Skolem functions
+    // To avoid unsound expansion of these as macros (because they 
+    // appear in model conversions and are therefore not fully
+    // replacable) we prevent these from being treated as macro functions.
+    if (m_macro_manager.contains(f) || f->is_skolem())
+        return false;
 
     if (!inv || m.is_eq(body))
         new_body = m.mk_app(to_app(body)->get_decl(), head, def);
@@ -82,8 +89,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, bool deps_valid, expr_de
     }
     // is ge or le
     //
-    TRACE("macro_finder", tout << "is_arith_macro: is_ge or is_le\n";);
-    func_decl * f   = head->get_decl();
+    TRACE("macro_finder", tout << "is_arith_macro: is_ge or is_le " << f->get_name() << "\n";);
     func_decl * k   = m.mk_fresh_func_decl(f->get_name(), symbol::null, f->get_arity(), f->get_domain(), f->get_range());
     app * k_app     = m.mk_app(k, head->get_num_args(), head->get_args());
     expr_ref_buffer new_rhs_args(m);
@@ -132,6 +138,9 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, vector<justified_expr>& 
     if (!m_util.is_arith_macro(body, num_decls, head, def, inv))
         return false;
     app_ref new_body(m);
+    func_decl * f   = head->get_decl();
+    if (m_macro_manager.contains(f) || f->is_skolem()) 
+        return false;
     
     if (!inv || m.is_eq(body))
         new_body = m.mk_app(to_app(body)->get_decl(), head, def);
@@ -148,12 +157,11 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, vector<justified_expr>& 
         new_pr      = m.mk_modus_ponens(pr, rw);
     }
     if (m.is_eq(body)) {
-        return m_macro_manager.insert(head->get_decl(), new_q, new_pr);
+        return m_macro_manager.insert(f, new_q, new_pr);
     }
     // is ge or le
     // 
     TRACE("macro_finder", tout << "is_arith_macro: is_ge or is_le\n";);
-    func_decl * f   = head->get_decl();
     func_decl * k   = m.mk_fresh_func_decl(f->get_name(), symbol::null, f->get_arity(), f->get_domain(), f->get_range());
     app * k_app     = m.mk_app(k, head->get_num_args(), head->get_args());
     expr_ref_buffer new_rhs_args(m);
@@ -289,7 +297,7 @@ bool macro_finder::expand_macros(expr_ref_vector const& exprs, proof_ref_vector 
             found_new_macro = true;
         }
         else if (m_util.is_pseudo_predicate_macro(new_n, head, t, def)) {
-            TRACE("macro_finder", tout << "found new pseudo macro:\n" << head << "\n" << t << "\n" << def << "\n";);
+            TRACE("macro_finder", tout << "found new pseudo macro:\n" << head->get_decl()->get_name() << "\n" << t << "\n" << def << "\n";);
             pseudo_predicate_macro2macro(m, head, t, def, to_quantifier(new_n), new_pr, deps_valid, new_dep, new_exprs, new_prs, new_deps);
             found_new_macro = true;
         }
@@ -300,8 +308,6 @@ bool macro_finder::expand_macros(expr_ref_vector const& exprs, proof_ref_vector 
             if (deps_valid)
                 new_deps.push_back(new_dep);
         }
-        TRACE("macro_finder", tout << exprs.size() << " " << deps.size() << " : ";
-              tout << new_exprs.size() << " " << new_deps.size() << "\n";);
         SASSERT(exprs.size() != deps.size() || new_exprs.size() == new_deps.size());
         // SASSERT(!m.proofs_enabled() || new_exprs.size() == new_prs.size());
 
