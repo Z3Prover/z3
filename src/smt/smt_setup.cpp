@@ -877,7 +877,7 @@ namespace smt {
 
     void setup::setup_datatypes() {
         TRACE("datatype", tout << "registering theory datatype...\n";);
-        m_context.register_plugin(alloc(theory_datatype, m_manager, m_params));
+        m_context.register_plugin(alloc(theory_datatype, m_manager));
     }
 
     void setup::setup_recfuns() {

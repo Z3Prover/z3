@@ -75,7 +75,7 @@ namespace smt {
 
 
     theory* theory_datatype::mk_fresh(context* new_ctx) { 
-        return alloc(theory_datatype, new_ctx->get_manager(), m_params); 
+        return alloc(theory_datatype, new_ctx->get_manager());
     }
 
     /**
@@ -286,7 +286,7 @@ namespace smt {
                 assert_is_constructor_axiom(n, c, null_literal);
             }
             else {
-                if (m_params.m_dt_lazy_splits == 0 || (m_params.m_dt_lazy_splits == 1 && !s->is_infinite()))
+                if (params().m_dt_lazy_splits == 0 || (params().m_dt_lazy_splits == 1 && !s->is_infinite()))
                     mk_split(r);
             }
         }
@@ -487,7 +487,7 @@ namespace smt {
                     // return...
                     return FC_CONTINUE;
                 }
-                if (m_params.m_dt_lazy_splits > 0) {
+                if (params().m_dt_lazy_splits > 0) {
                     // using lazy case splits...
                     var_data * d = m_var_data[v];
                     if (d->m_constructor == nullptr) {
@@ -694,9 +694,12 @@ namespace smt {
         return false;
     }
 
-    theory_datatype::theory_datatype(ast_manager & m, theory_datatype_params & p):
+    theory_datatype_params const& theory_datatype::params() const { 
+        return get_context().get_fparams(); 
+    }
+
+    theory_datatype::theory_datatype(ast_manager & m):
         theory(m.mk_family_id("datatype")),
-        m_params(p),
         m_util(m),
         m_autil(m),
         m_find(*this),
@@ -932,7 +935,7 @@ namespace smt {
         else {
             // there are more than 2 unassigned recognizers...
             // if eager splits are enabled... create new case split
-            if (m_params.m_dt_lazy_splits == 0 || (!dt->is_infinite() && m_params.m_dt_lazy_splits == 1))
+            if (params().m_dt_lazy_splits == 0 || (!dt->is_infinite() && params().m_dt_lazy_splits == 1))
                 mk_split(v);
         }
     }
