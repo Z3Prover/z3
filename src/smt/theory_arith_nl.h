@@ -220,6 +220,10 @@ interval theory_arith<Ext>::mk_interval_for(theory_var v) {
     bound * l = lower(v);
     bound * u = upper(v);
     if (l && u) {
+        // optimization may introduce non-standard bounds.
+        if (l->get_value() == u->get_value() && !l->get_value().get_infinitesimal().to_rational().is_zero()) {
+            return interval(m_dep_manager);
+        }
         return interval(m_dep_manager,
                         l->get_value().get_rational().to_rational(),
                         !l->get_value().get_infinitesimal().to_rational().is_zero(),
@@ -1167,16 +1171,17 @@ expr_ref theory_arith<Ext>::p2expr(buffer<coeff_expr> & p) {
     SASSERT(!p.empty());
     TRACE("p2expr_bug", display_coeff_exprs(tout, p););
     ptr_buffer<expr> args;
+    rational c2;
     for (coeff_expr const& ce : p) {
         rational const & c = ce.first;
         expr * var         = ce.second;
-        if (!c.is_one()) {
-            rational c2;
-            expr * m = nullptr;
-            if (m_util.is_numeral(var, c2))
-                m = m_util.mk_numeral(c*c2, m_util.is_int(var) && c.is_int() && c2.is_int());
-            else
-                m = m_util.mk_mul(m_util.mk_numeral(c, c.is_int() && m_util.is_int(var)), var);
+        if (m_util.is_numeral(var, c2)) {
+            expr* m = m_util.mk_numeral(c * c2, c.is_int() && m_util.is_int(var));
+            m_nl_new_exprs.push_back(m);
+            args.push_back(m);
+        }
+        else if (!c.is_one()) {
+            expr * m = m_util.mk_mul(m_util.mk_numeral(c, c.is_int() && m_util.is_int(var)), var);
             m_nl_new_exprs.push_back(m);
             args.push_back(m);
         }
@@ -1425,7 +1430,7 @@ expr_ref theory_arith<Ext>::horner(unsigned depth, buffer<coeff_expr> & p, expr 
    If var != 0, then it is used for performing the horner extension
 */
 template<typename Ext>
- expr_ref theory_arith<Ext>::cross_nested(unsigned depth, buffer<coeff_expr> & p, expr * var) {
+expr_ref theory_arith<Ext>::cross_nested(unsigned depth, buffer<coeff_expr> & p, expr * var) {
     TRACE("non_linear", tout << "p.size: " << p.size() << "\n";);
     if (var == nullptr) {
         sbuffer<var_num_occs> varinfo;
@@ -1561,11 +1566,12 @@ bool theory_arith<Ext>::is_cross_nested_consistent(buffer<coeff_expr> & p) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::is_cross_nested_consistent(row const & r) {
-    TRACE("cross_nested", tout << "is_cross_nested_consistent:\n"; display_row(tout, r, false););
     if (!is_problematic_non_linear_row(r))
         return true;
 
-    TRACE("cross_nested", tout << "problematic...\n";);
+    TRACE("cross_nested", tout << "is_cross_nested_consistent:\n"; display_row(tout, r, false);
+          display(tout);
+          );
 
     /*
       The method is_cross_nested converts rows back to expressions.
