@@ -21,7 +21,6 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "smt/theory_recfun.h"
-#include "smt/params/smt_params_helper.hpp"
 
 
 #define TRACEFN(x) TRACE("recfun", tout << x << '\n';)
@@ -357,6 +356,7 @@ namespace smt {
         literal_vector preds;
         auto & vars = e.m_def->get_vars();
             
+        unsigned max_depth = 0;
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
             app_ref pred_applied = c.apply_case_predicate(e.m_args);
@@ -376,15 +376,25 @@ namespace smt {
             }
             else if (!is_enabled_guard(pred_applied)) {
                 disable_guard(pred_applied, guards);
+                max_depth = std::max(depth, max_depth);
                 continue;
             }
             activate_guard(pred_applied, guards);
         }
         // the disjunction of branches is asserted
         // to close the available cases. 
-        std::function<literal_vector(void)> fn2 = [&]() { return preds; };
-        scoped_trace_stream _tr2(*this, fn2);
-        ctx().mk_th_axiom(get_id(), preds);
+        {
+            scoped_trace_stream _tr2(*this, preds);
+            ctx().mk_th_axiom(get_id(), preds);
+        }
+        (void)max_depth;
+        // add_induction_lemmas(max_depth);
+    }
+
+    void theory_recfun::add_induction_lemmas(unsigned depth) {
+        if (depth > 4 && ctx().get_fparams().m_induction && induction::should_try(ctx())) {
+            ctx().get_induction()();
+        }
     }
 
     void theory_recfun::activate_guard(expr* pred_applied, expr_ref_vector const& guards) {

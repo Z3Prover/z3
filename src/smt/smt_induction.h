@@ -20,6 +20,7 @@
 #include "smt/smt_types.h"
 #include "ast/rewriter/value_sweep.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace smt {
 
@@ -52,6 +53,7 @@ namespace smt {
         ast_manager& m;
         value_sweep& vs;
         datatype::util m_dt;
+        arith_util     m_a;
         obj_map<sort, func_decl*> m_sort2skolem;
         ast_ref_vector m_pinned;
         unsigned m_num_lemmas;
