@@ -62,6 +62,7 @@ namespace smt {
         m_fingerprints(m, m_region),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
+        m_l_internalized_stack(m),
         m_final_check_idx(0),
         m_is_auxiliary(false),
         m_par(nullptr),
