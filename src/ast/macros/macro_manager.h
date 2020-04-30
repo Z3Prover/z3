@@ -79,6 +79,7 @@ public:
     bool is_forbidden(func_decl * d) const { return m_forbidden_set.contains(d); }
     obj_hashtable<func_decl> const & get_forbidden_set() const { return m_forbidden_set; }
     void display(std::ostream & out);
+    bool contains(func_decl* d) const { return m_decls.contains(d); }
     unsigned get_num_macros() const { return m_decls.size(); }
     unsigned get_first_macro_last_level() const { return m_scopes.empty() ? 0 : m_scopes.back().m_decls_lim; }
     func_decl * get_macro_func_decl(unsigned i) const { return m_decls.get(i); }
