@@ -26,6 +26,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_random_seed = p.random_seed();
     m_relevancy_lvl = p.relevancy();
     m_ematching   = p.ematching();
+    m_induction   = p.induction();
     m_clause_proof = p.clause_proof();
     m_phase_selection = static_cast<phase_selection>(p.phase_selection());
     if (m_phase_selection > PS_THEORY) throw default_exception("illegal phase selection numeral");
@@ -111,6 +112,7 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_display_features);
     DISPLAY_PARAM(m_new_core2th_eq);
     DISPLAY_PARAM(m_ematching);
+    DISPLAY_PARAM(m_induction);
     DISPLAY_PARAM(m_clause_proof);
 
     DISPLAY_PARAM(m_case_split_strategy);

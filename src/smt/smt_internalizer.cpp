@@ -558,6 +558,9 @@ namespace smt {
     void context::internalize_lambda(quantifier * q) {
         TRACE("internalize_quantifier", tout << mk_pp(q, m) << "\n";);
         SASSERT(is_lambda(q));
+        if (e_internalized(q)) {
+            return;
+        }
         app_ref lam_name(m.mk_fresh_const("lambda", m.get_sort(q)), m);
         app_ref eq(m), lam_app(m);
         expr_ref_vector vars(m);

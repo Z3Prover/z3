@@ -127,6 +127,7 @@ namespace smt {
         void assert_body_axiom(body_expansion & e);
         literal mk_literal(expr* e);
 
+        void add_induction_lemmas(unsigned depth);
         void disable_guard(expr* guard, expr_ref_vector const& guards);
         unsigned get_depth(expr* e);
         void set_depth(unsigned d, expr* e);
