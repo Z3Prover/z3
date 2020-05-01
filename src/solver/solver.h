@@ -161,6 +161,7 @@ public:
     virtual lbool check_sat_cc(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
         if (clauses.empty()) return check_sat(cube.size(), cube.c_ptr());
         NOT_IMPLEMENTED_YET();
+        return l_undef;
     }
 
     /**
