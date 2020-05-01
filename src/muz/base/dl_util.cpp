@@ -20,9 +20,6 @@ Revision History:
 #include <sstream>
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef _WINDOWS
-#include <windows.h>
-#endif
 #include "ast/ast_pp.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/for_each_expr.h"
@@ -31,6 +28,10 @@ Revision History:
 #include "muz/base/dl_rule.h"
 #include "muz/base/dl_util.h"
 #include "util/stopwatch.h"
+#ifdef _WINDOWS
+#include <windows.h>
+#endif
+
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #endif
