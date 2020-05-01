@@ -28,7 +28,7 @@ namespace smt {
 
     expr_ref context::antecedent2fml(index_set const& vars) {
         expr_ref_vector premises(m);
-		for (unsigned v : vars) {
+        for (unsigned v : vars) {
             expr* e =  bool_var2expr(v);
             e = m_assumption2orig.find(e);
             premises.push_back(get_assignment(v) != l_false ? e : m.mk_not(e));
@@ -159,11 +159,16 @@ namespace smt {
 
     unsigned context::delete_unfixed(expr_ref_vector& unfixed) {
         ptr_vector<expr> to_delete;
-		for (auto const& kv : m_var2val) {
+        for (auto const& kv : m_var2val) {
             expr* k = kv.m_key;
             expr* v = kv.m_value;
             if (m.is_bool(k)) {
                 literal lit = get_literal(k);
+                TRACE("context", 
+                      tout << "checking " << mk_pp(k, m) << " " 
+                      << mk_pp(v, m) << " " << get_assignment(lit) << "\n";
+                      display(tout);
+                      );
                 switch (get_assignment(lit)) {
                 case l_true: 
                     if (m.is_false(v)) {
@@ -193,14 +198,12 @@ namespace smt {
                 to_delete.push_back(k);
             }
         }
-        for (unsigned i = 0; i < to_delete.size(); ++i) {
-            m_var2val.remove(to_delete[i]);
-            unfixed.push_back(to_delete[i]);
+        for (expr* e : to_delete) {
+            m_var2val.remove(e);
+            unfixed.push_back(e);
         }
         return to_delete.size();
     }
-
-#define are_equal(v, k) (e_internalized(k) && e_internalized(v) && get_enode(k)->get_root() == get_enode(v)->get_root())
 
     //
     // Extract equalities that are congruent at the search level.
@@ -209,18 +212,23 @@ namespace smt {
     // 
     unsigned context::extract_fixed_eqs(expr_ref_vector& conseq) {
         TRACE("context", tout << "extract fixed consequences\n";);
+        auto are_equal = [&](expr* k, expr* v) {
+            return e_internalized(k) && 
+            e_internalized(v) && 
+            get_enode(k)->get_root() == get_enode(v)->get_root();
+        };
         ptr_vector<expr> to_delete;
         expr_ref fml(m), eq(m);
-		for (auto const& kv : m_var2val) {
+        for (auto const& kv : m_var2val) {
             expr* k = kv.m_key;
             expr* v = kv.m_value;
             if (!m.is_bool(k) && are_equal(k, v)) {
                 literal_vector literals;
                 m_conflict_resolution->eq2literals(get_enode(v), get_enode(k), literals);
                 index_set s;
-                for (unsigned i = 0; i < literals.size(); ++i) {
-                    SASSERT(get_assign_level(literals[i]) <= get_search_level());
-                    s |= m_antecedents.find(literals[i].var());
+                for (literal lit : literals) {
+                    SASSERT(get_assign_level(lit) <= get_search_level());
+                    s |= m_antecedents.find(lit.var());
                 }
                 
                 fml = m.mk_eq(m_var2orig.find(k), v);
@@ -228,17 +236,17 @@ namespace smt {
                 conseq.push_back(fml);
                 to_delete.push_back(k);
 
-                for (unsigned i = 0; i < literals.size(); ++i) {
-                    literals[i].neg();
-                }
+                for (literal& lit : literals)
+                    lit.neg();
+
                 literal lit = mk_diseq(k, v);
                 literals.push_back(lit);
                 mk_clause(literals.size(), literals.c_ptr(), nullptr);
                 TRACE("context", display_literals_verbose(tout, literals.size(), literals.c_ptr()););
             }
         }    
-        for (unsigned i = 0; i < to_delete.size(); ++i) {
-            m_var2val.remove(to_delete[i]);
+        for (expr* e : to_delete) {
+            m_var2val.remove(e);
         }
         return to_delete.size();
     }
@@ -270,18 +278,25 @@ namespace smt {
         m_var2val.reset();
         m_var2orig.reset();
         m_assumption2orig.reset();
-        bool pushed = false;
-        for (unsigned i = 0; i < vars0.size(); ++i) {
-            expr* v = vars0[i];
+        struct scoped_level {
+            context& c;
+            unsigned lvl;
+            scoped_level(context& c):
+                c(c), lvl(c.get_scope_level()) {}
+            ~scoped_level() {
+                if (c.get_scope_level() > lvl)
+                    c.pop_scope(c.get_scope_level() - lvl);
+            }
+        };
+        scoped_level _lvl(*this);
+
+        for (expr* v : vars0) {
             if (is_uninterp_const(v)) {
                 vars.push_back(v);
                 m_var2orig.insert(v, v);
             }
             else {
-                if (!pushed) {
-                    pushed = true;
-                    push();
-                }
+                push();                
                 expr_ref c(m.mk_fresh_const("v", m.get_sort(v)), m);
                 expr_ref eq(m.mk_eq(c, v), m);
                 assert_expr(eq);
@@ -295,10 +310,7 @@ namespace smt {
                 m_assumption2orig.insert(a, a);
             }
             else {
-                if (!pushed) {
-                    pushed = true;
-                    push();
-                }
+                push();                
                 expr_ref c(m.mk_fresh_const("a", m.get_sort(a)), m);
                 expr_ref eq(m.mk_eq(c, a), m);
                 assert_expr(eq);
@@ -309,9 +321,13 @@ namespace smt {
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
         if (is_sat != l_true) {
             TRACE("context", tout << is_sat << "\n";);
-            if (pushed) pop(1);            
             return is_sat;
         }
+        if (m_qmanager->has_quantifiers()) {
+            IF_VERBOSE(1, verbose_stream() << "(get-consequences :unsupported-quantifiers)\n";);
+            return l_undef;
+        }
+
         TRACE("context", display(tout););
 
         index_set _assumptions;
@@ -352,7 +368,6 @@ namespace smt {
                 if (num_vars >= chunk_size)
                     break;
                 if (get_cancel_flag()) {
-                    if (pushed) pop(1);
                     return l_undef;
                 }
                 expr* e = kv.m_key;
@@ -365,12 +380,14 @@ namespace smt {
                 ++num_vars;
                 push_scope();
                 assign(lit, b_justification::mk_axiom(), true);
-                if (!propagate() && (!resolve_conflict() || inconsistent())) {
-                    TRACE("context", tout << "inconsistent\n";);
-                    SASSERT(inconsistent());
-                    m_conflict = null_b_justification;
-                    m_not_l = null_literal;
-                    SASSERT(m_search_lvl == get_search_level());                    
+                while (can_propagate()) {
+                    if (!propagate() && (!resolve_conflict() || inconsistent())) {
+                        TRACE("context", tout << "inconsistent\n";);
+                        SASSERT(inconsistent());
+                        m_conflict = null_b_justification;
+                        m_not_l = null_literal;
+                        SASSERT(m_search_lvl == get_search_level());                    
+                    }
                 }
             }
             SASSERT(!inconsistent());
@@ -380,11 +397,10 @@ namespace smt {
             while (true) {
                 is_sat = bounded_search();
                 if (is_sat != l_true && m_last_search_failure != OK) {
-                    if (pushed) pop(1);
                     return is_sat;
                 }
                 if (is_sat == l_undef) {
-                    IF_VERBOSE(1, verbose_stream() << "(get-consequences inc-limits)\n";);
+                    IF_VERBOSE(0, verbose_stream() << "(get-consequences inc-limits)\n";);
                     inc_limits();
                     continue;
                 }
@@ -408,9 +424,6 @@ namespace smt {
 
         end_search();
         DEBUG_CODE(validate_consequences(assumptions, vars, conseq, unfixed););
-        if (pushed) {
-            pop(1);
-        }
         return l_true;
     }
 
