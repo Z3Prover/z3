@@ -160,6 +160,13 @@ enode_vector create_induction_lemmas::induction_positions(enode* n) {
     return result;
 }
 
+void create_induction_lemmas::abstract1(enode* n, enode* t, expr* x, abstractions& result) {
+    expr_safe_replace rep(m);
+    rep.insert(t->get_owner(), x);
+    expr_ref e(n->get_owner(), m);
+    rep(e);
+    result.push_back(abstraction(e));
+}
 
 /**
  * abstraction candidates for replacing different occurrence of t in n by x
@@ -172,14 +179,14 @@ void create_induction_lemmas::abstract(enode* n, enode* t, expr* x, abstractions
     std::cout << "abs: " << result.size() << ": " << mk_pp(n->get_owner(), m) << "\n";
     if (n->get_root() == t->get_root()) {
         result.push_back(abstraction(m, x, n->get_owner(), t->get_owner()));
-    }
-#if 0
-    // check if n is a s
-    if (is_skolem(n->get_owner())) {
-        result.push_back(abstraction(m, n->get_owner()));
         return;
     }
-#endif
+    func_decl* f = n->get_owner()->get_decl();
+    // check if n is a s
+    if (f->is_skolem()) {
+        expr_ref e(n->get_owner(), m);
+        result.push_back(abstraction(e));
+    }
         
     abstraction_args r1, r2;
     r1.push_back(abstraction_arg(m));
@@ -330,19 +337,6 @@ literal create_induction_lemmas::mk_literal(expr* e) {
     return ctx.get_literal(e);
 }
 
-func_decl* create_induction_lemmas::mk_skolem(sort* s) {
-    func_decl* f = nullptr;
-    if (!m_sort2skolem.find(s, f)) {
-        sort* domain[3] = { m_a.mk_int(), s, m.mk_bool_sort() };
-        f = m.mk_fresh_func_decl("sk", 3, domain, s);
-        m_pinned.push_back(f);
-        m_pinned.push_back(s);
-        m_sort2skolem.insert(s, f);
-    }
-    return f;
-}
-
-
 bool create_induction_lemmas::operator()(literal lit) {
     unsigned num = m_num_lemmas;
     enode* r = ctx.bool_var2enode(lit.var());
@@ -350,12 +344,12 @@ bool create_induction_lemmas::operator()(literal lit) {
     for (enode* n : induction_positions(r)) {
         expr* t = n->get_owner();
         sort* s = m.get_sort(t);
-        expr_ref sk(m.mk_app(mk_skolem(s), m_a.mk_int(position), t, r->get_owner()), m);
+        expr_ref sk(m.mk_fresh_const("sk", s), m);
         std::cout << "abstract " << mk_pp(t, m) << " " << sk << "\n";
         abstractions abs;
-        abstract(r, n, sk, abs);            
-        abs.pop_back(); // last position has no generalizations
-        filter_abstractions(lit.sign(), abs);
+        abstract1(r, n, sk, abs);            
+        // if (ab.size() > 1) abs.pop_back(); // last position has no generalizations
+        if (abs.size() > 1) filter_abstractions(lit.sign(), abs);
         for (abstraction& a : abs) {
             create_lemmas(t, sk, a, lit);
         }
@@ -371,7 +365,6 @@ create_induction_lemmas::create_induction_lemmas(context& ctx, ast_manager& m, v
     vs(vs),
     m_dt(m),
     m_a(m),
-    m_pinned(m),
     m_num_lemmas(0)
 {}
 
