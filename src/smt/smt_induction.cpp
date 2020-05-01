@@ -105,31 +105,47 @@ literal_vector collect_induction_literals::operator()() {
 // --------------------------------------
 // create_induction_lemmas
 
-bool create_induction_lemmas::is_induction_candidate(enode* n) {
-    app* e = n->get_owner();
-    if (m.is_value(e))
-        return false;
+bool create_induction_lemmas::viable_induction_sort(sort* s) {
+    // potentially also induction on integers, sequences
+    return m_dt.is_datatype(s) && m_dt.is_recursive(s);
+}
+
+bool create_induction_lemmas::viable_induction_parent(enode* n) {
     bool in_good_context = false;
     for (enode* p : n->get_parents()) {
         app* o = p->get_owner();
-        if (o->get_family_id() != m.get_basic_family_id())
-            in_good_context = true;
+        if (o->get_family_id() == m.get_basic_family_id())
+            continue;
+        if (o->get_family_id() == m_rec.get_family_id()) {
+            in_good_context |= m_rec.is_defined(o);
+            continue;
+        }
+        if (o->get_family_id() == m_dt.get_family_id()) {
+            in_good_context |= m_dt.is_constructor(o);
+            continue;
+        }
     }
-    if (!in_good_context)
-        return false;
+    return in_good_context;
+}
 
-    // avoid recursively unfolding skolem terms.
-    if (e->get_num_args() > 0 && e->get_family_id() == null_family_id) {
+bool create_induction_lemmas::viable_induction_term(enode* n) {
+    app* e = n->get_owner();
+    if (m.is_value(e))
         return false;
-    }
-    sort* s = m.get_sort(e);
-    if (m_dt.is_datatype(s) && m_dt.is_recursive(s))
+    if (n->get_num_args() == 0)
         return true;
-    
-    // potentially also induction on integers, sequences
-    // m_arith.is_int(s)
-    //  return true;
+    if (e->get_family_id() == m_rec.get_family_id()) 
+        return m_rec.is_defined(e);
+    if (e->get_family_id() == m_dt.get_family_id()) 
+        return m_dt.is_constructor(e);
     return false;
+}
+
+bool create_induction_lemmas::viable_induction_position(enode* n) {
+    return 
+        viable_induction_sort(m.get_sort(n->get_owner())) &&
+        viable_induction_parent(n) &&
+        viable_induction_term(n);
 }
 
 /**
@@ -152,7 +168,7 @@ enode_vector create_induction_lemmas::induction_positions(enode* n) {
         n = todo[i];
         for (enode* a : smt::enode::args(n)) 
             add_todo(a);        
-        if (is_induction_candidate(n)) 
+        if (viable_induction_position(n)) 
             result.push_back(n);
     }
     for (enode* n : todo)
@@ -365,6 +381,7 @@ create_induction_lemmas::create_induction_lemmas(context& ctx, ast_manager& m, v
     vs(vs),
     m_dt(m),
     m_a(m),
+    m_rec(m),
     m_num_lemmas(0)
 {}
 

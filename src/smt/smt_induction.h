@@ -54,6 +54,7 @@ namespace smt {
         value_sweep&   vs;
         datatype::util m_dt;
         arith_util     m_a;
+        recfun::util   m_rec;
         unsigned       m_num_lemmas;
 
         typedef svector<std::pair<expr*,expr*>> expr_pair_vector;
@@ -82,7 +83,10 @@ namespace smt {
         };
         typedef vector<abstraction_arg> abstraction_args;
 
-        bool is_induction_candidate(enode* n);
+        bool viable_induction_sort(sort* s);
+        bool viable_induction_parent(enode* n);
+        bool viable_induction_term(enode* n);
+        bool viable_induction_position(enode* n);
         enode_vector induction_positions(enode* n);
         void abstract(enode* n, enode* t, expr* x, abstractions& result);
         void abstract1(enode* n, enode* t, expr* x, abstractions& result);
