@@ -65,6 +65,7 @@ namespace smt {
         case CFG_LOGIC: setup_default(); break;
         case CFG_AUTO:  setup_auto_config(); break;
         }
+        setup_card();
     }
 
     void setup::setup_default() {
@@ -682,7 +683,6 @@ namespace smt {
         // 
         setup_mi_arith();
         setup_arrays(); 
-        setup_card();
     }
 
     void setup::setup_UFNIA() {
@@ -957,7 +957,6 @@ namespace smt {
         setup_recfuns();
         setup_dl();
         setup_seq_str(st);
-        setup_card();
         setup_fpa();
         if (st.m_has_sr) setup_special_relations();
     }
@@ -973,7 +972,6 @@ namespace smt {
             setup_bv();
             setup_dl();
             setup_seq_str(st);
-            setup_card();
             setup_fpa();
             setup_recfuns();
             if (st.m_has_sr) setup_special_relations();

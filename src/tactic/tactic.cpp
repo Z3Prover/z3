@@ -41,7 +41,9 @@ struct tactic_report::imp {
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        TRACE("tactic", m_goal.display(tout););
+        TRACE("tactic", m_goal.display(tout << m_id << "\n");
+              if (m_goal.mc()) m_goal.mc()->display(tout);
+              );
         IF_VERBOSE(0, 
                    verbose_stream() << "(" << m_id
                    << " :num-exprs " << m_goal.num_exprs()
