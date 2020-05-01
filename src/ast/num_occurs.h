@@ -38,7 +38,8 @@ public:
         m_ignore_quantifiers(ignore_quantifiers) {
     }
 
-    void reset() { m_num_occurs.reset(); }
+    void validate();
+    virtual void reset() { m_num_occurs.reset(); }
     
     void operator()(expr * t);
     void operator()(unsigned num, expr * const * ts);

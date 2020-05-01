@@ -22,6 +22,7 @@ void goal_num_occurs::operator()(goal const & g) {
     expr_fast_mark1   visited;
     unsigned sz = g.size();
     for (unsigned i = 0; i < sz; i++) {
+        m_pinned.push_back(g.form(i));
         process(g.form(i), visited);
     }
 }

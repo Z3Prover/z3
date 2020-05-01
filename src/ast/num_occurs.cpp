@@ -59,6 +59,12 @@ void num_occurs::process(expr * t, expr_fast_mark1 & visited) {
     }
 }
 
+void num_occurs::validate() {
+    for (auto & kv : m_num_occurs) {
+        SASSERT(0 < kv.m_key->get_ref_count());
+    }
+}
+
 void num_occurs::operator()(expr * t) {
     expr_fast_mark1   visited;
     process(t, visited);

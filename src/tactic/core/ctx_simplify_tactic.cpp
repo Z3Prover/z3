@@ -168,7 +168,7 @@ struct ctx_simplify_tactic::imp {
         m(_m),
         m_simp(simp),
         m_allocator("context-simplifier"),
-        m_occs(true, true),
+        m_occs(m, true, true),
         m_mk_app(m, p) {
         updt_params(p);
         m_simp->set_occs(m_occs);
@@ -522,7 +522,6 @@ struct ctx_simplify_tactic::imp {
     void process_goal(goal & g) {
         SASSERT(scope_level() == 0);
         // go forwards
-        expr_ref_vector pinned(m);
         unsigned old_lvl = scope_level();
         unsigned sz = g.size();
         expr_ref r(m);
@@ -532,7 +531,6 @@ struct ctx_simplify_tactic::imp {
             if (i < sz - 1 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
-            pinned.push_back(r);
             g.update(i, r, nullptr, g.dep(i));
         }
         pop(scope_level() - old_lvl);
@@ -571,13 +569,9 @@ struct ctx_simplify_tactic::imp {
 
     void operator()(goal & g) {
         m_occs.reset();
-        expr_ref_vector pinned(m);
         m_occs(g);
-        unsigned sz = g.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            pinned.push_back(g.form(i));
-        }
         m_num_steps = 0;
+        unsigned sz = g.size();
         tactic_report report("ctx-simplify", g);
         if (g.proofs_enabled()) {
             expr_ref r(m);
