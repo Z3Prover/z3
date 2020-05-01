@@ -980,7 +980,10 @@ bool poly_rewriter<Config>::hoist_ite(expr_ref& e) {
         ++i;
     }
     if (!pinned.empty()) {
+        std::cout << "hoist: " << e << "\n";
         e = mk_add_app(adds.size(), adds.c_ptr());
+        std::cout << "hoisted: " << e << "\n";
+
         return true;
     }
     return false;
@@ -997,7 +1000,7 @@ bool poly_rewriter<Config>::hoist_ite(expr* a, obj_hashtable<expr>& shared, nume
         return false;
     }
     ptr_buffer<expr> adds;
-    TO_BUFFER(is_add, adds, a);
+    TO_BUFFER(is_add, adds, a);    
     if (g.is_zero()) { // first 
         for (expr* e : adds) {
             shared.insert(e);            
@@ -1010,8 +1013,18 @@ bool poly_rewriter<Config>::hoist_ite(expr* a, obj_hashtable<expr>& shared, nume
         }
         set_intersection<obj_hashtable<expr>, obj_hashtable<expr>>(shared, tmp);
     }
+    if (shared.empty())
+        return false;
+    // ensure that expression occur uniquely, otherwise 
+    // using the shared hash-table is unsound.
+    ast_mark is_marked;
+    for (expr* e : adds) {
+        if (is_marked.is_marked(e))
+            return false;
+        is_marked.mark(e, true);
+    }
     g = numeral(1);
-    return !shared.empty();
+    return true;
 }
 
 template<typename Config>
