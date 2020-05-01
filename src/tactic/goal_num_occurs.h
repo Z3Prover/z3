@@ -23,11 +23,14 @@ Revision History:
 class goal;
 
 class goal_num_occurs : public num_occurs { 
+    expr_ref_vector m_pinned;
 public:
-    goal_num_occurs(bool ignore_ref_count1 = false, bool ignore_quantifiers = false):
-        num_occurs(ignore_ref_count1, ignore_quantifiers) {
+    goal_num_occurs(ast_manager& m, bool ignore_ref_count1 = false, bool ignore_quantifiers = false):
+        num_occurs(ignore_ref_count1, ignore_quantifiers), 
+        m_pinned(m) {
     }
 
+    void reset() override { num_occurs::reset(); m_pinned.reset(); }
     void operator()(goal const & s);
 };
 
