@@ -18,6 +18,7 @@ Notes:
 --*/
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/ast_smt2_pp.h"
 
 void rewriter_core::init_cache_stack() {
@@ -47,6 +48,9 @@ bool rewriter_core::rewrites_from(expr* t, proof* p) {
 }
 
 bool rewriter_core::rewrites_to(expr* t, proof* p) {
+    CTRACE("rewriter", p && !m().proofs_disabled() && to_app(m().get_fact(p))->get_arg(1) != t, 
+           tout << mk_pp(p, m()) << "\n";
+           tout << mk_pp(t, m()) << "\n";);
     return !p || m().proofs_disabled() || (to_app(m().get_fact(p))->get_arg(1) == t); 
 }
 
@@ -76,6 +80,8 @@ void rewriter_core::cache_shifted_result(expr * k, unsigned offset, expr * v) {
 void rewriter_core::cache_result(expr * k, expr * v, proof * pr) {
     m_cache->insert(k, v);
     SASSERT(m_proof_gen);
+    SASSERT(rewrites_from(k, pr));
+    SASSERT(rewrites_to(v, pr));
     m_cache_pr->insert(k, pr);
 }
 
