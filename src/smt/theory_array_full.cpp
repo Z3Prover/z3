@@ -37,7 +37,7 @@ namespace smt {
     }
 
     theory* theory_array_full::mk_fresh(context* new_ctx) { 
-        return alloc(theory_array_full, new_ctx->get_manager(), m_params); 
+        return alloc(theory_array_full, new_ctx->get_manager(), new_ctx->get_fparams());
     }
 
     void theory_array_full::add_map(theory_var v, enode* s) {

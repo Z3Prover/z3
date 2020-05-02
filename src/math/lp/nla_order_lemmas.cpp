@@ -92,7 +92,7 @@ void order::order_lemma_on_binomial(const monic& ac) {
 void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign) {
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
-    add_empty_lemma();
+    add_lemma();
     mk_ineq(y,                     sy == 1      ? llc::LE : llc::GE); // negate sy
     mk_ineq(x,                     sy*sign == 1 ? llc::GT : llc::LT , val(x)); 
     mk_ineq(xy.var(), - val(x), y, sign == 1    ? llc::LE : llc::GE);
@@ -175,7 +175,7 @@ void order::generate_mon_ol(const monic& ac,
     SASSERT(ab_cmp != llc::LT || (var_val(ac) >= var_val(bd) && val(a)*c_sign < val(b)*d_sign));
     SASSERT(ab_cmp != llc::GT || (var_val(ac) <= var_val(bd) && val(a)*c_sign > val(b)*d_sign));
     
-    add_empty_lemma();
+    add_lemma();
     mk_ineq(c_sign, c, llc::LE);
     explain(c); // this explains c == +- d
     mk_ineq(c_sign, a, -d_sign * b.rat_sign(), b.var(), negate(ab_cmp));
@@ -221,15 +221,16 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
     TRACE("nla_solver",
           tout << "ab.size()=" << ab.size() << "\n";
           tout << "we should have sign*var_val(m):" << mv << "=(" << rsign << ")*(" << var_val(m) <<") to be equal to " << " val(var(ab[0]))*val(var(ab[1])):" << fv << "\n";);
-    if (mv == fv)
-        return;
-    bool gt = mv > fv;
-    SASSERT(mv != fv);
     TRACE("nla_solver", tout << "m="; _().print_monic_with_vars(m, tout); tout << "\nfactorization="; _().print_factorization(ab, tout););
+    if (mv != fv) {
+        bool gt = mv > fv;
+        for (unsigned j = 0, k = 1; j < 2; j++, k--) {
+            order_lemma_on_ab(m, rsign, var(ab[k]), var(ab[j]), gt);
+            explain(ab); explain(m);
+            TRACE("nla_solver", _().print_lemma(tout););
+        }
+    }
     for (unsigned j = 0, k = 1; j < 2; j++, k--) {
-        order_lemma_on_ab(m, rsign, var(ab[k]), var(ab[j]), gt);
-        explain(ab); explain(m);
-        TRACE("nla_solver", _().print_lemma(tout););
         order_lemma_on_ac_explore(m, ab, j == 1);
     }
 }
@@ -261,7 +262,7 @@ void order::generate_ol_eq(const monic& ac,
                         const monic& bc,
                         const factor& b)                        {
     
-    add_empty_lemma();
+    add_lemma();
 #if 0
     IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
                << " " << ab_cmp << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
@@ -287,7 +288,7 @@ void order::generate_ol(const monic& ac,
                         const monic& bc,
                         const factor& b)                        {
     
-    add_empty_lemma();
+    add_lemma();
 #if 0
     IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
                << " " << ab_cmp << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
@@ -332,60 +333,31 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
     }
     return false;
 }
-/**
-   \brief Add lemma: 
-   a > 0 & b <= value(b) => sign*ab <= value(b)*a  if value(a) > 0
-   a < 0 & b >= value(b) => sign*ab <= value(b)*a  if value(a) < 0
+/*
+   given: sign * m = ab
+   lemma b != val(b) || sign 0 m <= a*val(b)
 */
 void order::order_lemma_on_ab_gt(const monic& m, const rational& sign, lpvar a, lpvar b) {
     SASSERT(sign * var_val(m) > val(a) * val(b));
-    add_empty_lemma();
-    if (val(a).is_pos()) {
-        TRACE("nla_solver", tout << "a is pos\n";);
-        //negate a > 0
-        mk_ineq(a, llc::LE);
-        // negate b <= val(b)
-        mk_ineq(b, llc::GT, val(b));
-        // ab <= val(b)a
-        mk_ineq(sign, m.var(), -val(b), a, llc::LE);
-    } else {
-        TRACE("nla_solver", tout << "a is neg\n";);
-        SASSERT(val(a).is_neg());
-        //negate a < 0
-        mk_ineq(a, llc::GE);
-        // negate b >= val(b)
-        mk_ineq(b, llc::LT, val(b));
-        // ab <= val(b)a
-        mk_ineq(sign, m.var(), -val(b), a, llc::LE);
-    }
+    add_lemma();
+    // negate b == val(b)
+    mk_ineq(b, llc::NE, val(b));
+    // ab <= val(b)a
+    mk_ineq(sign, m.var(), -val(b), a, llc::LE);
 }
-// we need to deduce ab >= val(b)*a
-/**
-   \brief Add lemma: 
-   a > 0 & b >= value(b) => sign*ab >= value(b)*a if value(a) > 0
-   a < 0 & b <= value(b) => sign*ab >= value(b)*a if value(a) < 0
+/*
+   given: sign * m = ab
+   lemma b != val(b) || sign*m >= a*val(b)
 */
 void order::order_lemma_on_ab_lt(const monic& m, const rational& sign, lpvar a, lpvar b) {
     TRACE("nla_solver", tout << "sign = " << sign << ", m = "; c().print_monic(m, tout) << ", a = "; c().print_var(a, tout) <<
           ", b = "; c().print_var(b, tout) << "\n";);
     SASSERT(sign * var_val(m) < val(a) * val(b));
-    add_empty_lemma();
-    if (val(a).is_pos()) {
-        //negate a > 0
-        mk_ineq(a, llc::LE);
-        // negate b >= val(b)
-        mk_ineq(b, llc::LT, val(b));
-        // ab <= val(b)a
-        mk_ineq(sign, m.var(), -val(b), a, llc::GE);
-    } else {
-        SASSERT(val(a).is_neg());
-        //negate a < 0
-        mk_ineq(a, llc::GE);
-        // negate b <= val(b)
-        mk_ineq(b, llc::GT, val(b));
-        // ab >= val(b)a
-        mk_ineq(sign, m.var(), -val(b), a, llc::GE);
-    }
+    add_lemma();
+    // negate b == val(b)
+    mk_ineq(b, llc::NE, val(b));
+    // ab >= val(b)a
+    mk_ineq(sign, m.var(), -val(b), a, llc::GE);
 }
 
 void order::order_lemma_on_ab(const monic& m, const rational& sign, lpvar a, lpvar b, bool gt) {

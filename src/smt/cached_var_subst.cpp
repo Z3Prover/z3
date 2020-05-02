@@ -52,7 +52,7 @@ void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::e
     for (unsigned i = 0; i < num_bindings; i++)
         new_key->m_bindings[i] = bindings[i]->get_owner();
 
-    instances::entry * entry = m_instances.insert_if_not_there2(new_key, nullptr);
+    auto* entry = m_instances.insert_if_not_there3(new_key, nullptr);
     if (entry->get_data().m_key != new_key) {
         SASSERT(entry->get_data().m_value != 0);
         // entry was already there

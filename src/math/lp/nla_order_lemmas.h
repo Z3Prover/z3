@@ -48,18 +48,8 @@ private:
 
     void order_lemma_on_factorization(const monic& rm, const factorization& ab);
     
-    /**
-       \brief Add lemma: 
-       a > 0 & b <= value(b) => sign*ab <= value(b)*a  if value(a) > 0
-       a < 0 & b >= value(b) => sign*ab <= value(b)*a  if value(a) < 0
-    */
+
     void order_lemma_on_ab_gt(const monic& m, const rational& sign, lpvar a, lpvar b);
-    // we need to deduce ab >= val(b)*a
-    /**
-       \brief Add lemma: 
-       a > 0 & b >= value(b) => sign*ab >= value(b)*a if value(a) > 0
-       a < 0 & b <= value(b) => sign*ab >= value(b)*a if value(a) < 0
-    */
     void order_lemma_on_ab_lt(const monic& m, const rational& sign, lpvar a, lpvar b);
     void order_lemma_on_ab(const monic& m, const rational& sign, lpvar a, lpvar b, bool gt);
     void order_lemma_on_factor_binomial_explore(const monic& m, bool k);

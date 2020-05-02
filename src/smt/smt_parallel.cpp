@@ -183,7 +183,7 @@ namespace smt {
             }
         };
 
-        // num_threads = 1;
+        // for debugging:  num_threads = 1;
 
         while (true) {
             vector<std::thread> threads(num_threads);

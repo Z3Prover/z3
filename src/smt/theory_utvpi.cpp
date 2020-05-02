@@ -132,7 +132,7 @@ namespace smt {
                 return false;
             }
             else {
-                m_coeff_map.insert_if_not_there2(e, rational(0))->get_data().m_value += mul;
+                m_coeff_map.insert_if_not_there(e, rational(0)) += mul;
             }
         }
         for (auto const& kv : m_coeff_map) {

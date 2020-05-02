@@ -68,39 +68,39 @@ public:
 
     void update_signed_lower(app * v, numeral const & k) {
         // k <= v
-        obj_map<app, numeral>::obj_map_entry * entry = m_signed_lowers.insert_if_not_there2(v, k);
-        if (entry->get_data().m_value < k) {
+        auto& value = m_signed_lowers.insert_if_not_there(v, k);
+        if (value < k) {
             // improve bound
-            entry->get_data().m_value = k;
+            value = k;
         }
     }
 
     void update_signed_upper(app * v, numeral const & k) {
         // v <= k
-        obj_map<app, numeral>::obj_map_entry * entry = m_signed_uppers.insert_if_not_there2(v, k);
-        if (k < entry->get_data().m_value) {
+        auto& value = m_signed_uppers.insert_if_not_there(v, k);
+        if (k < value) {
             // improve bound
-            entry->get_data().m_value = k;
+            value = k;
         }
     }
     
     void update_unsigned_lower(app * v, numeral const & k) {
         SASSERT(k > numeral(0));
         // k <= v
-        obj_map<app, numeral>::obj_map_entry * entry = m_unsigned_lowers.insert_if_not_there2(v, k);
-        if (entry->get_data().m_value < k) {
+        auto& value = m_unsigned_lowers.insert_if_not_there(v, k);
+        if (value < k) {
             // improve bound
-            entry->get_data().m_value = k;
+            value = k;
         }
     }
 
     void update_unsigned_upper(app * v, numeral const & k) {
         SASSERT(k > numeral(0));
         // v <= k
-        obj_map<app, numeral>::obj_map_entry * entry = m_unsigned_uppers.insert_if_not_there2(v, k);
-        if (k < entry->get_data().m_value) {
+        auto& value = m_unsigned_uppers.insert_if_not_there(v, k);
+        if (k < value) {
             // improve bound
-            entry->get_data().m_value = k;
+            value = k;
         }
     }
 

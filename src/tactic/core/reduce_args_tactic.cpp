@@ -196,7 +196,7 @@ struct reduce_args_tactic::imp {
             expr* base;
             if (it == m_decl2args.end()) {
                 m_decl2args.insert(d, bit_vector());
-                svector<expr*>& bases = m_decl2base.insert_if_not_there2(d, svector<expr*>())->get_data().m_value;
+                svector<expr*>& bases = m_decl2base.insert_if_not_there(d, svector<expr*>());
                 bases.resize(j);
                 it = m_decl2args.find_iterator(d);
                 SASSERT(it != m_decl2args.end());
@@ -347,13 +347,13 @@ struct reduce_args_tactic::imp {
                 return BR_FAILED;
 
             bit_vector & bv = it->m_value;
-            arg2func *& map = m_decl2arg2funcs.insert_if_not_there2(f, 0)->get_data().m_value;
+            arg2func *& map = m_decl2arg2funcs.insert_if_not_there(f, 0);
             if (!map) {
                 map = alloc(arg2func, arg2func_hash_proc(bv), arg2func_eq_proc(bv));
             }
 
             app_ref tmp(m.mk_app(f, num, args), m);
-            func_decl *& new_f = map->insert_if_not_there2(tmp, nullptr)->get_data().m_value;
+            func_decl *& new_f = map->insert_if_not_there(tmp, nullptr);
             if (!new_f) {
                 // create fresh symbol
                 ptr_buffer<sort> domain;

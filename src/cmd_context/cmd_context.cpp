@@ -793,8 +793,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
         throw cmd_exception("invalid declaration, builtin symbol ", s);
     }
 #endif
-    dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
-    func_decls & fs = e->get_data().m_value;
+    func_decls & fs = m_func_decls.insert_if_not_there(s, func_decls());
     if (!fs.insert(m(), f)) {
         std::string msg = "invalid declaration, ";
         msg += f->get_arity() == 0 ? "constant" : "function";
@@ -877,8 +876,7 @@ void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domai
     if (!m_mc0.get()) m_mc0 = alloc(generic_model_converter, m(), "cmd_context");
     if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(m_mc0.get()); 
     func_decl_ref fn(m().mk_func_decl(s, arity, domain, m().get_sort(t)), m());
-    dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
-    func_decls & fs = e->get_data().m_value;
+    func_decls & fs = m_func_decls.insert_if_not_there(s, func_decls());
     fs.insert(m(), fn);
     VERIFY(fn->get_range() == m().get_sort(t));
     m_mc0->add(fn, t);

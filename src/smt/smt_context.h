@@ -34,6 +34,7 @@ Revision History:
 #include "smt/smt_statistics.h"
 #include "smt/smt_conflict_resolution.h"
 #include "smt/smt_relevancy.h"
+#include "smt/smt_induction.h"
 #include "smt/smt_case_split_queue.h"
 #include "smt/smt_almost_cg_table.h"
 #include "smt/smt_failure.h"
@@ -106,6 +107,7 @@ namespace smt {
         // enodes. Examples: boolean expression nested in an
         // uninterpreted function.
         expr_ref_vector             m_e_internalized_stack; // stack of the expressions already internalized as enodes.
+        quantifier_ref_vector       m_l_internalized_stack;
 
         ptr_vector<justification>   m_justifications;
 
@@ -185,6 +187,7 @@ namespace smt {
         unsigned                    m_simp_qhead;
         int                         m_simp_counter; //!< can become negative
         scoped_ptr<case_split_queue> m_case_split_queue;
+        scoped_ptr<induction>       m_induction;
         double                      m_bvar_inc;
         bool                        m_phase_cache_on;
         unsigned                    m_phase_counter; //!< auxiliary variable used to decide when to turn on/off phase caching
@@ -774,7 +777,6 @@ namespace smt {
             void undo(context & ctx) override { ctx.undo_mk_bool_var(); }
         };
         mk_bool_var_trail   m_mk_bool_var_trail;
-
         void undo_mk_bool_var();
 
         friend class mk_enode_trail;
@@ -782,10 +784,17 @@ namespace smt {
         public:
             void undo(context & ctx) override { ctx.undo_mk_enode(); }
         };
-
         mk_enode_trail   m_mk_enode_trail;
-
         void undo_mk_enode();
+
+        friend class mk_lambda_trail;
+        class mk_lambda_trail : public trail<context> {
+        public:
+            void undo(context & ctx) override { ctx.undo_mk_lambda(); }
+        };
+        mk_lambda_trail   m_mk_lambda_trail;
+        void undo_mk_lambda();
+
 
         void apply_sort_cnstr(app * term, enode * e);
 
@@ -848,7 +857,7 @@ namespace smt {
         void remove_lit_occs(clause const& cls, unsigned num_bool_vars);
 
         void add_lit_occs(clause const& cls);
-    public:
+    public:        
 
         void ensure_internalized(expr* e);
 
@@ -1266,6 +1275,8 @@ namespace smt {
 
     public:
         bool can_propagate() const;
+
+        induction& get_induction(); 
 
         // Retrieve arithmetic values. 
         bool get_arith_lo(expr* e, rational& lo, bool& strict);

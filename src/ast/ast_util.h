@@ -67,20 +67,14 @@ inline bool depth_leq_one(app * n) {
 
 template<typename AST>
 void dec_ref(ast_manager & m, obj_hashtable<AST> & s) {
-    typename obj_hashtable<AST>::iterator it  = s.begin();
-    typename obj_hashtable<AST>::iterator end = s.end();
-    for (;it != end; ++it) {
-        m.dec_ref(*it);
-    }
+    for (auto a : s)
+        m.dec_ref(a);
 }
 
 template<typename AST>
 void inc_ref(ast_manager & m, obj_hashtable<AST> & s) {
-    typename obj_hashtable<AST>::iterator it  = s.begin();
-    typename obj_hashtable<AST>::iterator end = s.end();
-    for (;it != end; ++it) {
-        m.inc_ref(*it);
-    }
+    for (auto a : s) 
+        m.inc_ref(a);
 }
 
 // -----------------------------------
@@ -174,5 +168,6 @@ void flatten_or(expr_ref_vector& result);
 
 void flatten_or(expr* fml, expr_ref_vector& result);
 
+bool has_uninterpreted(ast_manager& m, expr* e);
 
 #endif /* AST_UTIL_H_ */

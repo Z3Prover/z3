@@ -182,14 +182,23 @@ template<typename Ext>
 rational theory_arith<Ext>::decompose_monomial(expr* m, buffer<var_power_pair>& vp) const {
     rational coeff(1);
     vp.reset();
+    expr_fast_mark1 mark;
     auto insert = [&](expr* arg) {
         rational r;
         if (m_util.is_numeral(arg, r)) 
             coeff *= r;
-        else if (!vp.empty() && vp.back().first == arg) 
-            vp.back().second += 1;
-        else 
+        else if (mark.is_marked(arg)) {
+            for (unsigned i = vp.size(); i-- > 0; ) {
+                if (vp[i].first == arg) {
+                    vp[i].second++;
+                    break;
+                }
+            }
+        }
+        else {
+            mark.mark(arg);
             vp.push_back(var_power_pair(arg, 1));
+        }
     };
     while (m_util.is_mul(m)) {
         unsigned sz = to_app(m)->get_num_args();
@@ -211,6 +220,10 @@ interval theory_arith<Ext>::mk_interval_for(theory_var v) {
     bound * l = lower(v);
     bound * u = upper(v);
     if (l && u) {
+        // optimization may introduce non-standard bounds.
+        if (l->get_value() == u->get_value() && !l->get_value().get_infinitesimal().to_rational().is_zero()) {
+            return interval(m_dep_manager);
+        }
         return interval(m_dep_manager,
                         l->get_value().get_rational().to_rational(),
                         !l->get_value().get_infinitesimal().to_rational().is_zero(),
@@ -394,7 +407,8 @@ bool theory_arith<Ext>::update_bounds_using_interval(theory_var v, interval cons
         }
         bound * old_lower = lower(v);
         if (old_lower == nullptr || new_lower > old_lower->get_value()) {
-            TRACE("non_linear", tout << "NEW lower bound for v" << v << " " << new_lower << "\n";
+            TRACE("non_linear", tout << "NEW lower bound for v" << v << " " << mk_pp(var2expr(v), get_manager()) 
+                  << " " << new_lower << "\n";
                   display_interval(tout, i); tout << "\n";);
             mk_derived_nl_bound(v, new_lower, B_LOWER, i.get_lower_dependencies());
             r = true;
@@ -722,19 +736,19 @@ bool theory_arith<Ext>::branch_nl_int_var(theory_var v) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::is_monomial_linear(expr * m) const {
-
     SASSERT(is_pure_monomial(m));
     unsigned num_nl_vars = 0;
     for (expr* arg : *to_app(m)) {
         if (!get_context().e_internalized(arg))
             return false;
         theory_var _var = expr2var(arg);
+        CTRACE("non_linear", is_fixed(_var), 
+               tout << mk_pp(arg, get_manager()) << " is fixed: " << lower_bound(_var) << "\n";);
         if (!is_fixed(_var)) {
             num_nl_vars++;
         }
-        else {
-            if (lower_bound(_var).is_zero())
-                return true;
+        else if (lower_bound(_var).is_zero()) {
+            return true;
         }
     }
     return num_nl_vars <= 1;
@@ -1157,16 +1171,17 @@ expr_ref theory_arith<Ext>::p2expr(buffer<coeff_expr> & p) {
     SASSERT(!p.empty());
     TRACE("p2expr_bug", display_coeff_exprs(tout, p););
     ptr_buffer<expr> args;
+    rational c2;
     for (coeff_expr const& ce : p) {
         rational const & c = ce.first;
         expr * var         = ce.second;
-        if (!c.is_one()) {
-            rational c2;
-            expr * m = nullptr;
-            if (m_util.is_numeral(var, c2))
-                m = m_util.mk_numeral(c*c2, m_util.is_int(var) && c.is_int() && c2.is_int());
-            else
-                m = m_util.mk_mul(m_util.mk_numeral(c, c.is_int() && m_util.is_int(var)), var);
+        if (m_util.is_numeral(var, c2)) {
+            expr* m = m_util.mk_numeral(c * c2, c.is_int() && m_util.is_int(var));
+            m_nl_new_exprs.push_back(m);
+            args.push_back(m);
+        }
+        else if (!c.is_one()) {
+            expr * m = m_util.mk_mul(m_util.mk_numeral(c, c.is_int() && m_util.is_int(var)), var);
             m_nl_new_exprs.push_back(m);
             args.push_back(m);
         }
@@ -1415,7 +1430,7 @@ expr_ref theory_arith<Ext>::horner(unsigned depth, buffer<coeff_expr> & p, expr 
    If var != 0, then it is used for performing the horner extension
 */
 template<typename Ext>
- expr_ref theory_arith<Ext>::cross_nested(unsigned depth, buffer<coeff_expr> & p, expr * var) {
+expr_ref theory_arith<Ext>::cross_nested(unsigned depth, buffer<coeff_expr> & p, expr * var) {
     TRACE("non_linear", tout << "p.size: " << p.size() << "\n";);
     if (var == nullptr) {
         sbuffer<var_num_occs> varinfo;
@@ -1551,11 +1566,12 @@ bool theory_arith<Ext>::is_cross_nested_consistent(buffer<coeff_expr> & p) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::is_cross_nested_consistent(row const & r) {
-    TRACE("cross_nested", tout << "is_cross_nested_consistent:\n"; display_row(tout, r, false););
     if (!is_problematic_non_linear_row(r))
         return true;
 
-    TRACE("cross_nested", tout << "problematic...\n";);
+    TRACE("cross_nested", tout << "is_cross_nested_consistent:\n"; display_row(tout, r, false);
+          display(tout);
+          );
 
     /*
       The method is_cross_nested converts rows back to expressions.

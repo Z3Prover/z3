@@ -53,12 +53,12 @@ namespace smt {
         var_data * d2 = m_var_data[v2];
         if (!d1->m_prop_upward && d2->m_prop_upward)
             set_prop_upward(v1);
-        for (enode* n : d2->m_stores) 
-            add_store(v1, n);
-        for (enode* n : d2->m_parent_stores) 
-            add_parent_store(v1, n);
-        for (enode* n : d2->m_parent_selects) 
-            add_parent_select(v1, n);
+        for (unsigned i = 0; i < d2->m_stores.size(); ++i) 
+            add_store(v1, d2->m_stores[i]);
+        for (unsigned i = 0; i < d2->m_parent_stores.size(); ++i) 
+            add_parent_store(v1, d2->m_parent_stores[i]);
+        for (unsigned i = 0; i < d2->m_parent_selects.size(); ++i) 
+            add_parent_select(v1, d2->m_parent_selects[i]);
         TRACE("array", tout << "after merge\n"; display_var(tout, v1););
     }
 
@@ -312,12 +312,14 @@ namespace smt {
 
     void theory_array::new_diseq_eh(theory_var v1, theory_var v2) {
         v1 = find(v1);
-        v2 = find(v2);
+        v2 = find(v2);        
         var_data * d1 = m_var_data[v1];
+        TRACE("ext", tout << "extensionality: " << d1->m_is_array << "\n" 
+              << mk_bounded_pp(get_enode(v1)->get_owner(), get_manager(), 5) << "\n" 
+              << mk_bounded_pp(get_enode(v2)->get_owner(), get_manager(), 5) << "\n";);
+        
         if (d1->m_is_array) {
             SASSERT(m_var_data[v2]->m_is_array);
-            TRACE("ext", tout << "extensionality:\n" << mk_bounded_pp(get_enode(v1)->get_owner(), get_manager(), 5) << "\n" << 
-                  mk_bounded_pp(get_enode(v2)->get_owner(), get_manager(), 5) << "\n";);
             instantiate_extensionality(get_enode(v1), get_enode(v2));
         }
     }

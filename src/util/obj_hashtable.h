@@ -146,11 +146,11 @@ public:
         m_table.insert(key_data(k, std::move(v)));
     }
     
-    key_data const & insert_if_not_there(Key * k, Value const & v) {
-        return m_table.insert_if_not_there(key_data(k, v));
+    Value& insert_if_not_there(Key * k, Value const & v) {
+        return m_table.insert_if_not_there2(key_data(k, v))->get_data().m_value;
     }
 
-    obj_map_entry * insert_if_not_there2(Key * k, Value const & v) {
+    obj_map_entry * insert_if_not_there3(Key * k, Value const & v) {
         return m_table.insert_if_not_there2(key_data(k, v));
     }
     

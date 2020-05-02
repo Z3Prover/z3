@@ -105,14 +105,14 @@ namespace datalog {
 
     void relation_manager::store_relation(func_decl * pred, relation_base * rel) {
         SASSERT(rel);
-        relation_map::obj_map_entry * e = m_relations.insert_if_not_there2(pred, 0);
-        if (e->get_data().m_value) {
-            e->get_data().m_value->deallocate();
+        auto& value = m_relations.insert_if_not_there(pred, 0);
+        if (value) {
+            value->deallocate();
         }
         else {
             get_context().get_manager().inc_ref(pred); //dec_ref in reset
         }
-        e->get_data().m_value = rel;
+        value = rel;
     }
 
     decl_set relation_manager::collect_predicates() const {

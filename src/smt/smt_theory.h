@@ -113,6 +113,12 @@ namespace smt {
                 }
             }
 
+            scoped_trace_stream(theory& th, literal_vector const& lits): m(th.get_manager()) {
+                if (m.has_trace_stream()) {
+                    th.log_axiom_instantiation(lits);
+                }
+            }
+
             scoped_trace_stream(theory& th, std::function<literal(void)>& fn): m(th.get_manager()) {
                 if (m.has_trace_stream()) {
                     literal_vector ls;
@@ -398,6 +404,8 @@ namespace smt {
         bool is_representative(theory_var v) const {
             return get_representative(v) == v;
         }
+
+        virtual bool is_safe_to_copy(bool_var v) const { return true; }
         
         unsigned get_num_vars() const {
             return m_var2enode.size();
@@ -502,6 +510,12 @@ namespace smt {
         }
 
         literal mk_eq(expr * a, expr * b, bool gate_ctx);
+
+        literal mk_preferred_eq(expr* a, expr* b);
+
+        enode* ensure_enode(expr* e);
+
+        enode* get_root(expr* e) { return ensure_enode(e)->get_root(); }
 
         // -----------------------------------
         //

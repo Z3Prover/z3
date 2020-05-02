@@ -127,7 +127,6 @@ namespace smt {
 #if 0
             // possible fix for #2182, but effect of fix needs to be checked.
             if (idx < m_bits[v_arg].size()) {
-                //std::cout << mk_pp(n, get_manager()) << "\n";
                 ctx.mk_th_axiom(get_id(), m_bits[v_arg][idx], literal(bv, true));
                 ctx.mk_th_axiom(get_id(), ~m_bits[v_arg][idx], literal(bv, false));
             }      
@@ -162,7 +161,7 @@ namespace smt {
             e = ctx.get_enode(n);
         }
         else {
-            e = ctx.mk_enode(n, !m_params.m_bv_reflect, false, m_params.m_bv_cc);
+            e = ctx.mk_enode(n, !params().m_bv_reflect, false, params().m_bv_cc);
             mk_var(e);
         }
 //        SASSERT(e->get_th_var(get_id()) != null_theory_var);
@@ -179,7 +178,7 @@ namespace smt {
     }
 
     enode * theory_bv::get_arg(enode * n, unsigned idx) {
-        if (m_params.m_bv_reflect) {
+        if (params().m_bv_reflect) {
             return n->get_arg(idx);
         }
         else {
@@ -933,15 +932,15 @@ namespace smt {
         case OP_BSMOD0:         return false;
         case OP_MKBV:           internalize_mkbv(term); return true;
         case OP_INT2BV:         
-            if (m_params.m_bv_enable_int2bv2int) {
+            if (params().m_bv_enable_int2bv2int) {
                 internalize_int2bv(term); 
             }
-            return m_params.m_bv_enable_int2bv2int;
+            return params().m_bv_enable_int2bv2int;
         case OP_BV2INT:         
-            if (m_params.m_bv_enable_int2bv2int) {
+            if (params().m_bv_enable_int2bv2int) {
                 internalize_bv2int(term); 
             }
-            return m_params.m_bv_enable_int2bv2int;
+            return params().m_bv_enable_int2bv2int;
         default:
             TRACE("bv_op", tout << "unsupported operator: " << mk_ll_pp(term, get_manager()) << "\n";);
             UNREACHABLE();
@@ -985,7 +984,7 @@ namespace smt {
         /* relevancy() is true and m_bv_lazy_le is false (the default configuration).          */               \
         /* So, we need to check also the m_bv_lazy_le flag here.                               */               \
         /* Maybe, we should rename the le_atom to bridge_atom, and m_bv_lazy_le option to m_bv_lazy_bridge. */  \
-        if (!ctx.relevancy() || !m_params.m_bv_lazy_le) {                                                       \
+        if (!ctx.relevancy() || !params().m_bv_lazy_le) {                                                       \
             ctx.mk_th_axiom(get_id(),  l, ~def);                                                                \
             ctx.mk_th_axiom(get_id(), ~l,  def);                                                                \
         }                                                                                                       \
@@ -1018,7 +1017,7 @@ namespace smt {
         le_atom * a     = new (get_region()) le_atom(l, def);
         insert_bv2a(l.var(), a);
         m_trail_stack.push(mk_atom_trail(l.var()));
-        if (!ctx.relevancy() || !m_params.m_bv_lazy_le) {
+        if (!ctx.relevancy() || !params().m_bv_lazy_le) {
             ctx.mk_th_axiom(get_id(),  l, ~def);
             ctx.mk_th_axiom(get_id(), ~l,  def);
         }
@@ -1120,14 +1119,14 @@ namespace smt {
     // based on the number of bits used by the arguments.
     // 
     bool theory_bv::approximate_term(app* n) {
-        if (m_params.m_bv_blast_max_size == INT_MAX) {
+        if (params().m_bv_blast_max_size == INT_MAX) {
             return false;
         }
         unsigned num_args = n->get_num_args();
         for (unsigned i = 0; i <= num_args; i++) {
             expr* arg = (i == num_args)?n:n->get_arg(i);
             sort* s = get_manager().get_sort(arg);
-            if (m_util.is_bv_sort(s) && m_util.get_bv_size(arg) > m_params.m_bv_blast_max_size) {                
+            if (m_util.is_bv_sort(s) && m_util.get_bv_size(arg) > params().m_bv_blast_max_size) {                
                 if (!m_approximates_large_bvs) {
                     TRACE("bv", tout << "found large size bit-vector:\n" << mk_pp(n, get_manager()) << "\n";);
                     get_context().push_trail(value_trail<context, bool>(m_approximates_large_bvs));
@@ -1253,9 +1252,6 @@ namespace smt {
             //    TRACE("bv", tout << "has th_justification\n";);
             //    return;
             // }
-            //for (auto kv : m_prop_queue) {
-            //    std::cout << "v" << kv.first << "[" << kv.second << "]\n";
-            //}
             m_prop_queue.reset();
             bit_atom * b = static_cast<bit_atom*>(a);
             var_pos_occ * curr = b->m_occs;
@@ -1405,17 +1401,17 @@ namespace smt {
             if (a && !a->is_bit()) {
                 le_atom * le = static_cast<le_atom*>(a);
                 ctx.mark_as_relevant(le->m_def);
-                if (m_params.m_bv_lazy_le) {
+                if (params().m_bv_lazy_le) {
                     ctx.mk_th_axiom(get_id(), le->m_var, ~le->m_def);
                     ctx.mk_th_axiom(get_id(), ~le->m_var, le->m_def);
                 }
             }
         }
-        else if (m_params.m_bv_enable_int2bv2int && m_util.is_bv2int(n)) {
+        else if (params().m_bv_enable_int2bv2int && m_util.is_bv2int(n)) {
             ctx.mark_as_relevant(n->get_arg(0));
             assert_bv2int_axiom(n);
         }
-        else if (m_params.m_bv_enable_int2bv2int && m_util.is_int2bv(n)) {
+        else if (params().m_bv_enable_int2bv2int && m_util.is_int2bv(n)) {
             ctx.mark_as_relevant(n->get_arg(0));
             assert_int2bv_axiom(n);
         }
@@ -1492,9 +1488,12 @@ namespace smt {
         return false;
     }
 
-    theory_bv::theory_bv(ast_manager & m, theory_bv_params const & params, bit_blaster_params const & bb_params):
+    smt_params const& theory_bv::params() const { 
+        return get_context().get_fparams(); 
+    }
+
+    theory_bv::theory_bv(ast_manager & m, bit_blaster_params const & bb_params):
         theory(m.mk_family_id("bv")),
-        m_params(params),
         m_util(m),
         m_autil(m),
         m_bb(m, bb_params),
@@ -1509,7 +1508,7 @@ namespace smt {
     }
 
     theory* theory_bv::mk_fresh(context* new_ctx) {
-        return alloc(theory_bv, new_ctx->get_manager(), m_params, m_bb.get_params()); 
+        return alloc(theory_bv, new_ctx->get_manager(), new_ctx->get_fparams()); 
     }
 
     

@@ -101,6 +101,7 @@ class lar_solver : public column_namer {
     std::unordered_map<lar_term, std::pair<mpq, unsigned>, term_hasher, term_comparer>
     m_normalized_terms_to_columns;
     vector<impq>                                        m_backup_x;
+    stacked_vector<unsigned>                            m_usage_in_terms;
     // end of fields
 
     ////////////////// methods ////////////////////////////////
@@ -269,7 +270,6 @@ class lar_solver : public column_namer {
         m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
     }
 public:
-    vector<unsigned> get_list_of_all_var_indices() const;
     inline void set_column_value_test(unsigned j, const impq& v) {
         set_column_value(j, v);
     }
@@ -422,7 +422,7 @@ public:
     inline int_solver * get_int_solver() { return m_int_solver; }
     inline const lar_term & get_term(tv const& t) const { lp_assert(t.is_term()); return *m_terms[t.id()]; }
     lp_status find_feasible_solution();   
-    bool move_non_basic_columns_to_bounds();
+    void move_non_basic_columns_to_bounds();
     bool move_non_basic_column_to_bounds(unsigned j);
     inline bool r_basis_has_inf_int() const {
         for (unsigned j : r_basis()) {
@@ -468,9 +468,13 @@ public:
             return -1;
         }
     }
-
+    unsigned usage_in_terms(column_index j) const {
+        if (j >= m_usage_in_terms.size())
+            return 0;
+        return m_usage_in_terms[j];
+    }
     friend int_solver;
     friend int_branch;
-
+    
 };
 }

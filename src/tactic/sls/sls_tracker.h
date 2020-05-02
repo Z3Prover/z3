@@ -309,8 +309,7 @@ public:
         unsigned na = n->get_num_args();
         for (unsigned i = 0; i < na; i++) {
             expr * c = n->get_arg(i); 
-            uplinks_type::obj_map_entry * entry = m_uplinks.insert_if_not_there2(c, ptr_vector<expr>());
-            entry->get_data().m_value.push_back(n);
+            m_uplinks.insert_if_not_there(c, ptr_vector<expr>()).push_back(n);
         }
 
         func_decl * d = n->get_decl();
@@ -639,8 +638,10 @@ public:
             return get_random_bv(s);
         else if (m_manager.is_bool(s))
             return m_mpz_manager.dup(get_random_bool());
-        else
+        else {
             NOT_IMPLEMENTED_YET(); // This only works for bit-vectors for now.
+            return get_random_bv(nullptr);
+        }
     }    
 
     void randomize(ptr_vector<expr> const & as) {
@@ -963,8 +964,10 @@ public:
             return score_bool(n);
         else if (m_bv_util.is_bv(n))
             return score_bv(n);
-        else
+        else {
             NOT_IMPLEMENTED_YET();
+            return 0;
+        }
     }    
 
     ptr_vector<func_decl> & get_constants(expr * e) {

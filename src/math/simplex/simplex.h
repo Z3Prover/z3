@@ -133,6 +133,8 @@ namespace simplex {
         void  set_upper(var_t var, eps_numeral const& b);
         void  get_lower(var_t var, scoped_eps_numeral& b) const { b = m_vars[var].m_lower; }
         void  get_upper(var_t var, scoped_eps_numeral& b) const { b = m_vars[var].m_upper; }
+        eps_numeral const& get_lower(var_t var) const { return m_vars[var].m_lower; }
+        eps_numeral const& get_upper(var_t var) const { return m_vars[var].m_upper; }
         bool  above_lower(var_t var, eps_numeral const& b) const;
         bool  below_upper(var_t var, eps_numeral const& b) const;
         bool  below_lower(var_t v) const;
@@ -198,6 +200,7 @@ namespace simplex {
         bool is_feasible() const;
     };
 
+    void ensure_rational_solution(simplex<mpq_ext>& s);
 };
 
 #endif

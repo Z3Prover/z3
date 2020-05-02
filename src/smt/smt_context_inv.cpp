@@ -291,8 +291,6 @@ namespace smt {
                                 if (eq.m_th_id == th_id) {
                                     enode * lhs_prime = th->get_enode(eq.m_lhs)->get_root();
                                     enode * rhs_prime = th->get_enode(eq.m_rhs)->get_root();
-                                    TRACE("check_th_diseq_propagation", 
-                                          tout << m.get_family_name(eq.m_th_id) << "\n";);
 
                                     if ((lhs == lhs_prime && rhs == rhs_prime) ||
                                         (rhs == lhs_prime && lhs == rhs_prime)) {
@@ -302,15 +300,13 @@ namespace smt {
                                     }
                                 }
                             }
-                            if (!found) {
-                            // missed theory diseq propagation
-                                display(std::cout);
-                                std::cout << "checking theory: " << m.get_family_name(th_id) << "\n";
-                                std::cout << "root: #" << n->get_root()->get_owner_id() << " node: #" << n->get_owner_id() << "\n";
-                                std::cout << mk_pp(n->get_owner(), m) << "\n";
-                                std::cout << "lhs: #" << lhs->get_owner_id() << ", rhs: #" << rhs->get_owner_id() << "\n";
-                                std::cout << mk_bounded_pp(lhs->get_owner(), m) << " " << mk_bounded_pp(rhs->get_owner(), m) << "\n";
-                            }
+                            CTRACE("check_th_diseq_propagation", !found,
+                                   tout 
+                                   << "checking theory: " << m.get_family_name(th_id) << "\n"
+                                   << "root: #" << n->get_root()->get_owner_id() << " node: #" << n->get_owner_id() << "\n"
+                                   << mk_pp(n->get_owner(), m) << "\n"
+                                   << "lhs: #" << lhs->get_owner_id() << ", rhs: #" << rhs->get_owner_id() << "\n"
+                                   << mk_bounded_pp(lhs->get_owner(), m) << " " << mk_bounded_pp(rhs->get_owner(), m) << "\n";);
                             VERIFY(found);
                         }
                         l = l->get_next();
@@ -365,9 +361,6 @@ namespace smt {
             expr_ref n(m), res(m);
             literal2expr(lit, n);
             if (!is_ground(n)) {
-                continue;
-            }
-            if (is_quantifier(n) && m.is_rec_fun_def(to_quantifier(n))) {
                 continue;
             }
             switch (get_assignment(lit)) {

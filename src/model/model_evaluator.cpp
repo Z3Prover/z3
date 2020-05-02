@@ -178,14 +178,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 result = val;
                 return BR_DONE;
             }
-#if 0
-            func_decl* g = nullptr;
-            VERIFY(m_ar.is_as_array(f, g));
-            auto* fi = m_model.get_func_interp(g);
-            result = fi->get_array_interp(g);
-            if (result) return BR_REWRITE_FULL;
-#endif
-            return BR_FAILED;            
+            // fall through
         }
 
 

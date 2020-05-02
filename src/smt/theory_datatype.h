@@ -45,9 +45,7 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(stats)); }
             stats() { reset(); }
         };
-
         
-        theory_datatype_params &  m_params;
         datatype_util             m_util;
         array_util                m_autil;
         ptr_vector<var_data>      m_var_data;
@@ -130,8 +128,9 @@ namespace smt {
         void reset_eh() override;
         void restart_eh() override { m_util.reset(); }
         bool is_shared(theory_var v) const override;
+        theory_datatype_params const& params() const;
     public:
-        theory_datatype(ast_manager & m, theory_datatype_params & p);
+        theory_datatype(ast_manager & m);
         ~theory_datatype() override;
         theory * mk_fresh(context * new_ctx) override;
         void display(std::ostream & out) const override;

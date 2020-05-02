@@ -91,7 +91,7 @@ void basics::basic_sign_lemma_model_based_one_mon(const monic& m, int product_si
         TRACE("nla_solver_bl", tout << "zero product sign: " << pp_mon(_(), m)<< "\n"; );
         generate_zero_lemmas(m);
     } else {
-        add_empty_lemma();
+        add_lemma();
         for(lpvar j: m.vars()) {
             negate_strict_sign(j);
         }
@@ -158,7 +158,7 @@ bool basics::basic_sign_lemma(bool derived) {
 // the value of the i-th monic has to be equal to the value of the k-th monic modulo sign
 // but it is not the case in the model
 void basics::generate_sign_lemma(const monic& m, const monic& n, const rational& sign) {
-    add_empty_lemma();
+    add_lemma();
     TRACE("nla_solver",
           tout << "m = " << pp_mon_with_vars(_(), m);
           tout << "n = " << pp_mon_with_vars(_(), n);
@@ -186,7 +186,7 @@ lpvar basics::find_best_zero(const monic& m, unsigned_vector & fixed_zeros) cons
     return zero_j;    
 }
 void basics::add_trival_zero_lemma(lpvar zero_j, const monic& m) {
-    add_empty_lemma();
+    add_lemma();
     c().mk_ineq(zero_j, llc::NE);
     c().mk_ineq(m.var(), llc::EQ);
     TRACE("nla_solver", c().print_lemma(tout););            
@@ -194,7 +194,7 @@ void basics::add_trival_zero_lemma(lpvar zero_j, const monic& m) {
 void basics::generate_strict_case_zero_lemma(const monic& m, unsigned zero_j, int sign_of_zj) {
     TRACE("nla_solver_bl", tout << "sign_of_zj = " << sign_of_zj << "\n";);
     // we know all the signs
-    add_empty_lemma();
+    add_lemma();
     c().mk_ineq(zero_j, (sign_of_zj == 1? llc::GT : llc::LT));
     for (unsigned j : m.vars()){
         if (j != zero_j) {
@@ -205,7 +205,7 @@ void basics::generate_strict_case_zero_lemma(const monic& m, unsigned zero_j, in
     TRACE("nla_solver", c().print_lemma(tout););
 }
 void basics::add_fixed_zero_lemma(const monic& m, lpvar j) {
-    add_empty_lemma();
+    add_lemma();
     c().explain_fixed_var(j);
     c().mk_ineq(m.var(), llc::EQ);
     TRACE("nla_solver", c().print_lemma(tout););
@@ -234,7 +234,7 @@ bool basics::basic_lemma_for_mon_zero(const monic& rm, const factorization& f) {
     return true;
 #if 0
     TRACE("nla_solver", c().trace_print_monic_and_factorization(rm, f, tout););
-    add_empty_lemma();
+    add_lemma();
     c().explain_fixed_var(var(rm));
     std::unordered_set<lpvar> processed;
     for (auto j : f) {
@@ -315,7 +315,7 @@ bool basics::basic_lemma_for_mon_non_zero_derived(const monic& rm, const factori
     if (zero_j == -1) {
         return false;
     } 
-    add_empty_lemma();
+    add_lemma();
     c().explain_fixed_var(zero_j);
     c().explain_var_separated_from_zero(var(rm));
     explain(rm);
@@ -364,7 +364,7 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_derived(const monic& rm
         return false;
     } 
 
-    add_empty_lemma();
+    add_lemma();
     // mon_var = 0
     if (mon_var_is_sep_from_zero)
          c().explain_var_separated_from_zero(mon_var);
@@ -426,7 +426,7 @@ bool basics::proportion_lemma_derived(const monic& rm, const factorization& fact
 }
 // if there are no zero factors then |m| >= |m[factor_index]|
 void basics::generate_pl_on_mon(const monic& m, unsigned factor_index) {
-    add_empty_lemma();
+    add_lemma();
     unsigned mon_var = m.var();
     rational mv = val(mon_var);
     rational sm = rational(nla::rat_sign(mv));
@@ -457,7 +457,7 @@ void basics::generate_pl(const monic& m, const factorization& fc, int factor_ind
         generate_pl_on_mon(m, factor_index);
         return;
     }
-    add_empty_lemma();
+    add_lemma();
     int fi = 0;
     rational mv = var_val(m);
     rational sm = rational(nla::rat_sign(mv));
@@ -506,7 +506,7 @@ bool basics::factorization_has_real(const factorization& f) const {
 void basics::basic_lemma_for_mon_zero_model_based(const monic& rm, const factorization& f) {        
     TRACE("nla_solver",  c().trace_print_monic_and_factorization(rm, f, tout););
     SASSERT(var_val(rm).is_zero()&& ! c().rm_check(rm));
-    add_empty_lemma();
+    add_lemma();
     if (!is_separated_from_zero(f)) {
         c().mk_ineq(var(rm), llc::NE);        
         for (auto j : f) {
@@ -577,7 +577,7 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based_fm(const mo
         return false;
     } 
 
-    add_empty_lemma();
+    add_lemma();
     // mon_var = 0
     c().mk_ineq(mon_var, llc::EQ);
         
@@ -625,7 +625,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based_fm(co
         }
     }
         
-    add_empty_lemma();
+    add_lemma();
     for (auto j : m.vars()){
         if (not_one == j) continue;
         c().mk_ineq(j, llc::NE, val(j));   
@@ -678,7 +678,7 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic
         return false;
     } 
 
-    add_empty_lemma();
+    add_lemma();
     // mon_var = 0
     c().mk_ineq(mon_var, llc::EQ);
         
@@ -753,7 +753,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const
 
     TRACE("nla_solver_bl", tout << "not_one = " << not_one << "\n";);
         
-    add_empty_lemma();
+    add_lemma();
 
     for (auto j : f){
         lpvar var_j = var(j);
@@ -788,7 +788,7 @@ void basics::basic_lemma_for_mon_non_zero_model_based_mf(const factorization& f)
     }
 
     if (zero_j == -1) { return; } 
-    add_empty_lemma();
+    add_lemma();
     c().mk_ineq(zero_j, llc::NE);
     c().mk_ineq(f.mon().var(), llc::EQ);
     TRACE("nla_solver", c().print_lemma(tout););

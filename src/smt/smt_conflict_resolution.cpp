@@ -767,7 +767,6 @@ namespace smt {
        if it already exists. Otherwise, return 0 and add p to the todo-list.
     */
     proof * conflict_resolution::get_proof(enode * n1, enode * n2) {
-        SASSERT(n1 != n2);
         proof * pr;
         if (m_eq2proof.find(n1, n2, pr)) {
             TRACE("proof_gen_bug", tout << "eq2_pr_cached: #" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
@@ -1204,6 +1203,12 @@ namespace smt {
 
     void conflict_resolution::mk_proof(enode * lhs, enode * rhs) {
         SASSERT(!m_eq2proof.contains(lhs, rhs));
+        if (lhs == rhs) {
+            proof* pr = m.mk_reflexivity(lhs->get_owner());
+            m_new_proofs.push_back(pr);
+            m_eq2proof.insert(lhs, rhs, pr);
+            return;
+        }
         enode * c = find_common_ancestor(lhs, rhs);
         ptr_buffer<proof> prs1;
         mk_proof(lhs, c, prs1);

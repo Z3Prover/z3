@@ -65,6 +65,7 @@ namespace smt {
         case CFG_LOGIC: setup_default(); break;
         case CFG_AUTO:  setup_auto_config(); break;
         }
+        setup_card();
     }
 
     void setup::setup_default() {
@@ -566,7 +567,7 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
-        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
+        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
     }
 
     void setup::setup_QF_AUFBV() {
@@ -575,7 +576,7 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
-        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
+        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
         setup_arrays();
     }
 
@@ -852,7 +853,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("bv"), "no bit-vector"));
             break;
         case BS_BLASTER:
-            m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
+            m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
             break;
         }
     }
@@ -876,7 +877,7 @@ namespace smt {
 
     void setup::setup_datatypes() {
         TRACE("datatype", tout << "registering theory datatype...\n";);
-        m_context.register_plugin(alloc(theory_datatype, m_manager, m_params));
+        m_context.register_plugin(alloc(theory_datatype, m_manager));
     }
 
     void setup::setup_recfuns() {
@@ -956,7 +957,6 @@ namespace smt {
         setup_recfuns();
         setup_dl();
         setup_seq_str(st);
-        setup_card();
         setup_fpa();
         if (st.m_has_sr) setup_special_relations();
     }
@@ -972,7 +972,6 @@ namespace smt {
             setup_bv();
             setup_dl();
             setup_seq_str(st);
-            setup_card();
             setup_fpa();
             setup_recfuns();
             if (st.m_has_sr) setup_special_relations();

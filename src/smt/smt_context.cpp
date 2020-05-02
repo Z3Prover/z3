@@ -62,6 +62,7 @@ namespace smt {
         m_fingerprints(m, m_region),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
+        m_l_internalized_stack(m),
         m_final_check_idx(0),
         m_is_auxiliary(false),
         m_par(nullptr),
@@ -168,6 +169,10 @@ namespace smt {
 
         for (unsigned i = 0; !src_m.proofs_enabled() && i < src_ctx.m_assigned_literals.size(); ++i) {
             literal lit = src_ctx.m_assigned_literals[i];
+            bool_var_data const & d = src_ctx.get_bdata(lit.var());
+            if (d.is_theory_atom() && !src_ctx.m_theories.get_plugin(d.get_theory())->is_safe_to_copy(lit.var())) {
+                continue;
+            }
             expr_ref fml0(src_m), fml1(dst_m);
             src_ctx.literal2expr(lit, fml0);
             fml1 = tr(fml0.get());
@@ -266,18 +271,14 @@ namespace smt {
         }
         d.m_phase_available        = true;
         d.m_phase                  = !l.sign();
-        CTRACE("assign_core", l.var() == 13, tout << (decision?"decision: ":"propagating: ") << l << " ";
-               /*display_literal(tout, l);*/
-               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
-               /*display(tout, j);*/
-               );
+        TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";
+              display_literal_smt2(tout, l) << "\n";
+              tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
+              /*display(tout, j);*/
+              );
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
 
-        CTRACE("relevancy", l.var() == 13,
-              tout << "is_atom: " << d.is_atom() << " is relevant: " 
-              << is_relevant_core(l) << " relevancy-lvl: " << relevancy_lvl() << "\n";);
         if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l))) {
-            CTRACE("assign_core", l.var() == 13, tout << "propagation queue\n";);
             m_atom_propagation_queue.push_back(l);
         }
 
@@ -763,7 +764,6 @@ namespace smt {
             // Common case: r2 and r1 have at most one theory var.
             theory_id  t2 = r2->m_th_var_list.get_th_id();
             theory_id  t1 = r1->m_th_var_list.get_th_id();
-            // verbose_stream() << "[merge_theory_vars] t2: " << t2 << ", t1: " << t1 << "\n";
             theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t2) : r2->m_th_var_list.get_th_var();
             theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : r1->m_th_var_list.get_th_var();
             TRACE("merge_theory_vars",
@@ -1422,8 +1422,8 @@ namespace smt {
             TRACE("push_new_th_diseqs", tout << m.get_family_name(th->get_id()) << " not using diseqs\n";);
             return;
         }
-        TRACE("push_new_th_diseqs", tout << "#" << r->get_owner_id() << " v" << v << "\n";);
         theory_id th_id = th->get_id();
+        TRACE("push_new_th_diseqs", tout << "#" << r->get_owner_id() << " " << mk_bounded_pp(r->get_owner(), m) << " v" << v << " th: " << th_id << "\n";);
         for (enode * parent : r->get_parents()) {
             CTRACE("parent_bug", parent == 0, tout << "#" << r->get_owner_id() << ", num_parents: " << r->get_num_parents() << "\n"; display(tout););
             if (parent->is_eq()) {
@@ -1601,6 +1601,11 @@ namespace smt {
             if (inconsistent())
                 return false;
         }
+#if 0
+        if (at_search_level() && induction::should_try(*this)) {
+            get_induction()();
+        }
+#endif
         return true;
     }
 
@@ -1649,6 +1654,16 @@ namespace smt {
             !m_eq_propagation_queue.empty() ||
             !m_th_eq_propagation_queue.empty() ||
             !m_th_diseq_propagation_queue.empty();
+    }
+
+    /**
+       \brief retrieve facilities for creating induction lemmas.
+     */
+    induction& context::get_induction() {
+        if (!m_induction) {
+            m_induction = alloc(induction, *this, get_manager());
+        }
+        return *m_induction;
     }
 
     /**
@@ -1891,7 +1906,7 @@ namespace smt {
         m_region.push_scope();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
-        TRACE("context", tout << "push " << m_scope_lvl << "\n";);
+        // TRACE("context", tout << "push " << m_scope_lvl << "\n";);
 
         m_relevancy_propagator->push();
         s.m_assigned_literals_lim    = m_assigned_literals.size();
@@ -2335,7 +2350,7 @@ namespace smt {
             if (m.has_trace_stream() && !m_is_auxiliary)
                 m.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
 
-            TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
+            // TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
             TRACE("pop_scope_detail", display(tout););
             SASSERT(num_scopes > 0);
             SASSERT(num_scopes <= m_scope_lvl);
@@ -2432,9 +2447,8 @@ namespace smt {
     }
 
     void context::pop_to_search_lvl() {
-        unsigned num_levels = m_scope_lvl - get_search_level();
-        if (num_levels > 0) {
-            pop_scope(num_levels);
+        if (m_scope_lvl > get_search_level()) {
+            pop_scope(m_scope_lvl - get_search_level());
         }
     }
 
@@ -4504,32 +4518,6 @@ namespace smt {
 
     void context::add_rec_funs_to_model() {
         if (!m_model) return;
-        for (unsigned i = 0; !get_cancel_flag() && i < m_asserted_formulas.get_num_formulas(); ++i) {
-            expr* e = m_asserted_formulas.get_formula(i);
-            if (is_quantifier(e)) {
-                quantifier* q = to_quantifier(e);
-                if (!m.is_rec_fun_def(q)) continue;
-                TRACE("context", tout << mk_pp(e, m) << "\n";);
-                SASSERT(q->get_num_patterns() == 2);
-                expr* fn = to_app(q->get_pattern(0))->get_arg(0);
-                expr* body = to_app(q->get_pattern(1))->get_arg(0);
-                SASSERT(is_app(fn));
-                // reverse argument order so that variable 0 starts at the beginning.
-                expr_ref_vector subst(m);
-                unsigned idx = 0;
-                for (expr* arg : *to_app(fn)) {
-                    subst.push_back(m.mk_var(idx++, m.get_sort(arg)));
-                }
-                expr_ref bodyr(m);
-                var_subst sub(m, true);
-                TRACE("context", tout << expr_ref(q, m) << " " << subst << "\n";);
-                bodyr = sub(body, subst.size(), subst.c_ptr());
-                func_decl* f = to_app(fn)->get_decl();
-                func_interp* fi = alloc(func_interp, m, f->get_arity());
-                fi->set_else(bodyr);
-                m_model->register_decl(f, fi);
-            }
-        }
         recfun::util u(m);
         func_decl_ref_vector recfuns = u.get_rec_funs();
         for (func_decl* f : recfuns) {

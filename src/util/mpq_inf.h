@@ -286,4 +286,8 @@ typedef mpq_inf_manager<false> synch_mpq_inf_manager;
 #endif
 typedef mpq_inf_manager<false> unsynch_mpq_inf_manager;
 
+typedef _scoped_numeral<unsynch_mpq_inf_manager> scoped_mpq_inf;
+typedef _scoped_numeral<synch_mpq_inf_manager> scoped_synch_mpq_inf;
+typedef _scoped_numeral_vector<unsynch_mpq_inf_manager> scoped_mpq_inf_vector;
+
 #endif

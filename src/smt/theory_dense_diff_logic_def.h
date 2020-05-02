@@ -41,7 +41,7 @@ namespace smt {
 
     template<typename Ext>
     theory* theory_dense_diff_logic<Ext>::mk_fresh(context * new_ctx) { 
-        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
+        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), new_ctx->get_fparams());
     }
 
     template<typename Ext>
@@ -797,7 +797,7 @@ namespace smt {
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::fix_zero() {
         int num_vars = get_num_vars();
-        for (int v = 0; v < num_vars; ++v) {
+        for (int v = 0; v < num_vars && v < (int)m_assignment.size(); ++v) {
             enode * n = get_enode(v);
             if (m_autil.is_zero(n->get_owner()) && !m_assignment[v].is_zero()) {
                 numeral val = m_assignment[v];
@@ -823,14 +823,18 @@ namespace smt {
     void theory_dense_diff_logic<Ext>::init_model(model_generator & m) {
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
-        fix_zero();
-        compute_epsilon();
+        if (!m_assignment.empty()) {
+            fix_zero();
+            compute_epsilon();
+        }
     }
 
     template<typename Ext>
     model_value_proc * theory_dense_diff_logic<Ext>::mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         SASSERT(v != null_theory_var);
+        if (v >= (int)m_assignment.size())
+            return alloc(expr_wrapper_proc, m_factory->mk_num_value(rational::zero(), is_int(v)));
         numeral const & val = m_assignment[v];
         rational num = val.get_rational().to_rational() +  m_epsilon *  val.get_infinitesimal().to_rational();
         return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int(v)));
@@ -880,8 +884,16 @@ namespace smt {
             if (v == null_theory_var) {
                 v = mk_var(e);                
             }
-
-            objective.push_back(std::make_pair(v, m));
+            bool found = false;
+            for (auto& p : objective) {
+                if (p.first == v) {
+                    p.second += m;
+                    found = true;
+                }
+            }
+            if (!found) {
+                objective.push_back(std::make_pair(v, m));
+            }
         }
         return true;
     }
@@ -908,9 +920,8 @@ namespace smt {
         has_shared = false;
         
         IF_VERBOSE(4,
-                   for (unsigned i = 0; i < objective.size(); ++i) {
-                       verbose_stream() << objective[i].second 
-                                        << " * v" << objective[i].first << " ";
+                   for (auto const& o : objective) {
+                       verbose_stream() << o.second << " * v" << o.first << " ";
                    }
                    verbose_stream() << " + " << m_objective_consts[v] << "\n";);
 
@@ -966,9 +977,9 @@ namespace smt {
         // add objective function as row.
         coeffs.reset();
         vars.reset();
-        for (unsigned i = 0; i < objective.size(); ++i) {
-            coeffs.push_back(objective[i].second.to_mpq());
-            vars.push_back(objective[i].first);
+        for (auto const& o : objective) {
+            coeffs.push_back(o.second.to_mpq());
+            vars.push_back(o.first);
         }
         coeffs.push_back(mpq(1));
         vars.push_back(w);
@@ -985,6 +996,8 @@ namespace smt {
         TRACE("opt", S.display(tout); );    
         SASSERT(is_sat != l_false);
         lbool is_fin = S.minimize(w);
+
+        ensure_rational_solution(S);
         
         switch (is_fin) {
         case l_true: {
@@ -1010,10 +1023,10 @@ namespace smt {
             }
             for (unsigned i = 0; i < num_nodes; ++i) {
                 mpq_inf const& val = S.get_value(i);
-                rational q(val.first), eps(val.second);
+                rational q(val.first);
+                SASSERT(rational(val.second).is_zero());
                 numeral  a(q);
                 m_assignment[i] = a;
-                // TBD: if epsilon is != 0, then adjust a by some small fraction.
             }
             inf_eps result(rational(0), r);
             blocker = mk_gt(v, result);

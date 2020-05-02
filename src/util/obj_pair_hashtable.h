@@ -88,6 +88,7 @@ public:
         Key1 * get_key1() const { return m_key1; }
         Key2 * get_key2() const { return m_key2; }
         Value const & get_value() const { return m_value; }
+        Value & get_value() { return m_value; }
     };
 protected:
     class entry {
@@ -149,8 +150,8 @@ public:
         m_table.insert(key_data(k1, k2, v));
     }
     
-    key_data const & insert_if_not_there(Key1 * k1, Key2 * k2, Value const & v) {
-        return m_table.insert_if_not_there(key_data(k1, k2, v));
+    Value& insert_if_not_there(Key1 * k1, Key2 * k2, Value const & v) {
+        return m_table.insert_if_not_there2(key_data(k1, k2, v))->get_data().get_value();
     }
     
     bool find(Key1 * k1, Key2 * k2, Value & v) const {

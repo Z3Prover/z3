@@ -75,20 +75,27 @@ bool is_debug_enabled(const char * tag);
 #define CASSERT(TAG, COND) DEBUG_CODE(if (assertions_enabled() && is_debug_enabled(TAG) && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); INVOKE_DEBUGGER(); })
 #define XASSERT(COND, EXTRA_CODE) DEBUG_CODE(if (assertions_enabled() && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); { EXTRA_CODE } INVOKE_DEBUGGER(); })
 
+/**
+  We use __builtin_unreachable where possible to suppress control flow compilation warnings, but it should
+  not be called because its behavior is undefined, so we do need to exit before "calling" it.
+*/
+#if (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 405)) || __has_builtin(__builtin_unreachable)
+# define EXIT_WITH(ERR_CODE) { exit(ERR_CODE); __builtin_unreachable(); } ((void) 0)
+#else
+# define EXIT_WITH(ERR_CODE) { exit(ERR_CODE); } ((void) 0)
+#endif
+
 #ifdef Z3DEBUG
 # define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNREACHABLE CODE WAS REACHED."); INVOKE_DEBUGGER();)
 #else
-#if (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 405)) || __has_builtin(__builtin_unreachable)
-// only available in gcc >= 4.5 and in newer versions of clang
-# define UNREACHABLE() __builtin_unreachable()
-#elif defined(_MSC_VER)
-# define UNREACHABLE() __assume(0)
-#else
-#define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNREACHABLE CODE WAS REACHED."); INVOKE_DEBUGGER();)
-#endif
+# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNREACHABLE CODE WAS REACHED."); EXIT_WITH(ERR_UNREACHABLE); } ((void) 0)
 #endif
 
-#define NOT_IMPLEMENTED_YET() { std::cerr << "NOT IMPLEMENTED YET!\n"; UNREACHABLE(); exit(ERR_NOT_IMPLEMENTED_YET); } ((void) 0)
+#ifdef Z3DEBUG
+# define NOT_IMPLEMENTED_YET() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "NOT IMPLEMENTED YET!"); INVOKE_DEBUGGER();)
+#else
+# define NOT_IMPLEMENTED_YET() { notify_assertion_violation(__FILE__, __LINE__, "NOT IMPLEMENTED YET!"); EXIT_WITH(ERR_NOT_IMPLEMENTED_YET); } ((void) 0)
+#endif
 
 #define VERIFY(_x_) if (!(_x_)) {                               \
         std::cerr << "Failed to verify: " << #_x_ << "\n";      \

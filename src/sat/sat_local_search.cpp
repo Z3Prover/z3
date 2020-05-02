@@ -355,6 +355,7 @@ namespace sat {
 
     local_search::local_search() :         
         m_is_unsat(false),
+        m_initializing(false),
         m_par(nullptr) {
     }
 

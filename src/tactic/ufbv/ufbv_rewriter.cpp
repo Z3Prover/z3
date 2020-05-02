@@ -31,6 +31,8 @@ ufbv_rewriter::ufbv_rewriter(ast_manager & m):
     m_match_subst(m),
     m_bsimp(m),
     m_todo(m),
+    m_in_processed(m),
+    m_new_args(m), 
     m_rewrite_todo(m),
     m_rewrite_cache(m),
     m_new_exprs(m) {
@@ -221,11 +223,12 @@ void ufbv_rewriter::remove_fwd_idx(func_decl * f, quantifier * demodulator) {
     fwd_idx_map::iterator it = m_fwd_idx.find_iterator(f);
     if (it != m_fwd_idx.end()) {
         demodulator2lhs_rhs::iterator fit = m_demodulator2lhs_rhs.find_iterator(demodulator);
-        m.dec_ref(fit->m_value.first);
-        m.dec_ref(fit->m_value.second);
-        m.dec_ref(demodulator);
+        expr_pair p = fit->m_value;
         m_demodulator2lhs_rhs.erase(demodulator);
         it->m_value->erase(demodulator);
+        m.dec_ref(p.first);
+        m.dec_ref(p.second);
+        m.dec_ref(demodulator);
     } else {
         SASSERT(m_demodulator2lhs_rhs.contains(demodulator));
     }
@@ -262,11 +265,11 @@ void ufbv_rewriter::show_fwd_idx(std::ostream & out) {
     }
 }
 
-bool ufbv_rewriter::rewrite1(func_decl * f, ptr_vector<expr> & m_new_args, expr_ref & np) {
+bool ufbv_rewriter::rewrite1(func_decl * f, expr_ref_vector & m_new_args, expr_ref & np) {
     fwd_idx_map::iterator it = m_fwd_idx.find_iterator(f);
     if (it != m_fwd_idx.end()) {
         TRACE("demodulator_bug", tout << "trying to rewrite: " << f->get_name() << " args:\n";
-              for (unsigned i = 0; i < m_new_args.size(); i++) { tout << mk_pp(m_new_args[i], m) << "\n"; });
+              tout << m_new_args << "\n";);
         for (quantifier* d : *it->m_value) {
 
             SASSERT(m_demodulator2lhs_rhs.contains(d));
@@ -302,15 +305,16 @@ bool ufbv_rewriter::rewrite_visit_children(app * a) {
             expr * v = e;
             if (m_rewrite_cache.contains(e)) {
                 expr_bool_pair const & ebp = m_rewrite_cache.get(e);
-                if (ebp.second)
+                if (ebp.second) {
                     v = ebp.first;
+                }
             }
-            for (unsigned i = sz; i > 0; i--) {
-                if (m_rewrite_todo[i - 1] == v) {
+            for (unsigned i = sz; i-- > 0;) {
+                if (m_rewrite_todo[i] == v) {
                     recursive = true;
                     TRACE("demodulator", tout << "Detected demodulator cycle: " <<
                         mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
-                    m_rewrite_cache.insert(e, expr_bool_pair(v, true));
+                    rewrite_cache(e, v, true);
                     break;
                 }
             }
@@ -340,13 +344,13 @@ expr * ufbv_rewriter::rewrite(expr * n) {
     m_rewrite_todo.push_back(n);
     while (!m_rewrite_todo.empty()) {
         TRACE("demodulator_stack", tout << "STACK: " << std::endl;
-              for ( unsigned i = 0; i<m_rewrite_todo.size(); i++)
+              for (unsigned i = 0; i < m_rewrite_todo.size(); i++)
                   tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] <<
                   " = " << mk_pp(m_rewrite_todo[i], m) << std::endl;
               );
 
         expr * e = m_rewrite_todo.back();
-        expr * actual = e;
+        expr_ref actual(e, m);
 
         if (m_rewrite_cache.contains(e)) {
             const expr_bool_pair &ebp = m_rewrite_cache.get(e);
@@ -369,10 +373,8 @@ expr * ufbv_rewriter::rewrite(expr * n) {
             if (rewrite_visit_children(a)) {
                 func_decl * f = a->get_decl();
                 m_new_args.reset();
-                unsigned num_args = a->get_num_args();
-                bool all_untouched=true;
-                for (unsigned i = 0 ; i < num_args ; i++ ) {
-                    expr * o_child = a->get_arg(i);
+                bool all_untouched = true;
+                for (expr* o_child : *a) {
                     expr * n_child;
                     SASSERT(m_rewrite_cache.contains(o_child) && m_rewrite_cache.get(o_child).second);
                     expr_bool_pair const & ebp = m_rewrite_cache.get(o_child);
@@ -385,20 +387,21 @@ expr * ufbv_rewriter::rewrite(expr * n) {
                 if (rewrite1(f, m_new_args, np)) {
                     rewrite_cache(e, np, false);
                     // No pop.
-                } else {
-                    if(all_untouched) {
+                } 
+                else {
+                    if (all_untouched) {
                         rewrite_cache(e, actual, true);
                     }
                     else {
                         expr_ref na(m);
                         if (f->get_family_id() != m.get_basic_family_id())
-                            na = m.mk_app(f, m_new_args.size(), m_new_args.c_ptr());
+                            na = m.mk_app(f, m_new_args);
                         else
                             m_bsimp.mk_app(f, m_new_args.size(), m_new_args.c_ptr(), na);
                         TRACE("demodulator_bug", tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
-                              for (unsigned i = 0; i < m_new_args.size(); i++) { tout << mk_pp(m_new_args[i], m) << "\n"; }
+                              tout << m_new_args << "\n";
                               tout << "=====>\n";
-                              tout << "na:\n " << mk_pp(na, m) << "\n";);
+                              tout << "na:\n " << na << "\n";);
                         rewrite_cache(e, na, true);
                     }
                     m_rewrite_todo.pop_back();
@@ -577,7 +580,7 @@ void ufbv_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
         expr_ref l(m);
 
         for (auto s : *it->m_value) 
-          all_occurrences.insert(s);
+            all_occurrences.insert(s);
 
         // Run over all f-demodulators
         for (expr* occ : all_occurrences) {
@@ -654,6 +657,7 @@ void ufbv_rewriter::operator()(unsigned n, expr * const * exprs, proof * const *
         if (!is_demodulator(np, large, small)) {
             // insert n' into m_processed
             m_processed.insert(np);
+            m_in_processed.push_back(np);
             // update m_back_idx (traverse n' and for each uninterpreted function declaration f in n' add the entry f->n' to m_back_idx)
             add_back_idx_proc proc(m_back_idx, np);
             for_each_expr(proc, np);
@@ -853,6 +857,7 @@ bool ufbv_rewriter::match_subst::match_args(app * lhs, expr * const * args) {
 
 
 bool ufbv_rewriter::match_subst::operator()(app * lhs, expr * rhs, expr * const * args, expr_ref & new_rhs) {
+    
     if (match_args(lhs, args)) {
         if (m_all_args_eq) {
             // quick success...

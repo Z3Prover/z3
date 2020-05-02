@@ -53,6 +53,7 @@ namespace opt {
             m_params.m_relevancy_lvl = 0;
         }
         m_params.m_arith_auto_config_simplex = false;
+        m_params.m_threads = 1; // need to interact with the solver that created model so can't have threads
         m_was_sat = false;
         // m_params.m_auto_config = false;
     }

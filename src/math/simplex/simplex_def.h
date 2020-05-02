@@ -5,8 +5,6 @@ Module Name:
 
     simplex_def.h
 
-Abstract:
-
 Author:
 
     Nikolaj Bjorner (nbjorner) 2014-01-15

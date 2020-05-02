@@ -819,7 +819,9 @@ struct pb2bv_rewriter::imp {
                     return false;
                 }
             }
-            if (m.is_ite(a, c, th, el) && au.is_numeral(th, r1) && au.is_numeral(el, r2)) {
+            if (m.is_ite(a, c, th, el) && 
+                au.is_numeral(th, r1) && 
+                au.is_numeral(el, r2)) {
                 r1 *= mul;
                 r2 *= mul;
                 if (r1 < r2) {
@@ -832,7 +834,7 @@ struct pb2bv_rewriter::imp {
                     m_coeffs.push_back(r1-r2);
                     m_k -= r2;
                 }
-                return m_k.is_int();
+                return m_k.is_int() && (r1-r2).is_int();
             }
             return false;
         }

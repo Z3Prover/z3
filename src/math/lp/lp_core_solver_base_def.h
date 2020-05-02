@@ -85,16 +85,6 @@ init() {
         init_factorization(m_factorization, m_A, m_basis, m_settings);
 }
 
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-pivot_for_tableau_on_basis() {
-    m_d = m_costs; // we will be pivoting to m_d as well
-    unsigned m = m_A.row_count();
-    for (unsigned i = 0; i < m; i++)
-        if (!pivot_column_tableau(m_basis[i], i))
-            return false;
-    return true;
-}
-
 // i is the pivot row, and j is the pivot column
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {

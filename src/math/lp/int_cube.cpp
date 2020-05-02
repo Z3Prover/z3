@@ -35,6 +35,7 @@ namespace lp {
         lra.push();
         if (!tighten_terms_for_cube()) {
             lra.pop();
+            lra.set_status(lp_status::OPTIMAL);
             return lia_move::undef;
         }
         
@@ -43,7 +44,6 @@ namespace lp {
             TRACE("cube", tout << "cannot find a feasiblie solution";);
             lra.pop();
             lra.move_non_basic_columns_to_bounds();
-            find_feasible_solution();
             // it can happen that we found an integer solution here
             return !lra.r_basis_has_inf_int()? lia_move::sat: lia_move::undef;
         }

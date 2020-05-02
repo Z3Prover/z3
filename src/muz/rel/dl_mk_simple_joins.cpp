@@ -259,8 +259,7 @@ namespace datalog {
             */
         void register_pair(app * t1, app * t2, rule * r, const var_idx_set & non_local_vars) {
             SASSERT (t1 != t2);
-            cost_map::entry * e = m_costs.insert_if_not_there2(get_key(t1, t2), nullptr);
-            pair_info * & ptr_inf = e->get_data().m_value;
+            pair_info * & ptr_inf = m_costs.insert_if_not_there(get_key(t1, t2), nullptr);
             if (ptr_inf == nullptr) {
                 ptr_inf = alloc(pair_info);
             }
@@ -296,8 +295,7 @@ namespace datalog {
             counter.count_rule_vars(r, 1);
             TRACE("dl", tout << "counter: "; for (auto const& kv: counter) tout << kv.m_key << ": " << kv.m_value << " "; tout << "\n";);
 
-            ptr_vector<app> & rule_content = 
-                m_rules_content.insert_if_not_there2(r, ptr_vector<app>())->get_data().m_value;
+            ptr_vector<app> & rule_content = m_rules_content.insert_if_not_there(r, ptr_vector<app>());
             SASSERT(rule_content.empty());
 
             TRACE("dl", r->display(m_context, tout << "register ");); 

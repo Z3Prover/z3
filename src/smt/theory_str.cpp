@@ -2069,6 +2069,18 @@ namespace smt {
             return zstring("(.*)");
         } else if (u.re.is_full_char(a_regex)) {
             return zstring("str.allchar");
+        } else if (u.re.is_intersection(a_regex)) {
+            expr * a0;
+            expr * a1;
+            u.re.is_intersection(a_regex, a0, a1);
+            zstring a0str = get_std_regex_str(a0);
+            zstring a1str = get_std_regex_str(a1);
+            return zstring("(") + a0str + zstring("&&") + a1str + zstring(")");
+        } else if (u.re.is_complement(a_regex)) {
+            expr * body;
+            u.re.is_complement(a_regex, body);
+            zstring bodyStr = get_std_regex_str(body);
+            return zstring("(^") + bodyStr + zstring(")");
         } else {
             TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
             UNREACHABLE(); return zstring("");
@@ -8933,11 +8945,19 @@ namespace smt {
         if (Sval_expr_exists) {
             zstring Sval;
             u.str.is_string(Sval_expr, Sval);
-            TRACE("str", tout << "string theory assigns \"" << mk_pp(a, m) << " = " << Sval << "\n";);
+            TRACE("str", tout << "string theory assigns " << mk_pp(a, m) << " = \"" << Sval << "\"\n";);
             // empty string --> integer value < 0
             if (Sval.empty()) {
                 // ignore this. we should already assert the axiom for what happens when the string is ""
             } else {
+                // check for leading zeroes. if the first character is '0', the entire string must be "0"
+                char firstChar = (int)Sval[0];
+                if (firstChar == '0' && !(Sval == zstring("0"))) {
+                    TRACE("str", tout << "str.to-int argument " << Sval << " contains leading zeroes" << std::endl;);
+                    expr_ref axiom(m.mk_not(ctx.mk_eq_atom(a, mk_string(Sval))), m);
+                    assert_axiom(axiom);
+                    return true;
+                }
                 // nonempty string --> convert to correct integer value, or disallow it
                 rational convertedRepresentation(0);
                 rational ten(10);

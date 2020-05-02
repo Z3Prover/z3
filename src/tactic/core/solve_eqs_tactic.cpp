@@ -968,15 +968,14 @@ class solve_eqs_tactic : public tactic {
         void collect_num_occs(expr * t, expr_fast_mark1 & visited) {
             ptr_buffer<expr, 128> stack;
             
-#define VISIT(ARG) {                                                                                            \
-            if (is_uninterp_const(ARG)) {                                                                       \
-                obj_map<expr, unsigned>::obj_map_entry * entry = m_num_occs.insert_if_not_there2(ARG, 0);       \
-                entry->get_data().m_value++;                                                                    \
-            }                                                                                                   \
-            if (!visited.is_marked(ARG)) {                                                                      \
-                visited.mark(ARG, true);                                                                        \
-                stack.push_back(ARG);                                                                           \
-            }                                                                                                   \
+#define VISIT(ARG) {                                                    \
+                if (is_uninterp_const(ARG)) {                           \
+                    m_num_occs.insert_if_not_there(ARG, 0)++;           \
+                }                                                       \
+                if (!visited.is_marked(ARG)) {                          \
+                    visited.mark(ARG, true);                            \
+                    stack.push_back(ARG);                               \
+                }                                                       \
         }
             
             VISIT(t);

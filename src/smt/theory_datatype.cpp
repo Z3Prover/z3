@@ -75,7 +75,7 @@ namespace smt {
 
 
     theory* theory_datatype::mk_fresh(context* new_ctx) { 
-        return alloc(theory_datatype, new_ctx->get_manager(), m_params); 
+        return alloc(theory_datatype, new_ctx->get_manager());
     }
 
     /**
@@ -84,6 +84,17 @@ namespace smt {
     */
     void theory_datatype::assert_eq_axiom(enode * lhs, expr * rhs, literal antecedent) {
         ast_manager & m   = get_manager();
+
+        if (antecedent != null_literal) {
+            std::function<void(void)> fn = [&]() {
+                app_ref body(m);
+                body = m.mk_eq(lhs->get_owner(), rhs);
+                body = m.mk_implies(get_context().bool_var2expr(antecedent.var()), body);                
+                log_axiom_instantiation(body, 1, &lhs);
+            };
+            scoped_trace_stream _st(m, fn);
+        }
+
         context & ctx     = get_context();
         if (m.proofs_enabled()) {
             literal l(mk_eq(lhs->get_owner(), rhs, true));
@@ -146,15 +157,6 @@ namespace smt {
         }
         expr_ref mk(m.mk_app(c, args), m);
 
-        std::function<void(void)> fn = [&]() {
-            app_ref body(m);
-            body = m.mk_eq(e, mk);
-            if (antecedent != null_literal) {
-                body = m.mk_implies(get_context().bool_var2expr(antecedent.var()), body);
-            }
-            log_axiom_instantiation(body, 1, &n);
-        };
-        scoped_trace_stream _st(m, fn);
         assert_eq_axiom(n, mk, antecedent);
     }
 
@@ -183,13 +185,14 @@ namespace smt {
         for (func_decl * acc : accessors) {
             app_ref acc_app(m.mk_app(acc, n->get_owner()), m);
             enode * arg       = n->get_arg(i);
-            if (m.has_trace_stream()) {
+
+            std::function<void(void)> fn = [&]() {
                 app_ref body(m);
                 body = m.mk_eq(arg->get_owner(), acc_app);
                 log_axiom_instantiation(body, base_id + 3*i, bindings.size(), bindings.c_ptr(), base_id - 3, used_enodes);
-            }
+            };
+            scoped_trace_stream _st(m, fn);
             assert_eq_axiom(arg, acc_app, null_literal);
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             ++i;
         }
     }
@@ -220,6 +223,7 @@ namespace smt {
        (=> (is-C r) (= (acc_j n) (acc_j r))) for acc_j != field
        (=> (is-C r) (= (field n) v))         for acc_j != field
        (=> (not (is-C r)) (= n r))
+       (=> (is-C r) (is-C n))
     */
     void theory_datatype::assert_update_field_axioms(enode * n) {
         m_stats.m_assert_update_field++;
@@ -236,7 +240,7 @@ namespace smt {
         app_ref rec_app(m.mk_app(rec, arg1), m);
         app_ref acc_app(m);
         ctx.internalize(rec_app, false);
-        literal is_con(ctx.get_bool_var(rec_app));
+        literal is_con(ctx.get_bool_var(rec_app));        
         for (func_decl* acc1 : accessors) {
             enode* arg;
             if (acc1 == acc) {
@@ -248,19 +252,18 @@ namespace smt {
                 arg = ctx.get_enode(acc_app);
             }
             app_ref acc_own(m.mk_app(acc1, own), m);
-            if (m.has_trace_stream()) {
-                app_ref body(m);
-                body = m.mk_implies(rec_app, m.mk_eq(arg->get_owner(), acc_own));
-                log_axiom_instantiation(body, 1, &n);
-            }
             assert_eq_axiom(arg, acc_own, is_con); 
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         // update_field is identity if 'n' is not created by a matching constructor.        
         app_ref imp(m.mk_implies(m.mk_not(rec_app), m.mk_eq(n->get_owner(), arg1)), m);
-        if (m.has_trace_stream()) log_axiom_instantiation(imp, 1, &n);
         assert_eq_axiom(n, arg1, ~is_con);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+
+        app_ref n_is_con(m.mk_app(rec, own), m);
+        ctx.internalize(n_is_con, false);
+        literal lits[2] = { ~is_con, literal(ctx.get_bool_var(n_is_con)) };
+        std::function<literal_vector(void)> fn = [&]() { return literal_vector(2, lits); };
+        scoped_trace_stream _st(*this, fn);
+        ctx.mk_th_axiom(get_id(), 2, lits);
     }
 
     theory_var theory_datatype::mk_var(enode * n) {
@@ -286,7 +289,7 @@ namespace smt {
                 assert_is_constructor_axiom(n, c, null_literal);
             }
             else {
-                if (m_params.m_dt_lazy_splits == 0 || (m_params.m_dt_lazy_splits == 1 && !s->is_infinite()))
+                if (params().m_dt_lazy_splits == 0 || (params().m_dt_lazy_splits == 1 && !s->is_infinite()))
                     mk_split(r);
             }
         }
@@ -487,7 +490,7 @@ namespace smt {
                     // return...
                     return FC_CONTINUE;
                 }
-                if (m_params.m_dt_lazy_splits > 0) {
+                if (params().m_dt_lazy_splits > 0) {
                     // using lazy case splits...
                     var_data * d = m_var_data[v];
                     if (d->m_constructor == nullptr) {
@@ -694,9 +697,12 @@ namespace smt {
         return false;
     }
 
-    theory_datatype::theory_datatype(ast_manager & m, theory_datatype_params & p):
+    theory_datatype_params const& theory_datatype::params() const { 
+        return get_context().get_fparams(); 
+    }
+
+    theory_datatype::theory_datatype(ast_manager & m):
         theory(m.mk_family_id("datatype")),
-        m_params(p),
         m_util(m),
         m_autil(m),
         m_find(*this),
@@ -932,7 +938,7 @@ namespace smt {
         else {
             // there are more than 2 unassigned recognizers...
             // if eager splits are enabled... create new case split
-            if (m_params.m_dt_lazy_splits == 0 || (!dt->is_infinite() && m_params.m_dt_lazy_splits == 1))
+            if (params().m_dt_lazy_splits == 0 || (!dt->is_infinite() && params().m_dt_lazy_splits == 1))
                 mk_split(v);
         }
     }

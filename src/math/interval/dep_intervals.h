@@ -209,8 +209,7 @@ public:
     }
 
     template <enum with_deps_t wd>
-    interval power(const interval& a, unsigned n) {
-        interval b;
+    void power(const interval& a, unsigned n, interval& b) {
         if (with_deps == wd) {
             interval_deps_combine_rule combine_rule;
             m_imanager.power(a, n, b, combine_rule);
@@ -221,7 +220,6 @@ public:
         }
         TRACE("dep_intervals", tout << "power of "; display(tout, a) << " = ";
               display(tout, b) << "\n"; );
-        return b;
     }
 
     template <enum with_deps_t wd>
@@ -299,11 +297,9 @@ public:
 
     void del(interval& i) { m_imanager.del(i); }
     
-    template <enum with_deps_t wd> interval intersect(const interval& a, const interval& b) const {
-        interval i;
+    template <enum with_deps_t wd> void intersect(const interval& a, const interval& b, interval& i) const {
         update_lower_for_intersection<wd>(a, b, i);
         update_upper_for_intersection<wd>(a, b, i);
-        return i;
     }
 
     template <enum with_deps_t wd>

@@ -197,6 +197,7 @@ namespace smt {
             for (auto & kv : sorted_exprs) {
                 expr* e = kv.first;
                 if (!is_app(e) || 
+                    !m.is_bool(e) ||
                     to_app(e)->get_family_id() == null_family_id || 
                     to_app(e)->get_family_id() == m.get_basic_family_id()) 
                     internalize_rec(e, kv.second);
@@ -557,6 +558,9 @@ namespace smt {
     void context::internalize_lambda(quantifier * q) {
         TRACE("internalize_quantifier", tout << mk_pp(q, m) << "\n";);
         SASSERT(is_lambda(q));
+        if (e_internalized(q)) {
+            return;
+        }
         app_ref lam_name(m.mk_fresh_const("lambda", m.get_sort(q)), m);
         app_ref eq(m), lam_app(m);
         expr_ref_vector vars(m);
@@ -574,6 +578,8 @@ namespace smt {
         internalize_quantifier(fa, true);
         if (!e_internalized(lam_name)) internalize_uninterpreted(lam_name);
         m_app2enode.setx(q->get_id(), get_enode(lam_name), nullptr);
+        m_l_internalized_stack.push_back(q);
+        m_trail_stack.push_back(&m_mk_lambda_trail);
     }
 
     /**
@@ -991,6 +997,14 @@ namespace smt {
         return e;
     }
 
+    void context::undo_mk_lambda() {
+        SASSERT(!m_l_internalized_stack.empty());
+        m_stats.m_num_del_enode++;
+        quantifier * n         = m_l_internalized_stack.back();
+        m_app2enode[n->get_id()] = nullptr;
+        m_l_internalized_stack.pop_back();
+    }
+
     void context::undo_mk_enode() {
         SASSERT(!m_e_internalized_stack.empty());
         m_stats.m_num_del_enode++;
@@ -1000,7 +1014,7 @@ namespace smt {
         unsigned n_id         = n->get_id();
         SASSERT(is_app(n));
         enode * e             = m_app2enode[n_id];
-        m_app2enode[n_id]     = 0;
+        m_app2enode[n_id]     = nullptr;
         if (e->is_cgr() && !e->is_true_eq() && e->is_cgc_enabled()) {
             SASSERT(m_cg_table.contains_ptr(e));
             m_cg_table.erase(e);

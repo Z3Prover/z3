@@ -129,15 +129,13 @@ namespace datalog {
         SASSERT(m.is_bool(old_pred->get_range()));
         adornment_desc adn(old_pred);
         adn.m_adornment.populate(lit, bound_vars);
-        adornment_map::entry * e = m_adorned_preds.insert_if_not_there2(adn, nullptr);
-        func_decl * new_pred = e->get_data().m_value;
+        func_decl *& new_pred = m_adorned_preds.insert_if_not_there(adn, nullptr);
         if (new_pred==nullptr) {
             std::string suffix = "ad_"+adn.m_adornment.to_string();
             new_pred = m_context.mk_fresh_head_predicate(
                 old_pred->get_name(), symbol(suffix.c_str()), 
                 old_pred->get_arity(), old_pred->get_domain(), old_pred);
             m_pinned.push_back(new_pred);
-            e->get_data().m_value = new_pred;
             m_todo.push_back(adn);
             m_adornments.insert(new_pred, adn.m_adornment);
         }
@@ -161,8 +159,7 @@ namespace datalog {
             }
         }
 
-        pred2pred::obj_map_entry * e = m_magic_preds.insert_if_not_there2(l_pred, 0);
-        func_decl * mag_pred = e->get_data().m_value;
+        func_decl *& mag_pred = m_magic_preds.insert_if_not_there(l_pred, 0);
         if (mag_pred==nullptr) {
             unsigned mag_arity = bound_args.size();
 
@@ -176,7 +173,6 @@ namespace datalog {
             mag_pred = m_context.mk_fresh_head_predicate(l_pred->get_name(), symbol("ms"), 
                 mag_arity, mag_domain.c_ptr(), l_pred);
             m_pinned.push_back(mag_pred);
-            e->get_data().m_value = mag_pred;
         }
 
         app * res = m.mk_app(mag_pred, bound_args.c_ptr());

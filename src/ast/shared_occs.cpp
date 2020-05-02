@@ -93,7 +93,9 @@ void shared_occs::operator()(expr * t, shared_occs_mark & visited) {
         expr * curr = fr.first;
         switch (curr->get_kind()) {
         case AST_APP: {
+			
             unsigned num_args = to_app(curr)->get_num_args();
+			
             while (fr.second < num_args) {
                 expr * arg = to_app(curr)->get_arg(fr.second);
                 fr.second++;

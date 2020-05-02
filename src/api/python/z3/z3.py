@@ -859,13 +859,14 @@ def RecFunction(name, *sig):
 
 def RecAddDefinition(f, args, body):
     """Set the body of a recursive function.
-       Recursive definitions are only unfolded during search.
+       Recursive definitions can be simplified if they are applied to ground
+       arguments.       
     >>> ctx = Context()
     >>> fac = RecFunction('fac', IntSort(ctx), IntSort(ctx))
     >>> n = Int('n', ctx)
     >>> RecAddDefinition(fac, n, If(n == 0, 1, n*fac(n-1)))
     >>> simplify(fac(5))
-    fac(5)
+    120
     >>> s = Solver(ctx=ctx)
     >>> s.add(fac(n) < 3)
     >>> s.check()

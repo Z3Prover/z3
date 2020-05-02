@@ -36,7 +36,7 @@ expr * datatype_factory::get_some_value(sort * s) {
     for (unsigned i = 0; i < num; i++) {
         args.push_back(m_model.get_some_value(c->get_domain(i)));
     }
-    expr * r = m_manager.mk_app(c, args.size(), args.c_ptr());
+    expr * r = m_manager.mk_app(c, args);
     register_value(r);
     TRACE("datatype", tout << mk_pp(r, m_util.get_manager()) << "\n";);
     return r;
@@ -115,7 +115,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
             }
         }
         if (recursive || found_fresh_arg) {
-            app * new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
+            app * new_value = m_manager.mk_app(constructor, args);
             SASSERT(!found_fresh_arg || !set->contains(new_value));
             register_value(new_value);
             if (m_util.is_recursive(s)) {
@@ -170,7 +170,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
             args.push_back(some_arg);
         }
         expr_ref new_value(m_manager);
-        new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
+        new_value = m_manager.mk_app(constructor, args);
         CTRACE("datatype", found_fresh_arg && set->contains(new_value), tout << mk_pp(new_value, m_manager) << "\n";);
         SASSERT(!found_fresh_arg || !set->contains(new_value));
         if (!set->contains(new_value)) {
@@ -228,7 +228,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                 }
                 if (found_sibling) {
                     expr_ref new_value(m_manager);
-                    new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
+                    new_value = m_manager.mk_app(constructor, args);
                     TRACE("datatype", tout << "potential new value: " << mk_pp(new_value, m_manager) << "\n";);
                     m_last_fresh_value.insert(s, new_value);
                     if (!set->contains(new_value)) {

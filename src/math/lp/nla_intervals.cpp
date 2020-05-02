@@ -84,7 +84,7 @@ bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
     scoped_dep_interval i(get_dep_intervals());
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-                                                         m_core->add_empty_lemma();
+                                                         m_core->add_lemma();
                                                          m_core->current_expl().add(e);
                                                      };
     if (!interval_of_expr<e_with_deps::without_deps>(n, 1, i, f)) {
@@ -375,7 +375,8 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
         SASSERT(e.is_sum() && e.size() > 1);
         scoped_dep_interval i_from_term(get_dep_intervals());
         if (interval_from_term<wd>(e, i_from_term)) {
-            interval r = m_dep_intervals.intersect<wd>(a, i_from_term);
+            scoped_dep_interval r(get_dep_intervals());
+            m_dep_intervals.intersect<wd>(a, i_from_term, r);
             TRACE("nla_intervals_details", tout << "intersection="; display(tout, r) << "\n";);
             
             if (m_dep_intervals.is_empty(r)) {
@@ -384,9 +385,9 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
                     T expl;
                     if (conflict_u_l(a, i_from_term)) {
                         get_dep_intervals().linearize(a.get().m_upper_dep, expl);
-                        get_dep_intervals().linearize(r.m_lower_dep, expl);                        
+                        get_dep_intervals().linearize(r.get().m_lower_dep, expl);                        
                     } else {
-                        get_dep_intervals().linearize(r.m_upper_dep, expl);
+                        get_dep_intervals().linearize(r.get().m_upper_dep, expl);
                         get_dep_intervals().linearize(a.get().m_lower_dep, expl);                        
                     }                        
                     f(expl);
@@ -446,7 +447,8 @@ bool intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a, const 
 template <e_with_deps wd>
 void intervals::to_power(scoped_dep_interval& a, unsigned p) {
     if (p == 1) return;
-    interval b = m_dep_intervals.power<wd>(a, p);
+    scoped_dep_interval b(m_dep_intervals);
+    m_dep_intervals.power<wd>(a, p, b);
     m_dep_intervals.set<wd>(a, b);
 
 }

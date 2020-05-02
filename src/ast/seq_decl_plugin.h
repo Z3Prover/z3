@@ -264,8 +264,11 @@ public:
         app* mk_char(char ch) const;
         app* mk_concat(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) const { return mk_concat(a, mk_concat(b, c)); }
-        expr* mk_concat(unsigned n, expr* const* es) const { if (n == 1) return es[0]; SASSERT(n > 1); return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
-        expr* mk_concat(expr_ref_vector const& es) const { return mk_concat(es.size(), es.c_ptr()); }
+        expr* mk_concat(unsigned n, expr* const* es, sort* s) const { 
+            if (n == 0) return mk_empty(s);
+            if (n == 1) return es[0]; 
+            return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
+        expr* mk_concat(expr_ref_vector const& es, sort* s) const { return mk_concat(es.size(), es.c_ptr(), s); }
         app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_at(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_AT, 2, es); }
         app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
@@ -278,6 +281,7 @@ public:
         app* mk_suffix(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
         app* mk_index(expr* a, expr* b, expr* i) const { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
         app* mk_last_index(expr* a, expr* b) const { expr* es[2] = { a, b}; return m.mk_app(m_fid, OP_SEQ_LAST_INDEX, 2, es); }
+        app* mk_replace(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c}; return m.mk_app(m_fid, OP_SEQ_REPLACE, 3, es); }
         app* mk_unit(expr* u) const { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
         app* mk_char(zstring const& s, unsigned idx) const;
         app* mk_itos(expr* i) const { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }

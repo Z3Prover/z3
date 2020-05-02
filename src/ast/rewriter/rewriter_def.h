@@ -134,7 +134,6 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
 template<typename Config>
 template<bool ProofGen>
 bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
- // retry:
     TRACE("rewriter_visit", tout << "visiting\n" << mk_ismt2_pp(t, m()) << "\n";);
     expr *  new_t = nullptr;
     proof * new_t_pr = nullptr;

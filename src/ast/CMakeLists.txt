@@ -44,6 +44,7 @@ z3_add_component(ast
     special_relations_decl_plugin.cpp
     static_features.cpp
     used_vars.cpp
+    value_generator.cpp
     well_sorted.cpp
   COMPONENT_DEPENDENCIES
     polynomial

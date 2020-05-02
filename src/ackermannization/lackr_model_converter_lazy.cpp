@@ -44,6 +44,7 @@ public:
 
     model_converter * translate(ast_translation & translator) override {
         NOT_IMPLEMENTED_YET();
+        return nullptr;
     }
 
     void display(std::ostream & out) override {

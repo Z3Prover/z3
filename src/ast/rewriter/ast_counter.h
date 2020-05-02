@@ -93,7 +93,7 @@ class ast_counter {
     iterator end() const { return m_data.end(); }
     
     int & get(ast * el) {
-        return m_data.insert_if_not_there2(el, 0)->get_data().m_value;
+        return m_data.insert_if_not_there(el, 0);
     }
     void update(ast * el, int delta){
         get(el) += delta;

@@ -138,6 +138,7 @@ namespace smt {
         smt_params              m_params;
         arith_util              a;
         arith_eq_adapter        m_arith_eq_adapter;
+        bool                    m_consistent;
         th_var                  m_izero, m_rzero; //cache the variable representing the zero variable.
 
         dl_graph<GExt>          m_graph;

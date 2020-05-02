@@ -60,12 +60,10 @@ class fix_dl_var_tactic : public tactic {
         
         void inc_occ(expr * n, bool nested) {
             if (is_uninterp_const(n) && is_arith(n)) {
-                obj_map<app, unsigned>::obj_map_entry * entry = m_occs.insert_if_not_there2(to_app(n), 0); 
-                entry->get_data().m_value++;
+                m_occs.insert_if_not_there(to_app(n), 0)++;
 
                 if (!nested) {
-                    entry = m_non_nested_occs.insert_if_not_there2(to_app(n), 0);
-                    entry->get_data().m_value++;
+                    m_non_nested_occs.insert_if_not_there(to_app(n), 0)++;
                 }
             }
         }

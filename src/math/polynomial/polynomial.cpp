@@ -794,11 +794,15 @@ namespace polynomial {
         ~monomial_manager() {
             dec_ref(m_unit);
             CTRACE("polynomial", !m_monomials.empty(),
-                   tout << "monomials leaked\n";
+                   tout << "monomials leaked (can happen during cancelation)\n";
                    for (auto * m : m_monomials) {
                        m->display(tout << m->id() << " " << m->ref_count() << " ") << "\n";
                    });
-            SASSERT(m_monomials.empty());
+            for (monomial* m : m_monomials) {
+                unsigned obj_sz = monomial::get_obj_size(m->size());
+                m_allocator->deallocate(obj_sz, m);                
+            }
+            m_monomials.reset();
             if (m_own_allocator)
                 dealloc(m_allocator);
         }
@@ -2653,6 +2657,9 @@ namespace polynomial {
                 m_tmp_linear_ms.push_back(mk_unit());
             }
             polynomial * p = mk_polynomial(m_tmp_linear_as.size(), m_tmp_linear_as.c_ptr(), m_tmp_linear_ms.c_ptr());
+            for (auto& a : m_tmp_linear_as) {
+                m_manager.del(a);
+            }
             m_tmp_linear_as.reset();
             m_tmp_linear_ms.reset();
             return p;

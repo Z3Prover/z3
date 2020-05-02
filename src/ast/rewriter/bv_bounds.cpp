@@ -523,10 +523,10 @@ bool bv_bounds::bound_lo(app * v, const numeral& l) {
     SASSERT(in_range(v, l));
     TRACE("bv_bounds", tout << "lower " << mk_ismt2_pp(v, m_m) << ":" << l << std::endl;);
     // l <= v
-    bound_map::obj_map_entry * const entry = m_unsigned_lowers.insert_if_not_there2(v, l);
-    if (!(entry->get_data().m_value < l)) return m_okay;
+    auto& value = m_unsigned_lowers.insert_if_not_there(v, l);
+    if (!(value < l)) return m_okay;
     // improve bound
-    entry->get_data().m_value = l;
+    value = l;
     return m_okay;
 }
 
@@ -534,10 +534,10 @@ bool bv_bounds::bound_up(app * v, const numeral& u) {
     SASSERT(in_range(v, u));
     TRACE("bv_bounds", tout << "upper " << mk_ismt2_pp(v, m_m) << ":" << u << std::endl;);
     // v <= u
-    bound_map::obj_map_entry * const entry = m_unsigned_uppers.insert_if_not_there2(v, u);
-    if (!(u < entry->get_data().m_value)) return m_okay;
+    auto& value = m_unsigned_uppers.insert_if_not_there(v, u);
+    if (!(u < value)) return m_okay;
     // improve bound
-    entry->get_data().m_value = u;
+    value = u;
     return m_okay;
 }
 

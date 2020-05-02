@@ -403,7 +403,7 @@ public:
         if (this->m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             return false;
         //        lp_assert(calc_current_x_is_feasible() == current_x_is_feasible());
-        return this->current_x_is_feasible() == this->m_using_infeas_costs;
+        return this->current_x_is_feasible() == this->using_infeas_costs();
     }
 
 
@@ -445,13 +445,13 @@ public:
     // this version assumes that the leaving already has the right value, and does not update it
     void update_x_tableau_rows(unsigned entering, unsigned leaving, const X& delta) {
         this->add_delta_to_x(entering, delta);
-        if (!this->m_using_infeas_costs) {
+        if (!this->using_infeas_costs()) {
             for (const auto & c : this->m_A.m_columns[entering]) {
                 if (leaving != this->m_basis[c.var()]) {
                     this->add_delta_to_x_and_track_feasibility(this->m_basis[c.var()], -  delta * this->m_A.get_val(c));
                 }
             }
-        } else { // m_using_infeas_costs == true
+        } else { // using_infeas_costs() == true
             lp_assert(this->column_is_feasible(entering));
             lp_assert(this->m_costs[entering] == zero_of_type<T>());
             // m_d[entering] can change because of the cost change for basic columns.
@@ -818,7 +818,7 @@ public:
     void print_bound_info_and_x(unsigned j, std::ostream & out);
 
     void init_infeasibility_after_update_x_if_inf(unsigned leaving) {
-        if (this->m_using_infeas_costs) {
+        if (this->using_infeas_costs()) {
             init_infeasibility_costs_for_changed_basis_only();
             this->m_costs[leaving] = zero_of_type<T>();
             this->m_inf_set.erase(leaving);

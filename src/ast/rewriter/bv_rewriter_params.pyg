@@ -9,10 +9,8 @@ def_module_params(module_name='rewriter',
                           ("mul2concat", BOOL, False, "replace multiplication by a power of two into a concatenation"),
                           ("bvnot2arith", BOOL, False, "replace (bvnot x) with (bvsub -1 x)"),
                           ("bv_sort_ac", BOOL, False, "sort the arguments of all AC operators"),
-                          ("bv_trailing", BOOL, False, "lean removal of trailing zeros"),
                           ("bv_extract_prop", BOOL, False, "attempt to partially propagate extraction inwards"),
                           ("bv_not_simpl", BOOL, False, "apply simplifications for bvnot"),
                           ("bv_ite2id", BOOL, False, "rewrite ite that can be simplified to identity"),
-                          ("bv_le_extra", BOOL, False, "additional bu_(u/s)le simplifications"),
-                          ("bv_urem_simpl", BOOL, False, "additional simplification for bvurem")
+                          ("bv_le_extra", BOOL, False, "additional bu_(u/s)le simplifications")
                           ))

@@ -338,17 +338,20 @@ namespace datalog {
                 SASSERT(length + m_small_offset <= 64);
             }
             table_element get(const char * rec) const {
-                const uint64_t * ptr = reinterpret_cast<const uint64_t*>(rec + m_big_offset);
-                uint64_t res = *ptr;
+
+                uint64_t res;
+                memcpy(&res, rec + m_big_offset, sizeof(res));
                 res >>= m_small_offset;
                 res &= m_mask;
                 return res;
             }
             void set(char * rec, table_element val) const {
                 SASSERT( (val&~m_mask)==0 ); //the value fits into the column
-                uint64_t * ptr = reinterpret_cast<uint64_t*>(rec + m_big_offset);
-                *ptr &= m_write_mask;
-                *ptr |= val << m_small_offset;
+                uint64_t cell;
+                memcpy(&cell, rec + m_big_offset, sizeof(cell));
+                cell &= m_write_mask;
+                cell |= val << m_small_offset;
+                memcpy(rec + m_big_offset, &cell, sizeof(cell));
             }
             unsigned next_ofs() const { return m_offset+m_length; }
         };

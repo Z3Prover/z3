@@ -20,13 +20,24 @@ Notes:
 #define SEQ_REWRITER_H_
 
 #include "ast/seq_decl_plugin.h"
+#include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
+#include "util/ref_pair_vector.h"
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/sign.h"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata.h"
+
+typedef ref_pair_vector<expr, ast_manager> expr_ref_pair_vector;
+
+inline std::ostream& operator<<(std::ostream& out, expr_ref_pair_vector const& es) {
+    for (auto const& p : es) {
+        out << expr_ref(p.first, es.get_manager()) << "; " << expr_ref(p.second, es.get_manager()) << "\n";
+    }
+    return out;
+}
 
 class sym_expr {
     enum ty {
@@ -89,6 +100,7 @@ class re2automaton {
     scoped_ptr<boolean_algebra_t>   m_ba;
     scoped_ptr<symbolic_automata_t> m_sa;
 
+    bool is_unit_char(expr* e, expr_ref& ch);
     eautomaton* re2aut(expr* e);
     eautomaton* seq2aut(expr* e);
 public:
@@ -109,6 +121,18 @@ class seq_rewriter {
     re2automaton   m_re2aut;
     expr_ref_vector m_es, m_lhs, m_rhs;
     bool           m_coalesce_chars;
+
+    enum length_comparison {
+        shorter_c, 
+        longer_c,
+        same_length_c,
+        unknown_c
+    };
+
+    length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
+        return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
+    }
+    length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
@@ -142,19 +166,19 @@ class seq_rewriter {
 
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
+    expr_ref zero() { return expr_ref(m_autil.mk_int(0), m()); }
+    expr_ref one() { return expr_ref(m_autil.mk_int(1), m()); }
+    expr_ref minus_one() { return expr_ref(m_autil.mk_int(-1), m()); }
 
     bool is_suffix(expr* s, expr* offset, expr* len);
     bool sign_is_determined(expr* len, sign& s);
 
-    bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
-    bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                        expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
-    bool length_constrained(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                        expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
-    bool solve_itos(unsigned n, expr* const* l, unsigned m, expr* const* r, 
-                    expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
-    bool min_length(unsigned n, expr* const* es, unsigned& len);
-    expr* concat_non_empty(unsigned n, expr* const* es);
+    bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_pair_vector& eqs);
+    bool reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
+    bool reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
+    bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
+    bool min_length(expr_ref_vector const& es, unsigned& len);
+    expr* concat_non_empty(expr_ref_vector& es);
 
     bool is_string(unsigned n, expr* const* es, zstring& s) const;
 
@@ -162,10 +186,11 @@ class seq_rewriter {
     bool is_sequence(expr* e, expr_ref_vector& seq);
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool is_epsilon(expr* e) const;
-    void split_units(expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
-
-
+    bool reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
+    bool reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
+    void remove_empty_and_concats(expr_ref_vector& es);
+    void remove_leading(unsigned n, expr_ref_vector& es);
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
@@ -184,13 +209,13 @@ public:
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
 
-    bool reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change);
+    bool reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bool& change);
 
-    bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change);
+    bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change);
 
     bool reduce_contains(expr* a, expr* b, expr_ref_vector& disj);
 
-    void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& lhs, expr_ref_vector& rhs);
+    void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
 
 };

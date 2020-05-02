@@ -96,6 +96,10 @@ class ll_printer {
     void display_params(decl * d) {
         unsigned n = d->get_num_parameters();
         parameter const* p = d->get_parameters();
+        if (n > 0 && p[0].is_symbol() && d->get_name() == p[0].get_symbol()) {
+            n--;
+            p++;
+        } 
 
         if (n > 0 && !d->private_parameters()) {
             m_out << "[";

@@ -23,6 +23,7 @@ Revision History:
 #include<iostream>
 #include "util/str_hashtable.h"
 #include "util/z3_exception.h"
+#include "util/z3_version.h"
 
 static volatile bool g_enable_assertions = true;
 
@@ -39,6 +40,10 @@ void notify_assertion_violation(const char * fileName, int line, const char * co
     std::cerr << "File: " << fileName << "\n";
     std::cerr << "Line: " << line << "\n";
     std::cerr << condition << "\n";
+#ifndef Z3DEBUG
+    std::cerr << Z3_FULL_VERSION << "\n";
+    std::cerr << "Please file an issue with this message and more detail about how you encountered it at https://github.com/Z3Prover/z3/issues/new\n";
+#endif
 }
 
 static str_hashtable* g_enabled_debug_tags = nullptr;

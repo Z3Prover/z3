@@ -177,7 +177,8 @@ namespace smt {
 
 
     void mp_iff_justification::get_antecedents(conflict_resolution & cr) {
-        SASSERT(m_node1 != m_node2);
+        if (m_node1 == m_node2)
+            return;
         cr.mark_eq(m_node1, m_node2);
         context & ctx = cr.get_context();
         bool_var v    = ctx.enode2bool_var(m_node1);
@@ -187,6 +188,9 @@ namespace smt {
     }
 
     proof * mp_iff_justification::mk_proof(conflict_resolution & cr) {
+        ast_manager& m = cr.get_manager();
+        if (m_node1 == m_node2)
+            return m.mk_reflexivity(m_node1->get_owner());
         proof * pr1   = cr.get_proof(m_node1, m_node2);
         context & ctx = cr.get_context();
         bool_var v    = ctx.enode2bool_var(m_node1);
@@ -194,7 +198,7 @@ namespace smt {
         literal l(v, val == l_false);
         proof * pr2   = cr.get_proof(l);
         if (pr1 && pr2) {
-            ast_manager & m = cr.get_manager();
+            
             proof * pr;
             SASSERT(m.has_fact(pr1));
             SASSERT(m.has_fact(pr2));

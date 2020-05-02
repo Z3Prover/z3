@@ -24,8 +24,7 @@ void num_occurs::process(expr * t, expr_fast_mark1 & visited) {
     
 #define VISIT(ARG) {                                                                                    \
         if (!m_ignore_ref_count1 || ARG->get_ref_count() > 1) {                                         \
-            obj_map<expr, unsigned>::obj_map_entry * entry = m_num_occurs.insert_if_not_there2(ARG, 0); \
-            entry->get_data().m_value++;                                                                \
+            m_num_occurs.insert_if_not_there(ARG, 0)++; \
         }                                                                                               \
         if (!visited.is_marked(ARG)) {                                                                  \
             visited.mark(ARG, true);                                                                    \
@@ -57,6 +56,12 @@ void num_occurs::process(expr * t, expr_fast_mark1 & visited) {
         default:
             break;
         }
+    }
+}
+
+void num_occurs::validate() {
+    for (auto & kv : m_num_occurs) {
+        SASSERT(0 < kv.m_key->get_ref_count());
     }
 }
 

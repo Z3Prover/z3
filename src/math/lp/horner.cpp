@@ -48,8 +48,12 @@ bool horner::row_is_interesting(const T& row) const {
     c().clear_active_var_set();
     for (const auto& p : row) {
         lpvar j = p.var();
-        if (!c().is_monic_var(j))
+        if (!c().is_monic_var(j)) {
+            if (c().active_var_set_contains(j))
+                return true;
+            c().insert_to_active_var_set(j);
             continue;
+        }
         auto & m = c().emons()[j];
         
         for (lpvar k : m.vars()) {

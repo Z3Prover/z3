@@ -46,7 +46,6 @@ class sat_tactic : public tactic {
             bool produce_core = g->unsat_core_enabled();
             TRACE("before_sat_solver", g->display(tout););
             g->elim_redundancies();
-
             atom2bool_var map(m);
             obj_map<expr, sat::literal> dep2asm;
             sat::literal_vector assumptions;
@@ -113,6 +112,10 @@ class sat_tactic : public tactic {
                 ref<sat2goal::mc> mc;
                 m_sat2goal(*m_solver, map, m_params, *(g.get()), mc);
                 g->add(mc.get());
+                if (produce_core) {
+                    // sat2goal does not preseve assumptions
+                    g->updt_prec(goal::OVER);
+                }
             }
             g->inc_depth();
             result.push_back(g.get());

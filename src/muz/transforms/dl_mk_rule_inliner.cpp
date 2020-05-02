@@ -639,9 +639,9 @@ namespace datalog {
     }
 
     unsigned_vector const& mk_rule_inliner::visitor::add_position(expr* e, unsigned j) {
-        obj_map<expr, unsigned_vector>::obj_map_entry * et = m_positions.insert_if_not_there2(e, unsigned_vector());
-        et->get_data().m_value.push_back(j);
-        return et->get_data().m_value;
+        auto& value = m_positions.insert_if_not_there(e, unsigned_vector());
+        value.push_back(j);
+        return value;
     }
 
     unsigned_vector const& mk_rule_inliner::visitor::del_position(expr* e, unsigned j) {

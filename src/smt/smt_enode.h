@@ -201,6 +201,10 @@ namespace smt {
             return m_root; 
         }
 
+        bool is_root() const {
+            return m_root == this;
+        }
+
         void set_root(enode* r) {
             m_root = r;
         }
@@ -354,6 +358,21 @@ namespace smt {
         enode_vector::const_iterator end_parents() const { 
             return m_parents.end(); 
         }
+
+        class iterator {
+            enode* m_first;
+            enode* m_last;
+        public:
+            iterator(enode* n, enode* m): m_first(n), m_last(m) {} 
+            enode* operator*() { return m_first; }
+            iterator& operator++() { if (!m_last) m_last = m_first; m_first = m_first->m_next; return *this; }
+            iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
+            bool operator==(iterator const& other) const { return m_last == other.m_last && m_first == other.m_first; }
+            bool operator!=(iterator const& other) const { return !(*this == other); }            
+        };
+
+        iterator begin() { return iterator(this, nullptr); }
+        iterator end() { return iterator(this, this); }
         
         theory_var_list const * get_th_var_list() const { 
             return m_th_var_list.get_th_var() == null_theory_var ? nullptr : &m_th_var_list;

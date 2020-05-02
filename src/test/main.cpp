@@ -217,6 +217,8 @@ int main(int argc, char ** argv) {
     if (test_all) return 0;
     TST(ext_numeral);
     TST(interval);
+    TST(value_generator);
+    TST(value_sweep);
     TST(vector);
     TST(f2n);
     TST(hwf);

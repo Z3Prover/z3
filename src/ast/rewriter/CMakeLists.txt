@@ -29,11 +29,12 @@ z3_add_component(rewriter
     pb2bv_rewriter.cpp
     push_app_ite.cpp
     quant_hoist.cpp
+    recfun_rewriter.cpp
     rewriter.cpp
     seq_rewriter.cpp
     th_rewriter.cpp
+    value_sweep.cpp
     var_subst.cpp
-    bv_trailing.cpp
     mk_extract_proc.cpp
   COMPONENT_DEPENDENCIES
     ast

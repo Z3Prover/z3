@@ -137,6 +137,8 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     m_params.set_bool("expand_select_store", true);
     //m_params.set_bool("expand_nested_stores", true);
     m_params.set_bool("bv_sort_ac", true);
+    // seq theory solver keeps terms in normal form and has to interact with side-effect of rewriting
+    m_params.set_bool("coalesce_chars", m_smt_params.m_string_solver != symbol("seq"));
     m_params.set_bool("som", true);
     m_rewriter.updt_params(m_params);
     flush_cache();

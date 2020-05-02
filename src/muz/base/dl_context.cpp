@@ -74,8 +74,7 @@ namespace datalog {
 
             unsigned newIdx = m_el_numbers.size();
 
-            sym2num::entry* sym_e = m_el_numbers.insert_if_not_there2(sym, newIdx);
-            unsigned idx=sym_e->get_data().m_value;
+            unsigned idx = m_el_numbers.insert_if_not_there(sym, newIdx);
 
             if (idx==newIdx) {
                 m_el_names.push_back(sym);
@@ -117,10 +116,9 @@ namespace datalog {
 
             unsigned newIdx = m_el_numbers.size();
 
-            el2num::entry* sym_e = m_el_numbers.insert_if_not_there2(el, newIdx);
-            unsigned idx=sym_e->get_data().m_value;
+            unsigned idx = m_el_numbers.insert_if_not_there(el, newIdx);
 
-            if (idx==newIdx) {
+            if (idx == newIdx) {
                 m_el_names.push_back(el);
                 SASSERT(m_el_names.size()==m_el_numbers.size());
             }
@@ -1315,8 +1313,7 @@ namespace datalog {
 
                 // index into fresh variable array.
                 // unsigned fresh_var_idx = 0;
-                obj_map<sort, unsigned_vector>::obj_map_entry* e = var_idxs.insert_if_not_there2(s, unsigned_vector());
-                unsigned_vector& vars = e->get_data().m_value;
+                unsigned_vector& vars = var_idxs.insert_if_not_there(s, unsigned_vector());
                 if (max_var >= vars.size()) {
                     SASSERT(vars.size() == max_var);
                     vars.push_back(fresh_vars.size());

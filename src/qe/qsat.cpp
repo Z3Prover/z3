@@ -270,7 +270,7 @@ namespace qe {
             bool is_boolop = 
                 (a->get_family_id() == m.get_basic_family_id()) &&
                 (!m.is_eq(a)       || m.is_bool(a->get_arg(0))) && 
-                (!m.is_distinct(a) || m.is_bool(a->get_arg(0)));
+                (!m.is_distinct(a) || a->get_num_args() == 0 || m.is_bool(a->get_arg(0)));
             
             if (!is_boolop && m.is_bool(a)) {
                 TRACE("qe", tout << mk_pp(a, m) << "\n";);
@@ -331,7 +331,7 @@ namespace qe {
             } 
             if (sz == args.size()) {
                 if (diff) {
-                    r = m.mk_app(a->get_decl(), sz, args.c_ptr());
+                    r = m.mk_app(a->get_decl(), args);
                     trail.push_back(r);
                 }
                 else {
@@ -424,7 +424,7 @@ namespace qe {
             } 
             if (args.size() == sz) {
                 if (diff) {
-                    r = m.mk_app(a->get_decl(), sz, args.c_ptr());
+                    r = m.mk_app(a->get_decl(), args);
                 }
                 else {
                     r = to_app(a);
@@ -456,9 +456,8 @@ namespace qe {
         
     void pred_abs::display(std::ostream& out) const {
         out << "pred2lit:\n";
-        obj_map<expr, expr*>::iterator it = m_pred2lit.begin(), end = m_pred2lit.end();
-        for (; it != end; ++it) {
-            out << mk_pp(it->m_key, m) << " |-> " << mk_pp(it->m_value, m) << "\n";
+        for (auto const& kv : m_pred2lit) {
+            out << mk_pp(kv.m_key, m) << " |-> " << mk_pp(kv.m_value, m) << "\n";
         }
         for (unsigned i = 0; i < m_preds.size(); ++i) {
             out << "level " << i << "\n";
@@ -477,10 +476,10 @@ namespace qe {
     
     void pred_abs::display(std::ostream& out, expr_ref_vector const& asms) const {
         max_level lvl;       
-        for (unsigned i = 0; i < asms.size(); ++i) {
-            expr* e = asms[i];
-            bool is_not = m.is_not(asms[i], e);
-            out << mk_pp(asms[i], m);
+        for (expr* a : asms) {
+            expr* e = a;
+            bool is_not = m.is_not(a, e);
+            out << mk_pp(a, m);
             if (m_elevel.find(e, lvl)) {
                 lvl.display(out << " - ");
             }
@@ -741,6 +740,9 @@ namespace qe {
            \brief create a quantifier prefix formula.
         */
         void hoist(expr_ref& fml) {
+            if (has_quantified_uninterpreted(m, fml)) {
+                throw tactic_exception("formula contains uninterpreted functions");
+            }
             proof_ref pr(m);
             label_rewriter rw(m);
             rw.remove_labels(fml, pr);
@@ -832,8 +834,8 @@ namespace qe {
             expr_ref_vector core1(m), core2(m), dels(m);
             TRACE("qe", tout << core.size() << "\n";);
             mus mus(get_kernel(level).s());
-            for (unsigned i = 0; i < core.size(); ++i) {
-                app* a = to_app(core[i].get());                
+            for (expr* arg : core) {
+                app* a = to_app(arg);
                 max_level lvl = m_pred_abs.compute_level(a);
                 if (lvl.max() + 2 <= level) {     
                     VERIFY(core1.size() == mus.add_soft(a));
@@ -1010,7 +1012,7 @@ namespace qe {
                         }
                     }
                     if (all_visited) {
-                        r = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+                        r = m.mk_app(a->get_decl(), args);
                         todo.pop_back();
                         trail.push_back(r);
                         visited.insert(e, r);
@@ -1192,9 +1194,9 @@ namespace qe {
                 return true;
             }
             for (unsigned i = 0; i < m_avars.size(); ++i) {
-                contains_app cont(m, m_avars[i].get());
+                contains_app cont(m, m_avars.get(i));
                 if (cont(proj)) {
-                    TRACE("qe", tout << "Projection contains free variable: " << mk_pp(m_avars[i].get(), m) << "\n";);
+                    TRACE("qe", tout << "Projection contains free variable: " << mk_pp(m_avars.get(i), m) << "\n";);
                     return false;
                 }
             }

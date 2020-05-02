@@ -282,8 +282,7 @@ private:
             app* t = kv.m_key;
             unsigned n = kv.m_value;
             if (is_uninterpreted(t)) {
-                inv_app_map::entry* e = inv_map.insert_if_not_there2(n, ptr_vector<app>());
-                e->get_data().m_value.push_back(t);
+                inv_map.insert_if_not_there(n, ptr_vector<app>()).push_back(t);
             }
         }
     }
@@ -346,9 +345,9 @@ private:
             for (unsigned i = 0; i < sz; ++i) {
                 expr* e = n->get_arg(i);
                 if (is_app(e)) {
-                    app_parents::obj_map_entry* entry = m_use_funs.insert_if_not_there2(to_app(e), 0);
-                    if (!entry->get_data().m_value) entry->get_data().m_value = alloc(fun_set);
-                    entry->get_data().m_value->insert(f); 
+                    auto& value = m_use_funs.insert_if_not_there(to_app(e), 0);
+                    if (!value) value = alloc(fun_set);
+                    value->insert(f); 
                 }
             }
         }
@@ -373,14 +372,14 @@ private:
             for (unsigned i = 0; i < sz; ++i) {
                 expr* e = n->get_arg(i);
                 if (!is_app(e)) continue;
-                app_siblings::obj_map_entry* entry = m_sibs.insert_if_not_there2(to_app(e), 0);
-                if (!entry->get_data().get_value()) entry->get_data().m_value = alloc(uint_set);
+                auto& value = m_sibs.insert_if_not_there(to_app(e), 0);
+                if (!value) value = alloc(uint_set);
                 for (unsigned j = 0; j < sz; ++j) {
                     expr* f = n->get_arg(j);
                     if (is_app(f) && i != j) {
                         unsigned c1 = 0;
                         m_colors.find(to_app(f), c1);
-                        entry->get_data().m_value->insert(c1);
+                        value->insert(c1);
                     }
                 }
             }
@@ -516,14 +515,12 @@ private:
     public:
         num_occurrences(app_map& occs): m_occs(occs) {}
         void operator()(app* n) {
-            app_map::obj_map_entry* e;
-            m_occs.insert_if_not_there2(n, 0);
+            m_occs.insert_if_not_there(n, 0);
             unsigned sz = n->get_num_args();
             for (unsigned i = 0; i < sz; ++i) {
                 expr* arg = n->get_arg(i);
                 if (is_app(arg)) {
-                    e = m_occs.insert_if_not_there2(to_app(arg), 0);
-                    e->get_data().m_value++;
+                    m_occs.insert_if_not_there(to_app(arg), 0)++;
                 }
             }
         }

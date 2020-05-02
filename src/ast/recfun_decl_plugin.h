@@ -220,6 +220,7 @@ namespace recfun {
         ~util();
 
         ast_manager & m() { return m_manager; }
+        family_id get_family_id() const { return m_fid; }
         decl::plugin& get_plugin() { return *m_plugin; }
 
         bool is_case_pred(expr * e) const { return is_app_of(e, m_fid, OP_FUN_CASE_PRED); }
@@ -235,8 +236,12 @@ namespace recfun {
         //<! add a function declaration
         def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range, bool is_generated);
 
+        bool has_def(func_decl* f) const {
+            return m_plugin->has_def(f);
+        }
+
         def& get_def(func_decl* f) {
-            SASSERT(m_plugin->has_def(f));
+            SASSERT(has_def(f));
             return m_plugin->get_def(f);
         }
 

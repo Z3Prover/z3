@@ -190,6 +190,7 @@ struct purify_arith_proc {
 
     struct rw_cfg : public default_rewriter_cfg {
         purify_arith_proc &  m_owner;
+        obj_hashtable<func_decl>  m_cannot_purify;
         obj_map<app, expr*>  m_app2fresh;
         obj_map<app, proof*> m_app2pr;
         expr_ref_vector      m_pinned;
@@ -211,6 +212,7 @@ struct purify_arith_proc {
             m_subst(o.m()),           
             m_subst_pr(o.m()),
             m_new_vars(o.m()) {
+            init_cannot_purify();
         }
 
         ast_manager & m() { return m_owner.m(); }
@@ -221,6 +223,30 @@ struct purify_arith_proc {
         bool complete() const { return m_owner.m_complete; }
         bool elim_root_objs() const { return m_owner.m_elim_root_objs; }
         bool elim_inverses() const { return m_owner.m_elim_inverses; }
+
+        void init_cannot_purify() {
+            struct proc {
+                rw_cfg& o;
+                proc(rw_cfg& o):o(o) {}
+                void operator()(app* a) {
+                    for (expr* arg : *a) {
+                        if (!is_ground(arg)) {
+                            o.m_cannot_purify.insert(a->get_decl());
+                            break;
+                        }
+                    }
+                }
+                void operator()(expr* ) {}
+            };
+            
+            expr_fast_mark1 visited;
+            proc p(*this);
+            unsigned sz = m_owner.m_goal.size();
+            for (unsigned i = 0; i < sz; i++) {
+                expr* f = m_owner.m_goal.form(i);
+                for_each_expr_core<proc, expr_fast_mark1, true, true>(p, visited, f);
+            }
+        }
 
         expr * mk_fresh_var(bool is_int) {
             expr * r = m().mk_fresh_const(nullptr, is_int ? u().mk_int() : u().mk_real());
@@ -661,6 +687,8 @@ struct purify_arith_proc {
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
             if (f->get_family_id() != u().get_family_id())
                 return BR_FAILED;
+            if (m_cannot_purify.contains(f))
+                return BR_FAILED;
             switch (f->get_decl_kind()) {
             case OP_DIV: 
                 process_div(f, num, args, result, result_pr);
@@ -693,7 +721,7 @@ struct purify_arith_proc {
         
         bool get_subst(expr * s, expr * & t, proof * & t_pr) { 
             if (is_quantifier(s)) {
-                m_owner.process_quantifier(to_quantifier(s), m_subst, m_subst_pr);
+                m_owner.process_quantifier(*this, to_quantifier(s), m_subst, m_subst_pr);
                 t    = m_subst.get();
                 t_pr = m_subst_pr.get();
                 return true;
@@ -717,53 +745,27 @@ struct purify_arith_proc {
             m_cfg(o) {
         }
     };
+
+    struct rw_rec : public rewriter_tpl<rw_cfg> {
+        rw_cfg& m_cfg;
+        rw_rec(rw_cfg& cfg):            
+            rewriter_tpl<rw_cfg>(cfg.m(), cfg.produce_proofs(), cfg),
+            m_cfg(cfg) {
+        }
+    };
     
-    void process_quantifier(quantifier * q, expr_ref & result, proof_ref & result_pr) { 
+    void process_quantifier(rw_cfg& cfg, quantifier * q, expr_ref & result, proof_ref & result_pr) { 
         result_pr = nullptr;
-        rw r(*this);
+        rw_rec r(cfg);
         expr_ref new_body(m());
         proof_ref new_body_pr(m());
         r(q->get_expr(), new_body, new_body_pr);
-        unsigned num_vars = r.cfg().m_new_vars.size();
-        expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
-        if (true || !cnstrs.empty()) {
-            cnstrs.push_back(new_body);
-            new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
-        }
         TRACE("purify_arith", 
-              tout << "num_vars: " << num_vars << "\n";
-              tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << mk_ismt2_pp(new_body, m()) << "\n";);
-        if (num_vars == 0) {
-            result = m().update_quantifier(q, new_body);
-        }
-        else {
-            // Add new constraints
-            // Open space for new variables
-            var_shifter shifter(m());
-            shifter(new_body, num_vars, new_body);
-            // Rename fresh constants in r.cfg().m_new_vars to variables
-            ptr_buffer<sort> sorts;
-            buffer<symbol>   names;
-            expr_substitution subst(m(), false, false);
-            for (unsigned i = 0; i < num_vars; i++) {
-                expr * c = r.cfg().m_new_vars.get(i);
-                sort * s = get_sort(c);
-                sorts.push_back(s);
-                names.push_back(m().mk_fresh_var_name("x"));
-                unsigned idx = num_vars - i - 1;
-                subst.insert(c, m().mk_var(idx, s));
-            }
-            scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m(), false);
-            replacer->set_substitution(&subst);
-            (*replacer)(new_body, new_body);
-            new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body, q->get_weight());
-            result = m().update_quantifier(q, new_body);
-        }
+              tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << new_body << "\n";);
+        result = m().update_quantifier(q, new_body);
         if (m_produce_proofs) {
-            auto& cnstr_prs = r.cfg().m_new_cnstr_prs;
-            result_pr = m().mk_rewrite_star(q->get_expr(), new_body, cnstr_prs.size(), cnstr_prs.c_ptr());
+            result_pr = m().mk_rewrite(q->get_expr(), new_body);
             result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
-            r.cfg().push_cnstr_pr(result_pr);
         }
     }
 
@@ -783,7 +785,7 @@ struct purify_arith_proc {
             m_goal.update(i, new_curr, new_pr, m_goal.dep(i));
         }
         
-        // add cnstraints
+        // add constraints
         sz = r.cfg().m_new_cnstrs.size();
         TRACE("purify_arith", tout << r.cfg().m_new_cnstrs << "\n";);
         TRACE("purify_arith", tout << r.cfg().m_new_cnstr_prs << "\n";);

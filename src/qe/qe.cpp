@@ -929,10 +929,9 @@ namespace qe {
             CHECK_COND(m_children.empty() || fml());
             CHECK_COND(!is_root() || fml());
             CHECK_COND(!fml() || has_var() || m_num_branches.is_zero() || is_unit());
-            branch_map::iterator it = m_branch_index.begin(), end = m_branch_index.end();
-            for (; it != end; ++it) {
-                CHECK_COND(it->m_value < m_children.size());
-                CHECK_COND(it->m_key < get_num_branches());
+            for (auto const & kv : m_branch_index) {
+                CHECK_COND(kv.m_value < m_children.size());
+                CHECK_COND(kv.m_key < get_num_branches());
             }
             for (unsigned i = 0; i < m_children.size(); ++i) {
                 CHECK_COND(m_children[i]);
@@ -1388,9 +1387,8 @@ namespace qe {
         void reset() {
             m_free_vars.reset();
             m_trail.reset();
-            obj_map<app, contains_app*>::iterator it = m_var2contains.begin(), end = m_var2contains.end();
-            for (; it != end; ++it) {
-                dealloc(it->m_value);
+            for (auto & kv : m_var2contains) {
+                dealloc(kv.m_value);
             }
             m_var2contains.reset();
             m_var2branch.reset();
@@ -1405,7 +1403,6 @@ namespace qe {
             i_solver_context::add_plugin(p);
             m_conjs.add_plugin(p);
         }
-
 
         void check(unsigned num_vars, app* const* vars, 
                    expr* assumption, expr_ref& fml, bool get_first,
@@ -1447,6 +1444,8 @@ namespace qe {
             lbool res = l_true;
             while (res == l_true) {
                 res = m_solver.check();
+                if (res == l_true && has_uninterpreted(m, m_fml))
+                    res = l_undef;
                 if (res == l_true) {
                     is_sat = true;
                     final_check();
@@ -2465,6 +2464,27 @@ namespace qe {
         fml = tmp;
     }
 
+    bool has_quantified_uninterpreted(ast_manager& m, expr* fml) {
+        struct found {};
+        struct proc {
+            ast_manager& m;
+            proc(ast_manager& m):m(m) {}
+            void operator()(quantifier* q) {
+                if (has_uninterpreted(m, q->get_expr()))
+                    throw found();
+            }
+            void operator()(expr*) {}
+        };
+
+        try {
+            proc p(m);
+            for_each_expr(p, fml);
+            return false;
+        }
+        catch (found) {
+            return true;
+        }
+    }
     
     class simplify_solver_context : public i_solver_context {
         ast_manager&             m;

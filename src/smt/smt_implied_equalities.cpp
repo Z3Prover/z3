@@ -58,7 +58,7 @@ namespace {
         void partition_terms(unsigned num_terms, expr* const* terms, sort2term_ids& termids) {
             for (unsigned i = 0; i < num_terms; ++i) {
                 sort* s = m.get_sort(terms[i]);
-                term_ids& vec = termids.insert_if_not_there2(s, term_ids())->get_data().m_value;
+                term_ids& vec = termids.insert_if_not_there(s, term_ids());
                 vec.push_back(term_id(expr_ref(terms[i],m), i));
             }
         }
@@ -208,7 +208,7 @@ namespace {
                     continue;
                 }
                 vals.push_back(vl);
-                unsigned_vector& vec = vals_map.insert_if_not_there2(vl, unsigned_vector())->get_data().m_value;
+                unsigned_vector& vec = vals_map.insert_if_not_there(vl, unsigned_vector());
                 bool found = false;
 
                 for (unsigned j = 0; !found && j < vec.size(); ++j) {

@@ -86,18 +86,18 @@ extern "C" {
         LOG_Z3_ast_map_insert(c, m, k, v);
         RESET_ERROR_CODE();
         ast_manager & mng = to_ast_map(m)->m;
-        obj_map<ast, ast*>::obj_map_entry * entry = to_ast_map_ref(m).insert_if_not_there2(to_ast(k), 0);
-        if (entry->get_data().m_value == 0) {
+        auto& value = to_ast_map_ref(m).insert_if_not_there(to_ast(k), 0);
+        if (!value) {
             // new entry
             mng.inc_ref(to_ast(k));
             mng.inc_ref(to_ast(v));
-            entry->get_data().m_value = to_ast(v);            
+            value = to_ast(v);            
         }
         else {
             // replacing entry
             mng.inc_ref(to_ast(v));
-            mng.dec_ref(entry->get_data().m_value);
-            entry->get_data().m_value = to_ast(v);
+            mng.dec_ref(value);
+            value = to_ast(v);
         }
         Z3_CATCH;
     }

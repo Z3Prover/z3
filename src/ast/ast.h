@@ -489,7 +489,7 @@ protected:
 
     void dec_ref() {
         SASSERT(m_ref_count > 0);
-        m_ref_count --;
+        --m_ref_count;
     }
 
     ast(ast_kind k):m_id(UINT_MAX), m_kind(k), m_mark1(false), m_mark2(false), m_mark_shared_occs(false), m_ref_count(0) {
@@ -1553,7 +1553,6 @@ protected:
     bool slow_not_contains(ast const * n);
 #endif
     ast_manager *             m_format_manager; // hack for isolating format objects in a different manager.
-    symbol                    m_rec_fun;
     symbol                    m_lambda_def;
 
     void init();
@@ -1666,13 +1665,10 @@ public:
 
     bool contains(ast * a) const { return m_ast_table.contains(a); }
     
-    bool is_rec_fun_def(quantifier* q) const { return q->get_qid() == m_rec_fun; }
     bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     void add_lambda_def(func_decl* f, quantifier* q);
     quantifier* is_lambda_def(func_decl* f);
-    func_decl* get_rec_fun_decl(quantifier* q) const;
     
-    symbol const& rec_fun_qid() const { return m_rec_fun; }
 
     symbol const& lambda_def_qid() const { return m_lambda_def; }
 

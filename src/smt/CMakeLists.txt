@@ -12,6 +12,11 @@ z3_add_component(smt
     mam.cpp
     old_interval.cpp
     qi_queue.cpp
+    seq_axioms.cpp
+    seq_skolem.cpp
+    seq_eq_solver.cpp
+    seq_ne_solver.cpp
+    seq_offset_eq.cpp
     smt_almost_cg_table.cpp
     smt_arith_value.cpp
     smt_case_split_queue.cpp
@@ -29,6 +34,7 @@ z3_add_component(smt
     smt_farkas_util.cpp
     smt_for_each_relevant_expr.cpp
     smt_implied_equalities.cpp
+    smt_induction.cpp
     smt_internalizer.cpp
     smt_justification.cpp
     smt_kernel.cpp

@@ -79,8 +79,7 @@ namespace datalog {
 
         filter_key * key = alloc(filter_key, m);
         mk_new_rule_tail(m, pred, non_local_vars, filter_domain, key->filter_args, key->new_pred);
-        filter_cache::obj_map_entry *entry = m_tail2filter.insert_if_not_there2(key, 0);
-        func_decl*& filter_decl = entry->get_data().m_value;
+        func_decl*& filter_decl = m_tail2filter.insert_if_not_there(key, 0);
         if (!filter_decl) {
             filter_decl = m_context.mk_fresh_head_predicate(pred->get_decl()->get_name(), symbol("filter"), 
                 filter_domain.size(), filter_domain.c_ptr(), pred->get_decl());

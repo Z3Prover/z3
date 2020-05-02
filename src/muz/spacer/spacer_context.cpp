@@ -926,8 +926,10 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
     SASSERT(!lemma->is_background());
     unsigned lvl = lemma->level();
     expr* l = lemma->get_expr();
-    SASSERT(!lemma->is_ground() || is_clause(m, l));
-    SASSERT(!is_quantifier(l) || is_clause(m, to_quantifier(l)->get_expr()));
+    CTRACE("spacer", !spacer::is_clause(m, l),
+           tout << "Lemma not a clause: " << mk_pp(l, m) << "\n";);
+    SASSERT(!lemma->is_ground() || spacer::is_clause(m, l));
+    SASSERT(!is_quantifier(l) || spacer::is_clause(m, to_quantifier(l)->get_expr()));
 
     get_context().log_add_lemma(*this, *lemma);
 
@@ -2357,10 +2359,10 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
         func_decl* pred = dit->m_key;
         TRACE("spacer", tout << mk_pp(pred, m) << "\n";);
         SASSERT(!rels.contains(pred));
-        auto *e = rels.insert_if_not_there2(pred, alloc(pred_transformer, *this,
+        auto* pt = rels.insert_if_not_there(pred, alloc(pred_transformer, *this,
                                                         get_manager(), pred));
         datalog::rule_vector const& pred_rules = *dit->m_value;
-        for (auto rule : pred_rules) {e->get_data().m_value->add_rule(rule);}
+        for (auto rule : pred_rules) {pt->add_rule(rule);}
     }
 
     // Allocate predicate transformers for predicates that are used
@@ -2895,8 +2897,7 @@ expr_ref context::get_answer()
     }
 }
 
-expr_ref context::mk_unsat_answer() const
-{
+expr_ref context::mk_unsat_answer() const {
     expr_ref_vector refs(m);
     vector<relation_info> rs;
     get_level_property(m_inductive_lvl, refs, rs, use_bg_invs());
@@ -2961,7 +2962,7 @@ expr_ref context::get_ground_sat_answer() const {
 }
 
 void context::display_certificate(std::ostream &out) const {
-    switch(m_last_result) {
+    switch (m_last_result) {
     case l_false:
         out << mk_pp(mk_unsat_answer(), m);
         break;

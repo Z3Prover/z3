@@ -72,6 +72,8 @@ void theory_diff_logic<Ext>::init(context * ctx) {
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_term(app * term) {
+    if (!m_consistent)
+        return false;
     bool result = null_theory_var != mk_term(term);
     CTRACE("arith", !result, tout << "Did not internalize " << mk_pp(term, get_manager()) << "\n";);
     if (!result) {
@@ -161,6 +163,8 @@ void theory_diff_logic<Ext>::found_non_diff_logic_expr(expr * n) {
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
+    if (!m_consistent)
+        return false;
     context & ctx = get_context();
     if (!m_util.is_le(n) && !m_util.is_ge(n)) {
         found_non_diff_logic_expr(n);
@@ -341,6 +345,7 @@ void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
     m_scopes.shrink(new_lvl);
     unsigned num_edges = m_graph.get_num_edges();
     m_graph.pop(num_scopes);
+    CTRACE("arith", !m_graph.is_feasible_dbg(), m_graph.display(tout););
     if (num_edges != m_graph.get_num_edges() && m_num_simplex_edges > 0) {
         m_S.reset();
         m_num_simplex_edges = 0;
@@ -492,7 +497,7 @@ template<typename Ext>
 void theory_diff_logic<Ext>::propagate() {
     if (m_params.m_arith_adaptive) {
 
-        switch(m_params.m_arith_propagation_strategy) {
+        switch (m_params.m_arith_propagation_strategy) {
 
         case ARITH_PROP_PROPORTIONAL: {
 
@@ -528,7 +533,7 @@ void theory_diff_logic<Ext>::propagate() {
             break;
         }
         default:
-            UNREACHABLE();
+            SASSERT(false);
             propagate_core();
         }
     }
@@ -539,11 +544,13 @@ void theory_diff_logic<Ext>::propagate() {
 
 template<typename Ext>
 void theory_diff_logic<Ext>::inc_conflicts() {
-     m_stats.m_num_conflicts++;   
-     if (m_params.m_arith_adaptive) {
-         double g = m_params.m_arith_adaptive_propagation_threshold;
-         m_agility = m_agility*g + 1 - g;
-     }
+    get_context().push_trail(value_trail<context, bool>(m_consistent));
+    m_consistent = false;
+    m_stats.m_num_conflicts++;   
+    if (m_params.m_arith_adaptive) {
+        double g = m_params.m_arith_adaptive_propagation_threshold;
+        m_agility = m_agility*g + 1 - g;
+    }
 }
 
 template<typename Ext>
@@ -565,7 +572,9 @@ bool theory_diff_logic<Ext>::propagate_atom(atom* a) {
     }
     int edge_id = a->get_asserted_edge();
     if (!m_graph.enable_edge(edge_id)) {
+        TRACE("arith", display(tout););
         set_neg_cycle_conflict();
+        
         return false;
     }
     return true;
@@ -685,11 +694,8 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     context & ctx = get_context();
     TRACE("arith_conflict", 
           tout << "conflict: ";
-          for (unsigned i = 0; i < lits.size(); ++i) {
-              ctx.display_literal_info(tout, lits[i]);
-          }
-          tout << "\n";
-          );
+          for (literal lit : lits) ctx.display_literal_info(tout, lit);          
+          tout << "\n";);
 
     if (dump_lemmas()) {
         symbol logic(m_lia_or_lra == is_lia ? "QF_LIA" : "QF_LRA");
@@ -741,7 +747,6 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
     context& ctx = get_context();
 
     TRACE("arith", tout << mk_pp(n, get_manager()) << "\n";);
-
 
     rational r;
     if (m_util.is_numeral(n, r)) {
@@ -911,6 +916,7 @@ void theory_diff_logic<Ext>::compute_delta() {
 }
 
 
+
 template<typename Ext>
 void theory_diff_logic<Ext>::init_model(smt::model_generator & m) {
     m_factory = alloc(arith_factory, get_manager());
@@ -923,8 +929,11 @@ template<typename Ext>
 model_value_proc * theory_diff_logic<Ext>::mk_value(enode * n, model_generator & mg) {
     theory_var v = n->get_th_var(get_id());
     SASSERT(v != null_theory_var);
-    numeral val = m_graph.get_assignment(v);
-    rational num = val.get_rational().to_rational() + m_delta * val.get_infinitesimal().to_rational();
+    rational num;
+    if (!m_util.is_numeral(n->get_owner(), num)) {
+        numeral val = m_graph.get_assignment(v);
+        num = val.get_rational().to_rational() + m_delta * val.get_infinitesimal().to_rational();
+    }
     TRACE("arith", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
     return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, m_util.is_int(n->get_owner())));
 }
@@ -932,17 +941,19 @@ model_value_proc * theory_diff_logic<Ext>::mk_value(enode * n, model_generator &
 
 template<typename Ext>
 void theory_diff_logic<Ext>::display(std::ostream & out) const {
-    for (unsigned i = 0; i < m_atoms.size(); ++i) {
-        m_atoms[i]->display(*this, out);
+    out << "atoms\n";
+    for (atom* a : m_atoms) {
+        a->display(*this, out) << "\n";
     }
+    out << "graph\n";
     m_graph.display(out);
 }
 
 template<typename Ext>
-bool theory_diff_logic<Ext>::is_consistent() const {
+bool theory_diff_logic<Ext>::is_consistent() const {    
     DEBUG_CODE(
         context& ctx = get_context();
-        for (unsigned i = 0; m_graph.is_feasible() && i < m_atoms.size(); ++i) {
+        for (unsigned i = 0; m_graph.is_feasible_dbg() && i < m_atoms.size(); ++i) {
             atom* a = m_atoms[i];
             bool_var bv = a->get_bool_var();
             lbool asgn = ctx.get_assignment(bv);        
@@ -953,7 +964,7 @@ bool theory_diff_logic<Ext>::is_consistent() const {
                 SASSERT(m_graph.is_feasible(edge_id));
             }
         });
-    return m_graph.is_feasible();
+    return m_consistent;
 }
 
 
@@ -1147,6 +1158,8 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
     }
     S.set_lower(node2simplex(get_zero(true)), mpq_inf(mpq(0), mpq(0)));
     S.set_upper(node2simplex(get_zero(true)), mpq_inf(mpq(0), mpq(0)));
+    S.set_lower(node2simplex(get_zero(false)), mpq_inf(mpq(0), mpq(0)));
+    S.set_upper(node2simplex(get_zero(false)), mpq_inf(mpq(0), mpq(0)));
     svector<unsigned> vars;
     scoped_mpq_vector coeffs(mgr);
     coeffs.push_back(mpq(1));
@@ -1212,6 +1225,8 @@ typename theory_diff_logic<Ext>::inf_eps theory_diff_logic<Ext>::value(theory_va
      return r;
 }
 
+
+
 template<typename Ext>
 typename theory_diff_logic<Ext>::inf_eps 
 theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
@@ -1220,6 +1235,9 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
     has_shared = false;
     Simplex& S = m_S;
     ast_manager& m = get_manager();
+
+    CTRACE("arith",!m_graph.is_feasible_dbg(), m_graph.display(tout););
+    SASSERT(m_graph.is_feasible_dbg());
 
     update_simplex(S);
 
@@ -1232,7 +1250,12 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
           tout << "Free coefficient " << m_objective_consts[v] << "\n";
           );
 
-    TRACE("opt", S.display(tout); display(tout););
+    TRACE("opt", 
+          S.display(tout); 
+          for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i)
+              tout << "$" << i << ": " << node2simplex(i) << "\n";
+          display(tout);
+          );
     
     // optimize    
     lbool is_sat = S.make_feasible();
@@ -1249,8 +1272,6 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
         simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
         inf_rational r(-rational(val.first), -rational(val.second));
         Simplex::row row = m_objective_rows[v];
-        TRACE("opt", tout << r << " " << "\n"; 
-              S.display_row(tout, row, true););
         Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
         expr_ref_vector& core = m_objective_assignments[v];
         expr_ref tmp(m);
@@ -1266,13 +1287,21 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
                 }
             }
         }
-        compute_delta();
+        ensure_rational_solution(S);
+        TRACE("opt", tout << r << " " << "\n"; 
+              S.display_row(tout, row, true);
+              S.display(tout);
+              );
+
         for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i) {
             unsigned w = node2simplex(i);
-            simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
-            rational r = rational(val.first) + m_delta*rational(val.second);
+            auto const& val = S.get_value(w);
+            SASSERT(rational(val.second).is_zero());
+            rational r = rational(val.first);
             m_graph.set_assignment(i, numeral(r));
         }
+        CTRACE("arith",!m_graph.is_feasible_dbg(), m_graph.display(tout););
+        SASSERT(m_graph.is_feasible_dbg());
         inf_eps r1(rational(0), r);
         blocker = mk_gt(v, r1);
         return inf_eps(rational(0), r + m_objective_consts[v]);
@@ -1416,7 +1445,7 @@ bool theory_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, 
 
 template<typename Ext>
 theory* theory_diff_logic<Ext>::mk_fresh(context* new_ctx) {
-    return alloc(theory_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
+    return alloc(theory_diff_logic<Ext>, new_ctx->get_manager(), new_ctx->get_fparams());
 }
 
 template<typename Ext>

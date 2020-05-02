@@ -396,7 +396,6 @@ class theory_lra::imp {
         lp().settings().print_statistics = lpar.arith_print_stats();
 
         // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
-        lp().settings().set_branch_flip(lpar.arith_branch_flip());
         unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
         lp().set_cut_strategy(branch_cut_ratio);
         

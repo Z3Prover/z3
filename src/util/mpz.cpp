@@ -122,9 +122,11 @@ uint64_t u64_gcd(uint64_t u, uint64_t v) {
 }
 
 
+
 template<bool SYNCH>
 mpz_manager<SYNCH>::mpz_manager():
     m_allocator("mpz_manager") {
+
 #ifndef _MP_GMP
     if (sizeof(digit_t) == sizeof(uint64_t)) {
         // 64-bit machine
