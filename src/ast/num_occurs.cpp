@@ -61,7 +61,7 @@ void num_occurs::process(expr * t, expr_fast_mark1 & visited) {
 
 void num_occurs::validate() {
     for (auto & kv : m_num_occurs) {
-        SASSERT(0 < kv.m_key->get_ref_count());
+        VERIFY(0 < kv.m_key->get_ref_count());
     }
 }
 
