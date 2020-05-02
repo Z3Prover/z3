@@ -764,11 +764,17 @@ namespace smt {
 
        Therefore:
        
-       epsilon <= (n_y + n_c - n_x) / (k_x - k_y - k_c)
+       epsilon <= (n_y + n_c - n_x) / 2*(k_x - k_y - k_c)
+
+       Division by 2 is introduced to avoid introducing new equalities.
+       Consider when n_x = n_y = k_x = k_y = 0, n_c = 4, k_c = -1,
+       then n_c / -k_c = n_c, hence setting epsilon to n_c introduces a value
+       that is not smaller than the smallest integral difference.
     */
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::compute_epsilon() {
         m_epsilon = rational(1, 2);
+        TRACE("ddl", display(tout););
         typename edges::const_iterator it  = m_edges.begin();
         typename edges::const_iterator end = m_edges.end();
         // first edge is null
@@ -783,11 +789,15 @@ namespace smt {
             rational k_y = m_assignment[e.m_source].get_infinitesimal().to_rational();
             rational n_c = e.m_offset.get_rational().to_rational();
             rational k_c = e.m_offset.get_infinitesimal().to_rational();
-            TRACE("epsilon", tout << "(n_x,k_x): " << n_x << ", " << k_x << ", (n_y,k_y): " << n_y << ", " << k_y << ", (n_c,k_c): " << n_c << ", " << k_c << "\n";);
+            TRACE("ddl",
+                  tout << e.m_source << " - " << e.m_target << " <= " << e.m_offset << "\n";
+                  tout << "(n_x,k_x): " << n_x << ", " << k_x << 
+                  ", (n_y,k_y): " << n_y << ", " << k_y << 
+                  ", (n_c,k_c): " << n_c << ", " << k_c << "\n";);
             if (n_x < n_y + n_c && k_x > k_y + k_c) {
-                rational new_epsilon = (n_y + n_c - n_x) / (k_x - k_y - k_c);
+                rational new_epsilon = (n_y + n_c - n_x) / (2*(k_x - k_y - k_c));
                 if (new_epsilon < m_epsilon) {
-                    TRACE("epsilon", tout << "new epsilon: " << new_epsilon << "\n";);
+                    TRACE("ddl", tout << "new epsilon: " << new_epsilon << "\n";);
                     m_epsilon = new_epsilon;
                 }
             }
