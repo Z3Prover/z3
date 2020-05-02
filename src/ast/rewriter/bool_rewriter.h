@@ -215,6 +215,7 @@ public:
     void mk_nor(unsigned num_args, expr * const * args, expr_ref & result);
     void mk_nand(expr * arg1, expr * arg2, expr_ref & result);
     void mk_nor(expr * arg1, expr * arg2, expr_ref & result);
+    void mk_ge2(expr* a, expr* b, expr* c, expr_ref& result);
 };
 
 struct bool_rewriter_cfg : public default_rewriter_cfg {

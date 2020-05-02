@@ -44,6 +44,7 @@ public:
     void mk_and(expr * a, expr * b, expr_ref & r) { m_rw.mk_and(a, b, r); }
     void mk_and(expr * a, expr * b, expr * c, expr_ref & r) { m_rw.mk_and(a, b, c, r); }
     void mk_and(unsigned sz, expr * const * args, expr_ref & r) { m_rw.mk_and(sz, args, r); }
+    void mk_ge2(expr* a, expr* b, expr* c, expr_ref& r) { m_rw.mk_ge2(a, b, c, r); }
     void mk_or(expr * a, expr * b, expr_ref & r) { m_rw.mk_or(a, b, r); }
     void mk_or(expr * a, expr * b, expr * c, expr_ref & r) { m_rw.mk_or(a, b, c, r); }
     void mk_or(unsigned sz, expr * const * args, expr_ref & r) { m_rw.mk_or(sz, args, r); }

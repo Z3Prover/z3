@@ -64,6 +64,7 @@ struct blaster_cfg {
     void mk_ite(expr * c, expr * t, expr * e, expr_ref & r) { m_rewriter.mk_ite(c, t, e, r); }
     void mk_nand(expr * a, expr * b, expr_ref & r) { m_rewriter.mk_nand(a, b, r); }
     void mk_nor(expr * a, expr * b, expr_ref & r) { m_rewriter.mk_nor(a, b, r); }
+    void mk_ge2(expr * a, expr * b, expr * c, expr_ref& r) { m_rewriter.mk_ge2(a, b, c, r); }
 };
 
 class blaster : public bit_blaster_tpl<blaster_cfg> {

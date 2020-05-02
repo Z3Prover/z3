@@ -36,6 +36,7 @@ static void sort_args(expr * & l1, expr * & l2, expr * & l3) {
     l1 = args[0]; l2 = args[1]; l3 = args[2];
 }
 
+
 void bit_blaster_cfg::mk_xor3(expr * l1, expr * l2, expr * l3, expr_ref & r) {
     TRACE("xor3", tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
     sort_args(l1, l2, l3);
