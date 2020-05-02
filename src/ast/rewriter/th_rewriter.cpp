@@ -698,11 +698,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 p1 = m().mk_pull_quant(old_q, q1);
             }
         }
-        else if (
-                 old_q->get_kind() == lambda_k &&
+        else if (old_q->get_kind() == lambda_k &&
                  is_ground(new_body)) {
             result = m_ar_rw.util().mk_const_array(old_q->get_sort(), new_body);
-            result_pr = nullptr;
+            if (m().proofs_enabled()) {
+                result_pr = m().mk_rewrite(old_q, result);
+            }
             return true;
         }
         else {
