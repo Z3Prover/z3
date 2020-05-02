@@ -889,6 +889,7 @@ void theory_diff_logic<Ext>::reset_eh() {
 template<typename Ext>
 void theory_diff_logic<Ext>::compute_delta() {
     m_delta = rational(1);
+    m_graph.set_to_zero(get_zero(true), get_zero(false));
     unsigned num_edges = m_graph.get_num_edges();
     for (unsigned i = 0; i < num_edges; ++i) {
         if (!m_graph.is_enabled(i)) {
@@ -903,12 +904,12 @@ void theory_diff_logic<Ext>::compute_delta() {
         rational k_y = m_graph.get_assignment(src).get_infinitesimal().to_rational();
         rational n_c = w.get_rational().to_rational();
         rational k_c = w.get_infinitesimal().to_rational();
-        TRACE("epsilon", tout << "(n_x,k_x): " << n_x << ", " << k_x << ", (n_y,k_y): " 
+        TRACE("arith", tout << "(n_x,k_x): " << n_x << ", " << k_x << ", (n_y,k_y): " 
               << n_y << ", " << k_y << ", (n_c,k_c): " << n_c << ", " << k_c << "\n";);
         if (n_x < n_y + n_c && k_x > k_y + k_c) {
-            rational new_delta = (n_y + n_c - n_x) / (k_x - k_y - k_c);
+            rational new_delta = (n_y + n_c - n_x) / (2*(k_x - k_y - k_c));
             if (new_delta < m_delta) {
-                TRACE("epsilon", tout << "new delta: " << new_delta << "\n";);
+                TRACE("arith", tout << "new delta: " << new_delta << "\n";);
                 m_delta = new_delta;
             }
         }

@@ -969,7 +969,7 @@ namespace smt {
             if (eps_r.is_pos()) {
                 rational num_r = -b.get_rational();
                 SASSERT(num_r.is_pos());
-                rational new_delta = num_r/eps_r;
+                rational new_delta = num_r/2*eps_r;
                 if (new_delta < m_delta) {
                     m_delta = new_delta;
                 }
