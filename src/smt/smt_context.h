@@ -735,6 +735,10 @@ namespace smt {
 
         bool ts_visit_children(expr * n, bool gate_ctx, svector<int> & tcolors, svector<int> & fcolors, svector<expr_bool_pair> & todo);
 
+        svector<expr_bool_pair> ts_todo;
+        svector<int>      tcolors;
+        svector<int>      fcolors;
+
         void top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs);
 
         void assert_default(expr * n, proof * pr);
