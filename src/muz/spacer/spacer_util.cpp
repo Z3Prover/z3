@@ -409,10 +409,11 @@ namespace {
                 }
             }
 
+            
             if (!m_model.is_true(res)) {
-                verbose_stream() << "Bad literal: " << res << "\n";
+                IF_VERBOSE(2, verbose_stream() 
+                           << "(spacer-model-anomaly: " << res << ")\n";
             }
-            SASSERT(m_model.is_true(res));
             out.push_back(res);
         }
 
