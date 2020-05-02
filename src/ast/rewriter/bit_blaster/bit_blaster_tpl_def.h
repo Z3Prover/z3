@@ -1101,23 +1101,17 @@ template<typename Cfg>
 template<bool Signed>
 void bit_blaster_tpl<Cfg>::mk_le(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref & out) {
     SASSERT(sz > 0);
-    expr_ref i1(m()), i2(m()), i3(m()), not_a(m());
+    expr_ref not_a(m());
     mk_not(a_bits[0], not_a);
     mk_or(not_a, b_bits[0], out);
     for (unsigned idx = 1; idx < (Signed ? sz - 1 : sz); idx++) {
         mk_not(a_bits[idx], not_a);
-        mk_and(not_a,       b_bits[idx], i1);
-        mk_and(not_a,       out,         i2);
-        mk_and(b_bits[idx], out,         i3);
-        mk_or(i1, i2, i3, out);
+        mk_ge2(not_a, b_bits[idx], out, out);
     }
     if (Signed) {
         expr_ref not_b(m());
         mk_not(b_bits[sz-1], not_b);
-        mk_and(not_b,        a_bits[sz-1], i1);
-        mk_and(not_b,        out,          i2);
-        mk_and(a_bits[sz-1], out,          i3);
-        mk_or(i1, i2, i3, out);
+        mk_ge2(not_b, a_bits[sz-1], out, out);
     }
 }
 
