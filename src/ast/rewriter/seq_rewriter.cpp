@@ -691,15 +691,12 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         return BR_REWRITE3;
     }
 #if 0
-    expr* s = nullptr, *offs = nullptr, *l = nullptr;
-    // len(extract(s, offs, len(s) - offs)) = max(0, len(s) - offs)
-    // 
-    if (m_util.str.is_extract(a, s, offs, l) && is_suffix(s, offs, l)) {
-        result = m_autil.mk_sub(m_util.str.mk_length(s), offs);
-        result = m().mk_ite(m_autil.mk_ge(result, zero()), result, zero());
-        return BR_REWRITE_FULL;
+    if (m().is_ite(a, c, t, e) && (get_depth(t) <= 2 || get_depth(e) <= 2)) {
+        result = m().mk_ite(c, m_util.str.mk_length(t), m_util.str.mk_length(e));
+        return BR_REWRITE3;
     }
 #endif
+    
     return BR_FAILED;
 }
 
@@ -774,6 +771,21 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     bool lengthPos   = m_util.str.is_length(b) || m_autil.is_add(b);
     sort* a_sort = m().get_sort(a);
 
+    expr* cond = nullptr, *t = nullptr, *e = nullptr;
+#if 0
+    if (m().is_ite(a, cond, t, e) && (get_depth(t) <= 2 || get_depth(e) <= 2)) {
+        result = m().mk_ite(cond, m_util.str.mk_substr(t, b, c), m_util.str.mk_substr(e, b, c));
+        return BR_REWRITE3;
+    }
+    if (m().is_ite(b, cond, t, e) && (get_depth(t) <= 2 || get_depth(e) <= 2)) {
+        result = m().mk_ite(cond, m_util.str.mk_substr(a, t, c), m_util.str.mk_substr(a, e, c));
+        return BR_REWRITE3;
+    }
+    if (m().is_ite(c, cond, t, e) && (get_depth(t) <= 2 || get_depth(e) <= 2)) {
+        result = m().mk_ite(cond, m_util.str.mk_substr(a, b, t), m_util.str.mk_substr(a, b, e));
+        return BR_REWRITE3;
+    }
+#endif
     sign sg;
     if (sign_is_determined(c, sg) && sg == sign_neg) {
         result = m_util.str.mk_empty(a_sort);
