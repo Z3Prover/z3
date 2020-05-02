@@ -97,8 +97,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     TYPE_OBJ(config)
         .method("set", static_cast<void (config::*)(char const *, char const *)>(&config::set))
-        .method("set", [](config &a, char const *b, const jlcxx::StrictlyTypedNumber<bool> &c) { return a.set(b, c.value); })
-        .method("set", [](config &a, char const *b, const jlcxx::StrictlyTypedNumber<int>  &c) { return a.set(b, c.value); });
+        .method("set", static_cast<void (config::*)(char const *, bool)>(&config::set))
+        .method("set", static_cast<void (config::*)(char const *, int)>(&config::set));
 
     // -------------------------------------------------------------------------
 
@@ -377,8 +377,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method("set", static_cast<void (solver::*)(char const *, double)>(&solver::set))
         .method("set", static_cast<void (solver::*)(char const *, symbol const &)>(&solver::set))
         .method("set", static_cast<void (solver::*)(char const *, char const *)>(&solver::set))
-        .method("set", [](solver &a, char const *b, const jlcxx::StrictlyTypedNumber<bool>     &c) { return a.set(b, c.value); })
-        .method("set", [](solver &a, char const *b, const jlcxx::StrictlyTypedNumber<unsigned> &c) { return a.set(b, c.value); })
+        .method("set", static_cast<void (solver::*)(char const *, bool)>(&solver::set))
+        .method("set", static_cast<void (solver::*)(char const *, unsigned)>(&solver::set))
         .MM(solver, push)
         .MM(solver, pop)
         .MM(solver, reset)
@@ -475,8 +475,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     TYPE_OBJ(params)
         .constructor<context &>()
-        .method("set", [](params &a, char const *b, const jlcxx::StrictlyTypedNumber<bool>     &c) { return a.set(b, c.value); })
-        .method("set", [](params &a, char const *b, const jlcxx::StrictlyTypedNumber<unsigned> &c) { return a.set(b, c.value); })
+        .method("set", static_cast<void (params::*)(char const *, bool)>(&params::set))
+        .method("set", static_cast<void (params::*)(char const *, unsigned)>(&params::set))
         .method("set", static_cast<void (params::*)(char const *, double)>(&params::set))
         .method("set", static_cast<void (params::*)(char const *, symbol const &)>(&params::set))
         .method("set", static_cast<void (params::*)(char const *, char const *)>(&params::set))
@@ -591,9 +591,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     // -------------------------------------------------------------------------
 
-    m.method("set_param", [](char const *a, const jlcxx::StrictlyTypedNumber<bool> &b) { return set_param(a, b.value); });
-    m.method("set_param", [](char const *a, const jlcxx::StrictlyTypedNumber<int>  &b) { return set_param(a, b.value); });
-    m.method("set_param", static_cast<void (*)(char const * param, char const * value)>(&set_param));
+    m.method("set_param", static_cast<void (*)(char const *, bool)>(&set_param));
+    m.method("set_param", static_cast<void (*)(char const *, int)>(&set_param));
+    m.method("set_param", static_cast<void (*)(char const *, char const *)>(&set_param));
     m.method("reset_params", &reset_params);
 
     // -------------------------------------------------------------------------
@@ -601,8 +601,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     TYPE_OBJ(context)
         .constructor<config &>()
         .method("set", static_cast<void (context::*)(char const *, char const *)>(&context::set))
-        .method("set", [](context &a, char const *b, const jlcxx::StrictlyTypedNumber<bool> &c) { return a.set(b, c.value); })
-        .method("set", [](context &a, char const *b, const jlcxx::StrictlyTypedNumber<int>  &c) { return a.set(b, c.value); })
+        .method("set", static_cast<void (context::*)(char const *, bool)>(&context::set))
+        .method("set", static_cast<void (context::*)(char const *, int)>(&context::set))
         //
         .MM(context, interrupt)
         //
@@ -681,23 +681,23 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         //
         .MM(context, bool_val)
         //
-        .method("int_val", [](context &a, const jlcxx::StrictlyTypedNumber<int>      &b) { return a.int_val(b.value); })
-        .method("int_val", [](context &a, const jlcxx::StrictlyTypedNumber<unsigned> &b) { return a.int_val(b.value); })
-        .method("int_val", [](context &a, const jlcxx::StrictlyTypedNumber<int64_t>  &b) { return a.int_val(b.value); })
-        .method("int_val", [](context &a, const jlcxx::StrictlyTypedNumber<uint64_t> &b) { return a.int_val(b.value); })
+        .method("int_val", [](context &a, const jlcxx::StrictlyTypedNumber<int>      b) { return a.int_val(b.value); })
+        .method("int_val", [](context &a, const jlcxx::StrictlyTypedNumber<unsigned> b) { return a.int_val(b.value); })
+        .method("int_val", [](context &a, const jlcxx::StrictlyTypedNumber<int64_t>  b) { return a.int_val(b.value); })
+        .method("int_val", [](context &a, const jlcxx::StrictlyTypedNumber<uint64_t> b) { return a.int_val(b.value); })
         .method("int_val", static_cast<expr (context::*)(char const *)>(&context::int_val))
         //
-        .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<int>      &b) { return a.real_val(b.value); })
-        .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<unsigned> &b) { return a.real_val(b.value); })
-        .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<int64_t>  &b) { return a.real_val(b.value); })
-        .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<uint64_t> &b) { return a.real_val(b.value); })
+        .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<int>      b) { return a.real_val(b.value); })
+        .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<unsigned> b) { return a.real_val(b.value); })
+        .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<int64_t>  b) { return a.real_val(b.value); })
+        .method("real_val", [](context &a, const jlcxx::StrictlyTypedNumber<uint64_t> b) { return a.real_val(b.value); })
         .method("real_val", static_cast<expr (context::*)(int, int)>(&context::real_val))
         .method("real_val", static_cast<expr (context::*)(char const *)>(&context::real_val))
         //
-        .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<int>      &b, const jlcxx::StrictlyTypedNumber<unsigned> &c) { return a.bv_val(b.value, c.value); })
-        .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<unsigned> &b, const jlcxx::StrictlyTypedNumber<unsigned> &c) { return a.bv_val(b.value, c.value); })
-        .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<int64_t>  &b, const jlcxx::StrictlyTypedNumber<unsigned> &c) { return a.bv_val(b.value, c.value); })
-        .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<uint64_t> &b, const jlcxx::StrictlyTypedNumber<unsigned> &c) { return a.bv_val(b.value, c.value); })
+        .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<int>      b, unsigned c) { return a.bv_val(b.value, c); })
+        .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<unsigned> b, unsigned c) { return a.bv_val(b.value, c); })
+        .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<int64_t>  b, unsigned c) { return a.bv_val(b.value, c); })
+        .method("bv_val", [](context &a, const jlcxx::StrictlyTypedNumber<uint64_t> b, unsigned c) { return a.bv_val(b.value, c); })
         .method("bv_val", static_cast<expr (context::*)(char const *, unsigned)>(&context::bv_val))
         .method("bv_val", static_cast<expr (context::*)(unsigned, bool const *)>(&context::bv_val))
         //
