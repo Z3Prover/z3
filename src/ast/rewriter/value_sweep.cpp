@@ -47,6 +47,8 @@ void value_sweep::reset_values() {
 }
 
 expr* value_sweep::get_value(expr* e) const {
+    if (m.is_value(e))
+        return e;
     if (m_values.size() <= e->get_id())
         return nullptr;
     return m_values[e->get_id()];
@@ -132,8 +134,9 @@ void value_sweep::init(expr_ref_vector const& terms) {
     for (expr* t : subterms(terms)) {
         if (!is_app(t)) 
             continue;
-        for (expr* arg : *to_app(t)) 
+        for (expr* arg : *to_app(t)) {
             m_parents[arg->get_id()].push_back(to_app(t));
+        }
     }
 }
 
@@ -156,5 +159,5 @@ void value_sweep::operator()(expr_ref_vector const& terms,
         values.push_back(vec);
         unassign(qhead);
     }
-    unassign(qhead0);
+    unassign(qhead0); 
 }
