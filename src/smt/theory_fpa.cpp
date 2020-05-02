@@ -388,16 +388,15 @@ namespace smt {
         context & ctx = get_context();
 
         expr_ref res(m), t(m);
+        expr_ref_vector fmls(m);
         proof_ref t_pr(m);
-        res = m.mk_true();
 
-        expr_ref_vector::iterator it = m_converter.m_extra_assertions.begin();
-        expr_ref_vector::iterator end = m_converter.m_extra_assertions.end();
-        for (; it != end; it++) {
-            ctx.get_rewriter()(*it, t, t_pr);
-            res = m.mk_and(res, t);
+        for (expr* arg : m_converter.m_extra_assertions) {
+            ctx.get_rewriter()(arg, t, t_pr);
+            fmls.push_back(t);
         }
         m_converter.m_extra_assertions.reset();
+        res = m.mk_and(fmls);
 
         m_th_rw(res);
 

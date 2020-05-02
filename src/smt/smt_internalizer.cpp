@@ -126,10 +126,7 @@ namespace smt {
         if (!def_int) {
             ptr_buffer<expr> descendants;
             get_foreign_descendants(to_app(n), fid, descendants);
-            ptr_buffer<expr>::iterator it  = descendants.begin();
-            ptr_buffer<expr>::iterator end = descendants.end();
-            for (; it != end; ++it) {
-                expr * arg = *it;
+            for (expr * arg : descendants) {
                 ts_visit_child(arg, false, tcolors, fcolors, todo, visited);
             }
             return visited;
@@ -154,27 +151,27 @@ namespace smt {
     }
 
     void context::top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs) {
-        svector<expr_bool_pair> todo;
-        svector<int>      tcolors;
-        svector<int>      fcolors;
-        todo.push_back(expr_bool_pair(n, true));
-        while (!todo.empty()) {
-            expr_bool_pair & p = todo.back();
+        ts_todo.reset();
+        tcolors.reset();
+        fcolors.reset();
+        ts_todo.push_back(expr_bool_pair(n, true));
+        while (!ts_todo.empty()) {
+            expr_bool_pair & p = ts_todo.back();
             expr * curr        = p.first;
             bool   gate_ctx    = p.second;
             switch (get_color(tcolors, fcolors, curr, gate_ctx)) {
             case White:
                 set_color(tcolors, fcolors, curr, gate_ctx, Grey);
-                ts_visit_children(curr, gate_ctx, tcolors, fcolors, todo);
+                ts_visit_children(curr, gate_ctx, tcolors, fcolors, ts_todo);
                 break;
             case Grey:
-                SASSERT(ts_visit_children(curr, gate_ctx, tcolors, fcolors, todo));
+                SASSERT(ts_visit_children(curr, gate_ctx, tcolors, fcolors, ts_todo));
                 set_color(tcolors, fcolors, curr, gate_ctx, Black);
                 if (n != curr && !m.is_not(curr))
                     sorted_exprs.push_back(expr_bool_pair(curr, gate_ctx));
                 break;
             case Black:
-                todo.pop_back();
+                ts_todo.pop_back();
                 break;
             default:
                 UNREACHABLE();
@@ -185,7 +182,7 @@ namespace smt {
 #define DEEP_EXPR_THRESHOLD 1024
 
     void context::internalize_deep(expr* n) {
-        if (::get_depth(n) > DEEP_EXPR_THRESHOLD) {
+        if (!e_internalized(n) && ::get_depth(n) > DEEP_EXPR_THRESHOLD) {
             // if the expression is deep, then execute topological sort to avoid
             // stack overflow.
             // a caveat is that theory internalizers do rely on recursive descent so
