@@ -510,10 +510,14 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         return BR_REWRITE2;
     }
 
-    // (bvule c (+ c a)) -> (bvule a (2^n - c))  (could be generalized)
-    if (!is_signed && is_num1 && m_util.is_bv_add(b, a1, a2) && is_numeral(a1, r2, sz) && r1 == r2) {
-        result = m_util.mk_ule(a2, m_util.mk_numeral(-r1, sz));
-        return BR_REWRITE1;
+    // (bvule r1 (+ r2 a)) -> 
+    // for r1 = r2, (bvule a (2^n - r2 - 1)) 
+    // other cases r1 > r2, r1 < r2 are TBD
+    if (!is_signed && is_num1 && m_util.is_bv_add(b, a1, a2) && is_numeral(a1, r2, sz)) {
+        if (r1 == r2) {
+            result = m_util.mk_ule(a2, m_util.mk_numeral(-r2 - 1, sz));
+            return BR_REWRITE1;
+        }
     }
         
     if (m_le_extra) {
