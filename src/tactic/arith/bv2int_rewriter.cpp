@@ -231,6 +231,9 @@ br_status bv2int_rewriter::mk_idiv(expr * arg1, expr * arg2, expr_ref & result) 
  
 br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
     expr_ref s1(m()), s2(m()), t1(m());
+    rational r;
+    if (!m_arith.is_numeral(t, r) || !r.is_pos())
+        return BR_FAILED;
     if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
         align_sizes(s1, t1, false);
         result = m_bv.mk_bv2int(m_bv.mk_bv_urem(s1, t1));
