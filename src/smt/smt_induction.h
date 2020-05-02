@@ -84,14 +84,15 @@ namespace smt {
         typedef vector<abstraction_arg> abstraction_args;
 
         bool viable_induction_sort(sort* s);
-        bool viable_induction_parent(enode* n);
-        bool viable_induction_term(enode* n);
-        bool viable_induction_position(enode* n);
+        bool viable_induction_parent(enode* p, enode* n);
+        bool viable_induction_children(enode* n);
+        bool viable_induction_term(enode* p , enode* n);
         enode_vector induction_positions(enode* n);
         void abstract(enode* n, enode* t, expr* x, abstractions& result);
         void abstract1(enode* n, enode* t, expr* x, abstractions& result);
         void filter_abstractions(bool sign, abstractions& abs);
-        void create_lemmas(expr* t, expr* sk, abstraction& a, literal lit);
+        void create_lemmas(expr* sk, abstraction& a, literal lit);
+        void create_hypotheses(unsigned depth, expr* sk0, expr_ref& alpha, expr* sk, literal_vector& lits);
         literal mk_literal(expr* e);
         void add_th_lemma(literal_vector const& lits);
 
