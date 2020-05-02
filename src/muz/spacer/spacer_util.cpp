@@ -412,7 +412,7 @@ namespace {
             
             if (!m_model.is_true(res)) {
                 IF_VERBOSE(2, verbose_stream() 
-                           << "(spacer-model-anomaly: " << res << ")\n";
+                           << "(spacer-model-anomaly: " << res << ")\n");
             }
             out.push_back(res);
         }
