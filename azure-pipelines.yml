@@ -156,11 +156,9 @@ jobs:
          cd ..
       condition: eq(variables['runTests'], 'True')
     - template: scripts/test-examples-cmake.yml
-      condition: eq(variables['runTests'], 'True')
 #   - template: scripts/test-jupyter.yml
 #   - template: scripts/test-java-cmake.yml
     - template: scripts/test-regressions.yml
-      condition: eq(variables['runTests'], 'True')
 
 - job: "WindowsLatest"
   displayName: "Windows Latest build"
