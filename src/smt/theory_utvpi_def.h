@@ -853,6 +853,7 @@ namespace smt {
             CTRACE("utvpi", !ok, 
                    tout << "validation failed:\n";
                    tout << "Assignment: " << assign << "\n";
+                   tout << mk_pp(e, get_manager()) << "\n";
                    a.display(*this, tout);
                    tout << "\n";
                    display(tout);
@@ -915,7 +916,7 @@ namespace smt {
 
 
     template<typename Ext>    
-        rational theory_utvpi<Ext>::mk_value(th_var v, bool is_int) {
+    rational theory_utvpi<Ext>::mk_value(th_var v, bool is_int) {
         SASSERT(v != null_theory_var);
         numeral val1 = m_graph.get_assignment(to_var(v));
         numeral val2 = m_graph.get_assignment(neg(to_var(v)));
@@ -945,7 +946,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_utvpi<Ext>::compute_delta() {
-        m_delta = rational(1);
+        m_delta = rational(1,4);
         unsigned sz = m_graph.get_num_edges();
 
         for (unsigned i = 0; i < sz; ++i) {
@@ -969,7 +970,7 @@ namespace smt {
             if (eps_r.is_pos()) {
                 rational num_r = -b.get_rational();
                 SASSERT(num_r.is_pos());
-                rational new_delta = num_r/2*eps_r;
+                rational new_delta = num_r/4*eps_r;
                 if (new_delta < m_delta) {
                     m_delta = new_delta;
                 }
