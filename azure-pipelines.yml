@@ -160,10 +160,12 @@ jobs:
          ./test-z3 -a
          cd ..
       condition: eq(variables['runTests'], 'True')
-    - template: scripts/test-examples-cmake.yml
+    - ${{if eq(variables['runTests'], 'True')}}:
+      - template: scripts/test-examples-cmake.yml
 #   - template: scripts/test-jupyter.yml
 #   - template: scripts/test-java-cmake.yml
-    - template: scripts/test-regressions.yml
+    - ${{if eq(variables['runTests'], 'True')}}:
+      - template: scripts/test-regressions.yml
 
 - job: "WindowsLatest"
   displayName: "Windows Latest build"
@@ -189,11 +191,11 @@ jobs:
         setupCmd2: ''
         bindings: ''
         runTests: 'False'
-      julia:
+      Julia:
         arch: 'x64'
         setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
         setupCmd2: 'set JlCxxDir= $(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
-        bindings:  '-DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True'
+        bindings:  '-DJlCxx_DIR=%JlCxxDir%/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True'
         runTests:  'False'
   steps:
     - script: md build
