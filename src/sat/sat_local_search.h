@@ -122,7 +122,7 @@ namespace sat {
         struct constraint {
             unsigned        m_id;
             unsigned        m_k;
-            int             m_slack;
+            int64_t         m_slack;
             unsigned        m_size;
             literal_vector  m_literals;
             constraint(unsigned k, unsigned id) : m_id(id), m_k(k), m_slack(0), m_size(0) {}
@@ -196,8 +196,8 @@ namespace sat {
         inline bool is_unit(literal l) const { return m_vars[l.var()].m_unit; }
 
         unsigned num_constraints() const { return m_constraints.size(); } // constraint index from 1 to num_constraint
-
-        unsigned constraint_slack(unsigned ci) const { return m_constraints[ci].m_slack; }
+        
+        uint64_t constraint_slack(unsigned ci) const { return m_constraints[ci].m_slack; }
         
         void init();
         void reinit();
@@ -221,7 +221,7 @@ namespace sat {
         void verify_slack(constraint const& c) const;
         void verify_slack() const;
         bool verify_goodvar() const;
-        unsigned constraint_value(constraint const& c) const;
+        uint64_t constraint_value(constraint const& c) const;
         unsigned constraint_coeff(constraint const& c, literal l) const;
         void print_info(std::ostream& out);
         void extract_model();
