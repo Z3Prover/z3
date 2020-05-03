@@ -95,6 +95,21 @@ jobs:
 #   - template: scripts/test-regressions.yml
 
 
+- job: "LinuxJulia"
+  displayName: "Ubuntu build - cmake"
+  pool:
+    vmImage: "Ubuntu-16.04"
+  steps:
+    - script: sudo apt-get install ninja-build 
+    - script: |
+        julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"
+        JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
+        CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -G "Ninja" ../
+        set -e
+        mkdir build
+        cd build
+        ninja
+  
 - job: "LinuxCMake"
   displayName: "Ubuntu build - cmake"
   pool:
@@ -113,6 +128,7 @@ jobs:
       releaseSTGcc:
         cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
         runUnitTest: 'True'
+        
 #      gccX86:
 #        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
 #        runUnitTest: 'True'
