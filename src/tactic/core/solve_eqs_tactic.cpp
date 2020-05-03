@@ -173,16 +173,6 @@ class solve_eqs_tactic : public tactic {
             return false;
         }
         
-#if 0
-        bool not_bool_eq(expr * f, app_ref & var, expr_ref & def, proof_ref & pr) {
-            if (!m().is_not(f))
-                return false;
-            expr * eq = to_app(f)->get_arg(0);
-            if (!m().is_eq(f))
-                return false;
-            
-        }
-#endif
         
         /**
            \brief Given t of the form (f s_0 ... s_n), 
@@ -376,12 +366,7 @@ class solve_eqs_tactic : public tactic {
             if (m().is_eq(f, arg1, arg2)) {
                 return solve_eq(arg1, arg2, f, var, def, pr);
             }
-                        
-#if 0
-            if (not_bool_eq(f, var, def, pr))
-                return true;
-#endif
-            
+                                    
             if (m_ite_solver && m().is_ite(f))
                 return solve_ite(to_app(f), var, def, pr);
             
@@ -966,31 +951,25 @@ class solve_eqs_tactic : public tactic {
         }
         
         void collect_num_occs(expr * t, expr_fast_mark1 & visited) {
-            ptr_buffer<expr, 128> stack;
+            ptr_buffer<app, 128> stack;
             
-#define VISIT(ARG) {                                                    \
-                if (is_uninterp_const(ARG)) {                           \
-                    m_num_occs.insert_if_not_there(ARG, 0)++;           \
-                }                                                       \
-                if (!visited.is_marked(ARG)) {                          \
-                    visited.mark(ARG, true);                            \
-                    stack.push_back(ARG);                               \
-                }                                                       \
-        }
+            auto visit = [&](expr* arg) {
+                if (is_uninterp_const(arg)) {                           
+                    m_num_occs.insert_if_not_there(arg, 0)++;           
+                }                                                       
+                if (!visited.is_marked(arg) && is_app(arg)) {                          
+                    visited.mark(arg, true);                            
+                    stack.push_back(to_app(arg));                               
+                }                                                       
+            };
             
-            VISIT(t);
+            visit(t);
             
             while (!stack.empty()) {
-                expr * t = stack.back();
+                app * t = stack.back();
                 stack.pop_back();
-                if (!is_app(t))
-                    continue;
-                unsigned j = to_app(t)->get_num_args();
-                while (j > 0) {
-                    --j;
-                    expr * arg = to_app(t)->get_arg(j);
-                    VISIT(arg);
-                }
+                for (expr* arg : *t) 
+                    visit(arg);
             }
         }
         
@@ -1012,6 +991,12 @@ class solve_eqs_tactic : public tactic {
             return m_num_eliminated_vars;
         }
         
+        //
+        // TBD: rewrite the tactic to first apply a topological sorting that
+        // approximates the dependencies between variables. Then apply 
+        // simplification on top of this sorting, so that it can apply sub-quadratic
+        // equality and unit propagation.
+        //
         void operator()(goal_ref const & g, goal_ref_buffer & result) {
             model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
@@ -1023,13 +1008,15 @@ class solve_eqs_tactic : public tactic {
             if (!g->inconsistent()) {
                 m_subst      = alloc(expr_substitution, m(), m_produce_unsat_cores, m_produce_proofs);
                 m_norm_subst = alloc(expr_substitution, m(), m_produce_unsat_cores, m_produce_proofs);
-                while (true) {
-                    if (!m_produce_proofs && m_context_solve) {
+                unsigned rounds = 0;
+                while (rounds < 20) {
+                    ++rounds;
+                    if (!m_produce_proofs && m_context_solve && rounds < 3) {
                         distribute_and_or(*(g.get()));
                     }
                     collect_num_occs(*g);
                     collect(*g);
-                    if (!m_produce_proofs && m_context_solve) {
+                    if (!m_produce_proofs && m_context_solve && rounds < 3) {
                         collect_hoist(*g);
                     }
                     if (m_subst->empty()) {
@@ -1046,6 +1033,8 @@ class solve_eqs_tactic : public tactic {
                     }
                     save_elim_vars(mc);
                     TRACE("solve_eqs_round", g->display(tout); if (mc) mc->display(tout););
+                    if (rounds > 10 && m_ordered_vars.size() == 1)
+                        break;
                 }
             }
             g->inc_depth();
