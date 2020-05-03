@@ -9,6 +9,7 @@ jobs:
 
 - job: "LinuxPythonDebug"
   displayName: "Ubuntu build - python make - debug"
+  condition: eq(0,1) 
   pool:
     vmImage: "Ubuntu-16.04"
   strategy:
@@ -35,6 +36,7 @@ jobs:
 
 - job: "Ubuntu18"
   displayName: "Ubuntu 18 with ocaml"
+  condition: eq(0,1) 
   pool:
     vmImage: "Ubuntu-18.04"
   steps:
@@ -96,7 +98,7 @@ jobs:
 
 
 - job: "LinuxJulia"
-  displayName: "Ubuntu build - cmake"
+  displayName: "Ubuntu Julia build"
   pool:
     vmImage: "Ubuntu-16.04"
   steps:
@@ -112,6 +114,7 @@ jobs:
   
 - job: "LinuxCMake"
   displayName: "Ubuntu build - cmake"
+  condition: eq(0,1) 
   pool:
     vmImage: "Ubuntu-16.04"
   strategy:
@@ -155,6 +158,38 @@ jobs:
 #   - template: scripts/test-java-cmake.yml
     - template: scripts/test-regressions.yml
 
+- job: "WindowsLateset"
+  displayName: "Windows Latest build"
+  pool: 
+    vmImage: "windows-latest"
+  steps:
+    - script: md build
+    - script: |
+         cd build
+         call vcvarsall.bat x64
+         cmake -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "NMake Makefiles" ../
+         nmake
+         cd ..
+    - script: |
+         pushd build\python
+         python z3test.py z3
+         python z3test.py z3num
+         popd
+    - script: |
+         pushd build
+         nmake cpp_example
+         examples\cpp_example_build_dir\cpp_example.exe
+         nmake c_example
+         examples\c_example_build_dir\c_example.exe
+         nmake java_example
+         nmake dotnet_example
+         nmake test-z3
+         test-z3.exe -a
+         popd
+    - script: |
+         git clone https://github.com/z3prover/z3test z3test
+         pthon z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
+         
 
 - job: "Windows2017"
   displayName: "Windows 2017 build"
@@ -172,6 +207,7 @@ jobs:
 
 - job: "MacOS"
   displayName: "MacOS build"
+  condition: eq(0,1) 
   pool:
     vmImage: "macOS-10.14"
   steps:
@@ -192,6 +228,7 @@ jobs:
 
 - job: "MacOSCMake"
   displayName: "MacOS build with CMake"
+  condition: eq(0,1) 
   pool:
     vmImage: "macOS-10.14"
   steps:
