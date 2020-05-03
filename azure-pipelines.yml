@@ -130,7 +130,7 @@ jobs:
         runTests: 'True'
       debugGcc:
         setupCmd1: ''
-        setupCmd3: ''
+        setupCmd2 ''
         buildCmd: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
         runTests: 'True'
       juliaClang:
@@ -192,7 +192,7 @@ jobs:
       julia:
         arch: 'x64'
         setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
-        setupCmd2: 'JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
+        setupCmd2: 'set JlCxxDir= $(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
         bindings:  '-DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True'
         runTests:  'False'
   steps:
