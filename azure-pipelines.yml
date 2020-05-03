@@ -119,24 +119,28 @@ jobs:
   strategy:
     matrix:
       debugClang:
-        setupCmds: ''
+        setupCmd1: ''
+        setupCmd2: ''
         buildCmd: 'CC=clang CXX=clang++ cmake $(cmakeStdArgs)'
         runTests: 'True'
       releaseClang:
-        setupCmds: ''
+        setupCmd1: ''
+        setupCmd2: ''
         buildCmd: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release $(cmakeStdArgs)'
         runTests: 'True'
       debugGcc:
-        setupCmds: ''
+        setupCmd1: ''
+        setupCmd3: ''
         buildCmd: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
         runTests: 'True'
-      juliaCmake:
-        setupCmds: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"
-                    JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
+      juliaClang:
+        setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
+        setupCmd2: 'JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
         buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -G "Ninja" ../'
         runTests: 'False'
       releaseSTGcc:
-        setupCmds: ''
+        setupCmd1: ''
+        setupCmd2: ''
         buildCmd: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
         runTests: 'True'        
   steps:
@@ -145,7 +149,8 @@ jobs:
         set -e
         mkdir build
         cd build
-        $(setupCmds)
+        $(setupCmd1)
+        $(setupCmd2)
         $(buildCmd)
         ninja
         ninja test-z3
@@ -168,29 +173,34 @@ jobs:
     matrix:
       x64:
         arch: 'x64'
-        initEnv: ''
+        setupCmd1: ''
+        setupCmd2: ''
         bindings: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True'
         runTests: 'True'
       x86:
         arch: 'x86'
-        initEnv: ''
+        setupCmd1: ''
+        setupCmd2: ''
         bindings: '-DZ3_BUILD_PYTHON_BINDINGS=True'
         runTests: 'False'
       arm64:
         arch: 'amd64_arm64'
-        initEnv: ''
+        setupCmd1: ''
+        setupCmd2: ''
         bindings: ''
         runTests: 'False'
       julia:
         arch: 'x64'
-        initEnv: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
-        bindings: '-DZ3_BUILD_JULIA_BINDINGS=True'
-        runTests: 'False'
+        setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
+        setupCmd2: 'JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
+        bindings:  '-DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True'
+        runTests:  'False'
   steps:
     - script: md build
     - script: |
          cd build
-         $(initEnv)
+         $(setupCmd1)
+         $(setupCmd2)
          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
          cmake $(bindings) -G "NMake Makefiles" ../
          nmake
