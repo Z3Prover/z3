@@ -161,24 +161,28 @@ jobs:
         arch: 'x64'
         setupCmd1: ''
         setupCmd2: ''
+        setupCmd3: ''
         bindings: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True'
         runTests: 'True'
       x86:
         arch: 'x86'
         setupCmd1: ''
         setupCmd2: ''
+        setupCmd3: ''
         bindings: '-DZ3_BUILD_PYTHON_BINDINGS=True'
         runTests: 'False'
       arm64:
         arch: 'amd64_arm64'
         setupCmd1: ''
         setupCmd2: ''
+        setupCmd3: ''
         bindings: ''
         runTests: 'False'
       Julia:
         arch: 'x64'
         setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
-        setupCmd2: 'for /f "tokens=*" \%X in (''julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))"'') do (set "JlCxxDir=\%X" )'
+        setupCmd2: 'julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env'
+        setupCmd3: 'set JlCxxDir=<tmp.env'
         bindings:  '-DJlCxx_DIR=%JlCxxDir%/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True'
         runTests:  'False'
   steps:
@@ -187,6 +191,7 @@ jobs:
          cd build
          $(setupCmd1)
          $(setupCmd2)
+         $(setupCmd3)
          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
          cmake $(bindings) -G "NMake Makefiles" ../
          nmake
