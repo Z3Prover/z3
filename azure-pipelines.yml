@@ -162,12 +162,22 @@ jobs:
   displayName: "Windows Latest build"
   pool: 
     vmImage: "windows-latest"
+  strategy:
+    matrix:
+      x64:
+        arch: 'x64'
+        bindings: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True'
+        runTests: 'True'
+      arm64:
+        arch: 'amd64_arm64'
+        bindings: ''
+        runTests: 'False'
   steps:
     - script: md build
     - script: |
          cd build
-         call vcvarsall.bat x64
-         cmake -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "NMake Makefiles" ../
+         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
+         cmake $(bindings) -G "NMake Makefiles" ../
          nmake
          cd ..
     - script: |
@@ -175,6 +185,7 @@ jobs:
          python z3test.py z3
          python z3test.py z3num
          popd
+      condition: eq(variables['runTests'], 'True')
     - script: |
          pushd build
          nmake cpp_example
@@ -186,13 +197,17 @@ jobs:
          nmake test-z3
          test-z3.exe -a
          popd
+      condition: eq(variables['runTests'], 'True')
     - script: |
          git clone https://github.com/z3prover/z3test z3test
          pthon z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
+      condition: eq(variables['runTests'], 'True')
+
          
 
 - job: "Windows2017"
   displayName: "Windows 2017 build"
+  condition: eq(0,1) 
   pool:
     vmImage: "vs2017-win2016"
   steps:
@@ -200,6 +215,7 @@ jobs:
 
 - job: "Windows2017ARM64"
   displayName: "Windows 2017 ARM64 build"
+  condition: eq(0,1) 
   pool:
     vmImage: "vs2017-win2016"
   steps:
