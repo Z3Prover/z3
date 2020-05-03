@@ -131,8 +131,9 @@ jobs:
         buildCmd: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
         runTests: 'True'
       juliaCmake:
-        setupCmds: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
-# \n\nJlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")
+        setupCmds: ''
+# julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
+# JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")
         buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -G "Ninja" ../'
         runTests: 'False'
       releaseSTGcc:
