@@ -105,14 +105,14 @@ jobs:
     - script: sudo apt-get install ninja-build 
     - script: |
         julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"
-        JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
-        CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -G "Ninja" ../
+        JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")
+        CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -G "Ninja" ../
         set -e
         mkdir build
         cd build
         ninja
   
-- job: "LinuxCMake"
+- job: "LinuxCMake")
   displayName: "Ubuntu build - cmake"
   condition: eq(0,1) 
   pool:
@@ -130,14 +130,7 @@ jobs:
         runUnitTest: 'True'
       releaseSTGcc:
         cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
-        runUnitTest: 'True'
-        
-#      gccX86:
-#        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
-#        runUnitTest: 'True'
-#      asan:
-#        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
-#        runUnitTest: 'False'
+        runUnitTest: 'True'        
   steps:
     - script: sudo apt-get install ninja-build 
     - script: |
@@ -169,6 +162,11 @@ jobs:
         initEnv: ''
         bindings: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True'
         runTests: 'True'
+      x86:
+        arch: 'x86'
+        initEnv: ''
+        bindings: '-DZ3_BUILD_PYTHON_BINDINGS=True'
+        runTests: 'False'
       arm64:
         arch: 'amd64_arm64'
         initEnv: ''
