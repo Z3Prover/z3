@@ -385,8 +385,7 @@ namespace smt {
                         TRACE("context", tout << "inconsistent\n";);
                         SASSERT(inconsistent());
                         m_conflict = null_b_justification;
-                        m_not_l = null_literal;
-                        SASSERT(m_search_lvl == get_search_level());                    
+                        m_not_l = null_literal;                   
                     }
                 }
             }
@@ -619,6 +618,7 @@ namespace smt {
     // 
     void context::validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                         expr_ref_vector const& conseq, expr_ref_vector const& unfixed) {
+        m_fparams.m_threads = 1;
         expr_ref tmp(m);
         SASSERT(!inconsistent());
         for (expr* c : conseq) {
