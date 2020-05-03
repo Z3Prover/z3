@@ -695,10 +695,8 @@ br_status seq_rewriter::lift_ite(func_decl* f, unsigned n, expr* const* args, ex
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     for (unsigned i = 0; i < n; ++i) {        
         if (m().is_ite(args[i], c, t, e) && 
-            (get_depth(t) <= 2 || 
-             t->get_ref_count() == 1 ||
-             get_depth(e) <= 2 ||
-             e->get_ref_count() == 1)) {
+            (get_depth(t) <= 2 || t->get_ref_count() == 1 ||
+             get_depth(e) <= 2 || e->get_ref_count() == 1)) {
             ptr_buffer<expr> new_args;
             for (unsigned j = 0; j < n; ++j) new_args.push_back(args[j]);
             new_args[i] = t;
@@ -706,7 +704,7 @@ br_status seq_rewriter::lift_ite(func_decl* f, unsigned n, expr* const* args, ex
             new_args[i] = e;
             expr_ref arg2(m().mk_app(f, new_args), m());
             result = m().mk_ite(c, arg1, arg2);
-            return BR_REWRITE3;
+            return BR_REWRITE2;
         }
     }
     return BR_FAILED;
