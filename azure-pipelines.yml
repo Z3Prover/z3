@@ -182,7 +182,7 @@ jobs:
         arch: 'x64'
         setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
         setupCmd2: 'julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env'
-        setupCmd3: 'set JlCxxDir=<tmp.env'
+        setupCmd3: 'set /P JlCxxDir=<tmp.env'
         bindings:  '-DJlCxx_DIR=%JlCxxDir%/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True'
         runTests:  'False'
   steps:
