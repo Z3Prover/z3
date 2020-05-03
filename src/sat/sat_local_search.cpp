@@ -260,7 +260,7 @@ namespace sat {
     }
 
     void local_search::verify_constraint(constraint const& c) const {
-        unsigned value = constraint_value(c);
+        uint64_t value = constraint_value(c);
         IF_VERBOSE(11, display(verbose_stream() << "verify ", c););
         TRACE("sat", display(verbose_stream() << "verify ", c););
         if (c.m_k < value) {
@@ -278,8 +278,8 @@ namespace sat {
         }
     }
 
-    unsigned local_search::constraint_value(constraint const& c) const {
-        unsigned value = 0;
+    uint64_t local_search::constraint_value(constraint const& c) const {
+        uint64_t value = 0;
         for (literal t : c) {
             if (is_true(t)) {
                 value += constraint_coeff(c, t);
@@ -682,7 +682,7 @@ namespace sat {
             bool tt = cur_solution(v);
             coeff_vector const& falsep = m_vars[v].m_watch[!tt];
             for (pbcoeff const& pbc : falsep) {
-                int slack = constraint_slack(pbc.m_constraint_id);
+                auto slack = constraint_slack(pbc.m_constraint_id);
                 if (slack < 0)
                     ++best_bsb;
                 else if (slack < static_cast<int>(pbc.m_coeff))
@@ -697,7 +697,7 @@ namespace sat {
                     coeff_vector const& falsep = m_vars[v].m_watch[!cur_solution(v)];
                     auto it = falsep.begin(), end = falsep.end();
                     for (; it != end; ++it) {
-                        int slack = constraint_slack(it->m_constraint_id);
+                        auto slack = constraint_slack(it->m_constraint_id);
                         if (slack < 0) {
                             if (bsb == best_bsb) {
                                 break;
@@ -784,7 +784,7 @@ namespace sat {
         for (auto const& pbc : truep) {
             unsigned ci = pbc.m_constraint_id;
             constraint& c = m_constraints[ci];
-            int old_slack = c.m_slack;
+            auto old_slack = c.m_slack;
             c.m_slack -= pbc.m_coeff;
             DEBUG_CODE(verify_slack(c););
             if (c.m_slack < 0 && old_slack >= 0) { // from non-negative to negative: sat -> unsat
@@ -794,7 +794,7 @@ namespace sat {
         for (auto const& pbc : falsep) {
             unsigned ci = pbc.m_constraint_id;
             constraint& c = m_constraints[ci];
-            int old_slack = c.m_slack;
+            auto old_slack = c.m_slack;
             c.m_slack += pbc.m_coeff;
             DEBUG_CODE(verify_slack(c););
             if (c.m_slack >= 0 && old_slack < 0) { // from negative to non-negative: unsat -> sat
