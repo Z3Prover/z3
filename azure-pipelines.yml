@@ -9,6 +9,7 @@ jobs:
 
 - job: "LinuxPythonDebug"
   displayName: "Ubuntu build - python make - debug"
+  condition: eq(0,1) 
   pool:
     vmImage: "Ubuntu-16.04"
   strategy:
@@ -35,6 +36,7 @@ jobs:
 
 - job: "Ubuntu18"
   displayName: "Ubuntu 18 with ocaml"
+  condition: eq(0,1) 
   pool:
     vmImage: "Ubuntu-18.04"
   steps:
@@ -93,8 +95,7 @@ jobs:
 #   - template: scripts/test-jupyter.yml
 #   - template: scripts/test-java-cmake.yml
 #   - template: scripts/test-regressions.yml
-
-
+  
 - job: "LinuxCMake"
   displayName: "Ubuntu build - cmake"
   pool:
@@ -102,30 +103,39 @@ jobs:
   strategy:
     matrix:
       debugClang:
-        cmdLine: 'CC=clang CXX=clang++ cmake $(cmakeStdArgs)'
-        runUnitTest: 'True'
+        setupCmd1: ''
+        setupCmd2: ''
+        buildCmd: 'CC=clang CXX=clang++ cmake $(cmakeStdArgs)'
+        runTests: 'True'
       releaseClang:
-        cmdLine: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release $(cmakeStdArgs)'
-        runUnitTest: 'True'
+        setupCmd1: ''
+        setupCmd2: ''
+        buildCmd: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release $(cmakeStdArgs)'
+        runTests: 'True'
       debugGcc:
-        cmdLine: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
-        runUnitTest: 'True'
+        setupCmd1: ''
+        setupCmd2: ''
+        buildCmd: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
+        runTests: 'True'
+      juliaClang:
+        setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
+        setupCmd2: 'JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
+        buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -G "Ninja" ../'
+        runTests: 'False'
       releaseSTGcc:
-        cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
-        runUnitTest: 'True'
-#      gccX86:
-#        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
-#        runUnitTest: 'True'
-#      asan:
-#        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
-#        runUnitTest: 'False'
+        setupCmd1: ''
+        setupCmd2: ''
+        buildCmd: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
+        runTests: 'True'        
   steps:
     - script: sudo apt-get install ninja-build 
     - script: |
         set -e
         mkdir build
         cd build
-        $(cmdLine)
+        $(setupCmd1)
+        $(setupCmd2)
+        $(buildCmd)
         ninja
         ninja test-z3
         cd ..
@@ -133,29 +143,85 @@ jobs:
          cd build
          ./test-z3 -a
          cd ..
-      condition: eq(variables['runUnitTest'], 'True')
-    - template: scripts/test-examples-cmake.yml
+      condition: eq(variables['runTests'], 'True')
+    - ${{if eq(variables['runTests'], 'True')}}:
+      - template: scripts/test-examples-cmake.yml
 #   - template: scripts/test-jupyter.yml
 #   - template: scripts/test-java-cmake.yml
-    - template: scripts/test-regressions.yml
+    - ${{if eq(variables['runTests'], 'True')}}:
+      - template: scripts/test-regressions.yml
 
-
-- job: "Windows2017"
-  displayName: "Windows 2017 build"
-  pool:
-    vmImage: "vs2017-win2016"
+- job: "WindowsLatest"
+  displayName: "Windows Latest build"
+  pool: 
+    vmImage: "windows-latest"
+  strategy:
+    matrix:
+      x64:
+        arch: 'x64'
+        setupCmd1: ''
+        setupCmd2: ''
+        setupCmd3: ''
+        bindings: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True'
+        runTests: 'True'
+      x86:
+        arch: 'x86'
+        setupCmd1: ''
+        setupCmd2: ''
+        setupCmd3: ''
+        bindings: '-DZ3_BUILD_PYTHON_BINDINGS=True'
+        runTests: 'False'
+      arm64:
+        arch: 'amd64_arm64'
+        setupCmd1: ''
+        setupCmd2: ''
+        setupCmd3: ''
+        bindings: ''
+        runTests: 'False'
+      Julia:
+        arch: 'x64'
+        setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
+        setupCmd2: 'julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env'
+        setupCmd3: 'set /P JlCxxDir=<tmp.env'
+        bindings:  '-DJlCxx_DIR=%JlCxxDir%\..\lib\cmake\JlCxx -DZ3_BUILD_JULIA_BINDINGS=True'
+        runTests:  'False'
   steps:
-    - script: scripts\vsts-vs2017.cmd x64
+    - script: md build
+    - script: |
+         cd build
+         $(setupCmd1)
+         $(setupCmd2)
+         $(setupCmd3)
+         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
+         cmake $(bindings) -G "NMake Makefiles" ../
+         nmake
+         cd ..
+    - script: |
+         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
+         pushd build\python
+         python z3test.py z3
+         python z3test.py z3num
+         popd
+         pushd build
+         nmake cpp_example
+         examples\cpp_example_build_dir\cpp_example.exe
+         nmake c_example
+         examples\c_example_build_dir\c_example.exe
+         nmake java_example
+         nmake dotnet_example
+         nmake test-z3
+         test-z3.exe -a
+         popd
+      condition: eq(variables['runTests'], 'True')
+    - script: |
+         git clone https://github.com/z3prover/z3test z3test
+         python z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
+      condition: eq(variables['runTests'], 'True')
 
-- job: "Windows2017ARM64"
-  displayName: "Windows 2017 ARM64 build"
-  pool:
-    vmImage: "vs2017-win2016"
-  steps:
-    - script: scripts\vsts-vs2017.cmd amd64_arm64
-
+         
 - job: "MacOS"
   displayName: "MacOS build"
+  condition: eq(0,1) 
   pool:
     vmImage: "macOS-10.14"
   steps:
@@ -176,6 +242,7 @@ jobs:
 
 - job: "MacOSCMake"
   displayName: "MacOS build with CMake"
+  condition: eq(0,1) 
   pool:
     vmImage: "macOS-10.14"
   steps:
