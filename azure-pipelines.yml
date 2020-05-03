@@ -130,7 +130,7 @@ jobs:
         runTests: 'True'
       debugGcc:
         setupCmd1: ''
-        setupCmd2 ''
+        setupCmd2: ''
         buildCmd: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
         runTests: 'True'
       juliaClang:
