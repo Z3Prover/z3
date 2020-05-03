@@ -158,7 +158,7 @@ jobs:
 #   - template: scripts/test-java-cmake.yml
     - template: scripts/test-regressions.yml
 
-- job: "WindowsLateset"
+- job: "WindowsLatest"
   displayName: "Windows Latest build"
   pool: 
     vmImage: "windows-latest"
@@ -166,27 +166,34 @@ jobs:
     matrix:
       x64:
         arch: 'x64'
+        initEnv: ''
         bindings: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True'
         runTests: 'True'
       arm64:
         arch: 'amd64_arm64'
+        initEnv: ''
         bindings: ''
+        runTests: 'False'
+      julia:
+        arch: 'x64'
+        initEnv: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
+        bindings: '-DZ3_BUILD_JULIA_BINDINGS=True'
         runTests: 'False'
   steps:
     - script: md build
     - script: |
          cd build
+         $(initEnv)
          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
          cmake $(bindings) -G "NMake Makefiles" ../
          nmake
          cd ..
     - script: |
+         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
          pushd build\python
          python z3test.py z3
          python z3test.py z3num
          popd
-      condition: eq(variables['runTests'], 'True')
-    - script: |
          pushd build
          nmake cpp_example
          examples\cpp_example_build_dir\cpp_example.exe
@@ -200,7 +207,7 @@ jobs:
       condition: eq(variables['runTests'], 'True')
     - script: |
          git clone https://github.com/z3prover/z3test z3test
-         pthon z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
+         python z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
       condition: eq(variables['runTests'], 'True')
 
          
