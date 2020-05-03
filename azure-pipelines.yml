@@ -194,7 +194,7 @@ jobs:
       Julia:
         arch: 'x64'
         setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
-        setupCmd2: 'set JlCxxDir= $(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
+        setupCmd2: 'for /f "tokens=*" %g in ('julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))"') do (set JlCxxDir=%g)'
         bindings:  '-DJlCxx_DIR=%JlCxxDir%/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True'
         runTests:  'False'
   steps:
@@ -230,23 +230,6 @@ jobs:
       condition: eq(variables['runTests'], 'True')
 
          
-
-- job: "Windows2017"
-  displayName: "Windows 2017 build"
-  condition: eq(0,1) 
-  pool:
-    vmImage: "vs2017-win2016"
-  steps:
-    - script: scripts\vsts-vs2017.cmd x64
-
-- job: "Windows2017ARM64"
-  displayName: "Windows 2017 ARM64 build"
-  condition: eq(0,1) 
-  pool:
-    vmImage: "vs2017-win2016"
-  steps:
-    - script: scripts\vsts-vs2017.cmd amd64_arm64
-
 - job: "MacOS"
   displayName: "MacOS build"
   condition: eq(0,1) 
