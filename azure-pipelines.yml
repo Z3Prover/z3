@@ -1,5 +1,9 @@
 
 variables:
+  cmakeJulia: '-DZ3_BUILD_JULIA_BINDINGS=True'
+  cmakeJava: '-DZ3_BUILD_JAVA_BINDINGS=True'
+  cmakeNet: '-DZ3_BUILD_DOTNET_BINDINGS=True'
+  cmakePy:  '-DZ3_BUILD_PYTHON_BINDINGS=True'
   cmakeStdArgs: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
   asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" CFLAGS="${CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
   ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
@@ -108,7 +112,7 @@ jobs:
       debugClang:
         setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
         setupCmd2: 'JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
-        buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True $(cmakeStdArgs)'
+        buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx $(cmakeJulia) $(cmakeStdArgs)'
         runTests: 'True'
       debugGcc:
         setupCmd1: ''
@@ -155,14 +159,14 @@ jobs:
         setupCmd1: ''
         setupCmd2: ''
         setupCmd3: ''
-        bindings: '-DZ3_BUILD_PYTHON_BINDINGS=True'
+        bindings: '$(cmakePy)'
         runTests: 'False'
       x64:
         arch: 'x64'
         setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
         setupCmd2: 'julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env'
         setupCmd3: 'set /P JlCxxDir=<tmp.env'
-        bindings:  '-DJlCxx_DIR=%JlCxxDir%\..\lib\cmake\JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True'
+        bindings:  '-DJlCxx_DIR=%JlCxxDir%\..\lib\cmake\JlCxx $(cmakeJava) $(cmakeNet) $(cmakePy) -DCMAKE_BUILD_TYPE=RelWithDebInfo'
         runTests:  'True'
       arm64:
         arch: 'amd64_arm64'
@@ -238,7 +242,7 @@ jobs:
         set -e
         mkdir build
         cd build
-        CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
+        CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir $(cmakeJulia) $(cmakeJava) $(cmakePy) -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
         ninja
         ninja test-z3
         cd ..

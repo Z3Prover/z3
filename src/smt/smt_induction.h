@@ -48,7 +48,7 @@ namespace smt {
     /**
      * Synthesize induction lemmas from induction candidates
      */
-    class create_induction_lemmas {
+    class induction_lemmas {
         context&       ctx;
         ast_manager&   m;
         value_sweep&   vs;
@@ -92,12 +92,13 @@ namespace smt {
         void abstract1(enode* n, enode* t, expr* x, abstractions& result);
         void filter_abstractions(bool sign, abstractions& abs);
         void create_lemmas(expr* sk, abstraction& a, literal lit);
-        void create_hypotheses(unsigned depth, expr* sk0, expr_ref& alpha, expr* sk, literal_vector& lits);
+        void create_hypotheses(unsigned depth, sort* s, expr* y, expr_ref_vector& conds, expr_ref_pair_vector& subst);
+        void create_hypotheses(unsigned depth, expr* sk, literal alpha);
         literal mk_literal(expr* e);
         void add_th_lemma(literal_vector const& lits);
 
     public:
-        create_induction_lemmas(context& ctx, ast_manager& m, value_sweep& vs);
+        induction_lemmas(context& ctx, ast_manager& m, value_sweep& vs);
 
         bool operator()(literal lit);
     };
@@ -111,7 +112,7 @@ namespace smt {
         ast_manager& m;
         value_sweep  vs;
         collect_induction_literals m_collect_literals;
-        create_induction_lemmas m_create_lemmas;
+        induction_lemmas m_create_lemmas;
 
         void init_values();
 

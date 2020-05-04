@@ -35,6 +35,7 @@ Revision History:
 #include "util/small_object_allocator.h"
 #include "util/obj_ref.h"
 #include "util/ref_vector.h"
+#include "util/ref_pair_vector.h"
 #include "util/ref_buffer.h"
 #include "util/obj_mark.h"
 #include "util/obj_hashtable.h"
@@ -2466,6 +2467,9 @@ typedef ref_vector<app, ast_manager>       app_ref_vector;
 typedef ref_vector<var, ast_manager>       var_ref_vector;
 typedef ref_vector<quantifier, ast_manager> quantifier_ref_vector;
 typedef app_ref_vector                     proof_ref_vector;
+
+typedef ref_pair_vector<expr, ast_manager> expr_ref_pair_vector;
+
 
 // -----------------------------------
 //
