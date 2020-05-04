@@ -37,6 +37,8 @@ void monotone::monotonicity_lemma(monic const& m) {
     SASSERT(!check_monic(m));
     if (c().mon_has_zero(m.vars()))
         return;
+    if (c().has_big_num(m)) 
+       return;
     const rational prod_val = abs(c().product_value(m));
     const rational m_val = abs(var_val(m));
     if (m_val < prod_val)

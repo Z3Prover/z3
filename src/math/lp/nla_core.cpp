@@ -1285,7 +1285,7 @@ lbool core::incremental_linearization(bool constraint_derived) {
         SASSERT(elists_are_consistent(true));
         if (search_level == 1) {
             m_order.order_lemma();
-        } else { // search_level == 2
+        } else if (search_level == 2) {
             m_monotone. monotonicity_lemma();
             m_tangents.tangent_lemma();
         }
@@ -1368,6 +1368,21 @@ void core::update_to_refine_of_var(lpvar j) {
         else
             insert_to_refine(j);        
     }
+}
+
+bool core::var_is_big(lpvar j) const {
+    if (var_is_int(j))
+        return false;
+    return val(j).is_big();
+}
+
+bool core::has_big_num(const monic& m) const {
+    if (var_is_big(var(m)))
+        return true;
+    for (lpvar j : m.vars())
+        if (var_is_big(j))
+            return true;
+    return false;
 }
 
 bool core::patch_blocker(lpvar u, const monic& m) const {
