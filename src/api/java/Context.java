@@ -2619,6 +2619,12 @@ public class Context implements AutoCloseable {
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
            
     {
+        return parseSMTLIB2String(str, sortNames, sorts, declNames, decls).ToBoolExprArray();
+    }
+
+    public ASTVector parseSMTLIB2String(String str, Symbol[] sortNames,
+                                        Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
+    {
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
         int cdn = Symbol.arrayLength(declNames);
@@ -2626,11 +2632,10 @@ public class Context implements AutoCloseable {
         if (csn != cs || cdn != cd) {
             throw new Z3Exception("Argument size mismatch");
         }
-        ASTVector v = new ASTVector(this, Native.parseSmtlib2String(nCtx(),
+        return new ASTVector(this, Native.parseSmtlib2String(nCtx(),
                 str, AST.arrayLength(sorts), Symbol.arrayToNative(sortNames),
                 AST.arrayToNative(sorts), AST.arrayLength(decls),
                 Symbol.arrayToNative(declNames), AST.arrayToNative(decls)));
-        return v.ToBoolExprArray();
     }
 
     /**
