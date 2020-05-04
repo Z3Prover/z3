@@ -1,6 +1,6 @@
 /**
 Copyright (c) 2012-2014 Microsoft Corporation
-   
+
 Module Name:
 
     Context.java
@@ -12,7 +12,7 @@ Author:
     @author Christoph Wintersteiger (cwinter) 2012-03-15
 
 Notes:
-    
+
 **/
 
 package com.microsoft.z3;
@@ -277,7 +277,7 @@ public class Context implements AutoCloseable {
      * Create a new enumeration sort.
      **/
     public EnumSort mkEnumSort(Symbol name, Symbol... enumNames)
-           
+
     {
         checkContextMatch(name);
         checkContextMatch(enumNames);
@@ -288,7 +288,7 @@ public class Context implements AutoCloseable {
      * Create a new enumeration sort.
      **/
     public EnumSort mkEnumSort(String name, String... enumNames)
-           
+
     {
         return new EnumSort(this, mkSymbol(name), mkSymbols(enumNames));
     }
@@ -316,7 +316,7 @@ public class Context implements AutoCloseable {
      * Create a new finite domain sort.
      **/
     public FiniteDomainSort mkFiniteDomainSort(Symbol name, long size)
-           
+
     {
         checkContextMatch(name);
         return new FiniteDomainSort(this, name, size);
@@ -326,7 +326,7 @@ public class Context implements AutoCloseable {
      * Create a new finite domain sort.
      **/
     public FiniteDomainSort mkFiniteDomainSort(String name, long size)
-           
+
     {
         return new FiniteDomainSort(this, mkSymbol(name), size);
     }
@@ -344,7 +344,7 @@ public class Context implements AutoCloseable {
      **/
     public Constructor mkConstructor(Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
-           
+
     {
         return of(this, name, recognizer, fieldNames, sorts,
                 sortRefs);
@@ -364,7 +364,7 @@ public class Context implements AutoCloseable {
      * Create a new datatype sort.
      **/
     public DatatypeSort mkDatatypeSort(Symbol name, Constructor[] constructors)
-           
+
     {
         checkContextMatch(name);
         checkContextMatch(constructors);
@@ -375,7 +375,7 @@ public class Context implements AutoCloseable {
      * Create a new datatype sort.
      **/
     public DatatypeSort mkDatatypeSort(String name, Constructor[] constructors)
-           
+
     {
         checkContextMatch(constructors);
         return new DatatypeSort(this, mkSymbol(name), constructors);
@@ -387,7 +387,7 @@ public class Context implements AutoCloseable {
      * @param c list of constructors, one list per sort.
      **/
     public DatatypeSort[] mkDatatypeSorts(Symbol[] names, Constructor[][] c)
-           
+
     {
         checkContextMatch(names);
         int n = names.length;
@@ -414,7 +414,7 @@ public class Context implements AutoCloseable {
      * Create mutually recursive data-types. 
      **/
     public DatatypeSort[] mkDatatypeSorts(String[] names, Constructor[][] c)
-           
+
     {
         return mkDatatypeSorts(mkSymbols(names), c);
     }
@@ -425,13 +425,13 @@ public class Context implements AutoCloseable {
      * that is passed in as argument is updated with value v,
      * the remaining fields of t are unchanged.
      **/
-    public Expr mkUpdateField(FuncDecl field, Expr t, Expr v) 
+    public Expr mkUpdateField(FuncDecl field, Expr t, Expr v)
         throws Z3Exception
     {
-        return Expr.create (this, 
+        return Expr.create (this,
                             Native.datatypeUpdateField
                             (nCtx(), field.getNativeObject(),
-                             t.getNativeObject(), v.getNativeObject()));        
+                             t.getNativeObject(), v.getNativeObject()));
     }
 
 
@@ -439,7 +439,7 @@ public class Context implements AutoCloseable {
      * Creates a new function declaration.
      **/
     public FuncDecl mkFuncDecl(Symbol name, Sort[] domain, Sort range)
-           
+
     {
         checkContextMatch(name);
         checkContextMatch(domain);
@@ -451,7 +451,7 @@ public class Context implements AutoCloseable {
      * Creates a new function declaration.
      **/
     public FuncDecl mkFuncDecl(Symbol name, Sort domain, Sort range)
-           
+
     {
         checkContextMatch(name);
         checkContextMatch(domain);
@@ -464,7 +464,7 @@ public class Context implements AutoCloseable {
      * Creates a new function declaration.
      **/
     public FuncDecl mkFuncDecl(String name, Sort[] domain, Sort range)
-           
+
     {
         checkContextMatch(domain);
         checkContextMatch(range);
@@ -475,7 +475,7 @@ public class Context implements AutoCloseable {
      * Creates a new function declaration.
      **/
     public FuncDecl mkFuncDecl(String name, Sort domain, Sort range)
-           
+
     {
         checkContextMatch(domain);
         checkContextMatch(range);
@@ -490,7 +490,7 @@ public class Context implements AutoCloseable {
      * @see #mkFuncDecl(String,Sort[],Sort)
      **/
     public FuncDecl mkFreshFuncDecl(String prefix, Sort[] domain, Sort range)
-           
+
     {
         checkContextMatch(domain);
         checkContextMatch(range);
@@ -523,7 +523,7 @@ public class Context implements AutoCloseable {
      * @see #mkFuncDecl(String,Sort[],Sort)
      **/
     public FuncDecl mkFreshConstDecl(String prefix, Sort range)
-           
+
     {
         checkContextMatch(range);
         return new FuncDecl(this, prefix, null, range);
@@ -932,7 +932,7 @@ public class Context implements AutoCloseable {
      * Coerce an integer to a real.
      * Remarks:  There is also a converse operation
      * exposed. It follows the semantics prescribed by the SMT-LIB standard.
-     * 
+     *
      * You can take the floor of a real by creating an auxiliary integer Term
      * {@code k} and asserting
      * {@code MakeInt2Real(k) &lt;= t1 &lt; MkInt2Real(k)+1}. The argument
@@ -979,7 +979,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Take conjunction of bits in a vector, return vector of length 1.
-     * 
+     *
      * Remarks: The argument must have a bit-vector sort.
      **/
     public BitVecExpr mkBVRedAND(BitVecExpr t)
@@ -991,7 +991,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Take disjunction of bits in a vector, return vector of length 1.
-     * 
+     *
      * Remarks: The argument must have a bit-vector sort.
      **/
     public BitVecExpr mkBVRedOR(BitVecExpr t)
@@ -1147,13 +1147,13 @@ public class Context implements AutoCloseable {
     /**
      * Signed division.
      * Remarks:  It is defined in the following way:
-     * 
+     *
      * - The \c floor of {@code t1/t2} if \c t2 is different from zero, and
      * {@code t1*t2 >= 0}.
-     * 
+     *
      * - The \c ceiling of {@code t1/t2} if \c t2 is different from zero,
      * and {@code t1*t2 &lt; 0}.
-     * 
+     *
      * If {@code t2} is zero, then the result is undefined. The arguments
      * must have the same bit-vector sort. 
      **/
@@ -1186,7 +1186,7 @@ public class Context implements AutoCloseable {
      * {@code t1 - (t1 /s t2) * t2}, where {@code /s} represents
      * signed division. The most significant bit (sign) of the result is equal
      * to the most significant bit of \c t1.
-     * 
+     *
      * If {@code t2} is zero, then the result is undefined. The arguments
      * must have the same bit-vector sort. 
      **/
@@ -1320,11 +1320,11 @@ public class Context implements AutoCloseable {
      * Bit-vector concatenation.
      * Remarks:  The arguments must have a bit-vector
      * sort. 
-     * 
+     *
      * @return The result is a bit-vector of size {@code n1+n2}, where
      *         {@code n1} ({@code n2}) is the size of {@code t1}
      *         ({@code t2}).
-     * 
+     *
      **/
     public BitVecExpr mkConcat(BitVecExpr t1, BitVecExpr t2)
     {
@@ -1343,7 +1343,7 @@ public class Context implements AutoCloseable {
      * have a bit-vector sort. 
      **/
     public BitVecExpr mkExtract(int high, int low, BitVecExpr t)
-           
+
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkExtract(nCtx(), high, low,
@@ -1394,11 +1394,11 @@ public class Context implements AutoCloseable {
      * Shift left.
      * Remarks:  It is equivalent to multiplication by
      * {@code 2^x} where \c x is the value of {@code t2}.
-     * 
+     *
      * NB. The semantics of shift operations varies between environments. This
      * definition does not necessarily capture directly the semantics of the
      * programming language or assembly architecture you are modeling.
-     * 
+     *
      * The arguments must have a bit-vector sort. 
      **/
     public BitVecExpr mkBVSHL(BitVecExpr t1, BitVecExpr t2)
@@ -1413,11 +1413,11 @@ public class Context implements AutoCloseable {
      * Logical shift right
      * Remarks:  It is equivalent to unsigned division by
      * {@code 2^x} where \c x is the value of {@code t2}.
-     * 
+     *
      * NB. The semantics of shift operations varies between environments. This
      * definition does not necessarily capture directly the semantics of the
      * programming language or assembly architecture you are modeling.
-     * 
+     *
      * The arguments must have a bit-vector sort. 
      **/
     public BitVecExpr mkBVLSHR(BitVecExpr t1, BitVecExpr t2)
@@ -1433,11 +1433,11 @@ public class Context implements AutoCloseable {
      * Remarks:  It is like logical shift right except
      * that the most significant bits of the result always copy the most
      * significant bit of the second argument.
-     * 
+     *
      * NB. The semantics of shift operations varies between environments. This
      * definition does not necessarily capture directly the semantics of the
      * programming language or assembly architecture you are modeling.
-     * 
+     *
      * The arguments must have a bit-vector sort. 
      **/
     public BitVecExpr mkBVASHR(BitVecExpr t1, BitVecExpr t2)
@@ -1479,7 +1479,7 @@ public class Context implements AutoCloseable {
      * sort. 
      **/
     public BitVecExpr mkBVRotateLeft(BitVecExpr t1, BitVecExpr t2)
-           
+
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1494,7 +1494,7 @@ public class Context implements AutoCloseable {
      * bit-vector sort. 
      **/
     public BitVecExpr mkBVRotateRight(BitVecExpr t1, BitVecExpr t2)
-           
+
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1508,7 +1508,7 @@ public class Context implements AutoCloseable {
      * Remarks:  NB. This function is essentially treated
      * as uninterpreted. So you cannot expect Z3 to precisely reflect the
      * semantics of this function when solving constraints with this function.
-     * 
+     *
      * The argument must be of integer sort. 
      **/
     public BitVecExpr mkInt2BV(int n, IntExpr t)
@@ -1525,11 +1525,11 @@ public class Context implements AutoCloseable {
      * {@code [0..2^N-1]}, where N are the number of bits in {@code t}. 
      * If \c is_signed is true, \c t1 is treated as a signed
      * bit-vector.
-     * 
+     *
      * NB. This function is essentially treated as uninterpreted. So you cannot
      * expect Z3 to precisely reflect the semantics of this function when
      * solving constraints with this function.
-     * 
+     *
      * The argument must be of bit-vector sort. 
      **/
     public IntExpr mkBV2Int(BitVecExpr t, boolean signed)
@@ -1559,7 +1559,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVAddNoUnderflow(BitVecExpr t1, BitVecExpr t2)
-           
+
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1573,7 +1573,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVSubNoOverflow(BitVecExpr t1, BitVecExpr t2)
-           
+
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1601,7 +1601,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVSDivNoOverflow(BitVecExpr t1, BitVecExpr t2)
-           
+
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1641,7 +1641,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVMulNoUnderflow(BitVecExpr t1, BitVecExpr t2)
-           
+
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1653,7 +1653,7 @@ public class Context implements AutoCloseable {
      * Create an array constant.
      **/
     public ArrayExpr mkArrayConst(Symbol name, Sort domain, Sort range)
-           
+
     {
         return (ArrayExpr) mkConst(name, mkArraySort(domain, range));
     }
@@ -1662,7 +1662,7 @@ public class Context implements AutoCloseable {
      * Create an array constant.
      **/
     public ArrayExpr mkArrayConst(String name, Sort domain, Sort range)
-           
+
     {
         return (ArrayExpr) mkConst(mkSymbol(name), mkArraySort(domain, range));
     }
@@ -1671,11 +1671,11 @@ public class Context implements AutoCloseable {
      * Array read.
      * Remarks:  The argument {@code a} is the array and
      * {@code i} is the index of the array that gets read.
-     * 
+     *
      * The node {@code a} must have an array sort
      * {@code [domain -> range]}, and {@code i} must have the sort
      * {@code domain}. The sort of the result is {@code range}.
-     * 
+     *
      * @see #mkArraySort
      * @see #mkStore
 
@@ -1694,11 +1694,11 @@ public class Context implements AutoCloseable {
      * Array read.
      * Remarks:  The argument {@code a} is the array and
      * {@code args} are the indices of the array that gets read.
-     * 
+     *
      * The node {@code a} must have an array sort
      * {@code [domains -> range]}, and {@code args} must have the sorts
      * {@code domains}. The sort of the result is {@code range}.
-     * 
+     *
      * @see #mkArraySort
      * @see #mkStore
 
@@ -1769,7 +1769,7 @@ public class Context implements AutoCloseable {
      * {@code v}. 
      * @see #mkArraySort
      * @see #mkSelect
-     * 
+     *
      **/
     public ArrayExpr mkConstArray(Sort domain, Expr v)
     {
@@ -1954,7 +1954,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the empty sequence.
     */
-    public SeqExpr mkEmptySeq(Sort s) 
+    public SeqExpr mkEmptySeq(Sort s)
     {
         checkContextMatch(s);
         return (SeqExpr) Expr.create(this, Native.mkSeqEmpty(nCtx(), s.getNativeObject()));
@@ -1963,16 +1963,16 @@ public class Context implements AutoCloseable {
     /**
      * Create the singleton sequence.
      */
-    public SeqExpr mkUnit(Expr elem) 
+    public SeqExpr mkUnit(Expr elem)
     {
         checkContextMatch(elem);
         return (SeqExpr) Expr.create(this, Native.mkSeqUnit(nCtx(), elem.getNativeObject()));
     }
-    
+
     /**
      * Create a string constant.
      */
-    public SeqExpr mkString(String s) 
+    public SeqExpr mkString(String s)
     {
         return (SeqExpr) Expr.create(this, Native.mkString(nCtx(), s));
     }
@@ -1980,7 +1980,7 @@ public class Context implements AutoCloseable {
     /**
      * Convert an integer expression to a string.
      */
-    public SeqExpr intToString(Expr e) 
+    public SeqExpr intToString(Expr e)
     {
 	return (SeqExpr) Expr.create(this, Native.mkIntToStr(nCtx(), e.getNativeObject()));
     }
@@ -1988,11 +1988,11 @@ public class Context implements AutoCloseable {
     /**
      * Convert an integer expression to a string.
      */
-    public IntExpr stringToInt(Expr e)  
+    public IntExpr stringToInt(Expr e)
     {
 	return (IntExpr) Expr.create(this, Native.mkStrToInt(nCtx(), e.getNativeObject()));
     }
-    
+
     /**
      * Concatenate sequences.
      */
@@ -2001,8 +2001,8 @@ public class Context implements AutoCloseable {
         checkContextMatch(t);
         return (SeqExpr) Expr.create(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
     }
-    
-    
+
+
     /**
      * Retrieve the length of a given sequence.
      */
@@ -2011,34 +2011,34 @@ public class Context implements AutoCloseable {
         checkContextMatch(s);
         return (IntExpr) Expr.create(this, Native.mkSeqLength(nCtx(), s.getNativeObject()));
     }
-    
+
     /**
      * Check for sequence prefix.
      */
-    public BoolExpr mkPrefixOf(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkPrefixOf(SeqExpr s1, SeqExpr s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr) Expr.create(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
-    
+
     /**
      * Check for sequence suffix.
      */
-    public BoolExpr mkSuffixOf(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkSuffixOf(SeqExpr s1, SeqExpr s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr)Expr.create(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
-    
+
     /**
      * Check for sequence containment of s2 in s1.
      */
-    public BoolExpr mkContains(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkContains(SeqExpr s1, SeqExpr s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr) Expr.create(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
-    
+
     /**
      * Retrieve sequence of length one at index.
      */
@@ -2047,7 +2047,7 @@ public class Context implements AutoCloseable {
         checkContextMatch(s, index);
         return (SeqExpr) Expr.create(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
     }
-    
+
     /**
      * Extract subsequence.
      */
@@ -2056,7 +2056,7 @@ public class Context implements AutoCloseable {
         checkContextMatch(s, offset, length);
         return (SeqExpr) Expr.create(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
     }
-    
+
     /**
      * Extract index of sub-string starting at offset.
      */
@@ -2065,7 +2065,7 @@ public class Context implements AutoCloseable {
         checkContextMatch(s, substr, offset);
         return (IntExpr)Expr.create(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
     }
-    
+
     /**
      * Replace the first occurrence of src by dst in s.
      */
@@ -2074,33 +2074,33 @@ public class Context implements AutoCloseable {
         checkContextMatch(s, src, dst);
         return (SeqExpr) Expr.create(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
     }
-    
+
     /**
      * Convert a regular expression that accepts sequence s.
      */
-    public ReExpr mkToRe(SeqExpr s) 
+    public ReExpr mkToRe(SeqExpr s)
     {
         checkContextMatch(s);
-        return (ReExpr) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));            
+        return (ReExpr) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));
     }
-    
-    
+
+
     /**
      * Check for regular expression membership.
      */
     public BoolExpr mkInRe(SeqExpr s, ReExpr re)
     {
         checkContextMatch(s, re);
-        return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));            
+        return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));
     }
-    
+
     /**
      * Take the Kleene star of a regular expression.
      */
     public ReExpr mkStar(ReExpr re)
     {
         checkContextMatch(re);
-        return (ReExpr) Expr.create(this, Native.mkReStar(nCtx(), re.getNativeObject()));            
+        return (ReExpr) Expr.create(this, Native.mkReStar(nCtx(), re.getNativeObject()));
     }
 
     /**
@@ -2108,7 +2108,7 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkLoop(ReExpr re, int lo, int hi)
     {
-        return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, hi));            
+        return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, hi));
     }
 
     /**
@@ -2116,37 +2116,37 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkLoop(ReExpr re, int lo)
     {
-        return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, 0));            
+        return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, 0));
     }
 
-    
+
     /**
      * Take the Kleene plus of a regular expression.
      */
     public ReExpr mkPlus(ReExpr re)
     {
         checkContextMatch(re);
-        return (ReExpr) Expr.create(this, Native.mkRePlus(nCtx(), re.getNativeObject()));            
+        return (ReExpr) Expr.create(this, Native.mkRePlus(nCtx(), re.getNativeObject()));
     }
-    
+
     /**
      * Create the optional regular expression.
      */
     public ReExpr mkOption(ReExpr re)
     {
         checkContextMatch(re);
-        return (ReExpr) Expr.create(this, Native.mkReOption(nCtx(), re.getNativeObject()));            
+        return (ReExpr) Expr.create(this, Native.mkReOption(nCtx(), re.getNativeObject()));
     }
 
-    
+
     /**
      * Create the complement regular expression.
      */
     public ReExpr mkComplement(ReExpr re)
     {
         checkContextMatch(re);
-        return (ReExpr) Expr.create(this, Native.mkReComplement(nCtx(), re.getNativeObject()));            
-    }    
+        return (ReExpr) Expr.create(this, Native.mkReComplement(nCtx(), re.getNativeObject()));
+    }
 
     /**
      * Create the concatenation of regular languages.
@@ -2156,7 +2156,7 @@ public class Context implements AutoCloseable {
         checkContextMatch(t);
         return (ReExpr) Expr.create(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
     }
-    
+
     /**
      * Create the union of regular languages.
      */
@@ -2178,7 +2178,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the empty regular expression.
      */
-    public ReExpr mkEmptyRe(Sort s) 
+    public ReExpr mkEmptyRe(Sort s)
     {
 	return (ReExpr) Expr.create(this, Native.mkReEmpty(nCtx(), s.getNativeObject()));
     }
@@ -2186,22 +2186,22 @@ public class Context implements AutoCloseable {
     /**
      * Create the full regular expression.
      */
-    public ReExpr mkFullRe(Sort s) 
+    public ReExpr mkFullRe(Sort s)
     {
 	return (ReExpr) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
-    }    
-    
+    }
+
     /**
      * Create a range expression.
      */
-    public ReExpr mkRange(SeqExpr lo, SeqExpr hi) 
+    public ReExpr mkRange(SeqExpr lo, SeqExpr hi)
     {
         checkContextMatch(lo, hi);
         return (ReExpr) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
     }
 
 
-    /** 
+    /**
      * Create an at-most-k constraint.
      */
     public BoolExpr mkAtMost(BoolExpr[] args, int k)
@@ -2255,7 +2255,7 @@ public class Context implements AutoCloseable {
      * @param ty The sort of the
      * numeral. In the current implementation, the given sort can be an int,
      * real, or bit-vectors of arbitrary size.
-     * 
+     *
      * @return A Term with value {@code v} and sort {@code ty}
      **/
     public Expr mkNumeral(String v, Sort ty)
@@ -2269,10 +2269,10 @@ public class Context implements AutoCloseable {
      * Create a Term of a given sort. This function can be used to create
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
-     * 
+     *
      * @param v Value of the numeral 
      * @param ty Sort of the numeral
-     * 
+     *
      * @return A Term with value {@code v} and type {@code ty}
      **/
     public Expr mkNumeral(int v, Sort ty)
@@ -2285,10 +2285,10 @@ public class Context implements AutoCloseable {
      * Create a Term of a given sort. This function can be used to create
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
-     * 
+     *
      * @param v Value of the numeral 
      * @param ty Sort of the numeral
-     * 
+     *
      * @return A Term with value {@code v} and type {@code ty}
      **/
     public Expr mkNumeral(long v, Sort ty)
@@ -2302,7 +2302,7 @@ public class Context implements AutoCloseable {
      * Create a real from a fraction. 
      * @param num numerator of rational. 
      * @param den denominator of rational.
-     * 
+     *
      * @return A Term with value {@code num}/{@code den}
      *         and sort Real 
      * @see #mkNumeral(String,Sort)
@@ -2319,7 +2319,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a real numeral. 
      * @param v A string representing the Term value in decimal notation.
-     * 
+     *
      * @return A Term with value {@code v} and sort Real
      **/
     public RatNum mkReal(String v)
@@ -2332,7 +2332,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a real numeral. 
      * @param v value of the numeral.
-     * 
+     *
      * @return A Term with value {@code v} and sort Real
      **/
     public RatNum mkReal(int v)
@@ -2345,7 +2345,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a real numeral. 
      * @param v value of the numeral.
-     * 
+     *
      * @return A Term with value {@code v} and sort Real
      **/
     public RatNum mkReal(long v)
@@ -2369,7 +2369,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an integer numeral. 
      * @param v value of the numeral.
-     * 
+     *
      * @return A Term with value {@code v} and sort Integer
      **/
     public IntNum mkInt(int v)
@@ -2382,7 +2382,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an integer numeral. 
      * @param v value of the numeral.
-     * 
+     *
      * @return A Term with value {@code v} and sort Integer
      **/
     public IntNum mkInt(long v)
@@ -2433,7 +2433,7 @@ public class Context implements AutoCloseable {
      * @param noPatterns array containing the anti-patterns created using {@code MkPattern}. 
      * @param quantifierID optional symbol to track quantifier. 
      * @param skolemID optional symbol to track skolem constants.
-     * 
+     *
      * @return Creates a forall formula, where
      * {@code weight} is the weight, {@code patterns} is
      * an array of patterns, {@code sorts} is an array with the sorts
@@ -2502,7 +2502,7 @@ public class Context implements AutoCloseable {
     public Quantifier mkQuantifier(boolean universal, Sort[] sorts,
                                    Symbol[] names, Expr body, int weight, Pattern[] patterns,
                                    Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
-        
+
     {
 
         if (universal)
@@ -2532,7 +2532,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a lambda expression.
-     * 
+     *
      * {@code sorts} is an array
      * with the sorts of the bound variables, {@code names} is an array with the
      * 'names' of the bound variables, and {@code body} is the body of the
@@ -2554,7 +2554,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a lambda expression.
-     * 
+     *
      * Creates a lambda expression using a list of constants that will
      * form the set of bound variables.
      **/
@@ -2586,14 +2586,14 @@ public class Context implements AutoCloseable {
     /**
      * Convert a benchmark into an SMT-LIB formatted string. 
      * @param name Name of the benchmark. The argument is optional.
-     * 
+     *
      * @param logic The benchmark logic.  
      * @param status The status string (sat, unsat, or unknown) 
      * @param attributes Other attributes, such as source, difficulty or
      * category.
      * @param assumptions Auxiliary assumptions. 
      * @param formula Formula to be checked for consistency in conjunction with assumptions.
-     * 
+     *
      * @return A string representation of the benchmark.
      **/
     public String benchmarkToSMTString(String name, String logic,
@@ -2608,16 +2608,16 @@ public class Context implements AutoCloseable {
 
     /**
      * Parse the given string using the SMT-LIB2 parser. 
-     * 
+     *
      * @return A conjunction of assertions.
-     *         
+     *
      * If the string contains push/pop commands, the
      * set of assertions returned are the ones in the 
      * last scope level.
      **/
     public BoolExpr[] parseSMTLIB2String(String str, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
-           
+
     {
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
@@ -2639,7 +2639,7 @@ public class Context implements AutoCloseable {
      **/
     public BoolExpr[] parseSMTLIB2File(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
-           
+
     {
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
@@ -2666,7 +2666,7 @@ public class Context implements AutoCloseable {
      * enabled.
      **/
     public Goal mkGoal(boolean models, boolean unsatCores, boolean proofs)
-           
+
     {
         return new Goal(this, models, unsatCores, proofs);
     }
@@ -2722,7 +2722,7 @@ public class Context implements AutoCloseable {
      * {@code t2} to every subgoal produced by {@code t1}
      **/
     public Tactic andThen(Tactic t1, Tactic t2, Tactic... ts)
-           
+
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -2750,7 +2750,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a tactic that applies {@code t1} to a Goal and then
      * {@code t2} to every subgoal produced by {@code t1}
-     * 
+     *
      * Remarks:  Shorthand for {@code AndThen}. 
      **/
     public Tactic then(Tactic t1, Tactic t2, Tactic... ts)
@@ -2775,7 +2775,7 @@ public class Context implements AutoCloseable {
      * Create a tactic that applies {@code t} to a goal for {@code ms} milliseconds.
      * Remarks:  If {@code t} does not
      * terminate within {@code ms} milliseconds, then it fails.
-     * 
+     *
      **/
     public Tactic tryFor(Tactic t, int ms)
     {
@@ -3128,11 +3128,11 @@ public class Context implements AutoCloseable {
         return new Optimize(this);
     }
 
-    
+
     /**
      * Create the floating-point RoundingMode sort.
-     * @throws Z3Exception 
-     **/    
+     * @throws Z3Exception
+     **/
     public FPRMSort mkFPRoundingModeSort()
     {
         return new FPRMSort(this);
@@ -3140,7 +3140,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMExpr mkFPRoundNearestTiesToEven()
     {
@@ -3149,7 +3149,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRNE()
     {
@@ -3158,7 +3158,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRoundNearestTiesToAway()
     {
@@ -3167,7 +3167,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRNA()
     {
@@ -3176,7 +3176,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRoundTowardPositive()
     {
@@ -3185,7 +3185,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRTP()
     {
@@ -3194,7 +3194,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRoundTowardNegative()
     {
@@ -3203,7 +3203,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRTN()
     {
@@ -3212,7 +3212,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRoundTowardZero()
     {
@@ -3221,19 +3221,19 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPRMNum mkFPRTZ()
     {
         return new FPRMNum(this, Native.mkFpaRtz(nCtx()));
-    }        
+    }
 
     /**
      * Create a FloatingPoint sort.
      * @param ebits exponent bits in the FloatingPoint sort.
      * @param sbits significand bits in the FloatingPoint sort.
-     * @throws Z3Exception 
-     **/     
+     * @throws Z3Exception
+     **/
     public FPSort mkFPSort(int ebits, int sbits)
     {
         return new FPSort(this, ebits, sbits);
@@ -3241,7 +3241,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the half-precision (16-bit) FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPSort mkFPSortHalf()
     {
@@ -3250,7 +3250,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the half-precision (16-bit) FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPSort mkFPSort16()
     {
@@ -3259,7 +3259,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the single-precision (32-bit) FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPSort mkFPSortSingle()
     {
@@ -3268,7 +3268,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the single-precision (32-bit) FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPSort mkFPSort32()
     {
@@ -3277,7 +3277,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the double-precision (64-bit) FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPSort mkFPSortDouble()
     {
@@ -3286,7 +3286,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the double-precision (64-bit) FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPSort mkFPSort64()
     {
@@ -3295,16 +3295,16 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the quadruple-precision (128-bit) FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPSort mkFPSortQuadruple()
-    {        
+    {
         return new FPSort(this, Native.mkFpaSortQuadruple(nCtx()));
     }
 
     /**
      * Create the quadruple-precision (128-bit) FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPSort mkFPSort128()
     {
@@ -3315,8 +3315,8 @@ public class Context implements AutoCloseable {
     /**
      * Create a NaN of sort s.
      * @param s FloatingPoint sort.     
-     * @throws Z3Exception 
-     **/               
+     * @throws Z3Exception
+     **/
     public FPNum mkFPNaN(FPSort s)
     {
         return new FPNum(this, Native.mkFpaNan(nCtx(), s.getNativeObject()));
@@ -3326,8 +3326,8 @@ public class Context implements AutoCloseable {
      * Create a floating-point infinity of sort s.
      * @param s FloatingPoint sort.   
      * @param negative indicates whether the result should be negative.
-     * @throws Z3Exception 
-     **/             
+     * @throws Z3Exception
+     **/
     public FPNum mkFPInf(FPSort s, boolean negative)
     {
         return new FPNum(this, Native.mkFpaInf(nCtx(), s.getNativeObject(), negative));
@@ -3337,8 +3337,8 @@ public class Context implements AutoCloseable {
      * Create a floating-point zero of sort s.
      * @param s FloatingPoint sort.   
      * @param negative indicates whether the result should be negative.
-     * @throws Z3Exception 
-     **/             
+     * @throws Z3Exception
+     **/
     public FPNum mkFPZero(FPSort s, boolean negative)
     {
         return new FPNum(this, Native.mkFpaZero(nCtx(), s.getNativeObject(), negative));
@@ -3348,8 +3348,8 @@ public class Context implements AutoCloseable {
      * Create a numeral of FloatingPoint sort from a float.
      * @param v numeral value.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/        
+     * @throws Z3Exception
+     **/
     public FPNum mkFPNumeral(float v, FPSort s)
     {
         return new FPNum(this, Native.mkFpaNumeralFloat(nCtx(), v, s.getNativeObject()));
@@ -3359,8 +3359,8 @@ public class Context implements AutoCloseable {
      * Create a numeral of FloatingPoint sort from a double.
      * @param v numeral value.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/        
+     * @throws Z3Exception
+     **/
     public FPNum mkFPNumeral(double v, FPSort s)
     {
         return new FPNum(this, Native.mkFpaNumeralDouble(nCtx(), v, s.getNativeObject()));
@@ -3370,8 +3370,8 @@ public class Context implements AutoCloseable {
      * Create a numeral of FloatingPoint sort from an int.
      * @param v numeral value.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/                    
+     * @throws Z3Exception
+     **/
     public FPNum mkFPNumeral(int v, FPSort s)
     {
         return new FPNum(this, Native.mkFpaNumeralInt(nCtx(), v, s.getNativeObject()));
@@ -3383,11 +3383,11 @@ public class Context implements AutoCloseable {
      * @param exp the exponent.
      * @param sig the significand.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/            
+     * @throws Z3Exception
+     **/
     public FPNum mkFPNumeral(boolean sgn, int exp, int sig, FPSort s)
     {
-        return new FPNum(this, Native.mkFpaNumeralIntUint(nCtx(), sgn, exp, sig, s.getNativeObject()));    
+        return new FPNum(this, Native.mkFpaNumeralIntUint(nCtx(), sgn, exp, sig, s.getNativeObject()));
     }
 
     /**
@@ -3396,7 +3396,7 @@ public class Context implements AutoCloseable {
      * @param exp the exponent.
      * @param sig the significand.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPNum mkFPNumeral(boolean sgn, long exp, long sig, FPSort s)
     {
@@ -3407,8 +3407,8 @@ public class Context implements AutoCloseable {
      * Create a numeral of FloatingPoint sort from a float.
      * @param v numeral value.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/        
+     * @throws Z3Exception
+     **/
     public FPNum mkFP(float v, FPSort s)
     {
         return mkFPNumeral(v, s);
@@ -3418,8 +3418,8 @@ public class Context implements AutoCloseable {
      * Create a numeral of FloatingPoint sort from a double.
      * @param v numeral value.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/             
+     * @throws Z3Exception
+     **/
     public FPNum mkFP(double v, FPSort s)
     {
         return mkFPNumeral(v, s);
@@ -3429,9 +3429,9 @@ public class Context implements AutoCloseable {
      * Create a numeral of FloatingPoint sort from an int.
      * @param v numeral value.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/        
-            
+     * @throws Z3Exception
+     **/
+
     public FPNum mkFP(int v, FPSort s)
     {
         return mkFPNumeral(v, s);
@@ -3443,8 +3443,8 @@ public class Context implements AutoCloseable {
      * @param exp the exponent.
      * @param sig the significand.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/                     
+     * @throws Z3Exception
+     **/
     public FPNum mkFP(boolean sgn, int exp, int sig, FPSort s)
     {
         return mkFPNumeral(sgn, exp, sig, s);
@@ -3456,8 +3456,8 @@ public class Context implements AutoCloseable {
      * @param exp the exponent.
      * @param sig the significand.
      * @param s FloatingPoint sort.
-     * @throws Z3Exception 
-     **/                     
+     * @throws Z3Exception
+     **/
     public FPNum mkFP(boolean sgn, long exp, long sig, FPSort s)
     {
         return mkFPNumeral(sgn, exp, sig, s);
@@ -3467,9 +3467,9 @@ public class Context implements AutoCloseable {
     /**
      * Floating-point absolute value
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/     
-    public FPExpr mkFPAbs(FPExpr t) 
+     * @throws Z3Exception
+     **/
+    public FPExpr mkFPAbs(FPExpr t)
     {
         return new FPExpr(this, Native.mkFpaAbs(nCtx(), t.getNativeObject()));
     }
@@ -3477,9 +3477,9 @@ public class Context implements AutoCloseable {
     /**
      * Floating-point negation
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/     
-    public FPExpr mkFPNeg(FPExpr t) 
+     * @throws Z3Exception
+     **/
+    public FPExpr mkFPNeg(FPExpr t)
     {
         return new FPExpr(this, Native.mkFpaNeg(nCtx(), t.getNativeObject()));
     }
@@ -3489,9 +3489,9 @@ public class Context implements AutoCloseable {
      * @param rm rounding mode term
      * @param t1 floating-point term
      * @param t2 floating-point term     
-     * @throws Z3Exception 
-     **/     
-    public FPExpr mkFPAdd(FPRMExpr rm, FPExpr t1, FPExpr t2) 
+     * @throws Z3Exception
+     **/
+    public FPExpr mkFPAdd(FPRMExpr rm, FPExpr t1, FPExpr t2)
     {
         return new FPExpr(this, Native.mkFpaAdd(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3501,9 +3501,9 @@ public class Context implements AutoCloseable {
      * @param rm rounding mode term
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/     
-    public FPExpr mkFPSub(FPRMExpr rm, FPExpr t1, FPExpr t2) 
+     * @throws Z3Exception
+     **/
+    public FPExpr mkFPSub(FPRMExpr rm, FPExpr t1, FPExpr t2)
     {
         return new FPExpr(this, Native.mkFpaSub(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3513,9 +3513,9 @@ public class Context implements AutoCloseable {
      * @param rm rounding mode term
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/     
-    public FPExpr mkFPMul(FPRMExpr rm, FPExpr t1, FPExpr t2) 
+     * @throws Z3Exception
+     **/
+    public FPExpr mkFPMul(FPRMExpr rm, FPExpr t1, FPExpr t2)
     {
         return new FPExpr(this, Native.mkFpaMul(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3525,9 +3525,9 @@ public class Context implements AutoCloseable {
      * @param rm rounding mode term
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/     
-    public FPExpr mkFPDiv(FPRMExpr rm, FPExpr t1, FPExpr t2) 
+     * @throws Z3Exception
+     **/
+    public FPExpr mkFPDiv(FPRMExpr rm, FPExpr t1, FPExpr t2)
     {
         return new FPExpr(this, Native.mkFpaDiv(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3540,9 +3540,9 @@ public class Context implements AutoCloseable {
      * @param t3 floating-point term
      * Remarks:
      * The result is round((t1 * t2) + t3)
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
-    public FPExpr mkFPFMA(FPRMExpr rm, FPExpr t1, FPExpr t2, FPExpr t3) 
+    public FPExpr mkFPFMA(FPRMExpr rm, FPExpr t1, FPExpr t2, FPExpr t3)
     {
         return new FPExpr(this, Native.mkFpaFma(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject(), t3.getNativeObject()));
     }
@@ -3551,9 +3551,9 @@ public class Context implements AutoCloseable {
      * Floating-point square root
      * @param rm rounding mode term        
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/        
-    public FPExpr mkFPSqrt(FPRMExpr rm, FPExpr t) 
+     * @throws Z3Exception
+     **/
+    public FPExpr mkFPSqrt(FPRMExpr rm, FPExpr t)
     {
         return new FPExpr(this, Native.mkFpaSqrt(nCtx(), rm.getNativeObject(), t.getNativeObject()));
     }
@@ -3562,9 +3562,9 @@ public class Context implements AutoCloseable {
      * Floating-point remainder
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/             
-    public FPExpr mkFPRem(FPExpr t1, FPExpr t2) 
+     * @throws Z3Exception
+     **/
+    public FPExpr mkFPRem(FPExpr t1, FPExpr t2)
     {
         return new FPExpr(this, Native.mkFpaRem(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3574,10 +3574,10 @@ public class Context implements AutoCloseable {
      * the closest integer, again represented as a floating-point number.
      * @param rm term of RoundingMode sort
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/             
+     * @throws Z3Exception
+     **/
     public FPExpr mkFPRoundToIntegral(FPRMExpr rm, FPExpr t)
-    {            
+    {
         return new FPExpr(this, Native.mkFpaRoundToIntegral(nCtx(), rm.getNativeObject(), t.getNativeObject()));
     }
 
@@ -3585,7 +3585,7 @@ public class Context implements AutoCloseable {
      * Minimum of floating-point numbers.
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPExpr mkFPMin(FPExpr t1, FPExpr t2)
     {
@@ -3596,21 +3596,21 @@ public class Context implements AutoCloseable {
      * Maximum of floating-point numbers.
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/             
+     * @throws Z3Exception
+     **/
     public FPExpr mkFPMax(FPExpr t1, FPExpr t2)
     {
         return new FPExpr(this, Native.mkFpaMax(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
-    }   
-    
+    }
+
     /**
      * Floating-point less than or equal.
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/             
-    public BoolExpr mkFPLEq(FPExpr t1, FPExpr t2) 
-    {            
+     * @throws Z3Exception
+     **/
+    public BoolExpr mkFPLEq(FPExpr t1, FPExpr t2)
+    {
         return new BoolExpr(this, Native.mkFpaLeq(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
 
@@ -3618,10 +3618,10 @@ public class Context implements AutoCloseable {
      * Floating-point less than.
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/             
-    public BoolExpr mkFPLt(FPExpr t1, FPExpr t2) 
-    {                    
+     * @throws Z3Exception
+     **/
+    public BoolExpr mkFPLt(FPExpr t1, FPExpr t2)
+    {
         return new BoolExpr(this, Native.mkFpaLt(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
 
@@ -3629,10 +3629,10 @@ public class Context implements AutoCloseable {
      * Floating-point greater than or equal.
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/             
-    public BoolExpr mkFPGEq(FPExpr t1, FPExpr t2) 
-    {                    
+     * @throws Z3Exception
+     **/
+    public BoolExpr mkFPGEq(FPExpr t1, FPExpr t2)
+    {
         return new BoolExpr(this, Native.mkFpaGeq(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
 
@@ -3640,10 +3640,10 @@ public class Context implements AutoCloseable {
      * Floating-point greater than.
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @throws Z3Exception 
-     **/             
-    public BoolExpr mkFPGt(FPExpr t1, FPExpr t2) 
-    {            
+     * @throws Z3Exception
+     **/
+    public BoolExpr mkFPGt(FPExpr t1, FPExpr t2)
+    {
         return new BoolExpr(this, Native.mkFpaGt(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
 
@@ -3653,7 +3653,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * Remarks:
      * Note that this is IEEE 754 equality (as opposed to standard =).
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public BoolExpr mkFPEq(FPExpr t1, FPExpr t2)
     {
@@ -3663,9 +3663,9 @@ public class Context implements AutoCloseable {
     /**
      * Predicate indicating whether t is a normal floating-point number.\
      * @param t floating-point term
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
-    public BoolExpr mkFPIsNormal(FPExpr t) 
+    public BoolExpr mkFPIsNormal(FPExpr t)
     {
         return new BoolExpr(this, Native.mkFpaIsNormal(nCtx(), t.getNativeObject()));
     }
@@ -3673,18 +3673,18 @@ public class Context implements AutoCloseable {
     /**
      * Predicate indicating whether t is a subnormal floating-point number.\
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/        
-    public BoolExpr mkFPIsSubnormal(FPExpr t) 
-    {                   
+     * @throws Z3Exception
+     **/
+    public BoolExpr mkFPIsSubnormal(FPExpr t)
+    {
         return new BoolExpr(this, Native.mkFpaIsSubnormal(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Predicate indicating whether t is a floating-point number with zero value, i.e., +0 or -0.
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/        
+     * @throws Z3Exception
+     **/
     public BoolExpr mkFPIsZero(FPExpr t)
     {
         return new BoolExpr(this, Native.mkFpaIsZero(nCtx(), t.getNativeObject()));
@@ -3693,42 +3693,42 @@ public class Context implements AutoCloseable {
     /**
      * Predicate indicating whether t is a floating-point number representing +oo or -oo.
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/        
+     * @throws Z3Exception
+     **/
     public BoolExpr mkFPIsInfinite(FPExpr t)
-    {    
+    {
         return new BoolExpr(this, Native.mkFpaIsInfinite(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Predicate indicating whether t is a NaN.
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/             
-    public BoolExpr mkFPIsNaN(FPExpr t) 
-    {                   
+     * @throws Z3Exception
+     **/
+    public BoolExpr mkFPIsNaN(FPExpr t)
+    {
         return new BoolExpr(this, Native.mkFpaIsNan(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Predicate indicating whether t is a negative floating-point number.
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/        
+     * @throws Z3Exception
+     **/
     public BoolExpr mkFPIsNegative(FPExpr t)
-    {     
+    {
         return new BoolExpr(this, Native.mkFpaIsNegative(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Predicate indicating whether t is a positive floating-point number.
      * @param t floating-point term
-     * @throws Z3Exception 
-     **/        
+     * @throws Z3Exception
+     **/
     public BoolExpr mkFPIsPositive(FPExpr t)
     {
         return new BoolExpr(this, Native.mkFpaIsPositive(nCtx(), t.getNativeObject()));
-    }        
+    }
 
     /**
      * Create an expression of FloatingPoint sort from three bit-vector expressions.     
@@ -3741,7 +3741,7 @@ public class Context implements AutoCloseable {
      * are required to be greater than 1 and 2 respectively. The FloatingPoint sort 
      * of the resulting expression is automatically determined from the bit-vector sizes
      * of the arguments.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPExpr mkFP(BitVecExpr sgn, BitVecExpr sig, BitVecExpr exp)
     {
@@ -3757,7 +3757,7 @@ public class Context implements AutoCloseable {
      * floating-point term of sort s. The bit-vector size of bv (m) must be equal 
      * to ebits+sbits of s. The format of the bit-vector is as defined by the 
      * IEEE 754-2008 interchange format.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPExpr mkFPToFP(BitVecExpr bv, FPSort s)
     {
@@ -3773,7 +3773,7 @@ public class Context implements AutoCloseable {
      * Produces a term that represents the conversion of a floating-point term t to a
      * floating-point term of sort s. If necessary, the result will be rounded according
      * to rounding mode rm.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPExpr mkFPToFP(FPRMExpr rm, FPExpr t, FPSort s)
     {
@@ -3789,7 +3789,7 @@ public class Context implements AutoCloseable {
      * Produces a term that represents the conversion of term t of real sort into a
      * floating-point term of sort s. If necessary, the result will be rounded according
      * to rounding mode rm.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPExpr mkFPToFP(FPRMExpr rm, RealExpr t, FPSort s)
     {
@@ -3807,7 +3807,7 @@ public class Context implements AutoCloseable {
      * floating-point term of sort s. The bit-vector t is taken to be in signed 
      * 2's complement format (when signed==true, otherwise unsigned). If necessary, the 
      * result will be rounded according to rounding mode rm.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPExpr mkFPToFP(FPRMExpr rm, BitVecExpr t, FPSort s, boolean signed)
     {
@@ -3825,7 +3825,7 @@ public class Context implements AutoCloseable {
      * Remarks:
      * Produces a term that represents the conversion of a floating-point term t to a different
      * FloatingPoint sort s. If necessary, rounding according to rm is applied. 
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FPExpr mkFPToFP(FPSort s, FPRMExpr rm, FPExpr t)
     {
@@ -3842,7 +3842,7 @@ public class Context implements AutoCloseable {
      * Produces a term that represents the conversion of the floating-point term t into a
      * bit-vector term of size sz in 2's complement format (signed when signed==true). If necessary, 
      * the result will be rounded according to rounding mode rm.        
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public BitVecExpr mkFPToBV(FPRMExpr rm, FPExpr t, int sz, boolean signed)
     {
@@ -3859,7 +3859,7 @@ public class Context implements AutoCloseable {
      * Produces a term that represents the conversion of the floating-point term t into a
      * real number. Note that this type of conversion will often result in non-linear 
      * constraints over real terms.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public RealExpr mkFPToReal(FPExpr t)
     {
@@ -3874,7 +3874,7 @@ public class Context implements AutoCloseable {
      * IEEE 754-2008 allows multiple different representations of NaN. This conversion 
      * knows only one NaN and it will always produce the same bit-vector representation of
      * that NaN. 
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public BitVecExpr mkFPToIEEEBV(FPExpr t)
     {
@@ -3891,22 +3891,22 @@ public class Context implements AutoCloseable {
      * Produces a term that represents the conversion of sig * 2^exp into a 
      * floating-point term of sort s. If necessary, the result will be rounded
      * according to rounding mode rm.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
-         
+
     public BitVecExpr mkFPToFP(FPRMExpr rm, IntExpr exp, RealExpr sig, FPSort s)
     {
         return new BitVecExpr(this, Native.mkFpaToFpIntReal(nCtx(), rm.getNativeObject(), exp.getNativeObject(), sig.getNativeObject(), s.getNativeObject()));
     }
-    
-    
+
+
     /**
      * Wraps an AST.
      * Remarks: This function is used for transitions between
      * native and managed objects. Note that {@code nativeObject}
      * must be a native object obtained from Z3 (e.g., through 
      * {@code UnwrapAST}) and that it must have a correct reference count.
-     * @see Native#incRef 
+     * @see Native#incRef
      * @see #unwrapAST
      * @param nativeObject The native pointer to wrap.
      **/
@@ -3923,7 +3923,7 @@ public class Context implements AutoCloseable {
      * disables automatic reference counting, i.e., all references to the IntPtr
      * that is returned must be handled externally and through native calls (see
      * e.g., 
-     * @see Native#incRef 
+     * @see Native#incRef
      * @see #wrapAST
      * @param a The AST to unwrap.
      **/
@@ -3963,9 +3963,9 @@ public class Context implements AutoCloseable {
     }
 
 
-    long nCtx()
+    public long nCtx()
     {
-        if (m_ctx == 0) 
+        if (m_ctx == 0)
             throw new Z3Exception("Context closed");
         return m_ctx;
     }
@@ -4131,7 +4131,7 @@ public class Context implements AutoCloseable {
         m_intSort = null;
         m_realSort = null;
         m_stringSort = null;
-        
+
         synchronized (creation_lock) {
             Native.delContext(m_ctx);
         }
