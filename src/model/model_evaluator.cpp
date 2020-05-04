@@ -254,6 +254,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             }
             func_interp * fi = m_model.get_func_interp(g);
             if (fi && (result = fi->get_array_interp(g))) {
+                std::cout << g->get_name() << "\n";
+                std::cout << result << "\n";
                 model_evaluator ev(m_model, m_params);
                 result = ev(result);
                 m_pinned.push_back(result);
