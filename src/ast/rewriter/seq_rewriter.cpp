@@ -585,6 +585,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
+    if (st == BR_FAILED) {
+        st = lift_ite(f, num_args, args, result);
+    }
     if (st != BR_FAILED && m().get_sort(result) != f->get_range()) {
         std::cout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";
     }
@@ -685,20 +688,28 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = m_autil.mk_add(es.size(), es.c_ptr());
         return BR_REWRITE2;
     }
-    expr* c = nullptr, *t = nullptr, *e = nullptr;
-    if (m().is_ite(a, c, t, e) && (t->get_ref_count() == 1 || e->get_ref_count() == 1)) {
-        result = m().mk_ite(c, m_util.str.mk_length(t), m_util.str.mk_length(e));
-        return BR_REWRITE3;
-    }
-#if 0
-    if (m().is_ite(a, c, t, e) && (get_depth(t) <= 2 || get_depth(e) <= 2)) {
-        result = m().mk_ite(c, m_util.str.mk_length(t), m_util.str.mk_length(e));
-        return BR_REWRITE3;
-    }
-#endif
-    
     return BR_FAILED;
 }
+
+br_status seq_rewriter::lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
+    expr* c = nullptr, *t = nullptr, *e = nullptr;
+    for (unsigned i = 0; i < n; ++i) {        
+        if (m().is_ite(args[i], c, t, e) && 
+            (get_depth(t) <= 2 || t->get_ref_count() == 1 ||
+             get_depth(e) <= 2 || e->get_ref_count() == 1)) {
+            ptr_buffer<expr> new_args;
+            for (unsigned j = 0; j < n; ++j) new_args.push_back(args[j]);
+            new_args[i] = t;
+            expr_ref arg1(m().mk_app(f, new_args), m());
+            new_args[i] = e;
+            expr_ref arg2(m().mk_app(f, new_args), m());
+            result = m().mk_ite(c, arg1, arg2);
+            return BR_REWRITE2;
+        }
+    }
+    return BR_FAILED;
+}
+
 
 bool seq_rewriter::is_suffix(expr* s, expr* offset, expr* len) {
     expr_ref_vector lens(m());
@@ -771,21 +782,6 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     bool lengthPos   = m_util.str.is_length(b) || m_autil.is_add(b);
     sort* a_sort = m().get_sort(a);
 
-    expr* cond = nullptr, *t = nullptr, *e = nullptr;
-#if 0
-    if (m().is_ite(a, cond, t, e) && (get_depth(t) <= 2 || get_depth(e) <= 2)) {
-        result = m().mk_ite(cond, m_util.str.mk_substr(t, b, c), m_util.str.mk_substr(e, b, c));
-        return BR_REWRITE3;
-    }
-    if (m().is_ite(b, cond, t, e) && (get_depth(t) <= 2 || get_depth(e) <= 2)) {
-        result = m().mk_ite(cond, m_util.str.mk_substr(a, t, c), m_util.str.mk_substr(a, e, c));
-        return BR_REWRITE3;
-    }
-    if (m().is_ite(c, cond, t, e) && (get_depth(t) <= 2 || get_depth(e) <= 2)) {
-        result = m().mk_ite(cond, m_util.str.mk_substr(a, b, t), m_util.str.mk_substr(a, b, e));
-        return BR_REWRITE3;
-    }
-#endif
     sign sg;
     if (sign_is_determined(c, sg) && sg == sign_neg) {
         result = m_util.str.mk_empty(a_sort);
@@ -1759,6 +1755,7 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
         result = m().mk_ite(m_autil.mk_ge(b, zero()), b, minus_one());
         return BR_DONE;
     }
+    
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (m().is_ite(a, c, t, e)) {
         result = m().mk_ite(c, m_util.str.mk_stoi(t), m_util.str.mk_stoi(e));
