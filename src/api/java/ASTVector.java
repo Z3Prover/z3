@@ -91,12 +91,12 @@ public class ASTVector extends Z3Object {
         return Native.astVectorToString(getContext().nCtx(), getNativeObject());
     }
 
-    ASTVector(Context ctx, long obj)
+    public ASTVector(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    ASTVector(Context ctx)
+    public ASTVector(Context ctx)
     {
         super(ctx, Native.mkAstVector(ctx.nCtx()));
     }

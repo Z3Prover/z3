@@ -3963,7 +3963,7 @@ public class Context implements AutoCloseable {
     }
 
 
-    long nCtx()
+    public long nCtx()
     {
         if (m_ctx == 0) 
             throw new Z3Exception("Context closed");
