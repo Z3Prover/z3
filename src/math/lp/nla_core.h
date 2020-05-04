@@ -424,6 +424,8 @@ public:
     bool try_to_patch(lpvar, const rational&, const monic&);
     bool to_refine_is_correct() const;
     bool patch_blocker(lpvar u, const monic& m) const;
+    bool has_big_num(const monic&) const;
+    bool var_is_big(lpvar) const;
 };  // end of core
 
 struct pp_mon {
