@@ -682,10 +682,10 @@ namespace sat {
             bool tt = cur_solution(v);
             coeff_vector const& falsep = m_vars[v].m_watch[!tt];
             for (pbcoeff const& pbc : falsep) {
-                auto slack = constraint_slack(pbc.m_constraint_id);
+                int64_t slack = constraint_slack(pbc.m_constraint_id);
                 if (slack < 0)
                     ++best_bsb;
-                else if (slack < static_cast<int>(pbc.m_coeff))
+                else if (slack < static_cast<int64_t>(pbc.m_coeff))
                     best_bsb += num_unsat;
             }
             ++cit;
@@ -697,7 +697,7 @@ namespace sat {
                     coeff_vector const& falsep = m_vars[v].m_watch[!cur_solution(v)];
                     auto it = falsep.begin(), end = falsep.end();
                     for (; it != end; ++it) {
-                        auto slack = constraint_slack(it->m_constraint_id);
+                        int64_t slack = constraint_slack(it->m_constraint_id);
                         if (slack < 0) {
                             if (bsb == best_bsb) {
                                 break;
@@ -706,7 +706,7 @@ namespace sat {
                                 ++bsb;
                             }
                         }
-                        else if (slack < static_cast<int>(it->m_coeff)) {
+                        else if (slack < static_cast<int64_t>(it->m_coeff)) {
                             bsb += num_unsat;
                             if (bsb > best_bsb) {
                                 break;
