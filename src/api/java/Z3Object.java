@@ -70,7 +70,7 @@ public abstract class Z3Object {
         return m_ctx;
     }
 
-    static long[] arrayToNative(Z3Object[] a)
+    public static long[] arrayToNative(Z3Object[] a)
     {
         if (a == null)
             return null;
@@ -80,7 +80,7 @@ public abstract class Z3Object {
         return an;
     }
 
-    static int arrayLength(Z3Object[] a)
+    public static int arrayLength(Z3Object[] a)
     {
         return (a == null) ? 0 : a.length;
     }
