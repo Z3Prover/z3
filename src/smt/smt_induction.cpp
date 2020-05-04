@@ -251,6 +251,39 @@ void induction_lemmas::filter_abstractions(bool sign, abstractions& abs) {
     abs.shrink(j);
 }
 
+/**
+   extract substitutions for x into accessor values of the same sort.
+   collect side-conditions for the accessors to be well defined.
+   apply a depth-bounded unfolding of datatype constructors to collect 
+   accessor values beyond a first level and for nested (mutually recursive)
+   datatypes.
+ */
+void induction_lemmas::mk_hypothesis_substs(unsigned depth, expr* x, cond_substs_t& subst) {
+    expr_ref_vector conds(m);
+    mk_hypothesis_substs_rec(depth, m.get_sort(x), x, conds, subst);
+}
+
+void induction_lemmas::mk_hypothesis_substs_rec(unsigned depth, sort* s, expr* y, expr_ref_vector& conds, cond_substs_t& subst) {
+    sort* ys = m.get_sort(y);
+    for (func_decl* c : *m_dt.get_datatype_constructors(ys)) {
+        func_decl* is_c = m_dt.get_constructor_recognizer(c);
+        conds.push_back(m.mk_app(is_c, y));
+        for (func_decl* acc : *m_dt.get_constructor_accessors(c)) {
+            sort* rs = acc->get_range();
+            if (!m_dt.is_datatype(rs) || !m_dt.is_recursive(rs))
+                continue;
+            expr_ref acc_y(m.mk_app(acc, y), m);
+            if (rs == s) {
+                subst.push_back(std::make_pair(conds, acc_y));
+            }                
+            if (depth > 1) {
+                mk_hypothesis_substs_rec(depth - 1, s, acc_y, conds, subst);
+            }
+        }
+        conds.pop_back();
+    }
+}
+
 /*
  * Create simple induction lemmas of the form:
  *
@@ -272,56 +305,77 @@ void induction_lemmas::filter_abstractions(bool sign, abstractions& abs) {
  * the instance of s is true. In the limit one can
  * set beta to all instantiations of smaller values than sk.
  * 
- * create_hypotheses creates induction hypotheses.
  */
 
-void induction_lemmas::create_hypotheses(unsigned depth, sort* s, expr* y, expr_ref_vector& conds, expr_ref_pair_vector& subst) {
-    sort* ys = m.get_sort(y);
-    for (func_decl* c : *m_dt.get_datatype_constructors(ys)) {
-        func_decl* is_c = m_dt.get_constructor_recognizer(c);
-        for (func_decl* acc : *m_dt.get_constructor_accessors(c)) {
-            sort* rs = acc->get_range();
-            if (!m_dt.is_datatype(rs) || !m_dt.is_recursive(rs))
-                continue;
-            conds.push_back(m.mk_app(is_c, y));
-            app_ref acc_y(m.mk_app(acc, y), m);
-            if (rs == s) {
-                subst.push_back(mk_and(conds), acc_y);
-            }                
-            if (depth > 1) {
-                create_hypotheses(depth - 1, s, acc_y, conds, subst);
-            }
-            conds.pop_back();
-        }
+void induction_lemmas::mk_hypothesis_lemma(expr_ref_vector const& conds, expr_pair_vector const& subst, literal alpha) {
+    expr* alpha_e = ctx.bool_var2expr(alpha.var());
+    expr_ref beta(alpha_e, m);  
+    expr_safe_replace rep(m);
+    for (auto const& p : subst) {
+        rep.insert(p.first, p.second);
     }
+    rep(beta);                          // set beta := alpha[sk/acc(acc2(sk))]
+    literal b_lit = mk_literal(beta);
+    if (alpha.sign()) b_lit.neg();
+    literal_vector lits;
+    lits.push_back(~alpha);
+    for (expr* c : conds) lits.push_back(~mk_literal(c));
+    lits.push_back(b_lit);
+    add_th_lemma(lits);
 }
 
 void induction_lemmas::create_hypotheses(unsigned depth, expr* sk, literal alpha) {
     expr_ref_vector conds(m);
-    expr_ref_pair_vector subst(m);
+    cond_substs_t subst;
     expr* alpha_e = ctx.bool_var2expr(alpha.var());
-    create_hypotheses(depth, m.get_sort(sk), sk, conds, subst);
+    mk_hypothesis_substs(depth, sk, subst);
     for (auto& p : subst) {
-        conds.reset();
-        flatten_and(p.first, conds);
-        expr_ref beta(alpha_e, m);  
-        expr_safe_replace rep(m);
-        rep.insert(sk, p.second);
-        rep(beta);                          // set beta := alpha[sk/acc(acc2(sk))]
-        literal b_lit = mk_literal(beta);
-        literal_vector lits;
-        lits.push_back(~alpha);
-        for (expr* c : conds) lits.push_back(~mk_literal(c));
-        lits.push_back(b_lit);
-        add_th_lemma(lits);
+        expr_pair_vector vec;
+        vec.push_back(std::make_pair(sk, p.second));
+        mk_hypothesis_lemma(p.first, vec, alpha);
     }
 }
 
 #if 0
-void induction_lemmas::create_hypothesis(unsigned depth, unsigned n, expr* const* sks, literal alpha) {
-    if (n == 0)
+void induction_lemmas::create_hypotheses(unsigned depth, expr_ref_vector const& sks, literal alpha) {
+    if (sks.empty())
         return;
-    
+
+    // extract hypothesis substitutions
+    vector<std::pair<expr*, cond_substs_t>> substs;
+    for (expr* sk : sks) {
+        cond_substs_t subst;
+        mk_hypothesis_substs(depth, sk, subst);
+
+        // append the identity substitution:
+        expr_ref_vector conds(m);
+        subst.push_back(std::make_pair(conds, expr_ref(sk, m)));
+        
+        substs.push_back(std::make_pair(sk, subst));
+    }
+
+    // create cross-product of instantiations:
+    vector<std::pair<expr_ref_vector, expr_pair_vector>> s1, s2;
+    si.push_back(std::make_pair(expr_ref_vector(m), expr_pair_vector()));
+    for (auto const& x2cond_sub : substs) {
+        for (auto const& cond_sub : x2cond_sub.second) {
+            s2.reset();
+            for (auto const& cond_subs : s1) {
+                expr_pair_vector pairs(cond_subs.second);
+                expr_ref_vector conds(cond_subs.first);
+                pairs.push_back(x2cond_sub.first, cond_sub.second);
+                conds.append(cond_sub.first);
+                s2.push_back(std::make_pair(conds, pairs));
+            }
+            s1.swap(s2);
+        }
+    }    
+    s1.pop_back(); // last substitution is the identity.
+
+    // extract lemmas from instantiations
+    for (auto& p : s1) {
+        mk_hypothesis_lemam(p.first, p.second, alpha);
+    }
 }
 #endif
 
@@ -374,7 +428,6 @@ bool induction_lemmas::operator()(literal lit) {
         std::cout << "abstract " << mk_pp(t, m) << " " << sk << "\n";
         abstractions abs;
         abstract1(r, n, sk, abs);            
-        // if (ab.size() > 1) abs.pop_back(); // last position has no generalizations
         if (abs.size() > 1) filter_abstractions(lit.sign(), abs);
         for (abstraction& a : abs) {
             create_lemmas(sk, a, lit);

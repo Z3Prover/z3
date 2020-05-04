@@ -9,6 +9,13 @@ variables:
   ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
   msanEnv: 'CC=clang LDFLAGS="-L../libcxx/libcxx_msan/lib -lc++abi -Wl,-rpath=../libcxx/libcxx_msan/lib" CXX=clang++ CXXFLAGS="${CXXFLAGS} -stdlib=libc++ -fsanitize-memory-track-origins -fsanitize=memory -fPIE -fno-omit-frame-pointer -g -O2" CFLAGS="${CFLAGS} -stdlib=libc -fsanitize=memory -fsanitize-memory-track-origins -fno-omit-frame-pointer -g -O2"'
 
+
+# TBD: 
+#   test python bindings
+#   build documentation
+#   Asan, ubsan, msan
+# Disabled pending clang dependencies for std::unordered_map
+
 jobs:
 
 - job: "LinuxPythonDebug"
@@ -34,10 +41,7 @@ jobs:
     - template: scripts/test-regressions.yml
     - template: scripts/generate-doc.yml
 
-#       ./cpp_example
-#       ./c_example
-
-- job: "Ubuntu18"
+- job: "Ubuntu18Python"
   displayName: "Ubuntu 18 with ocaml"
   pool:
     vmImage: "Ubuntu-18.04"
@@ -58,11 +62,6 @@ jobs:
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
 
-# TBD: 
-#   test python bindings
-#   build documentation
-#   Asan, ubsan, msan
-# Disabled pending clang dependencies for std::unordered_map
 
 - job: "LinuxMSan"
   displayName: "Ubuntu build - cmake"
@@ -98,7 +97,7 @@ jobs:
 #   - template: scripts/test-java-cmake.yml
 #   - template: scripts/test-regressions.yml
   
-- job: "LinuxCMake"
+- job: "Ubuntu16CMake"
   displayName: "Ubuntu build - cmake"
   pool:
     vmImage: "Ubuntu-16.04"
@@ -209,7 +208,7 @@ jobs:
       condition: eq(variables['runTests'], 'True')
 
          
-- job: "MacOS"
+- job: "MacOSPython"
   displayName: "MacOS build"
   pool:
     vmImage: "macOS-10.14"

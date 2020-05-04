@@ -82,6 +82,8 @@ namespace smt {
             }
         };
         typedef vector<abstraction_arg> abstraction_args;
+        typedef std::pair<expr_ref_vector, expr_ref> cond_subst_t;
+        typedef vector<cond_subst_t> cond_substs_t;
 
         bool viable_induction_sort(sort* s);
         bool viable_induction_parent(enode* p, enode* n);
@@ -92,7 +94,9 @@ namespace smt {
         void abstract1(enode* n, enode* t, expr* x, abstractions& result);
         void filter_abstractions(bool sign, abstractions& abs);
         void create_lemmas(expr* sk, abstraction& a, literal lit);
-        void create_hypotheses(unsigned depth, sort* s, expr* y, expr_ref_vector& conds, expr_ref_pair_vector& subst);
+        void mk_hypothesis_substs(unsigned depth, expr* x, cond_substs_t& subst);
+        void mk_hypothesis_substs_rec(unsigned depth, sort* s, expr* y, expr_ref_vector& conds, cond_substs_t& subst);
+        void mk_hypothesis_lemma(expr_ref_vector const& conds, expr_pair_vector const& subst, literal alpha);
         void create_hypotheses(unsigned depth, expr* sk, literal alpha);
         literal mk_literal(expr* e);
         void add_th_lemma(literal_vector const& lits);
