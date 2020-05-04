@@ -53,7 +53,7 @@ public abstract class Z3Object {
      */
     void checkNativeObject(long obj) {}
 
-    long getNativeObject()
+    public long getNativeObject()
     {
         return m_n_obj;
     }
@@ -65,7 +65,7 @@ public abstract class Z3Object {
         return s.getNativeObject();
     }
 
-    Context getContext()
+    public Context getContext()
     {
         return m_ctx;
     }

@@ -101,7 +101,7 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
             throw new Z3Exception("Number of sorts does not match number of names");
 	
 	
-	long nativeObject = Native.mkLambda(ctx.nCtx(), 
+	public long nativeObject = Native.mkLambda(ctx.nCtx(),
 					    AST.arrayLength(sorts), AST.arrayToNative(sorts),
 					    Symbol.arrayToNative(names),
 					    body.getNativeObject());

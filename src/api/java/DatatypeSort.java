@@ -92,12 +92,12 @@ public class DatatypeSort extends Sort
         return res;
     }
 
-    DatatypeSort(Context ctx, long obj)
+    public DatatypeSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    DatatypeSort(Context ctx, Symbol name, Constructor[] constructors)
+    public DatatypeSort(Context ctx, Symbol name, Constructor[] constructors)
            
     {
         super(ctx, Native.mkDatatype(ctx.nCtx(), name.getNativeObject(),

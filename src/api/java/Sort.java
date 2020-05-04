@@ -113,7 +113,7 @@ public class Sort extends AST
         super.checkNativeObject(obj);
     }
 
-    static Sort create(Context ctx, long obj)
+    public static Sort create(Context ctx, long obj)
     {
         Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), obj));
         switch (sk)

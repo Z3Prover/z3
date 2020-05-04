@@ -94,7 +94,7 @@ public class Constructor extends Z3Object {
         getContext().getConstructorDRQ().storeReference(getContext(), this);
     }
 
-    static Constructor of(Context ctx, Symbol name, Symbol recognizer,
+    public static Constructor of(Context ctx, Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs) {
         int n = AST.arrayLength(fieldNames);
 
