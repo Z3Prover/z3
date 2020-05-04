@@ -23,14 +23,12 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
-#include "util/ref_pair_vector.h"
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/sign.h"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata.h"
 
-typedef ref_pair_vector<expr, ast_manager> expr_ref_pair_vector;
 
 inline std::ostream& operator<<(std::ostream& out, expr_ref_pair_vector const& es) {
     for (auto const& p : es) {
