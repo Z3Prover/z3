@@ -18,6 +18,7 @@ Notes:
 --*/
 #include "tactic/tactical.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/has_free_vars.h"
 #include "util/map.h"
 #include "ast/rewriter/rewriter_def.h"
@@ -83,12 +84,14 @@ tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
 struct reduce_args_tactic::imp {
     ast_manager &            m_manager;
     bv_util                  m_bv;
+    array_util               m_ar;
 
     ast_manager & m() const { return m_manager; }
     
     imp(ast_manager & m):
         m_manager(m),
-        m_bv(m) {
+        m_bv(m),
+        m_ar(m) {
     }
 
     static bool is_var_plus_offset(ast_manager& m, bv_util& bv, expr* e, expr*& base) {
@@ -118,25 +121,32 @@ struct reduce_args_tactic::imp {
     struct find_non_candidates_proc {
         ast_manager &              m_manager;
         bv_util &                  m_bv;
-        obj_hashtable<func_decl> & m_non_cadidates;
+        array_util &               m_ar;
+        obj_hashtable<func_decl> & m_non_candidates;
         
-        find_non_candidates_proc(ast_manager & m, bv_util & bv, obj_hashtable<func_decl> & non_cadidates):
+        find_non_candidates_proc(ast_manager & m, bv_util & bv, array_util& ar, obj_hashtable<func_decl> & non_candidates):
             m_manager(m),
             m_bv(bv),
-            m_non_cadidates(non_cadidates) {
+            m_ar(ar),
+            m_non_candidates(non_candidates) {
         }
         
         void operator()(var * n) {}
         
-        void operator()(quantifier * n) {}
+        void operator()(quantifier *n) {}
         
         void operator()(app * n) {
+            func_decl * d;
+            if (m_ar.is_as_array(n, d)) {
+                m_non_candidates.insert(d);
+                return;
+            }
             if (n->get_num_args() == 0)
                 return; // ignore constants
-            func_decl * d = n->get_decl();
+            d = n->get_decl();
             if (d->get_family_id() != null_family_id)
                 return; // ignore interpreted symbols
-            if (m_non_cadidates.contains(d))
+            if (m_non_candidates.contains(d))
                 return; // it is already in the set.
             unsigned j    = n->get_num_args();        
             while (j > 0) {
@@ -144,17 +154,17 @@ struct reduce_args_tactic::imp {
                 if (may_be_unique(m_manager, m_bv, n->get_arg(j)))
                     return;
             }  
-            m_non_cadidates.insert(d);
+            m_non_candidates.insert(d);
         }
     };
 
     /**
-       \brief Populate the table non_cadidates with function declarations \c f
+       \brief Populate the table non_candidates with function declarations \c f
        such that there is a function application (f t1 ... tn) where t1 ... tn are not values.
     */
     void find_non_candidates(goal const & g, obj_hashtable<func_decl> & non_candidates) {
         non_candidates.reset();
-        find_non_candidates_proc proc(m_manager, m_bv, non_candidates);
+        find_non_candidates_proc proc(m_manager, m_bv, m_ar, non_candidates);
         expr_fast_mark1 visited;
         unsigned sz = g.size();
         for (unsigned i = 0; i < sz; i++) {
@@ -174,12 +184,12 @@ struct reduce_args_tactic::imp {
     struct populate_decl2args_proc {
         ast_manager &                     m_manager;
         bv_util &                         m_bv;
-        obj_hashtable<func_decl> &        m_non_cadidates;
+        obj_hashtable<func_decl> &        m_non_candidates;
         obj_map<func_decl, bit_vector> &  m_decl2args;    
         obj_map<func_decl, svector<expr*> > m_decl2base; // for args = base + offset
 
         populate_decl2args_proc(ast_manager & m, bv_util & bv, obj_hashtable<func_decl> & nc, obj_map<func_decl, bit_vector> & d):
-            m_manager(m), m_bv(bv), m_non_cadidates(nc), m_decl2args(d) {}
+            m_manager(m), m_bv(bv), m_non_candidates(nc), m_decl2args(d) {}
         
         void operator()(var * n) {}
         void operator()(quantifier * n) {}
@@ -189,7 +199,7 @@ struct reduce_args_tactic::imp {
             func_decl * d = n->get_decl();
             if (d->get_family_id() != null_family_id)
                 return; // ignore interpreted symbols
-            if (m_non_cadidates.contains(d))
+            if (m_non_candidates.contains(d))
                 return; // declaration is not a candidate
             unsigned j = n->get_num_args();
             obj_map<func_decl, bit_vector>::iterator it = m_decl2args.find_iterator(d);
