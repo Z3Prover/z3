@@ -28,7 +28,6 @@ void theory_str_params::updt_params(params_ref const & _p) {
     m_UseFastValueTesterCache = p.str_fast_value_tester_cache();
     m_StringConstantCache = p.str_string_constant_cache();
     m_OverlapTheoryAwarePriority = p.str_overlap_priority();
-    m_RegexAutomata = p.str_regex_automata();
     m_RegexAutomata_DifficultyThreshold = p.str_regex_automata_difficulty_threshold();
     m_RegexAutomata_IntersectionDifficultyThreshold = p.str_regex_automata_intersection_difficulty_threshold();
     m_RegexAutomata_FailedAutomatonThreshold = p.str_regex_automata_failed_automaton_threshold();
@@ -49,7 +48,6 @@ void theory_str_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_UseFastValueTesterCache);
     DISPLAY_PARAM(m_StringConstantCache);
     DISPLAY_PARAM(m_OverlapTheoryAwarePriority);
-    DISPLAY_PARAM(m_RegexAutomata);
     DISPLAY_PARAM(m_RegexAutomata_DifficultyThreshold);
     DISPLAY_PARAM(m_RegexAutomata_IntersectionDifficultyThreshold);
     DISPLAY_PARAM(m_RegexAutomata_FailedAutomatonThreshold);

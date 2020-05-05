@@ -504,20 +504,11 @@ protected:
 
     obj_map<expr, int_vector> val_range_map;
 
-    // This can't be an expr_ref_vector because the constructor is wrong,
-    // we would need to modify the allocator so we pass in ast_manager
-    obj_map<expr, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
-    obj_map<expr, expr*> unroll_var_map;
-    obj_pair_map<expr, expr, expr*> concat_eq_unroll_ast_map;
 
     expr_ref_vector contains_map;
 
     theory_str_contain_pair_bool_map_t contain_pair_bool_map;
     obj_map<expr, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
-
-    // TBD: do a curried map for determinism.
-    std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
-    obj_map<expr, std::set<zstring> > regex_in_var_reg_str_map;
 
     // regex automata
     scoped_ptr_vector<eautomaton> m_automata;
@@ -653,9 +644,6 @@ protected:
     app * mk_int_var(std::string name);
     app_ref mk_nonempty_str_var();
     app * mk_internal_xor_var();
-    app * mk_regex_rep_var();
-    app * mk_unroll_bound_var();
-    app * mk_unroll_test_var();
     void add_nonempty_constraint(expr * s);
 
     void instantiate_concat_axiom(enode * cat);
@@ -687,10 +675,6 @@ protected:
 
     expr * mk_RegexIn(expr * str, expr * regexp);
     void instantiate_axiom_RegexIn(enode * e);
-    app * mk_unroll(expr * n, expr * bound);
-    void process_unroll_eq_const_str(expr * unrollFunc, expr * constStr);
-    void unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr);
-    void process_concat_eq_unroll(expr * concat, expr * unroll);
 
     // regex automata and length-aware regex
     void solve_regex_automata();
@@ -834,15 +818,6 @@ protected:
     bool fixed_length_reduce_regex_membership(smt::kernel & subsolver, expr_ref f, expr_ref & cex, bool polarity);
 
     // strRegex
-
-    void get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
-    void get_eqc_simpleUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
-    void gen_assign_unroll_reg(std::set<expr*> & unrolls);
-    expr * gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls);
-    expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, zstring lcmStr);
-    expr * gen_unroll_assign(expr * var, zstring lcmStr, expr * testerVar, int l, int h);
-    void reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items);
-    void check_regex_in(expr * nn1, expr * nn2);
     zstring get_std_regex_str(expr * r);
 
     void dump_assignments();

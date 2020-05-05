@@ -71,13 +71,6 @@ struct theory_str_params {
     double m_OverlapTheoryAwarePriority;
 
     /*
-     * If RegexAutomata is set to true,
-     * Z3str3 will use automata-based methods to reason about
-     * regular expression constraints.
-     */
-    bool m_RegexAutomata;
-
-    /*
      * RegexAutomata_DifficultyThreshold is the lowest difficulty above which Z3str3
      * will not eagerly construct an automaton for a regular expression term.
      */
@@ -129,7 +122,6 @@ struct theory_str_params {
         m_UseFastValueTesterCache(true),
         m_StringConstantCache(true),
         m_OverlapTheoryAwarePriority(-0.1),
-        m_RegexAutomata(true),
         m_RegexAutomata_DifficultyThreshold(1000),
         m_RegexAutomata_IntersectionDifficultyThreshold(1000),
         m_RegexAutomata_FailedAutomatonThreshold(10),
