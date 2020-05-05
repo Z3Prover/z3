@@ -3,12 +3,34 @@ RELEASE NOTES
 Version 4.8.next
 ================
 - Planned features
-  - rewritten NIA (non-linear integer arithmetic) core solver 
+  - rewritten arithmetic solver replacing legacy arithmetic solver and on by default
   - self-contained character theory, direct support for UTF8, Unicode character sets
-  - recursive function representation without hoisting ite expressions. Issue #2601
+  - improvements to regular expression processing
   - specialized solver support for QF_ABV and ABV based on lazy SMT and dual reduction
-  - model-based interpolation for quantifier-free UF, arithmetic, arrays
-  - circuit optimization techniques for BV pre-processing
+    - the smtfd solver and tactic implement this strategy, but is not prime for users.
+  - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
+  - circuit optimization techniques for BV in-processing are available as the sat.cut
+    option, but at this point does not translate into benefits. It is currently 
+    turned off by default.
+
+Version 4.8.8
+=============
+- New features
+  - rewritten NIA (non-linear integer arithmetic) core solver 
+    It is enabled in selected theories as default. 
+    The legacy arithmetic solver remains the overall default in this release
+    as the rewritten solver shows regressions (on mainly NRA problems).
+  - recursive function representation without hoisting ite expressions. Issue #2601
+  - model-based interpolation for quantifier-free UF, arithmetic 
+  - Julia bindings over the C++ API, thanks to ahumenberger 
+- Bug fixes
+  - numerous, many based on extensive fuzz testing. 
+    Thanks to 5hadowblad3, muchang, numairmansur, rainoftime, wintered
+- Notes
+  - recursive functions are unfolded with separate increments based on unsat core
+    analysis of blocking literals that are separate for different recursive functions.   
+  - the seq (string) solver has been revised in several ways and likely shows some 
+    regressions in this release.
 
 Version 4.8.7
 =============
