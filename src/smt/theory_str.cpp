@@ -562,31 +562,6 @@ namespace smt {
         return m_autil.mk_numeral(q, true);
     }
 
-    expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
-        ast_manager & m = get_manager();
-
-        std::stringstream ss;
-        ss << "$$_len_" << mk_ismt2_pp(node, m) << "_" << lTries << "_" << tmpLenTestVarCount;
-        tmpLenTestVarCount += 1;
-        std::string name = ss.str();
-        app * var = mk_str_var(name);
-        internal_lenTest_vars.insert(var);
-        m_trail.push_back(var);
-        return var;
-    }
-
-    expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
-        ast_manager & m = get_manager();
-        std::stringstream ss;
-        ss << "$$_val_" << mk_ismt2_pp(node, m) << "_" << len << "_" << vTries << "_" << tmpValTestVarCount;
-        tmpValTestVarCount += 1;
-        std::string name = ss.str();
-        app * var = mk_str_var(name);
-        internal_valTest_vars.insert(var);
-        m_trail.push_back(var);
-        return var;
-    }
-
     void theory_str::track_variable_scope(expr * var) {
         if (internal_variable_scope_levels.find(sLevel) == internal_variable_scope_levels.end()) {
             internal_variable_scope_levels[sLevel] = obj_hashtable<expr>();
@@ -7132,10 +7107,6 @@ namespace smt {
             return;
         }
 
-        if (free_var_attempt(lhs, rhs) || free_var_attempt(rhs, lhs)) {
-            return;
-        }
-
         if (u.str.is_concat(to_app(lhs)) && u.str.is_concat(to_app(rhs))) {
             bool nn1HasEqcValue = false;
             bool nn2HasEqcValue = false;
@@ -9301,7 +9272,7 @@ namespace smt {
             }
         }
 
-        if (m_params.m_FixedLengthModels) {
+        {
             // TODO if we're using fixed-length testing, do we care about finding free variables any more?
             // that work might be useless
             TRACE("str", tout << "using fixed-length model construction" << std::endl;);
@@ -9335,49 +9306,6 @@ namespace smt {
             } else { // model_status == l_undef
                 TRACE("str", tout << "fixed-length model construction found missing side conditions; continuing search" << std::endl;);
                 return FC_CONTINUE;
-            }
-        } else {
-            // Legacy (Z3str2) length+value testing
-
-            // --------
-            // experimental free variable assignment - begin
-            //   * special handling for variables that are not used in concat
-            // --------
-            bool testAssign = true;
-            if (!testAssign) {
-                for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
-                    expr * freeVar = fvIt->first;
-                    /*
-                  std::string vName = std::string(Z3_ast_to_string(ctx, freeVar));
-                  if (vName.length() >= 9 && vName.substr(0, 9) == "$$_regVar") {
-                  continue;
-                  }
-                     */
-                    expr * toAssert = gen_len_val_options_for_free_var(freeVar, nullptr, "");
-                    if (toAssert != nullptr) {
-                        assert_axiom(toAssert);
-                    }
-                }
-            } else {
-                process_free_var(freeVar_map);
-            }
-            // experimental free variable assignment - end
-
-            // now deal with removed free variables that are bounded by an unroll
-            TRACE("str", tout << "fv_unrolls_map (#" << fv_unrolls_map.size() << "):" << std::endl;);
-            for (std::map<expr*, std::set<expr*> >::iterator fvIt1 = fv_unrolls_map.begin();
-                    fvIt1 != fv_unrolls_map.end(); fvIt1++) {
-                expr * var = fvIt1->first;
-                fSimpUnroll.clear();
-                get_eqc_simpleUnroll(var, constValue, fSimpUnroll);
-                if (fSimpUnroll.size() == 0) {
-                    gen_assign_unroll_reg(fv_unrolls_map[var]);
-                } else {
-                    expr * toAssert = gen_assign_unroll_Str2Reg(var, fSimpUnroll);
-                    if (toAssert != nullptr) {
-                        assert_axiom(toAssert);
-                    }
-                }
             }
         }
 
@@ -9508,11 +9436,9 @@ namespace smt {
             }
         }
 
-        if (m_params.m_FixedLengthModels) {
-            zstring assignedValue;
-            if (candidate_model.find(n, assignedValue)) {
-                return to_app(mk_string(assignedValue));
-            }
+        zstring assignedValue;
+        if (candidate_model.find(n, assignedValue)) {
+            return to_app(mk_string(assignedValue));
         }
 
         // fallback path
