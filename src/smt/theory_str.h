@@ -603,10 +603,6 @@ protected:
     // maps a length tester to the next length tester to be (re)used if the split is "high"
     obj_map<expr, expr*> binary_search_next_var_high;
 
-    // finite model finding data
-    // maps a finite model tester var to a list of variables that will be tested
-    obj_map<expr, ptr_vector<expr> > finite_model_test_varlists;
-
     // fixed length model construction
     expr_ref_vector fixed_length_subterm_trail; // trail for subterms generated *in the subsolver*
     expr_ref_vector fixed_length_assumptions; // cache of boolean terms to assert *into the subsolver*, unsat core is a subset of these
@@ -883,9 +879,6 @@ protected:
 
     // TESTING
     void refresh_theory_var(expr * e);
-
-    expr_ref set_up_finite_model_test(expr * lhs, expr * rhs);
-    void finite_model_test(expr * v, expr * c);
 
 public:
     theory_str(ast_manager & m, theory_str_params const & params);

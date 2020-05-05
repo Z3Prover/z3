@@ -168,8 +168,6 @@ namespace smt {
         binary_search_next_var_low.reset();
         binary_search_next_var_high.reset();
 
-        finite_model_test_varlists.reset();
-
         fixed_length_subterm_trail.reset();
         fixed_length_assumptions.reset();
         fixed_length_used_len_terms.reset();
@@ -3535,18 +3533,12 @@ namespace smt {
                 }
             } else {
                 loopDetected = true;
-                if (m_params.m_FiniteOverlapModels) {
-                    expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                    assert_implication(ax_l, tester);
-                    add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-                } else {
-                    TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                    TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
+                TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
 
-                    if (!overlapAssumptionUsed) {
-                        overlapAssumptionUsed = true;
-                        assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
-                    }
+                if (!overlapAssumptionUsed) {
+                    overlapAssumptionUsed = true;
+                    assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
                 }
             }
         } else if (splitType == 1) {
@@ -3598,19 +3590,15 @@ namespace smt {
                 }
             } else {
                 loopDetected = true;
-                if (m_params.m_FiniteOverlapModels) {
-                    expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                    assert_implication(ax_l, tester);
-                    add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-                } else {
-                    TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                    TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
 
-                    if (!overlapAssumptionUsed) {
-                        overlapAssumptionUsed = true;
-                        assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
-                    }
+                TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
+
+                if (!overlapAssumptionUsed) {
+                    overlapAssumptionUsed = true;
+                    assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
                 }
+
             }
         } else if (splitType == -1) {
             // Here we don't really have a choice. We have no length information at all...
@@ -3654,19 +3642,15 @@ namespace smt {
                 add_cut_info_merge(t1, ctx.get_scope_level(), y);
             } else {
                 loopDetected = true;
-                if (m_params.m_FiniteOverlapModels) {
-                    expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                    arrangement_disjunction.push_back(tester);
-                    add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-                } else {
-                    TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                    TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
 
-                    if (!overlapAssumptionUsed) {
-                        overlapAssumptionUsed = true;
-                        arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
-                    }
+                TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
+
+                if (!overlapAssumptionUsed) {
+                    overlapAssumptionUsed = true;
+                    arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
                 }
+
             }
 
             // break option 2:
@@ -3703,19 +3687,15 @@ namespace smt {
                 add_cut_info_merge(t2, ctx.get_scope_level(), n);
             } else {
                 loopDetected = true;
-                if (m_params.m_FiniteOverlapModels) {
-                    expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                    arrangement_disjunction.push_back(tester);
-                    add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-                } else {
-                    TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                    TRACE("str", {print_cut_var(x, tout); print_cut_var(n, tout);});
 
-                    if (!overlapAssumptionUsed) {
-                        overlapAssumptionUsed = true;
-                        arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
-                    }
+                TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                TRACE("str", {print_cut_var(x, tout); print_cut_var(n, tout);});
+
+                if (!overlapAssumptionUsed) {
+                    overlapAssumptionUsed = true;
+                    arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
                 }
+
             }
 
             // option 3:
@@ -3950,19 +3930,14 @@ namespace smt {
                 } else {
                     loopDetected = true;
 
-                    if (m_params.m_FiniteOverlapModels) {
-                        expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                        assert_implication(ax_l, tester);
-                        add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-                    } else {
-                        TRACE("str", tout << "AVOID LOOP: SKIP" << std::endl;);
-                        TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
+                    TRACE("str", tout << "AVOID LOOP: SKIP" << std::endl;);
+                    TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
 
-                        if (!overlapAssumptionUsed) {
-                            overlapAssumptionUsed = true;
-                            assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
-                        }
+                    if (!overlapAssumptionUsed) {
+                        overlapAssumptionUsed = true;
+                        assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
                     }
+
                 }
             }
         } else if (splitType == 1) {
@@ -4056,18 +4031,12 @@ namespace smt {
                     add_cut_info_merge(temp1, ctx.get_scope_level(), m);
                 } else {
                     loopDetected = true;
-                    if (m_params.m_FiniteOverlapModels) {
-                        expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                        arrangement_disjunction.push_back(tester);
-                        add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-                    } else {
-                        TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                        TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
+                    TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                    TRACE("str", {print_cut_var(m, tout); print_cut_var(y, tout);});
 
-                        if (!overlapAssumptionUsed) {
-                            overlapAssumptionUsed = true;
-                            arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
-                        }
+                    if (!overlapAssumptionUsed) {
+                        overlapAssumptionUsed = true;
+                        arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
                     }
                 }
             }
@@ -4358,18 +4327,12 @@ namespace smt {
                     }
                 } else {
                     loopDetected = true;
-                    if (m_params.m_FiniteOverlapModels) {
-                        expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                        assert_implication(ax_l, tester);
-                        add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-                    } else {
-                        TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                        TRACE("str", {print_cut_var(x, tout); print_cut_var(n, tout);});
+                    TRACE("str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                    TRACE("str", {print_cut_var(x, tout); print_cut_var(n, tout);});
 
-                        if (!overlapAssumptionUsed) {
-                            overlapAssumptionUsed = true;
-                            assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
-                        }
+                    if (!overlapAssumptionUsed) {
+                        overlapAssumptionUsed = true;
+                        assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
                     }
                 }
             }
@@ -4443,18 +4406,12 @@ namespace smt {
                     add_cut_info_merge(temp1, sLevel, n);
                 } else {
                     loopDetected = true;
-                    if (m_params.m_FiniteOverlapModels) {
-                        expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                        arrangement_disjunction.push_back(tester);
-                        add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-                    } else {
-                        TRACE("str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
-                        TRACE("str", {print_cut_var(x, tout); print_cut_var(n, tout);});
+                    TRACE("str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
+                    TRACE("str", {print_cut_var(x, tout); print_cut_var(n, tout);});
 
-                        if (!overlapAssumptionUsed) {
-                            overlapAssumptionUsed = true;
-                            arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
-                        }
+                    if (!overlapAssumptionUsed) {
+                        overlapAssumptionUsed = true;
+                        arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
                     }
                 }
             }
@@ -4849,20 +4806,15 @@ namespace smt {
         } else {
             loopDetected = true;
 
-            if (m_params.m_FiniteOverlapModels) {
-                expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
-                arrangement_disjunction.push_back(tester);
-                add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
-            } else {
-                TRACE("str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
-                TRACE("str", print_cut_var(m, tout); print_cut_var(y, tout););
+            TRACE("str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
+            TRACE("str", print_cut_var(m, tout); print_cut_var(y, tout););
 
-                // only add the overlap assumption one time
-                if (!overlapAssumptionUsed) {
-                    arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
-                    overlapAssumptionUsed = true;
-                }
+            // only add the overlap assumption one time
+            if (!overlapAssumptionUsed) {
+                arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
+                overlapAssumptionUsed = true;
             }
+
         }
 
         for (unsigned int overLen : overlapLen) {
@@ -7155,168 +7107,6 @@ namespace smt {
         }
     }
 
-    expr_ref theory_str::set_up_finite_model_test(expr * lhs, expr * rhs) {
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-
-        TRACE("str", tout << "activating finite model testing for overlapping concats "
-              << mk_pp(lhs, m) << " and " << mk_pp(rhs, m) << std::endl;);
-        std::map<expr*, int> concatMap;
-        std::map<expr*, int> unrollMap;
-        std::map<expr*, int> varMap;
-        classify_ast_by_type(lhs, varMap, concatMap, unrollMap);
-        classify_ast_by_type(rhs, varMap, concatMap, unrollMap);
-        TRACE("str", tout << "found vars:";
-              for (std::map<expr*,int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
-                  tout << " " << mk_pp(it->first, m);
-              }
-              tout << std::endl;
-              );
-
-        expr_ref testvar(mk_str_var("finiteModelTest"), m);
-        m_trail.push_back(testvar);
-        ptr_vector<expr> varlist;
-
-        for (std::map<expr*, int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
-            expr * v = it->first;
-            varlist.push_back(v);
-        }
-
-        // make things easy for the core wrt. testvar
-        expr_ref t1(ctx.mk_eq_atom(testvar, mk_string("")), m);
-        expr_ref t_yes(ctx.mk_eq_atom(testvar, mk_string("yes")), m);
-        expr_ref testvaraxiom(m.mk_or(t1, t_yes), m);
-        assert_axiom(testvaraxiom);
-
-        finite_model_test_varlists.insert(testvar, varlist);
-        m_trail_stack.push(insert_obj_map<theory_str, expr, ptr_vector<expr> >(finite_model_test_varlists, testvar) );
-        return t_yes;
-    }
-
-    void theory_str::finite_model_test(expr * testvar, expr * str) {
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-
-        zstring s;
-        if (!u.str.is_string(str, s)) return;
-        if (s == "yes") {
-            TRACE("str", tout << "start finite model test for " << mk_pp(testvar, m) << std::endl;);
-            ptr_vector<expr> & vars = finite_model_test_varlists[testvar];
-            for (ptr_vector<expr>::iterator it = vars.begin(); it != vars.end(); ++it) {
-                expr * v = *it;
-                bool v_has_eqc = false;
-                get_eqc_value(v, v_has_eqc);
-                if (v_has_eqc) {
-                    TRACE("str", tout << "variable " << mk_pp(v,m) << " already equivalent to a string constant" << std::endl;);
-                    continue;
-                }
-                // check for any sort of existing length tester we might interfere with
-                if (m_params.m_UseBinarySearch) {
-                    if (binary_search_len_tester_stack.contains(v) && !binary_search_len_tester_stack[v].empty()) {
-                        TRACE("str", tout << "already found existing length testers for " << mk_pp(v, m) << std::endl;);
-                        continue;
-                    } else {
-                        // start binary search as normal
-                        expr_ref implLhs(ctx.mk_eq_atom(testvar, str), m);
-                        expr_ref implRhs(binary_search_length_test(v, nullptr, ""), m);
-                        assert_implication(implLhs, implRhs);
-                    }
-                } else {
-                    bool map_effectively_empty = false;
-                    if (!fvar_len_count_map.contains(v)) {
-                        map_effectively_empty = true;
-                    }
-
-                    if (!map_effectively_empty) {
-                        map_effectively_empty = true;
-                        if (fvar_lenTester_map.contains(v)) {
-                            for (expr * indicator : fvar_lenTester_map[v]) {
-                                if (internal_variable_set.contains(indicator)) {
-                                    map_effectively_empty = false;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (map_effectively_empty) {
-                        TRACE("str", tout << "no existing length testers for " << mk_pp(v, m) << std::endl;);
-                        rational v_len;
-                        rational v_lower_bound;
-                        rational v_upper_bound;
-                        expr_ref vLengthExpr(mk_strlen(v), m);
-                        if (get_len_value(v, v_len)) {
-                            TRACE("str", tout << "length = " << v_len.to_string() << std::endl;);
-                            v_lower_bound = v_len;
-                            v_upper_bound = v_len;
-                        } else {
-                            bool lower_bound_exists = lower_bound(vLengthExpr, v_lower_bound);
-                            bool upper_bound_exists = upper_bound(vLengthExpr, v_upper_bound);
-                            TRACE("str", tout << "bounds = [" << (lower_bound_exists?v_lower_bound.to_string():"?")
-                                  << ".." << (upper_bound_exists?v_upper_bound.to_string():"?") << "]" << std::endl;);
-
-                            // make sure the bounds are non-negative
-                            if (lower_bound_exists && v_lower_bound.is_neg()) {
-                                v_lower_bound = rational::zero();
-                            }
-                            if (upper_bound_exists && v_upper_bound.is_neg()) {
-                                v_upper_bound = rational::zero();
-                            }
-
-                            if (lower_bound_exists && upper_bound_exists) {
-                                // easiest case. we will search within these bounds
-                            } else if (upper_bound_exists && !lower_bound_exists) {
-                                // search between 0 and the upper bound
-                                v_lower_bound = rational::zero();
-                            } else if (lower_bound_exists && !upper_bound_exists) {
-                                // check some finite portion of the search space
-                                v_upper_bound = v_lower_bound + rational(10);
-                            } else {
-                                // no bounds information
-                                v_lower_bound = rational::zero();
-                                v_upper_bound = v_lower_bound + rational(10);
-                            }
-                        }
-                        // now create a fake length tester over this finite disjunction of lengths
-
-                        fvar_len_count_map.insert(v, 1);
-                        unsigned int testNum = fvar_len_count_map[v];
-
-                        expr_ref indicator(mk_internal_lenTest_var(v, testNum), m);
-                        SASSERT(indicator);
-                        m_trail.push_back(indicator);
-
-                        if (!fvar_lenTester_map.contains(v)) {
-                            fvar_lenTester_map.insert(v, ptr_vector<expr>());
-                        }
-                        fvar_lenTester_map[v].shrink(0);
-                        fvar_lenTester_map[v].push_back(indicator);
-                        lenTester_fvar_map.insert(indicator, v);
-
-                        expr_ref_vector orList(m);
-                        expr_ref_vector andList(m);
-
-                        for (rational l = v_lower_bound; l <= v_upper_bound; l += rational::one()) {
-                            zstring lStr = zstring(l.to_string().c_str());
-                            expr_ref str_indicator(mk_string(lStr), m);
-                            expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
-                            orList.push_back(or_expr);
-                            expr_ref and_expr(ctx.mk_eq_atom(or_expr, ctx.mk_eq_atom(vLengthExpr, m_autil.mk_numeral(l, true))), m);
-                            andList.push_back(and_expr);
-                        }
-                        andList.push_back(mk_or(orList));
-                        expr_ref implLhs(ctx.mk_eq_atom(testvar, str), m);
-                        expr_ref implRhs(mk_and(andList), m);
-                        assert_implication(implLhs, implRhs);
-                    } else {
-                        TRACE("str", tout << "already found existing length testers for " << mk_pp(v, m) << std::endl;);
-                        continue;
-                    }
-                }
-            } // foreach (v in vars)
-        } // (s == "yes")
-    }
-
     void theory_str::handle_equality(expr * lhs, expr * rhs) {
         ast_manager & m = get_manager();
         context & ctx = get_context();
@@ -7341,16 +7131,6 @@ namespace smt {
             TRACE("str", tout << "skip equality: not String sort" << std::endl;);
             return;
         }
-
-        /* // temporarily disabled, we are borrowing these testers for something else
-           if (m_params.m_FiniteOverlapModels && !finite_model_test_varlists.empty()) {
-           if (finite_model_test_varlists.contains(lhs)) {
-           finite_model_test(lhs, rhs); return;
-           } else if (finite_model_test_varlists.contains(rhs)) {
-           finite_model_test(rhs, lhs); return;
-           }
-           }
-        */
 
         if (free_var_attempt(lhs, rhs) || free_var_attempt(rhs, lhs)) {
             return;
