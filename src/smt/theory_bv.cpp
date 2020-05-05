@@ -1347,11 +1347,6 @@ namespace smt {
             lits.push_back(antecedent);
             literal eq = mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), false);
             lits.push_back(~eq);
-            if (m.has_trace_stream()) {
-                app_ref body(m);
-                body = m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_implies(ctx.bool_var2expr(consequent.var()), ctx.bool_var2expr(antecedent.var())));
-                log_axiom_instantiation(body);
-            }
             //
             // Issue #3035:
             // merge_eh invokes assign_bit, which updates the propagation queue and includes the 
@@ -1364,8 +1359,10 @@ namespace smt {
             ctx.mark_as_relevant(lits[0]);
             ctx.mark_as_relevant(lits[1]);
             ctx.mark_as_relevant(lits[2]);
-            ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            {
+                scoped_trace_stream _sts(*this, lits);
+                ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+            }
      
             if (m_wpos[v2] == idx)
                 find_wpos(v2);
@@ -1459,7 +1456,6 @@ namespace smt {
 
     final_check_status theory_bv::final_check_eh() {
         SASSERT(check_invariant());
-        check_invariant();
         if (m_approximates_large_bvs) {
             return FC_GIVEUP;
         }
@@ -1556,7 +1552,7 @@ namespace smt {
                 if (val1 != l_undef && val2 != l_undef) {
                     TRACE("bv", tout << "inconsistent "; display_var(tout, v1); display_var(tout, v2); tout << "idx: " << idx << "\n";);
                 }
-                if (val1 != l_undef) {
+                if (val1 != l_undef && bit2 != false_literal && bit2 != true_literal) {
                     literal antecedent = bit1;
                     literal consequent = bit2;
                     if (val1 == l_false) {
@@ -1826,7 +1822,8 @@ namespace smt {
                        tout << "equivalence class is inconsistent, i: " << i << "\n";
                        display_var(tout, v1);
                        display_var(tout, v2);
-                       tout << "relevant: " << ctx.is_relevant(bit1) << " " << ctx.is_relevant(bit2) << "\n";
+                       if (bit1 != true_literal && bit1 != false_literal) tout << "bit1 relevant: " << ctx.is_relevant(bit1) << " "; 
+                       if (bit2 != true_literal && bit2 != false_literal) tout << "bit2 relevant: " << ctx.is_relevant(bit2) << "\n";
                        tout << "val1: " << val1 << " lvl: " << ctx.get_assign_level(bit1.var()) << " bit " << bit1 << "\n";
                        tout << "val2: " << val2 << " lvl: " << ctx.get_assign_level(bit2.var()) << " bit " << bit2 << "\n";
                        tout << "level: " << ctx.get_scope_level() << "\n";
