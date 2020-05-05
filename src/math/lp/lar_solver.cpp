@@ -1365,7 +1365,7 @@ void lar_solver::pop() {
 }
 
 bool lar_solver::column_represents_row_in_tableau(unsigned j) {
-    return m_columns_to_ul_pairs()[j].m_i != UINT_MAX;
+    return m_columns_to_ul_pairs()[j].associated_with_row();
 }
 
 void lar_solver::make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j) {
@@ -1602,7 +1602,7 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
         return local_j;    
     lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
     local_j = A_r().column_count();
-    m_columns_to_ul_pairs.push_back(ul_pair(UINT_MAX));
+    m_columns_to_ul_pairs.push_back(ul_pair(false)); // not associated with a row
     while (m_usage_in_terms.size() <= ext_j) {
         m_usage_in_terms.push_back(0);
     }
@@ -1628,7 +1628,7 @@ void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
     register_new_ext_var_index(ext_j, is_int);
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
     m_columns_with_changed_bound.increase_size_by_one();
-    add_new_var_to_core_fields_for_mpq(false);
+    add_new_var_to_core_fields_for_mpq(false); // false for not adding a row
     if (use_lu())
         add_new_var_to_core_fields_for_doubles(false);
 }
@@ -1759,7 +1759,7 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     register_new_ext_var_index(term_ext_index, term_is_int(term));
     // j will be a new variable
     unsigned j = A_r().column_count();
-    ul_pair ul(j);
+    ul_pair ul(true); // to mark this column as associated_with_row
     m_columns_to_ul_pairs.push_back(ul);
     add_basic_var_to_core_fields();
     if (use_tableau()) {
