@@ -50,12 +50,12 @@ inline bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, va
 class ul_pair {
     constraint_index m_lower_bound_witness;
     constraint_index m_upper_bound_witness;
+    bool             m_associated_with_row;  
 public:
     constraint_index& lower_bound_witness() {return m_lower_bound_witness;}
     constraint_index lower_bound_witness() const {return m_lower_bound_witness;}
     constraint_index& upper_bound_witness() { return m_upper_bound_witness;}
     constraint_index upper_bound_witness() const {return m_upper_bound_witness;}
-    row_index m_i;
     bool operator!=(const ul_pair & p) const {
         return !(*this == p);
     }
@@ -63,19 +63,24 @@ public:
     bool operator==(const ul_pair & p) const {
         return m_lower_bound_witness == p.m_lower_bound_witness
             && m_upper_bound_witness == p.m_upper_bound_witness &&
-            m_i == p.m_i;
+            m_associated_with_row == p.m_associated_with_row;
     }
     // empty constructor
     ul_pair() :
-        m_lower_bound_witness(static_cast<constraint_index>(-1)),
-        m_upper_bound_witness(static_cast<constraint_index>(-1)),
-        m_i(static_cast<row_index>(-1))
-    {}
-    ul_pair(row_index ri) :
-        m_lower_bound_witness(static_cast<constraint_index>(-1)),
-        m_upper_bound_witness(static_cast<constraint_index>(-1)),
-        m_i(ri) {}
-    ul_pair(const ul_pair & o): m_lower_bound_witness(o.m_lower_bound_witness), m_upper_bound_witness(o.m_upper_bound_witness), m_i(o.m_i) {}
+        m_lower_bound_witness(UINT_MAX),
+        m_upper_bound_witness(UINT_MAX),
+        m_associated_with_row(false) {}
+    
+    ul_pair(bool associated_with_row) :
+        m_lower_bound_witness(UINT_MAX),
+        m_upper_bound_witness(UINT_MAX),
+        m_associated_with_row(associated_with_row) {}
+    
+    ul_pair(const ul_pair & o):
+        m_lower_bound_witness(o.m_lower_bound_witness),
+        m_upper_bound_witness(o.m_upper_bound_witness),
+        m_associated_with_row(o.m_associated_with_row) {}
+    bool associated_with_row() const { return m_associated_with_row; }
 };
 
 }
