@@ -289,6 +289,7 @@ namespace smt {
             }
         };
         scoped_level _lvl(*this);
+        bool pushed = false;
 
         for (expr* v : vars0) {
             if (is_uninterp_const(v)) {
@@ -296,7 +297,7 @@ namespace smt {
                 m_var2orig.insert(v, v);
             }
             else {
-                push();                
+                if (!pushed) pushed = true, push();                
                 expr_ref c(m.mk_fresh_const("v", m.get_sort(v)), m);
                 expr_ref eq(m.mk_eq(c, v), m);
                 assert_expr(eq);
@@ -310,7 +311,7 @@ namespace smt {
                 m_assumption2orig.insert(a, a);
             }
             else {
-                push();                
+                if (!pushed) pushed = true, push();                
                 expr_ref c(m.mk_fresh_const("a", m.get_sort(a)), m);
                 expr_ref eq(m.mk_eq(c, a), m);
                 assert_expr(eq);
@@ -357,6 +358,8 @@ namespace smt {
         TRACE("context", 
               tout << "vars: " << vars.size() << "\n";
               tout << "lits: " << num_units << "\n";);
+        pop_to_base_lvl();
+        m_search_lvl = m_scope_lvl;
         m_case_split_queue->init_search_eh();
         unsigned num_iterations = 0;
         unsigned num_fixed_eqs = 0;
@@ -381,9 +384,14 @@ namespace smt {
                 push_scope();
                 assign(lit, b_justification::mk_axiom(), true);
                 while (can_propagate()) {
-                    if (!propagate() && (!resolve_conflict() || inconsistent())) {
-                        TRACE("context", tout << "inconsistent\n";);
+                    if (propagate())
+                        break;
+                    if (resolve_conflict())
+                        continue;
+                    if (inconsistent()) {
                         SASSERT(inconsistent());
+                        IF_VERBOSE(1, verbose_stream() << "inconsistent at base level " << get_scope_level() << "\n");
+                        return l_undef;
                         m_conflict = null_b_justification;
                         m_not_l = null_literal;                   
                     }
