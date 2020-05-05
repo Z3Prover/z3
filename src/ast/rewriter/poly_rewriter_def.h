@@ -980,10 +980,7 @@ bool poly_rewriter<Config>::hoist_ite(expr_ref& e) {
         ++i;
     }
     if (!pinned.empty()) {
-        std::cout << "hoist: " << e << "\n";
         e = mk_add_app(adds.size(), adds.c_ptr());
-        std::cout << "hoisted: " << e << "\n";
-
         return true;
     }
     return false;
