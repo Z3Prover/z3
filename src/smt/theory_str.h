@@ -472,8 +472,6 @@ protected:
 
     int tmpStringVarCount;
     int tmpXorVarCount;
-    int tmpLenTestVarCount;
-    int tmpValTestVarCount;
     // obj_pair_map<expr, expr, std::map<int, expr*> > varForBreakConcat;
     std::map<std::pair<expr*,expr*>, std::map<int, expr*> > varForBreakConcat;
     bool avoidLoopCut;
@@ -484,26 +482,7 @@ protected:
 
     obj_hashtable<expr> variable_set;
     obj_hashtable<expr> internal_variable_set;
-    obj_hashtable<expr> regex_variable_set;
     std::map<int, obj_hashtable<expr> > internal_variable_scope_levels;
-
-    obj_hashtable<expr> internal_lenTest_vars;
-    obj_hashtable<expr> internal_valTest_vars;
-    obj_hashtable<expr> internal_unrollTest_vars;
-
-    obj_hashtable<expr> input_var_in_len;
-
-    obj_map<expr, unsigned int> fvar_len_count_map;
-    obj_map<expr, ptr_vector<expr> > fvar_lenTester_map;
-    obj_map<expr, expr*> lenTester_fvar_map;
-
-
-    obj_map<expr, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
-
-    obj_map<expr, expr*> valueTester_fvar_map;
-
-    obj_map<expr, int_vector> val_range_map;
-
 
     expr_ref_vector contains_map;
 
@@ -545,11 +524,6 @@ protected:
     expr_ref_vector string_int_conversion_terms;
     obj_hashtable<expr> string_int_axioms;
 
-    // used when opt_FastLengthTesterCache is true
-    rational_map lengthTesterCache;
-    // used when opt_FastValueTesterCache is true
-    string_map valueTesterCache;
-
     string_map stringConstantCache;
     unsigned long totalCacheAccessCount;
     unsigned long cacheHitCount;
@@ -565,34 +539,6 @@ protected:
     theory_var get_var(expr * n) const;
     expr * get_eqc_next(expr * n);
     app * get_ast(theory_var i);
-
-    // binary search heuristic data
-    struct binary_search_info {
-        rational lowerBound;
-        rational midPoint;
-        rational upperBound;
-        rational windowSize;
-
-        binary_search_info() : lowerBound(rational::zero()), midPoint(rational::zero()),
-                upperBound(rational::zero()), windowSize(rational::zero()) {}
-        binary_search_info(rational lower, rational mid, rational upper, rational windowSize) :
-            lowerBound(lower), midPoint(mid), upperBound(upper), windowSize(windowSize) {}
-
-        void calculate_midpoint() {
-            midPoint = floor(lowerBound + ((upperBound - lowerBound) / rational(2)) );
-        }
-    };
-    // maps a free string var to a stack of active length testers.
-    // can use binary_search_trail to record changes to this object
-    obj_map<expr, ptr_vector<expr> > binary_search_len_tester_stack;
-    // maps a length tester var to the *active* search window
-    obj_map<expr, binary_search_info> binary_search_len_tester_info;
-    // maps a free string var to the first length tester to be (re)used
-    obj_map<expr, expr*> binary_search_starting_len_tester;
-    // maps a length tester to the next length tester to be (re)used if the split is "low"
-    obj_map<expr, expr*> binary_search_next_var_low;
-    // maps a length tester to the next length tester to be (re)used if the split is "high"
-    obj_map<expr, expr*> binary_search_next_var_high;
 
     // fixed length model construction
     expr_ref_vector fixed_length_subterm_trail; // trail for subterms generated *in the subsolver*
@@ -816,9 +762,6 @@ protected:
     bool fixed_length_reduce_suffix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
     bool fixed_length_reduce_negative_suffix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
     bool fixed_length_reduce_regex_membership(smt::kernel & subsolver, expr_ref f, expr_ref & cex, bool polarity);
-
-    // strRegex
-    zstring get_std_regex_str(expr * r);
 
     void dump_assignments();
     void initialize_charset();

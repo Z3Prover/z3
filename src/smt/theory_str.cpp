@@ -61,8 +61,6 @@ namespace smt {
         m_persisted_axiom_todo(m),
         tmpStringVarCount(0),
         tmpXorVarCount(0),
-        tmpLenTestVarCount(0),
-        tmpValTestVarCount(0),
         avoidLoopCut(true),
         loopDetected(false),
         m_theoryStrOverlapAssumption_term(m),
@@ -110,21 +108,8 @@ namespace smt {
 
         //variable_set.reset();
         //internal_variable_set.reset();
-        //regex_variable_set.reset();
         //internal_variable_scope_levels.clear();
 
-        internal_lenTest_vars.reset();
-        internal_valTest_vars.reset();
-        internal_unrollTest_vars.reset();
-
-        input_var_in_len.reset();
-
-        fvar_len_count_map.reset();
-        fvar_lenTester_map.reset();
-        lenTester_fvar_map.reset();
-        fvar_valueTester_map.reset();
-        valueTester_fvar_map.reset();
-        val_range_map.reset();
         contains_map.reset();
         contain_pair_bool_map.reset();
         contain_pair_idx_map.reset();
@@ -150,18 +135,11 @@ namespace smt {
         concat_astNode_map.reset();
         string_int_conversion_terms.reset();
         string_int_axioms.reset();
-        lengthTesterCache.reset();
-        valueTesterCache.reset();
         stringConstantCache.reset();
 
         length_ast_map.reset();
         //m_trail_stack.reset();
         // m_find.reset();
-        binary_search_len_tester_stack.reset();
-        binary_search_len_tester_info.reset();
-        binary_search_starting_len_tester.reset();
-        binary_search_next_var_low.reset();
-        binary_search_next_var_high.reset();
 
         fixed_length_subterm_trail.reset();
         fixed_length_assumptions.reset();
@@ -1914,94 +1892,6 @@ namespace smt {
         get_context().internalize(regexIn, false);
         set_up_axioms(regexIn);
         return regexIn;
-    }
-
-    static zstring str2RegexStr(zstring str) {
-        zstring res("");
-        int len = str.length();
-        for (int i = 0; i < len; i++) {
-            char nc = str[i];
-            // 12 special chars
-            if (nc == '\\' || nc == '^' || nc == '$' || nc == '.' || nc == '|' || nc == '?'
-                || nc == '*' || nc == '+' || nc == '(' || nc == ')' || nc == '[' || nc == '{') {
-                res = res + zstring("\\");
-            }
-            char tmp[2] = {(char)str[i], '\0'};
-            res = res + zstring(tmp);
-        }
-        return res;
-    }
-
-    zstring theory_str::get_std_regex_str(expr * regex) {
-        app * a_regex = to_app(regex);
-        if (u.re.is_to_re(a_regex)) {
-            expr * regAst = a_regex->get_arg(0);
-            zstring regAstVal;
-            u.str.is_string(regAst, regAstVal);
-            zstring regStr = str2RegexStr(regAstVal);
-            return regStr;
-        } else if (u.re.is_concat(a_regex)) {
-            expr * reg1Ast = a_regex->get_arg(0);
-            expr * reg2Ast = a_regex->get_arg(1);
-            zstring reg1Str = get_std_regex_str(reg1Ast);
-            zstring reg2Str = get_std_regex_str(reg2Ast);
-            return zstring("(") + reg1Str + zstring(")(") + reg2Str + zstring(")");
-        } else if (u.re.is_union(a_regex)) {
-            expr * reg1Ast = a_regex->get_arg(0);
-            expr * reg2Ast = a_regex->get_arg(1);
-            zstring reg1Str = get_std_regex_str(reg1Ast);
-            zstring reg2Str = get_std_regex_str(reg2Ast);
-            return  zstring("(") + reg1Str + zstring(")|(") + reg2Str + zstring(")");
-        } else if (u.re.is_star(a_regex)) {
-            expr * reg1Ast = a_regex->get_arg(0);
-            zstring reg1Str = get_std_regex_str(reg1Ast);
-            return  zstring("(") + reg1Str + zstring(")*");
-        } else if (u.re.is_range(a_regex)) {
-            expr * range1 = a_regex->get_arg(0);
-            expr * range2 = a_regex->get_arg(1);
-            zstring range1val, range2val;
-            u.str.is_string(range1, range1val);
-            u.str.is_string(range2, range2val);
-            return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
-        } else if (u.re.is_loop(a_regex)) {
-            expr * body;
-            unsigned lo, hi;
-            // There are two variants of loop: a 2-argument version and a 3-argument version.
-            if (u.re.is_loop(a_regex, body, lo, hi)) {
-                rational rLo(lo);
-                rational rHi(hi);
-                zstring bodyStr = get_std_regex_str(body);
-                return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring(",") + zstring(rHi.to_string().c_str()) + zstring("})");
-            } else if (u.re.is_loop(a_regex, body, lo)) {
-                rational rLo(lo);
-                zstring bodyStr = get_std_regex_str(body);
-                return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring("+") + zstring("})");
-            }
-            else {
-                TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
-                UNREACHABLE(); return zstring("");
-            }
-        } else if (u.re.is_full_seq(a_regex)) {
-            return zstring("(.*)");
-        } else if (u.re.is_full_char(a_regex)) {
-            return zstring("str.allchar");
-        } else if (u.re.is_intersection(a_regex)) {
-            expr * a0;
-            expr * a1;
-            u.re.is_intersection(a_regex, a0, a1);
-            zstring a0str = get_std_regex_str(a0);
-            zstring a1str = get_std_regex_str(a1);
-            return zstring("(") + a0str + zstring("&&") + a1str + zstring(")");
-        } else if (u.re.is_complement(a_regex)) {
-            expr * body;
-            u.re.is_complement(a_regex, body);
-            zstring bodyStr = get_std_regex_str(body);
-            return zstring("(^") + bodyStr + zstring(")");
-        } else {
-            TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
-            UNREACHABLE(); return zstring("");
-        }
-        
     }
 
     void theory_str::instantiate_axiom_RegexIn(enode * e) {
@@ -7007,14 +6897,6 @@ namespace smt {
                     // we also want to check whether we can eval this concat,
                     // in case the rewriter did not totally finish with this term
                     m_concat_eval_todo.push_back(n);
-                } else if (u.str.is_length(ap)) {
-                    // if the argument is a variable,
-                    // keep track of this for later, we'll need it during model gen
-                    expr * var = ap->get_arg(0);
-                    app * aVar = to_app(var);
-                    if (aVar->get_num_args() == 0 && !u.str.is_string(aVar)) {
-                        input_var_in_len.insert(var);
-                    }
                 } else if (u.str.is_at(ap) || u.str.is_extract(ap) || u.str.is_replace(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
                 } else if (u.str.is_itos(ap)) {
@@ -7365,10 +7247,7 @@ namespace smt {
         // check whether the node is a string variable;
         // testing set membership here bypasses several expensive checks.
         // note that internal variables don't count if they're only length tester / value tester vars.
-        if (variable_set.find(node) != variable_set.end()
-            && internal_lenTest_vars.find(node) == internal_lenTest_vars.end()
-            && internal_valTest_vars.find(node) == internal_valTest_vars.end()
-            && internal_unrollTest_vars.find(node) == internal_unrollTest_vars.end()) {
+        if (variable_set.find(node) != variable_set.end()) {
             if (varMap[node] != 1) {
                 TRACE("str", tout << "new variable: " << mk_pp(node, get_manager()) << std::endl;);
             }
@@ -8344,9 +8223,7 @@ namespace smt {
 
     void theory_str::collect_var_concat(expr * node, std::set<expr*> & varSet, std::set<expr*> & concatSet) {
         if (variable_set.find(node) != variable_set.end()) {
-            if (internal_lenTest_vars.find(node) == internal_lenTest_vars.end()) {
-                varSet.insert(node);
-            }
+	    varSet.insert(node);
         }
         else if (is_app(node)) {
             app * aNode = to_app(node);
@@ -8652,8 +8529,7 @@ namespace smt {
                   if (vName.length() >= 3 && vName.substr(0, 3) == "$$_")
                   continue;
                 */
-                if (internal_variable_set.find(itor->first) != internal_variable_set.end()
-                    || regex_variable_set.find(itor->first) != regex_variable_set.end()) {
+                if (internal_variable_set.find(itor->first) != internal_variable_set.end()) {
                     // this can be ignored, I think
                     TRACE("str", tout << "free internal variable " << mk_pp(itor->first, m) << " ignored" << std::endl;);
                     continue;
