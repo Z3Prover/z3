@@ -936,7 +936,10 @@ model_value_proc * theory_diff_logic<Ext>::mk_value(enode * n, model_generator &
         num = val.get_rational().to_rational() + m_delta * val.get_infinitesimal().to_rational();
     }
     TRACE("arith", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
-    return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, m_util.is_int(n->get_owner())));
+    bool is_int = m_util.is_int(n->get_owner());
+    if (is_int && !num.is_int())
+        throw default_exception("difference logic solver was used on mixed int/real problem");
+    return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int));
 }
 
 
