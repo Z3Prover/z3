@@ -4640,7 +4640,8 @@ namespace sat {
                 else {
                     is_sat = bounded_search();
                     if (is_sat == l_undef) {
-                        do_restart(true);
+                        do_restart(true);                        
+                        propagate(false);
                     }
                     extract_fixed_consequences(unfixed_lits, assumptions, unfixed_vars, conseq);
                 }
