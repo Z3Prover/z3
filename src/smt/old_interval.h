@@ -102,6 +102,7 @@ public:
     bool operator==(old_interval const & other) const { return m_lower == other.m_lower && m_upper == other.m_upper && m_lower_open == other.m_lower_open && m_upper_open == other.m_upper_open; }
     bool contains_zero() const;
     bool contains(rational const& v) const;
+    bool empty() const;
     old_interval & inv();
     void expt(unsigned n);
     void neg();
