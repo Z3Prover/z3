@@ -248,7 +248,7 @@ namespace smt {
                     //
                     // x1 <= k1 x1 >= k1, x2 <= x1 + k2 x2 >= x1 + k2
                     // 
-                    TRACE("arith_eq_propagation", tout << "fixed\n";);
+                    TRACE("arith_eq", tout << "fixed\n";);
                     lower(x2)->push_justification(ante, numeral::zero(), proofs_enabled());
                     upper(x2)->push_justification(ante, numeral::zero(), proofs_enabled());
                     m_stats.m_fixed_eqs++;
@@ -350,14 +350,13 @@ namespace smt {
                     antecedents.num_params(), antecedents.params("eq-propagate")));
         TRACE("arith_eq", tout << "detected equality: #" << _x->get_owner_id() << " = #" << _y->get_owner_id() << "\n";
               display_var(tout, x);
-              display_var(tout, y););
-        TRACE("arith_eq_propagation",
-              for (unsigned i = 0; i <  lits.size(); ++i) {
-                  ctx.display_detailed_literal(tout, lits[i]);
+              display_var(tout, y); 
+              for (literal lit : lits) {
+                  ctx.display_detailed_literal(tout, lit);
                   tout << "\n";
               } 
-              for (unsigned i = 0; i < eqs.size(); ++i) {
-                  tout << mk_pp(eqs[i].first->get_owner(), m) << " = " << mk_pp(eqs[i].second->get_owner(), m) << "\n";
+              for (auto const& p : eqs) {
+                  tout << mk_pp(p.first->get_owner(), m) << " = " << mk_pp(p.second->get_owner(), m) << "\n";
               } 
               tout << " ==> ";
               tout << mk_pp(_x->get_owner(), m) << " = " << mk_pp(_y->get_owner(), m) << "\n";

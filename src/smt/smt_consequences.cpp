@@ -100,6 +100,14 @@ namespace smt {
 
     void context::justify(literal lit, index_set& s) {
         (void)m;
+        auto add_antecedent = [&](literal l) {
+            CTRACE("context", !m_antecedents.contains(l.var()), 
+                   tout << "untracked literal: " << l << " " 
+                   << mk_pp(bool_var2expr(l.var()), m) << "\n";);
+            if (m_antecedents.contains(l.var())) {
+                s |= m_antecedents[l.var()];
+            }
+        };
         b_justification js = get_justification(lit.var());
         switch (js.get_kind()) {
         case b_justification::CLAUSE: {
@@ -107,13 +115,13 @@ namespace smt {
             if (!cls) break;
             for (literal lit2 : *cls) {
                 if (lit2.var() != lit.var()) {
-                    s |= m_antecedents.find(lit2.var());
+                    add_antecedent(lit2);
                 }
             }
             break;
         }
         case b_justification::BIN_CLAUSE: {
-            s |= m_antecedents.find(js.get_literal().var());
+            add_antecedent(js.get_literal());
             break;
             }
         case b_justification::AXIOM: {
@@ -123,10 +131,7 @@ namespace smt {
             literal_vector literals;
             m_conflict_resolution->justification2literals(js.get_justification(), literals);
             for (unsigned j = 0; j < literals.size(); ++j) {
-                if (!m_antecedents.contains(literals[j].var())) {
-                    TRACE("context", tout << literals[j] << " " << mk_pp(bool_var2expr(literals[j].var()), m) << "\n";);
-                }
-                s |= m_antecedents.find(literals[j].var());
+                add_antecedent(literals[j]);
             }
             break;
         }
