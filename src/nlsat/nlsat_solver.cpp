@@ -947,10 +947,13 @@ namespace nlsat {
         }
 
         void mk_clause(unsigned num_lits, literal const * lits, assumption a) {
-            SASSERT(num_lits > 0);
             _assumption_set as = nullptr;
             if (a != nullptr)
                 as = m_asm.mk_leaf(a);
+            if (num_lits == 0) {
+                num_lits = 1;
+                lits = &false_literal;
+            }
             mk_clause(num_lits, lits, false, as);
         }
 
