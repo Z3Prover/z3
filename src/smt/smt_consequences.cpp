@@ -47,11 +47,11 @@ namespace smt {
     // 
     void context::extract_fixed_consequences(literal lit, index_set const& assumptions, expr_ref_vector& conseq) {
         datatype_util dt(m);
-        expr* e1, *e2;       
+        expr* e1, *e2, *arg;
         expr_ref fml(m);        
         if (lit == true_literal) return;
         expr* e = bool_var2expr(lit.var());
-        TRACE("context", display(tout << mk_pp(e, m) << "\n"););
+        TRACE("context", tout << mk_pp(e, m) << "\n";);
         index_set s;
         if (assumptions.contains(lit.var())) {
             s.insert(lit.var());
@@ -60,9 +60,6 @@ namespace smt {
             justify(lit, s);
         }
         m_antecedents.insert(lit.var(), s);
-        TRACE("context", display_literal_verbose(tout, lit); 
-              for (auto v : s) tout << " " << v;
-              tout << "\n";);
         bool found = false;
         if (m_var2val.contains(e)) {
             found = true;
@@ -85,11 +82,11 @@ namespace smt {
                 fml = m.mk_eq(e1, e2);
             }
         }
-        else if (!lit.sign() && is_app(e) && dt.is_recognizer(to_app(e)->get_decl())) {
-            if (m_var2val.contains(to_app(e)->get_arg(0))) {
+        else if (!lit.sign() && dt.is_recognizer(e, arg)) {
+            if (m_var2val.contains(arg)) {
                 found = true;
-                fml = m.mk_eq(to_app(e)->get_arg(0), m.mk_const(dt.get_recognizer_constructor(to_app(e)->get_decl())));
-                m_var2val.erase(to_app(e)->get_arg(0));
+                fml = m.mk_eq(arg, m.mk_const(dt.get_recognizer_constructor(to_app(e)->get_decl())));
+                m_var2val.erase(arg);
             }
         }
         if (found) {
@@ -172,7 +169,7 @@ namespace smt {
                 TRACE("context", 
                       tout << "checking " << mk_pp(k, m) << " " 
                       << mk_pp(v, m) << " " << get_assignment(lit) << "\n";
-                      display(tout);
+                      //display(tout);
                       );
                 switch (get_assignment(lit)) {
                 case l_true: 
@@ -424,6 +421,7 @@ namespace smt {
                 m_not_l = null_literal;
             }
             if (is_sat == l_true) {
+                TRACE("context", display(tout););
                 delete_unfixed(unfixed);
             }
             extract_fixed_consequences(num_units, _assumptions, conseq);
@@ -639,7 +637,7 @@ namespace smt {
             for (expr* a : assumptions) {
                 assert_expr(a);
             }
-            TRACE("context", tout << "checking: " << mk_pp(c, m) << "\n";);
+            TRACE("context", tout << "checking fixed: " << mk_pp(c, m) << "\n";);
             tmp = m.mk_not(c);
             assert_expr(tmp);
             VERIFY(check() != l_true);
