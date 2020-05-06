@@ -2044,7 +2044,7 @@ namespace smt {
     }
 
     bool theory_pb::is_proof_justification(justification const& j) const {
-        return typeid(smt::justification_proof_wrapper) == typeid(j);
+        return typeid(smt::justification_proof_wrapper) == typeid(j) || get_manager().proofs_enabled();           
     }
 
     justification* theory_pb::justify(literal l1, literal l2) {
