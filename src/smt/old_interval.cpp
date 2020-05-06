@@ -473,6 +473,14 @@ interval & interval::operator*=(interval const & other) {
     return *this;
 }
 
+bool interval::empty() const {
+    if (m_lower.is_infinite() || m_upper.is_infinite())
+        return false;
+    if (m_lower < m_upper)
+        return false;
+    return m_lower > m_upper || m_lower_open || m_upper_open;
+}
+
 bool interval::contains_zero() const {
     TRACE("interval_zero_bug", tout << "contains_zero info: " << *this << "\n";
           tout << "m_lower.is_neg(): " << m_lower.is_neg() << "\n";

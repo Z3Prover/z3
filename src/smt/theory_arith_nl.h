@@ -226,23 +226,23 @@ interval theory_arith<Ext>::mk_interval_for(theory_var v) {
         }
         return interval(m_dep_manager,
                         l->get_value().get_rational().to_rational(),
-                        !l->get_value().get_infinitesimal().to_rational().is_zero(),
+                        l->get_value().get_infinitesimal().to_rational().is_pos(),
                         m_dep_manager.mk_leaf(l),
                         u->get_value().get_rational().to_rational(),
-                        !u->get_value().get_infinitesimal().to_rational().is_zero(),
+                        u->get_value().get_infinitesimal().to_rational().is_neg(),
                         m_dep_manager.mk_leaf(u));
     }
     else if (l) {
         return interval(m_dep_manager,
                         l->get_value().get_rational().to_rational(),
-                        !l->get_value().get_infinitesimal().to_rational().is_zero(),
+                        l->get_value().get_infinitesimal().to_rational().is_pos(),
                         true,
                         m_dep_manager.mk_leaf(l));
     }
     else if (u) {
         return interval(m_dep_manager,
                         u->get_value().get_rational().to_rational(),
-                        !u->get_value().get_infinitesimal().to_rational().is_zero(),
+                        u->get_value().get_infinitesimal().to_rational().is_neg(),
                         false,
                         m_dep_manager.mk_leaf(u));
     }
