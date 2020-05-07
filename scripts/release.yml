@@ -248,40 +248,40 @@ stages:
 - stage: Publish
   jobs:
 
-  - job: GitHubPublish
-    displayName: "Publish to GitHub"
-    pool:
-      vmImage: "windows-latest"
-    steps:
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download macOS Build'
-      inputs:
-        artifact: 'macOSBuild'
-        path: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download Win32 Build'
-      inputs:
-        artifact: 'WindowsBuild-x86'
-        path: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download Win64 Build'
-      inputs:
-        artifact: 'WindowsBuild-x64'
-        path: $(Agent.TempDirectory)
-    - task: GitHubRelease@0
-      inputs:
-        gitHubConnection: Z3GitHub
-        repositoryName: $(Build.Repository.Name)
-        action: 'create'
-        target: '$(Build.SourceVersion)'
-        tagSource: 'manual'
-        tag: 'z3-$(ReleaseVersion)'
-        title: 'z3-$(ReleaseVersion)'
-        releaseNotesSource: 'input'
-        releaseNotes: '$(ReleaseVersion) release'
-        assets: '$(Agent.TempDirectory)/*.zip'
-        isDraft: true
-        isPreRelease: false
+#  - job: GitHubPublish
+#    displayName: "Publish to GitHub"
+#    pool:
+#      vmImage: "windows-latest"
+#    steps:
+#    - task: DownloadPipelineArtifact@2
+#      displayName: 'Download macOS Build'
+#      inputs:
+#        artifact: 'macOSBuild'
+#        path: $(Agent.TempDirectory)
+#    - task: DownloadPipelineArtifact@2
+#      displayName: 'Download Win32 Build'
+#      inputs:
+#        artifact: 'WindowsBuild-x86'
+#        path: $(Agent.TempDirectory)
+#    - task: DownloadPipelineArtifact@2
+#      displayName: 'Download Win64 Build'
+#      inputs:
+#        artifact: 'WindowsBuild-x64'
+#        path: $(Agent.TempDirectory)
+#    - task: GitHubRelease@0
+#      inputs:
+#        gitHubConnection: Z3GitHub
+#        repositoryName: $(Build.Repository.Name)
+#        action: 'create'
+#        target: '$(Build.SourceVersion)'
+#        tagSource: 'manual'
+#        tag: 'z3-$(ReleaseVersion)'
+#        title: 'z3-$(ReleaseVersion)'
+#        releaseNotesSource: 'input'
+#        releaseNotes: '$(ReleaseVersion) release'
+#        assets: '$(Agent.TempDirectory)/*.zip'
+#        isDraft: true
+#        isPreRelease: false
 
   - job: NuGetPublish
     displayName: "Publish to NuGet.org"
@@ -289,6 +289,11 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download NuGet Package'
       inputs:
+        source: specific
+        project: 2e0aa542-a22c-4b1a-8dcd-3ebae8e12db4
+        pipeline: 13
+        runVersion: specific
+        runId: 3226
         artifact: 'NuGetPackage'
         path: $(Agent.TempDirectory)
     - task: NuGetAuthenticate@0
@@ -302,20 +307,20 @@ stages:
 #        includeNuGetOrg: true
 #        packagesToPush: $(Agent.TempDirectory)
 
-  - job: PyPIPublish
-    displayName: "Publish to PyPI"
-    pool:
-      vmImage: "ubuntu-16.04"
-    steps:
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifact: 'PythonPackage'
-        path: dist
-    - task: DownloadSecureFile@1
-      name: pypirc
-      inputs:
-        secureFile: 'pypirc'
-    - script: pip install --upgrade pip
-    - script: python -m pip install --user -U setuptools importlib_metadata wheel twine 
+#  - job: PyPIPublish
+#    displayName: "Publish to PyPI"
+#    pool:
+#      vmImage: "ubuntu-16.04"
+#    steps:
+#    - task: DownloadPipelineArtifact@2
+#      inputs:
+#        artifact: 'PythonPackage'
+#        path: dist
+#    - task: DownloadSecureFile@1
+#      name: pypirc
+#      inputs:
+#        secureFile: 'pypirc'
+#    - script: pip install --upgrade pip
+#    - script: python -m pip install --user -U setuptools importlib_metadata wheel twine 
     # Uncomment on release:
     #- script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
