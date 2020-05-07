@@ -39,8 +39,9 @@ namespace opt {
                     if (!m.inc()) {
                         return l_undef;
                     }
-                    
-                    m_solver->get_labels(m_labels);
+                    if (!m_model)
+                        return l_undef;
+                    m_solver->get_labels(m_labels);                    
                     m_model->set_model_completion(true);
                     IF_VERBOSE(1,
                                model_ref mdl(m_model);
