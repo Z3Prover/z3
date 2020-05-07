@@ -60,12 +60,15 @@ namespace smt {
         typedef svector<std::pair<expr*,expr*>> expr_pair_vector;
         typedef std::pair<expr_ref_vector, expr_ref> cond_subst_t;
         typedef vector<cond_subst_t> cond_substs_t;
+        typedef std::pair<enode*, unsigned> induction_position_t;
+        typedef svector<induction_position_t> induction_positions_t;
 
         bool viable_induction_sort(sort* s);
         bool viable_induction_parent(enode* p, enode* n);
         bool viable_induction_children(enode* n);
         bool viable_induction_term(enode* p , enode* n);
         enode_vector induction_positions(enode* n);
+        induction_positions_t induction_positions2(enode* n);
         void mk_hypothesis_substs(unsigned depth, expr* x, cond_substs_t& subst);
         void mk_hypothesis_substs_rec(unsigned depth, sort* s, expr* y, expr_ref_vector& conds, cond_substs_t& subst);
         void mk_hypothesis_lemma(expr_ref_vector const& conds, expr_pair_vector const& subst, literal alpha);
