@@ -52,7 +52,7 @@ namespace opt {
         ast_manager&    m;
         maxsat_context& m_c;
         
-        void update_assignment() {
+        bool update_assignment() {
             model_ref mdl;
             s().get_model(mdl);
             if (mdl) {
@@ -60,6 +60,7 @@ namespace opt {
                 m_c.model_updated(mdl.get());
                 update_assignment(mdl);
             }
+            return mdl.get() != nullptr;
         }
 
         void assert_value(soft& soft) {
@@ -158,7 +159,8 @@ namespace opt {
                 lbool is_sat = s().check_sat(asms);
                 switch (is_sat) {
                 case l_true:
-                    update_assignment();
+                    if (!update_assignment())
+                        return l_undef;
                     SASSERT(soft.value == l_true || m.limit().get_cancel_flag());
                     break;
                 case l_false:
