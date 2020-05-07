@@ -608,6 +608,10 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("atanh", OP_ATANH));
         op_names.push_back(builtin_name("pi", OP_PI));
         op_names.push_back(builtin_name("euler", OP_E));
+        op_names.push_back(builtin_name("/0",OP_DIV0));
+        op_names.push_back(builtin_name("div0",OP_IDIV0));
+        op_names.push_back(builtin_name("rem0",OP_REM0));
+        op_names.push_back(builtin_name("mod0",OP_MOD0));
     }
 }
 
