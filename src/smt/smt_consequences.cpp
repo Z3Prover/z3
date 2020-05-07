@@ -169,7 +169,7 @@ namespace smt {
                 TRACE("context", 
                       tout << "checking " << mk_pp(k, m) << " " 
                       << mk_pp(v, m) << " " << get_assignment(lit) << "\n";
-                      //display(tout);
+                      display(tout);
                       );
                 switch (get_assignment(lit)) {
                 case l_true: 
@@ -361,12 +361,14 @@ namespace smt {
               tout << "vars: " << vars.size() << "\n";
               tout << "lits: " << num_units << "\n";);
         pop_to_base_lvl();
-        m_search_lvl = m_scope_lvl;
         m_case_split_queue->init_search_eh();
         unsigned num_iterations = 0;
         unsigned num_fixed_eqs = 0;
         unsigned chunk_size = 100; 
-        
+
+        init_assumptions(assumptions);
+        num_units = 0;
+
         while (!m_var2val.empty()) {
             unsigned num_vars = 0;
             for (auto const& kv : m_var2val) {
@@ -392,10 +394,8 @@ namespace smt {
                         continue;
                     if (inconsistent()) {
                         SASSERT(inconsistent());
-                        IF_VERBOSE(1, verbose_stream() << "inconsistent at base level " << get_scope_level() << "\n");
+                        IF_VERBOSE(1, verbose_stream() << "(get-consequences base-inconsistent " << get_scope_level() << ")\n");
                         return l_undef;
-                        m_conflict = null_b_justification;
-                        m_not_l = null_literal;                   
                     }
                 }
             }
@@ -409,7 +409,7 @@ namespace smt {
                     return is_sat;
                 }
                 if (is_sat == l_undef) {
-                    IF_VERBOSE(0, verbose_stream() << "(get-consequences inc-limits)\n";);
+                    IF_VERBOSE(1, verbose_stream() << "(get-consequences inc-limits)\n";);
                     inc_limits();
                     continue;
                 }
