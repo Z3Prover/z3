@@ -345,7 +345,7 @@ namespace datatype {
         bool is_recognizer0(app const* f) const { return is_app_of(f, fid(), OP_DT_RECOGNISER);} 
         bool is_is(app const * f) const { return is_app_of(f, fid(), OP_DT_IS);} 
         bool is_is(expr const * e) const { return is_app(e) && is_is(to_app(e)); }
-        bool is_recognizer(expr const * f) const { return is_app(f) && is_recognizer0(to_app(f)) || is_is(to_app(f)); }
+        bool is_recognizer(expr const * f) const { return is_app(f) && (is_recognizer0(to_app(f)) || is_is(to_app(f))); }
         MATCH_UNARY(is_recognizer);
         bool is_accessor(expr const* e) const { return is_app(e) && is_app_of(to_app(e), fid(), OP_DT_ACCESSOR); }
         MATCH_UNARY(is_accessor);
