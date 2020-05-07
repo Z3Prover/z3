@@ -171,6 +171,32 @@ enode_vector induction_lemmas::induction_positions(enode* n) {
         n->unset_mark2();
     return result;
 }
+
+
+// Collecting induction positions relative to parent.
+induction_lemmas::induction_positions_t induction_lemmas::induction_positions2(enode* n) {
+    induction_positions_t result;
+    enode_vector todo;
+    todo.push_back(n);
+    n->set_mark();
+    for (unsigned i = 0; i < todo.size(); ++i) {
+        enode* n = todo[i];
+        unsigned idx = 0;
+        for (enode* a : smt::enode::args(n)) {
+            if (viable_induction_term(n, a)) {
+                result.push_back(induction_position_t(n, idx));
+            }
+            if (!a->is_marked()) {
+                a->set_mark();
+                todo.push_back(a);
+            }
+            ++idx;
+        }
+    }
+    for (enode* n : todo) 
+        n->unset_mark();
+    return result;
+}
     
 /**
    extract substitutions for x into accessor values of the same sort.
