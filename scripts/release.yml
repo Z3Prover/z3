@@ -290,7 +290,7 @@ stages:
       displayName: 'Download NuGet Package'
       inputs:
         source: specific
-        project: 2e0aa542-a22c-4b1a-8dcd-3ebae8e12db4
+        project: '2e0aa542-a22c-4b1a-8dcd-3ebae8e12db4'
         pipeline: 13
         runVersion: specific
         runId: 3226
