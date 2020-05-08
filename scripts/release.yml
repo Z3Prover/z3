@@ -256,6 +256,11 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
+        artifact: 'UbuntuBuild'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOS Build'
+      inputs:
         artifact: 'macOSBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
