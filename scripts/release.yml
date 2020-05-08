@@ -296,16 +296,11 @@ stages:
         runId: 3226
         artifact: 'NuGetPackage'
         path: $(Agent.TempDirectory)
-    - task: NuGetAuthenticate@0
+    - task: NuGetToolInstaller@0
       inputs:
-        nuGetServiceConnections: Z3Nuget
-#    - task: NuGetCommand@2
-#      inputs:
-#        command: push
-#        nuGetFeedType: external
-#        feedsToUse: select
-#        includeNuGetOrg: true
-#        packagesToPush: $(Agent.TempDirectory)
+        versionSpec: 5.x
+        checkLatest: false
+    - script: nuget push $(Agent.TempDirectory)*.nupkg -ApiKey Z3Nuget
 
 #  - job: PyPIPublish
 #    displayName: "Publish to PyPI"
