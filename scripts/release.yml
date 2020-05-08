@@ -300,7 +300,13 @@ stages:
       inputs:
         versionSpec: 5.x
         checkLatest: false
-    - script: nuget push $(Agent.TempDirectory)*.nupkg -ApiKey Z3Nuget
+#    - script: nuget push $(Agent.TempDirectory)*.nupkg -ApiKey Z3Nuget
+    - task: NuGetCommand@2
+      inputs:
+        command: push
+        nuGetFeedType: External
+        publishFeedCredentials: Z3Nuget
+        packagesToPush: $(Agent.TempDirectory)/*.nupkg
 
 #  - job: PyPIPublish
 #    displayName: "Publish to PyPI"
