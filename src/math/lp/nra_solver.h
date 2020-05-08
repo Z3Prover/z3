@@ -25,7 +25,7 @@ namespace nra {
 
     public:
 
-        solver(lp::lar_solver& s, reslimit& lim, params_ref const& p = params_ref());
+        solver(lp::lar_solver& s, reslimit& lim, nla::core & nla_core, params_ref const& p = params_ref());
         
         ~solver();
 

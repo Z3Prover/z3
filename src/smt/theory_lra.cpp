@@ -24,7 +24,6 @@
 #include "math/lp/lp_dual_simplex.h"
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
-#include "math/lp/nra_solver.h"
 #include "math/lp/nla_solver.h"
 #include "math/lp/lp_types.h"
 #include "math/polynomial/algebraic_numbers.h"
@@ -268,57 +267,21 @@ class theory_lra::imp {
     unsigned                                          m_num_conflicts;
 
     // non-linear arithmetic
-    scoped_ptr<nra::solver>  m_nra;
     scoped_ptr<nla::solver>  m_nla;
-    bool                     m_use_nra_model;
     scoped_ptr<scoped_anum>  m_a1, m_a2;
 
     struct switcher {
         theory_lra::imp& m_th_imp;
-        scoped_ptr<nra::solver>*  m_nra;
         scoped_ptr<nla::solver>*  m_nla;
-        bool                      m_use_nla;
-        switcher(theory_lra::imp& i): m_th_imp(i), m_nra(nullptr), m_nla(nullptr) {
+        switcher(theory_lra::imp& i): m_th_imp(i), m_nla(nullptr) {
         }
-
+        
         bool need_check() {
-            if (m_use_nla) {
-                if (m_nla != nullptr)
-                    return (*m_nla)->need_check();
-            }
-            else {
-                if (m_nra != nullptr)
-                    return (*m_nra)->need_check();
-            }
+            if (m_nla != nullptr)
+                return (*m_nla)->need_check();
             return false;
         }
-        
-        void push() {
-            if (m_nla != nullptr)
-                (*m_nla)->push();
-            if (m_nra != nullptr)
-                (*m_nra)->push();
-        }
-
-        void pop(unsigned scopes) {
-            if (m_nla != nullptr)
-                (*m_nla)->pop(scopes);
-            if (m_nra != nullptr)
-                (*m_nra)->pop(scopes);
-        }
-
-        
-        void add_monic(lpvar v, unsigned sz, lpvar const* vs) {
-            if (m_use_nla) {
-                m_th_imp.ensure_nla();
-                (*m_nla)->add_monic(v, sz, vs);
-            }
-            else {
-                m_th_imp.ensure_nra();
-                (*m_nra)->add_monic(v, sz, vs);
-            }
-        }
- 
+                
     };
 
     // integer arithmetic
@@ -339,12 +302,7 @@ class theory_lra::imp {
         imp & m_th;
         var_value_hash(imp & th):m_th(th) {}
         unsigned operator()(theory_var v) const { 
-            if (m_th.m_use_nra_model) {
-                return m_th.is_int(v);
-            }
-            else {
-                return (unsigned)std::hash<lp::impq>()(m_th.get_ivalue(v)); 
-            }
+            return (unsigned)std::hash<lp::impq>()(m_th.get_ivalue(v));             
         }
     };
     int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
@@ -373,15 +331,39 @@ class theory_lra::imp {
     lp::lar_solver& lp(){ return *m_solver.get(); }
     const lp::lar_solver& lp() const { return *m_solver.get(); }
     
-    void ensure_nra() {
-        if (!m_nra) {
-            m_nra = alloc(nra::solver, *m_solver.get(), m.limit(), ctx().get_params());
-            m_switcher.m_nra = &m_nra;
-            for (auto const& _s : m_scopes) {
-                (void)_s;
-                m_nra->push();
-            }
-        }
+    void init_solver() {
+        if (m_solver) return;
+
+        reset_variable_values();
+        m_solver = alloc(lp::lar_solver); 
+
+        // initialize 0, 1 variables:
+        get_one(true);
+        get_one(false);
+        get_zero(true);
+        get_zero(false);
+
+        smt_params_helper lpar(ctx().get_params());
+        lp().settings().set_resource_limit(m_resource_limit);
+        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
+        lp().settings().bound_propagation() = BP_NONE != propagation_mode();
+        lp().settings().m_enable_hnf = lpar.arith_enable_hnf();
+        lp().settings().m_print_external_var_name = lpar.arith_print_ext_var_names();
+        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
+        lp().settings().report_frequency = lpar.arith_rep_freq();
+        lp().settings().print_statistics = lpar.arith_print_stats();
+
+        // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
+        unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
+        lp().set_cut_strategy(branch_cut_ratio);
+        
+        lp().settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
+        lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
+        m_lia = alloc(lp::int_solver, *m_solver.get());
+        get_one(true);
+        get_zero(true);
+        get_one(false);
+        get_zero(false);
     }
 
     lpvar add_const(int c, lpvar& var, bool is_int) {
@@ -410,7 +392,6 @@ class theory_lra::imp {
     void ensure_nla() {
         if (!m_nla) {
             m_nla = alloc(nla::solver, *m_solver.get());
-            m_switcher.m_nla = &m_nla;
             for (auto const& _s : m_scopes) {
                 (void)_s;
                 m_nla->push();
@@ -667,7 +648,7 @@ class theory_lra::imp {
             }
             TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
             m_solver->register_existing_terms();            
-            m_switcher.add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
         }
         return v;
     }
@@ -973,7 +954,6 @@ public:
         m_asserted_qhead(0), 
         m_assume_eq_head(0),
         m_num_conflicts(0),
-        m_use_nra_model(false),
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
         m_solver(nullptr),
         m_resource_limit(*this),
@@ -1187,7 +1167,9 @@ public:
         sc.m_not_handled = m_not_handled;
         sc.m_underspecified_lim = m_underspecified.size();
         lp().push();
-        m_switcher.push();
+        if (m_nla)
+            m_nla->push();
+
     }
 
     void pop_scope_eh(unsigned num_scopes) {
@@ -1207,7 +1189,8 @@ public:
         // VERIFY(l_false != make_feasible());
         m_new_bounds.reset();
         m_to_check.reset();
-        m_switcher.pop(num_scopes);
+        if (m_nla)
+            m_nla->pop(num_scopes);
         TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
     }
 
@@ -1588,7 +1571,7 @@ public:
     }
 
     void random_update() {
-        if (m_use_nra_model || m_nla)
+        if (m_nla)
             return;
         m_tmp_var_set.clear();
         m_tmp_var_set.resize(th.get_num_vars());
@@ -1696,13 +1679,7 @@ public:
     }
 
     bool is_eq(theory_var v1, theory_var v2) {
-        if (m_use_nra_model) {
-            SASSERT(!m_switcher.m_use_nla);
-            return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
-        }
-        else {
-            return get_ivalue(v1) == get_ivalue(v2); 
-        }
+        return get_ivalue(v1) == get_ivalue(v2); 
     }
 
     bool has_delayed_constraints() const {
@@ -1712,7 +1689,6 @@ public:
     final_check_status final_check_eh() {
         reset_variable_values();
         IF_VERBOSE(12, verbose_stream() << "final-check " << m_solver->get_status() << "\n");
-        m_use_nra_model = false;
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
         if (lp().get_status() != lp::lp_status::OPTIMAL) {
@@ -2140,27 +2116,6 @@ public:
         return lia_check;
     }
 
-    lbool check_aftermath_nra(lbool r) {
-        m_a1 = alloc(scoped_anum, m_nra->am());
-        m_a2 = alloc(scoped_anum, m_nra->am());
-        switch (r) {
-        case l_false:
-            set_conflict();
-            break;
-        case l_true:
-            m_use_nra_model = true;
-            if (assume_eqs()) {
-                return l_false;
-            }
-            break;
-        case l_undef:
-            TRACE("arith", tout << "nra-undef\n";);
-        default:
-            break;
-        }
-        return r;
-    }
-
     nla::lemma m_lemma;
  
     void false_case_of_check_nla(const nla::lemma & l) {
@@ -2196,7 +2151,10 @@ public:
         set_conflict_or_lemma(core, false);
     }
     
-    lbool check_aftermath_nla(lbool r, const vector<nla::lemma>& lv) {
+    lbool check_nra_continue() {
+        m_a1 = nullptr; m_a2 = nullptr;
+        auto & lv = m_nla_lemma_vector;
+        lbool r = m_nla->check(lv);
         switch (r) {
         case l_false: {
             m_stats.m_nla_lemmas += lv.size();
@@ -2217,20 +2175,13 @@ public:
     }
 
     lbool check_nra() {
-        m_use_nra_model = false;
         if (!m.inc()) {
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
-        if (!m_nra && !m_nla) return l_true;
+        if (!m_nla) return l_true;
         if (!m_switcher.need_check()) return l_true;
-        m_a1 = nullptr; m_a2 = nullptr;
-        if (m_nra) {
-            m_explanation.clear();
-            return check_aftermath_nra(m_nra->check(m_explanation));
-        }
-        vector<nla::lemma> lv;
-        return check_aftermath_nla(m_nla->check(lv), lv);
+        return check_nra_continue();
     }
 
     /**
@@ -3259,7 +3210,7 @@ public:
     }
  
     lp::explanation     m_explanation;
-    
+    vector<nla::lemma>  m_nla_lemma_vector;
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
@@ -3363,7 +3314,6 @@ public:
     }
 
     void reset_eh() {
-        m_use_nra_model = false;
         m_arith_eq_adapter.reset_eh();
         m_solver = nullptr;
         m_internalize_head = 0;
@@ -3385,65 +3335,14 @@ public:
         TRACE("arith", display(tout););
     }
 
-    nlsat::anum const& nl_value(theory_var v, scoped_anum& r) {
-        SASSERT(m_nra);
-        SASSERT(m_use_nra_model);
-        auto t = get_tv(v);
-        if (t.is_term()) {
-
-            m_todo_terms.push_back(std::make_pair(t, rational::one()));
-
-            TRACE("arith", tout << "v" << v << " := w" << t.to_string() << "\n";
-                  lp().print_term(lp().get_term(t), tout) << "\n";);
-
-            m_nra->am().set(r, 0);
-            while (!m_todo_terms.empty()) {
-                rational wcoeff = m_todo_terms.back().second;
-                t = m_todo_terms.back().first;
-                m_todo_terms.pop_back();
-                lp::lar_term const& term = lp().get_term(t);
-                TRACE("arith", lp().print_term(term, tout) << "\n";);
-                scoped_anum r1(m_nra->am());
-                rational c1(0);
-                m_nra->am().set(r1, c1.to_mpq());
-                m_nra->am().add(r, r1, r);                
-                for (auto const & arg : term) {
-                    auto wi = lp().column2tv(arg.column());
-                    c1 = arg.coeff() * wcoeff;
-                    if (wi.is_term()) {
-                        m_todo_terms.push_back(std::make_pair(wi, c1));
-                    }
-                    else {
-                        m_nra->am().set(r1, c1.to_mpq());
-                        m_nra->am().mul(m_nra->value(wi.id()), r1, r1);
-                        m_nra->am().add(r1, r, r);
-                    }
-                }
-            }
-            return r;
-        }
-        else {
-            return m_nra->value(t.id());
-        }
-    }
-
     model_value_proc * mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_owner();
-        if (m_use_nra_model) {
-            anum const& an = nl_value(v, *m_a1);
-            if (a.is_int(o) && !m_nra->am().is_int(an)) {
-                return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
-            }
-            return alloc(expr_wrapper_proc, a.mk_numeral(nl_value(v, *m_a1), a.is_int(o)));
-        }
-        else {
-            rational r = get_value(v);
-            TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
-            SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().get_cancel_flag()));
-            if (a.is_int(o) && !r.is_int()) r = floor(r);
-            return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
-        }
+        rational r = get_value(v);
+        TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
+        SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().get_cancel_flag()));
+        if (a.is_int(o) && !r.is_int()) r = floor(r);
+        return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));        
     }
 
     bool get_value(enode* n, rational& val) {
@@ -3817,9 +3716,6 @@ public:
         }
         if (m_nla) {
             m_nla->display(out);
-        }
-        if (m_nra) {
-            m_nra->display(out);
         }
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {

@@ -12,7 +12,11 @@
 #include "math/lp/var_eqs.h"
 #include "math/lp/factorization.h"
 #include "math/lp/nla_solver.h"
+#include "math/lp/nla_core.h"
+
 namespace nla {
+
+nla_settings& solver::settings() { return m_core->m_nla_settings; }
 
 void solver::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
     m_core->add_monic(v, sz, vs);
@@ -36,7 +40,8 @@ void solver::pop(unsigned n) {
     m_core->pop(n);
 }
         
-solver::solver(lp::lar_solver& s): m_core(alloc(core, s, m_res_limit))  {
+solver::solver(lp::lar_solver& s): m_core(alloc(core, s, m_res_limit)),
+                                   m_nra(s, m_res_limit, *m_core) {
 }
 
 bool solver::influences_nl_var(lpvar j) const {    

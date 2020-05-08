@@ -24,6 +24,8 @@
 #include "math/lp/horner.h"
 #include "math/lp/nla_intervals.h"
 #include "math/grobner/pdd_solver.h"
+#include "math/lp/nla_lemma.h"
+#include "nlsat/nlsat_solver.h"
 
 
 namespace nla {
@@ -66,18 +68,6 @@ public:
     const rational& rs() const { return m_rs; };
 };
 
-class lemma {
-    vector<ineq>     m_ineqs;
-    lp::explanation  m_expl;
-public:
-    void push_back(const ineq& i) { m_ineqs.push_back(i);}
-    size_t size() const { return m_ineqs.size() + m_expl.size(); }
-    const vector<ineq>& ineqs() const { return m_ineqs; }
-    vector<ineq>& ineqs() { return m_ineqs; }
-    lp::explanation& expl() { return m_expl; }
-    const lp::explanation& expl() const { return m_expl; }
-    bool is_conflict() const { return m_ineqs.empty() && !m_expl.empty(); }
-};
 
 class core;
 //
