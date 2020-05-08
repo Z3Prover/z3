@@ -226,26 +226,7 @@ namespace smt {
         void set_sort(expr* n);
 
     public:    
-        theory_diff_logic(context& ctx):
-            theory(ctx, ctx.get_manager().mk_family_id("arith")),
-            m_params(ctx.get_fparams()),
-            m_util(ctx.get_manager()),
-            m_arith_eq_adapter(*this, m_util),
-            m_consistent(true),
-            m_izero(null_theory_var),
-            m_rzero(null_theory_var),
-            m_terms(ctx.get_manager()),
-            m_asserted_qhead(0),
-            m_num_core_conflicts(0),
-            m_num_propagation_calls(0),
-            m_agility(0.5),
-            m_lia_or_lra(not_set),
-            m_non_diff_logic_exprs(false),
-            m_factory(nullptr),
-            m_nc_functor(*this),
-            m_S(ctx.get_manager().limit()),
-            m_num_simplex_edges(0) {
-        }            
+        theory_diff_logic(context& ctx);
 
         ~theory_diff_logic() override {
             reset_eh();

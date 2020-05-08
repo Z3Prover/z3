@@ -43,7 +43,7 @@ namespace smt {
         // v1 is the new root
         TRACE("array", 
               tout << "merging v" << v1 << " v" << v2 << "\n"; display_var(tout, v1);
-              tout << mk_pp(get_enode(v1)->get_owner(), get_manager()) << " <- " << mk_pp(get_enode(v2)->get_owner(), get_manager()) << "\n";);
+              tout << mk_pp(get_enode(v1)->get_owner(), m) << " <- " << mk_pp(get_enode(v2)->get_owner(), m) << "\n";);
         SASSERT(v1 == find(v1));
         var_data * d1 = m_var_data[v1];
         var_data * d2 = m_var_data[v2];
@@ -63,7 +63,6 @@ namespace smt {
     }
 
     theory_var theory_array::mk_var(enode * n) {
-        ast_manager& m = get_manager();
         theory_var r  = theory_array_base::mk_var(n);
         VERIFY(r == static_cast<theory_var>(m_find.mk_var()));
         SASSERT(r == static_cast<int>(m_var_data.size()));
@@ -90,7 +89,7 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
-        TRACE("array", tout << v << " " << mk_pp(s->get_owner(), get_manager()) << " " << mk_pp(get_enode(v)->get_owner(), get_manager()) << "\n";);
+        TRACE("array", tout << v << " " << mk_pp(s->get_owner(), m) << " " << mk_pp(get_enode(v)->get_owner(), m) << "\n";);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_selects));
         for (enode* n : d->m_stores) {
             instantiate_axiom2a(s, n);
@@ -197,7 +196,7 @@ namespace smt {
     }
 
     void theory_array::instantiate_axiom1(enode * store) {
-        TRACE("array", tout << "axiom 1:\n" << mk_bounded_pp(store->get_owner(), get_manager()) << "\n";);
+        TRACE("array", tout << "axiom 1:\n" << mk_bounded_pp(store->get_owner(), m) << "\n";);
         SASSERT(is_store(store));
         m_stats.m_num_axiom1++;
         assert_store_axiom1(store);
@@ -239,7 +238,7 @@ namespace smt {
     // Internalize the term. If it has already been internalized, return false.
     // 
     bool theory_array::internalize_term_core(app * n) {
-        TRACE("array_bug", tout << mk_bounded_pp(n, get_manager()) << "\n";);
+        TRACE("array_bug", tout << mk_bounded_pp(n, m) << "\n";);
         unsigned num_args = n->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
             ctx.internalize(n->get_arg(i), false);
@@ -250,7 +249,7 @@ namespace smt {
         if (!is_attached_to_var(e))
             mk_var(e);
 
-        if (get_manager().is_bool(n)) {
+        if (m.is_bool(n)) {
             bool_var bv = ctx.mk_bool_var(n);
             ctx.set_var_theory(bv, get_id());
             ctx.set_enode_flag(bv, true);
@@ -264,7 +263,7 @@ namespace smt {
                 found_unsupported_op(n);
             return false;
         }
-        TRACE("array_bug", tout << mk_bounded_pp(n, get_manager()) << "\n";);
+        TRACE("array_bug", tout << mk_bounded_pp(n, m) << "\n";);
         if (!internalize_term_core(n)) {
             return true;
         }
@@ -308,8 +307,8 @@ namespace smt {
         v2 = find(v2);        
         var_data * d1 = m_var_data[v1];
         TRACE("ext", tout << "extensionality: " << d1->m_is_array << "\n" 
-              << mk_bounded_pp(get_enode(v1)->get_owner(), get_manager(), 5) << "\n" 
-              << mk_bounded_pp(get_enode(v2)->get_owner(), get_manager(), 5) << "\n";);
+              << mk_bounded_pp(get_enode(v1)->get_owner(), m, 5) << "\n" 
+              << mk_bounded_pp(get_enode(v2)->get_owner(), m, 5) << "\n";);
         
         if (d1->m_is_array) {
             SASSERT(m_var_data[v2]->m_is_array);
@@ -320,8 +319,8 @@ namespace smt {
     void theory_array::relevant_eh(app * n) {
         if (m_params.m_array_laziness == 0)
             return;
-        if (get_manager().is_ite(n)) {
-            TRACE("array", tout << "relevant ite " << mk_pp(n, get_manager()) << "\n";);
+        if (m.is_ite(n)) {
+            TRACE("array", tout << "relevant ite " << mk_pp(n, m) << "\n";);
         }
         if (!is_store(n) && !is_select(n))
             return;
