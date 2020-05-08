@@ -153,7 +153,7 @@ public:
 
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
-    
+    const lp::u_set& to_refine() const { return m_to_refine; }         
     const lp::u_set&  active_var_set () const { return m_active_var_set;}
     bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
 
@@ -441,9 +441,8 @@ public:
     bool patch_blocker(lpvar u, const monic& m) const;
     bool has_big_num(const monic&) const;
     bool var_is_big(lpvar) const;
-    bool has_real(const factorization&) const;
-    bool has_real(const monic& m) const;
-
+    bool factorization_has_real(const factorization&) const;
+    bool monic_has_real(const monic&) const;
 };  // end of core
 
 struct pp_mon {

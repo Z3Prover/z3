@@ -632,7 +632,8 @@ class theory_lra::imp {
                 vars.push_back(register_theory_var_in_lar_solver(v));
             }
             TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
-            m_solver->register_existing_terms();            
+            m_solver->register_existing_terms();
+            ensure_nla();
             m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
         }
         return v;
@@ -2138,7 +2139,11 @@ public:
     lbool check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
         auto & lv = m_nla_lemma_vector;
-        lbool r = m_nla->check(lv);
+        lbool r = m_nla->check(lv, m_explanation);
+        if (m_explanation.size()) {
+            NOT_IMPLEMENTED_YET(); // the nra_solver worked
+        }
+    
         switch (r) {
         case l_false: {
             m_stats.m_nla_lemmas += lv.size();

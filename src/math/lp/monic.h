@@ -74,6 +74,9 @@ public:
     void reset_rfields() { m_rsign = false; m_rvars.reset(); SASSERT(m_rvars.size() == 0); }
     void push_rvar(signed_var sv) { m_rsign ^= sv.sign(); m_rvars.push_back(sv.var()); }
     void sort_rvars() { std::sort(m_rvars.begin(), m_rvars.end()); }
+    
+    svector<lpvar>::const_iterator begin() const { return vars().begin(); }
+    svector<lpvar>::const_iterator end() const { return vars().end(); }
 };
 
 inline std::ostream& operator<<(std::ostream& out, monic const& m) {

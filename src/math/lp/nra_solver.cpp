@@ -24,8 +24,6 @@ struct solver::imp {
     u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
     scoped_ptr<nlsat::solver> m_nlsat;
     scoped_ptr<scoped_anum>   m_zero;
-    vector<mon_eq>            m_monics;
-    unsigned_vector           m_monics_lim;
     mutable variable_map_type m_variable_values; // current model        
     nla::core&                m_nla_core;    
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p, nla::core& nla_core): 
@@ -35,22 +33,9 @@ struct solver::imp {
         m_nla_core(nla_core) {}
 
     bool need_check() {
-        return !m_monics.empty() && !check_assignments(m_monics, s, m_variable_values);
+        return m_nla_core.to_refine().size() != 0;
     }
 
-    void add(lp::var_index v, unsigned sz, lp::var_index const* vs) {
-        m_monics.push_back(mon_eq(v, sz, vs));
-    }
-
-    void push() {
-        m_monics_lim.push_back(m_monics.size());
-    }
-
-    void pop(unsigned n) {
-        if (n == 0) return;
-        m_monics.shrink(m_monics_lim[m_monics_lim.size() - n]);
-        m_monics_lim.shrink(m_monics_lim.size() - n);       
-    }
 
     /*
       \brief Check if polynomials are well defined.
@@ -85,8 +70,8 @@ struct solver::imp {
        TBD: use partial model from lra_solver to prime the state of nlsat_solver.
        TBD: explore more incremental ways of applying nlsat (using assumptions)
     */
-    lbool check(lp::explanation& ex) {
-        SASSERT(need_check());
+    lbool check(lp::explanation& ex) {        
+        SASSERT(need_check() && ex.size() == 0);
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
         m_lp2nl.reset();
@@ -97,10 +82,10 @@ struct solver::imp {
             add_constraint(ci);
         }
 
-        // add polynomial definitions.
-        for (auto const& m : m_monics) {
-            add_monic_eq(m);
-        }
+        // // add polynomial definitions.
+        // for (auto const& m : m_monics) {
+        //     add_monic_eq(m);
+        // }
         // TBD: add variable bounds?
 
         lbool r = l_undef;
@@ -227,7 +212,7 @@ struct solver::imp {
     }
 
     std::ostream& display(std::ostream& out) const {
-        for (auto m : m_monics) {
+        for (auto m : m_nla_core.emons()) {
             out << "j" << m.var() << " = ";
             for (auto v : m.vars()) {
                 out << "j" << v << " ";
@@ -246,9 +231,6 @@ solver::~solver() {
     dealloc(m_imp);
 }
 
-void solver::add_monic(lp::var_index v, unsigned sz, lp::var_index const* vs) {
-    m_imp->add(v, sz, vs);
-}
 
 lbool solver::check(lp::explanation& ex) {
     return m_imp->check(ex);
@@ -256,14 +238,6 @@ lbool solver::check(lp::explanation& ex) {
 
 bool solver::need_check() {
     return m_imp->need_check();
-}
-
-void solver::push() {
-    m_imp->push();
-}
-
-void solver::pop(unsigned n) {
-    m_imp->pop(n);
 }
 
 std::ostream& solver::display(std::ostream& out) const {
