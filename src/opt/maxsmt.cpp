@@ -126,14 +126,14 @@ namespace opt {
             wth->reset_local();
         }
         else {
-            wth = alloc(smt::theory_wmaxsat, m, m_c.fm());
+            wth = alloc(smt::theory_wmaxsat, m_c.smt_context(), m, m_c.fm());
             m_c.smt_context().register_plugin(wth);
         }
         smt::theory_id th_pb = m.get_family_id("pb");
         smt::theory_pb* pb = dynamic_cast<smt::theory_pb*>(m_c.smt_context().get_theory(th_pb));
         if (!pb) {
             theory_pb_params params;
-            pb = alloc(smt::theory_pb, m, params);
+            pb = alloc(smt::theory_pb, m_c.smt_context());
             m_c.smt_context().register_plugin(pb);
         }
         return wth;

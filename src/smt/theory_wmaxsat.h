@@ -56,7 +56,7 @@ namespace smt {
         bool_vector            m_assigned, m_enabled;
         stats                    m_stats;
     public:
-        theory_wmaxsat(ast_manager& m, generic_model_converter& mc);
+        theory_wmaxsat(context& ctx, ast_manager& m, generic_model_converter& mc);
         ~theory_wmaxsat() override;
         void get_assignment(bool_vector& result);
         expr* assert_weighted(expr* fml, rational const& w);

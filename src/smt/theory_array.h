@@ -55,7 +55,6 @@ namespace smt {
         th_trail_stack                  m_trail_stack;
         unsigned                        m_final_check_idx;
 
-        void init(context * ctx) override;
         theory_var mk_var(enode * n) override;
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
@@ -96,10 +95,10 @@ namespace smt {
 
         static void display_ids(std::ostream & out, unsigned n, enode * const * v);
     public:
-        theory_array(ast_manager & m, theory_array_params & params);
+        theory_array(context& ctx);
         ~theory_array() override;
 
-        theory * mk_fresh(context * new_ctx) override { return alloc(theory_array, new_ctx->get_manager(), new_ctx->get_fparams()); }
+        theory * mk_fresh(context * new_ctx) override { return alloc(theory_array, *new_ctx); }
 
         char const * get_name() const override { return "array"; }
 

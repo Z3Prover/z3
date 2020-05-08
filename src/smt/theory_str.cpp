@@ -33,8 +33,23 @@
 
 namespace smt {
 
-    theory_str::theory_str(ast_manager & m, theory_str_params const & params):
-        theory(m.mk_family_id("seq")),
+
+    class seq_expr_solver : public expr_solver {
+        kernel m_kernel;
+    public:
+        seq_expr_solver(ast_manager& m, smt_params& fp):
+            m_kernel(m, fp) {}
+        lbool check_sat(expr* e) override {
+            m_kernel.push();
+            m_kernel.assert_expr(e);
+            lbool r = m_kernel.check();
+            m_kernel.pop(1);
+            return r;
+        }
+    };
+
+    theory_str::theory_str(context& ctx, ast_manager & m, theory_str_params const & params):
+        theory(ctx, m.mk_family_id("seq")),
         m_params(params),
         /* Options */
         opt_EagerStringConstantLengthAssertions(true),
@@ -63,7 +78,7 @@ namespace smt {
         tmpXorVarCount(0),
         avoidLoopCut(true),
         loopDetected(false),
-        m_theoryStrOverlapAssumption_term(m),
+        m_theoryStrOverlapAssumption_term(m.mk_true(), m),
         contains_map(m),
         string_int_conversion_terms(m),
         totalCacheAccessCount(0),
@@ -76,7 +91,6 @@ namespace smt {
         fixed_length_assumptions(m),
         bitvector_character_constants(m)
     {
-        initialize_charset();
     }
 
     theory_str::~theory_str() {
@@ -85,6 +99,11 @@ namespace smt {
             dealloc(aut);
         }
         regex_automata.clear();
+    }
+
+    void theory_str::init() {
+        initialize_charset();
+        m_mk_aut.set_solver(alloc(seq_expr_solver, get_manager(), ctx.get_fparams()));
     }
 
     void theory_str::reset_internal_data_structures() {
@@ -171,26 +190,6 @@ namespace smt {
     expr * theory_str::mk_string(const char * str) {
         symbol sym(str);
         return u.str.mk_string(sym);
-    }
-
-    class seq_expr_solver : public expr_solver {
-        kernel m_kernel;
-    public:
-        seq_expr_solver(ast_manager& m, smt_params& fp):
-            m_kernel(m, fp) {}
-        lbool check_sat(expr* e) override {
-            m_kernel.push();
-            m_kernel.assert_expr(e);
-            lbool r = m_kernel.check();
-            m_kernel.pop(1);
-            return r;
-        }
-    };
-
-    void theory_str::init(context * ctx) {
-        theory::init(ctx);
-        m_mk_aut.set_solver(alloc(seq_expr_solver, get_manager(),
-                                  get_context().get_fparams()));
     }
 
     void theory_str::collect_statistics(::statistics & st) const {
@@ -281,7 +280,6 @@ namespace smt {
         }
 
         if (get_manager().is_true(_e)) return;
-        context & ctx = get_context();
         ast_manager& m = get_manager();
         TRACE("str", tout << "asserting " << mk_ismt2_pp(_e, m) << std::endl;);
         expr_ref e(_e, m);
@@ -305,7 +303,6 @@ namespace smt {
     void theory_str::assert_axiom_rw(expr * e) {
         if (e == nullptr)
             return;
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         expr_ref _e(e, m);
         ctx.get_rewriter()(_e);
@@ -329,7 +326,6 @@ namespace smt {
     }
 
     bool theory_str::internalize_term(app * term) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         SASSERT(term->get_family_id() == get_family_id());
 
@@ -371,7 +367,6 @@ namespace smt {
     }
 
     enode* theory_str::ensure_enode(expr* e) {
-        context& ctx = get_context();
         if (!ctx.e_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -403,8 +398,8 @@ namespace smt {
             theory_var v = theory::mk_var(n);
             m_find.mk_var();
             TRACE("str", tout << "new theory var v#" << v << " find " << m_find.find(v) << std::endl;);
-            get_context().attach_th_var(n, this, v);
-            get_context().mark_as_relevant(n);
+            ctx.attach_th_var(n, this, v);
+            ctx.mark_as_relevant(n);
             return v;
         }
     }
@@ -522,7 +517,6 @@ namespace smt {
     literal theory_str::mk_literal(expr* _e) {
         ast_manager & m = get_manager();
         expr_ref e(_e, m);
-        context& ctx = get_context();
         ensure_enode(e);
         return ctx.get_literal(e);
     }
@@ -557,7 +551,6 @@ namespace smt {
 
 
     app * theory_str::mk_int_var(std::string name) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         TRACE("str", tout << "creating integer variable " << name << " at scope level " << sLevel << std::endl;);
@@ -581,7 +574,6 @@ namespace smt {
     }
 
     app * theory_str::mk_str_var(std::string name) {
-        context & ctx = get_context();
 
         TRACE("str", tout << "creating string variable " << name << " at scope level " << sLevel << std::endl;);
 
@@ -609,7 +601,6 @@ namespace smt {
     }
 
     void theory_str::add_nonempty_constraint(expr * s) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         expr_ref ax1(mk_not(m, ctx.mk_eq_atom(s, mk_string(""))), m);
@@ -631,7 +622,6 @@ namespace smt {
     }
 
     app_ref theory_str::mk_nonempty_str_var() {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         std::stringstream ss;
@@ -677,7 +667,7 @@ namespace smt {
         app * contains = u.str.mk_contains(haystack, needle); // TODO double-check semantics/argument order
         m_trail.push_back(contains);
         // immediately force internalization so that axiom setup does not fail
-        get_context().internalize(contains, false);
+        ctx.internalize(contains, false);
         set_up_axioms(contains);
         return contains;
     }
@@ -687,7 +677,7 @@ namespace smt {
         app * indexof = u.str.mk_index(haystack, needle, mk_int(0));
         m_trail.push_back(indexof);
         // immediately force internalization so that axiom setup does not fail
-        get_context().internalize(indexof, false);
+        ctx.internalize(indexof, false);
         set_up_axioms(indexof);
         return indexof;
     }
@@ -757,7 +747,6 @@ namespace smt {
     }
 
     expr * theory_str::mk_concat(expr * n1, expr * n2) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         ENSURE(n1 != nullptr);
         ENSURE(n2 != nullptr);
@@ -850,7 +839,6 @@ namespace smt {
     }
 
     void theory_str::propagate() {
-        context & ctx = get_context();
         candidate_model.reset();
         while (can_propagate()) {
             TRACE("str", tout << "propagating..." << std::endl;);
@@ -960,7 +948,6 @@ namespace smt {
         app * a_cat = cat->get_owner();
         SASSERT(u.str.is_concat(a_cat));
 
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         TRACE("str", tout << "attempting to flatten " << mk_pp(a_cat, m) << std::endl;);
@@ -1051,7 +1038,6 @@ namespace smt {
      *    Length(x) == strlen(x)
      */
     void theory_str::instantiate_basic_string_axioms(enode * str) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         TRACE("str", tout << "set up basic string axioms on " << mk_pp(str->get_owner(), m) << std::endl;);
@@ -1144,7 +1130,6 @@ namespace smt {
      * (lhs == rhs) -> ( Length(lhs) == Length(rhs) )
      */
     void theory_str::instantiate_str_eq_length_axiom(enode * lhs, enode * rhs) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * a_lhs = lhs->get_owner();
@@ -1166,7 +1151,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_CharAt(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         expr* arg0, *arg1;
         app * expr = e->get_owner();
@@ -1197,12 +1181,11 @@ namespace smt {
         expr_ref axiom(m.mk_ite(cond, thenBranch, elseBranch), m);
         expr_ref reductionVar(ctx.mk_eq_atom(expr, ts1), m);
         expr_ref finalAxiom(m.mk_and(axiom, reductionVar), m);
-        get_context().get_rewriter()(finalAxiom);
+        ctx.get_rewriter()(finalAxiom);
         assert_axiom(finalAxiom);
     }
 
     void theory_str::instantiate_axiom_prefixof(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * expr = e->get_owner();
@@ -1239,7 +1222,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_suffixof(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * expr = e->get_owner();
@@ -1276,7 +1258,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_Contains(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * ex = e->get_owner();
@@ -1326,7 +1307,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_Indexof(enode * e) {
-        context & ctx = get_context();
         th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
@@ -1429,7 +1409,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_Indexof_extended(enode * _e) {
-        context & ctx = get_context();
         th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
@@ -1581,7 +1560,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_LastIndexof(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * expr = e->get_owner();
@@ -1650,7 +1628,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_Substr(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         expr* substrBase = nullptr;
         expr* substrPos = nullptr;
@@ -1743,7 +1720,6 @@ namespace smt {
     //  of t in s, if any, by t'. Note that if t is empty, the result is to prepend
     //  t' to s; also, if t does not occur in s then the result is s.
     void theory_str::instantiate_axiom_Replace(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * ex = e->get_owner();
@@ -1805,7 +1781,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_str_to_int(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * ex = e->get_owner();
@@ -1851,7 +1826,6 @@ namespace smt {
     }
 
     void theory_str::instantiate_axiom_int_to_str(enode * e) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * ex = e->get_owner();
@@ -1889,7 +1863,7 @@ namespace smt {
     expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
         app * regexIn = u.re.mk_in_re(str, regexp);
         // immediately force internalization so that axiom setup does not fail
-        get_context().internalize(regexIn, false);
+        ctx.internalize(regexIn, false);
         set_up_axioms(regexIn);
         return regexIn;
     }
@@ -1916,7 +1890,6 @@ namespace smt {
     }
 
     void theory_str::attach_new_th_var(enode * n) {
-        context & ctx = get_context();
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
         TRACE("str", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := v#" << v << std::endl;);
@@ -1929,7 +1902,7 @@ namespace smt {
         candidate_model.reset();
         m_basicstr_axiom_todo.reset();
         m_concat_axiom_todo.reset();
-        pop_scope_eh(get_context().get_scope_level());
+        pop_scope_eh(ctx.get_scope_level());
     }
 
     /*
@@ -1943,7 +1916,6 @@ namespace smt {
      * Then add an assertion: (y2 == (Concat ce m2)) AND ("str3" == (Concat abc x2)) -> (y2 != "str3")
      */
     bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         // skip this check if we defer consistency checking, as we can do it for every EQC in final check
@@ -2001,7 +1973,6 @@ namespace smt {
         if (!is_app(n)) {
             return null_theory_var;
         }
-        context & ctx = get_context();
         if (ctx.e_internalized(to_app(n))) {
             enode * e = ctx.get_enode(to_app(n));
             return e->get_th_var(get_id());
@@ -2113,7 +2084,6 @@ namespace smt {
      */
     void theory_str::simplify_parent(expr * nn, expr * eq_str) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         TRACE("str", tout << "simplifying parents of " << mk_ismt2_pp(nn, m)
               << " with respect to " << mk_ismt2_pp(eq_str, m) << std::endl;);
@@ -2405,7 +2375,6 @@ namespace smt {
 
     expr * theory_str::simplify_concat(expr * node) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         std::map<expr*, expr*> resolvedMap;
         ptr_vector<expr> argVec;
         get_nodes_in_concat(node, argVec);
@@ -2453,7 +2422,6 @@ namespace smt {
     // (i.e. the equivalent of a len_exists flag in get_len_value()).
 
     bool theory_str::infer_len_concat(expr * n, rational & nLen) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         expr * arg0 = to_app(n)->get_arg(0);
         expr * arg1 = to_app(n)->get_arg(1);
@@ -2493,7 +2461,6 @@ namespace smt {
             return;
         }
 
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         expr * arg0 = to_app(n)->get_arg(0);
@@ -2602,14 +2569,12 @@ namespace smt {
     }
 
     void theory_str::add_theory_aware_branching_info(expr * term, double priority, lbool phase) {
-        context & ctx = get_context();
         ctx.internalize(term, false);
         bool_var v = ctx.get_bool_var(term);
         ctx.add_theory_aware_branching_info(v, priority, phase);
     }
 
     void theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
-        context & ctx = get_context();
         // pull each literal out of the arrangement disjunction
         literal_vector ls;
         for (expr * e : terms) {
@@ -2638,7 +2603,6 @@ namespace smt {
      */
     void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         app * a_nn1 = to_app(nn1);
         SASSERT(a_nn1->get_num_args() == 2);
@@ -3048,7 +3012,6 @@ namespace smt {
 
     void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         ast_manager & mgr = get_manager();
-        context & ctx = get_context();
 
         bool overlapAssumptionUsed = false;
 
@@ -3440,7 +3403,6 @@ namespace smt {
 
     void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
         ast_manager & mgr = get_manager();
-        context & ctx = get_context();
 
         bool overlapAssumptionUsed = false;
 
@@ -3792,7 +3754,6 @@ namespace smt {
 
     void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         ast_manager & mgr = get_manager();
-        context & ctx = get_context();
 
         bool overlapAssumptionUsed = false;
 
@@ -4141,7 +4102,6 @@ namespace smt {
 
     void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
         ast_manager & mgr = get_manager();
-        context & ctx = get_context();
         TRACE("str", tout << "process_concat_eq TYPE 4" << std::endl
               << "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
               << "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
@@ -4242,7 +4202,6 @@ namespace smt {
 
     void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
         ast_manager & mgr = get_manager();
-        context & ctx = get_context();
         TRACE("str", tout << "process_concat_eq TYPE 5" << std::endl
               << "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
               << "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
@@ -4343,7 +4302,6 @@ namespace smt {
 
     void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         ast_manager & mgr = get_manager();
-        context & ctx = get_context();
         TRACE("str", tout << "process_concat_eq TYPE 6" << std::endl
               << "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
               << "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
@@ -4588,7 +4546,6 @@ namespace smt {
     }
 
     bool theory_str::get_arith_value(expr* e, rational& val) const {
-         context& ctx = get_context();
          ast_manager & m = get_manager();
          (void)m;
          if (!ctx.e_internalized(e)) {
@@ -4615,7 +4572,7 @@ namespace smt {
         }
 
         arith_value v(get_manager());
-        v.init(&get_context());
+        v.init(&ctx);
         bool strict;
         return v.get_lo_equiv(_e, lo, strict);
     }
@@ -4627,7 +4584,7 @@ namespace smt {
         }
 
         arith_value v(get_manager());
-        v.init(&get_context());
+        v.init(&ctx);
         bool strict;
         return v.get_up_equiv(_e, hi, strict);
     }
@@ -4638,7 +4595,6 @@ namespace smt {
             return false;
         }
 
-        context& ctx = get_context();
         ast_manager & m = get_manager();
 
         TRACE("str", tout << "checking len value of " << mk_ismt2_pp(e, m) << std::endl;);
@@ -4713,7 +4669,6 @@ namespace smt {
      */
     bool theory_str::in_same_eqc(expr * n1, expr * n2) {
         if (n1 == n2) return true;
-        context & ctx = get_context();
 
         // similar to get_eqc_value(), make absolutely sure
         // that we've set this up properly for the context
@@ -4769,7 +4724,6 @@ namespace smt {
     }
 
     void theory_str::check_contain_by_eqc_val(expr * varNode, expr * constNode) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         TRACE("str", tout << "varNode = " << mk_pp(varNode, m) << ", constNode = " << mk_pp(constNode, m) << std::endl;);
@@ -4903,7 +4857,6 @@ namespace smt {
     }
 
     void theory_str::check_contain_by_substr(expr * varNode, expr_ref_vector & willEqClass) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         expr_ref_vector litems(m);
 
@@ -4977,7 +4930,6 @@ namespace smt {
     }
 
     void theory_str::check_contain_by_eq_nodes(expr * n1, expr * n2) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         if (in_contain_idx_map(n1) && in_contain_idx_map(n2)) {
@@ -5409,7 +5361,6 @@ namespace smt {
         // haven't computed grounded concats for "node" (de-aliased)
         // ---------------------------------------------------------
 
-        context & ctx = get_context();
 
         // const strings: node is de-aliased
         if (u.str.is_string(node)) {
@@ -5639,7 +5590,6 @@ namespace smt {
     void theory_str::check_subsequence(expr* str, expr* strDeAlias, expr* subStr, expr* subStrDeAlias, expr* boolVar,
                                        std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
 
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         std::map<std::vector<expr*>, std::set<expr*> >::iterator itorStr = groundedMap[strDeAlias].begin();
         std::map<std::vector<expr*>, std::set<expr*> >::iterator itorSubStr;
@@ -5840,7 +5790,6 @@ namespace smt {
     // - note that these are different from the semantics in Z3str2
     bool theory_str::check_length_const_string(expr * n1, expr * constStr) {
         ast_manager & mgr = get_manager();
-        context & ctx = get_context();
 
         zstring tmp;
         u.str.is_string(constStr, tmp);
@@ -5892,7 +5841,6 @@ namespace smt {
     }
 
     bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
-        context & ctx = get_context();
         ast_manager & mgr = get_manager();
 
         ptr_vector<expr> concat1Args;
@@ -5963,7 +5911,6 @@ namespace smt {
     }
 
     bool theory_str::check_length_concat_var(expr * concat, expr * var) {
-        context & ctx = get_context();
         ast_manager & mgr = get_manager();
 
         rational varLen;
@@ -5999,7 +5946,6 @@ namespace smt {
     }
 
     bool theory_str::check_length_var_var(expr * var1, expr * var2) {
-        context & ctx = get_context();
         ast_manager & mgr = get_manager();
 
         rational var1Len, var2Len;
@@ -6283,7 +6229,6 @@ namespace smt {
      */
     void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         TRACE("str", tout << mk_ismt2_pp(concat, m) << " == " << mk_ismt2_pp(str, m) << std::endl;);
 
@@ -6620,7 +6565,6 @@ namespace smt {
 
     void theory_str::handle_equality(expr * lhs, expr * rhs) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         // both terms must be of sort String
         sort * lhs_sort = m.get_sort(lhs);
         sort * rhs_sort = m.get_sort(rhs);
@@ -6768,7 +6712,6 @@ namespace smt {
 
     // Check that a string's length can be 0 iff it is the empty string.
     void theory_str::check_eqc_empty_string(expr * lhs, expr * rhs) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         rational nn1Len, nn2Len;
@@ -6864,7 +6807,6 @@ namespace smt {
 
     void theory_str::set_up_axioms(expr * ex) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         // workaround for #3756:
         // the map existing_toplevel_exprs is never cleared on backtracking.
@@ -6982,13 +6924,13 @@ namespace smt {
 
     lbool theory_str::validate_unsat_core(expr_ref_vector & unsat_core) {
         app * target_term = to_app(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
-        get_context().internalize(target_term, false);
-        enode* e1 = get_context().get_enode(target_term);
+        ctx.internalize(target_term, false);
+        enode* e1 = ctx.get_enode(target_term);
         for (unsigned i = 0; i < unsat_core.size(); ++i) {
             app * core_term = to_app(unsat_core.get(i));
             // not sure if this is the correct way to compare terms in this context
-            if (!get_context().e_internalized(core_term)) continue;
-            enode *e2 = get_context().get_enode(core_term);
+            if (!ctx.e_internalized(core_term)) continue;
+            enode *e2 = ctx.get_enode(core_term);
             if (e1 == e2) {
                 TRACE("str", tout << "overlap detected in unsat core, changing UNSAT to UNKNOWN" << std::endl;);
                 return l_undef;
@@ -6999,7 +6941,6 @@ namespace smt {
     }
 
     void theory_str::init_search_eh() {
-        context & ctx = get_context();
 
         reset_internal_data_structures();
 
@@ -7067,7 +7008,7 @@ namespace smt {
 
     void theory_str::assign_eh(bool_var v, bool is_true) {
         candidate_model.reset();
-        expr * e = get_context().bool_var2expr(v);
+        expr * e = ctx.bool_var2expr(v);
         TRACE("str", tout << "assert: v" << v << " " << mk_pp(e, get_manager()) << " is_true: " << is_true << std::endl;);
         DEBUG_CODE(
             for (auto * f : existing_toplevel_exprs) {
@@ -7131,7 +7072,6 @@ namespace smt {
 
         TRACE("str", tout << "checking scopes of variables in the current assignment" << std::endl;);
 
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         expr_ref_vector assignments(m);
@@ -7147,7 +7087,6 @@ namespace smt {
     }
 
     void theory_str::pop_scope_eh(unsigned num_scopes) {
-        context & ctx = get_context();
         sLevel -= num_scopes;
         TRACE("str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
         candidate_model.reset();
@@ -7209,7 +7148,6 @@ namespace smt {
     void theory_str::dump_assignments() {
         TRACE_CODE(
             ast_manager & m = get_manager();
-            context & ctx = get_context();
             tout << "dumping all assignments:" << std::endl;
             expr_ref_vector assignments(m);
             ctx.get_assignments(assignments);
@@ -7294,7 +7232,6 @@ namespace smt {
     void theory_str::classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
                                                               std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap) {
 
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         expr_ref_vector assignments(m);
         ctx.get_assignments(assignments);
@@ -7352,7 +7289,6 @@ namespace smt {
                                    std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
                                    std::map<expr*, std::set<expr*> > & unrollGroupMap) {
 #ifdef _TRACE
-        context & ctx = get_context();
         ast_manager & mgr = get_manager();
         {
             tout << "(0) alias: variables" << std::endl;
@@ -7517,7 +7453,6 @@ namespace smt {
         std::map<expr*, std::map<expr*, int> > concat_eq_concat_map;
         std::map<expr*, std::map<expr*, int> > depMap;
 
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         // note that the old API concatenated these assignments into
@@ -8071,7 +8006,6 @@ namespace smt {
     bool theory_str::finalcheck_str2int(app * a) {
         SASSERT(u.str.is_stoi(a));
         bool axiomAdd = false;
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         expr * S = a->get_arg(0);
@@ -8156,7 +8090,6 @@ namespace smt {
 
     bool theory_str::finalcheck_int2str(app * a) {
         bool axiomAdd = false;
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         expr * N = a->get_arg(0);
@@ -8247,7 +8180,6 @@ namespace smt {
     bool theory_str::propagate_length_within_eqc(expr * var) {
         bool res = false;
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         TRACE("str", tout << "propagate_length_within_eqc: " << mk_ismt2_pp(var, m) << std::endl ;);
 
@@ -8286,7 +8218,6 @@ namespace smt {
     }
 
     bool theory_str::propagate_length(std::set<expr*> & varSet, std::set<expr*> & concatSet, std::map<expr*, int> & exprLenMap) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         expr_ref_vector assignments(m);
         ctx.get_assignments(assignments);
@@ -8370,7 +8301,6 @@ namespace smt {
     }
 
     final_check_status theory_str::final_check_eh() {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         //expr_ref_vector assignments(m);
@@ -8723,7 +8653,7 @@ namespace smt {
             TRACE("str", tout << "using fixed-length model construction" << std::endl;);
 
             arith_value v(get_manager());
-            v.init(&get_context());
+            v.init(&ctx);
             final_check_status arith_fc_status = v.final_check();
             if (arith_fc_status != FC_DONE) {
                 TRACE("str", tout << "arithmetic solver not done yet, continuing search" << std::endl;);
@@ -8884,7 +8814,7 @@ namespace smt {
         owner = n->get_owner();
 
         // If the owner is not internalized, it doesn't have an enode associated.
-        SASSERT(get_context().e_internalized(owner));
+        SASSERT(ctx.e_internalized(owner));
 
         app * val = mk_value_helper(owner);
         if (val != nullptr) {
@@ -8905,7 +8835,6 @@ namespace smt {
 
     unsigned theory_str::get_refine_length(expr* ex, expr_ref_vector& extra_deps){
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         TRACE("str_fl", tout << "finding length for " << mk_ismt2_pp(ex, m) << std::endl;);
         if (u.str.is_string(ex)) {
@@ -8991,7 +8920,6 @@ namespace smt {
     expr* theory_str::refine_eq(expr* lhs, expr* rhs, unsigned offset) {
         TRACE("str_fl", tout << "refine eq " << offset << std::endl;);
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         expr_ref_vector Gamma(m);
         expr_ref_vector Delta(m);
@@ -9112,7 +9040,6 @@ namespace smt {
 
     expr* theory_str::refine_dis(expr* lhs, expr* rhs) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         
         expr_ref lesson(m);
         lesson = m.mk_not(ctx.mk_eq_atom(lhs, rhs));

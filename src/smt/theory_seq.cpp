@@ -274,10 +274,8 @@ void theory_seq::exclusion_table::display(std::ostream& out) const {
 }
 
 
-theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
-    theory(m.mk_family_id("seq")),
-    m(m),
-    m_params(params),
+theory_seq::theory_seq(context& ctx):
+    theory(ctx, ctx.get_manager().mk_family_id("seq")),
     m_rep(m, m_dm),
     m_lts_checked(false),
     m_eq_id(0),
@@ -313,6 +311,13 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_new_propagation(false),
     m_mk_aut(m) {
 
+}
+
+theory_seq::~theory_seq() {
+    m_trail_stack.reset();
+}
+
+void theory_seq::init() {
     params_ref p;
     p.set_bool("coalesce_chars", false);
     m_rewrite.updt_params(p);
@@ -323,16 +328,7 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     std::function<literal(expr*,bool)> mk_eq_emp = [&](expr* e, bool p) { return mk_eq_empty(e, p); };
     m_ax.add_axiom5 = add_ax;
     m_ax.mk_eq_empty2 = mk_eq_emp;
-
-}
-
-theory_seq::~theory_seq() {
-    m_trail_stack.reset();
-}
-
-void theory_seq::init(context* ctx) {
-    theory::init(ctx);    
-    m_arith_value.init(ctx);
+    m_arith_value.init(&ctx);
 }
 
 #define TRACEFIN(s) { TRACE("seq", tout << ">>" << s << "\n";); IF_VERBOSE(31, verbose_stream() << s << "\n"); }
@@ -351,8 +347,8 @@ final_check_status theory_seq::final_check_eh() {
         return FC_DONE;
     }
     m_new_propagation = false;
-    TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
-    TRACE("seq_verbose", get_context().display(tout););
+    TRACE("seq", display(tout << "level: " << ctx.get_scope_level() << "\n"););
+    TRACE("seq_verbose", ctx.display(tout););
 
     if (simplify_and_solve_eqs()) {
         ++m_stats.m_solve_eqs;
@@ -378,7 +374,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("zero_length");
         return FC_CONTINUE;
     }
-    if (m_params.m_split_w_len && len_based_split()) {
+    if (get_fparams().m_split_w_len && len_based_split()) {
         ++m_stats.m_branch_variable;
         TRACEFIN("split_based_on_length");
         return FC_CONTINUE;
@@ -499,7 +495,6 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
     }
 
 
-    context& ctx = get_context();
     
     m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_fixed, e));
     m_fixed.insert(e);
@@ -535,13 +530,12 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
     lit => s != ""
 */
 void theory_seq::propagate_non_empty(literal lit, expr* s) {
-    SASSERT(get_context().get_assignment(lit) == l_true);
+    SASSERT(ctx.get_assignment(lit) == l_true);
     propagate_lit(nullptr, 1, &lit, ~mk_eq_empty(s));
 }
 
 bool theory_seq::propagate_is_conc(expr* e, expr* conc) {
     TRACE("seq", tout << mk_pp(conc, m) << " is non-empty\n";);
-    context& ctx = get_context();
     literal lit = ~mk_eq_empty(e);
     if (ctx.get_assignment(lit) == l_true) {
         propagate_lit(nullptr, 1, &lit, mk_eq(e, conc, false));
@@ -574,7 +568,6 @@ void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
    \brief Check extensionality (for sequences).
  */
 bool theory_seq::check_extensionality() {
-    context& ctx = get_context();
     unsigned sz = get_num_vars();
     unsigned_vector seqs;
     for (unsigned v = 0; v < sz; ++v) {
@@ -633,7 +626,6 @@ bool theory_seq::check_extensionality() {
   \brief check negated contains constraints.
  */
 bool theory_seq::check_contains() {
-    context & ctx = get_context();
     for (unsigned i = 0; !ctx.inconsistent() && i < m_ncs.size(); ++i) {
         if (solve_nc(i)) {
             m_ncs.erase_and_swap(i--);
@@ -643,7 +635,6 @@ bool theory_seq::check_contains() {
 }
 
 bool theory_seq::check_lts() {
-    context& ctx = get_context();
     if (m_lts.empty() || m_lts_checked) {
         return false;
     }
@@ -719,7 +710,6 @@ bool theory_seq::is_solved() {
 
 #if 0
 	// debug code
-    context& ctx = get_context();
     for (enode* n : ctx.enodes()) {
         expr* e = nullptr;
         rational len1, len2;
@@ -744,8 +734,6 @@ bool theory_seq::is_solved() {
    \brief while extracting dependency literals ensure that they have all been asserted on the context.
 */
 void theory_seq::linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const {
-    context & ctx = get_context();    
-    (void)ctx;
     DEBUG_CODE(for (literal lit : lits) SASSERT(ctx.get_assignment(lit) == l_true); );
     svector<assumption> assumptions;
     const_cast<dependency_manager&>(m_dm).linearize(dep, assumptions);
@@ -765,7 +753,6 @@ void theory_seq::linearize(dependency* dep, enode_pair_vector& eqs, literal_vect
 void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits, literal lit) {
     if (lit == true_literal) return;
 
-    context& ctx = get_context();
     literal_vector lits(n, _lits);
 
     if (lit == false_literal) {
@@ -801,7 +788,6 @@ void theory_seq::set_conflict(dependency* dep, literal_vector const& _lits) {
 }
 
 void theory_seq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
-    context& ctx = get_context();
     TRACE("seq", display_deps(tout << "assert conflict:", lits, eqs););
     ctx.set_conflict(
         ctx.mk_justification(
@@ -814,7 +800,6 @@ bool theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
     if (n1->get_root() == n2->get_root()) {
         return false;
     }
-    context& ctx = get_context();
     literal_vector lits;
     enode_pair_vector eqs;
     linearize(dep, eqs, lits);
@@ -877,7 +862,6 @@ bool theory_seq::lift_ite(expr_ref_vector const& ls, expr_ref_vector const& rs, 
     if (ls.size() != 1 || rs.size() != 1) {
         return false;
     }
-    context& ctx = get_context();
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     expr* l = ls[0], *r = rs[0];
     if (m.is_ite(r)) {
@@ -904,7 +888,6 @@ bool theory_seq::lift_ite(expr_ref_vector const& ls, expr_ref_vector const& rs, 
 
 
 bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependency* deps) {
-    context& ctx = get_context();
     expr_ref_pair_vector& new_eqs = m_new_eqs;
     new_eqs.reset();
     bool changed = false;
@@ -987,7 +970,7 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
             m_is_digit.insert(u);
             m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_is_digit, u));
             literal is_digit = m_ax.is_digit(u);
-            if (get_context().get_assignment(is_digit) != l_true) {
+            if (ctx.get_assignment(is_digit) != l_true) {
                 propagate_lit(dep, 0, nullptr, is_digit);
             }
         }
@@ -1155,7 +1138,6 @@ bool theory_seq::reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector con
 }
 
 bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {   
-    context& ctx = get_context();
     expr* const* ls1 = ls.c_ptr();
     expr* const* ls2 = ls.c_ptr()+i;
     expr* const* rs1 = rs.c_ptr();
@@ -1204,13 +1186,11 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
    to another.
 */
 bool theory_seq::is_safe_to_copy(bool_var v) const {
-    context & ctx = get_context();
     expr* e = ctx.bool_var2expr(v);
     return !m_sk.is_skolem(e);
 }
 
 bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
-    context& ctx = get_context();
     expr* s, *i, *l;
     rational r;
     if (m_util.str.is_extract(e, s, i, l)) {
@@ -1307,7 +1287,6 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
 bool theory_seq::solve_nc(unsigned idx) {
     nc const& n = m_ncs[idx];
     literal len_gt = n.len_gt();
-    context& ctx = get_context();
     expr_ref c(m);
 #if 1
     expr* a = nullptr, *b = nullptr;
@@ -1519,7 +1498,6 @@ bool theory_seq::explain_empty(expr_ref_vector& es, dependency*& dep) {
 }
 
 bool theory_seq::simplify_and_solve_eqs() {
-    context & ctx = get_context();
     m_new_solution = true;
     while (m_new_solution && !ctx.inconsistent()) {
         m_new_solution = false;
@@ -1537,7 +1515,6 @@ bool theory_seq::internalize_atom(app* a, bool) {
 
 bool theory_seq::internalize_term(app* term) {
     m_has_seq = true;
-    context & ctx   = get_context();
     if (ctx.e_internalized(term)) {
         enode* e = ctx.get_enode(term);
         mk_var(e);
@@ -1638,7 +1615,7 @@ bool theory_seq::check_int_string() {
 
 bool theory_seq::check_int_string(expr* e) {
     expr* n = nullptr;
-    if (get_context().inconsistent())
+    if (ctx.inconsistent())
         return true;
     if (m_util.str.is_itos(e, n) && !m_util.str.is_stoi(n) && add_length_to_eqc(e))
         return true;
@@ -1781,13 +1758,12 @@ std::ostream& theory_seq::display_deps_smt2(std::ostream& out, literal_vector co
             << ")\n";
     }
     for (literal l : lits) {
-        get_context().display_literal_smt2(out, l) << "\n";
+        ctx.display_literal_smt2(out, l) << "\n";
     }
     return out;
 }
 
 std::ostream& theory_seq::display_lit(std::ostream& out, literal l) const {
-    context& ctx = get_context();
     if (l == true_literal) {
         out << "   true";
     }
@@ -1833,7 +1809,7 @@ void theory_seq::init_search_eh() {
     m_re2aut.reset();
     m_res.reset();
     m_automata.reset();
-    auto as = get_context().get_fparams().m_arith_mode;
+    auto as = get_fparams().m_arith_mode;
     if (m_has_seq && as != AS_OLD_ARITH && as != AS_NEW_ARITH) {
         throw default_exception("illegal arithmetic solver used with string solver");
     }
@@ -2001,7 +1977,6 @@ app* theory_seq::get_ite_value(expr* e) {
 
 model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
     app* e = n->get_owner();
-    context& ctx = get_context();
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
 
     // Shortcut for well-founded values to avoid some quadratic overhead
@@ -2136,7 +2111,6 @@ void theory_seq::validate_model(model& mdl) {
 
 #if 0
     ptr_vector<expr> fmls;
-    context& ctx = get_context();
     ctx.get_asserted_formulas(fmls);
     validate_model_proc proc(*this, mdl);
     for (expr* f : fmls) {
@@ -2245,7 +2219,7 @@ expr_ref theory_seq::elim_skolem(expr* e) {
 }
 
 void theory_seq::validate_axiom(literal_vector const& lits) {
-    if (get_context().get_fparams().m_seq_validate) {
+    if (get_fparams().m_seq_validate) {
         enode_pair_vector eqs;
         literal_vector _lits;
         for (literal lit : lits) _lits.push_back(~lit);
@@ -2256,7 +2230,7 @@ void theory_seq::validate_axiom(literal_vector const& lits) {
 
 void theory_seq::validate_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
     IF_VERBOSE(10, display_deps_smt2(verbose_stream() << "cn ", lits, eqs));
-    if (get_context().get_fparams().m_seq_validate) {
+    if (get_fparams().m_seq_validate) {
         expr_ref_vector fmls(m);
         validate_fmls(eqs, lits, fmls);
     }
@@ -2264,7 +2238,7 @@ void theory_seq::validate_conflict(enode_pair_vector const& eqs, literal_vector 
 
 void theory_seq::validate_assign(literal lit, enode_pair_vector const& eqs, literal_vector const& lits) {
     IF_VERBOSE(10, display_deps_smt2(verbose_stream() << "eq ", lits, eqs); display_lit(verbose_stream(), ~lit) << "\n");
-    if (get_context().get_fparams().m_seq_validate) {
+    if (get_fparams().m_seq_validate) {
         literal_vector _lits(lits);
         _lits.push_back(~lit);
         expr_ref_vector fmls(m);
@@ -2276,7 +2250,7 @@ void theory_seq::validate_assign_eq(enode* a, enode* b, enode_pair_vector const&
     IF_VERBOSE(10, display_deps(verbose_stream() << "; assign-eq\n", lits, eqs);
                verbose_stream() << "(not (= " << mk_bounded_pp(a->get_owner(), m) 
                << " " << mk_bounded_pp(b->get_owner(), m) << "))\n");  
-    if (get_context().get_fparams().m_seq_validate) {
+    if (get_fparams().m_seq_validate) {
         expr_ref_vector fmls(m);
         fmls.push_back(m.mk_not(m.mk_eq(a->get_owner(), b->get_owner())));
         validate_fmls(eqs, lits, fmls);
@@ -2284,7 +2258,6 @@ void theory_seq::validate_assign_eq(enode* a, enode* b, enode_pair_vector const&
 }
 
 void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector const& lits, expr_ref_vector& fmls) {
-    context& ctx = get_context();
     smt_params fp;
     fp.m_seq_validate = false;
     expr_ref fml(m);
@@ -2329,8 +2302,8 @@ theory_var theory_seq::mk_var(enode* n) {
     else {
         theory_var v = theory::mk_var(n);
         m_find.mk_var();
-        get_context().attach_th_var(n, this, v);
-        get_context().mark_as_relevant(n);
+        ctx.attach_th_var(n, this, v);
+        ctx.mark_as_relevant(n);
         return v;
     }
 }
@@ -2427,7 +2400,6 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
 
     expr* e1, *e2, *e3;
     expr_ref arg1(m), arg2(m);
-    context& ctx = get_context();
     if (m_util.str.is_concat(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         arg2 = try_expand(e2, deps);
@@ -2529,7 +2501,6 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
-    context & ctx = get_context();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
         e = m_axioms[m_axioms_head].get();
@@ -2562,7 +2533,7 @@ void theory_seq::deque_axiom(expr* n) {
     TRACE("seq", tout << "deque: " << mk_bounded_pp(n, m, 2) << "\n";);
     if (m_util.str.is_length(n)) {
         m_ax.add_length_axiom(n);
-        if (!get_context().at_base_level()) {
+        if (!ctx.at_base_level()) {
             m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
         }
     }
@@ -2651,7 +2622,6 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     expr* s = nullptr, *_re = nullptr;
     VERIFY(m_util.str.is_in_re(n, s, _re));
     expr_ref re(_re, m);
-    context& ctx = get_context();
     literal lit = ctx.get_literal(n);
     if (!is_true) {
         re = m_util.re.mk_complement(re);
@@ -2761,7 +2731,6 @@ bool theory_seq::upper_bound(expr* e, rational& hi) const {
 // the lower bound is not updated for all the enodes in the same eqc,
 // we have to traverse the eqc to query for the better lower bound.
 bool theory_seq::lower_bound2(expr* _e, rational& lo) {
-    context& ctx = get_context();
     expr_ref e = mk_len(_e);
     expr_ref _lo(m);
     theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, m_autil.get_family_id(), e);
@@ -2848,7 +2817,7 @@ bool theory_seq::get_length(expr* e, rational& val) {
 void theory_seq::ensure_nth(literal lit, expr* s, expr* idx) {
     TRACE("seq", tout << "ensure-nth: " << lit << " " << mk_bounded_pp(s, m, 2) << " " << mk_bounded_pp(idx, m, 2) << "\n";);
     rational r;
-    SASSERT(get_context().get_assignment(lit) == l_true);
+    SASSERT(ctx.get_assignment(lit) == l_true);
     VERIFY(m_autil.is_numeral(idx, r) && r.is_unsigned());
     unsigned _idx = r.get_unsigned();
     expr_ref head(m), tail(m), conc(m), len1(m), len2(m);
@@ -2876,7 +2845,6 @@ literal theory_seq::mk_simplified_literal(expr * _e) {
 
 literal theory_seq::mk_literal(expr* _e) {
     expr_ref e(_e, m);
-    context& ctx = get_context();
     ensure_enode(e);
     return ctx.get_literal(e);
 }
@@ -2888,7 +2856,6 @@ literal theory_seq::mk_seq_eq(expr* a, expr* b) {
 
 
 literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
-    context& ctx = get_context();
     expr_ref e(_e, m);
     SASSERT(m_util.is_seq(e));
     expr_ref emp(m);
@@ -2915,7 +2882,6 @@ literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
 }
 
 void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, literal l5) {
-    context& ctx = get_context();
     literal_vector lits;
     if (l1 == true_literal || l2 == true_literal || l3 == true_literal || l4 == true_literal || l5 == true_literal) return;
     if (l1 != null_literal && l1 != false_literal) { ctx.mark_as_relevant(l1); lits.push_back(l1); }
@@ -2955,7 +2921,6 @@ bool theory_seq::propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs) 
 }
 
 bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, expr* e1, expr* e2, bool add_to_eqs) {
-    context& ctx = get_context();
 
     enode* n1 = ensure_enode(e1);
     enode* n2 = ensure_enode(e2);
@@ -2997,7 +2962,6 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
 }
 
 void theory_seq::assign_eh(bool_var v, bool is_true) {
-    context & ctx = get_context();
     expr* e = ctx.bool_var2expr(v);
     expr* e1 = nullptr, *e2 = nullptr;
     expr_ref f(m);
@@ -3194,18 +3158,18 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     }
     m_exclude.update(e1, e2);
     expr_ref eq(m.mk_eq(e1, e2), m);
-    TRACE("seq", tout << "new disequality " << get_context().get_scope_level() << ": " << mk_bounded_pp(eq, m, 2) << "\n";);
+    TRACE("seq", tout << "new disequality " << ctx.get_scope_level() << ": " << mk_bounded_pp(eq, m, 2) << "\n";);
     m_rewrite(eq);
     if (!m.is_false(eq)) {
         literal lit = mk_eq(e1, e2, false);
-        get_context().mark_as_relevant(lit);
+        ctx.mark_as_relevant(lit);
         if (m_util.str.is_empty(e2)) {
             std::swap(e1, e2);
         }
 
         dependency* dep = m_dm.mk_leaf(assumption(~lit));
         m_nqs.push_back(ne(e1, e2, dep));
-        if (get_context().get_assignment(lit) != l_undef) {
+        if (ctx.get_assignment(lit) != l_undef) {
             solve_nqs(m_nqs.size() - 1);
         }
     }
@@ -3225,7 +3189,6 @@ void theory_seq::push_scope_eh() {
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
-    context& ctx = get_context();
     m_trail_stack.pop_scope(num_scopes);
     theory::pop_scope_eh(num_scopes);
     m_dm.pop_scope(num_scopes);
@@ -3271,7 +3234,7 @@ void theory_seq::relevant_eh(app* n) {
         add_length_limit(arg, m_max_unfolding_depth, true);
     }
 
-    if (m_util.str.is_length(n, arg) && !has_length(arg) && get_context().e_internalized(arg)) {
+    if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) {
         add_length_to_eqc(arg);
     }
 }
@@ -3283,7 +3246,7 @@ eautomaton* theory_seq::get_automaton(expr* re) {
         return result;
     }
     if (!m_mk_aut.has_solver()) {
-        m_mk_aut.set_solver(alloc(seq_expr_solver, m, get_context().get_fparams()));
+        m_mk_aut.set_solver(alloc(seq_expr_solver, m, ctx.get_fparams()));
     }
     result = m_mk_aut(re);
     CTRACE("seq", result, { display_expr d(m); result->display(tout, d); });
@@ -3320,7 +3283,7 @@ bool theory_seq::is_accept(expr* e, expr*& s, expr*& idx, expr*& re, unsigned& i
    step(s, idx, re, i, j, t) -> accept(s, idx + 1, re, j)
 */
 void theory_seq::propagate_step(literal lit, expr* step) {
-    SASSERT(get_context().get_assignment(lit) == l_true);
+    SASSERT(ctx.get_assignment(lit) == l_true);
     expr* re = nullptr, *s = nullptr, *t = nullptr, *idx = nullptr, *i = nullptr, *j = nullptr;
     VERIFY(m_sk.is_step(step, s, idx, re, i, j, t));
     
@@ -3354,7 +3317,6 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     ++m_stats.m_propagate_automata;
     expr *e = nullptr, *idx = nullptr, *re = nullptr;
     unsigned src = 0;
-    context& ctx = get_context();
     rational _idx;
     eautomaton* aut = nullptr;
     if (!is_accept(acc, e, idx, re, src, aut))
@@ -3384,7 +3346,7 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     for (auto const& mv : mvs) {
         expr_ref nth = mk_nth(e, idx);
         expr_ref t = mv.t()->accept(nth);
-        get_context().get_rewriter()(t);
+        ctx.get_rewriter()(t);
         expr_ref step_e(m_sk.mk_step(e, idx, re, src, mv.dst(), t), m);
         lits.push_back(mk_literal(step_e));
     }
@@ -3435,7 +3397,7 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
                 s_min = s;
                 n = 0;
             }
-            else if (k == k_min && get_context().get_random_value() % (++n) == 0) {
+            else if (k == k_min && ctx.get_random_value() % (++n) == 0) {
                 s_min = s;                
             }
         }
@@ -3473,7 +3435,6 @@ void theory_seq::propagate_length_limit(expr* e) {
 */
 
 void theory_seq::propagate_not_prefix(expr* e) {
-    context& ctx = get_context();
     expr* e1 = nullptr, *e2 = nullptr;
     VERIFY(m_util.str.is_prefix(e, e1, e2));
     literal lit = ctx.get_literal(e);
@@ -3494,7 +3455,6 @@ void theory_seq::propagate_not_prefix(expr* e) {
 */
 
 void theory_seq::propagate_not_suffix(expr* e) {
-    context& ctx = get_context();
     expr* e1 = nullptr, *e2 = nullptr;
     VERIFY(m_util.str.is_suffix(e, e1, e2));
     literal lit = ctx.get_literal(e);
@@ -3512,7 +3472,6 @@ void theory_seq::propagate_not_suffix(expr* e) {
 }
 
 bool theory_seq::canonizes(bool is_true, expr* e) {
-    context& ctx = get_context();
     dependency* deps = nullptr;
     expr_ref cont(m);
     if (!canonize(e, deps, cont)) cont = e;

@@ -277,7 +277,7 @@ namespace smt {
         //
         // -----------------------------------
     public:
-        theory_dense_diff_logic(ast_manager & m, theory_arith_params & p);
+        theory_dense_diff_logic(context& ctx);
         ~theory_dense_diff_logic() override { reset_eh(); }
         
         theory * mk_fresh(context * new_ctx) override;

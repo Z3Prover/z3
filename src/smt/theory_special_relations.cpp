@@ -90,8 +90,8 @@ namespace smt {
         return out;
     }
 
-    theory_special_relations::theory_special_relations(ast_manager& m):
-        theory(m.mk_family_id("special_relations")),
+    theory_special_relations::theory_special_relations(context& ctx, ast_manager& m):
+        theory(ctx, m.mk_family_id("special_relations")),
         m_util(m),
         m_can_propagate(false) {
     }
@@ -101,7 +101,7 @@ namespace smt {
     }
 
     theory * theory_special_relations::mk_fresh(context * new_ctx) {
-        return alloc(theory_special_relations, new_ctx->get_manager());
+        return alloc(theory_special_relations, *new_ctx, new_ctx->get_manager());
     }
 
     /**
@@ -112,7 +112,6 @@ namespace smt {
        assert f(term,c) or term != a
      */
     void theory_special_relations::internalize_next(func_decl* f, app* term) {
-        context& ctx = get_context();
         ast_manager& m = get_manager();
         func_decl* nxt = term->get_decl();
         expr* src = term->get_arg(0);
@@ -143,7 +142,6 @@ namespace smt {
             m_relations.insert(atm->get_decl(), r);
             for (unsigned i = 0; i < m_atoms_lim.size(); ++i) r->push();
         }
-        context& ctx = get_context();
         expr* arg0 = atm->get_arg(0);
         expr* arg1 = atm->get_arg(1);
         theory_var v0 = mk_var(arg0);
@@ -158,7 +156,6 @@ namespace smt {
     }
 
     theory_var theory_special_relations::mk_var(expr* e) {
-        context& ctx = get_context();
         if (!ctx.e_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -203,7 +200,7 @@ namespace smt {
             if (extract_equalities(*kv.m_value)) {
                 new_equality = true;
             }
-            if (get_context().inconsistent()) {
+            if (ctx.inconsistent()) {
                 return FC_CONTINUE;
             }
         }
@@ -221,7 +218,6 @@ namespace smt {
     }
 
     enode* theory_special_relations::ensure_enode(expr* e) {
-        context& ctx = get_context();
         if (!ctx.e_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -233,7 +229,7 @@ namespace smt {
     literal theory_special_relations::mk_literal(expr* _e) {
         expr_ref e(_e, get_manager());
         ensure_enode(e);
-        return get_context().get_literal(e);
+        return ctx.get_literal(e);
     }
 
     theory_var theory_special_relations::mk_var(enode* n) {
@@ -242,8 +238,8 @@ namespace smt {
         }
         else {
             theory_var v = theory::mk_var(n);
-            get_context().attach_th_var(n, this, v);
-            get_context().mark_as_relevant(n);
+            ctx.attach_th_var(n, this, v);
+            ctx.mark_as_relevant(n);
             return v;
         }
     }
@@ -270,7 +266,6 @@ namespace smt {
         //
         func_decl* tcf = r.decl();
         func_decl* f = to_func_decl(tcf->get_parameter(0).get_ast());
-        context& ctx = get_context();
         ast_manager& m = get_manager();
         bool new_assertion = false;
         graph r_graph;
@@ -471,7 +466,6 @@ namespace smt {
 
     void theory_special_relations::set_conflict(relation& r) {
         literal_vector const& lits = r.m_explanation;
-        context & ctx = get_context();
         TRACE("special_relations", ctx.display_literals_verbose(tout, lits) << "\n";);
         vector<parameter> params;
         ctx.set_conflict(
@@ -519,7 +513,6 @@ namespace smt {
         bool new_eq = false;
         int_vector scc_id;
         u_map<unsigned> roots;
-        context& ctx = get_context();
         ast_manager& m = get_manager();
         (void)m;
         r.m_graph.compute_zero_edge_scc(scc_id);
@@ -950,7 +943,7 @@ namespace smt {
             for (atom* ap : r.m_asserted_atoms) {
                 atom& a = *ap;
                 if (!a.phase()) continue;
-                SASSERT(get_context().get_assignment(a.var()) == l_true);
+                SASSERT(ctx.get_assignment(a.var()) == l_true);
                 expr* x = get_enode(a.v1())->get_root()->get_owner();
                 expr* y = get_enode(a.v2())->get_root()->get_owner();
                 expr* cb = connected_body;
@@ -1151,7 +1144,6 @@ namespace smt {
     }
     
     void theory_special_relations::display_atom(std::ostream & out, atom& a) const {
-        context& ctx = get_context();
         expr* e = ctx.bool_var2expr(a.var());
         out << (a.phase() ? "" : "(not ") << mk_pp(e, get_manager()) << (a.phase() ? "" : ")") << "\n";
     }

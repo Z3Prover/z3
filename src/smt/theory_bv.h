@@ -223,7 +223,6 @@ namespace smt {
         void assert_bv2int_axiom(app* n);
 
     protected:
-        void init(context * ctx) override;
         theory_var mk_var(enode * n) override;
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
@@ -254,7 +253,7 @@ namespace smt {
 
         smt_params const& params() const;
     public:
-        theory_bv(ast_manager & m, bit_blaster_params const & bb_params);
+        theory_bv(context& ctx);
         ~theory_bv() override;
         
         theory * mk_fresh(context * new_ctx) override;

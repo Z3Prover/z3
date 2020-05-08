@@ -404,7 +404,7 @@ namespace smt {
         justification* justify(literal_vector const& lits);
 
     public:
-        theory_pb(ast_manager& m, theory_pb_params& p);
+        theory_pb(context& ctx);
         
         ~theory_pb() override;
 

@@ -28,13 +28,13 @@ namespace smt {
         imp* m_imp;
 
     public:
-        theory_lra(ast_manager& m, theory_arith_params& ap);
+        theory_lra(context& ctx);
         ~theory_lra() override;
         theory* mk_fresh(context* new_ctx) override;
         char const* get_name() const override { return "arithmetic"; }
-        
-        void init(context * ctx) override;
 
+        void init() override;
+        
         bool internalize_atom(app * atom, bool gate_ctx) override;
                                                      
         bool internalize_term(app * term) override;

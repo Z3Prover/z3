@@ -29,11 +29,11 @@ Revision History:
 namespace smt {
 
     template<typename Ext>
-    theory_dense_diff_logic<Ext>::theory_dense_diff_logic(ast_manager & m, theory_arith_params & p):
-        theory(m.mk_family_id("arith")),
-        m_params(p),
-        m_autil(m),
-        m_arith_eq_adapter(*this, p, m_autil),
+    theory_dense_diff_logic<Ext>::theory_dense_diff_logic(context& ctx):
+        theory(ctx, ctx.get_manager().mk_family_id("arith")),
+        m_params(ctx.get_fparams()),
+        m_autil(ctx.get_manager()),
+        m_arith_eq_adapter(*this, m_autil),
         m_non_diff_logic_exprs(false),
         m_var_value_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)) {
         m_edges.push_back(edge());
@@ -41,7 +41,7 @@ namespace smt {
 
     template<typename Ext>
     theory* theory_dense_diff_logic<Ext>::mk_fresh(context * new_ctx) { 
-        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), new_ctx->get_fparams());
+        return alloc(theory_dense_diff_logic<Ext>, *new_ctx);
     }
 
     template<typename Ext>
@@ -66,13 +66,12 @@ namespace smt {
         c.m_edge_id = self_edge_id;
         c.m_distance.reset();
         SASSERT(check_vector_sizes());
-        get_context().attach_th_var(n, this, v);
+        ctx.attach_th_var(n, this, v);
         return v;
     }
 
     template<typename Ext>
     theory_var theory_dense_diff_logic<Ext>::internalize_term_core(app * n) {
-        context & ctx = get_context();
         if (ctx.e_internalized(n)) {
             enode * e    = ctx.get_enode(n);
             if (is_attached_to_var(e))
@@ -126,7 +125,7 @@ namespace smt {
     void theory_dense_diff_logic<Ext>::found_non_diff_logic_expr(expr * n) {
         if (!m_non_diff_logic_exprs) {
             TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, get_manager()) << "\n";);
-            get_context().push_trail(value_trail<context, bool>(m_non_diff_logic_exprs));
+            ctx.push_trail(value_trail<context, bool>(m_non_diff_logic_exprs));
             IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, get_manager()) << ")\n";); 
             m_non_diff_logic_exprs = true;
         }
@@ -139,7 +138,6 @@ namespace smt {
             return false;
         }
         TRACE("ddl", tout << "internalizing atom:\n" << mk_pp(n, get_manager()) << "\n";);
-        context & ctx = get_context();
         SASSERT(!ctx.b_internalized(n));
         SASSERT(m_autil.is_le(n) || m_autil.is_ge(n));
         theory_var source, target;
@@ -201,12 +199,12 @@ namespace smt {
 
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::mk_clause(literal l1, literal l2) {
-        get_context().mk_th_axiom(get_id(), l1, l2);
+        ctx.mk_th_axiom(get_id(), l1, l2);
     }
 
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::mk_clause(literal l1, literal l2, literal l3) {
-        get_context().mk_th_axiom(get_id(), l1, l2, l3);
+        ctx.mk_th_axiom(get_id(), l1, l2, l3);
     }
 
     template<typename Ext>
@@ -228,7 +226,6 @@ namespace smt {
         TRACE("ddl", tout << "eq-eh: " << mk_pp(atom, get_manager()) << "\n";);
         if (memory::above_high_watermark())
             return;
-        context & ctx  = get_context();
         app * lhs      = to_app(atom->get_arg(0));
         app * rhs      = to_app(atom->get_arg(1));
         app * s;
@@ -258,13 +255,13 @@ namespace smt {
 
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::assign_eh(bool_var v, bool is_true) {
-        if (get_context().has_th_justification(v, get_id())) {
+        if (ctx.has_th_justification(v, get_id())) {
             TRACE("ddl", tout << "ignoring atom propagated by the theory.\n";);
             return;
         }
         atom * a = m_bv2atoms.get(v, 0);
         if (!a) {
-            SASSERT(get_manager().is_eq(get_context().bool_var2expr(v)));
+            SASSERT(get_manager().is_eq(ctx.bool_var2expr(v)));
             return;
         }
         m_stats.m_num_assertions++;
@@ -540,7 +537,6 @@ namespace smt {
 
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::assign_literal(literal l, theory_var source, theory_var target) {
-        context & ctx = get_context();
         literal_vector & antecedents = m_tmp_literals;
         antecedents.reset();
         get_antecedents(source, target, antecedents);
@@ -553,7 +549,6 @@ namespace smt {
         SASSERT(c.m_edge_id != null_edge_id);
         numeral neg_dist = c.m_distance;
         neg_dist.neg();
-        context & ctx = get_context();
         typename atoms::const_iterator it  = c.m_occs.begin();
         typename atoms::const_iterator end = c.m_occs.end();
         for (; it != end; ++it) {
@@ -597,7 +592,6 @@ namespace smt {
             get_antecedents(target, source, antecedents);
             if (l != null_literal)
                 antecedents.push_back(l);
-            context & ctx = get_context();
             region & r    = ctx.get_region();
             ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.c_ptr())));
 
@@ -698,7 +692,7 @@ namespace smt {
         out.width(5);
         out << std::left << get_enode(a->get_source())->get_owner_id() << " <= ";
         out.width(10);
-        out << std::left << a->get_offset() << "        assignment: " << get_context().get_assignment(a->get_bool_var()) << "\n";
+        out << std::left << a->get_offset() << "        assignment: " << ctx.get_assignment(a->get_bool_var()) << "\n";
     }
 
     template<typename Ext>
@@ -880,7 +874,6 @@ namespace smt {
             return false;
         }
         else {
-            context& ctx = get_context();
             enode * e = nullptr;
             theory_var v = 0;
             if (ctx.e_internalized(n)) {
@@ -1025,7 +1018,7 @@ namespace smt {
                     unsigned edge_id = v - num_nodes;
                     literal lit = m_edges[edge_id].m_justification;
                     if (lit != null_literal) {
-                        get_context().literal2expr(lit, tmp);
+                        ctx.literal2expr(lit, tmp);
                         core.push_back(tmp);
                     }
                 }

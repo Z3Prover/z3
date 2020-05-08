@@ -24,23 +24,19 @@ Revision History:
 
 namespace smt {
 
-    theory_array::theory_array(ast_manager & m, theory_array_params & params):
-        theory_array_base(m), 
-        m_params(params),
+    theory_array::theory_array(context& ctx):
+        theory_array_base(ctx), 
+        m_params(ctx.get_fparams()),
         m_find(*this),
         m_trail_stack(*this),
         m_final_check_idx(0) {
+        if (!ctx.relevancy())
+            m_params.m_array_laziness = 0;
     }
 
     theory_array::~theory_array() {
         std::for_each(m_var_data.begin(), m_var_data.end(), delete_proc<var_data>());
         m_var_data.reset();
-    }
-
-    void theory_array::init(context * ctx) {
-        theory_array_base::init(ctx);
-        if (!ctx->relevancy())
-            m_params.m_array_laziness = 0;
     }
 
     void theory_array::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
@@ -68,7 +64,6 @@ namespace smt {
 
     theory_var theory_array::mk_var(enode * n) {
         ast_manager& m = get_manager();
-        context& ctx = get_context();
         theory_var r  = theory_array_base::mk_var(n);
         VERIFY(r == static_cast<theory_var>(m_find.mk_var()));
         SASSERT(r == static_cast<int>(m_var_data.size()));
@@ -245,7 +240,6 @@ namespace smt {
     // 
     bool theory_array::internalize_term_core(app * n) {
         TRACE("array_bug", tout << mk_bounded_pp(n, get_manager()) << "\n";);
-        context & ctx     = get_context();
         unsigned num_args = n->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
             ctx.internalize(n->get_arg(i), false);
@@ -274,7 +268,6 @@ namespace smt {
         if (!internalize_term_core(n)) {
             return true;
         }
-        context & ctx     = get_context();
         enode * arg0      = ctx.get_enode(n->get_arg(0));
         if (!is_attached_to_var(arg0))
             mk_var(arg0);
@@ -332,7 +325,6 @@ namespace smt {
         }
         if (!is_store(n) && !is_select(n))
             return;
-        context & ctx    = get_context();
         if (!ctx.e_internalized(n)) ctx.internalize(n, false);
         enode * arg      = ctx.get_enode(n->get_arg(0));
         theory_var v_arg = arg->get_th_var(get_id());
@@ -399,7 +391,7 @@ namespace smt {
             }
         }
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail();
-        if (r == FC_DONE && should_giveup && !get_context().get_fparams().m_array_fake_support) 
+        if (r == FC_DONE && should_giveup && !ctx.get_fparams().m_array_fake_support) 
             r = FC_GIVEUP;
         CTRACE("array", r != FC_DONE || m_found_unsupported_op, tout << r << "\n";);
         return r;

@@ -232,7 +232,7 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        m_context.register_plugin(alloc(theory_seq, m_manager, m_params));
+        m_context.register_plugin(alloc(theory_seq, m_context));
     }
 
     void setup::setup_QF_UF(static_features const & st) {        
@@ -302,19 +302,19 @@ namespace smt {
         // to compute the actual value of epsilon even if the input does not have rational numbers.
         // Example: (x < 1) and (x > 0)
         if (m_manager.proofs_enabled()) {
-            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
         }
         else {
             if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants 
                 || st.m_num_ite_terms > 0 /* theory_rdl and theory_frdl do not support ite-terms */) {
                 // if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small()) {
                 //   TRACE("rdl_bug", tout << "using theory_smi_arith\n";);
-                //    m_context.register_plugin(alloc(smt::theory_smi_arith, m_manager, m_params));
+                //    m_context.register_plugin(alloc(smt::theory_smi_arith, m_context));
                 // }
                 // else {
                 TRACE("rdl_bug", tout << "using theory_mi_arith\n";);
                 //setup_lra_arith();
-                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+                m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
                 // }
             }
             else {
@@ -322,9 +322,9 @@ namespace smt {
                 m_params.m_arith_propagation_strategy = ARITH_PROP_AGILITY;
                 m_params.m_arith_add_binary_bounds    = true;
                 if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small())
-                    m_context.register_plugin(alloc(smt::theory_frdl, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_frdl, m_context));
                 else
-                    m_context.register_plugin(alloc(smt::theory_rdl, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_rdl, m_context));
             }
         }
     }
@@ -375,25 +375,25 @@ namespace smt {
               tout << "ARITH_EQ_BOUNDS: " << m_params.m_arith_eq_bounds << "\n";);
 
         if (m_manager.proofs_enabled()) {
-            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
         }
         else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
             TRACE("setup", tout << "using dense diff logic...\n";);
             m_params.m_phase_selection = PS_CACHING_CONSERVATIVE;
             if (st.arith_k_sum_is_small())
-                m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
+                m_context.register_plugin(alloc(smt::theory_dense_si, m_context));
             else
-                m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
-
+                m_context.register_plugin(alloc(smt::theory_dense_i, m_context));
+    
         }
         else {
             // if (st.arith_k_sum_is_small()) {
-            //    TRACE("setup", tout << "using small integer simplex...\n";);
-            //    m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
+            //    TRACE("setup", tout << "using small integer simplex...\n";
+            //    m_context.register_plugin(alloc(smt::theory_si_arith, m_context));
             // }
             // else {
             TRACE("setup", tout << "using big integer simplex...\n";);
-            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
             // }
         }
     }
@@ -428,12 +428,12 @@ namespace smt {
                 m_params.m_restart_strategy       = RS_GEOMETRIC;
                 
                 if (m_manager.proofs_enabled()) {
-                    m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
                 }
                 else if (st.arith_k_sum_is_small())
-                    m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_dense_si, m_context));
                 else
-                    m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_dense_i, m_context));
                 return;
             }
         }
@@ -443,12 +443,12 @@ namespace smt {
         m_params.m_restart_factor   = 1.5;
         m_params.m_restart_adaptive = false;
         if (m_manager.proofs_enabled()) {
-            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
         }
         // else if (st.arith_k_sum_is_small())
-        //   m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
+        //   m_context.register_plugin(alloc(smt::theory_dense_si, m_context));
         else
-            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
     }
 
     void setup::setup_QF_LRA() {
@@ -567,7 +567,7 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
-        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
+        m_context.register_plugin(alloc(smt::theory_bv, m_context));
     }
 
     void setup::setup_QF_AUFBV() {
@@ -576,7 +576,7 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
-        m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
+        m_context.register_plugin(alloc(smt::theory_bv, m_context));
         setup_arrays();
     }
 
@@ -653,7 +653,7 @@ namespace smt {
         // 
         m_params.m_ng_lift_ite             = LI_FULL;
         TRACE("setup", tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
-        m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+        m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
         setup_arrays();
     }
 
@@ -711,12 +711,12 @@ namespace smt {
 
     void setup::setup_QF_FP() {
         setup_QF_BV();
-        m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
+        m_context.register_plugin(alloc(smt::theory_fpa, m_context));
     }
 
     void setup::setup_QF_FPBV() {
         setup_QF_BV();
-        m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
+        m_context.register_plugin(alloc(smt::theory_fpa, m_context));
     }
 
     void setup::setup_QF_S() {
@@ -731,7 +731,7 @@ namespace smt {
         }
  
         else if (m_params.m_string_solver == "empty") {
-            m_context.register_plugin(alloc(smt::theory_seq_empty, m_manager));
+            m_context.register_plugin(alloc(smt::theory_seq_empty, m_context));
         }
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
@@ -747,7 +747,7 @@ namespace smt {
 
     void setup::setup_i_arith() {
         if (AS_OLD_ARITH == m_params.m_arith_mode) {
-            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
         }
         else {
             setup_lra_arith();
@@ -755,20 +755,19 @@ namespace smt {
     }
 
     void setup::setup_lra_arith() {
-        // m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-        m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
+        m_context.register_plugin(alloc(smt::theory_lra, m_context));
     }
 
     void setup::setup_mi_arith() {
         switch (m_params.m_arith_mode) {
         case AS_OPTINF:
-            m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
+            m_context.register_plugin(alloc(smt::theory_inf_arith, m_context));            
             break;
         case AS_NEW_ARITH:
             setup_lra_arith();
             break;
         default:
-            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
             break;
         }
     }
@@ -790,59 +789,59 @@ namespace smt {
         }
         switch(mode) {
         case AS_NO_ARITH:
-            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
+            m_context.register_plugin(alloc(smt::theory_dummy, m_context, m_manager.mk_family_id("arith"), "no arithmetic"));
             break;
         case AS_DIFF_LOGIC:
             m_params.m_arith_eq2ineq  = true;
             if (fixnum) {
                 if (int_only)
-                    m_context.register_plugin(alloc(smt::theory_fidl, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_fidl, m_context));
                 else
-                    m_context.register_plugin(alloc(smt::theory_frdl, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_frdl, m_context));
             }
             else {
                 if (int_only)
-                    m_context.register_plugin(alloc(smt::theory_idl, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_idl, m_context));
                 else
-                    m_context.register_plugin(alloc(smt::theory_rdl, m_manager, m_params));
-            }
+                    m_context.register_plugin(alloc(smt::theory_rdl, m_context));
+    }
             break;
         case AS_DENSE_DIFF_LOGIC:
             m_params.m_arith_eq2ineq  = true;
             if (fixnum) {
                 if (int_only)
-                    m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_dense_si, m_context));
                 else
-                    m_context.register_plugin(alloc(smt::theory_dense_smi, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_dense_smi, m_context));
             }
             else {
                 if (int_only)
-                    m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_dense_i, m_context));
                 else
-                    m_context.register_plugin(alloc(smt::theory_dense_mi, m_manager, m_params));
+                    m_context.register_plugin(alloc(smt::theory_dense_mi, m_context));
             }
             break;
         case AS_UTVPI:
             m_params.m_arith_eq2ineq  = true;
             if (int_only)
-                m_context.register_plugin(alloc(smt::theory_iutvpi, m_manager));
+                m_context.register_plugin(alloc(smt::theory_iutvpi, m_context));
             else
-                m_context.register_plugin(alloc(smt::theory_rutvpi, m_manager));          
+                m_context.register_plugin(alloc(smt::theory_rutvpi, m_context));
             break;
         case AS_OPTINF:
-            m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
+            m_context.register_plugin(alloc(smt::theory_inf_arith, m_context));            
             break;
         case AS_OLD_ARITH:
             if (m_params.m_arith_int_only && int_only)
-                m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+                m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
             else
-                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+                m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
             break;
         case AS_NEW_ARITH:
             setup_lra_arith();
             break;
         default:
-            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
             break;
         }
     }
@@ -850,10 +849,10 @@ namespace smt {
     void setup::setup_bv() {
         switch(m_params.m_bv_mode) {
         case BS_NO_BV:
-            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("bv"), "no bit-vector"));
+            m_context.register_plugin(alloc(smt::theory_dummy, m_context, m_manager.mk_family_id("bv"), "no bit-vector"));
             break;
         case BS_BLASTER:
-            m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_bv, m_context));
             break;
         }
     }
@@ -861,33 +860,33 @@ namespace smt {
     void setup::setup_arrays() {
         switch(m_params.m_array_mode) {
         case AR_NO_ARRAY:
-            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("array"), "no array"));
+            m_context.register_plugin(alloc(smt::theory_dummy, m_context, m_manager.mk_family_id("array"), "no array"));
             break;
         case AR_SIMPLE:
-            m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_array, m_context));
             break;
         case AR_MODEL_BASED:
              throw default_exception("The model-based array theory solver is deprecated");
             break;
         case AR_FULL:
-            m_context.register_plugin(alloc(smt::theory_array_full, m_manager, m_params));
+            m_context.register_plugin(alloc(smt::theory_array_full, m_context));
             break;
         }
     }
 
     void setup::setup_datatypes() {
         TRACE("datatype", tout << "registering theory datatype...\n";);
-        m_context.register_plugin(alloc(theory_datatype, m_manager));
+        m_context.register_plugin(alloc(theory_datatype, m_context));
     }
 
     void setup::setup_recfuns() {
         TRACE("recfun", tout << "registering theory recfun...\n";);
-        theory_recfun * th = alloc(theory_recfun, m_manager);
+        theory_recfun * th = alloc(theory_recfun, m_context);
         m_context.register_plugin(th);
     }
 
     void setup::setup_dl() {
-        m_context.register_plugin(mk_theory_dl(m_manager));
+        m_context.register_plugin(mk_theory_dl(m_context));
     }
 
     void setup::setup_seq_str(static_features const & st) {
@@ -899,7 +898,7 @@ namespace smt {
             setup_seq();
         } 
         else if (m_params.m_string_solver == "empty") {
-            m_context.register_plugin(alloc(smt::theory_seq_empty, m_manager));
+            m_context.register_plugin(alloc(smt::theory_seq_empty, m_context));
         }
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
@@ -918,30 +917,30 @@ namespace smt {
     }
 
     void setup::setup_card() {
-        m_context.register_plugin(alloc(theory_pb, m_manager, m_params));
+        m_context.register_plugin(alloc(theory_pb, m_context));
     }
 
     void setup::setup_fpa() {
         setup_bv();
-        m_context.register_plugin(alloc(theory_fpa, m_manager));
+        m_context.register_plugin(alloc(theory_fpa, m_context));
     }
 
     void setup::setup_str() {
         setup_arith();
-        m_context.register_plugin(alloc(theory_str, m_manager, m_params));
+        m_context.register_plugin(alloc(theory_str, m_context, m_manager, m_params));
     }
 
     void setup::setup_seq() {
-        m_context.register_plugin(alloc(smt::theory_seq, m_manager, m_params));
+        m_context.register_plugin(alloc(smt::theory_seq, m_context));
     }
 
     void setup::setup_CSP() {
         setup_unknown();
-        m_context.register_plugin(alloc(smt::theory_jobscheduler, m_manager));
+        m_context.register_plugin(alloc(smt::theory_jobscheduler, m_context));
     }
 
     void setup::setup_special_relations() {
-        m_context.register_plugin(alloc(smt::theory_special_relations, m_manager));
+        m_context.register_plugin(alloc(smt::theory_special_relations, m_context, m_manager));
     }
 
     void setup::setup_unknown() {

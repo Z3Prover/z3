@@ -199,20 +199,20 @@ namespace smt {
         }
 
     public:    
-        theory_utvpi(ast_manager& m);
+        theory_utvpi(context& ctx);
 
         ~theory_utvpi() override;
 
         theory * mk_fresh(context * new_ctx) override;
 
         char const * get_name() const override { return "utvpi-logic"; }
+        
+        void init() override {  init_zero(); }
 
         /**
            \brief See comment in theory::mk_eq_atom
         */
         app * mk_eq_atom(expr * lhs, expr * rhs) override { return a.mk_eq(lhs, rhs); }
-
-        void init(context * ctx) override;
 
         bool internalize_atom(app * atom, bool gate_ctx) override;
                                                      

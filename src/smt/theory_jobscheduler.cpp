@@ -55,7 +55,6 @@ namespace smt {
     }
 
     bool theory_jobscheduler::internalize_term(app * term) {
-        context & ctx = get_context();        
         if (ctx.e_internalized(term))
             return true;
         for (expr* arg : *term) {
@@ -71,7 +70,6 @@ namespace smt {
 
     bool theory_jobscheduler::internalize_atom(app * atom, bool gate_ctx) {
         TRACE("csp", tout << mk_pp(atom, m) << "\n";);
-        context & ctx = get_context();        
         SASSERT(u.is_model(atom));
         for (expr* arg : *atom) {
             if (!ctx.e_internalized(arg)) ctx.internalize(arg, false);
@@ -199,7 +197,6 @@ namespace smt {
 
     literal theory_jobscheduler::mk_literal(expr * e) {
         expr_ref _e(e, m);
-        context& ctx = get_context();
         if (!ctx.e_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -228,7 +225,6 @@ namespace smt {
     }
 
     literal theory_jobscheduler::mk_le(enode* l, enode* r) {
-        context& ctx = get_context();
         expr_ref le(a.mk_le(l->get_owner(), r->get_owner()), m);
         ctx.get_rewriter()(le);
         return mk_literal(le);
@@ -240,7 +236,7 @@ namespace smt {
 
     literal theory_jobscheduler::mk_eq_lit(expr * l, expr * r) {
         literal lit = mk_eq(l, r, false);
-        get_context().mark_as_relevant(lit);
+        ctx.mark_as_relevant(lit);
         return lit;
     }
 
@@ -290,7 +286,6 @@ namespace smt {
     void theory_jobscheduler::propagate_end_time(unsigned j, unsigned r) {
         time_t slb = est(j);
         time_t clb = ect(j, r, slb);
-        context& ctx = get_context();
 
         if (clb > end(j)) {
             job_info const& ji = m_jobs[j];
@@ -384,7 +379,6 @@ namespace smt {
         lits.push_back(~mk_le(start_e, t1));        
         expr_ref rhs(a.mk_add(start_e->get_owner(), a.mk_int(rational(delta, rational::ui64()))), m);
         lits.push_back(mk_eq_lit(end_e->get_owner(), rhs));
-        context& ctx = get_context();
         ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_TH_LEMMA, nullptr);
         ast_manager& m = get_manager();
         if (m.has_trace_stream()) {
@@ -457,7 +451,6 @@ namespace smt {
             }
             if (j == last_job) break;
         }
-        context& ctx = get_context();
         ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_TH_LEMMA, nullptr);
     }
 
@@ -503,9 +496,9 @@ namespace smt {
         }
     }
         
-    theory_jobscheduler::theory_jobscheduler(ast_manager& m): 
-        theory(m.get_family_id("csp")), 
-        m(m), 
+    theory_jobscheduler::theory_jobscheduler(context& ctx): 
+        theory(ctx, ctx.get_manager().get_family_id("csp")), 
+        m(ctx.get_manager()), 
         u(m), 
         a(m), 
         m_bound_qhead(0) {
@@ -576,7 +569,7 @@ namespace smt {
     }
 
     theory * theory_jobscheduler::mk_fresh(context * new_ctx) { 
-        return alloc(theory_jobscheduler, new_ctx->get_manager()); 
+        return alloc(theory_jobscheduler, *new_ctx);
     }
 
     time_t theory_jobscheduler::get_lo(expr* e) {
@@ -657,7 +650,6 @@ namespace smt {
             unsigned r = m_resources.size();
             m_resources.push_back(res_info());
             res_info& ri = m_resources.back();
-            context& ctx = get_context();
             app_ref res(u.mk_resource(r), m);
             if (!ctx.e_internalized(res)) ctx.internalize(res, false);            
             ri.m_resource = ctx.get_enode(res);
@@ -673,7 +665,6 @@ namespace smt {
             unsigned j = m_jobs.size();
             m_jobs.push_back(job_info());
             job_info& ji = m_jobs.back();
-            context& ctx = get_context();
             app_ref job(u.mk_job(j), m);
             app_ref start(u.mk_start(j), m);
             app_ref end(u.mk_end(j), m);
@@ -691,7 +682,7 @@ namespace smt {
     }
 
     void theory_jobscheduler::add_job_resource(unsigned j, unsigned r, unsigned loadpct, uint64_t cap, time_t finite_capacity_end, properties const& ps) {
-        SASSERT(get_context().at_base_level());
+        SASSERT(ctx.at_base_level());
         SASSERT(0 <= loadpct && loadpct <= 100);
         SASSERT(0 <= cap);
         job_info& ji = ensure_job(j);
@@ -707,7 +698,7 @@ namespace smt {
 
 
     void theory_jobscheduler::add_resource_available(unsigned r, unsigned max_loadpct, time_t start, time_t end, properties const& ps) {
-        SASSERT(get_context().at_base_level());
+        SASSERT(ctx.at_base_level());
         SASSERT(1 <= max_loadpct && max_loadpct <= 100);
         SASSERT(start <= end);
         res_info& ri = ensure_resource(r);
@@ -731,7 +722,6 @@ namespace smt {
      */
     void theory_jobscheduler::add_done() {
         TRACE("csp", tout << "add-done begin\n";);
-        context & ctx = get_context();
         
         // sort availability intervals
         for (res_info& ri : m_resources) {
@@ -819,7 +809,6 @@ namespace smt {
 #if 0
         job_info const& ji = m_jobs[j];
         literal l2 = mk_le(ji.m_end, jr.m_finite_capacity_end);
-        context& ctx = get_context();
         if (m.has_trace_stream()) {
             app_ref body(m);
             body = m.mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(l2.var()));
@@ -832,7 +821,6 @@ namespace smt {
 
     // resource(j) = r => start(j) <= lst(j, r, end(j, r))
     void theory_jobscheduler::assert_last_start_time(unsigned j, unsigned r, literal eq) {
-        context& ctx = get_context();
         time_t t;
         if (lst(j, r, t)) {
             literal le = mk_le(m_jobs[j].m_start, t);
@@ -863,7 +851,6 @@ namespace smt {
         if (!first_available(jr, m_resources[r], idx)) return;
         vector<res_available>& available = m_resources[r].m_available;
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx].m_start);
-        context& ctx = get_context();
         if (m.has_trace_stream()) {
             app_ref body(m);
             body = m.mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(l2.var()));
@@ -881,7 +868,6 @@ namespace smt {
         SASSERT(resource_available(jr, available[idx]));
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
         literal l3 = mk_le(m_jobs[j].m_start, available[idx].m_end);
-        context& ctx = get_context();
         if (m.has_trace_stream()) {
             app_ref body(m);
             body = m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_or(ctx.bool_var2expr(l2.var()), ctx.bool_var2expr(l3.var())));
@@ -899,7 +885,6 @@ namespace smt {
         SASSERT(resource_available(jr, available[idx]));
         literal l2 = mk_le(m_jobs[j].m_end, available[idx].m_end);
         literal l3 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
-        context& ctx = get_context();
         if (m.has_trace_stream()) {
             app_ref body(m);
             body = m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_or(ctx.bool_var2expr(l2.var()), ctx.bool_var2expr(l3.var())));
@@ -914,7 +899,6 @@ namespace smt {
      */
     bool theory_jobscheduler::split_job2resource(unsigned j) {
         job_info const& ji = m_jobs[j];
-        context& ctx = get_context();
         if (ji.m_is_bound) return false;
         auto const& jrs = ji.m_resources;
         for (job_resource const& jr : jrs) {

@@ -26,22 +26,22 @@ Revision History:
 
 namespace smt {
 
-    theory_array_base::theory_array_base(ast_manager & m):
-        theory(m.mk_family_id("array")),
+    theory_array_base::theory_array_base(context& ctx):
+        theory(ctx, ctx.get_manager().mk_family_id("array")),
         m_found_unsupported_op(false),
         m_array_weak_head(0)
     {
     }
 
     void theory_array_base::add_weak_var(theory_var v) {
-        get_context().push_trail(push_back_vector<context, svector<theory_var>>(m_array_weak_trail));
+        ctx.push_trail(push_back_vector<context, svector<theory_var>>(m_array_weak_trail));
         m_array_weak_trail.push_back(v);
     }
 
     void theory_array_base::found_unsupported_op(expr * n) {
-        if (!get_context().get_fparams().m_array_fake_support && !m_found_unsupported_op) {
+        if (!ctx.get_fparams().m_array_fake_support && !m_found_unsupported_op) {
             TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);            
-            get_context().push_trail(value_trail<context, bool>(m_found_unsupported_op));
+            ctx.push_trail(value_trail<context, bool>(m_found_unsupported_op));
             m_found_unsupported_op = true;
         }
     }
@@ -72,7 +72,6 @@ namespace smt {
     }
 
     void theory_array_base::assert_axiom(unsigned num_lits, literal * lits) {
-        context & ctx = get_context();
         TRACE("array_axiom",
               tout << "literals:\n";
               for (unsigned i = 0; i < num_lits; ++i) {
@@ -97,7 +96,6 @@ namespace smt {
     void theory_array_base::assert_store_axiom1_core(enode * e) {
         app * n           = e->get_owner();
         SASSERT(is_store(n));
-        context & ctx     = get_context();
         ast_manager & m   = get_manager();
         ptr_buffer<expr> sel_args;
         unsigned num_args = n->get_num_args();
@@ -143,7 +141,6 @@ namespace smt {
         SASSERT(store->get_num_args() == 1 + select->get_num_args());
                 
         ptr_buffer<expr> sel1_args, sel2_args;
-        context & ctx      = get_context();
         ast_manager & m    = get_manager();
         enode *         a  = store->get_arg(0);
         enode * const * is = select->get_args() + 1;
@@ -211,7 +208,7 @@ namespace smt {
                 break;
         if (i == num_args)
             return false;
-        if (get_context().add_fingerprint(store, store->get_owner_id(), select->get_num_args() - 1, select->get_args() + 1)) {
+        if (ctx.add_fingerprint(store, store->get_owner_id(), select->get_num_args() - 1, select->get_args() + 1)) {
             TRACE("array", tout << "adding axiom2 to todo queue\n";);
             m_axiom2_todo.push_back(std::make_pair(store, select)); 
             return true;
@@ -258,7 +255,6 @@ namespace smt {
        v1' = v1, v2' = v2, i1  = i2, select(v1', i1) /= select(v2', i2) in the logical context.
     */
     bool theory_array_base::already_diseq(enode * v1, enode * v2) {
-        context & ctx = get_context();
         enode * r1    = v1->get_root();
         enode * r2    = v2->get_root();
 
@@ -295,7 +291,6 @@ namespace smt {
     }
 
     bool theory_array_base::assert_extensionality(enode * n1, enode * n2) {
-        context & ctx = get_context();
         if (n1->get_owner_id() > n2->get_owner_id())
             std::swap(n1, n2);
         enode * nodes[2] = { n1, n2 };
@@ -311,7 +306,6 @@ namespace smt {
         TRACE("array", tout << "congruent: #" << a1->get_owner_id() << " #" << a2->get_owner_id() << "\n";);
         SASSERT(is_array_sort(a1));
         SASSERT(is_array_sort(a2));
-        context & ctx = get_context();
         if (a1->get_owner_id() > a2->get_owner_id())
             std::swap(a1, a2);
         enode * nodes[2] = { a1, a2 };
@@ -324,7 +318,6 @@ namespace smt {
     void theory_array_base::assert_extensionality_core(enode * n1, enode * n2) {
         app * e1        = n1->get_owner();
         app * e2        = n2->get_owner();
-        context & ctx   = get_context();
         ast_manager & m = get_manager();
 
         func_decl_ref_vector * funcs = nullptr;
@@ -364,7 +357,6 @@ namespace smt {
     void theory_array_base::assert_congruent_core(enode * n1, enode * n2) {
         app * e1        = n1->get_owner();
         app * e2        = n2->get_owner();
-        context & ctx   = get_context();
         ast_manager & m = get_manager();
         sort* s         = m.get_sort(e1);
         unsigned dimension = get_array_arity(s);
@@ -426,7 +418,7 @@ namespace smt {
             !m_axiom2_todo.empty() || 
             !m_extensionality_todo.empty() || 
             !m_congruent_todo.empty() ||
-            (!get_context().get_fparams().m_array_weak && has_propagate_up_trail());
+            (!ctx.get_fparams().m_array_weak && has_propagate_up_trail());
     }
 
     void theory_array_base::propagate() {
@@ -443,8 +435,8 @@ namespace smt {
                 assert_congruent_core(m_congruent_todo[i].first, m_congruent_todo[i].second);
             m_extensionality_todo.reset();
             m_congruent_todo.reset();
-            if (!get_context().get_fparams().m_array_weak && has_propagate_up_trail()) {
-                get_context().push_trail(value_trail<context, unsigned>(m_array_weak_head));
+            if (!ctx.get_fparams().m_array_weak && has_propagate_up_trail()) {
+                ctx.push_trail(value_trail<context, unsigned>(m_array_weak_head));
                 for (; m_array_weak_head < m_array_weak_trail.size(); ++m_array_weak_head) {
                     set_prop_upward(m_array_weak_trail[m_array_weak_head]);
                 }                
@@ -502,7 +494,6 @@ namespace smt {
 #if 0
     void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
         TRACE("array_shared", tout << "collecting shared vars...\n";);
-        context & ctx = get_context();
         ptr_buffer<enode> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
@@ -537,7 +528,6 @@ namespace smt {
     }
 
     void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
-        context & ctx = get_context();
         ptr_buffer<enode> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
@@ -571,7 +561,6 @@ namespace smt {
        Return the number of new interface equalities.
     */
     unsigned theory_array_base::mk_interface_eqs() {
-        context & ctx   = get_context();
         ast_manager & m = get_manager();
         sbuffer<theory_var> roots;
         collect_shared_vars(roots);
@@ -718,7 +707,6 @@ namespace smt {
        That is, other modules (such as smt_model_finder) may set the default value to an arbitrary value.
     */
     bool theory_array_base::is_unspecified_default_ok() const {
-        context & ctx = get_context();
         int num_vars = get_num_vars();
         for (theory_var v = 0; v < num_vars; ++v) {
             enode * n    = get_enode(v);
@@ -746,7 +734,6 @@ namespace smt {
         if (m_use_unspecified_default)
             return;
 
-        context & ctx = get_context();
 
         //
         // Create equivalence classes for defaults.
@@ -817,10 +804,10 @@ namespace smt {
 
         for (theory_var v = 0; v < num_vars; ++v) {
             enode * r = get_enode(v)->get_root();                
-            if (is_representative(v) && get_context().is_relevant(r)) {
+            if (is_representative(v) && ctx.is_relevant(r)) {
                 for (enode * parent : r->get_const_parents()) {
                     if (parent->get_cg() == parent &&
-                        get_context().is_relevant(parent) &&
+                        ctx.is_relevant(parent) &&
                         is_select(parent) &&
                         parent->get_arg(0)->get_root() == r) {
                         select_set * s = get_select_set(r);
@@ -835,11 +822,11 @@ namespace smt {
     void theory_array_base::propagate_select_to_store_parents(enode * r, enode * sel, enode_pair_vector & todo) {
         SASSERT(r->get_root() == r);
         SASSERT(is_select(sel));
-        if (!get_context().is_relevant(r)) {
+        if (!ctx.is_relevant(r)) {
             return;
         }
         for (enode * parent : r->get_const_parents()) {
-            if (get_context().is_relevant(parent) &&
+            if (ctx.is_relevant(parent) &&
                 is_store(parent) &&
                 parent->get_arg(0)->get_root() == r) {
                 // propagate upward
@@ -1000,7 +987,7 @@ namespace smt {
     }
 
     model_value_proc * theory_array_base::mk_value(enode * n, model_generator & m) {
-        SASSERT(get_context().is_relevant(n));
+        SASSERT(ctx.is_relevant(n));
         theory_var v       = n->get_th_var(get_id());
         SASSERT(v != null_theory_var);
         sort * s           = get_manager().get_sort(n->get_owner());
@@ -1013,7 +1000,7 @@ namespace smt {
         }
         else {
             if (else_val_n != nullptr) {
-                SASSERT(get_context().is_relevant(else_val_n));
+                SASSERT(ctx.is_relevant(else_val_n));
                 result   = alloc(array_value_proc, get_id(), s, else_val_n);
             }
             else {
@@ -1021,7 +1008,7 @@ namespace smt {
                 void * else_val = m_else_values[r];                
                 // DISABLED. It seems wrong, since different nodes can share the same
                 // else_val according to the mg class.
-                // SASSERT(else_val == 0 || get_context().is_relevant(UNTAG(app*, else_val)));
+                // SASSERT(else_val == 0 || ctx.is_relevant(UNTAG(app*, else_val)));
                 if (else_val == nullptr) {
                     sort * range = to_sort(s->get_parameter(s->get_num_parameters() - 1).get_ast());
                     // IMPORTANT:
@@ -1053,7 +1040,7 @@ namespace smt {
                 unsigned num = select->get_num_args();
                 for (unsigned j = 1; j < num; ++j)
                     args.push_back(select->get_arg(j));
-                SASSERT(get_context().is_relevant(select));
+                SASSERT(ctx.is_relevant(select));
                 result->add_entry(args.size(), args.c_ptr(), select);
             }
         }

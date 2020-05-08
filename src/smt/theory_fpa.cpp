@@ -84,20 +84,20 @@ namespace smt {
         }
     }
 
-    theory_fpa::theory_fpa(ast_manager & m) :
-        theory(m.mk_family_id("fpa")),
-        m_converter(m, this),
-        m_rw(m, m_converter, params_ref()),
-        m_th_rw(m),
+    theory_fpa::theory_fpa(context& ctx) :
+        theory(ctx, ctx.get_manager().mk_family_id("fpa")),
+        m_converter(ctx.get_manager(), this),
+        m_rw(ctx.get_manager(), m_converter, params_ref()),
+        m_th_rw(ctx.get_manager()),
         m_trail_stack(*this),
         m_fpa_util(m_converter.fu()),
         m_bv_util(m_converter.bu()),
         m_arith_util(m_converter.au()),
-        m_is_initialized(false)
+        m_is_initialized(true)
     {
         params_ref p;
         p.set_bool("arith_lhs", true);
-        m_th_rw.updt_params(p);
+        m_th_rw.updt_params(p);        
     }
 
     theory_fpa::~theory_fpa()
@@ -118,11 +118,6 @@ namespace smt {
         SASSERT(m_trail_stack.get_num_scopes() == 0);
         SASSERT(m_conversions.empty());
         SASSERT(m_is_added_to_model.empty());
-    }
-
-    void theory_fpa::init(context * ctx) {
-        smt::theory::init(ctx);
-        m_is_initialized = true;
     }
 
     app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
@@ -385,7 +380,6 @@ namespace smt {
     expr_ref theory_fpa::mk_side_conditions()
     {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         expr_ref res(m), t(m);
         expr_ref_vector fmls(m);
@@ -407,7 +401,6 @@ namespace smt {
     void theory_fpa::assert_cnstr(expr * e) {
         if (get_manager().is_true(e)) return;
         TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
-        context & ctx = get_context();
         if (get_manager().has_trace_stream()) log_axiom_instantiation(e);
         ctx.internalize(e, false);
         if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
@@ -417,7 +410,6 @@ namespace smt {
     }
 
     void theory_fpa::attach_new_th_var(enode * n) {
-        context & ctx = get_context();
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
         TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := " << v << "\n";);
@@ -428,7 +420,6 @@ namespace smt {
         SASSERT(atom->get_family_id() == get_family_id());
 
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         if (ctx.b_internalized(atom))
             return true;
@@ -452,10 +443,9 @@ namespace smt {
     bool theory_fpa::internalize_term(app * term) {
         TRACE("t_fpa_internalize", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
-        SASSERT(!get_context().e_internalized(term));
+        SASSERT(!ctx.e_internalized(term));
 
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         unsigned num_args = term->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
@@ -500,7 +490,6 @@ namespace smt {
         SASSERT(n->get_owner()->get_decl()->get_range() == s);
 
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         app_ref owner(n->get_owner(), m);
 
         if (!is_attached_to_var(n)) {
@@ -614,7 +603,7 @@ namespace smt {
     }
 
     theory* theory_fpa::mk_fresh(context* new_ctx) {
-        return alloc(theory_fpa, new_ctx->get_manager());
+        return alloc(theory_fpa, *new_ctx);
     }
 
     void theory_fpa::push_scope_eh() {
@@ -630,7 +619,6 @@ namespace smt {
 
     void theory_fpa::assign_eh(bool_var v, bool is_true) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         expr * e = ctx.bool_var2expr(v);
 
         TRACE("t_fpa", tout << "assign_eh for: " << v << " (" << is_true << "):\n" << mk_ismt2_pp(e, m) << "\n";);
@@ -729,7 +717,6 @@ namespace smt {
     }
 
     enode* theory_fpa::ensure_enode(expr* e) {
-        context& ctx = get_context();
         if (!ctx.e_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -740,7 +727,6 @@ namespace smt {
 
     app* theory_fpa::get_ite_value(expr* e) {
         ast_manager & m = get_manager();
-        context& ctx = get_context();
         expr* e1, *e2, *e3;
         while (m.is_ite(e, e1, e2, e3) && ctx.e_internalized(e)) {
             if (ctx.get_enode(e2)->get_root() == ctx.get_enode(e)->get_root()) {
@@ -761,7 +747,6 @@ namespace smt {
                             " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")\n";);
 
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         app_ref owner(m);
         owner = get_ite_value(n->get_owner());
 
@@ -870,7 +855,6 @@ namespace smt {
     void theory_fpa::display(std::ostream & out) const
     {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         bool first = true;
         for (enode* n : ctx.enodes()) {

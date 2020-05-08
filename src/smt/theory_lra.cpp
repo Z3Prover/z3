@@ -170,7 +170,6 @@ class theory_lra::imp {
 
     theory_lra&          th;
     ast_manager&         m;
-    theory_arith_params& m_arith_params;
     arith_util           a;
     arith_eq_adapter     m_arith_eq_adapter;
     vector<rational>     m_columns;
@@ -362,6 +361,7 @@ class theory_lra::imp {
 
     context& ctx() const { return th.get_context(); }
     theory_id get_id() const { return th.get_id(); }
+    theory_arith_params const& params() const { return ctx().get_fparams(); }
     bool is_int(theory_var v) const {  return is_int(get_enode(v));  }
     bool is_int(enode* n) const { return a.is_int(n->get_owner()); }
     bool is_real(theory_var v) const {  return is_real(get_enode(v));  }
@@ -373,42 +373,6 @@ class theory_lra::imp {
     lp::lar_solver& lp(){ return *m_solver.get(); }
     const lp::lar_solver& lp() const { return *m_solver.get(); }
     
-    void init_solver() {
-        if (m_solver) return;
-
-        reset_variable_values();
-        m_solver = alloc(lp::lar_solver); 
-
-        // initialize 0, 1 variables:
-        get_one(true);
-        get_one(false);
-        get_zero(true);
-        get_zero(false);
-
-        smt_params_helper lpar(ctx().get_params());
-        lp().settings().set_resource_limit(m_resource_limit);
-        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
-        lp().settings().bound_propagation() = BP_NONE != propagation_mode();
-        lp().settings().m_enable_hnf = lpar.arith_enable_hnf();
-        lp().settings().m_print_external_var_name = lpar.arith_print_ext_var_names();
-        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
-        lp().settings().report_frequency = lpar.arith_rep_freq();
-        lp().settings().print_statistics = lpar.arith_print_stats();
-
-        // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
-        unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
-        lp().set_cut_strategy(branch_cut_ratio);
-        
-        lp().settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
-        lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        m_switcher.m_use_nla = true;
-        m_lia = alloc(lp::int_solver, *m_solver.get());
-        get_one(true);
-        get_zero(true);
-        get_one(false);
-        get_zero(false);
-    }
-
     void ensure_nra() {
         if (!m_nra) {
             m_nra = alloc(nra::solver, *m_solver.get(), m.limit(), ctx().get_params());
@@ -753,7 +717,7 @@ class theory_lra::imp {
     }
 
     bool reflect(app* n) const {
-        return m_arith_params.m_arith_reflect || is_underspecified(n);          
+        return params().m_arith_reflect || is_underspecified(n);          
     }
 
     bool has_var(expr* n) {
@@ -995,11 +959,10 @@ class theory_lra::imp {
         
 
 public:
-    imp(theory_lra& th, ast_manager& m, theory_arith_params& ap): 
+    imp(theory_lra& th, ast_manager& m): 
         th(th), m(m), 
-        m_arith_params(ap), 
         a(m), 
-        m_arith_eq_adapter(th, ap, a),            
+        m_arith_eq_adapter(th, a),            
         m_internalize_head(0),
         m_one_var(UINT_MAX),
         m_zero_var(UINT_MAX),
@@ -1022,8 +985,40 @@ public:
         std::for_each(m_internalize_states.begin(), m_internalize_states.end(), delete_proc<internalize_state>());
     }
 
-    void init(context* ctx) {
-        init_solver();
+    void init() {
+        if (m_solver) return;
+
+        reset_variable_values();
+        m_solver = alloc(lp::lar_solver); 
+
+        // initialize 0, 1 variables:
+        get_one(true);
+        get_one(false);
+        get_zero(true);
+        get_zero(false);
+
+        smt_params_helper lpar(ctx().get_params());
+        lp().settings().set_resource_limit(m_resource_limit);
+        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
+        lp().settings().bound_propagation() = BP_NONE != propagation_mode();
+        lp().settings().m_enable_hnf = lpar.arith_enable_hnf();
+        lp().settings().m_print_external_var_name = lpar.arith_print_ext_var_names();
+        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
+        lp().settings().report_frequency = lpar.arith_rep_freq();
+        lp().settings().print_statistics = lpar.arith_print_stats();
+
+        // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
+        unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
+        lp().set_cut_strategy(branch_cut_ratio);
+        
+        lp().settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
+        lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
+        m_switcher.m_use_nla = true;
+        m_lia = alloc(lp::int_solver, *m_solver.get());
+        get_one(true);
+        get_zero(true);
+        get_one(false);
+        get_zero(false);
     }
         
     void internalize_is_int(app * n) {
@@ -1433,7 +1428,7 @@ public:
             };
             if_trace_stream _ts(m, log);
         }
-        if (m_arith_params.m_arith_enum_const_mod && k.is_pos() && k < rational(8)) {
+        if (params().m_arith_enum_const_mod && k.is_pos() && k < rational(8)) {
             unsigned _k = k.get_unsigned();
             literal_buffer lits;
             expr_ref_vector exprs(m);
@@ -3064,13 +3059,13 @@ public:
     }
 
 
-    bool dump_lemmas() const { return m_arith_params.m_arith_dump_lemmas; }
+    bool dump_lemmas() const { return params().m_arith_dump_lemmas; }
 
-    bool propagate_eqs() const { return m_arith_params.m_arith_propagate_eqs && m_num_conflicts < m_arith_params.m_arith_propagation_threshold; }
+    bool propagate_eqs() const { return params().m_arith_propagate_eqs && m_num_conflicts < params().m_arith_propagation_threshold; }
 
-    bound_prop_mode propagation_mode() const { return m_num_conflicts < m_arith_params.m_arith_propagation_threshold ? m_arith_params.m_arith_bound_prop : BP_NONE; }
+    bound_prop_mode propagation_mode() const { return m_num_conflicts < params().m_arith_propagation_threshold ? params().m_arith_bound_prop : BP_NONE; }
 
-    unsigned small_lemma_size() const { return m_arith_params.m_arith_small_lemma_size; }
+    unsigned small_lemma_size() const { return params().m_arith_small_lemma_size; }
 
     bool proofs_enabled() const { return m.proofs_enabled(); }
 
@@ -3544,7 +3539,7 @@ public:
     }
 
     bool validate_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
-        if (m_arith_params.m_arith_mode != AS_NEW_ARITH) return true;
+        if (params().m_arith_mode != AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
@@ -3563,7 +3558,7 @@ public:
     }
 
     bool validate_assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs) {
-        if (m_arith_params.m_arith_mode != AS_NEW_ARITH) return true;
+        if (params().m_arith_mode != AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         m_core.push_back(~lit);
@@ -3578,7 +3573,7 @@ public:
     }
 
     bool validate_eq(enode* x, enode* y) {
-        if (m_arith_params.m_arith_mode == AS_NEW_ARITH) return true;
+        if (params().m_arith_mode == AS_NEW_ARITH) return true;
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
         nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));
@@ -3913,20 +3908,20 @@ public:
     }        
 };
     
-theory_lra::theory_lra(ast_manager& m, theory_arith_params& ap):
-    theory(m.get_family_id("arith")) {
-    m_imp = alloc(imp, *this, m, ap);
+theory_lra::theory_lra(context& ctx):
+    theory(ctx, ctx.get_manager().get_family_id("arith")) {
+    m_imp = alloc(imp, *this, ctx.get_manager());
 }    
 theory_lra::~theory_lra() {
     dealloc(m_imp);
 }   
 theory* theory_lra::mk_fresh(context* new_ctx) {
-    return alloc(theory_lra, new_ctx->get_manager(), new_ctx->get_fparams());
+    return alloc(theory_lra, *new_ctx);
 }
-void theory_lra::init(context * ctx) {
-    theory::init(ctx);
-    m_imp->init(ctx);
+void theory_lra::init() {
+    m_imp->init();
 }
+    
 bool theory_lra::internalize_atom(app * atom, bool gate_ctx) {
     return m_imp->internalize_atom(atom, gate_ctx);
 }

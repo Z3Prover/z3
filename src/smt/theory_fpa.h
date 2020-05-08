@@ -177,10 +177,8 @@ namespace smt {
         void finalize_model(model_generator & mg) override;
 
     public:
-        theory_fpa(ast_manager & m);
+        theory_fpa(context& ctx);
         ~theory_fpa() override;
-
-        void init(context * ctx) override;
 
         void display(std::ostream & out) const override;
 

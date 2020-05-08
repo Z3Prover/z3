@@ -27,9 +27,9 @@ Revision History:
 
 namespace smt {
 
-    theory_array_full::theory_array_full(ast_manager & m, theory_array_params & params) : 
-        theory_array(m, params),
-        m_sort2epsilon(m) {}
+    theory_array_full::theory_array_full(context& ctx) : 
+        theory_array(ctx),
+        m_sort2epsilon(ctx.get_manager()) {}
 
     theory_array_full::~theory_array_full() {
         std::for_each(m_var_data_full.begin(), m_var_data_full.end(), delete_proc<var_data_full>());
@@ -37,7 +37,7 @@ namespace smt {
     }
 
     theory* theory_array_full::mk_fresh(context* new_ctx) { 
-        return alloc(theory_array_full, new_ctx->get_manager(), new_ctx->get_fparams());
+        return alloc(theory_array_full, *new_ctx);
     }
 
     void theory_array_full::add_map(theory_var v, enode* s) {
@@ -246,7 +246,6 @@ namespace smt {
     }
 
     bool theory_array_full::internalize_term(app * n) {
-        context & ctx = get_context();
         if (ctx.e_internalized(n)) {
             return true;
         }
@@ -399,7 +398,6 @@ namespace smt {
         if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n)){
             return;
         }
-        context & ctx = get_context();
         if (!ctx.e_internalized(n)) ctx.internalize(n, false);;
         enode* node = ctx.get_enode(n);
         if (is_select(n)) {
@@ -455,7 +453,6 @@ namespace smt {
         SASSERT(map->get_num_args() > 0);
         func_decl* f = to_func_decl(map->get_decl()->get_parameter(0).get_ast());
 
-        context& ctx = get_context();
         ast_manager& m = get_manager();
 
         TRACE("array_map_bug", tout << "invoked instantiate_select_map_axiom\n";
@@ -519,7 +516,6 @@ namespace smt {
                 
         app* map = mp->get_owner();
         ast_manager& m = get_manager();
-        context& ctx = get_context();
         if (!ctx.add_fingerprint(this, m_default_map_fingerprint, 1, &mp)) {
             return false;
         }
@@ -544,7 +540,6 @@ namespace smt {
 
 
     bool theory_array_full::instantiate_default_const_axiom(enode* cnst) {
-        context& ctx = get_context();
         if (!ctx.add_fingerprint(this, m_default_const_fingerprint, 1, &cnst)) {
             return false;
         }
@@ -565,7 +560,6 @@ namespace smt {
     bool theory_array_full::instantiate_default_as_array_axiom(enode* arr) {
         return false;
 #if 0
-        context& ctx = get_context();
         if (!ctx.add_fingerprint(this, m_default_as_array_fingerprint, 1, &arr)) {
             return false;
         }
@@ -613,7 +607,6 @@ namespace smt {
         SASSERT(is_const(cnst));
         SASSERT(is_select(select));
         SASSERT(cnst->get_num_args() == 1);
-        context& ctx = get_context();
         unsigned num_args = select->get_num_args();
         if (!ctx.add_fingerprint(cnst, cnst->get_owner_id(), select->get_num_args() - 1, select->get_args() + 1)) {
             return false;
@@ -648,7 +641,6 @@ namespace smt {
         SASSERT(is_as_array(arr->get_owner()));
         SASSERT(is_select(select));
         SASSERT(arr->get_num_args() == 0);
-        context& ctx = get_context();
         unsigned num_args = select->get_num_args();
         if (!ctx.add_fingerprint(arr, arr->get_owner_id(), select->get_num_args() - 1, select->get_args() + 1)) {
             return false;
@@ -681,7 +673,6 @@ namespace smt {
         SASSERT(is_store(store));
         SASSERT(store->get_num_args() >= 3);
         app* store_app = store->get_owner();
-        context& ctx = get_context();
         ast_manager& m = get_manager();
         if (!ctx.add_fingerprint(this, m_default_store_fingerprint, store->get_num_args(), store->get_args())) {
             return false;
@@ -756,7 +747,7 @@ namespace smt {
         while (!m_eqsv.empty()) {
             literal eq = m_eqsv.back();
             m_eqsv.pop_back();
-            get_context().mark_as_relevant(eq);            
+            ctx.mark_as_relevant(eq);            
             assert_axiom(eq);
             r = FC_CONTINUE;
         }
@@ -797,8 +788,8 @@ namespace smt {
         else {
             m_eqs.insert(v1, v2, true);
             literal eq(mk_eq(v1, v2, true));
-            if (get_manager().has_trace_stream()) log_axiom_instantiation(get_context().bool_var2expr(eq.var()));
-            get_context().mark_as_relevant(eq);            
+            if (get_manager().has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(eq.var()));
+            ctx.mark_as_relevant(eq);            
             assert_axiom(eq);
             if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
 
