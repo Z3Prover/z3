@@ -102,11 +102,11 @@ namespace smt {
         };
         
     public:
-        theory_dl(ast_manager& m):
-            theory(m.mk_family_id("datalog_relation")),
-            m_util(m),
-            m_bv(m),
-            m_trail(m)
+        theory_dl(context& ctx):
+            theory(ctx, ctx.get_manager().mk_family_id("datalog_relation")),
+            m_util(ctx.get_manager()),
+            m_bv(ctx.get_manager()),
+            m_trail(ctx.get_manager())
         {
         }
 
@@ -115,7 +115,6 @@ namespace smt {
 
         bool internalize_atom(app * atom, bool gate_ctx) override {
             TRACE("theory_dl", tout << mk_pp(atom, m()) << "\n";);
-            context& ctx = get_context();
             if (ctx.b_internalized(atom)) {
                 return true;
             }
@@ -155,7 +154,7 @@ namespace smt {
         }
 
         theory * mk_fresh(context * new_ctx) override {
-            return alloc(theory_dl, new_ctx->get_manager());
+            return alloc(theory_dl, *new_ctx);
         }
 
         void init_model(smt::model_generator & m) override {
@@ -210,13 +209,12 @@ namespace smt {
                 m_vals.insert(s, v);
                 add_trail(r);
                 add_trail(v);
-                get_context().push_trail(insert_obj_map<context,sort,func_decl*>(m_reps, s));
-                get_context().push_trail(insert_obj_map<context,sort,func_decl*>(m_vals, s));
+                ctx.push_trail(insert_obj_map<context,sort,func_decl*>(m_reps, s));
+                ctx.push_trail(insert_obj_map<context,sort,func_decl*>(m_vals, s));
             }
         }
 
         bool mk_rep(app* n) {
-            context & ctx     = get_context();
             unsigned num_args = n->get_num_args();
             enode * e = nullptr;
             for (unsigned i = 0; i < num_args; i++) {
@@ -255,7 +253,6 @@ namespace smt {
             app_ref lt(m()), le(m());
             lt = u().mk_lt(x,y);
             le = b().mk_ule(m().mk_app(r,y),m().mk_app(r,x)); 
-            context& ctx = get_context();
             if (m().has_trace_stream()) {
                 app_ref body(m());
                 body = m().mk_eq(lt, le);
@@ -276,7 +273,6 @@ namespace smt {
 
         void assert_cnstr(expr* e) {
             TRACE("theory_dl", tout << mk_pp(e, m()) << "\n";);
-            context& ctx = get_context();
             if (m().has_trace_stream()) log_axiom_instantiation(e);
             ctx.internalize(e, false);
             if (m().has_trace_stream()) m().trace_stream() << "[end-of-instance]\n";
@@ -287,11 +283,11 @@ namespace smt {
 
         void add_trail(ast* a) {
             m_trail.push_back(a);
-            get_context().push_trail(push_back_vector<context,ast_ref_vector>(m_trail));
+            ctx.push_trail(push_back_vector<context,ast_ref_vector>(m_trail));
         }
                 
     };
 
-    theory* mk_theory_dl(ast_manager& m) { return alloc(theory_dl, m); }
+    theory* mk_theory_dl(context& ctx) { return alloc(theory_dl, ctx); }
 
 };

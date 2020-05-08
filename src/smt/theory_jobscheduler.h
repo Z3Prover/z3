@@ -133,7 +133,7 @@ namespace smt {
         
     public:
 
-        theory_jobscheduler(ast_manager& m);
+        theory_jobscheduler(context& ctx);
 
         ~theory_jobscheduler() override {}
         

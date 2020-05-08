@@ -1059,7 +1059,7 @@ namespace smt {
         //
         // -----------------------------------
     public:
-        theory_arith(ast_manager & m, theory_arith_params & params);
+        theory_arith(context& ctx);
         ~theory_arith() override;
         
         theory * mk_fresh(context * new_ctx) override;

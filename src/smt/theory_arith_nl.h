@@ -71,7 +71,7 @@ void theory_arith<Ext>::mark_dependents(theory_var v, svector<theory_var> & vars
         expr * n     = var2expr(v);
         SASSERT(m_util.is_mul(n));
         for (expr * curr : *to_app(n)) {
-            if (get_context().e_internalized(curr)) {
+            if (ctx.e_internalized(curr)) {
                 theory_var v = expr2var(curr);
                 SASSERT(v != null_theory_var);
                 mark_var(v, vars, already_found);
@@ -120,7 +120,6 @@ void theory_arith<Ext>::get_non_linear_cluster(svector<theory_var> & vars) {
         return;
     var_set already_found;
     row_set already_visited_rows;
-    context & ctx = get_context();
     for (theory_var v : m_nl_monomials) {
         expr * n     = var2expr(v);
         if (ctx.is_relevant(n))
@@ -539,7 +538,6 @@ template<typename Ext>
 bool theory_arith<Ext>::propagate_nl_bounds() {
     m_dep_manager.reset();
     bool propagated = false;
-    context & ctx = get_context();
     for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
         theory_var v = m_nl_monomials[i];
         expr * m     = var2expr(v);
@@ -626,7 +624,6 @@ bool theory_arith<Ext>::check_monomial_assignment(theory_var v, bool & computed_
 template<typename Ext>
 bool theory_arith<Ext>::check_monomial_assignments() {
     bool computed_epsilon = false;
-    context & ctx         = get_context();
     for (theory_var v : m_nl_monomials) {
         TRACE("non_linear", tout << "v" << v << " is relevant: " << ctx.is_relevant(get_enode(v)) << "\n";
               tout << "check_monomial_assignments result: " << check_monomial_assignment(v, computed_epsilon) << "\n";
@@ -653,7 +650,6 @@ bool theory_arith<Ext>::check_monomial_assignments() {
 template<typename Ext>
 theory_var theory_arith<Ext>::find_nl_var_for_branching() {
     TRACE("nl_branching", tout << "looking for variable to branch...\n"; display(tout););
-    context & ctx     = get_context();
     theory_var target = null_theory_var;
     bool bounded      = false;
     unsigned n        = 0;
@@ -717,7 +713,6 @@ bool theory_arith<Ext>::branch_nl_int_var(theory_var v) {
     else
         bound  = m_util.mk_eq(var2expr(v), m_util.mk_numeral(rational(0), true));
     TRACE("non_linear", tout << "new bound:\n" << mk_pp(bound, get_manager()) << "\n";);
-    context & ctx = get_context();
     ast_manager & m = get_manager();
     {
         std::function<expr*(void)> fn = [&]() { return m.mk_or(bound, m.mk_not(bound)); };
@@ -739,7 +734,7 @@ bool theory_arith<Ext>::is_monomial_linear(expr * m) const {
     SASSERT(is_pure_monomial(m));
     unsigned num_nl_vars = 0;
     for (expr* arg : *to_app(m)) {
-        if (!get_context().e_internalized(arg))
+        if (!ctx.e_internalized(arg))
             return false;
         theory_var _var = expr2var(arg);
         CTRACE("non_linear", is_fixed(_var), 
@@ -811,7 +806,6 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
     TRACE("non_linear", tout << "new linear monomial... k: " << k << "\n";);
     expr *  x_n               = k.is_zero() ? nullptr : get_monomial_non_fixed_var(m);
     TRACE("non_linear_bug", if (x_n != 0) { tout << "x_n: " << mk_bounded_pp(x_n, get_manager()) << "\nx_n: #" << x_n->get_id() << "\n"; });
-    context & ctx             = get_context();
     derived_bound * new_lower = nullptr;
     derived_bound * new_upper = nullptr;
     if (x_n != nullptr) {
@@ -832,7 +826,7 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
             ctx.internalize(rhs, false);
             ctx.mark_as_relevant(rhs);
         }
-        TRACE("non_linear_bug", tout << "enode: " << get_context().get_enode(rhs) << " enode_id: " << get_context().get_enode(rhs)->get_owner_id() << "\n";);
+        TRACE("non_linear_bug", tout << "enode: " << ctx.get_enode(rhs) << " enode_id: " << ctx.get_enode(rhs)->get_owner_id() << "\n";);
         theory_var new_v = expr2var(rhs);
         SASSERT(new_v != null_theory_var);
         new_lower    = alloc(derived_bound, new_v, inf_numeral(0), B_LOWER);
@@ -1126,7 +1120,6 @@ void theory_arith<Ext>::display_coeff_exprs(std::ostream & out, buffer<coeff_exp
 */
 template<typename Ext>
 bool theory_arith<Ext>::get_polynomial_info(buffer<coeff_expr> const & p, sbuffer<var_num_occs> & varinfo) {
-    context & ctx = get_context();
     varinfo.reset();
     m_var2num_occs.reset();
 
@@ -1841,7 +1834,7 @@ void theory_arith<Ext>::set_conflict(v_dependency * d) {
     derived_bound  b(null_theory_var, inf_numeral(0), B_LOWER);
     dependency2new_bound(d, b);
     set_conflict(b, ante, "arith_nl");
-    TRACE("non_linear", for (literal lit : b.m_lits) get_context().display_literal_verbose(tout, lit) << "\n"; tout << "\n";); 
+    TRACE("non_linear", for (literal lit : b.m_lits) ctx.display_literal_verbose(tout, lit) << "\n"; tout << "\n";); 
 }
 
 /**
@@ -2107,7 +2100,6 @@ bool theory_arith<Ext>::internalize_gb_eq(grobner::equation const * eq) {
         else
             args.push_back(monomial2expr(eq->get_monomial(i), is_int));
     }
-    context & ctx   = get_context();
     th_rewriter& s = ctx.get_rewriter();
     expr_ref pol(get_manager());
     SASSERT(!args.empty());
@@ -2145,7 +2137,7 @@ void theory_arith<Ext>::update_statistics(grobner & gb) {
 template<typename Ext>
 void theory_arith<Ext>::set_gb_exhausted() {
     IF_VERBOSE(3, verbose_stream() << "Grobner basis computation interrupted. Increase threshold using NL_ARITH_GB_THRESHOLD=<limit>\n";);
-    get_context().push_trail(value_trail<context, bool>(m_nl_gb_exhausted));
+    ctx.push_trail(value_trail<context, bool>(m_nl_gb_exhausted));
     m_nl_gb_exhausted = true;
 }
 
@@ -2225,7 +2217,7 @@ bool theory_arith<Ext>::scan_for_linear(ptr_vector<grobner::equation>& eqs, grob
 template<typename Ext>
 bool theory_arith<Ext>::compute_basis_loop(grobner & gb) {
     while (gb.get_num_new_equations() < m_params.m_nl_arith_gb_threshold) {
-        if (get_context().get_cancel_flag()) {
+        if (ctx.get_cancel_flag()) {
             return false;
         }
         if (gb.compute_basis_step())
@@ -2260,7 +2252,7 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
         compute_basis(gb, warn);
         update_statistics(gb);
         TRACE("non_linear_gb", tout << "after:\n"; gb.display(tout););
-        if (get_context().get_cancel_flag())
+        if (ctx.get_cancel_flag())
             return GB_FAIL;
         if (get_gb_eqs_and_look_for_conflict(eqs, gb))
             return GB_PROGRESS;
@@ -2282,7 +2274,7 @@ bool theory_arith<Ext>::max_min_nl_vars() {
         expr * n     = var2expr(v);
         SASSERT(is_pure_monomial(n));
         for (expr * curr : *to_app(n)) {
-            if (get_context().e_internalized(curr)) {
+            if (ctx.e_internalized(curr)) {
                 theory_var v = expr2var(curr);
                 SASSERT(v != null_theory_var);
                 mark_var(v, vars, already_found);
@@ -2321,12 +2313,12 @@ final_check_status theory_arith<Ext>::process_non_linear() {
         return FC_GIVEUP;
     }
 
-    get_context().push_trail(value_trail<context, unsigned>(m_nl_rounds));
+    ctx.push_trail(value_trail<context, unsigned>(m_nl_rounds));
     m_nl_rounds++;
 
     elim_quasi_base_rows();
     move_non_base_vars_to_bounds();
-    TRACE("non_linear_verbose", tout << "processing non linear constraints...\n"; get_context().display(tout););
+    TRACE("non_linear_verbose", tout << "processing non linear constraints...\n"; ctx.display(tout););
     if (!make_feasible()) {
         TRACE("non_linear", tout << "failed to move variables to bounds.\n";);
         failed();
@@ -2345,7 +2337,7 @@ final_check_status theory_arith<Ext>::process_non_linear() {
 
     bool progress;
     unsigned old_idx = m_nl_strategy_idx;
-    get_context().push_trail(value_trail<context, unsigned>(m_nl_strategy_idx));
+    ctx.push_trail(value_trail<context, unsigned>(m_nl_strategy_idx));
 
     do {
         progress = false;

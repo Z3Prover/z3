@@ -89,7 +89,6 @@ namespace smt {
 
         friend std::ostream& operator<<(std::ostream&, pp_body_expansion const &);
         
-        ast_manager&            m;
         recfun::decl::plugin&   m_plugin;
         recfun::util&           m_util;
         stats                   m_stats;
@@ -158,10 +157,9 @@ namespace smt {
         void new_eq_eh(theory_var v1, theory_var v2) override {}
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
-        void init(context* ctx) override;
 
     public:
-        theory_recfun(ast_manager & m);
+        theory_recfun(context& ctx);
         ~theory_recfun() override;
         theory * mk_fresh(context * new_ctx) override;
         void init_search_eh() override;

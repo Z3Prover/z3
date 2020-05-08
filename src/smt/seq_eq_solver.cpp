@@ -28,7 +28,6 @@ using namespace smt;
 
 
 bool theory_seq::solve_eqs(unsigned i) {
-    context& ctx = get_context();
     bool change = false;
     for (; !ctx.inconsistent() && i < m_eqs.size(); ++i) {
         if (solve_eq(i)) {
@@ -43,7 +42,6 @@ bool theory_seq::solve_eqs(unsigned i) {
 
 bool theory_seq::solve_eq(unsigned idx) {
     const eq& e = m_eqs[idx];
-    context& ctx = get_context();
     expr_ref_vector& ls = m_ls;
     expr_ref_vector& rs = m_rs;
     m_ls.reset();
@@ -126,7 +124,6 @@ bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& 
 }
 
 bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
-    context& ctx = get_context();
     ptr_vector<expr> xs, ys;
     expr_ref x(m), y(m);
     if (!is_binary_eq(ls, rs, x, xs, ys, y) &&
@@ -254,8 +251,6 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
     // disabled until functionality is clarified
     return false;
 
-    context& ctx = get_context();
-
     if (ls.empty() || rs.empty())
         return false;
     expr* l_fst = find_fst_non_empty_var(ls);
@@ -328,7 +323,6 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
 }
 
 bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & offset) {
-    context& ctx = get_context();
 
     if (ls.empty() || rs.empty()) 
         return false;
@@ -407,7 +401,6 @@ bool theory_seq::len_based_split() {
 */
 
 bool theory_seq::len_based_split(eq const& e) {
-    context& ctx = get_context();
     expr_ref_vector const& ls = e.ls();
     expr_ref_vector const& rs = e.rs();
     
@@ -537,7 +530,6 @@ bool theory_seq::is_complex(eq const& e) {
 bool theory_seq::split_lengths(dependency* dep,
                                expr_ref_vector const& ls, expr_ref_vector const& rs, 
                                vector<rational> const& ll, vector<rational> const& rl) {
-    context& ctx = get_context();
     expr_ref X(m), Y(m), b(m);
     if (ls.empty() || rs.empty()) {
         return false;
@@ -646,7 +638,6 @@ bool theory_seq::branch_binary_variable(eq const& e) {
     // x is either a prefix of ys, all of ys ++ y or ys ++ y1, such that y = y1 ++ y2, y2 = xs 
     
     rational lenX, lenY;
-    context& ctx = get_context();
     if (branch_variable_eq(e)) {
         return true;
     }
@@ -713,7 +704,6 @@ bool theory_seq::branch_unit_variable() {
 
 void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units) {
     SASSERT(is_var(X));
-    context& ctx = get_context();
     rational lenX;
     if (!get_length(X, lenX)) {
         TRACE("seq", tout << "enforce length on " << mk_bounded_pp(X, m, 2) << "\n";);
@@ -748,7 +738,7 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 }
 
 bool theory_seq::branch_ternary_variable1() {
-    int start = get_context().get_random_value();
+    int start = ctx.get_random_value();
     for (unsigned i = 0; i < m_eqs.size(); ++i) {
         if (branch_ternary_variable(m_eqs[(i + start) % m_eqs.size()]))
             return true;
@@ -759,7 +749,7 @@ bool theory_seq::branch_ternary_variable1() {
 }
 
 bool theory_seq::branch_ternary_variable2() {
-    int start = get_context().get_random_value();
+    int start = ctx.get_random_value();
     for (unsigned i = 0; i < m_eqs.size(); ++i) {
         eq const& e = m_eqs[(i + start) % m_eqs.size()];
         if (branch_ternary_variable(e, true)) {
@@ -842,7 +832,6 @@ unsigned_vector theory_seq::overlap2(expr_ref_vector const& ls, expr_ref_vector 
 bool theory_seq::branch_ternary_variable_base(
     dependency* dep, unsigned_vector const& indexes,
     expr* x, expr_ref_vector const& xs, expr* y1, expr_ref_vector const& ys, expr* y2) {
-    context& ctx = get_context();
     bool change = false;
     for (auto ind : indexes) {
         TRACE("seq", tout << "ind = " << ind << "\n";);
@@ -892,7 +881,6 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     }
 
     rational lenX, lenY1, lenY2;
-    context& ctx = get_context();
     if (!get_length(x, lenX)) {
         add_length_to_eqc(x);
     }
@@ -942,7 +930,6 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
 bool theory_seq::branch_ternary_variable_base2(
     dependency* dep, unsigned_vector const& indexes,
     expr_ref_vector const& xs, expr* x, expr* y1, expr_ref_vector const& ys, expr* y2) {
-    context& ctx = get_context();
     sort* srt = m.get_sort(x);
     bool change = false;
     for (auto ind : indexes) {
@@ -990,7 +977,6 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
 
     dependency* dep = e.dep();
     rational lenX, lenY1, lenY2;
-    context& ctx = get_context();
     if (!get_length(x, lenX)) {
         add_length_to_eqc(x);
     }
@@ -1058,7 +1044,6 @@ bool theory_seq::branch_quat_variable(eq const& e) {
     dependency* dep = e.dep();
     
     rational lenX1, lenX2, lenY1, lenY2;
-    context& ctx = get_context();
     if (!get_length(x1, lenX1)) {
         add_length_to_eqc(x1);
     }
@@ -1115,7 +1100,6 @@ bool theory_seq::branch_quat_variable(eq const& e) {
 
 
 int theory_seq::find_fst_non_empty_idx(expr_ref_vector const& xs) {
-    context & ctx = get_context();    
     for (unsigned i = 0; i < xs.size(); ++i) {
         expr* x = xs[i];
         if (!is_var(x)) return -1;
@@ -1140,7 +1124,6 @@ expr* theory_seq::find_fst_non_empty_var(expr_ref_vector const& x) {
 }
 
 bool theory_seq::branch_variable_eq() {
-    context& ctx = get_context();
     unsigned sz = m_eqs.size();
     int start = ctx.get_random_value();
 
@@ -1195,7 +1178,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
         return false;
     }
 
-    TRACE("seq", tout << mk_pp(l, m) << ": " << get_context().get_scope_level() << " - start:" << start << "\n";);
+    TRACE("seq", tout << mk_pp(l, m) << ": " << ctx.get_scope_level() << " - start:" << start << "\n";);
 
     expr_ref v0(m);
     v0 = m_util.str.mk_empty(m.get_sort(l));
@@ -1228,7 +1211,6 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
         all_units &= m_util.str.is_unit(r);
     }
     if (all_units) {
-        context& ctx = get_context();
         literal_vector lits;
         lits.push_back(~mk_eq_empty(l));
         for (unsigned i = 0; i < rs.size(); ++i) {
@@ -1282,7 +1264,6 @@ bool theory_seq::can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr*
 
 
 lbool theory_seq::assume_equality(expr* l, expr* r) {
-    context& ctx = get_context();
     if (m_exclude.contains(l, r)) {
         return l_false;
     }
@@ -1400,7 +1381,7 @@ bool theory_seq::check_length_coherence0(expr* e) {
         }
 
         if (p || r != l_false) {
-            if (!get_context().at_base_level()) {
+            if (!ctx.at_base_level()) {
                 m_trail_stack.push(push_replay(alloc(replay_length_coherence, m, e)));
             }
             return true;
@@ -1440,7 +1421,6 @@ bool theory_seq::check_length_coherence() {
 }
 
 bool theory_seq::reduce_length_eq() {
-    context& ctx = get_context();
     int start = ctx.get_random_value();
 
     for (unsigned i = 0; !ctx.inconsistent() && i < m_eqs.size(); ++i) {

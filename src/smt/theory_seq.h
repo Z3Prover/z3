@@ -367,8 +367,6 @@ namespace smt {
         };
         typedef hashtable<rational, rational::hash_proc, rational::eq_proc> rational_set;
 
-        ast_manager&               m;
-        theory_seq_params const&   m_params;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
         scoped_vector<eq>          m_eqs;        // set of current equations.
@@ -427,7 +425,6 @@ namespace smt {
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
         obj_hashtable<expr>            m_is_digit;         // expressions that have been constrained to be digits
 
-        void init(context* ctx) override;
         final_check_status final_check_eh() override;
         bool internalize_atom(app* atom, bool) override;
         bool internalize_term(app*) override;
@@ -443,7 +440,7 @@ namespace smt {
         void relevant_eh(app* n) override;
         bool should_research(expr_ref_vector &) override;
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
-        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), new_ctx->get_fparams()); }
+        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, *new_ctx); }
         char const * get_name() const override { return "seq"; }
         bool include_func_interp(func_decl* f) override { return m_util.str.is_nth_u(f); }
         bool is_safe_to_copy(bool_var v) const override;
@@ -683,9 +680,10 @@ namespace smt {
         std::ostream& display_nc(std::ostream& out, nc const& nc) const;
         std::ostream& display_lit(std::ostream& out, literal l) const;
     public:
-        theory_seq(ast_manager& m, theory_seq_params const & params);
+        theory_seq(context& ctx);
         ~theory_seq() override;
 
+        void init() override;
         // model building
         app* mk_value(app* a);
 

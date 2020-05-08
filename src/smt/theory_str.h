@@ -778,10 +778,11 @@ protected:
     void refresh_theory_var(expr * e);
 
 public:
-    theory_str(ast_manager & m, theory_str_params const & params);
+    theory_str(context& ctx, ast_manager & m, theory_str_params const & params);
     ~theory_str() override;
 
     char const * get_name() const override { return "seq"; }
+    void init() override;
     void display(std::ostream & out) const override;
 
     void collect_statistics(::statistics & st) const override;
@@ -801,8 +802,7 @@ protected:
     void new_eq_eh(theory_var, theory_var) override;
     void new_diseq_eh(theory_var, theory_var) override;
 
-    theory* mk_fresh(context* c) override { return alloc(theory_str, c->get_manager(), m_params); }
-    void init(context * ctx) override;
+    theory* mk_fresh(context* c) override { return alloc(theory_str, *c, c->get_manager(), m_params); }
     void init_search_eh() override;
     void add_theory_assumptions(expr_ref_vector & assumptions) override;
     lbool validate_unsat_core(expr_ref_vector & unsat_core) override;

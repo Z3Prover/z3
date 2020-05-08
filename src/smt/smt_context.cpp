@@ -2832,9 +2832,8 @@ namespace smt {
         }
         TRACE("internalize", tout << this << " " << th->get_family_id() << "\n";);
         SASSERT(std::find(m_theory_set.begin(), m_theory_set.end(), th) == m_theory_set.end());
-        SASSERT(!already_internalized_theory(th));
-        th->init(this);
         m_theories.register_plugin(th);
+        th->init();
         m_theory_set.push_back(th);
         {
 #ifdef Z3DEBUG
@@ -4475,7 +4474,7 @@ namespace smt {
 
     bool context::has_case_splits() {
         for (unsigned i = get_num_b_internalized(); i-- > 0; ) {
-            if (get_assignment(i) == l_undef)
+            if (is_relevant(i) && get_assignment(i) == l_undef)
                 return true;
         }
         return false;

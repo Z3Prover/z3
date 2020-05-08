@@ -29,8 +29,8 @@ namespace smt {
         }
     }
 
-    theory_dummy::theory_dummy(family_id fid, char const * name):
-        theory(fid),
+    theory_dummy::theory_dummy(context& ctx, family_id fid, char const * name):
+        theory(ctx, fid),
         m_theory_exprs(false),
         m_name(name) {
     }

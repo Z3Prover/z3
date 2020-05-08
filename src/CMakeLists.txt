@@ -110,6 +110,9 @@ else()
   set(lib_type "STATIC")
 endif()
 add_library(libz3 ${lib_type} ${object_files})
+target_include_directories(libz3 INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 set_target_properties(libz3 PROPERTIES
   # VERSION determines the version in the filename of the shared library.
   # SOVERSION determines the value of the DT_SONAME field on ELF platforms.

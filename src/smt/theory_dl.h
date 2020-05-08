@@ -22,7 +22,7 @@ Revision History:
 
 namespace smt {
 
-    theory* mk_theory_dl(ast_manager& m);
+    theory* mk_theory_dl(context& ctx);
 
 };
 

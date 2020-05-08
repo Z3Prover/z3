@@ -84,20 +84,20 @@ namespace smt {
         }
     }
 
-    theory_fpa::theory_fpa(ast_manager & m) :
-        theory(m.mk_family_id("fpa")),
-        m_converter(m, this),
-        m_rw(m, m_converter, params_ref()),
-        m_th_rw(m),
+    theory_fpa::theory_fpa(context& ctx) :
+        theory(ctx, ctx.get_manager().mk_family_id("fpa")),
+        m_converter(ctx.get_manager(), this),
+        m_rw(ctx.get_manager(), m_converter, params_ref()),
+        m_th_rw(ctx.get_manager()),
         m_trail_stack(*this),
         m_fpa_util(m_converter.fu()),
         m_bv_util(m_converter.bu()),
         m_arith_util(m_converter.au()),
-        m_is_initialized(false)
+        m_is_initialized(true)
     {
         params_ref p;
         p.set_bool("arith_lhs", true);
-        m_th_rw.updt_params(p);
+        m_th_rw.updt_params(p);        
     }
 
     theory_fpa::~theory_fpa()
@@ -105,7 +105,6 @@ namespace smt {
         m_trail_stack.reset();
 
         if (m_is_initialized) {
-            ast_manager & m = get_manager();
             dec_ref_map_key_values(m, m_conversions);
             dec_ref_collection_values(m, m_is_added_to_model);
 
@@ -118,11 +117,6 @@ namespace smt {
         SASSERT(m_trail_stack.get_num_scopes() == 0);
         SASSERT(m_conversions.empty());
         SASSERT(m_is_added_to_model.empty());
-    }
-
-    void theory_fpa::init(context * ctx) {
-        smt::theory::init(ctx);
-        m_is_initialized = true;
     }
 
     app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
@@ -233,7 +227,6 @@ namespace smt {
     app_ref theory_fpa::wrap(expr * e) {
         SASSERT(m_fpa_util.is_float(e) || m_fpa_util.is_rm(e));
         SASSERT(!m_fpa_util.is_bvwrap(e));
-        ast_manager & m = get_manager();
         app_ref res(m);
 
         if (m_fpa_util.is_fp(e)) {
@@ -267,7 +260,6 @@ namespace smt {
         SASSERT(!m_fpa_util.is_fp(e));
         SASSERT(m_bv_util.is_bv(e));
         SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
-        ast_manager & m = get_manager();
         app_ref res(m);
 
         unsigned bv_sz = m_bv_util.get_bv_size(e);
@@ -293,8 +285,7 @@ namespace smt {
     }
 
     expr_ref theory_fpa::convert_atom(expr * e) {
-        ast_manager & m = get_manager();
-        TRACE("t_fpa_detail", tout << "converting atom: " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+        TRACE("t_fpa_detail", tout << "converting atom: " << mk_ismt2_pp(e, m) << std::endl;);
         expr_ref res(m);
         proof_ref pr(m);
         m_rw(e, res);
@@ -306,15 +297,14 @@ namespace smt {
 
     expr_ref theory_fpa::convert_term(expr * e) {
         SASSERT(m_fpa_util.is_rm(e) || m_fpa_util.is_float(e));
-        ast_manager & m = get_manager();
 
         expr_ref e_conv(m), res(m);
         proof_ref pr(m);
 
         m_rw(e, e_conv);
 
-        TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, get_manager()) << std::endl;
-                              tout << "converted term: " << mk_ismt2_pp(e_conv, get_manager()) << std::endl;);
+        TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, m) << std::endl;
+                              tout << "converted term: " << mk_ismt2_pp(e_conv, m) << std::endl;);
 
         if (m_fpa_util.is_rm(e)) {
             SASSERT(m_fpa_util.is_bv2rm(e_conv));
@@ -340,7 +330,7 @@ namespace smt {
     expr_ref theory_fpa::convert_conversion_term(expr * e) {
         SASSERT(to_app(e)->get_family_id() == get_family_id());
         /* This is for the conversion functions fp.to_* */
-        expr_ref res(get_manager());
+        expr_ref res(m);
         m_rw(e, res);
         m_th_rw(res, res);
         return res;
@@ -348,7 +338,6 @@ namespace smt {
 
     expr_ref theory_fpa::convert(expr * e)
     {
-        ast_manager & m = get_manager();
         expr_ref res(m);
         expr * ccnv;
         TRACE("t_fpa", tout << "converting " << mk_ismt2_pp(e, m) << std::endl;);
@@ -384,8 +373,6 @@ namespace smt {
 
     expr_ref theory_fpa::mk_side_conditions()
     {
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         expr_ref res(m), t(m);
         expr_ref_vector fmls(m);
@@ -405,30 +392,25 @@ namespace smt {
     }
 
     void theory_fpa::assert_cnstr(expr * e) {
-        if (get_manager().is_true(e)) return;
-        TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
-        context & ctx = get_context();
-        if (get_manager().has_trace_stream()) log_axiom_instantiation(e);
+        if (m.is_true(e)) return;
+        TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, m) << "\n";);
+        if (m.has_trace_stream()) log_axiom_instantiation(e);
         ctx.internalize(e, false);
-        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), 1, &lit);
     }
 
     void theory_fpa::attach_new_th_var(enode * n) {
-        context & ctx = get_context();
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
-        TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := " << v << "\n";);
+        TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), m) << " := " << v << "\n";);
     }
 
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
-        TRACE("t_fpa_internalize", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << std::endl;);
+        TRACE("t_fpa_internalize", tout << "internalizing atom: " << mk_ismt2_pp(atom, m) << std::endl;);
         SASSERT(atom->get_family_id() == get_family_id());
-
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         if (ctx.b_internalized(atom))
             return true;
@@ -450,12 +432,9 @@ namespace smt {
     }
 
     bool theory_fpa::internalize_term(app * term) {
-        TRACE("t_fpa_internalize", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << "\n";);
+        TRACE("t_fpa_internalize", tout << "internalizing term: " << mk_ismt2_pp(term, m) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
-        SASSERT(!get_context().e_internalized(term));
-
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
+        SASSERT(!ctx.e_internalized(term));
 
         unsigned num_args = term->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
@@ -493,14 +472,12 @@ namespace smt {
     }
 
     void theory_fpa::apply_sort_cnstr(enode * n, sort * s) {
-        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_owner(), get_manager()) << "\n";);
+        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_owner(), m) << "\n";);
         SASSERT(s->get_family_id() == get_family_id());
         SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
         SASSERT(m_fpa_util.is_float(n->get_owner()) || m_fpa_util.is_rm(n->get_owner()));
         SASSERT(n->get_owner()->get_decl()->get_range() == s);
 
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
         app_ref owner(n->get_owner(), m);
 
         if (!is_attached_to_var(n)) {
@@ -523,7 +500,6 @@ namespace smt {
     }
 
     void theory_fpa::new_eq_eh(theory_var x, theory_var y) {
-        ast_manager & m = get_manager();
         enode * e_x = get_enode(x);
         enode * e_y = get_enode(y);
 
@@ -567,7 +543,6 @@ namespace smt {
     }
 
     void theory_fpa::new_diseq_eh(theory_var x, theory_var y) {
-        ast_manager & m = get_manager();
         enode * e_x = get_enode(x);
         enode * e_y = get_enode(y);
 
@@ -614,7 +589,7 @@ namespace smt {
     }
 
     theory* theory_fpa::mk_fresh(context* new_ctx) {
-        return alloc(theory_fpa, new_ctx->get_manager());
+        return alloc(theory_fpa, *new_ctx);
     }
 
     void theory_fpa::push_scope_eh() {
@@ -629,8 +604,6 @@ namespace smt {
     }
 
     void theory_fpa::assign_eh(bool_var v, bool is_true) {
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
         expr * e = ctx.bool_var2expr(v);
 
         TRACE("t_fpa", tout << "assign_eh for: " << v << " (" << is_true << "):\n" << mk_ismt2_pp(e, m) << "\n";);
@@ -645,7 +618,6 @@ namespace smt {
     }
 
     void theory_fpa::relevant_eh(app * n) {
-        ast_manager & m = get_manager();
         TRACE("t_fpa", tout << "relevant_eh for: " << mk_ismt2_pp(n, m) << "\n";);
 
         mpf_manager & mpfm = m_fpa_util.fm();
@@ -678,7 +650,7 @@ namespace smt {
                 else {
                     expr_ref wu(m);
                     wu = m.mk_eq(unwrap(wrapped, m.get_sort(n)), n);
-                    TRACE("t_fpa", tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, get_manager()) << std::endl;);
+                    TRACE("t_fpa", tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
                     assert_cnstr(wu);
                 }
             }
@@ -709,7 +681,6 @@ namespace smt {
             dealloc(m_factory);
             m_factory = nullptr;
         }
-        ast_manager & m = get_manager();
         dec_ref_map_key_values(m, m_conversions);
         dec_ref_collection_values(m, m_is_added_to_model);
         theory::reset_eh();
@@ -723,13 +694,11 @@ namespace smt {
 
     void theory_fpa::init_model(model_generator & mg) {
         TRACE("t_fpa", tout << "initializing model" << std::endl; display(tout););
-        ast_manager & m = get_manager();
         m_factory = alloc(fpa_value_factory, m, get_family_id());
         mg.register_factory(m_factory);
     }
 
     enode* theory_fpa::ensure_enode(expr* e) {
-        context& ctx = get_context();
         if (!ctx.e_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -739,8 +708,6 @@ namespace smt {
     }
 
     app* theory_fpa::get_ite_value(expr* e) {
-        ast_manager & m = get_manager();
-        context& ctx = get_context();
         expr* e1, *e2, *e3;
         while (m.is_ite(e, e1, e2, e3) && ctx.e_internalized(e)) {
             if (ctx.get_enode(e2)->get_root() == ctx.get_enode(e)->get_root()) {
@@ -757,11 +724,9 @@ namespace smt {
     }
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
-        TRACE("t_fpa", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
-                            " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")\n";);
+        TRACE("t_fpa", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), m) <<
+                            " (sort " << mk_ismt2_pp(m.get_sort(n->get_owner()), m) << ")\n";);
 
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
         app_ref owner(m);
         owner = get_ite_value(n->get_owner());
 
@@ -840,7 +805,6 @@ namespace smt {
     }
 
     void theory_fpa::finalize_model(model_generator & mg) {
-        ast_manager & m = get_manager();
         proto_model & mdl = mg.get_model();
         proto_model new_model(m);
 
@@ -869,8 +833,6 @@ namespace smt {
 
     void theory_fpa::display(std::ostream & out) const
     {
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         bool first = true;
         for (enode* n : ctx.enodes()) {

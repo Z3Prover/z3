@@ -130,7 +130,7 @@ namespace smt {
         bool is_shared(theory_var v) const override;
         theory_datatype_params const& params() const;
     public:
-        theory_datatype(ast_manager & m);
+        theory_datatype(context& ctx);
         ~theory_datatype() override;
         theory * mk_fresh(context * new_ctx) override;
         void display(std::ostream & out) const override;

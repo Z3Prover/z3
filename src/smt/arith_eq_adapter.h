@@ -62,7 +62,6 @@ namespace smt {
         
     private:
         theory &                         m_owner;
-        theory_arith_params &            m_params;
         arith_util &                     m_util;
 
         already_processed                m_already_processed;
@@ -74,7 +73,7 @@ namespace smt {
         enode * get_enode(theory_var v) const { return m_owner.get_enode(v); }
 
     public:
-        arith_eq_adapter(theory & owner, theory_arith_params & params, arith_util & u):m_owner(owner), m_params(params), m_util(u) {}
+        arith_eq_adapter(theory & owner, arith_util & u):m_owner(owner), m_util(u) {}
         void new_eq_eh(theory_var v1, theory_var v2);
         void new_diseq_eh(theory_var v1, theory_var v2);
         void reset_eh();

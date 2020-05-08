@@ -109,7 +109,7 @@ namespace opt {
         smt::theory_id th_id = m.get_family_id("pb");
         smt::theory* th = get_context().get_theory(th_id);               
         if (!th) {
-            get_context().register_plugin(alloc(smt::theory_pb, m, m_params));
+            get_context().register_plugin(alloc(smt::theory_pb, get_context()));
         }
     }
 
@@ -119,7 +119,7 @@ namespace opt {
         smt::theory* arith_theory = ctx.get_theory(arith_id);
         
         if (!arith_theory) {
-            ctx.register_plugin(alloc(smt::theory_mi_arith, m, m_params));
+            ctx.register_plugin(alloc(smt::theory_mi_arith, ctx));
             arith_theory = ctx.get_theory(arith_id);
             SASSERT(arith_theory);
         }

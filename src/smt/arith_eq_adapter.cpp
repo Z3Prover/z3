@@ -210,7 +210,7 @@ namespace smt {
               << " " << mk_pp(ge, m) << ": " << ge_lit 
               << " " << mk_pp(t1_eq_t2, m) << ": " << t1_eq_t2_lit << "\n";);
 
-        if (m_params.m_arith_add_binary_bounds) {
+        if (m_owner.get_fparams().m_arith_add_binary_bounds) {
             TRACE("arith_eq_adapter", tout << "adding binary bounds...\n";);
             ctx.mk_th_axiom(tid, le_lit, ge_lit, m_proof_hint.size(), m_proof_hint.c_ptr());
         }
@@ -219,7 +219,7 @@ namespace smt {
             ctx.add_relevancy_eh(n1->get_owner(), eh);
             ctx.add_relevancy_eh(n2->get_owner(), eh);
         }
-        if (!m_params.m_arith_lazy_adapter && !ctx.at_base_level() && 
+        if (!m_owner.get_fparams().m_arith_lazy_adapter && !ctx.at_base_level() && 
             n1->get_iscope_lvl() <= ctx.get_base_level() && n2->get_iscope_lvl() <= ctx.get_base_level()) {
             m_restart_pairs.push_back(enode_pair(n1, n2));
         }
