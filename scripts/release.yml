@@ -254,7 +254,7 @@ stages:
       vmImage: "windows-latest"
     steps:
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download macOS Build'
+      displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'UbuntuBuild'
         path: $(Agent.TempDirectory)
