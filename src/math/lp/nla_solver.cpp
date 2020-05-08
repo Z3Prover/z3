@@ -28,10 +28,23 @@ bool solver::is_monic_var(lpvar v) const {
 
 bool solver::need_check() { return true; }
 
-lbool solver::check(vector<lemma>& l) {
-    return m_core->check(l);
+lbool solver::run_nra(lp::explanation & expl) {
+    return m_nra.check(expl);
 }
 
+
+lbool solver::check(vector<lemma>& l, lp::explanation& expl) {    
+    set_use_nra_model(false);
+    lbool ret = m_core->check(l);
+    if (ret == l_undef) {
+        ret = run_nra(expl);
+        if (ret == l_true) {
+            set_use_nra_model(true);
+        }            
+    }
+    return ret;
+}
+ 
 void solver::push(){
     m_core->push();
 }

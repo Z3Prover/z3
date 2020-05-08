@@ -44,12 +44,14 @@ tactic * mk_qfnra_tactic(ast_manager & m, params_ref const& p) {
 
     return and_then(mk_simplify_tactic(m, p), 
                     mk_propagate_values_tactic(m, p),
-                    or_else(try_for(mk_qfnra_nlsat_tactic(m, p0), 5000),
-                            try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
-                            mk_qfnra_sat_solver(m, p, 4),
-                            and_then(try_for(mk_smt_tactic(m), 5000), mk_fail_if_undecided_tactic()),
-                            mk_qfnra_sat_solver(m, p, 6),
-                            mk_qfnra_nlsat_tactic(m, p2)));
+                    //or_else(//try_for(mk_qfnra_nlsat_tactic(m, p0), 5000),
+                            //try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
+                            //mk_qfnra_sat_solver(m, p, 4),
+                            //and_then(try_for(mk_smt_tactic(m), 5000), mk_fail_if_undecided_tactic()),
+                            mk_qfnra_sat_solver(m, p, 6)
+                            //mk_qfnra_nlsat_tactic(m, p2)
+                            //)
+        );
 }
 
 

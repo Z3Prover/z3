@@ -40,7 +40,6 @@ void order::order_lemma() {
 void order::order_lemma_on_monic(const monic& m) {
     TRACE("nla_solver_details",
           tout << "m = " << pp_mon(c(), m););
-
     if (c().has_real(m))
         return;
     for (auto ac : factorization_factory_imp(m, _())) {

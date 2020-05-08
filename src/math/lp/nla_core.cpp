@@ -1895,4 +1895,23 @@ bool core::influences_nl_var(lpvar j) const {
     return false;
 }
 
+bool core::factorization_has_real(const factorization& f) const {
+    for (const factor& fc: f) {
+        lpvar j = var(fc);
+        if (!var_is_int(j))
+            return true;
+    }
+    return false;
+}
+
+bool core::monic_has_real(const monic& m) const {
+    if (!var_is_int(m.var()))
+        return true;
+    for (lpvar j : m) {
+        if (!var_is_int(j))
+            return true;
+    }
+    return false;
+}
+
 } // end of nla

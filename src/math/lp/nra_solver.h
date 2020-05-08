@@ -29,11 +29,6 @@ namespace nra {
         
         ~solver();
 
-        /*
-          \brief Add a definition v = vs[0]*vs[1]*...*vs[sz-1]
-          The variable v is equal to the product of variables vs.
-        */
-        void add_monic(lp::var_index v, unsigned sz, lp::var_index const* vs);
 
         /*
           \brief Check feasiblity of linear constraints augmented by polynomial definitions
@@ -53,13 +48,6 @@ namespace nra {
 
         nlsat::anum_manager& am();        
 
-        /*
-          \brief push and pop scope. 
-          Monomial definitions are retraced when popping scope.
-        */
-        void push();
-        
-        void pop(unsigned n);
 
         /*
           \brief display state

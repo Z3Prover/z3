@@ -26,6 +26,9 @@ class solver {
     reslimit m_res_limit;
     core* m_core;
     nra::solver m_nra;
+    bool m_use_nra_model;
+    lbool run_nra(lp::explanation&);
+    void set_use_nra_model(bool m) { m_use_nra_model = m; }
 public:
     void add_monic(lpvar v, unsigned sz, lpvar const* vs);
     
@@ -35,11 +38,11 @@ public:
     void push();
     void pop(unsigned scopes);
     bool need_check();
-    lbool check(vector<lemma>&);
+    lbool check(vector<lemma>&, lp::explanation& lp);
     bool is_monic_var(lpvar) const;
     bool influences_nl_var(lpvar) const;
     std::ostream& display(std::ostream& out) const;
-
+    bool use_nra_model() const { return m_use_nra_model; }
     core& get_core() { return *m_core; }
 };
 }
