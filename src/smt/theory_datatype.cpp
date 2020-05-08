@@ -687,7 +687,7 @@ namespace smt {
     }
 
     theory_datatype::theory_datatype(context& ctx):
-        theory(ctx, m.mk_family_id("datatype")),
+        theory(ctx, ctx.get_manager().mk_family_id("datatype")),
         m_util(m),
         m_autil(m),
         m_find(*this),

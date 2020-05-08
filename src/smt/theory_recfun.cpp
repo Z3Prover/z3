@@ -28,7 +28,7 @@ Revision History:
 namespace smt {
 
     theory_recfun::theory_recfun(context& ctx)
-        : theory(ctx, m.mk_family_id("recfun")), 
+        : theory(ctx, ctx.get_manager().mk_family_id("recfun")), 
           m_plugin(*reinterpret_cast<recfun::decl::plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
           m_disabled_guards(m),
