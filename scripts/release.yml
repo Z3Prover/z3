@@ -284,6 +284,7 @@ stages:
         isPreRelease: false
 
   - job: NuGetPublish
+    condition: eq(0,1)
     displayName: "Publish to NuGet.org"
     steps:
     - task: DownloadPipelineArtifact@2
