@@ -23,6 +23,7 @@
 
 namespace nla {
 class core;
+class new_lemma;
 class order: common {
 public:
     order(core *c) : common(c) {}
@@ -49,9 +50,9 @@ private:
     void order_lemma_on_factorization(const monic& rm, const factorization& ab);
     
 
-    void order_lemma_on_ab_gt(const monic& m, const rational& sign, lpvar a, lpvar b);
-    void order_lemma_on_ab_lt(const monic& m, const rational& sign, lpvar a, lpvar b);
-    void order_lemma_on_ab(const monic& m, const rational& sign, lpvar a, lpvar b, bool gt);
+    void order_lemma_on_ab_gt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b);
+    void order_lemma_on_ab_lt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b);
+    void order_lemma_on_ab(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b, bool gt);
     void order_lemma_on_factor_binomial_explore(const monic& m, bool k);
     void order_lemma_on_factor_binomial_rm(const monic& ac, bool k, const monic& bd);
     void order_lemma_on_binomial_ac_bd(const monic& ac, bool k, const monic& bd, const factor& b, lpvar d);

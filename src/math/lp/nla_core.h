@@ -94,17 +94,22 @@ inline std::ostream& operator<<(std::ostream& out, new_lemma const& l) {
     return l.display(out);
 }
 
-
-
 struct pp_fac {
     core const& c;
     factor const& f;
     pp_fac(core const& c, factor const& f): c(c), f(f) {}
 };
+
 struct pp_var {
     core const& c;
     lpvar v;
     pp_var(core const& c, lpvar v): c(c), v(v) {}
+};
+
+struct pp_factorization {
+    core const& c;
+    factorization const& f;
+    pp_factorization(core const& c, factorization const& f): c(c), f(f) {}
 };
 
 class core {
@@ -262,6 +267,7 @@ public:
  
     pp_var pp(lpvar j) const { return pp_var(*this, j); }
     pp_fac pp(factor const& f) const { return pp_fac(*this, f); }
+    pp_factorization pp(factorization const& f) const { return pp_factorization(*this, f); }
  
     std::ostream& print_specific_lemma(const lemma& l, std::ostream& out) const;
     
@@ -481,11 +487,8 @@ struct pp_mon_with_vars {
 
 inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monic(p.m, out); }
 inline std::ostream& operator<<(std::ostream& out, pp_mon_with_vars const& p) { return p.c.print_monic_with_vars(p.m, out); }
-
-
 inline std::ostream& operator<<(std::ostream& out, pp_fac const& f) { return f.c.print_factor(f.f, out); }
-
-
+inline std::ostream& operator<<(std::ostream& out, pp_factorization const& f) { return f.c.print_factorization(f.f, out); }
 inline std::ostream& operator<<(std::ostream& out, pp_var const& v) { return v.c.print_var(v.v, out); }
 
 } // end of namespace nla

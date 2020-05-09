@@ -1238,8 +1238,8 @@ new_lemma::new_lemma(core& c):c(c) {
 }
 
 new_lemma::~new_lemma() {
-    // code for printing or checking lemma can be added here
-    // out << *this;
+    // code for checking lemma can be added here
+    TRACE("nla_solver", tout << *this; );
 }
 
 lemma& new_lemma::operator()() {
