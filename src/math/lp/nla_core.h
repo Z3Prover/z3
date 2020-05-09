@@ -74,7 +74,41 @@ public:
     bool is_conflict() const { return m_ineqs.empty() && !m_expl.empty(); }
 };
 
+class core;
+//
+// lemmas are created in a scope.
+// when the destructor of new_lemma is invoked
+// all constraints are assumed added to the lemma
+// correctness of the lemma can be checked at this point.
+//
+class new_lemma {
+    core& c;
+public:
+    new_lemma(core& c);
+    ~new_lemma();
+    lemma& operator()();
+    std::ostream& display(std::ostream& out) const;
+};
+
+inline std::ostream& operator<<(std::ostream& out, new_lemma const& l) {
+    return l.display(out);
+}
+
+
+
+struct pp_fac {
+    core const& c;
+    factor const& f;
+    pp_fac(core const& c, factor const& f): c(c), f(f) {}
+};
+struct pp_var {
+    core const& c;
+    lpvar v;
+    pp_var(core const& c, lpvar v): c(c), v(v) {}
+};
+
 class core {
+    friend class new_lemma;
 public:
     var_eqs<emonics>         m_evars;
     lp::lar_solver&          m_lar_solver;
@@ -92,8 +126,8 @@ public:
 private:
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
-    mutable lp::u_set      m_active_var_set;
-    lp::u_set              m_rows;
+    mutable lp::u_set        m_active_var_set;
+    lp::u_set                m_rows;
 public:
     reslimit                 m_reslim;
 
@@ -161,7 +195,7 @@ public:
     svector<lpvar> sorted_rvars(const factor& f) const;
     bool done() const;
 
-    void add_lemma();
+    
     // the value of the factor is equal to the value of the variable multiplied
     // by the canonize_sign
     bool canonize_sign(const factor& f) const;
@@ -197,6 +231,7 @@ public:
     void explain_var_separated_from_zero(lpvar j);
     void explain_fixed_var(lpvar j);
 
+
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
     std::ostream & print_var(lpvar j, std::ostream & out) const;
     std::ostream & print_monics(std::ostream & out) const;    
@@ -224,8 +259,11 @@ public:
     void print_monic_stats(const monic& m, std::ostream& out);    
     void print_stats(std::ostream& out);
     std::ostream& print_lemma(std::ostream& out) const;
-  
-    void print_specific_lemma(const lemma& l, std::ostream& out) const;
+ 
+    pp_var pp(lpvar j) const { return pp_var(*this, j); }
+    pp_fac pp(factor const& f) const { return pp_fac(*this, f); }
+ 
+    std::ostream& print_specific_lemma(const lemma& l, std::ostream& out) const;
     
 
     void trace_print_ol(const monic& ac,
@@ -440,22 +478,13 @@ struct pp_mon_with_vars {
     pp_mon_with_vars(core const& c, monic const& m): c(c), m(m) {}
     pp_mon_with_vars(core const& c, lpvar v): c(c), m(c.emons()[v]) {}
 };
+
 inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monic(p.m, out); }
 inline std::ostream& operator<<(std::ostream& out, pp_mon_with_vars const& p) { return p.c.print_monic_with_vars(p.m, out); }
 
-struct pp_fac {
-    core const& c;
-    factor const& f;
-    pp_fac(core const& c, factor const& f): c(c), f(f) {}
-};
 
 inline std::ostream& operator<<(std::ostream& out, pp_fac const& f) { return f.c.print_factor(f.f, out); }
 
-struct pp_var {
-    core const& c;
-    lpvar v;
-    pp_var(core const& c, lpvar v): c(c), v(v) {}
-};
 
 inline std::ostream& operator<<(std::ostream& out, pp_var const& v) { return v.c.print_var(v.v, out); }
 
