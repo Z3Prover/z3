@@ -2162,7 +2162,10 @@ public:
 
     nla::lemma m_lemma;
  
-    void false_case_of_check_nla() {
+    void false_case_of_check_nla(const nla::lemma & l) {
+        m_lemma = l; //todo avoid the copy
+        m_explanation = l.expl();
+        m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
         literal_vector core;
         for (auto const& ineq : m_lemma.ineqs()) {
             bool is_lower = true, pos = true, is_eq = false;
@@ -2197,10 +2200,7 @@ public:
         case l_false: {
             m_stats.m_nla_lemmas += lv.size();
             for(const nla::lemma & l : lv) {
-                m_lemma = l; //todo avoid the copy
-                m_explanation = l.expl();
-                m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
-                false_case_of_check_nla();
+                false_case_of_check_nla(l);
             }
             break;
         }
@@ -3257,7 +3257,7 @@ public:
         }
     }
  
-    lp::explanation m_explanation;
+    lp::explanation     m_explanation;
     
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
@@ -3324,7 +3324,7 @@ public:
                 set_evidence(ev.second, m_core, m_eqs);
             }
         }
-        // SASSERT(validate_conflict());
+        // SASSERT(validate_conflict(m_core, m_eqs));
         dump_conflict(m_core, m_eqs);
         if (is_conflict) {
             ctx().set_conflict(

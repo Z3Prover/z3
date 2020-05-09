@@ -94,6 +94,7 @@ class lackr {
         model_ref                            m_model;
         bool                                 m_eager;
         expr_mark                            m_non_select;
+        ast_mark                             m_non_funs;
         lackr_stats&                         m_st;
         bool                                 m_is_init;
 

@@ -83,6 +83,18 @@ public:
             sels.erase(s);
         }
     }
+
+    void prune_non_funs(fun2terms_map& f2t, ast_mark& non_funs) {
+        ptr_vector<func_decl> to_delete;
+        for (auto& kv : f2t) {
+            if (non_funs.is_marked(kv.m_key)) {
+                to_delete.push_back(kv.m_key);
+                dealloc(kv.m_value);
+            }
+        }
+        for (func_decl * f : to_delete)
+            f2t.erase(f);
+    }
     
     inline bv_util& bvutil() { return m_bvutil; }
     
