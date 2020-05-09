@@ -38,7 +38,7 @@ lbool solver::check(vector<lemma>& l, lp::explanation& expl) {
     lbool ret = m_core->check(l);
     if (ret == l_undef) {
         ret = run_nra(expl);
-        if (ret == l_true) {
+        if (ret == l_true || expl.size() > 0) {
             set_use_nra_model(true);
         }            
     }
@@ -67,6 +67,9 @@ solver::~solver() {
 
 std::ostream& solver::display(std::ostream& out) const {    
     m_core->print_monics(out);
+    if( use_nra_model()) {
+        return m_nra.display(out);
+    }
     return out;
 }
 

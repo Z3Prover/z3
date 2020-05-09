@@ -288,7 +288,12 @@ class theory_lra::imp {
         imp & m_th;
         var_value_hash(imp & th):m_th(th) {}
         unsigned operator()(theory_var v) const { 
-            return (unsigned)std::hash<lp::impq>()(m_th.get_ivalue(v));             
+            if (m_th.m_nla->use_nra_model()) {
+                return m_th.is_int(v);
+            }
+            else {
+                return (unsigned)std::hash<lp::impq>()(m_th.get_ivalue(v)); 
+            }
         }
     };
     int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
@@ -1664,7 +1669,12 @@ public:
     }
 
     bool is_eq(theory_var v1, theory_var v2) {
-        return get_ivalue(v1) == get_ivalue(v2); 
+        if (m_nla->use_nra_model()) {
+            return m_nla->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
+        }
+        else {
+            return get_ivalue(v1) == get_ivalue(v2); 
+        }
     }
 
     bool has_delayed_constraints() const {
@@ -2139,13 +2149,18 @@ public:
     lbool check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
         auto & lv = m_nla_lemma_vector;
+        m_explanation.clear();
         lbool r = m_nla->check(lv, m_explanation);
         if (m_explanation.size()) {
-            NOT_IMPLEMENTED_YET(); // the nra_solver worked
+            SASSERT(m_nla->use_nra_model());
+            SASSERT(r == l_false);
+            set_conflict();
+            return l_false;
         }
     
         switch (r) {
         case l_false: {
+            SASSERT(m_explanation.size() == 0);
             m_stats.m_nla_lemmas += lv.size();
             for (const nla::lemma & l : lv) {
                 false_case_of_check_nla(l);
@@ -2153,6 +2168,10 @@ public:
             break;
         }
         case l_true:
+            if (m_nla->use_nra_model()) {
+                m_a1 = alloc(scoped_anum, m_nla->am());
+                m_a2 = alloc(scoped_anum, m_nla->am());
+            }
             if (assume_eqs()) {
                 return l_false;
             }
@@ -3324,14 +3343,64 @@ public:
         TRACE("arith", display(tout););
     }
 
+    nlsat::anum const& nl_value(theory_var v, scoped_anum& r) {
+        SASSERT(m_nla->use_nra_model());
+        auto t = get_tv(v);
+        if (t.is_term()) {
+
+            m_todo_terms.push_back(std::make_pair(t, rational::one()));
+
+            TRACE("arith", tout << "v" << v << " := w" << t.to_string() << "\n";
+                  lp().print_term(lp().get_term(t), tout) << "\n";);
+
+            m_nla->am().set(r, 0);
+            while (!m_todo_terms.empty()) {
+                rational wcoeff = m_todo_terms.back().second;
+                t = m_todo_terms.back().first;
+                m_todo_terms.pop_back();
+                lp::lar_term const& term = lp().get_term(t);
+                TRACE("arith", lp().print_term(term, tout) << "\n";);
+                scoped_anum r1(m_nla->am());
+                rational c1(0);
+                m_nla->am().set(r1, c1.to_mpq());
+                m_nla->am().add(r, r1, r);                
+                for (auto const & arg : term) {
+                    auto wi = lp().column2tv(arg.column());
+                    c1 = arg.coeff() * wcoeff;
+                    if (wi.is_term()) {
+                        m_todo_terms.push_back(std::make_pair(wi, c1));
+                    }
+                    else {
+                        m_nla->am().set(r1, c1.to_mpq());
+                        m_nla->am().mul(m_nla->am_value(wi.id()), r1, r1);
+                        m_nla->am().add(r1, r, r);
+                    }
+                }
+            }
+            return r;
+        }
+        else {
+            return m_nla->am_value(t.id());
+        }
+    }
+
     model_value_proc * mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_owner();
-        rational r = get_value(v);
-        TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
-        SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().get_cancel_flag()));
-        if (a.is_int(o) && !r.is_int()) r = floor(r);
-        return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));        
+        if (m_nla->use_nra_model()) {
+            anum const& an = nl_value(v, *m_a1);
+            if (a.is_int(o) && !m_nla->am().is_int(an)) {
+                return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
+            }
+            return alloc(expr_wrapper_proc, a.mk_numeral(nl_value(v, *m_a1), a.is_int(o)));
+        }
+        else {
+            rational r = get_value(v);
+            TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
+            SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().get_cancel_flag()));
+            if (a.is_int(o) && !r.is_int()) r = floor(r);
+            return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
+        }
     }
 
     bool get_value(enode* n, rational& val) {

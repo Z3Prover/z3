@@ -44,5 +44,10 @@ public:
     std::ostream& display(std::ostream& out) const;
     bool use_nra_model() const { return m_use_nra_model; }
     core& get_core() { return *m_core; }
+    nlsat::anum_manager& am() { return m_nra.am(); }
+    nlsat::anum const& am_value(lp::var_index v) const {
+        SASSERT(use_nra_model());
+        return m_nra.value(v);
+    }
 };
 }

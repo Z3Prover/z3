@@ -82,10 +82,10 @@ struct solver::imp {
             add_constraint(ci);
         }
 
-        // // add polynomial definitions.
-        // for (auto const& m : m_monics) {
-        //     add_monic_eq(m);
-        // }
+        // add polynomial definitions.
+        for (auto const& m : m_nla_core.emons()) {
+             add_monic_eq(m);
+        }
         // TBD: add variable bounds?
 
         lbool r = l_undef;
