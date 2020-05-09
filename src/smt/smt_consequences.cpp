@@ -29,9 +29,10 @@ namespace smt {
     expr_ref context::antecedent2fml(index_set const& vars) {
         expr_ref_vector premises(m);
         for (unsigned v : vars) {
-            expr* e =  bool_var2expr(v);
-            e = m_assumption2orig.find(e);
-            premises.push_back(get_assignment(v) != l_false ? e : m.mk_not(e));
+            expr* e;
+            if (m_assumption2orig.find(v, e)) {
+                premises.push_back(get_assignment(v) != l_false ? e : m.mk_not(e));
+            }
         }
         return mk_and(premises);
     }
@@ -277,6 +278,7 @@ namespace smt {
         m_antecedents.insert(true_literal.var(), index_set());
         pop_to_base_lvl();
         expr_ref_vector vars(m), assumptions(m);
+        index_set _assumptions;
         m_var2val.reset();
         m_var2orig.reset();
         m_assumption2orig.reset();
@@ -310,17 +312,21 @@ namespace smt {
         for (expr* a : assumptions0) {
             if (is_uninterp_const(a)) {
                 assumptions.push_back(a);
-                m_assumption2orig.insert(a, a);
             }
             else {
                 if (!pushed) pushed = true, push();                
                 expr_ref c(m.mk_fresh_const("a", m.get_sort(a)), m);
                 expr_ref eq(m.mk_eq(c, a), m);
                 assert_expr(eq);
-                assumptions.push_back(c);
-                m_assumption2orig.insert(c, a);                
+                assumptions.push_back(c);                
             }
+            expr* e = assumptions.back();
+            if (!e_internalized(e)) internalize(e, false);
+            literal lit = get_literal(e);
+            _assumptions.insert(lit.var());
+            m_assumption2orig.insert(lit.var(), a);
         }
+
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
         if (is_sat != l_true) {
             TRACE("context", tout << is_sat << "\n";);
@@ -333,11 +339,6 @@ namespace smt {
 
         TRACE("context", display(tout););
 
-        index_set _assumptions;
-        for (expr* e : assumptions) {
-            if (!e_internalized(e)) internalize(e, false);
-            _assumptions.insert(get_literal(e).var());
-        }
         model_ref mdl;
         get_model(mdl);
         expr_ref_vector trail(m);
@@ -459,9 +460,7 @@ namespace smt {
         }
 
         m_antecedents.reset();
-        literal_vector const& lits = assigned_literals();
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            literal lit = lits[i];
+        for (literal lit : assigned_literals()) {
             index_set s;
             if (_asms.contains(lit.index())) {
                 s.insert(lit.var());
@@ -472,10 +471,8 @@ namespace smt {
             m_antecedents.insert(lit.var(), s);
             if (_nasms.contains(lit.index())) {
                 expr_ref_vector core(m);
-                index_set::iterator it = s.begin(), end = s.end();
-                for (; it != end; ++it) {
-                    core.push_back(var2expr[*it]);
-                }
+                for (auto v : s) 
+                    core.push_back(var2expr[v]);                
                 core.push_back(var2expr[lit.var()]);
                 cores.push_back(core);
                 min_core_size = std::min(min_core_size, core.size());
