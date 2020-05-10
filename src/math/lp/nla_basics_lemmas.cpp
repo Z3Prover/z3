@@ -318,34 +318,20 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_derived(const monic& rm
         return false;
     }
     bool mon_var_is_sep_from_zero =  c().var_is_separated_from_zero(mon_var);
-    lpvar jl = null_lpvar;
-    for (auto fc : f ) {
+    lpvar jl = null_lpvar, not_one_j = null_lpvar;
+    for (auto fc : f) {
         lpvar j = var(fc);
         if (j == null_lpvar && abs(val(j)) == abs_mv && 
             c().vars_are_equiv(j, mon_var) &&
-            (mon_var_is_sep_from_zero ||  c().var_is_separated_from_zero(j))) {
+            (mon_var_is_sep_from_zero ||  c().var_is_separated_from_zero(j))) 
             jl = j;
-        }
         else if (j == jl)
             return false;
+        else if (abs(val(j)) != rational(1)) 
+            not_one_j = j;
     }
-    if (jl == null_lpvar)
-        return false;
-        
-    lpvar not_one_j = null_lpvar;
-    for (auto j : f ) {
-        if (var(j) == jl) {
-            continue;
-        }
-        if (abs(val(j)) != rational(1)) {
-            not_one_j = var(j);
-            break;
-        }
-    }
-
-    if (not_one_j == null_lpvar) {
-        return false;
-    } 
+    if (jl == null_lpvar || not_one_j = null_lpvar)
+        return false;    
 
     new_lemma lemma(c(), "|xa| = |x| & x != 0 -> |a| = 1");
     // mon_var = 0
@@ -533,30 +519,17 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based_fm(const mo
         return false;
     }
     lpvar jl = null_lpvar;
-    for (auto j : m.vars() ) {
-        if (jl == null_lpvar && abs(val(j)) == abs_mv) {
-            jl = j;
-        }
-        else if (jl == j)
-            return false;
-    }
-    if (jl == null_lpvar)
-        return false;
-
     lpvar not_one_j = null_lpvar;
     for (auto j : m.vars() ) {
-        if (j == jl) {
-            continue;
-        }
-        if (abs(val(j)) != rational(1)) {
+        if (jl == null_lpvar && abs(val(j)) == abs_mv) 
+            jl = j;
+        else if (jl == j)
+            return false;
+        else if (abs(val(j)) != rational(1)) 
             not_one_j = j;
-            break;
-        }
     }
-    
-    if (not_one_j == null_lpvar) {
-        return false;
-    } 
+    if (jl == null_lpvar || not_one_j = null_lpvar)
+        return false;    
 
     new_lemma lemma(c(), __FUNCTION__);
     // mon_var = 0
@@ -644,31 +617,19 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic
         return false;
     }
     lpvar jl = null_lpvar;
+    lpvar not_one_j = null_lpvar;
+
     for (auto fc : f) {
         lpvar j = var(fc);
-        if (j == null_lpvar && abs(val(fc)) == abs_mv) {
+        if (j == null_lpvar && abs(val(fc)) == abs_mv) 
             jl = j;
-        }
         else if (j == jl)
             return false;
+        else if (abs(val(fc)) != rational(1)) 
+            not_one_j = j;
     }
-    if (jl == null_lpvar)
-        return false;
-
-    lpvar not_one_j = null_lpvar;
-    for (auto fc : f) {
-        if (var(fc) == jl) {
-            continue;
-        }
-        if (abs(val(fc)) != rational(1)) {
-            not_one_j = var(fc);
-            break;
-        }
-    }
-
-    if (not_one_j == null_lpvar) {
-        return false;
-    } 
+    if (jl == null_lpvar || not_one_j = null_lpvar)
+        return false;    
 
     new_lemma lemma(c(), __FUNCTION__);
     // mon_var = 0
