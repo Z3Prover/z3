@@ -487,7 +487,7 @@ void core::mk_ineq(const rational& a, lpvar j, llc cmp) {
     mk_ineq(a, j, cmp, rational::zero());
 }
 
-void core::mk_ineq(lpvar j, lpvar k, llc cmp, lemma& l) {
+void core::mk_ineq(lpvar j, lpvar k, llc cmp, lemma& _l) {
     mk_ineq(rational(1), j, rational(1), k, cmp, rational::zero());
 }
 

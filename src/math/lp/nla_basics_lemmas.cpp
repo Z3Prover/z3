@@ -764,8 +764,8 @@ void basics::basic_lemma_for_mon_non_zero_model_based_mf(const factorization& f)
 // x = 0 or y = 0 -> xy = 0
 void basics::basic_lemma_for_mon_non_zero_model_based(const monic& rm, const factorization& f) {
     TRACE("nla_solver_bl", c().trace_print_monic_and_factorization(rm, f, tout););
-# NSB code review: 
-# the two branches are the same
+// NSB code review: 
+// the two branches are the same
     if (f.is_mon())
         basic_lemma_for_mon_non_zero_model_based_mf(f);
     else
