@@ -70,6 +70,9 @@ public:
     lar_term(lpvar v1) {
         add_monomial(rational::one(), v1);
     }
+    lar_term(rational const& a, lpvar v1) {
+        add_monomial(a, v1);
+    }
     lar_term(lpvar v1, rational const& b, lpvar v2) {
         add_monomial(rational::one(), v1);
         add_monomial(b, v2);

@@ -197,14 +197,14 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     
     nla.get_core().print_lemma(std::cout);
 
-    ineq i0(llc::NE, lp::lar_term(), rational(1));
-    i0.m_term.add_var(lp_ac);
-    ineq i1(llc::EQ, lp::lar_term(), rational(0));
-    i1.m_term.add_var(lp_bde);
-    i1.m_term.add_monomial(-rational(1), lp_abcde);
-    ineq i2(llc::EQ, lp::lar_term(), rational(0));
-    i2.m_term.add_var(lp_abcde);
-    i2.m_term.add_monomial(-rational(1), lp_bde);
+    ineq i0(lp_ac, llc::NE, 1);
+    lp::lar_term t1, t2;
+    t1.add_var(lp_bde);
+    t1.add_monomial(-rational(1), lp_abcde);
+    ineq i1(llc::EQ, t1, rational(0));
+    t2.add_var(lp_abcde);
+    t2.add_monomial(-rational(1), lp_bde);
+    ineq i2(llc::EQ, t2, rational(0));
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
@@ -263,14 +263,15 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     SASSERT(lemma[0].size() == 4);
     nla.get_core().print_lemma(std::cout);
 
-    ineq i0(llc::NE, lp::lar_term(), rational(1));
-    i0.m_term.add_var(lp_b);
-    ineq i1(llc::NE, lp::lar_term(), rational(1));
-    i1.m_term.add_var(lp_d);
-    ineq i2(llc::NE, lp::lar_term(), rational(1));
-    i2.m_term.add_var(lp_e);
-    ineq i3(llc::EQ, lp::lar_term(), rational(1));
-    i3.m_term.add_var(lp_bde);
+    lp::lar_term t0, t1, t2, t3;
+    t0.add_var(lp_b);
+    t1.add_var(lp_d);
+    t2.add_var(lp_e);
+    t3.add_var(lp_bde);
+    ineq i0(llc::NE, t0, rational(1));
+    ineq i1(llc::NE, t1, rational(1));
+    ineq i2(llc::NE, t2, rational(1));
+    ineq i3(llc::EQ, t3, rational(1));
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
@@ -346,10 +347,12 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     SASSERT(nla.get_core().test_check(lemma) == l_false);
     nla.get_core().print_lemma(std::cout);
     SASSERT(lemma.size() == 1 && lemma[0].size() == 2);
-    ineq i0(llc::NE, lp::lar_term(), rational(0));
-    i0.m_term.add_var(lp_b);
-    ineq i1(llc::EQ, lp::lar_term(), rational(0));
-    i1.m_term.add_var(lp_be);
+    lp::lar_term t0, t1;
+    t0.add_var(lp_b);
+    t1.add_var(lp_be);
+
+    ineq i0(llc::NE, t0, rational(0));
+    ineq i1(llc::EQ, t1, rational(0));
     bool found0 = false;
     bool found1 = false;
 
@@ -396,12 +399,9 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     
     nla.get_core().print_lemma(std::cout);
 
-    ineq i0(llc::EQ, lp::lar_term(), rational(0));
-    i0.m_term.add_var(lp_a);
-    ineq i1(llc::EQ, lp::lar_term(), rational(0));
-    i1.m_term.add_var(lp_c);
-    ineq i2(llc::EQ, lp::lar_term(), rational(0));
-    i2.m_term.add_var(lp_d);
+    ineq i0(lp_a, llc::EQ, 0);
+    ineq i1(lp_c, llc::EQ, 0);
+    ineq i2(lp_d, llc::EQ, 0);
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
@@ -475,10 +475,8 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
 
     
     nla.get_core().print_lemma(std::cout);
-    ineq i0(llc::EQ, lp::lar_term(), rational(1));
-    i0.m_term.add_var(lp_d);
-    ineq i1(llc::EQ, lp::lar_term(), -rational(1));
-    i1.m_term.add_var(lp_d);
+    ineq i0(lp_d, llc::EQ, 1);
+    ineq i1(lp_d, llc::EQ, -1);
     bool found0 = false;
     bool found1 = false;
 
