@@ -321,7 +321,8 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_derived(const monic& rm
     lpvar jl = null_lpvar;
     for (auto fc : f ) {
         lpvar j = var(fc);
-        if (abs(val(j)) == abs_mv && c().vars_are_equiv(j, mon_var) &&
+        if (j == null_lpvar && abs(val(j)) == abs_mv && 
+            c().vars_are_equiv(j, mon_var) &&
             (mon_var_is_sep_from_zero ||  c().var_is_separated_from_zero(j))) {
             jl = j;
         }
@@ -533,7 +534,7 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based_fm(const mo
     }
     lpvar jl = null_lpvar;
     for (auto j : m.vars() ) {
-        if (abs(val(j)) == abs_mv) {
+        if (jl == null_lpvar && abs(val(j)) == abs_mv) {
             jl = j;
         }
         else if (jl == j)
@@ -645,7 +646,7 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic
     lpvar jl = null_lpvar;
     for (auto fc : f) {
         lpvar j = var(fc);
-        if (abs(val(fc)) == abs_mv) {
+        if (j == null_lpvar && abs(val(fc)) == abs_mv) {
             jl = j;
         }
         else if (j == jl)
