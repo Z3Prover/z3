@@ -783,18 +783,25 @@ namespace smt {
         if (!pr)
             return nullptr;
         SASSERT(m.has_fact(pr));
+        expr* f1 = nullptr, *f2 = nullptr;
         app * fact     = to_app(m.get_fact(pr));
         app * n1_owner = n1->get_owner();
         app * n2_owner = n2->get_owner();
-        bool is_eq = m.is_eq(fact);
-        if (!is_eq || (fact->get_arg(0) != n2_owner && fact->get_arg(1) != n2_owner)) {
+        bool is_eq = m.is_eq(fact, f1, f2);
+        if (is_eq && is_quantifier(f1)) {
+            f1 = m_ctx.get_enode(f1)->get_owner();
+        }
+        if (is_eq && is_quantifier(f2)) {
+            f2 = m_ctx.get_enode(f2)->get_owner();
+        }
+        if (!is_eq || (f1 != n2_owner && f2 != n2_owner)) {
             CTRACE("norm_eq_proof_bug", !m_ctx.is_true(n2) && !m_ctx.is_false(n2),
                    tout << "n1: #" << n1->get_owner_id() << ", n2: #" << n2->get_owner_id() << "\n";
                    if (fact->get_num_args() == 2) {
-                       tout << "fact(0): #" << fact->get_arg(0)->get_id() << ", fact(1): #" << fact->get_arg(1)->get_id() << "\n";
+                       tout << "fact(0): #" << f1->get_id() << ", fact(1): #" << f2->get_id() << "\n";
                    }
-                   tout << mk_bounded_pp(n1->get_owner(), m, 10) << "\n";
-                   tout << mk_bounded_pp(n2->get_owner(), m, 10) << "\n";
+                   tout << mk_bounded_pp(n1_owner, m, 10) << "\n";
+                   tout << mk_bounded_pp(n2_owner, m, 10) << "\n";
                    tout << mk_bounded_pp(fact, m, 10) << "\n";
                    tout << mk_ll_pp(pr, m, true, false););
             SASSERT(m_ctx.is_true(n2) || m_ctx.is_false(n2));
@@ -807,12 +814,16 @@ namespace smt {
             return pr;
         }
         TRACE("norm_eq_proof",
+              tout << mk_bounded_pp(pr, m, 4) << "\n";
+              tout << mk_bounded_pp(n1_owner, m) << "\n";
+              tout << mk_bounded_pp(n2_owner, m) << "\n";
+              tout << mk_bounded_pp(f1, m) << "\n";
+              tout << mk_bounded_pp(f2, m) << "\n";
               tout << "#" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";
               tout << mk_ll_pp(pr, m, true, false););
         SASSERT(m.is_eq(fact));
-        SASSERT((fact->get_arg(0) == n1->get_owner() && fact->get_arg(1) == n2->get_owner()) ||
-                (fact->get_arg(1) == n1->get_owner() && fact->get_arg(0) == n2->get_owner()));
-        if (fact->get_arg(0) == n1_owner && fact->get_arg(1) == n2_owner)
+        SASSERT((f1 == n1_owner && f2 == n2_owner) || (f2 == n1_owner && f1 == n2_owner));
+        if (f1 == n1_owner && f2 == n2_owner)
             return pr;
         pr = m.mk_symmetry(pr);
         m_new_proofs.push_back(pr);
