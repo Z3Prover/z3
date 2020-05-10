@@ -1233,13 +1233,13 @@ rational core::val(const factorization& f) const {
     return r;
 }
 
-new_lemma::new_lemma(core& c):c(c) {
+new_lemma::new_lemma(core& c, char const* name):name(name), c(c) {
     c.m_lemma_vec->push_back(lemma());
 }
 
 new_lemma::~new_lemma() {
     // code for checking lemma can be added here
-    TRACE("nla_solver", tout << *this; );
+    TRACE("nla_solver", tout << name << "\n" << *this; );
 }
 
 lemma& new_lemma::operator()() {
@@ -1247,7 +1247,29 @@ lemma& new_lemma::operator()() {
 }
 
 std::ostream& new_lemma::display(std::ostream & out) const {
-    return c.print_specific_lemma(c.current_lemma(), out);
+    auto const& lemma = c.current_lemma();
+
+    for (auto &p : lemma.expl()) {
+        out << "(" << p.second << ") ";
+        c.m_lar_solver.constraints().display(out, [this](lpvar j) { return c.var_str(j);}, p.second);
+    }
+    out << " ==> ";
+    if (lemma.ineqs().empty()) {
+        out << "false";
+    }
+    else {
+        bool first = true;
+        for (auto & in : lemma.ineqs()) {
+            if (first) first = false; else out << " or ";
+            c.print_ineq(in, out);
+        }
+    }
+    out << "\n";
+    for (lpvar j : c.collect_vars(lemma)) {
+        c.print_var(j, out);
+    }
+
+    return out;
 }
     
 void core::negate_relation(unsigned j, const rational& a) {
@@ -1674,7 +1696,7 @@ bool core::check_pdd_eq(const dd::solver::equation* e) {
         return false;
     eval.get_interval<dd::w_dep::with_deps>(e->poly(), i_wd);  
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-        new_lemma lemma(*this);
+        new_lemma lemma(*this, "pdd");
         current_expl().add(e);
     };
     if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {

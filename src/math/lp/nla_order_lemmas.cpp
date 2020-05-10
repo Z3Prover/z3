@@ -92,7 +92,7 @@ void order::order_lemma_on_binomial(const monic& ac) {
 void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign) {
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
-    new_lemma lemma(c());
+    new_lemma lemma(c(), __FUNCTION__);
     mk_ineq(y,                     sy == 1      ? llc::LE : llc::GE); // negate sy
     mk_ineq(x,                     sy*sign == 1 ? llc::GT : llc::LT , val(x)); 
     mk_ineq(xy.var(), - val(x), y, sign == 1    ? llc::LE : llc::GE);
@@ -174,7 +174,7 @@ void order::generate_mon_ol(const monic& ac,
     SASSERT(ab_cmp != llc::LT || (var_val(ac) >= var_val(bd) && val(a)*c_sign < val(b)*d_sign));
     SASSERT(ab_cmp != llc::GT || (var_val(ac) <= var_val(bd) && val(a)*c_sign > val(b)*d_sign));
     
-    new_lemma lemma(_());
+    new_lemma lemma(_(), __FUNCTION__);
     mk_ineq(c_sign, c, llc::LE);
     explain(c); // this explains c == +- d
     mk_ineq(c_sign, a, -d_sign * b.rat_sign(), b.var(), negate(ab_cmp));
@@ -223,7 +223,7 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
     if (mv != fv) {
         bool gt = mv > fv;
         for (unsigned j = 0, k = 1; j < 2; j++, k--) {
-            new_lemma lemma(_());
+            new_lemma lemma(_(), __FUNCTION__);
             order_lemma_on_ab(lemma, m, rsign, var(ab[k]), var(ab[j]), gt);
             explain(ab); 
             explain(m);
@@ -261,7 +261,7 @@ void order::generate_ol_eq(const monic& ac,
                         const monic& bc,
                         const factor& b)                        {
     
-    new_lemma lemma(_());
+    new_lemma lemma(_(), __FUNCTION__);
 #if 0
     IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
                << " " << ab_cmp << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
@@ -287,7 +287,7 @@ void order::generate_ol(const monic& ac,
                         const monic& bc,
                         const factor& b)                        {
     
-    new_lemma lemma(_());
+    new_lemma lemma(_(), __FUNCTION__);
 #if 0
     IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
                << " " << ab_cmp << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"

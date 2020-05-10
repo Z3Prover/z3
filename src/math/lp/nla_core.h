@@ -82,9 +82,10 @@ class core;
 // correctness of the lemma can be checked at this point.
 //
 class new_lemma {
+    char const* name;
     core& c;
 public:
-    new_lemma(core& c);
+    new_lemma(core& c, char const* name);
     ~new_lemma();
     lemma& operator()();
     std::ostream& display(std::ostream& out) const;
