@@ -1,20 +1,9 @@
 /*++
   Copyright (c) 2017 Microsoft Corporation
 
-  Module Name:
-
-  <name>
-
-  Abstract:
-
-  <abstract>
-
   Author:
-  Nikolaj Bjorner (nbjorner)
-  Lev Nachmanson (levnach)
-
-  Revision History:
-
+    Nikolaj Bjorner (nbjorner)
+    Lev Nachmanson (levnach)
   --*/
 
 #include "math/lp/nla_order_lemmas.h"
@@ -105,7 +94,8 @@ void order::order_lemma_on_factor_binomial_explore(const monic& ac, bool k) {
     lpvar c = ac.vars()[k];
     
     for (monic const& bd : _().emons().get_products_of(c)) {
-        if (bd.var() == ac.var()) continue;
+        if (bd.var() == ac.var()) 
+            continue;
         TRACE("nla_solver", tout << "bd = " << pp_mon_with_vars(_(), bd););
         order_lemma_on_factor_binomial_rm(ac, k, bd);
         if (done()) {
@@ -262,13 +252,13 @@ void order::generate_ol_eq(const monic& ac,
                         const factor& b)                        {
     
     new_lemma lemma(_(), __FUNCTION__);
-#if 0
-    IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
-               << " " << ab_cmp << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
-               << " a " << sign_a << "*v" << var(a) << " " << val(a) << "\n"
-               << " b " << sign_b << "*v" << var(b) << " " << val(b) << "\n"
-               << " c " << sign_c << "*v" << var(c) << " " << val(c) << "\n");
-#endif
+    IF_VERBOSE(100, 
+               verbose_stream() 
+               << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
+               << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
+               << " a " << "*v" << var(a) << " " << val(a) << "\n"
+               << " b " <<  "*v" << var(b) << " " << val(b) << "\n"
+               << " c " <<  "*v" << var(c) << " " << val(c) << "\n");
     // ac == bc
     mk_ineq(c.var(),llc::EQ); // c is not equal to zero
     mk_ineq(ac.var(), -rational(1), bc.var(), llc::NE);
@@ -288,13 +278,11 @@ void order::generate_ol(const monic& ac,
                         const factor& b)                        {
     
     new_lemma lemma(_(), __FUNCTION__);
-#if 0
-    IF_VERBOSE(0, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
-               << " " << ab_cmp << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
-               << " a " << sign_a << "*v" << var(a) << " " << val(a) << "\n"
-               << " b " << sign_b << "*v" << var(b) << " " << val(b) << "\n"
-               << " c " << sign_c << "*v" << var(c) << " " << val(c) << "\n");
-#endif
+    IF_VERBOSE(100, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
+               << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
+               << " a " << "*v" << var(a) << " " << val(a) << "\n"
+               << " b " << "*v" << var(b) << " " << val(b) << "\n"
+               << " c " << "*v" << var(c) << " " << val(c) << "\n");
     // fix the sign of c
     _().negate_relation(c.var(), rational(0));
     _().negate_var_relation_strictly(ac.var(), bc.var());
@@ -326,7 +314,7 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
         generate_ol(ac, a, c, bc, b);
         return true;
     } else {
-        if((var_val(ac) == var_val(bc)) && (av_c_s != bv_c_s)) {
+        if ((var_val(ac) == var_val(bc)) && (av_c_s != bv_c_s)) {
             generate_ol_eq(ac, a, c, bc, b);
         }
     }

@@ -1,21 +1,10 @@
 /*++
   Copyright (c) 2017 Microsoft Corporation
 
-  Module Name:
-
-  <name>
-
-  Abstract:
-
-  <abstract>
-
   Author:
-  Lev Nachmanson (levnach)
+    Lev Nachmanson (levnach)
+--*/
 
-  Revision History:
-
-
-  --*/
 #pragma once
 #include <initializer_list>
 #include "math/lp/nla_defs.h"

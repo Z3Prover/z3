@@ -1,21 +1,9 @@
 /*++
   Copyright (c) 2017 Microsoft Corporation
 
-  Module Name:
-
-  <name>
-
-  Abstract:
-
-  <abstract>
-
   Author:
-  Nikolaj Bjorner (nbjorner)
-  Lev Nachmanson (levnach)
-
-  Revision History:
-
-
+   Lev Nachmanson (levnach)
+   Nikolaj Bjorner (nbjorner)
   --*/
 #pragma once
 #include <map>

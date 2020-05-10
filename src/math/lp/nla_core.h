@@ -6,8 +6,8 @@
   nla_core.h
 
   Author:
-  Nikolaj Bjorner (nbjorner)
-  Lev Nachmanson (levnach)
+    Lev Nachmanson (levnach)
+    Nikolaj Bjorner (nbjorner)
 
 --*/
 #pragma once
@@ -46,7 +46,7 @@ const lpvar null_lpvar = UINT_MAX;
 
 inline int rat_sign(const rational& r) { return r.is_pos()? 1 : ( r.is_neg()? -1 : 0); }
 inline rational rrat_sign(const rational& r) { return rational(rat_sign(r)); }
-inline bool is_set(unsigned j) {  return static_cast<int>(j) != -1; } 
+inline bool is_set(unsigned j) {  return j != null_lpvar; } 
 inline bool is_even(unsigned k) { return (k >> 1) << 1 == k; }
 struct ineq {
     lp::lconstraint_kind m_cmp;

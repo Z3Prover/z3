@@ -6,8 +6,8 @@ Module Name:
     nla_core.cpp
 
 Author:
-    Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
+    Nikolaj Bjorner (nbjorner)
 
 --*/
 #include "math/lp/nla_core.h"
@@ -504,7 +504,7 @@ void core::fill_explanation_and_lemma_sign(const monic& a, const monic & b, rati
           tout << "used constraints: ";
           for (auto &p :  current_expl())
               m_lar_solver.constraints().display(tout, p.second); tout << "\n";
-                                                 );
+          );
     SASSERT(current_ineqs().size() == 0);
     mk_ineq(rational(1), a.var(), -sign, b.var(), llc::EQ, rational::zero());
     TRACE("nla_solver", print_lemma(tout););
@@ -843,7 +843,7 @@ bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &
         return false;
     bool seen_minus = false;
     bool seen_plus = false;
-    i = -1;
+    i = null_lpvar;
     for(const auto & p : t) {
         const auto & c = p.coeff();
         if (c == 1) {
@@ -853,12 +853,12 @@ bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &
         } else {
             return false;
         }
-        if (i == static_cast<lpvar>(-1))
+        if (i == null_lpvar)
             i = p.column();
         else
             j = p.column();
     }
-    SASSERT(j != static_cast<unsigned>(-1));
+    SASSERT(j != null_lpvar);
     sign = (seen_minus && seen_plus)? false : true;
     return true;
 }
