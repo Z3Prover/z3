@@ -47,12 +47,17 @@ const lpvar null_lpvar = UINT_MAX;
 inline int rat_sign(const rational& r) { return r.is_pos()? 1 : ( r.is_neg()? -1 : 0); }
 inline rational rrat_sign(const rational& r) { return rational(rat_sign(r)); }
 inline bool is_set(unsigned j) {  return j != null_lpvar; } 
-inline bool is_even(unsigned k) { return (k >> 1) << 1 == k; }
-struct ineq {
+inline bool is_even(unsigned k) { return (k & 1) == 0; }
+class ineq {
     lp::lconstraint_kind m_cmp;
     lp::lar_term         m_term;
     rational             m_rs;
+public:
     ineq(lp::lconstraint_kind cmp, const lp::lar_term& term, const rational& rs) : m_cmp(cmp), m_term(term), m_rs(rs) {}
+    ineq(const lp::lar_term& term, lp::lconstraint_kind cmp, int i) : m_cmp(cmp), m_term(term), m_rs(rational(i)) {}
+    ineq(const lp::lar_term& term, lp::lconstraint_kind cmp, const rational& rs) : m_cmp(cmp), m_term(term), m_rs(rs) {}
+    ineq(lpvar v, lp::lconstraint_kind cmp, int i): m_cmp(cmp), m_term(v), m_rs(rational(i)) {}
+    ineq(lpvar v, lp::lconstraint_kind cmp, rational const& r): m_cmp(cmp), m_term(v), m_rs(r) {}
     bool operator==(const ineq& a) const {
         return m_cmp == a.m_cmp && m_term == a.m_term && m_rs == a.m_rs;
     }
@@ -87,9 +92,14 @@ class new_lemma {
 public:
     new_lemma(core& c, char const* name);
     ~new_lemma();
+    new_lemma& add(ineq const& ineq);
     lemma& operator()();
     std::ostream& display(std::ostream& out) const;
 };
+
+inline new_lemma& operator|=(new_lemma& lemma, ineq const& i) {
+    return lemma.add(i);
+}
 
 inline std::ostream& operator<<(std::ostream& out, new_lemma const& l) {
     return l.display(out);
@@ -295,7 +305,6 @@ public:
     void mk_ineq(lpvar j, llc cmp, const rational& rs);
     void mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs);
     void mk_ineq(const rational& a, lpvar j, llc cmp);
-    void mk_ineq(lpvar j, lpvar k, llc cmp, lemma& l);
     void mk_ineq(lpvar j, llc cmp);
     
     

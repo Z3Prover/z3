@@ -93,5 +93,6 @@ struct basics: common {
     void generate_pl(const monic& rm, const factorization& fc, int factor_index);   
     bool is_separated_from_zero(const factorization&) const;
     bool factorization_has_real(const factorization&) const;
+    bool mon_has_real(const monic& m) const;
 };
 }

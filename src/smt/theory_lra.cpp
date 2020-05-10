@@ -2169,7 +2169,7 @@ public:
         literal_vector core;
         for (auto const& ineq : m_lemma.ineqs()) {
             bool is_lower = true, pos = true, is_eq = false;
-            switch (ineq.m_cmp) {
+            switch (ineq.cmp()) {
             case lp::LE: is_lower = false; pos = false;  break;
             case lp::LT: is_lower = true;  pos = true; break;
             case lp::GE: is_lower = true;  pos = false;  break;
@@ -2183,11 +2183,11 @@ public:
             // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
             // then term is used instead of ineq.m_term
             if (is_eq) {
-                atom = mk_eq(ineq.m_term, ineq.m_rs);
+                atom = mk_eq(ineq.term(), ineq.rs());
             }
             else {
                 // create term >= 0 (or term <= 0)
-                atom = mk_bound(ineq.m_term, ineq.m_rs, is_lower);
+                atom = mk_bound(ineq.term(), ineq.rs(), is_lower);
             }
             literal lit(ctx().get_bool_var(atom), pos);
             core.push_back(~lit);

@@ -487,9 +487,6 @@ void core::mk_ineq(const rational& a, lpvar j, llc cmp) {
     mk_ineq(a, j, cmp, rational::zero());
 }
 
-void core::mk_ineq(lpvar j, lpvar k, llc cmp, lemma& _l) {
-    mk_ineq(rational(1), j, rational(1), k, cmp, rational::zero());
-}
 
 void core::mk_ineq(lpvar j, llc cmp) {
     mk_ineq(j, cmp, rational::zero());
@@ -633,8 +630,8 @@ bool core::var_is_free(lpvar j) const {
 }
     
 std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
-    m_lar_solver.print_term_as_indices(in.m_term, out);
-    out << " " << lconstraint_kind_string(in.m_cmp) << " " << in.m_rs;
+    m_lar_solver.print_term_as_indices(in.term(), out);
+    out << " " << lconstraint_kind_string(in.cmp()) << " " << in.rs();
     return out;
 }
 
@@ -671,7 +668,7 @@ std::ostream & core::print_ineqs(const lemma& l, std::ostream & out) const {
             auto & in = l.ineqs()[i]; 
             print_ineq(in, out);
             if (i + 1 < l.ineqs().size()) out << " or ";
-            for (const auto & p: in.m_term)
+            for (const auto & p: in.term())
                 vars.insert(p.column());
         }
         out << std::endl;
@@ -1049,7 +1046,7 @@ void core::negate_factor_equality(const factor& c,
     if (iv == jv) {
         mk_ineq(i, -rational(1), j, llc::NE);
     } else { // iv == -jv
-        mk_ineq(i, j, llc::NE, current_lemma());                
+        mk_ineq(i, j, llc::NE, rational::zero());
     }
 }
     
@@ -1235,6 +1232,15 @@ rational core::val(const factorization& f) const {
 
 new_lemma::new_lemma(core& c, char const* name):name(name), c(c) {
     c.m_lemma_vec->push_back(lemma());
+}
+
+new_lemma& new_lemma::add(ineq const& ineq) {
+    if (!c.explain_ineq(ineq.term(), ineq.cmp(), ineq.rs())) {
+        c.current_lemma().push_back(ineq);
+        CTRACE("nla_solver", c.ineq_holds(ineq), c.print_ineq(ineq, tout) << "\n";);
+        SASSERT(!c.ineq_holds(ineq));
+    }
+    return *this;
 }
 
 new_lemma::~new_lemma() {
