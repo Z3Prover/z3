@@ -208,8 +208,7 @@ std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
     if (f.sign())
         out << "- ";
     if (f.is_var()) {
-        out << "VAR,  ";
-        print_var(f.var(), out);
+        out << "VAR,  " << pp(f.var());
     } else {
         out << "MON, v" << m_emons[f.var()] << " = ";
         print_product(m_emons[f.var()].rvars(), out);
@@ -220,7 +219,7 @@ std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
 
 std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) const {
     if (f.is_var()) {
-        print_var(f.var(), out);
+        out << pp(f.var());
     } 
     else {
         out << " MON = " << pp_mon_with_vars(*this, m_emons[f.var()]);
@@ -240,10 +239,7 @@ std::ostream& core::print_monic(const monic& m, std::ostream& out) const {
 
 std::ostream& core::print_bfc(const factorization& m, std::ostream& out) const {
     SASSERT(m.size() == 2);
-    out << "( x = ";
-    print_factor(m[0], out);
-    out <<  "* y = ";
-    print_factor(m[1], out); out <<  ")";
+    out << "( x = " << pp(m[0]) << "* y = " << pp(m[1]) << ")";
     return out;
 }
 
@@ -260,7 +256,7 @@ std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const
 }
 
 std::ostream& core::print_monic_with_vars(const monic& m, std::ostream& out) const {
-    out << "["; print_var(m.var(), out) << "]\n";
+    out << "[" << pp(m.var()) << "]\n";
     out << "vars:"; print_product_with_vars(m.vars(), out) << "\n";
     if (m.vars() == m.rvars())
         out << "same rvars, and m.rsign = " << m.rsign() << " of course\n";
@@ -318,7 +314,7 @@ bool core::explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::ex
     return true;
 }
 
-bool core:: explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
+bool core::explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
     const rational& a = p.coeff();
     SASSERT(!a.is_zero());
     unsigned c; // the index for the lower or the upper bound
@@ -362,7 +358,7 @@ bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& boun
 }
     
 // return true iff the negation of the ineq can be derived from the constraints
-bool core:: explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
+bool core::explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
     // check that we have something like 0 < 0, which is always false and can be safely
     // removed from the lemma
         
@@ -409,7 +405,7 @@ bool core:: explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
  if t is an octagon term -+x -+ y try to explain why the term always is
  equal zero
 */
-bool core:: explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const {
+bool core::explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const {
     lpvar i,j;
     bool sign;
     if (!is_octagon_term(t, sign, i, j))
@@ -446,31 +442,31 @@ void core::mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc c
     mk_ineq(t, cmp, rs);
 }
 
-void core:: mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
+void core::mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
     mk_ineq(rational(1), j, b, k, cmp, rs);
 }
 
-void core:: mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp) {
+void core::mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp) {
     mk_ineq(j, b, k, cmp, rational::zero());
 }
 
-void core:: mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp) {
+void core::mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp) {
     mk_ineq(a, j, b, k, cmp, rational::zero());
 }
 
-void core:: mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs) {
+void core::mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs) {
     mk_ineq(a, j, rational(1), k, cmp, rs);
 }
 
-void core:: mk_ineq(lpvar j, lpvar k, llc cmp, const rational& rs) {
+void core::mk_ineq(lpvar j, lpvar k, llc cmp, const rational& rs) {
     mk_ineq(j, rational(1), k, cmp, rs);
 }
 
-void core:: mk_ineq(lpvar j, llc cmp, const rational& rs) {
+void core::mk_ineq(lpvar j, llc cmp, const rational& rs) {
     mk_ineq(rational(1), j, cmp, rs);
 }
 
-void core:: mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs) {
+void core::mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs) {
     lp::lar_term t;        
     t.add_monomial(a, j);
     mk_ineq(t, cmp, rs);
@@ -487,20 +483,20 @@ llc apply_minus(llc cmp) {
     return cmp;
 }
     
-void core:: mk_ineq(const rational& a, lpvar j, llc cmp) {
+void core::mk_ineq(const rational& a, lpvar j, llc cmp) {
     mk_ineq(a, j, cmp, rational::zero());
 }
 
-void core:: mk_ineq(lpvar j, lpvar k, llc cmp, lemma& l) {
+void core::mk_ineq(lpvar j, lpvar k, llc cmp, lemma& l) {
     mk_ineq(rational(1), j, rational(1), k, cmp, rational::zero());
 }
 
-void core:: mk_ineq(lpvar j, llc cmp) {
+void core::mk_ineq(lpvar j, llc cmp) {
     mk_ineq(j, cmp, rational::zero());
 }
     
 // the monics should be equal by modulo sign but this is not so in the model
-void core:: fill_explanation_and_lemma_sign(const monic& a, const monic & b, rational const& sign) {
+void core::fill_explanation_and_lemma_sign(const monic& a, const monic & b, rational const& sign) {
     SASSERT(sign == 1 || sign == -1);
     explain(a, current_expl());
     explain(b, current_expl());
@@ -524,9 +520,7 @@ svector<lpvar> core::reduce_monic_to_rooted(const svector<lpvar> & vars, rationa
         auto root = m_evars.find(v);
         s ^= root.sign();
         TRACE("nla_solver_eq",
-              print_var(v,tout);
-              tout << " mapped to ";
-              print_var(root.var(), tout););
+              tout << pp(v) << " mapped to " << pp(root.var()) << "\n";);
         ret.push_back(root.var());
     }
     sign = rational(s? -1: 1);
@@ -564,11 +558,11 @@ int core::vars_sign(const svector<lpvar>& v) {
 
     
 
-bool core:: has_upper_bound(lpvar j) const {
+bool core::has_upper_bound(lpvar j) const {
     return m_lar_solver.column_has_upper_bound(j);
 } 
 
-bool core:: has_lower_bound(lpvar j) const {
+bool core::has_lower_bound(lpvar j) const {
     return m_lar_solver.column_has_lower_bound(j);
 } 
 const rational& core::get_upper_bound(unsigned j) const {
@@ -612,30 +606,29 @@ bool core::sign_contradiction(const monic& m) const {
 
 /*
   unsigned_vector eq_vars(lpvar j) const {
-  TRACE("nla_solver_eq", tout << "j = "; print_var(j, tout); tout << "eqs = ";
-  for(auto jj : m_evars.eq_vars(j)) {
-  print_var(jj, tout);
+  TRACE("nla_solver_eq", tout << "j = " << pp(j) << "eqs = ";
+  for(auto jj : m_evars.eq_vars(j)) tout << pp(jj) << " ";
   });
   return m_evars.eq_vars(j);
   }
 */
 
-bool core:: var_is_fixed_to_zero(lpvar j) const {
+bool core::var_is_fixed_to_zero(lpvar j) const {
     return 
         m_lar_solver.column_is_fixed(j) &&
         m_lar_solver.get_lower_bound(j) == lp::zero_of_type<lp::impq>();
 }
-bool core:: var_is_fixed_to_val(lpvar j, const rational& v) const {
+bool core::var_is_fixed_to_val(lpvar j, const rational& v) const {
     return 
         m_lar_solver.column_is_fixed(j) &&
         m_lar_solver.get_lower_bound(j) == lp::impq(v);
 }
 
-bool core:: var_is_fixed(lpvar j) const {
+bool core::var_is_fixed(lpvar j) const {
     return m_lar_solver.column_is_fixed(j);
 }
 
-bool core:: var_is_free(lpvar j) const {
+bool core::var_is_free(lpvar j) const {
     return m_lar_solver.column_is_free(j);
 }
     
@@ -696,8 +689,7 @@ std::ostream & core::print_factorization(const factorization& f, std::ostream& o
     } 
     else {
         for (unsigned k = 0; k < f.size(); k++ ) {
-            out << "(";
-            print_factor(f[k], out) << ")";
+            out << "(" << pp(f[k]) << ")";
             if (k < f.size() - 1)
                 out << "*";
         }
@@ -757,15 +749,15 @@ void core::explain_fixed_var(lpvar j) {
     current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
 }
 
-bool core:: var_has_positive_lower_bound(lpvar j) const {
+bool core::var_has_positive_lower_bound(lpvar j) const {
     return m_lar_solver.column_has_lower_bound(j) && m_lar_solver.get_lower_bound(j) > lp::zero_of_type<lp::impq>();
 }
 
-bool core:: var_has_negative_upper_bound(lpvar j) const {
+bool core::var_has_negative_upper_bound(lpvar j) const {
     return m_lar_solver.column_has_upper_bound(j) && m_lar_solver.get_upper_bound(j) < lp::zero_of_type<lp::impq>();
 }
     
-bool core:: var_is_separated_from_zero(lpvar j) const {
+bool core::var_is_separated_from_zero(lpvar j) const {
     return
         var_has_negative_upper_bound(j) ||
         var_has_positive_lower_bound(j);
@@ -806,7 +798,7 @@ bool core::has_zero_factor(const factorization& factorization) const {
 
 
 template <typename T>
-bool core:: mon_has_zero(const T& product) const {
+bool core::mon_has_zero(const T& product) const {
     for (lpvar j: product) {
         if (val(j).is_zero())
             return true;
@@ -846,7 +838,7 @@ void core::collect_equivs() {
 
 // returns true iff the term is in a form +-x-+y.
 // the sign is true iff the term is x+y, -x-y.
-bool core:: is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &j) const {
+bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &j) const {
     if (t.size() != 2)
         return false;
     bool seen_minus = false;
@@ -898,14 +890,14 @@ bool core::rm_table_is_ok() const {
     return true;
 }
     
-bool core:: tables_are_ok() const {
+bool core::tables_are_ok() const {
     return vars_table_is_ok() && rm_table_is_ok();
 }
     
-bool core:: var_is_a_root(lpvar j) const { return m_evars.is_root(j); }
+bool core::var_is_a_root(lpvar j) const { return m_evars.is_root(j); }
 
 template <typename T>
-bool core:: vars_are_roots(const T& v) const {
+bool core::vars_are_roots(const T& v) const {
     for (lpvar j: v) {
         if (!var_is_a_root(j))
             return false;
@@ -1033,7 +1025,7 @@ bool core::divide(const monic& bc, const factor& c, factor & b) const {
     // Dividing by bc.rvars() we get canonize_sign(bc) = canonize_sign(b)*canonize_sign(c)
     // Currently, canonize_sign(b) is 1, we might need to adjust it
     b.sign() = canonize_sign(b) ^ canonize_sign(c) ^ canonize_sign(bc); 
-    TRACE("nla_solver", tout << "success div:"; print_factor(b, tout););
+    TRACE("nla_solver", tout << "success div:" << pp(b) << "\n";);
     return true;
 }
 
@@ -1069,20 +1061,18 @@ void core::negate_factor_relation(const rational& a_sign, const factor& a, const
 }
 
 std::ostream& core::print_lemma(std::ostream& out) const {
-    print_specific_lemma(current_lemma(), out);
-    return out;
+    return print_specific_lemma(current_lemma(), out);
 }
 
-void core::print_specific_lemma(const lemma& l, std::ostream& out) const {
+std::ostream& core::print_specific_lemma(const lemma& l, std::ostream& out) const {
     static int n = 0;
-    out << "lemma:" << ++n << " ";
+    out << "lemma:" << ++n << " ";    
     print_ineqs(l, out);
-    print_explanation(l.expl(), out);
-    std::unordered_set<lpvar> vars = collect_vars(current_lemma());
-        
-    for (lpvar j : vars) {
+    print_explanation(l.expl(), out);        
+    for (lpvar j : collect_vars(current_lemma())) {
         print_var(j, out);
     }
+    return out;
 }
     
 
@@ -1243,8 +1233,21 @@ rational core::val(const factorization& f) const {
     return r;
 }
 
-void core::add_lemma() {
-    m_lemma_vec->push_back(lemma()); 
+new_lemma::new_lemma(core& c):c(c) {
+    c.m_lemma_vec->push_back(lemma());
+}
+
+new_lemma::~new_lemma() {
+    // code for checking lemma can be added here
+    TRACE("nla_solver", tout << *this; );
+}
+
+lemma& new_lemma::operator()() {
+    return c.current_lemma();
+}
+
+std::ostream& new_lemma::display(std::ostream & out) const {
+    return c.print_specific_lemma(c.current_lemma(), out);
 }
     
 void core::negate_relation(unsigned j, const rational& a) {
@@ -1521,7 +1524,7 @@ lbool core::check(vector<lemma>& l_vec) {
     return ret;
 }
 
-bool core:: no_lemmas_hold() const {
+bool core::no_lemmas_hold() const {
     for (auto & l : * m_lemma_vec) {
         if (lemma_holds(l)) {
             TRACE("nla_solver", print_specific_lemma(l, tout););
@@ -1671,7 +1674,7 @@ bool core::check_pdd_eq(const dd::solver::equation* e) {
         return false;
     eval.get_interval<dd::w_dep::with_deps>(e->poly(), i_wd);  
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-        add_lemma();
+        new_lemma lemma(*this);
         current_expl().add(e);
     };
     if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
@@ -1685,7 +1688,7 @@ bool core::check_pdd_eq(const dd::solver::equation* e) {
 
 void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar> & q) {
     if (active_var_set_contains(j) || var_is_fixed(j)) return;
-    TRACE("grobner", tout << "j = " << j << ", "; print_var(j, tout) << "\n";);
+    TRACE("grobner", tout << "j = " << j << ", " << pp(j););
     const auto& matrix = m_lar_solver.A_r();
     insert_to_active_var_set(j);
     for (auto & s : matrix.m_columns[j]) {

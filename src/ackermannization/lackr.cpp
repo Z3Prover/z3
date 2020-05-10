@@ -271,6 +271,7 @@ lbool lackr::lazy() {
 bool lackr::collect_terms() {
     ptr_vector<expr> stack = m_formulas;
     expr_mark        visited;
+    func_decl* f;
 
     while (!stack.empty()) {
         expr * curr = stack.back();
@@ -291,6 +292,8 @@ bool lackr::collect_terms() {
                     m_ackr_helper.mark_non_select(a, m_non_select);
                     add_term(a);
                 }                
+                if (m_autil.is_as_array(curr, f))
+                    m_non_funs.mark(f, true);
                 break;
             }
             case AST_QUANTIFIER:
@@ -302,6 +305,7 @@ bool lackr::collect_terms() {
     }
 
     m_ackr_helper.prune_non_select(m_sel2terms, m_non_select);
+    m_ackr_helper.prune_non_funs(m_fun2terms, m_non_funs);
     
     return true;
 }

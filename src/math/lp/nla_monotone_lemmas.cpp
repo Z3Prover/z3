@@ -27,7 +27,7 @@ monotone::monotone(core * c) : common(c) {}
 void monotone::monotonicity_lemma() {
     unsigned shift = random();
     unsigned size = c().m_to_refine.size();
-    for(unsigned i = 0; i < size && !done(); i++) { 
+    for (unsigned i = 0; i < size && !done(); i++) { 
         lpvar v = c().m_to_refine[(i + shift) % size];
         monotonicity_lemma(c().emons()[v]);
     }
@@ -50,7 +50,7 @@ void monotone::monotonicity_lemma(monic const& m) {
 void monotone::monotonicity_lemma_gt(const monic& m, const rational& prod_val) {
     TRACE("nla_solver", tout << "prod_val = " << prod_val << "\n";
           tout << "m = "; c().print_monic_with_vars(m, tout););
-    add_lemma();
+    new_lemma lemma(c());
     for (lpvar j : m.vars()) {
         c().add_abs_bound(j, llc::GT);
     }
@@ -66,7 +66,7 @@ void monotone::monotonicity_lemma_gt(const monic& m, const rational& prod_val) {
     \/_i |m[i]| < |val(m[i])} or |m| >= |product_i val(m[i])|
 */
 void monotone::monotonicity_lemma_lt(const monic& m, const rational& prod_val) {
-    add_lemma();
+    new_lemma lemma(c());
     for (lpvar j : m.vars()) {
         c().add_abs_bound(j, llc::LT);
     }
