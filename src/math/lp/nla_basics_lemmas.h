@@ -76,7 +76,7 @@ struct basics: common {
     lpvar find_best_zero(const monic& m, unsigned_vector & fixed_zeros) const;
     bool try_get_non_strict_sign_from_bounds(lpvar j, int& sign) const;
     void get_non_strict_sign(lpvar j, int& sign) const;
-    void add_trival_zero_lemma(lpvar zero_j, const monic& m);
+    void add_trivial_zero_lemma(lpvar zero_j, const monic& m);
     void generate_strict_case_zero_lemma(const monic& m, unsigned zero_j, int sign_of_zj);
     
     void add_fixed_zero_lemma(const monic& m, lpvar j);
