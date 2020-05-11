@@ -200,7 +200,7 @@ void basics::add_fixed_zero_lemma(const monic& m, lpvar j) {
 }
 
 void basics::negate_strict_sign(new_lemma& lemma, lpvar j) {
-    TRACE("nla_solver_details", tout << pp_var(c(), j) << "\n";);
+    TRACE("nla_solver_details", tout << pp_var(c(), j) << " " << val(j).is_zero() << "\n";);
     if (!val(j).is_zero()) {
         int sign = nla::rat_sign(val(j));
         lemma |= ineq(j, (sign == 1? llc::LE : llc::GE), 0);
@@ -635,7 +635,7 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic
     new_lemma lemma(c(), __FUNCTION__);
     lemma |= ineq(mon_var, llc::EQ, 0);        
     lemma |= ineq(term(u, rational(val(u) == -val(mon_var) ? 1 : -1), mon_var), llc::NE, 0);
-    lemma |= ineq(v, llc::EQ, 1);        
+    lemma |= ineq(v, llc::EQ, 1);
     lemma |= ineq(v, llc::EQ, -1);
     lemma &= rm; // NSB review: is this dependency required?
     lemma &= f;

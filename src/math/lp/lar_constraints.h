@@ -251,8 +251,8 @@ public:
         
     std::ostream& display(std::ostream& out) const {
         out << "number of constraints = " << m_constraints.size() << std::endl;
-        for (auto const& c : active()) {
-            display(out, c);
+        for (auto const& c : indices()) {
+            display(out << "(" << c << ") ", *m_constraints[c]);
         }
         return out;
     }

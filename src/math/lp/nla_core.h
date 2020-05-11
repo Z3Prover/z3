@@ -90,7 +90,6 @@ class new_lemma {
     char const* name;
     core& c;
     lemma& current() const;
-    lp::explanation& expl() { return current().expl(); }
 
 public:
     new_lemma(core& c, char const* name);
@@ -109,6 +108,8 @@ public:
     new_lemma& explain_existing_lower_bound(lpvar j);
     new_lemma& explain_existing_upper_bound(lpvar j);    
     new_lemma& explain_separation_from_zero(lpvar j);
+
+    lp::explanation& expl() { return current().expl(); }
 
     unsigned num_ineqs() const { return current().ineqs().size(); }
 };

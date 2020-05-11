@@ -1100,8 +1100,9 @@ new_lemma& new_lemma::operator|=(ineq const& ineq) {
 }
 
 new_lemma::~new_lemma() {
+    static int i = 0;
     // code for checking lemma can be added here
-    TRACE("nla_solver", tout << name << "\n" << *this; );
+    TRACE("nla_solver", tout << name << " " << (++i) << "\n" << *this; );
 }
 
 lemma& new_lemma::current() const {
@@ -1143,8 +1144,8 @@ new_lemma& new_lemma::operator&=(lpvar j) {
 
 new_lemma& new_lemma::explain_fixed(lpvar j) {
     SASSERT(c.var_is_fixed(j));
-    *this &= c.m_lar_solver.get_column_upper_bound_witness(j);
-    *this &= c.m_lar_solver.get_column_lower_bound_witness(j);
+    explain_existing_lower_bound(j);
+    explain_existing_upper_bound(j);
     return *this;
 }
 
@@ -1164,21 +1165,26 @@ new_lemma& new_lemma::explain_var_separated_from_zero(lpvar j) {
     SASSERT(c.var_is_separated_from_zero(j));
     if (c.m_lar_solver.column_has_upper_bound(j) && 
         (c.m_lar_solver.get_upper_bound(j)< lp::zero_of_type<lp::impq>())) 
-        *this &= c.m_lar_solver.get_column_upper_bound_witness(j);
+        explain_existing_upper_bound(j);
     else 
-        *this &= c.m_lar_solver.get_column_lower_bound_witness(j);
+        explain_existing_lower_bound(j);
     return *this;
 }
 
 new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
     SASSERT(c.has_lower_bound(j));
-    *this &= c.m_lar_solver.get_column_lower_bound_witness(j);
+    lp::explanation ex;
+    ex.add(c.m_lar_solver.get_column_lower_bound_witness(j));
+    *this &= ex;
+    TRACE("nla_solver", tout << j << ": " << *this << "\n";);
     return *this;
 }
 
 new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
     SASSERT(c.has_upper_bound(j));
-    *this &= c.m_lar_solver.get_column_upper_bound_witness(j);
+    lp::explanation ex;
+    ex.add(c.m_lar_solver.get_column_upper_bound_witness(j));
+    *this &= ex;
     return *this;
 }
     
@@ -1468,14 +1474,28 @@ lbool core::check(vector<lemma>& l_vec) {
         }
     }
 
-    if (!done())
-        incremental_linearization(true);
+    TRACE("nla_solver_details", print_terms(tout); tout << m_lar_solver.constraints(););
+    if (!done()) 
+        m_basics.basic_lemma(true);    
 
-    if (!done() && m_lemma_vec->empty())
-        incremental_linearization(false);
+    TRACE("nla_solver", tout << "passed constraint_derived and basic lemmas\n";);
+    SASSERT(elists_are_consistent(true));
 
-    lbool ret = !m_lemma_vec->empty() && !lp_settings().get_cancel_flag() ? l_false : l_undef;
-    TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemma_vec->size() << "\n";);
+    if (l_vec.empty() && !done()) 
+        m_basics.basic_lemma(false);
+    
+    if (l_vec.empty() && !done()) 
+        m_order.order_lemma();    
+
+    if (l_vec.empty() && !done()) {
+        if (!done())
+            m_monotone.monotonicity_lemma();
+        if (!done())
+            m_tangents.tangent_lemma();
+    }
+
+    lbool ret = !l_vec.empty() && !lp_settings().get_cancel_flag() ? l_false : l_undef;
+    TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););
     return ret;
@@ -1840,14 +1860,9 @@ unsigned core::get_var_weight(lpvar j) const {
     return k;
 }
 
-
 bool core::is_nl_var(lpvar j) const {
-    if (is_monic_var(j))
-        return true;
-    return m_emons.is_used_in_monic(j);
+    return is_monic_var(j) || m_emons.is_used_in_monic(j);
 }
-
-
 
 bool core::influences_nl_var(lpvar j) const {
     if (lp::tv::is_term(j))
