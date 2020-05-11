@@ -489,8 +489,7 @@ const rational& core::get_upper_bound(unsigned j) const {
 
 const rational& core::get_lower_bound(unsigned j) const {
     return m_lar_solver.get_lower_bound(j).x;
-}
-    
+}    
     
 bool core::zero_is_an_inner_point_of_bounds(lpvar j) const {
     if (has_upper_bound(j) && get_upper_bound(j) <= rational(0))            
@@ -1240,44 +1239,19 @@ bool core::done() const {
         lp_settings().get_cancel_flag();
 }
 
-lbool core::incremental_linearization(bool constraint_derived) {
+void core::incremental_linearization(bool constraint_derived) {
     TRACE("nla_solver_details", print_terms(tout); tout << m_lar_solver.constraints(););
-    for (int search_level = 0; search_level < 3 && !done(); search_level++) {
-        TRACE("nla_solver", tout << "constraint_derived = " << constraint_derived << ", search_level = " << search_level << "\n";);
-        if (search_level == 0) {
-            m_basics.basic_lemma(constraint_derived);
-            if (!m_lemma_vec->empty())
-                return l_false;
-        }
-        if (constraint_derived) continue;
-        TRACE("nla_solver", tout << "passed constraint_derived and basic lemmas\n";);
-        SASSERT(elists_are_consistent(true));
-        if (search_level == 1) {
-            m_order.order_lemma();
-        } else if (search_level == 2) {
-            m_monotone. monotonicity_lemma();
-            m_tangents.tangent_lemma();
-        }
-    }
-    return m_lemma_vec->empty()? l_undef : l_false;
-}
-// constraint_derived is set to true when we do not use the model values to
-// obtain the lemmas
-lbool core::inner_check(bool constraint_derived) {
-    if (constraint_derived) {
-        if (need_to_call_algebraic_methods())
-            if (!m_horner.horner_lemmas()) {
-                clear_and_resize_active_var_set();
-                if (m_nla_settings.run_grobner()) {
-                    find_nl_cluster();
-                    run_grobner();
-                }
-            }
-        if (done()) {
-            return l_false;
-        }
-    }
-    return incremental_linearization(constraint_derived);
+    m_basics.basic_lemma(constraint_derived);
+    if (!m_lemma_vec->empty() || constraint_derived || done())
+        return;
+    TRACE("nla_solver", tout << "passed constraint_derived and basic lemmas\n";);
+    SASSERT(elists_are_consistent(true));
+    if (!done())
+        m_order.order_lemma();
+    if (!done()) 
+        m_monotone.monotonicity_lemma();
+    if (!done())
+        m_tangents.tangent_lemma();    
 }
 
 bool core::elist_is_consistent(const std::unordered_set<lpvar> & list) const {
@@ -1480,10 +1454,27 @@ lbool core::check(vector<lemma>& l_vec) {
     
     init_search();
     
-    lbool ret = inner_check(true);
-    if (ret == l_undef)
-        ret = inner_check(false);
+    bool enable_grobner = false;
 
+    if (need_to_call_algebraic_methods()) {
+        enable_grobner = !m_horner.horner_lemmas();
+    }
+
+    if (enable_grobner && !done()) {
+        clear_and_resize_active_var_set();  // NSB code review: why is this independent of whether Grobner is run?
+        if (m_nla_settings.run_grobner()) {
+            find_nl_cluster();
+            run_grobner();
+        }
+    }
+
+    if (!done())
+        incremental_linearization(true);
+
+    if (!done() && m_lemma_vec->empty())
+        incremental_linearization(false);
+
+    lbool ret = !m_lemma_vec->empty() && !lp_settings().get_cancel_flag() ? l_false : l_undef;
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemma_vec->size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););

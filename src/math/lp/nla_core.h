@@ -215,11 +215,10 @@ public:
 
     // returns true if the combination of the Horner's schema and Grobner Basis should be called
     bool need_to_call_algebraic_methods() const { 
-	return
-            lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency() == 0; 
+	    return lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency() == 0; 
     }
     
-    lbool incremental_linearization(bool);
+    void incremental_linearization(bool);
     
     svector<lpvar> sorted_rvars(const factor& f) const;
     bool done() const;
@@ -407,7 +406,6 @@ public:
     bool  find_bfc_to_refine(const monic* & m, factorization& bf);
 
     bool  conflict_found() const;
-    lbool  inner_check(bool derived);
     
     lbool  check(vector<lemma>& l_vec);
 

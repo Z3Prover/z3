@@ -2199,7 +2199,7 @@ public:
         switch (r) {
         case l_false: {
             m_stats.m_nla_lemmas += lv.size();
-            for(const nla::lemma & l : lv) {
+            for (const nla::lemma & l : lv) {
                 false_case_of_check_nla(l);
             }
             break;
