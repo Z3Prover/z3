@@ -98,7 +98,9 @@ bool nex_creator::gt_on_powers_mul_same_degree(const T& a, const nex_mul& b) con
     bool ret = false;
     unsigned a_pow = a.begin()->pow();
     unsigned b_pow = b.begin()->pow();
-    for (auto it_a = a.begin(), it_b = b.begin(); it_a != a.end() && it_b != b.end(); ) {
+    auto it_a = a.begin();
+    auto it_b = b.begin();
+    for (; it_a != a.end() && it_b != b.end(); ) {
         if (gt(it_a->e(), it_b->e())){
             ret = true;
             break;
