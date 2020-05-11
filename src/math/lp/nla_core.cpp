@@ -625,38 +625,12 @@ bool core::is_canonical_monic(lpvar j) const {
 }
 
 
-void core::explain_existing_lower_bound(new_lemma& lemma, lpvar j) {
-    SASSERT(has_lower_bound(j));
-    lemma &= m_lar_solver.get_column_lower_bound_witness(j);
-}
-
-void core::explain_existing_upper_bound(new_lemma& lemma, lpvar j) {
-    SASSERT(has_upper_bound(j));
-    lemma &= m_lar_solver.get_column_upper_bound_witness(j);
-}
-    
-void core::explain_separation_from_zero(new_lemma& lemma, lpvar j) {
-    SASSERT(!val(j).is_zero());
-    if (val(j).is_pos())
-        explain_existing_lower_bound(lemma, j);
-    else
-        explain_existing_upper_bound(lemma, j);
-}
-
 void core::trace_print_monic_and_factorization(const monic& rm, const factorization& f, std::ostream& out) const {
     out << "rooted vars: ";
     print_product(rm.rvars(), out) << "\n";
     out << "mon:   " << pp_mon(*this, rm.var()) << "\n";
     out << "value: " << var_val(rm) << "\n";
     print_factorization(f, out << "fact: ") << "\n";
-}
-
-void core::explain_var_separated_from_zero(new_lemma& lemma, lpvar j) {
-    SASSERT(var_is_separated_from_zero(j));
-    if (m_lar_solver.column_has_upper_bound(j) && (m_lar_solver.get_upper_bound(j)< lp::zero_of_type<lp::impq>())) 
-        lemma &= m_lar_solver.get_column_upper_bound_witness(j);
-    else 
-        lemma &= m_lar_solver.get_column_lower_bound_witness(j);
 }
 
 
@@ -1186,6 +1160,38 @@ new_lemma& new_lemma::explain_equiv(lpvar a, lpvar b) {
     }
     return *this;
 }
+
+new_lemma& new_lemma::explain_var_separated_from_zero(lpvar j) {
+    SASSERT(c.var_is_separated_from_zero(j));
+    if (c.m_lar_solver.column_has_upper_bound(j) && 
+        (c.m_lar_solver.get_upper_bound(j)< lp::zero_of_type<lp::impq>())) 
+        *this &= c.m_lar_solver.get_column_upper_bound_witness(j);
+    else 
+        *this &= c.m_lar_solver.get_column_lower_bound_witness(j);
+    return *this;
+}
+
+new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
+    SASSERT(c.has_lower_bound(j));
+    *this &= c.m_lar_solver.get_column_lower_bound_witness(j);
+    return *this;
+}
+
+new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
+    SASSERT(c.has_upper_bound(j));
+    *this &= c.m_lar_solver.get_column_upper_bound_witness(j);
+    return *this;
+}
+    
+new_lemma& new_lemma::explain_separation_from_zero(lpvar j) {
+    SASSERT(!c.val(j).is_zero());
+    if (c.val(j).is_pos())
+        explain_existing_lower_bound(j);
+    else
+        explain_existing_upper_bound(j);
+    return *this;
+}
+
 
 
 std::ostream& new_lemma::display(std::ostream & out) const {

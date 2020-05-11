@@ -207,11 +207,11 @@ void basics::negate_strict_sign(new_lemma& lemma, lpvar j) {
     } 
     else {  // val(j).is_zero()
         if (c().has_lower_bound(j) && c().get_lower_bound(j) >= rational(0)) {
-            c().explain_existing_lower_bound(lemma, j);
+            lemma.explain_existing_lower_bound(j);
             lemma |= ineq(j, llc::GT, 0);
         } else {
             SASSERT(c().has_upper_bound(j) && c().get_upper_bound(j) <= rational(0));
-            c().explain_existing_upper_bound(lemma, j);
+            lemma.explain_existing_upper_bound(j);
             lemma |= ineq(j, llc::LT, 0);
         }
     }
@@ -302,7 +302,7 @@ bool basics::basic_lemma_for_mon_non_zero_derived(const monic& rm, const factori
             continue;
         new_lemma lemma(c(), "x = 0 or y = 0 -> xy = 0");
         lemma.explain_fixed(var(fc));
-        c().explain_var_separated_from_zero(lemma, var(rm));
+        lemma.explain_var_separated_from_zero(var(rm));
         lemma &= rm;
         lemma &= f;
         return true;
@@ -328,7 +328,7 @@ bool basics::basic_lemma_for_mon_neutral_derived(const monic& rm, const factoriz
         return false;
     }
     bool mon_var_is_sep_from_zero =  c().var_is_separated_from_zero(mon_var);
-    lpvar jl = null_lpvar, not_one_j = null_lpvar;
+    lpvar u = null_lpvar, v = null_lpvar;
     bool all_int = true;
     for (auto fc : f) {
         lpvar j = var(fc);
@@ -336,31 +336,22 @@ bool basics::basic_lemma_for_mon_neutral_derived(const monic& rm, const factoriz
         if (j == null_lpvar && abs(val(j)) == abs_mv && 
             c().vars_are_equiv(j, mon_var) &&
             (mon_var_is_sep_from_zero ||  c().var_is_separated_from_zero(j))) 
-            jl = j;
-        else if (j == jl)
-            return false;
+            u = j;
         else if (abs(val(j)) != rational(1)) 
-            not_one_j = j;
+            v = j;
     }
-    if (jl == null_lpvar || not_one_j == null_lpvar)
+    if (u == null_lpvar || v == null_lpvar)
         return false;    
     if (!all_int && f.size() > 2)
         return false;
 
+    //    (mon_var != 0 || u != 0) & mon_var = +/- u =>
+    //    v = 1 or v = -1
     new_lemma lemma(c(), "|xa| = |x| & x != 0 -> |a| = 1");
-    // mon_var = 0
-    if (mon_var_is_sep_from_zero)
-        c().explain_var_separated_from_zero(lemma, mon_var);
-    else
-        c().explain_var_separated_from_zero(lemma, jl);
-    
-    lemma.explain_equiv(mon_var, jl);
-        
-    // not_one_j = 1
-    lemma |= ineq(not_one_j, llc::EQ, 1);
-        
-    // not_one_j = -1
-    lemma |= ineq(not_one_j, llc::EQ, -1);
+    lemma.explain_var_separated_from_zero(mon_var_is_sep_from_zero ? mon_var : u);    
+    lemma.explain_equiv(mon_var, u);        
+    lemma |= ineq(v, llc::EQ, 1);        
+    lemma |= ineq(v, llc::EQ, -1);
     lemma &= rm;
     lemma &= f;
     return true;
@@ -421,9 +412,6 @@ NSB review:
 - Stronger rule is possible for integers:
 
    sign_m*m < 0 or f_j = 0 or \/_{i != j} sign_m*m >= sign_i*f_i
-
-- or even, without reference to factor index:
-   sign_m*m < 0 or \/_i sign_m*m >= sign_i*f_i
 
 */
 void basics::generate_pl_on_mon(const monic& m, unsigned factor_index) {
@@ -529,7 +517,7 @@ void basics::basic_lemma_for_mon_zero_model_based(const monic& rm, const factori
     } else {
         lemma |= ineq(var(rm), llc::NE, 0);
         for (auto j : f) {
-            c().explain_separation_from_zero(lemma, var(j));
+            lemma.explain_separation_from_zero(var(j));
         }            
     }
     lemma &= f;
@@ -601,8 +589,8 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based_fm(co
        
     new_lemma lemma(c(), __FUNCTION__);
     for (auto j : m.vars()) {
-        if (not_one == j) continue;
-        lemma |= ineq(j, llc::NE, val(j));
+        if (not_one != j) 
+            lemma |= ineq(j, llc::NE, val(j));
     }
 
     if (not_one == null_lpvar) 
@@ -613,7 +601,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based_fm(co
 }
 
 // use the fact that
-// |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
+// |uvw| = |u| and uvw != 0 -> |v| = 1 
 bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic& rm, const factorization& f) {
     lpvar mon_var = c().emons()[rm.var()].var();
     TRACE("nla_solver_bl", c().trace_print_monic_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
@@ -624,36 +612,32 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic
     if (abs_mv == rational::zero()) {
         return false;
     }
-    lpvar jl = null_lpvar, not_one_j = null_lpvar;
+    lpvar u = null_lpvar, v = null_lpvar;
     bool all_int = true;
     for (auto fc : f) {
         lpvar j = var(fc);
         all_int &= c().var_is_int(j);        
         if (j == null_lpvar && abs(val(fc)) == abs_mv) 
-            jl = j;
-        else if (j == jl)
-            return false;
+            u = j;
         else if (abs(val(fc)) != rational(1)) 
-            not_one_j = j;
+            v = j;
     }
-    if (jl == null_lpvar || not_one_j == null_lpvar)
+    if (u == null_lpvar || v == null_lpvar)
         return false;    
     if (!all_int && f.size() > 2)
         return false;
 
-    new_lemma lemma(c(), __FUNCTION__);
     // mon_var = 0
-    lemma |= ineq(mon_var, llc::EQ, 0);
-        
-    // negate abs(jl) == abs()    
-    lemma |= ineq(term(jl, rational(val(jl) == -val(mon_var) ? 1 : -1), mon_var), llc::NE, 0);
+    // abs(u) != abs(mon_var)    
+    // v = 1
+    // v = -1
 
-    // not_one_j = 1
-    lemma |= ineq(not_one_j, llc::EQ, 1);
-        
-    // not_one_j = -1
-    lemma |= ineq(not_one_j, llc::EQ, -1);
-    lemma &= rm;
+    new_lemma lemma(c(), __FUNCTION__);
+    lemma |= ineq(mon_var, llc::EQ, 0);        
+    lemma |= ineq(term(u, rational(val(u) == -val(mon_var) ? 1 : -1), mon_var), llc::NE, 0);
+    lemma |= ineq(v, llc::EQ, 1);        
+    lemma |= ineq(v, llc::EQ, -1);
+    lemma &= rm; // NSB review: is this dependency required?
     lemma &= f;
 
     return true;
@@ -695,7 +679,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const
         }
             
         if (v == -rational(1)) { 
-            sign = - sign;
+            sign = -sign;
             continue;
         } 
             

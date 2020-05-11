@@ -105,6 +105,11 @@ public:
     new_lemma& operator|=(ineq const& i);
     new_lemma& explain_fixed(lpvar j);
     new_lemma& explain_equiv(lpvar u, lpvar v);
+    new_lemma& explain_var_separated_from_zero(lpvar j);
+    new_lemma& explain_existing_lower_bound(lpvar j);
+    new_lemma& explain_existing_upper_bound(lpvar j);    
+    new_lemma& explain_separation_from_zero(lpvar j);
+
     unsigned num_ineqs() const { return current().ineqs().size(); }
 };
 
@@ -245,13 +250,7 @@ public:
     
     // return true iff the monic value is equal to the product of the values of the factors
     bool check_monic(const monic& m) const;
-    
-    // NSB review: these should really be methods on new_lemma
-    void explain_existing_lower_bound(new_lemma& lemma, lpvar j);
-    void explain_existing_upper_bound(new_lemma& lemma, lpvar j);    
-    void explain_separation_from_zero(new_lemma& lemma, lpvar j);
-    void explain_var_separated_from_zero(new_lemma& lemma, lpvar j);
-
+   
 
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
     std::ostream & print_var(lpvar j, std::ostream & out) const;
