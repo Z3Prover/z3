@@ -1061,6 +1061,8 @@ bool core::find_bfc_to_refine(const monic* & m, factorization & bf){
         lpvar i = m_to_refine[(k + r) % sz];
         m = &m_emons[i];
         SASSERT (!check_monic(*m));
+        if (has_real(m))
+            continue;
         if (m->size() == 2) {
             bf.set_mon(m);
             bf.push_back(factor(m->vars()[0], factor_type::VAR));
@@ -1320,9 +1322,7 @@ void core::update_to_refine_of_var(lpvar j) {
 }
 
 bool core::var_is_big(lpvar j) const {
-    if (var_is_int(j))
-        return false;
-    return val(j).is_big();
+    return !var_is_int(j) && val(j).is_big();
 }
 
 bool core::has_big_num(const monic& m) const {
@@ -1333,6 +1333,24 @@ bool core::has_big_num(const monic& m) const {
             return true;
     return false;
 }
+
+bool core::has_real(const factorization& f) const {
+    for (const factor& fc: f) {
+        lpvar j = var(fc);
+        if (!var_is_int(j))
+            return true;
+    }
+    return false;
+}
+
+bool core::has_real(const monic& m) const {
+    for (lpvar j : m.vars())
+        if (!var_is_int(j))
+            return true;
+    return false;
+}
+
+
 
 bool core::patch_blocker(lpvar u, const monic& m) const {
     SASSERT(m_to_refine.contains(m.var()));

@@ -359,7 +359,7 @@ bool basics::basic_lemma_for_mon_neutral_derived(const monic& rm, const factoriz
 
 // x != 0 or y = 0 => |xy| >= |y|
 void basics::proportion_lemma_model_based(const monic& rm, const factorization& factorization) {
-    if (factorization_has_real(factorization)) // todo: handle the situaiton when all factors are greater than 1,        
+    if (c().has_real(factorization)) // todo: handle the situaiton when all factors are greater than 1,        
         return;     // or smaller than 1
     rational rmv = abs(var_val(rm));
     if (rmv.is_zero()) {
@@ -379,7 +379,7 @@ void basics::proportion_lemma_model_based(const monic& rm, const factorization& 
 bool basics::proportion_lemma_derived(const monic& rm, const factorization& factorization) {
     // NSB review: why return false?
     return false;
-    if (factorization_has_real(factorization))
+    if (c().has_real(factorization))
         return false;
     rational rmv = abs(var_val(rm));
     if (rmv.is_zero()) {
@@ -415,7 +415,7 @@ NSB review:
 
 */
 void basics::generate_pl_on_mon(const monic& m, unsigned factor_index) {
-    SASSERT(!mon_has_real(m));
+    SASSERT(!c().has_real(m));
     new_lemma lemma(c(), "generate_pl_on_mon");
     unsigned mon_var = m.var();
     rational mv = val(mon_var);
@@ -445,7 +445,7 @@ void basics::generate_pl_on_mon(const monic& m, unsigned factor_index) {
    sign_m*m < 0 or f_i = 0 or \/_{j != i} sign_m*m >= sign_j*f_j
 */
 void basics::generate_pl(const monic& m, const factorization& fc, int factor_index) {
-    SASSERT(!factorization_has_real(fc));
+    SASSERT(!c().has_real(fc));
     TRACE("nla_solver", tout << "factor_index = " << factor_index << ", m = "
           << pp_mon(c(), m);
           tout << ", fc = " << c().pp(fc);
@@ -484,22 +484,6 @@ bool basics::is_separated_from_zero(const factorization& f) const {
         }
     }
     return true;
-}
-
-bool basics::factorization_has_real(const factorization& f) const {
-    for (const factor& fc: f) {
-        lpvar j = var(fc);
-        if (!c().var_is_int(j))
-            return true;
-    }
-    return false;
-}
-
-bool basics::mon_has_real(const monic& m) const {
-    for (lpvar j : m.vars())
-        if (!c().var_is_int(j))
-            return true;
-    return false;
 }
 
 

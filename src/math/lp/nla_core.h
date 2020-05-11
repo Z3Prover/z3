@@ -451,6 +451,9 @@ public:
     bool patch_blocker(lpvar u, const monic& m) const;
     bool has_big_num(const monic&) const;
     bool var_is_big(lpvar) const;
+    bool has_real(const factorization&) const;
+    bool has_real(const monic& m) const;
+
 };  // end of core
 
 struct pp_mon {
