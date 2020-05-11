@@ -125,6 +125,7 @@ struct stats {
     unsigned m_gomory_cuts;
     unsigned m_nla_explanations;
     unsigned m_nla_lemmas;
+    unsigned m_nra_calls;
     unsigned m_assume_eqs;
     unsigned m_branch;
     stats() { reset(); }
@@ -284,11 +285,16 @@ class theory_lra::imp {
             return m_th.is_eq(v1, v2);
         }
     };
+
+    bool use_nra_model() const {
+        return m_nla && m_nla->use_nra_model();
+    }
+    
     struct var_value_hash {
         imp & m_th;
         var_value_hash(imp & th):m_th(th) {}
         unsigned operator()(theory_var v) const { 
-            if (m_th.m_nla->use_nra_model()) {
+            if (m_th.use_nra_model()) {
                 return m_th.is_int(v);
             }
             else {
@@ -1669,7 +1675,7 @@ public:
     }
 
     bool is_eq(theory_var v1, theory_var v2) {
-        if (m_nla->use_nra_model()) {
+        if (use_nra_model()) {
             return m_nla->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
         }
         else {
@@ -2151,8 +2157,11 @@ public:
         auto & lv = m_nla_lemma_vector;
         m_explanation.clear();
         lbool r = m_nla->check(lv, m_explanation);
+        if (use_nra_model())
+            m_stats.m_nra_calls ++;
+
         if (m_explanation.size()) {
-            SASSERT(m_nla->use_nra_model());
+            SASSERT(use_nra_model());
             SASSERT(r == l_false);
             set_conflict();
             return l_false;
@@ -2168,7 +2177,7 @@ public:
             break;
         }
         case l_true:
-            if (m_nla->use_nra_model()) {
+            if (use_nra_model()) {
                 m_a1 = alloc(scoped_anum, m_nla->am());
                 m_a2 = alloc(scoped_anum, m_nla->am());
             }
@@ -3344,7 +3353,7 @@ public:
     }
 
     nlsat::anum const& nl_value(theory_var v, scoped_anum& r) {
-        SASSERT(m_nla->use_nra_model());
+        SASSERT(use_nra_model());
         auto t = get_tv(v);
         if (t.is_term()) {
 
@@ -3387,7 +3396,7 @@ public:
     model_value_proc * mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_owner();
-        if (m_nla->use_nra_model()) {
+        if (use_nra_model()) {
             anum const& an = nl_value(v, *m_a1);
             if (a.is_int(o) && !m_nla->am().is_int(an)) {
                 return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
@@ -3857,6 +3866,7 @@ public:
         st.update("arith-grobner-conflicts", lp().settings().stats().m_grobner_conflicts);
         st.update("arith-nla-explanations", m_stats.m_nla_explanations);
         st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
+        st.update("arith-nra-calls", m_stats.m_nra_calls);
         st.update("arith-gomory-cuts", m_stats.m_gomory_cuts);
         st.update("arith-assume-eqs", m_stats.m_assume_eqs);
         st.update("arith-branch", m_stats.m_branch);
