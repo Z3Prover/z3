@@ -14,8 +14,7 @@ Author:
 #include "math/lp/lar_solver.h"
 #include "math/lp/monic.h"
 #include "math/lp/nla_settings.h"
-#include "math/lp/nla_lemma.h"
-
+#include "math/lp/nla_core.h"
 namespace nra {
 class solver;
 }

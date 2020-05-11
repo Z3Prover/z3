@@ -24,7 +24,6 @@
 #include "math/lp/horner.h"
 #include "math/lp/nla_intervals.h"
 #include "math/grobner/pdd_solver.h"
-#include "math/lp/nla_lemma.h"
 #include "nlsat/nlsat_solver.h"
 
 
@@ -68,6 +67,18 @@ public:
     const rational& rs() const { return m_rs; };
 };
 
+class lemma {
+    vector<ineq>     m_ineqs;
+    lp::explanation  m_expl;
+public:
+    void push_back(const ineq& i) { m_ineqs.push_back(i);}
+    size_t size() const { return m_ineqs.size() + m_expl.size(); }
+    const vector<ineq>& ineqs() const { return m_ineqs; }
+    vector<ineq>& ineqs() { return m_ineqs; }
+    lp::explanation& expl() { return m_expl; }
+    const lp::explanation& expl() const { return m_expl; }
+    bool is_conflict() const { return m_ineqs.empty() && !m_expl.empty(); }
+};
 
 class core;
 //
@@ -153,7 +164,7 @@ public:
 
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
-    const lp::u_set& to_refine() const { return m_to_refine; }         
+    
     const lp::u_set&  active_var_set () const { return m_active_var_set;}
     bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
 
@@ -441,8 +452,9 @@ public:
     bool patch_blocker(lpvar u, const monic& m) const;
     bool has_big_num(const monic&) const;
     bool var_is_big(lpvar) const;
-    bool factorization_has_real(const factorization&) const;
-    bool monic_has_real(const monic&) const;
+    bool has_real(const factorization&) const;
+    bool has_real(const monic& m) const;
+
 };  // end of core
 
 struct pp_mon {
