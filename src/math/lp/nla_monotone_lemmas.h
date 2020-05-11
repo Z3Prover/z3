@@ -18,6 +18,5 @@ private:
     void monotonicity_lemma_lt(const monic& m, const rational& prod_val);    
     std::vector<rational> get_sorted_key(const monic& rm) const;
     vector<std::pair<rational, lpvar>> get_sorted_key_with_rvars(const monic& a) const;
-    bool monotonicity_lemma_candidate(const monic& m) const;
 };
 }

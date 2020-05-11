@@ -11,25 +11,13 @@ namespace nla {
 
 monotone::monotone(core * c) : common(c) {}
 
-// return false if at least one variable, including the monic var, is real,
-// or one of the variable from m.vars() is zero
-bool monotone::monotonicity_lemma_candidate(const monic & m) const {
-    if (!c().var_is_int(m.var()))
-        return false;
-    for (lpvar j : m) {
-        if (!c().var_is_int(j) || val(j).is_zero())
-            return false;        
-    }
-    return true;
-}
     
 void monotone::monotonicity_lemma() {
     unsigned shift = random();
     unsigned size = c().m_to_refine.size();
     for (unsigned i = 0; i < size && !done(); i++) { 
         lpvar v = c().m_to_refine[(i + shift) % size];
-        if (monotonicity_lemma_candidate(c().emons()[v]))
-            monotonicity_lemma(c().emons()[v]);
+        monotonicity_lemma(c().emons()[v]);
     }
 }
    
@@ -45,9 +33,6 @@ void monotone::monotonicity_lemma(monic const& m) {
         monotonicity_lemma_lt(m, prod_val);
     else if (m_val > prod_val)
         monotonicity_lemma_gt(m, prod_val);
-    else {
-        TRACE("nla_solver", tout << "equal\n";);
-    }
 }
 
 void monotone::monotonicity_lemma_gt(const monic& m, const rational& prod_val) {

@@ -33,7 +33,7 @@ struct solver::imp {
         m_nla_core(nla_core) {}
 
     bool need_check() {
-        return m_nla_core.to_refine().size() != 0;
+        return m_nla_core.m_to_refine.size() != 0;
     }
 
 

@@ -12,8 +12,6 @@
 #include "math/lp/var_eqs.h"
 #include "math/lp/factorization.h"
 #include "math/lp/nla_solver.h"
-#include "math/lp/nla_core.h"
-
 namespace nla {
 
 nla_settings& solver::settings() { return m_core->m_nla_settings; }
