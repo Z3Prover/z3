@@ -357,14 +357,14 @@ expr * func_interp::get_interp_core() const {
     return r;
 }
 
-expr* func_interp::get_array_interp_core(func_decl * f) const {
+expr_ref func_interp::get_array_interp_core_(func_decl * f) const {
     if (m_else == nullptr) 
-        return nullptr;
+        return expr_ref(m_manager);
     ptr_vector<sort> domain;
     for (sort* s : *f) {
         domain.push_back(s);
     }
-    expr* r;
+    expr_ref r(m_manager);
 
     bool ground = is_ground(m_else);
     for (func_entry * curr : m_entries) {
@@ -376,13 +376,17 @@ expr* func_interp::get_array_interp_core(func_decl * f) const {
     if (!ground) {
         r = get_interp();
         if (!r) return r;
-        sort_ref_vector vars(m_manager);
+        sort_ref_vector sorts(m_manager);
+        expr_ref_vector vars(m_manager);
         svector<symbol> var_names;
+        var_subst sub(m_manager, false);
         for (unsigned i = 0; i < m_arity; ++i) {
             var_names.push_back(symbol(i));
-            vars.push_back(domain.get(m_arity - i - 1));
+            sorts.push_back(domain.get(i));
+            vars.push_back(m_manager.mk_var(m_arity - i - 1, sorts.back()));
         }
-        r = m_manager.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), r);        
+        r = sub(r, vars);
+        r = m_manager.mk_lambda(sorts.size(), sorts.c_ptr(), var_names.c_ptr(), r);        
         return r;
     }
 
@@ -419,11 +423,11 @@ expr * func_interp::get_interp() const {
     return r;
 }
 
-expr * func_interp::get_array_interp(func_decl * f) const {
+expr_ref func_interp::get_array_interp_(func_decl * f) const {
     if (m_array_interp != nullptr)
-        return m_array_interp;
-    expr* r = get_array_interp_core(f);
-    if (r != nullptr) {
+        return expr_ref(m_array_interp, m_manager);
+    expr_ref r = get_array_interp_core_(f);
+    if (r) {
         const_cast<func_interp*>(this)->m_array_interp = r;
         m_manager.inc_ref(m_array_interp);
     }

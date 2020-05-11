@@ -19,6 +19,7 @@ Notes:
 #include "ast/rewriter/rewriter.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 
 template<typename Config>
 template<bool ProofGen>
@@ -80,7 +81,6 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
  retry:
     SASSERT(t->get_num_args() == 0);
     br_status st = m_cfg.reduce_app(t->get_decl(), 0, nullptr, m_r, m_pr);
-    SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
     TRACE("reduce_app",
           tout << "t0:" << mk_bounded_pp(t0, m()) << "\n";
           if (t != t0) tout << "t: " << mk_bounded_pp(t, m()) << "\n";
@@ -89,6 +89,11 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
           tout << "\n";
           if (m_pr) tout << mk_bounded_pp(m_pr, m()) << "\n";
           );
+    CTRACE("reduce_app", 
+           st != BR_FAILED && m().get_sort(m_r) != m().get_sort(t),
+           tout << mk_pp(m().get_sort(t), m()) << ": " << mk_pp(t, m()) << "\n";
+           tout << m_r->get_id() << " " << mk_pp(m().get_sort(m_r), m()) << ": " << m_r << "\n";);
+    SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
     switch (st) {
     case BR_FAILED:
         if (!retried) {
