@@ -89,17 +89,25 @@ class core;
 class new_lemma {
     char const* name;
     core& c;
+    lemma& current() const;
+    lp::explanation& expl() { return current().expl(); }
+
 public:
     new_lemma(core& c, char const* name);
     ~new_lemma();
-    new_lemma& add(ineq const& ineq);
-    lemma& operator()();
+    lemma& operator()() { return current(); }
     std::ostream& display(std::ostream& out) const;
+    new_lemma& operator&=(lp::explanation const& e);
+    new_lemma& operator&=(const monic& m);
+    new_lemma& operator&=(const factor& f);
+    new_lemma& operator&=(const factorization& f);
+    new_lemma& operator&=(lpvar j);
+    new_lemma& operator|=(ineq const& i);
+    new_lemma& explain_fixed(lpvar j);
+    new_lemma& explain_equiv(lpvar u, lpvar v);
+    unsigned num_ineqs() const { return current().ineqs().size(); }
 };
 
-inline new_lemma& operator|=(new_lemma& lemma, ineq const& i) {
-    return lemma.add(i);
-}
 
 inline std::ostream& operator<<(std::ostream& out, new_lemma const& l) {
     return l.display(out);
@@ -238,14 +246,11 @@ public:
     // return true iff the monic value is equal to the product of the values of the factors
     bool check_monic(const monic& m) const;
     
-    void explain(const monic& m, lp::explanation& exp) const;
-    void explain(const factor& f, lp::explanation& exp) const;
-    void explain(lpvar j, lp::explanation& exp) const;
-    void explain_existing_lower_bound(lpvar j);
-    void explain_existing_upper_bound(lpvar j);    
-    void explain_separation_from_zero(lpvar j);
-    void explain_var_separated_from_zero(lpvar j);
-    void explain_fixed_var(lpvar j);
+    // NSB review: these should really be methods on new_lemma
+    void explain_existing_lower_bound(new_lemma& lemma, lpvar j);
+    void explain_existing_upper_bound(new_lemma& lemma, lpvar j);    
+    void explain_separation_from_zero(new_lemma& lemma, lpvar j);
+    void explain_var_separated_from_zero(new_lemma& lemma, lpvar j);
 
 
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
@@ -274,13 +279,12 @@ public:
     void trace_print_monic_and_factorization(const monic& rm, const factorization& f, std::ostream& out) const;
     void print_monic_stats(const monic& m, std::ostream& out);    
     void print_stats(std::ostream& out);
-    std::ostream& print_lemma(std::ostream& out) const;
  
     pp_var pp(lpvar j) const { return pp_var(*this, j); }
     pp_fac pp(factor const& f) const { return pp_fac(*this, f); }
     pp_factorization pp(factorization const& f) const { return pp_factorization(*this, f); }
  
-    std::ostream& print_specific_lemma(const lemma& l, std::ostream& out) const;
+    std::ostream& print_lemma(const lemma& l, std::ostream& out) const;
     
 
     void trace_print_ol(const monic& ac,
@@ -291,22 +295,7 @@ public:
                         std::ostream& out);
 
         
-    
-    void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs);
-    void mk_ineq_no_expl_check(lp::lar_term& t, llc cmp, const rational& rs);
-    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
-    void mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp, const rational& rs);
-    void mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp);
-    void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
-    void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp);
-    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp);
-    void mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs);
-    void mk_ineq(lpvar j, lpvar k, llc cmp, const rational& rs);
-    void mk_ineq(lpvar j, llc cmp, const rational& rs);
-    void mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs);
-    void mk_ineq(const rational& a, lpvar j, llc cmp);
-    void mk_ineq(lpvar j, llc cmp);
-    
+    void mk_ineq_no_expl_check(new_lemma& lemma, lp::lar_term& t, llc cmp, const rational& rs);
     
     void maybe_add_a_factor(lpvar i,
                             const factor& c,
@@ -316,17 +305,11 @@ public:
 
     llc apply_minus(llc cmp);
     
-    void fill_explanation_and_lemma_sign(const monic& a, const monic & b, rational const& sign);
+    void fill_explanation_and_lemma_sign(new_lemma& lemma, const monic& a, const monic & b, rational const& sign);
 
     svector<lpvar> reduce_monic_to_rooted(const svector<lpvar> & vars, rational & sign) const;
 
     monic_coeff canonize_monic(monic const& m) const;
-
-    lemma& current_lemma();
-    const lemma& current_lemma() const;
-    vector<ineq>& current_ineqs();
-    lp::explanation& current_expl();
-    const lp::explanation& current_expl() const;
 
     int vars_sign(const svector<lpvar>& v);
     bool has_upper_bound(lpvar j) const; 
@@ -361,20 +344,12 @@ public:
     bool var_is_separated_from_zero(lpvar j) const;
 
     bool vars_are_equiv(lpvar a, lpvar b) const;    
-    void explain_equiv_vars(lpvar a, lpvar b);
-    void explain(const factorization& f, lp::explanation& exp);
+    bool explain_ineq(new_lemma& lemma, const lp::lar_term& t, llc cmp, const rational& rs);
     bool explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
-
     bool explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
-
     bool explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
-
     bool explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
-    
-    bool explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs);
-
     bool explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const;
-
     bool has_zero_factor(const factorization& factorization) const;
 
     template <typename T>
@@ -414,26 +389,24 @@ public:
     void init_to_refine();
 
     bool divide(const monic& bc, const factor& c, factor & b) const;
-
-    void negate_factor_equality(const factor& c, const factor& d);
-    
-    void negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
-
-    void negate_var_relation_strictly(lpvar a, lpvar b);
     
     std::unordered_set<lpvar> collect_vars(const lemma& l) const;
 
     bool rm_check(const monic&) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
 
-    void add_abs_bound(lpvar v, llc cmp);
-    void add_abs_bound(lpvar v, llc cmp, rational const& bound);
+    // NSB code review: these could be methods on new_lemma
+    void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp);
+    void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp, rational const& bound);
+    void negate_relation(new_lemma& lemma, unsigned j, const rational& a);
+    void negate_factor_equality(new_lemma& lemma, const factor& c, const factor& d);    
+    void negate_factor_relation(new_lemma& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
+    void negate_var_relation_strictly(new_lemma& lemma, lpvar a, lpvar b);
 
     bool  find_bfc_to_refine_on_monic(const monic&, factorization & bf);
     
     bool  find_bfc_to_refine(const monic* & m, factorization& bf);
 
-    void negate_relation(unsigned j, const rational& a);
     bool  conflict_found() const;
     lbool  inner_check(bool derived);
     

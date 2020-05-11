@@ -14,6 +14,7 @@
 
 namespace nla {
 class core;
+class new_lemma;
 struct basics: common {
     basics(core *core);
     bool basic_sign_lemma_on_two_monics(const monic& m, const monic& n);
@@ -36,7 +37,6 @@ struct basics: common {
     // x = 0 or y = 0 -> xy = 0
     void basic_lemma_for_mon_non_zero_model_based_rm(const monic& rm, const factorization& f);
 
-    void basic_lemma_for_mon_non_zero_model_based_mf(const factorization& f);
     // x = 0 or y = 0 -> xy = 0
     bool basic_lemma_for_mon_non_zero_derived(const monic& rm, const factorization& f);
 
@@ -45,7 +45,7 @@ struct basics: common {
     bool basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic& rm, const factorization& f);
     // use the fact that
     // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
-    bool basic_lemma_for_mon_neutral_monic_to_factor_model_based_fm(const monic& m);
+    // bool basic_lemma_for_mon_neutral_monic_to_factor_model_based_fm(const monic& m);
     bool basic_lemma_for_mon_neutral_monic_to_factor_derived(const monic& rm, const factorization& f);
 
     // use the fact
@@ -80,7 +80,7 @@ struct basics: common {
     void generate_strict_case_zero_lemma(const monic& m, unsigned zero_j, int sign_of_zj);
     
     void add_fixed_zero_lemma(const monic& m, lpvar j);
-    void negate_strict_sign(lpvar j);
+    void negate_strict_sign(new_lemma& lemma, lpvar j);
     // x != 0 or y = 0 => |xy| >= |y|
     void proportion_lemma_model_based(const monic& rm, const factorization& factorization);
     // x != 0 or y = 0 => |xy| >= |y|

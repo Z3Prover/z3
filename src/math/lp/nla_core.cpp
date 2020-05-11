@@ -18,6 +18,8 @@ Author:
 #include "math/dd/pdd_eval.h"
 namespace nla {
 
+typedef lp::lar_term term;
+
 core::core(lp::lar_solver& s, reslimit & lim) :
     m_evars(),
     m_lar_solver(s),
@@ -160,22 +162,6 @@ bool core::check_monic(const monic& m) const {
     return ret;
 }
     
-void core::explain(const monic& m, lp::explanation& exp) const {       
-    for (lpvar j : m.vars())
-        explain(j, exp);
-}
-
-void core::explain(const factor& f, lp::explanation& exp) const {
-    if (f.type() == factor_type::VAR) {
-        explain(f.var(), exp);
-    } else {
-        explain(m_emons[f.var()], exp);
-    }
-}
-
-void core::explain(lpvar j, lp::explanation& exp) const {
-    m_evars.explain(j, exp);
-}
 
 template <typename T>
 std::ostream& core::print_product(const T & m, std::ostream& out) const {
@@ -358,7 +344,7 @@ bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& boun
 }
     
 // return true iff the negation of the ineq can be derived from the constraints
-bool core::explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
+bool core::explain_ineq(new_lemma& lemma, const lp::lar_term& t, llc cmp, const rational& rs) {
     // check that we have something like 0 < 0, which is always false and can be safely
     // removed from the lemma
         
@@ -366,7 +352,7 @@ bool core::explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
         (cmp == llc::LT || cmp == llc::GT || cmp == llc::NE)) return true;
     lp::explanation exp;
     bool r;
-    switch(negate(cmp)) {
+    switch (negate(cmp)) {
     case llc::LE:
         r = explain_upper_bound(t, rs, exp);
         break;
@@ -393,7 +379,7 @@ bool core::explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
         return false;
     }
     if (r) {
-        current_expl().add(exp);
+        lemma &= exp;
         return true;
     }
         
@@ -419,57 +405,12 @@ bool core::explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const {
             
 }
     
-void core::mk_ineq(lp::lar_term& t, llc cmp, const rational& rs) {
-    TRACE("nla_solver_details", m_lar_solver.print_term_as_indices(t, tout << "t = "););
-    if (!explain_ineq(t, cmp, rs)) {
-        current_lemma().push_back(ineq(cmp, t, rs));
-        CTRACE("nla_solver", ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
-        SASSERT(!ineq_holds(ineq(cmp, t, rs)));
-    }
-}
 
-void core::mk_ineq_no_expl_check(lp::lar_term& t, llc cmp, const rational& rs) {
+void core::mk_ineq_no_expl_check(new_lemma& lemma, lp::lar_term& t, llc cmp, const rational& rs) {
     TRACE("nla_solver_details", m_lar_solver.print_term_as_indices(t, tout << "t = "););
-    current_lemma().push_back(ineq(cmp, t, rs));
+    lemma |= ineq(cmp, t, rs);
     CTRACE("nla_solver", ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
     SASSERT(!ineq_holds(ineq(cmp, t, rs)));
-}
-
-void core::mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
-    lp::lar_term t;
-    t.add_monomial(a, j);
-    t.add_monomial(b, k);
-    mk_ineq(t, cmp, rs);
-}
-
-void core::mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
-    mk_ineq(rational(1), j, b, k, cmp, rs);
-}
-
-void core::mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp) {
-    mk_ineq(j, b, k, cmp, rational::zero());
-}
-
-void core::mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp) {
-    mk_ineq(a, j, b, k, cmp, rational::zero());
-}
-
-void core::mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs) {
-    mk_ineq(a, j, rational(1), k, cmp, rs);
-}
-
-void core::mk_ineq(lpvar j, lpvar k, llc cmp, const rational& rs) {
-    mk_ineq(j, rational(1), k, cmp, rs);
-}
-
-void core::mk_ineq(lpvar j, llc cmp, const rational& rs) {
-    mk_ineq(rational(1), j, cmp, rs);
-}
-
-void core::mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs) {
-    lp::lar_term t;        
-    t.add_monomial(a, j);
-    mk_ineq(t, cmp, rs);
 }
 
 llc apply_minus(llc cmp) {
@@ -483,28 +424,15 @@ llc apply_minus(llc cmp) {
     return cmp;
 }
     
-void core::mk_ineq(const rational& a, lpvar j, llc cmp) {
-    mk_ineq(a, j, cmp, rational::zero());
-}
-
-
-void core::mk_ineq(lpvar j, llc cmp) {
-    mk_ineq(j, cmp, rational::zero());
-}
     
 // the monics should be equal by modulo sign but this is not so in the model
-void core::fill_explanation_and_lemma_sign(const monic& a, const monic & b, rational const& sign) {
+void core::fill_explanation_and_lemma_sign(new_lemma& lemma, const monic& a, const monic & b, rational const& sign) {
     SASSERT(sign == 1 || sign == -1);
-    explain(a, current_expl());
-    explain(b, current_expl());
-    TRACE("nla_solver",
-          tout << "used constraints: ";
-          for (auto &p :  current_expl())
-              m_lar_solver.constraints().display(tout, p.second); tout << "\n";
-          );
-    SASSERT(current_ineqs().size() == 0);
-    mk_ineq(rational(1), a.var(), -sign, b.var(), llc::EQ, rational::zero());
-    TRACE("nla_solver", print_lemma(tout););
+    lemma &= a;
+    lemma &= b;
+    TRACE("nla_solver", tout << "used constraints: " << lemma;);
+    SASSERT(lemma.num_ineqs() == 0);
+    lemma |= ineq(term(rational(1), a.var(), -sign, b.var()), llc::EQ, 0);
 }
 
 // Replaces each variable index by the root in the tree and flips the sign if the var comes with a minus.
@@ -535,13 +463,6 @@ monic_coeff core::canonize_monic(monic const& m) const {
     svector<lpvar> vars = reduce_monic_to_rooted(m.vars(), sign);
     return monic_coeff(vars, sign);
 }
-
-lemma& core::current_lemma() { return m_lemma_vec->back(); }
-const lemma& core::current_lemma() const { return m_lemma_vec->back(); }
-vector<ineq>& core::current_ineqs() { return current_lemma().ineqs(); }
-lp::explanation& core::current_expl() { return current_lemma().expl(); }
-const lp::explanation& core::current_expl() const { return current_lemma().expl(); }
-
 
 int core::vars_sign(const svector<lpvar>& v) {
     int sign = 1;
@@ -704,47 +625,40 @@ bool core::is_canonical_monic(lpvar j) const {
 }
 
 
-void core::explain_existing_lower_bound(lpvar j) {
+void core::explain_existing_lower_bound(new_lemma& lemma, lpvar j) {
     SASSERT(has_lower_bound(j));
-    current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
+    lemma &= m_lar_solver.get_column_lower_bound_witness(j);
 }
 
-void core::explain_existing_upper_bound(lpvar j) {
+void core::explain_existing_upper_bound(new_lemma& lemma, lpvar j) {
     SASSERT(has_upper_bound(j));
-    current_expl().add(m_lar_solver.get_column_upper_bound_witness(j));
+    lemma &= m_lar_solver.get_column_upper_bound_witness(j);
 }
     
-void core::explain_separation_from_zero(lpvar j) {
+void core::explain_separation_from_zero(new_lemma& lemma, lpvar j) {
     SASSERT(!val(j).is_zero());
     if (val(j).is_pos())
-        explain_existing_lower_bound(j);
+        explain_existing_lower_bound(lemma, j);
     else
-        explain_existing_upper_bound(j);
+        explain_existing_upper_bound(lemma, j);
 }
 
 void core::trace_print_monic_and_factorization(const monic& rm, const factorization& f, std::ostream& out) const {
     out << "rooted vars: ";
-    print_product(rm.rvars(), out);
-    out << "\n";
-        
-    out << "mon:  " << pp_mon(*this, rm.var()) << "\n";
+    print_product(rm.rvars(), out) << "\n";
+    out << "mon:   " << pp_mon(*this, rm.var()) << "\n";
     out << "value: " << var_val(rm) << "\n";
     print_factorization(f, out << "fact: ") << "\n";
 }
 
-void core::explain_var_separated_from_zero(lpvar j) {
+void core::explain_var_separated_from_zero(new_lemma& lemma, lpvar j) {
     SASSERT(var_is_separated_from_zero(j));
     if (m_lar_solver.column_has_upper_bound(j) && (m_lar_solver.get_upper_bound(j)< lp::zero_of_type<lp::impq>())) 
-        current_expl().add(m_lar_solver.get_column_upper_bound_witness(j));
+        lemma &= m_lar_solver.get_column_upper_bound_witness(j);
     else 
-        current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
+        lemma &= m_lar_solver.get_column_lower_bound_witness(j);
 }
 
-void core::explain_fixed_var(lpvar j) {
-    SASSERT(var_is_fixed(j));
-    current_expl().add(m_lar_solver.get_column_upper_bound_witness(j));
-    current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
-}
 
 bool core::var_has_positive_lower_bound(lpvar j) const {
     return m_lar_solver.column_has_lower_bound(j) && m_lar_solver.get_lower_bound(j) > lp::zero_of_type<lp::impq>();
@@ -765,26 +679,7 @@ bool core::vars_are_equiv(lpvar a, lpvar b) const {
     SASSERT(abs(val(a)) == abs(val(b)));
     return m_evars.vars_are_equiv(a, b);
 }
-
     
-void core::explain_equiv_vars(lpvar a, lpvar b) {
-    SASSERT(abs(val(a)) == abs(val(b)));
-    if (m_evars.vars_are_equiv(a, b)) {
-        explain(a, current_expl());
-        explain(b, current_expl());
-    } else {
-        explain_fixed_var(a);
-        explain_fixed_var(b);
-    }
-}
-
-void core::explain(const factorization& f, lp::explanation& exp) {
-    SASSERT(!f.is_mon());
-    for (const auto& fc : f) {
-        explain(fc, exp);
-    }
-}
-
 bool core::has_zero_factor(const factorization& factorization) const {
     for (factor f : factorization) {
         if (val(f).is_zero())
@@ -983,12 +878,12 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
         }
     };
     
-    for (const auto& i : current_lemma().ineqs()) {
+    for (const auto& i : l.ineqs()) {
         for (const auto& p : i.term()) {                
             insert_j(p.column());
         }
     }
-    for (const auto& p : current_expl()) {
+    for (const auto& p : l.expl()) {
         const auto& c = m_lar_solver.constraints()[p.second];
         for (const auto& r : c.coeffs()) {
             insert_j(r.second);
@@ -1026,16 +921,12 @@ bool core::divide(const monic& bc, const factor& c, factor & b) const {
     return true;
 }
 
-void core::negate_var_relation_strictly(lpvar a, lpvar b) {
+void core::negate_var_relation_strictly(new_lemma& lemma, lpvar a, lpvar b) {
     SASSERT(val(a) != val(b));
-    if (val(a) < val(b)) {
-        mk_ineq(a, -rational(1), b, llc::GT);
-    } else {
-        mk_ineq(a, -rational(1), b, llc::LT);        
-    }
+    lemma |= ineq(term(a, -rational(1), b), val(a) < val(b) ? llc::GT : llc::LT, 0);
 }
 
-void core::negate_factor_equality(const factor& c,
+void core::negate_factor_equality(new_lemma& lemma, const factor& c,
                                   const factor& d) {
     if (c == d)
         return;
@@ -1043,30 +934,22 @@ void core::negate_factor_equality(const factor& c,
     lpvar j = var(d);
     auto iv = val(i), jv = val(j);
     SASSERT(abs(iv) == abs(jv));
-    if (iv == jv) {
-        mk_ineq(i, -rational(1), j, llc::NE);
-    } else { // iv == -jv
-        mk_ineq(i, j, llc::NE, rational::zero());
-    }
+    lemma |= ineq(term(i, rational(iv == jv ? -1 : 1), j), llc::NE, 0);    
 }
     
-void core::negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b) {
+void core::negate_factor_relation(new_lemma& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b) {
     rational a_fs = sign_to_rat(canonize_sign(a));
     rational b_fs = sign_to_rat(canonize_sign(b));
     llc cmp = a_sign*val(a) < b_sign*val(b)? llc::GE : llc::LE;
-    mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
+    lemma |= ineq(term(a_fs*a_sign, var(a), - b_fs*b_sign, var(b)), cmp, 0);
 }
 
-std::ostream& core::print_lemma(std::ostream& out) const {
-    return print_specific_lemma(current_lemma(), out);
-}
-
-std::ostream& core::print_specific_lemma(const lemma& l, std::ostream& out) const {
+std::ostream& core::print_lemma(const lemma& l, std::ostream& out) const {
     static int n = 0;
     out << "lemma:" << ++n << " ";    
     print_ineqs(l, out);
     print_explanation(l.expl(), out);        
-    for (lpvar j : collect_vars(current_lemma())) {
+    for (lpvar j : collect_vars(l)) {
         print_var(j, out);
     }
     return out;
@@ -1146,11 +1029,11 @@ bool core::rm_check(const monic& rm) const {
 
 */
 
-void core::add_abs_bound(lpvar v, llc cmp) {
-    add_abs_bound(v, cmp, val(v));
+void core::add_abs_bound(new_lemma& lemma, lpvar v, llc cmp) {
+    add_abs_bound(lemma, v, cmp, val(v));
 }
 
-void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
+void core::add_abs_bound(new_lemma& lemma, lpvar v, llc cmp, rational const& bound) {
     SASSERT(!val(v).is_zero());
     lp::lar_term t;  // t = abs(v)
     t.add_monomial(rrat_sign(val(v)), v);
@@ -1158,7 +1041,7 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
     switch (cmp) {
     case llc::GT:
     case llc::GE:  // negate abs(v) >= 0
-        mk_ineq(t, llc::LT, rational(0));
+        lemma |= ineq(t, llc::LT, 0);
         break;
     case llc::LT:
     case llc::LE:
@@ -1167,7 +1050,7 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
         UNREACHABLE();
         break;
     }
-    mk_ineq(t, cmp, abs(bound));
+    lemma |= ineq(t, cmp, abs(bound));
 }
 
 // NB - move this comment to monotonicity or appropriate.
@@ -1234,11 +1117,11 @@ new_lemma::new_lemma(core& c, char const* name):name(name), c(c) {
     c.m_lemma_vec->push_back(lemma());
 }
 
-new_lemma& new_lemma::add(ineq const& ineq) {
-    if (!c.explain_ineq(ineq.term(), ineq.cmp(), ineq.rs())) {
-        c.current_lemma().push_back(ineq);
+new_lemma& new_lemma::operator|=(ineq const& ineq) {
+    if (!c.explain_ineq(*this, ineq.term(), ineq.cmp(), ineq.rs())) {
         CTRACE("nla_solver", c.ineq_holds(ineq), c.print_ineq(ineq, tout) << "\n";);
         SASSERT(!c.ineq_holds(ineq));
+        current().push_back(ineq);
     }
     return *this;
 }
@@ -1248,12 +1131,65 @@ new_lemma::~new_lemma() {
     TRACE("nla_solver", tout << name << "\n" << *this; );
 }
 
-lemma& new_lemma::operator()() {
-    return c.current_lemma();
+lemma& new_lemma::current() const {
+    return c.m_lemma_vec->back();
 }
 
+new_lemma& new_lemma::operator&=(lp::explanation const& e) {
+    expl().add(e);
+    return *this;
+}
+
+new_lemma& new_lemma::operator&=(const monic& m) {
+    for (lpvar j : m.vars())
+        *this &= j;
+    return *this;
+}
+
+new_lemma& new_lemma::operator&=(const factor& f) {
+    if (f.type() == factor_type::VAR) 
+        *this &= f.var();
+    else 
+        *this &= c.m_emons[f.var()];
+    return *this;
+}
+
+new_lemma& new_lemma::operator&=(const factorization& f) {
+    if (f.is_mon())
+        return *this;
+    for (const auto& fc : f) {
+        *this &= fc;
+    }
+    return *this;
+}
+
+new_lemma& new_lemma::operator&=(lpvar j) {
+    c.m_evars.explain(j, expl());
+    return *this;
+}
+
+new_lemma& new_lemma::explain_fixed(lpvar j) {
+    SASSERT(c.var_is_fixed(j));
+    *this &= c.m_lar_solver.get_column_upper_bound_witness(j);
+    *this &= c.m_lar_solver.get_column_lower_bound_witness(j);
+    return *this;
+}
+
+new_lemma& new_lemma::explain_equiv(lpvar a, lpvar b) {
+    SASSERT(abs(c.val(a)) == abs(c.val(b)));
+    if (c.vars_are_equiv(a, b)) {
+        *this &= a;
+        *this &= b;
+    } else {
+        explain_fixed(a);
+        explain_fixed(b);
+    }
+    return *this;
+}
+
+
 std::ostream& new_lemma::display(std::ostream & out) const {
-    auto const& lemma = c.current_lemma();
+    auto const& lemma = current();
 
     for (auto &p : lemma.expl()) {
         out << "(" << p.second << ") ";
@@ -1277,15 +1213,11 @@ std::ostream& new_lemma::display(std::ostream & out) const {
 
     return out;
 }
+
     
-void core::negate_relation(unsigned j, const rational& a) {
+void core::negate_relation(new_lemma& lemma, unsigned j, const rational& a) {
     SASSERT(val(j) != a);
-    if (val(j) < a) {
-        mk_ineq(j, llc::GE, a);
-    }
-    else {
-        mk_ineq(j, llc::LE, a);
-    }
+    lemma |= ineq(j, val(j) < a ? llc::GE : llc::LE, a);   
 }
 
 bool core::conflict_found() const {
@@ -1555,7 +1487,7 @@ lbool core::check(vector<lemma>& l_vec) {
 bool core::no_lemmas_hold() const {
     for (auto & l : * m_lemma_vec) {
         if (lemma_holds(l)) {
-            TRACE("nla_solver", print_specific_lemma(l, tout););
+            TRACE("nla_solver", print_lemma(l, tout););
             return false;
         }
     }
@@ -1703,7 +1635,7 @@ bool core::check_pdd_eq(const dd::solver::equation* e) {
     eval.get_interval<dd::w_dep::with_deps>(e->poly(), i_wd);  
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
         new_lemma lemma(*this, "pdd");
-        current_expl().add(e);
+        lemma &= e;
     };
     if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
         lp_settings().stats().m_grobner_conflicts++;

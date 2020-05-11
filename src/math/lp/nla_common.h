@@ -50,31 +50,7 @@ struct common {
     rational mul_val(monic const& m) const; // value obtained from multiplying variables of monomial
     template <typename T> lpvar var(T const& t) const;
     bool done() const;
-    template <typename T> void explain(const T&);
-    void explain(lpvar);
     template <typename T> bool canonize_sign(const T&) const;
-    void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs);
-    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
-
-    void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
-
-    void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp);
-
-    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp);
-    void mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp);
-
-    void mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs);
-
-    void mk_ineq(lpvar j, lpvar k, llc cmp, const rational& rs);
-
-    void mk_ineq(lpvar j, llc cmp, const rational& rs);
-
-    void mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs);
-    void mk_ineq(const rational& a, lpvar j, llc cmp);
-
-    void mk_ineq(lpvar j, llc cmp);
-
-    std::ostream& print_lemma(std::ostream&) const;
 
     template <typename T>
     std::ostream& print_product(const T & m, std::ostream& out) const;

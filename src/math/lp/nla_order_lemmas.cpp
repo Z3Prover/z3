@@ -13,6 +13,8 @@
 
 namespace nla {
 
+typedef lp::lar_term term;
+
 // The order lemma is
 // a > b && c > 0 => ac > bc
 void order::order_lemma() {
@@ -82,9 +84,9 @@ void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int 
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
     new_lemma lemma(c(), __FUNCTION__);
-    mk_ineq(y,                     sy == 1      ? llc::LE : llc::GE); // negate sy
-    mk_ineq(x,                     sy*sign == 1 ? llc::GT : llc::LT , val(x)); 
-    mk_ineq(xy.var(), - val(x), y, sign == 1    ? llc::LE : llc::GE);
+    lemma |= ineq(y,                                   sy == 1      ? llc::LE : llc::GE, 0); // negate sy
+    lemma |= ineq(x,                                   sy*sign == 1 ? llc::GT : llc::LT , val(x)); 
+    lemma |= ineq(term(xy.var(), - val(x), y), sign == 1    ? llc::LE : llc::GE, 0);
 }
 
 // We look for monics e = m.rvars()[k]*d and see if we can create an order lemma for m and  e
@@ -165,13 +167,13 @@ void order::generate_mon_ol(const monic& ac,
     SASSERT(ab_cmp != llc::GT || (var_val(ac) <= var_val(bd) && val(a)*c_sign > val(b)*d_sign));
     
     new_lemma lemma(_(), __FUNCTION__);
-    mk_ineq(c_sign, c, llc::LE);
-    explain(c); // this explains c == +- d
-    mk_ineq(c_sign, a, -d_sign * b.rat_sign(), b.var(), negate(ab_cmp));
-    mk_ineq(ac.var(), rational(-1), var(bd), ab_cmp);
-    explain(bd);
-    explain(b);
-    explain(d);
+    lemma |= ineq(term(c_sign, c), llc::LE, 0);
+    lemma &= c; // this explains c == +- d
+    lemma |= ineq(term(c_sign, a, -d_sign * b.rat_sign(), b.var()), negate(ab_cmp), 0);
+    lemma |= ineq(term(ac.var(), rational(-1), var(bd)), ab_cmp, 0);
+    lemma &= bd;
+    lemma &= b;
+    lemma &= d;
 }
 
 
@@ -215,8 +217,8 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
         for (unsigned j = 0, k = 1; j < 2; j++, k--) {
             new_lemma lemma(_(), __FUNCTION__);
             order_lemma_on_ab(lemma, m, rsign, var(ab[k]), var(ab[j]), gt);
-            explain(ab); 
-            explain(m);
+            lemma &= ab;
+            lemma &= m;
         }
     }
     for (unsigned j = 0, k = 1; j < 2; j++, k--) {
@@ -230,14 +232,14 @@ bool order::order_lemma_on_ac_explore(const monic& rm, const factorization& ac, 
     if (c.is_var()) {
         TRACE("nla_solver", tout << "var(c) = " << var(c););
         for (monic const& bc : _().emons().get_use_list(c.var())) {
-            if (order_lemma_on_ac_and_bc(rm ,ac, k, bc)) {
+            if (order_lemma_on_ac_and_bc(rm, ac, k, bc)) {
                 return true;
             }
         }
     } 
     else {
         for (monic const& bc : _().emons().get_products_of(c.var())) {
-            if (order_lemma_on_ac_and_bc(rm , ac, k, bc)) {
+            if (order_lemma_on_ac_and_bc(rm, ac, k, bc)) {
                 return true;
             }
         }
@@ -249,7 +251,7 @@ void order::generate_ol_eq(const monic& ac,
                         const factor& a,
                         const factor& c,
                         const monic& bc,
-                        const factor& b)                        {
+                        const factor& b) {
     
     new_lemma lemma(_(), __FUNCTION__);
     IF_VERBOSE(100, 
@@ -260,22 +262,21 @@ void order::generate_ol_eq(const monic& ac,
                << " b " <<  "*v" << var(b) << " " << val(b) << "\n"
                << " c " <<  "*v" << var(c) << " " << val(c) << "\n");
     // ac == bc
-    mk_ineq(c.var(),llc::EQ); // c is not equal to zero
-    mk_ineq(ac.var(), -rational(1), bc.var(), llc::NE);
-    mk_ineq(canonize_sign(a), a.var(), !canonize_sign(b), b.var(), llc::EQ);
-    explain(ac);
-    explain(a);
-    explain(bc);
-    explain(b);
-    explain(c);
-    TRACE("nla_solver", _().print_lemma(tout););
+    lemma |= ineq(c.var(), llc::EQ, 0); // c is not equal to zero
+    lemma |= ineq(term(ac.var(), -rational(1), bc.var()), llc::NE, 0);
+    lemma |= ineq(term(rational(canonize_sign(a)), a.var(), rational(!canonize_sign(b)), b.var()), llc::EQ, 0);
+    lemma &= ac;
+    lemma &= a;
+    lemma &= bc;
+    lemma &= b;
+    lemma &= c;
 }
 
 void order::generate_ol(const monic& ac,                     
                         const factor& a,
                         const factor& c,
                         const monic& bc,
-                        const factor& b)                        {
+                        const factor& b) {
     
     new_lemma lemma(_(), __FUNCTION__);
     IF_VERBOSE(100, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
@@ -284,15 +285,14 @@ void order::generate_ol(const monic& ac,
                << " b " << "*v" << var(b) << " " << val(b) << "\n"
                << " c " << "*v" << var(c) << " " << val(c) << "\n");
     // fix the sign of c
-    _().negate_relation(c.var(), rational(0));
-    _().negate_var_relation_strictly(ac.var(), bc.var());
-    _().negate_var_relation_strictly(a.var(),  b.var());
-    explain(ac);
-    explain(a);
-    explain(bc);
-    explain(b);
-    explain(c);
-    TRACE("nla_solver", _().print_lemma(tout););
+    lemma |= ineq(c.var(), val(c.var()).is_neg() ? llc::GE : llc::LE, 0);
+    _().negate_var_relation_strictly(lemma, ac.var(), bc.var());
+    _().negate_var_relation_strictly(lemma, a.var(),  b.var());
+    lemma &= ac;
+    lemma &= a;
+    lemma &= bc;
+    lemma &= b;
+    lemma &= c;
 }
 
 // We have ac = a*c and bc = b*c.
@@ -327,9 +327,9 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
 void order::order_lemma_on_ab_gt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b) {
     SASSERT(sign * var_val(m) > val(a) * val(b));
     // negate b == val(b)
-    mk_ineq(b, llc::NE, val(b));
+    lemma |= ineq(b, llc::NE, val(b));
     // ab <= val(b)a
-    mk_ineq(sign, m.var(), -val(b), a, llc::LE);
+    lemma |= ineq(term(sign, m.var(), -val(b), a), llc::LE, 0);
 }
 /*
    given: sign * m = ab
@@ -340,9 +340,9 @@ void order::order_lemma_on_ab_lt(new_lemma& lemma, const monic& m, const rationa
           ", b = "; c().print_var(b, tout) << "\n";);
     SASSERT(sign * var_val(m) < val(a) * val(b));
     // negate b == val(b)
-    mk_ineq(b, llc::NE, val(b));
+    lemma |= ineq(b, llc::NE, val(b));
     // ab >= val(b)a
-    mk_ineq(sign, m.var(), -val(b), a, llc::GE);
+    lemma |= ineq(term(sign, m.var(), -val(b), a), llc::GE, 0);
 }
 
 void order::order_lemma_on_ab(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b, bool gt) {

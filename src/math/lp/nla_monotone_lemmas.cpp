@@ -40,11 +40,10 @@ void monotone::monotonicity_lemma_gt(const monic& m, const rational& prod_val) {
           tout << "m = "; c().print_monic_with_vars(m, tout););
     new_lemma lemma(c(), __FUNCTION__);
     for (lpvar j : m.vars()) {
-        c().add_abs_bound(j, llc::GT);
+        c().add_abs_bound(lemma, j, llc::GT);
     }
     lpvar m_j = m.var();
-    c().add_abs_bound(m_j, llc::LE, prod_val);
-    TRACE("nla_solver", print_lemma(tout););
+    c().add_abs_bound(lemma, m_j, llc::LE, prod_val);
 }
     
 /** \brief enforce the inequality |m| >= product |m[i]| .
@@ -56,11 +55,10 @@ void monotone::monotonicity_lemma_gt(const monic& m, const rational& prod_val) {
 void monotone::monotonicity_lemma_lt(const monic& m, const rational& prod_val) {
     new_lemma lemma(c(), __FUNCTION__);
     for (lpvar j : m.vars()) {
-        c().add_abs_bound(j, llc::LT);
+        c().add_abs_bound(lemma, j, llc::LT);
     }
     lpvar m_j = m.var();
-    c().add_abs_bound(m_j, llc::GE, prod_val);
-    TRACE("nla_solver", print_lemma(tout););
+    c().add_abs_bound(lemma, m_j, llc::GE, prod_val);
 }
    
 
