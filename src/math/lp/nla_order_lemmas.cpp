@@ -266,7 +266,7 @@ void order::generate_ol_eq(const monic& ac,
     // ac == bc
     lemma |= ineq(c.var(), llc::EQ, 0); // c is not equal to zero
     lemma |= ineq(term(ac.var(), -rational(1), bc.var()), llc::NE, 0);
-    lemma |= ineq(term(rational(canonize_sign(a)), a.var(), rational(!canonize_sign(b)), b.var()), llc::EQ, 0);
+    lemma |= ineq(term(sign_to_rat(canonize_sign(a)), a.var(), sign_to_rat(!canonize_sign(b)), b.var()), llc::EQ, 0);
     lemma &= ac;
     lemma &= a;
     lemma &= bc;
