@@ -81,15 +81,15 @@ func_interp::func_interp(ast_manager & m, unsigned arity):
 
 func_interp::~func_interp() {
     for (func_entry* curr : m_entries) {
-        curr->deallocate(m_manager, m_arity);
+        curr->deallocate(m(), m_arity);
     }
-    m_manager.dec_ref(m_else);
-    m_manager.dec_ref(m_interp);
-    m_manager.dec_ref(m_array_interp);
+    m().dec_ref(m_else);
+    m().dec_ref(m_interp);
+    m().dec_ref(m_array_interp);
 }
 
 func_interp * func_interp::copy() const {
-    func_interp * new_fi = alloc(func_interp, m_manager, m_arity);
+    func_interp * new_fi = alloc(func_interp, m(), m_arity);
 
     for (func_entry * curr : m_entries) {
         new_fi->insert_new_entry(curr->get_args(), curr->get_result());
@@ -99,8 +99,8 @@ func_interp * func_interp::copy() const {
 }
 
 void func_interp::reset_interp_cache() {
-    m_manager.dec_ref(m_interp);
-    m_manager.dec_ref(m_array_interp);
+    m().dec_ref(m_interp);
+    m().dec_ref(m_array_interp);
     m_interp = nullptr;
     m_array_interp = nullptr;
 }
@@ -150,8 +150,8 @@ void func_interp::set_else(expr * e) {
         e = to_app(e)->get_arg(2);
     }
 
-    m_manager.inc_ref(e);
-    m_manager.dec_ref(m_else);
+    m().inc_ref(e);
+    m().dec_ref(m_else);
     m_else = e;
 }
 
@@ -187,7 +187,7 @@ void func_interp::insert_entry(expr * const * args, expr * r) {
     reset_interp_cache();
     func_entry * entry = get_entry(args);
     if (entry != nullptr) {
-        entry->set_result(m_manager, r);
+        entry->set_result(m(), r);
         return;
     }
     insert_new_entry(args, r);
@@ -196,20 +196,20 @@ void func_interp::insert_entry(expr * const * args, expr * r) {
 void func_interp::insert_new_entry(expr * const * args, expr * r) {
     reset_interp_cache();
     CTRACE("func_interp_bug", get_entry(args) != 0,
-           tout << "Old: " << mk_ismt2_pp(get_entry(args)->m_result, m_manager) << "\n";
+           tout << "Old: " << mk_ismt2_pp(get_entry(args)->m_result, m()) << "\n";
            tout << "Args:";
            for (unsigned i = 0; i < m_arity; i++) {
-               tout << mk_ismt2_pp(get_entry(args)->get_arg(i), m_manager) << "\n";
+               tout << mk_ismt2_pp(get_entry(args)->get_arg(i), m()) << "\n";
            }
-           tout << "New: " << mk_ismt2_pp(r, m_manager) << "\n";
+           tout << "New: " << mk_ismt2_pp(r, m()) << "\n";
            tout << "Args:";
            for (unsigned i = 0; i < m_arity; i++) {
-               tout << mk_ismt2_pp(args[i], m_manager) << "\n";
+               tout << mk_ismt2_pp(args[i], m()) << "\n";
            }
-           tout << "Old: " << mk_ismt2_pp(get_entry(args)->get_result(), m_manager) << "\n";
+           tout << "Old: " << mk_ismt2_pp(get_entry(args)->get_result(), m()) << "\n";
            );
     SASSERT(get_entry(args) == nullptr);
-    func_entry * new_entry = func_entry::mk(m_manager, m_arity, args, r);
+    func_entry * new_entry = func_entry::mk(m(), m_arity, args, r);
     if (!new_entry->args_are_values())
         m_args_are_values = false;
     m_entries.push_back(new_entry);
@@ -218,7 +218,7 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
 bool func_interp::eval_else(expr * const * args, expr_ref & result) const {
     if (m_else == nullptr)
         return false;
-    var_subst s(m_manager, false);
+    var_subst s(m(), false);
     SASSERT(!s.std_order()); // (VAR 0) <- args[0], (VAR 1) <- args[1], ...
     result = s(m_else, m_arity, args);
     return true;
@@ -264,7 +264,7 @@ void func_interp::compress() {
                 m_args_are_values = false;
         }
         else {
-            curr->deallocate(m_manager, m_arity);
+            curr->deallocate(m(), m_arity);
         }
     }
     if (j < m_entries.size()) {
@@ -273,26 +273,26 @@ void func_interp::compress() {
     }
     // other compression, if else is a default branch.
     // or function encode identity.
-    if (m_manager.is_false(m_else)) {
-        expr_ref new_else(get_interp(), m_manager);
+    if (m().is_false(m_else)) {
+        expr_ref new_else(get_interp(), m());
         for (func_entry * curr : m_entries) {
-            curr->deallocate(m_manager, m_arity);
+            curr->deallocate(m(), m_arity);
         }
         m_entries.reset();
         reset_interp_cache();
-        m_manager.inc_ref(new_else);
-        m_manager.dec_ref(m_else);
+        m().inc_ref(new_else);
+        m().dec_ref(m_else);
         m_else = new_else;
     }
     else if (!m_entries.empty() && is_identity()) {
         for (func_entry * curr : m_entries) {
-            curr->deallocate(m_manager, m_arity);
+            curr->deallocate(m(), m_arity);
         }
         m_entries.reset();
         reset_interp_cache();
-        expr_ref new_else(m_manager.mk_var(0, m_manager.get_sort(m_else)), m_manager);
-        m_manager.inc_ref(new_else);
-        m_manager.dec_ref(m_else);
+        expr_ref new_else(m().mk_var(0, m().get_sort(m_else)), m());
+        m().inc_ref(new_else);
+        m().dec_ref(m_else);
         m_else = new_else;
     }
 }
@@ -310,8 +310,8 @@ bool func_interp::is_identity() const {
         if (curr->get_result() == m_else) return false;
     }    
     if (is_var(m_else)) return true;
-    if (!m_manager.is_value(m_else)) return false;    
-    sort_size const& sz = m_manager.get_sort(m_else)->get_num_elements();
+    if (!m().is_value(m_else)) return false;    
+    sort_size const& sz = m().get_sort(m_else)->get_num_elements();
     if (!sz.is_finite()) return false;
 
     //
@@ -333,38 +333,38 @@ expr * func_interp::get_interp_core() const {
         }
         if (vars.empty()) {
             for (unsigned i = 0; i < m_arity; i++) {
-                vars.push_back(m_manager.mk_var(i, m_manager.get_sort(curr->get_arg(i))));
+                vars.push_back(m().mk_var(i, m().get_sort(curr->get_arg(i))));
             }
         }
         ptr_buffer<expr> eqs;
         for (unsigned i = 0; i < m_arity; i++) {
-            eqs.push_back(m_manager.mk_eq(vars[i], curr->get_arg(i)));
+            eqs.push_back(m().mk_eq(vars[i], curr->get_arg(i)));
         }
         SASSERT(eqs.size() == m_arity);
-        expr * cond = mk_and(m_manager, eqs.size(), eqs.c_ptr());
+        expr * cond = mk_and(m(), eqs.size(), eqs.c_ptr());
         expr * th = curr->get_result();
-        if (m_manager.is_true(th)) {
-            r = m_manager.is_false(r) ? cond : m_manager.mk_or(cond, r);
+        if (m().is_true(th)) {
+            r = m().is_false(r) ? cond : m().mk_or(cond, r);
         }
-        else if (m_manager.is_false(th)) {
-            expr* ncond = m_manager.mk_not(cond);
-            r = m_manager.is_true(r) ? ncond : m_manager.mk_and(ncond, r);
+        else if (m().is_false(th)) {
+            expr* ncond = m().mk_not(cond);
+            r = m().is_true(r) ? ncond : m().mk_and(ncond, r);
         }
         else {
-            r = th == r ? r : m_manager.mk_ite(cond, th, r);
+            r = th == r ? r : m().mk_ite(cond, th, r);
         }
     }
     return r;
 }
 
-expr_ref func_interp::get_array_interp_core_(func_decl * f) const {
+expr_ref func_interp::get_array_interp_core(func_decl * f) const {
+    expr_ref r(m());
     if (m_else == nullptr) 
-        return expr_ref(m_manager);
+        return r;
     ptr_vector<sort> domain;
     for (sort* s : *f) {
         domain.push_back(s);
     }
-    expr_ref r(m_manager);
 
     bool ground = is_ground(m_else);
     for (func_entry * curr : m_entries) {
@@ -376,23 +376,23 @@ expr_ref func_interp::get_array_interp_core_(func_decl * f) const {
     if (!ground) {
         r = get_interp();
         if (!r) return r;
-        sort_ref_vector sorts(m_manager);
-        expr_ref_vector vars(m_manager);
+        sort_ref_vector sorts(m());
+        expr_ref_vector vars(m());
         svector<symbol> var_names;
-        var_subst sub(m_manager, false);
+        var_subst sub(m(), false);
         for (unsigned i = 0; i < m_arity; ++i) {
             var_names.push_back(symbol(i));
             sorts.push_back(domain.get(i));
-            vars.push_back(m_manager.mk_var(m_arity - i - 1, sorts.back()));
+            vars.push_back(m().mk_var(m_arity - i - 1, sorts.back()));
         }
         r = sub(r, vars);
-        r = m_manager.mk_lambda(sorts.size(), sorts.c_ptr(), var_names.c_ptr(), r);        
+        r = m().mk_lambda(sorts.size(), sorts.c_ptr(), var_names.c_ptr(), r);        
         return r;
     }
 
-    expr_ref_vector args(m_manager);
-    array_util autil(m_manager);
-    sort_ref A(autil.mk_array_sort(domain.size(), domain.c_ptr(), m_manager.get_sort(m_else)), m_manager);
+    expr_ref_vector args(m());
+    array_util autil(m());
+    sort_ref A(autil.mk_array_sort(domain.size(), domain.c_ptr(), m().get_sort(m_else)), m());
     r = autil.mk_const_array(A, m_else);
     for (func_entry * curr : m_entries) {
         expr * res = curr->get_result();
@@ -418,18 +418,18 @@ expr * func_interp::get_interp() const {
     expr * r = get_interp_core();
     if (r != nullptr) {
         const_cast<func_interp*>(this)->m_interp = r;
-        m_manager.inc_ref(m_interp);
+        m().inc_ref(m_interp);
     }
     return r;
 }
 
-expr_ref func_interp::get_array_interp_(func_decl * f) const {
+expr_ref func_interp::get_array_interp(func_decl * f) const {
     if (m_array_interp != nullptr)
-        return expr_ref(m_array_interp, m_manager);
-    expr_ref r = get_array_interp_core_(f);
+        return expr_ref(m_array_interp, m());
+    expr_ref r = get_array_interp_core(f);
     if (r) {
         const_cast<func_interp*>(this)->m_array_interp = r;
-        m_manager.inc_ref(m_array_interp);
+        m().inc_ref(m_array_interp);
     }
     return r;
 }

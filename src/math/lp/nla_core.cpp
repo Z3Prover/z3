@@ -1497,7 +1497,7 @@ lbool core::check(vector<lemma>& l_vec) {
         m_basics.basic_lemma(true);    
 
     TRACE("nla_solver", tout << "passed constraint_derived and basic lemmas\n";);
-    SASSERT(elists_are_consistent(true));
+    SASSERT(!l_vec.empty() || elists_are_consistent(true));
 
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);

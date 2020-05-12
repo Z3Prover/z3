@@ -1824,9 +1824,6 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
 
-    if (n->m_id == 28 && is_lambda(n)) {
-        // SASSERT(false);
-    }
     // track_id(*this, n, 254);
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
