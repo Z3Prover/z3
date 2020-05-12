@@ -161,6 +161,8 @@ private:
     lp::u_set                m_rows;
 public:
     reslimit&                m_reslim;
+    bool                     m_use_nra_model;
+    nra::solver              m_nra;
 
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
@@ -454,7 +456,8 @@ public:
     bool var_is_big(lpvar) const;
     bool has_real(const factorization&) const;
     bool has_real(const monic& m) const;
-
+    void set_use_nra_model(bool m) { m_use_nra_model = m; }
+    bool use_nra_model() const { return m_use_nra_model; }
 };  // end of core
 
 struct pp_mon {

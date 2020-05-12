@@ -32,7 +32,8 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_pdd_manager(s.number_of_vars()),
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
-    m_reslim(lim)
+    m_reslim(lim),
+    m_nra(s, lim, *this)
 {}
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
@@ -1472,12 +1473,9 @@ lbool core::check(vector<lemma>& l_vec) {
 
     init_to_refine();
     patch_monomials_with_real_vars();
-    if (m_to_refine.is_empty()) {
-        return l_true;
-    }
-    
+    if (m_to_refine.is_empty()) { return l_true; }   
     init_search();
-    
+    set_use_nra_model(false);    
     bool enable_grobner = false;
 
     if (need_to_call_algebraic_methods()) {
@@ -1512,7 +1510,26 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-    lbool ret = !l_vec.empty() && !lp_settings().get_cancel_flag() ? l_false : l_undef;
+    if (lp_settings().get_cancel_flag())
+        return l_undef;
+
+    
+    lbool ret = l_vec.empty() ? l_undef : l_false;
+#if 0
+    if (ret == l_undef) {
+        lp::explanation expl;
+        ret = m_nra.check(expl);
+        
+        if (ret == l_false) {
+            new_lemma lemma(*this, __FUNCTION__);
+            lemma.expl() = expl;
+            set_use_nra_model(true);
+        } else if (ret == l_true) {
+            set_use_nra_model(true);
+        }        
+    }
+#endif
+    
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););
