@@ -8034,7 +8034,6 @@ namespace smt {
             /* literal is_zero_l = */ mk_literal(is_zero);
             axiomAdd = true;
             TRACE("str", ctx.display(tout););
-            // NOT_IMPLEMENTED_YET();
         }
 
         bool S_hasEqcValue;
@@ -8089,6 +8088,7 @@ namespace smt {
     }
 
     bool theory_str::finalcheck_int2str(app * a) {
+        SASSERT(u.str.is_itos(a));
         bool axiomAdd = false;
         ast_manager & m = get_manager();
 
@@ -8108,7 +8108,7 @@ namespace smt {
                 // check for leading zeroes. if the first character is '0', the entire string must be "0"
                 char firstChar = (int)Sval[0];
                 if (firstChar == '0' && !(Sval == zstring("0"))) {
-                    TRACE("str", tout << "str.to-int argument " << Sval << " contains leading zeroes" << std::endl;);
+                    TRACE("str", tout << "str.from-int argument " << Sval << " contains leading zeroes" << std::endl;);
                     expr_ref axiom(m.mk_not(ctx.mk_eq_atom(a, mk_string(Sval))), m);
                     assert_axiom(axiom);
                     return true;
@@ -8125,7 +8125,7 @@ namespace smt {
                         convertedRepresentation = (ten * convertedRepresentation) + rational(val);
                     } else {
                         // not a digit, invalid
-                        TRACE("str", tout << "str.to-int argument contains non-digit character '" << digit << "'" << std::endl;);
+                        TRACE("str", tout << "str.from-int argument contains non-digit character '" << digit << "'" << std::endl;);
                         conversionOK = false;
                         break;
                     }
@@ -8149,7 +8149,31 @@ namespace smt {
             }
         } else {
             TRACE("str", tout << "string theory has no assignment for " << mk_pp(a, m) << std::endl;);
-            NOT_IMPLEMENTED_YET();
+            // see if the integer theory has assigned N yet
+            arith_value v(m);
+            v.init(&ctx);
+            rational Nval;
+            if (v.get_value(N, Nval)) {
+                expr_ref premise(ctx.mk_eq_atom(N, mk_int(Nval)), m);
+                expr_ref conclusion(m);
+                if (Nval.is_neg()) {
+                    // negative argument -> ""
+                    conclusion = expr_ref(ctx.mk_eq_atom(a, mk_string("")), m);
+                } else {
+                    // non-negative argument -> convert to string of digits
+                    zstring Nval_str(Nval.to_string().c_str());
+                    conclusion = expr_ref(ctx.mk_eq_atom(a, mk_string(Nval_str)), m);
+                }
+                expr_ref axiom(rewrite_implication(premise, conclusion), m);
+                assert_axiom(axiom);
+                axiomAdd = true;
+            } else {
+                TRACE("str", tout << "integer theory has no assignment for " << mk_pp(N, m) << std::endl;);
+                expr_ref is_zero(ctx.mk_eq_atom(N, m_autil.mk_int(0)), m);
+                /* literal is_zero_l = */ mk_literal(is_zero);
+                axiomAdd = true;
+                TRACE("str", ctx.display(tout););
+            }
         }
         return axiomAdd;
     }
@@ -8477,7 +8501,7 @@ namespace smt {
                 }
             }
         }
-
+        
         if (!needToAssignFreeVars) {
 
             // check string-int terms
