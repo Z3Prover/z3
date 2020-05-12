@@ -160,7 +160,7 @@ private:
     mutable lp::u_set        m_active_var_set;
     lp::u_set                m_rows;
 public:
-    reslimit                 m_reslim;
+    reslimit&                m_reslim;
 
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);

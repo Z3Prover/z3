@@ -51,8 +51,9 @@ void solver::pop(unsigned n) {
     m_core->pop(n);
 }
         
-solver::solver(lp::lar_solver& s): m_core(alloc(core, s, m_res_limit)),
-                                   m_nra(s, m_res_limit, *m_core) {
+solver::solver(lp::lar_solver& s, reslimit& limit): 
+    m_core(alloc(core, s, limit)),
+    m_nra(s, limit, *m_core) {
 }
 
 bool solver::influences_nl_var(lpvar j) const {    

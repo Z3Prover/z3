@@ -22,7 +22,6 @@ namespace nla {
 class core;
 // nonlinear integer incremental linear solver
 class solver {
-    reslimit m_res_limit;
     core* m_core;
     nra::solver m_nra;
     bool m_use_nra_model;
@@ -31,7 +30,7 @@ class solver {
 public:
     void add_monic(lpvar v, unsigned sz, lpvar const* vs);
     
-    solver(lp::lar_solver& s);
+    solver(lp::lar_solver& s, reslimit& limit);
     ~solver();
     nla_settings& settings();
     void push();
