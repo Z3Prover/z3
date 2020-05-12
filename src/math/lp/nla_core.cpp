@@ -33,6 +33,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
     m_reslim(lim),
+    m_use_nra_model(false),
     m_nra(s, lim, *this)
 {}
     
