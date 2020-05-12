@@ -21,6 +21,6 @@ The Z3 binaries are provided to [Z3.jl](https://github.com/ahumenberger/Z3.jl) v
 The binaries are managed via the JLL package z3_jll. To use your own binaries, you need to set up an overrides file, by default at `~/.julia/artifacts/Overrides.toml` with the following content:
 
 ```toml
-[todo]
+[1bc4e1ec-7839-5212-8f2f-0d16b7bd09bc]
 z3 = "/path/to/z3/build"
 ```
