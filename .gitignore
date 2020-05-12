@@ -1,4 +1,5 @@
 *~
+rebase.cmd
 *.pyc
 *.pyo
 # Ignore callgrind files
