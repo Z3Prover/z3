@@ -1154,8 +1154,9 @@ namespace smt {
                 expr_ref rhs2(m_autil.mk_ge(strlen, m_autil.mk_numeral(nonzero_lower_bound, true)), m);
                 rhs.push_back(rhs2);
             } else {
-                // shouldn't happen
-                UNREACHABLE();
+                // probably no solutions at all; just assume that 0 is a (safe) lower bound
+                regex_last_lower_bound.insert(str, rational::zero());
+                rhs.reset();
             }
         }
         // TODO upper bound check
