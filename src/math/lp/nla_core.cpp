@@ -1522,7 +1522,7 @@ lbool core::check(vector<lemma>& l_vec) {
         
         if (ret == l_false) {
             new_lemma lemma(*this, __FUNCTION__);
-            lemma.expl() = expl;
+            lemma &= expl;
             set_use_nra_model(true);
         } else if (ret == l_true) {
             set_use_nra_model(true);

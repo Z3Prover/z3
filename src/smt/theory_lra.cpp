@@ -2153,19 +2153,14 @@ public:
     
     lbool check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
-        m_explanation.clear();
         lbool r = m_nla->check(m_nla_lemma_vector);
         if (use_nra_model()) m_stats.m_nra_calls ++;
     
         switch (r) {
         case l_false: {
             m_stats.m_nla_lemmas += m_nla_lemma_vector.size();
-            if (use_nra_model()) {
-                set_conflict_for_nra_model();
-            } else {
-                for (const nla::lemma & l : m_nla_lemma_vector) {
-                    false_case_of_check_nla(l);
-                }
+            for (const nla::lemma & l : m_nla_lemma_vector) {
+                false_case_of_check_nla(l);
             }
             break;
         }
@@ -3269,14 +3264,6 @@ public:
     void set_conflict() {
         literal_vector core;
         set_conflict_or_lemma(core, true);
-    }
-
-    void set_conflict_for_nra_model() {
-        SASSERT(use_nra_model());
-        for (const auto &l : m_nla_lemma_vector) {
-            m_explanation = l.expl();
-            set_conflict();
-        }
     }
 
     void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
