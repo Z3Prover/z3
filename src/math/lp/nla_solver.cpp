@@ -34,7 +34,7 @@ lbool solver::run_nra(lp::explanation & expl) {
 lbool solver::check(vector<lemma>& l, lp::explanation& expl) {    
     set_use_nra_model(false);
     lbool ret = m_core->check(l);
-    if (ret == l_undef) { // disable the call to nlsat
+    if (false && ret == l_undef) { // disable the call to nlsat
         ret = run_nra(expl);
         if (ret == l_true || expl.size() > 0) {
             set_use_nra_model(true);
