@@ -1886,7 +1886,66 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
     return true;
 }
 
+br_status seq_rewriter::mk_regexp_contains_emptystr(expr* eps, expr* b, expr_ref& result) {
+    // assumption: eps is the empty string (TODO: replace this the following line)
+    // expr* eps = ... ;
+    expr* b1 = nullptr;
+    expr* b2 = nullptr;
+    unsigned lo = 0, hi = 0;
+    if (m_util.re.is_concat(b, b1, b2)) {
+        result = m().mk_and(m_util.re.mk_in_re(eps, b1),
+                            m_util.re.mk_in_re(eps, b2));
+        return BR_REWRITE2;
+    }
+    else if (m_util.re.is_union(b, b1, b2)) {
+        result = m().mk_or(m_util.re.mk_in_re(eps, b1),
+                           m_util.re.mk_in_re(eps, b2));
+        return BR_REWRITE2;
+    }
+    else if (m_util.re.is_intersection(b, b1, b2)) {
+        result = m().mk_and(m_util.re.mk_in_re(eps, b1),
+                            m_util.re.mk_in_re(eps, b2));
+        return BR_REWRITE2;
+    }
+    else if (m_util.re.is_star(b)) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    else if (m_util.re.is_opt(b)) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    else if (m_util.re.is_plus(b, b1)) {
+        result = m_util.re.mk_in_re(eps, b1);
+        return BR_REWRITE1;
+    }
+    else if (m_util.re.is_range(b)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+    else if (m_util.re.is_full_char(b)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+    /* TODO: add for complement */
+    /* TODO: add for is_lambda base predicate */
+    else if (m_util.re.is_loop(b, b1, lo) || m_util.re.is_loop(b, b1, lo, hi)) {
+        if (lo == 0) {
+            result = m().mk_true();
+            return BR_DONE;
+        }
+        else {
+            result = m_util.re.mk_in_re(eps, b1);
+            return BR_REWRITE1;
+        }
+    }
+    else {
+        return BR_FAILED;
+    }
+}
+
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
+
     if (m_util.re.is_empty(b)) {
         result = m().mk_false();
         return BR_DONE;
@@ -1900,6 +1959,12 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = m().mk_eq(a, b1);
         return BR_REWRITE1;
     }
+    if (m_util.str.is_empty(a)) {
+        return mk_regexp_contains_emptystr(a, b, result);
+    }
+
+    // return BR_FAILED; /* For testing purposes, only depend on new functionality */
+
     scoped_ptr<eautomaton> aut;
     expr_ref_vector seq(m());
     if (!(aut = m_re2aut(b))) {

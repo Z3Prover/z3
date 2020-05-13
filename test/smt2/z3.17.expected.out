@@ -1,0 +1,7 @@
+sat
+(model 
+  (define-fun t1 () (Tree Int)
+    (node 21 (as nil (TreeList Int))))
+  (define-fun t2 () (Tree Bool)
+    (node false (as nil (TreeList Bool))))
+)

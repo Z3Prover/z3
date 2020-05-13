@@ -1,0 +1,5 @@
+(declare-fun a () Int) 
+(assert (= a 9)) 
+(assert (= (* (/ a a) a) (- (/ (+ a a) a) a))) 
+(assert (distinct (- (div (+  a  a) a) a) a)) 
+(check-sat-using  ctx-simplify)  

@@ -1,0 +1,5 @@
+(goals
+(goal
+  false
+  :precision precise :depth 7)
+)

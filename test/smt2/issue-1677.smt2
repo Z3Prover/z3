@@ -1,0 +1,13 @@
+; Copyright (c) 2016 Microsoft Corporation
+(set-option :produce-models true)
+(declare-const a_0 String)
+(declare-const b_0 String)
+(declare-const c_0 String)
+(assert (not (= b_0 "")))
+(assert (not (not (= (str.++ a_0 b_0) "abcd"))))
+(assert (= (str.++ b_0 c_0) "cdef"))
+(declare-const _o0 (_ BitVec 64))
+(assert (= _o0 #x0000000000000002))
+(minimize _o0)
+(check-sat)
+(get-model)

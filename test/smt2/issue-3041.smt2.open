@@ -1,0 +1,2 @@
+(assert (is_int 0))
+(check-sat-using fix-dl-var)

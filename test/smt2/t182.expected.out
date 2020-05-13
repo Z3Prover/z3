@@ -1,0 +1,5 @@
+(declare-fun a () Int)
+(declare-fun f (Int) Int)
+(assert (>= (f (+ 1 (f a))) a))
+(assert (>= (f (f (f (f (f (f (f (f (f a))))))))) (f a)))
+(check-sat)

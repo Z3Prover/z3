@@ -1,0 +1,14 @@
+(goals
+(goal
+  (f x!2 z!1)
+  (f z2!0 z!1)
+  (forall ((y Int)) (or (= y x!2) (not (f y z!1))))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (f x!foo!5 z!foo!4)
+  (f z2!foo!3 z!foo!4)
+  (forall ((y Int)) (or (= y x!foo!5) (not (f y z!foo!4))))
+  :precision precise :depth 1)
+)

@@ -1,0 +1,30 @@
+(goals
+(goal
+  (= x3 (f (g (g x3)) (g x3) x3))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (ite b (= x3 (g (g x3))) (= x3 (f (g (g x3)) (g x3) x3)))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (ite b (= x3 (f (g (g x3)) (g x3) x3)) (= x3 (g (g x3))))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (ite (= x3 (g (g (g x3)))) (= x3 (g (g x3))) (= x3 (g (g (g (g x3))))))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (= (+ x3 (g x3)) 2)
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (= x3 (+ (- 1) (g x3)))
+  :precision precise :depth 1)
+)

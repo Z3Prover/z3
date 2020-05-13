@@ -1,0 +1,2 @@
+(error "line 9 column 38: invalid function definition, sort mismatch. Expcected Bool but function body has sort Int")
+unsat

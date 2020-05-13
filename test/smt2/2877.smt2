@@ -1,0 +1,5 @@
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (= x 0))
+(assert (distinct (div (* x y) y) x))
+(check-sat)

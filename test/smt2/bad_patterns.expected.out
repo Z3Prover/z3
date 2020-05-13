@@ -1,0 +1,12 @@
+(error "line 7 column 65: invalid pattern, '(' or identifier expected")
+(error "line 9 column 63: invalid s-expression, unexpected ')'")
+(error "line 10 column 65: invalid pattern, '(' or identifier expected")
+(error "line 11 column 66: invalid function application, arguments missing")
+(error "line 12 column 66: invalid function application, arguments missing")
+(goals
+(goal
+  (forall ((s (Array Int Int))) (= s (ff s)))
+  (forall ((s (Array Int Int))) (! (= s (ff s)) :pattern ((ff s))))
+  (forall ((s (Array Int Int))) (= (store s 0 0) (ff s)))
+  :precision precise :depth 1)
+)

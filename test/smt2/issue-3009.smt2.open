@@ -1,0 +1,3 @@
+(declare-fun a (Int) Int)
+(assert (= a (lambda ((b Int)) 0)))
+(check-sat-using qe_rec)

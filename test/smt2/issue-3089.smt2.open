@@ -1,0 +1,4 @@
+(declare-fun a () (_ BitVec 9000))
+(declare-fun b () (_ BitVec 9000))
+(assert (bvslt a b))
+(check-sat-using smt)

@@ -1,0 +1,32 @@
+(set-logic QF_LIA) 
+(set-option :model_validate true)
+(set-option :sat.local_search true)
+(declare-const v4 Bool)
+(declare-const v5 Bool)
+(declare-const i5 Int)
+(assert (or (not v5) (xor v4 (> (mod i5 775) 26) v5)))
+(assert (<= i5 2))
+(assert (>= i5 -2))
+
+(check-sat-using (then simplify ctx-solver-simplify nnf unit-subsume-simplify qffd))
+
+(exit)
+(reset)
+(set-logic QF_LIA) 
+(set-option :model_validate true)
+(set-option :sat.local_search true)
+(declare-const v4 Bool)
+(declare-const v5 Bool)
+(declare-const i5 Int)
+(assert
+ (and
+ (let ((a!1 (or (not (<= (mod i5 775) 26)) v5))
+        (a!3 (or (not (<= (mod i5 775) 26)) (not v5))))
+  (let ((a!2 (and a!1 (or (<= (mod i5 775) 26) (not v5))))
+        (a!4 (and (or (<= (mod i5 775) 26) v5) a!3)))
+    (or (not v5) (and (or v4 a!2) (or (not v4) a!4)))))
+  (<= i5 2)
+  (>= i5 (- 2))))
+
+(apply unit-subsume-simplify)
+;(check-sat-using (then unit-subsume-simplify qffd))

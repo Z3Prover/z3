@@ -1,0 +1,5 @@
+(forall ((x Int) (y0 Int))
+  (or (forall ((z Int))
+        (or (= (f z x) (f (f x y0) x))
+            (exists ((w Int)) (= (f z w) (f (f x y0) x)))))
+      (> (f (f x y0) (f x y0)) 0)))

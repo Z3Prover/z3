@@ -1,0 +1,2 @@
+(assert (forall ((a (_ BitVec 6))) (forall ((b (_ BitVec 6))) (forall ((c (_ BitVec 6))) (or (distinct a b c) (= b c))))))
+(check-sat-using qe)

@@ -1,0 +1,8 @@
+(bvsle b #x5)
+(and (= ((_ extract 3 3) b) #b0) (bvule ((_ extract 2 0) b) #b101))
+(= b #x0)
+(= a #x00000000)
+(and (= ((_ extract 31 13) a) #b0000000000000000000)
+     (bvule ((_ extract 12 0) a) #b1111010000000))
+(bvsle a #x00001e80)
+(bvule #x00001e80 a)

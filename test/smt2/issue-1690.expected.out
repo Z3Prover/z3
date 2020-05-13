@@ -1,0 +1,5 @@
+sat
+(model 
+  (define-fun s0 () String
+    "h'; DROP TABLE 'users")
+)

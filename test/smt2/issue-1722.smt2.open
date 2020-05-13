@@ -1,0 +1,507 @@
+ 
+(set-option :fp.xform.slice false)
+(set-option :fp.xform.inline_linear true)
+(set-option :fp.xform.inline_eager true)
+(set-option :fp.xform.tail_simplifier_pve false)
+(set-option :fp.engine spacer)
+(set-option :fp.spacer.elim_aux false)
+(set-option :fp.spacer.reach_dnf false)
+;(set-option :fp.validate true)
+;(set-option :fp.spacer.native_mbp true)
+;(set-option :fp.print_statistics true)
+(set-option :verbose 10)
+;(set-option :fp.spacer.ground_pobs true) 
+;(set-option :fp.spacer.use_inc_clause true)
+;(set-option :fp.spacer.iuc.old_hyp_reducer false)
+;(set-option :fp.spacer.order_children 2)
+;(set-option :fp.spacer.mbqi false)
+;(set-option :fp.spacer.ctp true)
+
+(set-logic HORN)
+(declare-fun Invariant
+             (Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool
+              Bool)
+             Bool)
+(assert (forall ((x_1 Bool)
+         (x_2 Bool)
+         (x_3 Bool)
+         (x_4 Bool)
+         (x_5 Bool)
+         (x_6 Bool)
+         (x_7 Bool)
+         (x_8 Bool)
+         (x_9 Bool)
+         (x_10 Bool)
+         (x_11 Bool)
+         (x_12 Bool)
+         (x_13 Bool)
+         (x_14 Bool)
+         (x_15 Bool)
+         (x_16 Bool)
+         (x_17 Bool)
+         (x_18 Bool)
+         (x_19 Bool)
+         (e_1 Bool)
+         (e_2 Bool)
+         (e_3 Bool)
+         (e_4 Bool)
+         (e_5 Bool)
+         (e_6 Bool)
+         (e_7 Bool)
+         (e_8 Bool)
+         (e_9 Bool)
+         (e_10 Bool)
+         (e_11 Bool)
+         (e_12 Bool)
+         (e_13 Bool)
+         (e_14 Bool)
+         (e_15 Bool)
+         (e_16 Bool)
+         (e_17 Bool)
+         (e_18 Bool)
+         (e_19 Bool))
+  (=> (not (or x_1
+               x_2
+               x_3
+               x_4
+               x_5
+               x_6
+               x_7
+               x_8
+               x_9
+               x_10
+               x_11
+               x_12
+               x_13
+               x_14
+               x_15
+               x_16
+               x_17
+               x_18
+               x_19
+               e_1
+               e_2
+               e_3
+               e_4
+               e_5
+               e_6
+               e_7
+               e_8
+               e_9
+               e_10
+               e_11
+               e_12
+               e_13
+               e_14
+               e_15
+               e_16
+               e_17
+               e_18
+               e_19))
+      (Invariant x_1
+                 x_2
+                 x_3
+                 x_4
+                 x_5
+                 x_6
+                 x_7
+                 x_8
+                 x_9
+                 x_10
+                 x_11
+                 x_12
+                 x_13
+                 x_14
+                 x_15
+                 x_16
+                 x_17
+                 x_18
+                 x_19
+                 e_1
+                 e_2
+                 e_3
+                 e_4
+                 e_5
+                 e_6
+                 e_7
+                 e_8
+                 e_9
+                 e_10
+                 e_11
+                 e_12
+                 e_13
+                 e_14
+                 e_15
+                 e_16
+                 e_17
+                 e_18
+                 e_19))))
+(assert (forall ((x_1 Bool)
+         (x_2 Bool)
+         (x_3 Bool)
+         (x_4 Bool)
+         (x_5 Bool)
+         (x_6 Bool)
+         (x_7 Bool)
+         (x_8 Bool)
+         (x_9 Bool)
+         (x_10 Bool)
+         (x_11 Bool)
+         (x_12 Bool)
+         (x_13 Bool)
+         (x_14 Bool)
+         (x_15 Bool)
+         (x_16 Bool)
+         (x_17 Bool)
+         (x_18 Bool)
+         (x_19 Bool)
+         (e_1 Bool)
+         (e_2 Bool)
+         (e_3 Bool)
+         (e_4 Bool)
+         (e_5 Bool)
+         (e_6 Bool)
+         (e_7 Bool)
+         (e_8 Bool)
+         (e_9 Bool)
+         (e_10 Bool)
+         (e_11 Bool)
+         (e_12 Bool)
+         (e_13 Bool)
+         (e_14 Bool)
+         (e_15 Bool)
+         (e_16 Bool)
+         (e_17 Bool)
+         (e_18 Bool)
+         (e_19 Bool)
+         (xNext_1 Bool)
+         (xNext_2 Bool)
+         (xNext_3 Bool)
+         (xNext_4 Bool)
+         (xNext_5 Bool)
+         (xNext_6 Bool)
+         (xNext_7 Bool)
+         (xNext_8 Bool)
+         (xNext_9 Bool)
+         (xNext_10 Bool)
+         (xNext_11 Bool)
+         (xNext_12 Bool)
+         (xNext_13 Bool)
+         (xNext_14 Bool)
+         (xNext_15 Bool)
+         (xNext_16 Bool)
+         (xNext_17 Bool)
+         (xNext_18 Bool)
+         (xNext_19 Bool)
+         (eNext_1 Bool)
+         (eNext_2 Bool)
+         (eNext_3 Bool)
+         (eNext_4 Bool)
+         (eNext_5 Bool)
+         (eNext_6 Bool)
+         (eNext_7 Bool)
+         (eNext_8 Bool)
+         (eNext_9 Bool)
+         (eNext_10 Bool)
+         (eNext_11 Bool)
+         (eNext_12 Bool)
+         (eNext_13 Bool)
+         (eNext_14 Bool)
+         (eNext_15 Bool)
+         (eNext_16 Bool)
+         (eNext_17 Bool)
+         (eNext_18 Bool)
+         (eNext_19 Bool))
+  (let ((a!1 (and (Invariant x_1
+                             x_2
+                             x_3
+                             x_4
+                             x_5
+                             x_6
+                             x_7
+                             x_8
+                             x_9
+                             x_10
+                             x_11
+                             x_12
+                             x_13
+                             x_14
+                             x_15
+                             x_16
+                             x_17
+                             x_18
+                             x_19
+                             e_1
+                             e_2
+                             e_3
+                             e_4
+                             e_5
+                             e_6
+                             e_7
+                             e_8
+                             e_9
+                             e_10
+                             e_11
+                             e_12
+                             e_13
+                             e_14
+                             e_15
+                             e_16
+                             e_17
+                             e_18
+                             e_19)
+                  (=> (not (and true)) (not eNext_1))
+                  (=> (not (and x_1)) (not eNext_2))
+                  (=> (not (and x_1)) (not eNext_3))
+                  (=> (not (and true)) (not eNext_4))
+                  (=> (not (and x_4 x_3)) (not eNext_5))
+                  (=> (not (and x_4 x_3)) (not eNext_6))
+                  (=> (not (and true)) (not eNext_7))
+                  (=> (not (and x_7 x_6)) (not eNext_8))
+                  (=> (not (and x_7 x_6)) (not eNext_9))
+                  (=> (not (and true)) (not eNext_10))
+                  (=> (not (and true)) (not eNext_11))
+                  (=> (not (and x_11)) (not eNext_12))
+                  (=> (not (and x_11)) (not eNext_13))
+                  (=> (not (and x_13)) (not eNext_14))
+                  (=> (not (and x_13)) (not eNext_15))
+                  (=> (not (and x_2 x_10)) (not eNext_16))
+                  (=> (not (and x_5 x_12)) (not eNext_17))
+                  (=> (not (and x_8 x_14)) (not eNext_18))
+                  (=> (not (and x_9 x_15)) (not eNext_19))
+                  (= xNext_1 (xor eNext_1 x_1))
+                  (= xNext_2 (xor eNext_2 x_2))
+                  (= xNext_3 (xor eNext_3 x_3))
+                  (= xNext_4 (xor eNext_4 x_4))
+                  (= xNext_5 (xor eNext_5 x_5))
+                  (= xNext_6 (xor eNext_6 x_6))
+                  (= xNext_7 (xor eNext_7 x_7))
+                  (= xNext_8 (xor eNext_8 x_8))
+                  (= xNext_9 (xor eNext_9 x_9))
+                  (= xNext_10 (xor eNext_10 x_10))
+                  (= xNext_11 (xor eNext_11 x_11))
+                  (= xNext_12 (xor eNext_12 x_12))
+                  (= xNext_13 (xor eNext_13 x_13))
+                  (= xNext_14 (xor eNext_14 x_14))
+                  (= xNext_15 (xor eNext_15 x_15))
+                  (= xNext_16 (xor eNext_16 x_16))
+                  (= xNext_17 (xor eNext_17 x_17))
+                  (= xNext_18 (xor eNext_18 x_18))
+                  (= xNext_19 (xor eNext_19 x_19))
+                  (=> eNext_2 (not eNext_1))
+                  (=> eNext_3 (not eNext_1))
+                  (=> eNext_5 (not eNext_4))
+                  (=> eNext_5 (not eNext_3))
+                  (=> eNext_6 (not eNext_4))
+                  (=> eNext_6 (not eNext_3))
+                  (=> eNext_8 (not eNext_7))
+                  (=> eNext_8 (not eNext_6))
+                  (=> eNext_9 (not eNext_7))
+                  (=> eNext_9 (not eNext_6))
+                  (=> eNext_12 (not eNext_11))
+                  (=> eNext_13 (not eNext_11))
+                  (=> eNext_14 (not eNext_13))
+                  (=> eNext_15 (not eNext_13))
+                  (=> eNext_16 (not eNext_2))
+                  (=> eNext_16 (not eNext_10))
+                  (=> eNext_17 (not eNext_5))
+                  (=> eNext_17 (not eNext_12))
+                  (=> eNext_18 (not eNext_8))
+                  (=> eNext_18 (not eNext_14))
+                  (=> eNext_19 (not eNext_9))
+                  (=> eNext_19 (not eNext_15))
+                  ((_ at-most 8)
+                    xNext_1
+                    xNext_2
+                    xNext_3
+                    xNext_4
+                    xNext_5
+                    xNext_6
+                    xNext_7
+                    xNext_8
+                    xNext_9
+                    xNext_10
+                    xNext_11
+                    xNext_12
+                    xNext_13
+                    xNext_14
+                    xNext_15
+                    xNext_16
+                    xNext_17
+                    xNext_18
+                    xNext_19))))
+    (=> a!1
+        (Invariant xNext_1
+                   xNext_2
+                   xNext_3
+                   xNext_4
+                   xNext_5
+                   xNext_6
+                   xNext_7
+                   xNext_8
+                   xNext_9
+                   xNext_10
+                   xNext_11
+                   xNext_12
+                   xNext_13
+                   xNext_14
+                   xNext_15
+                   xNext_16
+                   xNext_17
+                   xNext_18
+                   xNext_19
+                   eNext_1
+                   eNext_2
+                   eNext_3
+                   eNext_4
+                   eNext_5
+                   eNext_6
+                   eNext_7
+                   eNext_8
+                   eNext_9
+                   eNext_10
+                   eNext_11
+                   eNext_12
+                   eNext_13
+                   eNext_14
+                   eNext_15
+                   eNext_16
+                   eNext_17
+                   eNext_18
+                   eNext_19)))))
+(assert (forall ((x_1 Bool)
+         (x_2 Bool)
+         (x_3 Bool)
+         (x_4 Bool)
+         (x_5 Bool)
+         (x_6 Bool)
+         (x_7 Bool)
+         (x_8 Bool)
+         (x_9 Bool)
+         (x_10 Bool)
+         (x_11 Bool)
+         (x_12 Bool)
+         (x_13 Bool)
+         (x_14 Bool)
+         (x_15 Bool)
+         (x_16 Bool)
+         (x_17 Bool)
+         (x_18 Bool)
+         (x_19 Bool)
+         (e_1 Bool)
+         (e_2 Bool)
+         (e_3 Bool)
+         (e_4 Bool)
+         (e_5 Bool)
+         (e_6 Bool)
+         (e_7 Bool)
+         (e_8 Bool)
+         (e_9 Bool)
+         (e_10 Bool)
+         (e_11 Bool)
+         (e_12 Bool)
+         (e_13 Bool)
+         (e_14 Bool)
+         (e_15 Bool)
+         (e_16 Bool)
+         (e_17 Bool)
+         (e_18 Bool)
+         (e_19 Bool))
+  (=> (Invariant x_1
+                 x_2
+                 x_3
+                 x_4
+                 x_5
+                 x_6
+                 x_7
+                 x_8
+                 x_9
+                 x_10
+                 x_11
+                 x_12
+                 x_13
+                 x_14
+                 x_15
+                 x_16
+                 x_17
+                 x_18
+                 x_19
+                 e_1
+                 e_2
+                 e_3
+                 e_4
+                 e_5
+                 e_6
+                 e_7
+                 e_8
+                 e_9
+                 e_10
+                 e_11
+                 e_12
+                 e_13
+                 e_14
+                 e_15
+                 e_16
+                 e_17
+                 e_18
+                 e_19)
+      (not (and (not x_1)
+                (not x_2)
+                (not x_3)
+                (not x_4)
+                (not x_5)
+                (not x_6)
+                (not x_7)
+                (not x_8)
+                (not x_9)
+                (not x_10)
+                (not x_11)
+                (not x_12)
+                (not x_13)
+                (not x_14)
+                (not x_15)
+                x_16
+                x_17
+                x_18
+                x_19)))))
+(check-sat)
+(exit)
+
+
+; fp.spacer.gpdr=false  fp.spacer.iuc.arith=0

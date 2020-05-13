@@ -1,0 +1,5 @@
+WARNING: optimization with quantified constraints is not supported
+(error "line 11 column 11: unbounded objectives on quantified constraints is not supported")
+(objectives
+ (x oo)
+)

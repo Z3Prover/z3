@@ -1,0 +1,17 @@
+
+(set-option :smt.arith.solver 2)
+(set-option :rewriter.flat false)
+(declare-fun a () Int)
+(declare-fun b () Int)
+(declare-fun c () Int)
+(declare-fun d () Int)
+(declare-fun e () Int)
+(declare-fun f () Int)
+(assert (and
+     (<= a 200)
+     (>= c 0 (- (* d b) 2) 0)
+     (= (+ (- c) e (* d a)) 1)
+     (= (* e 120) a)
+     (= 0 (/ 0 d))
+     (or (>= b 0) (= a 0) (>= 0 f 1))))
+(check-sat)

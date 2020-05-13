@@ -1,0 +1,8 @@
+(tan (+ x y))
+(tan (+ x y))
+(tan (+ x y))
+(tan x)
+(tan x)
+(tan x)
+(tan x)
+(tan (+ x (* 0.5 pi)))

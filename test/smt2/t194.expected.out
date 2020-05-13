@@ -1,0 +1,24 @@
+(goals
+(goal
+  (or (not (p 0)) (and (p 1) (p 2)))
+  (or (not (p 3)) (p 4))
+  (or (p 5) (and (p 6) (p 7)))
+  (or (p 0) (not (p 1)) (not (p 2)))
+  (or (not (p 5)) (not (p 6)) (not (p 7)))
+  :precision precise :depth 1)
+)
+----
+(goals
+(goal
+  (or (not (p 0)) (not (p 1)) (p 2))
+  (or (and (p 0) (p 1)) (p 3))
+  :precision precise :depth 1)
+)
+----
+(goals
+(goal
+  (p z3name!0)
+  (or (not (p 1)) (= z3name!0 10))
+  (or (p 1) (= z3name!0 20))
+  :precision precise :depth 1)
+)

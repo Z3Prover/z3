@@ -1,0 +1,7 @@
+(set-option :model_validate true)
+(set-option :proof true)
+(set-option :smt.arith.random_initial_value true)
+(declare-const i3 Int)
+(declare-const i5 Int)
+(assert (>= i3 i5))
+(check-sat-using (then simplify fix-dl-var add-bounds qfnra))

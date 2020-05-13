@@ -1,0 +1,5 @@
+(forall ((x Int) (y Int) (z Int)) (= (f x y) (f x z)))
+(forall ((x Int) (y Int)) (exists ((z Int)) (= (f x y) (f x z))))
+(forall ((x Int)) (! (= (g x) (f x x)) :pattern ((g x)) :pattern ((f x x))))
+(forall ((x Int)) (forall ((y Int)) (! (= (f x y) 0) :pattern ((f x y)))))
+(exists ((x Int) (y Int)) (= (f x y) 0))

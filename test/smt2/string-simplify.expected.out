@@ -1,0 +1,78 @@
+"ab"""
+false
+true
+false
+true
+true
+true
+true
+0
+1
+2
+"b"
+"bc"
+"bc"
+"c"
+""
+""
+false
+false
+true
+true
+true
+false
+true
+true
+true
+false
+"a"
+"b"
+"c"
+""
+"acc"
+"1"
+"100"
+1
+(- 1)
+2
+2
+3
+(- 1)
+1
+(str.++ a b c)
+a
+a
+(str.++ a "ab")
+(+ 1 (str.len a))
+(= "" b)
+true
+(str.prefixof (str.++ a b) c)
+(str.prefixof c b)
+false
+true
+(str.prefixof "b" c)
+(str.prefixof (str.++ "b" a) c)
+(= "" a)
+true
+(str.suffixof (str.++ a b) c)
+(str.suffixof c b)
+false
+true
+(str.suffixof c "a")
+(str.suffixof c (str.++ a "a"))
+(str.contains a b)
+(str.contains a (str.++ a b c))
+(str.contains b (str.++ a b c))
+(str.contains (str.++ a b) (str.++ a b c))
+(str.contains (str.++ b c) (str.++ a (str.++ b c)))
+(str.contains (str.++ a c) (str.++ a b c))
+(str.contains a b)
+true
+true
+true
+true
+(str.contains (str.++ a b c) (str.++ a c))
+(str.++ "A" (str.replace a "B" b))
+(str.++ "A" b a)
+(str.++ "A" (str.replace (str.++ "B" a) "BA" b))
+(ite (= "" b) (str.++ "A" c) (str.++ "AB" a))

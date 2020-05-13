@@ -1,0 +1,3 @@
+(declare-fun a () String)
+(assert (ite true (str.in.re a (str.to.re "")) false))
+(check-sat-using nlsat)

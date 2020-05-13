@@ -1,0 +1,2 @@
+(error "line 39 column 106: invalid const array definition, sort mismatch between array range and argument")
+sat

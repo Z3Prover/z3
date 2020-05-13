@@ -1,0 +1,8 @@
+; Copyright (c) 2018 Microsoft Corporation
+; GitHub issue
+
+(declare-fun c0 () String)
+(define-fun e1 () Bool (str.contains c0 "access_token"))
+(define-fun e2 () Bool (not e1))
+(assert e2)
+(check-sat)

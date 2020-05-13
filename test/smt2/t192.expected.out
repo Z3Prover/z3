@@ -1,0 +1,26 @@
+(goals
+(goal
+  (q 10 z3name!0)
+  (or (not z3name!0) (and (p 0) (! true :lblpos foo)))
+  (or z3name!0 (and (not (p 0)) (! true :lblpos tst)))
+  :precision precise :depth 1)
+)
+-----
+(goals
+(goal
+  (q 10 (and z3name!1 z3name!2))
+  (or (not z3name!2) (p 1))
+  (or z3name!2 (and (not (p 1)) (! true :lblpos tst)))
+  (or (not z3name!1) (and (p 0) (! true :lblpos foo)))
+  (or z3name!1 (not (p 0)))
+  :precision precise :depth 1)
+)
+-----
+(goals
+(goal
+  (q 10 z3name!3)
+  (or (not z3name!3) (and (p 0) (! true :lblpos foo) (p 1)))
+  (or z3name!3 (not (p 0)) (and (not (p 1)) (! true :lblpos tst)))
+  :precision precise :depth 1)
+)
+-----

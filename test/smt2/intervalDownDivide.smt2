@@ -1,0 +1,10 @@
+;; Copyright (c) 2017 Nathan Fulton
+(declare-const _yy Real)
+(declare-const _xx Real)
+(declare-const _Y Real)
+(declare-const _X Real)
+(declare-const _x Real)
+(declare-const _y Real)
+(declare-const _z Real)
+(assert (not (=> (and (and (and (<= _xx _x) (<= _x _X)) (and (<= _yy _y) (<= _y _Y))) (and (or (< _Y 0) (< 0 _yy)) (and (<= _z (/ _xx _yy)) (and (<= _z (/ _xx _Y)) (and (<= _z (/ _X _yy)) (<= _z (/ _X _Y))))))) (<= _z (/ _x _y)))))
+(check-sat)

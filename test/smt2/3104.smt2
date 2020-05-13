@@ -1,0 +1,5 @@
+(set-option :model_validate true)
+(declare-const x Real)
+(assert (= x 0.0))
+(assert (= (^ x (- 1.0)) (/ 1.0 x)))
+(check-sat)

@@ -1,0 +1,5 @@
+(forall ((x Int) (y Int)) (! (= (f x y) x) :pattern ((f x y))))
+(forall ((x Int) (y Int)) (! (= (f x y) x) :pattern ((f x y))))
+(forall ((x Int) (y Int)) (! (= (f x y) x) :pattern ((f x y) (f y x))))
+(error "line 22 column 29: invalid pattern, '(' expected")
+(error "line 26 column 29: invalid pattern, '(' expected")

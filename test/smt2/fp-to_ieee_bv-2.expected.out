@@ -1,0 +1,13 @@
+sat
+(model 
+  (define-fun x () (_ FloatingPoint 8 24)
+    (_ NaN 8 24))
+  (define-fun b () (_ BitVec 32)
+    #xff800003)
+)
+((b #xff800003))
+#xff800003
+(bvudiv0 #xff800003)
+(fp.to_ieee_bv (_ NaN 8 24))
+(bvudiv0 b)
+sat

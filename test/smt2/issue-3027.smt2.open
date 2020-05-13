@@ -1,0 +1,2 @@
+(assert (forall ((a Bool)) true))
+(check-sat-using elim-small-bv)

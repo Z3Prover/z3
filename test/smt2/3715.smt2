@@ -1,0 +1,8 @@
+(set-option :model_validate true)
+(declare-const i5 Int)
+(declare-const i12 Int)
+(assert (>= 83 i12))
+(assert (distinct 7 i5))
+(assert (<= i12 91))
+(assert-soft (or (>= 83 i12)))
+(check-sat)

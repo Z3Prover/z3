@@ -1,0 +1,30 @@
+; Copyright (c) 2018 Microsoft Corporation
+; GitHub issue
+
+(set-info :smt-lib-version 2.0)
+
+(set-option :auto_config false)
+(set-option :smt.mbqi false)
+
+(set-option :model_evaluator.completion false)
+(set-option :model.v1 true)
+(set-option :smt.phase_selection 0)
+(set-option :smt.restart_strategy 0)
+(set-option :smt.restart_factor 1.5)
+(set-option :nnf.sk_hack true)
+(set-option :smt.qi.eager_threshold 100.0)
+(set-option :smt.arith.random_initial_value true)
+(set-option :smt.case_split 3)
+(set-option :smt.delay_units true)
+(set-option :smt.delay_units_threshold 16)
+(set-option :type_check true)
+(set-option :smt.bv.reflect true)
+(set-option :smt.timeout 2000)
+
+(declare-const _num1_ Int)
+;(assert (= _num1_ 7))
+(declare-const _num1str_ String)
+(assert (= _num1str_ (int.to.str _num1_)))
+(check-sat)
+(get-info :reason-unknown)
+;(get-model)

@@ -1,0 +1,5 @@
+(goals
+(goal
+  (forall ((s (Array Int Int))) (! (= s (ff s)) :pattern ((= s (ff s)))))
+  :precision precise :depth 1)
+)

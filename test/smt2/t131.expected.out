@@ -1,0 +1,27 @@
+success
+success
+(error "line 6 column 21: logic does not support integers")
+success
+(error "line 8 column 19: unknown sort 'List'")
+(error "line 9 column 19: unknown sort 'Array'")
+(error "line 10 column 26: logic does not support uninterpreted functions")
+success
+(error "line 13 column 22: logic only supports difference arithmetic")
+success
+success
+success
+success
+success
+(error "line 19 column 36: logic only supports difference arithmetic")
+(error "line 20 column 34: logic only supports difference arithmetic")
+success
+success
+success
+success
+success
+(error "line 26 column 28: logic does not support nonlinear arithmetic")
+(error "line 27 column 21: logic does not support nonlinear arithmetic")
+(error "line 29 column 28: unknown sort 'BitVec'")
+success
+success
+(error "line 34 column 30: Sort mismatch at argument #1 for function (declare-fun to_real (Int) Real) supplied sort is Real")

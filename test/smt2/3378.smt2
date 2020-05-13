@@ -1,0 +1,7 @@
+(declare-const a Int)
+(declare-const b Int)
+(declare-const c Int)
+(assert (< a b))
+(assert (= c (+ (* a b) a)))
+(assert (or (= c (/ a b)) (= c 0)))
+(check-sat)

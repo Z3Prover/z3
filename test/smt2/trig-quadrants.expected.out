@@ -1,0 +1,20 @@
+sat
+(model 
+  (define-fun theta () Real
+    (acos 0.7071067811?))
+)
+sat
+(model 
+  (define-fun theta () Real
+    (acos (- 0.7071067811?)))
+)
+sat
+(model 
+  (define-fun theta () Real
+    (+ (acos 0.7071067811?) pi))
+)
+sat
+(model 
+  (define-fun theta () Real
+    (+ (acos (- 0.7071067811?)) pi))
+)

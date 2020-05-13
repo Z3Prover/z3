@@ -1,0 +1,98 @@
+true
+unsat
+sat
+sat
+sat
+unsat
+true
+true
+true
+sat
+sat
+unsat
+unsat
+sat
+unsat
+unsat
+removed
+unsat
+removed
+removed
+removed
+sat
+sat
+sat
+unsat
+unsat
+true
+true
+true
+true
+true
+true
+true
+sat
+sat
+unsat
+sat
+(model 
+  (define-fun a () String
+    "abc")
+  (define-fun i () Int
+    0)
+  (define-fun b () String
+    "")
+  (define-fun c () String
+    "")
+  (define-fun d () String
+    "")
+  (define-fun j () Int
+    0)
+)
+unsat
+sat
+sat
+sat
+unsat
+unsat
+sat
+sat
+unsat
+sat
+sat
+(model 
+  (define-fun b () String
+    "de")
+  (define-fun a () String
+    "abc")
+  (define-fun i () Int
+    0)
+  (define-fun c () String
+    "")
+  (define-fun d () String
+    "")
+  (define-fun j () Int
+    0)
+)
+unsat
+unsat
+sat
+(model 
+  (define-fun b () String
+    "de")
+  (define-fun a () String
+    "abc")
+  (define-fun i () Int
+    0)
+  (define-fun c () String
+    "")
+  (define-fun d () String
+    "")
+  (define-fun j () Int
+    0)
+)
+"Ab"
+sat
+unsat
+sat
+unsat

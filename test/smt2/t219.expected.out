@@ -1,0 +1,6 @@
+(goals
+(goal
+  (not (>= x 0))
+  (= z (+ x 1))
+  :precision precise :depth 1)
+)

@@ -1,0 +1,10 @@
+success
+success
+success
+success
+success
+success
+(error "line 12 column 28: error setting ':produce-proofs', option value cannot be modified after initialization")
+before reset
+success
+success

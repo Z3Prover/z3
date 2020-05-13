@@ -1,0 +1,6 @@
+(:error-behavior continued-execution)
+2
+continued-execution
+(error "line 7 column 23: invalid constant definition, sort mismatch")
+immediate-exit
+(error "line 10 column 23: invalid constant definition, sort mismatch")

@@ -1,0 +1,5 @@
+(set-logic UFBV)
+(assert (! (= #x87 #x87) :named IP_2))
+(reset-assertions)
+(check-sat)
+(assert (! (forall ((q5 (_ BitVec 10)) (q6 (_ BitVec 12))) (bvsge #x1f5 (_ bv0 12))) :named IP_7))

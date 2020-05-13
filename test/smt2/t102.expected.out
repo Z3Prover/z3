@@ -1,0 +1,11 @@
+(ite b #x50 #x10)
+(ite b #x60 #x20)
+(ite b #x04 #x02)
+(ite b #x1e #x3c)
+false
+false
+b
+(bvadd #x10 (ite b x #x00))
+(bvadd #x10 (ite b #x00 x))
+(bvadd #x20 (ite b x #x00))
+(bvadd #x20 (ite b #x00 x))

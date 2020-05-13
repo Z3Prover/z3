@@ -1,0 +1,24 @@
+(goals
+(goal
+  (let ((a!1 (+ 0
+                (ite (= n0_p!0 #b01) 1 0)
+                (ite (= n1_p!1 #b01) 1 0)
+                (ite (= n2_p!2 #b01) 1 0)
+                (ite (= n3_p!3 #b01) 1 0)))
+        (a!2 (+ 0
+                (ite (= n0_p!0 #b00) 1 0)
+                (ite (= n1_p!1 #b00) 1 0)
+                (ite (= n2_p!2 #b00) 1 0)
+                (ite (= n3_p!3 #b00) 1 0))))
+  (let ((a!3 (- (ite (and true (>= a!1 a!2)) a!1 a!2)
+                (ite (and true (<= a!1 a!2)) a!1 a!2))))
+    (= imbalance a!3)))
+  (= n0_p!0 #b00)
+  (= n0_p!0 #b10)
+  (forall ((x (_ bv 2)) (y Int) (z Bool)) (=> (bvule x #b10) (=> z (= x #b01))))
+  (bvule n0_p!0 #b10)
+  (bvule n1_p!1 #b10)
+  (bvule n2_p!2 #b10)
+  (bvule n3_p!3 #b10)
+  :precision precise :depth 1)
+)

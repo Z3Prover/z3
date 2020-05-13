@@ -1,0 +1,45 @@
+
+; Copyright (c) 2015 Microsoft Corporation
+(declare-fun temp_node189 () Bool)
+(declare-fun temp_node185 () (_ BitVec 1))
+(declare-fun temp_node188 () (_ BitVec 1))
+(declare-fun temp_node181 () (Array (_ BitVec 6) (_ BitVec 1)))
+(declare-fun temp_node184 () (_ BitVec 6))
+(declare-fun $2_memory@0_143_0_35_0_5183_0_0 () (Array (_ BitVec 8) (Array (_ BitVec 6) (_ BitVec 1))))
+(declare-fun temp_node180 () (_ BitVec 8))
+(declare-fun p0_0_0 () (_ BitVec 1))
+(declare-fun k_6_0 () (_ BitVec 7))
+(declare-fun temp_node187 () (Array (_ BitVec 6) (_ BitVec 1)))
+(declare-fun temp_node186 () (_ BitVec 8))
+(declare-fun p1_0_0 () (_ BitVec 1))
+(declare-fun temp_node153 () (Array (_ BitVec 8) (Array (_ BitVec 6) (_ BitVec 1))))
+(declare-fun $2_memory_143_0_35_0_5183_0_0 () (Array (_ BitVec 8) (Array (_ BitVec 6) (_ BitVec 1))))
+(declare-fun write_en_0_0 () Bool)
+(declare-fun temp_node152 () (Array (_ BitVec 8) (Array (_ BitVec 6) (_ BitVec 1))))
+(declare-fun temp_node151 () (Array (_ BitVec 8) (Array (_ BitVec 6) (_ BitVec 1))))
+(declare-fun address_7_0 () (_ BitVec 8))
+(declare-fun write_data_35_0 () (_ BitVec 36))
+(declare-fun temp_node149 () (Array (_ BitVec 8) (Array (_ BitVec 6) (_ BitVec 1))))
+
+
+(assert (and
+(not temp_node189)
+(= temp_node189 (= temp_node185 temp_node188))
+(= temp_node185 (select temp_node181 temp_node184))
+(= temp_node181 (select $2_memory@0_143_0_35_0_5183_0_0 temp_node180))
+(= temp_node180 ((_ zero_extend 7) p0_0_0))
+
+(= temp_node184 ((_ extract 5 0) k_6_0))
+(= temp_node188 (select temp_node187 temp_node184))
+(= temp_node187 (select $2_memory@0_143_0_35_0_5183_0_0 temp_node186))
+(= temp_node186 ((_ zero_extend 7) p1_0_0))
+
+(= temp_node153 $2_memory_143_0_35_0_5183_0_0)
+(= temp_node153 (ite write_en_0_0 temp_node152 $2_memory@0_143_0_35_0_5183_0_0))
+(= temp_node152 (store temp_node151 address_7_0 ((as const(Array (_ BitVec 6)(_ BitVec 1)))write_data_35_0)) ) 
+(= temp_node151 (ite write_en_0_0 temp_node149 $2_memory@0_143_0_35_0_5183_0_0))
+(= temp_node149 (store $2_memory@0_143_0_35_0_5183_0_0 address_7_0 ((as const(Array (_ BitVec 6)(_ BitVec 1)))write_data_35_0)) )
+
+))
+(check-sat)
+(exit)

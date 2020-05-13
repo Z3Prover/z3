@@ -1,0 +1,7 @@
+(declare-fun a () String) 
+(declare-fun b () String) 
+(declare-fun c () String) 
+(declare-fun d () String) 
+(assert (or (distinct a (str.++ b c)) (distinct b  d)  
+(not (str.in.re d (str.to.re "."))))) 
+(check-sat)

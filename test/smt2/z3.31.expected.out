@@ -1,0 +1,7 @@
+(+ x 2 x 1)
+(+ 3 (* 2 x))
+(* (+ x y) (+ x y))
+(+ (* x x) (* 2 x y) (* y y))
+(= (+ x (* (- 1) y)) 2)
+(= (store (store a 1 2) 4 3) (store (store a 4 3) 1 2))
+true

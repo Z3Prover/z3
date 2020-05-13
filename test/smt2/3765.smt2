@@ -1,0 +1,7 @@
+(set-logic HORN)
+(assert (forall ((q3 Real) (q4 Bool)) (distinct (- q3 (+ q3 q3)) (+ q3 q3) q3)))
+(assert (forall ((q18 Real) (q19 Bool)) (=> (= q18 (* (* q18 q18) q18) q18 q18) false)))
+(assert (forall ((q28 Real) (q29 Real) (q30 Real) (q31 Bool)) (=> (< 0.0 q29 q30 q29) false)))
+(assert (forall ((q33 Real) (q34 Real) (q35 Real) (q36 Bool)) (=> (< q33 0.0 q33 q34) false)))
+(assert (forall ((q38 Real) (q39 Real) (q40 Bool)) (< 0.0 q38)))
+(check-sat)

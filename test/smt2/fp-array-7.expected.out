@@ -1,0 +1,2 @@
+sat
+((C (store ((as const (Array (_ FloatingPoint 11 53) Int)) 4) (_ -oo 11 53) 5)))

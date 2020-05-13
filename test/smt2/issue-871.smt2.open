@@ -1,0 +1,21 @@
+; Copyright (c) 2018 Microsoft Corporation
+; GitHub issue
+
+(declare-const st (String))
+(declare-const capture1 (String))
+(declare-const capture2 (String))
+
+(define-fun regexPortion1 () (RegEx String) (str.to.re "abcdefg"))
+(define-fun in_portion_1 ((a String)) Bool (str.in.re a regexPortion1))
+
+(define-fun regexPortion2 () (RegEx String) (re.++ regexPortion1 regexPortion1))
+(define-fun in_portion_2 ((a String) (b String)) Bool (and (str.in.re a regexPortion2) (str.in.re b regexPortion1) (= a (str.++ b b))))
+
+(define-fun regexPortion3 () (RegEx String) (re.* regexPortion2))
+(define-fun in_portion_3 ((a String) (b String) (c String)) Bool (and (str.in.re a regexPortion3) (or (= a "") (and (in_portion_2 b c) (str.in.re a (re.+ (str.to.re b)))))))
+
+(assert (in_portion_3 st capture1 capture2))
+
+(check-sat)
+(get-model)
+(get-info :reason-unknown)

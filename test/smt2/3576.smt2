@@ -1,0 +1,8 @@
+(set-option :model_validate true)
+(set-option :parallel.enable true)
+(declare-fun a () Int)
+(declare-fun b () Int)
+(declare-fun c (Int) Int)
+(assert (distinct b (c a)))
+(check-sat)
+(check-sat)

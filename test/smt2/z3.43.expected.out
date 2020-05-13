@@ -1,0 +1,9 @@
+sat
+Is int-type a subtype of complex-type?
+true
+Is int-type = obj-type?
+false
+Is int-type a subtype of root-type?
+true
+Is root-type = obj-type?
+true

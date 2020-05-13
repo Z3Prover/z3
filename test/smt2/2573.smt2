@@ -1,0 +1,32 @@
+(declare-fun a () Real)
+(declare-fun p () Real)
+(declare-fun b () Real)
+(declare-fun c () Real)
+(declare-fun d () Real)
+(declare-fun k () Real)
+(declare-fun e () Real)
+(declare-fun q () Real)
+(assert (or
+            (not (exists ((f Real))
+                (=>
+                (and
+                    (>= c 0)
+                    (> (/ b q) 2)
+                    (>= (/ p q) 1)
+                    (<= d 12)
+                    (>= (/ p q) (- (* 1 k)))
+                    (<= (/ p q) (+ 10 k)))
+                (<= (+ (* (- 2) (- a e)) d) 12))))
+            (exists ((o Real))
+                (forall ((g Real))
+                    (exists ((h Real))
+                        (and
+                            (or
+                                (>= g (* (- 3) h) 57)
+                                (and (> (* 79 o) 8 (+ g h) 0) (= h 0))
+                                (< 0 (+ g h) 0))
+                            (> (+ (* (- 97) o) g) 0)))))))
+(assert (= a (+ c e)(* d q)(/ b q)))
+(assert (= q (/ b k)))
+(check-sat)
+;(get-model)

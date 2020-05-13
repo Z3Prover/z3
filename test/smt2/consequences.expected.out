@@ -1,0 +1,6 @@
+sat
+
+(=> d d)
+(=> (not c) (not c))
+(=> (not c) (not b))
+(=> (not c) (not a))

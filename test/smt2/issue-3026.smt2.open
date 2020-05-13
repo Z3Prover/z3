@@ -1,0 +1,34 @@
+(declare-fun a () (_ BitVec 32))
+(declare-fun b () (_ BitVec 16))
+(declare-fun c () (_ BitVec 16))
+(declare-fun d () (_ BitVec 16))
+(declare-fun t () (_ BitVec 16))
+(declare-fun e () (_ BitVec 16))
+(declare-fun f () (_ BitVec 16))
+(assert (let ((a!1 (bvadd (bvadd a #x00000004)
+                  (bvsub (bvadd (bvadd a #x00000004)
+                                #x0000003d
+                                ((_ zero_extend 16) c)
+                                ((_ zero_extend 16) b))
+                         (bvadd a #x00000004))
+                  #x00000004)))
+(let ((a!2 (bvadd a!1
+                  (bvsub (bvadd a!1
+                                #x00000035
+                                ((_ zero_extend 16) t)
+                                ((_ zero_extend 16) d))
+                         a!1)
+                  #x00000004)))
+(let ((a!3 (bvadd a!2
+                  (bvsub (bvadd a!2
+                                #x00000046
+                                ((_ zero_extend 16) f)
+                                ((_ zero_extend 16) e))
+                         a!2)
+                  #x00000004)))
+(let ((a!4 ((_ zero_extend 24)
+             (ite (bvult (bvsub #xffffffff a!3) #x00000000) #x01 #x00))))
+  (and (= ((_ zero_extend 16) f) #x00000000)
+       (= #x00000000 (bvsub #xffffffff a!4))))))))
+(check-sat)
+(check-sat-using propagate-bv-bounds)

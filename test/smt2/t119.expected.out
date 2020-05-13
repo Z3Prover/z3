@@ -1,0 +1,44 @@
+(goals
+(goal
+  (>= (* 2.0 c) (+ 5.0 (* (- (/ 3.0 2.0)) b)))
+  (>= c b)
+  :precision precise :depth 2)
+)
+(goals
+(goal
+  (<= b (- 10.0))
+  (<= b 0.0)
+  :precision precise :depth 2)
+)
+(goals
+(goal
+  (= (+ (* 2.0 a) (* 3.0 b) (* 2.0 c)) 10.0)
+  (>= c a)
+  (>= c b)
+  (= (+ c b) 0.0)
+  :precision precise :depth 2)
+)
+(goals
+(goal
+  (= (+ (* 2 a) (* 3 b) (* 2 c)) 10)
+  (>= c a)
+  (>= c b)
+  :precision precise :depth 2)
+)
+(goals
+(goal
+  (<= a (- 4))
+  (<= a (- 15))
+  :precision precise :depth 2)
+)
+(goals
+(goal
+  (= (+ a (f a)) 20)
+  :precision precise :depth 2)
+)
+(goals
+(goal
+  (= (+ a (f a)) 20)
+  (>= (+ (* (- 1) a) (* (- 1) (f a))) (- 10))
+  :precision precise :depth 2)
+)

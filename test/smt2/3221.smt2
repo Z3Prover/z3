@@ -1,0 +1,5 @@
+(declare-fun n () Int)
+;(push)
+(assert (= (mod n n) 1))
+(check-sat)
+;(get-model)

@@ -1,0 +1,8 @@
+(declare-fun f (Int Real) Bool)
+(declare-fun y!0 (Real Int) Int)
+(assert (forall ((x Int) (z Real) (z2 Int))
+          (or (not (f x z))
+              (not (f z2 z))
+              (and (not (= (y!0 z x) x)) (f (y!0 z x) z)))))
+(check-sat)
+----

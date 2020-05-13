@@ -1,0 +1,5 @@
+(declare-fun a () Bool)
+(declare-fun b () Bool)
+(declare-fun c () Bool)
+(assert (and (or (and a b) a) c))
+(check-sat-using pb-preprocess)

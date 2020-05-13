@@ -1,0 +1,22 @@
+; Copyright (c) 2017 Microsoft Corporation
+; Github issue #684
+
+(set-option :smt.string_solver z3str3)
+(declare-const c0 String)
+(define-fun e1 () Bool (= "barbar" c0))
+(define-fun e2 () Bool (not e1))
+(define-fun e3 () Bool (str.contains c0 "barbar"))
+(assert e2)
+(assert e3)
+(check-sat)
+(eval (= c0 "barbar"))
+(reset)
+(set-option :smt.string_solver seq)
+(declare-const c0 String)
+(define-fun e1 () Bool (= "barbar" c0))
+(define-fun e2 () Bool (not e1))
+(define-fun e3 () Bool (str.contains c0 "barbar"))
+(assert e2)
+(assert e3)
+(check-sat)
+(eval (= c0 "barbar"))

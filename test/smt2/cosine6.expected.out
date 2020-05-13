@@ -1,0 +1,7 @@
+(cos (+ x y))
+(cos (+ x y))
+(cos (+ x y))
+(cos (+ x y))
+(cos (+ x y (* pi (to_real a))))
+(cos (+ x y))
+(cos (+ x y))

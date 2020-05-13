@@ -1,0 +1,9 @@
+(ite b #x50 (ite c1 #x10 #x11))
+(ite b (ite c1 #x60 #x40) (ite c2 #x20 #x30))
+(ite b #x0a (ite c1 #x06 #x62))
+(ite b #xf8 (ite c1 (ite c2 #xf1 #xf2) #xf4))
+false
+false
+b
+(bvadd #xf0 (ite b #x08 (ite c1 (ite c2 x #x02) #x04)))
+(bvadd #xf0 (ite b #x08 (ite c1 (ite c2 #x01 #x02) x)))

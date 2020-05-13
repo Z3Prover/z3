@@ -1,0 +1,13 @@
+(goals
+(goal
+  (forall ((u (_ BitVec 4)))
+    (and (exists ((e1 (_ BitVec 4)) (e2 (_ BitVec 6)) (e3 (_ BitVec 6)))
+           (and (= u e1) (= e2 e3)))
+         (exists ((e22 (_ BitVec 4))) (= u e22))))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (exists ((e2 (_ BitVec 6)) (e3 (_ BitVec 6))) (= e2 e3))
+  :precision precise :depth 2)
+)

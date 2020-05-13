@@ -1,0 +1,160 @@
+(goals
+(goal
+  eq!0
+  eq!1
+  eq!2
+  :precision precise :depth 5)
+)
+sat
+(goals
+(goal
+  (forall ((b (_ BitVec 8))) (exists ((a Bool)) a))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (exists ((a Bool)) a)
+  :precision precise :depth 2)
+)
+(goals
+(goal
+  (exists ((b (_ BitVec 8))) (forall ((a Bool)) a))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (forall ((a Bool)) a)
+  :precision precise :depth 2)
+)
+(goals
+(goal
+  (= (bvmul x y) (bvmul y z z))
+  (= z #x3)
+  (= y #x5)
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  eq!0
+  :precision precise :depth 3)
+)
+sat
+(goals
+(goal
+  eq!0
+  :precision precise :depth 3)
+)
+sat
+(model 
+  (define-fun x () (_ BitVec 8)
+    #x42)
+  (define-fun y () (_ BitVec 8)
+    #x00)
+)
+(goals
+(goal
+  (= (bvshl x y) #x42)
+  (not (= x #x42))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  eq!0
+  :precision precise :depth 3)
+)
+(goals
+(goal
+  (forall ((y (_ BitVec 8))) (= (bvashr x y) #x42))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (forall ((x (_ BitVec 8)) (y (_ BitVec 8))) (= x #x42))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (forall ((x (_ BitVec 8)) (y (_ BitVec 8))) (exists ((z Bool)) z))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  eq!0
+  :precision precise :depth 3)
+)
+sat
+(model 
+  (define-fun x () (_ BitVec 8)
+    #x00)
+  (define-fun y () (_ BitVec 8)
+    #x01)
+)
+(goals
+(goal
+  eq!0
+  :precision precise :depth 3)
+)
+sat
+(model 
+  (define-fun x () (_ BitVec 8)
+    #x33)
+  (define-fun y () (_ BitVec 8)
+    #xff)
+)
+(goals
+(goal
+  eq!0
+  :precision precise :depth 3)
+)
+sat
+(model 
+  (define-fun x () (_ BitVec 8)
+    #x33)
+  (define-fun y () (_ BitVec 8)
+    #x00)
+)
+(goals
+(goal
+  (= (bvand x #x03) #x33)
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  eq!0
+  :precision precise :depth 3)
+)
+(goals
+(goal
+  eq!0
+  :precision precise :depth 3)
+)
+sat
+(model 
+  (define-fun x () (_ BitVec 8)
+    #x42)
+  (define-fun z () (_ BitVec 8)
+    #x01)
+  (define-fun y () (_ BitVec 8)
+    #x01)
+)
+(goals
+(goal
+  (forall ((x (_ BitVec 8)) (y (_ BitVec 8))) (= x #x42))
+  :precision precise :depth 1)
+)
+(goals
+(goal
+  (= y (to_real 3))
+  (= z (to_real 5))
+  (= (* x y) (* y z z))
+  :precision precise :depth 1)
+)
+sat
+(goals
+(goal
+  (= (/ y x) (* y z z))
+  (= y (to_real 3))
+  (= z (to_real 5))
+  :precision precise :depth 1)
+)
+sat

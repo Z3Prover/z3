@@ -1,0 +1,10 @@
+sat
+sat
+(model 
+  (define-fun q () (_ FloatingPoint 11 53)
+    (fp #b0 #b10000000000 #x8000000000000))
+  (define-fun x () (_ BitVec 32)
+    #x00000003)
+  (define-fun r () (_ FloatingPoint 11 53)
+    (fp #b0 #b10000000000 #x8000000000000))
+)

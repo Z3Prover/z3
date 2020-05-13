@@ -1,0 +1,3 @@
+(declare-fun s () String)
+(assert (< (str.to.int s) 2))
+(check-sat-using (then qe2 smt))

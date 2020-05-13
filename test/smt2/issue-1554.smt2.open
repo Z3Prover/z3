@@ -1,0 +1,26 @@
+; Copyright (c) 2018 Microsoft Corporation
+; GitHub issue
+
+(declare-const s String)
+(declare-const i Int)
+
+(assert (< 0 i))
+
+(assert (> (str.len s) 24))
+
+(assert
+(and      (str.contains (str.substr s 0 i) "#")
+     (not (str.contains (str.substr s 0 i) "\x00"))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Intuitively, this should "help" the solver    ;
+; since more solutions are now feasible ...     ;
+; However, this slows solving times by 100x ... ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(assert
+(or (and      (str.contains (str.substr s 0 i) "#")
+         (not (str.contains (str.substr s 0 i) "\x00")))
+    (and (str.contains s "#") (not (str.contains s "\x00")))))
+
+(check-sat)
+;(get-value (s i))

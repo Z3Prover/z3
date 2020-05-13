@@ -1,0 +1,16 @@
+(goals
+(goal
+  (= (ite (> (ite z3name!0 20 30) a) 0 1) a)
+  (or (not z3name!0) (p 0))
+  (or z3name!0 (and (not (p 0)) (! true :lblpos baa)))
+  :precision precise :depth 1)
+)
+----
+(goals
+(goal
+  (= (ite (> (ite z3name!1 20 30) a) 0 1) a)
+  (or (not z3name!1) (and (p 0) (! true :lblpos baa)))
+  (or z3name!1 (not (p 0)))
+  :precision precise :depth 1)
+)
+----

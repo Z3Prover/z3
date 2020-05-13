@@ -1,0 +1,4 @@
+sat
+((s0 (lambda ((x!1 Int)) (= x!1 2))))
+((s1 ((as const (Array Int Bool)) false)))
+((s2 ((as const (Array Int Bool)) true)))

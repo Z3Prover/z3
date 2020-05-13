@@ -1,0 +1,8 @@
+(set-option :proof true)
+(declare-const i0 Int)
+(declare-const i1 Int)
+(assert (not (exists ((q0 Int) (q1 Int) (q2 Int) (q3 Bool)) (not (distinct q0 i0)))))
+(push 1)
+(pop 1)
+(assert (not (forall ((q10 Int) (q11 Int) (q12 Int)) (not (> q10 (mod i0 i1))))))
+(check-sat-using (then simplify purify-arith smt))

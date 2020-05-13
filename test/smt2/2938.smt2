@@ -1,0 +1,6 @@
+(set-option :model_validate true)
+(declare-fun f (Int Int Int) Int)
+(declare-fun g (Int Int Int) Int)
+(declare-fun a () Int)
+(assert (let ((b (f a a a))) (let ((c (f b a a))) (< (g b b 2) (- c)))))
+(check-sat)

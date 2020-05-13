@@ -1,0 +1,7 @@
+(set-option :proof true)
+(declare-fun a () String)
+(declare-fun b () String)
+(declare-fun c () String)
+(assert (distinct a b))
+(assert (distinct c (str.++ b "aaaaaaaaaaaaa")))
+(check-sat)

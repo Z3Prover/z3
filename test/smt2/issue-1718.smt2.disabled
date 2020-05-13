@@ -1,0 +1,20 @@
+; Copyright (c) 2018 Microsoft Corporation
+; GitHub issue
+
+(set-logic ALL)
+(declare-fun s0 () String)
+(declare-fun s1 () Int)
+(declare-fun s2 () (_ BitVec 8))
+(declare-fun s3 () (_ BitVec 8))
+(define-fun s4 () String (seq.unit s3))
+(define-fun s6 () String (str.substr s0 s1 1))
+(define-fun s7 () Bool (= s4 s6))
+(define-fun s8 () Bool (= s2 s3))
+(define-fun s9 () Bool (not s8))
+(define-fun s10 () String (seq.unit s2))
+(define-fun s12 () Int (str.indexof s0 s10 0))
+(define-fun s13 () Bool (<= s12 s1))
+(define-fun s14 () Bool (or s9 s13))
+(assert s7)
+(assert (not s14))
+(check-sat)
