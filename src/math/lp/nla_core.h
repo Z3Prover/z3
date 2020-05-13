@@ -108,7 +108,6 @@ public:
     new_lemma& explain_var_separated_from_zero(lpvar j);
     new_lemma& explain_existing_lower_bound(lpvar j);
     new_lemma& explain_existing_upper_bound(lpvar j);    
-    new_lemma& explain_separation_from_zero(lpvar j);
 
     lp::explanation& expl() { return current().expl(); }
 

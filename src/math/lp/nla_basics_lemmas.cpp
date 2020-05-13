@@ -468,7 +468,7 @@ void basics::basic_lemma_for_mon_zero_model_based(const monic& rm, const factori
     } else {
         lemma |= ineq(var(rm), llc::NE, 0);
         for (auto j : f) {
-            lemma.explain_separation_from_zero(var(j));
+            lemma.explain_var_separated_from_zero(var(j));
         }            
     }
     lemma &= f;

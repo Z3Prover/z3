@@ -1192,17 +1192,6 @@ new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
     return *this;
 }
     
-new_lemma& new_lemma::explain_separation_from_zero(lpvar j) {
-    SASSERT(!c.val(j).is_zero());
-    if (c.val(j).is_pos())
-        explain_existing_lower_bound(j);
-    else
-        explain_existing_upper_bound(j);
-    return *this;
-}
-
-
-
 std::ostream& new_lemma::display(std::ostream & out) const {
     auto const& lemma = current();
 
