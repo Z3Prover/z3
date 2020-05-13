@@ -52,8 +52,7 @@ struct solver::imp {
        TBD: explore more incremental ways of applying nlsat (using assumptions)
     */
     lbool check() {        
-        lp::explanation ex;
-        SASSERT(need_check() && ex.size() == 0);
+        SASSERT(need_check());
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
         m_terms.reset();
@@ -93,7 +92,7 @@ struct solver::imp {
             m_nla_core.set_use_nra_model(true);
             break;
         case l_false: {
-            ex.clear();
+            lp::explanation ex;
             m_nlsat->get_core(core);
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
