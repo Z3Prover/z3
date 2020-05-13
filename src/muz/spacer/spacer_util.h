@@ -140,6 +140,9 @@ namespace spacer {
     bool is_clause(ast_manager &m, expr *n); 
     bool is_literal(ast_manager &m, expr *n);
     bool is_atom(ast_manager &m, expr *n);
+
+    // set f to true in model
+    void set_true_in_mdl(model &model, func_decl *f);
 }
 
 #endif

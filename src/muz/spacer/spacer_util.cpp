@@ -980,7 +980,13 @@ namespace {
         for_each_expr(cd, fml);
     }
 
-}
-
+    // set the value of a boolean function to true in model
+    void set_true_in_mdl(model &model, func_decl *f) {
+        SASSERT(f->get_arity() == 0);
+        model.unregister_decl(f);
+        model.register_decl(f, model.get_manager().mk_true());
+        model.reset_eval_cache();
+    }
+} // namespace spacer
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
 template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;
