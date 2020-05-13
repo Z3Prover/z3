@@ -51,7 +51,8 @@ struct solver::imp {
        TBD: use partial model from lra_solver to prime the state of nlsat_solver.
        TBD: explore more incremental ways of applying nlsat (using assumptions)
     */
-    lbool check(lp::explanation& ex) {        
+    lbool check() {        
+        lp::explanation ex;
         SASSERT(need_check() && ex.size() == 0);
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
@@ -89,8 +90,9 @@ struct solver::imp {
         TRACE("arith", display(tout); m_nlsat->display(tout << r << "\n"););
         switch (r) {
         case l_true: 
+            m_nla_core.set_use_nra_model(true);
             break;
-        case l_false: 
+        case l_false: {
             ex.clear();
             m_nlsat->get_core(core);
             for (auto c : core) {
@@ -98,8 +100,11 @@ struct solver::imp {
                 ex.push_justification(idx, rational(1));
                 TRACE("arith", tout << "ex: " << idx << "\n";);
             }
+            nla::new_lemma lemma(m_nla_core, __FUNCTION__);
+            lemma &= ex;
+            m_nla_core.set_use_nra_model(true);
             break;
-
+        }
         case l_undef:
             break;
         }            
@@ -231,8 +236,8 @@ solver::~solver() {
 }
 
 
-lbool solver::check(lp::explanation& ex) {
-    return m_imp->check(ex);
+lbool solver::check() {
+    return m_imp->check();
 }
 
 bool solver::need_check() {

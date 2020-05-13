@@ -1511,25 +1511,15 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-    if (lp_settings().get_cancel_flag())
+    if (!m_reslim.inc())
         return l_undef;
-
   
  finish_up:   
     lbool ret = l_vec.empty() ? l_undef : l_false;
 #if 0
-    if (l_vec.empty()) {
-        lp::explanation expl;
-        ret = m_nra.check(expl);
-        
-        if (ret == l_false) {
-            new_lemma lemma(*this, __FUNCTION__);
-            lemma &= expl;
-            set_use_nra_model(true);
-        } else if (ret == l_true) {
-            set_use_nra_model(true);
-        }        
-    }
+    if (l_vec.empty()) 
+        ret = m_nra.check();
+    }        
 #endif
     
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
