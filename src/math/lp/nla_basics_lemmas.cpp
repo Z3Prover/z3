@@ -220,10 +220,11 @@ void basics::negate_strict_sign(new_lemma& lemma, lpvar j) {
 // here we use the fact
 // xy = 0 -> x = 0 or y = 0
 bool basics::basic_lemma_for_mon_zero(const monic& rm, const factorization& f) {
-    // NSB review: how is the code-path calling this function disabled?
-    NOT_IMPLEMENTED_YET();
-    return true;
-#if 0
+    // it seems this code is never exercised
+    for (auto j : f) {
+        if (val(j).is_zero())
+            return false;
+    }
     TRACE("nla_solver", c().trace_print_monic_and_factorization(rm, f, tout););
     new_lemma lemma(c(), "xy = 0 -> x = 0 or y = 0");
     lemma.explain_fixed(var(rm));
@@ -235,7 +236,6 @@ bool basics::basic_lemma_for_mon_zero(const monic& rm, const factorization& f) {
     lemma &= rm;
     lemma &= f;
     return true;
-#endif
 }
 
 // use basic multiplication properties to create a lemma
@@ -284,8 +284,6 @@ bool basics::basic_lemma_for_mon_derived(const monic& rm) {
             if (basic_lemma_for_mon_non_zero_derived(rm, factorization))
                 return true;
             if (basic_lemma_for_mon_neutral_derived(rm, factorization))
-                return true;
-            if (proportion_lemma_derived(rm, factorization))
                 return true;
         }
     }
@@ -375,65 +373,36 @@ void basics::proportion_lemma_model_based(const monic& rm, const factorization& 
         factor_index++;
     }
 }
-// x != 0 or y = 0 => |xy| >= |y|
-bool basics::proportion_lemma_derived(const monic& rm, const factorization& factorization) {
-    // NSB review: why return false?
-    return false;
-    if (c().has_real(factorization))
-        return false;
-    rational rmv = abs(var_val(rm));
-    if (rmv.is_zero()) {
-        SASSERT(c().has_zero_factor(factorization));
-        return false;
-    }
-    int factor_index = 0;
-    for (factor f : factorization) {
-        if (abs(val(f)) > rmv) {
-            generate_pl(rm, factorization, factor_index);
-            return true;
-        }
-        factor_index++;
-    }
-    return false;
-}
 
 /**
-   if there are no zero factors then |m| >= |m[factor_index]|
-
    m := f_1*...*f_n
 
-   sign_m*m < 0 or f_j = 0 or \/_{i != j} sign_j*f_j < 0 or sign_m*m >= sign_j*f_j
+   k is the index of such that |m| < |val(m[k]|
+  
+   If for all 1 <= j <= n, j != k we have f_j != 0 then |m| >= |f_k|
+
+   The lemma looks like
+   sign_m*m < 0 or \/_{i != k} f_i = 0 or sign_m*m >= sign_k*f_k
    
-NSB review:
-
-- This rule cannot be applied for reals
-  For example 1/4 = 1/2*1/2 and each factor is bigger than product.
-
-- Stronger rule is possible for integers:
-
-   sign_m*m < 0 or f_j = 0 or \/_{i != j} sign_m*m >= sign_i*f_i
-
 */
-void basics::generate_pl_on_mon(const monic& m, unsigned factor_index) {
+void basics::generate_pl_on_mon(const monic& m, unsigned k) {
     SASSERT(!c().has_real(m));
     new_lemma lemma(c(), "generate_pl_on_mon");
     unsigned mon_var = m.var();
     rational mv = val(mon_var);
+    SASSERT(abs(mv) < abs(val(m.vars()[k])));
     rational sm = rational(nla::rat_sign(mv));
     lemma |= ineq(term(sm, mon_var), llc::LT, 0);
     for (unsigned fi = 0; fi < m.size(); fi ++) {
         lpvar j = m.vars()[fi];
-        if (fi != factor_index) {
+        if (fi != k) {
             lemma |= ineq(j, llc::EQ, 0);
         } else {
-            rational jv = val(j);
-            rational sj = rational(nla::rat_sign(jv));
-            // NSB review: what is the justification for this assert: SASSERT(sm*mv < sj*jv);
-            // NSB review: removed c().mk_ineq(sj, j, llc::LT);
+            rational sj = rational(nla::rat_sign(val(j)));
             lemma |= ineq(term(sm, mon_var, -sj, j), llc::GE, 0);
         }
     }
-    lemma &= m;
+    //    lemma &= m; // no need to "explain" monomial m here
 }
 
 /**    
@@ -467,13 +436,11 @@ void basics::generate_pl(const monic& m, const factorization& fc, int factor_ind
             lpvar j = var(f);
             rational jv = val(j);
             rational sj = rational(nla::rat_sign(jv));
-            // NSB review: removed SASSERT(sm*mv < sj*jv);
-            // NSB review: removed lemma |= ineq(term(sj, j), llc::LT, 0);
             lemma |= ineq(term(sm, mon_var, -sj, j), llc::GE, 0);
         }
     }
     lemma &= fc;
-    lemma &= m;
+    lemma &= m; 
 }
 
 bool basics::is_separated_from_zero(const factorization& f) const {
@@ -501,7 +468,7 @@ void basics::basic_lemma_for_mon_zero_model_based(const monic& rm, const factori
     } else {
         lemma |= ineq(var(rm), llc::NE, 0);
         for (auto j : f) {
-            lemma.explain_separation_from_zero(var(j));
+            lemma.explain_var_separated_from_zero(var(j));
         }            
     }
     lemma &= f;
@@ -539,37 +506,10 @@ void basics::basic_lemma_for_mon_model_based(const monic& rm) {
      or
      - /\_j f_j = val(f_j) => m = sign
 */
-// NSB code review: can't we just use basic_lemma_for_mon_neutral_from_factors_to_model_based?
-// then the factorization is the same as the monomial.
-// then the only difference is to omit adding some explanations.
-
 bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based_fm(const monic& m) {
-    lpvar not_one = null_lpvar;
-    rational sign(1);
-    TRACE("nla_solver_bl", tout << "m = "; c().print_monic(m, tout););
-    for (auto j : m.vars()) {
-        auto v = val(j);
-        if (v == rational(1)) {
-            continue;
-        }
-        if (v == -rational(1)) { 
-            sign = -sign;
-            continue;
-        } 
-        if (not_one == null_lpvar) {
-            not_one = j;
-            continue;
-        }
-        // if we are here then there are at least two factors with values different from one and minus one: cannot create the lemma
+    lpvar not_one; rational sign;
+    if (!can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based(m, m, not_one, sign))
         return false;
-    }
-
-    if (not_one != null_lpvar) {  // we found the only not_one
-        if (var_val(m) == val(not_one) * sign) {
-            TRACE("nla_solver", tout << "the whole equal to the factor" << std::endl;);
-            return false;
-        }
-    }
        
     new_lemma lemma(c(), __FUNCTION__);
     for (auto j : m.vars()) {
@@ -621,7 +561,8 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic
     lemma |= ineq(term(u, rational(val(u) == -val(mon_var) ? 1 : -1), mon_var), llc::NE, 0);
     lemma |= ineq(v, llc::EQ, 1);
     lemma |= ineq(v, llc::EQ, -1);
-    lemma &= rm; // NSB review: is this dependency required?
+    lemma &= rm; // NSB review: is this dependency required? - it does because it explains how monomial is equivalent
+    // to the rooted monomial
     lemma &= f;
 
     return true;
@@ -637,24 +578,11 @@ void basics::basic_lemma_for_mon_neutral_model_based(const monic& rm, const fact
         basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(rm, f);
     }
 }
-
-/**
- - m := f1*f2*.. 
-   - f_i are factors of m
- - at most one variable among f_i evaluates to something else than -1, +1.
-   - m = sign * f_i
-   - sign = sign of f_1 * .. * f_{i-1} * f_{i+1} ... = +/- 1
- - lemma:
-    /\_{j != i} f_j = val(f_j) => m = sign * f_i
-    or 
-    /\ f_j = val(f_j) => m = sign if all factors evaluate to +/- 1
-
-*/ 
-bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const monic& m, const factorization& f) {
-    rational sign(1); 
-    SASSERT(m.rsign() == canonize_sign(f));
-    TRACE("nla_solver_bl", tout << pp_mon_with_vars(_(), m) <<"\nf = " << c().pp(f) << "sign = " << sign << '\n';);
-    lpvar not_one = null_lpvar;
+template <typename T>
+bool basics::can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based(const monic& m, const T& f, lpvar &not_one, rational& sign) {
+    sign = rational(1); 
+    //    TRACE("nla_solver_bl", tout << pp_mon_with_vars(_(), m) <<"\nf = " << c().pp(f) << "sign = " << sign << '\n';);
+    not_one = null_lpvar;
     for (auto j : f) {
         TRACE("nla_solver_bl", tout << "j = "; c().print_factor_with_vars(j, tout););
         auto v = val(j);
@@ -685,6 +613,25 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const
         return false;        
     }
 
+    return true;
+}
+
+/**
+ - m := f1*f2*.. 
+   - f_i are factors of m
+ - at most one variable among f_i evaluates to something else than -1, +1.
+   - m = sign * f_i
+   - sign = sign of f_1 * .. * f_{i-1} * f_{i+1} ... = +/- 1
+ - lemma:
+    /\_{j != i} f_j = val(f_j) => m = sign * f_i
+    or 
+    /\ f_j = val(f_j) => m = sign if all factors evaluate to +/- 1
+
+*/ 
+bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const monic& m, const factorization& f) {
+    lpvar not_one; rational sign;
+    if (!can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based(m, f, not_one, sign))
+        return false;
     TRACE("nla_solver_bl", tout << "not_one = " << not_one << "\n";);
         
     new_lemma lemma(c(), __FUNCTION__);

@@ -32,7 +32,9 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_pdd_manager(s.number_of_vars()),
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
-    m_reslim(lim)
+    m_reslim(lim),
+    m_use_nra_model(false),
+    m_nra(s, lim, *this)
 {}
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
@@ -1190,17 +1192,6 @@ new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
     return *this;
 }
     
-new_lemma& new_lemma::explain_separation_from_zero(lpvar j) {
-    SASSERT(!c.val(j).is_zero());
-    if (c.val(j).is_pos())
-        explain_existing_lower_bound(j);
-    else
-        explain_existing_upper_bound(j);
-    return *this;
-}
-
-
-
 std::ostream& new_lemma::display(std::ostream & out) const {
     auto const& lemma = current();
 
@@ -1441,8 +1432,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
             erase_from_to_refine(j);
             break;
         }
-    }
-                              
+    }                              
 }
 
 void core::patch_monomials_with_real_vars() {
@@ -1465,33 +1455,26 @@ lbool core::check(vector<lemma>& l_vec) {
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     m_lar_solver.get_rid_of_inf_eps();
     m_lemma_vec =  &l_vec;
-    if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
+    if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || 
+          m_lar_solver.get_status() == lp::lp_status::FEASIBLE)) {
         TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << m_lar_solver.get_status() << "\n";);
         return l_undef;
     }
 
     init_to_refine();
     patch_monomials_with_real_vars();
-    if (m_to_refine.is_empty()) {
-        return l_true;
-    }
-    
+    if (m_to_refine.is_empty()) { return l_true; }   
     init_search();
-    
-    bool enable_grobner = false;
+  
+    set_use_nra_model(false);    
 
     if (need_to_call_algebraic_methods()) {
-        enable_grobner = !m_horner.horner_lemmas();
-    }
-
-    if (enable_grobner && !done()) {
-        clear_and_resize_active_var_set();  // NSB code review: why is this independent of whether Grobner is run?
-        if (m_nla_settings.run_grobner()) {
+        if (!m_horner.horner_lemmas() && m_nla_settings.run_grobner() && !done()) {
+            clear_and_resize_active_var_set(); 
             find_nl_cluster();
-            run_grobner();
+            run_grobner();                
         }
     }
-
     TRACE("nla_solver_details", print_terms(tout); tout << m_lar_solver.constraints(););
     if (!done()) 
         m_basics.basic_lemma(true);    
@@ -1512,7 +1495,17 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-    lbool ret = !l_vec.empty() && !lp_settings().get_cancel_flag() ? l_false : l_undef;
+    if (!m_reslim.inc())
+        return l_undef;
+  
+    lbool ret = l_vec.empty() ? l_undef : l_false;
+
+#if 0
+    if (l_vec.empty()) 
+        ret = m_nra.check();
+    }        
+#endif
+    
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););

@@ -108,7 +108,6 @@ public:
     new_lemma& explain_var_separated_from_zero(lpvar j);
     new_lemma& explain_existing_lower_bound(lpvar j);
     new_lemma& explain_existing_upper_bound(lpvar j);    
-    new_lemma& explain_separation_from_zero(lpvar j);
 
     lp::explanation& expl() { return current().expl(); }
 
@@ -161,6 +160,8 @@ private:
     lp::u_set                m_rows;
 public:
     reslimit&                m_reslim;
+    bool                     m_use_nra_model;
+    nra::solver              m_nra;
 
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
@@ -319,6 +320,13 @@ public:
     }
     const rational& get_upper_bound(unsigned j) const;
     const rational& get_lower_bound(unsigned j) const;    
+    bool has_lower_bound(lp::var_index var, lp::constraint_index& ci, lp::mpq& value, bool& is_strict) const { 
+        return m_lar_solver.has_lower_bound(var, ci, value, is_strict); 
+    }
+    bool has_upper_bound(lp::var_index var, lp::constraint_index& ci, lp::mpq& value, bool& is_strict) const {
+        return m_lar_solver.has_upper_bound(var, ci, value, is_strict);
+    }
+
     
     bool zero_is_an_inner_point_of_bounds(lpvar j) const;    
     bool var_is_int(lpvar j) const { return m_lar_solver.column_is_int(j); }
@@ -395,7 +403,6 @@ public:
     bool rm_check(const monic&) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
 
-    // NSB code review: these could be methods on new_lemma
     void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp);
     void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp, rational const& bound);
     void negate_relation(new_lemma& lemma, unsigned j, const rational& a);
@@ -454,7 +461,8 @@ public:
     bool var_is_big(lpvar) const;
     bool has_real(const factorization&) const;
     bool has_real(const monic& m) const;
-
+    void set_use_nra_model(bool m) { m_use_nra_model = m; }
+    bool use_nra_model() const { return m_use_nra_model; }
 };  // end of core
 
 struct pp_mon {

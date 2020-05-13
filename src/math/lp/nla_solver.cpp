@@ -12,6 +12,8 @@
 #include "math/lp/var_eqs.h"
 #include "math/lp/factorization.h"
 #include "math/lp/nla_solver.h"
+#include "math/lp/nla_core.h"
+
 namespace nla {
 
 nla_settings& solver::settings() { return m_core->m_nla_settings; }
@@ -26,21 +28,8 @@ bool solver::is_monic_var(lpvar v) const {
 
 bool solver::need_check() { return true; }
 
-lbool solver::run_nra(lp::explanation & expl) {
-    return m_nra.check(expl);
-}
-
-
-lbool solver::check(vector<lemma>& l, lp::explanation& expl) {    
-    set_use_nra_model(false);
-    lbool ret = m_core->check(l);
-    if (false && ret == l_undef) { // disable the call to nlsat
-        ret = run_nra(expl);
-        if (ret == l_true || expl.size() > 0) {
-            set_use_nra_model(true);
-        }            
-    }
-    return ret;
+lbool solver::check(vector<lemma>& l) {
+    return m_core->check(l);
 }
  
 void solver::push(){
@@ -52,8 +41,7 @@ void solver::pop(unsigned n) {
 }
         
 solver::solver(lp::lar_solver& s, reslimit& limit): 
-    m_core(alloc(core, s, limit)),
-    m_nra(s, limit, *m_core) {
+    m_core(alloc(core, s, limit)) {
 }
 
 bool solver::influences_nl_var(lpvar j) const {    
@@ -67,9 +55,17 @@ solver::~solver() {
 std::ostream& solver::display(std::ostream& out) const {    
     m_core->print_monics(out);
     if( use_nra_model()) {
-        return m_nra.display(out);
+        m_core->m_nra.display(out);
     }
     return out;
+}
+
+bool solver::use_nra_model() const { return m_core->use_nra_model(); }
+core& solver::get_core() { return *m_core; }
+nlsat::anum_manager& solver::am() { return m_core->m_nra.am(); }
+nlsat::anum const& solver::am_value(lp::var_index v) const {
+    SASSERT(use_nra_model());
+    return m_core->m_nra.value(v);
 }
 
 }

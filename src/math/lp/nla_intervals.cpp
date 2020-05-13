@@ -327,14 +327,7 @@ bool intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & 
         scoped_dep_interval  c(get_dep_intervals());
 
         TRACE("nla_intervals_details", tout << "sdi = "; display(tout, sdi) << "\nb = "; display(tout, b) << "\n";);
-        if (wd == e_with_deps::with_deps) {
-            interval_deps_combine_rule combine_rule;
-            m_dep_intervals.add(sdi, b, c, combine_rule);
-            m_dep_intervals.combine_deps(sdi, b, combine_rule, c);
-        }
-        else {
-            m_dep_intervals.add(sdi, b, c);
-        }
+        m_dep_intervals.add<wd>(sdi, b, c);        
         m_dep_intervals.set<wd>(sdi, c);
         TRACE("nla_intervals_details", tout << *e[k] << ", ";
               display(tout, sdi); tout << "\n";);
@@ -426,14 +419,7 @@ bool intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a, const 
             return false;
         TRACE("nla_intervals_details", tout << "ep = " << ep << ", "; display(tout, b); );
         scoped_dep_interval c(get_dep_intervals());
-        if (wd == e_with_deps::with_deps) {
-            interval_deps_combine_rule comb_rule;
-            m_dep_intervals.mul(a, b, c, comb_rule);
-            TRACE("nla_intervals_details", tout << "c before combine_deps() "; display(tout, c););
-            m_dep_intervals.combine_deps(a, b, comb_rule, c);
-        } else {
-            m_dep_intervals.mul(a, b, c);
-        }
+        m_dep_intervals.mul<wd>(a, b, c);
         TRACE("nla_intervals_details", tout << "a "; display(tout, a););
         TRACE("nla_intervals_details", tout << "c "; display(tout, c););
         m_dep_intervals.set<wd>(a, c);

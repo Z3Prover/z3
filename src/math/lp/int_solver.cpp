@@ -189,7 +189,16 @@ std::ostream& int_solver::display_inf_rows(std::ostream& out) const {
     return out;
 }
 
+bool int_solver::cut_indices_are_columns() const {
+    for (const auto & p: m_t) {
+        if (p.column().index() >= lra.A_r().column_count())
+            return false;
+    }
+    return true;
+}
+
 bool int_solver::current_solution_is_inf_on_cut() const {
+    SASSERT(cut_indices_are_columns());
     const auto & x = lrac.m_r_x;
     impq v = m_t.apply(x);
     mpq sign = m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();

@@ -346,10 +346,7 @@ public:
         if (some_int_columns)
             adjust_term_and_k_for_some_ints_case_gomory();
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
-        lp_assert(lia.current_solution_is_inf_on_cut());
-        // NSB code review: this is also used in nla_core.
-        // but it isn't consistent: when theory_lra accesses lar_solver::get_term, the term that is returned uses
-        // column indices, not terms.
+        lp_assert(lia.current_solution_is_inf_on_cut());  // checks that indices are columns
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }
