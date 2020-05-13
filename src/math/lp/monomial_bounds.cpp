@@ -26,6 +26,9 @@ namespace nla {
         return propagated;
     }
 
+    /**
+     * Accumulate product of variables in monomial starting at position 'start'
+     */
     void monomial_bounds::compute_product(unsigned start, monic const& m, scoped_dep_interval& product) {
         auto & intervals = c().m_intervals;
         auto & dep_intervals = intervals.get_dep_intervals();
@@ -43,26 +46,31 @@ namespace nla {
         }
     }
 
+    /**
+     * Monomial definition implies that a variable v is within 'range'
+     * If the current value of v is outside of the range, we add
+     * a bounds axiom.
+     */
     bool monomial_bounds::propagate_value(dep_interval& range, lpvar v) {
         auto & intervals = c().m_intervals;
         auto & dep_intervals = intervals.get_dep_intervals();
         if (dep_intervals.is_below(range, c().val(v))) {
             lp::explanation ex;
             dep_intervals.get_upper_dep(range, ex);
-            new_lemma lemma(c(), "propagate up - upper bound of range is below value");
-            lemma &= ex;
             auto const& upper = dep_intervals.upper(range);
             auto cmp = dep_intervals.upper_is_open(range) ? llc::LT : llc::LE;
+            new_lemma lemma(c(), "propagate value - upper bound of range is below value");
+            lemma &= ex;
             lemma |= ineq(v, cmp, upper); 
             return true;
         }
         else if (dep_intervals.is_above(range, c().val(v))) {
             lp::explanation ex;
             dep_intervals.get_lower_dep(range, ex);
-            new_lemma lemma(c(), "propagate up - lower bound of range is above value");
-            lemma &= ex;
-            auto const& lower = dep_intervals.upper(range);
+            auto const& lower = dep_intervals.lower(range);
             auto cmp = dep_intervals.lower_is_open(range) ? llc::GT : llc::GE;
+            new_lemma lemma(c(), "propagate value - lower bound of range is above value");
+            lemma &= ex;
             lemma |= ineq(v, cmp, lower); 
             return true;
         }
@@ -95,6 +103,13 @@ namespace nla {
         }
     }
 
+    /**
+     * Propagate bounds for monomial 'm'.
+     * For each variable v in m, compute the intervals of the remaining variables in m.
+     * Compute also the interval for m.var() as mi
+     * If the value of v is outside of mi / product_of_other, add a bounds lemma.
+     * If the value of m.var() is outside of product_of_all_vars, add a bounds lemma.
+     */
     bool monomial_bounds::propagate(monic const& m) {
         auto & intervals = c().m_intervals;
         auto & dep_intervals = intervals.get_dep_intervals();
