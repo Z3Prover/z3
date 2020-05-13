@@ -1443,8 +1443,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
             erase_from_to_refine(j);
             break;
         }
-    }
-                              
+    }                              
 }
 
 void core::patch_monomials_with_real_vars() {
@@ -1467,7 +1466,8 @@ lbool core::check(vector<lemma>& l_vec) {
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     m_lar_solver.get_rid_of_inf_eps();
     m_lemma_vec =  &l_vec;
-    if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
+    if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || 
+          m_lar_solver.get_status() == lp::lp_status::FEASIBLE)) {
         TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << m_lar_solver.get_status() << "\n";);
         return l_undef;
     }
@@ -1476,14 +1476,14 @@ lbool core::check(vector<lemma>& l_vec) {
     patch_monomials_with_real_vars();
     if (m_to_refine.is_empty()) { return l_true; }   
     init_search();
+
     set_use_nra_model(false);    
-    bool enable_grobner = false;
+    
+    if (need_to_call_algebraic_methods() && m_horner.horner_lemmas())
+        goto finish_up;
 
-    if (need_to_call_algebraic_methods()) {
-        enable_grobner = !m_horner.horner_lemmas();
-    }
 
-    if (enable_grobner && !done()) {
+    if (!done()) {
         clear_and_resize_active_var_set();  // NSB code review: why is this independent of whether Grobner is run?
         if (m_nla_settings.run_grobner()) {
             find_nl_cluster();
@@ -1514,10 +1514,11 @@ lbool core::check(vector<lemma>& l_vec) {
     if (lp_settings().get_cancel_flag())
         return l_undef;
 
-    
+  
+ finish_up:   
     lbool ret = l_vec.empty() ? l_undef : l_false;
 #if 0
-    if (ret == l_undef) {
+    if (l_vec.empty()) {
         lp::explanation expl;
         ret = m_nra.check(expl);
         
