@@ -34,7 +34,7 @@ namespace nra {
           \brief Check feasiblity of linear constraints augmented by polynomial definitions
           that are added.
          */
-        lbool check(lp::explanation& ex);
+        lbool check();
 
         /*
           \brief determine whether nra check is needed.

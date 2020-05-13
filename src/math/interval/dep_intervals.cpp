@@ -122,4 +122,25 @@ bool dep_intervals::is_empty(interval const& a) const {
     return false;
 }
 
+bool dep_intervals::is_above(const interval& i, const rational& r) const {
+    if (lower_is_inf(i))
+        return false;
+    if (m_num_manager.lt(lower(i), r.to_mpq()))
+        return false;
+    if (m_num_manager.eq(lower(i), r.to_mpq()) && !m_config.lower_is_open(i))
+        return false;
+    return true;
+}
+
+bool dep_intervals::is_below(const interval& i, const rational& r) const {
+    if (upper_is_inf(i))
+        return false;
+    if (m_num_manager.lt(upper(i), r.to_mpq()))
+        return false;
+    if (m_num_manager.eq(upper(i), r.to_mpq()) && !m_config.upper_is_open(i))
+        return false;
+    return true;
+}
+
+
 template class interval_manager<dep_intervals::im_config>;

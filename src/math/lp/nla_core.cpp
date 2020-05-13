@@ -1443,8 +1443,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
             erase_from_to_refine(j);
             break;
         }
-    }
-                              
+    }                              
 }
 
 void core::patch_monomials_with_real_vars() {
@@ -1467,7 +1466,8 @@ lbool core::check(vector<lemma>& l_vec) {
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     m_lar_solver.get_rid_of_inf_eps();
     m_lemma_vec =  &l_vec;
-    if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
+    if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || 
+          m_lar_solver.get_status() == lp::lp_status::FEASIBLE)) {
         TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << m_lar_solver.get_status() << "\n";);
         return l_undef;
     }
@@ -1476,6 +1476,7 @@ lbool core::check(vector<lemma>& l_vec) {
     patch_monomials_with_real_vars();
     if (m_to_refine.is_empty()) { return l_true; }   
     init_search();
+  
     set_use_nra_model(false);    
 
     if (need_to_call_algebraic_methods()) {
@@ -1505,24 +1506,16 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-    if (lp_settings().get_cancel_flag())
-        return l_undef;
 
-    
+    if (!m_reslim.inc())
+        return l_undef;
+  
+ finish_up:   
     lbool ret = l_vec.empty() ? l_undef : l_false;
 #if 0
-    if (ret == l_undef) {
-        lp::explanation expl;
-        ret = m_nra.check(expl);
-        
-        if (ret == l_false) {
-            new_lemma lemma(*this, __FUNCTION__);
-            lemma &= expl;
-            set_use_nra_model(true);
-        } else if (ret == l_true) {
-            set_use_nra_model(true);
-        }        
-    }
+    if (l_vec.empty()) 
+        ret = m_nra.check();
+    }        
 #endif
     
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);

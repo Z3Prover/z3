@@ -30,6 +30,7 @@ z3_add_component(lp
     lp_utils.cpp
     matrix.cpp
     mon_eq.cpp
+    monomial_bounds.cpp
     nex_creator.cpp
     nla_basics_lemmas.cpp
     nla_common.cpp
