@@ -2158,24 +2158,13 @@ public:
     }
     
     lbool check_nla_continue() {
-        auto & lv = m_nla_lemma_vector;
-        m_explanation.clear();
-        lbool r = m_nla->check(lv, m_explanation);
-        if (use_nra_model())
-            m_stats.m_nra_calls ++;
-
-        if (m_explanation.size()) {
-            SASSERT(use_nra_model());
-            SASSERT(r == l_false);
-            set_conflict();
-            return l_false;
-        }
+        lbool r = m_nla->check(m_nla_lemma_vector);
+        if (use_nra_model()) m_stats.m_nra_calls ++;
     
         switch (r) {
         case l_false: {
-            SASSERT(m_explanation.size() == 0);
-            m_stats.m_nla_lemmas += lv.size();
-            for (const nla::lemma & l : lv) {
+            m_stats.m_nla_lemmas += m_nla_lemma_vector.size();
+            for (const nla::lemma & l : m_nla_lemma_vector) {
                 false_case_of_check_nla(l);
             }
             break;
