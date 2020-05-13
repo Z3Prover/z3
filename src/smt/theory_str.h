@@ -645,6 +645,7 @@ protected:
 
     app * mk_value_helper(app * n);
     expr * get_eqc_value(expr * n, bool & hasEqcValue);
+    bool get_string_constant_eqc(expr * n, zstring & stringVal);
     expr * z3str2_get_eqc_value(expr * n , bool & hasEqcValue);
     bool in_same_eqc(expr * n1, expr * n2);
     expr * collect_eq_nodes(expr * n, expr_ref_vector & eqcSet);
@@ -719,6 +720,10 @@ protected:
 
     bool new_eq_check(expr * lhs, expr * rhs);
     void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);
+
+    void check_consistency_prefix(expr * e, bool is_true);
+    void check_consistency_suffix(expr * e, bool is_true);
+    void check_consistency_contains(expr * e, bool is_true);
 
     int ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
             std::map<expr*, std::set<expr*> > & unrollGroupMap, std::map<expr*, std::map<expr*, int> > & var_eq_concat_map);
