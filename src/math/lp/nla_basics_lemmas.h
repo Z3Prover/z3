@@ -50,6 +50,10 @@ struct basics: common {
 
     // use the fact
     // 1 * 1 ... * 1 * x * 1 ... * 1 = x
+    template <typename T>
+    bool can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based(const monic& rm, const T&, lpvar&, rational&);
+    // use the fact
+    // 1 * 1 ... * 1 * x * 1 ... * 1 = x
     bool basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const monic& rm, const factorization& f);
     // use the fact
     // 1 * 1 ... * 1 * x * 1 ... * 1 = x
@@ -83,8 +87,6 @@ struct basics: common {
     void negate_strict_sign(new_lemma& lemma, lpvar j);
     // x != 0 or y = 0 => |xy| >= |y|
     void proportion_lemma_model_based(const monic& rm, const factorization& factorization);
-    // x != 0 or y = 0 => |xy| >= |y|
-    bool proportion_lemma_derived(const monic& rm, const factorization& factorization);
     // if there are no zero factors then |m| >= |m[factor_index]|
     void generate_pl_on_mon(const monic& m, unsigned factor_index);
     

@@ -1476,21 +1476,16 @@ lbool core::check(vector<lemma>& l_vec) {
     patch_monomials_with_real_vars();
     if (m_to_refine.is_empty()) { return l_true; }   
     init_search();
-
+  
     set_use_nra_model(false);    
-    
-    if (need_to_call_algebraic_methods() && m_horner.horner_lemmas())
-        goto finish_up;
 
-
-    if (!done()) {
-        clear_and_resize_active_var_set();  // NSB code review: why is this independent of whether Grobner is run?
-        if (m_nla_settings.run_grobner()) {
+    if (need_to_call_algebraic_methods()) {
+        if (!m_horner.horner_lemmas() && m_nla_settings.run_grobner() && !done()) {
+            clear_and_resize_active_var_set(); 
             find_nl_cluster();
-            run_grobner();
+            run_grobner();                
         }
     }
-
     TRACE("nla_solver_details", print_terms(tout); tout << m_lar_solver.constraints(););
     if (!done()) 
         m_basics.basic_lemma(true);    
@@ -1510,6 +1505,7 @@ lbool core::check(vector<lemma>& l_vec) {
         if (!done())
             m_tangents.tangent_lemma();
     }
+
 
     if (!m_reslim.inc())
         return l_undef;

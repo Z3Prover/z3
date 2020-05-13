@@ -2158,6 +2158,7 @@ public:
     }
     
     lbool check_nla_continue() {
+        m_a1 = nullptr; m_a2 = nullptr;
         lbool r = m_nla->check(m_nla_lemma_vector);
         if (use_nra_model()) m_stats.m_nra_calls ++;
     

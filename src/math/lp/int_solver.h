@@ -109,8 +109,8 @@ private:
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
     bool non_basic_columns_are_at_bounds() const;
-
-
+    bool cut_indices_are_columns() const;
+    
 public:
     std::ostream& display_column(std::ostream & out, unsigned j) const;
     constraint_index column_upper_bound_constraint(unsigned j) const;

@@ -28,7 +28,6 @@ bool solver::is_monic_var(lpvar v) const {
 
 bool solver::need_check() { return true; }
 
-
 lbool solver::check(vector<lemma>& l) {
     return m_core->check(l);
 }
