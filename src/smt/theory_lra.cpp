@@ -1626,11 +1626,6 @@ public:
         unsigned old_sz = m_assume_eq_candidates.size();
         unsigned num_candidates = 0;
         int start = ctx().get_random_value();
-        auto has_value = [&](theory_var v) {
-            if (use_nra_model())
-                return true;
-            return can_get_ivalue(v);
-        };
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
