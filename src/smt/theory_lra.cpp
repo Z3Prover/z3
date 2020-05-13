@@ -286,8 +286,15 @@ class theory_lra::imp {
         }
     };
 
-    bool use_nra_model() const {
-        return m_nla && m_nla->use_nra_model();
+    bool use_nra_model() {
+        if (m_nla && m_nla->use_nra_model()) {
+            if (!m_a1) {
+                m_a1 = alloc(scoped_anum, m_nla->am());
+                m_a2 = alloc(scoped_anum, m_nla->am());
+            }
+            return true;
+        }
+        return false;
     }
     
     struct var_value_hash {
@@ -1619,6 +1626,11 @@ public:
         unsigned old_sz = m_assume_eq_candidates.size();
         unsigned num_candidates = 0;
         int start = ctx().get_random_value();
+        auto has_value = [&](theory_var v) {
+            if (use_nra_model())
+                return true;
+            return can_get_ivalue(v);
+        };
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
@@ -1626,9 +1638,8 @@ public:
                 continue;
             }
             ensure_column(v);
-            if (!can_get_ivalue(v)) {
+            if (!can_get_ivalue(v))
                 continue;
-            }
             theory_var other = m_model_eqs.insert_if_not_there(v);
             TRACE("arith", tout << "insert: v" << v << " := " << get_value(v) << " found: v" << other << "\n";);
             if (other == v) {
@@ -2152,7 +2163,6 @@ public:
     }
     
     lbool check_nla_continue() {
-        m_a1 = nullptr; m_a2 = nullptr;
         auto & lv = m_nla_lemma_vector;
         m_explanation.clear();
         lbool r = m_nla->check(lv, m_explanation);
@@ -2176,10 +2186,6 @@ public:
             break;
         }
         case l_true:
-            if (use_nra_model()) {
-                m_a1 = alloc(scoped_anum, m_nla->am());
-                m_a2 = alloc(scoped_anum, m_nla->am());
-            }
             if (assume_eqs()) {
                 return l_false;
             }
@@ -3358,7 +3364,7 @@ public:
 
             m_todo_terms.push_back(std::make_pair(t, rational::one()));
 
-            TRACE("arith", tout << "v" << v << " := w" << t.to_string() << "\n";
+            TRACE("nl_value", tout << "v" << v << " := w" << t.to_string() << "\n";
                   lp().print_term(lp().get_term(t), tout) << "\n";);
 
             m_nla->am().set(r, 0);
@@ -3367,7 +3373,7 @@ public:
                 t = m_todo_terms.back().first;
                 m_todo_terms.pop_back();
                 lp::lar_term const& term = lp().get_term(t);
-                TRACE("arith", lp().print_term(term, tout) << "\n";);
+                TRACE("nl_value", lp().print_term(term, tout) << "\n";);
                 scoped_anum r1(m_nla->am());
                 rational c1(0);
                 m_nla->am().set(r1, c1.to_mpq());
@@ -3789,7 +3795,8 @@ public:
             if (!ctx().is_relevant(get_enode(v))) out << "irr: ";
             out << "v" << v << " ";
             if (t.is_null()) out << "null"; else out << (t.is_term() ? "t":"j") << t.id();
-            if (can_get_value(v)) out << " = " << get_value(v); 
+            if (use_nra_model() && can_get_ivalue(v)) m_nla->am().display(out << " = ", nl_value(v, *m_a1));
+            else if (can_get_value(v)) out << " = " << get_value(v); 
             if (is_int(v)) out << ", int";
             if (ctx().is_shared(get_enode(v))) out << ", shared";
             out << " := "; th.display_var_flat_def(out, v) << "\n";

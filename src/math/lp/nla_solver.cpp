@@ -34,7 +34,7 @@ lbool solver::run_nra(lp::explanation & expl) {
 lbool solver::check(vector<lemma>& l, lp::explanation& expl) {    
     set_use_nra_model(false);
     lbool ret = m_core->check(l);
-    if (false && ret == l_undef) { // disable the call to nlsat
+    if (ret == l_undef) { // disable the call to nlsat
         ret = run_nra(expl);
         if (ret == l_true || expl.size() > 0) {
             set_use_nra_model(true);
@@ -54,6 +54,7 @@ void solver::pop(unsigned n) {
 solver::solver(lp::lar_solver& s, reslimit& limit): 
     m_core(alloc(core, s, limit)),
     m_nra(s, limit, *m_core) {
+    m_use_nra_model = false;
 }
 
 bool solver::influences_nl_var(lpvar j) const {    

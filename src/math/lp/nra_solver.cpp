@@ -9,6 +9,7 @@
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/map.h"
+#include "util/uint_set.h"
 #include "math/lp/nla_core.h"
 
 
@@ -18,10 +19,12 @@ typedef nla::mon_eq mon_eq;
 
 typedef nla::variable_map_type variable_map_type;
 struct solver::imp {
-    lp::lar_solver&      s;
-    reslimit&              m_limit;  
-    params_ref             m_params; 
-    u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
+    lp::lar_solver&           s;
+    reslimit&                 m_limit;  
+    params_ref                m_params; 
+    u_map<polynomial::var>    m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
+    svector<lp::tv>           m_terms;
+    uint_set                  m_term_set;
     scoped_ptr<nlsat::solver> m_nlsat;
     scoped_ptr<scoped_anum>   m_zero;
     mutable variable_map_type m_variable_values; // current model        
@@ -37,28 +40,6 @@ struct solver::imp {
     }
 
 
-    /*
-      \brief Check if polynomials are well defined.
-      multiply values for vs and check if they are equal to value for v.
-      epsilon has been computed.
-    */
-    /*        bool check_assignment(mon_eq const& m) const {
-              rational r1 = m_variable_values[m.m_v];
-              rational r2(1);
-              for (auto w : m.vars()) {
-              r2 *= m_variable_values[w];
-              }
-              return r1 == r2;
-              }
-
-              bool check_assignments() const {
-              s.get_model(m_variable_values);
-              for (auto const& m : m_monics) {
-              if (!check_assignment(m)) return false;
-              }
-              return true;
-              }
-    */
     /**
        \brief one-shot nlsat check.
        A one shot checker is the least functionality that can 
@@ -74,6 +55,8 @@ struct solver::imp {
         SASSERT(need_check() && ex.size() == 0);
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
+        m_terms.reset();
+        m_term_set.reset();
         m_lp2nl.reset();
         vector<nlsat::assumption, false> core;
 
@@ -85,6 +68,9 @@ struct solver::imp {
         // add polynomial definitions.
         for (auto const& m : m_nla_core.emons()) {
              add_monic_eq(m);
+        }
+        for (unsigned i = 0; i < m_terms.size(); ++i) {
+            add_term(m_terms[i]);
         }
         // TBD: add variable bounds?
 
@@ -195,8 +181,21 @@ struct solver::imp {
             r = m_nlsat->mk_var(is_int(v));
             m_lp2nl.insert(v, r);
             TRACE("arith", tout << "j" << v << " := x" << r << "\n";);
+#if 0
+            // TBD:
+            if (m_nla_core.is_from_a_term(v) && !m_term_set.contains(v)) {
+                m_terms.push_back(m_nla_core.column2tv(v));
+            }
+#endif
         }
         return r;
+    }
+
+    void add_term(lp::tv const& t) {
+#if 0
+        // TBD: code that creates a polynomial equality between the linear coefficients and
+        // variable representing the term.
+#endif
     }
 
     nlsat::anum const& value(lp::var_index v) const {
