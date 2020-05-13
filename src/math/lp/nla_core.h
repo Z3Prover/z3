@@ -397,7 +397,6 @@ public:
     bool rm_check(const monic&) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
 
-    // NSB code review: these could be methods on new_lemma
     void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp);
     void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp, rational const& bound);
     void negate_relation(new_lemma& lemma, unsigned j, const rational& a);

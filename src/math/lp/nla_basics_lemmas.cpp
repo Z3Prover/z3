@@ -506,10 +506,6 @@ void basics::basic_lemma_for_mon_model_based(const monic& rm) {
      or
      - /\_j f_j = val(f_j) => m = sign
 */
-// NSB code review: can't we just use basic_lemma_for_mon_neutral_from_factors_to_model_based?
-// then the factorization is the same as the monomial.
-// then the only difference is to omit adding some explanations.
-
 bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based_fm(const monic& m) {
     lpvar not_one; rational sign;
     if (!can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based(m, m, not_one, sign))
@@ -565,7 +561,8 @@ bool basics::basic_lemma_for_mon_neutral_monic_to_factor_model_based(const monic
     lemma |= ineq(term(u, rational(val(u) == -val(mon_var) ? 1 : -1), mon_var), llc::NE, 0);
     lemma |= ineq(v, llc::EQ, 1);
     lemma |= ineq(v, llc::EQ, -1);
-    lemma &= rm; // NSB review: is this dependency required?
+    lemma &= rm; // NSB review: is this dependency required? - it does because it explains how monomial is equivalent
+    // to the rooted monomial
     lemma &= f;
 
     return true;
