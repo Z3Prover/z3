@@ -19,7 +19,11 @@ namespace nla {
 
     class monomial_bounds : common {
         void var2interval(lpvar v, scoped_dep_interval& i);
-        bool propagate_up(monic const& m);
+        bool propagate_down(monic const& m, lpvar u);
+        bool propagate_value(dep_interval& range, lpvar v);
+        void compute_product(unsigned start, monic const& m, scoped_dep_interval& i);
+        bool propagate(monic const& m);
+        bool propagate_down(monic const& m, dep_interval& mi, lpvar v, dep_interval& product);
     public:
         monomial_bounds(core* core);
         bool operator()();

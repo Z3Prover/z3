@@ -134,13 +134,15 @@ private:
         }
     };
 
+
 public:
+    typedef interval_manager<im_config>::interval interval;
+
     mutable unsynch_mpq_manager         m_num_manager;
     mutable u_dependency_manager        m_dep_manager;
     im_config                           m_config;
     mutable interval_manager<im_config> m_imanager;
 
-    typedef interval_manager<im_config>::interval interval;
 
     unsynch_mpq_manager& num_manager() { return m_num_manager; }
     const unsynch_mpq_manager& num_manager() const { return m_num_manager; }
@@ -148,34 +150,6 @@ public:
     u_dependency* mk_leaf(unsigned d) { return m_dep_manager.mk_leaf(d); }
     u_dependency* mk_join(u_dependency* a, u_dependency* b) { return m_dep_manager.mk_join(a, b); }
 
-    template <enum with_deps_t wd>
-    void mul(const rational& r, const interval& a, interval& b) const {
-        if (r.is_zero()) return;
-        m_imanager.mul(r.to_mpq(), a, b);
-        if (wd == with_deps) {
-            if (r.is_pos()) {
-                b.m_lower_dep = a.m_lower_dep;
-                b.m_upper_dep = a.m_upper_dep;
-            }
-            else {
-                b.m_upper_dep = a.m_lower_dep;
-                b.m_lower_dep = a.m_upper_dep;
-            }
-        }
-    }
-
-    void mul(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
-    void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
-    
-    void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
-        SASSERT(&a != &i && &b != &i);
-        m_config.add_deps(a, b, deps, i);
-    }
-
-    void combine_deps(interval const& a, interval_deps_combine_rule const& deps, interval& i) const {
-        SASSERT(&a != &i);
-        m_config.add_deps(a, deps, i);
-    }
 
 public:
     u_dependency_manager& dep_manager() { return m_dep_manager; }
@@ -188,12 +162,20 @@ public:
     std::ostream& display(std::ostream& out, const interval& i) const;
     void set_lower(interval& a, rational const& n) const { m_config.set_lower(a, n.to_mpq()); }
     void set_upper(interval& a, rational const& n) const { m_config.set_upper(a, n.to_mpq()); }
-    void set_lower_is_open(interval& a, bool strict) { m_config.set_lower_is_open(a, strict); }
-    void set_lower_is_inf(interval& a, bool inf) { m_config.set_lower_is_inf(a, inf); }
-    void set_upper_is_open(interval& a, bool strict) { m_config.set_upper_is_open(a, strict); }
-    void set_upper_is_inf(interval& a, bool inf) { m_config.set_upper_is_inf(a, inf); }
+    void set_lower_is_open(interval& a, bool strict) const { m_config.set_lower_is_open(a, strict); }
+    void set_lower_is_inf(interval& a, bool inf) const { m_config.set_lower_is_inf(a, inf); }
+    void set_upper_is_open(interval& a, bool strict) const { m_config.set_upper_is_open(a, strict); }
+    void set_upper_is_inf(interval& a, bool inf) const { m_config.set_upper_is_inf(a, inf); }
     void set_lower_dep(interval& a, u_dependency* d) const { m_config.set_lower_dep(a, d); }
     void set_upper_dep(interval& a, u_dependency* d) const { m_config.set_upper_dep(a, d); }
+    void set_value(interval& a, rational const& n) const { 
+        set_lower(a, n); 
+        set_upper(a, n); 
+        set_lower_is_open(a, false); 
+        set_upper_is_open(a, false); 
+        set_lower_is_inf(a, false);
+        set_upper_is_inf(a, false);
+    }
     bool is_zero(const interval& a) const { return m_config.is_zero(a); }
     bool upper_is_inf(const interval& a) const { return m_config.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_config.lower_is_inf(a); }
@@ -220,6 +202,8 @@ public:
 
     template <enum with_deps_t wd>
     void power(const interval& a, unsigned n, interval& b) {
+        if (n == 1 && &a == &b) 
+            return;
         if (with_deps == wd) {
             interval_deps_combine_rule combine_rule;
             m_imanager.power(a, n, b, combine_rule);
@@ -230,6 +214,58 @@ public:
         }
         TRACE("dep_intervals", tout << "power of "; display(tout, a) << " = ";
               display(tout, b) << "\n"; );
+    }
+
+    template <enum with_deps_t wd>
+    void mul(const rational& r, const interval& a, interval& b) const {
+        if (r.is_zero()) return;
+        m_imanager.mul(r.to_mpq(), a, b);
+        if (wd == with_deps) {
+            if (r.is_pos()) {
+                b.m_lower_dep = a.m_lower_dep;
+                b.m_upper_dep = a.m_upper_dep;
+            }
+            else {
+                b.m_upper_dep = a.m_lower_dep;
+                b.m_lower_dep = a.m_upper_dep;
+            }
+        }
+    }
+
+    template <enum with_deps_t wd>
+    void mul(const interval& a, const interval& b, interval& c) {
+        if (wd == with_deps) {
+            interval_deps_combine_rule comb_rule;
+            mul(a, b, c, comb_rule);
+            combine_deps(a, b, comb_rule, c);
+        }
+        else {
+            mul(a, b, c);
+        }
+    }
+
+    template <enum with_deps_t wd>
+    void div(const interval& a, const interval& b, interval& c) {
+        if (wd == with_deps) {
+            interval_deps_combine_rule comb_rule;
+            m_imanager.div(a, b, c, comb_rule);
+            combine_deps(a, b, comb_rule, c);
+        }
+        else {
+            m_imanager.div(a, b, c);
+        }
+    }
+
+    template <enum with_deps_t wd>
+    void add(const interval& a, const interval& b, interval& c) {
+        if (wd == with_deps) {
+            interval_deps_combine_rule comb_rule;
+            add(a, b, c, comb_rule);
+            combine_deps(a, b, comb_rule, c);
+        }
+        else {
+            add(a, b, c);
+        }
     }
 
     template <enum with_deps_t wd>
@@ -370,6 +406,21 @@ public:
 
         copy_upper_bound<wd>(b, i);
     }
+private:
+    void mul(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
+    void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
+   
+    void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
+        SASSERT(&a != &i && &b != &i);
+        m_config.add_deps(a, b, deps, i);
+    }
+
+    void combine_deps(interval const& a, interval_deps_combine_rule const& deps, interval& i) const {
+        SASSERT(&a != &i);
+        m_config.add_deps(a, deps, i);
+    }
+
 };
 
 typedef _scoped_interval<dep_intervals> scoped_dep_interval;
+typedef dep_intervals::interval dep_interval;

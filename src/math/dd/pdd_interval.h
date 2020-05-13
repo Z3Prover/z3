@@ -49,12 +49,8 @@ public:
         get_interval<wd>(p.hi(), hi);
         get_interval<wd>(p.lo(), lo);
         if (deps) {
-            interval_deps_combine_rule combine_rule;
-            m_dep_intervals.mul(hi, a, t, combine_rule);
-            m_dep_intervals.combine_deps(hi, a, combine_rule, t); 
-            combine_rule.reset();
-            m_dep_intervals.add(t, lo, ret, combine_rule);
-            m_dep_intervals.combine_deps(t, lo, combine_rule, ret);
+            m_dep_intervals.mul<dep_intervals::with_deps>(hi, a, t);
+            m_dep_intervals.add<dep_intervals::with_deps>(t, lo, ret);
         } else {
             m_dep_intervals.mul(hi, a, t);
             m_dep_intervals.add(t, lo, ret);

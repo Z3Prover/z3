@@ -20,40 +20,50 @@ namespace nla {
         bool propagated = false;
         for (lpvar v : c().m_to_refine) {
             monic const& m = c().emons()[v];
-            if (propagate_up(m))
+            if (propagate(m))
                 propagated = true;
         }
         return propagated;
     }
 
-    bool monomial_bounds::propagate_up(monic const& m) {
+    void monomial_bounds::compute_product(unsigned start, monic const& m, scoped_dep_interval& product) {
         auto & intervals = c().m_intervals;
         auto & dep_intervals = intervals.get_dep_intervals();
-        scoped_dep_interval product(dep_intervals), di(dep_intervals);
-        lpvar v = m.vars()[0];
-        var2interval(v, product);
-        for (unsigned i = 1; i < m.size(); ++i) {
-            var2interval(m.vars()[i], di);
-            dep_intervals.mul(product, di, product);
+        scoped_dep_interval vi(dep_intervals);
+        for (unsigned i = start; i < m.size(); ) {
+            lpvar v = m.vars()[i];
+            unsigned power = 1;
+            var2interval(v, vi);
+            ++i;
+            for (; i < m.size() && m.vars()[i] == v; ++i) {
+                ++power;
+            }
+            dep_intervals.power<dep_intervals::with_deps>(vi, power, vi);            
+            dep_intervals.mul<dep_intervals::with_deps>(product, vi, product);
         }
-        if (dep_intervals.is_below(product, c().val(m.var()))) {
+    }
+
+    bool monomial_bounds::propagate_value(dep_interval& range, lpvar v) {
+        auto & intervals = c().m_intervals;
+        auto & dep_intervals = intervals.get_dep_intervals();
+        if (dep_intervals.is_below(range, c().val(v))) {
             lp::explanation ex;
-            dep_intervals.get_upper_dep(product, ex);
-            new_lemma lemma(c(), "propagate up - upper bound of product is below value");
+            dep_intervals.get_upper_dep(range, ex);
+            new_lemma lemma(c(), "propagate up - upper bound of range is below value");
             lemma &= ex;
-            auto const& upper = dep_intervals.upper(product);
-            auto cmp = dep_intervals.upper_is_open(product) ? llc::LT : llc::LE;
-            lemma |= ineq(m.var(), cmp, upper); 
+            auto const& upper = dep_intervals.upper(range);
+            auto cmp = dep_intervals.upper_is_open(range) ? llc::LT : llc::LE;
+            lemma |= ineq(v, cmp, upper); 
             return true;
         }
-        else if (dep_intervals.is_above(product, c().val(m.var()))) {
+        else if (dep_intervals.is_above(range, c().val(v))) {
             lp::explanation ex;
-            dep_intervals.get_lower_dep(product, ex);
-            new_lemma lemma(c(), "propagate up - lower bound of product is above value");
+            dep_intervals.get_lower_dep(range, ex);
+            new_lemma lemma(c(), "propagate up - lower bound of range is above value");
             lemma &= ex;
-            auto const& lower = dep_intervals.upper(product);
-            auto cmp = dep_intervals.lower_is_open(product) ? llc::GT : llc::GE;
-            lemma |= ineq(m.var(), cmp, lower); 
+            auto const& lower = dep_intervals.upper(range);
+            auto cmp = dep_intervals.lower_is_open(range) ? llc::GT : llc::GE;
+            lemma |= ineq(v, cmp, lower); 
             return true;
         }
         else {
@@ -72,11 +82,58 @@ namespace nla {
             dep_intervals.set_lower(i, bound);
             dep_intervals.set_lower_dep(i, dep_intervals.mk_leaf(ci));
         }
+        else {
+            dep_intervals.set_lower_is_inf(i, true);
+        }
         if (c().has_upper_bound(v, ci, bound, is_strict)) {
             dep_intervals.set_upper_is_open(i, is_strict);
             dep_intervals.set_upper(i, bound);
             dep_intervals.set_upper_dep(i, dep_intervals.mk_leaf(ci));            
         }
+        else {
+            dep_intervals.set_upper_is_inf(i, true);
+        }
     }
+
+    bool monomial_bounds::propagate(monic const& m) {
+        auto & intervals = c().m_intervals;
+        auto & dep_intervals = intervals.get_dep_intervals();
+        scoped_dep_interval product(dep_intervals);
+        scoped_dep_interval vi(dep_intervals), mi(dep_intervals);
+        scoped_dep_interval other_product(dep_intervals);
+        var2interval(m.var(), mi);
+        if (dep_intervals.lower_is_inf(mi) && dep_intervals.upper_is_inf(mi))
+            return false;
+        dep_intervals.set_value(product, rational::one());
+        for (unsigned i = 0; i < m.size(); ) {
+            lpvar v = m.vars()[i];
+            ++i;
+            unsigned power = 1;
+            for (; i < m.size() && v == m.vars()[i]; ++i) 
+                ++power;
+            var2interval(v, vi);
+            dep_intervals.power<dep_intervals::with_deps>(vi, power, vi);            
+            if (power == 1) {
+                dep_intervals.set<dep_intervals::with_deps>(other_product, product);
+                compute_product(i, m, other_product);
+                if (propagate_down(m, mi, v, other_product))
+                    return true;
+            }
+            dep_intervals.mul<dep_intervals::with_deps>(product, vi, product);
+        }
+        return propagate_value(product, m.var());
+    }
+
+    bool monomial_bounds::propagate_down(monic const& m, dep_interval& mi, lpvar v, dep_interval& product) {
+        auto & intervals = c().m_intervals;
+        auto & dep_intervals = intervals.get_dep_intervals();
+        if (!dep_intervals.separated_from_zero(product)) 
+            return false;
+        scoped_dep_interval range(dep_intervals);
+        dep_intervals.set<dep_intervals::with_deps>(range, mi);
+        dep_intervals.div<dep_intervals::with_deps>(range, product, range);
+        return propagate_value(range, v);
+    }
+
 }
 
