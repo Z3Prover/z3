@@ -49,6 +49,9 @@ struct common {
     rational var_val(monic const& m) const; // value obtained from variable representing monomial
     rational mul_val(monic const& m) const; // value obtained from multiplying variables of monomial
     template <typename T> lpvar var(T const& t) const;
+    // this needed in can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based when iterating
+    // over a monic
+    lpvar var(lpvar j) const { return j; }
     bool done() const;
     template <typename T> bool canonize_sign(const T&) const;
 
