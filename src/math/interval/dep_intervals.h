@@ -97,6 +97,8 @@ private:
         void set_upper_is_open(interval& a, bool v) const { a.m_upper_open = v; }
         void set_lower_is_inf(interval& a, bool v) const { a.m_lower_inf = v; }
         void set_upper_is_inf(interval& a, bool v) const { a.m_upper_inf = v; }
+        void set_lower_dep(interval& a, u_dependency* d) const { a.m_lower_dep = d; }
+        void set_upper_dep(interval& a, u_dependency* d) const { a.m_upper_dep = d; }
 
         // Reference to numeral manager
         numeral_manager& m() const { return m_manager; }
@@ -190,11 +192,19 @@ public:
     void set_lower_is_inf(interval& a, bool inf) { m_config.set_lower_is_inf(a, inf); }
     void set_upper_is_open(interval& a, bool strict) { m_config.set_upper_is_open(a, strict); }
     void set_upper_is_inf(interval& a, bool inf) { m_config.set_upper_is_inf(a, inf); }
+    void set_lower_dep(interval& a, u_dependency* d) const { m_config.set_lower_dep(a, d); }
+    void set_upper_dep(interval& a, u_dependency* d) const { m_config.set_upper_dep(a, d); }
     bool is_zero(const interval& a) const { return m_config.is_zero(a); }
     bool upper_is_inf(const interval& a) const { return m_config.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_config.lower_is_inf(a); }
     bool lower_is_open(const interval& a) const { return m_config.lower_is_open(a); }
     bool upper_is_open(const interval& a) const { return m_config.upper_is_open(a); }
+    template <typename T>
+    void get_upper_dep(const interval& a, T& expl) { linearize(a.m_upper_dep, expl); }
+    template <typename T>
+    void get_lower_dep(const interval& a, T& expl) { linearize(a.m_lower_dep, expl); }
+    bool is_above(const interval& a, const rational& r) const;
+    bool is_below(const interval& a, const rational& r) const;    
     void add(const rational& r, interval& a) const;
     void mul(const interval& a, const interval& b, interval& c) { m_imanager.mul(a, b, c); }
     void add(const interval& a, const interval& b, interval& c) { m_imanager.add(a, b, c); }

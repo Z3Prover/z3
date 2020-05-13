@@ -321,6 +321,13 @@ public:
     }
     const rational& get_upper_bound(unsigned j) const;
     const rational& get_lower_bound(unsigned j) const;    
+    bool has_lower_bound(lp::var_index var, lp::constraint_index& ci, lp::mpq& value, bool& is_strict) const { 
+        return m_lar_solver.has_lower_bound(var, ci, value, is_strict); 
+    }
+    bool has_upper_bound(lp::var_index var, lp::constraint_index& ci, lp::mpq& value, bool& is_strict) const {
+        return m_lar_solver.has_upper_bound(var, ci, value, is_strict);
+    }
+
     
     bool zero_is_an_inner_point_of_bounds(lpvar j) const;    
     bool var_is_int(lpvar j) const { return m_lar_solver.column_is_int(j); }
