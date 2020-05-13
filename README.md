@@ -202,7 +202,7 @@ See [``examples/python``](examples/python) for examples.
 
 ### ``Julia``
 
-[Julia bindings](src/api/julia) can be enabled using the build option `Z3_BUILD_JULIA_BINDINGS` from the CMake system.
+The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) wraps the C++ API of Z3. Information about updating and building the Julia bindings can be found in [src/api/julia](src/api/julia).
 
 ### ``Web Assembly``
 
@@ -217,11 +217,12 @@ See [``examples/python``](examples/python) for examples.
 * Default input format is [SMTLIB2](http://smtlib.cs.uiowa.edu)
 
 * Other native foreign function interfaces:
- * [C++ API](https://z3prover.github.io/api/html/group__cppapi.html)
- * [.NET API](https://z3prover.github.io/api/html/namespace_microsoft_1_1_z3.html)
- * [Java API](https://z3prover.github.io/api/html/namespacecom_1_1microsoft_1_1z3.html)
- * [Python API](https://z3prover.github.io/api/html/namespacez3py.html) (also available in [pydoc format](https://z3prover.github.io/api/html/z3.html))
-  * C
-  * OCaml
+* [C++ API](https://z3prover.github.io/api/html/group__cppapi.html)
+* [.NET API](https://z3prover.github.io/api/html/namespace_microsoft_1_1_z3.html)
+* [Java API](https://z3prover.github.io/api/html/namespacecom_1_1microsoft_1_1z3.html)
+* [Python API](https://z3prover.github.io/api/html/namespacez3py.html) (also available in [pydoc format](https://z3prover.github.io/api/html/z3.html))
+* C
+* OCaml
+* [Julia](https://github.com/ahumenberger/Z3.jl)
 
 
