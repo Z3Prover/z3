@@ -22,6 +22,7 @@
 #include "math/lp/nla_settings.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
+#include "math/lp/monomial_bounds.h"
 #include "math/lp/nla_intervals.h"
 #include "math/grobner/pdd_solver.h"
 #include "nlsat/nlsat_solver.h"
@@ -148,7 +149,8 @@ public:
     basics                   m_basics;
     order                    m_order;
     monotone                 m_monotone;
-    intervals                m_intervals;                
+    intervals                m_intervals; 
+    monomial_bounds          m_monomial_bounds;
     horner                   m_horner;
     nla_settings             m_nla_settings;    
     dd::pdd_manager          m_pdd_manager;
