@@ -411,12 +411,10 @@ private:
     void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
    
     void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
-        SASSERT(&a != &i && &b != &i);
         m_config.add_deps(a, b, deps, i);
     }
 
     void combine_deps(interval const& a, interval_deps_combine_rule const& deps, interval& i) const {
-        SASSERT(&a != &i);
         m_config.add_deps(a, deps, i);
     }
 

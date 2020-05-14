@@ -29,6 +29,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_monotone(this),
     m_intervals(this, lim),
     m_horner(this),
+    m_monomial_bounds(this),
     m_pdd_manager(s.number_of_vars()),
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
@@ -137,13 +138,13 @@ void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
 }
     
 void core::push() {
-    TRACE("nla_solver",);
+    TRACE("nla_solver_verbose", tout << "\n";);
     m_emons.push();
 }
 
      
 void core::pop(unsigned n) {
-    TRACE("nla_solver", tout << "n = " << n << "\n";);
+    TRACE("nla_solver_verbose", tout << "n = " << n << "\n";);
     m_emons.pop(n);
     SASSERT(elists_are_consistent(false));
 }
@@ -403,10 +404,8 @@ bool core::explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const {
             
     m_evars.explain(signed_var(i, false), signed_var(j, sign), e);
     TRACE("nla_solver", tout << "explained :"; m_lar_solver.print_term_as_indices(t, tout););
-    return true;
-            
+    return true;            
 }
-    
 
 void core::mk_ineq_no_expl_check(new_lemma& lemma, lp::lar_term& t, llc cmp, const rational& rs) {
     TRACE("nla_solver_details", m_lar_solver.print_term_as_indices(t, tout << "t = "););
@@ -424,8 +423,7 @@ llc apply_minus(llc cmp) {
     default: break;
     }
     return cmp;
-}
-    
+}   
     
 // the monics should be equal by modulo sign but this is not so in the model
 void core::fill_explanation_and_lemma_sign(new_lemma& lemma, const monic& a, const monic & b, rational const& sign) {
@@ -475,9 +473,7 @@ int core::vars_sign(const svector<lpvar>& v) {
     }
     return sign;
 }
-
-    
-
+   
 bool core::has_upper_bound(lpvar j) const {
     return m_lar_solver.column_has_upper_bound(j);
 } 
@@ -1214,10 +1210,8 @@ std::ostream& new_lemma::display(std::ostream & out) const {
     for (lpvar j : c.collect_vars(lemma)) {
         c.print_var(j, out);
     }
-
     return out;
 }
-
     
 void core::negate_relation(new_lemma& lemma, unsigned j, const rational& a) {
     SASSERT(val(j) != a);
@@ -1236,21 +1230,6 @@ bool core::done() const {
     return m_lemma_vec->size() >= 10 || 
         conflict_found() || 
         lp_settings().get_cancel_flag();
-}
-
-void core::incremental_linearization(bool constraint_derived) {
-    TRACE("nla_solver_details", print_terms(tout); tout << m_lar_solver.constraints(););
-    m_basics.basic_lemma(constraint_derived);
-    if (!m_lemma_vec->empty() || constraint_derived || done())
-        return;
-    TRACE("nla_solver", tout << "passed constraint_derived and basic lemmas\n";);
-    SASSERT(elists_are_consistent(true));
-    if (!done())
-        m_order.order_lemma();
-    if (!done()) 
-        m_monotone.monotonicity_lemma();
-    if (!done())
-        m_tangents.tangent_lemma();    
 }
 
 bool core::elist_is_consistent(const std::unordered_set<lpvar> & list) const {
@@ -1359,12 +1338,9 @@ bool core::patch_blocker(lpvar u, const monic& m) const {
 }
 
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
-    return m_lar_solver.try_to_patch(k, v,
-                                     [this, k, m](lpvar u) {
-                                         if (u == k)
-                                             return false; // ok to patch
-                                         return patch_blocker(u, m); },
-                                     [this](lpvar u) { update_to_refine_of_var(u); });
+    auto blocker = [this, k, m](lpvar u) { return u != k && patch_blocker(u, m); };
+    auto change_report = [this](lpvar u) { update_to_refine_of_var(u); };
+    return m_lar_solver.try_to_patch(k, v, blocker,  change_report);
 }
 
 bool in_power(const svector<lpvar>& vs, unsigned l) {
@@ -1465,22 +1441,25 @@ lbool core::check(vector<lemma>& l_vec) {
     patch_monomials_with_real_vars();
     if (m_to_refine.is_empty()) { return l_true; }   
     init_search();
-  
+
+    lbool ret = l_undef;
+
     set_use_nra_model(false);    
 
-    if (need_to_call_algebraic_methods()) {
-        if (!m_horner.horner_lemmas() && m_nla_settings.run_grobner() && !done()) {
-            clear_and_resize_active_var_set(); 
-            find_nl_cluster();
-            run_grobner();                
-        }
-    }
-    TRACE("nla_solver_details", print_terms(tout); tout << m_lar_solver.constraints(););
-    if (!done()) 
-        m_basics.basic_lemma(true);    
+    if (false && l_vec.empty() && !done()) 
+        m_monomial_bounds();
+    
+    if (l_vec.empty() && !done () && need_to_call_algebraic_methods()) 
+        m_horner.horner_lemmas();
 
-    TRACE("nla_solver", tout << "passed constraint_derived and basic lemmas\n";);
-    SASSERT(!l_vec.empty() || elists_are_consistent(true));
+    if (l_vec.empty() && !done() && m_nla_settings.run_grobner()) {
+        clear_and_resize_active_var_set(); 
+        find_nl_cluster();
+        run_grobner();                
+    }
+
+    if (l_vec.empty() && !done()) 
+        m_basics.basic_lemma(true);    
 
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);
@@ -1495,16 +1474,13 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-    if (!m_reslim.inc())
-        return l_undef;
-  
-    lbool ret = l_vec.empty() ? l_undef : l_false;
-
 #if 0
-    if (l_vec.empty()) 
+    if (l_vec.empty() && !done()) 
         ret = m_nra.check();
-    }        
 #endif
+
+    if (ret == l_undef && !l_vec.empty() && m_reslim.inc()) 
+        ret = l_false;
     
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
