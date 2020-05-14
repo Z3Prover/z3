@@ -1887,7 +1887,7 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
 }
 
 br_status seq_rewriter::mk_regexp_contains_emptystr(expr* eps, expr* b, expr_ref& result) {
-    // assumption: eps is the empty string (TODO: replace this the following line)
+    // assumption: eps is the empty string (TODO: replace with the following line)
     // expr* eps = ... ;
     expr* b1 = nullptr;
     expr* b2 = nullptr;
@@ -1927,8 +1927,14 @@ br_status seq_rewriter::mk_regexp_contains_emptystr(expr* eps, expr* b, expr_ref
         result = m().mk_false();
         return BR_DONE;
     }
-    /* TODO: add for complement */
-    /* TODO: add for is_lambda base predicate */
+    else if (m_util.re.is_complement(b, b1)) {
+        result = m().mk_not(m_util.re.mk_in_re(eps, b1));
+        return BR_REWRITE2;
+    }
+    else if (m_util.re.is_re_pred(b)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
     else if (m_util.re.is_loop(b, b1, lo) || m_util.re.is_loop(b, b1, lo, hi)) {
         if (lo == 0) {
             result = m().mk_true();
@@ -1942,6 +1948,13 @@ br_status seq_rewriter::mk_regexp_contains_emptystr(expr* eps, expr* b, expr_ref
     else {
         return BR_FAILED;
     }
+}
+
+br_status seq_rewriter::eval_regexp_derivative(expr* hd, expr* tl, expr* b, expr_ref& result) {
+    // assumption: char is a single character
+
+    // TODO: implement symbolic derivative
+    return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
@@ -1963,7 +1976,15 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return mk_regexp_contains_emptystr(a, b, result);
     }
 
-    // return BR_FAILED; /* For testing purposes, only depend on new functionality */
+    expr* a1 = nullptr;
+    expr* a2 = nullptr;
+    // Next, try to calculate the derivative
+    if (m_util.str.is_concat(a, a1, a2)) {
+        // TODO: the following is not correct for multiple reasons, just a placeholder
+        return eval_regexp_derivative(a1, a2, b, result);
+    }
+
+    return BR_FAILED; /* For testing purposes, only depend on new functionality */
 
     scoped_ptr<eautomaton> aut;
     expr_ref_vector seq(m());
