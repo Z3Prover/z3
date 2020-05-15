@@ -217,9 +217,8 @@ struct solver::imp {
         polynomial::polynomial* ps[1] = { p };
         bool is_even[1] = { false };
         nlsat::literal lit;
-        nlsat::assumption a = this - term_column; // is it ok?
         lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
-        m_nlsat->mk_clause(1, &lit, a);
+        m_nlsat->mk_clause(1, &lit, nullptr);
     }
 
     nlsat::anum const& value(lp::var_index v) const {
