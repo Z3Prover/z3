@@ -143,7 +143,6 @@ class core {
         unsigned m_nla_explanations;
         unsigned m_nla_lemmas;
         unsigned m_nra_calls;
-        unsigned m_assume_eqs;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
