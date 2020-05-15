@@ -407,6 +407,7 @@ class theory_lra::imp {
             m_nla->settings().horner_frequency() =            prms.arith_nl_horner_frequency();
             m_nla->settings().horner_row_length_limit() =     prms.arith_nl_horner_row_length_limit();
             m_nla->settings().run_grobner() =                 prms.arith_nl_grobner();
+            m_nla->settings().run_nra()  =                    prms.arith_nl_nra();
             m_nla->settings().grobner_subs_fixed() =          prms.arith_nl_grobner_subs_fixed();
             m_nla->settings().grobner_eqs_growth() =          prms.arith_nl_grobner_eqs_growth();
             m_nla->settings().grobner_expr_size_growth() =    prms.arith_nl_grobner_expr_size_growth();
