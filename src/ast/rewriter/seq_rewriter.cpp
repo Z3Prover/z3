@@ -642,6 +642,7 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     // TBD concatenation is right-associative
+    // TODO: remove code, see if breaks any regression tests
     if (isc2 && m_util.str.is_concat(a, c, d) && m_util.str.is_string(d, s1)) {
         result = m_util.str.mk_concat(c, m_util.str.mk_string(s1 + s2));
         return BR_DONE;
@@ -650,6 +651,7 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
         result = m_util.str.mk_concat(m_util.str.mk_string(s1 + s2), d);
         return BR_DONE;
     }
+    // END TODO
     return BR_FAILED;
 }
 
@@ -1886,9 +1888,12 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
     return true;
 }
 
-br_status seq_rewriter::mk_regexp_contains_emptystr(expr* eps, expr* b, expr_ref& result) {
-    // assumption: eps is the empty string (TODO: replace with the following line)
-    // expr* eps = ... ;
+br_status seq_rewriter::mk_regexp_contains_emptystr(expr* b, expr_ref& result) {
+    // Make empty string (using sequence sort)
+    sort* seq_sort = nullptr;
+    VERIFY(m_util.is_re(b, seq_sort));
+    expr* eps = m_util.str.mk_empty(seq_sort);
+    // Match on regular expression b
     expr* b1 = nullptr;
     expr* b2 = nullptr;
     unsigned lo = 0, hi = 0;
@@ -1946,14 +1951,76 @@ br_status seq_rewriter::mk_regexp_contains_emptystr(expr* eps, expr* b, expr_ref
         }
     }
     else {
+        // TODO: I think getting here constitutes a bug -- how to report the error?
         return BR_FAILED;
     }
 }
 
 br_status seq_rewriter::eval_regexp_derivative(expr* hd, expr* tl, expr* b, expr_ref& result) {
-    // assumption: char is a single character
+    // char should be a single character
+    expr* hd1 = nullptr;
+    expr* b1 = nullptr;
+    expr* b2 = nullptr;
+    if (!m_util.str.is_unit(hd, hd1)) {
+        return BR_FAILED;
+    }
 
-    // TODO: implement symbolic derivative
+    // Now match on regular expression
+    // TODO: complete the following code
+    // if (m_util.re.is_concat(b, b1, b2)) {
+    //     result = m().mk_and(m_util.re.mk_in_re(eps, b1),
+    //                         m_util.re.mk_in_re(eps, b2));
+    //     return BR_REWRITE2;
+    // }
+    // else if (m_util.re.is_union(b, b1, b2)) {
+    //     result = m().mk_or(m_util.re.mk_in_re(eps, b1),
+    //                        m_util.re.mk_in_re(eps, b2));
+    //     return BR_REWRITE2;
+    // }
+    // else if (m_util.re.is_intersection(b, b1, b2)) {
+    //     result = m().mk_and(m_util.re.mk_in_re(eps, b1),
+    //                         m_util.re.mk_in_re(eps, b2));
+    //     return BR_REWRITE2;
+    // }
+    // else if (m_util.re.is_star(b)) {
+    //     result = m().mk_true();
+    //     return BR_DONE;
+    // }
+    // else if (m_util.re.is_opt(b)) {
+    //     result = m().mk_true();
+    //     return BR_DONE;
+    // }
+    // else if (m_util.re.is_plus(b, b1)) {
+    //     result = m_util.re.mk_in_re(eps, b1);
+    //     return BR_REWRITE1;
+    // }
+    // else if (m_util.re.is_range(b)) {
+    //     result = m().mk_false();
+    //     return BR_DONE;
+    // }
+    // else if (m_util.re.is_full_char(b)) {
+    //     result = m().mk_false();
+    //     return BR_DONE;
+    // }
+    // else if (m_util.re.is_complement(b, b1)) {
+    //     result = m().mk_not(m_util.re.mk_in_re(eps, b1));
+    //     return BR_REWRITE2;
+    // }
+    // else if (m_util.re.is_re_pred(b)) {
+    //     result = m().mk_false();
+    //     return BR_DONE;
+    // }
+    // else if (m_util.re.is_loop(b, b1, lo) || m_util.re.is_loop(b, b1, lo, hi)) {
+    //     if (lo == 0) {
+    //         result = m().mk_true();
+    //         return BR_DONE;
+    //     }
+    //     else {
+    //         result = m_util.re.mk_in_re(eps, b1);
+    //         return BR_REWRITE1;
+    //     }
+    // }
+
     return BR_FAILED;
 }
 
@@ -1973,14 +2040,15 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE1;
     }
     if (m_util.str.is_empty(a)) {
-        return mk_regexp_contains_emptystr(a, b, result);
+        return mk_regexp_contains_emptystr(b, result);
     }
 
     expr* a1 = nullptr;
     expr* a2 = nullptr;
     // Next, try to calculate the derivative
     if (m_util.str.is_concat(a, a1, a2)) {
-        // TODO: the following is not correct for multiple reasons, just a placeholder
+        // Assumption: mk_seq_concat ensures that concat is right-associative,
+        // so a should be either a single character or a variable
         return eval_regexp_derivative(a1, a2, b, result);
     }
 
