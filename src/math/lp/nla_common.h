@@ -32,6 +32,19 @@ inline llc negate(llc cmp) {
     return cmp; // not reachable
 }
 
+inline llc swap_side(llc cmp) {
+    switch(cmp) {
+    case llc::LE: return llc::GE;
+    case llc::LT: return llc::GT;
+    case llc::GE: return llc::LE;
+    case llc::GT: return llc::LT;
+    case llc::EQ: return llc::EQ;
+    case llc::NE: return llc::NE;
+    default: SASSERT(false);
+    };
+    return cmp; // not reachable
+}
+
 class core;
 class intervals;
 struct common {

@@ -30,35 +30,49 @@ void monotone::monotonicity_lemma(monic const& m) {
     const rational prod_val = abs(c().product_value(m));
     const rational m_val = abs(var_val(m));
     if (m_val < prod_val)
-        monotonicity_lemma_lt(m, prod_val);
+        monotonicity_lemma_lt(m);
     else if (m_val > prod_val)
-        monotonicity_lemma_gt(m, prod_val);
+        monotonicity_lemma_gt(m);
 }
 
-void monotone::monotonicity_lemma_gt(const monic& m, const rational& prod_val) {
-    TRACE("nla_solver", tout << "prod_val = " << prod_val << "\n";
-          tout << "m = "; c().print_monic_with_vars(m, tout););
+/** \brief enforce the inequality |m| <= product |m[i]| .
+
+    /\_i |m[i]| <= |val(m[i])| => |m| <= |product_i val(m[i])|
+    <=>
+    \/_i |m[i]| > |val(m[i])| or |m| <= |product_i val(m[i])|
+
+    implied by 
+       m[i] > val(m[i])     for val(m[i]) > 0
+       m[i] < val(m[i])     for val(m[i]) < 0
+       m >= product m[i]    for product m[i] < 0
+       m <= product m[i]    for product m[i] > 0
+*/
+void monotone::monotonicity_lemma_gt(const monic& m) {
     new_lemma lemma(c(), __FUNCTION__);
+    rational product(1);
     for (lpvar j : m.vars()) {
-        c().add_abs_bound(lemma, j, llc::GT);
+        auto v = c().val(j);
+        lemma |= ineq(j, v.is_neg() ? llc::LT : llc::GT, v);
+        product *= v;
     }
-    lpvar m_j = m.var();
-    c().add_abs_bound(lemma, m_j, llc::LE, prod_val);
+    lemma |= ineq(m.var(), product.is_neg() ? llc::GE : llc::LE, product);
 }
     
 /** \brief enforce the inequality |m| >= product |m[i]| .
 
     /\_i |m[i]| >= |val(m[i])| => |m| >= |product_i val(m[i])|
     <=>
-    \/_i |m[i]| < |val(m[i])} or |m| >= |product_i val(m[i])|
+    \/_i |m[i]| < |val(m[i])| or |m| >= |product_i val(m[i])|
 */
-void monotone::monotonicity_lemma_lt(const monic& m, const rational& prod_val) {
+void monotone::monotonicity_lemma_lt(const monic& m) {
     new_lemma lemma(c(), __FUNCTION__);
+    rational product(1);
     for (lpvar j : m.vars()) {
-        c().add_abs_bound(lemma, j, llc::LT);
+        auto v = c().val(j);
+        lemma |= ineq(j, v.is_neg() ? llc::GT : llc::LT, v);
+        product *= v;
     }
-    lpvar m_j = m.var();
-    c().add_abs_bound(lemma, m_j, llc::GE, prod_val);
+    lemma |= ineq(m.var(), product.is_neg() ? llc::LE : llc::GE, product);
 }
    
 

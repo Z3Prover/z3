@@ -981,57 +981,6 @@ bool core::rm_check(const monic& rm) const {
     return check_monic(m_emons[rm.var()]);
 }
 
-/**
-   \brief Add |v| ~ |bound|
-   where ~ is <, <=, >, >=, 
-   and bound = val(v)
-
-   |v| > |bound| 
-   <=> 
-   (v < 0 or v > |bound|) & (v > 0 or -v > |bound|)        
-   => Let s be the sign of val(v)
-   (s*v < 0 or s*v > |bound|)         
-
-   |v| < |bound|
-   <=>
-   v < |bound| & -v < |bound| 
-   => Let s be the sign of val(v)
-   s*v < |bound|
-
-*/
-
-void core::add_abs_bound(new_lemma& lemma, lpvar v, llc cmp) {
-    add_abs_bound(lemma, v, cmp, val(v));
-}
-
-void core::add_abs_bound(new_lemma& lemma, lpvar v, llc cmp, rational const& bound) {
-    SASSERT(!val(v).is_zero());
-    lp::lar_term t;  // t = abs(v)
-    t.add_monomial(rrat_sign(val(v)), v);
-
-    switch (cmp) {
-    case llc::GT:
-    case llc::GE:  // negate abs(v) >= 0
-        lemma |= ineq(t, llc::LT, 0);
-        break;
-    case llc::LT:
-    case llc::LE:
-        break;
-    default:
-        UNREACHABLE();
-        break;
-    }
-    lemma |= ineq(t, cmp, abs(bound));
-}
-
-// NB - move this comment to monotonicity or appropriate.
-/** \brief enforce the inequality |m| <= product |m[i]| .
-    by enforcing lemma:
-    /\_i |m[i]| <= |val(m[i])| => |m| <= |product_i val(m[i])|
-    <=>
-    \/_i |m[i]| > |val(m[i])} or |m| <= |product_i val(m[i])|
-*/
-
     
 bool core::find_bfc_to_refine_on_monic(const monic& m, factorization & bf) {
     for (auto f : factorization_factory_imp(m, *this)) {
@@ -1098,6 +1047,7 @@ new_lemma& new_lemma::operator|=(ineq const& ineq) {
     }
     return *this;
 }
+    
 
 new_lemma::~new_lemma() {
     static int i = 0;
@@ -1446,10 +1396,10 @@ lbool core::check(vector<lemma>& l_vec) {
 
     set_use_nra_model(false);    
 
-    if (false && l_vec.empty() && !done()) 
+    if (l_vec.empty() && !done()) 
         m_monomial_bounds();
     
-    if (l_vec.empty() && !done () && need_to_call_algebraic_methods()) 
+    if (l_vec.empty() && !done() && need_to_call_algebraic_methods()) 
         m_horner.horner_lemmas();
 
     if (l_vec.empty() && !done() && m_nla_settings.run_grobner()) {
@@ -1503,8 +1453,7 @@ bool core::no_lemmas_hold() const {
     return true;
 }
     
-lbool core::test_check(
-    vector<lemma>& l) {
+lbool core::test_check(vector<lemma>& l) {
     m_lar_solver.set_status(lp::lp_status::OPTIMAL);
     return check(l);
 }

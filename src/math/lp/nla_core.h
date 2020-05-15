@@ -415,8 +415,6 @@ public:
     bool rm_check(const monic&) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
 
-    void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp);
-    void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp, rational const& bound);
     void negate_relation(new_lemma& lemma, unsigned j, const rational& a);
     void negate_factor_equality(new_lemma& lemma, const factor& c, const factor& d);    
     void negate_factor_relation(new_lemma& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
