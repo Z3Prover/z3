@@ -323,7 +323,7 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
 }
 /*
    given: sign * m = ab
-   lemma b != val(b) || sign 0 m <= a*val(b)
+   lemma b != val(b) || sign*m <= a*val(b)
 */
 void order::order_lemma_on_ab_gt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b) {
     if (!c().var_is_int(b) && val(b).is_big())
