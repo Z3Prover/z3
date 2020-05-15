@@ -35,7 +35,7 @@ namespace smt {
         symbol         m_seq_first, m_seq_last; 
         symbol         m_indexof_left, m_indexof_right;   // inverse of indexof: (indexof_left s t) + s + (indexof_right s t) = t, for s in t. 
         symbol         m_aut_step;                        // regex unfolding state
-        symbol         m_accept, m_reject;                // regex
+        symbol         m_accept;                          // regex
         symbol         m_pre, m_post;                     // inverse of at: (pre s i) + (at s i) + (post s i) = s if 0 <= i < (len s)
         symbol         m_eq;                              // equality atom
         symbol         m_seq_align;

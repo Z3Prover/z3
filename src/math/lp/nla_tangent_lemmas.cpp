@@ -11,52 +11,55 @@
 
 namespace nla {
 
-struct tangent_imp {
-    point m_a;
-    point m_b;
-    point m_xy;
-    rational m_correct_v;
+class tangent_imp {
+    point         m_a;
+    point         m_b;
+    point         m_xy;
+    rational      m_correct_v;
     // "below" means that the incorrect value is less than the correct one, that is m_v < m_correct_v
-    bool  m_below;
-    rational m_v; // the monomial value 
-    lpvar    m_j; // the monic variable
-    const monic& m_m;
+    bool          m_below;
+    rational      m_v; // the monomial value 
+    lpvar         m_j; // the monic variable
+    const monic&  m_m;
     const factor& m_x;
     const factor& m_y;
-    lpvar m_jx;
-    lpvar m_jy;
-    tangents& m_tang;
-    bool m_is_mon;
+    lpvar         m_jx;
+    lpvar         m_jy;
+    tangents&     m_tang;
+    bool          m_is_mon;
+
+public:
     tangent_imp(point xy,        
         const rational& v,
-        lpvar j, // the monic variable
         const monic& m,
         const factorization& f,
         tangents& tang) : m_xy(xy),
                           m_correct_v(xy.x * xy.y),
                           m_below(v < m_correct_v),
                           m_v(v),
-                          m_j(tang.var(m)),
+                          m_j(m.var()),
                           m_m(m),
                           m_x(f[0]),
                           m_y(f[1]),
-                          m_jx(tang.var(m_x)),
-                          m_jy(tang.var(m_y)),
+                          m_jx(m_x.var()),
+                          m_jy(m_y.var()),
                           m_tang(tang),
                           m_is_mon(f.is_mon()) {
         SASSERT(f.size() == 2);
     }
-
-    
-    core & c() { return m_tang.c(); }
-    
-    void tangent_lemma_on_bf() {    
-        get_tang_points();
-        TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(tout) << std::endl;);
-        generate_two_tang_lines();
-        generate_tang_plane(m_a);
-        generate_tang_plane(m_b);
+       
+    void operator()() {    
+        get_points();
+        TRACE("nla_solver", print_tangent_domain(tout << "tang domain = ") << std::endl;);
+        generate_line1();
+        generate_line2();
+        generate_plane(m_a);
+        generate_plane(m_b);
     }
+
+private:
+
+    core & c() { return m_tang.c(); }
 
     void explain(new_lemma& lemma) {
         if (!m_is_mon) {
@@ -66,7 +69,7 @@ struct tangent_imp {
         }
     }
 
-    void generate_tang_plane(const point & pl) {
+    void generate_plane(const point & pl) {
         new_lemma lemma(c(), "generate tangent plane");
         c().negate_relation(lemma, m_jx, m_x.rat_sign()*pl.x);
         c().negate_relation(lemma, m_jy, m_y.rat_sign()*pl.y);
@@ -86,24 +89,24 @@ struct tangent_imp {
         lemma |= ineq(t, m_below? llc::GT : llc::LT, - pl.x*pl.y);
         explain(lemma);
     }
-    
-    void generate_two_tang_lines() {
-        {
-            new_lemma lemma(c(), "two tangent planes 1");
-            // Should be  v = val(m_x)*val(m_y), and val(factor) = factor.rat_sign()*var(factor.var())
-            lemma |= ineq(m_jx, llc::NE, c().val(m_jx));
-            lemma |= ineq(lp::lar_term(m_j,  - m_y.rat_sign() * m_xy.x,  m_jy), llc::EQ, 0);
-            explain(lemma);
-        }
-        {
-            new_lemma lemma(c(), "two tangent planes 2");
-            lemma |= ineq(m_jy, llc::NE, c().val(m_jy));
-            lemma |= ineq(lp::lar_term(m_j, - m_x.rat_sign() * m_xy.y, m_jx), llc::EQ, 0);
-            explain(lemma);
-        }
+
+    void generate_line1() {
+        new_lemma lemma(c(), "tangent line 1");
+        // Should be  v = val(m_x)*val(m_y), and val(factor) = factor.rat_sign()*var(factor.var())
+        lemma |= ineq(m_jx, llc::NE, c().val(m_jx));
+        lemma |= ineq(lp::lar_term(m_j,  - m_y.rat_sign() * m_xy.x,  m_jy), llc::EQ, 0);
+        explain(lemma);
     }
+
+    void generate_line2() {            
+        new_lemma lemma(c(), "tangent line 2");
+        lemma |= ineq(m_jy, llc::NE, c().val(m_jy));
+        lemma |= ineq(lp::lar_term(m_j, - m_x.rat_sign() * m_xy.y, m_jx), llc::EQ, 0);
+        explain(lemma);
+    }
+
     // Get two planes tangent to surface z = xy, one at point a,  and another at point b, creating a cut
-    void get_initial_tang_points() {
+    void get_initial_points() {
         const rational& x = m_xy.x;
         const rational& y = m_xy.y;
         bool all_ints = m_v.is_int() && x.is_int() && y.is_int();
@@ -130,7 +133,7 @@ struct tangent_imp {
         }
     }
 
-    void push_tang_point(point & a) {
+    void push_point(point & a) {
         SASSERT(plane_is_correct_cut(a));
         int steps = 10;
         point del = a - m_xy;
@@ -139,7 +142,7 @@ struct tangent_imp {
             point na = m_xy + del;
             TRACE("nla_solver_tp", tout << "del = " << del << std::endl;);
             if (!plane_is_correct_cut(na)) {
-                TRACE("nla_solver_tp", tout << "exit";tout << std::endl;);
+                TRACE("nla_solver_tp", tout << "exit\n";);
                 return;
             }
             a = na;
@@ -147,25 +150,24 @@ struct tangent_imp {
     }
 
     rational tang_plane(const point& a) const {
-        return  a.x * m_xy.y + a.y * m_xy.x - a.x * a.y;
+        return a.x * m_xy.y + a.y * m_xy.x - a.x * a.y;
     }
 
-    void get_tang_points() {
-        get_initial_tang_points();
+    void get_points() {
+        get_initial_points();
         TRACE("nla_solver", tout << "xy = " << m_xy << ", correct val = " << m_correct_v;
-              tout << "\ntang points:"; print_tangent_domain(tout);tout << std::endl;);
-        push_tang_point(m_a);
-        TRACE("nla_solver", tout << "pushed a = " << m_a << std::endl;);
-        
-        push_tang_point(m_b);
-        TRACE("nla_solver", tout << "pushed b = " << m_b << std::endl;);
+              print_tangent_domain(tout << "\ntang points:") << std::endl;);
+        push_point(m_a);        
+        push_point(m_b);
         TRACE("nla_solver",
-              tout << "tang_plane(a) = " << tang_plane(m_a) << " , val = " << m_v <<  ", tang_plane(b) = " << tang_plane(m_b) << " , val = " << std::endl;);
+              tout << "pushed a = " << m_a << std::endl 
+              << "pushed b = " << m_b << std::endl
+              << "tang_plane(a) = " << tang_plane(m_a) << " , val = " << m_a << ", "
+              << "tang_plane(b) = " << tang_plane(m_b) << " , val = " << m_b << std::endl;);
     }
 
     std::ostream& print_tangent_domain(std::ostream& out) {
-        out << "(" << m_a <<  ", " << m_b << ")";
-        return out;
+        return out << "(" << m_a <<  ", " << m_b << ")";
     }
 
     bool plane_is_correct_cut(const point& plane) const {
@@ -173,7 +175,7 @@ struct tangent_imp {
               tout << "tang_plane() = " << tang_plane(plane) << ", v = " << m_v << ", correct_v = " << m_correct_v << "\n";);
         SASSERT((m_below && m_v < m_correct_v) ||
                 ((!m_below) && m_v > m_correct_v));
-        rational sign = m_below? rational(1) : rational(-1);
+        rational sign = rational(m_below ? 1 : -1);
         rational px = tang_plane(plane);
         return ((m_correct_v - px)*sign).is_pos() && !((px - m_v)*sign).is_neg();        
     }    
@@ -182,21 +184,12 @@ struct tangent_imp {
 tangents::tangents(core * c) : common(c) {}
     
 void tangents::tangent_lemma() {
-    if (!c().m_nla_settings.run_tangents()) {
-        TRACE("nla_solver", tout << "not generating tangent lemmas\n";);
-        return;
-    }
     factorization bf(nullptr);
-    const monic* m;
-    if (c().find_bfc_to_refine(m, bf)) {
-        unsigned j = m->var();
-        tangent_imp i(point(val(bf[0]), val(bf[1])),
-                      c().val(j),
-                      j,
-                      *m,
-                      bf,
-                      *this);
-        i.tangent_lemma_on_bf();
+    const monic* m = nullptr;
+    if (c().m_nla_settings.run_tangents() && c().find_bfc_to_refine(m, bf)) {
+        lpvar j = m->var();
+        tangent_imp tangent(point(val(bf[0]), val(bf[1])), c().val(j), *m, bf, *this);
+        tangent();
     }
 }
 
