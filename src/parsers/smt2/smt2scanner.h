@@ -85,7 +85,7 @@ namespace smt2 {
         symbol const & get_id() const { return m_id; }
         rational get_number() const { return m_number; }
         unsigned get_bv_size() const { return m_bv_size; }
-        char const * get_string() const { return m_string.begin(); }
+        char const * get_string() const { return m_string.begin(); } // TODO fix this to return a zstring
         token scan();
         
         token read_symbol_core();

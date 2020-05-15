@@ -194,6 +194,11 @@ namespace smt2 {
         SASSERT(curr() == '\"');
         next();
         m_string.reset();
+        // status parsing a \u escape sequence
+        // 0 = nothing
+        // 1 = saw \, expecting u
+        // 2 = saw \u, expecting { or a hex character
+        unsigned possible_escape_sequence = 0;
         while (true) {
             char c = curr();
             if (m_at_eof)
@@ -208,6 +213,85 @@ namespace smt2 {
                     return STRING_TOKEN;
                 }
             }
+
+            if (possible_escape_sequence == 0) {
+                if (c == '\\') {
+                    possible_escape_sequence = 1;
+                }
+            } else if (possible_escape_sequence == 1) {
+                if (c == 'u') {
+                    possible_escape_sequence = 2;
+                } else {
+                    // not an escape sequence
+                    possible_escape_sequence = 0;
+                }
+            } else if (possible_escape_sequence == 2) {
+                possible_escape_sequence = 0;
+                /* The possible codepoint escape sequences in SMT-LIB 2.6 are:
+                 *  \u####
+                 *  \u{#}
+                 *  \u{##}
+                 *  \u{###}
+                 *  \u{####}
+                 *  \u{#####}
+                 * where # is a hex digit.
+                 * So far we have seen "\u". If the escape sequence is real, the last two characters of m_string must be discarded.
+                 */
+                if (isxdigit(c)) {
+                    // 4-digit codepoint escape
+                    m_string.pop_back();
+                    m_string.pop_back();
+                    char_vector escape_chars;
+                    escape_chars.push_back(c);
+                    // read three more chars
+                    for (unsigned i = 0; i < 3; ++i) {
+                        next();
+                        c = curr();
+                        if (!isxdigit(c)) {
+                            throw scanner_exception("codepoint escape sequence can only contain hexadecimal digits", m_line, m_spos);
+                        }
+                        escape_chars.push_back(c);
+                    }
+                    unsigned long int codepoint = strtoul(escape_chars.c_ptr(), nullptr, 16);
+                    if (codepoint >= 256) {
+                        throw scanner_exception("non-ASCII codepoints not yet supported", m_line, m_spos);
+                    }
+                    c = (char)codepoint;
+                } else if (c == '{') {
+                    // variable-length codepoint escape
+                    m_string.pop_back();
+                    m_string.pop_back();
+                    char_vector escape_chars;
+                    bool found_end = false;
+                    // read up to 6 characters
+                    for (int i = 0; i < 6; ++i) {
+                        next();
+                        c = curr();
+                        if (isxdigit(c)) {
+                            escape_chars.push_back(c);
+                        } else if (c == '}') {
+                            found_end = true;
+                            break;
+                        } else {
+                            throw scanner_exception("codepoint escape sequence can only contain hexadecimal digits or '}'", m_line, m_spos);
+                        }
+                    }
+                    if (!found_end) {
+                        throw scanner_exception("codepoint escape sequence contains too many digits", m_line, m_spos);
+                    }
+                    unsigned long int codepoint = strtoul(escape_chars.c_ptr(), nullptr, 16);
+                    if (codepoint > 0x2FFFF) {
+                        throw scanner_exception("codepoint out of range", m_line, m_spos);
+                    }
+                    if (codepoint >= 256) {
+                        throw scanner_exception("non-ASCII codepoints not yet supported", m_line, m_spos);
+                    }
+                    c = (char)codepoint;
+                } else {
+                    throw scanner_exception("unexpected character in codepoint escape sequence", m_line, m_spos);
+                }
+            }
+
             m_string.push_back(c);
             next();
         }
