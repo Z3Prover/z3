@@ -216,8 +216,7 @@ struct solver::imp {
         polynomial::polynomial_ref p(pm.mk_linear(coeffs.size(), coeffs.c_ptr(), vars.c_ptr(), rational(0)), pm);
         polynomial::polynomial* ps[1] = { p };
         bool is_even[1] = { false };
-        nlsat::literal lit;
-        lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
+        nlsat::literal lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
         m_nlsat->mk_clause(1, &lit, nullptr);
     }
 
