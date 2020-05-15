@@ -213,7 +213,7 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
           tout << "ab.size()=" << ab.size() << "\n";
           tout << "we should have sign*var_val(m):" << mv << "=(" << rsign << ")*(" << var_val(m) <<") to be equal to " << " val(var(ab[0]))*val(var(ab[1])):" << fv << "\n";);
     TRACE("nla_solver", tout << "m="; _().print_monic_with_vars(m, tout); tout << "\nfactorization="; _().print_factorization(ab, tout););
-    if (mv != fv) {
+    if (mv != fv && !c().has_real(m)) {            
         bool gt = mv > fv;
         for (unsigned j = 0, k = 1; j < 2; j++, k--) {
             new_lemma lemma(_(), __FUNCTION__);
@@ -326,8 +326,6 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
    lemma b != val(b) || sign*m <= a*val(b)
 */
 void order::order_lemma_on_ab_gt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b) {
-    if (!c().var_is_int(b) && val(b).is_big())
-        return;
     SASSERT(sign * var_val(m) > val(a) * val(b));
     // negate b == val(b)
     lemma |= ineq(b, llc::NE, val(b));
@@ -339,8 +337,6 @@ void order::order_lemma_on_ab_gt(new_lemma& lemma, const monic& m, const rationa
    lemma b != val(b) || sign*m >= a*val(b)
 */
 void order::order_lemma_on_ab_lt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b) {
-    if (!c().var_is_int(b) && val(b).is_big())
-        return;
     TRACE("nla_solver", tout << "sign = " << sign << ", m = "; c().print_monic(m, tout) << ", a = "; c().print_var(a, tout) <<
           ", b = "; c().print_var(b, tout) << "\n";);
     SASSERT(sign * var_val(m) < val(a) * val(b));
