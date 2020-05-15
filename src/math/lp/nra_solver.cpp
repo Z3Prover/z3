@@ -9,7 +9,7 @@
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/map.h"
-#include "util/uint_set.h"
+#include "math/lp/u_set.h"
 #include "math/lp/nla_core.h"
 
 
@@ -23,8 +23,7 @@ struct solver::imp {
     reslimit&                 m_limit;  
     params_ref                m_params; 
     u_map<polynomial::var>    m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
-    svector<lp::tv>           m_terms;
-    uint_set                  m_term_set;
+    lp::u_set                 m_term_set;
     scoped_ptr<nlsat::solver> m_nlsat;
     scoped_ptr<scoped_anum>   m_zero;
     mutable variable_map_type m_variable_values; // current model        
@@ -55,8 +54,7 @@ struct solver::imp {
         SASSERT(need_check());
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
-        m_terms.reset();
-        m_term_set.reset();
+        m_term_set.clear();
         m_lp2nl.reset();
         vector<nlsat::assumption, false> core;
 
@@ -69,8 +67,8 @@ struct solver::imp {
         for (auto const& m : m_nla_core.emons()) {
              add_monic_eq(m);
         }
-        for (unsigned i = 0; i < m_terms.size(); ++i) {
-            add_term(m_terms[i]);
+        for (unsigned i : m_term_set) {
+            add_term(i);
         }
         // TBD: add variable bounds?
 
@@ -185,21 +183,43 @@ struct solver::imp {
             r = m_nlsat->mk_var(is_int(v));
             m_lp2nl.insert(v, r);
             TRACE("arith", tout << "j" << v << " := x" << r << "\n";);
-#if 0
-            // TBD:
-            if (m_nla_core.is_from_a_term(v) && !m_term_set.contains(v)) {
-                m_terms.push_back(m_nla_core.column2tv(v));
+#if 1
+            if (!m_term_set.contains(v) && s.column_corresponds_to_term(v)) {
+                if (v >= m_term_set.size())
+                    m_term_set.resize(v + 1);
+                m_term_set.insert(v);
             }
 #endif
         }
         return r;
     }
-
-    void add_term(lp::tv const& t) {
-#if 0
-        // TBD: code that creates a polynomial equality between the linear coefficients and
+    //
+    void add_term(unsigned term_column) {
+        lp::tv ti = lp::tv::raw(s.adjust_column_index_to_term_index(term_column));
+        const lp::lar_term& t = s.get_term(ti); 
+        //  code that creates a polynomial equality between the linear coefficients and
         // variable representing the term.
-#endif
+        svector<polynomial::var> vars;
+        rational den(1);
+        for (const auto& kv : t) {
+            vars.push_back(lp2nl(kv.column().index()));
+            den = lcm(den, denominator(kv.coeff()));
+        }
+        vars.push_back(lp2nl(term_column));
+        
+        vector<rational> coeffs;
+        for (auto kv : t) {
+            coeffs.push_back(den * kv.coeff());
+        }
+        coeffs.push_back(-den);
+        polynomial::manager& pm = m_nlsat->pm();
+        polynomial::polynomial_ref p(pm.mk_linear(coeffs.size(), coeffs.c_ptr(), vars.c_ptr(), rational(0)), pm);
+        polynomial::polynomial* ps[1] = { p };
+        bool is_even[1] = { false };
+        nlsat::literal lit;
+        nlsat::assumption a = this - term_column; // is it ok?
+        lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
+        m_nlsat->mk_clause(1, &lit, a);
     }
 
     nlsat::anum const& value(lp::var_index v) const {
