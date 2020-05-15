@@ -21,8 +21,7 @@ namespace nla {
         bool propagated = false;
         for (lpvar v : c().m_to_refine) {
             monic const& m = c().emons()[v];
-            if (propagate(m))
-                propagated = true;
+            propagated |= propagate(m);
         }
         return propagated;
     }
@@ -32,14 +31,12 @@ namespace nla {
      */
     void monomial_bounds::compute_product(unsigned start, monic const& m, scoped_dep_interval& product) {
         scoped_dep_interval vi(dep);
+        unsigned power = 1;
         for (unsigned i = start; i < m.size(); ) {
             lpvar v = m.vars()[i];
-            unsigned power = 1;
             var2interval(v, vi);
             ++i;
-            for (; i < m.size() && m.vars()[i] == v; ++i) {
-                ++power;
-            }
+            for (power = 1; i < m.size() && m.vars()[i] == v; ++i, ++power);
             dep.power<dep_intervals::with_deps>(vi, power, vi);            
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
@@ -79,6 +76,68 @@ namespace nla {
         }
     }
 
+    /**
+     * val(v)^p should be in range.
+     * if val(v)^p > upper(range) add 
+     *             v <= root(p, upper(range)) and v >= -root(p, upper(range)) if p is even
+     *             v <= root(p, upper(range))                                 if p is odd
+     * if val(v)^p < lower(range) add
+     *             v >= root(p, lower(range)) or v <= -root(p, lower(range)) if p is even
+     *             v >= root(p, lower(range))                                if p is odd
+     */
+
+    bool monomial_bounds::propagate_value(dep_interval& range, lpvar v, unsigned p) {
+        SASSERT(p > 0);
+        if (p == 1)
+            return propagate_value(range, v);
+        auto val = c().val(v);
+        val = power(val, p);
+        rational r;
+        if (dep.is_below(range, val)) {
+            lp::explanation ex;
+            dep.get_upper_dep(range, ex);
+            if (p % 2 == 0 && rational(dep.upper(range)).is_neg()) {
+                new_lemma lemma(c(), "range requires a non-negative upper bound");
+                lemma &= ex;
+                return true;
+            }
+            if (rational(dep.upper(range)).root(p, r)) {
+                {
+                    auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
+                    new_lemma lemma(c(), "propagate value - root case - lower bound of range is below value");
+                    lemma &= ex;
+                    lemma |= ineq(v, le, r); 
+                }
+                if (p % 2 == 0) {
+                    SASSERT(!r.is_neg());
+                    auto ge = dep.upper_is_open(range) ? llc::GT : llc::GE;
+                    new_lemma lemma(c(), "propagate value - root case - lower bound of range is below value");
+                    lemma &= ex;
+                    lemma |= ineq(v, ge, -r); 
+                }
+                return true;
+            }
+            // TBD: add bounds as long as difference to val is above some epsilon.
+        }
+        else if (dep.is_above(range, val)) {
+            if (rational(dep.lower(range)).root(p, r)) {
+                lp::explanation ex;
+                dep.get_lower_dep(range, ex);
+                auto ge = dep.lower_is_open(range) ? llc::GT : llc::GE;
+                auto le = dep.lower_is_open(range) ? llc::LT : llc::LE;
+                new_lemma lemma(c(), "propagate value - root case - lower bound of range is above value");
+                lemma &= ex;
+                lemma |= ineq(v, ge, r); 
+                if (p % 2 == 0) {
+                    lemma |= ineq(v, le, -r);                 
+                }
+                return true;
+            }
+            // TBD: add bounds as long as difference to val is above some epsilon.
+        }
+        return false;
+    }
+
     void monomial_bounds::var2interval(lpvar v, scoped_dep_interval& i) {
         lp::constraint_index ci;
         rational bound;
@@ -114,14 +173,10 @@ namespace nla {
         unsigned num_free, power;
         lpvar free_var;
         analyze_monomial(m, num_free, free_var, power);
-        bool m_is_free = is_free(m.var());
-        if (num_free >= 2)
-            return false;
-        if (num_free >= 1 && m_is_free)
-            return false;
-        SASSERT(num_free == 0 || !m_is_free);
         bool do_propagate_up   = num_free == 0;
-        bool do_propagate_down = !m_is_free;
+        bool do_propagate_down = !is_free(m.var()) && num_free <= 1;
+        if (!do_propagate_up && !do_propagate_down)
+            return false;
         scoped_dep_interval product(dep);
         scoped_dep_interval vi(dep), mi(dep);
         scoped_dep_interval other_product(dep);
@@ -130,16 +185,14 @@ namespace nla {
         for (unsigned i = 0; i < m.size(); ) {
             lpvar v = m.vars()[i];
             ++i;
-            unsigned power = 1;
-            for (; i < m.size() && v == m.vars()[i]; ++i) 
-                ++power;
+            for (power = 1; i < m.size() && v == m.vars()[i]; ++i, ++power); 
             var2interval(v, vi);
             dep.power<dep_intervals::with_deps>(vi, power, vi);            
 
-            if (power == 1 && do_propagate_down && (num_free == 0 || free_var == v)) {
+            if (do_propagate_down && (num_free == 0 || free_var == v)) {
                 dep.set<dep_intervals::with_deps>(other_product, product);
                 compute_product(i, m, other_product);
-                if (propagate_down(m, mi, v, other_product))
+                if (propagate_down(m, mi, v, power, other_product))
                     return true;
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
@@ -147,12 +200,12 @@ namespace nla {
         return do_propagate_up && propagate_value(product, m.var());
     }
 
-    bool monomial_bounds::propagate_down(monic const& m, dep_interval& mi, lpvar v, dep_interval& product) {
+    bool monomial_bounds::propagate_down(monic const& m, dep_interval& mi, lpvar v, unsigned power, dep_interval& product) {
         if (!dep.separated_from_zero(product)) 
             return false;
         scoped_dep_interval range(dep);
         dep.div<dep_intervals::with_deps>(mi, product, range);
-        return propagate_value(range, v);
+        return propagate_value(range, v, power);
     }
 
     bool monomial_bounds::is_free(lpvar v) const {
@@ -164,19 +217,24 @@ namespace nla {
             c().has_lower_bound(v) && 
             c().has_upper_bound(v) &&
             c().get_lower_bound(v).is_zero() && 
-            c().get_lower_bound(v) == c().get_upper_bound(v);
+            c().get_upper_bound(v).is_zero();
     }    
 
+    /**
+     * Count the number of unbound (free) variables.
+     * Variables with no lower and no upper bound multiplied 
+     * to an odd degree have unbound ranges when it comes to 
+     * bounds propagation.
+     */
     void monomial_bounds::analyze_monomial(monic const& m, unsigned& num_free, lpvar& fv, unsigned& fv_power) const {
-        unsigned power = 0;
+        unsigned power = 1;
         num_free = 0;
         fv = null_lpvar;
         fv_power = 0;
         for (unsigned i = 0; i < m.vars().size(); ) {
             lpvar v = m.vars()[i];
-            unsigned power = 1;
             ++i;
-            for (; i < m.vars().size() && m.vars()[i] == v; ++i, ++power);
+            for (power = 1; i < m.vars().size() && m.vars()[i] == v; ++i, ++power);
             if (is_zero(v)) {
                 num_free = 0;
                 return;
