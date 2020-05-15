@@ -1474,10 +1474,8 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-#if 1
-    if (l_vec.empty() && !done()) 
+    if (false && l_vec.empty() && !done()) 
         ret = m_nra.check();
-#endif
 
     if (ret == l_undef && !l_vec.empty() && m_reslim.inc()) 
         ret = l_false;
