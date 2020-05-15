@@ -174,7 +174,7 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
         if (lp_settings().m_print_external_var_name)
             out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
         else
-            out << "(j" << v << " =" << val(v) << ")";
+            out << "(j" << v << " = " << val(v) << ")";
             
     }
     return out;
