@@ -123,9 +123,6 @@ struct stats {
     unsigned m_bound_propagations2;
     unsigned m_assert_diseq;
     unsigned m_gomory_cuts;
-    unsigned m_nla_explanations;
-    unsigned m_nla_lemmas;
-    unsigned m_nra_calls;
     unsigned m_assume_eqs;
     unsigned m_branch;
     stats() { reset(); }
@@ -2128,7 +2125,6 @@ public:
     void false_case_of_check_nla(const nla::lemma & l) {
         m_lemma = l; //todo avoid the copy
         m_explanation = l.expl();
-        m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
         literal_vector core;
         for (auto const& ineq : m_lemma.ineqs()) {
             bool is_lower = true, pos = true, is_eq = false;
@@ -2161,11 +2157,8 @@ public:
     lbool check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
         lbool r = m_nla->check(m_nla_lemma_vector);
-        if (use_nra_model()) m_stats.m_nra_calls ++;
-    
         switch (r) {
         case l_false: {
-            m_stats.m_nla_lemmas += m_nla_lemma_vector.size();
             for (const nla::lemma & l : m_nla_lemma_vector) {
                 false_case_of_check_nla(l);
             }
@@ -3856,9 +3849,7 @@ public:
         st.update("arith-horner-cross-nested-forms", lp().settings().stats().m_cross_nested_forms);
         st.update("arith-grobner-calls", lp().settings().stats().m_grobner_calls);
         st.update("arith-grobner-conflicts", lp().settings().stats().m_grobner_conflicts);
-        st.update("arith-nla-explanations", m_stats.m_nla_explanations);
-        st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
-        st.update("arith-nra-calls", m_stats.m_nra_calls);
+        if (m_nla) m_nla->collect_statistics(st);
         st.update("arith-gomory-cuts", m_stats.m_gomory_cuts);
         st.update("arith-assume-eqs", m_stats.m_assume_eqs);
         st.update("arith-branch", m_stats.m_branch);

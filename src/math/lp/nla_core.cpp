@@ -1474,10 +1474,18 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-    if (l_vec.empty() && !done() && m_nla_settings.run_nra()) 
+    if (l_vec.empty() && !done() && m_nla_settings.run_nra()) {
         ret = m_nra.check();
+        m_stats.m_nra_calls ++;
+    }
+    
     if (ret == l_undef && !l_vec.empty() && m_reslim.inc()) 
         ret = l_false;
+
+    m_stats.m_nla_lemmas += l_vec.size();
+    for (const auto& l : l_vec)
+        m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
+
     
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
@@ -1860,5 +1868,12 @@ bool core::influences_nl_var(lpvar j) const {
     }
     return false;
 }
+
+void core::collect_statistics(::statistics & st) {
+    st.update("arith-nla-explanations", m_stats.m_nla_explanations);
+    st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
+    st.update("arith-nra-calls", m_stats.m_nra_calls);    
+}
+
 
 } // end of nla

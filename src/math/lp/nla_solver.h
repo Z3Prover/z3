@@ -39,5 +39,6 @@ public:
     core& get_core();
     nlsat::anum_manager& am();
     nlsat::anum const& am_value(lp::var_index v) const;
+    void collect_statistics(::statistics & st);
 };
 }
