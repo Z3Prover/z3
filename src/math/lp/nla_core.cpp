@@ -28,8 +28,8 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_order(this),
     m_monotone(this),
     m_intervals(this, lim),
-    m_horner(this),
     m_monomial_bounds(this),
+    m_horner(this),
     m_pdd_manager(s.number_of_vars()),
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
@@ -1474,7 +1474,7 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-#if 0
+#if 1
     if (l_vec.empty() && !done()) 
         ret = m_nra.check();
 #endif
