@@ -8961,7 +8961,7 @@ namespace smt {
         out << "TODO: theory_str display" << std::endl;
     }
 
-    unsigned theory_str::get_refine_length(expr* ex, expr_ref_vector& extra_deps){
+    rational theory_str::get_refine_length(expr* ex, expr_ref_vector& extra_deps){
         ast_manager & m = get_manager();
 
         TRACE("str_fl", tout << "finding length for " << mk_ismt2_pp(ex, m) << std::endl;);
@@ -8971,7 +8971,7 @@ namespace smt {
             SASSERT(str_exists);
             zstring str_const;
             u.str.is_string(str, str_const);
-            return str_const.length();
+            return rational(str_const.length());
         } else if (u.str.is_itos(ex)) {
             expr* fromInt = nullptr;
             u.str.is_itos(ex, fromInt);
@@ -8983,7 +8983,7 @@ namespace smt {
 
             std::string s = std::to_string(val.get_int32());
             extra_deps.push_back(ctx.mk_eq_atom(fromInt, mk_int(val)));
-            return static_cast<unsigned>(s.length());
+            return rational((unsigned)s.length());
 
         } else if (u.str.is_at(ex)) {
             expr* substrBase = nullptr;
@@ -8995,7 +8995,7 @@ namespace smt {
             VERIFY(v.get_value(substrPos, pos));
 
             extra_deps.push_back(ctx.mk_eq_atom(substrPos, mk_int(pos)));
-            return 1;
+            return rational::one();
 
         } else if (u.str.is_extract(ex)) {
             expr* substrBase = nullptr;
@@ -9009,7 +9009,7 @@ namespace smt {
             VERIFY(v.get_value(substrPos, pos));
 
             extra_deps.push_back(ctx.mk_eq_atom(substrPos, mk_int(pos)));
-            return len.get_unsigned();
+            return len;
 
         } else if (u.str.is_replace(ex)) {
             TRACE("str_fl", tout << "replace is like contains---not in conjunctive fragment!" << std::endl;);
@@ -9045,8 +9045,8 @@ namespace smt {
         return nullptr;
     }
 
-    expr* theory_str::refine_eq(expr* lhs, expr* rhs, unsigned offset) {
-        TRACE("str_fl", tout << "refine eq " << offset << std::endl;);
+    expr* theory_str::refine_eq(expr* lhs, expr* rhs, unsigned _offset) {
+        TRACE("str_fl", tout << "refine eq " << _offset << std::endl;);
         ast_manager & m = get_manager();
 
         expr_ref_vector Gamma(m);
@@ -9057,9 +9057,11 @@ namespace smt {
         }
 
         expr_ref_vector extra_deps(m);
+        rational offset(_offset);
 
         // find len(Gamma[:i])
-        unsigned left_count = 0, left_length = 0, last_length = 0;
+        unsigned left_count = 0;
+        rational left_length(0), last_length(0);
         while(left_count < Gamma.size() && left_length <= offset) {
             last_length = get_refine_length(Gamma.get(left_count), extra_deps);
             left_length += last_length;
@@ -9075,7 +9077,8 @@ namespace smt {
             if (!u.str.is_string(to_app(Gamma.get(i)))) {
                 len =  u.str.mk_length(Gamma.get(i));
             } else {
-                len = mk_int(offset - left_length);
+                rational lenDiff = offset - left_length;
+                len = mk_int(lenDiff);
             }
             if (left_sublen == nullptr) {
                 left_sublen = len;
@@ -9084,19 +9087,22 @@ namespace smt {
             }
         }
         if (offset - left_length != 0) {
+            rational lenDiff = offset - left_length;
             if (left_sublen == nullptr) {
-                left_sublen =  mk_int(offset - left_length);
+                left_sublen =  mk_int(lenDiff);
             } else {
-                left_sublen = m_autil.mk_add(left_sublen, mk_int(offset - left_length));
+                left_sublen = m_autil.mk_add(left_sublen, mk_int(lenDiff));
             }
         }
         expr* extra_left_cond = nullptr;
         if (!u.str.is_string(to_app(Gamma.get(left_count)))) {
-            extra_left_cond = m_autil.mk_ge(u.str.mk_length(Gamma.get(left_count)), mk_int(offset - left_length + 1));
+            rational offsetLen = offset - left_length + 1;
+            extra_left_cond = m_autil.mk_ge(u.str.mk_length(Gamma.get(left_count)), mk_int(offsetLen));
         } 
 
         // find len(Delta[:j])
-        unsigned right_count = 0, right_length = 0;
+        unsigned right_count = 0;
+        rational right_length(0);
         last_length = 0;
         while(right_count < Delta.size() && right_length <= offset) {
             last_length = get_refine_length(Delta.get(right_count), extra_deps);
@@ -9113,7 +9119,8 @@ namespace smt {
             if (!u.str.is_string(to_app(Delta.get(i)))) {
                 len =  u.str.mk_length(Delta.get(i));
             } else {
-                len = mk_int(offset - right_length);
+                rational offsetLen = offset - right_length;
+                len = mk_int(offsetLen);
             }
             if (right_sublen == nullptr) {
                 right_sublen = len;
@@ -9122,15 +9129,17 @@ namespace smt {
             }
         }
         if (offset - right_length != 0) {
+            rational offsetLen = offset - right_length;
             if (right_sublen == nullptr) {
-                right_sublen =  mk_int(offset - right_length);
+                right_sublen =  mk_int(offsetLen);
             } else {
-                right_sublen = m_autil.mk_add(right_sublen, mk_int(offset - right_length));
+                right_sublen = m_autil.mk_add(right_sublen, mk_int(offsetLen));
             }
         }
         expr* extra_right_cond = nullptr;
         if (!u.str.is_string(to_app(Delta.get(right_count)))) {
-            extra_right_cond = m_autil.mk_ge(u.str.mk_length(Delta.get(right_count)), mk_int(offset - right_length + 1));
+            rational offsetLen = offset - right_length + 1;
+            extra_right_cond = m_autil.mk_ge(u.str.mk_length(Delta.get(right_count)), mk_int(offsetLen));
         }
 
         // Offset tells us that Gamma[i+1:]) != Delta[j+1:]
