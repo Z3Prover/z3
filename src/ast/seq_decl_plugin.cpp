@@ -612,7 +612,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_UNION]      = alloc(psig, m, "re.union",     1, 2, reAreA, reA);
     m_sigs[OP_RE_INTERSECT]  = alloc(psig, m, "re.inter",     1, 2, reAreA, reA);
     m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re.loop",    1, 1, &reA, reA);
-    m_sigs[OP_RE_COMPLEMENT]     = alloc(psig, m, "re.complement", 1, 1, &reA, reA);
+    m_sigs[OP_RE_COMPLEMENT]     = alloc(psig, m, "re.comp", 1, 1, &reA, reA);
     m_sigs[OP_RE_EMPTY_SET]      = alloc(psig, m, "re.empty", 1, 0, nullptr, reA);
     m_sigs[OP_RE_FULL_SEQ_SET]   = alloc(psig, m, "re.all", 1, 0, nullptr, reA);
     m_sigs[OP_RE_FULL_CHAR_SET]  = alloc(psig, m, "re.allchar", 1, 0, nullptr, reA);
@@ -632,9 +632,9 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_CHARAT]    = alloc(psig, m, "str.at", 0, 2, strTint2T, strT);
     m_sigs[_OP_STRING_PREFIX]    = alloc(psig, m, "str.prefixof", 0, 2, str2T, boolT);
     m_sigs[_OP_STRING_SUFFIX]    = alloc(psig, m, "str.suffixof", 0, 2, str2T, boolT);
-    m_sigs[_OP_STRING_IN_REGEXP]  = alloc(psig, m, "str.in.re", 0, 2, strTreT, boolT);
-    m_sigs[_OP_STRING_TO_REGEXP]  = alloc(psig, m, "str.to.re", 0, 1, &strT, reT);
-    m_sigs[_OP_REGEXP_EMPTY]      = alloc(psig, m, "re.nostr", 0, 0, nullptr, reT);
+    m_sigs[_OP_STRING_IN_REGEXP]  = alloc(psig, m, "str.in_re", 0, 2, strTreT, boolT);
+    m_sigs[_OP_STRING_TO_REGEXP]  = alloc(psig, m, "str.to_re", 0, 1, &strT, reT);
+    m_sigs[_OP_REGEXP_EMPTY]      = alloc(psig, m, "re.none", 0, 0, nullptr, reT);
     m_sigs[_OP_REGEXP_FULL_CHAR]  = alloc(psig, m, "re.allchar", 0, 0, nullptr, reT);
     m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
 }
@@ -771,14 +771,14 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         m_has_re = true;
         if (!range) range = m_re;
         match(*m_sigs[k], arity, domain, range, rng);
-        return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_EMPTY_SET));
+        return m.mk_func_decl(symbol("re.none"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_EMPTY_SET));
 
     case OP_RE_EMPTY_SET:
         m_has_re = true;
         if (!range) range = m_re;
         if (range == m_re) {
             match(*m_sigs[k], arity, domain, range, rng);
-            return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, k));
+            return m.mk_func_decl(symbol("re.none"), arity, domain, rng, func_decl_info(m_family_id, k));
         }
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));
 
@@ -922,6 +922,10 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
             op_names.push_back(builtin_name(m_sigs[i]->m_name.str().c_str(), i));
         }
     }
+    op_names.push_back(builtin_name("str.in.re", _OP_STRING_IN_REGEXP));
+    op_names.push_back(builtin_name("str.to.re", _OP_STRING_TO_REGEXP));
+    op_names.push_back(builtin_name("re.nostr",  _OP_REGEXP_EMPTY));
+    op_names.push_back(builtin_name("re.complement", OP_RE_COMPLEMENT));
 }
 
 void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
@@ -1166,6 +1170,10 @@ app* seq_util::re::mk_full_seq(sort* s) {
 
 app* seq_util::re::mk_empty(sort* s) {    
     return m.mk_app(m_fid, OP_RE_EMPTY_SET, 0, nullptr, 0, nullptr, s);
+}
+
+app* seq_util::re::mk_of_pred(expr* p) {
+    return m.mk_app(m_fid, OP_RE_OF_PRED, 0, nullptr, 1, &p);
 }
 
 bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi)  {

@@ -2152,6 +2152,11 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
+br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {
+    result = m_util.re.mk_inter(a, m_util.re.mk_complement(b));
+    return BR_REWRITE2;
+}
+
 
 br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
     rational n1, n2;

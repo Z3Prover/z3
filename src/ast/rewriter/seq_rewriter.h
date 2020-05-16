@@ -157,6 +157,7 @@ class seq_rewriter {
     br_status mk_re_inter(expr* a, expr* b, expr_ref& result);
     br_status mk_re_complement(expr* a, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
+    br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
     br_status mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result);
