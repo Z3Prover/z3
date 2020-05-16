@@ -282,7 +282,7 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
     lp::lar_term norm_t = expression_to_normalized_term(&e.to_sum(), a, b);
     lp::explanation exp;
     if (m_core->explain_by_equiv(norm_t, exp)) {
-        set_zero_interval(i);
+        m_dep_intervals.set_interval_for_scalar(i, b);
         if (wd == e_with_deps::with_deps) {
             for (auto p : exp) {
                 i.get().m_lower_dep = mk_join(i.get().m_lower_dep, mk_leaf(p.second));
