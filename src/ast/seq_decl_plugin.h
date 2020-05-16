@@ -17,6 +17,12 @@ Revision History:
 
     Updated to string sequences 2015-12-5
 
+TBD: 
+-  ((_ re.^ n) RegLan RegLan)
+-  (str.replace_re_all String RegLan String String) 
+-  (str.replace_re String RegLan String String)
+-  (str.replace_all String String String String)
+
 --*/
 #ifndef SEQ_DECL_PLUGIN_H_
 #define SEQ_DECL_PLUGIN_H_
@@ -28,7 +34,9 @@ Revision History:
 enum seq_sort_kind {
     SEQ_SORT,
     RE_SORT,
-    _STRING_SORT  // internal only
+    _CHAR_SORT,     // internal only
+    _STRING_SORT,  
+    _REGLAN_SORT
 };
 
 enum seq_op_kind {
@@ -153,7 +161,7 @@ class seq_decl_plugin : public decl_plugin {
     symbol           m_charc_sym;
     sort*            m_string;
     sort*            m_char;
-    sort*            m_re;
+    sort*            m_reglan;
     bool             m_has_re;
     bool             m_has_seq;
 
