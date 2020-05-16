@@ -1336,6 +1336,10 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
             result = mk_numeral(0, bv_size);
             return BR_REWRITE2;
         }
+
+        if (r2.is_pos()) {
+            
+        }
     }
 
     if (hi_div0) {

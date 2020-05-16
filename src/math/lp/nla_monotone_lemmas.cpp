@@ -53,6 +53,8 @@ void monotone::monotonicity_lemma_gt(const monic& m) {
     for (lpvar j : m.vars()) {
         auto v = c().val(j);
         lemma |= ineq(j, v.is_neg() ? llc::LT : llc::GT, v);
+        if (v.is_neg())
+            lemma |= ineq(j, llc::GT, 0);
         product *= v;
     }
     lemma |= ineq(m.var(), product.is_neg() ? llc::GE : llc::LE, product);
