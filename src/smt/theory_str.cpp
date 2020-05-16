@@ -7728,9 +7728,11 @@ namespace smt {
                                    var_eq_concat_map, var_eq_unroll_map,
                                    concat_eq_constStr_map, concat_eq_concat_map, unrollGroupMap););
 
+        /*
         if (!contain_pair_bool_map.empty()) {
             compute_contains(aliasIndexMap, concats_eq_index_map, var_eq_constStr_map, concat_eq_constStr_map, var_eq_concat_map);
         }
+        */
 
         // step 4: dependence analysis
 
