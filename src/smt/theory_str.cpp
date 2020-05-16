@@ -4512,6 +4512,15 @@ namespace smt {
         generate_mutual_exclusion(arrangement_disjunction);
     }
 
+    bool theory_str::get_string_constant_eqc(expr * e, zstring & stringVal) {
+        bool exists;
+        expr * strExpr = get_eqc_value(e, exists);
+        if (!exists) {
+            return false;}
+        u.str.is_string(strExpr, stringVal);
+        return true;
+    }
+    
     /*
      * Look through the equivalence class of n to find a string constant.
      * Return that constant if it is found, and set hasEqcValue to true.
@@ -7019,6 +7028,99 @@ namespace smt {
             set_up_axioms(e);
             propagate();
         }
+
+        // heuristics
+        
+        if (u.str.is_prefix(e)) {
+            check_consistency_prefix(e, is_true);
+        } else if (u.str.is_suffix(e)) {
+            check_consistency_suffix(e, is_true);
+        } else if (u.str.is_contains(e)) {
+            check_consistency_contains(e, is_true);
+        }
+    }
+
+    // terms like int.to.str cannot start with / end with / contain non-digit characters
+    // in the future this could be expanded to regex checks as well
+    void theory_str::check_consistency_prefix(expr * e, bool is_true) {
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+        expr * needle;
+        expr * haystack;
+
+        u.str.is_prefix(e, needle, haystack);
+        TRACE("str", tout << "check consistency of prefix predicate: " << mk_pp(needle, m) << " prefixof " << mk_pp(haystack, m) << std::endl;);
+        
+        zstring needleStringConstant;
+        if (get_string_constant_eqc(needle, needleStringConstant)) {
+            if (u.str.is_itos(haystack) && is_true) {
+                // needle cannot contain non-digit characters
+                for (unsigned i = 0; i < needleStringConstant.length(); ++i) {
+                    if (! ('0' <= needleStringConstant[i] && needleStringConstant[i] <= '9')) {
+                        TRACE("str", tout << "conflict: needle = \"" << needleStringConstant << "\" contains non-digit character, but is a prefix of int-to-string term" << std::endl;);
+                        expr_ref premise(ctx.mk_eq_atom(needle, mk_string(needleStringConstant)), m);
+                        expr_ref conclusion(m.mk_not(e), m);
+                        expr_ref conflict(rewrite_implication(premise, conclusion), m);
+                        assert_axiom_rw(conflict);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    void theory_str::check_consistency_suffix(expr * e, bool is_true) {
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+        expr * needle;
+        expr * haystack;
+
+        u.str.is_suffix(e, needle, haystack);
+        TRACE("str", tout << "check consistency of suffix predicate: " << mk_pp(needle, m) << " suffixof " << mk_pp(haystack, m) << std::endl;);
+        
+        zstring needleStringConstant;
+        if (get_string_constant_eqc(needle, needleStringConstant)) {
+            if (u.str.is_itos(haystack) && is_true) {
+                // needle cannot contain non-digit characters
+                for (unsigned i = 0; i < needleStringConstant.length(); ++i) {
+                    if (! ('0' <= needleStringConstant[i] && needleStringConstant[i] <= '9')) {
+                        TRACE("str", tout << "conflict: needle = \"" << needleStringConstant << "\" contains non-digit character, but is a suffix of int-to-string term" << std::endl;);
+                        expr_ref premise(ctx.mk_eq_atom(needle, mk_string(needleStringConstant)), m);
+                        expr_ref conclusion(m.mk_not(e), m);
+                        expr_ref conflict(rewrite_implication(premise, conclusion), m);
+                        assert_axiom_rw(conflict);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    void theory_str::check_consistency_contains(expr * e, bool is_true) {
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+        expr * needle;
+        expr * haystack;
+
+        u.str.is_contains(e, haystack, needle); // first string contains second one
+        TRACE("str", tout << "check consistency of contains predicate: " << mk_pp(haystack, m) << " contains " << mk_pp(needle, m) << std::endl;);
+        
+        zstring needleStringConstant;
+        if (get_string_constant_eqc(needle, needleStringConstant)) {
+            if (u.str.is_itos(haystack) && is_true) {
+                // needle cannot contain non-digit characters
+                for (unsigned i = 0; i < needleStringConstant.length(); ++i) {
+                    if (! ('0' <= needleStringConstant[i] && needleStringConstant[i] <= '9')) {
+                        TRACE("str", tout << "conflict: needle = \"" << needleStringConstant << "\" contains non-digit character, but int-to-string term contains it" << std::endl;);
+                        expr_ref premise(ctx.mk_eq_atom(needle, mk_string(needleStringConstant)), m);
+                        expr_ref conclusion(m.mk_not(e), m);
+                        expr_ref conflict(rewrite_implication(premise, conclusion), m);
+                        assert_axiom_rw(conflict);
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     void theory_str::push_scope_eh() {
@@ -8034,7 +8136,6 @@ namespace smt {
             /* literal is_zero_l = */ mk_literal(is_zero);
             axiomAdd = true;
             TRACE("str", ctx.display(tout););
-            // NOT_IMPLEMENTED_YET();
         }
 
         bool S_hasEqcValue;
@@ -8089,6 +8190,7 @@ namespace smt {
     }
 
     bool theory_str::finalcheck_int2str(app * a) {
+        SASSERT(u.str.is_itos(a));
         bool axiomAdd = false;
         ast_manager & m = get_manager();
 
@@ -8108,7 +8210,7 @@ namespace smt {
                 // check for leading zeroes. if the first character is '0', the entire string must be "0"
                 char firstChar = (int)Sval[0];
                 if (firstChar == '0' && !(Sval == zstring("0"))) {
-                    TRACE("str", tout << "str.to-int argument " << Sval << " contains leading zeroes" << std::endl;);
+                    TRACE("str", tout << "str.from-int argument " << Sval << " contains leading zeroes" << std::endl;);
                     expr_ref axiom(m.mk_not(ctx.mk_eq_atom(a, mk_string(Sval))), m);
                     assert_axiom(axiom);
                     return true;
@@ -8125,7 +8227,7 @@ namespace smt {
                         convertedRepresentation = (ten * convertedRepresentation) + rational(val);
                     } else {
                         // not a digit, invalid
-                        TRACE("str", tout << "str.to-int argument contains non-digit character '" << digit << "'" << std::endl;);
+                        TRACE("str", tout << "str.from-int argument contains non-digit character '" << digit << "'" << std::endl;);
                         conversionOK = false;
                         break;
                     }
@@ -8149,7 +8251,31 @@ namespace smt {
             }
         } else {
             TRACE("str", tout << "string theory has no assignment for " << mk_pp(a, m) << std::endl;);
-            NOT_IMPLEMENTED_YET();
+            // see if the integer theory has assigned N yet
+            arith_value v(m);
+            v.init(&ctx);
+            rational Nval;
+            if (v.get_value(N, Nval)) {
+                expr_ref premise(ctx.mk_eq_atom(N, mk_int(Nval)), m);
+                expr_ref conclusion(m);
+                if (Nval.is_neg()) {
+                    // negative argument -> ""
+                    conclusion = expr_ref(ctx.mk_eq_atom(a, mk_string("")), m);
+                } else {
+                    // non-negative argument -> convert to string of digits
+                    zstring Nval_str(Nval.to_string().c_str());
+                    conclusion = expr_ref(ctx.mk_eq_atom(a, mk_string(Nval_str)), m);
+                }
+                expr_ref axiom(rewrite_implication(premise, conclusion), m);
+                assert_axiom(axiom);
+                axiomAdd = true;
+            } else {
+                TRACE("str", tout << "integer theory has no assignment for " << mk_pp(N, m) << std::endl;);
+                expr_ref is_zero(ctx.mk_eq_atom(N, m_autil.mk_int(0)), m);
+                /* literal is_zero_l = */ mk_literal(is_zero);
+                axiomAdd = true;
+                TRACE("str", ctx.display(tout););
+            }
         }
         return axiomAdd;
     }
@@ -8477,7 +8603,7 @@ namespace smt {
                 }
             }
         }
-
+        
         if (!needToAssignFreeVars) {
 
             // check string-int terms
