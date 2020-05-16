@@ -412,6 +412,7 @@ public:
     app * mk_bv_neg(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNEG, arg); }
     app * mk_bv_urem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM, arg1, arg2); }
     app * mk_bv_srem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSREM, arg1, arg2); }
+    app * mk_bv_smod(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSMOD, arg1, arg2); }
     app * mk_bv_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BADD, arg1, arg2); }
     app * mk_bv_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSUB, arg1, arg2); }
     app * mk_bv_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BMUL, arg1, arg2); }

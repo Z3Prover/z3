@@ -598,16 +598,16 @@ namespace smt {
 
                 for (expr* e : n->get_exceptions()) {
                     expr * val = eval(e, true);
-                    SASSERT(val != nullptr);
-                    r.push_back(val);
+                    if (val)
+                        r.push_back(val);
                 }
 
                 for (node* a : n->get_avoid_set()) {
                     node * p = a->get_root();
                     if (!p->is_mono_proj() && p->get_else() != nullptr) {
                         expr * val = eval(p->get_else(), true);
-                        SASSERT(val != nullptr);
-                        r.push_back(val);
+                        if (val)
+                            r.push_back(val);
                     }
                 }
             }
@@ -628,8 +628,9 @@ namespace smt {
                 for (auto const& kv : elems) {
                     expr *     t = kv.m_key;
                     unsigned gen = kv.m_value;
-                    expr * t_val = eval(t, true);
-                    SASSERT(t_val != nullptr);
+                    expr * t_val = eval(t, true);                        
+                    if (!t_val)
+                        return t_result;
                     bool found = false;
                     for (expr* v : ex_vals) {
                         if (!m.are_distinct(t_val, v)) {
@@ -701,7 +702,7 @@ namespace smt {
                     return false;
                 for (expr * ex : exceptions) {
                     expr * ex_val = eval(ex, true);
-                    if (!m.are_distinct(k_interp, ex_val)) {
+                    if (ex_val && !m.are_distinct(k_interp, ex_val)) {
                         SASSERT(m_new_constraints);
                         // This constraint cannot be asserted into m_context during model construction.
                         // We must save it, and assert it during a restart.
@@ -891,7 +892,8 @@ namespace smt {
                 m_model->register_aux_decl(p, pi);
                 if (n->get_else()) {
                     expr * else_val = eval(n->get_else(), true);
-                    pi->set_else(else_val);
+                    if (else_val) 
+                        pi->set_else(else_val);
                 }                
                 for (expr * v : values) {
                     pi->insert_new_entry(&v, v);
@@ -1385,7 +1387,7 @@ namespace smt {
             func_decl * get_array_func_decl(app * ground_array, auf_solver & s) {
                 TRACE("model_evaluator", tout << expr_ref(ground_array, m) << "\n";);
                 expr * ground_array_interp = s.eval(ground_array, false);
-                if (ground_array_interp != nullptr && m_array.is_as_array(ground_array_interp))
+                if (ground_array_interp && m_array.is_as_array(ground_array_interp))
                     return m_array.get_as_array_func_decl(ground_array_interp);
                 return nullptr;
             }
