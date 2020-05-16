@@ -47,7 +47,11 @@ public:
         push_justification(j);
     }
     
-    void add(const explanation& e) { for (auto j: e.m_set_of_ci) add(j); }
+    void add(const explanation& e) {
+        for (const auto& p: e.m_explanation) {
+            add(p.second);
+        }
+    }
     template <typename T>
     void add_expl(const T& e) { for (auto j: e) add(j); }
     void add(unsigned ci) { push_justification(ci); }
