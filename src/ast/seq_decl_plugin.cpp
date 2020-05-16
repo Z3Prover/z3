@@ -622,8 +622,8 @@ void seq_decl_plugin::init() {
     m_sigs[OP_STRING_CONST]      = nullptr;
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
-    m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
-    m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to.int", 0, 1, &strT, intT);
+    m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "str.from_int", 0, 1, &intT, strT);
+    m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to_int", 0, 1, &strT, intT);
     m_sigs[OP_STRING_LT]         = alloc(psig, m, "str.<", 0, 2, str2T, boolT);
     m_sigs[OP_STRING_LE]         = alloc(psig, m, "str.<=", 0, 2, str2T, boolT);
     m_sigs[_OP_STRING_CONCAT]    = alloc(psig, m, "str.++", 1, 2, str2T, strT);
@@ -928,7 +928,13 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
         }
     }
     op_names.push_back(builtin_name("str.in.re", _OP_STRING_IN_REGEXP));
+    op_names.push_back(builtin_name("str.in-re", _OP_STRING_IN_REGEXP));
     op_names.push_back(builtin_name("str.to.re", _OP_STRING_TO_REGEXP));
+    op_names.push_back(builtin_name("str.to-re", _OP_STRING_TO_REGEXP));
+    op_names.push_back(builtin_name("str.to-int", OP_STRING_STOI));
+    op_names.push_back(builtin_name("str.to.int", OP_STRING_STOI));
+    op_names.push_back(builtin_name("str.from-int", OP_STRING_ITOS));
+    op_names.push_back(builtin_name("int.to.str", OP_STRING_ITOS));
     op_names.push_back(builtin_name("re.nostr",  _OP_REGEXP_EMPTY));
     op_names.push_back(builtin_name("re.complement", OP_RE_COMPLEMENT));
 }

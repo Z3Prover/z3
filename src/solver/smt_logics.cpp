@@ -85,6 +85,7 @@ bool smt_logics::logic_has_arith(symbol const & s) {
         s == "QF_FPBV" ||
         s == "QF_BVFP" ||
         s == "QF_S" ||
+        s == "QF_SLIA" ||
         logic_is_allcsp(s) ||
         s == "QF_FD" ||
         s == "HORN" ||
@@ -135,11 +136,11 @@ bool smt_logics::logic_has_array(symbol const & s) {
 }
 
 bool smt_logics::logic_has_seq(symbol const & s) {
-    return s == "QF_BVRE" || s == "QF_S" || logic_is_allcsp(s);
+    return s == "QF_BVRE" || s == "QF_S" || s == "QF_SLIA" || logic_is_allcsp(s);
 }
 
 bool smt_logics::logic_has_str(symbol const & s) {
-    return s == "QF_S" || logic_is_allcsp(s);
+    return s == "QF_S" || s == "QF_SLIA" || logic_is_allcsp(s);
 }
 
 bool smt_logics::logic_has_fpa(symbol const & s) {
