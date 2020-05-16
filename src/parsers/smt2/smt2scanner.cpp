@@ -194,11 +194,6 @@ namespace smt2 {
         SASSERT(curr() == '\"');
         next();
         m_string.reset();
-        // status parsing a \u escape sequence
-        // 0 = nothing
-        // 1 = saw \, expecting u
-        // 2 = saw \u, expecting { or a hex character
-        unsigned possible_escape_sequence = 0;
         while (true) {
             char c = curr();
             if (m_at_eof)
@@ -212,21 +207,17 @@ namespace smt2 {
                     m_string.push_back(0);
                     return STRING_TOKEN;
                 }
-            }
-
-            if (possible_escape_sequence == 0) {
-                if (c == '\\') {
-                    possible_escape_sequence = 1;
+            } else if (c == '\\') {
+                // look for 'u' after reading '\'
+                next();
+                c = curr();
+                if (c != 'u') {
+                    m_string.push_back('\\');
+                    continue;
                 }
-            } else if (possible_escape_sequence == 1) {
-                if (c == 'u') {
-                    possible_escape_sequence = 2;
-                } else {
-                    // not an escape sequence
-                    possible_escape_sequence = 0;
-                }
-            } else if (possible_escape_sequence == 2) {
-                possible_escape_sequence = 0;
+                // look for { or a hex digit after reading '\' 'u'
+                next();
+                c = curr();
                 /* The possible codepoint escape sequences in SMT-LIB 2.6 are:
                  *  \u####
                  *  \u{#}
@@ -235,12 +226,9 @@ namespace smt2 {
                  *  \u{####}
                  *  \u{#####}
                  * where # is a hex digit.
-                 * So far we have seen "\u". If the escape sequence is real, the last two characters of m_string must be discarded.
                  */
                 if (isxdigit(c)) {
                     // 4-digit codepoint escape
-                    m_string.pop_back();
-                    m_string.pop_back();
                     char_vector escape_chars;
                     escape_chars.push_back(c);
                     // read three more chars
@@ -254,13 +242,11 @@ namespace smt2 {
                     }
                     unsigned long int codepoint = strtoul(escape_chars.c_ptr(), nullptr, 16);
                     if (codepoint >= 256) {
-                        throw scanner_exception("non-ASCII codepoints not yet supported", m_line, m_spos);
+                        throw scanner_exception("non-ASCII codepoints not yet supported", m_line, m_spos); // UNICODE: convert to codepoint and append
                     }
                     c = (char)codepoint;
                 } else if (c == '{') {
                     // variable-length codepoint escape
-                    m_string.pop_back();
-                    m_string.pop_back();
                     char_vector escape_chars;
                     bool found_end = false;
                     // read up to 6 characters
@@ -284,11 +270,15 @@ namespace smt2 {
                         throw scanner_exception("codepoint out of range", m_line, m_spos);
                     }
                     if (codepoint >= 256) {
-                        throw scanner_exception("non-ASCII codepoints not yet supported", m_line, m_spos);
+                        throw scanner_exception("non-ASCII codepoints not yet supported", m_line, m_spos); // UNICODE: convert to codepoint and append
                     }
                     c = (char)codepoint;
                 } else {
-                    throw scanner_exception("unexpected character in codepoint escape sequence", m_line, m_spos);
+                    // doesn't match a codepoint escape sequence - ignore it.
+                    // this could be an error, but being permissive is more compatible
+                    m_string.push_back('\\');
+                    m_string.push_back('u');
+                    continue;
                 }
             }
 
