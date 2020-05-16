@@ -22,6 +22,9 @@ TBD:
 -  (str.replace_re_all String RegLan String String) 
 -  (str.replace_re String RegLan String String)
 -  (str.replace_all String String String String)
+-  (str.is_digit String Bool)                     would replace smt/seq_skolem is_digit.
+-  (str.to_code String Int)
+-  (str.from_code Int String) 
 
 --*/
 #ifndef SEQ_DECL_PLUGIN_H_
