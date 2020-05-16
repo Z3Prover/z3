@@ -81,6 +81,40 @@ static bool is_escape_char(char const *& s, unsigned& result) {
         s += 4;
         return true;
     }
+
+#if 0
+    /* unicode */
+    if (*(s+1) == 'u' && *(s+2) == '{') {
+        result = 0;
+        for (unsigned i = 0; i < 5; ++i) {
+            if (is_hex_digit(*(s+3+i), d1)) {
+                result = 64*result + d1;
+            }
+            else if (*(s+3+i) == '}') {
+                s += 4 + i;
+                return true;
+            }
+            else {
+                break;
+            }
+        }
+        return false;
+    }
+    if (*(s+1) == 'u' && is_hex_digit(*(s+2), d1)) {
+        result = d1;
+        unsigned i = 0;
+        for (; i < 4; ++i) {
+            if (is_hex_digit(*(s+3+i), d1)) {
+                result = 64*result + d1;
+            }
+            else {
+                break;
+            }
+        }
+        s += 3 + i;
+        return true;
+    }
+#endif
     switch (*(s + 1)) {
     case 'a':
         result = '\a';
