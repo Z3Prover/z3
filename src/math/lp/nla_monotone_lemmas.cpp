@@ -46,6 +46,11 @@ void monotone::monotonicity_lemma(monic const& m) {
        m[i] < val(m[i])     for val(m[i]) < 0
        m >= product m[i]    for product m[i] < 0
        m <= product m[i]    for product m[i] > 0
+
+    Example:
+
+    x <= -2 & y >= 3 => x*y <= -6
+
 */
 void monotone::monotonicity_lemma_gt(const monic& m) {
     new_lemma lemma(c(), __FUNCTION__);
@@ -53,8 +58,6 @@ void monotone::monotonicity_lemma_gt(const monic& m) {
     for (lpvar j : m.vars()) {
         auto v = c().val(j);
         lemma |= ineq(j, v.is_neg() ? llc::LT : llc::GT, v);
-        if (v.is_neg())
-            lemma |= ineq(j, llc::GT, 0);
         product *= v;
     }
     lemma |= ineq(m.var(), product.is_neg() ? llc::GE : llc::LE, product);
