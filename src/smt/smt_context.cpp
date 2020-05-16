@@ -3018,7 +3018,8 @@ namespace smt {
                     literal l2 = *set_it;
                     if (l2 != l) {
                         b_justification js(l);
-                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m, m_bool_var2expr.c_ptr()););
+                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m, m_bool_var2expr.c_ptr()); tout << std::endl;);
+                        if (l2 == true_literal || l2 == false_literal || l2 == null_literal) continue;
                         assign(~l2, js);
                         if (inconsistent()) {
                             TRACE("theory_case_split", tout << "conflict detected!" << std::endl;);
