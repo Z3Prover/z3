@@ -17,15 +17,6 @@ Revision History:
 
     Updated to string sequences 2015-12-5
 
-TBD: 
--  ((_ re.^ n) RegLan RegLan)
--  (str.replace_re_all String RegLan String String) 
--  (str.replace_re String RegLan String String)
--  (str.replace_all String String String String)
--  (str.is_digit String Bool)                     would replace smt/seq_skolem is_digit.
--  (str.to_code String Int)
--  (str.from_code Int String) 
-
 --*/
 #ifndef SEQ_DECL_PLUGIN_H_
 #define SEQ_DECL_PLUGIN_H_
@@ -60,6 +51,9 @@ enum seq_op_kind {
     OP_SEQ_LAST_INDEX,
     OP_SEQ_TO_RE,
     OP_SEQ_IN_RE,
+    OP_SEQ_REPLACE_RE_ALL, // Seq -> RegEx -> Seq -> Seq
+    OP_SEQ_REPLACE_RE,     // Seq -> RegEx -> Seq -> Seq
+    OP_SEQ_REPLACE_ALL,    // Seq -> Seq -> Seq -> Seq
 
     OP_RE_PLUS,
     OP_RE_STAR,
@@ -70,6 +64,7 @@ enum seq_op_kind {
     OP_RE_DIFF,
     OP_RE_INTERSECT,
     OP_RE_LOOP,
+    OP_RE_POWER,
     OP_RE_COMPLEMENT,
     OP_RE_EMPTY_SET,
     OP_RE_FULL_SEQ_SET,
@@ -83,6 +78,9 @@ enum seq_op_kind {
     OP_STRING_STOI,
     OP_STRING_LT,
     OP_STRING_LE,
+    OP_STRING_IS_DIGIT,
+    OP_STRING_TO_CODE,
+    OP_STRING_FROM_CODE,
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_STRREPL,
     _OP_STRING_CONCAT,
@@ -103,25 +101,17 @@ enum seq_op_kind {
 
 
 class zstring {
-public:
-    enum encoding {
-        ascii,
-        unicode
-    };
 private:
     buffer<unsigned> m_buffer;
-    encoding         m_encoding;
 public:
-    zstring(encoding enc = ascii);
-    zstring(char const* s, encoding enc = ascii);
-    zstring(unsigned sz, unsigned const* s, encoding enc = ascii);
+    zstring();
+    zstring(char const* s);
+    zstring(unsigned sz, unsigned const* s);
     zstring(zstring const& other);
     zstring(unsigned num_bits, bool const* ch);
-    zstring(unsigned ch, encoding enc = ascii);
+    zstring(unsigned ch);
     zstring& operator=(zstring const& other);
     zstring replace(zstring const& src, zstring const& dst) const;
-    unsigned num_bits() const { return (m_encoding==ascii)?8:16; }
-    encoding get_encoding() const { return m_encoding; }
     std::string encode() const;
     std::string as_string() const;
     unsigned length() const { return m_buffer.size(); }
@@ -267,6 +257,9 @@ public:
     public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
+        unsigned min_char_value() const { return 0; }
+        unsigned max_char_value() const { return 196607; }
+
         sort* mk_seq(sort* s) const { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
         sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, nullptr); }
         app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, nullptr, 0, (expr*const*)nullptr, s)); }
@@ -300,6 +293,9 @@ public:
         app* mk_is_empty(expr* s) const;
         app* mk_lex_lt(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LT, 2, es); }
         app* mk_lex_le(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LE, 2, es); }
+        app* mk_to_code(expr* e) const { return m.mk_app(m_fid, OP_STRING_TO_CODE, 1, &e); }
+        app* mk_from_code(expr* e) const { return m.mk_app(m_fid, OP_STRING_FROM_CODE, 1, &e); }
+        app* mk_is_digit(expr* e) const { return m.mk_app(m_fid, OP_STRING_IS_DIGIT, 1, &e); }
 
 
         bool is_nth_i(func_decl const* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_I); }
@@ -335,6 +331,9 @@ public:
         bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
         bool is_lt(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LT); }
         bool is_le(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LE); }
+        bool is_is_digit(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_IS_DIGIT); }
+        bool is_from_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_TO_CODE); }
+        bool is_to_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_FROM_CODE); }
 
         bool is_string_term(expr const * n) const {
             sort * s = get_sort(n);
@@ -363,6 +362,9 @@ public:
         MATCH_BINARY(is_le);
         MATCH_UNARY(is_itos);
         MATCH_UNARY(is_stoi);
+        MATCH_UNARY(is_is_digit);
+        MATCH_UNARY(is_from_code);
+        MATCH_UNARY(is_to_code);
         MATCH_BINARY(is_in_re);
         MATCH_UNARY(is_unit);
 

@@ -143,6 +143,9 @@ class seq_rewriter {
     br_status mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_last_index(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_re_all(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_suffix(expr* a, expr* b, expr_ref& result);
     br_status mk_str_units(func_decl* f, expr_ref& result);
@@ -152,6 +155,9 @@ class seq_rewriter {
     br_status mk_str_to_regexp(expr* a, expr_ref& result);
     br_status mk_str_le(expr* a, expr* b, expr_ref& result);
     br_status mk_str_lt(expr* a, expr* b, expr_ref& result);
+    br_status mk_str_from_code(expr* a, expr_ref& result);
+    br_status mk_str_to_code(expr* a, expr_ref& result);
+    br_status mk_str_is_digit(expr* a, expr_ref& result);
     br_status mk_re_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_re_union(expr* a, expr* b, expr_ref& result);
     br_status mk_re_inter(expr* a, expr* b, expr_ref& result);
@@ -160,6 +166,7 @@ class seq_rewriter {
     br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
+    br_status mk_re_power(func_decl* f, expr* a, expr_ref& result);
     br_status mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
     br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);

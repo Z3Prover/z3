@@ -473,6 +473,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_LOOP:
         st = mk_re_loop(f, num_args, args, result);
         break;
+    case OP_RE_POWER:
+        st = mk_re_power(f, args[0], result);
+        break;
     case OP_RE_EMPTY_SET:
         return BR_FAILED;    
     case OP_RE_FULL_SEQ_SET:
@@ -557,6 +560,18 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STRING_LT:
         SASSERT(num_args == 2);
         st = mk_str_lt(args[0], args[1], result);
+        break;
+    case OP_STRING_FROM_CODE:
+        SASSERT(num_args == 1);
+        st = mk_str_from_code(args[0], result);
+        break;
+    case OP_STRING_TO_CODE:
+        SASSERT(num_args == 1);
+        st = mk_str_to_code(args[0], result);
+        break;
+    case OP_STRING_IS_DIGIT:
+        SASSERT(num_args == 1);
+        st = mk_str_is_digit(args[0], result);
         break;
     case OP_STRING_CONST:
         st = BR_FAILED;
@@ -1493,6 +1508,19 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
     return BR_FAILED;
 }
 
+br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& result) {
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_seq_replace_re_all(expr* a, expr* b, expr* c, expr_ref& result) {
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result) {
+    return BR_FAILED;
+}
+
+
 br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     TRACE("seq", tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << "\n";);
     zstring s1, s2;
@@ -1707,6 +1735,54 @@ br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
     }
     return BR_FAILED;
 }
+
+br_status seq_rewriter::mk_str_from_code(expr* a, expr_ref& result) {
+    rational r;
+    if (m_autil.is_numeral(a, r)) {
+        if (r.is_neg() || r > m_util.str.max_char_value()) {
+            result = m_util.str.mk_string(symbol(""));
+        }
+        else {
+            unsigned num = r.get_unsigned();
+            zstring s(1, &num);
+            result = m_util.str.mk_string(s);
+        }
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_str_to_code(expr* a, expr_ref& result) {
+    zstring str;
+    if (m_util.str.is_string(a, str)) {
+        if (str.length() == 1) 
+            result = m_autil.mk_int(str[0]);
+        else
+            result = m_autil.mk_int(-1);
+        return BR_DONE;
+    }    
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_str_is_digit(expr* a, expr_ref& result) {
+    zstring str;
+    if (m_util.str.is_string(a, str)) {
+        if (str.length() == 1 && '0' <= str[0] && str[0] <= '9')
+            result = m().mk_true();
+        else
+            result = m().mk_false();
+        return BR_DONE;
+    }
+    if (m_util.str.is_empty(a)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+    // when a has length > 1 -> false
+    // when a is a unit character -> evaluate
+   
+    return BR_FAILED;
+}
+
 
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     rational r;
@@ -2215,6 +2291,13 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
     }
     return BR_FAILED;
 }
+
+br_status seq_rewriter::mk_re_power(func_decl* f, expr* a, expr_ref& result) {
+    unsigned p = f->get_parameter(0).get_int();
+    result = m_util.re.mk_loop(a, p, p);
+    return BR_REWRITE1;
+}
+
 
 /*
   a** = a*

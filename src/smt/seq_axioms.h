@@ -84,6 +84,9 @@ namespace smt {
         void add_itos_axiom(expr* s, unsigned k);
         void add_lt_axiom(expr* n);
         void add_le_axiom(expr* n);
+        void add_is_digit_axiom(expr* n);
+        void add_str_to_code_axiom(expr* n);
+        void add_str_from_code_axiom(expr* n);
         void add_unit_axiom(expr* n);
         void add_length_axiom(expr* n);
         void unroll_not_contains(expr* n);

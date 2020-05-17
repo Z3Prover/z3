@@ -289,6 +289,7 @@ void order::generate_ol(const monic& ac,
     lemma |= ineq(c.var(), val(c.var()).is_neg() ? llc::GE : llc::LE, 0);
     _().negate_var_relation_strictly(lemma, ac.var(), bc.var());
     _().negate_var_relation_strictly(lemma, a.var(),  b.var());
+
     lemma &= ac;
     lemma &= a;
     lemma &= bc;

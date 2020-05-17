@@ -158,10 +158,10 @@ static bool is_escape_char(char const *& s, unsigned& result) {
     return false;
 }
 
-zstring::zstring(encoding enc): m_encoding(enc) {}
+zstring::zstring() {}
 
-zstring::zstring(char const* s, encoding enc): m_encoding(enc) {
-    unsigned mask = 0xFF; // TBD for UTF
+zstring::zstring(char const* s) {
+    unsigned mask = 0xFF; // TBD for Unicode
     while (*s) {
         unsigned ch;
         if (is_escape_char(s, ch)) {
@@ -176,17 +176,14 @@ zstring::zstring(char const* s, encoding enc): m_encoding(enc) {
 
 zstring::zstring(zstring const& other) {
     m_buffer = other.m_buffer;
-    m_encoding = other.m_encoding;
 }
 
-zstring::zstring(unsigned sz, unsigned const* s, encoding enc) {
+zstring::zstring(unsigned sz, unsigned const* s) {
     m_buffer.append(sz, s);
-    m_encoding = enc;
 }
 
 zstring::zstring(unsigned num_bits, bool const* ch) {
-    SASSERT(num_bits == 8 || num_bits == 16);
-    m_encoding = (num_bits == 8)?ascii:unicode;
+    SASSERT(num_bits == 8); // TBD for unicode
     unsigned n = 0;
     for (unsigned i = 0; i < num_bits; ++i) {
         n |= (((unsigned)ch[i]) << i);
@@ -194,20 +191,19 @@ zstring::zstring(unsigned num_bits, bool const* ch) {
     m_buffer.push_back(n);
 }
 
-zstring::zstring(unsigned ch, encoding enc) {
-    m_encoding = enc;
-    m_buffer.push_back(ch & ((enc == ascii)?0x000000FF:0x0000FFFF));
+zstring::zstring(unsigned ch) {
+    SASSERT(ch <= 196607);
+    m_buffer.push_back(ch);
 }
 
 zstring& zstring::operator=(zstring const& other) {
-    m_encoding = other.m_encoding;
     m_buffer.reset();
     m_buffer.append(other.m_buffer);
     return *this;
 }
 
 zstring zstring::replace(zstring const& src, zstring const& dst) const {
-    zstring result(m_encoding);
+    zstring result;
     if (length() < src.length()) {
         return zstring(*this);
     }
@@ -272,7 +268,6 @@ std::string zstring::encode() const {
 }
 
 std::string zstring::as_string() const {
-    SASSERT(m_encoding == ascii); 
     std::ostringstream strm;
     char buffer[100];
     unsigned offset = 0;
@@ -351,7 +346,7 @@ int zstring::last_indexof(zstring const& other) const {
 }
 
 zstring zstring::extract(unsigned offset, unsigned len) const {
-    zstring result(m_encoding);
+    zstring result;
     if (offset + len < offset) return result;
     int last = std::min(offset+len, length());
     for (int i = offset; i < last; ++i) {
@@ -361,7 +356,6 @@ zstring zstring::extract(unsigned offset, unsigned len) const {
 }
 
 zstring zstring::operator+(zstring const& other) const {
-    SASSERT(m_encoding == other.m_encoding);
     zstring result(*this);
     result.m_buffer.append(other.m_buffer);
     return result;
@@ -578,6 +572,8 @@ void seq_decl_plugin::init() {
     sort* boolT = m.mk_bool_sort();
     sort* intT  = arith_util(m).mk_int();
     sort* predA = array_util(m).mk_array_sort(A, boolT);
+    sort* seqAseqAseqA[3] = { seqA, seqA, seqA };
+    sort* seqAreAseqA[3] = { seqA, reA, seqA };
     sort* seqAseqA[2] = { seqA, seqA };
     sort* seqAreA[2] = { seqA, reA };
     sort* reAreA[2] = { reA, reA };
@@ -615,6 +611,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_UNION]      = alloc(psig, m, "re.union",     1, 2, reAreA, reA);
     m_sigs[OP_RE_INTERSECT]  = alloc(psig, m, "re.inter",     1, 2, reAreA, reA);
     m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re.loop",    1, 1, &reA, reA);
+    m_sigs[OP_RE_POWER]          = alloc(psig, m, "re.^", 1, 1, &reA, reA);
     m_sigs[OP_RE_COMPLEMENT]     = alloc(psig, m, "re.comp", 1, 1, &reA, reA);
     m_sigs[OP_RE_EMPTY_SET]      = alloc(psig, m, "re.empty", 1, 0, nullptr, reA);
     m_sigs[OP_RE_FULL_SEQ_SET]   = alloc(psig, m, "re.all", 1, 0, nullptr, reA);
@@ -622,6 +619,9 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re.of.pred", 1, 1, &predA, reA);
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
+    m_sigs[OP_SEQ_REPLACE_RE_ALL] = alloc(psig, m, "str.replace_re_all", 1, 3, seqAreAseqA, seqA);
+    m_sigs[OP_SEQ_REPLACE_RE]    = alloc(psig, m, "str.replace_re", 1, 3, seqAreAseqA, seqA);
+    m_sigs[OP_SEQ_REPLACE_ALL]   = alloc(psig, m, "str.replace_all", 1, 3, seqAseqAseqA, seqA);
     m_sigs[OP_STRING_CONST]      = nullptr;
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
@@ -629,6 +629,9 @@ void seq_decl_plugin::init() {
     m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to_int", 0, 1, &strT, intT);
     m_sigs[OP_STRING_LT]         = alloc(psig, m, "str.<", 0, 2, str2T, boolT);
     m_sigs[OP_STRING_LE]         = alloc(psig, m, "str.<=", 0, 2, str2T, boolT);
+    m_sigs[OP_STRING_IS_DIGIT]   = alloc(psig, m, "str.is_digit", 0, 1, &strT, boolT);
+    m_sigs[OP_STRING_TO_CODE]    = alloc(psig, m, "str.to_code", 0, 1, &strT, intT);
+    m_sigs[OP_STRING_FROM_CODE]  = alloc(psig, m, "str.from_code", 0, 1, &intT, strT);
     m_sigs[_OP_STRING_CONCAT]    = alloc(psig, m, "str.++", 1, 2, str2T, strT);
     m_sigs[_OP_STRING_LENGTH]    = alloc(psig, m, "str.len", 0, 1, &strT, intT);
     m_sigs[_OP_STRING_STRCTN]    = alloc(psig, m, "str.contains", 0, 2, str2T, boolT);
@@ -752,6 +755,9 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_STRING_STOI:
     case OP_STRING_LT:
     case OP_STRING_LE:
+    case OP_STRING_IS_DIGIT:
+    case OP_STRING_TO_CODE:
+    case OP_STRING_FROM_CODE:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
         
@@ -812,6 +818,13 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         default:
             m.raise_exception("Incorrect number of arguments passed to loop. Expected 1 regular expression and two integer parameters");
         }
+    case OP_RE_POWER:
+        m_has_re = true;
+        if (num_parameters == 1 && parameters[0].is_int() && arity == 1 && parameters[0].get_int() >= 0) {
+            rng = domain[0];
+            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));
+        }
+        m.raise_exception("Incorrect arguments used for re.^. Expected one non-negative integer parameter");
 
     case OP_STRING_CONST:
         if (!(num_parameters == 1 && arity == 0 && parameters[0].is_symbol())) {
@@ -823,6 +836,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_UNION:
     case OP_RE_CONCAT:
     case OP_RE_INTERSECT:
+    case OP_RE_DIFF:
         m_has_re = true;
         return mk_assoc_fun(k, arity, domain, range, k, k);
 
@@ -1066,11 +1080,13 @@ app* seq_util::str::mk_string(zstring const& s) const {
 }
 
 app*  seq_util::str::mk_char(zstring const& s, unsigned idx) const {
-    return u.bv().mk_numeral(s[idx], s.num_bits());
+    // TBD: change to unicode
+    return u.bv().mk_numeral(s[idx], 8);
 }
 
 app*  seq_util::str::mk_char(char ch) const {
-    zstring s(ch, zstring::ascii);
+    // TBD: change to unicode
+    zstring s(ch);
     return mk_char(s, 0);
 }
 
