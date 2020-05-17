@@ -1739,7 +1739,7 @@ br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_str_from_code(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {
-        if (r.is_neg() || r > m_util.str.max_char_value()) {
+        if (r.is_neg() || r > zstring::max_char()) {
             result = m_util.str.mk_string(symbol(""));
         }
         else {

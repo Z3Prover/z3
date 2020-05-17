@@ -17,6 +17,8 @@ Revision History:
 
     Updated to string sequences 2015-12-5
 
+    Add SMTLIB 2.6 support 2020-5-17
+
 --*/
 #ifndef SEQ_DECL_PLUGIN_H_
 #define SEQ_DECL_PLUGIN_H_
@@ -103,17 +105,18 @@ enum seq_op_kind {
 class zstring {
 private:
     buffer<unsigned> m_buffer;
+    bool well_formed() const;
 public:
-    zstring();
+    static unsigned max_char() { return 196607; }
+    zstring() {}
     zstring(char const* s);
-    zstring(unsigned sz, unsigned const* s);
-    zstring(zstring const& other);
+    zstring(unsigned sz, unsigned const* s) { m_buffer.append(sz, s); SASSERT(well_formed()); }
+    zstring(zstring const& other): m_buffer(other.m_buffer) {}
     zstring(unsigned num_bits, bool const* ch);
     zstring(unsigned ch);
     zstring& operator=(zstring const& other);
     zstring replace(zstring const& src, zstring const& dst) const;
     std::string encode() const;
-    std::string as_string() const;
     unsigned length() const { return m_buffer.size(); }
     unsigned operator[](unsigned i) const { return m_buffer[i]; }
     bool empty() const { return m_buffer.empty(); }
@@ -256,9 +259,6 @@ public:
 
     public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
-
-        unsigned min_char_value() const { return 0; }
-        unsigned max_char_value() const { return 196607; }
 
         sort* mk_seq(sort* s) const { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
         sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, nullptr); }

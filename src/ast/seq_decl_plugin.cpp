@@ -158,28 +158,18 @@ static bool is_escape_char(char const *& s, unsigned& result) {
     return false;
 }
 
-zstring::zstring() {}
-
 zstring::zstring(char const* s) {
-    unsigned mask = 0xFF; // TBD for Unicode
     while (*s) {
-        unsigned ch;
+        unsigned ch = 0;
         if (is_escape_char(s, ch)) {
-            m_buffer.push_back(ch & mask);
+            m_buffer.push_back(ch);
         }
         else {
-            m_buffer.push_back(*s & mask);
+            m_buffer.push_back(*s);
             ++s;
         }
     }
-}
-
-zstring::zstring(zstring const& other) {
-    m_buffer = other.m_buffer;
-}
-
-zstring::zstring(unsigned sz, unsigned const* s) {
-    m_buffer.append(sz, s);
+    SASSERT(well_formed());
 }
 
 zstring::zstring(unsigned num_bits, bool const* ch) {
@@ -189,10 +179,18 @@ zstring::zstring(unsigned num_bits, bool const* ch) {
         n |= (((unsigned)ch[i]) << i);
     }
     m_buffer.push_back(n);
+    SASSERT(well_formed());
+}
+
+bool zstring::well_formed() const {
+    for (unsigned ch : m_buffer) {
+        if (ch > max_char())
+            return false;
+    }
+    return true;
 }
 
 zstring::zstring(unsigned ch) {
-    SASSERT(ch <= 196607);
     m_buffer.push_back(ch);
 }
 
@@ -266,20 +264,6 @@ std::string zstring::encode() const {
     _flush();
     return strm.str();
 }
-
-std::string zstring::as_string() const {
-    std::ostringstream strm;
-    char buffer[100];
-    unsigned offset = 0;
-    for (unsigned i = 0; i < m_buffer.size(); ++i) {
-        if (offset == 99) { _flush(); }
-        unsigned char ch = m_buffer[i];
-        buffer[offset++] = (char)(ch);        
-    }
-    _flush();
-    return strm.str();
-}
-
 
 bool zstring::suffixof(zstring const& other) const {
     if (length() > other.length()) return false;
@@ -1079,13 +1063,12 @@ app* seq_util::str::mk_string(zstring const& s) const {
     return u.seq.mk_string(s); 
 }
 
-app*  seq_util::str::mk_char(zstring const& s, unsigned idx) const {
-    // TBD: change to unicode
+app* seq_util::str::mk_char(zstring const& s, unsigned idx) const {
+    // TBD for unicode
     return u.bv().mk_numeral(s[idx], 8);
 }
 
-app*  seq_util::str::mk_char(char ch) const {
-    // TBD: change to unicode
+app* seq_util::str::mk_char(char ch) const {
     zstring s(ch);
     return mk_char(s, 0);
 }
