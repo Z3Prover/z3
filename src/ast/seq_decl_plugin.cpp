@@ -739,9 +739,12 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_STRING_STOI:
     case OP_STRING_LT:
     case OP_STRING_LE:
+        match(*m_sigs[k], arity, domain, range, rng);
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
     case OP_STRING_IS_DIGIT:
     case OP_STRING_TO_CODE:
     case OP_STRING_FROM_CODE:
+        m.raise_exception("character function is not yet supported");
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
         
@@ -823,6 +826,13 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_DIFF:
         m_has_re = true;
         return mk_assoc_fun(k, arity, domain, range, k, k);
+
+    case OP_SEQ_REPLACE_RE_ALL:
+    case OP_SEQ_REPLACE_RE:
+        m_has_re = true;
+    case OP_SEQ_REPLACE_ALL:
+        m.raise_exception("replace-all operation is not yet supported");
+        return mk_str_fun(k, arity, domain, range, k);        
 
     case OP_SEQ_CONCAT:
         return mk_assoc_fun(k, arity, domain, range, k, _OP_STRING_CONCAT);
