@@ -238,13 +238,12 @@ static const char esc_table[32][6] =
 };
 
 std::string zstring::encode() const {
-    SASSERT(m_encoding == ascii);
     std::ostringstream strm;
     char buffer[100];
     unsigned offset = 0;
 #define _flush() if (offset > 0) { buffer[offset] = 0; strm << buffer; offset = 0; }
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
-        unsigned char ch = m_buffer[i];
+        unsigned ch = m_buffer[i];
         if (0 <= ch && ch < 32) {
             _flush();
             strm << esc_table[ch];
@@ -253,9 +252,13 @@ std::string zstring::encode() const {
             _flush();
             strm << "\\\\";
         }
+        else if (ch >= 256) {
+            _flush();
+            strm << "\\u{" << std::hex << ch << std::dec << "}";
+        }
         else if (ch >= 128) {
             _flush();
-            strm << "\\x" << std::hex << (unsigned)ch << std::dec; 
+            strm << "\\x" << std::hex << ch << std::dec; 
         }
         else {
             if (offset == 99) { 
@@ -269,7 +272,7 @@ std::string zstring::encode() const {
 }
 
 std::string zstring::as_string() const {
-    SASSERT(m_encoding == ascii);
+    SASSERT(m_encoding == ascii); 
     std::ostringstream strm;
     char buffer[100];
     unsigned offset = 0;
