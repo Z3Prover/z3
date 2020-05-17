@@ -8633,11 +8633,9 @@ namespace smt {
 
             // We must be be 100% certain that if there are any regex constraints,
             // the string assignment for each variable is consistent with the automaton.
-            // The (probably) easiest way to do this is to ensure
-            // that we have path constraints set up for every assigned regex term.
+            bool regexOK = true;
             if (!regex_terms.empty()) {
-                for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
-                    expr * str_in_re = *it;
+                for (auto& str_in_re : regex_terms) {
                     expr * str;
                     expr * re;
                     u.str.is_in_re(str_in_re, str, re);
@@ -8645,25 +8643,53 @@ namespace smt {
                     if (current_assignment == l_undef) {
                         continue;
                     }
-                    if (!regex_terms_with_path_constraints.contains(str_in_re)) {
-                        TRACE("str", tout << "assigned regex term " << mk_pp(str_in_re, m) << " has no path constraints -- continuing search" << std::endl;);
-                        return FC_CONTINUE;
+                    zstring strValue;
+                    if (get_string_constant_eqc(str, strValue)) {
+                        // try substituting the current assignment and solving the regex
+                        expr_ref valueInRe(u.re.mk_in_re(mk_string(strValue), re), m);
+                        ctx.get_rewriter()(valueInRe);
+                        if (m.is_true(valueInRe)) {
+                            if (current_assignment == l_false) {
+                                TRACE("str", tout << "regex conflict: " << mk_pp(str, m) << " = \"" << strValue << "\" but must not be in the language " << mk_pp(re, m) << std::endl;);
+                                expr_ref conflictClause(m.mk_or(m.mk_not(ctx.mk_eq_atom(str, mk_string(strValue))), str_in_re), m);
+                                assert_axiom(conflictClause);
+                                add_persisted_axiom(conflictClause);
+                                return FC_CONTINUE;
+                            }
+                        } else if (m.is_false(valueInRe)) {
+                            if (current_assignment == l_true) {
+                                TRACE("str", tout << "regex conflict: " << mk_pp(str, m) << " = \"" << strValue << "\" but must be in the language " << mk_pp(re, m) << std::endl;);
+                                expr_ref conflictClause(m.mk_or(m.mk_not(ctx.mk_eq_atom(str, mk_string(strValue))), m.mk_not(str_in_re)), m);
+                                assert_axiom(conflictClause);
+                                add_persisted_axiom(conflictClause);
+                                return FC_CONTINUE;
+                            }
+                        } else {
+                            // try to keep going, but don't assume the current assignment is right or wrong
+                            regexOK = false;
+                            break;
+                        }
+                    } else {
+                        regexOK = false;
+                        break;
                     }
                 } // foreach (str.in.re in regex_terms)
             }
-
-            if (unused_internal_variables.empty()) {
-                TRACE("str", tout << "All variables are assigned. Done!" << std::endl;);
-                m_stats.m_solved_by = 2;
-                return FC_DONE;
-            } else {
-                TRACE("str", tout << "Assigning decoy values to free internal variables." << std::endl;);
-                for (std::set<expr*>::iterator it = unused_internal_variables.begin(); it != unused_internal_variables.end(); ++it) {
-                    expr * var = *it;
-                    expr_ref assignment(m.mk_eq(var, mk_string("**unused**")), m);
-                    assert_axiom(assignment);
+            // we're not done if some variable in a regex membership predicate was unassigned
+            if (regexOK) {
+                if (unused_internal_variables.empty()) {
+                    TRACE("str", tout << "All variables are assigned. Done!" << std::endl;);
+                    m_stats.m_solved_by = 2;
+                    return FC_DONE;
+                } else {
+                    TRACE("str", tout << "Assigning decoy values to free internal variables." << std::endl;);
+                    for (std::set<expr*>::iterator it = unused_internal_variables.begin(); it != unused_internal_variables.end(); ++it) {
+                        expr * var = *it;
+                        expr_ref assignment(m.mk_eq(var, mk_string("**unused**")), m);
+                        assert_axiom(assignment);
+                    }
+                    return FC_CONTINUE;
                 }
-                return FC_CONTINUE;
             }
         }
 
