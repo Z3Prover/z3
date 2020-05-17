@@ -81,7 +81,9 @@ namespace smt {
             m_add_axiom(a, b, c);
         }
 
-        literal mk_literal(expr* e) { return null_literal; } // TBD
+        void adapt_eq(theory_var v1, theory_var v2);
+
+        literal mk_literal(expr* e);
 
     public:
 

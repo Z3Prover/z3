@@ -40,42 +40,43 @@ namespace smt {
         dl.init_var(v2);
         // dl.set_assignment(v1, 'a' + ctx().random(24));
         // dl.set_assignment(v2, 'a' + ctx().random(24));
-        auto edge_id = dl.add_edge(v1, v2, s_integer(0), lit);
-        m_asserted_edges.push_back(edge_id);
         ctx().push_trail(push_back_vector<context, svector<theory_var>>(m_asserted_edges));
+        m_asserted_edges.push_back(dl.add_edge(v1, v2, s_integer(0), lit));
     }
 
     // < atomic constraint on characters
     void seq_unicode::assign_lt(theory_var v1, theory_var v2, literal lit) {
         dl.init_var(v1);
         dl.init_var(v2);
-        auto edge_id = dl.add_edge(v1, v2, s_integer(1), lit);
-        m_asserted_edges.push_back(edge_id);
         ctx().push_trail(push_back_vector<context, svector<theory_var>>(m_asserted_edges));
+        m_asserted_edges.push_back(dl.add_edge(v1, v2, s_integer(1), lit));
+    }
+
+    literal seq_unicode::mk_literal(expr* e) { 
+        expr_ref _e(e, m);
+        th.ensure_enode(e);
+        return ctx().get_literal(e);
+    }
+
+    void seq_unicode::adapt_eq(theory_var v1, theory_var v2) {
+        expr* e1 = th.get_expr(v1);
+        expr* e2 = th.get_expr(v2);
+        literal eq = th.mk_eq(e1, e2, false);
+        literal le = mk_literal(seq.mk_le(e1, e2));
+        literal ge = mk_literal(seq.mk_le(e2, e1));
+        add_axiom(~eq, le);
+        add_axiom(~eq, ge);
+        add_axiom(le, ge, eq);
     }
         
     // = on characters
     void seq_unicode::new_eq_eh(theory_var v1, theory_var v2) {
-        expr* e1 = th.get_expr(v1);
-        expr* e2 = th.get_expr(v2);
-        literal eq = th.mk_eq(e1, e2, false);
-        literal le = mk_literal(seq.mk_le(e1, e2));
-        literal ge = mk_literal(seq.mk_le(e2, e1));
-        add_axiom(~eq, le);
-        add_axiom(~eq, ge);
-        add_axiom(le, ge, eq);
+        adapt_eq(v1, v2);
     }
 
     // != on characters
-    void seq_unicode::new_diseq_eh(theory_var v1, theory_var v2) {
-        expr* e1 = th.get_expr(v1);
-        expr* e2 = th.get_expr(v2);
-        literal eq = th.mk_eq(e1, e2, false);
-        literal le = mk_literal(seq.mk_le(e1, e2));
-        literal ge = mk_literal(seq.mk_le(e2, e1));
-        add_axiom(~eq, le);
-        add_axiom(~eq, ge);
-        add_axiom(le, ge, eq);
+    void seq_unicode::new_diseq_eh(theory_var v1, theory_var v2) {        
+        adapt_eq(v1, v2);
     }
 
     final_check_status seq_unicode::final_check() {
@@ -86,7 +87,7 @@ namespace smt {
         arith_util a(m);
         arith_value avalue(m);
         avalue.init(&ctx());
-        for (unsigned v = 0; v < th.get_num_vars(); ++v) {
+        for (unsigned v = 0; !ctx().inconsistent() && v < th.get_num_vars(); ++v) {
             if (!seq.is_char(th.get_expr(v)))
                 continue;
             dl.init_var(v);
@@ -115,7 +116,7 @@ namespace smt {
             // expr_ref ch2(seq.str.mk_string(zstring(val)), m);
             expr_ref code(seq.str.mk_to_code(ch1), m);
             rational val2;
-            if (avalue.get_fixed(code, val2) && val2 == rational(val))
+            if (avalue.get_value(code, val2) && val2 == rational(val))
                 continue;
             add_axiom(th.mk_eq(code, a.mk_int(val), false));
             added_constraint = true;
