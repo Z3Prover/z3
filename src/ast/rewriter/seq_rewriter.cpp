@@ -308,7 +308,8 @@ eautomaton* re2automaton::re2aut(expr* e) {
             return a.detach();            
         }
         else {
-            TRACE("seq", tout << "Range expression is not handled: " << mk_pp(e, m) << "\n";);
+            // if e1/e2 are not unit, (re.range e1 e2) is defined to be the empty language
+            return alloc(eautomaton, sm);
         }
     }
     else if (u.re.is_complement(e, e0) && (a = re2aut(e0)) && m_sa) {
