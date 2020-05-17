@@ -210,7 +210,7 @@ func_decl * func_decls::find(unsigned arity, sort * const * domain, sort * range
             if (f->get_domain(i) != domain[i])
                 break;
         }
-        if (i == arity)
+        if (i == arity || !domain)
             return f;
     }
     return nullptr;
