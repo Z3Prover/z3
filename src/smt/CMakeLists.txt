@@ -17,6 +17,7 @@ z3_add_component(smt
     seq_eq_solver.cpp
     seq_ne_solver.cpp
     seq_offset_eq.cpp
+    seq_unicode.cpp
     smt_almost_cg_table.cpp
     smt_arith_value.cpp
     smt_case_split_queue.cpp

@@ -772,25 +772,18 @@ void seq_axioms::add_le_axiom(expr* n) {
 }
 
 /**
-   is_digit(e) <=> e = '0' or ... or e = '9'
+   is_digit(e) <=> to_code('0') <= to_code(e) <= to_code('9')
  */
 void seq_axioms::add_is_digit_axiom(expr* n) {
     expr* e = nullptr;
     VERIFY(seq.str.is_is_digit(n, e)); 
     literal is_digit = mk_literal(n);
-    literal_vector digits;
-    digits.push_back(~is_digit);
-    for (unsigned i = 0; i < 10; ++i) {
-        unsigned d = '0' + i;
-        zstring str(1, &d);
-        expr_ref s(seq.str.mk_string(str), m);
-        m_rewrite(s); // if the solver depends on unit normal form
-        literal digit_i = mk_eq(e, s); 
-        digits.push_back(digit_i);
-        add_axiom(~digit_i, is_digit);        
-    }
-    // literals are marked relevant by add_axiom of binary clauses
-    ctx().mk_th_axiom(th.get_id(), digits);
+    expr_ref to_code(seq.str.mk_to_code(e), m);
+    literal ge0 = mk_ge(to_code, (unsigned)'0');
+    literal le9 = mk_le(to_code, (unsigned)'9');
+    add_axiom(~is_digit, ge0);
+    add_axiom(~is_digit, le9);
+    add_axiom(is_digit, ~ge0, ~le9);
 }
 
 /**
