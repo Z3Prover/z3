@@ -2018,11 +2018,11 @@ public:
             }
         }
         for (auto const& ev : ex) {
-            lp().constraints().display(out << ev.first << ": ", ev.second);
+            lp().constraints().display(out << ev.coeff() << ": ", ev.ci());
         }
         expr_ref_vector fmls(m);
         for (auto const& ev : ex) {
-            fmls.push_back(constraint2fml(ev.second));
+            fmls.push_back(constraint2fml(ev.ci()));
         }        
         expr_ref t(term2expr(term), m);
         if (upper) {
@@ -2081,9 +2081,7 @@ public:
             // m_explanation implies term <= k
             reset_evidence();
             for (auto const& ev : m_explanation) {
-                if (!ev.first.is_zero()) { 
-                    set_evidence(ev.second, m_core, m_eqs);
-                }
+                set_evidence(ev.ci(), m_core, m_eqs);
             }
             // The call mk_bound() can set the m_infeasible_column in lar_solver
             // so the explanation is safer to take before this call.
@@ -3273,9 +3271,7 @@ public:
         TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
         TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n"););
         for (auto const& ev : m_explanation) {
-            if (!ev.first.is_zero()) { 
-                set_evidence(ev.second, m_core, m_eqs);
-            }
+            set_evidence(ev.ci(), m_core, m_eqs);
         }
         // SASSERT(validate_conflict(m_core, m_eqs));
         dump_conflict(m_core, m_eqs);
@@ -3785,11 +3781,11 @@ public:
     void display_evidence(std::ostream& out, lp::explanation const& evidence) {
         for (auto const& ev : evidence) {
             expr_ref e(m);
-            SASSERT(!ev.first.is_zero()); 
-            if (ev.first.is_zero()) { 
+            SASSERT(!ev.coeff().is_zero()); 
+            if (ev.coeff().is_zero()) { 
                 continue;
             }
-            unsigned idx = ev.second;
+            unsigned idx = ev.ci();
             switch (m_constraint_sources.get(idx, null_source)) {
             case inequality_source: {
                 literal lit = m_inequalities[idx];
@@ -3816,7 +3812,7 @@ public:
             }
         }
         for (auto const& ev : evidence) {
-            lp().constraints().display(out << ev.first << ": ", ev.second); 
+            lp().constraints().display(out << ev.coeff() << ": ", ev.ci()); 
         }
     }
 

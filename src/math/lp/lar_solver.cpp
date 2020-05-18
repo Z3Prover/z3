@@ -1097,9 +1097,9 @@ bool lar_solver::inf_explanation_is_correct() const {
 
 mpq lar_solver::sum_of_right_sides_of_explanation(explanation& exp) const {
     mpq ret = numeric_traits<mpq>::zero();
-    for (auto & it : exp) {
-        mpq coeff = it.first;
-        constraint_index con_ind = it.second;
+    for (auto it : exp) {
+        mpq coeff = it.coeff();
+        constraint_index con_ind = it.ci();
         lp_assert(m_constraints.valid_index(con_ind));
         ret += (m_constraints[con_ind].rhs() - m_constraints[con_ind].get_free_coeff_of_left_side()) * coeff;
     }

@@ -259,9 +259,9 @@ std::ostream& core::print_monic_with_vars(const monic& m, std::ostream& out) con
 std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& out) const {
     out << "expl: ";
     unsigned i = 0;
-    for (auto &p : exp) {
-        out << "(" << p.second << ")";
-        m_lar_solver.constraints().display(out, [this](lpvar j) { return var_str(j);}, p.second);
+    for (auto p : exp) {
+        out << "(" << p.ci() << ")";
+        m_lar_solver.constraints().display(out, [this](lpvar j) { return var_str(j);}, p.ci());
         if (++i < exp.size())
             out << "      ";
     }
@@ -855,7 +855,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
         }
     }
     for (const auto& p : l.expl()) {
-        const auto& c = m_lar_solver.constraints()[p.second];
+        const auto& c = m_lar_solver.constraints()[p.ci()];
         for (const auto& r : c.coeffs()) {
             insert_j(r.second);
         }
@@ -1141,9 +1141,9 @@ new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
 std::ostream& new_lemma::display(std::ostream & out) const {
     auto const& lemma = current();
 
-    for (auto &p : lemma.expl()) {
-        out << "(" << p.second << ") ";
-        c.m_lar_solver.constraints().display(out, [this](lpvar j) { return c.var_str(j);}, p.second);
+    for (auto p : lemma.expl()) {
+        out << "(" << p.ci() << ") ";
+        c.m_lar_solver.constraints().display(out, [this](lpvar j) { return c.var_str(j);}, p.ci());
     }
     out << " ==> ";
     if (lemma.ineqs().empty()) {
