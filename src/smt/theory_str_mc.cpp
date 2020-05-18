@@ -728,7 +728,7 @@ namespace smt {
                 eqc_chars.reset();
                 return true;
             } else {
-                if (termLen.get_uint64() != iValue.to_string().length()) {
+                if (termLen != rational((unsigned)iValue.to_string().length())) {
                     // conflict
                     cex = expr_ref(m.mk_not(m.mk_and(get_context().mk_eq_atom(mk_strlen(term), mk_int(termLen)), get_context().mk_eq_atom(arg0, mk_int(iValue)))), m);
                     return false;
