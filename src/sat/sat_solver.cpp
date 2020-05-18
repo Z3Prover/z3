@@ -19,7 +19,9 @@ Revision History:
 
 
 #include <cmath>
+#ifndef SINGLE_THREAD
 #include <thread>
+#endif
 #include "util/luby.h"
 #include "util/trace.h"
 #include "util/max_cliques.h"
@@ -1322,6 +1324,11 @@ namespace sat {
         return invoke_local_search(num_lits, lits);
     }
 
+#ifdef SINGLE_THREAD
+    lbool solver::check_par(unsigned num_lits, literal const* lits) {
+        return l_undef;
+    }
+#else
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         if (!rlimit().inc()) {
             return l_undef;
@@ -1468,6 +1475,7 @@ namespace sat {
         return result;
 
     }
+#endif
 
     /*
       \brief import lemmas/units from parallel sat solvers.
