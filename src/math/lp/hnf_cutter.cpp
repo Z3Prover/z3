@@ -263,7 +263,7 @@ namespace lp  {
             lia.settings().stats().m_hnf_cuts++;
             lia.m_ex->clear();        
             for (unsigned i : constraints_for_explanation()) {
-                lia.m_ex->push_justification(i);
+                lia.m_ex->push_back(i);
             }
         } 
         return r;

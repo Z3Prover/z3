@@ -2333,7 +2333,7 @@ public:
 
         void consume(rational const& v, lp::constraint_index j) override {
             m_imp.set_evidence(j, m_imp.m_core, m_imp.m_eqs);
-            m_imp.m_explanation.push_justification(j, v);
+            m_imp.m_explanation.add_with_coeff(j, v);
         }
     };
 

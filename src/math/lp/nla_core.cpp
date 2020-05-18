@@ -312,7 +312,7 @@ bool core::explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& boun
         if (c + 1 == 0)
             return false;
         bound = a * m_lar_solver.get_lower_bound(p.column()).x;
-        e.add(c);
+        e.push_back(c);
         return true;
     }
     // a.is_neg()
@@ -320,7 +320,7 @@ bool core::explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& boun
     if (c + 1 == 0)
         return false;
     bound = a * m_lar_solver.get_upper_bound(p.column()).x;
-    e.add(c);
+    e.push_back(c);
     return true;
 }
 
@@ -334,7 +334,7 @@ bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& boun
         if (c + 1 == 0)
             return false;
         bound = a * m_lar_solver.get_lower_bound(j).x;
-        e.add(c);
+        e.push_back(c);
         return true;
     }
     // a.is_pos()
@@ -342,7 +342,7 @@ bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& boun
     if (c + 1 == 0)
         return false;
     bound = a * m_lar_solver.get_upper_bound(j).x;
-    e.add(c);
+    e.push_back(c);
     return true;
 }
     
@@ -1060,7 +1060,7 @@ lemma& new_lemma::current() const {
 }
 
 new_lemma& new_lemma::operator&=(lp::explanation const& e) {
-    expl().add(e);
+    expl().add_expl(e);
     return *this;
 }
 
@@ -1124,7 +1124,7 @@ new_lemma& new_lemma::explain_var_separated_from_zero(lpvar j) {
 new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
     SASSERT(c.has_lower_bound(j));
     lp::explanation ex;
-    ex.add(c.m_lar_solver.get_column_lower_bound_witness(j));
+    ex.push_back(c.m_lar_solver.get_column_lower_bound_witness(j));
     *this &= ex;
     TRACE("nla_solver", tout << j << ": " << *this << "\n";);
     return *this;
@@ -1133,7 +1133,7 @@ new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
 new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
     SASSERT(c.has_upper_bound(j));
     lp::explanation ex;
-    ex.add(c.m_lar_solver.get_column_upper_bound_witness(j));
+    ex.push_back(c.m_lar_solver.get_column_upper_bound_witness(j));
     *this &= ex;
     return *this;
 }

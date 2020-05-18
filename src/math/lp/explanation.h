@@ -27,35 +27,34 @@ class explanation {
 public:
     explanation() {}
     template <typename T>
-    explanation(const T& t) { for ( unsigned c : t) add(c); }
-    
-    void clear() { m_j_to_mpq.reset(); }
-    void push_justification(constraint_index j, const mpq& v) {
-        SASSERT(m_j_to_mpq.contains(j) == false); // if we hit the assert then we
-                                                                  // might start using summation
-        m_j_to_mpq.insert(j, optional<mpq>(v));
+    explanation(const T& t) {
+        for ( unsigned c : t)
+            push_back(c);
     }
     
-    void push_justification(constraint_index j) {
+    void clear() { m_j_to_mpq.reset(); }
+    void add_with_coeff(constraint_index j, const mpq& v) {
+        SASSERT(m_j_to_mpq.contains(j) == false); // if we hit the assert then we
+                                                  // might start using summation
+        m_j_to_mpq.insert(j, optional<mpq>(v));
+    }
+
+    // this signature is needed to use it in a template that also works for the vector type
+    void push_back(constraint_index j) {
         if (m_j_to_mpq.contains(j))
             return;
         m_j_to_mpq.insert(j, optional<mpq>());
     }
-
-    void push_back(constraint_index j) {
-        push_justification(j);
-    }
     
-    void add(const explanation& e) {
+    void add_expl(const explanation& e) {
         for (const auto& p: e.m_j_to_mpq) {
             m_j_to_mpq.insert(p.m_key, p.m_value);
         }
     }
-    template <typename T>
-    void add_expl(const T& e) { for (auto j: e) add(j); }
-    void add(unsigned ci) { push_justification(ci); }
-    
-    void add(const std::pair<mpq, constraint_index>& j) { push_justification(j.second, j.first); }
+
+    void add_pair(const std::pair<mpq, constraint_index>& j) {
+        add_with_coeff(j.second, j.first);
+    }
 
     bool empty() const {  return m_j_to_mpq.empty();  }
     size_t size() const { return m_j_to_mpq.size(); }
