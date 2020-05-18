@@ -26,11 +26,14 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/bv_decl_plugin.h"
 
+#define _USE_UNICODE 0
 
 enum seq_sort_kind {
     SEQ_SORT,
     RE_SORT,
+#if _USE_UNICODE
     _CHAR_SORT,     // internal only
+#endif
     _STRING_SORT,  
     _REGLAN_SORT
 };
@@ -83,6 +86,11 @@ enum seq_op_kind {
     OP_STRING_IS_DIGIT,
     OP_STRING_TO_CODE,
     OP_STRING_FROM_CODE,
+
+#if _USE_UNICODE
+    OP_CHAR_CONST,    // constant character
+    OP_CHAR_LE,       // Unicode comparison
+#endif
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_STRREPL,
     _OP_STRING_CONCAT,
@@ -210,6 +218,7 @@ public:
 
     app* mk_string(symbol const& s);
     app* mk_string(zstring const& s);
+    app* mk_char(unsigned ch);
 
     bool has_re() const { return m_has_re; }
     bool has_seq() const { return m_has_seq; }
@@ -238,12 +247,19 @@ public:
     bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
     bool is_char(expr* e) const { return is_char(m.get_sort(e)); }
     bool is_const_char(expr* e, unsigned& c) const;
+#if _USE_UNICODE
+    bool is_char_le(expr const* e) const { return is_app_of(e, m_fid, OP_CHAR_LE); }
+#else
+    bool is_char_le(expr const* e) const { return false; }
+#endif
     app* mk_char(unsigned ch) const;
     app* mk_le(expr* ch1, expr* ch2) const;
     app* mk_lt(expr* ch1, expr* ch2) const;
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
+
+    MATCH_BINARY(is_char_le);
 
     bool has_re() const { return seq.has_re(); }
     bool has_seq() const { return seq.has_seq(); }
@@ -265,7 +281,7 @@ public:
         app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, nullptr, 0, (expr*const*)nullptr, s)); }
         app* mk_string(zstring const& s) const;
         app* mk_string(symbol const& s) const { return u.seq.mk_string(s); }
-        app* mk_char(char ch) const;
+        app* mk_char(unsigned ch) const;
         app* mk_concat(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) const { return mk_concat(a, mk_concat(b, c)); }
         expr* mk_concat(unsigned n, expr* const* es, sort* s) const { 
@@ -323,6 +339,9 @@ public:
         bool is_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_INDEX); }
         bool is_last_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_LAST_INDEX); }
         bool is_replace(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE); }
+        bool is_replace_re(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE_RE); }
+        bool is_replace_re_all(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE_RE_ALL); }
+        bool is_replace_all(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE_ALL); }
         bool is_prefix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_PREFIX); }
         bool is_suffix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_SUFFIX); }
         bool is_itos(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_ITOS); }
@@ -356,6 +375,9 @@ public:
         MATCH_TERNARY(is_index);
         MATCH_BINARY(is_last_index);
         MATCH_TERNARY(is_replace);
+        MATCH_TERNARY(is_replace_re);
+        MATCH_TERNARY(is_replace_re_all);
+        MATCH_TERNARY(is_replace_all);
         MATCH_BINARY(is_prefix);
         MATCH_BINARY(is_suffix);
         MATCH_BINARY(is_lt);

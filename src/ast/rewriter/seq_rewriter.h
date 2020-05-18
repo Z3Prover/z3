@@ -212,6 +212,7 @@ public:
     void set_solver(expr_solver* solver) { m_re2aut.set_solver(solver); }
     bool has_solver() { return m_re2aut.has_solver(); }
 
+    bool coalesce_chars() const { return m_coalesce_chars; }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);

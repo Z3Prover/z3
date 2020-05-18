@@ -102,7 +102,7 @@ namespace smt {
         void new_diseq_eh(theory_var v1, theory_var v2);
 
         // ensure coherence for character codes and equalities of shared symbols.
-        final_check_status final_check();
+        bool final_check();
 
         unsigned get_value(theory_var v);
 

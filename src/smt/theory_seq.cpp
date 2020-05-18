@@ -298,12 +298,14 @@ theory_seq::theory_seq(context& ctx):
     m_autil(m),
     m_sk(m, m_rewrite),
     m_ax(*this, m_rewrite),
+    m_unicode(*this),
     m_arith_value(m),
     m_trail_stack(*this),
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
     m_new_eqs(m),
     m_has_seq(m_util.has_seq()),
+    m_unhandled_expr(nullptr),
     m_res(m),
     m_max_unfolding_depth(1),
     m_max_unfolding_lit(null_literal),
@@ -346,6 +348,7 @@ final_check_status theory_seq::final_check_eh() {
     if (!m_has_seq) {
         return FC_DONE;
     }
+    
     m_new_propagation = false;
     TRACE("seq", display(tout << "level: " << ctx.get_scope_level() << "\n"););
     TRACE("seq_verbose", ctx.display(tout););
@@ -372,6 +375,9 @@ final_check_status theory_seq::final_check_eh() {
     if (fixed_length(true)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("zero_length");
+        return FC_CONTINUE;
+    }
+    if (!m_unicode.final_check()) {
         return FC_CONTINUE;
     }
     if (get_fparams().m_split_w_len && len_based_split()) {
@@ -423,6 +429,9 @@ final_check_status theory_seq::final_check_eh() {
         ++m_stats.m_branch_nqs;
         TRACEFIN("branch_ne");
         return FC_CONTINUE;
+    }
+    if (m_unhandled_expr) {
+        return FC_GIVEUP;
     }
     if (is_solved()) {
         //scoped_enable_trace _se;
@@ -2309,7 +2318,7 @@ theory_var theory_seq::mk_var(enode* n) {
 }
 
 bool theory_seq::can_propagate() {
-    return m_axioms_head < m_axioms.size() || !m_replay.empty() || m_new_solution;
+    return m_axioms_head < m_axioms.size() || !m_replay.empty() || m_new_solution || m_unicode.can_propagate();
 }
 
 bool theory_seq::canonize(expr* e, dependency*& eqs, expr_ref& result) {
@@ -2501,6 +2510,7 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
+    m_unicode.propagate();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
         e = m_axioms[m_axioms_head].get();
@@ -2577,6 +2587,15 @@ void theory_seq::deque_axiom(expr* n) {
     }
     else if (m_util.str.is_unit(n)) {
         m_ax.add_unit_axiom(n);
+    }
+    else if (m_util.str.is_is_digit(n)) {
+        m_ax.add_is_digit_axiom(n);        
+    }
+    else if (m_util.str.is_from_code(n)) {
+        m_ax.add_str_from_code_axiom(n);        
+    }
+    else if (m_util.str.is_to_code(n)) {
+        m_ax.add_str_to_code_axiom(n);        
     }
 }
 
@@ -3053,7 +3072,16 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
     }
+    else if (m_util.is_char_le(e, e1, e2)) {
+        theory_var v1 = get_th_var(ctx.get_enode(e1));
+        theory_var v2 = get_th_var(ctx.get_enode(e2));
+        if (is_true) 
+            m_unicode.assign_le(v1, v2, lit);
+        else
+            m_unicode.assign_lt(v2, v1, lit);
+    }
     else if (m_util.is_skolem(e)) {
+        
         // no-op
     }
     else {
@@ -3065,6 +3093,10 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
 void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
     enode* n1 = get_enode(v1);
     enode* n2 = get_enode(v2);
+    if (m_util.is_char(n1->get_owner())) {
+        m_unicode.new_eq_eh(v1, v2);
+        return;
+    }
     dependency* deps = m_dm.mk_leaf(assumption(n1, n2));
     new_eq_eh(deps, n1, n2);
 }
@@ -3156,6 +3188,10 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
             throw default_exception("convert regular expressions into automata");            
         }
     }
+    if (m_util.is_char(n1->get_owner())) {
+        m_unicode.new_diseq_eh(v1, v2);
+        return;
+    }
     m_exclude.update(e1, e2);
     expr_ref eq(m.mk_eq(e1, e2), m);
     TRACE("seq", tout << "new disequality " << ctx.get_scope_level() << ": " << mk_bounded_pp(eq, m, 2) << "\n";);
@@ -3219,6 +3255,9 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_itos(n) || 
         m_util.str.is_stoi(n) ||
         m_util.str.is_lt(n) ||
+        m_util.str.is_is_digit(n) ||
+        m_util.str.is_from_code(n) ||
+        m_util.str.is_to_code(n) ||
         m_util.str.is_unit(n) ||
         m_util.str.is_le(n)) {
         enque_axiom(n);
@@ -3236,6 +3275,15 @@ void theory_seq::relevant_eh(app* n) {
 
     if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) {
         add_length_to_eqc(arg);
+    }
+
+    if (m_util.str.is_replace_all(n) ||
+        m_util.str.is_replace_re(n) ||
+        m_util.str.is_replace_re_all(n)) {
+        if (!m_unhandled_expr) {
+            ctx.push_trail(value_trail<context, expr*>(m_unhandled_expr));
+            m_unhandled_expr = n;
+        }
     }
 }
 

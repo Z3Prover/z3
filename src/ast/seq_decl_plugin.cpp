@@ -82,8 +82,7 @@ static bool is_escape_char(char const *& s, unsigned& result) {
         return true;
     }
 
-#if 0
-    /* unicode */
+#if _USE_UNICODE
     if (*(s+1) == 'u' && *(s+2) == '{') {
         result = 0;
         for (unsigned i = 0; i < 5; ++i) {
@@ -570,6 +569,7 @@ void seq_decl_plugin::init() {
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
     sort* seq3A[3] = { seqA, seqA, seqA };
+    sort* charTcharT[2] = { m_char, m_char };
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq.unit",     1, 1, &A, seqA);
@@ -607,6 +607,10 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_REPLACE_RE]    = alloc(psig, m, "str.replace_re", 1, 3, seqAreAseqA, seqA);
     m_sigs[OP_SEQ_REPLACE_ALL]   = alloc(psig, m, "str.replace_all", 1, 3, seqAseqAseqA, seqA);
     m_sigs[OP_STRING_CONST]      = nullptr;
+#if _USE_UNICODE
+    m_sigs[OP_CHAR_CONST]        = nullptr;
+    m_sigs[OP_CHAR_LE]           = alloc(psig, m, "char.<=", 0, 2, charTcharT, boolT);
+#endif
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "str.from_int", 0, 1, &intT, strT);
@@ -632,8 +636,11 @@ void seq_decl_plugin::init() {
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
     bv_util bv(*m);
-    // to be changed to Unicode (abstract sort)
+#if _USE_UNICODE
+    m_char = m->mk_sort(symbol("Unicode"), sort_info(m_family_id, _CHAR_SORT, 0, nullptr));
+#else
     m_char = bv.mk_sort(8);
+#endif
     m->inc_ref(m_char);
     parameter param(m_char);
     m_string = m->mk_sort(symbol("String"), sort_info(m_family_id, SEQ_SORT, 1, &param));
@@ -667,8 +674,10 @@ sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
         }
         return m.mk_sort(symbol("RegEx"), sort_info(m_family_id, RE_SORT, num_parameters, parameters));
     }
+#if _USE_UNICODE
     case _CHAR_SORT:
         return m_char;
+#endif
     case _STRING_SORT:
         return m_string;
     case _REGLAN_SORT:
@@ -744,7 +753,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_STRING_IS_DIGIT:
     case OP_STRING_TO_CODE:
     case OP_STRING_FROM_CODE:
-        m.raise_exception("character function is not yet supported");
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
         
@@ -831,7 +839,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_SEQ_REPLACE_RE:
         m_has_re = true;
     case OP_SEQ_REPLACE_ALL:
-        m.raise_exception("replace-all operation is not yet supported");
         return mk_str_fun(k, arity, domain, range, k);        
 
     case OP_SEQ_CONCAT:
@@ -894,6 +901,22 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case _OP_STRING_TO_REGEXP:
         m_has_re = true;
         return mk_str_fun(k, arity, domain, range, OP_SEQ_TO_RE);
+
+#if _USE_UNICODE
+    case OP_CHAR_LE:
+        if (arity == 2 && domain[0] == m_char && domain[1] == m_char) {
+            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, m.mk_bool_sort(), func_decl_info(m_family_id, k, 0, nullptr));
+        }
+        m.raise_exception("Incorrect parameters passed to character comparison");
+    case OP_CHAR_CONST:
+        if (!(num_parameters == 1 && arity == 0 && 
+              parameters[0].is_int() && 
+              0 <= parameters[0].get_int() && 
+              parameters[0].get_int() < static_cast<int>(zstring::max_char()))) {
+            m.raise_exception("invalid character declaration");
+        }
+        return m.mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, num_parameters, parameters));
+#endif
 
     case OP_SEQ_IN_RE:
         m_has_re = true;
@@ -983,6 +1006,17 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
     return m_manager->mk_const(f);
 }
 
+app* seq_decl_plugin::mk_char(unsigned u) {
+#if _USE_UNICODE
+    parameter param(u);
+    func_decl* f = m_manager->mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, 1, &param));
+    return m_manager->mk_const(f);
+#else
+    UNREACHABLE();
+    return nullptr;
+#endif
+}
+
 
 bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {
     seq_util util(*m_manager);
@@ -1045,6 +1079,12 @@ bool seq_decl_plugin::are_distinct(app* a, app* b) const {
         is_app_of(a, m_family_id, OP_SEQ_UNIT)) {
         return true;
     }    
+#if _USE_UNICODE
+    if (is_app_of(a, m_family_id, OP_CHAR_CONST) && 
+        is_app_of(b, m_family_id, OP_CHAR_CONST)) {
+        return true;
+    }
+#endif
     return false;
 }
 
@@ -1074,13 +1114,11 @@ app* seq_util::str::mk_string(zstring const& s) const {
 }
 
 app* seq_util::str::mk_char(zstring const& s, unsigned idx) const {
-    // TBD for unicode
-    return u.bv().mk_numeral(s[idx], 8);
+    return u.mk_char(s[idx]);
 }
 
-app* seq_util::str::mk_char(char ch) const {
-    zstring s(ch);
-    return mk_char(s, 0);
+app* seq_util::str::mk_char(unsigned ch) const {
+    return u.mk_char(ch);
 }
 
 bv_util& seq_util::bv() const {
@@ -1089,21 +1127,34 @@ bv_util& seq_util::bv() const {
 }
 
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
+#if _USE_UNICODE
+    return is_app_of(e, m_fid, OP_CHAR_CONST) && (c = to_app(e)->get_parameter(0).get_int(), true);
+#else
     rational r;    
     unsigned sz;
     return bv().is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
+#endif
 }
 
 app* seq_util::mk_char(unsigned ch) const {
+#if _USE_UNICODE
+    return seq.mk_char(ch);
+#else
     return bv().mk_numeral(rational(ch), 8);
+#endif
 }
 
 app* seq_util::mk_le(expr* ch1, expr* ch2) const {
+#if _USE_UNICODE
+    expr* es[2] = { ch1, ch2 };
+    return m.mk_app(m_fid, OP_CHAR_LE, 2, es);
+#else
     return bv().mk_ule(ch1, ch2);
+#endif
 }
 
 app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
-    return m.mk_not(bv().mk_ule(ch2, ch1));
+    return m.mk_not(mk_le(ch2, ch1));
 }
 
 bool seq_util::str::is_string(func_decl const* f, zstring& s) const {

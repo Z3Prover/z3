@@ -38,8 +38,6 @@ namespace smt {
     void seq_unicode::assign_le(theory_var v1, theory_var v2, literal lit) {
         dl.init_var(v1);
         dl.init_var(v2);
-        // dl.set_assignment(v1, 'a' + ctx().random(24));
-        // dl.set_assignment(v2, 'a' + ctx().random(24));
         ctx().push_trail(push_back_vector<context, svector<theory_var>>(m_asserted_edges));
         m_asserted_edges.push_back(dl.add_edge(v1, v2, s_integer(0), lit));
     }
@@ -79,11 +77,12 @@ namespace smt {
         adapt_eq(v1, v2);
     }
 
-    final_check_status seq_unicode::final_check() {
+    bool seq_unicode::final_check() {
         // ensure all variables are above 0 and less than zstring::max_char()
         bool added_constraint = false;
-        // TBD: shift assignments on variables that are not lower-bounded
-        // TBD: set zero to a zero value.
+        // TBD: shift assignments on variables that are not lower-bounded, so that they are "nice" (have values 'a', 'b', ...)
+        // TBD: set "zero" to a zero value.
+        // TBD: ensure that unicode constants have the right values
         arith_util a(m);
         arith_value avalue(m);
         avalue.init(&ctx());
@@ -111,10 +110,15 @@ namespace smt {
                 continue;
             }
             // ensure str.to_code(unit(v)) = val
-            expr_ref ch1(seq.str.mk_unit(seq.str.mk_char(val)), m);
-            // or
-            // expr_ref ch2(seq.str.mk_string(zstring(val)), m);
-            expr_ref code(seq.str.mk_to_code(ch1), m);
+            expr_ref ch(m);
+            if (false) {
+                /// m_rewrite.coalesce_chars();
+                ch = seq.str.mk_string(zstring(val));
+            }
+            else {
+                ch = seq.str.mk_unit(seq.str.mk_char(val));
+            }
+            expr_ref code(seq.str.mk_to_code(ch), m);
             rational val2;
             if (avalue.get_value(code, val2) && val2 == rational(val))
                 continue;
@@ -122,13 +126,13 @@ namespace smt {
             added_constraint = true;
         }
         if (added_constraint)
-            return FC_CONTINUE;
+            return false;
         
         // ensure equalities over shared symbols
         if (th.assume_eqs(m_var_value_table))
-            return FC_CONTINUE;
+            return false;
         
-        return FC_DONE;
+        return true;
     }
     
     void seq_unicode::propagate() {
