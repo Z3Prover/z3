@@ -569,7 +569,6 @@ void seq_decl_plugin::init() {
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
     sort* seq3A[3] = { seqA, seqA, seqA };
-    sort* charTcharT[2] = { m_char, m_char };
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq.unit",     1, 1, &A, seqA);
@@ -609,6 +608,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_STRING_CONST]      = nullptr;
 #if _USE_UNICODE
     m_sigs[OP_CHAR_CONST]        = nullptr;
+    sort* charTcharT[2] = { m_char, m_char };
     m_sigs[OP_CHAR_LE]           = alloc(psig, m, "char.<=", 0, 2, charTcharT, boolT);
 #endif
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);

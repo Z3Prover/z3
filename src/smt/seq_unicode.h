@@ -35,9 +35,8 @@ namespace smt {
 
         class nc_functor {
             literal_vector m_literals;
-            seq_unicode& m_super;
         public:
-            nc_functor(seq_unicode& s): m_super(s) {}
+            nc_functor() {}
             void operator()(literal const& l) {
                 if (l != null_literal) m_literals.push_back(l);
             }

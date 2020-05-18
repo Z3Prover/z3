@@ -28,7 +28,7 @@ namespace smt {
         seq(m),
         dl(),
         m_qhead(0),
-        m_nc_functor(*this),
+        m_nc_functor(),
         m_var_value_hash(*this),
         m_var_value_eq(*this),
         m_var_value_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_var_value_hash, m_var_value_eq)

@@ -28,6 +28,14 @@ Notes:
  
 --*/
 
+#ifdef SINGLE_THREAD
+
+tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
+    throw default_exception("parallel tactic is disabled in single threaded mode");
+}
+
+#else
+
 #include <thread>
 #include <mutex>
 #include <cmath>
@@ -795,3 +803,4 @@ tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
     return alloc(parallel_tactic, s, p);
 }
 
+#endif
