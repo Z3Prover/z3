@@ -1956,70 +1956,105 @@ br_status seq_rewriter::mk_regexp_contains_emptystr(expr* b, expr_ref& result) {
     }
 }
 
-br_status seq_rewriter::eval_regexp_derivative(expr* hd, expr* tl, expr* b, expr_ref& result) {
-    // char should be a single character
-    expr* hd1 = nullptr;
-    expr* b1 = nullptr;
-    expr* b2 = nullptr;
-    if (!m_util.str.is_unit(hd, hd1)) {
+br_status seq_rewriter::eval_regexp_derivative(
+        expr* hd, expr* tl, expr* b, expr_ref& result
+    ) {
+    // Assumption: hd should be a single character
+    if (!m_util.is_char(hd)) {
+        // TODO: how to report an error?
         return BR_FAILED;
     }
-
+    expr* b1 = nullptr;
+    expr* b2 = nullptr;
+    unsigned lo = 0, hi = 0;
+    // Make original string, for convenience
+    expr* a = m_util.str.mk_concat(hd, tl);
     // Now match on regular expression
     // TODO: complete the following code
-    // if (m_util.re.is_concat(b, b1, b2)) {
-    //     result = m().mk_and(m_util.re.mk_in_re(eps, b1),
-    //                         m_util.re.mk_in_re(eps, b2));
-    //     return BR_REWRITE2;
-    // }
-    // else if (m_util.re.is_union(b, b1, b2)) {
-    //     result = m().mk_or(m_util.re.mk_in_re(eps, b1),
-    //                        m_util.re.mk_in_re(eps, b2));
-    //     return BR_REWRITE2;
-    // }
-    // else if (m_util.re.is_intersection(b, b1, b2)) {
-    //     result = m().mk_and(m_util.re.mk_in_re(eps, b1),
-    //                         m_util.re.mk_in_re(eps, b2));
-    //     return BR_REWRITE2;
-    // }
-    // else if (m_util.re.is_star(b)) {
-    //     result = m().mk_true();
-    //     return BR_DONE;
-    // }
-    // else if (m_util.re.is_opt(b)) {
-    //     result = m().mk_true();
-    //     return BR_DONE;
-    // }
-    // else if (m_util.re.is_plus(b, b1)) {
-    //     result = m_util.re.mk_in_re(eps, b1);
-    //     return BR_REWRITE1;
-    // }
-    // else if (m_util.re.is_range(b)) {
-    //     result = m().mk_false();
-    //     return BR_DONE;
-    // }
-    // else if (m_util.re.is_full_char(b)) {
-    //     result = m().mk_false();
-    //     return BR_DONE;
-    // }
-    // else if (m_util.re.is_complement(b, b1)) {
-    //     result = m().mk_not(m_util.re.mk_in_re(eps, b1));
-    //     return BR_REWRITE2;
-    // }
-    // else if (m_util.re.is_re_pred(b)) {
-    //     result = m().mk_false();
-    //     return BR_DONE;
-    // }
-    // else if (m_util.re.is_loop(b, b1, lo) || m_util.re.is_loop(b, b1, lo, hi)) {
-    //     if (lo == 0) {
-    //         result = m().mk_true();
-    //         return BR_DONE;
-    //     }
-    //     else {
-    //         result = m_util.re.mk_in_re(eps, b1);
-    //         return BR_REWRITE1;
-    //     }
-    // }
+    if (m_util.re.is_concat(b, b1, b2)) {
+        // This is the interesting case: depends on if b1 is nullable
+        // Make empty string (using sequence sort)
+        sort* seq_sort = nullptr;
+        VERIFY(m_util.is_re(b, seq_sort));
+        expr* eps = m_util.str.mk_empty(seq_sort);
+        // TODO: abstract the above three lines in a function
+        // TODO: how to do this? need partial derivative syntax as an op code
+        // I think. For now, return BR_FAILED.
+        return BR_FAILED;
+        // result = m().mk_or(
+        //     m_util.mk_in_re()
+        // result = m().mk_and(
+        //     m_util.mk_in_re(eps, b1),
+        //     m_util.mk_in_re()
+        // )
+        // result = m().mk_and(m_util.re.mk_in_re(eps, b1),
+        //                     m_util.re.mk_in_re(eps, b2));
+        // return BR_REWRITE2;
+    }
+    else if (m_util.re.is_union(b, b1, b2)) {
+        result = m().mk_or(m_util.re.mk_in_re(a, b1),
+                           m_util.re.mk_in_re(a, b2));
+        return BR_REWRITE2;
+    }
+    else if (m_util.re.is_intersection(b, b1, b2)) {
+        result = m().mk_and(m_util.re.mk_in_re(a, b1),
+                            m_util.re.mk_in_re(a, b2));
+        return BR_REWRITE2;
+    }
+    else if (m_util.re.is_star(b, b1)) {
+        result = m_util.re.mk_in_re(
+            a, m_util.re.mk_concat(b1, b)
+        );
+        return BR_REWRITE1; // example where this way could be wrong!
+    }
+    else if (m_util.re.is_plus(b, b1)) {
+        result = m_util.re.mk_in_re(
+            a, m_util.re.mk_concat(b1, m_util.re.mk_star(b1))
+        );
+        return BR_REWRITE1; // example where this way could be wrong!
+    }
+    else if (m_util.re.is_opt(b, b1)) {
+        result = m_util.re.mk_in_re(a, b1);
+        return BR_REWRITE1;
+    }
+    else if (m_util.re.is_range(b)) {
+        // TODO: check if b is in range
+        return BR_FAILED;
+    }
+    else if (m_util.re.is_full_char(b)) {
+        result = m_util.str.mk_is_empty(tl);
+        return BR_REWRITE1;
+    }
+    else if (m_util.re.is_complement(b, b1)) {
+        result = m().mk_not(m_util.re.mk_in_re(a, b1));
+        return BR_REWRITE2;
+    }
+    else if (m_util.re.is_re_pred(b)) {
+        // TODO: check if b satisfies predicate
+        return BR_FAILED;
+    }
+    else if (m_util.re.is_loop(b, b1, lo) ) {
+        if (lo > 0) {
+            lo--;
+        }
+        result = m_util.re.mk_in_re(
+            a, m_util.re.mk_concat(b1, m_util.re.mk_loop(b1, lo))
+        );
+        return BR_REWRITE1; // example where this way could be wrong!
+    } else if (m_util.re.is_loop(b, b1, lo, hi)) {
+        if (lo > 0) {
+            lo--;
+        }
+        if (hi == 0) {
+            result = m().mk_false();
+            return BR_DONE;
+        }
+        hi--;
+        result = m_util.re.mk_in_re(
+            a, m_util.re.mk_concat(b1, m_util.re.mk_loop(b1, lo, hi))
+        );
+        return BR_REWRITE1; // example where this way could be wrong!
+    }
 
     return BR_FAILED;
 }
