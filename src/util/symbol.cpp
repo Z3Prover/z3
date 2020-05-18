@@ -23,7 +23,7 @@ Revision History:
 #include "util/region.h"
 #include "util/string_buffer.h"
 #include <cstring>
-#ifdef SINGLE_THREAD
+#ifndef SINGLE_THREAD
 #include <thread>
 #endif
 
