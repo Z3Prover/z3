@@ -417,18 +417,25 @@ public:
 
     static bool is_rational() { return true; }
 
-    unsigned get_num_bits() const {
-        rational two(2);
+    unsigned get_num_digits(rational const& base) const {
         SASSERT(is_int());
         SASSERT(!is_neg());
         rational n(*this);
-        unsigned num_bits = 1;
-        n = div(n, two);
+        unsigned num_digits = 1;
+        n = div(n, base);
         while (n.is_pos()) {
-            ++num_bits;
-            n = div(n, two);
+            ++num_digits;
+            n = div(n, base);
         }
-        return num_bits;
+        return num_digits;
+    }
+
+    unsigned get_num_bits() const {
+        return get_num_digits(rational(2));
+    }
+
+    unsigned get_num_decimal() const {
+        return get_num_digits(rational(10));
     }
 
     static bool limit_denominator(rational &num, rational const& limit);

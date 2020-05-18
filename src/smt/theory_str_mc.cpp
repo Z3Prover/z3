@@ -668,14 +668,21 @@ namespace smt {
             if (pos.is_neg() || pos >= rational(base_chars.size()) || len.is_neg()) {
                 eqc_chars.reset();
                 return true;
+            }
+            else if (!pos.is_unsigned() || !len.is_unsigned()) {
+                return false;
             } else {
-                if (pos + len >= rational(base_chars.size())) {
+                unsigned _pos = pos.get_unsigned();
+                unsigned _len = len.get_unsigned();
+                if (_pos + _len < _pos) 
+                    return false;
+                if (_pos + _len >= base_chars.size()) {
                     // take as many characters as possible up to the end of base_chars
-                    for (unsigned i = pos.get_unsigned(); i < base_chars.size(); ++i) {
+                    for (unsigned i = _pos; i < base_chars.size(); ++i) {
                         eqc_chars.push_back(base_chars.get(i));
                     }
                 } else {
-                    for (unsigned i = pos.get_unsigned(); i < pos.get_unsigned() + len.get_unsigned(); ++i) {
+                    for (unsigned i = _pos; i < _pos + _len; ++i) {
                         eqc_chars.push_back(base_chars.get(i));
                     }
                 }
@@ -697,6 +704,9 @@ namespace smt {
             if (pos_value.is_neg() || pos_value >= rational(base_chars.size())) {
                 // return the empty string
                 eqc_chars.reset();
+            }
+            else if (!pos_value.is_unsigned()) {
+                return false;
             } else {
                 eqc_chars.push_back(base_chars.get(pos_value.get_unsigned()));
             }
@@ -728,7 +738,7 @@ namespace smt {
                 eqc_chars.reset();
                 return true;
             } else {
-                if (termLen.get_unsigned() != iValue.to_string().length()) {
+                if (termLen != iValue.get_num_decimal()) {
                     // conflict
                     cex = expr_ref(m.mk_not(m.mk_and(get_context().mk_eq_atom(mk_strlen(term), mk_int(termLen)), get_context().mk_eq_atom(arg0, mk_int(iValue)))), m);
                     return false;
@@ -1093,7 +1103,7 @@ namespace smt {
                 for (expr * chExpr : char_subterms) {
                     expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
                     rational n;
-                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n)) {
+                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n) && n.is_unsigned()) {
                         assignment.push_back(n.get_unsigned());
                     } else {
                         assignment.push_back((unsigned)'?');
@@ -1115,7 +1125,7 @@ namespace smt {
                 for (expr * chExpr : char_subterms) {
                     expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
                     rational n;
-                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n)) {
+                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n) && n.is_unsigned()) {
                         assignment.push_back(n.get_unsigned());
                     } else {
                         assignment.push_back((unsigned)'?');
