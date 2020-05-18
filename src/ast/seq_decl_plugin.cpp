@@ -87,7 +87,7 @@ static bool is_escape_char(char const *& s, unsigned& result) {
         result = 0;
         for (unsigned i = 0; i < 5; ++i) {
             if (is_hex_digit(*(s+3+i), d1)) {
-                result = 64*result + d1;
+                result = 16*result + d1;
             }
             else if (*(s+3+i) == '}') {
                 s += 4 + i;
@@ -104,7 +104,7 @@ static bool is_escape_char(char const *& s, unsigned& result) {
         unsigned i = 0;
         for (; i < 4; ++i) {
             if (is_hex_digit(*(s+3+i), d1)) {
-                result = 64*result + d1;
+                result = 16*result + d1;
             }
             else {
                 break;
