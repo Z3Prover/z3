@@ -20,7 +20,6 @@ Revision History:
 #define MPN_H_
 
 #include<ostream>
-#include<mutex>
 #include "util/util.h"
 #include "util/buffer.h"
 

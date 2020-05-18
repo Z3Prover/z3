@@ -20,7 +20,9 @@ Revision History:
 #define MPZ_H_
 
 #include<string>
+#ifndef SINGLE_THREAD
 #include<mutex>
+#endif
 #include "util/util.h"
 #include "util/small_object_allocator.h"
 #include "util/trace.h"
