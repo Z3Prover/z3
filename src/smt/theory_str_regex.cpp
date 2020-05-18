@@ -812,9 +812,11 @@ namespace smt {
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            return 1 + str2[0] - str1[0];
+            if (str1.length() == 1 && str2.length() == 1) {
+                return 1 + str2[0] - str1[0];
+            } else {
+                return 1;
+            }
         } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
             return 1;
         } else {
@@ -964,9 +966,13 @@ namespace smt {
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            lens.insert(1);
+            // re.range is a language of singleton strings if both of its arguments are;
+            // otherwise it is the empty language
+            if (str1.length() == 1 && str2.length() == 1) {
+                lens.insert(1);
+            } else {
+                lens.insert(0);
+            }
         } else if (u.re.is_full_char(re)) {
             lens.insert(1);
         } else if (u.re.is_full_seq(re)) {
