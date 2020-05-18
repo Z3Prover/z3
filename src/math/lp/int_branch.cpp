@@ -51,7 +51,8 @@ lia_move int_branch::create_branch_on_column(int j) {
 }
 
 
-    
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"    
 int int_branch::find_inf_int_base_column() {
     int result = -1;
     mpq range;
@@ -103,5 +104,6 @@ int int_branch::find_inf_int_base_column() {
     }
     return result;    
 }
-    
+#pragma GCC diagnostic pop
+   
 }

@@ -218,7 +218,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
         } 
     }
 
-    SASSERT(found0 && (found1 || found2));
+    VERIFY(found0 && (found1 || found2));
 
     
 }
