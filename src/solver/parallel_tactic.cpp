@@ -28,6 +28,17 @@ Notes:
  
 --*/
 
+#include "util/scoped_ptr_vector.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/ast_translation.h"
+#include "solver/solver.h"
+#include "solver/solver2tactic.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "solver/parallel_tactic.h"
+#include "solver/parallel_params.hpp"
+
 #ifdef SINGLE_THREAD
 
 tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
@@ -40,16 +51,6 @@ tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
 #include <mutex>
 #include <cmath>
 #include <condition_variable>
-#include "util/scoped_ptr_vector.h"
-#include "ast/ast_pp.h"
-#include "ast/ast_util.h"
-#include "ast/ast_translation.h"
-#include "solver/solver.h"
-#include "solver/solver2tactic.h"
-#include "tactic/tactic.h"
-#include "tactic/tactical.h"
-#include "solver/parallel_tactic.h"
-#include "solver/parallel_params.hpp"
 
 class parallel_tactic : public tactic {
 
