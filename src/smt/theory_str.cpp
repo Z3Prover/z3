@@ -8574,7 +8574,10 @@ namespace smt {
             }
         }
 
-        solve_regex_automata();
+        if (!solve_regex_automata()) {
+            TRACE("str", tout << "regex engine requested to give up!" << std::endl;);
+            return FC_GIVEUP;
+        }
 
         bool needToAssignFreeVars = false;
         expr_ref_vector free_variables(m);

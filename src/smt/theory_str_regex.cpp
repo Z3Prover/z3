@@ -46,8 +46,8 @@ namespace smt {
         return result;
     }
 
-
-    void theory_str::solve_regex_automata() {
+    // Returns false if we need to give up solving, e.g. because we found symbolic expressions in an automaton.
+    bool theory_str::solve_regex_automata() {
         ast_manager & m = get_manager();
 
         // TODO since heuristics might fail, the "no progress" flag might need to be handled specially here
@@ -277,6 +277,10 @@ namespace smt {
                         CTRACE("str", regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold,
                                 tout << "failed automaton threshold reached for " << mk_pp(str_in_re, m) << " -- automatically constructing full automaton" << std::endl;);
                         eautomaton * aut = m_mk_aut(re);
+                        if (aut == nullptr) {
+                            TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                            return false;
+                        }
                         aut->compress();
                         regex_automata.push_back(aut);
                         regex_automaton_under_assumptions new_aut(re, aut, true);
@@ -415,6 +419,10 @@ namespace smt {
                     bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
                     if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
                         eautomaton * aut = m_mk_aut(re);
+                        if (aut == nullptr) {
+                            TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                            return false;
+                        }
                         aut->compress();
                         regex_automata.push_back(aut);
                         regex_automaton_under_assumptions new_aut(re, aut, true);
@@ -536,6 +544,10 @@ namespace smt {
                         bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
                         if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
                             eautomaton * aut = m_mk_aut(re);
+                            if (aut == nullptr) {
+                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                return false;
+                            }
                             aut->compress();
                             regex_automata.push_back(aut);
                             regex_automaton_under_assumptions new_aut(re, aut, true);
@@ -569,6 +581,10 @@ namespace smt {
                         if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold
                                 || failureThresholdExceeded) {
                             eautomaton * aut = m_mk_aut(re);
+                            if (aut == nullptr) {
+                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                return false;
+                            }
                             aut->compress();
                             regex_automata.push_back(aut);
                             regex_automaton_under_assumptions new_aut(re, aut, true);
@@ -701,6 +717,10 @@ namespace smt {
                             // need to complement first
                             expr_ref rc(u.re.mk_complement(aut.get_regex_term()), m);
                             eautomaton * aut_c = m_mk_aut(rc);
+                            if (aut_c == nullptr) {
+                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                return false;
+                            }
                             regex_automata.push_back(aut_c);
                             // TODO is there any way to build a complement automaton from an existing one?
                             // this discards length information
@@ -774,9 +794,7 @@ namespace smt {
                 regex_axiom_add = true;
             }
         } // foreach (entry in regex_terms_by_string)
-        if (regex_axiom_add) {
-            //return FC_CONTINUE;
-        }
+        return true;
     }
 
     unsigned theory_str::estimate_regex_complexity(expr * re) {
