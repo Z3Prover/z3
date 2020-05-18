@@ -568,6 +568,9 @@ write_basic_package_version_file("${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
   COMPATIBILITY SameMajorVersion
 )
 
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
+	"${CMAKE_CURRENT_BINARY_DIR}/z3.pc" @ONLY)
+
 ################################################################################
 # Create `Z3Config.cmake` and related files for install tree so clients can use
 # Z3 via CMake.
@@ -608,6 +611,12 @@ install(
 install(
   FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
   DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+)
+
+# Add install rule to install ${PROJECT_BINARY_DIR}/z3.pc
+install(
+  FILES "${PROJECT_BINARY_DIR}/z3.pc"
+  DESTINATION "${CMAKE_INSTALL_PKGCONFIGDIR}"
 )
 
 ################################################################################
