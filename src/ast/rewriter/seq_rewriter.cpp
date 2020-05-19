@@ -1997,13 +1997,13 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
         return expr_ref(mk_and(m(), is_nullable(r1), is_nullable(r2)), m());
     }
     if (m_util.re.is_star(r) || 
-             m_util.re.is_opt(r) ||
-             m_util.re.is_full_seq(r)) {
+        m_util.re.is_opt(r) ||
+        m_util.re.is_full_seq(r)) {
         return expr_ref(m().mk_true(), m());
     }
     if (m_util.re.is_full_char(r) ||
-             m_util.re.is_empty(r) ||
-             m_util.re.is_of_pred(r)) {
+        m_util.re.is_empty(r) ||
+        m_util.re.is_of_pred(r)) {
         return expr_ref(m().mk_false(), m());
     }
     if (m_util.re.is_plus(r, r1)) {
