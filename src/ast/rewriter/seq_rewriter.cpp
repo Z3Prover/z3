@@ -2001,14 +2001,12 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     SASSERT(m_util.is_re(r));
     expr* r1 = nullptr, *r2 = nullptr;
     unsigned lo = 0, hi = 0;
-    if (m_util.re.is_concat(r, r1, r2)) {
+    if (m_util.re.is_concat(r, r1, r2) ||
+        m_util.re.is_intersection(r, r1, r2)) {
         return expr_ref(mk_and(m(), is_nullable(r1), is_nullable(r2)), m());
     }
     if (m_util.re.is_union(r, r1, r2)) {
         return expr_ref(mk_or(m(), is_nullable(r1), is_nullable(r2)), m());
-    }
-    if (m_util.re.is_intersection(r, r1, r2)) {
-        return expr_ref(mk_and(m(), is_nullable(r1), is_nullable(r2)), m());
     }
     if (m_util.re.is_star(r) || 
         m_util.re.is_opt(r) ||
