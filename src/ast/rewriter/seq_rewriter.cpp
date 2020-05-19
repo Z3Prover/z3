@@ -2098,19 +2098,14 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
     else if (m_util.re.is_union(r, r1, r2)) {
         dr1 = derivative(elem, r1);
         dr2 = derivative(elem, r2);
-        if (!dr1 || !dr2) {
-            result = expr_ref(m()); // failed
-        } else {
+        if (dr1 && dr2) {
             result = m_util.re.mk_union(dr1, dr2);
         }
     }
     else if (m_util.re.is_intersection(r, r1, r2)) {
         dr1 = derivative(elem, r1);
         dr2 = derivative(elem, r2);
-        if (!dr1 || !dr2) {
-            result = expr_ref(m()); // failed
-        }
-        else {
+        if (dr1 && dr2) {
             result = m_util.re.mk_inter(dr1, dr2);
         }
     }
@@ -2171,13 +2166,21 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
         else if (m_util.str.is_empty(r1)) {
             result = m_util.re.mk_empty(m().get_sort(r));
         }
-        else {
-            result = expr_ref(m()); // failed
-        }
     }
     else if (m_util.re.is_range(r, r1, r2)) {
-        result = m().mk_and(m_util.mk_le(r1, elem), m_util.mk_le(elem, r2));
-        result = kleene_predicate(result, seq_sort);
+        // r1, r2 are sequences.
+        zstring s1, s2;
+        if (m_util.str.is_string(r1, s1) && m_util.str.is_string(r2, s2)) {
+            if (s1.length() == 1 && s2.length() == 1) {
+                r1 = m_util.mk_char(s1[0]);
+                r2 = m_util.mk_char(s2[0]);
+                result = m().mk_and(m_util.mk_le(r1, elem), m_util.mk_le(elem, r2));
+                result = kleene_predicate(result, seq_sort);
+            }
+            else {
+                result = m_util.re.mk_empty(m().get_sort(r));
+            }
+        }
     }
     else if (m_util.re.is_full_char(r)) {
         result = m_util.re.mk_to_re(m_util.str.mk_empty(seq_sort));
@@ -2187,9 +2190,6 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
         expr* args[2] = { p, elem };
         result = array.mk_select(2, args);
         result = kleene_predicate(result, seq_sort);
-    }
-    else {
-        result = expr_ref(m()); // failed
     }
     return result;
 }
@@ -2211,10 +2211,12 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
     if (m_util.str.is_empty(a)) {
         result = is_nullable(b);
-        return BR_DONE;
+        if (m_util.str.is_in_re(result))
+            return BR_DONE;
+        else
+            return BR_REWRITE_FULL;
     }
 
-#if 0
     expr_ref hd(m()), tl(m());
     if (get_head_tail(a, hd, tl)) {
         expr_ref db = derivative(hd, b); // null if failed
@@ -2224,91 +2226,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         }
     }
 
-    return BR_FAILED; // For testing purposes, only depend on new functionality
-#endif
-
-    scoped_ptr<eautomaton> aut;
-    expr_ref_vector seq(m());
-    if (!(aut = m_re2aut(b))) {
-        TRACE("seq", tout << "not translated to automaton " << mk_pp(b, m()) << "\n";);
-        return BR_FAILED;
-    }
-
-    if (is_sequence(*aut, seq)) {
-        TRACE("seq", tout << seq << "\n";);
-              
-        result = m().mk_eq(a, m_util.str.mk_concat(seq, m().get_sort(a)));        
-        return BR_REWRITE3;
-    }
-
-    if (!is_sequence(a, seq)) {
-        TRACE("seq", tout << "not a sequence " << mk_pp(a, m()) << "\n";);
-        return BR_FAILED;
-    } 
-        
-    expr_ref_vector trail(m());
-    u_map<expr*> maps[2];
-    bool select_map = false;
-    expr_ref ch(m()), cond(m());
-    eautomaton::moves mvs;
-    maps[0].insert(aut->init(), m().mk_true());
-    // is_accepted(a, aut) & some state in frontier is final.
-    
-    for (unsigned i = 0; i < seq.size(); ++i) {
-        u_map<expr*>& frontier = maps[select_map];
-        u_map<expr*>& next = maps[!select_map];
-        select_map = !select_map;
-        ch = seq[i].get();
-        next.reset();
-        u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
-        for (; it != end; ++it) {
-            mvs.reset();
-            unsigned state = it->m_key;
-            expr*    acc  = it->m_value;
-            aut->get_moves_from(state, mvs, false);
-            for (unsigned j = 0; j < mvs.size(); ++j) {
-                eautomaton::move const& mv = mvs[j];
-                SASSERT(mv.t());
-                if (mv.t()->is_char() && m().is_value(mv.t()->get_char()) && m().is_value(ch)) {
-                    if (mv.t()->get_char() == ch) {
-                        add_next(next, trail, mv.dst(), acc);
-                    }
-                    else {
-                        continue;
-                    }
-                }
-                else {
-                    cond = mv.t()->accept(ch);
-                    if (m().is_false(cond)) {
-                        continue;
-                    }
-                    if (m().is_true(cond)) {
-                        add_next(next, trail, mv.dst(), acc);
-                        continue;
-                    }
-                    expr* args[2] = { cond, acc };
-                    cond = mk_and(m(), 2, args);
-                    add_next(next, trail, mv.dst(), cond);
-                }
-            }                
-        }
-    }
-    u_map<expr*> const& frontier = maps[select_map];
-    expr_ref_vector ors(m());
-    for (auto const& kv : frontier) {
-        unsigned_vector states;
-        bool has_final = false;
-        aut->get_epsilon_closure(kv.m_key, states);
-        for (unsigned i = 0; i < states.size() && !has_final; ++i) {
-            has_final = aut->is_final_state(states[i]);
-        }
-        if (has_final) {
-            ors.push_back(kv.m_value);
-        }
-    }
-    result = mk_or(ors);
-    TRACE("seq", tout << result << "\n";);
-    return BR_REWRITE_FULL;
+    return BR_FAILED; 
 }
 
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
