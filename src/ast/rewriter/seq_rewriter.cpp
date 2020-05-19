@@ -2001,41 +2001,45 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     SASSERT(m_util.is_re(r));
     expr* r1 = nullptr, *r2 = nullptr;
     unsigned lo = 0, hi = 0;
+    expr_ref result(m());
     if (m_util.re.is_concat(r, r1, r2) ||
         m_util.re.is_intersection(r, r1, r2)) {
-        return expr_ref(mk_and(m(), is_nullable(r1), is_nullable(r2)), m());
+        result = mk_and(m(), is_nullable(r1), is_nullable(r2));
     }
-    if (m_util.re.is_union(r, r1, r2)) {
-        return expr_ref(mk_or(m(), is_nullable(r1), is_nullable(r2)), m());
+    else if (m_util.re.is_union(r, r1, r2)) {
+        result = mk_or(m(), is_nullable(r1), is_nullable(r2));
     }
-    if (m_util.re.is_star(r) || 
+    else if (m_util.re.is_diff(r, r1, r2)) {
+        expr_ref e2(mk_not(m(), is_nullable(r2)), m());
+        result = mk_and(m(), is_nullable(r1), e2);
+    }
+    else if (m_util.re.is_star(r) || 
         m_util.re.is_opt(r) ||
-        m_util.re.is_full_seq(r)) {
-        return expr_ref(m().mk_true(), m());
+        m_util.re.is_full_seq(r) ||
+        (m_util.re.is_loop(r, r1, lo) && lo == 0) || 
+        (m_util.re.is_loop(r, r1, lo, hi) && lo == 0)) {
+        result = m().mk_true();
     }
-    if (m_util.re.is_full_char(r) ||
+    else if (m_util.re.is_full_char(r) ||
         m_util.re.is_empty(r) ||
         m_util.re.is_of_pred(r) ||
         m_util.re.is_range(r)) {
-        return expr_ref(m().mk_false(), m());
+        result = m().mk_false();
     }
-    if (m_util.re.is_plus(r, r1)) {
-        return is_nullable(r1);
+    else if (m_util.re.is_plus(r, r1) ||
+        (m_util.re.is_loop(r, r1, lo) && lo > 0) ||
+        (m_util.re.is_loop(r, r1, lo, hi) && lo > 0)) {
+        result = is_nullable(r1);
     }
-    if (m_util.re.is_complement(r, r1)) {
-        return expr_ref(mk_not(m(), is_nullable(r1)), m());
+    else if (m_util.re.is_complement(r, r1)) {
+        result = mk_not(m(), is_nullable(r1));
     }
-    if (m_util.re.is_loop(r, r1, lo) || m_util.re.is_loop(r, r1, lo, hi)) {
-        if (lo == 0) {
-            return expr_ref(m().mk_true(), m());
-        }
-        else {
-            return is_nullable(r1);
-        }
+    else {
+        sort* seq_sort = nullptr;
+        VERIFY(m_util.is_re(r, seq_sort));
+        result = m_util.re.mk_in_re(m_util.str.mk_empty(seq_sort), r);
     }
-    sort* seq_sort = nullptr;
-    VERIFY(m_util.is_re(r, seq_sort));
-    return expr_ref(m_util.re.mk_in_re(m_util.str.mk_empty(seq_sort), r), m());
+    return result;
 }
 
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
