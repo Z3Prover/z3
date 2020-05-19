@@ -26,8 +26,10 @@ jobs:
     matrix:
       MT:
         cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
+        runRegressions: 'True'
       ST:
         cmdLine: './configure --single-threaded'
+        runRegressions: 'False'
   steps:
     - script: $(cmdLine)
     - script: |
@@ -38,7 +40,8 @@ jobs:
         make -j3 test-z3
         cd ..
     - template: scripts/test-z3.yml
-    - template: scripts/test-regressions.yml
+    - ${{if eq(variables['runRegressions'], 'True')}}:
+      - template: scripts/test-regressions.yml
     - template: scripts/generate-doc.yml
 
 - job: "Ubuntu18Python"

@@ -2010,8 +2010,8 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
         result = mk_or(m(), is_nullable(r1), is_nullable(r2));
     }
     else if (m_util.re.is_diff(r, r1, r2)) {
-        expr_ref e2(mk_not(m(), is_nullable(r2)), m());
-        result = mk_and(m(), is_nullable(r1), e2);
+        result = mk_not(m(), is_nullable(r2));
+        result = mk_and(m(), is_nullable(r1), result);
     }
     else if (m_util.re.is_star(r) || 
         m_util.re.is_opt(r) ||
