@@ -2033,10 +2033,7 @@ br_status seq_rewriter::eval_regexp_derivative(
         expr* hd, expr* tl, expr* b, expr_ref& result
     ) {
     // Assumption: hd should be a single character
-    if (!m_util.is_char(hd)) {
-        // TODO: how to report an error?
-        return BR_FAILED;
-    }
+    SASSERT(m_util.is_unit(hd)); // Should be is_char?
     expr* b1 = nullptr;
     expr* b2 = nullptr;
     unsigned lo = 0, hi = 0;
@@ -2202,6 +2199,12 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     }
     else if (m_util.re.is_complement(r, r1)) {
         result = mk_not(m(), is_nullable(r1));
+    }
+    else if (m_util.re.is_to_re(r, r1)) {
+        sort* seq_sort = nullptr;
+        VERIFY(m_util.is_re(r, seq_sort));
+        expr* emptystr = m_util.str.mk_empty(seq_sort);
+        result = m().mk_eq(emptystr, r1);
     }
     else {
         sort* seq_sort = nullptr;
@@ -2369,7 +2372,14 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
     if (m_util.str.is_empty(a)) {
         result = is_nullable(b);
-        return BR_REWRITE_FULL; // is_nullable doesn't rewrite
+        // is_nullable doesn't rewrite. But we also want to avoid the
+        // case where it didn't succeed in changing anything.
+        if (m_util.str.is_in_re(result)) {
+            return BR_FAILED;
+        }
+        else {
+            return BR_REWRITE_FULL; // is_nullable doesn't rewrite
+        }
     }
 
     expr_ref hd(m());
