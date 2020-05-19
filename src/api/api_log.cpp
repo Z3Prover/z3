@@ -16,18 +16,18 @@ Revision History:
 
 --*/
 #include<fstream>
-#include<mutex>
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "util/util.h"
 #include "util/z3_version.h"
+#include "util/mutex.h"
 
 std::ostream * g_z3_log = nullptr;
 std::atomic<bool> g_z3_log_enabled;
 
 #ifdef Z3_LOG_SYNC
-static std::mutex g_log_mux;
-#define SCOPED_LOCK() std::lock_guard<std::mutex> lock(g_log_mux)
+static mutex g_log_mux;
+#define SCOPED_LOCK() lock_guard lock(g_log_mux)
 #else
 #define SCOPED_LOCK() {}
 #endif
