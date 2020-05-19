@@ -2939,12 +2939,14 @@ namespace smt {
         // If we don't use the theory case split heuristic,
         // for each pair of literals (l1, l2) we add the clause (~l1 OR ~l2)
         // to enforce the condition that at most one literal can be assigned 'true'.
-        if (!m_fparams.m_theory_case_split && !m.proofs_enabled()) {
-            for (unsigned i = 0; i < num_lits; ++i) {
-                for (unsigned j = i+1; j < num_lits; ++j) {
-                    literal l1 = lits[i];
-                    literal l2 = lits[j];
-                    mk_clause(~l1, ~l2, (justification*) nullptr);
+        if (!m_fparams.m_theory_case_split) {
+            if (!m.proofs_enabled()) {
+                for (unsigned i = 0; i < num_lits; ++i) {
+                    for (unsigned j = i + 1; j < num_lits; ++j) {
+                        literal l1 = lits[i];
+                        literal l2 = lits[j];
+                        mk_clause(~l1, ~l2, (justification*) nullptr);
+                    }
                 }
             }
         } else {
