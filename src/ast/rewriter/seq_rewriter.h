@@ -132,10 +132,13 @@ class seq_rewriter {
     }
     length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
 
+
+    // Support for regular expression derivatives
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     expr_ref is_nullable(expr* r);
     expr_ref kleene_and(expr* cond, expr* r);
     expr_ref kleene_predicate(expr* cond, sort* seq_sort);
+    expr_ref derivative(expr* hd, expr* r);
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
@@ -204,7 +207,7 @@ class seq_rewriter {
     void remove_empty_and_concats(expr_ref_vector& es);
     void remove_leading(unsigned n, expr_ref_vector& es);
 
-public:    
+public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
