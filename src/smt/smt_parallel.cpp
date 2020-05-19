@@ -30,6 +30,7 @@ namespace smt {
     lbool parallel::operator()(expr_ref_vector const& asms) {
         return l_undef;
     }
+}
 
 #else
 
