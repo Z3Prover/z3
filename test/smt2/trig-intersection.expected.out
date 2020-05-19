@@ -1,5 +1,0 @@
-sat
-(model 
-  (define-fun theta () Real
-    (+ (acos (root-obj (+ (* 2 (^ x 2)) (- 1)) 2)) pi))
-)

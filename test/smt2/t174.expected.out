@@ -1,3 +1,0 @@
-(error "line 5 column 18: unknown sort 'Array'")
-(error "line 6 column 19: unknown constant t")
-sat

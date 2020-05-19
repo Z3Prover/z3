@@ -1,7 +1,0 @@
-sat
-sat
-sat
-(model 
-  (define-fun x () (_ FloatingPoint 11 53)
-    (_ +zero 11 53))
-)

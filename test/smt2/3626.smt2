@@ -1,5 +1,0 @@
-(set-logic QF_BV)
-(set-option :combined_solver.ignore_solver1 true)
-(set-option :sat.local_search true)
-(assert false)
-(check-sat)

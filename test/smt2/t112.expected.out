@@ -1,9 +1,0 @@
-(goals
-(goal
-  (or (= x1 0)
-      (= (f x2) (f x1))
-      (and (p (f x2)) (>= (f x2) 0))
-      (and (p (f 3)) (= x2 3) (or (q (f 3)) (= (f 4) (f x1))))
-      (ite (= x1 2) (>= 3 x2) (>= x1 x2)))
-  :precision precise :depth 2)
-)

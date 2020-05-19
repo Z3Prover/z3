@@ -1,3 +1,0 @@
-(sin (+ x y (* 2.0 pi z)))
-(sin (+ x y (* 4.0 pi z)))
-(sin (+ x y (* pi z)))

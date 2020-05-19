@@ -1,7 +1,0 @@
-(set-option :smt.arith.solver 6)
-(set-option :smt.arith.reflect false)
-(set-option :rewriter.flat false) 
-(declare-fun a () Real) 
-(declare-fun b () Real) 
-(assert (< a (* (* a b) 7) (mod 0 0))) 
-(check-sat) 

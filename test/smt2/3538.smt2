@@ -1,6 +1,0 @@
-(set-option :proof true) 
-(declare-fun a () Int) 
-(declare-fun b () Int) 
-(assert (or (= a 5) (= a 7) (= a 0))) 
-(assert (<= (* b b) 0)) 
-(check-sat)    

@@ -1,5 +1,0 @@
-(error "line 8 column 22: logic does not support reals")
-(error "line 10 column 29: unknown sort 'BitVec'")
-(error "line 14 column 21: logic does not support nonlinear arithmetic")
-(error "line 16 column 24: logic does not support nonlinear arithmetic")
-(error "line 17 column 38: logic does not support quantifiers")

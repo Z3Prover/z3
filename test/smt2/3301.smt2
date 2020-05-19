@@ -1,1 +1,0 @@
-(check-sat (not false))

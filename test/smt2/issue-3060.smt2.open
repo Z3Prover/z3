@@ -1,1 +1,0 @@
-(declare-datatypes ((a 0)) ((par (T) ((c (d T))))))

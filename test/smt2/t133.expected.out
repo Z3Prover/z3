@@ -1,2 +1,0 @@
-(error "line 7 column 21: logic does not support integers")
-(error "line 12 column 22: logic does not support reals")

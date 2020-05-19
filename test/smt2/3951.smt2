@@ -1,5 +1,0 @@
-(set-logic QF_BV)
-(set-option :model_validate true)
-(declare-const bv_21-0 (_ BitVec 3))
-(assert (distinct (bvneg bv_21-0) bv_21-0))
-(check-sat-using (then simplify reduce-invertible qffd))

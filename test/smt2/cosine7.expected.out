@@ -1,3 +1,0 @@
-(cos (+ x y (* 2.0 pi z)))
-(cos (+ x y (* 4.0 pi z)))
-(cos (+ x y (* pi z)))

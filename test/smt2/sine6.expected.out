@@ -1,7 +1,0 @@
-(sin (+ x y))
-(sin (+ x y))
-(sin (+ x y))
-(sin (+ x y))
-(sin (+ x y (* pi (to_real a))))
-(sin (+ x y))
-(sin (+ x y))

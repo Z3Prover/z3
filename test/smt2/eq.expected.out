@@ -1,3 +1,0 @@
-(error "line 7 column 14: Sort mismatch at argument #1 for function (declare-fun f (Int) Int) supplied sort is (Array Int Int)")
-(error "line 8 column 13: no arguments supplied to arithmetical operator")
-(error "line 9 column 11: invalid builtin application =")

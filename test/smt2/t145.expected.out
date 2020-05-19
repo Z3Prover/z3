@@ -1,2 +1,0 @@
-(bvashr (bvashr v0 #x01) v0)
-(bvashr (bvashr v0 v1) #x01)

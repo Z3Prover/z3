@@ -1,4 +1,0 @@
-(error "line 6 column 35: logic does not support reals")
-(error "line 7 column 19: unknown sort 'Array'")
-(error "line 13 column 18: Invalid function declaration: unknown sort 'Int'")
-(error "line 19 column 19: unknown sort 'List'")

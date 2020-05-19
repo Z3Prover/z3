@@ -1,5 +1,0 @@
-(set-option :trace true)
-(check-sat-using default)
-(reset-assertions)
-(declare-fun a () Int)
-(check-sat-using default)
