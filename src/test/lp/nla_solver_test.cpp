@@ -289,7 +289,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
 
     }
 
-    SASSERT(found0 && found1 && found2 && found3);
+    VERIFY(found0 && found1 && found2 && found3);
 
 }
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial() {
@@ -364,7 +364,7 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
         }
     }
 
-    SASSERT(found0 && found1);
+    VERIFY(found0 && found1);
 }
 
 void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
@@ -416,7 +416,7 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
         }
     }
 
-    SASSERT(found0 && found1 && found2);
+    VERIFY(found0 && found1 && found2);
     
 }
 
@@ -488,7 +488,7 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
         }
     }
 
-    SASSERT(found0 && found1);
+    VERIFY(found0 && found1);
 }
 
 void test_horner() {

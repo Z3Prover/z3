@@ -30,19 +30,16 @@ public:
     // for a column element it points to the row element offset
     unsigned m_other;
     indexed_value() {}
-    indexed_value(T v, unsigned i) : m_value(v), m_index(i) {}
+
     indexed_value(T v, unsigned i, unsigned other) :
         m_value(v), m_index(i), m_other(other) {
     }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
     indexed_value(const indexed_value & iv) {
         m_value = iv.m_value;
         m_index = iv.m_index;
         m_other = iv.m_other;
     }
-#pragma GCC diagnostic pop
 
     indexed_value & operator=(const indexed_value & right_side) {
         m_value = right_side.m_value;
