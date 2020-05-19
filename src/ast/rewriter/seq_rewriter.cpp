@@ -1984,7 +1984,11 @@ bool seq_rewriter::get_head_tail(expr* s, expr_ref& head, expr_ref& tail) {
 }
 
 expr_ref seq_rewriter::kleene_and(expr* cond, expr* r) {
+    if (m().is_true(cond))
+        return expr_ref(r, m());    
     expr* re_empty = m_util.re.mk_empty(m().get_sort(r));
+    if (m().is_false(cond))
+        return expr_ref(re_empty, m());
     return expr_ref(m().mk_ite(cond, r, re_empty), m());
 }
 
