@@ -2242,6 +2242,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         }
     }
 
+#if 0
     expr_ref hd(m());
     expr_ref tl(m());
     if (get_head_tail(a, hd, tl)) {
@@ -2253,6 +2254,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
 
     return BR_FAILED; // For testing purposes, only depend on new functionality
+#endif
 
     scoped_ptr<eautomaton> aut;
     expr_ref_vector seq(m());
