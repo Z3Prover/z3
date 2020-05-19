@@ -812,9 +812,11 @@ namespace smt {
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            return 1 + str2[0] - str1[0];
+            if (str1.length() == 1 && str2.length() == 1) {
+                return 1 + str2[0] - str1[0];
+            } else {
+                return 1;
+            }
         } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
             return 1;
         } else {
@@ -910,7 +912,7 @@ namespace smt {
             return check_regex_length_linearity_helper(sub1, already_star);
         } else {
             TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
-            UNREACHABLE(); return false;
+            return false;
         }
     }
 
@@ -964,9 +966,13 @@ namespace smt {
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            lens.insert(1);
+            // re.range is a language of singleton strings if both of its arguments are;
+            // otherwise it is the empty language
+            if (str1.length() == 1 && str2.length() == 1) {
+                lens.insert(1);
+            } else {
+                lens.insert(0);
+            }
         } else if (u.re.is_full_char(re)) {
             lens.insert(1);
         } else if (u.re.is_full_seq(re)) {
@@ -1144,8 +1150,9 @@ namespace smt {
                 expr_ref rhs2(m_autil.mk_ge(strlen, m_autil.mk_numeral(nonzero_lower_bound, true)), m);
                 rhs.push_back(m.mk_or(rhs1, rhs2));
             } else {
-                // shouldn't happen
-                UNREACHABLE();
+                // length of solution can ONLY be 0
+                expr_ref rhs1(ctx.mk_eq_atom(strlen, m_autil.mk_numeral(rational::zero(), true)), m);
+                rhs.push_back(rhs1);
             }
         } else {
             // no solution at 0

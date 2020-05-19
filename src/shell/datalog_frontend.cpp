@@ -18,7 +18,6 @@ Revision History:
 --*/
 
 #include<iostream>
-#include<mutex>
 #include<time.h>
 #include<signal.h>
 #include "util/stopwatch.h"
@@ -33,6 +32,7 @@ Revision History:
 #include "muz/fp/datalog_parser.h"
 #include "shell/datalog_frontend.h"
 #include "util/timeout.h"
+#include "util/mutex.h"
 
 static stopwatch g_overall_time;
 static stopwatch g_piece_timer;
@@ -43,7 +43,7 @@ static datalog::rule_set * g_orig_rules;
 static datalog::instruction_block * g_code;
 static datalog::execution_context * g_ectx;
 
-static std::mutex *display_stats_mux = new std::mutex;
+static mutex *display_stats_mux = new mutex;
 
 
 static void display_statistics(
@@ -55,7 +55,7 @@ static void display_statistics(
     bool verbose
     )
 {
-    std::lock_guard<std::mutex> lock(*display_stats_mux);
+    lock_guard lock(*display_stats_mux);
     g_piece_timer.stop();
     unsigned t_other = static_cast<int>(g_piece_timer.get_seconds()*1000);
     g_overall_time.stop();

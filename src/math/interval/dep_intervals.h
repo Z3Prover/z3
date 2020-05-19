@@ -55,13 +55,17 @@ private:
         };
 
         void add_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
-            i.m_lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_lower_combine);
-            i.m_upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_upper_combine);
+            auto lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_lower_combine);
+            auto upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_upper_combine);
+            i.m_lower_dep = lower_dep;
+            i.m_upper_dep = upper_dep;
         }
 
         void add_deps(interval const& a, interval_deps_combine_rule const& deps, interval& i) const {
-            i.m_lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, deps.m_lower_combine);
-            i.m_upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, deps.m_upper_combine);
+            auto lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, deps.m_lower_combine);
+            auto upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, deps.m_upper_combine);
+            i.m_lower_dep = lower_dep;
+            i.m_upper_dep = upper_dep;
         }
 
 
@@ -221,14 +225,13 @@ public:
         if (r.is_zero()) return;
         m_imanager.mul(r.to_mpq(), a, b);
         if (wd == with_deps) {
-            if (r.is_pos()) {
-                b.m_lower_dep = a.m_lower_dep;
-                b.m_upper_dep = a.m_upper_dep;
+            auto lower_dep = a.m_lower_dep;
+            auto upper_dep = a.m_upper_dep;
+            if (!r.is_pos()) {
+                std::swap(lower_dep, upper_dep);
             }
-            else {
-                b.m_upper_dep = a.m_lower_dep;
-                b.m_lower_dep = a.m_upper_dep;
-            }
+            b.m_lower_dep = lower_dep;
+            b.m_upper_dep = upper_dep;
         }
     }
 

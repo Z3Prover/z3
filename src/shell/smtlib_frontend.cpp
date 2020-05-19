@@ -22,6 +22,7 @@ Revision History:
 #include<time.h>
 #include<signal.h>
 #include "util/timeout.h"
+#include "util/mutex.h"
 #include "parsers/smt2/smt2parser.h"
 #include "muz/fp/dl_cmds.h"
 #include "cmd_context/extra_cmds/dbg_cmds.h"
@@ -31,14 +32,14 @@ Revision History:
 #include "smt/smt2_extra_cmds.h"
 #include "smt/smt_solver.h"
 
-static std::mutex *display_stats_mux = new std::mutex;
+static mutex *display_stats_mux = new mutex;
 
 extern bool g_display_statistics;
 static clock_t             g_start_time;
 static cmd_context *       g_cmd_context = nullptr;
 
 static void display_statistics() {
-    std::lock_guard<std::mutex> lock(*display_stats_mux);
+    lock_guard lock(*display_stats_mux);
     clock_t end_time = clock();
     if (g_cmd_context && g_display_statistics) {
         std::cout.flush();

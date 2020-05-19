@@ -129,7 +129,7 @@ namespace smt {
             setup_QF_FP();
         else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
             setup_QF_FPBV();
-        else if (m_logic == "QF_S")
+        else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
             setup_QF_S();
         else if (m_logic == "QF_DT")
             setup_QF_DT();
@@ -177,7 +177,7 @@ namespace smt {
                  setup_QF_BVRE();
             else if (m_logic == "QF_AUFLIA")
                 setup_QF_AUFLIA(st);
-            else if (m_logic == "QF_S")
+            else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
                 setup_QF_S();
             else if (m_logic == "AUFLIA")
                 setup_AUFLIA(st);

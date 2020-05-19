@@ -20,7 +20,9 @@ Notes:
 #include "util/cancel_eh.h"
 #include "util/scoped_ptr_vector.h"
 #include "tactic/tactical.h"
+#ifndef SINGLE_THREAD
 #include <thread>
+#endif
 #include <vector>
 
 class binary_tactical : public tactic {
@@ -361,6 +363,14 @@ tactic * or_else(tactic * t1, tactic * t2, tactic * t3, tactic * t4, tactic * t5
     return or_else(10, ts);
 }
 
+#ifdef SINGLE_THREAD
+
+tactic * par(unsigned num, tactic * const * ts) {
+    throw default_exception("par_tactical is unavailable in single threaded mode");
+}
+
+#else
+
 enum par_exception_kind {
     TACTIC_EX,
     DEFAULT_EX,
@@ -489,6 +499,8 @@ tactic * par(unsigned num, tactic * const * ts) {
     return alloc(par_tactical, num, ts);
 }
 
+#endif
+
 tactic * par(tactic * t1, tactic * t2) {
     tactic * ts[2] = { t1, t2 };
     return par(2, ts);
@@ -504,6 +516,12 @@ tactic * par(tactic * t1, tactic * t2, tactic * t3, tactic * t4) {
     return par(4, ts);
 }
 
+#ifdef SINGLE_THREAD
+
+tactic * par_and_then(tactic * t1, tactic * t2) {
+    throw default_exception("par_and_then is not available in single threaded mode");
+}
+#else
 class par_and_then_tactical : public and_then_tactical {
 public:
     par_and_then_tactical(tactic * t1, tactic * t2):and_then_tactical(t1, t2) {}
@@ -741,6 +759,7 @@ public:
 tactic * par_and_then(tactic * t1, tactic * t2) {
     return alloc(par_and_then_tactical, t1, t2);
 }
+#endif
 
 tactic * par_and_then(unsigned num, tactic * const * ts) {
     unsigned i = num - 1;

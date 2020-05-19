@@ -28,6 +28,6 @@ namespace nla {
         bool is_zero(lpvar v) const;
     public:
         monomial_bounds(core* core);
-        bool operator()();
+        void operator()();
     }; 
 }

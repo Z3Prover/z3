@@ -48,7 +48,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_string(c, str);
         RESET_ERROR_CODE();
-        zstring s(str, zstring::ascii);
+        zstring s(str);
         app* a = mk_c(c)->sutil().str.mk_string(s);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -62,7 +62,7 @@ extern "C" {
         RESET_ERROR_CODE();
         unsigned_vector chs;
         for (unsigned i = 0; i < sz; ++i) chs.push_back(str[i]);
-        zstring s(sz, chs.c_ptr(), zstring::ascii);
+        zstring s(sz, chs.c_ptr());
         app* a = mk_c(c)->sutil().str.mk_string(s);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -163,12 +163,32 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, "expression is not a string literal");
             return "";
         }
-        mk_c(c)->m_char_buffer.reset();
+        auto& buffer = mk_c(c)->m_char_buffer;
+        buffer.reset();
+        svector<char> buff;
         for (unsigned i = 0; i < str.length(); ++i) {
-            mk_c(c)->m_char_buffer.push_back((char)str[i]);
+            unsigned ch = str[i];
+            if (ch >= 256) {
+                buff.reset();
+                buffer.push_back('\\');
+                buffer.push_back('\\');  // possibly replace by native non-escaped version?
+                buffer.push_back('u');
+                buffer.push_back('{');
+                while (ch > 0) {
+                    buff.push_back('0' + (ch & 0xF));
+                    ch /= 16;
+                }
+                for (unsigned j = buff.size(); j-- > 0; ) {
+                    buffer.push_back(buff[j]);
+                }
+                buffer.push_back('}');
+            }
+            else {
+                buffer.push_back((char)ch);
+            }
         }
-        *length = str.length();
-        return mk_c(c)->m_char_buffer.c_ptr();
+        *length = buffer.size();
+        return buffer.c_ptr();
         Z3_CATCH_RETURN("");
     }
 

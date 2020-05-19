@@ -101,12 +101,16 @@ std::ostream& dep_intervals::display(std::ostream& out, const interval& i) const
         out << rational(m_imanager.upper(i)) << (m_imanager.upper_is_open(i)? ")":"]");         
     }
     if (i.m_lower_dep) {
-        // out << "\nlower deps\n";
-        // TBD: print_dependencies(i.m_lower_dep, out);
+        vector<unsigned, false> ex;
+        linearize(i.m_lower_dep, ex);
+        out << " ld";
+        for (unsigned d : ex) out << " " << d;
     }
     if (i.m_upper_dep) {
-        // out << "\nupper deps\n";
-        // TBD: print_dependencies(i.m_upper_dep, out);   
+        vector<unsigned, false> ex;
+        linearize(i.m_upper_dep, ex);
+        out << " ud";
+        for (unsigned d : ex) out << " " << d;
     }
     return out;
 }

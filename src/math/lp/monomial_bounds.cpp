@@ -17,13 +17,11 @@ namespace nla {
         common(c), 
         dep(c->m_intervals.get_dep_intervals()) {}
 
-    bool monomial_bounds::operator()() {
-        bool propagated = false;
+    void monomial_bounds::operator()() {
         for (lpvar v : c().m_to_refine) {
             monic const& m = c().emons()[v];
-            propagated |= propagate(m);
+            propagate(m);
         }
-        return propagated;
     }
 
     /**
@@ -88,10 +86,10 @@ namespace nla {
 
     bool monomial_bounds::propagate_value(dep_interval& range, lpvar v, unsigned p) {
         SASSERT(p > 0);
-        if (p == 1)
+        if (p == 1) 
             return propagate_value(range, v);
-        auto val = c().val(v);
-        val = power(val, p);
+        auto val_v = c().val(v);
+        auto val = power(val_v, p);
         rational r;
         if (dep.is_below(range, val)) {
             lp::explanation ex;
@@ -101,21 +99,24 @@ namespace nla {
                 lemma &= ex;
                 return true;
             }
-            if (rational(dep.upper(range)).root(p, r)) {
-                {
+            else if (rational(dep.upper(range)).root(p, r)) {
+                // v = -2, [-4,-3]^3 < v^3 -> add bound v <= -3
+                // v = -2, [-1,+1]^2 < v^2 -> add bound v >= -1                
+                if ((p % 2 == 1) || val_v.is_pos()) {
                     auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
-                    new_lemma lemma(c(), "propagate value - root case - lower bound of range is below value");
+                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
                     lemma &= ex;
                     lemma |= ineq(v, le, r); 
+                    return true;
                 }
-                if (p % 2 == 0) {
+                if (p % 2 == 0 && val_v.is_neg()) {
                     SASSERT(!r.is_neg());
                     auto ge = dep.upper_is_open(range) ? llc::GT : llc::GE;
-                    new_lemma lemma(c(), "propagate value - root case - lower bound of range is below value");
+                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below negative value");
                     lemma &= ex;
                     lemma |= ineq(v, ge, -r); 
+                    return true;
                 }
-                return true;
             }
             // TBD: add bounds as long as difference to val is above some epsilon.
         }

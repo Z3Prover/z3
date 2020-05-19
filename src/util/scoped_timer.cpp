@@ -15,6 +15,8 @@ Author:
 
 Revision History:
 
+    Nuno Lopes (nlopes) 2019-02-04  - use C++11 goodies
+
 --*/
 
 #include "util/scoped_timer.h"

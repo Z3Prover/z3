@@ -16,10 +16,6 @@ Author:
 Revision History:
 
 --*/
-#if 0
-
- // include "util/new_symbol.cpp"
-#else
 
 #include "util/symbol.h"
 #include "util/mutex.h"
@@ -27,7 +23,9 @@ Revision History:
 #include "util/region.h"
 #include "util/string_buffer.h"
 #include <cstring>
+#ifndef SINGLE_THREAD
 #include <thread>
+#endif
 
 
 
@@ -103,7 +101,11 @@ static internal_symbol_tables* g_symbol_tables = nullptr;
 
 void initialize_symbols() {
     if (!g_symbol_tables) {
+#ifdef SINGLE_THREAD
+        unsigned num_tables = 1;
+#else
         unsigned num_tables = 2 * std::min((unsigned) std::thread::hardware_concurrency(), 64u);
+#endif
         g_symbol_tables = alloc(internal_symbol_tables, num_tables);
         
     }
@@ -190,4 +192,3 @@ bool lt(symbol const & s1, symbol const & s2) {
     return cmp < 0;
 }
 
-#endif

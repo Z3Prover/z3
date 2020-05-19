@@ -132,6 +132,16 @@ class seq_rewriter {
     }
     length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
 
+
+    // Support for regular expression derivatives
+    bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
+    expr_ref is_nullable(expr* r);
+    expr_ref kleene_and(expr* cond, expr* r);
+    expr_ref kleene_predicate(expr* cond, sort* seq_sort);
+    br_status derivative(expr* hd, expr* r, expr_ref& result);
+    br_status mk_regexp_contains_emptystr(expr* b, expr_ref& result);
+    br_status eval_regexp_derivative(expr* hd, expr* tl, expr* b, expr_ref& result);
+
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
@@ -143,24 +153,30 @@ class seq_rewriter {
     br_status mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_last_index(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_re_all(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_suffix(expr* a, expr* b, expr_ref& result);
     br_status mk_str_units(func_decl* f, expr_ref& result);
     br_status mk_str_itos(expr* a, expr_ref& result);
     br_status mk_str_stoi(expr* a, expr_ref& result);
-    br_status mk_regexp_contains_emptystr(expr* b, expr_ref& result);
-    br_status eval_regexp_derivative(expr* hd, expr* tl, expr* b, expr_ref& result);
     br_status mk_str_in_regexp(expr* a, expr* b, expr_ref& result);
     br_status mk_str_to_regexp(expr* a, expr_ref& result);
     br_status mk_str_le(expr* a, expr* b, expr_ref& result);
     br_status mk_str_lt(expr* a, expr* b, expr_ref& result);
+    br_status mk_str_from_code(expr* a, expr_ref& result);
+    br_status mk_str_to_code(expr* a, expr_ref& result);
+    br_status mk_str_is_digit(expr* a, expr_ref& result);
     br_status mk_re_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_re_union(expr* a, expr* b, expr_ref& result);
     br_status mk_re_inter(expr* a, expr* b, expr_ref& result);
     br_status mk_re_complement(expr* a, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
+    br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
+    br_status mk_re_power(func_decl* f, expr* a, expr_ref& result);
     br_status mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
     br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
@@ -193,11 +209,6 @@ class seq_rewriter {
     void remove_empty_and_concats(expr_ref_vector& es);
     void remove_leading(unsigned n, expr_ref_vector& es);
 
-    // Support for regular expression derivatives
-    bool unfold1(expr* s, expr* head, expr* tail);
-    bool is_nullable(expr* r);
-    expr* derivative(expr* hd, expr* r);
-
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
@@ -211,6 +222,7 @@ public:
     void set_solver(expr_solver* solver) { m_re2aut.set_solver(solver); }
     bool has_solver() { return m_re2aut.has_solver(); }
 
+    bool coalesce_chars() const { return m_coalesce_chars; }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);

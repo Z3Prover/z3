@@ -68,4 +68,8 @@ nlsat::anum const& solver::am_value(lp::var_index v) const {
     return m_core->m_nra.value(v);
 }
 
+void solver::collect_statistics(::statistics & st) {
+    m_core->collect_statistics(st);
+}
+
 }

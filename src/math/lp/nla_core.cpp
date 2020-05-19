@@ -28,8 +28,8 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_order(this),
     m_monotone(this),
     m_intervals(this, lim),
-    m_horner(this),
     m_monomial_bounds(this),
+    m_horner(this),
     m_pdd_manager(s.number_of_vars()),
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
@@ -174,7 +174,7 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
         if (lp_settings().m_print_external_var_name)
             out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
         else
-            out << "(j" << v << " =" << val(v) << ")";
+            out << "(j" << v << " = " << val(v) << ")";
             
     }
     return out;
@@ -981,57 +981,6 @@ bool core::rm_check(const monic& rm) const {
     return check_monic(m_emons[rm.var()]);
 }
 
-/**
-   \brief Add |v| ~ |bound|
-   where ~ is <, <=, >, >=, 
-   and bound = val(v)
-
-   |v| > |bound| 
-   <=> 
-   (v < 0 or v > |bound|) & (v > 0 or -v > |bound|)        
-   => Let s be the sign of val(v)
-   (s*v < 0 or s*v > |bound|)         
-
-   |v| < |bound|
-   <=>
-   v < |bound| & -v < |bound| 
-   => Let s be the sign of val(v)
-   s*v < |bound|
-
-*/
-
-void core::add_abs_bound(new_lemma& lemma, lpvar v, llc cmp) {
-    add_abs_bound(lemma, v, cmp, val(v));
-}
-
-void core::add_abs_bound(new_lemma& lemma, lpvar v, llc cmp, rational const& bound) {
-    SASSERT(!val(v).is_zero());
-    lp::lar_term t;  // t = abs(v)
-    t.add_monomial(rrat_sign(val(v)), v);
-
-    switch (cmp) {
-    case llc::GT:
-    case llc::GE:  // negate abs(v) >= 0
-        lemma |= ineq(t, llc::LT, 0);
-        break;
-    case llc::LT:
-    case llc::LE:
-        break;
-    default:
-        UNREACHABLE();
-        break;
-    }
-    lemma |= ineq(t, cmp, abs(bound));
-}
-
-// NB - move this comment to monotonicity or appropriate.
-/** \brief enforce the inequality |m| <= product |m[i]| .
-    by enforcing lemma:
-    /\_i |m[i]| <= |val(m[i])| => |m| <= |product_i val(m[i])|
-    <=>
-    \/_i |m[i]| > |val(m[i])} or |m| <= |product_i val(m[i])|
-*/
-
     
 bool core::find_bfc_to_refine_on_monic(const monic& m, factorization & bf) {
     for (auto f : factorization_factory_imp(m, *this)) {
@@ -1098,6 +1047,7 @@ new_lemma& new_lemma::operator|=(ineq const& ineq) {
     }
     return *this;
 }
+    
 
 new_lemma::~new_lemma() {
     static int i = 0;
@@ -1449,7 +1399,7 @@ lbool core::check(vector<lemma>& l_vec) {
     if (false && l_vec.empty() && !done()) 
         m_monomial_bounds();
     
-    if (l_vec.empty() && !done () && need_to_call_algebraic_methods()) 
+    if (l_vec.empty() && !done() && need_to_call_algebraic_methods()) 
         m_horner.horner_lemmas();
 
     if (l_vec.empty() && !done() && m_nla_settings.run_grobner()) {
@@ -1474,13 +1424,18 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-#if 0
-    if (l_vec.empty() && !done()) 
+    if (l_vec.empty() && !done() && m_nla_settings.run_nra()) {
         ret = m_nra.check();
-#endif
-
+        m_stats.m_nra_calls ++;
+    }
+    
     if (ret == l_undef && !l_vec.empty() && m_reslim.inc()) 
         ret = l_false;
+
+    m_stats.m_nla_lemmas += l_vec.size();
+    for (const auto& l : l_vec)
+        m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
+
     
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
@@ -1498,8 +1453,7 @@ bool core::no_lemmas_hold() const {
     return true;
 }
     
-lbool core::test_check(
-    vector<lemma>& l) {
+lbool core::test_check(vector<lemma>& l) {
     m_lar_solver.set_status(lp::lp_status::OPTIMAL);
     return check(l);
 }
@@ -1863,5 +1817,12 @@ bool core::influences_nl_var(lpvar j) const {
     }
     return false;
 }
+
+void core::collect_statistics(::statistics & st) {
+    st.update("arith-nla-explanations", m_stats.m_nla_explanations);
+    st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
+    st.update("arith-nra-calls", m_stats.m_nra_calls);    
+}
+
 
 } // end of nla

@@ -513,7 +513,7 @@ namespace smt {
             return true;
         }
 
-        ineq* c = alloc(ineq, m_mpz_mgr, literal(abv), pb.is_eq(atom));
+        scoped_ptr<ineq> c = alloc(ineq, m_mpz_mgr, literal(abv), pb.is_eq(atom));
         c->m_args[0].m_k = pb.get_k(atom);
         numeral& k = c->m_args[0].m_k;
         arg_t& args = c->m_args[0];
@@ -554,7 +554,6 @@ namespace smt {
             // fall-through
         case l_true: 
             ctx.mk_th_axiom(get_id(), 1, &lit);
-            dealloc(c);
             return true;
         case l_undef: 
             break;
@@ -584,7 +583,7 @@ namespace smt {
 
         init_watch_ineq(*c);
         init_watch(abv);
-        m_var_infos[abv].m_ineq = c;
+        m_var_infos[abv].m_ineq = c.detach();
         m_ineqs_trail.push_back(abv);
         TRACE("pb", display(tout, *c););
         return true;

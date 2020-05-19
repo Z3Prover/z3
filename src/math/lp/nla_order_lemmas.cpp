@@ -40,8 +40,6 @@ void order::order_lemma() {
 void order::order_lemma_on_monic(const monic& m) {
     TRACE("nla_solver_details",
           tout << "m = " << pp_mon(c(), m););
-    if (c().has_real(m))
-        return;
     for (auto ac : factorization_factory_imp(m, _())) {
         if (ac.size() != 2)
             continue;
@@ -82,6 +80,8 @@ void order::order_lemma_on_binomial(const monic& ac) {
   
 */
 void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign) {
+    if (!c().var_is_int(x) && val(x).is_big())
+        return;
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
     new_lemma lemma(c(), __FUNCTION__);
@@ -213,7 +213,7 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
           tout << "ab.size()=" << ab.size() << "\n";
           tout << "we should have sign*var_val(m):" << mv << "=(" << rsign << ")*(" << var_val(m) <<") to be equal to " << " val(var(ab[0]))*val(var(ab[1])):" << fv << "\n";);
     TRACE("nla_solver", tout << "m="; _().print_monic_with_vars(m, tout); tout << "\nfactorization="; _().print_factorization(ab, tout););
-    if (mv != fv) {
+    if (mv != fv && !c().has_real(m)) {            
         bool gt = mv > fv;
         for (unsigned j = 0, k = 1; j < 2; j++, k--) {
             new_lemma lemma(_(), __FUNCTION__);
@@ -289,6 +289,7 @@ void order::generate_ol(const monic& ac,
     lemma |= ineq(c.var(), val(c.var()).is_neg() ? llc::GE : llc::LE, 0);
     _().negate_var_relation_strictly(lemma, ac.var(), bc.var());
     _().negate_var_relation_strictly(lemma, a.var(),  b.var());
+
     lemma &= ac;
     lemma &= a;
     lemma &= bc;
@@ -323,7 +324,7 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
 }
 /*
    given: sign * m = ab
-   lemma b != val(b) || sign 0 m <= a*val(b)
+   lemma b != val(b) || sign*m <= a*val(b)
 */
 void order::order_lemma_on_ab_gt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b) {
     SASSERT(sign * var_val(m) > val(a) * val(b));

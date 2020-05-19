@@ -11,6 +11,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/timeout.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
+#include "util/mutex.h"
 #include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -25,7 +26,7 @@ static bool g_first_interrupt = true;
 static opt::context* g_opt = nullptr;
 static double g_start_time = 0;
 static unsigned_vector g_handles;
-static std::mutex *display_stats_mux = new std::mutex;
+static mutex *display_stats_mux = new mutex;
 
 
 static void display_results() {
@@ -50,7 +51,7 @@ static void display_results() {
 }
 
 static void display_statistics() {
-    std::lock_guard<std::mutex> lock(*display_stats_mux);
+    lock_guard lock(*display_stats_mux);
     if (g_display_statistics && g_opt) {
         ::statistics stats;
         g_opt->collect_statistics(stats);

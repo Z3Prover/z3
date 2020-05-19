@@ -28,10 +28,6 @@ Notes:
  
 --*/
 
-#include <thread>
-#include <mutex>
-#include <cmath>
-#include <condition_variable>
 #include "util/scoped_ptr_vector.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
@@ -42,6 +38,19 @@ Notes:
 #include "tactic/tactical.h"
 #include "solver/parallel_tactic.h"
 #include "solver/parallel_params.hpp"
+
+#ifdef SINGLE_THREAD
+
+tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
+    throw default_exception("parallel tactic is disabled in single threaded mode");
+}
+
+#else
+
+#include <thread>
+#include <mutex>
+#include <cmath>
+#include <condition_variable>
 
 class parallel_tactic : public tactic {
 
@@ -795,3 +804,4 @@ tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
     return alloc(parallel_tactic, s, p);
 }
 
+#endif

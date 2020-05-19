@@ -772,6 +772,52 @@ void seq_axioms::add_le_axiom(expr* n) {
 }
 
 /**
+   is_digit(e) <=> to_code('0') <= to_code(e) <= to_code('9')
+ */
+void seq_axioms::add_is_digit_axiom(expr* n) {
+    expr* e = nullptr;
+    VERIFY(seq.str.is_is_digit(n, e)); 
+    literal is_digit = mk_literal(n);
+    expr_ref to_code(seq.str.mk_to_code(e), m);
+    literal ge0 = mk_ge(to_code, (unsigned)'0');
+    literal le9 = mk_le(to_code, (unsigned)'9');
+    add_axiom(~is_digit, ge0);
+    add_axiom(~is_digit, le9);
+    add_axiom(is_digit, ~ge0, ~le9);
+}
+
+/**
+   len(e) = 1 => 0 <= to_code(e) <= max_code
+   len(e) != 1 => to_code(e) = -1
+ */
+void seq_axioms::add_str_to_code_axiom(expr* n) {
+    expr* e = nullptr;
+    VERIFY(seq.str.is_to_code(n, e)); 
+    literal len_is1 = mk_eq(mk_len(e), a.mk_int(1));
+    add_axiom(~len_is1, mk_ge(n, 0)); 
+    add_axiom(~len_is1, mk_le(n, zstring::max_char()));
+    add_axiom(len_is1, mk_eq(n, a.mk_int(-1)));
+}
+
+/**
+   0 <= e <= max_char => len(from_code(e)) = 1
+   0 <= e <= max_char => to_code(from_code(e)) = e
+   e < 0 or e > max_char => len(from_code(e)) = ""
+ */
+void seq_axioms::add_str_from_code_axiom(expr* n) {
+    expr* e = nullptr;
+    VERIFY(seq.str.is_from_code(n, e)); 
+    literal ge = mk_ge(e, 0);
+    literal le = mk_le(e, zstring::max_char());
+    literal emp = mk_literal(seq.str.mk_is_empty(n));
+    add_axiom(~ge, ~le, mk_eq(mk_len(n), a.mk_int(1)));
+    add_axiom(~ge, ~le, mk_eq(seq.str.mk_to_code(n), e));
+    add_axiom(ge, emp);
+    add_axiom(le, emp);
+}
+
+
+/**
 Unit is injective:
 
    u = inv-unit(unit(u)) 

@@ -15,12 +15,25 @@ Author:
 
 --*/
 
+
 #include "util/scoped_ptr_vector.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
+
+#ifdef SINGLE_THREAD
+
+namespace smt {
+    
+    lbool parallel::operator()(expr_ref_vector const& asms) {
+        return l_undef;
+    }
+}
+
+#else
+
 #include <thread>
 
 namespace smt {
@@ -234,3 +247,4 @@ namespace smt {
     }
 
 }
+#endif

@@ -14,16 +14,17 @@ Author:
 #include "util/scoped_timer.h"
 #include "util/rlimit.h"
 #include "util/gparams.h"
+#include "util/mutex.h"
 #include <signal.h>
 #include "smt/params/smt_params_helper.hpp"
 
 namespace {
-static std::mutex *display_stats_mux = new std::mutex;
+static mutex *display_stats_mux = new mutex;
 
 static lp::lp_solver<double, double>* g_solver = nullptr;
 
 static void display_statistics() {
-    std::lock_guard<std::mutex> lock(*display_stats_mux);
+    lock_guard lock(*display_stats_mux);
     if (g_solver && g_solver->settings().print_statistics) {
         // TBD display relevant information about statistics
     }

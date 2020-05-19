@@ -1512,12 +1512,11 @@ namespace smt2 {
                 f = m_ctx.find_func_decl(C, 0, nullptr, vars.size(), nullptr, srt);
             }
             catch (cmd_exception &) {
-                if (!args.empty()) {
+                if (!vars.empty()) {
                     throw;
                 }
-            }
-            
-            if (!f && !args.empty()) {
+            }            
+            if (!f && !vars.empty()) {
                 throw parser_exception("expecting a constructor that has been declared");
             }
             if (!f) {

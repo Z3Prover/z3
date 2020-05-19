@@ -33,6 +33,7 @@ Revision History:
 #include "smt/theory_seq_empty.h"
 #include "smt/seq_skolem.h"
 #include "smt/seq_axioms.h"
+#include "smt/seq_unicode.h"
 #include "smt/seq_offset_eq.h"
 
 namespace smt {
@@ -402,6 +403,7 @@ namespace smt {
         arith_util       m_autil;
         seq_skolem       m_sk;
         seq_axioms       m_ax;
+        seq_unicode      m_unicode;
         arith_value      m_arith_value;
         th_trail_stack   m_trail_stack;
         stats            m_stats;
@@ -409,6 +411,7 @@ namespace smt {
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
         expr_ref_pair_vector m_new_eqs;
         bool             m_has_seq;
+        expr*            m_unhandled_expr;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;

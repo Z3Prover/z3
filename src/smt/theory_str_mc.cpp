@@ -624,17 +624,16 @@ namespace smt {
                     cex = expr_ref(m_autil.mk_ge(mk_strlen(term), mk_int(0)), m);
                     return false;
                 }
-                SASSERT(varLen_value.is_unsigned() && "actually arithmetic solver can assign it a very large number");
                 TRACE("str_fl", tout << "creating character terms for variable " << mk_pp(term, m) << ", length = " << varLen_value << std::endl;);
                 ptr_vector<expr> new_chars;
-                for (unsigned i = 0; i < varLen_value.get_unsigned(); ++i) {
+                for (rational i = rational::zero(); i < varLen_value; ++i) {
                     // TODO we can probably name these better for the sake of debugging
                     expr_ref ch(mk_fresh_const("char", bv8_sort), m);
                     new_chars.push_back(ch);
                     fixed_length_subterm_trail.push_back(ch);
                 }
                 var_to_char_subterm_map.insert(term, new_chars);
-                fixed_length_used_len_terms.insert(term, varLen_value.get_unsigned());
+                fixed_length_used_len_terms.insert(term, varLen_value);
             }
             var_to_char_subterm_map.find(term, eqc_chars);
         } else if (u.str.is_concat(term, arg0, arg1)) {
@@ -669,14 +668,21 @@ namespace smt {
             if (pos.is_neg() || pos >= rational(base_chars.size()) || len.is_neg()) {
                 eqc_chars.reset();
                 return true;
+            }
+            else if (!pos.is_unsigned() || !len.is_unsigned()) {
+                return false;
             } else {
-                if (pos + len >= rational(base_chars.size())) {
+                unsigned _pos = pos.get_unsigned();
+                unsigned _len = len.get_unsigned();
+                if (_pos + _len < _pos) 
+                    return false;
+                if (_pos + _len >= base_chars.size()) {
                     // take as many characters as possible up to the end of base_chars
-                    for (unsigned i = pos.get_unsigned(); i < base_chars.size(); ++i) {
+                    for (unsigned i = _pos; i < base_chars.size(); ++i) {
                         eqc_chars.push_back(base_chars.get(i));
                     }
                 } else {
-                    for (unsigned i = pos.get_unsigned(); i < pos.get_unsigned() + len.get_unsigned(); ++i) {
+                    for (unsigned i = _pos; i < _pos + _len; ++i) {
                         eqc_chars.push_back(base_chars.get(i));
                     }
                 }
@@ -698,6 +704,9 @@ namespace smt {
             if (pos_value.is_neg() || pos_value >= rational(base_chars.size())) {
                 // return the empty string
                 eqc_chars.reset();
+            }
+            else if (!pos_value.is_unsigned()) {
+                return false;
             } else {
                 eqc_chars.push_back(base_chars.get(pos_value.get_unsigned()));
             }
@@ -729,7 +738,7 @@ namespace smt {
                 eqc_chars.reset();
                 return true;
             } else {
-                if (termLen.get_unsigned() != iValue.to_string().length()) {
+                if (termLen != iValue.get_num_decimal()) {
                     // conflict
                     cex = expr_ref(m.mk_not(m.mk_and(get_context().mk_eq_atom(mk_strlen(term), mk_int(termLen)), get_context().mk_eq_atom(arg0, mk_int(iValue)))), m);
                     return false;
@@ -754,13 +763,13 @@ namespace smt {
                 }
                 TRACE("str_fl", tout << "creating character terms for uninterpreted function " << mk_pp(term, m) << ", length = " << ufLen_value << std::endl;);
                 ptr_vector<expr> new_chars;
-                for (unsigned i = 0; i < ufLen_value.get_unsigned(); ++i) {
+                for (rational i = rational::zero(); i < ufLen_value; ++i) {
                     expr_ref ch(mk_fresh_const("char", bv8_sort), m);
                     new_chars.push_back(ch);
                     fixed_length_subterm_trail.push_back(ch);
                 }
                 uninterpreted_to_char_subterm_map.insert(term, new_chars);
-                fixed_length_used_len_terms.insert(term, ufLen_value.get_unsigned());
+                fixed_length_used_len_terms.insert(term, ufLen_value);
             }
             uninterpreted_to_char_subterm_map.find(term, eqc_chars);
         }
@@ -794,7 +803,6 @@ namespace smt {
             fixed_length_assumptions.push_back(_e);
             fixed_length_lesson.insert(_e, std::make_tuple(rational(i), lhs, rhs));
         }
-        // fixed_length_used_len_terms.push_back(get_context().mk_eq_atom(lhs, rhs));
         return true;
     }
 
@@ -1056,7 +1064,8 @@ namespace smt {
 
         for (auto e : fixed_length_used_len_terms) {
             expr * var = &e.get_key();
-            precondition.push_back(m.mk_eq(u.str.mk_length(var), mk_int(e.get_value())));
+            rational val = e.get_value();
+            precondition.push_back(m.mk_eq(u.str.mk_length(var), mk_int(val)));
         }
 
         TRACE("str_fl",
@@ -1094,7 +1103,7 @@ namespace smt {
                 for (expr * chExpr : char_subterms) {
                     expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
                     rational n;
-                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n)) {
+                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n) && n.is_unsigned()) {
                         assignment.push_back(n.get_unsigned());
                     } else {
                         assignment.push_back((unsigned)'?');
@@ -1116,7 +1125,7 @@ namespace smt {
                 for (expr * chExpr : char_subterms) {
                     expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
                     rational n;
-                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n)) {
+                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n) && n.is_unsigned()) {
                         assignment.push_back(n.get_unsigned());
                     } else {
                         assignment.push_back((unsigned)'?');
@@ -1172,7 +1181,8 @@ namespace smt {
                 TRACE("str_fl", tout << "subsolver found UNSAT; constructing length counterexample" << std::endl;);
                 for (auto e : fixed_length_used_len_terms) {
                     expr * var = &e.get_key();
-                    cex.push_back(m.mk_eq(u.str.mk_length(var), mk_int(e.get_value())));
+                    rational val = e.get_value();
+                    cex.push_back(m.mk_eq(u.str.mk_length(var), mk_int(val)));
                 }
                 return l_false;
             } else {

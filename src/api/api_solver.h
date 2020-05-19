@@ -18,6 +18,7 @@ Revision History:
 #ifndef API_SOLVER_H_
 #define API_SOLVER_H_
 
+#include "util/mutex.h"
 #include "api/api_util.h"
 #include "solver/solver.h"
 
@@ -44,7 +45,7 @@ struct Z3_solver_ref : public api::object {
     params_ref                 m_params;
     symbol                     m_logic;
     scoped_ptr<solver2smt2_pp> m_pp;
-    std::mutex                 m_mux;
+    mutex                      m_mux;
     event_handler*             m_eh;
 
     Z3_solver_ref(api::context& c, solver_factory * f): 

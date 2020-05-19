@@ -1336,6 +1336,26 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
             result = mk_numeral(0, bv_size);
             return BR_REWRITE2;
         }
+
+#if 0       
+        expr* a = nullptr, *b = nullptr;
+        if (r2.is_pos() && 
+            r2.get_num_bits() + 1 < bv_size &&
+            m_util.is_bv_mul(arg1, a, b) &&            
+            !m_util.is_concat(a) && 
+            !m_util.is_concat(b)) {
+            unsigned nb = r2.get_num_bits();
+            expr_ref a1(m_util.mk_bv_smod(a, arg2), m());
+            expr_ref a2(m_util.mk_bv_smod(b, arg2), m());
+            a1 = m_util.mk_concat( mk_numeral(0, bv_size - nb), m_mk_extract(nb-1,0,a1));
+            a2 = m_util.mk_concat( mk_numeral(0, bv_size - nb), m_mk_extract(nb-1,0,a2));
+            result = m_util.mk_bv_mul(a1, a2);
+            std::cout << result << "\n";
+            result = m_util.mk_bv_smod(result, arg2);
+            return BR_REWRITE_FULL;
+        }
+#endif
+        
     }
 
     if (hi_div0) {

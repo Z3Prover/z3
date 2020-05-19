@@ -139,6 +139,16 @@ struct pp_factorization {
 };
 
 class core {
+    struct stats {
+        unsigned m_nla_explanations;
+        unsigned m_nla_lemmas;
+        unsigned m_nra_calls;
+        stats() { reset(); }
+        void reset() {
+            memset(this, 0, sizeof(*this));
+        }
+    };
+    stats                    m_stats;
     friend class new_lemma;
 public:
     var_eqs<emonics>         m_evars;
@@ -405,8 +415,6 @@ public:
     bool rm_check(const monic&) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
 
-    void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp);
-    void add_abs_bound(new_lemma& lemma, lpvar v, llc cmp, rational const& bound);
     void negate_relation(new_lemma& lemma, unsigned j, const rational& a);
     void negate_factor_equality(new_lemma& lemma, const factor& c, const factor& d);    
     void negate_factor_relation(new_lemma& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
@@ -465,6 +473,7 @@ public:
     bool has_real(const monic& m) const;
     void set_use_nra_model(bool m) { m_use_nra_model = m; }
     bool use_nra_model() const { return m_use_nra_model; }
+    void collect_statistics(::statistics&);
 };  // end of core
 
 struct pp_mon {

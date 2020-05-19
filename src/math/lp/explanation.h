@@ -33,6 +33,8 @@ public:
     vector<std::pair<mpq, constraint_index>>::const_iterator begin() const { return m_explanation.begin(); }
     vector<std::pair<mpq, constraint_index>>::const_iterator end() const { return m_explanation.end(); }
     void push_justification(constraint_index j, const mpq& v) {
+        if (m_set_of_ci.find(j) != m_set_of_ci.end()) return;
+        m_set_of_ci.insert(j);
         m_explanation.push_back(std::make_pair(v, j));
     }
     void push_justification(constraint_index j) {
@@ -45,7 +47,11 @@ public:
         push_justification(j);
     }
     
-    void add(const explanation& e) { for (auto j: e.m_set_of_ci) add(j); }
+    void add(const explanation& e) {
+        for (const auto& p: e.m_explanation) {
+            add(p.second);
+        }
+    }
     template <typename T>
     void add_expl(const T& e) { for (auto j: e) add(j); }
     void add(unsigned ci) { push_justification(ci); }

@@ -20,7 +20,7 @@ Revision History:
 #define MPZ_H_
 
 #include<string>
-#include<mutex>
+#include "util/mutex.h"
 #include "util/util.h"
 #include "util/small_object_allocator.h"
 #include "util/trace.h"
