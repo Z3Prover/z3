@@ -1983,6 +1983,16 @@ bool seq_rewriter::get_head_tail(expr* s, expr_ref& head, expr_ref& tail) {
     return false;
 }
 
+expr_ref seq_rewriter::kleene_and(expr* cond, expr* r) {
+    expr* re_empty = m_util.re.mk_empty(m().get_sort(r));
+    return expr_ref(m().mk_ite(cond, r, re_empty), m());
+}
+
+expr_ref seq_rewriter::kleene_predicate(expr* cond, sort* seq_sort) {
+    expr* re_with_empty = m_util.re.mk_to_re(m_util.str.mk_empty(seq_sort));
+    return kleene_and(cond, re_with_empty);
+}
+
 expr_ref seq_rewriter::is_nullable(expr* r) {
     SASSERT(m_util.is_re(r));
     expr* r1 = nullptr, *r2 = nullptr;

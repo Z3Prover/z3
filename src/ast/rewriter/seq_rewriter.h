@@ -134,6 +134,8 @@ class seq_rewriter {
 
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     expr_ref is_nullable(expr* r);
+    expr_ref kleene_and(expr* cond, expr* r);
+    expr_ref kleene_predicate(expr* cond, sort* seq_sort);
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
