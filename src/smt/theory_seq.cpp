@@ -3279,7 +3279,10 @@ void theory_seq::relevant_eh(app* n) {
 
     if (m_util.str.is_replace_all(n) ||
         m_util.str.is_replace_re(n) ||
-        m_util.str.is_replace_re_all(n)) {
+        m_util.str.is_replace_re_all(n) ||
+        m_util.str.is_from_code(n) ||
+        m_util.str.is_to_code(n) ||
+        m_util.str.is_is_digit(n)) {
         if (!m_unhandled_expr) {
             ctx.push_trail(value_trail<context, expr*>(m_unhandled_expr));
             m_unhandled_expr = n;
