@@ -249,6 +249,6 @@ jobs:
         ninja test-z3
         cd ..
     - template: scripts/test-z3.yml
-    - template: scripts/test-examples-cmake.yml
+#   - template: scripts/test-examples-cmake.yml
     - template: scripts/test-regressions.yml
 #   - template: scripts/test-java-cmake.yml
