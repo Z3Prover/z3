@@ -193,8 +193,12 @@ class seq_rewriter {
     void remove_empty_and_concats(expr_ref_vector& es);
     void remove_leading(unsigned n, expr_ref_vector& es);
 
+    // Support for regular expression derivatives
+    bool unfold1(expr* s, expr* head, expr* tail);
+    bool is_nullable(expr* r);
+    expr* derivative(expr* hd, expr* r);
 
-public:    
+public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
