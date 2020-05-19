@@ -1963,6 +1963,79 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
     return true;
 }
 
+bool seq_rewriter::get_head_tail(expr* s, expr_ref& head, expr_ref& tail) {
+    expr* h = nullptr, *t = nullptr;
+    zstring s1;
+    if (m_util.str.is_unit(s, h)) {
+        head = h;
+        tail = m_util.str.mk_empty(m().get_sort(s));
+        return true;
+    }
+    if (m_util.str.is_string(s, s1) && s1.length() > 0) {
+        head = m_util.str.mk_string(s1.extract(0, 1));
+        tail = m_util.str.mk_string(s1.extract(1, s1.length()));
+        return true;    
+    }
+    if (m_util.str.is_concat(s, h, t) && get_head_tail(h, head, tail)) {
+        tail = m_util.str.mk_concat(tail, t);
+        return true;
+    }
+    return false;
+}
+
+expr_ref seq_rewriter::is_nullable(expr* r) {
+    SASSERT(m_util.is_re(r));
+    expr* r1 = nullptr, *r2 = nullptr;
+    unsigned lo = 0, hi = 0;
+    if (m_util.re.is_concat(r, r1, r2)) {
+        return expr_ref(mk_and(m(), is_nullable(r1), is_nullable(r2)), m());
+    }
+    if (m_util.re.is_union(r, r1, r2)) {
+        return expr_ref(mk_or(m(), is_nullable(r1), is_nullable(r2)), m());
+    }
+    if (m_util.re.is_intersection(r, r1, r2)) {
+        return expr_ref(mk_and(m(), is_nullable(r1), is_nullable(r2)), m());
+    }
+    if (m_util.re.is_star(r) || 
+             m_util.re.is_opt(r) ||
+             m_util.re.is_full_seq(r)) {
+        return expr_ref(m().mk_true(), m());
+    }
+    if (m_util.re.is_full_char(r) ||
+             m_util.re.is_empty(r) ||
+             m_util.re.is_of_pred(r)) {
+        return expr_ref(m().mk_false(), m());
+    }
+    if (m_util.re.is_plus(r, r1)) {
+        return is_nullable(r1);
+    }
+    if (m_util.re.is_range(r, r1, r2)) {
+        if (m_util.is_const_char(r1, lo) && m_util.is_const_char(r2, hi)) {
+            return expr_ref(m().mk_bool_val(lo > hi), m());
+        }
+        else {
+            return expr_ref(m_util.mk_lt(r2, r1), m());
+        }
+    }
+    if (m_util.re.is_complement(r, r1)) {
+        return expr_ref(mk_not(m(), is_nullable(r1)), m());
+    }
+    if (m_util.re.is_loop(r, r1, lo) || m_util.re.is_loop(r, r1, lo, hi)) {
+        if (lo == 0) {
+            return expr_ref(m().mk_true(), m());
+        }
+        else if (hi == 0) {
+            return expr_ref(m().mk_false(), m());
+        }
+        else {
+            return is_nullable(r1);
+        }
+    }
+    sort* seq_sort = nullptr;
+    VERIFY(m_util.is_re(r, seq_sort));
+    return expr_ref(m_util.re.mk_in_re(m_util.str.mk_empty(seq_sort), r), m());
+}
+
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     if (m_util.re.is_empty(b)) {
         result = m().mk_false();

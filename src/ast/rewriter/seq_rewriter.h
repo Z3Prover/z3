@@ -132,6 +132,9 @@ class seq_rewriter {
     }
     length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
 
+    bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
+    expr_ref is_nullable(expr* r);
+
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
