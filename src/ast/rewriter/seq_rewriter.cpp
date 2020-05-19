@@ -631,10 +631,10 @@ br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
 
 /*
    string + string = string
-   a + (b + c) = (a + b) + c
+   (a + b) + c = a + (b + c)
    a + "" = a
    "" + a = a
-   (a + string) + string = a + string
+   string + (string + a) = string + a
 */
 br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     zstring s1, s2;
@@ -655,6 +655,10 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     }
     if (m_util.str.is_empty(b)) {
         result = a;
+        return BR_DONE;
+    }
+    if (isc1 && m_util.str.is_concat(b, c, d) && m_util.str.is_string(c, s2)) {
+        result = m_util.str.mk_concat(m_util.str.mk_string(s1 + s2), d);
         return BR_DONE;
     }
     return BR_FAILED;
@@ -1954,181 +1958,6 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
     return true;
 }
 
-br_status seq_rewriter::mk_regexp_contains_emptystr(expr* b, expr_ref& result) {
-    // Make empty string (using sequence sort)
-    sort* seq_sort = nullptr;
-    VERIFY(m_util.is_re(b, seq_sort));
-    expr* eps = m_util.str.mk_empty(seq_sort);
-    // Match on regular expression b
-    expr* b1 = nullptr;
-    expr* b2 = nullptr;
-    unsigned lo = 0, hi = 0;
-    if (m_util.re.is_concat(b, b1, b2)) {
-        result = m().mk_and(m_util.re.mk_in_re(eps, b1),
-                            m_util.re.mk_in_re(eps, b2));
-        return BR_REWRITE2;
-    }
-    else if (m_util.re.is_union(b, b1, b2)) {
-        result = m().mk_or(m_util.re.mk_in_re(eps, b1),
-                           m_util.re.mk_in_re(eps, b2));
-        return BR_REWRITE2;
-    }
-    else if (m_util.re.is_intersection(b, b1, b2)) {
-        result = m().mk_and(m_util.re.mk_in_re(eps, b1),
-                            m_util.re.mk_in_re(eps, b2));
-        return BR_REWRITE2;
-    }
-    else if (m_util.re.is_star(b)) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
-    else if (m_util.re.is_opt(b)) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
-    else if (m_util.re.is_plus(b, b1)) {
-        result = m_util.re.mk_in_re(eps, b1);
-        return BR_REWRITE1;
-    }
-    else if (m_util.re.is_range(b)) {
-        result = m().mk_false();
-        return BR_DONE;
-    }
-    else if (m_util.re.is_full_char(b)) {
-        result = m().mk_false();
-        return BR_DONE;
-    }
-    else if (m_util.re.is_complement(b, b1)) {
-        result = m().mk_not(m_util.re.mk_in_re(eps, b1));
-        return BR_REWRITE2;
-    }
-    else if (m_util.re.is_of_pred(b)) {
-        result = m().mk_false();
-        return BR_DONE;
-    }
-    else if (m_util.re.is_loop(b, b1, lo) || m_util.re.is_loop(b, b1, lo, hi)) {
-        if (lo == 0) {
-            result = m().mk_true();
-            return BR_DONE;
-        }
-        else {
-            result = m_util.re.mk_in_re(eps, b1);
-            return BR_REWRITE1;
-        }
-    }
-    else if (m_util.re.is_full_seq(b)) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
-    else if (m_util.re.is_empty(b)) {
-        result = m().mk_false();
-        return BR_DONE;
-    }
-    else {
-        UNREACHABLE();
-    }
-}
-
-br_status seq_rewriter::eval_regexp_derivative(
-        expr* hd, expr* tl, expr* b, expr_ref& result
-    ) {
-    // Assumption: hd should be a single character
-    SASSERT(m_util.is_unit(hd)); // Should be is_char?
-    expr* b1 = nullptr;
-    expr* b2 = nullptr;
-    unsigned lo = 0, hi = 0;
-    // Make original string, for convenience
-    expr* a = m_util.str.mk_concat(hd, tl);
-    // Now match on regular expression
-    // TODO: complete the following code
-    if (m_util.re.is_concat(b, b1, b2)) {
-        // This is the interesting case: depends on if b1 is nullable
-        // Make empty string (using sequence sort)
-        // sort* seq_sort = nullptr;
-        // VERIFY(m_util.is_re(b, seq_sort));
-        // expr* eps = m_util.str.mk_empty(seq_sort);
-        // TODO: abstract the above three lines in a function
-        // TODO: how to do this? need partial derivative syntax as an op code
-        // I think. For now, return BR_FAILED.
-        return BR_FAILED;
-    //     result = m().mk_or(
-    //         m_util.mk_in_re(a, b1),
-    //         m().mk_and(
-    //             m_util.mk_in_re(eps, b1),
-    //             m_util.mk_in_re(a, b2)
-    //     );
-    //     result = m().mk_and(m_util.re.mk_in_re(eps, b1),
-    //                         m_util.re.mk_in_re(eps, b2));
-    //     return BR_REWRITE2;
-    }
-    else if (m_util.re.is_union(b, b1, b2)) {
-        result = m().mk_or(m_util.re.mk_in_re(a, b1),
-                           m_util.re.mk_in_re(a, b2));
-        return BR_REWRITE2;
-    }
-    else if (m_util.re.is_intersection(b, b1, b2)) {
-        result = m().mk_and(m_util.re.mk_in_re(a, b1),
-                            m_util.re.mk_in_re(a, b2));
-        return BR_REWRITE2;
-    }
-    else if (m_util.re.is_star(b, b1)) {
-        result = m_util.re.mk_in_re(
-            a, m_util.re.mk_concat(b1, b)
-        );
-        return BR_REWRITE1; // example where this way could be wrong!
-    }
-    else if (m_util.re.is_plus(b, b1)) {
-        result = m_util.re.mk_in_re(
-            a, m_util.re.mk_concat(b1, m_util.re.mk_star(b1))
-        );
-        return BR_REWRITE1; // example where this way could be wrong!
-    }
-    else if (m_util.re.is_opt(b, b1)) {
-        result = m_util.re.mk_in_re(a, b1);
-        return BR_REWRITE1;
-    }
-    else if (m_util.re.is_range(b)) {
-        // TODO: check if b is in range
-        return BR_FAILED;
-    }
-    else if (m_util.re.is_full_char(b)) {
-        result = m_util.str.mk_is_empty(tl);
-        return BR_REWRITE1;
-    }
-    else if (m_util.re.is_complement(b, b1)) {
-        result = m().mk_not(m_util.re.mk_in_re(a, b1));
-        return BR_REWRITE2;
-    }
-    else if (m_util.re.is_of_pred(b)) {
-        // TODO: check if b satisfies predicate
-        return BR_FAILED;
-    }
-    else if (m_util.re.is_loop(b, b1, lo) ) {
-        if (lo > 0) {
-            lo--;
-        }
-        result = m_util.re.mk_in_re(
-            a, m_util.re.mk_concat(b1, m_util.re.mk_loop(b1, lo))
-        );
-        return BR_REWRITE1; // example where this way could be wrong!
-    } else if (m_util.re.is_loop(b, b1, lo, hi)) {
-        if (lo > 0) {
-            lo--;
-        }
-        if (hi == 0) {
-            result = m().mk_false();
-            return BR_DONE;
-        }
-        hi--;
-        result = m_util.re.mk_in_re(
-            a, m_util.re.mk_concat(b1, m_util.re.mk_loop(b1, lo, hi))
-        );
-        return BR_REWRITE1; // example where this way could be wrong!
-    }
-
-    return BR_FAILED;
-}
-
 bool seq_rewriter::get_head_tail(expr* s, expr_ref& head, expr_ref& tail) {
     expr* h = nullptr, *t = nullptr;
     zstring s1;
@@ -2215,6 +2044,7 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
 }
 
 br_status seq_rewriter::derivative(expr* hd, expr* r, expr_ref& result) {
+    // TODO: rewrite derivative using null expression
     // Check assumption: hd is a single character string
     // TODO: I want to check if is_char, but there doesn't seem to be an option for that?
     SASSERT(m_util.str.is_unit(hd));
@@ -2265,6 +2095,7 @@ br_status seq_rewriter::derivative(expr* hd, expr* r, expr_ref& result) {
     else if (m_util.re.is_plus(r, r1)) {
         return derivative(hd, m_util.re.mk_star(r1), result);
     }
+    // TODO shortcutting in is_union and is-intersection cases
     else if (m_util.re.is_union(r, r1, r2)) {
         expr_ref dr1(m());
         expr_ref dr2(m());
@@ -2378,7 +2209,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             return BR_FAILED;
         }
         else {
-            return BR_REWRITE_FULL; // is_nullable doesn't rewrite
+            return BR_REWRITE_FULL;
         }
     }
 
@@ -2389,6 +2220,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         derivative(hd, b, db) == BR_DONE) {
         result = m_util.re.mk_in_re(tl, db);
         return BR_REWRITE1;
+        // TODO: Nikolaj: "perhaps here it would be relevant to rewrite under nested terms"
     }
 
     return BR_FAILED; /* For testing purposes, only depend on new functionality */
