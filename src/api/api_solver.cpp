@@ -113,12 +113,12 @@ extern "C" {
     }
 
     void Z3_solver_ref::set_eh(event_handler* eh) {
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         m_eh = eh;
     }
 
     void Z3_solver_ref::set_cancel() {
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         if (m_eh) (*m_eh)(API_INTERRUPT_EH_CALLER);
     }
 
