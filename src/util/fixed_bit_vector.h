@@ -44,11 +44,6 @@ class fixed_bit_vector {
     }
 
 public:
-
-    fixed_bit_vector() {}
-    
-    ~fixed_bit_vector() {}
-    
     unsigned get_word(unsigned word_idx) const { return m_data[word_idx]; }
 
     bool operator[](unsigned bit_idx) const {
