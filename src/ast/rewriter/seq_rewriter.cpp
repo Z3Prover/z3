@@ -21,6 +21,7 @@ Notes:
 #include "util/uint_set.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
@@ -2049,15 +2050,12 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     Returns null expression `expr_ref(m())` on failure.
 */
 expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
-    // Check assumption: elem is a single character string
-    // TODO: I want to check if is_char, not if it's a unit.
-    SASSERT(m_util.str.is_unit(elem));
-    expr* r1 = nullptr;
-    expr* r2 = nullptr;
-    expr_ref dr1(m());
-    expr_ref dr2(m());
-    expr* p = nullptr;
-    expr_ref result(m());
+    sort* seq_sort = nullptr, *elem_sort = nullptr;
+    VERIFY(m_util.is_re(r, seq_sort));
+    VERIFY(m_util.is_seq(seq_sort, elem_sort));
+    SASSERT(elem_sort == m().get_sort(elem));
+    expr* r1 = nullptr, * r2 = nullptr, *p = nullptr;
+    expr_ref dr1(m()), dr2(m()), result(m());
     unsigned lo = 0, hi = 0;
     if (m_util.re.is_concat(r, r1, r2)) {
         expr_ref is_n = is_nullable(r1);
@@ -2088,16 +2086,14 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
         }
     }
     else if (m_util.re.is_star(r, r1)) {
-        dr1 = derivative(elem, r1);
-        if (dr1) {
-            result = m_util.re.mk_concat(dr1, r);
-        }
-        else {
-            result = dr1; // failed
+        result = derivative(elem, r1);
+        if (result) {
+            result = m_util.re.mk_concat(result, r);
         }
     }
     else if (m_util.re.is_plus(r, r1)) {
-        result = derivative(elem, m_util.re.mk_star(r1));
+        result = m_util.re.mk_star(r1);
+        result = derivative(elem, result);
     }
     else if (m_util.re.is_union(r, r1, r2)) {
         dr1 = derivative(elem, r1);
@@ -2122,27 +2118,21 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
         result = derivative(elem, r1);
     }
     else if (m_util.re.is_complement(r, r1)) {
-        dr1 = derivative(elem, r1);
-        if (dr1) {
-            result = m_util.re.mk_complement(dr1);
-        }
-        else {
-            result = dr1; // failed
+        result = derivative(elem, r1);
+        if (result) {
+            result = m_util.re.mk_complement(result);
         }
     }
     else if (m_util.re.is_loop(r, r1, lo)) {
-        dr1 = derivative(elem, r1);
-        if (dr1) {
+        result = derivative(elem, r1);
+        if (result) {
             if (lo > 0) {
                 lo--;
             }
             result = m_util.re.mk_concat(
-                dr1,
+                result,
                 m_util.re.mk_loop(r1, lo)
             );
-        }
-        else {
-            result = dr1; // failed
         }
     }
     else if (m_util.re.is_loop(r, r1, lo, hi)) {
@@ -2150,19 +2140,16 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
             result = m_util.re.mk_empty(m().get_sort(r));
         }
         else {
-            dr1 = derivative(elem, r1);
-            if (dr1) {
+            result = derivative(elem, r1);
+            if (result) {
                 hi--;
                 if (lo > 0) {
                     lo--;
                 }
                 result = m_util.re.mk_concat(
-                    dr1,
+                    result,
                     m_util.re.mk_loop(r1, lo, hi)
                 );
-            }
-            else {
-                result = dr1; // failed
             }
         }
     }
@@ -2188,29 +2175,21 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
             result = expr_ref(m()); // failed
         }
     }
+    else if (m_util.re.is_range(r, r1, r2)) {
+        result = m().mk_and(m_util.mk_le(r1, elem), m_util.mk_le(elem, r2));
+        result = kleene_predicate(result, seq_sort);
+    }
+    else if (m_util.re.is_full_char(r)) {
+        result = m_util.re.mk_to_re(m_util.str.mk_empty(seq_sort));
+    }
+    else if (m_util.re.is_of_pred(r, p)) {
+        array_util array(m());
+        expr* args[2] = { p, elem };
+        result = array.mk_select(2, args);
+        result = kleene_predicate(result, seq_sort);
+    }
     else {
-        // Remaining cases may need epsilon regex. Make it
-        // return empty string
-        sort* seq_sort = nullptr;
-        VERIFY(m_util.is_re(r, seq_sort));
-        expr_ref epsilon_re(m());
-        epsilon_re = m_util.re.mk_to_re(
-            m_util.str.mk_empty(seq_sort)
-        );
-        if (m_util.re.is_full_char(r)) {
-            result = epsilon_re;
-        }
-        else if (m_util.re.is_range(r)) {
-            // TODO: check if character is in range
-            result = expr_ref(m()); // failed
-        }
-        else if (m_util.re.is_of_pred(r, p)) {
-            // TODO: check if character satisfies predicate
-            result = expr_ref(m()); // failed
-        }
-        else {
-            result = expr_ref(m()); // failed
-        }
+        result = expr_ref(m()); // failed
     }
     return result;
 }
@@ -2232,19 +2211,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
     if (m_util.str.is_empty(a)) {
         result = is_nullable(b);
-        // is_nullable doesn't rewrite. But we also want to avoid the
-        // case where it didn't succeed in changing anything.
-        if (m_util.str.is_in_re(result)) {
-            return BR_FAILED;
-        }
-        else {
-            return BR_REWRITE_FULL;
-        }
+        return BR_DONE;
     }
 
 #if 0
-    expr_ref hd(m());
-    expr_ref tl(m());
+    expr_ref hd(m()), tl(m());
     if (get_head_tail(a, hd, tl)) {
         expr_ref db = derivative(hd, b); // null if failed
         if (db) {
