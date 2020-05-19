@@ -1993,7 +1993,7 @@ expr_ref seq_rewriter::kleene_and(expr* cond, expr* r) {
 }
 
 expr_ref seq_rewriter::kleene_predicate(expr* cond, sort* seq_sort) {
-    expr* re_with_empty = m_util.re.mk_to_re(m_util.str.mk_empty(seq_sort));
+    expr_ref re_with_empty(m_util.re.mk_to_re(m_util.str.mk_empty(seq_sort)), m());
     return kleene_and(cond, re_with_empty);
 }
 
@@ -2017,19 +2017,12 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     }
     if (m_util.re.is_full_char(r) ||
         m_util.re.is_empty(r) ||
-        m_util.re.is_of_pred(r)) {
+        m_util.re.is_of_pred(r) ||
+        m_util.re.is_range(r)) {
         return expr_ref(m().mk_false(), m());
     }
     if (m_util.re.is_plus(r, r1)) {
         return is_nullable(r1);
-    }
-    if (m_util.re.is_range(r, r1, r2)) {
-        if (m_util.is_const_char(r1, lo) && m_util.is_const_char(r2, hi)) {
-            return expr_ref(m().mk_bool_val(lo > hi), m());
-        }
-        else {
-            return expr_ref(m_util.mk_lt(r2, r1), m());
-        }
     }
     if (m_util.re.is_complement(r, r1)) {
         return expr_ref(mk_not(m(), is_nullable(r1)), m());
