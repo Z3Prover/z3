@@ -110,7 +110,7 @@ void square_sparse_matrix<T, X>::set_with_no_adjusting_for_row(unsigned row, uns
         }
     }
     // have not found the column between the indices
-    row_vec.push_back(indexed_value<T>(val, col)); // what about m_other ???
+    row_vec.push_back(indexed_value<T>(val, col, -1));
 }
 
 template <typename T, typename X>
@@ -123,7 +123,7 @@ void square_sparse_matrix<T, X>::set_with_no_adjusting_for_col(unsigned row, uns
         }
     }
     // have not found the column between the indices
-    col_vec.push_back(indexed_value<T>(val, row)); // what about m_other ???
+    col_vec.push_back(indexed_value<T>(val, row, -1)); 
 }
 
 

@@ -30,7 +30,7 @@ public:
     // for a column element it points to the row element offset
     unsigned m_other;
     indexed_value() {}
-    indexed_value(T v, unsigned i) : m_value(v), m_index(i) {}
+
     indexed_value(T v, unsigned i, unsigned other) :
         m_value(v), m_index(i), m_other(other) {
     }

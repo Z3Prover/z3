@@ -94,7 +94,7 @@ struct solver::imp {
             m_nlsat->get_core(core);
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
-                ex.push_justification(idx, rational(1));
+                ex.push_back(idx);
                 TRACE("arith", tout << "ex: " << idx << "\n";);
             }
             nla::new_lemma lemma(m_nla_core, __FUNCTION__);

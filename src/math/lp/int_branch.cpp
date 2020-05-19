@@ -51,7 +51,6 @@ lia_move int_branch::create_branch_on_column(int j) {
 }
 
 
-    
 int int_branch::find_inf_int_base_column() {
     int result = -1;
     mpq range;
@@ -59,7 +58,7 @@ int int_branch::find_inf_int_base_column() {
     mpq small_range_thresold(1024);
     unsigned n = 0;
     lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
-    unsigned prev_usage;
+    unsigned prev_usage = 0; // to quiet down the compile
     unsigned k = 0;
     unsigned usage;
     unsigned j;
@@ -103,5 +102,5 @@ int int_branch::find_inf_int_base_column() {
     }
     return result;    
 }
-    
+   
 }

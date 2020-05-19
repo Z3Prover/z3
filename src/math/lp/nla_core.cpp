@@ -259,9 +259,9 @@ std::ostream& core::print_monic_with_vars(const monic& m, std::ostream& out) con
 std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& out) const {
     out << "expl: ";
     unsigned i = 0;
-    for (auto &p : exp) {
-        out << "(" << p.second << ")";
-        m_lar_solver.constraints().display(out, [this](lpvar j) { return var_str(j);}, p.second);
+    for (auto p : exp) {
+        out << "(" << p.ci() << ")";
+        m_lar_solver.constraints().display(out, [this](lpvar j) { return var_str(j);}, p.ci());
         if (++i < exp.size())
             out << "      ";
     }
@@ -312,7 +312,7 @@ bool core::explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& boun
         if (c + 1 == 0)
             return false;
         bound = a * m_lar_solver.get_lower_bound(p.column()).x;
-        e.add(c);
+        e.push_back(c);
         return true;
     }
     // a.is_neg()
@@ -320,7 +320,7 @@ bool core::explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& boun
     if (c + 1 == 0)
         return false;
     bound = a * m_lar_solver.get_upper_bound(p.column()).x;
-    e.add(c);
+    e.push_back(c);
     return true;
 }
 
@@ -334,7 +334,7 @@ bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& boun
         if (c + 1 == 0)
             return false;
         bound = a * m_lar_solver.get_lower_bound(j).x;
-        e.add(c);
+        e.push_back(c);
         return true;
     }
     // a.is_pos()
@@ -342,7 +342,7 @@ bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& boun
     if (c + 1 == 0)
         return false;
     bound = a * m_lar_solver.get_upper_bound(j).x;
-    e.add(c);
+    e.push_back(c);
     return true;
 }
     
@@ -855,7 +855,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
         }
     }
     for (const auto& p : l.expl()) {
-        const auto& c = m_lar_solver.constraints()[p.second];
+        const auto& c = m_lar_solver.constraints()[p.ci()];
         for (const auto& r : c.coeffs()) {
             insert_j(r.second);
         }
@@ -1060,7 +1060,7 @@ lemma& new_lemma::current() const {
 }
 
 new_lemma& new_lemma::operator&=(lp::explanation const& e) {
-    expl().add(e);
+    expl().add_expl(e);
     return *this;
 }
 
@@ -1124,7 +1124,7 @@ new_lemma& new_lemma::explain_var_separated_from_zero(lpvar j) {
 new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
     SASSERT(c.has_lower_bound(j));
     lp::explanation ex;
-    ex.add(c.m_lar_solver.get_column_lower_bound_witness(j));
+    ex.push_back(c.m_lar_solver.get_column_lower_bound_witness(j));
     *this &= ex;
     TRACE("nla_solver", tout << j << ": " << *this << "\n";);
     return *this;
@@ -1133,7 +1133,7 @@ new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
 new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
     SASSERT(c.has_upper_bound(j));
     lp::explanation ex;
-    ex.add(c.m_lar_solver.get_column_upper_bound_witness(j));
+    ex.push_back(c.m_lar_solver.get_column_upper_bound_witness(j));
     *this &= ex;
     return *this;
 }
@@ -1141,9 +1141,9 @@ new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
 std::ostream& new_lemma::display(std::ostream & out) const {
     auto const& lemma = current();
 
-    for (auto &p : lemma.expl()) {
-        out << "(" << p.second << ") ";
-        c.m_lar_solver.constraints().display(out, [this](lpvar j) { return c.var_str(j);}, p.second);
+    for (auto p : lemma.expl()) {
+        out << "(" << p.ci() << ") ";
+        c.m_lar_solver.constraints().display(out, [this](lpvar j) { return c.var_str(j);}, p.ci());
     }
     out << " ==> ";
     if (lemma.ineqs().empty()) {

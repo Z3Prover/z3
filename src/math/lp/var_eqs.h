@@ -43,7 +43,7 @@ public:
     void explain(lp::explanation& e) const {
         for (lpci c : m_cs)
             if (c + 1 != 0) // c != -1
-                e.add(c);
+                e.push_back(c);
     }
 };
 

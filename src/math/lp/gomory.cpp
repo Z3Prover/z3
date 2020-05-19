@@ -67,7 +67,7 @@ class create_cut {
             new_a = m_fj <= m_one_minus_f ? m_fj / m_one_minus_f : ((1 - m_fj) / m_f);
             lp_assert(new_a.is_pos());
             m_k.addmul(new_a, lower_bound(j).x);
-            m_ex->push_justification(column_lower_bound_constraint(j));            
+            m_ex->push_back(column_lower_bound_constraint(j));            
         }
         else {
             lp_assert(at_upper(j));
@@ -75,7 +75,7 @@ class create_cut {
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
-            m_ex->push_justification(column_upper_bound_constraint(j));
+            m_ex->push_back(column_upper_bound_constraint(j));
         }
         m_t.add_monomial(new_a, j);
         m_lcm_den = lcm(m_lcm_den, denominator(new_a));
@@ -100,7 +100,7 @@ class create_cut {
             }
             m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
             // k += lower_bound(j).x * new_a;  
-            m_ex->push_justification(column_lower_bound_constraint(j));
+            m_ex->push_back(column_lower_bound_constraint(j));
         }
         else {
             lp_assert(at_upper(j));
@@ -113,7 +113,7 @@ class create_cut {
                 new_a =   a / m_one_minus_f; 
             }
             m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a; 
-            m_ex->push_justification(column_upper_bound_constraint(j));
+            m_ex->push_back(column_upper_bound_constraint(j));
         }
         m_t.add_monomial(new_a, j);
         TRACE("gomory_cut_detail_real", tout << "add " << new_a << "*v" << j << ", k: " << m_k << "\n";
@@ -320,8 +320,8 @@ public:
              // use -p.coeff() to make the format compatible with the format used in: Integrating Simplex with DPLL(T)
             try {
                 if (lia.is_fixed(j)) {
-                    m_ex->push_justification(column_lower_bound_constraint(j));
-                    m_ex->push_justification(column_upper_bound_constraint(j));
+                    m_ex->push_back(column_lower_bound_constraint(j));
+                    m_ex->push_back(column_upper_bound_constraint(j));
                     continue;
                 }
                 if (is_real(j)) {  

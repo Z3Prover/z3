@@ -214,9 +214,9 @@ u_dependency *intervals::mk_dep(const lp::explanation& expl) {
     u_dependency * r = nullptr;
     for (auto p : expl) {
         if (r == nullptr) {
-            r = m_dep_intervals.mk_leaf(p.second);
+            r = m_dep_intervals.mk_leaf(p.ci());
         } else {
-            r = m_dep_intervals.mk_join(r, m_dep_intervals.mk_leaf(p.second));
+            r = m_dep_intervals.mk_join(r, m_dep_intervals.mk_leaf(p.ci()));
         }
     }
     return r;
@@ -285,7 +285,7 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
         m_dep_intervals.set_interval_for_scalar(i, b);
         if (wd == e_with_deps::with_deps) {
             for (auto p : exp) {
-                i.get().m_lower_dep = mk_join(i.get().m_lower_dep, mk_leaf(p.second));
+                i.get().m_lower_dep = mk_join(i.get().m_lower_dep, mk_leaf(p.ci()));
             }
             i.get().m_upper_dep = i.get().m_lower_dep;
         }
