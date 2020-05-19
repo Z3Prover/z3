@@ -1972,7 +1972,7 @@ bool seq_rewriter::get_head_tail(expr* s, expr_ref& head, expr_ref& tail) {
         return true;
     }
     if (m_util.str.is_string(s, s1) && s1.length() > 0) {
-        head = m_util.str.mk_string(s1.extract(0, 1));
+        head = m_util.mk_char(s1[0]);
         tail = m_util.str.mk_string(s1.extract(1, s1.length()));
         return true;    
     }
