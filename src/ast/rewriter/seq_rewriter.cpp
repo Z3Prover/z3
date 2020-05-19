@@ -2024,9 +2024,6 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
         if (lo == 0) {
             return expr_ref(m().mk_true(), m());
         }
-        else if (hi == 0) {
-            return expr_ref(m().mk_false(), m());
-        }
         else {
             return is_nullable(r1);
         }
