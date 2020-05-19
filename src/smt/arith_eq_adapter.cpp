@@ -81,7 +81,8 @@ namespace smt {
     };
 
     void arith_eq_adapter::mk_axioms(enode * n1, enode * n2) {
-        SASSERT(n1 != n2);
+        if (n1 == n2)
+            return;
         ast_manager & m = get_manager();
         TRACE("arith_eq_adapter_mk_axioms", tout << "#" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";
               tout << mk_ismt2_pp(n1->get_owner(), m) << "\n" << mk_ismt2_pp(n2->get_owner(), m) << "\n";);
