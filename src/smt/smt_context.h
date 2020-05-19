@@ -848,7 +848,7 @@ namespace smt {
 
         void mk_or_cnstr(app * n);
 
-        void mk_iff_cnstr(app * n);
+        void mk_iff_cnstr(app * n, bool sign);
 
         void mk_ite_cnstr(app * n);
 

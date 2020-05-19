@@ -648,7 +648,7 @@ namespace smt {
                 break;
             case OP_EQ:
                 if (m.is_iff(n))
-                    mk_iff_cnstr(to_app(n));
+                    mk_iff_cnstr(to_app(n), false);
                 break;
             case OP_ITE:
                 mk_ite_cnstr(to_app(n));
@@ -657,9 +657,11 @@ namespace smt {
             case OP_TRUE:
             case OP_FALSE:
                 break;
+            case OP_XOR:
+                mk_iff_cnstr(to_app(n), true);
+                break;
             case OP_DISTINCT:
             case OP_IMPLIES:
-            case OP_XOR:
                 throw default_exception("formula has not been simplified");
             case OP_OEQ:
                 UNREACHABLE();
@@ -1624,10 +1626,13 @@ namespace smt {
         mk_gate_clause(buffer.size(), buffer.c_ptr());
     }
 
-    void context::mk_iff_cnstr(app * n) {
+    void context::mk_iff_cnstr(app * n, bool sign) {
+        if (n->get_num_args() != 2) 
+            throw default_exception("formula has not been simplified");
         literal l  = get_literal(n);
         literal l1 = get_literal(n->get_arg(0));
         literal l2 = get_literal(n->get_arg(1));
+        if (sign) l.neg();
         TRACE("mk_iff_cnstr", tout << "l: " << l << ", l1: " << l1 << ", l2: " << l2 << "\n";);
         mk_gate_clause(~l,  l1, ~l2);
         mk_gate_clause(~l, ~l1 , l2);
