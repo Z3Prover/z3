@@ -129,7 +129,7 @@ namespace sat {
         if (s.get_config().m_num_threads == 1 || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         {
-            std::lock_guard<std::mutex> lock(m_mux);
+            lock_guard lock(m_mux);
             if (limit < m_units.size()) {
                 // this might repeat some literals.
                 out.append(m_units.size() - limit, m_units.c_ptr() + limit);
@@ -150,7 +150,7 @@ namespace sat {
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         IF_VERBOSE(3, verbose_stream() << s.m_par_id << ": share " <<  l1 << " " << l2 << "\n";);
         {
-            std::lock_guard<std::mutex> lock(m_mux);
+            lock_guard lock(m_mux);
             m_pool.begin_add_vector(s.m_par_id, 2);
             m_pool.add_vector_elem(l1.index());
             m_pool.add_vector_elem(l2.index());            
@@ -164,7 +164,7 @@ namespace sat {
         unsigned n = c.size();
         unsigned owner = s.m_par_id;
         IF_VERBOSE(3, verbose_stream() << owner << ": share " <<  c << "\n";);
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         m_pool.begin_add_vector(owner, n);                
         for (unsigned i = 0; i < n; ++i) {
             m_pool.add_vector_elem(c[i].index());
@@ -175,7 +175,7 @@ namespace sat {
     void parallel::get_clauses(solver& s) {
         if (s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         _get_clauses(s);        
     }
 
@@ -227,12 +227,12 @@ namespace sat {
     }
 
     void parallel::from_solver(solver& s) {
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         _from_solver(s);        
     }
 
     bool parallel::to_solver(solver& s) {
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         return _to_solver(s);
     }
 
@@ -254,19 +254,19 @@ namespace sat {
     }
 
     bool parallel::from_solver(i_local_search& s) {
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         return _from_solver(s);
     }
 
     void parallel::to_solver(i_local_search& s) {
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         _to_solver(s);               
     }
 
     bool parallel::copy_solver(solver& s) {
         bool copied = false;
         {
-            std::lock_guard<std::mutex> lock(m_mux);
+            lock_guard lock(m_mux);
             m_consumer_ready = true;
             if (m_solver_copy && s.m_clauses.size() > m_solver_copy->m_clauses.size()) {
                 s.copy(*m_solver_copy, true);
