@@ -138,7 +138,7 @@ class seq_rewriter {
     expr_ref is_nullable(expr* r);
     expr_ref kleene_and(expr* cond, expr* r);
     expr_ref kleene_predicate(expr* cond, sort* seq_sort);
-    br_status derivative(expr* hd, expr* r, expr_ref& result);
+    expr_ref derivative(expr* hd, expr* r);
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
