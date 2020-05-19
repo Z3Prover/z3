@@ -82,7 +82,7 @@ static bool is_escape_char(char const *& s, unsigned& result) {
         return true;
     }
 
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     if (*(s+1) == 'u' && *(s+2) == '{') {
         result = 0;
         for (unsigned i = 0; i < 5; ++i) {
@@ -606,7 +606,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_REPLACE_RE]    = alloc(psig, m, "str.replace_re", 1, 3, seqAreAseqA, seqA);
     m_sigs[OP_SEQ_REPLACE_ALL]   = alloc(psig, m, "str.replace_all", 1, 3, seqAseqAseqA, seqA);
     m_sigs[OP_STRING_CONST]      = nullptr;
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     m_sigs[OP_CHAR_CONST]        = nullptr;
     sort* charTcharT[2] = { m_char, m_char };
     m_sigs[OP_CHAR_LE]           = alloc(psig, m, "char.<=", 0, 2, charTcharT, boolT);
@@ -636,7 +636,7 @@ void seq_decl_plugin::init() {
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
     bv_util bv(*m);
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     m_char = m->mk_sort(symbol("Unicode"), sort_info(m_family_id, _CHAR_SORT, 0, nullptr));
 #else
     m_char = bv.mk_sort(8);
@@ -674,7 +674,7 @@ sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
         }
         return m.mk_sort(symbol("RegEx"), sort_info(m_family_id, RE_SORT, num_parameters, parameters));
     }
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     case _CHAR_SORT:
         return m_char;
 #endif
@@ -902,7 +902,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         m_has_re = true;
         return mk_str_fun(k, arity, domain, range, OP_SEQ_TO_RE);
 
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     case OP_CHAR_LE:
         if (arity == 2 && domain[0] == m_char && domain[1] == m_char) {
             return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, m.mk_bool_sort(), func_decl_info(m_family_id, k, 0, nullptr));
@@ -1007,7 +1007,7 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
 }
 
 app* seq_decl_plugin::mk_char(unsigned u) {
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     parameter param(u);
     func_decl* f = m_manager->mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, 1, &param));
     return m_manager->mk_const(f);
@@ -1079,7 +1079,7 @@ bool seq_decl_plugin::are_distinct(app* a, app* b) const {
         is_app_of(a, m_family_id, OP_SEQ_UNIT)) {
         return true;
     }    
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     if (is_app_of(a, m_family_id, OP_CHAR_CONST) && 
         is_app_of(b, m_family_id, OP_CHAR_CONST)) {
         return true;
@@ -1127,7 +1127,7 @@ bv_util& seq_util::bv() const {
 }
 
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     return is_app_of(e, m_fid, OP_CHAR_CONST) && (c = to_app(e)->get_parameter(0).get_int(), true);
 #else
     rational r;    
@@ -1137,7 +1137,7 @@ bool seq_util::is_const_char(expr* e, unsigned& c) const {
 }
 
 app* seq_util::mk_char(unsigned ch) const {
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     return seq.mk_char(ch);
 #else
     return bv().mk_numeral(rational(ch), 8);
@@ -1145,7 +1145,7 @@ app* seq_util::mk_char(unsigned ch) const {
 }
 
 app* seq_util::mk_le(expr* ch1, expr* ch2) const {
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     expr* es[2] = { ch1, ch2 };
     return m.mk_app(m_fid, OP_CHAR_LE, 2, es);
 #else

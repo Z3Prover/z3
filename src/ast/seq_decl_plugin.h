@@ -26,12 +26,12 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/bv_decl_plugin.h"
 
-#define _USE_UNICODE 0
+#define Z3_USE_UNICODE 0
 
 enum seq_sort_kind {
     SEQ_SORT,
     RE_SORT,
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     _CHAR_SORT,     // internal only
 #endif
     _STRING_SORT,  
@@ -87,7 +87,7 @@ enum seq_op_kind {
     OP_STRING_TO_CODE,
     OP_STRING_FROM_CODE,
 
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     OP_CHAR_CONST,    // constant character
     OP_CHAR_LE,       // Unicode comparison
 #endif
@@ -247,7 +247,7 @@ public:
     bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
     bool is_char(expr* e) const { return is_char(m.get_sort(e)); }
     bool is_const_char(expr* e, unsigned& c) const;
-#if _USE_UNICODE
+#if Z3_USE_UNICODE
     bool is_char_le(expr const* e) const { return is_app_of(e, m_fid, OP_CHAR_LE); }
 #else
     bool is_char_le(expr const* e) const { return false; }
