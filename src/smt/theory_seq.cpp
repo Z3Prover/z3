@@ -304,11 +304,11 @@ theory_seq::theory_seq(context& ctx):
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
     m_new_eqs(m),
-    m_has_seq(m_util.has_seq()),
-    m_unhandled_expr(nullptr),
     m_res(m),
     m_max_unfolding_depth(1),
     m_max_unfolding_lit(null_literal),
+    m_unhandled_expr(nullptr),
+    m_has_seq(m_util.has_seq()),
     m_new_solution(false),
     m_new_propagation(false),
     m_mk_aut(m) {

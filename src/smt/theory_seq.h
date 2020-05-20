@@ -410,8 +410,6 @@ namespace smt {
         ptr_vector<expr> m_todo, m_concat;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
         expr_ref_pair_vector m_new_eqs;
-        bool             m_has_seq;
-        expr*            m_unhandled_expr;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
@@ -421,6 +419,8 @@ namespace smt {
         literal                        m_max_unfolding_lit;
         vector<s_in_re>                m_s_in_re;
 
+        expr*                          m_unhandled_expr;
+        bool                           m_has_seq;
         bool                           m_new_solution;     // new solution added
         bool                           m_new_propagation;  // new propagation to core
         re2automaton                   m_mk_aut;
