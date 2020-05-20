@@ -377,7 +377,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("zero_length");
         return FC_CONTINUE;
     }
-    if (!m_unicode.final_check()) {
+    if (false && !m_unicode.final_check()) {
         return FC_CONTINUE;
     }
     if (get_fparams().m_split_w_len && len_based_split()) {
@@ -2510,7 +2510,7 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
-    m_unicode.propagate();
+    // m_unicode.propagate();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
         e = m_axioms[m_axioms_head].get();
@@ -3072,7 +3072,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
     }
-    else if (m_util.is_char_le(e, e1, e2)) {
+    else if (false && m_util.is_char_le(e, e1, e2)) {
         theory_var v1 = get_th_var(ctx.get_enode(e1));
         theory_var v2 = get_th_var(ctx.get_enode(e2));
         if (is_true) 
@@ -3093,7 +3093,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
 void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
     enode* n1 = get_enode(v1);
     enode* n2 = get_enode(v2);
-    if (m_util.is_char(n1->get_owner())) {
+    if (false && m_util.is_char(n1->get_owner())) {
         m_unicode.new_eq_eh(v1, v2);
         return;
     }
@@ -3188,7 +3188,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
             throw default_exception("convert regular expressions into automata");            
         }
     }
-    if (m_util.is_char(n1->get_owner())) {
+    if (false && m_util.is_char(n1->get_owner())) {
         m_unicode.new_diseq_eh(v1, v2);
         return;
     }

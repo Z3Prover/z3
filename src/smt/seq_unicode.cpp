@@ -71,7 +71,7 @@ namespace smt {
     }
 
     // != on characters
-    void seq_unicode::new_diseq_eh(theory_var v1, theory_var v2) {        
+    void seq_unicode::new_diseq_eh(theory_var v1, theory_var v2) {  
         adapt_eq(v1, v2);
     }
 
@@ -134,6 +134,7 @@ namespace smt {
     }
     
     void seq_unicode::propagate() {
+        return;
         ctx().push_trail(value_trail<smt::context, unsigned>(m_qhead));
         for (; m_qhead < m_asserted_edges.size() && !ctx().inconsistent(); ++m_qhead) {
             propagate(m_asserted_edges[m_qhead]);
@@ -141,6 +142,7 @@ namespace smt {
     }
     
     void seq_unicode::propagate(edge_id edge) {
+        return;
         if (dl.enable_edge(edge)) 
             return;
         dl.traverse_neg_cycle2(false, m_nc_functor);

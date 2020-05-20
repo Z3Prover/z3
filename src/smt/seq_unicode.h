@@ -70,12 +70,12 @@ namespace smt {
         var_value_hash   m_var_value_hash;
         var_value_eq     m_var_value_eq;
         var_value_table  m_var_value_table;
+        std::function<void(literal, literal, literal)> m_add_axiom;
 
         context& ctx() const { return th.get_context(); }
 
         void propagate(edge_id edge);
 
-        std::function<void(literal, literal, literal)> m_add_axiom;
         void add_axiom(literal a, literal b = null_literal, literal c = null_literal) {
             m_add_axiom(a, b, c);
         }
