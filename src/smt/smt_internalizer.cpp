@@ -538,6 +538,8 @@ namespace smt {
         CTRACE("internalize_quantifier_zero", q->get_weight() == 0, tout << mk_pp(q, m) << "\n";);
         SASSERT(gate_ctx); // limitation of the current implementation
         SASSERT(!b_internalized(q));
+        if (!is_forall(q))
+            throw default_exception("internalization of exists is not supported");
         SASSERT(is_forall(q));
         SASSERT(check_patterns(q));
         bool_var v             = mk_bool_var(q);
