@@ -65,7 +65,7 @@ public:
     public:
         cimpq(constraint_index var, const optional<mpq> & val) : m_var(var), m_coeff(val) { }
         constraint_index ci() const { return m_var; }
-        mpq coeff() const { return m_coeff.undef()? one_of_type<mpq>(): *m_coeff; }
+        mpq coeff() const { return m_coeff.initialized()? *m_coeff: one_of_type<mpq>(); }
     };
     class iterator {
         u_map<optional<mpq>>::iterator m_it; 

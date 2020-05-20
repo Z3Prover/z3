@@ -1396,7 +1396,7 @@ lbool core::check(vector<lemma>& l_vec) {
 
     set_use_nra_model(false);    
 
-    if (false && l_vec.empty() && !done()) 
+    if (l_vec.empty() && !done()) 
         m_monomial_bounds();
     
     if (l_vec.empty() && !done() && need_to_call_algebraic_methods()) 
