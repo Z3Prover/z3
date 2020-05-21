@@ -409,6 +409,7 @@ class pred_transformer {
     stopwatch                    m_must_reachable_watch;
     stopwatch                    m_ctp_watch;
     stopwatch                    m_mbp_watch;
+    bool                         m_has_quantified_frame; // True when a quantified lemma is in the frame
 
     void init_sig();
     app_ref mk_extend_lit();
@@ -441,6 +442,7 @@ public:
     ~pred_transformer() {}
 
     inline bool use_native_mbp ();
+    bool mk_mdl_rf_consistent(const datalog::rule *r, model &mdl);
     reach_fact *get_rf (expr *v) {
         for (auto *rf : m_reach_facts) {
             if (v == rf->get()) {return rf;}
@@ -480,6 +482,9 @@ public:
     reach_fact *get_used_rf(model& mdl, bool all = true);
     /// \brief Returns reachability fact active in the origin of the given model
     reach_fact* get_used_origin_rf(model &mdl, unsigned oidx);
+    /// \brief Collects all the reachable facts used in mdl
+    void get_all_used_rf(model &mdl, unsigned oidx, reach_fact_ref_vector& res);
+    void get_all_used_rf(model &mdl, reach_fact_ref_vector &res);
     expr_ref get_origin_summary(model &mdl,
                                 unsigned level, unsigned oidx, bool must,
                                 const ptr_vector<app> **aux);
@@ -1051,6 +1056,9 @@ class context {
     void predecessor_eh();
 
     void updt_params();
+    lbool handle_unknown(pob &n, const datalog::rule *r, model &model);
+    bool mk_mdl_rf_consistent(model &mdl);
+
 public:
     /**
        Initial values of predicates are stored in corresponding relations in dctx.

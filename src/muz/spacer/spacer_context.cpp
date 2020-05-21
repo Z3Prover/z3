@@ -702,7 +702,7 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     m_reach_facts(), m_rf_init_sz(0),
     m_transition_clause(m), m_transition(m), m_init(m),
     m_extend_lit0(m), m_extend_lit(m),
-    m_all_init(false)
+    m_all_init(false), m_has_quantified_frame(false)
 {
     m_solver = alloc(prop_solver, m, ctx.mk_solver0(), ctx.mk_solver1(),
                      ctx.get_params(), head->get_name());
@@ -838,6 +838,29 @@ reach_fact *pred_transformer::get_used_origin_rf(model& mdl, unsigned oidx) {
     }
     UNREACHABLE();
     return nullptr;
+}
+
+// get all reachable facts used in the model.
+void pred_transformer::get_all_used_rf(model &mdl, unsigned oidx,
+                                       reach_fact_ref_vector &res) {
+    expr_ref b(m);
+    res.reset();
+    model::scoped_model_completion _sc_(mdl, false);
+    for (auto *rf : m_reach_facts) {
+        pm.formula_n2o(rf->tag(), b, oidx);
+        if (mdl.is_false(b))
+            res.push_back(rf);
+    }
+}
+
+// get all reachable facts in the post state
+void pred_transformer::get_all_used_rf(model &mdl, reach_fact_ref_vector &res) {
+    res.reset();
+    model::scoped_model_completion _sc_(mdl, false);
+    for (auto *rf : m_reach_facts) {
+        if (mdl.is_false(rf->tag()))
+            res.push_back(rf);
+    }
 }
 
 const datalog::rule *pred_transformer::find_rule(model &model) {
@@ -978,6 +1001,7 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
             inst.set(j, m.mk_implies(a, inst.get(j)));
         }
         if (lemma->is_ground() || (get_context().use_qlemmas() && !ground_only)) {
+            m_has_quantified_frame = true;
             inst.push_back(fmls.get(i));
         }
         SASSERT (!inst.empty ());
@@ -1849,8 +1873,10 @@ void pred_transformer::updt_solver(prop_solver *solver) {
         }
 
         // (quantified) lemma
-        if (u->is_ground() || get_context().use_qlemmas())
+        if (u->is_ground() || get_context().use_qlemmas()) {
+            m_has_quantified_frame = true;
             fmls.push_back(u->get_expr());
+        }
 
         // send to solver
         if (is_infty_level(u->level()))
@@ -3321,6 +3347,96 @@ void context::predecessor_eh()
     }
 }
 
+// Update a partial model to be consistent over reachable facts in pt
+
+// Conceptually, a reachable fact is asserted as tag == > fact,
+// where tag is a Boolean literal and fact a formula. When the model is partial,
+// it is possible that tag is true, but model.eval(fact) is unknown
+// This function fixes the model by flipping the value of tag in
+// this case.
+bool pred_transformer::mk_mdl_rf_consistent(const datalog::rule *r,
+                                            model &model) {
+    expr_ref rf(m);
+    reach_fact_ref_vector child_reach_facts;
+
+    SASSERT(r != nullptr);
+    ptr_vector<func_decl> preds;
+    find_predecessors(*r, preds);
+    for (unsigned i = 0; i < preds.size(); i++) {
+        func_decl *pred = preds[i];
+        bool atleast_one_true = false;
+        pred_transformer &ch_pt = ctx.get_pred_transformer(pred);
+        // get all reach facts of pred used in the model
+        expr_ref o_ch_reach(m);
+        reach_fact_ref_vector used_rfs;
+        ch_pt.get_all_used_rf(model, i, used_rfs);
+        for (auto *rf : used_rfs) {
+            pm.formula_n2o(rf->get(), o_ch_reach, i);
+            if (!model.is_true(o_ch_reach)) {
+                func_decl *tag = to_app(rf->tag())->get_decl();
+                set_true_in_mdl(model, tag);
+            } else
+                atleast_one_true = true;
+        }
+        if (used_rfs.size() > 0 && !atleast_one_true) {
+            TRACE("spacer_detail",
+                  tout << "model does not satisfy any reachable fact\n";);
+            return false;
+        }
+    }
+    return true;
+}
+
+// Update a partial model to be consistent over reachable facts.
+
+// Conceptually, a reachable fact is asserted as tag == > fact,
+// where tag is a Boolean literal and fact a formula. When the model is partial,
+// it is possible that tag is true, but model.eval(fact) is unknown
+// This function fixes the model by flipping the value of tag in
+// this case.
+bool context::mk_mdl_rf_consistent(model &mdl) {
+    reach_fact_ref_vector used_rfs;
+    expr_ref exp(m);
+    for (auto &rel : m_rels) {
+        bool atleast_one_true = false;
+        pred_transformer &pt = *rel.m_value;
+        used_rfs.reset();
+        pt.get_all_used_rf(mdl, used_rfs);
+        for (auto *rf : used_rfs) {
+            if (!mdl.is_true(rf->get())) {
+                func_decl *tag = to_app(rf->tag())->get_decl();
+                set_true_in_mdl(mdl, tag);
+            } else
+                atleast_one_true = true;
+        }
+        if (used_rfs.size() > 0 && !atleast_one_true) {
+            TRACE("spacer_detail",
+                  tout << "model does not satisfy any reachable fact\n";);
+            return false;
+        }
+    }
+    return true;
+}
+
+// Handle cases where solver returns unknown but returns a good enough model
+// model is good enough if it satisfies
+// 1. all the reachable states whose tag is set in the model
+// 2. Tr && pob
+lbool context::handle_unknown(pob &n, const datalog::rule *r, model &model) {
+    if (r == nullptr) {
+        if (model.is_true(n.post()) && mk_mdl_rf_consistent(model))
+            return l_true;
+        else
+            return l_undef;
+    }
+    // model \models reach_fact && Tr && pob
+    if (model.is_true(n.pt().get_transition(*r)) && model.is_true(n.post()) &&
+        n.pt().mk_mdl_rf_consistent(r, model)) {
+        return l_true;
+    }
+    return l_undef;
+}
+
 /// Checks whether the given pob is reachable
 /// returns l_true if reachable, l_false if unreachable
 /// returns l_undef if reachability cannot be decided
@@ -3375,6 +3491,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
                                       reach_pred_used, num_reuse_reach);
     if (model) model->set_model_completion(false);
+    if (res == l_undef) res = handle_unknown(n, r, *model);
+
     checkpoint ();
     IF_VERBOSE (1, verbose_stream () << "." << std::flush;);
     switch (res) {
@@ -3427,15 +3545,27 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             return next ? l_undef : l_true;
         }
 
-        // create a child of n
-
-        out.push_back(&n);
-        VERIFY(create_children (n, *r, *model, reach_pred_used, out));
-        IF_VERBOSE(1, verbose_stream () << " U "
-                   << std::fixed << std::setprecision(2)
-                   << watch.get_seconds () << "\n";);
-        return l_undef;
-
+        // Try to create child with model
+        // create_children() might return false if solver is incomplete (e.g.,
+        // due to weak_abs)
+        if (create_children(n, *r, *model, reach_pred_used, out)) {
+          out.push_back(&n);
+          IF_VERBOSE(1, verbose_stream()
+                            << " U " << std::fixed << std::setprecision(2)
+                            << watch.get_seconds() << "\n";);
+          return l_undef;
+        } else if (n.weakness() < 10) {
+          // Cannot create child. Increase weakness and try again.
+          SASSERT(out.empty());
+          n.bump_weakness();
+          IF_VERBOSE(1, verbose_stream()
+                            << " UNDEF " << std::fixed << std::setprecision(2)
+                            << watch.get_seconds() << "\n";);
+          // Recursion bounded by weakness (atmost 10 right now)
+          return expand_pob(n, out);
+        }
+        TRACE("spacer", tout << "unknown state: " << mk_and(cube) << "\n";);
+        throw unknown_exception();
     }
     case l_false: {
         // n is unreachable, create new summary facts
