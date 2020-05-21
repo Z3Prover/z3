@@ -75,7 +75,7 @@ ADD /doc ${Z3_SRC_DIR}/doc/
 ADD /examples ${Z3_SRC_DIR}/examples/
 ADD /scripts ${Z3_SRC_DIR}/scripts/
 ADD /src ${Z3_SRC_DIR}/src/
-ADD *.txt *.md RELEASE_NOTES ${Z3_SRC_DIR}/
+ADD *.txt *.md *.cmake.in RELEASE_NOTES ${Z3_SRC_DIR}/
 
 ADD \
   /contrib/ci/scripts/build_z3_cmake.sh \
