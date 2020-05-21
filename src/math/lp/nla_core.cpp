@@ -1396,15 +1396,13 @@ lbool core::check(vector<lemma>& l_vec) {
 
     set_use_nra_model(false);    
 
-    if (false && l_vec.empty() && !done()) 
+    if (l_vec.empty() && !done() && m_nla_settings.propagate_bounds()) 
         m_monomial_bounds();
     
-    if (l_vec.empty() && !done() && need_to_call_algebraic_methods()) 
+    if (l_vec.empty() && !done() && need_run_horner()) 
         m_horner.horner_lemmas();
 
-    if (l_vec.empty() && !done() && m_nla_settings.run_grobner()) {
-        clear_and_resize_active_var_set(); 
-        find_nl_cluster();
+    if (l_vec.empty() && !done() && need_run_grobner()) {
         run_grobner();                
     }
 
@@ -1492,6 +1490,9 @@ void core::run_grobner() {
     if (quota == 1) {
         return;
     }
+    clear_and_resize_active_var_set(); 
+    find_nl_cluster();
+
     lp_settings().stats().m_grobner_calls++;
     configure_grobner();
     m_pdd_grobner.saturate();
