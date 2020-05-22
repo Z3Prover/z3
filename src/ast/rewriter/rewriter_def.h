@@ -799,6 +799,13 @@ void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr)
 
 template<typename Config>
 void rewriter_tpl<Config>::operator()(expr * t, expr_ref & result, proof_ref & result_pr) {
+    if (!frame_stack().empty() || m_cache != m_cache_stack[0]) {
+        frame_stack().reset();
+        result_stack().reset();
+        m_scopes.reset();
+        reset_cache();
+    }
+
     if (m_proof_gen)
         main_loop<true>(t, result, result_pr);
     else
