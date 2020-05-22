@@ -26,6 +26,7 @@
 
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
+#include "ast/for_each_expr.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
@@ -197,7 +198,75 @@ induction_lemmas::induction_positions_t induction_lemmas::induction_positions2(e
         n->unset_mark();
     return result;
 }
-    
+
+void induction_lemmas::initialize_levels(enode* n) {
+    expr_ref tmp(n->get_owner(), m);
+    m_depth2terms.reset();
+    m_depth2terms.resize(get_depth(tmp) + 1);
+    m_ts++;
+    for (expr* t : subterms(tmp)) {
+        if (is_app(t)) {
+            m_depth2terms[get_depth(t)].push_back(to_app(t));
+            m_marks.reserve(t->get_id()+1, 0);
+        }
+    }
+}
+
+induction_lemmas::induction_combinations_t induction_lemmas::induction_combinations(enode* n) {
+    initialize_levels(n); 
+    induction_combinations_t result;
+    auto pos = induction_positions2(n);
+
+    if (pos.size() > 6) {
+        induction_positions_t r;
+        for (auto const& p : pos) {
+            if (is_uninterp_const(p.first->get_owner()))
+                r.push_back(p);
+        }
+        result.push_back(r);
+        return result;
+    }
+    for (unsigned i = 0; i < (1ull << pos.size()); ++i) {
+        induction_positions_t r;
+        for (unsigned j = 0; j < pos.size(); ++j) {
+            if (0 != (i & (1 << j)))
+                r.push_back(pos[j]);
+        }
+        if (positions_dont_overlap(r))
+            result.push_back(r);
+    }
+    for (auto const& pos : result) {
+        std::cout << "position\n";
+        for (auto const& p : pos) {
+            std::cout << mk_pp(p.first->get_owner(), m) << ":" << p.second << "\n";
+        }
+    }
+    return result;
+}
+
+bool induction_lemmas::positions_dont_overlap(induction_positions_t const& positions) {
+    if (positions.empty())
+        return false;
+    m_ts++;
+    auto mark = [&](expr* n) { m_marks[n->get_id()] = m_ts; };
+    auto is_marked = [&](expr* n) { return m_marks[n->get_id()] == m_ts; };
+    for (auto p : positions) 
+        mark(p.first->get_owner());
+    // no term used for induction contains a subterm also used for induction.    
+    for (auto const& terms : m_depth2terms) {
+        for (app* t : terms) {
+            bool has_mark = false;
+            for (expr* arg : *t) 
+                has_mark |= is_marked(arg);
+            if (is_marked(t) && has_mark)
+                return false;
+            if (has_mark)
+                mark(t);
+        }
+    }
+    return true;
+}
+ 
 /**
    extract substitutions for x into accessor values of the same sort.
    collect side-conditions for the accessors to be well defined.
@@ -328,12 +397,21 @@ literal induction_lemmas::mk_literal(expr* e) {
     return ctx.get_literal(e);
 }
 
+
+
 bool induction_lemmas::operator()(literal lit) {
     unsigned num = m_num_lemmas;
     enode* r = ctx.bool_var2enode(lit.var());
+
+#if 1
+    auto combinations = induction_combinations(r);
+    for (auto const& positions : combinations) {
+        apply_induction(lit, positions);
+    }
+    return !combinations.empty();
+#else
     expr_ref_vector sks(m);
     expr_safe_replace rep(m);
-
     // have to be non-overlapping:
     for (enode* n : induction_positions(r)) {
         expr* t = n->get_owner();
@@ -360,6 +438,103 @@ bool induction_lemmas::operator()(literal lit) {
     lits.push_back(alpha_lit);
     add_th_lemma(lits);        
     return true;
+#endif
+}
+
+void induction_lemmas::apply_induction(literal lit, induction_positions_t const & positions) {
+    unsigned num = m_num_lemmas;
+    obj_map<expr, expr*> term2skolem;
+    expr_ref alpha(m), sk(m);
+    expr_ref_vector sks(m);
+    ctx.literal2expr(lit, alpha);
+    induction_term_and_position_t itp(alpha, positions);
+    bool found = m_skolems.find(itp, itp);
+    if (found) {
+        sks.append(itp.m_skolems.size(), itp.m_skolems.c_ptr());
+    }
+    
+    unsigned i = 0;
+    for (auto const& p : positions) {
+        expr* t = p.first->get_owner()->get_arg(p.second);
+        if (term2skolem.contains(t))
+            continue;
+        if (i == sks.size()) {
+            sk = m.mk_fresh_const("sk", m.get_sort(t));
+            sks.push_back(sk);
+        }
+        else {
+            sk = sks.get(i);
+        }
+        term2skolem.insert(t, sk);
+        ++i;
+    }
+    if (!found) {
+        itp.m_skolems.append(sks.size(), sks.c_ptr());
+        m_trail.push_back(alpha);
+        m_trail.append(sks);
+        m_skolems.insert(itp);
+    }
+    
+    ptr_vector<expr> todo;
+    obj_map<expr, expr*> sub;
+    expr_ref_vector trail(m), args(m);
+    todo.push_back(alpha);
+    // replace occurrences of induction arguments.
+#if 0
+    std::cout << "positions\n";
+    for (auto const& p : positions)
+        std::cout << mk_pp(p.first->get_owner(), m) << " " << p.second << "\n";
+#endif
+    while (!todo.empty()) {
+        expr* t = todo.back();
+        if (sub.contains(t)) {
+            todo.pop_back();
+            continue;
+        }
+        SASSERT(is_app(t));
+        args.reset();
+        unsigned sz = todo.size();
+        unsigned i = 0;
+        expr* s = nullptr;
+        for (unsigned i = 0; i < to_app(t)->get_num_args(); ++i) {
+            expr* arg = to_app(t)->get_arg(i);
+            found = false;
+            for (auto const& p : positions) {
+                if (p.first->get_owner() == t && p.second == i) {
+                    args.push_back(term2skolem[arg]);
+                    found = true;
+                    break;
+                }
+            }
+            if (found)
+                continue;
+            if (sub.find(arg, s)) {
+                args.push_back(s);
+                continue;
+            }
+            todo.push_back(arg);            
+        }
+        if (todo.size() == sz) {
+            s = m.mk_app(to_app(t)->get_decl(), args);
+            trail.push_back(s);
+            sub.insert(t, s);
+            todo.pop_back();
+        }
+    }
+    alpha = sub[alpha];
+    std::cout << "alpha:" << alpha << "\n";
+    literal alpha_lit = mk_literal(alpha);
+
+    // alpha is the minimal instance of induction_positions where lit holds
+    // alpha & is-c(sk) => ~alpha[sk/acc(sk)]
+    create_hypotheses(1, sks, alpha_lit);
+    if (m_num_lemmas > num) {
+        // lit => alpha
+        literal_vector lits;
+        lits.push_back(~lit);
+        lits.push_back(alpha_lit);
+        add_th_lemma(lits);            
+    }
 }
 
 induction_lemmas::induction_lemmas(context& ctx, ast_manager& m, value_sweep& vs):
@@ -369,7 +544,8 @@ induction_lemmas::induction_lemmas(context& ctx, ast_manager& m, value_sweep& vs
     m_dt(m),
     m_a(m),
     m_rec(m),
-    m_num_lemmas(0)
+    m_num_lemmas(0),
+    m_trail(m)
 {}
 
 induction::induction(context& ctx, ast_manager& m):
