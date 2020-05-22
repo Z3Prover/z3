@@ -3099,7 +3099,10 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
     }
     if (!found_complement) {
         args.append(num_proofs, (expr**)proofs);
-        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";);
+        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";
+               for (unsigned i = 1; i < num_proofs; ++i)
+                   tout << mk_pp(proofs[i], *this) << "\n";
+               );
         SASSERT(is_or(f1));
         ptr_buffer<expr> new_lits;
         app const * cls   = to_app(f1);
