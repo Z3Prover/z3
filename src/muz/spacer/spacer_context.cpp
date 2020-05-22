@@ -3491,7 +3491,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
                                       reach_pred_used, num_reuse_reach);
     if (model) model->set_model_completion(false);
-    if (res == l_undef) res = handle_unknown(n, r, *model);
+    if (res == l_undef && model) res = handle_unknown(n, r, *model);
 
     checkpoint ();
     IF_VERBOSE (1, verbose_stream () << "." << std::flush;);
