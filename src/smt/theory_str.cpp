@@ -9245,7 +9245,7 @@ namespace smt {
         ast_manager & m = get_manager();
         
         expr_ref lesson(m);
-        lesson = m.mk_not(ctx.mk_eq_atom(lhs, rhs));
+        lesson = m.mk_not(m.mk_eq(lhs, rhs));
         TRACE("str", tout << "learning not " << mk_pp(lesson, m) << std::endl;);
         return lesson;
     }
