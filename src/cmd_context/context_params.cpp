@@ -119,7 +119,8 @@ void context_params::set(char const * param, char const * value) {
         m_dot_proof_file = value;  
     }
     else if (p == "unsat_core") {
-        set_bool(m_unsat_core, param, value);
+        if (!m_unsat_core) 
+            set_bool(m_unsat_core, param, value);
     }
     else if (p == "debug_ref_count") {
         set_bool(m_debug_ref_count, param, value);
@@ -154,7 +155,7 @@ void context_params::updt_params(params_ref const & p) {
     m_trace             = p.get_bool("trace", m_trace);
     m_trace_file_name   = p.get_str("trace_file_name", "z3.log");
     m_dot_proof_file    = p.get_str("dot_proof_file", "proof.dot");
-    m_unsat_core        = p.get_bool("unsat_core", m_unsat_core);
+    m_unsat_core        |= p.get_bool("unsat_core", m_unsat_core);
     m_debug_ref_count   = p.get_bool("debug_ref_count", m_debug_ref_count);
     m_smtlib2_compliant = p.get_bool("smtlib2_compliant", m_smtlib2_compliant);
     m_statistics        = p.get_bool("stats", m_statistics);
@@ -198,7 +199,7 @@ params_ref context_params::merge_default_params(params_ref const & p) {
 void context_params::get_solver_params(ast_manager const & m, params_ref & p, bool & proofs_enabled, bool & models_enabled, bool & unsat_core_enabled) {
     proofs_enabled     = m.proofs_enabled() && p.get_bool("proof", m_proof);
     models_enabled     = p.get_bool("model", m_model);
-    unsat_core_enabled = p.get_bool("unsat_core", m_unsat_core);
+    unsat_core_enabled = m_unsat_core || p.get_bool("unsat_core", false);
     p = merge_default_params(p);
 }
 
