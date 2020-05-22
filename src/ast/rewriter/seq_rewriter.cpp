@@ -2478,6 +2478,13 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
         result = m_util.re.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
+    if (m_util.re.is_to_re(b)) 
+        std::swap(a, b);
+    expr* s = nullptr;
+    if (m_util.re.is_to_re(a, s)) {
+        result = m().mk_ite(m_util.re.mk_in_re(s, b), a, m_util.re.mk_empty(m().get_sort(a)));
+        return BR_REWRITE2;
+    }
     return BR_FAILED;
 }
 
@@ -2644,7 +2651,6 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
         return BR_DONE;
     }
 
-    //return BR_FAILED;
     result = m_util.re.mk_concat(a, m_util.re.mk_star(a));
     return BR_REWRITE2;
 }
@@ -2656,9 +2662,71 @@ br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
     return BR_REWRITE1;
 }
 
+
+br_status seq_rewriter::reduce_re_is_empty(expr* r, expr_ref& result) {
+    expr* r1, *r2, *r3, *r4;
+    zstring s1, s2;
+    unsigned lo, hi;
+    auto eq_empty = [&](expr* r) { return m().mk_eq(r, m_util.re.mk_empty(m().get_sort(r))); };
+    if (m_util.re.is_union(r, r1, r2)) {
+        result = m().mk_and(eq_empty(r1), eq_empty(r2));
+        return BR_REWRITE2;
+    }
+    if (m_util.re.is_star(r) ||
+        m_util.re.is_to_re(r) ||
+        m_util.re.is_full_char(r) ||
+        m_util.re.is_full_seq(r)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+    if (m_util.re.is_concat(r, r1, r2)) {
+        result = m().mk_or(eq_empty(r1), eq_empty(r2));
+        return BR_REWRITE2;
+    }
+    else if (m_util.re.is_range(r, r1, r2) && 
+             m_util.str.is_string(r1, s1) && m_util.str.is_string(r2, s2) && 
+             s1.length() == 1 && s2.length() == 1) {
+        result = m().mk_bool_val(s1[0] <= s2[0]);
+        return BR_DONE;
+    }
+    else if ((m_util.re.is_loop(r, r1, lo) ||
+              m_util.re.is_loop(r, r1, lo, hi)) && lo == 0) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+    else if (m_util.re.is_loop(r, r1, lo) ||
+             (m_util.re.is_loop(r, r1, lo, hi) && lo <= hi)) {
+        result = eq_empty(r1);
+        return BR_REWRITE1;
+    }
+    // DNF expansion:
+    else if (m_util.re.is_intersection(r, r1, r2) && m_util.re.is_union(r1, r3, r4)) {
+        result = eq_empty(m_util.re.mk_union(m_util.re.mk_inter(r3, r2), m_util.re.mk_inter(r4, r2)));
+        return BR_REWRITE3;
+    }
+    else if (m_util.re.is_intersection(r, r1, r2) && m_util.re.is_union(r2, r3, r4)) {
+        result = eq_empty(m_util.re.mk_union(m_util.re.mk_inter(r3, r1), m_util.re.mk_inter(r4, r1)));
+        return BR_REWRITE3;
+    }
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::reduce_re_eq(expr* l, expr* r, expr_ref& result) {
+    if (m_util.re.is_empty(l)) {
+        std::swap(l, r);
+    }
+    if (m_util.re.is_empty(r)) {
+        return reduce_re_is_empty(l, result);
+    }
+    return BR_FAILED;
+}
+
 br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     expr_ref_vector res(m());
     expr_ref_pair_vector new_eqs(m());
+    if (m_util.is_re(l)) {
+        return reduce_re_eq(l, r, result);
+    }
     bool changed = false;
     if (!reduce_eq(l, r, new_eqs, changed)) {
         result = m().mk_false();

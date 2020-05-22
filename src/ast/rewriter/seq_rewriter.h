@@ -178,6 +178,8 @@ class seq_rewriter {
     br_status mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
     br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+    br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
+    br_status reduce_re_is_empty(expr* r, expr_ref& result);
 
 
 	br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
