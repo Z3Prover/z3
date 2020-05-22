@@ -1601,7 +1601,7 @@ namespace smt {
             if (inconsistent())
                 return false;
         }
-#if 1
+#if 0
         if (at_search_level() && induction::should_try(*this)) {
             get_induction()();
         }
