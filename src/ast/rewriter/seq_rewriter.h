@@ -218,6 +218,7 @@ public:
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
+    seq_util const& u() const { return m_util; }
 
     void updt_params(params_ref const & p);
     static void get_param_descrs(param_descrs & r);
