@@ -179,6 +179,9 @@ class seq_rewriter {
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
     br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
+
+	br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
+
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
     expr_ref zero() { return expr_ref(m_autil.mk_int(0), m()); }
@@ -232,6 +235,8 @@ public:
     bool reduce_contains(expr* a, expr* b, expr_ref_vector& disj);
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
+
+    br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
 
 };
