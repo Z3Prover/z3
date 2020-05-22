@@ -82,7 +82,6 @@ static bool is_escape_char(char const *& s, unsigned& result) {
         return true;
     }
 
-#if Z3_USE_UNICODE
     if (*(s+1) == 'u' && *(s+2) == '{') {
         result = 0;
         for (unsigned i = 0; i < 5; ++i) {
@@ -90,8 +89,12 @@ static bool is_escape_char(char const *& s, unsigned& result) {
                 result = 16*result + d1;
             }
             else if (*(s+3+i) == '}') {
+#if !Z3_USE_UNICODE                
+                if (result > 255)
+                    throw default_exception("unicode characters outside of byte range are not supported");
+#endif
                 s += 4 + i;
-                return true;
+                return true;                
             }
             else {
                 break;
@@ -110,10 +113,13 @@ static bool is_escape_char(char const *& s, unsigned& result) {
                 break;
             }
         }
+#if !Z3_USE_UNICODE                
+        if (result > 255)
+            throw default_exception("unicode characters outside of byte range are not supported");
+#endif
         s += 3 + i;
         return true;
     }
-#endif
     switch (*(s + 1)) {
     case 'a':
         result = '\a';
