@@ -93,7 +93,7 @@ namespace smt {
         if (false && !sk().is_tail(s)) {
             expr_ref is_empty(m.mk_eq(r, re().mk_empty(m.get_sort(s))), m);
             rewrite(is_empty);
-            literal is_emptyl = mk_literal(is_empty);
+            literal is_emptyl = th.mk_literal(is_empty);
             if (ctx.get_assignment(is_emptyl) != l_false) {
                 th.propagate_lit(nullptr, 1, &lit, ~is_emptyl);
                 return true;

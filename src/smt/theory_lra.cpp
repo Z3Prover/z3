@@ -1326,6 +1326,15 @@ public:
         expr_ref div(a.mk_idiv(p, q), m);
         expr_ref mod(a.mk_mod(p, q), m);
         expr_ref zero(a.mk_int(0), m);
+        if (a.is_zero(p)) {
+            literal q_ge_0 = mk_literal(a.mk_ge(q, zero));
+            literal q_le_0 = mk_literal(a.mk_le(q, zero));
+            mk_axiom(~q_ge_0, ~q_le_0, mk_literal(a.mk_ge(div, zero)));
+            mk_axiom(~q_ge_0, ~q_le_0, mk_literal(a.mk_le(div, zero)));
+            mk_axiom(~q_ge_0, ~q_le_0, mk_literal(a.mk_ge(mod, zero)));
+            mk_axiom(~q_ge_0, ~q_le_0, mk_literal(a.mk_le(mod, zero)));
+            return;
+        }
         literal eq         = th.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p, false);
         literal mod_ge_0   = mk_literal(a.mk_ge(mod, zero));
         literal div_ge_0   = mk_literal(a.mk_ge(div, zero));
