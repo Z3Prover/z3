@@ -1134,7 +1134,7 @@ namespace smt {
 
         TRACE("str_fl", tout << "calling subsolver" << std::endl;);
 
-        lbool subproblem_status = subsolver.check(fixed_length_assumptions);
+        lbool subproblem_status = subsolver.check(fixed_length_assumptions); //HERE
 
         if (subproblem_status == l_true) {
             bv_util bv(m);
@@ -1254,7 +1254,7 @@ namespace smt {
                         negate_pre = true;
                     }
                 }
-                if (negate_pre){
+                if (negate_pre || subsolver.get_unsat_core_size() == 0){
                     for (auto ex : precondition) {
                         cex.push_back(ex);
                     }
