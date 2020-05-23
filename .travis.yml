@@ -63,15 +63,6 @@ env:
     # Static build. Note we have disable building the bindings because they won't work with a static libz3
     - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_STATIC_BUILD=1 DOTNET_BINDINGS=0 JAVA_BINDINGS=0 PYTHON_BINDINGS=0
 
-###############################################################################
-# Ubuntu 14.04 LTS
-###############################################################################
-    # GCC 4.8
-    # 64-bit GCC 4.8 RelWithDebInfo
-    - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
-    # 64-bit GCC 4.8 Debug
-    - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug RUN_UNIT_TESTS=BUILD_ONLY
-
 # macOS (a.k.a OSX) support
 matrix:
   include:
