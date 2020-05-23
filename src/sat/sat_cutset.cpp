@@ -12,10 +12,11 @@
   --*/
 
 
-#include <sstream>
 #include "util/hashtable.h"
 #include "sat/sat_cutset.h"
 #include "sat/sat_cutset_compute_shift.h"
+#include <memory>
+#include <sstream>
 
 
 namespace sat {
@@ -84,8 +85,8 @@ namespace sat {
         }
         if (m_size == m_max_size) {
             m_max_size *= 2;
-            cut* new_cuts = new (*m_region) cut[m_max_size]; 
-            memcpy(new_cuts, m_cuts, sizeof(cut)*m_size);
+            cut* new_cuts = new (*m_region) cut[m_max_size];
+            std::uninitialized_copy(m_cuts, m_cuts + m_size, new_cuts);
             m_cuts = new_cuts;
         }
         if (m_var != UINT_MAX && on_add) on_add(m_var, c);

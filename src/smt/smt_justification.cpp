@@ -20,6 +20,7 @@ Revision History:
 #include "smt/smt_conflict_resolution.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include <memory>
 
 namespace smt {
 
@@ -302,8 +303,7 @@ namespace smt {
         simple_justification(r, num_lits, lits),
         m_num_eqs(num_eqs) {
         m_eqs = new (r) enode_pair[num_eqs];
-        if (num_eqs != 0)
-            memcpy(m_eqs, eqs, sizeof(enode_pair) * num_eqs);
+        std::uninitialized_copy(eqs, eqs + num_eqs, m_eqs);
         DEBUG_CODE({
             for (unsigned i = 0; i < num_eqs; i++) {
                 SASSERT(eqs[i].first->get_root() == eqs[i].second->get_root());

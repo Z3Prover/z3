@@ -19,8 +19,7 @@ Revision History:
 
 
 --*/
-#ifndef BUFFER_H_
-#define BUFFER_H_
+#pragma once
 
 #include<string.h>
 #include "util/memory_manager.h"
@@ -42,7 +41,9 @@ protected:
     void expand() {
         unsigned new_capacity = m_capacity << 1;
         T * new_buffer        = reinterpret_cast<T*>(memory::allocate(sizeof(T) * new_capacity));
-        memcpy(new_buffer, m_buffer, m_pos * sizeof(T));
+        for (unsigned i = 0; i < m_pos; ++i) {
+            new (&new_buffer[i]) T(std::move(m_buffer[i]));
+        }
         free_memory();
         m_buffer              = new_buffer;
         m_capacity            = new_capacity;
@@ -269,7 +270,3 @@ public:
     sbuffer(): buffer<T, false, INITIAL_SIZE>() {}
     sbuffer(unsigned sz, const T& elem) : buffer<T, false, INITIAL_SIZE>(sz,elem) {}
 };
-
-
-
-#endif /* BUFFER_H_ */

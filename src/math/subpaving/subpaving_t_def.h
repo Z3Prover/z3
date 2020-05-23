@@ -21,6 +21,7 @@ Revision History:
 #include "util/buffer.h"
 #include "util/z3_exception.h"
 #include "util/common_msgs.h"
+#include <memory>
 
 namespace subpaving {
 
@@ -363,7 +364,7 @@ template<typename C>
 context_t<C>::monomial::monomial(unsigned sz, power const * pws):
     definition(constraint::MONOMIAL),
     m_size(sz) {
-    memcpy(m_powers, pws, sz*sizeof(power));
+    std::uninitialized_copy(pws, pws + sz, m_powers);
     std::sort(m_powers, m_powers+sz, typename power::lt_proc());
     DEBUG_CODE({
             for (unsigned i = 0; i < sz; i ++) {

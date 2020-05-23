@@ -33,6 +33,7 @@ Notes:
 #include "util/scoped_numeral_buffer.h"
 #include "util/ref_buffer.h"
 #include "util/common_msgs.h"
+#include <memory>
 
 namespace polynomial {
 
@@ -528,7 +529,7 @@ namespace polynomial {
             SASSERT(new_capacity > m_capacity);
             monomial * new_ptr  = allocate(new_capacity);
             new_ptr->m_size = m_ptr->m_size;
-            memcpy(new_ptr->m_powers, m_ptr->m_powers, sizeof(power)*m_ptr->m_size);
+            std::uninitialized_copy(m_ptr->m_powers, m_ptr->m_powers + m_ptr->m_size, new_ptr->m_powers);
             deallocate(m_ptr, m_capacity);
             m_ptr      = new_ptr;
             m_capacity = new_capacity;
