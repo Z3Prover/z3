@@ -382,7 +382,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("zero_length");
         return FC_CONTINUE;
     }
-    if (false && !m_unicode.final_check()) {
+    if (ctx.get_fparams().m_seq_use_unicode && !m_unicode.final_check()) {
         return FC_CONTINUE;
     }
     if (get_fparams().m_split_w_len && len_based_split()) {
@@ -1535,6 +1535,13 @@ bool theory_seq::internalize_term(app* term) {
         return true;
     }
 
+    if (ctx.get_fparams().m_seq_use_derivatives && m_util.str.is_in_re(term)) {
+        bool_var bv = ctx.mk_bool_var(term);
+        ctx.set_var_theory(bv, get_id());
+        ctx.mark_as_relevant(bv);
+        return true;
+    }
+
     for (auto arg : *term) {        
         mk_var(ensure_enode(arg));
     }
@@ -2515,7 +2522,8 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
-    // m_unicode.propagate();
+    if (ctx.get_fparams().m_seq_use_unicode)
+        m_unicode.propagate();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
         e = m_axioms[m_axioms_head].get();
@@ -3083,7 +3091,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
     }
-    else if (false && m_util.is_char_le(e, e1, e2)) {
+    else if (ctx.get_fparams().m_seq_use_unicode && m_util.is_char_le(e, e1, e2)) {
         theory_var v1 = get_th_var(ctx.get_enode(e1));
         theory_var v2 = get_th_var(ctx.get_enode(e2));
         if (is_true) 
@@ -3104,10 +3112,15 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
 void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
     enode* n1 = get_enode(v1);
     enode* n2 = get_enode(v2);
-    if (false && m_util.is_char(n1->get_owner())) {
+    if (ctx.get_fparams().m_seq_use_unicode && m_util.is_char(n1->get_owner())) {
         m_unicode.new_eq_eh(v1, v2);
         return;
     }
+    if (ctx.get_fparams().m_seq_use_derivatives && m_util.is_re(n1->get_owner())) {
+        m_regex.propagate_eq(n1->get_owner(), n2->get_owner());
+        return;        
+    }
+
     dependency* deps = m_dm.mk_leaf(assumption(n1, n2));
     new_eq_eh(deps, n1, n2);
 }
@@ -3184,6 +3197,12 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     expr_ref e2(n2->get_owner(), m);
     SASSERT(n1->get_root() != n2->get_root());
     if (m_util.is_re(n1->get_owner())) {
+        
+        if (ctx.get_fparams().m_seq_use_derivatives) {
+            m_regex.propagate_ne(e1, e2);
+            return;
+        }
+
         enode_pair_vector eqs;
         literal_vector lits;
         switch (regex_are_equal(e1, e2)) {
@@ -3199,7 +3218,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
             throw default_exception("convert regular expressions into automata");            
         }
     }
-    if (false && m_util.is_char(n1->get_owner())) {
+    if (ctx.get_fparams().m_seq_use_unicode && m_util.is_char(n1->get_owner())) {
         m_unicode.new_diseq_eh(v1, v2);
         return;
     }
@@ -3233,6 +3252,7 @@ void theory_seq::push_scope_eh() {
     m_nqs.push_scope();
     m_ncs.push_scope();
     m_lts.push_scope();
+    m_regex.push_scope();
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
@@ -3245,6 +3265,7 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
     m_nqs.pop_scope(num_scopes);
     m_ncs.pop_scope(num_scopes);
     m_lts.pop_scope(num_scopes);
+    m_regex.pop_scope(num_scopes);
     m_rewrite.reset();    
     if (ctx.get_base_level() > ctx.get_scope_level() - num_scopes) {
         m_replay.reset();

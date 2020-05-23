@@ -48,11 +48,28 @@ namespace smt {
         }
         return change;
     }
+
+    /**
+     * Propagate the atom (str.in.re s r)
+     * 
+     * Propagation implements the following inference rules
+     * 
+     * (not (str.in.re s r)) => (str.in.re s (complement r))
+     * (str.in.re s r) => r != {}
+     * 
+     * (str.in.re s r[if(c,r1,r2)]) & c => (str.in.re s r[r1])
+     * (str.in.re s r[if(c,r1,r2)]) & ~c => (str.in.re s r[r2])
+     * (str.in.re s r) & s = "" => nullable(r)
+     * s != "" => s = unit(head) ++ tail
+     * (str.in.re s r) & s != "" => (str.in.re tail D(head,r))
+     */
     
     bool seq_regex::propagate(literal lit) {
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
+
+        TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
         // only positive assignments of membership propagation are relevant.
         if (lit.sign() && sk().is_tail(s)) 
@@ -72,8 +89,16 @@ namespace smt {
             return true;
 
         // TBD
-        // for !sk().is_tail(s):
-        // s in R => R != {}
+        // for !sk().is_tail(s):  s in R => R != {}
+        if (false && !sk().is_tail(s)) {
+            expr_ref is_empty(m.mk_eq(r, re().mk_empty(m.get_sort(s))), m);
+            rewrite(is_empty);
+            literal is_emptyl = mk_literal(is_empty);
+            if (ctx.get_assignment(is_emptyl) != l_false) {
+                th.propagate_lit(nullptr, 1, &lit, ~is_emptyl);
+                return true;
+            }
+        }
 
         if (block_unfolding(lit, s))
             return true;
@@ -131,8 +156,21 @@ namespace smt {
             throw default_exception("unable to expand derivative");
         th.add_axiom(is_empty, th.mk_eq(s, th.mk_concat(head, tail), false));
         th.add_axiom(~lit, is_empty, th.mk_literal(re().mk_in_re(tail, d)));
+
+        TRACE("seq", tout << "head " << head << "\n";
+              tout << mk_pp(r, m) << "\n";);
         return true;
     }
+
+    /**
+     * Put a limit to the unfolding of s. 
+     * TBD: 
+     * Given an Regex R, we can compute the minimal length string accepted by R
+     * A strong analysis could compute the minimal length of s to be accepted by R
+     * For example if s = x + "abc" and R = .* ++ "def" . .**, then minimal length
+     * of s is 6.
+     * Limiting the depth of unfolding s below such lengths is not useful.
+     */
 
     bool seq_regex::block_unfolding(literal lit, expr* s) {
         expr* t = nullptr;
@@ -149,6 +187,10 @@ namespace smt {
         return false;
     }
 
+    /**
+     * Combine a conjunction of membership relations for the same string
+     * within the same Regex.
+     */
     bool seq_regex::coallesce_in_re(literal lit) {
         // initially disable this
         return false;
@@ -190,15 +232,23 @@ namespace smt {
     }
 
 
-    void seq_regex::propagate_is_empty(literal lit) {
+    void seq_regex::propagate_eq(expr* r1, expr* r2) {
         // the dual version of unroll_non_empty, but
         // skolem functions have to be eliminated or turned into 
         // universal quantifiers.
-        throw default_exception("emptiness checking of regex is TBD");
+        throw default_exception("emptiness checking for regex is TBD");
     }
     
-    void seq_regex::propagate_is_nonempty(expr* r) {
-        sort* seq_sort = nullptr;
+    void seq_regex::propagate_ne(expr* r1, expr* r2) {
+        expr_ref r(m);
+        if (re().is_empty(r1)) 
+            std::swap(r1, r2);
+        if (re().is_empty(r2))
+            r = r1;
+        else 
+            r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
+        rewrite(r);
+        sort* seq_sort = nullptr;        
         VERIFY(u().is_re(r, seq_sort));
         literal lit = ~th.mk_eq(r, re().mk_empty(seq_sort), false);
         expr_mark seen;

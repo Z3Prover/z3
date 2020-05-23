@@ -64,13 +64,18 @@ namespace smt {
 
         seq_regex(theory_seq& th);
 
+        void push_scope() { m_to_propagate.push_scope(); }
+
+        void pop_scope(unsigned num_scopes) { m_to_propagate.pop_scope(num_scopes); }
+
         bool propagate();
 
         void propagate_in_re(literal lit);
 
-        void propagate_is_empty(literal lit);
+        void propagate_eq(expr* r1, expr* r2);
+
+        void propagate_ne(expr* r1, expr* r2);
         
-        void propagate_is_nonempty(expr* r);
     };
 
 };
