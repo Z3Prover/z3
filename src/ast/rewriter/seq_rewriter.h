@@ -135,10 +135,8 @@ class seq_rewriter {
 
     // Support for regular expression derivatives
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
-    expr_ref is_nullable(expr* r);
     expr_ref kleene_and(expr* cond, expr* r);
     expr_ref kleene_predicate(expr* cond, sort* seq_sort);
-    expr_ref derivative(expr* hd, expr* r);
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
@@ -181,8 +179,7 @@ class seq_rewriter {
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
 
-
-	br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
+    br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
 
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
@@ -212,6 +209,11 @@ class seq_rewriter {
     void remove_empty_and_concats(expr_ref_vector& es);
     void remove_leading(unsigned n, expr_ref_vector& es);
 
+    class seq_util::re& re() { return u().re; }
+    class seq_util::re const& re() const { return u().re; }
+    class seq_util::str& str() { return u().str; }
+    class seq_util::str const& str() const { return u().str; }
+
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
@@ -219,6 +221,7 @@ public:
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
     seq_util const& u() const { return m_util; }
+    seq_util& u() { return m_util; }
 
     void updt_params(params_ref const & p);
     static void get_param_descrs(param_descrs & r);
@@ -241,6 +244,11 @@ public:
 
     br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
+    expr_ref derivative(expr* hd, expr* r);
+
+    expr_ref is_nullable(expr* r);
+
+    bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
 
 };
 

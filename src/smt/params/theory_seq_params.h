@@ -25,11 +25,13 @@ struct theory_seq_params {
      */
     bool m_split_w_len;
     bool m_seq_validate;
+    bool m_seq_use_derivatives;
 
 
     theory_seq_params(params_ref const & p = params_ref()):
         m_split_w_len(true),
-        m_seq_validate(false)
+        m_seq_validate(false),
+        m_seq_use_derivatives(false)
     {
         updt_params(p);
     }

@@ -299,6 +299,7 @@ theory_seq::theory_seq(context& ctx):
     m_sk(m, m_rewrite),
     m_ax(*this, m_rewrite),
     m_unicode(*this),
+    m_regex(*this),
     m_arith_value(m),
     m_trail_stack(*this),
     m_ls(m), m_rs(m),
@@ -365,6 +366,10 @@ final_check_status theory_seq::final_check_eh() {
     if (solve_nqs(0)) {
         ++m_stats.m_solve_nqs;
         TRACEFIN("solve_nqs");
+        return FC_CONTINUE;
+    }
+    if (m_regex.propagate()) {
+        TRACEFIN("regex propagate");
         return FC_CONTINUE;
     }
     if (check_contains()) {
@@ -2617,6 +2622,7 @@ expr_ref theory_seq::add_elim_string_axiom(expr* n) {
 }
 
 void theory_seq::propagate_in_re(expr* n, bool is_true) {
+
     TRACE("seq", tout << mk_pp(n, m) << " <- " << (is_true?"true":"false") << "\n";);
 
     expr_ref tmp(n, m);
@@ -3053,7 +3059,12 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         }
     }
     else if (m_util.str.is_in_re(e)) {
-        propagate_in_re(e, is_true);
+        if (ctx.get_fparams().m_seq_use_derivatives) {
+            m_regex.propagate_in_re(lit);
+        }
+        else {
+            propagate_in_re(e, is_true);
+        }
     }
     else if (m_sk.is_digit(e)) {
         // no-op

@@ -34,11 +34,14 @@ Revision History:
 #include "smt/seq_skolem.h"
 #include "smt/seq_axioms.h"
 #include "smt/seq_unicode.h"
+#include "smt/seq_regex.h"
 #include "smt/seq_offset_eq.h"
 
 namespace smt {
 
     class theory_seq : public theory {
+        friend class seq_regex;
+
         struct assumption {
             enode* n1, *n2;
             literal lit;
@@ -404,6 +407,7 @@ namespace smt {
         seq_skolem       m_sk;
         seq_axioms       m_ax;
         seq_unicode      m_unicode;
+        seq_regex        m_regex;
         arith_value      m_arith_value;
         th_trail_stack   m_trail_stack;
         stats            m_stats;
