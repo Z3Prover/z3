@@ -46,8 +46,6 @@ public:
     // this signature is needed to use it in a template that also works for the vector type
     void push_back(constraint_index j) {
         SASSERT(m_vector.empty());
-        if (m_set.contains(j))
-            return;
         m_set.insert(j);
     }
     
