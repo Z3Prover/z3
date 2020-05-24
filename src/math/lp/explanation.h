@@ -38,7 +38,7 @@ public:
     }
     
     void clear() { m_vector.clear(); m_set.reset(); }
-    void add_with_coeff(constraint_index j, const mpq& v) {
+    void add_pair(constraint_index j, const mpq& v) {
         SASSERT(m_set.empty()); 
         m_vector.push_back(std::make_pair(j, v));
     }
@@ -55,13 +55,9 @@ public:
                 push_back(j);
         } else {
             for (const auto & p : e.m_vector) {
-                add_with_coeff(p.first, p.second);
+                add_pair(p.first, p.second);
             }
         }
-    }
-
-    void add_pair(const std::pair<mpq, constraint_index>& j) {
-        add_with_coeff(j.second, j.first);
     }
 
     bool empty() const {  return m_vector.empty() || m_set.empty();  }
