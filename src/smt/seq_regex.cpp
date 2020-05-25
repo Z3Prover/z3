@@ -100,6 +100,32 @@ namespace smt {
             m_to_propagate.push_back(lit);
     }
 
+       
+    // s in R[if(p,R1,R2)] & p => s in R[R1]
+    // s in R[if(p,R1,R2)] & ~p => s in R[R2]
+
+    bool seq_regex::unfold_cofactors(expr_ref& r, literal_vector& conds) {
+        expr_ref cond(m), tt(m), el(m);
+        while (seq_rw().has_cofactor(r, cond, tt, el)) {
+            rewrite(cond);
+            literal lcond = th.mk_literal(cond);
+            switch (ctx.get_assignment(lcond)) {
+            case l_true: 
+                conds.push_back(~lcond);
+                r = tt;
+                break;
+            case l_false:
+                conds.push_back(lcond);
+                r = el;
+                break;
+            case l_undef:
+                ctx.mark_as_relevant(lcond);
+                return false;
+            }
+            rewrite(r);
+        }
+        return true;
+    }
 
     /**
      * Propagate the atom (accept s i r)
@@ -144,79 +170,30 @@ namespace smt {
         case l_false:
             break;
         }
-       
-        // s in R[if(p,R1,R2)] & p => s in R[R1]
-        // s in R[if(p,R1,R2)] & ~p => s in R[R2]
 
-        // TBD combine the two places that perform co-factor rewriting
-        expr_ref cond(m), tt(m), el(m);
-        if (seq_rw().has_cofactor(r, cond, tt, el)) {
-            rewrite(cond);
-            literal lcond = th.mk_literal(cond), next_lit;
-            switch (ctx.get_assignment(lcond)) {
-            case l_true: {
-                rewrite(tt);
-                literal lits[2] = { lit, lcond };
-                next_lit = th.mk_literal(sk().mk_accept(s, i, tt));
-                th.propagate_lit(nullptr, 2, lits, next_lit);
-                return true;
-            }
-            case l_false: {
-                rewrite(el);
-                next_lit = th.mk_literal(sk().mk_accept(s, i, el));
-                literal lits[2] = { lit, ~lcond };
-                th.propagate_lit(nullptr, 2, lits, next_lit);
-                return true;
-            }
-            case l_undef:
-                ctx.mark_as_relevant(lcond);
-                return false;
-            }
-        }
+        expr_ref head(m), d(r, m), i_next(m);        
+        literal_vector conds;
+
+        if (!unfold_cofactors(d, conds)) 
+            return false;
 
         // s in R & len(s) > i => tail(s,i) in D(nth(s, i), R)
-        expr_ref head(m), d(m), i_next(m);
         head = th.mk_nth(s, i);        
         i_next = a().mk_int(idx + 1);
-        d = seq_rw().derivative(head, r);
+        d = seq_rw().derivative(head, d);
         if (!d) 
             throw default_exception("unable to expand derivative");
 
-        // immediately expand a co-factor here so that condition on the character
-        // is expanded.
-
-        literal_vector conds;
-        while (seq_rw().has_cofactor(d, cond, tt, el)) {
-            rewrite(cond);
-            literal lcond = th.mk_literal(cond);
-            bool is_undef = false;
-            switch (ctx.get_assignment(lcond)) {
-            case l_true: 
-                conds.push_back(~lcond);
-                d = tt;
-                break;
-            case l_false:
-                conds.push_back(lcond);
-                d = el;
-                break;
-            case l_undef:
-                ctx.mark_as_relevant(lcond);
-                d = m.mk_ite(cond, tt, el);
-                is_undef = true;
-                break;
-            }
-            if (is_undef)
-                break;
-            rewrite(d);
-        }
+        literal acc_next = th.mk_literal(sk().mk_accept(s, i_next, d));
         if (conds.empty()) {
-            th.add_axiom(~lit, len_s_le_i, th.mk_literal(sk().mk_accept(s, i_next, d)));
+            th.add_axiom(~lit, len_s_le_i, acc_next);
         }
         else {
             conds.push_back(~lit);
             conds.push_back(len_s_le_i);
-            conds.push_back(th.mk_literal(sk().mk_accept(s, i_next, d)));
-            for (literal lit : conds) ctx.mark_as_relevant(lit);
+            conds.push_back(acc_next);
+            for (literal c : conds) 
+                ctx.mark_as_relevant(c);
             ctx.mk_th_axiom(th.get_id(), conds.size(), conds.c_ptr());
         }
         TRACE("seq", tout << "head " << head << "\n";
@@ -226,15 +203,12 @@ namespace smt {
 
     /**
      * Put a limit to the unfolding of s. 
-     * TBD: 
-     * Given an Regex R, we can compute the minimal length string accepted by R
-     * A strong analysis could compute the minimal length of s to be accepted by R
-     * For example if s = x + "abc" and R = .* ++ "def" . .**, then minimal length
-     * of s is 6.
-     * Limiting the depth of unfolding s below such lengths is not useful.
      */
 
     bool seq_regex::block_unfolding(literal lit, unsigned i) {
+        expr* s = nullptr, *idx = nullptr, *r = nullptr;
+        expr* e = ctx.bool_var2expr(lit.var());
+        VERIFY(sk().is_accept(e, s, idx, r));
         expr* t = nullptr;
         if (i > th.m_max_unfolding_depth && 
             th.m_max_unfolding_lit != null_literal && 

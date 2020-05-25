@@ -2278,6 +2278,13 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
         result = array.mk_select(2, args);
         result = kleene_predicate(result, seq_sort);
     }
+    else if (m().is_ite(r, p, r1, r2)) {
+        dr1 = derivative(elem, r1);
+        dr2 = derivative(elem, r2);
+        if (dr1 && dr2) {
+            result = m().mk_ite(p, dr1, dr2);
+        }
+    }
     return result;
 }
 

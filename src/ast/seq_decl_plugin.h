@@ -394,6 +394,8 @@ public:
         void get_concat_units(expr* e, expr_ref_vector& es) const;
         expr* get_leftmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e1; return e; }
         expr* get_rightmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e2; return e; }
+
+        unsigned min_length(expr* s) const;
     };
 
     class re {
@@ -456,6 +458,7 @@ public:
         bool is_loop(expr const* n, expr*& body, unsigned& lo);
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi);
         bool is_loop(expr const* n, expr*& body, expr*& lo);
+        unsigned min_length(expr* r) const;
     };
     str str;
     re  re;

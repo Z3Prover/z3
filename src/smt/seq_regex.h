@@ -61,6 +61,8 @@ namespace smt {
 
         expr_ref unroll_non_empty(expr* r, expr_mark& seen, unsigned depth);
 
+        bool unfold_cofactors(expr_ref& r, literal_vector& conds);
+
     public:
 
         seq_regex(theory_seq& th);

@@ -1220,6 +1220,44 @@ app* seq_util::str::mk_is_empty(expr* s) const {
     return m.mk_eq(s, mk_empty(get_sort(s)));
 }
 
+unsigned seq_util::str::min_length(expr* s) const {
+    SASSERT(u.is_seq(s));
+    expr_ref_vector es(m);
+    unsigned result = 0;
+    get_concat_units(s, es);
+    for (expr* arg : es) {
+        if (is_unit(arg))
+            result++;
+    }
+    return result;
+}
+
+unsigned seq_util::re::min_length(expr* r) const {
+    SASSERT(u.is_re(r));
+    expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
+    if (is_empty(r))
+        return UINT_MAX;
+    if (is_concat(r, r1, r2)) {
+        unsigned l1 = min_length(r1);
+        if (l1 == UINT_MAX)
+            return l1;
+        unsigned l2 = min_length(r2);
+        if (l2 == UINT_MAX)
+            return l2;
+        return l1 + l2;
+    }
+    if (m.is_ite(r, s, r1, r2)) 
+        return std::min(min_length(r1), min_length(r2));
+    if (is_diff(r, r1, r2))
+        return min_length(r1);
+    if (is_union(r, r1, r2)) 
+        return std::min(min_length(r1), min_length(r2));
+    if (is_intersection(r, r1, r2)) 
+        return std::max(min_length(r1), min_length(r2));
+    if (is_to_re(r, s)) 
+        return u.str.min_length(s);
+    return 0;
+}
 
 sort* seq_util::re::to_seq(sort* re) {
     (void)u;
