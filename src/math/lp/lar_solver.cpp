@@ -307,8 +307,8 @@ void lar_solver::fill_explanation_from_crossed_bounds_column(explanation & evide
     
     // this is the case when the lower bound is in conflict with the upper one
     const ul_pair & ul =  m_columns_to_ul_pairs[m_crossed_bounds_column];
-    evidence.add_with_coeff(ul.upper_bound_witness(),  numeric_traits<mpq>::one());
-    evidence.add_with_coeff(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
+    evidence.add_pair(ul.upper_bound_witness(),  numeric_traits<mpq>::one());
+    evidence.add_pair(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
 }
 
     
@@ -1195,7 +1195,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
 
         constraint_index bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
         lp_assert(m_constraints.valid_index(bound_constr_i));
-        exp.add_with_coeff(bound_constr_i, coeff);
+        exp.add_pair(bound_constr_i, coeff);
     } 
 }
 
