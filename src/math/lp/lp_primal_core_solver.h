@@ -484,7 +484,7 @@ public:
 
     int find_smallest_inf_column() {
         int j = -1;
-        for (unsigned k : this->m_inf_set) {            
+        for (unsigned k : this->inf_set()) {            
             if (k < static_cast<unsigned>(j)) {
                 j = k;
             }
@@ -821,12 +821,12 @@ public:
         if (this->using_infeas_costs()) {
             init_infeasibility_costs_for_changed_basis_only();
             this->m_costs[leaving] = zero_of_type<T>();
-            this->m_inf_set.erase(leaving);
+            this->remove_column_from_inf_set(leaving);
         } 
     }
     
     void init_inf_set() {
-        this->m_inf_set.clear();
+        this->clear_inf_set();
         for (unsigned j = 0; j < this->m_n(); j++) {
             if (this->m_basis_heading[j] < 0)
                 continue;

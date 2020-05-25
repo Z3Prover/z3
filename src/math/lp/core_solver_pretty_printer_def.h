@@ -347,6 +347,11 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print()
     if (!m_core_solver.m_column_norms.empty())
         print_approx_norms();
     m_out << std::endl;
+    if (m_core_solver.inf_set().size()) {
+        m_out << "inf columns: ";
+        print_vector(m_core_solver.inf_set(), m_out);
+        m_out << std::endl;
+    }
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_basis_heading() {

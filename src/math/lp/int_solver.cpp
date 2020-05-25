@@ -503,18 +503,19 @@ bool int_solver::at_upper(unsigned j) const {
     }
 }
 
-void int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
+std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
     auto & rslv = lrac.m_r_solver;
     for (const auto &c: rslv.m_A.m_rows[row_index]) {
         if (numeric_traits<mpq>::is_pos(c.coeff()))
             out << "+";
         out << c.coeff() << rslv.column_name(c.var()) << " ";
     }
-
+    out << "\n";
     for (const auto& c: rslv.m_A.m_rows[row_index]) {
-        rslv.print_column_bound_info(c.var(), out);
+        rslv.print_column_info(c.var(), out);
+        if (is_base(c.var())) out << "j" << c.var() << " base\n";
     }
-    rslv.print_column_bound_info(rslv.m_basis[row_index], out);
+    return out;
 }
 
 bool int_solver::shift_var(unsigned j, unsigned range) {

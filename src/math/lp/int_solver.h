@@ -118,8 +118,8 @@ public:
     bool current_solution_is_inf_on_cut() const;
 
     bool shift_var(unsigned j, unsigned range);
+    std::ostream&  display_row_info(std::ostream & out, unsigned row_index) const;
 private:
-    void display_row_info(std::ostream & out, unsigned row_index) const;
     unsigned random();
     bool has_inf_int() const;
 public:

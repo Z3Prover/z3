@@ -1712,7 +1712,6 @@ public:
         final_check_status st = FC_DONE;
         switch (is_sat) {
         case l_true:
-                
             TRACE("arith", display(tout););
             switch (check_lia()) {
             case l_true:
@@ -2189,7 +2188,10 @@ public:
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
-        if (!m_nla) return l_true;
+        if (!m_nla) {
+            TRACE("arith", tout << "no nla\n";);
+            return l_true;
+        }
         if (!m_nla->need_check()) return l_true;
         return check_nla_continue();
     }

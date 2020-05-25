@@ -217,8 +217,8 @@ void lar_core_solver::calculate_pivot_row(unsigned i) {
     m_d_solver.m_steepest_edge_coefficients.resize(m_d_solver.m_n());
     m_d_solver.m_column_norms.clear();
     m_d_solver.m_column_norms.resize(m_d_solver.m_n(), 2);
-    m_d_solver.m_inf_set.clear();
-    m_d_solver.m_inf_set.resize(m_d_solver.m_n());
+    m_d_solver.clear_inf_set();
+    m_d_solver.resize_inf_set(m_d_solver.m_n());
 }
 
 void lar_core_solver::fill_not_improvable_zero_sum_from_inf_row() {
@@ -268,7 +268,7 @@ void lar_core_solver::solve() {
     TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
     lp_assert(m_r_solver.non_basic_columns_are_set_correctly());
     lp_assert(m_r_solver.inf_set_is_correct());
-	TRACE("find_feas_stats", tout << "infeasibles = " << m_r_solver.m_inf_set.size() << ", int_infs = " << get_number_of_non_ints() << std::endl;);
+	TRACE("find_feas_stats", tout << "infeasibles = " << m_r_solver.inf_set_size() << ", int_infs = " << get_number_of_non_ints() << std::endl;);
 	if (m_r_solver.current_x_is_feasible() && m_r_solver.m_look_for_feasible_solution_only) {
             m_r_solver.set_status(lp_status::OPTIMAL);
             TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
