@@ -1179,7 +1179,7 @@ lp_primal_core_solver<T, X>::init_infeasibility_cost_for_column(unsigned j) {
     // set zero cost for each non-basis column
     if (this->m_basis_heading[j] < 0) {
         this->m_costs[j] = numeric_traits<T>::zero();
-        this->m_inf_set.erase(j);
+        this->remove_column_from_inf_set(j);
         return;
     }
     // j is a basis column

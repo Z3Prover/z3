@@ -51,10 +51,15 @@ public:
         return m_inf_set.size() == 0;
     }
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
-    u_set m_inf_set;
 private:
+    u_set m_inf_set;
     bool m_using_infeas_costs;
 public:
+    const u_set& inf_set() const { return m_inf_set; }
+    u_set& inf_set() { return m_inf_set; }
+    void inf_set_increase_size_by_one() { m_inf_set.increase_size_by_one(); }
+    bool inf_set_contains(unsigned j) const { return m_inf_set.contains(j); }
+    unsigned inf_set_size() const { return m_inf_set.size(); }
     bool using_infeas_costs() const { return m_using_infeas_costs; }
     void set_using_infeas_costs(bool val)  { m_using_infeas_costs = val; }
     vector<unsigned>      m_columns_nz; // m_columns_nz[i] keeps an approximate value of non zeroes the i-th column
@@ -723,13 +728,26 @@ public:
             insert_column_into_inf_set(j);
     }
     void insert_column_into_inf_set(unsigned j) {
+        TRACE("lar_solver", tout << "j = " << j << "\n";);
         m_inf_set.insert(j);
         lp_assert(!column_is_feasible(j));
     }
     void remove_column_from_inf_set(unsigned j) {
+        TRACE("lar_solver", tout << "j = " << j << "\n";);
         m_inf_set.erase(j);
         lp_assert(column_is_feasible(j));
     }
+
+    void resize_inf_set(unsigned size) {
+        TRACE("lar_solver",);
+        m_inf_set.resize(size);
+    }
+
+    void clear_inf_set() {
+        TRACE("lar_solver",);
+        m_inf_set.clear();
+    }
+    
     bool costs_on_nbasis_are_zeros() const {
         lp_assert(this->basis_heading_is_correct());
         for (unsigned j = 0; j < this->m_n(); j++) {

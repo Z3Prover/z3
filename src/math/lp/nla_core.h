@@ -466,7 +466,8 @@ public:
     bool is_used_in_monic(lpvar) const;
     void patch_monomials_with_real_vars();
     void patch_monomial_with_real_var(lpvar);
-    bool var_is_used_in_a_correct_monic(lpvar) const;
+    bool var_breaks_correct_monic(lpvar) const;
+    bool var_breaks_correct_monic_as_factor(lpvar, const monic&) const;
     void update_to_refine_of_var(lpvar j);
     bool try_to_patch(lpvar, const rational&, const monic&);
     bool to_refine_is_correct() const;

@@ -1210,17 +1210,34 @@ bool core::elists_are_consistent(bool check_in_model) const {
     return true;
 }
 
-bool core::var_is_used_in_a_correct_monic(lpvar j) const {
-    if (emons().is_monic_var(j)) {
-        if (!m_to_refine.contains(j))
-            return true;
-    }
-    for (const monic & m : emons().get_use_list(j)) {
-        if (!m_to_refine.contains(m.var())) {
-            TRACE("nla_solver", tout << "j" << j << " is used in a correct monic \n";);
-            return true;
+bool core::var_breaks_correct_monic_as_factor(lpvar j, const monic& m) const {
+    if (!val(var(m)).is_zero())
+        return true;
+    
+    if (!val(j).is_zero()) // j was not zero: the new value does not matter - m must have another zero product
+        return false;
+    // do we have another zero in m?       
+    for (lpvar k : m) {
+        if (k != j && val(k).is_zero()) {
+            return false; // not breaking
         }
     }
+    // j was the only zero in m
+    return true;
+}
+
+bool core::var_breaks_correct_monic(lpvar j) const {
+    if (emons().is_monic_var(j) && !m_to_refine.contains(j)) {
+        TRACE("nla_solver", tout << "j = " << j << ", m  = "; print_monic(emons()[j], tout) << "\n";);
+        return true; // changing the value of a correct monic
+    }
+    
+    for (const monic & m : emons().get_use_list(j)) {
+        if (m_to_refine.contains(m.var()))
+            continue;
+        if (var_breaks_correct_monic_as_factor(j, m))
+            return true;
+    }            
 
     return false;
 }
@@ -1274,12 +1291,12 @@ bool core::has_real(const monic& m) const {
 
 bool core::patch_blocker(lpvar u, const monic& m) const {
     SASSERT(m_to_refine.contains(m.var()));
-    if (var_is_used_in_a_correct_monic(u)) {
+    if (var_breaks_correct_monic(u)) {
         TRACE("nla_solver", tout << "u = " << u << " blocked as used in a correct monomial\n";);
         return true;
     }
     
-    bool ret = u == m.var() || m.contains_var(u);
+    bool ret = u == m.var() || (m.contains_var(u) && var_breaks_correct_monic_as_factor(u, m));
     
     TRACE("nla_solver", tout << "u = " << u << ", m  = "; print_monic(m, tout) <<
           "ret = " << ret << "\n";);
@@ -1326,7 +1343,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
     if (val(j).is_zero() || v.is_zero()) // a lemma will catch it
         return;
 
-    if (!var_is_int(j) && !var_is_used_in_a_correct_monic(j) && try_to_patch(j, v, m)) {
+    if (!var_breaks_correct_monic(j) && try_to_patch(j, v, m)) {
         SASSERT(to_refine_is_correct());        
         return;
     }
@@ -1337,7 +1354,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
         if (v.is_perfect_square(root)) {
             lpvar k = m.vars()[0];
             if (!var_is_int(k) && 
-                !var_is_used_in_a_correct_monic(k) &&
+                !var_breaks_correct_monic(k) &&
                 (try_to_patch(k, root, m) || try_to_patch(k, -root, m))
                 ) { 
             }
@@ -1352,7 +1369,7 @@ void core::patch_monomial_with_real_var(lpvar j) {
         lpvar k = m.vars()[l];
         if (!in_power(m.vars(), l) &&
             !var_is_int(k) && 
-            !var_is_used_in_a_correct_monic(k) &&
+            !var_breaks_correct_monic(k) &&
             try_to_patch(k, r * val(k), m)) { // r * val(k) gives the right value of k
             SASSERT(mul_val(m) == var_val(m));
             erase_from_to_refine(j);
