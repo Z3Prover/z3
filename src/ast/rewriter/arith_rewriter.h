@@ -21,11 +21,13 @@ Notes:
 
 #include "ast/rewriter/poly_rewriter.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 
 class arith_rewriter_core {
 protected:
     typedef rational numeral;
     arith_util  m_util;
+    seq_util    m_seq;
     bool        m_expand_power;
     bool        m_mul2power;
     bool        m_expand_tan;
@@ -43,7 +45,7 @@ protected:
     bool use_power() const { return m_mul2power && !m_expand_power; }
     decl_kind power_decl_kind() const { return OP_POWER; }
 public:
-    arith_rewriter_core(ast_manager & m):m_util(m) {}
+    arith_rewriter_core(ast_manager & m):m_util(m), m_seq(m) {}
     bool is_zero(expr * n) const { return m_util.is_zero(n); }
 };
 
@@ -64,7 +66,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     enum op_kind { LE, GE, EQ };
     static op_kind inv(op_kind k) { return k == LE ? GE : (k == GE ? LE : EQ); }
     bool is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
-    bool is_separated(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
+    br_status is_separated(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
     bool is_non_negative(expr* e);
     br_status mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
 
