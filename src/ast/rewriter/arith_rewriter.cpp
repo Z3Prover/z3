@@ -239,6 +239,60 @@ bool arith_rewriter::is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref &
     return false;
 }
 
+
+bool arith_rewriter::is_non_negative(expr* e) {
+    seq_util seq(m());
+    if (seq.str.is_length(e))
+        return true;
+    // TBD: check for even power
+    return false;
+}
+
+/**
+ * perform static analysis on arg1 to determine a non-negative lower bound.
+ * a + b + r1 <= r2 -> false if r1 > r2 and a >= 0, b >= 0
+ * a + b + r1 >= r2 -> false if r1 < r2 and a <= 0, b <= 0
+*/
+bool arith_rewriter::is_separated(expr* arg1, expr* arg2, op_kind kind, expr_ref& result) {
+    if (kind != LE && kind != GE)
+        return false;
+    rational bound(0), r1, r2;
+    expr_ref narg(m());
+    bool has_bound = true;
+    if (!m_util.is_numeral(arg2, r2))
+        return false;
+    auto update_bound = [&](expr* arg) {
+        if (m_util.is_numeral(arg, r1)) {
+            bound += r1;
+            return;
+        }
+        if (kind == LE && is_non_negative(arg))
+            return;
+        if (kind == GE && is_neg_poly(arg, narg) && is_non_negative(narg))
+            return;
+        has_bound = false;
+    };
+    if (m_util.is_add(arg1)) {
+        for (expr* arg : *to_app(arg1)) {
+            update_bound(arg);
+        }
+    }
+    else {
+        update_bound(arg1);
+    }
+    if (!has_bound)
+        return false;
+    if (kind == LE && r1 > r2) {
+        result = m().mk_false();
+        return true;
+    }
+    if (kind == GE && r1 < r2) {
+        result = m().mk_false();
+        return true;
+    }
+    return false;
+}
+
 bool arith_rewriter::elim_to_real_var(expr * var, expr_ref & new_var) {
     numeral val;
     if (m_util.is_numeral(var, val)) {
@@ -427,6 +481,8 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
             ANUM_LE_GE_EQ();
         }
     }
+    if (is_separated(arg1, arg2, kind, result))
+        return BR_DONE;
     if (is_bound(arg1, arg2, kind, result))
         return BR_DONE;
     if (is_bound(arg2, arg1, inv(kind), result))

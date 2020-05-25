@@ -1535,7 +1535,8 @@ bool theory_seq::internalize_term(app* term) {
         return true;
     }
 
-    if (ctx.get_fparams().m_seq_use_derivatives && m_util.str.is_in_re(term)) {
+    if (ctx.get_fparams().m_seq_use_derivatives && 
+        (m_util.str.is_in_re(term) || m_sk.is_accept(term))) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
@@ -3053,7 +3054,12 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (is_accept(e)) {
         if (is_true) {
-            propagate_accept(lit, e);
+            if (ctx.get_fparams().m_seq_use_derivatives) {
+                m_regex.propagate_accept(lit);
+            }
+            else {
+                propagate_accept(lit, e);
+            }
         }
     }
     else if (m_sk.is_step(e)) {

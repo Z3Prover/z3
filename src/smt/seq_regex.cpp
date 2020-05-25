@@ -31,12 +31,9 @@ namespace smt {
     class seq_util::str& seq_regex::str() { return th.m_util.str; }
     seq_rewriter& seq_regex::seq_rw() { return th.m_seq_rewrite; }
     seq_skolem& seq_regex::sk() { return th.m_sk; }
+    arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
 
-    void seq_regex::propagate_in_re(literal lit) {
-        if (!propagate(lit))
-            m_to_propagate.push_back(lit);
-    }
 
     bool seq_regex::propagate() {
         bool change = false;
@@ -57,23 +54,15 @@ namespace smt {
      * (not (str.in.re s r)) => (str.in.re s (complement r))
      * (str.in.re s r) => r != {}
      * 
-     * (str.in.re s r[if(c,r1,r2)]) & c => (str.in.re s r[r1])
-     * (str.in.re s r[if(c,r1,r2)]) & ~c => (str.in.re s r[r2])
-     * (str.in.re s r) & s = "" => nullable(r)
-     * s != "" => s = unit(head) ++ tail
-     * (str.in.re s r) & s != "" => (str.in.re tail D(head,r))
+     * (str.in.re s r) => (accept s 0 r)
      */
-    
-    bool seq_regex::propagate(literal lit) {
+
+    void seq_regex::propagate_in_re(literal lit) {
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
-
-        // only positive assignments of membership propagation are relevant.
-        if (lit.sign() && sk().is_tail(s)) 
-            return true;
 
         // convert negative negative membership literals to positive
         // ~(s in R) => s in C(R)
@@ -82,43 +71,99 @@ namespace smt {
             rewrite(fml);
             literal nlit = th.mk_literal(fml);
             th.propagate_lit(nullptr, 1, &lit, nlit);
-            return true;
+            return;
         }
 
-        if (!sk().is_tail(s) && coallesce_in_re(lit))
-            return true;
+        if (coallesce_in_re(lit))
+            return;
 
-        // TBD
-        // for !sk().is_tail(s):  s in R => R != {}
-        if (false && !sk().is_tail(s)) {
+        // TBD s in R => R != {}
+        if (false) {
             expr_ref is_empty(m.mk_eq(r, re().mk_empty(m.get_sort(s))), m);
             rewrite(is_empty);
             literal is_emptyl = th.mk_literal(is_empty);
             if (ctx.get_assignment(is_emptyl) != l_false) {
                 th.propagate_lit(nullptr, 1, &lit, ~is_emptyl);
-                return true;
+                return;
             }
         }
 
-        if (block_unfolding(lit, s))
+        expr_ref zero(a().mk_int(0), m);
+        expr_ref acc = sk().mk_accept(s, zero, r);
+        literal acc_lit = th.mk_literal(acc);
+
+        th.propagate_lit(nullptr, 1, &lit, acc_lit);
+    }
+
+    void seq_regex::propagate_accept(literal lit) {
+        if (!propagate(lit))
+            m_to_propagate.push_back(lit);
+    }
+
+
+    /**
+     * Propagate the atom (accept s i r)
+     * 
+     * Propagation implements the following inference rules
+     *
+     * (accept s i r[if(c,r1,r2)]) & c => (accept s i r[r1])
+     * (accept s i r[if(c,r1,r2)]) & ~c => (accept s i r[r2])
+     * (accept s i r) & len(s) <= i => nullable(r)
+     * (accept s r) & len(s) > i => (accept s (+ i 1) D(nth(s,i), r))
+     */
+    
+    bool seq_regex::propagate(literal lit) {
+        SASSERT(!lit.sign());
+
+        expr* s = nullptr, *i = nullptr, *r = nullptr;
+        expr* e = ctx.bool_var2expr(lit.var());
+        VERIFY(sk().is_accept(e, s, i, r));
+        unsigned idx = 0;
+        rational n;
+        VERIFY(a().is_numeral(i, n)); 
+        SASSERT(n.is_unsigned());
+        idx = n.get_unsigned();
+
+        TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
+
+        if (block_unfolding(lit, idx))
             return true;
+
+        // s in R & len(s) <= i => nullable(R)
+        literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
+        switch (ctx.get_assignment(len_s_le_i)) {
+        case l_undef:
+            ctx.mark_as_relevant(len_s_le_i);
+            return false;
+        case l_true: {
+            expr_ref is_nullable = seq_rw().is_nullable(r);
+            rewrite(is_nullable);
+            th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
+            return true;
+        }
+        case l_false:
+            break;
+        }
        
         // s in R[if(p,R1,R2)] & p => s in R[R1]
         // s in R[if(p,R1,R2)] & ~p => s in R[R2]
+
+        // TBD combine the two places that perform co-factor rewriting
         expr_ref cond(m), tt(m), el(m);
         if (seq_rw().has_cofactor(r, cond, tt, el)) {
+            rewrite(cond);
             literal lcond = th.mk_literal(cond), next_lit;
             switch (ctx.get_assignment(lcond)) {
             case l_true: {
                 rewrite(tt);
                 literal lits[2] = { lit, lcond };
-                next_lit = th.mk_literal(re().mk_in_re(s, tt));
+                next_lit = th.mk_literal(sk().mk_accept(s, i, tt));
                 th.propagate_lit(nullptr, 2, lits, next_lit);
                 return true;
             }
             case l_false: {
                 rewrite(el);
-                next_lit = th.mk_literal(re().mk_in_re(s, el));
+                next_lit = th.mk_literal(sk().mk_accept(s, i, el));
                 literal lits[2] = { lit, ~lcond };
                 th.propagate_lit(nullptr, 2, lits, next_lit);
                 return true;
@@ -129,34 +174,51 @@ namespace smt {
             }
         }
 
-        // s in R & s = "" => nullable(R)
-        literal is_empty = th.mk_eq(s, str().mk_empty(m.get_sort(s)), false);
-        expr_ref is_nullable = seq_rw().is_nullable(r);
-        rewrite(is_nullable);
-        th.add_axiom(~lit, ~is_empty, th.mk_literal(is_nullable));
-        switch (ctx.get_assignment(is_empty)) {
-        case l_undef:
-            ctx.mark_as_relevant(is_empty);
-            return false;
-        case l_true:
-            return true;
-        case l_false:
-            break;
-        }
-
-        // s in R & s != "" => s = head ++ tail
-        // s in R & s != "" => tail in D(head, R)
-        expr_ref head(m), tail(m), d(m);
-        expr* h = nullptr;
-        sk().decompose(s, head, tail);
-        if (!str().is_unit(head, h))
-            throw default_exception("expected a unit");
-        d = seq_rw().derivative(h, r);
+        // s in R & len(s) > i => tail(s,i) in D(nth(s, i), R)
+        expr_ref head(m), d(m), i_next(m);
+        head = th.mk_nth(s, i);        
+        i_next = a().mk_int(idx + 1);
+        d = seq_rw().derivative(head, r);
         if (!d) 
             throw default_exception("unable to expand derivative");
-        th.add_axiom(is_empty, th.mk_eq(s, th.mk_concat(head, tail), false));
-        th.add_axiom(~lit, is_empty, th.mk_literal(re().mk_in_re(tail, d)));
 
+        // immediately expand a co-factor here so that condition on the character
+        // is expanded.
+
+        literal_vector conds;
+        while (seq_rw().has_cofactor(d, cond, tt, el)) {
+            rewrite(cond);
+            literal lcond = th.mk_literal(cond);
+            bool is_undef = false;
+            switch (ctx.get_assignment(lcond)) {
+            case l_true: 
+                conds.push_back(~lcond);
+                d = tt;
+                break;
+            case l_false:
+                conds.push_back(lcond);
+                d = el;
+                break;
+            case l_undef:
+                ctx.mark_as_relevant(lcond);
+                d = m.mk_ite(cond, tt, el);
+                is_undef = true;
+                break;
+            }
+            if (is_undef)
+                break;
+            rewrite(d);
+        }
+        if (conds.empty()) {
+            th.add_axiom(~lit, len_s_le_i, th.mk_literal(sk().mk_accept(s, i_next, d)));
+        }
+        else {
+            conds.push_back(~lit);
+            conds.push_back(len_s_le_i);
+            conds.push_back(th.mk_literal(sk().mk_accept(s, i_next, d)));
+            for (literal lit : conds) ctx.mark_as_relevant(lit);
+            ctx.mk_th_axiom(th.get_id(), conds.size(), conds.c_ptr());
+        }
         TRACE("seq", tout << "head " << head << "\n";
               tout << mk_pp(r, m) << "\n";);
         return true;
@@ -172,11 +234,8 @@ namespace smt {
      * Limiting the depth of unfolding s below such lengths is not useful.
      */
 
-    bool seq_regex::block_unfolding(literal lit, expr* s) {
+    bool seq_regex::block_unfolding(literal lit, unsigned i) {
         expr* t = nullptr;
-        unsigned i = 0;
-        if (!sk().is_tail_u(s, t, i))
-            return false;
         if (i > th.m_max_unfolding_depth && 
             th.m_max_unfolding_lit != null_literal && 
             ctx.get_assignment(th.m_max_unfolding_lit) == l_true && 

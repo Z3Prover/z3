@@ -233,6 +233,7 @@ public:
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
+    br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
     bool reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bool& change);
 
@@ -241,8 +242,6 @@ public:
     bool reduce_contains(expr* a, expr* b, expr_ref_vector& disj);
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
-
-    br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
     expr_ref derivative(expr* hd, expr* r);
 

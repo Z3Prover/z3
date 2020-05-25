@@ -64,6 +64,8 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     enum op_kind { LE, GE, EQ };
     static op_kind inv(op_kind k) { return k == LE ? GE : (k == GE ? LE : EQ); }
     bool is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
+    bool is_separated(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
+    bool is_non_negative(expr* e);
     br_status mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
 
     bool elim_to_real_var(expr * var, expr_ref & new_var);

@@ -47,14 +47,15 @@ namespace smt {
         class seq_util::str& str();
         seq_rewriter& seq_rw();
         seq_skolem& sk();
+        arith_util& a();
 
         void rewrite(expr_ref& e);
 
-        bool propagate(literal lit);
-
         bool coallesce_in_re(literal lit);
 
-        bool block_unfolding(literal lit, expr* s);
+        bool propagate(literal lit);
+
+        bool block_unfolding(literal lit, unsigned i);
 
         expr_ref mk_first(expr* r);
 
@@ -71,6 +72,8 @@ namespace smt {
         bool propagate();
 
         void propagate_in_re(literal lit);
+
+        void propagate_accept(literal lit);
 
         void propagate_eq(expr* r1, expr* r2);
 

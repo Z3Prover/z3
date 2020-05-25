@@ -2079,7 +2079,7 @@ expr_ref seq_rewriter::kleene_predicate(expr* cond, sort* seq_sort) {
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
     SASSERT(m_util.is_re(r));
-    expr* r1 = nullptr, *r2 = nullptr;
+    expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
     unsigned lo = 0, hi = 0;
     expr_ref result(m());
     if (re().is_concat(r, r1, r2) ||
@@ -2119,6 +2119,9 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
         VERIFY(m_util.is_re(r, seq_sort));
         expr* emptystr = m_util.str.mk_empty(seq_sort);
         result = m().mk_eq(emptystr, r1);
+    }
+    else if (m().is_ite(r, cond, r1, r2)) {
+        result = m().mk_ite(cond, is_nullable(r1), is_nullable(r2));
     }
     else {
         sort* seq_sort = nullptr;
@@ -2663,8 +2666,15 @@ br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
 }
 
 bool seq_rewriter::has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el) {
+    if (m().is_ite(r)) {
+        cond = to_app(r)->get_arg(0);
+        th = to_app(r)->get_arg(1);
+        el = to_app(r)->get_arg(2);
+        return true;
+    }
     expr_ref_vector trail(m()), args_th(m()), args_el(m());
     expr* c = nullptr, *tt = nullptr, *ee = nullptr;
+    cond = nullptr;
     obj_map<expr,expr*> cache_th, cache_el;
     expr_mark no_cofactor, visited;
     ptr_vector<expr> todo;

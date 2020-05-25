@@ -59,6 +59,7 @@ namespace smt {
 
         expr_ref mk_align(expr* e1, expr* e2, expr* e3, expr* e4) { return mk(m_seq_align, e1, e2, e3, e4); }
         expr_ref mk_accept(expr_ref_vector const& args) { return expr_ref(seq.mk_skolem(m_accept, args.size(), args.c_ptr(), m.mk_bool_sort()), m); }
+        expr_ref mk_accept(expr* s, expr* i, expr* r) { return mk(m_accept, s, i, r, nullptr, m.mk_bool_sort()); }
         expr_ref mk_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_left, t, s, offset); }
         expr_ref mk_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_right, t, s, offset); }
         expr_ref mk_last_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.last_indexof_left", t, s, offset); }
@@ -95,9 +96,15 @@ namespace smt {
         bool is_step(expr* e, expr*& s, expr*& idx, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
         bool is_accept(expr* a, expr*& s, expr*& i, expr*& r, expr*& n) const { 
-            return is_accept(a) && (s = to_app(a)->get_arg(0), i = to_app(a)->get_arg(1), 
-                                    r = to_app(a)->get_arg(2), n = to_app(a)->get_arg(3), 
-                                    true); 
+            return is_accept(a) && to_app(a)->get_num_args() == 4 && 
+                (s = to_app(a)->get_arg(0), i = to_app(a)->get_arg(1), 
+                 r = to_app(a)->get_arg(2), n = to_app(a)->get_arg(3), 
+                 true); 
+        }
+        bool is_accept(expr* a, expr*& s, expr*& i, expr*& r) const {
+            return is_accept(a) && to_app(a)->get_num_args() == 3 &&
+                (s = to_app(a)->get_arg(0), i = to_app(a)->get_arg(1),
+                 r = to_app(a)->get_arg(2), true);
         }
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);
