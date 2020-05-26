@@ -299,7 +299,7 @@ namespace smt {
     }
 
     /**
-       nonempty(R union Q, Seen) = R = {} or Q = {}
+       nonempty(R union Q, Seen) = R != {} or Q != {}
        nonempty(R[if(p,R1,R2)], Seen) = if(p, nonempty(R[R1], Seen), nonempty(R[R2], Seen))           (co-factor)
        nonempty(R, Seen) = nullable(R) or (R not in Seen and nonempty(D(first(R),R), Seen u { R }))  (derivative)
        
