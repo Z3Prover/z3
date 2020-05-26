@@ -101,10 +101,11 @@ namespace smt {
                  r = to_app(a)->get_arg(2), n = to_app(a)->get_arg(3), 
                  true); 
         }
-        bool is_accept(expr* a, expr*& s, expr*& i, expr*& r) const {
-            return is_accept(a) && to_app(a)->get_num_args() == 3 &&
-                (s = to_app(a)->get_arg(0), i = to_app(a)->get_arg(1),
-                 r = to_app(a)->get_arg(2), true);
+        bool is_accept(expr* e, expr*& s, expr*& i, unsigned& idx, expr*& r) const {
+            return is_accept(e) && to_app(e)->get_num_args() == 3 &&                
+                (s = to_app(e)->get_arg(0), i = to_app(e)->get_arg(1),
+                 r = to_app(e)->get_arg(2), true) && 
+                a.is_unsigned(i, idx);
         }
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);

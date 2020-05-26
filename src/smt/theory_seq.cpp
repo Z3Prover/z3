@@ -2917,14 +2917,21 @@ literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
 
 void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, literal l5) {
     literal_vector lits;
-    if (l1 == true_literal || l2 == true_literal || l3 == true_literal || l4 == true_literal || l5 == true_literal) return;
-    if (l1 != null_literal && l1 != false_literal) { ctx.mark_as_relevant(l1); lits.push_back(l1); }
-    if (l2 != null_literal && l2 != false_literal) { ctx.mark_as_relevant(l2); lits.push_back(l2); }
-    if (l3 != null_literal && l3 != false_literal) { ctx.mark_as_relevant(l3); lits.push_back(l3); }
-    if (l4 != null_literal && l4 != false_literal) { ctx.mark_as_relevant(l4); lits.push_back(l4); }
-    if (l5 != null_literal && l5 != false_literal) { ctx.mark_as_relevant(l5); lits.push_back(l5); }
+    if (l1 == true_literal || l2 == true_literal || l3 == true_literal || 
+        l4 == true_literal || l5 == true_literal) return;
+    if (l1 != null_literal && l1 != false_literal) lits.push_back(l1); 
+    if (l2 != null_literal && l2 != false_literal) lits.push_back(l2); 
+    if (l3 != null_literal && l3 != false_literal) lits.push_back(l3); 
+    if (l4 != null_literal && l4 != false_literal) lits.push_back(l4); 
+    if (l5 != null_literal && l5 != false_literal) lits.push_back(l5); 
+    add_axiom(lits);
+}
+
+void theory_seq::add_axiom(literal_vector & lits) {
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:", lits) << "\n";);
-    
+    for (literal lit : lits)
+        ctx.mark_as_relevant(lit);
+
     IF_VERBOSE(10, verbose_stream() << "ax ";
                for (literal l : lits) ctx.display_literal_smt2(verbose_stream() << " ", l); 
                verbose_stream() << "\n");

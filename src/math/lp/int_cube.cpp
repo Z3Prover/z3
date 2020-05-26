@@ -10,8 +10,8 @@ Abstract:
     Cube finder
 
 Author:
-    Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
+    Nikolaj Bjorner (nbjorner)
 
 Revision History:
 --*/
@@ -41,7 +41,7 @@ namespace lp {
         
         lp_status st = lra.find_feasible_solution();
         if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-            TRACE("cube", tout << "cannot find a feasiblie solution";);
+            TRACE("cube", tout << "cannot find a feasible solution";);
             lra.pop();
             lra.move_non_basic_columns_to_bounds();
             // it can happen that we found an integer solution here

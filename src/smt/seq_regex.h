@@ -49,6 +49,8 @@ namespace smt {
         seq_skolem& sk();
         arith_util& a();
 
+        bool is_string_equality(literal lit);
+
         void rewrite(expr_ref& e);
 
         bool coallesce_in_re(literal lit);
@@ -75,6 +77,8 @@ namespace smt {
 
         void propagate_in_re(literal lit);
 
+        // (accept s i r) means 
+        // the suffix of s after the first i characters is a member of r
         void propagate_accept(literal lit);
 
         void propagate_eq(expr* r1, expr* r2);

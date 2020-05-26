@@ -617,6 +617,7 @@ namespace smt {
         void enque_axiom(expr* e);
         void deque_axiom(expr* e);
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal, literal l5 = null_literal);        
+        void add_axiom(literal_vector& lits);
         
         bool has_length(expr *e) const { return m_has_length.contains(e); }
         void add_length(expr* e, expr* l);

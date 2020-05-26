@@ -34,7 +34,6 @@ namespace smt {
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
 
-
     bool seq_regex::propagate() {
         bool change = false;
         for (unsigned i = 0; !ctx.inconsistent() && i < m_to_propagate.size(); ++i) {
@@ -44,6 +43,23 @@ namespace smt {
             }
         }
         return change;
+    }
+
+    /**
+     * is_string_equality holds of str.in_re s R, if R is of the form .* ++ x ++ .* ++ y ++ .* ++ 
+     * s = fresh1 ++ x ++ fresh2 ++ y ++ fresh3
+     * 
+     * example rewrite:
+     * (str.in_re s .* ++ R) => s = x ++ y and (str.in_re y R)
+     * 
+     * is_string_equality is currently placed under propagate_accept.
+     * this allows extracting string equalities after processing regexes that are not
+     * simple unions of simple concatentations. Though, it may produce different equations for 
+     * alternate values of the unfolding index.
+     */
+
+    bool seq_regex::is_string_equality(literal lit) {
+        return false;
     }
 
     /**
@@ -76,8 +92,12 @@ namespace smt {
 
         if (coallesce_in_re(lit))
             return;
-
+        
+        //
         // TBD s in R => R != {}
+        // non-emptiness enforcement could instead of here, 
+        // be added to propagate_accept after some threshold is met.
+        // 
         if (false) {
             expr_ref is_empty(m.mk_eq(r, re().mk_empty(m.get_sort(s))), m);
             rewrite(is_empty);
@@ -135,7 +155,7 @@ namespace smt {
      * (accept s i r[if(c,r1,r2)]) & c => (accept s i r[r1])
      * (accept s i r[if(c,r1,r2)]) & ~c => (accept s i r[r2])
      * (accept s i r) & len(s) <= i => nullable(r)
-     * (accept s r) & len(s) > i => (accept s (+ i 1) D(nth(s,i), r))
+     * (accept s i r) & len(s) > i => (accept s (+ i 1) D(nth(s,i), r))
      */
     
     bool seq_regex::propagate(literal lit) {
@@ -143,14 +163,14 @@ namespace smt {
 
         expr* s = nullptr, *i = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
-        VERIFY(sk().is_accept(e, s, i, r));
         unsigned idx = 0;
-        rational n;
-        VERIFY(a().is_numeral(i, n)); 
-        SASSERT(n.is_unsigned());
-        idx = n.get_unsigned();
+        VERIFY(sk().is_accept(e, s, i, idx, r));
+        expr_ref is_nullable(m), d(r, m);
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
+
+        if (is_string_equality(lit))
+            return true;
 
         if (block_unfolding(lit, idx))
             return true;
@@ -161,62 +181,46 @@ namespace smt {
         case l_undef:
             ctx.mark_as_relevant(len_s_le_i);
             return false;
-        case l_true: {
-            expr_ref is_nullable = seq_rw().is_nullable(r);
+        case l_true: 
+            is_nullable = seq_rw().is_nullable(r);
             rewrite(is_nullable);
             th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
             return true;
-        }
         case l_false:
             break;
         }
 
-        expr_ref head(m), d(r, m), i_next(m);        
         literal_vector conds;
-
         if (!unfold_cofactors(d, conds)) 
             return false;
 
-        // s in R & len(s) > i => tail(s,i) in D(nth(s, i), R)
-        head = th.mk_nth(s, i);        
-        i_next = a().mk_int(idx + 1);
+        // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
+        expr_ref head = th.mk_nth(s, i);        
         d = seq_rw().derivative(head, d);
         if (!d) 
             throw default_exception("unable to expand derivative");
 
-        literal acc_next = th.mk_literal(sk().mk_accept(s, i_next, d));
-        if (conds.empty()) {
-            th.add_axiom(~lit, len_s_le_i, acc_next);
-        }
-        else {
-            conds.push_back(~lit);
-            conds.push_back(len_s_le_i);
-            conds.push_back(acc_next);
-            for (literal c : conds) 
-                ctx.mark_as_relevant(c);
-            ctx.mk_th_axiom(th.get_id(), conds.size(), conds.c_ptr());
-        }
-        TRACE("seq", tout << "head " << head << "\n";
-              tout << mk_pp(r, m) << "\n";);
+        literal acc_next = th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d));
+        conds.push_back(~lit);
+        conds.push_back(len_s_le_i);
+        conds.push_back(acc_next);
+        th.add_axiom(conds);
+        
+        TRACE("seq", tout << "unfold " << head << "\n" << mk_pp(r, m) << "\n";);
         return true;
     }
 
     /**
      * Put a limit to the unfolding of s. 
      */
-
     bool seq_regex::block_unfolding(literal lit, unsigned i) {
-        expr* s = nullptr, *idx = nullptr, *r = nullptr;
-        expr* e = ctx.bool_var2expr(lit.var());
-        VERIFY(sk().is_accept(e, s, idx, r));
-        if (i > th.m_max_unfolding_depth && 
+        return 
+            i > th.m_max_unfolding_depth &&
             th.m_max_unfolding_lit != null_literal && 
             ctx.get_assignment(th.m_max_unfolding_lit) == l_true && 
-            !ctx.at_base_level()) {
-            th.propagate_lit(nullptr, 1, &lit, ~th.m_max_unfolding_lit);
-            return true;
-        }
-        return false;
+            !ctx.at_base_level() &&
+            (th.propagate_lit(nullptr, 1, &lit, ~th.m_max_unfolding_lit), 
+             true);
     }
 
     /**
@@ -262,7 +266,6 @@ namespace smt {
         ctx.mk_th_axiom(th.get_id(), lits.size(), lits.c_ptr());
         return true;
     }
-
 
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
         // the dual version of unroll_non_empty, but
@@ -317,7 +320,14 @@ namespace smt {
         VERIFY(u().is_re(r, seq_sort));
         VERIFY(u().is_seq(seq_sort, elem_sort));
         return expr_ref(m.mk_fresh_const("re.first", elem_sort), m);
-        // return sk().mk("re.first", r, elem_sort);
+        //   return sk().mk("re.first", r, elem_sort);  
+        // - for this to be effective, requires internalizer to skip skolem function internalization, 
+        //   because of the regex argument r and we don't handle extensionality of regex well.
+        //   It is probably a good idea to skip internalization of all skolem expressions, 
+        //   but requires some changes to theory_seq.
+        // - it is more useful to eliminate quantifiers in he common case, so never have to
+        //   work with fresh expressions in the fist hand. This is possible for characters and
+        //   ranges (just equalities and inequalities with constant bounds).
     }
 
     expr_ref seq_regex::unroll_non_empty(expr* r, expr_mark& seen, unsigned depth) {
