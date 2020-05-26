@@ -157,10 +157,10 @@ lia_move int_solver::check(lp::explanation * e) {
 
     ++m_number_of_calls;
     if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
-    if (r == lia_move::undef && should_find_cube()) r = cube(*this)();
+    if (r == lia_move::undef && should_find_cube()) r = int_cube(*this)();
     if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
-    if (r == lia_move::undef && should_gomory_cut()) r = gc(*this)();
-    if (r == lia_move::undef) r = branch(*this)();
+    if (r == lia_move::undef && should_gomory_cut()) r = gomory(*this)();
+    if (r == lia_move::undef) r = int_branch(*this)();
     return r;
 }
 
