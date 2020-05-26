@@ -2431,17 +2431,6 @@ bool lar_solver::inside_bounds(lpvar j, const impq& val) const {
     return true;
 }
 
-void lar_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val) {
-    lp_assert(!is_base(j));
-    auto & x = m_mpq_lar_core_solver.m_r_x[j];
-    auto delta = new_val - x;
-    x = new_val;
-    TRACE("int_solver", tout << "x[" << j << "] = " << x << "\n";);
-    change_basic_columns_dependend_on_a_given_nb_column(j, delta);
-}
-
-
-
 void lar_solver::pivot_column_tableau(unsigned j, unsigned row_index) {
     m_mpq_lar_core_solver.m_r_solver.pivot_column_tableau(j, row_index);
     m_mpq_lar_core_solver.m_r_solver.change_basis(j, r_basis()[row_index]);

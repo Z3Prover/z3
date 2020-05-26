@@ -517,7 +517,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     // x, the value of j column, might be shifted on a multiple of m
     if (inf_l && inf_u) {
         impq new_val = m * impq(random() % (range + 1)) + x;
-        lra.set_value_for_nbasic_column_ignore_old_values(j, new_val);
+        lra.set_value_for_nbasic_column(j, new_val);
         return true;
     }
     if (column_is_int(j)) {
@@ -534,14 +534,14 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     if (inf_u) {
         SASSERT(!inf_l);
         impq new_val = x + m * impq(random() % (range + 1));
-        lra.set_value_for_nbasic_column_ignore_old_values(j, new_val);
+        lra.set_value_for_nbasic_column(j, new_val);
         return true;
     }
 
     if (inf_l) {
         SASSERT(!inf_u);
         impq new_val = x - m * impq(random() % (range + 1));
-        lra.set_value_for_nbasic_column_ignore_old_values(j, new_val);
+        lra.set_value_for_nbasic_column(j, new_val);
         return true;
     }
 
@@ -563,7 +563,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     impq new_val = x + m * impq(s);
     TRACE("int_solver", tout << "new_val = " << new_val << "\n";);
     SASSERT(l <= new_val && new_val <= u);
-    lra.set_value_for_nbasic_column_ignore_old_values(j, new_val);
+    lra.set_value_for_nbasic_column(j, new_val);
     return true;
 }
 
