@@ -1308,7 +1308,8 @@ bool core::patch_blocker(lpvar u, const monic& m) const {
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
     auto blocker = [this, k, m](lpvar u) { return u != k && patch_blocker(u, m); };
     auto change_report = [this](lpvar u) { update_to_refine_of_var(u); };
-    return m_lar_solver.try_to_patch(k, v, blocker,  change_report);
+    return m_lar_solver.try_to_patch<std::function<bool(lpvar)>,
+                                     std::function<void(lpvar)>>(k, v, blocker,  change_report);
 }
 
 bool in_power(const svector<lpvar>& vs, unsigned l) {
@@ -1341,8 +1342,6 @@ void core::patch_monomial(lpvar j) {
         erase_from_to_refine(j);
         return;
     }
-    if (val(j).is_zero() || v.is_zero()) // a lemma will catch it
-        return;
 
     if (!var_breaks_correct_monic(j) && try_to_patch(j, v, m)) {
         SASSERT(to_refine_is_correct());        
@@ -1364,19 +1363,22 @@ void core::patch_monomial(lpvar j) {
     }
     // We have v != abc. Let us suppose we patch b. Then b should
     // be equal to v/ac = v/(abc/b) = b(v/abc)
-    rational r = val(j) / v;
-    SASSERT(m.is_sorted());
-    for (unsigned l = 0; l < m.size(); l++) {
-        lpvar k = m.vars()[l];
-        if (!in_power(m.vars(), l) &&
-            !var_is_int(k) && 
-            !var_breaks_correct_monic(k) &&
-            try_to_patch(k, r * val(k), m)) { // r * val(k) gives the right value of k
-            SASSERT(mul_val(m) == var_val(m));
-            erase_from_to_refine(j);
-            break;
+    if (!v.is_zero()) {
+        rational r = val(j) / v;
+        SASSERT(m.is_sorted());
+    
+        for (unsigned l = 0; l < m.size(); l++) {
+            lpvar k = m.vars()[l];
+            if (!in_power(m.vars(), l) &&
+                !var_is_int(k) && 
+                !var_breaks_correct_monic(k) &&
+                try_to_patch(k, r * val(k), m)) { // r * val(k) gives the right value of k
+                SASSERT(mul_val(m) == var_val(m));
+                erase_from_to_refine(j);
+                break;
+            }
         }
-    }                              
+    }
 }
 
 void core::patch_monomials() {

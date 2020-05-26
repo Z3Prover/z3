@@ -306,7 +306,41 @@ public:
     bool column_corresponds_to_term(unsigned) const;
     inline unsigned row_count() const { return A_r().row_count(); }
     bool var_is_registered(var_index vj) const;
-    bool try_to_patch(lpvar, const mpq&, const std::function<bool (lpvar)>& blocker,const std::function<void (lpvar)>& change_report);
+    template <typename Blocker, typename ChangeReport>
+    bool try_to_patch(lpvar j, const mpq& val, const std::function<bool (lpvar)>& blocker,const std::function<void (lpvar)>& change_report) {
+        if (is_base(j)) {
+            TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
+            remove_from_basis(j);
+        }
+
+        impq ival(val);
+        if (!inside_bounds(j, ival) || blocker(j))
+            return false;
+
+        impq delta = get_column_value(j) - ival;
+        for (const auto &c : A_r().column(j)) {
+            unsigned row_index = c.var();
+            const mpq & a = c.coeff();        
+            unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
+            impq rj_new_val = a * delta + get_column_value(rj);
+            if (column_is_int(rj) && !rj_new_val.is_int())
+                return false;
+            if (!inside_bounds(rj, rj_new_val) || blocker(rj))
+                return false;
+        }
+
+        set_column_value(j, ival);
+        change_report(j);
+        for (const auto &c : A_r().column(j)) {
+            unsigned row_index = c.var();
+            const mpq & a = c.coeff();        
+            unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
+            m_mpq_lar_core_solver.m_r_solver.add_delta_to_x(rj, a * delta);
+            change_report(rj);
+        }
+
+        return true;
+    }
     inline bool column_has_upper_bound(unsigned j) const {
         return m_mpq_lar_core_solver.m_r_solver.column_has_upper_bound(j);
     }
