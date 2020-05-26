@@ -571,7 +571,33 @@ namespace smt {
                 // If the membership constraint is true, we assert a conflict clause.
                 // If the membership constraint is false, we ignore the constraint.
                 if (polarity) {
-                    cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(str), mk_int(str_chars.size()))));
+                    // Decompose `str` into its components if it is a concatenation of terms.
+                    // This fixes cases where the length of S in (S in RE) might be correct
+                    // if the lengths of components of S are assigned in a different way.
+                    expr_ref_vector str_terms(m);
+                    expr_ref_vector str_terms_eq_len(m);
+                    str_terms.push_back(str);
+                    while (!str_terms.empty()) {
+                        expr* str_term = str_terms.back();
+                        str_terms.pop_back();
+                        expr* arg0;
+                        expr* arg1;
+                        if (u.str.is_concat(str_term, arg0, arg1)) {
+                            str_terms.push_back(arg0);
+                            str_terms.push_back(arg1);
+                        } else {
+                            rational termLen;
+                            if (fixed_length_get_len_value(str_term, termLen)) {
+                                str_terms_eq_len.push_back(ctx.mk_eq_atom(mk_strlen(str_term), mk_int(termLen)));
+                            } else {
+                                // this is strange, since we knew the length of `str` in order to get here
+                                cex = expr_ref(m_autil.mk_ge(mk_strlen(str_term), mk_int(0)), m);
+                                return false;
+                            }
+                        }
+                    }
+
+                    cex = m.mk_or(m.mk_not(f), m.mk_not(mk_and(str_terms_eq_len)));
                     ctx.get_rewriter()(cex);
                     return false;
                 } else {
