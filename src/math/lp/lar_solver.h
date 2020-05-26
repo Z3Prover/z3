@@ -329,7 +329,7 @@ public:
                 return false;
         }
 
-        set_value_for_nbasic_column_ignore_old_values(j, ival);
+        set_value_for_nbasic_column(j, ival);
         change_report(j);
         for (const auto &c : A_r().column(j)) {
             unsigned rj = m_mpq_lar_core_solver.m_r_basis[c.var()];      
@@ -506,7 +506,6 @@ public:
             return 0;
         return m_usage_in_terms[j];
     }
-    void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
     friend int_solver;
     friend int_branch;
     
