@@ -289,19 +289,6 @@ lia_move int_solver::hnf_cut() {
     return r;
 }
 
-void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val) {
-    lp_assert(!is_base(j));
-    auto & x = lrac.m_r_x[j];
-    auto delta = new_val - x;
-    x = new_val;
-    TRACE("int_solver", tout << "x[" << j << "] = " << x << "\n";);
-    lra.change_basic_columns_dependend_on_a_given_nb_column(j, delta);
-}
-
-
-
-
-
 bool int_solver::has_lower(unsigned j) const {
     switch (lrac.m_column_types()[j]) {
     case column_type::fixed:
@@ -530,7 +517,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     // x, the value of j column, might be shifted on a multiple of m
     if (inf_l && inf_u) {
         impq new_val = m * impq(random() % (range + 1)) + x;
-        set_value_for_nbasic_column_ignore_old_values(j, new_val);
+        lra.set_value_for_nbasic_column_ignore_old_values(j, new_val);
         return true;
     }
     if (column_is_int(j)) {
@@ -547,14 +534,14 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     if (inf_u) {
         SASSERT(!inf_l);
         impq new_val = x + m * impq(random() % (range + 1));
-        set_value_for_nbasic_column_ignore_old_values(j, new_val);
+        lra.set_value_for_nbasic_column_ignore_old_values(j, new_val);
         return true;
     }
 
     if (inf_l) {
         SASSERT(!inf_u);
         impq new_val = x - m * impq(random() % (range + 1));
-        set_value_for_nbasic_column_ignore_old_values(j, new_val);
+        lra.set_value_for_nbasic_column_ignore_old_values(j, new_val);
         return true;
     }
 
@@ -576,7 +563,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     impq new_val = x + m * impq(s);
     TRACE("int_solver", tout << "new_val = " << new_val << "\n";);
     SASSERT(l <= new_val && new_val <= u);
-    set_value_for_nbasic_column_ignore_old_values(j, new_val);
+    lra.set_value_for_nbasic_column_ignore_old_values(j, new_val);
     return true;
 }
 
