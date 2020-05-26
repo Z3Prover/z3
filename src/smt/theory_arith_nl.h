@@ -96,7 +96,7 @@ void theory_arith<Ext>::mark_dependents(theory_var v, svector<theory_var> & vars
         // If s is a base variable different from v and it is free, then this row can be ignored.
         // It doesn't need to be part of the non linear cluster. For all purposes, this variable
         // was eliminated by substitution.
-        if (is_free(s) && s != v)
+        if (s != null_theory_var && is_free(s) && s != v)
             continue;
         typename vector<row_entry>::const_iterator it2  = r.begin_entries();
         typename vector<row_entry>::const_iterator end2 = r.end_entries();
