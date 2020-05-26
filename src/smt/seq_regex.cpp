@@ -209,7 +209,6 @@ namespace smt {
         expr* s = nullptr, *idx = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(sk().is_accept(e, s, idx, r));
-        expr* t = nullptr;
         if (i > th.m_max_unfolding_depth && 
             th.m_max_unfolding_lit != null_literal && 
             ctx.get_assignment(th.m_max_unfolding_lit) == l_true && 

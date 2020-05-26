@@ -7045,10 +7045,10 @@ namespace smt {
     void theory_str::check_consistency_prefix(expr * e, bool is_true) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
-        expr * needle;
-        expr * haystack;
+        expr * needle = nullptr;
+        expr * haystack = nullptr;
 
-        u.str.is_prefix(e, needle, haystack);
+        VERIFY(u.str.is_prefix(e, needle, haystack));
         TRACE("str", tout << "check consistency of prefix predicate: " << mk_pp(needle, m) << " prefixof " << mk_pp(haystack, m) << std::endl;);
         
         zstring needleStringConstant;
@@ -7072,10 +7072,10 @@ namespace smt {
     void theory_str::check_consistency_suffix(expr * e, bool is_true) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
-        expr * needle;
-        expr * haystack;
+        expr * needle = nullptr;
+        expr * haystack = nullptr;
 
-        u.str.is_suffix(e, needle, haystack);
+        VERIFY(u.str.is_suffix(e, needle, haystack));
         TRACE("str", tout << "check consistency of suffix predicate: " << mk_pp(needle, m) << " suffixof " << mk_pp(haystack, m) << std::endl;);
         
         zstring needleStringConstant;
@@ -7099,10 +7099,10 @@ namespace smt {
     void theory_str::check_consistency_contains(expr * e, bool is_true) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
-        expr * needle;
-        expr * haystack;
+        expr * needle = nullptr;
+        expr * haystack = nullptr;
 
-        u.str.is_contains(e, haystack, needle); // first string contains second one
+        VERIFY(u.str.is_contains(e, haystack, needle)); // first string contains second one
         TRACE("str", tout << "check consistency of contains predicate: " << mk_pp(haystack, m) << " contains " << mk_pp(needle, m) << std::endl;);
         
         zstring needleStringConstant;

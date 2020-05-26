@@ -549,8 +549,7 @@ namespace polynomial {
                 increase_capacity(sz * 2);
             SASSERT(sz < m_capacity);
             m_ptr->m_size = sz;
-            if (sz == 0) return;
-            memcpy(m_ptr->m_powers, pws, sizeof(power) * sz);
+            std::uninitialized_copy(pws, pws + sz, m_ptr->m_powers);
         }
 
         void reset() {

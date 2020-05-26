@@ -400,7 +400,6 @@ literal induction_lemmas::mk_literal(expr* e) {
 
 
 bool induction_lemmas::operator()(literal lit) {
-    unsigned num = m_num_lemmas;
     enode* r = ctx.bool_var2enode(lit.var());
 
 #if 1
@@ -410,6 +409,7 @@ bool induction_lemmas::operator()(literal lit) {
     }
     return !combinations.empty();
 #else
+    unsigned num = m_num_lemmas;
     expr_ref_vector sks(m);
     expr_safe_replace rep(m);
     // have to be non-overlapping:
@@ -494,7 +494,6 @@ void induction_lemmas::apply_induction(literal lit, induction_positions_t const 
         SASSERT(is_app(t));
         args.reset();
         unsigned sz = todo.size();
-        unsigned i = 0;
         expr* s = nullptr;
         for (unsigned i = 0; i < to_app(t)->get_num_args(); ++i) {
             expr* arg = to_app(t)->get_arg(i);
