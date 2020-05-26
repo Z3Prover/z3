@@ -148,10 +148,6 @@ lia_move int_solver::check(lp::explanation * e) {
     m_upper = false;
     lia_move r = lia_move::undef;
 
-    gomory       gc(*this);
-    int_cube     cube(*this);
-    int_branch   branch(*this);
-
     if (m_gcd.should_apply()) r = m_gcd();
 
     check_return_helper pc(lra);
@@ -161,10 +157,10 @@ lia_move int_solver::check(lp::explanation * e) {
 
     ++m_number_of_calls;
     if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
-    if (r == lia_move::undef && should_find_cube()) r = cube();
+    if (r == lia_move::undef && should_find_cube()) r = cube(*this)();
     if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
-    if (r == lia_move::undef && should_gomory_cut()) r = gc();
-    if (r == lia_move::undef) r = branch();
+    if (r == lia_move::undef && should_gomory_cut()) r = gc(*this)();
+    if (r == lia_move::undef) r = branch(*this)();
     return r;
 }
 
