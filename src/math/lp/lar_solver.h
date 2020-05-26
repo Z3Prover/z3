@@ -307,7 +307,7 @@ public:
     inline unsigned row_count() const { return A_r().row_count(); }
     bool var_is_registered(var_index vj) const;
     template <typename Blocker, typename ChangeReport>
-    bool try_to_patch(lpvar j, const mpq& val, const std::function<bool (lpvar)>& blocker,const std::function<void (lpvar)>& change_report) {
+    bool try_to_patch(lpvar j, const mpq& val, const Blocker& blocker,const ChangeReport& change_report) {
         if (is_base(j)) {
             TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
             remove_from_basis(j);
