@@ -2432,7 +2432,7 @@ void lar_solver::pivot_column_tableau(unsigned j, unsigned row_index) {
     m_mpq_lar_core_solver.m_r_solver.pivot_column_tableau(j, row_index);
     m_mpq_lar_core_solver.m_r_solver.change_basis(j, r_basis()[row_index]);
 }
-
+#if 0
 bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool (lpvar)>& blocker, const std::function<void (lpvar)>& report_change) {
     if (is_base(j)) {
         TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
@@ -2467,7 +2467,7 @@ bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool 
 
     return true;
 }
-
+#endif
 } // namespace lp
 
 
