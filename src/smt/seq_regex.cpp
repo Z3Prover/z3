@@ -237,9 +237,11 @@ namespace smt {
         literal_vector lits;    
         for (unsigned i = 0; i < m_s_in_re.size(); ++i) {
             auto const& entry = m_s_in_re[i];
+            enode* n1 = th.ensure_enode(entry.m_s);
+            enode* n2 = th.ensure_enode(s);
             if (!entry.m_active)
                 continue;
-            if (th.get_root(entry.m_s) != th.get_root(s))
+            if (n1->get_root() != n2->get_root())
                 continue;
             if (entry.m_re == regex) 
                 continue;
@@ -251,11 +253,8 @@ namespace smt {
             regex = re().mk_inter(entry.m_re, regex);
             rewrite(regex);
             lits.push_back(~entry.m_lit);
-            enode* n1 = th.ensure_enode(entry.m_s);
-            enode* n2 = th.ensure_enode(s);
-            if (n1 != n2) {
+            if (n1 != n2) 
                 lits.push_back(~th.mk_eq(n1->get_owner(), n2->get_owner(), false));
-            }
         }
         m_s_in_re.push_back(s_in_re(lit, s, regex));
         th.get_trail_stack().push(push_back_vector<theory_seq, vector<s_in_re>>(m_s_in_re));
@@ -263,7 +262,7 @@ namespace smt {
             return false;
         lits.push_back(~lit);
         lits.push_back(th.mk_literal(re().mk_in_re(s, regex)));
-        ctx.mk_th_axiom(th.get_id(), lits.size(), lits.c_ptr());
+        th.add_axiom(lits);
         return true;
     }
 
