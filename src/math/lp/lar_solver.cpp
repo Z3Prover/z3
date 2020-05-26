@@ -2435,42 +2435,6 @@ void lar_solver::pivot_column_tableau(unsigned j, unsigned row_index) {
     m_mpq_lar_core_solver.m_r_solver.pivot_column_tableau(j, row_index);
     m_mpq_lar_core_solver.m_r_solver.change_basis(j, r_basis()[row_index]);
 }
-#if 0
-bool lar_solver::try_to_patch(lpvar j, const mpq& val, const std::function<bool (lpvar)>& blocker, const std::function<void (lpvar)>& report_change) {
-    if (is_base(j)) {
-        TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
-        remove_from_basis(j);
-    }
-
-    impq ival(val);
-    if (!inside_bounds(j, ival) || blocker(j))
-        return false;
-
-    impq delta = get_column_value(j) - ival;
-    for (const auto &c : A_r().column(j)) {
-        unsigned row_index = c.var();
-        const mpq & a = c.coeff();        
-        unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
-        impq rj_new_val = a * delta + get_column_value(rj);
-        if (column_is_int(rj) && !rj_new_val.is_int())
-            return false;
-        if (!inside_bounds(rj, rj_new_val) || blocker(rj))
-            return false;
-    }
-
-    set_column_value(j, ival);
-    report_change(j);
-    for (const auto &c : A_r().column(j)) {
-        unsigned row_index = c.var();
-        const mpq & a = c.coeff();        
-        unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
-        m_mpq_lar_core_solver.m_r_solver.add_delta_to_x(rj, a * delta);
-        report_change(rj);
-    }
-
-    return true;
-}
-#endif
 } // namespace lp
 
 
