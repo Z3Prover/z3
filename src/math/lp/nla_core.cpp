@@ -1308,8 +1308,7 @@ bool core::patch_blocker(lpvar u, const monic& m) const {
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
     auto blocker = [this, k, m](lpvar u) { return u != k && patch_blocker(u, m); };
     auto change_report = [this](lpvar u) { update_to_refine_of_var(u); };
-    return m_lar_solver.try_to_patch<std::function<bool(lpvar)>,
-                                     std::function<void(lpvar)>>(k, v, blocker,  change_report);
+    return m_lar_solver.try_to_patch(k, v, blocker,  change_report);
 }
 
 bool in_power(const svector<lpvar>& vs, unsigned l) {
