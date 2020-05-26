@@ -1332,7 +1332,7 @@ bool core::to_refine_is_correct() const {
 }
 
 // looking for any real var to patch
-void core::patch_monomial_with_real_var(lpvar j) {    
+void core::patch_monomial(lpvar j) {    
     const monic& m = emons()[j];
     TRACE("nla_solver", tout << "m = "; print_monic(m, tout) << "\n";);
     rational v = mul_val(m);
@@ -1379,14 +1379,14 @@ void core::patch_monomial_with_real_var(lpvar j) {
     }                              
 }
 
-void core::patch_monomials_with_real_vars() {
+void core::patch_monomials() {
     auto to_refine = m_to_refine.index();
     // the rest of the function might change m_to_refine, so have to copy
     unsigned sz = to_refine.size();
     TRACE("nla_solver", tout << "sz = " << sz << "\n";);
     unsigned start = random();
     for (unsigned i = 0; i < sz; i++) {
-        patch_monomial_with_real_var(to_refine[(start + i) % sz]);
+        patch_monomial(to_refine[(start + i) % sz]);
         if (m_to_refine.size() == 0)
             break;
     }
@@ -1406,7 +1406,7 @@ lbool core::check(vector<lemma>& l_vec) {
     }
 
     init_to_refine();
-    patch_monomials_with_real_vars();
+    patch_monomials();
     if (m_to_refine.is_empty()) { return l_true; }   
     init_search();
 
