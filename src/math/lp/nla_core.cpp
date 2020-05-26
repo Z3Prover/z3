@@ -1392,6 +1392,12 @@ void core::patch_monomials() {
         if (m_to_refine.size() == 0)
             break;
     }
+    NOT_IMPLEMENTED_YET();
+    /*
+      If the tableau is not feasible we need to fix all non-linear
+      vars that do not satisfy var_breaks_correct_monic()
+      and find a feasible solution, fix the integral values too.
+     */
     TRACE("nla_solver", tout << "sz = " << m_to_refine.size() << "\n";);
     SASSERT(m_lar_solver.ax_is_correct());
 }

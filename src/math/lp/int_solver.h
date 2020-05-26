@@ -94,7 +94,6 @@ private:
     bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
-    void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
     bool is_feasible() const;
     bool column_is_int_inf(unsigned j) const;
     std::ostream& display_inf_rows(std::ostream&) const;

@@ -323,19 +323,16 @@ public:
             const mpq & a = c.coeff();        
             unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
             impq rj_new_val = a * delta + get_column_value(rj);
-            if (column_is_int(rj) && !rj_new_val.is_int())
-                return false;
-            if (!inside_bounds(rj, rj_new_val) || blocker(rj))
+            // if (column_is_int(rj) && !rj_new_val.is_int())
+            //     return false;
+            if (blocker(rj))
                 return false;
         }
 
-        set_column_value(j, ival);
+        set_value_for_nbasic_column_ignore_old_values(j, ival);
         change_report(j);
         for (const auto &c : A_r().column(j)) {
-            unsigned row_index = c.var();
-            const mpq & a = c.coeff();        
-            unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
-            m_mpq_lar_core_solver.m_r_solver.add_delta_to_x(rj, a * delta);
+            unsigned rj = m_mpq_lar_core_solver.m_r_basis[c.var()];      
             change_report(rj);
         }
 
@@ -509,6 +506,7 @@ public:
             return 0;
         return m_usage_in_terms[j];
     }
+    void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
     friend int_solver;
     friend int_branch;
     
