@@ -306,8 +306,59 @@ public:
     bool column_corresponds_to_term(unsigned) const;
     inline unsigned row_count() const { return A_r().row_count(); }
     bool var_is_registered(var_index vj) const;
-    template <typename Blocker, typename ChangeReport>
-    bool try_to_patch(lpvar j, const mpq& val, const Blocker& blocker,const ChangeReport& change_report) {
+
+    template <typename CallBeforeChange, typename ChangeReport>
+    void change_basic_columns_dependend_on_a_given_nb_column_report(unsigned j,
+                                                                    const numeric_pair<mpq> & delta,
+                                                                    const CallBeforeChange& before,
+                                                                    const ChangeReport& after) {
+        if (use_tableau()) {
+            for (const auto & c : A_r().m_columns[j]) {
+                unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.var()];
+                if (tableau_with_costs()) {
+                    m_basic_columns_with_changed_cost.insert(bj);
+                }
+                before(bj);
+                m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, - A_r().get_val(c) * delta);
+                after(bj);
+                TRACE("change_x_del",
+                      tout << "changed basis column " << bj << ", it is " <<
+                      ( m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj)?  "feas":"inf") << std::endl;);
+                
+                  
+            }
+        } else {
+            NOT_IMPLEMENTED_YET();
+            m_column_buffer.clear();
+            m_column_buffer.resize(A_r().row_count());
+            m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
+            for (unsigned i : m_column_buffer.m_index) {
+                unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
+                m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, -m_column_buffer[i] * delta); 
+            }
+        }
+    }
+
+    template <typename CallBeforeChange, typename ChangeReport>
+    void set_value_for_nbasic_column_report(unsigned j,
+                                            const impq & new_val,
+                                            const CallBeforeChange& before,
+                                            const ChangeReport& after) {
+
+        lp_assert(!is_base(j));
+        before(j);
+        auto & x = m_mpq_lar_core_solver.m_r_x[j];        
+        auto delta = new_val - x;
+        x = new_val;
+        after(j);
+        change_basic_columns_dependend_on_a_given_nb_column_report(j, delta, before, after);
+    }
+    
+    template <typename Blocker, typename CallBeforeChange, typename ChangeReport>
+    bool try_to_patch(lpvar j, const mpq& val,
+                      const Blocker& blocker,
+                      const CallBeforeChange& before,
+                      const ChangeReport& change_report) {
         if (is_base(j)) {
             TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
             remove_from_basis(j);
@@ -329,13 +380,7 @@ public:
                 return false;
         }
 
-        set_value_for_nbasic_column(j, ival);
-        change_report(j);
-        for (const auto &c : A_r().column(j)) {
-            unsigned rj = m_mpq_lar_core_solver.m_r_basis[c.var()];      
-            change_report(rj);
-        }
-
+        set_value_for_nbasic_column_report(j, ival, before, change_report);
         return true;
     }
     inline bool column_has_upper_bound(unsigned j) const {
