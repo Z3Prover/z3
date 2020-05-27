@@ -311,7 +311,7 @@ namespace smt {
      *
      */
     void seq_regex::propagate_is_non_empty(literal lit) {
-        expr* e = ctx.bool_var2expr(lit.var()), *r, *u;
+        expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_non_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
@@ -350,7 +350,7 @@ namespace smt {
       is_empty(r, u) is true if r is a member of u
      */
     void seq_regex::propagate_is_empty(literal lit) {
-        expr* e = ctx.bool_var2expr(lit.var()), *r, *u;
+        expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
@@ -382,7 +382,7 @@ namespace smt {
             if (!m.is_true(cond)) {
                 lits.push_back(th.mk_literal(mk_forall(m, hd, mk_not(m, cond))));
             }
-            expr_ref is_empty1 = sk().mk_is_non_empty(p.second, re().mk_union(u, r));    
+            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, r));    
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        

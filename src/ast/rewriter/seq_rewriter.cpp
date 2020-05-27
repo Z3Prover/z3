@@ -543,6 +543,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         st = mk_re_range(args[0], args[1], result);
         break;
+    case OP_RE_DIFF: 
+        if (num_args == 2)
+            st = mk_re_diff(args[0], args[1], result);
+        break;
     case OP_RE_INTERSECT:
         if (num_args == 1) {
             result = args[0];
