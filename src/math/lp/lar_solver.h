@@ -266,10 +266,10 @@ class lar_solver : public column_namer {
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
     bool inside_bounds(lpvar, const impq&) const;
+public:
     inline void set_column_value(unsigned j, const impq& v) {
         m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
     }
-public:
     inline void set_column_value_test(unsigned j, const impq& v) {
         set_column_value(j, v);
     }
@@ -306,7 +306,9 @@ public:
     bool column_corresponds_to_term(unsigned) const;
     inline unsigned row_count() const { return A_r().row_count(); }
     bool var_is_registered(var_index vj) const;
-
+    inline void remove_column_from_inf_set(unsigned j) {
+        m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_set(j);
+    }
     template <typename CallBeforeChange, typename ChangeReport>
     void change_basic_columns_dependend_on_a_given_nb_column_report(unsigned j,
                                                                     const numeric_pair<mpq> & delta,

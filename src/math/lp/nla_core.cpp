@@ -1381,6 +1381,13 @@ void core::patch_monomial(lpvar j) {
     }
 }
 
+void core::restore_patched_values() {
+    for (const auto & p : m_changes_of_patch) {
+        m_lar_solver.set_column_value(p.m_key, lp::impq(p.m_value));
+        m_lar_solver.remove_column_from_inf_set(p.m_key);
+    }
+}
+
 void core::patch_monomials() {
     m_changes_of_patch.reset();
     auto to_refine = m_to_refine.index();
@@ -1392,6 +1399,9 @@ void core::patch_monomials() {
         patch_monomial(to_refine[(start + i) % sz]);
         if (m_to_refine.size() == 0)
             break;
+    }
+    if (m_to_refine.size()) {
+        restore_patched_values();
     }
     NOT_IMPLEMENTED_YET();
     /*

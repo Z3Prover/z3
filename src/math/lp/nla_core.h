@@ -480,6 +480,8 @@ public:
     void set_use_nra_model(bool m) { m_use_nra_model = m; }
     bool use_nra_model() const { return m_use_nra_model; }
     void collect_statistics(::statistics&);
+private:
+    void restore_patched_values();
 };  // end of core
 
 struct pp_mon {
