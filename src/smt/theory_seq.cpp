@@ -1536,6 +1536,7 @@ bool theory_seq::internalize_term(app* term) {
     }
 
     if (ctx.get_fparams().m_seq_use_derivatives && 
+        m.is_bool(term) && 
         (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
