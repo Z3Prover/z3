@@ -280,8 +280,8 @@ namespace smt {
         VERIFY(u().is_re(r, seq_sort));
         expr_ref emp(re().mk_empty(seq_sort), m);
         literal lit = ~th.mk_eq(r, emp, false);
-        expr_ref is_non_empty = sk().mk_is_non_empty(r, emp);
-        th.add_axiom(~lit, th.mk_literal(is_non_empty));
+        expr_ref is_empty = sk().mk_is_empty(r, emp);
+        th.add_axiom(~lit, th.mk_literal(is_empty));
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
@@ -297,8 +297,8 @@ namespace smt {
         VERIFY(u().is_re(r, seq_sort));
         expr_ref emp(re().mk_empty(seq_sort), m);
         literal lit = ~th.mk_eq(r, emp, false);
-        expr_ref is_empty = sk().mk_is_empty(r, emp);
-        th.add_axiom(~lit, th.mk_literal(is_empty));
+        expr_ref is_non_empty = sk().mk_is_non_empty(r, emp);
+        th.add_axiom(~lit, th.mk_literal(is_non_empty));
     }
 
     bool seq_regex::is_member(expr* r, expr* u) {
