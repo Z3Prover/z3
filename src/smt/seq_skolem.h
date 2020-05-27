@@ -36,6 +36,7 @@ namespace smt {
         symbol         m_indexof_left, m_indexof_right;   // inverse of indexof: (indexof_left s t) + s + (indexof_right s t) = t, for s in t. 
         symbol         m_aut_step;                        // regex unfolding state
         symbol         m_accept;                          // regex
+        symbol         m_is_empty, m_is_non_empty;        // regex emptiness check
         symbol         m_pre, m_post;                     // inverse of at: (pre s i) + (at s i) + (post s i) = s if 0 <= i < (len s)
         symbol         m_eq;                              // equality atom
         symbol         m_seq_align;
@@ -60,6 +61,9 @@ namespace smt {
         expr_ref mk_align(expr* e1, expr* e2, expr* e3, expr* e4) { return mk(m_seq_align, e1, e2, e3, e4); }
         expr_ref mk_accept(expr_ref_vector const& args) { return expr_ref(seq.mk_skolem(m_accept, args.size(), args.c_ptr(), m.mk_bool_sort()), m); }
         expr_ref mk_accept(expr* s, expr* i, expr* r) { return mk(m_accept, s, i, r, nullptr, m.mk_bool_sort()); }
+        expr_ref mk_is_non_empty(expr* r, expr* u) { return mk(m_is_non_empty, r, u, m.mk_bool_sort()); }
+        expr_ref mk_is_empty(expr* r, expr* u) { return mk(m_is_empty, r, u, m.mk_bool_sort()); }
+
         expr_ref mk_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_left, t, s, offset); }
         expr_ref mk_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_right, t, s, offset); }
         expr_ref mk_last_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.last_indexof_left", t, s, offset); }
@@ -82,6 +86,7 @@ namespace smt {
         expr_ref mk_right(expr* x, expr* y, expr* z = nullptr) { return mk("seq.right", x, y, z); }
         expr_ref mk_max_unfolding_depth(unsigned d);
         expr_ref mk_length_limit(expr* e, unsigned d);
+
         
         bool is_skolem(symbol const& s, expr* e) const;
         bool is_skolem(expr* e) const { return seq.is_skolem(e); }
@@ -117,7 +122,14 @@ namespace smt {
         bool is_max_unfolding(expr* e) const { return is_skolem(m_max_unfolding, e); }
         bool is_length_limit(expr* e) const { return is_skolem(m_length_limit, e); }
         bool is_length_limit(expr* p, unsigned& lim, expr*& s) const; 
-
+        bool is_is_empty(expr* e) const { return is_skolem(m_is_empty, e); }
+        bool is_is_non_empty(expr* e) const { return is_skolem(m_is_non_empty, e); }
+        bool is_is_empty(expr* e, expr*& r, expr*& u) const { 
+            return is_skolem(m_is_empty, e) && (r = to_app(e)->get_arg(0), u = to_app(e)->get_arg(1), true); 
+        }
+        bool is_is_non_empty(expr* e, expr*& r, expr*& u) const { 
+            return is_skolem(m_is_non_empty, e) && (r = to_app(e)->get_arg(0), u = to_app(e)->get_arg(1), true); 
+        }
 
         void decompose(expr* e, expr_ref& head, expr_ref& tail);
 

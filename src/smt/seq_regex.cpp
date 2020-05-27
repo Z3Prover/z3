@@ -17,6 +17,7 @@ Author:
 
 #include "smt/seq_regex.h"
 #include "smt/theory_seq.h"
+#include "ast/expr_abstract.h"
 
 namespace smt {
 
@@ -267,10 +268,20 @@ namespace smt {
     }
 
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
-        // the dual version of unroll_non_empty, but
-        // skolem functions have to be eliminated or turned into 
-        // universal quantifiers.
-        throw default_exception("emptiness checking for regex is TBD");
+        expr_ref r(m);
+        if (re().is_empty(r1)) 
+            std::swap(r1, r2);
+        if (re().is_empty(r2))
+            r = r1;
+        else 
+            r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
+        rewrite(r);
+        sort* seq_sort = nullptr;        
+        VERIFY(u().is_re(r, seq_sort));
+        expr_ref emp(re().mk_empty(seq_sort), m);
+        literal lit = ~th.mk_eq(r, emp, false);
+        expr_ref is_non_empty = sk().mk_is_non_empty(r, emp);
+        th.add_axiom(~lit, th.mk_literal(is_non_empty));
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
@@ -284,74 +295,112 @@ namespace smt {
         rewrite(r);
         sort* seq_sort = nullptr;        
         VERIFY(u().is_re(r, seq_sort));
-        literal lit = ~th.mk_eq(r, re().mk_empty(seq_sort), false);
-        expr_mark seen;
-        expr_ref non_empty = unroll_non_empty(r, seen, 0);
-        if (non_empty) {
-            rewrite(non_empty);
-            th.add_axiom(~lit, th.mk_literal(non_empty));
+        expr_ref emp(re().mk_empty(seq_sort), m);
+        literal lit = ~th.mk_eq(r, emp, false);
+        expr_ref is_empty = sk().mk_is_empty(r, emp);
+        th.add_axiom(~lit, th.mk_literal(is_empty));
+    }
+
+    bool seq_regex::is_member(expr* r, expr* u) {
+        expr* u2 = nullptr;
+        while (re().is_union(u, u, u2)) {
+            if (r == u2)
+                return true;
         }
-        else {
-            // generally introduce predicate (re.nonempty r seen)
-            // with inference rules based on unroll_non_empty
-            throw default_exception("unrolling large regexes is TBD");
-        }
+        return r == u;        
     }
 
     /**
-       nonempty(R union Q, Seen) = R != {} or Q != {}
-       nonempty(R[if(p,R1,R2)], Seen) = if(p, nonempty(R[R1], Seen), nonempty(R[R2], Seen))           (co-factor)
-       nonempty(R, Seen) = nullable(R) or (R not in Seen and nonempty(D(first(R),R), Seen u { R }))  (derivative)
-       
-       TBD: eliminate variables from p when possible to perform quantifier elimination.
-       
-       p := first(R) == 'a'
-       then replace first(R) by 'a' in R[R1]
-       TBD: 
-       empty(R, Seen) = R = {} if R does not contain a subterm in Seen and Seen is non-empty
+     * is_non_empty(r, u) => nullable or not c_i or is_non_empty(r_i, u union r)
+     *
+     * for each (c_i, r_i) in cofactors
+     *
+     * is_non_empty(r_i, u union r) := false if r_i in u
+     *
+     */
+    void seq_regex::propagate_is_non_empty(literal lit) {
+        expr* e = ctx.bool_var2expr(lit.var()), *r, *u;
+        VERIFY(sk().is_is_non_empty(e, r, u));
+        expr_ref is_nullable = seq_rw().is_nullable(r);
+        rewrite(is_nullable);
+        if (m.is_true(is_nullable))
+            return;
+        literal null_lit = th.mk_literal(is_nullable);
+        expr_ref hd = mk_first(r);
+        expr_ref d = seq_rw().derivative(hd, r);
+        if (!d)
+            throw default_exception("derivative was not defined");
+        literal_vector lits;
+        expr_ref_pair_vector cofactors(m);
+        seq_rw().get_cofactors(d, cofactors);
+        for (auto const& p : cofactors) {
+            expr_ref cond(p.first, m);
+            seq_rw().elim_condition(hd, cond);
+            rewrite(cond);
+            if (m.is_false(cond))
+                continue;            
+            lits.reset();
+            lits.push_back(~lit);
+            if (!m.is_true(cond))
+                lits.push_back(~th.mk_literal(cond));
+            if (false_literal != null_lit) 
+                lits.push_back(null_lit);
+            if (!is_member(p.second, u))
+                lits.push_back(th.mk_literal(sk().mk_is_non_empty(p.second, re().mk_union(u, r))));
+            th.add_axiom(lits);
+        }
+    }
 
 
-       first : RegEx -> Char is a skolem function
-    */
+    /*
+      is_empty(r, u) => ~is_nullable(r)
+      is_empty(r, u) => (forall x . ~cond(x)) or is_empty(r1, u union r)    for (cond, r) in min-terms(D(x,r))      
+
+      is_empty(r, u) is true if r is a member of u
+     */
+    void seq_regex::propagate_is_empty(literal lit) {
+        expr* e = ctx.bool_var2expr(lit.var()), *r, *u;
+        VERIFY(sk().is_is_empty(e, r, u));
+        expr_ref is_nullable = seq_rw().is_nullable(r);
+        rewrite(is_nullable);
+        if (m.is_true(is_nullable)) {
+            th.add_axiom(~lit);
+            return;
+        }
+        th.add_axiom(~lit, ~th.mk_literal(is_nullable));
+        expr_ref hd = mk_first(r);
+        expr_ref d = seq_rw().derivative(hd, r);
+        if (!d)
+            throw default_exception("derivative was not defined");
+        literal_vector lits;
+        expr_ref_pair_vector cofactors(m);
+        seq_rw().get_cofactors(d, cofactors);
+
+        // is_empty(r, u) => forall hd . cond => is_empty(r1, u union r)
+        
+        for (auto const& p : cofactors) {
+            if (is_member(p.second, u))
+                continue;
+            expr_ref cond(p.first, m);
+            seq_rw().elim_condition(hd, cond);
+            rewrite(cond);
+            if (m.is_false(cond))
+                continue;
+            lits.reset();
+            lits.push_back(~lit);
+            expr_ref is_empty1 = sk().mk_is_non_empty(p.second, re().mk_union(u, r));
+            if (!m.is_true(cond)) {
+                lits.push_back(th.mk_literal(mk_forall(m, hd, m.mk_not(cond))));
+            }
+            lits.push_back(th.mk_literal(is_empty1)); 
+            th.add_axiom(lits);
+        }        
+    }
 
     expr_ref seq_regex::mk_first(expr* r) {
         sort* elem_sort = nullptr, *seq_sort = nullptr;
         VERIFY(u().is_re(r, seq_sort));
         VERIFY(u().is_seq(seq_sort, elem_sort));
         return expr_ref(m.mk_fresh_const("re.first", elem_sort), m);
-        //   return sk().mk("re.first", r, elem_sort);  
-        // - for this to be effective, requires internalizer to skip skolem function internalization, 
-        //   because of the regex argument r and we don't handle extensionality of regex well.
-        //   It is probably a good idea to skip internalization of all skolem expressions, 
-        //   but requires some changes to theory_seq.
-        // - it is more useful to eliminate quantifiers in he common case, so never have to
-        //   work with fresh expressions in the fist hand. This is possible for characters and
-        //   ranges (just equalities and inequalities with constant bounds).
-    }
-
-    expr_ref seq_regex::unroll_non_empty(expr* r, expr_mark& seen, unsigned depth) {
-        if (seen.is_marked(r))
-            return expr_ref(m.mk_false(), m);
-        if (depth > 300)
-            return expr_ref(m);
-        expr_ref result(m), cond(m), th(m), el(m);
-        // TBD: try also rewriting
-        if (seq_rw().has_cofactor(r, cond, th, el)) {
-            th = unroll_non_empty(th, seen, depth + 1);
-            el = unroll_non_empty(el, seen, depth + 1);
-            if (th && el) 
-                result = m.mk_ite(cond, th, el);
-            return result;
-        }    
-        expr_ref hd = mk_first(r);
-        result = seq_rw().derivative(hd, r);
-        if (result) {
-            // TBD fast check if r is a subterm of result, if not, then 
-            // loop instead of recurse
-            seen.mark(r, true);
-            result = unroll_non_empty(result, seen, depth + 1);
-            seen.mark(r, false);
-        }
-        return result;
     }
 }

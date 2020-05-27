@@ -1536,7 +1536,7 @@ bool theory_seq::internalize_term(app* term) {
     }
 
     if (ctx.get_fparams().m_seq_use_derivatives && 
-        (m_util.str.is_in_re(term) || m_sk.is_accept(term))) {
+        (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
@@ -3068,6 +3068,14 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
                 propagate_accept(lit, e);
             }
         }
+    }
+    else if (m_sk.is_is_empty(e)) {
+        if (is_true)
+            m_regex.propagate_is_empty(lit);
+    }
+    else if (m_sk.is_is_non_empty(e)) {
+        if (is_true)
+            m_regex.propagate_is_non_empty(lit);
     }
     else if (m_sk.is_step(e)) {
         if (is_true) {

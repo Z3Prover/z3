@@ -28,6 +28,7 @@ Notes:
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/seq_rewriter_params.hpp"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata_def.h"
@@ -2672,6 +2673,138 @@ br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
     return BR_REWRITE1;
 }
 
+void seq_rewriter::intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges) {
+    unsigned j = 0;
+    for (unsigned i = 0; i < ranges.size(); ++i) {
+        unsigned lo1 = ranges[i].first;
+        unsigned hi1 = ranges[i].second;        
+        if (hi < lo1) 
+            break;
+        if (hi1 >= lo) 
+            ranges[j++] = std::make_pair(std::max(lo1, lo), std::min(hi1, hi));
+    }
+    ranges.shrink(j);
+}
+
+/**
+ * Simplify cond using special case rewriting for character equations
+ * When elem is uninterpreted compute the simplification of Exists elem . cond
+ * if it is possible to solve for elem.
+ */
+void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
+    expr_ref_vector conds(m());
+    flatten_and(cond, conds);
+    expr* lhs = nullptr, *rhs = nullptr, *e1 = nullptr; 
+    if (u().is_char(elem)) {
+        unsigned ch = 0;
+        svector<std::pair<unsigned, unsigned>> ranges, ranges1;
+        ranges.push_back(std::make_pair(0, zstring::max_char()));
+        auto exclude_char = [&](unsigned ch) {
+            if (ch == 0) {
+                intersect(1, zstring::max_char(), ranges);
+            }
+            else if (ch == zstring::max_char()) {
+                intersect(0, ch-1, ranges);
+            }
+            else {
+                ranges1.reset();
+                ranges1.append(ranges);
+                intersect(0, ch-1, ranges);
+                intersect(ch + 1, zstring::max_char(), ranges1);
+                ranges.append(ranges1);
+            }
+        };
+        bool all_ranges = true;
+        for (expr* e : conds) {
+            if (m().is_eq(e, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
+                intersect(ch, ch, ranges);                
+            }
+            else if (m().is_eq(e, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
+                intersect(ch, ch, ranges);
+            }
+            else if (u().is_char_le(e, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
+                intersect(0, ch, ranges);
+            }
+            else if (u().is_char_le(e, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
+                intersect(ch, zstring::max_char(), ranges);
+            }
+            else if (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
+                exclude_char(ch);
+            }
+            else if (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
+                exclude_char(ch);
+            }
+            else if (m().is_not(e, e1) && u().is_char_le(e1, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
+                // not (e <= ch)
+                if (ch == zstring::max_char()) 
+                    ranges.reset();
+                else 
+                    intersect(ch+1, zstring::max_char(), ranges);
+            }
+            else if (m().is_not(e, e1) && u().is_char_le(e1, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
+                // not (ch <= e)
+                if (ch == 0) 
+                    ranges.reset();
+                else                 
+                    intersect(0, ch-1, ranges);
+            }
+            // TBD: case for negation of range (not (and (<= lo e) (<= e hi)))
+            else {
+                all_ranges = false;
+                break;
+            }
+            if (ranges.empty())
+                break;
+        }
+        if (all_ranges) {
+            if (ranges.empty()) {
+                cond = m().mk_false();
+                return;
+            }
+            if (is_uninterp_const(elem)) {
+                cond = m().mk_true();
+                return;
+            }
+        }
+    }
+            
+    expr* solution = nullptr;
+    for (expr* e : conds) {
+        if (!m().is_eq(e, lhs, rhs)) 
+            continue;
+        if (rhs == elem)
+            std::swap(lhs, rhs);
+        if (lhs != elem)
+            continue;
+        solution = rhs;
+        break;        
+    }
+    if (solution) {
+        expr_safe_replace rep(m());
+        rep.insert(elem, solution);
+        rep(cond);
+        if (!is_uninterp_const(elem)) { 
+            cond = m().mk_and(m().mk_eq(elem, solution), cond);
+        }
+    }    
+}
+
+void seq_rewriter::get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result) {
+    expr_ref cond(m()), th(m()), el(m());
+    if (has_cofactor(r, cond, th, el)) {
+        conds.push_back(cond);
+        get_cofactors(th, conds, result);
+        conds.pop_back();
+        conds.push_back(mk_not(m(), cond));
+        get_cofactors(el, conds, result);
+        conds.pop_back();
+    }
+    else {
+        cond = mk_and(conds);
+        result.push_back(cond, r);
+    }
+}
+
 bool seq_rewriter::has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el) {
     if (m().is_ite(r)) {
         cond = to_app(r)->get_arg(0);
@@ -2749,8 +2882,8 @@ bool seq_rewriter::has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref&
         }
         if (args_th.size() == a->get_num_args()) {
             if (has_cof) {
-                th = m().mk_app(a->get_decl(), args_th);
-                el = m().mk_app(a->get_decl(), args_el);
+                th = mk_app(a->get_decl(), args_th);
+                el = mk_app(a->get_decl(), args_el);
                 trail.push_back(th);
                 trail.push_back(el);
                 cache_th.insert(a, th);

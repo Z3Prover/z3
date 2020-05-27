@@ -214,6 +214,9 @@ class seq_rewriter {
     class seq_util::str& str() { return u().str; }
     class seq_util::str const& str() const { return u().str; }
 
+    void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
+    void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
+
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
@@ -235,6 +238,15 @@ public:
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
     br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
+    expr_ref mk_app(func_decl* f, expr_ref_vector const& args) { return mk_app(f, args.size(), args.c_ptr()); }
+    expr_ref mk_app(func_decl* f, unsigned n, expr* const* args) { 
+        expr_ref result(m());
+        if (f->get_family_id() != u().get_family_id() || 
+            BR_FAILED == mk_app_core(f, n, args, result))
+            result = m().mk_app(f, n, args);
+        return result;
+    }
+        
     bool reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bool& change);
 
     bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change);
@@ -248,6 +260,15 @@ public:
     expr_ref is_nullable(expr* r);
 
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
+
+    void get_cofactors(expr* r, expr_ref_pair_vector& result) {
+        expr_ref_vector conds(m());
+        get_cofactors(r, conds, result);
+    }
+
+    // heuristic elimination of element from condition that comes form a derivative.
+    // special case optimization for conjunctions of equalities, disequalities and ranges.
+    void elim_condition(expr* elem, expr_ref& cond);
 
 };
 
