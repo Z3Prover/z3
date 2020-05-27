@@ -1305,9 +1305,10 @@ bool core::patch_blocker(lpvar u, const monic& m) const {
 }
 
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
+    auto call_before_change = [this](lpvar u) { m_changes_of_patch.insert_if_not_there(u, val(u)); };
     auto blocker = [this, k, m](lpvar u) { return u != k && patch_blocker(u, m); };
     auto change_report = [this](lpvar u) { update_to_refine_of_var(u); };
-    return m_lar_solver.try_to_patch(k, v, blocker,  change_report);
+    return m_lar_solver.try_to_patch(k, v, blocker, call_before_change, change_report);
 }
 
 bool in_power(const svector<lpvar>& vs, unsigned l) {
@@ -1380,6 +1381,7 @@ void core::patch_monomial(lpvar j) {
 }
 
 void core::patch_monomials() {
+    m_changes_of_patch.reset();
     auto to_refine = m_to_refine.index();
     // the rest of the function might change m_to_refine, so have to copy
     unsigned sz = to_refine.size();
