@@ -3509,7 +3509,8 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
     if (k_min < UINT_MAX) {
         m_max_unfolding_depth++;
         k_min *= 2;
-        k_min = std::max(m_util.str.min_length(s_min), k_min);
+        if (m_util.is_seq(s_min))
+            k_min = std::max(m_util.str.min_length(s_min), k_min);
         IF_VERBOSE(1, verbose_stream() << "(smt.seq :increase-length " << mk_pp(s_min, m) << " " << k_min << ")\n");
         add_length_limit(s_min, k_min, false);
         return true;

@@ -337,9 +337,9 @@ namespace smt {
                 continue;            
             lits.reset();
             lits.push_back(~lit);
-            if (!m.is_true(cond))
+            if (!m.is_true(cond)) 
                 lits.push_back(~th.mk_literal(cond));
-            if (false_literal != null_lit) 
+            if (null_lit != false_literal) 
                 lits.push_back(null_lit);
             if (!is_member(p.second, u))
                 lits.push_back(th.mk_literal(sk().mk_is_non_empty(p.second, re().mk_union(u, r))));
@@ -385,8 +385,13 @@ namespace smt {
             lits.reset();
             lits.push_back(~lit);
             expr_ref is_empty1 = sk().mk_is_non_empty(p.second, re().mk_union(u, r));
+            // TBD: triple check soundness here.
+            // elim_condition(x, x = 'a') = true
+            // forall x . x = 'a' => is_empty(r, u)
+            // <=> 
+            // is_empty(r, u)
             if (!m.is_true(cond)) {
-                lits.push_back(th.mk_literal(mk_forall(m, hd, m.mk_not(cond))));
+                lits.push_back(th.mk_literal(mk_forall(m, hd, mk_not(m, cond))));
             }
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);

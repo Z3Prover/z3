@@ -250,7 +250,7 @@ public:
 #if Z3_USE_UNICODE
     bool is_char_le(expr const* e) const { return is_app_of(e, m_fid, OP_CHAR_LE); }
 #else
-    bool is_char_le(expr const* e) const { return false; }
+    bool is_char_le(expr const* e) const { return bv().is_bv_ule(e) && is_char(to_app(e)->get_arg(0)); }
 #endif
     app* mk_char(unsigned ch) const;
     app* mk_le(expr* ch1, expr* ch2) const;
