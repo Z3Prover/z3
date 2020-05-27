@@ -1327,12 +1327,22 @@ public:
         expr_ref mod(a.mk_mod(p, q), m);
         expr_ref zero(a.mk_int(0), m);
         if (a.is_zero(p)) {
+            // q != 0 => (= (div 0 q) 0)
+            // q != 0 => (= (mod 0 q) 0)
             literal q_ge_0 = mk_literal(a.mk_ge(q, zero));
             literal q_le_0 = mk_literal(a.mk_le(q, zero));
-            mk_axiom(~q_ge_0, ~q_le_0, mk_literal(a.mk_ge(div, zero)));
-            mk_axiom(~q_ge_0, ~q_le_0, mk_literal(a.mk_le(div, zero)));
-            mk_axiom(~q_ge_0, ~q_le_0, mk_literal(a.mk_ge(mod, zero)));
-            mk_axiom(~q_ge_0, ~q_le_0, mk_literal(a.mk_le(mod, zero)));
+            literal d_ge_0 = mk_literal(a.mk_ge(div, zero));
+            literal d_le_0 = mk_literal(a.mk_le(div, zero));
+            literal m_ge_0 = mk_literal(a.mk_ge(mod, zero));
+            literal m_le_0 = mk_literal(a.mk_le(mod, zero));
+            mk_axiom(q_ge_0, d_ge_0);
+            mk_axiom(q_ge_0, d_le_0);
+            mk_axiom(q_ge_0, m_ge_0);
+            mk_axiom(q_ge_0, m_le_0);
+            mk_axiom(q_le_0, d_ge_0);
+            mk_axiom(q_le_0, d_le_0);
+            mk_axiom(q_le_0, m_ge_0);
+            mk_axiom(q_le_0, m_le_0);
             return;
         }
         literal eq         = th.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p, false);
