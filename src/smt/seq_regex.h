@@ -67,6 +67,8 @@ namespace smt {
 
         bool is_member(expr* r, expr* u);
 
+        expr_ref symmetric_diff(expr* r1, expr* r2);
+
     public:
 
         seq_regex(theory_seq& th);

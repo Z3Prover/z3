@@ -267,7 +267,7 @@ namespace smt {
         return true;
     }
 
-    void seq_regex::propagate_eq(expr* r1, expr* r2) {
+    expr_ref seq_regex::symmetric_diff(expr* r1, expr* r2) {
         expr_ref r(m);
         if (re().is_empty(r1)) 
             std::swap(r1, r2);
@@ -276,29 +276,25 @@ namespace smt {
         else 
             r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
         rewrite(r);
+        return r;
+    }
+
+    void seq_regex::propagate_eq(expr* r1, expr* r2) {
+        expr_ref r = symmetric_diff(r1, r2);
         sort* seq_sort = nullptr;        
         VERIFY(u().is_re(r, seq_sort));
         expr_ref emp(re().mk_empty(seq_sort), m);
-        literal lit = ~th.mk_eq(r, emp, false);
         expr_ref is_empty = sk().mk_is_empty(r, emp);
-        th.add_axiom(~lit, th.mk_literal(is_empty));
+        th.add_axiom(~th.mk_eq(r, emp, false), th.mk_literal(is_empty));
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
-        expr_ref r(m);
-        if (re().is_empty(r1)) 
-            std::swap(r1, r2);
-        if (re().is_empty(r2))
-            r = r1;
-        else 
-            r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
-        rewrite(r);
+        expr_ref r = symmetric_diff(r1, r2);
         sort* seq_sort = nullptr;        
         VERIFY(u().is_re(r, seq_sort));
         expr_ref emp(re().mk_empty(seq_sort), m);
-        literal lit = ~th.mk_eq(r, emp, false);
         expr_ref is_non_empty = sk().mk_is_non_empty(r, emp);
-        th.add_axiom(~lit, th.mk_literal(is_non_empty));
+        th.add_axiom(th.mk_eq(r, emp, false), th.mk_literal(is_non_empty));
     }
 
     bool seq_regex::is_member(expr* r, expr* u) {
