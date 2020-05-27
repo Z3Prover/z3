@@ -309,7 +309,7 @@ namespace smt {
     /**
      * is_non_empty(r, u) => nullable or not c_i or is_non_empty(r_i, u union r)
      *
-     * for each (c_i, r_i) in cofactors
+     * for each (c_i, r_i) in cofactors (min-terms)
      *
      * is_non_empty(r_i, u union r) := false if r_i in u
      *
@@ -327,24 +327,23 @@ namespace smt {
         if (!d)
             throw default_exception("derivative was not defined");
         literal_vector lits;
+        lits.push_back(~lit);
+        if (null_lit != false_literal) 
+            lits.push_back(null_lit);
         expr_ref_pair_vector cofactors(m);
         seq_rw().get_cofactors(d, cofactors);
         for (auto const& p : cofactors) {
+            if (is_member(p.second, u))
+                continue;
             expr_ref cond(p.first, m);
             seq_rw().elim_condition(hd, cond);
             rewrite(cond);
             if (m.is_false(cond))
                 continue;            
-            lits.reset();
-            lits.push_back(~lit);
-            if (!m.is_true(cond)) 
-                lits.push_back(~th.mk_literal(cond));
-            if (null_lit != false_literal) 
-                lits.push_back(null_lit);
-            if (!is_member(p.second, u))
-                lits.push_back(th.mk_literal(sk().mk_is_non_empty(p.second, re().mk_union(u, r))));
-            th.add_axiom(lits);
+            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, r));
+            lits.push_back(th.mk_literal(next_non_empty));
         }
+        th.add_axiom(lits);
     }
 
 
@@ -384,15 +383,10 @@ namespace smt {
                 continue;
             lits.reset();
             lits.push_back(~lit);
-            expr_ref is_empty1 = sk().mk_is_non_empty(p.second, re().mk_union(u, r));
-            // TBD: triple check soundness here.
-            // elim_condition(x, x = 'a') = true
-            // forall x . x = 'a' => is_empty(r, u)
-            // <=> 
-            // is_empty(r, u)
             if (!m.is_true(cond)) {
                 lits.push_back(th.mk_literal(mk_forall(m, hd, mk_not(m, cond))));
             }
+            expr_ref is_empty1 = sk().mk_is_non_empty(p.second, re().mk_union(u, r));    
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        

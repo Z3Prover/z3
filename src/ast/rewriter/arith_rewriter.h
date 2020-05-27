@@ -27,13 +27,14 @@ class arith_rewriter_core {
 protected:
     typedef rational numeral;
     arith_util  m_util;
-    seq_util    m_seq;
+    scoped_ptr<seq_util> m_seq;
     bool        m_expand_power;
     bool        m_mul2power;
     bool        m_expand_tan;
     
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
+    seq_util& seq();
     
     bool is_numeral(expr * n) const { return m_util.is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return m_util.is_numeral(n, r); }
@@ -45,7 +46,7 @@ protected:
     bool use_power() const { return m_mul2power && !m_expand_power; }
     decl_kind power_decl_kind() const { return OP_POWER; }
 public:
-    arith_rewriter_core(ast_manager & m):m_util(m), m_seq(m) {}
+    arith_rewriter_core(ast_manager & m):m_util(m) {}
     bool is_zero(expr * n) const { return m_util.is_zero(n); }
 };
 

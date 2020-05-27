@@ -22,6 +22,13 @@ Notes:
 #include "math/polynomial/algebraic_numbers.h"
 #include "ast/ast_pp.h"
 
+seq_util& arith_rewriter_core::seq() {
+    if (!m_seq) {
+        m_seq = alloc(seq_util, m());
+    }
+    return *m_seq;
+}
+
 void arith_rewriter::updt_local_params(params_ref const & _p) {
     arith_rewriter_params p(_p);
     m_arith_lhs       = p.arith_lhs();
@@ -247,9 +254,9 @@ bool arith_rewriter::is_non_negative(expr* e) {
         unsigned pu;
         return m_util.is_power(e, n, p) && m_util.is_unsigned(p, pu) && (pu % 2 == 0);
     };
-    if (m_seq.str.is_length(e))
-        return true;
     if (is_even_power(e)) 
+        return true;
+    if (seq().str.is_length(e))
         return true;
     if (!m_util.is_mul(e)) 
         return false;
@@ -260,7 +267,7 @@ bool arith_rewriter::is_non_negative(expr* e) {
     for (expr* arg : args) {
         if (is_even_power(arg))
             continue;
-        if (m_seq.str.is_length(e))
+        if (seq().str.is_length(e))
             continue;
         if (m_util.is_numeral(arg, r)) {
             if (r.is_neg()) 
