@@ -1305,11 +1305,10 @@ bool core::patch_blocker(lpvar u, const monic& m, const lp::impq& ival) const {
 }
 
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
-    auto call_before_change = [this](lpvar u) { m_changes_of_patch.insert_if_not_there(u, val(u)); };
     auto blocker = [this, k, m](lpvar u, const lp::impq& v)
         { return u != k && patch_blocker(u, m, v); };
     auto change_report = [this](lpvar u) { update_to_refine_of_var(u); };
-    return m_lar_solver.try_to_patch(k, v, blocker, call_before_change, change_report);
+    return m_lar_solver.try_to_patch(k, v, blocker, change_report);
 }
 
 bool in_power(const svector<lpvar>& vs, unsigned l) {
@@ -1381,16 +1380,7 @@ void core::patch_monomial(lpvar j) {
     }
 }
 
-void core::restore_patched_values() {
-    for (const auto & p : m_changes_of_patch) {
-        m_lar_solver.set_column_value(p.m_key, lp::impq(p.m_value));
-        m_lar_solver.remove_column_from_inf_set(p.m_key);
-    }
-}
-
-void core::patch_monomials() {
-    m_changes_of_patch.reset();
-    m_cautious_patching = true;
+void core::patch_monomials_on_to_refine() {
     auto to_refine = m_to_refine.index();
     // the rest of the function might change m_to_refine, so have to copy
     unsigned sz = to_refine.size();
@@ -1401,19 +1391,24 @@ void core::patch_monomials() {
         if (m_to_refine.size() == 0)
             break;
     }
-    
+}
+
+void core::patch_monomials() {
+    m_cautious_patching = true;
+    patch_monomials_on_to_refine();
     if (m_to_refine.size() == 0 || !m_nla_settings.expensive_patching()) {
         return;
     }
     m_cautious_patching = false; //
-    NOT_IMPLEMENTED_YET(); // have to repeat the patching
+    patch_monomials_on_to_refine();
     m_lar_solver.push();
+    save_tableau();
     constrain_nl_in_tableau();
     if (solve_tableau() && integrality_holds()) {
         m_lar_solver.pop(1);
     } else {
         m_lar_solver.pop();
-        restore_patched_values();
+        restore_tableau();
         m_lar_solver.clear_inf_set();
     }
     SASSERT(m_lar_solver.ax_is_correct());
@@ -1424,6 +1419,14 @@ void core::constrain_nl_in_tableau() {
 }
 
 bool core::solve_tableau() {
+    NOT_IMPLEMENTED_YET();
+}
+
+void core::restore_tableau() {
+    NOT_IMPLEMENTED_YET();
+}
+
+void core::save_tableau() {
     NOT_IMPLEMENTED_YET();
 }
 
