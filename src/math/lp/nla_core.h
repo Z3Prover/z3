@@ -170,7 +170,6 @@ private:
     svector<lpvar>           m_add_buffer;
     mutable lp::u_set        m_active_var_set;
     lp::u_set                m_rows;
-    u_map<rational>          m_changes_of_patch;
 public:
     reslimit&                m_reslim;
     bool                     m_use_nra_model;
@@ -468,6 +467,7 @@ public:
     bool is_nl_var(lpvar) const;
     bool is_used_in_monic(lpvar) const;
     void patch_monomials();
+    void patch_monomials_on_to_refine();
     void patch_monomial(lpvar);
     bool var_breaks_correct_monic(lpvar) const;
     bool var_breaks_correct_monic_as_factor(lpvar, const monic&) const;
@@ -486,6 +486,8 @@ private:
     void restore_patched_values();
     void constrain_nl_in_tableau();
     bool solve_tableau();
+    void restore_tableau();
+    void save_tableau();
     bool integrality_holds();
 };  // end of core
 
