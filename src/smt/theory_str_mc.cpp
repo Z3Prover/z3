@@ -571,7 +571,33 @@ namespace smt {
                 // If the membership constraint is true, we assert a conflict clause.
                 // If the membership constraint is false, we ignore the constraint.
                 if (polarity) {
-                    cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(str), mk_int(str_chars.size()))));
+                    // Decompose `str` into its components if it is a concatenation of terms.
+                    // This fixes cases where the length of S in (S in RE) might be correct
+                    // if the lengths of components of S are assigned in a different way.
+                    expr_ref_vector str_terms(m);
+                    expr_ref_vector str_terms_eq_len(m);
+                    str_terms.push_back(str);
+                    while (!str_terms.empty()) {
+                        expr* str_term = str_terms.back();
+                        str_terms.pop_back();
+                        expr* arg0;
+                        expr* arg1;
+                        if (u.str.is_concat(str_term, arg0, arg1)) {
+                            str_terms.push_back(arg0);
+                            str_terms.push_back(arg1);
+                        } else {
+                            rational termLen;
+                            if (fixed_length_get_len_value(str_term, termLen)) {
+                                str_terms_eq_len.push_back(ctx.mk_eq_atom(mk_strlen(str_term), mk_int(termLen)));
+                            } else {
+                                // this is strange, since we knew the length of `str` in order to get here
+                                cex = expr_ref(m_autil.mk_ge(mk_strlen(str_term), mk_int(0)), m);
+                                return false;
+                            }
+                        }
+                    }
+
+                    cex = m.mk_or(m.mk_not(f), m.mk_not(mk_and(str_terms_eq_len)));
                     ctx.get_rewriter()(cex);
                     return false;
                 } else {
@@ -887,6 +913,9 @@ namespace smt {
         uninterpreted_to_char_subterm_map.reset();
         fixed_length_lesson.reset();
 
+        // All reduced Boolean formulas in the current assignment
+        expr_ref_vector fixed_length_reduced_boolean_formulas(m);
+
         // Boolean formulas on which to apply abstraction refinement.
         expr_ref_vector abstracted_boolean_formulas(m);
 
@@ -951,6 +980,7 @@ namespace smt {
                             add_persisted_axiom(cex);
                             return l_undef;
                         }
+                        fixed_length_reduced_boolean_formulas.push_back(f);
                     } else {
                         TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not an equality over strings" << std::endl;);
                     }
@@ -963,6 +993,7 @@ namespace smt {
                         add_persisted_axiom(cex_clause);
                         return l_undef;
                     }
+                    fixed_length_reduced_boolean_formulas.push_back(f);
                 } else if (u.str.is_contains(f)) {
                     // TODO in some cases (e.g. len(haystack) is only slightly greater than len(needle))
                     // we might be okay to assert the full disjunction because there are very few disjuncts
@@ -978,6 +1009,7 @@ namespace smt {
                             add_persisted_axiom(cex);
                             return l_undef;
                         }
+                        fixed_length_reduced_boolean_formulas.push_back(f);
                     }
                 } else if (u.str.is_prefix(f)) {
                     TRACE("str_fl", tout << "reduce positive prefix: " << mk_pp(f, m) << std::endl;);
@@ -988,6 +1020,7 @@ namespace smt {
                         add_persisted_axiom(cex);
                         return l_undef;
                     }
+                    fixed_length_reduced_boolean_formulas.push_back(f);
                 } else if (u.str.is_suffix(f)) {
                     TRACE("str_fl", tout << "reduce positive suffix: " << mk_pp(f, m) << std::endl;);
                     expr_ref cex(m);
@@ -997,6 +1030,7 @@ namespace smt {
                         add_persisted_axiom(cex);
                         return l_undef;
                     }
+                    fixed_length_reduced_boolean_formulas.push_back(f);
                 }else if (m.is_not(f, subterm)) {
                     // if subterm is a string formula such as an equality, reduce it as a disequality
                     if (m.is_eq(subterm, lhs, rhs)) {
@@ -1012,6 +1046,7 @@ namespace smt {
                                 add_persisted_axiom(cex);
                                 return l_undef;
                             }
+                            fixed_length_reduced_boolean_formulas.push_back(f);
                         }
                     } else if (u.str.is_in_re(subterm)) {
                         TRACE("str_fl", tout << "reduce negative regex membership: " << mk_pp(f, m) << std::endl;);
@@ -1022,6 +1057,7 @@ namespace smt {
                             add_persisted_axiom(cex_clause);
                             return l_undef;
                         }
+                        fixed_length_reduced_boolean_formulas.push_back(f);
                     } else if (u.str.is_contains(subterm)) {
                         TRACE("str_fl", tout << "reduce negative contains: " << mk_pp(subterm, m) << std::endl;);
                         expr_ref cex(m);
@@ -1031,6 +1067,7 @@ namespace smt {
                             add_persisted_axiom(cex);
                             return l_undef;
                         }
+                        fixed_length_reduced_boolean_formulas.push_back(f);
                     } else if (u.str.is_prefix(subterm)) {
                         TRACE("str_fl", tout << "reduce negative prefix: " << mk_pp(subterm, m) << std::endl;);
                         expr_ref cex(m);
@@ -1040,6 +1077,7 @@ namespace smt {
                             add_persisted_axiom(cex);
                             return l_undef;
                         }
+                        fixed_length_reduced_boolean_formulas.push_back(f);
                     } else if (u.str.is_suffix(subterm)) {
                         TRACE("str_fl", tout << "reduce negative suffix: " << mk_pp(subterm, m) << std::endl;);
                         expr_ref cex(m);
@@ -1049,6 +1087,7 @@ namespace smt {
                             add_persisted_axiom(cex);
                             return l_undef;
                         }
+                        fixed_length_reduced_boolean_formulas.push_back(f);
                     } else {
                         TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not a boolean formula we handle" << std::endl;);
                     }
@@ -1081,6 +1120,10 @@ namespace smt {
                 }
                 tout << std::endl;
             }
+            tout << "reduced boolean formulas:" << std::endl;
+              for (auto e : fixed_length_reduced_boolean_formulas) {
+                  tout << mk_pp(e, m) << std::endl;
+              }
         );
 
         TRACE("str_fl", tout << "calling subsolver" << std::endl;);
@@ -1183,6 +1226,9 @@ namespace smt {
                     expr * var = &e.get_key();
                     rational val = e.get_value();
                     cex.push_back(m.mk_eq(u.str.mk_length(var), mk_int(val)));
+                }
+                for (auto e : fixed_length_reduced_boolean_formulas) {
+                    cex.push_back(e);
                 }
                 return l_false;
             } else {
