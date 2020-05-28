@@ -39,7 +39,6 @@ namespace smt {
         symbol         m_is_empty, m_is_non_empty;        // regex emptiness check
         symbol         m_pre, m_post;                     // inverse of at: (pre s i) + (at s i) + (post s i) = s if 0 <= i < (len s)
         symbol         m_eq;                              // equality atom
-        symbol         m_seq_align;
         symbol         m_max_unfolding, m_length_limit;
 
     public:
@@ -58,7 +57,20 @@ namespace smt {
             return mk(symbol(s), e1, e2, e3, e4, range);
         }
 
-        expr_ref mk_align(expr* e1, expr* e2, expr* e3, expr* e4) { return mk(m_seq_align, e1, e2, e3, e4); }
+        expr_ref mk_align(expr* e1, expr* e2, expr* e3, expr* e4) { return mk("seq.align", e1, e2, e3, e4); }
+        expr_ref mk_align_l(expr* e1, expr* e2, expr* e3, expr* e4) { return mk("seq.align.l", e1, e2, e3, e4); }
+        expr_ref mk_align_r(expr* e1, expr* e2, expr* e3, expr* e4) { return mk("seq.align.r", e1, e2, e3, e4); }
+        expr_ref mk_align_m(expr* e1, expr* e2, expr* e3, expr* e4) {
+            if (is_align(e1) && is_align(e2)) {
+                expr* x1 = to_app(e1)->get_arg(0);
+                expr* x2 = to_app(e1)->get_arg(1);
+                expr* y1 = to_app(e2)->get_arg(0);
+                expr* y2 = to_app(e2)->get_arg(1);
+                if (x2 == y2 && x1 != y1)
+                    return mk_align_m(x1, y1, e3, e4);
+            }
+            return mk("seq.align.m", e1, e2, e3, e4);
+        }
         expr_ref mk_accept(expr_ref_vector const& args) { return expr_ref(seq.mk_skolem(m_accept, args.size(), args.c_ptr(), m.mk_bool_sort()), m); }
         expr_ref mk_accept(expr* s, expr* i, expr* r) { return mk(m_accept, s, i, r, nullptr, m.mk_bool_sort()); }
         expr_ref mk_is_non_empty(expr* r, expr* u) { return mk(m_is_non_empty, r, u, m.mk_bool_sort()); }
@@ -112,6 +124,7 @@ namespace smt {
                  r = to_app(e)->get_arg(2), true) && 
                 a.is_unsigned(i, idx);
         }
+        bool is_align(expr* e) const { return is_skolem(symbol("seq.align.m"), e); }
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_eq(expr* e, expr*& a, expr*& b) const;
