@@ -623,7 +623,7 @@ protected:
     void instantiate_axiom_RegexIn(enode * e);
 
     // regex automata and length-aware regex
-    void solve_regex_automata();
+    bool solve_regex_automata();
     unsigned estimate_regex_complexity(expr * re);
     unsigned estimate_regex_complexity_under_complement(expr * re);
     unsigned estimate_automata_intersection_difficulty(eautomaton * aut1, eautomaton * aut2);
