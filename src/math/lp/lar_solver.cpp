@@ -562,6 +562,40 @@ bool lar_solver::remove_from_basis(unsigned j) {
     return m_mpq_lar_core_solver.m_r_solver.remove_from_basis(j);
 }
 
+// val is the new value to be assigned to x[j]
+// return true iff can find a new basic column that would be feasible
+// after the pivoting
+bool lar_solver::remove_from_basis(unsigned basic_j, const mpq& val) {
+    SASSERT(is_base(basic_j));
+    impq del(0);
+    const auto& slv = m_mpq_lar_core_solver.m_r_solver;
+    bool grow = val < get_column_value(basic_j).x; // grow = true means that the monomial of the pivoted var has to grow
+    for (auto &c : A_r().m_rows[row_of_basic_column(basic_j)]) {
+        lpvar j = c.var();
+        if (j == basic_j) {
+            SASSERT(c.coeff().is_one());
+            continue;
+        }
+
+        bool can_pivot = column_is_free(j);
+        if (!can_pivot &&
+            ((grow && slv.monoid_can_increase(c))|| (!grow && slv.monoid_can_decrease(c)))) {            
+            if (del.is_zero())
+                del = impq(val) - get_column_value(basic_j);
+            
+            impq j_val = get_column_value(j) - del / c.coeff();
+            if (inside_bounds(j, j_val))
+                can_pivot = true;
+        }
+        
+        if (can_pivot) {
+            pivot_column_tableau(c.var(), row_of_basic_column(basic_j));
+            return true;
+        }
+    }            
+    return false;    
+}
+
 lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
     if (tv::is_term(j_or_term)) {
         return get_term(j_or_term);

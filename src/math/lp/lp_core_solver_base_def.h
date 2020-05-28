@@ -981,6 +981,18 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_ba
     return false;
 }
 
+template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis(unsigned basic_j, const impq& val) {
+    indexed_vector<T> w(m_basis.size()); // the buffer
+    unsigned i = m_basis_heading[basic_j];
+    for (auto &c : m_A.m_rows[i]) {
+        if (c.var() == basic_j)
+            continue;
+        if (pivot_column_general(c.var(), basic_j, w))
+            return true;
+    }
+    return false;
+}
+
 
 template <typename T, typename X> bool 
 lp_core_solver_base<T, X>::infeasibility_costs_are_correct() const {
