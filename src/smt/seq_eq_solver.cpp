@@ -749,9 +749,10 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 }
 
 bool theory_seq::branch_ternary_variable() {
-    for (unsigned i = 0; i < m_eqs.size(); ++i) {
-        if (branch_ternary_variable_rhs(m_eqs[i]) || branch_ternary_variable_lhs(m_eqs[i]))
+    for (auto const& e : m_eqs) {
+        if (branch_ternary_variable_rhs(e) || branch_ternary_variable_lhs(e)) {
             return true;
+        }
     }
     return false;
 }
@@ -904,6 +905,7 @@ bool theory_seq::branch_ternary_variable_lhs(eq const& e) {
         add_length_to_eqc(y2);
     }
     SASSERT(!xs.empty() && !ys.empty());
+
     if (!can_align_from_rhs(xs, ys)) {
         expr_ref xsE = mk_concat(xs);
         expr_ref ysE = mk_concat(ys);
@@ -931,8 +933,12 @@ bool theory_seq::branch_quat_variable() {
     return false;
 }
 
+/*
+ * Two properties of align_m
+ *      align_m(align_m(x1, x, _, _), align_m(y1, x, _, _), z, t) = align_m(x1, y1, z, t)
+ *      align_m(x1, x, _, _) - align_m(y1, x, _, _) = x1 - y1
+ */
 literal theory_seq::mk_alignment(expr* e1, expr* e2) {
-    context& ctx = get_context();
     if (m_sk.is_align(e1) && m_sk.is_align(e2)) {
         expr* x1 = to_app(e1)->get_arg(0);
         expr* x2 = to_app(e1)->get_arg(1);
@@ -972,8 +978,10 @@ bool theory_seq::branch_quat_variable(eq const& e) {
 
     bool cond = false;
 
+    // xs and ys cannot align
     if (!can_align_from_lhs(xs, ys) && !can_align_from_rhs(xs, ys))
         cond = true;
+    // xs = ys and xs and ys cannot align except the case xs = ys
     else if (xs == ys) {
         expr_ref_vector xs1(m), xs2(m);
         xs1.reset();
@@ -1050,6 +1058,7 @@ bool theory_seq::branch_quat_variable(eq const& e) {
             propagate_eq(dep, lit3, Z1xsx2, y2, true);
             return true;
         }
+        // Infeasible cases because xs and ys cannot align
         if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit2) == l_true) {
             lits.push_back(~lit1);
             lits.push_back(lit2);
