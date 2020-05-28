@@ -2717,7 +2717,7 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
             else {
                 ranges1.reset();
                 ranges1.append(ranges);
-                intersect(0, ch-1, ranges);
+                intersect(0, ch - 1, ranges);
                 intersect(ch + 1, zstring::max_char(), ranges1);
                 ranges.append(ranges1);
             }
