@@ -175,7 +175,9 @@ public:
     reslimit&                m_reslim;
     bool                     m_use_nra_model;
     nra::solver              m_nra;
-
+private:
+    bool                     m_cautious_patching;
+public:    
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
     
@@ -472,7 +474,7 @@ public:
     void update_to_refine_of_var(lpvar j);
     bool try_to_patch(lpvar, const rational&, const monic&);
     bool to_refine_is_correct() const;
-    bool patch_blocker(lpvar u, const monic& m) const;
+    bool patch_blocker(lpvar u, const monic& m, const lp::impq&) const;
     bool has_big_num(const monic&) const;
     bool var_is_big(lpvar) const;
     bool has_real(const factorization&) const;
@@ -482,6 +484,9 @@ public:
     void collect_statistics(::statistics&);
 private:
     void restore_patched_values();
+    void constrain_nl_in_tableau();
+    bool solve_tableau();
+    bool integrality_holds();
 };  // end of core
 
 struct pp_mon {

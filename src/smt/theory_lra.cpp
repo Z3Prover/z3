@@ -413,7 +413,7 @@ class theory_lra::imp {
             m_nla->settings().grobner_number_of_conflicts_to_report() = prms.arith_nl_grobner_cnfl_to_report();
             m_nla->settings().grobner_quota() =               prms.arith_nl_gr_q();
             m_nla->settings().grobner_frequency() =           prms.arith_nl_grobner_frequency();
-            m_nla->settings().propagate_bounds()  =           prms.arith_nl_bp();
+            m_nla->settings().expensive_patching()  =         prms.arith_nl_expp();
         }
     }
 

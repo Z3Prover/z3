@@ -265,8 +265,8 @@ class lar_solver : public column_namer {
     void collect_rounded_rows_to_fix();
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
-    bool inside_bounds(lpvar, const impq&) const;
 public:
+    bool inside_bounds(lpvar, const impq&) const;
     inline void set_column_value(unsigned j, const impq& v) {
         m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
     }
@@ -306,6 +306,9 @@ public:
     bool column_corresponds_to_term(unsigned) const;
     inline unsigned row_count() const { return A_r().row_count(); }
     bool var_is_registered(var_index vj) const;
+    void clear_inf_set() {
+        m_mpq_lar_core_solver.m_r_solver.inf_set().clear();        
+    }
     inline void remove_column_from_inf_set(unsigned j) {
         m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_set(j);
     }
@@ -367,7 +370,7 @@ public:
         }
 
         impq ival(val);
-        if (!inside_bounds(j, ival) || blocker(j))
+        if (!blocker(j, ival))
             return false;
 
         impq delta = get_column_value(j) - ival;
@@ -378,7 +381,7 @@ public:
             impq rj_new_val = a * delta + get_column_value(rj);
             // if (column_is_int(rj) && !rj_new_val.is_int())
             //     return false;
-            if (blocker(rj))
+            if (blocker(rj, rj_new_val))
                 return false;
         }
 
