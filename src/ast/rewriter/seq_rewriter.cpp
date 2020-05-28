@@ -2141,81 +2141,164 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
 }
 
 /*
-    Symbolic derivative
+    Reverse a regular expression.
     Evaluates recursively.
-    Returns null expression `expr_ref(m())` on failure.
+    Should always succeed (never returns null).
 */
-expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
+expr_ref seq_rewriter::reverse(expr* r) {
+    sort* seq_sort = nullptr;
+    VERIFY(m_util.is_re(r, seq_sort));
+    expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
+    expr_ref result(m()), rr1(m()), rr2(m());
+    if (re().is_concat(r, r1, r2)) {
+        result = re().mk_concat(reverse(r2), reverse(r1));
+    }
+    else if (re().is_star(r, r1)) {
+        result = re().mk_star((reverse(r1)));
+    }
+    else if (re().is_plus(r, r1)) {
+        result = re().mk_plus((reverse(r1)));
+    }
+    else if (re().is_union(r, r1, r2)) {
+        result = re().mk_union(reverse(r1), reverse(r2));
+    }
+    else if (re().is_intersection(r, r1, r2)) {
+        result = re().mk_inter(reverse(r1), reverse(r2));
+    }
+    else if (m().is_ite(r, p, r1, r2)) {
+        result = m().mk_ite(p, reverse(r1), reverse(r2));
+    }
+    else if (re().is_opt(r, r1)) {
+        result = m().mk_opt(reverse(r1));
+    }
+    else if (re().is_complement(r, r1)) {
+        result = re().mk_complement(reverse(r1));
+    }
+    else if (re().is_loop(r, r1, lo)) {
+        result = re().mk_loop(reverse(r1), lo);
+    }
+    else if (re().is_loop(r, r1, lo, hi)) {
+        result = re().mk_loop(reverse(r1), lo, hi);
+    }
+
+    else if (re().is_to_re(r, r1)) {
+        // r1 is a string here (not a regexp)
+        expr_ref hd(m());
+        expr_ref tl(m());
+        if (get_head_tail(r1, hd, tl)) {
+            // head must be equal; if so, derivative is tail
+            result = kleene_and(
+                m().mk_eq(elem, hd),
+                re().mk_to_re(tl)
+            );
+        }
+        else if (m_util.str.is_empty(r1)) {
+            result = re().mk_empty(m().get_sort(r));
+        }
+    }
+    else {
+        // is_full_seq, is_empty,
+        // is_range, is_full_char, is_of_pred, variable
+        result = r;
+    }
+    return result;
+}
+
+/*
+    Symbolic derivative of r with respect to elem
+    Evaluates recursively.
+    Left-derivative by default; right-derivative by setting left = false.
+    Returns null expression `expr_ref(m())` on failure.
+    If r is null, returns null.
+*/
+expr_ref seq_rewriter::derivative(expr* elem, expr* r, bool is_left) {
     sort* seq_sort = nullptr, *elem_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
     VERIFY(m_util.is_seq(seq_sort, elem_sort));
     SASSERT(elem_sort == m().get_sort(elem));
-    expr* r1 = nullptr, * r2 = nullptr, *p = nullptr;
-    expr_ref dr1(m()), dr2(m()), result(m());
+    expr_ref result(m());
+    // Argument is null case
+    if (!r) {
+        result = r;
+        return result;
+    }
+    // Right derivative case
+    if (!is_left) {
+        result = derivative(elem, reverse(r));
+        if (result) {
+            result = reverse(result);
+        }
+        return result;
+    }
+    // Left derivative case (main logic)
+    expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
+    expr_ref dr1(m()), dr2(m());
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
         expr_ref is_n = is_nullable(r1);
-        dr1 = derivative(elem, r1);
-        if (!dr1) {
-            result = dr1; // failed
-        }
-        else if (m().is_false(is_n)) {
+        dr1 = derivative(elem, r1, is_left);
+        if (dr1 && m().is_false(is_n)) {
             result = re().mk_concat(dr1, r2);
         }
-        else {
-            dr2 = derivative(elem, r2);
-            if (!dr2) {
-                result = dr2; // failed
-            }
-            else if (m().is_true(is_n)) {
+        else if (dr1 && m().is_true(is_n)) {
+            dr2 = derivative(elem, r2, is_left);
+            if (dr2) {
                 result = re().mk_union(
                     re().mk_concat(dr1, r2),
                     dr2
                 );
             }
-            else {
-                result = re().mk_union(
-                    re().mk_concat(dr1, r2),
-                    kleene_and(is_n, dr2)
-                );
-            }
+        }
+        else if (dr1) {
+            dr2 = derivative(elem, r2, is_left);
+            result = re().mk_union(
+                re().mk_concat(dr1, r2),
+                kleene_and(is_n, dr2)
+            );
         }
     }
     else if (re().is_star(r, r1)) {
-        result = derivative(elem, r1);
+        result = derivative(elem, r1, is_left);
         if (result) {
             result = re().mk_concat(result, r);
         }
     }
     else if (re().is_plus(r, r1)) {
         result = re().mk_star(r1);
-        result = derivative(elem, result);
+        result = derivative(elem, result, is_left);
     }
     else if (re().is_union(r, r1, r2)) {
-        dr1 = derivative(elem, r1);
-        dr2 = derivative(elem, r2);
+        dr1 = derivative(elem, r1, is_left);
+        dr2 = derivative(elem, r2, is_left);
         if (dr1 && dr2) {
             result = re().mk_union(dr1, dr2);
         }
     }
     else if (re().is_intersection(r, r1, r2)) {
-        dr1 = derivative(elem, r1);
-        dr2 = derivative(elem, r2);
+        dr1 = derivative(elem, r1, is_left);
+        dr2 = derivative(elem, r2, is_left);
         if (dr1 && dr2) {
             result = re().mk_inter(dr1, dr2);
         }
     }
+    else if (m().is_ite(r, p, r1, r2)) {
+        dr1 = derivative(elem, r1, is_left);
+        dr2 = derivative(elem, r2, is_left);
+        if (dr1 && dr2) {
+            result = m().mk_ite(p, dr1, dr2);
+        }
+    }
     else if (re().is_opt(r, r1)) {
-        result = derivative(elem, r1);
+        result = derivative(elem, r1, is_left);
     }
     else if (re().is_complement(r, r1)) {
-        result = derivative(elem, r1);
+        result = derivative(elem, r1, is_left);
         if (result) {
             result = re().mk_complement(result);
         }
     }
     else if (re().is_loop(r, r1, lo)) {
-        result = derivative(elem, r1);
+        result = derivative(elem, r1, is_left);
         if (result) {
             if (lo > 0) {
                 lo--;
@@ -2231,7 +2314,7 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
             result = re().mk_empty(m().get_sort(r));
         }
         else {
-            result = derivative(elem, r1);
+            result = derivative(elem, r1, is_left);
             if (result) {
                 hi--;
                 if (lo > 0) {
@@ -2286,13 +2369,6 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
         expr* args[2] = { p, elem };
         result = array.mk_select(2, args);
         result = kleene_predicate(result, seq_sort);
-    }
-    else if (m().is_ite(r, p, r1, r2)) {
-        dr1 = derivative(elem, r1);
-        dr2 = derivative(elem, r2);
-        if (dr1 && dr2) {
-            result = m().mk_ite(p, dr1, dr2);
-        }
     }
     return result;
 }

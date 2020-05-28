@@ -255,9 +255,10 @@ public:
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
-    expr_ref derivative(expr* hd, expr* r);
-
+    // Support for regular expression derivatives
     expr_ref is_nullable(expr* r);
+    expr_ref reverse(expr* r);
+    expr_ref derivative(expr* hd, expr* r, bool is_left = true);
 
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
 
