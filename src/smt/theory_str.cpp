@@ -86,6 +86,7 @@ namespace smt {
         cacheMissCount(0),
         m_fresh_id(0),
         m_trail_stack(*this),
+        m_library_aware_trail_stack(*this),
         m_find(*this),
         fixed_length_subterm_trail(m),
         fixed_length_assumptions(m),
@@ -915,7 +916,12 @@ namespace smt {
                     break;
                 }
             }
-            m_library_aware_axiom_todo.reset();
+            //m_library_aware_axiom_todo.reset();
+            unsigned nScopes = m_library_aware_trail_stack.get_num_scopes();
+            m_library_aware_trail_stack.reset();
+            for (unsigned i = 0; i < nScopes; ++i) {
+                m_library_aware_trail_stack.push_scope();
+            }
 
             for (auto el : m_delayed_axiom_setup_terms) {
                 // I think this is okay
@@ -1903,6 +1909,7 @@ namespace smt {
     void theory_str::reset_eh() {
         TRACE("str", tout << "resetting" << std::endl;);
         m_trail_stack.reset();
+        m_library_aware_trail_stack.reset();
 
         candidate_model.reset();
         m_basicstr_axiom_todo.reset();
@@ -6855,10 +6862,12 @@ namespace smt {
                     m_concat_eval_todo.push_back(n);
                 } else if (u.str.is_at(ap) || u.str.is_extract(ap) || u.str.is_replace(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_itos(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                 } else if (is_var(ex)) {
                     // if ex is a variable, add it to our list of variables
                     TRACE("str", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
@@ -6884,6 +6893,7 @@ namespace smt {
                     app * ap = to_app(ex);
                     if (u.str.is_prefix(ap) || u.str.is_suffix(ap) || u.str.is_contains(ap) || u.str.is_in_re(ap)) {
                         m_library_aware_axiom_todo.push_back(n);
+                        m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                     }
                 }
             } else {
@@ -6903,10 +6913,12 @@ namespace smt {
                 app * ap = to_app(ex);
                 if (u.str.is_index(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_stoi(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                 }
             }
         } else {
@@ -7131,6 +7143,7 @@ namespace smt {
     void theory_str::push_scope_eh() {
         theory::push_scope_eh();
         m_trail_stack.push_scope();
+        m_library_aware_trail_stack.push_scope();
 
         sLevel += 1;
         TRACE("str", tout << "push to " << sLevel << std::endl;);
@@ -7247,6 +7260,7 @@ namespace smt {
         }
 
         m_trail_stack.pop_scope(num_scopes);
+        m_library_aware_trail_stack.pop_scope(num_scopes);
         theory::pop_scope_eh(num_scopes);
 
         //check_variable_scope();
