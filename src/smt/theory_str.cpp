@@ -1794,35 +1794,40 @@ namespace smt {
 
         // let expr = (str.to-int S)
         // axiom 1: expr >= -1
-        // axiom 2: expr = 0 <==> S = "0"
-        // axiom 3: expr >= 1 ==> len(S) > 0 AND S[0] != "0"
+        // axiom 2: expr = 0 <==> S in "0+"
+        // axiom 3: expr >= 1 ==> S in "0*[1-9][0-9]*"
 
         expr * S = ex->get_arg(0);
         {
             expr_ref axiom1(m_autil.mk_ge(ex, m_autil.mk_numeral(rational::minus_one(), true)), m);
             SASSERT(axiom1);
-            assert_axiom(axiom1);
+            assert_axiom_rw(axiom1);
         }
-
+# if 0
         {
             expr_ref lhs(ctx.mk_eq_atom(ex, m_autil.mk_numeral(rational::zero(), true)), m);
-            expr_ref rhs(ctx.mk_eq_atom(S, mk_string("0")), m);
+            expr_ref re_zeroes(u.re.mk_plus(u.re.mk_to_re(mk_string("0"))), m);
+            expr_ref rhs(mk_RegexIn(S, re_zeroes), m);
             expr_ref axiom2(ctx.mk_eq_atom(lhs, rhs), m);
             SASSERT(axiom2);
-            assert_axiom(axiom2);
+            assert_axiom_rw(axiom2);
         }
 
         {
             expr_ref premise(m_autil.mk_ge(ex, m_autil.mk_numeral(rational::one(), true)), m);
-            // S >= 1 --> S in [1-9][0-9]*
-            expr_ref re_positiveInteger(u.re.mk_concat(
-                    u.re.mk_range(mk_string("1"), mk_string("9")),
-                    u.re.mk_star(u.re.mk_range(mk_string("0"), mk_string("9")))), m);
-            expr_ref conclusion(mk_RegexIn(S, re_positiveInteger), m);
+            //expr_ref re_positiveInteger(u.re.mk_concat(
+            //        u.re.mk_range(mk_string("1"), mk_string("9")),
+            //        u.re.mk_star(u.re.mk_range(mk_string("0"), mk_string("9")))), m);
+            expr_ref re_subterm(u.re.mk_concat(u.re.mk_range(mk_string("1"), mk_string("9")),
+                u.re.mk_star(u.re.mk_range(mk_string("0"), mk_string("9")))), m);
+            expr_ref re_integer(u.re.mk_concat(u.re.mk_star(mk_string("0")), re_subterm), m);
+            expr_ref conclusion(mk_RegexIn(S, re_integer), m);
             SASSERT(premise);
             SASSERT(conclusion);
-            assert_implication(premise, conclusion);
+            //assert_implication(premise, conclusion);
+            assert_axiom_rw(rewrite_implication(premise, conclusion));
         }
+#endif
     }
 
     void theory_str::instantiate_axiom_int_to_str(enode * e) {
@@ -8119,17 +8124,32 @@ namespace smt {
         bool Ival_exists = get_arith_value(a, Ival);
         if (Ival_exists) {
             TRACE("str", tout << "integer theory assigns " << mk_pp(a, m) << " = " << Ival.to_string() << std::endl;);
-            // if that value is not -1, we can assert (str.to.int S) = Ival --> S = "Ival"
+            // if that value is not -1, and we know the length of S, we can assert (str.to.int S) = Ival --> S = "0...(len(S)-len(Ival))...0" ++ "Ival"
             if (!Ival.is_minus_one()) {
-                zstring Ival_str(Ival.to_string().c_str());
-                expr_ref premise(ctx.mk_eq_atom(a, m_autil.mk_numeral(Ival, true)), m);
-                expr_ref conclusion(ctx.mk_eq_atom(S, mk_string(Ival_str)), m);
-                expr_ref axiom(rewrite_implication(premise, conclusion), m);
-                if (!string_int_axioms.contains(axiom)) {
-                    string_int_axioms.insert(axiom);
-                    assert_axiom(axiom);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
-                    axiomAdd = true;
+                rational Slen;
+                if (get_len_value(S, Slen)) {
+                    zstring Ival_str(Ival.to_string().c_str());
+                    if (rational(Ival_str.length()) <= Slen) {
+                        zstring padding;
+                        for (rational i = rational::zero(); i < Slen - rational(Ival_str.length()); ++i) {
+                            padding = padding + zstring("0");
+                        }
+                        expr_ref premise(ctx.mk_eq_atom(a, m_autil.mk_numeral(Ival, true)), m);
+                        expr_ref conclusion(ctx.mk_eq_atom(S, mk_string(padding + Ival_str)), m);
+                        expr_ref axiom(rewrite_implication(premise, conclusion), m);
+                        if (!string_int_axioms.contains(axiom)) {
+                            string_int_axioms.insert(axiom);
+                            assert_axiom(axiom);
+                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                            axiomAdd = true;
+                        }
+                    } else {
+                        // assigned length is too short for the string value
+                        expr_ref premise(ctx.mk_eq_atom(a, mk_int(Ival)), m);
+                        expr_ref conclusion(m_autil.mk_ge(mk_strlen(S), mk_int(Slen)), m);
+                        assert_axiom_rw(rewrite_implication(premise, conclusion));
+                        axiomAdd = true;
+                    }
                 }
             }
         } else {
