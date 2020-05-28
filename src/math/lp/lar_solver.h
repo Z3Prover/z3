@@ -362,7 +362,8 @@ public:
                       const ChangeReport& change_report) {
         if (is_base(j)) {
             TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
-            remove_from_basis(j, val);
+            if (!remove_from_basis(j, val))
+                return false;
         }
 
         impq ival(val);
