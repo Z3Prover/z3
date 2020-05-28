@@ -2115,12 +2115,11 @@ namespace smt {
             // and the parent_it iterator becomes invalidated, because we indirectly modified the container that we're iterating over.
 
             enode_vector current_parents;
-            for (enode_vector::const_iterator parent_it = n_eq_enode->begin_parents(); parent_it != n_eq_enode->end_parents(); parent_it++) {
-                current_parents.insert(*parent_it);
+            for (auto &parent: n_eq_enode->get_parents()) {
+                current_parents.insert(parent);
             }
 
-            for (enode_vector::iterator parent_it = current_parents.begin(); parent_it != current_parents.end(); ++parent_it) {
-                enode * e_parent = *parent_it;
+            for (auto &e_parent : current_parents) {
                 SASSERT(e_parent != nullptr);
 
                 app * a_parent = e_parent->get_owner();
@@ -2326,10 +2325,12 @@ namespace smt {
                     //-------------------------------------------------
                     // Case (3-1) begin: (Concat (Concat var n_eqNode) str )
                     if (arg1 == n_eqNode) {
-                        for (enode_vector::iterator concat_parent_it = e_parent->begin_parents();
-                             concat_parent_it != e_parent->end_parents(); concat_parent_it++) {
-                            enode * e_concat_parent = *concat_parent_it;
-                            app * concat_parent = e_concat_parent->get_owner();
+                        expr_ref_vector concat_parents(m);
+                        for (auto& e_concat_parent : e_parent->get_parents()) {
+                            concat_parents.push_back(e_concat_parent->get_owner());
+                        }
+                        for (auto& _concat_parent : concat_parents) {
+                            app* concat_parent = to_app(_concat_parent);
                             if (u.str.is_concat(concat_parent)) {
                                 expr * concat_parent_arg0 = concat_parent->get_arg(0);
                                 expr * concat_parent_arg1 = concat_parent->get_arg(1);
@@ -2352,10 +2353,12 @@ namespace smt {
                     // Case (3-1) end: (Concat (Concat var n_eqNode) str )
                     // Case (3-2) begin: (Concat str (Concat n_eqNode var) )
                     if (arg0 == n_eqNode) {
-                        for (enode_vector::iterator concat_parent_it = e_parent->begin_parents();
-                             concat_parent_it != e_parent->end_parents(); concat_parent_it++) {
-                            enode * e_concat_parent = *concat_parent_it;
-                            app * concat_parent = e_concat_parent->get_owner();
+                        expr_ref_vector concat_parents(m);
+                        for (auto& e_concat_parent : e_parent->get_parents()) {
+                            concat_parents.push_back(e_concat_parent->get_owner());
+                        }
+                        for (auto& _concat_parent : concat_parents) {
+                            app* concat_parent = to_app(_concat_parent);
                             if (u.str.is_concat(concat_parent)) {
                                 expr * concat_parent_arg0 = concat_parent->get_arg(0);
                                 expr * concat_parent_arg1 = concat_parent->get_arg(1);
