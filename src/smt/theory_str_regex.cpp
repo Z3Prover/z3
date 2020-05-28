@@ -45,7 +45,6 @@ namespace smt {
 
     // Returns false if we need to give up solving, e.g. because we found symbolic expressions in an automaton.
     bool theory_str::solve_regex_automata() {
-        ast_manager & m = get_manager();
 
         // TODO since heuristics might fail, the "no progress" flag might need to be handled specially here
         bool regex_axiom_add = false;
@@ -783,11 +782,9 @@ namespace smt {
         ENSURE(u.is_re(re));
         expr * sub1;
         expr * sub2;
+        zstring str;
         unsigned lo, hi;
-        if (u.re.is_to_re(re, sub1)) {
-            SASSERT(u.str.is_string(sub1));
-            zstring str;
-            u.str.is_string(sub1, str);
+        if (u.re.is_to_re(re, sub1) && u.str.is_string(sub1)) {
             return str.length();
         } else if (u.re.is_complement(re, sub1)) {
             // Why don't we return the regular complexity here?
@@ -958,7 +955,6 @@ namespace smt {
      */
     expr_ref theory_str::infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables) {
         ENSURE(u.is_re(re));
-        ast_manager & m = get_manager();
         expr * sub1;
         expr * sub2;
         unsigned lo, hi;
@@ -1085,7 +1081,6 @@ namespace smt {
      */
     void theory_str::find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut) {
         ENSURE(aut != nullptr);
-        ast_manager & m = get_manager();
 
         expr_ref_vector rhs(m);
         expr * str = nullptr;
@@ -1321,7 +1316,6 @@ namespace smt {
     }
 
     expr_ref theory_str::aut_path_rewrite_constraint(expr * cond, expr * ch_var) {
-        ast_manager & m = get_manager();
 
         expr_ref retval(m);
 
@@ -1377,7 +1371,6 @@ namespace smt {
      */
     expr_ref theory_str::generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints) {
         ENSURE(aut != nullptr);
-        ast_manager & m = get_manager();
 
         if (lenVal.is_zero()) {
             // if any state in the epsilon-closure of the start state is accepting,
