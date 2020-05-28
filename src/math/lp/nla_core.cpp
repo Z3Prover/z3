@@ -1288,10 +1288,10 @@ bool core::has_real(const monic& m) const {
     return false;
 }
 
-
-
-bool core::patch_blocker(lpvar u, const monic& m) const {
+bool core::patch_blocker(lpvar u, const monic& m, const lp::impq& ival) const {
     SASSERT(m_to_refine.contains(m.var()));
+    if (m_cautious_patching && !m_lar_solver.inside_bounds(u, ival))
+        return false;
     if (var_breaks_correct_monic(u)) {
         TRACE("nla_solver", tout << "u = " << u << " blocked as used in a correct monomial\n";);
         return true;
@@ -1307,7 +1307,8 @@ bool core::patch_blocker(lpvar u, const monic& m) const {
 
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
     auto call_before_change = [this](lpvar u) { m_changes_of_patch.insert_if_not_there(u, val(u)); };
-    auto blocker = [this, k, m](lpvar u) { return u != k && patch_blocker(u, m); };
+    auto blocker = [this, k, m](lpvar u, const lp::impq& v)
+        { return u != k && patch_blocker(u, m, v); };
     auto change_report = [this](lpvar u) { update_to_refine_of_var(u); };
     return m_lar_solver.try_to_patch(k, v, blocker, call_before_change, change_report);
 }
@@ -1390,6 +1391,7 @@ void core::restore_patched_values() {
 
 void core::patch_monomials() {
     m_changes_of_patch.reset();
+    m_cautious_patching = true;
     auto to_refine = m_to_refine.index();
     // the rest of the function might change m_to_refine, so have to copy
     unsigned sz = to_refine.size();
@@ -1400,18 +1402,36 @@ void core::patch_monomials() {
         if (m_to_refine.size() == 0)
             break;
     }
-    if (m_to_refine.size()) {
-        restore_patched_values();
+    
+    if (m_to_refine.size() == 0 || !m_nla_settings.expensive_patching()) {
+        return;
     }
-    NOT_IMPLEMENTED_YET();
-    /*
-      If the tableau is not feasible we need to fix all non-linear
-      vars that do not satisfy var_breaks_correct_monic()
-      and find a feasible solution, fix the integral values too.
-     */
-    TRACE("nla_solver", tout << "sz = " << m_to_refine.size() << "\n";);
+    m_cautious_patching = false; //
+    NOT_IMPLEMENTED_YET(); // have to repeat the patching
+    m_lar_solver.push();
+    constrain_nl_in_tableau();
+    if (solve_tableau() && integrality_holds()) {
+        m_lar_solver.pop(1);
+    } else {
+        m_lar_solver.pop();
+        restore_patched_values();
+        m_lar_solver.clear_inf_set();
+    }
     SASSERT(m_lar_solver.ax_is_correct());
 }
+
+void core::constrain_nl_in_tableau() {
+    NOT_IMPLEMENTED_YET();
+}
+
+bool core::solve_tableau() {
+    NOT_IMPLEMENTED_YET();
+}
+
+bool core::integrality_holds() {
+    NOT_IMPLEMENTED_YET();
+}
+
 
 lbool core::check(vector<lemma>& l_vec) {
     lp_settings().stats().m_nla_calls++;
@@ -1433,7 +1453,7 @@ lbool core::check(vector<lemma>& l_vec) {
 
     set_use_nra_model(false);    
 
-    if (l_vec.empty() && !done() && m_nla_settings.propagate_bounds()) 
+    if (l_vec.empty() && !done()) 
         m_monomial_bounds();
     
     if (l_vec.empty() && !done() && need_run_horner()) 
