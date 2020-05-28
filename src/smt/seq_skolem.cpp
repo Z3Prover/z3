@@ -70,7 +70,7 @@ bool seq_skolem::is_length_limit(expr* p, unsigned& lim, expr*& s) const {
 }
 
 
-bool seq_skolem::is_skolem(symbol const& s, expr* e) const {
+bool seq_skolem::is_skolem(symbol const& s, expr const* e) const {
     return seq.is_skolem(e) && to_app(e)->get_decl()->get_parameter(0).get_symbol() == s;
 }
 

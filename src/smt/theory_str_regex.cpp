@@ -36,14 +36,11 @@ namespace smt {
         if (a == UINT_MAX || b == UINT_MAX) {
             return UINT_MAX;
         }
-        if (a == 0 || b == 0) {
-            return 0;
-        }
-        unsigned result = a * b;
-        if (result < a || result < b) {
+        uint64_t result = static_cast<uint64_t>(a) * static_cast<uint64_t>(b);
+        if (result > UINT_MAX) {
             return UINT_MAX;
         }
-        return result;
+        return static_cast<unsigned>(result);
     }
 
     // Returns false if we need to give up solving, e.g. because we found symbolic expressions in an automaton.
@@ -207,7 +204,7 @@ namespace smt {
                         continue;
                     } else {
                         // fixed-length model construction handles path constraints on our behalf, and with a better reduction
-                        return;
+                        return false;
                     }
                 } else {
                     // no automata available, or else all bounds assumptions are invalid

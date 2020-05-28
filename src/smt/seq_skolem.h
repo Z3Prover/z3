@@ -61,11 +61,8 @@ namespace smt {
         expr_ref mk_align_l(expr* e1, expr* e2, expr* e3, expr* e4) { return mk("seq.align.l", e1, e2, e3, e4); }
         expr_ref mk_align_r(expr* e1, expr* e2, expr* e3, expr* e4) { return mk("seq.align.r", e1, e2, e3, e4); }
         expr_ref mk_align_m(expr* e1, expr* e2, expr* e3, expr* e4) {
-            if (is_align(e1) && is_align(e2)) {
-                expr* x1 = to_app(e1)->get_arg(0);
-                expr* x2 = to_app(e1)->get_arg(1);
-                expr* y1 = to_app(e2)->get_arg(0);
-                expr* y2 = to_app(e2)->get_arg(1);
+            expr* x1 = nullptr, *x2 = nullptr, *y1 = nullptr, *y2 = nullptr;
+            if (is_align(e1, x1, x2) && is_align(e2, y1, y2)) {
                 if (x2 == y2 && x1 != y1)
                     return mk_align_m(x1, y1, e3, e4);
             }
@@ -100,8 +97,8 @@ namespace smt {
         expr_ref mk_length_limit(expr* e, unsigned d);
 
         
-        bool is_skolem(symbol const& s, expr* e) const;
-        bool is_skolem(expr* e) const { return seq.is_skolem(e); }
+        bool is_skolem(symbol const& s, expr const* e) const;
+        bool is_skolem(expr const* e) const { return seq.is_skolem(e); }
 
         bool is_unit_inv(expr* e) const { return is_skolem(symbol("seq.unit-inv"), e); }
         bool is_unit_inv(expr* e, expr*& u) const { return is_unit_inv(e) && (u = to_app(e)->get_arg(0), true); }
@@ -124,7 +121,8 @@ namespace smt {
                  r = to_app(e)->get_arg(2), true) && 
                 a.is_unsigned(i, idx);
         }
-        bool is_align(expr* e) const { return is_skolem(symbol("seq.align.m"), e); }
+        bool is_align(expr const* e) const { return is_skolem(symbol("seq.align.m"), e); }
+        MATCH_BINARY(is_align);
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_eq(expr* e, expr*& a, expr*& b) const;

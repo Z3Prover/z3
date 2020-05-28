@@ -939,14 +939,9 @@ bool theory_seq::branch_quat_variable() {
  *      align_m(x1, x, _, _) - align_m(y1, x, _, _) = x1 - y1
  */
 literal theory_seq::mk_alignment(expr* e1, expr* e2) {
-    if (m_sk.is_align(e1) && m_sk.is_align(e2)) {
-        expr* x1 = to_app(e1)->get_arg(0);
-        expr* x2 = to_app(e1)->get_arg(1);
-        expr* y1 = to_app(e2)->get_arg(0);
-        expr* y2 = to_app(e2)->get_arg(1);
-        if (x2 == y2 && x1 != y1) {
-            return mk_alignment(x1, y1);
-        }
+    expr* x1 = nullptr, *x2 = nullptr, *y1 = nullptr, *y2 = nullptr;
+    if (m_sk.is_align(e1, x1, x2) && m_sk.is_align(e2, y1, y2) && x2 == y2 && x1 != y1) {
+        return mk_alignment(x1, y1);
     }
     return mk_simplified_literal(m_autil.mk_le(mk_sub(mk_len(e1), mk_len(e2)), m_autil.mk_int(0)));
 }
