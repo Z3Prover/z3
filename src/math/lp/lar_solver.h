@@ -260,6 +260,7 @@ class lar_solver : public column_namer {
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
     void fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms);
     bool remove_from_basis(unsigned);
+    bool remove_from_basis(unsigned, const mpq&);
     lar_term get_term_to_maximize(unsigned ext_j) const;
     bool sum_first_coords(const lar_term& t, mpq & val) const;
     void collect_rounded_rows_to_fix();
@@ -361,7 +362,7 @@ public:
                       const ChangeReport& change_report) {
         if (is_base(j)) {
             TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
-            remove_from_basis(j);
+            remove_from_basis(j, val);
         }
 
         impq ival(val);
