@@ -135,6 +135,7 @@ class seq_rewriter {
 
     // Support for regular expression derivatives
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
+    bool get_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
     expr_ref kleene_and(expr* cond, expr* r);
     expr_ref kleene_predicate(expr* cond, sort* seq_sort);
 
@@ -175,6 +176,8 @@ class seq_rewriter {
     br_status mk_re_power(func_decl* f, expr* a, expr_ref& result);
     br_status mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
+    br_status mk_re_reverse(expr* r, expr_ref& result);
+    br_status mk_re_derivative(expr* ele, expr* r, expr_ref& result);
     br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
@@ -257,7 +260,7 @@ public:
 
     // Support for regular expression derivatives
     expr_ref is_nullable(expr* r);
-    expr_ref reverse(expr* r);
+    // expr_ref reverse(expr* r); // TODO: remove
     expr_ref derivative(expr* hd, expr* r, bool is_left = true);
 
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);

@@ -75,6 +75,8 @@ enum seq_op_kind {
     OP_RE_FULL_SEQ_SET,
     OP_RE_FULL_CHAR_SET,
     OP_RE_OF_PRED,
+    OP_RE_REVERSE,
+    OP_RE_DERIVATIVE, // Char -> RegEx -> RegEx
 
 
     // string specific operators.
@@ -427,6 +429,8 @@ public:
         app* mk_full_seq(sort* s);
         app* mk_empty(sort* s);
         app* mk_of_pred(expr* p);
+        app* mk_reverse(expr* r) { return m.mk_app(m_fid, OP_RE_REVERSE, r); }
+        app* mk_derivative(expr* ele, expr* r) { return m.mk_app(m_fid, OP_RE_DERIVATIVE, ele, r); }
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
@@ -443,6 +447,8 @@ public:
         bool is_full_char(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_CHAR_SET); }
         bool is_full_seq(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_SEQ_SET); }
         bool is_of_pred(expr const* n) const { return is_app_of(n, m_fid, OP_RE_OF_PRED); }
+        bool is_reverse(expr const* n) const { return is_app_of(n, m_fid, OP_RE_REVERSE); }
+        bool is_derivative(expr const* n) const { return is_app_of(n, m_fid, OP_RE_DERIVATIVE); }
         MATCH_UNARY(is_to_re);
         MATCH_BINARY(is_concat);
         MATCH_BINARY(is_union);
@@ -454,6 +460,8 @@ public:
         MATCH_UNARY(is_plus);
         MATCH_UNARY(is_opt);
         MATCH_UNARY(is_of_pred);
+        MATCH_UNARY(is_reverse);
+        MATCH_BINARY(is_derivative);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
         bool is_loop(expr const* n, expr*& body, unsigned& lo);
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi);
