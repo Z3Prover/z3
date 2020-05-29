@@ -2345,7 +2345,7 @@ bool seq_rewriter::non_overlap(zstring const& s1, zstring const& s2) const {
     for (unsigned j = 0; j + sz1 < sz2; ++j) 
         if (can_overlap(0, sz1, j))
             return false;
-    for (unsigned j = sz2-sz1+1; j < sz2; ++j) 
+    for (unsigned j = sz2 - sz1; j < sz2; ++j) 
         if (can_overlap(0, sz2 - j, j))
             return false;
     return true;
@@ -2381,24 +2381,24 @@ bool seq_rewriter::non_overlap(expr_ref_vector const& p1, expr_ref_vector const&
     for (unsigned j = 0; j + sz1 < sz2; ++j) 
         if (can_overlap(0, sz1, j))
             return false;
-    for (unsigned j = sz2-sz1+1; j < sz2; ++j) 
+    for (unsigned j = sz2 - sz1; j < sz2; ++j) 
         if (can_overlap(0, sz2 - j, j))
             return false;
     return true;
 }
 
-bool seq_rewriter::rewrite_contains(expr* a, expr* b, expr_ref& result) {
+/**
+  simplify extended contains patterns into simpler membership constraints
+       (x ++ "abc" ++ s) in (all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all)
+  => 
+       ("abc" ++ s) in (all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all)
+   or  x in (all ++ "de" ++ all)                & ("abc" ++ s) in (all ++ "ee" ++ all ++ "ff" ++ all)
+   or  x in (all ++ "de" ++ all ++ "ee" ++ all) & ("abc" ++ s) in (all ++ "ff" ++ all)
+   or  x in (all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all) & .. simplifies to true ..
+*/
+
+bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) {
     
-    // 
-    // simplify extended contains patterns into simpler membership constraints
-    // 
-    // x ++ "abc" ++ s in all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all
-    // => 
-    //     "abc" ++ s in (all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all)
-    // or  x in all ++ "de" ++ all & "abc" ++ s in (all ++ "ee" ++ all ++ "ff" ++ all)
-    // or  x in (all ++ "de" ++ all ++ "ee" ++ all) & "abc" ++ s in (all ++ "ff" ++ all)
-    // or  x in (all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all) & .. simplifies to true ..
-    // 
 
     vector<expr_ref_vector> patterns;
     expr* x = nullptr, *y = nullptr, *z = nullptr, *u = nullptr;
@@ -2470,7 +2470,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         }
     }
 
-    if (rewrite_contains(a, b, result)) 
+    if (rewrite_contains_pattern(a, b, result)) 
         return BR_REWRITE_FULL;
 
     return BR_FAILED; 
