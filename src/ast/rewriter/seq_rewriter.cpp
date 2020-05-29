@@ -2072,7 +2072,7 @@ bool seq_rewriter::get_head_tail(expr* s, expr_ref& head, expr_ref& tail) {
     return false;
 }
 
-expr_ref seq_rewriter::kleene_and(expr* cond, expr* r) {
+expr_ref seq_rewriter::re_and(expr* cond, expr* r) {
     if (m().is_true(cond))
         return expr_ref(r, m());    
     expr* re_empty = re().mk_empty(m().get_sort(r));
@@ -2081,9 +2081,9 @@ expr_ref seq_rewriter::kleene_and(expr* cond, expr* r) {
     return expr_ref(m().mk_ite(cond, r, re_empty), m());
 }
 
-expr_ref seq_rewriter::kleene_predicate(expr* cond, sort* seq_sort) {
+expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
     expr_ref re_with_empty(re().mk_to_re(m_util.str.mk_empty(seq_sort)), m());
-    return kleene_and(cond, re_with_empty);
+    return re_and(cond, re_with_empty);
 }
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
@@ -2176,7 +2176,7 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
             else {
                 result = re().mk_union(
                     re().mk_concat(dr1, r2),
-                    kleene_and(is_n, dr2)
+                    re_and(is_n, dr2)
                 );
             }
         }
@@ -2254,7 +2254,7 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
         expr_ref tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            result = kleene_and(
+            result = re_and(
                 m().mk_eq(elem, hd),
                 re().mk_to_re(tl)
             );
@@ -2271,7 +2271,7 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
                 r1 = m_util.mk_char(s1[0]);
                 r2 = m_util.mk_char(s2[0]);
                 result = m().mk_and(m_util.mk_le(r1, elem), m_util.mk_le(elem, r2));
-                result = kleene_predicate(result, seq_sort);
+                result = re_predicate(result, seq_sort);
             }
             else {
                 result = re().mk_empty(m().get_sort(r));
@@ -2285,7 +2285,7 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r) {
         array_util array(m());
         expr* args[2] = { p, elem };
         result = array.mk_select(2, args);
-        result = kleene_predicate(result, seq_sort);
+        result = re_predicate(result, seq_sort);
     }
     else if (m().is_ite(r, p, r1, r2)) {
         dr1 = derivative(elem, r1);
