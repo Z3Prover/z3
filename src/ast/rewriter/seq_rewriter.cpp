@@ -2263,8 +2263,8 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
         expr_ref is_n = is_nullable(r1);
-        expr* dr1 = re().mk_derivative(ele, r1);
-        expr* dr2 = re().mk_derivative(ele, r2);
+        expr_ref dr1(re().mk_derivative(ele, r1), m());
+        expr_ref dr2(re().mk_derivative(ele, r2), m());
         result = re().mk_concat(dr1, r2);
         if (m().is_false(is_n)) {
             return BR_REWRITE2;
