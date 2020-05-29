@@ -1051,6 +1051,7 @@ new_lemma& new_lemma::operator|=(ineq const& ineq) {
 
 new_lemma::~new_lemma() {
     static int i = 0;
+    (void)i;
     // code for checking lemma can be added here
     TRACE("nla_solver", tout << name << " " << (++i) << "\n" << *this; );
 }

@@ -729,6 +729,8 @@ namespace smt {
                 regex_axiom_add = true;
             }
         } // foreach (entry in regex_terms_by_string)
+        // NSB: compiler warns that regex_axiom_add is set but not used.
+        (void)regex_axiom_add;
         return true;
     }
 

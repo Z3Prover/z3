@@ -466,7 +466,7 @@ namespace datalog {
         expr_ref_vector conjs = get_tail_conjs(r);
         for (expr * e : conjs) {
             expr_ref r(m);
-            unsigned v;
+            unsigned v = 0;
             if (is_eq(e, v, r) && is_output(v) && m_var_is_sliceable[v]) {
                 TRACE("dl", tout << "is_eq: " << mk_pp(e, m) << " " << (m_solved_vars[v].get()?"solved":"new") << "\n";);
                 add_var(v);

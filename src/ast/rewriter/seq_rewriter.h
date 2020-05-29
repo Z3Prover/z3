@@ -179,6 +179,12 @@ class seq_rewriter {
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
 
+
+    bool is_re_contains_pattern(expr* r, vector<expr_ref_vector>& patterns);
+    bool non_overlap(expr_ref_vector const& p1, expr_ref_vector const& p2) const;
+    bool non_overlap(zstring const& p1, zstring const& p2) const;
+    bool rewrite_contains(expr* a, expr* b, expr_ref& result);
+
     br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
 
     bool cannot_contain_prefix(expr* a, expr* b);

@@ -1803,7 +1803,7 @@ namespace smt {
         // axiom 2: expr = 0 <==> S in "0+"
         // axiom 3: expr >= 1 ==> S in "0*[1-9][0-9]*"
 
-        expr * S = ex->get_arg(0);
+        // expr * S = ex->get_arg(0);
         {
             expr_ref axiom1(m_autil.mk_ge(ex, m_autil.mk_numeral(rational::minus_one(), true)), m);
             SASSERT(axiom1);
@@ -8676,9 +8676,9 @@ namespace smt {
             bool regexOK = true;
             if (!regex_terms.empty()) {
                 for (auto& str_in_re : regex_terms) {
-                    expr * str;
-                    expr * re;
-                    u.str.is_in_re(str_in_re, str, re);
+                    expr * str = nullptr;
+                    expr * re = nullptr;
+                    VERIFY(u.str.is_in_re(str_in_re, str, re));
                     lbool current_assignment = ctx.get_assignment(str_in_re);
                     if (current_assignment == l_undef) {
                         continue;

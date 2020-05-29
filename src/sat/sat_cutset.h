@@ -41,10 +41,13 @@ namespace sat {
         uint64_t table_mask() const { return (1ull << (1ull << m_size)) - 1ull; }
 
     public:
-        cut(): m_filter(0), m_size(0), m_table(0), m_dont_care(0) {}
+        cut(): m_filter(0), m_size(0), m_table(0), m_dont_care(0) {
+            m_elems[0] = m_elems[1] = m_elems[2] = m_elems[3] = m_elems[4] = 0;
+        }
 
         cut(unsigned id): m_filter(1u << (id & 0x1F)), m_size(1), m_table(2), m_dont_care(0) { 
             m_elems[0] = id; 
+            m_elems[1] = m_elems[2] = m_elems[3] = m_elems[4] = 0;
         }
 
         cut(cut const& other) {
