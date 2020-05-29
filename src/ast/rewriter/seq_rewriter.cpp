@@ -2596,13 +2596,13 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = re().mk_in_re(tl, re().mk_derivative(hd, b));
         return BR_REWRITE2;
     }
-    // else if (get_head_tail_reversed(a, hd, tl)) {
-    //     result = re().mk_in_re(
-    //         hd,
-    //         re().mk_reverse(re().mk_derivative(tl, re().mk_reverse(right_db)))
-    //     );
-    //     return BR_REWRITE_FULL;
-    // }
+    else if (get_head_tail_reversed(a, hd, tl)) {
+        result = re().mk_in_re(
+            hd,
+            re().mk_reverse(re().mk_derivative(tl, re().mk_reverse(b)))
+        );
+        return BR_REWRITE_FULL;
+    }
 
     if (rewrite_contains_pattern(a, b, result))
         return BR_REWRITE_FULL;
