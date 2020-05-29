@@ -303,7 +303,7 @@ namespace smt {
     }
 
     /**
-     * is_non_empty(r, u) => nullable or not c_i or is_non_empty(r_i, u union r)
+     * is_non_empty(r, u) => nullable or \/_i (c_i and is_non_empty(r_i, u union r))
      *
      * for each (c_i, r_i) in cofactors (min-terms)
      *
@@ -337,6 +337,8 @@ namespace smt {
             if (m.is_false(cond))
                 continue;            
             expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, r));
+            if (!m.is_true(cond))
+                next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
         }
         th.add_axiom(lits);

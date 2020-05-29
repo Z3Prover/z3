@@ -2585,6 +2585,147 @@ expr_ref seq_rewriter::derivative(expr* elem, expr* r, bool is_left) {
     return result;
 }
 
+/*
+ * pattern match against all ++ "abc" ++ all ++ "def" ++ all regexes.
+*/
+bool seq_rewriter::is_re_contains_pattern(expr* r, vector<expr_ref_vector>& patterns) {
+    expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
+    if (re().is_concat(r, r1, r2) && re().is_full_seq(r1)) {
+        r = r2;
+        patterns.push_back(expr_ref_vector(m()));
+    }
+    else {
+        return false;
+    }
+    while (re().is_concat(r, r1, r2)) {
+        if (re().is_to_re(r1, s))
+            patterns.back().push_back(s);
+        else if (re().is_full_seq(r1))
+            patterns.push_back(expr_ref_vector(m()));
+        else
+            return false;
+        r = r2;
+    }
+    return re().is_full_seq(r);
+}
+
+/*
+ * return true if the sequences p1, p2 cannot overlap in any way.
+ * assume |p1| <= |p2|
+ *   no suffix of p1 is a prefix of p2
+ *   no prefix of p1 is a suffix of p2
+ *   p1 is not properly contained in p2
+ */
+bool seq_rewriter::non_overlap(zstring const& s1, zstring const& s2) const {
+    unsigned sz1 = s1.length(), sz2 = s2.length();
+    if (sz1 > sz2) 
+        return non_overlap(s2, s1);
+    auto can_overlap = [&](unsigned start1, unsigned end1, unsigned start2) {
+        for (unsigned i = start1; i < end1; ++i) {
+            if (s1[i] != s2[start2 + i])
+                return false;
+        }
+        return true;
+    };
+    for (unsigned i = 1; i < sz1; ++i) 
+        if (can_overlap(i, sz1, 0))
+            return false;
+    for (unsigned j = 0; j + sz1 < sz2; ++j) 
+        if (can_overlap(0, sz1, j))
+            return false;
+    for (unsigned j = sz2 - sz1; j < sz2; ++j) 
+        if (can_overlap(0, sz2 - j, j))
+            return false;
+    return true;
+}
+
+bool seq_rewriter::non_overlap(expr_ref_vector const& p1, expr_ref_vector const& p2) const {
+    unsigned sz1 = p1.size(), sz2 = p2.size();
+    if (sz1 > sz2) 
+        return non_overlap(p2, p1);
+    if (sz1 == 0 || sz2 == 0)
+        return false;
+    zstring s1, s2;
+    if (sz1 == 1 && sz2 == 1 && str().is_string(p1[0], s1) && str().is_string(p2[0], s2))
+        return non_overlap(s1, s2);
+    for (expr* e : p1) 
+        if (!str().is_unit(e))
+            return false;
+    for (expr* e : p2) 
+        if (!str().is_unit(e))
+            return false;
+    auto can_overlap = [&](unsigned start1, unsigned end1, unsigned start2) {
+        for (unsigned i = start1; i < end1; ++i) {
+            if (m().are_distinct(p1[i], p2[start2 + i]))
+                return false;
+            if (!m().are_equal(p1[i], p2[start2 + i]))
+                return true;
+        }
+        return true;
+    };
+    for (unsigned i = 1; i < sz1; ++i) 
+        if (can_overlap(i, sz1, 0))
+            return false;
+    for (unsigned j = 0; j + sz1 < sz2; ++j) 
+        if (can_overlap(0, sz1, j))
+            return false;
+    for (unsigned j = sz2 - sz1; j < sz2; ++j) 
+        if (can_overlap(0, sz2 - j, j))
+            return false;
+    return true;
+}
+
+/**
+  simplify extended contains patterns into simpler membership constraints
+       (x ++ "abc" ++ s) in (all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all)
+  => 
+       ("abc" ++ s) in (all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all)
+   or  x in (all ++ "de" ++ all)                & ("abc" ++ s) in (all ++ "ee" ++ all ++ "ff" ++ all)
+   or  x in (all ++ "de" ++ all ++ "ee" ++ all) & ("abc" ++ s) in (all ++ "ff" ++ all)
+   or  x in (all ++ "de" ++ all ++ "ee" ++ all ++ "ff" ++ all) & .. simplifies to true ..
+*/
+
+bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) {
+    
+
+    vector<expr_ref_vector> patterns;
+    expr* x = nullptr, *y = nullptr, *z = nullptr, *u = nullptr;
+    if (!str().is_concat(a, x, y))
+        return false;
+    if (!is_re_contains_pattern(b, patterns)) 
+        return false;
+    m_lhs.reset();        
+    u = y;
+    while (str().is_concat(u, z, u) && (str().is_unit(z) || str().is_string(z))) {
+        m_lhs.push_back(z);
+    }
+    bool no_overlaps = true;
+    for (auto const& p : patterns)
+        if (!non_overlap(p, m_lhs))
+            return false;
+
+    expr_ref_vector fmls(m());
+    sort* rs = m().get_sort(b);
+    expr_ref full(re().mk_full_seq(rs), m()), prefix(m()), suffix(m());
+    fmls.push_back(re().mk_in_re(y, b));
+    prefix = full;
+    for (unsigned i = 0; i < patterns.size(); ++i) {
+        for (expr* e : patterns[i])
+            prefix = re().mk_concat(prefix, re().mk_to_re(e));
+        prefix = re().mk_concat(prefix, full);
+        suffix = full;
+        for (unsigned j = i + 1; j < patterns.size(); ++j) {
+            for (expr* e : patterns[j])
+                suffix = re().mk_concat(suffix, re().mk_to_re(e));
+            suffix = re().mk_concat(suffix, full);
+        }
+        fmls.push_back(m().mk_and(re().mk_in_re(x, prefix),
+                                  re().mk_in_re(y, suffix)));
+    }
+    result = mk_or(fmls);
+    return true;    
+}
+
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
     if (re().is_empty(b)) {
@@ -2616,6 +2757,9 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             return BR_REWRITE_FULL;
         }
     }
+
+    if (rewrite_contains_pattern(a, b, result)) 
+        return BR_REWRITE_FULL;
 
     return BR_FAILED; 
 }
@@ -3005,7 +3149,7 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
             else {
                 ranges1.reset();
                 ranges1.append(ranges);
-                intersect(0, ch-1, ranges);
+                intersect(0, ch - 1, ranges);
                 intersect(ch + 1, zstring::max_char(), ranges1);
                 ranges.append(ranges1);
             }

@@ -34,7 +34,6 @@ seq_skolem::seq_skolem(ast_manager& m, th_rewriter& rw):
     m_pre            = "seq.pre";  // (seq.pre s l):  prefix of string s of length l
     m_post           = "seq.post"; // (seq.post s l): suffix of string s of length k, based on extract starting at index i of length l
     m_eq             = "seq.eq";
-    m_seq_align      = "seq.align";
     m_max_unfolding  = "seq.max_unfolding";
     m_length_limit   = "seq.length_limit";
     m_is_empty       = "re.is_empty";
@@ -71,7 +70,7 @@ bool seq_skolem::is_length_limit(expr* p, unsigned& lim, expr*& s) const {
 }
 
 
-bool seq_skolem::is_skolem(symbol const& s, expr* e) const {
+bool seq_skolem::is_skolem(symbol const& s, expr const* e) const {
     return seq.is_skolem(e) && to_app(e)->get_decl()->get_parameter(0).get_symbol() == s;
 }
 

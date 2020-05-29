@@ -816,10 +816,7 @@ class smt2_printer {
         TRACE("pp_let", tout << "decls.size(): " << decls.size() << "\n";);
         ptr_buffer<format> buf;
         unsigned num_op = 0;
-        vector<ptr_vector<format> >::iterator it  = decls.begin();
-        vector<ptr_vector<format> >::iterator end = decls.end();
-        for (; it != end; ++it) {
-            ptr_vector<format> & lvl_decls = *it;
+        for (ptr_vector<format> & lvl_decls : decls) {
             if (lvl_decls.empty())
                 continue;
             if (num_op > 0)

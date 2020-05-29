@@ -86,6 +86,7 @@ namespace smt {
         cacheMissCount(0),
         m_fresh_id(0),
         m_trail_stack(*this),
+        m_library_aware_trail_stack(*this),
         m_find(*this),
         fixed_length_subterm_trail(m),
         fixed_length_assumptions(m),
@@ -915,7 +916,12 @@ namespace smt {
                     break;
                 }
             }
-            m_library_aware_axiom_todo.reset();
+            //m_library_aware_axiom_todo.reset();
+            unsigned nScopes = m_library_aware_trail_stack.get_num_scopes();
+            m_library_aware_trail_stack.reset();
+            for (unsigned i = 0; i < nScopes; ++i) {
+                m_library_aware_trail_stack.push_scope();
+            }
 
             for (auto el : m_delayed_axiom_setup_terms) {
                 // I think this is okay
@@ -1794,35 +1800,40 @@ namespace smt {
 
         // let expr = (str.to-int S)
         // axiom 1: expr >= -1
-        // axiom 2: expr = 0 <==> S = "0"
-        // axiom 3: expr >= 1 ==> len(S) > 0 AND S[0] != "0"
+        // axiom 2: expr = 0 <==> S in "0+"
+        // axiom 3: expr >= 1 ==> S in "0*[1-9][0-9]*"
 
-        expr * S = ex->get_arg(0);
+        // expr * S = ex->get_arg(0);
         {
             expr_ref axiom1(m_autil.mk_ge(ex, m_autil.mk_numeral(rational::minus_one(), true)), m);
             SASSERT(axiom1);
-            assert_axiom(axiom1);
+            assert_axiom_rw(axiom1);
         }
-
+# if 0
         {
             expr_ref lhs(ctx.mk_eq_atom(ex, m_autil.mk_numeral(rational::zero(), true)), m);
-            expr_ref rhs(ctx.mk_eq_atom(S, mk_string("0")), m);
+            expr_ref re_zeroes(u.re.mk_plus(u.re.mk_to_re(mk_string("0"))), m);
+            expr_ref rhs(mk_RegexIn(S, re_zeroes), m);
             expr_ref axiom2(ctx.mk_eq_atom(lhs, rhs), m);
             SASSERT(axiom2);
-            assert_axiom(axiom2);
+            assert_axiom_rw(axiom2);
         }
 
         {
             expr_ref premise(m_autil.mk_ge(ex, m_autil.mk_numeral(rational::one(), true)), m);
-            // S >= 1 --> S in [1-9][0-9]*
-            expr_ref re_positiveInteger(u.re.mk_concat(
-                    u.re.mk_range(mk_string("1"), mk_string("9")),
-                    u.re.mk_star(u.re.mk_range(mk_string("0"), mk_string("9")))), m);
-            expr_ref conclusion(mk_RegexIn(S, re_positiveInteger), m);
+            //expr_ref re_positiveInteger(u.re.mk_concat(
+            //        u.re.mk_range(mk_string("1"), mk_string("9")),
+            //        u.re.mk_star(u.re.mk_range(mk_string("0"), mk_string("9")))), m);
+            expr_ref re_subterm(u.re.mk_concat(u.re.mk_range(mk_string("1"), mk_string("9")),
+                u.re.mk_star(u.re.mk_range(mk_string("0"), mk_string("9")))), m);
+            expr_ref re_integer(u.re.mk_concat(u.re.mk_star(mk_string("0")), re_subterm), m);
+            expr_ref conclusion(mk_RegexIn(S, re_integer), m);
             SASSERT(premise);
             SASSERT(conclusion);
-            assert_implication(premise, conclusion);
+            //assert_implication(premise, conclusion);
+            assert_axiom_rw(rewrite_implication(premise, conclusion));
         }
+#endif
     }
 
     void theory_str::instantiate_axiom_int_to_str(enode * e) {
@@ -1898,6 +1909,7 @@ namespace smt {
     void theory_str::reset_eh() {
         TRACE("str", tout << "resetting" << std::endl;);
         m_trail_stack.reset();
+        m_library_aware_trail_stack.reset();
 
         candidate_model.reset();
         m_basicstr_axiom_todo.reset();
@@ -2103,12 +2115,11 @@ namespace smt {
             // and the parent_it iterator becomes invalidated, because we indirectly modified the container that we're iterating over.
 
             enode_vector current_parents;
-            for (enode_vector::const_iterator parent_it = n_eq_enode->begin_parents(); parent_it != n_eq_enode->end_parents(); parent_it++) {
-                current_parents.insert(*parent_it);
+            for (auto &parent: n_eq_enode->get_parents()) {
+                current_parents.insert(parent);
             }
 
-            for (enode_vector::iterator parent_it = current_parents.begin(); parent_it != current_parents.end(); ++parent_it) {
-                enode * e_parent = *parent_it;
+            for (auto &e_parent : current_parents) {
                 SASSERT(e_parent != nullptr);
 
                 app * a_parent = e_parent->get_owner();
@@ -2314,10 +2325,12 @@ namespace smt {
                     //-------------------------------------------------
                     // Case (3-1) begin: (Concat (Concat var n_eqNode) str )
                     if (arg1 == n_eqNode) {
-                        for (enode_vector::iterator concat_parent_it = e_parent->begin_parents();
-                             concat_parent_it != e_parent->end_parents(); concat_parent_it++) {
-                            enode * e_concat_parent = *concat_parent_it;
-                            app * concat_parent = e_concat_parent->get_owner();
+                        expr_ref_vector concat_parents(m);
+                        for (auto& e_concat_parent : e_parent->get_parents()) {
+                            concat_parents.push_back(e_concat_parent->get_owner());
+                        }
+                        for (auto& _concat_parent : concat_parents) {
+                            app* concat_parent = to_app(_concat_parent);
                             if (u.str.is_concat(concat_parent)) {
                                 expr * concat_parent_arg0 = concat_parent->get_arg(0);
                                 expr * concat_parent_arg1 = concat_parent->get_arg(1);
@@ -2340,10 +2353,12 @@ namespace smt {
                     // Case (3-1) end: (Concat (Concat var n_eqNode) str )
                     // Case (3-2) begin: (Concat str (Concat n_eqNode var) )
                     if (arg0 == n_eqNode) {
-                        for (enode_vector::iterator concat_parent_it = e_parent->begin_parents();
-                             concat_parent_it != e_parent->end_parents(); concat_parent_it++) {
-                            enode * e_concat_parent = *concat_parent_it;
-                            app * concat_parent = e_concat_parent->get_owner();
+                        expr_ref_vector concat_parents(m);
+                        for (auto& e_concat_parent : e_parent->get_parents()) {
+                            concat_parents.push_back(e_concat_parent->get_owner());
+                        }
+                        for (auto& _concat_parent : concat_parents) {
+                            app* concat_parent = to_app(_concat_parent);
                             if (u.str.is_concat(concat_parent)) {
                                 expr * concat_parent_arg0 = concat_parent->get_arg(0);
                                 expr * concat_parent_arg1 = concat_parent->get_arg(1);
@@ -6850,10 +6865,12 @@ namespace smt {
                     m_concat_eval_todo.push_back(n);
                 } else if (u.str.is_at(ap) || u.str.is_extract(ap) || u.str.is_replace(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_itos(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                 } else if (is_var(ex)) {
                     // if ex is a variable, add it to our list of variables
                     TRACE("str", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
@@ -6879,6 +6896,7 @@ namespace smt {
                     app * ap = to_app(ex);
                     if (u.str.is_prefix(ap) || u.str.is_suffix(ap) || u.str.is_contains(ap) || u.str.is_in_re(ap)) {
                         m_library_aware_axiom_todo.push_back(n);
+                        m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                     }
                 }
             } else {
@@ -6898,10 +6916,12 @@ namespace smt {
                 app * ap = to_app(ex);
                 if (u.str.is_index(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_stoi(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
                 }
             }
         } else {
@@ -7126,6 +7146,7 @@ namespace smt {
     void theory_str::push_scope_eh() {
         theory::push_scope_eh();
         m_trail_stack.push_scope();
+        m_library_aware_trail_stack.push_scope();
 
         sLevel += 1;
         TRACE("str", tout << "push to " << sLevel << std::endl;);
@@ -7242,6 +7263,7 @@ namespace smt {
         }
 
         m_trail_stack.pop_scope(num_scopes);
+        m_library_aware_trail_stack.pop_scope(num_scopes);
         theory::pop_scope_eh(num_scopes);
 
         //check_variable_scope();
@@ -8119,17 +8141,32 @@ namespace smt {
         bool Ival_exists = get_arith_value(a, Ival);
         if (Ival_exists) {
             TRACE("str", tout << "integer theory assigns " << mk_pp(a, m) << " = " << Ival.to_string() << std::endl;);
-            // if that value is not -1, we can assert (str.to.int S) = Ival --> S = "Ival"
+            // if that value is not -1, and we know the length of S, we can assert (str.to.int S) = Ival --> S = "0...(len(S)-len(Ival))...0" ++ "Ival"
             if (!Ival.is_minus_one()) {
-                zstring Ival_str(Ival.to_string().c_str());
-                expr_ref premise(ctx.mk_eq_atom(a, m_autil.mk_numeral(Ival, true)), m);
-                expr_ref conclusion(ctx.mk_eq_atom(S, mk_string(Ival_str)), m);
-                expr_ref axiom(rewrite_implication(premise, conclusion), m);
-                if (!string_int_axioms.contains(axiom)) {
-                    string_int_axioms.insert(axiom);
-                    assert_axiom(axiom);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
-                    axiomAdd = true;
+                rational Slen;
+                if (get_len_value(S, Slen)) {
+                    zstring Ival_str(Ival.to_string().c_str());
+                    if (rational(Ival_str.length()) <= Slen) {
+                        zstring padding;
+                        for (rational i = rational::zero(); i < Slen - rational(Ival_str.length()); ++i) {
+                            padding = padding + zstring("0");
+                        }
+                        expr_ref premise(ctx.mk_eq_atom(a, m_autil.mk_numeral(Ival, true)), m);
+                        expr_ref conclusion(ctx.mk_eq_atom(S, mk_string(padding + Ival_str)), m);
+                        expr_ref axiom(rewrite_implication(premise, conclusion), m);
+                        if (!string_int_axioms.contains(axiom)) {
+                            string_int_axioms.insert(axiom);
+                            assert_axiom(axiom);
+                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                            axiomAdd = true;
+                        }
+                    } else {
+                        // assigned length is too short for the string value
+                        expr_ref premise(ctx.mk_eq_atom(a, mk_int(Ival)), m);
+                        expr_ref conclusion(m_autil.mk_ge(mk_strlen(S), mk_int(Slen)), m);
+                        assert_axiom_rw(rewrite_implication(premise, conclusion));
+                        axiomAdd = true;
+                    }
                 }
             }
         } else {
@@ -8574,7 +8611,10 @@ namespace smt {
             }
         }
 
-        solve_regex_automata();
+        if (!solve_regex_automata()) {
+            TRACE("str", tout << "regex engine requested to give up!" << std::endl;);
+            return FC_GIVEUP;
+        }
 
         bool needToAssignFreeVars = false;
         expr_ref_vector free_variables(m);
@@ -8633,37 +8673,63 @@ namespace smt {
 
             // We must be be 100% certain that if there are any regex constraints,
             // the string assignment for each variable is consistent with the automaton.
-            // The (probably) easiest way to do this is to ensure
-            // that we have path constraints set up for every assigned regex term.
+            bool regexOK = true;
             if (!regex_terms.empty()) {
-                for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
-                    expr * str_in_re = *it;
-                    expr * str;
-                    expr * re;
-                    u.str.is_in_re(str_in_re, str, re);
+                for (auto& str_in_re : regex_terms) {
+                    expr * str = nullptr;
+                    expr * re = nullptr;
+                    VERIFY(u.str.is_in_re(str_in_re, str, re));
                     lbool current_assignment = ctx.get_assignment(str_in_re);
                     if (current_assignment == l_undef) {
                         continue;
                     }
-                    if (!regex_terms_with_path_constraints.contains(str_in_re)) {
-                        TRACE("str", tout << "assigned regex term " << mk_pp(str_in_re, m) << " has no path constraints -- continuing search" << std::endl;);
-                        return FC_CONTINUE;
+                    zstring strValue;
+                    if (get_string_constant_eqc(str, strValue)) {
+                        // try substituting the current assignment and solving the regex
+                        expr_ref valueInRe(u.re.mk_in_re(mk_string(strValue), re), m);
+                        ctx.get_rewriter()(valueInRe);
+                        if (m.is_true(valueInRe)) {
+                            if (current_assignment == l_false) {
+                                TRACE("str", tout << "regex conflict: " << mk_pp(str, m) << " = \"" << strValue << "\" but must not be in the language " << mk_pp(re, m) << std::endl;);
+                                expr_ref conflictClause(m.mk_or(m.mk_not(ctx.mk_eq_atom(str, mk_string(strValue))), str_in_re), m);
+                                assert_axiom(conflictClause);
+                                add_persisted_axiom(conflictClause);
+                                return FC_CONTINUE;
+                            }
+                        } else if (m.is_false(valueInRe)) {
+                            if (current_assignment == l_true) {
+                                TRACE("str", tout << "regex conflict: " << mk_pp(str, m) << " = \"" << strValue << "\" but must be in the language " << mk_pp(re, m) << std::endl;);
+                                expr_ref conflictClause(m.mk_or(m.mk_not(ctx.mk_eq_atom(str, mk_string(strValue))), m.mk_not(str_in_re)), m);
+                                assert_axiom(conflictClause);
+                                add_persisted_axiom(conflictClause);
+                                return FC_CONTINUE;
+                            }
+                        } else {
+                            // try to keep going, but don't assume the current assignment is right or wrong
+                            regexOK = false;
+                            break;
+                        }
+                    } else {
+                        regexOK = false;
+                        break;
                     }
                 } // foreach (str.in.re in regex_terms)
             }
-
-            if (unused_internal_variables.empty()) {
-                TRACE("str", tout << "All variables are assigned. Done!" << std::endl;);
-                m_stats.m_solved_by = 2;
-                return FC_DONE;
-            } else {
-                TRACE("str", tout << "Assigning decoy values to free internal variables." << std::endl;);
-                for (std::set<expr*>::iterator it = unused_internal_variables.begin(); it != unused_internal_variables.end(); ++it) {
-                    expr * var = *it;
-                    expr_ref assignment(m.mk_eq(var, mk_string("**unused**")), m);
-                    assert_axiom(assignment);
+            // we're not done if some variable in a regex membership predicate was unassigned
+            if (regexOK) {
+                if (unused_internal_variables.empty()) {
+                    TRACE("str", tout << "All variables are assigned. Done!" << std::endl;);
+                    m_stats.m_solved_by = 2;
+                    return FC_DONE;
+                } else {
+                    TRACE("str", tout << "Assigning decoy values to free internal variables." << std::endl;);
+                    for (std::set<expr*>::iterator it = unused_internal_variables.begin(); it != unused_internal_variables.end(); ++it) {
+                        expr * var = *it;
+                        expr_ref assignment(m.mk_eq(var, mk_string("**unused**")), m);
+                        assert_axiom(assignment);
+                    }
+                    return FC_CONTINUE;
                 }
-                return FC_CONTINUE;
             }
         }
 

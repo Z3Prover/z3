@@ -30,7 +30,7 @@ struct theory_seq_params {
 
 
     theory_seq_params(params_ref const & p = params_ref()):
-        m_split_w_len(true),
+        m_split_w_len(false),
         m_seq_validate(false),
         m_seq_use_derivatives(false),
         m_seq_use_unicode(false)

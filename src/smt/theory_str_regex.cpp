@@ -36,19 +36,15 @@ namespace smt {
         if (a == UINT_MAX || b == UINT_MAX) {
             return UINT_MAX;
         }
-        if (a == 0 || b == 0) {
-            return 0;
-        }
-        unsigned result = a * b;
-        if (result < a || result < b) {
+        uint64_t result = static_cast<uint64_t>(a) * static_cast<uint64_t>(b);
+        if (result > UINT_MAX) {
             return UINT_MAX;
         }
-        return result;
+        return static_cast<unsigned>(result);
     }
 
-
-    void theory_str::solve_regex_automata() {
-        ast_manager & m = get_manager();
+    // Returns false if we need to give up solving, e.g. because we found symbolic expressions in an automaton.
+    bool theory_str::solve_regex_automata() {
 
         // TODO since heuristics might fail, the "no progress" flag might need to be handled specially here
         bool regex_axiom_add = false;
@@ -206,69 +202,8 @@ namespace smt {
                         regex_inc_counter(regex_length_attempt_count, re);
                         continue;
                     } else {
-                        expr_ref pathConstraint(m);
-                        expr_ref characterConstraints(m);
-                        pathConstraint = generate_regex_path_constraints(str, assumption.get_automaton(), exact_length_value, characterConstraints);
-                        TRACE("str", tout << "generated regex path constraint " << mk_pp(pathConstraint, m) << std::endl;);
-                        TRACE("str", tout << "character constraints are " << mk_pp(characterConstraints, m) << std::endl;);
-
-                        expr_ref_vector lhs_terms(m);
-                        if (current_assignment == l_true) {
-                            lhs_terms.push_back(str_in_re);
-                        } else {
-                            lhs_terms.push_back(m.mk_not(str_in_re));
-                        }
-                        lhs_terms.push_back(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(exact_length_value, true)));
-                        expr_ref lhs(mk_and(lhs_terms), m);
-
-                        // If the path constraint comes out as "false", this means there are no paths of that length
-                        // in the automaton. If the polarity is the same, we can assert a conflict clause.
-                        // If the polarity is opposite, we ignore the path constraint.
-
-                        if (m.is_false(pathConstraint)) {
-                            if ( (current_assignment == l_true && assumption.get_polarity())
-                                    || (current_assignment == l_false && !assumption.get_polarity())) {
-                                // automaton and constraint have same polarity -- assert conflict clause
-                                TRACE("str", tout << "path constraint is false with matching polarity; asserting conflict clause" << std::endl;);
-                                expr_ref conflict(m.mk_not(mk_and(lhs_terms)), m);
-                                assert_axiom(conflict);
-                                // don't set up "regex_terms_with_path_constraints" as a conflict clause is not a path constraint
-                            } else {
-                                // automaton and constraint have opposite polarity -- ignore path constraint
-                                TRACE("str", tout << "path constraint is false with opposite polarity; ignoring path constraint" << std::endl;);
-                                assert_implication(lhs, characterConstraints);
-                                regex_terms_with_path_constraints.insert(str_in_re);
-                                m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
-                            }
-                            regex_axiom_add = true;
-                        } else {
-                            // If the automaton was built with the same polarity as the constraint,
-                            // assert directly. Otherwise, negate the path constraint
-                            if ( (current_assignment == l_true && assumption.get_polarity())
-                                    || (current_assignment == l_false && !assumption.get_polarity())) {
-                                TRACE("str", tout << "automaton and regex term have same polarity" << std::endl;);
-                                expr_ref rhs(m.mk_and(pathConstraint, characterConstraints), m);
-                                assert_implication(lhs, rhs);
-                            } else {
-                                TRACE("str", tout << "automaton and regex term have opposite polarity" << std::endl;);
-                                expr_ref rhs(m.mk_and(m.mk_not(pathConstraint), characterConstraints), m);
-                                assert_implication(lhs, rhs);
-                            }
-                            regex_terms_with_path_constraints.insert(str_in_re);
-                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
-                            regex_axiom_add = true;
-                        }
-
-                        // increment LengthAttemptCount
-                        regex_inc_counter(regex_length_attempt_count, re);
-
-                        TRACE("str",
-                              {
-                                  unsigned v = regex_get_counter(regex_length_attempt_count, re);
-                                  tout << "length attempt count for " << mk_pp(re, m) << " is " << v << std::endl;
-                              });
-
-                        continue;
+                        // fixed-length model construction handles path constraints on our behalf, and with a better reduction
+                        return false;
                     }
                 } else {
                     // no automata available, or else all bounds assumptions are invalid
@@ -277,6 +212,10 @@ namespace smt {
                         CTRACE("str", regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold,
                                 tout << "failed automaton threshold reached for " << mk_pp(str_in_re, m) << " -- automatically constructing full automaton" << std::endl;);
                         eautomaton * aut = m_mk_aut(re);
+                        if (aut == nullptr) {
+                            TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                            return false;
+                        }
                         aut->compress();
                         regex_automata.push_back(aut);
                         regex_automaton_under_assumptions new_aut(re, aut, true);
@@ -415,6 +354,10 @@ namespace smt {
                     bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
                     if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
                         eautomaton * aut = m_mk_aut(re);
+                        if (aut == nullptr) {
+                            TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                            return false;
+                        }
                         aut->compress();
                         regex_automata.push_back(aut);
                         regex_automaton_under_assumptions new_aut(re, aut, true);
@@ -536,6 +479,10 @@ namespace smt {
                         bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
                         if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
                             eautomaton * aut = m_mk_aut(re);
+                            if (aut == nullptr) {
+                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                return false;
+                            }
                             aut->compress();
                             regex_automata.push_back(aut);
                             regex_automaton_under_assumptions new_aut(re, aut, true);
@@ -569,6 +516,10 @@ namespace smt {
                         if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold
                                 || failureThresholdExceeded) {
                             eautomaton * aut = m_mk_aut(re);
+                            if (aut == nullptr) {
+                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                return false;
+                            }
                             aut->compress();
                             regex_automata.push_back(aut);
                             regex_automaton_under_assumptions new_aut(re, aut, true);
@@ -701,6 +652,10 @@ namespace smt {
                             // need to complement first
                             expr_ref rc(u.re.mk_complement(aut.get_regex_term()), m);
                             eautomaton * aut_c = m_mk_aut(rc);
+                            if (aut_c == nullptr) {
+                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                return false;
+                            }
                             regex_automata.push_back(aut_c);
                             // TODO is there any way to build a complement automaton from an existing one?
                             // this discards length information
@@ -774,9 +729,9 @@ namespace smt {
                 regex_axiom_add = true;
             }
         } // foreach (entry in regex_terms_by_string)
-        if (regex_axiom_add) {
-            //return FC_CONTINUE;
-        }
+        // NSB: compiler warns that regex_axiom_add is set but not used.
+        (void)regex_axiom_add;
+        return true;
     }
 
     unsigned theory_str::estimate_regex_complexity(expr * re) {
@@ -829,11 +784,9 @@ namespace smt {
         ENSURE(u.is_re(re));
         expr * sub1;
         expr * sub2;
+        zstring str;
         unsigned lo, hi;
-        if (u.re.is_to_re(re, sub1)) {
-            SASSERT(u.str.is_string(sub1));
-            zstring str;
-            u.str.is_string(sub1, str);
+        if (u.re.is_to_re(re, sub1) && u.str.is_string(sub1)) {
             return str.length();
         } else if (u.re.is_complement(re, sub1)) {
             // Why don't we return the regular complexity here?
@@ -1004,7 +957,6 @@ namespace smt {
      */
     expr_ref theory_str::infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables) {
         ENSURE(u.is_re(re));
-        ast_manager & m = get_manager();
         expr * sub1;
         expr * sub2;
         unsigned lo, hi;
@@ -1131,7 +1083,6 @@ namespace smt {
      */
     void theory_str::find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut) {
         ENSURE(aut != nullptr);
-        ast_manager & m = get_manager();
 
         expr_ref_vector rhs(m);
         expr * str = nullptr;
@@ -1367,7 +1318,6 @@ namespace smt {
     }
 
     expr_ref theory_str::aut_path_rewrite_constraint(expr * cond, expr * ch_var) {
-        ast_manager & m = get_manager();
 
         expr_ref retval(m);
 
@@ -1423,7 +1373,6 @@ namespace smt {
      */
     expr_ref theory_str::generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints) {
         ENSURE(aut != nullptr);
-        ast_manager & m = get_manager();
 
         if (lenVal.is_zero()) {
             // if any state in the epsilon-closure of the start state is accepting,

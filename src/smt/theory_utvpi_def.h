@@ -834,6 +834,7 @@ namespace smt {
             default:
                 break;
             }
+            (void)ok;
             CTRACE("utvpi", !ok, 
                    tout << "validation failed:\n";
                    tout << "Assignment: " << assign << "\n";

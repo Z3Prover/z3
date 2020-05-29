@@ -382,8 +382,8 @@ namespace smt {
         th_union_find              m_find;
         seq_offset_eq              m_offset_eq;
 
-        obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap;
-        obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap2;
+        obj_ref_map<ast_manager, expr, bool>    m_overlap_lhs;
+        obj_ref_map<ast_manager, expr, bool>    m_overlap_rhs;
 
 
         seq_factory*               m_factory;    // value factory
@@ -476,8 +476,7 @@ namespace smt {
         bool branch_unit_variable();     // branch on XYZ = abcdef
         bool branch_binary_variable();   // branch on abcX = Ydefg 
         bool branch_variable();          // branch on 
-        bool branch_ternary_variable1(); // branch on XabcY = Zdefg 
-        bool branch_ternary_variable2(); // branch on XabcY = defgZ 
+        bool branch_ternary_variable(); // branch on XabcY = Zdefg 
         bool branch_quat_variable();     // branch on XabcY = ZdefgT
         bool len_based_split();          // split based on len offset
         bool branch_variable_mb();       // branch on a variable, model based on length
@@ -492,14 +491,11 @@ namespace smt {
         bool branch_variable_eq(eq const& e);
         bool branch_binary_variable(eq const& e);
         bool eq_unit(expr* l, expr* r) const;       
-        unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        unsigned_vector overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        bool branch_ternary_variable_base(dependency* dep, unsigned_vector const & indexes, expr * x, 
-                                          expr_ref_vector const& xs, expr * y1, expr_ref_vector const& ys, expr * y2);
-        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector const& indexes, expr_ref_vector const& xs, 
-                                           expr * x, expr * y1, expr_ref_vector const& ys, expr * y2);
-        bool branch_ternary_variable(eq const& e, bool flag1 = false);
-        bool branch_ternary_variable2(eq const& e, bool flag1 = false);
+        bool can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool branch_ternary_variable_rhs(eq const& e);
+        bool branch_ternary_variable_lhs(eq const& e);
+        literal mk_alignment(expr* e1, expr* e2);
         bool branch_quat_variable(eq const& e);
         bool len_based_split(eq const& e);
         bool is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs);
@@ -526,8 +522,9 @@ namespace smt {
         bool solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep);
         bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr_ref& y);
         bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
-        bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
-        bool is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
+        bool is_ternary_eq_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+        bool is_ternary_eq_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+
         bool solve_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool propagate_max_length(expr* l, expr* r, dependency* dep);
 
