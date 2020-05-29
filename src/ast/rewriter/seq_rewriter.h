@@ -180,7 +180,6 @@ class seq_rewriter {
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
 
 
-    bool is_re_contains_pattern(expr* r, vector<expr_ref_vector>& patterns);
     bool non_overlap(expr_ref_vector const& p1, expr_ref_vector const& p2) const;
     bool non_overlap(zstring const& p1, zstring const& p2) const;
     bool rewrite_contains_pattern(expr* a, expr* b, expr_ref& result);
@@ -252,6 +251,11 @@ public:
             result = m().mk_app(f, n, args);
         return result;
     }
+
+    /**
+     * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences
+     */
+    bool is_re_contains_pattern(expr* r, vector<expr_ref_vector>& patterns);
         
     bool reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bool& change);
 

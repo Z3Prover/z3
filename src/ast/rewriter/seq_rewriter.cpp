@@ -2398,8 +2398,6 @@ bool seq_rewriter::non_overlap(expr_ref_vector const& p1, expr_ref_vector const&
 */
 
 bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) {
-    
-
     vector<expr_ref_vector> patterns;
     expr* x = nullptr, *y = nullptr, *z = nullptr, *u = nullptr;
     if (!str().is_concat(a, x, y))
