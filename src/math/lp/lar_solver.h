@@ -358,7 +358,7 @@ public:
     
     template <typename Blocker, typename ChangeReport>
     bool try_to_patch(lpvar j, const mpq& val,
-                      const Blocker& blocker,
+                      const Blocker& is_blocked,
                       const ChangeReport& change_report) {
         if (is_base(j)) {
             TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
@@ -367,7 +367,7 @@ public:
         }
 
         impq ival(val);
-        if (!blocker(j, ival))
+        if (is_blocked(j, ival))
             return false;
 
         impq delta = get_column_value(j) - ival;
@@ -378,7 +378,7 @@ public:
             impq rj_new_val = a * delta + get_column_value(rj);
             // if (column_is_int(rj) && !rj_new_val.is_int())
             //     return false;
-            if (blocker(rj, rj_new_val))
+            if (is_blocked(rj, rj_new_val))
                 return false;
         }
 
