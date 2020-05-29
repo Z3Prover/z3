@@ -1286,11 +1286,11 @@ bool core::has_real(const monic& m) const {
             return true;
     return false;
 }
-
-bool core::patch_blocker(lpvar u, const monic& m, const lp::impq& ival) const {
+// returns true if the patching is blocking
+bool core::patch_is_blocked(lpvar u, const monic& m, const lp::impq& ival) const {
     SASSERT(m_to_refine.contains(m.var()));
     if (m_cautious_patching && !m_lar_solver.inside_bounds(u, ival))
-        return false;
+        return true; // blocking
     if (var_breaks_correct_monic(u)) {
         TRACE("nla_solver", tout << "u = " << u << " blocked as used in a correct monomial\n";);
         return true;
@@ -1305,10 +1305,10 @@ bool core::patch_blocker(lpvar u, const monic& m, const lp::impq& ival) const {
 }
 
 bool core::try_to_patch(lpvar k, const rational& v, const monic & m) {
-    auto blocker = [this, k, m](lpvar u, const lp::impq& v)
-        { return u != k && patch_blocker(u, m, v); };
+    auto is_blocked = [this, k, m](lpvar u, const lp::impq& v)
+        { return u != k && patch_is_blocked(u, m, v); };
     auto change_report = [this](lpvar u) { update_to_refine_of_var(u); };
-    return m_lar_solver.try_to_patch(k, v, blocker, change_report);
+    return m_lar_solver.try_to_patch(k, v, is_blocked, change_report);
 }
 
 bool in_power(const svector<lpvar>& vs, unsigned l) {

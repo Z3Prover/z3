@@ -474,7 +474,7 @@ public:
     void update_to_refine_of_var(lpvar j);
     bool try_to_patch(lpvar, const rational&, const monic&);
     bool to_refine_is_correct() const;
-    bool patch_blocker(lpvar u, const monic& m, const lp::impq&) const;
+    bool patch_is_blocked(lpvar u, const monic& m, const lp::impq&) const;
     bool has_big_num(const monic&) const;
     bool var_is_big(lpvar) const;
     bool has_real(const factorization&) const;
