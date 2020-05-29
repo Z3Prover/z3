@@ -47,19 +47,37 @@ namespace smt {
     }
 
     /**
-     * is_string_equality holds of str.in_re s R, if R is of the form .* ++ x ++ .* ++ y ++ .* ++ 
+     * is_string_equality holds of str.in_re s R, 
+     * 
+     * s in (all ++ x ++ all ++ y ++ all)
+     * => 
      * s = fresh1 ++ x ++ fresh2 ++ y ++ fresh3
      * 
-     * example rewrite:
-     * (str.in_re s .* ++ R) => s = x ++ y and (str.in_re y R)
-     * 
-     * is_string_equality is currently placed under propagate_accept.
-     * this allows extracting string equalities after processing regexes that are not
-     * simple unions of simple concatentations. Though, it may produce different equations for 
-     * alternate values of the unfolding index.
+     * TBD General rewrite possible:
+     *
+     * s in (R ++ Q)
+     * =>
+     * s = x ++ y and x in R and y in Q
      */
 
     bool seq_regex::is_string_equality(literal lit) {
+        expr* s = nullptr, *r = nullptr;
+        expr* e = ctx.bool_var2expr(lit.var());
+        VERIFY(str().is_in_re(e, s, r));
+        vector<expr_ref_vector> patterns;
+        if (seq_rw().is_re_contains_pattern(r, patterns)) {
+            expr_ref t(m);
+            expr_ref_vector ts(m);
+            sort* seq_sort = m.get_sort(s);
+            ts.push_back(m.mk_fresh_const("seq.cont", seq_sort));
+            for (auto const& p : patterns) {
+                ts.append(p);
+                ts.push_back(m.mk_fresh_const("seq.cont", seq_sort));
+            }
+            t = th.mk_concat(ts, seq_sort);
+            th.propagate_eq(lit, s, t, true);
+            return true;
+        }
         return false;
     }
 
@@ -93,7 +111,12 @@ namespace smt {
 
         if (coallesce_in_re(lit))
             return;
-        
+
+#if 0
+        // Enable/disable to test effect
+        if (is_string_equality(lit))
+            return;
+#endif        
         //
         // TBD s in R => R != {}
         // non-emptiness enforcement could instead of here, 
@@ -169,9 +192,6 @@ namespace smt {
         expr_ref is_nullable(m), d(r, m);
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
-
-        if (is_string_equality(lit))
-            return true;
 
         if (block_unfolding(lit, idx))
             return true;

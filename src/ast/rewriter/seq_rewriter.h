@@ -136,8 +136,8 @@ class seq_rewriter {
     // Support for regular expression derivatives
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     bool get_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
-    expr_ref kleene_and(expr* cond, expr* r);
-    expr_ref kleene_predicate(expr* cond, sort* seq_sort);
+    expr_ref re_and(expr* cond, expr* r);
+    expr_ref re_predicate(expr* cond, sort* seq_sort);
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
@@ -183,7 +183,6 @@ class seq_rewriter {
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
 
 
-    bool is_re_contains_pattern(expr* r, vector<expr_ref_vector>& patterns);
     bool non_overlap(expr_ref_vector const& p1, expr_ref_vector const& p2) const;
     bool non_overlap(zstring const& p1, zstring const& p2) const;
     bool rewrite_contains_pattern(expr* a, expr* b, expr_ref& result);
@@ -256,6 +255,11 @@ public:
         return result;
     }
 
+    /**
+     * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences
+     */
+    bool is_re_contains_pattern(expr* r, vector<expr_ref_vector>& patterns);
+        
     bool reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bool& change);
 
     bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change);
