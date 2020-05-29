@@ -2151,7 +2151,8 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     }
     else if (re().is_plus(r, r1) ||
         (re().is_loop(r, r1, lo) && lo > 0) ||
-        (re().is_loop(r, r1, lo, hi) && lo > 0)) {
+        (re().is_loop(r, r1, lo, hi) && lo > 0) ||
+        (re().is_reverse(r, r1))) {
         result = is_nullable(r1);
     }
     else if (re().is_complement(r, r1)) {
@@ -2244,7 +2245,10 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     }
 }
 
-
+/*
+    derivative: seq -> regex -> regex
+    seq should be single char
+*/
 br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     sort* seq_sort = nullptr, *ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
@@ -2270,7 +2274,7 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         }
     }
     else if (re().is_star(r, r1)) {
-        result = re().mk_concat(re().mk_derivative(ele, r1), r1);
+        result = re().mk_concat(re().mk_derivative(ele, r1), r);
         return BR_REWRITE2;
     }
     else if (re().is_plus(r, r1)) {
@@ -2375,7 +2379,7 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
             );
             return BR_REWRITE3;
         }
-        else if (m_util.str.is_empty(r1)) {
+        else if (m_util.str.is_empty(r2)) {
             result = re().mk_empty(m().get_sort(r));
             return BR_DONE;
         }
@@ -2414,175 +2418,6 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     // stuck cases: re().is_derivative, variable, ...
     // and re().is_reverse if the reverse is not applied to a string
     return BR_FAILED;
-}
-
-/*
-    Symbolic derivative of r with respect to elem
-    Evaluates recursively.
-    Left-derivative by default; right-derivative by setting left = false.
-    Returns null expression `expr_ref(m())` on failure.
-    If r is null, returns null.
-*/
-expr_ref seq_rewriter::derivative(expr* elem, expr* r, bool is_left) {
-    sort* seq_sort = nullptr, *elem_sort = nullptr;
-    VERIFY(m_util.is_re(r, seq_sort));
-    VERIFY(m_util.is_seq(seq_sort, elem_sort));
-    SASSERT(elem_sort == m().get_sort(elem));
-    expr_ref result(m());
-    // Argument is null case
-    if (!r) {
-        result = r;
-        return result;
-    }
-    // Right derivative case
-    // if (!is_left) {
-    //     result = derivative(elem, reverse(r));
-    //     if (result) {
-    //         result = reverse(result);
-    //     }
-    //     return result;
-    // }
-    // Left derivative case (main logic)
-    expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
-    expr_ref dr1(m()), dr2(m());
-    unsigned lo = 0, hi = 0;
-    if (re().is_concat(r, r1, r2)) {
-        expr_ref is_n = is_nullable(r1);
-        dr1 = derivative(elem, r1, is_left);
-        if (dr1 && m().is_false(is_n)) {
-            result = re().mk_concat(dr1, r2);
-        }
-        else if (dr1 && m().is_true(is_n)) {
-            dr2 = derivative(elem, r2, is_left);
-            if (dr2) {
-                result = re().mk_union(
-                    re().mk_concat(dr1, r2),
-                    dr2
-                );
-            }
-        }
-        else if (dr1) {
-            dr2 = derivative(elem, r2, is_left);
-            result = re().mk_union(
-                re().mk_concat(dr1, r2),
-                kleene_and(is_n, dr2)
-            );
-        }
-    }
-    else if (re().is_star(r, r1)) {
-        result = derivative(elem, r1, is_left);
-        if (result) {
-            result = re().mk_concat(result, r);
-        }
-    }
-    else if (re().is_plus(r, r1)) {
-        result = re().mk_star(r1);
-        result = derivative(elem, result, is_left);
-    }
-    else if (re().is_union(r, r1, r2)) {
-        dr1 = derivative(elem, r1, is_left);
-        dr2 = derivative(elem, r2, is_left);
-        if (dr1 && dr2) {
-            result = re().mk_union(dr1, dr2);
-        }
-    }
-    else if (re().is_intersection(r, r1, r2)) {
-        dr1 = derivative(elem, r1, is_left);
-        dr2 = derivative(elem, r2, is_left);
-        if (dr1 && dr2) {
-            result = re().mk_inter(dr1, dr2);
-        }
-    }
-    else if (m().is_ite(r, p, r1, r2)) {
-        dr1 = derivative(elem, r1, is_left);
-        dr2 = derivative(elem, r2, is_left);
-        if (dr1 && dr2) {
-            result = m().mk_ite(p, dr1, dr2);
-        }
-    }
-    else if (re().is_opt(r, r1)) {
-        result = derivative(elem, r1, is_left);
-    }
-    else if (re().is_complement(r, r1)) {
-        result = derivative(elem, r1, is_left);
-        if (result) {
-            result = re().mk_complement(result);
-        }
-    }
-    else if (re().is_loop(r, r1, lo)) {
-        result = derivative(elem, r1, is_left);
-        if (result) {
-            if (lo > 0) {
-                lo--;
-            }
-            result = re().mk_concat(
-                result,
-                re().mk_loop(r1, lo)
-            );
-        }
-    }
-    else if (re().is_loop(r, r1, lo, hi)) {
-        if (hi == 0) {
-            result = re().mk_empty(m().get_sort(r));
-        }
-        else {
-            result = derivative(elem, r1, is_left);
-            if (result) {
-                hi--;
-                if (lo > 0) {
-                    lo--;
-                }
-                result = re().mk_concat(
-                    result,
-                    re().mk_loop(r1, lo, hi)
-                );
-            }
-        }
-    }
-    else if (re().is_full_seq(r) ||
-             re().is_empty(r)) {
-        result = r;
-    }
-    else if (re().is_to_re(r, r1)) {
-        // r1 is a string here (not a regexp)
-        expr_ref hd(m());
-        expr_ref tl(m());
-        if (get_head_tail(r1, hd, tl)) {
-            // head must be equal; if so, derivative is tail
-            result = kleene_and(
-                m().mk_eq(elem, hd),
-                re().mk_to_re(tl)
-            );
-        }
-        else if (m_util.str.is_empty(r1)) {
-            result = re().mk_empty(m().get_sort(r));
-        }
-    }
-    else if (re().is_range(r, r1, r2)) {
-        // r1, r2 are sequences.
-        zstring s1, s2;
-        if (m_util.str.is_string(r1, s1) && m_util.str.is_string(r2, s2)) {
-            if (s1.length() == 1 && s2.length() == 1) {
-                r1 = m_util.mk_char(s1[0]);
-                r2 = m_util.mk_char(s2[0]);
-                result = m().mk_and(m_util.mk_le(r1, elem), m_util.mk_le(elem, r2));
-                result = kleene_predicate(result, seq_sort);
-            }
-            else {
-                result = re().mk_empty(m().get_sort(r));
-            }
-        }
-    }
-    else if (re().is_full_char(r)) {
-        result = re().mk_to_re(m_util.str.mk_empty(seq_sort));
-    }
-    else if (re().is_of_pred(r, p)) {
-        array_util array(m());
-        expr* args[2] = { p, elem };
-        result = array.mk_select(2, args);
-        result = kleene_predicate(result, seq_sort);
-    }
-    return result;
 }
 
 /*
@@ -2699,7 +2534,6 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
     while (str().is_concat(u, z, u) && (str().is_unit(z) || str().is_string(z))) {
         m_lhs.push_back(z);
     }
-    bool no_overlaps = true;
     for (auto const& p : patterns)
         if (!non_overlap(p, m_lhs))
             return false;
@@ -2726,6 +2560,14 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
     return true;    
 }
 
+/*
+    a in empty -> false
+    a in full -> true
+    a in (str.to_re a') -> (a == a')
+    "" in b -> is_nullable(b)
+    (ele + tail) in b -> tail in (derivative e b)
+    (head + ele) in b -> head in (right-derivative e b)
+*/
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
     if (re().is_empty(b)) {
@@ -2751,17 +2593,21 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
     expr_ref hd(m()), tl(m());
     if (get_head_tail(a, hd, tl)) {
-        expr_ref db = derivative(hd, b); // null if failed
-        if (db) {
-            result = re().mk_in_re(tl, db);
-            return BR_REWRITE_FULL;
-        }
+        result = re().mk_in_re(tl, re().mk_derivative(hd, b));
+        return BR_REWRITE2;
     }
+    // else if (get_head_tail_reversed(a, hd, tl)) {
+    //     result = re().mk_in_re(
+    //         hd,
+    //         re().mk_reverse(re().mk_derivative(tl, re().mk_reverse(right_db)))
+    //     );
+    //     return BR_REWRITE_FULL;
+    // }
 
-    if (rewrite_contains_pattern(a, b, result)) 
+    if (rewrite_contains_pattern(a, b, result))
         return BR_REWRITE_FULL;
 
-    return BR_FAILED; 
+    return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {

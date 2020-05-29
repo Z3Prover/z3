@@ -196,10 +196,9 @@ namespace smt {
             return false;
 
         // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
-        expr_ref head = th.mk_nth(s, i);        
-        d = seq_rw().derivative(head, d);
-        if (!d) 
-            throw default_exception("unable to expand derivative");
+        expr_ref head = th.mk_nth(s, i);
+        d = re().mk_derivative(head, r);
+        rewrite(d);
 
         literal acc_next = th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d));
         conds.push_back(~lit);
@@ -319,9 +318,9 @@ namespace smt {
             return;
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r);
-        expr_ref d = seq_rw().derivative(hd, r);
-        if (!d)
-            throw default_exception("derivative was not defined");
+        expr_ref d(m);
+        d = re().mk_derivative(hd, r);
+        rewrite(d);
         literal_vector lits;
         lits.push_back(~lit);
         if (null_lit != false_literal) 
@@ -362,9 +361,9 @@ namespace smt {
         }
         th.add_axiom(~lit, ~th.mk_literal(is_nullable));
         expr_ref hd = mk_first(r);
-        expr_ref d = seq_rw().derivative(hd, r);
-        if (!d)
-            throw default_exception("derivative was not defined");
+        expr_ref d(m);
+        d = re().mk_derivative(hd, r);
+        rewrite(d);
         literal_vector lits;
         expr_ref_pair_vector cofactors(m);
         seq_rw().get_cofactors(d, cofactors);

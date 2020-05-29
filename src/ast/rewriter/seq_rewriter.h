@@ -255,7 +255,7 @@ public:
             result = m().mk_app(f, n, args);
         return result;
     }
-        
+
     bool reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bool& change);
 
     bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs, bool& change);
@@ -264,10 +264,7 @@ public:
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
-    // Support for regular expression derivatives
     expr_ref is_nullable(expr* r);
-    // expr_ref reverse(expr* r); // TODO: remove
-    expr_ref derivative(expr* hd, expr* r, bool is_left = true);
 
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
 
