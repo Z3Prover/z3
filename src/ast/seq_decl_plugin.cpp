@@ -205,6 +205,14 @@ zstring& zstring::operator=(zstring const& other) {
     return *this;
 }
 
+zstring zstring::reverse() const {
+    zstring result;
+    for (unsigned i = length(); i-- > 0; ) {
+        result.m_buffer.push_back(m_buffer[i]);
+    }
+    return result;
+}
+
 zstring zstring::replace(zstring const& src, zstring const& dst) const {
     zstring result;
     if (length() < src.length()) {

@@ -112,7 +112,7 @@ namespace smt {
         if (coallesce_in_re(lit))
             return;
 
-#if 0
+#if 1
         // Enable/disable to test effect
         if (is_string_equality(lit))
             return;

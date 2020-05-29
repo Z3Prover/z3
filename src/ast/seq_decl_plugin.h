@@ -126,6 +126,7 @@ public:
     zstring(unsigned ch);
     zstring& operator=(zstring const& other);
     zstring replace(zstring const& src, zstring const& dst) const;
+    zstring reverse() const;
     std::string encode() const;
     unsigned length() const { return m_buffer.size(); }
     unsigned operator[](unsigned i) const { return m_buffer[i]; }
