@@ -63,16 +63,21 @@ namespace smt {
     bool seq_regex::is_string_equality(literal lit) {
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
+        expr_ref id(a().mk_int(e->get_id()), m);
+        unsigned idx = 0;
         VERIFY(str().is_in_re(e, s, r));
+        sort* seq_sort = m.get_sort(s);
         vector<expr_ref_vector> patterns;
+        auto mk_cont = [&](unsigned idx) {
+            return sk().mk("seq.cont", id, a().mk_int(idx), seq_sort);
+        };
         if (seq_rw().is_re_contains_pattern(r, patterns)) {
             expr_ref t(m);
             expr_ref_vector ts(m);
-            sort* seq_sort = m.get_sort(s);
-            ts.push_back(m.mk_fresh_const("seq.cont", seq_sort));
+            ts.push_back(mk_cont(idx));
             for (auto const& p : patterns) {
                 ts.append(p);
-                ts.push_back(m.mk_fresh_const("seq.cont", seq_sort));
+                ts.push_back(mk_cont(idx));
             }
             t = th.mk_concat(ts, seq_sort);
             th.propagate_eq(lit, s, t, true);

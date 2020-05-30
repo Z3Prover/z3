@@ -706,9 +706,6 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     if (st == BR_FAILED) {
         st = lift_ite(f, num_args, args, result);
     }
-    if (st != BR_FAILED && m().get_sort(result) != f->get_range()) {
-        std::cout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";
-    }
     CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     SASSERT(st == BR_FAILED || m().get_sort(result) == f->get_range());
     return st;
@@ -2604,7 +2601,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
 
-    if (rewrite_contains_pattern(a, b, result))
+    if (false && rewrite_contains_pattern(a, b, result))
         return BR_REWRITE_FULL;
 
     return BR_FAILED;
@@ -3463,6 +3460,8 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         reduce_itos(rs, ls, eqs) &&
         reduce_by_length(ls, rs, eqs) &&
         reduce_subsequence(ls, rs, eqs) &&
+        reduce_non_overlap(ls, rs, eqs) && 
+        reduce_non_overlap(rs, ls, eqs) && 
         (change = (hash_l != ls.hash() || hash_r != rs.hash() || eqs.size() != sz_eqs), 
          true);
 }
@@ -3687,6 +3686,29 @@ bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
 bool seq_rewriter::is_epsilon(expr* e) const {
     expr* e1;
     return re().is_to_re(e, e1) && str().is_empty(e1);
+}
+
+/**
+   reduce for the case where rs = a constant string, 
+   ls contains a substring that matches no substring of rs.
+ */
+bool seq_rewriter::reduce_non_overlap(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs) {
+    for (expr* u : rs)
+        if (!str().is_unit(u))
+            return true;
+    expr_ref_vector pattern(m());
+    for (expr* x : ls) {
+        if (str().is_unit(x))
+            pattern.push_back(x);
+        else if (!pattern.empty()) {
+            if (non_overlap(pattern, rs))
+                return false;
+            pattern.reset();
+        }
+    }
+    if (!pattern.empty() && non_overlap(pattern, rs))
+        return false;
+    return true;
 }
 
 bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs) {

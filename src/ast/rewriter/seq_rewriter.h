@@ -199,6 +199,7 @@ class seq_rewriter {
     bool sign_is_determined(expr* len, sign& s);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_pair_vector& eqs);
+    bool reduce_non_overlap(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
