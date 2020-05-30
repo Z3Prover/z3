@@ -1,20 +1,9 @@
 /*++
 Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
-
-    <name>
-
-Abstract:
-
-    <abstract>
-
 Author:
 
     Lev Nachmanson (levnach)
-
-Revision History:
-
 
 --*/
 
@@ -30,27 +19,26 @@ Revision History:
 namespace lp {
 
 template <typename T>
-struct row_cell {
-    unsigned m_j; // points to the column
-    unsigned m_offset; // offset in column
-    T        m_value;
-    row_cell(unsigned j, unsigned offset, T const & val) : m_j(j), m_offset(offset), m_value(val) {
+class row_cell {
+    unsigned m_j;         // points to the column
+    unsigned m_offset;    // offset in column
+    T        m_coeff;     // coefficient
+public:
+    row_cell(unsigned j, unsigned offset, T const & val) : m_j(j), m_offset(offset), m_coeff(val) {
     }
     row_cell(unsigned j, unsigned offset) : m_j(j), m_offset(offset) {
     }
-    const T & get_val() const { return m_value;}
-    T & get_val() { return m_value;}
-    const T & coeff() const { return m_value;}
-    T & coeff() { return m_value;}
-    unsigned var() const { return m_j;}
-    unsigned & var() { return m_j;}
-    unsigned offset() const { return m_offset;}
-    unsigned & offset() { return m_offset;}
-            
+    inline const T & coeff() const { return m_coeff; }
+    inline T & coeff() { return m_coeff; }
+    inline unsigned var() const { return m_j; }
+    inline unsigned & var() { return m_j; }
+    inline unsigned offset() const { return m_offset; }
+    inline unsigned & offset() { return m_offset; }            
 };
+
 template <typename T>
 std::ostream& operator<<(std::ostream& out, const row_cell<T>& rc) {
-    return out << "(m_j=" << rc.m_j << ", m_offset= " << rc.m_offset << ", m_value=" << rc.m_value << ")";   
+    return out << "(j=" << rc.var() << ", offset= " << rc.offset() << ", coeff=" << rc.coeff() << ")";   
 }
 struct empty_struct {};
 typedef row_cell<empty_struct> column_cell;
@@ -102,11 +90,11 @@ public:
 public:
 
     const T & get_val(const column_cell & c) const {
-        return m_rows[c.var()][c.m_offset].get_val();
+        return m_rows[c.var()][c.offset()].coeff();
     }
 
     column_cell & get_column_cell(const row_cell<T> &rc) {
-        return m_columns[rc.m_j][rc.m_offset];
+        return m_columns[rc.var()][rc.offset()];
     }
     
     void init_row_columns(unsigned m, unsigned n);
@@ -243,7 +231,7 @@ public:
 
     void pop_row_columns(const vector<row_cell<T>> & row) {
         for (auto & c : row) {
-            unsigned j = c.m_j;
+            unsigned j = c.var();
             auto & col = m_columns[j];
             lp_assert(col[col.size() - 1].var() == m_rows.size() -1 ); // todo : start here!!!!
             col.pop_back();
@@ -277,13 +265,13 @@ public:
 
     void multiply_row(unsigned row, T const & alpha) {
         for (auto & t : m_rows[row]) {
-            t.m_value *= alpha;
+            t.coeff() *= alpha;
         }
     }
 
     void divide_row(unsigned row, T const & alpha) {
         for (auto & t : m_rows[row]) {
-            t.m_value /= alpha;
+            t.coeff() /= alpha;
         }
     }
     
@@ -306,12 +294,12 @@ public:
         m_rows[ii] = t;
         // now fix the columns
         for (auto & rc : m_rows[i]) {
-            column_cell & cc = m_columns[rc.m_j][rc.m_offset];
+            column_cell & cc = m_columns[rc.var()][rc.offset()];
             lp_assert(cc.var() == ii);
             cc.var() = i;
         }
         for (auto & rc : m_rows[ii]) {
-            column_cell & cc = m_columns[rc.m_j][rc.m_offset];
+            column_cell & cc = m_columns[rc.var()][rc.offset()];
             lp_assert(cc.var() == i);
             cc.var() = ii;
         }
@@ -326,17 +314,17 @@ public:
             return;
         
         for (const auto & c : m_rows[row_index]) {
-            if (c.m_j == j) {
+            if (c.var() == j) {
                 continue;
             }
-            T & wv = m_work_vector.m_data[c.m_j];
+            T & wv = m_work_vector.m_data[c.var()];
             bool was_zero = is_zero(wv);
-            wv -= alpha * c.m_value;
+            wv -= alpha * c.coeff();
             if (was_zero)
-                m_work_vector.m_index.push_back(c.m_j);
+                m_work_vector.m_index.push_back(c.var());
             else {
                 if (is_zero(wv)) {
-                    m_work_vector.erase_from_index(c.m_j);
+                    m_work_vector.erase_from_index(c.var());
                 }
             }
         }
@@ -390,7 +378,7 @@ public:
         L ret = zero_of_type<L>();
         lp_assert(row < m_rows.size());
         for (auto & it : m_rows[row]) {
-            ret += w[it.m_j] * it.get_val();
+            ret += w[it.var()] * it.coeff();
         }
         return ret;
     }
@@ -402,7 +390,7 @@ public:
         column_cell_plus(const column_cell & c, const static_matrix& A) :
             m_c(c), m_A(A) {}
         unsigned var() const { return m_c.var(); }
-        const T & coeff() const { return m_A.m_rows[var()][m_c.m_offset].get_val(); }
+        const T & coeff() const { return m_A.m_rows[var()][m_c.offset()].coeff(); }
         
     };
     

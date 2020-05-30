@@ -47,21 +47,21 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     T alpha = -get_val(c);
     lp_assert(!is_zero(alpha));
     auto & rowii = m_rows[ii];
-    remove_element(rowii, rowii[c.m_offset]);
+    remove_element(rowii, rowii[c.offset()]);
     scan_row_ii_to_offset_vector(rowii);
     unsigned prev_size_ii = rowii.size();
     // run over the pivot row and update row ii
     for (const auto & iv : m_rows[i]) {
         unsigned j = iv.var();
         if (j == pivot_col) continue;
-        T alv = alpha * iv.m_value;
-        lp_assert(!is_zero(iv.m_value));
+        T alv = alpha * iv.coeff();
+        lp_assert(!is_zero(iv.coeff()));
         int j_offs = m_vector_of_row_offsets[j];
         if (j_offs == -1) { // it is a new element
             add_new_element(ii, j, alv);
         }
         else {
-            rowii[j_offs].m_value += alv;
+            rowii[j_offs].coeff() += alv;
         }
     }
     // clean the work vector
@@ -71,7 +71,7 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
 
     // remove zeroes
     for (unsigned k = rowii.size(); k-- > 0;  ) {
-        if (is_zero(rowii[k].m_value)) 
+        if (is_zero(rowii[k].coeff()))
             remove_element(rowii, rowii[k]);
     }
     return !rowii.empty();
@@ -188,7 +188,7 @@ template <typename T, typename X>    void static_matrix<T, X>::copy_column_to_in
 template <typename T, typename X>    T static_matrix<T, X>::get_max_abs_in_row(unsigned row) const {
     T ret = numeric_traits<T>::zero();
     for (auto & t : m_rows[row]) {
-        T a = abs(t.get_val());
+        T a = abs(t.coeff());
         if (a  > ret) {
             ret = a;
         }
@@ -200,7 +200,7 @@ template <typename T, typename X>    T static_matrix<T, X>::get_min_abs_in_row(u
     bool first_time = true;
     T ret = numeric_traits<T>::zero();
     for (auto & t : m_rows[row]) {
-        T a = abs(t.get_val());
+        T a = abs(t.coeff());
         if (first_time) {
             ret = a;
             first_time = false;
@@ -245,7 +245,7 @@ template <typename T, typename X>    void static_matrix<T, X>::check_consistency
         for (auto & t : m_rows[i]) {
             std::pair<unsigned, unsigned> p(i, t.var());
             lp_assert(by_rows.find(p) == by_rows.end());
-            by_rows[p] = t.get_val();
+            by_rows[p] = t.coeff();
         }
     }
     std::unordered_map<std::pair<unsigned, unsigned>, T> by_cols;
@@ -311,7 +311,7 @@ template <typename T, typename X>    void static_matrix<T, X>::cross_out_row_fro
 template <typename T, typename X>    T static_matrix<T, X>::get_elem(unsigned i, unsigned j) const { // should not be used in efficient code !!!!
     for (auto & t : m_rows[i]) {
         if (t.var() == j) {
-            return t.get_val();
+            return t.coeff();
         }
     }
     return numeric_traits<T>::zero();
@@ -329,8 +329,8 @@ template <typename T, typename X>    T static_matrix<T, X>::get_balance() const 
 template <typename T, typename X>    T static_matrix<T, X>::get_row_balance(unsigned row) const {
     T ret = zero_of_type<T>();
     for (auto & t : m_rows[row]) {
-        if (numeric_traits<T>::is_zero(t.get_val())) continue;
-        T a = abs(t.get_val());
+        if (numeric_traits<T>::is_zero(t.coeff())) continue;
+        T a = abs(t.coeff());
         numeric_traits<T>::log(a);
         ret += a * a;
     }
@@ -348,11 +348,11 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
             s.insert(rc.var());
             if (rc.var() >= m_columns.size())
                 return false;
-            if (rc.m_offset >= m_columns[rc.var()].size())
+            if (rc.offset() >= m_columns[rc.var()].size())
                 return false;
-            if (rc.get_val() != get_val(m_columns[rc.var()][rc.m_offset]))
+            if (rc.coeff() != get_val(m_columns[rc.var()][rc.offset()]))
                 return false;
-            if (is_zero(rc.get_val())) {
+            if (is_zero(rc.coeff())) {
                 return false;
             }
             
@@ -369,24 +369,21 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
             s.insert(cc.var());
             if (cc.var() >= m_rows.size())
                 return false;
-            if (cc.m_offset >= m_rows[cc.var()].size())
+            if (cc.offset() >= m_rows[cc.var()].size())
                 return false;
-            if (get_val(cc) != m_rows[cc.var()][cc.m_offset].get_val())
+            if (get_val(cc) != m_rows[cc.var()][cc.offset()].coeff())
                 return false;
         }
-    }
-
-   
-    
+    }    
     return true;
 }
 
 template <typename T, typename X>
 void static_matrix<T, X>::remove_element(vector<row_cell<T>> & row_vals, row_cell<T> & row_el_iv) {
-    unsigned column_offset = row_el_iv.m_offset;
+    unsigned column_offset = row_el_iv.offset();
     auto & column_vals = m_columns[row_el_iv.var()];
     column_cell& cs = m_columns[row_el_iv.var()][column_offset];
-    unsigned row_offset = cs.m_offset;
+    unsigned row_offset = cs.offset();
     if (column_offset != column_vals.size() - 1) {
         auto & cc = column_vals[column_offset] = column_vals.back(); // copy from the tail
         m_rows[cc.var()][cc.offset()].offset() = column_offset;

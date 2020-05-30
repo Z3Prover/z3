@@ -1173,6 +1173,8 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
     expr_ref lenl = mk_len(l);
     expr_ref lenr = mk_len(r);
     literal lit = mk_eq(lenl, lenr, false);
+    ctx.mark_as_relevant(lit);
+
     if (ctx.get_assignment(lit) == l_true) {
         expr_ref_vector lhs(m), rhs(m);
         lhs.append(l2, ls2);
@@ -2753,7 +2755,6 @@ bool theory_seq::lower_bound(expr* e, rational& lo) const {
     VERIFY(m_autil.is_int(e));
     bool is_strict = true;
     return m_arith_value.get_lo(e, lo, is_strict) && !is_strict && lo.is_int();
-
 }
 
 bool theory_seq::upper_bound(expr* e, rational& hi) const {

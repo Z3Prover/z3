@@ -55,6 +55,17 @@ public :
         m_rs(rs)
     {}
 
+    static void analyze_row(const C & row,
+                            unsigned bj, // basis column for the row
+                            const numeric_pair<mpq>& rs,
+                            unsigned row_or_term_index,
+                            lp_bound_propagator & bp) {
+        bound_analyzer_on_row a(row, bj, rs, row_or_term_index, bp);
+        a.analyze();
+        // TBD: a.analyze_eq();
+    }
+
+private:
 
     void analyze() {
         for (const auto & c : m_row) {
@@ -71,6 +82,37 @@ public :
             limit_monoid_l_from_above();
         else if (m_column_of_l == -1)
             limit_all_monoids_from_above();
+    }
+
+
+    void analyze_eq() {
+        lpvar x = null_lpvar, y = null_lpvar;
+        for (const auto & c : m_row) {
+            if (m_bp.get_column_type(c.var()) == column_type::fixed)
+                continue;
+            if (x == null_lpvar && c.coeff().is_one())
+                x = c.var();
+            else if (y == null_lpvar && c.coeff().is_minus_one())
+                y = c.var();
+            else 
+                return;
+        }        
+        if (x == null_lpvar || y == null_lpvar)
+            return;
+        impq value;
+        for (const auto & c : m_row) {
+            if (m_bp.get_column_type(c.var()) == column_type::fixed)
+                value += c.coeff() * lb(c.var());
+        }
+        if (!value.is_zero()) {
+            // insert / check offset table to infer equalities
+            // of the form y = z from offset table collision:
+            // value = (x - y)
+            // value = (x - z)
+        } 
+        else {
+            // m_bp.try_add_fixed(x, y, m_row_or_term_index);
+        }
     }
 
     bool bound_is_available(unsigned j, bool lower_bound) {
@@ -319,14 +361,6 @@ public :
         }
     }
 
-    static void analyze_row(const C & row,
-                            unsigned bj, // basis column for the row
-                            const numeric_pair<mpq>& rs,
-                            unsigned row_or_term_index,
-                            lp_bound_propagator & bp) {
-        bound_analyzer_on_row a(row, bj, rs, row_or_term_index, bp);
-        a.analyze();
-    }
 
 };
 }

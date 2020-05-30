@@ -631,7 +631,7 @@ public:
         for (unsigned i = 0; i < m_r_A.row_count(); i++) {
             auto & row = m_r_A.m_rows[i];
             for (row_cell<mpq> & c : row) {
-                A.add_new_element(i, c.var(), c.get_val().get_double());
+                A.add_new_element(i, c.var(), c.coeff().get_double());
             }
         }
     }

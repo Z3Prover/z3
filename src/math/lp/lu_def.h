@@ -391,7 +391,7 @@ void lu< M>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector<i
             if (hj < 0) continue;
             if (m_ii.m_data[hj] == 0)
                 m_ii.set_value(1, hj);
-            m_y_copy.m_data[hj] -= c.get_val() * y_k;
+            m_y_copy.m_data[hj] -= c.coeff() * y_k;
         }
     }
     // add the index of m_y_copy to m_ii

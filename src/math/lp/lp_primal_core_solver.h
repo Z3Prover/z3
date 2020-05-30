@@ -180,19 +180,19 @@ public:
         case column_type::fixed:
             return false;
         case column_type::lower_bound:
-            if (is_pos(rc.get_val())) {
+            if (is_pos(rc.coeff())) {
                 return this->x_above_lower_bound(j);
             }
 
             return true;
         case column_type::upper_bound:
-            if (is_pos(rc.get_val())) {
+            if (is_pos(rc.coeff())) {
                 return true;
             }
 
             return this->x_below_upper_bound(j);
         case column_type::boxed:
-            if (is_pos(rc.get_val())) {
+            if (is_pos(rc.coeff())) {
                 return this->x_above_lower_bound(j);
             }
 
@@ -213,19 +213,19 @@ public:
         case column_type::fixed:
             return false;
         case column_type::lower_bound:
-            if (is_neg(rc.get_val())) {
+            if (is_neg(rc.coeff())) {
                 return this->x_above_lower_bound(j);
             }
 
             return true;
         case column_type::upper_bound:
-            if (is_neg(rc.get_val())) {
+            if (is_neg(rc.coeff())) {
                 return true;
             }
 
             return this->x_below_upper_bound(j);
         case column_type::boxed:
-            if (is_neg(rc.get_val())) {
+            if (is_neg(rc.coeff())) {
                 return this->x_above_lower_bound(j);
             }
 
@@ -923,7 +923,7 @@ public:
             unsigned k = rc.var();
             if (k == j)
                 continue;
-            this->m_d[k] += delta * rc.get_val();
+            this->m_d[k] += delta * rc.coeff();
         }
     }
     

@@ -141,14 +141,16 @@ void lar_solver::analyze_new_bounds_on_row(
     lp_bound_propagator & bp) {
     lp_assert(!use_tableau());
     unsigned j =  m_mpq_lar_core_solver.m_r_basis[row_index]; // basis column for the row
-    bound_analyzer_on_row<indexed_vector<mpq>>
-        ra_pos(m_mpq_lar_core_solver.get_pivot_row(),
-                                 j,
-                                 zero_of_type<numeric_pair<mpq>>(),
-                                 row_index,
-                                 bp
-                                 );
-    ra_pos.analyze();
+
+    
+    bound_analyzer_on_row<indexed_vector<mpq>>::analyze_row(
+        m_mpq_lar_core_solver.get_pivot_row(),
+        j,
+        zero_of_type<numeric_pair<mpq>>(),
+        row_index,
+        bp
+                                                            );
+//    ra_pos.analyze();
 }
 
 bool lar_solver::row_has_a_big_num(unsigned i) const {
@@ -167,6 +169,7 @@ void lar_solver::analyze_new_bounds_on_row_tableau(
         || row_has_a_big_num(row_index))
         return;
     lp_assert(use_tableau());
+
     bound_analyzer_on_row<row_strip<mpq>>::analyze_row(A_r().m_rows[row_index],
                                        null_ci,
                                        zero_of_type<numeric_pair<mpq>>(),
@@ -227,7 +230,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, lp_bound_propagator &
     for (auto const& r : A_r().m_rows[i]) {
         unsigned j = r.var();
         if (j == bound_j) continue;
-        mpq const& a = r.get_val();
+        mpq const& a = r.coeff();
         int a_sign = is_pos(a)? 1: -1;
         int sign = j_sign * a_sign;
         const ul_pair & ul =  m_columns_to_ul_pairs[j];
@@ -948,7 +951,7 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
     matr.m_columns.resize(A_r().column_count());
     for (unsigned i = 0; i < matr.row_count(); i++) {
         for (auto & it : A_r().m_rows[i]) {
-            matr.set(i, it.var(),  convert_struct<U, mpq>::convert(it.get_val()));
+            matr.set(i, it.var(),  convert_struct<U, mpq>::convert(it.coeff()));
         }
     }
 }
@@ -1399,7 +1402,7 @@ void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
     for (unsigned k = last_row.size(); k-- > 0;) {
         auto &rc = last_row[k];
         if (cost_is_nz) {
-            m_mpq_lar_core_solver.m_r_solver.m_d[rc.var()] += cost_j*rc.get_val();
+            m_mpq_lar_core_solver.m_r_solver.m_d[rc.var()] += cost_j * rc.coeff();
         }
         A_r().remove_element(last_row, rc);
     }

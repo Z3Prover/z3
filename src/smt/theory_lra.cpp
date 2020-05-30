@@ -1012,6 +1012,7 @@ public:
     }
 
     bool internalize_atom(app * atom, bool gate_ctx) {
+        TRACE("arith", tout << mk_pp(atom, m) << "\n";);
         SASSERT(!ctx().b_internalized(atom));
         expr* n1, *n2;
         rational r;
@@ -1722,7 +1723,9 @@ public:
         final_check_status st = FC_DONE;
         switch (is_sat) {
         case l_true:
-            TRACE("arith", display(tout););
+            TRACE("arith", /*display(tout);*/
+                  ctx().display(tout);
+                  );
             switch (check_lia()) {
             case l_true:
                 break;
