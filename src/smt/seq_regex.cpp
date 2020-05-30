@@ -77,7 +77,7 @@ namespace smt {
             ts.push_back(mk_cont(idx));
             for (auto const& p : patterns) {
                 ts.append(p);
-                ts.push_back(mk_cont(idx));
+                ts.push_back(mk_cont(++idx));
             }
             t = th.mk_concat(ts, seq_sort);
             th.propagate_eq(lit, s, t, true);
