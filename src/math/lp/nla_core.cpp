@@ -1289,36 +1289,41 @@ bool core::has_real(const monic& m) const {
 }
 
 // returns true if the patching is blocking
-bool core::patch_is_blocked(lpvar u, const monic& patched_m, const lp::impq& ival) const {
+bool core::is_patch_blocked(lpvar u, const lp::impq& ival) const {
+    TRACE("nla_solver", tout << "u = " << u << '\n';);
     if (m_cautious_patching &&
         (!m_lar_solver.inside_bounds(u, ival) || (var_is_int(u) && ival.is_int() == false))) {
         TRACE("nla_solver", tout << "u = " << u << " blocked, for feas or integr\n";);
-        return true; // blocking
+        return true; // block
     }
+
+    if (u == m_patched_var) {
+        TRACE("nla_solver", tout << "u == m_patched_var, no block\n";);
+        
+        return false; // do not block
+    }
+    // we can change only one variable in variables of m_patched_var
+    if (m_patched_monic->contains_var(u) || u == var(*m_patched_monic)) {
+        TRACE("nla_solver", tout << "u = " << u << " blocked as contained\n";);
+        return true; // block
+    }
+    
     if (var_breaks_correct_monic(u)) {
         TRACE("nla_solver", tout << "u = " << u << " blocked as used in a correct monomial\n";);
         return true;
     }
     
-    bool ret = u == patched_m.var() || (patched_m.contains_var(u) && var_breaks_correct_monic_as_factor(u, patched_m));
+    TRACE("nla_solver", tout << "u = " << u << ", m_patched_m  = "; print_monic(*m_patched_monic, tout) <<
+          ", not blocked\n";);
     
-    TRACE("nla_solver", tout << "u = " << u << ", patched_m  = "; print_monic(patched_m, tout) <<
-          "ret = " << ret << "\n";);
-    
-    return ret;
+    return false;
 }
 
-bool core::try_to_patch(lpvar patched_var, const rational& v, const monic & m) {
-    auto is_blocked = [this, patched_var, m](lpvar u, const lp::impq& iv)        
-        {
-            if (!m_lar_solver.inside_bounds(u, iv))
-                return true;
-            if (u == patched_var)
-                return false;
-            return patch_is_blocked(u, m, iv);
-        };
+// it tries to patch m_patched_var
+bool core::try_to_patch(const rational& v) {
+    auto is_blocked = [this](lpvar u, const lp::impq& iv)  { return is_patch_blocked(u, iv); };
     auto change_report = [this](lpvar u) { update_to_refine_of_var(u); };
-    return m_lar_solver.try_to_patch(patched_var, v, is_blocked, change_report);
+    return m_lar_solver.try_to_patch(m_patched_var, v, is_blocked, change_report);
 }
 
 bool in_power(const svector<lpvar>& vs, unsigned l) {
@@ -1341,31 +1346,28 @@ bool core::to_refine_is_correct() const {
     return true;
 }
 
-// looking for any real var to patch
 void core::patch_monomial(lpvar j) {    
-    const monic& m = emons()[j];
-    TRACE("nla_solver", tout << "m = "; print_monic(m, tout) << "\n";);
-    rational v = mul_val(m);
-    SASSERT(j == var(m));
-    if (var_val(m) == v) {
+    m_patched_monic =& (emons()[j]);
+    m_patched_var = j;
+    TRACE("nla_solver", tout << "m = "; print_monic(*m_patched_monic, tout) << "\n";);
+    rational v = mul_val(*m_patched_monic);
+    if (val(j) == v) {
         erase_from_to_refine(j);
         return;
     }
-
-    if (!var_breaks_correct_monic(j) && try_to_patch(j, v, m)) {
+    if (!var_breaks_correct_monic(j) && try_to_patch(v)) {
         SASSERT(to_refine_is_correct());        
         return;
     }
-
   
-    // Now we try patching the factor variables.
+    // We could not patch j, now we try patching the factor variables.
     TRACE("nla_solver", tout << " trying squares\n";);
     // handle perfect squares
-    if (m.vars().size() == 2 && m.vars()[0] == m.vars()[1]) {        
+    if ((*m_patched_monic).vars().size() == 2 && (*m_patched_monic).vars()[0] == (*m_patched_monic).vars()[1]) {        
         rational root;
         if (v.is_perfect_square(root)) {
-            lpvar k = m.vars()[0];
-            if (!var_breaks_correct_monic(k) && (try_to_patch(k, root, m) || try_to_patch(k, -root, m))) { 
+            m_patched_var = (*m_patched_monic).vars()[0];
+            if (!var_breaks_correct_monic(m_patched_var) && (try_to_patch(root) || try_to_patch(-root))) { 
                 TRACE("nla_solver", tout << "patched square\n";);
                 return;
             }
@@ -1378,16 +1380,15 @@ void core::patch_monomial(lpvar j) {
     // If we patch b then b should be equal to v/ac = v/(abc/b) = b(v/abc)
     if (!v.is_zero()) {
         rational r = val(j) / v;
-        SASSERT(m.is_sorted());
+        SASSERT((*m_patched_monic).is_sorted());
         TRACE("nla_solver", tout << "r = " << r << ", v = " << v << "\n";);
-        for (unsigned l = 0; l < m.size(); l++) {
-            lpvar k = m.vars()[l];
-            if (!in_power(m.vars(), l) &&
-                !var_is_int(k) && 
-                !var_breaks_correct_monic(k) &&
-                try_to_patch(k, r * val(k), m)) { // r * val(k) gives the right value of k
-                TRACE("nla_solver", tout << "patched j " << j << "\n";);
-                SASSERT(mul_val(m) == var_val(m));
+        for (unsigned l = 0; l < (*m_patched_monic).size(); l++) {
+            m_patched_var = (*m_patched_monic).vars()[l];
+            if (!in_power((*m_patched_monic).vars(), l) &&
+                !var_breaks_correct_monic(m_patched_var) &&
+                try_to_patch(r * val(m_patched_var))) { // r * val(k) gives the right value of k
+                TRACE("nla_solver", tout << "patched  " << m_patched_var << "\n";);
+                SASSERT(mul_val((*m_patched_monic)) == val(j));
                 erase_from_to_refine(j);
                 break;
             }
@@ -1438,6 +1439,7 @@ void core::constrain_nl_in_tableau() {
 
 bool core::solve_tableau() {
     NOT_IMPLEMENTED_YET();
+    return false;
 }
 
 void core::restore_tableau() {
@@ -1450,6 +1452,7 @@ void core::save_tableau() {
 
 bool core::integrality_holds() {
     NOT_IMPLEMENTED_YET();
+    return false;
 }
 
 
