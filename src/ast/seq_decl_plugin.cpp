@@ -631,6 +631,7 @@ void seq_decl_plugin::init() {
 #endif
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
+    m_sigs[_OP_STRING_FROM_CHAR] = alloc(psig, m, "char", 1, 0, nullptr, strT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "str.from_int", 0, 1, &intT, strT);
     m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to_int", 0, 1, &strT, intT);
     m_sigs[OP_STRING_LT]         = alloc(psig, m, "str.<", 0, 2, str2T, boolT);
@@ -867,6 +868,14 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case _OP_STRING_CONCAT:
         return mk_assoc_fun(k, arity, domain, range, OP_SEQ_CONCAT, k);
 
+    case _OP_STRING_FROM_CHAR: {
+        if (!(num_parameters == 1 && parameters[0].is_int())) 
+            m.raise_exception("character literal expects integer parameter");
+        zstring zs(parameters[0].get_int());        
+        parameter p(zs.encode().c_str());
+        return m.mk_const_decl(m_stringc_sym, m_string,func_decl_info(m_family_id, OP_STRING_CONST, 1, &p));
+    }
+        
     case OP_SEQ_REPLACE:
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRREPL);
     case _OP_STRING_STRREPL:

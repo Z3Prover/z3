@@ -94,6 +94,7 @@ enum seq_op_kind {
     OP_CHAR_LE,       // Unicode comparison
 #endif
     // internal only operators. Converted to SEQ variants.
+    _OP_STRING_FROM_CHAR,
     _OP_STRING_STRREPL,
     _OP_STRING_CONCAT,
     _OP_STRING_LENGTH,

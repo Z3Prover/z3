@@ -408,6 +408,7 @@ namespace smt2 {
         bool curr_is_rparen() const { return curr() == scanner::RIGHT_PAREN; }
         bool curr_is_int() const { return curr() == scanner::INT_TOKEN; }
         bool curr_is_float() const { return curr() == scanner::FLOAT_TOKEN; }
+        bool curr_is_bv() const { return curr() == scanner::BV_TOKEN; }
 
         bool curr_id_is_underscore() const { SASSERT(curr_is_identifier()); return curr_id() == m_underscore; }
         bool curr_id_is_as() const { SASSERT(curr_is_identifier()); return curr_id() == m_as; }
@@ -1551,7 +1552,7 @@ namespace smt2 {
             symbol r = curr_id();
             next();
             while (!curr_is_rparen()) {
-                if (curr_is_int()) {
+                if (curr_is_int() || curr_is_bv()) {
                     if (!curr_numeral().is_unsigned()) {
                         m_param_stack.push_back(parameter(curr_numeral()));                       
                     }
