@@ -176,6 +176,8 @@ public:
     nra::solver              m_nra;
 private:
     bool                     m_cautious_patching;
+    lpvar                    m_patched_var;
+    monic const*             m_patched_monic;      
 public:    
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
@@ -472,9 +474,9 @@ public:
     bool var_breaks_correct_monic(lpvar) const;
     bool var_breaks_correct_monic_as_factor(lpvar, const monic&) const;
     void update_to_refine_of_var(lpvar j);
-    bool try_to_patch(lpvar, const rational&, const monic&);
+    bool try_to_patch(const rational&);
     bool to_refine_is_correct() const;
-    bool patch_is_blocked(lpvar u, const monic& m, const lp::impq&) const;
+    bool is_patch_blocked(lpvar u, const lp::impq&) const;
     bool has_big_num(const monic&) const;
     bool var_is_big(lpvar) const;
     bool has_real(const factorization&) const;

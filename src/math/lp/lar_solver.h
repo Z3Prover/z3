@@ -367,7 +367,7 @@ public:
         impq ival(val);
         if (is_blocked(j, ival))
             return false;
-        TRACE("nla_solver", tout << "not blocked\n";);
+        TRACE("nla_solver", tout << "j" << j << " not blocked\n";);
         impq delta = get_column_value(j) - ival;
         for (const auto &c : A_r().column(j)) {
             unsigned row_index = c.var();
