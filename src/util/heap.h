@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#ifndef HEAP_H_
-#define HEAP_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/debug.h"
+#include <cstring>
 
 template<typename LT>
 class heap : private LT {
@@ -290,6 +290,3 @@ public:
 
   
 };
-
-#endif /* HEAP_H_ */
-

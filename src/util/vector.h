@@ -23,14 +23,13 @@ Revision History:
 
 
 --*/
-#ifndef VECTOR_H_
-#define VECTOR_H_
+#pragma once
 
 #include "util/debug.h"
-#include<algorithm>
-#include<type_traits>
-#include<memory.h>
-#include<functional>
+#include <algorithm>
+#include <functional>
+#include <memory>
+#include <type_traits>
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/z3_exception.h"
@@ -79,7 +78,11 @@ class vector {
                 throw default_exception("Overflow encountered when expanding vector");
             }
             SZ *mem, *old_mem = reinterpret_cast<SZ*>(m_data) - 2;
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 5
+            if (__has_trivial_copy(T)) {
+#else
             if (std::is_trivially_copyable<T>::value) {
+#endif
                 mem = (SZ*)memory::reallocate(old_mem, new_capacity_T);
                 m_data = reinterpret_cast<T *>(mem + 2);
             } else {
@@ -106,14 +109,8 @@ class vector {
         mem++;
         *mem = size; 
         mem++;
-        m_data             = reinterpret_cast<T *>(mem);
-        const_iterator it  = source.begin();
-        iterator it2       = begin();
-        SASSERT(it2 == m_data);
-        const_iterator e   = source.end();
-        for (; it != e; ++it, ++it2) {
-            new (it2) T(*it); 
-        }
+        m_data = reinterpret_cast<T *>(mem);
+        std::uninitialized_copy(source.begin(), source.end(), begin());
     }
 
     void destroy() {
@@ -445,7 +442,7 @@ public:
         ++pos;
         iterator e    = end();
         for(; pos != e; ++pos, ++prev) {
-            *prev = *pos;
+            *prev = std::move(*pos);
         }
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--;
     }
@@ -651,5 +648,3 @@ struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data> > 
 
 template<typename Hash>
 struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
-
-#endif /* VECTOR_H_ */

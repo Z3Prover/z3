@@ -15,6 +15,7 @@ Notes:
 
 #include "math/simplex/bit_matrix.h"
 #include "util/stopwatch.h"
+#include <cstring>
 
 
 bit_matrix::col_iterator bit_matrix::row::begin() const { 
