@@ -739,6 +739,8 @@ namespace smt {
         char_vector       tcolors;
         char_vector       fcolors;
 
+        bool should_internalize_rec(expr* e) const;
+
         void top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs);
 
         void assert_default(expr * n, proof * pr);

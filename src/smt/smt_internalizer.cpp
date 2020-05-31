@@ -109,6 +109,8 @@ namespace smt {
     bool context::ts_visit_children(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo) {
         if (is_quantifier(n))
             return true;
+        if (!should_internalize_rec(n))
+            return true;
         SASSERT(is_app(n));
         if (m.is_bool(n)) {
             if (b_internalized(n))
@@ -181,8 +183,15 @@ namespace smt {
 
 #define DEEP_EXPR_THRESHOLD 1024
 
+    bool context::should_internalize_rec(expr* e) const {
+        return !is_app(e) || 
+            !m.is_bool(e) ||
+            to_app(e)->get_family_id() == null_family_id || 
+            to_app(e)->get_family_id() == m.get_basic_family_id();
+    }
+            
     void context::internalize_deep(expr* n) {
-        if (!e_internalized(n) && ::get_depth(n) > DEEP_EXPR_THRESHOLD) {
+        if (!e_internalized(n) && ::get_depth(n) > DEEP_EXPR_THRESHOLD && should_internalize_rec(n)) {
             // if the expression is deep, then execute topological sort to avoid
             // stack overflow.
             // a caveat is that theory internalizers do rely on recursive descent so
@@ -193,10 +202,7 @@ namespace smt {
             TRACE("deep_internalize", for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
             for (auto & kv : sorted_exprs) {
                 expr* e = kv.first;
-                if (!is_app(e) || 
-                    !m.is_bool(e) ||
-                    to_app(e)->get_family_id() == null_family_id || 
-                    to_app(e)->get_family_id() == m.get_basic_family_id()) 
+                if (should_internalize_rec(e)) 
                     internalize_rec(e, kv.second);
             }
         }
