@@ -236,6 +236,8 @@ class seq_util {
     family_id m_fid;
     mutable scoped_ptr<bv_util> m_bv;
     bv_util& bv() const;
+
+    unsigned max_plus(unsigned x, unsigned y) const;
 public:
 
     ast_manager& get_manager() const { return m; }
@@ -400,6 +402,7 @@ public:
         expr* get_rightmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e2; return e; }
 
         unsigned min_length(expr* s) const;
+        unsigned max_length(expr* s) const;
     };
 
     class re {
@@ -469,6 +472,7 @@ public:
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi);
         bool is_loop(expr const* n, expr*& body, expr*& lo);
         unsigned min_length(expr* r) const;
+        unsigned max_length(expr* r) const;
     };
     str str;
     re  re;

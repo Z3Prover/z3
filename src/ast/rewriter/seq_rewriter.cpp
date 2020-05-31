@@ -2109,6 +2109,34 @@ bool seq_rewriter::get_head_tail_reversed(expr* s, expr_ref& head, expr_ref& tai
     return false;
 }
 
+bool seq_rewriter::get_re_head_tail(expr* r, expr_ref& head, expr_ref& tail) {
+    expr* r1 = nullptr, *r2 = nullptr;
+    if (re().is_concat(r, r1, r2)) {
+        head = r1;
+        tail = r2;
+        return re().min_length(r1) != UINT_MAX && re().max_length(r1) == re().min_length(r1);
+    }
+    return false;
+}
+
+bool seq_rewriter::get_re_head_tail_reversed(expr* r, expr_ref& head, expr_ref& tail) {
+    expr* r1 = nullptr, *r2 = nullptr;
+    if (re().is_concat(r, r1, r2)) {
+        unsigned len = re().min_length(r2);
+        if (len != UINT_MAX && re().max_length(r2) == len) {
+            head = r1;
+            tail = r2;
+            return true;
+        }
+        if (get_re_head_tail_reversed(r2, head, tail)) {
+            head = re().mk_concat(r1, head);
+            return true;
+        }
+    }
+    return false;
+}
+
+
 expr_ref seq_rewriter::re_and(expr* cond, expr* r) {
     if (m().is_true(cond))
         return expr_ref(r, m());    
@@ -2586,6 +2614,21 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
     "" in b -> is_nullable(b)
     (ele + tail) in b -> tail in (derivative e b)
     (head + ele) in b -> head in (right-derivative e b)
+
+Other rewrites:
+    s in b1 ++ b2, min_len(b1) = max_len(b2) != UINT_MAX -> 
+           (seq.len s) >= min_len(b1) & 
+           (seq.extract s 0 min_len(b1)) in b1 & 
+           (seq.extract s min_len(b1) (- (seq.len s) min_len(b1))) in b2
+
+    similar for tail of regex
+
+Disabled rewrite:
+   s + "ab" + t in all ++ "c" ++ all ++ .... ++ "z" ++ all
+   => 
+   disjunctions that cover cases where s overlaps given that "ab" does
+   not overlap with any of the sequences.
+   It is disabled because the solver doesn't handle disjunctions of regexes well.
 */
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
@@ -2615,14 +2658,35 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = re().mk_in_re(tl, re().mk_derivative(hd, b));
         return BR_REWRITE2;
     }
-    else if (get_head_tail_reversed(a, hd, tl)) {
-        result = re().mk_in_re(
-            hd,
-            re().mk_reverse(re().mk_derivative(tl, re().mk_reverse(b)))
-        );
+
+    if (get_head_tail_reversed(a, hd, tl)) {
+        result = re().mk_reverse(re().mk_derivative(tl, re().mk_reverse(b)));
+        result = re().mk_in_re(hd, result);
         return BR_REWRITE_FULL;
     }
 
+#if 0
+    if (get_re_head_tail(b, hd, tl)) {
+        SASSERT(re().min_length(hd) == re().max_length(hd));
+        expr_ref len_hd(m_autil.mk_int(re().min_length(hd)), m()); 
+        expr_ref len_a(str().mk_length(a), m());
+        expr_ref len_tl(m_autil.mk_sub(len_a, len_hd), m());
+        result = m().mk_and(m_autil.mk_ge(len_a, len_hd),
+                            re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
+                            re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
+        return BR_REWRITE_FULL;
+    }
+    if (get_re_head_tail_reversed(b, hd, tl)) {
+        SASSERT(re().min_length(tl) == re().max_length(tl));
+        expr_ref len_tl(m_autil.mk_int(re().min_length(tl)), m()); 
+        expr_ref len_a(str().mk_length(a), m());
+        expr_ref len_hd(m_autil.mk_sub(len_a, len_tl), m());
+        result = m().mk_and(m_autil.mk_ge(len_a, len_tl),
+                            re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
+                            re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
+        return BR_REWRITE_FULL;
+    }
+#endif
     if (false && rewrite_contains_pattern(a, b, result))
         return BR_REWRITE_FULL;
 

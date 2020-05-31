@@ -1155,6 +1155,13 @@ bv_util& seq_util::bv() const {
     return *m_bv.get();
 }
 
+unsigned seq_util::max_plus(unsigned x, unsigned y) const {
+    if (x + y < x || x + y < y)
+        return UINT_MAX;
+    return x + y;
+}
+
+
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
 #if Z3_USE_UNICODE
     return is_app_of(e, m_fid, OP_CHAR_CONST) && (c = to_app(e)->get_parameter(0).get_int(), true);
@@ -1243,15 +1250,49 @@ app* seq_util::str::mk_is_empty(expr* s) const {
     return m.mk_eq(s, mk_empty(get_sort(s)));
 }
 
+
+
 unsigned seq_util::str::min_length(expr* s) const {
     SASSERT(u.is_seq(s));
-    expr_ref_vector es(m);
     unsigned result = 0;
-    get_concat_units(s, es);
-    for (expr* arg : es) {
-        if (is_unit(arg))
-            result++;
+    expr* s1 = nullptr, *s2 = nullptr;
+    auto get_length = [&](expr* s1) {
+        zstring st;
+        if (is_unit(s1))
+            return 1u;
+        else if (is_string(s1, st))
+            return st.length();
+        else
+            return 0u;
+    };
+    while (is_concat(s, s1, s2)) {
+        result += get_length(s1);
+        s = s2;
     }
+    result += get_length(s);
+    return result;
+}
+
+unsigned seq_util::str::max_length(expr* s) const {
+    SASSERT(u.is_seq(s));
+    unsigned result = 0;
+    expr* s1 = nullptr, *s2 = nullptr;
+    zstring st;
+    auto get_length = [&](expr* s1) {
+        if (is_empty(s1))
+            return 0u;
+        else if (is_unit(s1))
+            return 1u;
+        else if (is_string(s1, st))
+            return st.length();
+        else
+            return UINT_MAX;
+    };
+    while (is_concat(s, s1, s2)) {
+        result = u.max_plus(get_length(s), result);
+        s = s2;
+    }
+    result = u.max_plus(get_length(s), result);
     return result;
 }
 
@@ -1260,15 +1301,8 @@ unsigned seq_util::re::min_length(expr* r) const {
     expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
     if (is_empty(r))
         return UINT_MAX;
-    if (is_concat(r, r1, r2)) {
-        unsigned l1 = min_length(r1);
-        if (l1 == UINT_MAX)
-            return l1;
-        unsigned l2 = min_length(r2);
-        if (l2 == UINT_MAX)
-            return l2;
-        return l1 + l2;
-    }
+    if (is_concat(r, r1, r2)) 
+        return u.max_plus(min_length(r1), min_length(r2));
     if (m.is_ite(r, s, r1, r2)) 
         return std::min(min_length(r1), min_length(r2));
     if (is_diff(r, r1, r2))
@@ -1280,6 +1314,26 @@ unsigned seq_util::re::min_length(expr* r) const {
     if (is_to_re(r, s)) 
         return u.str.min_length(s);
     return 0;
+}
+
+unsigned seq_util::re::max_length(expr* r) const {
+    SASSERT(u.is_re(r));
+    expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
+    if (is_empty(r))
+        return 0;
+    if (is_concat(r, r1, r2)) 
+        return u.max_plus(max_length(r1), max_length(r2));
+    if (m.is_ite(r, s, r1, r2)) 
+        return std::max(max_length(r1), max_length(r2));
+    if (is_diff(r, r1, r2))
+        return max_length(r1);
+    if (is_union(r, r1, r2)) 
+        return std::max(max_length(r1), max_length(r2));
+    if (is_intersection(r, r1, r2)) 
+        return std::min(max_length(r1), max_length(r2));
+    if (is_to_re(r, s)) 
+        return u.str.max_length(s);
+    return UINT_MAX;
 }
 
 sort* seq_util::re::to_seq(sort* re) {

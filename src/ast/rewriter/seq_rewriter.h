@@ -136,6 +136,8 @@ class seq_rewriter {
     // Support for regular expression derivatives
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     bool get_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
+    bool get_re_head_tail(expr* e, expr_ref& head, expr_ref& tail);
+    bool get_re_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
     expr_ref re_and(expr* cond, expr* r);
     expr_ref re_predicate(expr* cond, sort* seq_sort);
     expr_ref mk_seq_concat(expr* a, expr* b);    
