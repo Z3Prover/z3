@@ -3126,6 +3126,9 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         
         // no-op
     }
+    else if (m_util.str.is_is_digit(e)) {
+	
+    }
     else {
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
         UNREACHABLE();
