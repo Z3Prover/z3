@@ -731,13 +731,13 @@ namespace smt {
 
         typedef std::pair<expr *, bool> expr_bool_pair;
 
-        void ts_visit_child(expr * n, bool gate_ctx, svector<int> & tcolors, svector<int> & fcolors, svector<expr_bool_pair> & todo, bool & visited);
+        void ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited);
 
-        bool ts_visit_children(expr * n, bool gate_ctx, svector<int> & tcolors, svector<int> & fcolors, svector<expr_bool_pair> & todo);
+        bool ts_visit_children(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo);
 
         svector<expr_bool_pair> ts_todo;
-        svector<int>      tcolors;
-        svector<int>      fcolors;
+        char_vector       tcolors;
+        char_vector       fcolors;
 
         void top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs);
 

@@ -29,7 +29,7 @@ namespace smt {
     /**
        \brief Return true if the expression is viewed as a logical gate.
     */
-    inline bool is_gate(ast_manager const & m, expr * n) {
+    static bool is_gate(ast_manager const & m, expr * n) {
         if (is_app(n) && to_app(n)->get_family_id() == m.get_basic_family_id()) {
             switch (to_app(n)->get_decl_kind()) {
             case OP_AND:
@@ -45,19 +45,19 @@ namespace smt {
         return false;
     }
 
-#define White 0 
+#define White 0
 #define Grey  1
 #define Black 2
 
-    static int get_color(svector<int> & tcolors, svector<int> & fcolors, expr * n, bool gate_ctx) {
-        svector<int> & colors = gate_ctx ? tcolors : fcolors;
-        if (colors.size() > n->get_id()) 
+    static char get_color(char_vector & tcolors, char_vector & fcolors, expr * n, bool gate_ctx) {
+        char_vector & colors = gate_ctx ? tcolors : fcolors;
+        if (colors.size() > n->get_id())
             return colors[n->get_id()];
         return White;
     }
 
-    static void set_color(svector<int> & tcolors, svector<int> & fcolors, expr * n, bool gate_ctx, int color) {
-       svector<int> & colors = gate_ctx ? tcolors : fcolors;
+    static void set_color(char_vector & tcolors, char_vector & fcolors, expr * n, bool gate_ctx, char color) {
+       char_vector & colors = gate_ctx ? tcolors : fcolors;
        if (colors.size() <= n->get_id()) {
            colors.resize(n->get_id()+1, White);
        }
@@ -99,14 +99,14 @@ namespace smt {
         }
     }
 
-    void context::ts_visit_child(expr * n, bool gate_ctx, svector<int> & tcolors, svector< int> & fcolors, svector<expr_bool_pair> & todo, bool & visited) {
+    void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
         if (get_color(tcolors, fcolors, n, gate_ctx) == White) {
             todo.push_back(expr_bool_pair(n, gate_ctx));
             visited = false;
         }
     }
 
-    bool context::ts_visit_children(expr * n, bool gate_ctx, svector<int> & tcolors, svector<int> & fcolors, svector<expr_bool_pair> & todo) {
+    bool context::ts_visit_children(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo) {
         if (is_quantifier(n))
             return true;
         SASSERT(is_app(n));
@@ -127,7 +127,7 @@ namespace smt {
             ptr_buffer<expr> descendants;
             get_foreign_descendants(to_app(n), fid, descendants);
             for (expr * arg : descendants) {
-                ts_visit_child(arg, false, tcolors, fcolors, todo, visited);
+                ts_visit_child(arg, false, todo, visited);
             }
             return visited;
         }
@@ -135,9 +135,9 @@ namespace smt {
         SASSERT(def_int);
 
         if (m.is_term_ite(n)) {
-            ts_visit_child(to_app(n)->get_arg(0), true, tcolors, fcolors, todo, visited);
-            ts_visit_child(to_app(n)->get_arg(1), false, tcolors, fcolors, todo, visited);
-            ts_visit_child(to_app(n)->get_arg(2), false, tcolors, fcolors, todo, visited);
+            ts_visit_child(to_app(n)->get_arg(0), true, todo, visited);
+            ts_visit_child(to_app(n)->get_arg(1), false, todo, visited);
+            ts_visit_child(to_app(n)->get_arg(2), false, todo, visited);
             return visited;
         }
         bool new_gate_ctx = m.is_bool(n) && (is_gate(m, n) || m.is_not(n));
@@ -145,7 +145,7 @@ namespace smt {
         while (j > 0) {
             --j;
             expr * arg = to_app(n)->get_arg(j);
-            ts_visit_child(arg, new_gate_ctx, tcolors, fcolors, todo, visited);
+            ts_visit_child(arg, new_gate_ctx, todo, visited);
         }
         return visited;
     }
@@ -162,10 +162,10 @@ namespace smt {
             switch (get_color(tcolors, fcolors, curr, gate_ctx)) {
             case White:
                 set_color(tcolors, fcolors, curr, gate_ctx, Grey);
-                ts_visit_children(curr, gate_ctx, tcolors, fcolors, ts_todo);
+                ts_visit_children(curr, gate_ctx, ts_todo);
                 break;
             case Grey:
-                SASSERT(ts_visit_children(curr, gate_ctx, tcolors, fcolors, ts_todo));
+                SASSERT(ts_visit_children(curr, gate_ctx, ts_todo));
                 set_color(tcolors, fcolors, curr, gate_ctx, Black);
                 if (n != curr && !m.is_not(curr))
                     sorted_exprs.push_back(expr_bool_pair(curr, gate_ctx));

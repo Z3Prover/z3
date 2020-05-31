@@ -380,7 +380,7 @@ namespace smt {
 
         for (expr* arg : m_converter.m_extra_assertions) {
             ctx.get_rewriter()(arg, t, t_pr);
-            fmls.push_back(t);
+            fmls.push_back(std::move(t));
         }
         m_converter.m_extra_assertions.reset();
         res = m.mk_and(fmls);
@@ -440,8 +440,7 @@ namespace smt {
         for (unsigned i = 0; i < num_args; i++)
             ctx.internalize(term->get_arg(i), false);
 
-        enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) :
-                                                 ctx.mk_enode(term, false, false, true);
+        enode * e = ctx.mk_enode(term, false, false, true);
 
         if (!is_attached_to_var(e)) {
             attach_new_th_var(e);
@@ -457,8 +456,7 @@ namespace smt {
             case OP_FPA_TO_SBV:
             case OP_FPA_TO_REAL:
             case OP_FPA_TO_IEEE_BV: {
-                expr_ref conv(m);
-                conv = convert(term);
+                expr_ref conv = convert(term);
                 expr_ref eq(m.mk_eq(term, conv), m);
                 assert_cnstr(eq);
                 assert_cnstr(mk_side_conditions());
