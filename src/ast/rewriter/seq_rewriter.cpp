@@ -735,6 +735,12 @@ br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
    "" + a = a
    string + (string + a) = string + a
 */
+expr_ref seq_rewriter::mk_seq_concat(expr* a, expr* b) {
+    expr_ref result(m());
+    if (BR_FAILED == mk_seq_concat(a, b, result))
+        result = str().mk_concat(a, b);
+    return result;
+}
 br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     zstring s1, s2;
     expr* c, *d;
@@ -2074,7 +2080,7 @@ bool seq_rewriter::get_head_tail(expr* s, expr_ref& head, expr_ref& tail) {
         return true;
     }
     if (str().is_concat(s, h, t) && get_head_tail(h, head, tail)) {
-        tail = str().mk_concat(tail, t);
+        tail = mk_seq_concat(tail, t);
         return true;
     }
     return false;
@@ -2097,7 +2103,7 @@ bool seq_rewriter::get_head_tail_reversed(expr* s, expr_ref& head, expr_ref& tai
         return true;
     }
     if (str().is_concat(s, h, t) && get_head_tail_reversed(t, head, tail)) {
-        head = str().mk_concat(h, head);
+        head = mk_seq_concat(h, head);
         return true;
     }
     return false;
@@ -2179,6 +2185,7 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     sort* seq_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
     expr* r1 = nullptr, *r2 = nullptr, *p = nullptr, *s = nullptr;
+    expr* s1 = nullptr, *s2 = nullptr;
     zstring zs;
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
@@ -2240,6 +2247,15 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     else if (re().is_to_re(r, s) && str().is_string(s, zs)) {
         result = re().mk_to_re(str().mk_string(zs.reverse()));
         return BR_DONE;
+    }
+    else if (re().is_to_re(r, s) && str().is_unit(s)) {
+        result = r;
+        return BR_DONE;
+    }
+    else if (re().is_to_re(r, s) && str().is_concat(s, s1, s2)) {
+        result = re().mk_concat(re().mk_reverse(re().mk_to_re(s2)), 
+                                re().mk_reverse(re().mk_to_re(s1)));
+        return BR_REWRITE3;
     }
     else {
         // stuck cases: variable, re().is_to_re, re().is_derivative, ...
@@ -2401,6 +2417,12 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
                 result = re().mk_empty(m().get_sort(r));
                 return BR_DONE;
             }
+        }
+        expr* e1 = nullptr, *e2 = nullptr;
+        if (str().is_unit(r1, e1) && str().is_unit(r2, e2)) {
+            result = m().mk_and(m_util.mk_le(e1, ele), m_util.mk_le(ele, e2));
+            result = re_predicate(result, seq_sort);
+            return BR_REWRITE2;
         }
     }
     else if (re().is_full_char(r)) {

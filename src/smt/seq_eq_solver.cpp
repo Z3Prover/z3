@@ -1207,7 +1207,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
             switch (ctx.get_assignment(lit)) {
             case l_true:  break;
             case l_false: start = 0; return true;
-            case l_undef: ctx.force_phase(~lit); start = 0; return true;
+            case l_undef: ctx.mark_as_relevant(lit); ctx.force_phase(~lit); start = 0; return true;
             }
         }
         set_conflict(dep, lits);

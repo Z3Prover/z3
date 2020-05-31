@@ -138,6 +138,7 @@ class seq_rewriter {
     bool get_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
     expr_ref re_and(expr* cond, expr* r);
     expr_ref re_predicate(expr* cond, sort* seq_sort);
+    expr_ref mk_seq_concat(expr* a, expr* b);    
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
