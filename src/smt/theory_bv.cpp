@@ -23,6 +23,7 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
+#include "util/vector.h"
 
 #define WATCH_DISEQ 0
 
@@ -142,9 +143,7 @@ namespace smt {
     }
 
     void theory_bv::process_args(app * n) {
-        for (expr* arg : *n) {
-            ctx.internalize(arg, false);
-        }
+        ctx.internalize(n->get_args(), n->get_num_args(), false);
     }
 
     enode * theory_bv::mk_enode(app * n) {
@@ -312,13 +311,16 @@ namespace smt {
         unsigned sz             = bits.size();
         SASSERT(get_bv_size(n) == sz);
         m_bits[v].reset();
+
+        ptr_vector<expr> bits_exprs;
+        for (unsigned i = 0; i < sz; ++i)
+            bits_exprs.push_back(bits.get(i));
+        ctx.internalize(bits_exprs.c_ptr(), sz, true);
+
         for (unsigned i = 0; i < sz; i++) {
             expr * bit          = bits.get(i);
-            expr_ref s_bit(m);
-            simplify_bit(bit, s_bit);
-            ctx.internalize(s_bit, true);
-            literal l           = ctx.get_literal(s_bit.get());
-            TRACE("init_bits", tout << "bit " << i << " of #" << n->get_owner_id() << "\n" << mk_ll_pp(s_bit, m) << "\n";);
+            literal l           = ctx.get_literal(bit);
+            TRACE("init_bits", tout << "bit " << i << " of #" << n->get_owner_id() << "\n" << mk_ll_pp(bit, m) << "\n";);
             add_bit(v, l);
         }
         find_wpos(v);
@@ -983,9 +985,7 @@ namespace smt {
     }
 
     bool theory_bv::internalize_carry(app * n, bool gate_ctx) {
-        ctx.internalize(n->get_arg(0), true);
-        ctx.internalize(n->get_arg(1), true);
-        ctx.internalize(n->get_arg(2), true);
+        ctx.internalize(n->get_args(), 3, true);
         bool is_new_var = false;
         bool_var v;
         if (!ctx.b_internalized(n)) {
@@ -1016,9 +1016,7 @@ namespace smt {
     }
 
     bool theory_bv::internalize_xor3(app * n, bool gate_ctx) {
-        ctx.internalize(n->get_arg(0), true);
-        ctx.internalize(n->get_arg(1), true);
-        ctx.internalize(n->get_arg(2), true);
+        ctx.internalize(n->get_args(), 3, true);
         bool is_new_var = false;
         bool_var v;
         if (!ctx.b_internalized(n)) {

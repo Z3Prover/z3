@@ -152,11 +152,9 @@ namespace smt {
         return visited;
     }
 
-    void context::top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs) {
-        ts_todo.reset();
+    void context::top_sort_expr(expr* const* exprs, unsigned num_exprs, svector<expr_bool_pair> & sorted_exprs) {
         tcolors.reset();
         fcolors.reset();
-        ts_todo.push_back(expr_bool_pair(n, true));
         while (!ts_todo.empty()) {
             expr_bool_pair & p = ts_todo.back();
             expr * curr        = p.first;
@@ -166,12 +164,14 @@ namespace smt {
                 set_color(tcolors, fcolors, curr, gate_ctx, Grey);
                 ts_visit_children(curr, gate_ctx, ts_todo);
                 break;
-            case Grey:
+            case Grey: {
                 SASSERT(ts_visit_children(curr, gate_ctx, ts_todo));
                 set_color(tcolors, fcolors, curr, gate_ctx, Black);
-                if (n != curr && !m.is_not(curr))
+                auto end = exprs + num_exprs;
+                if (std::find(exprs, end, curr) == end && !m.is_not(curr) && should_internalize_rec(curr))
                     sorted_exprs.push_back(expr_bool_pair(curr, gate_ctx));
                 break;
+            }
             case Black:
                 ts_todo.pop_back();
                 break;
@@ -189,23 +189,33 @@ namespace smt {
             to_app(e)->get_family_id() == null_family_id || 
             to_app(e)->get_family_id() == m.get_basic_family_id();
     }
-            
-    void context::internalize_deep(expr* n) {
-        if (!e_internalized(n) && ::get_depth(n) > DEEP_EXPR_THRESHOLD && should_internalize_rec(n)) {
-            // if the expression is deep, then execute topological sort to avoid
-            // stack overflow.
-            // a caveat is that theory internalizers do rely on recursive descent so
-            // internalization over these follows top-down
-            TRACE("deep_internalize", tout << "expression is deep: #" << n->get_id() << "\n" << mk_ll_pp(n, m););
-            svector<expr_bool_pair> sorted_exprs;
-            top_sort_expr(n, sorted_exprs);
-            TRACE("deep_internalize", for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
-            for (auto & kv : sorted_exprs) {
-                expr* e = kv.first;
-                if (should_internalize_rec(e)) 
-                    internalize_rec(e, kv.second);
+
+    void context::internalize_deep(expr* const* exprs, unsigned num_exprs) {
+        ts_todo.reset();
+        for (unsigned i = 0; i < num_exprs; ++i) {
+            expr * n = exprs[i];
+            if (!e_internalized(n) && ::get_depth(n) > DEEP_EXPR_THRESHOLD && should_internalize_rec(n)) {
+                // if the expression is deep, then execute topological sort to avoid
+                // stack overflow.
+                // a caveat is that theory internalizers do rely on recursive descent so
+                // internalization over these follows top-down
+                TRACE("deep_internalize", tout << "expression is deep: #" << n->get_id() << "\n" << mk_ll_pp(n, m););
+                ts_todo.push_back(expr_bool_pair(n, true));
             }
         }
+
+        svector<expr_bool_pair> sorted_exprs;
+        top_sort_expr(exprs, num_exprs, sorted_exprs);
+        TRACE("deep_internalize", for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
+        for (auto & kv : sorted_exprs) {
+            expr* e = kv.first;
+            SASSERT(should_internalize_rec(e));
+            internalize_rec(e, kv.second);
+        }
+    }
+    void context::internalize_deep(expr* n) {
+        expr * v[1] = { n };
+        internalize_deep(v, 1);
     }
  
     /**
@@ -341,6 +351,13 @@ namespace smt {
     void context::internalize(expr * n, bool gate_ctx) {
         internalize_deep(n);
         internalize_rec(n, gate_ctx);
+    }
+
+    void context::internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx) {
+        internalize_deep(exprs, num_exprs);
+        for (unsigned i = 0; i < num_exprs; ++i) {
+            internalize_rec(exprs[i], gate_ctx);
+        }
     }
 
     void context::internalize_rec(expr * n, bool gate_ctx) {
