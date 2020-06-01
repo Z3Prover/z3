@@ -2357,6 +2357,10 @@ public:
             return m_imp.bound_is_interesting(j, kind, v);
         }
 
+        void add_eq(lpvar u, lpvar v, lp::explanation const& e) {
+            m_imp.add_eq(u, v, e);
+        }
+
         void consume(rational const& v, lp::constraint_index j) override {
             m_imp.set_evidence(j, m_imp.m_core, m_imp.m_eqs);
             m_imp.m_explanation.add_pair(j, v);
@@ -2418,6 +2422,26 @@ public:
       
         }
     }
+
+    void add_eq(lpvar u, lpvar v, lp::explanation const& e) {
+        theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
+        theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
+        enode* n1 = get_enode(uv);
+        enode* n2 = get_enode(vv);
+        if (n1 == n2)
+            return;
+        reset_evidence();
+        for (auto const& ev : e) 
+            set_evidence(ev.ci(), m_core, m_eqs);
+        justification* js = ctx().mk_justification(
+            ext_theory_eq_propagation_justification(
+                get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), n1, n2));
+        
+        std::function<expr*(void)> fn = [&]() { return m.mk_eq(n1->get_owner(), n2->get_owner()); };
+        scoped_trace_stream _sts(th, fn);
+        ctx().assign_eq(n1, n2, eq_justification(js));        
+    }
+
 
     literal_vector m_core2;
 
