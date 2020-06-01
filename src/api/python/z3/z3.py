@@ -6470,7 +6470,7 @@ class Solver(Z3PPObject):
             self.solver = solver
         Z3_solver_inc_ref(self.ctx.ref(), self.solver)
         if logFile is not None:
-            self.set("solver.smtlib2_log", logFile)
+            self.set("smtlib2_log", logFile)
 
     def __del__(self):
         if self.solver is not None and self.ctx.ref() is not None:
