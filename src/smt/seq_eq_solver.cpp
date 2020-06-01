@@ -775,6 +775,10 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
     for (unsigned i = 0; i < ls.size(); ++i) {
         if (eq_unit(ls[i], rs.back())) {
             bool same = true;
+            if (i == 0) {
+                m_overlap_lhs.insert(pair, true);
+                return true;
+            }
             // ls = rs' ++ y && rs = x ++ rs', diff = |x|
             if (rs.size() > i) {
                 unsigned diff = rs.size() - (i + 1);
@@ -817,6 +821,10 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
         unsigned diff = ls.size()-1-i;
         if (eq_unit(ls[diff], rs[0])) {
             bool same = true;
+            if (i == 0) {
+                m_overlap_rhs.insert(pair, true);
+                return true;
+            }
             // ls = x ++ rs' && rs = rs' ++ y, diff = |x|
             if (rs.size() > i) {
                 for (unsigned j = 1; same && j <= i; ++j) {
@@ -973,19 +981,21 @@ bool theory_seq::branch_quat_variable(eq const& e) {
 
     bool cond = false;
 
-    // xs and ys cannot align
-    if (!can_align_from_lhs(xs, ys) && !can_align_from_rhs(xs, ys))
-        cond = true;
     // xs = ys and xs and ys cannot align except the case xs = ys
-    else if (xs == ys) {
+    if (xs == ys) {
         expr_ref_vector xs1(m), xs2(m);
         xs1.reset();
         xs1.append(xs.size()-1, xs.c_ptr()+1);
         xs2.reset();
         xs2.append(xs.size()-1, xs.c_ptr());
-        if (!can_align_from_lhs(xs2, ys) && !can_align_from_rhs(xs1, ys))
+        if (xs1.empty() || xs2.empty())
+            cond = true;
+        else if (!can_align_from_lhs(xs2, ys) && !can_align_from_rhs(xs1, ys))
             cond = true;
     }
+    // xs and ys cannot align
+    else if (!can_align_from_lhs(xs, ys) && !can_align_from_rhs(xs, ys))
+        cond = true;
 
     if (cond) {
         literal_vector lits;
