@@ -2424,11 +2424,13 @@ public:
     }
 
     void add_eq(lpvar u, lpvar v, lp::explanation const& e) {
+        if (ctx().inconsistent())
+            return;
         theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
         enode* n1 = get_enode(uv);
         enode* n2 = get_enode(vv);
-        if (n1 == n2)
+        if (n1->get_root() == n2->get_root())
             return;
         reset_evidence();
         for (auto const& ev : e) 
@@ -2441,7 +2443,6 @@ public:
         scoped_trace_stream _sts(th, fn);
         ctx().assign_eq(n1, n2, eq_justification(js));        
     }
-
 
     literal_vector m_core2;
 
