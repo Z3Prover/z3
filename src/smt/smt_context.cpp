@@ -95,9 +95,6 @@ namespace smt {
         m_last_search_failure(UNKNOWN),
         m_searching(false) {
 
-        std::cout << "create: " << m_fparams.m_relevancy_lvl << "\n";
-        SASSERT(m_fparams.m_relevancy_lvl != 0);
-
         SASSERT(m_scope_lvl == 0);
         SASSERT(m_base_lvl == 0);
         SASSERT(m_search_lvl == 0);
