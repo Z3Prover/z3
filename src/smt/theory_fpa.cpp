@@ -472,7 +472,7 @@ namespace smt {
         SASSERT(m_fpa_util.is_float(n->get_owner()) || m_fpa_util.is_rm(n->get_owner()));
         SASSERT(n->get_owner()->get_decl()->get_range() == s);
 
-        app_ref owner(n->get_owner(), m);
+        app * owner = n->get_owner();
 
         if (!is_attached_to_var(n)) {
             attach_new_th_var(n);

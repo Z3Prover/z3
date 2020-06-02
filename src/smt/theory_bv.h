@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_BV_H_
-#define THEORY_BV_H_
+#pragma once
 
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
 #include "util/trail.h"
@@ -112,6 +111,7 @@ namespace smt {
         th_trail_stack           m_trail_stack;
         th_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
+        ptr_vector<expr>         m_bits_expr;
         svector<unsigned>        m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
         bool_var2atom            m_bool_var2atom;
@@ -278,6 +278,3 @@ namespace smt {
         bool check_zero_one_bits(theory_var v);
     };
 };
-
-#endif /* THEORY_BV_H_ */
-

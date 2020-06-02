@@ -23,7 +23,6 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
-#include "util/vector.h"
 
 #define WATCH_DISEQ 0
 
@@ -53,10 +52,15 @@ namespace smt {
         literal_vector & bits = m_bits[v];
         TRACE("bv", tout << "v" << v << "\n";);
         bits.reset();
+        m_bits_expr.reset();
+
         for (unsigned i = 0; i < bv_size; i++) {
-            app * bit  = mk_bit2bool(owner, i);
-            ctx.internalize(bit, true);
-            bool_var b = ctx.get_bool_var(bit);
+            m_bits_expr.push_back(mk_bit2bool(owner, i));
+        }
+        ctx.internalize(m_bits_expr.c_ptr(), bv_size, true);
+
+        for (unsigned i = 0; i < bv_size; i++) {
+            bool_var b = ctx.get_bool_var(m_bits_expr[i]);
             bits.push_back(literal(b));
             if (is_relevant && !ctx.is_relevant(b)) {
                 ctx.mark_as_relevant(b);
@@ -311,11 +315,11 @@ namespace smt {
         unsigned sz             = bits.size();
         SASSERT(get_bv_size(n) == sz);
         m_bits[v].reset();
+        m_bits_expr.reset();
 
-        ptr_vector<expr> bits_exprs;
         for (unsigned i = 0; i < sz; ++i)
-            bits_exprs.push_back(bits.get(i));
-        ctx.internalize(bits_exprs.c_ptr(), sz, true);
+            m_bits_expr.push_back(bits.get(i));
+        ctx.internalize(m_bits_expr.c_ptr(), sz, true);
 
         for (unsigned i = 0; i < sz; i++) {
             expr * bit          = bits.get(i);
@@ -740,28 +744,6 @@ namespace smt {
         }                                                                                       \
         init_bits(e, bits);                                                                     \
         TRACE("bv_verbose", tout << arg_bits << " " << bits << " " << new_bits << "\n";); \
-    }
-
-
-#define MK_BINARY_COND(NAME, BLAST_OP)                                                  \
-    void theory_bv::NAME(app * n) {                                                     \
-        SASSERT(!ctx.e_internalized(n));                                      \
-        SASSERT(n->get_num_args() == 2);                                                \
-        process_args(n);                                                                \
-        enode * e       = mk_enode(n);                                                  \
-        expr_ref_vector arg1_bits(m), arg2_bits(m), bits(m);                            \
-        expr_ref        cond(m), s_cond(m);                                             \
-        get_arg_bits(e, 0, arg1_bits);                                                  \
-        get_arg_bits(e, 1, arg2_bits);                                                  \
-        SASSERT(arg1_bits.size() == arg2_bits.size());                                  \
-        m_bb.BLAST_OP(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits, cond); \
-        init_bits(e, bits);                                                             \
-        simplify_bit(cond, s_cond);                                     \
-        ctx.internalize(s_cond, true);                                  \
-        literal l(ctx.get_literal(s_cond));                             \
-        ctx.mark_as_relevant(l);                                        \
-        ctx.mk_th_axiom(get_id(), 1, &l);                               \
-        TRACE("bv", tout << mk_pp(cond, m) << "\n"; tout << l << "\n";); \
     }
 
     void theory_bv::internalize_sub(app *n) {
