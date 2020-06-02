@@ -83,7 +83,7 @@ public:
         return m_data.size();
     }
 
-    unsigned size() {
+    unsigned size() const {
         return m_index.size();
     }
 

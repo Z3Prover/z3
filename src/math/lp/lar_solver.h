@@ -161,20 +161,7 @@ class lar_solver : public column_namer {
     bool use_lu() const;
     bool sizes_are_correct() const;
     bool implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const;
-    template <typename T>
-    void analyze_new_bounds_on_row(
-        unsigned row_index,
-        lp_bound_propagator<T>& bp) {
-        lp_assert(!use_tableau());
-        unsigned j =  m_mpq_lar_core_solver.m_r_basis[row_index]; // basis column for the row
-        bound_analyzer_on_row<indexed_vector<mpq>, lp_bound_propagator<T>>::analyze_row(
-            m_mpq_lar_core_solver.get_pivot_row(),
-            j,
-            zero_of_type<numeric_pair<mpq>>(),
-            row_index,
-            bp);
-    }
-
+    
     template <typename T>
     void analyze_new_bounds_on_row_tableau(
         unsigned row_index,
@@ -196,17 +183,8 @@ class lar_solver : public column_namer {
     void substitute_basis_var_in_terms_for_row(unsigned i);
     template <typename T>
     void calculate_implied_bounds_for_row(unsigned i, lp_bound_propagator<T> & bp) {
-        if (use_tableau()) {
-            analyze_new_bounds_on_row_tableau(i, bp);
-        } else {
-            m_mpq_lar_core_solver.calculate_pivot_row(i);
-            substitute_basis_var_in_terms_for_row(i);
-            analyze_new_bounds_on_row(i, bp);
-        }
-    }
-    template <typename T>
-    void propagate_bounds_on_a_term(const lar_term& t, lp_bound_propagator<T> & bp, unsigned term_offset) {
-        NOT_IMPLEMENTED_YET();
+        SASSERT(use_tableau());
+        analyze_new_bounds_on_row_tableau(i, bp);
     }
     static void clean_popped_elements(unsigned n, u_set& set);
     static void shrink_inf_set_after_pop(unsigned n, u_set & set);
@@ -346,28 +324,14 @@ public:
     void activate(constraint_index ci);
     void random_update(unsigned sz, var_index const * vars);
     template <typename T>
-    void propagate_bounds_on_terms(lp_bound_propagator<T> & bp) {
-        for (unsigned i = 0; i < m_terms.size(); i++) {
-            if (term_is_used_as_row(i))
-                continue; // this term is used a left side of a constraint,
-            // it was processed as a touched row if needed
-            propagate_bounds_on_a_term(*m_terms[i], bp, i);
-        }
-    }
-    template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T> & bp) {
-        if (!use_tableau())
-            return; // todo: consider to remove the restriction
-        
+        SASSERT(use_tableau());
         for (unsigned i : m_rows_with_changed_bounds) {
             calculate_implied_bounds_for_row(i, bp);
             if (settings().get_cancel_flag())
                 return;
         }
         m_rows_with_changed_bounds.clear();
-        if (!use_tableau()) {
-            propagate_bounds_on_terms(bp);
-        }
     }
     bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
     inline column_index to_column_index(unsigned v) const { return column_index(external_to_column_index(v)); }
@@ -591,7 +555,7 @@ public:
         return false;
     }
     void round_to_integer_solution();
-    inline const row_strip<mpq> &  get_row(unsigned i) { return A_r().m_rows[i]; }
+    inline const row_strip<mpq> &  get_row(unsigned i) const { return A_r().m_rows[i]; }
     bool row_is_correct(unsigned i) const;
     bool ax_is_correct() const;
     bool get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq &rs, constraint_index& ci, bool &upper_bound) const;
