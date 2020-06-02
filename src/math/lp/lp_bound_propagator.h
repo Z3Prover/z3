@@ -1,18 +1,40 @@
 /*
   Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
+  Author:
+  Nickolaj Bjorner (nbjorner)
+  Lev Nachmanson   (levnach)
 */
 #pragma once
 #include "math/lp/lp_settings.h"
 namespace lp {
 template <typename T>
 class lp_bound_propagator {
+
+    // defining a graph on columns x, y such that there is a row x - y = c, where c is a constant    
+    struct vertex {        
+        unsigned           m_row; 
+        unsigned           m_index; // in the row
+        bool               m_sign; // true if the vertex plays the role of y
+        vector<unsigned>   m_adjacent_edges; // points to the
+        vertex(unsigned row, unsigned index) : m_row(row), m_index(index) {}
+    };
+
+    // an edge can be between columns in the same row or between two different rows in the same column
+    struct edge { 
+        unsigned  m_a;
+        unsigned  m_b;
+        impq      m_offset;
+    };
+    vector<vertex> m_vertices;
+    vector<edge>   m_edges;
+    
     std::unordered_map<unsigned, unsigned> m_improved_lower_bounds; // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned> m_improved_upper_bounds;
     T& m_imp;
 public:
     vector<implied_bound> m_ibounds;
     lp_bound_propagator(T& imp): m_imp(imp) {}
+    const lar_solver& lp() const { return m_imp.lp(); }
     column_type get_column_type(unsigned j) const {
         return m_imp.lp().get_column_type(j);
     }
@@ -64,6 +86,31 @@ public:
 
     void consume(const mpq& a, constraint_index ci) {
         m_imp.consume(a, ci);
+    }
+
+    void create_initial_xy(unsigned x, unsigned y, unsigned row_index) {
+        impq value;
+        const auto& row =  lp().get_row(row_index);
+        for (unsigned k = 0; k < row.size(); k++) {
+            if (k == x || k == y)
+                continue;
+            const auto& c = row[k];
+            value += c.coeff() * lp().get_lower_bound(c.var());
+        }
+        vertex xv(row_index, x);
+        m_vertices.push_back(xv);
+        vertex yv(row_index, y);
+        m_vertices.push_back(yv);
+        
+        NOT_IMPLEMENTED_YET();
+    }
+    
+    void try_create_eq(unsigned x, unsigned y, unsigned row_index) {
+        m_vertices.clear();
+        m_edges.clear();
+        create_initial_xy(x, y, row_index);
+        NOT_IMPLEMENTED_YET();
+        
     }
 };
 }
