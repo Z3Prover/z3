@@ -3849,3 +3849,29 @@ bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, 
     }
     return true;
 } 
+
+seq_rewriter::op_cache::op_cache(ast_manager& m):
+    m(m),
+    m_trail(m)
+{}
+
+expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
+    op_entry e(op, a, b, nullptr);
+    m_table.find(e);
+    return e.r;
+}
+
+void seq_rewriter::op_cache::insert(decl_kind op, expr* a, expr* b, expr* r) {
+    cleanup();
+    if (a) m_trail.push_back(a);
+    if (b) m_trail.push_back(b);
+    if (r) m_trail.push_back(r);
+    m_table.insert(op_entry(op, a, b, r));
+}
+
+void seq_rewriter::op_cache::cleanup() {
+    if (m_table.size() >= m_max_cache_size) {
+        m_trail.reset();
+        m_table.reset();
+    }
+}

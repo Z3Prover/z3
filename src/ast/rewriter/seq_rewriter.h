@@ -127,6 +127,41 @@ class seq_rewriter {
         unknown_c
     };
 
+
+    class op_cache {
+        struct op_entry {
+            decl_kind k;
+            expr* a, *b, *r;
+            op_entry(decl_kind k, expr* a, expr* b, expr* r): k(k), a(a), b(b), r(r) {}
+            op_entry():k(0), a(nullptr), b(nullptr), r(nullptr) {}
+        };
+
+        struct hash_entry {
+            unsigned operator()(op_entry const& e) const { 
+                return mk_mix(e.k, e.a ? e.a->get_id() : 0, e.b ? e.b->get_id() : 0);
+            }
+        };
+
+        struct eq_entry {
+            bool operator()(op_entry const& a, op_entry const& b) const { 
+                return a.k == b.k && a.a == b.a && a.b == b.b;
+            }
+        };
+
+        typedef hashtable<op_entry, hash_entry, eq_entry> op_table;
+
+        ast_manager&    m;
+        unsigned        m_max_cache_size { 10000 };
+        expr_ref_vector m_trail;
+        op_table        m_table;
+        void cleanup();
+
+    public:
+        op_cache(ast_manager& m);
+        expr* find(decl_kind op, expr* a, expr* b);
+        void insert(decl_kind op, expr* a, expr* b, expr* r);
+    };
+
     length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
         return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
     }

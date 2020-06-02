@@ -563,7 +563,11 @@ namespace qe {
                 m_solver->collect_statistics(st);
         }
         void reset_statistics() {
-            init();
+            clear();
+        }
+        void collect_statistics(statistics& st) {
+            if (m_solver)
+                m_solver->collect_statistics(st);
         }
         
         void clear() {
@@ -735,6 +739,7 @@ namespace qe {
             m_fa.init();
             m_ex.init();                
         }    
+
         
         /**
            \brief create a quantifier prefix formula.
@@ -1334,8 +1339,8 @@ namespace qe {
         
         void collect_statistics(statistics & st) const override {
             st.copy(m_st);
-            m_fa.s().collect_statistics(st);
-            m_ex.s().collect_statistics(st);        
+            m_fa.collect_statistics(st);
+            m_ex.collect_statistics(st);        
             m_pred_abs.collect_statistics(st);
             st.update("qsat num rounds", m_stats.m_num_rounds); 
             m_pred_abs.collect_statistics(st);
@@ -1348,7 +1353,7 @@ namespace qe {
         }
         
         void cleanup() override {
-            reset();
+            clear();
         }
         
         void set_logic(symbol const & l) override {
