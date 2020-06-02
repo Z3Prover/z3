@@ -725,7 +725,10 @@ namespace smt {
             v.init(&get_context());
             rational pos_value;
             bool pos_exists = v.get_value(pos, pos_value);
-            ENSURE(pos_exists);
+            if (!pos_exists) {
+                cex = m.mk_or(m_autil.mk_ge(pos, mk_int(0)), m_autil.mk_le(pos, mk_int(0)));
+                return false;
+            }
             TRACE("str_fl", tout << "reduce str.at: base=" << mk_pp(base, m) << ", pos=" << pos_value.to_string() << std::endl;);
             if (pos_value.is_neg() || pos_value >= rational(base_chars.size())) {
                 // return the empty string

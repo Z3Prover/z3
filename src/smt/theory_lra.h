@@ -24,7 +24,9 @@ Revision History:
 
 namespace smt {
     class theory_lra : public theory, public theory_opt {
+    public:
         class imp;
+    private:
         imp* m_imp;
 
     public:

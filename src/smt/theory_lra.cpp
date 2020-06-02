@@ -328,9 +328,6 @@ class theory_lra::imp {
     enode* get_enode(expr* e) const { return ctx().get_enode(e); }
     expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }        
 
-    lp::lar_solver& lp(){ return *m_solver.get(); }
-    const lp::lar_solver& lp() const { return *m_solver.get(); }
-    
     void init_solver() {
         if (m_solver) return;
 
@@ -969,6 +966,9 @@ public:
         std::for_each(m_internalize_states.begin(), m_internalize_states.end(), delete_proc<internalize_state>());
     }
 
+    lp::lar_solver& lp(){ return *m_solver.get(); }
+    const lp::lar_solver& lp() const { return *m_solver.get(); }    
+ 
     void init() {
         if (m_solver) return;
 
@@ -2311,10 +2311,34 @@ public:
     //     }
     // }
 
+    bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval)  {
+        theory_var v = lp().local_to_external(vi);
+        if (v == null_theory_var) {
+            return false;
+        }
+        if (m_bounds.size() <= static_cast<unsigned>(v) || m_unassigned_bounds[v] == 0) {
+            return false;
+        }
+        for (lp_api::bound* b : m_bounds[v]) {
+            if (ctx().get_assignment(b->get_bv()) == l_undef &&
+                null_literal != is_bound_implied(kind, bval, *b)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void consume(rational const& v, lp::constraint_index j) {
+        set_evidence(j, m_core, m_eqs);
+        m_explanation.add_pair(j, v);
+    }
+
+    
     void propagate_bounds_with_lp_solver() {
         if (!should_propagate()) 
             return;
-        local_bound_propagator bp(*this);
+        
+        lp::lp_bound_propagator<imp>  bp(*this);
 
         lp().propagate_bounds_for_touched_rows(bp);
 
@@ -2348,22 +2372,6 @@ public:
         }
         return false;
     }
-
-    struct local_bound_propagator: public lp::lp_bound_propagator {
-        imp & m_imp;
-        local_bound_propagator(imp& i) : lp_bound_propagator(*i.m_solver), m_imp(i) {}
-
-        bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const rational & v) override {
-            return m_imp.bound_is_interesting(j, kind, v);
-        }
-
-        void consume(rational const& v, lp::constraint_index j) override {
-            m_imp.set_evidence(j, m_imp.m_core, m_imp.m_eqs);
-            m_imp.m_explanation.add_pair(j, v);
-        }
-    };
-
-        
     void propagate_lp_solver_bound(lp::implied_bound& be) {
         lpvar vi = be.m_j;
         theory_var v = lp().local_to_external(vi);
@@ -2396,7 +2404,7 @@ public:
                 first = false;
                 reset_evidence();
                 m_explanation.clear();
-                local_bound_propagator bp(*this);
+                lp::lp_bound_propagator<imp> bp(*this);
                 lp().explain_implied_bound(be, bp);
             }
             CTRACE("arith", m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
@@ -2417,6 +2425,27 @@ public:
             assign(lit, m_core, m_eqs, m_params);
       
         }
+    }
+
+    void add_eq(lpvar u, lpvar v, lp::explanation const& e) {
+        if (ctx().inconsistent())
+            return;
+        theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
+        theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
+        enode* n1 = get_enode(uv);
+        enode* n2 = get_enode(vv);
+        if (n1->get_root() == n2->get_root())
+            return;
+        reset_evidence();
+        for (auto const& ev : e) 
+            set_evidence(ev.ci(), m_core, m_eqs);
+        justification* js = ctx().mk_justification(
+            ext_theory_eq_propagation_justification(
+                get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), n1, n2));
+        
+        std::function<expr*(void)> fn = [&]() { return m.mk_eq(n1->get_owner(), n2->get_owner()); };
+        scoped_trace_stream _sts(th, fn);
+        ctx().assign_eq(n1, n2, eq_justification(js));        
     }
 
     literal_vector m_core2;
@@ -3364,14 +3393,14 @@ public:
         if (t.is_term()) {
 
             m_todo_terms.push_back(std::make_pair(t, rational::one()));
-
+            TRACE("nl_value", tout << "v" << v << " " << t.to_string() << "\n";);
             TRACE("nl_value", tout << "v" << v << " := w" << t.to_string() << "\n";
                   lp().print_term(lp().get_term(t), tout) << "\n";);
 
             m_nla->am().set(r, 0);
             while (!m_todo_terms.empty()) {
                 rational wcoeff = m_todo_terms.back().second;
-                t = m_todo_terms.back().first;
+                t = m_todo_terms.back().first;                
                 m_todo_terms.pop_back();
                 lp::lar_term const& term = lp().get_term(t);
                 TRACE("nl_value", lp().print_term(term, tout) << "\n";);
@@ -3402,7 +3431,7 @@ public:
     model_value_proc * mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_owner();
-        if (use_nra_model()) {
+        if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, *m_a1);
             if (a.is_int(o) && !m_nla->am().is_int(an)) {
                 return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
@@ -3999,7 +4028,9 @@ theory_var theory_lra::add_objective(app* term) {
 expr_ref theory_lra::mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val) {
     return m_imp->mk_ge(fm, v, val);
 }
-
-
-
 }
+template  class lp::lp_bound_propagator<smt::theory_lra::imp>;
+template void lp::lar_solver::propagate_bounds_for_touched_rows<smt::theory_lra::imp>(lp::lp_bound_propagator<smt::theory_lra::imp>&);
+template void lp::lar_solver::explain_implied_bound<smt::theory_lra::imp>(lp::implied_bound&, lp::lp_bound_propagator<smt::theory_lra::imp>&);
+template void lp::lar_solver::calculate_implied_bounds_for_row<smt::theory_lra::imp>(unsigned int, lp::lp_bound_propagator<smt::theory_lra::imp>&);
+template void lp::lar_solver::propagate_bounds_on_terms<smt::theory_lra::imp>(lp::lp_bound_propagator<smt::theory_lra::imp>&);

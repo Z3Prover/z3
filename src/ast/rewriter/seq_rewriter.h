@@ -114,11 +114,47 @@ public:
    \brief Cheap rewrite rules for seq constraints
 */
 class seq_rewriter {
+
+    class op_cache {
+        struct op_entry {
+            decl_kind k;
+            expr* a, *b, *r;
+            op_entry(decl_kind k, expr* a, expr* b, expr* r): k(k), a(a), b(b), r(r) {}
+            op_entry():k(0), a(nullptr), b(nullptr), r(nullptr) {}
+        };
+
+        struct hash_entry {
+            unsigned operator()(op_entry const& e) const { 
+                return mk_mix(e.k, e.a ? e.a->get_id() : 0, e.b ? e.b->get_id() : 0);
+            }
+        };
+
+        struct eq_entry {
+            bool operator()(op_entry const& a, op_entry const& b) const { 
+                return a.k == b.k && a.a == b.a && a.b == b.b;
+            }
+        };
+
+        typedef hashtable<op_entry, hash_entry, eq_entry> op_table;
+
+        ast_manager&    m;
+        unsigned        m_max_cache_size { 10000 };
+        expr_ref_vector m_trail;
+        op_table        m_table;
+        void cleanup();
+
+    public:
+        op_cache(ast_manager& m);
+        expr* find(decl_kind op, expr* a, expr* b);
+        void insert(decl_kind op, expr* a, expr* b, expr* r);
+    };
+
     seq_util       m_util;
     arith_util     m_autil;
     re2automaton   m_re2aut;
+    op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
-    bool           m_coalesce_chars;
+    bool           m_coalesce_chars;    
 
     enum length_comparison {
         shorter_c, 
@@ -126,6 +162,8 @@ class seq_rewriter {
         same_length_c,
         unknown_c
     };
+
+
 
     length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
         return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
@@ -231,7 +269,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
+        m_util(m), m_autil(m), m_re2aut(m), m_op_cache(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
@@ -273,6 +311,7 @@ public:
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
     expr_ref is_nullable(expr* r);
+    expr_ref is_nullable_rec(expr* r);
 
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
 

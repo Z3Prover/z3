@@ -398,7 +398,7 @@ namespace smt {
         if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n)){
             return;
         }
-        if (!ctx.e_internalized(n)) ctx.internalize(n, false);;
+        ctx.ensure_internalized(n);
         enode* node = ctx.get_enode(n);
         if (is_select(n)) {
             enode * arg = ctx.get_enode(n->get_arg(0));

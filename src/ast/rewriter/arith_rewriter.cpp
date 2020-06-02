@@ -345,7 +345,7 @@ br_status arith_rewriter::is_separated(expr* arg1, expr* arg2, op_kind kind, exp
                 continue;
             eqs.push_back(m().mk_eq(arg, zero));
         }
-        result = m().mk_and(eqs);
+        result = m().mk_or(eqs);
         return BR_REWRITE2;
     }
 

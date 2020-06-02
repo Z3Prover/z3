@@ -52,10 +52,15 @@ namespace smt {
         literal_vector & bits = m_bits[v];
         TRACE("bv", tout << "v" << v << "\n";);
         bits.reset();
+        m_bits_expr.reset();
+
         for (unsigned i = 0; i < bv_size; i++) {
-            app * bit  = mk_bit2bool(owner, i);
-            ctx.internalize(bit, true);
-            bool_var b = ctx.get_bool_var(bit);
+            m_bits_expr.push_back(mk_bit2bool(owner, i));
+        }
+        ctx.internalize(m_bits_expr.c_ptr(), bv_size, true);
+
+        for (unsigned i = 0; i < bv_size; i++) {
+            bool_var b = ctx.get_bool_var(m_bits_expr[i]);
             bits.push_back(literal(b));
             if (is_relevant && !ctx.is_relevant(b)) {
                 ctx.mark_as_relevant(b);
@@ -142,9 +147,7 @@ namespace smt {
     }
 
     void theory_bv::process_args(app * n) {
-        for (expr* arg : *n) {
-            ctx.internalize(arg, false);
-        }
+        ctx.internalize(n->get_args(), n->get_num_args(), false);
     }
 
     enode * theory_bv::mk_enode(app * n) {
@@ -189,7 +192,7 @@ namespace smt {
         for (literal lit : bits) {
             expr_ref l(get_manager());
             ctx.literal2expr(lit, l);
-            r.push_back(l);
+            r.push_back(std::move(l));
         }
     }
 
@@ -312,13 +315,13 @@ namespace smt {
         unsigned sz             = bits.size();
         SASSERT(get_bv_size(n) == sz);
         m_bits[v].reset();
+
+        ctx.internalize(bits.c_ptr(), sz, true);
+
         for (unsigned i = 0; i < sz; i++) {
             expr * bit          = bits.get(i);
-            expr_ref s_bit(m);
-            simplify_bit(bit, s_bit);
-            ctx.internalize(s_bit, true);
-            literal l           = ctx.get_literal(s_bit.get());
-            TRACE("init_bits", tout << "bit " << i << " of #" << n->get_owner_id() << "\n" << mk_ll_pp(s_bit, m) << "\n";);
+            literal l           = ctx.get_literal(bit);
+            TRACE("init_bits", tout << "bit " << i << " of #" << n->get_owner_id() << "\n" << mk_ll_pp(bit, m) << "\n";);
             add_bit(v, l);
         }
         find_wpos(v);
@@ -740,28 +743,6 @@ namespace smt {
         TRACE("bv_verbose", tout << arg_bits << " " << bits << " " << new_bits << "\n";); \
     }
 
-
-#define MK_BINARY_COND(NAME, BLAST_OP)                                                  \
-    void theory_bv::NAME(app * n) {                                                     \
-        SASSERT(!ctx.e_internalized(n));                                      \
-        SASSERT(n->get_num_args() == 2);                                                \
-        process_args(n);                                                                \
-        enode * e       = mk_enode(n);                                                  \
-        expr_ref_vector arg1_bits(m), arg2_bits(m), bits(m);                            \
-        expr_ref        cond(m), s_cond(m);                                             \
-        get_arg_bits(e, 0, arg1_bits);                                                  \
-        get_arg_bits(e, 1, arg2_bits);                                                  \
-        SASSERT(arg1_bits.size() == arg2_bits.size());                                  \
-        m_bb.BLAST_OP(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits, cond); \
-        init_bits(e, bits);                                                             \
-        simplify_bit(cond, s_cond);                                     \
-        ctx.internalize(s_cond, true);                                  \
-        literal l(ctx.get_literal(s_cond));                             \
-        ctx.mark_as_relevant(l);                                        \
-        ctx.mk_th_axiom(get_id(), 1, &l);                               \
-        TRACE("bv", tout << mk_pp(cond, m) << "\n"; tout << l << "\n";); \
-    }
-
     void theory_bv::internalize_sub(app *n) {
         SASSERT(!ctx.e_internalized(n));                      
         SASSERT(n->get_num_args() == 2);                                                
@@ -983,9 +964,7 @@ namespace smt {
     }
 
     bool theory_bv::internalize_carry(app * n, bool gate_ctx) {
-        ctx.internalize(n->get_arg(0), true);
-        ctx.internalize(n->get_arg(1), true);
-        ctx.internalize(n->get_arg(2), true);
+        ctx.internalize(n->get_args(), 3, true);
         bool is_new_var = false;
         bool_var v;
         if (!ctx.b_internalized(n)) {
@@ -1016,9 +995,7 @@ namespace smt {
     }
 
     bool theory_bv::internalize_xor3(app * n, bool gate_ctx) {
-        ctx.internalize(n->get_arg(0), true);
-        ctx.internalize(n->get_arg(1), true);
-        ctx.internalize(n->get_arg(2), true);
+        ctx.internalize(n->get_args(), 3, true);
         bool is_new_var = false;
         bool_var v;
         if (!ctx.b_internalized(n)) {
@@ -1183,7 +1160,7 @@ namespace smt {
             ctx.internalize(diff, true);
             literal arg = ctx.get_literal(diff);
             lits.push_back(arg);
-            exprs.push_back(diff);
+            exprs.push_back(std::move(diff));
         }
         m_stats.m_num_diseq_dynamic++;
         if (m.has_trace_stream()) {
@@ -1447,7 +1424,9 @@ namespace smt {
         m_find(*this),
         m_approximates_large_bvs(false) {
         memset(m_eq_activity, 0, sizeof(m_eq_activity));
+#if WATCH_DISEQ
         memset(m_diseq_activity, 0, sizeof(m_diseq_activity));
+#endif
     }
 
     theory_bv::~theory_bv() {

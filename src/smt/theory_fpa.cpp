@@ -415,9 +415,7 @@ namespace smt {
         if (ctx.b_internalized(atom))
             return true;
 
-        unsigned num_args = atom->get_num_args();
-        for (unsigned i = 0; i < num_args; i++)
-            ctx.internalize(atom->get_arg(i), false);
+        ctx.internalize(atom->get_args(), atom->get_num_args(), false);
 
         literal l(ctx.mk_bool_var(atom));
         ctx.set_var_theory(l.var(), get_id());
@@ -436,9 +434,7 @@ namespace smt {
         SASSERT(term->get_family_id() == get_family_id());
         SASSERT(!ctx.e_internalized(term));
 
-        unsigned num_args = term->get_num_args();
-        for (unsigned i = 0; i < num_args; i++)
-            ctx.internalize(term->get_arg(i), false);
+        ctx.internalize(term->get_args(), term->get_num_args(), false);
 
         enode * e = ctx.mk_enode(term, false, false, true);
 
@@ -476,7 +472,7 @@ namespace smt {
         SASSERT(m_fpa_util.is_float(n->get_owner()) || m_fpa_util.is_rm(n->get_owner()));
         SASSERT(n->get_owner()->get_decl()->get_range() == s);
 
-        app_ref owner(n->get_owner(), m);
+        app * owner = n->get_owner();
 
         if (!is_attached_to_var(n)) {
             attach_new_th_var(n);
@@ -697,9 +693,7 @@ namespace smt {
     }
 
     enode* theory_fpa::ensure_enode(expr* e) {
-        if (!ctx.e_internalized(e)) {
-            ctx.internalize(e, false);
-        }
+        ctx.ensure_internalized(e);
         enode* n = ctx.get_enode(e);
         ctx.mark_as_relevant(n);
         return n;

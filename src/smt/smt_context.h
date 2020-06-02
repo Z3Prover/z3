@@ -741,7 +741,12 @@ namespace smt {
 
         bool should_internalize_rec(expr* e) const;
 
-        void top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs);
+        void top_sort_expr(expr* const* exprs, unsigned num_exprs, svector<expr_bool_pair> & sorted_exprs);
+
+        void internalize_rec(expr * n, bool gate_ctx);
+
+        void internalize_deep(expr * n);
+        void internalize_deep(expr* const* n, unsigned num_exprs);
 
         void assert_default(expr * n, proof * pr);
 
@@ -868,6 +873,7 @@ namespace smt {
         void ensure_internalized(expr* e);
 
         void internalize(expr * n, bool gate_ctx);
+        void internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx);
 
         void internalize(expr * n, bool gate_ctx, unsigned generation);
 
@@ -905,10 +911,6 @@ namespace smt {
         void add_theory_aware_branching_info(bool_var v, double priority, lbool phase);
 
     public:
-
-        void internalize_rec(expr * n, bool gate_ctx);
-
-        void internalize_deep(expr * n);
 
         // helper function for trail
         void undo_th_case_split(literal l);
