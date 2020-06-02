@@ -3389,14 +3389,14 @@ public:
         if (t.is_term()) {
 
             m_todo_terms.push_back(std::make_pair(t, rational::one()));
-
+            TRACE("nl_value", tout << t.to_string() << "\n";);
             TRACE("nl_value", tout << "v" << v << " := w" << t.to_string() << "\n";
                   lp().print_term(lp().get_term(t), tout) << "\n";);
 
             m_nla->am().set(r, 0);
             while (!m_todo_terms.empty()) {
                 rational wcoeff = m_todo_terms.back().second;
-                t = m_todo_terms.back().first;
+                t = m_todo_terms.back().first;                
                 m_todo_terms.pop_back();
                 lp::lar_term const& term = lp().get_term(t);
                 TRACE("nl_value", lp().print_term(term, tout) << "\n";);

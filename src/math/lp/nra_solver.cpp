@@ -52,6 +52,7 @@ struct solver::imp {
     */
     lbool check() {        
         SASSERT(need_check());
+        m_zero = nullptr;
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
         m_term_set.clear();
