@@ -192,7 +192,7 @@ namespace smt {
         for (literal lit : bits) {
             expr_ref l(get_manager());
             ctx.literal2expr(lit, l);
-            r.push_back(l);
+            r.push_back(std::move(l));
         }
     }
 
@@ -315,11 +315,8 @@ namespace smt {
         unsigned sz             = bits.size();
         SASSERT(get_bv_size(n) == sz);
         m_bits[v].reset();
-        m_bits_expr.reset();
 
-        for (unsigned i = 0; i < sz; ++i)
-            m_bits_expr.push_back(bits.get(i));
-        ctx.internalize(m_bits_expr.c_ptr(), sz, true);
+        ctx.internalize(bits.c_ptr(), sz, true);
 
         for (unsigned i = 0; i < sz; i++) {
             expr * bit          = bits.get(i);
@@ -1163,7 +1160,7 @@ namespace smt {
             ctx.internalize(diff, true);
             literal arg = ctx.get_literal(diff);
             lits.push_back(arg);
-            exprs.push_back(diff);
+            exprs.push_back(std::move(diff));
         }
         m_stats.m_num_diseq_dynamic++;
         if (m.has_trace_stream()) {
@@ -1427,7 +1424,9 @@ namespace smt {
         m_find(*this),
         m_approximates_large_bvs(false) {
         memset(m_eq_activity, 0, sizeof(m_eq_activity));
+#if WATCH_DISEQ
         memset(m_diseq_activity, 0, sizeof(m_diseq_activity));
+#endif
     }
 
     theory_bv::~theory_bv() {
