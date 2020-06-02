@@ -135,23 +135,6 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
     return kind == be.kind() && rs_of_evidence == be.m_bound;
 }
 
-    
-void lar_solver::analyze_new_bounds_on_row(
-    unsigned row_index,
-    lp_bound_propagator & bp) {
-    lp_assert(!use_tableau());
-    unsigned j =  m_mpq_lar_core_solver.m_r_basis[row_index]; // basis column for the row
-
-    
-    bound_analyzer_on_row<indexed_vector<mpq>>::analyze_row(
-        m_mpq_lar_core_solver.get_pivot_row(),
-        j,
-        zero_of_type<numeric_pair<mpq>>(),
-        row_index,
-        bp
-                                                            );
-//    ra_pos.analyze();
-}
 
 bool lar_solver::row_has_a_big_num(unsigned i) const {
     for (const auto& c : A_r().m_rows[i]) {
@@ -159,23 +142,6 @@ bool lar_solver::row_has_a_big_num(unsigned i) const {
             return true;
     }
     return false;
-}
-
-void lar_solver::analyze_new_bounds_on_row_tableau(
-    unsigned row_index,
-    lp_bound_propagator & bp ) {
-
-    if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation
-        || row_has_a_big_num(row_index))
-        return;
-    lp_assert(use_tableau());
-
-    bound_analyzer_on_row<row_strip<mpq>>::analyze_row(A_r().m_rows[row_index],
-                                       null_ci,
-                                       zero_of_type<numeric_pair<mpq>>(),
-                                       row_index,
-                                       bp
-                                       );
 }
 
     
@@ -188,16 +154,6 @@ void lar_solver::substitute_basis_var_in_terms_for_row(unsigned i) {
         if (!m_terms[k]->contains(basis_j)) 
             continue;
         m_terms[k]->subst(basis_j, m_mpq_lar_core_solver.m_r_solver.m_pivot_row);
-    }
-}
-    
-void lar_solver::calculate_implied_bounds_for_row(unsigned i, lp_bound_propagator & bp) {
-    if (use_tableau()) {
-        analyze_new_bounds_on_row_tableau(i, bp);
-    } else {
-        m_mpq_lar_core_solver.calculate_pivot_row(i);
-        substitute_basis_var_in_terms_for_row(i);
-        analyze_new_bounds_on_row(i, bp);
     }
 }
 
@@ -213,63 +169,11 @@ unsigned lar_solver::map_term_index_to_column_index(unsigned j) const {
     SASSERT(tv::is_term(j));
     return m_var_register.external_to_local(j);
 }
-    
-void lar_solver::propagate_bounds_on_a_term(const lar_term& t, lp_bound_propagator & bp, unsigned term_offset) {
-    lp_assert(false); // not implemented
-}
-
-
-void lar_solver::explain_implied_bound(implied_bound & ib, lp_bound_propagator & bp) {
-    unsigned i = ib.m_row_or_term_index;
-    int bound_sign = ib.m_is_lower_bound? 1: -1;
-    int j_sign = (ib.m_coeff_before_j_is_pos ? 1 :-1) * bound_sign;
-    unsigned bound_j = ib.m_j;
-    if (tv::is_term(bound_j)) {
-        bound_j = m_var_register.external_to_local(bound_j);
-    }
-    for (auto const& r : A_r().m_rows[i]) {
-        unsigned j = r.var();
-        if (j == bound_j) continue;
-        mpq const& a = r.coeff();
-        int a_sign = is_pos(a)? 1: -1;
-        int sign = j_sign * a_sign;
-        const ul_pair & ul =  m_columns_to_ul_pairs[j];
-        auto witness = sign > 0? ul.upper_bound_witness(): ul.lower_bound_witness();
-        lp_assert(is_valid(witness));
-        bp.consume(a, witness);
-    }
-    // lp_assert(implied_bound_is_correctly_explained(ib, explanation));
-}
 
 // here i is just the term index
 bool lar_solver::term_is_used_as_row(unsigned i) const {
     SASSERT(i < m_terms.size());
     return m_var_register.external_is_used(tv::mask_term(i));
-}
-    
-void lar_solver::propagate_bounds_on_terms(lp_bound_propagator & bp) {
-    for (unsigned i = 0; i < m_terms.size(); i++) {
-        if (term_is_used_as_row(i))
-            continue; // this term is used a left side of a constraint,
-        // it was processed as a touched row if needed
-        propagate_bounds_on_a_term(*m_terms[i], bp, i);
-    }
-}
-
-// goes over touched rows and tries to induce bounds
-void lar_solver::propagate_bounds_for_touched_rows(lp_bound_propagator & bp) {
-    if (!use_tableau())
-        return; // todo: consider to remove the restriction
-    
-    for (unsigned i : m_rows_with_changed_bounds) {
-        calculate_implied_bounds_for_row(i, bp);
-        if (settings().get_cancel_flag())
-            return;
-    }
-    m_rows_with_changed_bounds.clear();
-    if (!use_tableau()) {
-        propagate_bounds_on_terms(bp);
-    }
 }
 
 lp_status lar_solver::get_status() const { return m_status; }

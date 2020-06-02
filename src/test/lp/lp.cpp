@@ -313,11 +313,6 @@ void test_cn() {
 namespace lp {
 unsigned seed = 1;
 
-class my_bound_propagator : public lp_bound_propagator {
-public:
-    my_bound_propagator(lar_solver & ls): lp_bound_propagator(ls) {}
-    void consume(mpq const& v, lp::constraint_index j) override {}
-};
 
 random_gen g_rand;
 static unsigned my_random() {
