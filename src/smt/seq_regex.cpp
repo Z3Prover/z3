@@ -197,6 +197,8 @@ namespace smt {
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
+        // std::cout << "SEQ REGEX PROPOGATE: " << mk_pp(e, m) << std::endl;
+
         if (block_unfolding(lit, idx))
             return true;
 

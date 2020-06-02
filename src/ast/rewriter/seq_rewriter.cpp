@@ -703,9 +703,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
-    if (st == BR_FAILED) {
-        st = lift_ite(f, num_args, args, result);
-    }
+    // if (st == BR_FAILED) {
+    //     st = lift_ite(f, num_args, args, result);
+    // }
     CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     SASSERT(st == BR_FAILED || m().get_sort(result) == f->get_range());
     return st;
@@ -2315,7 +2315,7 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
             return BR_REWRITE3;
         }
         else {
-            result = re().mk_union(result, re_and(is_n, dr2));
+            result = m().mk_ite(is_n, re().mk_union(result, dr2), result);
             return BR_REWRITE3;
         }
     }
@@ -2838,6 +2838,23 @@ br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 
+/*
+    easy cases:
+    .* ++ .* -> .*
+    [] ++ r -> []
+    r ++ [] -> []
+    r ++ "" -> r
+    "" ++ r -> r
+
+    to_re and star:
+    (str.to_re s1) ++ (str.to_re s2) -> (str.to_re (s1 ++ s2))
+    r* ++ r* -> r*
+    r* ++ r -> r ++ r*
+
+    if-then-else lifting:
+    r ++ (ite p r1 r2) -> ite(p (r ++ r1) (r ++ r2))
+    (ite p r1 r2) ++ r -> ite(p (r1 ++ r) (r2 ++ r))
+*/
 br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     if (re().is_full_seq(a) && re().is_full_seq(b)) {
         result = a;
@@ -2859,7 +2876,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    expr* a1 = nullptr, *b1 = nullptr;
+    expr *a1 = nullptr, *b1 = nullptr;
     if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
         result = re().mk_to_re(str().mk_concat(a1, b1));
         return BR_REWRITE2;
@@ -2872,8 +2889,18 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = re().mk_concat(b, a);
         return BR_DONE;
     }
+    expr *a2 = nullptr, *b2 = nullptr, *cond = nullptr;
+    if (m().is_ite(a, cond, a1, a2)) {
+        result = m().mk_ite(cond, re().mk_concat(a1, b),
+                                  re().mk_concat(a2, b));
+        return BR_REWRITE2;
+    }
+    if (m().is_ite(b, cond, b1, b2)) {
+        result = m().mk_ite(cond, re().mk_concat(a, b1),
+                                  re().mk_concat(a, b2));
+        return BR_REWRITE2;
+    }
     unsigned lo1, hi1, lo2, hi2;
-
     if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && re().is_loop(b, b1, lo2, hi2) && lo2 <= hi2 && a1 == b1) {
         result = re().mk_loop(a1, lo1 + lo2, hi1 + hi2);
         return BR_DONE;
