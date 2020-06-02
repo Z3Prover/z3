@@ -3389,7 +3389,7 @@ public:
         if (t.is_term()) {
 
             m_todo_terms.push_back(std::make_pair(t, rational::one()));
-            TRACE("nl_value", tout << t.to_string() << "\n";);
+            TRACE("nl_value", tout << "v" << v << " " << t.to_string() << "\n";);
             TRACE("nl_value", tout << "v" << v << " := w" << t.to_string() << "\n";
                   lp().print_term(lp().get_term(t), tout) << "\n";);
 
@@ -3427,7 +3427,7 @@ public:
     model_value_proc * mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_owner();
-        if (use_nra_model()) {
+        if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, *m_a1);
             if (a.is_int(o) && !m_nla->am().is_int(an)) {
                 return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
