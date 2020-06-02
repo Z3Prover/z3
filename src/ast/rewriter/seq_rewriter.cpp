@@ -2151,6 +2151,15 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
     return re_and(cond, re_with_empty);
 }
 
+expr_ref seq_rewriter::is_nullable_rec(expr* r) {
+    expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
+    if (!result) {
+        result = is_nullable(r);
+        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
+    }
+    return result;
+}
+
 expr_ref seq_rewriter::is_nullable(expr* r) {
     SASSERT(m_util.is_re(r));
     expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
@@ -2158,14 +2167,14 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     expr_ref result(m());
     if (re().is_concat(r, r1, r2) ||
         re().is_intersection(r, r1, r2)) {
-        result = mk_and(m(), is_nullable(r1), is_nullable(r2));
+        result = mk_and(m(), is_nullable_rec(r1), is_nullable_rec(r2));
     }
     else if (re().is_union(r, r1, r2)) {
-        result = mk_or(m(), is_nullable(r1), is_nullable(r2));
+        result = mk_or(m(), is_nullable_rec(r1), is_nullable_rec(r2));
     }
     else if (re().is_diff(r, r1, r2)) {
-        result = mk_not(m(), is_nullable(r2));
-        result = mk_and(m(), is_nullable(r1), result);
+        result = mk_not(m(), is_nullable_rec(r2));
+        result = mk_and(m(), is_nullable_rec(r1), result);
     }
     else if (re().is_star(r) || 
         re().is_opt(r) ||
@@ -2184,10 +2193,10 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
         (re().is_loop(r, r1, lo) && lo > 0) ||
         (re().is_loop(r, r1, lo, hi) && lo > 0) ||
         (re().is_reverse(r, r1))) {
-        result = is_nullable(r1);
+        result = is_nullable_rec(r1);
     }
     else if (re().is_complement(r, r1)) {
-        result = mk_not(m(), is_nullable(r1));
+        result = mk_not(m(), is_nullable_rec(r1));
     }
     else if (re().is_to_re(r, r1)) {
         sort* seq_sort = nullptr;
@@ -2196,7 +2205,7 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
         result = m().mk_eq(emptystr, r1);
     }
     else if (m().is_ite(r, cond, r1, r2)) {
-        result = m().mk_ite(cond, is_nullable(r1), is_nullable(r2));
+        result = m().mk_ite(cond, is_nullable_rec(r1), is_nullable_rec(r2));
     }
     else {
         sort* seq_sort = nullptr;

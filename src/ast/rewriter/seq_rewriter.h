@@ -311,6 +311,7 @@ public:
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
     expr_ref is_nullable(expr* r);
+    expr_ref is_nullable_rec(expr* r);
 
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
 
