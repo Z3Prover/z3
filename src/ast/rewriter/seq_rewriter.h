@@ -114,19 +114,6 @@ public:
    \brief Cheap rewrite rules for seq constraints
 */
 class seq_rewriter {
-    seq_util       m_util;
-    arith_util     m_autil;
-    re2automaton   m_re2aut;
-    expr_ref_vector m_es, m_lhs, m_rhs;
-    bool           m_coalesce_chars;
-
-    enum length_comparison {
-        shorter_c, 
-        longer_c,
-        same_length_c,
-        unknown_c
-    };
-
 
     class op_cache {
         struct op_entry {
@@ -161,6 +148,22 @@ class seq_rewriter {
         expr* find(decl_kind op, expr* a, expr* b);
         void insert(decl_kind op, expr* a, expr* b, expr* r);
     };
+
+    seq_util       m_util;
+    arith_util     m_autil;
+    re2automaton   m_re2aut;
+    op_cache       m_op_cache;
+    expr_ref_vector m_es, m_lhs, m_rhs;
+    bool           m_coalesce_chars;    
+
+    enum length_comparison {
+        shorter_c, 
+        longer_c,
+        same_length_c,
+        unknown_c
+    };
+
+
 
     length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
         return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
@@ -266,7 +269,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
+        m_util(m), m_autil(m), m_re2aut(m), m_op_cache(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
