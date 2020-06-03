@@ -61,7 +61,7 @@ extern "C" {
     }
 
     void solver2smt2_pp::push() {
-        m_out << "(push)\n";
+        m_out << "(push 1)\n";
         m_pp_util.push();
         m_tracked_lim.push_back(m_tracked.size());
     }

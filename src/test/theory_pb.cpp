@@ -90,7 +90,7 @@ private:
     void fuzz_round(unsigned& num_rounds, unsigned lvl) {
         unsigned num_rounds2 = 0;
         lbool is_sat = l_true;    
-        std::cout << "(push)\n";
+        std::cout << "(push 1)\n";
         ctx.push();
         unsigned r = 0;
         while (is_sat == l_true && r <= num_rounds + 1) {
@@ -105,7 +105,7 @@ private:
         num_rounds = r;
         std::cout << "; number of rounds: " << num_rounds << " level: " << lvl << "\n";
         ctx.pop(1);
-        std::cout << "(pop)\n";
+        std::cout << "(pop 1)\n";
     }
 
 };
