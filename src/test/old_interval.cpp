@@ -140,6 +140,7 @@ class interval_tester {
         std::cerr << l(-10, true) << "\n";
         std::cerr << r(10, true) << "\n";
         std::cerr << b(2, 10) << "\n";
+#if 0
         std::cerr << wd(b(-5, 5, true, false, 1, 2) * b(-5, 5, false, true, 3, 4)) << "\n";
         std::cerr << wd(l(2, false, 1) / b(2, 6, false, false, 2, 3)) << "\n";
         std::cerr << wd(expt(b(-2, 3, true, false, 1, 2), 2)) << "\n";
@@ -148,6 +149,7 @@ class interval_tester {
         std::cerr << wd(expt(b(0, 3, true, false, 1, 2), 2)) << "\n";
         std::cerr << wd(expt(b(-4, -2, true, false, 1, 2), 2)) << "\n";
         std::cerr << b(2, 10, false, false, 1, 2) << " * " << l(10, false, 3).inv() << " = " << wd(b(2, 10, false, false, 1, 2) / l(10, false, 3)) << "\n";
+#endif
         std::cerr << b(-2, -1, false, true) << " * " << b(-3,0) << " = "; std::cerr.flush();
         std::cerr << (b(-2, -1, false, true) * b(-3,0)) << "\n";
         std::cerr << b(1, 2, true, false) << " * " << b(0,3) << " = "; std::cerr.flush();
