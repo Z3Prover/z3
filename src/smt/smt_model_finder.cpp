@@ -2386,9 +2386,9 @@ namespace smt {
                 expr * e = q->get_expr();
                 reset_cache();
                 if (!m.inc()) return;
-                SASSERT(m_ttodo.empty());
-                SASSERT(m_ftodo.empty());
-
+                m_ttodo.reset();
+                m_ftodo.reset();
+  
                 if (is_clause(m, e)) {
                     process_clause(e);
                 }
