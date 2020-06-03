@@ -77,16 +77,6 @@ namespace smt {
                 m_value(m),
                 m_eq(true)
             {}
-            clause(clause const& cls):
-                m_lits(cls.m_lits),
-                m_weights(cls.m_weights.m()),
-                m_k(cls.m_k),
-                m_value(cls.m_value),
-                m_eq(cls.m_eq) {
-                for (unsigned i = 0; i < cls.m_weights.size(); ++i) {
-                    m_weights.push_back(cls.m_weights[i]);
-                }
-            }
         };
 
         struct stats {

@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SCOPED_NUMERAL_H_
-#define SCOPED_NUMERAL_H_
+#pragma once
 
 template<typename Manager>
 class _scoped_numeral {
@@ -30,6 +29,7 @@ private:
 public:
     _scoped_numeral(Manager & m):m_manager(m) {}
     _scoped_numeral(_scoped_numeral const & n):m_manager(n.m_manager) { m().set(m_num, n.m_num); }
+    _scoped_numeral(_scoped_numeral &&) = default;
     ~_scoped_numeral() { m_manager.del(m_num); }
 
     Manager & m() const { return m_manager; }
@@ -189,5 +189,3 @@ public:
     }
                                  
 };
-
-#endif

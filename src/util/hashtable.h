@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef HASHTABLE_H_
-#define HASHTABLE_H_
+#pragma once
+
 #include "util/debug.h"
 #include <ostream>
 #include "util/util.h"
@@ -263,6 +263,19 @@ public:
         m_capacity    = source.m_capacity;
         m_table       = alloc_table(m_capacity);
         copy_table(source.m_table, m_capacity, m_table, m_capacity);
+        m_size        = source.m_size;
+        m_num_deleted = 0;
+        HS_CODE({
+            m_st_collision = 0;
+        });
+    }
+
+    core_hashtable(core_hashtable && source) noexcept :
+        HashProc(source),
+        EqProc(source),
+        m_table(nullptr) {
+        m_capacity    = source.m_capacity;
+        std::swap(m_table, source.m_table);
         m_size        = source.m_size;
         m_num_deleted = 0;
         HS_CODE({
@@ -736,6 +749,3 @@ public:
                   EqProc const & e = EqProc()):
         core_hashtable<int_hash_entry<INT_MIN, INT_MIN + 1>, HashProc, EqProc>(initial_capacity, h, e) {}
 };
-
-
-#endif /* HASHTABLE_H_ */

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_MODEL_CONVERTER_H_
-#define SAT_MODEL_CONVERTER_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "util/ref_vector.h"
@@ -51,12 +50,12 @@ namespace sat {
             unsigned        m_counter;
             unsigned        m_refcount;
             elim_stackv     m_stack;
-            elim_stack(elim_stack const& );
         public:
-            elim_stack(elim_stackv const& stack): 
+            elim_stack(elim_stack const&) = delete;
+            elim_stack(elim_stackv && stack):
                 m_counter(0),
                 m_refcount(0), 
-                m_stack(stack) {
+                m_stack(std::move(stack)) {
                 m_counter = ++counter;
             }
             ~elim_stack() { }
@@ -76,14 +75,6 @@ namespace sat {
             sref_vector<elim_stack> m_elim_stack;
             entry(kind k, bool_var v): m_var(v), m_kind(k) {}
         public:
-            entry(entry const & src):
-                m_var(src.m_var),
-                m_kind(src.m_kind),
-                m_clauses(src.m_clauses),
-                m_clause(src.m_clause)
-            {
-                m_elim_stack.append(src.m_elim_stack);
-            }
             bool_var var() const { return m_var; }
             kind get_kind() const { return m_kind; }
         };
@@ -166,5 +157,3 @@ namespace sat {
     }
 
 };
-
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OLD_INTERVAL_H_
-#define OLD_INTERVAL_H_
+#pragma once
 
 #include "util/rational.h"
 #include "util/dependency.h"
@@ -27,14 +26,12 @@ public:
     enum kind { MINUS_INFINITY, FINITE, PLUS_INFINITY };
 private:
     kind     m_kind;
-    rational m_value; 
-    explicit ext_numeral(kind k):m_kind(k) {}
+    rational m_value;
 public:
     ext_numeral():m_kind(FINITE) {} /* zero */
     explicit ext_numeral(bool plus_infinity):m_kind(plus_infinity ? PLUS_INFINITY : MINUS_INFINITY) {}
     explicit ext_numeral(rational const & val):m_kind(FINITE), m_value(val) {}
     explicit ext_numeral(int i):m_kind(FINITE), m_value(i) {}
-    ext_numeral(ext_numeral const & other):m_kind(other.m_kind), m_value(other.m_value) {}
     bool is_infinite() const { return m_kind != FINITE; }
     bool sign() const { return m_kind == MINUS_INFINITY || (m_kind == FINITE && m_value.is_neg()); }
     void neg();
@@ -78,13 +75,14 @@ class old_interval {
     v_dependency * join_opt(v_dependency * d1, v_dependency * d2, v_dependency * opt1, v_dependency * opt2);
 
 public:
-    explicit old_interval(v_dependency_manager & m);  
+    explicit old_interval(v_dependency_manager & m);
     explicit old_interval(v_dependency_manager & m, rational const & lower, bool l_open, v_dependency * l_dep, rational const & upper, bool u_open, v_dependency * u_dep);
     explicit old_interval(v_dependency_manager & m, rational const & val, v_dependency * l_dep = nullptr, v_dependency * u_dep = nullptr);
     explicit old_interval(v_dependency_manager & m, rational const & val, bool open, bool lower, v_dependency * d);
     explicit old_interval(v_dependency_manager & m, ext_numeral const& lower, bool l_open, v_dependency * l_dep, ext_numeral const & upper, bool u_open, v_dependency * u_dep);
-    old_interval(old_interval const & other);
-    
+    old_interval(const old_interval&) = default;
+    old_interval(old_interval&&) = default;
+
     bool minus_infinity() const { return m_lower.is_infinite(); }
     bool plus_infinity() const { return m_upper.is_infinite(); }
     bool is_lower_open() const { return m_lower_open; }
@@ -94,6 +92,7 @@ public:
     rational const & get_lower_value() const { SASSERT(!minus_infinity()); return m_lower.to_rational(); }
     rational const & get_upper_value() const { SASSERT(!plus_infinity()); return m_upper.to_rational(); }
     old_interval & operator=(old_interval const & other);
+    old_interval & operator=(old_interval && other);
     old_interval & operator+=(old_interval const & other);
     old_interval & operator-=(old_interval const & other);
     old_interval & operator*=(old_interval const & other);
@@ -128,12 +127,5 @@ inline old_interval operator/(old_interval const & i1, old_interval const & i2) 
 inline old_interval expt(old_interval const & i, unsigned n) { old_interval tmp(i); tmp.expt(n); return tmp; }
 inline std::ostream & operator<<(std::ostream & out, old_interval const & i) { i.display(out); return out; }
 
-struct interval_detail{};
-inline std::pair<old_interval, interval_detail> wd(old_interval const & i) { interval_detail d; return std::make_pair(i, d); }
-inline std::ostream & operator<<(std::ostream & out, std::pair<old_interval, interval_detail> const & p) { p.first.display_with_dependencies(out); return out; }
-
 // allow "customers" of this file to keep using interval
 #define interval old_interval
-
-#endif /* OLD_INTERVAL_H_ */
-

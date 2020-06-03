@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MPF_H_
-#define MPF_H_
+#pragma once
 
 #include<string>
 #include "util/mpz.h"
@@ -45,18 +44,13 @@ class mpf {
     unsigned sign:1; // counts as one sbit.
     mpz significand;
     mpf_exp_t exponent;
-    mpf & operator=(mpf const & other) { UNREACHABLE(); return *this; }
     void set(unsigned _ebits, unsigned _sbits);
 public:
     mpf();
     mpf(unsigned ebits, unsigned sbits);
-    mpf(mpf && other) :
-        ebits(other.ebits),
-        sbits(other.sbits),
-        sign(other.sign),
-        significand(std::move(other.significand)),
-        exponent(other.exponent) {}
+    mpf(mpf &&) = default;
     ~mpf();
+    mpf & operator=(mpf const & other) = delete;
     unsigned get_ebits() const { return ebits; }
     unsigned get_sbits() const { return sbits; }
     void swap(mpf & other);
@@ -325,5 +319,3 @@ public:
 };
 
 typedef _scoped_numeral_vector<mpf_manager> scoped_mpf_vector;
-
-#endif

@@ -144,8 +144,6 @@ struct numeric_pair {
     explicit numeric_pair(const X & n) : x(n), y(0) {
     }
 
-    numeric_pair(const numeric_pair<T> & n) : x(n.x), y(n.y) {}
-
     template <typename X, typename Y>
     numeric_pair(X xp, Y yp) : x(convert_struct<T, X>::convert(xp)), y(convert_struct<T, Y>::convert(yp)) {}
 

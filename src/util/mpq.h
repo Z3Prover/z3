@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MPQ_H_
-#define MPQ_H_
+#pragma once
 
 #include "util/mpz.h"
 #include "util/trace.h"
@@ -27,11 +26,11 @@ class mpq {
     mpz m_den;
     friend class mpq_manager<true>;
     friend class mpq_manager<false>;
-    mpq & operator=(mpq const & other) { UNREACHABLE(); return *this; }
 public:
     mpq(int v):m_num(v), m_den(1) {}
     mpq():m_den(1) {}
-    mpq(mpq && other) : m_num(std::move(other.m_num)), m_den(std::move(other.m_den)) {}
+    mpq(mpq &&) = default;
+    mpq & operator=(mpq const &) = delete;
     void swap(mpq & other) { m_num.swap(other.m_num); m_den.swap(other.m_den); }
     mpz const & numerator() const { return m_num; }
     mpz const & denominator() const { return m_den; }
@@ -862,6 +861,3 @@ typedef mpq_manager<false> unsynch_mpq_manager;
 typedef _scoped_numeral<unsynch_mpq_manager> scoped_mpq;
 typedef _scoped_numeral<synch_mpq_manager> scoped_synch_mpq;
 typedef _scoped_numeral_vector<unsynch_mpq_manager> scoped_mpq_vector;
-
-#endif /* MPQ_H_ */
-

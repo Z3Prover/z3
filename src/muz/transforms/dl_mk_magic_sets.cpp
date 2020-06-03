@@ -345,7 +345,7 @@ namespace datalog {
         var_idx_set empty_var_idx_set;
         adorn_literal(goal_head, empty_var_idx_set);
 
-        rule_set * result = alloc(rule_set, m_context);
+        scoped_ptr<rule_set> result = alloc(rule_set, m_context);
         result->inherit_predicates(source);
 
         while (!m_todo.empty()) {
@@ -373,7 +373,7 @@ namespace datalog {
 
         rule * back_to_goal_rule = m_context.get_rule_manager().mk(goal_head, 1, &adn_goal_head, nullptr);
         result->add_rule(back_to_goal_rule);
-        return result;
+        return result.detach();
     }
 };
 

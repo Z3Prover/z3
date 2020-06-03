@@ -172,7 +172,7 @@ namespace datalog {
     }    
         
     rule_set * mk_coalesce::operator()(rule_set const & source) {
-        rule_set* rules = alloc(rule_set, m_ctx);
+        scoped_ptr<rule_set> rules = alloc(rule_set, m_ctx);
         rules->inherit_predicates(source);
         rule_set::decl2rules::iterator it = source.begin_grouped_rules(), end = source.end_grouped_rules();
         for (; it != end; ++it) {
@@ -181,8 +181,8 @@ namespace datalog {
             for (unsigned i = 0; i < d_rules.size(); ++i) {
                 rule_ref r1(d_rules[i].get(), rm);
                 for (unsigned j = i + 1; j < d_rules.size(); ++j) {
-                    if (same_body(*r1.get(), *d_rules[j].get())) {
-                        merge_rules(r1, *d_rules[j].get());
+                    if (same_body(*r1.get(), *d_rules.get(j))) {
+                        merge_rules(r1, *d_rules.get(j));
                         d_rules[j] = d_rules.back();
                         d_rules.pop_back();
                         --j;
@@ -191,7 +191,7 @@ namespace datalog {
                 rules->add_rule(r1.get());
             }
         }
-        return rules;
+        return rules.detach();
     }
 
 };

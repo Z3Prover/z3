@@ -841,11 +841,10 @@ namespace datalog {
         m_mc = smc.get();
         reset();
         saturate(src);
-        rule_set* result = alloc(rule_set, m_ctx);
+        scoped_ptr<rule_set> result = alloc(rule_set, m_ctx);
         declare_predicates(src, *result);
         if (m_predicates.empty()) {
             // nothing could be sliced.
-            dealloc(result);
             return nullptr;
         }
         TRACE("dl", display(tout););        
@@ -859,7 +858,7 @@ namespace datalog {
         }
         m_ctx.add_proof_converter(spc.get());
         m_ctx.add_model_converter(smc.get());
-        return result;
+        return result.detach();
     }    
 
 };

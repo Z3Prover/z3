@@ -221,16 +221,6 @@ struct nnf::imp {
             m_cache_result(cache_res),
             m_spos(spos) {
         }
-        frame(frame && other):
-            m_curr(std::move(other.m_curr)),
-            m_i(other.m_i),
-            m_pol(other.m_pol),
-            m_in_q(other.m_in_q),
-            m_new_child(other.m_new_child),
-            m_cache_result(other.m_cache_result),
-            m_spos(other.m_spos) {            
-        }
-            
     };
 
     // There are four caches:

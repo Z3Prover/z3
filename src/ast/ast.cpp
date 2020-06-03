@@ -218,6 +218,7 @@ unsigned decl_info::hash() const {
 
 bool decl_info::operator==(decl_info const & info) const {
     return m_family_id == info.m_family_id && m_kind == info.m_kind &&
+        m_parameters.size() == info.m_parameters.size() && 
         compare_arrays<parameter>(m_parameters.begin(), info.m_parameters.begin(), m_parameters.size());
 }
 

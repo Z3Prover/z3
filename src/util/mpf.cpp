@@ -16,6 +16,7 @@ Author:
 Revision History:
 
 --*/
+#include <cstring>
 #include<sstream>
 #include<iomanip>
 #include "util/mpf.h"

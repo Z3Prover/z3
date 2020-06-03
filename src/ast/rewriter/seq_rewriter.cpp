@@ -2152,6 +2152,7 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
+    std::cout << "is_nullable_rec" << std::endl;
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
     if (!result) {
         result = is_nullable(r);
@@ -2161,6 +2162,8 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
 }
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
+    std::cout << "is_nullable" << std::endl;
+    // std::cout << "call to is_nullable(" << expr_ref(r, m()) << ")" << std::endl;
     SASSERT(m_util.is_re(r));
     expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
     unsigned lo = 0, hi = 0;
@@ -2312,6 +2315,7 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
+        std::cout << "is_nullable -- from concat" << std::endl;
         expr_ref is_n = is_nullable(r1);
         expr_ref dr1(re().mk_derivative(ele, r1), m());
         expr_ref dr2(re().mk_derivative(ele, r2), m());
@@ -2796,6 +2800,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE1;
     }
     if (str().is_empty(a)) {
+        std::cout << "is_nullable -- from str.in_re" << std::endl;
         result = is_nullable(b);
         if (str().is_in_re(result))
             return BR_DONE;

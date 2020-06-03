@@ -322,18 +322,18 @@ namespace datalog {
         if (!m_ctx.array_blast ()) {
             return nullptr;
         }
-        rule_set* rules = alloc(rule_set, m_ctx);
+        scoped_ptr<rule_set> rules = alloc(rule_set, m_ctx);
         rules->inherit_predicates(source);
-        rule_set::iterator it = source.begin(), end = source.end();
         bool change = false;
-        for (; !m_ctx.canceled() && it != end; ++it) {
-            change = blast(**it, *rules) || change;
+        for (rule* r : source) {
+            if (m_ctx.canceled())
+                return nullptr;
+            change = blast(*r, *rules) || change;
         }
         if (!change) {
-            dealloc(rules);
             rules = nullptr;
         }        
-        return rules;        
+        return rules.detach();        
     }
 
 };

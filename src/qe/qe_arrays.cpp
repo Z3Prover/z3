@@ -899,12 +899,8 @@ namespace qe {
             expr_ref_vector idx;
             expr_ref_vector val;
             vector<rational> rval;
-            idx_val(expr_ref_vector & idx, expr_ref_vector & val, vector<rational> const& rval): idx(idx), val(val), rval(rval) {}
-            idx_val& operator=(idx_val const& o) {
-                idx.reset(); val.reset(); rval.reset();
-                idx.append(o.idx); val.append(o.val); rval.append(o.rval);
-                return *this;
-            }
+            idx_val(expr_ref_vector && idx, expr_ref_vector && val, vector<rational> && rval):
+              idx(std::move(idx)), val(std::move(val)), rval(std::move(rval)) {}
         };
         ast_manager&                m;
         array_util                  m_arr_u;
@@ -1049,8 +1045,7 @@ namespace qe {
                 }
                 if (is_new) {
                     // new repr, val, and sel const
-                    vector<rational> rvals = to_num(vals);
-                    m_idxs.push_back(idx_val(idxs, vals, rvals));
+                    m_idxs.push_back(idx_val(std::move(idxs), std::move(vals), to_num(vals)));
                     app_ref c (m.mk_fresh_const ("sel", val_sort), m);
                     m_sel_consts.push_back (c);
                     // substitute sel term with new const

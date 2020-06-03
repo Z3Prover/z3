@@ -329,7 +329,7 @@ namespace datalog {
         if (m_ctx.get_model_converter()) {
             m_mc = alloc(qa_model_converter, m);
         }
-        rule_set * result = alloc(rule_set, m_ctx);
+        scoped_ptr<rule_set> result = alloc(rule_set, m_ctx);
 
         for (unsigned i = 0; i < sz; ++i) {
             tail.reset();
@@ -354,7 +354,6 @@ namespace datalog {
         // proof converter: proofs are not necessarily preserved using this transformation.
 
         if (m_old2new.empty()) {
-            dealloc(result);
             dealloc(m_mc);
             result = nullptr;
         }
@@ -363,7 +362,7 @@ namespace datalog {
         }
         m_mc = nullptr;
 
-        return result;
+        return result.detach();
     }
 
 

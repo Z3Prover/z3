@@ -120,7 +120,7 @@ namespace datalog {
             return nullptr;
         }
         rule_manager& rm = source.get_rule_manager();
-        rule_set * result = alloc(rule_set, m_ctx);
+        scoped_ptr<rule_set> result = alloc(rule_set, m_ctx);
         unsigned sz = source.get_num_rules();
         rule_ref new_rule(rm);
         app_ref_vector tail(m);
@@ -166,7 +166,7 @@ namespace datalog {
         }
         m_trail.reset();
         m_cache.reset();
-        return result;
+        return result.detach();
     }
 
     app_ref mk_scale::mk_pred(unsigned sigma_idx, app* q) {

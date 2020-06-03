@@ -208,7 +208,7 @@ namespace sat {
     }
 
     void model_converter::add_elim_stack(entry & e) {
-        e.m_elim_stack.push_back(stackv().empty() ? nullptr : alloc(elim_stack, stackv()));
+        e.m_elim_stack.push_back(stackv().empty() ? nullptr : alloc(elim_stack, std::move(m_elim_stack)));
         // VERIFY(for (auto const& s : stackv()) VERIFY(legal_to_flip(s.second.var())););
         stackv().reset();
     }

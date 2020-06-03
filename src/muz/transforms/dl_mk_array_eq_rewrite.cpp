@@ -38,14 +38,14 @@ namespace datalog {
     rule_set * mk_array_eq_rewrite::operator()(rule_set const & source)
     {
         m_src_set = &source;
-        rule_set * result = alloc(rule_set, m_ctx);
+        scoped_ptr<rule_set> result = alloc(rule_set, m_ctx);
         result->inherit_predicates(source);
-        m_dst = result;
+        m_dst = result.get();
         m_src_manager = &source.get_rule_manager();
         for (rule * rp : source) {
             instantiate_rule(*rp, *result);
         }
-        return result;
+        return result.detach();
     }
 
     void mk_array_eq_rewrite::instantiate_rule(const rule& r, rule_set & dest)

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef INF_S_INTEGER_H_
-#define INF_S_INTEGER_H_
+#pragma once
 
 #include "util/s_integer.h"
 #include "util/rational.h"
@@ -46,8 +45,6 @@ class inf_s_integer {
     std::string to_string() const;
 
     inf_s_integer():m_first(0), m_second(0) {}
-
-    inf_s_integer(const inf_s_integer & r):m_first(r.m_first), m_second(r.m_second) {}
 
     explicit inf_s_integer(int n):m_first(n), m_second(0) {}
     explicit inf_s_integer(int n, int d): m_first(n), m_second(0) { SASSERT(d == 1); }
@@ -345,7 +342,3 @@ inline inf_s_integer abs(const inf_s_integer & r) {
     }
     return result;
 }
-
-
-#endif /* INF_S_INTEGER_H_ */
-

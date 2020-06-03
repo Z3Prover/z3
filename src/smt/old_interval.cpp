@@ -227,19 +227,21 @@ interval::interval(v_dependency_manager & m, rational const & val, bool open, bo
     }
 }
 
-interval::interval(interval const & other):
-    m_manager(other.m_manager),
-    m_lower(other.m_lower),
-    m_upper(other.m_upper),
-    m_lower_open(other.m_lower_open),
-    m_upper_open(other.m_upper_open),
-    m_lower_dep(other.m_lower_dep),
-    m_upper_dep(other.m_upper_dep) {
-}
-
 interval & interval::operator=(interval const & other) {
+    SASSERT(&m_manager == &other.m_manager);
     m_lower = other.m_lower;
     m_upper = other.m_upper;
+    m_lower_open = other.m_lower_open;
+    m_upper_open = other.m_upper_open;
+    m_lower_dep  = other.m_lower_dep;
+    m_upper_dep  = other.m_upper_dep;
+    return *this;
+}
+
+interval & interval::operator=(interval && other) {
+    SASSERT(&m_manager == &other.m_manager);
+    m_lower = std::move(other.m_lower);
+    m_upper = std::move(other.m_upper);
     m_lower_open = other.m_lower_open;
     m_upper_open = other.m_upper_open;
     m_lower_dep  = other.m_lower_dep;

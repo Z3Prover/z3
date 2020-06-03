@@ -101,6 +101,8 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
+        std::cout << "SEQ REGEX P_IN_RE" << std::endl;
+
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
         // convert negative negative membership literals to positive
@@ -144,11 +146,11 @@ namespace smt {
     }
 
     void seq_regex::propagate_accept(literal lit) {
+        std::cout << "SEQ REGEX P_ACCEPT" << std::endl;
         if (!propagate(lit))
             m_to_propagate.push_back(lit);
     }
 
-       
     // s in R[if(p,R1,R2)] & p => s in R[R1]
     // s in R[if(p,R1,R2)] & ~p => s in R[R2]
 
@@ -195,12 +197,24 @@ namespace smt {
         VERIFY(sk().is_accept(e, s, i, idx, r));
         expr_ref is_nullable(m), d(r, m);
 
+
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
-        // std::cout << "SEQ REGEX PROPOGATE: " << mk_pp(e, m) << std::endl;
+        std::cout << "SEQ REGEX P" << std::endl;
+        // << mk_pp(e, m) << std::endl;
 
         if (block_unfolding(lit, idx))
             return true;
+
+        literal_vector conds;
+        conds.push_back(~lit);
+        if (!unfold_cofactors(d, conds)) 
+            return false;
+
+        if (re().is_empty(d)) {
+            th.add_axiom(conds);
+            return true;
+        }
 
         // s in R & len(s) <= i => nullable(R)
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
@@ -209,17 +223,18 @@ namespace smt {
             ctx.mark_as_relevant(len_s_le_i);
             return false;
         case l_true: 
-            is_nullable = seq_rw().is_nullable(r);
+            std::cout << "is_nullable -- from prop" << std::endl;
+            is_nullable = seq_rw().is_nullable(d);
             rewrite(is_nullable);
-            th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
+            conds.push_back(~len_s_le_i);
+            conds.push_back(th.mk_literal(is_nullable));            
+            th.add_axiom(conds);
             return true;
         case l_false:
             break;
         }
 
-        literal_vector conds;
-        if (!unfold_cofactors(d, conds)) 
-            return false;
+        std::cout << "...MK DERIVATIVE" << std::endl;
 
         // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
         expr_ref head = th.mk_nth(s, i);
@@ -227,7 +242,6 @@ namespace smt {
         rewrite(d);
 
         literal acc_next = th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d));
-        conds.push_back(~lit);
         conds.push_back(len_s_le_i);
         conds.push_back(acc_next);
         th.add_axiom(conds);
@@ -336,6 +350,7 @@ namespace smt {
      *
      */
     void seq_regex::propagate_is_non_empty(literal lit) {
+        std::cout << "SEQ REGEX P_NE" << std::endl;
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_non_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);
@@ -377,6 +392,7 @@ namespace smt {
       is_empty(r, u) is true if r is a member of u
      */
     void seq_regex::propagate_is_empty(literal lit) {
+        std::cout << "SEQ REGEX P_E" << std::endl;
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);

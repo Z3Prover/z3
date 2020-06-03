@@ -16,11 +16,11 @@ Notes:
 
 --*/
 
-#ifndef SPARSE_MATRIX_H_
-#define SPARSE_MATRIX_H_
+#pragma once
 
 #include "util/mpq_inf.h"
 #include "util/statistics.h"
+#include <cstring>
 
 namespace simplex {
 
@@ -271,6 +271,3 @@ namespace simplex {
     };
 
 };
-
-
-#endif

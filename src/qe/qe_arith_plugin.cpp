@@ -2412,24 +2412,21 @@ public:
         }
 
         bool update_bounds(contains_app& contains_x, expr* fml) {
-            bounds_proc* bounds = nullptr;
-            if (m_bounds_cache.find(contains_x.x(), fml, bounds)) {
+            bounds_proc* _bounds = nullptr;
+            if (m_bounds_cache.find(contains_x.x(), fml, _bounds)) {
                 return true;
             }
-            bounds = alloc(bounds_proc, m_util);
-
+            scoped_ptr<bounds_proc> bounds = alloc(bounds_proc, m_util);
             if (!update_bounds(*bounds, contains_x, fml, m_ctx.pos_atoms(), true)) {
-                dealloc(bounds);
                 return false;
             }
             if (!update_bounds(*bounds, contains_x, fml, m_ctx.neg_atoms(), false)) {
-                dealloc(bounds);
                 return false;
             }
             
             m_trail.push_back(contains_x.x());
             m_trail.push_back(fml);
-            m_bounds_cache.insert(contains_x.x(), fml, bounds);
+            m_bounds_cache.insert(contains_x.x(), fml, bounds.detach());
             return true;
         }
     };

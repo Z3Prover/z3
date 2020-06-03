@@ -2049,6 +2049,16 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     *  Retrieve element at index.
+     */
+    public Expr MkNth(SeqExpr s, Expr index)
+    {
+        checkContextMatch(s, index);
+        return Expr.create(this, Native.mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
+    }
+
+
+    /**
      * Extract subsequence.
      */
     public SeqExpr mkExtract(SeqExpr s, IntExpr offset, IntExpr length)

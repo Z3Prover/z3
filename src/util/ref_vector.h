@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef REF_VECTOR_H_
-#define REF_VECTOR_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/obj_ref.h"
@@ -49,11 +48,14 @@ protected:
 public:
     typedef T * data;
 
-    ref_vector_core(Ref const & r = Ref()):Ref(r) {}
+    ref_vector_core() = default;
+    ref_vector_core(Ref const & r) : Ref(r) {}
 
-    ref_vector_core(ref_vector_core && other) :
-        Ref(std::move(other)),
-        m_nodes(std::move(other.m_nodes)) {}
+    ref_vector_core(const ref_vector_core & other) {
+        append(other);
+    }
+
+    ref_vector_core(ref_vector_core &&) = default;
     
     ~ref_vector_core() {
         dec_range_ref(m_nodes.begin(), m_nodes.end());
@@ -189,6 +191,13 @@ public:
             push_back(data[i]);
     }
 
+    void operator=(ref_vector_core && other) {
+        if (this != &other) {
+            reset();
+            m_nodes = std::move(other.m_nodes);
+        }
+    }
+
     void swap(unsigned idx1, unsigned idx2) {
         std::swap(m_nodes[idx1], m_nodes[idx2]);
     }
@@ -232,7 +241,7 @@ public:
         this->append(other);
     }
 
-    ref_vector(ref_vector && other) : super(std::move(other)) {}
+    ref_vector(ref_vector &&) = default;
 
     ref_vector(TManager & m, unsigned sz, T * const * data):
         super(ref_manager_wrapper<T, TManager>(m)) {
@@ -318,6 +327,11 @@ public:
     // prevent abuse:
     ref_vector & operator=(ref_vector const & other) = delete;
 
+    ref_vector & operator=(ref_vector && other) {
+        super::operator=(std::move(other));
+        return *this;
+    }
+
     bool operator==(ref_vector const& other) const {
         if (other.size() != this->size()) return false;
         for (unsigned i = this->size(); i-- > 0; ) {
@@ -400,9 +414,8 @@ public:
 /**
    \brief Vector of unmanaged references.
 */
-template<typename T> 
-class sref_vector : public ref_vector_core<T, ref_unmanaged_wrapper<T> > {
-};
+template<typename T>
+using sref_vector = ref_vector_core<T, ref_unmanaged_wrapper<T>>;
 
 /**
    \brief Hash utilities on ref_vector pointers.
@@ -440,6 +453,3 @@ struct ref_vector_ptr_eq {
         return true;
     }
 };
-
-
-#endif /* REF_VECTOR_H_ */

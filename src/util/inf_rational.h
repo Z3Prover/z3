@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef INF_RATIONAL_H_
-#define INF_RATIONAL_H_
+#pragma once
+
 #include<stdlib.h>
 #include<string>
 #include "util/debug.h"
@@ -66,11 +66,6 @@ class inf_rational {
     }
 
     inf_rational() {}
-
-    inf_rational(const inf_rational & r): 
-        m_first(r.m_first),
-        m_second(r.m_second)
-     {}
 
     explicit inf_rational(int n):
         m_first(rational(n)),
@@ -470,5 +465,3 @@ inline inf_rational abs(const inf_rational & r) {
     }
     return result;
 }
-
-#endif /* INF_RATIONAL_H_ */

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef RATIONAL_H_
-#define RATIONAL_H_
+#pragma once
 
 #include "util/mpq.h"
 
@@ -41,7 +40,7 @@ public:
     rational() {}
     
     rational(rational const & r) { m().set(m_val, r.m_val); }
-    rational(rational && r) : m_val(std::move(r.m_val)) {}
+    rational(rational&&) = default;
 
     explicit rational(int n) { m().set(m_val, n); }
 
@@ -576,7 +575,3 @@ inline rational gcd(rational const & r1, rational const & r2, rational & a, rati
   rational::m().gcd(r1.m_val, r2.m_val, a.m_val, b.m_val, result.m_val);
   return result;
 }
-
-
-#endif /* RATIONAL_H_ */
-

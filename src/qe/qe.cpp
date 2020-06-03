@@ -1208,9 +1208,9 @@ namespace qe {
                 fml = mk_not(m, m.mk_iff(q, fml));
                 ast_smt_pp pp(m);
                 out << "; eliminate " << mk_pp(m_var, m) << "\n";
-                out << "(push)\n";
+                out << "(push 1)\n";
                 pp.display_smt2(out, fml);                
-                out << "(pop)\n\n";      
+                out << "(pop 1)\n\n";
 #if 0
                 DEBUG_CODE(
                     smt_params params;
