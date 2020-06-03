@@ -166,7 +166,9 @@ namespace qe {
         expr_ref val(m);
         for (unsigned j = 0; j < m_preds[level - 1].size(); ++j) {
             app* p = m_preds[level - 1][j].get();            
-            eval(p, val);            
+            eval(p, val); 
+            if (!m.inc())
+                return;
             if (m.is_false(val)) {
                 m_asms.push_back(m.mk_not(p));
             }
@@ -179,6 +181,8 @@ namespace qe {
         
         for (unsigned i = level + 1; i < m_preds.size(); i += 2) {
             for (unsigned j = 0; j < m_preds[i].size(); ++j) {
+                if (!m.inc())
+                    return;
                 app* p = m_preds[i][j].get();
                 max_level lvl = m_elevel.find(p);
                 bool use = 

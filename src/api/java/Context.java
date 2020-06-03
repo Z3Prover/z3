@@ -2054,7 +2054,7 @@ public class Context implements AutoCloseable {
     public SeqExpr MkNth(SeqExpr s, Expr index)
     {
         checkContextMatch(s, index);
-        return (SeqExpr) Expr.create(this, Native.Z3_mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
+        return (SeqExpr) Expr.create(this, Native.mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
     }
 
 
