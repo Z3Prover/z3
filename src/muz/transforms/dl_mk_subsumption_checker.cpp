@@ -343,11 +343,10 @@ namespace datalog {
         scan_for_total_rules(source);
 
         m_have_new_total_rule = false;
-        rule_set * res = alloc(rule_set, m_context);
+        scoped_ptr<rule_set> res = alloc(rule_set, m_context);
         bool modified = transform_rules(source, *res);
 
         if (!m_have_new_total_rule && !modified) {
-            dealloc(res);
             return nullptr;
         }
 
@@ -358,13 +357,12 @@ namespace datalog {
         while (m_have_new_total_rule) {
             m_have_new_total_rule = false;
 
-            rule_set * old = res;
+            scoped_ptr<rule_set> old = res;
             res = alloc(rule_set, m_context);
             transform_rules(*old, *res);
-            dealloc(old);
         }
 
-        return res;
+        return res.detach();
     }
 
 };

@@ -602,17 +602,16 @@ namespace datalog {
             return nullptr;
         }
 
-        rule_set * res = alloc(rule_set, m_context);
+        scoped_ptr<rule_set> res = alloc(rule_set, m_context);
         if (transform_rules(source, *res)) {
             res->inherit_predicates(source);
             TRACE("dl",
                   source.display(tout);
                   res->display(tout););
         } else {
-            dealloc(res);
             res = nullptr;
         }
-        return res;
+        return res.detach();
     }
 
 };

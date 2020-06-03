@@ -264,7 +264,7 @@ namespace datalog {
 
         expr_ref_vector conjs(m);
         quantifier_ref_vector qs(m);
-        rule_set * result = alloc(rule_set, m_ctx);
+        scoped_ptr<rule_set> result = alloc(rule_set, m_ctx);
 
         bool instantiated = false;
 
@@ -286,10 +286,9 @@ namespace datalog {
             result->inherit_predicates(source);
         }
         else {
-            dealloc(result);
             result = nullptr;
         }
-        return result;
+        return result.detach();
     }
 
 
