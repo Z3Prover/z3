@@ -665,11 +665,12 @@ proof * asserted_formulas::get_inconsistency_proof() const {
         return nullptr;
     if (!m.proofs_enabled())
         return nullptr;
+    if (!m.inc())
+        return nullptr;
     for (justified_expr const& j : m_formulas) {
         if (m.is_false(j.get_fml()))
             return j.get_proof();
     }
-    UNREACHABLE();
     return nullptr;
 }
 
