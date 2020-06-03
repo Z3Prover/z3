@@ -235,6 +235,7 @@ interval::interval(interval const & other):
     m_upper_open(other.m_upper_open),
     m_lower_dep(other.m_lower_dep),
     m_upper_dep(other.m_upper_dep) {
+    std::cout << "copy " << m_lower << " " << m_upper << "\n";
 }
 
 interval & interval::operator=(interval const & other) {
