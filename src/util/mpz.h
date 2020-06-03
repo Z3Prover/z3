@@ -105,8 +105,8 @@ public:
     mpz(mpz_type* ptr): m_val(0), m_kind(mpz_small), m_owner(mpz_ext), m_ptr(ptr) { SASSERT(ptr);}
     mpz(mpz && other) noexcept : m_val(other.m_val), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {
         std::swap(m_ptr, other.m_ptr);
-        unsigned o = m_owner; m_owner = other.m_owner; other.m_owner = o;
-        unsigned k = m_kind; m_kind = other.m_kind; other.m_kind = k;
+        m_owner = other.m_owner;
+        m_kind = other.m_kind;
     }
     void swap(mpz & other) { 
         std::swap(m_val, other.m_val);

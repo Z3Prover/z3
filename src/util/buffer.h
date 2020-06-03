@@ -39,7 +39,7 @@ protected:
     }
 
     void expand() {
-        static_assert(std::is_nothrow_move_constructible<T>::value);
+        static_assert(std::is_nothrow_move_constructible<T>::value, "");
         unsigned new_capacity = m_capacity << 1;
         T * new_buffer        = reinterpret_cast<T*>(memory::allocate(sizeof(T) * new_capacity));
         for (unsigned i = 0; i < m_pos; ++i) {

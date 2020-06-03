@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef REF_VECTOR_H_
-#define REF_VECTOR_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/obj_ref.h"
@@ -49,11 +48,14 @@ protected:
 public:
     typedef T * data;
 
-    ref_vector_core(Ref const & r = Ref()):Ref(r) {}
+    ref_vector_core() = default;
+    ref_vector_core(Ref const & r) : Ref(r) {}
 
-    ref_vector_core(ref_vector_core && other) :
-        Ref(std::move(other)),
-        m_nodes(std::move(other.m_nodes)) {}
+    ref_vector_core(const ref_vector_core & other) {
+        append(other);
+    }
+
+    ref_vector_core(ref_vector_core &&) = default;
     
     ~ref_vector_core() {
         dec_range_ref(m_nodes.begin(), m_nodes.end());
@@ -400,9 +402,8 @@ public:
 /**
    \brief Vector of unmanaged references.
 */
-template<typename T> 
-class sref_vector : public ref_vector_core<T, ref_unmanaged_wrapper<T> > {
-};
+template<typename T>
+using sref_vector = ref_vector_core<T, ref_unmanaged_wrapper<T>>;
 
 /**
    \brief Hash utilities on ref_vector pointers.
@@ -440,6 +441,3 @@ struct ref_vector_ptr_eq {
         return true;
     }
 };
-
-
-#endif /* REF_VECTOR_H_ */

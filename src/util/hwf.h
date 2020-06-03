@@ -36,9 +36,6 @@ class hwf {
     }
 
 public:    
-    hwf() {}
-    hwf(hwf const & other) { this->value = other.value; }
-    ~hwf() {}   
     void swap(hwf & other) { double t = value; value = other.value; other.value = t; }
 };
 

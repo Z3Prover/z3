@@ -228,7 +228,7 @@ interval::interval(v_dependency_manager & m, rational const & val, bool open, bo
 }
 
 interval & interval::operator=(interval const & other) {
-    SASSERT(&m == &other.m);
+    SASSERT(&m_manager == &other.m_manager);
     m_lower = other.m_lower;
     m_upper = other.m_upper;
     m_lower_open = other.m_lower_open;
@@ -239,7 +239,7 @@ interval & interval::operator=(interval const & other) {
 }
 
 interval & interval::operator=(interval && other) {
-    SASSERT(&m == &other.m);
+    SASSERT(&m_manager == &other.m_manager);
     m_lower = std::move(other.m_lower);
     m_upper = std::move(other.m_upper);
     m_lower_open = other.m_lower_open;

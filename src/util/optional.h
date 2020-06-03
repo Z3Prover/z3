@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef OPTIONAL_H_
-#define OPTIONAL_H_
+#pragma once
 
 template<class T>
 class optional {
@@ -45,6 +44,11 @@ public:
 
     explicit optional(const T & val) {
         construct(val);
+    }
+
+    optional(T && val) noexcept : m_obj(nullptr), m_initialized(0) {
+        std::swap(m_obj, val.m_obj);
+        std::swap(m_initialized, val.m_initialized);
     }
 
     optional(const optional<T> & val):
@@ -160,7 +164,3 @@ public:
     
     T * & operator*() { return m_ptr; }
 };
-
-
-#endif /* OPTIONAL_H_ */
-

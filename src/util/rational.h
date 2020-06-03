@@ -40,7 +40,7 @@ public:
     rational() {}
     
     rational(rational const & r) { m().set(m_val, r.m_val); }
-    rational(rational && r) noexcept : m_val(std::move(r.m_val)) {}
+    rational(rational&&) = default;
 
     explicit rational(int n) { m().set(m_val, n); }
 

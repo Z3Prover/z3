@@ -69,6 +69,7 @@ class vector {
             m_data            = reinterpret_cast<T *>(mem);
         }
         else {
+            //static_assert(std::is_nothrow_move_constructible<T>::value, "");
             SASSERT(capacity() > 0);
             SZ old_capacity = reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX];
             SZ old_capacity_T = sizeof(T) * old_capacity + sizeof(SZ) * 2;
@@ -163,7 +164,7 @@ public:
         SASSERT(size() == source.size());
     }
 
-    vector(vector&& other) : m_data(nullptr) {
+    vector(vector&& other) noexcept : m_data(nullptr) {
         std::swap(m_data, other.m_data);
     }
 
@@ -587,7 +588,7 @@ public:
     ptr_vector(unsigned s):vector<T *, false>(s) {}
     ptr_vector(unsigned s, T * elem):vector<T *, false>(s, elem) {}
     ptr_vector(ptr_vector const & source):vector<T *, false>(source) {}
-    ptr_vector(ptr_vector && other) : vector<T*, false>(std::move(other)) {}
+    ptr_vector(ptr_vector && other) noexcept : vector<T*, false>(std::move(other)) {}
     ptr_vector(unsigned s, T * const * data):vector<T *, false>(s, const_cast<T**>(data)) {}
     ptr_vector & operator=(ptr_vector const & source) {
         vector<T *, false>::operator=(source);
@@ -602,7 +603,7 @@ public:
     svector(SZ s):vector<T, false, SZ>(s) {}
     svector(SZ s, T const & elem):vector<T, false, SZ>(s, elem) {}
     svector(svector const & source):vector<T, false, SZ>(source) {}
-    svector(svector && other) : vector<T, false, SZ>(std::move(other)) {}
+    svector(svector && other) noexcept : vector<T, false, SZ>(std::move(other)) {}
     svector(SZ s, T const * data):vector<T, false, SZ>(s, data) {}
     svector & operator=(svector const & source) {
         vector<T, false, SZ>::operator=(source);
