@@ -24,6 +24,7 @@ Revision History:
 #include <algorithm>
 #include <limits>
 #include <iomanip>
+#include <cstring>
 #include "math/lp/lp_utils.h"
 #include "util/stopwatch.h"
 #include "math/lp/lp_types.h"

@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#ifndef HWF_H_
-#define HWF_H_
+#pragma once
 
-#include<string>
+#include <cstring>
+#include <string>
 #include "util/mpz.h"
 #include "util/mpq.h"
 #include "util/mpf.h"
@@ -172,5 +172,3 @@ protected:
 
 typedef _scoped_numeral<hwf_manager> scoped_hwf;
 typedef _scoped_numeral_vector<hwf_manager> scoped_hwf_vector;
-
-#endif

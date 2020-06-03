@@ -21,8 +21,7 @@ Revision History:
 
 --*/
 
-#ifndef CHECKED_INT64_H_
-#define CHECKED_INT64_H_
+#pragma once
 
 #include "util/z3_exception.h"
 #include "util/rational.h"
@@ -38,7 +37,6 @@ public:
 
     checked_int64(): m_value(0) {}
     checked_int64(int64_t v): m_value(v) {}
-    checked_int64(checked_int64 const& other) { m_value = other.m_value; }
 
     class overflow_exception : public z3_exception {
         char const * msg() const override { return "checked_int64 overflow/underflow";}
@@ -217,5 +215,3 @@ inline checked_int64<CHECK> operator*(checked_int64<CHECK> const& a, checked_int
     result *= b;
     return result;
 }
-
-#endif

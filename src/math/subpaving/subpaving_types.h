@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SUBPAVING_TYPES_H_
-#define SUBPAVING_TYPES_H_
+#pragma once
 
 namespace subpaving {
 
@@ -34,7 +33,6 @@ class power : public std::pair<var, unsigned> {
 public:
     power():std::pair<var, unsigned>() {}
     power(var v, unsigned d):std::pair<var, unsigned>(v, d) {}
-    power(power const & p):std::pair<var, unsigned>(p) {}
     var x() const { return first; }
     var get_var() const { return first; }
     unsigned degree() const { return second; }
@@ -47,6 +45,4 @@ struct display_var_proc {
     virtual void operator()(std::ostream & out, var x) const { out << "x" << x; }
 };
 
-};
-
-#endif
+}

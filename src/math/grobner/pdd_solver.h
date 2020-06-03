@@ -25,6 +25,7 @@
 #include "util/rlimit.h"
 #include "util/statistics.h"
 #include "math/dd/dd_pdd.h"
+#include <cstring>
 
 namespace dd {
 

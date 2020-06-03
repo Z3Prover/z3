@@ -25,14 +25,14 @@ Revision History:
 
 --*/
 
-#ifndef HILBERT_BASIS_H_
-#define HILBERT_BASIS_H_
+#pragma once
 
 #include "util/rational.h"
 #include "util/lbool.h"
 #include "util/statistics.h"
 #include "util/checked_int64.h"
 #include "util/rlimit.h"
+#include <cstring>
 
 typedef vector<rational> rational_vector;
 
@@ -198,6 +198,3 @@ public:
     void reset_statistics();     
 
 };
-
-
-#endif 
