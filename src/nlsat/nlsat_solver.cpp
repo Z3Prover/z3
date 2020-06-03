@@ -1961,6 +1961,13 @@ namespace nlsat {
             return new_lvl;
         }
 
+        struct scoped_reset_marks {
+            imp& i;
+            scoped_reset_marks(imp& i):i(i) {}
+            ~scoped_reset_marks() { if (i.m_num_marks > 0) { i.m_num_marks = 0; for (char& m : i.m_marks) m = 0; } }
+        };
+
+
         /**
            \brief Return true if the conflict was solved.
         */
@@ -1980,7 +1987,7 @@ namespace nlsat {
             m_num_marks = 0;
             m_lemma.reset();
             m_lemma_assumptions = nullptr;
-
+            scoped_reset_marks _sr(*this);
             resolve_clause(null_bool_var, *conflict_clause);
 
             unsigned top = m_trail.size();
