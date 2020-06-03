@@ -27,14 +27,12 @@ public:
     enum kind { MINUS_INFINITY, FINITE, PLUS_INFINITY };
 private:
     kind     m_kind;
-    rational m_value; 
-    explicit ext_numeral(kind k):m_kind(k) {}
+    rational m_value;
 public:
     ext_numeral():m_kind(FINITE) {} /* zero */
     explicit ext_numeral(bool plus_infinity):m_kind(plus_infinity ? PLUS_INFINITY : MINUS_INFINITY) {}
     explicit ext_numeral(rational const & val):m_kind(FINITE), m_value(val) {}
     explicit ext_numeral(int i):m_kind(FINITE), m_value(i) {}
-    ext_numeral(ext_numeral const & other):m_kind(other.m_kind), m_value(other.m_value) {}
     bool is_infinite() const { return m_kind != FINITE; }
     bool sign() const { return m_kind == MINUS_INFINITY || (m_kind == FINITE && m_value.is_neg()); }
     void neg();
@@ -78,13 +76,12 @@ class old_interval {
     v_dependency * join_opt(v_dependency * d1, v_dependency * d2, v_dependency * opt1, v_dependency * opt2);
 
 public:
-    explicit old_interval(v_dependency_manager & m);  
+    explicit old_interval(v_dependency_manager & m);
     explicit old_interval(v_dependency_manager & m, rational const & lower, bool l_open, v_dependency * l_dep, rational const & upper, bool u_open, v_dependency * u_dep);
     explicit old_interval(v_dependency_manager & m, rational const & val, v_dependency * l_dep = nullptr, v_dependency * u_dep = nullptr);
     explicit old_interval(v_dependency_manager & m, rational const & val, bool open, bool lower, v_dependency * d);
     explicit old_interval(v_dependency_manager & m, ext_numeral const& lower, bool l_open, v_dependency * l_dep, ext_numeral const & upper, bool u_open, v_dependency * u_dep);
-    old_interval(old_interval const & other);
-    
+
     bool minus_infinity() const { return m_lower.is_infinite(); }
     bool plus_infinity() const { return m_upper.is_infinite(); }
     bool is_lower_open() const { return m_lower_open; }

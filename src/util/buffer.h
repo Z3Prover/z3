@@ -43,6 +43,9 @@ protected:
         T * new_buffer        = reinterpret_cast<T*>(memory::allocate(sizeof(T) * new_capacity));
         for (unsigned i = 0; i < m_pos; ++i) {
             new (&new_buffer[i]) T(std::move(m_buffer[i]));
+            if (CallDestructors) {
+                m_buffer[i].~T();
+            }
         }
         free_memory();
         m_buffer              = new_buffer;
