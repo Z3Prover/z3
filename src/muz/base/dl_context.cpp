@@ -1231,7 +1231,7 @@ namespace datalog {
         }
         else {
             for (unsigned i = 0; i < queries.size(); ++i) {
-                if (queries.size() > 1) out << "(push)\n";
+                if (queries.size() > 1) out << "(push 1)\n";
                 out << "(assert ";
                 expr_ref q(m);
                 q = m.mk_not(queries[i].get());

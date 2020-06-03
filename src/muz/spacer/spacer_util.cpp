@@ -124,7 +124,7 @@ namespace spacer {
         out << "(define-fun mbp_benchmark_fml () Bool\n  ";
         out << mk_pp(fml, m) << ")\n\n";
 
-        out << "(push)\n"
+        out << "(push 1)\n"
             << "(assert mbp_benchmark_fml)\n"
             << "(check-sat)\n"
             << "(mbp mbp_benchmark_fml (";

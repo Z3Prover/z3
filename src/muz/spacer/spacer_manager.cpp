@@ -141,7 +141,7 @@ void inductive_property::display(datalog::rule_manager& rm, ptr_vector<datalog::
 
     out << to_string() << "\n";
     for (auto* r : rules) {
-        out << "(push)\n";
+        out << "(push 1)\n";
         out << "(assert (not\n";
         rm.display_smt2(*r, out);
         out << "))\n";
