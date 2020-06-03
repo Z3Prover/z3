@@ -2051,10 +2051,10 @@ public class Context implements AutoCloseable {
     /**
      *  Retrieve element at index.
      */
-    public SeqExpr MkNth(SeqExpr s, Expr index)
+    public Expr MkNth(SeqExpr s, Expr index)
     {
         checkContextMatch(s, index);
-        return (SeqExpr) Expr.create(this, Native.mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
+        return Expr.create(this, Native.mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
     }
 
 
