@@ -1995,7 +1995,6 @@ bool theory_arith<Ext>::is_inconsistent2(grobner::equation const * eq, grobner &
         grobner::monomial const * m = eq->get_monomial(i);
         intervals.push_back(mk_interval_for(m));
     }
-    std::cout << intervals.size() << "\n";
     sbuffer<bool> deleted;
     deleted.resize(num, false);
     ptr_buffer<grobner::monomial> monomials;
