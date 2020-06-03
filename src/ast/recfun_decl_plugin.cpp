@@ -131,8 +131,6 @@ namespace recfun {
             path(nullptr), to_split(nullptr), to_unfold(to_unfold) {}
         branch(choice_lst const * path, ite_lst const * to_split, unfold_lst const * to_unfold) : 
             path(path), to_split(to_split), to_unfold(to_unfold) {}
-        branch(branch const & from) : 
-            path(from.path), to_split(from.to_split), to_unfold(from.to_unfold) {}
     };
 
     // state for computing cases from the RHS of a functions' definition

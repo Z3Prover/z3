@@ -39,7 +39,7 @@ public:
         m.inc_ref(m_proof);
     }
 
-    justified_expr(justified_expr && other):
+    justified_expr(justified_expr && other) noexcept :
         m(other.m),
         m_fml(nullptr),
         m_proof(nullptr)

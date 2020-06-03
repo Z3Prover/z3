@@ -64,8 +64,6 @@ namespace opt {
             void set_value(lbool t) { value = t; }
             bool is_true() const { return value == l_true; }
             soft(expr_ref const& s, rational const& w, bool t): s(s), weight(w), value(t?l_true:l_undef) {}
-            soft(soft const& other):s(other.s), weight(other.weight), value(other.value) {}
-            soft& operator=(soft const& other) { s = other.s; weight = other.weight; value = other.value; return *this; }            
         };
         ast_manager&     m;
         maxsat_context&  m_c;        

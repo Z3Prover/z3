@@ -35,19 +35,6 @@ public:
         m_value(v), m_index(i), m_other(other) {
     }
 
-    indexed_value(const indexed_value & iv) {
-        m_value = iv.m_value;
-        m_index = iv.m_index;
-        m_other = iv.m_other;
-    }
-
-    indexed_value & operator=(const indexed_value & right_side) {
-        m_value = right_side.m_value;
-        m_index = right_side.m_index;
-        m_other = right_side.m_other;
-        return *this;
-    }
-
     const T & value() const {
         return m_value;
     }

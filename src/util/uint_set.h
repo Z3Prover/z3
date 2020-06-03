@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef UINT_SET_H_
-#define UINT_SET_H_
+#pragma once
 
 #include "util/util.h"
 #include "util/vector.h"
@@ -28,16 +27,6 @@ class uint_set : unsigned_vector {
 public:
     
     typedef unsigned data;
-
-    uint_set() {}
-
-    uint_set(const uint_set & source) {
-        for (unsigned i = 0; i < source.size(); ++i) {
-            push_back(source[i]);
-        }
-    }
-
-    ~uint_set() {}
 
     void swap(uint_set & other) {
         unsigned_vector::swap(other);
@@ -384,6 +373,3 @@ inline std::ostream& operator<<(std::ostream& out, indexed_uint_set const& s) {
     for (unsigned i : s) out << i << " ";
     return out;
 }
-
-#endif /* UINT_SET_H_ */
-

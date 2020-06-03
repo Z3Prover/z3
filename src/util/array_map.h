@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ARRAY_MAP_H_
-#define ARRAY_MAP_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/optional.h"
@@ -40,9 +39,9 @@ class array_map {
         entry(Key const & k, Data const & d, unsigned t): m_key(k), m_data(d), m_timestamp(t) {}
     };
 
-    unsigned                 m_timestamp;
-    unsigned                 m_garbage;
-    unsigned                 m_non_garbage;
+    unsigned                 m_timestamp = 0;
+    unsigned                 m_garbage = 0;
+    unsigned                 m_non_garbage = 0;
     static const unsigned    m_gc_threshold = 10000;
     vector<optional<entry>, CallDestructors > m_map;
     Plugin                   m_plugin;
@@ -76,7 +75,10 @@ class array_map {
 
 public:
 
-    array_map(Plugin const & p = Plugin()):m_timestamp(0), m_garbage(0), m_non_garbage(0), m_plugin(p) {}
+    array_map() = default;
+    array_map(array_map&&) noexcept = default;
+    array_map(Plugin const & p) : m_plugin(p) {}
+
     ~array_map() { really_flush(); }
 
     bool contains(Key const & k) const {
@@ -155,5 +157,3 @@ public:
     }
 
 };
-
-#endif /* ARRAY_MAP_H_ */

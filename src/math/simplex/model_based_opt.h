@@ -67,7 +67,6 @@ namespace opt {
         struct def {
             def(): m_div(1) {}
             def(row const& r, unsigned x);
-            def(def const& other): m_vars(other.m_vars), m_coeff(other.m_coeff), m_div(other.m_div) {}
             vector<var> m_vars;
             rational    m_coeff;
             rational    m_div; 

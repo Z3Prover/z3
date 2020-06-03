@@ -191,6 +191,13 @@ public:
             push_back(data[i]);
     }
 
+    void operator=(ref_vector_core && other) {
+        if (this != &other) {
+            reset();
+            m_nodes = std::move(other.m_nodes);
+        }
+    }
+
     void swap(unsigned idx1, unsigned idx2) {
         std::swap(m_nodes[idx1], m_nodes[idx2]);
     }
@@ -234,7 +241,7 @@ public:
         this->append(other);
     }
 
-    ref_vector(ref_vector && other) : super(std::move(other)) {}
+    ref_vector(ref_vector &&) = default;
 
     ref_vector(TManager & m, unsigned sz, T * const * data):
         super(ref_manager_wrapper<T, TManager>(m)) {
@@ -319,6 +326,11 @@ public:
     
     // prevent abuse:
     ref_vector & operator=(ref_vector const & other) = delete;
+
+    ref_vector & operator=(ref_vector && other) {
+        super::operator=(std::move(other));
+        return *this;
+    }
 
     bool operator==(ref_vector const& other) const {
         if (other.size() != this->size()) return false;
