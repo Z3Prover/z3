@@ -146,7 +146,7 @@ void inductive_property::display(datalog::rule_manager& rm, ptr_vector<datalog::
         rm.display_smt2(*r, out);
         out << "))\n";
         out << "(check-sat)\n";
-        out << "(pop)\n";
+        out << "(pop 1)\n";
     }
 }
 

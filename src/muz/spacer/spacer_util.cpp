@@ -130,7 +130,7 @@ namespace spacer {
             << "(mbp mbp_benchmark_fml (";
         for (auto v : vars) {out << mk_pp(v, m) << " ";}
         out << "))\n"
-            << "(pop)\n"
+            << "(pop 1)\n"
             << "(exit)\n";
     }
 

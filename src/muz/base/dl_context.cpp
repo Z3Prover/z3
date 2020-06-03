@@ -1238,7 +1238,7 @@ namespace datalog {
                 PP(q);
                 out << ")\n";
                 out << "(check-sat)\n";
-                if (queries.size() > 1) out << "(pop)\n";
+                if (queries.size() > 1) out << "(pop 1)\n";
             }
         }
     }

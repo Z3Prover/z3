@@ -105,7 +105,7 @@ private:
         num_rounds = r;
         std::cout << "; number of rounds: " << num_rounds << " level: " << lvl << "\n";
         ctx.pop(1);
-        std::cout << "(pop)\n";
+        std::cout << "(pop 1)\n";
     }
 
 };

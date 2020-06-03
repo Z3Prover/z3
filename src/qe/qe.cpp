@@ -1210,7 +1210,7 @@ namespace qe {
                 out << "; eliminate " << mk_pp(m_var, m) << "\n";
                 out << "(push 1)\n";
                 pp.display_smt2(out, fml);                
-                out << "(pop)\n\n";      
+                out << "(pop 1)\n\n";
 #if 0
                 DEBUG_CODE(
                     smt_params params;
