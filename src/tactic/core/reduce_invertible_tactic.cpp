@@ -196,7 +196,6 @@ private:
         case OP_BSHL:
         case OP_BASHR:
         case OP_BLSHR:
-        case OP_BOR:
             model = rational::zero();
             return true;
 
