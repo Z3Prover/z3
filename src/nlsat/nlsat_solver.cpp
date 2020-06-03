@@ -1967,7 +1967,9 @@ namespace nlsat {
         bool resolve(clause const & conflict) {
             clause const * conflict_clause = &conflict;
             m_lemma_assumptions = nullptr;
-        start:
+			std::cout << "resolve\n";
+		start:
+			std::cout << "start\n";
             SASSERT(check_marks());
             TRACE("nlsat_proof", tout << "STARTING RESOLUTION\n";);
             TRACE("nlsat_proof_sk", tout << "STARTING RESOLUTION\n";);

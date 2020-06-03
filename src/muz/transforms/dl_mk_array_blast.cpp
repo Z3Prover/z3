@@ -324,7 +324,6 @@ namespace datalog {
         }
         scoped_ptr<rule_set> rules = alloc(rule_set, m_ctx);
         rules->inherit_predicates(source);
-        rule_set::iterator it = source.begin(), end = source.end();
         bool change = false;
         for (rule* r : source) {
             if (m_ctx.canceled())

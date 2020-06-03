@@ -195,10 +195,21 @@ namespace smt {
         VERIFY(sk().is_accept(e, s, i, idx, r));
         expr_ref is_nullable(m), d(r, m);
 
+
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
         if (block_unfolding(lit, idx))
             return true;
+
+        literal_vector conds;
+        conds.push_back(~lit);
+        if (!unfold_cofactors(d, conds)) 
+            return false;
+
+        if (re().is_empty(d)) {
+            th.add_axiom(conds);
+            return true;
+        }
 
         // s in R & len(s) <= i => nullable(R)
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
@@ -207,17 +218,15 @@ namespace smt {
             ctx.mark_as_relevant(len_s_le_i);
             return false;
         case l_true: 
-            is_nullable = seq_rw().is_nullable(r);
+            is_nullable = seq_rw().is_nullable(d);
             rewrite(is_nullable);
-            th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
+            conds.push_back(~len_s_le_i);
+            conds.push_back(th.mk_literal(is_nullable));            
+            th.add_axiom(conds);
             return true;
         case l_false:
             break;
         }
-
-        literal_vector conds;
-        if (!unfold_cofactors(d, conds)) 
-            return false;
 
         // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
         expr_ref head = th.mk_nth(s, i);
@@ -225,7 +234,6 @@ namespace smt {
         rewrite(d);
 
         literal acc_next = th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d));
-        conds.push_back(~lit);
         conds.push_back(len_s_le_i);
         conds.push_back(acc_next);
         th.add_axiom(conds);
