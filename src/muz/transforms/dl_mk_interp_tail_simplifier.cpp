@@ -608,7 +608,8 @@ namespace datalog {
             TRACE("dl",
                   source.display(tout);
                   res->display(tout););
-        } else {
+        } 
+        else {
             res = nullptr;
         }
         return res.detach();

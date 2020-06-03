@@ -51,13 +51,12 @@ namespace datalog {
     }
         
     rule_set * mk_unfold::operator()(rule_set const & source) {
-        rule_set* rules = alloc(rule_set, m_ctx);
-        rule_set::iterator it = source.begin(), end = source.end();
-        for (; it != end; ++it) {
-            expand_tail(**it, 0, source, *rules);
+        scoped_ptr<rule_set> rules = alloc(rule_set, m_ctx);
+        for (rule* r : source) {
+            expand_tail(*r, 0, source, *rules);
         }
         rules->inherit_predicates(source);
-        return rules;
+        return rules.detach();
     }
 
 };

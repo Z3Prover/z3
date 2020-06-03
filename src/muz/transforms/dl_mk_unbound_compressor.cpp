@@ -387,7 +387,7 @@ namespace datalog {
             }
         }
 
-        rule_set * result = static_cast<rule_set *>(nullptr);
+        scoped_ptr<rule_set> result;
         if (m_modified) {
             result = alloc(rule_set, m_context);
             unsigned fin_rule_cnt = m_rules.size();
@@ -397,7 +397,7 @@ namespace datalog {
             result->inherit_predicates(source);
         }
         reset();
-        return result;
+        return result.detach();
     }
 
 

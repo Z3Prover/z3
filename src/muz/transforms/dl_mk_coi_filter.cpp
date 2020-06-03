@@ -128,7 +128,8 @@ namespace datalog {
             func_decl * pred = r->get_decl();
             if (engine.get_fact(pred).is_reachable()) {
                 res->add_rule(r);
-            } else if (m_context.get_model_converter()) {
+            } 
+            else if (m_context.get_model_converter()) {
                 pruned_preds.insert(pred);
             }
         }
