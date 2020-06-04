@@ -190,6 +190,10 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
             (*mc)(labels);
             model_converter2model(m, mc.get(), md);
         }
+        if (!m.inc()) {
+            reason_unknown = "canceled";
+            return l_undef;
+        }
         if (!md) {
             // create empty model.
             md = alloc(model, m);
