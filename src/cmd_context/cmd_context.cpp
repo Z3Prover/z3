@@ -473,7 +473,6 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_status(UNKNOWN),
     m_numeral_as_real(false),
     m_ignore_check(false),
-    m_processing_pareto(false),
     m_exit_on_error(false),
     m_manager(m),
     m_own_manager(m == nullptr),
@@ -1261,7 +1260,6 @@ void cmd_context::insert_aux_pdecl(pdecl * p) {
 }
 
 void cmd_context::reset(bool finalize) {    
-    m_processing_pareto = false;
     m_logic = symbol::null;
     m_check_sat_result = nullptr;
     m_numeral_as_real = false;
@@ -1307,7 +1305,6 @@ void cmd_context::reset(bool finalize) {
 
 void cmd_context::assert_expr(expr * t) {
     scoped_rlimit no_limit(m().limit(), 0);
-    m_processing_pareto = false;
     if (!m_check_logic(t))
         throw cmd_exception(m_check_logic.get_last_error());
     m_check_sat_result = nullptr;
@@ -1320,7 +1317,6 @@ void cmd_context::assert_expr(expr * t) {
 }
 
 void cmd_context::assert_expr(symbol const & name, expr * t) {
-    m_processing_pareto = false;
     if (!m_check_logic(t))
         throw cmd_exception(m_check_logic.get_last_error());
     if (!produce_unsat_cores() || name == symbol::null) {
@@ -1440,7 +1436,6 @@ static void restore(ast_manager & m, ptr_vector<expr> & c, unsigned old_sz) {
 }
 
 void cmd_context::restore_assertions(unsigned old_sz) {
-    m_processing_pareto = false;
     if (!has_manager()) {
         // restore_assertions invokes m(), so if cmd_context does not have a manager, it will try to create one.
         SASSERT(old_sz == m_assertions.size());
@@ -1460,7 +1455,6 @@ void cmd_context::restore_assertions(unsigned old_sz) {
 
 void cmd_context::pop(unsigned n) {
     m_check_sat_result = nullptr;
-    m_processing_pareto = false;
     if (n == 0)
         return;
     unsigned lvl     = m_scopes.size();
@@ -1507,7 +1501,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         scoped_rlimit _rlimit(m().limit(), rlimit);
         expr_ref_vector asms(m());
         asms.append(num_assumptions, assumptions);
-        if (!m_processing_pareto) {
+        if (!get_opt()->is_pareto()) {
             expr_ref_vector assertions(m());
             unsigned sz = m_assertions.size();
             for (unsigned i = 0; i < sz; ++i) {
@@ -1523,18 +1517,12 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         }
         try {
             r = get_opt()->optimize(asms);
-            if (r == l_true && get_opt()->is_pareto()) {
-                m_processing_pareto = true;
-            }
         }
         catch (z3_error & ex) {
             throw ex;
         }
         catch (z3_exception & ex) {
             throw cmd_exception(ex.msg());
-        }
-        if (m_processing_pareto && r != l_true) {
-            m_processing_pareto = false;
         }
         get_opt()->set_status(r);
     }
@@ -1575,10 +1563,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         validate_model();
     }
     validate_check_sat_result(r);
-    if (was_opt && r != l_false && !m_processing_pareto) {
-        // get_opt()->display_assignment(regular_stream());
-    }
-
     model_ref md;
     if (r == l_true && m_params.m_dump_models && is_model_available(md)) {
         display_model(md);
