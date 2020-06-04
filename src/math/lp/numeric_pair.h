@@ -147,6 +147,8 @@ struct numeric_pair {
     template <typename X, typename Y>
     numeric_pair(X xp, Y yp) : x(convert_struct<T, X>::convert(xp)), y(convert_struct<T, Y>::convert(yp)) {}
 
+    unsigned hash() const { return combine_hash(x.hash(), y.hash()); }
+    
     bool operator<(const T& a) const {
         return x < a || (x == a && y < 0);
     }

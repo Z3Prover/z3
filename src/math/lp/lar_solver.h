@@ -556,6 +556,7 @@ public:
     }
     void round_to_integer_solution();
     inline const row_strip<mpq> &  get_row(unsigned i) const { return A_r().m_rows[i]; }
+    inline const column_strip &  get_column(unsigned i) const { return A_r().m_columns[i]; }
     bool row_is_correct(unsigned i) const;
     bool ax_is_correct() const;
     bool get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq &rs, constraint_index& ci, bool &upper_bound) const;

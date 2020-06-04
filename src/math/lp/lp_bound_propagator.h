@@ -9,49 +9,51 @@
 namespace lp {
 template <typename T>
 class lp_bound_propagator {
-
-    // defining a graph on columns x, y such that there is a row x - y = c, where c is a constant    
-    struct vertex {        
+    struct impq_eq { bool operator()(const impq& a, const impq& b) const {return a == b;}};
+    // Pairs (row,x), (row,y) such that there is the
+    // row is x - y = c, where c is a constant form a tree.
+    // The edges of the tree are of the form ((row,x), (row, y)) as from above,
+    // or ((row, x), (other_row, x)) where the "other_row" is an offset row too.
+    class vertex {        
         unsigned           m_row; 
         unsigned           m_index; // in the row
         bool               m_sign; // true if the vertex plays the role of y
-        vector<unsigned>   m_out_edges;  // the vertex is x in an x-y edge
-        vector<unsigned>   m_in_edges;  // the vertex is y in an x-y edge
+        vector<unsigned>   m_children; // point to m_vertices
+        impq               m_offset; // offset from parent (parent - child = offset)
+        unsigned           m_id; // the index in m_vertices
+        unsigned           m_parent;
+    public:
         vertex() {}
-        vertex(unsigned row, unsigned index) : m_row(row), m_index(index) {}
-        unsigned hash() const { return combine_hash(m_row, m_index); }
-        bool operator==(const vertex& v) const { return m_row == v.m_row && m_index == v.m_index; }
-        void add_out_edge(unsigned e) {
-            SASSERT(m_out_edges.contains(e) == false);
-            m_out_edges.push_back(e);
+        vertex(unsigned row,
+               unsigned index,
+               const impq & offset,
+               unsigned id) :
+            m_row(row),
+            m_index(index),
+            m_offset(offset),
+            m_id(id),
+            m_parent(-1)
+        {}
+        unsigned index() const { return m_index; }
+        unsigned id() const { return m_id; }
+        unsigned row() const { return m_row; }
+        void add_child(vertex& child) {
+            child.m_parent = m_id;
+            m_children.push_back(child.m_id);
+        }        
+        std::ostream& print(std::ostream & out) const {
+            out << "row = " << m_row << ", m_index = " << m_index << ", parent = " << (int)m_parent << " , offset = " << m_offset << "\n";;
+            return out;
         }
-        void add_in_edge(unsigned e) {
-            SASSERT(m_in_edges.contains(e) == false);
-            m_in_edges.push_back(e);
-        }
-
     };
+    hashtable<unsigned, u_hash, u_eq>         m_visited_rows;
+    hashtable<unsigned, u_hash, u_eq>         m_visited_columns;
+    vector<vertex>                            m_vertices;
+    map<impq, lpvar, obj_hash<impq>, impq_eq> m_offsets_to_verts;
 
-    struct vert_hash {  unsigned operator()(const vertex& u) const { return u.hash(); }};
-    struct vert_eq { bool operator()(const vertex& u1, const vertex& u2) const { return u1 == u2; }};
-    // an edge can be between columns in the same row or between two different rows in the same column
-    // represents a - b = offset
-    struct edge { 
-        unsigned  m_a;
-        unsigned  m_b;
-        impq      m_offset;
-        edge() {}
-        edge(unsigned a, unsigned b, impq offset) : m_a(a), m_b(b), m_offset(offset) {}
-        unsigned hash() const { return combine_hash(m_a, m_b); }
-        bool operator==(const edge& e) const { return m_a == e.m_a && m_b == e.m_b; }
-    };
-    struct edge_hash {  unsigned operator()(const edge& u) const { return u.hash(); }};
-    struct edge_eq { bool operator()(const edge& u1, const edge& u2) const { return u1 == u2; }}; 
-    vector<vertex> m_vertices;
-    vector<edge>   m_edges;
-    
-    std::unordered_map<unsigned, unsigned> m_improved_lower_bounds; // these maps map a column index to the corresponding index in ibounds
-    std::unordered_map<unsigned, unsigned> m_improved_upper_bounds;
+    // these maps map a column index to the corresponding index in ibounds
+    std::unordered_map<unsigned, unsigned>    m_improved_lower_bounds;
+    std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
     T& m_imp;
 public:
     vector<implied_bound> m_ibounds;
@@ -110,76 +112,6 @@ public:
         m_imp.consume(a, ci);
     }
 
-    bool no_duplicate_vertices() const {
-        hashtable<vertex, vert_hash, vert_eq>  verts;
-        for (auto & v : m_vertices) {
-            verts.insert(v);
-        }
-        return verts.size() == m_vertices.size();
-    }
-
-    template <typename K>
-    bool no_duplicate_in_vector(const K& vec) const {
-        hashtable<unsigned, u_hash, u_eq> t;
-        for (unsigned j : vec)
-            t.insert(j);
-        return t.size() == vec.size();
-    }
-
-    bool edge_exits_vertex(unsigned j, const vertex& v) const {
-        const edge & e = m_edges[j];
-        return m_vertices[e.m_b] == v;
-    }
-
-    bool edge_enters_vertex(unsigned j, const vertex& v) const {
-        const edge & e = m_edges[j];
-        return m_vertices[e.m_a] == v;
-    }
-
-    
-    bool vertex_is_ok(unsigned i) const {
-        const vertex& v = m_vertices[i];
-        bool ret = no_duplicate_in_vector(v.m_out_edges)
-            && no_duplicate_in_vector(v.m_in_edges);
-        if (!ret)
-            return false;
-        for (unsigned j : v.m_out_edges) {
-            if (edge_exits_vertex(j, v))
-                return false;
-        }
-        for (unsigned j : v.m_in_edges) {
-            if (edge_enters_vertex(j, v))
-                return false;
-        }
-        return true;
-    }
-    
-    bool vertices_are_ok() const {
-        return no_duplicate_vertices();
-        for (unsigned k = 0; k < m_vertices.size(); k++) {
-            if (!vertex_is_ok(k))
-                return false;
-        }
-        return true;
-    }
-
-    bool no_duplicate_edges() const {
-        hashtable<edge, edge_hash, edge_eq> edges;
-        for (auto & v : m_edges) {
-            edges.insert(v);
-        }
-        return edges.size() == m_edges.size();
-    
-    }
-    
-    bool edges_are_ok() const {
-        return no_duplicate_edges();
-    }
-    
-    bool graph_is_ok() const {
-        return vertices_are_ok() && edges_are_ok();
-    }
-
     void create_initial_xy(unsigned x, unsigned y, unsigned row_index) {
         impq offset;
         const auto& row =  lp().get_row(row_index);
@@ -189,25 +121,139 @@ public:
             const auto& c = row[k];
             offset += c.coeff() * lp().get_lower_bound(c.var());
         }
-        vertex xv(row_index, x);
+        vertex xv(row_index,
+                  x, // index in row
+                  impq(0), // offset
+                  0 // id
+                  );
         m_vertices.push_back(xv);
-        vertex yv(row_index, y);
+        vertex yv(row_index,
+                  y, // index in row
+                  offset,
+                  1 // id
+                  );
         m_vertices.push_back(yv);
-        unsigned sz = m_vertices.size();
-        m_edges.push_back(edge(sz - 2, sz - 1, offset));
-        unsigned ei = m_edges.size() - 1;
-        m_vertices[sz - 2].add_out_edge(ei);
-        m_vertices[sz - 1].add_in_edge(ei);
-        SASSERT(graph_is_ok());
+        xv.add_child(yv);
+    }
+    bool is_offset_row(unsigned row_index,
+                       unsigned & x_index,
+                       lpvar & y_index,
+                       impq& offset) const {
+        x_index = y_index = UINT_MAX;
+
+        const auto & row = lp().get_row(row_index);
+        for (unsigned k = 0; k < row.size(); k++) {
+            const auto& c = row[k];
+            if (lp().column_is_fixed(c.var()))
+                continue;
+            if (x_index == UINT_MAX && c.coeff().is_one())
+                x_index = k;
+            else if (y_index == UINT_MAX && c.coeff().is_minus_one())
+                y_index = k;
+            else 
+                return false;
+        }
+        if (x_index == UINT_MAX || y_index == UINT_MAX)
+            return false;
+        offset = impq(0);
+        for (const auto& c : row) {
+            if (!lp().column_is_fixed(c.var()))
+                continue;
+            offset += c.coeff() * lp().get_lower_bound(c.var());
+        }
+        return true;
+    }
+
+    void add_eq(lpvar j, lpvar k) {
         NOT_IMPLEMENTED_YET();
     }
     
-    void try_create_eq(unsigned x, unsigned y, unsigned row_index) {
-        m_vertices.clear();
-        m_edges.clear();
-        create_initial_xy(x, y, row_index);
+    void check_for_eq_and_add_to_offset_table(lpvar j, const impq & offset) {
+        lpvar k;
+        if (m_offsets_to_verts.find(offset, k)) {
+            SASSERT(j != k);
+            add_eq(j, k);
+        } else {
+            m_offsets_to_verts.insert(offset, j);
+        }
+            
+    }
+
+    void clear_for_eq() {
+        m_visited_rows.reset();
+        m_visited_columns.reset();
+        m_vertices.reset();
+        m_offsets_to_verts.reset();
+    }
+
+    // we have v_i and v_j, indices of vertices at the same offsets
+    void report_eq(unsigned v_i, unsigned v_j) {
+        SASSERT(v_i != v_j);
         NOT_IMPLEMENTED_YET();
+    }
         
+
+    // offset is measured from the initial vertex in the search
+    void search_for_collision(const vertex& v, const impq& offset) {
+        TRACE("cheap_eq", tout << "v_i = " ; v.print(tout) << "\n";);
+        unsigned registered_vert;
+        
+        if (m_offsets_to_verts.find(offset, registered_vert))
+            report_eq(registered_vert, v.id());
+        else 
+            m_offsets_to_verts.insert(offset, v.id());
+        lpvar j = get_column(v);
+        if (m_visited_columns.contains(j))
+            return;
+        m_visited_columns.insert(j);
+        for (const auto & c : lp().get_column(j)) {
+            if (m_visited_rows.contains(c.var()))
+                continue;
+            m_visited_rows.insert(c.var());
+            unsigned x_index, y_index;
+            impq row_offset;
+            if (!is_offset_row(c.var(), x_index, y_index, row_offset))
+                return;
+            add_column_edge(v.id(), c.var(), x_index);
+            add_row_edge(offset, v.row(), x_index, y_index, row_offset);
+        }
+    }
+
+        // row[x_index] gives x, and row[y_index] gives y
+    // offset is accumulated during the recursion
+    // edge_offset is the one in x - y = edge_offset
+    // The parent is taken from m_vertices.back()
+    void add_row_edge(const impq& offset,
+                      unsigned row_index, unsigned x_index, unsigned y_index, const impq& row_offset) {
+        const auto& row =  lp().get_row(row_index);
+        unsigned parent_id = m_vertices.size() - 1; 
+        vertex xv(row_index, x_index, row_offset, parent_id + 1);
+        m_vertices.push_back(xv);
+        if (parent_id != UINT_MAX) {
+            m_vertices[parent_id].add_child(xv);
+        }
+        vertex yv(row_index, y_index, row_offset, parent_id + 2);
+        m_vertices.push_back(yv);
+        xv.add_child(yv);
+        search_for_collision(xv, offset);
+    }
+    
+    void add_column_edge(unsigned parent, lpvar j, unsigned index_in_row) {
+        NOT_IMPLEMENTED_YET();
+    }
+    
+    lpvar get_column(const vertex& v) const {
+        return lp().get_row(v.row())[v.index()].var();
+    }
+
+    void try_create_eq(unsigned row_index) {
+        TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);
+        unsigned x_index, y_index;
+        impq offset;
+        if (!is_offset_row(row_index, x_index, y_index, offset))
+            return;
+        add_row_edge(impq(0), row_index, x_index, y_index, offset);
+        TRACE("cheap_eq", tout << "done for row_index" << row_index << "\n";);
     }
 };
 }
