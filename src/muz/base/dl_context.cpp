@@ -354,10 +354,9 @@ namespace datalog {
 
     void context::restrict_predicates(func_decl_set const& preds) {
         m_preds.reset();
-        func_decl_set::iterator it = preds.begin(), end = preds.end();
-        for (; it != end; ++it) {
-            TRACE("dl", tout << mk_pp(*it, m) << "\n";);
-            m_preds.insert(*it);
+        for (func_decl* p : preds) {
+            TRACE("dl", tout << mk_pp(p, m) << "\n";);
+            m_preds.insert(p);
         }
     }
 
@@ -742,7 +741,7 @@ namespace datalog {
     }
 
     expr_ref context::get_background_assertion() {
-		return mk_and(m_background);
+        return mk_and(m_background);
     }
 
     void context::assert_expr(expr* e) {
@@ -961,18 +960,17 @@ namespace datalog {
         rule_ref_vector rv (rm);
         get_rules_along_trace (rv);
         expr_ref fml (m);
-        rule_ref_vector::iterator it = rv.begin (), end = rv.end ();
-        for (; it != end; it++) {
-            m_rule_manager.to_formula (**it, fml);
+        for (auto* r : rv) {
+            m_rule_manager.to_formula (*r, fml);
             rules.push_back (fml);
             // The concatenated names are already stored last-first, so do not need to be reversed here
-            const symbol& rule_name = (*it)->name();
+            const symbol& rule_name = r->name();
             names.push_back (rule_name);
 
             TRACE ("dl",
                    if (rule_name == symbol::null) {
                        tout << "Encountered unnamed rule: ";
-                       (*it)->display(*this, tout);
+                       r->display(*this, tout);
                        tout << "\n";
                    });
         }
@@ -1064,9 +1062,7 @@ namespace datalog {
                 --i;
             }
         }
-        rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-        for (; it != end; ++it) {
-            rule* r = *it;
+        for (rule* r : m_rule_set) {
             rm.to_formula(*r, fml);
             func_decl* h = r->get_decl();
             if (m_rule_set.is_output_predicate(h)) {
