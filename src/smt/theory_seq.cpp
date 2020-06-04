@@ -2301,7 +2301,7 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
         k.assert_expr(f);
     }
     lbool r = k.check();
-    if (r != l_false && !m.limit().get_cancel_flag()) {
+    if (r != l_false && !m.limit().is_canceled()) {
         model_ref mdl;
         k.get_model(mdl);
         IF_VERBOSE(0, 

@@ -78,7 +78,7 @@ struct solver::imp {
             r = m_nlsat->check(); 
         }
         catch (z3_exception&) {
-            if (m_limit.get_cancel_flag()) {
+            if (m_limit.is_canceled()) {
                 r = l_undef;
             }
             else {

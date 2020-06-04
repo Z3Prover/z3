@@ -1759,7 +1759,7 @@ namespace nlsat {
             if (assigned_value(antecedent) == l_undef) {
                 checkpoint();
                 // antecedent must be false in the current arith interpretation
-                SASSERT(value(antecedent) == l_false || m_rlimit.get_cancel_flag());
+                SASSERT(value(antecedent) == l_false || m_rlimit.is_canceled());
                 if (!is_marked(b)) {
                     SASSERT(is_arith_atom(b) && max_var(b) < m_xk); // must be in a previous stage
                     TRACE("nlsat_resolve", tout << "literal is unassigned, but it is false in arithmetic interpretation, adding it to lemma\n";); 
@@ -1837,10 +1837,10 @@ namespace nlsat {
                 for (unsigned i = 0; i < sz; i++) {
                     literal l = m_lazy_clause[i];
                     if (l.var() != b) {
-                        SASSERT(value(l) == l_false || m_rlimit.get_cancel_flag());
+                        SASSERT(value(l) == l_false || m_rlimit.is_canceled());
                     }
                     else {
-                        SASSERT(value(l) == l_true || m_rlimit.get_cancel_flag());
+                        SASSERT(value(l) == l_true || m_rlimit.is_canceled());
                         SASSERT(!l.sign() || m_bvalues[b] == l_false);
                         SASSERT(l.sign()  || m_bvalues[b] == l_true);
                     }

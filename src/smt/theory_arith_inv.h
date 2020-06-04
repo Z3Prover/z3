@@ -191,7 +191,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::satisfy_bounds() const {
-        if (get_manager().limit().get_cancel_flag())
+        if (get_manager().limit().is_canceled())
             return true;
         int num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
@@ -217,7 +217,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::valid_assignment() const {
-        if (get_manager().limit().get_cancel_flag())
+        if (get_manager().limit().is_canceled())
             return true;
         if (valid_row_assignment() &&
             satisfy_bounds() &&

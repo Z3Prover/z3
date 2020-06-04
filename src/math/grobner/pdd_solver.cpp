@@ -362,7 +362,7 @@ namespace dd {
     }   
     
     bool solver::canceled() {
-        return m_limit.get_cancel_flag();
+        return m_limit.is_canceled();
     }
     
     bool solver::done() {
