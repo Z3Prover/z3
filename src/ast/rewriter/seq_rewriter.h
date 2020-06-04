@@ -219,6 +219,7 @@ class seq_rewriter {
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
     br_status mk_re_reverse(expr* r, expr_ref& result);
     br_status mk_re_derivative(expr* ele, expr* r, expr_ref& result);
+    br_status mk_re_ite(expr* ele, expr* r, expr_ref& result);
     br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
@@ -310,8 +311,16 @@ public:
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
+    // Support for regular expression derivatives
     expr_ref is_nullable(expr* r);
     expr_ref is_nullable_rec(expr* r);
+    // expr_ref derivative(expr* r);
+    // expr_ref derivative_rec(expr* r);
+    // expr_ref bdd_union(expr* r);
+    // expr_ref bdd_inter(expr* r);
+    // expr_ref bdd_comp(expr* r);
+    // expr_ref bdd_concat(expr* r);
+    // expr_ref bdd_star(expr* r);
 
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
 
