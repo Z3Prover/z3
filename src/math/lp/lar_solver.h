@@ -543,6 +543,7 @@ public:
     inline lar_term const& term(unsigned i) const { return *m_terms[i]; }
     inline void set_int_solver(int_solver * int_slv) { m_int_solver = int_slv; }
     inline int_solver * get_int_solver() { return m_int_solver; }
+    inline const int_solver * get_int_solver() const { return m_int_solver; }
     inline const lar_term & get_term(tv const& t) const { lp_assert(t.is_term()); return *m_terms[t.id()]; }
     lp_status find_feasible_solution();   
     void move_non_basic_columns_to_bounds();
