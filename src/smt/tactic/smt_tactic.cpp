@@ -231,6 +231,9 @@ public:
                     mc = concat(fmc.get(), mc.get());
                     in->add(mc.get());
                 }
+                if (m_ctx->canceled() && !pr) {
+                    throw tactic_exception(Z3_CANCELED_MSG);
+                }
                 return;
             }
             case l_false: {
