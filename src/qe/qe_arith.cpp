@@ -345,6 +345,9 @@ namespace qe {
                 if (is_arith(v) && !tids.contains(v)) {
                     rational r;
                     expr_ref val = eval(v);
+                    if (!m.inc())
+                        return vector<def>();
+
                     VERIFY(a.is_numeral(val, r));
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
