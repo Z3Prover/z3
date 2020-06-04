@@ -216,7 +216,7 @@ public:
                        tout << *m_model << "assumptions: ";
                        for (expr* a : m_asms) tout << mk_pp(a, m) << " -> " << (*m_model)(a) << " ";
                        tout << "\n";);
-                SASSERT(m_model->is_true(m_asms));
+                SASSERT(m_model->is_true(m_asms) || m.limit().is_canceled());
                 found_optimum();
                 return l_true;
             case l_false:
