@@ -37,12 +37,13 @@ class lp_bound_propagator {
         unsigned index() const { return m_index; }
         unsigned id() const { return m_id; }
         unsigned row() const { return m_row; }
+        unsigned parent() const { return m_parent; }
         void add_child(vertex& child) {
             child.m_parent = m_id;
             m_children.push_back(child.m_id);
         }        
         std::ostream& print(std::ostream & out) const {
-            out << "row = " << m_row << ", m_index = " << m_index << ", parent = " << (int)m_parent << " , offset = " << m_offset << "\n";;
+            out << "row = " << m_row << ", m_index = " << m_index << ", parent = " << (int)m_parent << " , offset = " << m_offset << ", id = " << m_id << "\n";;
             return out;
         }
     };
@@ -126,14 +127,16 @@ public:
                   impq(0), // offset
                   0 // id
                   );
-        m_vertices.push_back(xv);
+        push_to_verts(xv);
         vertex yv(row_index,
                   y, // index in row
                   offset,
                   1 // id
                   );
-        m_vertices.push_back(yv);
+        push_to_verts(yv);
         xv.add_child(yv);
+        TRACE("cheap_eq", print_tree(tout););
+        SASSERT(tree_is_correct());
     }
     bool is_offset_row(unsigned row_index,
                        unsigned & x_index,
@@ -189,19 +192,42 @@ public:
     // we have v_i and v_j, indices of vertices at the same offsets
     void report_eq(unsigned v_i, unsigned v_j) {
         SASSERT(v_i != v_j);
+        const vertex& u = m_vertices[v_i];
+        const vertex& v = m_vertices[v_j];
+        TRACE("cheap_eq", tout << "v_i = " << v_i << ", v_j = " << v_j << "\nu = "; u.print(tout) << "\nv = "; v.print(tout) <<"\n";);
+        
         NOT_IMPLEMENTED_YET();
     }
-        
+
+    bool tree_is_correct() const {
+        unsigned id = 0;
+        for (const auto & v : m_vertices) {
+            if (id != v.id()) {
+                TRACE("cheap_eq",
+                      tout << "incorrect id at " << id << "\n";);
+                return false;
+            }
+            if (id && v.parent() == UINT_MAX) {
+                TRACE("cheap_eq", tout << "incorrect parent "; v.print(tout); );
+                return false;
+            }
+                
+            id++;
+        }
+        return true;
+    }
 
     // offset is measured from the initial vertex in the search
     void search_for_collision(const vertex& v, const impq& offset) {
         TRACE("cheap_eq", tout << "v_i = " ; v.print(tout) << "\n";);
         unsigned registered_vert;
         
-        if (m_offsets_to_verts.find(offset, registered_vert))
-            report_eq(registered_vert, v.id());
-        else 
+        if (m_offsets_to_verts.find(offset, registered_vert)) {
+            if (registered_vert != v.id())
+                report_eq(registered_vert, v.id());
+        } else {
             m_offsets_to_verts.insert(offset, v.id());
+        }
         lpvar j = get_column(v);
         if (m_visited_columns.contains(j))
             return;
@@ -219,7 +245,7 @@ public:
         }
     }
 
-        // row[x_index] gives x, and row[y_index] gives y
+    // row[x_index] gives x, and row[y_index] gives y
     // offset is accumulated during the recursion
     // edge_offset is the one in x - y = edge_offset
     // The parent is taken from m_vertices.back()
@@ -228,20 +254,40 @@ public:
         const auto& row =  lp().get_row(row_index);
         unsigned parent_id = m_vertices.size() - 1; 
         vertex xv(row_index, x_index, row_offset, parent_id + 1);
-        m_vertices.push_back(xv);
+        push_to_verts(xv);
         if (parent_id != UINT_MAX) {
             m_vertices[parent_id].add_child(xv);
         }
         vertex yv(row_index, y_index, row_offset, parent_id + 2);
-        m_vertices.push_back(yv);
         xv.add_child(yv);
-        search_for_collision(xv, offset);
+        push_to_verts(yv);
+        TRACE("cheap_eq", print_tree(tout););
+        m_visited_rows.insert(row_index);
+        search_for_collision(xv, offset);        
+        TRACE("cheap_eq", print_tree(tout););
+        SASSERT(tree_is_correct());
     }
-    
-    void add_column_edge(unsigned parent, lpvar j, unsigned index_in_row) {
-        NOT_IMPLEMENTED_YET();
+
+    void push_to_verts(const vertex& v) {
+        TRACE("cheap_eq", tout << "v = "; v.print(tout););
+        m_vertices.push_back(v);
     }
+        
     
+    void add_column_edge(unsigned parent, unsigned row_index, unsigned index_in_row) {
+        TRACE("cheap_eq", tout << "parent=" << parent << ", row_index = " << row_index << "\n";);
+        vertex v(row_index, index_in_row, impq(0), m_vertices.size());
+        m_vertices[parent].add_child(v);
+        push_to_verts(v);
+        TRACE("cheap_eq", tout << "tree = "; print_tree(tout););
+        SASSERT(tree_is_correct());
+    }
+    std::ostream& print_tree(std::ostream & out) const {
+        for (auto & v : m_vertices) {
+            v.print(out);
+        }
+        return out;
+    }
     lpvar get_column(const vertex& v) const {
         return lp().get_row(v.row())[v.index()].var();
     }
