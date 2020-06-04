@@ -330,22 +330,7 @@ private:
     }
 
     void analyze_eq() {
-        unsigned x = UINT_MAX, y = UINT_MAX;
-        unsigned k = 0;
-        for (const auto& c : m_row) {
-            if (!m_bp.lp().column_is_fixed(c.var())) {
-                if (x == UINT_MAX && c.coeff().is_one())
-                    x = k;
-                else if (y == UINT_MAX && c.coeff().is_minus_one())
-                    y = k;
-                else 
-                    return;
-            }
-            k++;
-        }        
-        if (x == UINT_MAX || y == UINT_MAX)
-            return;
-        m_bp.try_create_eq(x, y, m_row_index);
+        m_bp.try_create_eq(m_row_index);
     }
 
 };
