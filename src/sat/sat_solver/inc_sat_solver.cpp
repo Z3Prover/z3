@@ -963,6 +963,8 @@ private:
         for (expr * f : m_fmls) {
             expr_ref tmp(m);
             eval(f, tmp);
+            if (m.limit().is_canceled())
+                return;
             CTRACE("sat", !m.is_true(tmp),
                    tout << "Evaluation failed: " << mk_pp(f, m) << " to " << tmp << "\n";
                    model_smt2_pp(tout, m, *(mdl.get()), 0););
