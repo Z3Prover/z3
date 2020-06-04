@@ -2845,12 +2845,13 @@ namespace smt {
         }
     }
 
-    void context::push() {
-        TRACE("unit_subsumption_bug", display(tout << "context::push()\n"););        
+    void context::push() {       
         pop_to_base_lvl();
         setup_context(false);
         bool was_consistent = !inconsistent();
         internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
+        if (!m.inc())
+            throw default_exception("push canceled");
         scoped_suspend_rlimit _suspend_cancel(m.limit());
         propagate();
         if (was_consistent && inconsistent() && !m_asserted_formulas.inconsistent()) {
@@ -3084,6 +3085,7 @@ namespace smt {
         TRACE("internalize_assertions", tout << "internalize_assertions()...\n";);
         timeit tt(get_verbosity_level() >= 100, "smt.preprocessing");
         reduce_assertions();
+        if (get_cancel_flag()) return;
         if (!m_asserted_formulas.inconsistent()) {
             unsigned sz    = m_asserted_formulas.get_num_formulas();
             unsigned qhead = m_asserted_formulas.get_qhead();
