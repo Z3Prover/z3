@@ -180,6 +180,15 @@ class seq_rewriter {
     expr_ref re_predicate(expr* cond, sort* seq_sort);
     expr_ref mk_seq_concat(expr* a, expr* b);    
 
+    expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
+    expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
+    expr_ref mk_der_concat(expr* a, expr* b);
+    expr_ref mk_der_union(expr* a, expr* b);
+    expr_ref mk_der_inter(expr* a, expr* b);
+    expr_ref mk_der_compl(expr* a);
+    expr_ref mk_derivative(expr* ele, expr* r);
+    expr_ref mk_derivative_rec(expr* ele, expr* r);
+
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);

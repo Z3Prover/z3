@@ -2304,7 +2304,110 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     Symbolic derivative: seq -> regex -> regex
     seq should be single char
 */
+
 br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
+    result = mk_derivative(ele, r);
+    // TBD: we may even declare BR_DONE here and potentially miss some simplifications
+    return re().is_derivative(result) ? BR_DONE : BR_REWRITE_FULL;
+}
+
+expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
+    expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
+    if (!result) {
+        result = mk_derivative_rec(ele, r);
+        m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
+    }
+    return result;
+}
+
+expr_ref seq_rewriter::mk_der_union(expr* r1, expr* r2) {
+    return mk_der_op(OP_RE_UNION, r1, r2);
+}
+
+expr_ref seq_rewriter::mk_der_inter(expr* r1, expr* r2) {
+    return mk_der_op(OP_RE_INTERSECT, r1, r2);
+}
+
+expr_ref seq_rewriter::mk_der_concat(expr* r1, expr* r2) {
+    return mk_der_op(OP_RE_CONCAT, r1, r2);
+}
+
+expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
+    expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
+    expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
+    expr_ref result(m());
+    if (m().is_ite(a, ca, a1, a2)) {
+        if (m().is_ite(b, cb, b1, b2)) {
+            if (ca == cb) {
+                expr_ref r1 = mk_der_op(k, a1, b1);
+                expr_ref r2 = mk_der_op(k, a2, b2);
+                result = m().mk_ite(ca, r1, r2);
+                return result;
+            }
+            else if (ca->get_id() < cb->get_id()) {
+                expr_ref r1 = mk_der_op(k, a, b1);
+                expr_ref r2 = mk_der_op(k, a, b2);
+                result = m().mk_ite(cb, r1, r2);
+                return result;
+            }
+        }
+        expr_ref r1 = mk_der_op(k, a1, b);
+        expr_ref r2 = mk_der_op(k, a2, b);
+        result = m().mk_ite(ca, r1, r2);
+        return result;
+    }
+    if (m().is_ite(b, cb, b1, b2)) {
+        expr_ref r1 = mk_der_op(k, a, b1);
+        expr_ref r2 = mk_der_op(k, a, b2);
+        result = m().mk_ite(cb, r1, r2);
+        return result;
+    }
+    switch (k) {
+    case OP_RE_INTERSECT:
+        if (BR_FAILED == mk_re_inter(a, b, result))
+            result = re().mk_inter(a, b);
+        break;
+    case OP_RE_UNION:
+        if (BR_FAILED == mk_re_union(a, b, result))
+            result = re().mk_union(a, b);
+        break;
+    case OP_RE_CONCAT:
+        if (BR_FAILED == mk_re_concat(a, b, result))
+            result = re().mk_concat(a, b);
+        break;
+    default:
+        UNREACHABLE();
+        break;
+    }
+    return result;
+}
+
+expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
+    expr_ref _a(a, m()), _b(b, m());
+    expr_ref result(m_op_cache.find(k, a, b), m());
+    if (!result) {
+        result = mk_der_op_rec(k, a, b);
+        m_op_cache.insert(k, a, b, result);
+    }
+    return result;
+}
+
+expr_ref seq_rewriter::mk_der_compl(expr* r) {
+    expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
+    if (!result) {
+        expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
+        if (m().is_ite(r, c, r1, r2)) {
+            result = m().mk_ite(c, mk_der_compl(r1), mk_der_compl(r2));
+        }
+        else if (BR_FAILED == mk_re_complement(r, result))
+            result = re().mk_complement(r);        
+    }
+    m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
+    expr_ref result(m());
     sort* seq_sort = nullptr, *ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
@@ -2313,110 +2416,77 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
         expr_ref is_n = is_nullable(r1);
-        expr_ref dr1(re().mk_derivative(ele, r1), m());
-        expr_ref dr2(re().mk_derivative(ele, r2), m());
-        result = re().mk_concat(dr1, r2);
+        expr_ref dr1 = mk_derivative(ele, r1);
+        result = mk_der_concat(dr1, r2);
         if (m().is_false(is_n)) {
-            return BR_REWRITE2;
+            return result;
         }
-        else if (m().is_true(is_n)) {
-            result = re().mk_union(result, dr2);
-            return BR_REWRITE3;
-        }
-        else {
-            result = re().mk_union(result, re_and(is_n, dr2));
-            return BR_REWRITE3;
-        }
+        expr_ref dr2 = mk_derivative(ele, r2);
+        return mk_der_union(result, re_and(is_n, dr2));        
     }
     else if (re().is_star(r, r1)) {
-        result = re().mk_concat(re().mk_derivative(ele, r1), r);
-        return BR_REWRITE2;
+        return mk_der_concat(mk_derivative(ele, r1), r);
     }
     else if (re().is_plus(r, r1)) {
-        result = re().mk_derivative(ele, re().mk_star(r1));
-        return BR_REWRITE1;
+        expr_ref star(re().mk_star(r1), m());
+        return mk_derivative(ele, star);
     }
     else if (re().is_union(r, r1, r2)) {
-        result = re().mk_union(
-            re().mk_derivative(ele, r1),
-            re().mk_derivative(ele, r2)
-        );
-        return BR_REWRITE2;
+        return mk_der_union(mk_derivative(ele, r1), mk_derivative(ele, r2));
     }
     else if (re().is_intersection(r, r1, r2)) {
-        result = re().mk_inter(
-            re().mk_derivative(ele, r1),
-            re().mk_derivative(ele, r2)
-        );
-        return BR_REWRITE2;
+        return mk_der_inter(mk_derivative(ele, r1), mk_derivative(ele, r2));
     }
     else if (re().is_diff(r, r1, r2)) {
-        result = re().mk_diff(
-            re().mk_derivative(ele, r1),
-            re().mk_derivative(ele, r2)
-        );
-        return BR_REWRITE2;
+        return mk_der_inter(mk_derivative(ele, r1), mk_der_compl(mk_derivative(ele, r2)));
     }
     else if (m().is_ite(r, p, r1, r2)) {
-        result = m().mk_ite(
-            p,
-            re().mk_derivative(ele, r1),
-            re().mk_derivative(ele, r2)
-        );
-        return BR_REWRITE2;
+        // there is no BDD normalization here
+        result = m().mk_ite(p, mk_derivative(ele, r1), mk_derivative(ele, r2));
+        return result;
     }
     else if (re().is_opt(r, r1)) {
-        result = re().mk_derivative(ele, r1);
-        return BR_REWRITE1;
+        return mk_derivative(ele, r1);
     }
     else if (re().is_complement(r, r1)) {
-        result = re().mk_complement(re().mk_derivative(ele, r1));
-        return BR_REWRITE2;
+        return mk_der_compl(mk_derivative(ele, r1));
     }
     else if (re().is_loop(r, r1, lo)) {
         if (lo > 0) {
             lo--;
         }
-        result = re().mk_concat(
-            re().mk_derivative(ele, r1),
-            re().mk_loop(r1, lo)
-        );
-        return BR_REWRITE2;
+        return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo));
     }
     else if (re().is_loop(r, r1, lo, hi)) {
         if (hi == 0) {
             result = re().mk_empty(m().get_sort(r));
-            return BR_DONE;
+            return result;
         }
         hi--;
         if (lo > 0) {
             lo--;
         }
-        result = re().mk_concat(
-            re().mk_derivative(ele, r1),
-            re().mk_loop(r1, lo, hi)
-        );
-        return BR_REWRITE2;
+        return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo, hi));
     }
     else if (re().is_full_seq(r) ||
              re().is_empty(r)) {
         result = r;
-        return BR_DONE;
+        return result;
     }
     else if (re().is_to_re(r, r1)) {
         // r1 is a string here (not a regexp)
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            result = re_and(m().mk_eq(ele, hd),re().mk_to_re(tl));
-            return BR_REWRITE2;
+            result = re_and(m().mk_eq(ele, hd), re().mk_to_re(tl));
+            return result;
         }
         else if (str().is_empty(r1)) {
             result = re().mk_empty(m().get_sort(r));
-            return BR_DONE;
+            return result;
         }
         else {
-            return BR_FAILED;
+            return expr_ref(re().mk_derivative(ele, r), m());
         }
     }
     else if (re().is_reverse(r, r1) && re().is_to_re(r1, r2)) {
@@ -2429,14 +2499,14 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
                 m().mk_eq(ele, tl),
                 re().mk_reverse(re().mk_to_re(hd))
             );
-            return BR_REWRITE3;
+            return result;
         }
         else if (str().is_empty(r2)) {
             result = re().mk_empty(m().get_sort(r));
-            return BR_DONE;
+            return result;
         }
         else {
-            return BR_FAILED;
+            return expr_ref(re().mk_derivative(ele, r), m());
         }
     }
     else if (re().is_range(r, r1, r2)) {
@@ -2448,34 +2518,34 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
                 r2 = m_util.mk_char(s2[0]);
                 result = m().mk_and(m_util.mk_le(r1, ele), m_util.mk_le(ele, r2));
                 result = re_predicate(result, seq_sort);
-                return BR_REWRITE3;
+                return result;
             }
             else {
                 result = re().mk_empty(m().get_sort(r));
-                return BR_DONE;
+                return result;
             }
         }
         expr* e1 = nullptr, *e2 = nullptr;
         if (str().is_unit(r1, e1) && str().is_unit(r2, e2)) {
             result = m().mk_and(m_util.mk_le(e1, ele), m_util.mk_le(ele, e2));
             result = re_predicate(result, seq_sort);
-            return BR_REWRITE2;
+            return result;
         }
     }
     else if (re().is_full_char(r)) {
         result = re().mk_to_re(str().mk_empty(seq_sort));
-        return BR_DONE;
+        return result;
     }
     else if (re().is_of_pred(r, p)) {
         array_util array(m());
         expr* args[2] = { p, ele };
         result = array.mk_select(2, args);
         result = re_predicate(result, seq_sort);
-        return BR_REWRITE2;
+        return result;
     }
     // stuck cases: re().is_derivative, variable, ...
     // and re().is_reverse if the reverse is not applied to a string
-    return BR_FAILED;
+    return expr_ref(re().mk_derivative(ele, r), m());
 }
 
 /*
