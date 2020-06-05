@@ -158,9 +158,12 @@ void lar_solver::substitute_basis_var_in_terms_for_row(unsigned i) {
 }
 
 unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
+    SASSERT(j < m_var_register.size());
     if (!tv::is_term(j)) {
         unsigned ext_var_or_term = m_var_register.local_to_external(j);
         j = !tv::is_term(ext_var_or_term) ? j : ext_var_or_term;
+    } else {
+        UNREACHABLE();
     }
     return j;
 }
