@@ -326,6 +326,7 @@ namespace smt {
         // don't lift over unions
         result = seq_rw().lift_ites(result); // false, true);
         rewrite(result);
+        std::cout << std::endl << "Derivative result: " << result << std::endl;
         return result;
     }
 

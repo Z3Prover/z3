@@ -2473,6 +2473,11 @@ expr_ref seq_rewriter::combine_ites(decl_kind k, expr* a, expr* b, expr* cond) {
         return result;
     }
     std::cout << "(m) ";
+    std::cout << std::endl << "combine_ites: "
+                           << k << ", "
+                           << expr_ref(a, m()) << ", "
+                           << expr_ref(b, m()) << ", "
+                           << expr_ref(cond, m()) << std::endl;
     SASSERT((k == OP_ITE) == (cond != nullptr));
     expr *acond = nullptr, *a1 = nullptr, *a2 = nullptr,
          *bcond = nullptr, *b1 = nullptr, *b2 = nullptr;
@@ -2480,6 +2485,7 @@ expr_ref seq_rewriter::combine_ites(decl_kind k, expr* a, expr* b, expr* cond) {
     if (k == OP_ITE) {
         if (m().is_ite(a, acond, a1, a2) &&
             cond->get_id() < acond->get_id()) {
+            std::cout << "  case 1a" << std::endl;
             // Push ITE inwards on first arg
             result1 = combine_ites(k, a1, b, cond);
             result2 = combine_ites(k, a2, b, cond);
@@ -2487,44 +2493,52 @@ expr_ref seq_rewriter::combine_ites(decl_kind k, expr* a, expr* b, expr* cond) {
         }
         else if (m().is_ite(a, acond, a1, a2) &&
                  cond == acond) {
+            std::cout << "  case 1b" << std::endl;
             // Collapse ITE on first arg
             result = combine_ites(k, a1, b, cond);
         }
         else if (m().is_ite(b, bcond, b1, b2) &&
                  cond->get_id() < bcond->get_id()) {
             // Push ITE inwards on second arg
+            std::cout << "  case 1c" << std::endl;
             result1 = combine_ites(k, a, b1, cond);
             result2 = combine_ites(k, a, b2, cond);
             result = combine_ites(k, result1, result2, bcond);
         }
         else if (m().is_ite(b, bcond, b1, b2) &&
                  cond == bcond) {
+            std::cout << "  case 1d" << std::endl;
             // Collapse ITE on second arg
             result = combine_ites(k, a, b2, cond);
         }
         else {
             // Apply ITE -- no simplification required
-            result = m().mk_ite(a, b, cond);
+            std::cout << "  case 1e" << std::endl;
+            result = m().mk_ite(cond, a, b);
         }
     }
     else if (m().is_ite(a, acond, a1, a2)) {
+        std::cout << "  case 2" << std::endl;
         // Push binary op inwards on first arg
         result1 = combine_ites(k, a1, b, nullptr);
         result2 = combine_ites(k, a2, b, nullptr);
         result = combine_ites(OP_ITE, result1, result2, acond);
     }
     else if (m().is_ite(b, bcond, b1, b2)) {
+        std::cout << "  case 3" << std::endl;
         // Push binary op inwards on second arg
         result1 = combine_ites(k, a, b1, nullptr);
         result2 = combine_ites(k, a, b2, nullptr);
         result = combine_ites(OP_ITE, result1, result2, bcond);
     }
     else {
+        std::cout << "  case 4" << std::endl;
         // Apply binary op (a and b are free of ITE)
         result = m().mk_app(get_fid(), k, a, b);
     }
     // Save result before returning
     m_op_cache.insert(k, a, b, cond, result);
+    std::cout << "combine result: " << result << std::endl;
     return result;
 }
 
@@ -2598,6 +2612,8 @@ expr_ref seq_rewriter::lift_ites(expr* r, bool lift_over_union, bool lift_over_i
         // is_full_seq, is_empty, is_to_re, is_range, is_full_char, is_of_pred
         result = r;
     }
+    std::cout << std::endl << "lift of: " << expr_ref(r, m()) << std::endl;
+    std::cout << "  = " << result << std::endl;
     return result;
 }
 
