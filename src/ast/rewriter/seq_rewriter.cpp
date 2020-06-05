@@ -2132,10 +2132,14 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
+    std::cout << "n";
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr, nullptr), m());
     if (!result) {
+        std::cout << "(m) ";
         result = is_nullable(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, nullptr, result);        
+    } else {
+        std::cout << "(h) ";
     }
     return result;
 }
@@ -2462,10 +2466,13 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     pair of pointers.
 */
 expr_ref seq_rewriter::combine_ites(decl_kind k, expr* a, expr* b, expr* cond) {
+    std::cout << "c";
     expr_ref result(m_op_cache.find(k, a, b, cond), m());
     if (result) {
+        std::cout << "(h) ";
         return result;
     }
+    std::cout << "(m) ";
     SASSERT((k == OP_ITE) == (cond != nullptr));
     expr *acond = nullptr, *a1 = nullptr, *a2 = nullptr,
          *bcond = nullptr, *b1 = nullptr, *b2 = nullptr;
@@ -2542,6 +2549,7 @@ expr_ref seq_rewriter::combine_ites(decl_kind k, expr* a, expr* b, expr* cond) {
     representation in unfolding string in regex constraints.
 */
 expr_ref seq_rewriter::lift_ites(expr* r, bool lift_over_union, bool lift_over_inter) {
+    std::cout << "l ";
     decl_kind k = to_app(r)->get_decl_kind();
     family_id fid = get_fid();
     expr *r1 = nullptr, *r2 = nullptr, *cond = nullptr, *ele = nullptr;

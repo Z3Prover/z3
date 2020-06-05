@@ -101,6 +101,8 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
+        std::cout << "PI ";
+
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
         // convert negative negative membership literals to positive
@@ -144,6 +146,7 @@ namespace smt {
     }
 
     void seq_regex::propagate_accept(literal lit) {
+        std::cout << "PA ";
         if (!propagate(lit))
             m_to_propagate.push_back(lit);
     }
@@ -196,6 +199,9 @@ namespace smt {
 
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
+
+        std::cout << "P ";
+        // << mk_pp(e, m) << std::endl;
 
         if (block_unfolding(lit, idx))
             return true;
@@ -314,6 +320,7 @@ namespace smt {
         with optimizations for if-then-else expressions involving the head.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
+        std::cout << "D ";
         expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);
         // don't lift over unions
@@ -354,6 +361,7 @@ namespace smt {
      *
      */
     void seq_regex::propagate_is_non_empty(literal lit) {
+        std::cout << "PN ";
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_non_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);
@@ -394,6 +402,7 @@ namespace smt {
       is_empty(r, u) is true if r is a member of u
      */
     void seq_regex::propagate_is_empty(literal lit) {
+        std::cout << "PE ";
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);
