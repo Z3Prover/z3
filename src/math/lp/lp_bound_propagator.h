@@ -214,8 +214,12 @@ public:
               display_row_of_vertex(v_j, tout);
               );
         lp::explanation exp = get_explanation_from_path(v_i, path, v_j);
-        unsigned i_e = lp().adjust_column_index_to_term_index(get_column(m_vertices[v_i]));
-        unsigned j_e = lp().adjust_column_index_to_term_index(get_column(m_vertices[v_j]));
+        lpvar v_i_col = get_column(m_vertices[v_i]);
+        lpvar v_j_col = get_column(m_vertices[v_j]);
+        if (lp().column_is_int(v_i_col) != lp().column_is_int(v_j_col))
+            return;
+        unsigned i_e = lp().adjust_column_index_to_term_index(v_i_col);
+        unsigned j_e = lp().adjust_column_index_to_term_index(v_j_col);
         m_imp.add_eq(i_e, j_e, exp);
     }
         
