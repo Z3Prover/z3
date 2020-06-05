@@ -507,8 +507,6 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
         m_fixed.contains(e)) {
         return false;
     }
-
-
     
     m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_fixed, e));
     m_fixed.insert(e);
@@ -520,8 +518,7 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
     }
     else if (!is_zero) {
         unsigned _lo = lo.get_unsigned();
-        expr_ref_vector elems(m);
-        
+        expr_ref_vector elems(m);        
         for (unsigned j = 0; j < _lo; ++j) {
             m_sk.decompose(seq, head, tail);
             elems.push_back(head);
@@ -2304,7 +2301,7 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
         k.assert_expr(f);
     }
     lbool r = k.check();
-    if (r != l_false && !m.limit().get_cancel_flag()) {
+    if (r != l_false && !m.limit().is_canceled()) {
         model_ref mdl;
         k.get_model(mdl);
         IF_VERBOSE(0, 

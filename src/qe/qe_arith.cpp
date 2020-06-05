@@ -65,7 +65,7 @@ namespace qe {
             DEBUG_CODE(expr_ref val(m); 
                        eval(lit, val); 
                        CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
-                       SASSERT(m.limit().get_cancel_flag() || !m.is_false(val)););
+                       SASSERT(m.limit().is_canceled() || !m.is_false(val)););
 
             if (!m.inc()) 
                 return false;
@@ -345,6 +345,9 @@ namespace qe {
                 if (is_arith(v) && !tids.contains(v)) {
                     rational r;
                     expr_ref val = eval(v);
+                    if (!m.inc())
+                        return vector<def>();
+
                     VERIFY(a.is_numeral(val, r));
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));

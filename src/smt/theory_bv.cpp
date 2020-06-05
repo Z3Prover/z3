@@ -1811,7 +1811,7 @@ namespace smt {
     }
 
     bool theory_bv::check_invariant() {
-        if (m.limit().get_cancel_flag())
+        if (m.limit().is_canceled())
             return true;
         if (ctx.inconsistent())
             return true;

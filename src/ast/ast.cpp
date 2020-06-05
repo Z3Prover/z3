@@ -3064,13 +3064,7 @@ bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<exp
 }
 
 bool ast_manager::is_rewrite(expr const* e, expr*& r1, expr*& r2) const {
-    if (is_rewrite(e)) {
-        VERIFY (is_eq(to_app(e)->get_arg(0), r1, r2));
-        return true;
-    }
-    else {
-        return false;
-    }
+    return is_rewrite(e) && is_eq(to_app(e)->get_arg(0), r1, r2);
 }
 
 proof * ast_manager::mk_def_axiom(expr * ax) {
@@ -3081,9 +3075,7 @@ proof * ast_manager::mk_def_axiom(expr * ax) {
 
 proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * proofs) {
     SASSERT(num_proofs >= 2);
-    for (unsigned i = 0; i < num_proofs; i++) {
-        SASSERT(has_fact(proofs[i]));
-    }
+    DEBUG_CODE(for (unsigned i = 0; i < num_proofs; i++) SASSERT(has_fact(proofs[i])););
     ptr_buffer<expr> args;
     expr * fact;
     expr * f1 = get_fact(proofs[0]);

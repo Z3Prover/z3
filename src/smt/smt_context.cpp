@@ -554,7 +554,7 @@ namespace smt {
         catch (...) {
             // Restore trail size since procedure was interrupted in the middle.
             // If the add_eq_trail remains on the trail stack, then Z3 may crash when the destructor is invoked.
-            TRACE("add_eq", tout << "add_eq interrupted. This is unsafe " << m.limit().get_cancel_flag() << "\n";);
+            TRACE("add_eq", tout << "add_eq interrupted. This is unsafe " << m.limit().is_canceled() << "\n";);
             m_trail_stack.shrink(old_trail_size);
             throw;
         }
@@ -2845,12 +2845,13 @@ namespace smt {
         }
     }
 
-    void context::push() {
-        TRACE("unit_subsumption_bug", display(tout << "context::push()\n"););        
+    void context::push() {       
         pop_to_base_lvl();
         setup_context(false);
         bool was_consistent = !inconsistent();
         internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
+        if (!m.inc())
+            throw default_exception("push canceled");
         scoped_suspend_rlimit _suspend_cancel(m.limit());
         propagate();
         if (was_consistent && inconsistent() && !m_asserted_formulas.inconsistent()) {
@@ -3084,6 +3085,7 @@ namespace smt {
         TRACE("internalize_assertions", tout << "internalize_assertions()...\n";);
         timeit tt(get_verbosity_level() >= 100, "smt.preprocessing");
         reduce_assertions();
+        if (get_cancel_flag()) return;
         if (!m_asserted_formulas.inconsistent()) {
             unsigned sz    = m_asserted_formulas.get_num_formulas();
             unsigned qhead = m_asserted_formulas.get_qhead();
@@ -4483,9 +4485,9 @@ namespace smt {
         return false;
     }
 
-    void context::get_model(model_ref & m) {
-        if (inconsistent())
-            m = nullptr;       
+    void context::get_model(model_ref & mdl) {
+        if (inconsistent() || !m.inc())
+            mdl = nullptr;       
         else {
             mk_proto_model();
             if (!m_model && m_proto_model) {
@@ -4497,7 +4499,7 @@ namespace smt {
                     // no op
                 }                
             }
-            m = m_model.get();
+            mdl = m_model.get();
         }
     }
 

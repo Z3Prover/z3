@@ -1338,9 +1338,10 @@ public:
         }
         else if (e.is_quantifier()) {
             bool is_forall = Z3_is_quantifier_forall(ctx, e);
+            bool is_lambda = Z3_is_lambda(ctx, e);
             unsigned nb = Z3_get_quantifier_num_bound(ctx, e);
 
-            out << (is_forall?"!":"?") << "[";
+            out << (is_lambda?"^":(is_forall?"!":"?")) << "[";
             for (unsigned i = 0; i < nb; ++i) {
                 Z3_symbol n = Z3_get_quantifier_bound_name(ctx, e, i);
                 names.push_back(upper_case_var(z3::symbol(ctx, n)));
@@ -1679,6 +1680,9 @@ public:
                 break;
             case Z3_OP_PR_HYPER_RESOLVE:
                 display_inference(out, "hyper_resolve", "thm", p); 
+                break;
+            case Z3_OP_PR_BIND:
+                display_inference(out, "bind", "th", p);
                 break;
             default:
                 out << "TBD: " << m_node_number << "\n" << p << "\n";

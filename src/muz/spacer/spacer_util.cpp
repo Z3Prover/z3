@@ -383,7 +383,7 @@ namespace {
             expr_ref res(m), v(m);
             v = m_model(e);
             // the literal must have a value
-            SASSERT(m.is_true(v) || m.is_false(v));
+            SASSERT(m.limit().is_canceled() || m.is_true(v) || m.is_false(v));
 
             res = m.is_false(v) ? m.mk_not(e) : e;
 

@@ -264,7 +264,7 @@ namespace smt {
     bool context::check_th_diseq_propagation() const {
         TRACE("check_th_diseq_propagation", tout << "m_propagated_th_diseqs.size() " << m_propagated_th_diseqs.size() << "\n";);
         int num = get_num_bool_vars();
-        if (inconsistent() || get_manager().limit().get_cancel_flag()) { 
+        if (inconsistent() || get_manager().limit().is_canceled()) {
             return true;
         }
         for (bool_var v = 0; v < num; v++) {

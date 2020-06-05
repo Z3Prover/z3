@@ -161,7 +161,7 @@ namespace opt {
                 case l_true:
                     if (!update_assignment())
                         return l_undef;
-                    SASSERT(soft.value == l_true || m.limit().get_cancel_flag());
+                    SASSERT(soft.value == l_true || m.limit().is_canceled());
                     break;
                 case l_false:
                     soft.set_value(l_false);

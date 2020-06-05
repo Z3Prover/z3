@@ -44,14 +44,12 @@ uint64_t reslimit::count() const {
 
 bool reslimit::inc() {
     ++m_count;
-    bool r = (m_cancel == 0 && (m_limit == 0 || m_count <= m_limit)) || m_suspend;
-    return r;
+    return not_canceled();
 }
 
 bool reslimit::inc(unsigned offset) {
     m_count += offset;
-    bool r = (m_cancel == 0 && (m_limit == 0 || m_count <= m_limit)) || m_suspend;
-    return r;
+    return not_canceled();
 }
 
 void reslimit::push(unsigned delta_limit) {

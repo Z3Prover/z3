@@ -21,15 +21,15 @@ Revision History:
 #include<limits>
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
-#include "muz/base/dl_context.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/scoped_proof.h"
-#include "muz/base/fp_params.hpp"
 #include "ast/ast_pp_util.h"
-
+#include "ast/ast_util.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/fp_params.hpp"
 
 namespace datalog {
 
@@ -354,10 +354,9 @@ namespace datalog {
 
     void context::restrict_predicates(func_decl_set const& preds) {
         m_preds.reset();
-        func_decl_set::iterator it = preds.begin(), end = preds.end();
-        for (; it != end; ++it) {
-            TRACE("dl", tout << mk_pp(*it, m) << "\n";);
-            m_preds.insert(*it);
+        for (func_decl* p : preds) {
+            TRACE("dl", tout << mk_pp(p, m) << "\n";);
+            m_preds.insert(p);
         }
     }
 
@@ -742,13 +741,7 @@ namespace datalog {
     }
 
     expr_ref context::get_background_assertion() {
-        expr_ref result(m);
-        switch (m_background.size()) {
-        case 0: result = m.mk_true(); break;
-        case 1: result = m_background[0].get(); break;
-        default: result = m.mk_and(m_background.size(), m_background.c_ptr()); break;
-        }
-        return result;
+        return mk_and(m_background);
     }
 
     void context::assert_expr(expr* e) {
@@ -967,18 +960,17 @@ namespace datalog {
         rule_ref_vector rv (rm);
         get_rules_along_trace (rv);
         expr_ref fml (m);
-        rule_ref_vector::iterator it = rv.begin (), end = rv.end ();
-        for (; it != end; it++) {
-            m_rule_manager.to_formula (**it, fml);
+        for (auto* r : rv) {
+            m_rule_manager.to_formula (*r, fml);
             rules.push_back (fml);
             // The concatenated names are already stored last-first, so do not need to be reversed here
-            const symbol& rule_name = (*it)->name();
+            const symbol& rule_name = r->name();
             names.push_back (rule_name);
 
             TRACE ("dl",
                    if (rule_name == symbol::null) {
                        tout << "Encountered unnamed rule: ";
-                       (*it)->display(*this, tout);
+                       r->display(*this, tout);
                        tout << "\n";
                    });
         }
@@ -1070,9 +1062,7 @@ namespace datalog {
                 --i;
             }
         }
-        rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-        for (; it != end; ++it) {
-            rule* r = *it;
+        for (rule* r : m_rule_set) {
             rm.to_formula(*r, fml);
             func_decl* h = r->get_decl();
             if (m_rule_set.is_output_predicate(h)) {

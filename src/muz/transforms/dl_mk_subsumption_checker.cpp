@@ -350,7 +350,6 @@ namespace datalog {
             return nullptr;
         }
 
-
         //During the construction of the new set we may discover new total relations
         //(by quantifier elimination on the uninterpreted tails).
         SASSERT(m_new_total_relation_discovery_during_transformation || !m_have_new_total_rule);

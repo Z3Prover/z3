@@ -647,8 +647,10 @@ namespace qe {
                 switch (res) {
                 case l_true:
                     s.get_model(m_model);
+                    if (!m_model)
+                        return l_undef;
                     SASSERT(validate_defs("check_sat"));
-                    SASSERT(validate_assumptions(*m_model.get(), asms));
+                    SASSERT(!m_model.get() || validate_assumptions(*m_model.get(), asms));
                     SASSERT(validate_model(asms));
                     TRACE("qe", s.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
                     if (m_level == 0) {
