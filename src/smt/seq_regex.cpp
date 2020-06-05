@@ -101,7 +101,7 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
-        std::cout << "SEQ REGEX P_IN_RE" << std::endl;
+        std::cout << "PI ";
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
@@ -146,7 +146,7 @@ namespace smt {
     }
 
     void seq_regex::propagate_accept(literal lit) {
-        std::cout << "SEQ REGEX P_ACCEPT" << std::endl;
+        std::cout << "PA ";
         if (!propagate(lit))
             m_to_propagate.push_back(lit);
     }
@@ -200,7 +200,7 @@ namespace smt {
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
-        std::cout << "SEQ REGEX P" << std::endl;
+        std::cout << "P ";
         // << mk_pp(e, m) << std::endl;
 
         if (block_unfolding(lit, idx))
@@ -222,8 +222,7 @@ namespace smt {
         case l_undef:
             ctx.mark_as_relevant(len_s_le_i);
             return false;
-        case l_true: 
-            std::cout << "is_nullable -- from prop" << std::endl;
+        case l_true:
             is_nullable = seq_rw().is_nullable(d);
             rewrite(is_nullable);
             conds.push_back(~len_s_le_i);
@@ -234,12 +233,9 @@ namespace smt {
             break;
         }
 
-        std::cout << "...MK DERIVATIVE" << std::endl;
-
         // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
         expr_ref head = th.mk_nth(s, i);
-        d = re().mk_derivative(head, r);
-        rewrite(d);
+        d = derivative_wrapper(head, r);
 
         literal acc_next = th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d));
         conds.push_back(len_s_le_i);
@@ -319,14 +315,17 @@ namespace smt {
     }
 
     /*
-        Memoized wrapper around the regex symbolic derivative.
+        Memoized(TODO) wrapper around the regex symbolic derivative.
         Also ensures that the derivative is written in a normalized form
         with optimizations for if-then-else expressions involving the head.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
+        std::cout << "D ";
         expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);
-        // TODO
+        // don't lift over unions
+        result = seq_rw().lift_ites(result); // false, true);
+        rewrite(result);
         return result;
     }
 
@@ -362,7 +361,7 @@ namespace smt {
      *
      */
     void seq_regex::propagate_is_non_empty(literal lit) {
-        std::cout << "SEQ REGEX P_NE" << std::endl;
+        std::cout << "PN ";
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_non_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);
@@ -403,7 +402,7 @@ namespace smt {
       is_empty(r, u) is true if r is a member of u
      */
     void seq_regex::propagate_is_empty(literal lit) {
-        std::cout << "SEQ REGEX P_E" << std::endl;
+        std::cout << "PE ";
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);

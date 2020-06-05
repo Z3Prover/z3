@@ -118,20 +118,23 @@ class seq_rewriter {
     class op_cache {
         struct op_entry {
             decl_kind k;
-            expr* a, *b, *r;
-            op_entry(decl_kind k, expr* a, expr* b, expr* r): k(k), a(a), b(b), r(r) {}
-            op_entry():k(0), a(nullptr), b(nullptr), r(nullptr) {}
+            expr* a, *b, *c, *r;
+            op_entry(decl_kind k, expr* a, expr* b, expr* c, expr* r):
+                     k(k), a(a), b(b), c(c), r(r) {}
+            op_entry():k(0), a(nullptr), b(nullptr), c(nullptr), r(nullptr) {}
         };
 
         struct hash_entry {
             unsigned operator()(op_entry const& e) const { 
-                return mk_mix(e.k, e.a ? e.a->get_id() : 0, e.b ? e.b->get_id() : 0);
+                return combine_hash(e.k, mk_mix(e.a ? e.a->get_id() : 0,
+                                                e.b ? e.b->get_id() : 0,
+                                                e.c ? e.c->get_id() : 0));
             }
         };
 
         struct eq_entry {
             bool operator()(op_entry const& a, op_entry const& b) const { 
-                return a.k == b.k && a.a == b.a && a.b == b.b;
+                return a.k == b.k && a.a == b.a && a.b == b.b && a.c == b.c;
             }
         };
 
@@ -145,8 +148,8 @@ class seq_rewriter {
 
     public:
         op_cache(ast_manager& m);
-        expr* find(decl_kind op, expr* a, expr* b);
-        void insert(decl_kind op, expr* a, expr* b, expr* r);
+        expr* find(decl_kind op, expr* a, expr* b, expr* c);
+        void insert(decl_kind op, expr* a, expr* b, expr* c, expr* r);
     };
 
     seq_util       m_util;
@@ -219,14 +222,8 @@ class seq_rewriter {
     br_status mk_re_reverse(expr* r, expr_ref& result);
     br_status mk_re_derivative(expr* ele, expr* r, expr_ref& result);
 
-    // if-then-else rewriting support (for REs)
-    br_status mk_re_ite(expr* cond, expr* r1, expr* r2, expr_ref& result);
-    expr_ref lift_ites(expr* a, bool lift_over_union = true, bool lift_over_inter = true);
-    br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
-
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
-
 
     bool non_overlap(expr_ref_vector const& p1, expr_ref_vector const& p2) const;
     bool non_overlap(zstring const& p1, zstring const& p2) const;
@@ -270,6 +267,9 @@ class seq_rewriter {
 
     void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
+
+    expr_ref combine_ites(decl_kind k, expr* a, expr* b, expr* cond);
+    br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
@@ -318,7 +318,7 @@ public:
     expr_ref is_nullable(expr* r);
     expr_ref is_nullable_rec(expr* r);
 
-    // utilities for cofactors: conditions that appear in if-then-else expressions
+    // utilities for cofactors of if-then-else expressions
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
     void get_cofactors(expr* r, expr_ref_pair_vector& result) {
         expr_ref_vector conds(m());
@@ -329,6 +329,8 @@ public:
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);
 
+    // if-then-else rewriting support (for REs)
+    expr_ref lift_ites(expr* r, bool lift_over_union = true, bool lift_over_inter = true);
 };
 
 #endif
