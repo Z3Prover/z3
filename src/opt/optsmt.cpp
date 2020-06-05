@@ -469,6 +469,7 @@ namespace opt {
         return l_true;
     }
 
+
     void optsmt::setup(opt_solver& solver) {
         m_s = &solver;
         solver.reset_objectives();
@@ -577,7 +578,9 @@ namespace opt {
         m_upper.reset();
         m_objs.reset();
         m_vars.reset();
-        m_model.reset();
+        m_model.reset();       
+        m_best_model = nullptr; 
+        m_models.reset();
         m_lower_fmls.reset();
         m_s = nullptr;
     }

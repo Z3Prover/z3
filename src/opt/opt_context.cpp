@@ -367,6 +367,7 @@ namespace opt {
     void context::fix_model(model_ref& mdl) {
         if (mdl && !m_model_fixed.contains(mdl.get())) {
             TRACE("opt", m_fm->display(tout << "fix-model\n");
+                  tout << *mdl << "\n";
                   if (m_model_converter) m_model_converter->display(tout););
             (*m_fm)(mdl);
             apply(m_model_converter, mdl);
@@ -482,6 +483,7 @@ namespace opt {
     lbool context::execute_box() {
         if (m_box_index < m_box_models.size()) {
             m_model = m_box_models[m_box_index];
+            CTRACE("opt", m_model, tout << *m_model << "\n";);
             ++m_box_index;           
             return l_true;
         }
@@ -505,12 +507,15 @@ namespace opt {
                 m_box_models.push_back(m_model.get());
             }
             else {
-                m_box_models.push_back(m_optsmt.get_model(j));
+                model* mdl = m_optsmt.get_model(j);
+                if (!mdl) mdl = m_model.get();
+                m_box_models.push_back(mdl);
                 ++j;
             }
         }
         if (r == l_true && !m_box_models.empty()) {
             m_model = m_box_models[0];
+            CTRACE("opt", m_model, tout << *m_model << "\n";);
         }
         return r;
     }
@@ -787,6 +792,7 @@ namespace opt {
 
     void context::normalize(expr_ref_vector const& asms) {
         expr_ref_vector fmls(m);
+        m_model_converter = nullptr;
         to_fmls(fmls);
         simplify_fmls(fmls, asms);
         from_fmls(fmls);
@@ -1248,7 +1254,7 @@ namespace opt {
             case O_MAXSMT: {
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
                 for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
-                    ms.add(obj.m_terms[j].get(), obj.m_weights[j]);        
+                    ms.add(obj.m_terms.get(j), obj.m_weights[j]);        
                 }
                 break;
             }
@@ -1468,6 +1474,7 @@ namespace opt {
     void context::clear_state() {
         m_pareto = nullptr;
         m_box_index = UINT_MAX;
+        m_box_models.reset();
         m_model.reset();
         m_model_fixed.reset();
         m_core.reset();
