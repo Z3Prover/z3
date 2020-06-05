@@ -164,20 +164,19 @@ class seq_rewriter {
     };
 
 
-
     length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
         return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
     }
     length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
 
-
-    // Support for regular expression derivatives
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     bool get_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
     bool get_re_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     bool get_re_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
+
     expr_ref re_and(expr* cond, expr* r);
     expr_ref re_predicate(expr* cond, sort* seq_sort);
+
     expr_ref mk_seq_concat(expr* a, expr* b);    
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
@@ -219,8 +218,12 @@ class seq_rewriter {
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
     br_status mk_re_reverse(expr* r, expr_ref& result);
     br_status mk_re_derivative(expr* ele, expr* r, expr_ref& result);
-    br_status mk_re_ite(expr* ele, expr* r, expr_ref& result);
-    br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+
+    // if-then-else rewriting support (for REs)
+    br_status mk_re_ite(expr* cond, expr* r1, expr* r2, expr_ref& result);
+    expr_ref lift_ites(expr* a, bool lift_over_union = true, bool lift_over_inter = true);
+    br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
 
@@ -311,19 +314,12 @@ public:
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
-    // Support for regular expression derivatives
+    // Memoized checking for acceptance of the empty string
     expr_ref is_nullable(expr* r);
     expr_ref is_nullable_rec(expr* r);
-    // expr_ref derivative(expr* r);
-    // expr_ref derivative_rec(expr* r);
-    // expr_ref bdd_union(expr* r);
-    // expr_ref bdd_inter(expr* r);
-    // expr_ref bdd_comp(expr* r);
-    // expr_ref bdd_concat(expr* r);
-    // expr_ref bdd_star(expr* r);
 
+    // utilities for cofactors: conditions that appear in if-then-else expressions
     bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
-
     void get_cofactors(expr* r, expr_ref_pair_vector& result) {
         expr_ref_vector conds(m());
         get_cofactors(r, conds, result);

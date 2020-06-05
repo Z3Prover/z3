@@ -318,6 +318,18 @@ namespace smt {
         return r;
     }
 
+    /*
+        Memoized wrapper around the regex symbolic derivative.
+        Also ensures that the derivative is written in a normalized form
+        with optimizations for if-then-else expressions involving the head.
+    */
+    expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
+        expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
+        rewrite(result);
+        // TODO
+        return result;
+    }
+
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
         expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
@@ -360,8 +372,7 @@ namespace smt {
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r);
         expr_ref d(m);
-        d = re().mk_derivative(hd, r);
-        rewrite(d);
+        d = derivative_wrapper(hd, r);
         literal_vector lits;
         lits.push_back(~lit);
         if (null_lit != false_literal) 
@@ -404,8 +415,7 @@ namespace smt {
         th.add_axiom(~lit, ~th.mk_literal(is_nullable));
         expr_ref hd = mk_first(r);
         expr_ref d(m);
-        d = re().mk_derivative(hd, r);
-        rewrite(d);
+        d = derivative_wrapper(hd, r);
         literal_vector lits;
         expr_ref_pair_vector cofactors(m);
         seq_rw().get_cofactors(d, cofactors);

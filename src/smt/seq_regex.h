@@ -69,6 +69,8 @@ namespace smt {
 
         expr_ref symmetric_diff(expr* r1, expr* r2);
 
+        expr_ref derivative_wrapper(expr* hd, expr* r);
+
     public:
 
         seq_regex(theory_seq& th);
