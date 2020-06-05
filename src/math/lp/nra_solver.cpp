@@ -196,7 +196,7 @@ struct solver::imp {
     }
     //
     void add_term(unsigned term_column) {
-        lp::tv ti = lp::tv::raw(s.adjust_column_index_to_term_index(term_column));
+        lp::tv ti = lp::tv::raw(s.column_to_reported_index(term_column));
         const lp::lar_term& t = s.get_term(ti); 
         //  code that creates a polynomial equality between the linear coefficients and
         // variable representing the term.

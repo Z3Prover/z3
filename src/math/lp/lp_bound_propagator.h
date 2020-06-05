@@ -36,8 +36,7 @@ class lp_bound_propagator {
             m_offset(offset),
             m_id(id),
             m_parent(-1),
-            m_level(0)
-        {}
+            m_level(0) {}
         unsigned index_in_row() const { return m_index_in_row; }
         unsigned id() const { return m_id; }
         unsigned row() const { return m_row; }
@@ -64,14 +63,14 @@ class lp_bound_propagator {
     hashtable<unsigned, u_hash, u_eq>         m_visited_columns;
     vector<vertex>                            m_vertices;
     map<impq, lpvar, obj_hash<impq>, impq_eq> m_offsets_to_verts;
-
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned>    m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
-    T& m_imp;
+    T&                                        m_imp;
+    impq                                      m_zero;
 public:
     vector<implied_bound> m_ibounds;
-    lp_bound_propagator(T& imp): m_imp(imp) {}
+    lp_bound_propagator(T& imp): m_imp(imp), m_zero(impq(0)) {}
     const lar_solver& lp() const { return m_imp.lp(); }
     column_type get_column_type(unsigned j) const {
         return m_imp.lp().get_column_type(j);
@@ -86,7 +85,7 @@ public:
     }
     
     void try_add_bound(mpq const& v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
-        j = m_imp.lp().adjust_column_index_to_term_index(j);    
+        j = m_imp.lp().column_to_reported_index(j);    
 
         lconstraint_kind kind = is_low? GE : LE;
         if (strict)
@@ -137,7 +136,7 @@ public:
         }
         vertex xv(row_index, 
                   x, // index in row
-                  impq(0), // offset
+                  m_zero, // offset
                   0 // id
                   );
         push_vertex(xv);
@@ -193,6 +192,7 @@ public:
     }
 
     void clear_for_eq() {
+        // todo: do not clear the first two?
         m_visited_rows.reset();
         m_visited_columns.reset();
         m_vertices.reset();
@@ -218,8 +218,8 @@ public:
         lpvar v_j_col = get_column(m_vertices[v_j]);
         if (lp().column_is_int(v_i_col) != lp().column_is_int(v_j_col))
             return;
-        unsigned i_e = lp().adjust_column_index_to_term_index(v_i_col);
-        unsigned j_e = lp().adjust_column_index_to_term_index(v_j_col);
+        unsigned i_e = lp().column_to_reported_index(v_i_col);
+        unsigned j_e = lp().column_to_reported_index(v_j_col);
         m_imp.add_eq(i_e, j_e, exp);
     }
         
@@ -312,69 +312,6 @@ public:
         return true;
     }
 
-    // // offset is measured from the initial vertex in the search
-    // void search_for_collision(const vertex& v, const impq& offset) {
-    //     TRACE("cheap_eq", tout << "v_i = " ; v.print(tout) << "\noffset = " << offset << "\n";);
-    //     unsigned registered_vert;
-        
-    //     if (m_offsets_to_verts.find(offset, registered_vert)) {
-    //         if (registered_vert != v.id())
-    //             report_eq(registered_vert, v.id());
-    //     } else {
-    //         m_offsets_to_verts.insert(offset, v.id());
-    //     }
-    //     lpvar j = get_column(v);
-    //     if (m_visited_columns.contains(j))
-    //         return;
-    //     m_visited_columns.insert(j);
-    //     for (const auto & c : lp().get_column(j)) {
-    //         if (m_visited_rows.contains(c.var()))
-    //             continue;
-    //         m_visited_rows.insert(c.var());
-    //         unsigned x_index, y_index;
-    //         impq row_offset;
-    //         if (!is_offset_row(c.var(), x_index, y_index, row_offset))
-    //             return;
-    //         TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, c.var()););
-    //         if (lp().get_row(c.var())[x_index].var() == j) { // conected to x
-    //             add_column_edge(v.id(), c.var(), x_index);
-    //             add_row_edge(offset, c.var(), x_index, y_index, row_offset);
-    //         } else { // connected to y
-    //             add_column_edge(v.id(), c.var(), y_index);
-    //             add_row_edge(offset 
-    //         }
-    //     }
-    // }
-
-    // row[x_index] gives x, and row[y_index] gives y
-    // offset is accumulated during the recursion
-    // edge_offset is the one in x - y = edge_offset
-    // The parent is taken from m_vertices.back()
-    // void add_row_edge(const impq& offset,
-    //                   unsigned row_index,
-    //                   unsigned x_index,
-    //                   unsigned y_index,
-    //                   const impq& row_offset) {
-    //     TRACE("cheap_eq", tout << "offset = " << offset <<
-    //           " , row_index = " << row_index << ", x_index = " << x_index << ", y_index = " << y_index << ", row_offset = " << row_offset << "\n"; );
-    //     unsigned parent_id = m_vertices.size() - 1; 
-    //     vertex xv(row_index, x_index, offset, parent_id + 1);
-    //     if (parent_id != UINT_MAX) {
-    //         m_vertices[parent_id].add_child(xv);
-    //     }
-    //     push_vertex(xv);
-    //     vertex yv(row_index, y_index, offset + row_offset, parent_id + 2);
-    //     xv.add_child(yv);
-    //     push_vertex(yv);
-    //     TRACE("cheap_eq", print_tree(tout););
-    //     m_visited_rows.insert(row_index);
-    //     search_for_collision(xv, offset);        
-    //     TRACE("cheap_eq", print_tree(tout););
-    //     SASSERT(tree_is_correct());
-    //     search_for_collision(yv, offset + row_offset);
-    //     SASSERT(tree_is_correct());
-    // }
-
     void push_vertex(const vertex& v) {
         TRACE("cheap_eq", tout << "v = "; v.print(tout););
         SASSERT(!m_vertices.contains(v));
@@ -394,8 +331,8 @@ public:
     }
 
     void try_create_eq(unsigned row_index) {
-        clear_for_eq();
         TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);
+        clear_for_eq();
         unsigned x_index, y_index;
         impq offset;
         if (!is_offset_row(row_index, x_index, y_index, offset))
@@ -453,12 +390,13 @@ public:
     void explore_under(vertex& v) {
         SASSERT(v.children().size() <= 1); // because we have not collected the vertices
         // from the column, so there might be only one child from the row
-        check_for_eq_and_add_to_offset_table(v);        
+        check_for_eq_and_add_to_offset_table(v);
+        unsigned v_id = v.id();
         go_over_vertex_column(v);
-        for (unsigned j : v.children()) {
+        // v might change in m_vertices expansion
+        for (unsigned j : m_vertices[v_id].children()) {
             explore_under(m_vertices[j]);
         }
     }
-    
 };
 }

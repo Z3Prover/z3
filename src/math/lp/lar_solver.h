@@ -460,7 +460,7 @@ public:
     unsigned map_term_index_to_column_index(unsigned j) const;
     bool column_is_fixed(unsigned j) const;
     bool column_is_free(unsigned j) const;
-    unsigned adjust_column_index_to_term_index(unsigned j) const;
+    unsigned column_to_reported_index(unsigned j) const;
     lp_settings & settings();
     lp_settings const & settings() const;
     column_type get_column_type(unsigned j) const { return m_mpq_lar_core_solver.m_column_types()[j]; }
@@ -511,7 +511,7 @@ public:
     }
 
     inline tv column2tv(column_index const& c) const {
-        return tv::raw(adjust_column_index_to_term_index(c));
+        return tv::raw(column_to_reported_index(c));
     }
     
     inline std::ostream& print_column_info(unsigned j, std::ostream& out) const {

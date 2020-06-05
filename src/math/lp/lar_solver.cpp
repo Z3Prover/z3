@@ -157,13 +157,17 @@ void lar_solver::substitute_basis_var_in_terms_for_row(unsigned i) {
     }
 }
 
-unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
+// Returns the column index without changes,
+// but in the case the column was created as
+// the slack variable to a term return the term index.
+// It is the same index that was returned by add_var(), or
+// by add_term()
+unsigned lar_solver::column_to_reported_index(unsigned j) const {
     SASSERT(j < m_var_register.size());
-    if (!tv::is_term(j)) {
-        unsigned ext_var_or_term = m_var_register.local_to_external(j);
-        j = !tv::is_term(ext_var_or_term) ? j : ext_var_or_term;
-    } else {
-        UNREACHABLE();
+    SASSERT(!tv::is_term(j));    
+    unsigned ext_var_or_term = m_var_register.local_to_external(j);
+    if (tv::is_term(ext_var_or_term)) {
+        j = ext_var_or_term;
     }
     return j;
 }
