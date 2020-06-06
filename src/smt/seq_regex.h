@@ -59,6 +59,10 @@ namespace smt {
 
         bool block_unfolding(literal lit, unsigned i);
 
+        void propagate_nullable(literal lit, expr* e, expr* s, unsigned idx, expr* r);
+
+        bool propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r);
+
         expr_ref mk_first(expr* r);
 
         expr_ref unroll_non_empty(expr* r, expr_mark& seen, unsigned depth);

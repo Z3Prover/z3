@@ -116,11 +116,9 @@ namespace smt {
         if (coallesce_in_re(lit))
             return;
 
-#if 1
-        // Enable/disable to test effect
         if (is_string_equality(lit))
             return;
-#endif        
+
         //
         // TBD s in R => R != {}
         // non-emptiness enforcement could instead of here, 
@@ -156,6 +154,8 @@ namespace smt {
      *
      * (accept s i r[if(c,r1,r2)]) & c => (accept s i r[r1])
      * (accept s i r[if(c,r1,r2)]) & ~c => (accept s i r[r2])
+     * (accept s i r) & nullable(r) => len(s) >= i
+     * (accept s i r) & ~nullable(r) => len(s) >= i + 1
      * (accept s i r) & len(s) <= i => nullable(r)
      * (accept s i r) & len(s) > i => (accept s (+ i 1) D(nth(s,i), r))
      */
@@ -167,8 +167,6 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
-        expr_ref is_nullable(m), d(r, m);
-
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
@@ -180,29 +178,55 @@ namespace smt {
         if (block_unfolding(lit, idx))
             return true;
 
-        // s in R & len(s) <= i => nullable(R)
-        literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
-        switch (ctx.get_assignment(len_s_le_i)) {
-        case l_undef:
-            ctx.mark_as_relevant(len_s_le_i);
-            return false;
-        case l_true: 
-            is_nullable = seq_rw().is_nullable(r);
-            rewrite(is_nullable);
-            th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
-            return true;
-        case l_false:
-            break;
-        }
+        propagate_nullable(lit, e, s, idx, r);
 
+        return propagate_derivative(lit, e, s, i, idx, r);
+    }
+
+    /**
+       Implement the two axioms as propagations:
+
+       (accept s i r) => len(s) >= i
+       (accept s i r) & ~nullable(r) => len(s) >= i + 1
+     */
+
+    void seq_regex::propagate_nullable(literal lit, expr* e, expr* s, unsigned idx, expr* r) {
+        expr_ref is_nullable = seq_rw().is_nullable(r);
+        rewrite(is_nullable);
+        literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
+        literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
+        if (m.is_true(is_nullable)) {
+            th.propagate_lit(nullptr, 1,&lit, len_s_ge_i);
+        }
+        else if (m.is_false(is_nullable)) {
+            th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
+        }
+        else {
+            switch (ctx.get_assignment(len_s_le_i)) {
+            case l_undef:
+                th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
+                break;
+            case l_true: {
+                literal lits[2] = { lit, len_s_le_i };
+                th.propagate_lit(nullptr, 2, lits, th.mk_literal(is_nullable));
+                break;
+            }
+            case l_false:
+                break;
+            }
+            th.propagate_lit(nullptr, 1, &lit, len_s_ge_i);
+        }
+    }
+    
+    bool seq_regex::propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r) {
         // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
+        expr_ref d(m);
         expr_ref head = th.mk_nth(s, i);
         d = re().mk_derivative(m.mk_var(0, m.get_sort(head)), r);
         rewrite(d);
-
         literal_vector conds;
         conds.push_back(~lit);
-        conds.push_back(len_s_le_i);
+        conds.push_back(th.m_ax.mk_le(th.mk_len(s), idx));
         expr* cond = nullptr, *tt = nullptr, *el = nullptr;
         var_subst subst(m);
         expr_ref_vector sub(m);
@@ -220,9 +244,30 @@ namespace smt {
                 conds.push_back(lcond);
                 d = el;
                 break;
-            case l_undef:
+            case l_undef: 
                 ctx.mark_as_relevant(lcond);
                 return false;
+#if 0
+                if (re().is_empty(tt)) {
+                    literal_vector ensure_false(conds);
+                    ensure_false.push_back(~lcond);
+                    th.add_axiom(ensure_false);
+                    conds.push_back(lcond);
+                    d = el;
+                }
+                else if (re().is_empty(el)) {
+                    literal_vector ensure_true(conds);
+                    ensure_true.push_back(lcond);
+                    th.add_axiom(ensure_true);
+                    conds.push_back(~lcond);
+                    d = tt;
+                }
+                else {
+                    ctx.mark_as_relevant(lcond);
+                    return false;
+                }
+                break;
+#endif
             }
         }
         // at this point there should be no free variables as the ites are at top-level.
@@ -252,7 +297,7 @@ namespace smt {
      */
     bool seq_regex::coallesce_in_re(literal lit) {
         // initially disable this
-        return false;
+        // return false;
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
