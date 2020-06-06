@@ -63,11 +63,16 @@ namespace smt {
 
         expr_ref unroll_non_empty(expr* r, expr_mark& seen, unsigned depth);
 
-        bool unfold_cofactors(expr_ref& r, literal_vector& conds);
-
         bool is_member(expr* r, expr* u);
 
         expr_ref symmetric_diff(expr* r1, expr* r2);
+
+        void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
+
+        void get_cofactors(expr* r, expr_ref_pair_vector& result) {
+            expr_ref_vector conds(m);
+            get_cofactors(r, conds, result);
+        }
 
     public:
 

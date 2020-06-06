@@ -2336,30 +2336,33 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
     expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
     expr_ref result(m());
+    auto mk_ite = [&](expr* c, expr* a, expr* b) {
+        return (a == b) ? a : m().mk_ite(c, a, b);
+    };
     if (m().is_ite(a, ca, a1, a2)) {
         if (m().is_ite(b, cb, b1, b2)) {
             if (ca == cb) {
                 expr_ref r1 = mk_der_op(k, a1, b1);
                 expr_ref r2 = mk_der_op(k, a2, b2);
-                result = m().mk_ite(ca, r1, r2);
+                result = mk_ite(ca, r1, r2);
                 return result;
             }
             else if (ca->get_id() < cb->get_id()) {
                 expr_ref r1 = mk_der_op(k, a, b1);
                 expr_ref r2 = mk_der_op(k, a, b2);
-                result = m().mk_ite(cb, r1, r2);
+                result = mk_ite(cb, r1, r2);
                 return result;
             }
         }
         expr_ref r1 = mk_der_op(k, a1, b);
         expr_ref r2 = mk_der_op(k, a2, b);
-        result = m().mk_ite(ca, r1, r2);
+        result = mk_ite(ca, r1, r2);
         return result;
     }
     if (m().is_ite(b, cb, b1, b2)) {
         expr_ref r1 = mk_der_op(k, a, b1);
         expr_ref r2 = mk_der_op(k, a, b2);
-        result = m().mk_ite(cb, r1, r2);
+        result = mk_ite(cb, r1, r2);
         return result;
     }
     switch (k) {
@@ -2413,6 +2416,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
     SASSERT(ele_sort == m().get_sort(ele));
     expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
+    auto mk_empty = [&]() { return expr_ref(re().mk_empty(m().get_sort(r)), m()); };
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
         expr_ref is_n = is_nullable(r1);
@@ -2422,7 +2426,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             return result;
         }
         expr_ref dr2 = mk_derivative(ele, r2);
-        return mk_der_union(result, re_and(is_n, dr2));        
+        is_n = re_predicate(is_n, seq_sort);
+        return mk_der_union(result, mk_der_concat(is_n, dr2));        
     }
     else if (re().is_star(r, r1)) {
         return mk_der_concat(mk_derivative(ele, r1), r);
@@ -2459,8 +2464,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
     }
     else if (re().is_loop(r, r1, lo, hi)) {
         if (hi == 0) {
-            result = re().mk_empty(m().get_sort(r));
-            return result;
+            return mk_empty();
         }
         hi--;
         if (lo > 0) {
@@ -2470,20 +2474,17 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
     }
     else if (re().is_full_seq(r) ||
              re().is_empty(r)) {
-        result = r;
-        return result;
+        return expr_ref(r, m());
     }
     else if (re().is_to_re(r, r1)) {
         // r1 is a string here (not a regexp)
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            result = re_and(m().mk_eq(ele, hd), re().mk_to_re(tl));
-            return result;
+            return re_and(m().mk_eq(ele, hd), re().mk_to_re(tl));
         }
         else if (str().is_empty(r1)) {
-            result = re().mk_empty(m().get_sort(r));
-            return result;
+            return mk_empty();
         }
         else {
             return expr_ref(re().mk_derivative(ele, r), m());
@@ -2495,15 +2496,10 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         // This is analagous to the previous is_to_re case.
         expr_ref hd(m()), tl(m());
         if (get_head_tail_reversed(r2, hd, tl)) {
-            result = re_and(
-                m().mk_eq(ele, tl),
-                re().mk_reverse(re().mk_to_re(hd))
-            );
-            return result;
+            return re_and(m().mk_eq(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
         }
         else if (str().is_empty(r2)) {
-            result = re().mk_empty(m().get_sort(r));
-            return result;
+            return mk_empty();
         }
         else {
             return expr_ref(re().mk_derivative(ele, r), m());
@@ -2516,32 +2512,27 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             if (s1.length() == 1 && s2.length() == 1) {
                 r1 = m_util.mk_char(s1[0]);
                 r2 = m_util.mk_char(s2[0]);
-                result = m().mk_and(m_util.mk_le(r1, ele), m_util.mk_le(ele, r2));
-                result = re_predicate(result, seq_sort);
-                return result;
+                return mk_der_inter(re_predicate(m_util.mk_le(r1, ele), seq_sort),
+                                    re_predicate(m_util.mk_le(ele, r2), seq_sort));
             }
             else {
-                result = re().mk_empty(m().get_sort(r));
-                return result;
+                return mk_empty();
             }
         }
         expr* e1 = nullptr, *e2 = nullptr;
         if (str().is_unit(r1, e1) && str().is_unit(r2, e2)) {
-            result = m().mk_and(m_util.mk_le(e1, ele), m_util.mk_le(ele, e2));
-            result = re_predicate(result, seq_sort);
-            return result;
+            return mk_der_inter(re_predicate(m_util.mk_le(e1, ele), seq_sort),
+                                re_predicate(m_util.mk_le(ele, e2), seq_sort));
         }
     }
     else if (re().is_full_char(r)) {
-        result = re().mk_to_re(str().mk_empty(seq_sort));
-        return result;
+        return expr_ref(re().mk_to_re(str().mk_empty(seq_sort)), m());
     }
     else if (re().is_of_pred(r, p)) {
         array_util array(m());
         expr* args[2] = { p, ele };
         result = array.mk_select(2, args);
-        result = re_predicate(result, seq_sort);
-        return result;
+        return re_predicate(result, seq_sort);
     }
     // stuck cases: re().is_derivative, variable, ...
     // and re().is_reverse if the reverse is not applied to a string
@@ -3196,7 +3187,6 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
                 else                 
                     intersect(0, ch-1, ranges);
             }
-            // TBD: case for negation of range (not (and (<= lo e) (<= e hi)))
             else {
                 all_ranges = false;
                 break;
@@ -3235,124 +3225,6 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
             cond = m().mk_and(m().mk_eq(elem, solution), cond);
         }
     }    
-}
-
-void seq_rewriter::get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result) {
-    expr_ref cond(m()), th(m()), el(m());
-    if (has_cofactor(r, cond, th, el)) {
-        conds.push_back(cond);
-        get_cofactors(th, conds, result);
-        conds.pop_back();
-        conds.push_back(mk_not(m(), cond));
-        get_cofactors(el, conds, result);
-        conds.pop_back();
-    }
-    else {
-        cond = mk_and(conds);
-        result.push_back(cond, r);
-    }
-}
-
-bool seq_rewriter::has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el) {
-    if (m().is_ite(r)) {
-        cond = to_app(r)->get_arg(0);
-        th = to_app(r)->get_arg(1);
-        el = to_app(r)->get_arg(2);
-        return true;
-    }
-    expr_ref_vector trail(m()), args_th(m()), args_el(m());
-    expr* c = nullptr, *tt = nullptr, *ee = nullptr;
-    cond = nullptr;
-    obj_map<expr,expr*> cache_th, cache_el;
-    expr_mark no_cofactor, visited;
-    ptr_vector<expr> todo;
-    todo.push_back(r);
-    while (!todo.empty()) {
-        expr* e = todo.back();
-        if (visited.is_marked(e) || !is_app(e)) {
-            todo.pop_back();
-            continue;
-        }        
-        app* a = to_app(e);
-        if (m().is_ite(e, c, tt, ee)) {
-            if (!cond) {
-                cond = c;
-                cache_th.insert(a, tt);
-                cache_el.insert(a, ee);
-            }
-            else if (cond == c) {
-                cache_th.insert(a, tt);
-                cache_el.insert(a, ee);
-            }
-            else {
-                no_cofactor.mark(a);
-            }
-            visited.mark(e, true);
-            todo.pop_back();
-            continue;
-        }
-
-        if (a->get_family_id() != u().get_family_id()) {
-            visited.mark(e, true);
-            no_cofactor.mark(e, true);
-            todo.pop_back();
-            continue;
-        }
-        switch (a->get_decl_kind()) {
-        case OP_RE_CONCAT:
-        case OP_RE_UNION:
-        case OP_RE_INTERSECT:
-        case OP_RE_COMPLEMENT:
-            break;
-        case OP_RE_STAR:
-        case OP_RE_LOOP:
-        default:
-            visited.mark(e, true);
-            no_cofactor.mark(e, true);
-            continue;
-        }
-        args_th.reset(); 
-        args_el.reset();
-        bool has_cof = false;
-        for (expr* arg : *a) {
-            if (no_cofactor.is_marked(arg)) {
-                args_th.push_back(arg);
-                args_el.push_back(arg);
-            }
-            else if (cache_th.contains(arg)) {
-                args_th.push_back(cache_th[arg]);
-                args_el.push_back(cache_el[arg]);
-                has_cof = true;
-            }
-            else {
-                todo.push_back(arg);
-            }
-        }
-        if (args_th.size() == a->get_num_args()) {
-            if (has_cof) {
-                th = mk_app(a->get_decl(), args_th);
-                el = mk_app(a->get_decl(), args_el);
-                trail.push_back(th);
-                trail.push_back(el);
-                cache_th.insert(a, th);
-                cache_el.insert(a, el);
-            }
-            else {
-                no_cofactor.mark(a, true);
-            }
-            visited.mark(e, true);
-            todo.pop_back();
-        }
-    }
-    SASSERT(cond == !no_cofactor.is_marked(r));
-    if (cond) {
-        th = cache_th[r];
-        el = cache_el[r];
-        return true;
-    }
-    else {
-        return false;
-    }
 }
 
     

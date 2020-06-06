@@ -273,12 +273,13 @@ class seq_rewriter {
     class seq_util::str& str() { return u().str; }
     class seq_util::str const& str() const { return u().str; }
 
-    void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
+    expr_ref is_nullable_rec(expr* r);
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_re2aut(m), m_op_cache(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
+        m_util(m), m_autil(m), m_re2aut(m), m_op_cache(m), m_es(m), 
+        m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
@@ -320,14 +321,7 @@ public:
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
     expr_ref is_nullable(expr* r);
-    expr_ref is_nullable_rec(expr* r);
 
-    bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
-
-    void get_cofactors(expr* r, expr_ref_pair_vector& result) {
-        expr_ref_vector conds(m());
-        get_cofactors(r, conds, result);
-    }
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
