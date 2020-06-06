@@ -193,7 +193,6 @@ namespace smt {
     void seq_regex::propagate_nullable(literal lit, expr* e, expr* s, unsigned idx, expr* r) {
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
-        literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
         literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
         if (m.is_true(is_nullable)) {
             th.propagate_lit(nullptr, 1,&lit, len_s_ge_i);
@@ -202,6 +201,7 @@ namespace smt {
             th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
         }
         else {
+            literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
             switch (ctx.get_assignment(len_s_le_i)) {
             case l_undef:
                 th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
@@ -245,9 +245,10 @@ namespace smt {
                 d = el;
                 break;
             case l_undef: 
+#if 1
                 ctx.mark_as_relevant(lcond);
                 return false;
-#if 0
+#else
                 if (re().is_empty(tt)) {
                     literal_vector ensure_false(conds);
                     ensure_false.push_back(~lcond);
@@ -296,8 +297,6 @@ namespace smt {
      * within the same Regex.
      */
     bool seq_regex::coallesce_in_re(literal lit) {
-        // initially disable this
-        // return false;
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
@@ -305,6 +304,7 @@ namespace smt {
         literal_vector lits;    
         for (unsigned i = 0; i < m_s_in_re.size(); ++i) {
             auto const& entry = m_s_in_re[i];
+            std::cout << "CHECK " << i << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << "\n";
             enode* n1 = th.ensure_enode(entry.m_s);
             enode* n2 = th.ensure_enode(s);
             if (!entry.m_active)
@@ -316,7 +316,7 @@ namespace smt {
 
             th.m_trail_stack.push(vector_value_trail<theory_seq, s_in_re, true>(m_s_in_re, i));
             m_s_in_re[i].m_active = false;
-            IF_VERBOSE(11, verbose_stream() << "intersect " << regex << " " << 
+            IF_VERBOSE(11, verbose_stream() << "Intersect " << regex << " " << 
                        mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << "\n";);
             regex = re().mk_inter(entry.m_re, regex);
             rewrite(regex);
