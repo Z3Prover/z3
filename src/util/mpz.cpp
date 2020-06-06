@@ -49,17 +49,21 @@ Revision History:
 
 
 #if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
-// This is needed for _tzcnt_u32 and friends.
-#include <immintrin.h>
-#define _trailing_zeros32(X) _tzcnt_u32(X)
-#endif
-
-#if defined(__GNUC__)
-#define _trailing_zeros32(X) __builtin_ctz(X)
+ // This is needed for _tzcnt_u32 and friends.
+ #include <immintrin.h>
+ #define _trailing_zeros32(X) _tzcnt_u32(X)
+#elif defined(__GNUC__) || defined(__clang__)
+ #define _trailing_zeros32(X) __builtin_ctz(X)
+#else
+inline uint32_t _trailing_zeros32(uint32_t x) {
+    uint32_t r = 0;
+    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
+    return r;
+}
 #endif
 
 #if (defined(__LP64__) || defined(_WIN64)) && !defined(_M_ARM) && !defined(_M_ARM64)
- #if defined(__GNUC__)
+ #if defined(__GNUC__) || defined(__clang__)
  #define _trailing_zeros64(X) __builtin_ctzll(X)
  #else
  #define _trailing_zeros64(X) _tzcnt_u64(X)
@@ -70,20 +74,7 @@ inline uint64_t _trailing_zeros64(uint64_t x) {
     for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
     return r;
 }
-
-#if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
-// _trailing_zeros32 already defined using intrinsics
-#elif defined(__GNUC__)
-// _trailing_zeros32 already defined using intrinsics
-#else
-inline uint32_t _trailing_zeros32(uint32_t x) {
-    uint32_t r = 0;
-    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
-    return r;
-}
 #endif
-#endif
-
 
 #define _bit_min(x, y) (y + ((x - y) & ((int)(x - y) >> 31)))
 #define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))
