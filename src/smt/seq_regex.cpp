@@ -304,11 +304,10 @@ namespace smt {
         literal_vector lits;    
         for (unsigned i = 0; i < m_s_in_re.size(); ++i) {
             auto const& entry = m_s_in_re[i];
-            std::cout << "CHECK " << i << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << "\n";
-            enode* n1 = th.ensure_enode(entry.m_s);
-            enode* n2 = th.ensure_enode(s);
             if (!entry.m_active)
                 continue;
+            enode* n1 = th.ensure_enode(entry.m_s);
+            enode* n2 = th.ensure_enode(s);
             if (n1->get_root() != n2->get_root())
                 continue;
             if (entry.m_re == regex) 

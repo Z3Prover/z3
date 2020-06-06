@@ -416,6 +416,9 @@ br_status seq_rewriter::mk_bool_app(func_decl* f, unsigned n, expr* const* args,
         return mk_bool_app_helper(true, n, args, result);
     case OP_OR:
         return mk_bool_app_helper(false, n, args, result);
+    case OP_EQ:
+        SASSERT(n == 2);
+        // return mk_eq_helper(args[0], args[1], result);
     default:
         return BR_FAILED;
     }
@@ -492,7 +495,27 @@ br_status seq_rewriter::mk_bool_app_helper(bool is_and, unsigned n, expr* const*
         }
     }
     
-    result = is_and ? m().mk_and(new_args.size(), new_args.c_ptr()) : m().mk_or(new_args.size(), new_args.c_ptr());
+    result = is_and ? m().mk_and(new_args) : m().mk_or(new_args);
+    return BR_REWRITE_FULL;
+}
+
+br_status seq_rewriter::mk_eq_helper(expr* a, expr* b, expr_ref& result) {
+    expr* sa = nullptr, *ra = nullptr, *sb = nullptr, *rb = nullptr;
+    if (str().is_in_re(b))
+        std::swap(a, b);
+    if (!str().is_in_re(a, sa, ra))
+        return BR_FAILED;
+    bool is_not = m().is_not(b, b);
+    if (!str().is_in_re(b, sb, rb))
+        return BR_FAILED;
+    if (sa != sb)
+        return BR_FAILED;
+    // sa in ra = sb in rb;
+    // sa in (ra n rb) u (C(ra) n C(rb))
+    if (is_not)
+        rb = re().mk_complement(rb);
+    expr* r = re().mk_union(re().mk_inter(ra, rb), re().mk_inter(re().mk_complement(ra), re().mk_complement(rb)));
+    result = re().mk_in_re(sa, r);
     return BR_REWRITE_FULL;
 }
 
@@ -2870,6 +2893,35 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
+    expr* ac = nullptr, *bc = nullptr;
+    expr* a1 = nullptr, *a2 = nullptr;
+    expr* b1 = nullptr, *b2 = nullptr;
+    // ensure union is right-associative
+    // and swap-sort entries 
+    if (re().is_union(a, a1, a2)) {
+        result = re().mk_union(a1, re().mk_union(a2, b));
+        return BR_REWRITE2;
+    }
+    auto mk_full = [&]() { return re().mk_full_seq(m().get_sort(a)); };
+    auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
+    if (re().is_union(b, b1, b2)) {
+        if (a == b1) {
+            result = b;
+            return BR_DONE;
+        }
+        if (re().is_complement(a, ac) && b1 == ac) {
+            result = mk_full();
+            return BR_DONE;
+        }
+        if (re().is_complement(b1, bc) && a == bc) {
+            result = mk_full();
+            return BR_DONE;
+        }
+        if (get_id(a) > get_id(b1)) {
+            result = re().mk_union(b1, re().mk_union(a, b2));
+            return BR_REWRITE2;
+        }
+    }
     return BR_FAILED;
 }
 
@@ -2889,6 +2941,10 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     }
     if (re().is_full_seq(a)) {
         result = re().mk_empty(m().get_sort(a));
+        return BR_DONE;
+    }
+    if (re().is_complement(a, e1)) {
+        result = e1;
         return BR_DONE;
     }
     return BR_FAILED;
@@ -2923,9 +2979,38 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     expr* ac = nullptr, *bc = nullptr;
+    expr* a1 = nullptr, *a2 = nullptr;
+    expr* b1 = nullptr, *b2 = nullptr;
+
+    // ensure intersection is right-associative
+    // and swap-sort entries 
+    if (re().is_intersection(a, a1, a2)) {
+        result = re().mk_inter(a1, re().mk_inter(a2, b));
+        return BR_REWRITE2;
+    }
+    auto mk_empty = [&]() { return re().mk_empty(m().get_sort(a)); };
+    auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
+    if (re().is_intersection(b, b1, b2)) {
+        if (a == b1) {
+            result = b;
+            return BR_DONE;
+        }
+        if (re().is_complement(a, ac) && b1 == ac) {
+            result = mk_empty();
+            return BR_DONE;
+        }
+        if (re().is_complement(b1, bc) && a == bc) {
+            result = mk_empty();
+            return BR_DONE;
+        }
+        if (get_id(a) > get_id(b1)) {
+            result = re().mk_inter(b1, re().mk_inter(a, b2));
+            return BR_REWRITE2;
+        }
+    }
     if ((re().is_complement(a, ac) && ac == b) ||
         (re().is_complement(b, bc) && bc == a)) {
-        result = re().mk_empty(m().get_sort(a));
+        result = mk_empty();
         return BR_DONE;
     }
     if (re().is_to_re(b)) 

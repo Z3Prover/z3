@@ -238,6 +238,7 @@ class seq_rewriter {
     bool rewrite_contains_pattern(expr* a, expr* b, expr_ref& result);
 
     br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
+    br_status mk_eq_helper(expr* a, expr* b, expr_ref& result);
 
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
