@@ -163,8 +163,8 @@ void lar_solver::substitute_basis_var_in_terms_for_row(unsigned i) {
 // It is the same index that was returned by add_var(), or
 // by add_term()
 unsigned lar_solver::column_to_reported_index(unsigned j) const {
-    SASSERT(j < m_var_register.size());
-    SASSERT(!tv::is_term(j));    
+    if (tv::is_term(j))
+        return j;
     unsigned ext_var_or_term = m_var_register.local_to_external(j);
     if (tv::is_term(ext_var_or_term)) {
         j = ext_var_or_term;
