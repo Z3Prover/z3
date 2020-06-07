@@ -767,7 +767,7 @@ void lar_solver::solve_with_core_solver() {
         update_x_and_inf_costs_for_columns_with_changed_bounds();
     m_mpq_lar_core_solver.solve();
     set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
-    lp_assert((((m_settings.m_counter_for_debug++) % 100) != 0) || m_status != lp_status::OPTIMAL || all_constraints_hold());
+    lp_assert((((lp_settings::ddd++) % 100) != 0) || m_status != lp_status::OPTIMAL || all_constraints_hold());
 }
 
     
@@ -1188,7 +1188,7 @@ std::string lar_solver::get_variable_name(var_index j) const {
     if (!s.empty()) {
         return s;
     }
-    if (m_settings.m_print_external_var_name) {
+    if (m_settings.print_external_var_name()) {
         return std::string("j") + T_to_string(m_var_register.local_to_external(j));
     }
     else {

@@ -62,12 +62,20 @@ class lp_bound_propagator {
     hashtable<unsigned, u_hash, u_eq>         m_visited_rows;
     hashtable<unsigned, u_hash, u_eq>         m_visited_columns;
     vector<vertex>                            m_vertices;
-    map<impq, lpvar, obj_hash<impq>, impq_eq> m_offsets_to_verts;
+    map<impq, lpvar, obj_hash<impq>, impq_eq> m_offset_to_verts;
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned>    m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
     T&                                        m_imp;
     impq                                      m_zero;
+    typedef std::pair<unsigned, unsigned> upair;
+    struct uphash {
+        unsigned operator()(const upair& p) const { return combine_hash(p.first, p.second); }
+    };
+    struct upeq {
+        unsigned operator()(const upair& p, const upair& q) const { return p == q; }
+    };
+    hashtable<upair, uphash, upeq>  m_reported_pairs; // contain the pairs of columns (first < second)
 public:
     vector<implied_bound> m_ibounds;
     lp_bound_propagator(T& imp): m_imp(imp), m_zero(impq(0)) {}
@@ -154,7 +162,7 @@ public:
     bool is_offset_row(unsigned row_index,
                        unsigned & x_index,
                        lpvar & y_index,
-                       impq& offset) const {
+                       impq& offset) {
         x_index = y_index = UINT_MAX;
         const auto & row = lp().get_row(row_index);
         for (unsigned k = 0; k < row.size(); k++) {
@@ -176,27 +184,31 @@ public:
                 continue;
             offset += c.coeff() * lp().get_lower_bound(c.var());
         }
+        if (offset.is_zero()) {
+            lp::explanation ex;
+            explain_fixed_in_row(row_index, ex);
+            add_eq_on_columns(ex, row[x_index].var(), row[y_index].var());
+        }
         return true;
-    }
-
+    }    
+    
     void check_for_eq_and_add_to_offset_table(const vertex& v) {
         unsigned k; // the other vertex index
-        if (m_offsets_to_verts.find(v.offset(), k)) {
-            if (k != v.id())
+        if (m_offset_to_verts.find(v.offset(), k)) {
+            if (column(m_vertices[k]) != column(v))
                 report_eq(k, v.id());
         } else {
             TRACE("cheap_eq", tout << "registered offset " << v.offset() << " to " << v.id() << "\n";);
-            m_offsets_to_verts.insert(v.offset(), v.id());
+            m_offset_to_verts.insert(v.offset(), v.id());
         }
             
     }
 
     void clear_for_eq() {
-        // todo: do not clear the first two?
-        m_visited_rows.reset();
-        m_visited_columns.reset();
+        //        m_visited_rows.reset();
+        //        m_visited_columns.reset();
         m_vertices.reset();
-        m_offsets_to_verts.reset();
+        m_offset_to_verts.reset();
     }
 
     // we have v_i and v_j, indices of vertices at the same offsets
@@ -204,42 +216,40 @@ public:
         SASSERT(v_i != v_j);
         TRACE("cheap_eq", tout << "v_i = " << v_i << ", v_j = " << v_j << "\nu = ";
               m_vertices[v_i].print(tout) << "\nv = "; m_vertices[v_j].print(tout) <<"\n";);
+        
         svector<unsigned> path;
         find_path_on_tree(path, v_i, v_j);
         TRACE("cheap_eq", tout << "path = \n";
-              display_row_of_vertex(v_i, tout);
               for (unsigned k : path) {
                   display_row_of_vertex(k, tout);
-              }
-              display_row_of_vertex(v_j, tout);
-              );
-        lp::explanation exp = get_explanation_from_path(v_i, path, v_j);
-        lpvar v_i_col = get_column(m_vertices[v_i]);
-        lpvar v_j_col = get_column(m_vertices[v_j]);
+              });
+        lp::explanation exp = get_explanation_from_path(path);
+        add_eq_on_columns(exp, column(m_vertices[v_i]), column(m_vertices[v_j]));
+    }
+
+    void add_eq_on_columns(const explanation& exp, lpvar v_i_col, lpvar v_j_col) {
+        SASSERT(v_i_col != v_j_col);
         if (lp().column_is_int(v_i_col) != lp().column_is_int(v_j_col))
             return;
+        upair p = v_i_col < v_j_col? upair(v_i_col, v_j_col) :upair(v_j_col, v_i_col);
+        if (m_reported_pairs.contains(p))
+            return;
+        m_reported_pairs.insert(p);
         unsigned i_e = lp().column_to_reported_index(v_i_col);
         unsigned j_e = lp().column_to_reported_index(v_j_col);
-        m_imp.add_eq(i_e, j_e, exp);
+        TRACE("cheap_eq", tout << "reporting eq " << i_e << ", " << j_e << "\n";);
+        m_imp.add_eq(i_e, j_e, exp);        
     }
-        
-    explanation get_explanation_from_path(unsigned v_i,
-                                          const svector<unsigned>& path,
-                                          unsigned v_j) const {
+    
+    explanation get_explanation_from_path(const svector<unsigned>& path) const {
         explanation ex;
-        unsigned row = m_vertices[v_i].row();
-        unsigned prev_row = row;
-        explain_fixed_in_row(row, ex);
+        unsigned prev_row = UINT_MAX;
         for (unsigned k : path) {
-            row = m_vertices[k].row();
+            unsigned row = m_vertices[k].row();
             if (row == prev_row)
                 continue;
-            prev_row = row;
-            explain_fixed_in_row(row, ex);
+            explain_fixed_in_row(prev_row = row, ex);
         }
-        row = m_vertices[v_j].row();
-        if (prev_row != row)
-            explain_fixed_in_row(row, ex);
         return ex;
     }
 
@@ -259,10 +269,12 @@ public:
         m_vertices[k].print(out);
         return lp().get_int_solver()->display_row_info(out,m_vertices[k].row() );
     }
-    // the path will not include the start and the end
+
     void find_path_on_tree(svector<unsigned> & path, unsigned u_i, unsigned v_i) const {
         const vertex* u = &m_vertices[u_i];
         const vertex* v = &m_vertices[v_i];
+        path.push_back(u->id());
+        path.push_back(v->id());
         // equalize the levels
         while (u->level() > v->level()) {
             u = &m_vertices[u->parent()];
@@ -326,11 +338,13 @@ public:
         }
         return out;
     }
-    lpvar get_column(const vertex& v) const {
+    lpvar column(const vertex& v) const {
         return lp().get_row(v.row())[v.index_in_row()].var();
     }
 
-    void try_create_eq(unsigned row_index) {
+    void try_create_eq(unsigned row_index) {        
+        if (m_visited_rows.contains(row_index))
+            return;
         TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);
         clear_for_eq();
         unsigned x_index, y_index;
@@ -350,7 +364,7 @@ public:
     }
         
     void go_over_vertex_column(vertex & v) {
-        lpvar j = get_column(v);
+        lpvar j = column(v);
         if (m_visited_columns.contains(j))
             return;
         m_visited_columns.insert(j);

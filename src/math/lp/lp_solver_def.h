@@ -29,7 +29,7 @@ template <typename T, typename X> column_info<T> * lp_solver<T, X>::get_or_creat
 
 template <typename T, typename X>
 std::string lp_solver<T, X>::get_variable_name(unsigned j) const { // j here is the core solver index
-    if (!m_settings.m_print_external_var_name)
+    if (!m_settings.print_external_var_name())
         return std::string("j")+T_to_string(j);
     auto it = this->m_core_solver_columns_to_external_columns.find(j);
     if (it == this->m_core_solver_columns_to_external_columns.end())
