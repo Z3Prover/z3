@@ -2758,7 +2758,6 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
 
-#if 0
     if (get_re_head_tail(b, hd, tl)) {
         SASSERT(re().min_length(hd) == re().max_length(hd));
         expr_ref len_hd(m_autil.mk_int(re().min_length(hd)), m()); 
@@ -2779,7 +2778,6 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
                             re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
         return BR_REWRITE_FULL;
     }
-#endif
     if (false && rewrite_contains_pattern(a, b, result))
         return BR_REWRITE_FULL;
 
@@ -2859,6 +2857,50 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     }
     return BR_FAILED;
 }
+
+bool seq_rewriter::are_complements(expr* r1, expr* r2) const {
+    expr* r = nullptr;
+    if (re().is_complement(r1, r) && r == r2)
+        return true;
+    if (re().is_complement(r2, r) && r == r1)
+        return true;
+    return false;
+}
+
+/*
+ * basic subset checker.
+ */
+bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
+    // return false;
+    expr* ra1 = nullptr, *ra2 = nullptr, *ra3 = nullptr;
+    expr* rb1 = nullptr, *rb2 = nullptr, *rb3 = nullptr;
+    if (re().is_complement(r1, ra1) && 
+        re().is_complement(r2, rb1)) {
+        return is_subset(rb1, ra1);
+    }
+    auto is_concat = [&](expr* r, expr*& a, expr*& b, expr*& c) {
+        return re().is_concat(r, a, b) && re().is_concat(b, b, c);
+    };
+    while (true) {
+        if (r1 == r2)
+            return true;
+        if (re().is_full_seq(r2))
+            return true;
+        if (is_concat(r1, ra1, ra2, ra3) &&
+            is_concat(r2, rb1, rb2, rb3) && ra1 == rb1 && ra2 == rb2) {
+            r1 = ra3;
+            r2 = rb3;
+            continue;
+        }
+        if (re().is_concat(r1, ra1, ra2) && 
+            re().is_concat(r2, rb1, rb2) && re().is_full_seq(rb1)) {
+            r1 = ra2;
+            continue;
+        }
+        return false;
+    }
+}
+
 /*
   (a + a) = a
   (a + eps) = a
@@ -2893,7 +2935,12 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
-    expr* ac = nullptr, *bc = nullptr;
+    auto mk_full = [&]() { return re().mk_full_seq(m().get_sort(a)); };
+    if (are_complements(a, b)) {
+        result = mk_full();
+        return BR_DONE;
+    }
+        
     expr* a1 = nullptr, *a2 = nullptr;
     expr* b1 = nullptr, *b2 = nullptr;
     // ensure union is right-associative
@@ -2902,24 +2949,37 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         result = re().mk_union(a1, re().mk_union(a2, b));
         return BR_REWRITE2;
     }
-    auto mk_full = [&]() { return re().mk_full_seq(m().get_sort(a)); };
     auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
     if (re().is_union(b, b1, b2)) {
-        if (a == b1) {
+        if (is_subset(a, b1)) {
             result = b;
             return BR_DONE;
         }
-        if (re().is_complement(a, ac) && b1 == ac) {
-            result = mk_full();
-            return BR_DONE;
+        if (is_subset(b1, a)) {
+            result = re().mk_union(a, b2);
+            return BR_REWRITE1;
         }
-        if (re().is_complement(b1, bc) && a == bc) {
+        if (are_complements(a, b1)) {
             result = mk_full();
             return BR_DONE;
         }
         if (get_id(a) > get_id(b1)) {
             result = re().mk_union(b1, re().mk_union(a, b2));
             return BR_REWRITE2;
+        }
+    }
+    else {
+        if (get_id(a) > get_id(b)) {
+            result = re().mk_union(b, a);
+            return BR_DONE;
+        }
+        if (is_subset(a, b)) {
+            result = b;
+            return BR_DONE;
+        }
+        if (is_subset(b, a)) {
+            result = a;
+            return BR_DONE;
         }
     }
     return BR_FAILED;
@@ -2978,7 +3038,11 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    expr* ac = nullptr, *bc = nullptr;
+    auto mk_empty = [&]() { return re().mk_empty(m().get_sort(a)); };
+    if (are_complements(a, b)) {
+        result = mk_empty();
+        return BR_DONE;
+    }
     expr* a1 = nullptr, *a2 = nullptr;
     expr* b1 = nullptr, *b2 = nullptr;
 
@@ -2988,18 +3052,17 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
         result = re().mk_inter(a1, re().mk_inter(a2, b));
         return BR_REWRITE2;
     }
-    auto mk_empty = [&]() { return re().mk_empty(m().get_sort(a)); };
     auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
     if (re().is_intersection(b, b1, b2)) {
-        if (a == b1) {
+        if (is_subset(b1, a)) {
             result = b;
             return BR_DONE;
         }
-        if (re().is_complement(a, ac) && b1 == ac) {
-            result = mk_empty();
-            return BR_DONE;
+        if (is_subset(a, b1)) {
+            result = re().mk_inter(a, b2);
+            return BR_REWRITE1;
         }
-        if (re().is_complement(b1, bc) && a == bc) {
+        if (are_complements(a, b1)) {
             result = mk_empty();
             return BR_DONE;
         }
@@ -3008,10 +3071,19 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
             return BR_REWRITE2;
         }
     }
-    if ((re().is_complement(a, ac) && ac == b) ||
-        (re().is_complement(b, bc) && bc == a)) {
-        result = mk_empty();
-        return BR_DONE;
+    else {
+        if (get_id(a) > get_id(b)) {
+            result = re().mk_inter(b, a);
+            return BR_DONE;
+        }
+        if (is_subset(a, b)) {
+            result = a;
+            return BR_DONE;
+        }
+        if (is_subset(b, a)) {
+            result = b;
+            return BR_DONE;
+        }
     }
     if (re().is_to_re(b)) 
         std::swap(a, b);

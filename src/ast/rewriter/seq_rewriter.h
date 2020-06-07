@@ -189,6 +189,9 @@ class seq_rewriter {
     expr_ref mk_derivative(expr* ele, expr* r);
     expr_ref mk_derivative_rec(expr* ele, expr* r);
 
+    bool are_complements(expr* r1, expr* r2) const;
+    bool is_subset(expr* r1, expr* r2) const;
+
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);

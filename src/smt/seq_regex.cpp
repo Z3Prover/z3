@@ -223,7 +223,12 @@ namespace smt {
         expr_ref d(m);
         expr_ref head = th.mk_nth(s, i);
         d = re().mk_derivative(m.mk_var(0, m.get_sort(head)), r);
+        // timer tm;
         rewrite(d);
+        // std::cout << d->get_id() << " " << tm.get_seconds() << "\n";
+        // if (tm.get_seconds() > 1) 
+        //     std::cout << d << "\n";
+        // std::cout.flush();
         literal_vector conds;
         conds.push_back(~lit);
         conds.push_back(th.m_ax.mk_le(th.mk_len(s), idx));
@@ -297,6 +302,7 @@ namespace smt {
      * within the same Regex.
      */
     bool seq_regex::coallesce_in_re(literal lit) {
+        return false;
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
