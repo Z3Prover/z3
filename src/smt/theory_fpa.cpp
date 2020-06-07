@@ -436,7 +436,8 @@ namespace smt {
 
         ctx.internalize(term->get_args(), term->get_num_args(), false);
 
-        enode * e = ctx.mk_enode(term, false, false, true);
+        enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) :
+                                                 ctx.mk_enode(term, false, false, true);
 
         if (!is_attached_to_var(e)) {
             attach_new_th_var(e);
@@ -503,16 +504,14 @@ namespace smt {
 
         fpa_util & fu = m_fpa_util;
 
-        expr_ref xe(m), ye(m);
-        xe = e_x->get_owner();
-        ye = e_y->get_owner();
+        expr * xe = e_x->get_owner();
+        expr * ye = e_y->get_owner();
 
         if (m_fpa_util.is_bvwrap(xe) || m_fpa_util.is_bvwrap(ye))
             return;
 
-        expr_ref xc(m), yc(m);
-        xc = convert(xe);
-        yc = convert(ye);
+        expr_ref xc = convert(xe);
+        expr_ref yc = convert(ye);
 
         TRACE("t_fpa_detail", tout << "xc = " << mk_ismt2_pp(xc, m) << std::endl <<
                                       "yc = " << mk_ismt2_pp(yc, m) << std::endl;);
@@ -546,16 +545,14 @@ namespace smt {
 
         fpa_util & fu = m_fpa_util;
 
-        expr_ref xe(m), ye(m);
-        xe = e_x->get_owner();
-        ye = e_y->get_owner();
+        expr * xe = e_x->get_owner();
+        expr * ye = e_y->get_owner();
 
         if (m_fpa_util.is_bvwrap(xe) || m_fpa_util.is_bvwrap(ye))
             return;
 
-        expr_ref xc(m), yc(m);
-        xc = convert(xe);
-        yc = convert(ye);
+        expr_ref xc = convert(xe);
+        expr_ref yc = convert(ye);
 
         expr_ref c(m);
 
