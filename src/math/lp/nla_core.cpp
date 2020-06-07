@@ -171,7 +171,7 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
     bool first = true;
     for (lpvar v : m) {
         if (!first) out << "*"; else first = false;
-        if (lp_settings().m_print_external_var_name)
+        if (lp_settings().print_external_var_name())
             out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
         else
             out << "(j" << v << " = " << val(v) << ")";
@@ -217,7 +217,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
 }
 
 std::ostream& core::print_monic(const monic& m, std::ostream& out) const {
-    if (lp_settings().m_print_external_var_name)
+    if (lp_settings().print_external_var_name())
         out << "([" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
     else 
         out << "(j" << m.var() << " = " << val(m.var()) << " = ";

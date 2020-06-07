@@ -330,7 +330,9 @@ private:
     }
 
     void analyze_eq() {
-        m_bp.try_create_eq(m_row_index);
+        if (m_bp.lp().settings().cheap_eqs()) {
+            m_bp.try_create_eq(m_row_index);
+        }
     }
 
 };
