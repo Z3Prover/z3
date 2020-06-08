@@ -3036,6 +3036,7 @@ namespace smt {
 #endif
             }
         }
+        TRACE("arith_eq", tout << "done\n";);
         m_to_check.reset();
         m_in_to_check.reset();
     }
