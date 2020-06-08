@@ -164,10 +164,12 @@ class seq_rewriter {
     };
 
 
+
     length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
         return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
     }
     length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
+
 
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     bool get_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);

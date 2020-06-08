@@ -2791,6 +2791,10 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         else
             return BR_REWRITE_FULL;
     }
+    if (re().is_complement(b, b1)) {
+        result = m().mk_not(re().mk_in_re(a, b1));
+        return BR_REWRITE2;
+    }
 
     expr_ref hd(m()), tl(m());
     if (get_head_tail(a, hd, tl)) {
@@ -3050,10 +3054,9 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
     comp(none) -> all
     comp(all) -> none
     comp(comp(e1)) -> e1
-    comp(ite p e1 e2) -> ite p comp(e1) comp(e2)
 */
 br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
-    expr *cond = nullptr, *e1 = nullptr, *e2 = nullptr;
+    expr *e1 = nullptr, *e2 = nullptr;
     if (re().is_intersection(a, e1, e2)) {
         result = re().mk_union(re().mk_complement(e1), re().mk_complement(e2));
         return BR_REWRITE2;
@@ -3073,11 +3076,6 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     if (re().is_complement(a, e1)) {
         result = e1;
         return BR_DONE;
-    }
-    if (m().is_ite(a, cond, e1, e2)) {
-        result = m().mk_ite(cond, re().mk_complement(e1),
-                                  re().mk_complement(e2));
-        return BR_REWRITE2;
     }
     return BR_FAILED;
 }
@@ -3176,6 +3174,7 @@ br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {
     return BR_REWRITE2;
 }
 
+
 br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
     rational n1, n2;
     unsigned lo, hi, lo2, hi2, np;
@@ -3242,14 +3241,13 @@ br_status seq_rewriter::mk_re_power(func_decl* f, expr* a, expr_ref& result) {
 
 
 /*
-    a** = a*
-    (a* + b)* = (a + b)*
-    (a + b*)* = (a + b)*
-    (a*b*)*   = (a + b)*
-    a+* = a*
-    emp* = ""
-    all* = all
-    (ite p r1 r2)* -> ite p (r1)* (r2)*
+  a** = a*
+  (a* + b)* = (a + b)*
+  (a + b*)* = (a + b)*
+  (a*b*)*   = (a + b)*
+   a+* = a*
+   emp* = ""
+   all* = all   
 */
 br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
     expr* b, *c, *b1, *c1;
@@ -3292,12 +3290,6 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
     if (re().is_concat(a, b, c) &&
         re().is_star(b, b1) && re().is_star(c, c1)) {
         result = re().mk_star(re().mk_union(b1, c1));
-        return BR_REWRITE2;
-    }
-    expr *a1 = nullptr, *a2 = nullptr, *cond = nullptr;
-    if (m().is_ite(a, cond, a1, a2)) {
-        result = m().mk_ite(cond, re().mk_star(a1),
-                                  re().mk_star(a2));
         return BR_REWRITE2;
     }
 
@@ -3465,6 +3457,7 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
         }
     }    
 }
+
 
 br_status seq_rewriter::reduce_re_is_empty(expr* r, expr_ref& result) {
     expr* r1, *r2, *r3, *r4;
