@@ -488,7 +488,11 @@ std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_inde
     for (const auto &c: rslv.m_A.m_rows[row_index]) {
         if (numeric_traits<mpq>::is_pos(c.coeff()))
             out << "+";
-        out << c.coeff() << rslv.column_name(c.var()) << " ";
+        if (c.coeff().is_big())
+            out << "b*";
+        else
+            out << c.coeff();
+        out << rslv.column_name(c.var()) << " ";
     }
     out << "\n";
     for (const auto& c: rslv.m_A.m_rows[row_index]) {

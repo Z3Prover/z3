@@ -19,50 +19,44 @@ class lp_bound_propagator {
     class vertex {        
         unsigned           m_row; 
         unsigned           m_index_in_row; // in the row
-        svector<unsigned>  m_children; // point to m_vertices
+        ptr_vector<vertex> m_children;
         impq               m_offset; // offset from parent (parent - child = offset)
-        unsigned           m_id; // the index in m_vertices
-        unsigned           m_parent;
+        vertex*            m_parent;
         unsigned           m_level; // the distance in hops to the root;
                                     // it is handy to find the common ancestor
     public:
         vertex() {}
         vertex(unsigned row,
                unsigned index_in_row,
-               const impq & offset,
-               unsigned id) :
+               const impq & offset) :
             m_row(row),
             m_index_in_row(index_in_row),
             m_offset(offset),
-            m_id(id),
-            m_parent(-1),
+            m_parent(nullptr),
             m_level(0) {}
         unsigned index_in_row() const { return m_index_in_row; }
-        unsigned id() const { return m_id; }
         unsigned row() const { return m_row; }
-        unsigned parent() const { return m_parent; }
+        vertex* parent() const { return m_parent; }
         unsigned level() const { return m_level; }
         const impq& offset() const { return m_offset; }
-        void add_child(vertex& child) {
-            child.m_parent = m_id;
-            m_children.push_back(child.m_id);
-            child.m_level = m_level + 1;
+        void add_child(vertex* child) {
+            child->m_parent = this;
+            m_children.push_back(child);
+            child->m_level = m_level + 1;
         }
-        const svector<unsigned> & children() const { return m_children; }
+        const ptr_vector<vertex> & children() const { return m_children; }
         std::ostream& print(std::ostream & out) const {
-            out << "row = " << m_row << ", m_index_in_row = " << m_index_in_row << ", parent = " << (int)m_parent << " , offset = " << m_offset << ", id = " << m_id << ", level = " << m_level << "\n";;
+            out << "row = " << m_row << ", m_index_in_row = " << m_index_in_row << ", parent = " << m_parent << " , offset = " << m_offset << ", level = " << m_level << "\n";;
             return out;
         }
-#ifdef Z3DEBUG
         bool operator==(const vertex& o) const {
             return m_row == o.m_row && m_index_in_row == o.m_index_in_row;
         }
-#endif
     };
     hashtable<unsigned, u_hash, u_eq>         m_visited_rows;
     hashtable<unsigned, u_hash, u_eq>         m_visited_columns;
-    vector<vertex>                            m_vertices;
-    map<impq, lpvar, obj_hash<impq>, impq_eq> m_offset_to_verts;
+    vertex*                                   m_root;                                 
+    map<impq, vertex*, obj_hash<impq>, impq_eq> m_offset_to_verts;
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned>    m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
@@ -133,32 +127,6 @@ public:
         m_imp.consume(a, ci);
     }
 
-    void create_initial_xy(unsigned x, unsigned y, unsigned row_index) {
-        impq offset;
-        const auto& row =  lp().get_row(row_index);
-        for (unsigned k = 0; k < row.size(); k++) {
-            if (k == x || k == y)
-                continue;
-            const auto& c = row[k];
-            offset += c.coeff() * lp().get_lower_bound(c.var());
-        }
-        vertex xv(row_index, 
-                  x, // index in row
-                  m_zero, // offset
-                  0 // id
-                  );
-        push_vertex(xv);
-        vertex yv(row_index,
-                  y, // index in row
-                  offset,
-                  1 // id
-                  );
-        push_vertex(yv);
-        xv.add_child(yv);
-        TRACE("cheap_eq", print_tree(tout););
-        SASSERT(tree_is_correct());
-    }
-
     bool is_offset_row(unsigned row_index,
                        unsigned & x_index,
                        lpvar & y_index,
@@ -201,42 +169,44 @@ public:
             m_reported_pairs.contains(std::make_pair(k, j));
     }
     
-    void check_for_eq_and_add_to_offset_table(const vertex& v) {
-        unsigned k; // the other vertex index
+    void check_for_eq_and_add_to_offset_table(vertex* v) {
+        vertex *k; // the other vertex index
         
-        if (m_offset_to_verts.find(v.offset(), k)) {
-            if (column(m_vertices[k]) != column(v) &&
-                !pair_is_reported(column(m_vertices[k]),column(v)))
-                report_eq(k, v.id());
+        if (m_offset_to_verts.find(v->offset(), k)) {
+            if (column(k) != column(v) &&
+                !pair_is_reported(column(k),column(v)))
+                report_eq(k, v);
         } else {
-            TRACE("cheap_eq", tout << "registered offset " << v.offset() << " to " << v.id() << "\n";);
-            m_offset_to_verts.insert(v.offset(), v.id());
+            TRACE("cheap_eq", tout << "registered offset " << v->offset() << " to " << v << "\n";);
+            m_offset_to_verts.insert(v->offset(), v);
         }
             
     }
 
     void clear_for_eq() {
-        // m_reported_pairs.reset();
-        // m_visited_rows.reset();
-        // m_visited_columns.reset();
-        m_vertices.reset();
+        //        m_reported_pairs.reset();
+        m_visited_rows.reset();
+        m_visited_columns.reset();
         m_offset_to_verts.reset();
     }
 
     // we have v_i and v_j, indices of vertices at the same offsets
-    void report_eq(unsigned v_i, unsigned v_j) {
+    void report_eq(vertex* v_i, vertex* v_j) {
         SASSERT(v_i != v_j);
-        TRACE("cheap_eq", tout << "v_i = " << v_i << ", v_j = " << v_j << "\nu = ";
-              m_vertices[v_i].print(tout) << "\nv = "; m_vertices[v_j].print(tout) <<"\n";);
+        TRACE("cheap_eq", tout << column(v_i) << " = " << column(v_j) << "\nu = ";
+              v_i->print(tout) << "\nv = "; v_j->print(tout) <<"\n";
+              display_row_of_vertex(v_i, tout);
+              display_row_of_vertex(v_j, tout);              
+              );
         
-        svector<unsigned> path;
+        ptr_vector<vertex> path;
         find_path_on_tree(path, v_i, v_j);
         TRACE("cheap_eq", tout << "path = \n";
-              for (unsigned k : path) {
+              for (vertex* k : path) {
                   display_row_of_vertex(k, tout);
               });
         lp::explanation exp = get_explanation_from_path(path);
-        add_eq_on_columns(exp, column(m_vertices[v_i]), column(m_vertices[v_j]));
+        add_eq_on_columns(exp, column(v_i), column(v_j));
     }
 
     void add_eq_on_columns(const explanation& exp, lpvar v_i_col, lpvar v_j_col) {
@@ -245,15 +215,19 @@ public:
         m_reported_pairs.insert(p);
         unsigned i_e = lp().column_to_reported_index(v_i_col);
         unsigned j_e = lp().column_to_reported_index(v_j_col);
-        TRACE("cheap_eq", tout << "reporting eq " << i_e << ", " << j_e << "\n";);
+        TRACE("cheap_eq", tout << "reporting eq " << i_e << ", " << j_e << "\n";
+              for (auto p : exp) {
+                  lp().constraints().display(tout, [this](lpvar j) { return lp().get_variable_name(j);}, p.ci());
+              });
+        
         m_imp.add_eq(i_e, j_e, exp);        
     }
     
-    explanation get_explanation_from_path(const svector<unsigned>& path) const {
+    explanation get_explanation_from_path(const ptr_vector<vertex>& path) const {
         explanation ex;
         unsigned prev_row = UINT_MAX;
-        for (unsigned k : path) {
-            unsigned row = m_vertices[k].row();
+        for (vertex* k : path) {
+            unsigned row = k->row();
             if (row == prev_row)
                 continue;
             explain_fixed_in_row(prev_row = row, ex);
@@ -273,29 +247,27 @@ public:
         }
     }
     
-    std::ostream& display_row_of_vertex(unsigned k, std::ostream& out) const {
-        m_vertices[k].print(out);
-        return lp().get_int_solver()->display_row_info(out,m_vertices[k].row() );
+    std::ostream& display_row_of_vertex(vertex* k, std::ostream& out) const {
+        return lp().get_int_solver()->display_row_info(out, k->row() );
     }
 
-    void find_path_on_tree(svector<unsigned> & path, unsigned u_i, unsigned v_i) const {
-        const vertex* u = &m_vertices[u_i],* up, *vp;
-        const vertex* v = &m_vertices[v_i];
-        path.push_back(u->id());
-        path.push_back(v->id());
-
+    void find_path_on_tree(ptr_vector<vertex> & path, vertex* u, vertex* v) const {
+        vertex* up; // u parent
+        vertex* vp; // v parent
+        path.push_back(u);
+        path.push_back(v);
          // equalize the levels
         while (u->level() > v->level()) {
-            up = &m_vertices[u->parent()];
+            up = u->parent();
             if (u->row() == up->row())
-                path.push_back(up->id());
+                path.push_back(up);
             u = up;
         }
         
         while (u->level() < v->level()) {            
-            vp = &m_vertices[v->parent()];
-            if (u->row() == vp->row())
-                path.push_back(vp->id());
+            vp = v->parent();
+            if (v->row() == vp->row())
+                path.push_back(vp);
             v = vp;
         }
         SASSERT(u->level() == v->level());
@@ -304,65 +276,57 @@ public:
             if (u->row() == v->row() && u->offset() == v->offset()) // we have enough explanation now
                 break;
             
-            up = &m_vertices[u->parent()];
-            vp = &m_vertices[v->parent()];
+            up = u->parent();
+            vp = v->parent();
             if (up->row() == u->row())
-                path.push_back(up->id());
+                path.push_back(up);
             if (vp->row() == v->row())
-                path.push_back(vp->id());
+                path.push_back(vp);
             u = up; v = vp;
         }
     }
     
     bool tree_is_correct() const {
-        unsigned id = 0;
-        for (const auto & v : m_vertices) {
-            if (id != v.id()) {
-                TRACE("cheap_eq",
-                      tout << "incorrect id at " << id << "\n";);
-                return false;
-            }
-            if (id && v.parent() == UINT_MAX) {
-                TRACE("cheap_eq", tout << "incorrect parent "; v.print(tout); );
-                return false;
-            }
-
-            if (id) {
-                const vertex& v_parent = m_vertices[v.parent()];
-                if (v_parent.level() + 1 != v.level()) {
-                    TRACE("cheap_eq", tout << "incorrect levels ";
-                          tout << "parent = "; v_parent.print(tout);
-                          tout << "v = "; v.print(tout););
-                    return false;
-                }
-            }
-            
-            id++;
+        ptr_vector<vertex> vs;
+        vs.push_back(m_root);
+        return tree_is_correct(m_root, vs);
+    }
+    bool contains_vertex(vertex* v, const ptr_vector<vertex> & vs) const {
+        for (auto* u : vs) {
+            if (*u == *v)
+                return true;
         }
+        return false;
+    }
+    bool tree_is_correct(vertex* v, ptr_vector<vertex>& vs) const {
+        for (vertex * u : v->children()) {
+            if (contains_vertex(u, vs))
+                return false;
+        }
+        for (vertex * u : v->children()) {
+            vs.push_back(u);
+        }
+
+        for (vertex * u : v->children()) {
+            if (!tree_is_correct(u, vs))
+                return false;
+        }
+
         return true;
     }
-
-    void push_vertex(const vertex& v) {
-        TRACE("cheap_eq", tout << "v = "; v.print(tout););
-        SASSERT(!m_vertices.contains(v));
-        m_vertices.push_back(v);
-        
-    }
-        
-    
-    std::ostream& print_tree(std::ostream & out) const {
-        for (auto & v : m_vertices) {
-            v.print(out);
+    std::ostream& print_tree(std::ostream & out, vertex* v) const {
+        v->print(out);
+        out << "children :\n";
+        for (auto * v : v->children()) {
+            print_tree(out, v);
         }
         return out;
     }
-    lpvar column(const vertex& v) const {
-        return lp().get_row(v.row())[v.index_in_row()].var();
+    lpvar column(const vertex* v) const {
+        return lp().get_row(v->row())[v->index_in_row()].var();
     }
 
     void try_create_eq(unsigned row_index) {        
-        if (m_visited_rows.contains(row_index))
-            return;
         TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);
         clear_for_eq();
         unsigned x_index, y_index;
@@ -370,18 +334,35 @@ public:
         if (!is_offset_row(row_index, x_index, y_index, offset))
             return;
         TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
-        vertex root(row_index, x_index, impq(0), 0 /* id */);
-        push_vertex(root);
-        vertex v_y(row_index, y_index, offset, 1);
-        root.add_child(v_y);
-        push_vertex(v_y);
+        m_root = alloc(vertex, row_index, x_index, impq(0));
+        vertex* v_y = alloc(vertex, row_index, y_index, offset);
+        m_root->add_child(v_y);
         SASSERT(tree_is_correct());
         m_visited_rows.insert(row_index);
-        explore_under(root);
+        explore_under(m_root);
         TRACE("cheap_eq", tout << "done for row_index " << row_index << "\n";);
+        TRACE("cheap_eq", tout << "tree size = " << verts_size(););
+        delete_tree(m_root);
     }
-        
-    void go_over_vertex_column(vertex & v) {
+
+    unsigned verts_size() const {
+        return subtree_size(m_root);
+    }
+
+    unsigned subtree_size(vertex* v) const {
+        unsigned r = 1; // 1 for v
+        for (vertex * u : v->children())
+            r += subtree_size(u);
+        return r;
+    }
+            
+    void delete_tree(vertex * v) {
+        for (vertex* u : v->children())
+            delete_tree(u);
+        dealloc(v);
+    }
+    
+    void go_over_vertex_column(vertex * v) {
         lpvar j = column(v);
         if (m_visited_columns.contains(j))
             return;
@@ -398,36 +379,29 @@ public:
             TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
             // who is it the same column?
             if (lp().get_row(row_index)[x_index].var() == j) { // conected to x
-                vertex x_v(row_index, x_index, v.offset(), m_vertices.size());
-                v.add_child(x_v);
-                vertex y_v(row_index, y_index, v.offset() + row_offset, m_vertices.size() + 1);
-                x_v.add_child(y_v);
-                push_vertex(x_v); // no need to explore from x_v
-                push_vertex(y_v);
+                vertex* x_v = alloc(vertex, row_index, x_index, v->offset());
+                v->add_child(x_v);
+                vertex* y_v = alloc(vertex, row_index, y_index, v->offset() + row_offset);
+                x_v->add_child(y_v);
                 SASSERT(tree_is_correct());
                 explore_under(y_v);
             } else { // connected to y
-                vertex y_v(row_index, y_index, v.offset(), m_vertices.size());
-                v.add_child(y_v);
-                vertex x_v(row_index, x_index, v.offset() - row_offset, m_vertices.size() + 1);
-                y_v.add_child(x_v);
-                push_vertex(y_v); // no need to explore from y_v
-                push_vertex(x_v);
+                vertex* y_v = alloc(vertex, row_index, y_index, v->offset());
+                v->add_child(y_v);
+                vertex* x_v = alloc(vertex, row_index, x_index, v->offset() - row_offset);
+                y_v->add_child(x_v);
                 SASSERT(tree_is_correct());
                 explore_under(x_v);
             }
         }
     }
     
-    void explore_under(vertex& v) {
-        SASSERT(v.children().size() <= 1); // because we have not collected the vertices
-        // from the column, so there might be only one child from the row
+    void explore_under(vertex * v) {
         check_for_eq_and_add_to_offset_table(v);
-        unsigned v_id = v.id();
         go_over_vertex_column(v);
         // v might change in m_vertices expansion
-        for (unsigned j : m_vertices[v_id].children()) {
-            explore_under(m_vertices[j]);
+        for (vertex* j : v->children()) {
+            explore_under(j);
         }
     }
 };
