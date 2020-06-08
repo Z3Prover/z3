@@ -182,6 +182,18 @@ class seq_rewriter {
 
     expr_ref mk_seq_concat(expr* a, expr* b);    
 
+    expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
+    expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
+    expr_ref mk_der_concat(expr* a, expr* b);
+    expr_ref mk_der_union(expr* a, expr* b);
+    expr_ref mk_der_inter(expr* a, expr* b);
+    expr_ref mk_der_compl(expr* a);
+    expr_ref mk_derivative(expr* ele, expr* r);
+    expr_ref mk_derivative_rec(expr* ele, expr* r);
+
+    bool are_complements(expr* r1, expr* r2) const;
+    bool is_subset(expr* r1, expr* r2) const;
+
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
@@ -230,6 +242,7 @@ class seq_rewriter {
     bool rewrite_contains_pattern(expr* a, expr* b, expr_ref& result);
 
     br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
+    br_status mk_eq_helper(expr* a, expr* b, expr_ref& result);
 
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
@@ -265,15 +278,15 @@ class seq_rewriter {
     class seq_util::str& str() { return u().str; }
     class seq_util::str const& str() const { return u().str; }
 
-    void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
+    expr_ref is_nullable_rec(expr* r);
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
-    expr_ref combine_ites(decl_kind k, expr* a, expr* b, expr* cond);
     br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_re2aut(m), m_op_cache(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
+        m_util(m), m_autil(m), m_re2aut(m), m_op_cache(m), m_es(m), 
+        m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
@@ -314,23 +327,12 @@ public:
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
-    // Memoized checking for acceptance of the empty string
+    // Check for acceptance of the empty string
     expr_ref is_nullable(expr* r);
-    expr_ref is_nullable_rec(expr* r);
-
-    // utilities for cofactors of if-then-else expressions
-    bool has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el);
-    void get_cofactors(expr* r, expr_ref_pair_vector& result) {
-        expr_ref_vector conds(m());
-        get_cofactors(r, conds, result);
-    }
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);
-
-    // if-then-else rewriting support (for REs)
-    expr_ref lift_ites(expr* r, bool lift_over_union = true, bool lift_over_inter = true);
 };
 
 #endif

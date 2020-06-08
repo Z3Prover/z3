@@ -54,7 +54,7 @@ extern "C" {
             res = false;
         }
         else {
-            *g_z3_log << "V \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "." << Z3_REVISION_NUMBER << " " << __DATE__ << "\"\n";
+            *g_z3_log << "V \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "." << Z3_REVISION_NUMBER << "\"\n";
             g_z3_log->flush();
             g_z3_log_enabled = true;
         }

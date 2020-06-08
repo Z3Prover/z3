@@ -118,11 +118,9 @@ namespace smt {
         if (coallesce_in_re(lit))
             return;
 
-#if 1
-        // Enable/disable to test effect
         if (is_string_equality(lit))
             return;
-#endif        
+
         //
         // TBD s in R => R != {}
         // non-emptiness enforcement could instead of here, 
@@ -151,32 +149,6 @@ namespace smt {
             m_to_propagate.push_back(lit);
     }
 
-    // s in R[if(p,R1,R2)] & p => s in R[R1]
-    // s in R[if(p,R1,R2)] & ~p => s in R[R2]
-
-    bool seq_regex::unfold_cofactors(expr_ref& r, literal_vector& conds) {
-        expr_ref cond(m), tt(m), el(m);
-        while (seq_rw().has_cofactor(r, cond, tt, el)) {
-            rewrite(cond);
-            literal lcond = th.mk_literal(cond);
-            switch (ctx.get_assignment(lcond)) {
-            case l_true: 
-                conds.push_back(~lcond);
-                r = tt;
-                break;
-            case l_false:
-                conds.push_back(lcond);
-                r = el;
-                break;
-            case l_undef:
-                ctx.mark_as_relevant(lcond);
-                return false;
-            }
-            rewrite(r);
-        }
-        return true;
-    }
-
     /**
      * Propagate the atom (accept s i r)
      * 
@@ -184,6 +156,8 @@ namespace smt {
      *
      * (accept s i r[if(c,r1,r2)]) & c => (accept s i r[r1])
      * (accept s i r[if(c,r1,r2)]) & ~c => (accept s i r[r2])
+     * (accept s i r) & nullable(r) => len(s) >= i
+     * (accept s i r) & ~nullable(r) => len(s) >= i + 1
      * (accept s i r) & len(s) <= i => nullable(r)
      * (accept s i r) & len(s) > i => (accept s (+ i 1) D(nth(s,i), r))
      */
@@ -195,53 +169,121 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
-        expr_ref is_nullable(m), d(r, m);
-
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
         std::cout << "P ";
-        // << mk_pp(e, m) << std::endl;
+
+        if (re().is_empty(r)) {
+            th.add_axiom(~lit);
+            return true;
+        }
 
         if (block_unfolding(lit, idx))
             return true;
 
+        propagate_nullable(lit, e, s, idx, r);
+
+        return propagate_derivative(lit, e, s, i, idx, r);
+    }
+
+    /**
+       Implement the two axioms as propagations:
+
+       (accept s i r) => len(s) >= i
+       (accept s i r) & ~nullable(r) => len(s) >= i + 1
+     */
+
+    void seq_regex::propagate_nullable(literal lit, expr* e, expr* s, unsigned idx, expr* r) {
+        expr_ref is_nullable = seq_rw().is_nullable(r);
+        rewrite(is_nullable);
+        literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
+        if (m.is_true(is_nullable)) {
+            th.propagate_lit(nullptr, 1,&lit, len_s_ge_i);
+        }
+        else if (m.is_false(is_nullable)) {
+            th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
+        }
+        else {
+            literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
+            switch (ctx.get_assignment(len_s_le_i)) {
+            case l_undef:
+                th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
+                break;
+            case l_true: {
+                literal lits[2] = { lit, len_s_le_i };
+                th.propagate_lit(nullptr, 2, lits, th.mk_literal(is_nullable));
+                break;
+            }
+            case l_false:
+                break;
+            }
+            th.propagate_lit(nullptr, 1, &lit, len_s_ge_i);
+        }
+    }
+    
+    bool seq_regex::propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r) {
+        // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
+        expr_ref d(m);
+        expr_ref head = th.mk_nth(s, i);
+
+        d = derivative_wrapper(m.mk_var(0, m.get_sort(head)), r);
+        // timer tm;
+        // std::cout << d->get_id() << " " << tm.get_seconds() << "\n";
+        // if (tm.get_seconds() > 1) 
+        //     std::cout << d << "\n";
+        // std::cout.flush();
         literal_vector conds;
         conds.push_back(~lit);
-        if (!unfold_cofactors(d, conds)) 
-            return false;
-
-        if (re().is_empty(d)) {
-            th.add_axiom(conds);
-            return true;
+        conds.push_back(th.m_ax.mk_le(th.mk_len(s), idx));
+        expr* cond = nullptr, *tt = nullptr, *el = nullptr;
+        var_subst subst(m);
+        expr_ref_vector sub(m);
+        sub.push_back(head);       
+        // s in R[if(p,R1,R2)] & p => s in R[R1]
+        // s in R[if(p,R1,R2)] & ~p => s in R[R2]
+        while (m.is_ite(d, cond, tt, el)) {
+            literal lcond = th.mk_literal(subst(cond, sub));
+            switch (ctx.get_assignment(lcond)) {
+            case l_true:
+                conds.push_back(~lcond);
+                d = tt;
+                break;
+            case l_false:
+                conds.push_back(lcond);
+                d = el;
+                break;
+            case l_undef: 
+#if 1
+                ctx.mark_as_relevant(lcond);
+                return false;
+#else
+                if (re().is_empty(tt)) {
+                    literal_vector ensure_false(conds);
+                    ensure_false.push_back(~lcond);
+                    th.add_axiom(ensure_false);
+                    conds.push_back(lcond);
+                    d = el;
+                }
+                else if (re().is_empty(el)) {
+                    literal_vector ensure_true(conds);
+                    ensure_true.push_back(lcond);
+                    th.add_axiom(ensure_true);
+                    conds.push_back(~lcond);
+                    d = tt;
+                }
+                else {
+                    ctx.mark_as_relevant(lcond);
+                    return false;
+                }
+                break;
+#endif
+            }
         }
-
-        // s in R & len(s) <= i => nullable(R)
-        literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
-        switch (ctx.get_assignment(len_s_le_i)) {
-        case l_undef:
-            ctx.mark_as_relevant(len_s_le_i);
-            return false;
-        case l_true:
-            is_nullable = seq_rw().is_nullable(d);
-            rewrite(is_nullable);
-            conds.push_back(~len_s_le_i);
-            conds.push_back(th.mk_literal(is_nullable));            
-            th.add_axiom(conds);
-            return true;
-        case l_false:
-            break;
-        }
-
-        // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
-        expr_ref head = th.mk_nth(s, i);
-        d = derivative_wrapper(head, r);
-
-        literal acc_next = th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d));
-        conds.push_back(len_s_le_i);
-        conds.push_back(acc_next);
-        th.add_axiom(conds);
-        
+        // at this point there should be no free variables as the ites are at top-level.
+        if (!re().is_empty(d)) 
+            conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
+        th.add_axiom(conds);        
         TRACE("seq", tout << "unfold " << head << "\n" << mk_pp(r, m) << "\n";);
         return true;
     }
@@ -264,7 +306,6 @@ namespace smt {
      * within the same Regex.
      */
     bool seq_regex::coallesce_in_re(literal lit) {
-        // initially disable this
         return false;
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
@@ -273,10 +314,10 @@ namespace smt {
         literal_vector lits;    
         for (unsigned i = 0; i < m_s_in_re.size(); ++i) {
             auto const& entry = m_s_in_re[i];
-            enode* n1 = th.ensure_enode(entry.m_s);
-            enode* n2 = th.ensure_enode(s);
             if (!entry.m_active)
                 continue;
+            enode* n1 = th.ensure_enode(entry.m_s);
+            enode* n2 = th.ensure_enode(s);
             if (n1->get_root() != n2->get_root())
                 continue;
             if (entry.m_re == regex) 
@@ -284,7 +325,7 @@ namespace smt {
 
             th.m_trail_stack.push(vector_value_trail<theory_seq, s_in_re, true>(m_s_in_re, i));
             m_s_in_re[i].m_active = false;
-            IF_VERBOSE(11, verbose_stream() << "intersect " << regex << " " << 
+            IF_VERBOSE(11, verbose_stream() << "Intersect " << regex << " " << 
                        mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << "\n";);
             regex = re().mk_inter(entry.m_re, regex);
             rewrite(regex);
@@ -315,16 +356,13 @@ namespace smt {
     }
 
     /*
-        Memoized(TODO) wrapper around the regex symbolic derivative.
-        Also ensures that the derivative is written in a normalized form
+        Wrapper around the regex symbolic derivative from the rewriter.
+        Ensures that the derivative is written in a normalized BDD form
         with optimizations for if-then-else expressions involving the head.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
         std::cout << "D ";
         expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
-        rewrite(result);
-        // don't lift over unions
-        result = seq_rw().lift_ites(result); // false, true);
         rewrite(result);
         std::cout << std::endl << "Derivative result: " << result << std::endl;
         return result;
@@ -378,7 +416,7 @@ namespace smt {
         if (null_lit != false_literal) 
             lits.push_back(null_lit);
         expr_ref_pair_vector cofactors(m);
-        seq_rw().get_cofactors(d, cofactors);
+        get_cofactors(d, cofactors);
         for (auto const& p : cofactors) {
             if (is_member(p.second, u))
                 continue;
@@ -395,6 +433,21 @@ namespace smt {
         th.add_axiom(lits);
     }
 
+    void seq_regex::get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result) {
+        expr* cond = nullptr, *th = nullptr, *el = nullptr;
+        if (m.is_ite(r, cond, th, el)) {
+            conds.push_back(cond);
+            get_cofactors(th, conds, result);
+            conds.pop_back();
+            conds.push_back(mk_not(m, cond));
+            get_cofactors(el, conds, result);
+            conds.pop_back();
+        }
+        else {
+            cond = mk_and(conds);
+            result.push_back(cond, r);
+        }
+    }
 
     /*
       is_empty(r, u) => ~is_nullable(r)
@@ -418,10 +471,7 @@ namespace smt {
         d = derivative_wrapper(hd, r);
         literal_vector lits;
         expr_ref_pair_vector cofactors(m);
-        seq_rw().get_cofactors(d, cofactors);
-
-        // is_empty(r, u) => forall hd . cond => is_empty(r1, u union r)
-        
+        get_cofactors(d, cofactors);        
         for (auto const& p : cofactors) {
             if (is_member(p.second, u))
                 continue;

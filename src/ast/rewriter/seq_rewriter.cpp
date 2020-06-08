@@ -416,6 +416,9 @@ br_status seq_rewriter::mk_bool_app(func_decl* f, unsigned n, expr* const* args,
         return mk_bool_app_helper(true, n, args, result);
     case OP_OR:
         return mk_bool_app_helper(false, n, args, result);
+    case OP_EQ:
+        SASSERT(n == 2);
+        // return mk_eq_helper(args[0], args[1], result);
     default:
         return BR_FAILED;
     }
@@ -492,7 +495,27 @@ br_status seq_rewriter::mk_bool_app_helper(bool is_and, unsigned n, expr* const*
         }
     }
     
-    result = is_and ? m().mk_and(new_args.size(), new_args.c_ptr()) : m().mk_or(new_args.size(), new_args.c_ptr());
+    result = is_and ? m().mk_and(new_args) : m().mk_or(new_args);
+    return BR_REWRITE_FULL;
+}
+
+br_status seq_rewriter::mk_eq_helper(expr* a, expr* b, expr_ref& result) {
+    expr* sa = nullptr, *ra = nullptr, *sb = nullptr, *rb = nullptr;
+    if (str().is_in_re(b))
+        std::swap(a, b);
+    if (!str().is_in_re(a, sa, ra))
+        return BR_FAILED;
+    bool is_not = m().is_not(b, b);
+    if (!str().is_in_re(b, sb, rb))
+        return BR_FAILED;
+    if (sa != sb)
+        return BR_FAILED;
+    // sa in ra = sb in rb;
+    // sa in (ra n rb) u (C(ra) n C(rb))
+    if (is_not)
+        rb = re().mk_complement(rb);
+    expr* r = re().mk_union(re().mk_inter(ra, rb), re().mk_inter(re().mk_complement(ra), re().mk_complement(rb)));
+    result = re().mk_in_re(sa, r);
     return BR_REWRITE_FULL;
 }
 
@@ -703,9 +726,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF:
         UNREACHABLE();
     }
-    // if (st == BR_FAILED) {
-    //     st = lift_ites_throttled(f, num_args, args, result);
-    // }
+    if (st == BR_FAILED) {
+        st = lift_ites_throttled(f, num_args, args, result);
+    }
     CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     SASSERT(st == BR_FAILED || m().get_sort(result) == f->get_range());
     return st;
@@ -2137,7 +2160,7 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
     if (!result) {
         std::cout << "(m) ";
         result = is_nullable(r);
-        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, nullptr, result);        
+        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, nullptr, result);
     } else {
         std::cout << "(h) ";
     }
@@ -2288,119 +2311,226 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     Symbolic derivative: seq -> regex -> regex
     seq should be single char
 */
+
 br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
-    sort *seq_sort = nullptr, *ele_sort = nullptr;
+    result = mk_derivative(ele, r);
+    // TBD: we may even declare BR_DONE here and potentially miss some simplifications
+    return re().is_derivative(result) ? BR_DONE : BR_REWRITE_FULL;
+}
+
+/*
+    Recursive implementation of the symbolic derivative such that
+    the result is in an optimized BDD form.
+
+    Definition of BDD form:
+        if-then-elses are pushed outwards
+        and sorted by condition ID (cond->get_id()), from largest on
+        the outside to smallest on the inside.
+        Duplicate nested conditions are eliminated.
+
+*/
+expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
+    expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r, nullptr), m());
+    if (!result) {
+        result = mk_derivative_rec(ele, r);
+        m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, nullptr, result);
+    }
+    return result;
+}
+
+expr_ref seq_rewriter::mk_der_union(expr* r1, expr* r2) {
+    return mk_der_op(OP_RE_UNION, r1, r2);
+}
+
+expr_ref seq_rewriter::mk_der_inter(expr* r1, expr* r2) {
+    return mk_der_op(OP_RE_INTERSECT, r1, r2);
+}
+
+expr_ref seq_rewriter::mk_der_concat(expr* r1, expr* r2) {
+    return mk_der_op(OP_RE_CONCAT, r1, r2);
+}
+
+/*
+    Form a derivative by combining two if-then-else expressions in BDD form.
+
+    Preconditions:
+        - k is a binary op code on REs (re.union, re.inter, etc.)
+        - a and b are in BDD form
+
+    Postcondition:
+        - result is in BDD form
+*/
+expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
+    expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
+    expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
+    expr_ref result(m());
+    auto mk_ite = [&](expr* c, expr* a, expr* b) {
+        return (a == b) ? a : m().mk_ite(c, a, b);
+    };
+    if (m().is_ite(a, ca, a1, a2)) {
+        if (m().is_ite(b, cb, b1, b2)) {
+            if (ca == cb) {
+                expr_ref r1 = mk_der_op(k, a1, b1);
+                expr_ref r2 = mk_der_op(k, a2, b2);
+                result = mk_ite(ca, r1, r2);
+                return result;
+            }
+            else if (ca->get_id() < cb->get_id()) {
+                expr_ref r1 = mk_der_op(k, a, b1);
+                expr_ref r2 = mk_der_op(k, a, b2);
+                result = mk_ite(cb, r1, r2);
+                return result;
+            }
+        }
+        expr_ref r1 = mk_der_op(k, a1, b);
+        expr_ref r2 = mk_der_op(k, a2, b);
+        result = mk_ite(ca, r1, r2);
+        return result;
+    }
+    if (m().is_ite(b, cb, b1, b2)) {
+        expr_ref r1 = mk_der_op(k, a, b1);
+        expr_ref r2 = mk_der_op(k, a, b2);
+        result = mk_ite(cb, r1, r2);
+        return result;
+    }
+    switch (k) {
+    case OP_RE_INTERSECT:
+        if (BR_FAILED == mk_re_inter(a, b, result))
+            result = re().mk_inter(a, b);
+        break;
+    case OP_RE_UNION:
+        if (BR_FAILED == mk_re_union(a, b, result))
+            result = re().mk_union(a, b);
+        break;
+    case OP_RE_CONCAT:
+        if (BR_FAILED == mk_re_concat(a, b, result))
+            result = re().mk_concat(a, b);
+        break;
+    default:
+        UNREACHABLE();
+        break;
+    }
+    return result;
+}
+
+expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
+    expr_ref _a(a, m()), _b(b, m());
+    expr_ref result(m_op_cache.find(k, a, b, nullptr), m());
+    if (!result) {
+        result = mk_der_op_rec(k, a, b);
+        m_op_cache.insert(k, a, b, nullptr, result);
+    }
+    return result;
+}
+
+expr_ref seq_rewriter::mk_der_compl(expr* r) {
+    expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr, nullptr), m());
+    if (!result) {
+        expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
+        if (m().is_ite(r, c, r1, r2)) {
+            result = m().mk_ite(c, mk_der_compl(r1), mk_der_compl(r2));
+        }
+        else if (BR_FAILED == mk_re_complement(r, result))
+            result = re().mk_complement(r);        
+    }
+    m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, nullptr, result);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
+    expr_ref result(m());
+    sort* seq_sort = nullptr, *ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
     SASSERT(ele_sort == m().get_sort(ele));
-    expr *r1 = nullptr, *r2 = nullptr, *p = nullptr;
+    expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
+    auto mk_empty = [&]() { return expr_ref(re().mk_empty(m().get_sort(r)), m()); };
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
         expr_ref is_n = is_nullable(r1);
-        expr_ref dr1(re().mk_derivative(ele, r1), m());
-        expr_ref dr2(re().mk_derivative(ele, r2), m());
-        result = re().mk_concat(dr1, r2);
+        expr_ref dr1 = mk_derivative(ele, r1);
+        result = mk_der_concat(dr1, r2);
         if (m().is_false(is_n)) {
-            return BR_REWRITE2;
+            return result;
         }
-        else if (m().is_true(is_n)) {
-            result = re().mk_union(result, dr2);
-            return BR_REWRITE3;
-        }
-        else {
-            result = m().mk_ite(is_n, re().mk_union(result, dr2), result);
-            return BR_REWRITE3;
-        }
+        expr_ref dr2 = mk_derivative(ele, r2);
+        is_n = re_predicate(is_n, seq_sort);
+        return mk_der_union(result, mk_der_concat(is_n, dr2));        
     }
     else if (re().is_star(r, r1)) {
-        result = re().mk_concat(re().mk_derivative(ele, r1), r);
-        return BR_REWRITE2;
+        return mk_der_concat(mk_derivative(ele, r1), r);
     }
     else if (re().is_plus(r, r1)) {
-        result = re().mk_derivative(ele, re().mk_star(r1));
-        return BR_REWRITE1;
+        expr_ref star(re().mk_star(r1), m());
+        return mk_derivative(ele, star);
     }
     else if (re().is_union(r, r1, r2)) {
-        result = re().mk_union(
-            re().mk_derivative(ele, r1),
-            re().mk_derivative(ele, r2)
-        );
-        return BR_REWRITE2;
+        return mk_der_union(mk_derivative(ele, r1), mk_derivative(ele, r2));
     }
     else if (re().is_intersection(r, r1, r2)) {
-        result = re().mk_inter(
-            re().mk_derivative(ele, r1),
-            re().mk_derivative(ele, r2)
-        );
-        return BR_REWRITE2;
+        return mk_der_inter(mk_derivative(ele, r1), mk_derivative(ele, r2));
     }
     else if (re().is_diff(r, r1, r2)) {
-        result = re().mk_diff(
-            re().mk_derivative(ele, r1),
-            re().mk_derivative(ele, r2)
-        );
-        return BR_REWRITE2;
+        return mk_der_inter(mk_derivative(ele, r1), mk_der_compl(mk_derivative(ele, r2)));
     }
     else if (m().is_ite(r, p, r1, r2)) {
-        result = m().mk_ite(
-            p,
-            re().mk_derivative(ele, r1),
-            re().mk_derivative(ele, r2)
-        );
-        return BR_REWRITE2;
+        // there is no BDD normalization here
+        result = m().mk_ite(p, mk_derivative(ele, r1), mk_derivative(ele, r2));
+        return result;
     }
     else if (re().is_opt(r, r1)) {
-        result = re().mk_derivative(ele, r1);
-        return BR_REWRITE1;
+        return mk_derivative(ele, r1);
     }
     else if (re().is_complement(r, r1)) {
-        result = re().mk_complement(re().mk_derivative(ele, r1));
-        return BR_REWRITE2;
+        return mk_der_compl(mk_derivative(ele, r1));
     }
     else if (re().is_loop(r, r1, lo)) {
         if (lo > 0) {
             lo--;
         }
-        result = re().mk_concat(
-            re().mk_derivative(ele, r1),
-            re().mk_loop(r1, lo)
-        );
-        return BR_REWRITE2;
+        return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo));
     }
     else if (re().is_loop(r, r1, lo, hi)) {
         if (hi == 0) {
-            result = re().mk_empty(m().get_sort(r));
-            return BR_DONE;
+            return mk_empty();
         }
         hi--;
         if (lo > 0) {
             lo--;
         }
-        result = re().mk_concat(
-            re().mk_derivative(ele, r1),
-            re().mk_loop(r1, lo, hi)
-        );
-        return BR_REWRITE2;
+        return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo, hi));
     }
     else if (re().is_full_seq(r) ||
              re().is_empty(r)) {
-        result = r;
-        return BR_DONE;
+        return expr_ref(r, m());
     }
     else if (re().is_to_re(r, r1)) {
         // r1 is a string here (not a regexp)
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            result = re_and(m().mk_eq(ele, hd),re().mk_to_re(tl));
-            return BR_REWRITE2;
+            return re_and(m().mk_eq(ele, hd), re().mk_to_re(tl));
         }
         else if (str().is_empty(r1)) {
-            result = re().mk_empty(m().get_sort(r));
-            return BR_DONE;
+            return mk_empty();
         }
         else {
-            return BR_FAILED;
+            return expr_ref(re().mk_derivative(ele, r), m());
+        }
+    }
+    else if (re().is_reverse(r, r1) && re().is_to_re(r1, r2)) {
+        // Reverses are rewritten so that the only derivative case is
+        // derivative of a reverse of a string. (All other cases stuck)
+        // This is analagous to the previous is_to_re case.
+        expr_ref hd(m()), tl(m());
+        if (get_head_tail_reversed(r2, hd, tl)) {
+            return re_and(m().mk_eq(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
+        }
+        else if (str().is_empty(r2)) {
+            return mk_empty();
+        }
+        else {
+            return expr_ref(re().mk_derivative(ele, r), m());
         }
     }
     else if (re().is_range(r, r1, r2)) {
@@ -2410,220 +2540,39 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
             if (s1.length() == 1 && s2.length() == 1) {
                 r1 = m_util.mk_char(s1[0]);
                 r2 = m_util.mk_char(s2[0]);
-                result = m().mk_and(m_util.mk_le(r1, ele), m_util.mk_le(ele, r2));
-                result = re_predicate(result, seq_sort);
-                return BR_REWRITE3;
+                return mk_der_inter(re_predicate(m_util.mk_le(r1, ele), seq_sort),
+                                    re_predicate(m_util.mk_le(ele, r2), seq_sort));
             }
             else {
-                result = re().mk_empty(m().get_sort(r));
-                return BR_DONE;
+                return mk_empty();
             }
         }
         expr* e1 = nullptr, *e2 = nullptr;
         if (str().is_unit(r1, e1) && str().is_unit(r2, e2)) {
-            result = m().mk_and(m_util.mk_le(e1, ele), m_util.mk_le(ele, e2));
-            result = re_predicate(result, seq_sort);
-            return BR_REWRITE2;
+            return mk_der_inter(re_predicate(m_util.mk_le(e1, ele), seq_sort),
+                                re_predicate(m_util.mk_le(ele, e2), seq_sort));
         }
     }
     else if (re().is_full_char(r)) {
-        result = re().mk_to_re(str().mk_empty(seq_sort));
-        return BR_DONE;
+        return expr_ref(re().mk_to_re(str().mk_empty(seq_sort)), m());
     }
     else if (re().is_of_pred(r, p)) {
         array_util array(m());
         expr* args[2] = { p, ele };
         result = array.mk_select(2, args);
-        result = re_predicate(result, seq_sort);
-        return BR_REWRITE2;
+        return re_predicate(result, seq_sort);
     }
     // stuck cases: re().is_derivative, variable, ...
-    // and re().is_reverse
-    return BR_FAILED;
+    // and re().is_reverse if the reverse is not applied to a string
+    return expr_ref(re().mk_derivative(ele, r), m());
 }
 
 /*
-    Combine two if-then-else expressions in BDD form.
+    Lift all ite expressions to the top level, safely
+    throttled to not blowup the size of the expression.
 
-    Definition of BDD form:
-        if-then-elses are pushed outwards
-        and sorted by condition ID (cond->get_id()), from largest on
-        the outside to smallest on the inside.
-        Duplicate nested conditions are eliminated.
-
-    Preconditions:
-    - EITHER k is a binary op code on REs (re.union, re.inter, etc.)
-      and cond is nullptr,
-      OR k is if-then-else (OP.ITE) and cond is the condition.
-    - a and b are in BDD form.
-
-    Postcondition: result is in BDD form.
-        if-then-elses are pushed outwards
-        and sorted by condition ID (cond->get_id()), from largest on
-        the outside to smallest on the inside.
-
-    Uses op cache (memoization) to avoid duplicating work for the same
-    pair of pointers.
-*/
-expr_ref seq_rewriter::combine_ites(decl_kind k, expr* a, expr* b, expr* cond) {
-    std::cout << "c";
-    expr_ref result(m_op_cache.find(k, a, b, cond), m());
-    if (result) {
-        std::cout << "(h) ";
-        return result;
-    }
-    std::cout << "(m) ";
-    std::cout << std::endl << "combine_ites: "
-                           << k << ", "
-                           << expr_ref(a, m()) << ", "
-                           << expr_ref(b, m()) << ", "
-                           << expr_ref(cond, m()) << std::endl;
-    SASSERT((k == OP_ITE) == (cond != nullptr));
-    expr *acond = nullptr, *a1 = nullptr, *a2 = nullptr,
-         *bcond = nullptr, *b1 = nullptr, *b2 = nullptr;
-    expr_ref result1(m()), result2(m());
-    if (k == OP_ITE) {
-        if (m().is_ite(a, acond, a1, a2) &&
-            cond->get_id() < acond->get_id()) {
-            std::cout << "  case 1a" << std::endl;
-            // Push ITE inwards on first arg
-            result1 = combine_ites(k, a1, b, cond);
-            result2 = combine_ites(k, a2, b, cond);
-            result = combine_ites(k, result1, result2, acond);
-        }
-        else if (m().is_ite(a, acond, a1, a2) &&
-                 cond == acond) {
-            std::cout << "  case 1b" << std::endl;
-            // Collapse ITE on first arg
-            result = combine_ites(k, a1, b, cond);
-        }
-        else if (m().is_ite(b, bcond, b1, b2) &&
-                 cond->get_id() < bcond->get_id()) {
-            // Push ITE inwards on second arg
-            std::cout << "  case 1c" << std::endl;
-            result1 = combine_ites(k, a, b1, cond);
-            result2 = combine_ites(k, a, b2, cond);
-            result = combine_ites(k, result1, result2, bcond);
-        }
-        else if (m().is_ite(b, bcond, b1, b2) &&
-                 cond == bcond) {
-            std::cout << "  case 1d" << std::endl;
-            // Collapse ITE on second arg
-            result = combine_ites(k, a, b2, cond);
-        }
-        else {
-            // Apply ITE -- no simplification required
-            std::cout << "  case 1e" << std::endl;
-            result = m().mk_ite(cond, a, b);
-        }
-    }
-    else if (m().is_ite(a, acond, a1, a2)) {
-        std::cout << "  case 2" << std::endl;
-        // Push binary op inwards on first arg
-        result1 = combine_ites(k, a1, b, nullptr);
-        result2 = combine_ites(k, a2, b, nullptr);
-        result = combine_ites(OP_ITE, result1, result2, acond);
-    }
-    else if (m().is_ite(b, bcond, b1, b2)) {
-        std::cout << "  case 3" << std::endl;
-        // Push binary op inwards on second arg
-        result1 = combine_ites(k, a, b1, nullptr);
-        result2 = combine_ites(k, a, b2, nullptr);
-        result = combine_ites(OP_ITE, result1, result2, bcond);
-    }
-    else {
-        std::cout << "  case 4" << std::endl;
-        // Apply binary op (a and b are free of ITE)
-        result = m().mk_app(get_fid(), k, a, b);
-    }
-    // Save result before returning
-    m_op_cache.insert(k, a, b, cond, result);
-    std::cout << "combine result: " << result << std::endl;
-    return result;
-}
-
-/*
-    Lift if-then-else expressions to the top level, enforcing a BDD form.
-
-    Postcondition: result is in BDD form.
-    - Alternatively, if lift_over_union and/or lift_over_inter is false,
-      then result is a disjunction and/or conjunciton of expressions in
-      BDD form. (Even in this case, ITE is still lifted at lower levels,
-      just not at the top level.)
-    - Note that the result may not be fully simplified (particularly the
-      nested expressions inside if-then-else). Simplification should be
-      called afterwards.
-
-    Cost: Causes potential blowup in the size of an expression (when
-    expanded out), but keeps the representation compact (subexpressions
-    are shared).
-
-    Used by: the regex solver in seq_regex.cpp when dealing with
-    derivatives of a regex by a symbolic character. Enables efficient
-    representation in unfolding string in regex constraints.
-*/
-expr_ref seq_rewriter::lift_ites(expr* r, bool lift_over_union, bool lift_over_inter) {
-    std::cout << "l ";
-    decl_kind k = to_app(r)->get_decl_kind();
-    family_id fid = get_fid();
-    expr *r1 = nullptr, *r2 = nullptr, *cond = nullptr, *ele = nullptr;
-    unsigned lo = 0, hi = 0;
-    expr_ref result(m()), result1(m()), result2(m());
-    if ((re().is_union(r, r1, r2) && !lift_over_union) ||
-        (re().is_intersection(r, r1, r2) && !lift_over_inter)) {
-        // Preserve unions and/or intersections
-        result1 = lift_ites(r1, lift_over_union, lift_over_inter);
-        result2 = lift_ites(r2, lift_over_union, lift_over_inter);
-        result = m().mk_app(fid, k, r1, r2);
-    }
-    else if (m().is_ite(r, cond, r1, r2) ||
-        re().is_concat(r, r1, r2) ||
-        re().is_union(r, r1, r2) ||
-        re().is_intersection(r, r1, r2) ||
-        re().is_diff(r, r1, r2)) {
-        // Use combine_ites on the subresults
-        // Stop preserving unions and intersections
-        result1 = lift_ites(r1, true, true);
-        result2 = lift_ites(r2, true, true);
-        result = combine_ites(k, r1, r2, cond);
-    }
-    else if (re().is_star(r, r1) ||
-             re().is_plus(r, r1) ||
-             re().is_opt(r, r1) ||
-             re().is_complement(r, r1) ||
-             re().is_reverse(r, r1)) {
-        // Stop preserving unions and intersections
-        result1 = lift_ites(r1, true, true);
-        result = m().mk_app(fid, k, r1);
-    }
-    else if (re().is_derivative(r, ele, r1)) {
-        result1 = lift_ites(r1, true, true);
-        result = m().mk_app(fid, k, ele, r1);
-    }
-    else if (re().is_loop(r, r1, lo)) {
-        result1 = lift_ites(r1, true, true);
-        result = re().mk_loop(result1, lo);
-    }
-    else if (re().is_loop(r, r1, lo, hi)) {
-        result1 = lift_ites(r1, true, true);
-        result = re().mk_loop(result1, lo, hi);
-    }
-    else {
-        // is_full_seq, is_empty, is_to_re, is_range, is_full_char, is_of_pred
-        result = r;
-    }
-    std::cout << std::endl << "lift of: " << expr_ref(r, m()) << std::endl;
-    std::cout << "  = " << result << std::endl;
-    return result;
-}
-
-/*
-    Lift all ite expressions to the top level, but
-    a different "safe" version which is throttled to not
-    blowup the size of the expression.
-
-    Note: this function does not ensure the same BDD form that lift_ites
-    ensures.
+    Note: this function does not ensure the same BDD form that is
+    used in the normal form for derivatives in mk_re_derivative.
 */
 br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
     expr* c = nullptr, *t = nullptr, *e = nullptr;
@@ -2643,51 +2592,6 @@ br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* cons
     }
     return BR_FAILED;
 }
-
-// /*
-//     Rewrite rules for ITEs of regexes.
-//     ite(not c, r1, r2) -> ite(c, r2, r1)
-//     ite(c, ite(c, r1, r2), r3)) -> ite(c, r1, r3)
-//     ite(c, r1, ite(c, r2, r3)) -> ite(c, r1, r3)
-//     ite(c1, ite(c2, r1, r2), r3) where id of c1 < id of c2 ->
-//         ite(c2, ite(c1, r1, r3), ite(c1, r2, r3))
-//     ite(c1, r1, ite(c2, r2, r3)) where id of c1 < id of c2 ->
-//         ite(c2, ite(c1, r1, r2), ite(c1, r1, r3))
-// */
-// br_status seq_rewriter::rewrite_re_ite(expr* cond, expr* r1, expr* r2, expr_ref& result) {
-//     VERIFY(m_util.is_re(r1));
-//     VERIFY(m_util.is_re(r2));
-//     expr *c = nullptr, *ra = nullptr, *rb = nullptr;
-//     if (m().is_not(cond, c)) {
-//         result = m().mk_ite(c, r2, r1);
-//         return BR_REWRITE1;
-//     }
-//     if (m().is_ite(r1, c, ra, rb)) {
-//         if (m().are_equal(c, cond)) {
-//             result = m().mk_ite(cond, ra, r2);
-//             return BR_REWRITE1;
-//         }
-//         if (cond->get_id() < c->get_id()) {
-//             expr *result1 = m().mk_ite(cond, ra, r2);
-//             expr *result2 = m().mk_ite(cond, rb, r2);
-//             result = m().mk_ite(c, result1, result2);
-//             return BR_REWRITE2;
-//         }
-//     }
-//     if (m().is_ite(r2, c, ra, rb)) {
-//         if (m().are_equal(c, cond)) {
-//             result = m().mk_ite(cond, r1, rb);
-//             return BR_REWRITE1;
-//         }
-//         if (cond->get_id() < c->get_id()) {
-//             expr *result1 = m().mk_ite(cond, r1, ra);
-//             expr* result2 = m().mk_ite(cond, r1, rb);
-//             result = m().mk_ite(c, result1, result2);
-//             return BR_REWRITE2;
-//         }
-//     }
-//     return BR_DONE;
-// }
 
 /*
  * pattern match against all ++ "abc" ++ all ++ "def" ++ all regexes.
@@ -2885,7 +2789,6 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
 
-#if 0
     if (get_re_head_tail(b, hd, tl)) {
         SASSERT(re().min_length(hd) == re().max_length(hd));
         expr_ref len_hd(m_autil.mk_int(re().min_length(hd)), m()); 
@@ -2906,7 +2809,6 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
                             re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
         return BR_REWRITE_FULL;
     }
-#endif
     if (false && rewrite_contains_pattern(a, b, result))
         return BR_REWRITE_FULL;
 
@@ -2998,6 +2900,50 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     }
     return BR_FAILED;
 }
+
+bool seq_rewriter::are_complements(expr* r1, expr* r2) const {
+    expr* r = nullptr;
+    if (re().is_complement(r1, r) && r == r2)
+        return true;
+    if (re().is_complement(r2, r) && r == r1)
+        return true;
+    return false;
+}
+
+/*
+ * basic subset checker.
+ */
+bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
+    // return false;
+    expr* ra1 = nullptr, *ra2 = nullptr, *ra3 = nullptr;
+    expr* rb1 = nullptr, *rb2 = nullptr, *rb3 = nullptr;
+    if (re().is_complement(r1, ra1) && 
+        re().is_complement(r2, rb1)) {
+        return is_subset(rb1, ra1);
+    }
+    auto is_concat = [&](expr* r, expr*& a, expr*& b, expr*& c) {
+        return re().is_concat(r, a, b) && re().is_concat(b, b, c);
+    };
+    while (true) {
+        if (r1 == r2)
+            return true;
+        if (re().is_full_seq(r2))
+            return true;
+        if (is_concat(r1, ra1, ra2, ra3) &&
+            is_concat(r2, rb1, rb2, rb3) && ra1 == rb1 && ra2 == rb2) {
+            r1 = ra3;
+            r2 = rb3;
+            continue;
+        }
+        if (re().is_concat(r1, ra1, ra2) && 
+            re().is_concat(r2, rb1, rb2) && re().is_full_seq(rb1)) {
+            r1 = ra2;
+            continue;
+        }
+        return false;
+    }
+}
+
 /*
     (a + a) = a
     (a + eps) = a
@@ -3032,18 +2978,66 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
+    auto mk_full = [&]() { return re().mk_full_seq(m().get_sort(a)); };
+    if (are_complements(a, b)) {
+        result = mk_full();
+        return BR_DONE;
+    }
+        
+    expr* a1 = nullptr, *a2 = nullptr;
+    expr* b1 = nullptr, *b2 = nullptr;
+    // ensure union is right-associative
+    // and swap-sort entries 
+    if (re().is_union(a, a1, a2)) {
+        result = re().mk_union(a1, re().mk_union(a2, b));
+        return BR_REWRITE2;
+    }
+    auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
+    if (re().is_union(b, b1, b2)) {
+        if (is_subset(a, b1)) {
+            result = b;
+            return BR_DONE;
+        }
+        if (is_subset(b1, a)) {
+            result = re().mk_union(a, b2);
+            return BR_REWRITE1;
+        }
+        if (are_complements(a, b1)) {
+            result = mk_full();
+            return BR_DONE;
+        }
+        if (get_id(a) > get_id(b1)) {
+            result = re().mk_union(b1, re().mk_union(a, b2));
+            return BR_REWRITE2;
+        }
+    }
+    else {
+        if (get_id(a) > get_id(b)) {
+            result = re().mk_union(b, a);
+            return BR_DONE;
+        }
+        if (is_subset(a, b)) {
+            result = b;
+            return BR_DONE;
+        }
+        if (is_subset(b, a)) {
+            result = a;
+            return BR_DONE;
+        }
+    }
     return BR_FAILED;
 }
 
 /*
     comp(intersect e1 e2) -> union comp(e1) comp(e2)
     comp(union e1 e2) -> intersect comp(e1) comp(e2)
-    comp(none) = all
-    comp(all) = none
+    comp(none) -> all
+    comp(all) -> none
+    comp(comp(e1)) -> e1
     comp(ite p e1 e2) -> ite p comp(e1) comp(e2)
 */
 br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
-    expr* e1, *e2;
+    expr *cond = nullptr, *e1 = nullptr, *e2 = nullptr;
     if (re().is_intersection(a, e1, e2)) {
         result = re().mk_union(re().mk_complement(e1), re().mk_complement(e2));
         return BR_REWRITE2;
@@ -3060,10 +3054,13 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
         result = re().mk_empty(m().get_sort(a));
         return BR_DONE;
     }
-    expr *a1 = nullptr, *a2 = nullptr, *cond = nullptr;
-    if (m().is_ite(a, cond, a1, a2)) {
-        result = m().mk_ite(cond, re().mk_complement(a1),
-                                  re().mk_complement(a2));
+    if (re().is_complement(a, e1)) {
+        result = e1;
+        return BR_DONE;
+    }
+    if (m().is_ite(a, cond, e1, e2)) {
+        result = m().mk_ite(cond, re().mk_complement(e1),
+                                  re().mk_complement(e2));
         return BR_REWRITE2;
     }
     return BR_FAILED;
@@ -3101,11 +3098,52 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    expr* ac = nullptr, *bc = nullptr;
-    if ((re().is_complement(a, ac) && ac == b) ||
-        (re().is_complement(b, bc) && bc == a)) {
-        result = re().mk_empty(m().get_sort(a));
+    auto mk_empty = [&]() { return re().mk_empty(m().get_sort(a)); };
+    if (are_complements(a, b)) {
+        result = mk_empty();
         return BR_DONE;
+    }
+    expr* a1 = nullptr, *a2 = nullptr;
+    expr* b1 = nullptr, *b2 = nullptr;
+
+    // ensure intersection is right-associative
+    // and swap-sort entries 
+    if (re().is_intersection(a, a1, a2)) {
+        result = re().mk_inter(a1, re().mk_inter(a2, b));
+        return BR_REWRITE2;
+    }
+    auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
+    if (re().is_intersection(b, b1, b2)) {
+        if (is_subset(b1, a)) {
+            result = b;
+            return BR_DONE;
+        }
+        if (is_subset(a, b1)) {
+            result = re().mk_inter(a, b2);
+            return BR_REWRITE1;
+        }
+        if (are_complements(a, b1)) {
+            result = mk_empty();
+            return BR_DONE;
+        }
+        if (get_id(a) > get_id(b1)) {
+            result = re().mk_inter(b1, re().mk_inter(a, b2));
+            return BR_REWRITE2;
+        }
+    }
+    else {
+        if (get_id(a) > get_id(b)) {
+            result = re().mk_inter(b, a);
+            return BR_DONE;
+        }
+        if (is_subset(a, b)) {
+            result = a;
+            return BR_DONE;
+        }
+        if (is_subset(b, a)) {
+            result = b;
+            return BR_DONE;
+        }
     }
     if (re().is_to_re(b)) 
         std::swap(a, b);
@@ -3388,7 +3426,6 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
                 else                 
                     intersect(0, ch-1, ranges);
             }
-            // TBD: case for negation of range (not (and (<= lo e) (<= e hi)))
             else {
                 all_ranges = false;
                 break;
@@ -3427,124 +3464,6 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
             cond = m().mk_and(m().mk_eq(elem, solution), cond);
         }
     }    
-}
-
-void seq_rewriter::get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result) {
-    expr_ref cond(m()), th(m()), el(m());
-    if (has_cofactor(r, cond, th, el)) {
-        conds.push_back(cond);
-        get_cofactors(th, conds, result);
-        conds.pop_back();
-        conds.push_back(mk_not(m(), cond));
-        get_cofactors(el, conds, result);
-        conds.pop_back();
-    }
-    else {
-        cond = mk_and(conds);
-        result.push_back(cond, r);
-    }
-}
-
-bool seq_rewriter::has_cofactor(expr* r, expr_ref& cond, expr_ref& th, expr_ref& el) {
-    if (m().is_ite(r)) {
-        cond = to_app(r)->get_arg(0);
-        th = to_app(r)->get_arg(1);
-        el = to_app(r)->get_arg(2);
-        return true;
-    }
-    expr_ref_vector trail(m()), args_th(m()), args_el(m());
-    expr* c = nullptr, *tt = nullptr, *ee = nullptr;
-    cond = nullptr;
-    obj_map<expr,expr*> cache_th, cache_el;
-    expr_mark no_cofactor, visited;
-    ptr_vector<expr> todo;
-    todo.push_back(r);
-    while (!todo.empty()) {
-        expr* e = todo.back();
-        if (visited.is_marked(e) || !is_app(e)) {
-            todo.pop_back();
-            continue;
-        }        
-        app* a = to_app(e);
-        if (m().is_ite(e, c, tt, ee)) {
-            if (!cond) {
-                cond = c;
-                cache_th.insert(a, tt);
-                cache_el.insert(a, ee);
-            }
-            else if (cond == c) {
-                cache_th.insert(a, tt);
-                cache_el.insert(a, ee);
-            }
-            else {
-                no_cofactor.mark(a);
-            }
-            visited.mark(e, true);
-            todo.pop_back();
-            continue;
-        }
-
-        if (a->get_family_id() != u().get_family_id()) {
-            visited.mark(e, true);
-            no_cofactor.mark(e, true);
-            todo.pop_back();
-            continue;
-        }
-        switch (a->get_decl_kind()) {
-        case OP_RE_CONCAT:
-        case OP_RE_UNION:
-        case OP_RE_INTERSECT:
-        case OP_RE_COMPLEMENT:
-            break;
-        case OP_RE_STAR:
-        case OP_RE_LOOP:
-        default:
-            visited.mark(e, true);
-            no_cofactor.mark(e, true);
-            continue;
-        }
-        args_th.reset(); 
-        args_el.reset();
-        bool has_cof = false;
-        for (expr* arg : *a) {
-            if (no_cofactor.is_marked(arg)) {
-                args_th.push_back(arg);
-                args_el.push_back(arg);
-            }
-            else if (cache_th.contains(arg)) {
-                args_th.push_back(cache_th[arg]);
-                args_el.push_back(cache_el[arg]);
-                has_cof = true;
-            }
-            else {
-                todo.push_back(arg);
-            }
-        }
-        if (args_th.size() == a->get_num_args()) {
-            if (has_cof) {
-                th = mk_app(a->get_decl(), args_th);
-                el = mk_app(a->get_decl(), args_el);
-                trail.push_back(th);
-                trail.push_back(el);
-                cache_th.insert(a, th);
-                cache_el.insert(a, el);
-            }
-            else {
-                no_cofactor.mark(a, true);
-            }
-            visited.mark(e, true);
-            todo.pop_back();
-        }
-    }
-    SASSERT(cond == !no_cofactor.is_marked(r));
-    if (cond) {
-        th = cache_th[r];
-        el = cache_el[r];
-        return true;
-    }
-    else {
-        return false;
-    }
 }
 
 br_status seq_rewriter::reduce_re_is_empty(expr* r, expr_ref& result) {
