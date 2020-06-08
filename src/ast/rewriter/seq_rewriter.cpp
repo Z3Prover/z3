@@ -839,8 +839,8 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
 */
 br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
     expr* c = nullptr, *t = nullptr, *e = nullptr;
-    for (unsigned i = 0; i < n; ++i) {
-        if (m().is_ite(args[i], c, t, e) &&
+    for (unsigned i = 0; i < n; ++i) {        
+        if (m().is_ite(args[i], c, t, e) && 
             (get_depth(t) <= 2 || t->get_ref_count() == 1 ||
              get_depth(e) <= 2 || e->get_ref_count() == 1)) {
             ptr_buffer<expr> new_args;
@@ -855,6 +855,7 @@ br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* cons
     }
     return BR_FAILED;
 }
+
 
 bool seq_rewriter::is_suffix(expr* s, expr* offset, expr* len) {
     expr_ref_vector lens(m());
@@ -2182,11 +2183,11 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
     std::cout << "n";
-    expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr, nullptr), m());
+    expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
     if (!result) {
         std::cout << "(m) ";
         result = is_nullable(r);
-        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, nullptr, result);
+        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
     } else {
         std::cout << "(h) ";
     }
@@ -2348,32 +2349,17 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     Memoized, recursive implementation of the symbolic derivative such that
     the result is in an optimized BDD form.
 
-    flags:
-        - lift_over_union, lift_over_inter (default true)
-            If false, then preserve unions, intersections (respectively)
-            at the top level.
-            Note that memoization ignores these flags, so if called
-            on the same expression with different flags, will get the same
-            result.
-        - left (default true)
-            Take a left-derivative. If false take a right-derivative.
-
     Definition of BDD form:
         if-then-elses are pushed outwards
         and sorted by condition ID (cond->get_id()), from largest on
         the outside to smallest on the inside.
         Duplicate nested conditions are eliminated.
 */
-expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r,
-                                     bool left,
-                                     bool lift_over_union,
-                                     bool lift_over_inter) {
-    decl_kind k = left ? OP_RE_DERIVATIVE : _OP_RE_RIGHT_DERIVATIVE;
-    expr_ref result(m_op_cache.find(k, ele, r, nullptr), m());
+expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
+    expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
-        result = mk_derivative_rec(ele, r,
-                                   lift_over_union, lift_over_inter, left);
-        m_op_cache.insert(k, ele, r, nullptr, result);
+        result = mk_derivative_rec(ele, r);
+        m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
     }
     return result;
 }
@@ -2455,31 +2441,30 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
 
 expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
     expr_ref _a(a, m()), _b(b, m());
-    expr_ref result(m_op_cache.find(k, a, b, nullptr), m());
+    expr_ref result(m_op_cache.find(k, a, b), m());
     if (!result) {
         result = mk_der_op_rec(k, a, b);
-        m_op_cache.insert(k, a, b, nullptr, result);
+        m_op_cache.insert(k, a, b, result);
     }
     return result;
 }
 
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
-    expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr, nullptr), m());
+    expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
-        expr *c = nullptr, *r1 = nullptr, *r2 = nullptr;
+        expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
         if (m().is_ite(r, c, r1, r2)) {
             result = m().mk_ite(c, mk_der_compl(r1), mk_der_compl(r2));
         }
-        else if (BR_FAILED == mk_re_complement(r, result)) {
+        else if (BR_FAILED == mk_re_complement(r, result))
             result = re().mk_complement(r);        
-        }
-        m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, nullptr, result);
     }
+    m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
     return result;
 }
 
 expr_ref seq_rewriter::mk_der_reverse(expr* r) {
-    expr_ref result(m_op_cache.find(OP_RE_REVERSE, r, nullptr, nullptr), m());
+    expr_ref result(m_op_cache.find(OP_RE_REVERSE, r, nullptr), m());
     if (!result) {
         expr *c = nullptr, *r1 = nullptr, *r2 = nullptr;
         if (m().is_ite(r, c, r1, r2)) {
@@ -2488,15 +2473,12 @@ expr_ref seq_rewriter::mk_der_reverse(expr* r) {
         else if (BR_FAILED == mk_re_reverse(r, result)) {
             result = re().mk_reverse(r);
         }
-        m_op_cache.insert(OP_RE_REVERSE, r, nullptr, nullptr, result);
+        m_op_cache.insert(OP_RE_REVERSE, r, nullptr, result);
     }
     return result;
 }
 
-expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r,
-                                         bool left,
-                                         bool lift_over_union,
-                                         bool lift_over_inter) {
+expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
     expr_ref result(m());
     sort* seq_sort = nullptr, *ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
@@ -2505,7 +2487,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r,
     expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
     auto mk_empty = [&]() { return expr_ref(re().mk_empty(m().get_sort(r)), m()); };
     unsigned lo = 0, hi = 0;
-    if (re().is_concat(r, r1, r2) && left) {
+    if (re().is_concat(r, r1, r2)) {
         expr_ref is_n = is_nullable(r1);
         expr_ref dr1 = mk_derivative(ele, r1);
         result = mk_der_concat(dr1, r2);
@@ -2514,91 +2496,40 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r,
         }
         expr_ref dr2 = mk_derivative(ele, r2);
         is_n = re_predicate(is_n, seq_sort);
-        if (lift_over_union) {
-            return mk_der_union(result, mk_der_concat(is_n, dr2));
-        }
-        else {
-            return expr_ref(re().mk_union(result, mk_der_concat(is_n, dr2)), m());
-        }
-    }
-    else if (re().is_concat(r, r1, r2) && !left) {
-        expr_ref is_n = is_nullable(r2);
-        expr_ref dr2 = mk_derivative(ele, r2, left);
-        result = mk_der_concat(r1, dr2);
-        if (m().is_false(is_n)) {
-            return result;
-        }
-        expr_ref dr1 = mk_derivative(ele, r1, left);
-        is_n = re_predicate(is_n, seq_sort);
-        if (lift_over_union) {
-            return mk_der_union(result, mk_der_concat(dr1, is_n));
-        }
-        else {
-            return expr_ref(re().mk_union(result, mk_der_concat(dr1, is_n)), m());
-        }
+        return mk_der_union(result, mk_der_concat(is_n, dr2));        
     }
     else if (re().is_star(r, r1)) {
-        if (left) {
-            return mk_der_concat(mk_derivative(ele, r1, left), r);
-        }
-        else {
-            return mk_der_concat(r, mk_derivative(ele, r1, left));
-        }
+        return mk_der_concat(mk_derivative(ele, r1), r);
     }
     else if (re().is_plus(r, r1)) {
         expr_ref star(re().mk_star(r1), m());
-        return mk_derivative(ele, star, left);
+        return mk_derivative(ele, star);
     }
     else if (re().is_union(r, r1, r2)) {
-        if (!lift_over_union) {
-            return expr_ref(re().mk_union(
-                mk_derivative(ele, r1, left, lift_over_union, lift_over_inter),
-                mk_derivative(ele, r2, left, lift_over_union, lift_over_inter)
-            ), m());
-        } else {
-            return mk_der_union(mk_derivative(ele, r1, left),
-                                mk_derivative(ele, r2, left));
-        }
+        return mk_der_union(mk_derivative(ele, r1), mk_derivative(ele, r2));
     }
     else if (re().is_intersection(r, r1, r2)) {
-        if (!lift_over_inter) {
-            return expr_ref(re().mk_inter(
-                mk_derivative(ele, r1, left, lift_over_union, lift_over_inter),
-                mk_derivative(ele, r2, left, lift_over_union, lift_over_inter)
-            ), m());
-        } else {
-            return mk_der_inter(mk_derivative(ele, r1, left),
-                                mk_derivative(ele, r2, left));
-        }
+        return mk_der_inter(mk_derivative(ele, r1), mk_derivative(ele, r2));
     }
     else if (re().is_diff(r, r1, r2)) {
-        return mk_derivative(ele, re().mk_inter(r1, re().mk_complement(r2)),
-                             left, lift_over_union, lift_over_inter);
+        return mk_der_inter(mk_derivative(ele, r1), mk_der_compl(mk_derivative(ele, r2)));
     }
     else if (m().is_ite(r, p, r1, r2)) {
         // there is no BDD normalization here
-        result = m().mk_ite(p, mk_derivative(ele, r1, left),
-                               mk_derivative(ele, r2, left));
+        result = m().mk_ite(p, mk_derivative(ele, r1), mk_derivative(ele, r2));
         return result;
     }
     else if (re().is_opt(r, r1)) {
-        return mk_derivative(ele, r1, left, lift_over_union, lift_over_inter);
+        return mk_derivative(ele, r1);
     }
     else if (re().is_complement(r, r1)) {
-        // If lift_over_union and lift_over_inter are false, this stops
-        // lifting. It would be possible to do smarter lifting here
-        return mk_der_compl(mk_derivative(ele, r1, left));
+        return mk_der_compl(mk_derivative(ele, r1));
     }
     else if (re().is_loop(r, r1, lo)) {
         if (lo > 0) {
             lo--;
         }
-        if (left) {
-            return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo));
-        } else {
-            return mk_der_concat(re().mk_loop(r1, lo),
-                                 mk_derivative(ele, r1, left));
-        }
+        return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo));
     }
     else if (re().is_loop(r, r1, lo, hi)) {
         if (hi == 0) {
@@ -2608,12 +2539,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r,
         if (lo > 0) {
             lo--;
         }
-        if (left) {
-            return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo, hi));
-        } else {
-            return mk_der_concat(re().mk_loop(r1, lo, hi),
-                                 mk_derivative(ele, r1, left));
-        }
+        return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo, hi));
     }
     else if (re().is_full_seq(r) ||
              re().is_empty(r)) {
@@ -2622,25 +2548,31 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r,
     else if (re().is_to_re(r, r1)) {
         // r1 is a string here (not a regexp)
         expr_ref hd(m()), tl(m());
-        if (left && get_head_tail(r1, hd, tl)) {
+        if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
             return re_and(m().mk_eq(ele, hd), re().mk_to_re(tl));
-        }
-        else if (!left && get_head_tail_reversed(r1, hd, tl)) {
-            return re_and(m().mk_eq(ele, tl), re().mk_to_re(hd));
         }
         else if (str().is_empty(r1)) {
             return mk_empty();
         }
-        // (Otherwise, falls back to default case)
+        else {
+            return expr_ref(re().mk_derivative(ele, r), m());
+        }
     }
-    else if (re().is_reverse(r, r1)) {
-        // Push derivative inside and flip direction.
-        // If lift_over_union and lift_over_inter are false, this stops
-        // lifting. It may be possible to do smarter lifting here.
-        return mk_der_reverse(mk_derivative(ele, r1, !left,
-                                            lift_over_union,
-                                            lift_over_inter));
+    else if (re().is_reverse(r, r1) && re().is_to_re(r1, r2)) {
+        // Reverses are rewritten so that the only derivative case is
+        // derivative of a reverse of a string. (All other cases stuck)
+        // This is analagous to the previous is_to_re case.
+        expr_ref hd(m()), tl(m());
+        if (get_head_tail_reversed(r2, hd, tl)) {
+            return re_and(m().mk_eq(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
+        }
+        else if (str().is_empty(r2)) {
+            return mk_empty();
+        }
+        else {
+            return expr_ref(re().mk_derivative(ele, r), m());
+        }
     }
     else if (re().is_range(r, r1, r2)) {
         // r1, r2 are sequences.
@@ -2671,19 +2603,10 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r,
         result = array.mk_select(2, args);
         return re_predicate(result, seq_sort);
     }
-    // stuck cases: re().is_derivative, variable, and
-    // to_re if the string can't be rewritten as empty or head/tail
-    if (left) {
-        return expr_ref(re().mk_derivative(ele, r), m());
-    }
-    else {
-        return expr_ref(
-            re().mk_reverse(re().mk_derivative(ele, re().mk_reverse(r))), m()
-        );
-    }
-
+    // stuck cases: re().is_derivative, variable, ...
+    // and re().is_reverse if the reverse is not applied to a string
+    return expr_ref(re().mk_derivative(ele, r), m());
 }
-
 
 /*
  * pattern match against all ++ "abc" ++ all ++ "def" ++ all regexes.
@@ -2945,7 +2868,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    expr *a1 = nullptr, *b1 = nullptr;
+    expr* a1 = nullptr, *b1 = nullptr;
     if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
         result = re().mk_to_re(str().mk_concat(a1, b1));
         return BR_REWRITE2;
@@ -2959,6 +2882,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     unsigned lo1, hi1, lo2, hi2;
+
     if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && re().is_loop(b, b1, lo2, hi2) && lo2 <= hi2 && a1 == b1) {
         result = re().mk_loop(a1, lo1 + lo2, hi1 + hi2);
         return BR_DONE;
@@ -3037,9 +2961,9 @@ bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
 }
 
 /*
-    (a + a) = a
-    (a + eps) = a
-    (eps + a) = a
+  (a + a) = a
+  (a + eps) = a
+  (eps + a) = a
 */
 br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
     if (a == b) {
@@ -3255,7 +3179,7 @@ br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
     rational n1, n2;
     unsigned lo, hi, lo2, hi2, np;
-    expr* a = nullptr, *a1 = nullptr, *a2 = nullptr, *cond = nullptr;
+    expr* a = nullptr;
     switch (num_args) {
     case 1: 
         np = f->get_num_parameters();
@@ -3285,26 +3209,10 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
             result = args[0];
             return BR_DONE;
         }
-        // (loop a) = (loop a 0) = a*
-        if ((np == 0) ||
-            (np == 1 && lo2 == 0)) {
+        // (loop a 0) = a*
+        if (np == 1 && lo2 == 0) {
             result = re().mk_star(args[0]);
-            return BR_REWRITE1;
-        }
-        // loop (ite p r1 r2) -> ite p (loop r1) (loop r2)
-        if (np > 0 && m().is_ite(args[0], cond, a1, a2)) {
-            expr_ref result1(m());
-            expr_ref result2(m());
-            if (np == 1) {
-                result1 = re().mk_loop(a1, lo2);
-                result2 = re().mk_loop(a2, lo2);
-            }
-            else if (np == 2) {
-                result1 = re().mk_loop(a1, lo2, hi2);
-                result2 = re().mk_loop(a2, lo2, hi2);
-            }
-            result = m().mk_ite(cond, result1, result2);
-            return BR_REWRITE2;
+            return BR_DONE;
         }
         break;
     case 2:
@@ -4136,20 +4044,18 @@ seq_rewriter::op_cache::op_cache(ast_manager& m):
     m_trail(m)
 {}
 
-expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b, expr* c) {
-    op_entry e(op, a, b, c, nullptr);
+expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
+    op_entry e(op, a, b, nullptr);
     m_table.find(e);
     return e.r;
 }
 
-void seq_rewriter::op_cache::insert(decl_kind op,
-                                    expr* a, expr* b, expr* c, expr* r) {
+void seq_rewriter::op_cache::insert(decl_kind op, expr* a, expr* b, expr* r) {
     cleanup();
     if (a) m_trail.push_back(a);
     if (b) m_trail.push_back(b);
-    if (c) m_trail.push_back(c);
     if (r) m_trail.push_back(r);
-    m_table.insert(op_entry(op, a, b, c, r));
+    m_table.insert(op_entry(op, a, b, r));
 }
 
 void seq_rewriter::op_cache::cleanup() {

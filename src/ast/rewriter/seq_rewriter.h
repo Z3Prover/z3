@@ -118,23 +118,20 @@ class seq_rewriter {
     class op_cache {
         struct op_entry {
             decl_kind k;
-            expr* a, *b, *c, *r;
-            op_entry(decl_kind k, expr* a, expr* b, expr* c, expr* r):
-                     k(k), a(a), b(b), c(c), r(r) {}
-            op_entry():k(0), a(nullptr), b(nullptr), c(nullptr), r(nullptr) {}
+            expr* a, *b, *r;
+            op_entry(decl_kind k, expr* a, expr* b, expr* r): k(k), a(a), b(b), r(r) {}
+            op_entry():k(0), a(nullptr), b(nullptr), r(nullptr) {}
         };
 
         struct hash_entry {
             unsigned operator()(op_entry const& e) const { 
-                return combine_hash(e.k, mk_mix(e.a ? e.a->get_id() : 0,
-                                                e.b ? e.b->get_id() : 0,
-                                                e.c ? e.c->get_id() : 0));
+                return mk_mix(e.k, e.a ? e.a->get_id() : 0, e.b ? e.b->get_id() : 0);
             }
         };
 
         struct eq_entry {
             bool operator()(op_entry const& a, op_entry const& b) const { 
-                return a.k == b.k && a.a == b.a && a.b == b.b && a.c == b.c;
+                return a.k == b.k && a.a == b.a && a.b == b.b;
             }
         };
 
@@ -148,8 +145,8 @@ class seq_rewriter {
 
     public:
         op_cache(ast_manager& m);
-        expr* find(decl_kind op, expr* a, expr* b, expr* c);
-        void insert(decl_kind op, expr* a, expr* b, expr* c, expr* r);
+        expr* find(decl_kind op, expr* a, expr* b);
+        void insert(decl_kind op, expr* a, expr* b, expr* r);
     };
 
     seq_util       m_util;
@@ -183,12 +180,8 @@ class seq_rewriter {
     expr_ref mk_seq_concat(expr* a, expr* b);    
 
     // Calculate derivative, memoized and enforcing a normal form
-    expr_ref mk_derivative(expr* ele, expr* r, bool left = true,
-                                               bool lift_over_union = true,
-                                               bool lift_over_inter = true);
-    expr_ref mk_derivative_rec(expr* ele, expr* r, bool left,
-                                                   bool lift_over_union,
-                                                   bool lift_over_inter);
+    expr_ref mk_derivative(expr* ele, expr* r);
+    expr_ref mk_derivative_rec(expr* ele, expr* r);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_concat(expr* a, expr* b);
@@ -240,6 +233,8 @@ class seq_rewriter {
     br_status mk_re_reverse(expr* r, expr_ref& result);
     br_status mk_re_derivative(expr* ele, expr* r, expr_ref& result);
 
+    br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
 
@@ -286,8 +281,6 @@ class seq_rewriter {
 
     expr_ref is_nullable_rec(expr* r);
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
-
-    br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
@@ -339,6 +332,7 @@ public:
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);
+
 };
 
 #endif
