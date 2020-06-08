@@ -182,14 +182,20 @@ class seq_rewriter {
 
     expr_ref mk_seq_concat(expr* a, expr* b);    
 
+    // Calculate derivative, memoized and enforcing a normal form
+    expr_ref mk_derivative(expr* ele, expr* r, bool left = true,
+                                               bool lift_over_union = true,
+                                               bool lift_over_inter = true);
+    expr_ref mk_derivative_rec(expr* ele, expr* r, bool left,
+                                                   bool lift_over_union,
+                                                   bool lift_over_inter);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_concat(expr* a, expr* b);
     expr_ref mk_der_union(expr* a, expr* b);
     expr_ref mk_der_inter(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
-    expr_ref mk_derivative(expr* ele, expr* r);
-    expr_ref mk_derivative_rec(expr* ele, expr* r);
+    expr_ref mk_der_reverse(expr* a);
 
     bool are_complements(expr* r1, expr* r2) const;
     bool is_subset(expr* r1, expr* r2) const;

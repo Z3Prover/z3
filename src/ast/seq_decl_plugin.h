@@ -109,6 +109,7 @@ enum seq_op_kind {
     _OP_REGEXP_EMPTY,
     _OP_REGEXP_FULL_CHAR,
     _OP_RE_IS_NULLABLE,
+    _OP_RE_RIGHT_DERIVATIVE,
     _OP_SEQ_SKOLEM,
     LAST_SEQ_OP
 };
