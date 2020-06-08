@@ -523,7 +523,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     SASSERT(f->get_family_id() == get_fid());
     br_status st = BR_FAILED;
     switch(f->get_decl_kind()) {
-
+        
     case OP_SEQ_UNIT:
         SASSERT(num_args == 1);
         st = mk_seq_unit(args[0], result);
@@ -552,17 +552,17 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         break;
     case OP_RE_CONCAT:
         if (num_args == 1) {
-            result = args[0];
+            result = args[0]; 
             st = BR_DONE;
         }
         else {
             SASSERT(num_args == 2);
-            st = mk_re_concat(args[0], args[1], result);
+            st = mk_re_concat(args[0], args[1], result); 
         }
         break;
     case OP_RE_UNION:
         if (num_args == 1) {
-            result = args[0];
+            result = args[0]; 
             st = BR_DONE;
         }
         else {
@@ -574,13 +574,13 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         st = mk_re_range(args[0], args[1], result);
         break;
-    case OP_RE_DIFF:
+    case OP_RE_DIFF: 
         if (num_args == 2)
             st = mk_re_diff(args[0], args[1], result);
         else if (num_args == 1) {
             result = args[0];
             st = BR_DONE;
-        }
+        }          
         break;
     case OP_RE_INTERSECT:
         if (num_args == 1) {
@@ -603,16 +603,16 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         st = mk_re_power(f, args[0], result);
         break;
     case OP_RE_EMPTY_SET:
-        return BR_FAILED;
+        return BR_FAILED;    
     case OP_RE_FULL_SEQ_SET:
-        return BR_FAILED;
+        return BR_FAILED;    
     case OP_RE_FULL_CHAR_SET:
-        return BR_FAILED;
+        return BR_FAILED;    
     case OP_RE_OF_PRED:
-        return BR_FAILED;
+        return BR_FAILED;    
     case _OP_SEQ_SKOLEM:
-        return BR_FAILED;
-    case OP_SEQ_CONCAT:
+        return BR_FAILED;    
+    case OP_SEQ_CONCAT: 
         if (num_args == 1) {
             result = args[0];
             st = BR_DONE;
@@ -630,25 +630,25 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 3);
         st = mk_seq_extract(args[0], args[1], args[2], result);
         break;
-    case OP_SEQ_CONTAINS:
+    case OP_SEQ_CONTAINS: 
         SASSERT(num_args == 2);
         st = mk_seq_contains(args[0], args[1], result);
         break;
     case OP_SEQ_AT:
         SASSERT(num_args == 2);
-        st = mk_seq_at(args[0], args[1], result);
+        st = mk_seq_at(args[0], args[1], result); 
         break;
     case OP_SEQ_NTH:
         SASSERT(num_args == 2);
-        return mk_seq_nth(args[0], args[1], result);
+        return mk_seq_nth(args[0], args[1], result); 
     case OP_SEQ_NTH_I:
         SASSERT(num_args == 2);
-        return mk_seq_nth_i(args[0], args[1], result);
-    case OP_SEQ_PREFIX:
+        return mk_seq_nth_i(args[0], args[1], result); 
+    case OP_SEQ_PREFIX: 
         SASSERT(num_args == 2);
         st = mk_seq_prefix(args[0], args[1], result);
         break;
-    case OP_SEQ_SUFFIX:
+    case OP_SEQ_SUFFIX: 
         SASSERT(num_args == 2);
         st = mk_seq_suffix(args[0], args[1], result);
         break;
@@ -719,11 +719,11 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRCTN:
     case _OP_STRING_LENGTH:
     case _OP_STRING_CHARAT:
-    case _OP_STRING_IN_REGEXP:
-    case _OP_STRING_TO_REGEXP:
-    case _OP_STRING_SUBSTR:
+    case _OP_STRING_IN_REGEXP: 
+    case _OP_STRING_TO_REGEXP: 
+    case _OP_STRING_SUBSTR: 
     case _OP_STRING_STRREPL:
-    case _OP_STRING_STRIDOF:
+    case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
     if (st == BR_FAILED) {
@@ -826,6 +826,32 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         }
         result = m_autil.mk_add(es.size(), es.c_ptr());
         return BR_REWRITE2;
+    }
+    return BR_FAILED;
+}
+
+/*
+    Lift all ite expressions to the top level, safely
+    throttled to not blowup the size of the expression.
+
+    Note: this function does not ensure the same BDD form that is
+    used in the normal form for derivatives in mk_re_derivative.
+*/
+br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
+    expr* c = nullptr, *t = nullptr, *e = nullptr;
+    for (unsigned i = 0; i < n; ++i) {
+        if (m().is_ite(args[i], c, t, e) &&
+            (get_depth(t) <= 2 || t->get_ref_count() == 1 ||
+             get_depth(e) <= 2 || e->get_ref_count() == 1)) {
+            ptr_buffer<expr> new_args;
+            for (unsigned j = 0; j < n; ++j) new_args.push_back(args[j]);
+            new_args[i] = t;
+            expr_ref arg1(m().mk_app(f, new_args), m());
+            new_args[i] = e;
+            expr_ref arg2(m().mk_app(f, new_args), m());
+            result = m().mk_ite(c, arg1, arg2);
+            return BR_REWRITE2;
+        }
     }
     return BR_FAILED;
 }
@@ -2508,7 +2534,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r,
             return mk_der_union(result, mk_der_concat(dr1, is_n));
         }
         else {
-            return expr_ref(re().mk_union(result, mk_der_concat(is_n, dr2)), m());
+            return expr_ref(re().mk_union(result, mk_der_concat(dr1, is_n)), m());
         }
     }
     else if (re().is_star(r, r1)) {
@@ -2658,31 +2684,6 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r,
 
 }
 
-/*
-    Lift all ite expressions to the top level, safely
-    throttled to not blowup the size of the expression.
-
-    Note: this function does not ensure the same BDD form that is
-    used in the normal form for derivatives in mk_re_derivative.
-*/
-br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
-    expr* c = nullptr, *t = nullptr, *e = nullptr;
-    for (unsigned i = 0; i < n; ++i) {
-        if (m().is_ite(args[i], c, t, e) &&
-            (get_depth(t) <= 2 || t->get_ref_count() == 1 ||
-             get_depth(e) <= 2 || e->get_ref_count() == 1)) {
-            ptr_buffer<expr> new_args;
-            for (unsigned j = 0; j < n; ++j) new_args.push_back(args[j]);
-            new_args[i] = t;
-            expr_ref arg1(m().mk_app(f, new_args), m());
-            new_args[i] = e;
-            expr_ref arg2(m().mk_app(f, new_args), m());
-            result = m().mk_ite(c, arg1, arg2);
-            return BR_REWRITE2;
-        }
-    }
-    return BR_FAILED;
-}
 
 /*
  * pattern match against all ++ "abc" ++ all ++ "def" ++ all regexes.
@@ -3256,7 +3257,7 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
     unsigned lo, hi, lo2, hi2, np;
     expr* a = nullptr, *a1 = nullptr, *a2 = nullptr, *cond = nullptr;
     switch (num_args) {
-    case 1:
+    case 1: 
         np = f->get_num_parameters();
         lo2 = np > 0 ? f->get_parameter(0).get_int() : 0;
         hi2 = np > 1 ? f->get_parameter(1).get_int() : lo2;
