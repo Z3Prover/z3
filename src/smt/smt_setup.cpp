@@ -755,6 +755,7 @@ namespace smt {
     }
 
     void setup::setup_lra_arith() {
+        // m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
         m_context.register_plugin(alloc(smt::theory_lra, m_context));
     }
 
