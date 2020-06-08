@@ -2155,14 +2155,10 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
-    std::cout << "n";
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr, nullptr), m());
     if (!result) {
-        std::cout << "(m) ";
         result = is_nullable(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, nullptr, result);
-    } else {
-        std::cout << "(h) ";
     }
     return result;
 }
