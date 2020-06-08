@@ -178,24 +178,35 @@ public:
         }
         if (x_index == UINT_MAX || y_index == UINT_MAX)
             return false;
+        if (lp().column_is_int(row[x_index].var()) != lp().column_is_int(row[y_index].var()))
+            return false; 
+
         offset = impq(0);
         for (const auto& c : row) {
             if (!lp().column_is_fixed(c.var()))
                 continue;
             offset += c.coeff() * lp().get_lower_bound(c.var());
         }
-        if (offset.is_zero()) {
+        if (offset.is_zero() &&
+            !pair_is_reported(row[x_index].var(), row[y_index].var())) {
             lp::explanation ex;
             explain_fixed_in_row(row_index, ex);
             add_eq_on_columns(ex, row[x_index].var(), row[y_index].var());
         }
         return true;
     }    
+
+    bool pair_is_reported(lpvar j, lpvar k) const {        
+        return j < k? m_reported_pairs.contains(std::make_pair(j, k)) :
+            m_reported_pairs.contains(std::make_pair(k, j));
+    }
     
     void check_for_eq_and_add_to_offset_table(const vertex& v) {
         unsigned k; // the other vertex index
+        
         if (m_offset_to_verts.find(v.offset(), k)) {
-            if (column(m_vertices[k]) != column(v))
+            if (column(m_vertices[k]) != column(v) &&
+                !pair_is_reported(column(m_vertices[k]),column(v)))
                 report_eq(k, v.id());
         } else {
             TRACE("cheap_eq", tout << "registered offset " << v.offset() << " to " << v.id() << "\n";);
@@ -205,8 +216,9 @@ public:
     }
 
     void clear_for_eq() {
-        //        m_visited_rows.reset();
-        //        m_visited_columns.reset();
+        // m_reported_pairs.reset();
+        // m_visited_rows.reset();
+        // m_visited_columns.reset();
         m_vertices.reset();
         m_offset_to_verts.reset();
     }
@@ -229,11 +241,7 @@ public:
 
     void add_eq_on_columns(const explanation& exp, lpvar v_i_col, lpvar v_j_col) {
         SASSERT(v_i_col != v_j_col);
-        if (lp().column_is_int(v_i_col) != lp().column_is_int(v_j_col))
-            return;
         upair p = v_i_col < v_j_col? upair(v_i_col, v_j_col) :upair(v_j_col, v_i_col);
-        if (m_reported_pairs.contains(p))
-            return;
         m_reported_pairs.insert(p);
         unsigned i_e = lp().column_to_reported_index(v_i_col);
         unsigned j_e = lp().column_to_reported_index(v_j_col);
@@ -271,29 +279,39 @@ public:
     }
 
     void find_path_on_tree(svector<unsigned> & path, unsigned u_i, unsigned v_i) const {
-        const vertex* u = &m_vertices[u_i];
+        const vertex* u = &m_vertices[u_i],* up, *vp;
         const vertex* v = &m_vertices[v_i];
         path.push_back(u->id());
         path.push_back(v->id());
-        // equalize the levels
+
+         // equalize the levels
         while (u->level() > v->level()) {
-            u = &m_vertices[u->parent()];
-            path.push_back(u->id());
+            up = &m_vertices[u->parent()];
+            if (u->row() == up->row())
+                path.push_back(up->id());
+            u = up;
         }
-        while (u->level() < v->level()) {
-            v = &m_vertices[v->parent()];
-            path.push_back(v->id());
+        
+        while (u->level() < v->level()) {            
+            vp = &m_vertices[v->parent()];
+            if (u->row() == vp->row())
+                path.push_back(vp->id());
+            v = vp;
         }
         SASSERT(u->level() == v->level());
         TRACE("cheap_eq", tout << "u = " ;u->print(tout); tout << "\nv = ";v->print(tout);); 
         while (u != v) {
-            u = &m_vertices[u->parent()];
-            v = &m_vertices[v->parent()];
-            TRACE("cheap_eq", tout << "u = "; u->print(tout); tout << "\nv = "; v->print(tout) << "\n";); 
-            path.push_back(u->id());
-            path.push_back(v->id());            
+            if (u->row() == v->row() && u->offset() == v->offset()) // we have enough explanation now
+                break;
+            
+            up = &m_vertices[u->parent()];
+            vp = &m_vertices[v->parent()];
+            if (up->row() == u->row())
+                path.push_back(up->id());
+            if (vp->row() == v->row())
+                path.push_back(vp->id());
+            u = up; v = vp;
         }
-        path.pop_back(); // the common ancestor will be pushed two times
     }
     
     bool tree_is_correct() const {
