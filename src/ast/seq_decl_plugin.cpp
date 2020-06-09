@@ -1185,6 +1185,10 @@ app* seq_util::mk_le(expr* ch1, expr* ch2) const {
     expr* es[2] = { ch1, ch2 };
     return m.mk_app(m_fid, OP_CHAR_LE, 2, es);
 #else
+    rational r1, r2;
+    if (bv().is_numeral(ch1, r1) && bv().is_numeral(ch2, r2)) {
+        return m.mk_bool_val(r1 <= r2);
+    }
     return bv().mk_ule(ch1, ch2);
 #endif
 }

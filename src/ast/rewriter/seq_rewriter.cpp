@@ -27,7 +27,6 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
-#include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/seq_rewriter_params.hpp"
 #include "math/automata/automaton.h"
@@ -145,8 +144,8 @@ public:
             expr_ref ff(m.mk_false(), m);
             return sym_expr::mk_pred(ff, x->get_sort());
         }
-        bool_rewriter br(m);
         expr_ref fml(m);
+        bool_rewriter br(m);
         br.mk_and(fml1, fml2, fml);
         return sym_expr::mk_pred(fml, x->get_sort());
     }
@@ -2191,20 +2190,22 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
 }
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
-    SASSERT(m_util.is_re(r));
+    SASSERT(m_util.is_re(r) || m_util.is_seq(r));
     expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
+    sort* seq_sort = nullptr;
     unsigned lo = 0, hi = 0;
+    zstring s1;
     expr_ref result(m());
     if (re().is_concat(r, r1, r2) ||
-        re().is_intersection(r, r1, r2)) {
-        result = mk_and(m(), is_nullable_rec(r1), is_nullable_rec(r2));
+        re().is_intersection(r, r1, r2)) { 
+        m_br.mk_and(is_nullable_rec(r1), is_nullable_rec(r2), result);
     }
     else if (re().is_union(r, r1, r2)) {
-        result = mk_or(m(), is_nullable_rec(r1), is_nullable_rec(r2));
+        m_br.mk_or(is_nullable_rec(r1), is_nullable_rec(r2), result);
     }
     else if (re().is_diff(r, r1, r2)) {
-        result = mk_not(m(), is_nullable_rec(r2));
-        result = mk_and(m(), is_nullable_rec(r1), result);
+        m_br.mk_not(is_nullable_rec(r2), result);
+        m_br.mk_and(result, is_nullable_rec(r1), result);
     }
     else if (re().is_star(r) || 
         re().is_opt(r) ||
@@ -2226,21 +2227,32 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
         result = is_nullable_rec(r1);
     }
     else if (re().is_complement(r, r1)) {
-        result = mk_not(m(), is_nullable_rec(r1));
+        m_br.mk_not(is_nullable_rec(r1), result);
     }
-    else if (re().is_to_re(r, r1)) {
-        sort* seq_sort = nullptr;
-        VERIFY(m_util.is_re(r, seq_sort));
-        expr* emptystr = str().mk_empty(seq_sort);
-        result = m().mk_eq(emptystr, r1);
+    else if (re().is_to_re(r, r1)) {        
+        result = is_nullable_rec(r1);
     }
     else if (m().is_ite(r, cond, r1, r2)) {
         result = m().mk_ite(cond, is_nullable_rec(r1), is_nullable_rec(r2));
     }
-    else {
-        sort* seq_sort = nullptr;
-        VERIFY(m_util.is_re(r, seq_sort));
+    else if (m_util.is_re(r, seq_sort)) {
         result = re().mk_in_re(str().mk_empty(seq_sort), r);
+    }
+    else if (str().is_concat(r, r1, r2)) {
+        m_br.mk_and(is_nullable_rec(r1), is_nullable_rec(r2), result);
+    }
+    else if (str().is_empty(r)) {
+        result = m().mk_true();
+    }
+    else if (str().is_unit(r)) {
+        result = m().mk_false();
+    }
+    else if (str().is_string(r, s1)) {
+        result = m().mk_bool_val(s1.length() == 0);
+    }
+    else {
+        SASSERT(m_util.is_seq(r));
+        result = m().mk_eq(str().mk_empty(m().get_sort(r)), r);
     }
     return result;
 }
@@ -2432,12 +2444,30 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         UNREACHABLE();
         break;
     }
+
     return result;
 }
 
 expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
     expr_ref _a(a, m()), _b(b, m());
-    expr_ref result(m_op_cache.find(k, a, b), m());
+    expr_ref result(m());
+    switch (k) {
+    case OP_RE_INTERSECT:
+        if (BR_FAILED != mk_re_inter0(a, b, result))
+            return result;
+        break;
+    case OP_RE_UNION:
+        if (BR_FAILED != mk_re_union0(a, b, result))
+            return result;
+        break;
+    case OP_RE_CONCAT:
+        if (BR_FAILED != mk_re_concat(a, b, result))
+            return result;
+        break;
+    default:
+        break;
+    }
+    result = m_op_cache.find(k, a, b);
     if (!result) {
         result = mk_der_op_rec(k, a, b);
         m_op_cache.insert(k, a, b, result);
@@ -2531,7 +2561,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            return re_and(m().mk_eq(ele, hd), re().mk_to_re(tl));
+            return re_and(m_br.mk_eq_rw(ele, hd), re().mk_to_re(tl));
         }
         else if (str().is_empty(r1)) {
             return mk_empty();
@@ -2546,7 +2576,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         // This is analagous to the previous is_to_re case.
         expr_ref hd(m()), tl(m());
         if (get_head_tail_reversed(r2, hd, tl)) {
-            return re_and(m().mk_eq(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
+            return re_and(m_br.mk_eq_rw(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
         }
         else if (str().is_empty(r2)) {
             return mk_empty();
@@ -2762,7 +2792,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
     expr* b1 = nullptr;
     if (re().is_to_re(b, b1)) {
-        result = m().mk_eq(a, b1);
+        result = m_br.mk_eq_rw(a, b1);
         return BR_REWRITE1;
     }
     if (str().is_empty(a)) {
@@ -2947,12 +2977,7 @@ bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
     }
 }
 
-/*
-  (a + a) = a
-  (a + eps) = a
-  (eps + a) = a
-*/
-br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
+br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
     if (a == b) {
         result = a;
         return BR_DONE;
@@ -2981,6 +3006,18 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
+    return BR_FAILED;
+}
+
+/*
+  (a + a) = a
+  (a + eps) = a
+  (eps + a) = a
+*/
+br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
+    br_status st = mk_re_union0(a, b, result);
+    if (st != BR_FAILED)
+        return st;
     auto mk_full = [&]() { return re().mk_full_seq(m().get_sort(a)); };
     if (are_complements(a, b)) {
         result = mk_full();
@@ -3064,18 +3101,8 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 
-/**
-    (r n r) = r
-    (emp n r) = emp
-    (r n emp) = emp
-    (all n r) = r
-    (r n all) = r
-    (r n comp(r)) = emp
-    (comp(r) n r) = emp
-    (r n to_re(s)) = ite (s in r) to_re(s) emp
-    (to_re(s) n r) = "
- */
-br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
+
+br_status seq_rewriter::mk_re_inter0(expr* a, expr* b, expr_ref& result) {
     if (a == b) {
         result = a;
         return BR_DONE;
@@ -3096,6 +3123,24 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
+    return BR_FAILED;
+}
+
+/**
+    (r n r) = r
+    (emp n r) = emp
+    (r n emp) = emp
+    (all n r) = r
+    (r n all) = r
+    (r n comp(r)) = emp
+    (comp(r) n r) = emp
+    (r n to_re(s)) = ite (s in r) to_re(s) emp
+    (to_re(s) n r) = "
+ */
+br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
+    br_status st = mk_re_inter0(a, b, result);
+    if (st != BR_FAILED)
+        return st;
     auto mk_empty = [&]() { return re().mk_empty(m().get_sort(a)); };
     if (are_complements(a, b)) {
         result = mk_empty();

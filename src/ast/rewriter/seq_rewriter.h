@@ -23,6 +23,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
+#include "ast/rewriter/bool_rewriter.h"
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/sign.h"
@@ -151,6 +152,7 @@ class seq_rewriter {
 
     seq_util       m_util;
     arith_util     m_autil;
+    bool_rewriter  m_br;
     re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
@@ -224,6 +226,8 @@ class seq_rewriter {
     br_status mk_re_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_re_union(expr* a, expr* b, expr_ref& result);
     br_status mk_re_inter(expr* a, expr* b, expr_ref& result);
+    br_status mk_re_union0(expr* a, expr* b, expr_ref& result);
+    br_status mk_re_inter0(expr* a, expr* b, expr_ref& result);
     br_status mk_re_complement(expr* a, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
@@ -286,7 +290,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_re2aut(m), m_op_cache(m), m_es(m), 
+        m_util(m), m_autil(m), m_br(m), m_re2aut(m), m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
