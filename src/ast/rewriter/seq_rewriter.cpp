@@ -2188,7 +2188,8 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
         std::cout << "(m) ";
         result = is_nullable(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
-    } else {
+    }
+    else {
         std::cout << "(h) ";
     }
     return result;
@@ -2356,10 +2357,15 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         Duplicate nested conditions are eliminated.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
+    std::cout << "d";
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
+        std::cout << "(m) ";
         result = mk_derivative_rec(ele, r);
         m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
+    }
+    else {
+        std::cout << "(h) ";
     }
     return result;
 }
@@ -2791,10 +2797,6 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         else
             return BR_REWRITE_FULL;
     }
-    if (re().is_complement(b, b1)) {
-        result = m().mk_not(re().mk_in_re(a, b1));
-        return BR_REWRITE2;
-    }
 
     expr_ref hd(m()), tl(m());
     if (get_head_tail(a, hd, tl)) {
@@ -2827,6 +2829,12 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
                             re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
                             re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
         return BR_REWRITE_FULL;
+    }
+
+    // Disabled rewrites
+    if (false && re().is_complement(b, b1)) {
+        result = m().mk_not(re().mk_in_re(a, b1));
+        return BR_REWRITE2;
     }
     if (false && rewrite_contains_pattern(a, b, result))
         return BR_REWRITE_FULL;
