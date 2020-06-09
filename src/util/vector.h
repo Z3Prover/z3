@@ -587,13 +587,7 @@ public:
     ptr_vector():vector<T *, false>() {}
     ptr_vector(unsigned s):vector<T *, false>(s) {}
     ptr_vector(unsigned s, T * elem):vector<T *, false>(s, elem) {}
-    ptr_vector(ptr_vector const & source):vector<T *, false>(source) {}
-    ptr_vector(ptr_vector && other) noexcept : vector<T*, false>(std::move(other)) {}
     ptr_vector(unsigned s, T * const * data):vector<T *, false>(s, const_cast<T**>(data)) {}
-    ptr_vector & operator=(ptr_vector const & source) {
-        vector<T *, false>::operator=(source);
-        return *this;
-    }
 };
 
 template<typename T, typename SZ = unsigned>
@@ -602,13 +596,7 @@ public:
     svector():vector<T, false, SZ>() {}
     svector(SZ s):vector<T, false, SZ>(s) {}
     svector(SZ s, T const & elem):vector<T, false, SZ>(s, elem) {}
-    svector(svector const & source):vector<T, false, SZ>(source) {}
-    svector(svector && other) noexcept : vector<T, false, SZ>(std::move(other)) {}
     svector(SZ s, T const * data):vector<T, false, SZ>(s, data) {}
-    svector & operator=(svector const & source) {
-        vector<T, false, SZ>::operator=(source);
-        return *this;
-    }
 };
 
 
