@@ -2995,6 +2995,7 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         result = re().mk_union(a1, re().mk_union(a2, b));
         return BR_REWRITE2;
     }
+        
     auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
     if (re().is_union(b, b1, b2)) {
         if (is_subset(a, b1)) {
@@ -3015,16 +3016,16 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         }
     }
     else {
-        if (get_id(a) > get_id(b)) {
-            result = re().mk_union(b, a);
-            return BR_DONE;
-        }
         if (is_subset(a, b)) {
             result = b;
             return BR_DONE;
         }
         if (is_subset(b, a)) {
             result = a;
+            return BR_DONE;
+        }
+        if (get_id(a) > get_id(b)) {
+            result = re().mk_union(b, a);
             return BR_DONE;
         }
     }

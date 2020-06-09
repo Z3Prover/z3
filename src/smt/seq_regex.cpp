@@ -225,8 +225,8 @@ namespace smt {
         d = derivative_wrapper(m.mk_var(0, m.get_sort(head)), r);
         // timer tm;
         // std::cout << d->get_id() << " " << tm.get_seconds() << "\n";
-        // if (tm.get_seconds() > 1) 
-        //     std::cout << d << "\n";
+        //if (tm.get_seconds() > 0.3) 
+        //    std::cout << d << "\n";
         // std::cout.flush();
         literal_vector conds;
         conds.push_back(~lit);
