@@ -299,7 +299,7 @@ public:
     inline void backup_x() { m_backup_x = m_mpq_lar_core_solver.m_r_x; }
     inline void restore_x() { m_mpq_lar_core_solver.m_r_x = m_backup_x; }
     template <typename T>
-    void explain_implied_bound(implied_bound & ib, lp_bound_propagator<T> & bp) {
+    void explain_implied_bound(const implied_bound & ib, lp_bound_propagator<T> & bp) {
         unsigned i = ib.m_row_or_term_index;
         int bound_sign = ib.m_is_lower_bound? 1: -1;
         int j_sign = (ib.m_coeff_before_j_is_pos ? 1 :-1) * bound_sign;

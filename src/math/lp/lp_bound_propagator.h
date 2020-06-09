@@ -67,8 +67,14 @@ class lp_bound_propagator {
     std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
     T&                                        m_imp;
     impq                                      m_zero;
-public:
     vector<implied_bound> m_ibounds;
+public:
+    const vector<implied_bound>& ibounds() const { return m_ibounds; }
+    void init() {
+        m_improved_upper_bounds.clear();
+        m_improved_lower_bounds.clear();
+        m_ibounds.reset();
+    }
     lp_bound_propagator(T& imp): m_imp(imp), m_zero(impq(0)) {}
     const lar_solver& lp() const { return m_imp.lp(); }
     column_type get_column_type(unsigned j) const {
@@ -178,9 +184,8 @@ public:
         }
             
     }
-
+        
     void clear_for_eq() {
-        //        m_reported_pairs.reset();
         m_visited_rows.reset();
         m_visited_columns.reset();
         m_offset_to_verts.reset();
@@ -251,8 +256,9 @@ public:
     void find_path_on_tree(ptr_vector<vertex> & path, vertex* u, vertex* v) const {
         vertex* up; // u parent
         vertex* vp; // v parent
+        ptr_vector<vertex> v_branch;
         path.push_back(u);
-        path.push_back(v);
+        v_branch.push_back(v);
          // equalize the levels
         while (u->level() > v->level()) {
             up = u->parent();
@@ -264,7 +270,7 @@ public:
         while (u->level() < v->level()) {            
             vp = v->parent();
             if (v->row() == vp->row())
-                path.push_back(vp);
+                v_branch.push_back(vp);
             v = vp;
         }
         SASSERT(u->level() == v->level());
@@ -278,8 +284,12 @@ public:
             if (up->row() == u->row())
                 path.push_back(up);
             if (vp->row() == v->row())
-                path.push_back(vp);
+                v_branch.push_back(vp);
             u = up; v = vp;
+        }
+        
+        for (unsigned i = v_branch.size(); i--; ) {
+            path.push_back(v_branch[i]);
         }
     }
     

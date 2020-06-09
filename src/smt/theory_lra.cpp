@@ -165,11 +165,11 @@ class theory_lra::imp {
     };
 
 
-    theory_lra&          th;
-    ast_manager&         m;
-    arith_util           a;
-    arith_eq_adapter     m_arith_eq_adapter;
-    vector<rational>     m_columns;
+    theory_lra&                  th;
+    ast_manager&                 m;
+    arith_util                   a;
+    arith_eq_adapter             m_arith_eq_adapter;
+    vector<rational>             m_columns;
       
 
     // temporary values kept during internalization
@@ -309,13 +309,14 @@ class theory_lra::imp {
     int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
 
 
-    svector<scope>         m_scopes;
-    lp_api::stats          m_stats;
-    arith_factory*         m_factory;       
-    scoped_ptr<lp::lar_solver> m_solver;
-    resource_limit         m_resource_limit;
-    lp_bounds              m_new_bounds;
-    symbol                 m_farkas;
+    svector<scope>               m_scopes;
+    lp_api::stats                m_stats;
+    arith_factory*               m_factory;       
+    scoped_ptr<lp::lar_solver>   m_solver;
+    resource_limit               m_resource_limit;
+    lp_bounds                    m_new_bounds;
+    symbol                       m_farkas;
+    lp::lp_bound_propagator<imp> m_bp;
 
     context& ctx() const { return th.get_context(); }
     theory_id get_id() const { return th.get_id(); }
@@ -958,7 +959,9 @@ public:
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
         m_solver(nullptr),
         m_resource_limit(*this),
-        m_farkas("farkas") {
+        m_farkas("farkas"),
+        m_bp(*this)
+    {
     }
         
     ~imp() {
@@ -2351,10 +2354,9 @@ public:
     void propagate_bounds_with_lp_solver() {
         if (!should_propagate()) 
             return;
-        
-        lp::lp_bound_propagator<imp>  bp(*this);
 
-        lp().propagate_bounds_for_touched_rows(bp);
+        m_bp.init();
+        lp().propagate_bounds_for_touched_rows(m_bp);
 
         if (!m.inc()) {
             return;
@@ -2364,8 +2366,11 @@ public:
             get_infeasibility_explanation_and_set_conflict();
         }
         else {
-            for (unsigned i = 0; m.inc() && !ctx().inconsistent() && i < bp.m_ibounds.size(); ++i) {
-                propagate_lp_solver_bound(bp.m_ibounds[i]);
+            for (auto& ib : m_bp.ibounds()) {
+                m.inc();
+                if (ctx().inconsistent())
+                    break;
+                propagate_lp_solver_bound(ib);
             }
         }
     }
@@ -2386,7 +2391,7 @@ public:
         }
         return false;
     }
-    void propagate_lp_solver_bound(lp::implied_bound& be) {
+    void propagate_lp_solver_bound(const lp::implied_bound& be) {
         lpvar vi = be.m_j;
         theory_var v = lp().local_to_external(vi);
 
@@ -2418,8 +2423,7 @@ public:
                 first = false;
                 reset_evidence();
                 m_explanation.clear();
-                lp::lp_bound_propagator<imp> bp(*this);
-                lp().explain_implied_bound(be, bp);
+                lp().explain_implied_bound(be, m_bp);
             }
             CTRACE("arith", m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);
@@ -4045,5 +4049,5 @@ expr_ref theory_lra::mk_ge(generic_model_converter& fm, theory_var v, inf_ration
 }
 template  class lp::lp_bound_propagator<smt::theory_lra::imp>;
 template void lp::lar_solver::propagate_bounds_for_touched_rows<smt::theory_lra::imp>(lp::lp_bound_propagator<smt::theory_lra::imp>&);
-template void lp::lar_solver::explain_implied_bound<smt::theory_lra::imp>(lp::implied_bound&, lp::lp_bound_propagator<smt::theory_lra::imp>&);
+template void lp::lar_solver::explain_implied_bound<smt::theory_lra::imp>(const lp::implied_bound&, lp::lp_bound_propagator<smt::theory_lra::imp>&);
 template void lp::lar_solver::calculate_implied_bounds_for_row<smt::theory_lra::imp>(unsigned int, lp::lp_bound_propagator<smt::theory_lra::imp>&);
