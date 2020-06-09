@@ -134,7 +134,7 @@ public:
             result = mk_eq(lhs, rhs);
     }
     expr_ref mk_eq_rw(expr* lhs, expr* rhs) {
-        expr_ref r(m());
+        expr_ref r(m()), _lhs(lhs, m()), _rhs(rhs, m());
         mk_eq(lhs, rhs, r);
         return r;
     }

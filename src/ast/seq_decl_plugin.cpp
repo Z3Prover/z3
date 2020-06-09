@@ -1181,6 +1181,8 @@ app* seq_util::mk_char(unsigned ch) const {
 }
 
 app* seq_util::mk_le(expr* ch1, expr* ch2) const {
+    expr_ref _ch1(ch1, m), _ch2(ch2, m);
+
 #if Z3_USE_UNICODE
     expr* es[2] = { ch1, ch2 };
     return m.mk_app(m_fid, OP_CHAR_LE, 2, es);

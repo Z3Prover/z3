@@ -218,7 +218,6 @@ namespace Microsoft.Z3
         /// </summary>
         public BitVecSort MkBitVecSort(uint size)
         {
-
             return new BitVecSort(this, Native.Z3_mk_bv_sort(nCtx, size));
         }
 

@@ -278,6 +278,9 @@ namespace smt {
 #endif
             }
         }
+        if (!is_ground(d)) {
+            d = subst(d, sub);
+        }
         // at this point there should be no free variables as the ites are at top-level.
         if (!re().is_empty(d)) 
             conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
