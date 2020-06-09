@@ -2167,6 +2167,7 @@ bool seq_rewriter::get_re_head_tail_reversed(expr* r, expr_ref& head, expr_ref& 
 
 
 expr_ref seq_rewriter::re_and(expr* cond, expr* r) {
+    expr_ref _cond(cond, m()), _r(r, m());
     if (m().is_true(cond))
         return expr_ref(r, m());    
     expr* re_empty = re().mk_empty(m().get_sort(r));
@@ -2590,10 +2591,10 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         zstring s1, s2;
         if (str().is_string(r1, s1) && str().is_string(r2, s2)) {
             if (s1.length() == 1 && s2.length() == 1) {
-                r1 = m_util.mk_char(s1[0]);
-                r2 = m_util.mk_char(s2[0]);
-                return mk_der_inter(re_predicate(m_util.mk_le(r1, ele), seq_sort),
-                                    re_predicate(m_util.mk_le(ele, r2), seq_sort));
+                expr_ref ch1(m_util.mk_char(s1[0]), m());
+                expr_ref ch2(m_util.mk_char(s2[0]), m());
+                return mk_der_inter(re_predicate(m_util.mk_le(ch1, ele), seq_sort),
+                                    re_predicate(m_util.mk_le(ele, ch2), seq_sort));
             }
             else {
                 return mk_empty();
@@ -3625,7 +3626,7 @@ bool seq_rewriter::reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_re
         else if (str().is_unit(l, a) && str().is_string(r, s)) {
             SASSERT(s.length() > 0);
             
-            app* ch = str().mk_char(s, s.length()-1);
+            app_ref ch(str().mk_char(s, s.length()-1), m());
             SASSERT(m().get_sort(ch) == m().get_sort(a));
             new_eqs.push_back(ch, a);
             ls.pop_back();
