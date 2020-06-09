@@ -330,11 +330,19 @@ private:
     }
 
     void analyze_eq() {
-        if (m_bp.lp().settings().cheap_eqs()) {
+        switch (m_bp.lp().settings().cheap_eqs()) {
+        case 0:
+            return;
+        case 1:
             m_bp.try_create_eq(m_row_index);
+            break;
+        case 2:
+            m_bp.try_create_eq_table(m_row_index);
+            break;
+        default:
+            UNREACHABLE();
         }
     }
-
 };
 }
 

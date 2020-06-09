@@ -205,12 +205,12 @@ public:
 private:
     bool             m_enable_hnf;
     bool             m_print_external_var_name;
-    bool             m_cheap_eqs;
+    unsigned         m_cheap_eqs;
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool& print_external_var_name() { return m_print_external_var_name; }
-    bool cheap_eqs() const { return m_cheap_eqs;}
-    bool& cheap_eqs() { return m_cheap_eqs;}
+    unsigned cheap_eqs() const { return m_cheap_eqs;}
+    unsigned& cheap_eqs() { return m_cheap_eqs;}
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
     void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
     unsigned random_next() { return m_rand(); }
