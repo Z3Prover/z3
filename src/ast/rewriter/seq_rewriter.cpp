@@ -2182,15 +2182,10 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
-    std::cout << "n";
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
     if (!result) {
-        std::cout << "(m) ";
         result = is_nullable(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
-    }
-    else {
-        std::cout << "(h) ";
     }
     return result;
 }
@@ -2357,17 +2352,11 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         Duplicate nested conditions are eliminated.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    std::cout << "d";
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
-        std::cout << "(m)";
         result = mk_derivative_rec(ele, r);
         m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
     }
-    else {
-        std::cout << "(h)";
-    }
-    std::cout << " ";
     return result;
 }
 
@@ -2450,16 +2439,8 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
     expr_ref _a(a, m()), _b(b, m());
     expr_ref result(m_op_cache.find(k, a, b), m());
     if (!result) {
-        std::cout << "(m)";
         result = mk_der_op_rec(k, a, b);
         m_op_cache.insert(k, a, b, result);
-        // std::cout << std::endl << "THIS IS A TEST: " << std::endl;
-        // std::cout << "  INSERTED: " << k << ", " << a << ", " << b << "; " << result << ";" << std::endl;
-        // expr *r = m_op_cache.find(k, a, b);
-        // std::cout << "  FOUND: " << r << std::endl;
-    }
-    else {
-        std::cout << "(h)";
     }
     return result;
 }
@@ -2467,7 +2448,6 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
-        std::cout << "(m)";
         expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
         if (m().is_ite(r, c, r1, r2)) {
             result = m().mk_ite(c, mk_der_compl(r1), mk_der_compl(r2));
@@ -2475,9 +2455,6 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
         else if (BR_FAILED == mk_re_complement(r, result))
             result = re().mk_complement(r);        
         m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
-    }
-    else {
-        std::cout << "(h)";
     }
     return result;
 }
@@ -4046,16 +4023,11 @@ seq_rewriter::op_cache::op_cache(ast_manager& m):
 expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     op_entry e(op, a, b, nullptr);
     m_table.find(e, e);
-    // std::cout << std::endl << "*** ASKED TO FIND: " << op << ", " << a << ", " << b << ", " << std::endl;
-    // std::cout << "        EXPANDED: " << expr_ref(a, m) << ", " << expr_ref(b, m) << std::endl;
-    // std::cout << "*** FOUND (e.r): " << e.r << std::endl;
-    // std::cout << "*** FULL TABLE SIZE: " << m_table.size() << std::endl;
     return e.r;
 }
 
 void seq_rewriter::op_cache::insert(decl_kind op, expr* a, expr* b, expr* r) {
     cleanup();
-    // std::cout << "  inserting: " << op << ", " << a << ", " << b << ", " << r << std::endl;
     if (a) m_trail.push_back(a);
     if (b) m_trail.push_back(b);
     if (r) m_trail.push_back(r);
