@@ -218,10 +218,17 @@ namespace Microsoft.Z3
         /// </summary>
         public BitVecSort MkBitVecSort(uint size)
         {
-
             return new BitVecSort(this, Native.Z3_mk_bv_sort(nCtx, size));
         }
 
+        /// <summary>
+        /// Create a new string sort.
+        /// </summary>
+        public SeqSort MkStringSort()
+        {
+            Debug.Assert(s != null);
+            return new SeqSort(this, Native.Z3_mk_string_sort(nCtx));
+        }
 
         /// <summary>
         /// Create a new sequence sort.
