@@ -222,8 +222,91 @@ public:
         m_imp.add_eq(i_e, j_e, exp);        
     }
 
-    void try_create_eq_table(unsigned row_index) {
-    }
+   /**
+       Cheap propagation of equalities x_i = x_j, when
+       x_i = y + k 
+       x_j = y + k
+
+       This equalities are detected by maintaining a map:
+       (y, k) ->  row_id   when a row is of the form  x = y + k
+ 
+       This methods checks whether the given row is an offset row (is_offset_row()) 
+       and uses the map to find new equalities if that is the case.
+       Some equalities, those spreading more than two rows, can be missed 
+    */
+    void cheap_eq_table(unsigned rid) {
+        TRACE("cheap_eqs", tout << "checking if row " << rid << " can propagate equality.\n";  display_row_info(rid, tout););
+        unsigned x_o; // x offset
+        unsigned y_o; // y offset
+        impq k;
+        if (is_offset_row(rid, x_o, y_o, k)) {
+            SASSERT(x_o != UINT_MAX && y_o != UINT_MAX && x_o != y_o);
+            const auto& row = lp().get_row(rid);
+            lpvar x = row[x_o].var();
+            lpvar y = row[y_o].var();
+            SASSERT(lp().column_is_int(x) == lp().column_is_int(y));
+            if (k.is_zero()) {
+                explanation ex;
+                explain_fixed_in_row(rid, ex);
+                add_eq_on_columns(ex, x, y);
+            }
+
+            unsigned row_id;
+            var_offset key(y, k);
+            if (m_var_offset2row_id.find(key, row_id)) {               
+                if (row_id == rid) {
+                    // it is the same row.
+                    return;
+                }
+                NOT_IMPLEMENTED_YET();
+                /*
+                theory_var x2;
+                theory_var y2;
+                numeral    k2;
+                if (r2.get_base_var() != null_theory_var && is_offset_row(r2, x2, y2, k2)) {
+                    bool new_eq  = false;
+#ifdef _TRACE
+                    bool swapped = false;
+#endif
+                    if (y == y2 && k == k2) {
+                        new_eq = true;
+                    }
+                    else if (y2 != null_theory_var) {
+#ifdef _TRACE
+                        swapped = true;
+#endif
+                        std::swap(x2, y2);
+                        k2.neg();
+                        if (y == y2 && k == k2) {
+                            new_eq = true;
+                        }
+                    }
+
+                    if (new_eq) {
+                        if (!is_equal(x, x2) && is_int_src(x) == is_int_src(x2)) {
+                            SASSERT(y == y2 && k == k2);
+                            antecedents ante(*this);
+                            collect_fixed_var_justifications(r, ante);
+                            collect_fixed_var_justifications(r2, ante);
+                            TRACE("arith_eq", tout << "propagate eq two rows:\n"; 
+                                  tout << "swapped: " << swapped << "\n";
+                                  tout << "x  : v" << x << "\n";
+                                  tout << "x2 : v" << x2 << "\n";
+                                  display_row_info(tout, r); 
+                                  display_row_info(tout, r2););
+                            m_stats.m_offset_eqs++;
+                            propagate_eq_to_core(x, x2, ante);
+                        }
+                        return;
+                        }
+                        }*/
+                // the original row was delete or it is not offset row anymore ===> remove it from table 
+                m_var_offset2row_id.erase(key);
+            }
+            // add new entry
+            m_var_offset2row_id.insert(key, rid);
+        }
+   }
     
     explanation get_explanation_from_path(const ptr_vector<vertex>& path) const {
         explanation ex;
@@ -250,7 +333,10 @@ public:
     }
     
     std::ostream& display_row_of_vertex(vertex* k, std::ostream& out) const {
-        return lp().get_int_solver()->display_row_info(out, k->row() );
+        return display_row_info(k->row(), out );
+    }
+    std::ostream& display_row_info(unsigned r, std::ostream& out) const {
+        return lp().get_int_solver()->display_row_info(out, r);
     }
 
     void find_path_on_tree(ptr_vector<vertex> & path, vertex* u, vertex* v) const {
@@ -333,7 +419,7 @@ public:
         return lp().get_row(v->row())[v->index_in_row()].var();
     }
 
-    void try_create_eq(unsigned row_index) {        
+    void cheap_eq_tree(unsigned row_index) {        
         TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);
         clear_for_eq();
         unsigned x_index, y_index;
