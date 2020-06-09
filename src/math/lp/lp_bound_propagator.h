@@ -9,6 +9,11 @@
 namespace lp {
 template <typename T>
 class lp_bound_propagator {
+    typedef std::pair<int, impq> var_offset;
+    typedef pair_hash<int_hash, obj_hash<impq> > var_offset_hash;
+    typedef map<var_offset, unsigned, var_offset_hash, default_eq<var_offset> > var_offset2row_id;
+    var_offset2row_id       m_var_offset2row_id;
+
     struct impq_eq { bool operator()(const impq& a, const impq& b) const {return a == b;}};
 
     // vertex represents a pair (row,x) or (row,y) for an offset row.
@@ -62,14 +67,6 @@ class lp_bound_propagator {
     std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
     T&                                        m_imp;
     impq                                      m_zero;
-    typedef std::pair<unsigned, unsigned> upair;
-    struct uphash {
-        unsigned operator()(const upair& p) const { return combine_hash(p.first, p.second); }
-    };
-    struct upeq {
-        unsigned operator()(const upair& p, const upair& q) const { return p == q; }
-    };
-    hashtable<upair, uphash, upeq>  m_reported_pairs; // contain the pairs of columns (first < second)
 public:
     vector<implied_bound> m_ibounds;
     lp_bound_propagator(T& imp): m_imp(imp), m_zero(impq(0)) {}
@@ -156,7 +153,7 @@ public:
             offset += c.coeff() * lp().get_lower_bound(c.var());
         }
         if (offset.is_zero() &&
-            !pair_is_reported(row[x_index].var(), row[y_index].var())) {
+            !pair_is_reported_or_congruent(row[x_index].var(), row[y_index].var())) {
             lp::explanation ex;
             explain_fixed_in_row(row_index, ex);
             add_eq_on_columns(ex, row[x_index].var(), row[y_index].var());
@@ -164,17 +161,16 @@ public:
         return true;
     }    
 
-    bool pair_is_reported(lpvar j, lpvar k) const {        
-        return j < k? m_reported_pairs.contains(std::make_pair(j, k)) :
-            m_reported_pairs.contains(std::make_pair(k, j));
+    bool pair_is_reported_or_congruent(lpvar j, lpvar k) const {        
+        return m_imp.congruent_or_irrelevant(lp().column_to_reported_index(j), lp().column_to_reported_index(k));
     }
     
     void check_for_eq_and_add_to_offset_table(vertex* v) {
-        vertex *k; // the other vertex index
+        vertex *k; // the other vertex 
         
         if (m_offset_to_verts.find(v->offset(), k)) {
             if (column(k) != column(v) &&
-                !pair_is_reported(column(k),column(v)))
+                !pair_is_reported_or_congruent(column(k),column(v)))
                 report_eq(k, v);
         } else {
             TRACE("cheap_eq", tout << "registered offset " << v->offset() << " to " << v << "\n";);
@@ -211,8 +207,6 @@ public:
 
     void add_eq_on_columns(const explanation& exp, lpvar v_i_col, lpvar v_j_col) {
         SASSERT(v_i_col != v_j_col);
-        upair p = v_i_col < v_j_col? upair(v_i_col, v_j_col) :upair(v_j_col, v_i_col);
-        m_reported_pairs.insert(p);
         unsigned i_e = lp().column_to_reported_index(v_i_col);
         unsigned j_e = lp().column_to_reported_index(v_j_col);
         TRACE("cheap_eq", tout << "reporting eq " << i_e << ", " << j_e << "\n";
@@ -221,6 +215,9 @@ public:
               });
         
         m_imp.add_eq(i_e, j_e, exp);        
+    }
+
+    void try_create_eq_table(unsigned row_index) {
     }
     
     explanation get_explanation_from_path(const ptr_vector<vertex>& path) const {

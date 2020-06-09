@@ -1592,6 +1592,19 @@ public:
     void reset_variable_values() {
         m_variable_values.clear();
     }
+    
+    bool congruent_or_irrelevant(lpvar k, lpvar j) {
+        theory_var kv = lp().local_to_external(k);
+        if (kv == null_theory_var)
+            return true;
+        theory_var jv = lp().local_to_external(j);
+        if (jv == null_theory_var)
+            return true;
+        
+        enode * n0 = get_enode(kv);
+        enode * n1 = get_enode(jv);
+        return n0->get_root() == n1->get_root();
+    }
 
     void random_update() {
         if (m_nla)
