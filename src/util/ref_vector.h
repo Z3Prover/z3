@@ -327,10 +327,7 @@ public:
     // prevent abuse:
     ref_vector & operator=(ref_vector const & other) = delete;
 
-    ref_vector & operator=(ref_vector && other) {
-        super::operator=(std::move(other));
-        return *this;
-    }
+    ref_vector & operator=(ref_vector && other) = default;
 
     bool operator==(ref_vector const& other) const {
         if (other.size() != this->size()) return false;

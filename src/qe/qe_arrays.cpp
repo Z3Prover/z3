@@ -967,7 +967,7 @@ namespace qe {
                 else {
                     r.reset();
                 }
-                rs.push_back(r);
+                rs.push_back(std::move(r));
             }
             return rs;
         }
