@@ -171,23 +171,26 @@ class seq_rewriter {
     length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
 
 
-    // Support for regular expression derivatives
     bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     bool get_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
     bool get_re_head_tail(expr* e, expr_ref& head, expr_ref& tail);
     bool get_re_head_tail_reversed(expr* e, expr_ref& head, expr_ref& tail);
+
     expr_ref re_and(expr* cond, expr* r);
     expr_ref re_predicate(expr* cond, sort* seq_sort);
+
     expr_ref mk_seq_concat(expr* a, expr* b);    
 
+    // Calculate derivative, memoized and enforcing a normal form
+    expr_ref mk_derivative(expr* ele, expr* r);
+    expr_ref mk_derivative_rec(expr* ele, expr* r);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_concat(expr* a, expr* b);
     expr_ref mk_der_union(expr* a, expr* b);
     expr_ref mk_der_inter(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
-    expr_ref mk_derivative(expr* ele, expr* r);
-    expr_ref mk_derivative_rec(expr* ele, expr* r);
+    expr_ref mk_der_reverse(expr* a);
 
     bool are_complements(expr* r1, expr* r2) const;
     bool is_subset(expr* r1, expr* r2) const;
@@ -231,10 +234,11 @@ class seq_rewriter {
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
     br_status mk_re_reverse(expr* r, expr_ref& result);
     br_status mk_re_derivative(expr* ele, expr* r, expr_ref& result);
-    br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+
+    br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
-
 
     bool non_overlap(expr_ref_vector const& p1, expr_ref_vector const& p2) const;
     bool non_overlap(zstring const& p1, zstring const& p2) const;
@@ -324,8 +328,8 @@ public:
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
+    // Check for acceptance of the empty string
     expr_ref is_nullable(expr* r);
-
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.

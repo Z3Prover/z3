@@ -727,7 +727,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         UNREACHABLE();
     }
     if (st == BR_FAILED) {
-        st = lift_ite(f, num_args, args, result);
+        st = lift_ites_throttled(f, num_args, args, result);
     }
     CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     SASSERT(st == BR_FAILED || m().get_sort(result) == f->get_range());
@@ -830,7 +830,14 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 
-br_status seq_rewriter::lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
+/*
+    Lift all ite expressions to the top level, safely
+    throttled to not blowup the size of the expression.
+
+    Note: this function does not ensure the same BDD form that is
+    used in the normal form for derivatives in mk_re_derivative.
+*/
+br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     for (unsigned i = 0; i < n; ++i) {        
         if (m().is_ite(args[i], c, t, e) && 
@@ -2239,13 +2246,13 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
 }
 
 /*
-    Push reverse inwards (gets stuck at variables and strings).
+    Push reverse inwards (whenever possible).
 */
 br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     sort* seq_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
-    expr* r1 = nullptr, *r2 = nullptr, *p = nullptr, *s = nullptr;
-    expr* s1 = nullptr, *s2 = nullptr;
+    expr *r1 = nullptr, *r2 = nullptr, *p = nullptr, *s = nullptr;
+    expr *s1 = nullptr, *s2 = nullptr;
     zstring zs;
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
@@ -2318,7 +2325,7 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_REWRITE3;
     }
     else {
-        // stuck cases: variable, re().is_to_re, re().is_derivative, ...
+        // stuck cases: variable, re().is_derivative, ...
         return BR_FAILED;
     }
 }
@@ -2334,6 +2341,16 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     return re().is_derivative(result) ? BR_DONE : BR_REWRITE_FULL;
 }
 
+/*
+    Memoized, recursive implementation of the symbolic derivative such that
+    the result is in an optimized BDD form.
+
+    Definition of BDD form:
+        if-then-elses are pushed outwards
+        and sorted by condition ID (cond->get_id()), from largest on
+        the outside to smallest on the inside.
+        Duplicate nested conditions are eliminated.
+*/
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
@@ -2355,6 +2372,16 @@ expr_ref seq_rewriter::mk_der_concat(expr* r1, expr* r2) {
     return mk_der_op(OP_RE_CONCAT, r1, r2);
 }
 
+/*
+    Apply a binary operation, preserving BDD normal form on derivative expressions.
+
+    Preconditions:
+        - k is a binary op code on REs (concat, intersection, or union)
+        - a and b are in BDD form
+
+    Postcondition:
+        - result is in BDD form
+*/
 expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
     expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
@@ -2427,8 +2454,8 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
         }
         else if (BR_FAILED == mk_re_complement(r, result))
             result = re().mk_complement(r);        
+        m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
     }
-    m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
     return result;
 }
 
@@ -2778,6 +2805,12 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
                             re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
         return BR_REWRITE_FULL;
     }
+
+    // Disabled rewrites
+    if (false && re().is_complement(b, b1)) {
+        result = m().mk_not(re().mk_in_re(a, b1));
+        return BR_REWRITE2;
+    }
     if (false && rewrite_contains_pattern(a, b, result))
         return BR_REWRITE_FULL;
 
@@ -2788,6 +2821,19 @@ br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 
+/*
+    easy cases:
+    .* ++ .* -> .*
+    [] ++ r -> []
+    r ++ [] -> []
+    r ++ "" -> r
+    "" ++ r -> r
+
+    to_re and star:
+    (str.to_re s1) ++ (str.to_re s2) -> (str.to_re (s1 ++ s2))
+    r* ++ r* -> r*
+    r* ++ r -> r ++ r*
+*/
 br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     if (re().is_full_seq(a) && re().is_full_seq(b)) {
         result = a;
@@ -2985,8 +3031,15 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
+/*
+    comp(intersect e1 e2) -> union comp(e1) comp(e2)
+    comp(union e1 e2) -> intersect comp(e1) comp(e2)
+    comp(none) -> all
+    comp(all) -> none
+    comp(comp(e1)) -> e1
+*/
 br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
-    expr* e1, *e2;
+    expr *e1 = nullptr, *e2 = nullptr;
     if (re().is_intersection(a, e1, e2)) {
         result = re().mk_union(re().mk_complement(e1), re().mk_complement(e2));
         return BR_REWRITE2;
@@ -3011,11 +3064,15 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
 }
 
 /**
-   (emp n r) = emp
-   (r n emp) = emp
-   (all n r) = r
-   (r n all) = r
-   (r n r) = r
+    (r n r) = r
+    (emp n r) = emp
+    (r n emp) = emp
+    (all n r) = r
+    (r n all) = r
+    (r n comp(r)) = emp
+    (comp(r) n r) = emp
+    (r n to_re(s)) = ite (s in r) to_re(s) emp
+    (to_re(s) n r) = "
  */
 br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
     if (a == b) {
@@ -3384,7 +3441,7 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
     }    
 }
 
-    
+
 br_status seq_rewriter::reduce_re_is_empty(expr* r, expr_ref& result) {
     expr* r1, *r2, *r3, *r4;
     zstring s1, s2;
@@ -3965,7 +4022,7 @@ seq_rewriter::op_cache::op_cache(ast_manager& m):
 
 expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     op_entry e(op, a, b, nullptr);
-    m_table.find(e);
+    m_table.find(e, e);
     return e.r;
 }
 
