@@ -101,6 +101,7 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
+        std::cout << "PI ";
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
         // convert negative negative membership literals to positive
@@ -142,6 +143,7 @@ namespace smt {
     }
 
     void seq_regex::propagate_accept(literal lit) {
+        std::cout << "PA ";
         if (!propagate(lit))
             m_to_propagate.push_back(lit);
     }
@@ -167,6 +169,7 @@ namespace smt {
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
 
+        std::cout << "P ";
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
         if (re().is_empty(r)) {
@@ -356,12 +359,14 @@ namespace smt {
         with optimizations for if-then-else expressions involving the head.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
+        std::cout << "D ";
         expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);
         return result;
     }
 
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
+        std::cout << "PEQ ";
         expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref is_empty = sk().mk_is_empty(r, emp);
@@ -369,6 +374,7 @@ namespace smt {
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
+        std::cout << "PNEQ ";
         expr_ref r = symmetric_diff(r1, r2);
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref is_non_empty = sk().mk_is_non_empty(r, emp);
@@ -393,6 +399,7 @@ namespace smt {
      *
      */
     void seq_regex::propagate_is_non_empty(literal lit) {
+        std::cout << "PN ";
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_non_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);
@@ -448,6 +455,7 @@ namespace smt {
       is_empty(r, u) is true if r is a member of u
      */
     void seq_regex::propagate_is_empty(literal lit) {
+        std::cout << "PE ";
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_empty(e, r, u));
         expr_ref is_nullable = seq_rw().is_nullable(r);
