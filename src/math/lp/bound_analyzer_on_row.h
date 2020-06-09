@@ -334,10 +334,10 @@ private:
         case 0:
             return;
         case 1:
-            m_bp.try_create_eq(m_row_index);
+            m_bp.cheap_eq_tree(m_row_index);
             break;
         case 2:
-            m_bp.try_create_eq_table(m_row_index);
+            m_bp.cheap_eq_table(m_row_index);
             break;
         default:
             UNREACHABLE();
