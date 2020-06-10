@@ -319,8 +319,7 @@ public:
     
     void cheap_eq_table(unsigned rid) {
         TRACE("cheap_eqs", tout << "checking if row " << rid << " can propagate equality.\n";  display_row_info(rid, tout););
-        unsigned x;
-        unsigned y;
+        unsigned x, y;
         mpq k;
         if (is_offset_row(rid, x, y, k)) {
             if (y == null_lpvar) {
@@ -358,41 +357,28 @@ public:
             unsigned row_id;
             var_offset key(y, k);
             if (m_var_offset2row_id.find(key, row_id)) {               
-                if (row_id == rid) {
-                    // it is the same row.
+                if (row_id == rid) { // it is the same row.
                     return;
                 }
-                unsigned x2;
-                unsigned y2;
+                unsigned x2, y2;
                 mpq  k2;
                 if (is_offset_row(row_id, x2, y2, k2)) {
-
                     bool new_eq  = false;
-#ifdef _TRACE
-                    bool swapped = false;
-#endif
                     if (y == y2 && k == k2) {
                         new_eq = true;
                     }
-                    else if (y2 != null_lpvar) {
-#ifdef _TRACE
-                        swapped = true;
-#endif
-                        std::swap(x2, y2);
-                        k2.neg();
-                        if (y == y2 && k == k2) {
+                    else if (y2 != null_lpvar && x2 == y && k == - k2) {
+                            std::swap(x2, y2);
                             new_eq = true;
-                        }
                     }
-
+                    
                     if (new_eq) {
                         if (!is_equal(x, x2) && is_int(x) == is_int(x2)) {
-                            SASSERT(y == y2 && k == k2);
+                            //    SASSERT(y == y2 && k == k2 );
                             explanation ex;
                             explain_fixed_in_row(rid, ex);
                             explain_fixed_in_row(row_id, ex);
                             TRACE("arith_eq", tout << "propagate eq two rows:\n"; 
-                                  tout << "swapped: " << swapped << "\n";
                                   tout << "x  : v" << x << "\n";
                                   tout << "x2 : v" << x2 << "\n";
                                   display_row_info(rid, tout); 
@@ -400,10 +386,9 @@ public:
                             add_eq_on_columns(ex, x, x2);
                         }
                         return;
-                        }
-                        }
+                    }
+                }
                 // the original row was deleted or it is not offset row anymore ===> remove it from table 
-                m_var_offset2row_id.erase(key);
             }
             // add new entry
             m_var_offset2row_id.insert(key, rid);
