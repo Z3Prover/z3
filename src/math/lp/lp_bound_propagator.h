@@ -341,9 +341,9 @@ public:
                     explain_fixed_in_row(rid, ex);
                     add_eq_on_columns(ex, x, x2);
                 }
-                return;
             }
-            if (k.is_zero()) {
+            if (k.is_zero() && y != null_lpvar && !is_equal(x, y) &&
+                is_int(x) == is_int(y)) {
                 explanation ex;
                 explain_fixed_in_row(rid, ex);
                 add_eq_on_columns(ex, x, y);
