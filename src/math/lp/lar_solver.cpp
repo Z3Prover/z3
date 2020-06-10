@@ -144,7 +144,6 @@ bool lar_solver::row_has_a_big_num(unsigned i) const {
     return false;
 }
 
-    
 void lar_solver::substitute_basis_var_in_terms_for_row(unsigned i) {
     // todo : create a map from term basic vars to the rows where they are used
     unsigned basis_j = m_mpq_lar_core_solver.m_r_solver.m_basis[i];

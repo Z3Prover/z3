@@ -151,8 +151,12 @@ public:
         x = y = null_lpvar;
         for (auto& c : lp().get_row(r)) {
             lpvar v = c.var();
-            if (column_is_fixed(v))
+            if (column_is_fixed(v)) {
+                // if (get_lower_bound_rational(c.var()).is_big())
+                //     return false;
                 continue;
+            }
+           
             if (c.coeff().is_one() && x == null_lpvar) {
                 x = v;
                 continue;
@@ -173,6 +177,8 @@ public:
             if (!column_is_fixed(c.var()))
                 continue;
             k -= c.coeff() * get_lower_bound_rational(c.var());
+            if (k.is_big())
+                return false;
         }
         
         if (y == null_lpvar)
@@ -184,7 +190,7 @@ public:
             return true;
         }
 
-        if (/*r.get_base_var() != x &&*/ x > y) {
+        if (!lp().is_base(x) && x > y) {
             std::swap(x, y);
             k.neg();
         }
