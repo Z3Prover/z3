@@ -216,7 +216,7 @@ public:
             else 
                 return false;
         }
-        if (x_index == UINT_MAX && y_index == UINT_MAX)
+        if (x_index == UINT_MAX || y_index == UINT_MAX)
             return false;
         if (lp().column_is_int(row[x_index].var()) != lp().column_is_int(row[y_index].var()))
             return false; 
