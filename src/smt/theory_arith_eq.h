@@ -223,8 +223,7 @@ namespace smt {
         theory_var x;
         theory_var y;
         numeral k;
-        if (is_offset_row(r, x, y, k)) {
-            
+        if (is_offset_row(r, x, y, k)) {            
             if (y == null_theory_var) {
                 // x is an implied fixed var at k.
                 value_sort_pair key(k, is_int_src(x));

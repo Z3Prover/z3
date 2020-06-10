@@ -109,7 +109,6 @@ class lar_solver : public column_namer {
     static_matrix<double, double > const & A_d() const;
     
     static bool valid_index(unsigned j) { return static_cast<int>(j) >= 0;}
-    unsigned external_to_column_index(unsigned) const;
     const lar_term & get_term(unsigned j) const;
     bool row_has_a_big_num(unsigned i) const;
     // init region
@@ -282,6 +281,7 @@ class lar_solver : public column_namer {
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
 public:
+    unsigned external_to_column_index(unsigned) const;
     bool inside_bounds(lpvar, const impq&) const;
     inline void set_column_value(unsigned j, const impq& v) {
         m_mpq_lar_core_solver.m_r_solver.update_x(j, v);

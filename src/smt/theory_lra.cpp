@@ -1582,8 +1582,8 @@ public:
         }
         m_variable_values[t.index()] = result;
         return result;
-    }
-
+    }    
+    
     void init_variable_values() {
         reset_variable_values();
         if (m.inc() && m_solver.get() && th.get_num_vars() > 0) {            
@@ -1596,19 +1596,6 @@ public:
         m_variable_values.clear();
     }
     
-    bool congruent_or_irrelevant(lpvar k, lpvar j) {
-        theory_var kv = lp().local_to_external(k);
-        if (kv == null_theory_var)
-            return true;
-        theory_var jv = lp().local_to_external(j);
-        if (jv == null_theory_var)
-            return true;
-        
-        enode * n0 = get_enode(kv);
-        enode * n1 = get_enode(jv);
-        return n0->get_root() == n1->get_root();
-    }
-
     void random_update() {
         if (m_nla)
             return;
@@ -3203,6 +3190,8 @@ public:
         return get_enode(x)->get_root() == get_enode(y)->get_root(); 
     }
 
+    unsigned get_num_vars() const { return th.get_num_vars(); }
+    
     void fixed_var_eh(theory_var v1, rational const& bound) {
         // IF_VERBOSE(0, verbose_stream() << "fix " << mk_bounded_pp(get_owner(v1), m) << " " << bound << "\n");
 
