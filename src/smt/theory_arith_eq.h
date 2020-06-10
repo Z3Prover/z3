@@ -309,8 +309,6 @@ namespace smt {
 
                 // the original row was delete or it is not offset row anymore ===> remove it from table 
             }
-            if (y == -1)
-                std::cout << "h";
             // add new entry
             m_var_offset2row_id.insert(key, rid);
         }
