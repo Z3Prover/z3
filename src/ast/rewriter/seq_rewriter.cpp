@@ -2452,6 +2452,12 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
 expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
     expr_ref _a(a, m()), _b(b, m());
     expr_ref result(m());
+
+    // Pre-simplification assumes that none of the
+    // transformations hide ite sub-terms, 
+    // Rewriting that changes associativity of
+    // operators may hide ite sub-terms.
+
     switch (k) {
     case OP_RE_INTERSECT:
         if (BR_FAILED != mk_re_inter0(a, b, result))
