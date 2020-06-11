@@ -605,11 +605,9 @@ namespace smt {
                     return true;
                 }
             } else {
-                // TODO fixed_length_lesson?
-
                 if (polarity) {
                     fixed_length_assumptions.push_back(result);
-                    fixed_length_lesson.insert(result, std::make_tuple(rational(-3), f, f));
+                    fixed_length_lesson.insert(result, std::make_tuple(rational(-2), f, f));
                 } else {
                     fixed_length_assumptions.push_back(sub_m.mk_not(result));
                     fixed_length_lesson.insert(sub_m.mk_not(result), std::make_tuple(rational(-3), f, f));
@@ -1134,7 +1132,7 @@ namespace smt {
 
         TRACE("str_fl", tout << "calling subsolver" << std::endl;);
 
-        lbool subproblem_status = subsolver.check(fixed_length_assumptions); //HERE
+        lbool subproblem_status = subsolver.check(fixed_length_assumptions);
 
         if (subproblem_status == l_true) {
             bv_util bv(m);
