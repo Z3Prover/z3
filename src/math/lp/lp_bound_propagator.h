@@ -487,8 +487,8 @@ public:
     std::ostream& print_tree(std::ostream & out, vertex* v) const {
         v->print(out);
         out << "children :\n";
-        for (auto * v : v->children()) {
-            print_tree(out, v);
+        for (auto * c : v->children()) {
+            print_tree(out, c);
         }
         return out;
     }
