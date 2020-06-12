@@ -325,19 +325,9 @@ public:
             if (y == null_lpvar) {
                 // x is an implied fixed var at k.
                 value_sort_pair key(k, is_int(x));
-                int x2;
-                if (m_imp.m_fixed_var_table.find(key, x2) && 
-                    x2 < static_cast<int>(m_imp.get_num_vars())                    
-                    && 
-                    lp().column_is_fixed(x2 = imp_to_col(x2)) && // change x2
-                        get_lower_bound_rational(x2) == k &&
-                    // We must check whether x2 is an integer. 
-                    // The table m_fixed_var_table is not restored during backtrack. So, it may
-                    // contain invalid (key -> value) pairs. 
-                    // So, we must check whether x2 is really equal to k (previous test) 
-                    // AND has the same sort of x.
-                        is_int(x) == is_int(x2) &&
-                    !is_equal(x, x2)) {
+                unsigned x2;
+                if (lp().fixed_var_table().find(key, x2) && !is_equal(x, x2)) {
+                    SASSERT(lp().column_is_fixed(x2) && get_lower_bound_rational(x2) == k && is_int(x) == is_int(x2)); 
                     explanation ex;
                     constraint_index lc, uc;
                     lp().get_bound_constraint_witnesses_for_column(x2, lc, uc);

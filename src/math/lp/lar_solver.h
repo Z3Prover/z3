@@ -49,6 +49,8 @@ namespace lp {
 class int_branch;
 class int_solver;
 class lar_solver : public column_namer {
+    typedef std::pair<mpq, bool> value_sort_pair;
+    typedef pair_hash<obj_hash<mpq>, bool_hash> value_sort_pair_hash;
     struct term_hasher {
         std::size_t operator()(const lar_term &t) const
         {            
@@ -102,6 +104,12 @@ class lar_solver : public column_namer {
     m_normalized_terms_to_columns;
     vector<impq>                                        m_backup_x;
     stacked_vector<unsigned>                            m_usage_in_terms;
+    // ((x[j], is_int(j))->j)  for fixed j, used in equalities propagation
+    map<value_sort_pair,
+        unsigned,
+        value_sort_pair_hash,
+        default_eq<value_sort_pair>>                    m_fixed_var_table;
+    std::function <void(unsigned, unsigned)>            m_report_equality_of_fixed_vars;
     // end of fields
 
     ////////////////// methods ////////////////////////////////
@@ -142,7 +150,8 @@ class lar_solver : public column_namer {
     void update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
-    
+    void register_in_fixed_var_table(var_index);
+    void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side);
     inline void set_infeasible_column(unsigned j) {
         set_status(lp_status::INFEASIBLE);
@@ -281,6 +290,18 @@ class lar_solver : public column_namer {
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
 public:
+    const map<value_sort_pair,
+        unsigned,
+        value_sort_pair_hash,
+                  default_eq<value_sort_pair>>& fixed_var_table() const {
+        return m_fixed_var_table;
+    }
+    map<value_sort_pair,
+        unsigned,
+        value_sort_pair_hash,
+                  default_eq<value_sort_pair>>& fixed_var_table() {
+        return m_fixed_var_table;
+    }
     unsigned external_to_column_index(unsigned) const;
     bool inside_bounds(lpvar, const impq&) const;
     inline void set_column_value(unsigned j, const impq& v) {
@@ -572,7 +593,7 @@ public:
     void fill_explanation_from_crossed_bounds_column(explanation & evidence) const;
     bool term_is_used_as_row(unsigned term) const;
     bool tighten_term_bounds_by_delta(tv const& t, const impq&);
-    lar_solver();
+    lar_solver(const std::function <void(unsigned, unsigned)>& report_equality_of_fixed_vars);
     void set_track_pivoted_rows(bool v);
     bool get_track_pivoted_rows() const;    
     virtual ~lar_solver();

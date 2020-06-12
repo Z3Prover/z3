@@ -327,42 +327,7 @@ class theory_lra::imp {
     bool is_real(enode* n) const { return a.is_real(n->get_owner()); }
     enode* get_enode(theory_var v) const { return th.get_enode(v); }
     enode* get_enode(expr* e) const { return ctx().get_enode(e); }
-    expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }        
-
-    void init_solver() {
-        if (m_solver) return;
-
-        reset_variable_values();
-        m_solver = alloc(lp::lar_solver); 
-
-        // initialize 0, 1 variables:
-        get_one(true);
-        get_one(false);
-        get_zero(true);
-        get_zero(false);
-
-        smt_params_helper lpar(ctx().get_params());
-        lp().settings().set_resource_limit(m_resource_limit);
-        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
-        lp().settings().bound_propagation() = BP_NONE != propagation_mode();
-        lp().settings().enable_hnf() = lpar.arith_enable_hnf();
-        lp().settings().print_external_var_name() = lpar.arith_print_ext_var_names();
-        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
-        lp().settings().report_frequency = lpar.arith_rep_freq();
-        lp().settings().print_statistics = lpar.arith_print_stats();
-
-        // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
-        unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
-        lp().set_cut_strategy(branch_cut_ratio);
-        
-        lp().settings().int_run_gcd_test() = ctx().get_fparams().m_arith_gcd_test;
-        lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        m_lia = alloc(lp::int_solver, *m_solver.get());
-        get_one(true);
-        get_zero(true);
-        get_one(false);
-        get_zero(false);
-    }
+    expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }    
 
     lpvar add_const(int c, lpvar& var, bool is_int) {
         if (var != UINT_MAX) {
@@ -371,7 +336,7 @@ class theory_lra::imp {
         app_ref cnst(a.mk_numeral(rational(c), is_int), m);
         mk_enode(cnst);
         theory_var v = mk_var(cnst);
-        var = lp().add_var(v, true);
+        var = lp().add_var(v, is_int);
         lp().push();
         add_def_constraint(lp().add_var_bound(var, lp::GE, rational(c)));
         add_def_constraint(lp().add_var_bound(var, lp::LE, rational(c)));
@@ -933,10 +898,6 @@ class theory_lra::imp {
                 }
             }
 
-            rational val;
-            if (a.is_numeral(term, val)) {
-                m_fixed_var_table.insert(value_sort_pair(val, is_int(v)), v);
-            }
             return v;
         }
     }
@@ -976,8 +937,7 @@ public:
         if (m_solver) return;
 
         reset_variable_values();
-        m_solver = alloc(lp::lar_solver); 
-
+        m_solver = alloc(lp::lar_solver, [&](unsigned j, unsigned k) { report_equality_of_fixed_vars(j, k); }); 
         // initialize 0, 1 variables:
         get_one(true);
         get_one(false);
@@ -3055,10 +3015,6 @@ public:
     typedef std::pair<lp::constraint_index, rational> constraint_bound;
     vector<constraint_bound>        m_lower_terms;
     vector<constraint_bound>        m_upper_terms;
-    typedef std::pair<rational, bool> value_sort_pair;
-    typedef pair_hash<obj_hash<rational>, bool_hash> value_sort_pair_hash;
-    typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
-    value2var                       m_fixed_var_table;
 
     void propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, lp_api::bound& b, rational const& value) {
         if (k == lp::GE && set_lower_bound(t, ci, value) && has_upper_bound(t.index(), ci, value)) {
@@ -3191,62 +3147,61 @@ public:
     }
 
     unsigned get_num_vars() const { return th.get_num_vars(); }
+
+    void report_equality_of_fixed_vars(unsigned vi1, unsigned vi2) {
+        lp::constraint_index ci1, ci2, ci3, ci4;
+        theory_var v1 = lp().local_to_external(vi1);
+        theory_var v2 = lp().local_to_external(vi2);
+        if (is_equal(v1, v2))
+            return;
+        SASSERT(is_int(v1) == is_int(v2));
+
+        lp::mpq bound;
+        TRACE("arith",
+              bool hlb = has_lower_bound(vi2, ci3, bound); // has_lower_bound in turn trace "arith"
+              tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << " " << bound << " " << hlb << std::endl;);
+        if (!(has_lower_bound(vi2, ci3, bound)
+              &&
+              has_upper_bound(vi2, ci4, bound)
+              &&
+              has_lower_bound(vi1, ci1, bound)
+              &&
+              has_upper_bound(vi1, ci2, bound))) {
+            TRACE("arith", tout << "strange\n";);
+            return;
+        }
+        ++m_stats.m_fixed_eqs;
+        reset_evidence();
+        set_evidence(ci1, m_core, m_eqs);
+        set_evidence(ci2, m_core, m_eqs);
+        set_evidence(ci3, m_core, m_eqs);
+        set_evidence(ci4, m_core, m_eqs);
+        enode* x = get_enode(v1);
+        enode* y = get_enode(v2);
+        justification* js = 
+            ctx().mk_justification(
+                ext_theory_eq_propagation_justification(
+                    get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, nullptr));
+        
+        TRACE("arith",
+              for (unsigned i = 0; i < m_core.size(); ++i) {
+                  ctx().display_detailed_literal(tout, m_core[i]);
+                  tout << "\n";
+              } 
+              for (unsigned i = 0; i < m_eqs.size(); ++i) {
+                  tout << mk_pp(m_eqs[i].first->get_owner(), m) << " = " << mk_pp(m_eqs[i].second->get_owner(), m) << "\n";
+              } 
+              tout << " ==> ";
+              tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n";
+              );
+        
+        // parameters are TBD.
+        //                    SASSERT(validate_eq(x, y));
+        ctx().assign_eq(x, y, eq_justification(js));
+    }
     
     void fixed_var_eh(theory_var v1, rational const& bound) {
-        // IF_VERBOSE(0, verbose_stream() << "fix " << mk_bounded_pp(get_owner(v1), m) << " " << bound << "\n");
-
-        theory_var v2;
-        value_sort_pair key(bound, is_int(v1));
-        if (m_fixed_var_table.find(key, v2)) {
-            if (static_cast<unsigned>(v2) < th.get_num_vars() && !is_equal(v1, v2) && is_int(v1) == is_int(v2)) {
-                auto vi1 = register_theory_var_in_lar_solver(v1);
-                auto vi2 = register_theory_var_in_lar_solver(v2);
-                lp::constraint_index ci1, ci2, ci3, ci4;
-                
-                TRACE("arith",
-                      bool hlb = has_lower_bound(vi2, ci3, bound); // has_lower_bound in turn trace "arith"
-                      tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << " " << bound << " " << hlb << std::endl;);
-                if (has_lower_bound(vi2, ci3, bound) && has_upper_bound(vi2, ci4, bound)) {
-                    VERIFY (has_lower_bound(vi1, ci1, bound));
-                    VERIFY (has_upper_bound(vi1, ci2, bound));
-                    ++m_stats.m_fixed_eqs;
-                    reset_evidence();
-                    set_evidence(ci1, m_core, m_eqs);
-                    set_evidence(ci2, m_core, m_eqs);
-                    set_evidence(ci3, m_core, m_eqs);
-                    set_evidence(ci4, m_core, m_eqs);
-                    enode* x = get_enode(v1);
-                    enode* y = get_enode(v2);
-                    justification* js = 
-                        ctx().mk_justification(
-                            ext_theory_eq_propagation_justification(
-                                get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, nullptr));
-
-                    TRACE("arith",
-                          for (unsigned i = 0; i < m_core.size(); ++i) {
-                              ctx().display_detailed_literal(tout, m_core[i]);
-                              tout << "\n";
-                          } 
-                          for (unsigned i = 0; i < m_eqs.size(); ++i) {
-                              tout << mk_pp(m_eqs[i].first->get_owner(), m) << " = " << mk_pp(m_eqs[i].second->get_owner(), m) << "\n";
-                          } 
-                          tout << " ==> ";
-                          tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n";
-                          );
-
-                    // parameters are TBD.
-                    //                    SASSERT(validate_eq(x, y));
-                    ctx().assign_eq(x, y, eq_justification(js));
-                }
-            }
-            else {
-                // bounds on v2 were changed.
-                m_fixed_var_table.insert(key, v1);
-            }
-        }
-        else {
-            m_fixed_var_table.insert(key, v1);
-        }
+        // no op
     }
 
     lbool make_feasible() {

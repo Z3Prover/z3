@@ -95,7 +95,6 @@ public:
     unsigned size() const override { return m_term->size();}
 };
 
-
 class constraint_set {
     region                         m_region;
     column_namer&                  m_namer;
@@ -151,20 +150,16 @@ public:
         m_constraint_count = m_constraints.size();
         m_constraint_count.push();
         m_region.push_scope();
-#if 1
         m_active_lim = m_active.size();
         m_active_lim.push();
-#endif
     }
 
     void pop(unsigned k) {
-#if 1
         m_active_lim.pop(k);
         for (unsigned i = m_active.size(); i-- > m_active_lim; ) {
             m_constraints[m_active[i]]->deactivate();
         }
         m_active.shrink(m_active_lim);
-#endif
         m_constraint_count.pop(k);        
         for (unsigned i = m_constraints.size(); i-- > m_constraint_count; )
             m_constraints[i]->~lar_base_constraint();        
@@ -181,17 +176,10 @@ public:
         return add(new (m_region) lar_term_constraint(j, t, k, rhs));
     }
 
-#if 0
-    bool is_active(constraint_index ci) const { return true; }
-
-    void activate(constraint_index ci) {}
-
-#else
     // future behavior uses activation bit.
     bool is_active(constraint_index ci) const { return m_constraints[ci]->is_active(); }
 
     void activate(constraint_index ci) { auto& c = *m_constraints[ci]; if (!c.is_active()) { c.activate(); m_active.push_back(ci); } }
-#endif
 
     lar_base_constraint const& operator[](constraint_index ci) const { return *m_constraints[ci]; }    
 
@@ -283,9 +271,6 @@ public:
         print_left_side_of_constraint(c, var_str, out); 
         return out << " " << lconstraint_kind_string(c.kind()) << " " << c.rhs() << std::endl;
     }
-
-    
-    
 };
 
 inline std::ostream& operator<<(std::ostream& out, constraint_set const& cs) { 
