@@ -883,7 +883,7 @@ public:
     }
 
     lar_solver * create_lar_solver() {
-        lar_solver * solver =  new lar_solver([](unsigned, unsigned) { });
+        lar_solver * solver =  new lar_solver();
         fill_lar_solver(solver);
         return solver;
     }
