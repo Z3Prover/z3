@@ -18,14 +18,16 @@ void clear() {lp_assert(false); // not implemented
 }
 
 
-lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
-                           m_crossed_bounds_column(-1),
-                           m_mpq_lar_core_solver(m_settings, *this),
-                           m_int_solver(nullptr),
-                           m_need_register_terms(false),
-                           m_var_register(false),
-                           m_term_register(true),
-                           m_constraints(*this)
+lar_solver::lar_solver(const std::function<void(unsigned, unsigned)>& report_equality_of_fixed_vars) :
+    m_status(lp_status::UNKNOWN),
+    m_crossed_bounds_column(-1),
+    m_mpq_lar_core_solver(m_settings, *this),
+    m_int_solver(nullptr),
+    m_need_register_terms(false),
+    m_var_register(false),
+    m_term_register(true),
+    m_constraints(*this),
+    m_report_equality_of_fixed_vars(report_equality_of_fixed_vars)
 {}
     
 void lar_solver::set_track_pivoted_rows(bool v) {
@@ -271,6 +273,7 @@ void lar_solver::pop(unsigned k) {
     m_columns_to_ul_pairs.pop(k);
 
     m_mpq_lar_core_solver.pop(k);
+    remove_non_fixed_from_fixed_var_table();
     clean_popped_elements(n, m_columns_with_changed_bound);
     clean_popped_elements(n, m_incorrect_columns);
     
@@ -1721,6 +1724,36 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
     return ci;
 }
 
+void lar_solver::remove_non_fixed_from_fixed_var_table() {
+    vector<value_sort_pair> to_remove;
+    for (const auto& p : m_fixed_var_table) {
+        unsigned j = p.m_value;
+        if (j >= column_count() || column_is_fixed(j) == false)
+            to_remove.push_back(p.m_key);
+    }
+    for (const auto & p : to_remove)
+        m_fixed_var_table.erase(p);
+}
+
+void lar_solver::register_in_fixed_var_table(unsigned j) {
+    SASSERT(column_is_fixed(j));
+    const impq& bound = get_lower_bound(j);
+    if (bound.y.is_zero() == false)
+        return;
+
+    value_sort_pair key(bound.x, column_is_int(j));
+    unsigned k;
+    if (m_fixed_var_table.find(key, k) == false ) {
+        m_fixed_var_table.insert(key, j);
+        return;
+    }
+    SASSERT(column_is_fixed(k));
+    if (j != k && column_is_int(j) == column_is_int(k))
+        m_report_equality_of_fixed_vars(
+            column_to_reported_index(j),
+            column_to_reported_index(k));
+}
+
 void lar_solver::activate(constraint_index ci) {
     auto const& c = m_constraints[ci];
     update_column_type_and_bound(c.column(), c.kind(), c.rhs(), ci);
@@ -1784,13 +1817,19 @@ bool lar_solver::compare_values(impq const& lhs, lconstraint_kind k, const mpq &
     }
 }
 
-void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side,
+void lar_solver::update_column_type_and_bound(var_index j,
+                                              lconstraint_kind kind,
+                                              const mpq & right_side,
                                               constraint_index constr_index) {
     m_constraints.activate(constr_index);
     if (column_has_upper_bound(j))
         update_column_type_and_bound_with_ub(j, kind, right_side, constr_index);
     else 
         update_column_type_and_bound_with_no_ub(j, kind, right_side, constr_index);
+    if (column_is_fixed(j)) {
+        register_in_fixed_var_table(j);
+    }
+
 }
 
 constraint_index lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side) {
