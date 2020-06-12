@@ -59,7 +59,7 @@ namespace smt {
 
         bool block_unfolding(literal lit, unsigned i);
 
-        void propagate_nullable(literal lit, expr* e, expr* s, unsigned idx, expr* r);
+        void propagate_nullable(literal lit, expr* s, unsigned idx, expr* r);
 
         bool propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r);
 
@@ -99,7 +99,7 @@ namespace smt {
         void propagate_eq(expr* r1, expr* r2);
 
         void propagate_ne(expr* r1, expr* r2);
-
+        
         void propagate_is_non_empty(literal lit);
 
         void propagate_is_empty(literal lit);

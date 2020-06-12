@@ -101,7 +101,7 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
-        TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
+        TRACE("seq", tout << "propagate " << lit.sign() << " " << mk_pp(e, m) << "\n";);
 
         // convert negative negative membership literals to positive
         // ~(s in R) => s in C(R)
@@ -109,6 +109,10 @@ namespace smt {
             expr_ref fml(re().mk_in_re(s, re().mk_complement(r)), m);
             rewrite(fml);
             literal nlit = th.mk_literal(fml);
+            if (lit == nlit) {
+                // is-nullable doesn't simplify for regexes with uninterpreted subterms
+                th.add_unhandled_expr(fml);
+            }
             th.propagate_lit(nullptr, 1, &lit, nlit);
             return;
         }
@@ -137,6 +141,8 @@ namespace smt {
         expr_ref zero(a().mk_int(0), m);
         expr_ref acc = sk().mk_accept(s, zero, r);
         literal acc_lit = th.mk_literal(acc);
+
+        TRACE("seq", tout << "propagate " << acc << "\n";);
 
         th.propagate_lit(nullptr, 1, &lit, acc_lit);
     }
@@ -177,7 +183,7 @@ namespace smt {
         if (block_unfolding(lit, idx))
             return true;
 
-        propagate_nullable(lit, e, s, idx, r);
+        propagate_nullable(lit, s, idx, r);
 
         return propagate_derivative(lit, e, s, i, idx, r);
     }
@@ -187,9 +193,21 @@ namespace smt {
 
        (accept s i r) => len(s) >= i
        (accept s i r) & ~nullable(r) => len(s) >= i + 1
+
+       evaluate nullable(r):
+       nullable(r) := true -> propagate: (accept s i r) => len(s) >= i
+       nullable(r) := false -> propagate: (accept s i r) => len(s) >= i + 1
+ 
+       Otherwise: 
+       propagate: (accept s i r) => len(s) >= i
+       evaluate len(s) <= i:
+       len(s) <= i := undef -> axiom:     (accept s i r) & len(s) <= i => nullable(r)
+       len(s) <= i := true  -> propagate: (accept s i r) & len(s) <= i => nullable(r)
+       len(s) <= i := false -> noop.
+    
      */
 
-    void seq_regex::propagate_nullable(literal lit, expr* e, expr* s, unsigned idx, expr* r) {
+    void seq_regex::propagate_nullable(literal lit, expr* s, unsigned idx, expr* r) {
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
         literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
@@ -200,14 +218,16 @@ namespace smt {
             th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
         }
         else {
+            literal is_nullable_lit = th.mk_literal(is_nullable);
+            ctx.mark_as_relevant(is_nullable_lit);
             literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
             switch (ctx.get_assignment(len_s_le_i)) {
             case l_undef:
-                th.add_axiom(~lit, ~len_s_le_i, th.mk_literal(is_nullable));
+                th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
                 break;
             case l_true: {
                 literal lits[2] = { lit, len_s_le_i };
-                th.propagate_lit(nullptr, 2, lits, th.mk_literal(is_nullable));
+                th.propagate_lit(nullptr, 2, lits, is_nullable_lit);
                 break;
             }
             case l_false:
