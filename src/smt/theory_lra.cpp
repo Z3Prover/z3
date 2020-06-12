@@ -338,8 +338,8 @@ class theory_lra::imp {
         theory_var v = mk_var(cnst);
         var = lp().add_var(v, is_int);
         lp().push();
-        add_def_constraint(lp().add_var_bound(var, lp::GE, rational(c)));
-        add_def_constraint(lp().add_var_bound(var, lp::LE, rational(c)));
+        add_def_constraint_and_equality(var, lp::GE, rational(c));
+        add_def_constraint_and_equality(var, lp::LE, rational(c));
         TRACE("arith", tout << "add " << cnst << ", var = " << var << "\n";);
         return var;
     }
@@ -770,6 +770,17 @@ class theory_lra::imp {
     bool is_infeasible() const {
         return lp().get_status() == lp::lp_status::INFEASIBLE;
     }
+
+    void add_def_constraint_and_equality(lpvar vi, lp::lconstraint_kind kind,
+                                         const rational& bound) {
+        lpvar vi_equal;
+        lp::constraint_index ci = lp().add_var_bound_check_on_equal(vi, kind, bound, vi_equal);
+        add_def_constraint(ci);
+        if (vi_equal != lp::null_lpvar) {
+            report_equality_of_fixed_vars(vi, vi_equal);
+        }
+                         
+    }
     
     void internalize_eq(theory_var v1, theory_var v2) {  
         app_ref term(m.mk_fresh_const("eq", a.mk_real()), m);
@@ -780,12 +791,12 @@ class theory_lra::imp {
         st.coeffs().push_back(rational::minus_one());
         theory_var z = internalize_linearized_def(term, st);      
         lpvar vi = register_theory_var_in_lar_solver(z);
-        add_def_constraint(lp().add_var_bound(vi, lp::LE, rational::zero()));
+        add_def_constraint_and_equality(vi, lp::LE, rational::zero());
         if (is_infeasible()) {
             IF_VERBOSE(0, verbose_stream() << "infeasible\n";);
         //     process_conflict(); // exit here?
         }
-        add_def_constraint(lp().add_var_bound(vi, lp::GE, rational::zero()));
+        add_def_constraint_and_equality(vi, lp::GE, rational::zero());
         if (is_infeasible()) {
             IF_VERBOSE(0, verbose_stream() << "infeasible\n";);
         //     process_conflict(); // exit here?
@@ -885,8 +896,8 @@ class theory_lra::imp {
                 }
                 if (m_left_side.empty()) {
                     vi = lp().add_var(v, a.is_int(term));
-                    add_def_constraint(lp().add_var_bound(vi, lp::GE, rational(0)));
-                    add_def_constraint(lp().add_var_bound(vi, lp::LE, rational(0)));
+                    add_def_constraint_and_equality(vi, lp::GE, rational(0));
+                    add_def_constraint_and_equality(vi, lp::LE, rational(0));
                 }
                 else {
                     vi = lp().add_term(m_left_side, v);
@@ -937,7 +948,7 @@ public:
         if (m_solver) return;
 
         reset_variable_values();
-        m_solver = alloc(lp::lar_solver, [&](unsigned j, unsigned k) { report_equality_of_fixed_vars(j, k); }); 
+        m_solver = alloc(lp::lar_solver); 
         // initialize 0, 1 variables:
         get_one(true);
         get_one(false);
@@ -1274,10 +1285,10 @@ public:
         theory_var z = internalize_def(term);
         lpvar zi = register_theory_var_in_lar_solver(z);
         lpvar vi = register_theory_var_in_lar_solver(v);
-        add_def_constraint(lp().add_var_bound(zi, lp::GE, rational::zero()));
-        add_def_constraint(lp().add_var_bound(zi, lp::LE, rational::zero()));
-        add_def_constraint(lp().add_var_bound(vi, lp::GE, rational::zero()));
-        add_def_constraint(lp().add_var_bound(vi, lp::LT, abs(r)));
+        add_def_constraint_and_equality(zi, lp::GE, rational::zero());
+        add_def_constraint_and_equality(zi, lp::LE, rational::zero());
+        add_def_constraint_and_equality(vi, lp::GE, rational::zero());
+        add_def_constraint_and_equality(vi, lp::LT, abs(r));
         SASSERT(!is_infeasible());
         TRACE("arith", tout << term << "\n" << lp().constraints(););
     }

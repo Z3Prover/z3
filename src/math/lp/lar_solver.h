@@ -109,7 +109,6 @@ class lar_solver : public column_namer {
         unsigned,
         value_sort_pair_hash,
         default_eq<value_sort_pair>>                    m_fixed_var_table;
-    std::function <void(unsigned, unsigned)>            m_report_equality_of_fixed_vars;
     // end of fields
 
     ////////////////// methods ////////////////////////////////
@@ -143,14 +142,15 @@ class lar_solver : public column_namer {
     const impq& get_value(column_index const& j) const { return get_column_value(j); }
 
 
-    void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
+    void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, unsigned&);
+    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
-    void register_in_fixed_var_table(var_index);
+    void register_in_fixed_var_table(unsigned, unsigned&);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side);
     inline void set_infeasible_column(unsigned j) {
@@ -342,7 +342,8 @@ public:
     }
     // lp_assert(implied_bound_is_correctly_explained(ib, explanation)); }
     constraint_index mk_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side);
-    void activate(constraint_index ci);
+    void activate_check_on_equal(constraint_index, var_index&);
+    void activate(constraint_index);
     void random_update(unsigned sz, var_index const * vars);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T> & bp) {
@@ -361,7 +362,9 @@ public:
     bool compare_values(var_index j, lconstraint_kind kind, const mpq & right_side);
     var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs, unsigned ext_i);
     void register_existing_terms();
-    constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) ;
+    constraint_index add_var_bound(var_index, lconstraint_kind, const mpq &);
+    constraint_index add_var_bound_check_on_equal(var_index, lconstraint_kind, const mpq &, var_index&);
+    
     var_index add_var(unsigned ext_j, bool is_integer);
     void set_cut_strategy(unsigned cut_frequency);
     inline unsigned column_count() const { return A_r().column_count(); }
@@ -593,7 +596,7 @@ public:
     void fill_explanation_from_crossed_bounds_column(explanation & evidence) const;
     bool term_is_used_as_row(unsigned term) const;
     bool tighten_term_bounds_by_delta(tv const& t, const impq&);
-    lar_solver(const std::function <void(unsigned, unsigned)>& report_equality_of_fixed_vars);
+    lar_solver();
     void set_track_pivoted_rows(bool v);
     bool get_track_pivoted_rows() const;    
     virtual ~lar_solver();
