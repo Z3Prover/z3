@@ -1469,12 +1469,11 @@ lbool core::check(vector<lemma>& l_vec) {
 
     init_to_refine();
     patch_monomials();
+    set_use_nra_model(false);    
     if (m_to_refine.is_empty()) { return l_true; }   
     init_search();
 
     lbool ret = l_undef;
-
-    set_use_nra_model(false);    
 
     if (l_vec.empty() && !done()) 
         m_monomial_bounds();

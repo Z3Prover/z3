@@ -239,6 +239,7 @@ class seq_util {
     bv_util& bv() const;
 
     unsigned max_plus(unsigned x, unsigned y) const;
+    unsigned max_mul(unsigned x, unsigned y) const;
 public:
 
     ast_manager& get_manager() const { return m; }
@@ -468,10 +469,10 @@ public:
         MATCH_UNARY(is_of_pred);
         MATCH_UNARY(is_reverse);
         MATCH_BINARY(is_derivative);
-        bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
-        bool is_loop(expr const* n, expr*& body, unsigned& lo);
-        bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi);
-        bool is_loop(expr const* n, expr*& body, expr*& lo);
+        bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const;
+        bool is_loop(expr const* n, expr*& body, unsigned& lo) const;
+        bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const;
+        bool is_loop(expr const* n, expr*& body, expr*& lo) const;
         unsigned min_length(expr* r) const;
         unsigned max_length(expr* r) const;
     };

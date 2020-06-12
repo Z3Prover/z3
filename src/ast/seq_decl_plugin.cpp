@@ -1161,6 +1161,11 @@ unsigned seq_util::max_plus(unsigned x, unsigned y) const {
     return x + y;
 }
 
+unsigned seq_util::max_mul(unsigned x, unsigned y) const {
+    uint64_t r = ((uint64_t)x)*((uint64_t)y);
+    return (r > UINT_MAX) ? UINT_MAX : (unsigned)r;
+}
+
 
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
 #if Z3_USE_UNICODE
@@ -1305,6 +1310,7 @@ unsigned seq_util::str::max_length(expr* s) const {
 unsigned seq_util::re::min_length(expr* r) const {
     SASSERT(u.is_re(r));
     expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
+    unsigned lo = 0, hi = 0;
     if (is_empty(r))
         return UINT_MAX;
     if (is_concat(r, r1, r2)) 
@@ -1317,6 +1323,8 @@ unsigned seq_util::re::min_length(expr* r) const {
         return std::min(min_length(r1), min_length(r2));
     if (is_intersection(r, r1, r2)) 
         return std::max(min_length(r1), min_length(r2));
+    if (is_loop(r, r1, lo, hi))
+        return u.max_mul(lo, min_length(r1));
     if (is_to_re(r, s)) 
         return u.str.min_length(s);
     return 0;
@@ -1325,6 +1333,7 @@ unsigned seq_util::re::min_length(expr* r) const {
 unsigned seq_util::re::max_length(expr* r) const {
     SASSERT(u.is_re(r));
     expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
+    unsigned lo = 0, hi = 0;
     if (is_empty(r))
         return 0;
     if (is_concat(r, r1, r2)) 
@@ -1337,6 +1346,8 @@ unsigned seq_util::re::max_length(expr* r) const {
         return std::max(max_length(r1), max_length(r2));
     if (is_intersection(r, r1, r2)) 
         return std::min(max_length(r1), max_length(r2));
+    if (is_loop(r, r1, lo, hi))
+        return u.max_mul(hi, max_length(r1));
     if (is_to_re(r, s)) 
         return u.str.max_length(s);
     return UINT_MAX;
@@ -1384,7 +1395,7 @@ app* seq_util::re::mk_of_pred(expr* p) {
     return m.mk_app(m_fid, OP_RE_OF_PRED, 0, nullptr, 1, &p);
 }
 
-bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi)  {
+bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
         if (a->get_num_args() == 1 && a->get_decl()->get_num_parameters() == 2) {
@@ -1397,7 +1408,7 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& h
     return false;
 }
 
-bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo)  {
+bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
         if (a->get_num_args() == 1 && a->get_decl()->get_num_parameters() == 1) {
@@ -1409,7 +1420,7 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo)  {
     return false;
 }
 
-bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi)  {
+bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
         if (a->get_num_args() == 3) {
@@ -1422,7 +1433,7 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi)  {
     return false;
 }
 
-bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo)  {
+bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
         if (a->get_num_args() == 2) {
