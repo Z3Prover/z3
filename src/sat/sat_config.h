@@ -108,6 +108,7 @@ namespace sat {
         double             m_random_freq;
         unsigned           m_random_seed;
         unsigned           m_burst_search;
+        bool               m_enable_pre_simplify;
         unsigned           m_max_conflicts;
         unsigned           m_num_threads;
         bool               m_ddfw_search;

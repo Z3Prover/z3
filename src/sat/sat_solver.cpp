@@ -1222,6 +1222,16 @@ namespace sat {
                 do_gc();
             }
 
+            if (m_config.m_enable_pre_simplify) {
+                do_simplify();
+                if (check_inconsistent()) return l_false;
+            }
+
+            if (m_config.m_max_conflicts == 0) {
+                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = 0\")\n";);
+                return l_undef;
+            }
+
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
                 m_restart_threshold = m_config.m_burst_search;
                 lbool r = bounded_search();
