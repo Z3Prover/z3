@@ -85,6 +85,7 @@ namespace sat {
         }
         
         m_burst_search    = p.burst_search();
+        m_enable_pre_simplify  = p.enable_pre_simplify();
         
         m_max_conflicts   = p.max_conflicts();
         m_num_threads     = p.threads();
