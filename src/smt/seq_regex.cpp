@@ -101,8 +101,7 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
-        // std::cout << "PI ";
-        TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
+        TRACE("seq_regex", tout << "propagate in RE: " << mk_pp(e, m) << std::endl;);
 
         // convert negative negative membership literals to positive
         // ~(s in R) => s in C(R)
@@ -143,7 +142,7 @@ namespace smt {
     }
 
     void seq_regex::propagate_accept(literal lit) {
-        // std::cout << "PA ";
+        TRACE("seq_regex", tout << "propagate accept" << std::endl;);
         if (!propagate(lit))
             m_to_propagate.push_back(lit);
     }
@@ -169,8 +168,7 @@ namespace smt {
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
 
-        // std::cout << "P ";
-        TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
+        TRACE("seq_regex", tout << "propagate: " << mk_pp(e, m) << std::endl;);
 
         if (re().is_empty(r)) {
             th.add_axiom(~lit);
@@ -195,6 +193,9 @@ namespace smt {
     void seq_regex::propagate_nullable(literal lit, expr* e, expr* s, unsigned idx, expr* r) {
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
+
+        TRACE("seq_regex", tout << "propagate nullable: " << mk_pp(r, m) << std::endl;);
+
         literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
         if (m.is_true(is_nullable)) {
             th.propagate_lit(nullptr, 1,&lit, len_s_ge_i);
@@ -225,11 +226,13 @@ namespace smt {
         expr_ref d(m);
         expr_ref head = th.mk_nth(s, i);
 
+        TRACE("seq_regex", tout << "propagate derivative: " << mk_pp(r, m) << std::endl;);
+
         d = derivative_wrapper(m.mk_var(0, m.get_sort(head)), r);
         // timer tm;
-        // std::cout << d->get_id() << " " << tm.get_seconds() << "\n";
+        // std::cout << d->get_id() << " " << tm.get_seconds() << std::endl;
         //if (tm.get_seconds() > 0.3) 
-        //    std::cout << d << "\n";
+        //    std::cout << d << std::endl;
         // std::cout.flush();
         literal_vector conds;
         conds.push_back(~lit);
@@ -285,7 +288,7 @@ namespace smt {
         if (!re().is_empty(d)) 
             conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
         th.add_axiom(conds);        
-        TRACE("seq", tout << "unfold " << head << "\n" << mk_pp(r, m) << "\n";);
+        TRACE("seq_regex", tout << "unfold " << head << std::endl << mk_pp(r, m) << std::endl;);
         return true;
     }
 
@@ -327,7 +330,7 @@ namespace smt {
             th.m_trail_stack.push(vector_value_trail<theory_seq, s_in_re, true>(m_s_in_re, i));
             m_s_in_re[i].m_active = false;
             IF_VERBOSE(11, verbose_stream() << "Intersect " << regex << " " << 
-                       mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << "\n";);
+                       mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << std::endl;);
             regex = re().mk_inter(entry.m_re, regex);
             rewrite(regex);
             lits.push_back(~entry.m_lit);
@@ -362,14 +365,16 @@ namespace smt {
         with optimizations for if-then-else expressions involving the head.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
-        // std::cout << "D ";
+        STRACE("seq_regex", tout << "derivative: " << mk_pp(r, m) << std::endl;);
         expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);
+        STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
+        // IF_VERBOSE(10, verbose_stream() << std::endl << "Calculated derivative of: " << expr_ref(r, m) << " was: " << result << std::endl;);
         return result;
     }
 
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
-        // std::cout << "PEQ ";
+        TRACE("seq_regex", tout << "propagate EQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
         expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref is_empty = sk().mk_is_empty(r, emp);
@@ -377,7 +382,7 @@ namespace smt {
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
-        // std::cout << "PNEQ ";
+        TRACE("seq_regex", tout << "propagate NEQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
         expr_ref r = symmetric_diff(r1, r2);
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref is_non_empty = sk().mk_is_non_empty(r, emp);
@@ -402,9 +407,11 @@ namespace smt {
      *
      */
     void seq_regex::propagate_is_non_empty(literal lit) {
-        // std::cout << "PN ";
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_non_empty(e, r, u));
+
+        TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
+
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
         if (m.is_true(is_nullable))
@@ -458,9 +465,10 @@ namespace smt {
       is_empty(r, u) is true if r is a member of u
      */
     void seq_regex::propagate_is_empty(literal lit) {
-        // std::cout << "PE ";
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_empty(e, r, u));
+        TRACE("seq_regex", tout << "propagate empty: " << mk_pp(e, m) << std::endl;);
+
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
         if (m.is_true(is_nullable)) {

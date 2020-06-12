@@ -2182,13 +2182,13 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
-    // std::cout << "n";
+    STRACE("seq_regex_verbose", tout << "nullable";);
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
     if (!result) {
         result = is_nullable(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
     }
-    // std::cout << " ";
+    STRACE("seq_regex_verbose", tout << std::endl;);
     return result;
 }
 
@@ -2367,13 +2367,13 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         Duplicate nested conditions are eliminated.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    // std::cout << "d";
+    STRACE("seq_regex_verbose", tout << "derivative";);
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
         result = mk_derivative_rec(ele, r);
         m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
     }
-    // std::cout << " ";
+    STRACE("seq_regex_verbose", tout << std::endl;);
     return result;
 }
 
@@ -2454,7 +2454,6 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
 }
 
 expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
-    // std::cout << "."; // Recursive call
     expr_ref _a(a, m()), _b(b, m());
     expr_ref result(m());
     switch (k) {
@@ -2482,7 +2481,7 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
 }
 
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
-    // std::cout << "."; // Recursive call
+    STRACE("seq_regex_verbose", tout << " (rec)";);
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
         expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
@@ -2497,7 +2496,7 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
 }
 
 expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
-    // std::cout << "."; // Recursive call
+    STRACE("seq_regex_verbose", tout << " (rec)";);
     expr_ref result(m());
     sort* seq_sort = nullptr, *ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
@@ -4077,9 +4076,11 @@ seq_rewriter::op_cache::op_cache(ast_manager& m):
 expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     op_entry e(op, a, b, nullptr);
     m_table.find(e, e);
-    // if (!(e.r)) {
-    //     std::cout << "!"; // Cache miss
-    // }
+
+    if (!(e.r)) {
+        STRACE("seq_regex_verbose", tout << " (cache miss)";);
+    }
+
     return e.r;
 }
 
