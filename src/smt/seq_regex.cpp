@@ -424,6 +424,7 @@ namespace smt {
         lits.push_back(~lit);
         if (null_lit != false_literal) 
             lits.push_back(null_lit);
+
         expr_ref_pair_vector cofactors(m);
         get_cofactors(d, cofactors);
         for (auto const& p : cofactors) {
@@ -453,8 +454,8 @@ namespace smt {
             conds.pop_back();
         }
         else {
-            cond = mk_and(conds);
-            result.push_back(cond, r);
+            expr_ref conj = mk_and(conds);
+            result.push_back(conj, r);
         }
     }
 
