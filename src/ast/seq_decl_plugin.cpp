@@ -1327,6 +1327,12 @@ unsigned seq_util::re::min_length(expr* r) const {
         return u.max_mul(lo, min_length(r1));
     if (is_to_re(r, s)) 
         return u.str.min_length(s);
+    if (is_reverse(r, s) || is_plus(r, s))
+        return min_length(s);
+    if (is_range(r) || is_of_pred(r) || is_full_char(r))
+        return 1;
+    if (is_empty(r))
+        return UINT_MAX;
     return 0;
 }
 
@@ -1350,6 +1356,12 @@ unsigned seq_util::re::max_length(expr* r) const {
         return u.max_mul(hi, max_length(r1));
     if (is_to_re(r, s)) 
         return u.str.max_length(s);
+    if (is_reverse(r, s) || is_plus(r, s))
+        return max_length(s);
+    if (is_range(r) || is_of_pred(r) || is_full_char(r))
+        return 1;
+    if (is_empty(r))
+        return 0;
     return UINT_MAX;
 }
 
