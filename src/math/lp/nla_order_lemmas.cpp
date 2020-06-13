@@ -227,25 +227,22 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
     }
 }
 
-bool order::order_lemma_on_ac_explore(const monic& rm, const factorization& ac, bool k) {
+void order::order_lemma_on_ac_explore(const monic& rm, const factorization& ac, bool k) {
     const factor c = ac[k];
     TRACE("nla_solver", tout << "c = "; _().print_factor_with_vars(c, tout); );
     if (c.is_var()) {
         TRACE("nla_solver", tout << "var(c) = " << var(c););
         for (monic const& bc : _().emons().get_use_list(c.var())) {
-            if (order_lemma_on_ac_and_bc(rm, ac, k, bc)) {
-                return true;
-            }
+            if (order_lemma_on_ac_and_bc(rm, ac, k, bc)) 
+                return;
         }
     } 
     else {
         for (monic const& bc : _().emons().get_products_of(c.var())) {
-            if (order_lemma_on_ac_and_bc(rm, ac, k, bc)) {
-                return true;
-            }
+            if (order_lemma_on_ac_and_bc(rm, ac, k, bc)) 
+                return;
         }
     }
-    return false;
 }
 
 void order::generate_ol_eq(const monic& ac,                     
@@ -280,15 +277,19 @@ void order::generate_ol(const monic& ac,
                         const factor& b) {
     
     new_lemma lemma(_(), __FUNCTION__);
-    IF_VERBOSE(100, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
+    TRACE("nla_solver", _().trace_print_ol(ac, a, c, bc, b, tout););        
+    IF_VERBOSE(10, verbose_stream() << var_val(ac) << "(" << mul_val(ac) << "): " << ac 
                << " " << var_val(bc) << "(" << mul_val(bc) << "): " << bc << "\n"
                << " a " << "*v" << var(a) << " " << val(a) << "\n"
                << " b " << "*v" << var(b) << " " << val(b) << "\n"
                << " c " << "*v" << var(c) << " " << val(c) << "\n");
-    // fix the sign of c
+    // c > 0 and ac >= bc => a >= b
+    // c > 0 and ac <= bc => a <= b
+    // c < 0 and ac >= bc => a <= b
+    // c < 0 and ac <= bc => a >= b
     lemma |= ineq(c.var(), val(c.var()).is_neg() ? llc::GE : llc::LE, 0);
-    _().negate_var_relation_strictly(lemma, ac.var(), bc.var());
-    _().negate_var_relation_strictly(lemma, a.var(),  b.var());
+    lemma |= ineq(term(ac.var(), -rational(1), bc.var()), val(ac.var()) < val(bc.var()) ? llc::GT : llc::LT, 0);
+    lemma |= ineq(term(a.var(),  -rational(1), b.var()),  val(a.var())  < val(b.var())  ? llc::GE : llc::LE, 0);
 
     lemma &= ac;
     lemma &= a;
@@ -298,8 +299,9 @@ void order::generate_ol(const monic& ac,
 }
 
 // We have ac = a*c and bc = b*c.
-// Suppose ac >= bc, then ac/|c| >= bc/|b|
-// Notice that ac/|c| = a*rat_sign(val(c)|, and similar fo bc/|c|.// 
+// Suppose ac >= bc, then ac/|c| >= bc/|c|
+// Notice that ac/|c| = a*rat_sign(val(c)|, and similar fo bc/|c|.
+// 
 bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
                                                  const factor& a,
                                                  const factor& c,
@@ -309,16 +311,14 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
     rational c_sign = rational(nla::rat_sign(val(c)));
     auto av_c_s = val(a) * c_sign;
     auto bv_c_s = val(b) * c_sign;        
-    if ((var_val(ac) > var_val(bc) && av_c_s < bv_c_s)
-        ||
+    if ((var_val(ac) > var_val(bc) && av_c_s < bv_c_s) ||
         (var_val(ac) < var_val(bc) && av_c_s > bv_c_s)) {
-        TRACE("nla_solver", _().trace_print_ol(ac, a, c, bc, b, tout););        
         generate_ol(ac, a, c, bc, b);
         return true;
-    } else {
-        if ((var_val(ac) == var_val(bc)) && (av_c_s != bv_c_s)) {
-            generate_ol_eq(ac, a, c, bc, b);
-        }
+    } 
+    else if ((var_val(ac) == var_val(bc)) && (av_c_s != bv_c_s)) {
+        generate_ol_eq(ac, a, c, bc, b);
+        return true;
     }
     return false;
 }

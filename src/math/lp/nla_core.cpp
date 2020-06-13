@@ -892,10 +892,6 @@ bool core::divide(const monic& bc, const factor& c, factor & b) const {
     return true;
 }
 
-void core::negate_var_relation_strictly(new_lemma& lemma, lpvar a, lpvar b) {
-    SASSERT(val(a) != val(b));
-    lemma |= ineq(term(a, -rational(1), b), val(a) < val(b) ? llc::GT : llc::LT, 0);
-}
 
 void core::negate_factor_equality(new_lemma& lemma, const factor& c,
                                   const factor& d) {

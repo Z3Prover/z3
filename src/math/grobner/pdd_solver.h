@@ -181,7 +181,7 @@ private:
     void del_equation(equation& eq) { del_equation(&eq); }    
     void del_equation(equation* eq);    
     equation_vector& get_queue(equation const& eq);
-    void retire(equation* eq) { dealloc(eq); }
+    void retire(equation* eq);
     void pop_equation(equation& eq);
     void pop_equation(equation* eq) { pop_equation(*eq); }
     void push_equation(eq_state st, equation& eq);
