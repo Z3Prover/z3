@@ -26,7 +26,7 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_arith_random_seed = p.random_seed();
     m_arith_mode = static_cast<arith_solver_id>(p.arith_solver());
     m_nl_arith = p.arith_nl();
-    m_nl_arith_gb = p.arith_nl_gb();
+    m_nl_arith_gb = p.arith_nl_grobner();
     m_nl_arith_branching = p.arith_nl_branching();
     m_nl_arith_rounds = p.arith_nl_rounds();
     m_arith_propagate_eqs = p.arith_propagate_eqs();
