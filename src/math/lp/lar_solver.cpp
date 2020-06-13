@@ -1732,7 +1732,7 @@ void lar_solver::remove_non_fixed_from_fixed_var_table() {
     vector<value_sort_pair> to_remove;
     for (const auto& p : m_fixed_var_table) {
         unsigned j = p.m_value;
-        if (j >= column_count() || column_is_fixed(j) == false)
+        if (j >= column_count() || !column_is_fixed(j))
             to_remove.push_back(p.m_key);
     }
     for (const auto & p : to_remove)
@@ -1748,7 +1748,7 @@ void lar_solver::register_in_fixed_var_table(unsigned j, unsigned & equal_to_j) 
 
     value_sort_pair key(bound.x, column_is_int(j));
     unsigned k;
-    if (m_fixed_var_table.find(key, k) == false ) {
+    if (!m_fixed_var_table.find(key, k)) {
         m_fixed_var_table.insert(key, j);
         return;
     }
@@ -2189,7 +2189,7 @@ bool lar_solver::tighten_term_bounds_by_delta(tv const& t, const impq& delta) {
     SASSERT(t.is_term());
     unsigned tj = t.index();
     unsigned j;
-    if (m_var_register.external_is_used(tj, j) == false)
+    if (!m_var_register.external_is_used(tj, j))
         return true; // the term is not a column so it has no bounds
     auto & slv = m_mpq_lar_core_solver.m_r_solver;
     TRACE("cube", tout << "delta = " << delta << std::endl;
@@ -2279,7 +2279,7 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(tv const& t, 
     lp_assert(t.is_term())
     unsigned j;
     bool is_int;
-    if (m_var_register.external_is_used(t.index(), j, is_int) == false)
+    if (!m_var_register.external_is_used(t.index(), j, is_int))
         return false; // the term does not have a bound because it does not correspond to a column
     if (!is_int) // todo - allow for the next version of hnf
         return false;

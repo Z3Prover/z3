@@ -340,7 +340,7 @@ private:
             m_bp.cheap_eq_table(m_row_index);
             break;
         default:
-            UNREACHABLE();
+            return;
         }
     }
 };
