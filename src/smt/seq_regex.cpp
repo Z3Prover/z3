@@ -459,8 +459,8 @@ namespace smt {
             conds.pop_back();
         }
         else {
-            cond = mk_and(conds);
-            result.push_back(cond, r);
+            expr_ref conj = mk_and(conds);
+            result.push_back(conj, r);
         }
     }
 
