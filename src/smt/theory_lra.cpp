@@ -3160,27 +3160,25 @@ public:
     unsigned get_num_vars() const { return th.get_num_vars(); }
 
     void report_equality_of_fixed_vars(unsigned vi1, unsigned vi2) {
+        rational bound;
         lp::constraint_index ci1, ci2, ci3, ci4;
         theory_var v1 = lp().local_to_external(vi1);
         theory_var v2 = lp().local_to_external(vi2);
+        TRACE("arith", tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << "\n";);
+        // we expect lp() to ensure that none of these returns happen.
         if (is_equal(v1, v2))
             return;
-        SASSERT(is_int(v1) == is_int(v2));
-
-        lp::mpq bound;
-        TRACE("arith",
-              bool hlb = has_lower_bound(vi2, ci3, bound); // has_lower_bound in turn trace "arith"
-              tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << " " << bound << " " << hlb << std::endl;);
-        if (!(has_lower_bound(vi2, ci3, bound)
-              &&
-              has_upper_bound(vi2, ci4, bound)
-              &&
-              has_lower_bound(vi1, ci1, bound)
-              &&
-              has_upper_bound(vi1, ci2, bound))) {
-            TRACE("arith", tout << "strange\n";);
+        if (is_int(v1) != is_int(v2))
             return;
-        }
+        if (!has_lower_bound(vi1, ci1, bound))
+            return;
+        if (!has_upper_bound(vi1, ci2, bound))
+            return;
+        if (!has_lower_bound(vi2, ci3, bound))
+            return;
+        if (!has_upper_bound(vi2, ci4, bound))
+            return;
+        
         ++m_stats.m_fixed_eqs;
         reset_evidence();
         set_evidence(ci1, m_core, m_eqs);
@@ -3195,13 +3193,11 @@ public:
                     get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, nullptr));
         
         TRACE("arith",
-              for (unsigned i = 0; i < m_core.size(); ++i) {
-                  ctx().display_detailed_literal(tout, m_core[i]);
-                  tout << "\n";
-              } 
-              for (unsigned i = 0; i < m_eqs.size(); ++i) {
-                  tout << mk_pp(m_eqs[i].first->get_owner(), m) << " = " << mk_pp(m_eqs[i].second->get_owner(), m) << "\n";
-              } 
+              tout << "bound " << bound << "\n";
+              for (auto c : m_core) 
+                  ctx().display_detailed_literal(tout, c) << "\n";              
+              for (auto e : m_eqs) 
+                  tout << mk_pp(e.first->get_owner(), m) << " = " << mk_pp(e.second->get_owner(), m) << "\n";              
               tout << " ==> ";
               tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n";
               );
