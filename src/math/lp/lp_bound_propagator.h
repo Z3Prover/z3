@@ -117,7 +117,7 @@ public:
         if (is_low) {
             if (try_get_value(m_improved_lower_bounds, j, k)) {
                 auto & found_bound = m_ibounds[k];
-                if (v > found_bound.m_bound || (v == found_bound.m_bound && found_bound.m_strict == false && strict)) {
+                if (v > found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && strict)) {
                     found_bound = implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict);
                     TRACE("try_add_bound", m_imp.lp().print_implied_bound(found_bound, tout););
                 }
@@ -129,7 +129,7 @@ public:
         } else { // the upper bound case
             if (try_get_value(m_improved_upper_bounds, j, k)) {
                 auto & found_bound = m_ibounds[k];
-                if (v < found_bound.m_bound || (v == found_bound.m_bound && found_bound.m_strict == false && strict)) {
+                if (v < found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && strict)) {
                     found_bound = implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict);
                     TRACE("try_add_bound", m_imp.lp().print_implied_bound(found_bound, tout););
                 }
