@@ -2878,8 +2878,11 @@ literal theory_seq::mk_simplified_literal(expr * _e) {
 
 literal theory_seq::mk_literal(expr* _e) {
     expr_ref e(_e, m);
-    ensure_enode(e);
-    return ctx.get_literal(e);
+    bool is_not = m.is_not(_e, _e);
+    ensure_enode(_e);
+    literal lit = ctx.get_literal(_e);
+    if (is_not) lit.neg();
+    return lit;
 }
 
 literal theory_seq::mk_seq_eq(expr* a, expr* b) {
@@ -3338,10 +3341,14 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_from_code(n) ||
         m_util.str.is_to_code(n) ||
         m_util.str.is_is_digit(n)) {
-        if (!m_unhandled_expr) {
-            ctx.push_trail(value_trail<context, expr*>(m_unhandled_expr));
-            m_unhandled_expr = n;
-        }
+        add_unhandled_expr(n);
+    }
+}
+
+void theory_seq::add_unhandled_expr(expr* n) {
+    if (!m_unhandled_expr) {
+        ctx.push_trail(value_trail<context, expr*>(m_unhandled_expr));
+        m_unhandled_expr = n;
     }
 }
 

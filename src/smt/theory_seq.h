@@ -506,6 +506,7 @@ namespace smt {
         bool set_empty(expr* x);
         bool is_complex(eq const& e);
         lbool regex_are_equal(expr* r1, expr* r2);
+        void add_unhandled_expr(expr* e);
 
         bool check_extensionality();
         bool check_contains();

@@ -229,6 +229,7 @@ tactic * mk_sat_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_sat_preprocessor_tactic(ast_manager & m, params_ref const & p) {
     params_ref p_aux;
     p_aux.set_uint("max_conflicts", 0);
+    p_aux.set_bool("enable_pre_simplify", true);
     tactic * t = clean(using_params(mk_sat_tactic(m, p), p_aux));
     t->updt_params(p);
     return t;
