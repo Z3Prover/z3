@@ -23,6 +23,10 @@ Revision History:
 #include "math/lp/static_matrix.h"
 namespace lp {
 // each assignment for this matrix should be issued only once!!!
+
+inline void addmul(double& r, double a, double b) { r += a*b; }
+inline void addmul(mpq& r, mpq const& a, mpq const& b) { r.addmul(a, b); }
+
 template <typename T, typename X>
 void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
     lp_assert(m_rows.size() == 0 && m_columns.size() == 0);
@@ -54,14 +58,14 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     for (const auto & iv : m_rows[i]) {
         unsigned j = iv.var();
         if (j == pivot_col) continue;
-        T alv = alpha * iv.coeff();
         lp_assert(!is_zero(iv.coeff()));
         int j_offs = m_vector_of_row_offsets[j];
         if (j_offs == -1) { // it is a new element
+            T alv = alpha * iv.coeff();
             add_new_element(ii, j, alv);
         }
         else {
-            rowii[j_offs].coeff() += alv;
+            addmul(rowii[j_offs].coeff(), iv.coeff(), alpha);
         }
     }
     // clean the work vector

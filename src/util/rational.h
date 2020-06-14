@@ -335,6 +335,10 @@ public:
             operator+=(k);
         else if (c.is_minus_one())
             operator-=(k);
+        else if (k.is_one())
+            operator+=(c);
+        else if (k.is_minus_one())
+            operator-=(c);
         else {
             rational tmp(k);
             tmp *= c;
