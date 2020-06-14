@@ -1729,7 +1729,7 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
 }
 
 void lar_solver::remove_non_fixed_from_fixed_var_table() {
-    vector<value_sort_pair> to_remove;
+    vector<mpq> to_remove;
     for (const auto& p : m_fixed_var_table) {
         unsigned j = p.m_value;
         if (j >= column_count() || !column_is_fixed(j))
@@ -1746,7 +1746,7 @@ void lar_solver::register_in_fixed_var_table(unsigned j, unsigned & equal_to_j) 
     if (!bound.y.is_zero())
         return;
 
-    value_sort_pair key(bound.x, column_is_int(j));
+    const mpq& key = bound.x;
     unsigned k;
     if (!m_fixed_var_table.find(key, k)) {
         m_fixed_var_table.insert(key, j);
