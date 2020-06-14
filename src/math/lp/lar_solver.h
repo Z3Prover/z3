@@ -49,8 +49,6 @@ namespace lp {
 class int_branch;
 class int_solver;
 class lar_solver : public column_namer {
-    typedef std::pair<mpq, bool> value_sort_pair;
-    typedef pair_hash<obj_hash<mpq>, bool_hash> value_sort_pair_hash;
     struct term_hasher {
         std::size_t operator()(const lar_term &t) const
         {            
@@ -105,10 +103,7 @@ class lar_solver : public column_namer {
     vector<impq>                                        m_backup_x;
     stacked_vector<unsigned>                            m_usage_in_terms;
     // ((x[j], is_int(j))->j)  for fixed j, used in equalities propagation
-    map<value_sort_pair,
-        unsigned,
-        value_sort_pair_hash,
-        default_eq<value_sort_pair>>                    m_fixed_var_table;
+    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>  m_fixed_var_table;
     // end of fields
 
     ////////////////// methods ////////////////////////////////
@@ -290,16 +285,10 @@ class lar_solver : public column_namer {
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
 public:
-    const map<value_sort_pair,
-        unsigned,
-        value_sort_pair_hash,
-                  default_eq<value_sort_pair>>& fixed_var_table() const {
+    const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table() const {
         return m_fixed_var_table;
     }
-    map<value_sort_pair,
-        unsigned,
-        value_sort_pair_hash,
-                  default_eq<value_sort_pair>>& fixed_var_table() {
+    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table() {
         return m_fixed_var_table;
     }
     unsigned external_to_column_index(unsigned) const;
