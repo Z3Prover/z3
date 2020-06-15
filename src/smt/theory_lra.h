@@ -95,6 +95,10 @@ namespace smt {
         
         void collect_statistics(::statistics & st) const override;
 
+        void add_theory_assumptions(expr_ref_vector& assumptions) override;
+
+        bool should_research(expr_ref_vector& unsat_core) override;
+
         // optimization
         expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val);
         inf_eps value(theory_var) override;
