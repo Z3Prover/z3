@@ -2331,11 +2331,12 @@ public:
     }
 
     void operator()(expr_ref& fml, proof_ref& pr) {
-        if (!m.proofs_enabled()) {
-            expr_ref tmp(m);
-            m_elim_star(fml, tmp, pr);
-            fml = std::move(tmp);
+        expr_ref tmp(m);
+        m_elim_star(fml, tmp, pr);
+        if (m.proofs_enabled()) {
+            pr = m.mk_rewrite(fml, tmp);
         }
+        fml = std::move(tmp);
     }
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {
