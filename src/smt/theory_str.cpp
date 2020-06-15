@@ -9092,16 +9092,16 @@ namespace smt {
             return refine_eq(lhs, rhs, offset.get_unsigned());
         }
         // Let's just giveup if we find ourselves in the disjunctive fragment.
-        if (offset == rational(-1)) { // negative equation
+        if (offset == NEQ) { // negative equation
             ++m_stats.m_refine_neq;
             return refine_dis(lhs, rhs);
         }
-        if (offset == rational(-2)) { // function like contains, prefix,...
+        if (offset == PFUN) { // function like contains, prefix,...
             SASSERT(rhs == lhs);
             ++m_stats.m_refine_f;
             return refine_function(lhs);
         }
-        if (offset == rational(-3)) { // negated function
+        if (offset == NFUN) { // negated function
             SASSERT(rhs == lhs);
             ++m_stats.m_refine_nf;
             ast_manager & m = get_manager();

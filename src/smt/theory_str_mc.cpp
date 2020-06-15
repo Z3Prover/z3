@@ -143,7 +143,7 @@ namespace smt {
         expr_ref final_diseq(mk_and(branch), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
         TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(PFUN, f, f));
 
         return true;
     }
@@ -197,7 +197,7 @@ namespace smt {
         expr_ref final_diseq(mk_not(sub_m, mk_and(branch)), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
         TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(NFUN, f, f));
 
         return true;
     }
@@ -259,7 +259,7 @@ namespace smt {
         expr_ref final_diseq(mk_and(branch), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
         TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(PFUN, f, f));
 
         return true;
     }
@@ -312,7 +312,7 @@ namespace smt {
         expr_ref final_diseq(mk_not(sub_m, mk_and(branch)), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
         TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(NFUN, f, f));
 
         return true;
     }
@@ -379,7 +379,7 @@ namespace smt {
         expr_ref final_diseq(mk_or(branches), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
         TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(PFUN, f, f));
 
         return true;
     }
@@ -439,7 +439,7 @@ namespace smt {
         expr_ref final_diseq(mk_not(sub_m, mk_or(branches)), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
         TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(NFUN, f, f));
 
         return true;
     }
@@ -607,10 +607,10 @@ namespace smt {
             } else {
                 if (polarity) {
                     fixed_length_assumptions.push_back(result);
-                    fixed_length_lesson.insert(result, std::make_tuple(rational(-2), f, f));
+                    fixed_length_lesson.insert(result, std::make_tuple(PFUN, f, f));
                 } else {
                     fixed_length_assumptions.push_back(sub_m.mk_not(result));
-                    fixed_length_lesson.insert(sub_m.mk_not(result), std::make_tuple(rational(-3), f, f));
+                    fixed_length_lesson.insert(sub_m.mk_not(result), std::make_tuple(NFUN, f, f));
                 }
                 return true;
             }
@@ -879,7 +879,7 @@ namespace smt {
         expr_ref final_diseq(mk_or(diseqs), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
         TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-1), lhs, rhs));
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(NEQ, lhs, rhs));
 
         return true;
     }
