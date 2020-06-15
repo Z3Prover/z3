@@ -61,7 +61,6 @@ public :
                             B & bp) {
         bound_analyzer_on_row a(row, bj, rs, row_or_term_index, bp);
         a.analyze();
-        a.analyze_eq();
     }
 
 private:
@@ -327,22 +326,7 @@ private:
         default:
             break;
         }
-    }
-
-    void analyze_eq() {
-        switch (m_bp.lp().settings().cheap_eqs()) {
-        case 0:
-            return;
-        case 1:
-            m_bp.cheap_eq_tree(m_row_index);
-            break;
-        case 2:
-            m_bp.cheap_eq_table(m_row_index);
-            break;
-        default:
-            return;
-        }
-    }
+    }   
 };
 }
 

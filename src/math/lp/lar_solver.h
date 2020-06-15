@@ -342,8 +342,28 @@ public:
             if (settings().get_cancel_flag())
                 return;
         }
+        // these two loops should be run sequentially
+        // since the first loop might change column bounds
+        // and add fixed columns this way
+        bp.clear_for_eq();
+        if (settings().cheap_eqs()) {
+            for (unsigned i : m_rows_with_changed_bounds) {
+                calculate_cheap_eqs_for_row(i, bp);
+                if (settings().get_cancel_flag())
+                    return;
+            }
+        }
         m_rows_with_changed_bounds.clear();
     }
+    template <typename T>
+    void calculate_cheap_eqs_for_row(unsigned i, lp_bound_propagator<T> & bp) {
+        if (settings().cheap_eqs() == 1) {
+            bp.cheap_eq_tree(i);
+        } else {
+            bp.cheap_eq_table(i);
+        }
+    }
+    
     bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
     inline column_index to_column_index(unsigned v) const { return column_index(external_to_column_index(v)); }
     bool external_is_used(unsigned) const;
