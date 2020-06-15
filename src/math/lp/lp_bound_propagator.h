@@ -501,8 +501,10 @@ public:
         clear_for_eq();
         unsigned x_index, y_index;
         mpq offset;
-        if (!is_offset_row_wrong(row_index, x_index, y_index, offset))
+        if (!is_offset_row_wrong(row_index, x_index, y_index, offset)) {
+            m_visited_rows.insert(row_index);
             return;
+        }
         TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
         m_root = alloc(vertex, row_index, x_index, mpq(0));
         vertex* v_y = alloc(vertex, row_index, y_index, offset);
@@ -541,11 +543,13 @@ public:
             unsigned row_index = c.var();
             if (m_visited_rows.contains(row_index))
                 continue;
-            m_visited_rows.insert(row_index);
             unsigned x_index, y_index;
             mpq row_offset;
-            if (!is_offset_row_wrong(row_index, x_index, y_index, row_offset))
+            if (!is_offset_row_wrong(row_index, x_index, y_index, row_offset)) {
+                m_visited_rows.insert(row_index);
                 continue;
+            }
+            m_visited_rows.insert(row_index);
             TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
             // who is it the same column?
             if (lp().get_row(row_index)[x_index].var() == j) { // conected to x
