@@ -325,8 +325,9 @@ public:
             if (y == null_lpvar) {
                 // x is an implied fixed var at k.
                 unsigned x2;
-                if (lp().fixed_var_table().find(k, x2) && !is_equal(x, x2)) {
-                    SASSERT(lp().column_is_fixed(x2) && get_lower_bound_rational(x2) == k && is_int(x) == is_int(x2)); 
+                if (lp().fixed_var_table().find(k, x2) &&
+                    !is_equal(x, x2) && is_int(x) == is_int(x2)) {
+                    SASSERT(lp().column_is_fixed(x2) && get_lower_bound_rational(x2) == k); 
                     explanation ex;
                     constraint_index lc, uc;
                     lp().get_bound_constraint_witnesses_for_column(x2, lc, uc);
