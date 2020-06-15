@@ -152,9 +152,6 @@ lia_move int_solver::check(lp::explanation * e) {
 
     check_return_helper pc(lra);
 
-    if (settings().m_int_pivot_fixed_vars_from_basis)
-        lra.pivot_fixed_vars_from_basis();
-
     ++m_number_of_calls;
     if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
     if (r == lia_move::undef && should_find_cube()) r = int_cube(*this)();
@@ -271,7 +268,7 @@ bool int_solver::should_gomory_cut() {
 }
 
 bool int_solver::should_hnf_cut() {
-    return settings().m_enable_hnf && m_number_of_calls % m_hnf_cut_period == 0;
+    return settings().enable_hnf() && m_number_of_calls % m_hnf_cut_period == 0;
 }
 
 lia_move int_solver::hnf_cut() {
@@ -491,7 +488,11 @@ std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_inde
     for (const auto &c: rslv.m_A.m_rows[row_index]) {
         if (numeric_traits<mpq>::is_pos(c.coeff()))
             out << "+";
-        out << c.coeff() << rslv.column_name(c.var()) << " ";
+        if (c.coeff().is_big())
+            out << "b*";
+        else
+            out << c.coeff();
+        out << rslv.column_name(c.var()) << " ";
     }
     out << "\n";
     for (const auto& c: rslv.m_A.m_rows[row_index]) {

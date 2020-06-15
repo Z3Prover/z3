@@ -223,8 +223,7 @@ namespace smt {
         theory_var x;
         theory_var y;
         numeral k;
-        if (is_offset_row(r, x, y, k)) {
-            
+        if (is_offset_row(r, x, y, k)) {            
             if (y == null_theory_var) {
                 // x is an implied fixed var at k.
                 value_sort_pair key(k, is_int_src(x));
@@ -254,6 +253,7 @@ namespace smt {
                     m_stats.m_fixed_eqs++;
                     propagate_eq_to_core(x, x2, ante);
                 }
+                //return;
             }
 
             if (k.is_zero() && y != null_theory_var && !is_equal(x, y) && is_int_src(x) == is_int_src(y)) {
@@ -278,16 +278,10 @@ namespace smt {
                 numeral    k2;
                 if (r2.get_base_var() != null_theory_var && is_offset_row(r2, x2, y2, k2)) {
                     bool new_eq  = false;
-#ifdef _TRACE
-                    bool swapped = false;
-#endif
                     if (y == y2 && k == k2) {
                         new_eq = true;
                     }
                     else if (y2 != null_theory_var) {
-#ifdef _TRACE
-                        swapped = true;
-#endif
                         std::swap(x2, y2);
                         k2.neg();
                         if (y == y2 && k == k2) {
@@ -302,7 +296,6 @@ namespace smt {
                             collect_fixed_var_justifications(r, ante);
                             collect_fixed_var_justifications(r2, ante);
                             TRACE("arith_eq", tout << "propagate eq two rows:\n"; 
-                                  tout << "swapped: " << swapped << "\n";
                                   tout << "x  : v" << x << "\n";
                                   tout << "x2 : v" << x2 << "\n";
                                   display_row_info(tout, r); 
@@ -313,8 +306,8 @@ namespace smt {
                         return;
                     }
                 }
+
                 // the original row was delete or it is not offset row anymore ===> remove it from table 
-                m_var_offset2row_id.erase(key);
             }
             // add new entry
             m_var_offset2row_id.insert(key, rid);

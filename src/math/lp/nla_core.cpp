@@ -171,7 +171,7 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
     bool first = true;
     for (lpvar v : m) {
         if (!first) out << "*"; else first = false;
-        if (lp_settings().m_print_external_var_name)
+        if (lp_settings().print_external_var_name())
             out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
         else
             out << "(j" << v << " = " << val(v) << ")";
@@ -217,7 +217,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
 }
 
 std::ostream& core::print_monic(const monic& m, std::ostream& out) const {
-    if (lp_settings().m_print_external_var_name)
+    if (lp_settings().print_external_var_name())
         out << "([" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
     else 
         out << "(j" << m.var() << " = " << val(m.var()) << " = ";
@@ -892,10 +892,6 @@ bool core::divide(const monic& bc, const factor& c, factor & b) const {
     return true;
 }
 
-void core::negate_var_relation_strictly(new_lemma& lemma, lpvar a, lpvar b) {
-    SASSERT(val(a) != val(b));
-    lemma |= ineq(term(a, -rational(1), b), val(a) < val(b) ? llc::GT : llc::LT, 0);
-}
 
 void core::negate_factor_equality(new_lemma& lemma, const factor& c,
                                   const factor& d) {

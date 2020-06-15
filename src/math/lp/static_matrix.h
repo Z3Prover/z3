@@ -42,6 +42,7 @@ std::ostream& operator<<(std::ostream& out, const row_cell<T>& rc) {
 }
 struct empty_struct {};
 typedef row_cell<empty_struct> column_cell;
+typedef vector<column_cell> column_strip;
 
 template <typename T>
 using row_strip = vector<row_cell<T>>; 
@@ -60,7 +61,6 @@ class static_matrix
     };
     std::stack<dim> m_stack;
 public:
-    typedef vector<column_cell> column_strip;
     vector<int> m_vector_of_row_offsets;
     indexed_vector<T> m_work_vector;
     vector<row_strip<T>> m_rows;

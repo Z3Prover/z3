@@ -426,7 +426,6 @@ public:
     void negate_relation(new_lemma& lemma, unsigned j, const rational& a);
     void negate_factor_equality(new_lemma& lemma, const factor& c, const factor& d);    
     void negate_factor_relation(new_lemma& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
-    void negate_var_relation_strictly(new_lemma& lemma, lpvar a, lpvar b);
 
     bool  find_bfc_to_refine_on_monic(const monic&, factorization & bf);
     

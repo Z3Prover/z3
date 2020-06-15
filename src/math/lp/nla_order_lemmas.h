@@ -34,7 +34,7 @@ private:
                                   bool k,
                                   const monic& rm_bd);
     
-    bool order_lemma_on_ac_explore(const monic& rm, const factorization& ac, bool k);
+    void order_lemma_on_ac_explore(const monic& rm, const factorization& ac, bool k);
 
     void order_lemma_on_factorization(const monic& rm, const factorization& ab);
     

@@ -26,7 +26,7 @@ namespace lp {
 
     bool int_gcd_test::should_apply() {
 
-        if (!lia.settings().m_int_run_gcd_test)
+        if (!lia.settings().int_run_gcd_test())
             return false;
 #if 1
         return true;
