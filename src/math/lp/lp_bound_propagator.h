@@ -26,7 +26,7 @@ class lp_bound_propagator {
         unsigned           m_row; 
         unsigned           m_index_in_row; // in the row
         ptr_vector<vertex> m_children;
-        mpq               m_offset; // offset from parent (parent - child = offset)
+        mpq                m_offset; // offset from parent (parent - child = offset)
         vertex*            m_parent;
         unsigned           m_level; // the distance in hops to the root;
                                     // it is handy to find the common ancestor
@@ -61,13 +61,28 @@ class lp_bound_propagator {
     };
     hashtable<unsigned, u_hash, u_eq>         m_visited_rows;
     hashtable<unsigned, u_hash, u_eq>         m_visited_columns;
-    vertex*                                   m_root;                                 
-    map<mpq, vertex*, obj_hash<mpq>, mpq_eq> m_offset_to_verts;
+    vertex*                                   m_root;
+    // at some point we can find a single vertex in a row
+    // which is fixed, then we can fix the whole tree,
+    // by adjusting the vertices offsets,
+    // and in addition to checking with the m_offset_to_verts
+    // we are going to check with the m_fixed_var_table
+    bool                                      m_tree_is_fixed;
+    map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_offset_to_verts;
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned>    m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
+    struct signed_index {
+        bool       m_sign;
+        unsigned   m_index;
+        signed_index() : m_index(UINT_MAX) {}
+        bool not_set() const { return m_index == UINT_MAX; }
+        bool is_set() const { return m_index != UINT_MAX; }
+        
+    };
+    
     T&                                        m_imp;
-    mpq                                      m_zero;
+    mpq                                       m_zero;
     vector<implied_bound> m_ibounds;
 public:
     const vector<implied_bound>& ibounds() const { return m_ibounds; }
@@ -197,44 +212,63 @@ public:
         return true;
     }
 
-    bool is_offset_row_wrong(unsigned row_index,
-                       unsigned & x_index,
-                       lpvar & y_index,
-                       mpq& offset) {
-        if (row_index >= lp().row_count())
-            return false;
-        x_index = y_index = UINT_MAX;
+    bool set_sign_and_index(const mpq& c, signed_index& i, unsigned k) {
+        if (c.is_one()) {
+            i.m_sign = false;
+            i.m_index = k;
+            return true;
+        }
+        if (c.is_minus_one()){
+            i.m_sign = true;
+            i.m_index  = k;
+            return true;
+        }
+        return false;
+    }
+
+    void create_root(unsigned row_index) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+
+    
+    
+    // returns the vertex to start exploration from
+    vertex* add_child_from_row(unsigned row_index, vertex* parent) {
+        NOT_IMPLEMENTED_YET();
+        /*
+        bool sign, parent_sign;
+        unsigned index = UINT_MAX, parent_index = ;
+        
         const auto & row = lp().get_row(row_index);
         for (unsigned k = 0; k < row.size(); k++) {
             const auto& c = row[k];
-            if (column_is_fixed(c.var()))
+            if (column_is_fixed(c.var()) ||
+                c.var() == column(parent) ||
+                set_sign_and_index(c.coeff(), index, x_sign))
                 continue;
-            if (x_index == UINT_MAX && c.coeff().is_one())
-                x_index = k;
-            else if (y_index == UINT_MAX && c.coeff().is_minus_one())
-                y_index = k;
-            else 
-                return false;
+            return nullptr;
         }
-        if (x_index == UINT_MAX || y_index == UINT_MAX)
-            return false;
-        if (lp().column_is_int(row[x_index].var()) != lp().column_is_int(row[y_index].var()))
-            return false; 
+        if (index == UINT_MAX) {
+            // start fixed tree phase
+            NOT_IMPLEMENTED_YET();
+        } else {
+            mpq offset(0);
+            for (const auto& c : row)
+                if (column_is_fixed(c.var()))
+                    offset += c.coeff() * get_lower_bound_rational(c.var());
 
-        offset = mpq(0);
-        for (const auto& c : row) {
-            if (!column_is_fixed(c.var()))
-                continue;
-            offset += c.coeff() * get_lower_bound_rational(c.var());
+            // make x             
+            if (offset.is_zero() &&
+                !is_equal(row[x_index].var(), row[y_index].var())) {
+                lp::explanation ex;
+                explain_fixed_in_row(row_index, ex);
+                add_eq_on_columns(ex, row[x_index].var(), row[y_index].var());
+            }
+            return true;
         }
-        if (offset.is_zero() &&
-            !is_equal(row[x_index].var(), row[y_index].var())) {
-            lp::explanation ex;
-            explain_fixed_in_row(row_index, ex);
-            add_eq_on_columns(ex, row[x_index].var(), row[y_index].var());
-        }
-        return true;
-    }    
+        */
+    }
 
     bool is_equal(lpvar j, lpvar k) const {        
         return m_imp.is_equal(col_to_imp(j), col_to_imp(k));
@@ -325,9 +359,10 @@ public:
             if (y == null_lpvar) {
                 // x is an implied fixed var at k.
                 unsigned x2;
-                if (lp().fixed_var_table().find(k, x2) &&
-                    !is_equal(x, x2) && is_int(x) == is_int(x2)) {
-                    SASSERT(lp().column_is_fixed(x2) && get_lower_bound_rational(x2) == k); 
+                if (lp().find_in_fixed_tables(k, x2) &&
+                    !is_equal(x, x2)) {
+                    SASSERT(is_int(x) == is_int(x2) && lp().column_is_fixed(x2) &&
+                            get_lower_bound_rational(x2) == k); 
                     explanation ex;
                     constraint_index lc, uc;
                     lp().get_bound_constraint_witnesses_for_column(x2, lc, uc);
@@ -498,23 +533,20 @@ public:
 
     void cheap_eq_tree(unsigned row_index) {        
         TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);
-        clear_for_eq();
-        unsigned x_index, y_index;
-        mpq offset;
-        if (!is_offset_row_wrong(row_index, x_index, y_index, offset)) {
-            m_visited_rows.insert(row_index);
+        if (m_visited_rows.contains(row_index))
+            return; // already explored
+        m_visited_rows.insert(row_index); // this row does not produce eqs
+        create_root(row_index);
+        if (m_root == nullptr) {
             return;
         }
         TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
-        m_root = alloc(vertex, row_index, x_index, mpq(0));
-        vertex* v_y = alloc(vertex, row_index, y_index, offset);
-        m_root->add_child(v_y);
         SASSERT(tree_is_correct());
-        m_visited_rows.insert(row_index);
         explore_under(m_root);
         TRACE("cheap_eq", tout << "done for row_index " << row_index << "\n";);
         TRACE("cheap_eq", tout << "tree size = " << verts_size(););
         delete_tree(m_root);
+        m_root = nullptr;
     }
 
     unsigned verts_size() const {
@@ -533,24 +565,31 @@ public:
             delete_tree(u);
         dealloc(v);
     }
+
+    template <typename C>
+    bool check_insert(C& table, unsigned j) {
+        if (table.contains(j))
+            return false;
+        table.insert(j);
+        return true;
+    }
     
     void go_over_vertex_column(vertex * v) {
         lpvar j = column(v);
-        if (m_visited_columns.contains(j))
+        if (!check_insert(m_visited_columns, j))
             return;
-        m_visited_columns.insert(j);
+        
         for (const auto & c : lp().get_column(j)) {
             unsigned row_index = c.var();
-            if (m_visited_rows.contains(row_index))
+            if (!check_insert(m_visited_rows, row_index))
                 continue;
-            unsigned x_index, y_index;
-            mpq row_offset;
-            if (!is_offset_row_wrong(row_index, x_index, y_index, row_offset)) {
-                m_visited_rows.insert(row_index);
-                continue;
-            }
             m_visited_rows.insert(row_index);
-            TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
+            vertex *u = add_child_from_row(row_index, v);
+            if (u) {
+                explore_under(u);
+            }
+            /*
+              TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
             // who is it the same column?
             if (lp().get_row(row_index)[x_index].var() == j) { // conected to x
                 vertex* x_v = alloc(vertex, row_index, x_index, v->offset());
@@ -567,6 +606,7 @@ public:
                 SASSERT(tree_is_correct());
                 explore_under(x_v);
             }
+            */
         }
     }
     
@@ -574,9 +614,48 @@ public:
         check_for_eq_and_add_to_offset_table(v);
         go_over_vertex_column(v);
         // v might change in m_vertices expansion
-        for (vertex* j : v->children()) {
-            explore_under(j);
+        for (vertex* c : v->children()) {
+            explore_under(c);
         }
     }
+
+    bool is_offset_row_tree(unsigned row_index,
+                            signed_index & x,
+                            signed_index & y,
+                            mpq& offset) {
+        const auto & row = lp().get_row(row_index);
+        for (unsigned k = 0; k < row.size(); k++) {
+            const auto& c = row[k];
+            if (column_is_fixed(c.var()))
+                continue;
+            if (x.m_index == UINT_MAX) {
+                if (!set_sign_and_index(c.coeff(), x, k))
+                    return false;
+            } else if (y.m_index == UINT_MAX) {
+                if (!set_sign_and_index(c.coeff(), y, k))
+                    return false;
+            }
+            return false;
+        }
+
+        if (x.not_set() && y.not_set())
+            return false;
+        
+        offset = mpq(0);
+        for (const auto& c : row) {
+            if (!column_is_fixed(c.var()))
+                continue;
+            offset += c.coeff() * get_lower_bound_rational(c.var());
+        }
+        if (offset.is_zero() &&
+            x.is_set() && y.is_set() && (x.m_sign != y.m_sign) &&
+            !is_equal(row[x.m_index].var(), row[y.m_index].var())) {
+            lp::explanation ex;
+            explain_fixed_in_row(row_index, ex);
+            add_eq_on_columns(ex, row[x.m_index].var(), row[y.m_index].var());
+        }
+        return true;
+    }    
+
 };
 }
