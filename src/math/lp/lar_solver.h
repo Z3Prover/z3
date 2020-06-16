@@ -301,8 +301,8 @@ public:
         return m_fixed_var_table_real;
     }
 
-    bool find_in_fixed_tables(const rational& mpq, unsigned& j) const {
-        return column_is_int(j)? fixed_var_table_int().find(mpq, j) :
+    bool find_in_fixed_tables(const rational& mpq, bool is_int, unsigned & j) const {
+        return is_int? fixed_var_table_int().find(mpq, j) :
             fixed_var_table_real().find(mpq, j);
     }
     
