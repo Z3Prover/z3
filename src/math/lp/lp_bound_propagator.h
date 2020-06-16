@@ -24,7 +24,7 @@ class lp_bound_propagator {
     // and u, v reference the same column
     class vertex {        
         unsigned           m_row; 
-        unsigned           m_index_in_row; // in the row
+        unsigned           m_index; // in the row
         ptr_vector<vertex> m_children;
         mpq                m_offset; // offset from parent (parent - child = offset)
         vertex*            m_parent;
@@ -33,18 +33,19 @@ class lp_bound_propagator {
     public:
         vertex() {}
         vertex(unsigned row,
-               unsigned index_in_row,
+               unsigned index,
                const mpq & offset) :
             m_row(row),
-            m_index_in_row(index_in_row),
+            m_index(index),
             m_offset(offset),
             m_parent(nullptr),
             m_level(0) {}
-        unsigned index_in_row() const { return m_index_in_row; }
+        unsigned index() const { return m_index; }
         unsigned row() const { return m_row; }
         vertex* parent() const { return m_parent; }
         unsigned level() const { return m_level; }
         const mpq& offset() const { return m_offset; }
+        mpq& offset() { return m_offset; }
         void add_child(vertex* child) {
             child->m_parent = this;
             m_children.push_back(child);
@@ -52,21 +53,21 @@ class lp_bound_propagator {
         }
         const ptr_vector<vertex> & children() const { return m_children; }
         std::ostream& print(std::ostream & out) const {
-            out << "row = " << m_row << ", m_index_in_row = " << m_index_in_row << ", parent = " << m_parent << " , offset = " << m_offset << ", level = " << m_level << "\n";;
+            out << "row = " << m_row << ", m_index = " << m_index << ", parent = " << m_parent << " , offset = " << m_offset << ", level = " << m_level << "\n";;
             return out;
         }
         bool operator==(const vertex& o) const {
-            return m_row == o.m_row && m_index_in_row == o.m_index_in_row;
+            return m_row == o.m_row && m_index == o.m_index;
         }
     };
     hashtable<unsigned, u_hash, u_eq>         m_visited_rows;
     hashtable<unsigned, u_hash, u_eq>         m_visited_columns;
     vertex*                                   m_root;
-    // at some point we can find a single vertex in a row
-    // which is fixed, then we can fix the whole tree,
-    // by adjusting the vertices offsets,
-    // and in addition to checking with the m_offset_to_verts
-    // we are going to check with the m_fixed_var_table
+    // At some point we can find a row with a single vertex non fixed vertex
+    // then we can fix the whole tree,
+    // by adjusting the vertices offsets, so they become absolute.
+    // If the tree is fixed then in addition to checking with the m_offset_to_verts
+    // we are going to check with the m_fixed_var_tables.
     bool                                      m_tree_is_fixed;
     map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_offset_to_verts;
     // these maps map a column index to the corresponding index in ibounds
@@ -78,12 +79,10 @@ class lp_bound_propagator {
         signed_index() : m_index(UINT_MAX) {}
         bool not_set() const { return m_index == UINT_MAX; }
         bool is_set() const { return m_index != UINT_MAX; }
-        
     };
     
     T&                                        m_imp;
-    mpq                                       m_zero;
-    vector<implied_bound> m_ibounds;
+    vector<implied_bound>                     m_ibounds;
 public:
     const vector<implied_bound>& ibounds() const { return m_ibounds; }
     void init() {
@@ -91,7 +90,9 @@ public:
         m_improved_lower_bounds.clear();
         m_ibounds.reset();
     }
-    lp_bound_propagator(T& imp): m_imp(imp), m_zero(mpq(0)) {}
+    lp_bound_propagator(T& imp): m_imp(imp),
+                                 m_root(nullptr),
+                                 m_tree_is_fixed(false) {}
     const lar_solver& lp() const { return m_imp.lp(); }
     column_type get_column_type(unsigned j) const {
         return m_imp.lp().get_column_type(j);
@@ -227,12 +228,28 @@ public:
     }
 
     void create_root(unsigned row_index) {
+        SASSERT(!m_root && !m_tree_is_fixed);
         signed_index x, y;
         mpq offset;
-        if (!is_offset_row_tree(row_index, x, y, offset))
+        if (!is_offset_row_tree(nullptr, row_index, x, y, offset))
             return;
         TRACE("cheap_eq", display_row_info(row_index, tout););
-        NOT_IMPLEMENTED_YET();
+        if (y.not_set()) {
+            m_root = alloc(vertex, row_index, x.m_index, offset);
+            return;
+        }
+        
+        // create root with the offset zero
+        m_root = alloc(vertex, row_index, x.m_index, mpq(0));
+        // we have x + sign_y * y + offset = 0
+        // x.offset is set to zero as x plays the role of m_root
+        // if sign_y = 1 then y.offset() = -offset - x.offset()
+        // else y.offset() = offset + x.offset()
+        if (y.m_sign)
+            offset.neg();
+       
+        vertex *v = alloc(vertex, row_index, y.m_index, offset);
+        m_root->add_child(v);            
     }
     
     // returns the vertex to start exploration from
@@ -270,6 +287,8 @@ public:
             return true;
         }
         */
+        NOT_IMPLEMENTED_YET();
+        return nullptr;
     }
 
     bool is_equal(lpvar j, lpvar k) const {        
@@ -287,7 +306,24 @@ public:
             TRACE("cheap_eq", tout << "registered offset " << v->offset() << " to " << v << "\n";);
             m_offset_to_verts.insert(v->offset(), v);
         }
-            
+
+        if (m_tree_is_fixed) {
+            unsigned j;
+            unsigned v_col = column(v);
+            if (lp().find_in_fixed_tables(v->offset(), is_int(v_col), j)) {
+                if (j != v_col) {
+                    explanation ex;
+                    constraint_index lc, uc;
+                    lp().get_bound_constraint_witnesses_for_column(j, lc, uc);
+                    ex.push_back(lc);
+                    ex.push_back(uc);
+                    explain_fixed_in_row(v->row(), ex);
+                    TRACE("cheap_eq", display_row_info(v->row(), tout););
+                    add_eq_on_columns(ex, v_col, j);
+                }                    
+            }
+        }
+        
     }
         
     void clear_for_eq() {
@@ -362,7 +398,7 @@ public:
             if (y == null_lpvar) {
                 // x is an implied fixed var at k.
                 unsigned x2;
-                if (lp().find_in_fixed_tables(k, x2) &&
+                if (lp().find_in_fixed_tables(k, is_int(x), x2) &&
                     !is_equal(x, x2)) {
                     SASSERT(is_int(x) == is_int(x2) && lp().column_is_fixed(x2) &&
                             get_lower_bound_rational(x2) == k); 
@@ -531,7 +567,7 @@ public:
         return out;
     }
     lpvar column(const vertex* v) const {
-        return lp().get_row(v->row())[v->index_in_row()].var();
+        return lp().get_row(v->row())[v->index()].var();
     }
 
     void cheap_eq_tree(unsigned row_index) {        
@@ -542,6 +578,7 @@ public:
         if (m_root == nullptr) {
             return;
         }
+        SASSERT(tree_is_correct());
         TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
         SASSERT(tree_is_correct());
         explore_under(m_root);
@@ -549,6 +586,7 @@ public:
         TRACE("cheap_eq", tout << "tree size = " << verts_size(););
         delete_tree(m_root);
         m_root = nullptr;
+        m_tree_is_fixed = false;
     }
 
     unsigned verts_size() const {
@@ -621,10 +659,28 @@ public:
         }
     }
 
-    bool is_offset_row_tree(unsigned row_index,
-                            signed_index & x,
-                            signed_index & y,
-                            mpq& offset) {
+    void switch_to_fixed_mode_in_tree(vertex *v, const mpq& new_v_offset) {
+        m_tree_is_fixed = true;
+        if (v == nullptr)
+            return;
+        mpq delta = new_v_offset - v->offset();
+        shift_offsets_by_delta(m_root, delta);
+        SASSERT(v->offset() == new_v_offset);
+    }
+
+    void shift_offsets_by_delta(vertex *v, const mpq& d) {
+        v->offset() += d;
+        for (vertex * c : v->children()) {
+            shift_offsets_by_delta(c, d);
+        }
+    }
+    
+    bool is_offset_row_tree(
+        vertex* v,  // a vertex from this row, or nullptr
+        unsigned row_index,
+        signed_index & x,
+        signed_index & y,
+        mpq& offset) {
         const auto & row = lp().get_row(row_index);
         for (unsigned k = 0; k < row.size(); k++) {
             const auto& c = row[k];
@@ -656,6 +712,21 @@ public:
             explain_fixed_in_row(row_index, ex);
             add_eq_on_columns(ex, row[x.m_index].var(), row[y.m_index].var());
         }
+        
+        if (x.m_sign) {
+            // flip the signs
+            x.m_sign = false;
+            if (y.is_set()) {
+                y.m_sign = !y.m_sign;
+            }
+            offset.neg();
+        }
+
+        if (!m_tree_is_fixed && y.not_set()) {
+            SASSERT(v == nullptr || v->index() == x.m_index);
+            switch_to_fixed_mode_in_tree(v, offset);
+        }
+        
         return true;
     }    
 
