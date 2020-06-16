@@ -227,11 +227,13 @@ public:
     }
 
     void create_root(unsigned row_index) {
+        signed_index x, y;
+        mpq offset;
+        if (!is_offset_row_tree(row_index, x, y, offset))
+            return;
+        TRACE("cheap_eq", display_row_info(row_index, tout););
         NOT_IMPLEMENTED_YET();
     }
-
-
-    
     
     // returns the vertex to start exploration from
     vertex* add_child_from_row(unsigned row_index, vertex* parent) {
@@ -292,6 +294,7 @@ public:
         m_visited_rows.reset();
         m_visited_columns.reset();
         m_offset_to_verts.reset();
+        m_root = nullptr;
     }
 
     // we have v_i and v_j, indices of vertices at the same offsets
@@ -532,10 +535,9 @@ public:
     }
 
     void cheap_eq_tree(unsigned row_index) {        
-        TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);
-        if (m_visited_rows.contains(row_index))
+        TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);        
+        if (!check_insert(m_visited_rows, row_index))
             return; // already explored
-        m_visited_rows.insert(row_index); // this row does not produce eqs
         create_root(row_index);
         if (m_root == nullptr) {
             return;
@@ -634,8 +636,8 @@ public:
             } else if (y.m_index == UINT_MAX) {
                 if (!set_sign_and_index(c.coeff(), y, k))
                     return false;
-            }
-            return false;
+            } else
+                return false;
         }
 
         if (x.not_set() && y.not_set())
