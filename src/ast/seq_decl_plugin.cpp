@@ -1313,26 +1313,21 @@ unsigned seq_util::re::min_length(expr* r) const {
     unsigned lo = 0, hi = 0;
     if (is_empty(r))
         return UINT_MAX;
-    if (is_concat(r, r1, r2)) 
+    if (is_concat(r, r1, r2))
         return u.max_plus(min_length(r1), min_length(r2));
-    if (m.is_ite(r, s, r1, r2)) 
+    if (is_union(r, r1, r2) || m.is_ite(r, s, r1, r2))
         return std::min(min_length(r1), min_length(r2));
-    if (is_diff(r, r1, r2))
-        return min_length(r1);
-    if (is_union(r, r1, r2)) 
-        return std::min(min_length(r1), min_length(r2));
-    if (is_intersection(r, r1, r2)) 
+    if (is_intersection(r, r1, r2))
         return std::max(min_length(r1), min_length(r2));
-    if (is_loop(r, r1, lo, hi))
+    if (is_diff(r, r1, r2) || is_reverse(r, r1) || is_plus(r, r1))
+        return min_length(r1);
+    if (is_loop(r, r1, lo) || is_loop(r, r1, lo, hi))
         return u.max_mul(lo, min_length(r1));
-    if (is_to_re(r, s)) 
+    if (is_to_re(r, s))
         return u.str.min_length(s);
-    if (is_reverse(r, s) || is_plus(r, s))
-        return min_length(s);
     if (is_range(r) || is_of_pred(r) || is_full_char(r))
         return 1;
-    if (is_empty(r))
-        return UINT_MAX;
+    // Else: star, option, complement, full_seq, derivative
     return 0;
 }
 
@@ -1342,26 +1337,21 @@ unsigned seq_util::re::max_length(expr* r) const {
     unsigned lo = 0, hi = 0;
     if (is_empty(r))
         return 0;
-    if (is_concat(r, r1, r2)) 
+    if (is_concat(r, r1, r2))
         return u.max_plus(max_length(r1), max_length(r2));
-    if (m.is_ite(r, s, r1, r2)) 
+    if (is_union(r, r1, r2) || m.is_ite(r, s, r1, r2))
         return std::max(max_length(r1), max_length(r2));
-    if (is_diff(r, r1, r2))
-        return max_length(r1);
-    if (is_union(r, r1, r2)) 
-        return std::max(max_length(r1), max_length(r2));
-    if (is_intersection(r, r1, r2)) 
+    if (is_intersection(r, r1, r2))
         return std::min(max_length(r1), max_length(r2));
+    if (is_diff(r, r1, r2) || is_reverse(r, r1) || is_opt(r, r1))
+        return max_length(r1);
     if (is_loop(r, r1, lo, hi))
         return u.max_mul(hi, max_length(r1));
-    if (is_to_re(r, s)) 
+    if (is_to_re(r, s))
         return u.str.max_length(s);
-    if (is_reverse(r, s) || is_plus(r, s))
-        return max_length(s);
     if (is_range(r) || is_of_pred(r) || is_full_char(r))
         return 1;
-    if (is_empty(r))
-        return 0;
+    // Else: star, plus, complement, full_seq, loop(r,r1,lo), derivative
     return UINT_MAX;
 }
 
