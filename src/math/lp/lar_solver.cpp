@@ -1728,15 +1728,21 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
     return ci;
 }
 
-void lar_solver::remove_non_fixed_from_fixed_var_table() {
+template <typename T>
+void lar_solver::remove_non_fixed_from_table(T& table) {
     vector<mpq> to_remove;
-    for (const auto& p : m_fixed_var_table) {
+    for (const auto& p : table) {
         unsigned j = p.m_value;
         if (j >= column_count() || !column_is_fixed(j))
             to_remove.push_back(p.m_key);
     }
     for (const auto & p : to_remove)
-        m_fixed_var_table.erase(p);
+        table.erase(p);
+}
+
+void lar_solver::remove_non_fixed_from_fixed_var_table() {
+    remove_non_fixed_from_table(m_fixed_var_table_int);
+    remove_non_fixed_from_table(m_fixed_var_table_real);
 }
 
 void lar_solver::register_in_fixed_var_table(unsigned j, unsigned & equal_to_j) {
@@ -1748,12 +1754,22 @@ void lar_solver::register_in_fixed_var_table(unsigned j, unsigned & equal_to_j) 
 
     const mpq& key = bound.x;
     unsigned k;
-    if (!m_fixed_var_table.find(key, k)) {
-        m_fixed_var_table.insert(key, j);
-        return;
+    bool j_is_int = column_is_int(j);
+    if (j_is_int) {
+        if (!m_fixed_var_table_int.find(key, k)) {
+            m_fixed_var_table_int.insert(key, j);
+            return;
+        }
+    } else { // j is not integral column        
+        if (!m_fixed_var_table_real.find(key, k)) {
+            m_fixed_var_table_real.insert(key, j);
+            return;
+        }
     }
+    
     SASSERT(column_is_fixed(k));
-    if (j != k && column_is_int(j) == column_is_int(k)) {
+    if (j != k ) {
+        SASSERT(column_is_int(j) == column_is_int(k));
         equal_to_j = column_to_reported_index(k);
         TRACE("lar_solver", tout << "found equal column k = " << k <<
               ", external = " << equal_to_j << "\n";);
