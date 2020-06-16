@@ -3929,6 +3929,8 @@ public:
             expr_ref lo(a.mk_ge(t, a.mk_int(bi.m_offset - bi.m_range)), m);            
             assumptions.push_back(lo);
             assumptions.push_back(hi);
+            m_predicate2term.insert(lo, t);
+            m_predicate2term.insert(hi, t);
             IF_VERBOSE(10, verbose_stream() << lo << "\n" << hi << "\n");
         }
     }
@@ -3978,7 +3980,6 @@ public:
         mk_axiom(~m_bounded_range_lit, mk_literal(lo));
         m_bound_predicates.push_back(lo);
         m_bound_predicates.push_back(hi);
-        IF_VERBOSE(10, verbose_stream() << "add " << lo << " " << hi << "\n");
         m_predicate2term.insert(lo, t);
         m_predicate2term.insert(hi, t);
         m_term2bound_info.insert(t, bi);
