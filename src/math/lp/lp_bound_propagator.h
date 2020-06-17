@@ -401,6 +401,7 @@ public:
     }
 
    /**
+       The table functionality:
        Cheap propagation of equalities x_i = x_j, when
        x_i = y + k 
        x_j = y + k
@@ -662,25 +663,6 @@ public:
             if (u) {
                 explore_under(u);
             }
-            /*
-              TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
-            // who is it the same column?
-            if (lp().get_row(row_index)[x_index].var() == j) { // conected to x
-                vertex* x_v = alloc(vertex, row_index, x_index, v->offset());
-                v->add_child(x_v);
-                vertex* y_v = alloc(vertex, row_index, y_index, v->offset() + row_offset);
-                x_v->add_child(y_v);
-                SASSERT(tree_is_correct());
-                explore_under(y_v);
-            } else { // connected to y
-                vertex* y_v = alloc(vertex, row_index, y_index, v->offset());
-                v->add_child(y_v);
-                vertex* x_v = alloc(vertex, row_index, x_index, v->offset() - row_offset);
-                y_v->add_child(x_v);
-                SASSERT(tree_is_correct());
-                explore_under(x_v);
-            }
-            */
         }
     }
     
@@ -760,6 +742,5 @@ public:
         }        
         return true;
     }    
-
 };
 }
