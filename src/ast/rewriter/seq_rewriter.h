@@ -194,6 +194,10 @@ class seq_rewriter {
     expr_ref mk_der_compl(expr* a);
     expr_ref mk_der_reverse(expr* a);
 
+    bool lt_char(expr* ch1, expr* ch2);
+    bool eq_char(expr* ch1, expr* ch2);
+    bool le_char(expr* ch1, expr* ch2);
+    bool pred_implies(expr* a, expr* b);
     bool are_complements(expr* r1, expr* r2) const;
     bool is_subset(expr* r1, expr* r2) const;
 

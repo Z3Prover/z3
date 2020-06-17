@@ -2390,10 +2390,69 @@ expr_ref seq_rewriter::mk_der_concat(expr* r1, expr* r2) {
 }
 
 /*
+    Utility functions to decide char <, ==, and <=.
+    Return true if deduced, false if unknown.
+*/
+bool seq_rewriter::lt_char(expr* ch1, expr* ch2) {
+    unsigned u1, u2;
+    return (m_util.is_const_char(ch1, u1) &&
+            m_util.is_const_char(ch2, u2) &&
+            (u1 < u2));
+}
+bool seq_rewriter::eq_char(expr* ch1, expr* ch2) {
+    unsigned u1, u2;
+    return ((ch1 == ch2) || (
+        m_util.is_const_char(ch1, u1) &&
+        m_util.is_const_char(ch2, u2) &&
+        (u1 == u2)
+    ));
+}
+bool seq_rewriter::le_char(expr* ch1, expr* ch2) {
+    return (eq_char(ch1, ch2) || lt_char(ch1, ch2));
+}
+
+/*
+    Utility function to decide if a simple predicate (ones that appear
+    as the conditions in if-then-else expressions in derivatives)
+    implies another.
+
+    Return true if we deduce that a implies b, false if unknown.
+
+    Current cases handled:
+        - a and b are char <= constraints, or negations of char <= constraints
+*/
+bool seq_rewriter::pred_implies(expr* a, expr* b) {
+    expr *cha1 = nullptr, *cha2 = nullptr, *nota = nullptr,
+         *chb1 = nullptr, *chb2 = nullptr, *notb = nullptr;
+    if (m().is_not(a, nota) &&
+        m().is_not(b, notb)) {
+        return pred_implies(notb, nota);
+    }
+    else if (m_util.is_char_le(a, cha1, cha2) &&
+             m_util.is_char_le(b, chb1, chb2)) {
+        return (le_char(chb1, cha1) && le_char(cha2, chb2));
+    }
+    else if (m_util.is_char_le(a, cha1, cha2) &&
+             m().is_not(b, notb) &&
+             m_util.is_char_le(notb, chb1, chb2)) {
+        return ((le_char(chb2, cha1) && lt_char(cha2, chb1)) ||
+                (lt_char(chb2, cha1) && le_char(cha2, chb1)));
+    }
+    else if (m_util.is_char_le(b, chb1, chb2) &&
+             m().is_not(a, nota) &&
+             m_util.is_char_le(nota, cha1, cha2)) {
+        return (le_char(chb1, cha2) && le_char(cha1, chb2));
+    }
+    else {
+        return false;
+    }
+}
+
+/*
     Apply a binary operation, preserving BDD normal form on derivative expressions.
 
     Preconditions:
-        - k is a binary op code on REs (concat, intersection, or union)
+        - k is a binary op codes on REs: one of concat, intersection, or union
         - a and b are in BDD form
 
     Postcondition:
@@ -2406,23 +2465,43 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
     auto mk_ite = [&](expr* c, expr* a, expr* b) {
         return (a == b) ? a : m().mk_ite(c, a, b);
     };
+    // TODO
+    // auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
     if (m().is_ite(a, ca, a1, a2)) {
+        expr_ref r1(m()), r2(m());
         if (m().is_ite(b, cb, b1, b2)) {
+            // --- Core logic for combining two BDDs
             if (ca == cb) {
                 expr_ref r1 = mk_der_op(k, a1, b1);
                 expr_ref r2 = mk_der_op(k, a2, b2);
                 result = mk_ite(ca, r1, r2);
                 return result;
             }
-            else if (ca->get_id() < cb->get_id()) {
-                expr_ref r1 = mk_der_op(k, a, b1);
-                expr_ref r2 = mk_der_op(k, a, b2);
-                result = mk_ite(cb, r1, r2);
-                return result;
+            // Order with higher IDs on the outside
+            if (ca->get_id() < cb->get_id()) {
+                std::swap(a, b);
+                std::swap(ca, cb);
+                std::swap(a1, b1);
+                std::swap(a2, b2);
             }
+            // Simplify if there is a relationship between ca and cb
+            if (pred_implies(ca, cb)) {
+                r1 = mk_der_op(k, a1, b1);
+            }
+            else if (pred_implies(ca, expr_ref(m().mk_not(cb), m()))) {
+                r1 = mk_der_op(k, a1, b2);
+            }
+            if (pred_implies(expr_ref(m().mk_not(ca), m()), cb)) {
+                r2 = mk_der_op(k, a2, b1);
+            }
+            else if (pred_implies(expr_ref(m().mk_not(ca), m()),
+                                  expr_ref(m().mk_not(cb), m()))) {
+                r2 = mk_der_op(k, a2, b2);
+            }
+            // --- End core logic
         }
-        expr_ref r1 = mk_der_op(k, a1, b);
-        expr_ref r2 = mk_der_op(k, a2, b);
+        if (!r1) r1 = mk_der_op(k, a1, b);
+        if (!r2) r2 = mk_der_op(k, a2, b);
         result = mk_ite(ca, r1, r2);
         return result;
     }
@@ -2539,7 +2618,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         return mk_der_inter(mk_derivative(ele, r1), mk_der_compl(mk_derivative(ele, r2)));
     }
     else if (m().is_ite(r, p, r1, r2)) {
-        // there is no BDD normalization here
+        // Note: there is no BDD normalization here
         result = m().mk_ite(p, mk_derivative(ele, r1), mk_derivative(ele, r2));
         return result;
     }
@@ -2574,13 +2653,18 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            return re_and(m_br.mk_eq_rw(ele, hd), re().mk_to_re(tl));
+            // Write 'head is equal' as a range constraint:
+            // (ele <= hd) and (hd <= ele)
+            return mk_der_inter(
+                re_and(m_util.mk_le(ele, hd), re().mk_to_re(tl)),
+                re_and(m_util.mk_le(hd, ele), re().mk_to_re(tl))
+            );
         }
         else if (str().is_empty(r1)) {
             return mk_empty();
         }
-        else {
 #if 0
+        else {
             hd = str().mk_nth_i(r1, m_autil.mk_int(0));
             tl = str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1)));
             result = 
@@ -2588,10 +2672,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
                            mk_empty(),
                            re_and(m_br.mk_eq_rw(ele, hd), re().mk_to_re(tl)));
             return result;
-#else
-            return expr_ref(re().mk_derivative(ele, r), m());
-#endif
         }
+#endif
     }
     else if (re().is_reverse(r, r1) && re().is_to_re(r1, r2)) {
         // Reverses are rewritten so that the only derivative case is
@@ -2599,13 +2681,15 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         // This is analagous to the previous is_to_re case.
         expr_ref hd(m()), tl(m());
         if (get_head_tail_reversed(r2, hd, tl)) {
-            return re_and(m_br.mk_eq_rw(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
+            // Write 'tail is equal' as a range constraint:
+            // (ele <= tl) and (tl <= ele)
+            return mk_der_inter(
+                re_and(m_util.mk_le(ele, tl), re().mk_reverse(re().mk_to_re(hd))),
+                re_and(m_util.mk_le(tl, ele), re().mk_reverse(re().mk_to_re(hd)))
+            );
         }
         else if (str().is_empty(r2)) {
             return mk_empty();
-        }
-        else {
-            return expr_ref(re().mk_derivative(ele, r), m());
         }
     }
     else if (re().is_range(r, r1, r2)) {
@@ -2637,8 +2721,10 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         result = array.mk_select(2, args);
         return re_predicate(result, seq_sort);
     }
-    // stuck cases: re().is_derivative, variable, ...
-    // and re().is_reverse if the reverse is not applied to a string
+    // stuck cases: is_derivative, variable,
+    // str.to_re if it can't be simplified into a head character and tail
+    // and re().is_reverse if the reverse is not applied to a string thta
+    // can be coerced into a tail character and a head
     return expr_ref(re().mk_derivative(ele, r), m());
 }
 
