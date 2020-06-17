@@ -228,6 +228,7 @@ namespace smt {
         }
         else if (m.is_false(is_nullable)) {
             th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
+            // th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + re().min_length(r)));
         }
         else {
             literal is_nullable_lit = th.mk_literal(is_nullable);
@@ -395,6 +396,7 @@ namespace smt {
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
         STRACE("seq_regex", tout << "derivative: " << mk_pp(r, m) << std::endl;);
+        // STRACE("seq_regex_brief", tout << "derivative: " << mk_pp(r, m) << std::endl;);
         STRACE("seq_regex_brief", tout << " D";);
         expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);

@@ -2472,31 +2472,37 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         if (m().is_ite(b, cb, b1, b2)) {
             // --- Core logic for combining two BDDs
             if (ca == cb) {
-                expr_ref r1 = mk_der_op(k, a1, b1);
-                expr_ref r2 = mk_der_op(k, a2, b2);
+                r1 = mk_der_op(k, a1, b1);
+                r2 = mk_der_op(k, a2, b2);
                 result = mk_ite(ca, r1, r2);
                 return result;
             }
             // Order with higher IDs on the outside
-            if (ca->get_id() < cb->get_id()) {
-                std::swap(a, b);
-                std::swap(ca, cb);
-                std::swap(a1, b1);
-                std::swap(a2, b2);
-            }
+            // if (ca->get_id() < cb->get_id()) {
+            //     std::swap(a, b);
+            //     std::swap(ca, cb);
+            //     std::swap(a1, b1);
+            //     std::swap(a2, b2);
+            // }
             // Simplify if there is a relationship between ca and cb
             if (pred_implies(ca, cb)) {
                 r1 = mk_der_op(k, a1, b1);
+                // prevent memory ref count error
+                expr_ref _b2(b2, m());
             }
             else if (pred_implies(ca, expr_ref(m().mk_not(cb), m()))) {
                 r1 = mk_der_op(k, a1, b2);
+                expr_ref _b2(b1, m());
             }
             if (pred_implies(expr_ref(m().mk_not(ca), m()), cb)) {
                 r2 = mk_der_op(k, a2, b1);
+                // prevent memory ref count error
+                expr_ref _b2(b2, m());
             }
             else if (pred_implies(expr_ref(m().mk_not(ca), m()),
                                   expr_ref(m().mk_not(cb), m()))) {
                 r2 = mk_der_op(k, a2, b2);
+                expr_ref _b2(b1, m());
             }
             // --- End core logic
         }
