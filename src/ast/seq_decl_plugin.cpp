@@ -1325,6 +1325,8 @@ unsigned seq_util::re::min_length(expr* r) const {
         return std::max(min_length(r1), min_length(r2));
     if (is_loop(r, r1, lo, hi))
         return u.max_mul(lo, min_length(r1));
+    if (is_range(r)) 
+        return 1;
     if (is_to_re(r, s)) 
         return u.str.min_length(s);
     return 0;

@@ -35,13 +35,30 @@ namespace smt {
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
 
+    bool seq_regex::can_propagate() const {
+        for (auto const& p : m_to_propagate) {
+            literal trigger = p.m_trigger;
+            if (trigger == null_literal || ctx.get_assignment(trigger) != l_undef)
+                return true;
+        }
+        return false;
+    }
+
     bool seq_regex::propagate() {
         bool change = false;
         for (unsigned i = 0; !ctx.inconsistent() && i < m_to_propagate.size(); ++i) {
-            if (propagate(m_to_propagate[i])) {
+            propagation_lit const& pl = m_to_propagate[i];
+            literal trigger = pl.m_trigger;
+            if (trigger != null_literal && ctx.get_assignment(trigger) == l_undef)
+                continue;
+            if (propagate(pl.m_lit, trigger)) {
                 m_to_propagate.erase_and_swap(i--);
                 change = true;
             }
+            else if (trigger != pl.m_trigger) {
+                m_to_propagate.set(i, propagation_lit(pl.m_lit, trigger));
+            }
+                
         }
         return change;
     }
@@ -148,9 +165,11 @@ namespace smt {
     }
 
     void seq_regex::propagate_accept(literal lit) {
-        if (!propagate(lit))
-            m_to_propagate.push_back(lit);
-    }
+        // std::cout << "PA ";
+        literal t = null_literal;
+        if (!propagate(lit, t))
+            m_to_propagate.push_back(propagation_lit(lit, t));
+                                     }
 
     /**
      * Propagate the atom (accept s i r)
@@ -165,13 +184,15 @@ namespace smt {
      * (accept s i r) & len(s) > i => (accept s (+ i 1) D(nth(s,i), r))
      */
     
-    bool seq_regex::propagate(literal lit) {
+    bool seq_regex::propagate(literal lit, literal& trigger) {
         SASSERT(!lit.sign());
 
         expr* s = nullptr, *i = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
+
+        // std::cout << "\nP " << idx << " " << r->get_id() << " ";
 
         TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
 
@@ -185,7 +206,7 @@ namespace smt {
 
         propagate_nullable(lit, s, idx, r);
 
-        return propagate_derivative(lit, e, s, i, idx, r);
+        return propagate_derivative(lit, e, s, i, idx, r, trigger);
     }
 
     /**
@@ -208,6 +229,7 @@ namespace smt {
      */
 
     void seq_regex::propagate_nullable(literal lit, expr* s, unsigned idx, expr* r) {
+        // std::cout << "PN ";
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
         literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
@@ -216,6 +238,8 @@ namespace smt {
         }
         else if (m.is_false(is_nullable)) {
             th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
+            //unsigned len = std::max(1u, re().min_length(r));
+            //th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + re().min_length(r)));
         }
         else {
             literal is_nullable_lit = th.mk_literal(is_nullable);
@@ -237,8 +261,9 @@ namespace smt {
         }
     }
     
-    bool seq_regex::propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r) {
+    bool seq_regex::propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r, literal& trigger) {
         // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
+        // std::cout << "PD ";
         expr_ref d(m);
         expr_ref head = th.mk_nth(s, i);
 
@@ -271,6 +296,7 @@ namespace smt {
             case l_undef: 
 #if 1
                 ctx.mark_as_relevant(lcond);
+                trigger = lcond;
                 return false;
 #else
                 if (re().is_empty(tt)) {
@@ -303,6 +329,7 @@ namespace smt {
             conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
         th.add_axiom(conds);        
         TRACE("seq", tout << "unfold " << head << "\n" << mk_pp(r, m) << "\n";);
+        // std::cout << "D ";
         return true;
     }
 
