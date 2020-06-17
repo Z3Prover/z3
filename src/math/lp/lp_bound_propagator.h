@@ -68,7 +68,7 @@ class lp_bound_propagator {
     // by adjusting the vertices offsets, so they become absolute.
     // If the tree is fixed then in addition to checking with the m_offset_to_verts
     // we are going to check with the m_fixed_var_tables.
-    bool                                      m_tree_is_fixed;
+    vertex*                                   m_fixed_vertex;
     map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_offset_to_verts;
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned>    m_improved_lower_bounds;
@@ -79,6 +79,8 @@ class lp_bound_propagator {
         signed_index() : m_index(UINT_MAX) {}
         bool not_set() const { return m_index == UINT_MAX; }
         bool is_set() const { return m_index != UINT_MAX; }
+        bool sign() const { return m_sign; }
+        unsigned index() const { return m_index; }
     };
     
     T&                                        m_imp;
@@ -90,9 +92,10 @@ public:
         m_improved_lower_bounds.clear();
         m_ibounds.reset();
     }
-    lp_bound_propagator(T& imp): m_imp(imp),
-                                 m_root(nullptr),
-                                 m_tree_is_fixed(false) {}
+    lp_bound_propagator(T& imp): m_root(nullptr),
+                                 m_fixed_vertex(nullptr),
+                                 m_imp(imp) {}
+    
     const lar_solver& lp() const { return m_imp.lp(); }
     column_type get_column_type(unsigned j) const {
         return m_imp.lp().get_column_type(j);
@@ -227,15 +230,31 @@ public:
         return false;
     }
 
+    void try_add_equation_with_fixed_tables(vertex *v) {
+        SASSERT(m_fixed_vertex);
+        unsigned v_j = column(v);
+        unsigned j;
+        if (!lp().find_in_fixed_tables(v->offset(), is_int(v_j), j))
+            return;
+        ptr_vector<vertex> path;
+        find_path_on_tree(path, v, m_fixed_vertex);
+        explanation ex = get_explanation_from_path(path);
+        explain_fixed_column(ex, j);
+        add_eq_on_columns(ex, v_j, column(v));
+    }
+
+    
+    
     void create_root(unsigned row_index) {
-        SASSERT(!m_root && !m_tree_is_fixed);
+        SASSERT(!m_root && !m_fixed_vertex);
         signed_index x, y;
         mpq offset;
-        if (!is_offset_row_tree(nullptr, row_index, x, y, offset))
+        if (!is_offset_row_tree(row_index, x, y, offset))
             return;
         TRACE("cheap_eq", display_row_info(row_index, tout););
         if (y.not_set()) {
             m_root = alloc(vertex, row_index, x.m_index, offset);
+            m_fixed_vertex = m_root;
             return;
         }
         
@@ -243,52 +262,64 @@ public:
         m_root = alloc(vertex, row_index, x.m_index, mpq(0));
         // we have x + sign_y * y + offset = 0
         // x.offset is set to zero as x plays the role of m_root
-        // if sign_y = 1 then y.offset() = -offset - x.offset()
-        // else y.offset() = offset + x.offset()
-        if (y.m_sign)
+        // if sign_y = true then y.offset() = offset + x.offset()
+        // else y.offset() = - offset - x.offset()
+        if (!y.m_sign)
             offset.neg();
        
         vertex *v = alloc(vertex, row_index, y.m_index, offset);
         m_root->add_child(v);            
     }
-    
-    // returns the vertex to start exploration from
-    vertex* add_child_from_row(unsigned row_index, vertex* parent) {
-        NOT_IMPLEMENTED_YET();
-        /*
-        bool sign, parent_sign;
-        unsigned index = UINT_MAX, parent_index = ;
-        
-        const auto & row = lp().get_row(row_index);
-        for (unsigned k = 0; k < row.size(); k++) {
-            const auto& c = row[k];
-            if (column_is_fixed(c.var()) ||
-                c.var() == column(parent) ||
-                set_sign_and_index(c.coeff(), index, x_sign))
-                continue;
-            return nullptr;
-        }
-        if (index == UINT_MAX) {
-            // start fixed tree phase
-            NOT_IMPLEMENTED_YET();
-        } else {
-            mpq offset(0);
-            for (const auto& c : row)
-                if (column_is_fixed(c.var()))
-                    offset += c.coeff() * get_lower_bound_rational(c.var());
 
-            // make x             
-            if (offset.is_zero() &&
-                !is_equal(row[x_index].var(), row[y_index].var())) {
-                lp::explanation ex;
-                explain_fixed_in_row(row_index, ex);
-                add_eq_on_columns(ex, row[x_index].var(), row[y_index].var());
+    unsigned column(unsigned row, unsigned index) {
+        return lp().get_row(row)[index].var();
+    }
+    
+    // returns the vertex to start exploration from, or nullptr
+    vertex* add_child_from_row(unsigned row_index, vertex* parent) {
+        signed_index x, y;
+        mpq offset;
+        if (!is_offset_row_tree(row_index, x, y, offset))
+            return nullptr;
+        if (y.not_set()) {
+            SASSERT(column(parent) == column(row_index, x.m_index));
+            if (m_fixed_vertex) {
+                vertex* v =  alloc(vertex, row_index, x.m_index, - offset);
+                parent->add_child(v);
+                return v;
             }
-            return true;
+            vertex *v = alloc(vertex, row_index, x.m_index, parent->offset());
+            m_fixed_vertex = v;
+            parent->add_child(v);
+            // need to shift the tree so  v.offset() becomes equal to - offset
+            shift_offsets_by_delta(m_root, - offset - parent->offset());
+            return v;
         }
-        */
-        NOT_IMPLEMENTED_YET();
-        return nullptr;
+        SASSERT(x.is_set() && y.is_set());
+        if (column(parent) == column(row_index, x.index())) {
+            vertex *vx = alloc(vertex, row_index, x.index(), parent->offset());
+            // mpq x_c = rat_sign(x.sign());
+            // mpq y_c = rat_sign(y.sign());
+            // we have x_c*x + y_c*y + offset = 0
+            // y = - offset/y_c - ( x_c/y_c )vx.offset;
+            bool x_c_y_c = x.sign() ^ y.sign();
+            mpq y_offs = (y.sign()? offset: - offset) - (x_c_y_c? - vx->offset() : vx->offset());
+            vertex *vy = alloc(vertex, row_index, y.index(), y_offs);
+            parent->add_child(vx);
+            vx->add_child(vy);
+            return vy; // start exploring from vy
+        } else {
+            vertex *vy = alloc(vertex, row_index, y.index(), parent->offset());
+            // mpq x_c = rat_sign(x.sign());
+            // mpq y_c = rat_sign(y.sign());
+            // we have x_c*x + y_c*y + offset = 0
+            // x = - offset/x_c - ( y_c/x_c )vy.offset;
+            bool y_c_x_c = x.sign() ^ y.sign();
+            mpq x_offs = (x.sign()? offset: -offset) - (y_c_x_c? - vy->offset():  vy->offset());
+            vertex *vx = alloc(vertex, row_index, y.index(), x_offs);
+            vy->add_child(vx);
+            return vx;
+        }
     }
 
     bool is_equal(lpvar j, lpvar k) const {        
@@ -307,7 +338,7 @@ public:
             m_offset_to_verts.insert(v->offset(), v);
         }
 
-        if (m_tree_is_fixed) {
+        if (m_fixed_vertex) {
             unsigned j;
             unsigned v_col = column(v);
             if (lp().find_in_fixed_tables(v->offset(), is_int(v_col), j)) {
@@ -472,15 +503,19 @@ public:
     }
 
     void explain_fixed_in_row(unsigned row, explanation& ex) const {
-        constraint_index lc, uc;
         for (const auto & c : lp().get_row(row)) {
-            lpvar j = c.var();
-            if (lp().is_fixed(j)) {               
-                lp().get_bound_constraint_witnesses_for_column(j, lc, uc);
-                ex.push_back(lc);
-                ex.push_back(uc);
+            if (lp().is_fixed(c.var())) {
+                explain_fixed_column(ex, c.var());
             }
         }
+    }
+
+    void explain_fixed_column(explanation & ex, unsigned j) const {
+        SASSERT(column_is_fixed(j));
+        constraint_index lc, uc;            
+        lp().get_bound_constraint_witnesses_for_column(j, lc, uc);
+        ex.push_back(lc);
+        ex.push_back(uc);        
     }
     
     std::ostream& display_row_of_vertex(vertex* k, std::ostream& out) const {
@@ -579,14 +614,11 @@ public:
             return;
         }
         SASSERT(tree_is_correct());
-        TRACE("cheap_eq", lp().get_int_solver()->display_row_info(tout, row_index););
-        SASSERT(tree_is_correct());
         explore_under(m_root);
         TRACE("cheap_eq", tout << "done for row_index " << row_index << "\n";);
         TRACE("cheap_eq", tout << "tree size = " << verts_size(););
         delete_tree(m_root);
-        m_root = nullptr;
-        m_tree_is_fixed = false;
+        m_root =  m_fixed_vertex = nullptr;
     }
 
     unsigned verts_size() const {
@@ -651,6 +683,8 @@ public:
     }
     
     void explore_under(vertex * v) {
+        if (m_fixed_vertex)
+            try_add_equation_with_fixed_tables(v);
         check_for_eq_and_add_to_offset_table(v);
         go_over_vertex_column(v);
         // v might change in m_vertices expansion
@@ -660,9 +694,8 @@ public:
     }
 
     void switch_to_fixed_mode_in_tree(vertex *v, const mpq& new_v_offset) {
-        m_tree_is_fixed = true;
-        if (v == nullptr)
-            return;
+        SASSERT(v);
+        m_fixed_vertex = v;
         mpq delta = new_v_offset - v->offset();
         shift_offsets_by_delta(m_root, delta);
         SASSERT(v->offset() == new_v_offset);
@@ -674,9 +707,11 @@ public:
             shift_offsets_by_delta(c, d);
         }
     }
-    
+
+    // Will return x such that x.m_sign = false.
+    // In case of only one non fixed column, and the function returns true,
+    // this column would be represened by x
     bool is_offset_row_tree(
-        vertex* v,  // a vertex from this row, or nullptr
         unsigned row_index,
         signed_index & x,
         signed_index & y,
@@ -720,13 +755,7 @@ public:
                 y.m_sign = !y.m_sign;
             }
             offset.neg();
-        }
-
-        if (!m_tree_is_fixed && y.not_set()) {
-            SASSERT(v == nullptr || v->index() == x.m_index);
-            switch_to_fixed_mode_in_tree(v, offset);
-        }
-        
+        }        
         return true;
     }    
 
