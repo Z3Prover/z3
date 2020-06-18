@@ -113,6 +113,7 @@ struct statistics {
     unsigned m_cross_nested_forms;
     unsigned m_grobner_calls;
     unsigned m_grobner_conflicts;
+    unsigned m_cheap_eqs;
     statistics() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -138,7 +139,7 @@ private:
     // used for messages, for example, the computation progress messages
     std::ostream*             m_message_out;
 
-    statistics                     m_stats;
+    statistics                m_stats;
     random_gen                m_rand;
 
 public:

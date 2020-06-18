@@ -3886,6 +3886,7 @@ public:
         st.update("arith-gomory-cuts", m_stats.m_gomory_cuts);
         st.update("arith-assume-eqs", m_stats.m_assume_eqs);
         st.update("arith-branch", m_stats.m_branch);
+        st.update("arith-cheap-eqs", lp().settings().stats().m_cheap_eqs);
     }        
 
     /*
