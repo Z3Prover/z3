@@ -61,10 +61,10 @@ class lp_bound_propagator {
         }
         const ptr_vector<vertex> & children() const { return m_children; }
         std::ostream& print(std::ostream & out) const {
-            out << "row = " << m_row << ", column = " << m_column << ", parent = {";
+            out << "r = " << m_row << ", c = " << m_column << ", P = {";
             if (m_parent) { tout << "(" << m_parent->row() << ", " << m_parent->column() << ")";}
             else { tout << "null"; }
-            tout <<  "} , offfset = " << m_offset  << ", level = " << m_level;
+            tout <<  "} , offs = " << m_offset  << ", lvl = " << m_level << (neg()? " -":" +");
             return out;
         }
         bool operator==(const vertex& o) const {
@@ -294,7 +294,7 @@ public:
             return;
         if (y.not_set()) {
             m_root = alloc_v(row_index, x.column(), offset, false);
-            m_fixed_vertex = m_root;
+            set_fixed_vertex(m_root);
             return;
         }
         
@@ -379,8 +379,8 @@ public:
                 return v;
             }
             vertex *v = alloc_v( row_index, x.column(), parent->offset(), false);
-            m_fixed_vertex = v;
             parent->add_child(v);
+            set_fixed_vertex(v);
             switch_to_fixed_mode_in_tree(m_root, offs - parent->offset());
             return v;
         }
@@ -467,7 +467,7 @@ public:
         find_path_on_tree(path, v_i, v_j);
         TRACE("cheap_eq", tout << "path = \n";
               for (vertex* k : path) {
-                  display_row_of_vertex(k, tout);
+                  k->print(tout) << "\n";
               });
         lp::explanation exp = get_explanation_from_path(path);
         add_eq_on_columns(exp, v_i->column(), v_j->column());
@@ -710,11 +710,16 @@ public:
         TRACE("cheap_eq", tout << "done for row_index " << row_index << "\n";);
         TRACE("cheap_eq", tout << "tree size = " << verts_size(););
         delete_tree(m_root);
-        m_root =  m_fixed_vertex = nullptr;
+        m_root = nullptr;
+        set_fixed_vertex(nullptr);
         m_offset_to_verts.reset();
         m_offset_to_verts_neg.reset();
     }
 
+    void set_fixed_vertex(vertex *v) {
+        TRACE("cheap_eq", if (v) v.print(tout); else tout << "set m_fixed_vertex to nullptr"; tout << "\n";);
+        m_fixed_vertex = v;
+    }
     unsigned verts_size() const {
         return subtree_size(m_root);
     }
@@ -769,7 +774,7 @@ public:
 
     void switch_to_fixed_mode_in_tree(vertex *v, const mpq& new_v_offset) {
         SASSERT(v);
-        m_fixed_vertex = v;
+        set_fixed_vertex(v);
         mpq delta = new_v_offset - v->offset();
         switch_to_fixed_mode(m_root, delta);
         SASSERT(v->offset() == new_v_offset);
