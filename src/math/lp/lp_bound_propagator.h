@@ -312,7 +312,54 @@ public:
     unsigned column(unsigned row, unsigned index) {
         return lp().get_row(row)[index].var();
     }
+
+    bool fixed_phase() const { return m_fixed_vertex; }
+
+    vertex * add_child_from_row_continue_fixed(vertex *v, signed_column& y, const mpq& offset) {
+        SASSERT(!v->neg());
+        mpq y_offs = y.sign()? v->offset() + offset: - v->offset() - offset;
+        vertex *vy = alloc_v(v->row(), y.column(), y_offs, false);
+        v->add_child(vy);
+        return v;
+    }
     
+    vertex *add_child_from_row_continue(vertex *v, signed_column& y, const mpq& offset) {
+        if (fixed_phase())
+            return add_child_from_row_continue_fixed(v, y, offset);
+        // create a vertex for y
+        // see the explanation below
+        mpq y_offs = v->neg()? - v->offset() - offset: v->offset() + offset;
+        bool neg = v->neg() ^ y.sign();        
+        vertex *vy = alloc_v(v->row(), y.column(), y_offs, neg);
+        v->add_child(vy);
+        return v;
+#if 0        
+        if (v->neg()) { // have to use -x
+            // it means that v->offset is the distance of -x from the root
+            if (y.sign()) {
+                // we have x - y + offset = 0, or y = x + offset, or -y = -x - offset
+                neg = true;
+                y_offs = - v->offset() - offset;
+            } else {
+                // we have x + y + offset = 0, or -y = x + offset, or y = -x - offset
+                neg = false;
+                y_offs = - v->offset() - offset;
+            }
+        } else { 
+            SASSERT(!v->neg()); // have to use x
+            if (y.sign()) {
+                // we have x - y + offset = 0, or y = x + offset
+                neg = false;
+                y_offs = v->offset() + offset;
+            } else {
+                // we have x + y + offset = 0, or -y = x + offset
+                neg = true;
+                y_offs = v->offset() + offset;
+            }            
+        }
+#endif
+    }
+
     // returns the vertex to start exploration from, or nullptr
     // parent->column() is present in the row
     vertex* add_child_from_row(unsigned row_index, vertex* parent) {
@@ -324,7 +371,7 @@ public:
             // x.sign() * x + offset = 0 
             SASSERT(parent->column() == x.column());
             mpq offs = x.sign()? offset: -offset;
-            if (m_fixed_vertex) {                
+            if (fixed_phase()) {                
                 // now the neg, the last argument, is false since all offsets are
                 // absolute
                 vertex* v =  alloc_v( row_index, x.column(), offs , false);
@@ -337,34 +384,22 @@ public:
             switch_to_fixed_mode_in_tree(m_root, offs - parent->offset());
             return v;
         }
+        
         SASSERT(x.is_set() && y.is_set());
-        if (parent->column() == x.column()) {
-            vertex *vx = alloc_v( row_index, x.column(), parent->offset(), parent->neg());
-            // mpq x_c = rat_sign(x.sign());
-            // mpq y_c = rat_sign(y.sign());
-            // we have x_c*x + y_c*y + offset = 0
-            // y = - offset/y_c - ( x_c/y_c )vx.offset;
-            bool x_c_y_c = x.sign() ^ y.sign();
-            mpq y_offs = (y.sign()? offset: - offset) - (x_c_y_c? - vx->offset() : vx->offset());
-            vertex *vy = alloc_v( row_index, y.column(), y_offs, x.sign() != y.sign()? parent->neg(): !parent->neg());
-            parent->add_child(vx);
-            vx->add_child(vy);
-            return vy; // start exploring from vy
-        } else {
-            SASSERT(parent->column() == y.column());
-            vertex *vy = alloc_v( row_index, y.column(), parent->offset(), parent->neg());
-            // mpq x_c = rat_sign(x.sign());
-            // mpq y_c = rat_sign(y.sign());
-            // we have x_c*x + y_c*y + offset = 0
-            // x = - offset/x_c - ( y_c/x_c )vy.offset;
-            //TODO - m_fixed_vertex
-            bool y_c_x_c = x.sign() ^ y.sign();
-            mpq x_offs = (x.sign()? offset: -offset) - (y_c_x_c? - vy->offset():  vy->offset());
-            vertex *vx = alloc_v(row_index, x.column(), x_offs, x.sign() != y.sign()? parent->neg(): !parent->neg());
-            parent->add_child(vy);
-            vy->add_child(vx);
-            return vx;
+
+        // v is exactly like parent, but the row is different
+        vertex *v = alloc_v(row_index, parent->column(), parent->offset(), parent->neg());        
+        parent->add_child(v);
+        SASSERT(x.column() == v->column() || y.column() == v->column());
+        if (y.column() == v->column()) {
+            std::swap(x, y); // we want x.column() to be the some as v->column() for convenience
         }
+        if (x.sign()) {
+            x.sign() = false;
+            y.sign() = !y.sign();
+            offset.neg(); // now we have x +-y + offset = 0
+        }
+        return add_child_from_row_continue(v, y, offset);
     }
 
     bool is_equal(lpvar j, lpvar k) const {        
@@ -385,7 +420,7 @@ public:
     
     void check_for_eq_and_add_to_offsets(vertex* v) {
         TRACE("cheap_eq_det", v->print(tout) << "\n";);
-        if (!m_fixed_vertex) {
+        if (!fixed_phase()) {
             if (v->neg())
                 check_for_eq_and_add_to_offset_table(v, m_offset_to_verts_neg);
             else 
@@ -635,7 +670,7 @@ public:
         return false;
     }
     bool tree_is_correct(vertex* v, ptr_vector<vertex>& vs) const {
-        if (m_fixed_vertex && v->neg())
+        if (fixed_phase() && v->neg())
             return false;
         for (vertex * u : v->children()) {
             if (contains_vertex(u, vs)) 
@@ -722,7 +757,7 @@ public:
     }
     
     void explore_under(vertex * v) {
-        if (m_fixed_vertex)
+        if (fixed_phase())
             try_add_equation_with_fixed_tables(v);
         check_for_eq_and_add_to_offsets(v);
         go_over_vertex_column(v);
