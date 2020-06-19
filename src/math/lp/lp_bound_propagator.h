@@ -253,8 +253,10 @@ public:
         SASSERT(m_fixed_vertex);
         unsigned v_j = v->column();
         unsigned j;
-        if (!lp().find_in_fixed_tables(v->offset(), is_int(v_j), j))
+        if (!lp().find_in_fixed_tables(v->offset(), is_int(v_j), j)) 
             return;
+        TRACE("cheap_eq", tout << "found j=" << j << " for v=";
+              v->print(tout) << "\n in lp.fixed tables\n";);
         ptr_vector<vertex> path;
         find_path_on_tree(path, v, m_fixed_vertex);
         explanation ex = get_explanation_from_path(path);
@@ -286,14 +288,24 @@ public:
     }
     
     void create_root(unsigned row_index) {
+        ++lp().settings().ddd;
+        TRACE("cheap_eq", tout << "ddd = " << lp().settings().ddd << "\n";);
         SASSERT(!m_root && !m_fixed_vertex);
         signed_column x, y;
         mpq offset;
         TRACE("cheap_eq", display_row_info(row_index, tout););
         if (!is_tree_offset_row(row_index, x, y, offset))
             return;
+        if (x.sign()) { // make the coeff before x positive
+            offset.neg();
+            if (y.is_set()) {
+                y.sign() = !y.sign();
+            }
+            x.sign() = false;
+        }
         if (y.not_set()) {
-            m_root = alloc_v(row_index, x.column(), offset, false);
+            // x + offset = 0
+            m_root = alloc_v(row_index, x.column(), -offset, false); 
             set_fixed_vertex(m_root);
             return;
         }
@@ -303,9 +315,9 @@ public:
         // we have x + y.sign() * y + offset = 0
         // x.offset is set to zero as x plays the role of m_root
         // if sign_y = true then y.offset() = offset + x.offset()
-        // else (!y.sign())*y =  x + offset
-
-        vertex *v = alloc_v( row_index, y.column(), offset, !y.sign());
+        // else (!y.sign())*y =  x + offset, so neg = !y.sign()
+        bool neg = !y.sign();        
+        vertex *v = alloc_v( row_index, y.column(), offset, neg);
         m_root->add_child(v);            
     }
 
@@ -363,10 +375,13 @@ public:
     // returns the vertex to start exploration from, or nullptr
     // parent->column() is present in the row
     vertex* add_child_from_row(unsigned row_index, vertex* parent) {
+        TRACE("cheap_eq", display_row_info(row_index, tout););
         signed_column x, y;
         mpq offset;
-        if (!is_tree_offset_row(row_index, x, y, offset))
+        if (!is_tree_offset_row(row_index, x, y, offset)) {
+            TRACE("cheap_eq", tout << "not an offset row\n"; );
             return nullptr;
+        }
         if (y.not_set()) {
             // x.sign() * x + offset = 0 
             SASSERT(parent->column() == x.column());
@@ -376,12 +391,14 @@ public:
                 // absolute
                 vertex* v =  alloc_v( row_index, x.column(), offs , false);
                 parent->add_child(v);
+                TRACE("cheap_eq", tout << "fixed phase, adding v = "; v->print(tout) << "\n"; );
                 return v;
             }
             vertex *v = alloc_v( row_index, x.column(), parent->offset(), false);
             parent->add_child(v);
             set_fixed_vertex(v);
             switch_to_fixed_mode_in_tree(m_root, offs - parent->offset());
+            TRACE("cheap_eq", tout << "after switching to fixed phase, adding v = "; v->print(tout) << "\n"; );
             return v;
         }
         
@@ -399,7 +416,9 @@ public:
             y.sign() = !y.sign();
             offset.neg(); // now we have x +-y + offset = 0
         }
-        return add_child_from_row_continue(v, y, offset);
+        vertex * t = add_child_from_row_continue(v, y, offset);
+        TRACE("cheap_eq", tout << "not a fixed phase, adding t = "; t->print(tout) << "\n"; );
+        return t;
     }
 
     bool is_equal(lpvar j, lpvar k) const {        
@@ -409,6 +428,7 @@ public:
     void check_for_eq_and_add_to_offset_table(vertex* v,  map<mpq, vertex*, obj_hash<mpq>, mpq_eq>& table) {
         vertex *k; // the other vertex
         if (table.find(v->offset(), k)) {
+            TRACE("cheap_eq", tout << "found k " ; k->print(tout) << "\n";);
             if (k->column() != v->column() &&
                 !is_equal(k->column(), v->column()))
                 report_eq(k, v);
@@ -421,7 +441,11 @@ public:
     void check_for_eq_and_add_to_offsets(vertex* v) {
         TRACE("cheap_eq_det", v->print(tout) << "\n";);
         if (!fixed_phase()) {
-            if (v->neg())
+            if (!v->neg() && v->offset().is_zero()) {
+                if (m_root->column() != v->column() &&
+                !is_equal(m_root->column(), v->column()))
+                report_eq(m_root, v);
+            } else if (v->neg())
                 check_for_eq_and_add_to_offset_table(v, m_offset_to_verts_neg);
             else 
                 check_for_eq_and_add_to_offset_table(v, m_offset_to_verts);                
@@ -454,23 +478,34 @@ public:
         m_root = nullptr;
     }
 
+    std::ostream& print_path(const ptr_vector<vertex>& path, std::ostream& out) const {
+        unsigned pr = UINT_MAX;
+        out << "path = \n";
+        for (vertex* k : path) {
+            k->print(out) << "\n";
+            if (k->row() != pr) {
+                display_row_info(pr = k->row(), out);
+            }
+        }
+        return out;
+    }
+    
     // we have v_i and v_j, indices of vertices at the same offsets
     void report_eq(vertex* v_i, vertex* v_j) {
         SASSERT(v_i != v_j);
+        SASSERT(lp().get_column_value(v_i->column()) == lp().get_column_value(v_j->column()));
         TRACE("cheap_eq", tout << v_i->column() << " = " << v_j->column() << "\nu = ";
               v_i->print(tout) << "\nv = "; v_j->print(tout) <<"\n";
               display_row_of_vertex(v_i, tout);
-              display_row_of_vertex(v_j, tout);              
+              if (v_j->row() != v_i->row())
+                  display_row_of_vertex(v_j, tout);              
               );
         
         ptr_vector<vertex> path;
         find_path_on_tree(path, v_i, v_j);
-        TRACE("cheap_eq", tout << "path = \n";
-              for (vertex* k : path) {
-                  k->print(tout) << "\n";
-              });
         lp::explanation exp = get_explanation_from_path(path);
         add_eq_on_columns(exp, v_i->column(), v_j->column());
+        
     }
 
     void add_eq_on_columns(const explanation& exp, lpvar j, lpvar k) {
@@ -618,6 +653,7 @@ public:
     }
 
     void find_path_on_tree(ptr_vector<vertex> & path, vertex* u, vertex* v) const {
+        TRACE("cheap_eq_details", tout << "u = " ;u->print(tout); tout << "\nv = ";v->print(tout) << "\n";); 
         vertex* up; // u parent
         vertex* vp; // v parent
         ptr_vector<vertex> v_branch;
@@ -638,7 +674,7 @@ public:
             v = vp;
         }
         SASSERT(u->level() == v->level());
-        TRACE("cheap_eq", tout << "u = " ;u->print(tout); tout << "\nv = ";v->print(tout);); 
+        TRACE("cheap_eq_details", tout << "u = " ;u->print(tout); tout << "\nv = ";v->print(tout) << "\n";); 
         while (u != v) {
             if (u->row() == v->row() && u->offset() == v->offset()) // we have enough explanation now
                 break;
@@ -653,8 +689,11 @@ public:
         }
         
         for (unsigned i = v_branch.size(); i--; ) {
-            path.push_back(v_branch[i]);
+            vertex * bv = v_branch[i];
+            if (path.back() != bv)                
+                path.push_back(bv);
         }
+        TRACE("cheap_eq", print_path(path, tout););
     }
     
     bool tree_is_correct() const {
@@ -717,7 +756,7 @@ public:
     }
 
     void set_fixed_vertex(vertex *v) {
-        TRACE("cheap_eq", if (v) v.print(tout); else tout << "set m_fixed_vertex to nullptr"; tout << "\n";);
+        TRACE("cheap_eq", if (v) v->print(tout); else tout << "set m_fixed_vertex to nullptr"; tout << "\n";);
         m_fixed_vertex = v;
     }
     unsigned verts_size() const {
