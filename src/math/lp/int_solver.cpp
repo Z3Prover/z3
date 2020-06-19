@@ -485,14 +485,27 @@ bool int_solver::at_upper(unsigned j) const {
 
 std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
     auto & rslv = lrac.m_r_solver;
+    bool first = true;
     for (const auto &c: rslv.m_A.m_rows[row_index]) {
-        if (numeric_traits<mpq>::is_pos(c.coeff()))
-            out << "+";
-        if (c.coeff().is_big())
-            out << "b*";
-        else
-            out << c.coeff();
+        if (c.coeff().is_one()) {
+            if (!first)
+                out << "+";
+        }
+        else if (c.coeff().is_minus_one())
+            out << "-";                     
+        else {
+            if (c.coeff().is_pos()) {
+                if (!first)
+                    out << "+";
+            }
+            if (c.coeff().is_big()) {
+                out << " b*";
+            }
+            else 
+                out << c.coeff();
+        }
         out << rslv.column_name(c.var()) << " ";
+        first = false;
     }
     out << "\n";
     for (const auto& c: rslv.m_A.m_rows[row_index]) {
