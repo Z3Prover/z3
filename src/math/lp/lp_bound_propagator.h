@@ -21,7 +21,11 @@ class lp_bound_propagator {
     // The set of all pair are organised in a tree.
     // The edges of the tree are of the form ((row,x), (row, y)) for an offset row,
     // or ((row, u), (other_row, v)) where the "other_row" is an offset row too,
-    // and u, v reference the same column
+    // and u, v reference the same column.
+    // Vertices with m_neg set to false grow with the same rate as the root.
+    // Vertices with m_neq set to true diminish with the same rate as the roow grows.
+    // When two vertices with the same m_neg have the same value of columns
+    // then we have an equality betweet the columns.
     class vertex {        
         unsigned           m_row; 
         unsigned           m_column;
@@ -29,8 +33,7 @@ class lp_bound_propagator {
         vertex*            m_parent;
         unsigned           m_level; // the distance in hops to the root;
                                     // it is handy to find the common ancestor
-        bool               m_neg;  // if false then the offset means the distance from the root to column value
-                                   // if true, then  - to minus column value
+        bool               m_neg; // false if grows with the root, true if grows with -root
     public:
         vertex() {}
         vertex(unsigned row,
