@@ -2182,17 +2182,17 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
-    STRACE("seq_regex_verbose", tout << "nullable";);
+    STRACE("seq_regex_brief", tout << "n";);
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
     if (!result) {
         result = is_nullable_rec(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
     }
-    STRACE("seq_regex_verbose", tout << std::endl;);
     return result;
 }
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
+    STRACE("seq_regex_brief", tout << ".";); // recursive call
     SASSERT(m_util.is_re(r) || m_util.is_seq(r));
     expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
     sort* seq_sort = nullptr;
@@ -2367,13 +2367,12 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         Duplicate nested conditions are eliminated.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    STRACE("seq_regex_verbose", tout << "derivative";);
+    STRACE("seq_regex_brief", tout << "d";);
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
         result = mk_derivative_rec(ele, r);
         m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
     }
-    STRACE("seq_regex_verbose", tout << std::endl;);
     return result;
 }
 
@@ -2459,6 +2458,7 @@ bool seq_rewriter::pred_implies(expr* a, expr* b) {
         - result is in BDD form
 */
 expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
+    STRACE("seq_regex_brief", tout << ".";); // recursive call
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
     expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
     expr_ref result(m());
@@ -2469,8 +2469,10 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
     // auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
     if (m().is_ite(a, ca, a1, a2)) {
         expr_ref r1(m()), r2(m());
+        expr_ref notca(m().mk_not(ca), m());
         if (m().is_ite(b, cb, b1, b2)) {
             // --- Core logic for combining two BDDs
+            expr_ref notcb(m().mk_not(cb), m());
             if (ca == cb) {
                 r1 = mk_der_op(k, a1, b1);
                 r2 = mk_der_op(k, a2, b2);
@@ -2487,22 +2489,15 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
             // Simplify if there is a relationship between ca and cb
             if (pred_implies(ca, cb)) {
                 r1 = mk_der_op(k, a1, b1);
-                // prevent memory ref count error
-                expr_ref _b2(b2, m());
             }
-            else if (pred_implies(ca, expr_ref(m().mk_not(cb), m()))) {
+            else if (pred_implies(ca, notcb)) {
                 r1 = mk_der_op(k, a1, b2);
-                expr_ref _b2(b1, m());
             }
-            if (pred_implies(expr_ref(m().mk_not(ca), m()), cb)) {
+            if (pred_implies(notca, cb)) {
                 r2 = mk_der_op(k, a2, b1);
-                // prevent memory ref count error
-                expr_ref _b2(b2, m());
             }
-            else if (pred_implies(expr_ref(m().mk_not(ca), m()),
-                                  expr_ref(m().mk_not(cb), m()))) {
+            else if (pred_implies(notca, notcb)) {
                 r2 = mk_der_op(k, a2, b2);
-                expr_ref _b2(b1, m());
             }
             // --- End core logic
         }
@@ -2572,7 +2567,7 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
 }
 
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
-    STRACE("seq_regex_verbose", tout << " (rec)";);
+    STRACE("seq_regex_brief", tout << ".";); // recursive call
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
         expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
@@ -2587,7 +2582,7 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
 }
 
 expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
-    STRACE("seq_regex_verbose", tout << " (rec)";);
+    STRACE("seq_regex_brief", tout << ".";); // recursive call
     expr_ref result(m());
     sort* seq_sort = nullptr, *ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
@@ -4186,7 +4181,7 @@ expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     m_table.find(e, e);
 
     if (!(e.r)) {
-        STRACE("seq_regex_verbose", tout << " (cache miss)";);
+        STRACE("seq_regex_brief", tout << "!";); // cache miss
     }
 
     return e.r;
