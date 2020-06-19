@@ -515,6 +515,7 @@ std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_inde
     return out;
 }
 
+
 bool int_solver::shift_var(unsigned j, unsigned range) {
     if (is_fixed(j) || is_base(j))
         return false;
