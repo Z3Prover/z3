@@ -2331,7 +2331,7 @@ theory_var theory_seq::mk_var(enode* n) {
 }
 
 bool theory_seq::can_propagate() {
-    return m_axioms_head < m_axioms.size() || !m_replay.empty() || m_new_solution || m_unicode.can_propagate();
+    return m_axioms_head < m_axioms.size() || !m_replay.empty() || m_new_solution || m_unicode.can_propagate() || m_regex.can_propagate();
 }
 
 bool theory_seq::canonize(expr* e, dependency*& eqs, expr_ref& result) {

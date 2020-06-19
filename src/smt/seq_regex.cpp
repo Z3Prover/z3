@@ -293,7 +293,7 @@ namespace smt {
                 conds.push_back(lcond);
                 d = el;
                 break;
-            case l_undef: 
+            case l_undef:
 #if 1
                 ctx.mark_as_relevant(lcond);
                 trigger = lcond;
@@ -315,6 +315,7 @@ namespace smt {
                 }
                 else {
                     ctx.mark_as_relevant(lcond);
+                    trigger = lcond;
                     return false;
                 }
                 break;

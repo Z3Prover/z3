@@ -288,6 +288,8 @@ class pdecl_manager {
 
     obj_map<sort, sort_info *>   m_sort2info; // for pretty printing sorts
     obj_hashtable<sort>          m_notified;
+    ptr_vector<sort>             m_notified_trail;
+    unsigned_vector              m_notified_lim;
 
     void init_list();
     void del_decl_core(pdecl * p);
@@ -318,6 +320,8 @@ public:
     sort * instantiate_datatype(psort_decl* p, symbol const& name, unsigned n, sort * const* s);
     sort * instantiate(psort * s, unsigned num, sort * const * args);
     void notify_datatype(sort *r, psort_decl* p, unsigned n, sort* const* s);
+    void push();
+    void pop(unsigned n);
 
     void lazy_dec_ref(pdecl * p) { p->dec_ref(); if (p->get_ref_count() == 0) m_to_delete.push_back(p); }
     template<typename T>
