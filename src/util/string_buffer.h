@@ -16,8 +16,7 @@
   Revision History:
 
   --*/
-#ifndef STRING_BUFFER_H_
-#define STRING_BUFFER_H_
+#pragma once
 
 #include<cstdio>
 #include<string>
@@ -43,8 +42,6 @@ class string_buffer {
         m_capacity = new_capacity;
         m_buffer   = new_buffer;
     }
-
-    static const unsigned c_buffer_size = 24;
 
 public:  
     string_buffer():
@@ -82,34 +79,22 @@ public:
     }
 
     void append(int n) {
-        char buffer[c_buffer_size]; 
-        SPRINTF_D(buffer, n);
-        append(buffer);
+        auto str = std::to_string(n);
+        append(str.c_str());
     }
 
     void append(unsigned n) {
-        char buffer[c_buffer_size]; 
-        SPRINTF_U(buffer, n);
-        append(buffer);
+        auto str = std::to_string(n);
+        append(str.c_str());
     }
 
     void append(long n) {
-        char buffer[c_buffer_size]; 
-#ifdef _WINDOWS
-        sprintf_s(buffer, Z3_ARRAYSIZE(buffer), "%ld", n);
-#else
-        sprintf(buffer, "%ld", n);
-#endif
-        append(buffer);
+        auto str = std::to_string(n);
+        append(str.c_str());
     }
 
     void append(bool b) {
-        if (b) {
-            append("true");
-        }
-        else {
-            append("false");
-        }
+        append(b ? "true" : "false");
     }
 
     unsigned size() const {
@@ -171,5 +156,3 @@ inline string_buffer<SZ1> & operator<<(string_buffer<SZ1> & buffer1, const strin
     buffer1.append(buffer2.c_str());
     return buffer1;
 }
-
-#endif

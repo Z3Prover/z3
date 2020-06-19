@@ -123,13 +123,11 @@ namespace smt {
             unsigned idx     = n->get_decl()->get_parameter(0).get_int();
             SASSERT(a->m_occs == 0);
             a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
-#if 0
-            // possible fix for #2182, but effect of fix needs to be checked.
+            // Fix for #2182, and SPACER bit-vector
             if (idx < m_bits[v_arg].size()) {
                 ctx.mk_th_axiom(get_id(), m_bits[v_arg][idx], literal(bv, true));
                 ctx.mk_th_axiom(get_id(), ~m_bits[v_arg][idx], literal(bv, false));
             }      
-#endif      
         }
         // axiomatize bit2bool on constants.
         rational val;

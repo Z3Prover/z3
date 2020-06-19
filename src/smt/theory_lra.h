@@ -95,6 +95,8 @@ namespace smt {
         
         void collect_statistics(::statistics & st) const override;
 
+        void setup() override;
+
         void add_theory_assumptions(expr_ref_vector& assumptions) override;
 
         bool should_research(expr_ref_vector& unsat_core) override;

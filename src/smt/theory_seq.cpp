@@ -2525,6 +2525,8 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 void theory_seq::propagate() {
     if (ctx.get_fparams().m_seq_use_unicode)
         m_unicode.propagate();
+    if (ctx.get_fparams().m_seq_use_derivatives && m_regex.can_propagate())
+        m_regex.propagate();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
         e = m_axioms[m_axioms_head].get();

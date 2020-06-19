@@ -293,13 +293,17 @@ namespace spacer {
         for (unsigned i = 1, sz = parents.size(); i < sz; ++i) {
             app *p = to_app(m.get_fact(parents.get(i)));
             rational const &r = params[i+1].get_rational();
+            TRACE("spacer.fkab", tout << "Adding to LCB: " << mk_pp(p, m) << "\n";);
             lcb.add_lit(p, r);
         }
 
         expr_ref lit0(m);
         lit0 = m.get_fact(parents.get(0));
+
         // put lit0 into canonical form
-        rw(lit0);
+        // XXX this might simplify a coefficient of a variable leading to unsoundness.
+        // XXX For example, it will simplify 4*x >= 0 into x >= 0
+        //rw(lit0);
         TRACE("spacer.fkab",
               tout << "lit0 is: " << lit0 << "\n"
               << "LCB is: " << lcb() << "\n";);
@@ -345,11 +349,13 @@ namespace spacer {
                            v.size(), v.c_ptr());
 
         SASSERT(is_arith_lemma(m, pf));
+        TRACE("spacer.fkab", tout << mk_pp(pf, m) << "\n";);
 
         DEBUG_CODE(
             proof_checker pc(m);
             expr_ref_vector side(m);
             ENSURE(pc.check(pf, side)););
+
         return pf;
 
     }
@@ -396,6 +402,7 @@ namespace spacer {
                 func_decl *d = p->get_decl();
                 if (is_assign_bounds_lemma(m, p)) {
 
+                    TRACE("spacer.fkab", tout << mk_pp(p, m) << "\n";);
                     th_lemma = mk_fk_from_ab(m, hyps,
                                              d->get_num_parameters(),
                                              d->get_parameters());

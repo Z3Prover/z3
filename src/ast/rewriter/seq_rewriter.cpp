@@ -2480,12 +2480,13 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
                 return result;
             }
             // Order with higher IDs on the outside
-            // if (ca->get_id() < cb->get_id()) {
-            //     std::swap(a, b);
-            //     std::swap(ca, cb);
-            //     std::swap(a1, b1);
-            //     std::swap(a2, b2);
-            // }
+            if (ca->get_id() < cb->get_id()) {
+                std::swap(a, b);
+                std::swap(ca, cb);
+                std::swap(notca, notcb);
+                std::swap(a1, b1);
+                std::swap(a2, b2);
+            }
             // Simplify if there is a relationship between ca and cb
             if (pred_implies(ca, cb)) {
                 r1 = mk_der_op(k, a1, b1);

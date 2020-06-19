@@ -1971,7 +1971,8 @@ public:
     }
 
     app * mk_fresh_const(symbol const& prefix, sort * s, bool skolem = true) { 
-        return mk_fresh_const(prefix.str().c_str(), s, skolem);
+        auto str = prefix.str();
+        return mk_fresh_const(str.c_str(), s, skolem);
     }
 
     symbol mk_fresh_var_name(char const * prefix = nullptr);

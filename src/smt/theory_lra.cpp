@@ -3916,7 +3916,8 @@ public:
         if (!use_bounded_expansion())
             return;
         ctx().push_trail(value_trail<context, literal>(m_bounded_range_lit));
-        m_bound_predicate = m.mk_fresh_const("arith.bound", m.mk_bool_sort());
+        if (!m_bound_predicate || !m_term2bound_info.empty())
+            m_bound_predicate = m.mk_fresh_const("arith.bound", m.mk_bool_sort());
         m_bounded_range_lit = mk_literal(m_bound_predicate);
         // add max-unfolding literal
         // add variable bounds
@@ -3928,6 +3929,8 @@ public:
             expr_ref lo(a.mk_ge(t, a.mk_int(bi.m_offset - bi.m_range)), m);            
             assumptions.push_back(lo);
             assumptions.push_back(hi);
+            m_predicate2term.insert(lo, t);
+            m_predicate2term.insert(hi, t);
             IF_VERBOSE(10, verbose_stream() << lo << "\n" << hi << "\n");
         }
     }
@@ -3947,8 +3950,10 @@ public:
             else if (m_predicate2term.find(e, t)) {
                 found = true;
                 bound_info bi;
-                VERIFY(m_term2bound_info.find(t, bi));
-                if (bi.m_range >= max_range()) {
+                if (!m_term2bound_info.find(t, bi)) {
+                    TRACE("arith", tout << "bound information for term " << mk_pp(t, m) << " not found\n";);
+                }
+                else if (bi.m_range >= max_range()) {
                     m_term2bound_info.erase(t);
                 }
                 else {
@@ -3975,11 +3980,19 @@ public:
         mk_axiom(~m_bounded_range_lit, mk_literal(lo));
         m_bound_predicates.push_back(lo);
         m_bound_predicates.push_back(hi);
-        IF_VERBOSE(10, verbose_stream() << "add " << lo << " " << hi << "\n");
         m_predicate2term.insert(lo, t);
         m_predicate2term.insert(hi, t);
         m_term2bound_info.insert(t, bi);
     }
+
+    void setup() {
+        m_bounded_range_lit = null_literal;
+        m_bound_predicates.reset();
+        m_bound_predicate = nullptr;
+        m_predicate2term.reset();
+        m_term2bound_info.reset();
+    }
+
 
 };
     
@@ -4108,6 +4121,9 @@ void theory_lra::add_theory_assumptions(expr_ref_vector& assumptions) {
 }
 bool theory_lra::should_research(expr_ref_vector& unsat_core) {
     return m_imp->should_research(unsat_core);
+}
+void theory_lra::setup() {
+    m_imp->setup();
 }
 
 }
