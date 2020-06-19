@@ -292,8 +292,6 @@ public:
     }
     
     void create_root(unsigned row_index) {
-        ++lp().settings().ddd;
-        TRACE("cheap_eq", tout << "ddd = " << lp().settings().ddd << "\n";);
         SASSERT(!m_root && !m_fixed_vertex);
         signed_column x, y;
         TRACE("cheap_eq", print_row(tout, row_index););
