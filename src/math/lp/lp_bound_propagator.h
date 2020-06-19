@@ -356,6 +356,7 @@ public:
         if (table.find(val(v), k)) {
             TRACE("cheap_eq", tout << "found k " ; k->print(tout) << "\n";);
             if (k->column() != v->column() &&
+                is_int(k->column()) == is_int(v->column()) &&
                 !is_equal(k->column(), v->column()))
                 report_eq(k, v);
         } else {
