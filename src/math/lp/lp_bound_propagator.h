@@ -60,9 +60,9 @@ class lp_bound_propagator {
         const ptr_vector<vertex> & children() const { return m_children; }
         std::ostream& print(std::ostream & out) const {
             out << "r = " << m_row << ", c = " << m_column << ", P = {";
-            if (m_parent) { tout << "(" << m_parent->row() << ", " << m_parent->column() << ")";}
-            else { tout << "null"; }
-            tout <<  "} , lvl = " << m_level << (neg()? " -":" +");
+            if (m_parent) { out << "(" << m_parent->row() << ", " << m_parent->column() << ")";}
+            else { out << "null"; }
+            out <<  "} , lvl = " << m_level << (neg()? " -":" +");
             return out;
         }
         bool operator==(const vertex& o) const {
