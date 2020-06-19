@@ -2182,7 +2182,7 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
-    STRACE("seq_regex_brief", tout << "n";);
+    // STRACE("seq_regex_brief", tout << "n";);
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
     if (!result) {
         result = is_nullable_rec(r);
@@ -2192,7 +2192,7 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
 }
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
-    STRACE("seq_regex_brief", tout << ".";); // recursive call
+    // STRACE("seq_regex_brief", tout << ".";); // recursive call
     SASSERT(m_util.is_re(r) || m_util.is_seq(r));
     expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
     sort* seq_sort = nullptr;
@@ -2367,7 +2367,7 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         Duplicate nested conditions are eliminated.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    STRACE("seq_regex_brief", tout << "d";);
+    // STRACE("seq_regex_brief", tout << "d";);
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
         result = mk_derivative_rec(ele, r);
@@ -2458,7 +2458,7 @@ bool seq_rewriter::pred_implies(expr* a, expr* b) {
         - result is in BDD form
 */
 expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
-    STRACE("seq_regex_brief", tout << ".";); // recursive call
+    // STRACE("seq_regex_brief", tout << ".";); // recursive call
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
     expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
     expr_ref result(m());
@@ -2568,7 +2568,7 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
 }
 
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
-    STRACE("seq_regex_brief", tout << ".";); // recursive call
+    // STRACE("seq_regex_brief", tout << ".";); // recursive call
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
         expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
@@ -2583,7 +2583,7 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
 }
 
 expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
-    STRACE("seq_regex_brief", tout << ".";); // recursive call
+    // STRACE("seq_regex_brief", tout << ".";); // recursive call
     expr_ref result(m());
     sort* seq_sort = nullptr, *ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
@@ -4175,18 +4175,37 @@ bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, 
 seq_rewriter::op_cache::op_cache(ast_manager& m):
     m(m),
     m_trail(m)
+    #ifdef _TRACE
+    , cache_hits(0), cache_misses(0)
+    #endif
 {}
 
 expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     op_entry e(op, a, b, nullptr);
     m_table.find(e, e);
 
-    if (!(e.r)) {
-        STRACE("seq_regex_brief", tout << "!";); // cache miss
-    }
+    #ifdef _TRACE
+    (e.r) ? (cache_hits++) : (cache_misses++) ;
+    #endif
 
     return e.r;
 }
+
+#ifdef _TRACE
+void seq_rewriter::trace_and_reset_cache() {
+    unsigned hits = m_op_cache.cache_hits;
+    unsigned misses = m_op_cache.cache_misses;
+    // Suppress tracing of "0/0 hits" or "1/1 hits"
+    if (hits >= 2 || misses >= 1) {
+        STRACE("seq_regex_brief",
+            tout << "(" << hits << "/" << (hits + misses)
+                 << " hits) ";
+        );
+    }
+    m_op_cache.cache_hits = 0;
+    m_op_cache.cache_misses = 0;
+}
+#endif
 
 void seq_rewriter::op_cache::insert(decl_kind op, expr* a, expr* b, expr* r) {
     cleanup();

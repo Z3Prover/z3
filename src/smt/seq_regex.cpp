@@ -241,7 +241,7 @@ namespace smt {
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
 
-        STRACE("seq_regex_brief", tout << " ";);
+        seq_rw().trace_and_reset_cache();
 
         literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
         if (m.is_true(is_nullable)) {
@@ -423,10 +423,13 @@ namespace smt {
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
         STRACE("seq_regex", tout << "derivative: " << mk_pp(r, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "D ";);
-        expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
+
+        expr_ref result = seq_rw().mk_derivative(hd, r);
         rewrite(result);
+
         STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << " ";);
+        seq_rw().trace_and_reset_cache();
+
         // IF_VERBOSE(10, verbose_stream() << std::endl << "Calculated derivative of: " << expr_ref(r, m) << " was: " << result << std::endl;);
         return result;
     }
