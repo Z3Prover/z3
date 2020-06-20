@@ -4173,12 +4173,7 @@ bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, 
 } 
 
 seq_rewriter::op_cache::op_cache(ast_manager& m):
-    m(m),
-    m_trail(m)
-    #ifdef _TRACE
-    , cache_hits(0), cache_misses(0)
-    #endif
-{}
+    m(m), m_trail(m) {}
 
 expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     op_entry e(op, a, b, nullptr);
@@ -4190,22 +4185,6 @@ expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
 
     return e.r;
 }
-
-#ifdef _TRACE
-void seq_rewriter::trace_and_reset_cache() {
-    unsigned hits = m_op_cache.cache_hits;
-    unsigned misses = m_op_cache.cache_misses;
-    // Suppress tracing of "0/0 hits" or "1/1 hits"
-    if (hits >= 2 || misses >= 1) {
-        STRACE("seq_regex_brief",
-            tout << "(" << hits << "/" << (hits + misses)
-                 << " hits) ";
-        );
-    }
-    m_op_cache.cache_hits = 0;
-    m_op_cache.cache_misses = 0;
-}
-#endif
 
 void seq_rewriter::op_cache::insert(decl_kind op, expr* a, expr* b, expr* r) {
     cleanup();
@@ -4221,3 +4200,27 @@ void seq_rewriter::op_cache::cleanup() {
         m_table.reset();
     }
 }
+
+#ifdef _TRACE
+unsigned seq_rewriter::op_cache::cache_hits = 0;
+unsigned seq_rewriter::op_cache::cache_misses = 0;
+
+void seq_rewriter::trace_and_reset_cache() {
+    unsigned hits = m_op_cache.cache_hits;
+    unsigned misses = m_op_cache.cache_misses;
+    // Suppress tracing of "0/0 hits" or "1/1 hits"
+    if (hits >= 2 || misses >= 1) {
+        STRACE("seq_regex",
+            tout << "Op cache hits: " << hits
+                 << " (out of " << (hits + misses)
+                 << ")" << std::endl;
+        );
+        STRACE("seq_regex_brief",
+            tout << "(" << hits << "/" << (hits + misses)
+                 << " hits) ";
+        );
+    }
+    m_op_cache.cache_hits = 0;
+    m_op_cache.cache_misses = 0;
+}
+#endif

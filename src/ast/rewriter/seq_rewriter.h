@@ -151,8 +151,8 @@ class seq_rewriter {
         void insert(decl_kind op, expr* a, expr* b, expr* r);
 
         #ifdef _TRACE
-        unsigned        cache_hits;
-        unsigned        cache_misses;
+        static unsigned cache_hits;
+        static unsigned cache_misses;
         #endif
     };
 

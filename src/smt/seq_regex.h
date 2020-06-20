@@ -79,6 +79,7 @@ namespace smt {
 
         expr_ref symmetric_diff(expr* r1, expr* r2);
 
+        expr_ref is_nullable_wrapper(expr* r);
         expr_ref derivative_wrapper(expr* hd, expr* r);
 
         void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);

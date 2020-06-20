@@ -238,10 +238,7 @@ namespace smt {
         TRACE("seq_regex", tout << "propagate nullable: " << mk_pp(r, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PN ";);
 
-        expr_ref is_nullable = seq_rw().is_nullable(r);
-        rewrite(is_nullable);
-
-        seq_rw().trace_and_reset_cache();
+        expr_ref is_nullable = is_nullable_wrapper(r);
 
         literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
         if (m.is_true(is_nullable)) {
@@ -416,21 +413,56 @@ namespace smt {
     }
 
     /*
-        Wrapper around the regex symbolic derivative from the rewriter.
+        Wrapper around calls to is_nullable from the seq rewriter.
+    */
+    expr_ref seq_regex::is_nullable_wrapper(expr* r) {
+        STRACE("seq_regex", tout << "nullable: " << mk_pp(r, m) << std::endl;);
+        STRACE("seq_regex_brief", tout << "n ";);
+
+        expr_ref result = seq_rw().is_nullable(r);
+        rewrite(result);
+
+        STRACE("seq_regex", tout << "nullable result: " << mk_pp(result, m) << std::endl;);
+        seq_rw().trace_and_reset_cache();
+
+        return result;
+    }
+
+    /*
+        Wrapper around the regex symbolic derivative from the seq rewriter.
         Ensures that the derivative is written in a normalized BDD form
         with optimizations for if-then-else expressions involving the head.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
         STRACE("seq_regex", tout << "derivative: " << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "D ";);
+        STRACE("seq_regex_brief", tout << "d ";);
 
-        expr_ref result = seq_rw().mk_derivative(hd, r);
+        expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);
 
         STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
         seq_rw().trace_and_reset_cache();
 
-        // IF_VERBOSE(10, verbose_stream() << std::endl << "Calculated derivative of: " << expr_ref(r, m) << " was: " << result << std::endl;);
+        /*  If the following lines are enabled instead, we use the
+            same rewriter for the nullable and derivative calls.
+            However, it currently seems to cause a performance
+            bug as a side effect.
+
+            The two seq rewriters used are at:
+                m_seq_rewrite
+                    (returned by seq_rw())
+                th.m_rewrite.m_imp->m_cfg.m_seq_rw
+                    (private, can't be accessed directly)
+
+            TODO: experiment with making them the same and see
+            if it results in significant speedup (due to fewer
+            cache misses).
+           */
+        // expr_ref result = seq_rw().mk_derivative(hd, r);
+        // rewrite(result)
+        // STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
+        // seq_rw().trace_and_reset_cache();
+
         return result;
     }
 
@@ -476,8 +508,7 @@ namespace smt {
         TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PNE ";);
 
-        expr_ref is_nullable = seq_rw().is_nullable(r);
-        rewrite(is_nullable);
+        expr_ref is_nullable = is_nullable_wrapper(r);
         if (m.is_true(is_nullable))
             return;
         literal null_lit = th.mk_literal(is_nullable);
@@ -535,8 +566,7 @@ namespace smt {
         TRACE("seq_regex", tout << "propagate empty: " << mk_pp(e, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PE ";);
 
-        expr_ref is_nullable = seq_rw().is_nullable(r);
-        rewrite(is_nullable);
+        expr_ref is_nullable = is_nullable_wrapper(r);
         if (m.is_true(is_nullable)) {
             th.add_axiom(~lit);
             return;
