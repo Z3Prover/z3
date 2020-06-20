@@ -75,13 +75,13 @@ class lp_bound_propagator {
     // At some point we can find a row with a single vertex non fixed vertex
     // then we can fix the whole tree,
     // by adjusting the vertices offsets, so they become absolute.
-    // If the tree is fixed then in addition to checking with the m_offset_to_verts
+    // If the tree is fixed then in addition to checking with the m_vals_to_verts
     // we are going to check with the m_fixed_var_tables.
     vertex*                                   m_fixed_vertex;
-    // a pair (o, j) belongs to m_offset_to_verts iff x[j] = x[m_root->column()] + o
-    map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_offset_to_verts;
-    // a pair (o, j) belongs to m_offset_to_verts_neg iff -x[j] = x[m_root->column()] + o
-    map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_offset_to_verts_neg;
+    // a pair (o, j) belongs to m_vals_to_verts iff x[j] = x[m_root->column()] + o
+    map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_vals_to_verts;
+    // a pair (o, j) belongs to m_vals_to_verts_neg iff -x[j] = x[m_root->column()] + o
+    map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_vals_to_verts_neg;
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned>    m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
@@ -309,7 +309,7 @@ public:
             m_root->add_child(v);            
         }
         // keep root in the positive table
-        m_offset_to_verts.insert(r, m_root);
+        m_vals_to_verts.insert(r, m_root);
     }
 
     unsigned column(unsigned row, unsigned index) {
@@ -369,9 +369,9 @@ public:
     void check_for_eq_and_add_to_offsets(vertex* v) {
         TRACE("cheap_eq_det", v->print(tout) << "\n";);
         if (v->neg())
-            check_for_eq_and_add_to_offset_table(v, m_offset_to_verts_neg);
+            check_for_eq_and_add_to_offset_table(v, m_vals_to_verts_neg);
         else 
-            check_for_eq_and_add_to_offset_table(v, m_offset_to_verts);                
+            check_for_eq_and_add_to_offset_table(v, m_vals_to_verts);                
     }
         
     void clear_for_eq() {
@@ -650,8 +650,8 @@ public:
         delete_tree(m_root);
         m_root = nullptr;
         set_fixed_vertex(nullptr);
-        m_offset_to_verts.reset();
-        m_offset_to_verts_neg.reset();
+        m_vals_to_verts.reset();
+        m_vals_to_verts_neg.reset();
     }
 
     void create_fixed_eqs(vertex* v) {
@@ -729,8 +729,6 @@ public:
     }
     
     void explore_under(vertex * v) {
-        if (fixed_phase())
-            try_add_equation_with_fixed_tables(v);
         check_for_eq_and_add_to_offsets(v);
         go_over_vertex_column(v);
         // v might change in m_vertices expansion
