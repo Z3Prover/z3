@@ -103,7 +103,10 @@ class lar_solver : public column_namer {
     vector<impq>                                        m_backup_x;
     stacked_vector<unsigned>                            m_usage_in_terms;
     // ((x[j], is_int(j))->j)  for fixed j, used in equalities propagation
-    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>  m_fixed_var_table;
+    // maps values to integral fixed vars
+    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>  m_fixed_var_table_int;
+    // maps values to non-integral fixed vars
+    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>  m_fixed_var_table_real;
     // end of fields
 
     ////////////////// methods ////////////////////////////////
@@ -285,12 +288,25 @@ class lar_solver : public column_namer {
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
 public:
-    const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table() const {
-        return m_fixed_var_table;
+    const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() const {
+        return m_fixed_var_table_int;
     }
-    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table() {
-        return m_fixed_var_table;
+    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() {
+        return m_fixed_var_table_int;
     }
+    const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_real() const {
+        return m_fixed_var_table_real;
+    }
+    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_real() {
+        return m_fixed_var_table_real;
+    }
+
+    bool find_in_fixed_tables(const rational& mpq, bool is_int, unsigned & j) const {
+        return is_int? fixed_var_table_int().find(mpq, j) :
+            fixed_var_table_real().find(mpq, j);
+    }
+    
+    template <typename T> void remove_non_fixed_from_table(T&);
     unsigned external_to_column_index(unsigned) const;
     bool inside_bounds(lpvar, const impq&) const;
     inline void set_column_value(unsigned j, const impq& v) {
@@ -342,8 +358,28 @@ public:
             if (settings().get_cancel_flag())
                 return;
         }
+        // these two loops should be run sequentially
+        // since the first loop might change column bounds
+        // and add fixed columns this way
+        bp.clear_for_eq();
+        if (settings().cheap_eqs()) {
+            for (unsigned i : m_rows_with_changed_bounds) {
+                calculate_cheap_eqs_for_row(i, bp);
+                if (settings().get_cancel_flag())
+                    return;
+            }
+        }
         m_rows_with_changed_bounds.clear();
     }
+    template <typename T>
+    void calculate_cheap_eqs_for_row(unsigned i, lp_bound_propagator<T> & bp) {
+        if (settings().cheap_eqs() == 1) {
+            bp.cheap_eq_tree(i);
+        } else {
+            bp.cheap_eq_table(i);
+        }
+    }
+    
     bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
     inline column_index to_column_index(unsigned v) const { return column_index(external_to_column_index(v)); }
     bool external_is_used(unsigned) const;

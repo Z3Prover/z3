@@ -716,7 +716,22 @@ void pdecl_manager::notify_datatype(sort *r, psort_decl* p, unsigned n, sort* co
             m.notify_new_dt(r, p);
         }
         m_notified.insert(r);
+        m_notified_trail.push_back(r);
     }
+}
+
+void pdecl_manager::push() {
+    m_notified_lim.push_back(m_notified_trail.size());
+}
+
+void pdecl_manager::pop(unsigned n) {
+    SASSERT(n > 0);
+    unsigned new_sz = m_notified_lim[m_notified_lim.size() - n];
+    for (unsigned i = m_notified_trail.size(); i-- > new_sz; ) {
+        m_notified.erase(m_notified_trail[i]);
+    }
+    m_notified_trail.shrink(new_sz);
+    m_notified_lim.shrink(m_notified_lim.size() - n);
 }
 
 bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {

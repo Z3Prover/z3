@@ -2677,8 +2677,8 @@ namespace smt2 {
             SASSERT(curr_id() == m_reset);
             next();
             check_rparen("invalid reset command, ')' expected");
+			reset();
             m_ctx.reset();
-            reset();
             m_ctx.print_success();
             next();
         }
@@ -3077,17 +3077,18 @@ namespace smt2 {
             m_pattern_stack   = nullptr;
             m_nopattern_stack = nullptr;
             m_sexpr_stack     = nullptr;
+			m_bv_util = nullptr;
+			m_arith_util = nullptr;
+			m_seq_util = nullptr;
+			m_pattern_validator = nullptr;
+			m_var_shifter = nullptr;
             m_symbol_stack      .reset();
             m_param_stack       .reset();
             m_env               .reset();
             m_sort_id2param_idx .reset();
             m_dt_name2idx       .reset();
 
-            m_bv_util           = nullptr;
-            m_arith_util        = nullptr;
-            m_seq_util          = nullptr;
-            m_pattern_validator = nullptr;
-            m_var_shifter       = nullptr;
+
         }
 
         sexpr_ref parse_sexpr_ref() {

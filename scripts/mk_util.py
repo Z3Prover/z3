@@ -917,20 +917,23 @@ def is_CXX_clangpp():
         return is_clang_in_gpp_form(CXX)
     return is_compiler(CXX, 'clang++')
 
+def get_files_with_ext(path, ext):
+    return filter(lambda f: f.endswith(ext), os.listdir(path))
+
 def get_cpp_files(path):
-    return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
+    return get_files_with_ext(path,'.cpp')
 
 def get_c_files(path):
-    return filter(lambda f: f.endswith('.c'), os.listdir(path))
+    return get_files_with_ext(path,'.c')
 
 def get_cs_files(path):
-    return filter(lambda f: f.endswith('.cs'), os.listdir(path))
+    return get_files_with_ext(path,'.cs')
 
 def get_java_files(path):
-    return filter(lambda f: f.endswith('.java'), os.listdir(path))
+    return get_files_with_ext(path,'.java')
 
 def get_ml_files(path):
-    return filter(lambda f: f.endswith('.ml'), os.listdir(path))
+    return get_files_with_ext(path,'.ml')
 
 def find_all_deps(name, deps):
     new_deps = []
@@ -2271,6 +2274,10 @@ def reg_component(name, c):
 
 def add_lib(name, deps=[], path=None, includes2install=[]):
     c = LibComponent(name, path, deps, includes2install)
+    reg_component(name, c)
+
+def add_clib(name, deps=[], path=None, includes2install=[]):
+    c = CLibComponent(name, path, deps, includes2install)
     reg_component(name, c)
 
 def add_hlib(name, path=None, includes2install=[]):
