@@ -525,7 +525,8 @@ namespace smt {
             lits.reset();
             lits.push_back(~lit);
             if (!m.is_true(cond)) {
-                lits.push_back(th.mk_literal(mk_forall(m, hd, mk_not(m, cond))));
+                expr_ref ncond(mk_not(m, cond), m);
+                lits.push_back(th.mk_literal(mk_forall(m, hd, ncond)));
             }
             expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, r));    
             lits.push_back(th.mk_literal(is_empty1)); 

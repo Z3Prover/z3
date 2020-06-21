@@ -720,7 +720,7 @@ bool theory_seq::is_solved() {
     }
 
 #if 0
-	// debug code
+    // debug code
     for (enode* n : ctx.enodes()) {
         expr* e = nullptr;
         rational len1, len2;
@@ -2881,8 +2881,11 @@ literal theory_seq::mk_simplified_literal(expr * _e) {
 literal theory_seq::mk_literal(expr* _e) {
     expr_ref e(_e, m);
     bool is_not = m.is_not(_e, _e);
-    ensure_enode(_e);
+    if (!ctx.e_internalized(_e)) {
+        ctx.internalize(_e, is_quantifier(_e));
+    }
     literal lit = ctx.get_literal(_e);
+    ctx.mark_as_relevant(lit);
     if (is_not) lit.neg();
     return lit;
 }

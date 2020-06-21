@@ -128,7 +128,7 @@ namespace smt {
 
     enode* theory::ensure_enode(expr* e) {
         if (!ctx.e_internalized(e)) {
-            ctx.internalize(e, false);
+            ctx.internalize(e, is_quantifier(e));
         }
         enode* n = ctx.get_enode(e);
         ctx.mark_as_relevant(n);
