@@ -209,7 +209,9 @@ namespace qe {
             else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1) && !mul1.is_zero()) {
                 rational r;
                 val = eval(t);
-                VERIFY(a.is_numeral(val, r));
+                if (!a.is_numeral(val, r)) {
+                    throw default_exception("mbp evaluation didn't produce an integer");
+                }
                 c += mul*r;
                 // t1 mod mul1 == r               
                 rational c0(-r), mul0(1);
@@ -347,8 +349,8 @@ namespace qe {
                     expr_ref val = eval(v);
                     if (!m.inc())
                         return vector<def>();
-
-                    VERIFY(a.is_numeral(val, r));
+                    if (!a.is_numeral(val, r))
+                        throw default_exception("evaluation did not produce a numeral");
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }

@@ -2423,7 +2423,8 @@ public:
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
         enode* n1 = get_enode(uv);
         enode* n2 = get_enode(vv);
-        if (n1->get_root() == n2->get_root())
+        if (n1->get_root() == n2->get_root() ||
+            m.get_sort(n1->get_owner()) != m.get_sort(n2->get_owner()))
             return;
         reset_evidence();
         for (auto const& ev : e) 

@@ -87,7 +87,6 @@ namespace smt2 {
         symbol               m_weight;
         symbol               m_qid;
         symbol               m_skid;
-        symbol               m_ex_act;
         symbol               m_pattern;
         symbol               m_nopattern;
         symbol               m_lblneg;
@@ -3021,7 +3020,6 @@ namespace smt2 {
             m_weight(":weight"),
             m_qid(":qid"),
             m_skid(":skolemid"),
-            m_ex_act(":ex-act"),
             m_pattern(":pattern"),
             m_nopattern(":no-pattern"),
             m_lblneg(":lblneg"),

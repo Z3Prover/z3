@@ -1,6 +1,6 @@
 /*
   Copyright (c) 2017 Microsoft Corporation
-  Author: Nikolaj Bjorner
+  Author: Nikolaj Bjorner, Lev Nachmanson
 */
 
 #include "math/lp/lar_solver.h"
@@ -85,7 +85,12 @@ struct solver::imp {
                 throw;
             }
         }
-        TRACE("arith", display(tout); m_nlsat->display(tout << r << "\n"););
+        TRACE("arith", 
+              m_nlsat->display(tout << r << "\n");
+              display(tout); 
+              for (auto kv : m_lp2nl) 
+                  tout << "j" << kv.m_key << " := x" << kv.m_value << "\n";
+              );
         switch (r) {
         case l_true: 
             m_nla_core.set_use_nra_model(true);
@@ -183,14 +188,11 @@ struct solver::imp {
         if (!m_lp2nl.find(v, r)) {
             r = m_nlsat->mk_var(is_int(v));
             m_lp2nl.insert(v, r);
-            TRACE("arith", tout << "j" << v << " := x" << r << "\n";);
-#if 1
             if (!m_term_set.contains(v) && s.column_corresponds_to_term(v)) {
-                if (v >= m_term_set.size())
+                if (v >= m_term_set.data_size())
                     m_term_set.resize(v + 1);
                 m_term_set.insert(v);
             }
-#endif
         }
         return r;
     }
