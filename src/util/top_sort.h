@@ -69,7 +69,7 @@ class top_sort {
                 } 
                 while (s_f != f);
                 m_stack_P.pop_back();
-        }
+            }
         }
     }
 
