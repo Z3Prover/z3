@@ -417,7 +417,9 @@ public:
         TRACE("cheap_eq", tout << "reporting eq " << j << ", " << k << "\n";
               for (auto p : exp) {
                   lp().constraints().display(tout, [this](lpvar j) { return lp().get_variable_name(j);}, p.ci());
-              });
+              }
+              tout << "theory_vars  v" << lp().local_to_external(je) << " == v" << lp().local_to_external(ke) << "\n";
+              );
         
         m_imp.add_eq(je, ke, exp);
         lp().settings().stats().m_cheap_eqs++;
