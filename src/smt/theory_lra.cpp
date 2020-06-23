@@ -391,21 +391,21 @@ class theory_lra::imp {
             TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
             m_underspecified.push_back(to_app(n));
         }
-        expr* e = nullptr;
-        if (a.is_div(n)) {                
-            e = a.mk_div0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        expr* e = nullptr, *x = nullptr, *y = nullptr;
+        if (a.is_div(n, x, y)) {                
+            e = a.mk_div0(x, y);
         }
-        else if (a.is_idiv(n)) {                
-            e = a.mk_idiv0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        else if (a.is_idiv(n, x, y)) {                
+            e = a.mk_idiv0(x, y);
         }
-        else if (a.is_rem(n)) {                
-            e = a.mk_rem0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        else if (a.is_rem(n, x, y)) {                
+            e = a.mk_rem0(x, y);
         }
-        else if (a.is_mod(n)) {                
-            e = a.mk_mod0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        else if (a.is_mod(n, x, y)) {                
+            e = a.mk_mod0(x, y);
         }
-        else if (a.is_power(n)) {                
-            e = a.mk_power0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        else if (a.is_power(n, x, y)) {                
+            e = a.mk_power0(x, y);
         }
         if (e) {
             literal lit = th.mk_eq(e, n, false);
