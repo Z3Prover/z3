@@ -413,16 +413,22 @@ namespace smt {
     }
 
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
+        sort* seq_sort = nullptr;
+        VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
-        expr_ref is_empty = sk().mk_is_empty(r, emp);
+        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
+        expr_ref is_empty = sk().mk_is_empty(r, emp, n);
         th.add_axiom(~th.mk_eq(r1, r2, false), th.mk_literal(is_empty));
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
+        sort* seq_sort = nullptr;
+        VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
-        expr_ref is_non_empty = sk().mk_is_non_empty(r, emp);
+        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
+        expr_ref is_non_empty = sk().mk_is_non_empty(r, emp, n);
         th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));
     }
 
@@ -444,14 +450,14 @@ namespace smt {
      *
      */
     void seq_regex::propagate_is_non_empty(literal lit) {
-        expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
-        VERIFY(sk().is_is_non_empty(e, r, u));
+        expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr, *n = nullptr;
+        VERIFY(sk().is_is_non_empty(e, r, u, n));
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
         if (m.is_true(is_nullable))
             return;
         literal null_lit = th.mk_literal(is_nullable);
-        expr_ref hd = mk_first(r);
+        expr_ref hd = mk_first(r, n);
         expr_ref d(m);
         d = derivative_wrapper(hd, r);
         literal_vector lits;
@@ -468,7 +474,7 @@ namespace smt {
             rewrite(cond);
             if (m.is_false(cond))
                 continue;            
-            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, r));
+            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
             if (!m.is_true(cond))
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
@@ -499,8 +505,8 @@ namespace smt {
       is_empty(r, u) is true if r is a member of u
      */
     void seq_regex::propagate_is_empty(literal lit) {
-        expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
-        VERIFY(sk().is_is_empty(e, r, u));
+        expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr, *n = nullptr;
+        VERIFY(sk().is_is_empty(e, r, u, n));
         expr_ref is_nullable = seq_rw().is_nullable(r);
         rewrite(is_nullable);
         if (m.is_true(is_nullable)) {
@@ -508,7 +514,7 @@ namespace smt {
             return;
         }
         th.add_axiom(~lit, ~th.mk_literal(is_nullable));
-        expr_ref hd = mk_first(r);
+        expr_ref hd = mk_first(r, n);
         expr_ref d(m);
         d = derivative_wrapper(hd, r);
         literal_vector lits;
@@ -528,16 +534,17 @@ namespace smt {
                 expr_ref ncond(mk_not(m, cond), m);
                 lits.push_back(th.mk_literal(mk_forall(m, hd, ncond)));
             }
-            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, r));    
+            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, r), n);    
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        
     }
 
-    expr_ref seq_regex::mk_first(expr* r) {
+    expr_ref seq_regex::mk_first(expr* r, expr* n) {
         sort* elem_sort = nullptr, *seq_sort = nullptr;
         VERIFY(u().is_re(r, seq_sort));
         VERIFY(u().is_seq(seq_sort, elem_sort));
-        return expr_ref(m.mk_fresh_const("re.first", elem_sort), m);
+        sort* domain[2] = { m.get_sort(n), a().mk_int() };
+        return sk().mk("re.first", n, a().mk_int(r->get_id()), elem_sort);
     }
 }

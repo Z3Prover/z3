@@ -71,7 +71,7 @@ namespace smt {
 
         bool propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r, literal& trigger);
 
-        expr_ref mk_first(expr* r);
+        expr_ref mk_first(expr* r, expr* n);
 
         expr_ref unroll_non_empty(expr* r, expr_mark& seen, unsigned depth);
 
