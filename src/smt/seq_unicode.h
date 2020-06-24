@@ -70,14 +70,13 @@ namespace smt {
         var_value_hash   m_var_value_hash;
         var_value_eq     m_var_value_eq;
         var_value_table  m_var_value_table;
-        std::function<void(literal, literal, literal)> m_add_axiom;
 
         context& ctx() const { return th.get_context(); }
 
         void propagate(edge_id edge);
 
         void add_axiom(literal a, literal b = null_literal, literal c = null_literal) {
-            m_add_axiom(a, b, c);
+            add_axiom5(a, b, c, null_literal, null_literal);
         }
 
         void adapt_eq(theory_var v1, theory_var v2);
@@ -87,6 +86,12 @@ namespace smt {
     public:
 
         seq_unicode(theory& th);
+
+        std::function<void(literal l1, literal l2, literal l3, literal l4, literal l5)> add_axiom5;
+
+        void push_scope();
+
+        void pop_scope(unsigned n);
 
         // <= atomic constraints on characters
         void assign_le(theory_var v1, theory_var v2, literal lit);

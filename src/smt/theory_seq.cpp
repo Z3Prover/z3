@@ -330,6 +330,7 @@ void theory_seq::init() {
     };
     std::function<literal(expr*,bool)> mk_eq_emp = [&](expr* e, bool p) { return mk_eq_empty(e, p); };
     m_ax.add_axiom5 = add_ax;
+    m_unicode.add_axiom5 = add_ax;
     m_ax.mk_eq_empty2 = mk_eq_emp;
     m_arith_value.init(&ctx);
 }
@@ -1527,6 +1528,7 @@ bool theory_seq::internalize_atom(app* a, bool) {
 }
 
 bool theory_seq::internalize_term(app* term) {
+
     m_has_seq = true;
     if (ctx.e_internalized(term)) {
         enode* e = ctx.get_enode(term);
@@ -1919,6 +1921,7 @@ public:
             for (source_t src : m_source) {
                 switch (src) {
                 case unit_source: {
+                    std::cout << "!!! " << mk_pp(values[j], th.m) << "\n";
                     VERIFY(th.m_util.is_const_char(values[j++], ch));
                     sbuffer.push_back(ch);
                     break;
@@ -2314,7 +2317,8 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
 }
 
 theory_var theory_seq::mk_var(enode* n) {
-    if (!m_util.is_seq(n->get_owner()) &&
+    if (!m_util.is_char(n->get_owner()) && 
+        !m_util.is_seq(n->get_owner()) &&
         !m_util.is_re(n->get_owner())) {
         return null_theory_var;
     }
@@ -3284,6 +3288,7 @@ void theory_seq::push_scope_eh() {
     m_ncs.push_scope();
     m_lts.push_scope();
     m_regex.push_scope();
+    m_unicode.push_scope();
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
@@ -3296,6 +3301,7 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
     m_nqs.pop_scope(num_scopes);
     m_ncs.pop_scope(num_scopes);
     m_lts.pop_scope(num_scopes);
+    m_unicode.pop_scope(num_scopes);
     m_regex.pop_scope(num_scopes);
     m_rewrite.reset();    
     if (ctx.get_base_level() > ctx.get_scope_level() - num_scopes) {
@@ -3344,14 +3350,16 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_replace_re(n) ||
         m_util.str.is_replace_re_all(n) ||
         m_util.str.is_from_code(n) ||
-        m_util.str.is_to_code(n) ||
-        m_util.str.is_is_digit(n)) {
+        // m_util.str.is_to_code(n) ||
+        m_util.str.is_is_digit(n)) {        
+        std::cout << "unhandled -call " << mk_pp(n, m) << "\n";
         add_unhandled_expr(n);
     }
 }
 
 void theory_seq::add_unhandled_expr(expr* n) {
     if (!m_unhandled_expr) {
+        std::cout << "unhandled " << mk_pp(n, m) << "\n";
         ctx.push_trail(value_trail<context, expr*>(m_unhandled_expr));
         m_unhandled_expr = n;
     }

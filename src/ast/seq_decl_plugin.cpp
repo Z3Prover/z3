@@ -403,7 +403,7 @@ bool operator<(const zstring& lhs, const zstring& rhs) {
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_stringc_sym("String"),
-                                    m_charc_sym("Char"),
+                                    m_charc_sym("char"),
                                     m_string(nullptr),
                                     m_char(nullptr),
                                     m_reglan(nullptr),
@@ -1000,6 +1000,9 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("int.to.str", OP_STRING_ITOS));
     op_names.push_back(builtin_name("re.nostr",  _OP_REGEXP_EMPTY));
     op_names.push_back(builtin_name("re.complement", OP_RE_COMPLEMENT));
+#if Z3_USE_UNICODE
+    op_names.push_back(builtin_name("char", OP_CHAR_CONST));
+#endif
 }
 
 void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
@@ -1008,7 +1011,7 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     sort_names.push_back(builtin_name("RegEx", RE_SORT));
 
     // TBD:
-    // sort_names.push_back(builtin_name("Unicode",  CHAR_SORT));
+    // sort_names.push_back(builtin_name("Char",  CHAR_SORT));
 
     // SMTLIB 2.6 RegLan, String
     sort_names.push_back(builtin_name("RegLan", _REGLAN_SORT));

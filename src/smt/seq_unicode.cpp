@@ -37,7 +37,7 @@ namespace smt {
         dl.init_var(v1);
         dl.init_var(v2);
         ctx().push_trail(push_back_vector<context, svector<theory_var>>(m_asserted_edges));
-        m_asserted_edges.push_back(dl.add_edge(v1, v2, s_integer(0), lit));
+        m_asserted_edges.push_back(dl.add_edge(v2, v1, s_integer(0), lit));
     }
 
     // < atomic constraint on characters
@@ -45,7 +45,7 @@ namespace smt {
         dl.init_var(v1);
         dl.init_var(v2);
         ctx().push_trail(push_back_vector<context, svector<theory_var>>(m_asserted_edges));
-        m_asserted_edges.push_back(dl.add_edge(v1, v2, s_integer(1), lit));
+        m_asserted_edges.push_back(dl.add_edge(v2, v1, s_integer(-1), lit));
     }
 
     literal seq_unicode::mk_literal(expr* e) { 
@@ -134,7 +134,6 @@ namespace smt {
     }
     
     void seq_unicode::propagate() {
-        return;
         ctx().push_trail(value_trail<smt::context, unsigned>(m_qhead));
         for (; m_qhead < m_asserted_edges.size() && !ctx().inconsistent(); ++m_qhead) {
             propagate(m_asserted_edges[m_qhead]);
@@ -142,7 +141,8 @@ namespace smt {
     }
     
     void seq_unicode::propagate(edge_id edge) {
-        return;
+        std::cout << "!!!!propagate " << edge << "\n";
+        dl.display(std::cout);
         if (dl.enable_edge(edge)) 
             return;
         dl.traverse_neg_cycle2(false, m_nc_functor);
@@ -154,6 +154,7 @@ namespace smt {
                 params.push_back(parameter(rational(1)));
             }
         }
+        std::cout << "CONFLICT\n";
         ctx().set_conflict(
             ctx().mk_justification(
                 ext_theory_conflict_justification(
@@ -161,6 +162,7 @@ namespace smt {
                     lits.size(), lits.c_ptr(), 
                     0, nullptr, 
                     params.size(), params.c_ptr())));;
+        SASSERT(ctx().inconsistent());
     }
 
     unsigned seq_unicode::get_value(theory_var v) {
@@ -168,6 +170,15 @@ namespace smt {
         auto val = dl.get_assignment(v);
         return val.get_int();
     }
+
+    void seq_unicode::push_scope() {
+        dl.push();
+    }
+
+    void seq_unicode::pop_scope(unsigned n) {
+        dl.pop(n);
+    }
+
 
 }
 
