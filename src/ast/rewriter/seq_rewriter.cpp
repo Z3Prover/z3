@@ -2487,6 +2487,7 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
                 std::swap(a1, b1);
                 std::swap(a2, b2);
             }
+            // @EXP (experimental change)
             // Simplify if there is a relationship between ca and cb
             if (pred_implies(ca, cb)) {
                 r1 = mk_der_op(k, a1, b1);
@@ -2655,6 +2656,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
+            // return re_and(m_br.mk_eq_rw(ele, hd), re().mk_to_re(tl));
+            // @EXP (experimental change)
             // Write 'head is equal' as a range constraint:
             // (ele <= hd) and (hd <= ele)
             return mk_der_inter(
@@ -2683,6 +2686,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         // This is analagous to the previous is_to_re case.
         expr_ref hd(m()), tl(m());
         if (get_head_tail_reversed(r2, hd, tl)) {
+            // return re_and(m_br.mk_eq_rw(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
+            // @EXP (experimental change)
             // Write 'tail is equal' as a range constraint:
             // (ele <= tl) and (tl <= ele)
             return mk_der_inter(
@@ -4205,7 +4210,7 @@ void seq_rewriter::op_cache::cleanup() {
 unsigned seq_rewriter::op_cache::cache_hits = 0;
 unsigned seq_rewriter::op_cache::cache_misses = 0;
 
-void seq_rewriter::trace_and_reset_cache() {
+void seq_rewriter::trace_and_reset_cache_counts() {
     unsigned hits = m_op_cache.cache_hits;
     unsigned misses = m_op_cache.cache_misses;
     // Suppress tracing of "0/0 hits" or "1/1 hits"

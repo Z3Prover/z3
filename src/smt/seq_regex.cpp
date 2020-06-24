@@ -424,7 +424,7 @@ namespace smt {
         rewrite(result);
 
         STRACE("seq_regex", tout << "nullable result: " << mk_pp(result, m) << std::endl;);
-        seq_rw().trace_and_reset_cache();
+        seq_rw().trace_and_reset_cache_counts();
 
         return result;
     }
@@ -435,14 +435,21 @@ namespace smt {
         with optimizations for if-then-else expressions involving the head.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
-        STRACE("seq_regex", tout << "derivative: " << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "d ";);
+        STRACE("seq_regex", tout << "derivative(" << mk_pp(hd, m) << "): " << mk_pp(r, m) << std::endl;);
 
         expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);
 
         STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
-        seq_rw().trace_and_reset_cache();
+        STRACE("seq_regex_brief",
+            tout << "d("
+                 << mk_pp(hd, m)
+                 << ","
+                 << r->get_id()
+                 << "->"
+                 << result->get_id()
+                 << ") ";);
+        seq_rw().trace_and_reset_cache_counts();
 
         /*  If the following lines are enabled instead, we use the
             same rewriter for the nullable and derivative calls.
@@ -462,7 +469,7 @@ namespace smt {
         // expr_ref result = seq_rw().mk_derivative(hd, r);
         // rewrite(result)
         // STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
-        // seq_rw().trace_and_reset_cache();
+        // seq_rw().trace_and_reset_cache_counts();
 
         return result;
     }
@@ -507,7 +514,11 @@ namespace smt {
         VERIFY(sk().is_is_non_empty(e, r, u));
 
         TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PNE ";);
+        STRACE("seq_regex_brief",
+            tout << std::endl << "PNE(" << e->get_id()
+                              << "," << r->get_id()
+                              << "," << u->get_id()
+                              << ") ";);
 
         expr_ref is_nullable = is_nullable_wrapper(r);
         if (m.is_true(is_nullable))
@@ -515,7 +526,16 @@ namespace smt {
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r);
         expr_ref d(m);
-        d = derivative_wrapper(hd, r);
+        d = derivative_wrapper(m.mk_var(0, m.get_sort(hd)), r);
+
+        var_subst subst(m);
+        expr_ref_vector sub(m);
+        sub.push_back(hd);
+        d = subst(d, sub);
+
+        STRACE("seq_regex_brief", tout << "(d subbed: " << d->get_id() << ") ";);
+        TRACE("seq_regex", tout << "d subbed: " << mk_pp(d, m) << std::endl;);
+
         literal_vector lits;
         lits.push_back(~lit);
         if (null_lit != false_literal) 
@@ -536,6 +556,11 @@ namespace smt {
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
         }
+
+        TRACE("seq_regex", tout << "solved lits: " << mk_pp(lits) << std::endl;);
+        // STRACE("seq_regex_brief", tout << "(d solved: " << d->get_id() << ") ";);
+        // mk_pp asdfasdfasdfasdfasdfasdfadsfasdfasdf literal_vector
+
         th.add_axiom(lits);
     }
 
@@ -565,7 +590,11 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr;
         VERIFY(sk().is_is_empty(e, r, u));
         TRACE("seq_regex", tout << "propagate empty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PE ";);
+        STRACE("seq_regex_brief",
+            tout << std::endl << "PE(" << e->get_id()
+                              << "," << r->get_id()
+                              << "," << u->get_id()
+                              << ") ";);
 
         expr_ref is_nullable = is_nullable_wrapper(r);
         if (m.is_true(is_nullable)) {

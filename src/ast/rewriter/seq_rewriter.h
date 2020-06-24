@@ -350,9 +350,9 @@ public:
     void elim_condition(expr* elem, expr_ref& cond);
 
     #ifdef _TRACE
-    void trace_and_reset_cache();
+    void trace_and_reset_cache_counts();
     #else
-    static inline void trace_and_reset_cache() {}
+    static inline void trace_and_reset_cache_counts() {}
     #endif
 };
 
