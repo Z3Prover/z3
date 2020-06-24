@@ -26,7 +26,7 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/bv_decl_plugin.h"
 
-#define Z3_USE_UNICODE 0
+#define Z3_USE_UNICODE 1
 
 enum seq_sort_kind {
     SEQ_SORT,
