@@ -780,6 +780,11 @@ protected:
     void get_unique_non_concat_nodes(expr * node, std::set<expr*> & argSet);
     bool propagate_length_within_eqc(expr * var);
 
+
+    const rational NEQ = rational(-1); // negative word equation lesson
+    const rational PFUN = rational(-2); // positive function lesson
+    const rational NFUN = rational(-3); // negative function lesson
+
     // TESTING
     void refresh_theory_var(expr * e);
 

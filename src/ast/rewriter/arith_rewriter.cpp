@@ -975,6 +975,10 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         result = arg1; 
         return BR_DONE; 
     } 
+    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_minus_one()) {
+        result = m_util.mk_mul(m_util.mk_int(-1), arg1); 
+        return BR_REWRITE1; 
+    }
     if (m_util.is_numeral(arg2, v2, is_int) && v2.is_zero()) { 
         return BR_FAILED; 
     } 
@@ -1119,7 +1123,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         return BR_DONE;
     }
 
-    if (m_util.is_numeral(arg2, v2, is_int) && is_int && v2.is_one()) {
+    if (m_util.is_numeral(arg2, v2, is_int) && is_int && (v2.is_one() || v2.is_minus_one())) {
         result = m_util.mk_numeral(numeral(0), true);
         return BR_DONE;
     }

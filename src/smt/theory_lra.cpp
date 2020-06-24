@@ -391,21 +391,21 @@ class theory_lra::imp {
             TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
             m_underspecified.push_back(to_app(n));
         }
-        expr* e = nullptr;
-        if (a.is_div(n)) {                
-            e = a.mk_div0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        expr* e = nullptr, *x = nullptr, *y = nullptr;
+        if (a.is_div(n, x, y)) {                
+            e = a.mk_div0(x, y);
         }
-        else if (a.is_idiv(n)) {                
-            e = a.mk_idiv0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        else if (a.is_idiv(n, x, y)) {                
+            e = a.mk_idiv0(x, y);
         }
-        else if (a.is_rem(n)) {                
-            e = a.mk_rem0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        else if (a.is_rem(n, x, y)) {                
+            e = a.mk_rem0(x, y);
         }
-        else if (a.is_mod(n)) {                
-            e = a.mk_mod0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        else if (a.is_mod(n, x, y)) {                
+            e = a.mk_mod0(x, y);
         }
-        else if (a.is_power(n)) {                
-            e = a.mk_power0(to_app(n)->get_arg(0), to_app(n)->get_arg(1));
+        else if (a.is_power(n, x, y)) {                
+            e = a.mk_power0(x, y);
         }
         if (e) {
             literal lit = th.mk_eq(e, n, false);
@@ -1325,12 +1325,14 @@ public:
             mk_axiom(q_le_0, m_le_0);
             return;
         }
+#if 0
+        expr_ref eqr(m.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p), m);
+        ctx().get_rewriter()(eqr);
+        literal eq = mk_literal(eqr);
+#else
         literal eq         = th.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p, false);
+#endif
         literal mod_ge_0   = mk_literal(a.mk_ge(mod, zero));
-        literal div_ge_0   = mk_literal(a.mk_ge(div, zero));
-        literal div_le_0   = mk_literal(a.mk_le(div, zero));
-        literal p_ge_0     = mk_literal(a.mk_ge(p, zero));
-        literal p_le_0     = mk_literal(a.mk_le(p, zero));
 
         rational k(0);
         expr_ref upper(m);
@@ -1361,9 +1363,18 @@ public:
                 if_trace_stream _ts(m, log);
             }
 
+#if 0
+            // creates more literals than useful.
+            literal div_ge_0   = mk_literal(a.mk_ge(div, zero));
+            literal div_le_0   = mk_literal(a.mk_le(div, zero));
+            literal p_ge_0     = mk_literal(a.mk_ge(p, zero));
+            literal p_le_0     = mk_literal(a.mk_le(p, zero));
+
             if (k.is_pos()) {
                 mk_axiom(~p_ge_0, div_ge_0);                
                 mk_axiom(~p_le_0, div_le_0);
+                mk_axiom(p_ge_0, ~div_ge_0);                
+                mk_axiom(p_le_0, ~div_le_0);
                 std::function<void(void)> log = [&,this]() {
                     th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_ge_0.var())));
                     th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_le_0.var())));
@@ -1373,14 +1384,22 @@ public:
             else {
                 mk_axiom(~p_ge_0, div_le_0);
                 mk_axiom(~p_le_0, div_ge_0);
+                mk_axiom(p_ge_0, ~div_le_0);
+                mk_axiom(p_le_0, ~div_ge_0);
                 std::function<void(void)> log = [&,this]() {
                     th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_le_0.var())));
                     th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_ge_0.var())));
                 };
                 if_trace_stream _ts(m, log);
             }
+#endif
         }
         else {
+            literal div_ge_0   = mk_literal(a.mk_ge(div, zero));
+            literal div_le_0   = mk_literal(a.mk_le(div, zero));
+            literal p_ge_0     = mk_literal(a.mk_ge(p, zero));
+            literal p_le_0     = mk_literal(a.mk_le(p, zero));
+
             // q >= 0 or p = (p mod q) + q * (p div q)
             // q <= 0 or p = (p mod q) + q * (p div q)
             // q >= 0 or (p mod q) >= 0
@@ -1396,20 +1415,30 @@ public:
             mk_axiom(q_le_0, mod_ge_0);
             mk_axiom(q_le_0, ~mk_literal(a.mk_ge(a.mk_sub(mod, q), zero)));            
             mk_axiom(q_ge_0, ~mk_literal(a.mk_ge(a.mk_add(mod, q), zero)));        
+#if 0
+            // seem expensive
             mk_axiom(q_le_0, ~p_ge_0, div_ge_0); 
             mk_axiom(q_le_0, ~p_le_0, div_le_0); 
             mk_axiom(q_ge_0, ~p_ge_0, div_le_0);             
             mk_axiom(q_ge_0, ~p_le_0, div_ge_0);
+
+            mk_axiom(q_le_0, p_ge_0, ~div_ge_0); 
+            mk_axiom(q_le_0, p_le_0, ~div_le_0); 
+            mk_axiom(q_ge_0, p_ge_0, ~div_le_0);             
+            mk_axiom(q_ge_0, p_le_0, ~div_ge_0);
+#endif
  
             std::function<void(void)> log = [&,this]() {
                 th.log_axiom_unit(m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(eq.var()))); 
                 th.log_axiom_unit(m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(mod_ge_0.var()))); 
                 th.log_axiom_unit(m.mk_implies(a.mk_lt(q, zero), a.mk_lt(a.mk_sub(mod, q), zero)));
                 th.log_axiom_unit(m.mk_implies(a.mk_lt(q, zero), a.mk_lt(a.mk_add(mod, q), zero)));
+#if 0
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_ge_0.var())));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_le_0.var())));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_le_0.var())));
                 th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_ge_0.var())));
+#endif
             };
             if_trace_stream _ts(m, log);
         }

@@ -1492,10 +1492,8 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     unsigned rlimit  = m_params.rlimit();
     scoped_watch sw(*this);
     lbool r;
-    bool was_opt = false;
 
     if (m_opt && !m_opt->empty()) {
-        was_opt = true;
         m_check_sat_result = get_opt();
         cancel_eh<reslimit> eh(m().limit());
         scoped_ctrl_c ctrlc(eh);

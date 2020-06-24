@@ -454,12 +454,12 @@ public:
     
     void cheap_eq_table(unsigned rid) {
         TRACE("cheap_eqs", tout << "checking if row " << rid << " can propagate equality.\n";  print_row(tout, rid););
-        unsigned x, y;
+        unsigned x = 0, y = 0;
         mpq k;
         if (is_offset_row(rid, x, y, k)) {
             if (y == null_lpvar) {
                 // x is an implied fixed var at k.
-                unsigned x2;
+                unsigned x2 = null_lpvar;
                 if (lp().find_in_fixed_tables(k, is_int(x), x2) &&
                     !is_equal(x, x2)) {
                     SASSERT(is_int(x) == is_int(x2) && lp().column_is_fixed(x2) &&

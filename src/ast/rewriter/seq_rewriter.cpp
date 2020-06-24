@@ -4178,7 +4178,9 @@ bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, 
 } 
 
 seq_rewriter::op_cache::op_cache(ast_manager& m):
-    m(m), m_trail(m) {}
+    m(m),
+    m_trail(m)
+{}
 
 expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     op_entry e(op, a, b, nullptr);
