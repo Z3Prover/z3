@@ -686,8 +686,14 @@ namespace smt {
             rational pos, len;
             bool pos_exists = v.get_value(arg1, pos);
             bool len_exists = v.get_value(arg2, len);
-            ENSURE(pos_exists);
-            ENSURE(len_exists);
+            if (!pos_exists) {
+                cex = expr_ref(m.mk_or(m_autil.mk_ge(arg1, mk_int(0)), m_autil.mk_le(arg1, mk_int(0))), m);
+                return false;
+            }
+            if (!len_exists) {
+                cex = expr_ref(m.mk_or(m_autil.mk_ge(arg2, mk_int(0)), m_autil.mk_le(arg2, mk_int(0))), m);
+                return false;
+            }
             TRACE("str_fl", tout << "reduce substring term: base=" << mk_pp(term, m) << " (length="<<base_chars.size()<<"), pos=" << pos.to_string() << ", len=" << len.to_string() << std::endl;);
             // Case 1: pos < 0 or pos >= strlen(base) or len < 0
             // ==> (Substr ...) = ""
