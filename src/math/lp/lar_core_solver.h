@@ -1,20 +1,8 @@
 /*++
 Copyright (c) 2017 Microsoft Corporation
-
-Module Name:
-
-    <name>
-
-Abstract:
-
-    <abstract>
-
 Author:
 
     Lev Nachmanson (levnach)
-
-Revision History:
-
 
 --*/
 #pragma once
@@ -51,9 +39,9 @@ public:
     stacked_vector<numeric_pair<mpq>> m_r_upper_bounds;
     static_matrix<mpq, numeric_pair<mpq>> m_r_A;
     stacked_vector<unsigned> m_r_pushed_basis;
-    vector<unsigned> m_r_basis;
-    vector<unsigned> m_r_nbasis;
-    vector<int> m_r_heading;
+    vector<unsigned>         m_r_basis;
+    vector<unsigned>         m_r_nbasis;
+    vector<int>              m_r_heading;
     stacked_vector<unsigned> m_r_columns_nz;
     stacked_vector<unsigned> m_r_rows_nz;
     
@@ -91,13 +79,6 @@ public:
     
     column_type get_column_type(unsigned j) { return m_column_types[j];}
     
-    void init_costs(bool first_time);
-
-    void init_cost_for_column(unsigned j);
-
-    // returns m_sign_of_alpha_r
-    int column_is_out_of_bounds(unsigned j);
-
     void calculate_pivot_row(unsigned i);
 
     void print_pivot_row(std::ostream & out, unsigned row_index) const  {
@@ -112,8 +93,7 @@ public:
         for (unsigned j : m_r_solver.m_pivot_row.m_index) {
             m_r_solver.print_column_bound_info(j, out);
         }
-        m_r_solver.print_column_bound_info(m_r_solver.m_basis[row_index], out);
-        
+        m_r_solver.print_column_bound_info(m_r_solver.m_basis[row_index], out);        
     }
     
 
@@ -131,28 +111,20 @@ public:
 
     void prefix_d();
 
-    unsigned m_m() const {
-        return m_r_A.row_count();
-    }
+    unsigned m_m() const { return m_r_A.row_count();  }
 
-    unsigned m_n() const {
-        return m_r_A.column_count();
-    }
+    unsigned m_n() const { return m_r_A.column_count(); }
     
     bool is_tiny() const { return this->m_m() < 10 && this->m_n() < 20; }
 
     bool is_empty() const { return this->m_m() == 0 && this->m_n() == 0; }
 
     template <typename L>
-    int get_sign(const L & v) {
-        return v > zero_of_type<L>() ? 1 : (v < zero_of_type<L>() ? -1 : 0);
-    }
-
-
+    int get_sign(const L & v) { return v > zero_of_type<L>() ? 1 : (v < zero_of_type<L>() ? -1 : 0); }
 
     void fill_evidence(unsigned row);
 
-	unsigned get_number_of_non_ints() const;
+    unsigned get_number_of_non_ints() const;
 
     void solve();
 
