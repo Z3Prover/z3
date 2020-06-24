@@ -90,7 +90,6 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-        context & sub_ctx = subsolver.get_context();
 
         expr * full = nullptr;
         expr * suff = nullptr;
@@ -137,13 +136,14 @@ namespace smt {
             // full[j] == suff[j]
             expr_ref cLHS(full_chars.get(full_chars.size() - j - 1), sub_m);
             expr_ref cRHS(suff_chars.get(suff_chars.size() - j - 1), sub_m);
-            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            expr_ref _e(sub_m.mk_eq(cLHS, cRHS), sub_m);
             branch.push_back(_e);
         }
 
         expr_ref final_diseq(mk_and(branch), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+        TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(PFUN, f, f));
 
         return true;
     }
@@ -152,7 +152,6 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-        context & sub_ctx = subsolver.get_context();
 
         expr * full = nullptr;
         expr * suff = nullptr;
@@ -191,13 +190,14 @@ namespace smt {
             // full[j] == suff[j]
             expr_ref cLHS(full_chars.get(full_chars.size() - j - 1), sub_m);
             expr_ref cRHS(suff_chars.get(suff_chars.size() - j - 1), sub_m);
-            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            expr_ref _e(sub_m.mk_eq(cLHS, cRHS), sub_m);
             branch.push_back(_e);
         }
 
         expr_ref final_diseq(mk_not(sub_m, mk_and(branch)), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+        TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(NFUN, f, f));
 
         return true;
     }
@@ -206,7 +206,6 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-        context & sub_ctx = subsolver.get_context();
 
         expr * full = nullptr;
         expr * pref = nullptr;
@@ -253,13 +252,14 @@ namespace smt {
             // full[j] == pref[j]
             expr_ref cLHS(full_chars.get(j), sub_m);
             expr_ref cRHS(pref_chars.get(j), sub_m);
-            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            expr_ref _e(sub_m.mk_eq(cLHS, cRHS), sub_m);
             branch.push_back(_e);
         }
 
         expr_ref final_diseq(mk_and(branch), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+        TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(PFUN, f, f));
 
         return true;
     }
@@ -268,7 +268,6 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-        context & sub_ctx = subsolver.get_context();
 
         expr * pref = nullptr, *full = nullptr;
         VERIFY(u.str.is_prefix(f, pref, full));
@@ -306,13 +305,14 @@ namespace smt {
             // full[j] == pref[j]
             expr_ref cLHS(full_chars.get(j), sub_m);
             expr_ref cRHS(pref_chars.get(j), sub_m);
-            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            expr_ref _e(sub_m.mk_eq(cLHS, cRHS), sub_m);
             branch.push_back(_e);
         }
 
         expr_ref final_diseq(mk_not(sub_m, mk_and(branch)), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+        TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(NFUN, f, f));
 
         return true;
     }
@@ -321,7 +321,6 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-        context & sub_ctx = subsolver.get_context();
 
         expr * full = nullptr;
         expr * small = nullptr;
@@ -371,7 +370,7 @@ namespace smt {
                 ENSURE(i+j < haystack_chars.size());
                 expr_ref cLHS(needle_chars.get(j), sub_m);
                 expr_ref cRHS(haystack_chars.get(i+j), sub_m);
-                expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+                expr_ref _e(sub_m.mk_eq(cLHS, cRHS), sub_m);
                 branch.push_back(_e);
             }
             branches.push_back(mk_and(branch));
@@ -379,7 +378,8 @@ namespace smt {
 
         expr_ref final_diseq(mk_or(branches), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+        TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(PFUN, f, f));
 
         return true;
     }
@@ -388,7 +388,6 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-        context & sub_ctx = subsolver.get_context();
 
         expr * small = nullptr, *full = nullptr;
         VERIFY(u.str.is_contains(f, full, small));
@@ -431,7 +430,7 @@ namespace smt {
                 ENSURE(i+j < haystack_chars.size());
                 expr_ref cLHS(needle_chars.get(j), sub_m);
                 expr_ref cRHS(haystack_chars.get(i+j), sub_m);
-                expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+                expr_ref _e(sub_m.mk_eq(cLHS, cRHS), sub_m);
                 branch.push_back(_e);
             }
             branches.push_back(mk_and(branch));
@@ -439,7 +438,8 @@ namespace smt {
 
         expr_ref final_diseq(mk_not(sub_m, mk_or(branches)), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+        TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(NFUN, f, f));
 
         return true;
     }
@@ -605,11 +605,12 @@ namespace smt {
                     return true;
                 }
             } else {
-                // TODO fixed_length_lesson?
                 if (polarity) {
                     fixed_length_assumptions.push_back(result);
+                    fixed_length_lesson.insert(result, std::make_tuple(PFUN, f, f));
                 } else {
                     fixed_length_assumptions.push_back(sub_m.mk_not(result));
+                    fixed_length_lesson.insert(sub_m.mk_not(result), std::make_tuple(NFUN, f, f));
                 }
                 return true;
             }
@@ -815,7 +816,6 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-        context & sub_ctx = subsolver.get_context();
 
         ptr_vector<expr> lhs_chars, rhs_chars;
 
@@ -834,8 +834,9 @@ namespace smt {
         for (unsigned i = 0; i < lhs_chars.size(); ++i) {
             expr_ref cLHS(lhs_chars.get(i), sub_m);
             expr_ref cRHS(rhs_chars.get(i), sub_m);
-            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            expr_ref _e(sub_m.mk_eq(cLHS, cRHS), sub_m);
             fixed_length_assumptions.push_back(_e);
+            TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
             fixed_length_lesson.insert(_e, std::make_tuple(rational(i), lhs, rhs));
         }
         return true;
@@ -845,7 +846,6 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-        context & sub_ctx = subsolver.get_context();
 
         // we do generation before this check to make sure that
         // variables which only appear in disequalities show up in the model
@@ -879,12 +879,13 @@ namespace smt {
         for (unsigned i = 0; i < lhs_chars.size(); ++i) {
             expr_ref cLHS(lhs_chars.get(i), sub_m);
             expr_ref cRHS(rhs_chars.get(i), sub_m);
-            diseqs.push_back(sub_m.mk_not(sub_ctx.mk_eq_atom(cLHS, cRHS)));
+            diseqs.push_back(sub_m.mk_not(sub_m.mk_eq(cLHS, cRHS)));
         }
 
         expr_ref final_diseq(mk_or(diseqs), sub_m);
         fixed_length_assumptions.push_back(final_diseq);
-        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-1), lhs, rhs));
+        TRACE("str_fl", tout << "inserting into fixed_lesson" <<std::endl;);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(NEQ, lhs, rhs));
 
         return true;
     }
@@ -1249,6 +1250,7 @@ namespace smt {
                     rational index;
                     expr* lhs;
                     expr* rhs;
+                    TRACE("str_fl", tout << fixed_length_lesson.size() << std::endl;);
                     std::tie(index, lhs, rhs) = fixed_length_lesson.find(subsolver.get_unsat_core_expr(i));
                     TRACE("str_fl", tout << "lesson: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << " at index " << index << std::endl;);
                     cex.push_back(refine(lhs, rhs, index));
@@ -1256,7 +1258,7 @@ namespace smt {
                         negate_pre = true;
                     }
                 }
-                if (negate_pre){
+                if (negate_pre || subsolver.get_unsat_core_size() == 0){
                     for (auto ex : precondition) {
                         cex.push_back(ex);
                     }

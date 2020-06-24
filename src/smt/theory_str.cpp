@@ -9099,16 +9099,16 @@ namespace smt {
             return refine_eq(lhs, rhs, offset.get_unsigned());
         }
         // Let's just giveup if we find ourselves in the disjunctive fragment.
-        if (offset == rational(-1)) { // negative equation
+        if (offset == NEQ) { // negative equation
             ++m_stats.m_refine_neq;
             return refine_dis(lhs, rhs);
         }
-        if (offset == rational(-2)) { // function like contains, prefix,...
+        if (offset == PFUN) { // function like contains, prefix,...
             SASSERT(rhs == lhs);
             ++m_stats.m_refine_f;
             return refine_function(lhs);
         }
-        if (offset == rational(-3)) { // negated function
+        if (offset == NFUN) { // negated function
             SASSERT(rhs == lhs);
             ++m_stats.m_refine_nf;
             ast_manager & m = get_manager();
@@ -9252,7 +9252,7 @@ namespace smt {
         ast_manager & m = get_manager();
         
         expr_ref lesson(m);
-        lesson = m.mk_not(ctx.mk_eq_atom(lhs, rhs));
+        lesson = m.mk_not(m.mk_eq(lhs, rhs));
         TRACE("str", tout << "learning not " << mk_pp(lesson, m) << std::endl;);
         return lesson;
     }
