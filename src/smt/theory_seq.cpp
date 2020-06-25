@@ -3360,6 +3360,11 @@ void theory_seq::relevant_eh(app* n) {
         std::cout << "unhandled -call " << mk_pp(n, m) << "\n";
         add_unhandled_expr(n);
     }
+
+    unsigned ch = 0;
+    if (m_util.is_const_char(n, ch)) {
+        m_unicode.enforce_is_value(n, ch);
+    }
 }
 
 void theory_seq::add_unhandled_expr(expr* n) {

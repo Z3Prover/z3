@@ -82,7 +82,11 @@ namespace smt {
 
         void adapt_eq(theory_var v1, theory_var v2);
 
+        void add_edge(theory_var v1, theory_var v2, int diff, literal lit);
+
         literal mk_literal(expr* e);
+
+        theory_var ensure0();
 
     public:
 
@@ -109,11 +113,15 @@ namespace smt {
         // ensure coherence for character codes and equalities of shared symbols.
         bool final_check();
 
+        void enforce_is_value(app* n, unsigned ch);
+
         unsigned get_value(theory_var v);
 
         void propagate();
 
         bool can_propagate() const { return m_qhead < m_asserted_edges.size(); }
+
+
         
     };
 

@@ -36,16 +36,19 @@ namespace smt {
     void seq_unicode::assign_le(theory_var v1, theory_var v2, literal lit) {
         dl.init_var(v1);
         dl.init_var(v2);
-        ctx().push_trail(push_back_vector<context, svector<theory_var>>(m_asserted_edges));
-        m_asserted_edges.push_back(dl.add_edge(v2, v1, s_integer(0), lit));
+        add_edge(v1, v2, 0, lit);
     }
 
     // < atomic constraint on characters
     void seq_unicode::assign_lt(theory_var v1, theory_var v2, literal lit) {
         dl.init_var(v1);
         dl.init_var(v2);
+        add_edge(v1, v2, -1, lit);
+    }
+
+    void seq_unicode::add_edge(theory_var v1, theory_var v2, int diff, literal lit) {
         ctx().push_trail(push_back_vector<context, svector<theory_var>>(m_asserted_edges));
-        m_asserted_edges.push_back(dl.add_edge(v2, v1, s_integer(-1), lit));
+        m_asserted_edges.push_back(dl.add_edge(v2, v1, s_integer(diff), lit));
     }
 
     literal seq_unicode::mk_literal(expr* e) { 
@@ -86,9 +89,11 @@ namespace smt {
         avalue.init(&ctx());
         uint_set seen;
         for (unsigned v = 0; !ctx().inconsistent() && v < th.get_num_vars(); ++v) {
-            if (!seq.is_char(th.get_expr(v)))
+            expr* e = th.get_expr(v);
+            if (!seq.is_char(e)) 
                 continue;
-            dl.init_var(v);
+            dl.init_var(v);            
+
             int val = dl.get_assignment(v).get_int();
             if (val > static_cast<int>(zstring::max_char())) {
                 expr_ref ch(seq.str.mk_char(zstring::max_char()), m);
@@ -99,12 +104,8 @@ namespace smt {
                 continue;
             }
             if (val < 0) {
-                expr_ref ch(seq.str.mk_char(0), m);
-                enode* n = th.ensure_enode(ch);
-                theory_var v_min = n->get_th_var(th.get_id());
+                theory_var v_min = ensure0();
                 assign_le(v_min, v, null_literal);
-                dl.init_var(v_min);
-                dl.set_to_zero(v_min);
                 added_constraint = true;
                 continue;
             }
@@ -129,6 +130,32 @@ namespace smt {
         
         return true;
     }
+
+    void seq_unicode::enforce_is_value(app* n, unsigned ch) {
+        enode* e = th.ensure_enode(n);
+        theory_var v = e->get_th_var(th.get_id());
+        if (v == null_theory_var)
+            return;
+        dl.init_var(v);
+        if (ch == 0) {
+            dl.set_to_zero(v);
+        }
+        else {
+            theory_var v0 = ensure0();
+            add_edge(v0, v,  ch, null_literal);  // v - v0 <= ch
+            add_edge(v, v0, -static_cast<int>(ch), null_literal);  // v0 - v <= -ch
+        }
+    }
+
+    theory_var seq_unicode::ensure0() {
+        expr_ref ch(seq.str.mk_char(0), m);
+        enode* n = th.ensure_enode(ch);
+        theory_var v0 = n->get_th_var(th.get_id());
+        dl.init_var(v0);
+        dl.set_to_zero(v0);
+        return v0;
+    }
+
     
     void seq_unicode::propagate() {
         ctx().push_trail(value_trail<smt::context, unsigned>(m_qhead));
