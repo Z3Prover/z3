@@ -2465,7 +2465,8 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
     auto mk_ite = [&](expr* c, expr* a, expr* b) {
         return (a == b) ? a : m().mk_ite(c, a, b);
     };
-    // TODO
+    // @EXP (experimental change)
+    // Use same ID for related predicates to improve simplifications
     // auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
     if (m().is_ite(a, ca, a1, a2)) {
         expr_ref r1(m()), r2(m());

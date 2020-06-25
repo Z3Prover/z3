@@ -251,6 +251,7 @@ namespace smt {
         }
         else if (m.is_false(is_nullable)) {
             th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
+            // @EXP (experimental change)
             //unsigned len = std::max(1u, re().min_length(r));
             //th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + re().min_length(r)));
         }
