@@ -1144,6 +1144,11 @@ expr* seq_decl_plugin::get_some_value(sort* s) {
     if (util.is_re(s, seq)) {
         return util.re.mk_to_re(util.str.mk_empty(seq));
     }
+#if Z3_USE_UNICODE
+    if (util.is_char(s)) {
+        return util.mk_char('a');
+    }
+#endif
     UNREACHABLE();
     return nullptr;
 }
@@ -1167,10 +1172,12 @@ app* seq_util::str::mk_char(unsigned ch) const {
     return u.mk_char(ch);
 }
 
+#if !Z3_USE_UNICODE
 bv_util& seq_util::bv() const {
     if (!m_bv) m_bv = alloc(bv_util, m);
     return *m_bv.get();
 }
+#endif
 
 unsigned seq_util::max_plus(unsigned x, unsigned y) const {
     if (x + y < x || x + y < y)
@@ -1204,15 +1211,13 @@ app* seq_util::mk_char(unsigned ch) const {
 
 app* seq_util::mk_le(expr* ch1, expr* ch2) const {
     expr_ref _ch1(ch1, m), _ch2(ch2, m);
-
+    unsigned c1 = 0, c2 = 0;
+    if (is_const_char(ch1, c1) && is_const_char(ch2, c2)) 
+        return m.mk_bool_val(c1 <= c2);
 #if Z3_USE_UNICODE
     expr* es[2] = { ch1, ch2 };
     return m.mk_app(m_fid, OP_CHAR_LE, 2, es);
 #else
-    rational r1, r2;
-    if (bv().is_numeral(ch1, r1) && bv().is_numeral(ch2, r2)) {
-        return m.mk_bool_val(r1 <= r2);
-    }
     return bv().mk_ule(ch1, ch2);
 #endif
 }
@@ -1237,8 +1242,7 @@ bool seq_util::str::is_string(expr const* n, zstring& s) const {
 
 bool seq_util::str::is_nth_i(expr const* n, expr*& s, unsigned& idx) const {
     expr* i = nullptr;
-    if (!is_nth_i(n, s, i)) return false;
-    return arith_util(m).is_unsigned(i, idx);
+    return is_nth_i(n, s, i) && arith_util(m).is_unsigned(i, idx);
 }
 
 app* seq_util::str::mk_nth_i(expr* s, unsigned i) const {
@@ -1277,8 +1281,6 @@ void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {
 app* seq_util::str::mk_is_empty(expr* s) const {
     return m.mk_eq(s, mk_empty(get_sort(s)));
 }
-
-
 
 unsigned seq_util::str::min_length(expr* s) const {
     SASSERT(u.is_seq(s));
@@ -1373,7 +1375,6 @@ unsigned seq_util::re::max_length(expr* r) const {
 }
 
 sort* seq_util::re::to_seq(sort* re) {
-    (void)u;
     SASSERT(u.is_re(re));
     return to_sort(re->get_parameter(0).get_ast());
 }

@@ -23,10 +23,13 @@ Revision History:
 #ifndef SEQ_DECL_PLUGIN_H_
 #define SEQ_DECL_PLUGIN_H_
 
-#include "ast/ast.h"
-#include "ast/bv_decl_plugin.h"
-
 #define Z3_USE_UNICODE 1
+
+#include "ast/ast.h"
+
+#if !Z3_USE_UNICODE
+#include "ast/bv_decl_plugin.h"
+#endif
 
 enum seq_sort_kind {
     SEQ_SORT,
@@ -235,9 +238,10 @@ class seq_util {
     ast_manager& m;
     seq_decl_plugin& seq;
     family_id m_fid;
+#if !Z3_USE_UNICODE
     mutable scoped_ptr<bv_util> m_bv;
     bv_util& bv() const;
-
+#endif
     unsigned max_plus(unsigned x, unsigned y) const;
     unsigned max_mul(unsigned x, unsigned y) const;
 public:
