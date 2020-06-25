@@ -23,7 +23,7 @@ namespace sat {
     
     class justification {
     public:
-        enum kind { NONE, BINARY, TERNARY, CLAUSE, EXT_JUSTIFICATION };
+        enum kind { NONE = 0, BINARY = 1, TERNARY = 2, CLAUSE = 3, EXT_JUSTIFICATION = 4};
     private:
         unsigned m_level;
         size_t m_val1;

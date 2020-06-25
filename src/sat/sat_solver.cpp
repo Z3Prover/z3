@@ -429,21 +429,13 @@ namespace sat {
 
     bool solver::propagate_bin_clause(literal l1, literal l2) {
         if (value(l2) == l_false) {
-            if (value(l1) == l_false) {
-                TRACE("sat", tout << "conflict " << l1 << " " << l2 << "\n";);
-                set_conflict(justification(std::max(lvl(l1), lvl(l2)), l1, l2));
-            }
-            else {
-                m_stats.m_bin_propagate++;
-                //TRACE("sat", tout << "propagate " << l1 << " <- " << ~l2 << "\n";);
-                assign(l1, justification(lvl(l2), l2));
-            }
+            m_stats.m_bin_propagate++;
+            assign(l1, justification(lvl(l2), l2));            
             return true;
         }
-        else if (value(l1) == l_false) {
+        if (value(l1) == l_false) {
             m_stats.m_bin_propagate++;
-            //TRACE("sat", tout << "propagate " << l2 << " <- " << ~l1 << "\n";);
-            assign(l2, justification(lvl(l1), l1) );
+            assign(l2, justification(lvl(l1), l1));
             return true;
         }
         return false;
