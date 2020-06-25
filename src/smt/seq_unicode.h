@@ -37,6 +37,7 @@ namespace smt {
             literal_vector m_literals;
         public:
             nc_functor() {}
+            void reset() { m_literals.reset(); }
             void operator()(literal const& l) {
                 if (l != null_literal) m_literals.push_back(l);
             }

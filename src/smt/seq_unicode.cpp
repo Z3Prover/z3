@@ -141,10 +141,10 @@ namespace smt {
     }
     
     void seq_unicode::propagate(edge_id edge) {
-        std::cout << "!!!!propagate " << edge << "\n";
-        dl.display(std::cout);
+        TRACE("seq", dl.display(tout << "propagate " << edge << " "););
         if (dl.enable_edge(edge)) 
             return;
+        m_nc_functor.reset();
         dl.traverse_neg_cycle2(false, m_nc_functor);
         literal_vector const & lits = m_nc_functor.get_lits();
         vector<parameter> params;
@@ -154,7 +154,7 @@ namespace smt {
                 params.push_back(parameter(rational(1)));
             }
         }
-        std::cout << "CONFLICT\n";
+        TRACE("seq", tout << "conflict " << lits << "\n";);
         ctx().set_conflict(
             ctx().mk_justification(
                 ext_theory_conflict_justification(
