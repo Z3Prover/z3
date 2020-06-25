@@ -21,6 +21,7 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
@@ -91,6 +92,7 @@ namespace smt {
     */
     void model_generator::mk_value_procs(obj_map<enode, model_value_proc *> & root2proc, ptr_vector<enode> & roots, 
                                          ptr_vector<model_value_proc> & procs) {
+
         for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && m_context->is_relevant(r)) {
                 roots.push_back(r);
@@ -114,7 +116,8 @@ namespace smt {
                             SASSERT(proc);
                         }
                         else {
-                            TRACE("model", tout << "creating fresh value for #" << r->get_owner_id() << "\n";);
+                            TRACE("model", tout << "creating fresh value for #" << r->get_owner_id() 
+                                  << " " << mk_bounded_pp(r->get_owner(), m) << "\n";);
                             proc = alloc(fresh_value_proc, mk_extra_fresh_value(m.get_sort(r->get_owner())));
                         }
                     }

@@ -1057,12 +1057,14 @@ bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {
 
 bool seq_decl_plugin::is_value(app* e) const {
     while (true) {
-        if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) {
+        if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) 
             return true;
-        }
-        if (is_app_of(e, m_family_id, OP_STRING_CONST)) {
+        if (is_app_of(e, m_family_id, OP_STRING_CONST)) 
             return true;
-        }
+#if Z3_USE_UNICODE
+        if (is_app_of(e, m_family_id, OP_CHAR_CONST))
+            return true;
+#endif
         if (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
             m_manager->is_value(e->get_arg(0))) {
             return true;

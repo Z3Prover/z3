@@ -1921,7 +1921,6 @@ public:
             for (source_t src : m_source) {
                 switch (src) {
                 case unit_source: {
-                    std::cout << "!!! " << mk_pp(values[j], th.m) << "\n";
                     VERIFY(th.m_util.is_const_char(values[j++], ch));
                     sbuffer.push_back(ch);
                     break;
@@ -2051,6 +2050,12 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         }
         m_concat.shrink(start);
         return sv;
+    }
+    else if (m_util.is_char(e)) {
+        theory_var v = n->get_th_var(get_id());
+        unsigned val = m_unicode.get_value(v);
+        app* ch = m_util.mk_char(val);
+        return alloc(expr_wrapper_proc, mk_value(ch));        
     }
     else {
         return alloc(expr_wrapper_proc, mk_value(e));
