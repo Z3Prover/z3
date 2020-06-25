@@ -142,8 +142,8 @@ namespace smt {
         }
         else {
             theory_var v0 = ensure0();
-            add_edge(v0, v,  ch, null_literal);  // v - v0 <= ch
-            add_edge(v, v0, -static_cast<int>(ch), null_literal);  // v0 - v <= -ch
+            add_edge(v, v0,  ch, null_literal);  // v - v0 <= ch
+            add_edge(v0, v, -static_cast<int>(ch), null_literal);  // v0 - v <= -ch
         }
     }
 

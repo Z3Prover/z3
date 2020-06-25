@@ -403,7 +403,7 @@ bool operator<(const zstring& lhs, const zstring& rhs) {
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_stringc_sym("String"),
-                                    m_charc_sym("char"),
+                                    m_charc_sym("@char"),
                                     m_string(nullptr),
                                     m_char(nullptr),
                                     m_reglan(nullptr),
@@ -868,13 +868,17 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case _OP_STRING_CONCAT:
         return mk_assoc_fun(k, arity, domain, range, OP_SEQ_CONCAT, k);
 
-    case _OP_STRING_FROM_CHAR: {
-        if (!(num_parameters == 1 && parameters[0].is_int())) 
-            m.raise_exception("character literal expects integer parameter");
-        zstring zs(parameters[0].get_int());        
-        parameter p(zs.encode().c_str());
-        return m.mk_const_decl(m_stringc_sym, m_string,func_decl_info(m_family_id, OP_STRING_CONST, 1, &p));
-    }
+    case _OP_STRING_FROM_CHAR: 
+       if (num_parameters == 1 && 
+            arity == 0 && 
+            parameters[0].is_int() && 
+            0 <= parameters[0].get_int() && 
+           parameters[0].get_int() <= static_cast<int>(zstring::max_char())) {
+           zstring zs(parameters[0].get_int());        
+           parameter p(zs.encode().c_str());
+           return m.mk_const_decl(m_stringc_sym, m_string,func_decl_info(m_family_id, OP_STRING_CONST, 1, &p));
+       }
+       m.raise_exception("character literal expects integer parameter");
         
     case OP_SEQ_REPLACE:
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRREPL);
@@ -932,19 +936,27 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_str_fun(k, arity, domain, range, OP_SEQ_TO_RE);
 
 #if Z3_USE_UNICODE
-    case OP_CHAR_LE:
+    case OP_CHAR_LE: {
         if (arity == 2 && domain[0] == m_char && domain[1] == m_char) {
             return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, m.mk_bool_sort(), func_decl_info(m_family_id, k, 0, nullptr));
         }
-        m.raise_exception("Incorrect parameters passed to character comparison");
-    case OP_CHAR_CONST:
-        if (!(num_parameters == 1 && arity == 0 && 
-              parameters[0].is_int() && 
-              0 <= parameters[0].get_int() && 
-              parameters[0].get_int() < static_cast<int>(zstring::max_char()))) {
-            m.raise_exception("invalid character declaration");
+        std::ostringstream strm;
+        strm << "Incorrect parameters passed to character comparison";
+        if (arity > 0) strm << " arg1 " << mk_pp(domain[0], m);
+        if (arity > 1) strm << " arg2 " << mk_pp(domain[1], m);
+        if (arity > 2) strm << " arity " << arity;
+        m.raise_exception(strm.str().c_str());
+    }
+    case OP_CHAR_CONST: 
+        if (num_parameters == 1 && 
+            arity == 0 && 
+            parameters[0].is_int() && 
+            0 <= parameters[0].get_int() && 
+            parameters[0].get_int() <= static_cast<int>(zstring::max_char())) {
+            func_decl* r = m.mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, num_parameters, parameters));
+            return r;
         }
-        return m.mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, num_parameters, parameters));
+        m.raise_exception("invalid character declaration");
 #endif
 
     case OP_SEQ_IN_RE:
@@ -1001,7 +1013,7 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("re.nostr",  _OP_REGEXP_EMPTY));
     op_names.push_back(builtin_name("re.complement", OP_RE_COMPLEMENT));
 #if Z3_USE_UNICODE
-    op_names.push_back(builtin_name("char", OP_CHAR_CONST));
+    op_names.push_back(builtin_name("@char", OP_CHAR_CONST));
 #endif
 }
 
