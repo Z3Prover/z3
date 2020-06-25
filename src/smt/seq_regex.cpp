@@ -364,6 +364,7 @@ namespace smt {
      * within the same Regex.
      */
     bool seq_regex::coallesce_in_re(literal lit) {
+        // @EXP (experimental change)
         return false;
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
@@ -633,7 +634,6 @@ namespace smt {
         sort* elem_sort = nullptr, *seq_sort = nullptr;
         VERIFY(u().is_re(r, seq_sort));
         VERIFY(u().is_seq(seq_sort, elem_sort));
-        sort* domain[2] = { m.get_sort(n), a().mk_int() };
         return sk().mk("re.first", n, a().mk_int(r->get_id()), elem_sort);
     }
 }

@@ -2489,18 +2489,18 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
             }
             // @EXP (experimental change)
             // Simplify if there is a relationship between ca and cb
-            if (pred_implies(ca, cb)) {
-                r1 = mk_der_op(k, a1, b1);
-            }
-            else if (pred_implies(ca, notcb)) {
-                r1 = mk_der_op(k, a1, b2);
-            }
-            if (pred_implies(notca, cb)) {
-                r2 = mk_der_op(k, a2, b1);
-            }
-            else if (pred_implies(notca, notcb)) {
-                r2 = mk_der_op(k, a2, b2);
-            }
+            // if (pred_implies(ca, cb)) {
+            //     r1 = mk_der_op(k, a1, b1);
+            // }
+            // else if (pred_implies(ca, notcb)) {
+            //     r1 = mk_der_op(k, a1, b2);
+            // }
+            // if (pred_implies(notca, cb)) {
+            //     r2 = mk_der_op(k, a2, b1);
+            // }
+            // else if (pred_implies(notca, notcb)) {
+            //     r2 = mk_der_op(k, a2, b2);
+            // }
             // --- End core logic
         }
         if (!r1) r1 = mk_der_op(k, a1, b);
@@ -2656,14 +2656,14 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            // return re_and(m_br.mk_eq_rw(ele, hd), re().mk_to_re(tl));
+            return re_and(m_br.mk_eq_rw(ele, hd), re().mk_to_re(tl));
             // @EXP (experimental change)
             // Write 'head is equal' as a range constraint:
             // (ele <= hd) and (hd <= ele)
-            return mk_der_inter(
-                re_and(m_util.mk_le(ele, hd), re().mk_to_re(tl)),
-                re_and(m_util.mk_le(hd, ele), re().mk_to_re(tl))
-            );
+            // return mk_der_inter(
+            //     re_and(m_util.mk_le(ele, hd), re().mk_to_re(tl)),
+            //     re_and(m_util.mk_le(hd, ele), re().mk_to_re(tl))
+            // );
         }
         else if (str().is_empty(r1)) {
             return mk_empty();
@@ -2686,14 +2686,14 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         // This is analagous to the previous is_to_re case.
         expr_ref hd(m()), tl(m());
         if (get_head_tail_reversed(r2, hd, tl)) {
-            // return re_and(m_br.mk_eq_rw(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
+            return re_and(m_br.mk_eq_rw(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
             // @EXP (experimental change)
             // Write 'tail is equal' as a range constraint:
             // (ele <= tl) and (tl <= ele)
-            return mk_der_inter(
-                re_and(m_util.mk_le(ele, tl), re().mk_reverse(re().mk_to_re(hd))),
-                re_and(m_util.mk_le(tl, ele), re().mk_reverse(re().mk_to_re(hd)))
-            );
+            // return mk_der_inter(
+            //     re_and(m_util.mk_le(ele, tl), re().mk_reverse(re().mk_to_re(hd))),
+            //     re_and(m_util.mk_le(tl, ele), re().mk_reverse(re().mk_to_re(hd)))
+            // );
         }
         else if (str().is_empty(r2)) {
             return mk_empty();
@@ -2706,6 +2706,11 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             if (s1.length() == 1 && s2.length() == 1) {
                 expr_ref ch1(m_util.mk_char(s1[0]), m());
                 expr_ref ch2(m_util.mk_char(s2[0]), m());
+                // @EXP (experimental change)
+                // expr_ref p1(m_util.mk_le(ch1, ele), m());
+                // expr_ref p2(m_util.mk_le(ele, ch2), m());
+                // expr_ref conj(m().mk_and(p1, p2), m());
+                // return re_predicate(conj, seq_sort);
                 return mk_der_inter(re_predicate(m_util.mk_le(ch1, ele), seq_sort),
                                     re_predicate(m_util.mk_le(ele, ch2), seq_sort));
             }
