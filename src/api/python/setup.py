@@ -143,7 +143,10 @@ def _copy_bins():
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
-    for filepath in glob.glob(os.path.join(BUILD_DIR, "msvcp*")) + glob.glob(os.path.join(BUILD_DIR, "vcomp*")):
+    path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
+    path2 = glob.glob(os.path.join(BUILD_DIR, "vcomp*"))
+    path3 = glob.glob(os.path.join(BUILD_DIR, "vcrun*"))
+    for filepath in path1 + path2 + path3:
         shutil.copy(filepath, LIBS_DIR)
 
     for header_dir in HEADER_DIRS:
