@@ -17,6 +17,8 @@ Author:
 #pragma once
 
 #include "util/scoped_vector.h"
+#include "util/obj_ref_hashtable.h"
+#include "util/union_find.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "smt/smt_context.h"
@@ -27,6 +29,79 @@ namespace smt {
     class theory_seq;
 
     class seq_regex {
+        /*
+            Info saved about the set of states (regexes) seen so far
+        */
+        class seen_states {
+            typedef expr state;
+            typedef obj_ref_map<ast_manager, state, bool> state_set;
+            typedef obj_ref_map<ast_manager, state, state_set> edge_rel;
+            typedef basic_union_find state_union_find;
+
+        private:
+            /*
+                All seen states are exactly one of:
+                - alive:      known to be nonempty
+                - dead:       known to be empty
+                - unknown:    all outgoing transitions have been
+                              seen, but the state is not known
+                              to be alive or dead
+                - unvisited:  not all outgoing transitions have
+                              been seen
+            */
+            state_set         m_seen;
+            state_set         m_alive;
+            state_set         m_dead;
+            state_set         m_unknown;
+            state_set         m_unvisited;
+
+            void mark_unknown(state s); // unvisited -> unknown
+            void mark_alive(state s);   // unknown -> alive
+            void mark_dead(state s);    // unknown -> dead
+
+            /*
+                A graph of strongly connected
+                components is kept on unknown states
+            */
+            state_union_find  m_cnctd_cmpnts;
+            edge_rel          m_from;
+            edge_rel          m_to;
+
+            void merge_states(state_set s);
+
+            /*
+                Caching details
+            */
+            unsigned          m_max_cache_size { 10000 };
+            expr_ref_vector   m_trail;
+
+            /*
+                Core cycle-detection routine
+            */
+            // Heuristic
+            bool can_be_in_cycle(state s1, state s2);
+            // Full check
+            void find_cycle(state s1, state s2);
+
+        public:
+            /*
+                Exposed methods:
+                    - adding a state
+                    - adding a transition from a state
+                    - marking a state as visited (no more transitions)
+                    - checking if a state is known to be alive or dead
+            */
+            void add_state(state s);
+            void add_transition(state s1, state s2);
+
+            bool is_alive(state s);
+            bool is_dead(state s);
+        };
+
+        /*
+            Struct representing data about a constraint of
+            the form (str.in_re s R)
+        */
         struct s_in_re {
             literal m_lit;
             expr*   m_s;
