@@ -84,11 +84,12 @@ namespace smt {
         arith_util a(m);
         arith_value avalue(m);
         avalue.init(&ctx());
+        uint_set seen;
         for (unsigned v = 0; !ctx().inconsistent() && v < th.get_num_vars(); ++v) {
             if (!seq.is_char(th.get_expr(v)))
                 continue;
             dl.init_var(v);
-            auto val = dl.get_assignment(v).get_int();
+            int val = dl.get_assignment(v).get_int();
             if (val > static_cast<int>(zstring::max_char())) {
                 expr_ref ch(seq.str.mk_char(zstring::max_char()), m);
                 enode* n = th.ensure_enode(ch);
@@ -107,15 +108,11 @@ namespace smt {
                 added_constraint = true;
                 continue;
             }
+            if (seen.contains(val))
+                continue;
+            seen.insert(val);
             // ensure str.to_code(unit(v)) = val
-            expr_ref ch(m);
-            if (false) {
-                /// m_rewrite.coalesce_chars();
-                ch = seq.str.mk_string(zstring(val));
-            }
-            else {
-                ch = seq.str.mk_unit(seq.str.mk_char(val));
-            }
+            expr_ref ch(seq.str.mk_unit(seq.str.mk_char(val)), m);          
             expr_ref code(seq.str.mk_to_code(ch), m);
             rational val2;
             if (avalue.get_value(code, val2) && val2 == rational(val))
