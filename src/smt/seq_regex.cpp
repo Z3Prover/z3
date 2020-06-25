@@ -103,14 +103,14 @@ namespace smt {
     }
 
     /**
-     * Propagate the atom (str.in.re s r)
+     * Propagate the atom (str.in_re s r)
      * 
      * Propagation implements the following inference rules
      * 
-     * (not (str.in.re s r)) => (str.in.re s (complement r))
-     * (str.in.re s r) => r != {}
+     * (not (str.in_re s r)) => (str.in_re s (complement r))
+     * (str.in_re s r) => r != {}
      * 
-     * (str.in.re s r) => (accept s 0 r)
+     * (str.in_re s r) => (accept s 0 r)
      */
 
     void seq_regex::propagate_in_re(literal lit) {
@@ -119,7 +119,12 @@ namespace smt {
         VERIFY(str().is_in_re(e, s, r));
 
         TRACE("seq_regex", tout << "propagate in RE: " << lit.sign() << " " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PIR ";);
+        STRACE("seq_regex_brief",
+            tout << "PIR("
+                 << s->get_id()
+                 << ","
+                 << r->get_id()
+                 << ") ";);
 
         // convert negative negative membership literals to positive
         // ~(s in R) => s in C(R)
@@ -419,12 +424,17 @@ namespace smt {
     */
     expr_ref seq_regex::is_nullable_wrapper(expr* r) {
         STRACE("seq_regex", tout << "nullable: " << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "n ";);
 
         expr_ref result = seq_rw().is_nullable(r);
         rewrite(result);
 
         STRACE("seq_regex", tout << "nullable result: " << mk_pp(result, m) << std::endl;);
+        STRACE("seq_regex_brief",
+            tout << "n("
+                 << r->get_id()
+                 << "->"
+                 << result->get_id()
+                 << ") ";);
         seq_rw().trace_and_reset_cache_counts();
 
         return result;
