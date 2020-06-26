@@ -1022,15 +1022,15 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     sort_names.push_back(builtin_name("Seq",   SEQ_SORT));
     sort_names.push_back(builtin_name("RegEx", RE_SORT));
 
-    // TBD:
-    // sort_names.push_back(builtin_name("Char",  CHAR_SORT));
-
     // SMTLIB 2.6 RegLan, String
     sort_names.push_back(builtin_name("RegLan", _REGLAN_SORT));
     sort_names.push_back(builtin_name("String", _STRING_SORT));
 
     // SMTLIB 2.5 compatibility
     sort_names.push_back(builtin_name("StringSequence", _STRING_SORT));
+
+    // To ease testing characters
+    sort_names.push_back(builtin_name("Unicode", _CHAR_SORT));
 }
 
 app* seq_decl_plugin::mk_string(symbol const& s) {
