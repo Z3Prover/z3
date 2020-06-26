@@ -1113,8 +1113,6 @@ namespace smt {
 
         // Check consistency of all string-integer conversion terms wrt. integer theory before we solve,
         // possibly generating additional constraints for the bit-vector solver.
-        // TODO relevance check?
-        // TODO duplicate code from finalcheck_str2int and finalcheck_int2str
         {
             arith_value v(get_manager());
             v.init(&get_context());
@@ -1144,7 +1142,6 @@ namespace smt {
                             }
                             zstring arg_val = padding + ival_str;
                             expr_ref stoi_cex(m);
-                            ptr_vector<expr> arg_chars;
                             expr_ref arg_char_expr(mk_string(arg_val), m);
                             
                             // Add (e == ival) as a precondition.
@@ -1158,15 +1155,47 @@ namespace smt {
                         }
                     } else {
                         TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(e, get_manager()) << std::endl;);
-                        // consistency needs to be checked 
+                        // consistency needs to be checked after the string is assigned
                     }
                 } else if (u.str.is_itos(e, _arg)) {
-                    // TODO
-                    NOT_IMPLEMENTED_YET();
+                    expr_ref arg(_arg, m);
+                    rational slen;
+                    if (!fixed_length_get_len_value(e, slen)) {
+                        expr_ref stoi_cex(m_autil.mk_ge(mk_strlen(e), mk_int(0)), m);
+                        assert_axiom(stoi_cex);
+                        add_persisted_axiom(stoi_cex);
+                        return l_undef;
+                    }
+                    TRACE("str_fl", tout << "length of term is " << slen << std::endl;);
+                    rational ival;
+                    if (v.get_value(arg, ival)) {
+                        TRACE("str_fl", tout << "integer theory assigns " << ival << " to " << mk_pp(arg, get_manager()) << std::endl;);
+                        zstring ival_str;
+                        if (ival.is_neg()) {
+                            // e must be the empty string, i.e. have length 0
+                            ival_str = zstring("");
+                        } else {
+                            // e must be equal to the string representation of ival
+                            ival_str = zstring(ival.to_string().c_str());
+                        }
+                        // Add (arg == ival) as a precondition.
+                        precondition.push_back(m.mk_eq(arg, mk_int(ival)));
+                        // Assert (e == ival_str) in the subsolver.
+                        expr_ref itos_cex(m);
+                        expr_ref _e(e, m);
+                        expr_ref arg_char_expr(mk_string(ival_str), m);
+                        if (!fixed_length_reduce_eq(subsolver, _e, arg_char_expr, itos_cex)) {
+                            assert_axiom(itos_cex);
+                            add_persisted_axiom(itos_cex);
+                            return l_undef;
+                        }
+                    } else {
+                        TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(arg, get_manager()) << std::endl;);
+                        // consistency needs to be checked after the string is assigned
+                    }
                 }
             }
         }
-        // TODO post-solving check as well
 
         for (auto e : fixed_length_used_len_terms) {
             expr * var = &e.get_key();
