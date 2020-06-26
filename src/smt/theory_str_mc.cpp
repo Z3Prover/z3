@@ -1111,6 +1111,63 @@ namespace smt {
             }
         }
 
+        // Check consistency of all string-integer conversion terms wrt. integer theory before we solve,
+        // possibly generating additional constraints for the bit-vector solver.
+        // TODO relevance check?
+        // TODO duplicate code from finalcheck_str2int and finalcheck_int2str
+        {
+            arith_value v(get_manager());
+            v.init(&get_context());
+            for (auto e : string_int_conversion_terms) {
+                TRACE("str_fl", tout << "pre-run check str-int term " << mk_pp(e, get_manager()) << std::endl;);
+                expr* _arg;
+                if (u.str.is_stoi(e, _arg)) {
+                    expr_ref arg(_arg, m);
+                    rational slen;
+                    if (!fixed_length_get_len_value(arg, slen)) {
+                        expr_ref stoi_cex(m_autil.mk_ge(mk_strlen(arg), mk_int(0)), m);
+                        assert_axiom(stoi_cex);
+                        add_persisted_axiom(stoi_cex);
+                        return l_undef;
+                    }
+                    TRACE("str_fl", tout << "length of term is " << slen << std::endl;);
+
+                    rational ival;
+                    if (v.get_value(e, ival)) {
+                        TRACE("str_fl", tout << "integer theory assigns " << ival << " to " << mk_pp(e, get_manager()) << std::endl;);
+                        // if ival is non-negative, because we know the length of arg, we can add a character constraint for arg
+                        if (ival.is_nonneg()) {
+                            zstring ival_str(ival.to_string().c_str());
+                            zstring padding;
+                            for (rational i = rational::zero(); i < slen - rational(ival_str.length()); ++i) {
+                                padding = padding + zstring("0");
+                            }
+                            zstring arg_val = padding + ival_str;
+                            expr_ref stoi_cex(m);
+                            ptr_vector<expr> arg_chars;
+                            expr_ref arg_char_expr(mk_string(arg_val), m);
+                            
+                            // Add (e == ival) as a precondition.
+                            precondition.push_back(m.mk_eq(e, mk_int(ival)));
+                            // Assert (arg == arg_chars) in the subsolver.
+                            if (!fixed_length_reduce_eq(subsolver, arg, arg_char_expr, stoi_cex)) {
+                                assert_axiom(stoi_cex);
+                                add_persisted_axiom(stoi_cex);
+                                return l_undef;
+                            }
+                        }
+                    } else {
+                        TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(e, get_manager()) << std::endl;);
+                        // consistency needs to be checked 
+                    }
+                } else if (u.str.is_itos(e, _arg)) {
+                    // TODO
+                    NOT_IMPLEMENTED_YET();
+                }
+            }
+        }
+        // TODO post-solving check as well
+
         for (auto e : fixed_length_used_len_terms) {
             expr * var = &e.get_key();
             rational val = e.get_value();
