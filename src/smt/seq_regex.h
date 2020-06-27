@@ -17,7 +17,8 @@ Author:
 #pragma once
 
 #include "util/scoped_vector.h"
-#include "util/obj_ref_hashtable.h"
+#include "util/uint_set.h"
+#include "util/uint_map.h"
 #include "util/union_find.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -30,17 +31,29 @@ namespace smt {
 
     class seq_regex {
         /*
-            Info saved about the set of states (regexes) seen so far
+            seen_states
+
+            Info saved about the set of states (regexes) seen so far.
+
+            "States" here are strongly connected components -- states that
+            are mutually reachable from each other. States
+            are represented as unsigned integers.
+
+            Used for the core incremental dead state elimination algorithm.
+
+            Class invariants:
+                - TODO
         */
         class seen_states {
-            typedef expr state;
-            typedef obj_ref_map<ast_manager, state, bool> state_set;
-            typedef obj_ref_map<ast_manager, state, state_set> edge_rel;
-            typedef basic_union_find state_union_find;
+            typedef unsigned              state;
+            typedef uint_set              state_set;
+            typedef uint_map<state_set>   edge_rel;
+            typedef basic_union_find      state_ufind;
+            // typedef uint_map<expr_ref_vector>  exprs_of_state;
 
         private:
             /*
-                All seen states are exactly one of:
+                All states are exactly one of:
                 - alive:      known to be nonempty
                 - dead:       known to be empty
                 - unknown:    all outgoing transitions have been
@@ -48,59 +61,77 @@ namespace smt {
                               to be alive or dead
                 - unvisited:  not all outgoing transitions have
                               been seen
+
+                The set m_seen keeps all of these and in addition,
+                seen states that have been merged and no longer reprsent
+                a current SCC.
             */
-            state_set         m_seen;
-            state_set         m_alive;
-            state_set         m_dead;
-            state_set         m_unknown;
-            state_set         m_unvisited;
+            state_set   m_seen;
+            state_set   m_alive;
+            state_set   m_dead;
+            state_set   m_unknown;
+            state_set   m_unvisited;
 
             void mark_unknown(state s); // unvisited -> unknown
             void mark_alive(state s);   // unknown -> alive
             void mark_dead(state s);    // unknown -> dead
 
-            /*
-                A graph of strongly connected
-                components is kept on unknown states
-            */
-            state_union_find  m_cnctd_cmpnts;
-            edge_rel          m_from;
-            edge_rel          m_to;
+            bool is_resolved(state s);   // alive or dead
+            bool is_unresolved(state s); // unknown or unvisited
 
-            void merge_states(state_set s);
+            /*
+                Initially a state is represented by an expression ID.
+                A union find data structure collapses an ID to a state.
+
+                Edges are saved in both from and to maps.
+                Additionally edges from are divided into those possibly
+                in a cycle, and those not in a cycle.
+            */
+            state_ufind   m_state_ufind;
+
+            state get_state(expr* e);
+            state merge_states(state s1, state s2);
+            state merge_states(state_set& s_set);
+
+            edge_rel      m_from_cycle;
+            edge_rel      m_from_nocycle;
+            edge_rel      m_to;
 
             /*
                 Caching details
             */
-            unsigned          m_max_cache_size { 10000 };
+            unsigned          m_max_size { 10000 };
             expr_ref_vector   m_trail;
 
             /*
                 Core cycle-detection routine
             */
-            // Heuristic
-            bool can_be_in_cycle(state s1, state s2);
-            // Full check
-            void find_cycle(state s1, state s2);
+            // Heuristic on syntactic expressions
+            bool can_be_in_cycle(expr* e1, expr* e2);
+            // Full check: if new edge (s1, s2) will create at least one cycle,
+            // merge all states in the new SCC
+            void find_and_merge_cycles(state s1, state s2);
 
         public:
             /*
-                Exposed methods:
-                    - adding a state
-                    - adding a transition from a state
-                    - marking a state as visited (no more transitions)
-                    - checking if a state is known to be alive or dead
+                Main exposed methods:
+                - adding a state
+                - adding a transition from a state
+                - checking if a state is known to be alive or dead
             */
-            void add_state(state s);
-            void add_transition(state s1, state s2);
+            void add_state(expr* e);
+            void add_transition(expr* e1, expr* e2);
+            bool is_alive(expr* e);
+            bool is_dead(expr* e);
 
-            bool is_alive(state s);
-            bool is_dead(state s);
+            seen_states(ast_manager& m):
+                m_seen(), m_alive(), m_dead(), m_unknown(), m_unvisited(),
+                m_state_ufind(), m_from_cycle(), m_from_nocycle(), m_to(),
+                m_trail(m) {}
         };
 
         /*
-            Struct representing data about a constraint of
-            the form (str.in_re s R)
+            Data about a constraint of the form (str.in_re s R)
         */
         struct s_in_re {
             literal m_lit;
@@ -111,6 +142,11 @@ namespace smt {
             m_lit(l), m_s(s), m_re(r), m_active(true) {}
         };
 
+        /*
+            Data about a literal for the solver to propagate
+            The trigger guards whether the literal is ready
+            to be addressed yet -- see seq_regex::can_propagate
+        */
         struct propagation_lit {
             literal m_lit;
             literal m_trigger;
