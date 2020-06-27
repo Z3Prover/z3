@@ -52,50 +52,56 @@ namespace smt {
             // typedef uint_map<expr_ref_vector>  exprs_of_state;
 
         private:
+            ast_manager& m;
+            seq_regex& m_parent;
+
             /*
                 All states are exactly one of:
-                - alive:      known to be nonempty
+                - live:       known to be nonempty
                 - dead:       known to be empty
                 - unknown:    all outgoing transitions have been
-                              seen, but the state is not known
-                              to be alive or dead
-                - unvisited:  not all outgoing transitions have
-                              been seen
+                              added, but the state is not known
+                              to be live or dead
+                - unvisited:  outgoing transitions have not been added
 
-                The set m_seen keeps all of these and in addition,
-                seen states that have been merged and no longer reprsent
-                a current SCC.
+                As SCCs are merged, some states become aliases, and a
+                union find data structure collapses a now obsolete
+                state to its current representative. m_seen keeps track
+                of states we have seen, including obsolete states.
             */
-            state_set   m_seen;
-            state_set   m_alive;
+            state_set   m_live;
             state_set   m_dead;
             state_set   m_unknown;
             state_set   m_unvisited;
 
-            void mark_unknown(state s); // unvisited -> unknown
-            void mark_alive(state s);   // unknown -> alive
-            void mark_dead(state s);    // unknown -> dead
-
-            bool is_resolved(state s);   // alive or dead
-            bool is_unresolved(state s); // unknown or unvisited
-
-            /*
-                Initially a state is represented by an expression ID.
-                A union find data structure collapses an ID to a state.
-
-                Edges are saved in both from and to maps.
-                Additionally edges from are divided into those possibly
-                in a cycle, and those not in a cycle.
-            */
+            state_set     m_seen;
             state_ufind   m_state_ufind;
 
-            state get_state(expr* e);
+            void add_state(state s);    // unvisited + seen
+            void remove_state(state s); // * -> m_seen only
+
+            void mark_unknown(state s); // unvisited -> unknown
+            void mark_live(state s);    // unknown -> live
+            void mark_dead(state s);    // unknown -> dead
+
+            // bool is_resolved(state s);   // live or dead
+            // bool is_unresolved(state s); // unknown or unvisited
+
+            /*
+                Edges are saved in both from and to maps.
+                A subset of edges are also marked as possibly being
+                part of a cycle by being stored in m_from_maybecycle.
+            */
+            edge_rel   m_from;
+            edge_rel   m_to;
+            edge_rel   m_from_maybecycle;
+
+            void add_edge(state s1, state s2, bool maybecycle);
+            void remove_edge(state s1, state s2);
+            void rename_edge(state old1, state old2, state new1, state new2);
+
             state merge_states(state s1, state s2);
             state merge_states(state_set& s_set);
-
-            edge_rel      m_from_cycle;
-            edge_rel      m_from_nocycle;
-            edge_rel      m_to;
 
             /*
                 Caching details
@@ -104,29 +110,39 @@ namespace smt {
             expr_ref_vector   m_trail;
 
             /*
-                Core cycle-detection routine
+                Core algorithmic search routines
+                - live state propagation
+                - dead state propagation
+                - cycle detection
             */
-            // Heuristic on syntactic expressions
+            void mark_live_recursive(state s);
+            void mark_dead_recursive(state s);
+            state merge_all_cycles(state s1, state_set& s_to);
+
+            /*
+                Methods on original expressions (before they are turned
+                into states)
+            */
+            // Convert expression to state
+            state get_state(expr* e);
+            // Cycle-detection heuristic (sound but not complete)
             bool can_be_in_cycle(expr* e1, expr* e2);
-            // Full check: if new edge (s1, s2) will create at least one cycle,
-            // merge all states in the new SCC
-            void find_and_merge_cycles(state s1, state s2);
 
         public:
             /*
-                Main exposed methods:
-                - adding a state
-                - adding a transition from a state
-                - checking if a state is known to be alive or dead
+                Exposed methods:
+                - adding a state and all its transitions
+                - checking if a state is known to be live or dead
             */
-            void add_state(expr* e);
-            void add_transition(expr* e1, expr* e2);
-            bool is_alive(expr* e);
+            void add_state(expr* e, bool live);
+            void add_all_transitions(expr* e1);
+            bool is_live(expr* e);
             bool is_dead(expr* e);
 
-            seen_states(ast_manager& m):
-                m_seen(), m_alive(), m_dead(), m_unknown(), m_unvisited(),
-                m_state_ufind(), m_from_cycle(), m_from_nocycle(), m_to(),
+            seen_states(ast_manager& m, seq_regex& parent):
+                m(m), m_parent(parent),
+                m_live(), m_dead(), m_unknown(), m_unvisited(), m_seen(),
+                m_state_ufind(), m_from(), m_to(), m_from_maybecycle(),
                 m_trail(m) {}
         };
 
@@ -155,11 +171,12 @@ namespace smt {
             propagation_lit(): m_lit(null_literal), m_trigger(null_literal) {}
         };
 
-        theory_seq&      th;
-        context&         ctx;
-        ast_manager&     m;
-        vector<s_in_re> m_s_in_re;
-        scoped_vector<propagation_lit> m_to_propagate;
+        theory_seq&                      th;
+        context&                         ctx;
+        ast_manager&                     m;
+        vector<s_in_re>                  m_s_in_re;
+        scoped_vector<propagation_lit>   m_to_propagate;
+        seen_states                      m_seen_states;
 
         seq_util& u();
         class seq_util::re& re();
@@ -194,6 +211,7 @@ namespace smt {
         expr_ref derivative_wrapper(expr* hd, expr* r);
 
         void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
+        void get_all_derivatives(expr* r, expr_ref_vector& results);
 
         void get_cofactors(expr* r, expr_ref_pair_vector& result) {
             expr_ref_vector conds(m);
