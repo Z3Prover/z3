@@ -118,7 +118,16 @@ namespace smt {
         void mark_dead_recursive(state s);
         state merge_all_cycles(state s1, state_set& s_to);
 
+        /*
+            Pretty printing support
+        */
+        // void pretty_print_set(std::ofstream& of, state_set& s_set);
+
     public:
+        state_graph():
+            m_live(), m_dead(), m_unknown(), m_unvisited(), m_seen(),
+            m_state_ufind(), m_from(), m_to(), m_from_maybecycle() {}
+
         /*
             Exposed methods:
             - adding a state and all its transitions
@@ -137,10 +146,11 @@ namespace smt {
         bool is_live(state s);
         bool is_dead(state s);
 
-        state_graph():
-            m_live(), m_dead(), m_unknown(), m_unvisited(), m_seen(),
-            m_state_ufind(), m_from(), m_to(), m_from_maybecycle()
-            {}
+        /*
+            Pretty printing
+        */
+        void pretty_print(std::ofstream& of);
+
     };
 
     class seq_regex {

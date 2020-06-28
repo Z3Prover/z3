@@ -613,6 +613,7 @@ namespace smt {
             seq_rw().elim_condition(hd, cond);
             rewrite(cond);
             if (m.is_false(cond)) continue;
+            if (re().is_empty(p.second)) continue;
             results.push_back(p.second);
         }
     }
@@ -758,18 +759,18 @@ namespace smt {
     void state_graph::add_edge_core(state s1, state s2, bool maybecycle) {
         SASSERT(m_state_ufind.is_root(s1));
         SASSERT(m_state_ufind.is_root(s2));
-        STRACE("seq_regex_brief", tout << std::endl << "  DEBUG: add edge core " << s1 << "," << s2 << "," << maybecycle << " ";);
+        STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: add edge core " << s1 << "," << s2 << "," << maybecycle << " ";);
         if (s1 == s2) return;
         if (!m_to.find(s1)->contains(s2)) {
             // add new edge
-            STRACE("seq_regex_brief", tout << std::endl << "  DEBUG: new edge! ";);
+            STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: new edge! ";);
             m_to.find(s1)->insert(s2);
             m_from.find(s2)->insert(s1);
             if (maybecycle) m_from_maybecycle.find(s2)->insert(s1);
         }
         else if (!maybecycle && m_from_maybecycle.find(s2)->contains(s1)) {
             // update existing edge
-            STRACE("seq_regex_brief", tout << std::endl << "  DEBUG: update edge! ";);
+            STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: update edge! ";);
             m_from_maybecycle.find(s2)->remove(s1);
         }
     }
@@ -854,9 +855,9 @@ namespace smt {
     void state_graph::mark_dead_recursive(state s) {
         SASSERT(!m_unvisited.contains(s));
         if (!m_unknown.contains(s)) return;
-        STRACE("seq_regex_brief", tout << std::endl << "  DEBUG: mark dead recursive: " << s << " ";);
+        STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: mark dead recursive: " << s << " ";);
         for (auto s_to: *m_to.find(s)) {
-            STRACE("seq_regex_brief", tout << std::endl << "  DEBUG: m_to searching: " << s_to << " ";);
+            STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: m_to searching: " << s_to << " ";);
             // unknown pointing to live should have been marked as live
             SASSERT(!m_live.contains(s_to));
             if (m_unknown.contains(s_to) || m_unvisited.contains(s_to)) return;
@@ -929,6 +930,39 @@ namespace smt {
         return m_dead.contains(m_state_ufind.find(s));
     }
 
+    // void pretty_print_set(std::ofstream& of, state_set& s_set) {
+    //     for (auto s: s_set) {
+    //         of << " " << s;
+    //     }
+    //     of << std::endl;
+    // }
+    void state_graph::pretty_print(std::ofstream& of) {
+        of << "---------- State Graph ----------" << std::endl;
+        of << "Seen:";
+        for (auto s: m_seen) {
+            of << " " << s;
+            state s_root = m_state_ufind.find(s);
+            if (s_root != s)
+                of << "(=" << s_root << ")";
+        }
+        of << std::endl;
+
+        of << "Live:" << m_live << std::endl;
+        of << "Dead:" << m_dead << std::endl;
+        of << "Unknown:" << m_unknown << std::endl;
+        of << "Unvisited:" << m_unvisited << std::endl;
+
+        of << "Edges:" << std::endl;
+        for (auto s1: m_seen) {
+            if (m_state_ufind.is_root(s1)) {
+                of << "  " << s1 << " -> " << *m_to.find(s1) << std::endl;
+            }
+        }
+
+        of << "---------------------------------" << std::endl;
+
+    }
+
     // **********************************
 
     unsigned seq_regex::get_state_id(expr* e) {
@@ -961,21 +995,20 @@ namespace smt {
         m_state_graph.add_state(r_id, r_nullable);
         // Add edges to all derivatives
         expr_ref_vector derivatives(m);
-        STRACE("seq_regex_brief", tout << std::endl << "  DEBUG: getting all derivs: " << r_id << " ";);
+        STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: getting all derivs: " << r_id << " ";);
         get_all_derivatives(r, derivatives);
         for (auto const& dr: derivatives) {
             unsigned dr_id = get_state_id(dr);
-            STRACE("seq_regex_brief", tout << std::endl << "  DEBUG: traversing deriv: " << dr_id << " ";);
+            STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: traversing deriv: " << dr_id << " ";);
             expr_ref dr_n = is_nullable_wrapper(dr);
-            STRACE("seq_regex_brief", tout << "1... ";);
             bool dr_nullable = m.is_true(dr_n);
-            STRACE("seq_regex_brief", tout << "2... ";);
             m_state_graph.add_state(dr_id, dr_nullable);
             bool maybecycle = can_be_in_cycle(r, dr);
             m_state_graph.add_edge(r_id, dr_id, maybecycle);
         }
         m_state_graph.done_adding(r_id);
         STRACE("seq_regex_brief", tout << std::endl;);
+        STRACE("seq_regex_brief", m_state_graph.pretty_print(tout););
         return true;
     }
 
