@@ -133,6 +133,7 @@ namespace smt {
         void done_adding(state s);
         unsigned get_size();
 
+        bool is_seen(state s);
         bool is_live(state s);
         bool is_dead(state s);
 
