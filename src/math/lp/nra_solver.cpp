@@ -73,8 +73,6 @@ struct solver::imp {
         }
         // TBD: add variable bounds?
 
-        m_nlsat->display(std::cout);
-
         lbool r = l_undef;
         try {
             r = m_nlsat->check(); 
