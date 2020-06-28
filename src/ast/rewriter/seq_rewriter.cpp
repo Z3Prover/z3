@@ -437,28 +437,26 @@ br_status seq_rewriter::mk_bool_app_helper(bool is_and, unsigned n, expr* const*
     
     for (unsigned i = 0; i < n; ++i) {
         expr* args_i = args[i];
-        expr* x = nullptr;
-        expr* y = nullptr;
-        expr* z = nullptr;
-        if (str().is_in_re(args_i, x, y)) {
+        expr* x = nullptr, *y = nullptr, *z = nullptr;
+        if (str().is_in_re(args_i, x, y) && !str().is_empty(x)) {
             if (in_re.find(x, z)) {				
                 in_re[x] = is_and ? re().mk_inter(z, y) : re().mk_union(z, y);
                 found_pair = true;
             }
             else {
                 in_re.insert(x, y);
+                found_pair |= not_in_re.contains(x);
             }
-            found_pair |= not_in_re.contains(x);
         }
-        else if (m().is_not(args_i, arg) && str().is_in_re(arg, x, y)) {
+        else if (m().is_not(args_i, arg) && str().is_in_re(arg, x, y) && !str().is_empty(x)) {
             if (not_in_re.find(x, z)) {
                 not_in_re[x] = is_and ? re().mk_union(z, y) : re().mk_inter(z, y);
                 found_pair = true;
             }
             else {
                 not_in_re.insert(x, y);
+                found_pair |= in_re.contains(x);
             }
-            found_pair |= in_re.contains(x);
         }
     }
     
