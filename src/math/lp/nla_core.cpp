@@ -1497,7 +1497,7 @@ lbool core::check(vector<lemma>& l_vec) {
             m_tangents.tangent_lemma();
     }
 
-    if (l_vec.empty() && !done() && m_nla_settings.run_nra()) {
+    if (!done() && m_nla_settings.run_nra()) {
         ret = m_nra.check();
         m_stats.m_nra_calls ++;
     }
