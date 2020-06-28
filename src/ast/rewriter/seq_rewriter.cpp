@@ -2182,17 +2182,20 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
-    // STRACE("seq_regex_brief", tout << "n";);
+    STRACE("seq_verbose", tout << "is_nullable: "
+                               << mk_pp(r, m()) << std::endl;);
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
     if (!result) {
         result = is_nullable_rec(r);
-        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
+        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);
     }
+    STRACE("seq_verbose", tout << "is_nullable result: "
+                               << mk_pp(result, m()) << std::endl;);
     return result;
 }
 
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
-    // STRACE("seq_regex_brief", tout << ".";); // recursive call
+    STRACE("seq_regex_brief", tout << ".";); // recursive call
     SASSERT(m_util.is_re(r) || m_util.is_seq(r));
     expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
     sort* seq_sort = nullptr;
@@ -2367,12 +2370,16 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         Duplicate nested conditions are eliminated.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
+    STRACE("seq_verbose", tout << "derivative: " << mk_pp(ele, m())
+                               << "," << mk_pp(r, m()) << std::endl;);
     // STRACE("seq_regex_brief", tout << "d";);
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
         result = mk_derivative_rec(ele, r);
         m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
     }
+    STRACE("seq_verbose", tout << "derivative result: "
+                               << mk_pp(result, m()) << std::endl;);
     return result;
 }
 
@@ -2904,6 +2911,9 @@ Disabled rewrite:
 */
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
+    STRACE("seq_verbose", tout << "mk_str_in_regexp: " << mk_pp(a, m())
+                               << ", " << mk_pp(b, m()) << std::endl;);
+
     if (re().is_empty(b)) {
         result = m().mk_false();
         return BR_DONE;
@@ -2919,10 +2929,14 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
     if (str().is_empty(a)) {
         result = is_nullable(b);
-        if (str().is_in_re(result))
+        if (str().is_in_re(result)) {
+            // STRACE("seq_regex_brief", tout << "mk_str_in_regexp: ...BR_DONE" << std::endl;);
             return BR_DONE;
-        else
+        }
+        else {
+            // STRACE("seq_regex_brief", tout << "mk_str_in_regexp: ...BR_REWRITE_FULL" << std::endl;);
             return BR_REWRITE_FULL;
+        }
     }
 
     expr_ref hd(m()), tl(m());
