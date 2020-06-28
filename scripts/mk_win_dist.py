@@ -253,7 +253,8 @@ def mk_zips():
 
 VS_RUNTIME_PATS = [re.compile('vcomp.*\.dll'),
                    re.compile('msvcp.*\.dll'),
-                   re.compile('msvcr.*\.dll')]
+                   re.compile('msvcr.*\.dll'),
+                   re.compile('vcrun.*\.dll')]
 
 # Copy Visual Studio Runtime libraries
 def cp_vs_runtime(x64):

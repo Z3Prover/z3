@@ -1177,6 +1177,7 @@ namespace sat {
 
         do {
 
+
             if (m_overflow || offset > (1 << 12)) {
                 IF_VERBOSE(20, verbose_stream() << "offset: " << offset << "\n";
                            DEBUG_CODE(active2pb(m_A); display(verbose_stream(), m_A);););
@@ -1214,7 +1215,7 @@ namespace sat {
             case justification::TERNARY:
                 inc_bound(offset); 
                 SASSERT (consequent != null_literal);
-                inc_coeff(consequent, offset);
+                inc_coeff(consequent, offset);				
                 process_antecedent(js.get_literal1(), offset);
                 process_antecedent(js.get_literal2(), offset);
                 break;
