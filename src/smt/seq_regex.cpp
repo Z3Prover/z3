@@ -25,7 +25,8 @@ namespace smt {
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
-        m_state_graph(m, *this)
+        m_state_graph(),
+        m_state_trail(m)
     {}
 
     seq_util& seq_regex::u() { return th.m_util; }
@@ -679,7 +680,7 @@ namespace smt {
      *** Dead state elimination and state_graph class ***
      ****************************************************/
 
-    void state_graph::add_state(state s) {
+    void state_graph::add_state_core(state s) {
         SASSERT(!m_seen.contains(s));
         // Ensure corresponding var in connected components
         while (s >= m_state_ufind.get_num_vars()) {
@@ -753,8 +754,7 @@ namespace smt {
         May already exist, in which case a nocycle edge overrides
         a cycle edge.
     */
-    void state_graph::add_edge(state s1, state s2,
-                                          bool maybecycle) {
+    void state_graph::add_edge_core(state s1, state s2, bool maybecycle) {
         SASSERT(m_state_ufind.is_root(s1));
         SASSERT(m_state_ufind.is_root(s2));
         if (s1 == s2) return;
@@ -784,7 +784,7 @@ namespace smt {
         SASSERT(m_from.find(old2)->contains(old1));
         bool maybecycle = m_from_maybecycle.find(old2)->contains(old1);
         remove_edge(old1, old2);
-        add_edge(new1, new2, maybecycle);
+        add_edge_core(new1, new2, maybecycle);
     }
 
     /*
@@ -865,8 +865,7 @@ namespace smt {
         if new edges from s1 to s_to will create at least one cycle,
         merge all states in the new SCC
     */
-    auto state_graph::merge_all_cycles(state s1, state_set& s_to)
-                                                  -> state {
+    auto state_graph::merge_all_cycles(state s1, state_set& s_to) -> state {
         // Mark s_to, then search backwards from s to mark the SCC
         // TODO: Implement full check
         // Simple placeholder for now: check if there is an edge both ways
@@ -878,59 +877,78 @@ namespace smt {
         return s1;
     }
 
-    auto state_graph::get_state(expr* e) -> state {
-        return m_state_ufind.find(e->get_id());
+    void state_graph::add_state(state s, bool live) {
+        if (m_seen.contains(s)) return;
+        add_state_core(s);
+        if (live) mark_live_recursive(s);
     }
-    bool state_graph::can_be_in_cycle(expr *e1, expr *e2) {
+    void state_graph::add_edge(state s1, state s2, bool maybecycle) {
+        SASSERT(m_seen.contains(s1));
+        SASSERT(m_seen.contains(s2));
+        s1 = m_state_ufind.find(s1);
+        s2 = m_state_ufind.find(s1);
+        add_edge_core(s1, s2, maybecycle);
+        if (m_live.contains(s2)) {
+            if (m_unvisited.contains(s1)) mark_unknown(s1);
+            mark_live_recursive(s1);
+        }
+    }
+    void state_graph::done_adding(state s) {
+        s = m_state_ufind.find(s);
+        if (m_unvisited.contains(s)) mark_unknown(s);
+        s = merge_all_cycles(s, *m_to.find(s));
+        // check if dead
+        mark_dead_recursive(s);
+    }
+
+    unsigned state_graph::get_size() {
+        return m_state_ufind.get_num_vars();
+    }
+
+    bool state_graph::is_live(state s) {
+        return m_live.contains(m_state_ufind.find(s));
+    }
+    bool state_graph::is_dead(state s) {
+        return m_dead.contains(m_state_ufind.find(s));
+    }
+
+    // **********************************
+
+    unsigned seq_regex::get_state_id(expr* e) {
+        return e->get_id();
+    }
+    bool seq_regex::can_be_in_cycle(expr *e1, expr *e2) {
         // Simple placeholder. TODO: Implement full check
         return true;
     }
 
-    void state_graph::add_state(expr* e, bool live) {
-        unsigned s = e->get_id();
-        if (m_seen.contains(s)) return;
-        if (s >= m_max_size) {
-            STRACE("seq_regex", tout << "Warning: max size of seen states reached!" << std::endl;);
+    /*
+        Update the state graph with expression r and all its derivatives.
+    */
+    bool seq_regex::update_state_graph(expr* r) {
+        if (m_state_graph.get_size() >= m_max_state_graph_size) {
+            STRACE("seq_regex", tout << "Warning: ignored state graph update -- max size of seen states reached!" << std::endl;);
             STRACE("seq_regex_brief", tout << "(MAX SIZE REACHED) ";);
-            return;
+            return false;
         }
         // Save e as expr_ref so it's not deallocated
-        m_trail.push_back(e);
-        // Add state
-        add_state(s);
-        if (live) mark_live_recursive(s);
-    }
-    void state_graph::add_all_transitions(expr* e1) {
-        // Precondition: e already corresponds to an existing state
-        SASSERT(m_seen.contains(e1->get_id()));
-        state s1 = get_state(e1);
-        if (!m_unvisited.contains(s1)) return;
+        m_state_trail.push_back(r);
+        // Add state, live if nullable
+        unsigned r_id = get_state_id(r);
+        bool r_nullable = m.is_true(is_nullable_wrapper(r));
+        m_state_graph.add_state(r_id, r_nullable);
         // Add edges to all derivatives
         expr_ref_vector derivatives(m);
-        m_parent.get_all_derivatives(e1, derivatives);
-        mark_unknown(s1);
-        bool s1_live = false;
-        state_set s2_set = *(new state_set());
-        for (auto const& e2: derivatives) {
-            state s2 = get_state(e2);
-            bool maybecycle = can_be_in_cycle(e1, e2);
-            add_edge(s1, s2, maybecycle);
-            if (m_live.contains(s2)) s1_live = true;
+        get_all_derivatives(r, derivatives);
+        for (auto const& dr: derivatives) {
+            unsigned dr_id = get_state_id(dr);
+            bool dr_nullable = m.is_true(is_nullable_wrapper(dr));
+            m_state_graph.add_state(dr_id, dr_nullable);
+            bool maybecycle = can_be_in_cycle(r, dr);
+            m_state_graph.add_edge(r_id, dr_id, maybecycle);
         }
-        if (s1_live) {
-            mark_live_recursive(s1);
-            return;
-        }
-        s1 = merge_all_cycles(s1, s2_set);
-        // check if dead
-        mark_dead_recursive(s1);
-    }
-
-    bool state_graph::is_live(expr* e) {
-        return m_live.contains(get_state(e));
-    }
-    bool state_graph::is_dead(expr* e) {
-        return m_dead.contains(get_state(e));
+        m_state_graph.done_adding(r_id);
+        return true;
     }
 
 }

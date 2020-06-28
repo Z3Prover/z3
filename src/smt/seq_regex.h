@@ -34,17 +34,21 @@ namespace smt {
     /*
         state_graph
 
-        Data structure which calculates live states and dead states.
+        Data structure which is capable of incrementally tracking
+        live states and dead states.
 
-        ----
+        "States" are integers. States and edges are added to the data
+        structure incrementally.
+        - Some states are initially labeled as live. The data structure
+          tracks which other states are live (can reach a live state), dead
+          (can't reach a live state), or neither.
+        - Some edges are labeled as not contained in a cycle. This is to
+          optimize search if it is known by the user of the structure
+          that no cycle will ever contain this edge.
 
-        Info saved about the set of states (regexes) seen so far.
-
-        "States" here are strongly connected components -- states that
-        are mutually reachable from each other. States
-        are represented as unsigned integers.
-
-        Used for the core incremental dead state elimination algorithm.
+        Internally, we use union_find to identify states within an SCC,
+        and incrementally update SCCs, while propagating backwards
+        live and dead SCCs.
 
         Class invariants:
             - TODO
@@ -54,12 +58,8 @@ namespace smt {
         typedef uint_set              state_set;
         typedef uint_map<state_set>   edge_rel;
         typedef basic_union_find      state_ufind;
-        // typedef uint_map<expr_ref_vector>  exprs_of_state;
 
     private:
-        ast_manager& m;
-        seq_regex& m_parent;
-
         /*
             All states are exactly one of:
             - live:       known to be nonempty
@@ -82,8 +82,8 @@ namespace smt {
         state_set     m_seen;
         state_ufind   m_state_ufind;
 
-        void add_state(state s);    // unvisited + seen
-        void remove_state(state s); // * -> m_seen only
+        void add_state_core(state s); // unvisited + seen
+        void remove_state(state s);   // * -> m_seen only
 
         void mark_unknown(state s); // unvisited -> unknown
         void mark_live(state s);    // unknown -> live
@@ -101,18 +101,12 @@ namespace smt {
         edge_rel   m_to;
         edge_rel   m_from_maybecycle;
 
-        void add_edge(state s1, state s2, bool maybecycle);
+        void add_edge_core(state s1, state s2, bool maybecycle);
         void remove_edge(state s1, state s2);
         void rename_edge(state old1, state old2, state new1, state new2);
 
         state merge_states(state s1, state s2);
         state merge_states(state_set& s_set);
-
-        /*
-            Caching details
-        */
-        unsigned          m_max_size { 10000 };
-        expr_ref_vector   m_trail;
 
         /*
             Core algorithmic search routines
@@ -124,31 +118,28 @@ namespace smt {
         void mark_dead_recursive(state s);
         state merge_all_cycles(state s1, state_set& s_to);
 
-        /*
-            Methods on original expressions (before they are turned
-            into states)
-        */
-        // Convert expression to state
-        state get_state(expr* e);
-        // Cycle-detection heuristic (sound but not complete)
-        bool can_be_in_cycle(expr* e1, expr* e2);
-
     public:
         /*
             Exposed methods:
             - adding a state and all its transitions
             - checking if a state is known to be live or dead
-        */
-        void add_state(expr* e, bool live);
-        void add_all_transitions(expr* e1);
-        bool is_live(expr* e);
-        bool is_dead(expr* e);
 
-        state_graph(ast_manager& m, seq_regex& parent):
-            m(m), m_parent(parent),
+            ASSUMPTION: transitions from a state are added in order and after
+            all transitions are added, the state is marked as
+            finished. Also all states are added before the transitions.
+        */
+        void add_state(state s, bool live);
+        void add_edge(state s1, state s2, bool maybecycle);
+        void done_adding(state s);
+        unsigned get_size();
+
+        bool is_live(state s);
+        bool is_dead(state s);
+
+        state_graph():
             m_live(), m_dead(), m_unknown(), m_unvisited(), m_seen(),
-            m_state_ufind(), m_from(), m_to(), m_from_maybecycle(),
-            m_trail(m) {}
+            m_state_ufind(), m_from(), m_to(), m_from_maybecycle()
+            {}
     };
 
     class seq_regex {
@@ -182,7 +173,20 @@ namespace smt {
         ast_manager&                     m;
         vector<s_in_re>                  m_s_in_re;
         scoped_vector<propagation_lit>   m_to_propagate;
-        state_graph                      m_state_graph;
+
+        /*
+            state_graph for dead state detection,
+            and associated methods
+        */
+        state_graph       m_state_graph;
+        expr_ref_vector   m_state_trail;
+        unsigned          m_max_state_graph_size { 10000 };
+        // Convert expression to state
+        unsigned get_state_id(expr* e);
+        // Cycle-detection heuristic (sound but not complete)
+        bool can_be_in_cycle(expr* e1, expr* e2);
+        // Update the graph
+        bool update_state_graph(expr* r);
 
         seq_util& u();
         class seq_util::re& re();
