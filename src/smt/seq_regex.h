@@ -29,123 +29,129 @@ namespace smt {
 
     class theory_seq;
 
-    class seq_regex {
+    class seq_regex;
+
+    /*
+        state_graph
+
+        Data structure which calculates live states and dead states.
+
+        ----
+
+        Info saved about the set of states (regexes) seen so far.
+
+        "States" here are strongly connected components -- states that
+        are mutually reachable from each other. States
+        are represented as unsigned integers.
+
+        Used for the core incremental dead state elimination algorithm.
+
+        Class invariants:
+            - TODO
+    */
+    class state_graph {
+        typedef unsigned              state;
+        typedef uint_set              state_set;
+        typedef uint_map<state_set>   edge_rel;
+        typedef basic_union_find      state_ufind;
+        // typedef uint_map<expr_ref_vector>  exprs_of_state;
+
+    private:
+        ast_manager& m;
+        seq_regex& m_parent;
+
         /*
-            seen_states
+            All states are exactly one of:
+            - live:       known to be nonempty
+            - dead:       known to be empty
+            - unknown:    all outgoing transitions have been
+                          added, but the state is not known
+                          to be live or dead
+            - unvisited:  outgoing transitions have not been added
 
-            Info saved about the set of states (regexes) seen so far.
-
-            "States" here are strongly connected components -- states that
-            are mutually reachable from each other. States
-            are represented as unsigned integers.
-
-            Used for the core incremental dead state elimination algorithm.
-
-            Class invariants:
-                - TODO
+            As SCCs are merged, some states become aliases, and a
+            union find data structure collapses a now obsolete
+            state to its current representative. m_seen keeps track
+            of states we have seen, including obsolete states.
         */
-        class seen_states {
-            typedef unsigned              state;
-            typedef uint_set              state_set;
-            typedef uint_map<state_set>   edge_rel;
-            typedef basic_union_find      state_ufind;
-            // typedef uint_map<expr_ref_vector>  exprs_of_state;
+        state_set   m_live;
+        state_set   m_dead;
+        state_set   m_unknown;
+        state_set   m_unvisited;
 
-        private:
-            ast_manager& m;
-            seq_regex& m_parent;
+        state_set     m_seen;
+        state_ufind   m_state_ufind;
 
-            /*
-                All states are exactly one of:
-                - live:       known to be nonempty
-                - dead:       known to be empty
-                - unknown:    all outgoing transitions have been
-                              added, but the state is not known
-                              to be live or dead
-                - unvisited:  outgoing transitions have not been added
+        void add_state(state s);    // unvisited + seen
+        void remove_state(state s); // * -> m_seen only
 
-                As SCCs are merged, some states become aliases, and a
-                union find data structure collapses a now obsolete
-                state to its current representative. m_seen keeps track
-                of states we have seen, including obsolete states.
-            */
-            state_set   m_live;
-            state_set   m_dead;
-            state_set   m_unknown;
-            state_set   m_unvisited;
+        void mark_unknown(state s); // unvisited -> unknown
+        void mark_live(state s);    // unknown -> live
+        void mark_dead(state s);    // unknown -> dead
 
-            state_set     m_seen;
-            state_ufind   m_state_ufind;
+        // bool is_resolved(state s);   // live or dead
+        // bool is_unresolved(state s); // unknown or unvisited
 
-            void add_state(state s);    // unvisited + seen
-            void remove_state(state s); // * -> m_seen only
+        /*
+            Edges are saved in both from and to maps.
+            A subset of edges are also marked as possibly being
+            part of a cycle by being stored in m_from_maybecycle.
+        */
+        edge_rel   m_from;
+        edge_rel   m_to;
+        edge_rel   m_from_maybecycle;
 
-            void mark_unknown(state s); // unvisited -> unknown
-            void mark_live(state s);    // unknown -> live
-            void mark_dead(state s);    // unknown -> dead
+        void add_edge(state s1, state s2, bool maybecycle);
+        void remove_edge(state s1, state s2);
+        void rename_edge(state old1, state old2, state new1, state new2);
 
-            // bool is_resolved(state s);   // live or dead
-            // bool is_unresolved(state s); // unknown or unvisited
+        state merge_states(state s1, state s2);
+        state merge_states(state_set& s_set);
 
-            /*
-                Edges are saved in both from and to maps.
-                A subset of edges are also marked as possibly being
-                part of a cycle by being stored in m_from_maybecycle.
-            */
-            edge_rel   m_from;
-            edge_rel   m_to;
-            edge_rel   m_from_maybecycle;
+        /*
+            Caching details
+        */
+        unsigned          m_max_size { 10000 };
+        expr_ref_vector   m_trail;
 
-            void add_edge(state s1, state s2, bool maybecycle);
-            void remove_edge(state s1, state s2);
-            void rename_edge(state old1, state old2, state new1, state new2);
+        /*
+            Core algorithmic search routines
+            - live state propagation
+            - dead state propagation
+            - cycle detection
+        */
+        void mark_live_recursive(state s);
+        void mark_dead_recursive(state s);
+        state merge_all_cycles(state s1, state_set& s_to);
 
-            state merge_states(state s1, state s2);
-            state merge_states(state_set& s_set);
+        /*
+            Methods on original expressions (before they are turned
+            into states)
+        */
+        // Convert expression to state
+        state get_state(expr* e);
+        // Cycle-detection heuristic (sound but not complete)
+        bool can_be_in_cycle(expr* e1, expr* e2);
 
-            /*
-                Caching details
-            */
-            unsigned          m_max_size { 10000 };
-            expr_ref_vector   m_trail;
+    public:
+        /*
+            Exposed methods:
+            - adding a state and all its transitions
+            - checking if a state is known to be live or dead
+        */
+        void add_state(expr* e, bool live);
+        void add_all_transitions(expr* e1);
+        bool is_live(expr* e);
+        bool is_dead(expr* e);
 
-            /*
-                Core algorithmic search routines
-                - live state propagation
-                - dead state propagation
-                - cycle detection
-            */
-            void mark_live_recursive(state s);
-            void mark_dead_recursive(state s);
-            state merge_all_cycles(state s1, state_set& s_to);
+        state_graph(ast_manager& m, seq_regex& parent):
+            m(m), m_parent(parent),
+            m_live(), m_dead(), m_unknown(), m_unvisited(), m_seen(),
+            m_state_ufind(), m_from(), m_to(), m_from_maybecycle(),
+            m_trail(m) {}
+    };
 
-            /*
-                Methods on original expressions (before they are turned
-                into states)
-            */
-            // Convert expression to state
-            state get_state(expr* e);
-            // Cycle-detection heuristic (sound but not complete)
-            bool can_be_in_cycle(expr* e1, expr* e2);
-
-        public:
-            /*
-                Exposed methods:
-                - adding a state and all its transitions
-                - checking if a state is known to be live or dead
-            */
-            void add_state(expr* e, bool live);
-            void add_all_transitions(expr* e1);
-            bool is_live(expr* e);
-            bool is_dead(expr* e);
-
-            seen_states(ast_manager& m, seq_regex& parent):
-                m(m), m_parent(parent),
-                m_live(), m_dead(), m_unknown(), m_unvisited(), m_seen(),
-                m_state_ufind(), m_from(), m_to(), m_from_maybecycle(),
-                m_trail(m) {}
-        };
-
+    class seq_regex {
         /*
             Data about a constraint of the form (str.in_re s R)
         */
@@ -176,7 +182,7 @@ namespace smt {
         ast_manager&                     m;
         vector<s_in_re>                  m_s_in_re;
         scoped_vector<propagation_lit>   m_to_propagate;
-        seen_states                      m_seen_states;
+        state_graph                      m_state_graph;
 
         seq_util& u();
         class seq_util::re& re();
@@ -211,7 +217,6 @@ namespace smt {
         expr_ref derivative_wrapper(expr* hd, expr* r);
 
         void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
-        void get_all_derivatives(expr* r, expr_ref_vector& results);
 
         void get_cofactors(expr* r, expr_ref_pair_vector& result) {
             expr_ref_vector conds(m);
@@ -219,6 +224,8 @@ namespace smt {
         }
 
     public:
+
+        void get_all_derivatives(expr* r, expr_ref_vector& results);
 
         seq_regex(theory_seq& th);
 
@@ -247,4 +254,3 @@ namespace smt {
     };
 
 };
-

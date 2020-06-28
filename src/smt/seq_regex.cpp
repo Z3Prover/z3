@@ -25,7 +25,7 @@ namespace smt {
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
-        m_seen_states(m, *this)
+        m_state_graph(m, *this)
     {}
 
     seq_util& seq_regex::u() { return th.m_util; }
@@ -676,10 +676,10 @@ namespace smt {
     }
 
     /****************************************************
-     *** Dead state elimination and seen_states class ***
+     *** Dead state elimination and state_graph class ***
      ****************************************************/
 
-    void seq_regex::seen_states::add_state(state s) {
+    void state_graph::add_state(state s) {
         SASSERT(!m_seen.contains(s));
         // Ensure corresponding var in connected components
         while (s >= m_state_ufind.get_num_vars()) {
@@ -692,7 +692,7 @@ namespace smt {
         m_from.insert(s, new state_set());
         m_from_maybecycle.insert(s, new state_set());
     }
-    void seq_regex::seen_states::remove_state(state s) {
+    void state_graph::remove_state(state s) {
         // This is a partial deletion -- the state is still seen and can't be
         // added again later
         SASSERT(m_seen.contains(s));
@@ -720,30 +720,30 @@ namespace smt {
         }
     }
 
-    void seq_regex::seen_states::mark_unknown(state s) {
+    void state_graph::mark_unknown(state s) {
         SASSERT(m_state_ufind.is_root(s));
         SASSERT(m_unvisited.contains(s));
         m_unvisited.remove(s);
         m_unknown.insert(s);
     }
-    void seq_regex::seen_states::mark_live(state s) {
+    void state_graph::mark_live(state s) {
         SASSERT(m_state_ufind.is_root(s));
         SASSERT(m_unknown.contains(s));
         m_unknown.remove(s);
         m_live.insert(s);
     }
-    void seq_regex::seen_states::mark_dead(state s) {
+    void state_graph::mark_dead(state s) {
         SASSERT(m_state_ufind.is_root(s));
         SASSERT(m_unknown.contains(s));
         m_unknown.remove(s);
         m_dead.insert(s);
     }
 
-    // bool seq_regex::seen_states::is_resolved(state s) {
+    // bool state_graph::is_resolved(state s) {
     //     SASSERT(m_state_ufind.is_root(s));
     //     return (m_live.contains(s) || m_dead.contains(s));
     // }
-    // bool seq_regex::seen_states::is_unresolved(state s) {
+    // bool state_graph::is_unresolved(state s) {
     //     SASSERT(m_state_ufind.is_root(s));
     //     return (m_unknown.contains(s) || m_unvisited.contains(s));
     // }
@@ -753,7 +753,7 @@ namespace smt {
         May already exist, in which case a nocycle edge overrides
         a cycle edge.
     */
-    void seq_regex::seen_states::add_edge(state s1, state s2,
+    void state_graph::add_edge(state s1, state s2,
                                           bool maybecycle) {
         SASSERT(m_state_ufind.is_root(s1));
         SASSERT(m_state_ufind.is_root(s2));
@@ -769,7 +769,7 @@ namespace smt {
             m_from_maybecycle.find(s2)->remove(s1);
         }
     }
-    void seq_regex::seen_states::remove_edge(state s1, state s2) {
+    void state_graph::remove_edge(state s1, state s2) {
         SASSERT(m_to.find(s1)->contains(s2));
         SASSERT(m_from.find(s2)->contains(s1));
         m_to.find(s1)->remove(s2);
@@ -778,7 +778,7 @@ namespace smt {
             m_from_maybecycle.find(s2)->remove(s1);
         }
     }
-    void seq_regex::seen_states::rename_edge(state old1, state old2,
+    void state_graph::rename_edge(state old1, state old2,
                                              state new1, state new2) {
         SASSERT(m_to.find(old1)->contains(old2));
         SASSERT(m_from.find(old2)->contains(old1));
@@ -796,7 +796,7 @@ namespace smt {
         Also, each state should
         be current (not a previous SCC that was later merged into another).
     */
-    auto seq_regex::seen_states::merge_states(state s1, state s2) -> state {
+    auto state_graph::merge_states(state s1, state s2) -> state {
         SASSERT(m_state_ufind.is_root(s1));
         SASSERT(m_state_ufind.is_root(s2));
         SASSERT(m_unknown.contains(s1));
@@ -813,7 +813,7 @@ namespace smt {
         remove_state(s2);
         return s1;
     }
-    auto seq_regex::seen_states::merge_states(state_set& s_set) -> state {
+    auto state_graph::merge_states(state_set& s_set) -> state {
         SASSERT(s_set.num_elems() > 0);
         state prev_s;
         bool first_iter = true;
@@ -832,7 +832,7 @@ namespace smt {
         if s is not live, mark it, and recurse on all states into s
         Precondition: s is live or unknown
     */
-    void seq_regex::seen_states::mark_live_recursive(state s) {
+    void state_graph::mark_live_recursive(state s) {
         SASSERT(m_live.contains(s) || m_unknown.contains(s));
         if (m_live.contains(s)) return;
         mark_live(s);
@@ -846,7 +846,7 @@ namespace smt {
         on all states into s.
         Precondition: s is live, dead, or unknown
     */
-    void seq_regex::seen_states::mark_dead_recursive(state s) {
+    void state_graph::mark_dead_recursive(state s) {
         SASSERT(!m_unvisited.contains(s));
         if (!m_unknown.contains(s)) return;
         for (auto s_to: *m_to.find(s)) {
@@ -865,7 +865,7 @@ namespace smt {
         if new edges from s1 to s_to will create at least one cycle,
         merge all states in the new SCC
     */
-    auto seq_regex::seen_states::merge_all_cycles(state s1, state_set& s_to)
+    auto state_graph::merge_all_cycles(state s1, state_set& s_to)
                                                   -> state {
         // Mark s_to, then search backwards from s to mark the SCC
         // TODO: Implement full check
@@ -878,15 +878,15 @@ namespace smt {
         return s1;
     }
 
-    auto seq_regex::seen_states::get_state(expr* e) -> state {
+    auto state_graph::get_state(expr* e) -> state {
         return m_state_ufind.find(e->get_id());
     }
-    bool seq_regex::seen_states::can_be_in_cycle(expr *e1, expr *e2) {
+    bool state_graph::can_be_in_cycle(expr *e1, expr *e2) {
         // Simple placeholder. TODO: Implement full check
         return true;
     }
 
-    void seq_regex::seen_states::add_state(expr* e, bool live) {
+    void state_graph::add_state(expr* e, bool live) {
         unsigned s = e->get_id();
         if (m_seen.contains(s)) return;
         if (s >= m_max_size) {
@@ -900,7 +900,7 @@ namespace smt {
         add_state(s);
         if (live) mark_live_recursive(s);
     }
-    void seq_regex::seen_states::add_all_transitions(expr* e1) {
+    void state_graph::add_all_transitions(expr* e1) {
         // Precondition: e already corresponds to an existing state
         SASSERT(m_seen.contains(e1->get_id()));
         state s1 = get_state(e1);
@@ -926,10 +926,10 @@ namespace smt {
         mark_dead_recursive(s1);
     }
 
-    bool seq_regex::seen_states::is_live(expr* e) {
+    bool state_graph::is_live(expr* e) {
         return m_live.contains(get_state(e));
     }
-    bool seq_regex::seen_states::is_dead(expr* e) {
+    bool state_graph::is_dead(expr* e) {
         return m_dead.contains(get_state(e));
     }
 
