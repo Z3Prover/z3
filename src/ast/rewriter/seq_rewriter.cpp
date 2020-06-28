@@ -2194,8 +2194,45 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     return result;
 }
 
+void seq_rewriter::mk_nullable_not(expr* a1, expr_ref& result) {
+    expr *s1 = nullptr, *r1 = nullptr;
+    if (str().is_in_re(a1, s1, r1)) {
+        SASSERT(str().is_empty(s1));
+        result = re().mk_complement(r1);
+        result = re().mk_in_re(s1, result);
+    }
+    else {
+        m_br.mk_not(a1, result);
+    }
+}
+void seq_rewriter::mk_nullable_and(expr* a1, expr* a2, expr_ref& result) {
+    expr *s1 = nullptr, *s2 = nullptr, *r1 = nullptr, *r2 = nullptr;
+    if (str().is_in_re(a1, s1, r1) &&
+        str().is_in_re(a2, s2, r2)) {
+        SASSERT(str().is_empty(s1));
+        SASSERT(str().is_empty(s2));
+        result = re().mk_inter(r1, r2);
+        result = re().mk_in_re(s1, result);
+    }
+    else {
+        m_br.mk_and(a1, a2, result);
+    }
+}
+void seq_rewriter::mk_nullable_or(expr* a1, expr* a2, expr_ref& result) {
+    expr *s1 = nullptr, *s2 = nullptr, *r1 = nullptr, *r2 = nullptr;
+    if (str().is_in_re(a1, s1, r1) &&
+        str().is_in_re(a2, s2, r2)) {
+        SASSERT(str().is_empty(s1));
+        SASSERT(str().is_empty(s2));
+        result = re().mk_union(r1, r2);
+        result = re().mk_in_re(s1, result);
+    }
+    else {
+        m_br.mk_or(a1, a2, result);
+    }
+}
 expr_ref seq_rewriter::is_nullable_rec(expr* r) {
-    STRACE("seq_regex_brief", tout << ".";); // recursive call
+    // STRACE("seq_regex_brief", tout << ".";); // recursive call
     SASSERT(m_util.is_re(r) || m_util.is_seq(r));
     expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
     sort* seq_sort = nullptr;
@@ -2203,15 +2240,15 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
     zstring s1;
     expr_ref result(m());
     if (re().is_concat(r, r1, r2) ||
-        re().is_intersection(r, r1, r2)) { 
-        m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
+        re().is_intersection(r, r1, r2)) {
+        mk_nullable_and(is_nullable(r1), is_nullable(r2), result);
     }
     else if (re().is_union(r, r1, r2)) {
-        m_br.mk_or(is_nullable(r1), is_nullable(r2), result);
+        mk_nullable_or(is_nullable(r1), is_nullable(r2), result);
     }
     else if (re().is_diff(r, r1, r2)) {
-        m_br.mk_not(is_nullable(r2), result);
-        m_br.mk_and(result, is_nullable(r1), result);
+        mk_nullable_not(is_nullable(r2), result);
+        mk_nullable_and(result, is_nullable(r1), result);
     }
     else if (re().is_star(r) || 
         re().is_opt(r) ||
@@ -2233,7 +2270,7 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
         result = is_nullable(r1);
     }
     else if (re().is_complement(r, r1)) {
-        m_br.mk_not(is_nullable(r1), result);
+        mk_nullable_not(is_nullable(r1), result);
     }
     else if (re().is_to_re(r, r1)) {        
         result = is_nullable(r1);
