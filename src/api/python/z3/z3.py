@@ -6670,11 +6670,12 @@ class Solver(Z3PPObject):
         >>> s.check()
         unknown
         """
+        s = BoolSort(self.ctx)
         assumptions = _get_args(assumptions)
         num = len(assumptions)
         _assumptions = (Ast * num)()
         for i in range(num):
-            _assumptions[i] = assumptions[i].as_ast()
+            _assumptions[i] = s.cast(assumptions[i]).as_ast()
         r = Z3_solver_check_assumptions(self.ctx.ref(), self.solver, num, _assumptions)
         return CheckSatResult(r)
 
