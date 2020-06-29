@@ -39,8 +39,10 @@ namespace smt {
 
         "States" are integers. States and edges are added to the data
         structure incrementally.
-        - Some states are initially labeled as live. The data structure
-          tracks which other states are live (can reach a live state), dead
+        - States can be marked as live
+          or as done -- to indicate that no more edges will be added and the
+          state will not be marked as live. The data structure then tracks
+          which other states are live (can reach a live state), dead
           (can't reach a live state), or neither.
         - Some edges are labeled as not contained in a cycle. This is to
           optimize search if it is known by the user of the structure
@@ -49,9 +51,6 @@ namespace smt {
         Internally, we use union_find to identify states within an SCC,
         and incrementally update SCCs, while propagating backwards
         live and dead SCCs.
-
-        Class invariants:
-            - TODO
     */
     class state_graph {
         typedef unsigned              state;
@@ -61,90 +60,95 @@ namespace smt {
 
     private:
         /*
-            All states are exactly one of:
-            - live:       known to be nonempty
-            - dead:       known to be empty
-            - unknown:    all outgoing transitions have been
-                          added, but the state is not known
-                          to be live or dead
-            - unvisited:  outgoing transitions have not been added
+            All states are internally exactly one of:
+            - live:       known to reach a live state
+            - dead:       known to never reach a live state
+            - unknown:    all outgoing edges have been added, but the
+                          state is not known to be live or dead
+            - unexplored: not all outgoing edges have been added
 
             As SCCs are merged, some states become aliases, and a
             union find data structure collapses a now obsolete
             state to its current representative. m_seen keeps track
             of states we have seen, including obsolete states.
+
+            Invariants:
+            - TODO
         */
         state_set   m_live;
         state_set   m_dead;
         state_set   m_unknown;
-        state_set   m_unvisited;
+        state_set   m_unexplored;
 
         state_set     m_seen;
         state_ufind   m_state_ufind;
-
-        void add_state_core(state s); // unvisited + seen
-        void remove_state(state s);   // * -> m_seen only
-
-        void mark_unknown(state s); // unvisited -> unknown
-        void mark_live(state s);    // unknown -> live
-        void mark_dead(state s);    // unknown -> dead
-
-        // bool is_resolved(state s);   // live or dead
-        // bool is_unresolved(state s); // unknown or unvisited
 
         /*
             Edges are saved in both from and to maps.
             A subset of edges are also marked as possibly being
             part of a cycle by being stored in m_from_maybecycle.
+            
+            Invariants:
+            - TODO
         */
         edge_rel   m_from;
         edge_rel   m_to;
         edge_rel   m_from_maybecycle;
 
+        /*
+            'Core' functions that modify the plain graph, without
+            updating SCCs or propagating live/dead state information.
+            These are for internal use only.
+        */
+        void add_state_core(state s);    // unexplored + seen
+        void remove_state_core(state s); // unknown + seen -> seen
+        void mark_unknown_core(state s); // unexplored -> unknown
+        void mark_live_core(state s);    // unknown -> live
+        void mark_dead_core(state s);    // unknown -> dead
+
         void add_edge_core(state s1, state s2, bool maybecycle);
-        void remove_edge(state s1, state s2);
-        void rename_edge(state old1, state old2, state new1, state new2);
+        void remove_edge_core(state s1, state s2);
+        void rename_edge_core(state old1, state old2, state new1, state new2);
 
         state merge_states(state s1, state s2);
         state merge_states(state_set& s_set);
 
         /*
-            Core algorithmic search routines
+            Algorithmic search routines
             - live state propagation
             - dead state propagation
-            - cycle detection
+            - cycle / strongly-connected component detection
         */
         void mark_live_recursive(state s);
         void mark_dead_recursive(state s);
-        state merge_all_cycles(state s1, state_set& s_to);
-
-        /*
-            Pretty printing support
-        */
-        // void pretty_print_set(std::ofstream& of, state_set& s_set);
+        state merge_all_cycles(state s);
 
     public:
         state_graph():
-            m_live(), m_dead(), m_unknown(), m_unvisited(), m_seen(),
+            m_live(), m_dead(), m_unknown(), m_unexplored(), m_seen(),
             m_state_ufind(), m_from(), m_to(), m_from_maybecycle() {}
 
         /*
-            Exposed methods:
-            - adding a state and all its transitions
-            - checking if a state is known to be live or dead
+            Exposed methods
 
-            ASSUMPTION: transitions from a state are added in order and after
-            all transitions are added, the state is marked as
-            finished. Also all states are added before the transitions.
+            These methods may be called in any order, as long as:
+            - states are added before edges are added between them
+            - edges are not added from a done state
+            - a done state is not marked as live
+            - edges are not added creating a cycle containing an edge with
+              maybecycle = false
         */
-        void add_state(state s, bool live);
+        void add_state(state s);
         void add_edge(state s1, state s2, bool maybecycle);
-        void done_adding(state s);
-        unsigned get_size();
+        void mark_live(state s);
+        void mark_done(state s);
 
         bool is_seen(state s);
         bool is_live(state s);
         bool is_dead(state s);
+        bool is_done(state s);
+
+        unsigned get_size();
 
         /*
             Pretty printing
