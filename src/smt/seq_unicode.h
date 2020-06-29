@@ -82,11 +82,21 @@ namespace smt {
 
         void adapt_eq(theory_var v1, theory_var v2);
 
-        void add_edge(theory_var v1, theory_var v2, int diff, literal lit);
+        edge_id add_edge(theory_var v1, theory_var v2, int diff, literal lit);
 
         literal mk_literal(expr* e);
 
         theory_var ensure0();
+
+        void enforce_tv_is_value(theory_var v, unsigned ch);
+
+        bool enforce_char_range(svector<theory_var> char_vars);
+
+        bool enforce_value_consistency(svector<theory_var> char_vars);
+
+        void try_make_variables_nice(svector<theory_var> char_vars);
+
+        void try_remove_unnecessary_equalities(svector<theory_var> char_vars);
 
     public:
 
@@ -99,11 +109,11 @@ namespace smt {
         void pop_scope(unsigned n);
 
         // <= atomic constraints on characters
-        void assign_le(theory_var v1, theory_var v2, literal lit);
+        edge_id assign_le(theory_var v1, theory_var v2, literal lit);
 
         // < atomic constraint on characters
-        void assign_lt(theory_var v1, theory_var v2, literal lit);
-        
+        edge_id assign_lt(theory_var v1, theory_var v2, literal lit);
+
         // = on characters
         void new_eq_eh(theory_var v1, theory_var v2);
 

@@ -33,25 +33,27 @@ namespace smt {
     {}
 
     // <= atomic constraints on characters
-    void seq_unicode::assign_le(theory_var v1, theory_var v2, literal lit) {
+    edge_id seq_unicode::assign_le(theory_var v1, theory_var v2, literal lit) {
         dl.init_var(v1);
         dl.init_var(v2);
-        add_edge(v1, v2, 0, lit);
+        return add_edge(v1, v2, 0, lit);
     }
 
     // < atomic constraint on characters
-    void seq_unicode::assign_lt(theory_var v1, theory_var v2, literal lit) {
+    edge_id seq_unicode::assign_lt(theory_var v1, theory_var v2, literal lit) {
         dl.init_var(v1);
         dl.init_var(v2);
-        add_edge(v1, v2, -1, lit);
+        return add_edge(v1, v2, -1, lit);
     }
 
-    void seq_unicode::add_edge(theory_var v1, theory_var v2, int diff, literal lit) {
+    edge_id seq_unicode::add_edge(theory_var v1, theory_var v2, int diff, literal lit) {
         ctx().push_trail(push_back_vector<context, svector<theory_var>>(m_asserted_edges));
-        m_asserted_edges.push_back(dl.add_edge(v2, v1, s_integer(diff), lit));
+        edge_id new_edge = dl.add_edge(v2, v1, s_integer(diff), lit);
+        m_asserted_edges.push_back(new_edge);
+        return new_edge;
     }
 
-    literal seq_unicode::mk_literal(expr* e) { 
+    literal seq_unicode::mk_literal(expr* e) {
         expr_ref _e(e, m);
         th.ensure_enode(e);
         return ctx().get_literal(e);
@@ -67,67 +69,121 @@ namespace smt {
         add_axiom(~eq, ge);
         add_axiom(le, ge, eq);
     }
-        
+
     // = on characters
     void seq_unicode::new_eq_eh(theory_var v1, theory_var v2) {
         adapt_eq(v1, v2);
     }
 
     // != on characters
-    void seq_unicode::new_diseq_eh(theory_var v1, theory_var v2) {  
+    void seq_unicode::new_diseq_eh(theory_var v1, theory_var v2) {
         adapt_eq(v1, v2);
     }
 
-    bool seq_unicode::final_check() {
-        // ensure all variables are above 0 and less than zstring::max_char()
-        bool added_constraint = false;
-        // TBD: shift assignments on variables that are not lower-bounded, so that they are "nice" (have values 'a', 'b', ...)
-        // TBD: set "zero" to a zero value.
-        // TBD: ensure that unicode constants have the right values
+    bool seq_unicode::enforce_char_range(svector<theory_var> char_vars) {
+
+        // Continue checking until convergence or inconsistency
+        bool done = false;
+        while (!done) {
+            done = true;
+
+            // Iterate over variables and ensure that their values are in 0 <= v <= zstring::max_char()
+            for (auto v : char_vars) {
+                int val = get_value(v);
+                if (val < 0) {
+                    done = false;
+
+                    // v0 = 0
+                    theory_var v0 = ensure0();
+
+                    // Add constraint on v and check consistency
+                    propagate(assign_le(v0, v, null_literal));
+                    if (ctx().inconsistent()) return false;
+                }
+                if (val > static_cast<int>(zstring::max_char())) {
+                    done = false;
+
+                    // v_maxchar = zstring::max_char()
+                    expr_ref ch(seq.str.mk_char(zstring::max_char()), m);
+                    enode* n = th.ensure_enode(ch);
+                    theory_var v_maxchar = n->get_th_var(th.get_id());
+
+                    // Add constraint on v and check consistency
+                    propagate(assign_le(v, v_maxchar, null_literal));
+                    if (ctx().inconsistent()) return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool seq_unicode::enforce_value_consistency(svector<theory_var> char_vars) {
+
+        // Iterate over all theory variables until the context is inconsistent
+        bool success = true;
         arith_util a(m);
         arith_value avalue(m);
         avalue.init(&ctx());
         uint_set seen;
-        for (unsigned v = 0; !ctx().inconsistent() && v < th.get_num_vars(); ++v) {
-            expr* e = th.get_expr(v);
-            if (!seq.is_char(e)) 
-                continue;
-            dl.init_var(v);            
+        for (auto v : char_vars) {
+            if (ctx().inconsistent()) break;
 
-            int val = dl.get_assignment(v).get_int();
-            if (val > static_cast<int>(zstring::max_char())) {
-                expr_ref ch(seq.str.mk_char(zstring::max_char()), m);
-                enode* n = th.ensure_enode(ch);
-                theory_var v_max = n->get_th_var(th.get_id());
-                assign_le(v, v_max, null_literal);
-                added_constraint = true;
-                continue;
-            }
-            if (val < 0) {
-                theory_var v_min = ensure0();
-                assign_le(v_min, v, null_literal);
-                added_constraint = true;
-                continue;
-            }
-            if (seen.contains(val))
-                continue;
+            // Make sure we haven't seen this value already
+            int val = get_value(v);
+            if (seen.contains(val)) continue;
             seen.insert(val);
-            // ensure str.to_code(unit(v)) = val
-            expr_ref ch(seq.str.mk_unit(seq.str.mk_char(val)), m);          
+
+            // Ensure str.to_code(unit(v)) = val
+            expr_ref ch(seq.str.mk_unit(seq.str.mk_char(val)), m);
             expr_ref code(seq.str.mk_to_code(ch), m);
             rational val2;
-            if (avalue.get_value(code, val2) && val2 == rational(val))
-                continue;
+
+            if (avalue.get_value(code, val2) && val2 == rational(val)) continue;
+
             add_axiom(th.mk_eq(code, a.mk_int(val), false));
-            added_constraint = true;
+            success = false;
         }
-        if (added_constraint)
-            return false;
-        
-        // ensure equalities over shared symbols
-        if (th.assume_eqs(m_var_value_table))
-            return false;
-        
+
+        // If a constraint was added without being propagated, we can't be finished yet
+        return success;
+    }
+
+    void seq_unicode::try_make_variables_nice(svector<theory_var> char_vars) {
+        // TODO
+        return;
+    }
+
+    void seq_unicode::try_remove_unnecessary_equalities(svector<theory_var> char_vars) {
+        // TODO
+        return;
+    }
+
+    bool seq_unicode::final_check() {
+
+        // Get character variables
+        svector<theory_var> char_vars;
+        for (unsigned v = 0; v < th.get_num_vars(); ++v) {
+            if(seq.is_char(th.get_expr(v))) char_vars.push_back(v);
+        }
+
+        // Validate that all variables must be in 0 <= v <= zstring::max_char()
+        if (!enforce_char_range(char_vars)) return false;
+
+        // Make sure str.to_code(unit(v)) = val for all character variables
+        if (!enforce_value_consistency(char_vars)) return false;
+
+        // Enforce equalities over shared symbols
+        if (th.assume_eqs(m_var_value_table)) return false;
+
+        // Shift assignments on variables, so that they are "nice" (have values 'a', 'b', ...),
+        // if possible without violating the above properties
+        try_make_variables_nice(char_vars);
+
+        // Make character variables not equal to each other,
+        // if possible without violating the above properties
+        try_remove_unnecessary_equalities(char_vars);
+
+        // If all checks pass, we're done
         return true;
     }
 
@@ -136,6 +192,10 @@ namespace smt {
         theory_var v = e->get_th_var(th.get_id());
         if (v == null_theory_var)
             return;
+        enforce_tv_is_value(v, ch);
+    }
+
+    void seq_unicode::enforce_tv_is_value(theory_var v, unsigned ch) {
         dl.init_var(v);
         if (ch == 0) {
             dl.set_to_zero(v);
@@ -156,17 +216,16 @@ namespace smt {
         return v0;
     }
 
-    
     void seq_unicode::propagate() {
         ctx().push_trail(value_trail<smt::context, unsigned>(m_qhead));
         for (; m_qhead < m_asserted_edges.size() && !ctx().inconsistent(); ++m_qhead) {
             propagate(m_asserted_edges[m_qhead]);
-        }        
+        }
     }
-    
+
     void seq_unicode::propagate(edge_id edge) {
         TRACE("seq", dl.display(tout << "propagate " << edge << " "););
-        if (dl.enable_edge(edge)) 
+        if (dl.enable_edge(edge))
             return;
         m_nc_functor.reset();
         dl.traverse_neg_cycle2(false, m_nc_functor);
@@ -183,9 +242,9 @@ namespace smt {
             ctx().mk_justification(
                 ext_theory_conflict_justification(
                     th.get_id(), ctx().get_region(),
-                    lits.size(), lits.c_ptr(), 
-                    0, nullptr, 
-                    params.size(), params.c_ptr())));;
+                    lits.size(), lits.c_ptr(),
+                    0, nullptr,
+                    params.size(), params.c_ptr())));
         SASSERT(ctx().inconsistent());
     }
 
@@ -205,4 +264,3 @@ namespace smt {
 
 
 }
-
