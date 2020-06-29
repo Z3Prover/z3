@@ -1274,6 +1274,91 @@ namespace smt {
                 model.insert(var, strValue);
                 subst.insert(var, mk_string(strValue));
             }
+
+            // Check consistency of string-integer conversion terms after the search.
+            {
+                scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m, false);
+                replacer->set_substitution(&subst);
+                th_rewriter rw(m);
+                arith_value v(get_manager());
+                v.init(&get_context());
+                for (auto e : string_int_conversion_terms) {
+                    TRACE("str_fl", tout << "post-run check str-int term " << mk_pp(e, get_manager()) << std::endl;);
+                    expr* _arg;
+                    if (u.str.is_stoi(e, _arg)) {
+                        expr_ref arg(_arg, m);
+                        rational ival;
+                        if (v.get_value(e, ival)) {
+                            expr_ref arg_subst(arg, m);
+                            (*replacer)(arg, arg_subst);
+                            rw(arg_subst);
+                            TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(arg_subst, m) << std::endl;);
+
+                            symbol arg_str;
+                            if (u.str.is_string(arg_subst, arg_str)) {
+                                zstring arg_zstr(arg_str.bare_str());
+                                rational arg_value;
+                                if (string_integer_conversion_valid(arg_zstr, arg_value)) {
+                                    if (ival != arg_value) {
+                                        // contradiction
+                                        expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_string(arg_zstr)), ctx.mk_eq_atom(e, mk_int(ival)))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                } else {
+                                    if (!ival.is_minus_one()) {
+                                        expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_string(arg_zstr)), ctx.mk_eq_atom(e, mk_int(ival)))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                }
+                            }
+                        }
+                    } else if (u.str.is_itos(e, _arg)) {
+                        expr_ref arg(_arg, m);
+                        rational ival;
+                        if (v.get_value(arg, ival)) {
+                            expr_ref e_subst(e, m);
+                            (*replacer)(e, e_subst);
+                            rw(e_subst);
+                            TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(e_subst, m) << std::endl;);
+
+                            symbol e_str;
+                            if (u.str.is_string(e_subst, e_str)) {
+                                zstring e_zstr(e_str.bare_str());
+                                // if arg is negative, e must be empty
+                                // if arg is non-negative, e must be valid AND cannot contain leading zeroes
+
+                                if (ival.is_neg()) {
+                                    if (!e_zstr.empty()) {
+                                        // contradiction
+                                        expr_ref cex(ctx.mk_eq_atom(m_autil.mk_le(arg, mk_int(-1)), ctx.mk_eq_atom(e, mk_string(""))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                } else {
+                                    rational e_value;
+                                    if (string_integer_conversion_valid(e_zstr, e_value)) {
+                                        // e contains leading zeroes if its first character is 0 but converted to something other than 0
+                                        if (e_zstr[0] == '0' && !e_value.is_zero()) {
+                                            // contradiction
+                                            expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_int(ival)), ctx.mk_eq_atom(e, mk_string(e_zstr)))), m);
+                                            assert_axiom(cex);
+                                            return l_undef;
+                                        }
+                                    } else {
+                                        // contradiction
+                                        expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_int(ival)), ctx.mk_eq_atom(e, mk_string(e_zstr)))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // TODO insert length values into substitution table as well?
             if (m_params.m_FixedLengthRefinement) {
                 scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m, false);
