@@ -147,10 +147,6 @@ namespace api {
         }
     }
 
-    void context::reset_error_code() { 
-        m_error_code = Z3_OK; 
-    }
-
     void context::check_searching() {
         if (m_searching) { 
             set_error_code(Z3_INVALID_USAGE, "cannot use function while searching"); // TBD: error code could be fixed.
