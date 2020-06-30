@@ -9,14 +9,6 @@
 namespace lp {
 template <typename T>
 class lp_bound_propagator {
-    typedef std::pair<int, mpq> var_offset;
-    typedef pair_hash<int_hash, obj_hash<mpq> > var_offset_hash;
-    typedef map<var_offset, unsigned, var_offset_hash, default_eq<var_offset> > var_offset2row_id;
-    typedef std::pair<mpq, bool> value_sort_pair;
-    var_offset2row_id       m_var_offset2row_id;
-
-    struct mpq_eq { bool operator()(const mpq& a, const mpq& b) const {return a == b;}};
-
     // vertex represents a pair (row,x) or (row,y) for an offset row.
     // The set of all pair are organised in a tree.
     // The edges of the tree are of the form ((row,x), (row, y)) for an offset row,
@@ -79,9 +71,9 @@ class lp_bound_propagator {
     // we are going to check with the m_fixed_var_tables.
     vertex*                                   m_fixed_vertex;
     // a pair (o, j) belongs to m_vals_to_verts iff x[j] = x[m_root->column()] + o
-    map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_vals_to_verts;
+    map<mpq, vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts;
     // a pair (o, j) belongs to m_vals_to_verts_neg iff -x[j] = x[m_root->column()] + o
-    map<mpq, vertex*, obj_hash<mpq>, mpq_eq>  m_vals_to_verts_neg;
+    map<mpq, vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts_neg;
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned>    m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned>    m_improved_upper_bounds;
@@ -299,7 +291,7 @@ public:
         return m_imp.is_equal(col_to_imp(j), col_to_imp(k));
     }
 
-    void check_for_eq_and_add_to_val_table(vertex* v,  map<mpq, vertex*, obj_hash<mpq>, mpq_eq>& table) {
+    void check_for_eq_and_add_to_val_table(vertex* v,  map<mpq, vertex*, obj_hash<mpq>, default_eq<mpq>>& table) {
         vertex *k; // the other vertex
         if (table.find(val(v), k)) {
             TRACE("cheap_eq", tout << "found k " ; k->print(tout) << "\n";);
