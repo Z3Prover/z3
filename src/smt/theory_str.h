@@ -753,6 +753,7 @@ protected:
 
     bool finalcheck_str2int(app * a);
     bool finalcheck_int2str(app * a);
+    bool string_integer_conversion_valid(zstring str, rational& converted) const;
 
     lbool fixed_length_model_construction(expr_ref_vector formulas, expr_ref_vector &precondition,
             expr_ref_vector& free_variables,
