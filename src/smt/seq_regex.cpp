@@ -784,9 +784,12 @@ namespace smt {
         Merge two states or more generally a set of states into one,
         returning the new state. Also merges associated edges.
 
-        Preconditions: the set should be nonempty, and every state
-        in the set should be unknown (in particular, *not* unvisited).
-        Also, each state should currently exist
+        Preconditions:
+        - The set should be nonempty
+        - Every state in the set should be unknown
+        - Each state should currently exist
+        - If passing a set of states by reference, it should not be a set
+          from the edge relations, as merging states modifies edge relations.
     */
     auto state_graph::merge_states(state s1, state s2) -> state {
         SASSERT(m_state_ufind.is_root(s1));
@@ -822,7 +825,7 @@ namespace smt {
     }
 
     /*
-        if s is not live, mark it, and recurse on all states into s
+        If s is not live, mark it, and recurse on all states into s
         Precondition: s is live or unknown
     */
     void state_graph::mark_live_recursive(state s) {
@@ -837,7 +840,7 @@ namespace smt {
     }
 
     /*
-        check if s is now known to be dead. If so, mark and recurse
+        Check if s is now known to be dead. If so, mark and recurse
         on all states into s.
         Precondition: s is live, dead, or unknown
     */
@@ -866,25 +869,51 @@ namespace smt {
     */
     auto state_graph::merge_all_cycles(state s) -> state {
         SASSERT(m_unknown.contains(s));
-        // Mark s_to, then search backwards from s to mark the SCC
-        // state_set visited = *(new state_set());
-        // state_set marked = *(new state_set());
-        // visited.insert(s);
-        // auto to_search = *(new vector<pair<state, state>>())
-        // to_search.push_back(s, s)
-        // while (to_search.size() > 0) {
-        //     auto p = to_search.pop_back();
-        // }
-
-        // TODO: Implement full check
-        // Simple placeholder for now: check if there is an edge both ways
-        state_set s_to_set = *m_to.find(s); // makes a copy. Reference could
-                                            // lead to a bug
-        for (auto s_to: s_to_set) {
-            if (m_to.find(s_to)->contains(s))
-                s = merge_states(s, s_to);
+        // Visit states in a DFS backwards from s
+        state_set visited;  // all backwards edges pushed
+        state_set resolved; // known in SCC or not
+        state_set scc;      // known in SCC
+        resolved.insert(s);
+        scc.insert(s);
+        vector<state> to_search;
+        to_search.push_back(s);
+        while (to_search.size() > 0) {
+            state x = to_search.back();
+            if (!visited.contains(x)) {
+                visited.insert(x);
+                // recurse backwards only on maybecycle edges
+                // and only on unknown states
+                for (auto y: *m_from_maybecycle.find(x)) {
+                    if (m_unknown.contains(y))
+                        to_search.push_back(y);
+                }
+            }
+            else if (!resolved.contains(x)) {
+                resolved.insert(x);
+                to_search.pop_back();
+                // determine in SCC or not
+                for (auto y: *m_from_maybecycle.find(x)) {
+                    if (scc.contains(y)) {
+                        scc.insert(x);
+                        break;
+                    }
+                }
+            }
+            else {
+                to_search.pop_back();
+            }
         }
-        return s;
+        // scc is the union of all cycles containing s
+        return merge_states(scc);
+
+        // Previous simple placeholder: check if there is an edge both ways
+        // state_set s_to_set = *m_to.find(s); // makes a copy. Reference could
+        //                                     // lead to a bug
+        // for (auto s_to: s_to_set) {
+        //     if (m_to.find(s_to)->contains(s))
+        //         s = merge_states(s, s_to);
+        // }
+        // return s;
     }
 
     /*
@@ -997,22 +1026,23 @@ namespace smt {
         expr_ref r_nullable = is_nullable_wrapper(r);
         if (m.is_true(r_nullable)) {
             m_state_graph.mark_live(r_id);
-            return true;
         }
-        // Add edges to all derivatives
-        expr_ref_vector derivatives(m);
-        STRACE("seq_regex_debug", tout
-            << std::endl << "  DEBUG: getting all derivs: " << r_id << " ";);
-        get_all_derivatives(r, derivatives);
-        for (auto const& dr: derivatives) {
-            unsigned dr_id = get_state_id(dr);
+        else {
+            // Add edges to all derivatives
+            expr_ref_vector derivatives(m);
             STRACE("seq_regex_debug", tout
-                << std::endl << "  DEBUG: traversing deriv: " << dr_id << " ";);
-            m_state_graph.add_state(dr_id);
-            bool maybecycle = can_be_in_cycle(r, dr);
-            m_state_graph.add_edge(r_id, dr_id, maybecycle);
+                << std::endl << "  DEBUG: getting all derivs: " << r_id << " ";);
+            get_all_derivatives(r, derivatives);
+            for (auto const& dr: derivatives) {
+                unsigned dr_id = get_state_id(dr);
+                STRACE("seq_regex_debug", tout
+                    << std::endl << "  DEBUG: traversing deriv: " << dr_id << " ";);
+                m_state_graph.add_state(dr_id);
+                bool maybecycle = can_be_in_cycle(r, dr);
+                m_state_graph.add_edge(r_id, dr_id, maybecycle);
+            }
+            m_state_graph.mark_done(r_id);
         }
-        m_state_graph.mark_done(r_id);
         STRACE("seq_regex_brief", tout << std::endl;);
         STRACE("seq_regex_brief", m_state_graph.pretty_print(tout););
         return true;
