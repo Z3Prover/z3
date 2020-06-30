@@ -8134,6 +8134,31 @@ namespace smt {
         return 0;
     }
 
+    // Attempts to convert a string to a non-negative integer.
+    // Returns true if this can be done in a valid way, placing the converted value in the argument.
+    // Otherwise, returns false, if str is empty or contains non-digit characters.
+    bool theory_str::string_integer_conversion_valid(zstring str, rational& converted) const {
+        bool valid = true;
+        converted = rational::zero();
+        rational ten(10);
+        if (str.length() == 0) {
+            return false;
+        } else {
+            for (unsigned i = 0; i < str.length(); ++i) {
+                if (!('0' <= str[i] && str[i] <= '9')) {
+                    return false;
+                } else {
+                    // accumulate
+                    char digit = (int)str[i];
+                    std::string sDigit(1, digit);
+                    int val = atoi(sDigit.c_str());
+                    converted = (ten * converted) + rational(val);
+                }
+            }
+            return true;
+        }
+    }
+
     // Check agreement between integer and string theories for the term a = (str.to-int S).
     // Returns true if axioms were added, and false otherwise.
     bool theory_str::finalcheck_str2int(app * a) {
@@ -8189,27 +8214,9 @@ namespace smt {
         if (S_hasEqcValue) {
             zstring str;
             u.str.is_string(S_str, str);
-            bool valid = true;
             rational convertedRepresentation(0);
-            rational ten(10);
-            if (str.length() == 0) {
-                valid = false;
-            } else {
-                for (unsigned i = 0; i < str.length(); ++i) {
-                    if (!('0' <= str[i] && str[i] <= '9')) {
-                        valid = false;
-                        break;
-                    } else {
-                        // accumulate
-                        char digit = (int)str[i];
-                        std::string sDigit(1, digit);
-                        int val = atoi(sDigit.c_str());
-                        convertedRepresentation = (ten * convertedRepresentation) + rational(val);
-                    }
-                }
-            }
             // TODO this duplicates code a bit, we can simplify the branch on "conclusion" only
-            if (valid) {
+            if (string_integer_conversion_valid(str, convertedRepresentation)) {
                 expr_ref premise(ctx.mk_eq_atom(S, mk_string(str)), m);
                 expr_ref conclusion(ctx.mk_eq_atom(a, m_autil.mk_numeral(convertedRepresentation, true)), m);
                 expr_ref axiom(rewrite_implication(premise, conclusion), m);
@@ -8263,22 +8270,7 @@ namespace smt {
                 }
                 // nonempty string --> convert to correct integer value, or disallow it
                 rational convertedRepresentation(0);
-                rational ten(10);
-                bool conversionOK = true;
-                for (unsigned i = 0; i < Sval.length(); ++i) {
-                    char digit = (int)Sval[i];
-                    if (isdigit((int)digit)) {
-                        std::string sDigit(1, digit);
-                        int val = atoi(sDigit.c_str());
-                        convertedRepresentation = (ten * convertedRepresentation) + rational(val);
-                    } else {
-                        // not a digit, invalid
-                        TRACE("str", tout << "str.from-int argument contains non-digit character '" << digit << "'" << std::endl;);
-                        conversionOK = false;
-                        break;
-                    }
-                }
-                if (conversionOK) {
+                if (string_integer_conversion_valid(Sval, convertedRepresentation)) {
                     expr_ref premise(ctx.mk_eq_atom(a, mk_string(Sval)), m);
                     expr_ref conclusion(ctx.mk_eq_atom(N, m_autil.mk_numeral(convertedRepresentation, true)), m);
                     expr_ref axiom(rewrite_implication(premise, conclusion), m);

@@ -90,14 +90,14 @@ extern "C" {
         try {
             if (!parse_smt2_commands(*ctx.get(), is)) {
                 ctx = nullptr;
-                SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
+                SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
                 return of_ast_vector(v);
             }
         }
         catch (z3_exception& e) {
             errstrm << e.msg();
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
             return of_ast_vector(v);
         }
         for (expr* e : ctx->tracked_assertions()) {
@@ -157,13 +157,13 @@ extern "C" {
         ctx->set_diagnostic_stream(ous);
         try {
             if (!parse_smt2_commands(*ctx.get(), is)) {
-                SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str().c_str());
+                SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
                 RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
             }
         }
         catch (z3_exception& e) {
             if (ous.str().empty()) ous << e.msg();
-            SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str().c_str());
+            SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
             RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
         }
         RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));

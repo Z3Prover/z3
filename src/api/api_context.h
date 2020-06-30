@@ -17,9 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_CONTEXT_H_
-#define API_CONTEXT_H_
-
+#pragma once
 
 #include "util/hashtable.h"
 #include "util/mutex.h"
@@ -170,8 +168,9 @@ namespace api {
         family_id get_special_relations_fid() const { return m_special_relations_fid; }
 
         Z3_error_code get_error_code() const { return m_error_code; }
-        void reset_error_code();
+        void reset_error_code() { m_error_code = Z3_OK; }
         void set_error_code(Z3_error_code err, char const* opt_msg);
+        void set_error_code(Z3_error_code err, std::string &&opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         // Sign an error if solver is searching
         void check_searching();
@@ -268,5 +267,3 @@ inline bool is_expr(Z3_ast a) { return is_expr(to_ast(a)); }
 inline bool is_bool_expr(Z3_context c, Z3_ast a) { return is_expr(a) && mk_c(c)->m().is_bool(to_expr(a)); }
 #define CHECK_FORMULA(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_) || !is_bool_expr(c, _a_)) { SET_ERROR_CODE(Z3_INVALID_ARG, nullptr); return _ret_; } }
 inline void check_sorts(Z3_context c, ast * n) { mk_c(c)->check_sorts(n); }
-
-#endif

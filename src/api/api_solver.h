@@ -28,7 +28,7 @@ struct solver2smt2_pp {
     expr_ref_vector m_tracked;
     unsigned_vector m_tracked_lim;
 
-    solver2smt2_pp(ast_manager& m, char const* file);
+    solver2smt2_pp(ast_manager& m, const std::string& file);
     void assert_expr(expr* e);
     void assert_expr(expr* e, expr* t);
     void push();
