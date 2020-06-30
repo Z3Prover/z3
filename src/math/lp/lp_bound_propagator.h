@@ -180,59 +180,6 @@ public:
         m_imp.consume(a, ci);
     }
 
-    bool is_offset_row(unsigned r, lpvar & x, lpvar & y, mpq & k) const {
-        if (r >= lp().row_count())
-            return false;
-        x = y = null_lpvar;
-        for (auto& c : lp().get_row(r)) {
-            lpvar v = c.var();
-            if (column_is_fixed(v)) {
-                // if (get_lower_bound_rational(c.var()).is_big())
-                //     return false;
-                continue;
-            }
-           
-            if (c.coeff().is_one() && x == null_lpvar) {
-                x = v;
-                continue;
-            }
-            if (c.coeff().is_minus_one() && y == null_lpvar) {
-                y = v;
-                continue;
-            }
-            return false;
-        }
-    
-        if (x == null_lpvar && y == null_lpvar) {
-            return false;
-        }
-        
-        k = mpq(0);
-        for (const auto& c : lp().get_row(r)) {
-            if (!column_is_fixed(c.var()))
-                continue;
-            k -= c.coeff() * get_lower_bound_rational(c.var());
-            if (k.is_big())
-                return false;
-        }
-        
-        if (y == null_lpvar)
-            return true;
-
-        if (x == null_lpvar) {
-            std::swap(x, y);
-            k.neg();
-            return true;
-        }
-
-        if (!lp().is_base(x) && x > y) {
-            std::swap(x, y);
-            k.neg();
-        }
-        return true;
-    }
-
-    
     bool set_sign_and_column(signed_column& i, const row_cell<mpq> & c) const {
         if (c.coeff().is_one()) {
             i.sign() = false;
@@ -352,7 +299,7 @@ public:
         return m_imp.is_equal(col_to_imp(j), col_to_imp(k));
     }
 
-    void check_for_eq_and_add_to_offset_table(vertex* v,  map<mpq, vertex*, obj_hash<mpq>, mpq_eq>& table) {
+    void check_for_eq_and_add_to_val_table(vertex* v,  map<mpq, vertex*, obj_hash<mpq>, mpq_eq>& table) {
         vertex *k; // the other vertex
         if (table.find(val(v), k)) {
             TRACE("cheap_eq", tout << "found k " ; k->print(tout) << "\n";);
@@ -366,12 +313,12 @@ public:
         }
     }
     
-    void check_for_eq_and_add_to_offsets(vertex* v) {
+    void check_for_eq_and_add_to_val_tables(vertex* v) {
         TRACE("cheap_eq_det", v->print(tout) << "\n";);
         if (v->neg())
-            check_for_eq_and_add_to_offset_table(v, m_vals_to_verts_neg);
+            check_for_eq_and_add_to_val_table(v, m_vals_to_verts_neg);
         else 
-            check_for_eq_and_add_to_offset_table(v, m_vals_to_verts);                
+            check_for_eq_and_add_to_val_table(v, m_vals_to_verts);                
     }
         
     void clear_for_eq() {
@@ -451,75 +398,6 @@ public:
     bool is_int(lpvar j) const {
         return lp().column_is_int(j);
     }
-    
-    void cheap_eq_table(unsigned rid) {
-        TRACE("cheap_eqs", tout << "checking if row " << rid << " can propagate equality.\n";  print_row(tout, rid););
-        unsigned x = 0, y = 0;
-        mpq k;
-        if (is_offset_row(rid, x, y, k)) {
-            if (y == null_lpvar) {
-                // x is an implied fixed var at k.
-                unsigned x2 = null_lpvar;
-                if (lp().find_in_fixed_tables(k, is_int(x), x2) &&
-                    !is_equal(x, x2)) {
-                    SASSERT(is_int(x) == is_int(x2) && lp().column_is_fixed(x2) &&
-                            get_lower_bound_rational(x2) == k); 
-                    explanation ex;
-                    constraint_index lc, uc;
-                    lp().get_bound_constraint_witnesses_for_column(x2, lc, uc);
-                    ex.push_back(lc);
-                    ex.push_back(uc);
-                    explain_fixed_in_row(rid, ex);
-                    add_eq_on_columns(ex, x, x2);
-                }
-            }
-            if (k.is_zero() && y != null_lpvar && !is_equal(x, y) &&
-                is_int(x) == is_int(y)) {
-                explanation ex;
-                explain_fixed_in_row(rid, ex);
-                add_eq_on_columns(ex, x, y);
-            }
-
-            unsigned row_id;
-            var_offset key(y, k);
-            if (m_var_offset2row_id.find(key, row_id)) {               
-                if (row_id == rid) { // it is the same row.
-                    return;
-                }
-                unsigned x2, y2;
-                mpq  k2;
-                if (is_offset_row(row_id, x2, y2, k2)) {
-                    bool new_eq  = false;
-                    if (y == y2 && k == k2) {
-                        new_eq = true;
-                    }
-                    else if (y2 != null_lpvar && x2 == y && k == - k2) {
-                            std::swap(x2, y2);
-                            new_eq = true;
-                    }
-                    
-                    if (new_eq) {
-                        if (!is_equal(x, x2) && is_int(x) == is_int(x2)) {
-                            //    SASSERT(y == y2 && k == k2 );
-                            explanation ex;
-                            explain_fixed_in_row(rid, ex);
-                            explain_fixed_in_row(row_id, ex);
-                            TRACE("arith_eq", tout << "propagate eq two rows:\n"; 
-                                  tout << "x  : v" << x << "\n";
-                                  tout << "x2 : v" << x2 << "\n";
-                                  print_row(tout, rid); 
-                                  print_row(tout, row_id););
-                            add_eq_on_columns(ex, x, x2);
-                        }
-                        return;
-                    }
-                }
-                // the original row was deleted or it is not offset row anymore ===> remove it from table 
-            }
-            // add new entry
-            m_var_offset2row_id.insert(key, rid);
-        }
-   }
     
     explanation get_explanation_from_path(const ptr_vector<vertex>& path) const {
         explanation ex;
@@ -731,7 +609,7 @@ public:
     }
     
     void explore_under(vertex * v) {
-        check_for_eq_and_add_to_offsets(v);
+        check_for_eq_and_add_to_val_tables(v);
         go_over_vertex_column(v);
         // v might change in m_vertices expansion
         for (vertex* c : v->children()) {

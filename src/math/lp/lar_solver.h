@@ -373,11 +373,7 @@ public:
     }
     template <typename T>
     void calculate_cheap_eqs_for_row(unsigned i, lp_bound_propagator<T> & bp) {
-        if (settings().cheap_eqs() == 1) {
-            bp.cheap_eq_tree(i);
-        } else {
-            bp.cheap_eq_table(i);
-        }
+        bp.cheap_eq_tree(i);
     }
     
     bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
