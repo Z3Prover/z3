@@ -54,7 +54,7 @@ extern "C" {
         if (t == nullptr) {
             std::stringstream err;
             err << "unknown tactic " << name;
-            SET_ERROR_CODE(Z3_INVALID_ARG, err.str().c_str());
+            SET_ERROR_CODE(Z3_INVALID_ARG, err.str());
             RETURN_Z3(nullptr);
         }
         tactic * new_t = t->mk(mk_c(c)->m());

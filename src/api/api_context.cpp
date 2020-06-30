@@ -147,6 +147,14 @@ namespace api {
         }
     }
 
+    void context::set_error_code(Z3_error_code err, std::string &&opt_msg) {
+        m_error_code = err;
+        if (err != Z3_OK) {
+            m_exception_msg = std::move(opt_msg);
+            invoke_error_handler(err);
+        }
+    }
+
     void context::check_searching() {
         if (m_searching) { 
             set_error_code(Z3_INVALID_USAGE, "cannot use function while searching"); // TBD: error code could be fixed.
@@ -287,7 +295,8 @@ namespace api {
                     buffer << mk_bounded_pp(a->get_arg(i), m(), 3) << " of sort ";
                     buffer << mk_pp(m().get_sort(a->get_arg(i)), m()) << "\n";
                 }
-                warning_msg("%s",buffer.str().c_str());
+                auto str = buffer.str();
+                warning_msg("%s", str.c_str());
                 break;
             }
             case AST_VAR:

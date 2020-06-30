@@ -105,10 +105,10 @@ extern "C" {
         m_out.flush();
     }
 
-    solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): 
+    solver2smt2_pp::solver2smt2_pp(ast_manager& m, const std::string& file):
         m_pp_util(m), m_out(file), m_tracked(m) {
         if (!m_out) {
-            throw default_exception("could not open " + std::string(file) + " for output");
+            throw default_exception("could not open " + file + " for output");
         }
     }
 
@@ -155,7 +155,7 @@ extern "C" {
         solver_params sp(to_solver(s)->m_params);
         symbol smt2log = sp.smtlib2_log();
         if (smt2log.is_non_empty_string() && !to_solver(s)->m_pp) {
-            to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), smt2log.str().c_str());
+            to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), smt2log.str());
         }
     }
 
@@ -247,7 +247,7 @@ extern "C" {
 
         if (!parse_smt2_commands(*ctx.get(), is)) {
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
             return;
         }
 
@@ -266,7 +266,7 @@ extern "C" {
         std::stringstream err;
         sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
         if (!parse_dimacs(is, err, solver)) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR, err.str().c_str());
+            SET_ERROR_CODE(Z3_PARSER_ERROR, err.str());
             return;
         }
         sat2goal s2g;

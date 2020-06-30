@@ -170,6 +170,7 @@ namespace api {
         Z3_error_code get_error_code() const { return m_error_code; }
         void reset_error_code() { m_error_code = Z3_OK; }
         void set_error_code(Z3_error_code err, char const* opt_msg);
+        void set_error_code(Z3_error_code err, std::string &&opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         // Sign an error if solver is searching
         void check_searching();
