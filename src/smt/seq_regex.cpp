@@ -860,13 +860,22 @@ namespace smt {
     }
 
     /*
-        Merge all cycles of unknown states containing s1 into one state.
+        Merge all cycles of unknown states containing s into one state.
         Return the new state
-        Precondition: s1 is unknown.
+        Precondition: s is unknown.
     */
     auto state_graph::merge_all_cycles(state s) -> state {
         SASSERT(m_unknown.contains(s));
         // Mark s_to, then search backwards from s to mark the SCC
+        // state_set visited = *(new state_set());
+        // state_set marked = *(new state_set());
+        // visited.insert(s);
+        // auto to_search = *(new vector<pair<state, state>>())
+        // to_search.push_back(s, s)
+        // while (to_search.size() > 0) {
+        //     auto p = to_search.pop_back();
+        // }
+
         // TODO: Implement full check
         // Simple placeholder for now: check if there is an edge both ways
         state_set s_to_set = *m_to.find(s); // makes a copy. Reference could

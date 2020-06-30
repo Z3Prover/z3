@@ -40,8 +40,9 @@ namespace smt {
         "States" are integers. States and edges are added to the data
         structure incrementally.
         - States can be marked as live
-          or as done -- to indicate that no more edges will be added and the
-          state will not be marked as live. The data structure then tracks
+          or as done -- to indicate that no more outgoing edges will be
+          added and the state will not be marked as live. The data
+          structure then tracks
           which other states are live (can reach a live state), dead
           (can't reach a live state), or neither.
         - Some edges are labeled as not contained in a cycle. This is to
@@ -133,7 +134,7 @@ namespace smt {
 
             These methods may be called in any order, as long as:
             - states are added before edges are added between them
-            - edges are not added from a done state
+            - outgoing edges are not added from a done state
             - a done state is not marked as live
             - edges are not added creating a cycle containing an edge with
               maybecycle = false
