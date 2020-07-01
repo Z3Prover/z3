@@ -87,14 +87,14 @@ namespace smt {
         /*
             Edges are saved in both from and to maps.
             A subset of edges are also marked as possibly being
-            part of a cycle by being stored in m_from_maybecycle.
+            part of a cycle by being stored in m_sources_maybecycle.
             
             Invariants:
             - TODO
         */
-        edge_rel   m_from;
-        edge_rel   m_to;
-        edge_rel   m_from_maybecycle;
+        edge_rel   m_sources;
+        edge_rel   m_targets;
+        edge_rel   m_sources_maybecycle;
 
         /*
             'Core' functions that modify the plain graph, without
@@ -127,7 +127,7 @@ namespace smt {
     public:
         state_graph():
             m_live(), m_dead(), m_unknown(), m_unexplored(), m_seen(),
-            m_state_ufind(), m_from(), m_to(), m_from_maybecycle() {}
+            m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle() {}
 
         /*
             Exposed methods

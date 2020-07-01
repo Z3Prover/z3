@@ -697,9 +697,9 @@ namespace smt {
         // Initialize as unvisited
         m_seen.insert(s);
         m_unexplored.insert(s);
-        m_to.insert(s, new state_set());
-        m_from.insert(s, new state_set());
-        m_from_maybecycle.insert(s, new state_set());
+        m_targets.insert(s, new state_set());
+        m_sources.insert(s, new state_set());
+        m_sources_maybecycle.insert(s, new state_set());
     }
     void state_graph::remove_state_core(state s) {
         // This is a partial deletion -- the state is still seen and can't be
@@ -710,9 +710,9 @@ namespace smt {
         SASSERT(m_seen.contains(s));
         SASSERT(!m_state_ufind.is_root(s));
         SASSERT(m_unknown.contains(s));
-        m_to.erase(s);
-        m_from.erase(s);
-        m_from_maybecycle.erase(s);
+        m_targets.erase(s);
+        m_sources.erase(s);
+        m_sources_maybecycle.erase(s);
         m_unknown.remove(s);
     }
 
@@ -751,31 +751,31 @@ namespace smt {
         SASSERT(m_state_ufind.is_root(s1));
         SASSERT(m_state_ufind.is_root(s2));
         if (s1 == s2) return;
-        if (!m_to.find(s1)->contains(s2)) {
+        if (!m_targets.find(s1)->contains(s2)) {
             // add new edge
             STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: new edge! ";);
-            m_to.find(s1)->insert(s2);
-            m_from.find(s2)->insert(s1);
-            if (maybecycle) m_from_maybecycle.find(s2)->insert(s1);
+            m_targets.find(s1)->insert(s2);
+            m_sources.find(s2)->insert(s1);
+            if (maybecycle) m_sources_maybecycle.find(s2)->insert(s1);
         }
-        else if (!maybecycle && m_from_maybecycle.find(s2)->contains(s1)) {
+        else if (!maybecycle && m_sources_maybecycle.find(s2)->contains(s1)) {
             // update existing edge
             STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: update edge! ";);
-            m_from_maybecycle.find(s2)->remove(s1);
+            m_sources_maybecycle.find(s2)->remove(s1);
         }
     }
     void state_graph::remove_edge_core(state s1, state s2) {
-        SASSERT(m_to.find(s1)->contains(s2));
-        SASSERT(m_from.find(s2)->contains(s1));
-        m_to.find(s1)->remove(s2);
-        m_from.find(s2)->remove(s1);
-        m_from_maybecycle.find(s2)->remove(s1);
+        SASSERT(m_targets.find(s1)->contains(s2));
+        SASSERT(m_sources.find(s2)->contains(s1));
+        m_targets.find(s1)->remove(s2);
+        m_sources.find(s2)->remove(s1);
+        m_sources_maybecycle.find(s2)->remove(s1);
     }
     void state_graph::rename_edge_core(state old1, state old2,
                                        state new1, state new2) {
-        SASSERT(m_to.find(old1)->contains(old2));
-        SASSERT(m_from.find(old2)->contains(old1));
-        bool maybecycle = m_from_maybecycle.find(old2)->contains(old1);
+        SASSERT(m_targets.find(old1)->contains(old2));
+        SASSERT(m_sources.find(old2)->contains(old1));
+        bool maybecycle = m_sources_maybecycle.find(old2)->contains(old1);
         remove_edge_core(old1, old2);
         add_edge_core(new1, new2, maybecycle);
     }
@@ -800,10 +800,10 @@ namespace smt {
         m_state_ufind.merge(s1, s2);
         if (m_state_ufind.is_root(s2)) std::swap(s1, s2);
         // rename s2 to s1 in edges
-        for (auto s_to: *m_to.find(s2)) {
+        for (auto s_to: *m_targets.find(s2)) {
             rename_edge_core(s2, s_to, s1, s_to);
         }
-        for (auto s_from: *m_from.find(s2)) {
+        for (auto s_from: *m_sources.find(s2)) {
             rename_edge_core(s_from, s2, s_from, s1);
         }
         remove_state_core(s2);
@@ -834,7 +834,7 @@ namespace smt {
             << std::endl << "  DEBUG: mark live recursive: " << s << " ";);
         if (m_live.contains(s)) return;
         mark_live_core(s);
-        for (auto s_from: *m_from.find(s)) {
+        for (auto s_from: *m_sources.find(s)) {
             mark_live_recursive(s_from);
         }
     }
@@ -850,14 +850,14 @@ namespace smt {
         STRACE("seq_regex_debug", tout
             << std::endl << "  DEBUG: mark dead recursive: " << s << " ";);
         if (!m_unknown.contains(s)) return;
-        for (auto s_to: *m_to.find(s)) {
+        for (auto s_to: *m_targets.find(s)) {
             // unknown pointing to live should have been marked as live!
             SASSERT(!m_live.contains(s_to));
             if (m_unknown.contains(s_to) || m_unexplored.contains(s_to)) return;
         }
         // all states from s are dead
         mark_dead_core(s);
-        for (auto s_from: *m_from.find(s)) {
+        for (auto s_from: *m_sources.find(s)) {
             mark_dead_recursive(s_from);
         }
     }
@@ -883,7 +883,7 @@ namespace smt {
                 visited.insert(x);
                 // recurse backwards only on maybecycle edges
                 // and only on unknown states
-                for (auto y: *m_from_maybecycle.find(x)) {
+                for (auto y: *m_sources_maybecycle.find(x)) {
                     if (m_unknown.contains(y))
                         to_search.push_back(y);
                 }
@@ -892,7 +892,7 @@ namespace smt {
                 resolved.insert(x);
                 to_search.pop_back();
                 // determine in SCC or not
-                for (auto y: *m_from_maybecycle.find(x)) {
+                for (auto y: *m_sources_maybecycle.find(x)) {
                     if (scc.contains(y)) {
                         scc.insert(x);
                         break;
@@ -905,15 +905,6 @@ namespace smt {
         }
         // scc is the union of all cycles containing s
         return merge_states(scc);
-
-        // Previous simple placeholder: check if there is an edge both ways
-        // state_set s_to_set = *m_to.find(s); // makes a copy. Reference could
-        //                                     // lead to a bug
-        // for (auto s_to: s_to_set) {
-        //     if (m_to.find(s_to)->contains(s))
-        //         s = merge_states(s, s_to);
-        // }
-        // return s;
     }
 
     /*
@@ -986,7 +977,7 @@ namespace smt {
         of << "Edges:" << std::endl;
         for (auto s1: m_seen) {
             if (m_state_ufind.is_root(s1)) {
-                of << "  " << s1 << " -> " << *m_to.find(s1) << std::endl;
+                of << "  " << s1 << " -> " << *m_targets.find(s1) << std::endl;
             }
         }
 
