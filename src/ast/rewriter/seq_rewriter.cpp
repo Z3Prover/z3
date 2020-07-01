@@ -2692,6 +2692,7 @@ expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
         }
         else {
             result = m().mk_true();
+            result = re_predicate(result, seq_sort);
         }
     }
     else if (m().is_not(cond, c1)) {
