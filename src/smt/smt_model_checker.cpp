@@ -359,6 +359,7 @@ namespace smt {
                 break;
             model_ref cex;
             m_aux_context->get_model(cex);
+            
             if (!add_instance(q, cex.get(), sks, true)) {
                 break;
             }
