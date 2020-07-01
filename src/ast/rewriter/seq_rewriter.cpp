@@ -2446,15 +2446,15 @@ expr_ref seq_rewriter::mk_der_concat(expr* r1, expr* r2) {
 */
 bool seq_rewriter::lt_char(expr* ch1, expr* ch2) {
     unsigned u1, u2;
-    return (m_util.is_const_char(ch1, u1) &&
-            m_util.is_const_char(ch2, u2) &&
+    return (u().is_const_char(ch1, u1) &&
+            u().is_const_char(ch2, u2) &&
             (u1 < u2));
 }
 bool seq_rewriter::eq_char(expr* ch1, expr* ch2) {
     unsigned u1, u2;
     return ((ch1 == ch2) || (
-        m_util.is_const_char(ch1, u1) &&
-        m_util.is_const_char(ch2, u2) &&
+        u().is_const_char(ch1, u1) &&
+        u().is_const_char(ch2, u2) &&
         (u1 == u2)
     ));
 }
@@ -2473,25 +2473,28 @@ bool seq_rewriter::le_char(expr* ch1, expr* ch2) {
         - a and b are char <= constraints, or negations of char <= constraints
 */
 bool seq_rewriter::pred_implies(expr* a, expr* b) {
+    STRACE("seq_verbose", tout << "pred_implies: "
+                               << "," << mk_pp(a, m())
+                               << "," << mk_pp(b, m()) << std::endl;);
     expr *cha1 = nullptr, *cha2 = nullptr, *nota = nullptr,
          *chb1 = nullptr, *chb2 = nullptr, *notb = nullptr;
     if (m().is_not(a, nota) &&
         m().is_not(b, notb)) {
         return pred_implies(notb, nota);
     }
-    else if (m_util.is_char_le(a, cha1, cha2) &&
-             m_util.is_char_le(b, chb1, chb2)) {
+    else if (u().is_char_le(a, cha1, cha2) &&
+             u().is_char_le(b, chb1, chb2)) {
         return (le_char(chb1, cha1) && le_char(cha2, chb2));
     }
-    else if (m_util.is_char_le(a, cha1, cha2) &&
+    else if (u().is_char_le(a, cha1, cha2) &&
              m().is_not(b, notb) &&
-             m_util.is_char_le(notb, chb1, chb2)) {
+             u().is_char_le(notb, chb1, chb2)) {
         return ((le_char(chb2, cha1) && lt_char(cha2, chb1)) ||
                 (lt_char(chb2, cha1) && le_char(cha2, chb1)));
     }
-    else if (m_util.is_char_le(b, chb1, chb2) &&
+    else if (u().is_char_le(b, chb1, chb2) &&
              m().is_not(a, nota) &&
-             m_util.is_char_le(nota, cha1, cha2)) {
+             u().is_char_le(nota, cha1, cha2)) {
         return (le_char(chb1, cha2) && le_char(cha1, chb2));
     }
     else {
@@ -2511,6 +2514,9 @@ bool seq_rewriter::pred_implies(expr* a, expr* b) {
         - result is in BDD form
 */
 expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
+    STRACE("seq_verbose", tout << "mk_der_op_rec: " << k
+                               << "," << mk_pp(a, m())
+                               << "," << mk_pp(b, m()) << std::endl;);
     // STRACE("seq_regex_brief", tout << ".";); // recursive call
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
     expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
@@ -2630,6 +2636,8 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
 }
 
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
+    STRACE("seq_verbose", tout << "mk_der_compl: " << mk_pp(r, m())
+                               << std::endl;);
     // STRACE("seq_regex_brief", tout << ".";); // recursive call
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
@@ -4377,6 +4385,9 @@ void seq_rewriter::op_cache::cleanup() {
     if (m_table.size() >= m_max_cache_size) {
         m_trail.reset();
         m_table.reset();
+        STRACE("seq_regex", tout << "Op cache reset!" << std::endl;);
+        STRACE("seq_regex_brief", tout << " (OP CACHE RESET)";);
+        // trace_and_reset_cache_counts();
     }
 }
 
