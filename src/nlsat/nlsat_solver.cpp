@@ -1546,9 +1546,8 @@ namespace nlsat {
             lbool r = l_undef;
             while (true) {
                 r = search();
-                if (r != l_true) break;     
-                vector<rational> lows;
-                vector<var>      vars;
+                if (r != l_true) break; 
+                vector<std::pair<var, rational>> bounds;                
 
                 for (var x = 0; x < num_vars(); x++) {
                     if (m_is_int[x] && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
@@ -1556,24 +1555,24 @@ namespace nlsat {
                         v = m_assignment.value(x);
                         rational lo;
                         m_am.int_lt(v, vlo);
-                        if (!m_am.is_int(vlo)) continue;
+                        if (!m_am.is_int(vlo)) 
+                            continue;
                         m_am.to_rational(vlo, lo);
                         // derive tight bounds.
                         while (true) {
                             lo++;
                             if (!m_am.gt(v, lo.to_mpq())) { lo--; break; }
                         }
-                        lows.push_back(lo);
-                        vars.push_back(x);
+                        bounds.push_back(std::make_pair(x, lo));
                     }
                 }
-                if (lows.empty()) break;
+                if (bounds.empty()) break;
 
                 init_search();                
-                for (unsigned i = 0; i < lows.size(); ++i) {
-                    rational lo = lows[i];
-                    rational hi = lo + rational::one();
-                    var x = vars[i];
+                for (auto const& b : bounds) {
+                    var x = b.first;
+                    rational lo = b.second;
+                    rational hi = lo + 1; // rational::one();
                     bool is_even = false;                        
                     polynomial_ref p(m_pm);
                     rational one(1);
