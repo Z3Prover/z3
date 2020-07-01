@@ -18,7 +18,6 @@ Author:
 
 #include "util/scoped_vector.h"
 #include "util/uint_set.h"
-#include "util/uint_map.h"
 #include "util/union_find.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -54,10 +53,10 @@ namespace smt {
         live and dead SCCs.
     */
     class state_graph {
-        typedef unsigned              state;
-        typedef uint_set              state_set;
-        typedef uint_map<state_set>   edge_rel;
-        typedef basic_union_find      state_ufind;
+        typedef unsigned           state;
+        typedef uint_set           state_set;
+        typedef u_map<state_set>   edge_rel;
+        typedef basic_union_find   state_ufind;
 
     private:
         /*
