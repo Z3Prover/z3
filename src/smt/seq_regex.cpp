@@ -210,13 +210,16 @@ namespace smt {
                               << "," << r->get_id()
                               << ") ";);
 
-        if (re().is_empty(r)
-            || m_state_graph.is_dead(get_state_id(r))) {
+        if (re().is_empty(r)) {
             th.add_axiom(~lit);
             return true;
         }
-        if (!m.is_ite(r) && is_ground(r)) {
+        if (!m.is_ite(r)) {
             update_state_graph(r);
+            if (m_state_graph.is_dead(get_state_id(r))) {
+                th.add_axiom(~lit);
+                return true;
+            }
         }
 
         if (block_unfolding(lit, idx))
