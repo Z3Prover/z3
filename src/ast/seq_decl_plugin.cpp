@@ -1190,12 +1190,15 @@ unsigned seq_util::max_mul(unsigned x, unsigned y) const {
     return (r > UINT_MAX) ? UINT_MAX : (unsigned)r;
 }
 
+bool seq_util::is_any_const_char(expr* e) const {
+    return is_app_of(e, m_fid, OP_CHAR_CONST);
+}
 
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
 #if Z3_USE_UNICODE
-    return is_app_of(e, m_fid, OP_CHAR_CONST) && (c = to_app(e)->get_parameter(0).get_int(), true);
+    return is_any_const_char(e) && (c = to_app(e)->get_parameter(0).get_int(), true);
 #else
-    rational r;    
+    rational r;
     unsigned sz;
     return bv().is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
 #endif

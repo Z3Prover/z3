@@ -20,6 +20,9 @@ Author:
 #include "smt/smt_arith_value.h"
 #include "util/trail.h"
 
+#define NICE_MIN 97
+#define NICE_MAX 122
+
 namespace smt {
 
     seq_unicode::seq_unicode(theory& th):
@@ -80,6 +83,50 @@ namespace smt {
         adapt_eq(v1, v2);
     }
 
+    bool seq_unicode::try_bound(theory_var v, unsigned min, unsigned max) {
+        push_scope();
+        dl.init_var(v);
+        theory_var v0 = ensure0();
+        bool sat = dl.enable_edge(dl.add_edge(v, v0, s_integer(-1 * min), null_literal));
+        if (!sat) {
+            pop_scope(1);
+            return false;
+        }
+        sat = dl.enable_edge(dl.add_edge(v0, v, s_integer(max), null_literal));
+        if (!sat) {
+            pop_scope(1);
+            return false;
+        }
+        pop_scope(1);
+        return true;
+    }
+
+    bool seq_unicode::try_assignment(theory_var v, unsigned ch) {
+        return try_bound(v, ch, ch);
+    }
+
+    void seq_unicode::try_make_nice(svector<theory_var> char_vars) {
+
+        // Try for each character
+        unsigned i = 0;
+        for (auto v : char_vars) {
+
+            // Skip character constants, since they can't be changed
+            if (seq.is_any_const_char(th.get_expr(v))) continue;
+
+            // Check if the value is already nice
+            int val = get_value(v);
+            if (val <= NICE_MAX && val >= NICE_MIN) continue;
+
+            // Try assigning the variable to a nice value
+            if (try_bound(v, NICE_MIN, NICE_MAX)) {
+                try_assignment(v, NICE_MIN + i);
+                i++;
+            }
+        }
+    }
+
+
     bool seq_unicode::enforce_char_range(svector<theory_var> char_vars) {
 
         // Continue checking until convergence or inconsistency
@@ -117,7 +164,7 @@ namespace smt {
         return true;
     }
 
-    bool seq_unicode::enforce_value_consistency(svector<theory_var> char_vars) {
+    bool seq_unicode::enforce_char_codes(svector<theory_var> char_vars) {
 
         // Iterate over all theory variables until the context is inconsistent
         bool success = true;
@@ -148,16 +195,6 @@ namespace smt {
         return success;
     }
 
-    void seq_unicode::try_make_variables_nice(svector<theory_var> char_vars) {
-        // TODO
-        return;
-    }
-
-    void seq_unicode::try_remove_unnecessary_equalities(svector<theory_var> char_vars) {
-        // TODO
-        return;
-    }
-
     bool seq_unicode::final_check() {
 
         // Get character variables
@@ -166,22 +203,17 @@ namespace smt {
             if(seq.is_char(th.get_expr(v))) char_vars.push_back(v);
         }
 
+        // Shift assignments on variables, so that they are "nice" (have values 'a', 'b', ...)
+        try_make_nice(char_vars);
+
         // Validate that all variables must be in 0 <= v <= zstring::max_char()
         if (!enforce_char_range(char_vars)) return false;
 
         // Make sure str.to_code(unit(v)) = val for all character variables
-        if (!enforce_value_consistency(char_vars)) return false;
+        if (!enforce_char_codes(char_vars)) return false;
 
         // Enforce equalities over shared symbols
         if (th.assume_eqs(m_var_value_table)) return false;
-
-        // Shift assignments on variables, so that they are "nice" (have values 'a', 'b', ...),
-        // if possible without violating the above properties
-        try_make_variables_nice(char_vars);
-
-        // Make character variables not equal to each other,
-        // if possible without violating the above properties
-        try_remove_unnecessary_equalities(char_vars);
 
         // If all checks pass, we're done
         return true;
@@ -202,7 +234,7 @@ namespace smt {
         }
         else {
             theory_var v0 = ensure0();
-            add_edge(v, v0,  ch, null_literal);  // v - v0 <= ch
+            add_edge(v, v0, ch, null_literal);  // v - v0 <= ch
             add_edge(v0, v, -static_cast<int>(ch), null_literal);  // v0 - v <= -ch
         }
     }

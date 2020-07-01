@@ -88,15 +88,17 @@ namespace smt {
 
         theory_var ensure0();
 
+        bool try_assignment(theory_var v, unsigned ch);
+
+        bool try_bound(theory_var v, unsigned min, unsigned max);
+
         void enforce_tv_is_value(theory_var v, unsigned ch);
 
         bool enforce_char_range(svector<theory_var> char_vars);
 
-        bool enforce_value_consistency(svector<theory_var> char_vars);
+        bool enforce_char_codes(svector<theory_var> char_vars);
 
-        void try_make_variables_nice(svector<theory_var> char_vars);
-
-        void try_remove_unnecessary_equalities(svector<theory_var> char_vars);
+        void try_make_nice(svector<theory_var> char_vars);
 
     public:
 
