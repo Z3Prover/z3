@@ -26,7 +26,8 @@ namespace smt {
         ctx(th.get_context()),
         m(th.get_manager()),
         m_state_graph(),
-        m_state_trail(m)
+        m_expr_to_state(),
+        m_state_to_expr(m)
     {}
 
     seq_util& seq_regex::u() { return th.m_util; }
@@ -988,8 +989,20 @@ namespace smt {
     // **********************************
 
     unsigned seq_regex::get_state_id(expr* e) {
-        return e->get_id();
+        // Assign increasing IDs starting from 1
+        if (!m_expr_to_state.contains(e)) {
+            m_state_to_expr.push_back(e);
+            unsigned new_id = m_state_to_expr.size();
+            m_expr_to_state.insert(e, new_id);
+        }
+        return m_expr_to_state.find(e);
     }
+    expr* seq_regex::get_expr_from_id(unsigned id) {
+        SASSERT(id >= 1);
+        SASSERT(id <= m_state_to_expr.size());
+        return m_state_to_expr.get(id);
+    }
+
     bool seq_regex::can_be_in_cycle(expr *e1, expr *e2) {
         // Simple placeholder. TODO: Implement full check
         return true;
@@ -1010,8 +1023,6 @@ namespace smt {
                                  << mk_pp(r, m) << ") ";);
         STRACE("seq_regex_brief", tout
             << std::endl << "USG(" << r->get_id() << ") ";);
-        // Save r as expr_ref so it's not deallocated
-        m_state_trail.push_back(r);
         // Add state
         m_state_graph.add_state(r_id);
         expr_ref r_nullable = is_nullable_wrapper(r);

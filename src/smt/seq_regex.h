@@ -193,15 +193,19 @@ namespace smt {
         /*
             state_graph for dead state detection, and associated methods
         */
-        state_graph       m_state_graph;
-        expr_ref_vector   m_state_trail;
-        unsigned          m_max_state_graph_size { 10000 };
-        // Convert expression to state
+        state_graph                    m_state_graph;
+        ptr_addr_map<expr, unsigned>   m_expr_to_state;
+        expr_ref_vector                m_state_to_expr;
+        unsigned                       m_max_state_graph_size { 10000 };
+        // Convert between expressions and states (IDs)
         unsigned get_state_id(expr* e);
+        expr* get_expr_from_id(unsigned id);
         // Cycle-detection heuristic (sound but not complete)
         bool can_be_in_cycle(expr* e1, expr* e2);
         // Update the graph
         bool update_state_graph(expr* r);
+
+        // ********************
 
         seq_util& u();
         class seq_util::re& re();
