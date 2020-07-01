@@ -2545,7 +2545,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         if (lo > 0) {
             lo--;
         }
-        return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo));
+        result = re().mk_loop(r1, lo);
+        return mk_der_concat(mk_derivative(ele, r1), result);
     }
     else if (re().is_loop(r, r1, lo, hi)) {
         if (hi == 0) {
@@ -2555,7 +2556,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         if (lo > 0) {
             lo--;
         }
-        return mk_der_concat(mk_derivative(ele, r1), re().mk_loop(r1, lo, hi));
+        result = re().mk_loop(r1, lo, hi);
+        return mk_der_concat(mk_derivative(ele, r1), result);
     }
     else if (re().is_full_seq(r) ||
              re().is_empty(r)) {
@@ -2566,7 +2568,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            return re_and(m_br.mk_eq_rw(ele, hd), re().mk_to_re(tl));
+            result = re().mk_to_re(tl);
+            return re_and(m_br.mk_eq_rw(ele, hd), result);
         }
         else if (str().is_empty(r1)) {
             return mk_empty();
@@ -2575,10 +2578,11 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
 #if 0
             hd = str().mk_nth_i(r1, m_autil.mk_int(0));
             tl = str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1)));
+            result = re().mk_to_re(tl);
             result = 
                 m().mk_ite(m_br.mk_eq_rw(r1, str().mk_empty(m().get_sort(r1))), 
                            mk_empty(),
-                           re_and(m_br.mk_eq_rw(ele, hd), re().mk_to_re(tl)));
+                           re_and(m_br.mk_eq_rw(ele, hd), result));
             return result;
 #else
             return expr_ref(re().mk_derivative(ele, r), m());
