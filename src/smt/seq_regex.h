@@ -153,7 +153,7 @@ namespace smt {
         /*
             Pretty printing
         */
-        void pretty_print(std::ofstream& of);
+        void pretty_print(std::ostream& o);
 
     };
 
@@ -203,6 +203,10 @@ namespace smt {
         bool can_be_in_cycle(expr* e1, expr* e2);
         // Update the graph
         bool update_state_graph(expr* r);
+
+        // Printing for seq_regex_brief
+        std::string state_str(expr* e);
+        std::string expr_id_str(expr* e);
 
         // ********************
 
