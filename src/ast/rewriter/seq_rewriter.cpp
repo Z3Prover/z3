@@ -2519,8 +2519,15 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         return (a == b) ? a : m().mk_ite(c, a, b);
     };
     // @EXP (experimental change)
-    // Use same ID for related predicates to improve simplifications
-    // auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
+    // Use character code to order conditions
+    auto get_id = [&](expr* e) {
+        expr *ch1 = nullptr, *ch2 = nullptr;
+        unsigned ch;
+        if (u().is_char_le(e, ch1, ch2) && u().is_const_char(ch2, ch))
+            return ch;
+        re().is_complement(e, e);
+        return e->get_id();
+    };
     if (m().is_ite(a, ca, a1, a2)) {
         expr_ref r1(m()), r2(m());
         expr_ref notca(m().mk_not(ca), m());
@@ -2534,7 +2541,7 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
                 return result;
             }
             // Order with higher IDs on the outside
-            if (ca->get_id() < cb->get_id()) {
+            if (get_id(ca) < get_id(cb)) {
                 std::swap(a, b);
                 std::swap(ca, cb);
                 std::swap(notca, notcb);
