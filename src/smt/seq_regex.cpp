@@ -611,18 +611,8 @@ namespace smt {
         get_cofactors(d, cofactors);
         STRACE("seq_regex_debug", tout << "getting all derivatives of: " << mk_pp(r, m) << std::endl;);
         for (auto const& p : cofactors) {
-            STRACE("seq_regex_debug", tout << "visiting cofactor: cond: " << mk_pp(p.first, m) << ", deriv: " << mk_pp(p.second, m) << std::endl;);
-            expr_ref cond(p.first, m);
-            STRACE("seq_regex_debug", tout << "head: " << mk_pp(hd, m) << std::endl;);
-            STRACE("seq_regex_debug", tout << "cond: " << mk_pp(cond, m) << std::endl;);
-            seq_rw().elim_condition(hd, cond);
-            STRACE("seq_regex_debug", tout << "cond: " << mk_pp(cond, m) << std::endl;);
-            rewrite(cond);
-            STRACE("seq_regex_debug", tout << "cond: " << mk_pp(cond, m) << std::endl;);
-            if (m.is_false(cond)) continue;
-            STRACE("seq_regex_debug", tout << "cofactor labeled true!" << std::endl;);
-            if (re().is_empty(p.second)) continue;
-            STRACE("seq_regex_debug", tout << "added derivative!" << std::endl;);
+            if (m.is_false(p.first) || re().is_empty(p.second)) continue;
+            STRACE("seq_regex_debug", tout << "adding derivative: " << mk_pp(p.second, m) << std::endl;);
             results.push_back(p.second);
         }
     }
