@@ -191,8 +191,7 @@ namespace smt {
         scoped_vector<propagation_lit>   m_to_propagate;
 
         /*
-            state_graph for dead state detection,
-            and associated methods
+            state_graph for dead state detection, and associated methods
         */
         state_graph       m_state_graph;
         expr_ref_vector   m_state_trail;
