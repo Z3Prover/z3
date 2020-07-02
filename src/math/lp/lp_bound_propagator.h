@@ -56,7 +56,7 @@ class lp_bound_propagator {
         else { out << "null"; }
         out <<  "} , lvl = " << v->level();
         if (fixed_phase()) {
-            tout << " fixed phase";
+            out << " fixed phase";
         } if (m_pol.contains(v->column())) {
             out << (pol(v) == -1? " -":" +");
         } else {
