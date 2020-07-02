@@ -175,7 +175,7 @@ is equivalent to Hy≤b′ with y:=(U−1)x . Since the solution x0 of
 A′x0=b′ is not integral, the corresponding vector y0=(U−1)x0 is not
 integral, either. The cuts from proofs algorithm creates an extended
 branch on one of the components y_i of y , i. e., y_i≤⌊y0_i⌋ or
-y_i≥⌈y0_i⌉.  Further on it the papetr there is a lemma showing that
+y_i≥⌈y0_i⌉.  Further on in the paper there is a lemma showing that
 branch y_i≥⌈y0_i⌉ is impossible.
  */
     lia_move hnf_cutter::create_cut(lar_term& t, mpq& k, explanation* ex, bool & upper
