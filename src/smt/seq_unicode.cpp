@@ -89,13 +89,8 @@ namespace smt {
         dl.init_var(v);
         theory_var v0 = ensure0();
 
-        bool sat = dl.enable_edge(dl.add_edge(v, v0, s_integer(-1 * min), null_literal));
-        if (!sat) return false;
-
-        sat = dl.enable_edge(dl.add_edge(v0, v, s_integer(max), null_literal));
-        if (!sat) return false;
-
-        return true;
+        return dl.enable_edge(dl.add_edge(v, v0, s_integer(-1 * min), null_literal))
+            && dl.enable_edge(dl.add_edge(v0, v, s_integer(max), null_literal));
     }
 
     bool seq_unicode::try_assignment(theory_var v, unsigned ch) {
@@ -117,7 +112,7 @@ namespace smt {
 
             // Try assigning the variable to a nice value
             if (try_bound(v, NICE_MIN, NICE_MAX)) {
-                try_assignment(v, NICE_MIN + (i % (NICE_MAX - NICE_MIN)));
+                try_assignment(v, NICE_MIN + (i % (NICE_MAX - NICE_MIN + 1)));
                 i++;
             }
         }
