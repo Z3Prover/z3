@@ -55,7 +55,9 @@ class lp_bound_propagator {
         if (v->parent()) { out << "(" << v->parent()->row() << ", " << v->parent()->column() << ")";}
         else { out << "null"; }
         out <<  "} , lvl = " << v->level();
-        if (m_pol.contains(v->column())) {
+        if (fixed_phase()) {
+            tout << " fixed phase";
+        } if (m_pol.contains(v->column())) {
             tout << (pol(v) == -1? " -":" +");
         } else {
             tout << " not in m_pol";
@@ -218,12 +220,19 @@ public:
         }
         if (prev_pol == polarity)
             return;
-        TRACE("cheap_eq", tout << "polarity switch:"; print(tout , v) << "\n";);
         const vertex *u = find_other_vertex_with_same_column(v);
+        // we have a path L between u and v with p(L) = -1, that means we can
+        // create an equality of the form x + x = a, where x = v->column() = u->column()
         ptr_vector<const vertex> path;
         find_path_on_tree(path, u, v);
         m_fixed_vertex_explanation = get_explanation_from_path(path);
         set_fixed_vertex(v);
+        TRACE("cheap_eq", tout << "polarity switch between: v = "; print(tout , v) << "\nand u = "; print(tout, u) << "\n";);
+        TRACE("cheap_eq", tout << "fixed vertex explanation\n";
+              for (auto p : m_fixed_vertex_explanation) {
+                  lp().constraints().display(tout, [this](lpvar j) { return lp().get_variable_name(j);}, p.ci());
+              });
+
     }
 
     const vertex* find_other_vertex_with_same_column(const vertex* t) const {
