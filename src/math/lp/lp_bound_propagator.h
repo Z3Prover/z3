@@ -58,9 +58,9 @@ class lp_bound_propagator {
         if (fixed_phase()) {
             tout << " fixed phase";
         } if (m_pol.contains(v->column())) {
-            tout << (pol(v) == -1? " -":" +");
+            out << (pol(v) == -1? " -":" +");
         } else {
-            tout << " not in m_pol";
+            out << " not in m_pol";
         }
         return out;
     }
