@@ -187,7 +187,7 @@ public:
         return val(v->column());
     }
     
-    void try_add_equation_with_fixed_tables(vertex *v) {
+    void try_add_equation_with_lp_fixed_tables(const vertex *v) {
         SASSERT(m_fixed_vertex);
         unsigned v_j = v->column();
         unsigned j;
@@ -202,6 +202,28 @@ public:
         add_eq_on_columns(ex, j, v->column());
     }
 
+    void try_add_equation_with_val_table(const vertex *v) {
+        SASSERT(m_fixed_vertex);
+        unsigned v_j = v->column();
+        vertex *u;
+        if (!m_vals_to_verts.find(val(v_j), u)) {
+            m_vals_to_verts.insert(val(v_j), u);
+            return;
+        }
+        unsigned j = u->column();
+        if (j == v_j || is_int(j) != is_int(v_j))
+            return;
+    
+        TRACE("cheap_eq", tout << "found j=" << j << " for v=";
+              print(tout, v) << "\n in m_vals_to_verts\n";);
+        ptr_vector<const vertex> path;
+        find_path_on_tree(path, u, v);
+        explanation ex = get_explanation_from_path(path);
+        ex.add_expl(m_fixed_vertex_explanation);
+        add_eq_on_columns(ex, j, v_j);
+    }
+
+    
     bool tree_contains_r(vertex* root, vertex *v) const {
         if (*root == *v)
             return true;
@@ -533,6 +555,21 @@ public:
         return out;
     }
 
+    void try_add_equation_with_fixed_tables(const vertex* v) {
+        try_add_equation_with_lp_fixed_tables(v);
+        try_add_equation_with_val_table(v);
+    }
+    
+    void create_fixed_eqs(const vertex* v) {
+        try_add_equation_with_fixed_tables(v);
+        for (vertex* c: v->children())
+            try_add_equation_with_fixed_tables(c);
+    }
+
+    void handle_fixed_phase() {
+        create_fixed_eqs(m_root);
+    }
+    
     void cheap_eq_tree(unsigned row_index) {        
         TRACE("cheap_eq", tout << "row_index = " << row_index << "\n";);        
         if (!check_insert(m_visited_rows, row_index))
@@ -544,6 +581,8 @@ public:
         TRACE("cheap_eq", tout << "tree = "; print_tree(tout, m_root) << "\n";);
         SASSERT(tree_is_correct());
         explore_under(m_root);
+        if (fixed_phase())
+            handle_fixed_phase();
         TRACE("cheap_eq", tout << "done for row_index " << row_index << "\n";);
         TRACE("cheap_eq", tout << "tree size = " << verts_size(););
         delete_tree(m_root);
@@ -553,12 +592,6 @@ public:
         m_vals_to_verts.reset();
         m_vals_to_verts_neg.reset();
         m_pol.reset();
-    }
-
-    void create_fixed_eqs(vertex* v) {
-        try_add_equation_with_fixed_tables(v);
-        for (vertex* c: v->children())
-            try_add_equation_with_fixed_tables(c);
     }
 
     std::ostream& print_row(std::ostream & out, unsigned row_index) const  {
