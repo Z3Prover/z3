@@ -206,14 +206,17 @@ namespace smt {
 
         expr* cond = nullptr, *tt = nullptr, *el = nullptr;
         if (re().is_empty(r)) {
-            STRACE("seq_regex_brief", tout << "f ";);
+            STRACE("seq_regex_brief", tout << "(empty) ";);
             th.add_axiom(~lit);
             return true;
         }
         else if (m.is_ite(r, cond, tt, el)) {
-            STRACE("seq_regex_brief", tout << "??? ";);
+            STRACE("seq_regex_brief", tout << "(ite) ";);
             return false;
 
+            // @EXP (Experimental change)
+            // This code tries to unfold the derivative one step at a time
+            // and propagate the if the elses.
             // literal lcond = th.mk_literal(cond);
             // ctx.mark_as_relevant(lcond);
             // trigger = lcond;
@@ -236,7 +239,7 @@ namespace smt {
         update_state_graph(r);
 
         if (m_state_graph.is_dead(get_state_id(r))) {
-            STRACE("seq_regex_brief", tout << "f ";);
+            STRACE("seq_regex_brief", tout << "(dead) ";);
             th.add_axiom(~lit);
             return true;
         }
@@ -247,15 +250,25 @@ namespace smt {
         }
 
         // Unfold
-        STRACE("seq_regex_brief", tout << "u ";);
-        expr_ref is_nullable = is_nullable_wrapper(r);
+        STRACE("seq_regex_brief", tout << "(unfold) ";);
+
+        // First axiom: accept(s, idx, r) => len(s) >= idx
+        literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
+        th.add_axiom(~lit, len_s_ge_i);
+
+        // Second axiom: accept(s, idx, r) and len(s) <= idx => r nullable
+        literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
+        literal is_nullable = th.mk_literal(is_nullable_wrapper(r));
+        th.add_axiom(~lit, ~len_s_le_i, is_nullable);
+
+        // Third axiom: accept(s, idx, r) and not (len_s_le_i) =>
+        //              accept(s, idx+1, dr) for some derivative r
+        literal_vector accept_next;
         expr_ref hd = th.mk_nth(s, i);
         expr_ref deriv(m);
         deriv = derivative_wrapper(hd, r);
-
-        literal_vector unfold_disj;
-        unfold_disj.push_back(~lit);
-        unfold_disj.push_back(th.mk_literal(is_nullable));
+        accept_next.push_back(~lit);
+        accept_next.push_back(len_s_le_i);
         expr_ref_pair_vector cofactors(m);
         get_cofactors(deriv, cofactors);
         for (auto const& p : cofactors) {
@@ -265,13 +278,15 @@ namespace smt {
             expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
             expr_ref choice(m);
             choice = m.mk_and(cond, acc);
-            unfold_disj.push_back(th.mk_literal(choice));
+            accept_next.push_back(th.mk_literal(choice));
             STRACE("seq_regex_debug", tout << "adding choice: "
                                            << mk_pp(choice, m) << std::endl;);
         }
-        th.add_axiom(unfold_disj);
+        th.add_axiom(accept_next);
+
+        // Done (successful propagation)
         return true;
-        
+
         // expr_ref is_nullable(m), head(m), deriv(m), acc_next(m), unfold(m);
         // head = th.mk_nth(s, i);
         // deriv = derivative_wrapper(head, r);
