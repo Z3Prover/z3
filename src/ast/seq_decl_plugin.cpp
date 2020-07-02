@@ -548,6 +548,10 @@ sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
         SASSERT(is_sort(s->get_parameter(0).get_ast()));
         sort* p = apply_binding(binding, to_sort(s->get_parameter(0).get_ast()));
         parameter param(p);
+        if (p == m_char && s->get_decl_kind() == SEQ_SORT)
+            return m_string;
+        if (p == m_string && s->get_decl_kind() == RE_SORT)
+            return m_reglan;
         return mk_sort(s->get_decl_kind(), 1, &param);
     }
     return s;
