@@ -88,17 +88,19 @@ namespace smt {
 
         theory_var ensure0();
 
+        theory_var ensure_maxchar();
+
         bool try_assignment(theory_var v, unsigned ch);
 
         bool try_bound(theory_var v, unsigned min, unsigned max);
 
         void enforce_tv_is_value(theory_var v, unsigned ch);
 
-        bool enforce_char_range(svector<theory_var> char_vars);
+        bool enforce_char_range(svector<theory_var> const& char_vars);
 
-        bool enforce_char_codes(svector<theory_var> char_vars);
+        bool enforce_char_codes(svector<theory_var> const& char_vars);
 
-        void try_make_nice(svector<theory_var> char_vars);
+        void try_make_nice(svector<theory_var> const& char_vars);
 
     public:
 
@@ -133,9 +135,12 @@ namespace smt {
 
         bool can_propagate() const { return m_qhead < m_asserted_edges.size(); }
 
+    };
 
-        
+    struct local_scope {
+        seq_unicode& s;
+        local_scope(seq_unicode& s): s(s) { s.push_scope(); }
+        ~local_scope() { s.pop_scope(1); }
     };
 
 }
-

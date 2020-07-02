@@ -84,20 +84,17 @@ namespace smt {
     }
 
     bool seq_unicode::try_bound(theory_var v, unsigned min, unsigned max) {
-        push_scope();
+
+        local_scope sc(*this);
         dl.init_var(v);
         theory_var v0 = ensure0();
+
         bool sat = dl.enable_edge(dl.add_edge(v, v0, s_integer(-1 * min), null_literal));
-        if (!sat) {
-            pop_scope(1);
-            return false;
-        }
+        if (!sat) return false;
+
         sat = dl.enable_edge(dl.add_edge(v0, v, s_integer(max), null_literal));
-        if (!sat) {
-            pop_scope(1);
-            return false;
-        }
-        pop_scope(1);
+        if (!sat) return false;
+
         return true;
     }
 
@@ -105,14 +102,14 @@ namespace smt {
         return try_bound(v, ch, ch);
     }
 
-    void seq_unicode::try_make_nice(svector<theory_var> char_vars) {
+    void seq_unicode::try_make_nice(svector<theory_var> const& char_vars) {
 
         // Try for each character
         unsigned i = 0;
         for (auto v : char_vars) {
 
             // Skip character constants, since they can't be changed
-            if (seq.is_any_const_char(th.get_expr(v))) continue;
+            if (seq.is_const_char(th.get_expr(v))) continue;
 
             // Check if the value is already nice
             int val = get_value(v);
@@ -120,14 +117,14 @@ namespace smt {
 
             // Try assigning the variable to a nice value
             if (try_bound(v, NICE_MIN, NICE_MAX)) {
-                try_assignment(v, NICE_MIN + i);
+                try_assignment(v, NICE_MIN + (i % (NICE_MAX - NICE_MIN)));
                 i++;
             }
         }
     }
 
 
-    bool seq_unicode::enforce_char_range(svector<theory_var> char_vars) {
+    bool seq_unicode::enforce_char_range(svector<theory_var> const& char_vars) {
 
         // Continue checking until convergence or inconsistency
         bool done = false;
@@ -151,9 +148,7 @@ namespace smt {
                     done = false;
 
                     // v_maxchar = zstring::max_char()
-                    expr_ref ch(seq.str.mk_char(zstring::max_char()), m);
-                    enode* n = th.ensure_enode(ch);
-                    theory_var v_maxchar = n->get_th_var(th.get_id());
+                    theory_var v_maxchar = ensure_maxchar();
 
                     // Add constraint on v and check consistency
                     propagate(assign_le(v, v_maxchar, null_literal));
@@ -164,7 +159,7 @@ namespace smt {
         return true;
     }
 
-    bool seq_unicode::enforce_char_codes(svector<theory_var> char_vars) {
+    bool seq_unicode::enforce_char_codes(svector<theory_var> const& char_vars) {
 
         // Iterate over all theory variables until the context is inconsistent
         bool success = true;
@@ -200,7 +195,7 @@ namespace smt {
         // Get character variables
         svector<theory_var> char_vars;
         for (unsigned v = 0; v < th.get_num_vars(); ++v) {
-            if(seq.is_char(th.get_expr(v))) char_vars.push_back(v);
+            if(seq.is_char(th.get_expr(v)) && th.get_enode(v)->is_root()) char_vars.push_back(v);
         }
 
         // Shift assignments on variables, so that they are "nice" (have values 'a', 'b', ...)
@@ -246,6 +241,14 @@ namespace smt {
         dl.init_var(v0);
         dl.set_to_zero(v0);
         return v0;
+    }
+
+    theory_var seq_unicode::ensure_maxchar() {
+        expr_ref ch(seq.str.mk_char(zstring::max_char()), m);
+        enode* n = th.ensure_enode(ch);
+        theory_var v_maxchar = n->get_th_var(th.get_id());
+        dl.init_var(v_maxchar);
+        return v_maxchar;
     }
 
     void seq_unicode::propagate() {
