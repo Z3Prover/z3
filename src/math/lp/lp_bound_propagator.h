@@ -79,8 +79,17 @@ class lp_bound_propagator {
     map<mpq, vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts;
     // a pair (o, j) belongs to m_vals_to_verts_neg iff -x[j] = x[m_root->column()] + o
     map<mpq, vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts_neg;
-    // x[m_root->column()] - m_pol[j]*x[j] == const;
-    u_map<int>                                m_pol; 
+    // x[m_root->column()] - m_pol[j].pol()*x[j] == const;
+    // to bind polarity and the vertex in the table
+    struct pol_vert {
+        int m_polarity;
+        const vertex* m_v;
+        pol_vert() {}
+        pol_vert(int p, const vertex* v): m_polarity(p), m_v(v) {}
+        int pol() const { return m_polarity; }
+        const vertex* v() const { return m_v; }
+    };
+    u_map<pol_vert>                                     m_pol; 
     // if m_pos.contains(j) then  x[j] = x[m_root->column()] + o
     uint_set                                  m_pos;
     
@@ -205,22 +214,23 @@ public:
 
     // pol for polarity
     int pol(const vertex* v) const { return pol(v->column()); }
-    int pol(unsigned j) const { return m_pol[j]; }
-    void set_polarity(unsigned j, int p) {
+    int pol(unsigned j) const { return m_pol[j].pol(); }
+    void set_polarity(const vertex* v, int p) {
         SASSERT(p == 1 || p == -1);
+        unsigned j = v->column();
         SASSERT(!m_pol.contains(j));
-        m_pol.insert(j, p);
+        m_pol.insert(j, pol_vert(p, v));
     }
 
     void check_polarity(vertex* v, int polarity) {
-        int prev_pol;
+        pol_vert prev_pol;
         if (!m_pol.find(v->column(), prev_pol)) {
-            m_pol.insert(v->column(), polarity);
+            set_polarity(v, polarity);
             return;
         }
-        if (prev_pol == polarity)
+        if (prev_pol.pol() == polarity)
             return;
-        const vertex *u = find_other_vertex_with_same_column(v);
+        const vertex *u = prev_pol.v();
         // we have a path L between u and v with p(L) = -1, that means we can
         // create an equality of the form x + x = a, where x = v->column() = u->column()
         ptr_vector<const vertex> path;
@@ -233,22 +243,6 @@ public:
                   lp().constraints().display(tout, [this](lpvar j) { return lp().get_variable_name(j);}, p.ci());
               });
 
-    }
-
-    const vertex* find_other_vertex_with_same_column(const vertex* t) const {
-        return find_other_vertex_with_same_column_under(m_root, t);
-    }
-
-    const vertex * find_other_vertex_with_same_column_under(const vertex* v, const vertex* t) const {
-        if (v != t && v->column() == t->column())
-            return v;
-        for (const vertex* c : v->children()) {
-            auto u = find_other_vertex_with_same_column_under(c, t);
-            if (u)
-                return u;
-        }
-        UNREACHABLE();
-        return nullptr;
     }
     
     bool tree_contains(vertex *v) const {
@@ -277,14 +271,14 @@ public:
         }
         const mpq& r = val(x);
         m_root = alloc_v(row_index, x);
-        set_polarity(x, 1);
+        set_polarity(m_root, 1);
         if (not_set(y)) {
             set_fixed_vertex(m_root);
             explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
         } else {
             vertex *v = alloc_v(row_index, y);
             m_root->add_child(v);            
-            set_polarity(y, polarity);
+            set_polarity(v, polarity);
         }
         // keep root in the positive table
         m_vals_to_verts.insert(r, m_root);
