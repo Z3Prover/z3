@@ -204,24 +204,90 @@ namespace smt {
                                        << "P(" << mk_pp(s, m) << "@" << idx
                                        << "," << state_str(r) << ") ";);
 
+        expr* cond = nullptr, *tt = nullptr, *el = nullptr;
         if (re().is_empty(r)) {
+            STRACE("seq_regex_brief", tout << "f ";);
             th.add_axiom(~lit);
             return true;
         }
-        if (!m.is_ite(r)) {
-            update_state_graph(r);
-            if (m_state_graph.is_dead(get_state_id(r))) {
-                th.add_axiom(~lit);
-                return true;
-            }
+        else if (m.is_ite(r, cond, tt, el)) {
+            STRACE("seq_regex_brief", tout << "??? ";);
+            return false;
+
+            // literal lcond = th.mk_literal(cond);
+            // ctx.mark_as_relevant(lcond);
+            // trigger = lcond;
+            // expr_ref ncond(m), acc1(m), acc2(m),
+            //          choice1(m), choice2(m), choice(m);
+            // ncond = m.mk_not(cond);
+            // acc1 = sk().mk_accept(s, a().mk_int(idx), tt);
+            // acc2 = sk().mk_accept(s, a().mk_int(idx), el);
+            // choice1 = m.mk_and(cond, acc1);
+            // choice2 = m.mk_and(ncond, acc2);
+            // choice = m.mk_or(choice1, choice2);
+            // th.propagate_lit(nullptr, 1, &lit, th.mk_literal(choice));
+            // // th.propagate_lit(th.mk_literal(choice));
+            // // literal_vector choice_lit;
+            // // choice_lit.push_back(th.mk_literal(choice));
+            // // th.add_axiom(choice_lit);
+            // return true;
         }
 
-        if (block_unfolding(lit, idx))
+        update_state_graph(r);
+
+        if (m_state_graph.is_dead(get_state_id(r))) {
+            STRACE("seq_regex_brief", tout << "f ";);
+            th.add_axiom(~lit);
             return true;
+        }
 
-        propagate_nullable(lit, s, idx, r);
+        if (block_unfolding(lit, idx)) {
+            STRACE("seq_regex_brief", tout << "(blocked) ";);
+            return true;
+        }
 
-        return propagate_derivative(lit, e, s, i, idx, r, trigger);
+        // Unfold
+        STRACE("seq_regex_brief", tout << "u ";);
+        expr_ref is_nullable = is_nullable_wrapper(r);
+        expr_ref hd = th.mk_nth(s, i);
+        expr_ref deriv(m);
+        deriv = derivative_wrapper(hd, r);
+
+        literal_vector unfold_disj;
+        unfold_disj.push_back(~lit);
+        unfold_disj.push_back(th.mk_literal(is_nullable));
+        expr_ref_pair_vector cofactors(m);
+        get_cofactors(deriv, cofactors);
+        for (auto const& p : cofactors) {
+            if (m.is_false(p.first) || re().is_empty(p.second)) continue;
+            expr_ref cond(p.first, m);
+            expr_ref deriv_leaf(p.second, m);
+            expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
+            expr_ref choice(m);
+            choice = m.mk_and(cond, acc);
+            unfold_disj.push_back(th.mk_literal(choice));
+            STRACE("seq_regex_debug", tout << "adding choice: "
+                                           << mk_pp(choice, m) << std::endl;);
+        }
+        th.add_axiom(unfold_disj);
+        return true;
+        
+        // expr_ref is_nullable(m), head(m), deriv(m), acc_next(m), unfold(m);
+        // head = th.mk_nth(s, i);
+        // deriv = derivative_wrapper(head, r);
+        // th.add_axiom(~lit, ~th.mk_literal(is_nullable));
+        // 
+        // acc_next = sk().mk_accept(s, a().mk_int(idx + 1), deriv);
+        // unfold = m.mk_or(is_nullable, acc_next);
+        // 
+        // literal_vector unfold_lit;
+        // unfold_lit.push_back(th.mk_literal(unfold));
+        // th.add_axiom(unfold_lit);
+        // return true;
+
+        // propagate_nullable(lit, s, idx, r);
+        // 
+        // return propagate_derivative(lit, e, s, i, idx, r, trigger);
     }
 
     /**
@@ -251,15 +317,18 @@ namespace smt {
 
         literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
         if (m.is_true(is_nullable)) {
+            STRACE("seq_regex_brief", tout << "t ";);
             th.propagate_lit(nullptr, 1,&lit, len_s_ge_i);
         }
         else if (m.is_false(is_nullable)) {
+            STRACE("seq_regex_brief", tout << "f ";);
             th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
             // @EXP (experimental change)
             //unsigned len = std::max(1u, re().min_length(r));
             //th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + re().min_length(r)));
         }
         else {
+            STRACE("seq_regex_brief", tout << "? ";);
             literal is_nullable_lit = th.mk_literal(is_nullable);
             ctx.mark_as_relevant(is_nullable_lit);
             literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
@@ -288,6 +357,11 @@ namespace smt {
         expr_ref head = th.mk_nth(s, i);
 
         d = derivative_wrapper(m.mk_var(0, m.get_sort(head)), r);
+
+        // TODO
+        // conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
+        // th.add_axiom(conds);
+
         // timer tm;
         // std::cout << state_str(d) << " " << tm.get_seconds() << std::endl;
         //if (tm.get_seconds() > 0.3) 
@@ -306,14 +380,17 @@ namespace smt {
             literal lcond = th.mk_literal(subst(cond, sub));
             switch (ctx.get_assignment(lcond)) {
             case l_true:
+                STRACE("seq_regex_brief", tout << "t ";);
                 conds.push_back(~lcond);
                 d = tt;
                 break;
             case l_false:
+                STRACE("seq_regex_brief", tout << "f ";);
                 conds.push_back(lcond);
                 d = el;
                 break;
             case l_undef:
+                STRACE("seq_regex_brief", tout << "? ";);
 #if 1
                 ctx.mark_as_relevant(lcond);
                 trigger = lcond;
@@ -449,6 +526,7 @@ namespace smt {
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
         STRACE("seq_regex", tout << "derivative(" << mk_pp(hd, m) << "): " << mk_pp(r, m) << std::endl;);
 
+        // expr_ref result = seq_rw().mk_derivative(hd, r);
         expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);
 

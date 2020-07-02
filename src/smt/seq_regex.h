@@ -199,7 +199,8 @@ namespace smt {
         // Convert between expressions and states (IDs)
         unsigned get_state_id(expr* e);
         expr* get_expr_from_id(unsigned id);
-        // Cycle-detection heuristic (sound but not complete)
+        // Cycle-detection heuristic
+        // Note: Doesn't need to be sound or complete (doesn't affect soundness)
         bool can_be_in_cycle(expr* e1, expr* e2);
         // Update the graph
         bool update_state_graph(expr* r);
