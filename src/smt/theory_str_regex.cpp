@@ -203,7 +203,7 @@ namespace smt {
                         continue;
                     } else {
                         // fixed-length model construction handles path constraints on our behalf, and with a better reduction
-                        return false;
+                        continue;
                     }
                 } else {
                     // no automata available, or else all bounds assumptions are invalid
