@@ -253,9 +253,16 @@ namespace smt {
         // Unfold the constraint into 3 axioms
         STRACE("seq_regex_brief", tout << "(unfold) ";);
 
-        // First axiom: accept(s, idx, r) => len(s) >= idx
-        literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
-        th.add_axiom(~lit, len_s_ge_i);
+        // @EXP: First axiom: accept(s, idx, r) => len(s) >= idx + min_len(r);
+        expr_ref s_to_re(re().mk_to_re(s), m);
+        expr_ref s_plus_r(re().mk_concat(s_to_re, r), m);
+        unsigned min_len = re().min_length(s_plus_r);
+        literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len);
+        th.add_axiom(~lit, len_s_ge_min);
+
+        // // First axiom: accept(s, idx, r) => len(s) >= idx
+        // literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
+        // th.add_axiom(~lit, len_s_ge_i);
 
         // Second axiom: accept(s, idx, r) and len(s) <= idx => r nullable
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
@@ -277,10 +284,17 @@ namespace smt {
             expr_ref cond(p.first, m);
             expr_ref deriv_leaf(p.second, m);
             expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
-            expr_ref choice(m);
-            choice = m.mk_and(cond, acc);
-            accept_next.push_back(th.mk_literal(choice));
-            STRACE("seq_regex_debug", tout << "adding choice: "
+            expr_ref choice(m.mk_and(cond, acc), m);
+            literal choice_lit = th.mk_literal(choice);
+            accept_next.push_back(choice_lit);
+            // Prioritize unvisited states
+            // if (!m_state_graph.is_done(get_state_id(deriv_leaf))) {
+            //     // @EXP Unsound test: only push if not done
+            //     accept_next.push_back(choice_lit);
+            //     // @EXP This didn't work -- just marking as relevant
+            //     // ctx.mark_as_relevant(choice_lit);
+            // }
+            STRACE("seq_regex_debug", tout << "added choice: "
                                            << mk_pp(choice, m) << std::endl;);
         }
         th.add_axiom(accept_next);
