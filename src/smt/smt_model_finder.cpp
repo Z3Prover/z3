@@ -958,7 +958,7 @@ namespace smt {
                 ptr_vector<node> need_fresh;
                 for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
-                    instantiation_set const * s           = n->get_instantiation_set();
+                    instantiation_set const * s = n->get_instantiation_set();
                     TRACE("model_finder", s->display(tout););
                     obj_map<expr, unsigned> const & elems = s->get_elems();
                     if (elems.empty()) {
