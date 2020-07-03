@@ -25,8 +25,6 @@ namespace smt {
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
-        m_state_graph(),
-        m_expr_to_state(),
         m_state_to_expr(m)
     {}
 
@@ -404,9 +402,9 @@ namespace smt {
         // th.add_axiom(conds);
 
         // timer tm;
-        // std::cout << state_str(d) << " " << tm.get_seconds() << std::endl;
+        // std::cout << d->get_id() << " " << tm.get_seconds() << "\n";
         //if (tm.get_seconds() > 0.3) 
-        //    std::cout << d << std::endl;
+        //    std::cout << d << "\n";
         // std::cout.flush();
         literal_vector conds;
         conds.push_back(~lit);

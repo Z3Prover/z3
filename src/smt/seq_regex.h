@@ -87,7 +87,7 @@ namespace smt {
             Edges are saved in both from and to maps.
             A subset of edges are also marked as possibly being
             part of a cycle by being stored in m_sources_maybecycle.
-            
+
             Invariants:
             - TODO
         */
@@ -136,7 +136,8 @@ namespace smt {
             - outgoing edges are not added from a done state
             - a done state is not marked as live
             - edges are not added creating a cycle containing an edge with
-              maybecycle = false
+              maybecycle = false (this is not necessary for soundness, but
+              prevents completeness for successfully detecting dead states)
         */
         void add_state(state s);
         void add_edge(state s1, state s2, bool maybecycle);
