@@ -338,9 +338,6 @@ namespace smt {
 
         flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
         lbool r = m_aux_context->check();
-        ptr_vector<expr> fmls;
-        m_aux_context->get_assertions(fmls);
-        for (auto * f : fmls) std::cout << mk_pp(f, m) << "\n";
         
         TRACE("model_checker", tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
         if (r != l_true) {
