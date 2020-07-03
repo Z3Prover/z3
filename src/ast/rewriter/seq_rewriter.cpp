@@ -4392,7 +4392,7 @@ void seq_rewriter::op_cache::cleanup() {
         m_trail.reset();
         m_table.reset();
         STRACE("seq_regex", tout << "Op cache reset!" << std::endl;);
-        STRACE("seq_regex_brief", tout << " (OP CACHE RESET)";);
+        STRACE("seq_regex_brief", tout << "(OP CACHE RESET) ";);
         // trace_and_reset_cache_counts();
     }
 }

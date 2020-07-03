@@ -25,6 +25,7 @@ namespace smt {
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
+        m_deriv_head(),
         m_state_graph(),
         m_expr_to_state(),
         m_state_to_expr(m)
@@ -746,6 +747,19 @@ namespace smt {
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        
+    }
+
+    expr_ref get_head_var(sort* seq_sort) {
+        expr_ref result(m);
+        if (m_deriv_head.contains(seq_sort)) {
+            result = m_deriv_head.find(seq_sort);
+            STRACE("seq_regex_brief", tout << " ghv=" << mk_pp(result, m););
+        }
+        else {
+            result = m.mk_fresh_const("re.char", seq_sort);
+            STRACE("seq_regex_brief", tout << " NEWghv=" << mk_pp(result, m););
+        }
+        return result;
     }
 
     expr_ref seq_regex::mk_first(expr* r, expr* n) {
