@@ -1148,10 +1148,18 @@ namespace smt {
                             precondition.push_back(m.mk_eq(e, mk_int(ival)));
                             // Assert (arg == arg_chars) in the subsolver.
                             if (!fixed_length_reduce_eq(subsolver, arg, arg_char_expr, stoi_cex)) {
+                                // Counterexample: (str.to_int S) == ival AND len(S) == slen cannot both be true.
+                                stoi_cex = expr_ref(m.mk_not(m.mk_and(
+                                    m.mk_eq(e, mk_int(ival)), 
+                                    m.mk_eq(mk_strlen(arg), mk_int(slen))
+                                )), m);
                                 assert_axiom(stoi_cex);
                                 add_persisted_axiom(stoi_cex);
+
                                 return l_undef;
                             }
+
+                            fixed_length_reduced_boolean_formulas.push_back(m.mk_eq(e, mk_int(ival)));
                         }
                     } else {
                         TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(e, get_manager()) << std::endl;);
@@ -1185,10 +1193,16 @@ namespace smt {
                         expr_ref _e(e, m);
                         expr_ref arg_char_expr(mk_string(ival_str), m);
                         if (!fixed_length_reduce_eq(subsolver, _e, arg_char_expr, itos_cex)) {
+                            // Counterexample: N in (str.from_int N) == ival AND len(str.from_int N) == slen cannot both be true.
+                            itos_cex = expr_ref(m.mk_not(m.mk_and(
+                                m.mk_eq(arg, mk_int(ival)), 
+                                m.mk_eq(mk_strlen(e), mk_int(slen))
+                            )), m);
                             assert_axiom(itos_cex);
                             add_persisted_axiom(itos_cex);
                             return l_undef;
                         }
+                        fixed_length_reduced_boolean_formulas.push_back(m.mk_eq(arg, mk_int(ival)));
                     } else {
                         TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(arg, get_manager()) << std::endl;);
                         // consistency needs to be checked after the string is assigned
