@@ -250,27 +250,30 @@ namespace smt {
             return true;
         }
 
-        // Unfold the constraint into 3 axioms
         STRACE("seq_regex_brief", tout << "(unfold) ";);
 
-        // @EXP: First axiom: accept(s, idx, r) => len(s) >= idx + min_len(r);
+        // First axiom: use min_length to prune search
+        // accept(s, idx, r) => len(s) >= idx + min_len(r)
         expr_ref s_to_re(re().mk_to_re(s), m);
         expr_ref s_plus_r(re().mk_concat(s_to_re, r), m);
         unsigned min_len = re().min_length(s_plus_r);
         literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len);
         th.add_axiom(~lit, len_s_ge_min);
 
-        // // First axiom: accept(s, idx, r) => len(s) >= idx
+        // Old first axiom: accept(s, idx, r) => len(s) >= idx
         // literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
         // th.add_axiom(~lit, len_s_ge_i);
 
-        // Second axiom: accept(s, idx, r) and len(s) <= idx => r nullable
+        // Second axiom: nullable check
+        // accept(s, idx, r) and len(s) <= idx => r nullable
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
         literal is_nullable = th.mk_literal(is_nullable_wrapper(r));
         th.add_axiom(~lit, ~len_s_le_i, is_nullable);
 
-        // Third axiom: accept(s, idx, r) and not (len_s_le_i) =>
-        //              accept(s, idx+1, dr) for some derivative r
+        // Third axiom: derivative unfolding
+        // accept(s, idx, r) and not (len_s_le_i) =>
+        //     OR_(cond, dr) cond and accept(s, idx+1, dr)
+        // over all derivatives dr and conditions cond on the head
         literal_vector accept_next;
         expr_ref hd = th.mk_nth(s, i);
         expr_ref deriv(m);
@@ -283,6 +286,14 @@ namespace smt {
             if (m.is_false(p.first) || re().is_empty(p.second)) continue;
             expr_ref cond(p.first, m);
             expr_ref deriv_leaf(p.second, m);
+
+            // @EXP (Experimental change)
+            // Skip searching when can_be_in_cycle returns true
+            // Result: Besides being unsound as written, this is not
+            // fine-grained enough. In case of intersections, many
+            // edges return true for can_be_in_cycle
+            // if (can_be_in_cycle(deriv, deriv_leaf)) continue;
+
             expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
             expr_ref choice(m.mk_and(cond, acc), m);
             literal choice_lit = th.mk_literal(choice);
@@ -1131,7 +1142,7 @@ namespace smt {
     }
 
     unsigned seq_regex::re_rank(expr* r) {
-        SASSERT(u.is_re(r));
+        SASSERT(u().is_re(r));
         expr *r1 = nullptr, *r2 = nullptr, *s = nullptr;
         unsigned lo = 0, hi = 0;
         if (re().is_empty(r))
@@ -1162,6 +1173,7 @@ namespace smt {
         unsigned k1 = re_rank(r1);
         unsigned k2 = re_rank(r2);
         SASSERT(k1 >= k2);
+        STRACE("seq_regex_brief", tout << "(k:" << k1 << "->" << k2 << ")";);
         return (k1 == k2);
     }
 
