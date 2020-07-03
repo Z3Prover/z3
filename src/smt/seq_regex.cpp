@@ -25,7 +25,6 @@ namespace smt {
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
-        m_deriv_head(),
         m_state_graph(),
         m_expr_to_state(),
         m_state_to_expr(m)
@@ -212,12 +211,13 @@ namespace smt {
             return true;
         }
         else if (m.is_ite(r, cond, tt, el)) {
+            UNREACHABLE();
             STRACE("seq_regex_brief", tout << "(ite) ";);
             return false;
 
             // @EXP (Experimental change)
             // This code tries to unfold the derivative one step at a time
-            // and propagate the if the elses.
+            // and propagate the if-then-elses.
             // literal lcond = th.mk_literal(cond);
             // ctx.mark_as_relevant(lcond);
             // trigger = lcond;
@@ -250,7 +250,7 @@ namespace smt {
             return true;
         }
 
-        // Unfold
+        // Unfold the constraint into 3 axioms
         STRACE("seq_regex_brief", tout << "(unfold) ";);
 
         // First axiom: accept(s, idx, r) => len(s) >= idx
@@ -285,7 +285,7 @@ namespace smt {
         }
         th.add_axiom(accept_next);
 
-        // Done (successful propagation)
+        // Propagated successfully
         return true;
 
         // expr_ref is_nullable(m), head(m), deriv(m), acc_next(m), unfold(m);
@@ -542,9 +542,19 @@ namespace smt {
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
         STRACE("seq_regex", tout << "derivative(" << mk_pp(hd, m) << "): " << mk_pp(r, m) << std::endl;);
 
-        // expr_ref result = seq_rw().mk_derivative(hd, r);
-        expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
+        // Use canonical variable for head; substitute with hd later
+        // sort* seq_sort = nullptr;
+        // VERIFY(u().is_re(r, seq_sort));
+        // expr_ref hd_canon = get_head_var(sq_sort);
+        expr_ref hd_canon(m.mk_var(0, m.get_sort(hd)), m);
+        expr_ref result(re().mk_derivative(hd_canon, r), m);
         rewrite(result);
+
+        // Substitute
+        var_subst subst(m);
+        expr_ref_vector sub(m);
+        sub.push_back(hd);
+        result = subst(result, sub);
 
         STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "d(" << state_str(r) << ")="
@@ -749,18 +759,21 @@ namespace smt {
         }        
     }
 
-    expr_ref get_head_var(sort* seq_sort) {
-        expr_ref result(m);
-        if (m_deriv_head.contains(seq_sort)) {
-            result = m_deriv_head.find(seq_sort);
-            STRACE("seq_regex_brief", tout << " ghv=" << mk_pp(result, m););
-        }
-        else {
-            result = m.mk_fresh_const("re.char", seq_sort);
-            STRACE("seq_regex_brief", tout << " NEWghv=" << mk_pp(result, m););
-        }
-        return result;
-    }
+    // @EXP: Experimental change
+    // Some code to compute a canonical head variable, but I think
+    // this stuff is unnecessary.
+    // expr_ref seq_regex::get_head_var(sort* seq_sort) {
+    //     expr_ref result(m);
+    //     if (m_deriv_head.contains(seq_sort)) {
+    //         result = m_deriv_head.find(seq_sort);
+    //         STRACE("seq_regex_brief", tout << " ghv=" << mk_pp(result, m););
+    //     }
+    //     else {
+    //         result = m.mk_fresh_const("re.char", seq_sort);
+    //         STRACE("seq_regex_brief", tout << " NEWghv=" << mk_pp(result, m););
+    //     }
+    //     return result;
+    // }
 
     expr_ref seq_regex::mk_first(expr* r, expr* n) {
         sort* elem_sort = nullptr, *seq_sort = nullptr;

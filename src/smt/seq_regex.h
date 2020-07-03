@@ -190,13 +190,6 @@ namespace smt {
         scoped_vector<propagation_lit>   m_to_propagate;
 
         /*
-            ID for fresh variable for derivative
-        */
-        ptr_addr_map<sort, expr_ref>   m_deriv_head;
-        // Get var for head based on sort
-        expr_ref get_head_var(sort* seq_sort);
-
-        /*
             state_graph for dead state detection, and associated methods
         */
         state_graph                    m_state_graph;
