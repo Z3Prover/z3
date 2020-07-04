@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef NAME_EXPRS_H_
-#define NAME_EXPRS_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/normal_forms/defined_names.h"
@@ -59,4 +58,3 @@ name_exprs * mk_nested_formula_namer(ast_manager & m, defined_names & n);
 
 void del_name_exprs(name_exprs * functor);
 
-#endif

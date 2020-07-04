@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef PROOF_UTILS_H_
-#define PROOF_UTILS_H_
+#pragma once
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -244,4 +243,3 @@ public:
     }
 };
 
-#endif

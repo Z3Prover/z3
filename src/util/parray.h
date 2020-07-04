@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PARRAY_H_
-#define PARRAY_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/trace.h"
@@ -638,4 +637,3 @@ struct dummy_value_manager {
     void dec_ref(T const &) {}
 };
 
-#endif

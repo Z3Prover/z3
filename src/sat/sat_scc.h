@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_SCC_H_
-#define SAT_SCC_H_
+#pragma once
 
 #include "util/statistics.h"
 #include "util/params.h"
@@ -64,4 +63,3 @@ namespace sat {
     };
 };
 
-#endif

@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_CONFIG_H_
-#define SAT_CONFIG_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -205,4 +204,3 @@ namespace sat {
     };
 };
 
-#endif

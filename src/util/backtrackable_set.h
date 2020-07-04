@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BACKTRACKABLE_SET_H_
-#define BACKTRACKABLE_SET_H_
+#pragma once
 
 #include "util/vector.h"
 
@@ -111,4 +110,3 @@ public:
     }
 };
 
-#endif

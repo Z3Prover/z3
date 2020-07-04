@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef QFNRA_NLSAT_TACTIC_H_
-#define QFNRA_NLSAT_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p = params_re
   ADD_TACTIC("qfnra-nlsat", "builtin strategy for solving QF_NRA problems using only nlsat.", "mk_qfnra_nlsat_tactic(m, p)")
 */
 
-#endif

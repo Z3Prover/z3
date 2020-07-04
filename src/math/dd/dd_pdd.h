@@ -28,8 +28,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2019-12-17
 
 --*/
-#ifndef DD_PDD_H_
-#define DD_PDD_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/map.h"
@@ -420,4 +419,3 @@ namespace dd {
 }
 
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_ASYMM_BRANCH_H_
-#define SAT_ASYMM_BRANCH_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "sat/sat_big.h"
@@ -109,4 +108,3 @@ namespace sat {
 
 };
 
-#endif

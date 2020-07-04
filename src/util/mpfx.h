@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #ifndef MPFX_H_
-#define MPFX_H_
 
 #include "util/id_gen.h"
 #include "util/util.h"
@@ -380,7 +379,7 @@ public:
     */
     void to_mpq(mpfx const & n, unsynch_mpq_manager & m, mpq & t);
 
-#ifndef SINGLE_THREAD
+#pragma once
     /**
        \brief Convert n into a mpq numeral.
     */
@@ -409,4 +408,3 @@ public:
 typedef _scoped_numeral<mpfx_manager> scoped_mpfx;
 typedef _scoped_numeral_vector<mpfx_manager> scoped_mpfx_vector;
 
-#endif

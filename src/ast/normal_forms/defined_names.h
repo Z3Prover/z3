@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DEFINED_NAMES_H_
-#define DEFINED_NAMES_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -90,5 +89,4 @@ public:
     func_decl * get_name_decl(unsigned i) const;
 };
 
-#endif /* DEFINED_NAMES_H_ */
 

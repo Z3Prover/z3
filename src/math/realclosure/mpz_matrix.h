@@ -28,8 +28,7 @@ Author:
 Notes:
 
 --*/
-#ifndef MPZ_MATRIX_H_
-#define MPZ_MATRIX_H_
+#pragma once
 
 #include "util/mpz.h"
 
@@ -153,4 +152,3 @@ inline std::ostream & operator<<(std::ostream & out, scoped_mpz_matrix const & m
     return out;
 }
 
-#endif

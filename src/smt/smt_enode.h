@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #ifndef SMT_ENODE_H_
-#define SMT_ENODE_H_
 
 #include "ast/ast.h"
 #include "smt/smt_types.h"
@@ -47,7 +46,7 @@ namespace smt {
 
     // #define SPARSE_MAP
 
-#ifndef SPARSE_MAP
+#pragma once
     typedef ptr_vector<enode> app2enode_t;    // app -> enode
 #else
     class app2enode_t : public u_map<enode *> {
@@ -477,5 +476,4 @@ namespace smt {
 
 };
 
-#endif /* SMT_ENODE_H_ */
 

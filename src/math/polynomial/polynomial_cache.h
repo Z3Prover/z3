@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef POLYNOMIAL_CACHE_H_
-#define POLYNOMIAL_CACHE_H_
+#pragma once
 
 #include "math/polynomial/polynomial.h"
 
@@ -41,4 +40,3 @@ namespace polynomial {
     };
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SAT_DRAT_H_
-#define SAT_DRAT_H_
+#pragma once
 
 namespace sat {
     class drat {
@@ -117,4 +116,3 @@ namespace sat {
 
 };
 
-#endif

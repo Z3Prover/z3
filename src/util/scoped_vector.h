@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SCOPED_VECTOR_H_
-#define SCOPED_VECTOR_H_
+#pragma once
 
 #include "util/vector.h"
 
@@ -165,4 +164,3 @@ private:
     }
 };
 
-#endif

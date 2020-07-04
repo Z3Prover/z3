@@ -11,8 +11,7 @@ Abstract:
 
 --*/
 
-#ifndef AIG_EXPORTER_H_
-#define AIG_EXPORTER_H_
+#pragma once
 
 #include "tactic/aig/aig.h"
 #include "muz/base/dl_rule_set.h"
@@ -65,4 +64,3 @@ namespace datalog {
     };
 }
 
-#endif

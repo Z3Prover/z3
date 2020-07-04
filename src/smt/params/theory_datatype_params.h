@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_DATATYPE_PARAMS_H_
-#define THEORY_DATATYPE_PARAMS_H_
+#pragma once
 
 #include "smt/params/smt_params_helper.hpp"
 
@@ -37,5 +36,4 @@ struct theory_datatype_params {
 };
 
 
-#endif /* THEORY_DATATYPE_PARAMS_H_ */
 

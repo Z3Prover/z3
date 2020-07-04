@@ -21,8 +21,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BASIC_INTERVAL_H_
-#define BASIC_INTERVAL_H_
+#pragma once
 
 template<typename numeral_manager, bool closed>
 class basic_interval_manager {
@@ -360,4 +359,3 @@ public:
     }
 };
 
-#endif

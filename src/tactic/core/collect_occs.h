@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef COLLECT_OCCS_H_
-#define COLLECT_OCCS_H_
+#pragma once
 
 class collect_occs {
     expr_fast_mark1  m_visited;
@@ -35,4 +34,3 @@ public:
 
 };
 
-#endif

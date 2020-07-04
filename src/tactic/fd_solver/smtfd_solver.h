@@ -16,8 +16,7 @@ Author:
 Notes:
    
 --*/
-#ifndef SMTFD_SOLVER_H_
-#define SMTFD_SOLVER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -32,4 +31,3 @@ tactic * mk_smtfd_tactic(ast_manager & m, params_ref const & p);
     ADD_TACTIC("smtfd", "builtin strategy for solving SMT problems by reduction to FD.", "mk_smtfd_tactic(m, p)")
 */
 
-#endif

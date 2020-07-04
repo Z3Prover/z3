@@ -16,8 +16,7 @@ Author:
 Notes:
    
 --*/
-#ifndef PB2BV_SOLVER_H_
-#define PB2BV_SOLVER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -26,4 +25,3 @@ class solver;
 
 solver * mk_pb2bv_solver(ast_manager & m, params_ref const & p, solver* s);
 
-#endif

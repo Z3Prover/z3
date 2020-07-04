@@ -16,10 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef GOAL_UTIL_H_
-#define GOAL_UTIL_H_
+#pragma once
 
 class goal;
 bool has_term_ite(goal const & g);
 
-#endif

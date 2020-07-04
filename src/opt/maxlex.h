@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef MAXLEX_H_
-#define MAXLEX_H_
+#pragma once
 
 namespace opt {
 
@@ -29,4 +28,3 @@ namespace opt {
 
 };
 
-#endif

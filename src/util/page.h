@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PAGE_H_
-#define PAGE_H_
+#pragma once
 
 #include "util/memory_manager.h"
 
@@ -39,4 +38,3 @@ char * allocate_default_page(char * prev, char * & free_pages);
 char * allocate_page(char * prev, size_t sz);
 void recycle_page(char * p, char * & free_pages);
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BV_DECL_PLUGIN_H_
-#define BV_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -484,5 +483,4 @@ public:
 
 };
 
-#endif /* BV_DECL_PLUGIN_H_ */
 

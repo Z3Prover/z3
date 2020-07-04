@@ -18,8 +18,7 @@ Revision History:
     Related to bit_vector, but is based on a manager.
 
 --*/
-#ifndef FIXED_BIT_VECTOR_H_
-#define FIXED_BIT_VECTOR_H_
+#pragma once
 
 #include<string.h>
 #include "util/debug.h"
@@ -137,5 +136,4 @@ public:
 
 
 
-#endif /* FIXED_BIT_VECTOR_H_ */
 

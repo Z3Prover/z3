@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_CONTEXT_H_
-#define SMT_CONTEXT_H_
+#pragma once
 
 #include "smt/smt_clause.h"
 #include "smt/smt_setup.h"
@@ -1711,5 +1710,4 @@ namespace smt {
 
 };
 
-#endif /* SMT_CONTEXT_H_ */
 

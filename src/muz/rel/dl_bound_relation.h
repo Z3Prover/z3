@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_BOUND_RELATION_H_
-#define DL_BOUND_RELATION_H_
+#pragma once
 
 #include "muz/base/dl_context.h"
 #include "muz/rel/dl_relation_manager.h"
@@ -174,5 +173,4 @@ namespace datalog {
         
 };
 
-#endif 
 

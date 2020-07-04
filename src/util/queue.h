@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef _QUEUE_H_
-#define _QUEUE_H_
+#pragma once
 
 #include "vector.h"
 
@@ -69,5 +68,4 @@ public:
     }
 };
 
-#endif
 

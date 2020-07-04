@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MODEL2EXPR_H_
-#define MODEL2EXPR_H_
+#pragma once
 
 #include "model/model.h"
 
@@ -41,5 +40,4 @@ public:
 };
 
 
-#endif /* MODEL2EXPR_H_ */
 

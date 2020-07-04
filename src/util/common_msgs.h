@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef COMMON_MSGS_H_
-#define COMMON_MSGS_H_
+#pragma once
 
 class common_msgs {
 public:
@@ -38,4 +37,3 @@ public:
 #define Z3_NO_PROOF_GEN_MSG  common_msgs::g_no_proofs_msg
 #define Z3_MAX_RESOURCE_MSG  common_msgs::g_max_resource_msg
 
-#endif

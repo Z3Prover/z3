@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef TACTIC_EXCEPTION_H_
-#define TACTIC_EXCEPTION_H_
+#pragma once
 
 #include "util/z3_exception.h"
 #include "util/common_msgs.h"
@@ -38,4 +37,3 @@ public:
 #define TACTIC_MAX_FRAMES_MSG    Z3_MAX_FRAMES_MSG
 #define TACTIC_NO_PROOF_GEN_MSG  Z3_NO_PROOF_GEN_MSG
 
-#endif

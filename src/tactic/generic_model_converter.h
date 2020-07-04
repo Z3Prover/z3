@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef GENERIC_MODEL_CONVERTER_H_
-#define GENERIC_MODEL_CONVERTER_H_
+#pragma once
 
 #include "tactic/model_converter.h"
 
@@ -70,4 +69,3 @@ public:
 
 typedef ref<generic_model_converter> generic_model_converter_ref;
 
-#endif

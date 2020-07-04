@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef ACT_CACHE_H_
-#define ACT_CACHE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -61,4 +60,3 @@ public:
     
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CARD2BV_TACTIC_H_
-#define CARD2BV_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 #include "ast/pb_decl_plugin.h"
@@ -108,4 +107,3 @@ tactic * mk_card2bv_tactic(ast_manager & m, params_ref const & p = params_ref())
 */
 
 
-#endif

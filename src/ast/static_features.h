@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef STATIC_FEATURES_H_
-#define STATIC_FEATURES_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
@@ -186,5 +185,4 @@ struct static_features {
 
 };
 
-#endif /* STATIC_FEATURES_H_ */
 

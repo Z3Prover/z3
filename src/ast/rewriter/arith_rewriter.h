@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef ARITH_REWRITER_H_
-#define ARITH_REWRITER_H_
+#pragma once
 
 #include "ast/rewriter/poly_rewriter.h"
 #include "ast/arith_decl_plugin.h"
@@ -194,4 +193,3 @@ public:
     br_status mk_tanh_core(expr * arg, expr_ref & result);
 };
 
-#endif

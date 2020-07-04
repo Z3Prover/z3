@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DD_BDD_H_
-#define DD_BDD_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/map.h"
@@ -264,4 +263,3 @@ namespace dd {
 }
 
 
-#endif

@@ -18,8 +18,7 @@ Revision History:
 --*/
 
 
-#ifndef __QE_DATATYPES_H_
-#define __QE_DATATYPES_H_
+#pragma once
 
 #include "ast/datatype_decl_plugin.h"
 #include "qe/qe_mbp.h"
@@ -42,4 +41,3 @@ namespace qe {
 
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef OPT_MAXSMT_H_
-#define OPT_MAXSMT_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -207,4 +206,3 @@ namespace opt {
 
 };
 
-#endif

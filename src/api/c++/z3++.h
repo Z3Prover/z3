@@ -18,8 +18,7 @@ Author:
 Notes:
 
 --*/
-#ifndef Z3PP_H_
-#define Z3PP_H_
+#pragma once
 
 #include<cassert>
 #include<iostream>
@@ -3572,5 +3571,4 @@ namespace z3 {
 /*@}*/
 /*@}*/
 #undef Z3_THROW
-#endif
 

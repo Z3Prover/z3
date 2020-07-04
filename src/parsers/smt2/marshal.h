@@ -9,8 +9,7 @@ Abstract:
    marshaling and unmarshaling of expressions
 
    --*/
-#ifndef _SPACER_MARSHAL_H_
-#define _SPACER_MARSHAL_H_
+#pragma once
 
 #include <string>
 #include <iostream>
@@ -24,4 +23,3 @@ expr_ref unmarshal(std::istream &is, ast_manager &m);
 
 
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_SEQ_H_
-#define THEORY_SEQ_H_
+#pragma once
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -701,5 +700,4 @@ namespace smt {
     };
 };
 
-#endif /* THEORY_SEQ_H_ */
 

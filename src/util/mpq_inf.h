@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #ifndef MPQ_INF_H_
-#define MPQ_INF_H_
 
 #include "util/mpq.h"
 #include "util/hash.h"
@@ -279,7 +278,7 @@ public:
     mpq_manager<SYNCH>& get_mpq_manager() { return m; }
 };
 
-#ifndef SINGLE_THREAD
+#pragma once
 typedef mpq_inf_manager<true>  synch_mpq_inf_manager;
 #else
 typedef mpq_inf_manager<false> synch_mpq_inf_manager;
@@ -290,4 +289,3 @@ typedef _scoped_numeral<unsynch_mpq_inf_manager> scoped_mpq_inf;
 typedef _scoped_numeral<synch_mpq_inf_manager> scoped_synch_mpq_inf;
 typedef _scoped_numeral_vector<unsynch_mpq_inf_manager> scoped_mpq_inf_vector;
 
-#endif

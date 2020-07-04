@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_REGISTER_ENGINE_H_
-#define DL_REGISTER_ENGINE_H_
+#pragma once
 
 #include "muz/base/dl_context.h"
 
@@ -33,4 +32,3 @@ namespace datalog {
 
 }
 
-#endif

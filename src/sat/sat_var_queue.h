@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_VAR_QUEUE_H_
-#define SAT_VAR_QUEUE_H_
+#pragma once
 
 #include "util/heap.h"
 #include "sat/sat_types.h"
@@ -77,4 +76,3 @@ namespace sat {
     };
 };
 
-#endif

@@ -14,12 +14,10 @@
 
  Revision History:
  --*/
-#ifndef LACKR_MODEL_CONVERTER_LAZY_H_
-#define LACKR_MODEL_CONVERTER_LAZY_H_
+#pragma once
 
 #include "tactic/model_converter.h"
 #include "ackermannization/ackr_info.h"
 
 model_converter * mk_lackr_model_converter_lazy(ast_manager & m, const ackr_info_ref& info, model_ref& abstr_model);
 
-#endif /* LACKR_MODEL_CONVERTER_LAZY_H_ */

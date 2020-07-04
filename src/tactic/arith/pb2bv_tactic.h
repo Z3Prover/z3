@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PB2BV_TACTIC_H_
-#define PB2BV_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -34,4 +33,3 @@ probe * mk_is_pb_probe();
   ADD_PROBE("is-pb", "true if the goal is a pseudo-boolean problem.", "mk_is_pb_probe()")
 */
 
-#endif

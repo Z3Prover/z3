@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SIMPLE_PARSER_H_
-#define SIMPLE_PARSER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/map.h"
@@ -60,5 +59,4 @@ public:
     virtual expr * parse_float(rational const & r) { throw parser_error(); }
 };
 
-#endif /* SIMPLE_PARSER_H_ */
 

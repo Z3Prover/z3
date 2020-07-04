@@ -14,8 +14,7 @@ Author:
 
 --*/
 
-#ifndef REACHABILITY_H_
-#define REACHABILITY_H_
+#pragma once
 
 #include "muz/dataflow/dataflow.h"
 
@@ -79,4 +78,3 @@ namespace datalog {
     typedef dataflow_engine<reachability_info> reachability;
 }
 
-#endif

@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_SOLVER_H_
-#define API_SOLVER_H_
+#pragma once
 
 #include "util/mutex.h"
 #include "api/api_util.h"
@@ -63,4 +62,3 @@ inline Z3_solver_ref * to_solver(Z3_solver s) { return reinterpret_cast<Z3_solve
 inline Z3_solver of_solver(Z3_solver_ref * s) { return reinterpret_cast<Z3_solver>(s); }
 inline solver * to_solver_ref(Z3_solver s) { return to_solver(s)->m_solver.get(); }
 
-#endif

@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SPACER_SEM_MATCHER_H_
-#define SPACER_SEM_MATCHER_H_
+#pragma once
 
 #include "ast/substitution/substitution.h"
 #include "ast/arith_decl_plugin.h"
@@ -66,4 +65,3 @@ public:
     bool operator()(expr * e1, expr * e2, substitution & s, bool &pos);
 };
 }
-#endif /* SPACER_SEM_MATCHER_H_ */

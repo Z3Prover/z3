@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef QUANTIFIER_HOISTER_H_
-#define QUANTIFIER_HOISTER_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -70,4 +69,3 @@ public:
 
 };
 
-#endif

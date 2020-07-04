@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PROBE_ARITH_H_
-#define PROBE_ARITH_H_
+#pragma once
 
 class probe;
 probe * mk_arith_avg_bw_probe();
@@ -68,4 +67,3 @@ probe * mk_is_qfufnra_probe();
   ADD_PROBE("is-lira", "true if the goal is in LIRA (linear integer and real arithmetic, formula may have quantifiers).", "mk_is_lira_probe()")
   ADD_PROBE("is-qfufnra", "true if the goal is QF_UFNRA (quantifier-free nonlinear real arithmetic with other theories).", "mk_is_qfufnra_probe()")
 */
-#endif

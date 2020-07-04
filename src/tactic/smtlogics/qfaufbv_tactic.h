@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef QFAUFBV_TACTIC_H_
-#define QFAUFBV_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_qfaufbv_tactic(ast_manager & m, params_ref const & p = params_ref())
   ADD_TACTIC("qfaufbv",  "builtin strategy for solving QF_AUFBV problems.", "mk_qfaufbv_tactic(m, p)")
 */
 
-#endif

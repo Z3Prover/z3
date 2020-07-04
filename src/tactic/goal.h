@@ -25,8 +25,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef GOAL_H_
-#define GOAL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/ast_translation.h"
@@ -208,4 +207,3 @@ bool test(goal const & g) {
     return test(g, proc);
 }
 
-#endif

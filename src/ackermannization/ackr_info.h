@@ -13,8 +13,7 @@ Mikolas Janota
 
 Revision History:
 --*/
-#ifndef ACKR_INFO_H_
-#define ACKR_INFO_H_
+#pragma once
 
 #include "util/ref.h"
 #include "util/obj_hashtable.h"
@@ -119,4 +118,3 @@ class ackr_info {
 
 typedef ref<ackr_info> ackr_info_ref;
 
-#endif /* ACKR_INFO_H_ */

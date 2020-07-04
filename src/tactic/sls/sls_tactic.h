@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SLS_TACTIC_H_
-#define SLS_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p = params_ref()
   ADD_TACTIC("qfbv-sls", "(try to) solve using stochastic local search for QF_BV.", "mk_qfbv_sls_tactic(m, p)")
 */
 
-#endif

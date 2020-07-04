@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef CHECK_LOGIC_H_
-#define CHECK_LOGIC_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -34,4 +33,3 @@ public:
     char const * get_last_error() const;
 };
 
-#endif

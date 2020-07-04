@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PB_REWRITER_DEF_H_
-#define PB_REWRITER_DEF_H_
+#pragma once
 
 #include "ast/rewriter/pb_rewriter.h"
 
@@ -298,4 +297,3 @@ void pb_rewriter_util<PBU>::prune(typename PBU::args_t& args, typename PBU::nume
     }    
 }
 
-#endif

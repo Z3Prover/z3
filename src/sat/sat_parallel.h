@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_PARALLEL_H_
-#define SAT_PARALLEL_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "util/hashtable.h"
@@ -114,4 +113,3 @@ namespace sat {
 
 };
 
-#endif

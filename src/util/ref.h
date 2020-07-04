@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef REF_H_
-#define REF_H_
+#pragma once
 
 template<typename T>
 class ref {
@@ -134,5 +133,4 @@ class unmanged_ref_manager {
     static void dec_ref(T * o) { o->dec_ref(); }
 };
 
-#endif /* REF_H_ */
 

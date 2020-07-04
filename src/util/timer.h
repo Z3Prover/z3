@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef TIMER_H_
-#define TIMER_H_
+#pragma once
 
 #include "util/stopwatch.h"
 
@@ -44,4 +43,3 @@ public:
     }
 };
 
-#endif /* TIMER_H_ */

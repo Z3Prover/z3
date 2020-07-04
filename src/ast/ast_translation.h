@@ -18,8 +18,7 @@ Revision History:
     2011-05-26: New local translation class.
 
 --*/
-#ifndef AST_TRANSLATION_H_
-#define AST_TRANSLATION_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -128,4 +127,3 @@ inline expr_dependency * translate(expr_dependency * d, ast_manager & from, ast_
     return td(d);
 }
 
-#endif

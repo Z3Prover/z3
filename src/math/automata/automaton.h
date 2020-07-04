@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef AUTOMATON_H_
-#define AUTOMATON_H_
+#pragma once
 
 
 #include "util/util.h"
@@ -750,4 +749,3 @@ private:
 typedef automaton<unsigned> uautomaton;
 
 
-#endif 

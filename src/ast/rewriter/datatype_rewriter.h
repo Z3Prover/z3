@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef DATATYPE_REWRITER_H_
-#define DATATYPE_REWRITER_H_
+#pragma once
 
 #include "ast/datatype_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -32,4 +31,3 @@ public:
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
 };
 
-#endif

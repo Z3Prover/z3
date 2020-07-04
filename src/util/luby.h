@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef LUBY_H_
-#define LUBY_H_
+#pragma once
 
 /**
    \brief Return the i-th element of the Luby sequence: 1,1,2,1,1,2,4,1,1,2,1,1,2,4,8,...
@@ -27,5 +26,4 @@ Revision History:
 */
 unsigned get_luby(unsigned i);
 
-#endif /* LUBY_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SYMMETRY_REDUCE_TACTIC_H_
-#define SYMMETRY_REDUCE_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_symmetry_reduce_tactic(ast_manager & m, params_ref const & p);
   ADD_TACTIC("symmetry-reduce", "apply symmetry reduction.", "mk_symmetry_reduce_tactic(m, p)")
 */
 
-#endif

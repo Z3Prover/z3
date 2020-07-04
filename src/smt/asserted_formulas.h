@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ASSERTED_FORMULAS_H_
-#define ASSERTED_FORMULAS_H_
+#pragma once
 
 #include "util/statistics.h"
 #include "ast/static_features.h"
@@ -280,5 +279,4 @@ public:
 
 };
 
-#endif /* ASSERTED_FORMULAS_H_ */
 

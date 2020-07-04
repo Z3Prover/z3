@@ -18,8 +18,7 @@
      http://www.ict.griffith.edu.au/~johnt/publications/CP2006raouf.pdf
 
   --*/
-#ifndef _SAT_DDFW_
-#define _SAT_DDFW_
+#pragma once
 
 #include "util/uint_set.h"
 #include "util/rlimit.h"
@@ -224,4 +223,3 @@ namespace sat {
     };
 }
 
-#endif

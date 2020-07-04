@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SOLVER_H_
-#define SOLVER_H_
+#pragma once
 
 #include "solver/check_sat_result.h"
 #include "solver/progress_callback.h"
@@ -282,4 +281,3 @@ inline std::ostream& operator<<(std::ostream& out, solver const& s) {
     return s.display(out);
 }
 
-#endif

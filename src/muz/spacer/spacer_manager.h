@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_MANAGER_H_
-#define _SPACER_MANAGER_H_
+#pragma once
 
 #include <utility>
 #include <map>
@@ -136,4 +135,3 @@ struct sk_lt_proc {bool operator()(const app* a1, const app* a2);};
 
 }
 
-#endif

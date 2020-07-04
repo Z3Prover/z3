@@ -24,8 +24,7 @@ hence:
 
 
 --*/
-#ifndef PB_DECL_PLUGIN_H_
-#define PB_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
  
@@ -130,5 +129,4 @@ private:
 
 
 
-#endif /* PB_DECL_PLUGIN_H_ */
 

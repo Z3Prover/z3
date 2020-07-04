@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_SOLVER_H_
-#define SAT_SOLVER_H_
+#pragma once
 
 #include <cmath>
 #include "sat/sat_types.h"
@@ -794,4 +793,3 @@ namespace sat {
     std::ostream & operator<<(std::ostream & out, mk_stat const & stat);
 };
 
-#endif

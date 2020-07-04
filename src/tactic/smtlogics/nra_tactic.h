@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef NRA_TACTIC_H_
-#define NRA_TACTIC_H_
+#pragma once
 
 tactic * mk_nra_tactic(ast_manager & m, params_ref const & p = params_ref());
 
@@ -25,4 +24,3 @@ tactic * mk_nra_tactic(ast_manager & m, params_ref const & p = params_ref());
 ADD_TACTIC("nra", "builtin strategy for solving NRA problems.", "mk_nra_tactic(m, p)")
 */
 
-#endif

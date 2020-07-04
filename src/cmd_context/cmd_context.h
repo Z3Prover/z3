@@ -18,8 +18,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CMD_CONTEXT_H_
-#define CMD_CONTEXT_H_
+#pragma once
 
 #include<sstream>
 #include<vector>
@@ -511,4 +510,3 @@ public:
     }
 };
 
-#endif

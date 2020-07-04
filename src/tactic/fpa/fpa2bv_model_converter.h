@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef FPA2BV_MODEL_CONVERTER_H_
-#define FPA2BV_MODEL_CONVERTER_H_
+#pragma once
 
 #include "ast/fpa/fpa2bv_converter.h"
 #include "tactic/model_converter.h"
@@ -58,4 +57,3 @@ protected:
 
 model_converter * mk_fpa2bv_model_converter(ast_manager & m, fpa2bv_converter & conv);
 
-#endif

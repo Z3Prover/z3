@@ -16,11 +16,9 @@ Author:
 Revision History:
 
 --*/
-#ifndef DISPLAY_DIMACS_H_
-#define DISPLAY_DIMACS_H_
+#pragma once
 
 #include "ast.h"
 
 std::ostream& display_dimacs(std::ostream& out, expr_ref_vector const& fmls, bool include_names);
 
-#endif /* DISPLAY_DIMACS_H__ */

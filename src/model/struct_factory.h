@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef STRUCT_FACTORY_H_
-#define STRUCT_FACTORY_H_
+#pragma once
 
 #include "model/value_factory.h"
 #include "util/obj_hashtable.h"
@@ -50,5 +49,4 @@ public:
     void register_value(expr * array_value) override;
 };
 
-#endif /* STRUCT_FACTORY_H_ */
 

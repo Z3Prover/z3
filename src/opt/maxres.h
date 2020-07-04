@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef MAXRES_H_
-#define MAXRES_H_
+#pragma once
 
 namespace opt {
 
@@ -28,4 +27,3 @@ namespace opt {
 
 };
 
-#endif

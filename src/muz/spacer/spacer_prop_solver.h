@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef _PROP_SOLVER_H_
-#define _PROP_SOLVER_H_
+#pragma once
 
 #include <map>
 #include <string>
@@ -168,4 +167,3 @@ public:
 }
 
 
-#endif

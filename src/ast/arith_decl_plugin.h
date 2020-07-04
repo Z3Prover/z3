@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ARITH_DECL_PLUGIN_H_
-#define ARITH_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 class sexpr;
@@ -596,5 +595,4 @@ inline app_ref operator>(app_ref const& x, app_ref const& y) {
     return app_ref(a.mk_gt(x, y), x.get_manager());
 }
 
-#endif /* ARITH_DECL_PLUGIN_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MODEL_CORE_H_
-#define MODEL_CORE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -95,4 +94,3 @@ public:
 std::ostream& operator<<(std::ostream& out, model_core const& m);
 
 
-#endif

@@ -18,8 +18,7 @@ Notes:
 
 --*/
 
-#ifndef SPARSE_MATRIX_DEF_H_
-#define SPARSE_MATRIX_DEF_H_
+#pragma once
 
 #include "math/simplex/sparse_matrix.h"
 #include "util/uint_set.h"
@@ -582,4 +581,3 @@ namespace simplex {
 
 };
 
-#endif

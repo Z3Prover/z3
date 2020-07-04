@@ -17,8 +17,7 @@ Notes:
    
 --*/
 
-#ifndef SPANNING_TREE_BASE_H_
-#define SPANNING_TREE_BASE_H_
+#pragma once
 
 #include "util/util.h"
 #include "util/vector.h"
@@ -50,4 +49,3 @@ namespace smt {
     };
 }
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_SEQ_EMPTY_H_
-#define THEORY_SEQ_EMPTY_H_
+#pragma once
 
 #include "ast/seq_decl_plugin.h"
 #include "model/seq_factory.h"
@@ -46,5 +45,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_SEQ_EMPTY_H_ */
 

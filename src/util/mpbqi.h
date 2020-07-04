@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MPBQI_H_
-#define MPBQI_H_
+#pragma once
 
 #include "util/mpbq.h"
 #include "util/basic_interval.h"
@@ -47,4 +46,3 @@ public:
 typedef mpbqi_manager::interval mpbqi;
 typedef mpbqi_manager::scoped_interval scoped_mpbqi;
 
-#endif

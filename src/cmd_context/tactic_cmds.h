@@ -15,8 +15,7 @@ Author:
 Notes:
 
 --*/
-#ifndef TACTIC_CMDS_H_
-#define TACTIC_CMDS_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -62,4 +61,3 @@ public:
 
 probe * sexpr2probe(cmd_context & ctx, sexpr * n);
 
-#endif

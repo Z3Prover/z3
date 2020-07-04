@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CHECK_SAT_RESULT_H_
-#define CHECK_SAT_RESULT_H_
+#pragma once
 
 #include "model/model.h"
 #include "util/lbool.h"
@@ -90,4 +89,3 @@ struct simple_check_sat_result : public check_sat_result {
     void set_reason_unknown(char const* msg) override { m_unknown = msg; }
 };
 
-#endif

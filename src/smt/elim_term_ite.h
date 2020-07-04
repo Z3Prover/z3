@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ELIM_TERM_ITE_H_
-#define ELIM_TERM_ITE_H_
+#pragma once
 
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter.h"
@@ -53,5 +52,4 @@ public:
 
 
 
-#endif /* ELIM_TERM_ITE_H_ */
 

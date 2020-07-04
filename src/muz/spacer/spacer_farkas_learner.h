@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_FARKAS_LEARNER_H_
-#define _SPACER_FARKAS_LEARNER_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -57,4 +56,3 @@ public:
 
 }
 
-#endif

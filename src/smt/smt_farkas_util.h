@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef FARKAS_UTIL_H_
-#define FARKAS_UTIL_H_
+#pragma once
 
 #include "ast/arith_decl_plugin.h"
 
@@ -94,4 +93,3 @@ namespace smt {
     };
 }
 
-#endif

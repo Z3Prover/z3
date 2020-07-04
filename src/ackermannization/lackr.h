@@ -14,8 +14,7 @@
 
  Revision History:
  --*/
-#ifndef LACKR_H_
-#define LACKR_H_
+#pragma once
 
 #include "util/lbool.h"
 #include "util/util.h"
@@ -129,4 +128,3 @@ class lackr {
         void abstract_fun(fun2terms_map const& apps);
 
 };
-#endif /* LACKR_H_ */

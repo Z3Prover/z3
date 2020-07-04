@@ -14,8 +14,7 @@
 
  Revision History:
  --*/
-#ifndef ACKR_HELPER_H_
-#define ACKR_HELPER_H_
+#pragma once
 
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -151,4 +150,3 @@ private:
     bv_util                              m_bvutil;
     array_util                           m_autil;
 };
-#endif /* ACKR_HELPER_H_ */

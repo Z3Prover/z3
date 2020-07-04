@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef DL_SIEVE_RELATION_H_
-#define DL_SIEVE_RELATION_H_
+#pragma once
 
 #include "muz/base/dl_context.h"
 #include "muz/rel/dl_relation_manager.h"
@@ -193,5 +192,4 @@ namespace datalog {
 
 };
 
-#endif /* DL_SIEVE_RELATION_H_ */
 

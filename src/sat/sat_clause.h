@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_CLAUSE_H_
-#define SAT_CLAUSE_H_
+#pragma once
 
 #include "util/small_object_allocator.h"
 #include "util/id_gen.h"
@@ -197,4 +196,3 @@ namespace sat {
 
 };
 
-#endif

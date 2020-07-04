@@ -20,8 +20,7 @@ Revision History:
 
 --*/
 
-#ifndef DOC_H_
-#define DOC_H_
+#pragma once
 
 #include "muz/rel/tbv.h"
 #include "util/union_find.h"
@@ -389,5 +388,4 @@ public:
     operator bool() const { return d != nullptr; }
 };
 
-#endif /* DOC_H_ */
 

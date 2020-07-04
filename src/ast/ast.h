@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef AST_H_
-#define AST_H_
+#pragma once
 
 
 #include "util/vector.h"
@@ -2694,6 +2693,5 @@ inline std::ostream& operator<<(std::ostream& out, parameter_pp const& pp) {
 }
 
 
-#endif /* AST_H_ */
 
 

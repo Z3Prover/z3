@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXPR_OFFSET_MAP_H_
-#define EXPR_OFFSET_MAP_H_
+#pragma once
 
 #include "ast/substitution/expr_offset.h"
 #include "util/vector.h"
@@ -91,4 +90,3 @@ public:
     }
 };
 
-#endif /* EXPR_OFFSET_MAP_H_ */

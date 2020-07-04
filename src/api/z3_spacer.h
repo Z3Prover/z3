@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef Z3_SPACER_H_
-#define Z3_SPACER_H_
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -140,4 +139,3 @@ extern "C" {
 }
 #endif // __cplusplus
 
-#endif

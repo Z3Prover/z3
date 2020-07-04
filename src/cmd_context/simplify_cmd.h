@@ -15,11 +15,9 @@ Author:
 Notes:
 
 --*/
-#ifndef SIMPLIFY_CMD_H_
-#define SIMPLIFY_CMD_H_
+#pragma once
 
 class cmd_context;
 
 void install_simplify_cmd(cmd_context & ctx, char const * cmd_name = "simplify");
 
-#endif

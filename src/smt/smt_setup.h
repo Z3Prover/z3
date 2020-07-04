@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_SETUP_H_
-#define SMT_SETUP_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "smt/params/smt_params.h"
@@ -123,5 +122,4 @@ namespace smt {
     };
 };
 
-#endif /* SMT_SETUP_H_ */
 

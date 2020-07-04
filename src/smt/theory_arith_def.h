@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARITH_DEF_H_
-#define THEORY_ARITH_DEF_H_
+#pragma once
 
 #include "smt/theory_arith.h"
 #include "smt/theory_arith_core.h"
@@ -28,5 +27,4 @@ Revision History:
 #include "smt/theory_arith_eq.h"
 #include "smt/theory_arith_nl.h"
 
-#endif /* THEORY_ARITH_DEF_H_ */
 

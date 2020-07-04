@@ -16,12 +16,10 @@ Author:
 Revision History:
 
 --*/
-#ifndef DIMACS_H_
-#define DIMACS_H_
+#pragma once
 
 #include "sat/sat_types.h"
 
 bool parse_dimacs(std::istream & s, std::ostream& err, sat::solver & solver);
 
-#endif /* DIMACS_PARSER_H_ */
 

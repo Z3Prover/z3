@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ARRAY_DECL_PLUGIN_H_
-#define ARRAY_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -274,5 +273,4 @@ public:
 };
 
 
-#endif /* ARRAY_DECL_PLUGIN_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef HOIST_REWRITER_H_
-#define HOIST_REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
@@ -77,4 +76,3 @@ public:
         m_cfg(m, p) {}
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_DATALOG_H_
-#define API_DATALOG_H_
+#pragma once
 
 #include "api/z3.h"
 #include "ast/ast.h"
@@ -46,4 +45,3 @@ inline Z3_fixedpoint of_datalog(Z3_fixedpoint_ref * s) { return reinterpret_cast
 inline api::fixedpoint_context * to_fixedpoint_ref(Z3_fixedpoint s) { return to_fixedpoint(s)->m_datalog; }
 
 
-#endif

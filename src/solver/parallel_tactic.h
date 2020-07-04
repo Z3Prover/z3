@@ -16,12 +16,10 @@ Author:
 Notes:
    
 --*/
-#ifndef PARALLEL_TACTIC_H_
-#define PARALLEL_TACTIC_H_
+#pragma once
 
 class tactic;
 class solver;
 
 tactic * mk_parallel_tactic(solver* s, params_ref const& p);
 
-#endif

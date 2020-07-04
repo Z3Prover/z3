@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef EXPR2SUBPAVING_H_
-#define EXPR2SUBPAVING_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "math/subpaving/subpaving.h"
@@ -50,4 +49,3 @@ public:
 };
 
 
-#endif

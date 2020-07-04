@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef WATCH_LIST_H_
-#define WATCH_LIST_H_
+#pragma once
 
 #include "smt/smt_clause.h"
 #include "util/memory_manager.h"
@@ -186,5 +185,4 @@ namespace smt {
 
 };
 
-#endif /* WATCH_LIST_H_ */
 

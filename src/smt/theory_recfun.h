@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_RECFUN_H_
-#define THEORY_RECFUN_H_
+#pragma once
 
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
@@ -168,4 +167,3 @@ namespace smt {
     };
 }
 
-#endif

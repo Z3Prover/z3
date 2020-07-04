@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef QE_TACTIC_H_
-#define QE_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -27,4 +26,3 @@ tactic * mk_qe_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*
   ADD_TACTIC("qe", "apply quantifier elimination.", "mk_qe_tactic(m, p)")
 */
-#endif

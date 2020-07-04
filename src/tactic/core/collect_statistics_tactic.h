@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef COLLECT_STATISTICS_H_
-#define COLLECT_STATISTICS_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -30,4 +29,3 @@ tactic * mk_collect_statistics_tactic(ast_manager & m, params_ref const & p = pa
 */
 
 
-#endif

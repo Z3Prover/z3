@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef INTERVAL_DEF_H_
-#define INTERVAL_DEF_H_
+#pragma once
 
 #include "math/interval/interval.h"
 #include "util/debug.h"
@@ -2007,4 +2006,3 @@ void interval_manager<C>::e(unsigned k, interval & r) {
     m().set(upper(r), hi);
 }
 
-#endif

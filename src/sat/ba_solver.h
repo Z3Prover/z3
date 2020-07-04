@@ -18,8 +18,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BA_SOLVER_H_
-#define BA_SOLVER_H_
+#pragma once
 
 #include "sat/sat_extension.h"
 #include "sat/sat_solver.h"
@@ -582,4 +581,3 @@ namespace sat {
 
 };
 
-#endif

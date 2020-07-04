@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef INF_INT_RATIONAL_H_
-#define INF_INT_RATIONAL_H_
+#pragma once
 #include<stdlib.h>
 #include<string>
 #include "util/debug.h"
@@ -386,4 +385,3 @@ inline inf_int_rational abs(const inf_int_rational & r) {
     return result;
 }
 
-#endif /* INF_INT_RATIONAL_H_ */

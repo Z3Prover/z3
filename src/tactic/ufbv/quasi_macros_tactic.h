@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef QUASI_MACROS_TACTIC_H_
-#define QUASI_MACROS_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_quasi_macros_tactic(ast_manager & m, params_ref const & p = params_r
   ADD_TACTIC("quasi-macros",  "Identifies and applies quasi-macros.", "mk_quasi_macros_tactic(m, p)")
 */
 
-#endif

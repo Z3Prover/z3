@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SEQ_FACTORY_H_
-#define SEQ_FACTORY_H_
+#pragma once
 
 #include "ast/seq_decl_plugin.h"
 #include "model/model_core.h"
@@ -146,4 +145,3 @@ private:
     }
 };
 
-#endif 

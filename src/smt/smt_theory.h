@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_THEORY_H_
-#define SMT_THEORY_H_
+#pragma once
 
 #include "smt/smt_enode.h"
 #include "smt/smt_quantifier.h"
@@ -584,5 +583,4 @@ namespace smt {
     
 };
 
-#endif /* SMT_THEORY_H_ */
 

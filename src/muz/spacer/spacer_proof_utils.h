@@ -16,8 +16,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_PROOF_UTILS_H_
-#define _SPACER_PROOF_UTILS_H_
+#pragma once
 #include "ast/ast.h"
 
 namespace spacer {
@@ -102,4 +101,3 @@ private:
     proof* mk_proof_core(proof* old, ptr_buffer<proof>& args);
 };
 }
-#endif

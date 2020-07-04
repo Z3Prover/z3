@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef QE_TERM_GRAPH_H__
-#define QE_TERM_GRAPH_H__
+#pragma once
 
 #include "ast/ast.h"
 #include "util/plugin_manager.h"
@@ -155,4 +154,3 @@ namespace qe {
     };
 
 }
-#endif

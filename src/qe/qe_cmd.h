@@ -15,11 +15,9 @@ Author:
 Notes:
 
 --*/
-#ifndef QE_CMD_H_
-#define QE_CMD_H_
+#pragma once
 
 class cmd_context;
 
 void install_qe_cmd(cmd_context & ctx, char const * cmd_name = "elim-quantifiers");
 
-#endif

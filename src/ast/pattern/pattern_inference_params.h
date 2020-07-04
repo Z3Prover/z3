@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PATTERN_INFERENCE_PARAMS_H_
-#define PATTERN_INFERENCE_PARAMS_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -50,5 +49,4 @@ struct pattern_inference_params {
     void display(std::ostream & out) const;
 };
 
-#endif /* PATTERN_INFERENCE_PARAMS_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 --*/
 
-#ifndef SAT_ALLOCATOR_H_
-#define SAT_ALLOCATOR_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/machine.h"
@@ -99,5 +98,4 @@ inline void * operator new[](size_t s, sat_allocator & r) { return r.allocate(s)
 inline void operator delete(void * p, sat_allocator & r) { UNREACHABLE(); }
 inline void operator delete[](void * p, sat_allocator & r) { UNREACHABLE(); }
 
-#endif /* SAT_ALLOCATOR_H_ */
 

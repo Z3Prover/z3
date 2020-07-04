@@ -14,8 +14,7 @@
   Revision History:
 
   --*/
-#ifndef _THEORY_STR_H_
-#define _THEORY_STR_H_
+#pragma once
 
 #include "util/trail.h"
 #include "util/union_find.h"
@@ -837,4 +836,3 @@ protected:
 
 };
 
-#endif /* _THEORY_STR_H_ */

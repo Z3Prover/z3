@@ -16,8 +16,7 @@ Author:
 Notes:
     
 --*/
-#ifndef API_POLYNOMIAL_H_
-#define API_POLYNOMIAL_H_
+#pragma once
 
 #include "math/polynomial/polynomial.h"
 
@@ -35,4 +34,3 @@ namespace api {
 
 };
 
-#endif

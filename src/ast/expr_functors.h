@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef EXPR_FUNCTORS_H_
-#define EXPR_FUNCTORS_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/expr_map.h"
@@ -128,4 +127,3 @@ public:
 };
 
 
-#endif

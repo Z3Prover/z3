@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef CHECK_RELATION_H_
-#define CHECK_RELATION_H_
+#pragma once
 
 #include "muz/rel/doc.h"
 #include "muz/rel/dl_base.h"
@@ -168,5 +167,4 @@ namespace datalog {
     };
 };
        
-#endif /* CHECK_RELATION_H_ */
 

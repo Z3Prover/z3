@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef TSEITIN_CNF_TACTIC_H_
-#define TSEITIN_CNF_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -33,4 +32,3 @@ tactic * mk_tseitin_cnf_tactic(ast_manager & m, params_ref const & p = params_re
   ADD_TACTIC("tseitin-cnf-core", "convert goal into CNF using tseitin-like encoding (note: quantifiers are ignored). This tactic does not apply required simplifications to the input goal like the tseitin-cnf tactic.", "mk_tseitin_cnf_core_tactic(m, p)")
 */
 
-#endif

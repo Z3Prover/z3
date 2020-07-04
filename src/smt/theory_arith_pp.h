@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARITH_PP_H_
-#define THEORY_ARITH_PP_H_
+#pragma once
 
 #include "smt/theory_arith.h"
 #include "ast/ast_smt_pp.h"
@@ -560,5 +559,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_ARITH_PP_H_ */
 

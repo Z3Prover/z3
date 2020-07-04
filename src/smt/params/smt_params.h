@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_PARAMS_H_
-#define SMT_PARAMS_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "smt/params/dyn_ack_params.h"
@@ -320,5 +319,4 @@ struct smt_params : public preprocessor_params,
     void display(std::ostream & out) const;
 };
 
-#endif /* SMT_PARAMS_H_ */
 

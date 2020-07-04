@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_TABLE_PLUGIN_H_
-#define DL_TABLE_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/map.h"
@@ -189,5 +188,4 @@ namespace datalog {
 
 };
 
-#endif /* DL_TABLE_PLUGIN_H_ */
 

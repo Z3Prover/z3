@@ -22,8 +22,7 @@ Notes:
     Use this module as a replacement for spacer_smt_context_manager.
 
 --*/
-#ifndef SOLVER_POOL_H_
-#define SOLVER_POOL_H_
+#pragma once
 
 #include "solver/solver.h"
 #include "util/stopwatch.h"
@@ -71,4 +70,3 @@ public:
 };
 
 
-#endif

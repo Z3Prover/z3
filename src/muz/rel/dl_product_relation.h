@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_PRODUCT_RELATION_H_
-#define DL_PRODUCT_RELATION_H_
+#pragma once
 
 
 #include "muz/base/dl_context.h"
@@ -187,5 +186,4 @@ namespace datalog {
         
 };
 
-#endif 
 

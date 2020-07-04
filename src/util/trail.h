@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef TRAIL_H_
-#define TRAIL_H_
+#pragma once
 
 #include "util/obj_hashtable.h"
 #include "util/region.h"
@@ -385,4 +384,3 @@ public:
     }
 };
 
-#endif /* TRAIL_H_ */

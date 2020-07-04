@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OBJ_PAIR_SET_H_
-#define OBJ_PAIR_SET_H_
+#pragma once
 
 #include "util/chashtable.h"
 
@@ -53,4 +52,3 @@ public:
     iterator end() { return m_set.end(); }
 };
 
-#endif

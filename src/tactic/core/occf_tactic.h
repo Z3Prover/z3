@@ -21,8 +21,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OCCF_TACTIC_H_
-#define OCCF_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -34,5 +33,4 @@ tactic * mk_occf_tactic(ast_manager & m, params_ref const & p = params_ref());
   ADD_TACTIC("occf", "put goal in one constraint per clause normal form (notes: fails if proof generation is enabled; only clauses are considered).", "mk_occf_tactic(m, p)")
 */
 
-#endif
 

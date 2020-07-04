@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DATALOG_PARSER_H_
-#define DATALOG_PARSER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "muz/base/dl_context.h"
@@ -45,4 +44,3 @@ namespace datalog {
 
 };
 
-#endif

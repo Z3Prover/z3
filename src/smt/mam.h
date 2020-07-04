@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MAM_H_
-#define MAM_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "smt/smt_types.h"
@@ -70,4 +69,3 @@ namespace smt {
     mam * mk_mam(context & ctx);
 };
 
-#endif /* MAM_H_ */

@@ -21,8 +21,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXPR_OFFSET_H_
-#define EXPR_OFFSET_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -50,4 +49,3 @@ public:
 typedef std::pair<expr_offset, expr_offset> expr_offset_pair;
 typedef pair_hash<obj_hash<expr_offset>, obj_hash<expr_offset> > expr_offset_pair_hash;
 
-#endif /* EXPR_OFFSET_H_ */

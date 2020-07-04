@@ -23,8 +23,7 @@ Revision History:
     In the future, it will replace it.
 
 --*/
-#ifndef MPZZP_H_
-#define MPZZP_H_
+#pragma once
 
 #include "util/mpz.h"
 
@@ -281,5 +280,4 @@ public:
 
 };
 
-#endif
 

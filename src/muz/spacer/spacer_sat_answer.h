@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_SAT_ANSWER_H_
-#define _SPACER_SAT_ANSWER_H_
+#pragma once
 
 #include "muz/spacer/spacer_context.h"
 #include "ast/ast.h"
@@ -52,4 +51,3 @@ public:
 };
 }
 
-#endif

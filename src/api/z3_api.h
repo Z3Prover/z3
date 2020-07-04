@@ -3,7 +3,6 @@
 --*/
 
 #ifndef Z3_API_H_
-#define Z3_API_H_
 
 DEFINE_TYPE(Z3_symbol);
 DEFINE_TYPE(Z3_literals);
@@ -5563,7 +5562,7 @@ extern "C" {
 
     /** @name Error Handling */
     /*@{*/
-#ifndef SAFE_ERRORS
+#pragma once
     /**
        \brief Return the error code for the last API call.
 
@@ -6730,4 +6729,3 @@ extern "C" {
 
 /*@}*/
 
-#endif

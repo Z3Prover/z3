@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef F2N_H_
-#define F2N_H_
+#pragma once
 
 #include "util/mpf.h"
 
@@ -167,4 +166,3 @@ public:
     void display_smt2(std::ostream & out, numeral const & a, bool decimal) { m().display_smt2(out, a, decimal); }
 };
 
-#endif

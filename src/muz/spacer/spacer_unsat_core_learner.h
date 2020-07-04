@@ -16,8 +16,7 @@ Revision History:
 
 
 --*/
-#ifndef _SPACER_UNSAT_CORE_LEARNER_H_
-#define _SPACER_UNSAT_CORE_LEARNER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "muz/spacer/spacer_util.h"
@@ -99,4 +98,3 @@ namespace spacer {
     };
 }
 
-#endif

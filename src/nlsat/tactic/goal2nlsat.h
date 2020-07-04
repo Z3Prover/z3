@@ -21,8 +21,7 @@ Author:
 Notes:
 
 --*/
-#ifndef GOAL2NLSAT_H_
-#define GOAL2NLSAT_H_
+#pragma once
 
 #include "nlsat/nlsat_types.h"
 #include "tactic/model_converter.h"
@@ -69,4 +68,3 @@ public:
 
 };
 
-#endif

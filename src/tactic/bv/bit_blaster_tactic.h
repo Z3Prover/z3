@@ -16,8 +16,7 @@ Copyright (c) 2011 Microsoft Corporation
  Notes:
  
  --*/
-#ifndef BIT_BLASTER_TACTIC_H_
-#define BIT_BLASTER_TACTIC_H_
+#pragma once
  
 #include "util/params.h"
 #include "ast/rewriter/bit_blaster/bit_blaster_rewriter.h"
@@ -29,5 +28,4 @@ tactic * mk_bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params
  /*
   ADD_TACTIC("bit-blast", "reduce bit-vector expressions into SAT.", "mk_bit_blaster_tactic(m, p)")
  */
- #endif
 

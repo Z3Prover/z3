@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXPR_CONTEXT_SIMPLIFIER_H_
-#define EXPR_CONTEXT_SIMPLIFIER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -79,5 +78,4 @@ public:
     void reset_statistics() { m_solver.reset_statistics(); }
 };
 
-#endif /* EXPR_CONTEXT_SIMPLIFIER_H_ */
 

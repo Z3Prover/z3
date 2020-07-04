@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef INJECTIVITY_TACTIC_H_
-#define INJECTIVITY_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_injectivity_tactic(ast_manager & m, params_ref const & p = params_re
   ADD_TACTIC("injectivity",  "Identifies and applies injectivity axioms.", "mk_injectivity_tactic(m, p)")
 */
 
-#endif

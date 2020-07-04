@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef GOAL_SHARED_OCCS_H_
-#define GOAL_SHARED_OCCS_H_
+#pragma once
 
 #include "tactic/goal.h"
 #include "ast/shared_occs.h"
@@ -42,4 +41,3 @@ public:
 };
 
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_B_JUSTIFICATION_H_
-#define SMT_B_JUSTIFICATION_H_
+#pragma once
 
 #include "smt/smt_literal.h"
 #include "smt/smt_clause.h"
@@ -106,5 +105,4 @@ namespace smt {
     typedef std::pair<literal, b_justification> justified_literal;
 };
 
-#endif /* SMT_B_JUSTIFICATION_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef BIT_BLASTER_REWRITER_H_
-#define BIT_BLASTER_REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -44,5 +43,4 @@ private:
 
 };
 
-#endif
 

@@ -21,8 +21,7 @@ Revision History:
 
 --*/
 
-#ifndef EQUIV_PROOF_CONVERTER_H_
-#define EQUIV_PROOF_CONVERTER_H_
+#pragma once
 
 #include "tactic/replace_proof_converter.h"
 
@@ -50,4 +49,3 @@ public:
     void display(std::ostream & out) override {}
 };
 
-#endif

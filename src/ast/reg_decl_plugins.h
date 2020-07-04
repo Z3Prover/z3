@@ -17,11 +17,9 @@ Author:
 Revision History:
 
 --*/
-#ifndef REG_DECL_PLUGINS_H_
-#define REG_DECL_PLUGINS_H_
+#pragma once
 
 class ast_manager;
 
 void reg_decl_plugins(ast_manager & m);
 
-#endif

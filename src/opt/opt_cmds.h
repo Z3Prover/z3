@@ -15,8 +15,7 @@ Author:
 Notes:
 
 --*/
-#ifndef OPT_CMDS_H_
-#define OPT_CMDS_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "opt/opt_context.h"
@@ -26,4 +25,3 @@ class cmd_context;
 void install_opt_cmds(cmd_context & ctx, opt::context* opt = nullptr);
 
 
-#endif

@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SPECIAL_RELATIONS_TACTIC_H_
-#define SPECIAL_RELATIONS_TACTIC_H_
+#pragma once
 
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
@@ -69,4 +68,3 @@ tactic * mk_special_relations_tactic(ast_manager & m, params_ref const & p = par
   ADD_TACTIC("special-relations", "detect and replace by special relations.", "mk_special_relations_tactic(m, p)")
 */
 
-#endif

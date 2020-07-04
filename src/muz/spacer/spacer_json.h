@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef Z3_SPACER_JSON_H
-#define Z3_SPACER_JSON_H
+#pragma once
 
 #include<iostream>
 #include<map>
@@ -58,4 +57,3 @@ public:
 }
 
 
-#endif //Z3_SPACER_JSON_H

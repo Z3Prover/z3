@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SMT_TACTIC_H_
-#define SMT_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 #include "ast/ast.h"
@@ -38,4 +37,3 @@ tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p);
   ADD_TACTIC("smt", "apply a SAT based SMT solver.", "mk_smt_tactic(m, p)") 
   ADD_TACTIC("psmt", "builtin strategy for SMT tactic in parallel.", "mk_parallel_smt_tactic(m, p)")
 */
-#endif

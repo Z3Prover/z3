@@ -26,8 +26,7 @@ Author:
 Notes:
 
 --*/
-#ifndef GOAL2SAT_H_
-#define GOAL2SAT_H_
+#pragma once
 
 #include "tactic/goal.h"
 #include "sat/sat_solver.h"
@@ -118,4 +117,3 @@ public:
     
 };
 
-#endif

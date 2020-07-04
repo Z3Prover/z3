@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef HS_INC_SAT_SOLVER_H_
-#define HS_INC_SAT_SOLVER_H_
+#pragma once
 
 #include "solver/solver.h"
 
@@ -34,4 +33,3 @@ tactic* mk_psat_tactic(ast_manager& m, params_ref const& p);
 
 void  inc_sat_display(std::ostream& out, solver& s, unsigned sz, expr*const* soft, rational const* _weights);
 
-#endif

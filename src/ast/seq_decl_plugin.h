@@ -20,8 +20,7 @@ Revision History:
     Add SMTLIB 2.6 support 2020-5-17
 
 --*/
-#ifndef SEQ_DECL_PLUGIN_H_
-#define SEQ_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/bv_decl_plugin.h"
@@ -493,5 +492,4 @@ public:
 
 };
 
-#endif /* SEQ_DECL_PLUGIN_H_ */
 

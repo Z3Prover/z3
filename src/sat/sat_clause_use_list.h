@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_CLAUSE_USE_LIST_H_
-#define SAT_CLAUSE_USE_LIST_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "util/trace.h"
@@ -137,4 +136,3 @@ namespace sat {
 
 };
 
-#endif

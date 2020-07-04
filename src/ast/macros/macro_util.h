@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MACRO_UTIL_H_
-#define MACRO_UTIL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -136,4 +135,3 @@ public:
     void mk_add(unsigned num_args, expr * const * args, sort * s, expr_ref & r) const;
 };
 
-#endif

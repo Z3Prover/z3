@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef QE_QSAT_H__
-#define QE_QSAT_H__
+#pragma once
 
 #include "tactic/tactic.h"
 #include "tactic/generic_model_converter.h"
@@ -148,4 +147,3 @@ tactic * mk_qe_rec_tactic(ast_manager & m, params_ref const& p = params_ref());
 
 */
 
-#endif 

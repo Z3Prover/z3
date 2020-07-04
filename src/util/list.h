@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef LIST_H_
-#define LIST_H_
+#pragma once
 
 #include "util/buffer.h"
 #include "util/region.h"
@@ -92,5 +91,4 @@ list<T> * append(region & r, list<T> * l1, list<T> * l2) {
     return result;
 }
 
-#endif /* LIST_H_ */
 

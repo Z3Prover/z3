@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PB2BV_REWRITER_H_
-#define PB2BV_REWRITER_H_
+#pragma once
 
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -44,4 +43,3 @@ public:
     void collect_statistics(statistics & st) const;
 };
 
-#endif

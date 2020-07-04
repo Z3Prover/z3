@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_AST_MAP_H_
-#define API_AST_MAP_H_
+#pragma once
 
 #include "api/api_util.h"
 #include "util/obj_hashtable.h"
@@ -32,4 +31,3 @@ inline Z3_ast_map_ref * to_ast_map(Z3_ast_map v) { return reinterpret_cast<Z3_as
 inline Z3_ast_map of_ast_map(Z3_ast_map_ref * v) { return reinterpret_cast<Z3_ast_map>(v); }
 inline obj_map<ast, ast*> & to_ast_map_ref(Z3_ast_map v) { return to_ast_map(v)->m_map; }
 
-#endif

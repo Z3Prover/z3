@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef DL_CHECK_TABLE_H_
-#define DL_CHECK_TABLE_H_
+#pragma once
 
 #include "muz/rel/dl_base.h"
 #include "ast/dl_decl_plugin.h"
@@ -132,4 +131,3 @@ namespace datalog {
 
  };
 
-#endif /* DL_CHECK_TABLE_H_ */

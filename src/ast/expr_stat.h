@@ -19,8 +19,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXPR_STAT_H_
-#define EXPR_STAT_H_
+#pragma once
 
 class expr;
 
@@ -47,4 +46,3 @@ void get_expr_stat(expr * n, expr_stat & r);
 */
 unsigned get_symbol_count(expr * n);
 
-#endif /* EXPR_STAT_H_ */

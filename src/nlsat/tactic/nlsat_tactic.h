@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef NLSAT_TACTIC_H_
-#define NLSAT_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_nlsat_tactic(ast_manager & m, params_ref const & p = params_ref());
   ADD_TACTIC('nlsat', '(try to) solve goal using a nonlinear arithmetic solver.', 'mk_nlsat_tactic(m, p)')
 */
 
-#endif

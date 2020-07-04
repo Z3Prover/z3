@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SAT_TACTIC_H_
-#define SAT_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -32,4 +31,3 @@ tactic * mk_sat_preprocessor_tactic(ast_manager & m, params_ref const & p = para
   ADD_TACTIC('sat-preprocess', 'Apply SAT solver preprocessing procedures (bounded resolution, Boolean constant propagation, 2-SAT, subsumption, subsumption resolution).', 'mk_sat_preprocessor_tactic(m, p)')
 */
 
-#endif

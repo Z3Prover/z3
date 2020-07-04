@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SLS_ENGINE_H_
-#define SLS_ENGINE_H_
+#pragma once
 
 #include "util/stopwatch.h"
 #include "util/lbool.h"
@@ -138,4 +137,3 @@ protected:
     unsigned check_restart(unsigned curr_value);
 };
 
-#endif

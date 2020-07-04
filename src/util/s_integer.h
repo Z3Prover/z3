@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef S_INTEGER_H_
-#define S_INTEGER_H_
+#pragma once
 
 #include "util/rational.h"
 
@@ -145,5 +144,4 @@ inline s_integer abs(const s_integer & r) {
     return result;
 }
 
-#endif /* S_INTEGER_H_ */
 

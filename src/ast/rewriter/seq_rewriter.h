@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SEQ_REWRITER_H_
-#define SEQ_REWRITER_H_
+#pragma once
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -341,4 +340,3 @@ public:
 
 };
 
-#endif

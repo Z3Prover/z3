@@ -16,8 +16,7 @@
   Revision History:
 
   --*/
-#ifndef THEORY_ARITH_NL_H_
-#define THEORY_ARITH_NL_H_
+#pragma once
 
 #include "ast/ast_smt2_pp.h"
 
@@ -2395,5 +2394,4 @@ final_check_status theory_arith<Ext>::process_non_linear() {
 };
 
 
-#endif /* THEORY_ARITH_NL_H_ */
 

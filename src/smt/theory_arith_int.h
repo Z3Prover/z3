@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARITH_INT_H_
-#define THEORY_ARITH_INT_H_
+#pragma once
 
 #include "util/numeral_buffer.h"
 #include "ast/ast_ll_pp.h"
@@ -1128,5 +1127,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_ARITH_INT_H_ */
 

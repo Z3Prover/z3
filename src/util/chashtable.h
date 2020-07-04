@@ -25,8 +25,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef CHASHTABLE_H_
-#define CHASHTABLE_H_
+#pragma once
 
 #include "util/memory_manager.h"
 #include "util/debug.h"
@@ -703,4 +702,3 @@ public:
     }
 };
 
-#endif

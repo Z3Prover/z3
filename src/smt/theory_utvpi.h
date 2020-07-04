@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef THEORY_UTVPI_H_
-#define THEORY_UTVPI_H_
+#pragma once
 
 #include "smt/theory_diff_logic.h"
 
@@ -365,4 +364,3 @@ namespace smt {
 
 
 
-#endif /* THEORY_UTVPI_H_ */

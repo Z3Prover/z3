@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARRAY_FULL_H_
-#define THEORY_ARRAY_FULL_H_
+#pragma once
 
 #include "smt/theory_array.h"
 #include "ast/ast_trail.h"
@@ -107,5 +106,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_ARRAY_H_ */
 

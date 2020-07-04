@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PTR_SCOPED_BUFFER_H_
-#define PTR_SCOPED_BUFFER_H_
+#pragma once
 
 #include "util/util.h"
 #include "util/debug.h"
@@ -52,5 +51,4 @@ public:
     void append(unsigned n, T * const * elems) { ptr_buffer<T, INITIAL_SIZE>::append(n, elems); }
 };
 
-#endif
 

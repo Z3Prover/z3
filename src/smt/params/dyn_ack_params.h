@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DYN_ACK_PARAMS_H_
-#define DYN_ACK_PARAMS_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -52,5 +51,4 @@ public:
 };
 
 
-#endif /* DYN_ACK_PARAMS_H_ */
 

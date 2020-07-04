@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef ENV_PARAMS_H_
-#define ENV_PARAMS_H_
+#pragma once
 
 class param_descrs;
 
@@ -29,4 +28,3 @@ struct env_params {
     */
 };
 
-#endif

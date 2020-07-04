@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_QUICK_CHECKER_H_
-#define SMT_QUICK_CHECKER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -101,5 +100,4 @@ namespace smt {
     };
 };
 
-#endif /* SMT_QUICK_CHECKER_H_ */
 

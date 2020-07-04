@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef QE_NLQSAT_H__
-#define QE_NLQSAT_H__
+#pragma once
 
 #include "tactic/tactic.h"
 
@@ -35,4 +34,3 @@ tactic * mk_nlqe_tactic(ast_manager & m, params_ref const& p = params_ref());
 
 // TBD_TACTIC("nlqe", "apply a NL-QE solver.", "mk_nlqe_tactic(m, p)") 
 
-#endif 

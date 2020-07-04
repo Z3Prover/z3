@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef BVSLS_OPT_ENGINE_H_
-#define BVSLS_OPT_ENGINE_H_
+#pragma once
 
 #include "tactic/sls/sls_engine.h"
 
@@ -79,4 +78,3 @@ protected:
     bool randomize_wrt_hard();
 };
 
-#endif

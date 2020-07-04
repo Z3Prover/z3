@@ -14,8 +14,7 @@ Author:
 Notes:
 
 --*/
-#ifndef DICTIONARY_H_
-#define DICTIONARY_H_
+#pragma once
 
 #include "util/map.h"
 #include "util/symbol.h"
@@ -26,4 +25,3 @@ public:
     dictionary() {}
 };
 
-#endif

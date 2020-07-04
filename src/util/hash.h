@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef HASH_H_
-#define HASH_H_
+#pragma once
 
 #include<algorithm>
 #include "util/util.h"
@@ -250,5 +249,4 @@ inline unsigned mk_mix(unsigned a, unsigned b, unsigned c) {
     return c;
 }
 
-#endif /* HASH_H_ */
 

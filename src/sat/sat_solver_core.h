@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_SOLVER_CORE_H_
-#define SAT_SOLVER_CORE_H_
+#pragma once
 
 
 #include "sat/sat_types.h"
@@ -120,4 +119,3 @@ namespace sat {
     };
 };
 
-#endif

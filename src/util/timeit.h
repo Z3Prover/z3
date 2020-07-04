@@ -19,8 +19,7 @@ Revision History:
     Rewrote using stopwatches, added support for tracking memory
 
 --*/
-#ifndef TIMEIT_H_
-#define TIMEIT_H_
+#pragma once
 
 class timeit {
     struct imp;
@@ -30,4 +29,3 @@ public:
     ~timeit();
 };
 
-#endif

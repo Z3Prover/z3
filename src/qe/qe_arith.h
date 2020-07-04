@@ -5,8 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 
-#ifndef QE_ARITH_H_
-#define QE_ARITH_H_
+#pragma once
 
 #include "model/model.h"
 #include "ast/arith_decl_plugin.h"
@@ -47,4 +46,3 @@ namespace qe {
 
 };
 
-#endif

@@ -18,8 +18,7 @@ Notes:
     Based directly on smt_solver.
    
 --*/
-#ifndef OPT_SOLVER_H_
-#define OPT_SOLVER_H_
+#pragma once
 
 #include "util/inf_rational.h"
 #include "util/inf_eps_rational.h"
@@ -151,4 +150,3 @@ namespace opt {
     };
 }
 
-#endif

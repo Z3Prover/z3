@@ -20,8 +20,7 @@ Notes:
 
 --*/
 
-#ifndef _SPACER_CONTEXT_H_
-#define _SPACER_CONTEXT_H_
+#pragma once
 
 #include <queue>
 #include <fstream>
@@ -1152,4 +1151,3 @@ public:
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}
 }
 
-#endif

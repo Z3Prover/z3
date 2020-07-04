@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_TYPES_H_
-#define SAT_TYPES_H_
+#pragma once
 
 #include "util/debug.h"
 #include "util/approx_set.h"
@@ -269,4 +268,3 @@ namespace sat {
     };
 };
 
-#endif

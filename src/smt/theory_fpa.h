@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_FPA_H_
-#define THEORY_FPA_H_
+#pragma once
 
 #include "smt/smt_theory.h"
 #include "util/trail.h"
@@ -202,4 +201,3 @@ namespace smt {
 
 };
 
-#endif /* THEORY_FPA_H_ */

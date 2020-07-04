@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef WARNING_H_
-#define WARNING_H_
+#pragma once
 #include<iostream>
 #include<stdarg.h>
 
@@ -33,5 +32,4 @@ void warning_msg(const char * msg, ...);
 
 void format2ostream(std::ostream& out, char const* fmt, va_list args);
 
-#endif /* WARNING_H_ */
 

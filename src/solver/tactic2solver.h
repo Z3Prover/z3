@@ -19,8 +19,7 @@ Author:
 Notes:
 
 --*/
-#ifndef TACTIC2SOLVER_H_
-#define TACTIC2SOLVER_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -43,4 +42,3 @@ solver * mk_tactic2solver(ast_manager & m,
 solver_factory * mk_tactic2solver_factory(tactic * t);
 solver_factory * mk_tactic_factory2solver_factory(tactic_factory f);
 
-#endif

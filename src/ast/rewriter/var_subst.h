@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef VAR_SUBST_H_
-#define VAR_SUBST_H_
+#pragma once
 
 #include "ast/rewriter/rewriter.h"
 #include "ast/used_vars.h"
@@ -108,6 +107,5 @@ public:
     sort*const* c_ptr() const { return m_sorts.c_ptr(); }
 };
 
-#endif
 
 

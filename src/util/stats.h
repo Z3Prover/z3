@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef STATS_H_
-#define STATS_H_
+#pragma once
 
 #include<ostream>
 
@@ -34,4 +33,3 @@ inline void print_stat_f(std::ostream& out, char const* msg, float num) {
     }
 }
 
-#endif

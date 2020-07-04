@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef REGION_H_
-#define REGION_H_
+#pragma once
 #include<cstdlib>
 #include<iostream>
 
@@ -118,5 +117,4 @@ inline void operator delete(void *, region & ) { /* do nothing */ }
 
 inline void operator delete[](void *, region & ) { /* do nothing */ }
 
-#endif /* REGION_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef CANCEL_EH_H_
-#define CANCEL_EH_H_
+#pragma once
 
 #include "util/event_handler.h"
 
@@ -42,4 +41,3 @@ public:
     void reset() { m_canceled = false; }
 };
 
-#endif

@@ -15,8 +15,7 @@ Author:
 Notes:
 
 --*/
-#ifndef TACTIC_MANAGER_H_
-#define TACTIC_MANAGER_H_
+#pragma once
 
 #include "cmd_context/tactic_cmds.h"
 #include "util/dictionary.h"
@@ -51,7 +50,6 @@ public:
     probe_iterator end_probes() const { return m_probes.end(); }
 };
 
-#endif
 
 
 

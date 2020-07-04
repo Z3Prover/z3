@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CONVERTER_H_
-#define CONVERTER_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/ref.h"
@@ -124,5 +123,4 @@ public:
     }
 };
 
-#endif
 

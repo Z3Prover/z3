@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef INF_EPS_RATIONAL_H_
-#define INF_EPS_RATIONAL_H_
+#pragma once
 #include<stdlib.h>
 #include<string>
 #include "util/debug.h"
@@ -442,4 +441,3 @@ inline inf_eps_rational<N> abs(const inf_eps_rational<N> & r) {
     return result;
 }
 
-#endif /* INF_EPS_RATIONAL_H_ */

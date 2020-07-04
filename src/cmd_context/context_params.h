@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CONTEXT_PARAMS_H_
-#define CONTEXT_PARAMS_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -78,4 +77,3 @@ public:
 };
 
 
-#endif

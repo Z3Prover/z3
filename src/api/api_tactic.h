@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_TACTIC_H_
-#define API_TACTIC_H_
+#pragma once
 
 #include "api/api_goal.h"
 #include "tactic/tactical.h"
@@ -57,4 +56,3 @@ struct Z3_apply_result_ref : public api::object {
 inline Z3_apply_result_ref * to_apply_result(Z3_apply_result g) { return reinterpret_cast<Z3_apply_result_ref *>(g); }
 inline Z3_apply_result of_apply_result(Z3_apply_result_ref * g) { return reinterpret_cast<Z3_apply_result>(g); }
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_THEORY_VAR_LIST_H_
-#define SMT_THEORY_VAR_LIST_H_
+#pragma once
 
 #include "smt/smt_types.h"
 
@@ -72,5 +71,4 @@ namespace smt {
     static_assert(sizeof(expr*) != 8 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int) + /* a structure must be aligned */ sizeof(int), "64 bit"); 
 };
 
-#endif /* SMT_THEORY_VAR_LIST_H_ */
 

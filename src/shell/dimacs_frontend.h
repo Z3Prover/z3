@@ -16,10 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef DIMACS_FRONTEND_H_
-#define DIMACS_FRONTEND_H_
+#pragma once
 
 unsigned read_dimacs(char const * benchmark_file);
 
-#endif /* DIMACS_FRONTEND_H_ */
 

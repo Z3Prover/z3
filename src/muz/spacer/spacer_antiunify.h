@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_ANTIUNIFY_H_
-#define _SPACER_ANTIUNIFY_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/substitution/substitution.h"
@@ -71,4 +70,3 @@ private:
 /// Returns the created pattern and the corresponding substitution.
 void mk_num_pat(expr *e, expr_ref &result, app_ref_vector &subs);
 }
-#endif

@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NLSAT_SCOPED_LITERAL_VECTOR_H_
-#define NLSAT_SCOPED_LITERAL_VECTOR_H_
+#pragma once
 
 #include "nlsat/nlsat_solver.h"
 
@@ -94,4 +93,3 @@ namespace nlsat {
     };
 };
 
-#endif

@@ -14,8 +14,7 @@ Author:
     Leonardo de Moura (leonardo) 2012-02-18.
 
 --*/
-#ifndef DISTRIBUTE_FORALL_TACTIC_H_
-#define DISTRIBUTE_FORALL_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -27,4 +26,3 @@ tactic * mk_distribute_forall_tactic(ast_manager & m, params_ref const & p);
   ADD_TACTIC("distribute-forall", "distribute forall over conjunctions.", "mk_distribute_forall_tactic(m, p)")
 */
 
-#endif

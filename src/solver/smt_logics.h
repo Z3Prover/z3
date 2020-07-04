@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_LOGICS_H_
-#define SMT_LOGICS_H_
+#pragma once
 
 class smt_logics {
 public:
@@ -40,5 +39,4 @@ public:
     static bool logic_has_datatype(symbol const& s);
 };
 
-#endif /* SMT_LOGICS_H_ */
 

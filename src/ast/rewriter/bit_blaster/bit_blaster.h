@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BIT_BLASTER_H_
-#define BIT_BLASTER_H_
+#pragma once
 
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/bit_blaster/bit_blaster_params.h"
@@ -62,5 +61,4 @@ public:
     bit_blaster_params const & get_params() const { return this->m_params; }
 };
 
-#endif /* BIT_BLASTER_H_ */
 

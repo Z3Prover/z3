@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef BOOLEAN_ALGEBRA_H_
-#define BOOLEAN_ALGEBRA_H_
+#pragma once
 
 #include "util/util.h"
 
@@ -43,4 +42,3 @@ public:
     virtual T mk_not(T x) = 0;
 };
 
-#endif

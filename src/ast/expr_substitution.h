@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef EXPR_SUBSTITUTION_H_
-#define EXPR_SUBSTITUTION_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -92,4 +91,3 @@ public:
     std::ostream& display(std::ostream& out) { return m_subst.display(out); }
 };
 
-#endif

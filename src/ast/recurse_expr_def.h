@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef RECURSE_EXPR_DEF_H_
-#define RECURSE_EXPR_DEF_H_
+#pragma once
 
 #include "ast/recurse_expr.h"
 
@@ -106,4 +105,3 @@ T recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::operator()(expr * r
     return get_cached(r);
 }
 
-#endif /* RECURSE_EXPR_DEF_H_ */

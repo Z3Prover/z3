@@ -52,8 +52,7 @@ Notes:
     that are required to interpret G fully in the context of F_s.
 
 --*/
-#ifndef MODEL_CONVERTER_H_
-#define MODEL_CONVERTER_H_
+#pragma once
 
 #include "util/ref.h"
 #include "ast/ast_pp_util.h"
@@ -107,4 +106,3 @@ void model_converter2model(ast_manager & mng, model_converter * mc, model_ref & 
 void apply(model_converter_ref & mc, model_ref & m);
 
 
-#endif

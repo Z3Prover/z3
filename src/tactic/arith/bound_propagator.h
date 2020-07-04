@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BOUND_PROPAGATOR_H_
-#define BOUND_PROPAGATOR_H_
+#pragma once
 
 #include "util/mpq.h"
 #include "util/vector.h"
@@ -262,4 +261,3 @@ public:
     unsigned get_num_propagations() const { return m_propagations; }
 };
 
-#endif

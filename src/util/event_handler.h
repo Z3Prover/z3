@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EVENT_HANDLER_H_
-#define EVENT_HANDLER_H_
+#pragma once
 
 enum event_handler_caller_t {
     UNSET_EH_CALLER,
@@ -37,4 +36,3 @@ public:
     event_handler_caller_t caller_id() const { return m_caller_id; }
 };
 
-#endif

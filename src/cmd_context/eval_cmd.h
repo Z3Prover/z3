@@ -16,11 +16,9 @@ Author:
 Notes:
 
 --*/
-#ifndef EVAL_CMD_H_
-#define EVAL_CMD_H_
+#pragma once
 
 class cmd_context;
 
 void install_eval_cmd(cmd_context & ctx);
 
-#endif

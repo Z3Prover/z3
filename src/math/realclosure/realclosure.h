@@ -19,8 +19,7 @@ Author:
 Notes:
 
 --*/
-#ifndef REALCLOSURE_H_
-#define REALCLOSURE_H_
+#pragma once
 
 #include "util/mpq.h"
 #include "util/params.h"
@@ -401,4 +400,3 @@ inline rc_interval_pp interval_pp(scoped_rcnumeral const & n) {
     return rc_interval_pp(n);
 }
 
-#endif

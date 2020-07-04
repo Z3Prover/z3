@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_GOAL_H_
-#define API_GOAL_H_
+#pragma once
 
 #include "api/api_util.h"
 #include "tactic/goal.h"
@@ -31,4 +30,3 @@ inline Z3_goal_ref * to_goal(Z3_goal g) { return reinterpret_cast<Z3_goal_ref *>
 inline Z3_goal of_goal(Z3_goal_ref * g) { return reinterpret_cast<Z3_goal>(g); }
 inline goal_ref to_goal_ref(Z3_goal g) { return g == nullptr ? goal_ref() : to_goal(g)->m_goal; }
 
-#endif

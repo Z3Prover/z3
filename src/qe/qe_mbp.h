@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef __QE_MBP_H__
-#define __QE_MBP_H__
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -119,4 +118,3 @@ namespace qe {
     };
 }
 
-#endif

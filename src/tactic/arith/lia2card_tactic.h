@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef LIA2CARD_TACTIC_H_
-#define LIA2CARD_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -32,4 +31,3 @@ tactic * mk_lia2card_tactic(ast_manager & m, params_ref const & p = params_ref()
 
 bool get_pb_sum(expr* term, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff);
 
-#endif

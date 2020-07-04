@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_DATATYPE_H_
-#define THEORY_DATATYPE_H_
+#pragma once
 
 #include "util/union_find.h"
 #include "ast/array_decl_plugin.h"
@@ -148,5 +147,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_DATATYPE_H_ */
 

@@ -14,8 +14,7 @@
 
  Revision History:
  --*/
-#ifndef BV_BOUND_CHK_TACTIC_H_
-#define BV_BOUND_CHK_TACTIC_H_
+#pragma once
 
 #include "tactic/tactical.h"
 #include "util/params.h"
@@ -27,4 +26,3 @@ tactic* mk_bv_bound_chk_tactic(ast_manager & m, params_ref const & p = params_re
   ADD_TACTIC("bv_bound_chk", "attempts to detect inconsistencies of bounds on bv expressions.", "mk_bv_bound_chk_tactic(m, p)")
 */
 
-#endif /* BV_BOUND_CHK_TACTIC_H_*/

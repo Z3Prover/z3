@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef _SPACER_CALLBACK_H_
-#define _SPACER_CALLBACK_H_
+#pragma once
 
 #include "muz/spacer/spacer_context.h"
 #include "muz/base/dl_engine_base.h"
@@ -62,4 +61,3 @@ namespace spacer {
 }
 
 
-#endif //_SPACER_CALLBACK_H_

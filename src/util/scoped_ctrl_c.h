@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SCOPED_CTRL_C_H_
-#define SCOPED_CTRL_C_H_
+#pragma once
 
 #include "util/event_handler.h"
 #include "util/util.h"
@@ -38,4 +37,3 @@ public:
     void reset() { m_first = true; }
 };
 
-#endif

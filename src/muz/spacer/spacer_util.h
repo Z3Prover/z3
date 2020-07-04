@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_UTIL_H_
-#define _SPACER_UTIL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
@@ -145,4 +144,3 @@ namespace spacer {
     void set_true_in_mdl(model &model, func_decl *f);
 }
 
-#endif

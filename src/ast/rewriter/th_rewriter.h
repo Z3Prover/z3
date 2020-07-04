@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef TH_REWRITER_H_
-#define TH_REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -72,4 +71,3 @@ public:
 
 };
 
-#endif

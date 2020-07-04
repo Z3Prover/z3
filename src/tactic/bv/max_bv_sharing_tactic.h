@@ -19,8 +19,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MAX_BV_SHARING_TACTIC_H_
-#define MAX_BV_SHARING_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -31,5 +30,4 @@ tactic * mk_max_bv_sharing_tactic(ast_manager & m, params_ref const & p = params
   ADD_TACTIC("max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", "mk_max_bv_sharing_tactic(m, p)")
 */
 
-#endif
 

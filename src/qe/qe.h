@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef QE_H_
-#define QE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "smt/params/smt_params.h"
@@ -372,5 +371,4 @@ namespace qe {
 
 };
 
-#endif
 

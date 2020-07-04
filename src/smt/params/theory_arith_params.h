@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARITH_PARAMS_H_
-#define THEORY_ARITH_PARAMS_H_
+#pragma once
 
 #include<climits>
 #include "util/params.h"
@@ -165,5 +164,4 @@ struct theory_arith_params {
     void display(std::ostream & out) const;
 };
 
-#endif /* THEORY_ARITH_PARAMS_H_ */
 

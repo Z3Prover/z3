@@ -19,8 +19,7 @@ Revision History:
 #if 0
   // include "util/new_symbol.h"
 #else
-#ifndef SYMBOL_H_
-#define SYMBOL_H_
+#pragma once
 #include<ostream>
 #include<climits>
 
@@ -157,4 +156,3 @@ bool lt(symbol const & s1, symbol const & s2);
 
 #endif /* SYMBOL_H_ */
 
-#endif

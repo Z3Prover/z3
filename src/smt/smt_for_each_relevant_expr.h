@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_FOR_EACH_RELEVANT_EXPR_H_
-#define SMT_FOR_EACH_RELEVANT_EXPR_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -110,5 +109,4 @@ namespace smt {
 
 };
 
-#endif /* SMT_FOR_EACH_RELEVANT_EXPR_H_ */
 

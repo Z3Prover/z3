@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef SLS_TRACKER_H_
-#define SLS_TRACKER_H_
+#pragma once
 
 #include<math.h>
 #include "ast/for_each_expr.h"
@@ -1108,4 +1107,3 @@ public:
     }
 };
 
-#endif

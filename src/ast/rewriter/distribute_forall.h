@@ -18,8 +18,7 @@ Revision History:
     Christoph Wintersteiger 2010-04-06: Added implementation
 
 --*/
-#ifndef DISTRIBUTE_FORALL_H_
-#define DISTRIBUTE_FORALL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/act_cache.h"
@@ -77,4 +76,3 @@ protected:
     void flush_cache() { m_cache.cleanup(); }
 };
 
-#endif /* DISTRIBUTE_FORALL_H_ */

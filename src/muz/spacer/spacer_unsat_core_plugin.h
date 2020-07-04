@@ -15,8 +15,7 @@ Revision History:
 
 
 --*/
-#ifndef _SPACER_UNSAT_CORE_PLUGIN_H_
-#define _SPACER_UNSAT_CORE_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/min_cut.h"
@@ -102,4 +101,3 @@ namespace spacer {
         min_cut m_min_cut;
     };
 }
-#endif

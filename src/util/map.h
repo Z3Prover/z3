@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MAP_H_
-#define MAP_H_
+#pragma once
 
 #include "util/hashtable.h"
 
@@ -305,4 +304,3 @@ class size_t_map : public map<size_t, Value, size_t_hash, size_t_eq> {};
 template<typename Value> 
 class u64_map : public map<uint64_t, Value, u64_hash, u64_eq> {};
 
-#endif

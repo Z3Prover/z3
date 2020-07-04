@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NUMERAL_BUFFER_H_
-#define NUMERAL_BUFFER_H_
+#pragma once
 
 #include "util/vector.h"
 
@@ -88,4 +87,3 @@ public:
 
 };
 
-#endif

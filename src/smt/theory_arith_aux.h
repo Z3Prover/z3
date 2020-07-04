@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARITH_AUX_H_
-#define THEORY_ARITH_AUX_H_
+#pragma once
 
 #include "util/inf_eps_rational.h"
 #include "smt/theory_arith.h"
@@ -2290,5 +2289,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_ARITH_AUX_H_ */
 

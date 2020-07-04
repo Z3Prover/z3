@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef ATOM2BOOL_VAR_H_
-#define ATOM2BOOL_VAR_H_
+#pragma once
 
 #include "ast/expr2var.h"
 #include "sat/sat_types.h"
@@ -41,4 +40,3 @@ class goal;
 void collect_boolean_interface(goal const & g, obj_hashtable<expr> & r);
 void collect_boolean_interface(ast_manager & m, unsigned num, expr * const * fs, obj_hashtable<expr> & r);
 
-#endif

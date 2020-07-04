@@ -17,8 +17,7 @@ Notes:
 
 
 --*/
-#ifndef QFFP_TACTIC_H_
-#define QFFP_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -38,4 +37,3 @@ probe * mk_is_qffpbv_probe();
   ADD_PROBE("is-qffpbv", "true if the goal is in QF_FPBV (floats+bit-vectors).", "mk_is_qffpbv_probe()")
 */
 
-#endif

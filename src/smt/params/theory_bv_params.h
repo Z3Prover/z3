@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_BV_PARAMS_H_
-#define THEORY_BV_PARAMS_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -50,5 +49,4 @@ struct theory_bv_params {
     void display(std::ostream & out) const;
 };
 
-#endif /* THEORY_BV_PARAMS_H_ */
 

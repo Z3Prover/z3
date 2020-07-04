@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SUBSTITUTION_TREE_H_
-#define SUBSTITUTION_TREE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/substitution/substitution.h"
@@ -146,5 +145,4 @@ public:
     void display(std::ostream & out) const;
 };
 
-#endif /* SUBSTITUTION_TREE_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARRAY_PARAMS_H_
-#define THEORY_ARRAY_PARAMS_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -81,5 +80,4 @@ struct theory_array_params {
 };
 
 
-#endif /* THEORY_ARRAY_PARAMS_H_ */
 

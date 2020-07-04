@@ -19,8 +19,7 @@ Revision History:
     2008-05-11 ported from v1.2. Add theory propagation.
 
 --*/
-#ifndef THEORY_DIFF_LOGIC_DEF_H_
-#define THEORY_DIFF_LOGIC_DEF_H_
+#pragma once
 
 #include "util/map.h"
 #include "util/warning.h"
@@ -1469,5 +1468,4 @@ void theory_diff_logic<Ext>::init_zero() {
     m_rzero = mk_var(e);   
 }
 
-#endif /* THEORY_DIFF_LOGIC_DEF_H_ */
 

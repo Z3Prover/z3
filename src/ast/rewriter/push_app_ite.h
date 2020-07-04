@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PUSH_APP_ITE_H_
-#define PUSH_APP_ITE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
@@ -70,5 +69,4 @@ public:
 };
 
 
-#endif /* PUSH_APP_ITE_H_ */
 

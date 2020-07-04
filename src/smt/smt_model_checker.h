@@ -18,8 +18,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_MODEL_CHECKER_H_
-#define SMT_MODEL_CHECKER_H_
+#pragma once
 
 #include "util/obj_hashtable.h"
 #include "ast/ast.h"
@@ -108,4 +107,3 @@ namespace smt {
     };
 };
 
-#endif // _SMT_MODEL_CHECKER_H_

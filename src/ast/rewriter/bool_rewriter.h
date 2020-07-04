@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef BOOL_REWRITER_H_
-#define BOOL_REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
@@ -239,4 +238,3 @@ public:
         m_cfg(m, p) {}
 };
 
-#endif

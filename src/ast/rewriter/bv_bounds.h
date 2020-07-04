@@ -17,8 +17,7 @@
 
  Revision History:
  --*/
-#ifndef BV_BOUNDS_H_23754
-#define BV_BOUNDS_H_23754
+#pragma once
 #include "ast/ast.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -127,4 +126,3 @@ inline bool bv_bounds::is_constant_add(unsigned bv_sz, expr * e, app*& v, numera
 }
 
 
-#endif /* BV_BOUNDS_H_23754 */

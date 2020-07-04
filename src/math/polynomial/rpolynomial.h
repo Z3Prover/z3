@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef RPOLYNOMIAL_H_
-#define RPOLYNOMIAL_H_
+#pragma once
 
 #include "util/mpz.h"
 #include "util/rational.h"
@@ -203,4 +202,3 @@ inline rpolynomial_ref operator+(rpolynomial_ref const & p, int a) {
 
 
 
-#endif

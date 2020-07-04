@@ -18,8 +18,7 @@ Notes:
     This file was called default_solver.h. It was a bad name.
 
 --*/
-#ifndef SMT_SOLVER_H_
-#define SMT_SOLVER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -30,4 +29,3 @@ class solver_factory;
 solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic);
 solver_factory * mk_smt_solver_factory();
 
-#endif

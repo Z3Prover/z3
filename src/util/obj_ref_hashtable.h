@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OBJ_REF_HASHTABLE_H_
-#define OBJ_REF_HASHTABLE_H_
+#pragma once
 
 #include "util/obj_hashtable.h"
 
@@ -113,5 +112,4 @@ public:
 };
 
 
-#endif /* OBJ_REF_HASHTABLE_H_ */
 

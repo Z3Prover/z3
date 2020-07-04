@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_RELEVANCY_H_
-#define SMT_RELEVANCY_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -201,5 +200,4 @@ namespace smt {
 
 };
 
-#endif /* SMT_RELEVANCY_H_ */
 

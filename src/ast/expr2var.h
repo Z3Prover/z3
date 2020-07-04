@@ -20,8 +20,7 @@ Author:
 Notes:
 
 --*/
-#ifndef EXPR2VAR_H_
-#define EXPR2VAR_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -78,4 +77,3 @@ public:
     void pop(unsigned num_scopes);
 };
 
-#endif

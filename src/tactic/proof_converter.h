@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PROOF_CONVERTER_H_
-#define PROOF_CONVERTER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/ref.h"
@@ -50,4 +49,3 @@ void apply(ast_manager & m, proof_converter * pc, proof_ref & pr);
 
 proof_ref apply(ast_manager & m, proof_converter_ref & pc1, proof_converter_ref_buffer & pc2s);
 
-#endif

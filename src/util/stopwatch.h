@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef STOPWATCH_H_
-#define STOPWATCH_H_
+#pragma once
 
 #include "util/debug.h"
 #include <chrono>
@@ -97,4 +96,3 @@ inline std::ostream& operator<<(std::ostream& out, stopwatch const& sw) {
 }
 
 
-#endif

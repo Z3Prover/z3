@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef GROBNER_H_
-#define GROBNER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
@@ -289,5 +288,4 @@ public:
     void display(std::ostream & out) const;
 };
 
-#endif /* GROBNER_H_ */
 

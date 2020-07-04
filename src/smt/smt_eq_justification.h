@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_EQ_JUSTIFICATION_H_
-#define SMT_EQ_JUSTIFICATION_H_
+#pragma once
 
 #include "smt/smt_literal.h"
 #include "util/tptr.h"
@@ -81,5 +80,4 @@ namespace smt {
     const eq_justification null_eq_justification(static_cast<justification*>(nullptr));
 };
 
-#endif /* SMT_EQ_JUSTIFICATION_H_ */
 

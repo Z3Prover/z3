@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_DL_H_
-#define THEORY_DL_H_
+#pragma once
 
 
 namespace smt {
@@ -26,5 +25,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_DL_H_ */
 

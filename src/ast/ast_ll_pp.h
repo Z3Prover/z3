@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef AST_LL_PP_H_
-#define AST_LL_PP_H_
+#pragma once
 
 #include "ast/ast.h"
 #include<iostream>
@@ -53,5 +52,4 @@ inline std::ostream & operator<<(std::ostream & out, mk_bounded_pp const & p) {
 }
 
 
-#endif /* AST_LL_PP_H_ */
 

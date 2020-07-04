@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_CLEANER_H_
-#define SAT_CLEANER_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "util/statistics.h"
@@ -51,4 +50,3 @@ namespace sat {
 
 };
 
-#endif

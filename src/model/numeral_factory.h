@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NUMERAL_FACTORY_H_
-#define NUMERAL_FACTORY_H_
+#pragma once
 
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -53,5 +52,4 @@ public:
     app * mk_num_value(rational const & val, unsigned bv_size);
 };
 
-#endif /* NUMERAL_FACTORY_H_ */
 

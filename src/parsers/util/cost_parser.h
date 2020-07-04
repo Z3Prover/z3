@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef COST_PARSER_H_
-#define COST_PARSER_H_
+#pragma once
 
 #include "parsers/util/simple_parser.h"
 #include "ast/arith_decl_plugin.h"
@@ -35,5 +34,4 @@ public:
     void reset_vars();
 };
 
-#endif /* COST_PARSER_H_ */
 

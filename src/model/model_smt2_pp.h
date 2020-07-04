@@ -17,8 +17,7 @@ Revision History:
 
 
 --*/
-#ifndef MODEL_SMT2_PP_H_
-#define MODEL_SMT2_PP_H_
+#pragma once
 
 #include "ast/ast_printer.h"
 #include "model/model_core.h"
@@ -26,4 +25,3 @@ Revision History:
 void model_smt2_pp(std::ostream & out, ast_printer_context & ctx, model_core const & m, unsigned indent);
 void model_smt2_pp(std::ostream & out, ast_manager & m, model_core const & md, unsigned indent);
 
-#endif

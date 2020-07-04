@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef SYMBOLIC_AUTOMATA_DEF_H_
-#define SYMBOLIC_AUTOMATA_DEF_H_
+#pragma once
 
 
 #include "math/automata/symbolic_automata.h"
@@ -489,4 +488,3 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_diffe
     return mk_product(a,mk_complement(b));
 }
 
-#endif 

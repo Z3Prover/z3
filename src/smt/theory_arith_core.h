@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARITH_CORE_H_
-#define THEORY_ARITH_CORE_H_
+#pragma once
 
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -3557,4 +3556,3 @@ namespace smt {
 
 };
 
-#endif /* THEORY_ARITH_CORE_H_ */

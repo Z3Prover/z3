@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef AIG_H_
-#define AIG_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "tactic/tactic_exception.h"
@@ -75,4 +74,3 @@ public:
     unsigned get_num_aigs() const;
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CTX_SIMPLIFY_TACTIC_H_
-#define CTX_SIMPLIFY_TACTIC_H_
+#pragma once
 
 #include "tactic/tactical.h"
 #include "tactic/goal_num_occurs.h"
@@ -65,4 +64,3 @@ tactic * mk_ctx_simplify_tactic(ast_manager & m, params_ref const & p = params_r
   ADD_TACTIC("ctx-simplify", "apply contextual simplification rules.", "mk_ctx_simplify_tactic(m, p)")
 */
 
-#endif

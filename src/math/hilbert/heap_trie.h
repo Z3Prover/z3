@@ -34,8 +34,7 @@ Notes:
 
 --*/
 
-#ifndef HEAP_TRIE_H_
-#define HEAP_TRIE_H_
+#pragma once
 
 #include <cstring>
 #include "util/map.h"
@@ -663,4 +662,3 @@ private:
     }
 };
 
-#endif 
