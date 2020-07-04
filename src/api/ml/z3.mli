@@ -326,9 +326,21 @@ sig
 
   (** Creates a new function declaration. *)
   val mk_func_decl_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
-  (** Creates a fresh function declaration with a name prefixed with a prefix string. *)
 
+  (** Creates a function declaration that can be used in a recursive function definition.
+      {!add_rec_def} *)
+  val mk_rec_fun : context > Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
+
+  (** Creates a function declaration that can be used in a recursive function definition.
+      {!add_rec_def} *)
+  val mk_rec_fun_s : context > string -> Sort.sort list -> Sort.sort -> func_decl
+
+  (** Registers a recursive function definition *)
+  val add_rec_def : context -> func_decl -> Expr.expr list -> Expr.expr -> unit
+
+  (** Creates a fresh function declaration with a name prefixed with a prefix string. *)
   val mk_fresh_func_decl : context -> string -> Sort.sort list -> Sort.sort -> func_decl
+
 
   (** Creates a new constant function declaration. *)
   val mk_const_decl : context -> Symbol.symbol -> Sort.sort -> func_decl
