@@ -447,12 +447,14 @@ public:
     */
     void to_mpq(mpff const & n, unsynch_mpq_manager & m, mpq & t);
 
+#ifndef SINGLE_THREAD
     /**
        \brief Convert n into a mpq numeral.
 
        \remark if exponent(n) is too big, we may run out of memory.
     */
     void to_mpq(mpff const & n, synch_mpq_manager & m, mpq & t);
+#endif
 
     /**
        \brief Return n as an int64.
