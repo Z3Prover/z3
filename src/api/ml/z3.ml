@@ -263,8 +263,8 @@ sig
   end
   val mk_func_decl : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
   val mk_func_decl_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
-  val mk_rec_fun : context > Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
-  val mk_rec_fun_s : context > string -> Sort.sort list -> Sort.sort -> func_decl
+  val mk_rec_fun : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
+  val mk_rec_fun_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
   val mk_fresh_func_decl : context -> string -> Sort.sort list -> Sort.sort -> func_decl
   val mk_const_decl : context -> Symbol.symbol -> Sort.sort -> func_decl
   val mk_const_decl_s : context -> string -> Sort.sort -> func_decl
