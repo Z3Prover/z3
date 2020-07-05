@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MPFX_H_
+#pragma once
 
 #include "util/id_gen.h"
 #include "util/util.h"
@@ -379,7 +379,7 @@ public:
     */
     void to_mpq(mpfx const & n, unsynch_mpq_manager & m, mpq & t);
 
-#pragma once
+#ifndef SINGLE_THREAD
     /**
        \brief Convert n into a mpq numeral.
     */
