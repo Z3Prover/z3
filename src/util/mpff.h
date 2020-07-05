@@ -20,7 +20,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MPFF_H_
+#pragma once
 
 #include "util/id_gen.h"
 #include "util/util.h"
@@ -439,6 +439,7 @@ public:
     void to_mpz(mpff const & n, synch_mpz_manager & m, mpz & t);
 #endif
 
+
     /**
        \brief Convert n into a mpq numeral.
 
@@ -446,14 +447,12 @@ public:
     */
     void to_mpq(mpff const & n, unsynch_mpq_manager & m, mpq & t);
 
-#pragma once
     /**
        \brief Convert n into a mpq numeral.
 
        \remark if exponent(n) is too big, we may run out of memory.
     */
     void to_mpq(mpff const & n, synch_mpq_manager & m, mpq & t);
-#endif
 
     /**
        \brief Return n as an int64.
