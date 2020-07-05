@@ -2,7 +2,7 @@
     Copyright (c) 2015 Microsoft Corporation
 --*/
 
-#ifndef Z3_API_H_
+#pragma once
 
 DEFINE_TYPE(Z3_symbol);
 DEFINE_TYPE(Z3_literals);
@@ -5557,12 +5557,12 @@ extern "C" {
     */
 
     Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
-    
+
     /*@}*/
 
     /** @name Error Handling */
     /*@{*/
-#pragma once
+#ifndef SAFE_ERRORS
     /**
        \brief Return the error code for the last API call.
 
