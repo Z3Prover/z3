@@ -347,7 +347,7 @@ end = struct
   let mk_rec_fun_s (ctx:context) (name:string) (domain:Sort.sort list) (range:Sort.sort) =
     mk_rec_fun ctx (Symbol.mk_string ctx name) domain range
 
-  let add_rec_def (ctx:context) (f:func_decl) (args:Expr.expr list) (body:Expr.expr)
+  let add_rec_def (ctx:context) (f:func_decl) (args:Expr.expr list) (body:Expr.expr) =
     Z3native.add_rec_def ctx f (List.length args) args body
 
   let mk_fresh_func_decl (ctx:context) (prefix:string) (domain:Sort.sort list) (range:Sort.sort) =
