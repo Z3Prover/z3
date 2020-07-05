@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#ifndef MEMORY_H_
+#pragma once
 
 #include<cstdlib>
 #include<ostream>
 #include "util/z3_exception.h"
 
-#pragma once
-# define __has_builtin(x) 0
+#ifndef __has_builtin
+#define __has_builtin(x) 0
 #endif
 
 

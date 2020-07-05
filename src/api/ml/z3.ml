@@ -263,8 +263,8 @@ sig
   end
   val mk_func_decl : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
   val mk_func_decl_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
-  val mk_rec_fun : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
-  val mk_rec_fun_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
+  val mk_rec_func_decl : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
+  val mk_rec_func_decl_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
   val add_rec_def : context -> func_decl -> Expr.expr list -> Expr.expr -> unit
   val mk_fresh_func_decl : context -> string -> Sort.sort list -> Sort.sort -> func_decl
   val mk_const_decl : context -> Symbol.symbol -> Sort.sort -> func_decl
@@ -341,11 +341,11 @@ end = struct
   let mk_func_decl_s (ctx:context) (name:string) (domain:Sort.sort list) (range:Sort.sort) =
     mk_func_decl ctx (Symbol.mk_string ctx name) domain range
 
-  let mk_rec_fun (ctx:context) (name:Symbol.symbol) (domain:Sort.sort list) (range:Sort.sort) =
-    Z3native.mk_rec_fun ctx name (List.length domain) domain range
+  let mk_rec_func_decl (ctx:context) (name:Symbol.symbol) (domain:Sort.sort list) (range:Sort.sort) =
+    Z3native.mk_rec_func_decl ctx name (List.length domain) domain range
 
-  let mk_rec_fun_s (ctx:context) (name:string) (domain:Sort.sort list) (range:Sort.sort) =
-    mk_rec_fun ctx (Symbol.mk_string ctx name) domain range
+  let mk_rec_func_decl_s (ctx:context) (name:string) (domain:Sort.sort list) (range:Sort.sort) =
+    mk_rec_func_decl ctx (Symbol.mk_string ctx name) domain range
 
   let add_rec_def (ctx:context) (f:func_decl) (args:Expr.expr list) (body:Expr.expr) =
     Z3native.add_rec_def ctx f (List.length args) args body

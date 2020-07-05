@@ -329,11 +329,11 @@ sig
 
   (** Creates a function declaration that can be used in a recursive function definition.
       {!add_rec_def} *)
-  val mk_rec_fun : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
+  val mk_rec_func_decl : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
 
   (** Creates a function declaration that can be used in a recursive function definition.
       {!add_rec_def} *)
-  val mk_rec_fun_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
+  val mk_rec_func_decl_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
 
   (** Registers a recursive function definition *)
   val add_rec_def : context -> func_decl -> Expr.expr list -> Expr.expr -> unit
