@@ -91,7 +91,7 @@ namespace smt {
     }
 
     theory_special_relations::theory_special_relations(context& ctx, ast_manager& m):
-        theory(ctx, m.mk_family_id("special_relations")),
+        theory(ctx, m.mk_family_id("specrels")),
         m_util(m),
         m_can_propagate(false) {
     }
