@@ -152,7 +152,7 @@ struct goal2sat::imp {
                 sat::bool_var v = m_solver.add_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
-                TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << "\n";);
+                TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
                 if (!is_uninterp_const(t)) {
                     m_interpreted_atoms.push_back(t);
                 }
@@ -953,6 +953,11 @@ void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {
     }
 }
 
+bool goal2sat::has_interpreted_atoms() const {
+    return m_interpreted_atoms && !m_interpreted_atoms->empty();
+}
+
+
 
 sat2goal::mc::mc(ast_manager& m): m(m), m_var2expr(m) {}
 
@@ -982,7 +987,10 @@ void sat2goal::mc::flush_gmc() {
                 lit0.neg();
                 def = m.mk_not(def);
             }
-            m_gmc->add(lit2expr(lit0), def);
+            expr_ref e = lit2expr(lit0);
+            expr* r = nullptr;
+            if (is_uninterp_const(e) || (m.is_not(e, r) && is_uninterp_const(r)))
+                m_gmc->add(e, def);
             clause.reset();
             tail.reset();
         }
@@ -1199,7 +1207,7 @@ struct sat2goal::imp {
         // collect units
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
-            checkpoint();
+            checkpoint();            
             r.assert_expr(lit2expr(mc, s.trail_literal(i)));
         }
 

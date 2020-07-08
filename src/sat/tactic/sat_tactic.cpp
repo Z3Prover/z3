@@ -50,7 +50,7 @@ class sat_tactic : public tactic {
             obj_map<expr, sat::literal> dep2asm;
             sat::literal_vector assumptions;
             m_goal2sat(*g, m_params, *m_solver, map, dep2asm);
-            TRACE("sat_solver_unknown", tout << "interpreted_atoms: " << map.interpreted_atoms() << "\n";
+            TRACE("sat", tout << "interpreted_atoms: " << map.interpreted_atoms() << "\n";
                   for (auto const& kv : map) {
                       if (!is_uninterp_const(kv.m_key))
                           tout << mk_ismt2_pp(kv.m_key, m) << "\n";
@@ -112,8 +112,8 @@ class sat_tactic : public tactic {
                 ref<sat2goal::mc> mc;
                 m_sat2goal(*m_solver, map, m_params, *(g.get()), mc);
                 g->add(mc.get());
-                if (produce_core) {
-                    // sat2goal does not preseve assumptions
+                if (produce_core || m_goal2sat.has_interpreted_atoms()) {
+                    // sat2goal does not preseve assumptions or assignments to interpreted atoms
                     g->updt_prec(goal::OVER);
                 }
             }

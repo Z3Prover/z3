@@ -65,6 +65,8 @@ public:
 
     void get_interpreted_atoms(expr_ref_vector& atoms);
 
+    bool has_interpreted_atoms() const;
+
 };
 
 
