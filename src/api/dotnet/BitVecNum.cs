@@ -100,11 +100,19 @@ namespace Microsoft.Z3
 #endif
 
         /// <summary>
-        /// Returns a string representation of the numeral.
+        /// Returns a decimal string representation of the numeral.
         /// </summary>        
         public override string ToString()
         {
             return Native.Z3_get_numeral_string(Context.nCtx, NativeObject);
+        }
+
+        /// <summary>
+        /// Returns a binary string representation of the numeral.
+        /// </summary>        
+        public string ToBinaryString()
+        {
+            return Native.Z3_get_numeral_binary_string(Context.nCtx, NativeObject);
         }
 
         #region Internal

@@ -3711,6 +3711,10 @@ class BitVecNumRef(BitVecRef):
     def as_string(self):
         return Z3_get_numeral_string(self.ctx_ref(), self.as_ast())
 
+    def as_binary_string(self):
+        return Z3_get_numeral_binary_string(self.ctx_ref(), self.as_ast())
+    
+
 def is_bv(a):
     """Return `True` if `a` is a Z3 bit-vector expression.
 
