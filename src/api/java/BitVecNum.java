@@ -72,7 +72,6 @@ public class BitVecNum extends BitVecExpr
     /**
      * Returns a binary string representation of the numeral.
      **/
-    @Override
     public String toBinaryString()
     {
         return Native.getNumeralBinaryString(getContext().nCtx(), getNativeObject());
