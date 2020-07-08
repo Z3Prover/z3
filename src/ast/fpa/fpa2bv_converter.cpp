@@ -50,10 +50,12 @@ fpa2bv_converter::~fpa2bv_converter() {
 
 void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
     if (is_float(a) && is_float(b)) {
-        SASSERT(m_util.is_fp(a) && m_util.is_fp(b));
+
 
         TRACE("fpa2bv", tout << "mk_eq a=" << mk_ismt2_pp(a, m) << std::endl;
                         tout << "mk_eq b=" << mk_ismt2_pp(b, m) << std::endl;);
+
+        SASSERT(m_util.is_fp(a) && m_util.is_fp(b));
 
         expr_ref eq_sgn(m), eq_exp(m), eq_sig(m);
         m_simp.mk_eq(to_app(a)->get_arg(0), to_app(b)->get_arg(0), eq_sgn);
@@ -698,14 +700,13 @@ void fpa2bv_converter::mk_neg(func_decl * f, unsigned num, expr * const * args, 
 }
 
 void fpa2bv_converter::mk_neg(sort * srt, expr_ref & x, expr_ref & result) {
-    expr_ref sgn(m), sig(m), e(m);
-    split_fp(x, sgn, e, sig);
-    expr_ref c(m), nsgn(m);
-    mk_is_nan(x, c);
+    expr_ref sgn(m), sig(m), exp(m);
+    split_fp(x, sgn, exp, sig);
+    expr_ref x_is_nan(m), nsgn(m), nx(m);
+    mk_is_nan(x, x_is_nan);
     nsgn = m_bv_util.mk_bv_not(sgn);
-    expr_ref r_sgn(m);
-    m_simp.mk_ite(c, sgn, nsgn, r_sgn);
-    result = m_util.mk_fp(r_sgn, e, sig);
+    nx = m_util.mk_fp(nsgn, exp, sig);
+    mk_ite(x_is_nan, x, nx, result);
 }
 
 void fpa2bv_converter::mk_mul(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
