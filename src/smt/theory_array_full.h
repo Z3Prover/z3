@@ -34,7 +34,8 @@ namespace smt {
 
         ptr_vector<var_data_full> m_var_data_full;
 
-        ast2ast_trailmap<sort, app> m_sort2epsilon0, m_sort2epsilon1;
+        ast2ast_trailmap<sort, app> m_sort2epsilon;
+        ast2ast_trailmap<sort, func_decl> m_sort2diag;
         obj_pair_map<expr, expr, bool> m_eqs;
         
         static unsigned const m_default_map_fingerprint = UINT_MAX - 112;
@@ -80,7 +81,7 @@ namespace smt {
 
         bool has_large_domain(app* array_term);
         bool has_unitary_domain(app* array_term);
-        std::pair<app*,app*> mk_epsilon(sort* s);
+        std::pair<app*,func_decl*> mk_epsilon(sort* s);
 
         bool instantiate_select_const_axiom(enode* select, enode* cnst);
         bool instantiate_select_as_array_axiom(enode* select, enode* arr);
