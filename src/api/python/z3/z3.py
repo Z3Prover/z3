@@ -2792,6 +2792,14 @@ class IntNumRef(ArithRef):
         """
         return Z3_get_numeral_string(self.ctx_ref(), self.as_ast())
 
+    def as_binary_string(self):
+        """Return a Z3 integer numeral as a Python binary string.
+        >>> v = IntVal(10)
+        >>> v.as_string()
+        '1010'
+        """
+        return Z3_get_numeral_binary_string(self.ctx_ref(), self.as_ast())
+
 class RatNumRef(ArithRef):
     """Rational values."""
 
