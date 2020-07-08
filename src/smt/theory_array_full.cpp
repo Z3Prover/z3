@@ -581,15 +581,12 @@ namespace smt {
         SASSERT(is_array_sort(array_term));
         sort* s = m.get_sort(array_term);
         unsigned dim = get_dimension(s);
-        parameter const *  params = s->get_info()->get_parameters();
+        parameter const * params = s->get_info()->get_parameters();
         for (unsigned i = 0; i < dim; ++i) {
             SASSERT(params[i].is_ast());
             sort* d = to_sort(params[i].get_ast());
-            if (d->is_infinite() || d->is_very_big()) {
+            if (d->is_infinite() || d->is_very_big() || 1 != d->get_num_elements().size())
                 return false;
-            }
-            if (1 != d->get_num_elements().size())
-                                return false;
         }
         return true;        
     }
