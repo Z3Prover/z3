@@ -29,7 +29,8 @@ namespace smt {
 
     theory_array_full::theory_array_full(context& ctx) : 
         theory_array(ctx),
-        m_sort2epsilon(ctx.get_manager()) {}
+        m_sort2epsilon0(ctx.get_manager()),
+        m_sort2epsilon1(ctx.get_manager()) {}
 
     theory_array_full::~theory_array_full() {
         std::for_each(m_var_data_full.begin(), m_var_data_full.end(), delete_proc<var_data_full>());
@@ -203,7 +204,6 @@ namespace smt {
         std::for_each(m_var_data_full.begin(), m_var_data_full.end(), delete_proc<var_data_full>());
         m_var_data_full.reset();
         m_eqs.reset();
-        m_eqsv.reset();
     }
 
     void theory_array_full::display_var(std::ostream & out, theory_var v) const {
@@ -577,6 +577,23 @@ namespace smt {
 #endif
     }
 
+    bool theory_array_full::has_unitary_domain(app* array_term) {
+        SASSERT(is_array_sort(array_term));
+        sort* s = m.get_sort(array_term);
+        unsigned dim = get_dimension(s);
+        parameter const *  params = s->get_info()->get_parameters();
+        for (unsigned i = 0; i < dim; ++i) {
+            SASSERT(params[i].is_ast());
+            sort* d = to_sort(params[i].get_ast());
+            if (d->is_infinite() || d->is_very_big()) {
+                return false;
+            }
+            if (1 != d->get_num_elements().size())
+                                return false;
+        }
+        return true;        
+    }
+
     bool theory_array_full::has_large_domain(app* array_term) {
         SASSERT(is_array_sort(array_term));
         sort* s = m.get_sort(array_term);
@@ -590,7 +607,7 @@ namespace smt {
                 return true;
             }
             sz *= rational(d->get_num_elements().size(),rational::ui64());
-            if (sz >= rational(1 << 20)) {
+            if (sz >= rational(1 << 14)) {
                 return true;
             }
         }
@@ -677,50 +694,56 @@ namespace smt {
 
         m_stats.m_num_default_store_axiom++;
 
-        app* def1;
-        app* def2;
+        app_ref def1(m), def2(m);
 
         TRACE("array", tout << mk_bounded_pp(store_app, m) << "\n";);
 
-        if (has_large_domain(store_app)) {
-            def2 = mk_default(store_app->get_arg(0));
-        }
-        else {
+        def2 = mk_default(store_app->get_arg(0));
+        bool is_new = false;
+        if (!has_large_domain(store_app) && !has_unitary_domain(store_app)) {
             //
             // let A = store(B, i, v)
             // 
             // Add:
-            //   default(A) = ite(epsilon = i, v, default(B))
+            //   default(A) = ite(epsilon1 = i, v, default(B))
+            //   A[epsilon2] = B[epsilon2]
             // 
-            expr_ref_vector eqs(m);
+            expr_ref_vector eqs(m), args1(m), args2(m);
+            args1.push_back(store_app->get_arg(0));
+            args2.push_back(store_app);
             unsigned num_args = store_app->get_num_args();
             for (unsigned i = 1; i + 1 < num_args; ++i) {
                 sort* srt = m.get_sort(store_app->get_arg(i));
-                app* ep = mk_epsilon(srt);
-                eqs.push_back(m.mk_eq(ep, store_app->get_arg(i)));
+                auto ep = mk_epsilon(srt);
+                eqs.push_back(m.mk_eq(ep.first, store_app->get_arg(i)));
+                args1.push_back(ep.second);
+                args2.push_back(ep.second);
             }
             
-            expr_ref eq(m);
-            eq = mk_and(eqs);
-            expr* defA = mk_default(store_app->get_arg(0));
-            def2 = m.mk_ite(eq, store_app->get_arg(num_args-1), defA); 
+            expr_ref eq(mk_and(eqs), m);
+            def2 = m.mk_ite(eq, store_app->get_arg(num_args-1), def2); 
+            
+            app_ref sel1(m), sel2(m);
+            sel1 = mk_select(args1);
+            sel2 = mk_select(args2);
+            is_new = try_assign_eq(sel1, sel2);
         }
 
         def1 = mk_default(store_app);
         ctx.internalize(def1, false);
         ctx.internalize(def2, false);
-        return try_assign_eq(def1, def2);
+        return try_assign_eq(def1, def2) || is_new;
     }
 
-    app* theory_array_full::mk_epsilon(sort* s) {
-        app* eps = nullptr;
-        if (m_sort2epsilon.find(s, eps)) {
-            return eps;
-        }
-        eps = m.mk_fresh_const("epsilon", s);
-        m_trail_stack.push(
-            ast2ast_trail<theory_array, sort, app>(m_sort2epsilon, s, eps));   
-        return eps;
+    std::pair<app*,app*> theory_array_full::mk_epsilon(sort* s) {
+        app* eps0 = nullptr, *eps1 = nullptr;
+        if (!m_sort2epsilon0.find(s, eps0) || !m_sort2epsilon1.find(s, eps1)) {
+            eps0 = m.mk_fresh_const("epsilon", s);
+            eps1 = m.mk_fresh_const("epsilon", s);
+            m_trail_stack.push(ast2ast_trail<theory_array, sort, app>(m_sort2epsilon0, s, eps0));   
+            m_trail_stack.push(ast2ast_trail<theory_array, sort, app>(m_sort2epsilon1, s, eps1));  
+        } 
+        return std::make_pair(eps0, eps1);
     }
 
     final_check_status theory_array_full::assert_delayed_axioms() {        
@@ -740,13 +763,6 @@ namespace smt {
                         r = FC_CONTINUE;
                 }
             }
-        }
-        while (!m_eqsv.empty()) {
-            literal eq = m_eqsv.back();
-            m_eqsv.pop_back();
-            ctx.mark_as_relevant(eq);            
-            assert_axiom(eq);
-            r = FC_CONTINUE;
         }
         if (r == FC_DONE && m_bapa) {
             r = m_bapa->final_check();
@@ -775,9 +791,7 @@ namespace smt {
     }
 
     bool theory_array_full::try_assign_eq(expr* v1, expr* v2) {
-        TRACE("array", 
-              tout << mk_bounded_pp(v1, m) << "\n==\n" 
-              << mk_bounded_pp(v2, m) << "\n";);
+        TRACE("array", tout << mk_bounded_pp(v1, m) << "\n==\n" << mk_bounded_pp(v2, m) << "\n";);
         
         if (m_eqs.contains(v1, v2)) {
             return false;
@@ -785,12 +799,9 @@ namespace smt {
         else {
             m_eqs.insert(v1, v2, true);
             literal eq(mk_eq(v1, v2, true));
-            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(eq.var()));
+            scoped_trace_stream _sc(*this, eq);
             ctx.mark_as_relevant(eq);            
             assert_axiom(eq);
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-
-            // m_eqsv.push_back(eq);
             return true;
         }
     }
@@ -801,7 +812,6 @@ namespace smt {
         std::for_each(m_var_data_full.begin() + num_old_vars, m_var_data_full.end(), delete_proc<var_data_full>());
         m_var_data_full.shrink(num_old_vars);        
         m_eqs.reset();
-        m_eqsv.reset();
     }
 
     void theory_array_full::collect_statistics(::statistics & st) const {
