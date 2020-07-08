@@ -2429,6 +2429,18 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
         // rm + real + int -> float
         mk_to_fp_real_int(f, num, args, result);
     }
+    else if (num == 3 &&
+        m_util.is_rm(args[0]) &&
+        m_arith_util.is_int_real(args[1]) &&
+        m_arith_util.is_int_real(args[2]))
+    {
+        expr_ref sig(m), exp(m), two(m), v(m);
+        sig = args[1];
+        exp = args[2];
+        two = m_arith_util.mk_numeral(rational(2), true);
+        v = m_arith_util.mk_mul(sig, m_arith_util.mk_power(two, exp));
+        mk_to_fp_real(f, f->get_range(), args[0], v, result);
+    }
     else
         UNREACHABLE();
 
