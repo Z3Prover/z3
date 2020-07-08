@@ -1122,27 +1122,29 @@ bool theory_arith<Ext>::get_polynomial_info(buffer<coeff_expr> const & p, sbuffe
     varinfo.reset();
     m_var2num_occs.reset();
 
-#define ADD_OCC(VAR) if (has_var(VAR) && !is_fixed(expr2var(VAR))) {    \
-        TRACE("nl_info", tout << "adding occ: " << mk_bounded_pp(VAR, get_manager()) << "\n";); \
-        unsigned occs = 0;                                              \
-        m_var2num_occs.find(VAR, occs);                                 \
-        occs++;                                                         \
-        m_var2num_occs.insert(VAR, occs);                               \
-    }
+    auto add_occ = [&](expr* v) {
+        if (has_var(v) && !is_fixed(expr2var(v))) {                 
+            TRACE("nl_info", tout << "adding occ: " << mk_bounded_pp(v, get_manager()) << "\n";); 
+            unsigned occs = 0;                                                  
+            m_var2num_occs.find(v, occs);   
+            m_var2num_occs.insert(v, 1 + occs);                               
+        }
+    };
 
     for (auto const& ce : p) {
         expr * m = ce.second;
         if (m_util.is_numeral(m)) {
             continue;
         }
-        else if (ctx.e_internalized(m) && !is_pure_monomial(m)) {
-            ADD_OCC(m);
-        }
+        else if (m_util.is_add(m)) 
+            return false;
+        else if (ctx.e_internalized(m) && !is_pure_monomial(m))
+            add_occ(m);
         else {
             buffer<var_power_pair> vp;
             decompose_monomial(m, vp);        
             for (auto const& p : vp) {
-                ADD_OCC(p.first);
+                add_occ(p.first);
             }
         }
     }
