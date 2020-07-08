@@ -618,15 +618,44 @@ namespace smt {
         return out << "\n";
     }
 
+    std::ostream& context::display_compact_j(std::ostream& out, b_justification j) const {
+        switch (j.get_kind()) {
+        case b_justification::AXIOM:
+            out << "axiom";
+            break;
+        case b_justification::BIN_CLAUSE: 
+            out << "bin " << j.get_literal();
+            break;
+        case b_justification::CLAUSE: {
+            clause * cls = j.get_clause();
+            out << "clause ";
+            if (cls) out << literal_vector(cls->get_num_literals(), cls->begin());
+            break;
+        }
+        case b_justification::JUSTIFICATION: {
+            literal_vector lits;
+            const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
+            out << "justification " << j.get_justification()->get_from_theory() << ": ";
+            out << lits;
+            break;
+        }
+        default:
+            UNREACHABLE();
+            break;
+        }
+        return out << "\n";
+    }
+
     void context::trace_assign(literal l, b_justification j, bool decision) const {
         SASSERT(m.has_trace_stream());
         std::ostream & out = m.trace_stream();
+        ast_manager::suspend_trace _st(m);
         out << "[assign] ";
         display_literal(out, l);
         if (decision)
             out << " decision";
         out << " ";
-        display(out, j);
+        display_compact_j(out, j);
     }
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p) {

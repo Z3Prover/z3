@@ -1406,6 +1406,8 @@ namespace smt {
 
         std::ostream& display(std::ostream& out, b_justification j) const;
 
+        std::ostream& display_compact_j(std::ostream& out, b_justification j) const;
+
         // -----------------------------------
         //
         // Debugging support
