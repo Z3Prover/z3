@@ -7217,7 +7217,7 @@ namespace smt {
         m_basicstr_axiom_todo.reset();
         m_concat_axiom_todo.reset();
         m_concat_eval_todo.reset();
-        m_library_aware_axiom_todo.reset();
+        // m_library_aware_axiom_todo.reset();
         m_delayed_axiom_setup_terms.reset();
         m_delayed_assertions_todo.reset();
         

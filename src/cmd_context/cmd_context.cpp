@@ -315,7 +315,7 @@ void cmd_context::erase_macro(symbol const& s) {
     decls.erase_last(m());
 }
 
-bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const {
+bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, expr_ref_vector& coerced_args, expr*& t) const {
     macro_decls decls;
     if (!m_macros.find(s, decls)) {
         return false;
@@ -323,8 +323,19 @@ bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, exp
     for (macro_decl const& d : decls) {
         if (d.m_domain.size() != n) continue;
         bool eq = true;
+        coerced_args.reset();
         for (unsigned i = 0; eq && i < n; ++i) {
-            eq = d.m_domain[i] == m().get_sort(args[i]);
+            if (d.m_domain[i] == m().get_sort(args[i])) {
+                coerced_args.push_back(args[i]);
+                continue;
+            }
+            
+            arith_util au(m());
+            if (au.is_real(d.m_domain[i]) && au.is_int(args[i])) {
+                coerced_args.push_back(au.mk_to_real(args[i]));
+                continue;
+            }
+            eq = false;
         }
         if (eq) {
             t = d.m_body;
@@ -1034,17 +1045,19 @@ void cmd_context::mk_const(symbol const & s, expr_ref & result) const {
     mk_app(s, 0, nullptr, 0, nullptr, nullptr, result);
 }
 
-void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
+void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * args, 
+                         unsigned num_indices, parameter const * indices, sort * range,
                          expr_ref & result) const {
     expr* _t;
-    if (macros_find(s, num_args, args, _t)) {
+    expr_ref_vector coerced_args(m());
+    if (macros_find(s, num_args, args, coerced_args, _t)) {
         TRACE("macro_bug", tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
               tout << "s: " << s << "\n";
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
         scoped_rlimit no_limit(m().limit(), 0);
-        result = subst(_t, num_args, args);        
+        result = subst(_t, coerced_args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
         return;
@@ -1496,6 +1509,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     lbool r;
 
     if (m_opt && !m_opt->empty()) {
+        bool is_clear = m_check_sat_result == nullptr;
         m_check_sat_result = get_opt();
         cancel_eh<reslimit> eh(m().limit());
         scoped_ctrl_c ctrlc(eh);
@@ -1503,7 +1517,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         scoped_rlimit _rlimit(m().limit(), rlimit);
         expr_ref_vector asms(m());
         asms.append(num_assumptions, assumptions);
-        if (!get_opt()->is_pareto()) {
+        if (!get_opt()->is_pareto() || is_clear) {
             expr_ref_vector assertions(m());
             unsigned sz = m_assertions.size();
             for (unsigned i = 0; i < sz; ++i) {

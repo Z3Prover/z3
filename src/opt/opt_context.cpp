@@ -1473,6 +1473,7 @@ namespace opt {
 
     void context::clear_state() {
         m_pareto = nullptr;
+        m_pareto1 = false;
         m_box_index = UINT_MAX;
         m_box_models.reset();
         m_model.reset();
