@@ -1949,7 +1949,7 @@ public:
                     else {
                         strm << val;
                     }
-                    zstring zs(strm.str().c_str());
+                    zstring zs(strm.str());
                     add_buffer(sbuffer, zs);
                     break;
                 }

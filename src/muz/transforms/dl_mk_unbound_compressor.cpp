@@ -71,7 +71,7 @@ namespace datalog {
         std::stringstream name_suffix;
         name_suffix << "compr_arg_" << arg_index;
 
-        func_decl * cpred = m_context.mk_fresh_head_predicate(parent_name, symbol(name_suffix.str().c_str()), 
+        func_decl * cpred = m_context.mk_fresh_head_predicate(parent_name, symbol(name_suffix.str()),
             arity, domain.c_ptr(), pred);
         m_pinned.push_back(cpred);
         m_pinned.push_back(pred);

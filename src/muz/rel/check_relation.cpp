@@ -280,7 +280,7 @@ namespace datalog {
                 std::ostringstream strm;
                 strm << "x" << j;
                 bound.push_back(sig[i]);                
-                names.push_back(symbol(strm.str().c_str()));
+                names.push_back(symbol(strm.str()));
                 vars.push_back(m.mk_var(j, sig[i]));
                 ++j;
             }
@@ -400,8 +400,8 @@ namespace datalog {
         var_subst sub(m, false);
         for (unsigned i = 0; i < sig.size(); ++i) {
             std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
+            strm << 'x' << i;
+            vars.push_back(m.mk_const(symbol(strm.str()), sig[i]));
         }
         fml1 = sub(fml1, vars.size(), vars.c_ptr());
         fml2 = sub(fml2, vars.size(), vars.c_ptr());
@@ -448,8 +448,8 @@ namespace datalog {
         var_subst sub(m, false);
         for (unsigned i = 0; i < sig.size(); ++i) {
             std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
+            strm << 'x' << i;
+            vars.push_back(m.mk_const(symbol(strm.str()), sig[i]));
         }
         fml1 = sub(fml1, vars.size(), vars.c_ptr());
         fml2 = sub(fml2, vars.size(), vars.c_ptr());

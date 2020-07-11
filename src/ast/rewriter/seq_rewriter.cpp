@@ -1916,7 +1916,7 @@ br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {
         if (r.is_int() && !r.is_neg()) {
-            result = str().mk_string(symbol(r.to_string().c_str()));
+            result = str().mk_string(symbol(r.to_string()));
         }
         else {
             result = str().mk_string(symbol(""));

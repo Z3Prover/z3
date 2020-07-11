@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #pragma once
+#include <string>
 
 #include "ast/ast.h"
 
@@ -53,6 +54,7 @@ namespace format_ns {
     family_id get_format_family_id(ast_manager & m);
 
     format * mk_string(ast_manager & m, char const * str);
+    static inline format * mk_string(ast_manager & m, const std::string & str) { return mk_string(m, str.c_str()); }
     format * mk_int(ast_manager & m, int i);
     format * mk_unsigned(ast_manager & m, unsigned u);
     format * mk_indent(ast_manager & m, unsigned i, format * f);
@@ -102,6 +104,12 @@ namespace format_ns {
                                                            first,
                                                            mk_seq(m, it, end, proc),
                                                            mk_string(m, rp)))));
+    }
+
+    template<typename It, typename ToDoc>
+    static inline format * mk_seq1(ast_manager & m, It const & begin, It const & end, ToDoc proc, const std::string &header,
+                     char const * lp = "(", char const * rp = ")") {
+        return mk_seq1(m, begin, end, proc, header.c_str(), lp, rp);
     }
 
 #define FORMAT_DEFAULT_INDENT 2

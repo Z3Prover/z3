@@ -31,7 +31,7 @@ static void test1() {
     for (unsigned i = 0; i < N; ++i) {
         std::stringstream strm;
         strm << "b" << i;
-        vars.push_back(m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort()));
+        vars.push_back(m.mk_const(symbol(strm.str()), m.mk_bool_sort()));
     }
     
     for (unsigned k = 1; k <= N; ++k) {
@@ -112,7 +112,7 @@ static void test2() {
     for (unsigned i = 0; i < N; ++i) {
         std::stringstream strm;
         strm << "b" << i;
-        vars.push_back(m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort()));
+        vars.push_back(m.mk_const(symbol(strm.str()), m.mk_bool_sort()));
     }
     for (unsigned coeff = 0; coeff < static_cast<unsigned>(1 << N); ++coeff) {
         vector<rational> coeffs;
@@ -181,7 +181,7 @@ static void test3() {
     for (unsigned i = 0; i < N; ++i) {
         std::stringstream strm;
         strm << "b" << i;
-        vars.push_back(m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort()));
+        vars.push_back(m.mk_const(symbol(strm.str()), m.mk_bool_sort()));
     }
     for (unsigned coeff = 0; coeff < static_cast<unsigned>(1 << N); ++coeff) {
         vector<rational> coeffs;

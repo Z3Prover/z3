@@ -74,7 +74,7 @@ namespace z3 {
 
     inline void set_param(char const * param, char const * value) { Z3_global_param_set(param, value); }
     inline void set_param(char const * param, bool value) { Z3_global_param_set(param, value ? "true" : "false"); }
-    inline void set_param(char const * param, int value) { std::ostringstream oss; oss << value; Z3_global_param_set(param, oss.str().c_str()); }
+    inline void set_param(char const * param, int value) { auto str = std::to_string(value); Z3_global_param_set(param, str.c_str()); }
     inline void reset_params() { Z3_global_param_reset_all(); }
 
     /**
@@ -122,9 +122,8 @@ namespace z3 {
            \brief Set global parameter \c param with integer \c value.
         */
         void set(char const * param, int value) {
-            std::ostringstream oss;
-            oss << value;
-            Z3_set_param_value(m_cfg, param, oss.str().c_str());
+            auto str = std::to_string(value);
+            Z3_set_param_value(m_cfg, param, str.c_str());
         }
     };
 
@@ -211,9 +210,8 @@ namespace z3 {
            \brief Update global parameter \c param with Integer \c value.
         */
         void set(char const * param, int value) {
-            std::ostringstream oss;
-            oss << value;
-            Z3_update_param_value(m_ctx, param, oss.str().c_str());
+            auto str = std::to_string(value);
+            Z3_update_param_value(m_ctx, param, str.c_str());
         }
 
         /**
@@ -2839,9 +2837,8 @@ namespace z3 {
         }
         handle add(expr const& e, unsigned weight) {
             assert(e.is_bool());
-            std::stringstream strm;
-            strm << weight;
-            return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, strm.str().c_str(), 0));
+            auto str = std::to_string(weight);
+            return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, str.c_str(), 0));
         }
         void add(expr const& e, expr const& t) {
             assert(e.is_bool());

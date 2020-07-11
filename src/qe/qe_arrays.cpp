@@ -1083,7 +1083,7 @@ namespace qe {
                 for (expr * x : m_idxs[0].idx) {
                     std::stringstream name;
                     name << "get" << (i++);
-                    acc.push_back(mk_accessor_decl(m, symbol(name.str().c_str()), type_ref(m.get_sort(x))));
+                    acc.push_back(mk_accessor_decl(m, symbol(name.str()), type_ref(m.get_sort(x))));
                 }
                 constructor_decl* constrs[1] = { mk_constructor_decl(symbol("tuple"), symbol("is-tuple"), acc.size(), acc.c_ptr()) };
                 datatype::def* dts = mk_datatype_decl(dt, symbol("tuple"), 0, nullptr, 1, constrs);

@@ -808,13 +808,13 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
 
     format * pp(pdecl_manager const & m) const override {
         if (m_args.empty()) {
-            return mk_string(m.m(), m_decl->get_name().str().c_str());
+            return mk_string(m.m(), m_decl->get_name().str());
         }
         else {
             ptr_buffer<format> b;
             for (auto arg : m_args)
                 b.push_back(m.pp(arg));
-            return mk_seq1(m.m(), b.begin(), b.end(), f2f(), m_decl->get_name().str().c_str());
+            return mk_seq1(m.m(), b.begin(), b.end(), f2f(), m_decl->get_name().str());
         }
     }
 };
@@ -846,11 +846,11 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
 
     format * pp(pdecl_manager const & m) const override {
         if (m_indices.empty()) {
-            return mk_string(m.m(), m_decl->get_name().str().c_str());
+            return mk_string(m.m(), m_decl->get_name().str());
         }
         else {
             ptr_buffer<format> b;
-            b.push_back(mk_string(m.m(), m_decl->get_name().str().c_str()));
+            b.push_back(mk_string(m.m(), m_decl->get_name().str()));
             for (auto idx : m_indices)
                 b.push_back(mk_unsigned(m.m(), idx));
             return mk_seq1(m.m(), b.begin(), b.end(), f2f(), "_");
@@ -1076,11 +1076,11 @@ format * pdecl_manager::pp(sort * s) const {
         if (i == num_params) {
             // all parameters are integer
             ptr_buffer<format> b;
-            b.push_back(mk_string(m(), s->get_name().str().c_str()));
+            b.push_back(mk_string(m(), s->get_name().str()));
             for (unsigned i = 0; i < num_params; i++)
                 b.push_back(mk_unsigned(m(), s->get_parameter(i).get_int()));
             return mk_seq1(m(), b.begin(), b.end(), f2f(), "_");
         }
     }
-    return mk_string(m(), s->get_name().str().c_str());
+    return mk_string(m(), s->get_name().str());
 }

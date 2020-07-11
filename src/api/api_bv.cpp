@@ -117,7 +117,8 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
             Z3_sort s = Z3_get_sort(c, n);
             unsigned sz = Z3_get_bv_sort_size(c, s);
             rational max_bound = power(rational(2), sz);
-            Z3_ast bound = Z3_mk_numeral(c, max_bound.to_string().c_str(), int_s);
+            auto str = max_bound.to_string();
+            Z3_ast bound = Z3_mk_numeral(c, str.c_str(), int_s);
             Z3_inc_ref(c, bound);
             Z3_ast zero = Z3_mk_int(c, 0, s);
             Z3_inc_ref(c, zero);

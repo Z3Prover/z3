@@ -66,7 +66,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_params_set_bool(c, p, k, v);
         RESET_ERROR_CODE();
-        to_params(p)->m_params.set_bool(norm_param_name(to_symbol(k)).c_str(), v);
+        auto name = norm_param_name(to_symbol(k));
+        to_params(p)->m_params.set_bool(name.c_str(), v);
         Z3_CATCH;
     }
 
@@ -77,7 +78,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_params_set_uint(c, p, k, v);
         RESET_ERROR_CODE();
-        to_params(p)->m_params.set_uint(norm_param_name(to_symbol(k)).c_str(), v);
+        auto name = norm_param_name(to_symbol(k));
+        to_params(p)->m_params.set_uint(name.c_str(), v);
         Z3_CATCH;
     }
 
@@ -88,7 +90,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_params_set_double(c, p, k, v);
         RESET_ERROR_CODE();
-        to_params(p)->m_params.set_double(norm_param_name(to_symbol(k)).c_str(), v);
+        auto name = norm_param_name(to_symbol(k));
+        to_params(p)->m_params.set_double(name.c_str(), v);
         Z3_CATCH;
     }
 
@@ -99,7 +102,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_params_set_symbol(c, p, k, v);
         RESET_ERROR_CODE();
-        to_params(p)->m_params.set_sym(norm_param_name(to_symbol(k)).c_str(), to_symbol(v));
+        auto name = norm_param_name(to_symbol(k));
+        to_params(p)->m_params.set_sym(name.c_str(), to_symbol(v));
         Z3_CATCH;
     }
     

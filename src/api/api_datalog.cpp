@@ -677,9 +677,11 @@ extern "C" {
         
         to_fixedpoint_ref(d)->ctx().get_rules_along_trace_as_formulas(rules, names);
         for (unsigned i = 0; i < names.size(); ++i) {
-            ss << ";" << names[i].str();
+            if (i != 0)
+                ss << ';';
+            ss << names[i].str();
         }
-        return of_symbol(symbol(ss.str().substr(1).c_str()));
+        return of_symbol(symbol(ss.str()));
         Z3_CATCH_RETURN(of_symbol(symbol::null));
     }
 

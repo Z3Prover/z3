@@ -1125,7 +1125,7 @@ namespace smt {
         ast_manager& m = get_manager();
         std::ostringstream strm;
         strm << val << " <= " << mk_pp(get_enode(v)->get_owner(), get_manager());
-        app* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
+        app* b = m.mk_const(symbol(strm.str()), m.mk_bool_sort());
         expr_ref result(b, m);
         TRACE("opt", tout << result << "\n";);
         if (!ctx.b_internalized(b)) {

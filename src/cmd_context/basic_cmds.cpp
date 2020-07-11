@@ -292,7 +292,7 @@ UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", C
               ctx.print_success();
           else {
               std::string msg = "ignoring unsupported logic " + arg.str();
-              ctx.print_unsupported(symbol(msg.c_str()), m_line, m_pos);
+              ctx.print_unsupported(symbol(msg), m_line, m_pos);
           }
           );
 
@@ -682,7 +682,7 @@ public:
             ctx.regular_stream() << "(:status " << ctx.get_status() << ")" << std::endl;
         }
         else if (opt == m_reason_unknown) {
-            ctx.regular_stream() << "(:reason-unknown \"" << escaped(ctx.reason_unknown().c_str()) << "\")" << std::endl;
+            ctx.regular_stream() << "(:reason-unknown \"" << escaped(ctx.reason_unknown()) << "\")" << std::endl;
         }
         else if (opt == m_rlimit) {
             ctx.regular_stream() << "(:rlimit " << ctx.m().limit().count() << ")" << std::endl;

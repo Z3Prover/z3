@@ -1995,7 +1995,7 @@ public:
     expr_ref var2expr(lpvar v) {
         std::ostringstream name;
         name << "v" << lp().local_to_external(v);
-        return expr_ref(m.mk_const(symbol(name.str().c_str()), a.mk_int()), m);
+        return expr_ref(m.mk_const(symbol(name.str()), a.mk_int()), m);
     }
 
     expr_ref multerm(rational const& r, expr* e) {

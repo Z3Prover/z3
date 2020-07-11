@@ -65,7 +65,7 @@ public:
             while (true) {
                 std::ostringstream strm;
                 strm << delim << std::hex << (m_next++) << std::dec << delim;
-                symbol sym(strm.str().c_str());
+                symbol sym(strm.str());
                 if (m_strings.contains(sym)) continue;
                 m_strings.insert(sym);
                 return u.str.mk_string(sym);
@@ -343,7 +343,8 @@ class theory_str : public theory {
     typedef map<rational, expr*, obj_hash<rational>, default_eq<rational> > rational_map;
     struct zstring_hash_proc {
         unsigned operator()(zstring const & s) const {
-            return string_hash(s.encode().c_str(), static_cast<unsigned>(s.length()), 17);
+            auto str = s.encode();
+            return string_hash(str.c_str(), static_cast<unsigned>(s.length()), 17);
         }
     };
     typedef map<zstring, expr*, zstring_hash_proc, default_eq<zstring> > string_map;

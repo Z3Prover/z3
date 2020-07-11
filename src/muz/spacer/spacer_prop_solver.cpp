@@ -79,7 +79,8 @@ void prop_solver::add_level()
     unsigned idx = level_cnt();
     std::stringstream name;
     name << m_name << "#level_" << idx;
-    func_decl * lev_pred = m.mk_fresh_func_decl(name.str().c_str(), 0, nullptr, m.mk_bool_sort());
+    auto str = name.str();
+    func_decl * lev_pred = m.mk_fresh_func_decl(str.c_str(), 0, nullptr, m.mk_bool_sort());
     m_level_preds.push_back(lev_pred);
 
     app_ref pos_la(m.mk_const(lev_pred), m);

@@ -405,7 +405,8 @@ private:
             }
         }
         func_decl_ref f(m);
-        f = m.mk_fresh_func_decl(m_name.str().c_str(), "", sorts1.size(), sorts1.c_ptr(), m.mk_bool_sort());
+        auto str = m_name.str();
+        f = m.mk_fresh_func_decl(str.c_str(), "", sorts1.size(), sorts1.c_ptr(), m.mk_bool_sort());
         m_fresh_predicates.push_back(f);
         return app_ref(m.mk_app(f, args.size(), args.c_ptr()), m);
     }

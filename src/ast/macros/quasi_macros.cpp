@@ -206,8 +206,8 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
         if (!is_var(arg) || v_seen.get(to_var(arg)->get_idx())) {
             unsigned inx = m_new_var_names.size();
             m_new_name.str("");
-            m_new_name << "X" << inx;
-            m_new_var_names.push_back(symbol(m_new_name.str().c_str()));
+            m_new_name << 'X' << inx;
+            m_new_var_names.push_back(symbol(m_new_name.str()));
             m_new_qsorts.push_back(f->get_domain()[i]);
 
             m_new_vars.push_back(m.mk_var(inx + q->get_num_decls(), f->get_domain()[i]));

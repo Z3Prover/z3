@@ -20,8 +20,9 @@ Revision History:
   // include "util/new_symbol.h"
 #else
 #pragma once
-#include<ostream>
-#include<climits>
+#include <climits>
+#include <string>
+#include <ostream>
 
 #include "util/util.h"
 #include "util/tptr.h"
@@ -56,6 +57,7 @@ public:
         m_data(nullptr) {
     }
     explicit symbol(char const * d);
+    explicit symbol(const std::string & str) : symbol(str.c_str()) {}
     explicit symbol(unsigned idx):
         m_data(BOXTAGINT(char const *, idx, 1)) {
 #if !defined(__LP64__) && !defined(_WIN64)

@@ -78,6 +78,16 @@ public:
         m_pos += len;
     }
 
+    void append(const std::string &str) {
+        size_t len     = str.size();
+        size_t new_pos = m_pos + len;
+        while (new_pos > m_capacity) {
+            expand();
+        }
+        memcpy(m_buffer + m_pos, str.c_str(), len);
+        m_pos += len;
+    }
+
     void append(int n) {
         auto str = std::to_string(n);
         append(str.c_str());
@@ -117,6 +127,12 @@ public:
 
 template<unsigned SZ>
 inline string_buffer<SZ> & operator<<(string_buffer<SZ> & buffer, const char * str) {
+    buffer.append(str);
+    return buffer;
+}
+
+template<unsigned SZ>
+inline string_buffer<SZ> & operator<<(string_buffer<SZ> & buffer, const std::string &str) {
     buffer.append(str);
     return buffer;
 }

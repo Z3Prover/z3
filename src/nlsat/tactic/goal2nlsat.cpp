@@ -365,7 +365,7 @@ public:
                 //expr*    x = m_x2t->find(ra->x());
                 std::ostringstream strm;
                 s.display(strm, l.sign()?~l:l);
-                result = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
+                result = m.mk_const(symbol(strm.str()), m.mk_bool_sort());
             }
         }
 

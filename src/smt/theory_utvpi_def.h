@@ -234,9 +234,10 @@ namespace smt {
             return;
         }
         std::stringstream msg;
-        msg << "found non utvpi logic expression:\n" << mk_pp(n, m) << "\n";
-        TRACE("utvpi", tout << msg.str(););
-        warning_msg("%s", msg.str().c_str());
+        msg << "found non utvpi logic expression:\n" << mk_pp(n, m) << '\n';
+        auto str = msg.str();
+        TRACE("utvpi", tout << str;);
+        warning_msg("%s", str.c_str());
         ctx.push_trail(value_trail<context, bool>(m_non_utvpi_exprs));
         m_non_utvpi_exprs = true;        
     }

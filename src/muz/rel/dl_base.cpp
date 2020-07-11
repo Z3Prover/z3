@@ -373,7 +373,8 @@ namespace datalog {
             std::ostringstream buffer;
             buffer << "creating large table of size " << upper_bound;
             if (p) buffer << " for relation " << p->get_name();
-            warning_msg("%s", buffer.str().c_str());
+            auto str = buffer.str();
+            warning_msg("%s", str.c_str());
         }
 
         for (table_element i = 0; i < upper_bound; i++) {

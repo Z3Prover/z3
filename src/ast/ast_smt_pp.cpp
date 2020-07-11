@@ -62,7 +62,7 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
 
     if (s.is_numerical()) {
         buffer << s << k;
-        return symbol(buffer.str().c_str());
+        return symbol(buffer.str());
     }
 
     if (!s.bare_str()) {
@@ -78,7 +78,7 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
         buffer << "!" << k;
     }
 
-    return symbol(buffer.str().c_str());
+    return symbol(buffer.str());
 }
 
 bool smt_renaming::is_legal(char c) {

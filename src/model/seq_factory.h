@@ -97,7 +97,7 @@ public:
             while (true) {
                 std::ostringstream strm;
                 strm << m_unique_delim << std::hex << m_next++ << std::dec << m_unique_delim;
-                symbol sym(strm.str().c_str());
+                symbol sym(strm.str());
                 if (m_strings.contains(sym)) continue;
                 m_strings.insert(sym);
                 return u.str.mk_string(sym);

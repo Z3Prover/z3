@@ -40,7 +40,7 @@ public:
         for (unsigned i = 0; i < N; ++i) {
             std::stringstream strm;
             strm << "b" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort()));
+            vars.push_back(m.mk_const(symbol(strm.str()), m.mk_bool_sort()));
             std::cout << "(declare-const " << strm.str() << " Bool)\n";
         }
     }

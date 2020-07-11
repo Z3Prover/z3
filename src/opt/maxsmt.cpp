@@ -251,7 +251,8 @@ namespace opt {
             m_msolver = mk_sortmax(m_c, m_weights, m_soft_constraints);
         }
         else {
-            warning_msg("solver %s is not recognized, using default 'maxres'", maxsat_engine.str().c_str());
+            auto str = maxsat_engine.str();
+            warning_msg("solver %s is not recognized, using default 'maxres'", str.c_str());
             m_msolver = mk_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
 

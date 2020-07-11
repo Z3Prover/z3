@@ -140,7 +140,7 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
             name << "u" << i;
             increments.push_back(tmp);
             vars.push_back(var);
-            names.push_back(symbol(name.str().c_str()));
+            names.push_back(symbol(name.str()));
             sorts.push_back(a.mk_int());
         }
     }

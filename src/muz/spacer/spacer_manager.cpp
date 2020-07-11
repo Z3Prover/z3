@@ -180,7 +180,7 @@ func_decl * manager::get_n_pred(func_decl* s) {
 app* mk_zk_const(ast_manager &m, unsigned idx, sort *s) {
     std::stringstream name;
     name << "sk!" << idx;
-    return m.mk_const(symbol(name.str().c_str()), s);
+    return m.mk_const(symbol(name.str()), s);
 }
 
 namespace find_zk_const_ns {

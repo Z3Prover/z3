@@ -199,12 +199,6 @@ zstring::zstring(unsigned ch) {
     m_buffer.push_back(ch);
 }
 
-zstring& zstring::operator=(zstring const& other) {
-    m_buffer.reset();
-    m_buffer.append(other.m_buffer);
-    return *this;
-}
-
 zstring zstring::reverse() const {
     zstring result;
     for (unsigned i = length(); i-- > 0; ) {
@@ -876,7 +870,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         if (!(num_parameters == 1 && parameters[0].is_int())) 
             m.raise_exception("character literal expects integer parameter");
         zstring zs(parameters[0].get_int());        
-        parameter p(zs.encode().c_str());
+        parameter p(zs.encode());
         return m.mk_const_decl(m_stringc_sym, m_string,func_decl_info(m_family_id, OP_STRING_CONST, 1, &p));
     }
         
@@ -991,7 +985,7 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     init();
     for (unsigned i = 0; i < m_sigs.size(); ++i) {
         if (m_sigs[i]) {
-            op_names.push_back(builtin_name(m_sigs[i]->m_name.str().c_str(), i));
+            op_names.push_back(builtin_name(m_sigs[i]->m_name.str(), i));
         }
     }
     op_names.push_back(builtin_name("str.in.re", _OP_STRING_IN_REGEXP));
@@ -1024,7 +1018,7 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
 
 app* seq_decl_plugin::mk_string(symbol const& s) {
     zstring canonStr(s.bare_str());
-    symbol canonSym(canonStr.encode().c_str());
+    symbol canonSym(canonStr.encode());
     parameter param(canonSym);
     func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
                                             func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
@@ -1032,7 +1026,7 @@ app* seq_decl_plugin::mk_string(symbol const& s) {
 }
 
 app* seq_decl_plugin::mk_string(zstring const& s) {
-    symbol sym(s.encode().c_str());
+    symbol sym(s.encode());
     parameter param(sym);
     func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
                                             func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));

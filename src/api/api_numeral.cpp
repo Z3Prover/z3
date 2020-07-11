@@ -191,7 +191,7 @@ extern "C" {
         if (ok && r.is_int() && !r.is_neg()) {
             std::stringstream strm;
             r.display_bin(strm, r.get_num_bits());
-            return mk_c(c)->mk_external_string(strm.str().c_str());
+            return mk_c(c)->mk_external_string(strm.str());
         }
         else {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);

@@ -215,6 +215,11 @@ struct check_logic::imp {
     struct failed {};
     std::string m_last_error;
 
+    void fail(std::string &&msg) {
+        m_last_error = std::move(msg);
+        throw failed();
+    }
+
     void fail(char const * msg) {
         m_last_error = msg;
         throw failed();
@@ -473,7 +478,7 @@ struct check_logic::imp {
         else {
             std::stringstream strm;
             strm << "logic does not support theory " << m.get_family_name(fid);
-            fail(strm.str().c_str());
+            fail(strm.str());
         }
     }
 

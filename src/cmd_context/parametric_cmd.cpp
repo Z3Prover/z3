@@ -26,7 +26,7 @@ char const * parametric_cmd::get_descr(cmd_context & ctx) const {
         m_descr->append("\nThe following options are available:\n");
         std::ostringstream buf;
         pdescrs(ctx).display(buf, 2);
-        m_descr->append(buf.str().c_str());
+        m_descr->append(buf.str());
     }
     return m_descr->c_str();
 }
@@ -38,7 +38,7 @@ cmd_arg_kind parametric_cmd::next_arg_kind(cmd_context & ctx) const {
 
 void parametric_cmd::set_next_arg(cmd_context & ctx, symbol const & s) { 
     if (m_last == symbol::null) {
-        m_last = symbol(norm_param_name(s).c_str());
+        m_last = symbol(norm_param_name(s));
         if (pdescrs(ctx).get_kind(m_last.bare_str()) == CPK_INVALID)
             throw cmd_exception("invalid keyword argument");
         return;

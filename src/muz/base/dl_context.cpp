@@ -422,7 +422,7 @@ namespace datalog {
         if (!e) {
             std::stringstream name_stm;
             name_stm << '#' << arg_index;
-            return symbol(name_stm.str().c_str());
+            return symbol(name_stm.str());
         }
         SASSERT(arg_index < e->get_data().m_value.size());
         return e->get_data().m_value[arg_index];
@@ -1183,11 +1183,11 @@ namespace datalog {
                 out << " :named ";
                 while (fresh_names.contains(nm)) {
                     std::ostringstream s;
-                    s << nm << "!";
-                    nm = symbol(s.str().c_str());
+                    s << nm << '!';
+                    nm = symbol(s.str());
                 }
                 fresh_names.add(nm);
-                display_symbol(out, nm) << ")";
+                display_symbol(out, nm) << ')';
             }
             out << ")\n";
         }
