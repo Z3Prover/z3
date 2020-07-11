@@ -2795,7 +2795,7 @@ class IntNumRef(ArithRef):
     def as_binary_string(self):
         """Return a Z3 integer numeral as a Python binary string.
         >>> v = IntVal(10)
-        >>> v.as_string()
+        >>> v.as_binary_string()
         '1010'
         """
         return Z3_get_numeral_binary_string(self.ctx_ref(), self.as_ast())
