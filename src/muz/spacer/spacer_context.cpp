@@ -442,10 +442,6 @@ derivation::premise::premise (pred_transformer &pt, unsigned oidx,
             m_ovars.push_back(m.mk_const(sm.n2o(v->get_decl(), m_oidx))); 
 }
 
-derivation::premise::premise (const derivation::premise &p) :
-    m_pt (p.m_pt), m_oidx (p.m_oidx), m_summary (p.m_summary), m_must (p.m_must),
-    m_ovars (p.m_ovars) {}
-
 /// \brief Updated the summary.
 /// The new summary is over n-variables.
 void derivation::premise::set_summary (expr * summary, bool must,

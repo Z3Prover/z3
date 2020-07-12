@@ -212,11 +212,6 @@ public:
     eautomaton * get_automaton() const { return aut; }
     expr * get_regex_term() const { return re_term; }
     bool get_polarity() const { return polarity; }
-
-    virtual ~regex_automaton_under_assumptions() {
-        // don't free str_in_re or aut;
-        // they are managed separately
-    }
 };
 
 class char_union_find {

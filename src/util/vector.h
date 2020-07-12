@@ -69,7 +69,7 @@ class vector {
             m_data            = reinterpret_cast<T *>(mem);
         }
         else {
-            //static_assert(std::is_nothrow_move_constructible<T>::value, "");
+            static_assert(std::is_nothrow_move_constructible<T>::value, "");
             SASSERT(capacity() > 0);
             SZ old_capacity = reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX];
             SZ old_capacity_T = sizeof(T) * old_capacity + sizeof(SZ) * 2;

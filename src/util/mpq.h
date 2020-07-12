@@ -29,7 +29,6 @@ class mpq {
 public:
     mpq(int v):m_num(v), m_den(1) {}
     mpq():m_den(1) {}
-    mpq(mpq &&) = default;
     mpq & operator=(mpq const &) = delete;
     void swap(mpq & other) { m_num.swap(other.m_num); m_den.swap(other.m_den); }
     mpz const & numerator() const { return m_num; }

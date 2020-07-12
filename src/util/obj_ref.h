@@ -83,11 +83,13 @@ public:
         return *this;
     }
     
-    obj_ref & operator=(obj_ref & n) {
+    obj_ref & operator=(const obj_ref & n) {
         SASSERT(&m_manager == &n.m_manager);
-        n.inc_ref();
-        dec_ref();
-        m_obj = n.m_obj;
+        if (m_obj != n.m_obj) {
+            dec_ref();
+            m_obj = n.m_obj;
+            inc_ref();
+        }
         return *this;
     }
 

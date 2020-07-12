@@ -756,7 +756,6 @@ class derivation {
     public:
         premise (pred_transformer &pt, unsigned oidx, expr *summary, bool must,
                  const ptr_vector<app> *aux_vars = nullptr);
-        premise (const premise &p);
 
         bool is_must() {return m_must;}
         expr * get_summary() {return m_summary.get ();}

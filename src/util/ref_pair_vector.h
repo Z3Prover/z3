@@ -49,14 +49,10 @@ public:
 
     ref_pair_vector_core(Ref const & r = Ref()):Ref(r) {}
 
-    ref_pair_vector_core(ref_pair_vector_core && other) :
-        Ref(std::move(other)),
-        m_nodes(std::move(other.m_nodes)) {}
-    
     ~ref_pair_vector_core() {
         dec_range_ref(m_nodes.begin(), m_nodes.end());
     }
-    
+
     void reset() {
         dec_range_ref(m_nodes.begin(), m_nodes.end());
         m_nodes.reset();

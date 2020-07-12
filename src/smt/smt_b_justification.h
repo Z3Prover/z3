@@ -41,10 +41,6 @@ namespace smt {
         b_justification():
             m_data(reinterpret_cast<void*>(static_cast<size_t>(AXIOM))) {}
 
-        b_justification(b_justification const & source):
-            m_data(source.m_data) {
-        }
-
         explicit b_justification(clause * c):
             m_data(TAG(void*, c, CLAUSE)) {
         }

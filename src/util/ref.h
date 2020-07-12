@@ -17,18 +17,19 @@ Revision History:
 
 --*/
 #pragma once
+#include <utility>
 
 template<typename T>
 class ref {
     T * m_ptr;
 
-    void inc_ref() { 
+    void inc_ref() {
         if (m_ptr) {
             m_ptr->inc_ref();
         }
     }
 
-    void dec_ref() { 
+    void dec_ref() {
         if (m_ptr) {
             m_ptr->dec_ref();
         }
@@ -49,7 +50,10 @@ public:
         inc_ref();
     }
 
-   ref (ref && r): m_ptr (r.detach ()) {}
+   ref (ref && r) noexcept : m_ptr(nullptr) {
+       std::swap(m_ptr, r.m_ptr);
+   }
+
     ~ref() {
         dec_ref();
     }

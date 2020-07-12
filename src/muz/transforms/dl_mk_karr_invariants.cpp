@@ -60,12 +60,6 @@ namespace datalog {
 
     mk_karr_invariants::~mk_karr_invariants() { }
 
-    matrix& matrix::operator=(matrix const& other) {
-        reset();
-        append(other);
-        return *this;
-    }
-
     void matrix::display_row(
         std::ostream& out, vector<rational> const& row, rational const& b, bool is_eq) {
         for (unsigned j = 0; j < row.size(); ++j) {

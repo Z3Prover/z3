@@ -70,16 +70,12 @@ public:
         m_lower_bound_witness(UINT_MAX),
         m_upper_bound_witness(UINT_MAX),
         m_associated_with_row(false) {}
-    
+
     ul_pair(bool associated_with_row) :
         m_lower_bound_witness(UINT_MAX),
         m_upper_bound_witness(UINT_MAX),
         m_associated_with_row(associated_with_row) {}
-    
-    ul_pair(const ul_pair & o):
-        m_lower_bound_witness(o.m_lower_bound_witness),
-        m_upper_bound_witness(o.m_upper_bound_witness),
-        m_associated_with_row(o.m_associated_with_row) {}
+
     bool associated_with_row() const { return m_associated_with_row; }
 };
 

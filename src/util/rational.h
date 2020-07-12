@@ -40,7 +40,7 @@ public:
     rational() {}
     
     rational(rational const & r) { m().set(m_val, r.m_val); }
-    rational(rational&&) = default;
+    rational(rational&&) noexcept = default;
 
     explicit rational(int n) { m().set(m_val, n); }
 
@@ -131,7 +131,9 @@ public:
     rational const & get_rational() const { return *this; }
 
     rational const & get_infinitesimal() const { return m_zero; }
-    
+
+    rational & operator=(rational&&) = default;
+
     rational & operator=(rational const & r) {
         m().set(m_val, r.m_val);
         return *this;

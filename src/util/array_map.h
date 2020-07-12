@@ -76,7 +76,6 @@ class array_map {
 public:
 
     array_map() = default;
-    array_map(array_map&&) noexcept = default;
     array_map(Plugin const & p) : m_plugin(p) {}
 
     ~array_map() { really_flush(); }

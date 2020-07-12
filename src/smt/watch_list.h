@@ -85,7 +85,7 @@ namespace smt {
             m_data(nullptr) {
         }
 
-        watch_list(watch_list && other) : m_data(nullptr) {
+        watch_list(watch_list && other) noexcept : m_data(nullptr) {
             std::swap(m_data, other.m_data);
         }
         

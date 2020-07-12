@@ -58,17 +58,6 @@ public:
     stacked_value(const T&& m) {
         m_value = std::move(m);
     }
-    
-    T& operator=(T arg) { // copy/move constructor
-        m_value = arg;
-        return m_value;
-    }
-
-    stacked_value& operator=(stacked_value const& other) {
-        m_value = other.m_value;
-        m_stack = other.m_stack;
-        return *this;
-    }
 
     operator T&() {
         return m_value;

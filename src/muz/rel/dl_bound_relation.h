@@ -94,7 +94,6 @@ namespace datalog {
     struct uint_set2 {
         uint_set lt;
         uint_set le;
-        uint_set2(uint_set2 const& other):lt(other.lt), le(other.le) {}
         uint_set2() {}
         bool operator==(const uint_set2& other) const {
             return other.lt == lt && other.le == le;
@@ -120,7 +119,6 @@ namespace datalog {
 
     public:
         bound_relation(bound_relation_plugin& p, relation_signature const& s, bool is_empty);
-        bound_relation& operator=(bound_relation const& other);
 
         bool empty() const override { return m_empty; }
         void add_fact(const relation_fact & f) override;

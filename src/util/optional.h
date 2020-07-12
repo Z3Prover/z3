@@ -22,39 +22,31 @@ Revision History:
 
 template<class T>
 class optional {
-    T* m_obj;
-    char m_initialized;
-
-    void construct(const T & val) {
-        m_initialized = 1;
-        m_obj = alloc(T, val);
-    }
+    T* m_obj = nullptr;
 
     void destroy() {
-        if (m_initialized == 1) {
-            dealloc(m_obj);
-            m_obj = nullptr;
-        }
-        m_initialized = 0;
+        dealloc(m_obj);
+        m_obj = nullptr;
     }
 
 public:
-    optional():
-        m_obj(nullptr), m_initialized(0) {}
+    optional() {}
 
     explicit optional(const T & val) {
-        construct(val);
+        m_obj = alloc(T, val);
     }
 
-    optional(T && val) noexcept : m_obj(nullptr), m_initialized(0) {
+    explicit optional(T && val) {
+        m_obj = alloc(T, std::move(val));
+    }
+
+    optional(optional<T> && val) noexcept {
         std::swap(m_obj, val.m_obj);
-        std::swap(m_initialized, val.m_initialized);
     }
 
-    optional(const optional<T> & val):
-        m_initialized(0) {
-        if (val.m_initialized == 1) {
-            construct(*val);
+    optional(const optional<T> & val) {
+        if (val.m_obj) {
+            m_obj = alloc(T, *val);
         }
     }
 
@@ -64,56 +56,54 @@ public:
     
     static optional const & undef() { static optional u;  return u; }
  
-    bool initialized() const { return m_initialized == 1; }
-    operator bool() const { return m_initialized == 1; }
-    bool operator!() const { return m_initialized == 0; }
+    bool initialized() const { return m_obj; }
+    operator bool() const { return m_obj; }
+    bool operator!() const { return !m_obj; }
     
     T * get() const { 
-        if (m_initialized == 1) {
-            return m_obj;
-        }
-        else {
-            return 0;
-        }
+        return m_obj;
     }
 
     void set_invalid() {
-        if (m_initialized == 1) {
-            destroy();
-        }
+        destroy();
     }
 
     T * operator->() {
-        SASSERT(m_initialized==1);
+        SASSERT(m_obj);
         return m_obj;
     }
 
     T const * operator->() const {
-        SASSERT(m_initialized==1);
+        SASSERT(m_obj);
         return m_obj;
     }
 
     const T & operator*() const {
-        SASSERT(m_initialized==1);
+        SASSERT(m_obj);
         return *m_obj;
     }
     
     T & operator*() {
-        SASSERT(m_initialized==1);
+        SASSERT(m_obj);
         return *m_obj;
     }
 
     optional & operator=(const T & val) {
         destroy();
-        construct(val);
+        m_obj = alloc(T, val);
         return * this;
+    }
+
+    optional & operator=(optional && val) {
+        std::swap(m_obj, val.m_obj);
+        return *this;
     }
 
     optional & operator=(const optional & val) {
         if (&val != this) {
             destroy();
-            if (val.m_initialized) {
-                construct(*val);
+            if (val.m_obj) {
+                m_obj = alloc(T, *val);
             }
         }
         return *this;
@@ -135,8 +125,6 @@ public:
     optional():m_ptr(nullptr) {}
 
     explicit optional(T * val):m_ptr(val) {}
-    
-    optional(const optional & val):m_ptr(val.m_ptr) {}
 
     static optional const & undef() { return m_undef; }
 

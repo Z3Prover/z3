@@ -98,16 +98,10 @@ class mpz {
     friend class mpbq;
     friend class mpbq_manager;
     friend class mpz_stack;
-    mpz & operator=(mpz const & other) { UNREACHABLE(); return *this; }
 public:
     mpz(int v):m_val(v), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
     mpz():m_val(0), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
     mpz(mpz_type* ptr): m_val(0), m_kind(mpz_small), m_owner(mpz_ext), m_ptr(ptr) { SASSERT(ptr);}
-    mpz(mpz && other) noexcept : m_val(other.m_val), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {
-        std::swap(m_ptr, other.m_ptr);
-        m_owner = other.m_owner;
-        m_kind = other.m_kind;
-    }
     void swap(mpz & other) { 
         std::swap(m_val, other.m_val);
         std::swap(m_ptr, other.m_ptr);

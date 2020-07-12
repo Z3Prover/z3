@@ -264,7 +264,6 @@ public:
               unsigned num_parameters = 0, parameter const * parameters = nullptr, bool private_params = false);
 
     decl_info(decl_info const& other);
-    ~decl_info() {}
 
     void init_eh(ast_manager & m);
     void del_eh(ast_manager & m);
@@ -314,7 +313,6 @@ class sort_size {
 public:
     sort_size():m_kind(SS_INFINITE) {}
     sort_size(uint64_t const & sz):m_kind(SS_FINITE), m_size(sz) {}
-    sort_size(sort_size const& other): m_kind(other.m_kind), m_size(other.m_size) {}
     explicit sort_size(rational const& r) {
         if (r.is_uint64()) {
             m_kind = SS_FINITE;
@@ -371,8 +369,6 @@ public:
     sort_info(decl_info const& di, sort_size const& num_elements) : 
         decl_info(di), m_num_elements(num_elements) {}
 
-    ~sort_info() {}
-
     bool is_infinite() const { return m_num_elements.is_infinite(); }
     bool is_very_big() const { return m_num_elements.is_very_big(); }
     sort_size const & get_num_elements() const { return m_num_elements; }
@@ -403,7 +399,6 @@ struct func_decl_info : public decl_info {
     bool m_lambda:1;
 
     func_decl_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind, unsigned num_parameters = 0, parameter const * parameters = nullptr);
-    ~func_decl_info() {}
 
     bool is_associative() const { return m_left_assoc && m_right_assoc; }
     bool is_left_associative() const { return m_left_assoc; }

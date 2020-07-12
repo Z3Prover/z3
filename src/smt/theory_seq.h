@@ -157,18 +157,6 @@ namespace smt {
             
             eq(unsigned id, expr_ref_vector& l, expr_ref_vector& r, dependency* d):
                 m_id(id), m_lhs(l), m_rhs(r), m_dep(d) {}
-            eq(eq const& other): m_id(other.m_id), m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_dep(other.m_dep) {}
-            eq& operator=(eq const& other) {
-                if (this != &other) {
-                    m_lhs.reset(); 
-                    m_rhs.reset();
-                    m_lhs.append(other.m_lhs); 
-                    m_rhs.append(other.m_rhs); 
-                    m_dep = other.m_dep;
-                    m_id = other.m_id;
-                } 
-                return *this; 
-            }
             expr_ref_vector const& ls() const { return m_lhs; }
             expr_ref_vector const& rs() const { return m_rhs; }
             dependency* dep() const { return m_dep; }
@@ -205,21 +193,6 @@ namespace smt {
                 m_dep(dep) {
                 }
 
-            ne(ne const& other): 
-                m_l(other.m_l), m_r(other.m_r),
-                m_eqs(other.m_eqs), 
-                m_lits(other.m_lits), m_dep(other.m_dep) {}
-
-            ne& operator=(ne const& other) { 
-                if (this != &other) {
-                    m_l = other.m_l;
-                    m_r = other.m_r;
-                    m_eqs.reset();  m_eqs.append(other.m_eqs);
-                    m_lits.reset(); m_lits.append(other.m_lits); 
-                    m_dep = other.m_dep; 
-                }
-                return *this; 
-            }            
             vector<decomposed_eq> const& eqs() const { return m_eqs; }
             decomposed_eq const& operator[](unsigned i) const { return m_eqs[i]; }
 
@@ -239,18 +212,7 @@ namespace smt {
                 m_contains(c), 
                 m_len_gt(len_gt),
                 m_dep(dep) {}
-            nc(nc const& other):
-                m_contains(other.m_contains), 
-                m_len_gt(other.m_len_gt),
-                m_dep(other.m_dep) {}
-            nc& operator=(nc const& other) {
-                if (this != &other) {
-                    m_contains = other.m_contains;
-                    m_dep = other.m_dep;
-                    m_len_gt = other.m_len_gt;
-                }
-                return *this;
-            }
+
             dependency* deps() const { return m_dep; }
             expr_ref const& contains() const { return m_contains; }
             literal len_gt() const { return m_len_gt; }

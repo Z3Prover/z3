@@ -68,15 +68,7 @@ class inf_eps_rational {
         return s;
     }
 
-    inf_eps_rational():
-        m_infty(),
-        m_r()
-    {}
-
-    inf_eps_rational(const inf_eps_rational & r): 
-        m_infty(r.m_infty),
-        m_r(r.m_r)
-     {}
+    inf_eps_rational() = default;
 
     explicit inf_eps_rational(int n):
         m_infty(),
@@ -92,8 +84,6 @@ class inf_eps_rational {
         m_infty(i),
         m_r(r) {
     }
-
-    ~inf_eps_rational() {}
 
     /**
        \brief Set inf_eps_rational to 0.
@@ -161,13 +151,6 @@ class inf_eps_rational {
 
     static inf_eps_rational infinity() {
         return inf_eps_rational(rational::one(), Numeral::zero());
-    }
-
-
-    inf_eps_rational & operator=(const inf_eps_rational & r) {
-        m_infty = r.m_infty;
-        m_r = r.m_r;
-        return *this;
     }
 
     inf_eps_rational & operator=(const Numeral & r) {

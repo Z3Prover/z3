@@ -27,7 +27,6 @@ Revision History:
 class hwf {
     friend class hwf_manager;
     double value;
-    hwf & operator=(hwf const & other) { UNREACHABLE(); return *this; }
     uint64_t get_raw() const {
       uint64_t n;
       SASSERT(sizeof(n) == sizeof(value));
@@ -35,8 +34,8 @@ class hwf {
       return n;
     }
 
-public:    
-    void swap(hwf & other) { double t = value; value = other.value; other.value = t; }
+public:
+    void swap(hwf & other) { std::swap(value, other.value); }
 };
 
 
