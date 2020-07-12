@@ -90,6 +90,19 @@ public:
         SASSERT(invariant());
     }
 
+    void set(unsigned idx, T && t) {
+        SASSERT(idx < m_size);
+        unsigned n = m_index[idx];
+        if (n >= m_elems_start) {
+            m_elems[n] = std::move(t);
+        }
+        else {
+            set_index(idx, m_elems.size());
+            m_elems.push_back(std::move(t));
+        }
+        SASSERT(invariant());
+    }
+
     class iterator {
         scoped_vector const& m_vec;
         unsigned m_index;
@@ -117,7 +130,14 @@ public:
 
     void push_back(T const& t) {
         set_index(m_size, m_elems.size());
-        m_elems.push_back(t);    
+        m_elems.push_back(t);
+        ++m_size;
+        SASSERT(invariant());
+    }
+
+    void push_back(T && t) {
+        set_index(m_size, m_elems.size());
+        m_elems.push_back(std::move(t));
         ++m_size;
         SASSERT(invariant());
     }
@@ -135,7 +155,7 @@ public:
     void erase_and_swap(unsigned i) {
         if (i + 1 < size()) {
             auto n = m_elems[m_index[size() - 1]];
-            set(i, n);
+            set(i, std::move(n));
         }
         pop_back();
     }

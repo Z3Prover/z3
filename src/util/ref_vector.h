@@ -324,11 +324,6 @@ public:
         return *this;
     }
     
-    ref_vector & operator=(ref_vector const & other) {
-        set(other);
-        return *this;
-    }
-
     ref_vector & operator=(ref_vector && other) = default;
 
     bool operator==(ref_vector const& other) const {
