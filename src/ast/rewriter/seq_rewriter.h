@@ -137,7 +137,6 @@ class seq_rewriter {
 
         typedef hashtable<op_entry, hash_entry, eq_entry> op_table;
 
-        ast_manager&    m;
         unsigned        m_max_cache_size { 10000 };
         expr_ref_vector m_trail;
         op_table        m_table;
