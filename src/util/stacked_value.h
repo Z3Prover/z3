@@ -59,6 +59,10 @@ public:
         m_value = std::move(m);
     }
 
+    void operator=(T &&arg) {
+        m_value = std::move(arg);
+    }
+
     operator T&() {
         return m_value;
     }
