@@ -224,10 +224,8 @@ bool theory_seq::reduce_ne(unsigned idx) {
     TRACE("seq", display_disequation(tout << "updated: " << updated << "\n", n););
 
     if (updated) {
-        auto new_n(ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
-        m_nqs.set(idx, new_n);
+        m_nqs.set(idx, ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
         TRACE("seq", display_disequation(tout << "updated:\n", m_nqs[idx]););
-        TRACE("seq", display_disequation(tout << "updated:\n", new_n););
     }
     return false;
 }
