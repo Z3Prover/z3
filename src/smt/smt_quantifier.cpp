@@ -170,14 +170,20 @@ namespace smt {
         void display_stats(std::ostream & out, quantifier * q) {
             quantifier_stat * s     = get_stat(q);
             unsigned num_instances  = s->get_num_instances();
+            unsigned num_instances_simplify_true = s->get_num_instances_simplify_true();
+            unsigned num_instances_checker_sat  = s->get_num_instances_checker_sat();
             unsigned max_generation = s->get_max_generation();
             float max_cost          = s->get_max_cost();
-            if (num_instances > 0) {
+            if (num_instances > 0 or num_instances_simplify_true>0 or num_instances_checker_sat>0) {
                 out << "[quantifier_instances] ";
                 out.width(10);
                 out << q->get_qid().str() << " : ";
                 out.width(6);
                 out << num_instances << " : ";
+                out.width(3);
+                out << num_instances_simplify_true << " : ";
+                out.width(3);
+                out << num_instances_checker_sat << " : ";
                 out.width(3);
                 out << max_generation << " : " << max_cost << "\n";
             }
@@ -261,6 +267,7 @@ namespace smt {
                           unsigned min_top_generation,
                           unsigned max_top_generation,
                           vector<std::tuple<enode *, enode *>> & used_enodes) {
+
             max_generation = std::max(max_generation, get_generation(q));
             if (m_num_instances > m_params.m_qi_max_instances) {
                 return false;

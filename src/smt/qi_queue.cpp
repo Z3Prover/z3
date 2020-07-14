@@ -23,6 +23,7 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "smt/smt_context.h"
 #include "smt/qi_queue.h"
+#include <chrono>
 
 namespace smt {
 
@@ -148,8 +149,10 @@ namespace smt {
     }
 
     void qi_queue::instantiate() {
+        //Rocco
         unsigned since_last_check = 0;
         for (entry & curr : m_new_entries) {
+
             if (m_context.get_cancel_flag()) {
                 break;
             }
@@ -192,7 +195,18 @@ namespace smt {
         }
     }
 
-    void qi_queue::instantiate(entry & ent) {
+    void qi_queue::push_scope() {
+        TRACE("new_entries_bug", tout << "[qi:push-scope]\n";);
+        m_scopes.push_back(scope());
+        SASSERT(m_context.inconsistent() || m_new_entries.empty());
+        scope & s = m_scopes.back();
+        s.m_delayed_entries_lim    = m_delayed_entries.size();
+        s.m_instances_lim          = m_instances.size();
+        s.m_instantiated_trail_lim = m_instantiated_trail.size();
+    }
+
+      void qi_queue::instantiate(entry & ent) {
+
         fingerprint * f          = ent.m_qb;
         quantifier * q           = static_cast<quantifier*>(f->get_data());
         unsigned generation      = ent.m_generation;
@@ -201,33 +215,62 @@ namespace smt {
 
         ent.m_instantiated = true;
 
-        TRACE("qi_queue_profile", tout << q->get_qid() << ", gen: " << generation << " " << *f << " cost: " << ent.m_cost << "\n";);
+        //Rocco enable for the .z3_trace
+        //enable_trace("qi_queue_profile");
+        enable_trace("checker");
+        enable_trace("bindings");
+        //enable_trace("qi_queue");
+        //enable_trace("qi_queue_bug");
+        //enable_trace("qi_queue_profile_detail");
+        //enable_trace("qi_queue_instance");
+        enable_trace("qi_bindings");
+
+        //TRACE("qi_queue_profile", tout << q->get_qid() << ", gen: " << generation << " " << *f << " cost: " << ent.m_cost << "\n";);
+        TRACE("qi_bindings", tout << q->get_qid() << ", num. of bindings: " << num_bindings << "\n";);
+        TRACE("qi_queue_profile_detail", tout << "new instance details:\n" << mk_pp(q, m, false, false) << "\n";);
+        TRACE("qi_queue_profile_detail", tout << "new instance details:\n" << mk_ll_pp(q, m, false, false) << "\n";);
+
+        quantifier_stat * stat = m_qm.get_stat(q);
 
         if (m_checker.is_sat(q->get_expr(), num_bindings, bindings)) {
             TRACE("checker", tout << "instance already satisfied\n";);
+            stat->inc_num_instances_checker_sat();
             return;
         }
+
         expr_ref instance(m);
         m_subst(q, num_bindings, bindings, instance);
 
-        TRACE("qi_queue", tout << "new instance:\n" << mk_pp(instance, m) << "\n";);
+        //TRACE("qi_queue", tout << "new instance:\n" << mk_pp(instance, m) << "\n";);
         TRACE("qi_queue_instance", tout << "new instance:\n" << mk_pp(instance, m) << "\n";);
+        TRACE("qi_queue_profile_detail", tout << "new instance details:\n" << mk_ll_pp(instance, m, false, false) << "\n";);
+
         expr_ref  s_instance(m);
         proof_ref pr(m);
         m_context.get_rewriter()(instance, s_instance, pr);
-        TRACE("qi_queue_bug", tout << "new instance after simplification:\n" << s_instance << "\n";);
+        //TRACE("qi_queue_bug", tout << "new instance after simplification:\n" << s_instance << "\n";);
         if (m.is_true(s_instance)) {
-            TRACE("checker", tout << "reduced to true, before:\n" << mk_ll_pp(instance, m););
+            //TRACE("checker", tout << "reduced to true, before:\n" << mk_ll_pp(instance, m););
+            TRACE("checker", tout << "reduced to true\n";);
 
+            stat -> inc_num_instances_simplify_true();
             if (m.has_trace_stream()) {
                 display_instance_profile(f, q, num_bindings, bindings, pr ? pr->get_id() : 0, generation);
                 m.trace_stream() << "[end-of-instance]\n";
             }
-
             return;
         }
+
         TRACE("qi_queue", tout << "simplified instance:\n" << s_instance << "\n";);
-        quantifier_stat * stat = m_qm.get_stat(q);
+        TRACE("qi_queue", tout << "simplified instance:\n" << mk_pp(s_instance, m) << "\n";);
+        TRACE("qi_queue", tout << "simplified instance:\n" << mk_ll_pp(s_instance, m, false, false) << "\n";);
+
+        TRACE("qi_queue", tout << "simplified instance:\n" << pr << "\n";);
+        TRACE("qi_queue", tout << "simplified instance:\n" << mk_pp(pr, m) << "\n";);
+        TRACE("qi_queue", tout << "simplified instance:\n" << mk_ll_pp(pr, m, false, false) << "\n";);
+
+
+          //quantifier_stat * stat = m_qm.get_stat(q);
         stat->inc_num_instances();
         if (stat->get_num_instances() % m_params.m_qi_profile_freq == 0) {
             m_qm.display_stats(verbose_stream(), q);
@@ -276,7 +319,9 @@ namespace smt {
             }
             m_instances.push_back(pr1);
         }
-        TRACE("qi_queue", tout << mk_pp(lemma, m) << "\n#" << lemma->get_id() << ":=\n" << mk_ll_pp(lemma, m););
+        TRACE("qi_queue", tout << mk_pp(lemma, m) << "\n#" << lemma->get_id() << ":=\n" << mk_ll_pp(lemma, m, false, false););
+        TRACE("qi_queue_profile_detail", tout << "\n#" << s_instance->get_id() << ":=\n" << mk_ll_pp(s_instance, m););
+
         m_stats.m_num_instances++;
         unsigned gen = get_new_gen(q, generation, ent.m_cost);
         display_instance_profile(f, q, num_bindings, bindings, proof_id, gen);
@@ -312,17 +357,18 @@ namespace smt {
         if (m.has_trace_stream())
             m.trace_stream() << "[end-of-instance]\n";
 
-    }
-
-    void qi_queue::push_scope() {
-        TRACE("new_entries_bug", tout << "[qi:push-scope]\n";);
-        m_scopes.push_back(scope());
-        SASSERT(m_context.inconsistent() || m_new_entries.empty());
-        scope & s = m_scopes.back();
-        s.m_delayed_entries_lim    = m_delayed_entries.size();
-        s.m_instances_lim          = m_instances.size();
-        s.m_instantiated_trail_lim = m_instantiated_trail.size();
-    }
+        //Rocco enable for the .z3_trace
+        //disable_trace("qi_queue_profile");
+        disable_trace("bindings");
+        disable_trace("checker");
+        //disable_trace("qi_queue");
+        //disable_trace("qi_queue_bug");
+        //disable_trace("qi_queue_profile_detail");
+        //disable_trace("qi_queue_instance");
+        disable_trace("qi_bindings");
+        //disable_trace("rewriter");
+        //disable_trace("var_subst_bug");
+      }
 
     void qi_queue::pop_scope(unsigned num_scopes) {
         unsigned new_lvl    = m_scopes.size() - num_scopes;
