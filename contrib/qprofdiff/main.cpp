@@ -61,9 +61,9 @@ int parse(string const & filename, map<string, map_entry> & data) {
         if (line.substr(0, prefix_len) == prefix) {
             line = trim(line.substr(prefix_len));
             size_t from = 0, ti = 0;
-            for (size_t inx = line.find(':', from);
+            for (size_t inx = line.find(" : ", from);
                 inx != string::npos;
-                inx = line.find(':', from)) {
+                inx = line.find(" : ", from)) {
                 tokens[ti] = trim(line.substr(from, inx-from));
                 from = inx+1;
                 ti++;
