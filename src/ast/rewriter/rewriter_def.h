@@ -675,7 +675,7 @@ void rewriter_tpl<Config>::set_bindings(unsigned num_bindings, expr * const * bi
     }
     /////////////////////////////////////////////////////
     //Rocco: display_bindings is the method we were looking for!!!
-    TRACE("bindings", display_bindings(tout););
+    STRACE("bindings", display_bindings(tout););
     /////////////////////////////////////////////////////
 }
 
@@ -691,7 +691,7 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
     }
     /////////////////////////////////////////////////////
     //Rocco: display_bindings is the method we were looking for!!!
-    TRACE("bindings", display_bindings(tout););
+    STRACE("bindings", display_bindings(tout););
     /////////////////////////////////////////////////////
 }
 
