@@ -2049,7 +2049,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
 
     expr_ref shift(m), shifted_sig(m), div(m), rem(m);
     shift = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(sbits - 1, sbits),
-                                m_bv_util.mk_zero_extend(sbits-ebits, a_exp));
+                                m_bv_util.mk_sign_extend(sbits-ebits, a_exp));
     shifted_sig = m_bv_util.mk_bv_lshr(m_bv_util.mk_concat(a_sig, zero_s),
                                        m_bv_util.mk_concat(zero_s, shift));
     div = m_bv_util.mk_extract(2*sbits-1, sbits, shifted_sig);
@@ -2107,6 +2107,11 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     c52 = rm_is_rtp;
     c53 = rm_is_rtn;
 
+    dbg_decouple("fpa2bv_r2i_c51", c51);
+    dbg_decouple("fpa2bv_r2i_c52", c52);
+    dbg_decouple("fpa2bv_r2i_c53", c53);
+    dbg_decouple("fpa2bv_r2i_c531", c531);
+
     res_sig = div;
     m_simp.mk_ite(c53, v53, res_sig, res_sig);
     m_simp.mk_ite(c52, v52, res_sig, res_sig);
@@ -2132,12 +2137,15 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     min_exp = m_bv_util.mk_sign_extend(2, min_exp);
     mk_leading_zeros(res_sig, ebits+2, sig_lz);
     max_exp_delta = m_bv_util.mk_bv_sub(res_exp, min_exp);
-    sig_lz_capped = m.mk_ite(m_bv_util.mk_sle(sig_lz, max_exp_delta), sig_lz, max_exp_delta);
-    renorm_delta = m.mk_ite(m_bv_util.mk_sle(zero_e2, sig_lz_capped), sig_lz_capped, zero_e2);
+    sig_lz_capped = m.mk_ite(m_bv_util.mk_ule(sig_lz, max_exp_delta), sig_lz, max_exp_delta);
+    renorm_delta = m.mk_ite(m_bv_util.mk_ule(zero_e2, sig_lz_capped), sig_lz_capped, zero_e2);
     SASSERT(m_bv_util.get_bv_size(renorm_delta) == ebits + 2);
     res_exp = m_bv_util.mk_bv_sub(res_exp, renorm_delta);
     res_sig = m_bv_util.mk_bv_shl(res_sig, m_bv_util.mk_zero_extend(sbits-ebits-2, renorm_delta));
     dbg_decouple("fpa2bv_r2i_renorm_delta", renorm_delta);
+    dbg_decouple("fpa2bv_r2i_sig_lz", sig_lz);
+    dbg_decouple("fpa2bv_r2i_sig_lz_capped", sig_lz_capped);
+    dbg_decouple("fpa2bv_r2i_max_exp_delta", max_exp_delta);
 
     res_exp = m_bv_util.mk_extract(ebits-1, 0, res_exp);
     mk_bias(res_exp, res_exp);
