@@ -1990,11 +1990,12 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     mk_ite(sgn_eq_1, nzero, pzero, xzero);
 
     // exponent < 0 -> 0/1
-    expr_ref exp_lt_zero(m), exp_h(m);
+    expr_ref exp_lt_zero(m), exp_h(m), x_is_denormal(m);
+    mk_is_denormal(x, x_is_denormal);
     exp_h = m_bv_util.mk_extract(ebits-1, ebits-1, a_exp);
     m_simp.mk_eq(exp_h, one_1, exp_lt_zero);
     dbg_decouple("fpa2bv_r2i_exp_lt_zero", exp_lt_zero);
-    c4 = exp_lt_zero;
+    c4 = m.mk_or(exp_lt_zero, x_is_denormal);
 
     expr_ref pone(m), none(m), xone(m), c421(m), c422(m), c423(m), t1(m), t2(m), tie(m), v42(m), exp_lt_m1(m);
     mk_one(s, zero_1, pone);
