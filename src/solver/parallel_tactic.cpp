@@ -641,7 +641,7 @@ private:
                 collect_statistics(*st);
                 m_queue.task_done(st);
                 if (!st->m().inc()) m_queue.shutdown();
-                IF_VERBOSE(1, display(verbose_stream()););
+                IF_VERBOSE(2, display(verbose_stream()););
                 dealloc(st);
             }
         }
