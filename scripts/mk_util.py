@@ -1714,8 +1714,6 @@ class DotNetDLLComponent(Component):
                         '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
                         '%s.pdb' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
-            shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
-                        '%s.xml' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             shutil.copy('%s.deps.json' % os.path.join(build_path, self.dll_name),
                         '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             if DEBUG_MODE:
@@ -1727,8 +1725,6 @@ class DotNetDLLComponent(Component):
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
-            shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
-                        '%s.xml' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             shutil.copy('%s.deps.json' % os.path.join(build_path, self.dll_name),
                         '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
