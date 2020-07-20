@@ -2309,7 +2309,7 @@ namespace {
         m_pattern_instances.push_back(n);
         m_max_generation = n->get_generation();
 
-        if (m.has_trace_stream()) {
+        if (m.has_trace_stream() || is_trace_enabled("causality") || is_trace_enabled("causality_details")) {
             m_used_enodes.reset();
             m_used_enodes.push_back(std::make_tuple(nullptr, n)); // null indicates that n was matched against the trigger at the top-level
         }

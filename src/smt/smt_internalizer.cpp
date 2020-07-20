@@ -1009,7 +1009,8 @@ namespace smt {
         }
         SASSERT(e_internalized(n));
         m_stats.m_num_mk_enode++;
-        TRACE("mk_enode", tout << "created enode: #" << e->get_owner_id() << " for:\n" << mk_pp(n, m) << "\n";
+        SCTRACE("causality", is_trace_enabled("coming_from_quant"), tout << "EN: #" << e->get_owner_id() << "\n";);
+        SCTRACE("causality_details", is_trace_enabled("coming_from_quant"), tout << "created enode: #" << e->get_owner_id() << " for:\n" << mk_pp(n, m) << "\n";
               if (e->get_num_args() > 0) {
                   tout << "is_true_eq: " << e->is_true_eq() << " in cg_table: " << m_cg_table.contains_ptr(e) << " is_cgr: " 
                        << e->is_cgr() << "\n";

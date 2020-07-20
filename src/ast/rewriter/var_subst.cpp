@@ -30,7 +30,7 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
         result = n;
 
         STRACE("bindings",
-                tout << "(Ground) bindings:\n";
+                tout << "(ground)\n";
                 for (unsigned i = 0; i < num_args; i++) {
                     if (args[i]) {
                         tout << i << ": " << mk_ismt2_pp(args[i], result.m()) << "\n";

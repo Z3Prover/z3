@@ -200,8 +200,10 @@ namespace smt {
                 enode *orig = std::get<0>(n);
                 enode *substituted = std::get<1>(n);
                 if (orig == nullptr) {
+                    STRACE("new-match", tout << "New-Match! Father: " << " #" << substituted->get_owner_id() <<"\n";);
                     out << " #" << substituted->get_owner_id();
                 } else {
+                    STRACE("new-match", tout << "New-Match! Father: " << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")\n";);
                     out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
                 }
             }

@@ -205,6 +205,27 @@ namespace smt {
             return m_plugin->is_shared(n);
         }
 
+        void log_causality(
+                fingerprint* f,
+                app * pat,
+                vector<std::tuple<enode *, enode *>> & used_enodes) {
+
+            if (pat != nullptr) {
+                for (auto n : used_enodes) {
+                    enode *orig = std::get<0>(n);
+                    enode *substituted = std::get<1>(n);
+                    if (orig == nullptr) {
+                        STRACE("causality_details", tout << "New-Match: "<< static_cast<void*>(f) <<", Father: " << " #" << substituted->get_owner_id()<<"\n";);
+                        STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f) <<", Father: " << " #" << substituted->get_owner_id()<<"\n";);
+                    }
+                    else {
+                        STRACE("causality_details", tout << "New-Match: "<< static_cast<void*>(f) <<", Father: <<  " << "(#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")\n";);
+                        STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f) <<", Father: <<  " << "(#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")\n";);
+                    }
+                }
+            }
+        }
+
         void log_add_instance(
              fingerprint* f,
              quantifier * q, app * pat,
@@ -249,8 +270,9 @@ namespace smt {
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
                     enode *substituted = std::get<1>(n);
-                    if (orig == nullptr)
+                    if (orig == nullptr) {
                         out << " #" << substituted->get_owner_id();
+                    }
                     else {
                         out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
                     }
@@ -275,6 +297,9 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
             if (f) {
+                if (is_trace_enabled("causality") || is_trace_enabled("causality_details")){
+                    log_causality(f,pat,used_enodes);
+                }
                 if (has_trace_stream()) {
                     log_add_instance(f, q, pat, num_bindings, bindings, used_enodes);
                 }
