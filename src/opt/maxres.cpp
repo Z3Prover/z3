@@ -535,14 +535,19 @@ public:
         trace();
         if (m_c.num_objectives() == 1 && m_pivot_on_cs && m_csmodel.get() && m_correction_set_size < core.size()) {
             exprs cs;
-            TRACE("opt", tout << "cs " << m_correction_set_size << " " << core.size() << "\n";);
             get_current_correction_set(m_csmodel.get(), cs);
             m_correction_set_size = cs.size();
-            if (m_correction_set_size < core.size()) {
-                process_sat(cs);
+            TRACE("opt", tout << "cs " << m_correction_set_size << " " << core.size() << "\n";);
+            if (m_correction_set_size >= core.size()) 
                 return;
+            rational w(0);
+            for (expr* a : m_asms) {
+                rational w1 = m_asm2weight[a];
+                if (w != 0 && w1 != w) return;
+                w = w1;
             }
-        }
+            process_sat(cs);
+       }
     }
 
     bool get_mus_model(model_ref& mdl) {
