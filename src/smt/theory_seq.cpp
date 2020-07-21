@@ -2213,6 +2213,41 @@ expr_ref theory_seq::elim_skolem(expr* e) {
             todo.pop_back();
             continue;            
         }
+        if (m_sk.is_first(a, x) && cache.contains(x)) {
+            x = cache[x];
+            result = m_util.str.mk_substr(x, m_autil.mk_int(0), m_autil.mk_sub(m_util.str.mk_length(x), m_autil.mk_int(1)));
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();
+            continue;            
+        }
+        if (m_sk.is_last(a, x) && cache.contains(x)) {
+            x = cache[x];
+            result = m_util.str.mk_nth(x, m_autil.mk_sub(m_util.str.mk_length(x), m_autil.mk_int(1)));
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();
+            continue;            
+        }
+        if (m_sk.is_indexof_left(a, x, y) && cache.contains(x) && cache.contains(y)) {
+            x = cache[x];
+            y = cache[y];
+            result = m_util.str.mk_substr(x, m_autil.mk_int(0), m_util.str.mk_index(x, y, m_autil.mk_int(0)));
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();
+            continue;                        
+        }
+        if (m_sk.is_indexof_right(a, x, y) && cache.contains(x) && cache.contains(y)) {
+            x = cache[x];
+            y = cache[y];
+            expr_ref offset(m_autil.mk_add(m_util.str.mk_length(y), m_util.str.mk_index(x, y, m_autil.mk_int(0))), m);
+            result = m_util.str.mk_substr(x, offset, m_util.str.mk_length(x));
+            trail.push_back(result);
+            cache.insert(a, result);
+            todo.pop_back();
+            continue;                        
+        }
 
         args.reset();
         for (expr* arg : *to_app(a)) {
@@ -2282,6 +2317,7 @@ void theory_seq::validate_assign_eq(enode* a, enode* b, enode_pair_vector const&
 void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector const& lits, expr_ref_vector& fmls) {
     smt_params fp;
     fp.m_seq_validate = false;
+    fp.m_max_conflicts = 100;
     expr_ref fml(m);
     kernel k(m, fp);
     for (literal lit : lits) {
@@ -2292,6 +2328,7 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
         fmls.push_back(m.mk_eq(p.first->get_owner(), p.second->get_owner()));
     }
     TRACE("seq", tout << fmls << "\n";);
+
     for (unsigned i = 0; i < fmls.size(); ++i) {
         fml = elim_skolem(fmls.get(i));
         fmls[i] = fml;
@@ -2301,7 +2338,7 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
         k.assert_expr(f);
     }
     lbool r = k.check();
-    if (r != l_false && !m.limit().is_canceled()) {
+    if (r == l_true) {
         model_ref mdl;
         k.get_model(mdl);
         IF_VERBOSE(0, 

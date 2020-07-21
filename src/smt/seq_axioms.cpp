@@ -846,6 +846,13 @@ void seq_axioms::add_suffix_axiom(expr* e) {
     m_rewrite(t);
     literal lit = mk_literal(e);
     literal s_gt_t = mk_ge(mk_sub(mk_len(s), mk_len(t)), 1);
+#if 0
+    expr_ref x = m_sk.mk_pre(t, mk_sub(mk_len(t), mk_len(s)));
+    expr_ref y = m_sk.mk_tail(t, mk_sub(mk_len(s), a.mk_int(1)));
+    add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, y)));
+    add_axiom(lit, s_gt_t, mk_eq(mk_len(y), mk_len(s)));
+    add_axiom(lit, s_gt_t, ~mk_eq(y, s));    
+#else
     sort* char_sort = nullptr;
     VERIFY(seq.is_seq(m.get_sort(s), char_sort));
     expr_ref x = m_sk.mk("seq.suffix.x", s, t);
@@ -856,6 +863,7 @@ void seq_axioms::add_suffix_axiom(expr* e) {
     add_axiom(lit, s_gt_t, mk_seq_eq(s, mk_concat(y, seq.str.mk_unit(c), x)));
     add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(z, seq.str.mk_unit(d), x)));
     add_axiom(lit, s_gt_t, ~mk_eq(c, d));
+#endif
 }
 
 void seq_axioms::add_prefix_axiom(expr* e) {
@@ -866,6 +874,14 @@ void seq_axioms::add_prefix_axiom(expr* e) {
     m_rewrite(t);
     literal lit = mk_literal(e);
     literal s_gt_t = mk_ge(mk_sub(mk_len(s), mk_len(t)), 1);
+#if 0
+    expr_ref x = m_sk.mk_pre(t, mk_len(s));    
+    expr_ref y = m_sk.mk_tail(t, mk_sub(mk_sub(mk_len(t), mk_len(s)), a.mk_int(1)));
+    add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, y)));
+    add_axiom(lit, s_gt_t, mk_eq(mk_len(x), mk_len(s)));
+    add_axiom(lit, s_gt_t, ~mk_eq(x, s));
+
+#else
     sort* char_sort = nullptr;
     VERIFY(seq.is_seq(m.get_sort(s), char_sort));
     expr_ref x = m_sk.mk("seq.prefix.x", s, t);
@@ -876,6 +892,7 @@ void seq_axioms::add_prefix_axiom(expr* e) {
     add_axiom(lit, s_gt_t, mk_seq_eq(s, mk_concat(x, seq.str.mk_unit(c), y)));
     add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, seq.str.mk_unit(d), z)), mk_seq_eq(t, x));
     add_axiom(lit, s_gt_t, ~mk_eq(c, d));
+#endif
 }
 
 /***

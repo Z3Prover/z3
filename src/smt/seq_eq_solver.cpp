@@ -758,10 +758,6 @@ bool theory_seq::branch_ternary_variable() {
 }
 
 
-bool theory_seq::eq_unit(expr* l, expr* r) const {
-    return l == r || is_unit_nth(l) || is_unit_nth(r);
-}
-
 // exists x, y, rs' != empty s.t.  (ls = x ++ rs ++ y) || (ls = rs' ++ y && rs = x ++ rs')
 bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
@@ -773,7 +769,7 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
         return result;
     }
     for (unsigned i = 0; i < ls.size(); ++i) {
-        if (eq_unit(ls[i], rs.back())) {
+        if (!m.are_distinct(ls[i], rs.back())) {
             bool same = true;
             if (i == 0) {
                 m_overlap_lhs.insert(pair, true);
@@ -783,7 +779,7 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
             if (rs.size() > i) {
                 unsigned diff = rs.size() - (i + 1);
                 for (unsigned j = 0; same && j < i; ++j) {
-                    same = eq_unit(ls[j], rs[diff + j]);
+                    same = !m.are_distinct(ls[j], rs[diff + j]);
                 }
                 if (same) {
                     m_overlap_lhs.insert(pair, true);
@@ -794,7 +790,7 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
             else {
                 unsigned diff = (i + 1) - rs.size();
                 for (unsigned j = 0; same && j < rs.size()-1; ++j) {
-                    same = eq_unit(ls[diff + j], rs[j]);
+                    same = !m.are_distinct(ls[diff + j], rs[j]);
                 }
                 if (same) {
                     m_overlap_lhs.insert(pair, true);
@@ -819,7 +815,7 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
     }
     for (unsigned i = 0; i < ls.size(); ++i) {
         unsigned diff = ls.size()-1-i;
-        if (eq_unit(ls[diff], rs[0])) {
+        if (!m.are_distinct(ls[diff], rs[0])) {
             bool same = true;
             if (i == 0) {
                 m_overlap_rhs.insert(pair, true);
@@ -828,7 +824,7 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
             // ls = x ++ rs' && rs = rs' ++ y, diff = |x|
             if (rs.size() > i) {
                 for (unsigned j = 1; same && j <= i; ++j) {
-                    same = eq_unit(ls[diff+j], rs[j]);
+                    same = !m.are_distinct(ls[diff+j], rs[j]);
                 }
                 if (same) {
                     m_overlap_rhs.insert(pair, true);
@@ -838,7 +834,7 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
             // ls = x ++ rs ++ y, diff = |x|
             else {
                 for (unsigned j = 1; same && j < rs.size(); ++j) {
-                    same = eq_unit(ls[diff + j], rs[j]);
+                    same = !m.are_distinct(ls[diff + j], rs[j]);
                 }
                 if (same) {
                     m_overlap_rhs.insert(pair, true);

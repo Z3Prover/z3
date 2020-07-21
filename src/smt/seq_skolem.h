@@ -102,12 +102,21 @@ namespace smt {
         bool is_skolem(symbol const& s, expr const* e) const;
         bool is_skolem(expr const* e) const { return seq.is_skolem(e); }
 
+        bool is_first(expr* e, expr*& u) { return is_skolem(m_seq_first, e) && (u = to_app(e)->get_arg(0), true); }
+        bool is_last(expr* e, expr*& u) { return is_skolem(m_seq_last, e) && (u = to_app(e)->get_arg(0), true); }
         bool is_unit_inv(expr* e) const { return is_skolem(symbol("seq.unit-inv"), e); }
         bool is_unit_inv(expr* e, expr*& u) const { return is_unit_inv(e) && (u = to_app(e)->get_arg(0), true); }
         bool is_tail(expr* e) const { return is_skolem(m_tail, e); }
         bool is_seq_first(expr* e) const { return is_skolem(m_seq_first, e); }
         bool is_indexof_left(expr* e) const { return is_skolem(m_indexof_left, e); }
         bool is_indexof_right(expr* e) const { return is_skolem(m_indexof_right, e); }
+        bool is_indexof_left(expr* e, expr*& x, expr*& y) const { 
+            return is_indexof_left(e) && (x = to_app(e)->get_arg(0), y = to_app(e)->get_arg(1), true); 
+        }
+        bool is_indexof_right(expr* e, expr*& x, expr*& y) const { 
+            return is_indexof_right(e) && (x = to_app(e)->get_arg(0), y = to_app(e)->get_arg(1), true); 
+        }
+
         bool is_step(expr* e) const { return is_skolem(m_aut_step, e); }
         bool is_step(expr* e, expr*& s, expr*& idx, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }

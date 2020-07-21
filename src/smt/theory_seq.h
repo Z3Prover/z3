@@ -451,7 +451,6 @@ namespace smt {
         void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
         bool branch_variable_eq(eq const& e);
         bool branch_binary_variable(eq const& e);
-        bool eq_unit(expr* l, expr* r) const;       
         bool can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool branch_ternary_variable_rhs(eq const& e);
