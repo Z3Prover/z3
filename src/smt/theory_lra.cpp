@@ -935,7 +935,7 @@ public:
         m_bp(*this),
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
-        m_bound_predicates(m),
+        m_bound_terms(m),
         m_bound_predicate(m)
     {
     }
@@ -3935,8 +3935,9 @@ public:
     };
     unsigned                  m_bounded_range_idx;  // current size of bounded range.
     literal                   m_bounded_range_lit;  // current bounded range literal
-    expr_ref_vector           m_bound_predicates; // predicates used for bounds
+    expr_ref_vector           m_bound_terms; // predicates used for bounds
     expr_ref                  m_bound_predicate;
+    
     obj_map<expr, expr*>      m_predicate2term;
     obj_map<expr, bound_info> m_term2bound_info;
 
@@ -4013,8 +4014,9 @@ public:
         expr_ref lo(a.mk_ge(t, a.mk_int(offset - bi.m_range)), m);
         mk_axiom(~m_bounded_range_lit, mk_literal(hi));
         mk_axiom(~m_bounded_range_lit, mk_literal(lo));
-        m_bound_predicates.push_back(lo);
-        m_bound_predicates.push_back(hi);
+        m_bound_terms.push_back(lo);
+        m_bound_terms.push_back(hi);
+        m_bound_terms.push_back(t);
         m_predicate2term.insert(lo, t);
         m_predicate2term.insert(hi, t);
         m_term2bound_info.insert(t, bi);
@@ -4022,7 +4024,7 @@ public:
 
     void setup() {
         m_bounded_range_lit = null_literal;
-        m_bound_predicates.reset();
+        m_bound_terms.reset();
         m_bound_predicate = nullptr;
         m_predicate2term.reset();
         m_term2bound_info.reset();
