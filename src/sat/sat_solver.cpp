@@ -3974,7 +3974,8 @@ namespace sat {
         double multiplier = m_config.m_reward_offset * (is_sat ? m_config.m_reward_multiplier : 1.0);
         for (unsigned i = qhead; i < m_trail.size(); ++i) {
             auto v = m_trail[i].var();
-            auto d = std::max(1ull,m_stats.m_conflict - m_last_conflict[v] + 1);
+            auto d = m_stats.m_conflict - m_last_conflict[v] + 1;
+            if (d == 0) d = 1;
             auto reward = multiplier / d;            
             auto activity = m_activity[v];
             set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1.0 - m_step_size) * activity)));
