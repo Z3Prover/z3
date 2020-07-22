@@ -211,17 +211,25 @@ namespace smt {
                 vector<std::tuple<enode *, enode *>> & used_enodes) {
 
             if (pat != nullptr) {
+                if (used_enodes.size()>0){
+                    STRACE("causality_details", tout << "New-Match: "<< static_cast<void*>(f) <<", Father:";);
+                    STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f) <<", Father:";);
+                }
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
                     enode *substituted = std::get<1>(n);
                     if (orig == nullptr) {
-                        STRACE("causality_details", tout << "New-Match: "<< static_cast<void*>(f) <<", Father: " << " #" << substituted->get_owner_id()<<"\n";);
-                        STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f) <<", Father: " << " #" << substituted->get_owner_id()<<"\n";);
+                        STRACE("causality_details", tout << " #" << substituted->get_owner_id(););
+                        STRACE("causality", tout << " #" << substituted->get_owner_id(););
                     }
                     else {
-                        STRACE("causality_details", tout << "New-Match: "<< static_cast<void*>(f) <<", Father: <<  " << "(#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")\n";);
-                        STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f) <<", Father: <<  " << "(#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")\n";);
+                        STRACE("causality_details", tout  << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
+                        STRACE("causality", tout << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
                     }
+                }
+                if (used_enodes.size()>0){
+                    STRACE("causality_details", tout << "\n";);
+                    STRACE("causality", tout << "\n";);
                 }
             }
         }
