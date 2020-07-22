@@ -226,7 +226,8 @@ namespace smt {
         quantifier_stat * stat = m_qm.get_stat(q);
 
         if (m_checker.is_sat(q->get_expr(), num_bindings, bindings)) {
-            STRACE("dummy", tout << "### " << static_cast<void*>(f) <<", " << q->get_qid() << ", instance already satisfied (dummy)\n";);
+            STRACE("dummy", tout << "### " << static_cast<void*>(f) <<", " << q->get_qid() << "\n";);
+            STRACE("dummy", tout << "Instance already satisfied (dummy)\n";);
             stat->inc_num_instances_checker_sat();
             return;
         }
