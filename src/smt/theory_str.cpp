@@ -8138,7 +8138,7 @@ namespace smt {
     // Returns true if this can be done in a valid way, placing the converted value in the argument.
     // Otherwise, returns false, if str is empty or contains non-digit characters.
     bool theory_str::string_integer_conversion_valid(zstring str, rational& converted) const {
-        bool valid = true;
+        // bool valid = true;
         converted = rational::zero();
         rational ten(10);
         if (str.length() == 0) {

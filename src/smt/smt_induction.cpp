@@ -94,7 +94,9 @@ collect_induction_literals::collect_induction_literals(context& ctx, ast_manager
     m(m),
     vs(vs),
     m_literal_index(0)
-{}
+{
+    (void)vs;
+}
     
 literal_vector collect_induction_literals::operator()() {    
     literal_vector candidates = pre_select();

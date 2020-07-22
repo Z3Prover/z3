@@ -544,7 +544,6 @@ namespace smt {
         sort* elem_sort = nullptr, *seq_sort = nullptr;
         VERIFY(u().is_re(r, seq_sort));
         VERIFY(u().is_seq(seq_sort, elem_sort));
-        sort* domain[2] = { m.get_sort(n), a().mk_int() };
         return sk().mk("re.first", n, a().mk_int(r->get_id()), elem_sort);
     }
 }
