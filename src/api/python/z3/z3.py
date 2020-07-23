@@ -2921,6 +2921,12 @@ class AlgebraicNumRef(ArithRef):
         """
         return Z3_get_numeral_decimal_string(self.ctx_ref(), self.as_ast(), prec)
 
+    def poly(self):
+        return AstVector(Z3_algebraic_get_poly(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def index(self):
+        return Z3_algebraic_get_i(self.ctx_ref(), self.as_ast())
+
 def _py2expr(a, ctx=None):
     if isinstance(a, bool):
         return BoolVal(a, ctx)

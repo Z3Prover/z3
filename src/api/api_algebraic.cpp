@@ -427,14 +427,12 @@ extern "C" {
         algebraic_numbers::anum const & av = get_irrational(c, a);
         scoped_mpz_vector coeffs(_am.qm());
         _am.get_polynomial(av, coeffs);
-        api::context * _c = mk_c(c);
-        sort * s = _c->m().mk_sort(_c->get_arith_fid(), REAL_SORT);
-        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *_c, _c->m());
-        mk_c(c)->save_object(result);
-        for (unsigned i = 0; i < coeffs.size(); i++) {
-            rational r(coeffs[i]);
-            expr * a = _c->mk_numeral_core(r, s);
-            result->m_ast_vector.push_back(a);
+        api::context& _c = *mk_c(c);
+        sort * s = _c.m().mk_sort(_c.get_arith_fid(), REAL_SORT);
+        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, _c, _c.m());
+        _c.save_object(result);
+        for (auto const& c : coeffs) {
+            result->m_ast_vector.push_back(_c.mk_numeral_core(c, s));
         }
         RETURN_Z3(of_ast_vector(result));
         Z3_CATCH_RETURN(nullptr);
