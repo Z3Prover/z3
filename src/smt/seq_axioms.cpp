@@ -252,10 +252,14 @@ void seq_axioms::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
   s = "" or !contains(x*s1, s)
 */
 void seq_axioms::tightest_prefix(expr* s, expr* x) {
+    literal s_eq_emp = mk_eq_empty(s);
+    if (seq.str.max_length(s) <= 1) {
+        add_axiom(s_eq_emp, ~mk_literal(seq.str.mk_contains(x, s)));
+        return;
+    }
     expr_ref s1 = m_sk.mk_first(s);
     expr_ref c  = m_sk.mk_last(s);
     expr_ref s1c = mk_concat(s1, seq.str.mk_unit(c));
-    literal s_eq_emp = mk_eq_empty(s);
     add_axiom(s_eq_emp, mk_seq_eq(s, s1c));
     add_axiom(s_eq_emp, ~mk_literal(seq.str.mk_contains(mk_concat(x, s1), s)));
 }

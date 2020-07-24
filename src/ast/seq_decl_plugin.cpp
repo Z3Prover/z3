@@ -1285,13 +1285,18 @@ unsigned seq_util::str::min_length(expr* s) const {
 unsigned seq_util::str::max_length(expr* s) const {
     SASSERT(u.is_seq(s));
     unsigned result = 0;
-    expr* s1 = nullptr, *s2 = nullptr;
+    expr* s1 = nullptr, *s2 = nullptr, *s3 = nullptr;
+    unsigned n = 0;
     zstring st;
     auto get_length = [&](expr* s1) {
         if (is_empty(s1))
             return 0u;
         else if (is_unit(s1))
             return 1u;
+        else if (is_at(s1))
+            return 1u;
+        else if (is_extract(s1, s1, s2, s3)) 
+            return (arith_util(m).is_unsigned(s3, n)) ? n : UINT_MAX;
         else if (is_string(s1, st))
             return st.length();
         else
