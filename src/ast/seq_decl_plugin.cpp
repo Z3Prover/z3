@@ -1130,7 +1130,7 @@ expr* seq_decl_plugin::get_some_value(sort* s) {
 }
 
 app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {
-    SASSERT(range);
+    SASSERT(range);    
     parameter param(name);
     func_decl* f = m.mk_func_decl(get_family_id(), _OP_SEQ_SKOLEM, 1, &param, n, args, range);
     return m.mk_app(f, n, args);

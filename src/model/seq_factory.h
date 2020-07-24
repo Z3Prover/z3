@@ -86,7 +86,7 @@ public:
                 return true;
             }
             else {
-                    return false;
+                return false;
             }
         }
         NOT_IMPLEMENTED_YET();
@@ -106,7 +106,7 @@ public:
         sort* seq = nullptr, *ch = nullptr;
         if (u.is_re(s, seq)) {
             expr* v0 = get_fresh_value(seq);
-                return u.re.mk_to_re(v0);
+            return u.re.mk_to_re(v0);
         }
         if (u.is_char(s)) {
             //char s[2] = { ++m_char, 0 };
@@ -115,9 +115,23 @@ public:
         }
         if (u.is_seq(s, ch)) {
             expr* v = m_model.get_fresh_value(ch);
-            if (!v) return nullptr;
-            return u.str.mk_unit(v);
+            if (v) {
+                return u.str.mk_unit(v);
             }
+            else {
+                v = u.str.mk_unit(m_model.get_some_value(ch));
+                expr* uniq = nullptr;
+                if (m_unique_sequences.find(s, uniq)) {
+                    uniq = u.str.mk_concat(v, uniq);
+                }
+                else {
+                    uniq = v;
+                }                
+                m_trail.push_back(uniq);
+                m_unique_sequences.insert(s, uniq);
+                return uniq;
+            }
+        }        
         UNREACHABLE();
         return nullptr;
     }
