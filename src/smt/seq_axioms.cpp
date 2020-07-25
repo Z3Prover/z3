@@ -327,7 +327,7 @@ void seq_axioms::add_indexof_axiom(expr* i) {
     if (!offset || (a.is_numeral(offset, r) && r.is_zero())) {
         // |s| = 0 => indexof(t,s,0) = 0
         add_axiom(~s_eq_empty, i_eq_0);
-#if 0
+#if 1
         expr_ref x  = m_sk.mk_indexof_left(t, s);
         expr_ref y  = m_sk.mk_indexof_right(t, s);
         xsy         = mk_concat(x, s, y);

@@ -95,7 +95,6 @@ collect_induction_literals::collect_induction_literals(context& ctx, ast_manager
     vs(vs),
     m_literal_index(0)
 {
-//    (void)vs;
 }
     
 literal_vector collect_induction_literals::operator()() {    
