@@ -325,17 +325,29 @@ void seq_axioms::add_indexof_axiom(expr* i) {
     add_axiom(~t_eq_empty, s_eq_empty, i_eq_m1);
 
     if (!offset || (a.is_numeral(offset, r) && r.is_zero())) {
+        // |s| = 0 => indexof(t,s,0) = 0
+        add_axiom(~s_eq_empty, i_eq_0);
+#if 1
         expr_ref x  = m_sk.mk_indexof_left(t, s);
         expr_ref y  = m_sk.mk_indexof_right(t, s);
         xsy         = mk_concat(x, s, y);
         expr_ref lenx = mk_len(x);
-        // |s| = 0 => indexof(t,s,0) = 0
         // contains(t,s) & |s| != 0 => t = xsy & indexof(t,s,0) = |x|
-        add_axiom(~s_eq_empty, i_eq_0);
         add_axiom(~cnt, s_eq_empty, mk_seq_eq(t, xsy));
         add_axiom(~cnt, s_eq_empty, mk_eq(i, lenx));
         add_axiom(~cnt, mk_ge(i, 0));
         tightest_prefix(s, x);
+#else
+        // let i := indexof(t,s,0)
+        // contains(t, s) & |s| != 0 => ~contains(substr(t,0,i+len(s)-1), s)
+        //                           => substr(t,0,i+len(s)) = substr(t,0,i) ++ s
+        //
+        expr_ref len_s = mk_len(s);
+        expr_ref mone(a.mk_int(-1), m);
+        add_axiom(~cnt, s_eq_empty, ~mk_literal(seq.str.mk_contains(seq.str.mk_substr(t,zero,a.mk_add(i,len_s,mone)),s)));
+        add_axiom(~cnt, s_eq_empty, mk_seq_eq(seq.str.mk_substr(t,zero,a.mk_add(i,len_s)),
+                                              seq.str.mk_concat(seq.str.mk_substr(t,zero,i), s)));
+#endif
     }
     else {
         // offset >= len(t) => |s| = 0 or indexof(t, s, offset) = -1
