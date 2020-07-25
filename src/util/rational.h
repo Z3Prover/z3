@@ -132,7 +132,7 @@ public:
 
     rational const & get_infinitesimal() const { return m_zero; }
 
-    rational & operator=(rational&&) noexcept = default;
+    rational & operator=(rational&&) = default;
 
     rational & operator=(rational const & r) {
         m().set(m_val, r.m_val);
