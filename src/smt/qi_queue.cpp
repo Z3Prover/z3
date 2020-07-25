@@ -229,6 +229,7 @@ namespace smt {
             STRACE("dummy", tout << "### " << static_cast<void*>(f) <<", " << q->get_qid() << "\n";);
             STRACE("dummy", tout << "Instance already satisfied (dummy)\n";);
             stat->inc_num_instances_checker_sat();
+            disable_trace("coming_from_quant");
             return;
         }
 
@@ -254,6 +255,7 @@ namespace smt {
                 display_instance_profile(f, q, num_bindings, bindings, pr ? pr->get_id() : 0, generation);
                 m.trace_stream() << "[end-of-instance]\n";
             }
+            disable_trace("coming_from_quant");
             return;
         }
 
