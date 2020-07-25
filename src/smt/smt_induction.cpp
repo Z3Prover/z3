@@ -95,7 +95,7 @@ collect_induction_literals::collect_induction_literals(context& ctx, ast_manager
     vs(vs),
     m_literal_index(0)
 {
-    (void)vs;
+//    (void)vs;
 }
     
 literal_vector collect_induction_literals::operator()() {    
@@ -538,10 +538,9 @@ void induction_lemmas::apply_induction(literal lit, induction_positions_t const 
     }
 }
 
-induction_lemmas::induction_lemmas(context& ctx, ast_manager& m, value_sweep& vs):
+induction_lemmas::induction_lemmas(context& ctx, ast_manager& m):
     ctx(ctx),
     m(m),
-    vs(vs),
     m_dt(m),
     m_a(m),
     m_rec(m),
@@ -554,7 +553,7 @@ induction::induction(context& ctx, ast_manager& m):
     m(m),
     vs(m),
     m_collect_literals(ctx, m, vs),
-    m_create_lemmas(ctx, m, vs)
+    m_create_lemmas(ctx, m)
 {}
 
 // TBD: use smt_arith_value to also include state from arithmetic solver
