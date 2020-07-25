@@ -2351,20 +2351,19 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
 }
 
 theory_var theory_seq::mk_var(enode* n) {
-    if (!m_util.is_seq(n->get_owner()) &&
-        !m_util.is_re(n->get_owner())) {
+    expr* o = n->get_owner();
+
+    if (!m_util.is_seq(o) && !m_util.is_re(o))
         return null_theory_var;
-    }
-    if (is_attached_to_var(n)) {
+
+    if (is_attached_to_var(n)) 
         return n->get_th_var(get_id());
-    }
-    else {
-        theory_var v = theory::mk_var(n);
-        m_find.mk_var();
-        ctx.attach_th_var(n, this, v);
-        ctx.mark_as_relevant(n);
-        return v;
-    }
+
+    theory_var v = theory::mk_var(n);
+    m_find.mk_var();
+    ctx.attach_th_var(n, this, v);
+    ctx.mark_as_relevant(n);
+    return v;    
 }
 
 bool theory_seq::can_propagate() {
@@ -3180,12 +3179,16 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
 void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
     enode* n1 = get_enode(v1);
     enode* n2 = get_enode(v2);
-    if (ctx.get_fparams().m_seq_use_unicode && m_util.is_char(n1->get_owner())) {
+    expr* o1 = n1->get_owner();
+    expr* o2 = n2->get_owner();
+    if (ctx.get_fparams().m_seq_use_unicode && m_util.is_char(o1)) {
         m_unicode.new_eq_eh(v1, v2);
         return;
     }
-    if (ctx.get_fparams().m_seq_use_derivatives && m_util.is_re(n1->get_owner())) {
-        m_regex.propagate_eq(n1->get_owner(), n2->get_owner());
+    if (!m_util.is_seq(o1) && !m_util.is_re(o1))
+        return;
+    if (ctx.get_fparams().m_seq_use_derivatives && m_util.is_re(o1)) {
+        m_regex.propagate_eq(o1, o2);
         return;        
     }
 
@@ -3290,6 +3293,8 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
         m_unicode.new_diseq_eh(v1, v2);
         return;
     }
+    if (!m_util.is_seq(e1))
+        return;
     m_exclude.update(e1, e2);
     expr_ref eq(m.mk_eq(e1, e2), m);
     TRACE("seq", tout << "new disequality " << ctx.get_scope_level() << ": " << mk_bounded_pp(eq, m, 2) << "\n";);
