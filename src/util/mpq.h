@@ -30,7 +30,6 @@ public:
     mpq(int v):m_num(v), m_den(1) {}
     mpq():m_den(1) {}
     mpq(mpq &&) noexcept = default;
-    mpq & operator=(mpq const &) = default;
     mpq & operator=(mpq&&) = default;
     void swap(mpq & other) { m_num.swap(other.m_num); m_den.swap(other.m_den); }
     mpz const & numerator() const { return m_num; }
