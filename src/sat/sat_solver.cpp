@@ -91,9 +91,9 @@ namespace sat {
     solver::~solver() {
         m_ext = nullptr;
         SASSERT(m_config.m_num_threads > 1 || check_invariant());
-        TRACE("sat", tout << "Delete clauses\n";);
+        CTRACE("sat", !m_clauses.empty(), tout << "Delete clauses\n";);
         del_clauses(m_clauses);
-        TRACE("sat", tout << "Delete learned\n";);
+        CTRACE("sat", !m_learned.empty(), tout << "Delete learned\n";);
         del_clauses(m_learned);
         dealloc(m_cuber);
         m_cuber = nullptr;
@@ -1207,6 +1207,7 @@ namespace sat {
             propagate(false);
             if (check_inconsistent()) return l_false;
             if (m_config.m_force_cleanup) do_cleanup(true);
+            TRACE("sat", display(tout););
 
             if (m_config.m_gc_burst) {
                 // force gc
@@ -1221,6 +1222,7 @@ namespace sat {
 
             if (m_config.m_max_conflicts == 0) {
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = 0\")\n";);
+                TRACE("sat", display(tout); m_mc.display(tout););
                 return l_undef;
             }
 
