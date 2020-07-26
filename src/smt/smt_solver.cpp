@@ -134,6 +134,10 @@ namespace {
 
         void collect_param_descrs(param_descrs & r) override {
             m_context.collect_param_descrs(r);
+            insert_timeout(r);
+            insert_rlimit(r);
+            insert_max_memory(r);
+            insert_ctrl_c(r);
         }
 
         void collect_statistics(statistics & st) const override {

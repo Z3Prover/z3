@@ -1738,6 +1738,7 @@ public:
             TRACE("arith", /*display(tout);*/
                   ctx().display(tout);
                   );
+
             switch (check_lia()) {
             case l_true:
                 break;
@@ -1748,7 +1749,7 @@ public:
                 st = FC_CONTINUE;
                 break;
             }
-            
+
             switch (check_nla()) {
             case l_true:
                 break;
@@ -1759,6 +1760,7 @@ public:
                 st = FC_GIVEUP;
                 break;
             }
+            
             if (delayed_assume_eqs()) {
                 ++m_stats.m_assume_eqs;
                 return FC_CONTINUE;
