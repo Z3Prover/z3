@@ -111,25 +111,6 @@ You can install a nuget package for the latest release Z3 from [nuget.org](https
 
 Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
 
-On non-windows platforms [mono](http://www.mono-project.com/) is required. On these
-platforms the location of the C# compiler and gac utility need to be known. You
-can set these as follows if they aren't detected automatically. For example:
-
-```bash
-CSC=/usr/bin/csc GACUTIL=/usr/bin/gacutil python scripts/mk_make.py --dotnet
-```
-
-Note for very old versions of Mono (e.g. ``2.10``) you may need to set ``CSC``
-to ``/usr/bin/dmcs``.
-
-Note that when ``make install`` is executed on non-windows platforms the GAC
-utility is used to install ``Microsoft.Z3.dll`` into the
-[GAC](http://www.mono-project.com/docs/advanced/assemblies-and-the-gac/) as the
-``Microsoft.Z3.Sharp`` package. During install a
-[pkg-config](http://www.freedesktop.org/wiki/Software/pkg-config/) file
-(``Microsoft.Z3.Sharp.pc``) is also installed which allows the
-[MonoDevelop](http://www.monodevelop.com/) IDE to find the bindings. Running
-``make uninstall`` will remove the dll from the GAC and the ``pkg-config`` file.
 
 See [``examples/dotnet``](examples/dotnet) for examples.
 
