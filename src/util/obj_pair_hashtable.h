@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OBJ_PAIR_HASHTABLE_H_
-#define OBJ_PAIR_HASHTABLE_H_
+#pragma once
 
 #include "util/hash.h"
 #include "util/hashtable.h"
@@ -184,5 +183,4 @@ public:
     }
 };
 
-#endif /* OBJ_PAIR_HASHTABLE_H_ */
 

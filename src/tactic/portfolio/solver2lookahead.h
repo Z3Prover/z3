@@ -16,11 +16,9 @@ Author:
 Notes:
    
 --*/
-#ifndef SOLVER2LOOKAHEAD_H_
-#define SOLVER2LOOKAHEAD_H_
+#pragma once
 
 class solver;
 
 solver * mk_solver2lookahead(solver* s);
 
-#endif

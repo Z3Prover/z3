@@ -18,8 +18,7 @@ Notes:
 
 --*/
 
-#ifndef RULE_PROPERTIES_H_
-#define RULE_PROPERTIES_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/datatype_decl_plugin.h"
@@ -76,4 +75,3 @@ namespace datalog {
     };
 }
 
-#endif /* RULE_PROPERTIES_H_ */

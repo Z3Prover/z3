@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef VALUE_FACTORY_H_
-#define VALUE_FACTORY_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -266,5 +265,4 @@ public:
     void register_value(expr * n) override;
 };
 
-#endif /* VALUE_FACTORY_H_ */
 

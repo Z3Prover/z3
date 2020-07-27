@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SCOPED_TIMER_H_
-#define SCOPED_TIMER_H_
+#pragma once
 
 #include "util/event_handler.h"
 
@@ -29,4 +28,3 @@ public:
     ~scoped_timer();
 };
 
-#endif

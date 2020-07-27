@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DEPENDENCY_H_
-#define DEPENDENCY_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/region.h"
@@ -324,5 +323,4 @@ typedef scoped_dependency_manager<void*>::dependency v_dependency;
 typedef scoped_dependency_manager<unsigned>             u_dependency_manager;
 typedef scoped_dependency_manager<unsigned>::dependency u_dependency;
 
-#endif /* DEPENDENCY_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PUSH_APP_ITE_H_
-#define PUSH_APP_ITE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
@@ -33,7 +32,8 @@ struct push_app_ite_cfg : public default_rewriter_cfg {
     bool m_conservative;
     virtual bool is_target(func_decl * decl, unsigned num_args, expr * const * args);
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr);
-    push_app_ite_cfg(ast_manager& m, bool conservative = true): m(m), m_conservative(conservative) {}
+    push_app_ite_cfg(ast_manager& m): m(m), m_conservative(true) {}
+    void set_conservative(bool c) { m_conservative = c; }
     bool rewrite_patterns() const { return false; }
 };
 
@@ -47,28 +47,29 @@ class ng_push_app_ite_cfg : public push_app_ite_cfg {
 protected:
     bool is_target(func_decl * decl, unsigned num_args, expr * const * args) override;
 public:
-    ng_push_app_ite_cfg(ast_manager& m, bool conservative = true): push_app_ite_cfg(m, conservative) {}
+    ng_push_app_ite_cfg(ast_manager& m): push_app_ite_cfg(m) {}
     virtual ~ng_push_app_ite_cfg() {}
 };
 
 struct push_app_ite_rw : public rewriter_tpl<push_app_ite_cfg> {
     push_app_ite_cfg m_cfg;
 public:
-    push_app_ite_rw(ast_manager& m, bool conservative = true):
+    push_app_ite_rw(ast_manager& m):
         rewriter_tpl<push_app_ite_cfg>(m, m.proofs_enabled(), m_cfg),
-        m_cfg(m, conservative)
+        m_cfg(m)
     {}
+    void set_conservative(bool c) { m_cfg.set_conservative(c); }
 };
 
 struct ng_push_app_ite_rw : public rewriter_tpl<ng_push_app_ite_cfg> {
     ng_push_app_ite_cfg m_cfg;
 public:
-    ng_push_app_ite_rw(ast_manager& m, bool conservative = true):
+    ng_push_app_ite_rw(ast_manager& m):
         rewriter_tpl<ng_push_app_ite_cfg>(m, m.proofs_enabled(), m_cfg),
-        m_cfg(m, conservative)
+        m_cfg(m)
     {}
+    void set_conservative(bool c) { m_cfg.set_conservative(c); }
 };
 
 
-#endif /* PUSH_APP_ITE_H_ */
 

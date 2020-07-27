@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NLSAT_TYPES_H_
-#define NLSAT_TYPES_H_
+#pragma once
 
 #include "math/polynomial/polynomial.h"
 #include "util/buffer.h"
@@ -161,4 +160,3 @@ namespace nlsat {
     }
 };
 
-#endif

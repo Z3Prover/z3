@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef GOAL_NUM_OCCURS_H_
-#define GOAL_NUM_OCCURS_H_
+#pragma once
 
 #include "ast/num_occurs.h"
 
@@ -35,4 +34,3 @@ public:
 };
 
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef REWRITER_H_
-#define REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -407,4 +406,3 @@ public:
         rewriter_tpl<beta_reducer_cfg>(m, false, m_cfg) {}
 };
 
-#endif

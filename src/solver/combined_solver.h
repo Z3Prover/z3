@@ -18,8 +18,7 @@ Author:
 Notes:
 
 --*/
-#ifndef COMBINED_SOLVER_H_
-#define COMBINED_SOLVER_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -30,4 +29,3 @@ solver * mk_combined_solver(solver * s1, solver * s2, params_ref const & p);
 solver_factory * mk_combined_solver_factory(solver_factory * f1, solver_factory * f2);
 
 
-#endif

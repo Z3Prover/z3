@@ -587,7 +587,7 @@ namespace datalog {
                 std::stringstream _name;
                 _name << c;
                 if (j > 0) _name << j;
-                symbol name(_name.str().c_str());
+                symbol name(_name.str());
                 if (!us.contains(name)) {
                     names.push_back(name);
                     ++i;

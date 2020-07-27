@@ -935,7 +935,7 @@ public:
         m_bp(*this),
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
-        m_bound_predicates(m),
+        m_bound_terms(m),
         m_bound_predicate(m)
     {
     }
@@ -1206,14 +1206,14 @@ public:
         literal dgez = mk_literal(degz_expr);
         literal pos = th.mk_eq(rem, mod,  false);
         literal neg = th.mk_eq(rem, mmod, false);
-        if (m.has_trace_stream()) {
-            app_ref body(m);
-            body = m.mk_ite(degz_expr, ctx().bool_var2expr(pos.var()), ctx().bool_var2expr(neg.var()));
-            th.log_axiom_instantiation(body);
+        {
+            scoped_trace_stream ts(th, ~dgez, pos);
+            mk_axiom(~dgez, pos);
         }
-        mk_axiom(~dgez, pos);
-        mk_axiom( dgez, neg);                    
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+        {
+            scoped_trace_stream ts(th, dgez, neg);
+            mk_axiom( dgez, neg);                    
+        }
     }
 
     // q = 0 or q * (p div q) = p
@@ -1221,13 +1221,8 @@ public:
         if (a.is_zero(q)) return;
         literal eqz = th.mk_eq(q, a.mk_real(0), false);
         literal eq  = th.mk_eq(a.mk_mul(q, a.mk_div(p, q)), p, false);
-        if (m.has_trace_stream()) {
-            app_ref body(m);
-            body = m.mk_implies(m.mk_not(ctx().bool_var2expr(eqz.var())), ctx().bool_var2expr(eq.var()));
-            th.log_axiom_instantiation(body);
-        }
+        scoped_trace_stream ts(th, eqz, eq);
         mk_axiom(eqz, eq);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     // to_int (to_real x) = x
@@ -1236,28 +1231,24 @@ public:
         expr* x = nullptr, *y = nullptr;
         VERIFY (a.is_to_int(n, x));            
         if (a.is_to_real(x, y)) {
-            if (m.has_trace_stream()) {
-                app_ref body(m);
-                body = m.mk_eq(n, y);
-                th.log_axiom_instantiation(body);
-            }
-            mk_axiom(th.mk_eq(y, n, false));
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            literal eq = th.mk_eq(y, n, false);
+            scoped_trace_stream ts(th, eq);
+            mk_axiom(eq);
         }
         else {
             expr_ref to_r(a.mk_to_real(n), m);
             expr_ref lo(a.mk_le(a.mk_sub(to_r, x), a.mk_real(0)), m);
             expr_ref hi(a.mk_ge(a.mk_sub(x, to_r), a.mk_real(1)), m);
-            if (m.has_trace_stream()) th.log_axiom_instantiation(lo);
-            mk_axiom(mk_literal(lo));
-            if (m.has_trace_stream()) {
-                m.trace_stream() << "[end-of-instance]\n";
-                expr_ref body(m);
-                body = m.mk_not(hi);
-                th.log_axiom_instantiation(body);
+            literal llo = mk_literal(lo);
+            literal lhi = mk_literal(hi);
+            {
+                scoped_trace_stream ts(th, llo);
+                mk_axiom(llo);
             }
-            mk_axiom(~mk_literal(hi));
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            {
+                scoped_trace_stream ts(th, lhi);
+                mk_axiom(~lhi);
+            }
         }
     }
 
@@ -1395,10 +1386,11 @@ public:
 #endif
         }
         else {
-            literal div_ge_0   = mk_literal(a.mk_ge(div, zero));
-            literal div_le_0   = mk_literal(a.mk_le(div, zero));
-            literal p_ge_0     = mk_literal(a.mk_ge(p, zero));
-            literal p_le_0     = mk_literal(a.mk_le(p, zero));
+
+            /*literal div_ge_0   = */ mk_literal(a.mk_ge(div, zero));
+            /*literal div_le_0   = */ mk_literal(a.mk_le(div, zero));
+            /*literal p_ge_0     = */ mk_literal(a.mk_ge(p, zero));
+            /*literal p_le_0     = */ mk_literal(a.mk_le(p, zero));
 
             // q >= 0 or p = (p mod q) + q * (p div q)
             // q <= 0 or p = (p mod q) + q * (p div q)
@@ -1415,8 +1407,11 @@ public:
             mk_axiom(q_le_0, mod_ge_0);
             mk_axiom(q_le_0, ~mk_literal(a.mk_ge(a.mk_sub(mod, q), zero)));            
             mk_axiom(q_ge_0, ~mk_literal(a.mk_ge(a.mk_add(mod, q), zero)));        
+
+
 #if 0
             // seem expensive
+
             mk_axiom(q_le_0, ~p_ge_0, div_ge_0); 
             mk_axiom(q_le_0, ~p_le_0, div_le_0); 
             mk_axiom(q_ge_0, ~p_ge_0, div_le_0);             
@@ -1734,6 +1729,7 @@ public:
             TRACE("arith", /*display(tout);*/
                   ctx().display(tout);
                   );
+
             switch (check_lia()) {
             case l_true:
                 break;
@@ -1744,7 +1740,7 @@ public:
                 st = FC_CONTINUE;
                 break;
             }
-            
+
             switch (check_nla()) {
             case l_true:
                 break;
@@ -1755,6 +1751,7 @@ public:
                 st = FC_GIVEUP;
                 break;
             }
+            
             if (delayed_assume_eqs()) {
                 ++m_stats.m_assume_eqs;
                 return FC_CONTINUE;
@@ -1991,7 +1988,7 @@ public:
     expr_ref var2expr(lpvar v) {
         std::ostringstream name;
         name << "v" << lp().local_to_external(v);
-        return expr_ref(m.mk_const(symbol(name.str().c_str()), a.mk_int()), m);
+        return expr_ref(m.mk_const(symbol(name.str()), a.mk_int()), m);
     }
 
     expr_ref multerm(rational const& r, expr* e) {
@@ -3448,7 +3445,7 @@ public:
             if (a.is_int(o) && !m_nla->am().is_int(an)) {
                 return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
             }
-            return alloc(expr_wrapper_proc, a.mk_numeral(nl_value(v, *m_a1), a.is_int(o)));
+            return alloc(expr_wrapper_proc, a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o)));
         }
         else {
             rational r = get_value(v);
@@ -3931,8 +3928,9 @@ public:
     };
     unsigned                  m_bounded_range_idx;  // current size of bounded range.
     literal                   m_bounded_range_lit;  // current bounded range literal
-    expr_ref_vector           m_bound_predicates; // predicates used for bounds
+    expr_ref_vector           m_bound_terms; // predicates used for bounds
     expr_ref                  m_bound_predicate;
+    
     obj_map<expr, expr*>      m_predicate2term;
     obj_map<expr, bound_info> m_term2bound_info;
 
@@ -4009,8 +4007,9 @@ public:
         expr_ref lo(a.mk_ge(t, a.mk_int(offset - bi.m_range)), m);
         mk_axiom(~m_bounded_range_lit, mk_literal(hi));
         mk_axiom(~m_bounded_range_lit, mk_literal(lo));
-        m_bound_predicates.push_back(lo);
-        m_bound_predicates.push_back(hi);
+        m_bound_terms.push_back(lo);
+        m_bound_terms.push_back(hi);
+        m_bound_terms.push_back(t);
         m_predicate2term.insert(lo, t);
         m_predicate2term.insert(hi, t);
         m_term2bound_info.insert(t, bi);
@@ -4018,7 +4017,7 @@ public:
 
     void setup() {
         m_bounded_range_lit = null_literal;
-        m_bound_predicates.reset();
+        m_bound_terms.reset();
         m_bound_predicate = nullptr;
         m_predicate2term.reset();
         m_term2bound_info.reset();

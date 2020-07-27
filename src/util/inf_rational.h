@@ -93,8 +93,6 @@ class inf_rational {
         m_second(i) {
     }
 
-    ~inf_rational() {}
-
     /**
        \brief Set inf_rational to 0.
     */
@@ -136,12 +134,6 @@ class inf_rational {
     }
 
     rational const & get_first() const { return m_first; }
-
-    inf_rational & operator=(const inf_rational & r) {
-        m_first = r.m_first;
-        m_second = r.m_second;
-        return *this;
-    }
 
     inf_rational & operator=(const rational & r) {
         m_first = r;

@@ -67,10 +67,11 @@ struct well_sorted_proc {
                       );
                 std::ostringstream strm;
                 strm << "Sort mismatch for argument " << i+1 << " of " << mk_ll_pp(n, m_manager, false) << "\n";
-                strm << "Expected sort: " << mk_pp(expected_sort, m_manager) << "\n";
-                strm << "Actual sort:   " << mk_pp(actual_sort, m_manager) << "\n";
-                strm << "Function sort: " << mk_pp(decl, m_manager) << ".";
-                warning_msg("%s", strm.str().c_str());
+                strm << "Expected sort: " << mk_pp(expected_sort, m_manager) << '\n';
+                strm << "Actual sort:   " << mk_pp(actual_sort, m_manager) << '\n';
+                strm << "Function sort: " << mk_pp(decl, m_manager) << '.';
+                auto str = strm.str();
+                warning_msg("%s", str.c_str());
                 m_error = true;
                 return;
             }

@@ -338,6 +338,7 @@ namespace smt {
 
         flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
         lbool r = m_aux_context->check();
+        
         TRACE("model_checker", tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
         if (r != l_true) {
             return r == l_false; // quantifier is satisfied by m_curr_model

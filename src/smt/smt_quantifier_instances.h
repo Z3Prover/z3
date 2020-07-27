@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_QUANTIFIER_INSTANCES_H_
-#define SMT_QUANTIFIER_INSTANCES_H_
+#pragma once
 
 namespace smt {
 
@@ -62,5 +61,4 @@ namespace smt {
 
 };
 
-#endif /* SMT_QUANTIFIER_INSTANCES_H_ */
 

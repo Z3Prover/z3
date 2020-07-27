@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ARRAY_FACTORY_H_
-#define ARRAY_FACTORY_H_
+#pragma once
 
 #include "model/struct_factory.h"
 
@@ -41,5 +40,4 @@ public:
     expr * get_fresh_value(sort * s) override;
 };
 
-#endif /* ARRAY_FACTORY_H_ */
 

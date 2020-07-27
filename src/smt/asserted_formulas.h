@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ASSERTED_FORMULAS_H_
-#define ASSERTED_FORMULAS_H_
+#pragma once
 
 #include "util/statistics.h"
 #include "ast/static_features.h"
@@ -171,8 +170,8 @@ class asserted_formulas {
 
 #define MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, ARG, REDUCE)            \
     class NAME : public simplify_fmls {                                 \
-        FUNCTOR m_functor;                                              \
     public:                                                             \
+        FUNCTOR m_functor;                                              \
         NAME(asserted_formulas& af):simplify_fmls(af, MSG), m_functor ARG {} \
         virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { \
             m_functor(j.get_fml(), n, p);                               \
@@ -187,8 +186,8 @@ class asserted_formulas {
     MK_SIMPLIFIERF(cheap_quant_fourier_motzkin, elim_bounds_rw, "cheap-fourier-motzkin", af.m_smt_params.m_eliminate_bounds && af.has_quantifiers(), true);
     MK_SIMPLIFIERF(elim_bvs_from_quantifiers, bv_elim_rw, "eliminate-bit-vectors-from-quantifiers", af.m_smt_params.m_bb_quantifiers, true);
     MK_SIMPLIFIERF(apply_bit2int, bit2int, "propagate-bit-vector-over-integers", af.m_smt_params.m_simplify_bit2int, true);
-    MK_SIMPLIFIERA(lift_ite, push_app_ite_rw, "lift-ite", af.m_smt_params.m_lift_ite != LI_NONE, (af.m, af.m_smt_params.m_lift_ite == LI_CONSERVATIVE), true);
-    MK_SIMPLIFIERA(ng_lift_ite, ng_push_app_ite_rw, "lift-ite", af.m_smt_params.m_ng_lift_ite != LI_NONE, (af.m, af.m_smt_params.m_ng_lift_ite == LI_CONSERVATIVE), true);
+    MK_SIMPLIFIERF(lift_ite, push_app_ite_rw, "lift-ite", af.m_smt_params.m_lift_ite != LI_NONE, true);
+    MK_SIMPLIFIERF(ng_lift_ite, ng_push_app_ite_rw, "lift-ite", af.m_smt_params.m_ng_lift_ite != LI_NONE, true);
 
 
     reduce_asserted_formulas_fn m_reduce_asserted_formulas;
@@ -280,5 +279,4 @@ public:
 
 };
 
-#endif /* ASSERTED_FORMULAS_H_ */
 

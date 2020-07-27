@@ -16,15 +16,14 @@ Author:
 Revision History:
 
 --*/
-#ifndef MEMORY_H_
-#define MEMORY_H_
+#pragma once
 
 #include<cstdlib>
 #include<ostream>
 #include "util/z3_exception.h"
 
 #ifndef __has_builtin
-# define __has_builtin(x) 0
+#define __has_builtin(x) 0
 #endif
 
 
@@ -129,5 +128,4 @@ void dealloc_svect(T * ptr) {
 }
 
 
-#endif /* MEMORY_H_ */
 

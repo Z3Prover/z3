@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef QI_PARAMS_H_
-#define QI_PARAMS_H_
+#pragma once
 
 #include "util/util.h"
 #include "util/params.h"
@@ -108,5 +107,4 @@ struct qi_params {
     void display(std::ostream & out) const;
 };
 
-#endif /* QI_PARAMS_H_ */
 

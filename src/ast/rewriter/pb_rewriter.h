@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PB_REWRITER_H_
-#define PB_REWRITER_H_
+#pragma once
 
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -62,4 +61,3 @@ public:
     void dump_pb_rewrite(expr* fml);
 };
 
-#endif

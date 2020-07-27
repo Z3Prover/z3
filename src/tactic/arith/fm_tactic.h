@@ -21,8 +21,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef FM_TACTIC_H_
-#define FM_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -33,4 +32,3 @@ tactic * mk_fm_tactic(ast_manager & m, params_ref const & p = params_ref());
   ADD_TACTIC("fm", "eliminate variables using fourier-motzkin elimination.", "mk_fm_tactic(m, p)")
 */
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_ELIM_VARS_H_
-#define SAT_ELIM_VARS_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "math/dd/dd_bdd.h"
@@ -71,4 +70,3 @@ namespace sat {
 
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DDNF_H_
-#define DDNF_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/lbool.h"
@@ -68,4 +67,3 @@ namespace datalog {
     };
 };
 
-#endif

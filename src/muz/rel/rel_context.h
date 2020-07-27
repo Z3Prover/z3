@@ -18,8 +18,7 @@ Revision History:
     Extracted from dl_context
 
 --*/
-#ifndef REL_CONTEXT_H_
-#define REL_CONTEXT_H_
+#pragma once
 #include "ast/ast.h"
 #include "muz/rel/dl_relation_manager.h"
 #include "muz/rel/dl_instruction.h"
@@ -128,4 +127,3 @@ namespace datalog {
     };
 };
 
-#endif /* REL_CONTEXT_H_ */

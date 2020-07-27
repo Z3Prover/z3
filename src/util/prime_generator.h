@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PRIME_GENERATOR_H_
-#define PRIME_GENERATOR_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/z3_exception.h"
@@ -55,4 +54,3 @@ public:
     */
 };
 
-#endif

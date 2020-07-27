@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_RULE_SET_H_
-#define DL_RULE_SET_H_
+#pragma once
 
 #include "util/obj_hashtable.h"
 #include "muz/base/dl_rule.h"
@@ -284,4 +283,3 @@ namespace datalog {
 
 };
 
-#endif /* DL_RULE_SET_H_ */

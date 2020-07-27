@@ -16,8 +16,7 @@ Author:
 Notes:
     
 --*/
-#ifndef Z3_REPLAYER_H_
-#define Z3_REPLAYER_H_
+#pragma once
 
 #include<iostream>
 #include "api/z3.h"
@@ -66,4 +65,3 @@ public:
     void register_cmd(unsigned id, z3_replayer_cmd cmd, char const* name);
 };
 
-#endif

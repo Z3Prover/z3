@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SPECIAL_RELATIONS_DECL_PLUGIN_H_
-#define SPECIAL_RELATIONS_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -109,4 +108,3 @@ public:
 };
 
 
-#endif /* SPECIAL_RELATIONS_DECL_PLUGIN_H_ */

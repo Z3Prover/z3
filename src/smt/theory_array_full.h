@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARRAY_FULL_H_
-#define THEORY_ARRAY_FULL_H_
+#pragma once
 
 #include "smt/theory_array.h"
 #include "ast/ast_trail.h"
@@ -35,9 +34,9 @@ namespace smt {
 
         ptr_vector<var_data_full> m_var_data_full;
 
-        ast2ast_trailmap<sort,app> m_sort2epsilon;
-        obj_pair_map<expr,expr,bool> m_eqs;
-        svector<literal>             m_eqsv;
+        ast2ast_trailmap<sort, app> m_sort2epsilon;
+        ast2ast_trailmap<sort, func_decl> m_sort2diag;
+        obj_pair_map<expr, expr, bool> m_eqs;
         
         static unsigned const m_default_map_fingerprint = UINT_MAX - 112;
         static unsigned const m_default_store_fingerprint = UINT_MAX - 113;
@@ -81,7 +80,8 @@ namespace smt {
         bool instantiate_parent_stores_default(theory_var v);
 
         bool has_large_domain(app* array_term);
-        app* mk_epsilon(sort* s);
+        bool has_unitary_domain(app* array_term);
+        std::pair<app*,func_decl*> mk_epsilon(sort* s);
 
         bool instantiate_select_const_axiom(enode* select, enode* cnst);
         bool instantiate_select_as_array_axiom(enode* select, enode* arr);
@@ -107,5 +107,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_ARRAY_H_ */
 

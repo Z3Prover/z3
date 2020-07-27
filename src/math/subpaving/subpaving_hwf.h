@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SUBPAVING_HWF_H_
-#define SUBPAVING_HWF_H_
+#pragma once
 
 #include "math/subpaving/subpaving_t.h"
 #include "util/f2n.h"
@@ -45,4 +44,3 @@ public:
 
 };
 
-#endif

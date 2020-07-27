@@ -188,7 +188,7 @@ namespace datalog {
         expr_ref mk_q_var(func_decl* pred, sort* s, unsigned rule_id, unsigned idx) {
             std::stringstream _name;
             _name << pred->get_name() << "#" <<  rule_id << "_" << idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             var_ref var = mk_index_var();
             return expr_ref(m.mk_app(m.mk_func_decl(nm, mk_index_sort(), s), var), m);
         }
@@ -197,7 +197,7 @@ namespace datalog {
             SASSERT(idx < pred->get_arity());
             std::stringstream _name;
             _name << pred->get_name() << "#" << idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             expr_ref var(mk_index_var(), m);
             if (!is_current) {
                 var = m_bv.mk_bv_sub(var, mk_q_one());
@@ -216,14 +216,14 @@ namespace datalog {
         func_decl_ref mk_q_func_decl(func_decl* f) {
             std::stringstream _name;
             _name << f->get_name() << "#";
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             return func_decl_ref(m.mk_func_decl(nm, mk_index_sort(), f->get_range()), m);
         }
 
         func_decl_ref mk_q_rule(func_decl* f, unsigned rule_id) {
             std::stringstream _name;
             _name << f->get_name() << "#" << rule_id;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             return func_decl_ref(m.mk_func_decl(nm, mk_index_sort(), m.mk_bool_sort()), m);
         }
 
@@ -396,7 +396,7 @@ namespace datalog {
             for (unsigned i = 0; i < level_p->get_arity(); ++i) {
                 std::stringstream _name;
                 _name << query_pred->get_name() << "#" << level << "_" << i;
-                symbol nm(_name.str().c_str());
+                symbol nm(_name.str());
                 vars.push_back(m.mk_const(nm, level_p->get_domain(i)));
             }
             return expr_ref(m.mk_app(level_p, vars.size(), vars.c_ptr()), m);
@@ -569,14 +569,14 @@ namespace datalog {
         func_decl_ref mk_level_predicate(func_decl* p, unsigned level) {
             std::stringstream _name;
             _name << p->get_name() << "#" << level;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             return func_decl_ref(m.mk_func_decl(nm, p->get_arity(), p->get_domain(), m.mk_bool_sort()), m);
         }
 
         func_decl_ref mk_level_rule(func_decl* p, unsigned rule_idx, unsigned level) {
             std::stringstream _name;
             _name << "rule:" << p->get_name() << "#" << level << "_" << rule_idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             return func_decl_ref(m.mk_func_decl(nm, p->get_arity(), p->get_domain(), m.mk_bool_sort()), m);
         }
 
@@ -627,7 +627,7 @@ namespace datalog {
         func_decl_ref mk_body_func(rule& r, ptr_vector<sort> const& args, unsigned index, sort* s) {
             std::stringstream _name;
             _name << r.get_decl()->get_name() << "@" << index;
-            symbol name(_name.str().c_str());
+            symbol name(_name.str());
             func_decl* f = m.mk_func_decl(name, args.size(), args.c_ptr(), s);
             return func_decl_ref(f, m);
         }
@@ -775,7 +775,7 @@ namespace datalog {
         func_decl_ref mk_predicate(func_decl* pred) {
             std::stringstream _name;
             _name << pred->get_name() << "#";
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             sort* pred_trace_sort = m_pred2sort.find(pred);
             return func_decl_ref(m.mk_func_decl(nm, pred_trace_sort, m_path_sort, m.mk_bool_sort()), m);
         }
@@ -783,7 +783,7 @@ namespace datalog {
         func_decl_ref mk_rule(func_decl* p, unsigned rule_idx) {
             std::stringstream _name;
             _name << "rule:" << p->get_name() << "#" << rule_idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             sort* pred_trace_sort = m_pred2sort.find(p);
             return func_decl_ref(m.mk_func_decl(nm, pred_trace_sort, m_path_sort, m.mk_bool_sort()), m);
         }
@@ -791,7 +791,7 @@ namespace datalog {
         expr_ref mk_var(func_decl* pred, sort*s, unsigned idx, expr* path_arg, expr* trace_arg) {
             std::stringstream _name;
             _name << pred->get_name() << "#V_" << idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             func_decl_ref fn(m);
             fn = m.mk_func_decl(nm, m_pred2sort.find(pred), m_path_sort, s);
             return expr_ref(m.mk_app(fn, trace_arg, path_arg), m);
@@ -801,7 +801,7 @@ namespace datalog {
             SASSERT(idx < pred->get_arity());
             std::stringstream _name;
             _name << pred->get_name() << "#X_" << idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             func_decl_ref fn(m);
             fn = m.mk_func_decl(nm, m_pred2sort.find(pred), m_path_sort, pred->get_domain(idx));
             return expr_ref(m.mk_app(fn, trace_arg, path_arg), m);
@@ -971,15 +971,15 @@ namespace datalog {
                         unsigned idx = pred_idx.find(q);
                         std::stringstream _name;
                         _name << pred->get_name() << "_" << q->get_name() << j;
-                        symbol name(_name.str().c_str());
+                        symbol name(_name.str());
                         type_ref tr(idx);
                         accs.push_back(mk_accessor_decl(m, name, tr));
                     }
                     std::stringstream _name;
-                    _name << pred->get_name() << "_" << i;
-                    symbol name(_name.str().c_str());
-                    _name << "?";
-                    symbol is_name(_name.str().c_str());
+                    _name << pred->get_name() << '_' << i;
+                    symbol name(_name.str());
+                    _name << '?';
+                    symbol is_name(_name.str());
                     cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
                 }
                 dts.push_back(mk_datatype_decl(dtu, pred->get_name(), 0, nullptr, cnstrs.size(), cnstrs.c_ptr()));
@@ -1020,9 +1020,9 @@ namespace datalog {
                 for (unsigned i = 0; i + 1 < max_arity; ++i) {
                     std::stringstream _name;
                     _name << "succ#" << i;
-                    symbol name(_name.str().c_str());
+                    symbol name(_name.str());
                     _name << "?";
-                    symbol is_name(_name.str().c_str());
+                    symbol is_name(_name.str());
                     std::stringstream _name2;
                     _name2 << "get_succ#" << i;
                     ptr_vector<accessor_decl> accs;
@@ -1313,7 +1313,7 @@ namespace datalog {
         expr_ref mk_level_predicate(symbol const& name, unsigned level) {
             std::stringstream _name;
             _name << name << "#" << level;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             return expr_ref(m.mk_const(nm, m.mk_bool_sort()), m);
         }
 
@@ -1321,21 +1321,21 @@ namespace datalog {
             SASSERT(idx < pred->get_arity());
             std::stringstream _name;
             _name << pred->get_name() << "#" << level << "_" << idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             return expr_ref(m.mk_const(nm, pred->get_domain(idx)), m);
         }
 
         expr_ref mk_level_var(func_decl* pred, sort* s, unsigned rule_id, unsigned idx, unsigned level) {
             std::stringstream _name;
             _name << pred->get_name() << "#" << level << "_" << rule_id << "_" << idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             return expr_ref(m.mk_const(nm, s), m);
         }
 
         expr_ref mk_level_rule(func_decl* p, unsigned rule_idx, unsigned level) {
             std::stringstream _name;
             _name << "rule:" << p->get_name() << "#" << level << "_" << rule_idx;
-            symbol nm(_name.str().c_str());
+            symbol nm(_name.str());
             return expr_ref(m.mk_const(nm, m.mk_bool_sort()), m);
         }
 

@@ -18,8 +18,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CMD_CONTEXT_H_
-#define CMD_CONTEXT_H_
+#pragma once
 
 #include<sstream>
 #include<vector>
@@ -305,7 +304,7 @@ protected:
     bool contains_macro(symbol const& s, unsigned arity, sort *const* domain) const;
     void insert_macro(symbol const& s, unsigned arity, sort*const* domain, expr* t);
     void erase_macro(symbol const& s);
-    bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
+    bool macros_find(symbol const& s, unsigned n, expr*const* args, expr_ref_vector& coerced_args, expr*& t) const;
 
     recfun::decl::plugin& get_recfun_plugin();
 
@@ -511,4 +510,3 @@ public:
     }
 };
 
-#endif

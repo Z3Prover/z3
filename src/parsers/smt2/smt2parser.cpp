@@ -836,7 +836,7 @@ namespace smt2 {
                     symbol ct_name = curr_id();
                     std::string r_str = "is-";
                     r_str += curr_id().str();
-                    symbol r_name(r_str.c_str());
+                    symbol r_name(r_str);
                     next();
                     TRACE("datatype_parser_bug", tout << ct_name << " " << r_name << "\n";);
                     ct_decls.push_back(pm().mk_pconstructor_decl(m_sort_id2param_idx.size(), ct_name, r_name, 0, nullptr));
@@ -847,7 +847,7 @@ namespace smt2 {
                     symbol ct_name = curr_id();
                     std::string r_str = "is-";
                     r_str += curr_id().str();
-                    symbol r_name(r_str.c_str());
+                    symbol r_name(r_str);
                     next();
                     paccessor_decl_ref_buffer new_a_decls(pm());
                     parse_accessor_decls(new_a_decls);
@@ -1148,7 +1148,8 @@ namespace smt2 {
                 else {
                     std::ostringstream str;
                     str << "unknown attribute " << id;
-                    warning_msg("%s", str.str().c_str());
+                    auto msg = str.str();
+                    warning_msg("%s", msg.c_str());
                     next();
                     // just consume the
                     consume_sexpr();

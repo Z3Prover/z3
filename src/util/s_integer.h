@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef S_INTEGER_H_
-#define S_INTEGER_H_
+#pragma once
 
 #include "util/rational.h"
 
@@ -43,7 +42,6 @@ public:
 
 public:
     s_integer(): m_val(0) {}
-    s_integer(const s_integer & r):m_val(r.m_val) {}
     explicit s_integer(int n):m_val(n) {}
     struct i64 {};
     explicit s_integer(int64_t i, i64):m_val(static_cast<int>(i)) {}
@@ -68,7 +66,6 @@ public:
     s_integer const& get_infinitesimal() const { return zero(); }
     static bool is_rational() { return true; }
     s_integer const& get_rational() const { return *this; } 
-    s_integer & operator=(const s_integer & r) { m_val = r.m_val; return *this; }
     friend inline s_integer numerator(const s_integer & r) { return r; }
     friend inline s_integer denominator(const s_integer & r) { return one(); }
     s_integer & operator+=(const s_integer & r) { m_val += r.m_val; return *this; }
@@ -145,5 +142,4 @@ inline s_integer abs(const s_integer & r) {
     return result;
 }
 
-#endif /* S_INTEGER_H_ */
 

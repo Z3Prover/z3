@@ -198,12 +198,6 @@ public:
         bool operator!=(iterator const& it) const { return m_index != it.m_index; }
         iterator & operator++() { ++m_index; scan(); return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-        iterator & operator=(iterator const& other) { 
-            m_set = other.m_set;
-            m_index = other.m_index;
-            m_last = other.m_last;
-            return *this;
-        }
     };
 
     iterator const begin() const { return iterator(*this, false); }
@@ -265,12 +259,6 @@ public:
             m_set[i] = m_set.back();
             m_set.pop_back();
         }
-    }
-    
-    tracked_uint_set& operator=(tracked_uint_set const& other) {
-        m_in_set = other.m_in_set;
-        m_set = other.m_set;
-        return *this;
     }
     
     bool contains(unsigned v) const {

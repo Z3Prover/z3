@@ -15,8 +15,7 @@ Author:
 
 --*/
 
-#ifndef DATAFLOW_H_
-#define DATAFLOW_H_
+#pragma once
 
 #include "muz/base/dl_rule.h"
 #include "muz/base/dl_rule_set.h"
@@ -251,4 +250,3 @@ namespace datalog {
     };
 }
 
-#endif

@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef SLS_TRACKER_H_
-#define SLS_TRACKER_H_
+#pragma once
 
 #include<math.h>
 #include "ast/for_each_expr.h"
@@ -38,27 +37,12 @@ class sls_tracker {
     unsigned              m_random_bits;
     unsigned              m_random_bits_cnt;
     mpz                   m_zero, m_one, m_two;
-        
-    struct value_score { 
+
+    struct value_score {
     value_score() : m(nullptr), value(unsynch_mpz_manager::mk_z(0)), score(0.0), score_prune(0.0), has_pos_occ(0), has_neg_occ(0), distance(0), touched(1) {};
-        value_score(value_score && other) :
-            m(other.m),
-            value(std::move(other.value)),
-            score(other.score),
-            score_prune(other.score_prune),
-            has_pos_occ(other.has_pos_occ),
-            has_neg_occ(other.has_neg_occ),
-            distance(other.distance),
-            touched(other.touched) {}
+        value_score(value_score&&) noexcept = default;
         ~value_score() { if (m) m->del(value); }
-        void operator=(value_score && other) {
-            this->~value_score();
-            new (this) value_score(std::move(other));
-        }
-        value_score& operator=(value_score& other) {
-            UNREACHABLE();
-            return *this;
-        }
+        value_score& operator=(value_score&&) = default;
         unsynch_mpz_manager * m;
         mpz value;
         double score;
@@ -1108,4 +1092,3 @@ public:
     }
 };
 
-#endif

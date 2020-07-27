@@ -16,12 +16,10 @@ Author:
 Revision History:
 
 --*/
-#ifndef HAS_FREE_VARS_H_
-#define HAS_FREE_VARS_H_
+#pragma once
 
 class expr;
 
 bool has_free_vars(expr * n);
 
-#endif /* HAS_FREE_VARS_H_ */
 

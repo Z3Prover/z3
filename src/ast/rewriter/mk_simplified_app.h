@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef MK_SIMPLIFIED_APP_H_
-#define MK_SIMPLIFIED_APP_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -34,4 +33,3 @@ public:
     void operator()(func_decl * decl, unsigned num, expr * const * args, expr_ref & result);
 };
 
-#endif

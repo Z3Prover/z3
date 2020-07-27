@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef POLYNOMIAL_H_
-#define POLYNOMIAL_H_
+#pragma once
 
 #include "util/mpz.h"
 #include "util/rational.h"
@@ -1415,4 +1414,3 @@ inline void factor(polynomial_ref const & p, polynomial::factors & r, polynomial
 
 std::ostream & operator<<(std::ostream & out, polynomial_ref_vector const & seq);
 
-#endif

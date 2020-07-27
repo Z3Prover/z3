@@ -25,8 +25,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PROTO_MODEL_H_
-#define PROTO_MODEL_H_
+#pragma once
 
 #include "model/model_core.h"
 #include "model/model_evaluator.h"
@@ -111,5 +110,4 @@ public:
 
 typedef ref<proto_model> proto_model_ref;
 
-#endif /* PROTO_MODEL_H_ */
 

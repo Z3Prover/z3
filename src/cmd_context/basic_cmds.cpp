@@ -292,7 +292,7 @@ UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", C
               ctx.print_success();
           else {
               std::string msg = "ignoring unsupported logic " + arg.str();
-              ctx.print_unsupported(symbol(msg.c_str()), m_line, m_pos);
+              ctx.print_unsupported(symbol(msg), m_line, m_pos);
           }
           );
 
@@ -682,7 +682,7 @@ public:
             ctx.regular_stream() << "(:status " << ctx.get_status() << ")" << std::endl;
         }
         else if (opt == m_reason_unknown) {
-            ctx.regular_stream() << "(:reason-unknown \"" << escaped(ctx.reason_unknown().c_str()) << "\")" << std::endl;
+            ctx.regular_stream() << "(:reason-unknown \"" << escaped(ctx.reason_unknown()) << "\")" << std::endl;
         }
         else if (opt == m_rlimit) {
             ctx.regular_stream() << "(:rlimit " << ctx.m().limit().count() << ")" << std::endl;
@@ -767,7 +767,7 @@ public:
         return m_array_fid;
     }
     char const * get_usage() const override { return "<symbol> (<sort>+) <func-decl-ref>"; }
-    char const * get_descr(cmd_context & ctx) const override { return "declare a new array map operator with name <symbol> using the given function declaration.\n<func-decl-ref> ::= <symbol>\n                  | (<symbol> (<sort>*) <sort>)\n                  | ((_ <symbol> <numeral>+) (<sort>*) <sort>)\nThe last two cases are used to disumbiguate between declarations with the same name and/or select (indexed) builtin declarations.\nFor more details about the array map operator, see 'Generalized and Efficient Array Decision Procedures' (FMCAD 2009).\nExample: (declare-map set-union (Int) (or (Bool Bool) Bool))\nDeclares a new function (declare-fun set-union ((Array Int Bool) (Array Int Bool)) (Array Int Bool)).\nThe instance of the map axiom for this new declaration is:\n(forall ((a1 (Array Int Bool)) (a2 (Array Int Bool)) (i Int)) (= (select (set-union a1 a2) i) (or (select a1 i) (select a2 i))))"; }
+    char const * get_descr(cmd_context & ctx) const override { return "declare a new array map operator with name <symbol> using the given function declaration.\n<func-decl-ref> ::= <symbol>\n                  | (<symbol> (<sort>*) <sort>)\n                  | ((_ <symbol> <numeral>+) (<sort>*) <sort>)\nThe last two cases are used to disambiguate between declarations with the same name and/or select (indexed) builtin declarations.\nFor more details about the array map operator, see 'Generalized and Efficient Array Decision Procedures' (FMCAD 2009).\nExample: (declare-map set-union (Int) (or (Bool Bool) Bool))\nDeclares a new function (declare-fun set-union ((Array Int Bool) (Array Int Bool)) (Array Int Bool)).\nThe instance of the map axiom for this new declaration is:\n(forall ((a1 (Array Int Bool)) (a2 (Array Int Bool)) (i Int)) (= (select (set-union a1 a2) i) (or (select a1 i) (select a2 i))))"; }
     unsigned get_arity() const override { return 3; }
     void prepare(cmd_context & ctx) override { m_name = symbol::null; m_domain.reset(); }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {

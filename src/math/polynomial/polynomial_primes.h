@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef POLYNOMIAL_PRIMES_H_
-#define POLYNOMIAL_PRIMES_H_
+#pragma once
 
 namespace polynomial {
 #define NUM_SMALL_PRIMES 11
@@ -69,4 +68,3 @@ namespace polynomial {
 
 };
 
-#endif

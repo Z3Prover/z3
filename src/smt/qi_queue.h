@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef QI_QUEUE_H_
-#define QI_QUEUE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "smt/smt_quantifier_stat.h"
@@ -100,5 +99,4 @@ namespace smt {
     };
 };
 
-#endif /* QI_QUEUE_H_ */
 

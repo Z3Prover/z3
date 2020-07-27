@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SCOPED_PTR_VECTOR_H_
-#define SCOPED_PTR_VECTOR_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/util.h"
@@ -69,4 +68,3 @@ public:
     typename ptr_vector<T>::const_iterator end() const { return m_vector.end(); }
 };
 
-#endif

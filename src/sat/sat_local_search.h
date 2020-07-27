@@ -16,8 +16,7 @@
   Notes:
 
   --*/
-#ifndef _SAT_LOCAL_SEARCH_H_
-#define _SAT_LOCAL_SEARCH_H_
+#pragma once
 
 #include "util/vector.h"
 #include "sat/sat_types.h"
@@ -282,4 +281,3 @@ namespace sat {
     };
 }
 
-#endif

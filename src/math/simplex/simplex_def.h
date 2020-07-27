@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef SIMPLEX_DEF_H_
-#define SIMPLEX_DEF_H_
+#pragma once
 
 
 namespace simplex {
@@ -1038,5 +1037,4 @@ namespace simplex {
 
 };
 
-#endif
 

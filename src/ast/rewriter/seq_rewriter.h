@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SEQ_REWRITER_H_
-#define SEQ_REWRITER_H_
+#pragma once
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -138,7 +137,6 @@ class seq_rewriter {
 
         typedef hashtable<op_entry, hash_entry, eq_entry> op_table;
 
-        ast_manager&    m;
         unsigned        m_max_cache_size { 10000 };
         expr_ref_vector m_trail;
         op_table        m_table;
@@ -360,4 +358,3 @@ public:
     #endif
 };
 
-#endif

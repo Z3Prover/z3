@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef BV2REAL_REWRITER_H_
-#define BV2REAL_REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
@@ -230,4 +229,3 @@ public:
         m_cfg(u) {}
 };
 
-#endif

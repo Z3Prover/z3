@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef MODEL_IMPLICANT_H_
-#define MODEL_IMPLICANT_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
@@ -115,4 +114,3 @@ public:
 };
 
 
-#endif

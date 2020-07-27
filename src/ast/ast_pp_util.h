@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef AST_PP_UTIL_H_
-#define AST_PP_UTIL_H_
+#pragma once
 
 #include "ast/decl_collector.h"
 #include "ast/ast_smt2_pp.h"
@@ -64,4 +63,3 @@ class ast_pp_util {
     smt2_pp_environment& env() { return m_env; }
 };
 
-#endif /* AST_PP_UTIL_H_ */

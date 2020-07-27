@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef APPROX_NAT_H_
-#define APPROX_NAT_H_
+#pragma once
 
 #include<iostream>
 #include<climits>
@@ -42,4 +41,3 @@ public:
 
 std::ostream & operator<<(std::ostream & target, approx_nat const & w);
 
-#endif /* APPROX_NAT_H_ */

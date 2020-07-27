@@ -271,6 +271,7 @@ namespace smt2 {
     }
 
     scanner::scanner(cmd_context & ctx, std::istream& stream, bool interactive) :
+        ctx(ctx),
         m_interactive(interactive),
         m_spos(0),
         m_curr(0), // avoid Valgrind warning
@@ -283,7 +284,6 @@ namespace smt2 {
         m_stream(stream),
         m_cache_input(false) {
 
-        m_smtlib2_compliant = ctx.params().m_smtlib2_compliant;
 
         for (int i = 0; i < 256; ++i) {
             m_normalized[i] = (signed char) i;
@@ -366,7 +366,7 @@ namespace smt2 {
                 if (t == NULL_TOKEN) break;
                 return t;
             case '-':
-                if (m_smtlib2_compliant)
+                if (ctx.params().m_smtlib2_compliant)
                     return read_symbol();
                 else
                     return read_signed_number();

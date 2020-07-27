@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef EXPR2POLYNOMIAL_H_
-#define EXPR2POLYNOMIAL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "math/polynomial/polynomial.h"
@@ -109,4 +108,3 @@ protected:
     polynomial::var mk_var(bool is_int) override;
 };
 
-#endif

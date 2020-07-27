@@ -18,8 +18,7 @@ Author:
 Notes:
 
 --*/
-#ifndef _SPACER_PDR_H_
-#define _SPACER_PDR_H_
+#pragma once
 
 #include "muz/spacer/spacer_context.h"
 
@@ -104,4 +103,3 @@ public:
     void enqueue_leaf(model_node &n);
 };
 }
-#endif

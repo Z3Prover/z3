@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_DECL_COLLECTOR_H_
-#define SMT_DECL_COLLECTOR_H_
+#pragma once
 
 #include "util/top_sort.h"
 #include "ast/ast.h"
@@ -69,4 +68,3 @@ public:
     ptr_vector<func_decl> const& get_func_decls() const { return m_decls; }
 };
 
-#endif

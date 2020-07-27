@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXT_GCD_H_
-#define EXT_GCD_H_
+#pragma once
 
 template<typename numeral>
 void extended_gcd(const numeral & in_a, const numeral & in_b, numeral & gcd, numeral & x, numeral & y) {
@@ -48,5 +47,4 @@ void extended_gcd(const numeral & in_a, const numeral & in_b, numeral & gcd, num
     y   = lasty;
 }
 
-#endif /* EXT_GCD_H_ */
 

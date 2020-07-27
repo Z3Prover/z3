@@ -17,8 +17,7 @@ Notes:
     Major revision on 2011-10-06
 
 --*/
-#ifndef NNF_H_
-#define NNF_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -48,4 +47,3 @@ public:
     void reset_cache();
 };
 
-#endif /* NNF_H_ */

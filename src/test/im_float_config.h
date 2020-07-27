@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef IM_FLOAT_CONFIG_H_
-#define IM_FLOAT_CONFIG_H_
+#pragma once
 
 #include "util/f2n.h"
 #include "util/mpf.h"
@@ -63,4 +62,3 @@ public:
     numeral_manager & m() const { return const_cast<numeral_manager&>(m_manager); }
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NLSAT_ASSIGNMENT_H_
-#define NLSAT_ASSIGNMENT_H_
+#pragma once
 
 #include "nlsat/nlsat_types.h"
 #include "math/polynomial/algebraic_numbers.h"
@@ -101,4 +100,3 @@ namespace nlsat {
     };
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SUBPAVING_T_H_
-#define SUBPAVING_T_H_
+#pragma once
 
 #include<iostream>
 #include "util/tptr.h"
@@ -848,4 +847,3 @@ public:
 
 };
 
-#endif

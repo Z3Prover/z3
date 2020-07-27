@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef USED_VARS_H_
-#define USED_VARS_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/expr_delta_pair.h"
@@ -55,5 +54,4 @@ public:
     unsigned get_num_vars() const;
 };
 
-#endif /* USED_VARS_H_ */
 

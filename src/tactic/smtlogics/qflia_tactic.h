@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef QFLIA_TACTIC_H_
-#define QFLIA_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -37,4 +36,3 @@ probe * mk_is_quasi_pb_probe();
   ADD_PROBE("is-quasi-pb", "true if the goal is quasi-pb.", "mk_is_quasi_pb_probe()")
 */
 
-#endif

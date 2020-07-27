@@ -206,8 +206,7 @@ public:
         catch (z3_exception& ex) {
             IF_VERBOSE(10, verbose_stream() << "exception: " << ex.msg() << "\n";);
             reason_set = true;
-            std::string msg = std::string("(sat.giveup ") + ex.msg() + std::string(")");
-            set_reason_unknown(msg.c_str());
+            set_reason_unknown(std::string("(sat.giveup ") + ex.msg() + ')');
             r = l_undef;            
         }
         switch (r) {
@@ -500,6 +499,10 @@ public:
         m_unknown = msg;
     }
 
+    void set_reason_unknown(std::string &&msg) {
+        m_unknown = std::move(msg);
+    }
+
     void get_labels(svector<symbol> & r) override {
     }
 
@@ -656,7 +659,7 @@ private:
             strm << "(sat.giveup interpreted atoms sent to SAT solver " << atoms <<")";
             TRACE("sat", tout << strm.str() << "\n";);
             IF_VERBOSE(1, verbose_stream() << strm.str() << "\n";);
-            set_reason_unknown(strm.str().c_str());
+            set_reason_unknown(strm.str());
             return l_undef;
         }
         return l_true;

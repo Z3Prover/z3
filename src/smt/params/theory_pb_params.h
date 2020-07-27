@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_PB_PARAMS_H_
-#define THEORY_PB_PARAMS_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -35,5 +34,4 @@ struct theory_pb_params {
     void display(std::ostream & out) const;
 };
 
-#endif /* THEORY_PB_PARAMS_H_ */
 

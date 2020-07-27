@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef REDUCE_ARGS_TACTIC_H_
-#define REDUCE_ARGS_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -28,4 +27,3 @@ tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p = params_re
   ADD_TACTIC("reduce-args", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", "mk_reduce_args_tactic(m, p)")
 */
 
-#endif

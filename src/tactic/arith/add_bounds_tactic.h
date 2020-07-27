@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ADD_BOUNDS_H_
-#define ADD_BOUNDS_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -36,4 +35,3 @@ tactic * mk_add_bounds_tactic(ast_manager & m, params_ref const & p = params_ref
   ADD_PROBE("is-unbounded", "true if the goal contains integer/real constants that do not have lower/upper bounds.", "mk_is_unbounded_probe()")
 */
 
-#endif

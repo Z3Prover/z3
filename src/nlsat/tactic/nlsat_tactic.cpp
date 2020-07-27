@@ -105,13 +105,13 @@ class nlsat_tactic : public tactic {
                     continue;
                 expr * v;
                 try {
-                    v = util.mk_numeral(m_solver.value(x), util.is_int(t));
+                    v = util.mk_numeral(m_solver.am(), m_solver.value(x), util.is_int(t));
                 }
                 catch (z3_error & ex) {
                     throw ex;
                 }
                 catch (z3_exception &) {
-                    v = util.mk_to_int(util.mk_numeral(m_solver.value(x), false));
+                    v = util.mk_to_int(util.mk_numeral(m_solver.am(), m_solver.value(x), false));
                     ok = false;
                 }
                 md->register_decl(to_app(t)->get_decl(), v);

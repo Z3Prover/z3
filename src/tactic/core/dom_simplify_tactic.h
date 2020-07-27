@@ -18,8 +18,7 @@ Notes:
 
 --*/
 
-#ifndef DOM_SIMPLIFY_TACTIC_H_
-#define DOM_SIMPLIFY_TACTIC_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/expr_substitution.h"
@@ -148,4 +147,3 @@ tactic * mk_dom_simplify_tactic(ast_manager & m, params_ref const & p = params_r
 ADD_TACTIC("dom-simplify", "apply dominator simplification rules.", "mk_dom_simplify_tactic(m, p)")
 */
 
-#endif

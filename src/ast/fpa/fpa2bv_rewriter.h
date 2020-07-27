@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef FPA2BV_REWRITER_H_
-#define FPA2BV_REWRITER_H_
+#pragma once
 
 #include "ast/rewriter/rewriter.h"
 #include "ast/bv_decl_plugin.h"
@@ -77,4 +76,3 @@ struct fpa2bv_rewriter : public rewriter_tpl<fpa2bv_rewriter_cfg> {
     }
 };
 
-#endif

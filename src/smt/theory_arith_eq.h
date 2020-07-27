@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARITH_EQ_H_
-#define THEORY_ARITH_EQ_H_
+#pragma once
 
 // #define PROFILE_OFFSET_ROW
 
@@ -358,5 +357,4 @@ namespace smt {
     }
 };
 
-#endif /* THEORY_ARITH_EQ_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MODEL_H_
-#define MODEL_H_
+#pragma once
 
 #include "util/ref.h"
 #include "util/vector.h"
@@ -127,4 +126,3 @@ public:
 };
 
 
-#endif /* MODEL_H_ */

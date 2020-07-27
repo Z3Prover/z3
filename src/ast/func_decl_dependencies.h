@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef FUNC_DECL_DEPENDENCIES_H_
-#define FUNC_DECL_DEPENDENCIES_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -107,4 +106,3 @@ public:
 };
 
 
-#endif

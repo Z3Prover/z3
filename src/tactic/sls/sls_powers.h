@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef SLS_POWERS_H_
-#define SLS_POWERS_H_
+#pragma once
 
 #include "util/mpz.h"
 
@@ -46,4 +45,3 @@ public:
     }
 };  
 
-#endif

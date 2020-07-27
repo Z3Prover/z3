@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SPACER_IUC_SOLVER_H_
-#define SPACER_IUC_SOLVER_H_
+#pragma once
 
 #include"solver/solver.h"
 #include"ast/expr_substitution.h"
@@ -180,4 +179,3 @@ public:
     };
 };
 }
-#endif

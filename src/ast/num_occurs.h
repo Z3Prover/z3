@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NUM_OCCURS_H_
-#define NUM_OCCURS_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -52,5 +51,4 @@ public:
     }
 };
 
-#endif /* NUM_OCCURS_H_ */
 

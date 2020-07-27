@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXT_NUMERAL_H_
-#define EXT_NUMERAL_H_
+#pragma once
 
 #include<iostream>
 #include "util/debug.h"
@@ -344,4 +343,3 @@ void display_pp(std::ostream & out,
     }
 }
 
-#endif

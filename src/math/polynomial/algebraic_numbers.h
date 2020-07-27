@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef ALGEBRAIC_NUMBERS_H_
-#define ALGEBRAIC_NUMBERS_H_
+#pragma once
 
 #include "util/rational.h"
 #include "util/mpq.h"
@@ -490,4 +489,3 @@ inline std::ostream & operator<<(std::ostream & out, interval_pp const & n) {
     return out;
 }
 
-#endif

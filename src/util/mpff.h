@@ -20,8 +20,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MPFF_H_
-#define MPFF_H_
+#pragma once
 
 #include "util/id_gen.h"
 #include "util/util.h"
@@ -440,6 +439,7 @@ public:
     void to_mpz(mpff const & n, synch_mpz_manager & m, mpz & t);
 #endif
 
+
     /**
        \brief Convert n into a mpq numeral.
 
@@ -492,4 +492,3 @@ public:
 typedef _scoped_numeral<mpff_manager> scoped_mpff;
 typedef _scoped_numeral_vector<mpff_manager> scoped_mpff_vector;
 
-#endif

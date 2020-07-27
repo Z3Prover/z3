@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef HORN_TACTIC_H_
-#define HORN_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -32,4 +31,3 @@ tactic * mk_horn_simplify_tactic(ast_manager & m, params_ref const & p = params_
 /*
   ADD_TACTIC("horn-simplify", "simplify horn clauses.", "mk_horn_simplify_tactic(m, p)")
 */
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_TYPES_H_
-#define SAT_TYPES_H_
+#pragma once
 
 #include "util/debug.h"
 #include "util/approx_set.h"
@@ -177,12 +176,6 @@ namespace sat {
             for (unsigned i = 0; i < v.size(); ++i) insert(v[i]);
             return *this;
         }
-        literal_set& operator=(literal_set const& other) {
-            if (this != &other) {
-                m_set = other.m_set;
-            }
-            return *this;
-        }
 
         void insert(literal l) { m_set.insert(l.index()); }
         void remove(literal l) { m_set.remove(l.index()); }
@@ -269,4 +262,3 @@ namespace sat {
     };
 };
 
-#endif

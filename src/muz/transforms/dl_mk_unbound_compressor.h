@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_MK_UNBOUND_COMPRESSOR_H_
-#define DL_MK_UNBOUND_COMPRESSOR_H_
+#pragma once
 
 #include<utility>
 
@@ -91,5 +90,4 @@ namespace datalog {
 
 };
 
-#endif /* DL_MK_UNBOUND_COMPRESSOR_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef QFBV_TACTIC_H_
-#define QFBV_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -33,4 +32,3 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p);
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p, tactic* sat, tactic* smt);
 
-#endif

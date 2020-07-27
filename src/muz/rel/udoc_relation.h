@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef UDOC_RELATION_H_
-#define UDOC_RELATION_H_
+#pragma once
 
 #include "muz/rel/doc.h"
 #include "muz/rel/dl_base.h"
@@ -149,5 +148,4 @@ namespace datalog {
     };
 };
        
-#endif /* UDOC_RELATION_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MAXIMIZE_AC_SHARING_H_
-#define MAXIMIZE_AC_SHARING_H_
+#pragma once
 
 #include "util/hashtable.h"
 #include "util/region.h"
@@ -121,5 +120,4 @@ public:
     void reset() { m_cfg.reset(); }
 };
 
-#endif /* MAXIMIZE_AC_SHARING_H_ */
 

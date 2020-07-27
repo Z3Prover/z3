@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef SYMBOLIC_AUTOMATA_H_
-#define SYMBOLIC_AUTOMATA_H_
+#pragma once
 
 
 #include "math/automata/automaton.h"
@@ -151,4 +150,3 @@ private:
 
 
 
-#endif 

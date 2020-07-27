@@ -17,8 +17,7 @@ Notes:
    
 --*/
 
-#ifndef NETWORK_FLOW_DEF_H_
-#define NETWORK_FLOW_DEF_H_
+#pragma once
 
 #include "math/simplex/network_flow.h"
 #include "util/uint_set.h"
@@ -523,4 +522,3 @@ namespace smt {
     }
 }
 
-#endif

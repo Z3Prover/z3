@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PLUGIN_MANAGER_H_
-#define PLUGIN_MANAGER_H_
+#pragma once
 
 #include "util/util.h"
 
@@ -69,5 +68,4 @@ public:
     }
 };
 
-#endif /* PLUGIN_MANAGER_H_ */
 

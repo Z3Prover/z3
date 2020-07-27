@@ -52,7 +52,7 @@ symbol mk_fresh_name::next() {
             _name << m_char;
             if (m_num > 0) _name << m_num;
             ++m_char;
-            symbol name(_name.str().c_str());
+            symbol name(_name.str());
             if (!m_symbols.contains(name)) {
                 return name;
             }                

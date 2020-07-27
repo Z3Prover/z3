@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OCCURS_H_
-#define OCCURS_H_
+#pragma once
 
 class expr; 
 class func_decl;
@@ -32,5 +31,4 @@ bool occurs(expr * n1, expr * n2);
 */
 bool occurs(func_decl * d, expr * n);
 
-#endif /* OCCURS_H_ */
 

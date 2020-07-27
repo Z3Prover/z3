@@ -22,8 +22,7 @@ Revision History:
 
 --*/
 
-#ifndef RECFUN_REPLACE_H_
-#define RECFUN_REPLACE_H_
+#pragma once
 
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -39,4 +38,3 @@ public:
     expr_ref operator()(expr* e) override { expr_ref r(m); m_replace(e, r); return r; }
 };
 
-#endif /* RECFUN_REPLACE_H_ */

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SYMBOL_TABLE_H_
-#define SYMBOL_TABLE_H_
+#pragma once
 #include "util/vector.h"
 #include "util/hashtable.h"
 #include "util/hash.h"
@@ -199,5 +198,4 @@ public:
     }
 };
 
-#endif /* SYMBOL_TABLE_H_ */
 

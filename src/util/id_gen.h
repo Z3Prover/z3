@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ID_GEN_H_
-#define ID_GEN_H_
+#pragma once
 
 #include "util/vector.h"
 #include "util/util.h"
@@ -85,4 +84,3 @@ public:
 
 };
 
-#endif /* ID_GEN_H_ */

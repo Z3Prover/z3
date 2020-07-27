@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef AST_UTIL_H_
-#define AST_UTIL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -172,4 +171,3 @@ void flatten_or(expr* fml, expr_ref_vector& result);
 
 bool has_uninterpreted(ast_manager& m, expr* e);
 
-#endif /* AST_UTIL_H_ */

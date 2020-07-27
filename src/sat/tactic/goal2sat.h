@@ -26,8 +26,7 @@ Author:
 Notes:
 
 --*/
-#ifndef GOAL2SAT_H_
-#define GOAL2SAT_H_
+#pragma once
 
 #include "tactic/goal.h"
 #include "sat/sat_solver.h"
@@ -65,6 +64,8 @@ public:
     void operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false, bool is_lemma = false);
 
     void get_interpreted_atoms(expr_ref_vector& atoms);
+
+    bool has_interpreted_atoms() const;
 
 };
 
@@ -118,4 +119,3 @@ public:
     
 };
 
-#endif

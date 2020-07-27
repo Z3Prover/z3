@@ -1443,11 +1443,9 @@ namespace smt {
             return; // conflict was detected
         }
         m_prop_queue.reset();
-        literal_vector & bits1        = m_bits[v1];
-        literal_vector & bits2        = m_bits[v2];
-        SASSERT(bits1.size() == bits2.size());
-        unsigned sz                   = bits1.size();
-        bool changed;
+        SASSERT(m_bits[v1].size() == m_bits[v2].size());
+        unsigned sz  = m_bits[v1].size();
+        bool changed = true;
         TRACE("bv", tout << "bits size: " << sz << "\n";);
         do {
             // This outerloop is necessary to avoid missing propagation steps.
@@ -1465,8 +1463,8 @@ namespace smt {
             // then it is not notified to the bv theory.
             changed                   = false;
             for (unsigned idx = 0; idx < sz; idx++) {
-                literal bit1  = bits1[idx];
-                literal bit2  = bits2[idx];
+                literal bit1  = m_bits[v1][idx];
+                literal bit2  = m_bits[v2][idx];
                 CTRACE("bv_bug", bit1 == ~bit2, display_var(tout, v1); display_var(tout, v2); tout << "idx: " << idx << "\n";);
                 SASSERT(bit1 != ~bit2);
                 lbool val1    = ctx.get_assignment(bit1);

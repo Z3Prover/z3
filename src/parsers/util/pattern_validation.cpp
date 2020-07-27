@@ -58,7 +58,8 @@ struct pattern_validation_functor {
     void operator()(app * n) {
         func_decl * decl = to_app(n)->get_decl();
         if (is_forbidden(decl)) {
-            warning_msg("(%d,%d): '%s' cannot be used in patterns.", m_line, m_pos, decl->get_name().str().c_str());
+            auto str = decl->get_name().str();
+            warning_msg("(%d,%d): '%s' cannot be used in patterns.", m_line, m_pos, str.c_str());
             m_result = false;
         }
     }

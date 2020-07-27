@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_UTIL_H_
-#define API_UTIL_H_
+#pragma once
 
 #include "util/params.h"
 #include "util/lbool.h"
@@ -172,4 +171,3 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned num_args, Z3_ast const* args) { \
     Z3_CATCH_RETURN(0);                                                 \
 }
 
-#endif

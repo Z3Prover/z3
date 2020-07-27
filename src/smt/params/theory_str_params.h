@@ -15,8 +15,7 @@ Revision History:
 
 --*/
 
-#ifndef THEORY_STR_PARAMS_H
-#define THEORY_STR_PARAMS_H
+#pragma once
 
 #include "util/params.h"
 
@@ -137,4 +136,3 @@ struct theory_str_params {
     void display(std::ostream & out) const;
 };
 
-#endif /* THEORY_STR_PARAMS_H */

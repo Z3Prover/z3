@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NLSAT_EVALUATOR_H_
-#define NLSAT_EVALUATOR_H_
+#pragma once
 
 #include "nlsat/nlsat_types.h"
 #include "nlsat/nlsat_assignment.h"
@@ -60,4 +59,3 @@ namespace nlsat {
     
 };
 
-#endif

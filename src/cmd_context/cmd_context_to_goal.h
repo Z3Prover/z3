@@ -16,9 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CMD_CONTEXT_TO_GOAL_H_
-#define CMD_CONTEXT_TO_GOAL_H_
+#pragma once
 
 void assert_exprs_from(cmd_context const & ctx, goal & t);
 
-#endif

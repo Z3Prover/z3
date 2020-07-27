@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef FOR_EACH_EXPR_H_
-#define FOR_EACH_EXPR_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/trace.h"
@@ -209,5 +208,4 @@ public:
     iterator end();
 };
 
-#endif /* FOR_EACH_EXPR_H_ */
 

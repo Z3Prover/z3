@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ARRAY_H_
-#define ARRAY_H_
+#pragma once
 
 template<typename T, bool CallDestructors=true>
 class array {
@@ -215,4 +214,3 @@ public:
     sarray(Allocator & a, unsigned sz, bool init_mem):array<T, false>(a, sz, init_mem) {}
 };
 
-#endif

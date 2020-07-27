@@ -18,8 +18,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef LINEAR_EQUATION_H_
-#define LINEAR_EQUATION_H_
+#pragma once
 
 #include "util/mpq.h"
 #include "util/small_object_allocator.h"
@@ -82,4 +81,3 @@ public:
     void display(std::ostream & out, linear_equation const & eq) const;
 };
 
-#endif

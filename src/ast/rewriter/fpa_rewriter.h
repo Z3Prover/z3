@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef FLOAT_REWRITER_H_
-#define FLOAT_REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
@@ -92,4 +91,3 @@ public:
     br_status mk_bvwrap(expr * arg, expr_ref & result);
 };
 
-#endif

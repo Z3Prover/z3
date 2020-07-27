@@ -43,8 +43,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_MODEL_FINDER_H_
-#define SMT_MODEL_FINDER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/func_decl_dependencies.h"
@@ -126,4 +125,3 @@ namespace smt {
     };
 };
 
-#endif

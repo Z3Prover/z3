@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MPFX_H_
-#define MPFX_H_
+#pragma once
 
 #include "util/id_gen.h"
 #include "util/util.h"
@@ -409,4 +408,3 @@ public:
 typedef _scoped_numeral<mpfx_manager> scoped_mpfx;
 typedef _scoped_numeral_vector<mpfx_manager> scoped_mpfx_vector;
 
-#endif

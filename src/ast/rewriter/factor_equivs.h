@@ -25,8 +25,7 @@ Revision History:
 
 */
 
-#ifndef FACTOR_EQUIVS_H_
-#define FACTOR_EQUIVS_H_
+#pragma once
 
 #include "util/union_find.h"
 #include "ast/ast_util.h"
@@ -187,4 +186,3 @@ void equiv_to_expr(expr_equiv_class &equiv, expr_ref_vector &out);
 bool equiv_to_expr_full(expr_equiv_class &equiv, expr_ref_vector &out);
 
 
-#endif

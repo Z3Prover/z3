@@ -18,8 +18,7 @@ Revision History:
     Christoph M. Wintersteiger (cwinter) 2012-10-24: Moved from demodulator.h to ufbv_rewriter.h
 
 --*/
-#ifndef UFBV_REWRITER_H_
-#define UFBV_REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/substitution/substitution.h"
@@ -264,5 +263,4 @@ public:
     */    
 };
 
-#endif /* UFBV_REWRITER_H_ */
 

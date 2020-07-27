@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SCOPED_NUMERAL_BUFFER_H_
-#define SCOPED_NUMERAL_BUFFER_H_
+#pragma once
 
 #include "util/buffer.h"
 
@@ -65,4 +64,3 @@ public:
     }
 };
 
-#endif

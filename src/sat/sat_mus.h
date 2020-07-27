@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SAT_MUS_H_
-#define SAT_MUS_H_
+#pragma once
 
 namespace sat {
     class mus {
@@ -65,4 +64,3 @@ namespace sat {
 
 };
 
-#endif

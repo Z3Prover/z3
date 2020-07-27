@@ -19,8 +19,7 @@ Author:
 Notes:
 
 --*/
-#ifndef LINEAR_EQ_SOLVER_H_
-#define LINEAR_EQ_SOLVER_H_
+#pragma once
 
 template<typename numeral_manager> 
 class linear_eq_solver {
@@ -149,4 +148,3 @@ public:
 };
 
 
-#endif

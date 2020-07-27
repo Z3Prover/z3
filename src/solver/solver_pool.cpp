@@ -395,7 +395,7 @@ solver* solver_pool::mk_solver() {
     }
     std::stringstream name;
     name << "vsolver#" << m_solvers.size();
-    app_ref pred(m.mk_const(symbol(name.str().c_str()), m.mk_bool_sort()), m);
+    app_ref pred(m.mk_const(symbol(name.str()), m.mk_bool_sort()), m);
     pool_solver* solver = alloc(pool_solver, base_solver.get(), *this, pred);
     m_solvers.push_back(solver);
     return solver;

@@ -24,6 +24,7 @@ Revision History:
 #include<climits>
 #include<limits>
 #include<stdint.h>
+#include <string>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
@@ -232,6 +233,10 @@ public:
         m_ptr(ptr) {
     }
 
+    scoped_ptr(scoped_ptr &&other) noexcept : m_ptr(nullptr) {
+        std::swap(m_ptr, other.m_ptr);
+    }
+
     ~scoped_ptr() {
         dealloc(m_ptr);
     }
@@ -375,6 +380,7 @@ class escaped {
     char const * end() const;
 public:
     escaped(char const * str, bool trim_nl = false, unsigned indent = 0):m_str(str), m_trim_nl(trim_nl), m_indent(indent) {}
+    escaped(const std::string &str, bool trim_nl = false, unsigned indent = 0):m_str(str.c_str()), m_trim_nl(trim_nl), m_indent(indent) {}
     void display(std::ostream & out) const;
 };
 

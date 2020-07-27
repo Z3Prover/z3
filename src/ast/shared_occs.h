@@ -16,8 +16,7 @@ Author:
 
 Revision History:
 --*/
-#ifndef SHARED_OCCS_H_
-#define SHARED_OCCS_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -77,4 +76,3 @@ public:
     void display(std::ostream & out, ast_manager & mgr) const;
 };
 
-#endif

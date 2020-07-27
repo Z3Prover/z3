@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef REF_BUFFER_H_
-#define REF_BUFFER_H_
+#pragma once
 
 #include "util/buffer.h"
 #include "util/obj_ref.h"
@@ -180,4 +179,3 @@ class sref_buffer : public ref_buffer_core<T, ref_unmanaged_wrapper<T>, INITIAL_
 public:
 };
 
-#endif /* REF_BUFFER_H_ */

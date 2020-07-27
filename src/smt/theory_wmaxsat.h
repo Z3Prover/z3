@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef THEORY_WMAXSAT_H_
-#define THEORY_WMAXSAT_H_
+#pragma once
 
 #include "smt/smt_theory.h"
 #include "smt/smt_clause.h"
@@ -140,4 +139,3 @@ namespace smt {
     };
 };
 
-#endif

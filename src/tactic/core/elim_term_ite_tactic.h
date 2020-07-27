@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef ELIM_TERM_ITE_TACTIC_H_
-#define ELIM_TERM_ITE_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -30,4 +29,3 @@ tactic * mk_elim_term_ite_tactic(ast_manager & m, params_ref const & p = params_
     ADD_TACTIC("elim-term-ite", "eliminate term if-then-else by adding fresh auxiliary declarations.", "mk_elim_term_ite_tactic(m, p)")
 */
 
-#endif

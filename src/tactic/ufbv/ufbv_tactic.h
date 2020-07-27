@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef UFBV_TACTIC_H_
-#define UFBV_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -30,4 +29,3 @@ tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p = params_ref());
   ADD_TACTIC("ufbv",  "builtin strategy for solving UFBV problems (with quantifiers).", "mk_ufbv_tactic(m, p)")
 */
 
-#endif

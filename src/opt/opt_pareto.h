@@ -17,8 +17,7 @@ Notes:
 
    
 --*/
-#ifndef OPT_PARETO_H_
-#define OPT_PARETO_H_
+#pragma once
 
 #include "solver/solver.h"
 #include "model/model.h"
@@ -107,4 +106,3 @@ namespace opt {
     };
 }
 
-#endif

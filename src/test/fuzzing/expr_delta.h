@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXPR_DELTA_H_
-#define EXPR_DELTA_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -49,4 +48,3 @@ private:
 };
 
 
-#endif

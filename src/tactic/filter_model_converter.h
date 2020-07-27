@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef FILTER_MODEL_CONVERTER_H_
-#define FILTER_MODEL_CONVERTER_H_
+#pragma once
 
 #include "tactic/model_converter.h"
 
@@ -49,4 +48,3 @@ public:
 
 typedef ref<filter_model_converter> filter_model_converter_ref;
 
-#endif

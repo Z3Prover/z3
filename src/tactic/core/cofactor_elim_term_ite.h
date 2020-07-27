@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef COFACTOR_ELIM_TERM_ITE_H_
-#define COFACTOR_ELIM_TERM_ITE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -39,4 +38,3 @@ public:
 
 };
 
-#endif

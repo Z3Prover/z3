@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef DEFAULT_TACTIC_H_
-#define DEFAULT_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_default_tactic(ast_manager & m, params_ref const & p = params_ref())
 ADD_TACTIC("default", "default strategy used when no logic is specified.", "mk_default_tactic(m, p)")
 */
 
-#endif

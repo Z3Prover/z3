@@ -107,7 +107,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
                 cname = mk_smt2_quoted_symbol(csym);
             else
                 cname = csym.str();
-            format * c_args[2] = { var, mk_string(m, cname.c_str()) };
+            format * c_args[2] = { var, mk_string(m, cname) };
             f_conds.push_back(mk_seq1<format**, f2f>(m, c_args, c_args+2, f2f(), "="));
         }
         SASSERT(!f_conds.empty());
@@ -210,7 +210,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
             for (unsigned j = 0; j < f->get_arity(); j++) {
                 std::stringstream strm;
                 strm << "x!" << (j+1);
-                var_names.push_back(symbol(strm.str().c_str()));
+                var_names.push_back(symbol(strm.str()));
             }
         }
         else {
@@ -274,7 +274,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
         def = mk_indent(m, indent, mk_compose(m, 
                                               mk_compose(m, 
                                                          mk_string(m, "(define-fun "),
-                                                         mk_string(m, fname.c_str()),
+                                                         mk_string(m, fname),
                                                          mk_string(m, " "),
                                                          mk_compose(m, 
                                                                     f_domain,

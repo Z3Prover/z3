@@ -22,8 +22,7 @@ Notes:
 #include "util/inf_eps_rational.h"
 #include "ast/arith_decl_plugin.h"
 
-#ifndef THEORY_OPT_H_
-#define THEORY_OPT_H_
+#pragma once
 
 class generic_model_converter;
 namespace smt {
@@ -38,4 +37,3 @@ namespace smt {
     };
 }
 
-#endif

@@ -631,7 +631,8 @@ bool pattern_inference_cfg::reduce_quantifier(
         if (new_patterns.empty()) {
             mk_patterns(q->get_num_decls(), new_body, 0, nullptr, new_patterns);
             if (m_params.m_pi_warnings && !new_patterns.empty()) {
-                warning_msg("ignoring nopats annotation because Z3 couldn't find any other pattern (quantifier id: %s)", q->get_qid().str().c_str());
+                auto str = q->get_qid().str();
+                warning_msg("ignoring nopats annotation because Z3 couldn't find any other pattern (quantifier id: %s)", str.c_str());
             }
         }
     }
@@ -644,8 +645,9 @@ bool pattern_inference_cfg::reduce_quantifier(
             if (!new_patterns.empty()) {
                 weight = std::max(weight, static_cast<int>(m_params.m_pi_arith_weight));
                 if (m_params.m_pi_warnings) {
+                    auto str = q->get_qid().str();
                     warning_msg("using arith. in pattern (quantifier id: %s), the weight was increased to %d (this value can be modified using PI_ARITH_WEIGHT=<val>).",
-                                q->get_qid().str().c_str(), weight);
+                                str.c_str(), weight);
                 }
             }
         }
@@ -659,8 +661,9 @@ bool pattern_inference_cfg::reduce_quantifier(
             if (!new_patterns.empty()) {
                 weight = std::max(weight, static_cast<int>(m_params.m_pi_non_nested_arith_weight));
                 if (m_params.m_pi_warnings) {
+                    auto str = q->get_qid().str();
                     warning_msg("using non nested arith. pattern (quantifier id: %s), the weight was increased to %d (this value can be modified using PI_NON_NESTED_ARITH_WEIGHT=<val>).",
-                                q->get_qid().str().c_str(), weight);
+                                str.c_str(), weight);
                 }
                 // verbose_stream() << mk_pp(q, m) << "\n";
             }
@@ -686,7 +689,8 @@ bool pattern_inference_cfg::reduce_quantifier(
             mk_patterns(result2->get_num_decls(), result2->get_expr(), 0, nullptr, new_patterns);
             if (!new_patterns.empty()) {
                 if (m_params.m_pi_warnings) {
-                    warning_msg("pulled nested quantifier to be able to find an usable pattern (quantifier id: %s)", q->get_qid().str().c_str());
+                    auto str = q->get_qid().str();
+                    warning_msg("pulled nested quantifier to be able to find an usable pattern (quantifier id: %s)", str.c_str());
                 }
                 new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.c_ptr(), result2->get_expr());
                 if (m.proofs_enabled()) {
@@ -699,7 +703,8 @@ bool pattern_inference_cfg::reduce_quantifier(
 
     if (new_patterns.empty()) {
         if (m_params.m_pi_warnings) {
-            warning_msg("failed to find a pattern for quantifier (quantifier id: %s)", q->get_qid().str().c_str());
+            auto str = q->get_qid().str();
+            warning_msg("failed to find a pattern for quantifier (quantifier id: %s)", str.c_str());
         }
         TRACE("pi_failed", tout << mk_pp(q, m) << "\n";);
     }

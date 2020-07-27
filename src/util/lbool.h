@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef LBOOL_H_
-#define LBOOL_H_
+#pragma once
 
 #include "util/util.h"
 
@@ -38,5 +37,4 @@ std::ostream & operator<<(std::ostream & out, lbool b);
 */
 char const * to_sat_str(lbool l);
 
-#endif /* LBOOL_H_ */
 

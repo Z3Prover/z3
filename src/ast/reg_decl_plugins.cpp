@@ -57,7 +57,7 @@ void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("pb")))) {
         m.register_plugin(symbol("pb"), alloc(pb_decl_plugin));
     }
-    if (!m.get_plugin(m.mk_family_id(symbol("special_relations")))) {
-        m.register_plugin(symbol("special_relations"), alloc(special_relations_decl_plugin));
+    if (!m.get_plugin(m.mk_family_id(symbol("specrels")))) {
+        m.register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin));
     }
 }

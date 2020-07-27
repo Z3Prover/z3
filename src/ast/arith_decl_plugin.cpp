@@ -39,11 +39,11 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
 
     unsigned mk_id(algebraic_numbers::anum const & val) {
         SASSERT(!m_amanager.is_rational(val));
-        unsigned new_id = m_id_gen.mk();
-        m_nums.reserve(new_id+1);
-        m_amanager.set(m_nums[new_id], val);
-        TRACE("algebraic2expr", tout << "mk_id -> " << new_id << "\n"; m_amanager.display(tout, val); tout << "\n";);
-        return new_id;
+        unsigned idx = m_id_gen.mk();
+        m_nums.reserve(idx+1);
+        m_amanager.set(m_nums[idx], val);
+        TRACE("algebraic2expr", tout << "mk_id -> " << idx << "\n"; m_amanager.display(tout, val); tout << "\n";);
+        return idx;
     }
 
     void recycle_id(unsigned idx) {
@@ -66,8 +66,8 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
 };
 
 arith_decl_plugin::algebraic_numbers_wrapper & arith_decl_plugin::aw() const {
-    if (m_aw == nullptr)
-        const_cast<arith_decl_plugin*>(this)->m_aw = alloc(algebraic_numbers_wrapper, m_manager->limit());
+    if (m_aw == nullptr) 
+        const_cast<arith_decl_plugin*>(this)->m_aw = alloc(algebraic_numbers_wrapper, m_manager->limit());    
     return *m_aw;
 }
 
@@ -75,10 +75,10 @@ algebraic_numbers::manager & arith_decl_plugin::am() const {
     return aw().m_amanager;
 }
 
-app * arith_decl_plugin::mk_numeral(algebraic_numbers::anum const & val, bool is_int) {
-    if (am().is_rational(val)) {
+app * arith_decl_plugin::mk_numeral(algebraic_numbers::manager& m, algebraic_numbers::anum const & val, bool is_int) {
+    if (m.is_rational(val)) {
         rational rval;
-        am().to_rational(val, rval);
+        m.to_rational(val, rval);
         return mk_numeral(rval, is_int);
     }
     else {
@@ -103,7 +103,7 @@ app * arith_decl_plugin::mk_numeral(algebraic_numbers::anum const & val, bool is
 app * arith_decl_plugin::mk_numeral(sexpr const * p, unsigned i) {
     scoped_anum r(am());
     am().mk_root(p, i, r);
-    return mk_numeral(r, false);
+    return mk_numeral(am(), r, false);
 }
 
 void arith_decl_plugin::del(parameter const & p) {

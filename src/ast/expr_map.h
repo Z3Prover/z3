@@ -18,8 +18,7 @@ Author:
 Notes:
 
 --*/
-#ifndef EXPR_MAP_H_
-#define EXPR_MAP_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -59,4 +58,3 @@ public:
     }
 };
 
-#endif

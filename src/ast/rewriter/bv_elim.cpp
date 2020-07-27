@@ -51,12 +51,12 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
             for (unsigned j = 0; j < num_bits; ++j) {
                 std::ostringstream new_name;
                 new_name << nm.str();
-                new_name << "_";
+                new_name << '_';
                 new_name << j;
-                var* v = m.mk_var(var_idx++, m.mk_bool_sort());                
+                var* v = m.mk_var(var_idx++, m.mk_bool_sort());
                 args.push_back(v);
                 _sorts.push_back(m.mk_bool_sort());
-                _names.push_back(symbol(new_name.str().c_str()));
+                _names.push_back(symbol(new_name.str()));
             }
             bv = m.mk_app(bfid, OP_MKBV, 0, nullptr, args.size(), args.c_ptr());
             _subst_map.push_back(bv.get());

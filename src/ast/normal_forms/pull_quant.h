@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PULL_QUANT_H_
-#define PULL_QUANT_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -56,4 +55,3 @@ public:
     void reset();
 };
 
-#endif /* PULL_QUANT_H_ */

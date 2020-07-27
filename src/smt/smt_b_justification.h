@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_B_JUSTIFICATION_H_
-#define SMT_B_JUSTIFICATION_H_
+#pragma once
 
 #include "smt/smt_literal.h"
 #include "smt/smt_clause.h"
@@ -41,10 +40,6 @@ namespace smt {
 
         b_justification():
             m_data(reinterpret_cast<void*>(static_cast<size_t>(AXIOM))) {}
-
-        b_justification(b_justification const & source):
-            m_data(source.m_data) {
-        }
 
         explicit b_justification(clause * c):
             m_data(TAG(void*, c, CLAUSE)) {
@@ -106,5 +101,4 @@ namespace smt {
     typedef std::pair<literal, b_justification> justified_literal;
 };
 
-#endif /* SMT_B_JUSTIFICATION_H_ */
 

@@ -30,8 +30,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PROPAGATE_INEQS_TACTIC_H_
-#define PROPAGATE_INEQS_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -42,4 +41,3 @@ tactic * mk_propagate_ineqs_tactic(ast_manager & m, params_ref const & p = param
   ADD_TACTIC("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", "mk_propagate_ineqs_tactic(m, p)")
 */
 
-#endif

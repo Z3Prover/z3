@@ -82,7 +82,6 @@ expr * user_sort_factory::get_some_value(sort * s) {
         m_sort2value_set.find(s, set);
         SASSERT(set != 0);
         SASSERT(!set->m_values.empty());
-        unsigned nv = set->m_values.size();
         random_gen rand(m_manager.get_num_asts());
         unsigned n = 1;
         expr* result = nullptr;

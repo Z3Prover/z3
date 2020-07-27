@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef BV_ARRAY2UF_TACTIC_H_
-#define BV_ARRAY2UF_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -30,4 +29,3 @@ tactic * mk_bvarray2uf_tactic(ast_manager & m, params_ref const & p = params_ref
 */
 
 
-#endif

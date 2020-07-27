@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ELIM_BOUNDS2_H_
-#define ELIM_BOUNDS2_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
@@ -73,5 +72,4 @@ public:
     ~elim_bounds_rw() override {}
 };
 
-#endif /* ELIM_BOUNDS2_H_ */
 

@@ -32,19 +32,6 @@
 
 namespace smt {
 
-    inline zstring int_to_string(int i) {
-        std::stringstream ss;
-        ss << i;
-        std::string str = ss.str();
-        return zstring(str.c_str());
-    }
-
-    inline std::string longlong_to_string(long long i) {
-        std::stringstream ss;
-        ss << i;
-        return ss.str();
-    }
-
     /*
      * Use the current model in the arithmetic solver to get the length of a term.
      * Returns true if this could be done, placing result in 'termLen', or false otherwise.
@@ -780,7 +767,7 @@ namespace smt {
                     return false;
                 }
                 // convert iValue to a constant
-                zstring iValue_str = zstring(iValue.to_string().c_str());
+                zstring iValue_str(iValue.to_string());
                 for (unsigned idx = 0; idx < iValue_str.length(); ++idx) {
                     expr_ref chTerm(bitvector_character_constants.get(iValue_str[idx]), sub_m);
                     eqc_chars.push_back(chTerm);
@@ -1135,7 +1122,7 @@ namespace smt {
                         TRACE("str_fl", tout << "integer theory assigns " << ival << " to " << mk_pp(e, get_manager()) << std::endl;);
                         // if ival is non-negative, because we know the length of arg, we can add a character constraint for arg
                         if (ival.is_nonneg()) {
-                            zstring ival_str(ival.to_string().c_str());
+                            zstring ival_str(ival.to_string());
                             zstring padding;
                             for (rational i = rational::zero(); i < slen - rational(ival_str.length()); ++i) {
                                 padding = padding + zstring("0");
@@ -1176,7 +1163,7 @@ namespace smt {
                             ival_str = zstring("");
                         } else {
                             // e must be equal to the string representation of ival
-                            ival_str = zstring(ival.to_string().c_str());
+                            ival_str = zstring(ival.to_string());
                         }
                         // Add (arg == ival) as a precondition.
                         precondition.push_back(m.mk_eq(arg, mk_int(ival)));

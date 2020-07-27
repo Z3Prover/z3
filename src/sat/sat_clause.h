@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_CLAUSE_H_
-#define SAT_CLAUSE_H_
+#pragma once
 
 #include "util/small_object_allocator.h"
 #include "util/id_gen.h"
@@ -164,16 +163,6 @@ namespace sat {
     public:
         explicit clause_wrapper(literal l1, literal l2):m_l1_idx(l1.to_uint()), m_l2_idx(l2.to_uint()) {}
         explicit clause_wrapper(clause & c):m_cls(&c), m_l2_idx(null_literal.to_uint()) {}
-        clause_wrapper& operator=(clause_wrapper const& other) {
-            if (other.is_binary()) {
-                m_l1_idx = other.m_l1_idx;
-            }
-            else {
-                m_cls = other.m_cls;
-            }
-            m_l2_idx = other.m_l2_idx;
-            return *this;
-        }
 
         bool is_binary() const { return m_l2_idx != null_literal.to_uint(); }
         unsigned size() const { return is_binary() ? 2 : m_cls->size(); }
@@ -197,4 +186,3 @@ namespace sat {
 
 };
 
-#endif

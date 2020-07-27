@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef _SYM_MUX_H_
-#define _SYM_MUX_H_
+#pragma once
 
 #include <string>
 
@@ -91,4 +90,3 @@ public:
 };
 }
 
-#endif

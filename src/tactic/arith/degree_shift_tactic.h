@@ -19,8 +19,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DEGREE_SHIFT_TACTIC_H_
-#define DEGREE_SHIFT_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -32,4 +31,3 @@ tactic * mk_degree_shift_tactic(ast_manager & m, params_ref const & p = params_r
   ADD_TACTIC("degree-shift", "try to reduce degree of polynomials (remark: :mul2power simplification is automatically applied).", "mk_degree_shift_tactic(m, p)")
 */
 
-#endif

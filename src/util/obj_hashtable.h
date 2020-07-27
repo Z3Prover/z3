@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OBJ_HASHTABLE_H_
-#define OBJ_HASHTABLE_H_
+#pragma once
 
 #include "util/hash.h"
 #include "util/hashtable.h"
@@ -241,5 +240,4 @@ void erase_dealloc_value(obj_map<Key, Value*> & m, Key * k) {
     }
 }
 
-#endif /* OBJ_HASHTABLE_H_ */
 

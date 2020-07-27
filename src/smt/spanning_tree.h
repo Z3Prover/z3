@@ -16,8 +16,7 @@ Author:
 Notes:
    
 --*/
-#ifndef SPANNING_TREE_H_
-#define SPANNING_TREE_H_
+#pragma once
 
 #include "smt/diff_logic.h"
 #include "smt/spanning_tree_base.h"
@@ -79,4 +78,3 @@ namespace smt {
 
 }
 
-#endif

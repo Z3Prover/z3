@@ -154,7 +154,30 @@ namespace lp  {
     }
 
     bool hnf_cutter::overflow() const { return m_overflow; }
-    
+/*
+  Here is the citation from "Cutting the Mix" by Jürgen Christ and Jochen Hoenicke.
+
+  The algorithm is based on the Simplex algorithm. The solution space
+  forms a polyhedron in Q^n . If the solution space is non-empty, the
+  Simplex algorithm returns a solution of Ax <= b . We further assume
+  that the returned solution x0 is a vertex of the polyhedron, i. e.,
+  there is a nonsingular square submatrix A′ and a corresponding
+  vector b′ , such that A′x0=b′ . We call A′x <=b′ the defining
+  constraints of the vertex. If the returned solution is not on a
+  vertex we introduce artificial branches on input variables into A
+  and use these branches as defining constraints. These branches are
+  rarely needed in practise.
+
+The main idea is to bring the constraint system A′x<=b′ into a Hermite
+normal form H and to compute the unimodular matrix U with A′U=H . The
+Hermite normal form is uniquely defined. The constraint system A′x<=b′
+is equivalent to Hy <=b′ with y:=(U−1)x . Since the solution x0 of
+A′x0=b′ is not integral, the corresponding vector y0=(U−1)x0 is not
+integral, either. The cuts from proofs algorithm creates an extended
+branch on one of the components y_i of y , i. e., y_i <= floor(y0_i) or
+y_i>=ceil(y0_i).  Further on in the paper there is a lemma showing that
+branch y_i >= ceil(y0_i) is impossible.
+ */
     lia_move hnf_cutter::create_cut(lar_term& t, mpq& k, explanation* ex, bool & upper
 #ifdef Z3DEBUG
                                     , const vector<mpq> & x0

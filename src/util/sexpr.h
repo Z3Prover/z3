@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SEXPR_H_
-#define SEXPR_H_
+#pragma once
 
 #include "util/rational.h"
 #include "util/symbol.h"
@@ -81,4 +80,3 @@ public:
 typedef obj_ref<sexpr, sexpr_manager> sexpr_ref;
 typedef ref_vector<sexpr, sexpr_manager> sexpr_ref_vector;
 
-#endif

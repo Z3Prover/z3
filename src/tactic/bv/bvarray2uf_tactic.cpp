@@ -54,6 +54,8 @@ class bvarray2uf_tactic : public tactic {
             tactic_report report("bvarray2uf", *g);
             result.reset();
             fail_if_unsat_core_generation("bvarray2uf", g);
+            // bvarray2uf_rewriter does not support proofs (yet).
+            fail_if_proof_generation("bvarray2uf", g);
 
             bool produce_models = g->models_enabled();
             bool produce_proofs = g->proofs_enabled();

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef EXPR_REPLACER_H_
-#define EXPR_REPLACER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/expr_substitution.h"
@@ -56,4 +55,3 @@ expr_replacer * mk_default_expr_replacer(ast_manager & m, bool proofs_allowed);
 */
 expr_replacer * mk_expr_simp_replacer(ast_manager & m, params_ref const & p = params_ref());
 
-#endif

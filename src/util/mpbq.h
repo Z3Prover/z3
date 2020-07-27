@@ -24,8 +24,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MPBQ_H_
-#define MPBQ_H_
+#pragma once
 
 #include "util/mpq.h"
 #include "util/rational.h"
@@ -360,4 +359,3 @@ MPBQ_MK_BINARY(operator*, mul)
 #undef MPBQ_MK_BINARY
 #undef MPBQ_MK_BINARY_CORE
 
-#endif

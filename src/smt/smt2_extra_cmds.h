@@ -16,11 +16,9 @@ Author:
 Notes:
 
 --*/
-#ifndef SMT2_EXTRA_CMDS_H_
-#define SMT2_EXTRA_CMDS_H_
+#pragma once
 
 class cmd_context;
 
 void install_smt2_extra_cmds(cmd_context & ctx);
 
-#endif /* SMT2_EXTRA_CMDS_H_ */

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PATTERN_INFERENCE_H_
-#define PATTERN_INFERENCE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
@@ -256,5 +255,4 @@ public:
     pattern_inference_rw(ast_manager& m, pattern_inference_params & params);
 };
 
-#endif /* PATTERN_INFERENCE_H_ */
 

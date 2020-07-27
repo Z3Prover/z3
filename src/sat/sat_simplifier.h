@@ -18,8 +18,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_SIMPLIFIER_H_
-#define SAT_SIMPLIFIER_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "sat/sat_clause.h"
@@ -243,4 +242,3 @@ namespace sat {
     };
 };
 
-#endif

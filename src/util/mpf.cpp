@@ -351,10 +351,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
 
         signed ds = sbits - x.sbits + 3;  // plus rounding bits
         if (ds > 0)
-        {
             m_mpz_manager.mul2k(o.significand, ds);
-            round(rm, o);
-        }
         else if (ds < 0)
         {
             bool sticky = false;
@@ -366,8 +363,9 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
             }
             if (sticky && m_mpz_manager.is_even(o.significand))
                 m_mpz_manager.inc(o.significand);
-            round(rm, o);
         }
+
+        round(rm, o);
     }
 }
 

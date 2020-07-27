@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SUBPAVING_MPQ_H_
-#define SUBPAVING_MPQ_H_
+#pragma once
 
 #include "math/subpaving/subpaving_t.h"
 #include "util/mpq.h"
@@ -40,4 +39,3 @@ typedef context_t<config_mpq> context_mpq;
 
 };
 
-#endif

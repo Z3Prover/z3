@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef SLS_EVALUATOR_H_
-#define SLS_EVALUATOR_H_
+#pragma once
 
 #include "model/model_evaluator.h"
 
@@ -820,4 +819,3 @@ public:
     } 
 };
 
-#endif

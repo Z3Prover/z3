@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ARITH_DECL_PLUGIN_H_
-#define ARITH_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 class sexpr;
@@ -196,7 +195,7 @@ public:
 
     app * mk_numeral(rational const & n, bool is_int);
 
-    app * mk_numeral(algebraic_numbers::anum const & val, bool is_int);
+    app * mk_numeral(algebraic_numbers::manager& m, algebraic_numbers::anum const & val, bool is_int);
 
     // Create a (real) numeral that is the i-th root of the polynomial encoded using the given sexpr.
     app * mk_numeral(sexpr const * p, unsigned i);
@@ -402,8 +401,8 @@ public:
         SASSERT(is_int(s) || is_real(s));
         return mk_numeral(val, is_int(s));
     }
-    app * mk_numeral(algebraic_numbers::anum const & val, bool is_int) {
-        return plugin().mk_numeral(val, is_int);
+    app * mk_numeral(algebraic_numbers::manager& m, algebraic_numbers::anum const & val, bool is_int) {
+        return plugin().mk_numeral(m, val, is_int);
     }
     app * mk_numeral(sexpr const * p, unsigned i) {
         return plugin().mk_numeral(p, i);
@@ -596,5 +595,4 @@ inline app_ref operator>(app_ref const& x, app_ref const& y) {
     return app_ref(a.mk_gt(x, y), x.get_manager());
 }
 
-#endif /* ARITH_DECL_PLUGIN_H_ */
 

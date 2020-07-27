@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef OPTSMT_H_
-#define OPTSMT_H_
+#pragma once
 
 #include "opt/opt_solver.h"
 
@@ -97,4 +96,3 @@ namespace opt {
 
 };
 
-#endif

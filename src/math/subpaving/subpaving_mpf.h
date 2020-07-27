@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SUBPAVING_MPF_H_
-#define SUBPAVING_MPF_H_
+#pragma once
 
 #include "math/subpaving/subpaving_t.h"
 #include "util/mpf.h"
@@ -46,4 +45,3 @@ public:
 
 };
 
-#endif

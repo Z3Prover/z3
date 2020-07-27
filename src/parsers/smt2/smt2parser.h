@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT2_PARSER_H_
-#define SMT2_PARSER_H_
+#pragma once
 
 #include "cmd_context/cmd_context.h"
 
@@ -25,4 +24,3 @@ bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive 
 
 sexpr_ref parse_sexpr(cmd_context& ctx, std::istream& is, params_ref const& ps, char const* filename);
 
-#endif

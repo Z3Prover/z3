@@ -27,8 +27,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef FUNC_INTERP_H_
-#define FUNC_INTERP_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/ast_translation.h"
@@ -125,4 +124,3 @@ private:
     bool is_identity() const;
 };
 
-#endif

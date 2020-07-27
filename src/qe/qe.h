@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef QE_H_
-#define QE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "smt/params/smt_params.h"
@@ -230,10 +229,8 @@ namespace qe {
     class def_vector {
         func_decl_ref_vector m_vars;
         expr_ref_vector      m_defs;
-        def_vector& operator=(def_vector const& other);
     public:
         def_vector(ast_manager& m): m_vars(m), m_defs(m) {}
-        def_vector(def_vector const& other): m_vars(other.m_vars), m_defs(other.m_defs) {}
         void push_back(func_decl* v, expr* e) {
             m_vars.push_back(v);
             m_defs.push_back(e);
@@ -372,5 +369,4 @@ namespace qe {
 
 };
 
-#endif
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_ENGINE_BASE_H_
-#define DL_ENGINE_BASE_H_
+#pragma once
 
 #include "model/model.h"
 #include "muz/base/dl_util.h"
@@ -128,4 +127,3 @@ namespace datalog {
     };
 }
 
-#endif

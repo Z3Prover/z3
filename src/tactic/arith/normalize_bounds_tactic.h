@@ -18,8 +18,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NORMALIZE_BOUNDS_TACTIC_H_
-#define NORMALIZE_BOUNDS_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -31,4 +30,3 @@ tactic * mk_normalize_bounds_tactic(ast_manager & m, params_ref const & p = para
   ADD_TACTIC("normalize-bounds", "replace a variable x with lower bound k <= x with x' = x - k.", "mk_normalize_bounds_tactic(m, p)")
 */
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef CLP_CONTEXT_H_
-#define CLP_CONTEXT_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/lbool.h"
@@ -41,4 +40,3 @@ namespace datalog {
     };
 };
 
-#endif

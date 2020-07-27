@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef AST_PRINTER_H_
-#define AST_PRINTER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/ast_smt2_pp.h"
@@ -54,4 +53,3 @@ public:
 
 ast_printer_context * mk_simple_ast_printer_context(ast_manager & m);
 
-#endif

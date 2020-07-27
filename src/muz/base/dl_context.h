@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_CONTEXT_H_
-#define DL_CONTEXT_H_
+#pragma once
 
 #include "ast/arith_decl_plugin.h"
 #include "util/map.h"
@@ -625,4 +624,3 @@ namespace datalog {
 
 };
 
-#endif /* DL_CONTEXT_H_ */

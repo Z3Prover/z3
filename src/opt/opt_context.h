@@ -15,8 +15,7 @@ Author:
 Notes:
 
 --*/
-#ifndef OPT_CONTEXT_H_
-#define OPT_CONTEXT_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
@@ -329,4 +328,3 @@ namespace opt {
 
 }
 
-#endif

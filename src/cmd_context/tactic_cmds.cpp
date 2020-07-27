@@ -77,8 +77,7 @@ ATOMIC_CMD(get_user_tactics_cmd, "get-user-tactics", "display tactics defined us
         it->m_value->display(buf);
         buf << ")";
     }
-    std::string r = buf.str();
-    ctx.regular_stream() << escaped(r.c_str());
+    ctx.regular_stream() << escaped(buf.str());
     ctx.regular_stream() << ")\n";
 });
 
@@ -112,7 +111,7 @@ void help_tactic(cmd_context & ctx) {
         probe_info * pinfo = *it2;
         buf << "- " << pinfo->get_name() << " " << pinfo->get_descr() << "\n";
     }
-    ctx.regular_stream() << "\"" << escaped(buf.str().c_str()) << "\"\n";
+    ctx.regular_stream() << '"' << escaped(buf.str()) << "\"\n";
 }
 
 ATOMIC_CMD(help_tactic_cmd, "help-tactic", "display the tactic combinators and primitives.", help_tactic(ctx););
@@ -507,7 +506,7 @@ static tactic * mk_using_params(cmd_context & ctx, sexpr * n) {
             throw cmd_exception("invalid using-params combinator, keyword expected", c->get_line(), c->get_pos());
         if (i == num_children)
             throw cmd_exception("invalid using-params combinator, parameter value expected", c->get_line(), c->get_pos());
-        symbol param_name = symbol(norm_param_name(c->get_symbol()).c_str());
+        symbol param_name = symbol(norm_param_name(c->get_symbol()));
         c = n->get_child(i);
         i++;
         switch (descrs.get_kind_in_module(param_name)) {

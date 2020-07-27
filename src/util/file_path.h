@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef FILE_PATH_H_
-#define FILE_PATH_H_
+#pragma once
 #include <cstring>
 
 inline char const * get_extension(char const * file_name) {
@@ -34,6 +33,5 @@ inline char const * get_extension(char const * file_name) {
     }
 }
 
-#endif /* FILE_PATH_H_ */
 
 

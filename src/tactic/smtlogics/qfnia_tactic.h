@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef QFNIA_TACTIC_H_
-#define QFNIA_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -28,4 +27,3 @@ tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p = params_ref());
   ADD_TACTIC("qfnia", "builtin strategy for solving QF_NIA problems.", "mk_qfnia_tactic(m, p)")
 */
 
-#endif

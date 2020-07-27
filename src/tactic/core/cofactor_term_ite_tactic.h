@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef COFACTOR_TERM_ITE_TACTIC_H_
-#define COFACTOR_TERM_ITE_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,4 +28,3 @@ tactic * mk_cofactor_term_ite_tactic(ast_manager & m, params_ref const & p = par
   ADD_TACTIC("cofactor-term-ite", "eliminate term if-the-else using cofactors.", "mk_cofactor_term_ite_tactic(m, p)")
 */
 
-#endif

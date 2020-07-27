@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_STATISTICS_H_
-#define SMT_STATISTICS_H_
+#pragma once
 
 #include<iostream>
 
@@ -56,5 +55,4 @@ namespace smt {
 
 
 
-#endif /* SMT_STATISTICS_H_ */
 

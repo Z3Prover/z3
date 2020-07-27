@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef AST_H_
-#define AST_H_
+#pragma once
 
 
 #include "util/vector.h"
@@ -127,6 +126,7 @@ public:
     explicit parameter(rational && r) : m_kind(PARAM_RATIONAL), m_rational(alloc(rational, std::move(r))) {}
     explicit parameter(double d):m_kind(PARAM_DOUBLE), m_dval(d) {}
     explicit parameter(const char *s):m_kind(PARAM_SYMBOL), m_symbol(symbol(s)) {}
+    explicit parameter(const std::string &s):m_kind(PARAM_SYMBOL), m_symbol(symbol(s)) {}
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
     parameter(parameter const&);
 
@@ -264,7 +264,6 @@ public:
               unsigned num_parameters = 0, parameter const * parameters = nullptr, bool private_params = false);
 
     decl_info(decl_info const& other);
-    ~decl_info() {}
 
     void init_eh(ast_manager & m);
     void del_eh(ast_manager & m);
@@ -314,7 +313,6 @@ class sort_size {
 public:
     sort_size():m_kind(SS_INFINITE) {}
     sort_size(uint64_t const & sz):m_kind(SS_FINITE), m_size(sz) {}
-    sort_size(sort_size const& other): m_kind(other.m_kind), m_size(other.m_size) {}
     explicit sort_size(rational const& r) {
         if (r.is_uint64()) {
             m_kind = SS_FINITE;
@@ -371,8 +369,6 @@ public:
     sort_info(decl_info const& di, sort_size const& num_elements) : 
         decl_info(di), m_num_elements(num_elements) {}
 
-    ~sort_info() {}
-
     bool is_infinite() const { return m_num_elements.is_infinite(); }
     bool is_very_big() const { return m_num_elements.is_very_big(); }
     sort_size const & get_num_elements() const { return m_num_elements; }
@@ -403,7 +399,6 @@ struct func_decl_info : public decl_info {
     bool m_lambda:1;
 
     func_decl_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind, unsigned num_parameters = 0, parameter const * parameters = nullptr);
-    ~func_decl_info() {}
 
     bool is_associative() const { return m_left_assoc && m_right_assoc; }
     bool is_left_associative() const { return m_left_assoc; }
@@ -985,6 +980,7 @@ struct builtin_name {
     decl_kind m_kind;
     symbol    m_name;
     builtin_name(char const * name, decl_kind k) : m_kind(k), m_name(name) {}
+    builtin_name(const std::string &name, decl_kind k) : m_kind(k), m_name(name) {}
 };
 
 /**
@@ -1573,6 +1569,12 @@ public:
 
     bool has_trace_stream() const { return m_trace_stream != nullptr; }
     std::ostream & trace_stream() { SASSERT(has_trace_stream()); return *m_trace_stream; }
+    struct suspend_trace {
+        ast_manager& m;
+        std::fstream* m_tr;
+        suspend_trace(ast_manager& m): m(m), m_tr(m.m_trace_stream) { m.m_trace_stream = nullptr; }
+        ~suspend_trace() { m.m_trace_stream = m_tr; }
+    };
 
     void enable_int_real_coercions(bool f) { m_int_real_coercions = f; }
     bool int_real_coercions() const { return m_int_real_coercions; }
@@ -2694,6 +2696,5 @@ inline std::ostream& operator<<(std::ostream& out, parameter_pp const& pp) {
 }
 
 
-#endif /* AST_H_ */
 
 

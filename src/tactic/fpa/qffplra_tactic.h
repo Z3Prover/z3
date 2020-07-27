@@ -18,8 +18,7 @@ Notes:
 
 
 --*/
-#ifndef QFFPLRA_TACTIC_H_
-#define QFFPLRA_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -35,4 +34,3 @@ probe * mk_is_qffplra_probe();
 ADD_PROBE("is-qffplra", "true if the goal is in QF_FPLRA.", "mk_is_qffplra_probe()")
 */
 
-#endif

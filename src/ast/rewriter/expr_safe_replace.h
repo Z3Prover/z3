@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef EXPR_SAFE_REPLACE_H_
-#define EXPR_SAFE_REPLACE_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -51,4 +50,3 @@ public:
     bool empty() const { return m_subst.empty(); }
 };
 
-#endif /* EXPR_SAFE_REPLACE_H_ */

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef FPA2BV_TACTIC_H_
-#define FPA2BV_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -28,4 +27,3 @@ tactic * mk_fpa2bv_tactic(ast_manager & m, params_ref const & p = params_ref());
   ADD_TACTIC("fpa2bv", "convert floating point numbers to bit-vectors.", "mk_fpa2bv_tactic(m, p)")
 */
 
-#endif

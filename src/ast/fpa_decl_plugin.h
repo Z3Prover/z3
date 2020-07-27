@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef fpa_decl_plugin_H_
-#define fpa_decl_plugin_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/id_gen.h"
@@ -363,4 +362,3 @@ public:
     MATCH_TERNARY(is_fp);
 };
 
-#endif

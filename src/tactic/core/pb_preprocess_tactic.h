@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PB_PREPROCESS_TACTIC_H_
-#define PB_PREPROCESS_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -31,4 +30,3 @@ tactic * mk_pb_preprocess_tactic(ast_manager & m, params_ref const & p = params_
 */
 
 
-#endif

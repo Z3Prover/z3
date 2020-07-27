@@ -28,10 +28,8 @@ Notes:
     subsumption of atoms. 
 
 --*/
-#ifndef ARITH_BOUNDS_TACTIC_H_
-#define ARITH_BOUNDS_TACTIC_H_
+#pragma once
 #include "tactic/tactic.h"
 
 tactic * mk_arith_bounds_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-#endif

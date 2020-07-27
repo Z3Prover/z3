@@ -17,8 +17,7 @@ Notes:
 
 --*/
 
-#ifndef THEORY_SPECIAL_RELATIONS_H_
-#define THEORY_SPECIAL_RELATIONS_H_
+#pragma once
 
 #include "ast/special_relations_decl_plugin.h"
 #include "smt/smt_theory.h"
@@ -204,4 +203,3 @@ namespace smt {
     };
 }
 
-#endif

@@ -29,7 +29,7 @@ namespace datalog {
     symbol lazy_table_plugin::mk_name(table_plugin& p) {
         std::ostringstream strm;
         strm << "lazy_" << p.get_name();
-        return symbol(strm.str().c_str());
+        return symbol(strm.str());
     }
 
     table_base * lazy_table_plugin::mk_empty(const table_signature & s) {

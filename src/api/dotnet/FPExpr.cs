@@ -38,7 +38,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// The number of significand bits.
         /// </summary>
-        public uint SBits { get { return ((FPSort)Sort).EBits; } }
+        public uint SBits { get { return ((FPSort)Sort).SBits; } }
 
         #region Internal
         /// <summary> Constructor for FPExpr </summary>

@@ -16,12 +16,10 @@ Author:
 Revision History:
 
 --*/
-#ifndef INJ_AXIOM_H_
-#define INJ_AXIOM_H_
+#pragma once
 
 #include "ast/ast.h"
 
 bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result);
 
-#endif /* INJ_AXIOM_H_ */
 

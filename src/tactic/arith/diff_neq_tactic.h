@@ -20,8 +20,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DIFF_NEQ_TACTIC_H_
-#define DIFF_NEQ_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -31,4 +30,3 @@ tactic * mk_diff_neq_tactic(ast_manager & m, params_ref const & p = params_ref()
 /*
   ADD_TACTIC("diff-neq", "specialized solver for integer arithmetic problems that contain only atoms of the form (<= k x) (<= x k) and (not (= (- x y) k)), where x and y are constants and k is a numeral, and all constants are bounded.", "mk_diff_neq_tactic(m, p)")
 */
-#endif

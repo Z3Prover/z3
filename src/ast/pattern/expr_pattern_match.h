@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef EXPR_PATTERN_MATCH_H_
-#define EXPR_PATTERN_MATCH_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/map.h"
@@ -134,4 +133,3 @@ class expr_pattern_match {
     void display(std::ostream& out, instr const& pc) const;
 };
 
-#endif 

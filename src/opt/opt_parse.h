@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OPT_PARSE_H_
-#define OPT_PARSE_H_
+#pragma once
 
 void parse_wcnf(opt::context& opt, std::istream& is, unsigned_vector& h);
 
@@ -25,6 +24,5 @@ void parse_opb(opt::context& opt, std::istream& is, unsigned_vector& h);
 
 void parse_lp(opt::context& opt, std::istream& is, unsigned_vector& h);
 
-#endif /* OPT_PARSE_H_ */
 
 

@@ -15,11 +15,9 @@ Author:
 Notes:
 
 --*/
-#ifndef DBG_CMDS_H_
-#define DBG_CMDS_H_
+#pragma once
 
 class cmd_context;
 
 void install_dbg_cmds(cmd_context & ctx);
 
-#endif

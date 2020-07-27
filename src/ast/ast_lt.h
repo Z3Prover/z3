@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef AST_LT_H_
-#define AST_LT_H_
+#pragma once
 
 class ast;
 
@@ -37,4 +36,3 @@ inline bool lex_lt(unsigned num, expr * const * n1, expr * const * n2) {
     return lex_lt(num, reinterpret_cast<ast*const*>(n1), reinterpret_cast<ast*const*>(n2));
 }
 
-#endif

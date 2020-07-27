@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CTX_SOLVER_SIMPLIFY_TACTIC_H_
-#define CTX_SOLVER_SIMPLIFY_TACTIC_H_
+#pragma once
 
 #include "tactic/tactical.h"
 
@@ -26,4 +25,3 @@ tactic * mk_ctx_solver_simplify_tactic(ast_manager & m, params_ref const & p = p
   ADD_TACTIC("ctx-solver-simplify", "apply solver-based contextual simplification rules.", "mk_ctx_solver_simplify_tactic(m, p)")
 */
 
-#endif

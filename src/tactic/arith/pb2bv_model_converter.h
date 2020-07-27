@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PB2BV_MODEL_CONVERTER_H_
-#define PB2BV_MODEL_CONVERTER_H_
+#pragma once
 
 #include "tactic/model_converter.h"
 #include "tactic/arith/bound_manager.h"
@@ -37,4 +36,3 @@ public:
     model_converter * translate(ast_translation & translator) override;
 };
 
-#endif

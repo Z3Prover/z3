@@ -17,8 +17,7 @@ Revision History:
     Leonardo de Moura (leonardo) 2011-04-27
     Rewrote/Simplified the allocator
 --*/
-#ifndef SMALL_OBJECT_ALLOCATOR_H_
-#define SMALL_OBJECT_ALLOCATOR_H_
+#pragma once
 
 #include "util/machine.h"
 #include "util/debug.h"
@@ -56,5 +55,4 @@ inline void * operator new[](size_t s, small_object_allocator & r) { return r.al
 inline void operator delete(void * p, small_object_allocator & r) { UNREACHABLE(); }
 inline void operator delete[](void * p, small_object_allocator & r) { UNREACHABLE(); }
 
-#endif /* SMALL_OBJECT_ALLOCATOR_H_ */
 

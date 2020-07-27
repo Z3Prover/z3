@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef TAB_CONTEXT_H_
-#define TAB_CONTEXT_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/lbool.h"
@@ -42,4 +41,3 @@ namespace datalog {
     };
 };
 
-#endif

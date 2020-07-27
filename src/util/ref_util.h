@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef REF_UTIL_H_
-#define REF_UTIL_H_
+#pragma once
 
 /**
    \brief Decrement the reference counter of the keys and values stored in the map,
@@ -88,4 +87,3 @@ void dec_ref_collection_values(Mng & m, C & c) {
 }
 
 
-#endif

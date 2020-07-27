@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DYN_ACK_H_
-#define DYN_ACK_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "smt/params/dyn_ack_params.h"
@@ -133,5 +132,4 @@ namespace smt {
 
 };
 
-#endif /* DYN_ACK_H_ */
 

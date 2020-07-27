@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef STATISTICS_H_
-#define STATISTICS_H_
+#pragma once
 
 #include<iostream>
 #include "util/vector.h"
@@ -46,4 +45,3 @@ public:
 void get_memory_statistics(statistics& st);
 void get_rlimit_statistics(reslimit& l, statistics& st);
 
-#endif

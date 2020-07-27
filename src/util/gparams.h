@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef GPARAMS_H_
-#define GPARAMS_H_
+#pragma once
 
 #include "util/params.h"
 
@@ -138,4 +137,3 @@ public:
 
 
 
-#endif

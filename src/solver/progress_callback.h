@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PROGRESS_CALLBACK_H_
-#define PROGRESS_CALLBACK_H_
+#pragma once
 
 class progress_callback {
 public:
@@ -30,4 +29,3 @@ public:
     virtual void slow_progress_sample() {}
 };
 
-#endif

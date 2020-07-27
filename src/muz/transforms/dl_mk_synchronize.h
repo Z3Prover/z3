@@ -37,8 +37,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_MK_SYNCHRONIZE_H_
-#define DL_MK_SYNCHRONIZE_H_
+#pragma once
 
 #include"muz/base/dl_context.h"
 #include"muz/base/dl_rule_set.h"
@@ -131,4 +130,3 @@ namespace datalog {
 
 };
 
-#endif /* DL_MK_SYNCHRONIZE_H_ */

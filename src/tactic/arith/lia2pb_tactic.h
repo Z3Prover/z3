@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef LIA2PB_TACTIC_H_
-#define LIA2PB_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -28,4 +27,3 @@ tactic * mk_lia2pb_tactic(ast_manager & m, params_ref const & p = params_ref());
   ADD_TACTIC("lia2pb", "convert bounded integer variables into a sequence of 0-1 variables.", "mk_lia2pb_tactic(m, p)")
 */
 
-#endif

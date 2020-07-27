@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_DUMMY_H_
-#define THEORY_DUMMY_H_
+#pragma once
 
 #include "smt/smt_theory.h"
 
@@ -55,5 +54,4 @@ namespace smt {
     };
 };
 
-#endif /* THEORY_DUMMY_H_ */
 

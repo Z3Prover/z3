@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SEXPR2UPOLYNOMIAL_H_
-#define SEXPR2UPOLYNOMIAL_H_
+#pragma once
 
 #include "math/polynomial/upolynomial.h"
 #include "util/cmd_context_types.h"
@@ -30,4 +29,3 @@ public:
 
 void sexpr2upolynomial(upolynomial::manager & m, sexpr const * s, upolynomial::numeral_vector & p);
 
-#endif

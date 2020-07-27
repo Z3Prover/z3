@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SPACER_QE_PROJECT_H_
-#define SPACER_QE_PROJECT_H_
+#pragma once
 
 #include "model/model.h"
 #include "ast/expr_map.h"
@@ -46,4 +45,3 @@ namespace spacer_qe {
     void array_project (model& model, app_ref_vector& arr_vars, expr_ref& fml, app_ref_vector& aux_vars, bool reduce_all_selects = false);
 };
 
-#endif

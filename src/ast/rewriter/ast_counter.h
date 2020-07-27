@@ -21,8 +21,7 @@ Revision History:
 --*/
 
 
-#ifndef AST_COUNTER_H_
-#define AST_COUNTER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/map.h"
@@ -103,4 +102,3 @@ class ast_counter {
     void dec(ast * el) { update(el, -1); }
 };
 
-#endif

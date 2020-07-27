@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_CONTEXT_H_
-#define SMT_CONTEXT_H_
+#pragma once
 
 #include "smt/smt_clause.h"
 #include "smt/smt_setup.h"
@@ -1407,6 +1406,8 @@ namespace smt {
 
         std::ostream& display(std::ostream& out, b_justification j) const;
 
+        std::ostream& display_compact_j(std::ostream& out, b_justification j) const;
+
         // -----------------------------------
         //
         // Debugging support
@@ -1711,5 +1712,4 @@ namespace smt {
 
 };
 
-#endif /* SMT_CONTEXT_H_ */
 

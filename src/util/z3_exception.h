@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef Z3_EXCEPTION_H_
-#define Z3_EXCEPTION_H_
+#pragma once
 
 #include<string>
 
@@ -47,4 +46,3 @@ public:
     char const * msg() const override;
 };
 
-#endif

@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef DL_BMC_ENGINE_H_
-#define DL_BMC_ENGINE_H_
+#pragma once
 
 #include "util/params.h"
 #include "util/statistics.h"
@@ -74,4 +73,3 @@ namespace datalog {
 
 
 
-#endif

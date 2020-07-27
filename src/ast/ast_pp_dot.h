@@ -4,8 +4,7 @@ Abstract: Pretty-printer for proofs in Graphviz format
 
 --*/
 
-#ifndef _AST_PP_DOT_
-#define _AST_PP_DOT_
+#pragma once
 
 #include <iostream>
 #include "ast/ast_pp.h"
@@ -26,4 +25,3 @@ std::string escape_dot(std::string const & s);
 
 std::ostream &operator<<(std::ostream &out, const ast_pp_dot & p);
 
-#endif /* AST_PP_DOT */

@@ -18,8 +18,7 @@ Revision History:
 --*/
 
 
-#ifndef __QE_ARRAYS_H_
-#define __QE_ARRAYS_H_
+#pragma once
 
 #include "ast/array_decl_plugin.h"
 #include "qe/qe_mbp.h"
@@ -43,4 +42,3 @@ namespace qe {
 
 };
 
-#endif

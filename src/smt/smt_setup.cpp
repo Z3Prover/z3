@@ -521,10 +521,6 @@ namespace smt {
             m_params.m_relevancy_lvl          = 2; 
             m_params.m_arith_eq2ineq          = true;
             m_params.m_eliminate_term_ite     = true;
-            // if (st.m_num_exprs < 5000 && st.m_num_ite_terms < 50) { // safeguard to avoid high memory consumption
-            // TODO: implement analysis function to decide where lift ite is too expensive.
-            //    m_params.m_lift_ite           = LI_FULL;
-            // }
         } 
         else {
             m_params.m_eliminate_term_ite   = true;
@@ -643,15 +639,13 @@ namespace smt {
         m_params.m_eliminate_bounds        = true;
         m_params.m_qi_quick_checker        = MC_UNSAT;
         m_params.m_qi_lazy_threshold       = 20;
-        // m_params.m_qi_max_eager_multipatterns = 10; /// <<< HACK
         m_params.m_mbqi                    = true; // enabling MBQI and MACRO_FINDER by default :-)
 
         // MACRO_FINDER is a horrible for AUFLIA and UFNIA benchmarks (boogie benchmarks in general)
         // It destroys the existing patterns.
         // m_params.m_macro_finder            = true; 
         
-        // 
-        m_params.m_ng_lift_ite             = LI_FULL;
+        m_params.m_ng_lift_ite             = LI_CONSERVATIVE;
         TRACE("setup", tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
         m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
         setup_arrays();
@@ -665,6 +659,7 @@ namespace smt {
     }
 
     void setup::setup_AUFLIRA(bool simple_array) {
+        TRACE("setup", tout << "AUFLIRA\n";);
         m_params.m_array_mode              = simple_array ? AR_SIMPLE : AR_FULL;
         m_params.m_phase_selection         = PS_ALWAYS_FALSE;
         m_params.m_eliminate_bounds        = true;
@@ -674,7 +669,7 @@ namespace smt {
         m_params.m_qi_lazy_threshold       = 20;
         // 
         m_params.m_macro_finder            = true;
-        m_params.m_ng_lift_ite             = LI_FULL;
+        m_params.m_ng_lift_ite             = LI_CONSERVATIVE; 
         m_params.m_pi_max_multi_patterns   = 10; //<< it was used for SMT-COMP
         m_params.m_array_lazy_ieq          = true;
         m_params.m_array_lazy_ieq_delay    = 4;

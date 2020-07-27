@@ -94,7 +94,6 @@ class lar_solver : public column_namer {
     // these are basic columns with the value changed, so the the corresponding row in the tableau
     // does not sum to zero anymore
     u_set                                               m_incorrect_columns;
-    stacked_value<int>                                  m_crossed_bounds_column_index; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
@@ -373,11 +372,7 @@ public:
     }
     template <typename T>
     void calculate_cheap_eqs_for_row(unsigned i, lp_bound_propagator<T> & bp) {
-        if (settings().cheap_eqs() == 1) {
-            bp.cheap_eq_tree(i);
-        } else {
-            bp.cheap_eq_table(i);
-        }
+        bp.cheap_eq_tree(i);
     }
     
     bool is_fixed(column_index const& j) const { return column_is_fixed(j); }

@@ -20,8 +20,7 @@ Notes:
 
 --*/
 
-#ifndef BIT_MATRIX_H_
-#define BIT_MATRIX_H_
+#pragma once
 
 #include "util/region.h"
 #include "util/vector.h"
@@ -112,4 +111,3 @@ private:
 inline std::ostream& operator<<(std::ostream& out, bit_matrix& m) { return m.display(out); }
 inline std::ostream& operator<<(std::ostream& out, bit_matrix::row const& r) { return r.display(out); }
 
-#endif

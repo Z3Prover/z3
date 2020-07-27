@@ -15,8 +15,7 @@ Author:
 Notes:
 
 --*/
-#ifndef DL_CMDS_H_
-#define DL_CMDS_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -34,4 +33,3 @@ void install_dl_cmds(cmd_context & ctx);
 void install_dl_collect_cmds(dl_collected_cmds& collected_cmds, cmd_context& ctx);
 
 
-#endif

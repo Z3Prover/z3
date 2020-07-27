@@ -45,8 +45,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PURIFY_ARITH_TACTIC_H_
-#define PURIFY_ARITH_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -58,5 +57,4 @@ tactic * mk_purify_arith_tactic(ast_manager & m, params_ref const & p = params_r
   ADD_TACTIC("purify-arith", "eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.", "mk_purify_arith_tactic(m, p)")
 */
 
-#endif
 

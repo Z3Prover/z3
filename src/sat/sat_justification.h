@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_JUSTIFICATIONS_H_
-#define SAT_JUSTIFICATIONS_H_
+#pragma once
 
 namespace sat {
     
@@ -80,4 +79,3 @@ namespace sat {
     }
 };
 
-#endif

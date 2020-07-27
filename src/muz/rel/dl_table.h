@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_TABLE_H_
-#define DL_TABLE_H_
+#pragma once
 
 #include<iostream>
 #include<list>
@@ -148,5 +147,4 @@ namespace datalog {
     
 };
 
-#endif /* DL_TABLE_H_ */
 

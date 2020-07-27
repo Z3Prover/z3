@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MACRO_FINDER_H_
-#define MACRO_FINDER_H_
+#pragma once
 
 #include "ast/macros/macro_manager.h"
 
@@ -47,5 +46,4 @@ public:
     void operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
 };
 
-#endif /* MACRO_FINDER_H_ */
 

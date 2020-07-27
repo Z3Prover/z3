@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PDECL_H_
-#define PDECL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -360,4 +359,3 @@ typedef ref_buffer<pconstructor_decl, pdecl_manager> pconstructor_decl_ref_buffe
 typedef ref_buffer<pdatatype_decl, pdecl_manager>    pdatatype_decl_ref_buffer;
 typedef ref_buffer<pdatatypes_decl, pdecl_manager>   pdatatypes_decl_ref_buffer;
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_THEORY_H_
-#define SMT_THEORY_H_
+#pragma once
 
 #include "smt/smt_enode.h"
 #include "smt/smt_quantifier.h"
@@ -115,6 +114,23 @@ namespace smt {
 
             scoped_trace_stream(theory& th, literal_vector const& lits): m(th.get_manager()) {
                 if (m.has_trace_stream()) {
+                    th.log_axiom_instantiation(lits);
+                }
+            }
+
+            scoped_trace_stream(theory& th, literal lit): m(th.get_manager()) {
+                if (m.has_trace_stream()) {
+                    literal_vector lits;
+                    lits.push_back(lit);
+                    th.log_axiom_instantiation(lits);
+                }
+            }
+
+            scoped_trace_stream(theory& th, literal lit1, literal lit2): m(th.get_manager()) {
+                if (m.has_trace_stream()) {
+                    literal_vector lits;
+                    lits.push_back(lit1);
+                    lits.push_back(lit2);
                     th.log_axiom_instantiation(lits);
                 }
             }
@@ -584,5 +600,4 @@ namespace smt {
     
 };
 
-#endif /* SMT_THEORY_H_ */
 

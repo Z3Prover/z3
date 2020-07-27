@@ -17,12 +17,10 @@ Revision History:
 
 
 --*/
-#ifndef MODEL_PP_H_
-#define MODEL_PP_H_
+#pragma once
 
 #include<iostream>
 class model_core;
 
 void model_pp(std::ostream & out, model_core const & m);
 
-#endif

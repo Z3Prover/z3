@@ -17,8 +17,7 @@ Notes:
 
 
 --*/
-#ifndef DEPENDENCY_CONVERTER_H_
-#define DEPENDENCY_CONVERTER_H_
+#pragma once
 
 #include "util/ref.h"
 #include "ast/ast_pp_util.h"
@@ -44,4 +43,3 @@ typedef ref<dependency_converter> dependency_converter_ref;
 typedef sref_vector<dependency_converter> dependency_converter_ref_vector;
 typedef sref_buffer<dependency_converter> dependency_converter_ref_buffer;
 
-#endif

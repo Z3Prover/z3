@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef INTERVAL_H_
-#define INTERVAL_H_
+#pragma once
 
 #include "util/mpq.h"
 #include "util/ext_numeral.h"
@@ -391,4 +390,3 @@ public:
     }
 };
 
-#endif

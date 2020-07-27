@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef UINT_MAP_H_
-#define UINT_MAP_H_
+#pragma once
 
 #include "util/vector.h"
 
@@ -61,5 +60,4 @@ public:
 };
 
 
-#endif /* UINT_MAP_H_ */
 

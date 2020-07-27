@@ -18,8 +18,7 @@ Author:
 Notes:
     
 --*/
-#ifndef Z3_V1_H_
-#define Z3_V1_H_
+#pragma once
 
 #include "api/z3.h"
 
@@ -61,4 +60,3 @@ Notes:
 #define Z3_get_const_ast_decl        Z3_get_app_decl
 #define Z3_get_value                 Z3_eval_func_decl
 
-#endif

@@ -20,11 +20,11 @@ Revision History:
     Add SMTLIB 2.6 support 2020-5-17
 
 --*/
-#ifndef SEQ_DECL_PLUGIN_H_
-#define SEQ_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/bv_decl_plugin.h"
+#include <string>
 
 #define Z3_USE_UNICODE 0
 
@@ -122,11 +122,10 @@ public:
     static unsigned max_char() { return 196607; }
     zstring() {}
     zstring(char const* s);
+    zstring(const std::string &str) : zstring(str.c_str()) {}
     zstring(unsigned sz, unsigned const* s) { m_buffer.append(sz, s); SASSERT(well_formed()); }
-    zstring(zstring const& other): m_buffer(other.m_buffer) {}
     zstring(unsigned num_bits, bool const* ch);
     zstring(unsigned ch);
-    zstring& operator=(zstring const& other);
     zstring replace(zstring const& src, zstring const& dst) const;
     zstring reverse() const;
     std::string encode() const;
@@ -493,5 +492,4 @@ public:
 
 };
 
-#endif /* SEQ_DECL_PLUGIN_H_ */
 

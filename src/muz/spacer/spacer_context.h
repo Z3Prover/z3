@@ -20,8 +20,7 @@ Notes:
 
 --*/
 
-#ifndef _SPACER_CONTEXT_H_
-#define _SPACER_CONTEXT_H_
+#pragma once
 
 #include <queue>
 #include <fstream>
@@ -757,7 +756,6 @@ class derivation {
     public:
         premise (pred_transformer &pt, unsigned oidx, expr *summary, bool must,
                  const ptr_vector<app> *aux_vars = nullptr);
-        premise (const premise &p);
 
         bool is_must() {return m_must;}
         expr * get_summary() {return m_summary.get ();}
@@ -1152,4 +1150,3 @@ public:
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}
 }
 
-#endif

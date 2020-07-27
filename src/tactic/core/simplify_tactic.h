@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SIMPLIFY_TACTIC_H_
-#define SIMPLIFY_TACTIC_H_
+#pragma once
 
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
@@ -54,4 +53,3 @@ tactic * mk_elim_and_tactic(ast_manager & m, params_ref const & p = params_ref()
   ADD_TACTIC("elim-and", "convert (and a b) into (not (or (not a) (not b))).", "mk_elim_and_tactic(m, p)")
 */
 
-#endif

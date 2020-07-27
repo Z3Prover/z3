@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_MANAGER_H_
-#define _SPACER_MANAGER_H_
+#pragma once
 
 #include <utility>
 #include <map>
@@ -48,7 +47,6 @@ struct relation_info {
     expr_ref              m_body;
     relation_info(ast_manager& m, func_decl* pred, ptr_vector<func_decl> const& vars, expr* b):
         m_pred(pred, m), m_vars(m, vars.size(), vars.c_ptr()), m_body(b, m) {}
-    relation_info(relation_info const& other): m_pred(other.m_pred), m_vars(other.m_vars), m_body(other.m_body) {}
 };
 
 class unknown_exception {};
@@ -136,4 +134,3 @@ struct sk_lt_proc {bool operator()(const app* a1, const app* a2);};
 
 }
 
-#endif

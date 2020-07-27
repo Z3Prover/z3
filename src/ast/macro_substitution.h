@@ -18,8 +18,7 @@ Author:
 Notes:
 
 --*/
-#ifndef MACRO_SUBSTITUTION_H_
-#define MACRO_SUBSTITUTION_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -56,4 +55,3 @@ public:
     void cleanup();
 };
 
-#endif

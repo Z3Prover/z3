@@ -442,10 +442,6 @@ derivation::premise::premise (pred_transformer &pt, unsigned oidx,
             m_ovars.push_back(m.mk_const(sm.n2o(v->get_decl(), m_oidx))); 
 }
 
-derivation::premise::premise (const derivation::premise &p) :
-    m_pt (p.m_pt), m_oidx (p.m_oidx), m_summary (p.m_summary), m_must (p.m_must),
-    m_ovars (p.m_ovars) {}
-
 /// \brief Updated the summary.
 /// The new summary is over n-variables.
 void derivation::premise::set_summary (expr * summary, bool must,
@@ -716,7 +712,7 @@ app_ref pred_transformer::mk_extend_lit() {
     app_ref v(m);
     std::stringstream name;
     name << m_head->get_name () << "_ext0";
-    v = m.mk_const (symbol(name.str().c_str()), m.mk_bool_sort());
+    v = m.mk_const (symbol(name.str()), m.mk_bool_sort());
     return app_ref(m.mk_not (m.mk_const (pm.get_n_pred (v->get_decl ()))), m);
 }
 
@@ -780,7 +776,7 @@ void pred_transformer::init_sig()
         std::stringstream name_stm;
         name_stm << m_head->get_name() << '_' << i;
         func_decl_ref stm(m);
-        stm = m.mk_func_decl(symbol(name_stm.str().c_str()), 0, (sort*const*)nullptr, arg_sort);
+        stm = m.mk_func_decl(symbol(name_stm.str()), 0, (sort*const*)nullptr, arg_sort);
         m_sig.push_back(pm.get_o_pred(stm, 0));
     }
 }
@@ -1025,7 +1021,7 @@ app_ref pred_transformer::mk_fresh_rf_tag ()
     func_decl_ref decl(m);
 
     name << head ()->get_name () << "#reach_tag_" << m_reach_facts.size ();
-    decl = m.mk_func_decl (symbol (name.str ().c_str ()), 0,
+    decl = m.mk_func_decl (symbol(name.str()), 0,
                            (sort*const*)nullptr, m.mk_bool_sort ());
     return app_ref(m.mk_const (pm.get_n_pred (decl)), m);
 }
@@ -1628,7 +1624,7 @@ void pred_transformer::init_rules(decl2rel const& pts) {
         for (auto &kv : m_pt_rules) {
             pt_rule &r = *kv.m_value;
             std::string name = head()->get_name().str() + "__tr" + std::to_string(i);
-            tag = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
+            tag = m.mk_const(symbol(name), m.mk_bool_sort());
             m_pt_rules.set_tag(tag, r);
             m_transition_clause.push_back(tag);
             transitions.push_back(m.mk_implies(r.tag(), r.trans()));
@@ -1823,7 +1819,8 @@ app* pred_transformer::extend_initial (expr *e)
     app_ref v(m);
     std::stringstream name;
     name << m_head->get_name() << "_ext";
-    v = m.mk_fresh_const (name.str ().c_str (),
+    auto str = name.str ();
+    v = m.mk_fresh_const (str.c_str(),
                           m.mk_bool_sort ());
     v = m.mk_const (pm.get_n_pred (v->get_decl ()));
 

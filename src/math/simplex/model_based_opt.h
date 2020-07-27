@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef __MODEL_BASED_OPT_H__
-#define __MODEL_BASED_OPT_H__
+#pragma once
 
 #include "util/util.h"
 #include "util/rational.h"
@@ -207,4 +206,3 @@ inline std::ostream& operator<<(std::ostream& out, opt::model_based_opt::row con
 
 inline std::ostream& operator<<(std::ostream& out, opt::model_based_opt::var const v) { return out << "v" << v.m_id; }
 
-#endif 

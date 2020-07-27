@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef CACHED_VAR_SUBST_H_
-#define CACHED_VAR_SUBST_H_
+#pragma once
 
 #include "ast/rewriter/var_subst.h"
 #include "util/map.h"
@@ -49,5 +48,4 @@ public:
     void reset();
 };
 
-#endif /* CACHED_VAR_SUBST_H_ */
 

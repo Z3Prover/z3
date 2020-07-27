@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PROOF_CHECKER_H_
-#define PROOF_CHECKER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/map.h"
@@ -115,4 +114,3 @@ private:
     void set_false(expr_ref& e, unsigned idx, expr_ref& lit);
 };
 
-#endif

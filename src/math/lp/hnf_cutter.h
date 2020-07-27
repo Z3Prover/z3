@@ -8,7 +8,8 @@ Module Name:
 Abstract:
 
     Cuts (branches) from Hermite matrices
-
+    The implementation is based on ideas from
+    "Cutting the Mix" by Jurgen Christ and Jochen Hoenicke.
 Author:
     Lev Nachmanson (levnach)
 

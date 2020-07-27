@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef TACTICAL_H_
-#define TACTICAL_H_
+#pragma once
 
 #include "tactic/tactic.h"
 #include "tactic/probe.h"
@@ -82,4 +81,3 @@ tactic * if_no_proofs(tactic * t);
 tactic * if_no_unsat_cores(tactic * t);
 tactic * if_no_models(tactic * t);
 
-#endif

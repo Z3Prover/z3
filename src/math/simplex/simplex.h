@@ -29,8 +29,7 @@ Notes:
 
 --*/
 
-#ifndef SIMPLEX_H_
-#define SIMPLEX_H_
+#pragma once
 
 #include "math/simplex/sparse_matrix.h"
 #include "util/mpq_inf.h"
@@ -203,4 +202,3 @@ namespace simplex {
     void ensure_rational_solution(simplex<mpq_ext>& s);
 };
 
-#endif

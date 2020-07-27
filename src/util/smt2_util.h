@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SMT2_UTIL_H_
-#define SMT2_UTIL_H_
+#pragma once
 
 #include "util/symbol.h"
 
@@ -26,4 +25,3 @@ bool is_smt2_quoted_symbol(char const * s);
 bool is_smt2_quoted_symbol(symbol const & s);
 std::string mk_smt2_quoted_symbol(symbol const & s);
 
-#endif

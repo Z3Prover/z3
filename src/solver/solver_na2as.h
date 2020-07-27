@@ -19,8 +19,7 @@ Author:
 Notes:
 
 --*/
-#ifndef SOLVER_NA2AS_H_
-#define SOLVER_NA2AS_H_
+#pragma once
 
 #include "solver/solver.h"
 
@@ -55,4 +54,3 @@ protected:
 };
 
 
-#endif

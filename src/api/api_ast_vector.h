@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_AST_VECTOR_H_
-#define API_AST_VECTOR_H_
+#pragma once
 
 #include "api/api_util.h"
 
@@ -34,4 +33,3 @@ inline Z3_ast_vector_ref * to_ast_vector(Z3_ast_vector v) { return reinterpret_c
 inline Z3_ast_vector of_ast_vector(Z3_ast_vector_ref * v) { return reinterpret_cast<Z3_ast_vector>(v); }
 inline ast_ref_vector & to_ast_vector_ref(Z3_ast_vector v) { return to_ast_vector(v)->m_ast_vector; }
 
-#endif

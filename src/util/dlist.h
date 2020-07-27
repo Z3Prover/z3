@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DLIST_H_
-#define DLIST_H_
+#pragma once
 
 /**
    Add element \c elem to the list headed by \c head.
@@ -132,6 +131,5 @@ bool dlist_check_invariant(T * head, NextProc const & next = NextProc(), PrevPro
     return true;
 }
 
-#endif
 
 

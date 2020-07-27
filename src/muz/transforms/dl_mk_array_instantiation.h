@@ -66,8 +66,7 @@ Revision History:
 
 --*/
 
-#ifndef DL_MK_ARRAY_INSTANTIATION_H_
-#define DL_MK_ARRAY_INSTANTIATION_H_
+#pragma once
 
 
 #include "ast/rewriter/factor_equivs.h"
@@ -120,4 +119,3 @@ namespace datalog {
 
 };
 
-#endif /* DL_MK_ARRAY_INSTANTIATION_H_ */

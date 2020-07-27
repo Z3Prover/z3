@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SPACER_MEV_ARRAY_H_
-#define _SPACER_MEV_ARRAY_H_
+#pragma once
 
 #include"ast/ast.h"
 #include"ast/rewriter/rewriter_types.h"
@@ -49,4 +48,3 @@ public:
     void eval(model& mdl, expr* e, expr_ref& r, bool model_completion = true);
 };
 
-#endif

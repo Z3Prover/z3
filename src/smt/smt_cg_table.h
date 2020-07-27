@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_CG_TABLE_H_
-#define SMT_CG_TABLE_H_
+#pragma once
 
 #include "smt/smt_enode.h"
 #include "util/hashtable.h"
@@ -219,5 +218,4 @@ namespace smt {
 
 };
 
-#endif /* SMT_CG_TABLE_H_ */
 

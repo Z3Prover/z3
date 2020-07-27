@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef AST_SMT_PP_H_
-#define AST_SMT_PP_H_
+#pragma once
 
 #include "ast/ast.h"
 #include<string>
@@ -101,4 +100,3 @@ inline std::ostream& operator<<(std::ostream& out, const mk_smt_pp & p) {
 
 
 
-#endif

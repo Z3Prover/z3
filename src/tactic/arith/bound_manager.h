@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef BOUND_MANAGER_H_
-#define BOUND_MANAGER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
@@ -112,4 +111,3 @@ public:
     void display(std::ostream & out) const;
 };
 
-#endif

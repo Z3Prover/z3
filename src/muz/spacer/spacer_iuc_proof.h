@@ -1,5 +1,4 @@
-#ifndef IUC_PROOF_H_
-#define IUC_PROOF_H_
+#pragma once
 
 #include <ostream>
 #include "ast/ast.h"
@@ -64,4 +63,3 @@ private:
 
 }
 
-#endif /* IUC_PROOF_H_ */

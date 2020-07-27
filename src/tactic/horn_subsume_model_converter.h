@@ -32,8 +32,7 @@ Subsumption transformation (remove Horn clause):
 
 --*/
 
-#ifndef HORN_SUBSUME_MODEL_CONVERTER_H_
-#define HORN_SUBSUME_MODEL_CONVERTER_H_
+#pragma once
 
 #include "tactic/model_converter.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -85,4 +84,3 @@ public:
 
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef ARRAY_REWRITER_H_
-#define ARRAY_REWRITER_H_
+#pragma once
 
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -96,4 +95,3 @@ public:
 
 };
 
-#endif

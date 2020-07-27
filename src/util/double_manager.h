@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DOUBLE_MANAGER_H_
-#define DOUBLE_MANAGER_H_
+#pragma once
 
 #include<cmath>
 #include<string>
@@ -99,5 +98,4 @@ public:
 
 static_assert(sizeof(uint64_t) == sizeof(double), "");
 
-#endif /* DOUBLE_MANAGER_H_ */
 

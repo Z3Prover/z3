@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SCOPED_PROOF_H_
-#define SCOPED_PROOF_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -52,4 +51,3 @@ public:
 
 
 
-#endif

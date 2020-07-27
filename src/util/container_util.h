@@ -19,8 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef CONTAINER_UTIL_H_
-#define CONTAINER_UTIL_H_
+#pragma once
 
 // -----------------------------------
 //
@@ -119,4 +118,3 @@ bool containers_equal(const T & begin1, const T & end1, const U & begin2, const 
     return it1 == end1 && it2 == end2;
 }
 
-#endif

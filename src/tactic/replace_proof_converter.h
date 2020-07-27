@@ -20,8 +20,7 @@ Revision History:
 
 --*/
 
-#ifndef REPLACE_PROOF_CONVERTER_H_
-#define REPLACE_PROOF_CONVERTER_H_
+#pragma once
 
 #include "tactic/proof_converter.h"
 
@@ -49,4 +48,3 @@ public:
 
 };
 
-#endif

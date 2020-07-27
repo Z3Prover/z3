@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ARITH_EQ_ADAPTER_H_
-#define ARITH_EQ_ADAPTER_H_
+#pragma once
 
 #include "smt/smt_theory.h"
 #include "util/obj_pair_hashtable.h"
@@ -88,5 +87,4 @@ namespace smt {
     };
 };
 
-#endif /* ARITH_EQ_ADAPTER_H_ */
 

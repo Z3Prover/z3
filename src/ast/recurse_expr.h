@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef RECURSE_EXPR_H_
-#define RECURSE_EXPR_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -44,4 +43,3 @@ public:
     void finalize() { m_cache.finalize(); m_todo.finalize(); }
 };
 
-#endif /* RECURSE_EXPR_H_ */

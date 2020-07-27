@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef NLARITH_UTIL_H_
-#define NLARITH_UTIL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/lbool.h"
@@ -148,4 +147,3 @@ namespace nlarith {
 
 };
 
-#endif

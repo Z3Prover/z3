@@ -46,7 +46,9 @@ expr_ref seq_skolem::mk(symbol const& s, expr* e1, expr* e2, expr* e3, expr* e4,
     if (!range) {
         range = m.get_sort(e1);
     }
-    return expr_ref(seq.mk_skolem(s, len, es, range), m);
+    expr_ref result(seq.mk_skolem(s, len, es, range), m);
+    m_rewrite(result);
+    return result;
 }
 
 expr_ref seq_skolem::mk_max_unfolding_depth(unsigned depth) { 
@@ -113,13 +115,11 @@ decompose_main:
         head = seq.str.mk_unit(seq.str.mk_nth_i(s, idx));
         tail = mk(m_tail, s, idx);
         m_rewrite(head);
-        m_rewrite(tail);
     }
     else {
         head = seq.str.mk_unit(seq.str.mk_nth_i(e, a.mk_int(0)));
         tail = mk(m_tail, e, a.mk_int(0));
         m_rewrite(head);
-        m_rewrite(tail);
     }
 }
 

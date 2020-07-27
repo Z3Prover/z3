@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXPR_RAND_H_
-#define EXPR_RAND_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -55,4 +54,3 @@ private:
 };
 
 
-#endif

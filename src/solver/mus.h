@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef MUS_H_
-#define MUS_H_
+#pragma once
 
 class mus {
     struct imp;
@@ -64,4 +63,3 @@ class mus {
 };
 
 
-#endif

@@ -18,8 +18,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EMA_H_
-#define EMA_H_
+#pragma once
 
 class ema {
     double m_alpha, m_beta, m_value;
@@ -57,4 +56,3 @@ class ema {
     }
 };
 
-#endif

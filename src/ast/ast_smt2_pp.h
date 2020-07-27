@@ -19,8 +19,7 @@ Revision History:
 
 
 --*/
-#ifndef AST_SMT2_PP_H_
-#define AST_SMT2_PP_H_
+#pragma once
 
 #include "ast/format.h"
 #include "util/params.h"
@@ -137,4 +136,3 @@ std::ostream& operator<<(std::ostream& out, var_ref_vector const& e);
 std::ostream& operator<<(std::ostream& out, func_decl_ref_vector const& e);
 std::ostream& operator<<(std::ostream& out, sort_ref_vector const& e);
 
-#endif

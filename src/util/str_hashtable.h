@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef STR_HASHTABLE_H_
-#define STR_HASHTABLE_H_
+#pragma once
 
 #include<string.h>
 
@@ -30,5 +29,4 @@ struct str_hash_proc {
 struct str_eq_proc { bool operator()(char const * s1, char const * s2) const { return strcmp(s1, s2) == 0; } }; 
 typedef ptr_hashtable<const char, str_hash_proc, str_eq_proc> str_hashtable;
 
-#endif /* STR_HASHTABLE_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef THEORY_ARRAY_H_
-#define THEORY_ARRAY_H_
+#pragma once
 
 #include "smt/theory_array_base.h"
 #include "smt/params/theory_array_params.h"
@@ -115,5 +114,4 @@ namespace smt {
 
 };
 
-#endif /* THEORY_ARRAY_H_ */
 

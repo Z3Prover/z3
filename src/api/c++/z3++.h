@@ -18,8 +18,7 @@ Author:
 Notes:
 
 --*/
-#ifndef Z3PP_H_
-#define Z3PP_H_
+#pragma once
 
 #include<cassert>
 #include<iostream>
@@ -75,7 +74,7 @@ namespace z3 {
 
     inline void set_param(char const * param, char const * value) { Z3_global_param_set(param, value); }
     inline void set_param(char const * param, bool value) { Z3_global_param_set(param, value ? "true" : "false"); }
-    inline void set_param(char const * param, int value) { std::ostringstream oss; oss << value; Z3_global_param_set(param, oss.str().c_str()); }
+    inline void set_param(char const * param, int value) { auto str = std::to_string(value); Z3_global_param_set(param, str.c_str()); }
     inline void reset_params() { Z3_global_param_reset_all(); }
 
     /**
@@ -123,9 +122,8 @@ namespace z3 {
            \brief Set global parameter \c param with integer \c value.
         */
         void set(char const * param, int value) {
-            std::ostringstream oss;
-            oss << value;
-            Z3_set_param_value(m_cfg, param, oss.str().c_str());
+            auto str = std::to_string(value);
+            Z3_set_param_value(m_cfg, param, str.c_str());
         }
     };
 
@@ -212,9 +210,8 @@ namespace z3 {
            \brief Update global parameter \c param with Integer \c value.
         */
         void set(char const * param, int value) {
-            std::ostringstream oss;
-            oss << value;
-            Z3_update_param_value(m_ctx, param, oss.str().c_str());
+            auto str = std::to_string(value);
+            Z3_update_param_value(m_ctx, param, str.c_str());
         }
 
         /**
@@ -814,6 +811,7 @@ namespace z3 {
         bool is_numeral(std::string& s) const { if (!is_numeral()) return false; s = Z3_get_numeral_string(ctx(), m_ast); check_error(); return true; }
         bool is_numeral(std::string& s, unsigned precision) const { if (!is_numeral()) return false; s = Z3_get_numeral_decimal_string(ctx(), m_ast, precision); check_error(); return true; }
         bool is_numeral(double& d) const { if (!is_numeral()) return false; d = Z3_get_numeral_double(ctx(), m_ast); check_error(); return true; }
+        bool as_binary(std::string& s) const { if (!is_numeral()) return false; s = Z3_get_numeral_binary_string(ctx(), m_ast); check_error(); return true; }
 
         /**
            \brief Return true if this expression is an application.
@@ -2839,9 +2837,8 @@ namespace z3 {
         }
         handle add(expr const& e, unsigned weight) {
             assert(e.is_bool());
-            std::stringstream strm;
-            strm << weight;
-            return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, strm.str().c_str(), 0));
+            auto str = std::to_string(weight);
+            return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, str.c_str(), 0));
         }
         void add(expr const& e, expr const& t) {
             assert(e.is_bool());
@@ -3572,5 +3569,4 @@ namespace z3 {
 /*@}*/
 /*@}*/
 #undef Z3_THROW
-#endif
 

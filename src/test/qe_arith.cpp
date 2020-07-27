@@ -288,7 +288,7 @@ static void mk_var(unsigned x, app_ref& v) {
     arith_util a(m);
     std::ostringstream strm;
     strm << "v" << x;
-    v = m.mk_const(symbol(strm.str().c_str()), a.mk_real());
+    v = m.mk_const(symbol(strm.str()), a.mk_real());
 }
 
 static void mk_term(vector<var_t> const& vars, rational const& coeff, app_ref& term) {

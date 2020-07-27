@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef _SAT_LOOKAHEAD_H_
-#define _SAT_LOOKAHEAD_H_
+#pragma once
 
 
 #include "util/small_object_allocator.h"
@@ -632,5 +631,4 @@ namespace sat {
     };
 }
 
-#endif
 

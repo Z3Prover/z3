@@ -16,8 +16,7 @@ Notes:
    
 --*/
 
-#ifndef SPANNING_TREE_DEF_H_
-#define SPANNING_TREE_DEF_H_
+#pragma once
 
 #include "smt/spanning_tree.h"
 
@@ -486,4 +485,3 @@ namespace smt {
 
 }
 
-#endif

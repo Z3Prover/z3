@@ -17,8 +17,7 @@
   
 
   --*/
-#ifndef _SAT_BINSPR_
-#define _SAT_BINSPR_
+#pragma once
 
 #include "util/params.h"
 #include "util/statistics.h"
@@ -106,4 +105,3 @@ namespace sat {
     };
 }
 
-#endif

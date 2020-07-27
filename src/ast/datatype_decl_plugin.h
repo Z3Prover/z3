@@ -20,8 +20,7 @@ Revision History:
 
 
 --*/
-#ifndef DATATYPE_DECL_PLUGIN_H_
-#define DATATYPE_DECL_PLUGIN_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/buffer.h"
@@ -431,4 +430,3 @@ inline void del_datatype_decl(datatype_decl * d) {}
 inline void del_datatype_decls(unsigned num, datatype_decl * const * ds) {}
 
 
-#endif /* DATATYPE_DECL_PLUGIN_H_ */

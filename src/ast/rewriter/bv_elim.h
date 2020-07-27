@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BV_ELIM_H_
-#define BV_ELIM_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
@@ -46,5 +45,4 @@ public:
     {} 
 };
 
-#endif /* BV_ELIM_H_ */
 

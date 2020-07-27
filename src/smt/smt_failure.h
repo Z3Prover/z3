@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_FAILURE_H_
-#define SMT_FAILURE_H_
+#pragma once
 
 namespace smt {
 
@@ -37,4 +36,3 @@ namespace smt {
 
 };
 
-#endif

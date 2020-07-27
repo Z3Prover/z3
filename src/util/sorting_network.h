@@ -21,8 +21,7 @@ Notes:
 
 #include "util/vector.h"
 
-#ifndef SORTING_NETWORK_H_
-#define SORTING_NETWORK_H_
+#pragma once
 
     enum sorting_network_encoding {
         sorted_at_most,
@@ -1499,4 +1498,3 @@ Notes:
         }
     };
 
-#endif

@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef DL_RULE_SUBSUMPTION_INDEX_H_
-#define DL_RULE_SUBSUMPTION_INDEX_H_
+#pragma once
 
 #include "muz/base/dl_context.h"
 
@@ -61,5 +60,4 @@ namespace datalog {
 
 };
 
-#endif /* DL_RULE_SUBSUMPTION_INDEX_H_ */
 

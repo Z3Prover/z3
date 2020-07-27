@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef FPA2BV_CONVERTER_H_
-#define FPA2BV_CONVERTER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -225,4 +224,3 @@ private:
     expr_ref extra_quantify(expr * e);
 };
 
-#endif

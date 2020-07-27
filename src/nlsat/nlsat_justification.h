@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef NLSAT_JUSTIFICATION_H_
-#define NLSAT_JUSTIFICATION_H_
+#pragma once
 
 #include "nlsat/nlsat_types.h"
 #include "util/tptr.h"
@@ -109,4 +108,3 @@ namespace nlsat {
     }
 };
 
-#endif

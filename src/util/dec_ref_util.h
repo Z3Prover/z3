@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef MAP_UTIL_H_
-#define MAP_UTIL_H_
+#pragma once
 
 /**
    \brief Decrement the reference counter of the keys and values stored in the map,
@@ -65,4 +64,3 @@ void dec_ref_values(Mng & m, Map & map) {
 }
 
 
-#endif

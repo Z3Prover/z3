@@ -18,8 +18,7 @@ Revision History:
     2012-11-17 - ast_smt2_pp is the official pretty printer in Z3
 
 --*/
-#ifndef AST_PP_H_
-#define AST_PP_H_
+#pragma once
 
 #include "ast/ast_smt2_pp.h"
 
@@ -54,5 +53,4 @@ inline std::ostream& operator<<(std::ostream & out, mk_pp_vec const & pp) {
     return out;
 }
 
-#endif
 

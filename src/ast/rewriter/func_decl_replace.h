@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef FUNC_DECL_REPLACE_H_
-#define FUNC_DECL_REPLACE_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -43,4 +42,3 @@ public:
     bool empty() const { return m_subst.empty(); }
 };
 
-#endif /* FUNC_DECL_REPLACE_H_ */

@@ -18,8 +18,7 @@
      http://www.ict.griffith.edu.au/~johnt/publications/CP2006raouf.pdf
 
   --*/
-#ifndef _SAT_PROB_
-#define _SAT_PROB_
+#pragma once
 
 #include "util/uint_set.h"
 #include "util/rlimit.h"
@@ -157,4 +156,3 @@ namespace sat {
     };
 }
 
-#endif

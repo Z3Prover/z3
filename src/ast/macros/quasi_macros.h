@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef QUASI_MACROS_H_
-#define QUASI_MACROS_H_
+#pragma once
 
 #include<sstream>
 #include "ast/justified_expr.h"
@@ -70,4 +69,3 @@ public:
 
 };
 
-#endif

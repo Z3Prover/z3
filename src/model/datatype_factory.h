@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DATATYPE_FACTORY_H_
-#define DATATYPE_FACTORY_H_
+#pragma once
 
 #include "model/struct_factory.h"
 #include "ast/datatype_decl_plugin.h"
@@ -38,5 +37,4 @@ public:
     expr * get_fresh_value(sort * s) override;
 };
 
-#endif /* DATATYPE_FACTORY_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef EXPR_DELTA_PAIR_H_
-#define EXPR_DELTA_PAIR_H_
+#pragma once
 
 /**
    \brief Auxiliary structure used to cache the intermediate results of the variable substitution procedure.
@@ -32,5 +31,4 @@ struct expr_delta_pair {
     bool operator==(const expr_delta_pair & e) const { return m_node == e.m_node && m_delta == e.m_delta; }
 };
 
-#endif /* EXPR_DELTA_PAIR_H_ */
 

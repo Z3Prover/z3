@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef FACTOR_TACTIC_H_
-#define FACTOR_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -27,4 +26,3 @@ tactic * mk_factor_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*
   ADD_TACTIC("factor", "polynomial factorization.", "mk_factor_tactic(m, p)")
 */
-#endif

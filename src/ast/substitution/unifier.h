@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef UNIFIER_H_
-#define UNIFIER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "ast/substitution/substitution.h"
@@ -66,5 +65,4 @@ public:
     bool operator()(expr * e1, expr * e2, substitution & s, bool use_offsets = true);
 };
 
-#endif /* UNIFIER_H_ */
 

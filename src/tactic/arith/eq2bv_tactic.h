@@ -17,8 +17,7 @@ Author:
 Notes:
 
 --*/
-#ifndef EQ2BV_TACTIC_H_
-#define EQ2BV_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -31,4 +30,3 @@ tactic * mk_eq2bv_tactic(ast_manager & m);
 */
 
 
-#endif

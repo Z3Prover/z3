@@ -38,7 +38,7 @@ namespace sat {
     {
         if (s.get_config().m_drat && s.get_config().m_drat_file != symbol()) {
             auto mode = s.get_config().m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;
-            m_out = alloc(std::ofstream, s.get_config().m_drat_file.str().c_str(), mode);
+            m_out = alloc(std::ofstream, s.get_config().m_drat_file.str(), mode);
             if (s.get_config().m_drat_binary) {
                 std::swap(m_out, m_bout);
             }

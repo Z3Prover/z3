@@ -175,7 +175,7 @@ namespace opt {
             w.start();
             std::stringstream file_name;
             file_name << "opt_solver" << ++m_dump_count << ".smt2";
-            std::ofstream buffer(file_name.str().c_str());
+            std::ofstream buffer(file_name.str());
             to_smt2_benchmark(buffer, num_assumptions, assumptions, "opt_solver");
             buffer.close();
             IF_VERBOSE(1, verbose_stream() << "(created benchmark: " << file_name.str() << "...";
@@ -374,7 +374,7 @@ namespace opt {
         smt::theory_var v = get_optimizer().add_objective(term);
         TRACE("opt", tout << v << " " << mk_pp(term, m) << "\n";);
         m_objective_vars.push_back(v);
-        m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
+        m_objective_values.push_back(inf_eps(rational::minus_one(), inf_rational()));
         m_objective_terms.push_back(term);
         m_valid_objectives.push_back(true);
         m_models.push_back(nullptr);

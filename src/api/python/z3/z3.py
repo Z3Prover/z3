@@ -2792,6 +2792,14 @@ class IntNumRef(ArithRef):
         """
         return Z3_get_numeral_string(self.ctx_ref(), self.as_ast())
 
+    def as_binary_string(self):
+        """Return a Z3 integer numeral as a Python binary string.
+        >>> v = IntVal(10)
+        >>> v.as_binary_string()
+        '1010'
+        """
+        return Z3_get_numeral_binary_string(self.ctx_ref(), self.as_ast())
+
 class RatNumRef(ArithRef):
     """Rational values."""
 
@@ -2912,6 +2920,12 @@ class AlgebraicNumRef(ArithRef):
         '1.41421356237309504880?'
         """
         return Z3_get_numeral_decimal_string(self.ctx_ref(), self.as_ast(), prec)
+
+    def poly(self):
+        return AstVector(Z3_algebraic_get_poly(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def index(self):
+        return Z3_algebraic_get_i(self.ctx_ref(), self.as_ast())
 
 def _py2expr(a, ctx=None):
     if isinstance(a, bool):
@@ -3702,6 +3716,10 @@ class BitVecNumRef(BitVecRef):
 
     def as_string(self):
         return Z3_get_numeral_string(self.ctx_ref(), self.as_ast())
+
+    def as_binary_string(self):
+        return Z3_get_numeral_binary_string(self.ctx_ref(), self.as_ast())
+    
 
 def is_bv(a):
     """Return `True` if `a` is a Z3 bit-vector expression.

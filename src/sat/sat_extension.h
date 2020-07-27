@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_EXTENSION_H_
-#define SAT_EXTENSION_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "util/params.h"
@@ -86,4 +85,3 @@ namespace sat {
 
 };
 
-#endif

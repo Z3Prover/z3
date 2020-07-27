@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_WATCHED_H_
-#define SAT_WATCHED_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "util/vector.h"
@@ -146,4 +145,3 @@ namespace sat {
     void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist);
 };
 
-#endif

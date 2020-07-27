@@ -824,6 +824,26 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = m_autil.mk_add(es.size(), es.c_ptr());
         return BR_REWRITE2;
     }
+#if 0
+    expr* s = nullptr, *offset = nullptr, *length = nullptr;
+    if (str().is_extract(a, s, offset, length)) {
+        expr_ref len_s(str().mk_length(s), m());
+        // if offset < 0 then 0
+        // elif length <= 0 then 0
+        // elif offset >= len(s) then 0
+        // elif offset + length > len(s) then len(s) - offset
+        // else length
+        expr_ref zero(m_autil.mk_int(0), m());
+        result = length;
+        result = m().mk_ite(m_autil.mk_gt(m_autil.mk_add(offset, length), len_s),
+                            m_autil.mk_sub(len_s, offset),
+                            result);
+        result = m().mk_ite(m().mk_or(m_autil.mk_ge(offset, len_s), m_autil.mk_le(length, zero), m_autil.mk_lt(offset, zero)),
+                            zero,
+                            result);
+        return BR_REWRITE_FULL;
+    }
+#endif
     return BR_FAILED;
 }
 
@@ -1916,7 +1936,7 @@ br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {
         if (r.is_int() && !r.is_neg()) {
-            result = str().mk_string(symbol(r.to_string().c_str()));
+            result = str().mk_string(symbol(r.to_string()));
         }
         else {
             result = str().mk_string(symbol(""));
@@ -4312,7 +4332,6 @@ bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, 
 } 
 
 seq_rewriter::op_cache::op_cache(ast_manager& m):
-    m(m),
     m_trail(m)
 {}
 

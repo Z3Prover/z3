@@ -17,8 +17,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_GENERALIZERS_H_
-#define _SPACER_GENERALIZERS_H_
+#pragma once
 
 #include "ast/arith_decl_plugin.h"
 #include "muz/spacer/spacer_context.h"
@@ -184,4 +183,3 @@ class limit_num_generalizer : public lemma_generalizer {
 };
 } // namespace spacer
 
-#endif

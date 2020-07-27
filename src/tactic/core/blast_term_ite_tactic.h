@@ -20,8 +20,7 @@ Author:
 Notes:
 
 --*/
-#ifndef BLAST_TERM_ITE_TACTIC_H_
-#define BLAST_TERM_ITE_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -35,4 +34,3 @@ tactic * mk_blast_term_ite_tactic(ast_manager & m, params_ref const & p = params
 
 void blast_term_ite(expr_ref& fml, unsigned max_inflation);
 
-#endif

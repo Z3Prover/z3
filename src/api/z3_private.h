@@ -22,8 +22,7 @@ Notes:
 #include "util/rational.h"
 #include "api/z3_macros.h"
 
-#ifndef Z3_PRIVATE_H_
-#define Z3_PRIVATE_H_
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,5 +34,4 @@ extern "C" {
 };
 #endif // __cplusplus
 
-#endif
 

@@ -19,8 +19,7 @@ Revision History:
     nbjorner 2014-9-28
 
 --*/
-#ifndef AST_TRAIL_H_
-#define AST_TRAIL_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/trail.h"
@@ -72,5 +71,4 @@ public:
 };
 
 
-#endif /* AST_TRAIL_H_ */
 

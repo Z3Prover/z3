@@ -22,8 +22,7 @@ Notes:
    [3] Henri Cohen. A Course in Computational Algebraic Number Theory. Springer Verlag, 1993.
 
 --*/
-#ifndef UPOLYNOMIAL_FACTORIZATION_H_
-#define UPOLYNOMIAL_FACTORIZATION_H_
+#pragma once
 
 #include "math/polynomial/upolynomial.h"
 #include "math/polynomial/polynomial.h"
@@ -93,4 +92,3 @@ namespace upolynomial {
     bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs, unsigned k, factor_params const & ps = factor_params());
 };
 
-#endif

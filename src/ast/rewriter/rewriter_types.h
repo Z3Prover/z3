@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef REWRITER_TYPES_H_
-#define REWRITER_TYPES_H_
+#pragma once
 
 #include "util/z3_exception.h"
 #include "util/common_msgs.h"
@@ -49,4 +48,3 @@ public:
     rewriter_exception(std::string && msg) : default_exception(std::move(msg)) {}
 };
 
-#endif

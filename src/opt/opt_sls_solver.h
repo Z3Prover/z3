@@ -17,8 +17,7 @@ Notes:
 
    
 --*/
-#ifndef OPT_SLS_SOLVER_H_
-#define OPT_SLS_SOLVER_H_
+#pragma once
 
 #include "solver/solver_na2as.h"
 #include "tactic/arith/card2bv_tactic.h"
@@ -232,4 +231,3 @@ namespace opt {
     };
 }
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_UTIL_H_
-#define DL_UTIL_H_
+#pragma once
 
 #include<vector>
 #include "ast/ast.h"
@@ -615,5 +614,4 @@ namespace datalog {
     bool read_uint64(const char * & s, uint64_t & res);
 };
 
-#endif /* DL_UTIL_H_ */
 

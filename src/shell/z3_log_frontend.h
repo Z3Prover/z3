@@ -17,11 +17,9 @@ Author:
 Revision History:
 
 --*/
-#ifndef Z3_LOG_FRONTEND_H_
-#define Z3_LOG_FRONTEND_H_
+#pragma once
 
 void replay_z3_log(char const * benchmark_file);
 
-#endif /* Z3_FRONTEND_H_ */
 
 

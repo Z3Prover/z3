@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BIT_UTIL_H_
-#define BIT_UTIL_H_
+#pragma once
 
 /**
    \brief Return the position of the most significant (set) bit of a
@@ -129,4 +128,3 @@ bool lt(unsigned sz, unsigned * data1, unsigned * data2);
 */
 bool add(unsigned sz, unsigned const * a, unsigned const * b, unsigned * c);
 
-#endif

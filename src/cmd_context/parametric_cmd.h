@@ -15,8 +15,7 @@ Author:
 Notes:
 
 --*/
-#ifndef PARAMETRIC_CMD_H_
-#define PARAMETRIC_CMD_H_
+#pragma once
 
 #include "util/params.h"
 #include "util/symbol.h"
@@ -75,6 +74,5 @@ public:
     void set_next_arg(cmd_context & ctx, sexpr * n) override { UNREACHABLE(); }
 };
 
-#endif
 
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef OBJ_TRIPLE_HASHTABLE_H_
-#define OBJ_TRIPLE_HASHTABLE_H_
+#pragma once
 
 #include "util/hashtable.h"
 
@@ -176,5 +175,4 @@ public:
     }
 };
 
-#endif /* OBJ_TRIPLE_HASHTABLE_H_ */
 

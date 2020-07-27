@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_QUANTIFIER_H_
-#define SMT_QUANTIFIER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/statistics.h"
@@ -177,4 +176,3 @@ namespace smt {
     };
 };
 
-#endif

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef BIT_BLASTER_TPL_H_
-#define BIT_BLASTER_TPL_H_
+#pragma once
 
 #include "util/rational.h"
 
@@ -130,4 +129,3 @@ public:
     void mk_abs(unsigned sz, expr * const * a_bits, expr_ref_vector & out_bits);
 };
 
-#endif

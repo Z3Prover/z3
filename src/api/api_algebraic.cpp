@@ -134,7 +134,7 @@ extern "C" {
                 _am.set(_av, av.to_mpq());                              \
                 scoped_anum _r(_am);                                    \
                 _am.IRAT_OP(_av, bv, _r);                               \
-                r = au(c).mk_numeral(_r, false);                        \
+                r = au(c).mk_numeral(_am, _r, false);                   \
             }                                                           \
         }                                                               \
         else {                                                          \
@@ -145,13 +145,13 @@ extern "C" {
                 _am.set(_bv, bv.to_mpq());                              \
                 scoped_anum _r(_am);                                    \
                 _am.IRAT_OP(av, _bv, _r);                               \
-                r = au(c).mk_numeral(_r, false);                        \
+                r = au(c).mk_numeral(_am, _r, false);                   \
             }                                                           \
             else {                                                      \
                 algebraic_numbers::anum const & bv = get_irrational(c, b); \
                 scoped_anum _r(_am);                                    \
                 _am.IRAT_OP(av, bv, _r);                                \
-                r = au(c).mk_numeral(_r, false);                        \
+                r = au(c).mk_numeral(_am, _r, false);                   \
             }                                                           \
         }                                                               \
         mk_c(c)->save_ast_trail(r);                                     \
@@ -226,7 +226,7 @@ extern "C" {
             algebraic_numbers::anum const & av = get_irrational(c, a);
             _am.root(av, k, _r);
         }
-        expr * r = au(c).mk_numeral(_r, false);
+        expr * r = au(c).mk_numeral(_am, _r, false);
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(nullptr);
@@ -248,7 +248,7 @@ extern "C" {
             algebraic_numbers::anum const & av = get_irrational(c, a);
             _am.power(av, k, _r);
         }
-        expr * r = au(c).mk_numeral(_r, false);
+        expr * r = au(c).mk_numeral(_am, _r, false);
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(nullptr);
@@ -380,7 +380,7 @@ extern "C" {
         Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
         for (unsigned i = 0; i < roots.size(); i++) {
-            result->m_ast_vector.push_back(au(c).mk_numeral(roots.get(i), false));
+            result->m_ast_vector.push_back(au(c).mk_numeral(_am, roots.get(i), false));
         }
         RETURN_Z3(of_ast_vector(result));
         Z3_CATCH_RETURN(nullptr);
@@ -427,14 +427,12 @@ extern "C" {
         algebraic_numbers::anum const & av = get_irrational(c, a);
         scoped_mpz_vector coeffs(_am.qm());
         _am.get_polynomial(av, coeffs);
-        api::context * _c = mk_c(c);
-        sort * s = _c->m().mk_sort(_c->get_arith_fid(), REAL_SORT);
-        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *_c, _c->m());
-        mk_c(c)->save_object(result);
-        for (unsigned i = 0; i < coeffs.size(); i++) {
-            rational r(coeffs[i]);
-            expr * a = _c->mk_numeral_core(r, s);
-            result->m_ast_vector.push_back(a);
+        api::context& _c = *mk_c(c);
+        sort * s = _c.m().mk_sort(_c.get_arith_fid(), REAL_SORT);
+        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, _c, _c.m());
+        _c.save_object(result);
+        for (auto const& c : coeffs) {
+            result->m_ast_vector.push_back(_c.mk_numeral_core(c, s));
         }
         RETURN_Z3(of_ast_vector(result));
         Z3_CATCH_RETURN(nullptr);

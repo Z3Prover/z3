@@ -20,8 +20,7 @@ Revision History:
 --*/
 
 
-#ifndef SMT_IMPLIED_EQUALITIES_H_
-#define SMT_IMPLIED_EQUALITIES_H_
+#pragma once
 
 #include "smt/smt_solver.h"
 #include "util/lbool.h"
@@ -40,4 +39,3 @@ namespace smt {
 };
 
 
-#endif

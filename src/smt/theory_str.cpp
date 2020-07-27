@@ -988,7 +988,7 @@ namespace smt {
             }
         }
         if (constOK) {
-            TRACE("str", tout << "flattened to \"" << flattenedString.encode().c_str() << "\"" << std::endl;);
+            TRACE("str", tout << "flattened to \"" << flattenedString.encode() << '"' << std::endl;);
             expr_ref constStr(mk_string(flattenedString), m);
             expr_ref axiom(ctx.mk_eq_atom(a_cat, constStr), m);
             assert_axiom(axiom);
@@ -1073,7 +1073,7 @@ namespace smt {
 
             zstring strconst;
             u.str.is_string(str->get_owner(), strconst);
-            TRACE("str", tout << "instantiating constant string axioms for \"" << strconst.encode().c_str() << "\"" << std::endl;);
+            TRACE("str", tout << "instantiating constant string axioms for \"" << strconst.encode() << '"' << std::endl;);
             unsigned int l = strconst.length();
             expr_ref len(m_autil.mk_numeral(rational(l), true), m);
 
@@ -8138,7 +8138,7 @@ namespace smt {
     // Returns true if this can be done in a valid way, placing the converted value in the argument.
     // Otherwise, returns false, if str is empty or contains non-digit characters.
     bool theory_str::string_integer_conversion_valid(zstring str, rational& converted) const {
-        bool valid = true;
+        // bool valid = true;
         converted = rational::zero();
         rational ten(10);
         if (str.length() == 0) {
@@ -8177,7 +8177,7 @@ namespace smt {
             if (!Ival.is_minus_one()) {
                 rational Slen;
                 if (get_len_value(S, Slen)) {
-                    zstring Ival_str(Ival.to_string().c_str());
+                    zstring Ival_str(Ival.to_string());
                     if (rational(Ival_str.length()) <= Slen) {
                         zstring padding;
                         for (rational i = rational::zero(); i < Slen - rational(Ival_str.length()); ++i) {
@@ -8301,7 +8301,7 @@ namespace smt {
                     conclusion = expr_ref(ctx.mk_eq_atom(a, mk_string("")), m);
                 } else {
                     // non-negative argument -> convert to string of digits
-                    zstring Nval_str(Nval.to_string().c_str());
+                    zstring Nval_str(Nval.to_string());
                     conclusion = expr_ref(ctx.mk_eq_atom(a, mk_string(Nval_str)), m);
                 }
                 expr_ref axiom(rewrite_implication(premise, conclusion), m);
@@ -8885,19 +8885,6 @@ namespace smt {
         return FC_CONTINUE; // since by this point we've added axioms
     }
 
-    inline zstring int_to_string(int i) {
-        std::stringstream ss;
-        ss << i;
-        std::string str = ss.str();
-        return zstring(str.c_str());
-    }
-
-    inline std::string longlong_to_string(long long i) {
-        std::stringstream ss;
-        ss << i;
-        return ss.str();
-    }
-
     void theory_str::get_concats_in_eqc(expr * n, std::set<expr*> & concats) {
 
         expr * eqcNode = n;
@@ -9016,7 +9003,7 @@ namespace smt {
             TRACE("str", tout << "WARNING: failed to find a concrete value, falling back" << std::endl;);
             std::ostringstream unused;
             unused << "**UNUSED**" << (m_unused_id++);
-            return alloc(expr_wrapper_proc, to_app(mk_string(unused.str().c_str())));
+            return alloc(expr_wrapper_proc, to_app(mk_string(unused.str())));
         }
     }
 

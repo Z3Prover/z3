@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_VECTOR_RELATION_H_
-#define DL_VECTOR_RELATION_H_
+#pragma once
 
 #include "ast/ast_pp.h"
 #include "muz/base/dl_context.h"
@@ -400,5 +399,4 @@ namespace datalog {
         
 };
 
-#endif 
 

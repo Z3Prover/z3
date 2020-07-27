@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef DL_MK_MAGIC_SETS_H_
-#define DL_MK_MAGIC_SETS_H_
+#pragma once
 
 #include<utility>
 
@@ -131,5 +130,4 @@ namespace datalog {
 
 };
 
-#endif /* DL_MK_MAGIC_SETS_H_ */
 

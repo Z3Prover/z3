@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SMT_ALMOST_CG_TABLE_H_
-#define SMT_ALMOST_CG_TABLE_H_
+#pragma once
 
 #include "smt/smt_enode.h"
 #include "util/map.h"
@@ -68,5 +67,4 @@ namespace smt {
 
 };
 
-#endif /* SMT_ALMOST_CG_TABLE_H_ */
 

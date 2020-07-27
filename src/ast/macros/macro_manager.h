@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef MACRO_MANAGER_H_
-#define MACRO_MANAGER_H_
+#pragma once
 
 #include "util/obj_hashtable.h"
 #include "ast/ast_util.h"
@@ -91,5 +90,4 @@ public:
 
 };
 
-#endif /* MACRO_MANAGER_H_ */
 

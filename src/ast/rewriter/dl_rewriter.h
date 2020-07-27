@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef DL_REWRITER_H_
-#define DL_REWRITER_H_
+#pragma once
 
 #include "ast/dl_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -30,4 +29,3 @@ public:
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 };
 
-#endif

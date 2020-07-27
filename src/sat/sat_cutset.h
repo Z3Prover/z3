@@ -50,19 +50,6 @@ namespace sat {
             m_elems[1] = m_elems[2] = m_elems[3] = m_elems[4] = 0;
         }
 
-        cut(cut const& other) {
-            *this = other;
-        }
-
-        cut& operator=(cut const& other) { 
-            m_filter = other.m_filter;
-            m_size = other.m_size;
-            m_table = other.m_table;
-            m_dont_care = other.m_dont_care;
-            for (unsigned i = 0; i < m_size; ++i) m_elems[i] = other.m_elems[i];
-            return *this;
-        }
-
         cut_val eval(cut_eval const& env) const;
 
         unsigned size() const { return m_size; }

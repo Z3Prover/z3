@@ -16,8 +16,7 @@ Revision History:
 
 --*/
 
-#ifndef TOP_SORT_H_
-#define TOP_SORT_H_
+#pragma once
 
 #include "util/obj_hashtable.h"
 #include "util/vector.h"
@@ -112,4 +111,3 @@ public:
 
 };
 
-#endif /* TOP_SORT_H_ */

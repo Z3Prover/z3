@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef POLYNOMIAL_VAR2VALUE_H_
-#define POLYNOMIAL_VAR2VALUE_H_
+#pragma once
 
 #include "math/polynomial/polynomial.h"
 #include "util/scoped_numeral_vector.h"
@@ -47,4 +46,3 @@ namespace polynomial {
 };
 
 
-#endif

@@ -15,12 +15,10 @@ Author:
 Notes:
 
 --*/
-#ifndef BASIC_CMDS_H_
-#define BASIC_CMDS_H_
+#pragma once
 
 class cmd_context;
 
 void install_basic_cmds(cmd_context & ctx);
 void install_ext_basic_cmds(cmd_context & ctx);
 
-#endif

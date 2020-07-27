@@ -2,8 +2,7 @@
     Copyright (c) 2015 Microsoft Corporation
 --*/
 
-#ifndef Z3_API_H_
-#define Z3_API_H_
+#pragma once
 
 DEFINE_TYPE(Z3_symbol);
 DEFINE_TYPE(Z3_literals);
@@ -4678,13 +4677,23 @@ extern "C" {
     Z3_func_decl Z3_API Z3_to_func_decl(Z3_context c, Z3_ast a);
 
     /**
-       \brief Return numeral value, as a string of a numeric constant term
+       \brief Return numeral value, as a decimal string of a numeric constant term
 
        \pre Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST
 
        def_API('Z3_get_numeral_string', STRING, (_in(CONTEXT), _in(AST)))
     */
     Z3_string Z3_API Z3_get_numeral_string(Z3_context c, Z3_ast a);
+
+    /**
+       \brief Return numeral value, as a binary string of a numeric constant term
+
+       \pre Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST
+       \pre a represents a non-negative integer
+
+       def_API('Z3_get_numeral_binary_string', STRING, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_string Z3_API Z3_get_numeral_binary_string(Z3_context c, Z3_ast a);
 
     /**
        \brief Return numeral as a string in decimal notation.
@@ -5558,7 +5567,7 @@ extern "C" {
     */
 
     Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
-    
+
     /*@}*/
 
     /** @name Error Handling */
@@ -6730,4 +6739,3 @@ extern "C" {
 
 /*@}*/
 
-#endif

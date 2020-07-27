@@ -16,8 +16,7 @@ Revision History:
 
 --*/
 
-#ifndef _SPACER_DL_INTERFACE_H_
-#define _SPACER_DL_INTERFACE_H_
+#pragma once
 
 #include "util/lbool.h"
 #include "muz/base/dl_rule.h"
@@ -90,4 +89,3 @@ public:
 }
 
 
-#endif

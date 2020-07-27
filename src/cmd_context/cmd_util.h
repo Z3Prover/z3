@@ -15,8 +15,7 @@ Author:
 Notes:
 
 --*/
-#ifndef CMD_UTIL_H_
-#define CMD_UTIL_H_
+#pragma once
 
 #define ATOMIC_CMD(CLS_NAME, NAME, DESCR, ACTION)                               \
 class CLS_NAME : public cmd {                                                   \
@@ -77,4 +76,3 @@ expr * get_expr_ref(cmd_context & ctx, symbol const & v);
 */
 void store_expr_ref(cmd_context & ctx, symbol const & v, expr * t);
 
-#endif

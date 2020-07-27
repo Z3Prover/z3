@@ -15,8 +15,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef API_MODEL_H_
-#define API_MODEL_H_
+#pragma once
 
 #include "api/api_util.h"
 #include "model/model.h"
@@ -55,4 +54,3 @@ inline Z3_func_entry of_func_entry(Z3_func_entry_ref * s) { return reinterpret_c
 inline func_entry const * to_func_entry_ref(Z3_func_entry s) { return to_func_entry(s)->m_func_entry; }
 
 
-#endif

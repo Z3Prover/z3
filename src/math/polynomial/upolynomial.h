@@ -21,8 +21,7 @@ Author:
 Notes:
 
 --*/
-#ifndef UPOLYNOMIAL_H_
-#define UPOLYNOMIAL_H_
+#pragma once
 
 #include "util/mpzzp.h"
 #include "util/rational.h"
@@ -919,4 +918,3 @@ namespace upolynomial {
 
 };
 
-#endif

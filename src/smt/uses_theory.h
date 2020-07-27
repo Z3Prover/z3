@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef USES_THEORY_H_
-#define USES_THEORY_H_
+#pragma once
 
 #include "ast/ast.h"
 
@@ -33,5 +32,4 @@ bool uses_theory(expr * n, family_id fid);
 */
 bool uses_theory(expr * n, family_id fid, expr_mark & visited);
 
-#endif /* USES_THEORY_H_ */
 

@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_BIG_H_
-#define SAT_BIG_H_
+#pragma once
 
 #include "sat/sat_types.h"
 #include "util/statistics.h"
@@ -90,4 +89,3 @@ namespace sat {
     };
 };
 
-#endif

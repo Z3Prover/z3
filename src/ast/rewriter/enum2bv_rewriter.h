@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef ENUM_REWRITER_H_
-#define ENUM_REWRITER_H_
+#pragma once
 
 #include "ast/datatype_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -45,4 +44,3 @@ public:
     void set_is_fd(i_sort_pred* sp) const;
 };
 
-#endif

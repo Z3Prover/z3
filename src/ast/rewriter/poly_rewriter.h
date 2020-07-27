@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#ifndef POLY_REWRITER_H_
-#define POLY_REWRITER_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
@@ -176,4 +175,3 @@ public:
 };
 
 
-#endif

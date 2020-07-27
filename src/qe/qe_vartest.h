@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef QE_VARTEST_H_
-#define QE_VARTEST_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/uint_set.h"
@@ -61,4 +60,3 @@ public:
     }
 };
 
-#endif

@@ -15,8 +15,7 @@ Author:
 Notes:
 
 --*/
-#ifndef STACK_H_
-#define STACK_H_
+#pragma once
 
 #include "util/page.h"
 #include "util/debug.h"
@@ -47,4 +46,3 @@ public:
 inline void * operator new(size_t s, stack & r) { return r.allocate(s); }
 inline void operator delete(void * ptr, stack & r) { SASSERT(ptr == r.top()); r.deallocate(); }
 
-#endif

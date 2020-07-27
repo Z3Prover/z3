@@ -91,7 +91,6 @@ namespace smt {
 
         context&       ctx;
         ast_manager&   m;
-        value_sweep&   vs;
         datatype::util m_dt;
         arith_util     m_a;
         recfun::util   m_rec;
@@ -123,7 +122,7 @@ namespace smt {
         void apply_induction(literal lit, induction_positions_t const & positions);
 
     public:
-        induction_lemmas(context& ctx, ast_manager& m, value_sweep& vs);
+        induction_lemmas(context& ctx, ast_manager& m);
 
         bool operator()(literal lit);
     };

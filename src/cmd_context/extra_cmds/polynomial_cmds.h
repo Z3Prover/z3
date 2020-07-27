@@ -15,10 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef POLYNOMIAL_CMDS_H_
-#define POLYNOMIAL_CMDS_H_
+#pragma once
 
 class cmd_context;
 void install_polynomial_cmds(cmd_context & ctx);
 
-#endif
