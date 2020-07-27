@@ -813,11 +813,16 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         s = true;
     }
 
-    // (ite c (ite c t1 t2) t3)       ==> (ite c t1 t3)
+    // (ite c (ite c t1 t2) t3)       ==> (ite c t1 t3
     if (m().is_ite(t) && to_app(t)->get_arg(0) == c) {
         // Remark: (ite c (ite (not c) t1 t2) t3) ==> (ite c t2 t3) does not happen if applying rewrites bottom up
         t = to_app(t)->get_arg(1);
         s = true;
+    }
+    // (ite c t1 (ite c2 t1 t2))      ==> (ite (or c c2) t1 t2)
+    if (m().is_ite(e) && to_app(e)->get_arg(1) == t) {
+        result = m().mk_ite(m().mk_or(c, to_app(e)->get_arg(0)), t, to_app(e)->get_arg(2));
+        return BR_REWRITE3;
     }
 
     // (ite c t1 (ite c t2 t3))       ==> (ite c t1 t3)
