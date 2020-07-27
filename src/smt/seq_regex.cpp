@@ -24,8 +24,7 @@ namespace smt {
     seq_regex::seq_regex(theory_seq& th):
         th(th),
         ctx(th.get_context()),
-        m(th.get_manager()),
-        m_state_to_expr(m)
+        m(th.get_manager())
     {}
 
     seq_util& seq_regex::u() { return th.m_util; }
@@ -104,14 +103,14 @@ namespace smt {
     }
 
     /**
-     * Propagate the atom (str.in_re s r)
+     * Propagate the atom (str.in.re s r)
      * 
      * Propagation implements the following inference rules
      * 
-     * (not (str.in_re s r)) => (str.in_re s (complement r))
-     * (str.in_re s r) => r != {}
+     * (not (str.in.re s r)) => (str.in.re s (complement r))
+     * (str.in.re s r) => r != {}
      * 
-     * (str.in_re s r) => (accept s 0 r)
+     * (str.in.re s r) => (accept s 0 r)
      */
 
     void seq_regex::propagate_in_re(literal lit) {
@@ -119,9 +118,7 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
-        TRACE("seq_regex", tout << "propagate in RE: " << lit.sign() << " " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PIR(" << mk_pp(s, m) << ","
-                                       << state_str(r) << ") ";);
+        TRACE("seq", tout << "propagate " << lit.sign() << " " << mk_pp(e, m) << "\n";);
 
         // convert negative negative membership literals to positive
         // ~(s in R) => s in C(R)
@@ -168,13 +165,11 @@ namespace smt {
     }
 
     void seq_regex::propagate_accept(literal lit) {
-        TRACE("seq_regex", tout << "propagate accept" << std::endl;);
-        STRACE("seq_regex_brief", tout << "PA ";);
-
+        // std::cout << "PA ";
         literal t = null_literal;
         if (!propagate(lit, t))
             m_to_propagate.push_back(propagation_lit(lit, t));
-    }
+                                     }
 
     /**
      * Propagate the atom (accept s i r)
@@ -197,136 +192,21 @@ namespace smt {
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
 
-        TRACE("seq_regex", tout << "propagate: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << std::endl
-                                       << "P(" << mk_pp(s, m) << "@" << idx
-                                       << "," << state_str(r) << ") ";);
+        // std::cout << "\nP " << idx << " " << r->get_id() << " ";
 
-        expr* cond = nullptr, *tt = nullptr, *el = nullptr;
+        TRACE("seq", tout << "propagate " << mk_pp(e, m) << "\n";);
+
         if (re().is_empty(r)) {
-            STRACE("seq_regex_brief", tout << "(empty) ";);
-            th.add_axiom(~lit);
-            return true;
-        }
-        else if (m.is_ite(r, cond, tt, el)) {
-            UNREACHABLE();
-            STRACE("seq_regex_brief", tout << "(ite) ";);
-            return false;
-
-            // @EXP (Experimental change)
-            // This code tries to unfold the derivative one step at a time
-            // and propagate the if-then-elses.
-            // literal lcond = th.mk_literal(cond);
-            // ctx.mark_as_relevant(lcond);
-            // trigger = lcond;
-            // expr_ref ncond(m), acc1(m), acc2(m),
-            //          choice1(m), choice2(m), choice(m);
-            // ncond = m.mk_not(cond);
-            // acc1 = sk().mk_accept(s, a().mk_int(idx), tt);
-            // acc2 = sk().mk_accept(s, a().mk_int(idx), el);
-            // choice1 = m.mk_and(cond, acc1);
-            // choice2 = m.mk_and(ncond, acc2);
-            // choice = m.mk_or(choice1, choice2);
-            // th.propagate_lit(nullptr, 1, &lit, th.mk_literal(choice));
-            // // th.propagate_lit(th.mk_literal(choice));
-            // // literal_vector choice_lit;
-            // // choice_lit.push_back(th.mk_literal(choice));
-            // // th.add_axiom(choice_lit);
-            // return true;
-        }
-
-        update_state_graph(r);
-
-        if (m_state_graph.is_dead(get_state_id(r))) {
-            STRACE("seq_regex_brief", tout << "(dead) ";);
             th.add_axiom(~lit);
             return true;
         }
 
-        if (block_unfolding(lit, idx)) {
-            STRACE("seq_regex_brief", tout << "(blocked) ";);
+        if (block_unfolding(lit, idx))
             return true;
-        }
 
-        STRACE("seq_regex_brief", tout << "(unfold) ";);
+        propagate_nullable(lit, s, idx, r);
 
-        // First axiom: use min_length to prune search
-        // accept(s, idx, r) => len(s) >= idx + min_len(r)
-        expr_ref s_to_re(re().mk_to_re(s), m);
-        expr_ref s_plus_r(re().mk_concat(s_to_re, r), m);
-        unsigned min_len = re().min_length(s_plus_r);
-        literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len);
-        th.add_axiom(~lit, len_s_ge_min);
-
-        // Old first axiom: accept(s, idx, r) => len(s) >= idx
-        // literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
-        // th.add_axiom(~lit, len_s_ge_i);
-
-        // Second axiom: nullable check
-        // accept(s, idx, r) and len(s) <= idx => r nullable
-        literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
-        literal is_nullable = th.mk_literal(is_nullable_wrapper(r));
-        th.add_axiom(~lit, ~len_s_le_i, is_nullable);
-
-        // Third axiom: derivative unfolding
-        // accept(s, idx, r) and not (len_s_le_i) =>
-        //     OR_(cond, dr) cond and accept(s, idx+1, dr)
-        // over all derivatives dr and conditions cond on the head
-        literal_vector accept_next;
-        expr_ref hd = th.mk_nth(s, i);
-        expr_ref deriv(m);
-        deriv = derivative_wrapper(hd, r);
-        accept_next.push_back(~lit);
-        accept_next.push_back(len_s_le_i);
-        expr_ref_pair_vector cofactors(m);
-        get_cofactors(deriv, cofactors);
-        for (auto const& p : cofactors) {
-            if (m.is_false(p.first) || re().is_empty(p.second)) continue;
-            expr_ref cond(p.first, m);
-            expr_ref deriv_leaf(p.second, m);
-
-            // @EXP (Experimental change)
-            // Skip searching when can_be_in_cycle returns true
-            // Result: Besides being unsound as written, this is not
-            // fine-grained enough. In case of intersections, many
-            // edges return true for can_be_in_cycle
-            // if (can_be_in_cycle(deriv, deriv_leaf)) continue;
-
-            expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
-            expr_ref choice(m.mk_and(cond, acc), m);
-            literal choice_lit = th.mk_literal(choice);
-            accept_next.push_back(choice_lit);
-            // Prioritize unvisited states
-            // if (!m_state_graph.is_done(get_state_id(deriv_leaf))) {
-            //     // @EXP Unsound test: only push if not done
-            //     accept_next.push_back(choice_lit);
-            //     // @EXP This didn't work -- just marking as relevant
-            //     // ctx.mark_as_relevant(choice_lit);
-            // }
-            STRACE("seq_regex_debug", tout << "added choice: "
-                                           << mk_pp(choice, m) << std::endl;);
-        }
-        th.add_axiom(accept_next);
-
-        // Propagated successfully
-        return true;
-
-        // expr_ref is_nullable(m), head(m), deriv(m), acc_next(m), unfold(m);
-        // head = th.mk_nth(s, i);
-        // deriv = derivative_wrapper(head, r);
-        // th.add_axiom(~lit, ~th.mk_literal(is_nullable));
-        // 
-        // acc_next = sk().mk_accept(s, a().mk_int(idx + 1), deriv);
-        // unfold = m.mk_or(is_nullable, acc_next);
-        // 
-        // literal_vector unfold_lit;
-        // unfold_lit.push_back(th.mk_literal(unfold));
-        // th.add_axiom(unfold_lit);
-        // return true;
-
-        // propagate_nullable(lit, s, idx, r);
-        // 
-        // return propagate_derivative(lit, e, s, i, idx, r, trigger);
+        return propagate_derivative(lit, e, s, i, idx, r, trigger);
     }
 
     /**
@@ -349,25 +229,19 @@ namespace smt {
      */
 
     void seq_regex::propagate_nullable(literal lit, expr* s, unsigned idx, expr* r) {
-        TRACE("seq_regex", tout << "propagate nullable: " << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PN ";);
-
-        expr_ref is_nullable = is_nullable_wrapper(r);
-
+        // std::cout << "PN ";
+        expr_ref is_nullable = seq_rw().is_nullable(r);
+        rewrite(is_nullable);
         literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
         if (m.is_true(is_nullable)) {
-            STRACE("seq_regex_brief", tout << "t ";);
             th.propagate_lit(nullptr, 1,&lit, len_s_ge_i);
         }
         else if (m.is_false(is_nullable)) {
-            STRACE("seq_regex_brief", tout << "f ";);
             th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
-            // @EXP (experimental change)
             //unsigned len = std::max(1u, re().min_length(r));
             //th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + re().min_length(r)));
         }
         else {
-            STRACE("seq_regex_brief", tout << "? ";);
             literal is_nullable_lit = th.mk_literal(is_nullable);
             ctx.mark_as_relevant(is_nullable_lit);
             literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
@@ -388,19 +262,12 @@ namespace smt {
     }
     
     bool seq_regex::propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r, literal& trigger) {
-        TRACE("seq_regex", tout << "propagate derivative: " << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PD ";);
-
         // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
+        // std::cout << "PD ";
         expr_ref d(m);
         expr_ref head = th.mk_nth(s, i);
 
         d = derivative_wrapper(m.mk_var(0, m.get_sort(head)), r);
-
-        // TODO
-        // conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
-        // th.add_axiom(conds);
-
         // timer tm;
         // std::cout << d->get_id() << " " << tm.get_seconds() << "\n";
         //if (tm.get_seconds() > 0.3) 
@@ -419,17 +286,14 @@ namespace smt {
             literal lcond = th.mk_literal(subst(cond, sub));
             switch (ctx.get_assignment(lcond)) {
             case l_true:
-                STRACE("seq_regex_brief", tout << "t ";);
                 conds.push_back(~lcond);
                 d = tt;
                 break;
             case l_false:
-                STRACE("seq_regex_brief", tout << "f ";);
                 conds.push_back(lcond);
                 d = el;
                 break;
             case l_undef:
-                STRACE("seq_regex_brief", tout << "? ";);
 #if 1
                 ctx.mark_as_relevant(lcond);
                 trigger = lcond;
@@ -458,7 +322,6 @@ namespace smt {
 #endif
             }
         }
-
         if (!is_ground(d)) {
             d = subst(d, sub);
         }
@@ -466,9 +329,8 @@ namespace smt {
         if (!re().is_empty(d)) 
             conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
         th.add_axiom(conds);        
-        TRACE("seq_regex", tout << "unfold " << head << std::endl << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "u ";);
-
+        TRACE("seq", tout << "unfold " << head << "\n" << mk_pp(r, m) << "\n";);
+        // std::cout << "D ";
         return true;
     }
 
@@ -490,7 +352,6 @@ namespace smt {
      * within the same Regex.
      */
     bool seq_regex::coallesce_in_re(literal lit) {
-        // @EXP (experimental change)
         return false;
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
@@ -511,7 +372,7 @@ namespace smt {
             th.m_trail_stack.push(vector_value_trail<theory_seq, s_in_re, true>(m_s_in_re, i));
             m_s_in_re[i].m_active = false;
             IF_VERBOSE(11, verbose_stream() << "Intersect " << regex << " " << 
-                       mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << std::endl;);
+                       mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << "\n";);
             regex = re().mk_inter(entry.m_re, regex);
             rewrite(regex);
             lits.push_back(~entry.m_lit);
@@ -541,79 +402,20 @@ namespace smt {
     }
 
     /*
-        Wrapper around calls to is_nullable from the seq rewriter.
-    */
-    expr_ref seq_regex::is_nullable_wrapper(expr* r) {
-        STRACE("seq_regex", tout << "nullable: " << mk_pp(r, m) << std::endl;);
-
-        expr_ref result = seq_rw().is_nullable(r);
-        rewrite(result);
-
-        STRACE("seq_regex", tout << "nullable result: " << mk_pp(result, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "n(" << state_str(r) << ")="
-                                       << mk_pp(result, m) << " ";);
-        seq_rw().trace_and_reset_cache_counts();
-
-        return result;
-    }
-
-    /*
-        Wrapper around the regex symbolic derivative from the seq rewriter.
+        Wrapper around the regex symbolic derivative from the rewriter.
         Ensures that the derivative is written in a normalized BDD form
         with optimizations for if-then-else expressions involving the head.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
-        STRACE("seq_regex", tout << "derivative(" << mk_pp(hd, m) << "): " << mk_pp(r, m) << std::endl;);
-
-        // Use canonical variable for head; substitute with hd later
-        // sort* seq_sort = nullptr;
-        // VERIFY(u().is_re(r, seq_sort));
-        // expr_ref hd_canon = get_head_var(sq_sort);
-        expr_ref hd_canon(m.mk_var(0, m.get_sort(hd)), m);
-        expr_ref result(re().mk_derivative(hd_canon, r), m);
+        expr_ref result = expr_ref(re().mk_derivative(hd, r), m);
         rewrite(result);
-
-        // Substitute
-        var_subst subst(m);
-        expr_ref_vector sub(m);
-        sub.push_back(hd);
-        result = subst(result, sub);
-
-        STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "d(" << state_str(r) << ")="
-                                       << state_str(result) << " ";);
-        seq_rw().trace_and_reset_cache_counts();
-
-        /*  If the following lines are enabled instead, we use the
-            same rewriter for the nullable and derivative calls.
-            However, it currently seems to cause a performance
-            bug as a side effect.
-
-            The two seq rewriters used are at:
-                m_seq_rewrite
-                    (returned by seq_rw())
-                th.m_rewrite.m_imp->m_cfg.m_seq_rw
-                    (private, can't be accessed directly)
-
-            TODO: experiment with making them the same and see
-            if it results in significant speedup (due to fewer
-            cache misses).
-           */
-        // expr_ref result = seq_rw().mk_derivative(hd, r);
-        // rewrite(result)
-        // STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
-        // seq_rw().trace_and_reset_cache_counts();
-
         return result;
     }
 
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
-        TRACE("seq_regex", tout << "propagate EQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PEQ ";);
-
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
-        expr_ref r = symmetric_diff(r1, r2);
+        expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_empty = sk().mk_is_empty(r, emp, n);
@@ -621,9 +423,6 @@ namespace smt {
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
-        TRACE("seq_regex", tout << "propagate NEQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PNEQ ";);
-
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
@@ -653,31 +452,18 @@ namespace smt {
     void seq_regex::propagate_is_non_empty(literal lit) {
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr, *n = nullptr;
         VERIFY(sk().is_is_non_empty(e, r, u, n));
-
-        TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief",
-            tout << std::endl << "PNE(" << expr_id_str(e)
-                              << "," << state_str(r)
-                              << "," << expr_id_str(u)
-                              << "," << expr_id_str(n)
-                              << ") ";);
-
-        expr_ref is_nullable = is_nullable_wrapper(r);
+        expr_ref is_nullable = seq_rw().is_nullable(r);
+        rewrite(is_nullable);
         if (m.is_true(is_nullable))
             return;
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);
         d = derivative_wrapper(hd, r);
-
-        // STRACE("seq_regex_brief", tout << "(d subbed: " << state_str(d) << ") ";);
-        // TRACE("seq_regex", tout << "d subbed: " << mk_pp(d, m) << std::endl;);
-
         literal_vector lits;
         lits.push_back(~lit);
         if (null_lit != false_literal) 
             lits.push_back(null_lit);
-
         expr_ref_pair_vector cofactors(m);
         get_cofactors(d, cofactors);
         for (auto const& p : cofactors) {
@@ -693,7 +479,6 @@ namespace smt {
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
         }
-
         th.add_axiom(lits);
     }
 
@@ -713,25 +498,6 @@ namespace smt {
         }
     }
 
-    void seq_regex::get_all_derivatives(expr* r, expr_ref_vector& results) {
-        // Get derivative
-        sort* seq_sort = nullptr;
-        VERIFY(u().is_re(r, seq_sort));
-        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
-        expr_ref hd = mk_first(r, n);
-        expr_ref d(m);
-        d = derivative_wrapper(hd, r);
-        // Use get_cofactors method and filter out unsatisfiable conds
-        expr_ref_pair_vector cofactors(m);
-        get_cofactors(d, cofactors);
-        STRACE("seq_regex_debug", tout << "getting all derivatives of: " << mk_pp(r, m) << std::endl;);
-        for (auto const& p : cofactors) {
-            if (m.is_false(p.first) || re().is_empty(p.second)) continue;
-            STRACE("seq_regex_debug", tout << "adding derivative: " << mk_pp(p.second, m) << std::endl;);
-            results.push_back(p.second);
-        }
-    }
-
     /*
       is_empty(r, u) => ~is_nullable(r)
       is_empty(r, u) => (forall x . ~cond(x)) or is_empty(r1, u union r)    for (cond, r) in min-terms(D(x,r))      
@@ -741,16 +507,8 @@ namespace smt {
     void seq_regex::propagate_is_empty(literal lit) {
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr, *n = nullptr;
         VERIFY(sk().is_is_empty(e, r, u, n));
-        expr_ref is_nullable = is_nullable_wrapper(r);
-
-        TRACE("seq_regex", tout << "propagate empty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief",
-            tout << std::endl << "PE(" << expr_id_str(e)
-                              << "," << state_str(r)
-                              << "," << expr_id_str(u)
-                              << "," << expr_id_str(n)
-                              << ") ";);
-
+        expr_ref is_nullable = seq_rw().is_nullable(r);
+        rewrite(is_nullable);
         if (m.is_true(is_nullable)) {
             th.add_axiom(~lit);
             return;
@@ -782,449 +540,10 @@ namespace smt {
         }        
     }
 
-    // @EXP: Experimental change
-    // Some code to compute a canonical head variable, but I think
-    // this stuff is unnecessary.
-    // expr_ref seq_regex::get_head_var(sort* seq_sort) {
-    //     expr_ref result(m);
-    //     if (m_deriv_head.contains(seq_sort)) {
-    //         result = m_deriv_head.find(seq_sort);
-    //         STRACE("seq_regex_brief", tout << " ghv=" << mk_pp(result, m););
-    //     }
-    //     else {
-    //         result = m.mk_fresh_const("re.char", seq_sort);
-    //         STRACE("seq_regex_brief", tout << " NEWghv=" << mk_pp(result, m););
-    //     }
-    //     return result;
-    // }
-
     expr_ref seq_regex::mk_first(expr* r, expr* n) {
         sort* elem_sort = nullptr, *seq_sort = nullptr;
         VERIFY(u().is_re(r, seq_sort));
         VERIFY(u().is_seq(seq_sort, elem_sort));
         return sk().mk("re.first", n, a().mk_int(r->get_id()), elem_sort);
     }
-
-    /****************************************************
-     *** Dead state elimination and state_graph class ***
-     ****************************************************/
-
-    void state_graph::add_state_core(state s) {
-        STRACE("seq_regex_brief", tout << "add(" << s << ") ";);
-        SASSERT(!m_seen.contains(s));
-        // Ensure corresponding var in union find structure
-        while (s >= m_state_ufind.get_num_vars()) {
-            m_state_ufind.mk_var();
-        }
-        // Initialize as unvisited
-        m_seen.insert(s);
-        m_unexplored.insert(s);
-        m_targets.insert(s, state_set());
-        m_sources.insert(s, state_set());
-        m_sources_maybecycle.insert(s, state_set());
-    }
-    void state_graph::remove_state_core(state s) {
-        // This is a partial deletion -- the state is still seen and can't be
-        // added again later.
-        // The state should be unknown, and all edges to or from the state
-        // should already have been renamed.
-        STRACE("seq_regex_brief", tout << "del(" << s << ") ";);
-        SASSERT(m_seen.contains(s));
-        SASSERT(!m_state_ufind.is_root(s));
-        SASSERT(m_unknown.contains(s));
-        m_targets.remove(s);
-        m_sources.remove(s);
-        m_sources_maybecycle.remove(s);
-        m_unknown.remove(s);
-    }
-
-    void state_graph::mark_unknown_core(state s) {
-        STRACE("seq_regex_brief", tout << "unk(" << s << ") ";);
-        SASSERT(m_state_ufind.is_root(s));
-        SASSERT(m_unexplored.contains(s));
-        m_unexplored.remove(s);
-        m_unknown.insert(s);
-    }
-    void state_graph::mark_live_core(state s) {
-        STRACE("seq_regex_brief", tout << "live(" << s << ") ";);
-        SASSERT(m_state_ufind.is_root(s));
-        SASSERT(m_unknown.contains(s));
-        m_unknown.remove(s);
-        m_live.insert(s);
-    }
-    void state_graph::mark_dead_core(state s) {
-        STRACE("seq_regex_brief", tout << "dead(" << s << ") ";);
-        SASSERT(m_state_ufind.is_root(s));
-        SASSERT(m_unknown.contains(s));
-        m_unknown.remove(s);
-        m_dead.insert(s);
-    }
-
-    /*
-        Add edge to the graph.
-        - If the annotation 'maybecycle' is false, then the user is sure
-          that this edge will never be part of a cycle.
-        - May already exist, in which case maybecycle = false overrides
-          maybecycle = true.
-    */
-    void state_graph::add_edge_core(state s1, state s2, bool maybecycle) {
-        STRACE("seq_regex_brief", tout << "add(" << s1 << "," << s2 << ","
-                                       << (maybecycle ? "y" : "n") << ") ";);
-        SASSERT(m_state_ufind.is_root(s1));
-        SASSERT(m_state_ufind.is_root(s2));
-        if (s1 == s2) return;
-        if (!m_targets.find(s1).contains(s2)) {
-            // add new edge
-            STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: new edge! ";);
-            m_targets.find(s1).insert(s2);
-            m_sources.find(s2).insert(s1);
-            if (maybecycle) m_sources_maybecycle.find(s2).insert(s1);
-        }
-        else if (!maybecycle && m_sources_maybecycle.find(s2).contains(s1)) {
-            // update existing edge
-            STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: update edge! ";);
-            m_sources_maybecycle.find(s2).remove(s1);
-        }
-    }
-    void state_graph::remove_edge_core(state s1, state s2) {
-        SASSERT(m_targets.find(s1).contains(s2));
-        SASSERT(m_sources.find(s2).contains(s1));
-        m_targets.find(s1).remove(s2);
-        m_sources.find(s2).remove(s1);
-        m_sources_maybecycle.find(s2).remove(s1);
-    }
-    void state_graph::rename_edge_core(state old1, state old2,
-                                       state new1, state new2) {
-        SASSERT(m_targets.find(old1).contains(old2));
-        SASSERT(m_sources.find(old2).contains(old1));
-        bool maybecycle = m_sources_maybecycle.find(old2).contains(old1);
-        remove_edge_core(old1, old2);
-        add_edge_core(new1, new2, maybecycle);
-    }
-
-    /*
-        Merge two states or more generally a set of states into one,
-        returning the new state. Also merges associated edges.
-
-        Preconditions:
-        - The set should be nonempty
-        - Every state in the set should be unknown
-        - Each state should currently exist
-        - If passing a set of states by reference, it should not be a set
-          from the edge relations, as merging states modifies edge relations.
-    */
-    auto state_graph::merge_states(state s1, state s2) -> state {
-        SASSERT(m_state_ufind.is_root(s1));
-        SASSERT(m_state_ufind.is_root(s2));
-        SASSERT(m_unknown.contains(s1));
-        SASSERT(m_unknown.contains(s2));
-        STRACE("seq_regex_brief", tout << "merge(" << s1 << "," << s2 << ") ";);
-        m_state_ufind.merge(s1, s2);
-        if (m_state_ufind.is_root(s2)) std::swap(s1, s2);
-        // rename s2 to s1 in edges
-        for (auto s_to: m_targets.find(s2)) {
-            rename_edge_core(s2, s_to, s1, s_to);
-        }
-        for (auto s_from: m_sources.find(s2)) {
-            rename_edge_core(s_from, s2, s_from, s1);
-        }
-        remove_state_core(s2);
-        return s1;
-    }
-    auto state_graph::merge_states(state_set& s_set) -> state {
-        SASSERT(s_set.num_elems() > 0);
-        state prev_s = 0; // initialization here optional
-        bool first_iter = true;
-        for (auto s: s_set) {
-            if (first_iter) {
-                prev_s = s;
-                first_iter = false;
-                continue;
-            }
-            prev_s = merge_states(prev_s, s);
-        }
-        return prev_s;
-    }
-
-    /*
-        If s is not live, mark it, and recurse on all states into s
-        Precondition: s is live or unknown
-    */
-    void state_graph::mark_live_recursive(state s) {
-        SASSERT(m_live.contains(s) || m_unknown.contains(s));
-        STRACE("seq_regex_debug", tout
-            << std::endl << "  DEBUG: mark live recursive: " << s << " ";);
-        if (m_live.contains(s)) return;
-        mark_live_core(s);
-        for (auto s_from: m_sources.find(s)) {
-            mark_live_recursive(s_from);
-        }
-    }
-
-    /*
-        Check if s is now known to be dead. If so, mark and recurse
-        on all states into s.
-        Precondition: s is live, dead, or unknown
-    */
-    void state_graph::mark_dead_recursive(state s) {
-        SASSERT(m_live.contains(s) || m_dead.contains(s) ||
-                m_unknown.contains(s));
-        STRACE("seq_regex_debug", tout
-            << std::endl << "  DEBUG: mark dead recursive: " << s << " ";);
-        if (!m_unknown.contains(s)) return;
-        for (auto s_to: m_targets.find(s)) {
-            // unknown pointing to live should have been marked as live!
-            SASSERT(!m_live.contains(s_to));
-            if (m_unknown.contains(s_to) || m_unexplored.contains(s_to)) return;
-        }
-        // all states from s are dead
-        mark_dead_core(s);
-        for (auto s_from: m_sources.find(s)) {
-            mark_dead_recursive(s_from);
-        }
-    }
-
-    /*
-        Merge all cycles of unknown states containing s into one state.
-        Return the new state
-        Precondition: s is unknown.
-    */
-    auto state_graph::merge_all_cycles(state s) -> state {
-        SASSERT(m_unknown.contains(s));
-        // Visit states in a DFS backwards from s
-        state_set visited;  // all backwards edges pushed
-        state_set resolved; // known in SCC or not
-        state_set scc;      // known in SCC
-        resolved.insert(s);
-        scc.insert(s);
-        vector<state> to_search;
-        to_search.push_back(s);
-        while (to_search.size() > 0) {
-            state x = to_search.back();
-            if (!visited.contains(x)) {
-                visited.insert(x);
-                // recurse backwards only on maybecycle edges
-                // and only on unknown states
-                for (auto y: m_sources_maybecycle.find(x)) {
-                    if (m_unknown.contains(y))
-                        to_search.push_back(y);
-                }
-            }
-            else if (!resolved.contains(x)) {
-                resolved.insert(x);
-                to_search.pop_back();
-                // determine in SCC or not
-                for (auto y: m_sources_maybecycle.find(x)) {
-                    if (scc.contains(y)) {
-                        scc.insert(x);
-                        break;
-                    }
-                }
-            }
-            else {
-                to_search.pop_back();
-            }
-        }
-        // scc is the union of all cycles containing s
-        return merge_states(scc);
-    }
-
-    /*
-        Exposed methods
-    */
-
-    void state_graph::add_state(state s) {
-        if (m_seen.contains(s)) return;
-        add_state_core(s);
-    }
-    void state_graph::mark_live(state s) {
-        SASSERT(m_unexplored.contains(s) || m_live.contains(s));
-        SASSERT(m_state_ufind.is_root(s));
-        if (m_unexplored.contains(s)) mark_unknown_core(s);
-        mark_live_recursive(s);
-    }
-    void state_graph::add_edge(state s1, state s2, bool maybecycle) {
-        SASSERT(m_unexplored.contains(s1) || m_live.contains(s1));
-        SASSERT(m_state_ufind.is_root(s1));
-        SASSERT(m_seen.contains(s2));
-        s2 = m_state_ufind.find(s2);
-        add_edge_core(s1, s2, maybecycle);
-        if (m_live.contains(s2)) mark_live(s1);
-    }
-    void state_graph::mark_done(state s) {
-        SASSERT(m_unexplored.contains(s) || m_live.contains(s));
-        SASSERT(m_state_ufind.is_root(s));
-        if (m_live.contains(s)) return;
-        if (m_unexplored.contains(s)) mark_unknown_core(s);
-        s = merge_all_cycles(s);
-        // check if dead
-        mark_dead_recursive(s);
-        STRACE("seq_regex_brief", tout << "done(" << s << ") ";);
-    }
-
-    unsigned state_graph::get_size() {
-        return m_state_ufind.get_num_vars();
-    }
-
-    bool state_graph::is_seen(state s) {
-        return m_seen.contains(s);
-    }
-    bool state_graph::is_live(state s) {
-        return m_live.contains(m_state_ufind.find(s));
-    }
-    bool state_graph::is_dead(state s) {
-        return m_dead.contains(m_state_ufind.find(s));
-    }
-    bool state_graph::is_done(state s) {
-        return (m_seen.contains(s) &&
-                !m_unexplored.contains(m_state_ufind.find(s)));
-    }
-
-    /*
-        Pretty printing
-    */
-    void state_graph::pretty_print(std::ostream& o) {
-        o << "---------- State Graph ----------" << std::endl
-          << "Seen:";
-        for (auto s: m_seen) {
-            o << " " << s;
-            state s_root = m_state_ufind.find(s);
-            if (s_root != s)
-                o << "(=" << s_root << ")";
-        }
-        o << std::endl
-          << "Live:" << m_live << std::endl
-          << "Dead:" << m_dead << std::endl
-          << "Unknown:" << m_unknown << std::endl
-          << "Unexplored:" << m_unexplored << std::endl
-          << "Edges:" << std::endl;
-        for (auto s1: m_seen) {
-            if (m_state_ufind.is_root(s1)) {
-                o << "  " << s1 << " -> " << m_targets.find(s1) << std::endl;
-            }
-        }
-        o << "---------------------------------" << std::endl;
-    }
-    // std::ostream& operator<<(std::ostream& o, const state_graph& sg) {
-    //     sg.pretty_print(o);
-    //     return o;
-    // }
-
-    // **********************************
-
-    unsigned seq_regex::get_state_id(expr* e) {
-        // Assign increasing IDs starting from 1
-        if (!m_expr_to_state.contains(e)) {
-            m_state_to_expr.push_back(e);
-            unsigned new_id = m_state_to_expr.size();
-            m_expr_to_state.insert(e, new_id);
-            STRACE("seq_regex_brief", tout << "new(" << expr_id_str(e)
-                                           << ")=" << state_str(e) << " ";);
-        }
-        return m_expr_to_state.find(e);
-    }
-    expr* seq_regex::get_expr_from_id(unsigned id) {
-        SASSERT(id >= 1);
-        SASSERT(id <= m_state_to_expr.size());
-        return m_state_to_expr.get(id);
-    }
-
-
-    unsigned seq_regex::concat_length(expr* r) {
-        // length of the concatenations at the top level
-        expr *r1 = nullptr, *r2 = nullptr;
-        if (re().is_concat(r, r1, r2))
-            return concat_length(r1) + concat_length(r2);
-        else
-            return 1;
-    }
-
-    unsigned seq_regex::re_rank(expr* r) {
-        SASSERT(u().is_re(r));
-        expr *r1 = nullptr, *r2 = nullptr, *s = nullptr;
-        unsigned lo = 0, hi = 0;
-        if (re().is_empty(r))
-            return 0;
-        if (re().is_concat(r, r1, r2))
-            return std::max(re_rank(r1) + concat_length(r2), re_rank(r2));
-        if (re().is_union(r, r1, r2) || m.is_ite(r, s, r1, r2))
-            return std::max(re_rank(r1), re_rank(r2));
-        if (re().is_intersection(r, r1, r2) || re().is_diff(r, r1, r2))
-            return re_rank(r1) + re_rank(r2);
-        if (re().is_plus(r, r1) || re().is_star(r, r1))
-            return re_rank(r1) + 1;
-        if (re().is_loop(r, r1, lo) || re().is_loop(r, r1, lo, hi))
-            return re_rank(r1) + lo;
-        if (re().is_reverse(r, r1) || re().is_opt(r, r1))
-            // in reverse case, should be r1 is a string
-            return re_rank(r1);
-        if (re().is_to_re(r, s))
-            return u().str.min_length(s);
-        // Else: range, pred, char, full_seq, derivative
-        return 1;
-    }
-
-    bool seq_regex::can_be_in_cycle(expr *r1, expr *r2) {
-        // @EXP (experimental change): Use a "rank" function, which is
-        // a pseudo-topological order on the state graph, to detect when r2
-        // is a simpler regex than r1
-        unsigned k1 = re_rank(r1);
-        unsigned k2 = re_rank(r2);
-        SASSERT(k1 >= k2);
-        STRACE("seq_regex_brief", tout << "(k:" << k1 << "->" << k2 << ")";);
-        return (k1 == k2);
-    }
-
-    /*
-        Update the state graph with expression r and all its derivatives.
-    */
-    bool seq_regex::update_state_graph(expr* r) {
-        unsigned r_id = get_state_id(r);
-        if (m_state_graph.is_done(r_id)) return false;
-        if (m_state_graph.get_size() >= m_max_state_graph_size) {
-            STRACE("seq_regex", tout << "Warning: ignored state graph update -- max size of seen states reached!" << std::endl;);
-            STRACE("seq_regex_brief", tout << "(MAX SIZE REACHED) ";);
-            return false;
-        }
-        STRACE("seq_regex", tout << "Updating state graph for regex "
-                                 << mk_pp(r, m) << ") ";);
-        // Add state
-        m_state_graph.add_state(r_id);
-        STRACE("seq_regex_brief", tout << std::endl << "USG("
-                                       << state_str(r) << ") ";);
-        expr_ref r_nullable = is_nullable_wrapper(r);
-        if (m.is_true(r_nullable)) {
-            m_state_graph.mark_live(r_id);
-        }
-        else {
-            // Add edges to all derivatives
-            expr_ref_vector derivatives(m);
-            STRACE("seq_regex_debug", tout
-                << std::endl << "  DEBUG: getting all derivs: " << r_id << " ";);
-            get_all_derivatives(r, derivatives);
-            for (auto const& dr: derivatives) {
-                unsigned dr_id = get_state_id(dr);
-                STRACE("seq_regex_debug", tout
-                    << std::endl << "  DEBUG: traversing deriv: " << dr_id << " ";);
-                m_state_graph.add_state(dr_id);
-                bool maybecycle = can_be_in_cycle(r, dr);
-                m_state_graph.add_edge(r_id, dr_id, maybecycle);
-            }
-            m_state_graph.mark_done(r_id);
-        }
-        STRACE("seq_regex_brief", tout << std::endl;);
-        STRACE("seq_regex_brief", m_state_graph.pretty_print(tout););
-        return true;
-    }
-
-    std::string seq_regex::state_str(expr* e) {
-        if (m_expr_to_state.contains(e))
-            return std::to_string(get_state_id(e));
-        else
-            return expr_id_str(e);
-    }
-    std::string seq_regex::expr_id_str(expr* e) {
-        return std::string("id") + std::to_string(e->get_id());
-    }
-
 }
