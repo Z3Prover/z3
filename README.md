@@ -101,6 +101,12 @@ Z3 has a build system using CMake. Read the [README-CMake.md](README-CMake.md)
 file for details. It is recommended for most build tasks, 
 except for building OCaml bindings.
 
+## Dependencies
+Z3 itself has few dependencies. It uses C++ runtime libraries, including pthreads for multi-threading.
+It is optionally possible to use GMP for multi-precision integers, but Z3 contains its own self-contained 
+multi-precision functionality. Python is required to build Z3. To build Java, .Net, OCaml, 
+Julia APIs requires installing relevant tool chains.
+
 ## Z3 bindings
 
 Z3 has bindings for various programming languages.
