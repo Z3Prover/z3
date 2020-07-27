@@ -3454,7 +3454,7 @@ public:
             if (a.is_int(o) && !m_nla->am().is_int(an)) {
                 return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
             }
-            return alloc(expr_wrapper_proc, a.mk_numeral(nl_value(v, *m_a1), a.is_int(o)));
+            return alloc(expr_wrapper_proc, a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o)));
         }
         else {
             rational r = get_value(v);

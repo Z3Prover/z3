@@ -202,12 +202,14 @@ mpz_cell * mpz_manager<SYNCH>::allocate(unsigned capacity) {
     }
 #endif
     cell->m_capacity = capacity;
+
     return cell;
 }
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::deallocate(bool is_heap, mpz_cell * ptr) { 
     if (is_heap) {
+
 #ifdef SINGLE_THREAD
         m_allocator.deallocate(cell_size(ptr->m_capacity), ptr); 
 #else

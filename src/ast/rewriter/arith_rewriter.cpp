@@ -755,7 +755,7 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
         for (unsigned i = 0; i < num_args; i ++) {
             unsigned d = am.degree(r);
             if (d > 1 && d > m_max_degree) {
-                new_args.push_back(m_util.mk_numeral(r, false));
+                new_args.push_back(m_util.mk_numeral(am, r, false));
                 am.set(r, 0);
             }
 
@@ -777,11 +777,11 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
         }
 
         if (new_args.empty()) {
-            result = m_util.mk_numeral(r, false);
+            result = m_util.mk_numeral(am, r, false);
             return BR_DONE;
         }
 
-        new_args.push_back(m_util.mk_numeral(r, false));
+        new_args.push_back(m_util.mk_numeral(am, r, false));
         br_status st = poly_rewriter<arith_rewriter_core>::mk_add_core(new_args.size(), new_args.c_ptr(), result);
         if (st == BR_FAILED) {
             result = m().mk_app(get_fid(), OP_ADD, new_args.size(), new_args.c_ptr());
@@ -805,7 +805,7 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
         for (unsigned i = 0; i < num_args; i ++) {
             unsigned d = am.degree(r);
             if (d > 1 && d > m_max_degree) {
-                new_args.push_back(m_util.mk_numeral(r, false));
+                new_args.push_back(m_util.mk_numeral(am, r, false));
                 am.set(r, 1);
             }
 
@@ -826,10 +826,10 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
         }
 
         if (new_args.empty()) {
-            result = m_util.mk_numeral(r, false);
+            result = m_util.mk_numeral(am, r, false);
             return BR_DONE;
         }
-        new_args.push_back(m_util.mk_numeral(r, false));
+        new_args.push_back(m_util.mk_numeral(am, r, false));
 
         br_status st = poly_rewriter<arith_rewriter_core>::mk_mul_core(new_args.size(), new_args.c_ptr(), result);
         if (st == BR_FAILED) {
@@ -857,7 +857,7 @@ br_status arith_rewriter::mk_div_irrat_rat(expr * arg1, expr * arg2, expr_ref & 
     am.set(val2, rval2.to_mpq());
     scoped_anum r(am);
     am.div(val1, val2, r);
-    result = m_util.mk_numeral(r, false);
+    result = m_util.mk_numeral(am, r, false);
     return BR_DONE;
 }
 
@@ -873,7 +873,7 @@ br_status arith_rewriter::mk_div_rat_irrat(expr * arg1, expr * arg2, expr_ref & 
     anum const & val2  = m_util.to_irrational_algebraic_numeral(arg2);
     scoped_anum r(am);
     am.div(val1, val2, r);
-    result = m_util.mk_numeral(r, false);
+    result = m_util.mk_numeral(am, r, false);
     return BR_DONE;
 }
 
@@ -890,7 +890,7 @@ br_status arith_rewriter::mk_div_irrat_irrat(expr * arg1, expr * arg2, expr_ref 
         return BR_FAILED;
     scoped_anum r(am);
     am.div(val1, val2, r);
-    result = m_util.mk_numeral(r, false);
+    result = m_util.mk_numeral(am, r.get(), false);
     return BR_DONE;
 }
 
@@ -1351,7 +1351,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
             am.root(r, u_den_y, r);
             if (is_neg_y)
                 am.inv(r);
-            result = m_util.mk_numeral(r, false);
+            result = m_util.mk_numeral(am, r, false);
             return BR_DONE;
         }
         return BR_FAILED;
@@ -1370,7 +1370,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     am.root(r, u_den_y, r);
     if (is_neg_y)
         am.inv(r);
-    result = m_util.mk_numeral(r, false);
+    result = m_util.mk_numeral(am, r, false);
     return BR_DONE;
 }
 
