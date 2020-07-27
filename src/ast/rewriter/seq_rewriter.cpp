@@ -4311,7 +4311,6 @@ void seq_rewriter::op_cache::cleanup() {
     if (m_table.size() >= m_max_cache_size) {
         m_trail.reset();
         m_table.reset();
-        STRACE("seq_regex", tout << "Op cache reset!" << std::endl;);
-        STRACE("seq_regex_brief", tout << "(OP CACHE RESET) ";);
+        STRACE("seq_verbose", tout << "Derivative op cache reset" << std::endl;);
     }
 }

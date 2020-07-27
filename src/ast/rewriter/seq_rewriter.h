@@ -146,11 +146,6 @@ class seq_rewriter {
         op_cache(ast_manager& m);
         expr* find(decl_kind op, expr* a, expr* b);
         void insert(decl_kind op, expr* a, expr* b, expr* r);
-
-        #ifdef _TRACE
-        static unsigned cache_hits;
-        static unsigned cache_misses;
-        #endif
     };
 
     seq_util       m_util;
@@ -345,5 +340,6 @@ public:
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);
+
 };
 
