@@ -140,7 +140,6 @@ class seq_rewriter {
         unsigned        m_max_cache_size { 10000 };
         expr_ref_vector m_trail;
         op_table        m_table;
-
         void cleanup();
 
     public:
@@ -189,10 +188,6 @@ class seq_rewriter {
 
     // Calculate derivative, memoized and enforcing a normal form
     expr_ref is_nullable_rec(expr* r);
-    // @EXP (experimental change)
-    // void mk_nullable_not(expr* a1, expr_ref& result);
-    // void mk_nullable_and(expr* a1, expr* a2, expr_ref& result);
-    // void mk_nullable_or(expr* a1, expr* a2, expr_ref& result);
     expr_ref mk_derivative_rec(expr* ele, expr* r);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
