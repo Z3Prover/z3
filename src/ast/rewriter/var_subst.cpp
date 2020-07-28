@@ -29,7 +29,7 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
         //application does not have free variables or nested quantifiers.
         result = n;
 
-        STRACE("bindings",
+        SCTRACE("bindings", is_trace_enabled("coming_from_quant"),
                 tout << "(ground)\n";
                 for (unsigned i = 0; i < num_args; i++) {
                     if (args[i]) {

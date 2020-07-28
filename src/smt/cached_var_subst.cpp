@@ -61,7 +61,7 @@ void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::e
         m_new_keys[num_bindings] = new_key; // recycle key
         result = entry->get_data().m_value;
 
-        STRACE("bindings",
+        SCTRACE("bindings", is_trace_enabled("coming_from_quant"),
                 tout << "(cache)\n";
             for (unsigned i = 0; i < num_bindings; i++) {
                 if (new_key->m_bindings[i]) {
