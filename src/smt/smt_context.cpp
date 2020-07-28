@@ -4486,8 +4486,12 @@ namespace smt {
     }
 
     void context::get_model(model_ref & mdl) {
-        if (inconsistent() || !m.inc())
-            mdl = nullptr;       
+        if (inconsistent()) 
+            mdl = nullptr;
+        else if (m_model.get()) 
+            mdl = m_model.get();
+        else if (!m.inc())
+            mdl = nullptr;
         else {
             mk_proto_model();
             if (!m_model && m_proto_model) {
