@@ -2493,8 +2493,8 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         unsigned ch;
         if (u().is_char_le(e, ch1, ch2) && u().is_const_char(ch2, ch))
             return ch;
-        // Fallback: use expression ID (but use same ID for complement)
-        re().is_complement(e, e);
+        // Fallback: use expression ID (but use same ID for negation)
+        m().is_not(e, e);
         return e->get_id();
     };
     if (m().is_ite(a, ca, a1, a2)) {
