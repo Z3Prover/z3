@@ -1353,6 +1353,8 @@ unsigned seq_util::re::max_length(expr* r) const {
         return std::min(max_length(r1), max_length(r2));
     if (is_loop(r, r1, lo, hi))
         return u.max_mul(hi, max_length(r1));
+    if (is_range(r)) 
+        return 1;
     if (is_to_re(r, s)) 
         return u.str.max_length(s);
     return UINT_MAX;

@@ -3063,6 +3063,24 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
 
+#if 0
+    unsigned len = 0;
+    if (has_fixed_length_constraint(b, len)) {
+        expr_ref len_lim(m().mk_eq(m_autil.mk_int(len), str().mk_length(a)), m());
+        // this forces derivatives. Perhaps not a good thing for intersections.
+        // alternative is to hoist out the smallest length constraining regex
+        // and keep the result for the sequence expression that is kept without rewriting
+        // or alternative is to block rewriting on this expression in some way.
+        expr_ref_vector args(m());
+        for (unsigned i = 0; i < len; ++i) {
+            args.push_back(str().mk_unit(str().mk_nth_i(a, m_autil.mk_int(i))));
+        }
+        expr_ref in_re(re().mk_in_re(str().mk_concat(args, m().get_sort(a)), b), m());
+        result = m().mk_and(len_lim, in_re);
+        return BR_REWRITE_FULL;
+    }
+#endif
+
     // Disabled rewrites
     if (false && re().is_complement(b, b1)) {
         result = m().mk_not(re().mk_in_re(a, b1));
@@ -3072,6 +3090,19 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE_FULL;
 
     return BR_FAILED;
+}
+
+bool seq_rewriter::has_fixed_length_constraint(expr* a, unsigned& len) {
+    unsigned minl = re().min_length(a), maxl = re().max_length(a);
+    if (minl == maxl) {
+        len = minl;
+        return true;
+    }
+    expr* b = nullptr, *c = nullptr;
+    if (re().is_intersection(a, b, c)) {
+        return has_fixed_length_constraint(b, len) || has_fixed_length_constraint(c, len);
+    }
+    return false;
 }
 
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
