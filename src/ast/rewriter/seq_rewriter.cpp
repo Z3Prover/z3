@@ -2200,11 +2200,15 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
+    STRACE("seq_verbose", tout << "is_nullable: "
+                               << mk_pp(r, m()) << std::endl;);
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
     if (!result) {
         result = is_nullable_rec(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
     }
+    STRACE("seq_verbose", tout << "is_nullable result: "
+                               << mk_pp(result, m()) << std::endl;);
     return result;
 }
 
@@ -2383,11 +2387,15 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         Duplicate nested conditions are eliminated.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
+    STRACE("seq_verbose", tout << "derivative: " << mk_pp(ele, m())
+                               << "," << mk_pp(r, m()) << std::endl;);
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
     if (!result) {
         result = mk_derivative_rec(ele, r);
         m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
     }
+    STRACE("seq_verbose", tout << "derivative result: "
+                               << mk_pp(result, m()) << std::endl;);
     return result;
 }
 
@@ -2404,39 +2412,128 @@ expr_ref seq_rewriter::mk_der_concat(expr* r1, expr* r2) {
 }
 
 /*
+    Utility functions to decide char <, ==, and <=.
+    Return true if deduced, false if unknown.
+*/
+bool seq_rewriter::lt_char(expr* ch1, expr* ch2) {
+    unsigned u1, u2;
+    return u().is_const_char(ch1, u1) &&
+           u().is_const_char(ch2, u2) && (u1 < u2);
+}
+bool seq_rewriter::eq_char(expr* ch1, expr* ch2) {
+    return ch1 == ch2;
+}
+bool seq_rewriter::le_char(expr* ch1, expr* ch2) {
+    return eq_char(ch1, ch2) || lt_char(ch1, ch2);
+}
+
+/*
+    Utility function to decide if a simple predicate (ones that appear
+    as the conditions in if-then-else expressions in derivatives)
+    implies another.
+
+    Return true if we deduce that a implies b, false if unknown.
+
+    Current cases handled:
+    - a and b are char <= constraints, or negations of char <= constraints
+*/
+bool seq_rewriter::pred_implies(expr* a, expr* b) {
+    STRACE("seq_verbose", tout << "pred_implies: "
+                               << "," << mk_pp(a, m())
+                               << "," << mk_pp(b, m()) << std::endl;);
+    expr *cha1 = nullptr, *cha2 = nullptr, *nota = nullptr,
+         *chb1 = nullptr, *chb2 = nullptr, *notb = nullptr;
+    if (m().is_not(a, nota) &&
+        m().is_not(b, notb)) {
+        return pred_implies(notb, nota);
+    }
+    else if (u().is_char_le(a, cha1, cha2) &&
+             u().is_char_le(b, chb1, chb2)) {
+        return le_char(chb1, cha1) && le_char(cha2, chb2);
+    }
+    else if (u().is_char_le(a, cha1, cha2) &&
+             m().is_not(b, notb) &&
+             u().is_char_le(notb, chb1, chb2)) {
+        return (le_char(chb2, cha1) && lt_char(cha2, chb1)) ||
+               (lt_char(chb2, cha1) && le_char(cha2, chb1));
+    }
+    else if (u().is_char_le(b, chb1, chb2) &&
+             m().is_not(a, nota) &&
+             u().is_char_le(nota, cha1, cha2)) {
+        return le_char(chb1, cha2) && le_char(cha1, chb2);
+    }
+    return false;
+}
+
+/*
     Apply a binary operation, preserving BDD normal form on derivative expressions.
 
     Preconditions:
-        - k is a binary op code on REs (concat, intersection, or union)
+        - k is a binary op code on REs: one of concat, intersection, or union
+          (not difference)
         - a and b are in BDD form
 
     Postcondition:
         - result is in BDD form
 */
 expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
+    STRACE("seq_verbose", tout << "mk_der_op_rec: " << k
+                               << "," << mk_pp(a, m())
+                               << "," << mk_pp(b, m()) << std::endl;);
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
     expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
     expr_ref result(m());
+    // Simplify if-then-elses whenever possible
     auto mk_ite = [&](expr* c, expr* a, expr* b) {
         return (a == b) ? a : m().mk_ite(c, a, b);
     };
+    // Use character code to order conditions
+    auto get_id = [&](expr* e) {
+        expr *ch1 = nullptr, *ch2 = nullptr;
+        unsigned ch;
+        if (u().is_char_le(e, ch1, ch2) && u().is_const_char(ch2, ch))
+            return ch;
+        // Fallback: use expression ID (but use same ID for complement)
+        re().is_complement(e, e);
+        return e->get_id();
+    };
     if (m().is_ite(a, ca, a1, a2)) {
+        expr_ref r1(m()), r2(m());
+        expr_ref notca(m().mk_not(ca), m());
         if (m().is_ite(b, cb, b1, b2)) {
+            // --- Core logic for combining two BDDs
+            expr_ref notcb(m().mk_not(cb), m());
             if (ca == cb) {
-                expr_ref r1 = mk_der_op(k, a1, b1);
-                expr_ref r2 = mk_der_op(k, a2, b2);
+                r1 = mk_der_op(k, a1, b1);
+                r2 = mk_der_op(k, a2, b2);
                 result = mk_ite(ca, r1, r2);
                 return result;
             }
-            else if (ca->get_id() < cb->get_id()) {
-                expr_ref r1 = mk_der_op(k, a, b1);
-                expr_ref r2 = mk_der_op(k, a, b2);
-                result = mk_ite(cb, r1, r2);
-                return result;
+            // Order with higher IDs on the outside
+            if (get_id(ca) < get_id(cb)) {
+                std::swap(a, b);
+                std::swap(ca, cb);
+                std::swap(notca, notcb);
+                std::swap(a1, b1);
+                std::swap(a2, b2);
             }
+            // Simplify if there is a relationship between ca and cb
+            if (pred_implies(ca, cb)) {
+                r1 = mk_der_op(k, a1, b1);
+            }
+            else if (pred_implies(ca, notcb)) {
+                r1 = mk_der_op(k, a1, b2);
+            }
+            if (pred_implies(notca, cb)) {
+                r2 = mk_der_op(k, a2, b1);
+            }
+            else if (pred_implies(notca, notcb)) {
+                r2 = mk_der_op(k, a2, b2);
+            }
+            // --- End core logic
         }
-        expr_ref r1 = mk_der_op(k, a1, b);
-        expr_ref r2 = mk_der_op(k, a2, b);
+        if (!r1) r1 = mk_der_op(k, a1, b);
+        if (!r2) r2 = mk_der_op(k, a2, b);
         result = mk_ite(ca, r1, r2);
         return result;
     }
@@ -2501,6 +2598,8 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
 }
 
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
+    STRACE("seq_verbose", tout << "mk_der_compl: " << mk_pp(r, m())
+                               << std::endl;);
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
         expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
@@ -2511,6 +2610,71 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
             result = re().mk_complement(r);        
         m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
     }
+    return result;
+}
+
+/*
+    Make an re_predicate with an arbitrary condition cond, enforcing
+    derivative normal form on how conditions are written.
+
+    Tries to rewrites everything to (ele <= x) constraints:
+    (ele = a) => ite(ele <= a-1, none, ite(ele <= a, epsilon, none))
+    (a = ele) => "
+    (a <= ele) => ite(ele <= a-1, none, epsilon)
+    (not p)   => mk_der_compl(...)
+    (p and q) => mk_der_inter(...)
+    (p or q)  => mk_der_union(...)
+
+    Postcondition: result is in BDD form
+*/
+expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
+    STRACE("seq_verbose", tout << "mk_der_cond: "
+        <<  mk_pp(cond, m()) << ", " << mk_pp(ele, m()) << std::endl;);
+    sort *ele_sort = nullptr;
+    VERIFY(u().is_seq(seq_sort, ele_sort));
+    SASSERT(ele_sort == m().get_sort(ele));
+    expr *c1 = nullptr, *c2 = nullptr, *ch1 = nullptr, *ch2 = nullptr;
+    unsigned ch = 0;
+    expr_ref result(m()), r1(m()), r2(m());
+    if (m().is_eq(cond, ch1, ch2)) {
+        r1 = u().mk_le(ch1, ch2);
+        r1 = mk_der_cond(r1, ele, seq_sort);
+        r2 = u().mk_le(ch2, ch1);
+        r2 = mk_der_cond(r2, ele, seq_sort);
+        result = mk_der_inter(r1, r2);
+    }
+    else if (u().is_char_le(cond, ch1, ch2) &&
+             u().is_const_char(ch1, ch) && (ch2 == ele)) {
+        if (ch > 0) {
+            result = u().mk_char(ch - 1);
+            result = u().mk_le(ele, result);
+            result = re_predicate(result, seq_sort);
+            result = mk_der_compl(result);
+        }
+        else {
+            result = m().mk_true();
+            result = re_predicate(result, seq_sort);
+        }
+    }
+    else if (m().is_not(cond, c1)) {
+        result = mk_der_cond(c1, ele, seq_sort);
+        result = mk_der_compl(result);
+    }
+    else if (m().is_and(cond, c1, c2)) {
+        r1 = mk_der_cond(c1, ele, seq_sort);
+        r2 = mk_der_cond(c2, ele, seq_sort);
+        result = mk_der_inter(r1, r2);
+    }
+    else if (m().is_or(cond, c1, c2)) {
+        r1 = mk_der_cond(c1, ele, seq_sort);
+        r2 = mk_der_cond(c2, ele, seq_sort);
+        result = mk_der_union(r1, r2);
+    }
+    else {
+        result = re_predicate(cond, seq_sort);
+    }
+    STRACE("seq_verbose", tout << "mk_der_cond result: "
+        <<  mk_pp(result, m()) << std::endl;);
     return result;
 }
 
@@ -2588,14 +2752,19 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         expr_ref hd(m()), tl(m());
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
-            result = re().mk_to_re(tl);
-            return re_and(m_br.mk_eq_rw(ele, hd), result);
+            // Use mk_der_cond to normalize
+            STRACE("seq_verbose", tout << "deriv to_re" << std::endl;);
+            result = m().mk_eq(ele, hd);
+            result = mk_der_cond(result, ele, seq_sort);
+            expr_ref r1(re().mk_to_re(tl), m());
+            result = mk_der_concat(result, r1);
+            return result;
         }
         else if (str().is_empty(r1)) {
             return mk_empty();
         }
-        else {
 #if 0
+        else {
             hd = str().mk_nth_i(r1, m_autil.mk_int(0));
             tl = str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1)));
             result = re().mk_to_re(tl);
@@ -2604,10 +2773,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
                            mk_empty(),
                            re_and(m_br.mk_eq_rw(ele, hd), result));
             return result;
-#else
-            return expr_ref(re().mk_derivative(ele, r), m());
-#endif
         }
+#endif
     }
     else if (re().is_reverse(r, r1) && re().is_to_re(r1, r2)) {
         // Reverses are rewritten so that the only derivative case is
@@ -2615,13 +2782,15 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         // This is analagous to the previous is_to_re case.
         expr_ref hd(m()), tl(m());
         if (get_head_tail_reversed(r2, hd, tl)) {
-            return re_and(m_br.mk_eq_rw(ele, tl), re().mk_reverse(re().mk_to_re(hd)));
+            // Use mk_der_cond to normalize
+            STRACE("seq_verbose", tout << "deriv reverse to_re" << std::endl;);
+            result = m().mk_eq(ele, tl);
+            result = mk_der_cond(result, ele, seq_sort);
+            result = mk_der_concat(result, re().mk_reverse(re().mk_to_re(hd)));
+            return result;
         }
         else if (str().is_empty(r2)) {
             return mk_empty();
-        }
-        else {
-            return expr_ref(re().mk_derivative(ele, r), m());
         }
     }
     else if (re().is_range(r, r1, r2)) {
@@ -2631,8 +2800,14 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             if (s1.length() == 1 && s2.length() == 1) {
                 expr_ref ch1(m_util.mk_char(s1[0]), m());
                 expr_ref ch2(m_util.mk_char(s2[0]), m());
-                return mk_der_inter(re_predicate(m_util.mk_le(ch1, ele), seq_sort),
-                                    re_predicate(m_util.mk_le(ele, ch2), seq_sort));
+                // Use mk_der_cond to normalize
+                STRACE("seq_verbose", tout << "deriv range zstring" << std::endl;);
+                expr_ref p1(u().mk_le(ch1, ele), m());
+                p1 = mk_der_cond(p1, ele, seq_sort);
+                expr_ref p2(u().mk_le(ele, ch2), m());
+                p2 = mk_der_cond(p2, ele, seq_sort);
+                result = mk_der_inter(p1, p2);
+                return result;
             }
             else {
                 return mk_empty();
@@ -2640,8 +2815,14 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         }
         expr* e1 = nullptr, *e2 = nullptr;
         if (str().is_unit(r1, e1) && str().is_unit(r2, e2)) {
-            return mk_der_inter(re_predicate(m_util.mk_le(e1, ele), seq_sort),
-                                re_predicate(m_util.mk_le(ele, e2), seq_sort));
+            // Use mk_der_cond to normalize
+            STRACE("seq_verbose", tout << "deriv range str" << std::endl;);
+            expr_ref p1(u().mk_le(e1, ele), m());
+            p1 = mk_der_cond(p1, ele, seq_sort);
+            expr_ref p2(u().mk_le(ele, e2), m());
+            p2 = mk_der_cond(p2, ele, seq_sort);
+            result = mk_der_inter(p1, p2);
+            return result;
         }
     }
     else if (re().is_full_char(r)) {
@@ -2651,10 +2832,14 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         array_util array(m());
         expr* args[2] = { p, ele };
         result = array.mk_select(2, args);
-        return re_predicate(result, seq_sort);
+        // Use mk_der_cond to normalize
+        STRACE("seq_verbose", tout << "deriv of_pred" << std::endl;);
+        return mk_der_cond(result, ele, seq_sort);
     }
-    // stuck cases: re().is_derivative, variable, ...
-    // and re().is_reverse if the reverse is not applied to a string
+    // stuck cases: re.derivative, variable,
+    // str.to_re if the head of the string can't be obtained,
+    // and re.reverse if not applied to a string or if the tail char
+    // of the string can't be obtained
     return expr_ref(re().mk_derivative(ele, r), m());
 }
 
@@ -2820,6 +3005,9 @@ Disabled rewrite:
    It is disabled because the solver doesn't handle disjunctions of regexes well.
 */
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
+
+    STRACE("seq_verbose", tout << "mk_str_in_regexp: " << mk_pp(a, m())
+                               << ", " << mk_pp(b, m()) << std::endl;);
 
     if (re().is_empty(b)) {
         result = m().mk_false();
@@ -4107,6 +4295,7 @@ seq_rewriter::op_cache::op_cache(ast_manager& m):
 expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     op_entry e(op, a, b, nullptr);
     m_table.find(e, e);
+
     return e.r;
 }
 
@@ -4122,5 +4311,6 @@ void seq_rewriter::op_cache::cleanup() {
     if (m_table.size() >= m_max_cache_size) {
         m_trail.reset();
         m_table.reset();
+        STRACE("seq_verbose", tout << "Derivative op cache reset" << std::endl;);
     }
 }

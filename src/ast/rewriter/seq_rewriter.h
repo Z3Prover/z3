@@ -182,7 +182,7 @@ class seq_rewriter {
     expr_ref mk_seq_concat(expr* a, expr* b);    
 
     // Calculate derivative, memoized and enforcing a normal form
-    expr_ref mk_derivative(expr* ele, expr* r);
+    expr_ref is_nullable_rec(expr* r);
     expr_ref mk_derivative_rec(expr* ele, expr* r);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
@@ -190,8 +190,12 @@ class seq_rewriter {
     expr_ref mk_der_union(expr* a, expr* b);
     expr_ref mk_der_inter(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
-    expr_ref mk_der_reverse(expr* a);
+    expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
 
+    bool lt_char(expr* ch1, expr* ch2);
+    bool eq_char(expr* ch1, expr* ch2);
+    bool le_char(expr* ch1, expr* ch2);
+    bool pred_implies(expr* a, expr* b);
     bool are_complements(expr* r1, expr* r2) const;
     bool is_subset(expr* r1, expr* r2) const;
 
@@ -283,7 +287,6 @@ class seq_rewriter {
     class seq_util::str& str() { return u().str; }
     class seq_util::str const& str() const { return u().str; }
 
-    expr_ref is_nullable_rec(expr* r);
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
 public:
@@ -330,8 +333,9 @@ public:
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
-    // Check for acceptance of the empty string
+    // Expose derivative and nullability check
     expr_ref is_nullable(expr* r);
+    expr_ref mk_derivative(expr* ele, expr* r);
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
