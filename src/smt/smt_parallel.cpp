@@ -162,6 +162,7 @@ namespace smt {
                     pctx.assert_expr(mk_not(mk_and(pctx.unsat_core())));
                     return;
                 } 
+                
 
                 bool first = false;
                 {

@@ -433,6 +433,9 @@ private:
             }
             m_models.push_back(mdl.get());
         }
+        else if (m_models.empty()) {
+            m_has_undef = true;
+        }
         if (!m_allsat) {
             m_queue.shutdown();
         }
