@@ -249,10 +249,6 @@ namespace smt {
         literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len);
         th.add_axiom(~lit, len_s_ge_min);
 
-        // Old rule 1: accept(s, idx, r) => len(s) >= idx
-        // literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
-        // th.add_axiom(~lit, len_s_ge_i);
-
         // Rule 2: nullable check
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
         literal is_nullable = th.mk_literal(is_nullable_wrapper(r));
