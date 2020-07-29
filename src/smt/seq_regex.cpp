@@ -1,4 +1,4 @@
-/*++
+"seq_regex_verbose"/*++
 Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
@@ -144,12 +144,12 @@ namespace smt {
             return;
 
         /*
-        TBD s in R => R != {}
-        non-emptiness enforcement could instead of here,
-        be added to propagate_accept after some threshold is met.
+            TBD s in R => R != {}
+            non-emptiness enforcement could instead of here,
+            be added to propagate_accept after some threshold is met.
 
-        Currently, nonemptiness is enforced using the state graph
-        m_state_graph when propagating accept literatls.
+            Currently, nonemptiness is enforced using the state graph
+            m_state_graph when propagating accept literatls.
         */
         if (false) {
             expr_ref is_empty(m.mk_eq(r, re().mk_empty(m.get_sort(s))), m);
@@ -277,14 +277,9 @@ namespace smt {
             expr_ref choice(m.mk_and(cond, acc), m);
             literal choice_lit = th.mk_literal(choice);
             accept_next.push_back(choice_lit);
-            // Prioritize unvisited states
-            // if (!m_state_graph.is_done(get_state_id(deriv_leaf))) {
-            //     // @EXP Unsound test: only push if not done
-            //     accept_next.push_back(choice_lit);
-            //     // @EXP This didn't work -- just marking as relevant
-            //     // ctx.mark_as_relevant(choice_lit);
-            // }
-            STRACE("seq_regex_debug", tout << "added choice: "
+            // TBD: try prioritizing unvisited states here over visited
+            // ones (in the state graph), to improve performance
+            STRACE("seq_regex_verbose", tout << "added choice: "
                                            << mk_pp(choice, m) << std::endl;);
         }
         th.add_axiom(accept_next);
@@ -538,10 +533,10 @@ namespace smt {
         // Use get_cofactors method and try to filter out unsatisfiable conds
         expr_ref_pair_vector cofactors(m);
         get_cofactors(d, cofactors);
-        STRACE("seq_regex_debug", tout << "getting all derivatives of: " << mk_pp(r, m) << std::endl;);
+        STRACE("seq_regex_verbose", tout << "getting all derivatives of: " << mk_pp(r, m) << std::endl;);
         for (auto const& p : cofactors) {
             if (m.is_false(p.first) || re().is_empty(p.second)) continue;
-            STRACE("seq_regex_debug", tout << "adding derivative: " << mk_pp(p.second, m) << std::endl;);
+            STRACE("seq_regex_verbose", tout << "adding derivative: " << mk_pp(p.second, m) << std::endl;);
             results.push_back(p.second);
         }
     }
@@ -660,7 +655,8 @@ namespace smt {
     }
 
     bool seq_regex::can_be_in_cycle(expr *r1, expr *r2) {
-        // @EXP (experimental change): Use a "rank" function, which is
+        return true;
+        // Experimental change: use a "rank" function, which is
         // a pseudo-topological order on the state graph, to detect when r2
         // is a simpler regex than r1
         unsigned k1 = re_rank(r1);
@@ -694,13 +690,13 @@ namespace smt {
         else {
             // Add edges to all derivatives
             expr_ref_vector derivatives(m);
-            STRACE("seq_regex_debug", tout
-                << std::endl << "  DEBUG: getting all derivs: " << r_id << " ";);
+            STRACE("seq_regex_verbose", tout
+                << std::endl << "  getting all derivs: " << r_id << " ";);
             get_all_derivatives(r, derivatives);
             for (auto const& dr: derivatives) {
                 unsigned dr_id = get_state_id(dr);
-                STRACE("seq_regex_debug", tout
-                    << std::endl << "  DEBUG: traversing deriv: " << dr_id << " ";);
+                STRACE("seq_regex_verbose", tout
+                    << std::endl << "  traversing deriv: " << dr_id << " ";);
                 m_state_graph.add_state(dr_id);
                 bool maybecycle = can_be_in_cycle(r, dr);
                 m_state_graph.add_edge(r_id, dr_id, maybecycle);
