@@ -271,20 +271,20 @@ void state_graph::mark_done(state s) {
     STRACE("seq_regex_brief", tout << "done(" << s << ") ";);
 }
 
-unsigned state_graph::get_size() {
+unsigned state_graph::get_size() const {
     return m_state_ufind.get_num_vars();
 }
 
-bool state_graph::is_seen(state s) {
+bool state_graph::is_seen(state s) const {
     return m_seen.contains(s);
 }
-bool state_graph::is_live(state s) {
+bool state_graph::is_live(state s) const {
     return m_live.contains(m_state_ufind.find(s));
 }
-bool state_graph::is_dead(state s) {
+bool state_graph::is_dead(state s) const {
     return m_dead.contains(m_state_ufind.find(s));
 }
-bool state_graph::is_done(state s) {
+bool state_graph::is_done(state s) const {
     return m_seen.contains(s) && !m_unexplored.contains(m_state_ufind.find(s));
 }
 

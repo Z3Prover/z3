@@ -138,12 +138,12 @@ public:
     void mark_live(state s);
     void mark_done(state s);
 
-    bool is_seen(state s);
-    bool is_live(state s);
-    bool is_dead(state s);
-    bool is_done(state s);
+    bool is_seen(state s) const;
+    bool is_live(state s) const;
+    bool is_dead(state s) const;
+    bool is_done(state s) const;
 
-    unsigned get_size();
+    unsigned get_size() const;
 
     /*
         Pretty printing
