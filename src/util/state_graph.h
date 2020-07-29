@@ -114,6 +114,7 @@ private:
         - cycle / strongly-connected component detection
     */
     void mark_live_recursive(state s);
+    bool all_targets_dead(state s);
     void mark_dead_recursive(state s);
     state merge_all_cycles(state s);
 

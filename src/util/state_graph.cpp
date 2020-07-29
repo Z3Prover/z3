@@ -84,14 +84,12 @@ void state_graph::add_edge_core(state s1, state s2, bool maybecycle) {
     if (s1 == s2) return;
     if (!m_targets[s1].contains(s2)) {
         // add new edge
-        STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: new edge! ";);
         m_targets[s1].insert(s2);
         m_sources[s2].insert(s1);
         if (maybecycle) m_sources_maybecycle[s2].insert(s1);
     }
     else if (!maybecycle && m_sources_maybecycle[s2].contains(s1)) {
         // update existing edge
-        STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: update edge! ";);
         m_sources_maybecycle[s2].remove(s1);
     }
 }
@@ -161,35 +159,53 @@ auto state_graph::merge_states(state_set& s_set) -> state {
 */
 void state_graph::mark_live_recursive(state s) {
     SASSERT(m_live.contains(s) || m_unknown.contains(s));
-    STRACE("seq_regex_debug", tout
-        << std::endl << "  DEBUG: mark live recursive: " << s << " ";);
-    if (m_live.contains(s)) return;
-    mark_live_core(s);
-    for (auto s_from: m_sources[s]) {
-        mark_live_recursive(s_from);
+    vector<state> to_search;
+    to_search.push_back(s);
+    while (to_search.size() > 0) {
+        state x = to_search.back();
+        to_search.pop_back();
+        SASSERT(m_live.contains(x) || m_unknown.contains(x));
+        if (m_live.contains(x)) continue;
+        mark_live_core(x);
+        for (auto x_from: m_sources[x]) {
+            to_search.push_back(x_from);
+        }
     }
 }
 
+/*
+    Check if all targets of a state are dead.
+    Precondition: s is unknown
+*/
+bool state_graph::all_targets_dead(state s) {
+    SASSERT(m_unknown.contains(s));
+    for (auto s_to: m_targets[s]) {
+        // unknown pointing to live should have been marked as live!
+        SASSERT(!m_live.contains(s_to));
+        if (m_unknown.contains(s_to) || m_unexplored.contains(s_to))
+            return false;
+    }
+    return true;
+}
 /*
     Check if s is now known to be dead. If so, mark and recurse
     on all states into s.
     Precondition: s is live, dead, or unknown
 */
 void state_graph::mark_dead_recursive(state s) {
-    SASSERT(m_live.contains(s) || m_dead.contains(s) ||
-            m_unknown.contains(s));
-    STRACE("seq_regex_debug", tout
-        << std::endl << "  DEBUG: mark dead recursive: " << s << " ";);
-    if (!m_unknown.contains(s)) return;
-    for (auto s_to: m_targets[s]) {
-        // unknown pointing to live should have been marked as live!
-        SASSERT(!m_live.contains(s_to));
-        if (m_unknown.contains(s_to) || m_unexplored.contains(s_to)) return;
-    }
-    // all states from s are dead
-    mark_dead_core(s);
-    for (auto s_from: m_sources[s]) {
-        mark_dead_recursive(s_from);
+    SASSERT(m_live.contains(s) || m_dead.contains(s) || m_unknown.contains(s));
+    vector<state> to_search;
+    to_search.push_back(s);
+    while (to_search.size() > 0) {
+        state x = to_search.back();
+        to_search.pop_back();
+        if (!m_unknown.contains(x)) continue;
+        if (!all_targets_dead(x)) continue;
+        // x is unknown and all targets from x are dead
+        mark_dead_core(x);
+        for (auto x_from: m_sources[x]) {
+            to_search.push_back(x_from);
+        }
     }
 }
 
