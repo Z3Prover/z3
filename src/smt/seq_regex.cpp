@@ -442,12 +442,9 @@ namespace smt {
         VERIFY(sk().is_is_non_empty(e, r, u, n));
 
         TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief",
-            tout << std::endl << "PNE(" << expr_id_str(e)
-                              << "," << state_str(r)
-                              << "," << expr_id_str(u)
-                              << "," << expr_id_str(n)
-                              << ") ";);
+        STRACE("seq_regex_brief", tout
+            << std::endl << "PNE(" << expr_id_str(e) << "," << state_str(r)
+            << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
 
         expr_ref is_nullable = is_nullable_wrapper(r);
         if (m.is_true(is_nullable))
@@ -472,7 +469,7 @@ namespace smt {
             rewrite(cond);
             if (m.is_false(cond))
                 continue;            
-            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
+            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, r), n);
             if (!m.is_true(cond))
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
@@ -528,12 +525,9 @@ namespace smt {
         expr_ref is_nullable = is_nullable_wrapper(r);
 
         TRACE("seq_regex", tout << "propagate empty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief",
-            tout << std::endl << "PE(" << expr_id_str(e)
-                              << "," << state_str(r)
-                              << "," << expr_id_str(u)
-                              << "," << expr_id_str(n)
-                              << ") ";);
+        STRACE("seq_regex_brief", tout
+            << std::endl << "PE(" << expr_id_str(e) << "," << state_str(r)
+            << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
 
         if (m.is_true(is_nullable)) {
             th.add_axiom(~lit);
