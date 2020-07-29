@@ -6857,6 +6857,21 @@ class Solver(Z3PPObject):
         """
         return AstVector(Z3_solver_get_trail(self.ctx.ref(), self.solver), self.ctx)
 
+    def value(self, e):
+        """Return value of term in solver, if any is given.
+        """
+        return _to_expr_ref(Z3_solver_get_implied_value(self.ctx.ref(), self.solver, e.as_ast()), self.ctx)
+
+    def lower(self, e):
+        """Return lower bound known to solver based on the last call.
+        """
+        return _to_expr_ref(Z3_solver_get_implied_lower(self.ctx.ref(), self.solver, e.as_ast()), self.ctx)
+    
+    def upper(self, e):
+        """Return upper bound known to solver based on the last call.
+        """
+        return _to_expr_ref(Z3_solver_get_implied_upper(self.ctx.ref(), self.solver, e.as_ast()), self.ctx)
+
     def statistics(self):
         """Return statistics for the last `check()`.
 

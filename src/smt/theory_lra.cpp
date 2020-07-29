@@ -1724,6 +1724,7 @@ public:
             is_sat = make_feasible();
         }
         final_check_status st = FC_DONE;
+
         switch (is_sat) {
         case l_true:
             TRACE("arith", /*display(tout);*/
