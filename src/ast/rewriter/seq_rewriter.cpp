@@ -4327,10 +4327,6 @@ expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
     op_entry e(op, a, b, nullptr);
     m_table.find(e, e);
 
-    #ifdef _TRACE
-    (e.r) ? (cache_hits++) : (cache_misses++) ;
-    #endif
-
     return e.r;
 }
 
@@ -4346,40 +4342,6 @@ void seq_rewriter::op_cache::cleanup() {
     if (m_table.size() >= m_max_cache_size) {
         m_trail.reset();
         m_table.reset();
-        STRACE("seq_regex", tout << "Op cache reset!" << std::endl;);
-        STRACE("seq_regex_brief", tout << "(OP CACHE RESET) ";);
         STRACE("seq_verbose", tout << "Derivative op cache reset" << std::endl;);
     }
 }
-
-#ifdef _TRACE
-unsigned seq_rewriter::op_cache::cache_hits = 0;
-unsigned seq_rewriter::op_cache::cache_misses = 0;
-
-/*
-    Reset the tracing counts of # of cache hits and misses, and
-    report them.
-
-    Suppress reporting in the cases of 0/0 or 1/1 hits.
-
-    Hits and misses are tracked globally using static variables
-    m_op_cache.cache_hits and m_op_cache.cache_misses.
-*/
-void seq_rewriter::trace_and_reset_cache_counts() {
-    unsigned hits = m_op_cache.cache_hits;
-    unsigned misses = m_op_cache.cache_misses;
-    if (hits >= 2 || misses >= 1) {
-        STRACE("seq_regex",
-            tout << "Op cache hits: " << hits
-                 << " (out of " << (hits + misses)
-                 << ")" << std::endl;
-        );
-        STRACE("seq_regex_brief",
-            tout << "(" << hits << "/" << (hits + misses)
-                 << " hits) ";
-        );
-    }
-    m_op_cache.cache_hits = 0;
-    m_op_cache.cache_misses = 0;
-}
-#endif
