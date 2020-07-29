@@ -148,6 +148,6 @@ public:
     /*
         Pretty printing
     */
-    void pretty_print(std::ostream& o);
+    std::ostream& display(std::ostream& o) const;
 
 };

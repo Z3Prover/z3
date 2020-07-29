@@ -291,7 +291,7 @@ bool state_graph::is_done(state s) {
 /*
     Pretty printing
 */
-void state_graph::pretty_print(std::ostream& o) {
+std::ostream& state_graph::display(std::ostream& o) {
     o << "---------- State Graph ----------" << std::endl
       << "Seen:";
     for (auto s: m_seen) {
@@ -312,4 +312,6 @@ void state_graph::pretty_print(std::ostream& o) {
         }
     }
     o << "---------------------------------" << std::endl;
+
+    return o;
 }

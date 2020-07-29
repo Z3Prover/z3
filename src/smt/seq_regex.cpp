@@ -143,24 +143,6 @@ namespace smt {
         if (is_string_equality(lit))
             return;
 
-        /*
-            TBD s in R => R != {}
-            non-emptiness enforcement could instead of here,
-            be added to propagate_accept after some threshold is met.
-
-            Currently, nonemptiness is enforced using the state graph
-            m_state_graph when propagating accept literatls.
-        */
-        if (false) {
-            expr_ref is_empty(m.mk_eq(r, re().mk_empty(m.get_sort(s))), m);
-            rewrite(is_empty);
-            literal is_emptyl = th.mk_literal(is_empty);
-            if (ctx.get_assignment(is_emptyl) != l_false) {
-                th.propagate_lit(nullptr, 1, &lit, ~is_emptyl);
-                return;
-            }
-        }
-
         expr_ref zero(a().mk_int(0), m);
         expr_ref acc = sk().mk_accept(s, zero, r);
         literal acc_lit = th.mk_literal(acc);
@@ -659,7 +641,7 @@ namespace smt {
             m_state_graph.mark_done(r_id);
         }
         STRACE("seq_regex_brief", tout << std::endl;);
-        STRACE("seq_regex_brief", m_state_graph.pretty_print(tout););
+        STRACE("seq_regex_brief", m_state_graph.display(tout););
         return true;
     }
 
