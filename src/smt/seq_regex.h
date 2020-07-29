@@ -71,8 +71,6 @@ namespace smt {
         expr* get_expr_from_id(unsigned id);
         // Cycle-detection heuristic
         // Note: Doesn't need to be sound or complete (doesn't affect soundness)
-        unsigned concat_length(expr* r);
-        unsigned re_rank(expr* r);
         bool can_be_in_cycle(expr* r1, expr* r2);
         // Update the graph
         bool update_state_graph(expr* r);
