@@ -1,4 +1,4 @@
-"seq_regex_verbose"/*++
+/*++
 Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
@@ -221,7 +221,6 @@ namespace smt {
                                        << "P(" << mk_pp(s, m) << "@" << idx
                                        << "," << state_str(r) << ") ";);
 
-        expr* cond = nullptr, *tt = nullptr, *el = nullptr;
         if (re().is_empty(r)) {
             STRACE("seq_regex_brief", tout << "(empty) ";);
             th.add_axiom(~lit);
