@@ -217,11 +217,6 @@ namespace smt {
 
         //NEVER remove coming_from_quant
         enable_trace("coming_from_quant");
-        //enable_trace("instance");
-        //enable_trace("causality_minimal");
-        //enable_trace("causality");
-        //enable_trace("dummy");
-        //enable_trace("bindings");
 
         quantifier_stat * stat = m_qm.get_stat(q);
 
@@ -363,11 +358,7 @@ namespace smt {
 
         //NEVER remove coming_from_quant
         disable_trace("coming_from_quant");
-        //disable_trace("instance");
-        //enable_trace("causality_minimal");
-        //enable_trace("causality");
-        //disable_trace("dummy");
-        //disable_trace("bindings");
+
       }
 
     void qi_queue::pop_scope(unsigned num_scopes) {

@@ -196,24 +196,14 @@ namespace smt {
                 out << " #" << bindings[i]->get_id();
             }
             out << " ;";
-            if (used_enodes.size()>0){
-                STRACE("causality_details", tout << "New-Match! Father:";);
-                STRACE("causality", tout << "New-Match! Father:";);
-            }
             for (auto n : used_enodes) {
                 enode *orig = std::get<0>(n);
                 enode *substituted = std::get<1>(n);
                 if (orig == nullptr) {
-                    STRACE("new-match", tout << " #" << substituted->get_owner_id(););
                     out << " #" << substituted->get_owner_id();
                 } else {
-                    STRACE("new-match", tout << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
                     out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
                 }
-            }
-            if (used_enodes.size()>0){
-                STRACE("causality_details", tout << "\n";);
-                STRACE("causality", tout << "\n";);
             }
         }
         out << "\n";

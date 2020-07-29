@@ -212,23 +212,19 @@ namespace smt {
 
             if (pat != nullptr) {
                 if (used_enodes.size()>0){
-                    STRACE("causality_details", tout << "New-Match: "<< static_cast<void*>(f) <<", Father:";);
-                    STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f) <<", Father:";);
+                    STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f) <<", Pat: "<< expr_ref(pat, m()) <<", Father:";);
                 }
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
                     enode *substituted = std::get<1>(n);
                     if (orig == nullptr) {
-                        STRACE("causality_details", tout << " #" << substituted->get_owner_id(););
                         STRACE("causality", tout << " #" << substituted->get_owner_id(););
                     }
                     else {
-                        STRACE("causality_details", tout  << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
                         STRACE("causality", tout << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
                     }
                 }
                 if (used_enodes.size()>0){
-                    STRACE("causality_details", tout << "\n";);
                     STRACE("causality", tout << "\n";);
                 }
             }
@@ -305,7 +301,7 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
             if (f) {
-                if (is_trace_enabled("causality") || is_trace_enabled("causality_details")){
+                if (is_trace_enabled("causality")){
                     log_causality(f,pat,used_enodes);
                 }
                 if (has_trace_stream()) {
