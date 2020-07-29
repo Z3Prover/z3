@@ -96,13 +96,9 @@ namespace smt {
 
         bool coallesce_in_re(literal lit);
 
-        bool propagate(literal lit, literal& trigger);
+        bool propagate_accept_core(literal lit, literal& trigger);
 
         bool block_unfolding(literal lit, unsigned i);
-
-        void propagate_nullable(literal lit, expr* s, unsigned idx, expr* r);
-
-        bool propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r, literal& trigger);
 
         expr_ref mk_first(expr* r, expr* n);
 

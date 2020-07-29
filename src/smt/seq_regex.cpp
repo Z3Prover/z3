@@ -52,7 +52,7 @@ namespace smt {
             literal trigger = pl.m_trigger;
             if (trigger != null_literal && ctx.get_assignment(trigger) == l_undef)
                 continue;
-            if (propagate(pl.m_lit, trigger)) {
+            if (propagate_accept_core(pl.m_lit, trigger)) {
                 m_to_propagate.erase_and_swap(i--);
                 change = true;
             }
@@ -143,11 +143,14 @@ namespace smt {
         if (is_string_equality(lit))
             return;
 
-        //
-        // TBD s in R => R != {}
-        // non-emptiness enforcement could instead of here, 
-        // be added to propagate_accept after some threshold is met.
-        // 
+        /*
+        TBD s in R => R != {}
+        non-emptiness enforcement could instead of here,
+        be added to propagate_accept after some threshold is met.
+
+        Currently, nonemptiness is enforced using the state graph
+        m_state_graph when propagating accept literatls.
+        */
         if (false) {
             expr_ref is_empty(m.mk_eq(r, re().mk_empty(m.get_sort(s))), m);
             rewrite(is_empty);
@@ -172,24 +175,40 @@ namespace smt {
         STRACE("seq_regex_brief", tout << "PA ";);
 
         literal t = null_literal;
-        if (!propagate(lit, t))
+        if (!propagate_accept_core(lit, t))
             m_to_propagate.push_back(propagation_lit(lit, t));
     }
 
     /**
      * Propagate the atom (accept s i r)
-     * 
-     * Propagation implements the following inference rules
      *
-     * (accept s i r[if(c,r1,r2)]) & c => (accept s i r[r1])
-     * (accept s i r[if(c,r1,r2)]) & ~c => (accept s i r[r2])
-     * (accept s i r) & nullable(r) => len(s) >= i
-     * (accept s i r) & ~nullable(r) => len(s) >= i + 1
-     * (accept s i r) & len(s) <= i => nullable(r)
-     * (accept s i r) & len(s) > i => (accept s (+ i 1) D(nth(s,i), r))
+     * The additional 'literal& trigger' is a return value.
+     * If propagation returns false, then the trigger is set
+     * to indicate what needs to be resolved before propagation
+     * can proceed. Currently, however, the trigger is unused and
+     * the function always returns true.
+     *
+     * Propagation triggers updating the state graph for dead state detection:
+     * (accept s i r) => update_state_graph(r)
+     * (accept s i r) & dead(r) => false
+     *
+     * Propagation is also blocked under certain conditions to throttle
+     * state space exploration past a certain point: see block_unfolding
+     *
+     * Otherwise, propagation implements the following inference rules:
+     *
+     * Rule 1. (accept s i r) => len(s) >= i + min_len(r)
+     * Rule 2. (accept s i r) & len(s) <= i => nullable(r)
+     * Rule 3. (accept s i r) and len(s) > i =>
+     *             (accept s (i + 1) (derivative s[i] r)
+     *
+     * Acceptance of a derivative is unfolded into a disjunction over
+     * all derivatives. Effectively, this implements the following rule,
+     * but all in one step:
+     * (accept s i (ite c r1 r2)) =>
+     *             c & (accept s i r1) \/ ~c & (accept s i r2)
      */
-    
-    bool seq_regex::propagate(literal lit, literal& trigger) {
+    bool seq_regex::propagate_accept_core(literal lit, literal& trigger) {
         SASSERT(!lit.sign());
 
         expr* s = nullptr, *i = nullptr, *r = nullptr;
@@ -208,32 +227,6 @@ namespace smt {
             th.add_axiom(~lit);
             return true;
         }
-        else if (m.is_ite(r, cond, tt, el)) {
-            UNREACHABLE();
-            STRACE("seq_regex_brief", tout << "(ite) ";);
-            return false;
-
-            // @EXP (Experimental change)
-            // This code tries to unfold the derivative one step at a time
-            // and propagate the if-then-elses.
-            // literal lcond = th.mk_literal(cond);
-            // ctx.mark_as_relevant(lcond);
-            // trigger = lcond;
-            // expr_ref ncond(m), acc1(m), acc2(m),
-            //          choice1(m), choice2(m), choice(m);
-            // ncond = m.mk_not(cond);
-            // acc1 = sk().mk_accept(s, a().mk_int(idx), tt);
-            // acc2 = sk().mk_accept(s, a().mk_int(idx), el);
-            // choice1 = m.mk_and(cond, acc1);
-            // choice2 = m.mk_and(ncond, acc2);
-            // choice = m.mk_or(choice1, choice2);
-            // th.propagate_lit(nullptr, 1, &lit, th.mk_literal(choice));
-            // // th.propagate_lit(th.mk_literal(choice));
-            // // literal_vector choice_lit;
-            // // choice_lit.push_back(th.mk_literal(choice));
-            // // th.add_axiom(choice_lit);
-            // return true;
-        }
 
         update_state_graph(r);
 
@@ -250,28 +243,23 @@ namespace smt {
 
         STRACE("seq_regex_brief", tout << "(unfold) ";);
 
-        // First axiom: use min_length to prune search
-        // accept(s, idx, r) => len(s) >= idx + min_len(r)
+        // Rule 1: use min_length to prune search
         expr_ref s_to_re(re().mk_to_re(s), m);
         expr_ref s_plus_r(re().mk_concat(s_to_re, r), m);
         unsigned min_len = re().min_length(s_plus_r);
         literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len);
         th.add_axiom(~lit, len_s_ge_min);
 
-        // Old first axiom: accept(s, idx, r) => len(s) >= idx
+        // Old rule 1: accept(s, idx, r) => len(s) >= idx
         // literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
         // th.add_axiom(~lit, len_s_ge_i);
 
-        // Second axiom: nullable check
-        // accept(s, idx, r) and len(s) <= idx => r nullable
+        // Rule 2: nullable check
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
         literal is_nullable = th.mk_literal(is_nullable_wrapper(r));
         th.add_axiom(~lit, ~len_s_le_i, is_nullable);
 
-        // Third axiom: derivative unfolding
-        // accept(s, idx, r) and not (len_s_le_i) =>
-        //     OR_(cond, dr) cond and accept(s, idx+1, dr)
-        // over all derivatives dr and conditions cond on the head
+        // Rule 3: derivative unfolding
         literal_vector accept_next;
         expr_ref hd = th.mk_nth(s, i);
         expr_ref deriv(m);
@@ -284,13 +272,6 @@ namespace smt {
             if (m.is_false(p.first) || re().is_empty(p.second)) continue;
             expr_ref cond(p.first, m);
             expr_ref deriv_leaf(p.second, m);
-
-            // @EXP (Experimental change)
-            // Skip searching when can_be_in_cycle returns true
-            // Result: Besides being unsound as written, this is not
-            // fine-grained enough. In case of intersections, many
-            // edges return true for can_be_in_cycle
-            // if (can_be_in_cycle(deriv, deriv_leaf)) continue;
 
             expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
             expr_ref choice(m.mk_and(cond, acc), m);
@@ -309,166 +290,6 @@ namespace smt {
         th.add_axiom(accept_next);
 
         // Propagated successfully
-        return true;
-
-        // expr_ref is_nullable(m), head(m), deriv(m), acc_next(m), unfold(m);
-        // head = th.mk_nth(s, i);
-        // deriv = derivative_wrapper(head, r);
-        // th.add_axiom(~lit, ~th.mk_literal(is_nullable));
-        // 
-        // acc_next = sk().mk_accept(s, a().mk_int(idx + 1), deriv);
-        // unfold = m.mk_or(is_nullable, acc_next);
-        // 
-        // literal_vector unfold_lit;
-        // unfold_lit.push_back(th.mk_literal(unfold));
-        // th.add_axiom(unfold_lit);
-        // return true;
-
-        // propagate_nullable(lit, s, idx, r);
-        // 
-        // return propagate_derivative(lit, e, s, i, idx, r, trigger);
-    }
-
-    /**
-       Implement the two axioms as propagations:
-
-       (accept s i r) => len(s) >= i
-       (accept s i r) & ~nullable(r) => len(s) >= i + 1
-
-       evaluate nullable(r):
-       nullable(r) := true -> propagate: (accept s i r) => len(s) >= i
-       nullable(r) := false -> propagate: (accept s i r) => len(s) >= i + 1
- 
-       Otherwise: 
-       propagate: (accept s i r) => len(s) >= i
-       evaluate len(s) <= i:
-       len(s) <= i := undef -> axiom:     (accept s i r) & len(s) <= i => nullable(r)
-       len(s) <= i := true  -> propagate: (accept s i r) & len(s) <= i => nullable(r)
-       len(s) <= i := false -> noop.
-    
-     */
-
-    void seq_regex::propagate_nullable(literal lit, expr* s, unsigned idx, expr* r) {
-        TRACE("seq_regex", tout << "propagate nullable: " << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PN ";);
-
-        expr_ref is_nullable = is_nullable_wrapper(r);
-
-        literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
-        if (m.is_true(is_nullable)) {
-            STRACE("seq_regex_brief", tout << "t ";);
-            th.propagate_lit(nullptr, 1,&lit, len_s_ge_i);
-        }
-        else if (m.is_false(is_nullable)) {
-            STRACE("seq_regex_brief", tout << "f ";);
-            th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + 1));
-            // @EXP (experimental change)
-            //unsigned len = std::max(1u, re().min_length(r));
-            //th.propagate_lit(nullptr, 1, &lit, th.m_ax.mk_ge(th.mk_len(s), idx + re().min_length(r)));
-        }
-        else {
-            STRACE("seq_regex_brief", tout << "? ";);
-            literal is_nullable_lit = th.mk_literal(is_nullable);
-            ctx.mark_as_relevant(is_nullable_lit);
-            literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
-            switch (ctx.get_assignment(len_s_le_i)) {
-            case l_undef:
-                th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
-                break;
-            case l_true: {
-                literal lits[2] = { lit, len_s_le_i };
-                th.propagate_lit(nullptr, 2, lits, is_nullable_lit);
-                break;
-            }
-            case l_false:
-                break;
-            }
-            th.propagate_lit(nullptr, 1, &lit, len_s_ge_i);
-        }
-    }
-    
-    bool seq_regex::propagate_derivative(literal lit, expr* e, expr* s, expr* i, unsigned idx, expr* r, literal& trigger) {
-        TRACE("seq_regex", tout << "propagate derivative: " << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PD ";);
-
-        // (accept s i R) & len(s) > i => (accept s (+ i 1) D(nth(s, i), R)) or conds
-        expr_ref d(m);
-        expr_ref head = th.mk_nth(s, i);
-
-        d = derivative_wrapper(m.mk_var(0, m.get_sort(head)), r);
-
-        // TODO
-        // conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
-        // th.add_axiom(conds);
-
-        // timer tm;
-        // std::cout << d->get_id() << " " << tm.get_seconds() << "\n";
-        //if (tm.get_seconds() > 0.3) 
-        //    std::cout << d << "\n";
-        // std::cout.flush();
-        literal_vector conds;
-        conds.push_back(~lit);
-        conds.push_back(th.m_ax.mk_le(th.mk_len(s), idx));
-        expr* cond = nullptr, *tt = nullptr, *el = nullptr;
-        var_subst subst(m);
-        expr_ref_vector sub(m);
-        sub.push_back(head);       
-        // s in R[if(p,R1,R2)] & p => s in R[R1]
-        // s in R[if(p,R1,R2)] & ~p => s in R[R2]
-        while (m.is_ite(d, cond, tt, el)) {
-            literal lcond = th.mk_literal(subst(cond, sub));
-            switch (ctx.get_assignment(lcond)) {
-            case l_true:
-                STRACE("seq_regex_brief", tout << "t ";);
-                conds.push_back(~lcond);
-                d = tt;
-                break;
-            case l_false:
-                STRACE("seq_regex_brief", tout << "f ";);
-                conds.push_back(lcond);
-                d = el;
-                break;
-            case l_undef:
-                STRACE("seq_regex_brief", tout << "? ";);
-#if 1
-                ctx.mark_as_relevant(lcond);
-                trigger = lcond;
-                return false;
-#else
-                if (re().is_empty(tt)) {
-                    literal_vector ensure_false(conds);
-                    ensure_false.push_back(~lcond);
-                    th.add_axiom(ensure_false);
-                    conds.push_back(lcond);
-                    d = el;
-                }
-                else if (re().is_empty(el)) {
-                    literal_vector ensure_true(conds);
-                    ensure_true.push_back(lcond);
-                    th.add_axiom(ensure_true);
-                    conds.push_back(~lcond);
-                    d = tt;
-                }
-                else {
-                    ctx.mark_as_relevant(lcond);
-                    trigger = lcond;
-                    return false;
-                }
-                break;
-#endif
-            }
-        }
-
-        if (!is_ground(d)) {
-            d = subst(d, sub);
-        }
-        // at this point there should be no free variables as the ites are at top-level.
-        if (!re().is_empty(d)) 
-            conds.push_back(th.mk_literal(sk().mk_accept(s, a().mk_int(idx + 1), d)));
-        th.add_axiom(conds);        
-        TRACE("seq_regex", tout << "unfold " << head << std::endl << mk_pp(r, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "u ";);
-
         return true;
     }
 
@@ -490,8 +311,7 @@ namespace smt {
      * within the same Regex.
      */
     bool seq_regex::coallesce_in_re(literal lit) {
-        // @EXP (experimental change)
-        return false;
+        return false; // disabled
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
@@ -542,6 +362,16 @@ namespace smt {
 
     /*
         Wrapper around calls to is_nullable from the seq rewriter.
+
+        Note: the nullable wrapper and derivative wrapper actually use
+        different sequence rewriters; these are at:
+            m_seq_rewrite
+                (returned by seq_rw())
+            th.m_rewrite.m_imp->m_cfg.m_seq_rw
+                (private, can't be accessed directly)
+        As a result operations are cached separately for the nullable
+        and derivative calls. TBD if caching them using the same rewriter
+        makes any difference.
     */
     expr_ref seq_regex::is_nullable_wrapper(expr* r) {
         STRACE("seq_regex", tout << "nullable: " << mk_pp(r, m) << std::endl;);
@@ -561,19 +391,26 @@ namespace smt {
         Wrapper around the regex symbolic derivative from the seq rewriter.
         Ensures that the derivative is written in a normalized BDD form
         with optimizations for if-then-else expressions involving the head.
+
+        Note: the nullable wrapper and derivative wrapper actually use
+        different sequence rewriters; these are at:
+            m_seq_rewrite
+                (returned by seq_rw())
+            th.m_rewrite.m_imp->m_cfg.m_seq_rw
+                (private, can't be accessed directly)
+        As a result operations are cached separately for the nullable
+        and derivative calls. TBD if caching them using the same rewriter
+        makes any difference.
     */
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
         STRACE("seq_regex", tout << "derivative(" << mk_pp(hd, m) << "): " << mk_pp(r, m) << std::endl;);
 
-        // Use canonical variable for head; substitute with hd later
-        // sort* seq_sort = nullptr;
-        // VERIFY(u().is_re(r, seq_sort));
-        // expr_ref hd_canon = get_head_var(sq_sort);
+        // Use canonical variable for head
         expr_ref hd_canon(m.mk_var(0, m.get_sort(hd)), m);
         expr_ref result(re().mk_derivative(hd_canon, r), m);
         rewrite(result);
 
-        // Substitute
+        // Substitute with real head
         var_subst subst(m);
         expr_ref_vector sub(m);
         sub.push_back(hd);
@@ -583,26 +420,6 @@ namespace smt {
         STRACE("seq_regex_brief", tout << "d(" << state_str(r) << ")="
                                        << state_str(result) << " ";);
         seq_rw().trace_and_reset_cache_counts();
-
-        /*  If the following lines are enabled instead, we use the
-            same rewriter for the nullable and derivative calls.
-            However, it currently seems to cause a performance
-            bug as a side effect.
-
-            The two seq rewriters used are at:
-                m_seq_rewrite
-                    (returned by seq_rw())
-                th.m_rewrite.m_imp->m_cfg.m_seq_rw
-                    (private, can't be accessed directly)
-
-            TODO: experiment with making them the same and see
-            if it results in significant speedup (due to fewer
-            cache misses).
-           */
-        // expr_ref result = seq_rw().mk_derivative(hd, r);
-        // rewrite(result)
-        // STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
-        // seq_rw().trace_and_reset_cache_counts();
 
         return result;
     }
@@ -670,9 +487,6 @@ namespace smt {
         expr_ref d(m);
         d = derivative_wrapper(hd, r);
 
-        // STRACE("seq_regex_brief", tout << "(d subbed: " << state_str(d) << ") ";);
-        // TRACE("seq_regex", tout << "d subbed: " << mk_pp(d, m) << std::endl;);
-
         literal_vector lits;
         lits.push_back(~lit);
         if (null_lit != false_literal) 
@@ -721,7 +535,7 @@ namespace smt {
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);
         d = derivative_wrapper(hd, r);
-        // Use get_cofactors method and filter out unsatisfiable conds
+        // Use get_cofactors method and try to filter out unsatisfiable conds
         expr_ref_pair_vector cofactors(m);
         get_cofactors(d, cofactors);
         STRACE("seq_regex_debug", tout << "getting all derivatives of: " << mk_pp(r, m) << std::endl;);
@@ -782,22 +596,6 @@ namespace smt {
         }        
     }
 
-    // @EXP: Experimental change
-    // Some code to compute a canonical head variable, but I think
-    // this stuff is unnecessary.
-    // expr_ref seq_regex::get_head_var(sort* seq_sort) {
-    //     expr_ref result(m);
-    //     if (m_deriv_head.contains(seq_sort)) {
-    //         result = m_deriv_head.find(seq_sort);
-    //         STRACE("seq_regex_brief", tout << " ghv=" << mk_pp(result, m););
-    //     }
-    //     else {
-    //         result = m.mk_fresh_const("re.char", seq_sort);
-    //         STRACE("seq_regex_brief", tout << " NEWghv=" << mk_pp(result, m););
-    //     }
-    //     return result;
-    // }
-
     expr_ref seq_regex::mk_first(expr* r, expr* n) {
         sort* elem_sort = nullptr, *seq_sort = nullptr;
         VERIFY(u().is_re(r, seq_sort));
@@ -805,9 +603,9 @@ namespace smt {
         return sk().mk("re.first", n, a().mk_int(r->get_id()), elem_sort);
     }
 
-    /**********************************************************
-     *** Dead state elimination using the state_graph class ***
-     **********************************************************/
+    /**
+     * Dead state elimination using the state_graph class
+     */
 
     unsigned seq_regex::get_state_id(expr* e) {
         // Assign increasing IDs starting from 1
