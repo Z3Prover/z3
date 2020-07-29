@@ -82,31 +82,31 @@ void state_graph::add_edge_core(state s1, state s2, bool maybecycle) {
     SASSERT(m_state_ufind.is_root(s1));
     SASSERT(m_state_ufind.is_root(s2));
     if (s1 == s2) return;
-    if (!m_targets.find(s1).contains(s2)) {
+    if (!m_targets[s1].contains(s2)) {
         // add new edge
         STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: new edge! ";);
-        m_targets.find(s1).insert(s2);
-        m_sources.find(s2).insert(s1);
-        if (maybecycle) m_sources_maybecycle.find(s2).insert(s1);
+        m_targets[s1].insert(s2);
+        m_sources[s2].insert(s1);
+        if (maybecycle) m_sources_maybecycle[s2].insert(s1);
     }
-    else if (!maybecycle && m_sources_maybecycle.find(s2).contains(s1)) {
+    else if (!maybecycle && m_sources_maybecycle[s2].contains(s1)) {
         // update existing edge
         STRACE("seq_regex_debug", tout << std::endl << "  DEBUG: update edge! ";);
-        m_sources_maybecycle.find(s2).remove(s1);
+        m_sources_maybecycle[s2].remove(s1);
     }
 }
 void state_graph::remove_edge_core(state s1, state s2) {
-    SASSERT(m_targets.find(s1).contains(s2));
-    SASSERT(m_sources.find(s2).contains(s1));
-    m_targets.find(s1).remove(s2);
-    m_sources.find(s2).remove(s1);
-    m_sources_maybecycle.find(s2).remove(s1);
+    SASSERT(m_targets[s1].contains(s2));
+    SASSERT(m_sources[s2].contains(s1));
+    m_targets[s1].remove(s2);
+    m_sources[s2].remove(s1);
+    m_sources_maybecycle[s2].remove(s1);
 }
 void state_graph::rename_edge_core(state old1, state old2,
                                    state new1, state new2) {
-    SASSERT(m_targets.find(old1).contains(old2));
-    SASSERT(m_sources.find(old2).contains(old1));
-    bool maybecycle = m_sources_maybecycle.find(old2).contains(old1);
+    SASSERT(m_targets[old1].contains(old2));
+    SASSERT(m_sources[old2].contains(old1));
+    bool maybecycle = m_sources_maybecycle[old2].contains(old1);
     remove_edge_core(old1, old2);
     add_edge_core(new1, new2, maybecycle);
 }
@@ -131,10 +131,10 @@ auto state_graph::merge_states(state s1, state s2) -> state {
     m_state_ufind.merge(s1, s2);
     if (m_state_ufind.is_root(s2)) std::swap(s1, s2);
     // rename s2 to s1 in edges
-    for (auto s_to: m_targets.find(s2)) {
+    for (auto s_to: m_targets[s2]) {
         rename_edge_core(s2, s_to, s1, s_to);
     }
-    for (auto s_from: m_sources.find(s2)) {
+    for (auto s_from: m_sources[s2]) {
         rename_edge_core(s_from, s2, s_from, s1);
     }
     remove_state_core(s2);
@@ -165,7 +165,7 @@ void state_graph::mark_live_recursive(state s) {
         << std::endl << "  DEBUG: mark live recursive: " << s << " ";);
     if (m_live.contains(s)) return;
     mark_live_core(s);
-    for (auto s_from: m_sources.find(s)) {
+    for (auto s_from: m_sources[s]) {
         mark_live_recursive(s_from);
     }
 }
@@ -181,14 +181,14 @@ void state_graph::mark_dead_recursive(state s) {
     STRACE("seq_regex_debug", tout
         << std::endl << "  DEBUG: mark dead recursive: " << s << " ";);
     if (!m_unknown.contains(s)) return;
-    for (auto s_to: m_targets.find(s)) {
+    for (auto s_to: m_targets[s]) {
         // unknown pointing to live should have been marked as live!
         SASSERT(!m_live.contains(s_to));
         if (m_unknown.contains(s_to) || m_unexplored.contains(s_to)) return;
     }
     // all states from s are dead
     mark_dead_core(s);
-    for (auto s_from: m_sources.find(s)) {
+    for (auto s_from: m_sources[s]) {
         mark_dead_recursive(s_from);
     }
 }
@@ -214,7 +214,7 @@ auto state_graph::merge_all_cycles(state s) -> state {
             visited.insert(x);
             // recurse backwards only on maybecycle edges
             // and only on unknown states
-            for (auto y: m_sources_maybecycle.find(x)) {
+            for (auto y: m_sources_maybecycle[x]) {
                 if (m_unknown.contains(y))
                     to_search.push_back(y);
             }
@@ -223,7 +223,7 @@ auto state_graph::merge_all_cycles(state s) -> state {
             resolved.insert(x);
             to_search.pop_back();
             // determine in SCC or not
-            for (auto y: m_sources_maybecycle.find(x)) {
+            for (auto y: m_sources_maybecycle[x]) {
                 if (scc.contains(y)) {
                     scc.insert(x);
                     break;
@@ -291,7 +291,7 @@ bool state_graph::is_done(state s) {
 /*
     Pretty printing
 */
-std::ostream& state_graph::display(std::ostream& o) {
+std::ostream& state_graph::display(std::ostream& o) const {
     o << "---------- State Graph ----------" << std::endl
       << "Seen:";
     for (auto s: m_seen) {
@@ -308,7 +308,7 @@ std::ostream& state_graph::display(std::ostream& o) {
       << "Edges:" << std::endl;
     for (auto s1: m_seen) {
         if (m_state_ufind.is_root(s1)) {
-            o << "  " << s1 << " -> " << m_targets.find(s1) << std::endl;
+            o << "  " << s1 << " -> " << m_targets[s1] << std::endl;
         }
     }
     o << "---------------------------------" << std::endl;
