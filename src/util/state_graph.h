@@ -65,9 +65,6 @@ private:
         union find data structure collapses a now obsolete
         state to its current representative. m_seen keeps track
         of states we have seen, including obsolete states.
-
-        Invariants:
-        - TODO
     */
     state_set   m_live;
     state_set   m_dead;
@@ -81,13 +78,30 @@ private:
         Edges are saved in both from and to maps.
         A subset of edges are also marked as possibly being
         part of a cycle by being stored in m_sources_maybecycle.
-
-        Invariants:
-        - TODO
     */
     edge_rel   m_sources;
     edge_rel   m_targets;
     edge_rel   m_sources_maybecycle;
+
+    /*
+        CLASS INVARIANTS
+
+        State invariants:
+        - live, dead, unknown, and unexplored form a partition of
+          the set of roots in m_state_ufind
+        - all of these are subsets of m_seen
+
+        Edge invariants:
+        - all edges are between roots of m_state_ufind
+        - m_sources and m_targets are converses of each other
+        - m_sources_maybecycle is a subrelation of m_sources
+
+        Relationship between states and edges:
+        - every state with a live target is live
+        - every state with a dead source is dead
+        - every state with only dead targets is dead
+        - there are no cycles of unknown states on maybecycle edges
+    */
 
     /*
         'Core' functions that modify the plain graph, without
