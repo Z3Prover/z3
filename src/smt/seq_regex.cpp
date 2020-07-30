@@ -229,12 +229,21 @@ namespace smt {
         expr_ref s_plus_r(re().mk_concat(s_to_re, r), m);
         unsigned min_len = re().min_length(s_plus_r);
         literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len);
-        th.add_axiom(~lit, len_s_ge_min);
+        th.propagate_lit(nullptr, 1, &lit, len_s_ge_min);
+        // Axiom equivalent to the above: th.add_axiom(~lit, len_s_ge_min);
 
         // Rule 2: nullable check
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
-        literal is_nullable = th.mk_literal(is_nullable_wrapper(r));
-        th.add_axiom(~lit, ~len_s_le_i, is_nullable);
+        expr_ref is_nullable = is_nullable_wrapper(r);
+        if (m.is_false(is_nullable)) {
+            th.propagate_lit(nullptr, 1, &lit, ~len_s_le_i);
+        }
+        else if (!m.is_true(is_nullable)) {
+            // is_nullable did not simplify
+            literal is_nullable_lit = th.mk_literal(is_nullable_wrapper(r));
+            ctx.mark_as_relevant(is_nullable_lit);
+            th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
+        }
 
         // Rule 3: derivative unfolding
         literal_vector accept_next;
