@@ -212,7 +212,9 @@ namespace smt {
 
             if (pat != nullptr) {
                 if (used_enodes.size()>0){
-                    STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f) <<", Pat: "<< expr_ref(pat, m()) <<", Father:";);
+                    STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f););
+                    STRACE("triggers",  tout <<", Pat: "<< expr_ref(pat, m()););
+                    STRACE("causality", tout <<", Father:";);
                 }
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
