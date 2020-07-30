@@ -28,9 +28,7 @@ namespace smt {
     class theory_seq;
 
     class seq_regex {
-        /*
-            Data about a constraint of the form (str.in_re s R)
-        */
+        // Data about a constraint of the form (str.in_re s R)
         struct s_in_re {
             literal m_lit;
             expr*   m_s;
@@ -40,24 +38,10 @@ namespace smt {
             m_lit(l), m_s(s), m_re(r), m_active(true) {}
         };
 
-        /*
-            Data about a literal for the solver to propagate
-            The trigger guards whether the literal is ready
-            to be addressed yet -- see seq_regex::can_propagate
-        */
-        struct propagation_lit {
-            literal m_lit;
-            literal m_trigger;
-            propagation_lit(literal lit, literal t): m_lit(lit), m_trigger(t) {}
-            propagation_lit(literal lit): m_lit(lit), m_trigger(null_literal) {}
-            propagation_lit(): m_lit(null_literal), m_trigger(null_literal) {}
-        };
-
         theory_seq&                      th;
         context&                         ctx;
         ast_manager&                     m;
         vector<s_in_re>                  m_s_in_re;
-        scoped_vector<propagation_lit>   m_to_propagate;
 
         /*
             state_graph for dead state detection, and associated methods
@@ -79,8 +63,9 @@ namespace smt {
         std::string state_str(expr* e);
         std::string expr_id_str(expr* e);
 
-        // ********************
-
+        /*
+            Solvers and utilities
+        */
         seq_util& u();
         class seq_util::re& re();
         class seq_util::str& str();
@@ -94,13 +79,9 @@ namespace smt {
 
         bool coallesce_in_re(literal lit);
 
-        bool propagate_accept_core(literal lit, literal& trigger);
-
         bool block_unfolding(literal lit, unsigned i);
 
         expr_ref mk_first(expr* r, expr* n);
-
-        expr_ref unroll_non_empty(expr* r, expr_mark& seen, unsigned depth);
 
         bool is_member(expr* r, expr* u);
 
@@ -110,25 +91,20 @@ namespace smt {
         expr_ref derivative_wrapper(expr* hd, expr* r);
 
         void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
-
         void get_cofactors(expr* r, expr_ref_pair_vector& result) {
             expr_ref_vector conds(m);
             get_cofactors(r, conds, result);
         }
+        void get_all_derivatives(expr* r, expr_ref_vector& results);
 
     public:
 
-        void get_all_derivatives(expr* r, expr_ref_vector& results);
-
         seq_regex(theory_seq& th);
 
-        void push_scope() { m_to_propagate.push_scope(); }
-
-        void pop_scope(unsigned num_scopes) { m_to_propagate.pop_scope(num_scopes); }
-
-        bool can_propagate() const;
-
-        bool propagate();
+        void push_scope() {}
+        void pop_scope(unsigned num_scopes) {}
+        bool can_propagate() const { return false; }
+        bool propagate() const { return false; }
 
         void propagate_in_re(literal lit);
 

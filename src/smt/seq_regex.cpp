@@ -36,34 +36,6 @@ namespace smt {
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
 
-    bool seq_regex::can_propagate() const {
-        for (auto const& p : m_to_propagate) {
-            literal trigger = p.m_trigger;
-            if (trigger == null_literal || ctx.get_assignment(trigger) != l_undef)
-                return true;
-        }
-        return false;
-    }
-
-    bool seq_regex::propagate() {
-        bool change = false;
-        for (unsigned i = 0; !ctx.inconsistent() && i < m_to_propagate.size(); ++i) {
-            propagation_lit const& pl = m_to_propagate[i];
-            literal trigger = pl.m_trigger;
-            if (trigger != null_literal && ctx.get_assignment(trigger) == l_undef)
-                continue;
-            if (propagate_accept_core(pl.m_lit, trigger)) {
-                m_to_propagate.erase_and_swap(i--);
-                change = true;
-            }
-            else if (trigger != pl.m_trigger) {
-                m_to_propagate.set(i, propagation_lit(pl.m_lit, trigger));
-            }
-                
-        }
-        return change;
-    }
-
     /**
      * is_string_equality holds of str.in_re s R, 
      * 
@@ -152,23 +124,8 @@ namespace smt {
         th.propagate_lit(nullptr, 1, &lit, acc_lit);
     }
 
-    void seq_regex::propagate_accept(literal lit) {
-        TRACE("seq_regex", tout << "propagate accept" << std::endl;);
-        STRACE("seq_regex_brief", tout << "PA ";);
-
-        literal t = null_literal;
-        if (!propagate_accept_core(lit, t))
-            m_to_propagate.push_back(propagation_lit(lit, t));
-    }
-
     /**
      * Propagate the atom (accept s i r)
-     *
-     * The additional 'literal& trigger' is a return value.
-     * If propagation returns false, then the trigger is set
-     * to indicate what needs to be resolved before propagation
-     * can proceed. Currently, however, the trigger is unused and
-     * the function always returns true.
      *
      * Propagation triggers updating the state graph for dead state detection:
      * (accept s i r) => update_state_graph(r)
@@ -190,7 +147,7 @@ namespace smt {
      * (accept s i (ite c r1 r2)) =>
      *             c & (accept s i r1) \/ ~c & (accept s i r2)
      */
-    bool seq_regex::propagate_accept_core(literal lit, literal& trigger) {
+     void seq_regex::propagate_accept(literal lit) {
         SASSERT(!lit.sign());
 
         expr* s = nullptr, *i = nullptr, *r = nullptr;
@@ -198,15 +155,16 @@ namespace smt {
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
 
-        TRACE("seq_regex", tout << "propagate: " << mk_pp(e, m) << std::endl;);
+        TRACE("seq_regex", tout << "propagate accept: "
+                                << mk_pp(e, m) << std::endl;);
         STRACE("seq_regex_brief", tout << std::endl
-                                       << "P(" << mk_pp(s, m) << "@" << idx
+                                       << "PA(" << mk_pp(s, m) << "@" << idx
                                        << "," << state_str(r) << ") ";);
 
         if (re().is_empty(r)) {
             STRACE("seq_regex_brief", tout << "(empty) ";);
             th.add_axiom(~lit);
-            return true;
+            return;
         }
 
         update_state_graph(r);
@@ -214,12 +172,12 @@ namespace smt {
         if (m_state_graph.is_dead(get_state_id(r))) {
             STRACE("seq_regex_brief", tout << "(dead) ";);
             th.add_axiom(~lit);
-            return true;
+            return;
         }
 
         if (block_unfolding(lit, idx)) {
             STRACE("seq_regex_brief", tout << "(blocked) ";);
-            return true;
+            return;
         }
 
         STRACE("seq_regex_brief", tout << "(unfold) ";);
@@ -269,9 +227,6 @@ namespace smt {
                                            << mk_pp(choice, m) << std::endl;);
         }
         th.add_axiom(accept_next);
-
-        // Propagated successfully
-        return true;
     }
 
     /**
