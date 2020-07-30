@@ -19,7 +19,7 @@ Author:
 #include "state_graph.h"
 
 void state_graph::add_state_core(state s) {
-    STRACE("seq_regex_brief", tout << "add(" << s << ") ";);
+    STRACE("state_graph", tout << "add(" << s << ") ";);
     SASSERT(!m_seen.contains(s));
     // Ensure corresponding var in union find structure
     while (s >= m_state_ufind.get_num_vars()) {
@@ -37,7 +37,7 @@ void state_graph::remove_state_core(state s) {
     // added again later.
     // The state should be unknown, and all edges to or from the state
     // should already have been renamed.
-    STRACE("seq_regex_brief", tout << "del(" << s << ") ";);
+    STRACE("state_graph", tout << "del(" << s << ") ";);
     SASSERT(m_seen.contains(s));
     SASSERT(!m_state_ufind.is_root(s));
     SASSERT(m_unknown.contains(s));
@@ -48,21 +48,21 @@ void state_graph::remove_state_core(state s) {
 }
 
 void state_graph::mark_unknown_core(state s) {
-    STRACE("seq_regex_brief", tout << "unk(" << s << ") ";);
+    STRACE("state_graph", tout << "unk(" << s << ") ";);
     SASSERT(m_state_ufind.is_root(s));
     SASSERT(m_unexplored.contains(s));
     m_unexplored.remove(s);
     m_unknown.insert(s);
 }
 void state_graph::mark_live_core(state s) {
-    STRACE("seq_regex_brief", tout << "live(" << s << ") ";);
+    STRACE("state_graph", tout << "live(" << s << ") ";);
     SASSERT(m_state_ufind.is_root(s));
     SASSERT(m_unknown.contains(s));
     m_unknown.remove(s);
     m_live.insert(s);
 }
 void state_graph::mark_dead_core(state s) {
-    STRACE("seq_regex_brief", tout << "dead(" << s << ") ";);
+    STRACE("state_graph", tout << "dead(" << s << ") ";);
     SASSERT(m_state_ufind.is_root(s));
     SASSERT(m_unknown.contains(s));
     m_unknown.remove(s);
@@ -77,8 +77,8 @@ void state_graph::mark_dead_core(state s) {
       maybecycle = true.
 */
 void state_graph::add_edge_core(state s1, state s2, bool maybecycle) {
-    STRACE("seq_regex_brief", tout << "add(" << s1 << "," << s2 << ","
-                                   << (maybecycle ? "y" : "n") << ") ";);
+    STRACE("state_graph", tout << "add(" << s1 << "," << s2 << ","
+                               << (maybecycle ? "y" : "n") << ") ";);
     SASSERT(m_state_ufind.is_root(s1));
     SASSERT(m_state_ufind.is_root(s2));
     if (s1 == s2) return;
@@ -94,6 +94,7 @@ void state_graph::add_edge_core(state s1, state s2, bool maybecycle) {
     }
 }
 void state_graph::remove_edge_core(state s1, state s2) {
+    STRACE("state_graph", tout << "del(" << s1 << "," << s2 << ") ";);
     SASSERT(m_targets[s1].contains(s2));
     SASSERT(m_sources[s2].contains(s1));
     m_targets[s1].remove(s2);
@@ -125,7 +126,7 @@ auto state_graph::merge_states(state s1, state s2) -> state {
     SASSERT(m_state_ufind.is_root(s2));
     SASSERT(m_unknown.contains(s1));
     SASSERT(m_unknown.contains(s2));
-    STRACE("seq_regex_brief", tout << "merge(" << s1 << "," << s2 << ") ";);
+    STRACE("state_graph", tout << "merge(" << s1 << "," << s2 << ") ";);
     m_state_ufind.merge(s1, s2);
     if (m_state_ufind.is_root(s2)) std::swap(s1, s2);
     // rename s2 to s1 in edges
@@ -260,17 +261,23 @@ auto state_graph::merge_all_cycles(state s) -> state {
 
 void state_graph::add_state(state s) {
     if (m_seen.contains(s)) return;
+    STRACE("state_graph", tout << "[state_graph] adding state " << s << ": ";);
     add_state_core(s);
     CASSERT("state_graph", check_invariant());
+    STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_live(state s) {
+    STRACE("state_graph", tout << "[state_graph] marking live " << s << ": ";);
     SASSERT(m_unexplored.contains(s) || m_live.contains(s));
     SASSERT(m_state_ufind.is_root(s));
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     mark_live_recursive(s);
     CASSERT("state_graph", check_invariant());
+    STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::add_edge(state s1, state s2, bool maybecycle) {
+    STRACE("state_graph", tout << "[state_graph] adding edge ("
+                               << s1 << ", " << s2 << ")" << ": ";);
     SASSERT(m_unexplored.contains(s1) || m_live.contains(s1));
     SASSERT(m_state_ufind.is_root(s1));
     SASSERT(m_seen.contains(s2));
@@ -278,16 +285,18 @@ void state_graph::add_edge(state s1, state s2, bool maybecycle) {
     add_edge_core(s1, s2, maybecycle);
     if (m_live.contains(s2)) mark_live(s1);
     CASSERT("state_graph", check_invariant());
+    STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_done(state s) {
     SASSERT(m_unexplored.contains(s) || m_live.contains(s));
     SASSERT(m_state_ufind.is_root(s));
     if (m_live.contains(s)) return;
+    STRACE("state_graph", tout << "[state_graph] marking done " << s << ": ";);
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     s = merge_all_cycles(s);
     mark_dead_recursive(s); // check if dead
-    STRACE("seq_regex_brief", tout << "done(" << s << ") ";);
     CASSERT("state_graph", check_invariant());
+    STRACE("state_graph", tout << std::endl;);
 }
 
 unsigned state_graph::get_size() const {
@@ -326,17 +335,12 @@ bool state_graph::is_disjoint(state_set set1, state_set set2) const {
     }
     return true;
 }
+#define ASSERT_FOR_ALL_EDGES(EDGEREL, COND) { \
+    for (auto e: (EDGEREL)) { \
+        state s1 = e.m_key; for (auto s2: e.m_value) { SASSERT(COND); } \
+    }} ((void) 0)
+
 bool state_graph::check_invariant() const {
-    // Reference sets
-    state_set all;
-    state_set roots;
-    for (state s = 0; s < m_state_ufind.get_num_vars(); s++) {
-        all.insert(s);
-    }
-    for (auto s: m_seen) {
-        if (m_state_ufind.is_root(s))
-            roots.insert(s);
-    }
     // Check state invariants
     SASSERT(is_subset(m_live, m_seen));
     SASSERT(is_subset(m_dead, m_seen));
@@ -356,16 +360,16 @@ bool state_graph::check_invariant() const {
         }
     }
     // Check edge invariants
-    // TODO:
-    // - all edges are between roots of m_state_ufind
-    // - m_sources and m_targets are converses of each other
-    // - m_sources_maybecycle is a subrelation of m_sources
+    ASSERT_FOR_ALL_EDGES(m_sources_maybecycle, m_sources[s1].contains(s2));
+    ASSERT_FOR_ALL_EDGES(m_sources, m_targets[s2].contains(s1));
+    ASSERT_FOR_ALL_EDGES(m_targets, m_sources[s2].contains(s1));
     // Check relationship between states and edges
     // TODO:
     // - every state with a live target is live
     // - every state with a dead source is dead
     // - every state with only dead targets is dead
     // - there are no cycles of unknown states on maybecycle edges
+    STRACE("state_graph", tout << "(invariant passed) ";);
     return true;
 }
 #endif
