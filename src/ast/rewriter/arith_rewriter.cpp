@@ -624,16 +624,16 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         switch (kind) {
         case LE: 
             result = m_util.mk_lt(t, m_util.mk_numeral(a2+1, false)); 
-            return BR_DONE;
+            return BR_REWRITE1;
         case GE: 
             result = m_util.mk_ge(t, m_util.mk_numeral(a2, false)); 
             return BR_REWRITE1;
         case EQ: 
             result = m_util.mk_ge(t, m_util.mk_numeral(a2, false));
             result = m().mk_and(m_util.mk_lt(t, m_util.mk_numeral(a2+1, false)), result);
-            return BR_DONE;
+            return BR_REWRITE3;
         }        
-    } 
+    }
     if ((m_arith_lhs || m_arith_ineq_lhs) && is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
         a2.neg();
         new_arg2 = m_util.mk_numeral(a2, m_util.is_int(new_arg1));

@@ -824,6 +824,7 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = m_autil.mk_add(es.size(), es.c_ptr());
         return BR_REWRITE2;
     }
+#if 0
     expr* s = nullptr, *offset = nullptr, *length = nullptr;
     if (str().is_extract(a, s, offset, length)) {
         expr_ref len_s(str().mk_length(s), m());
@@ -837,11 +838,12 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = m().mk_ite(m_autil.mk_gt(m_autil.mk_add(offset, length), len_s),
                             m_autil.mk_sub(len_s, offset),
                             result);
-        result = m().mk_ite(m().mk_or(m_autil.mk_ge(offset, len_s), m_autil.mk_le(length, zero), m_autil.mk_lt(offset, zero)),
+        result = m().mk_ite(m().mk_or(m_autil.mk_le(len_s, offset), m_autil.mk_le(length, zero), m_autil.mk_lt(offset, zero)),
                             zero,
                             result);
         return BR_REWRITE_FULL;
     }
+#endif
     return BR_FAILED;
 }
 
@@ -3810,7 +3812,7 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     }
     bool changed = false;
     if (reduce_eq_empty(l, r, result)) 
-        return BR_REWRITE3;
+        return BR_REWRITE_FULL;
 
     if (!reduce_eq(l, r, new_eqs, changed)) {
         result = m().mk_false();
@@ -4220,7 +4222,7 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
         fmls.push_back(m_autil.mk_lt(offset, m_autil.mk_int(0)));
         fmls.push_back(m().mk_eq(s, l));
         fmls.push_back(m_autil.mk_lt(len, m_autil.mk_int(0)));
-        fmls.push_back(m_autil.mk_ge(offset, len_s));
+        fmls.push_back(m_autil.mk_le(len_s, offset));
         result = m().mk_or(fmls);
         return true;
     }
