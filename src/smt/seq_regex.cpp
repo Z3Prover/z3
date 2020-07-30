@@ -1,5 +1,5 @@
-"seq_regex_verbose"/*++
-Copyright (c) 2011 Microsoft Corporation
+/*++
+Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
@@ -35,34 +35,6 @@ namespace smt {
     seq_skolem& seq_regex::sk() { return th.m_sk; }
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
-
-    bool seq_regex::can_propagate() const {
-        for (auto const& p : m_to_propagate) {
-            literal trigger = p.m_trigger;
-            if (trigger == null_literal || ctx.get_assignment(trigger) != l_undef)
-                return true;
-        }
-        return false;
-    }
-
-    bool seq_regex::propagate() {
-        bool change = false;
-        for (unsigned i = 0; !ctx.inconsistent() && i < m_to_propagate.size(); ++i) {
-            propagation_lit const& pl = m_to_propagate[i];
-            literal trigger = pl.m_trigger;
-            if (trigger != null_literal && ctx.get_assignment(trigger) == l_undef)
-                continue;
-            if (propagate_accept_core(pl.m_lit, trigger)) {
-                m_to_propagate.erase_and_swap(i--);
-                change = true;
-            }
-            else if (trigger != pl.m_trigger) {
-                m_to_propagate.set(i, propagation_lit(pl.m_lit, trigger));
-            }
-                
-        }
-        return change;
-    }
 
     /**
      * is_string_equality holds of str.in_re s R, 
@@ -143,24 +115,6 @@ namespace smt {
         if (is_string_equality(lit))
             return;
 
-        /*
-            TBD s in R => R != {}
-            non-emptiness enforcement could instead of here,
-            be added to propagate_accept after some threshold is met.
-
-            Currently, nonemptiness is enforced using the state graph
-            m_state_graph when propagating accept literatls.
-        */
-        if (false) {
-            expr_ref is_empty(m.mk_eq(r, re().mk_empty(m.get_sort(s))), m);
-            rewrite(is_empty);
-            literal is_emptyl = th.mk_literal(is_empty);
-            if (ctx.get_assignment(is_emptyl) != l_false) {
-                th.propagate_lit(nullptr, 1, &lit, ~is_emptyl);
-                return;
-            }
-        }
-
         expr_ref zero(a().mk_int(0), m);
         expr_ref acc = sk().mk_accept(s, zero, r);
         literal acc_lit = th.mk_literal(acc);
@@ -170,23 +124,8 @@ namespace smt {
         th.propagate_lit(nullptr, 1, &lit, acc_lit);
     }
 
-    void seq_regex::propagate_accept(literal lit) {
-        TRACE("seq_regex", tout << "propagate accept" << std::endl;);
-        STRACE("seq_regex_brief", tout << "PA ";);
-
-        literal t = null_literal;
-        if (!propagate_accept_core(lit, t))
-            m_to_propagate.push_back(propagation_lit(lit, t));
-    }
-
     /**
      * Propagate the atom (accept s i r)
-     *
-     * The additional 'literal& trigger' is a return value.
-     * If propagation returns false, then the trigger is set
-     * to indicate what needs to be resolved before propagation
-     * can proceed. Currently, however, the trigger is unused and
-     * the function always returns true.
      *
      * Propagation triggers updating the state graph for dead state detection:
      * (accept s i r) => update_state_graph(r)
@@ -208,7 +147,7 @@ namespace smt {
      * (accept s i (ite c r1 r2)) =>
      *             c & (accept s i r1) \/ ~c & (accept s i r2)
      */
-    bool seq_regex::propagate_accept_core(literal lit, literal& trigger) {
+     void seq_regex::propagate_accept(literal lit) {
         SASSERT(!lit.sign());
 
         expr* s = nullptr, *i = nullptr, *r = nullptr;
@@ -216,16 +155,16 @@ namespace smt {
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
 
-        TRACE("seq_regex", tout << "propagate: " << mk_pp(e, m) << std::endl;);
+        TRACE("seq_regex", tout << "propagate accept: "
+                                << mk_pp(e, m) << std::endl;);
         STRACE("seq_regex_brief", tout << std::endl
-                                       << "P(" << mk_pp(s, m) << "@" << idx
+                                       << "PA(" << mk_pp(s, m) << "@" << idx
                                        << "," << state_str(r) << ") ";);
 
-        expr* cond = nullptr, *tt = nullptr, *el = nullptr;
         if (re().is_empty(r)) {
             STRACE("seq_regex_brief", tout << "(empty) ";);
             th.add_axiom(~lit);
-            return true;
+            return;
         }
 
         update_state_graph(r);
@@ -233,12 +172,12 @@ namespace smt {
         if (m_state_graph.is_dead(get_state_id(r))) {
             STRACE("seq_regex_brief", tout << "(dead) ";);
             th.add_axiom(~lit);
-            return true;
+            return;
         }
 
         if (block_unfolding(lit, idx)) {
             STRACE("seq_regex_brief", tout << "(blocked) ";);
-            return true;
+            return;
         }
 
         STRACE("seq_regex_brief", tout << "(unfold) ";);
@@ -248,16 +187,21 @@ namespace smt {
         expr_ref s_plus_r(re().mk_concat(s_to_re, r), m);
         unsigned min_len = re().min_length(s_plus_r);
         literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len);
-        th.add_axiom(~lit, len_s_ge_min);
-
-        // Old rule 1: accept(s, idx, r) => len(s) >= idx
-        // literal len_s_ge_i = th.m_ax.mk_ge(th.mk_len(s), idx);
-        // th.add_axiom(~lit, len_s_ge_i);
+        th.propagate_lit(nullptr, 1, &lit, len_s_ge_min);
+        // Axiom equivalent to the above: th.add_axiom(~lit, len_s_ge_min);
 
         // Rule 2: nullable check
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
-        literal is_nullable = th.mk_literal(is_nullable_wrapper(r));
-        th.add_axiom(~lit, ~len_s_le_i, is_nullable);
+        expr_ref is_nullable = is_nullable_wrapper(r);
+        if (m.is_false(is_nullable)) {
+            th.propagate_lit(nullptr, 1, &lit, ~len_s_le_i);
+        }
+        else if (!m.is_true(is_nullable)) {
+            // is_nullable did not simplify
+            literal is_nullable_lit = th.mk_literal(is_nullable_wrapper(r));
+            ctx.mark_as_relevant(is_nullable_lit);
+            th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
+        }
 
         // Rule 3: derivative unfolding
         literal_vector accept_next;
@@ -283,9 +227,6 @@ namespace smt {
                                            << mk_pp(choice, m) << std::endl;);
         }
         th.add_axiom(accept_next);
-
-        // Propagated successfully
-        return true;
     }
 
     /**
@@ -425,7 +366,7 @@ namespace smt {
 
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
-        expr_ref r = symmetric_diff(r1, r2);
+        expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_empty = sk().mk_is_empty(r, emp, n);
@@ -467,12 +408,9 @@ namespace smt {
         VERIFY(sk().is_is_non_empty(e, r, u, n));
 
         TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief",
-            tout << std::endl << "PNE(" << expr_id_str(e)
-                              << "," << state_str(r)
-                              << "," << expr_id_str(u)
-                              << "," << expr_id_str(n)
-                              << ") ";);
+        STRACE("seq_regex_brief", tout
+            << std::endl << "PNE(" << expr_id_str(e) << "," << state_str(r)
+            << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
 
         expr_ref is_nullable = is_nullable_wrapper(r);
         if (m.is_true(is_nullable))
@@ -497,7 +435,7 @@ namespace smt {
             rewrite(cond);
             if (m.is_false(cond))
                 continue;            
-            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
+            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, r), n);
             if (!m.is_true(cond))
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
@@ -553,12 +491,9 @@ namespace smt {
         expr_ref is_nullable = is_nullable_wrapper(r);
 
         TRACE("seq_regex", tout << "propagate empty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief",
-            tout << std::endl << "PE(" << expr_id_str(e)
-                              << "," << state_str(r)
-                              << "," << expr_id_str(u)
-                              << "," << expr_id_str(n)
-                              << ") ";);
+        STRACE("seq_regex_brief", tout
+            << std::endl << "PE(" << expr_id_str(e) << "," << state_str(r)
+            << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
 
         if (m.is_true(is_nullable)) {
             th.add_axiom(~lit);
@@ -704,7 +639,7 @@ namespace smt {
             m_state_graph.mark_done(r_id);
         }
         STRACE("seq_regex_brief", tout << std::endl;);
-        STRACE("seq_regex_brief", m_state_graph.pretty_print(tout););
+        STRACE("seq_regex_brief", m_state_graph.display(tout););
         return true;
     }
 

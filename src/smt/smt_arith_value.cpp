@@ -125,9 +125,37 @@ namespace smt {
         return false;
     }
 
+    expr_ref arith_value::get_lo(expr* e) const {
+        rational lo;
+        bool s = false;
+        if (a.is_int_real(e) && get_lo(e, lo, s) && !s) {
+            return expr_ref(a.mk_numeral(lo, m.get_sort(e)), m);
+        }
+        return expr_ref(e, m);
+    }
+
+    expr_ref arith_value::get_up(expr* e) const {
+        rational up;
+        bool s = false;
+        if (a.is_int_real(e) && get_up(e, up, s) && !s) {
+            return expr_ref(a.mk_numeral(up, m.get_sort(e)), m);
+        }
+        return expr_ref(e, m);
+    }
+
+    expr_ref arith_value::get_fixed(expr* e) const {
+        rational lo, up;
+        bool s = false;
+        if (a.is_int_real(e) && get_lo(e, lo, s) && !s && get_up(e, up, s) && !s && lo == up) {
+            return expr_ref(a.mk_numeral(lo, m.get_sort(e)), m);
+        }
+        return expr_ref(e, m);
+    }    
+
     final_check_status arith_value::final_check() {
         family_id afid = a.get_family_id();
         theory * th = m_ctx->get_theory(afid);
         return th->final_check_eh();
     }
+
 };

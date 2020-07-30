@@ -838,7 +838,7 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = m().mk_ite(m_autil.mk_gt(m_autil.mk_add(offset, length), len_s),
                             m_autil.mk_sub(len_s, offset),
                             result);
-        result = m().mk_ite(m().mk_or(m_autil.mk_ge(offset, len_s), m_autil.mk_le(length, zero), m_autil.mk_lt(offset, zero)),
+        result = m().mk_ite(m().mk_or(m_autil.mk_le(len_s, offset), m_autil.mk_le(length, zero), m_autil.mk_lt(offset, zero)),
                             zero,
                             result);
         return BR_REWRITE_FULL;
@@ -2493,8 +2493,8 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         unsigned ch;
         if (u().is_char_le(e, ch1, ch2) && u().is_const_char(ch2, ch))
             return ch;
-        // Fallback: use expression ID (but use same ID for complement)
-        re().is_complement(e, e);
+        // Fallback: use expression ID (but use same ID for negation)
+        m().is_not(e, e);
         return e->get_id();
     };
     if (m().is_ite(a, ca, a1, a2)) {
@@ -3811,6 +3811,9 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
         return reduce_re_eq(l, r, result);
     }
     bool changed = false;
+    if (reduce_eq_empty(l, r, result)) 
+        return BR_REWRITE_FULL;
+
     if (!reduce_eq(l, r, new_eqs, changed)) {
         result = m().mk_false();
         TRACE("seq_verbose", tout << result << "\n";);
@@ -4205,6 +4208,25 @@ bool seq_rewriter::reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs,
         }
     }
     return true;
+}
+
+bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
+    if (str().is_empty(r))
+        std::swap(l,r);
+    if (!str().is_empty(l))
+        return false;
+    expr* s = nullptr, *offset = nullptr, *len = nullptr;
+    if (str().is_extract(r, s, offset, len)) {
+        expr_ref len_s(str().mk_length(s), m()); 
+        expr_ref_vector fmls(m());
+        fmls.push_back(m_autil.mk_lt(offset, m_autil.mk_int(0)));
+        fmls.push_back(m().mk_eq(s, l));
+        fmls.push_back(m_autil.mk_le(len, m_autil.mk_int(0)));
+        fmls.push_back(m_autil.mk_le(len_s, offset));
+        result = m().mk_or(fmls);
+        return true;
+    }
+    return false;
 }
 
 bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,

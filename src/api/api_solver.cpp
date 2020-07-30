@@ -554,6 +554,39 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    Z3_ast Z3_API Z3_solver_get_implied_value(Z3_context c, Z3_solver s, Z3_ast e) {
+        Z3_TRY;
+        LOG_Z3_solver_get_implied_value(c, s, e);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        expr_ref v = to_solver_ref(s)->get_implied_value(to_expr(e));
+        mk_c(c)->save_ast_trail(v);
+        RETURN_Z3(of_ast(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast Z3_API Z3_solver_get_implied_lower(Z3_context c, Z3_solver s, Z3_ast e) {
+        Z3_TRY;
+        LOG_Z3_solver_get_implied_lower(c, s, e);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        expr_ref v = to_solver_ref(s)->get_implied_lower_bound(to_expr(e));
+        mk_c(c)->save_ast_trail(v);
+        RETURN_Z3(of_ast(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast Z3_API Z3_solver_get_implied_upper(Z3_context c, Z3_solver s, Z3_ast e) {
+        Z3_TRY;
+        LOG_Z3_solver_get_implied_upper(c, s, e);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        expr_ref v = to_solver_ref(s)->get_implied_upper_bound(to_expr(e));
+        mk_c(c)->save_ast_trail(v);
+        RETURN_Z3(of_ast(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     static Z3_lbool _solver_check(Z3_context c, Z3_solver s, unsigned num_assumptions, Z3_ast const assumptions[]) {
         for (unsigned i = 0; i < num_assumptions; i++) {
             if (!is_expr(to_ast(assumptions[i]))) {

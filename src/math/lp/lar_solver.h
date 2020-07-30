@@ -349,6 +349,7 @@ public:
     void activate_check_on_equal(constraint_index, var_index&);
     void activate(constraint_index);
     void random_update(unsigned sz, var_index const * vars);
+    void mark_rows_for_bound_prop(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T> & bp) {
         SASSERT(use_tableau());

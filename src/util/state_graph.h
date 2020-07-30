@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
@@ -65,9 +65,6 @@ private:
         union find data structure collapses a now obsolete
         state to its current representative. m_seen keeps track
         of states we have seen, including obsolete states.
-
-        Invariants:
-        - TODO
     */
     state_set   m_live;
     state_set   m_dead;
@@ -81,13 +78,41 @@ private:
         Edges are saved in both from and to maps.
         A subset of edges are also marked as possibly being
         part of a cycle by being stored in m_sources_maybecycle.
-
-        Invariants:
-        - TODO
     */
     edge_rel   m_sources;
     edge_rel   m_targets;
     edge_rel   m_sources_maybecycle;
+
+    /*
+        CLASS INVARIANTS
+
+        *** To enable checking invariants, run z3 with -dbg:state_graph
+            (must also be in debug mode) ***
+
+        State invariants:
+        - live, dead, unknown, and unexplored form a partition of
+          the set of roots in m_state_ufind
+        - all of these are subsets of m_seen
+        - everything in m_seen is an integer less than the number of variables
+          in m_state_ufind
+
+        Edge invariants:
+        - all edges are between roots of m_state_ufind
+        - m_sources and m_targets are converses of each other
+        - no self-loops
+        - m_sources_maybecycle is a subrelation of m_sources
+
+        Relationship between states and edges:
+        - every state with a live target is live
+        - every state with a dead source is dead
+        - every state with only dead targets is dead
+        - there are no cycles of unknown states on maybecycle edges
+    */
+    #ifdef Z3DEBUG
+    bool is_subset(state_set set1, state_set set2) const;
+    bool is_disjoint(state_set set1, state_set set2) const;
+    bool check_invariant() const;
+    #endif
 
     /*
         'Core' functions that modify the plain graph, without
@@ -114,13 +139,17 @@ private:
         - cycle / strongly-connected component detection
     */
     void mark_live_recursive(state s);
+    bool all_targets_dead(state s);
     void mark_dead_recursive(state s);
     state merge_all_cycles(state s);
 
 public:
     state_graph():
         m_live(), m_dead(), m_unknown(), m_unexplored(), m_seen(),
-        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle() {}
+        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle()
+    {
+        CASSERT("state_graph", check_invariant());
+    }
 
     /*
         Exposed methods
@@ -138,16 +167,16 @@ public:
     void mark_live(state s);
     void mark_done(state s);
 
-    bool is_seen(state s);
-    bool is_live(state s);
-    bool is_dead(state s);
-    bool is_done(state s);
+    bool is_seen(state s) const;
+    bool is_live(state s) const;
+    bool is_dead(state s) const;
+    bool is_done(state s) const;
 
-    unsigned get_size();
+    unsigned get_size() const;
 
     /*
         Pretty printing
     */
-    void pretty_print(std::ostream& o);
+    std::ostream& display(std::ostream& o) const;
 
 };
