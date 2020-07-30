@@ -2617,7 +2617,7 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
     Make an re_predicate with an arbitrary condition cond, enforcing
     derivative normal form on how conditions are written.
 
-    Tries to rewrites everything to (ele <= x) constraints:
+    Tries to rewrite everything to (ele <= x) constraints:
     (ele = a) => ite(ele <= a-1, none, ite(ele <= a, epsilon, none))
     (a = ele) => "
     (a <= ele) => ite(ele <= a-1, none, epsilon)
