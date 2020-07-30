@@ -4221,7 +4221,7 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
         expr_ref_vector fmls(m());
         fmls.push_back(m_autil.mk_lt(offset, m_autil.mk_int(0)));
         fmls.push_back(m().mk_eq(s, l));
-        fmls.push_back(m_autil.mk_lt(len, m_autil.mk_int(0)));
+        fmls.push_back(m_autil.mk_le(len, m_autil.mk_int(0)));
         fmls.push_back(m_autil.mk_le(len_s, offset));
         result = m().mk_or(fmls);
         return true;
