@@ -101,8 +101,6 @@ namespace smt {
 
     public:
 
-        void get_all_derivatives(expr* r, expr_ref_vector& results);
-
         seq_regex(theory_seq& th);
 
         void push_scope() {}
