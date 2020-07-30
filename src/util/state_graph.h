@@ -99,6 +99,7 @@ private:
         Edge invariants:
         - all edges are between roots of m_state_ufind
         - m_sources and m_targets are converses of each other
+        - no self-loops
         - m_sources_maybecycle is a subrelation of m_sources
 
         Relationship between states and edges:
