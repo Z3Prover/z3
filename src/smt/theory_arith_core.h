@@ -1251,7 +1251,6 @@ namespace smt {
         expr * rhs2;
         if (m_util.is_to_real(rhs, rhs2) && is_app(rhs2)) { rhs = to_app(rhs2); }
         if (!m_util.is_numeral(rhs)) {
-            SASSERT(false);
             throw default_exception("malformed atomic constraint");
         }
         theory_var v   = internalize_term_core(lhs);
