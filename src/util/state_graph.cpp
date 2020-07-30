@@ -261,12 +261,14 @@ auto state_graph::merge_all_cycles(state s) -> state {
 void state_graph::add_state(state s) {
     if (m_seen.contains(s)) return;
     add_state_core(s);
+    CASSERT("state_graph", check_invariant());
 }
 void state_graph::mark_live(state s) {
     SASSERT(m_unexplored.contains(s) || m_live.contains(s));
     SASSERT(m_state_ufind.is_root(s));
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     mark_live_recursive(s);
+    CASSERT("state_graph", check_invariant());
 }
 void state_graph::add_edge(state s1, state s2, bool maybecycle) {
     SASSERT(m_unexplored.contains(s1) || m_live.contains(s1));
@@ -275,6 +277,7 @@ void state_graph::add_edge(state s1, state s2, bool maybecycle) {
     s2 = m_state_ufind.find(s2);
     add_edge_core(s1, s2, maybecycle);
     if (m_live.contains(s2)) mark_live(s1);
+    CASSERT("state_graph", check_invariant());
 }
 void state_graph::mark_done(state s) {
     SASSERT(m_unexplored.contains(s) || m_live.contains(s));
@@ -282,9 +285,9 @@ void state_graph::mark_done(state s) {
     if (m_live.contains(s)) return;
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     s = merge_all_cycles(s);
-    // check if dead
-    mark_dead_recursive(s);
+    mark_dead_recursive(s); // check if dead
     STRACE("seq_regex_brief", tout << "done(" << s << ") ";);
+    CASSERT("state_graph", check_invariant());
 }
 
 unsigned state_graph::get_size() const {
@@ -303,6 +306,69 @@ bool state_graph::is_dead(state s) const {
 bool state_graph::is_done(state s) const {
     return m_seen.contains(s) && !m_unexplored.contains(m_state_ufind.find(s));
 }
+
+/*
+    Class invariants check (and associated auxiliary functions)
+
+    check_invariant performs a sequence of SASSERT assertions,
+    then always returns true.
+*/
+#ifdef Z3DEBUG
+bool state_graph::is_subset(state_set set1, state_set set2) const {
+    for (auto s1: set1) {
+        if (!set2.contains(s1)) return false;
+    }
+    return true;
+}
+bool state_graph::is_disjoint(state_set set1, state_set set2) const {
+    for (auto s1: set1) {
+        if (set2.contains(s1)) return false;
+    }
+    return true;
+}
+bool state_graph::check_invariant() const {
+    // Reference sets
+    state_set all;
+    state_set roots;
+    for (state s = 0; s < m_state_ufind.get_num_vars(); s++) {
+        all.insert(s);
+    }
+    for (auto s: m_seen) {
+        if (m_state_ufind.is_root(s))
+            roots.insert(s);
+    }
+    // Check state invariants
+    SASSERT(is_subset(m_live, m_seen));
+    SASSERT(is_subset(m_dead, m_seen));
+    SASSERT(is_subset(m_unknown, m_seen));
+    SASSERT(is_subset(m_unexplored, m_seen));
+    SASSERT(is_disjoint(m_live, m_dead));
+    SASSERT(is_disjoint(m_live, m_unknown));
+    SASSERT(is_disjoint(m_live, m_unexplored));
+    SASSERT(is_disjoint(m_dead, m_unknown));
+    SASSERT(is_disjoint(m_dead, m_unexplored));
+    SASSERT(is_disjoint(m_unknown, m_unexplored));
+    for (auto s: m_seen) {
+        SASSERT(s < m_state_ufind.get_num_vars());
+        if (m_state_ufind.is_root(s)) {
+            SASSERT(m_live.contains(s) || m_dead.contains(s) ||
+                    m_unknown.contains(s) || m_unexplored.contains(s));
+        }
+    }
+    // Check edge invariants
+    // TODO:
+    // - all edges are between roots of m_state_ufind
+    // - m_sources and m_targets are converses of each other
+    // - m_sources_maybecycle is a subrelation of m_sources
+    // Check relationship between states and edges
+    // TODO:
+    // - every state with a live target is live
+    // - every state with a dead source is dead
+    // - every state with only dead targets is dead
+    // - there are no cycles of unknown states on maybecycle edges
+    return true;
+}
+#endif
 
 /*
     Pretty printing

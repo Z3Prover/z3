@@ -86,10 +86,15 @@ private:
     /*
         CLASS INVARIANTS
 
+        *** To enable checking invariants, run z3 with -dbg:state_graph
+            (must also be in debug mode) ***
+
         State invariants:
         - live, dead, unknown, and unexplored form a partition of
           the set of roots in m_state_ufind
         - all of these are subsets of m_seen
+        - everything in m_seen is an integer less than the number of variables
+          in m_state_ufind
 
         Edge invariants:
         - all edges are between roots of m_state_ufind
@@ -102,6 +107,11 @@ private:
         - every state with only dead targets is dead
         - there are no cycles of unknown states on maybecycle edges
     */
+    #ifdef Z3DEBUG
+    bool is_subset(state_set set1, state_set set2) const;
+    bool is_disjoint(state_set set1, state_set set2) const;
+    bool check_invariant() const;
+    #endif
 
     /*
         'Core' functions that modify the plain graph, without
@@ -135,7 +145,10 @@ private:
 public:
     state_graph():
         m_live(), m_dead(), m_unknown(), m_unexplored(), m_seen(),
-        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle() {}
+        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle()
+    {
+        CASSERT("state_graph", check_invariant());
+    }
 
     /*
         Exposed methods
