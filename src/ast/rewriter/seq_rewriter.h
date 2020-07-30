@@ -268,6 +268,7 @@ class seq_rewriter {
     bool reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
+    bool reduce_eq_empty(expr* l, expr* r, expr_ref& result);
     bool min_length(expr_ref_vector const& es, unsigned& len);
     expr* concat_non_empty(expr_ref_vector& es);
 
