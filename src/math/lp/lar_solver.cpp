@@ -345,7 +345,7 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
             jset.insert(j);
         else {
             for (const auto & rc : A_r().m_rows[i])
-                    jset.insert(rc.var());
+                jset.insert(rc.var());
         }
     }
 
@@ -1268,6 +1268,14 @@ void lar_solver::random_update(unsigned sz, var_index const * vars) {
     random_updater ru(*this, column_list);
     ru.update();
 }
+
+void lar_solver::mark_rows_for_bound_prop(lpvar j) {
+    auto & column = A_r().m_columns[j];
+    for (auto const& r : column) {
+        m_rows_with_changed_bounds.insert(r.var());
+    }
+}
+
 
 
 void lar_solver::pivot_fixed_vars_from_basis() {

@@ -363,6 +363,19 @@ public:
         return nullptr;
     }
 
+    // TODO
+    expr_ref get_implied_value(expr* e) override {
+        return expr_ref(e, m);
+    }
+
+    expr_ref get_implied_lower_bound(expr* e) override {
+        return expr_ref(e, m);
+    }
+
+    expr_ref get_implied_upper_bound(expr* e) override {
+        return expr_ref(e, m);
+    }
+
     expr_ref_vector last_cube(bool is_sat) {
         expr_ref_vector result(m);
         result.push_back(is_sat ? m.mk_true() : m.mk_false());

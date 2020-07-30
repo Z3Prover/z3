@@ -564,6 +564,9 @@ class theory_lra::imp {
                 if (is_app(n)) {
                     internalize_args(to_app(n));
                 }
+                if (m.is_ite(n)) {
+                    if (!ctx().relevancy()) mk_ite_axiom(n);
+                }
                 theory_var v = mk_var(n);
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
@@ -1109,7 +1112,7 @@ public:
         if (vi == lp::null_lpvar) {
             return l_undef;
         }
-        return m_solver->compare_values(vi, k, b->get_value()) ? l_true : l_false;
+        return lp().compare_values(vi, k, b->get_value()) ? l_true : l_false;
     }
 
     void new_eq_eh(theory_var v1, theory_var v2) {
@@ -1193,6 +1196,8 @@ public:
             mk_to_int_axiom(n);
         else if (a.is_is_int(n))
             mk_is_int_axiom(n);            
+        else if (m.is_ite(n))
+            mk_ite_axiom(n);
     }
 
     //  n < 0 || rem(a, n) =  mod(a, n)
@@ -1252,6 +1257,16 @@ public:
         }
     }
 
+    void mk_ite_axiom(expr* n) {
+        return;
+        expr* c = nullptr, *t = nullptr, *e = nullptr;
+        VERIFY(m.is_ite(n, c, t, e));
+        literal e1 = th.mk_eq(n, t, false);
+        literal e2 = th.mk_eq(n, e, false);
+        scoped_trace_stream sts(th, e1, e2);
+        mk_axiom(e1, e2);
+    }
+
     // is_int(x) <=> to_real(to_int(x)) = x
     void mk_is_int_axiom(app* n) {
         expr* x = nullptr;
@@ -1273,10 +1288,9 @@ public:
     ///   abs(r) > r >= 0
     void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r) {
         app_ref term(m);
-        term = a.mk_sub(get_enode(u)->get_owner(), 
-                        a.mk_add(get_enode(v)->get_owner(),
-                                 a.mk_mul(a.mk_numeral(r, true), 
-                                          get_enode(w)->get_owner())));
+        term = a.mk_mul(a.mk_numeral(r, true), get_enode(w)->get_owner());
+        term = a.mk_add(get_enode(v)->get_owner(), term);
+        term = a.mk_sub(get_enode(u)->get_owner(), term);
         theory_var z = internalize_def(term);
         lpvar zi = register_theory_var_in_lar_solver(z);
         lpvar vi = register_theory_var_in_lar_solver(v);
@@ -1353,37 +1367,6 @@ public:
                 };
                 if_trace_stream _ts(m, log);
             }
-
-#if 0
-            // creates more literals than useful.
-            literal div_ge_0   = mk_literal(a.mk_ge(div, zero));
-            literal div_le_0   = mk_literal(a.mk_le(div, zero));
-            literal p_ge_0     = mk_literal(a.mk_ge(p, zero));
-            literal p_le_0     = mk_literal(a.mk_le(p, zero));
-
-            if (k.is_pos()) {
-                mk_axiom(~p_ge_0, div_ge_0);                
-                mk_axiom(~p_le_0, div_le_0);
-                mk_axiom(p_ge_0, ~div_ge_0);                
-                mk_axiom(p_le_0, ~div_le_0);
-                std::function<void(void)> log = [&,this]() {
-                    th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_ge_0.var())));
-                    th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_le_0.var())));
-                };
-                if_trace_stream _ts(m, log);
-            }
-            else {
-                mk_axiom(~p_ge_0, div_le_0);
-                mk_axiom(~p_le_0, div_ge_0);
-                mk_axiom(p_ge_0, ~div_le_0);
-                mk_axiom(p_le_0, ~div_ge_0);
-                std::function<void(void)> log = [&,this]() {
-                    th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_le_0.var())));
-                    th.log_axiom_unit(m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_ge_0.var())));
-                };
-                if_trace_stream _ts(m, log);
-            }
-#endif
         }
         else {
 
@@ -1717,13 +1700,14 @@ public:
 
     final_check_status final_check_eh() {
         reset_variable_values();
-        IF_VERBOSE(12, verbose_stream() << "final-check " << m_solver->get_status() << "\n");
+        IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
         if (lp().get_status() != lp::lp_status::OPTIMAL) {
             is_sat = make_feasible();
         }
         final_check_status st = FC_DONE;
+
         switch (is_sat) {
         case l_true:
             TRACE("arith", /*display(tout);*/
@@ -2325,22 +2309,6 @@ public:
     //     }
     // }
 
-    bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval)  {
-        theory_var v = lp().local_to_external(vi);
-        if (v == null_theory_var) {
-            return false;
-        }
-        if (m_bounds.size() <= static_cast<unsigned>(v) || m_unassigned_bounds[v] == 0) {
-            return false;
-        }
-        for (lp_api::bound* b : m_bounds[v]) {
-            if (ctx().get_assignment(b->get_bv()) == l_undef &&
-                null_literal != is_bound_implied(kind, bval, *b)) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     void consume(rational const& v, lp::constraint_index j) {
         set_evidence(j, m_core, m_eqs);
@@ -2794,7 +2762,7 @@ public:
         literal lit1(bv, !is_true);
         literal lit2 = null_literal;
         bool find_glb = (is_true == (k == lp_api::lower_t));
-        TRACE("arith", tout << "find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
+        TRACE("arith", tout << "v" << v << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
         if (find_glb) {
             rational glb;
             lp_api::bound* lb = nullptr;
@@ -2967,7 +2935,7 @@ public:
         theory_var v = b.get_var();
         auto ti = get_tv(v);
         SASSERT(ti.is_term());
-        lp::lar_term const& term = m_solver->get_term(ti);
+        lp::lar_term const& term = lp().get_term(ti);
         for (auto const mono : term) {
             auto wi = lp().column2tv(mono.column());
             lp::constraint_index ci;
@@ -3012,8 +2980,9 @@ public:
     }
 
     void assert_bound(bool_var bv, bool is_true, lp_api::bound& b) {
+        TRACE("arith", tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
-        m_solver->activate(ci);
+        lp().activate(ci);
         if (is_infeasible()) {
             return;
         }
@@ -3028,6 +2997,10 @@ public:
         if (propagate_eqs() && value.is_rational()) {
             propagate_eqs(b.tv(), ci, k, b, value.get_rational());
         }
+#if 0
+        if (propagation_mode() != BP_NONE)
+            lp().mark_rows_for_bound_prop(b.tv().id());
+#endif
     }
 
     lp_api::bound* mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound) {
@@ -3042,13 +3015,13 @@ public:
         lp::lconstraint_kind kT = bound2constraint_kind(v_is_int, bk, true);
         lp::lconstraint_kind kF = bound2constraint_kind(v_is_int, bk, false);
         
-        cT = m_solver->mk_var_bound(vi, kT, bound);
+        cT = lp().mk_var_bound(vi, kT, bound);
         if (v_is_int) {
             rational boundF = (bk == lp_api::lower_t) ? bound - 1 : bound + 1;
-            cF = m_solver->mk_var_bound(vi, kF, boundF);
+            cF = lp().mk_var_bound(vi, kF, boundF);
         }
         else {
-            cF = m_solver->mk_var_bound(vi, kF, bound);
+            cF = lp().mk_var_bound(vi, kF, bound);
         }
         add_ineq_constraint(cT, literal(bv, false));
         add_ineq_constraint(cF, literal(bv, true));

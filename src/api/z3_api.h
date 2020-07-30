@@ -6487,6 +6487,34 @@ extern "C" {
     void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz,  unsigned levels[]);
 
     /**
+       \brief retrieve implied value for expression, if any is implied by solver at search level.
+       The method works for expressions that are known to the solver state, such as Boolean and
+       arithmetical variables.
+       
+       def_API('Z3_solver_get_implied_value', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_solver_get_implied_value(Z3_context c, Z3_solver s, Z3_ast e);
+
+    /**
+       \brief retrieve implied lower bound value for arithmetic expression.
+       If a lower bound is implied at search level, the arithmetic expression returned
+       is a constant representing the bound.
+       
+       def_API('Z3_solver_get_implied_lower', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_solver_get_implied_lower(Z3_context c, Z3_solver s, Z3_ast e);
+
+    /**
+       \brief retrieve implied upper bound value for arithmetic expression.
+       If an upper bound is implied at search level, the arithmetic expression returned
+       is a constant representing the bound.
+       
+       def_API('Z3_solver_get_implied_upper', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+    */
+
+    Z3_ast Z3_API Z3_solver_get_implied_upper(Z3_context c, Z3_solver s, Z3_ast e);
+
+    /**
        \brief Check whether the assertions in a given solver are consistent or not.
 
        The function #Z3_solver_get_model retrieves a model if the

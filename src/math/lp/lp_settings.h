@@ -39,6 +39,16 @@ enum class column_type  {
     fixed = 4
 };
 
+inline std::ostream& operator<<(std::ostream& out, column_type const& t) {
+    switch (t) {
+    case column_type::free_column: return out << "free";
+    case column_type::lower_bound: return out << "lower";
+    case column_type::upper_bound: return out << "upper";
+    case column_type::boxed: return out << "boxed";
+    case column_type::fixed: return out << "fixed";
+    }
+}
+
 enum class simplex_strategy_enum {
     undecided = 3,
     tableau_rows = 0,
