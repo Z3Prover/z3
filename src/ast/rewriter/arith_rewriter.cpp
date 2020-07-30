@@ -616,6 +616,24 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         case EQ: result = m().mk_ite(c, m().mk_eq(t, arg2), m().mk_eq(e, arg2)); return BR_REWRITE2;
         }
     }
+    if (m_util.is_to_int(arg2) && is_numeral(arg1)) {        
+        kind = inv(kind);
+        std::swap(arg1, arg2);
+    } 
+    if (m_util.is_to_int(arg1, t) && is_numeral(arg2, a2)) {        
+        switch (kind) {
+        case LE: 
+            result = m_util.mk_lt(t, m_util.mk_numeral(a2+1, false)); 
+            return BR_DONE;
+        case GE: 
+            result = m_util.mk_ge(t, m_util.mk_numeral(a2, false)); 
+            return BR_REWRITE1;
+        case EQ: 
+            result = m_util.mk_ge(t, m_util.mk_numeral(a2, false));
+            result = m().mk_and(m_util.mk_lt(t, m_util.mk_numeral(a2+1, false)), result);
+            return BR_DONE;
+        }        
+    } 
     if ((m_arith_lhs || m_arith_ineq_lhs) && is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
         a2.neg();
         new_arg2 = m_util.mk_numeral(a2, m_util.is_int(new_arg1));
