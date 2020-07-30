@@ -400,7 +400,7 @@ namespace smt {
 
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
-        expr_ref r = symmetric_diff(r1, r2);
+        expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_empty = sk().mk_is_empty(r, emp, n);
@@ -594,6 +594,8 @@ namespace smt {
         // in a cycle. There are various easy syntactic checks on r1 and r2
         // that can be used to infer this (e.g. star height, or length if
         // both are star-free).
+        // This check need not be sound, but if it is not, some dead states
+        // will be missed.
         return true;
     }
 
