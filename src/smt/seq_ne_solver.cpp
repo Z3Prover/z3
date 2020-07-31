@@ -133,6 +133,13 @@ bool theory_seq::propagate_ne2eq(unsigned idx) {
 bool theory_seq::propagate_ne2eq(unsigned idx, expr_ref_vector const& es) {
     if (es.empty())
         return false;
+    for (expr* e : es) {
+        expr_ref len_e = mk_len(e);
+        rational lo;
+        if (lower_bound(len_e, lo) && lo > 0) {
+            return true;
+        }
+    }
     ne const& n = m_nqs[idx];
     expr_ref e(m), head(m), tail(m);
     e = mk_concat(es, m.get_sort(es[0]));
@@ -221,10 +228,8 @@ bool theory_seq::reduce_ne(unsigned idx) {
         }
     }
 
-
-    TRACE("seq", display_disequation(tout << "updated: " << updated << "\n", n););
-
     if (updated) {
+        TRACE("seq", display_disequation(tout, n););
         m_nqs.set(idx, ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
         TRACE("seq", display_disequation(tout << "updated:\n", m_nqs[idx]););
     }

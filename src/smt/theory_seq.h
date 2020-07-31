@@ -178,12 +178,11 @@ namespace smt {
             literal_vector           m_lits;
             dependency*              m_dep;
         public:
-            ne(expr_ref const& l, expr_ref const& r, literal eqlen, dependency* dep):
+            ne(expr_ref const& l, expr_ref const& r, dependency* dep):
                 m_l(l), m_r(r), m_dep(dep) {
                     expr_ref_vector ls(l.get_manager()); ls.push_back(l);
                     expr_ref_vector rs(r.get_manager()); rs.push_back(r);
                     m_eqs.push_back(std::make_pair(ls, rs));
-                    m_lits.push_back(eqlen);
                 }
 
             ne(expr_ref const& _l, expr_ref const& _r, vector<decomposed_eq> const& eqs, literal_vector const& lits, dependency* dep):

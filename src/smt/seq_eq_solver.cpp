@@ -739,7 +739,6 @@ bool theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
     switch (ctx.get_assignment(lit)) {
     case l_true: {
         expr_ref R = mk_concat(lX, units.c_ptr(), m.get_sort(X));     
-        TRACE("seq", tout << "propagate " << mk_pp(X, m) << " " << R << "\n";);
         return propagate_eq(dep, lit, X, R);
     }
     case l_undef: 
@@ -1139,13 +1138,11 @@ bool theory_seq::branch_variable_eq(eq const& e) {
     TRACE("seq", tout << s << " " << id << ": " << e.ls() << " = " << e.rs() << "\n";);
     bool found = find_branch_candidate(s, e.dep(), e.ls(), e.rs());
     insert_branch_start(2*id, s);
-    if (found) {
-        return true;
+    if (!found) {
+        s = find_branch_start(2*id + 1);
+        found = find_branch_candidate(s, e.dep(), e.rs(), e.ls());
+        insert_branch_start(2*id + 1, s);
     }
-    s = find_branch_start(2*id + 1);
-    found = find_branch_candidate(s, e.dep(), e.rs(), e.ls());
-    insert_branch_start(2*id + 1, s);
-    
     return found;
 }
 
@@ -1216,7 +1213,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
         for (literal lit : lits) {
             switch (ctx.get_assignment(lit)) {
             case l_true:  break;
-            case l_false: start = 0; return true;
+            case l_false: start = 0; return false;
             case l_undef: ctx.mark_as_relevant(lit); ctx.force_phase(~lit); start = 0; return true;
             }
         }

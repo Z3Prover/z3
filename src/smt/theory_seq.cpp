@@ -3101,12 +3101,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
         }
 
         dependency* dep = m_dm.mk_leaf(assumption(~lit));
-        expr_ref len1(m_util.str.mk_length(e1), m);
-        expr_ref len2(m_util.str.mk_length(e2), m);
-        m_rewrite(len1);
-        m_rewrite(len2);
-        literal eqlen = mk_eq(len1, len2, false); 
-        m_nqs.push_back(ne(e1, e2, eqlen, dep));
+        m_nqs.push_back(ne(e1, e2, dep));
         if (ctx.get_assignment(lit) != l_undef) {
             solve_nqs(m_nqs.size() - 1);
         }
