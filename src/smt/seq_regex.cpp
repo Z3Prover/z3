@@ -411,10 +411,8 @@ namespace smt {
             << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
 
         expr_ref is_nullable = is_nullable_wrapper(r);
-        if (m.is_true(is_nullable)) {
-            TRACE("seq_regex", tout << "is nullable\n";);
+        if (m.is_true(is_nullable)) 
             return;
-        }
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);
@@ -441,7 +439,6 @@ namespace smt {
             lits.push_back(th.mk_literal(next_non_empty));
         }
 
-        TRACE("seq_regex", tout << lits << "\n";);
         th.add_axiom(lits);
     }
 
