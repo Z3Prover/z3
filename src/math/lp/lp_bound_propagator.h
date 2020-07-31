@@ -205,7 +205,7 @@ public:
     void try_add_equation_with_val_table(const vertex *v) {
         SASSERT(m_fixed_vertex);
         unsigned v_j = v->column();
-        vertex *u;
+        vertex *u = nullptr;
         if (!m_vals_to_verts.find(val(v_j), u)) {
             m_vals_to_verts.insert(val(v_j), u);
             return;

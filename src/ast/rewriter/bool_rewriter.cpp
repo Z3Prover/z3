@@ -236,7 +236,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
 
     unsigned sz = buffer.size();
 
-    switch(sz) {
+    switch (sz) {
     case 0:
         result = m().mk_false();
         return BR_DONE;
@@ -298,7 +298,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
 }
 
 expr * bool_rewriter::mk_or_app(unsigned num_args, expr * const * args) {
-    switch(num_args) {
+    switch (num_args) {
     case 0: return m().mk_false();
     case 1: return args[0];
     default: return m().mk_or(num_args, args);
