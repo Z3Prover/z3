@@ -178,11 +178,12 @@ namespace smt {
             literal_vector           m_lits;
             dependency*              m_dep;
         public:
-            ne(expr_ref const& l, expr_ref const& r, dependency* dep):
+            ne(expr_ref const& l, expr_ref const& r, literal eqlen, dependency* dep):
                 m_l(l), m_r(r), m_dep(dep) {
                     expr_ref_vector ls(l.get_manager()); ls.push_back(l);
                     expr_ref_vector rs(r.get_manager()); rs.push_back(r);
                     m_eqs.push_back(std::make_pair(ls, rs));
+                    m_lits.push_back(eqlen);
                 }
 
             ne(expr_ref const& _l, expr_ref const& _r, vector<decomposed_eq> const& eqs, literal_vector const& lits, dependency* dep):
@@ -431,7 +432,7 @@ namespace smt {
         bool check_length_coherence(expr* e);
         bool fixed_length(bool is_zero = false);
         bool fixed_length(expr* e, bool is_zero);
-        void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
+        bool branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
         bool branch_variable_eq(eq const& e);
         bool branch_binary_variable(eq const& e);
         bool can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
@@ -536,7 +537,7 @@ namespace smt {
         bool find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs);
         expr_ref_vector expand_strings(expr_ref_vector const& es);
         bool can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs) const;
-        lbool assume_equality(expr* l, expr* r);
+        bool assume_equality(expr* l, expr* r);
 
         // variable solving utilities
         bool occurs(expr* a, expr* b);

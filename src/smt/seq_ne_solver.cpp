@@ -53,6 +53,7 @@ bool theory_seq::check_ne_literals(unsigned idx, unsigned& num_undef_lits) {
             TRACE("seq", display_disequation(tout << "has false literal\n", n);
                   ctx.display_literal_verbose(tout, lit);
                   tout << "\n" << lit << " " << ctx.is_relevant(lit) << "\n";
+                  display(tout);
                   );
             return false;
         case l_true:

@@ -4560,7 +4560,6 @@ namespace smt {
         pop_to_search_lvl();
         if (m.is_bool(e)) {
             if (b_internalized(e)) {
-                bool_var v = get_bool_var(e);
                 switch (get_assignment(get_bool_var(e))) {
                 case l_true: e = m.mk_true(); break;
                 case l_false: e = m.mk_false(); break;
