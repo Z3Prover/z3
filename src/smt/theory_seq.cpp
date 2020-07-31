@@ -110,32 +110,6 @@ Outline:
 
 using namespace smt;
 
-struct display_expr {
-    ast_manager& m;
-    display_expr(ast_manager& m): m(m) {}
-    std::ostream& display(std::ostream& out, sym_expr* e) const {
-        return e->display(out);
-    }
-};
-
-class seq_expr_solver : public expr_solver {
-    kernel m_kernel;
-public:
-    seq_expr_solver(ast_manager& m, smt_params& fp):
-        m_kernel(m, fp)
-    {}
-
-    lbool check_sat(expr* e) override {
-        m_kernel.push();
-        m_kernel.assert_expr(e);
-        lbool r = m_kernel.check();
-        m_kernel.pop(1);
-        IF_VERBOSE(11, verbose_stream() << "is " << r << " " << mk_pp(e, m_kernel.m()) << "\n");
-        return r;
-    }
-};
-
-
 void theory_seq::solution_map::update(expr* e, expr* r, dependency* d) {
     if (e == r) {
         return;
@@ -332,7 +306,7 @@ void theory_seq::init() {
     m_arith_value.init(&ctx);
 }
 
-#define TRACEFIN(s) { TRACE("seq", tout << ">>" << s << "\n";); IF_VERBOSE(31, verbose_stream() << s << "\n"); }
+#define TRACEFIN(s) { TRACE("seq", tout << ">>" << s << "\n";); IF_VERBOSE(20, verbose_stream() << s << "\n"); }
 
 struct scoped_enable_trace {
     scoped_enable_trace() {
