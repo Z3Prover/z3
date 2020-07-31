@@ -40,14 +40,15 @@ seq_skolem::seq_skolem(ast_manager& m, th_rewriter& rw):
     m_is_non_empty   = "re.is_non_empty";
 }
 
-expr_ref seq_skolem::mk(symbol const& s, expr* e1, expr* e2, expr* e3, expr* e4, sort* range) {
+expr_ref seq_skolem::mk(symbol const& s, expr* e1, expr* e2, expr* e3, expr* e4, sort* range, bool rw) {
     expr* es[4] = { e1, e2, e3, e4 };
     unsigned len = e4?4:(e3?3:(e2?2:(e1?1:0)));
     if (!range) {
         range = m.get_sort(e1);
     }
     expr_ref result(seq.mk_skolem(s, len, es, range), m);
-    m_rewrite(result);
+    if (rw) 
+        m_rewrite(result);
     return result;
 }
 

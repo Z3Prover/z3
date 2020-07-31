@@ -411,8 +411,10 @@ namespace smt {
             << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
 
         expr_ref is_nullable = is_nullable_wrapper(r);
-        if (m.is_true(is_nullable))
+        if (m.is_true(is_nullable)) {
+            TRACE("seq_regex", tout << "is nullable\n";);
             return;
+        }
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);
@@ -433,12 +435,13 @@ namespace smt {
             rewrite(cond);
             if (m.is_false(cond))
                 continue;            
-            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, r), n);
+            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
             if (!m.is_true(cond))
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
         }
 
+        TRACE("seq_regex", tout << lits << "\n";);
         th.add_axiom(lits);
     }
 
@@ -518,7 +521,7 @@ namespace smt {
                 expr_ref ncond(mk_not(m, cond), m);
                 lits.push_back(th.mk_literal(mk_forall(m, hd, ncond)));
             }
-            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, r), n);    
+            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, p.second), n);    
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        

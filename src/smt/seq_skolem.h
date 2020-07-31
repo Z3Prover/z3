@@ -48,8 +48,8 @@ namespace smt {
         expr_ref mk(symbol const& s, sort* range) { return mk(s, nullptr, nullptr, nullptr, nullptr, range); }
         expr_ref mk(symbol const& s, expr* e, sort* range) { return mk(s, e, nullptr, nullptr, nullptr, range); }
         expr_ref mk(symbol const& s, expr* e1, expr* e2, sort* range) { return mk(s, e1, e2, nullptr, nullptr, range); }
-        expr_ref mk(symbol const& s, expr* e1, expr* e2, expr* e3, sort* range) { return mk(s, e1, e2, e3, nullptr, range); }
-        expr_ref mk(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, expr* e4 = nullptr, sort* range = nullptr);
+        expr_ref mk(symbol const& s, expr* e1, expr* e2, expr* e3, sort* range, bool rw = true) { return mk(s, e1, e2, e3, nullptr, range, rw); }
+        expr_ref mk(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, expr* e4 = nullptr, sort* range = nullptr, bool rw = true);
 
         expr_ref mk(char const* s, sort* range) { return mk(s, nullptr, nullptr, nullptr, nullptr, range); }
         expr_ref mk(char const* s, expr* e, sort* range) { return mk(s, e, nullptr, nullptr, nullptr, range); }
@@ -72,8 +72,8 @@ namespace smt {
         }
         expr_ref mk_accept(expr_ref_vector const& args) { return expr_ref(seq.mk_skolem(m_accept, args.size(), args.c_ptr(), m.mk_bool_sort()), m); }
         expr_ref mk_accept(expr* s, expr* i, expr* r) { return mk(m_accept, s, i, r, nullptr, m.mk_bool_sort()); }
-        expr_ref mk_is_non_empty(expr* r, expr* u, expr* n) { return mk(m_is_non_empty, r, u, n, m.mk_bool_sort()); }
-        expr_ref mk_is_empty(expr* r, expr* u, expr* n) { return mk(m_is_empty, r, u, n, m.mk_bool_sort()); }
+        expr_ref mk_is_non_empty(expr* r, expr* u, expr* n) { return mk(m_is_non_empty, r, u, n, m.mk_bool_sort(), false); }
+        expr_ref mk_is_empty(expr* r, expr* u, expr* n) { return mk(m_is_empty, r, u, n, m.mk_bool_sort(), false); }
 
         expr_ref mk_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_left, t, s, offset); }
         expr_ref mk_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_right, t, s, offset); }
