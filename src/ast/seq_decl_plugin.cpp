@@ -1449,3 +1449,17 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo) const {
     }
     return false;
 }
+
+/**
+   Returns true iff e is the epsilon regex.
+ */
+bool seq_util::re::is_epsilon(expr* r) const {
+    expr* s;
+    return is_to_re(r, s) && u.str.is_empty(s);
+}
+/**
+   Makes the epsilon regex for a given sequence sort.
+ */
+app* seq_util::re::mk_epsilon(sort* seq_sort) {
+    return mk_to_re(u.str.mk_empty(seq_sort));
+}
