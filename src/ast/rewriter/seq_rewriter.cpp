@@ -3094,11 +3094,8 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
 bool seq_rewriter::has_fixed_length_constraint(expr* a, unsigned& len) {
     unsigned minl = re().min_length(a), maxl = re().max_length(a);
-    if (minl == maxl) {
-        len = minl;
-        return true;
-    }
-    return false;
+    len = minl;
+    return minl == maxl;
 }
 
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
