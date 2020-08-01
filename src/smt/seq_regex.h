@@ -77,6 +77,9 @@ namespace smt {
 
         bool is_string_equality(literal lit);
 
+        // Get a regex which overapproximates a given string
+        expr_ref get_overapprox_regex(expr* s, expr_ref dotstar);
+
         void rewrite(expr_ref& e);
 
         bool coallesce_in_re(literal lit);
@@ -101,9 +104,6 @@ namespace smt {
             get_cofactors(r, conds, result);
         }
         void get_all_derivatives(expr* r, expr_ref_vector& results);
-
-        expr_ref seq_regex::get_overapprox_regex(expr* s, expr_ref dotstar);
-        bool seq_regex::is_epsilon(expr* r);
 
     public:
 

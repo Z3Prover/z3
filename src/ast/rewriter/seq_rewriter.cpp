@@ -3128,11 +3128,11 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
-    if (is_epsilon(a)) {
+    if (re().is_epsilon(a)) {
         result = b;
         return BR_DONE;
     }
-    if (is_epsilon(b)) {
+    if (re().is_epsilon(b)) {
         result = a;
         return BR_DONE;
     }
@@ -3249,11 +3249,11 @@ br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
-    if (re().is_star(a) && is_epsilon(b)) {
+    if (re().is_star(a) && re().is_epsilon(b)) {
         result = a;
         return BR_DONE;
     }
-    if (re().is_star(b) && is_epsilon(a)) {
+    if (re().is_star(b) && re().is_epsilon(a)) {
         result = b;
         return BR_DONE;
     }
@@ -3558,11 +3558,11 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
             result = re().mk_star(re().mk_union(b, c1));
             return BR_REWRITE2;
         }
-        if (is_epsilon(b)) {
+        if (re().is_epsilon(b)) {
             result = re().mk_star(c);
             return BR_REWRITE2;
         }
-        if (is_epsilon(c)) {
+        if (re().is_epsilon(c)) {
             result = re().mk_star(b);
             return BR_REWRITE2;
         }
@@ -3599,7 +3599,7 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    if (is_epsilon(a)) {
+    if (re().is_epsilon(a)) {
         result = a;
         return BR_DONE;
     }
@@ -4250,12 +4250,6 @@ bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
         rs.reset();
     }    
     return true;
-}
-
-
-bool seq_rewriter::is_epsilon(expr* e) const {
-    expr* e1;
-    return re().is_to_re(e, e1) && str().is_empty(e1);
 }
 
 /**

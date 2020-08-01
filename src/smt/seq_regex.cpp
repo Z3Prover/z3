@@ -173,16 +173,16 @@ namespace smt {
                 n = es.size() - 1;
                 // make sure to simplify so that epsilons are eliminated in concatenations
                 // e.g. a sequence (x ++ "" ++ y ++ "") will be approximated by .*
-                for (int i = n; i >= 0; i--)
+                for (unsigned i = n; i >= 0; i--)
                 {
                     expr_ref elem_i = get_overapprox_regex(es.get(i), dotstar);
                     if (i == n)
                     {
                         s_approx = elem_i;
                     }
-                    else if (!is_epsilon(elem_i))
+                    else if (!re().is_epsilon(elem_i))
                     {
-                        if (is_epsilon(s_approx))
+                        if (re().is_epsilon(s_approx))
                         {
                             s_approx = elem_i;
                         }
@@ -200,30 +200,6 @@ namespace smt {
         else
         {
             return dotstar;
-        }
-    }
-
-    /** 
-    * Returns true iff r is the epsilon regex.
-    */
-    bool seq_regex::is_epsilon(expr* r)
-    {
-        app* a = (app*)r;
-        if (a->get_decl()->get_decl_kind() == OP_SEQ_TO_RE)
-        {
-            app* arg = (app*)a->get_arg(0);
-            if (arg->get_decl()->get_decl_kind() == OP_SEQ_EMPTY)
-            {
-                return true;
-            }
-            else 
-            {
-                return false;
-            }
-        }
-        else 
-        {
-            return false;
         }
     }
 

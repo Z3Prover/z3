@@ -472,6 +472,7 @@ public:
         bool is_loop(expr const* n, expr*& body, unsigned& lo) const;
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const;
         bool is_loop(expr const* n, expr*& body, expr*& lo) const;
+        bool is_epsilon(expr* r) const;
         unsigned min_length(expr* r) const;
         unsigned max_length(expr* r) const;
     };
