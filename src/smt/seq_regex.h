@@ -75,6 +75,9 @@ namespace smt {
 
         bool is_string_equality(literal lit);
 
+        // Get a regex which overapproximates a given string
+        expr_ref get_overapprox_regex(expr* s);
+
         void rewrite(expr_ref& e);
 
         bool coallesce_in_re(literal lit);

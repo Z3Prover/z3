@@ -90,6 +90,8 @@ namespace smt {
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
+        expr_ref _r(r, m);
+        expr_ref _s(s, m);
 
         TRACE("seq_regex", tout << "propagate in RE: " << lit.sign() << " " << mk_pp(e, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PIR(" << mk_pp(s, m) << ","
@@ -109,11 +111,37 @@ namespace smt {
             return;
         }
 
-        if (coallesce_in_re(lit))
-            return;
+        // Convert a non-ground sequence into an additional regex and
+        // strengthen the original regex constraint into an intersection
+        // for example:
+        //     (x ++ "a" ++ y) in b*
+        // is coverted to
+        //     (x ++ "a" ++ y) in intersect((.* ++ "a" ++ .*), b*)
+        if (!m.is_value(s)) {
+            expr_ref s_approx = get_overapprox_regex(s);
+            if (!re().is_full_seq(s_approx)) {
+                r = re().mk_inter(r, s_approx);
+                TRACE("seq_regex", tout
+                    << "get_overapprox_regex(" << mk_pp(s, m)
+                    << ") = " << mk_pp(s_approx, m) << std::endl;);
+                STRACE("seq_regex_brief", tout
+                    << "overapprox=" << state_str(r) << " ";);
+            }
+        }
 
-        if (is_string_equality(lit))
+        if (coallesce_in_re(lit)) {
+            TRACE("seq_regex", tout
+                << "simplified conjunctions to an intersection" << std::endl;);
+            STRACE("seq_regex_brief", tout << "coallesce_in_re ";);
             return;
+        }
+
+        if (is_string_equality(lit)) {
+            TRACE("seq_regex", tout
+                << "simplified regex using string equality" << std::endl;);
+            STRACE("seq_regex_brief", tout << "string_eq ";);
+            return;
+        }
 
         expr_ref zero(a().mk_int(0), m);
         expr_ref acc = sk().mk_accept(s, zero, r);
@@ -124,6 +152,64 @@ namespace smt {
         th.propagate_lit(nullptr, 1, &lit, acc_lit);
     }
 
+    /**
+    * Gets an overapproximating regex s_approx for the input string expression s.
+    * such that for any valuation v(s) of s, v(s) in L(s_approx).
+    * If the overapproximation is trivial then dotstar is returned.
+    */
+    expr_ref seq_regex::get_overapprox_regex(expr* s) {
+        expr_ref s_to_re(re().mk_to_re(s), m);
+        expr_ref epsilon(re().mk_epsilon(m.get_sort(s)), m);
+        expr_ref dotstar(re().mk_full_seq(m.get_sort(s_to_re)), m);
+        if (m.is_value(s)) {
+            return s_to_re;
+        }
+        else {
+            expr_ref_vector es(m);
+            expr_ref s_approx = epsilon;
+            unsigned int n = 0;
+            if (str().is_concat(s)) {
+                str().get_concat(s, es);
+                n = es.size() - 1;
+                // make sure to simplify so that epsilons are eliminated in
+                // concatenations -- e.g. a sequence
+                // (x ++ "" ++ y ++ "") will be approximated by .*
+                for (unsigned i = n; i != (unsigned)(-1); i--) {
+                    expr_ref elem_i = get_overapprox_regex(es.get(i));
+                    if (i == n) {
+                        s_approx = elem_i;
+                    }
+                    else if (!re().is_epsilon(elem_i)) {
+                        if (re().is_epsilon(s_approx)) {
+                            s_approx = elem_i;
+                        }
+                        else {
+                            s_approx = re().mk_concat(elem_i, s_approx);
+                        }
+                    }
+                }
+                return s_approx;
+            }
+            else if (m.is_ite(s)) {
+                s_approx = get_overapprox_regex(to_app(s)->get_arg(1));
+                //if either branch approximates to .* then the result is also .*
+                if (!re().is_full_seq(s_approx)) {
+                    expr_ref r2 = get_overapprox_regex(to_app(s)->get_arg(2));
+                    if (re().is_full_seq(r2)) {
+                        s_approx = r2;
+                    }
+                    else if (s_approx != r2) {
+                        s_approx = re().mk_union(s_approx, r2);
+                    }
+                }
+                return s_approx;
+            }
+            else {
+                // TBD: other app expressions that can be approximated
+                return dotstar;
+            }
+        }
+    }
     /**
      * Propagate the atom (accept s i r)
      *
