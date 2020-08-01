@@ -1457,3 +1457,9 @@ bool seq_util::re::is_epsilon(expr* r) const {
     expr* r1;
     return is_to_re(r, r1) && u.str.is_empty(r1);
 }
+/**
+   Makes the epsilon regex for a given sequence sort.
+ */
+app* seq_util::re::mk_epsilon(sort* seq_sort) {
+    return mk_to_re(u.str.mk_empty(seq_sort));
+}
