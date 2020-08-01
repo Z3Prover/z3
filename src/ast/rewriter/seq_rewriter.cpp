@@ -3098,10 +3098,6 @@ bool seq_rewriter::has_fixed_length_constraint(expr* a, unsigned& len) {
         len = minl;
         return true;
     }
-    expr* b = nullptr, *c = nullptr;
-    if (re().is_intersection(a, b, c)) {
-        return has_fixed_length_constraint(b, len) || has_fixed_length_constraint(c, len);
-    }
     return false;
 }
 

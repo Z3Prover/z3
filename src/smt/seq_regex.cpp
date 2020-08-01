@@ -369,7 +369,7 @@ namespace smt {
         expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
-        expr_ref is_empty = sk().mk_is_empty(r, emp, n);
+        expr_ref is_empty = sk().mk_is_empty(r, r, n);
         th.add_axiom(~th.mk_eq(r1, r2, false), th.mk_literal(is_empty));
     }
     
@@ -382,7 +382,7 @@ namespace smt {
         expr_ref r = symmetric_diff(r1, r2);
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
-        expr_ref is_non_empty = sk().mk_is_non_empty(r, emp, n);
+        expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
         th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));
     }
 
@@ -435,7 +435,7 @@ namespace smt {
             rewrite(cond);
             if (m.is_false(cond))
                 continue;            
-            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, r), n);
+            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
             if (!m.is_true(cond))
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
@@ -444,19 +444,72 @@ namespace smt {
         th.add_axiom(lits);
     }
 
-    void seq_regex::get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result) {
-        expr* cond = nullptr, *th = nullptr, *el = nullptr;
-        if (m.is_ite(r, cond, th, el)) {
+    void seq_regex::op_list(decl_kind k,
+                            expr_ref_vector& l1, expr_ref_vector& l2,
+                            expr_ref_vector& result) {
+        for (auto const& r1: l1) {
+            for (auto const& r2: l2) {
+                family_id fid = u().get_family_id();
+                expr_ref r(m.mk_app(fid, k, r1, r2), m);
+                result.push_back(r);
+            }
+        }
+    }
+    void seq_regex::lift_unions(expr* r, expr_ref_vector& result) {
+        expr* r1 = nullptr, *r2 = nullptr;
+        expr_ref_vector l1(m);
+        expr_ref_vector l2(m);
+        if (re().is_union(r, r1, r2)) {
+            lift_unions(r1, result);
+            lift_unions(r2, result);
+        }
+        else if (re().is_concat(r, r1, r2)) {
+            lift_unions(r1, l1);
+            lift_unions(r2, l2);
+            op_list(OP_RE_CONCAT, l1, l2, result);
+        }
+        else if (re().is_intersection(r, r1, r2)) {
+            lift_unions(r1, l1);
+            lift_unions(r2, l2);
+            op_list(OP_RE_INTERSECT, l1, l2, result);
+        }
+        /*
+            Other cases (no lifting):
+              - base cases: full seq, empty, to_re, range, full_char, of_pred
+              - loop cases: star, plus, loop
+              - TBD not handled right now but some lifting is possible:
+                complement, ite, reverse, diff, opt
+        */
+        else {
+            result.push_back(r);
+        }
+    }
+
+    void seq_regex::get_cofactors(expr* r, expr_ref_vector& conds,
+                                  expr_ref_pair_vector& result) {
+        expr* cond = nullptr, *r1 = nullptr, *r2 = nullptr;
+        if (m.is_ite(r, cond, r1, r2)) {
             conds.push_back(cond);
-            get_cofactors(th, conds, result);
+            get_cofactors(r1, conds, result);
             conds.pop_back();
             conds.push_back(mk_not(m, cond));
-            get_cofactors(el, conds, result);
+            get_cofactors(r2, conds, result);
             conds.pop_back();
         }
+        // else if (re().is_union(r, r1, r2)) {
+        //     get_cofactors(r1, conds, result);
+        //     get_cofactors(r2, conds, result);
+        // }
         else {
             expr_ref conj = mk_and(conds);
             result.push_back(conj, r);
+            // @EXP (experimental change)
+            // expr_ref conj_conds = mk_and(conds);
+            // expr_ref_vector disjuncts(m);
+            // lift_unions(r, disjuncts);
+            // for (auto const& disjunct: disjuncts) {
+            //     result.push_back(conj_conds, disjunct);
+            // }
         }
     }
 
@@ -520,7 +573,7 @@ namespace smt {
                 expr_ref ncond(mk_not(m, cond), m);
                 lits.push_back(th.mk_literal(mk_forall(m, hd, ncond)));
             }
-            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, r), n);    
+            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, p.second), n);
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        

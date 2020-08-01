@@ -92,6 +92,9 @@ namespace smt {
         expr_ref is_nullable_wrapper(expr* r);
         expr_ref derivative_wrapper(expr* hd, expr* r);
 
+        void op_list(decl_kind k, expr_ref_vector& l1, expr_ref_vector& l2,
+                                  expr_ref_vector& result);
+        void lift_unions(expr* r, expr_ref_vector& result);
         void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
         void get_cofactors(expr* r, expr_ref_pair_vector& result) {
             expr_ref_vector conds(m);
