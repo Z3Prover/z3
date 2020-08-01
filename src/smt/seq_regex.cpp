@@ -109,6 +109,24 @@ namespace smt {
             return;
         }
 
+        //covert a non-ground sequence into an additional regex and 
+        //strengthen the original regex constraint into an intersection
+        //for example: 
+        // (x ++ "a" ++ y) in b* 
+        //   is coverted to 
+        // (x ++ "a" ++ y) in intersect((.* ++ "a" ++ .*), b*)
+        if (!m.is_value(s) && s->get_kind() == AST_APP)
+        {
+            expr_ref dotstar(re().mk_full_seq(m.get_sort(r)), m);
+            expr_ref s_approx = get_overapprox_regex(s, dotstar);
+            if (s_approx != dotstar)
+            {
+                r = re().mk_inter(r, s_approx);
+                TRACE("seq_regex", tout << "propagate in RE: get_overapprox_regex(" << mk_pp(s, m) << ") = " << mk_pp(s_approx, m) << std::endl;);
+            }
+        }
+
+
         if (coallesce_in_re(lit))
             return;
 
@@ -122,6 +140,91 @@ namespace smt {
         TRACE("seq", tout << "propagate " << acc << "\n";);
 
         th.propagate_lit(nullptr, 1, &lit, acc_lit);
+    }
+
+    /**
+    * Gets an overapproximating regex s_approx for the input string expression s.
+    * such that for any valuation v(s) of s, v(s) in L(s_approx).
+    * If the overapproximation is trivial then dotstar is returned.
+    * TBD: perhaps dotstar could be defined in re() as a field 
+    *      instead of passed as an argument
+    */
+    expr_ref seq_regex::get_overapprox_regex(expr* s, expr_ref dotstar)
+    {
+        if (m.is_value(s))
+        {
+            expr_ref s_approx_value(re().mk_to_re(s), m);
+            return s_approx_value;
+        }     
+        else if (s->get_kind() == ast_kind::AST_APP)
+        {
+            app* sa = (app*)s;
+            decl_kind k = sa->get_decl()->get_decl_kind();
+            //TBD 1: if-then-else and possibly other app expressions that can be approximated 
+            //TBD 2: would be convenient to have re().mk_epsilon(sort) and to be able to recognize if a regex is epsilon
+            expr_ref_vector es(m);
+            //initialize s_approx to be epsilon i.e. mk_to_re("")
+            expr_ref s_approx(re().mk_to_re(str().mk_empty(m.get_sort(s))), m);
+            unsigned int n = 0;
+            switch (k)
+            {
+            case OP_SEQ_CONCAT:
+                str().get_concat(sa, es);
+                n = es.size() - 1;
+                // make sure to simplify so that epsilons are eliminated in concatenations
+                // e.g. a sequence (x ++ "" ++ y ++ "") will be approximated by .*
+                for (int i = n; i >= 0; i--)
+                {
+                    expr_ref elem_i = get_overapprox_regex(es.get(i), dotstar);
+                    if (i == n)
+                    {
+                        s_approx = elem_i;
+                    }
+                    else if (!is_epsilon(elem_i))
+                    {
+                        if (is_epsilon(s_approx))
+                        {
+                            s_approx = elem_i;
+                        }
+                        else
+                        {
+                            s_approx = re().mk_concat(elem_i, s_approx);
+                        }
+                    }
+                }
+                return s_approx;
+            default:
+                return dotstar;
+            }
+        }
+        else
+        {
+            return dotstar;
+        }
+    }
+
+    /** 
+    * Returns true iff r is the epsilon regex.
+    */
+    bool seq_regex::is_epsilon(expr* r)
+    {
+        app* a = (app*)r;
+        if (a->get_decl()->get_decl_kind() == OP_SEQ_TO_RE)
+        {
+            app* arg = (app*)a->get_arg(0);
+            if (arg->get_decl()->get_decl_kind() == OP_SEQ_EMPTY)
+            {
+                return true;
+            }
+            else 
+            {
+                return false;
+            }
+        }
+        else 
+        {
+            return false;
+        }
     }
 
     /**
