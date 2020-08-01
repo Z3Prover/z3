@@ -165,16 +165,11 @@ namespace smt {
             return s_to_re;
         }
         else if (is_app(s)) {
-            app* sa = (app*)s;
-            decl_kind k = sa->get_decl()->get_decl_kind();
-            // TBD: if-then-else and possibly other app expressions that can be
-            //      approximated
             expr_ref_vector es(m);
             expr_ref s_approx = epsilon;
             unsigned int n = 0;
-            switch (k) {
-            case OP_SEQ_CONCAT:
-                str().get_concat(sa, es);
+            if (str().is_concat(s)) {
+                str().get_concat(s, es);
                 n = es.size() - 1;
                 // make sure to simplify so that epsilons are eliminated in
                 // concatenations -- e.g. a sequence
@@ -194,7 +189,23 @@ namespace smt {
                     }
                 }
                 return s_approx;
-            default:
+            }
+            else if (m.is_ite(s)) {
+                s_approx = get_overapprox_regex(to_app(s)->get_arg(1));
+                //if either branch approximates to .* then the result is also .*
+                if (!re().is_full_seq(s_approx)) {
+                    expr_ref r2 = get_overapprox_regex(to_app(s)->get_arg(2));
+                    if (re().is_full_seq(r2)) {
+                        s_approx = r2;
+                    }
+                    else if (s_approx != r2) {
+                        s_approx = re().mk_union(s_approx, r2);
+                    }
+                }
+                return s_approx;
+            }
+            else {
+                // TBD: other app expressions that can be approximated
                 return dotstar;
             }
         }
