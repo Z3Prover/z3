@@ -90,8 +90,6 @@ namespace smt {
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
-        expr_ref _r(r, m);
-        expr_ref _s(s, m);
 
         TRACE("seq_regex", tout << "propagate in RE: " << lit.sign() << " " << mk_pp(e, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PIR(" << mk_pp(s, m) << ","
@@ -166,27 +164,18 @@ namespace smt {
         }
         else {
             expr_ref_vector es(m);
-            expr_ref s_approx = epsilon;
-            unsigned int n = 0;
+            expr_ref s_approx(m);
             if (str().is_concat(s)) {
                 str().get_concat(s, es);
-                n = es.size() - 1;
-                // make sure to simplify so that epsilons are eliminated in
-                // concatenations -- e.g. a sequence
-                // (x ++ "" ++ y ++ "") will be approximated by .*
-                for (unsigned i = n; i != (unsigned)(-1); i--) {
-                    expr_ref elem_i = get_overapprox_regex(es.get(i));
-                    if (i == n) {
-                        s_approx = elem_i;
-                    }
-                    else if (!re().is_epsilon(elem_i)) {
-                        if (re().is_epsilon(s_approx)) {
-                            s_approx = elem_i;
-                        }
-                        else {
-                            s_approx = re().mk_concat(elem_i, s_approx);
-                        }
-                    }
+                //here it is known that es is nonempty or else s would be a value
+                expr_ref e_approx(m), last(m);
+                for (expr* e : es) {
+                    e_approx = get_overapprox_regex(e);
+                    if (!s_approx)
+                        s_approx = e_approx;
+                    else if (last != dotstar || e_approx != dotstar)
+                        s_approx = re().mk_concat(e_approx, s_approx);
+                        last = e_approx;
                 }
                 return s_approx;
             }
@@ -210,6 +199,7 @@ namespace smt {
             }
         }
     }
+
     /**
      * Propagate the atom (accept s i r)
      *
