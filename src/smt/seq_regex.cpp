@@ -164,7 +164,7 @@ namespace smt {
         if (m.is_value(s)) {
             return s_to_re;
         }
-        else if (is_app(s)) {
+        else {
             expr_ref_vector es(m);
             expr_ref s_approx = epsilon;
             unsigned int n = 0;
@@ -208,9 +208,6 @@ namespace smt {
                 // TBD: other app expressions that can be approximated
                 return dotstar;
             }
-        }
-        else {
-            return dotstar;
         }
     }
 
