@@ -256,8 +256,20 @@ bool theory_seq::branch_nqs() {
 }
 
 lbool theory_seq::branch_nq(ne const& n) {
-
-    literal eq_len = mk_eq(mk_len(n.l()), mk_len(n.r()), false);
+    expr_ref len_l(mk_len(n.l()), m);
+    expr_ref len_r(mk_len(n.r()), m);
+    if (!has_length(n.l())) {
+        enque_axiom(len_l);
+        add_length(n.l(), len_l);
+        return l_undef;
+    }
+    if (!has_length(n.r())) {
+        enque_axiom(len_r);
+        add_length(n.r(), len_r);
+        return l_undef;
+    }
+    
+    literal eq_len = mk_eq(len_l, len_r, false);
     ctx.mark_as_relevant(eq_len);
     switch (ctx.get_assignment(eq_len)) {
     case l_false:
