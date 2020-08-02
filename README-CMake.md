@@ -303,7 +303,7 @@ installation of Java. If CMake fails to find your installation of Java set the
 correct location. For example
 
 ```
-JAVA_HOME=/usr/lib/jvm/default cmake -DBUILD_JAVA_BINDINGS=ON ../
+JAVA_HOME=/usr/lib/jvm/default cmake -DZ3_BUILD_JAVA_BINDINGS=ON ../
 ```
 Note that the built ``.jar`` file is named ``com.microsoft.z3-VERSION.jar``
 where ``VERSION`` is the Z3 version. Under non Windows systems a
