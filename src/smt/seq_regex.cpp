@@ -159,7 +159,7 @@ namespace smt {
         expr_ref s_to_re(re().mk_to_re(s), m);
         expr_ref dotstar(re().mk_full_seq(m.get_sort(s_to_re)), m);
         if (m.is_value(s)) 
-            s_to_re;
+            return s_to_re;
         
         if (str().is_concat(s)) {
             expr_ref_vector es(m);
