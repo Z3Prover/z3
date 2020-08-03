@@ -29,7 +29,7 @@ Below, we list all the options we support. Each option is going to enable/disabl
 * (optional) `-tr:dummy` logs dummy instantiations. A dummy instantiation is easily reduce to true or to sat by Z3 (e.g. forall a:int :: a>=a).    
 * (optional) `-tr:causality` logs the dependencies among quantifiers. Each instantiation reports a `Father` tag (e.g. Father: #100).  
 Moreover, each instantiation reports the enodes the instantiation is creating (e.g. EN: #100).  
-Example:  
+Example of a trace file:  
 `### 0x2d70a38, quantifier1, Father: #99`  
 `EN: #100`  
 `EN: #200`  
