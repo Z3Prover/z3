@@ -558,7 +558,9 @@ namespace smt {
                 complement, ite, reverse, diff, opt
         */
         else {
-            result.push_back(r);
+            expr_ref r_rewrite(r, m);
+            rewrite(r_rewrite);
+            result.push_back(r_rewrite);
         }
     }
 
