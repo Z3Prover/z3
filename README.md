@@ -1,4 +1,4 @@
-This custom Z3 implementation logs usefull facts about quantifier instatiations. 
+This custom Z3 implementation logs usefull facts about quantifier instatiations into a trace file.
 
 # Z3
 
