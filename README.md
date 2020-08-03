@@ -41,7 +41,7 @@ So, quantifier1 is responsible for the instantiation of quantifier2.
 Example:  
 `### 0x2d70a38, quantifier1, Father: #99`  
 `0: 15;`  
-`1 : 99;`  
+`1: 99;`  
 The quantifier1 has two variables which are instatiated with 15 and 99.  
 * (optional) `-tr:triggers` reports the trigger associated with each instantiation.  
 Example:  
