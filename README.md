@@ -17,13 +17,12 @@ For the complete README file please visit https://github.com/Z3Prover/z3.
 
 ## How to run it
 
-The following is the full command line. Below you can find the meaning of each argument.  
+The following is the full command line. Below, you can find the meaning of each argument.  
 
 `./z3 -tr:instance -tr:causality -tr:dummy -tr:triggers -tr:bindings <file.smt2>`  
 
-The trace is dumped in a file called `.z3-trace`. You can find the trace file in your working directory.
-Below, we list all the options we support. Each option is going to enable/disable the logging of 
-extra information in the trace file.  
+The resulting trace is dumped in a file called `.z3-trace`, you can find the trace file in your working directory.  
+Below, we list all the options we support. Each option is going to enable/disable the logging of extra information in the trace file.    
 
 * (mandatory) `-tr:instance` logs the instantiation of quantifiers in the trace.
   (e.g. ### 0x2d70a38, quantifier-QID, Father: #100).  
