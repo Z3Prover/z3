@@ -45,12 +45,21 @@ quantifier1 adds to the egraph the node #100. The node #100 is responsible for t
 So, quantifier1 is responsible for the instantiation of quantifier2.
 
 * (optional) `-tr:bindings` reports the binding associated with each instantiation.
+
 Example:
+
 `### 0x2d70a38, quantifier1, Father: #99`
+
 `0: 15;`
+
 `1 : 99;`
+
 The quantifier1 has two variables which are instatiated with 15 and 99.
+
 * (optional) `-tr:triggers` reports the trigger associated with each instantiation.
+
 Example:
+
 `### 0x2d70a38, quantifier1, pat: (fun a t), Father: #99`
-The quantifier1 has been triggered by `(fun a t)`
+
+The quantifier1 has been triggered by `(fun a t)`.
