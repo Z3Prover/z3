@@ -35,7 +35,7 @@ Example of a trace file:
 `EN: #200`  
 `EN: #300`  
 `### 0xec49911, quantifier2, Father: #100`  
-quantifier1 adds to the egraph the node #100, #200 and #300. The node #100 is responsible for the instantiation of quantifier2 (because of the match between ENode and Father).    
+quantifier1 adds to the egraph the nodes #100, #200 and #300. The node #100 is responsible for the instantiation of quantifier2 (because of the match between ENode and Father).    
 So, quantifier1 is responsible for the instantiation of quantifier2.  
 * (optional) `-tr:bindings` reports the binding associated with each instantiation.  
 Example:  
