@@ -25,7 +25,8 @@ The trace is dumped in a file called `.z3-trace`. You can find the trace file in
 Below we list all the options we support. Each option is going to enable/disable the logging of 
 extra information in the trace file.  
 
-* (mandatory) `-tr:instance` logs the instantiation of quantifiers (e.g. ### 0x2d70a38, quantifier-QID, Father: #100).  
+* (mandatory) `-tr:instance` logs the instantiation of quantifiers in the trace.
+  (e.g. ### 0x2d70a38, quantifier-QID, Father: #100).  
 * (optional) `-tr:dummy` shows dummy instantiations. A dummy instantiation is easily reduce to true or to sat by Z3 (e.g. forall a:int :: a>=a).    
 * (optional) `-tr:causality` shows the dependencies among quantifiers. Each instantiation reports a `Father` tag (e.g. Father: #100).  
 Moreover, each instantiation reports the enodes the instantiation is creating (e.g. EN: #100).  
