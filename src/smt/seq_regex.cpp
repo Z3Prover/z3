@@ -90,8 +90,6 @@ namespace smt {
         expr* s = nullptr, *r = nullptr;
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
-        expr_ref _r(r, m);
-        expr_ref _s(s, m);
 
         TRACE("seq_regex", tout << "propagate in RE: " << lit.sign() << " " << mk_pp(e, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PIR(" << mk_pp(s, m) << ","
@@ -117,10 +115,12 @@ namespace smt {
         //     (x ++ "a" ++ y) in b*
         // is coverted to
         //     (x ++ "a" ++ y) in intersect((.* ++ "a" ++ .*), b*)
+        expr_ref _r_temp_owner(m);
         if (!m.is_value(s)) {
             expr_ref s_approx = get_overapprox_regex(s);
             if (!re().is_full_seq(s_approx)) {
                 r = re().mk_inter(r, s_approx);
+                _r_temp_owner = r;
                 TRACE("seq_regex", tout
                     << "get_overapprox_regex(" << mk_pp(s, m)
                     << ") = " << mk_pp(s_approx, m) << std::endl;);
@@ -650,7 +650,7 @@ namespace smt {
                 expr_ref ncond(mk_not(m, cond), m);
                 lits.push_back(th.mk_literal(mk_forall(m, hd, ncond)));
             }
-            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, p.second), n);
+            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, p.second), n);    
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        
