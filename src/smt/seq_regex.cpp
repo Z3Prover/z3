@@ -159,56 +159,46 @@ namespace smt {
     */
     expr_ref seq_regex::get_overapprox_regex(expr* s) {
         expr_ref s_to_re(re().mk_to_re(s), m);
-        expr_ref epsilon(re().mk_epsilon(m.get_sort(s)), m);
         expr_ref dotstar(re().mk_full_seq(m.get_sort(s_to_re)), m);
-        if (m.is_value(s)) {
+        if (m.is_value(s)) 
             return s_to_re;
-        }
-        else {
+        
+        if (str().is_concat(s)) {
             expr_ref_vector es(m);
-            expr_ref s_approx = epsilon;
-            unsigned int n = 0;
-            if (str().is_concat(s)) {
-                str().get_concat(s, es);
-                n = es.size() - 1;
-                // make sure to simplify so that epsilons are eliminated in
-                // concatenations -- e.g. a sequence
-                // (x ++ "" ++ y ++ "") will be approximated by .*
-                for (unsigned i = n; i != (unsigned)(-1); i--) {
-                    expr_ref elem_i = get_overapprox_regex(es.get(i));
-                    if (i == n) {
-                        s_approx = elem_i;
-                    }
-                    else if (!re().is_epsilon(elem_i)) {
-                        if (re().is_epsilon(s_approx)) {
-                            s_approx = elem_i;
-                        }
-                        else {
-                            s_approx = re().mk_concat(elem_i, s_approx);
-                        }
-                    }
-                }
-                return s_approx;
+            str().get_concat(s, es);            
+            expr_ref s_approx(m), e_approx(m), last(m);
+            for (expr* e : es) {
+                e_approx = get_overapprox_regex(e);
+                if (!s_approx)
+                    s_approx = e_approx;
+                else if (last != dotstar || e_approx != dotstar)
+                    s_approx = re().mk_concat(s_approx, e_approx);
+                last = e_approx;
             }
-            else if (m.is_ite(s)) {
-                s_approx = get_overapprox_regex(to_app(s)->get_arg(1));
-                //if either branch approximates to .* then the result is also .*
-                if (!re().is_full_seq(s_approx)) {
-                    expr_ref r2 = get_overapprox_regex(to_app(s)->get_arg(2));
-                    if (re().is_full_seq(r2)) {
-                        s_approx = r2;
-                    }
-                    else if (s_approx != r2) {
-                        s_approx = re().mk_union(s_approx, r2);
-                    }
-                }
-                return s_approx;
-            }
-            else {
-                // TBD: other app expressions that can be approximated
-                return dotstar;
-            }
+            if (!s_approx)
+                s_approx = re().mk_epsilon(m.get_sort(s));
+        
+            return s_approx;
         }
+
+        expr* c = nullptr, *r1 = nullptr, *r2 = nullptr;
+        if (m.is_ite(s, c, r1, r2)) {
+            // if either branch approximates to .* then the result is also .*
+
+            expr_ref s_approx1 = get_overapprox_regex(r1);
+            if (re().is_full_seq(s_approx1))
+                return s_approx1;
+
+            expr_ref s_approx2 = get_overapprox_regex(r2);
+            if (re().is_full_seq(s_approx2)) 
+                return s_approx2;
+        
+            return expr_ref(re().mk_union(s_approx1, s_approx2), m);
+        }
+
+        // TBD: other app expressions that can be approximated
+        return dotstar;
+    
     }
 
     /**
