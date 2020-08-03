@@ -528,6 +528,7 @@ namespace smt {
             for (auto const& r2: l2) {
                 family_id fid = u().get_family_id();
                 expr_ref r(m.mk_app(fid, k, r1, r2), m);
+                rewrite(r);
                 result.push_back(r);
             }
         }
@@ -580,15 +581,16 @@ namespace smt {
         //     get_cofactors(r2, conds, result);
         // }
         else {
-            expr_ref conj = mk_and(conds);
-            result.push_back(conj, r);
-            // @EXP (experimental change)
-            // expr_ref conj_conds = mk_and(conds);
-            // expr_ref_vector disjuncts(m);
-            // lift_unions(r, disjuncts);
-            // for (auto const& disjunct: disjuncts) {
-            //     result.push_back(conj_conds, disjunct);
-            // }
+            // Old code
+            // expr_ref conj = mk_and(conds);
+            // result.push_back(conj, r);
+            // Use lift_unions to implement Antimorov-style derivatives
+            expr_ref conj_conds = mk_and(conds);
+            expr_ref_vector disjuncts(m);
+            lift_unions(r, disjuncts);
+            for (auto const& disjunct: disjuncts) {
+                result.push_back(conj_conds, disjunct);
+            }
         }
     }
 
@@ -677,6 +679,9 @@ namespace smt {
             m_expr_to_state.insert(e, new_id);
             STRACE("seq_regex_brief", tout << "new(" << expr_id_str(e)
                                            << ")=" << state_str(e) << " ";);
+            STRACE("seq_regex", tout
+                << "New state ID: " << new_id
+                << " = " << mk_pp(e, m) << std::endl;);
         }
         return m_expr_to_state.find(e);
     }
@@ -744,10 +749,10 @@ namespace smt {
             STRACE("seq_regex_brief", tout << "(MAX SIZE REACHED) ";);
             return false;
         }
-        STRACE("seq_regex", tout << "Updating state graph for regex "
-                                 << mk_pp(r, m) << ") ";);
         // Add state
         m_state_graph.add_state(r_id);
+        STRACE("seq_regex", tout << "Updating state graph for regex "
+                                 << mk_pp(r, m) << ") " << std::endl;);
         STRACE("seq_regex_brief", tout << std::endl << "USG("
                                        << state_str(r) << ") ";);
         expr_ref r_nullable = is_nullable_wrapper(r);
@@ -758,18 +763,19 @@ namespace smt {
             // Add edges to all derivatives
             expr_ref_vector derivatives(m);
             STRACE("seq_regex_verbose", tout
-                << std::endl << "  getting all derivs: " << r_id << " ";);
+                << "getting all derivs: " << r_id << " " << std::endl;);
             get_all_derivatives(r, derivatives);
             for (auto const& dr: derivatives) {
                 unsigned dr_id = get_state_id(dr);
                 STRACE("seq_regex_verbose", tout
-                    << std::endl << "  traversing deriv: " << dr_id << " ";);
+                    << "  traversing deriv: " << dr_id << " " << std::endl;);
                 m_state_graph.add_state(dr_id);
                 bool maybecycle = can_be_in_cycle(r, dr);
                 m_state_graph.add_edge(r_id, dr_id, maybecycle);
             }
             m_state_graph.mark_done(r_id);
         }
+        STRACE("seq_regex", m_state_graph.display(tout););
         STRACE("seq_regex_brief", tout << std::endl;);
         STRACE("seq_regex_brief", m_state_graph.display(tout););
         return true;
