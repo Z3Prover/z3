@@ -264,6 +264,7 @@ void state_graph::add_state(state s) {
     STRACE("state_graph", tout << "[state_graph] adding state " << s << ": ";);
     add_state_core(s);
     CASSERT("state_graph", check_invariant());
+    // TODO: generate graph output here?
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_live(state s) {
@@ -273,6 +274,7 @@ void state_graph::mark_live(state s) {
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     mark_live_recursive(s);
     CASSERT("state_graph", check_invariant());
+    // TODO: generate graph output here?
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::add_edge(state s1, state s2, bool maybecycle) {
@@ -285,6 +287,7 @@ void state_graph::add_edge(state s1, state s2, bool maybecycle) {
     add_edge_core(s1, s2, maybecycle);
     if (m_live.contains(s2)) mark_live(s1);
     CASSERT("state_graph", check_invariant());
+    // TODO: generate graph output here?
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_done(state s) {
@@ -296,6 +299,7 @@ void state_graph::mark_done(state s) {
     s = merge_all_cycles(s);
     mark_dead_recursive(s); // check if dead
     CASSERT("state_graph", check_invariant());
+    // TODO: generate graph output here?
     STRACE("state_graph", tout << std::endl;);
 }
 
