@@ -67,9 +67,9 @@ void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::e
                 if (new_key->m_bindings[i]) {
                     tout << i << ": " << mk_ismt2_pp(new_key->m_bindings[i], result.m()) << ";\n";
                 }
-            });
+            }
+            tout.flush(););
 
-        tout.flush();
         return;
     }
 
