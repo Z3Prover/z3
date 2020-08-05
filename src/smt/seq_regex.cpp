@@ -109,6 +109,20 @@ namespace smt {
             return;
         }
 
+        if (coallesce_in_re(lit)) {
+            TRACE("seq_regex", tout
+                << "simplified conjunctions to an intersection" << std::endl;);
+            STRACE("seq_regex_brief", tout << "coallesce_in_re ";);
+            return;
+        }
+
+        if (is_string_equality(lit)) {
+            TRACE("seq_regex", tout
+                << "simplified regex using string equality" << std::endl;);
+            STRACE("seq_regex_brief", tout << "string_eq ";);
+            return;
+        }
+
         // Convert a non-ground sequence into an additional regex and
         // strengthen the original regex constraint into an intersection
         // for example:
@@ -127,20 +141,6 @@ namespace smt {
                 STRACE("seq_regex_brief", tout
                     << "overapprox=" << state_str(r) << " ";);
             }
-        }
-
-        if (coallesce_in_re(lit)) {
-            TRACE("seq_regex", tout
-                << "simplified conjunctions to an intersection" << std::endl;);
-            STRACE("seq_regex_brief", tout << "coallesce_in_re ";);
-            return;
-        }
-
-        if (is_string_equality(lit)) {
-            TRACE("seq_regex", tout
-                << "simplified regex using string equality" << std::endl;);
-            STRACE("seq_regex_brief", tout << "string_eq ";);
-            return;
         }
 
         expr_ref zero(a().mk_int(0), m);
