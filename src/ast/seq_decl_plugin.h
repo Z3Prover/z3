@@ -109,6 +109,7 @@ enum seq_op_kind {
     _OP_REGEXP_EMPTY,
     _OP_REGEXP_FULL_CHAR,
     _OP_RE_IS_NULLABLE,
+    _OP_RE_DERIV_UNION, // Lifted union for antimorov-style derivatives
     _OP_SEQ_SKOLEM,
     LAST_SEQ_OP
 };
@@ -437,6 +438,7 @@ public:
         app* mk_of_pred(expr* p);
         app* mk_reverse(expr* r) { return m.mk_app(m_fid, OP_RE_REVERSE, r); }
         app* mk_derivative(expr* ele, expr* r) { return m.mk_app(m_fid, OP_RE_DERIVATIVE, ele, r); }
+        app* mk_deriv_union(expr* r1, expr* r2) { return m.mk_app(m_fid, _OP_RE_DERIV_UNION, r1, r2); }
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
@@ -455,6 +457,7 @@ public:
         bool is_of_pred(expr const* n) const { return is_app_of(n, m_fid, OP_RE_OF_PRED); }
         bool is_reverse(expr const* n) const { return is_app_of(n, m_fid, OP_RE_REVERSE); }
         bool is_derivative(expr const* n) const { return is_app_of(n, m_fid, OP_RE_DERIVATIVE); }
+        bool is_deriv_union(expr const* n) const { return is_app_of(n, m_fid, _OP_RE_DERIV_UNION); }
         MATCH_UNARY(is_to_re);
         MATCH_BINARY(is_concat);
         MATCH_BINARY(is_union);
@@ -468,6 +471,7 @@ public:
         MATCH_UNARY(is_of_pred);
         MATCH_UNARY(is_reverse);
         MATCH_BINARY(is_derivative);
+        MATCH_BINARY(is_deriv_union);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const;
         bool is_loop(expr const* n, expr*& body, unsigned& lo) const;
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const;

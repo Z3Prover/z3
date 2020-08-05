@@ -576,21 +576,21 @@ namespace smt {
             get_cofactors(r2, conds, result);
             conds.pop_back();
         }
-        // else if (re().is_union(r, r1, r2)) {
-        //     get_cofactors(r1, conds, result);
-        //     get_cofactors(r2, conds, result);
-        // }
+        else if (re().is_union(r, r1, r2)) {
+            get_cofactors(r1, conds, result);
+            get_cofactors(r2, conds, result);
+        }
         else {
             // Old code
-            // expr_ref conj = mk_and(conds);
-            // result.push_back(conj, r);
+            expr_ref conj = mk_and(conds);
+            result.push_back(conj, r);
             // Use lift_unions to implement Antimorov-style derivatives
-            expr_ref conj_conds = mk_and(conds);
-            expr_ref_vector disjuncts(m);
-            lift_unions(r, disjuncts);
-            for (auto const& disjunct: disjuncts) {
-                result.push_back(conj_conds, disjunct);
-            }
+            // expr_ref conj_conds = mk_and(conds);
+            // expr_ref_vector disjuncts(m);
+            // lift_unions(r, disjuncts);
+            // for (auto const& disjunct: disjuncts) {
+            //     result.push_back(conj_conds, disjunct);
+            // }
         }
     }
 

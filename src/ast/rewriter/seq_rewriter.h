@@ -191,11 +191,13 @@ class seq_rewriter {
     expr_ref mk_derivative_rec(expr* ele, expr* r);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
+    expr_ref mk_der_lift_union(expr* a, expr* b);
     expr_ref mk_der_concat(expr* a, expr* b);
     expr_ref mk_der_union(expr* a, expr* b);
     expr_ref mk_der_inter(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
     expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
+    bool check_deriv_normal_form(expr* r, int level = 3);
 
     bool lt_char(expr* ch1, expr* ch2);
     bool eq_char(expr* ch1, expr* ch2);

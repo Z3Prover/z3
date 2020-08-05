@@ -557,6 +557,16 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
             st = mk_re_concat(args[0], args[1], result); 
         }
         break;
+    case _OP_RE_DERIV_UNION:
+        SASSERT(num_args == 2);
+        result = re().mk_union(args[0], args[1]);
+        st = BR_REWRITE1;
+        break;
+        // st = mk_re_union(args[0], args[1], result);
+        // if (st == BR_FAILED) {
+        //     result = re().mk_union(args[0], args[1]);
+        //     st = BR_DONE;
+        // }
     case OP_RE_UNION:
         if (num_args == 1) {
             result = args[0]; 
@@ -2223,7 +2233,8 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
         re().is_intersection(r, r1, r2)) { 
         m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
     }
-    else if (re().is_union(r, r1, r2)) {
+    else if (re().is_union(r, r1, r2) ||
+             re().is_deriv_union(r, r1, r2)) {
         m_br.mk_or(is_nullable(r1), is_nullable(r2), result);
     }
     else if (re().is_diff(r, r1, r2)) {
@@ -2306,6 +2317,10 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         result = re().mk_union(re().mk_reverse(r1), re().mk_reverse(r2));
         return BR_REWRITE2;
     }
+    else if (re().is_deriv_union(r, r1, r2)) {
+        result = re().mk_deriv_union(re().mk_reverse(r1), re().mk_reverse(r2));
+        return BR_REWRITE2;
+    }
     else if (re().is_intersection(r, r1, r2)) {
         result = re().mk_inter(re().mk_reverse(r1), re().mk_reverse(r2));
         return BR_REWRITE2;
@@ -2376,6 +2391,71 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     return re().is_derivative(result) ? BR_DONE : BR_REWRITE_FULL;
 }
 
+#ifdef Z3DEBUG
+/*
+    Debugging to check the derivative normal form.
+
+    This may fail on "unusual" or unexpected REs, such as those containing
+    regex variables, but this is by design as this is only checked
+    during debugging.
+*/
+bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
+    if (level == 3) { // top level
+        STRACE("seq_verbose", tout
+            << "Checking derivative normal form invariant...";);
+    }
+    expr *r1 = nullptr, *r2 = nullptr, *p = nullptr, *s = nullptr;
+    unsigned lo = 0, hi = 0;
+    STRACE("seq_verbose", tout << " (level " << level << ")";);
+    int new_level = 0;
+    if (re().is_deriv_union(r)) {
+        SASSERT(level >= 2);
+        new_level = 2;
+    }
+    else if (m().is_ite(r)) {
+        SASSERT(level >= 1);
+        new_level = 1;
+    }
+
+    SASSERT(!re().is_diff(r));
+    SASSERT(!re().is_opt(r));
+    SASSERT(!re().is_plus(r));
+
+    if (re().is_deriv_union(r, r1, r2) ||
+        re().is_concat(r, r1, r2) ||
+        re().is_union(r, r1, r2) ||
+        re().is_intersection(r, r1, r2) ||
+        m().is_ite(r, p, r1, r2)) {
+        check_deriv_normal_form(r1, new_level);
+        check_deriv_normal_form(r2, new_level);
+    }
+    else if (re().is_star(r, r1) ||
+             re().is_complement(r, r1) ||
+             re().is_loop(r, r1, lo) ||
+             re().is_loop(r, r1, lo, hi)) {
+        check_deriv_normal_form(r1, new_level);
+    }
+    else if (re().is_reverse(r, r1)) {
+        SASSERT(re().is_to_re(r1));
+    }
+    else if (re().is_full_seq(r) ||
+             re().is_empty(r) ||
+             re().is_range(r) ||
+             re().is_full_char(r) ||
+             re().is_of_pred(r) ||
+             re().is_to_re(r, s)) {
+        // OK
+    }
+    else {
+        SASSERT(false);
+    }
+    if (level == 3) {
+        STRACE("seq_verbose", tout << " passed!" << std::endl;);
+    }
+    return true;
+}
+#endif
+
 /*
     Memoized, recursive implementation of the symbolic derivative such that
     the result is in an optimized BDD form.
@@ -2385,6 +2465,9 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
         and sorted by condition ID (cond->get_id()), from largest on
         the outside to smallest on the inside.
         Duplicate nested conditions are eliminated.
+        EXPERIMENTAL: BDD form is actually at the top level a union, using
+        the special-purpose op code _OP_RE_DERIV_UNION, to implement
+        a restricted form of Antimorov derivatives.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     STRACE("seq_verbose", tout << "derivative: " << mk_pp(ele, m())
@@ -2396,7 +2479,12 @@ expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     }
     STRACE("seq_verbose", tout << "derivative result: "
                                << mk_pp(result, m()) << std::endl;);
+    CASSERT("seq_regex", check_deriv_normal_form(r));
     return result;
+}
+
+expr_ref seq_rewriter::mk_der_lift_union(expr* r1, expr* r2) {
+    return mk_der_op(_OP_RE_DERIV_UNION, r1, r2);
 }
 
 expr_ref seq_rewriter::mk_der_union(expr* r1, expr* r2) {
@@ -2471,6 +2559,8 @@ bool seq_rewriter::pred_implies(expr* a, expr* b) {
     Preconditions:
         - k is a binary op code on REs: one of concat, intersection, or union
           (not difference)
+          EXPERIMENTAL: k may also be _OP_RE_DERIV_UNION, which is a union
+                        that should be lifted to the top level.
         - a and b are in BDD form
 
     Postcondition:
@@ -2497,6 +2587,26 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         m().is_not(e, e);
         return e->get_id();
     };
+    // Lifting unions to implement restricted form of Antimorov derivs
+    if (k == _OP_RE_DERIV_UNION) {
+        result = re().mk_deriv_union(a, b);
+        return result;
+    }
+    if (re().is_deriv_union(a, a1, a2)) {
+        expr_ref r1(m()), r2(m());
+        r1 = mk_der_op(k, a1, b);
+        r2 = mk_der_op(k, a2, b);
+        result = re().mk_deriv_union(r1, r2);
+        return result;
+    }
+    if (re().is_deriv_union(b, b1, b2)) {
+        expr_ref r1(m()), r2(m());
+        r1 = mk_der_op(k, a, b1);
+        r2 = mk_der_op(k, a, b2);
+        result = re().mk_deriv_union(r1, r2);
+        return result;
+    }
+    // if-then-else lifting (underneath top-level Antimorov unions)
     if (m().is_ite(a, ca, a1, a2)) {
         expr_ref r1(m()), r2(m());
         expr_ref notca(m().mk_not(ca), m());
@@ -2594,6 +2704,7 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
         result = mk_der_op_rec(k, a, b);
         m_op_cache.insert(k, a, b, result);
     }
+    CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
 }
 
@@ -2603,13 +2714,20 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
         expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
-        if (m().is_ite(r, c, r1, r2)) {
+        if (re().is_deriv_union(r, r1, r2)) {
+            expr_ref res1(m()), res2(m());
+            res1 = mk_der_compl(r1);
+            res2 = mk_der_compl(r2);
+            result = mk_der_inter(res1, res2);
+        }
+        else if (m().is_ite(r, c, r1, r2)) {
             result = m().mk_ite(c, mk_der_compl(r1), mk_der_compl(r2));
         }
         else if (BR_FAILED == mk_re_complement(r, result))
             result = re().mk_complement(r);        
         m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
     }
+    CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
 }
 
@@ -2675,6 +2793,7 @@ expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
     }
     STRACE("seq_verbose", tout << "mk_der_cond result: "
         <<  mk_pp(result, m()) << std::endl;);
+    CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
 }
 
@@ -2696,7 +2815,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         }
         expr_ref dr2 = mk_derivative(ele, r2);
         is_n = re_predicate(is_n, seq_sort);
-        return mk_der_union(result, mk_der_concat(is_n, dr2));        
+        return mk_der_lift_union(result, mk_der_concat(is_n, dr2));
     }
     else if (re().is_star(r, r1)) {
         return mk_der_concat(mk_derivative(ele, r1), r);
