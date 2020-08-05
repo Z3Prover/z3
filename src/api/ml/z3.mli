@@ -2862,6 +2862,9 @@ sig
   val get_decls : model -> FuncDecl.func_decl list
 
   (** Evaluates an expression in the current model.
+      The Boolean argument indicates whether to apply model completion.
+      When model completion is true it will assign an interpretation for
+      constants and functions that do not have an interpretation in the model.
 
       This function may fail if the argument contains quantifiers,
       is partial (MODEL_PARTIAL enabled), or if it is not well-sorted.

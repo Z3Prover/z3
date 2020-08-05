@@ -60,23 +60,14 @@ int parse(string const & filename, map<string, map_entry> & data) {
 
         if (line.substr(0, prefix_len) == prefix) {
             line = trim(line.substr(prefix_len));
-            size_t num_colon = count(line.begin(), line.end(), ':');
             size_t from = 0, ti = 0;
-            
-            while (num_colon>2){
-            		from=line.find(':', from);
-            		num_colon--;
-                tokens[0] = trim(line.substr(0, from));
-                from=from+1;
-            		ti=1;
-            }
-                        
-            for (size_t inx = line.find(':', from); inx != string::npos; inx = line.find(':', from)) {
+            for (size_t inx = line.find(" : ", from);
+                inx != string::npos;
+                inx = line.find(" : ", from)) {
                 tokens[ti] = trim(line.substr(from, inx-from));
                 from = inx+1;
                 ti++;
             }
-            
             if (from != line.length() && ti < 4)
                 tokens[ti] = trim(line.substr(from));
 

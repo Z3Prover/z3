@@ -40,7 +40,7 @@ public:
     rational() {}
     
     rational(rational const & r) { m().set(m_val, r.m_val); }
-    rational(rational&&) noexcept = default;
+    rational(rational&&) = default;
 
     explicit rational(int n) { m().set(m_val, n); }
 
@@ -149,7 +149,7 @@ private:
 
 public:
     rational & operator=(int v) {
-        *this = rational(v);
+        m().set(m_val, v);
         return *this;
     }
     rational & operator=(double v) { UNREACHABLE(); return *this; }

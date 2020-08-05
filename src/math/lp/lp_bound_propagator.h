@@ -76,9 +76,9 @@ class lp_bound_propagator {
     const vertex*                             m_fixed_vertex;
     explanation                               m_fixed_vertex_explanation;
     // a pair (o, j) belongs to m_vals_to_verts iff x[j] = x[m_root->column()] + o
-    map<mpq, vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts;
+    map<mpq, const vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts;
     // a pair (o, j) belongs to m_vals_to_verts_neg iff -x[j] = x[m_root->column()] + o
-    map<mpq, vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts_neg;
+    map<mpq, const vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts_neg;
     // x[m_root->column()] - m_pol[j].pol()*x[j] == const;
     // to bind polarity and the vertex in the table
     struct pol_vert {
@@ -205,9 +205,9 @@ public:
     void try_add_equation_with_val_table(const vertex *v) {
         SASSERT(m_fixed_vertex);
         unsigned v_j = v->column();
-        vertex *u;
+        const vertex *u = nullptr;
         if (!m_vals_to_verts.find(val(v_j), u)) {
-            m_vals_to_verts.insert(val(v_j), u);
+            m_vals_to_verts.insert(val(v_j), v);
             return;
         }
         unsigned j = u->column();
@@ -350,9 +350,9 @@ public:
         return m_imp.is_equal(col_to_imp(j), col_to_imp(k));
     }
 
-    void check_for_eq_and_add_to_val_table(vertex* v,  map<mpq, vertex*, obj_hash<mpq>, default_eq<mpq>>& table) {
+    void check_for_eq_and_add_to_val_table(vertex* v,  map<mpq, const vertex*, obj_hash<mpq>, default_eq<mpq>>& table) {
         TRACE("cheap_eq", tout << "v="; print(tout, v) << "\n";);
-        vertex *k; // the other vertex
+        const vertex *k; // the other vertex
         if (table.find(val(v), k)) {
             TRACE("cheap_eq", tout << "found k " ; print(tout, k) << "\n";);
             if (k->column() != v->column() &&
@@ -397,7 +397,7 @@ public:
     }
     
     // we have v_i and v_j, indices of vertices at the same offsets
-    void report_eq(vertex* v_i, vertex* v_j) {
+    void report_eq(const vertex* v_i, const vertex* v_j) {
         SASSERT(v_i != v_j);
         SASSERT(lp().get_column_value(v_i->column()) == lp().get_column_value(v_j->column()));
         TRACE("cheap_eq", tout << v_i->column() << " = " << v_j->column() << "\nu = ";
@@ -471,7 +471,7 @@ public:
         ex.push_back(uc);        
     }
     
-    std::ostream& display_row_of_vertex(vertex* k, std::ostream& out) const {
+    std::ostream& display_row_of_vertex(const vertex* k, std::ostream& out) const {
         return print_row(out, k->row());
     }
 

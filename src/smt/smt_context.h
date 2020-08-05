@@ -580,6 +580,13 @@ namespace smt {
             return get_bdata(v).get_theory();
         }
 
+        expr_ref get_implied_value(expr* e);
+
+        expr_ref get_implied_lower_bound(expr* e);
+
+        expr_ref get_implied_upper_bound(expr* e);
+
+
         friend class set_var_theory_trail;
         void set_var_theory(bool_var v, theory_id tid);
 

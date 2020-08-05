@@ -94,7 +94,6 @@ class lar_solver : public column_namer {
     // these are basic columns with the value changed, so the the corresponding row in the tableau
     // does not sum to zero anymore
     u_set                                               m_incorrect_columns;
-    stacked_value<int>                                  m_crossed_bounds_column_index; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
@@ -350,6 +349,7 @@ public:
     void activate_check_on_equal(constraint_index, var_index&);
     void activate(constraint_index);
     void random_update(unsigned sz, var_index const * vars);
+    void mark_rows_for_bound_prop(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T> & bp) {
         SASSERT(use_tableau());

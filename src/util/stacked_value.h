@@ -63,6 +63,10 @@ public:
         m_value = std::move(arg);
     }
 
+    void operator=(const T &arg) {
+        m_value = arg;
+    }
+
     operator T&() {
         return m_value;
     }

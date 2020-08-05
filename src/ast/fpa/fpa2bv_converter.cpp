@@ -665,6 +665,13 @@ void fpa2bv_converter::mk_add(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
 
     mk_ite(is_zero_sig, zero_case, rounded, v7);
 
+    dbg_decouple("fpa2bv_add_c1", c1);
+    dbg_decouple("fpa2bv_add_c2", c2);
+    dbg_decouple("fpa2bv_add_c3", c3);
+    dbg_decouple("fpa2bv_add_c4", c4);
+    dbg_decouple("fpa2bv_add_c5", c5);
+    dbg_decouple("fpa2bv_add_c6", c6);
+
     mk_ite(c6, v6, v7, result);
     mk_ite(c5, v5, result, result);
     mk_ite(c4, v4, result, result);
@@ -1983,11 +1990,12 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     mk_ite(sgn_eq_1, nzero, pzero, xzero);
 
     // exponent < 0 -> 0/1
-    expr_ref exp_lt_zero(m), exp_h(m);
+    expr_ref exp_lt_zero(m), exp_h(m), x_is_denormal(m);
+    mk_is_denormal(x, x_is_denormal);
     exp_h = m_bv_util.mk_extract(ebits-1, ebits-1, a_exp);
     m_simp.mk_eq(exp_h, one_1, exp_lt_zero);
     dbg_decouple("fpa2bv_r2i_exp_lt_zero", exp_lt_zero);
-    c4 = exp_lt_zero;
+    c4 = m.mk_or(exp_lt_zero, x_is_denormal);
 
     expr_ref pone(m), none(m), xone(m), c421(m), c422(m), c423(m), t1(m), t2(m), tie(m), v42(m), exp_lt_m1(m);
     mk_one(s, zero_1, pone);
@@ -2049,7 +2057,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
 
     expr_ref shift(m), shifted_sig(m), div(m), rem(m);
     shift = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(sbits - 1, sbits),
-                                m_bv_util.mk_zero_extend(sbits-ebits, a_exp));
+                                m_bv_util.mk_sign_extend(sbits-ebits, a_exp));
     shifted_sig = m_bv_util.mk_bv_lshr(m_bv_util.mk_concat(a_sig, zero_s),
                                        m_bv_util.mk_concat(zero_s, shift));
     div = m_bv_util.mk_extract(2*sbits-1, sbits, shifted_sig);
@@ -2107,6 +2115,11 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     c52 = rm_is_rtp;
     c53 = rm_is_rtn;
 
+    dbg_decouple("fpa2bv_r2i_c51", c51);
+    dbg_decouple("fpa2bv_r2i_c52", c52);
+    dbg_decouple("fpa2bv_r2i_c53", c53);
+    dbg_decouple("fpa2bv_r2i_c531", c531);
+
     res_sig = div;
     m_simp.mk_ite(c53, v53, res_sig, res_sig);
     m_simp.mk_ite(c52, v52, res_sig, res_sig);
@@ -2132,12 +2145,15 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     min_exp = m_bv_util.mk_sign_extend(2, min_exp);
     mk_leading_zeros(res_sig, ebits+2, sig_lz);
     max_exp_delta = m_bv_util.mk_bv_sub(res_exp, min_exp);
-    sig_lz_capped = m.mk_ite(m_bv_util.mk_sle(sig_lz, max_exp_delta), sig_lz, max_exp_delta);
-    renorm_delta = m.mk_ite(m_bv_util.mk_sle(zero_e2, sig_lz_capped), sig_lz_capped, zero_e2);
+    sig_lz_capped = m.mk_ite(m_bv_util.mk_ule(sig_lz, max_exp_delta), sig_lz, max_exp_delta);
+    renorm_delta = m.mk_ite(m_bv_util.mk_ule(zero_e2, sig_lz_capped), sig_lz_capped, zero_e2);
     SASSERT(m_bv_util.get_bv_size(renorm_delta) == ebits + 2);
     res_exp = m_bv_util.mk_bv_sub(res_exp, renorm_delta);
     res_sig = m_bv_util.mk_bv_shl(res_sig, m_bv_util.mk_zero_extend(sbits-ebits-2, renorm_delta));
     dbg_decouple("fpa2bv_r2i_renorm_delta", renorm_delta);
+    dbg_decouple("fpa2bv_r2i_sig_lz", sig_lz);
+    dbg_decouple("fpa2bv_r2i_sig_lz_capped", sig_lz_capped);
+    dbg_decouple("fpa2bv_r2i_max_exp_delta", max_exp_delta);
 
     res_exp = m_bv_util.mk_extract(ebits-1, 0, res_exp);
     mk_bias(res_exp, res_exp);
@@ -3975,7 +3991,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     t = m_bv_util.mk_bv_sub(t, m_bv_util.mk_sign_extend(2, e_min));
     dbg_decouple("fpa2bv_rnd_t", t);
     expr_ref TINY(m);
-    TINY = m_bv_util.mk_sle(t, m_bv_util.mk_numeral((unsigned)-1, ebits+2));
+    TINY = m_bv_util.mk_sle(t, m_bv_util.mk_numeral(rational(-1), ebits+2));
     dbg_decouple("fpa2bv_rnd_TINY", TINY);
     TRACE("fpa2bv_dbg", tout << "TINY = " << mk_ismt2_pp(TINY, m) << std::endl;);
     SASSERT(is_well_sorted(m, TINY));
@@ -4017,7 +4033,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     dbg_decouple("fpa2bv_rnd_sigma_neg", sigma_neg);
     dbg_decouple("fpa2bv_rnd_sigma_cap", sigma_cap);
     dbg_decouple("fpa2bv_rnd_sigma_neg_capped", sigma_neg_capped);
-    sigma_lt_zero = m_bv_util.mk_sle(sigma, m_bv_util.mk_numeral((unsigned)-1, sigma_size));
+    sigma_lt_zero = m_bv_util.mk_sle(sigma, m_bv_util.mk_numeral(rational(-1), sigma_size));
     dbg_decouple("fpa2bv_rnd_sigma_lt_zero", sigma_lt_zero);
 
     sig_ext = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, sig_size));

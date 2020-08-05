@@ -53,6 +53,7 @@ bool theory_seq::check_ne_literals(unsigned idx, unsigned& num_undef_lits) {
             TRACE("seq", display_disequation(tout << "has false literal\n", n);
                   ctx.display_literal_verbose(tout, lit);
                   tout << "\n" << lit << " " << ctx.is_relevant(lit) << "\n";
+                  display(tout);
                   );
             return false;
         case l_true:
@@ -132,6 +133,13 @@ bool theory_seq::propagate_ne2eq(unsigned idx) {
 bool theory_seq::propagate_ne2eq(unsigned idx, expr_ref_vector const& es) {
     if (es.empty())
         return false;
+    for (expr* e : es) {
+        expr_ref len_e = mk_len(e);
+        rational lo;
+        if (lower_bound(len_e, lo) && lo > 0) {
+            return true;
+        }
+    }
     ne const& n = m_nqs[idx];
     expr_ref e(m), head(m), tail(m);
     e = mk_concat(es, m.get_sort(es[0]));
@@ -220,14 +228,10 @@ bool theory_seq::reduce_ne(unsigned idx) {
         }
     }
 
-
-    TRACE("seq", display_disequation(tout << "updated: " << updated << "\n", n););
-
     if (updated) {
-        auto new_n(ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
-        m_nqs.set(idx, new_n);
+        TRACE("seq", display_disequation(tout, n););
+        m_nqs.set(idx, ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
         TRACE("seq", display_disequation(tout << "updated:\n", m_nqs[idx]););
-        TRACE("seq", display_disequation(tout << "updated:\n", new_n););
     }
     return false;
 }
@@ -252,8 +256,22 @@ bool theory_seq::branch_nqs() {
 }
 
 lbool theory_seq::branch_nq(ne const& n) {
-
-    literal eq_len = mk_eq(mk_len(n.l()), mk_len(n.r()), false);
+    expr_ref len_l(mk_len(n.l()), m);
+    expr_ref len_r(mk_len(n.r()), m);
+#if 0
+    // TBD: breaks 
+    if (!has_length(n.l())) {
+        enque_axiom(len_l);
+        add_length(n.l(), len_l);
+        return l_undef;
+    }
+    if (!has_length(n.r())) {
+        enque_axiom(len_r);
+        add_length(n.r(), len_r);
+        return l_undef;
+    }
+#endif
+    literal eq_len = mk_eq(len_l, len_r, false);
     ctx.mark_as_relevant(eq_len);
     switch (ctx.get_assignment(eq_len)) {
     case l_false:

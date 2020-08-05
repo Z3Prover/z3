@@ -670,8 +670,8 @@ bool theory_seq::branch_binary_variable(eq const& e) {
     if (lenX <= rational(ys.size())) {
         expr_ref_vector Ys(m);
         Ys.append(ys.size(), ys.c_ptr());
-        branch_unit_variable(e.dep(), x, Ys);
-        return true;
+        if (branch_unit_variable(e.dep(), x, Ys))
+            return true;
     }
     expr_ref le(m_autil.mk_le(mk_len(x), m_autil.mk_int(ys.size())), m);
     literal lit = mk_literal(le);
@@ -698,13 +698,13 @@ bool theory_seq::branch_binary_variable(eq const& e) {
 bool theory_seq::branch_unit_variable() {
     bool result = false;
     for (auto const& e : m_eqs) {
-        if (is_unit_eq(e.ls(), e.rs())) {
-            branch_unit_variable(e.dep(), e.ls()[0], e.rs());
+        if (is_unit_eq(e.ls(), e.rs()) && 
+            branch_unit_variable(e.dep(), e.ls()[0], e.rs())) {
             result = true;
             break;
         }
-        else if (is_unit_eq(e.rs(), e.ls())) {
-            branch_unit_variable(e.dep(), e.rs()[0], e.ls());
+        if (is_unit_eq(e.rs(), e.ls()) && 
+            branch_unit_variable(e.dep(), e.rs()[0], e.ls())) {
             result = true;
             break;
         }
@@ -713,38 +713,41 @@ bool theory_seq::branch_unit_variable() {
     return result;
 }
 
-void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units) {
+bool theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units) {
     SASSERT(is_var(X));
     rational lenX;
     if (!get_length(X, lenX)) {
         TRACE("seq", tout << "enforce length on " << mk_bounded_pp(X, m, 2) << "\n";);
         add_length_to_eqc(X);
-        return;
+        return true;
     }
     if (lenX > rational(units.size())) {
         expr_ref le(m_autil.mk_le(mk_len(X), m_autil.mk_int(units.size())), m);
         TRACE("seq", tout << "propagate length on " << mk_bounded_pp(X, m, 2) << "\n";);
         propagate_lit(dep, 0, nullptr, mk_literal(le));
-        return;
+        return true;
     }
     SASSERT(lenX.is_unsigned());
     unsigned lX = lenX.get_unsigned();
     if (lX == 0) {
         TRACE("seq", tout << "set empty length " << mk_bounded_pp(X, m, 2) << "\n";);
         set_empty(X);
+        return true;
     }
-    else {
-        literal lit = mk_eq(m_autil.mk_int(lX), mk_len(X), false);
-        if (l_true == ctx.get_assignment(lit)) {
-            expr_ref R = mk_concat(lX, units.c_ptr(), m.get_sort(X));
-            propagate_eq(dep, lit, X, R);
-            TRACE("seq", tout << "propagate " << mk_pp(X, m) << " " << R << "\n";);
-        }
-        else {
-            TRACE("seq", tout << "set phase " << mk_pp(X, m) << "\n";);
-            ctx.mark_as_relevant(lit);
-            ctx.force_phase(lit);
-        }
+
+    literal lit = mk_eq(m_autil.mk_int(lX), mk_len(X), false);
+    switch (ctx.get_assignment(lit)) {
+    case l_true: {
+        expr_ref R = mk_concat(lX, units.c_ptr(), m.get_sort(X));     
+        return propagate_eq(dep, lit, X, R);
+    }
+    case l_undef: 
+        TRACE("seq", tout << "set phase " << mk_pp(X, m) << "\n";);
+        ctx.mark_as_relevant(lit);
+        ctx.force_phase(lit);
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -758,10 +761,6 @@ bool theory_seq::branch_ternary_variable() {
 }
 
 
-bool theory_seq::eq_unit(expr* l, expr* r) const {
-    return l == r || is_unit_nth(l) || is_unit_nth(r);
-}
-
 // exists x, y, rs' != empty s.t.  (ls = x ++ rs ++ y) || (ls = rs' ++ y && rs = x ++ rs')
 bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
@@ -773,7 +772,7 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
         return result;
     }
     for (unsigned i = 0; i < ls.size(); ++i) {
-        if (eq_unit(ls[i], rs.back())) {
+        if (!m.are_distinct(ls[i], rs.back())) {
             bool same = true;
             if (i == 0) {
                 m_overlap_lhs.insert(pair, true);
@@ -783,7 +782,7 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
             if (rs.size() > i) {
                 unsigned diff = rs.size() - (i + 1);
                 for (unsigned j = 0; same && j < i; ++j) {
-                    same = eq_unit(ls[j], rs[diff + j]);
+                    same = !m.are_distinct(ls[j], rs[diff + j]);
                 }
                 if (same) {
                     m_overlap_lhs.insert(pair, true);
@@ -794,7 +793,7 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
             else {
                 unsigned diff = (i + 1) - rs.size();
                 for (unsigned j = 0; same && j < rs.size()-1; ++j) {
-                    same = eq_unit(ls[diff + j], rs[j]);
+                    same = !m.are_distinct(ls[diff + j], rs[j]);
                 }
                 if (same) {
                     m_overlap_lhs.insert(pair, true);
@@ -819,7 +818,7 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
     }
     for (unsigned i = 0; i < ls.size(); ++i) {
         unsigned diff = ls.size()-1-i;
-        if (eq_unit(ls[diff], rs[0])) {
+        if (!m.are_distinct(ls[diff], rs[0])) {
             bool same = true;
             if (i == 0) {
                 m_overlap_rhs.insert(pair, true);
@@ -828,7 +827,7 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
             // ls = x ++ rs' && rs = rs' ++ y, diff = |x|
             if (rs.size() > i) {
                 for (unsigned j = 1; same && j <= i; ++j) {
-                    same = eq_unit(ls[diff+j], rs[j]);
+                    same = !m.are_distinct(ls[diff+j], rs[j]);
                 }
                 if (same) {
                     m_overlap_rhs.insert(pair, true);
@@ -838,7 +837,7 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
             // ls = x ++ rs ++ y, diff = |x|
             else {
                 for (unsigned j = 1; same && j < rs.size(); ++j) {
-                    same = eq_unit(ls[diff + j], rs[j]);
+                    same = !m.are_distinct(ls[diff + j], rs[j]);
                 }
                 if (same) {
                     m_overlap_rhs.insert(pair, true);
@@ -1139,13 +1138,11 @@ bool theory_seq::branch_variable_eq(eq const& e) {
     TRACE("seq", tout << s << " " << id << ": " << e.ls() << " = " << e.rs() << "\n";);
     bool found = find_branch_candidate(s, e.dep(), e.ls(), e.rs());
     insert_branch_start(2*id, s);
-    if (found) {
-        return true;
+    if (!found) {
+        s = find_branch_start(2*id + 1);
+        found = find_branch_candidate(s, e.dep(), e.rs(), e.ls());
+        insert_branch_start(2*id + 1, s);
     }
-    s = find_branch_start(2*id + 1);
-    found = find_branch_candidate(s, e.dep(), e.rs(), e.ls());
-    insert_branch_start(2*id + 1, s);
-    
     return found;
 }
 
@@ -1177,7 +1174,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
     expr_ref v0(m);
     v0 = m_util.str.mk_empty(m.get_sort(l));
     if (can_be_equal(ls.size() - 1, ls.c_ptr() + 1, rs.size(), rs.c_ptr())) {
-        if (l_false != assume_equality(l, v0)) {
+        if (assume_equality(l, v0)) {
             TRACE("seq", tout << mk_pp(l, m) << " " << v0 << "\n";);
             return true;
         }
@@ -1193,7 +1190,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
             continue;
         }
         v0 = mk_concat(j + 1, rs.c_ptr());
-        if (l_false != assume_equality(l, v0)) {
+        if (assume_equality(l, v0)) {
             TRACE("seq", tout << mk_pp(l, m) << " " << v0 << "\n";);
             ++start;
             return true;
@@ -1216,7 +1213,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
         for (literal lit : lits) {
             switch (ctx.get_assignment(lit)) {
             case l_true:  break;
-            case l_false: start = 0; return true;
+            case l_false: start = 0; return false;
             case l_undef: ctx.mark_as_relevant(lit); ctx.force_phase(~lit); start = 0; return true;
             }
         }
@@ -1257,42 +1254,39 @@ bool theory_seq::can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr*
 }
 
 
-lbool theory_seq::assume_equality(expr* l, expr* r) {
+bool theory_seq::assume_equality(expr* l, expr* r) {
     if (m_exclude.contains(l, r)) {
-        return l_false;
+        return false;
     }
 
     expr_ref eq(m.mk_eq(l, r), m);
     m_rewrite(eq);
     if (m.is_true(eq)) {
-        return l_true;
+        return false;
     }
     if (m.is_false(eq)) {
-        return l_false;
+        return false;
     }
 
     enode* n1 = ensure_enode(l);
     enode* n2 = ensure_enode(r);
     if (n1->get_root() == n2->get_root()) {
         TRACE("seq", tout << mk_pp(l, m) << " = " << mk_pp(r, m) << " roots eq\n";);
-        return l_true;
+        return false;
     }
     if (ctx.is_diseq(n1, n2)) {
         TRACE("seq", tout << mk_pp(l, m) << " = " << mk_pp(r, m) << " is_diseq\n";);
-        return l_false;
-    }
-    if (false && ctx.is_diseq_slow(n1, n2)) {
-        return l_false;
+        return false;
     }
     ctx.mark_as_relevant(n1);
     ctx.mark_as_relevant(n2);
     if (!ctx.assume_eq(n1, n2)) {
         TRACE("seq", tout << mk_pp(l, m) << " = " << mk_pp(r, m) << " can't assume\n";);
-        return l_false;
+        return false;
     }
     lbool res = ctx.get_assignment(mk_eq(l, r, false));
     TRACE("seq", tout << mk_pp(l, m) << " = " << mk_pp(r, m) << " literal assigned " << res << "\n";);
-    return res;
+    return res != l_false;
 }
 
 
@@ -1367,14 +1361,9 @@ bool theory_seq::check_length_coherence(expr* e) {
 bool theory_seq::check_length_coherence0(expr* e) {
     if (is_var(e) && m_rep.is_root(e)) {
         expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
-        lbool r = l_false;
         bool p = propagate_length_coherence(e);
 
-        if (!p) {
-            r = assume_equality(e, emp);
-        }
-
-        if (p || r != l_false) {
+        if (p || assume_equality(e, emp)) {
             if (!ctx.at_base_level()) {
                 m_trail_stack.push(push_replay(alloc(replay_length_coherence, m, e)));
             }

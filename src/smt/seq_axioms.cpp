@@ -252,10 +252,14 @@ void seq_axioms::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
   s = "" or !contains(x*s1, s)
 */
 void seq_axioms::tightest_prefix(expr* s, expr* x) {
+    literal s_eq_emp = mk_eq_empty(s);
+    if (seq.str.max_length(s) <= 1) {
+        add_axiom(s_eq_emp, ~mk_literal(seq.str.mk_contains(x, s)));
+        return;
+    }
     expr_ref s1 = m_sk.mk_first(s);
     expr_ref c  = m_sk.mk_last(s);
     expr_ref s1c = mk_concat(s1, seq.str.mk_unit(c));
-    literal s_eq_emp = mk_eq_empty(s);
     add_axiom(s_eq_emp, mk_seq_eq(s, s1c));
     add_axiom(s_eq_emp, ~mk_literal(seq.str.mk_contains(mk_concat(x, s1), s)));
 }
@@ -321,17 +325,29 @@ void seq_axioms::add_indexof_axiom(expr* i) {
     add_axiom(~t_eq_empty, s_eq_empty, i_eq_m1);
 
     if (!offset || (a.is_numeral(offset, r) && r.is_zero())) {
+        // |s| = 0 => indexof(t,s,0) = 0
+        add_axiom(~s_eq_empty, i_eq_0);
+#if 1
         expr_ref x  = m_sk.mk_indexof_left(t, s);
         expr_ref y  = m_sk.mk_indexof_right(t, s);
         xsy         = mk_concat(x, s, y);
         expr_ref lenx = mk_len(x);
-        // |s| = 0 => indexof(t,s,0) = 0
         // contains(t,s) & |s| != 0 => t = xsy & indexof(t,s,0) = |x|
-        add_axiom(~s_eq_empty, i_eq_0);
         add_axiom(~cnt, s_eq_empty, mk_seq_eq(t, xsy));
         add_axiom(~cnt, s_eq_empty, mk_eq(i, lenx));
         add_axiom(~cnt, mk_ge(i, 0));
         tightest_prefix(s, x);
+#else
+        // let i := indexof(t,s,0)
+        // contains(t, s) & |s| != 0 => ~contains(substr(t,0,i+len(s)-1), s)
+        //                           => substr(t,0,i+len(s)) = substr(t,0,i) ++ s
+        //
+        expr_ref len_s = mk_len(s);
+        expr_ref mone(a.mk_int(-1), m);
+        add_axiom(~cnt, s_eq_empty, ~mk_literal(seq.str.mk_contains(seq.str.mk_substr(t,zero,a.mk_add(i,len_s,mone)),s)));
+        add_axiom(~cnt, s_eq_empty, mk_seq_eq(seq.str.mk_substr(t,zero,a.mk_add(i,len_s)),
+                                              seq.str.mk_concat(seq.str.mk_substr(t,zero,i), s)));
+#endif
     }
     else {
         // offset >= len(t) => |s| = 0 or indexof(t, s, offset) = -1
@@ -846,6 +862,13 @@ void seq_axioms::add_suffix_axiom(expr* e) {
     m_rewrite(t);
     literal lit = mk_literal(e);
     literal s_gt_t = mk_ge(mk_sub(mk_len(s), mk_len(t)), 1);
+#if 0
+    expr_ref x = m_sk.mk_pre(t, mk_sub(mk_len(t), mk_len(s)));
+    expr_ref y = m_sk.mk_tail(t, mk_sub(mk_len(s), a.mk_int(1)));
+    add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, y)));
+    add_axiom(lit, s_gt_t, mk_eq(mk_len(y), mk_len(s)));
+    add_axiom(lit, s_gt_t, ~mk_eq(y, s));    
+#else
     sort* char_sort = nullptr;
     VERIFY(seq.is_seq(m.get_sort(s), char_sort));
     expr_ref x = m_sk.mk("seq.suffix.x", s, t);
@@ -856,6 +879,7 @@ void seq_axioms::add_suffix_axiom(expr* e) {
     add_axiom(lit, s_gt_t, mk_seq_eq(s, mk_concat(y, seq.str.mk_unit(c), x)));
     add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(z, seq.str.mk_unit(d), x)));
     add_axiom(lit, s_gt_t, ~mk_eq(c, d));
+#endif
 }
 
 void seq_axioms::add_prefix_axiom(expr* e) {
@@ -866,6 +890,14 @@ void seq_axioms::add_prefix_axiom(expr* e) {
     m_rewrite(t);
     literal lit = mk_literal(e);
     literal s_gt_t = mk_ge(mk_sub(mk_len(s), mk_len(t)), 1);
+#if 0
+    expr_ref x = m_sk.mk_pre(t, mk_len(s));    
+    expr_ref y = m_sk.mk_tail(t, mk_sub(mk_sub(mk_len(t), mk_len(s)), a.mk_int(1)));
+    add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, y)));
+    add_axiom(lit, s_gt_t, mk_eq(mk_len(x), mk_len(s)));
+    add_axiom(lit, s_gt_t, ~mk_eq(x, s));
+
+#else
     sort* char_sort = nullptr;
     VERIFY(seq.is_seq(m.get_sort(s), char_sort));
     expr_ref x = m_sk.mk("seq.prefix.x", s, t);
@@ -876,6 +908,7 @@ void seq_axioms::add_prefix_axiom(expr* e) {
     add_axiom(lit, s_gt_t, mk_seq_eq(s, mk_concat(x, seq.str.mk_unit(c), y)));
     add_axiom(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, seq.str.mk_unit(d), z)), mk_seq_eq(t, x));
     add_axiom(lit, s_gt_t, ~mk_eq(c, d));
+#endif
 }
 
 /***

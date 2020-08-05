@@ -934,7 +934,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s) const {
     func_decls fs;
     if (m_func_decls.find(s, fs)) {
         if (fs.more_than_one())
-            throw cmd_exception("ambiguous function declaration reference, provide full signature to disumbiguate (<symbol> (<sort>*) <sort>) ", s);
+            throw cmd_exception("ambiguous function declaration reference, provide full signature to disambiguate (<symbol> (<sort>*) <sort>) ", s);
         return fs.first();
     }
     builtin_decl d;

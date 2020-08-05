@@ -260,6 +260,8 @@ void asserted_formulas::reduce() {
     if (!invoke(m_reduce_asserted_formulas)) return;
     if (!invoke(m_pull_nested_quantifiers)) return;
     if (!invoke(m_lift_ite)) return;
+    m_lift_ite.m_functor.set_conservative(m_smt_params.m_lift_ite == LI_CONSERVATIVE);
+    m_ng_lift_ite.m_functor.set_conservative(m_smt_params.m_ng_lift_ite == LI_CONSERVATIVE);
     if (!invoke(m_ng_lift_ite)) return;
     if (!invoke(m_elim_term_ite)) return;
     if (!invoke(m_refine_inj_axiom)) return;

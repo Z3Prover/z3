@@ -147,6 +147,18 @@ public:
         return m_solver->get_assertion(idx);
     }
 
+    expr_ref get_implied_value(expr* e) override {
+        return expr_ref(e, m);
+    }
+
+    expr_ref get_implied_lower_bound(expr* e) override {
+        return expr_ref(e, m);
+    }
+
+    expr_ref get_implied_upper_bound(expr* e) override {
+        return expr_ref(e, m);
+    }
+
 
 private:
     void flush_assertions() const {

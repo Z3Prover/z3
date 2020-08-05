@@ -449,7 +449,7 @@ namespace algebraic_numbers {
         }
 
         void copy_poly(algebraic_cell * c, unsigned sz, mpz const * p) {
-            SASSERT(c->m_p == 0);
+            SASSERT(c->m_p == nullptr);
             SASSERT(c->m_p_sz == 0);
             c->m_p_sz = sz;
             c->m_p    = static_cast<mpz*>(m_allocator.allocate(sizeof(mpz)*sz));
@@ -476,7 +476,7 @@ namespace algebraic_numbers {
             target->m_sign_lower   = source->m_sign_lower;
             target->m_not_rational = source->m_not_rational;
             target->m_i            = source->m_i;
-            SASSERT(acell_inv(*source));
+            //SASSERT(acell_inv(*source)); source could be owned by a different manager
             SASSERT(acell_inv(*target));
         }
 

@@ -1130,7 +1130,7 @@ expr* seq_decl_plugin::get_some_value(sort* s) {
 }
 
 app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {
-    SASSERT(range);
+    SASSERT(range);    
     parameter param(name);
     func_decl* f = m.mk_func_decl(get_family_id(), _OP_SEQ_SKOLEM, 1, &param, n, args, range);
     return m.mk_app(f, n, args);
@@ -1285,13 +1285,18 @@ unsigned seq_util::str::min_length(expr* s) const {
 unsigned seq_util::str::max_length(expr* s) const {
     SASSERT(u.is_seq(s));
     unsigned result = 0;
-    expr* s1 = nullptr, *s2 = nullptr;
+    expr* s1 = nullptr, *s2 = nullptr, *s3 = nullptr;
+    unsigned n = 0;
     zstring st;
     auto get_length = [&](expr* s1) {
         if (is_empty(s1))
             return 0u;
         else if (is_unit(s1))
             return 1u;
+        else if (is_at(s1))
+            return 1u;
+        else if (is_extract(s1, s1, s2, s3)) 
+            return (arith_util(m).is_unsigned(s3, n)) ? n : UINT_MAX;
         else if (is_string(s1, st))
             return st.length();
         else
@@ -1311,22 +1316,21 @@ unsigned seq_util::re::min_length(expr* r) const {
     unsigned lo = 0, hi = 0;
     if (is_empty(r))
         return UINT_MAX;
-    if (is_concat(r, r1, r2)) 
+    if (is_concat(r, r1, r2))
         return u.max_plus(min_length(r1), min_length(r2));
-    if (m.is_ite(r, s, r1, r2)) 
+    if (is_union(r, r1, r2) || m.is_ite(r, s, r1, r2))
         return std::min(min_length(r1), min_length(r2));
-    if (is_diff(r, r1, r2))
-        return min_length(r1);
-    if (is_union(r, r1, r2)) 
-        return std::min(min_length(r1), min_length(r2));
-    if (is_intersection(r, r1, r2)) 
+    if (is_intersection(r, r1, r2))
         return std::max(min_length(r1), min_length(r2));
-    if (is_loop(r, r1, lo, hi))
+    if (is_diff(r, r1, r2) || is_reverse(r, r1) || is_plus(r, r1))
+        return min_length(r1);
+    if (is_loop(r, r1, lo) || is_loop(r, r1, lo, hi))
         return u.max_mul(lo, min_length(r1));
-    if (is_range(r)) 
-        return 1;
-    if (is_to_re(r, s)) 
+    if (is_to_re(r, s))
         return u.str.min_length(s);
+    if (is_range(r) || is_of_pred(r) || is_full_char(r))
+        return 1;
+    // Else: star, option, complement, full_seq, derivative
     return 0;
 }
 
@@ -1336,20 +1340,21 @@ unsigned seq_util::re::max_length(expr* r) const {
     unsigned lo = 0, hi = 0;
     if (is_empty(r))
         return 0;
-    if (is_concat(r, r1, r2)) 
+    if (is_concat(r, r1, r2))
         return u.max_plus(max_length(r1), max_length(r2));
-    if (m.is_ite(r, s, r1, r2)) 
+    if (is_union(r, r1, r2) || m.is_ite(r, s, r1, r2))
         return std::max(max_length(r1), max_length(r2));
-    if (is_diff(r, r1, r2))
-        return max_length(r1);
-    if (is_union(r, r1, r2)) 
-        return std::max(max_length(r1), max_length(r2));
-    if (is_intersection(r, r1, r2)) 
+    if (is_intersection(r, r1, r2))
         return std::min(max_length(r1), max_length(r2));
+    if (is_diff(r, r1, r2) || is_reverse(r, r1) || is_opt(r, r1))
+        return max_length(r1);
     if (is_loop(r, r1, lo, hi))
         return u.max_mul(hi, max_length(r1));
-    if (is_to_re(r, s)) 
+    if (is_to_re(r, s))
         return u.str.max_length(s);
+    if (is_range(r) || is_of_pred(r) || is_full_char(r))
+        return 1;
+    // Else: star, plus, complement, full_seq, loop(r,r1,lo), derivative
     return UINT_MAX;
 }
 
@@ -1443,4 +1448,18 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo) const {
         }
     }
     return false;
+}
+
+/**
+   Returns true iff e is the epsilon regex.
+ */
+bool seq_util::re::is_epsilon(expr* r) const {
+    expr* s;
+    return is_to_re(r, s) && u.str.is_empty(s);
+}
+/**
+   Makes the epsilon regex for a given sequence sort.
+ */
+app* seq_util::re::mk_epsilon(sort* seq_sort) {
+    return mk_to_re(u.str.mk_empty(seq_sort));
 }

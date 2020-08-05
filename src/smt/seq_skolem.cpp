@@ -40,13 +40,16 @@ seq_skolem::seq_skolem(ast_manager& m, th_rewriter& rw):
     m_is_non_empty   = "re.is_non_empty";
 }
 
-expr_ref seq_skolem::mk(symbol const& s, expr* e1, expr* e2, expr* e3, expr* e4, sort* range) {
+expr_ref seq_skolem::mk(symbol const& s, expr* e1, expr* e2, expr* e3, expr* e4, sort* range, bool rw) {
     expr* es[4] = { e1, e2, e3, e4 };
     unsigned len = e4?4:(e3?3:(e2?2:(e1?1:0)));
     if (!range) {
         range = m.get_sort(e1);
     }
-    return expr_ref(seq.mk_skolem(s, len, es, range), m);
+    expr_ref result(seq.mk_skolem(s, len, es, range), m);
+    if (rw) 
+        m_rewrite(result);
+    return result;
 }
 
 expr_ref seq_skolem::mk_max_unfolding_depth(unsigned depth) { 
@@ -113,13 +116,11 @@ decompose_main:
         head = seq.str.mk_unit(seq.str.mk_nth_i(s, idx));
         tail = mk(m_tail, s, idx);
         m_rewrite(head);
-        m_rewrite(tail);
     }
     else {
         head = seq.str.mk_unit(seq.str.mk_nth_i(e, a.mk_int(0)));
         tail = mk(m_tail, e, a.mk_int(0));
         m_rewrite(head);
-        m_rewrite(tail);
     }
 }
 

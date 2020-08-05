@@ -112,12 +112,11 @@ func_decl_ref bvarray2uf_rewriter_cfg::mk_uf_for_array(expr * e) {
             sort * range = get_value_sort(e);
             bv_f = m_manager.mk_fresh_func_decl("f_t", "", 1, &domain, range);
             TRACE("bvarray2uf_rw", tout << "for " << mk_ismt2_pp(e, m_manager) << " new func_decl is " << mk_ismt2_pp(bv_f, m_manager) << std::endl; );
-            if (is_uninterp_const(e)) {
-                if (m_fmc)
-                    m_fmc->add(e, m_array_util.mk_as_array(bv_f));
+            if (m_fmc) {
+              m_fmc->hide(bv_f);
+              if (is_uninterp_const(e))
+                m_fmc->add(e, m_array_util.mk_as_array(bv_f));
             }
-            else if (m_fmc)
-                m_fmc->hide(bv_f);
             m_arrays_fs.insert(e, bv_f);
             m_manager.inc_ref(e);
             m_manager.inc_ref(bv_f);
@@ -181,22 +180,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         func_decl_ref itefd(m_manager);
         e = m_manager.mk_ite(c, f_ta, f_fa);
 
-        func_decl * bv_f = nullptr;
-        if (!m_arrays_fs.find(f_a, bv_f)) {
-            sort * domain = get_index_sort(args[1]);
-            sort * range = get_value_sort(args[1]);
-            bv_f = m_manager.mk_fresh_func_decl("f_t", "", 1, &domain, range);
-            TRACE("bvarray2uf_rw", tout << mk_ismt2_pp(e, m_manager) << " -> " << bv_f->get_name() << std::endl; );
-            if (is_uninterp_const(e)) {
-                if (m_fmc)
-                    m_fmc->add(e, m_array_util.mk_as_array(bv_f));
-            }
-            else if (m_fmc)
-                m_fmc->hide(bv_f);
-            m_arrays_fs.insert(e, bv_f);
-            m_manager.inc_ref(e);
-            m_manager.inc_ref(bv_f);
-        }
+        func_decl * bv_f = mk_uf_for_array(e);
 
         expr_ref q(m_manager), body(m_manager);
         body = m_manager.mk_eq(m_manager.mk_app(bv_f, x), e);
@@ -207,7 +191,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
 
         TRACE("bvarray2uf_rw", tout << "result: " << mk_ismt2_pp(result, m_manager) << ")" << std::endl;);
         res = BR_DONE;
-        
+
     }
     else if (f->get_family_id() == m_manager.get_basic_family_id() && is_bv_array(f->get_range())) {
         throw default_exception("not handled by bvarray2uf");
@@ -252,7 +236,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                 " index: " << mk_ismt2_pp(i, m()) << std::endl;);
 
             if (!is_bv_array(t))
-                res = BR_FAILED;
+                throw default_exception("not handled by bvarray2uf");
             else {
                 // From [1]: Then, we replace terms of the form select(t, i) with f_t(i).
                 func_decl_ref f_t(mk_uf_for_array(t), m_manager);
@@ -262,7 +246,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         }
         else {
             if (!is_bv_array(f->get_range()))
-                res = BR_FAILED;
+                throw default_exception("not handled by bvarray2uf");
             else {
                 if (m_array_util.is_const(f)) {
                     SASSERT(num == 1);
@@ -330,7 +314,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         " index: " << mk_ismt2_pp(i, m()) <<
                         " value: " << mk_ismt2_pp(v, m()) << std::endl;);
                     if (!is_bv_array(s))
-                        res = BR_FAILED;
+                        throw default_exception("not handled by bvarray2uf");
                     else {
                         expr_ref t(m_manager.mk_app(f, num, args), m_manager);
                         // From [1]: For every term t of the form store(s, i, v), we add the universal
@@ -361,7 +345,6 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                 }
                 else {
                     throw default_exception("not handled by bvarray2uf");
-                    // res = BR_FAILED;
                 }
             }
         }

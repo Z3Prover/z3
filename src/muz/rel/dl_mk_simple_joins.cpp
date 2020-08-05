@@ -377,7 +377,7 @@ namespace datalog {
             }
 
             func_decl * decl = m_context.mk_fresh_head_predicate(
-                symbol(parent_name.c_str()), symbol("split"), 
+                symbol(parent_name), symbol("split"), 
                 arity, domain.c_ptr(), parent_head);
 
             app_ref head(m.mk_app(decl, arity, args.c_ptr()), m);

@@ -106,6 +106,7 @@ public:
         std::swap(m_ptr, other.m_ptr);
     }
 
+    mpz& operator=(mpz const& other) = delete;
     mpz& operator=(mpz &&other) {
         swap(other);
         return *this;
@@ -535,13 +536,6 @@ public:
         }
     }
 
-    void set(mpz & target, mpz && source) {
-        target.m_val = source.m_val;
-        std::swap(target.m_ptr, source.m_ptr);
-        auto o = target.m_owner; target.m_owner = source.m_owner; source.m_owner = o;
-        auto k = target.m_kind; target.m_kind = source.m_kind; source.m_kind = k;
-    }
-
     void set(mpz & a, int val) {
         a.m_val = val;
         a.m_kind = mpz_small;
@@ -724,6 +718,7 @@ public:
     
     // Store the digits of n into digits, and return the sign.
     bool decompose(mpz const & n, svector<digit_t> & digits);
+
 };
 
 #ifndef SINGLE_THREAD

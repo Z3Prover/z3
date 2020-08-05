@@ -134,6 +134,10 @@ namespace {
 
         void collect_param_descrs(param_descrs & r) override {
             m_context.collect_param_descrs(r);
+            insert_timeout(r);
+            insert_rlimit(r);
+            insert_max_memory(r);
+            insert_ctrl_c(r);
         }
 
         void collect_statistics(statistics & st) const override {
@@ -355,6 +359,18 @@ namespace {
                 }
                 ++i;
             }
+        }
+
+        expr_ref get_implied_value(expr* e) override {
+            return m_context.get_implied_value(e);
+        }
+
+        expr_ref get_implied_lower_bound(expr* e) override {
+            return m_context.get_implied_lower_bound(e);
+        }
+
+        expr_ref get_implied_upper_bound(expr* e) override {
+            return m_context.get_implied_upper_bound(e);
         }
 
         bool fds_intersect(func_decl_set & pattern_fds, func_decl_set & assrtn_fds) {

@@ -48,9 +48,10 @@ bool push_app_ite_cfg::is_target(func_decl * decl, unsigned num_args, expr * con
         }
     }
     CTRACE("push_app_ite", found_ite, tout << "found target for push app ite:\n";
-          tout << decl->get_name();
-          for (unsigned i = 0; i < num_args; i++) tout << " " << mk_pp(args[i], m);
-          tout << "\n";);
+           tout << "conservative " << m_conservative << "\n";
+           tout << decl->get_name();
+           for (unsigned i = 0; i < num_args; i++) tout << " " << mk_pp(args[i], m);
+           tout << "\n";);
     return found_ite;
 }
 

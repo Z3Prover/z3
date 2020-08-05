@@ -39,6 +39,7 @@ Revision History:
 #include "smt/smt_model_checker.h"
 #include "smt/smt_model_finder.h"
 #include "smt/smt_parallel.h"
+#include "smt/smt_arith_value.h"
 
 namespace smt {
 
@@ -4486,8 +4487,12 @@ namespace smt {
     }
 
     void context::get_model(model_ref & mdl) {
-        if (inconsistent() || !m.inc())
-            mdl = nullptr;       
+        if (inconsistent()) 
+            mdl = nullptr;
+        else if (m_model.get()) 
+            mdl = m_model.get();
+        else if (!m.inc())
+            mdl = nullptr;
         else {
             mk_proto_model();
             if (!m_model && m_proto_model) {
@@ -4549,6 +4554,47 @@ namespace smt {
             m_model->register_decl(f, fi);
         }
         TRACE("model", tout << *m_model << "\n";);
+    }
+
+    expr_ref context::get_implied_value(expr* e) {
+        pop_to_search_lvl();
+        if (m.is_bool(e)) {
+            if (b_internalized(e)) {
+                switch (get_assignment(get_bool_var(e))) {
+                case l_true: e = m.mk_true(); break;
+                case l_false: e = m.mk_false(); break;
+                default: break;
+                }
+            }
+            return expr_ref(e, m);
+        }
+
+        if (e_internalized(e)) {
+            enode* n = get_enode(e);
+            for (enode* r : *n) {
+                if (m.is_value(r->get_owner())) {
+                    return expr_ref(r->get_owner(), m);
+                }
+            }
+        }
+
+        arith_value av(m);
+        av.init(this);
+        return av.get_fixed(e);
+    }
+
+    expr_ref context::get_implied_lower_bound(expr* e) {
+        pop_to_search_lvl();
+        arith_value av(m);
+        av.init(this);
+        return av.get_lo(e);
+    }
+
+    expr_ref context::get_implied_upper_bound(expr* e) {
+        pop_to_search_lvl();
+        arith_value av(m);
+        av.init(this);
+        return av.get_up(e);
     }
 
 };

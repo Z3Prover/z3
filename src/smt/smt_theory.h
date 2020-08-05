@@ -126,6 +126,15 @@ namespace smt {
                 }
             }
 
+            scoped_trace_stream(theory& th, literal lit1, literal lit2): m(th.get_manager()) {
+                if (m.has_trace_stream()) {
+                    literal_vector lits;
+                    lits.push_back(lit1);
+                    lits.push_back(lit2);
+                    th.log_axiom_instantiation(lits);
+                }
+            }
+
             scoped_trace_stream(theory& th, std::function<literal(void)>& fn): m(th.get_manager()) {
                 if (m.has_trace_stream()) {
                     literal_vector ls;

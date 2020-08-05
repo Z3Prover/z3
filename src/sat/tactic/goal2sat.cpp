@@ -965,7 +965,9 @@ void sat2goal::mc::flush_smc(sat::solver_core& s, atom2bool_var const& map) {
     s.flush(m_smc);
     m_var2expr.resize(s.num_vars());
     map.mk_var_inv(m_var2expr);
+    flush_gmc();
 }
+
 
 void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
@@ -1072,14 +1074,15 @@ void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
 }
 
 expr_ref sat2goal::mc::lit2expr(sat::literal l) {
-    if (!m_var2expr.get(l.var())) {
+    sat::bool_var v = l.var();
+    if (!m_var2expr.get(v)) {
         app* aux = m.mk_fresh_const(nullptr, m.mk_bool_sort());
-        m_var2expr.set(l.var(), aux);
+        m_var2expr.set(v, aux);
         if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
         m_gmc->hide(aux->get_decl());
     }
-    VERIFY(m_var2expr.get(l.var()));
-    expr_ref result(m_var2expr.get(l.var()), m);
+    VERIFY(m_var2expr.get(v));
+    expr_ref result(m_var2expr.get(v), m);
     if (l.sign()) {
         result = m.mk_not(result);
     }
@@ -1210,7 +1213,6 @@ struct sat2goal::imp {
             checkpoint();            
             r.assert_expr(lit2expr(mc, s.trail_literal(i)));
         }
-
         // collect binary clauses
         svector<sat::solver::bin_clause> bin_clauses;
         s.collect_bin_clauses(bin_clauses, m_learned, false);

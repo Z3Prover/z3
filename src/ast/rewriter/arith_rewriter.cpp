@@ -616,6 +616,24 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         case EQ: result = m().mk_ite(c, m().mk_eq(t, arg2), m().mk_eq(e, arg2)); return BR_REWRITE2;
         }
     }
+    if (m_util.is_to_int(arg2) && is_numeral(arg1)) {        
+        kind = inv(kind);
+        std::swap(arg1, arg2);
+    } 
+    if (m_util.is_to_int(arg1, t) && is_numeral(arg2, a2)) {        
+        switch (kind) {
+        case LE: 
+            result = m_util.mk_lt(t, m_util.mk_numeral(a2+1, false)); 
+            return BR_REWRITE1;
+        case GE: 
+            result = m_util.mk_ge(t, m_util.mk_numeral(a2, false)); 
+            return BR_REWRITE1;
+        case EQ: 
+            result = m_util.mk_ge(t, m_util.mk_numeral(a2, false));
+            result = m().mk_and(m_util.mk_lt(t, m_util.mk_numeral(a2+1, false)), result);
+            return BR_REWRITE3;
+        }        
+    }
     if ((m_arith_lhs || m_arith_ineq_lhs) && is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
         a2.neg();
         new_arg2 = m_util.mk_numeral(a2, m_util.is_int(new_arg1));
@@ -755,7 +773,7 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
         for (unsigned i = 0; i < num_args; i ++) {
             unsigned d = am.degree(r);
             if (d > 1 && d > m_max_degree) {
-                new_args.push_back(m_util.mk_numeral(r, false));
+                new_args.push_back(m_util.mk_numeral(am, r, false));
                 am.set(r, 0);
             }
 
@@ -777,11 +795,11 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
         }
 
         if (new_args.empty()) {
-            result = m_util.mk_numeral(r, false);
+            result = m_util.mk_numeral(am, r, false);
             return BR_DONE;
         }
 
-        new_args.push_back(m_util.mk_numeral(r, false));
+        new_args.push_back(m_util.mk_numeral(am, r, false));
         br_status st = poly_rewriter<arith_rewriter_core>::mk_add_core(new_args.size(), new_args.c_ptr(), result);
         if (st == BR_FAILED) {
             result = m().mk_app(get_fid(), OP_ADD, new_args.size(), new_args.c_ptr());
@@ -805,7 +823,7 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
         for (unsigned i = 0; i < num_args; i ++) {
             unsigned d = am.degree(r);
             if (d > 1 && d > m_max_degree) {
-                new_args.push_back(m_util.mk_numeral(r, false));
+                new_args.push_back(m_util.mk_numeral(am, r, false));
                 am.set(r, 1);
             }
 
@@ -826,10 +844,10 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
         }
 
         if (new_args.empty()) {
-            result = m_util.mk_numeral(r, false);
+            result = m_util.mk_numeral(am, r, false);
             return BR_DONE;
         }
-        new_args.push_back(m_util.mk_numeral(r, false));
+        new_args.push_back(m_util.mk_numeral(am, r, false));
 
         br_status st = poly_rewriter<arith_rewriter_core>::mk_mul_core(new_args.size(), new_args.c_ptr(), result);
         if (st == BR_FAILED) {
@@ -857,7 +875,7 @@ br_status arith_rewriter::mk_div_irrat_rat(expr * arg1, expr * arg2, expr_ref & 
     am.set(val2, rval2.to_mpq());
     scoped_anum r(am);
     am.div(val1, val2, r);
-    result = m_util.mk_numeral(r, false);
+    result = m_util.mk_numeral(am, r, false);
     return BR_DONE;
 }
 
@@ -873,7 +891,7 @@ br_status arith_rewriter::mk_div_rat_irrat(expr * arg1, expr * arg2, expr_ref & 
     anum const & val2  = m_util.to_irrational_algebraic_numeral(arg2);
     scoped_anum r(am);
     am.div(val1, val2, r);
-    result = m_util.mk_numeral(r, false);
+    result = m_util.mk_numeral(am, r, false);
     return BR_DONE;
 }
 
@@ -890,7 +908,7 @@ br_status arith_rewriter::mk_div_irrat_irrat(expr * arg1, expr * arg2, expr_ref 
         return BR_FAILED;
     scoped_anum r(am);
     am.div(val1, val2, r);
-    result = m_util.mk_numeral(r, false);
+    result = m_util.mk_numeral(am, r.get(), false);
     return BR_DONE;
 }
 
@@ -1351,7 +1369,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
             am.root(r, u_den_y, r);
             if (is_neg_y)
                 am.inv(r);
-            result = m_util.mk_numeral(r, false);
+            result = m_util.mk_numeral(am, r, false);
             return BR_DONE;
         }
         return BR_FAILED;
@@ -1370,7 +1388,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     am.root(r, u_den_y, r);
     if (is_neg_y)
         am.inv(r);
-    result = m_util.mk_numeral(r, false);
+    result = m_util.mk_numeral(am, r, false);
     return BR_DONE;
 }
 

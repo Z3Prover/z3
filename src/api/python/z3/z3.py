@@ -2921,6 +2921,12 @@ class AlgebraicNumRef(ArithRef):
         """
         return Z3_get_numeral_decimal_string(self.ctx_ref(), self.as_ast(), prec)
 
+    def poly(self):
+        return AstVector(Z3_algebraic_get_poly(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def index(self):
+        return Z3_algebraic_get_i(self.ctx_ref(), self.as_ast())
+
 def _py2expr(a, ctx=None):
     if isinstance(a, bool):
         return BoolVal(a, ctx)
@@ -6850,6 +6856,21 @@ class Solver(Z3PPObject):
         """Return trail of the solver state after a check() call.
         """
         return AstVector(Z3_solver_get_trail(self.ctx.ref(), self.solver), self.ctx)
+
+    def value(self, e):
+        """Return value of term in solver, if any is given.
+        """
+        return _to_expr_ref(Z3_solver_get_implied_value(self.ctx.ref(), self.solver, e.as_ast()), self.ctx)
+
+    def lower(self, e):
+        """Return lower bound known to solver based on the last call.
+        """
+        return _to_expr_ref(Z3_solver_get_implied_lower(self.ctx.ref(), self.solver, e.as_ast()), self.ctx)
+    
+    def upper(self, e):
+        """Return upper bound known to solver based on the last call.
+        """
+        return _to_expr_ref(Z3_solver_get_implied_upper(self.ctx.ref(), self.solver, e.as_ast()), self.ctx)
 
     def statistics(self):
         """Return statistics for the last `check()`.

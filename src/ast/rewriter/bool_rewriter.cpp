@@ -136,7 +136,7 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
 
     unsigned sz = buffer.size();
 
-    switch(sz) {
+    switch (sz) {
     case 0:
         result = m().mk_true();
         return BR_DONE;
@@ -145,7 +145,7 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
         return BR_DONE;
     default:
         if (s) {
-            result = m().mk_and(sz, buffer.c_ptr());
+            result = m().mk_and(buffer);
             return BR_DONE;
         }
         return BR_FAILED;
@@ -166,16 +166,15 @@ br_status bool_rewriter::mk_flat_and_core(unsigned num_args, expr * const * args
             expr * arg = args[i];
             // Remark: all rewrites are depth 1.
             if (m().is_and(arg)) {
-                unsigned num = to_app(arg)->get_num_args();
-                for (unsigned j = 0; j < num; j++)
-                    flat_args.push_back(to_app(arg)->get_arg(j));
+                for (expr* e : *to_app(arg)) 
+                    flat_args.push_back(e);
             }
             else {
                 flat_args.push_back(arg);
             }
         }
         if (mk_nflat_and_core(flat_args.size(), flat_args.c_ptr(), result) == BR_FAILED)
-            result = m().mk_and(flat_args.size(), flat_args.c_ptr());
+            result = m().mk_and(flat_args);
         return BR_DONE;
     }
     return mk_nflat_and_core(num_args, args, result);
@@ -237,7 +236,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
 
     unsigned sz = buffer.size();
 
-    switch(sz) {
+    switch (sz) {
     case 0:
         result = m().mk_false();
         return BR_DONE;
@@ -246,12 +245,12 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
         return BR_DONE;
     default:
         if (m_local_ctx && m_local_ctx_cost <= m_local_ctx_limit) {
-            if (local_ctx_simp(sz, buffer.c_ptr(), result))
+            if (local_ctx_simp(sz, buffer.c_ptr(), result)) 
                 return BR_DONE;
         }
         if (s) {
             ast_lt lt;
-            std::sort(buffer.begin(), buffer.end(), lt);
+            std::sort(buffer.begin(), buffer.end(), lt);       
             result = m().mk_or(sz, buffer.c_ptr());
             return BR_DONE;
         }
@@ -277,13 +276,12 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
             // Remark: all rewrites are depth 1.
             if (m().is_or(arg)) {
                 ordered = false;
-                unsigned num = to_app(arg)->get_num_args();
-                for (unsigned j = 0; j < num; j++)
-                    flat_args.push_back(to_app(arg)->get_arg(j));
+                for (expr* e : *to_app(arg)) 
+                    flat_args.push_back(e);
             }
             else {
                 flat_args.push_back(arg);
-                ordered &= !prev || !lt(arg, prev);
+                ordered &= (!prev || !lt(arg, prev));
                 prev = arg;
             }
         }
@@ -292,7 +290,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
                 ast_lt lt;
                 std::sort(flat_args.begin(), flat_args.end(), lt);
             }
-            result = m().mk_or(flat_args.size(), flat_args.c_ptr());
+            result = m().mk_or(flat_args);
         }
         return BR_DONE;
     }
@@ -300,7 +298,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
 }
 
 expr * bool_rewriter::mk_or_app(unsigned num_args, expr * const * args) {
-    switch(num_args) {
+    switch (num_args) {
     case 0: return m().mk_false();
     case 1: return args[0];
     default: return m().mk_or(num_args, args);
@@ -342,7 +340,7 @@ bool bool_rewriter::simp_nested_not_or(unsigned num_args, expr * const * args,
         new_args.push_back(arg);
     }
     if (simp) {
-        switch(new_args.size()) {
+        switch (new_args.size()) {
         case 0:
             result = m().mk_true();
             return true;
@@ -350,7 +348,7 @@ bool bool_rewriter::simp_nested_not_or(unsigned num_args, expr * const * args,
             mk_not(new_args[0], result);
             return true;
         default:
-            result = m().mk_not(m().mk_or(new_args.size(), new_args.c_ptr()));
+            result = m().mk_not(m().mk_or(new_args));
             return true;
         }
     }
@@ -796,7 +794,7 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
             for (unsigned j = i + 1; j < num_args; j++)
                 new_diseqs.push_back(m().mk_not(mk_eq(args[i], args[j])));
         }
-        result = m().mk_and(new_diseqs.size(), new_diseqs.c_ptr());
+        result = m().mk_and(new_diseqs);
         return BR_REWRITE3;
     }
 
@@ -813,11 +811,16 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         s = true;
     }
 
-    // (ite c (ite c t1 t2) t3)       ==> (ite c t1 t3)
+    // (ite c (ite c t1 t2) t3)       ==> (ite c t1 t3
     if (m().is_ite(t) && to_app(t)->get_arg(0) == c) {
         // Remark: (ite c (ite (not c) t1 t2) t3) ==> (ite c t2 t3) does not happen if applying rewrites bottom up
         t = to_app(t)->get_arg(1);
         s = true;
+    }
+    // (ite c t1 (ite c2 t1 t2))      ==> (ite (or c c2) t1 t2)
+    if (m().is_ite(e) && to_app(e)->get_arg(1) == t) {
+        result = m().mk_ite(m().mk_or(c, to_app(e)->get_arg(0)), t, to_app(e)->get_arg(2));
+        return BR_REWRITE3;
     }
 
     // (ite c t1 (ite c t2 t3))       ==> (ite c t1 t3)

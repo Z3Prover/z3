@@ -23,7 +23,6 @@ Revision History:
 #include "ast/ast_trail.h"
 #include "util/scoped_vector.h"
 #include "util/scoped_ptr_vector.h"
-#include "math/automata/automaton.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/union_find.h"
 #include "util/obj_ref_hashtable.h"
@@ -301,15 +300,6 @@ namespace smt {
             }
         };
 
-        struct s_in_re {
-            literal     m_lit;
-            expr*       m_s;
-            expr*       m_re;
-            eautomaton* m_aut;
-            bool        m_active;
-            s_in_re(literal l, expr*s, expr* re, eautomaton* aut):
-                m_lit(l), m_s(s), m_re(re), m_aut(aut), m_active(true) {}
-        };
 
         void erase_index(unsigned idx, unsigned i);
 
@@ -318,7 +308,6 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(stats)); }
             unsigned m_num_splits;
             unsigned m_num_reductions;
-            unsigned m_propagate_automata;
             unsigned m_check_length_coherence;
             unsigned m_branch_variable;
             unsigned m_branch_nqs;
@@ -376,19 +365,13 @@ namespace smt {
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
         expr_ref_pair_vector m_new_eqs;
 
-        // maintain automata with regular expressions.
-        scoped_ptr_vector<eautomaton>  m_automata;
-        obj_map<expr, eautomaton*>     m_re2aut;
-        expr_ref_vector                m_res;
         unsigned                       m_max_unfolding_depth;
         literal                        m_max_unfolding_lit;
-        vector<s_in_re>                m_s_in_re;
 
         expr*                          m_unhandled_expr;
         bool                           m_has_seq;
         bool                           m_new_solution;     // new solution added
         bool                           m_new_propagation;  // new propagation to core
-        re2automaton                   m_mk_aut;
 
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
         obj_hashtable<expr>            m_is_digit;         // expressions that have been constrained to be digits
@@ -448,10 +431,9 @@ namespace smt {
         bool check_length_coherence(expr* e);
         bool fixed_length(bool is_zero = false);
         bool fixed_length(expr* e, bool is_zero);
-        void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
+        bool branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
         bool branch_variable_eq(eq const& e);
         bool branch_binary_variable(eq const& e);
-        bool eq_unit(expr* l, expr* r) const;       
         bool can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool branch_ternary_variable_rhs(eq const& e);
@@ -554,7 +536,7 @@ namespace smt {
         bool find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs);
         expr_ref_vector expand_strings(expr_ref_vector const& es);
         bool can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs) const;
-        lbool assume_equality(expr* l, expr* r);
+        bool assume_equality(expr* l, expr* r);
 
         // variable solving utilities
         bool occurs(expr* a, expr* b);
@@ -619,13 +601,6 @@ namespace smt {
 
         void set_incomplete(app* term);
 
-        // automata utilities
-        void propagate_in_re(expr* n, bool is_true);
-        eautomaton* get_automaton(expr* e);
-        literal mk_accept(expr* s, expr* idx, expr* re, expr* state);
-        literal mk_accept(expr* s, expr* idx, expr* re, unsigned i) { return mk_accept(s, idx, re, m_autil.mk_int(i)); }
-        bool is_accept(expr* acc) const {  return m_sk.is_accept(acc); }
-        bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
         void propagate_not_prefix(expr* e);
         void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);

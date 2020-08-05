@@ -46,6 +46,12 @@ typedef vector<column_cell> column_strip;
 
 template <typename T>
 using row_strip = vector<row_cell<T>>; 
+template <typename T>
+std::ostream& operator<<(std::ostream& out, const row_strip<T>& r) {
+    for (auto const& c : r)
+        out << c << " ";
+    return out << "\n";
+}
 
 // each assignment for this matrix should be issued only once!!!
 template <typename T, typename X>
