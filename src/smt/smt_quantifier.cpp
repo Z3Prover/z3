@@ -276,9 +276,8 @@ namespace smt {
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
                     enode *substituted = std::get<1>(n);
-                    if (orig == nullptr) {
+                    if (orig == nullptr)
                         out << " #" << substituted->get_owner_id();
-                    }
                     else {
                         out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
                     }

@@ -54,22 +54,18 @@ void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::e
         new_key->m_bindings[i] = bindings[i]->get_owner();
 
     auto* entry = m_instances.insert_if_not_there3(new_key, nullptr);
-
     if (entry->get_data().m_key != new_key) {
         SASSERT(entry->get_data().m_value != 0);
         // entry was already there
         m_new_keys[num_bindings] = new_key; // recycle key
         result = entry->get_data().m_value;
-
-        SCTRACE("bindings", is_trace_enabled("coming_from_quant"),
-                tout << "(cache)\n";
+        SCTRACE("bindings", is_trace_enabled("coming_from_quant"),tout << "(cache)\n";
             for (unsigned i = 0; i < num_bindings; i++) {
                 if (new_key->m_bindings[i]) {
                     tout << i << ": " << mk_ismt2_pp(new_key->m_bindings[i], result.m()) << ";\n";
                 }
             }
             tout.flush(););
-
         return;
     }
 
