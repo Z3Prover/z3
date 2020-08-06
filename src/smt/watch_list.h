@@ -171,6 +171,8 @@ namespace smt {
         }
         
         void remove_clause(clause * c);
+
+        void remove_deleted();
         
         void remove_literal(literal l);
         

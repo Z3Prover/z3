@@ -2007,12 +2007,38 @@ namespace smt {
        Reduce the size of v to old_size.
     */
     void context::del_clauses(clause_vector & v, unsigned old_size) {
-        SASSERT(old_size <= v.size());
+        unsigned num_collect = v.size() - old_size;
+        if (num_collect == 0)
+            return;
+        
         clause_vector::iterator begin = v.begin() + old_size;
         clause_vector::iterator it    = v.end();
-        while (it != begin) {
-            --it;
-            del_clause(false, *it);
+        if (num_collect > 1000) {
+            uint_set watches;
+            while (it != begin) {
+                --it;
+                clause* c = *it;
+                remove_lit_occs(*c, get_num_bool_vars());
+                if (!c->deleted()) {
+                    c->mark_as_deleted(m);                    
+                }
+                watches.insert((~c->get_literal(0)).index());
+                watches.insert((~c->get_literal(1)).index());
+            }
+            for (auto w: watches) {
+                m_watches[w].remove_deleted();
+            }
+            for (it = v.end(); it != begin; ) {
+                --it;
+                (*it)->deallocate(m);
+            }
+            m_stats.m_num_del_clause += (v.size() - old_size);
+        }
+        else {
+            while (it != begin) {
+                --it;
+                del_clause(false, *it);
+            }
         }
         v.shrink(old_size);
     }
