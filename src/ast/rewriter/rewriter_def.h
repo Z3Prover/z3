@@ -673,10 +673,7 @@ void rewriter_tpl<Config>::set_bindings(unsigned num_bindings, expr * const * bi
         m_bindings.push_back(bindings[i]);
         m_shifts.push_back(num_bindings);
     }
-    /////////////////////////////////////////////////////
-    //Rocco: display_bindings is the method we were looking for!!!
     SCTRACE("bindings", is_trace_enabled("coming_from_quant"), display_bindings(tout););
-    /////////////////////////////////////////////////////
 }
 
 template<typename Config>
@@ -689,10 +686,7 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
         m_bindings.push_back(bindings[i]);
         m_shifts.push_back(num_bindings);
     }
-    /////////////////////////////////////////////////////
-    //Rocco: display_bindings is the method we were looking for!!!
     SCTRACE("bindings", is_trace_enabled("coming_from_quant"), display_bindings(tout););
-    /////////////////////////////////////////////////////
 }
 
 template<typename Config>

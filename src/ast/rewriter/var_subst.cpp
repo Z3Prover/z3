@@ -16,6 +16,10 @@ Author:
 Notes:
 
 --*/
+#include "ast/rewriter/rewriter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
@@ -26,18 +30,8 @@ Notes:
 expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args) {
     expr_ref result(m_reducer.m());
     if (is_ground(n)) {
-        //application does not have free variables or nested quantifiers.
+        //There is no need to print the bindings here?
         result = n;
-
-        SCTRACE("bindings", is_trace_enabled("coming_from_quant"),
-                tout << "(ground)\n";
-                for (unsigned i = 0; i < num_args; i++) {
-                    if (args[i]) {
-                        tout << i << ": " << mk_ismt2_pp(args[i], result.m()) << ";\n";
-                    }
-                }
-                tout.flush(););
-
         return result;
     }
     SASSERT(is_well_sorted(result.m(), n));
@@ -46,7 +40,6 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
         m_reducer.set_inv_bindings(num_args, args);
     else
         m_reducer.set_bindings(num_args, args);
-
     m_reducer(n, result);
     SASSERT(is_well_sorted(m_reducer.m(), result));
     TRACE("var_subst_bug",
