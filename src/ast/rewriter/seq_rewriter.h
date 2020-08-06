@@ -197,6 +197,7 @@ class seq_rewriter {
     expr_ref mk_der_inter(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
     expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
+    bool ite_bdds_compatabile(expr* a, expr* b);
     #ifdef Z3DEBUG
     bool check_deriv_normal_form(expr* r, int level = 3);
     #endif

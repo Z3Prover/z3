@@ -2556,6 +2556,21 @@ bool seq_rewriter::pred_implies(expr* a, expr* b) {
     return false;
 }
 
+bool seq_rewriter::ite_bdds_compatabile(expr* a, expr* b) {
+    expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
+    expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
+    if (m().is_ite(a, ca, a1, a2) && m().is_ite(b, cb, b1, b2)) {
+        return (ca == cb) && ite_bdds_compatabile(a1, b1)
+                          && ite_bdds_compatabile(a2, b2);
+    }
+    else if (m().is_ite(a) || m().is_ite(b)) {
+        return false;
+    }
+    else {
+        return true;
+    }
+}
+
 /*
     Apply a binary operation, preserving BDD normal form on derivative expressions.
 
@@ -2591,6 +2606,16 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         return e->get_id();
     };
     // Lifting unions to implement restricted form of Antimorov derivs
+    if (k == OP_RE_UNION) {
+        // Decide whether to convert union to deriv union
+        if (re().is_deriv_union(a) || re().is_deriv_union(b)) {
+            k = _OP_RE_DERIV_UNION;
+        }
+        else if (m().is_ite(a) && m().is_ite(b) &&
+                 !ite_bdds_compatabile(a, b)) {
+            k = _OP_RE_DERIV_UNION;
+        }
+    }
     if (k == _OP_RE_DERIV_UNION) {
         result = re().mk_deriv_union(a, b);
         return result;
