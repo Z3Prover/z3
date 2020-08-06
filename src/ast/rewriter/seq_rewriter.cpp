@@ -2395,6 +2395,9 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
 /*
     Debugging to check the derivative normal form.
 
+    Checks that r is a "derivative union" _OP_RE_DERIV_UNION
+    of nested if-then-elses of plain regexes.
+
     This may fail on "unusual" or unexpected REs, such as those containing
     regex variables, but this is by design as this is only checked
     during debugging.
