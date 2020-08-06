@@ -289,6 +289,9 @@ namespace smt {
         accept_next.push_back(len_s_le_i);
         expr_ref_pair_vector cofactors(m);
         get_cofactors(deriv, cofactors);
+        STRACE("seq_regex", tout << "Number of derivatives: "
+                                 << cofactors.size() << std::endl;);
+        STRACE("seq_regex_brief", tout << "#derivs=" << cofactors.size() << " ";);
         for (auto const& p : cofactors) {
             if (m.is_false(p.first) || re().is_empty(p.second)) continue;
             expr_ref cond(p.first, m);
@@ -611,6 +614,9 @@ namespace smt {
             STRACE("seq_regex_verbose", tout << "adding derivative: " << mk_pp(p.second, m) << std::endl;);
             results.push_back(p.second);
         }
+        STRACE("seq_regex", tout << "Number of derivatives: "
+                                 << cofactors.size() << std::endl;);
+        STRACE("seq_regex_brief", tout << "#derivs=" << cofactors.size() << " ";);
     }
 
     /*
