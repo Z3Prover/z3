@@ -22,6 +22,7 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "smt/smt_context.h"
 #include "smt/seq_skolem.h"
+#include <unordered_set>
 
 namespace smt {
 
@@ -98,11 +99,10 @@ namespace smt {
         void op_list(decl_kind k, expr_ref_vector& l1, expr_ref_vector& l2,
                                   expr_ref_vector& result);
         void lift_unions(expr* r, expr_ref_vector& result);
-        void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
-        void get_cofactors(expr* r, expr_ref_pair_vector& result) {
-            expr_ref_vector conds(m);
-            get_cofactors(r, conds, result);
-        }
+        void get_cofactors(expr* r, expr_ref_pair_vector& result);
+        void get_cofactors_rec(expr* r, expr_ref_vector& conds,
+                               std::unordered_set<expr*>& visited_exprs,
+                               expr_ref_pair_vector& result);
         void get_all_derivatives(expr* r, expr_ref_vector& results);
 
     public:
