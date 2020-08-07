@@ -258,6 +258,8 @@ bool theory_seq::branch_nqs() {
 lbool theory_seq::branch_nq(ne const& n) {
     expr_ref len_l(mk_len(n.l()), m);
     expr_ref len_r(mk_len(n.r()), m);
+#if 0
+    // TBD: breaks 
     if (!has_length(n.l())) {
         enque_axiom(len_l);
         add_length(n.l(), len_l);
@@ -268,7 +270,7 @@ lbool theory_seq::branch_nq(ne const& n) {
         add_length(n.r(), len_r);
         return l_undef;
     }
-    
+#endif
     literal eq_len = mk_eq(len_l, len_r, false);
     ctx.mark_as_relevant(eq_len);
     switch (ctx.get_assignment(eq_len)) {

@@ -94,6 +94,20 @@ namespace smt {
         }
         end_cls_core() -= sizeof(clause *);
     }
+
+    void watch_list::remove_deleted() {
+        clause_iterator end = end_clause();
+        clause_iterator it = begin_clause();
+        clause_iterator prev = it;
+        unsigned num_deleted = 0;
+        for (; it != end; ++it) {
+            if ((*it)->deleted())
+                ++num_deleted;
+            else 
+                *prev++ = *it;
+        }
+        end_cls_core() -= num_deleted * sizeof(clause *);
+    }
     
     void watch_list::remove_literal(literal l) {
         literal * begin = begin_literals();

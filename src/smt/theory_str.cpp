@@ -1720,6 +1720,31 @@ namespace smt {
             rw(case3_rw);
             assert_axiom(case3_rw);
         }
+
+        // Auxiliary axioms
+        {
+            // base = "" --> (str.substr base pos len) = ""
+            {
+                expr_ref premise(ctx.mk_eq_atom(substrBase, mk_string("")), m);
+                expr_ref conclusion(ctx.mk_eq_atom(expr, mk_string("")), m);
+                expr_ref axiom(m.mk_implies(premise, conclusion), m);
+                assert_axiom_rw(axiom);
+            }
+
+            // len( (str.substr base pos len) ) <= len(base)
+            {
+                expr_ref axiom(m_autil.mk_le(mk_strlen(expr), mk_strlen(substrBase)), m);
+                assert_axiom_rw(axiom);
+            }
+
+            // len >= 0 --> len( (str.substr base pos len) ) <= len
+            {
+                expr_ref premise(m_autil.mk_ge(substrLen, mk_int(0)), m);
+                expr_ref conclusion(m_autil.mk_le(mk_strlen(expr), substrLen), m);
+                expr_ref axiom(m.mk_implies(premise, conclusion), m);
+                assert_axiom_rw(axiom);
+            }
+        }
     }
 
     //  (str.replace s t t') is the string obtained by replacing the first occurrence
