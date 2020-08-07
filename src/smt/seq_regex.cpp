@@ -578,8 +578,6 @@ namespace smt {
                                       std::unordered_set<expr*>& visited_exprs,
                                       expr_ref_pair_vector& result) {
         expr* cond = nullptr, *r1 = nullptr, *r2 = nullptr;
-        if (visited_exprs.count(r) > 0) return;
-        visited_exprs.insert(r);
         if (m.is_ite(r, cond, r1, r2)) {
             conds.push_back(cond);
             get_cofactors_rec(r1, conds, visited_exprs, result);
@@ -595,7 +593,8 @@ namespace smt {
         else {
             // Old code
             expr_ref conj = mk_and(conds);
-            result.push_back(conj, r);
+            if (!m.is_false(conj) && !re().is_empty(r))
+                result.push_back(conj, r);
             // Use lift_unions to implement Antimorov-style derivatives
             // expr_ref conj_conds = mk_and(conds);
             // expr_ref_vector disjuncts(m);
