@@ -565,25 +565,122 @@ namespace smt {
         }
     }
 
-    void seq_regex::get_cofactors(expr* r, expr_ref_vector& conds,
-                                  expr_ref_pair_vector& result) {
+    /*
+        Return an ordering of the unique leaf expressions in r from the top
+        down (i.e. visiting every expression before all its subexpressions).
+        Here r is considered as a top-level combination of if-then-elses and
+        unions of leaf expressions.
+    */
+    void seq_regex::visit_derivs_top_down(expr* r, vector<expr*>& result) {
+        // Step 1: calculate # of parents for each expr
+        ptr_addr_map<expr, unsigned> num_parents;
+        vector<expr*> to_visit;
+        to_visit.push_back(r);
+        while (to_visit.size() > 0) {
+            expr* e = to_visit.back();
+            to_visit.pop_back();
+            if (!num_parents.contains(e)) {
+                // first visit: visit children
+                expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
+                if (m.is_ite(e, econd, e1, e2) ||
+                    re().is_union(e, e1, e2)) {
+                    to_visit.push_back(e1);
+                    to_visit.push_back(e2);
+                }
+                num_parents.insert(e, 0);
+            }
+            // all visits: increment count
+            num_parents.find(e)++;
+        }
+        // Step 2: Visit each node when all parents visited
+        to_visit.push_back(r);
+        while (to_visit.size() > 0) {
+            expr* e = to_visit.back();
+            to_visit.pop_back();
+            num_parents.find(e)--;
+            if (num_parents.find(e) == 0) {
+                // all parents visited
+                result.push_back(e);
+                expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
+                if (m.is_ite(e, econd, e1, e2) ||
+                    re().is_union(e, e1, e2)) {
+                    to_visit.push_back(e1);
+                    to_visit.push_back(e2);
+                }
+            }
+        }
+    }
+    void seq_regex::get_cofactors(expr* r, expr_ref_pair_vector& result) {
+        vector<expr*> top_down;
+        visit_derivs_top_down(r, top_down);
+        obj_map<expr, expr*> conds;
+        expr_ref_vector cond_ownership(m);
+        // Initialize all conds: r to ture, others to false
+        expr_ref truecond(m.mk_true(), m);
+        expr_ref falsecond(m.mk_false(), m);
+        for (auto e: top_down) {
+            conds.insert(e, falsecond);
+        }
+        conds.find(r) = truecond;
+        // Set each child to be all paths to get there
+        for (auto e: top_down) {
+            // finalize parent
+            // rewrite(conds.find(e));
+            // add paths to get to children
+            expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
+            if (m.is_ite(e, econd, e1, e2)) {
+                expr* path1 = m.mk_and(conds.find(e), econd);
+                expr* path2 = m.mk_and(conds.find(e), m.mk_not(econd));
+                conds.find(e1) = m.mk_or(conds.find(e1), path1);
+                conds.find(e2) = m.mk_or(conds.find(e2), path2);
+                cond_ownership.push_back(conds.find(e1));
+                cond_ownership.push_back(conds.find(e2));
+            }
+            else if (re().is_union(e, e1, e2)) {
+                conds.find(e1) = m.mk_or(conds.find(e1), conds.find(e));
+                conds.find(e2) = m.mk_or(conds.find(e2), conds.find(e));
+                cond_ownership.push_back(conds.find(e1));
+                cond_ownership.push_back(conds.find(e2));
+            }
+            else {
+                // leaf
+                expr_ref cond(conds.find(e), m);
+                rewrite(cond);
+                result.push_back(cond, e);
+            }
+        }
+
+        STRACE("seq_regex", tout << "Number of derivatives: "
+                                 << result.size() << std::endl;);
+        STRACE("seq_regex_brief", tout << "#derivs=" << result.size() << " ";);
+    }
+    void seq_regex::get_cofactors_old(expr* r, expr_ref_pair_vector& result) {
+        expr_ref_vector conds(m);
+        get_cofactors_rec(r, conds, result);
+        STRACE("seq_regex", tout << "Number of derivatives: "
+                                 << result.size() << std::endl;);
+        STRACE("seq_regex_brief", tout << "#derivs=" << result.size() << " ";);
+    }
+    void seq_regex::get_cofactors_rec(expr* r, expr_ref_vector& conds,
+                                      expr_ref_pair_vector& result) {
         expr* cond = nullptr, *r1 = nullptr, *r2 = nullptr;
         if (m.is_ite(r, cond, r1, r2)) {
             conds.push_back(cond);
-            get_cofactors(r1, conds, result);
+            get_cofactors_rec(r1, conds, result);
             conds.pop_back();
             conds.push_back(mk_not(m, cond));
-            get_cofactors(r2, conds, result);
+            get_cofactors_rec(r2, conds, result);
             conds.pop_back();
         }
         else if (re().is_union(r, r1, r2)) {
-            get_cofactors(r1, conds, result);
-            get_cofactors(r2, conds, result);
+            get_cofactors_rec(r1, conds, result);
+            get_cofactors_rec(r2, conds, result);
         }
         else {
             // Old code
             expr_ref conj = mk_and(conds);
-            result.push_back(conj, r);
+            if (!m.is_false(conj) && !re().is_empty(r))
+                result.push_back(conj, r);
             // Use lift_unions to implement Antimorov-style derivatives
             // expr_ref conj_conds = mk_and(conds);
             // expr_ref_vector disjuncts(m);

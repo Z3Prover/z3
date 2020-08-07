@@ -98,11 +98,11 @@ namespace smt {
         void op_list(decl_kind k, expr_ref_vector& l1, expr_ref_vector& l2,
                                   expr_ref_vector& result);
         void lift_unions(expr* r, expr_ref_vector& result);
-        void get_cofactors(expr* r, expr_ref_vector& conds, expr_ref_pair_vector& result);
-        void get_cofactors(expr* r, expr_ref_pair_vector& result) {
-            expr_ref_vector conds(m);
-            get_cofactors(r, conds, result);
-        }
+        void visit_derivs_top_down(expr* r, vector<expr*>& result);
+        void get_cofactors(expr* r, expr_ref_pair_vector& result);
+        void get_cofactors_old(expr* r, expr_ref_pair_vector& result);
+        void get_cofactors_rec(expr* r, expr_ref_vector& conds,
+                               expr_ref_pair_vector& result);
         void get_all_derivatives(expr* r, expr_ref_vector& results);
 
     public:
