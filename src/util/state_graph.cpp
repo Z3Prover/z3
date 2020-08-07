@@ -264,7 +264,7 @@ void state_graph::add_state(state s) {
     STRACE("state_graph", tout << "[state_graph] adding state " << s << ": ";);
     add_state_core(s);
     CASSERT("state_graph", check_invariant());
-    // TODO: generate graph output here?
+    STRACE("state_graph", write_dgml(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_live(state s) {
@@ -274,7 +274,7 @@ void state_graph::mark_live(state s) {
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     mark_live_recursive(s);
     CASSERT("state_graph", check_invariant());
-    // TODO: generate graph output here?
+    STRACE("state_graph", write_dgml(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::add_edge(state s1, state s2, bool maybecycle) {
@@ -287,7 +287,10 @@ void state_graph::add_edge(state s1, state s2, bool maybecycle) {
     add_edge_core(s1, s2, maybecycle);
     if (m_live.contains(s2)) mark_live(s1);
     CASSERT("state_graph", check_invariant());
-    // TODO: generate graph output here?
+    STRACE("state_graph",
+        if (!m_targets[s1].contains(s2)) {
+            write_dgml();
+        };);
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_done(state s) {
@@ -299,7 +302,7 @@ void state_graph::mark_done(state s) {
     s = merge_all_cycles(s);
     mark_dead_recursive(s); // check if dead
     CASSERT("state_graph", check_invariant());
-    // TODO: generate graph output here?
+    STRACE("state_graph", write_dgml(););
     STRACE("state_graph", tout << std::endl;);
 }
 
@@ -390,20 +393,20 @@ bool state_graph::check_invariant() const {
 */
 std::ostream& state_graph::display(std::ostream& o) const {
     o << "---------- State Graph ----------" << std::endl
-      << "Seen:";
-    for (auto s: m_seen) {
+        << "Seen:";
+    for (auto s : m_seen) {
         o << " " << s;
         state s_root = m_state_ufind.find(s);
         if (s_root != s)
             o << "(=" << s_root << ")";
     }
     o << std::endl
-      << "Live:" << m_live << std::endl
-      << "Dead:" << m_dead << std::endl
-      << "Unknown:" << m_unknown << std::endl
-      << "Unexplored:" << m_unexplored << std::endl
-      << "Edges:" << std::endl;
-    for (auto s1: m_seen) {
+        << "Live:" << m_live << std::endl
+        << "Dead:" << m_dead << std::endl
+        << "Unknown:" << m_unknown << std::endl
+        << "Unexplored:" << m_unexplored << std::endl
+        << "Edges:" << std::endl;
+    for (auto s1 : m_seen) {
         if (m_state_ufind.is_root(s1)) {
             o << "  " << s1 << " -> " << m_targets[s1] << std::endl;
         }
@@ -411,4 +414,67 @@ std::ostream& state_graph::display(std::ostream& o) const {
     o << "---------------------------------" << std::endl;
 
     return o;
+}
+
+/*
+    Output the whole state graph in dgml format into the file '.z3-state-graph.dgml'
+ */
+void state_graph::write_dgml() {
+    std::ofstream dgml(".z3-state-graph.dgml");
+    dgml << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << std::endl
+         << "<DirectedGraph xmlns=\"http://schemas.microsoft.com/vs/2009/dgml\" GraphDirection=\"TopToBottom\">" << std::endl
+         << "<Nodes>" << std::endl;
+    for (auto s : m_seen) {
+        if (m_state_ufind.is_root(s)) {
+            dgml << "<Node Id=\"" << s << "\" Label=\"" << s << "\" Category=\"State\">" << std::endl;
+            if (m_live.contains(s))
+                dgml << "<Category Ref=\"Alive\"/>" << std::endl;
+            if (m_dead.contains(s))
+                dgml << "<Category Ref=\"Dead\"/>" << std::endl;
+            if (m_unexplored.contains(s))
+                dgml << "<Category Ref=\"Unexplored\"/>" << std::endl;
+            dgml << "</Node>" << std::endl;
+        }
+    }
+    dgml << "</Nodes>" << std::endl;
+    dgml << "<Links>" << std::endl;
+    for (auto s : m_seen) {
+        if (m_state_ufind.is_root(s))
+            for (auto t : m_targets[s])
+                dgml << "<Link Source=\"" << s << "\" Target=\"" << t << "\" Category=\"Transition\"/>" << std::endl;
+    }
+    dgml << "</Links>" << std::endl;
+    dgml << "<Categories>" << std::endl
+        << "<Category Id=\"Alive\" Label=\"Alive\" IsTag=\"True\"/>" << std::endl
+        << "<Category Id=\"Dead\" Label=\"Dead\" IsTag=\"True\"/>" << std::endl
+        << "<Category Id=\"Unexplored\" Label=\"Unexplored\" IsTag=\"True\"/>" << std::endl
+        << "<Category Id=\"Transition\" Label=\"Transition\" IsTag=\"True\"/>" << std::endl
+        << "<Category Id=\"State\" Label=\"State\" IsTag=\"True\"/>" << std::endl
+        << "</Categories>" << std::endl
+        << "<Styles>" << std::endl
+        << "<Style TargetType=\"Node\" GroupLabel=\"Alive\" ValueLabel=\"True\">" << std::endl
+        << "<Condition Expression=\"HasCategory('Alive')\"/>" << std::endl
+        << "<Setter Property=\"Background\" Value=\"lightgreen\"/>" << std::endl
+        << "</Style>" << std::endl
+        << "<Style TargetType=\"Node\" GroupLabel=\"Dead\" ValueLabel=\"True\">" << std::endl
+        << "<Condition Expression=\"HasCategory('Dead')\"/>" << std::endl
+        << "<Setter Property=\"Background\" Value=\"tomato\"/>" << std::endl
+        << "</Style>" << std::endl
+        << "<Style TargetType=\"Node\" GroupLabel=\"Unexplored\" ValueLabel=\"True\">" << std::endl
+        << "<Condition Expression=\"HasCategory('Unexplored')\"/>" << std::endl
+        << "<Setter Property=\"StrokeDashArray\" Value=\"8 8\"/>" << std::endl
+        << "</Style>" << std::endl
+        << "<Style TargetType=\"Node\" GroupLabel=\"State\" ValueLabel=\"True\">" << std::endl
+        << "<Condition Expression=\"HasCategory('State')\"/>" << std::endl
+        << "<Setter Property=\"Stroke\" Value=\"black\"/>" << std::endl
+        << "<Setter Property=\"Background\" Value=\"white\"/>" << std::endl
+        << "<Setter Property=\"MinWidth\" Value=\"0\"/>" << std::endl
+        << "</Style>" << std::endl
+        << "<Style TargetType=\"Link\" GroupLabel=\"Transition\" ValueLabel=\"True\">" << std::endl
+        << "<Condition Expression=\"HasCategory('Transition')\"/>" << std::endl
+        << "<Setter Property=\"Stroke\" Value=\"black\"/>" << std::endl
+        << "</Style>" << std::endl
+        << "</Styles>" << std::endl
+        << "</DirectedGraph>" << std::endl;
+    dgml.close();
 }
