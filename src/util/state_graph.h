@@ -112,8 +112,9 @@ private:
     bool is_subset(state_set set1, state_set set2) const;
     bool is_disjoint(state_set set1, state_set set2) const;
     bool check_invariant() const;
-    void write_dgml();
     #endif
+
+    void write_dgml();
 
     /*
         'Core' functions that modify the plain graph, without
