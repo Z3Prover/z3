@@ -426,7 +426,15 @@ void state_graph::write_dgml() {
          << "<Nodes>" << std::endl;
     for (auto s : m_seen) {
         if (m_state_ufind.is_root(s)) {
-            dgml << "<Node Id=\"" << s << "\" Label=\"" << s << "\" Category=\"State\">" << std::endl;
+            dgml << "<Node Id=\"" << s << "\" Label=\"";
+            auto r = s;
+            do {
+                if (r != s)
+                    dgml << ",";
+                dgml << r;
+                r = m_state_ufind.next(r);
+            } while (r != s);
+            dgml << s << "\" Category=\"State\">" << std::endl;
             if (m_live.contains(s))
                 dgml << "<Category Ref=\"Alive\"/>" << std::endl;
             if (m_dead.contains(s))
@@ -440,8 +448,12 @@ void state_graph::write_dgml() {
     dgml << "<Links>" << std::endl;
     for (auto s : m_seen) {
         if (m_state_ufind.is_root(s))
-            for (auto t : m_targets[s])
-                dgml << "<Link Source=\"" << s << "\" Target=\"" << t << "\" Category=\"Transition\"/>" << std::endl;
+            for (auto t : m_targets[s]) {
+                dgml << "<Link Source=\"" << s << "\" Target=\"" << t << "\" Category=\"Transition\">" << std::endl;
+                if (!m_sources_maybecycle[t].contains(s))
+                    dgml << "<Category Ref=\"Noncycle\"/>" << std::endl;
+                dgml << "</Link>" << std::endl;
+            }
     }
     dgml << "</Links>" << std::endl;
     dgml << "<Categories>" << std::endl
@@ -450,6 +462,7 @@ void state_graph::write_dgml() {
         << "<Category Id=\"Unexplored\" Label=\"Unexplored\" IsTag=\"True\"/>" << std::endl
         << "<Category Id=\"Transition\" Label=\"Transition\" IsTag=\"True\"/>" << std::endl
         << "<Category Id=\"State\" Label=\"State\" IsTag=\"True\"/>" << std::endl
+        << "<Category Id=\"Noncycle\" Label=\"Noncycle Transition\" IsTag=\"True\"/>" << std::endl
         << "</Categories>" << std::endl
         << "<Styles>" << std::endl
         << "<Style TargetType=\"Node\" GroupLabel=\"Alive\" ValueLabel=\"True\">" << std::endl
@@ -473,6 +486,10 @@ void state_graph::write_dgml() {
         << "<Style TargetType=\"Link\" GroupLabel=\"Transition\" ValueLabel=\"True\">" << std::endl
         << "<Condition Expression=\"HasCategory('Transition')\"/>" << std::endl
         << "<Setter Property=\"Stroke\" Value=\"black\"/>" << std::endl
+        << "</Style>" << std::endl
+        << "<Style TargetType=\"Link\" GroupLabel=\"Noncycle\" ValueLabel=\"True\">" << std::endl
+        << "<Condition Expression=\"HasCategory('Noncycle')\"/>" << std::endl
+        << "<Setter Property=\"StrokeThickness\" Value=\"4\"/>" << std::endl
         << "</Style>" << std::endl
         << "</Styles>" << std::endl
         << "</DirectedGraph>" << std::endl;
