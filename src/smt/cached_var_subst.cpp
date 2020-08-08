@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "smt/cached_var_subst.h"
+#include "ast/rewriter/rewriter_def.h"
 
 bool cached_var_subst::key_eq_proc::operator()(cached_var_subst::key * k1, cached_var_subst::key * k2) const {
     if (k1->m_qa != k2->m_qa)
@@ -58,6 +59,13 @@ void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::e
         // entry was already there
         m_new_keys[num_bindings] = new_key; // recycle key
         result = entry->get_data().m_value;
+        SCTRACE("bindings", is_trace_enabled("coming_from_quant"),tout << "(cache)\n";
+            for (unsigned i = 0; i < num_bindings; i++) {
+                if (new_key->m_bindings[i]) {
+                    tout << i << ": " << mk_ismt2_pp(new_key->m_bindings[i], result.m()) << ";\n";
+                }
+            }
+            tout.flush(););
         return;
     }
 

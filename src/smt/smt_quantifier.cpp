@@ -170,14 +170,20 @@ namespace smt {
         void display_stats(std::ostream & out, quantifier * q) {
             quantifier_stat * s     = get_stat(q);
             unsigned num_instances  = s->get_num_instances();
+            unsigned num_instances_simplify_true = s->get_num_instances_simplify_true();
+            unsigned num_instances_checker_sat  = s->get_num_instances_checker_sat();
             unsigned max_generation = s->get_max_generation();
             float max_cost          = s->get_max_cost();
-            if (num_instances > 0) {
+            if (num_instances > 0 || num_instances_simplify_true>0 || num_instances_checker_sat>0) {
                 out << "[quantifier_instances] ";
                 out.width(10);
                 out << q->get_qid().str() << " : ";
                 out.width(6);
                 out << num_instances << " : ";
+                out.width(3);
+                out << num_instances_simplify_true << " : ";
+                out.width(3);
+                out << num_instances_checker_sat << " : ";
                 out.width(3);
                 out << max_generation << " : " << max_cost << "\n";
             }
@@ -197,6 +203,33 @@ namespace smt {
 
         bool is_shared(enode * n) const {
             return m_plugin->is_shared(n);
+        }
+
+        void log_causality(
+                fingerprint* f,
+                app * pat,
+                vector<std::tuple<enode *, enode *>> & used_enodes) {
+
+            if (pat != nullptr) {
+                if (used_enodes.size() > 0) {
+                    STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f););
+                    STRACE("triggers",  tout <<", Pat: "<< expr_ref(pat, m()););
+                    STRACE("causality", tout <<", Father:";);
+                }
+                for (auto n : used_enodes) {
+                    enode *orig = std::get<0>(n);
+                    enode *substituted = std::get<1>(n);
+                    if (orig == nullptr) {
+                        STRACE("causality", tout << " #" << substituted->get_owner_id(););
+                    }
+                    else {
+                        STRACE("causality", tout << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
+                    }
+                }
+                if (used_enodes.size() > 0) {
+                    STRACE("causality", tout << "\n";);
+                }
+            }
         }
 
         void log_add_instance(
@@ -261,6 +294,7 @@ namespace smt {
                           unsigned min_top_generation,
                           unsigned max_top_generation,
                           vector<std::tuple<enode *, enode *>> & used_enodes) {
+
             max_generation = std::max(max_generation, get_generation(q));
             if (m_num_instances > m_params.m_qi_max_instances) {
                 return false;
@@ -268,6 +302,9 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
             if (f) {
+                if (is_trace_enabled("causality")) {
+                    log_causality(f,pat,used_enodes);
+                }
                 if (has_trace_stream()) {
                     log_add_instance(f, q, pat, num_bindings, bindings, used_enodes);
                 }
