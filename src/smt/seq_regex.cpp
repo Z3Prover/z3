@@ -646,7 +646,8 @@ namespace smt {
                 // leaf
                 expr_ref cond(conds.find(e), m);
                 rewrite(cond);
-                result.push_back(cond, e);
+                if (!m.is_false(cond) && !re().is_empty(e))
+                    result.push_back(cond, e);
             }
         }
 
