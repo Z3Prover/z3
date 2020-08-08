@@ -287,10 +287,7 @@ void state_graph::add_edge(state s1, state s2, bool maybecycle) {
     add_edge_core(s1, s2, maybecycle);
     if (m_live.contains(s2)) mark_live(s1);
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph",
-        if (!m_targets[s1].contains(s2)) {
-            write_dgml();
-        };);
+    STRACE("state_graph", write_dgml(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_done(state s) {
@@ -427,13 +424,13 @@ void state_graph::write_dgml() {
         if (m_state_ufind.is_root(s)) {
             dgml << "<Node Id=\"" << s << "\" Label=\"";
             auto r = s;
+            dgml << r;
             do {
                 if (r != s)
-                    dgml << ",";
-                dgml << r;
+                    dgml << "," << r;
                 r = m_state_ufind.next(r);
             } while (r != s);
-            dgml << s << "\" Category=\"State\">" << std::endl;
+            dgml << "\" Category=\"State\">" << std::endl;
             if (m_live.contains(s))
                 dgml << "<Category Ref=\"Alive\"/>" << std::endl;
             if (m_dead.contains(s))
