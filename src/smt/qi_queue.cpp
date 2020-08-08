@@ -202,19 +202,19 @@ namespace smt {
         ent.m_instantiated = true;
 
         TRACE("qi_queue_profile", tout << q->get_qid() << ", gen: " << generation << " " << *f << " cost: " << ent.m_cost << "\n";);
-        //NEVER remove coming_from_quant
-        //"coming_from_quant" allows the logging of bindings and enodes
-        //only when they come from instantiations
+        // NEVER remove coming_from_quant
+        // "coming_from_quant" allows the logging of bindings and enodes
+        // only when they come from instantiations
         enable_trace("coming_from_quant");
         quantifier_stat * stat = m_qm.get_stat(q);
 
         if (m_checker.is_sat(q->get_expr(), num_bindings, bindings)) {
             TRACE("checker", tout << "instance already satisfied\n";);
-            //we log the "dummy" instantiations separately from "instance"
+            // we log the "dummy" instantiations separately from "instance"
             STRACE("dummy", tout << "### " << static_cast<void*>(f) <<", " << q->get_qid() << "\n";);
             STRACE("dummy", tout << "Instance already satisfied (dummy)\n";);
-            //a dummy instantiation is still an instantiation.
-            //in this way smt.qi.profile=true coincides with the axiom profiler
+            // a dummy instantiation is still an instantiation.
+            // in this way smt.qi.profile=true coincides with the axiom profiler
             stat->inc_num_instances_checker_sat();
             disable_trace("coming_from_quant");
             return;
@@ -245,7 +245,6 @@ namespace smt {
             return;
         }
         TRACE("qi_queue", tout << "simplified instance:\n" << s_instance << "\n";);
-        //quantifier_stat * stat = m_qm.get_stat(q);
         stat->inc_num_instances();
         if (stat->get_num_instances() % m_params.m_qi_profile_freq == 0) {
             m_qm.display_stats(verbose_stream(), q);
@@ -330,7 +329,7 @@ namespace smt {
         if (m.has_trace_stream())
             m.trace_stream() << "[end-of-instance]\n";
 
-        //NEVER remove coming_from_quant
+        // NEVER remove coming_from_quant
         disable_trace("coming_from_quant");
     }
 
