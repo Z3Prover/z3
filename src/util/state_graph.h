@@ -114,6 +114,8 @@ private:
     bool check_invariant() const;
     #endif
 
+    void write_dgml();
+
     /*
         'Core' functions that modify the plain graph, without
         updating SCCs or propagating live/dead state information.
