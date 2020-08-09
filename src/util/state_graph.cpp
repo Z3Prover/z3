@@ -263,8 +263,9 @@ void state_graph::add_state(state s) {
     if (m_seen.contains(s)) return;
     STRACE("state_graph", tout << "[state_graph] adding state " << s << ": ";);
     add_state_core(s);
+    CASSERT("state_graph", write_dgml());
+    CASSERT("state_graph", write_dot());
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph", write_dgml(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_live(state s) {
@@ -273,8 +274,9 @@ void state_graph::mark_live(state s) {
     SASSERT(m_state_ufind.is_root(s));
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     mark_live_recursive(s);
+    CASSERT("state_graph", write_dgml());
+    CASSERT("state_graph", write_dot());
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph", write_dgml(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::add_edge(state s1, state s2, bool maybecycle) {
@@ -286,8 +288,9 @@ void state_graph::add_edge(state s1, state s2, bool maybecycle) {
     s2 = m_state_ufind.find(s2);
     add_edge_core(s1, s2, maybecycle);
     if (m_live.contains(s2)) mark_live(s1);
+    CASSERT("state_graph", write_dgml());
+    CASSERT("state_graph", write_dot());
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph", write_dgml(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_done(state s) {
@@ -298,8 +301,9 @@ void state_graph::mark_done(state s) {
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     s = merge_all_cycles(s);
     mark_dead_recursive(s); // check if dead
+    CASSERT("state_graph", write_dgml());
+    CASSERT("state_graph", write_dot());
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph", write_dgml(););
     STRACE("state_graph", tout << std::endl;);
 }
 
@@ -413,10 +417,11 @@ std::ostream& state_graph::display(std::ostream& o) const {
     return o;
 }
 
+#ifdef Z3DEBUG
 /*
     Output the whole state graph in dgml format into the file '.z3-state-graph.dgml'
  */
-void state_graph::write_dgml() {
+bool state_graph::write_dgml() {
     std::ofstream dgml(".z3-state-graph.dgml");
     dgml << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << std::endl
         << "<DirectedGraph xmlns=\"http://schemas.microsoft.com/vs/2009/dgml\" GraphDirection=\"TopToBottom\">" << std::endl
@@ -432,10 +437,10 @@ void state_graph::write_dgml() {
                 r = m_state_ufind.next(r);
             } while (r != s);
             dgml << "\" Category=\"State\">" << std::endl;
-            if (m_live.contains(s))
-                dgml << "<Category Ref=\"Alive\"/>" << std::endl;
             if (m_dead.contains(s))
                 dgml << "<Category Ref=\"Dead\"/>" << std::endl;
+            if (m_live.contains(s))
+                dgml << "<Category Ref=\"Alive\"/>" << std::endl;
             if (m_unexplored.contains(s))
                 dgml << "<Category Ref=\"Unexplored\"/>" << std::endl;
             dgml << "</Node>" << std::endl;
@@ -469,6 +474,7 @@ void state_graph::write_dgml() {
         << "<Style TargetType=\"Node\" GroupLabel=\"Dead\" ValueLabel=\"True\">" << std::endl
         << "<Condition Expression=\"HasCategory('Dead')\"/>" << std::endl
         << "<Setter Property=\"Background\" Value=\"tomato\"/>" << std::endl
+        << "<Setter Property=\"Stroke\" Value=\"tomato\"/>" << std::endl
         << "</Style>" << std::endl
         << "<Style TargetType=\"Node\" GroupLabel=\"Unexplored\" ValueLabel=\"True\">" << std::endl
         << "<Condition Expression=\"HasCategory('Unexplored')\"/>" << std::endl
@@ -491,4 +497,48 @@ void state_graph::write_dgml() {
         << "</Styles>" << std::endl
         << "</DirectedGraph>" << std::endl;
     dgml.close();
+    return true;
 }
+
+/*
+    Output the whole state graph in dot format into the file '.z3-state-graph.dot'
+ */
+bool state_graph::write_dot() {
+    std::ofstream dot(".z3-state-graph.dot");
+    dot << "digraph \"state_graph\" {" << std::endl
+        << "rankdir=TB" << std::endl
+        << "node [peripheries=1,style=filled,fillcolor=white,fontsize=24]" << std::endl;
+    for (auto s : m_seen) {
+        if (m_state_ufind.is_root(s)) {
+            dot << s << " [label=\"";
+            auto r = s;
+            dot << r;
+            do {
+                if (r != s)
+                    dot << "," << r;
+                r = m_state_ufind.next(r);
+            } while (r != s);
+            dot << "\"";
+            if (m_unexplored.contains(s))
+                dot << ",style=\"dashed,filled\"";
+            if (m_dead.contains(s))
+                dot << ",color=tomato,fillcolor=tomato";
+            if (m_live.contains(s))
+                dot << ",fillcolor=green";
+            dot << "]" << std::endl;
+        }
+    }
+    for (auto s : m_seen) {
+        if (m_state_ufind.is_root(s))
+            for (auto t : m_targets[s]) {
+                dot << s << " -> " << t;
+                if (!m_sources_maybecycle[t].contains(s))
+                    dot << "[style=bold]";
+                dot << std::endl;
+            }
+    }
+    dot << "}" << std::endl;
+    dot.close();
+    return true;
+}
+#endif
