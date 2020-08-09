@@ -437,10 +437,10 @@ bool state_graph::write_dgml() {
                 r = m_state_ufind.next(r);
             } while (r != s);
             dgml << "\" Category=\"State\">" << std::endl;
-            if (m_live.contains(s))
-                dgml << "<Category Ref=\"Alive\"/>" << std::endl;
             if (m_dead.contains(s))
                 dgml << "<Category Ref=\"Dead\"/>" << std::endl;
+            if (m_live.contains(s))
+                dgml << "<Category Ref=\"Alive\"/>" << std::endl;
             if (m_unexplored.contains(s))
                 dgml << "<Category Ref=\"Unexplored\"/>" << std::endl;
             dgml << "</Node>" << std::endl;
@@ -474,6 +474,7 @@ bool state_graph::write_dgml() {
         << "<Style TargetType=\"Node\" GroupLabel=\"Dead\" ValueLabel=\"True\">" << std::endl
         << "<Condition Expression=\"HasCategory('Dead')\"/>" << std::endl
         << "<Setter Property=\"Background\" Value=\"tomato\"/>" << std::endl
+        << "<Setter Property=\"Stroke\" Value=\"tomato\"/>" << std::endl
         << "</Style>" << std::endl
         << "<Style TargetType=\"Node\" GroupLabel=\"Unexplored\" ValueLabel=\"True\">" << std::endl
         << "<Condition Expression=\"HasCategory('Unexplored')\"/>" << std::endl
@@ -520,10 +521,10 @@ bool state_graph::write_dot() {
             dot << "\"";
             if (m_unexplored.contains(s))
                 dot << ",style=\"dashed,filled\"";
+            if (m_dead.contains(s))
+                dot << ",color=tomato,fillcolor=tomato";
             if (m_live.contains(s))
                 dot << ",fillcolor=green";
-            if (m_dead.contains(s))
-                dot << ",fillcolor=tomato";
             dot << "]" << std::endl;
         }
     }
