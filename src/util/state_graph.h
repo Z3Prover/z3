@@ -112,9 +112,15 @@ private:
     bool is_subset(state_set set1, state_set set2) const;
     bool is_disjoint(state_set set1, state_set set2) const;
     bool check_invariant() const;
-    #endif
-
+    /*
+    Output the whole state graph in dgml format into the file '.z3-state-graph.dgml'
+    */
     void write_dgml();
+    /*
+    Output the whole state graph in dot format into the file '.z3-state-graph.dot'
+    */
+    void write_dot();
+    #endif
 
     /*
         'Core' functions that modify the plain graph, without

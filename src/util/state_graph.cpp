@@ -264,7 +264,9 @@ void state_graph::add_state(state s) {
     STRACE("state_graph", tout << "[state_graph] adding state " << s << ": ";);
     add_state_core(s);
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph", write_dgml(););
+    STRACE("state_graph", 
+        write_dgml(); 
+        write_dot(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_live(state s) {
@@ -274,7 +276,9 @@ void state_graph::mark_live(state s) {
     if (m_unexplored.contains(s)) mark_unknown_core(s);
     mark_live_recursive(s);
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph", write_dgml(););
+    STRACE("state_graph",
+        write_dgml();
+        write_dot(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::add_edge(state s1, state s2, bool maybecycle) {
@@ -287,7 +291,9 @@ void state_graph::add_edge(state s1, state s2, bool maybecycle) {
     add_edge_core(s1, s2, maybecycle);
     if (m_live.contains(s2)) mark_live(s1);
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph", write_dgml(););
+    STRACE("state_graph",
+        write_dgml();
+        write_dot(););
     STRACE("state_graph", tout << std::endl;);
 }
 void state_graph::mark_done(state s) {
@@ -299,7 +305,9 @@ void state_graph::mark_done(state s) {
     s = merge_all_cycles(s);
     mark_dead_recursive(s); // check if dead
     CASSERT("state_graph", check_invariant());
-    STRACE("state_graph", write_dgml(););
+    STRACE("state_graph",
+        write_dgml();
+        write_dot(););
     STRACE("state_graph", tout << std::endl;);
 }
 
@@ -413,6 +421,7 @@ std::ostream& state_graph::display(std::ostream& o) const {
     return o;
 }
 
+#ifdef Z3DEBUG
 /*
     Output the whole state graph in dgml format into the file '.z3-state-graph.dgml'
  */
@@ -492,3 +501,45 @@ void state_graph::write_dgml() {
         << "</DirectedGraph>" << std::endl;
     dgml.close();
 }
+
+/*
+    Output the whole state graph in dot format into the file '.z3-state-graph.dot'
+ */
+void state_graph::write_dot() {
+    std::ofstream dot(".z3-state-graph.dot");
+    dot << "digraph \"state_graph\" {" << std::endl
+        << "rankdir=TB" << std::endl
+        << "node [peripheries=1,style=filled,fillcolor=white,fontsize=24]" << std::endl;
+    for (auto s : m_seen) {
+        if (m_state_ufind.is_root(s)) {
+            dot << s << " [label=\"";
+            auto r = s;
+            dot << r;
+            do {
+                if (r != s)
+                    dot << "," << r;
+                r = m_state_ufind.next(r);
+            } while (r != s);
+            dot << "\"";
+            if (m_unexplored.contains(s))
+                dot << ",style=\"dashed,filled\"";
+            if (m_live.contains(s))
+                dot << ",fillcolor=green";
+            if (m_dead.contains(s))
+                dot << ",fillcolor=tomato";
+            dot << "]" << std::endl;
+        }
+    }
+    for (auto s : m_seen) {
+        if (m_state_ufind.is_root(s))
+            for (auto t : m_targets[s]) {
+                dot << s << " -> " << t;
+                if (!m_sources_maybecycle[t].contains(s))
+                    dot << "[style=bold]";
+                dot << std::endl;
+            }
+    }
+    dot << "}" << std::endl;
+    dot.close();
+}
+#endif
