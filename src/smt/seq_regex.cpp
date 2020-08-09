@@ -849,6 +849,7 @@ namespace smt {
         }
         // Add state
         m_state_graph.add_state(r_id);
+        STRACE("state_graph", tout << "regex(" << r_id << ") = " << mk_pp(r, m) << std::endl;);
         STRACE("seq_regex", tout << "Updating state graph for regex "
                                  << mk_pp(r, m) << ") " << std::endl;);
         STRACE("seq_regex_brief", tout << std::endl << "USG("
@@ -868,6 +869,7 @@ namespace smt {
                 STRACE("seq_regex_verbose", tout
                     << "  traversing deriv: " << dr_id << " " << std::endl;);
                 m_state_graph.add_state(dr_id);
+                STRACE("state_graph", tout << "regex(" << dr_id << ") = " << mk_pp(dr, m) << std::endl;);
                 bool maybecycle = can_be_in_cycle(r, dr);
                 m_state_graph.add_edge(r_id, dr_id, maybecycle);
             }
