@@ -115,11 +115,11 @@ private:
     /*
     Output the whole state graph in dgml format into the file '.z3-state-graph.dgml'
     */
-    void write_dgml();
+    bool write_dgml();
     /*
     Output the whole state graph in dot format into the file '.z3-state-graph.dot'
     */
-    void write_dot();
+    bool write_dot();
     #endif
 
     /*
