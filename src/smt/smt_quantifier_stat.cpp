@@ -27,6 +27,8 @@ namespace smt {
         m_case_split_factor(1),
         m_num_nested_quantifiers(0),
         m_num_instances(0),
+        m_num_instances_checker_sat(0),
+        m_num_instances_simplify_true(0),
         m_num_instances_curr_search(0),
         m_num_instances_curr_branch(0),
         m_max_generation(0),

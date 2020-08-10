@@ -1672,7 +1672,7 @@ namespace z3 {
     inline expr operator>(expr const & a, int b) { return a > a.ctx().num_val(b, a.get_sort()); }
     inline expr operator>(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) > b; }
 
-    inline expr operator&(expr const & a, expr const & b) { check_context(a, b); Z3_ast r = Z3_mk_bvand(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr operator&(expr const & a, expr const & b) { if (a.is_bool()) return a && b; check_context(a, b); Z3_ast r = Z3_mk_bvand(a.ctx(), a, b); return expr(a.ctx(), r); }
     inline expr operator&(expr const & a, int b) { return a & a.ctx().num_val(b, a.get_sort()); }
     inline expr operator&(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) & b; }
 
@@ -1680,13 +1680,13 @@ namespace z3 {
     inline expr operator^(expr const & a, int b) { return a ^ a.ctx().num_val(b, a.get_sort()); }
     inline expr operator^(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) ^ b; }
 
-    inline expr operator|(expr const & a, expr const & b) { check_context(a, b); Z3_ast r = Z3_mk_bvor(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr operator|(expr const & a, expr const & b) { if (a.is_bool()) return a || b; check_context(a, b); Z3_ast r = Z3_mk_bvor(a.ctx(), a, b); return expr(a.ctx(), r); }
     inline expr operator|(expr const & a, int b) { return a | a.ctx().num_val(b, a.get_sort()); }
     inline expr operator|(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) | b; }
 
-    inline expr nand(expr const& a, expr const& b) { check_context(a, b); Z3_ast r = Z3_mk_bvnand(a.ctx(), a, b); return expr(a.ctx(), r); }
-    inline expr nor(expr const& a, expr const& b) { check_context(a, b); Z3_ast r = Z3_mk_bvnor(a.ctx(), a, b); return expr(a.ctx(), r); }
-    inline expr xnor(expr const& a, expr const& b) { check_context(a, b); Z3_ast r = Z3_mk_bvxnor(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr nand(expr const& a, expr const& b) { if (a.is_bool()) return !(a && b); check_context(a, b); Z3_ast r = Z3_mk_bvnand(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr nor(expr const& a, expr const& b) { if (a.is_bool()) return !(a || b); check_context(a, b); Z3_ast r = Z3_mk_bvnor(a.ctx(), a, b); return expr(a.ctx(), r); }
+    inline expr xnor(expr const& a, expr const& b) { if (a.is_bool()) return !(a ^ b); check_context(a, b); Z3_ast r = Z3_mk_bvxnor(a.ctx(), a, b); return expr(a.ctx(), r); }
     inline expr min(expr const& a, expr const& b) { 
         check_context(a, b); 
         Z3_ast r;
