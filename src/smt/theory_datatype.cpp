@@ -856,6 +856,11 @@ namespace smt {
         enode * n       = get_enode(v);
         sort * dt       = m.get_sort(n->get_owner());
         var_data * d    = m_var_data[v];
+        if (d->m_recognizers.empty()) {
+            theory_var w = recognizer->get_arg(0)->get_th_var(get_id());
+            SASSERT(w != null_theory_var);
+            add_recognizer(w, recognizer);
+        }
         CTRACE("datatype", d->m_recognizers.empty(), ctx.display(tout););
         SASSERT(!d->m_recognizers.empty());
         literal_vector lits;
