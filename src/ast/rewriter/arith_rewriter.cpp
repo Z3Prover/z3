@@ -694,7 +694,7 @@ br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result
 expr_ref arith_rewriter::neg_monomial(expr* e) const {
     expr_ref_vector args(m());
     rational a1;
-    if (is_app(e) & m_util.is_mul(e)) {
+    if (is_app(e) && m_util.is_mul(e)) {
         if (is_numeral(to_app(e)->get_arg(0), a1)) {
             if (!a1.is_minus_one()) {
                 args.push_back(m_util.mk_numeral(-a1, m_util.is_int(e)));
