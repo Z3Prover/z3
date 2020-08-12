@@ -95,7 +95,11 @@ namespace smt {
         auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
             lookahead lh(ctx);
             c = lh.choose();
-            if (c) lasms.push_back(c);
+            if (c) {
+                if ((ctx.get_random_value() % 2) == 0) 
+                    c = c.get_manager().mk_not(c);
+                lasms.push_back(c);
+            }
         };
 
         obj_hashtable<expr> unit_set;
