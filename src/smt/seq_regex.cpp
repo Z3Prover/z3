@@ -395,7 +395,6 @@ namespace smt {
         STRACE("seq_regex", tout << "nullable result: " << mk_pp(result, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "n(" << state_str(r) << ")="
                                        << mk_pp(result, m) << " ";);
-        seq_rw().trace_and_reset_cache_counts();
 
         return result;
     }
@@ -432,7 +431,6 @@ namespace smt {
         STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "d(" << state_str(r) << ")="
                                        << state_str(result) << " ";);
-        seq_rw().trace_and_reset_cache_counts();
 
         return result;
     }
