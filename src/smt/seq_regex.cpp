@@ -788,50 +788,15 @@ namespace smt {
     }
 
 
-    unsigned seq_regex::concat_length(expr* r) {
-        // length of the concatenations at the top level
-        expr *r1 = nullptr, *r2 = nullptr;
-        if (re().is_concat(r, r1, r2))
-            return concat_length(r1) + concat_length(r2);
-        else
-            return 1;
-    }
-
-    unsigned seq_regex::re_rank(expr* r) {
-        SASSERT(u().is_re(r));
-        expr *r1 = nullptr, *r2 = nullptr, *s = nullptr;
-        unsigned lo = 0, hi = 0;
-        if (re().is_empty(r))
-            return 0;
-        if (re().is_concat(r, r1, r2))
-            return std::max(re_rank(r1) + concat_length(r2), re_rank(r2));
-        if (re().is_union(r, r1, r2) || m.is_ite(r, s, r1, r2))
-            return std::max(re_rank(r1), re_rank(r2));
-        if (re().is_intersection(r, r1, r2) || re().is_diff(r, r1, r2))
-            return re_rank(r1) + re_rank(r2);
-        if (re().is_plus(r, r1) || re().is_star(r, r1))
-            return re_rank(r1) + 1;
-        if (re().is_loop(r, r1, lo) || re().is_loop(r, r1, lo, hi))
-            return re_rank(r1) + lo;
-        if (re().is_reverse(r, r1) || re().is_opt(r, r1))
-            // in reverse case, should be r1 is a string
-            return re_rank(r1);
-        if (re().is_to_re(r, s))
-            return u().str.min_length(s);
-        // Else: range, pred, char, full_seq, derivative
-        return 1;
-    }
-
     bool seq_regex::can_be_in_cycle(expr *r1, expr *r2) {
+        // TBD: This can be used to optimize the state graph:
+        // return false here if it is known that r1 -> r2 can never be
+        // in a cycle. There are various easy syntactic checks on r1 and r2
+        // that can be used to infer this (e.g. star height, or length if
+        // both are star-free).
+        // This check need not be sound, but if it is not, some dead states
+        // will be missed.
         return true;
-        // Experimental change: use a "rank" function, which is
-        // a pseudo-topological order on the state graph, to detect when r2
-        // is a simpler regex than r1
-        unsigned k1 = re_rank(r1);
-        unsigned k2 = re_rank(r2);
-        SASSERT(k1 >= k2);
-        STRACE("seq_regex_brief", tout << "(k:" << k1 << "->" << k2 << ")";);
-        return (k1 == k2);
     }
 
     /*
