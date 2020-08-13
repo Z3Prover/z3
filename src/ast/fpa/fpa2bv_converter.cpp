@@ -1172,9 +1172,11 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     m_mpz_manager.set(remaining, max_exp_diff_adj);
     while (m_mpz_manager.gt(remaining, INT32_MAX)) {
         throw default_exception("zero extension overflow floating point types are too large");
+#if 0
         edr_tmp = m_bv_util.mk_zero_extend(INT32_MAX, edr_tmp);
         nedr_tmp = m_bv_util.mk_zero_extend(INT32_MAX, nedr_tmp);
         m_mpz_manager.sub(remaining, INT32_MAX, remaining);
+#endif
     }
     if (!m_mpz_manager.is_zero(remaining)) {
         edr_tmp = m_bv_util.mk_zero_extend(m_mpz_manager.get_uint(remaining), edr_tmp);

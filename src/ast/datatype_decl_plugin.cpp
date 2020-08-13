@@ -645,6 +645,7 @@ namespace datatype {
         SASSERT(is_datatype(s));
         bool fi = true;
         return fi;
+#if 0
         if (m_is_fully_interp.find(s, fi)) {
             return fi;
         }
@@ -671,6 +672,7 @@ namespace datatype {
         m_is_fully_interp.insert(s, is_interp);
         m_asts.push_back(s);
         return true;
+#endif
     }
 
     /**
