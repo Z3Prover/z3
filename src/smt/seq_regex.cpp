@@ -684,7 +684,6 @@ namespace smt {
             get_cofactors_rec(r2, conds, result);
         }
         else {
-            // Old code
             expr_ref conj = mk_and(conds);
             if (!m.is_false(conj) && !re().is_empty(r))
                 result.push_back(conj, r);

@@ -3169,7 +3169,6 @@ void theory_seq::relevant_eh(app* n) {
 
     expr* arg = nullptr;
     if (m_sk.is_tail(n, arg)) {
-        // TODO: HERE
         add_length_limit(arg, m_max_unfolding_depth, true);
     }
 
