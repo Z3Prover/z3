@@ -23,6 +23,68 @@ Author:
 #include "smt/smt_context.h"
 #include "smt/seq_skolem.h"
 
+/*
+    *** Tracing and debugging in this module ***
+
+    Tracing and debugging for the regex solver are split across several
+    command-line flags.
+
+        TRACING
+
+        -tr:seq_regex and -tr:seq_regex_brief
+        These are the main tags to trace what the regex solver is doing.
+        They mostly trace the same things, except that seq_regex_brief
+        avoids printing out expressions and tries to abbreviate the output
+        as much as possible. seq_regex_brief shows the following output:
+            Top-level propagations:
+                PIR:      Propagating an in_re constraint
+                PE/PNE:   Propagating an empty/non-empty constraint
+                PEQ/PNEQ: Propagating a not-equal constraint
+                PA:       Propagating an accept constraint
+            In tracing, arguments are generally put in parentheses.
+            To achieve abbreviated output, expressions are traced in one of two
+            ways:
+                id243 (expr ID):  the regex or expression with id 243
+                3     (state ID): the regex with state ID 3
+            When a regex is newly assigned to a state ID, we print this:
+                new(id606)=4
+            Of these, PA is the most important, and traces as follows:
+                PA(x@i,r): propagate accept for string x at index i, regex r.
+                (empty), (dead), (blocked), (unfold): info about whether this
+                    PA was cut off early, or unfolded into the derivatives
+                    (next states)
+                d(r1)=r2: r2 is the derivative of r1
+                n(r1)=b:  b = whether r1 is nullable or not
+                USG(r):   updating state graph for regex r (add all derivatives)
+
+        -tr:state_graph
+        This is the tracing done by util/state_graph, the data structure
+        that seq_regex uses to track live and dead regexes, which can
+        altneratively be used to get a high-level picture of what states
+        are being explored and updated as the solver progresses.
+
+        -tr:seq and -tr:seq_verbose
+
+        These are the underlying sequence theory tracing, often used by
+        the rewriter.
+
+        DEBUGGING AND VIEWING STATE GRAPH GRAPHICAL OUTPUT
+
+        -dbg:seq_regex
+        Debugging that checks invariants. Currently, checks that derivative
+        normal form is correctly preserved in the rewriter.
+
+        -dbg:state_graph
+        Debugging for the state graph, which
+        1. Checks state graph invariants, and
+        2. Generates the files .z3-state-graph.dgml and .z3-state-graph.dot
+           which can be used to visually view the state graph being explored,
+           during or after executing Z3.
+           The output can be viewed:
+              - Using Visual Studio for .dgml
+              - Using a tool such as xdot (`xdot .z3-state-graph.dot`) for .dot
+*/
+
 namespace smt {
 
     class theory_seq;
