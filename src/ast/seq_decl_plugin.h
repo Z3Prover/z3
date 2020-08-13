@@ -412,6 +412,12 @@ public:
         seq_util&    u;
         ast_manager& m;
         family_id    m_fid;
+        void seq_util::re::pp_compact_helper_seq(std::ostringstream& buffer, expr* s);
+        void seq_util::re::pp_compact_helper_range(std::ostringstream& buffer, expr* s1, expr* s2);
+        bool seq_util::re::pp_can_skip_parenth(expr* r);
+        void seq_util::re::pp_seq_unit(std::ostringstream& buffer, expr* s);
+        void pp_compact_to_buffer(std::ostringstream& buffer, expr* r);
+
     public:
         re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
@@ -481,6 +487,7 @@ public:
         unsigned max_length(expr* r) const;
         bool is_epsilon(expr* r) const;
         app* mk_epsilon(sort* seq_sort);
+        std::string pp(expr* r);
     };
     str str;
     re  re;
