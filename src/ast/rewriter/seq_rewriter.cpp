@@ -2512,6 +2512,10 @@ expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     return result;
 }
 
+expr_ref seq_rewriter::mk_der_antimorov_union(expr* r1, expr* r2) {
+    return mk_der_op(_OP_RE_ANTIMOROV_UNION, r1, r2);
+}
+
 expr_ref seq_rewriter::mk_der_union(expr* r1, expr* r2) {
     return mk_der_op(OP_RE_UNION, r1, r2);
 }
@@ -2877,7 +2881,11 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         }
         expr_ref dr2 = mk_derivative(ele, r2);
         is_n = re_predicate(is_n, seq_sort);
-        return mk_der_union(result, mk_der_concat(is_n, dr2));        
+        // Instead of mk_der_union here, we use mk_der_antimorov_union to
+        // force the two cases to be considered separately and lifted to
+        // the top level. This avoids blowup in cases where determinization
+        // is expensive.
+        return mk_der_antimorov_union(result, mk_der_concat(is_n, dr2));
     }
     else if (re().is_star(r, r1)) {
         return mk_der_concat(mk_derivative(ele, r1), r);
