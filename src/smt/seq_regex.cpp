@@ -275,7 +275,7 @@ namespace smt {
         }
         else if (!m.is_true(is_nullable)) {
             // is_nullable did not simplify
-            literal is_nullable_lit = th.mk_literal(is_nullable_wrapper(r));
+            literal is_nullable_lit = th.mk_literal(is_nullable);
             ctx.mark_as_relevant(is_nullable_lit);
             th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
         }
