@@ -265,6 +265,9 @@ namespace smt {
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
         void unmerge_eh(theory_var v1, theory_var v2);
 
+        bool get_lower(enode* n, rational& v);
+        bool get_upper(enode* n, rational& v);
+
         void display_var(std::ostream & out, theory_var v) const;
         void display_bit_atom(std::ostream & out, bool_var v, bit_atom const * a) const;
         void display_atoms(std::ostream & out) const;

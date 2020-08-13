@@ -144,6 +144,14 @@ namespace smt {
         literal const * end_literals() const {
             return reinterpret_cast<literal const *>(m_data + end_lits());
         }
+
+        class literal_iterator { 
+            watch_list const& w;
+        public:
+            literal_iterator(watch_list const& w): w(w) {}
+            literal const* begin() const { return w.begin_literals(); }
+            literal const* end() const { return w.end_literals(); }
+        };
         
         literal * find_literal(literal const & l) {
             return std::find(begin_literals(), end_literals(), l);
