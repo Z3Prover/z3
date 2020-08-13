@@ -412,10 +412,6 @@ public:
         seq_util&    u;
         ast_manager& m;
         family_id    m_fid;
-        void seq_util::re::pp_compact_helper_seq(std::ostream& out, expr* s);
-        void seq_util::re::pp_compact_helper_range(std::ostream& out, expr* s1, expr* s2);
-        bool seq_util::re::pp_can_skip_parenth(expr* r);
-        void seq_util::re::pp_seq_unit(std::ostream& out, expr* s);
 
     public:
         re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
@@ -486,8 +482,20 @@ public:
         unsigned max_length(expr* r) const;
         bool is_epsilon(expr* r) const;
         app* mk_epsilon(sort* seq_sort);
-        std::string pp(expr* r);
-        void pp(std::ostream& out, expr* r);
+
+        class pp {
+            seq_util::re& re;
+            expr* e;
+            bool can_skip_parenth(expr* r);
+            void seq_unit(std::ostream& out, expr* s);
+            void compact_helper_seq(std::ostream& out, expr* s);
+            void compact_helper_range(std::ostream& out, expr* s1, expr* s2);
+
+        public:
+            pp(seq_util::re& r, expr* e) : re(r), e(e) {}
+            std::ostream& display(std::ostream&);
+        };
+
     };
     str str;
     re  re;
@@ -505,5 +513,9 @@ public:
     family_id get_family_id() const { return m_fid; }
 
 };
+
+inline std::ostream& operator<<(std::ostream& out, seq_util::re::pp& p) { return p.display(out); }
+
+
 
 

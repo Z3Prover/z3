@@ -794,7 +794,7 @@ namespace smt {
         STRACE("seq_regex", tout << "Updating state graph for regex "
                                  << mk_pp(r, m) << ") ";);
         if (!m_state_graph.is_seen(r_id))
-            STRACE("state_graph", tout << std::endl << "state(" << r_id << ") = " << re().pp(r) << std::endl;);
+            STRACE("state_graph", tout << std::endl << "state(" << r_id << ") = " << seq_util::re::pp(re(), r) << std::endl;);
         // Add state
         m_state_graph.add_state(r_id);
         STRACE("state_graph", tout << "regex(" << r_id << ") = " << mk_pp(r, m) << std::endl;);
@@ -817,7 +817,7 @@ namespace smt {
                 STRACE("seq_regex_verbose", tout
                     << std::endl << "  traversing deriv: " << dr_id << " ";);
                 if (!m_state_graph.is_seen(dr_id))
-                    STRACE("state_graph", tout << "state(" << dr_id << ") = " << re().pp(dr) << std::endl;);
+                    STRACE("state_graph", tout << "state(" << dr_id << ") = " << seq_util::re::pp(re(), dr) << std::endl;);
                 // Add state
                 m_state_graph.add_state(dr_id);
                 STRACE("state_graph", tout << "regex(" << dr_id << ") = " << mk_pp(dr, m) << std::endl;);

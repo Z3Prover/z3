@@ -1467,181 +1467,64 @@ app* seq_util::re::mk_epsilon(sort* seq_sort) {
 }
 
 /*
-  Provides a standard pretty printed view of the regex r when possible.
+  Produces compact view of concrete concatenations such as (abcd).
 */
-std::string seq_util::re::pp(expr* r) {
-    SASSERT(u.is_re(r));
-    std::ostringstream out;
-    pp(out, r);
-    return out.str();
+void seq_util::re::pp::compact_helper_seq(std::ostream& out, expr* s) {
+    SASSERT(re.u.is_seq(s));
+    if (re.m.is_value(s)) {
+        SASSERT(s->get_kind() == ast_kind::AST_APP);
+        if (re.u.str.is_concat(s)) {
+            expr_ref_vector es(re.m);
+            re.u.str.get_concat(s, es);
+            for (unsigned i = 0; i < es.size(); i++)
+                if (re.u.str.is_unit(es.get(i)))
+                    seq_unit(out, es.get(i));
+                else
+                    out << mk_pp(es.get(i), re.m);
+        }
+        else if (re.u.str.is_empty(s))
+            out << "()";
+        else
+            seq_unit(out, s);
+    }
+    else
+        out << mk_pp(s, re.m);
 }
 
 /*
-  Pretty prints a standard pretty printed view of the regex r into the out stream
+  Produces output such as [a-z] for a range.
 */
-void seq_util::re::pp(std::ostream& out, expr* r) {
-    SASSERT(u.is_re(r));
-    expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
-    unsigned lo = 0, hi = 0;
-    if (is_full_char(r))
-        out << ".";
-    else if (is_full_seq(r))
-        out << ".*";
-    else if (is_to_re(r, s))
-        pp_compact_helper_seq(out, s);
-    else if (is_range(r, s, s2))
-        pp_compact_helper_range(out, s, s2);
-    else if (is_epsilon(r))
-        out << "()";
-    else if (is_empty(r))
-        out << "[]";
-    else if (is_concat(r, r1, r2)) {
-        pp(out, r1);
-        pp(out, r2);
-    }
-    else if (is_union(r, r1, r2)) {
-        pp(out, r1);
-        out << "|";
-        pp(out, r2);
-    }
-    else if (is_intersection(r, r1, r2)) {
-        out << "(";
-        pp(out, r1);
-        out << ")&(";
-        pp(out, r2);
-        out << ")";
-    }
-    else if (is_complement(r, r1)) {
-        out << "~";
-        if (pp_can_skip_parenth(r1))
-            pp(out, r1);
-        else {
-            out << "(";
-            pp(out, r1);
-            out << ")";
-        }
-    }
-    else if (is_plus(r, r1))
-        if (pp_can_skip_parenth(r1)) {
-            pp(out, r1);
-            out << "+";
-        }
-        else {
-            out << "(";
-            pp(out, r1);
-            out << ")+";
-        }
-    else if (is_star(r, r1))
-        if (pp_can_skip_parenth(r1)) {
-            pp(out, r1);
-            out << "*";
-        }
-        else {
-            out << "(";
-            pp(out, r1);
-            out << ")*";
-        }
-    else if (is_loop(r, r1, lo))
-        if (pp_can_skip_parenth(r1))
-        {
-            pp(out, r1);
-            out << "{" << lo << ",}";
-        }
-        else {
-            out << "(";
-            pp(out, r1);
-            out << "){" << lo << ",}";
-        }
-    else if (is_loop(r, r1, lo, hi))
-        if (pp_can_skip_parenth(r1))
-        {
-            pp(out, r1);
-            out << "{" << lo << "," << hi << "}";
-        }
-        else {
-            out << "(";
-            pp(out, r1);
-            out << "){" << lo << "," << hi << "}";
-        }
-    else if (is_diff(r, r1, r2)) {
-        out << "(";
-        pp(out, r1);
-        out << ")\\(";
-        pp(out, r2);
-        out << ")";
-    }
-    else if (m.is_ite(r, s, r1, r2)) {
-        out << "if(" << mk_pp(s, m) << ",";
-        pp(out, r1);
-        out << ",";
-        pp(out, r2);
-        out << ")";
-    }
-    else if (is_opt(r, r1))
-        if (pp_can_skip_parenth(r1)) {
-            pp(out, r1);
-            out << "?";
-        }
-        else {
-            out << "(";
-            pp(out, r1);
-            out << ")?";
-        }
-    else if (is_reverse(r, r1)) {
-        out << "reverse(";
-        pp(out, r1);
-        out << ")";
-    }
-    else
-        // Else: derivative or is_of_pred
-        out << mk_pp(r, m);
-}
-
-void seq_util::re::pp_compact_helper_seq(std::ostream& out, expr* s) {
-    SASSERT(u.is_seq(s));
-    if (m.is_value(s)) {
-        SASSERT(s->get_kind() == ast_kind::AST_APP);
-        if (u.str.is_concat(s)) {
-            expr_ref_vector es(m);
-            u.str.get_concat(s, es);
-            for (unsigned i = 0; i < es.size(); i++)
-                if (u.str.is_unit(es.get(i)))
-                    pp_seq_unit(out, es.get(i));
-                else
-                    out << mk_pp(es.get(i), m);
-        }
-        else
-            pp_seq_unit(out, s);
-    }
-    else
-        out << mk_pp(s, m);
-}
-
-void seq_util::re::pp_compact_helper_range(std::ostream& out, expr* s1, expr* s2) {
+void seq_util::re::pp::compact_helper_range(std::ostream& out, expr* s1, expr* s2) {
     out << "[";
-    if (u.str.is_unit(s1))
-        pp_seq_unit(out, s1);
+    if (re.u.str.is_unit(s1))
+        seq_unit(out, s1);
     else 
-        out << mk_pp(s1, m);
+        out << mk_pp(s1, re.m);
     out << "-";
-    if (u.str.is_unit(s2))
-        pp_seq_unit(out, s2);
+    if (re.u.str.is_unit(s2))
+        seq_unit(out, s2);
     else
-        out << mk_pp(s1, m);
+        out << mk_pp(s1, re.m);
     out << "]";
 }
 
-bool seq_util::re::pp_can_skip_parenth(expr* r) {
+/*
+  Checks if parenthesis can be omitted in some cases in a loop body or in complement.
+*/
+bool seq_util::re::pp::can_skip_parenth(expr* r) {
     expr* s;
-    return ((is_to_re(r, s) && u.str.is_unit(s)) || is_range(r));
+    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r));
 }
 
-void seq_util::re::pp_seq_unit(std::ostream& out, expr* s) {
+/*
+  Specialize output for a unit sequence converting to visible ASCII characters if possible.
+*/
+void seq_util::re::pp::seq_unit(std::ostream& out, expr* s) {
     expr* e;
-    if (u.str.is_unit(s, e)) {
+    if (re.u.str.is_unit(s, e)) {
         rational r;
         unsigned sz;
-        if (u.bv().is_numeral(e, r, sz) && sz == 8 && r.is_unsigned()) {
+        if (re.u.bv().is_numeral(e, r, sz) && sz == 8 && r.is_unsigned()) {
             unsigned n = r.get_unsigned();
             if (32 < n && n < 127)
                 out << (char)n;
@@ -1651,8 +1534,78 @@ void seq_util::re::pp_seq_unit(std::ostream& out, expr* s) {
                 out << "\\x" << std::hex << n;
         }
         else
-            out << mk_pp(s, m);
+            out << mk_pp(s, re.m);
     }
     else
-        out << mk_pp(s, m);
+        out << mk_pp(s, re.m);
+}
+
+/*
+  Pretty prints the regex r into the out stream
+*/
+std::ostream& seq_util::re::pp::display(std::ostream& out) {
+    expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
+    unsigned lo = 0, hi = 0;
+    if (re.is_full_char(e))
+        return out << ".";
+    else if (re.is_full_seq(e))
+        return out << ".*";
+    else if (re.is_to_re(e, s)) 
+    {
+        compact_helper_seq(out, s);
+        return out;
+    }
+    else if (re.is_range(e, s, s2)) {
+        compact_helper_range(out, s, s2);
+        return out;
+    }
+    else if (re.is_epsilon(e))
+        return out << "()";
+    else if (re.is_empty(e))
+        return out << "[]";
+    else if (re.is_concat(e, r1, r2)) 
+        return out << pp(re, r1) << pp(re, r2);
+    else if (re.is_union(e, r1, r2)) 
+        return out << pp(re, r1) << "|" << pp(re, r2);
+    else if (re.is_intersection(e, r1, r2)) 
+        return out << "(" << pp(re, r1) << ")&(" << pp(re, r2) << ")";
+    else if (re.is_complement(e, r1)) 
+        if (can_skip_parenth(r1))
+            return out << "~" << pp(re, r1);
+        else 
+            return out << "~(" << pp(re, r1) << ")";
+    else if (re.is_plus(e, r1)) 
+        if (can_skip_parenth(r1))
+            return out << pp(re, r1) << "+";
+        else 
+            return out << "(" << pp(re, r1) << ")+";
+    else if (re.is_star(e, r1))
+        if (can_skip_parenth(r1))
+            return out << pp(re, r1) << "*";
+        else
+            return out << "(" << pp(re, r1) << ")*";
+    else if (re.is_loop(e, r1, lo))
+        if (can_skip_parenth(r1))
+            return out << pp(re, r1) << "{" << lo << ",}";
+        else 
+            return out << "(" << pp(re, r1) << "){" << lo << ",}";
+    else if (re.is_loop(e, r1, lo, hi))
+        if (can_skip_parenth(r1))
+            return out << pp(re, r1) << "{" << lo << "," << hi << "}";
+        else
+            return out << "(" << pp(re, r1) << "){" << lo << "," << hi << "}";
+    else if (re.is_diff(e, r1, r2)) 
+        return out << "(" << pp(re, r1) << ")\\(" << pp(re, r2) << ")";
+    else if (re.m.is_ite(e, s, r1, r2)) 
+        return out << "if(" << mk_pp(s, re.m) << "," << pp(re, r1) << "," << pp(re, r2) << ")";
+    else if (re.is_opt(e, r1))
+        if (can_skip_parenth(r1)) 
+            return out << pp(re, r1) << "?";
+        else 
+            return out << "(" << pp(re, r1) << ")?";
+    else if (re.is_reverse(e, r1)) 
+        return out << "reverse(" << pp(re, r1) << ")";
+    else
+        // Else: derivative or is_of_pred
+        return out << mk_pp(e, re.m);
 }
