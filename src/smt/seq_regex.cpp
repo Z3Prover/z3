@@ -285,23 +285,27 @@ namespace smt {
         expr_ref hd = th.mk_nth(s, i);
         expr_ref deriv(m);
         deriv = derivative_wrapper(hd, r);
+        expr_ref accept_deriv(m);
+        accept_deriv = mk_deriv_accept(s, idx + 1, deriv);
+
         accept_next.push_back(~lit);
         accept_next.push_back(len_s_le_i);
-        expr_ref_pair_vector cofactors(m);
-        get_cofactors(deriv, cofactors);
-        for (auto const& p : cofactors) {
-            expr_ref cond(p.first, m);
-            expr_ref deriv_leaf(p.second, m);
-
-            expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
-            expr_ref choice(m.mk_and(cond, acc), m);
-            literal choice_lit = th.mk_literal(choice);
-            accept_next.push_back(choice_lit);
-            // TBD: try prioritizing unvisited states here over visited
-            // ones (in the state graph), to improve performance
-            STRACE("seq_regex_verbose", tout << "added choice: "
-                                           << mk_pp(choice, m) << std::endl;);
-        }
+        accept_next.push_back(th.mk_literal(accept_deriv));
+        // expr_ref_pair_vector cofactors(m);
+        // get_cofactors(deriv, cofactors);
+        // for (auto const& p : cofactors) {
+        //     expr_ref cond(p.first, m);
+        //     expr_ref deriv_leaf(p.second, m);
+        //
+        //     expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
+        //     expr_ref choice(m.mk_and(cond, acc), m);
+        //     literal choice_lit = th.mk_literal(choice);
+        //     accept_next.push_back(choice_lit);
+        //     // TBD: try prioritizing unvisited states here over visited
+        //     // ones (in the state graph), to improve performance
+        //     STRACE("seq_regex_verbose", tout << "added choice: "
+        //                                    << mk_pp(choice, m) << std::endl;);
+        // }
         th.add_axiom(accept_next);
     }
 
@@ -519,88 +523,131 @@ namespace smt {
     }
 
     /*
-        Return an ordering of the unique leaf expressions in r from the top
-        down (i.e. visiting every expression before all its subexpressions).
-        Here r is considered as a top-level combination of if-then-elses and
-        unions of leaf expressions.
+        Given a string s, index i, and a derivative regex d, return an
+        expression that is equivalent to
+            accept s i r
+        but which pushes accept s i r into the leaves (next derivatives to
+        explore).
+
+        Input r is of type regex; output is of type bool.
+
+        Example:
+            mk_deriv_accept(s, i, (ite a r1 r2) u (ite b r3 r4))
+            = (or (ite a (accept s i r1) (accept s i r2))
+                  (ite b (accept s i r3) (accept s i r4)))
     */
-    void seq_regex::visit_derivs_top_down(expr* r, vector<expr*>& result) {
-        // Step 1: calculate # of parents for each expr
-        ptr_addr_map<expr, unsigned> num_parents;
+    expr_ref seq_regex::mk_deriv_accept(expr* s, unsigned i, expr* r) {
         vector<expr*> to_visit;
         to_visit.push_back(r);
+        obj_map<expr, expr*> re_to_bool;
+        expr_ref_vector _temp_bool_owner(m); // temp owner for bools we create
+        STRACE("seq_regex_verbose", unsigned count_leaves = 0;);
+
+        // DFS
         while (to_visit.size() > 0) {
             expr* e = to_visit.back();
-            to_visit.pop_back();
-            if (!num_parents.contains(e)) {
-                // first visit: visit children
-                expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
-                if (m.is_ite(e, econd, e1, e2) ||
-                    re().is_union(e, e1, e2)) {
-                    to_visit.push_back(e1);
-                    to_visit.push_back(e2);
-                }
-                num_parents.insert(e, 0);
-            }
-            // all visits: increment count
-            num_parents.find(e)++;
-        }
-        // Step 2: Visit each node when all parents visited
-        to_visit.push_back(r);
-        while (to_visit.size() > 0) {
-            expr* e = to_visit.back();
-            to_visit.pop_back();
-            num_parents.find(e)--;
-            if (num_parents.find(e) == 0) {
-                // all parents visited
-                result.push_back(e);
-                expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
-                if (m.is_ite(e, econd, e1, e2) ||
-                    re().is_union(e, e1, e2)) {
-                    to_visit.push_back(e1);
-                    to_visit.push_back(e2);
-                }
-            }
-        }
-    }
-    void seq_regex::get_cofactors(expr* r, expr_ref_pair_vector& result) {
-        vector<expr*> top_down;
-        visit_derivs_top_down(r, top_down);
-        obj_map<expr, expr*> conds;
-        expr_ref_vector cond_ownership(m);
-        // Initialize all conds: r to ture, others to false
-        expr_ref truecond(m.mk_true(), m);
-        expr_ref falsecond(m.mk_false(), m);
-        for (auto e: top_down) {
-            conds.insert(e, falsecond);
-        }
-        conds.find(r) = truecond;
-        // Set each child to be all paths to get there
-        for (auto e: top_down) {
-            // finalize parent
-            // rewrite(conds.find(e));
-            // add paths to get to children
             expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
-            if (m.is_ite(e, econd, e1, e2)) {
-                expr* path1 = m.mk_and(conds.find(e), econd);
-                expr* path2 = m.mk_and(conds.find(e), m.mk_not(econd));
-                conds.find(e1) = m.mk_or(conds.find(e1), path1);
-                conds.find(e2) = m.mk_or(conds.find(e2), path2);
-                cond_ownership.push_back(conds.find(e1));
-                cond_ownership.push_back(conds.find(e2));
+            if (!re_to_bool.contains(e)) {
+                // First visit: add children
+                STRACE("seq_regex_verbose", tout << "1";);
+                if (m.is_ite(e, econd, e1, e2) ||
+                    re().is_union(e, e1, e2)) {
+                    to_visit.push_back(e1);
+                    to_visit.push_back(e2);
+                }
+                // Mark first visit by adding nullptr to the map
+                re_to_bool.insert(e, nullptr);
             }
-            else if (re().is_union(e, e1, e2)) {
-                conds.find(e1) = m.mk_or(conds.find(e1), conds.find(e));
-                conds.find(e2) = m.mk_or(conds.find(e2), conds.find(e));
-                cond_ownership.push_back(conds.find(e1));
-                cond_ownership.push_back(conds.find(e2));
+            else if (re_to_bool.find(e) == nullptr) {
+                // Second visit: set value
+                STRACE("seq_regex_verbose", tout << "2";);
+                to_visit.pop_back();
+                if (m.is_ite(e, econd, e1, e2)) {
+                    expr* b1 = re_to_bool.find(e1);
+                    expr* b2 = re_to_bool.find(e2);
+                    expr* b = m.mk_ite(econd, b1, b2);
+                    _temp_bool_owner.push_back(b);
+                    re_to_bool.find(e) = b;
+                }
+                else if (re().is_union(e, e1, e2)) {
+                    expr* b1 = re_to_bool.find(e1);
+                    expr* b2 = re_to_bool.find(e2);
+                    expr* b = m.mk_or(b1, b2);
+                    _temp_bool_owner.push_back(b);
+                    re_to_bool.find(e) = b;
+                }
+                else {
+                    expr* iplus1 = a().mk_int(i);
+                    _temp_bool_owner.push_back(iplus1);
+                    expr_ref acc_leaf = sk().mk_accept(s, iplus1, e);
+                    _temp_bool_owner.push_back(acc_leaf);
+                    re_to_bool.find(e) = acc_leaf;
+
+                    STRACE("seq_regex", count_leaves++;);
+                    STRACE("seq_regex_verbose", tout
+                        << "mk_deriv_accept: added choice: "
+                        << mk_pp(acc_leaf, m) << std::endl;);
+                }
             }
             else {
-                // leaf
-                expr_ref cond(conds.find(e), m);
-                rewrite(cond);
-                if (!m.is_false(cond) && !re().is_empty(e))
-                    result.push_back(cond, e);
+                STRACE("seq_regex_verbose", tout << "3";);
+                // Remaining visits: skip
+                to_visit.pop_back();
+            }
+        }
+
+        // Finalize
+        expr_ref result(m);
+        result = re_to_bool.find(r); // Assigns ownership of all exprs in
+                                     // re_to_bool for after this completes
+        rewrite(result);
+        STRACE("seq_regex", tout << "Number of derivatives: "
+                                 << count_leaves << std::endl;);
+        STRACE("seq_regex_brief", tout << "#derivs=" << count_leaves << " ";);
+        return result;
+    }
+
+    /*
+        Return a list of all leaves in the derivative of a regex r,
+        ignoring the conditions along each path.
+
+        Warning: Although the derivative
+        normal form tries to eliminate unsat condition paths, one cannot
+        assume that the path to each leaf is satisfiable in general
+        (e.g. when regexes are created using re.pred).
+        So not all results may correspond to satisfiable predicates.
+        It is OK to rely on the results being satisfiable for completeness,
+        but not soundness.
+    */
+    void seq_regex::get_all_derivatives(expr* r, expr_ref_vector& results) {
+        // Get derivative
+        sort* seq_sort = nullptr;
+        VERIFY(u().is_re(r, seq_sort));
+        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
+        expr_ref hd = mk_first(r, n);
+        expr_ref d(m);
+        d = derivative_wrapper(hd, r);
+
+        // DFS
+        vector<expr*> to_visit;
+        to_visit.push_back(d);
+        obj_map<expr, bool> visited; // set<expr> (bool is used as a unit type)
+        while (to_visit.size() > 0) {
+            expr* e = to_visit.back();
+            to_visit.pop_back();
+            if (visited.contains(e)) continue;
+            visited.insert(e, true);
+            expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
+            if (m.is_ite(e, econd, e1, e2) ||
+                re().is_union(e, e1, e2)) {
+                to_visit.push_back(e1);
+                to_visit.push_back(e2);
+            }
+            else if (!re().is_empty(e)) {
+                results.push_back(e);
+                STRACE("seq_regex_verbose", tout
+                    << "get_all_derivatives: added choice: "
+                    << mk_pp(acc_leaf, m) << std::endl;);
             }
         }
 
@@ -608,7 +655,21 @@ namespace smt {
                                  << result.size() << std::endl;);
         STRACE("seq_regex_brief", tout << "#derivs=" << result.size() << " ";);
     }
-    void seq_regex::get_cofactors_old(expr* r, expr_ref_pair_vector& result) {
+
+    /*
+        Return a list of all (cond, leaf) pairs in a given derivative
+        expression r.
+
+        Note: this recursive implementation is inefficient, since if nodes
+        are repeated often in the expression DAG, they may be visited
+        many times. For this reason, prefer mk_deriv_accept and
+        get_all_derivatives when possible.
+
+        This method is still used by:
+            propagate_is_empty
+            propagate_is_non_empty
+    */
+    void seq_regex::get_cofactors(expr* r, expr_ref_pair_vector& result) {
         expr_ref_vector conds(m);
         get_cofactors_rec(r, conds, result);
         STRACE("seq_regex", tout << "Number of derivatives: "
@@ -635,24 +696,6 @@ namespace smt {
             expr_ref conj = mk_and(conds);
             if (!m.is_false(conj) && !re().is_empty(r))
                 result.push_back(conj, r);
-        }
-    }
-
-    void seq_regex::get_all_derivatives(expr* r, expr_ref_vector& results) {
-        // Get derivative
-        sort* seq_sort = nullptr;
-        VERIFY(u().is_re(r, seq_sort));
-        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
-        expr_ref hd = mk_first(r, n);
-        expr_ref d(m);
-        d = derivative_wrapper(hd, r);
-        // Use get_cofactors method and try to filter out unsatisfiable conds
-        expr_ref_pair_vector cofactors(m);
-        get_cofactors(d, cofactors);
-        STRACE("seq_regex_verbose", tout << "getting all derivatives of: " << mk_pp(r, m) << std::endl;);
-        for (auto const& p : cofactors) {
-            STRACE("seq_regex_verbose", tout << "adding derivative: " << mk_pp(p.second, m) << std::endl;);
-            results.push_back(p.second);
         }
     }
 

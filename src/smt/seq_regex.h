@@ -93,12 +93,13 @@ namespace smt {
         expr_ref is_nullable_wrapper(expr* r);
         expr_ref derivative_wrapper(expr* hd, expr* r);
 
-        void visit_derivs_top_down(expr* r, vector<expr*>& result);
+        // Various support for unfolding derivative expressions that are
+        // returned by derivative_wrapper
+        expr_ref mk_deriv_accept(expr* s, unsigned i, expr* r);
+        void get_all_derivatives(expr* r, expr_ref_vector& results);
         void get_cofactors(expr* r, expr_ref_pair_vector& result);
-        void get_cofactors_old(expr* r, expr_ref_pair_vector& result);
         void get_cofactors_rec(expr* r, expr_ref_vector& conds,
                                expr_ref_pair_vector& result);
-        void get_all_derivatives(expr* r, expr_ref_vector& results);
 
     public:
 
