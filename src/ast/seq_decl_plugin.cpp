@@ -1471,130 +1471,133 @@ app* seq_util::re::mk_epsilon(sort* seq_sort) {
 */
 std::string seq_util::re::pp(expr* r) {
     SASSERT(u.is_re(r));
-    std::ostringstream buffer;
-    pp_compact_to_buffer(buffer, r);
-    return buffer.str();
+    std::ostringstream out;
+    pp(out, r);
+    return out.str();
 }
 
-void seq_util::re::pp_compact_to_buffer(std::ostringstream& buffer, expr* r) {
+/*
+  Pretty prints a standard pretty printed view of the regex r into the out stream
+*/
+void seq_util::re::pp(std::ostream& out, expr* r) {
     SASSERT(u.is_re(r));
     expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
     unsigned lo = 0, hi = 0;
     if (is_full_char(r))
-        buffer << ".";
+        out << ".";
     else if (is_full_seq(r))
-        buffer << ".*";
+        out << ".*";
     else if (is_to_re(r, s))
-        pp_compact_helper_seq(buffer, s);
+        pp_compact_helper_seq(out, s);
     else if (is_range(r, s, s2))
-        pp_compact_helper_range(buffer, s, s2);
+        pp_compact_helper_range(out, s, s2);
     else if (is_epsilon(r))
-        buffer << "()";
+        out << "()";
     else if (is_empty(r))
-        buffer << "[]";
+        out << "[]";
     else if (is_concat(r, r1, r2)) {
-        pp_compact_to_buffer(buffer, r1);
-        pp_compact_to_buffer(buffer, r2);
+        pp(out, r1);
+        pp(out, r2);
     }
     else if (is_union(r, r1, r2)) {
-        pp_compact_to_buffer(buffer, r1);
-        buffer << "|";
-        pp_compact_to_buffer(buffer, r2);
+        pp(out, r1);
+        out << "|";
+        pp(out, r2);
     }
     else if (is_intersection(r, r1, r2)) {
-        buffer << "(";
-        pp_compact_to_buffer(buffer, r1);
-        buffer << ")&(";
-        pp_compact_to_buffer(buffer, r2);
-        buffer << ")";
+        out << "(";
+        pp(out, r1);
+        out << ")&(";
+        pp(out, r2);
+        out << ")";
     }
     else if (is_complement(r, r1)) {
-        buffer << "~";
+        out << "~";
         if (pp_can_skip_parenth(r1))
-            pp_compact_to_buffer(buffer, r1);
+            pp(out, r1);
         else {
-            buffer << "(";
-            pp_compact_to_buffer(buffer, r1);
-            buffer << ")";
+            out << "(";
+            pp(out, r1);
+            out << ")";
         }
     }
     else if (is_plus(r, r1))
         if (pp_can_skip_parenth(r1)) {
-            pp_compact_to_buffer(buffer, r1);
-            buffer << "+";
+            pp(out, r1);
+            out << "+";
         }
         else {
-            buffer << "(";
-            pp_compact_to_buffer(buffer, r1);
-            buffer << ")+";
+            out << "(";
+            pp(out, r1);
+            out << ")+";
         }
     else if (is_star(r, r1))
         if (pp_can_skip_parenth(r1)) {
-            pp_compact_to_buffer(buffer, r1);
-            buffer << "*";
+            pp(out, r1);
+            out << "*";
         }
         else {
-            buffer << "(";
-            pp_compact_to_buffer(buffer, r1);
-            buffer << ")*";
+            out << "(";
+            pp(out, r1);
+            out << ")*";
         }
     else if (is_loop(r, r1, lo))
         if (pp_can_skip_parenth(r1))
         {
-            pp_compact_to_buffer(buffer, r1);
-            buffer << "{" << std::to_string(lo) << ",}";
+            pp(out, r1);
+            out << "{" << lo << ",}";
         }
         else {
-            buffer << "(";
-            pp_compact_to_buffer(buffer, r1);
-            buffer << "){" << std::to_string(lo) << ",}";
+            out << "(";
+            pp(out, r1);
+            out << "){" << lo << ",}";
         }
     else if (is_loop(r, r1, lo, hi))
         if (pp_can_skip_parenth(r1))
         {
-            pp_compact_to_buffer(buffer, r1);
-            buffer << "{" << std::to_string(lo) << "," << std::to_string(hi) << "}";
+            pp(out, r1);
+            out << "{" << lo << "," << hi << "}";
         }
         else {
-            buffer << "(";
-            pp_compact_to_buffer(buffer, r1);
-            buffer << "){" << std::to_string(lo) << "," << std::to_string(hi) << "}";
+            out << "(";
+            pp(out, r1);
+            out << "){" << lo << "," << hi << "}";
         }
     else if (is_diff(r, r1, r2)) {
-        buffer << "(";
-        pp_compact_to_buffer(buffer, r1);
-        buffer << ")\\(";
-        pp_compact_to_buffer(buffer, r2);
-        buffer << ")";
+        out << "(";
+        pp(out, r1);
+        out << ")\\(";
+        pp(out, r2);
+        out << ")";
     }
     else if (m.is_ite(r, s, r1, r2)) {
-        buffer << "if(" << mk_pp(s, m) << ",";
-        pp_compact_to_buffer(buffer, r1);
-        buffer << ",";
-        pp_compact_to_buffer(buffer, r2);
-        buffer << ")";
+        out << "if(" << mk_pp(s, m) << ",";
+        pp(out, r1);
+        out << ",";
+        pp(out, r2);
+        out << ")";
     }
     else if (is_opt(r, r1))
         if (pp_can_skip_parenth(r1)) {
-            pp_compact_to_buffer(buffer, r1);
-            buffer << "?";
+            pp(out, r1);
+            out << "?";
         }
         else {
-            buffer << "(";
-            pp_compact_to_buffer(buffer, r1);
-            buffer << ")?";
+            out << "(";
+            pp(out, r1);
+            out << ")?";
         }
     else if (is_reverse(r, r1)) {
-        buffer << "reverse(";
-        pp_compact_to_buffer(buffer, r1);
-        buffer << ")";
+        out << "reverse(";
+        pp(out, r1);
+        out << ")";
     }
     else
         // Else: derivative or is_of_pred
-        buffer << mk_pp(r, m);
+        out << mk_pp(r, m);
 }
 
-void seq_util::re::pp_compact_helper_seq(std::ostringstream& buffer, expr* s) {
+void seq_util::re::pp_compact_helper_seq(std::ostream& out, expr* s) {
     SASSERT(u.is_seq(s));
     if (m.is_value(s)) {
         SASSERT(s->get_kind() == ast_kind::AST_APP);
@@ -1603,29 +1606,29 @@ void seq_util::re::pp_compact_helper_seq(std::ostringstream& buffer, expr* s) {
             u.str.get_concat(s, es);
             for (unsigned i = 0; i < es.size(); i++)
                 if (u.str.is_unit(es.get(i)))
-                    pp_seq_unit(buffer, es.get(i));
+                    pp_seq_unit(out, es.get(i));
                 else
-                    buffer << mk_pp(es.get(i), m);
+                    out << mk_pp(es.get(i), m);
         }
         else
-            pp_seq_unit(buffer, s);
+            pp_seq_unit(out, s);
     }
     else
-        buffer << mk_pp(s, m);
+        out << mk_pp(s, m);
 }
 
-void seq_util::re::pp_compact_helper_range(std::ostringstream& buffer, expr* s1, expr* s2) {
-    buffer << "[";
+void seq_util::re::pp_compact_helper_range(std::ostream& out, expr* s1, expr* s2) {
+    out << "[";
     if (u.str.is_unit(s1))
-        pp_seq_unit(buffer, s1);
+        pp_seq_unit(out, s1);
     else 
-        buffer << mk_pp(s1, m);
-    buffer << "-";
+        out << mk_pp(s1, m);
+    out << "-";
     if (u.str.is_unit(s2))
-        pp_seq_unit(buffer, s2);
+        pp_seq_unit(out, s2);
     else
-        buffer << mk_pp(s1, m);
-    buffer << "]";
+        out << mk_pp(s1, m);
+    out << "]";
 }
 
 bool seq_util::re::pp_can_skip_parenth(expr* r) {
@@ -1633,7 +1636,7 @@ bool seq_util::re::pp_can_skip_parenth(expr* r) {
     return ((is_to_re(r, s) && u.str.is_unit(s)) || is_range(r));
 }
 
-void seq_util::re::pp_seq_unit(std::ostringstream& buffer, expr* s) {
+void seq_util::re::pp_seq_unit(std::ostream& out, expr* s) {
     expr* e;
     if (u.str.is_unit(s, e)) {
         rational r;
@@ -1641,15 +1644,15 @@ void seq_util::re::pp_seq_unit(std::ostringstream& buffer, expr* s) {
         if (u.bv().is_numeral(e, r, sz) && sz == 8 && r.is_unsigned()) {
             unsigned n = r.get_unsigned();
             if (32 < n && n < 127)
-                buffer << (char)n;
+                out << (char)n;
             else if (n < 10)
-                buffer << "\\x0" << std::hex << n;
+                out << "\\x0" << std::hex << n;
             else
-                buffer << "\\x" << std::hex << n;
+                out << "\\x" << std::hex << n;
         }
         else
-            buffer << mk_pp(s, m);
+            out << mk_pp(s, m);
     }
     else
-        buffer << mk_pp(s, m);
+        out << mk_pp(s, m);
 }
