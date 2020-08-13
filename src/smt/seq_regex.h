@@ -24,7 +24,7 @@ Author:
 #include "smt/seq_skolem.h"
 
 /*
-    *** Tracing and debugging in this module ***
+    *** Tracing and debugging in this module and related modules ***
 
     Tracing and debugging for the regex solver are split across several
     command-line flags.

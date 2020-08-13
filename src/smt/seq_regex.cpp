@@ -539,7 +539,6 @@ namespace smt {
         to_visit.push_back(r);
         obj_map<expr, expr*> re_to_bool;
         expr_ref_vector _temp_bool_owner(m); // temp owner for bools we create
-        STRACE("seq_regex_verbose", unsigned count_leaves = 0;);
 
         // DFS
         while (to_visit.size() > 0) {
@@ -581,7 +580,6 @@ namespace smt {
                     _temp_bool_owner.push_back(acc_leaf);
                     re_to_bool.find(e) = acc_leaf;
 
-                    STRACE("seq_regex", count_leaves++;);
                     STRACE("seq_regex_verbose", tout
                         << "mk_deriv_accept: added choice: "
                         << mk_pp(acc_leaf, m) << std::endl;);
@@ -599,9 +597,6 @@ namespace smt {
         result = re_to_bool.find(r); // Assigns ownership of all exprs in
                                      // re_to_bool for after this completes
         rewrite(result);
-        STRACE("seq_regex", tout << "Number of derivatives: "
-                                 << count_leaves << std::endl;);
-        STRACE("seq_regex_brief", tout << "#derivs=" << count_leaves << " ";);
         return result;
     }
 
@@ -645,13 +640,13 @@ namespace smt {
                 results.push_back(e);
                 STRACE("seq_regex_verbose", tout
                     << "get_all_derivatives: added choice: "
-                    << mk_pp(acc_leaf, m) << std::endl;);
+                    << mk_pp(e, m) << std::endl;);
             }
         }
 
         STRACE("seq_regex", tout << "Number of derivatives: "
-                                 << result.size() << std::endl;);
-        STRACE("seq_regex_brief", tout << "#derivs=" << result.size() << " ";);
+                                 << results.size() << std::endl;);
+        STRACE("seq_regex_brief", tout << "#derivs=" << results.size() << " ";);
     }
 
     /*
