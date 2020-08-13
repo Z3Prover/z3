@@ -680,6 +680,13 @@ class theory_lra::imp {
         return th.is_attached_to_var(e);
     }
 
+    void ensure_bounds(theory_var v) {
+        while (m_bounds.size() <= static_cast<unsigned>(v)) {
+            m_bounds.push_back(lp_bounds());
+            m_unassigned_bounds.push_back(0);
+        }
+    }
+
     theory_var mk_var(expr* n) {
         if (!ctx().e_internalized(n)) {
             ctx().internalize(n, false);                
@@ -690,10 +697,7 @@ class theory_lra::imp {
             v = th.mk_var(e);
             TRACE("arith", tout << "fresh var: v" << v << " " << mk_pp(n, m) << "\n";);
             SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
-            if (m_bounds.size() <= static_cast<unsigned>(v)) {
-                m_bounds.push_back(lp_bounds());
-                m_unassigned_bounds.push_back(0);
-            }
+            ensure_bounds(v);
             ctx().attach_th_var(e, &th, v);
         }
         else {
@@ -2296,19 +2300,13 @@ public:
             
     }
 
-    bool should_propagate() {
+    bool should_propagate() const {
         return BP_NONE != propagation_mode();
     }
 
-    // void update_propagation_threshold(bool  made_progress) {
-    //      if (made_progress) {
-    //         m_propagation_delay = std::max(1u, m_propagation_delay-1u);
-    //     }
-    //     else {
-    //         m_propagation_delay += 2;
-    //     }
-    // }
-
+    bool should_refine_bounds() const {
+        return BP_REFINE == propagation_mode() && ctx().at_search_level();
+    }
 
     void consume(rational const& v, lp::constraint_index j) {
         set_evidence(j, m_core, m_eqs);
@@ -2323,9 +2321,8 @@ public:
         m_bp.init();
         lp().propagate_bounds_for_touched_rows(m_bp);
 
-        if (!m.inc()) {
+        if (!m.inc()) 
             return;
-        }
 
         if (is_infeasible()) {
             get_infeasibility_explanation_and_set_conflict();
@@ -2342,12 +2339,15 @@ public:
 
     bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval) const {
         theory_var v = lp().local_to_external(vi);
-        if (v == null_theory_var) {
+        if (v == null_theory_var) 
             return false;
-        }
-        if (m_bounds.size() <= static_cast<unsigned>(v) || m_unassigned_bounds[v] == 0) {
+
+        if (should_refine_bounds()) 
+            return true;
+
+        if (m_bounds.size() <= static_cast<unsigned>(v) || m_unassigned_bounds[v] == 0) 
             return false;
-        }
+
         for (lp_api::bound* b : m_bounds[v]) {
             if (ctx().get_assignment(b->get_bv()) == l_undef &&
                 null_literal != is_bound_implied(kind, bval, *b)) {
@@ -2360,13 +2360,14 @@ public:
         lpvar vi = be.m_j;
         theory_var v = lp().local_to_external(vi);
 
-        if (v == null_theory_var) return;
-        TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";
-              // if (m_unassigned_bounds[v] == 0) lp().print_bound_evidence(be, tout);
-              );
+        if (v == null_theory_var) 
+            return;
 
+        TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
+
+        ensure_bounds(v);
             
-        if (m_unassigned_bounds[v] == 0 || m_bounds.size() <= static_cast<unsigned>(v)) {
+        if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) {
             TRACE("arith", tout << "return\n";);
             return;
         }
@@ -2405,9 +2406,48 @@ public:
                     VERIFY(ctx().get_assignment(lit) == l_true);
                 });
             ++m_stats.m_bound_propagations1;
-            assign(lit, m_core, m_eqs, m_params);
-      
+            assign(lit, m_core, m_eqs, m_params);      
         }
+        
+        if (should_refine_bounds() && first) 
+            refine_bound(v, be);        
+    }
+
+    void refine_bound(theory_var v, const lp::implied_bound& be) {
+        lpvar vi = be.m_j;
+        if (lp::tv::is_term(vi))
+            return;
+        expr_ref w(get_enode(v)->get_owner(), m);
+        if (a.is_add(w) || a.is_numeral(w) || m.is_ite(w))
+            return;
+        literal bound = null_literal;
+        switch (be.kind()) {
+        case lp::LE: 
+            if (is_int(v) && (lp().column_has_lower_bound(vi) || !lp().column_has_upper_bound(vi)))
+                bound = mk_literal(a.mk_le(w, a.mk_numeral(floor(be.m_bound), a.is_int(w)))); 
+            if (is_real(v) && !lp().column_has_upper_bound(vi))
+                bound = mk_literal(a.mk_le(w, a.mk_numeral(be.m_bound, a.is_int(w))));                 
+            break;
+        case lp::GE: 
+            if (is_int(v) && (lp().column_has_upper_bound(vi) || !lp().column_has_lower_bound(vi)))
+                bound = mk_literal(a.mk_ge(w, a.mk_numeral(ceil(be.m_bound), a.is_int(w)))); 
+            if (is_real(v) && !lp().column_has_lower_bound(vi))
+                bound = mk_literal(a.mk_ge(w, a.mk_numeral(be.m_bound, a.is_int(w))));                 
+            break;
+        default: 
+            break;
+        }
+        if (bound == null_literal)
+            return;
+        if (ctx().get_assignment(bound) == l_true)
+            return;
+        
+        ++m_stats.m_bound_propagations1;
+        reset_evidence();
+        m_explanation.clear();
+        lp().explain_implied_bound(be, m_bp);                       
+        ctx().mark_as_relevant(bound);
+        assign(bound, m_core, m_eqs, m_params);              
     }
 
     void add_eq(lpvar u, lpvar v, lp::explanation const& e) {

@@ -34,7 +34,7 @@ enum arith_solver_id {
 enum bound_prop_mode {
     BP_NONE,
     BP_SIMPLE, // only used for implying literals   
-    BP_REFINE  // refine known bounds
+    BP_REFINE  // adds new literals, but only refines finite bounds
 };
 
 enum arith_prop_strategy {

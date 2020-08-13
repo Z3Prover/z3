@@ -1862,6 +1862,7 @@ unsigned core::get_var_weight(lpvar j) const {
     case lp::column_type::lower_bound:
     case lp::column_type::upper_bound:
         k = 4;
+        break;
     case lp::column_type::free_column:
         k = 6;
         break;

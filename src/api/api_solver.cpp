@@ -79,6 +79,10 @@ extern "C" {
     }
 
     void solver2smt2_pp::check(unsigned n, expr* const* asms) {
+        for (unsigned i = 0; i < n; ++i) {
+            m_pp_util.collect(asms[i]);
+        }
+        m_pp_util.display_decls(m_out);
         m_out << "(check-sat";        
         for (unsigned i = 0; i < n; ++i) {
             m_pp_util.display_expr(m_out << "\n", asms[i]);            

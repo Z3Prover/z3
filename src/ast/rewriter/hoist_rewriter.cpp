@@ -154,7 +154,7 @@ unsigned hoist_rewriter::mk_var(expr* e) {
     if (m_expr2var.find(e, v)) {
         return v;
     }
-    v = m_uf1.mk_var();
+    m_uf1.mk_var();
     v = m_uf2.mk_var();
     SASSERT(v == m_var2expr.size());
     m_expr2var.insert(e, v);

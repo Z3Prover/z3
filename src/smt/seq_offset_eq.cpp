@@ -100,7 +100,7 @@ bool seq_offset_eq::find(enode* n1, enode* n2, int& offset) const {
     if (n1->get_owner_id() > n2->get_owner_id()) 
         std::swap(n1, n2);
     return 
-        !a.is_numeral(n2->get_owner()) && 
+        !a.is_numeral(n1->get_owner()) && 
         !a.is_numeral(n2->get_owner()) && 
         m_offset_equalities.find(n1, n2, offset);
 }
