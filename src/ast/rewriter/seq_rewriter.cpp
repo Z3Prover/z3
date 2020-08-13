@@ -2645,7 +2645,7 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         if (re().is_antimorov_union(a) || re().is_antimorov_union(b)) {
             k = _OP_RE_ANTIMOROV_UNION;
         }
-        #if 1
+        #if 0
         // Disabled: eager Antimorov lifting unless BDDs are compatible
         // Note: the check for BDD compatibility could be made more
         // sophisticated: in an Antimorov union of n terms, we really
