@@ -289,10 +289,8 @@ public:
                Give preference to cores that have large minimal values.
             */
             sort_assumptions(asms);              
-            m_last_index = std::min(m_last_index, asms.size()-1);
             m_last_index = 0;
-            unsigned index = m_last_index>0?m_last_index-1:0;
-            m_last_index = 0;
+            unsigned index = 0;
             bool first = index > 0;
             SASSERT(index < asms.size() || asms.empty());
             IF_VERBOSE(10, verbose_stream() << "start hill climb " << index << " asms: " << asms.size() << "\n";);

@@ -376,6 +376,10 @@ namespace smt {
             return m_assigned_literals;
         }
 
+        watch_list const& get_watch(literal l) const {
+            return m_watches[l.index()];
+        }
+
         lbool get_assignment(expr * n) const;
 
         // Similar to get_assignment, but returns l_undef if n is not internalized.

@@ -1641,6 +1641,51 @@ namespace smt {
         // SASSERT(check_zero_one_bits(v2));
     }
 
+    bool theory_bv::get_lower(enode* n, rational& value) {
+        theory_var v = n->get_th_var(get_id());
+        if (v != null_theory_var && is_bv(v)) {
+            value = 0;
+            rational p(1);
+            for (literal bit : m_bits[v]) {
+                switch (ctx.get_assignment(bit)) {
+                case l_true:
+                    value += p;
+                    break;
+                default:
+                    break;
+                }
+                p *= 2;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    bool theory_bv::get_upper(enode* n, rational& value) {
+        theory_var v = n->get_th_var(get_id());
+        if (v != null_theory_var && is_bv(v)) {
+            literal_vector const & bits = m_bits[v];
+            rational p = rational::power_of_two(bits.size());
+            value = p - 1;
+            p /= 2;
+            for (unsigned i = bits.size(); i-- > 0; ) {
+                switch (ctx.get_assignment(bits[i])) {
+                case l_false:
+                    value -= p;
+                    break;
+                case l_true:
+                    break;
+                default: {                 
+                    break;
+                }
+                }
+                p /= 2;
+            }
+            return true;
+        }
+        return false;
+    }
+
     void theory_bv::init_model(model_generator & mg) {
         m_factory = alloc(bv_factory, m);
         mg.register_factory(m_factory);

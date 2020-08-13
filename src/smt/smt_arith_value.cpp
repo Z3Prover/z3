@@ -23,15 +23,17 @@ Revision History:
 namespace smt {
 
     arith_value::arith_value(ast_manager& m): 
-        m_ctx(nullptr), m(m), a(m) {}
+        m_ctx(nullptr), m(m), a(m), b(m) {}
 
     void arith_value::init(context* ctx) {
         m_ctx = ctx;
         family_id afid = a.get_family_id();
+        family_id bfid = b.get_family_id();
         theory* th = m_ctx->get_theory(afid);
         m_tha = dynamic_cast<theory_mi_arith*>(th);
         m_thi = dynamic_cast<theory_i_arith*>(th);
         m_thr = dynamic_cast<theory_lra*>(th);
+        m_thb = dynamic_cast<theory_bv*>(m_ctx->get_theory(bfid));
     }
 
     bool arith_value::get_lo_equiv(expr* e, rational& lo, bool& is_strict) {
@@ -79,6 +81,7 @@ namespace smt {
         if (!m_ctx->e_internalized(e)) return false;
         is_strict = false;
         enode* n = m_ctx->get_enode(e);
+        if (b.is_bv(e) && m_thb) return m_thb->get_upper(n, up);
         if (m_tha) return m_tha->get_upper(n, up, is_strict);
         if (m_thi) return m_thi->get_upper(n, up, is_strict);
         if (m_thr) return m_thr->get_upper(n, up, is_strict);
@@ -90,6 +93,7 @@ namespace smt {
         if (!m_ctx->e_internalized(e)) return false;
         is_strict = false;
         enode* n = m_ctx->get_enode(e);
+        if (b.is_bv(e) && m_thb) return m_thb->get_lower(n, up);
         if (m_tha) return m_tha->get_lower(n, up, is_strict);
         if (m_thi) return m_thi->get_lower(n, up, is_strict);
         if (m_thr) return m_thr->get_lower(n, up, is_strict);
@@ -101,6 +105,7 @@ namespace smt {
         if (!m_ctx->e_internalized(e)) return false;
         expr_ref _val(m);
         enode* n = m_ctx->get_enode(e);
+        if (m_thb && b.is_bv(e)) return m_thb->get_value(n, _val);
         if (m_tha && m_tha->get_value(n, _val) && a.is_numeral(_val, val)) return true;
         if (m_thi && m_thi->get_value(n, _val) && a.is_numeral(_val, val)) return true;
         if (m_thr && m_thr->get_value(n, val)) return true;
@@ -128,7 +133,7 @@ namespace smt {
     expr_ref arith_value::get_lo(expr* e) const {
         rational lo;
         bool s = false;
-        if (a.is_int_real(e) && get_lo(e, lo, s) && !s) {
+        if ((a.is_int_real(e) || b.is_bv(e)) && get_lo(e, lo, s) && !s) {
             return expr_ref(a.mk_numeral(lo, m.get_sort(e)), m);
         }
         return expr_ref(e, m);
@@ -137,7 +142,7 @@ namespace smt {
     expr_ref arith_value::get_up(expr* e) const {
         rational up;
         bool s = false;
-        if (a.is_int_real(e) && get_up(e, up, s) && !s) {
+        if ((a.is_int_real(e) || b.is_bv(e)) && get_up(e, up, s) && !s) {
             return expr_ref(a.mk_numeral(up, m.get_sort(e)), m);
         }
         return expr_ref(e, m);

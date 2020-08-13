@@ -173,6 +173,7 @@ public:
         return *this; 
     }
 
+
     rational & operator*=(rational const & r) {
         m().mul(m_val, r.m_val, m_val);
         return *this; 
@@ -186,6 +187,18 @@ public:
     rational & operator%=(rational const & r) {
         m().rem(m_val, r.m_val, m_val);
         return *this; 
+    }    
+
+    rational & operator%=(int v) {
+        return *this %= rational(v);
+    }    
+
+    rational & operator/=(int v) {
+        return *this /= rational(v);
+    }    
+
+    rational & operator*=(int v) {
+        return *this *= rational(v);
     }    
 
     friend inline rational div(rational const & r1, rational const & r2) {
