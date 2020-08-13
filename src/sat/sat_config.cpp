@@ -99,7 +99,7 @@ namespace sat {
         else
             m_local_search_mode = local_search_mode::wsat;
         m_local_search_dbg_flips = p.local_search_dbg_flips();
-        m_binspr            = p.binspr();
+        //m_binspr            = p.binspr();
         m_binspr            = false;     // prevent adventurous users from trying feature that isn't ready
         m_anf_simplify      = p.anf();
         m_anf_delay         = p.anf_delay();

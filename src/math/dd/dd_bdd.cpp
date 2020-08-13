@@ -318,7 +318,7 @@ namespace dd {
             goto go_down;
         }
         else {
-            while (current_cost() != best_cost) {
+            while (current_cost() > best_cost) {
                 sift_up(--lvl);
             }
             return;
@@ -339,7 +339,7 @@ namespace dd {
             goto go_up;
         }
         else {
-            while (current_cost() != best_cost) {
+            while (current_cost() > best_cost) {
                 sift_up(lvl++);
             }
             return;

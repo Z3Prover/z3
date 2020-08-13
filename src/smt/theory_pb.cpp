@@ -1325,37 +1325,37 @@ namespace smt {
 
     bool theory_pb::gc() {
 
-
         unsigned z = 0, nz = 0;
         m_occs.reset();
         for (unsigned i = 0; i < m_card_trail.size(); ++i) {
             bool_var v = m_card_trail[i];
-            if (v == null_bool_var) continue;
+            if (v == null_bool_var) 
+                continue;
             card* c = m_var_infos[v].m_card;
-            if (c) {
-                c->reset_propagations();
-                literal lit = c->lit();
-                if (c->is_aux() && ctx.get_assign_level(lit) > ctx.get_search_level()) {
-                    double activity = ctx.get_activity(v);
-                    if (activity <= 0) {
-                        nz++;
-                    }
-                    else {
-                        z++;
-                        clear_watch(*c);
-                        m_var_infos[v].m_card = nullptr;
-                        dealloc(c);
-                        m_card_trail[i] = null_bool_var;
-                        ctx.remove_watch(v);
-                        // TBD: maybe v was used in a clause for propagation.
-                        m_occs.insert(v);
-                    }
+            if (!c) 
+                continue;
+            c->reset_propagations();
+            literal lit = c->lit();
+            if (c->is_aux() && ctx.get_assign_level(lit) > ctx.get_search_level()) {
+                double activity = ctx.get_activity(v);
+                if (activity <= 0) {
+                    nz++;
+                }
+                else {
+                    z++;
+                    clear_watch(*c);
+                    m_var_infos[v].m_card = nullptr;
+                    dealloc(c);
+                    m_card_trail[i] = null_bool_var;
+                    ctx.remove_watch(v);
+                    // TBD: maybe v was used in a clause for propagation.
+                    m_occs.insert(v);
                 }
             }
         }
-        clause_vector const& lemmas = ctx.get_lemmas();
-        for (unsigned i = 0; i < lemmas.size(); ++i) {
-            clause* cl = lemmas[i];
+
+#if 0        
+        for (clause* cl : ctx.get_lemmas()) {
             if (!cl->deleted()) {
                 for (literal lit : *cl) {
                     if (m_occs.contains(lit.var())) {
@@ -1364,9 +1364,6 @@ namespace smt {
                 }
             }
         }
-
-        //std::cout << "zs: " << z << " nzs: " << nz << " lemmas: " << ctx.get_lemmas().size() << " trail: " << m_card_trail.size() << "\n";
-        return z*10 >= nz;
 
         m_occs.reset();
         for (unsigned i = 0; i < lemmas.size(); ++i) {
@@ -1377,6 +1374,8 @@ namespace smt {
                 m_occs.insert(idx);
             }
         }
+#endif
+        return z*10 >= nz;
     }
 
 
