@@ -215,6 +215,7 @@ namespace smt {
      *
      * Rule 1. (accept s i r) => len(s) >= i + min_len(r)
      * Rule 2. (accept s i r) & len(s) <= i => nullable(r)
+     *     (only necessary if min_len fails and returns 0 for non-nullable r)
      * Rule 3. (accept s i r) and len(s) > i =>
      *             (accept s (i + 1) (derivative s[i] r)
      *
@@ -269,15 +270,28 @@ namespace smt {
 
         // Rule 2: nullable check
         literal len_s_le_i = th.m_ax.mk_le(th.mk_len(s), idx);
-        expr_ref is_nullable = is_nullable_wrapper(r);
-        if (m.is_false(is_nullable)) {
-            th.propagate_lit(nullptr, 1, &lit, ~len_s_le_i);
-        }
-        else if (!m.is_true(is_nullable)) {
-            // is_nullable did not simplify
-            literal is_nullable_lit = th.mk_literal(is_nullable);
-            ctx.mark_as_relevant(is_nullable_lit);
-            th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
+        if (min_len == 0) {
+            expr_ref is_nullable = is_nullable_wrapper(r);
+            if (m.is_false(is_nullable)) {
+                STRACE("seq_regex", tout
+                    << "Warning: min_length returned 0 for non-nullable regex"
+                    << std::endl;);
+                STRACE("seq_regex_brief", tout
+                    << " (Warning: min_length returned 0 for"
+                    << " non-nullable regex)";);
+                th.propagate_lit(nullptr, 1, &lit, ~len_s_le_i);
+            }
+            else if (!m.is_true(is_nullable)) {
+                // is_nullable did not simplify
+                STRACE("seq_regex", tout
+                    << "Warning: is_nullable did not simplify to true or false"
+                    << std::endl;);
+                STRACE("seq_regex_brief", tout
+                    << " (Warning: is_nullable did not simplify)";);
+                literal is_nullable_lit = th.mk_literal(is_nullable);
+                ctx.mark_as_relevant(is_nullable_lit);
+                th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
+            }
         }
 
         // Rule 3: derivative unfolding
@@ -287,25 +301,9 @@ namespace smt {
         deriv = derivative_wrapper(hd, r);
         expr_ref accept_deriv(m);
         accept_deriv = mk_deriv_accept(s, idx + 1, deriv);
-
         accept_next.push_back(~lit);
         accept_next.push_back(len_s_le_i);
         accept_next.push_back(th.mk_literal(accept_deriv));
-        // expr_ref_pair_vector cofactors(m);
-        // get_cofactors(deriv, cofactors);
-        // for (auto const& p : cofactors) {
-        //     expr_ref cond(p.first, m);
-        //     expr_ref deriv_leaf(p.second, m);
-        //
-        //     expr_ref acc = sk().mk_accept(s, a().mk_int(idx + 1), deriv_leaf);
-        //     expr_ref choice(m.mk_and(cond, acc), m);
-        //     literal choice_lit = th.mk_literal(choice);
-        //     accept_next.push_back(choice_lit);
-        //     // TBD: try prioritizing unvisited states here over visited
-        //     // ones (in the state graph), to improve performance
-        //     STRACE("seq_regex_verbose", tout << "added choice: "
-        //                                    << mk_pp(choice, m) << std::endl;);
-        // }
         th.add_axiom(accept_next);
     }
 
