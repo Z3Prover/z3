@@ -325,12 +325,40 @@ bool state_graph::is_done(state s) const {
 }
 
 /*
+    Pretty printing
+*/
+std::ostream& state_graph::display(std::ostream& o) const {
+    o << "---------- State Graph ----------" << std::endl
+        << "Seen:";
+    for (auto s : m_seen) {
+        o << " " << s;
+        state s_root = m_state_ufind.find(s);
+        if (s_root != s)
+            o << "(=" << s_root << ")";
+    }
+    o << std::endl
+        << "Live:" << m_live << std::endl
+        << "Dead:" << m_dead << std::endl
+        << "Unknown:" << m_unknown << std::endl
+        << "Unexplored:" << m_unexplored << std::endl
+        << "Edges:" << std::endl;
+    for (auto s1 : m_seen) {
+        if (m_state_ufind.is_root(s1)) {
+            o << "  " << s1 << " -> " << m_targets[s1] << std::endl;
+        }
+    }
+    o << "---------------------------------" << std::endl;
+
+    return o;
+}
+
+#ifdef Z3DEBUG
+/*
     Class invariants check (and associated auxiliary functions)
 
     check_invariant performs a sequence of SASSERT assertions,
     then always returns true.
 */
-#ifdef Z3DEBUG
 bool state_graph::is_subset(state_set set1, state_set set2) const {
     for (auto s1: set1) {
         if (!set2.contains(s1)) return false;
@@ -387,37 +415,7 @@ bool state_graph::check_invariant() const {
     STRACE("state_graph", tout << "(invariant passed) ";);
     return true;
 }
-#endif
 
-/*
-    Pretty printing
-*/
-std::ostream& state_graph::display(std::ostream& o) const {
-    o << "---------- State Graph ----------" << std::endl
-      << "Seen:";
-    for (auto s: m_seen) {
-        o << " " << s;
-        state s_root = m_state_ufind.find(s);
-        if (s_root != s)
-            o << "(=" << s_root << ")";
-    }
-    o << std::endl
-      << "Live:" << m_live << std::endl
-      << "Dead:" << m_dead << std::endl
-      << "Unknown:" << m_unknown << std::endl
-      << "Unexplored:" << m_unexplored << std::endl
-      << "Edges:" << std::endl;
-    for (auto s1: m_seen) {
-        if (m_state_ufind.is_root(s1)) {
-            o << "  " << s1 << " -> " << m_targets[s1] << std::endl;
-        }
-    }
-    o << "---------------------------------" << std::endl;
-
-    return o;
-}
-
-#ifdef Z3DEBUG
 /*
     Output the whole state graph in dgml format into the file '.z3-state-graph.dgml'
  */

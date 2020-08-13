@@ -191,6 +191,11 @@ class seq_rewriter {
     expr_ref mk_der_inter(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
     expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
+    expr_ref mk_der_antimorov_union(expr* r1, expr* r2);
+    bool ite_bdds_compatabile(expr* a, expr* b);
+    #ifdef Z3DEBUG
+    bool check_deriv_normal_form(expr* r, int level = 3);
+    #endif
 
     bool lt_char(expr* ch1, expr* ch2);
     bool eq_char(expr* ch1, expr* ch2);
@@ -277,7 +282,6 @@ class seq_rewriter {
     void add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
     bool is_sequence(expr* e, expr_ref_vector& seq);
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
-    bool is_epsilon(expr* e) const;
     bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
     bool reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     bool reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);

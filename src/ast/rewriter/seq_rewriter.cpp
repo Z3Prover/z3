@@ -557,6 +557,12 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
             st = mk_re_concat(args[0], args[1], result); 
         }
         break;
+    case _OP_RE_ANTIMOROV_UNION:
+        SASSERT(num_args == 2);
+        // Rewrite Antimorov union to real union
+        result = re().mk_union(args[0], args[1]);
+        st = BR_REWRITE1;
+        break;
     case OP_RE_UNION:
         if (num_args == 1) {
             result = args[0]; 
@@ -2365,11 +2371,26 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     }
 }
 
+/***************************************************
+ *****          Begin Derivative Code          *****
+ ***************************************************/
+
 /*
     Symbolic derivative: seq -> regex -> regex
     seq should be single char
-*/
 
+    This is the rewriter entrypoint for computing a derivative.
+    Use mk_derivative from seq_decl_plugin instead to create a derivative
+    expression without computing it (simplifying).
+
+    This calls mk_derivative, the main logic which builds a derivative
+    recursively, but mk_derivative doesn't guarantee full simplification.
+    Once the derivative is built, we return BR_REWRITE_FULL so that
+    any remaining possible simplification is performed from the bottom up.
+
+    Rewriting also replaces _OP_RE_ANTIMOROV_UNION, which is produced
+    by is_derivative, with real union.
+*/
 br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
     result = mk_derivative(ele, r);
     // TBD: we may even declare BR_DONE here and potentially miss some simplifications
@@ -2377,14 +2398,105 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
 }
 
 /*
-    Memoized, recursive implementation of the symbolic derivative such that
-    the result is in an optimized BDD form.
+    Note: Derivative Normal Form
 
-    Definition of BDD form:
-        if-then-elses are pushed outwards
-        and sorted by condition ID (cond->get_id()), from largest on
-        the outside to smallest on the inside.
-        Duplicate nested conditions are eliminated.
+    When computing derivatives recursively, we preserve the following
+    BDD normal form:
+
+    - At the top level, the derivative is a union of Antimorov derivatives
+      (Conceptually each element of the union is a different derivative).
+      We currently express this derivative using an internal op code:
+          _OP_RE_ANTIMOROV_UNION
+    - An Antimorov derivative is a nested if-then-else term.
+      if-then-elses are pushed outwards and sorted by condition ID
+      (cond->get_id()), from largest on the outside to smallest on the
+      inside. Duplicate nested conditions are eliminated.
+    - The leaves of the if-then-else BDD can have unions themselves,
+      but these are interpreted as Regex union, not as separate Antimorov
+      derivatives.
+
+    To debug the normal form, call Z3 with -dbg:seq_regex:
+    this calls check_deriv_normal_form (below) periodically.
+
+    The main logic is in mk_der_op_rec for combining normal forms
+    (some also in mk_der_compl_rec).
+*/
+
+#ifdef Z3DEBUG
+/*
+    Debugging to check the derivative normal form that we assume
+    (see definition above).
+
+    This may fail on unusual/unexpected REs, such as those containing
+    regex variables, but this is by design as this is only checked
+    during debugging, and we have not considered how normal form
+    should apply in such cases.
+*/
+bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
+    if (level == 3) { // top level
+        STRACE("seq_verbose", tout
+            << "Checking derivative normal form invariant...";);
+    }
+    expr *r1 = nullptr, *r2 = nullptr, *p = nullptr, *s = nullptr;
+    unsigned lo = 0, hi = 0;
+    STRACE("seq_verbose", tout << " (level " << level << ")";);
+    int new_level = 0;
+    if (re().is_antimorov_union(r)) {
+        SASSERT(level >= 2);
+        new_level = 2;
+    }
+    else if (m().is_ite(r)) {
+        SASSERT(level >= 1);
+        new_level = 1;
+    }
+
+    SASSERT(!re().is_diff(r));
+    SASSERT(!re().is_opt(r));
+    SASSERT(!re().is_plus(r));
+
+    if (re().is_antimorov_union(r, r1, r2) ||
+        re().is_concat(r, r1, r2) ||
+        re().is_union(r, r1, r2) ||
+        re().is_intersection(r, r1, r2) ||
+        m().is_ite(r, p, r1, r2)) {
+        check_deriv_normal_form(r1, new_level);
+        check_deriv_normal_form(r2, new_level);
+    }
+    else if (re().is_star(r, r1) ||
+             re().is_complement(r, r1) ||
+             re().is_loop(r, r1, lo) ||
+             re().is_loop(r, r1, lo, hi)) {
+        check_deriv_normal_form(r1, new_level);
+    }
+    else if (re().is_reverse(r, r1)) {
+        SASSERT(re().is_to_re(r1));
+    }
+    else if (re().is_full_seq(r) ||
+             re().is_empty(r) ||
+             re().is_range(r) ||
+             re().is_full_char(r) ||
+             re().is_of_pred(r) ||
+             re().is_to_re(r, s)) {
+        // OK
+    }
+    else {
+        SASSERT(false);
+    }
+    if (level == 3) {
+        STRACE("seq_verbose", tout << " passed!" << std::endl;);
+    }
+    return true;
+}
+#endif
+
+/*
+    Memoized, recursive implementation of the symbolic derivative such that
+    the result is in normal form.
+
+    Functions without _rec are memoized wrappers, which call the _rec
+    version if lookup fails.
+
+    The main logic is in mk_der_op_rec for combining normal forms.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     STRACE("seq_verbose", tout << "derivative: " << mk_pp(ele, m())
@@ -2396,7 +2508,12 @@ expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     }
     STRACE("seq_verbose", tout << "derivative result: "
                                << mk_pp(result, m()) << std::endl;);
+    CASSERT("seq_regex", check_deriv_normal_form(r));
     return result;
+}
+
+expr_ref seq_rewriter::mk_der_antimorov_union(expr* r1, expr* r2) {
+    return mk_der_op(_OP_RE_ANTIMOROV_UNION, r1, r2);
 }
 
 expr_ref seq_rewriter::mk_der_union(expr* r1, expr* r2) {
@@ -2466,15 +2583,37 @@ bool seq_rewriter::pred_implies(expr* a, expr* b) {
 }
 
 /*
-    Apply a binary operation, preserving BDD normal form on derivative expressions.
+    Utility function to decide if two BDDs (nested if-then-else terms)
+    have exactly the same structure and conditions.
+*/
+bool seq_rewriter::ite_bdds_compatabile(expr* a, expr* b) {
+    expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
+    expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
+    if (m().is_ite(a, ca, a1, a2) && m().is_ite(b, cb, b1, b2)) {
+        return (ca == cb) && ite_bdds_compatabile(a1, b1)
+                          && ite_bdds_compatabile(a2, b2);
+    }
+    else if (m().is_ite(a) || m().is_ite(b)) {
+        return false;
+    }
+    else {
+        return true;
+    }
+}
+
+/*
+    Apply a binary operation, preserving normal form on derivative expressions.
 
     Preconditions:
-        - k is a binary op code on REs: one of concat, intersection, or union
-          (not difference)
-        - a and b are in BDD form
+        - k is one of the following binary op codes on REs:
+            OP_RE_INTERSECT
+            OP_RE_UNION
+            OP_RE_CONCAT
+            _OP_RE_ANTIMOROV_UNION
+        - a and b are in normal form (check_deriv_normal_form)
 
     Postcondition:
-        - result is in BDD form
+        - result is in normal form (check_deriv_normal_form)
 */
 expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
     STRACE("seq_verbose", tout << "mk_der_op_rec: " << k
@@ -2483,6 +2622,7 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
     expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
     expr_ref result(m());
+
     // Simplify if-then-elses whenever possible
     auto mk_ite = [&](expr* c, expr* a, expr* b) {
         return (a == b) ? a : m().mk_ite(c, a, b);
@@ -2497,6 +2637,46 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         m().is_not(e, e);
         return e->get_id();
     };
+
+    // Choose when to lift a union to the top level, by converting
+    // it to an Antimorov union
+    // This implements a restricted form of Antimorov derivatives
+    if (k == OP_RE_UNION) {
+        if (re().is_antimorov_union(a) || re().is_antimorov_union(b)) {
+            k = _OP_RE_ANTIMOROV_UNION;
+        }
+        #if 0
+        // Disabled: eager Antimorov lifting unless BDDs are compatible
+        // Note: the check for BDD compatibility could be made more
+        // sophisticated: in an Antimorov union of n terms, we really
+        // want to check if any pair of them is compatible.
+        else if (m().is_ite(a) && m().is_ite(b) &&
+                 !ite_bdds_compatabile(a, b)) {
+            k = _OP_RE_ANTIMOROV_UNION;
+        }
+        #endif
+    }
+    if (k == _OP_RE_ANTIMOROV_UNION) {
+        result = re().mk_antimorov_union(a, b);
+        return result;
+    }
+    if (re().is_antimorov_union(a, a1, a2)) {
+        expr_ref r1(m()), r2(m());
+        r1 = mk_der_op(k, a1, b);
+        r2 = mk_der_op(k, a2, b);
+        result = re().mk_antimorov_union(r1, r2);
+        return result;
+    }
+    if (re().is_antimorov_union(b, b1, b2)) {
+        expr_ref r1(m()), r2(m());
+        r1 = mk_der_op(k, a, b1);
+        r2 = mk_der_op(k, a, b2);
+        result = re().mk_antimorov_union(r1, r2);
+        return result;
+    }
+
+    // Remaining non-union case: combine two if-then-else BDDs
+    // (underneath top-level Antimorov unions)
     if (m().is_ite(a, ca, a1, a2)) {
         expr_ref r1(m()), r2(m());
         expr_ref notca(m().mk_not(ca), m());
@@ -2594,6 +2774,7 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
         result = mk_der_op_rec(k, a, b);
         m_op_cache.insert(k, a, b, result);
     }
+    CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
 }
 
@@ -2603,13 +2784,22 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
     if (!result) {
         expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
-        if (m().is_ite(r, c, r1, r2)) {
+        if (re().is_antimorov_union(r, r1, r2)) {
+            // Convert union to intersection
+            // Result: Antimorov union at top level is lost, pushed inside ITEs
+            expr_ref res1(m()), res2(m());
+            res1 = mk_der_compl(r1);
+            res2 = mk_der_compl(r2);
+            result = mk_der_inter(res1, res2);
+        }
+        else if (m().is_ite(r, c, r1, r2)) {
             result = m().mk_ite(c, mk_der_compl(r1), mk_der_compl(r2));
         }
         else if (BR_FAILED == mk_re_complement(r, result))
             result = re().mk_complement(r);        
         m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
     }
+    CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
 }
 
@@ -2675,6 +2865,7 @@ expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
     }
     STRACE("seq_verbose", tout << "mk_der_cond result: "
         <<  mk_pp(result, m()) << std::endl;);
+    CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
 }
 
@@ -2696,7 +2887,11 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         }
         expr_ref dr2 = mk_derivative(ele, r2);
         is_n = re_predicate(is_n, seq_sort);
-        return mk_der_union(result, mk_der_concat(is_n, dr2));        
+        // Instead of mk_der_union here, we use mk_der_antimorov_union to
+        // force the two cases to be considered separately and lifted to
+        // the top level. This avoids blowup in cases where determinization
+        // is expensive.
+        return mk_der_antimorov_union(result, mk_der_concat(is_n, dr2));
     }
     else if (re().is_star(r, r1)) {
         return mk_der_concat(mk_derivative(ele, r1), r);
@@ -2842,6 +3037,11 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
     // of the string can't be obtained
     return expr_ref(re().mk_derivative(ele, r), m());
 }
+
+/*************************************************
+ *****          End Derivative Code          *****
+ *************************************************/
+
 
 /*
  * pattern match against all ++ "abc" ++ all ++ "def" ++ all regexes.
@@ -3128,11 +3328,11 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
-    if (is_epsilon(a)) {
+    if (re().is_epsilon(a)) {
         result = b;
         return BR_DONE;
     }
-    if (is_epsilon(b)) {
+    if (re().is_epsilon(b)) {
         result = a;
         return BR_DONE;
     }
@@ -3249,11 +3449,11 @@ br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
-    if (re().is_star(a) && is_epsilon(b)) {
+    if (re().is_star(a) && re().is_epsilon(b)) {
         result = a;
         return BR_DONE;
     }
-    if (re().is_star(b) && is_epsilon(a)) {
+    if (re().is_star(b) && re().is_epsilon(a)) {
         result = b;
         return BR_DONE;
     }
@@ -3558,11 +3758,11 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
             result = re().mk_star(re().mk_union(b, c1));
             return BR_REWRITE2;
         }
-        if (is_epsilon(b)) {
+        if (re().is_epsilon(b)) {
             result = re().mk_star(c);
             return BR_REWRITE2;
         }
-        if (is_epsilon(c)) {
+        if (re().is_epsilon(c)) {
             result = re().mk_star(b);
             return BR_REWRITE2;
         }
@@ -3599,7 +3799,7 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    if (is_epsilon(a)) {
+    if (re().is_epsilon(a)) {
         result = a;
         return BR_DONE;
     }
@@ -4252,12 +4452,6 @@ bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
     return true;
 }
 
-
-bool seq_rewriter::is_epsilon(expr* e) const {
-    expr* e1;
-    return re().is_to_re(e, e1) && str().is_empty(e1);
-}
-
 /**
    reduce for the case where rs = a constant string, 
    ls contains a substring that matches no substring of rs.
@@ -4357,6 +4551,8 @@ void seq_rewriter::op_cache::cleanup() {
     if (m_table.size() >= m_max_cache_size) {
         m_trail.reset();
         m_table.reset();
+        STRACE("seq_regex", tout << "Op cache reset!" << std::endl;);
+        STRACE("seq_regex_brief", tout << "(OP CACHE RESET) ";);
         STRACE("seq_verbose", tout << "Derivative op cache reset" << std::endl;);
     }
 }
