@@ -238,9 +238,10 @@ class seq_util {
     mutable scoped_ptr<bv_util> m_bv;
     bv_util& bv() const;
 
+public:
+
     unsigned max_plus(unsigned x, unsigned y) const;
     unsigned max_mul(unsigned x, unsigned y) const;
-public:
 
     ast_manager& get_manager() const { return m; }
 

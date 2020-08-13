@@ -63,8 +63,11 @@ Author:
         altneratively be used to get a high-level picture of what states
         are being explored and updated as the solver progresses.
 
-        -tr:seq and -tr:seq_verbose
+        -tr:seq_regex_verbose
+        Used for some more frequent tracing (in the style of seq_regex,
+        not in the style of seq_regex_brief)
 
+        -tr:seq and -tr:seq_verbose
         These are the underlying sequence theory tracing, often used by
         the rewriter.
 

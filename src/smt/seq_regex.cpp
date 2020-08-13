@@ -261,10 +261,9 @@ namespace smt {
         STRACE("seq_regex_brief", tout << "(unfold) ";);
 
         // Rule 1: use min_length to prune search
-        expr_ref s_to_re(re().mk_to_re(s), m);
-        expr_ref s_plus_r(re().mk_concat(s_to_re, r), m);
-        unsigned min_len = re().min_length(s_plus_r);
-        literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len);
+        unsigned min_len = re().min_length(r);
+        unsigned min_len_plus_i = u().max_plus(min_len, idx);
+        literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len_plus_i);
         th.propagate_lit(nullptr, 1, &lit, len_s_ge_min);
         // Axiom equivalent to the above: th.add_axiom(~lit, len_s_ge_min);
 
@@ -581,7 +580,7 @@ namespace smt {
                     re_to_bool.find(e) = acc_leaf;
 
                     STRACE("seq_regex_verbose", tout
-                        << "mk_deriv_accept: added choice: "
+                        << "mk_deriv_accept: added accept leaf: "
                         << mk_pp(acc_leaf, m) << std::endl;);
                 }
             }
@@ -639,7 +638,7 @@ namespace smt {
             else if (!re().is_empty(e)) {
                 results.push_back(e);
                 STRACE("seq_regex_verbose", tout
-                    << "get_all_derivatives: added choice: "
+                    << "get_all_derivatives: added deriv: "
                     << mk_pp(e, m) << std::endl;);
             }
         }
