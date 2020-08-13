@@ -94,7 +94,7 @@ public:
     }
 
     expr_ref_vector get_trail() override {
-        throw default_exception("cannot retrieve trail from solvers created using tactcis");
+        throw default_exception("cannot retrieve trail from solvers created using tactics");
     }
 
     expr_ref get_implied_value(expr* e) override {
