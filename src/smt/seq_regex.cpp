@@ -290,7 +290,6 @@ namespace smt {
         expr_ref_pair_vector cofactors(m);
         get_cofactors(deriv, cofactors);
         for (auto const& p : cofactors) {
-            if (m.is_false(p.first) || re().is_empty(p.second)) continue;
             expr_ref cond(p.first, m);
             expr_ref deriv_leaf(p.second, m);
 
@@ -519,50 +518,6 @@ namespace smt {
         th.add_axiom(lits);
     }
 
-    void seq_regex::op_list(decl_kind k,
-                            expr_ref_vector& l1, expr_ref_vector& l2,
-                            expr_ref_vector& result) {
-        for (auto const& r1: l1) {
-            for (auto const& r2: l2) {
-                family_id fid = u().get_family_id();
-                expr_ref r(m.mk_app(fid, k, r1, r2), m);
-                rewrite(r);
-                result.push_back(r);
-            }
-        }
-    }
-    void seq_regex::lift_unions(expr* r, expr_ref_vector& result) {
-        expr* r1 = nullptr, *r2 = nullptr;
-        expr_ref_vector l1(m);
-        expr_ref_vector l2(m);
-        if (re().is_union(r, r1, r2)) {
-            lift_unions(r1, result);
-            lift_unions(r2, result);
-        }
-        else if (re().is_concat(r, r1, r2)) {
-            lift_unions(r1, l1);
-            lift_unions(r2, l2);
-            op_list(OP_RE_CONCAT, l1, l2, result);
-        }
-        else if (re().is_intersection(r, r1, r2)) {
-            lift_unions(r1, l1);
-            lift_unions(r2, l2);
-            op_list(OP_RE_INTERSECT, l1, l2, result);
-        }
-        /*
-            Other cases (no lifting):
-              - base cases: full seq, empty, to_re, range, full_char, of_pred
-              - loop cases: star, plus, loop
-              - TBD not handled right now but some lifting is possible:
-                complement, ite, reverse, diff, opt
-        */
-        else {
-            expr_ref r_rewrite(r, m);
-            rewrite(r_rewrite);
-            result.push_back(r_rewrite);
-        }
-    }
-
     /*
         Return an ordering of the unique leaf expressions in r from the top
         down (i.e. visiting every expression before all its subexpressions).
@@ -680,13 +635,6 @@ namespace smt {
             expr_ref conj = mk_and(conds);
             if (!m.is_false(conj) && !re().is_empty(r))
                 result.push_back(conj, r);
-            // Use lift_unions to implement Antimorov-style derivatives
-            // expr_ref conj_conds = mk_and(conds);
-            // expr_ref_vector disjuncts(m);
-            // lift_unions(r, disjuncts);
-            // for (auto const& disjunct: disjuncts) {
-            //     result.push_back(conj_conds, disjunct);
-            // }
         }
     }
 
@@ -703,7 +651,6 @@ namespace smt {
         get_cofactors(d, cofactors);
         STRACE("seq_regex_verbose", tout << "getting all derivatives of: " << mk_pp(r, m) << std::endl;);
         for (auto const& p : cofactors) {
-            if (m.is_false(p.first) || re().is_empty(p.second)) continue;
             STRACE("seq_regex_verbose", tout << "adding derivative: " << mk_pp(p.second, m) << std::endl;);
             results.push_back(p.second);
         }
