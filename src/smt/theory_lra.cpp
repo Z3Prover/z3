@@ -487,6 +487,12 @@ class theory_lra::imp {
                 vars.push_back(v);
                 ++index;
             }
+            else if(a.is_power(n, n1, n2) && is_app(n1) && is_numeral(n2, r) && r.is_unsigned() && r <= 10) {
+                theory_var v = internalize_power(to_app(n), to_app(n1), r.get_unsigned());
+                coeffs[vars.size()] = coeffs[index];
+                vars.push_back(v);
+                ++index;
+            }
             else if (a.is_numeral(n, r)) {
                 offset += coeffs[index]*r;
                 ++index;
@@ -598,6 +604,23 @@ class theory_lra::imp {
                 ctx().internalize(arg, false);
             }
         }
+    }
+
+    theory_var internalize_power(app* t, app* n, unsigned p) {
+        internalize_args(t, true);
+        bool _has_var = has_var(t);
+        mk_enode(t);
+        theory_var v = mk_var(t);
+        if (_has_var)
+            return v;
+        theory_var w = mk_var(n);
+        svector<lpvar> vars;
+        for (unsigned i = 0; i < p; ++i) 
+            vars.push_back(register_theory_var_in_lar_solver(w));
+        ensure_nla();
+        m_solver->register_existing_terms();
+        m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+        return v;
     }
 
     theory_var internalize_mul(app* t) {
