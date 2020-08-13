@@ -191,7 +191,6 @@ class seq_rewriter {
     expr_ref mk_derivative_rec(expr* ele, expr* r);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
-    expr_ref mk_der_lift_union(expr* a, expr* b);
     expr_ref mk_der_concat(expr* a, expr* b);
     expr_ref mk_der_union(expr* a, expr* b);
     expr_ref mk_der_inter(expr* a, expr* b);
