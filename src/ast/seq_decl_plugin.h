@@ -486,14 +486,14 @@ public:
         class pp {
             seq_util::re& re;
             expr* e;
-            bool can_skip_parenth(expr* r);
-            void seq_unit(std::ostream& out, expr* s);
-            void compact_helper_seq(std::ostream& out, expr* s);
-            void compact_helper_range(std::ostream& out, expr* s1, expr* s2);
+            bool can_skip_parenth(expr* r) const;
+            void seq_unit(std::ostream& out, expr* s) const;
+            void compact_helper_seq(std::ostream& out, expr* s) const;
+            void compact_helper_range(std::ostream& out, expr* s1, expr* s2) const;
 
         public:
             pp(seq_util::re& r, expr* e) : re(r), e(e) {}
-            std::ostream& display(std::ostream&);
+            std::ostream& display(std::ostream&) const;
         };
 
     };
@@ -514,7 +514,7 @@ public:
 
 };
 
-inline std::ostream& operator<<(std::ostream& out, seq_util::re::pp& p) { return p.display(out); }
+inline std::ostream& operator<<(std::ostream& out, seq_util::re::pp const & p) { return p.display(out); }
 
 
 

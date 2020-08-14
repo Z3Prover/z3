@@ -1469,7 +1469,7 @@ app* seq_util::re::mk_epsilon(sort* seq_sort) {
 /*
   Produces compact view of concrete concatenations such as (abcd).
 */
-void seq_util::re::pp::compact_helper_seq(std::ostream& out, expr* s) {
+void seq_util::re::pp::compact_helper_seq(std::ostream& out, expr* s) const {
     SASSERT(re.u.is_seq(s));
     if (re.m.is_value(s)) {
         SASSERT(s->get_kind() == ast_kind::AST_APP);
@@ -1494,7 +1494,7 @@ void seq_util::re::pp::compact_helper_seq(std::ostream& out, expr* s) {
 /*
   Produces output such as [a-z] for a range.
 */
-void seq_util::re::pp::compact_helper_range(std::ostream& out, expr* s1, expr* s2) {
+void seq_util::re::pp::compact_helper_range(std::ostream& out, expr* s1, expr* s2) const {
     out << "[";
     if (re.u.str.is_unit(s1))
         seq_unit(out, s1);
@@ -1511,7 +1511,7 @@ void seq_util::re::pp::compact_helper_range(std::ostream& out, expr* s1, expr* s
 /*
   Checks if parenthesis can be omitted in some cases in a loop body or in complement.
 */
-bool seq_util::re::pp::can_skip_parenth(expr* r) {
+bool seq_util::re::pp::can_skip_parenth(expr* r) const {
     expr* s;
     return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r));
 }
@@ -1519,7 +1519,7 @@ bool seq_util::re::pp::can_skip_parenth(expr* r) {
 /*
   Specialize output for a unit sequence converting to visible ASCII characters if possible.
 */
-void seq_util::re::pp::seq_unit(std::ostream& out, expr* s) {
+void seq_util::re::pp::seq_unit(std::ostream& out, expr* s) const {
     expr* e;
     if (re.u.str.is_unit(s, e)) {
         rational r;
@@ -1543,7 +1543,7 @@ void seq_util::re::pp::seq_unit(std::ostream& out, expr* s) {
 /*
   Pretty prints the regex r into the out stream
 */
-std::ostream& seq_util::re::pp::display(std::ostream& out) {
+std::ostream& seq_util::re::pp::display(std::ostream& out) const {
     expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
     unsigned lo = 0, hi = 0;
     if (re.is_full_char(e))
