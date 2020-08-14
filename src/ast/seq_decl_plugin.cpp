@@ -1513,7 +1513,7 @@ void seq_util::re::pp::compact_helper_range(std::ostream& out, expr* s1, expr* s
 */
 bool seq_util::re::pp::can_skip_parenth(expr* r) {
     expr* s;
-    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r));
+    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r));
 }
 
 /*
