@@ -390,6 +390,7 @@ struct default_rewriter_cfg {
     }
     bool reduce_var(var * t, expr_ref & result, proof_ref & result_pr) { return false; }
     bool get_macro(func_decl * d, expr * & def, quantifier * & q, proof * & def_pr) { return false; }
+    bool reduce_macro() { return false; }
     bool get_subst(expr * s, expr * & t, proof * & t_pr) { return false; }
     void reset() {}
     void cleanup() {}

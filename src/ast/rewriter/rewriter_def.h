@@ -394,7 +394,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             SASSERT(!f->is_associative() || !flat_assoc(f));
             SASSERT(new_num_args == t->get_num_args());
             SASSERT(m().get_sort(def) == m().get_sort(t));
-            if (is_ground(def)) {
+            if (is_ground(def) && !m_cfg.reduce_macro()) {
                 m_r = def;
                 if (ProofGen) {
                     m_pr = m().mk_transitivity(m_pr, def_pr);

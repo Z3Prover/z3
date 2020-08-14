@@ -296,6 +296,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
     }
 
+    bool reduce_macro() { return true; }
+
     bool get_macro(func_decl * f, expr * & def, quantifier * & , proof * &) {
         func_interp * fi = m_model.get_func_interp(f);
         def = nullptr;
