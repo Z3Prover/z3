@@ -487,9 +487,9 @@ public:
             seq_util::re& re;
             expr* e;
             bool can_skip_parenth(expr* r) const;
-            void seq_unit(std::ostream& out, expr* s) const;
-            void compact_helper_seq(std::ostream& out, expr* s) const;
-            void compact_helper_range(std::ostream& out, expr* s1, expr* s2) const;
+            std::ostream& seq_unit(std::ostream& out, expr* s) const;
+            std::ostream& compact_helper_seq(std::ostream& out, expr* s) const;
+            std::ostream& compact_helper_range(std::ostream& out, expr* s1, expr* s2) const;
 
         public:
             pp(seq_util::re& r, expr* e) : re(r), e(e) {}
