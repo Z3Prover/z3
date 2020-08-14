@@ -1526,7 +1526,7 @@ void seq_util::re::pp::seq_unit(std::ostream& out, expr* s) {
             unsigned n = r.get_unsigned();
             if (32 < n && n < 127)
                 out << (char)n;
-            else if (n < 10)
+            else if (n < 16)
                 out << "\\x0" << std::hex << n;
             else
                 out << "\\x" << std::hex << n;
