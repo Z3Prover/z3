@@ -173,7 +173,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
-                st = m_ar.is_as_array(val) /* || m.is_eq(val)*/ ? BR_REWRITE1 : BR_DONE;
+                st = m_ar.is_as_array(val) ? BR_REWRITE1 : BR_DONE;
                 TRACE("model_evaluator", tout << result << "\n";);
                 return st;
             }
