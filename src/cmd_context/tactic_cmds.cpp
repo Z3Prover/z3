@@ -94,10 +94,7 @@ void help_tactic(cmd_context & ctx) {
     buf << "- (fail-if <probe>) fail if <probe> evaluates to true.\n";
     buf << "- (using-params <tactic> <attribute>*) executes the given tactic using the given attributes, where <attribute> ::= <keyword> <value>. ! is a syntax sugar for using-params.\n";
     buf << "builtin tactics:\n";
-    cmd_context::tactic_cmd_iterator it  = ctx.begin_tactic_cmds();
-    cmd_context::tactic_cmd_iterator end = ctx.end_tactic_cmds();
-    for (; it != end; ++it) {
-        tactic_cmd * cmd = *it;
+    for (tactic_cmd* cmd : ctx.tactics()) {
         buf << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
         tactic_ref t = cmd->mk(ctx.m());
         param_descrs descrs;
@@ -105,10 +102,7 @@ void help_tactic(cmd_context & ctx) {
         descrs.display(buf, 4);
     }
     buf << "builtin probes:\n";
-    cmd_context::probe_iterator it2  = ctx.begin_probes();
-    cmd_context::probe_iterator end2 = ctx.end_probes();
-    for (; it2 != end2; ++it2) {
-        probe_info * pinfo = *it2;
+    for (probe_info * pinfo : ctx.probes()) {
         buf << "- " << pinfo->get_name() << " " << pinfo->get_descr() << "\n";
     }
     ctx.regular_stream() << '"' << escaped(buf.str()) << "\"\n";

@@ -376,9 +376,9 @@ private:
     }
 
     void log_branches(lbool status) {
-        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :progress " << m_progress << "% ";
-                   if (status == l_true)  verbose_stream() << ":status sat";
-                   if (status == l_undef) verbose_stream() << ":status unknown";
+        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :progress " << m_progress << "%";
+                   if (status == l_true)  verbose_stream() << " :status sat";
+                   if (status == l_undef) verbose_stream() << " :status unknown";
                    if (m_num_unsat > 0) verbose_stream() << " :closed " << m_num_unsat << "@" << m_last_depth;
                    verbose_stream() << " :open " << m_branches << ")\n";);
     }

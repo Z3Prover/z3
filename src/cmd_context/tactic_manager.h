@@ -44,10 +44,29 @@ public:
     typedef ptr_vector<tactic_cmd>::const_iterator tactic_cmd_iterator;
     tactic_cmd_iterator begin_tactic_cmds() const { return m_tactics.begin(); }
     tactic_cmd_iterator end_tactic_cmds() const { return m_tactics.end(); }
+    class tactics_iterator {
+        tactic_manager const& m;
+    public:
+        tactics_iterator(tactic_manager const& m):m(m) {}
+        tactic_cmd_iterator begin() const { return m.begin_tactic_cmds(); }
+        tactic_cmd_iterator end() const { return m.end_tactic_cmds(); }
+    };
+    tactics_iterator tactics() const { return tactics_iterator(*this); }
 
     typedef ptr_vector<probe_info>::const_iterator probe_iterator;
     probe_iterator begin_probes() const { return m_probes.begin(); }
     probe_iterator end_probes() const { return m_probes.end(); }
+
+    class probes_iterator {
+        tactic_manager const& m;
+    public:
+        probes_iterator(tactic_manager const& m):m(m) {}
+        probe_iterator begin() const { return m.begin_probes(); }
+        probe_iterator end() const { return m.end_probes(); }
+    };
+
+    probes_iterator probes() const { return probes_iterator(*this); }
+        
 };
 
 

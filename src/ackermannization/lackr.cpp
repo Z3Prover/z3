@@ -73,8 +73,9 @@ bool lackr::mk_ackermann(/*out*/goal_ref& g, double lemmas_upper_bound) {
     if (!init())
         return false;
     if (lemmas_upper_bound != std::numeric_limits<double>::infinity() &&
-        ackr_helper::calculate_lemma_bound(m_fun2terms, m_sel2terms) > lemmas_upper_bound) 
+        ackr_helper::calculate_lemma_bound(m_fun2terms, m_sel2terms) > lemmas_upper_bound) {
         return false;
+    }
     eager_enc();
     for (expr* a : m_abstr) 
         g->assert_expr(a);

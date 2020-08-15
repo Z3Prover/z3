@@ -62,6 +62,31 @@ static void STD_CALL on_ctrl_c(int) {
     raise(SIGINT);
 }
 
+void help_tactics() {
+    cmd_context ctx;
+    for (auto cmd : ctx.tactics()) {
+        std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
+    }
+}
+
+void help_tactic(char const* name) {
+    cmd_context ctx;
+    for (auto cmd : ctx.tactics()) {
+        if (cmd->get_name() == name) {
+            tactic_ref t = cmd->mk(ctx.m());
+            param_descrs descrs;
+            t->collect_param_descrs(descrs);
+            descrs.display(std::cout, 4);
+        }
+    }
+}
+
+void help_probes() {
+    cmd_context ctx;
+    for (auto cmd : ctx.probes()) {
+        std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
+    }
+}
 
 unsigned read_smtlib2_commands(char const * file_name) {
     g_start_time = clock();
