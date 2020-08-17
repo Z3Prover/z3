@@ -419,7 +419,6 @@ const impq & int_solver::get_value(unsigned j) const {
 
 std::ostream& int_solver::display_column(std::ostream & out, unsigned j) const {
     return lrac.m_r_solver.print_column_info(j, out);
-    return out;
 }
 
 bool int_solver::column_is_int_inf(unsigned j) const {
