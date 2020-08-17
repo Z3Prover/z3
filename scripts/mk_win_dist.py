@@ -218,6 +218,8 @@ def mk_dist_dir(x64):
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED
+    mk_util.GUARD_CF = True
+    mk_util.ALWAYS_DYNAMIC_BASE = True
     mk_win_dist(build_path, dist_path)
     if is_verbose():
         print("Generated %s distribution folder at '%s'" % (platform, dist_path))
