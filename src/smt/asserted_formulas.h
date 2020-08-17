@@ -207,6 +207,10 @@ class asserted_formulas {
     nnf_cnf_fn                  m_nnf_cnf;
     apply_quasi_macros_fn       m_apply_quasi_macros;
     flatten_clauses_fn          m_flatten_clauses;
+    unsigned                    m_lazy_scopes;
+
+    void force_push();
+    void push_scope_core();
 
     bool invoke(simplify_fmls& s);
     void swap_asserted_formulas(vector<justified_expr>& new_fmls);
@@ -274,8 +278,8 @@ public:
     func_decl * get_macro_interpretation(unsigned i, expr_ref & interp) const { return m_macro_manager.get_macro_interpretation(i, interp); }
     quantifier * get_macro_quantifier(func_decl * f) const { return m_macro_manager.get_macro_quantifier(f); }
     // auxiliary function used to create a logic context based on a model.
-    void insert_macro(func_decl * f, quantifier * m, proof * pr) { m_macro_manager.insert(f, m, pr); }
-    void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency* dep) { m_macro_manager.insert(f, m, pr, dep); }
+    void insert_macro(func_decl * f, quantifier * m, proof * pr) { force_push(); m_macro_manager.insert(f, m, pr); }
+    void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency* dep) { force_push(); m_macro_manager.insert(f, m, pr, dep); }
 
 };
 

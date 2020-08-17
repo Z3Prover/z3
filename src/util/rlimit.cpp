@@ -35,7 +35,7 @@ reslimit::reslimit():
     m_cancel(0),
     m_suspend(false),
     m_count(0),
-    m_limit(0) {
+    m_limit(std::numeric_limits<uint64_t>::max()) {
 }
 
 uint64_t reslimit::count() const {
@@ -55,15 +55,15 @@ bool reslimit::inc(unsigned offset) {
 void reslimit::push(unsigned delta_limit) {
     uint64_t new_limit = delta_limit + m_count;
     if (new_limit <= m_count) {
-        new_limit = 0;
+        new_limit = std::numeric_limits<uint64_t>::max();
     }
     m_limits.push_back(m_limit);
-    m_limit = m_limit==0 ? new_limit : std::min(new_limit, m_limit);
+    m_limit = std::min(new_limit, m_limit);
     m_cancel = 0;
 }
 
 void reslimit::pop() {
-    if (m_count > m_limit && m_limit > 0) {
+    if (m_count > m_limit) {
         m_count = m_limit;
     }
     m_limit = m_limits.back();
