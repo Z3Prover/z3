@@ -25,12 +25,14 @@ Revision History:
 #include "ast/fpa_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "ast/refinement_sort_decl_plugin.h"
 #include "util/map.h"
 
 struct static_features {
     ast_manager &            m;
     arith_util               m_autil;
     bv_util                  m_bvutil;
+    refinement_sort_util     m_rsutil;
     array_util               m_arrayutil;
     fpa_util                 m_fpautil;
     seq_util                 m_sequtil;
@@ -81,6 +83,7 @@ struct static_features {
     bool                     m_has_bv;          //
     bool                     m_has_fpa;         //
     bool                     m_has_sr;          // has special relations
+    bool                     m_has_rs;          // has refinement sorts
     bool                     m_has_str;         // has String-typed terms
     bool                     m_has_seq_non_str; // has non-String-typed Sequence terms
     bool                     m_has_arrays;      //

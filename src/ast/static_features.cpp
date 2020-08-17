@@ -26,6 +26,7 @@ static_features::static_features(ast_manager & m):
     m_arrayutil(m),
     m_fpautil(m),
     m_sequtil(m),
+    m_rsutil(m),
     m_bfid(m.get_basic_family_id()),
     m_afid(m.mk_family_id("arith")),
     m_lfid(m.mk_family_id("label")),
@@ -80,6 +81,7 @@ void static_features::reset() {
     m_has_bv                               = false;
     m_has_fpa                              = false;
     m_has_sr                               = false;
+    m_has_rs                               = false;
     m_has_str                              = false;
     m_has_seq_non_str                      = false;
     m_has_arrays                           = false;
@@ -279,6 +281,8 @@ void static_features::update_core(expr * e) {
         m_has_fpa = true;
     if (is_app(e) && to_app(e)->get_family_id() == m_srfid) 
         m_has_sr = true;
+    if (m_rsutil.is_refine_sort(e))
+        m_has_rs = true;
     if (!m_has_arrays && m_arrayutil.is_array(e)) 
         m_has_arrays = true;
     if (!m_has_ext_arrays && m_arrayutil.is_array(e) && 

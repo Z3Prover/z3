@@ -249,6 +249,68 @@ extern "C" {
     MK_NARY(Z3_mk_and, mk_c(c)->get_basic_fid(), OP_AND, SKIP);
     MK_NARY(Z3_mk_or, mk_c(c)->get_basic_fid(), OP_OR, SKIP);
 
+    Z3_sort Z3_API Z3_mk_refinement_sort(Z3_context c, Z3_ast f) {
+        Z3_TRY;
+        LOG_Z3_mk_refinement_sort(c, f);
+        sort* s = nullptr;
+        if (to_ast(f)->get_kind() == AST_FUNC_DECL) {
+            func_decl* g = to_func_decl(to_ast(f));
+            s = mk_c(c)->rsutil().mk_sort(g);            
+        }
+        else {
+            CHECK_IS_EXPR(f, nullptr);
+            expr* e = to_expr(f);
+            s = mk_c(c)->rsutil().mk_sort(e);
+        }
+        mk_c(c)->save_ast_trail(s);
+        RETURN_Z3(of_sort(s));
+        Z3_CATCH_RETURN(nullptr);        
+    }
+
+    Z3_sort Z3_API Z3_refine_sort_basis(Z3_context c, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_refine_sort_basis(c, s);
+        sort* s0 = nullptr;
+        RESET_ERROR_CODE();
+        if (!mk_c(c)->rsutil().is_refine_sort(to_sort(s), s0)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            RETURN_Z3(nullptr);
+        }
+        RETURN_Z3(of_sort(s0));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast Z3_API Z3_refine_sort_predicate(Z3_context c, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_refine_sort_predicate(c, s);
+        RESET_ERROR_CODE();
+        sort* s0 = nullptr;
+        expr* e = nullptr;
+        func_decl* f = nullptr;
+        if (mk_c(c)->rsutil().is_refine_sort(to_sort(s), s0, e)) {
+            RETURN_Z3(of_ast(e));
+        }
+        if (mk_c(c)->rsutil().is_refine_sort(to_sort(s), s0, f)) {
+            RETURN_Z3(of_ast(f));
+        }
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+        RETURN_Z3(nullptr);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    MK_UNARY(Z3_mk_relax, mk_c(c)->rsutil().fid(), OP_RS_RELAX, SKIP);
+
+    Z3_ast Z3_API Z3_mk_restrict(Z3_context c, Z3_ast e, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_mk_restrict(c, e, s);
+        RESET_ERROR_CODE();
+        CHECK_IS_EXPR(e, nullptr);
+        expr* result = mk_c(c)->rsutil().mk_restrict(to_expr(e), to_sort(s));
+        mk_c(c)->save_ast_trail(result);
+        RETURN_Z3(of_ast(result));
+        Z3_CATCH_RETURN(nullptr);        
+    }
+
     Z3_ast mk_ite_core(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_ast t3) {
         expr * result = mk_c(c)->m().mk_ite(to_expr(t1), to_expr(t2), to_expr(t3));
         mk_c(c)->save_ast_trail(result);
@@ -713,6 +775,9 @@ extern "C" {
         }
         else if (fid == mk_c(c)->get_seq_fid() && k == RE_SORT) {
             return Z3_RE_SORT;
+        }
+        else if (fid == mk_c(c)->rsutil().fid() && k == REFINE_SORT) {
+            return Z3_REFINE_SORT;
         }
         else {
             return Z3_UNKNOWN_SORT;
@@ -1287,6 +1352,14 @@ extern "C" {
             case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
             case OP_AT_LEAST_K: return Z3_OP_PB_AT_LEAST;
             default: return Z3_OP_INTERNAL;
+            }
+        }
+
+        if (mk_c(c)->get_rs_fid() == _d->get_family_id()) {
+            switch (_d->get_decl_kind()) {
+            case OP_RS_RELAX: return Z3_OP_RELAX;
+            case OP_RS_RESTRICT: return Z3_OP_RESTRICT;
+            default: break;
             }
         }
 

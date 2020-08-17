@@ -874,7 +874,8 @@ namespace smt {
        \brief Internalize an uninterpreted function application or constant.
     */
     void context::internalize_uninterpreted(app * n) {
-        SASSERT(!e_internalized(n));
+        if (e_internalized(n))
+            return;
         // process args
         for (expr * arg : *n) {
             internalize_rec(arg, false);

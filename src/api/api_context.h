@@ -31,6 +31,7 @@ Revision History:
 #include "ast/fpa_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "ast/refinement_sort_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "smt/params/smt_params.h"
 #include "smt/smt_kernel.h"
@@ -87,6 +88,7 @@ namespace api {
         fpa_util                   m_fpa_util;
         seq_util                   m_sutil;
         recfun::util               m_recfun;
+        refinement_sort_util       m_rs_util;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -155,6 +157,7 @@ namespace api {
         datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
         recfun::util& recfun() { return m_recfun; }
+        refinement_sort_util& rsutil() { return m_rs_util; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return m_arith_fid; }
@@ -164,6 +167,7 @@ namespace api {
         family_id get_pb_fid() const { return m_pb_fid; }
         family_id get_fpa_fid() const { return m_fpa_fid; }
         family_id get_seq_fid() const { return m_seq_fid; }
+        family_id get_rs_fid() const { return m_rs_util.fid(); }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
         family_id get_special_relations_fid() const { return m_special_relations_fid; }
 

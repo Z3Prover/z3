@@ -34,6 +34,7 @@ Revision History:
 #include "smt/theory_seq_empty.h"
 #include "smt/theory_seq.h"
 #include "smt/theory_special_relations.h"
+#include "smt/theory_refinement_sort.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
@@ -941,6 +942,10 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_special_relations, m_context, m_manager));
     }
 
+    void setup::setup_refinement_sort() {
+        m_context.register_plugin(alloc(smt::theory_refinement_sort, m_manager));
+    }
+
     void setup::setup_unknown() {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
@@ -956,6 +961,7 @@ namespace smt {
         setup_seq_str(st);
         setup_fpa();
         if (st.m_has_sr) setup_special_relations();
+        if (st.m_has_rs) setup_refinement_sort();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -972,6 +978,7 @@ namespace smt {
             setup_fpa();
             setup_recfuns();
             if (st.m_has_sr) setup_special_relations();
+            if (st.m_has_rs) setup_refinement_sort();
             return;
         }
 
