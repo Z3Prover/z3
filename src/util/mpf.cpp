@@ -745,8 +745,7 @@ void mpf_manager::div(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
 }
 
 void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf const &z, mpf & o) {
-    SASSERT(x.sbits == y.sbits && x.ebits == y.ebits &&
-            x.sbits == y.sbits && z.ebits == z.ebits);
+    SASSERT(x.sbits == y.sbits && x.ebits == y.ebits);
 
     TRACE("mpf_dbg", tout << "X = " << to_string(x) << std::endl;);
     TRACE("mpf_dbg", tout << "Y = " << to_string(y) << std::endl;);
