@@ -204,6 +204,11 @@ namespace smt {
             lookahead lh(m_kernel);
             return lh.choose();
         }
+
+        expr_ref_vector cubes(unsigned depth) {
+            lookahead lh(m_kernel);
+            return lh.choose_rec(depth);
+        }
                 
         void collect_statistics(::statistics & st) const {
             m_kernel.collect_statistics(st);
@@ -377,6 +382,10 @@ namespace smt {
 
     expr_ref kernel::next_cube() {
         return m_imp->next_cube();
+    }        
+
+    expr_ref_vector kernel::cubes(unsigned depth) {
+        return m_imp->cubes(depth);
     }        
 
     std::ostream& kernel::display(std::ostream & out) const {

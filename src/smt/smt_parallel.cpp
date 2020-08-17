@@ -136,6 +136,7 @@ namespace smt {
                 }
                 unit_lim[i] = sz;
             }
+            IF_VERBOSE(1, verbose_stream() << "(smt.thread :units " << sz << ")\n");
         };
 
         std::mutex mux;
@@ -148,12 +149,12 @@ namespace smt {
                 expr_ref c(pm);
 
                 pctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, max_conflicts);
-                if (num_rounds > 0) {
+                if (num_rounds > 0 && (pctx.get_fparams().m_threads_cube_frequency % num_rounds) == 0) {
                     cube(pctx, lasms, c);
                 }
                 IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i; 
                            if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
-                           if (c) verbose_stream() << " :cube: " << mk_bounded_pp(c, pm, 3);
+                           if (c) verbose_stream() << " :cube " << mk_bounded_pp(c, pm, 3);
                            verbose_stream() << ")\n";);
                 lbool r = pctx.check(lasms.size(), lasms.c_ptr());
                 
@@ -164,6 +165,7 @@ namespace smt {
                     return;
                 }                
                 else if (r == l_false && pctx.unsat_core().contains(c)) {
+                    IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i << " :learn " << mk_bounded_pp(c, pm, 3) << ")");
                     pctx.assert_expr(mk_not(mk_and(pctx.unsat_core())));
                     return;
                 } 

@@ -122,13 +122,14 @@ namespace smt {
         typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
 
         value2var                m_fixed_var_table;
+        mutable vector<rational>         m_power2;
         
         unsigned char            m_eq_activity[256];
-        //unsigned char            m_diseq_activity[256];
         svector<std::pair<theory_var, theory_var>> m_replay_diseq;
-        //vector<vector<std::pair<theory_var, theory_var>>> m_diseq_watch;
-        //svector<bool_var> m_diseq_watch_trail;
-        //unsigned_vector   m_diseq_watch_lim;
+        vector<vector<std::pair<theory_var, theory_var>>> m_diseq_watch;
+        unsigned char            m_diseq_activity[256];
+        svector<bool_var> m_diseq_watch_trail;
+        unsigned_vector   m_diseq_watch_lim;
 
         literal_vector           m_tmp_literals;
         svector<var_pos>         m_prop_queue;

@@ -1488,7 +1488,7 @@ namespace smt {
         mk_clause(3, ls, j);
     }
     
-    void context::mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params) {
+    void context::mk_th_clause(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params, clause_kind k) {
         justification * js = nullptr;
         TRACE("mk_th_axiom", display_literals_verbose(tout, num_lits, lits) << "\n";);
 
@@ -1501,7 +1501,7 @@ namespace smt {
             SASSERT(tmp.size() == num_lits);
             display_lemma_as_smt_problem(tmp.size(), tmp.c_ptr(), false_literal, m_fparams.m_logic);
         }
-        mk_clause(num_lits, lits, js, CLS_TH_AXIOM);
+        mk_clause(num_lits, lits, js, k);
     }
     
     void context::mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params, parameter * params) {

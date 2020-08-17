@@ -3963,6 +3963,7 @@ namespace smt {
         }
     }
 
+
     bool context::resolve_conflict() {
         m_stats.m_num_conflicts++;
         m_num_conflicts ++;

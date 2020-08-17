@@ -32,9 +32,14 @@ namespace smt {
 
         double get_score();
 
+        void choose_rec(expr_ref_vector& trail, expr_ref_vector& result, unsigned depth, unsigned budget);
+
     public:
         lookahead(context& ctx);
 
-        expr_ref choose();
+        expr_ref choose(unsigned budget = 2000);
+
+        expr_ref_vector choose_rec(unsigned depth);
+
     };
 }

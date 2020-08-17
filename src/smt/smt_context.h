@@ -893,7 +893,11 @@ namespace smt {
 
         void mk_clause(literal l1, literal l2, literal l3, justification * j);
 
-        void mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = nullptr);
+        void context::mk_th_clause(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params, clause_kind k);
+
+        void mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = nullptr) {
+            mk_th_clause(tid, num_lits, lits, num_params, params, CLS_TH_AXIOM);
+        }
 
         void mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = nullptr);
 
@@ -901,6 +905,24 @@ namespace smt {
 
         void mk_th_axiom(theory_id tid, literal_vector const& ls, unsigned num_params = 0, parameter * params = nullptr) {
             mk_th_axiom(tid, ls.size(), ls.c_ptr(), num_params, params);
+        }
+
+        void mk_th_lemma(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = nullptr) {
+            literal ls[2] = { l1, l2 };
+            mk_th_lemma(tid, 2, ls, num_params, params);
+        }
+
+        void mk_th_lemma(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = nullptr) {
+            literal ls[3] = { l1, l2, l3 };
+            mk_th_lemma(tid, 3, ls, num_params, params);
+        }
+
+        void mk_th_lemma(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = nullptr) {
+            mk_th_clause(tid, num_lits, lits, num_params, params, CLS_TH_LEMMA);
+        }
+
+        void mk_th_lemma(theory_id tid, literal_vector const& ls, unsigned num_params = 0, parameter * params = nullptr) {
+            mk_th_lemma(tid, ls.size(), ls.c_ptr(), num_params, params);
         }
 
         /*
@@ -1208,6 +1230,7 @@ namespace smt {
         void forget_phase_of_vars_in_current_level();
 
         virtual bool resolve_conflict();
+
 
         // -----------------------------------
         //

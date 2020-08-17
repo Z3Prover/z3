@@ -219,6 +219,11 @@ namespace smt {
         expr_ref next_cube();
 
         /**
+           \brief return up to 2^depth cubes to case split on.
+        */
+        expr_ref_vector cubes(unsigned depth);
+
+        /**
            \brief retrieve upper/lower bound for arithmetic term, if it is implied.
            retrieve implied values if terms are fixed to a value.
         */

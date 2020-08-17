@@ -34,25 +34,26 @@ namespace {
         struct cuber {
             smt_solver& m_solver;
             unsigned    m_round;
-            expr_ref    m_result;
+            expr_ref_vector  m_result;
+            unsigned    m_depth;
             cuber(smt_solver& s):
                 m_solver(s),
                 m_round(0),
-                m_result(s.get_manager()) {}
+                m_result(s.get_manager()),
+                m_depth(s.m_smt_params.m_cube_depth) {}
             expr_ref cube() {
-                switch (m_round) {
-                case 0:
-                    m_result = m_solver.m_context.next_cube();
-                    break;
-                case 1:
-                    m_result = m_solver.get_manager().mk_not(m_result);
-                    break;
-                default:
-                    m_result = m_solver.get_manager().mk_false();
-                    break;
+                if (m_round == 0) {
+                    m_result = m_solver.m_context.cubes(m_depth);
+                }
+                expr_ref r(m_result.m());
+                if (m_round < m_result.size()) {
+                    r = m_result.get(m_round);
+                }
+                else {
+                    r = m_result.m().mk_false();
                 }
                 ++m_round;
-                return m_result;
+                return r;
             }
         };
 

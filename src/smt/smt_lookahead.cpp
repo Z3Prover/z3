@@ -64,7 +64,7 @@ namespace smt {
         }
     };
     
-    expr_ref lookahead::choose() {
+    expr_ref lookahead::choose(unsigned budget) {
         ctx.pop_to_base_lvl();
         unsigned sz = ctx.m_bool_var2expr.size();
         bool_var best_v = null_bool_var;
@@ -79,9 +79,12 @@ namespace smt {
         compare comp(ctx);
         std::sort(vars.begin(), vars.end(), comp);
         
-        unsigned nf = 0, nc = 0, ns = 0, bound = 2000, n = 0;
+        unsigned nf = 0, nc = 0, ns = 0, n = 0;
         for (bool_var v : vars) {
-            if (!ctx.bool_var2expr(v)) continue;
+            if (!ctx.bool_var2expr(v)) 
+                continue;
+            if (!m.inc())
+                break;
             literal lit(v, false);
             ctx.propagate();
             if (ctx.inconsistent())
@@ -116,16 +119,22 @@ namespace smt {
             }
             double score = score1 + score2 + 1024*score1*score2;
 
-            if (score > best_score || (score == best_score && ctx.get_random_value() % (++n) == 0)) {
-                if (score > best_score) n = 0;
-                best_score = score;
-                best_v = v;
-                bound += ns;
+            if (score <= 1.1*best_score && best_score <= 1.1*score) {
+                if (ctx.get_random_value() % (++n) == 0) {
+                    best_score = score;
+                    best_v = v;
+                }
                 ns = 0;
             }
+            else if (score > best_score && (ctx.get_random_value() % 2) == 0) {
+                n = 0;
+                best_score = score;
+                best_v = v;
+                ns = 0;
+            } 
             ++nc;
             ++ns;
-            if (ns > bound) {
+            if (ns > budget) {
                 break;
             }
         }
@@ -140,5 +149,39 @@ namespace smt {
             result = m.mk_true();
         }
         return result;
+    }
+
+    expr_ref_vector lookahead::choose_rec(unsigned depth) {
+        expr_ref_vector trail(m), result(m);
+        choose_rec(trail, result, depth, 2000);
+        return result;
+    }
+
+    void lookahead::choose_rec(expr_ref_vector & trail, expr_ref_vector& result, unsigned depth, unsigned budget) {
+            
+        expr_ref r = choose(budget);
+        if (m.is_true(r)) 
+            result.push_back(mk_and(trail));
+        else if (m.is_false(r))
+            ;
+        else {
+            auto recurse = [&]() {
+                trail.push_back(r);
+                if (depth <= 1 || !m.inc()) {
+                    result.push_back(mk_and(trail));
+                }
+                else {
+                    ctx.push();
+                    ctx.assert_expr(r);
+                    ctx.propagate();
+                    choose_rec(trail, result, depth-1, 2 * (budget / 3));
+                    ctx.pop(1);
+                }
+                trail.pop_back();
+            };
+            recurse();
+            r = m.mk_not(r);
+            recurse();
+        }
     }
 }

@@ -31,16 +31,20 @@ struct theory_bv_params {
     bool         m_bv_reflect;
     bool         m_bv_lazy_le;
     bool         m_bv_cc;
+    bool         m_bv_eq_axioms;
     unsigned     m_bv_blast_max_size;
     bool         m_bv_enable_int2bv2int;
+    bool         m_bv_watch_diseq;
     theory_bv_params(params_ref const & p = params_ref()):
         m_bv_mode(BS_BLASTER),
         m_hi_div0(false),
         m_bv_reflect(true),
         m_bv_lazy_le(false),
         m_bv_cc(false),
+        m_bv_eq_axioms(true),
         m_bv_blast_max_size(INT_MAX),
-        m_bv_enable_int2bv2int(true) {
+        m_bv_enable_int2bv2int(true),
+        m_bv_watch_diseq(false) {
         updt_params(p);
     }
     

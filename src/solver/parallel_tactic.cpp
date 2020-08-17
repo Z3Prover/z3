@@ -146,9 +146,18 @@ class parallel_tactic : public tactic {
             }
         }
 
+        void stats(::statistics& st) {
+            for (auto* t : m_tasks) 
+                t->get_solver().collect_statistics(st);
+            for (auto* t : m_active) 
+                t->get_solver().collect_statistics(st);
+        }
+
         void reset() {
-            for (auto* t : m_tasks) dealloc(t);
-            for (auto* t : m_active) dealloc(t);
+            for (auto* t : m_tasks) 
+                dealloc(t);
+            for (auto* t : m_active) 
+                dealloc(t);
             m_tasks.reset();
             m_active.reset();
             m_num_waiters = 0;
@@ -270,6 +279,7 @@ class parallel_tactic : public tactic {
             set_simplify_params(true);         // retain blocked
             r = get_solver().check_sat(m_assumptions);
             if (r != l_undef) return r;
+            if (canceled()) return l_undef;
             IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-2)\n";);
             set_simplify_params(false);        // remove blocked
             r = get_solver().check_sat(m_assumptions);
@@ -317,17 +327,20 @@ class parallel_tactic : public tactic {
             double exp = pp.simplify_exp();
             exp = std::max(exp, 1.0);
             unsigned mult = static_cast<unsigned>(pow(exp, m_depth - 1));
+            unsigned max_conflicts = pp.simplify_max_conflicts();
+            if (max_conflicts < 1000000)
+                max_conflicts *= std::max(m_depth, 1u);
             p.set_uint("inprocess.max", pp.simplify_inprocess_max() * mult);
             p.set_uint("restart.max", pp.simplify_restart_max() * mult);
             p.set_bool("lookahead_simplify", m_depth > 2);
             p.set_bool("retain_blocked_clauses", retain_blocked);
-            p.set_uint("max_conflicts", pp.simplify_max_conflicts());
+            p.set_uint("max_conflicts", max_conflicts);
             if (m_depth > 1) p.set_uint("bce_delay", 0);
             get_solver().updt_params(p);
         }
 
         bool canceled() { 
-            return m_giveup ||! m().inc();
+            return m_giveup || !m().inc();
         }
 
         std::ostream& display(std::ostream& out) {
@@ -469,6 +482,7 @@ private:
         unsigned num_simplifications = 0;
 
     cube_again:
+        if (canceled(s)) return;
         // extract up to one cube and add it.
         cube.reset();
         cube.append(s.split_cubes(1));
@@ -640,7 +654,7 @@ private:
     void run_solver() {
         try {
             while (solver_state* st = m_queue.get_task()) {
-                cube_and_conquer(*st);
+                cube_and_conquer(*st);                
                 collect_statistics(*st);
                 m_queue.task_done(st);
                 if (!st->m().inc()) m_queue.shutdown();
@@ -648,7 +662,7 @@ private:
                 dealloc(st);
             }
         }
-        catch (z3_exception& ex) {            
+        catch (z3_exception& ex) {   
             IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
             if (m_queue.in_shutdown()) return;
             m_queue.shutdown();
@@ -679,6 +693,7 @@ private:
             threads.push_back(std::thread([this]() { run_solver(); }));
         for (std::thread& t : threads) 
             t.join();
+        m_queue.stats(m_stats);
         m_manager.limit().reset_cancel();
         if (m_exn_code == -1) 
             throw default_exception(std::move(m_exn_msg));
@@ -720,7 +735,7 @@ public:
         init();
     }
 
-    void operator ()(const goal_ref & g,goal_ref_buffer & result) override {
+    void operator()(const goal_ref & g,goal_ref_buffer & result) override {
         cleanup();
         fail_if_proof_generation("parallel-tactic", g);
         ast_manager& m = g->m();        
@@ -773,7 +788,6 @@ public:
     void cleanup() override {
         m_queue.reset();
         m_models.reset();
-        m_stats.reset();
     }
 
     tactic* translate(ast_manager& m) override {
