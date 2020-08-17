@@ -1415,6 +1415,7 @@ namespace smt {
                 m_stats.m_num_mk_bin_clause++;
                 return nullptr;
             }
+            Z3_fallthrough;
         default: {
             m_stats.m_num_mk_clause++;
             unsigned iscope_lvl = lemma ? get_max_iscope_lvl(num_lits, lits) : 0;
