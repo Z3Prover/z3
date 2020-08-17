@@ -1492,6 +1492,7 @@ bool theory_seq::internalize_atom(app* a, bool) {
 }
 
 bool theory_seq::internalize_term(app* term) {
+    force_push();
     m_has_seq = true;
     if (ctx.e_internalized(term)) {
         enode* e = ctx.get_enode(term);
@@ -3109,6 +3110,8 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
 }
 
 void theory_seq::push_scope_eh() {
+    if (lazy_push()) 
+        return;
     theory::push_scope_eh();
     m_rep.push_scope();
     m_exclude.push_scope();
@@ -3123,6 +3126,8 @@ void theory_seq::push_scope_eh() {
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
+    if (lazy_pop(num_scopes))
+        return;
     m_trail_stack.pop_scope(num_scopes);
     theory::pop_scope_eh(num_scopes);
     m_dm.pop_scope(num_scopes);

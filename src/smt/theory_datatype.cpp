@@ -293,6 +293,7 @@ namespace smt {
     }
 
     bool theory_datatype::internalize_term(app * term) {
+        force_push();
         TRACE("datatype", tout << "internalizing term:\n" << mk_pp(term, m) << "\n";);
         unsigned num_args = term->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
@@ -452,11 +453,15 @@ namespace smt {
     }
 
     void theory_datatype::push_scope_eh() {
+        if (lazy_push())
+            return;
         theory::push_scope_eh();
         m_trail_stack.push_scope();
     }
 
     void theory_datatype::pop_scope_eh(unsigned num_scopes) {
+        if (lazy_pop(num_scopes))
+            return;
         m_trail_stack.pop_scope(num_scopes);
         unsigned num_old_vars = get_old_num_vars(num_scopes);
         std::for_each(m_var_data.begin() + num_old_vars, m_var_data.end(), delete_proc<var_data>());

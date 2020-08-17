@@ -54,6 +54,7 @@ namespace smt {
     }
 
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
+        force_push();
         TRACEFN(mk_pp(atom, m));
         if (!u().has_defs()) {
             return false;
@@ -75,6 +76,7 @@ namespace smt {
     }
 
     bool theory_recfun::internalize_term(app * term) {
+        force_push();
         if (!u().has_defs()) {
             return false;
         }
@@ -131,11 +133,15 @@ namespace smt {
     }
 
     void theory_recfun::push_scope_eh() {
+        if (lazy_push())
+            return;
         theory::push_scope_eh();
         m_preds_lim.push_back(m_preds.size());
     }
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
+        if (lazy_pop(num_scopes))
+            return;
         theory::pop_scope_eh(num_scopes);
         reset_queues();
         

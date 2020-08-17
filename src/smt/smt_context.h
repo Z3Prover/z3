@@ -893,7 +893,7 @@ namespace smt {
 
         void mk_clause(literal l1, literal l2, literal l3, justification * j);
 
-        void context::mk_th_clause(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params, clause_kind k);
+        void mk_th_clause(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params, clause_kind k);
 
         void mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = nullptr) {
             mk_th_clause(tid, num_lits, lits, num_params, params, CLS_TH_AXIOM);

@@ -4072,9 +4072,11 @@ void theory_lra::init() {
     m_imp->init();
 }    
 bool theory_lra::internalize_atom(app * atom, bool gate_ctx) {
+    force_push();
     return m_imp->internalize_atom(atom, gate_ctx);
 }
 bool theory_lra::internalize_term(app * term) {
+    force_push();
     return m_imp->internalize_term(term);
 }
 void theory_lra::internalize_eq_eh(app * atom, bool_var v) {
@@ -4099,10 +4101,14 @@ void theory_lra::apply_sort_cnstr(enode* n, sort* s) {
     m_imp->apply_sort_cnstr(n, s);
 }
 void theory_lra::push_scope_eh() {
+    if (lazy_push())
+        return;
     theory::push_scope_eh();
     m_imp->push_scope_eh();
 }
 void theory_lra::pop_scope_eh(unsigned num_scopes) {
+    if (lazy_pop(num_scopes))
+        return;
     m_imp->pop_scope_eh(num_scopes);
     theory::pop_scope_eh(num_scopes);
 }

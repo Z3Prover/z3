@@ -409,6 +409,7 @@ namespace smt {
     }
 
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
+        force_push();
         TRACE("t_fpa_internalize", tout << "internalizing atom: " << mk_ismt2_pp(atom, m) << std::endl;);
         SASSERT(atom->get_family_id() == get_family_id());
 
@@ -430,6 +431,7 @@ namespace smt {
     }
 
     bool theory_fpa::internalize_term(app * term) {
+        force_push();
         TRACE("t_fpa_internalize", tout << "internalizing term: " << mk_ismt2_pp(term, m) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
         SASSERT(!ctx.e_internalized(term));
@@ -584,11 +586,15 @@ namespace smt {
     }
 
     void theory_fpa::push_scope_eh() {
+        if (lazy_push())
+            return;
         theory::push_scope_eh();
         m_trail_stack.push_scope();
     }
 
     void theory_fpa::pop_scope_eh(unsigned num_scopes) {
+        if (lazy_pop(num_scopes))
+            return;
         m_trail_stack.pop_scope(num_scopes);
         TRACE("t_fpa", tout << "pop " << num_scopes << "; now " << m_trail_stack.get_num_scopes() << "\n";);
         theory::pop_scope_eh(num_scopes);
