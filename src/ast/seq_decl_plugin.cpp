@@ -1675,7 +1675,7 @@ seq_util::re::info seq_util::re::mk_info_rec(app* e) const {
     if (u.m.is_ite(e, c, t, f)) {
         i1 = get_info_rec(t);
         i2 = get_info_rec(f);
-        return info(u.max_plus(1, std::min(i1.min_length, i2.min_length)));
+        return info(std::min(i1.min_length, i2.min_length));
     }
     return invalid_info;
 }
