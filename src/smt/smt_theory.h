@@ -533,6 +533,8 @@ namespace smt {
 
         literal mk_preferred_eq(expr* a, expr* b);
 
+        literal mk_literal(expr* e);
+
         enode* ensure_enode(expr* e);
 
         enode* get_root(expr* e) { return ensure_enode(e)->get_root(); }

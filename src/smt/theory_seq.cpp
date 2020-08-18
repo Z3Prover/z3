@@ -2785,18 +2785,6 @@ literal theory_seq::mk_simplified_literal(expr * _e) {
     return mk_literal(e);
 }
 
-literal theory_seq::mk_literal(expr* _e) {
-    expr_ref e(_e, m);
-    bool is_not = m.is_not(_e, _e);
-    if (!ctx.e_internalized(_e)) {
-        ctx.internalize(_e, is_quantifier(_e));
-    }
-    literal lit = ctx.get_literal(_e);
-    ctx.mark_as_relevant(lit);
-    if (is_not) lit.neg();
-    return lit;
-}
-
 literal theory_seq::mk_seq_eq(expr* a, expr* b) {
     SASSERT(m_util.is_seq(a));
     return mk_literal(m_sk.mk_eq(a, b));

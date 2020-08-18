@@ -575,7 +575,6 @@ namespace smt {
 
         expr_ref add_elim_string_axiom(expr* n);
         void add_in_re_axiom(expr* n);
-        literal mk_literal(expr* n);
         literal mk_simplified_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);

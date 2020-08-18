@@ -446,6 +446,10 @@ namespace smt {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
+
+        // NSB code review: to remove dependencies on subsolver.get_context(). 
+        // It uses a method that should be removed from smt_kernel.
+        // currently sub_ctx is used to retrieve a rewriter. Theory_str already has a rewriter attahed.
         context & sub_ctx = subsolver.get_context();
 
         expr * str = nullptr, *re = nullptr;

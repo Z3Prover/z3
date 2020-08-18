@@ -43,12 +43,13 @@ Revision History:
 #include "ast/ast_smt_pp.h"
 #include "smt/watch_list.h"
 #include "util/trail.h"
-#include "smt/fingerprints.h"
 #include "util/ref.h"
-#include "smt/proto_model/proto_model.h"
-#include "model/model.h"
 #include "util/timer.h"
 #include "util/statistics.h"
+#include "smt/fingerprints.h"
+#include "smt/proto_model/proto_model.h"
+#include "smt/user_propagator.h"
+#include "model/model.h"
 #include "solver/progress_callback.h"
 #include <tuple>
 
@@ -92,6 +93,7 @@ namespace smt {
         scoped_ptr<quantifier_manager>   m_qmanager;
         scoped_ptr<model_generator>      m_model_generator;
         scoped_ptr<relevancy_propagator> m_relevancy_propagator;
+        scoped_ptr<user_propagator>      m_user_propagator;
         random_gen                  m_random;
         bool                        m_flushing; // (debug support) true when flushing
         mutable unsigned            m_lemma_id;
@@ -1676,6 +1678,27 @@ namespace smt {
         //proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
 
         void get_assertions(ptr_vector<expr> & result) { m_asserted_formulas.get_assertions(result); }
+
+        /*
+         * user-propagator
+         */
+        void register_user_propagator(
+            void* ctx, 
+            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*)>&                  push_eh,
+            std::function<void(void*, unsigned)>&        pop_eh);
+
+        bool watches_fixed(enode* n) const;
+
+        void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
+
+        void assign_fixed(enode* n, expr* val, literal_vector const& explain) {
+            assign_fixed(n, val, explain.size(), explain.c_ptr());
+        }
+
+        void assign_fixed(enode* n, expr* val, literal explain) {
+            assign_fixed(n, val, 1, &explain);
+        }
 
         void display(std::ostream & out) const;
 

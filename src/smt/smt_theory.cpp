@@ -150,6 +150,18 @@ namespace smt {
         return lit;
     }
 
+    literal theory::mk_literal(expr* _e) {
+        expr_ref e(_e, m);
+        bool is_not = m.is_not(_e, _e);
+        if (!ctx.e_internalized(_e)) {
+            ctx.internalize(_e, is_quantifier(_e));
+        }
+        literal lit = ctx.get_literal(_e);
+        ctx.mark_as_relevant(lit);
+        if (is_not) lit.neg();
+        return lit;
+    }
+
     enode* theory::ensure_enode(expr* e) {
         if (!ctx.e_internalized(e)) {
             ctx.internalize(e, is_quantifier(e));

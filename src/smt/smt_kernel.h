@@ -285,6 +285,15 @@ namespace smt {
         static void collect_param_descrs(param_descrs & d);
 
         /**
+           \brief register a user-propagator "theory"
+        */
+        void register_user_propagator(
+            void* ctx, 
+            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*)>&                  push_eh,
+            std::function<void(void*, unsigned)>&        pop_eh);
+
+        /**
            \brief Return a reference to smt::context.
            This is a temporary hack to support user theories.
            TODO: remove this hack.

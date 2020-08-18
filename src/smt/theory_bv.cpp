@@ -465,6 +465,11 @@ namespace smt {
     void theory_bv::fixed_var_eh(theory_var v) {
         numeral val;
         VERIFY(get_fixed_value(v, val));
+        enode* n = get_enode(v);
+        if (ctx.watches_fixed(n)) {
+            expr_ref num(m_util.mk_numeral(val, m.get_sort(n->get_owner())), m);
+            ctx.assign_fixed(n, num, m_bits[v]);
+        }
         unsigned sz = get_bv_size(v);
         value_sort_pair key(val, sz);
         theory_var v2;
@@ -528,8 +533,8 @@ namespace smt {
     void theory_bv::internalize_num(app * n) {
         SASSERT(!ctx.e_internalized(n));
         numeral val;
-        unsigned sz;
-        m_util.is_numeral(n, val, sz);
+        unsigned sz = 0;
+        VERIFY(m_util.is_numeral(n, val, sz));
         enode * e    = mk_enode(n);
         // internalizer is marking enodes as interpreted whenever the associated ast is a value and a constant.
         // e->mark_as_interpreted();

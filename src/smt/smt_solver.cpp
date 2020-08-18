@@ -208,6 +208,15 @@ namespace {
             return m_context.get_trail();
         }
 
+        void register_user_propagator(
+            void* ctx, 
+            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*)>&                  push_eh,
+            std::function<void(void*, unsigned)>&        pop_eh) override {
+            m_context.register_user_propagator(ctx, fixed_eh, push_eh, pop_eh);
+        }
+
+
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;

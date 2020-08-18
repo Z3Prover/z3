@@ -232,6 +232,14 @@ namespace smt {
         void updt_params(params_ref const & p) {
             m_kernel.updt_params(p);
         }
+
+        void register_user_propagator(
+            void* ctx, 
+            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*)>&                  push_eh,
+            std::function<void(void*, unsigned)>&        pop_eh) {
+            m_kernel.register_user_propagator(ctx, fixed_eh, push_eh, pop_eh);
+        }
     };
 
     kernel::kernel(ast_manager & m, smt_params & fp, params_ref const & p) {
@@ -443,6 +451,14 @@ namespace smt {
     
     expr_ref kernel::get_implied_upper_bound(expr* e) {
         return m_imp->get_implied_upper_bound(e);
+    }
+
+    void kernel::register_user_propagator(
+        void* ctx, 
+        std::function<void(void*, unsigned, expr*)>& fixed_eh,
+        std::function<void(void*)>&                  push_eh,
+        std::function<void(void*, unsigned)>&        pop_eh) {
+        m_imp->register_user_propagator(ctx, fixed_eh, push_eh, pop_eh);
     }
 
 

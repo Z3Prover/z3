@@ -238,6 +238,14 @@ public:
 
     virtual expr_ref get_implied_upper_bound(expr* e) = 0;
 
+    virtual void register_user_propagator(
+        void* ctx, 
+        std::function<void(void*, unsigned, expr*)>& fixed_eh,
+        std::function<void(void*)>&                  push_eh,
+        std::function<void(void*, unsigned)>&        pop_eh) {
+        throw default_exception("user-propagators are only supported on the SMT solver");
+    }
+
 
     /**
        \brief Display the content of this solver.

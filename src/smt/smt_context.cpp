@@ -853,7 +853,7 @@ namespace smt {
                     assign(l, mk_justification(eq_root_propagation_justification(curr)));
                 curr = curr->m_next;
             }
-            while(curr != r1);
+            while (curr != r1);
         }
         else {
             bool_var v1 = enode2bool_var(n1);
@@ -1394,6 +1394,8 @@ namespace smt {
         bool sign  = val == l_false;
         if (n->merge_tf())
             add_eq(n, sign ? m_false_enode : m_true_enode, eq_justification(literal(v, sign)));
+        if (watches_fixed(n)) 
+            assign_fixed(n, sign ? m.mk_false() : m.mk_true(), literal(v, sign));
         enode * r = n->get_root();
         if (r == m_true_enode || r == m_false_enode)
             return;
@@ -1924,6 +1926,8 @@ namespace smt {
 
         for (theory* t : m_theory_set) 
             t->push_scope_eh();
+        if (m_user_propagator) 
+            m_user_propagator->push_scope_eh();
         CASSERT("context", check_invariant());
     }
 
@@ -2418,9 +2422,11 @@ namespace smt {
             unassign_vars(s.m_assigned_literals_lim);
             undo_trail_stack(s.m_trail_stack_lim);
 
-            for (theory* th : m_theory_set) {
+            for (theory* th : m_theory_set) 
                 th->pop_scope_eh(num_scopes);
-            }
+
+            if (m_user_propagator) 
+                m_user_propagator->pop_scope_eh(num_scopes);
 
             del_justifications(m_justifications, s.m_justifications_lim);
 
@@ -2870,6 +2876,26 @@ namespace smt {
             for (unsigned i = 0; i < m_scope_lvl; ++i)
                 th->push_scope_eh();
         }
+    }
+
+    void context::register_user_propagator(
+        void* ctx, 
+        std::function<void(void*, unsigned, expr*)>& fixed_eh,
+        std::function<void(void*)>&                  push_eh,
+        std::function<void(void*, unsigned)>&        pop_eh) {
+        m_user_propagator = alloc(user_propagator, *this);
+        m_user_propagator->add(ctx, fixed_eh, push_eh, pop_eh);
+        for (unsigned i = m_scopes.size(); i-- > 0; ) 
+            m_user_propagator->push_scope_eh();
+    }
+
+    bool context::watches_fixed(enode* n) const {
+        return m_user_propagator && n->get_th_var(m_user_propagator->get_family_id()) != null_theory_var;
+    }
+
+    void context::assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain) {
+        theory_var v = n->get_th_var(m_user_propagator->get_family_id());
+        m_user_propagator->new_fixed_eh(v, val, sz, explain);
     }
 
     void context::push() {       
