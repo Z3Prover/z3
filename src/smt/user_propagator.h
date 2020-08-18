@@ -8,8 +8,8 @@ Module Name:
 Abstract:
 
     User-propagator plugin.
-    Or, user-propagator in response to registered
-    terms receiveing fixed values.
+    Adds user plugins to propagate based on 
+    terms receiving fixed values.
 
 Author:
 

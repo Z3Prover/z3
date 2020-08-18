@@ -27,6 +27,7 @@ user_propagator::user_propagator(context& ctx):
 {}
 
 unsigned user_propagator::add_expr(expr* e) {
+    // TODO: check type of 'e', either Bool or Bit-vector.
     return mk_var(ensure_enode(e));
 }
 
