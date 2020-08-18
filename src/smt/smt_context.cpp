@@ -2878,7 +2878,7 @@ namespace smt {
         }
     }
 
-    void context::register_user_propagator(
+    void context::user_propagate_init(
         void* ctx, 
         std::function<void(void*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,

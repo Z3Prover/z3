@@ -1682,11 +1682,24 @@ namespace smt {
         /*
          * user-propagator
          */
-        void register_user_propagator(
+        void user_propagate_init(
             void* ctx, 
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh);
+
+        unsigned user_propagate_register(expr* e) {
+            if (!m_user_propagator) 
+                throw default_exception("user propagator must be initialized");
+            return m_user_propagator->add_expr(e);
+        }
+        
+        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
+            if (!m_user_propagator) 
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->add_propagation(sz, ids, conseq);
+        }
+
 
         bool watches_fixed(enode* n) const;
 

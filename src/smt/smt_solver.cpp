@@ -208,14 +208,21 @@ namespace {
             return m_context.get_trail();
         }
 
-        void register_user_propagator(
+        void user_propagate_init(
             void* ctx, 
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh) override {
-            m_context.register_user_propagator(ctx, fixed_eh, push_eh, pop_eh);
+            m_context.user_propagate_init(ctx, fixed_eh, push_eh, pop_eh);
         }
 
+        unsigned user_propagate_register(expr* e) override { 
+            return m_context.user_propagate_register(e);
+        }
+
+        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
+            m_context.user_propagate_consequence(sz, ids, conseq);
+        }        
 
         struct scoped_minimize_core {
             smt_solver& s;

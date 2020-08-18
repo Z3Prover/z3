@@ -886,5 +886,37 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    void Z3_API Z3_solver_propagate_init(
+        Z3_context  c, 
+        Z3_solver   s, 
+        void*       user_context,
+        Z3_push_eh  push_eh,
+        Z3_pop_eh   pop_eh,
+        Z3_fixed_eh fixed_eh) {
+        Z3_TRY;
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        std::function<void(void*)> _push = push_eh;
+        std::function<void(void*,unsigned)> _pop = pop_eh;
+        std::function<void(void*,unsigned,expr*)> _fixed = [&](void* ctx, unsigned id, expr* e) { fixed_eh(ctx, id, of_ast(e)); };
+        to_solver_ref(s)->user_propagate_init(user_context, _fixed, _push, _pop);
+        Z3_CATCH;
+    }
+
+    unsigned Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e) {
+        Z3_TRY;
+        LOG_Z3_solver_propagate_register(c, s, e);
+        RESET_ERROR_CODE();
+        return to_solver_ref(s)->user_propagate_register(to_expr(e));
+        Z3_CATCH_RETURN(0);
+    }
+
+    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver s, unsigned sz, unsigned const* ids, Z3_ast conseq) {
+        Z3_TRY;
+        LOG_Z3_solver_propagate_consequence(c, s, sz, ids, conseq);
+        RESET_ERROR_CODE();
+        to_solver_ref(s)->user_propagate_consequence(sz, ids, to_expr(conseq));
+        Z3_CATCH;        
+    }
 
 };

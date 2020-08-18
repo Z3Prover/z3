@@ -233,12 +233,20 @@ namespace smt {
             m_kernel.updt_params(p);
         }
 
-        void register_user_propagator(
+        void user_propagate_init(
             void* ctx, 
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh) {
-            m_kernel.register_user_propagator(ctx, fixed_eh, push_eh, pop_eh);
+            m_kernel.user_propagate_init(ctx, fixed_eh, push_eh, pop_eh);
+        }
+
+        unsigned user_propagate_register(expr* e) {
+            return m_kernel.user_propagate_register(e);
+        }
+        
+        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
+            m_kernel.user_propagate_consequence(sz, ids, conseq);
         }
     };
 
@@ -326,7 +334,6 @@ namespace smt {
     lbool kernel::check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
         return m_imp->check(cube, clauses);
     }
-
 
     lbool kernel::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
         return m_imp->get_consequences(assumptions, vars, conseq, unfixed);
@@ -453,12 +460,20 @@ namespace smt {
         return m_imp->get_implied_upper_bound(e);
     }
 
-    void kernel::register_user_propagator(
+    void kernel::user_propagate_init(
         void* ctx, 
         std::function<void(void*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
         std::function<void(void*, unsigned)>&        pop_eh) {
-        m_imp->register_user_propagator(ctx, fixed_eh, push_eh, pop_eh);
+        m_imp->user_propagate_init(ctx, fixed_eh, push_eh, pop_eh);
+    }
+
+    unsigned kernel::user_propagate_register(expr* e) {
+        return m_imp->user_propagate_register(e);
+    }
+        
+    void kernel::user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
+        m_imp->user_propagate_consequence(sz, ids, conseq);
     }
 
 

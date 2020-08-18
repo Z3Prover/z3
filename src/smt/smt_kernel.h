@@ -285,13 +285,26 @@ namespace smt {
         static void collect_param_descrs(param_descrs & d);
 
         /**
-           \brief register a user-propagator "theory"
+           \brief initialize a user-propagator "theory"
         */
-        void register_user_propagator(
+        void user_propagate_init(
             void* ctx, 
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh);
+
+        /**
+           \brief register an expression to be tracked fro user propagation.
+        */
+        unsigned user_propagate_register(expr* e);
+
+
+        /**
+           \brief accept a user-propagation callback (issued during fixed_he).
+        */
+        
+        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq);
+        
 
         /**
            \brief Return a reference to smt::context.
