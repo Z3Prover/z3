@@ -10503,3 +10503,46 @@ def TransitiveClosure(f):
     The transitive closure R+ is a new relation.
     """
     return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
+
+
+"""
+class UserPropagateBase:
+
+    def __init__(self, s):
+        self.solver = s
+        self.ctx = s.ctx
+        Z3_user_propagate_init(self,
+                               ctypes.CFUNCTYPE(None, ctypes.c_void_p)(_user_prop_push),
+                               ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint())(_user_prop_pop),
+                               ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint(), ctypes.c_void_p)(_user_prop_fixed))
+
+    def push(self):
+        raise Z3Exception("push has not been overwritten")
+
+    def pop(self, num_scopes):
+        raise Z3Exception("pop has not been overwritten")
+
+    def fixed(self, id, e):
+        raise Z3Exception("fixed has not been overwritten")
+
+    def add(self, e):
+        return Z3_user_propagate_register(self.ctx.ref(), s.solver, e.ast)
+
+    def propagate(self, ids, e):
+        Z3_user_propagate_consequence(self.ctx.ref(), s.solver, ids, e.ast)
+
+def _user_prop_push(ctx):
+    user_prop = ctx  # need to access as python object.
+    user_prop.push()
+
+def _user_prop_pop(ctx, num_scopes):
+    user_prop = ctx # need to access as python object
+    user_prop.pop(num_scopes)
+
+def _user_prop_fixed(ctx, id, value):
+    user_prop = ctx # need to access as python object
+    user_prop.fixed(id, _to_expr_ref(value, user_prop.ctx))
+
+    
+"""
+
