@@ -1312,7 +1312,7 @@ unsigned seq_util::str::max_length(expr* s) const {
     return result;
 }
 
-unsigned seq_util::re::min_length(expr* r) {
+unsigned seq_util::re::min_length(expr* r) const {
     SASSERT(u.is_re(r));
     return get_info(r).min_length;
 }
@@ -1580,104 +1580,102 @@ std::ostream& seq_util::re::pp::display(std::ostream& out) const {
 /*
   Returns true iff info has been computed for the regex r
 */
-bool seq_util::re::has_valid_info(expr* r) {
+bool seq_util::re::has_valid_info(expr* r) const {
     return r->get_id() < m_infos.size() && m_infos[r->get_id()].is_valid();
+}
+
+/*
+  Returns the info in the cache if the info is valid. Returns invalid_info otherwise.
+*/
+seq_util::re::info seq_util::re::get_cached_info(expr* e) const {
+    if (has_valid_info(e))
+        return m_infos[e->get_id()];
+    else
+        return invalid_info;
 }
 
 /*
   Get the information value associated with the regular expression e
 */
-seq_util::re::info seq_util::re::get_info(expr* e) 
+seq_util::re::info seq_util::re::get_info(expr* e) const
 {
     SASSERT(u.is_re(e));
-    if (!has_valid_info(e)) {
-        m_info_pinned.push_back(e);
-        compute_info_rec(e);
-    }
-    return m_infos[e->get_id()];
+    auto result = get_cached_info(e);
+    if (result.is_valid())
+        return result;
+    m_info_pinned.push_back(e);
+    return get_info_rec(e);
 }
 
 /*
-  Computes the info value for the given regex e recursively over the structure of e
+  Gets the info value for the given regex e, possibly making a new info recursively over the structure of e.
 */
-void seq_util::re::compute_info_rec(expr* e) {
-    if (has_valid_info(e))
-        return;
-
-    SASSERT(is_app(e));
-    app* ea = to_app(e);
-    SASSERT(!m.is_ite(e));
-    SASSERT(ea->get_decl()->get_decl_kind() != OP_RE_DERIVATIVE);
-    SASSERT(ea->get_decl()->get_decl_kind() != _OP_RE_ANTIMOROV_UNION);
-
-    info e_info(invalid_info);
-    unsigned k1, k2;
-    switch (ea->get_decl()->get_decl_kind())
-    {
-    case OP_RE_EMPTY_SET:
-        e_info = info(UINT_MAX);
-        break;
-    case OP_RE_FULL_SEQ_SET:
-    case OP_RE_STAR:
-    case OP_RE_OPTION:
-        e_info = info(0);
-        break;
-    case OP_RE_RANGE:
-    case OP_RE_FULL_CHAR_SET:
-    case OP_RE_OF_PRED:
-        e_info = info(1);
-        break;
-    case OP_RE_CONCAT:
-        compute_info_rec(ea->get_arg(0));
-        compute_info_rec(ea->get_arg(1));
-        k1 = m_infos[ea->get_arg(0)->get_id()].min_length;
-        k2 = m_infos[ea->get_arg(1)->get_id()].min_length;
-        e_info = info(u.max_plus(k1, k2));
-        break;
-    case OP_RE_UNION:
-        compute_info_rec(ea->get_arg(0));
-        compute_info_rec(ea->get_arg(1));
-        k1 = m_infos[ea->get_arg(0)->get_id()].min_length;
-        k2 = m_infos[ea->get_arg(1)->get_id()].min_length;
-        e_info = info(std::min(k1, k2));
-        break;
-    case OP_RE_INTERSECT:
-        compute_info_rec(ea->get_arg(0));
-        compute_info_rec(ea->get_arg(1));
-        k1 = m_infos[ea->get_arg(0)->get_id()].min_length;
-        k2 = m_infos[ea->get_arg(1)->get_id()].min_length;
-        e_info = info(std::max(k1, k2));
-        break;
-    case OP_SEQ_TO_RE:
-        e_info = info(u.str.min_length(ea->get_arg(0)));
-        break;
-    case OP_RE_REVERSE:
-    case OP_RE_PLUS:
-        compute_info_rec(ea->get_arg(0));
-        k1 = m_infos[ea->get_arg(0)->get_id()].min_length;
-        e_info = info(k1);
-        break;
-    case OP_RE_COMPLEMENT:
-        compute_info_rec(ea->get_arg(0));
-        k1 = m_infos[ea->get_arg(0)->get_id()].min_length;
-        e_info = info(k1 > 0 ? 0 : UINT_MAX);
-        break;
-    case OP_RE_LOOP:
-        compute_info_rec(ea->get_arg(0));
-        k1 = m_infos[ea->get_arg(0)->get_id()].min_length;
-        e_info = info(u.max_mul(k1, ea->get_decl()->get_parameter(0).get_int()));
-        break;
-    case OP_RE_DIFF:
-        compute_info_rec(ea->get_arg(0));
-        compute_info_rec(ea->get_arg(1));
-        k1 = m_infos[ea->get_arg(0)->get_id()].min_length;
-        k2 = m_infos[ea->get_arg(1)->get_id()].min_length;
-        e_info = info(std::max(k1, k2 > 0 ? 0 : UINT_MAX));
-        break;
-    default:
-        break;
-    }
-    m_infos.setx(e->get_id(), e_info, invalid_info);
-
+seq_util::re::info seq_util::re::get_info_rec(expr* e) const {
+    auto result = get_cached_info(e);
+    if (result.is_valid())
+        return result;
+    if (!is_app(e))
+        return invalid_info;
+    result = mk_info_rec(to_app(e));
     STRACE("re_info", tout << "compute_info(" << pp(u.re, e) << "): min_length=" << m_infos[e->get_id()].min_length << std::endl;);
+    m_infos.setx(e->get_id(), result, invalid_info);
+    return result;
+}
+
+/*
+  Computes the info value for the given regex e recursively over the structure of e.
+  The regex e does not yet have an entry in the cache.
+*/
+seq_util::re::info seq_util::re::mk_info_rec(app* e) const {
+    info i1, i2;
+    if (e->get_family_id() == u.get_family_id()) {
+        switch (e->get_decl()->get_decl_kind())
+        {
+        case OP_RE_EMPTY_SET:
+            return info(UINT_MAX);
+        case OP_RE_FULL_SEQ_SET:
+        case OP_RE_STAR:
+        case OP_RE_OPTION:
+            return info(0);
+        case OP_RE_RANGE:
+        case OP_RE_FULL_CHAR_SET:
+        case OP_RE_OF_PRED:
+            return info(1);
+        case OP_RE_CONCAT:
+            i1 = get_info_rec(e->get_arg(0));
+            i2 = get_info_rec(e->get_arg(1));
+            return info(u.max_plus(i1.min_length, i2.min_length));
+        case OP_RE_UNION:
+            i1 = get_info_rec(e->get_arg(0));
+            i2 = get_info_rec(e->get_arg(1));
+            return info(std::min(i1.min_length, i2.min_length));
+        case OP_RE_INTERSECT:
+            i1 = get_info_rec(e->get_arg(0));
+            i2 = get_info_rec(e->get_arg(1));
+            return info(std::max(i1.min_length, i2.min_length));
+        case OP_SEQ_TO_RE:
+            return info(u.str.min_length(e->get_arg(0)));
+        case OP_RE_REVERSE:
+        case OP_RE_PLUS:
+            return get_info_rec(e->get_arg(0));
+        case OP_RE_COMPLEMENT:
+            i1 = get_info_rec(e->get_arg(0));
+            return info(i1.min_length > 0 ? 0 : UINT_MAX);
+        case OP_RE_LOOP:
+            i1 = get_info_rec(e->get_arg(0));
+            return info(u.max_mul(i1.min_length, e->get_decl()->get_parameter(0).get_int()));
+        case OP_RE_DIFF:
+            i1 = get_info_rec(e->get_arg(0));
+            i2 = get_info_rec(e->get_arg(1));
+            return info(std::max(i1.min_length, i2.min_length > 0 ? 0 : UINT_MAX));
+        }
+        return invalid_info;
+    }
+    expr* c, * t, * f;
+    if (u.m.is_ite(e, c, t, f)) {
+        i1 = get_info_rec(t);
+        i2 = get_info_rec(f);
+        return info(u.max_plus(1, std::min(i1.min_length, i2.min_length)));
+    }
+    return invalid_info;
 }

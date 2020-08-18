@@ -421,12 +421,14 @@ public:
         seq_util&    u;
         ast_manager& m;
         family_id    m_fid;
-        vector<info> m_infos;
-        expr_ref_vector m_info_pinned;
+        vector<info> mutable m_infos;
+        expr_ref_vector mutable m_info_pinned;
         info invalid_info;
 
-        bool has_valid_info(expr* r);
-        void compute_info_rec(expr* r);
+        bool has_valid_info(expr* r) const;
+        info get_info_rec(expr* r) const;
+        info mk_info_rec(app* r) const;
+        info get_cached_info(expr* e) const;
 
     public:
         re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid), m_info_pinned(u.m) {}
@@ -493,11 +495,11 @@ public:
         bool is_loop(expr const* n, expr*& body, unsigned& lo) const;
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const;
         bool is_loop(expr const* n, expr*& body, expr*& lo) const;
-        unsigned min_length(expr* r);
+        unsigned min_length(expr* r) const;
         unsigned max_length(expr* r) const;
         bool is_epsilon(expr* r) const;
         app* mk_epsilon(sort* seq_sort);
-        info get_info(expr* r);
+        info get_info(expr* r) const;
 
         class pp {
             seq_util::re& re;
