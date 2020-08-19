@@ -409,12 +409,29 @@ public:
     };
 
     class re {
+        struct info {
+            bool valid;
+            unsigned min_length;
+            info() : valid(false), min_length(0) {}
+            info(unsigned k) : valid(true), min_length(k) {}
+
+            bool is_valid() { return valid; }
+        };
+
         seq_util&    u;
         ast_manager& m;
         family_id    m_fid;
+        vector<info> mutable m_infos;
+        expr_ref_vector mutable m_info_pinned;
+        info invalid_info;
+
+        bool has_valid_info(expr* r) const;
+        info get_info_rec(expr* r) const;
+        info mk_info_rec(app* r) const;
+        info get_cached_info(expr* e) const;
 
     public:
-        re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
+        re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid), m_info_pinned(u.m) {}
 
         sort* mk_re(sort* seq) { parameter param(seq); return m.mk_sort(m_fid, RE_SORT, 1, &param); }
         sort* to_seq(sort* re);
@@ -482,6 +499,8 @@ public:
         unsigned max_length(expr* r) const;
         bool is_epsilon(expr* r) const;
         app* mk_epsilon(sort* seq_sort);
+        info get_info(expr* r) const;
+        std::string to_str(expr* r) const;
 
         class pp {
             seq_util::re& re;
@@ -495,7 +514,6 @@ public:
             pp(seq_util::re& r, expr* e) : re(r), e(e) {}
             std::ostream& display(std::ostream&) const;
         };
-
     };
     str str;
     re  re;
@@ -511,7 +529,6 @@ public:
     ~seq_util() {}
 
     family_id get_family_id() const { return m_fid; }
-
 };
 
 inline std::ostream& operator<<(std::ostream& out, seq_util::re::pp const & p) { return p.display(out); }
