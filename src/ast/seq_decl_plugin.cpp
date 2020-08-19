@@ -1578,6 +1578,15 @@ std::ostream& seq_util::re::pp::display(std::ostream& out) const {
 }
 
 /*
+  Pretty prints the regex r into the output string
+*/
+std::string seq_util::re::to_str(expr* r) const {
+    std::ostringstream out;
+    out << pp(u.re, r);
+    return out.str();
+}
+
+/*
   Returns true iff info has been computed for the regex r
 */
 bool seq_util::re::has_valid_info(expr* r) const {
@@ -1617,8 +1626,8 @@ seq_util::re::info seq_util::re::get_info_rec(expr* e) const {
     if (!is_app(e))
         return invalid_info;
     result = mk_info_rec(to_app(e));
-    STRACE("re_info", tout << "compute_info(" << pp(u.re, e) << "): min_length=" << m_infos[e->get_id()].min_length << std::endl;);
     m_infos.setx(e->get_id(), result, invalid_info);
+    STRACE("re_info", tout << "compute_info(" << pp(u.re, e) << "): min_length=" << m_infos[e->get_id()].min_length << std::endl;);
     return result;
 }
 

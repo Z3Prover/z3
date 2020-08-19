@@ -500,6 +500,7 @@ public:
         bool is_epsilon(expr* r) const;
         app* mk_epsilon(sort* seq_sort);
         info get_info(expr* r) const;
+        std::string to_str(expr* r) const;
 
         class pp {
             seq_util::re& re;
