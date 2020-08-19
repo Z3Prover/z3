@@ -10519,7 +10519,7 @@ def user_prop_fixed(ctx, id, value):
 
 def user_prop_fresh(ctx):
     prop = _user_propagate_bases[ctx]
-    new_prop = prop.copy()
+    new_prop = prop.fresh()
     return ctypes.c_void_p(new_prop.id)
     
 
@@ -10552,9 +10552,18 @@ class UserPropagateBase:
     def fixed(self, id, e):
         raise Z3Exception("fixed has not been overwritten")
 
+    def fresh(self):
+        raise Z3Exception("fresh has not been overwritten")
+        
     def add(self, e):
         return Z3_solver_propagate_register(self.ctx.ref(), self.solver.solver, e.ast)
 
     def propagate(self, ids, e):
-        Z3_solver_propagate_consequence(self.ctx.ref(), self.solver.solver, ids, e.ast)
+        sz = len(ids)
+        _ids = (ctypes.c_uint * sz)()
+        for i in range(sz):
+            _ids[i] = ids[i]
+        Z3_solver_propagate_consequence(self.ctx.ref(), self.solver.solver, sz, _ids, e.ast)
 
+    def conflict(self, ids):
+        self.propagate(ids, BoolVal(False, self.ctx))
