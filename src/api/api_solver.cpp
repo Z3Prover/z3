@@ -892,14 +892,16 @@ extern "C" {
         void*       user_context,
         Z3_push_eh  push_eh,
         Z3_pop_eh   pop_eh,
-        Z3_fixed_eh fixed_eh) {
+        Z3_fixed_eh fixed_eh,
+        Z3_fresh_eh fresh_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
         init_solver(c, s);
         std::function<void(void*)> _push = push_eh;
         std::function<void(void*,unsigned)> _pop = pop_eh;
-        std::function<void(void*,unsigned,expr*)> _fixed = [&](void* ctx, unsigned id, expr* e) { fixed_eh(ctx, id, of_ast(e)); };
-        to_solver_ref(s)->user_propagate_init(user_context, _fixed, _push, _pop);
+        std::function<void(void*,unsigned,expr*)> _fixed = (void(*)(void*,unsigned,expr*))fixed_eh; 
+        std::function<void*(void*)> _fresh = fresh_eh;
+        to_solver_ref(s)->user_propagate_init(user_context, _fixed, _push, _pop, _fresh);
         Z3_CATCH;
     }
 

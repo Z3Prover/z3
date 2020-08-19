@@ -10505,17 +10505,44 @@ def TransitiveClosure(f):
     return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
 
 
-"""
+_user_propagate_bases = {}
+
+def user_prop_push(ctx):
+    _user_propagate_bases[ctx].push();
+
+def user_prop_pop(ctx, num_scopes):
+    _user_propagate_bases[ctx].pop(num_scopes)
+
+def user_prop_fixed(ctx, id, value):
+    prop = _user_propagate_bases[ctx]
+    prop.fixed(id, _to_expr_ref(ctypes.c_void_p(value), prop.ctx))
+
+def user_prop_fresh(ctx):
+    prop = _user_propagate_bases[ctx]
+    new_prop = prop.copy()
+    return ctypes.c_void_p(new_prop.id)
+    
+
+_user_prop_push  = push_eh_type(user_prop_push)
+_user_prop_pop   = pop_eh_type(user_prop_pop)
+_user_prop_fixed = fixed_eh_type(user_prop_fixed)
+_user_prop_fresh = fresh_eh_type(user_prop_fresh)
+
 class UserPropagateBase:
 
     def __init__(self, s):
+        self.id = len(_user_propagate_bases) + 3
         self.solver = s
         self.ctx = s.ctx
-        Z3_user_propagate_init(self,
-                               ctypes.CFUNCTYPE(None, ctypes.c_void_p)(_user_prop_push),
-                               ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint())(_user_prop_pop),
-                               ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint(), ctypes.c_void_p)(_user_prop_fixed))
-
+        _user_propagate_bases[self.id] = self
+        Z3_solver_propagate_init(s.ctx.ref(),
+                                 s.solver,
+                                 ctypes.c_void_p(self.id),
+                                 _user_prop_push,
+                                 _user_prop_pop,
+                                 _user_prop_fixed,
+                                 _user_prop_fresh)
+        
     def push(self):
         raise Z3Exception("push has not been overwritten")
 
@@ -10526,23 +10553,8 @@ class UserPropagateBase:
         raise Z3Exception("fixed has not been overwritten")
 
     def add(self, e):
-        return Z3_user_propagate_register(self.ctx.ref(), s.solver, e.ast)
+        return Z3_solver_propagate_register(self.ctx.ref(), self.solver.solver, e.ast)
 
     def propagate(self, ids, e):
-        Z3_user_propagate_consequence(self.ctx.ref(), s.solver, ids, e.ast)
-
-def _user_prop_push(ctx):
-    user_prop = ctx  # need to access as python object.
-    user_prop.push()
-
-def _user_prop_pop(ctx, num_scopes):
-    user_prop = ctx # need to access as python object
-    user_prop.pop(num_scopes)
-
-def _user_prop_fixed(ctx, id, value):
-    user_prop = ctx # need to access as python object
-    user_prop.fixed(id, _to_expr_ref(value, user_prop.ctx))
-
-    
-"""
+        Z3_solver_propagate_consequence(self.ctx.ref(), self.solver.solver, ids, e.ast)
 

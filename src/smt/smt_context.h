@@ -93,7 +93,7 @@ namespace smt {
         scoped_ptr<quantifier_manager>   m_qmanager;
         scoped_ptr<model_generator>      m_model_generator;
         scoped_ptr<relevancy_propagator> m_relevancy_propagator;
-        scoped_ptr<user_propagator>      m_user_propagator;
+        user_propagator*            m_user_propagator;
         random_gen                  m_random;
         bool                        m_flushing; // (debug support) true when flushing
         mutable unsigned            m_lemma_id;
@@ -1686,7 +1686,8 @@ namespace smt {
             void* ctx, 
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
-            std::function<void(void*, unsigned)>&        pop_eh);
+            std::function<void(void*, unsigned)>&        pop_eh,
+            std::function<void*(void*)>&                 fresh_eh);
 
         unsigned user_propagate_register(expr* e) {
             if (!m_user_propagator) 

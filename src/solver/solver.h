@@ -242,7 +242,8 @@ public:
         void* ctx, 
         std::function<void(void*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
-        std::function<void(void*, unsigned)>&        pop_eh) {
+        std::function<void(void*, unsigned)>&        pop_eh,
+        std::function<void*(void*)>&                 fresh_eh) {
         throw default_exception("user-propagators are only supported on the SMT solver");
     }
 

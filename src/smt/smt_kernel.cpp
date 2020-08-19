@@ -237,8 +237,9 @@ namespace smt {
             void* ctx, 
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
-            std::function<void(void*, unsigned)>&        pop_eh) {
-            m_kernel.user_propagate_init(ctx, fixed_eh, push_eh, pop_eh);
+            std::function<void(void*, unsigned)>&        pop_eh,
+            std::function<void*(void*)>&                 fresh_eh) {
+            m_kernel.user_propagate_init(ctx, fixed_eh, push_eh, pop_eh, fresh_eh);
         }
 
         unsigned user_propagate_register(expr* e) {
@@ -464,8 +465,9 @@ namespace smt {
         void* ctx, 
         std::function<void(void*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
-        std::function<void(void*, unsigned)>&        pop_eh) {
-        m_imp->user_propagate_init(ctx, fixed_eh, push_eh, pop_eh);
+        std::function<void(void*, unsigned)>&        pop_eh,
+        std::function<void*(void*)>&                 fresh_eh) {
+        m_imp->user_propagate_init(ctx, fixed_eh, push_eh, pop_eh, fresh_eh);
     }
 
     unsigned kernel::user_propagate_register(expr* e) {

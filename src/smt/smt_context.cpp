@@ -54,6 +54,7 @@ namespace smt {
         m_qmanager(alloc(quantifier_manager, *this, p, _p)),
         m_model_generator(alloc(model_generator, m)),
         m_relevancy_propagator(mk_relevancy_propagator(*this)),
+        m_user_propagator(nullptr),
         m_random(p.m_random_seed),
         m_flushing(false),
         m_lemma_id(0),
@@ -514,6 +515,7 @@ namespace smt {
 
             m_qmanager->add_eq_eh(r1, r2);
 
+
             merge_theory_vars(n2, n1, js);
 
             // 'Proof' tree
@@ -527,7 +529,6 @@ namespace smt {
             SASSERT(r1->trans_reaches(n1));
             // ---------------
             // r1 -> ..  -> n1 -> n2 -> ... -> r2
-
 
             remove_parents_from_cg_table(r1);
 
@@ -1304,7 +1305,7 @@ namespace smt {
             bool_var v = l.var();
             bool_var_data & d = get_bdata(v);
             lbool val  = get_assignment(v);
-            CTRACE("propagate_atoms", v == 13, tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode()
+            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode()
                   << " tag: " << (d.is_eq()?"eq":"") << (d.is_theory_atom()?"th":"") << (d.is_quantifier()?"q":"") << " " << l << "\n";);
             SASSERT(val != l_undef);
             if (d.is_enode())
@@ -1926,8 +1927,6 @@ namespace smt {
 
         for (theory* t : m_theory_set) 
             t->push_scope_eh();
-        if (m_user_propagator) 
-            m_user_propagator->push_scope_eh();
         CASSERT("context", check_invariant());
     }
 
@@ -2425,9 +2424,6 @@ namespace smt {
             for (theory* th : m_theory_set) 
                 th->pop_scope_eh(num_scopes);
 
-            if (m_user_propagator) 
-                m_user_propagator->pop_scope_eh(num_scopes);
-
             del_justifications(m_justifications, s.m_justifications_lim);
 
             m_asserted_formulas.pop_scope(num_scopes);
@@ -2882,11 +2878,13 @@ namespace smt {
         void* ctx, 
         std::function<void(void*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
-        std::function<void(void*, unsigned)>&        pop_eh) {
+        std::function<void(void*, unsigned)>&        pop_eh,
+        std::function<void*(void*)>&                 fresh_eh) {
         m_user_propagator = alloc(user_propagator, *this);
-        m_user_propagator->add(ctx, fixed_eh, push_eh, pop_eh);
+        m_user_propagator->add(ctx, fixed_eh, push_eh, pop_eh, fresh_eh);
         for (unsigned i = m_scopes.size(); i-- > 0; ) 
             m_user_propagator->push_scope_eh();
+        register_plugin(m_user_propagator);
     }
 
     bool context::watches_fixed(enode* n) const {

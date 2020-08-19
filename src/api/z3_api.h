@@ -1412,6 +1412,15 @@ typedef enum
 */
 typedef void Z3_error_handler(Z3_context c, Z3_error_code e);
 
+
+/**
+   \brief callback functions for user propagator.
+*/
+typedef void Z3_push_eh(void* ctx);
+typedef void Z3_pop_eh(void* ctx, unsigned num_scopes);
+typedef void Z3_fixed_eh(void* ctx, unsigned id, Z3_ast value);
+typedef void* Z3_fresh_eh(void* ctx);
+
 /**
    \brief A Goal is essentially a set of formulas.
    Z3 provide APIs for building strategies/tactics for solving and transforming Goals.
@@ -6515,13 +6524,10 @@ extern "C" {
     Z3_ast Z3_API Z3_solver_get_implied_upper(Z3_context c, Z3_solver s, Z3_ast e);
 
 
+
     /**
        \brief register a user-properator with the solver.
-    */
-
-    typedef void Z3_push_eh(void* ctx);
-    typedef void Z3_pop_eh(void* ctx, unsigned num_scopes);
-    typedef void Z3_fixed_eh(void* ctx, unsigned id, Z3_ast value);
+     */
 
     void Z3_API Z3_solver_propagate_init(
         Z3_context  c, 
@@ -6529,7 +6535,8 @@ extern "C" {
         void*       user_context,
         Z3_push_eh  push_eh,
         Z3_pop_eh   pop_eh,
-        Z3_fixed_eh fixed_eh);
+        Z3_fixed_eh fixed_eh,
+        Z3_fresh_eh fresh_eh);
 
     /**
        \brief register an expression to propagate on with the solver.

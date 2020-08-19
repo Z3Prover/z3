@@ -212,8 +212,9 @@ namespace {
             void* ctx, 
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
-            std::function<void(void*, unsigned)>&        pop_eh) override {
-            m_context.user_propagate_init(ctx, fixed_eh, push_eh, pop_eh);
+            std::function<void(void*, unsigned)>&        pop_eh,
+            std::function<void*(void*)>&                 fresh_eh) override {
+            m_context.user_propagate_init(ctx, fixed_eh, push_eh, pop_eh, fresh_eh);
         }
 
         unsigned user_propagate_register(expr* e) override { 
