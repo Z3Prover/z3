@@ -1668,8 +1668,7 @@ seq_util::re::info seq_util::re::mk_info_rec(app* e) const {
         case OP_RE_PLUS:
             return get_info_rec(e->get_arg(0));
         case OP_RE_COMPLEMENT:
-            i1 = get_info_rec(e->get_arg(0));
-            return info(i1.min_length > 0 ? 0 : UINT_MAX);
+            return info(0); 
         case OP_RE_LOOP:
             i1 = get_info_rec(e->get_arg(0));
             return info(u.max_mul(i1.min_length, e->get_decl()->get_parameter(0).get_int()));
