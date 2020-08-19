@@ -287,7 +287,10 @@ void goal::get_formulas(expr_ref_vector & result) const {
 void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
     if (m_inconsistent)
         return;
-    if (pr) {
+    if (proofs_enabled()) {
+        SASSERT(pr);
+        if (!pr)
+            return;
         SASSERT(f == m().get_fact(pr));
         expr_ref out_f(m());
         proof_ref out_pr(m());
@@ -305,7 +308,6 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         }
     }
     else {
-        SASSERT(!proofs_enabled());
         expr_ref fr(f, m());
         quick_process(true, fr, d);
         if (!m_inconsistent) {
