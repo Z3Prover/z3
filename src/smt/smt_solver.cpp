@@ -221,7 +221,7 @@ namespace {
             return m_context.user_propagate_register(e);
         }
 
-        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
+        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) override {
             m_context.user_propagate_consequence(sz, ids, conseq);
         }        
 

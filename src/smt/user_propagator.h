@@ -97,6 +97,6 @@ namespace smt {
         bool include_func_interp(func_decl* f) override { return false; }
         bool can_propagate() override;
         void propagate() override; 
-        void display(std::ostream& out) const {}
+        void display(std::ostream& out) const override {}
     };
 };
