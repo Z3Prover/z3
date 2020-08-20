@@ -72,18 +72,11 @@ namespace smt {
 
         unsigned add_expr(expr* e);
 
-        void add_propagation(unsigned sz, unsigned const* ids, expr* conseq) {
-            m_prop.push_back(prop_info(sz, ids, expr_ref(conseq, m)));
-        }
+        void add_propagation(unsigned sz, unsigned const* ids, expr* conseq);
 
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
 
-        theory * mk_fresh(context * new_ctx) override { 
-            auto* th = alloc(user_propagator, *new_ctx); 
-            void* ctx = m_fresh_eh(m_user_context);
-            th->add(ctx, m_fixed_eh, m_push_eh, m_pop_eh, m_fresh_eh);
-            return th;
-        }
+        theory * mk_fresh(context * new_ctx) override;
         bool internalize_atom(app * atom, bool gate_ctx) override { UNREACHABLE(); return false; }
         bool internalize_term(app * term) override { UNREACHABLE(); return false; }
         void new_eq_eh(theory_var v1, theory_var v2) override { }

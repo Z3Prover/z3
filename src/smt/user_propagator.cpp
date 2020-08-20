@@ -49,6 +49,17 @@ unsigned user_propagator::add_expr(expr* e) {
     return v;
 }
 
+void user_propagator::add_propagation(unsigned sz, unsigned const* ids, expr* conseq) {
+    m_prop.push_back(prop_info(sz, ids, expr_ref(conseq, m)));
+}
+
+theory * user_propagator::mk_fresh(context * new_ctx) { 
+    auto* th = alloc(user_propagator, *new_ctx); 
+    void* ctx = m_fresh_eh(m_user_context);
+    th->add(ctx, m_fixed_eh, m_push_eh, m_pop_eh, m_fresh_eh);
+    return th;
+}
+
 void user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits) {
     force_push();
     m_id2justification.setx(v, literal_vector(num_lits, jlits), literal_vector());
@@ -77,6 +88,8 @@ bool user_propagator::can_propagate() {
 }
 
 void user_propagator::propagate() {
+    if (m_qhead == m_prop.size())
+        return;
     force_push();
     unsigned qhead = m_qhead;
     literal_vector lits;
@@ -86,7 +99,11 @@ void user_propagator::propagate() {
         auto const& prop = m_prop[qhead];
         lits.reset();        
         for (unsigned id : prop.m_ids) 
-            lits.append(m_id2justification[id]);
+            for (literal lit : m_id2justification[id]) {
+                if (ctx.get_assignment(lit) == l_false) 
+                    lit.neg();
+                lits.push_back(lit);
+            }
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
                 ext_theory_conflict_justification(

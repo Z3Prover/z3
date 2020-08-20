@@ -795,7 +795,7 @@ namespace smt {
                 //   and a theory variable must be created for it.
                 enode * e = get_enode(n);
                 if (!th->is_attached_to_var(e))
-                    internalize_theory_term(n);
+                    th->internalize_term(n);
             }
             return;
         }
