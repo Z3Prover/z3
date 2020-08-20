@@ -76,7 +76,7 @@ namespace {
             m_minimizing_core(false),
             m_core_extend_patterns(false),
             m_core_extend_patterns_max_distance(UINT_MAX),
-            m_core_extend_nonlocal_patterns(false) {            
+            m_core_extend_nonlocal_patterns(false) {
             m_logic = l;
             if (m_logic != symbol::null)
                 m_context.set_logic(m_logic);
@@ -89,10 +89,10 @@ namespace {
             smt_solver * result = alloc(smt_solver, m, p, m_logic);
             smt::kernel::copy(m_context, result->m_context);
 
-            if (mc0()) 
+            if (mc0())
                 result->set_model_converter(mc0()->translate(translator));
 
-            for (auto & kv : m_name2assertion) { 
+            for (auto & kv : m_name2assertion) {
                 expr* val = translator(kv.m_value);
                 expr* key = translator(kv.m_key);
                 result->assert_expr(val, key);
@@ -209,7 +209,7 @@ namespace {
         }
 
         void user_propagate_init(
-            void* ctx, 
+            void* ctx,
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
@@ -217,13 +217,13 @@ namespace {
             m_context.user_propagate_init(ctx, fixed_eh, push_eh, pop_eh, fresh_eh);
         }
 
-        unsigned user_propagate_register(expr* e) override { 
+        unsigned user_propagate_register(expr* e) override {
             return m_context.user_propagate_register(e);
         }
 
-        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
+        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) override {
             m_context.user_propagate_consequence(sz, ids, conseq);
-        }        
+        }
 
         struct scoped_minimize_core {
             smt_solver& s;
@@ -367,7 +367,7 @@ namespace {
         }
 
         void compute_assrtn_fds(expr_ref_vector & core, vector<func_decl_set> & assrtn_fds) {
-            assrtn_fds.resize(m_name2assertion.size());            
+            assrtn_fds.resize(m_name2assertion.size());
             unsigned i = 0;
             for (auto & kv : m_name2assertion) {
                 if (!core.contains(kv.m_key)) {
@@ -499,4 +499,3 @@ public:
 solver_factory * mk_smt_solver_factory() {
     return alloc(smt_solver_factory);
 }
-

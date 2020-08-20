@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     User-propagator plugin.
-    Adds user plugins to propagate based on 
+    Adds user plugins to propagate based on
     terms receiving fixed values.
 
 Author:
@@ -51,14 +51,14 @@ namespace smt {
 
     public:
         user_propagator(context& ctx);
-        
+
         ~user_propagator() override {}
 
         /*
          * \brief initial setup for user propagator.
          */
         void add(
-            void* ctx, 
+            void* ctx,
             std::function<void(void*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
@@ -95,7 +95,7 @@ namespace smt {
         void init_model(model_generator & m) override {}
         bool include_func_interp(func_decl* f) override { return false; }
         bool can_propagate() override;
-        void propagate() override; 
-        void display(std::ostream& out) const {}
+        void propagate() override;
+        void display(std::ostream& out) const override {}
     };
 };
