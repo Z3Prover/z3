@@ -132,7 +132,7 @@ namespace smt {
             Solvers and utilities
         */
         seq_util& u();
-        class seq_util::re& re();
+        class seq_util::rex& re();
         class seq_util::str& str();
         seq_rewriter& seq_rw();
         seq_skolem& sk();

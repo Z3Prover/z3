@@ -408,16 +408,18 @@ public:
         unsigned max_length(expr* s) const;
     };
 
-    class re {
+    class rex {
+    public:
         struct info {
             bool valid;
             unsigned min_length;
             info() : valid(false), min_length(0) {}
             info(unsigned k) : valid(true), min_length(k) {}
-
             bool is_valid() { return valid; }
+            std::ostream& display(std::ostream&) const;
+            std::string str() const;
         };
-
+    private:
         seq_util&    u;
         ast_manager& m;
         family_id    m_fid;
@@ -431,7 +433,7 @@ public:
         info get_cached_info(expr* e) const;
 
     public:
-        re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid), m_info_pinned(u.m) {}
+        rex(seq_util& u): u(u), m(u.m), m_fid(u.m_fid), m_info_pinned(u.m) {}
 
         sort* mk_re(sort* seq) { parameter param(seq); return m.mk_sort(m_fid, RE_SORT, 1, &param); }
         sort* to_seq(sort* re);
@@ -503,7 +505,7 @@ public:
         std::string to_str(expr* r) const;
 
         class pp {
-            seq_util::re& re;
+            seq_util::rex& re;
             expr* e;
             bool can_skip_parenth(expr* r) const;
             std::ostream& seq_unit(std::ostream& out, expr* s) const;
@@ -511,12 +513,12 @@ public:
             std::ostream& compact_helper_range(std::ostream& out, expr* s1, expr* s2) const;
 
         public:
-            pp(seq_util::re& r, expr* e) : re(r), e(e) {}
+            pp(seq_util::rex& r, expr* e) : re(r), e(e) {}
             std::ostream& display(std::ostream&) const;
         };
     };
     str str;
-    re  re;
+    rex  re;
 
     seq_util(ast_manager& m):
         m(m),
@@ -531,8 +533,6 @@ public:
     family_id get_family_id() const { return m_fid; }
 };
 
-inline std::ostream& operator<<(std::ostream& out, seq_util::re::pp const & p) { return p.display(out); }
+inline std::ostream& operator<<(std::ostream& out, seq_util::rex::pp const & p) { return p.display(out); }
 
-
-
-
+inline std::ostream& operator<<(std::ostream& out, seq_util::rex::info const& p) { return p.display(out); }

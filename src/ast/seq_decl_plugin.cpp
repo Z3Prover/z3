@@ -1312,12 +1312,12 @@ unsigned seq_util::str::max_length(expr* s) const {
     return result;
 }
 
-unsigned seq_util::re::min_length(expr* r) const {
+unsigned seq_util::rex::min_length(expr* r) const {
     SASSERT(u.is_re(r));
     return get_info(r).min_length;
 }
 
-unsigned seq_util::re::max_length(expr* r) const {
+unsigned seq_util::rex::max_length(expr* r) const {
     SASSERT(u.is_re(r));
     expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
     unsigned lo = 0, hi = 0;
@@ -1341,49 +1341,49 @@ unsigned seq_util::re::max_length(expr* r) const {
     return UINT_MAX;
 }
 
-sort* seq_util::re::to_seq(sort* re) {
+sort* seq_util::rex::to_seq(sort* re) {
     (void)u;
     SASSERT(u.is_re(re));
     return to_sort(re->get_parameter(0).get_ast());
 }
 
-app* seq_util::re::mk_loop(expr* r, unsigned lo) {
+app* seq_util::rex::mk_loop(expr* r, unsigned lo) {
     parameter param(lo);
     return m.mk_app(m_fid, OP_RE_LOOP, 1, &param, 1, &r);
 }
 
-app* seq_util::re::mk_loop(expr* r, unsigned lo, unsigned hi) {
+app* seq_util::rex::mk_loop(expr* r, unsigned lo, unsigned hi) {
     parameter params[2] = { parameter(lo), parameter(hi) };
     return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
 }
 
-app* seq_util::re::mk_loop(expr* r, expr* lo) {
+app* seq_util::rex::mk_loop(expr* r, expr* lo) {
     expr* rs[2] = { r, lo };
     return m.mk_app(m_fid, OP_RE_LOOP, 0, nullptr, 2, rs);
 }
 
-app* seq_util::re::mk_loop(expr* r, expr* lo, expr* hi) {
+app* seq_util::rex::mk_loop(expr* r, expr* lo, expr* hi) {
     expr* rs[3] = { r, lo, hi };
     return m.mk_app(m_fid, OP_RE_LOOP, 0, nullptr, 3, rs);
 }
 
-app* seq_util::re::mk_full_char(sort* s) {
+app* seq_util::rex::mk_full_char(sort* s) {
     return m.mk_app(m_fid, OP_RE_FULL_CHAR_SET, 0, nullptr, 0, nullptr, s);
 }
 
-app* seq_util::re::mk_full_seq(sort* s) {
+app* seq_util::rex::mk_full_seq(sort* s) {
     return m.mk_app(m_fid, OP_RE_FULL_SEQ_SET, 0, nullptr, 0, nullptr, s);
 }
 
-app* seq_util::re::mk_empty(sort* s) {    
+app* seq_util::rex::mk_empty(sort* s) {    
     return m.mk_app(m_fid, OP_RE_EMPTY_SET, 0, nullptr, 0, nullptr, s);
 }
 
-app* seq_util::re::mk_of_pred(expr* p) {
+app* seq_util::rex::mk_of_pred(expr* p) {
     return m.mk_app(m_fid, OP_RE_OF_PRED, 0, nullptr, 1, &p);
 }
 
-bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const {
+bool seq_util::rex::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
         if (a->get_num_args() == 1 && a->get_decl()->get_num_parameters() == 2) {
@@ -1396,7 +1396,7 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& h
     return false;
 }
 
-bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo) const {
+bool seq_util::rex::is_loop(expr const* n, expr*& body, unsigned& lo) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
         if (a->get_num_args() == 1 && a->get_decl()->get_num_parameters() == 1) {
@@ -1408,7 +1408,7 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo) const {
     return false;
 }
 
-bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const {
+bool seq_util::rex::is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
         if (a->get_num_args() == 3) {
@@ -1421,7 +1421,7 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) con
     return false;
 }
 
-bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo) const {
+bool seq_util::rex::is_loop(expr const* n, expr*& body, expr*& lo) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
         if (a->get_num_args() == 2) {
@@ -1436,21 +1436,21 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo) const {
 /**
    Returns true iff e is the epsilon regex.
  */
-bool seq_util::re::is_epsilon(expr* r) const {
+bool seq_util::rex::is_epsilon(expr* r) const {
     expr* s;
     return is_to_re(r, s) && u.str.is_empty(s);
 }
 /**
    Makes the epsilon regex for a given sequence sort.
  */
-app* seq_util::re::mk_epsilon(sort* seq_sort) {
+app* seq_util::rex::mk_epsilon(sort* seq_sort) {
     return mk_to_re(u.str.mk_empty(seq_sort));
 }
 
 /*
   Produces compact view of concrete concatenations such as (abcd).
 */
-std::ostream& seq_util::re::pp::compact_helper_seq(std::ostream& out, expr* s) const {
+std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) const {
     SASSERT(re.u.is_seq(s));
     if (re.u.str.is_concat(s)) {
         expr_ref_vector es(re.m);
@@ -1472,7 +1472,7 @@ std::ostream& seq_util::re::pp::compact_helper_seq(std::ostream& out, expr* s) c
 /*
   Produces output such as [a-z] for a range.
 */
-std::ostream& seq_util::re::pp::compact_helper_range(std::ostream& out, expr* s1, expr* s2) const {
+std::ostream& seq_util::rex::pp::compact_helper_range(std::ostream& out, expr* s1, expr* s2) const {
     out << "[";
     seq_unit(out, s1) << "-";
     seq_unit(out, s2) << "]";
@@ -1482,7 +1482,7 @@ std::ostream& seq_util::re::pp::compact_helper_range(std::ostream& out, expr* s1
 /*
   Checks if parenthesis can be omitted in some cases in a loop body or in complement.
 */
-bool seq_util::re::pp::can_skip_parenth(expr* r) const {
+bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
     expr* s;
     return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r));
 }
@@ -1490,7 +1490,7 @@ bool seq_util::re::pp::can_skip_parenth(expr* r) const {
 /*
   Specialize output for a unit sequence converting to visible ASCII characters if possible.
 */
-std::ostream& seq_util::re::pp::seq_unit(std::ostream& out, expr* s) const {
+std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
     expr* e;
     unsigned n = 0;
     if (re.u.str.is_unit(s, e) && re.u.is_const_char(e, n)) {
@@ -1509,7 +1509,7 @@ std::ostream& seq_util::re::pp::seq_unit(std::ostream& out, expr* s) const {
 /*
   Pretty prints the regex r into the out stream
 */
-std::ostream& seq_util::re::pp::display(std::ostream& out) const {
+std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
     expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
     unsigned lo = 0, hi = 0;
     if (re.is_full_char(e))
@@ -1580,7 +1580,7 @@ std::ostream& seq_util::re::pp::display(std::ostream& out) const {
 /*
   Pretty prints the regex r into the output string
 */
-std::string seq_util::re::to_str(expr* r) const {
+std::string seq_util::rex::to_str(expr* r) const {
     std::ostringstream out;
     out << pp(u.re, r);
     return out.str();
@@ -1589,14 +1589,14 @@ std::string seq_util::re::to_str(expr* r) const {
 /*
   Returns true iff info has been computed for the regex r
 */
-bool seq_util::re::has_valid_info(expr* r) const {
+bool seq_util::rex::has_valid_info(expr* r) const {
     return r->get_id() < m_infos.size() && m_infos[r->get_id()].is_valid();
 }
 
 /*
   Returns the info in the cache if the info is valid. Returns invalid_info otherwise.
 */
-seq_util::re::info seq_util::re::get_cached_info(expr* e) const {
+seq_util::rex::info seq_util::rex::get_cached_info(expr* e) const {
     if (has_valid_info(e))
         return m_infos[e->get_id()];
     else
@@ -1606,7 +1606,7 @@ seq_util::re::info seq_util::re::get_cached_info(expr* e) const {
 /*
   Get the information value associated with the regular expression e
 */
-seq_util::re::info seq_util::re::get_info(expr* e) const
+seq_util::rex::info seq_util::rex::get_info(expr* e) const
 {
     SASSERT(u.is_re(e));
     auto result = get_cached_info(e);
@@ -1619,7 +1619,7 @@ seq_util::re::info seq_util::re::get_info(expr* e) const
 /*
   Gets the info value for the given regex e, possibly making a new info recursively over the structure of e.
 */
-seq_util::re::info seq_util::re::get_info_rec(expr* e) const {
+seq_util::rex::info seq_util::rex::get_info_rec(expr* e) const {
     auto result = get_cached_info(e);
     if (result.is_valid())
         return result;
@@ -1627,7 +1627,7 @@ seq_util::re::info seq_util::re::get_info_rec(expr* e) const {
         return invalid_info;
     result = mk_info_rec(to_app(e));
     m_infos.setx(e->get_id(), result, invalid_info);
-    STRACE("re_info", tout << "compute_info(" << pp(u.re, e) << "): min_length=" << m_infos[e->get_id()].min_length << std::endl;);
+    STRACE("re_info", tout << "compute_info(" << pp(u.re, e) << ")=" << result << std::endl;);
     return result;
 }
 
@@ -1635,7 +1635,7 @@ seq_util::re::info seq_util::re::get_info_rec(expr* e) const {
   Computes the info value for the given regex e recursively over the structure of e.
   The regex e does not yet have an entry in the cache.
 */
-seq_util::re::info seq_util::re::mk_info_rec(app* e) const {
+seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     info i1, i2;
     if (e->get_family_id() == u.get_family_id()) {
         switch (e->get_decl()->get_decl_kind())
@@ -1686,4 +1686,18 @@ seq_util::re::info seq_util::re::mk_info_rec(app* e) const {
         return info(std::min(i1.min_length, i2.min_length));
     }
     return invalid_info;
+}
+
+std::ostream& seq_util::rex::info::display(std::ostream& out) const {
+    if (valid)
+        out << "info(" << "min_length=" << min_length << ")";
+    else
+        out << "invalid_info";
+    return out;
+}
+
+std::string seq_util::rex::info::str() const {
+    std::ostringstream out;
+    display(out);
+    return out.str();
 }
