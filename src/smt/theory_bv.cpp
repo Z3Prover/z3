@@ -468,7 +468,14 @@ namespace smt {
         enode* n = get_enode(v);
         if (ctx.watches_fixed(n)) {
             expr_ref num(m_util.mk_numeral(val, m.get_sort(n->get_owner())), m);
-            ctx.assign_fixed(n, num, m_bits[v]);
+            literal_vector& lits = m_tmp_literals;
+            lits.reset();
+            for (literal b : m_bits[v]) {
+                if (ctx.get_assignment(b) == l_false)
+                    b.neg();
+                lits.push_back(b);
+            }
+            ctx.assign_fixed(n, num, lits);
         }
         unsigned sz = get_bv_size(v);
         value_sort_pair key(val, sz);

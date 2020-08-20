@@ -92,29 +92,24 @@ void user_propagator::propagate() {
         return;
     force_push();
     unsigned qhead = m_qhead;
-    literal_vector lits;
     enode_pair_vector eqs;
     justification* js;
     while (qhead < m_prop.size() && !ctx.inconsistent()) {
         auto const& prop = m_prop[qhead];
-        lits.reset();        
-        for (unsigned id : prop.m_ids) 
-            for (literal lit : m_id2justification[id]) {
-                if (ctx.get_assignment(lit) == l_false) 
-                    lit.neg();
-                lits.push_back(lit);
-            }
+        m_lits.reset();        
+        for (unsigned id : prop.m_ids)
+            m_lits.append(m_id2justification[id]);
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
                 ext_theory_conflict_justification(
-                    get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr));
+                    get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr));
             ctx.set_conflict(js);
         }
         else {
             literal lit = mk_literal(prop.m_conseq);
             js = ctx.mk_justification(
                 ext_theory_propagation_justification(
-                    get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), lit));
+                    get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), eqs.size(), eqs.c_ptr(), lit));
             ctx.assign(lit, js);
         }
         ++qhead;

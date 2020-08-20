@@ -46,6 +46,7 @@ namespace smt {
         unsigned_vector        m_prop_lim;
         vector<literal_vector> m_id2justification;
         unsigned               m_num_scopes;
+        literal_vector         m_lits;
 
         void force_push();
 
