@@ -793,11 +793,12 @@ namespace smt {
         }
         STRACE("seq_regex", tout << "Updating state graph for regex "
                                  << mk_pp(r, m) << ") ";);
-        if (!m_state_graph.is_seen(r_id))
-            STRACE("state_graph", tout << std::endl << "state(" << r_id << ") = " << seq_util::rex::pp(re(), r) << std::endl;);
+        
+        STRACE("state_graph",
+            if (!m_state_graph.is_seen(r_id))
+                tout << std::endl << "state(" << r_id << ") = " << seq_util::rex::pp(re(), r) << std::endl << "info(" << r_id << ") = " << re().get_info(r) << std::endl;);
         // Add state
         m_state_graph.add_state(r_id);
-        STRACE("state_graph", tout << "regex(" << r_id << ") = " << mk_pp(r, m) << std::endl;);
         STRACE("seq_regex", tout << "Updating state graph for regex "
                                  << mk_pp(r, m) << ") " << std::endl;);
         STRACE("seq_regex_brief", tout << std::endl << "USG("
@@ -815,12 +816,12 @@ namespace smt {
             for (auto const& dr: derivatives) {
                 unsigned dr_id = get_state_id(dr);
                 STRACE("seq_regex_verbose", tout
-                    << std::endl << "  traversing deriv: " << dr_id << " ";);
-                if (!m_state_graph.is_seen(dr_id))
-                    STRACE("state_graph", tout << "state(" << dr_id << ") = " << seq_util::rex::pp(re(), dr) << std::endl;);
+                    << std::endl << "  traversing deriv: " << dr_id << " ";);              
+                STRACE("state_graph",
+                    if (!m_state_graph.is_seen(dr_id))
+                        tout << "state(" << dr_id << ") = " << seq_util::rex::pp(re(), dr) << std::endl << "info(" << dr_id << ") = " << re().get_info(dr) << std::endl;);
                 // Add state
                 m_state_graph.add_state(dr_id);
-                STRACE("state_graph", tout << "regex(" << dr_id << ") = " << mk_pp(dr, m) << std::endl;);
                 bool maybecycle = can_be_in_cycle(r, dr);
                 m_state_graph.add_edge(r_id, dr_id, maybecycle);
             }
