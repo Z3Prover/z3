@@ -1624,8 +1624,9 @@ seq_util::rex::info seq_util::rex::get_info_rec(expr* e) const {
     if (result.is_valid())
         return result;
     if (!is_app(e))
-        return invalid_info;
-    result = mk_info_rec(to_app(e));
+        result = unknown_info;
+    else 
+        result = mk_info_rec(to_app(e));
     m_infos.setx(e->get_id(), result, invalid_info);
     STRACE("re_info", tout << "compute_info(" << pp(u.re, e) << ")=" << result << std::endl;);
     return result;
@@ -1639,6 +1640,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     info i1, i2;
     lbool nullable(l_false);
     unsigned min_length(0), lower_bound(0);
+    bool is_value(false);
     bool normalized(false);
     if (e->get_family_id() == u.get_family_id()) {
         switch (e->get_decl()->get_decl_kind())
@@ -1649,10 +1651,10 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             return info(true, true, true, true, true, true, false, l_true, 0, 1);
         case OP_RE_STAR:
             i1 = get_info_rec(e->get_arg(0));
-            return info(i1.classical, i1.classical, i1.interpreted, i1.nonbranching, i1.normalized, i1.monadic, false, l_true, 0, i1.star_height + 1);
+            return i1.star();
         case OP_RE_OPTION:
             i1 = get_info_rec(e->get_arg(0));
-            return info(i1.classical, i1.classical, i1.interpreted, i1.nonbranching, i1.normalized, i1.monadic, false, l_true, 0, i1.star_height);
+            return i1.opt();
         case OP_RE_RANGE:
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:
@@ -1662,94 +1664,50 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
         case OP_RE_CONCAT:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
-            return info(i1.classical & i2.classical,
-                i1.classical && i2.classical, //both args of concat must be classical for it to be standard
-                i1.interpreted && i2.interpreted,
-                i1.nonbranching && i2.nonbranching,
-                (i1.normalized && !u.re.is_concat(e->get_arg(0)) && i2.normalized),
-                i1.monadic && i2.monadic,
-                false,
-                ((i1.nullable == l_false || i2.nullable == l_false) ? l_false : ((i1.nullable == l_true && i2.nullable == l_true) ? l_true : l_undef)),
-                u.max_plus(i1.min_length, i2.min_length),
-                std::max(i1.star_height, i2.star_height));
+            return i1.concat(i2, u.re.is_concat(e->get_arg(0)));
         case OP_RE_UNION:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
-            return info(i1.classical & i2.classical,
-                i1.standard && i2.standard,
-                i1.interpreted && i2.interpreted,
-                i1.nonbranching && i2.nonbranching,
-                i1.normalized && i2.normalized,
-                i1.monadic && i2.monadic,
-                i1.singleton && i2.singleton,
-                ((i1.nullable == l_true || i2.nullable == l_true) ? l_true : ((i1.nullable == l_false && i2.nullable == l_false) ? l_false : l_undef)),
-                std::min(i1.min_length, i2.min_length),
-                std::max(i1.star_height, i2.star_height));
+            return i1.disj(i2);
         case OP_RE_INTERSECT:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
-            return info(false,
-                i1.standard && i2.standard,
-                i1.interpreted && i2.interpreted,
-                i1.nonbranching && i2.nonbranching,
-                i1.normalized && i2.normalized,
-                i1.monadic && i2.monadic,
-                i1.singleton && i2.singleton,
-                ((i1.nullable == l_true && i2.nullable == l_true) ? l_true : ((i1.nullable == l_false || i2.nullable == l_false) ? l_false : l_undef)),
-                std::max(i1.min_length, i2.min_length),
-                std::max(i1.star_height, i2.star_height));
+            return i1.conj(i2);
         case OP_SEQ_TO_RE:
-            //TBD: the sequence is not a concrete value
             min_length = u.str.min_length(e->get_arg(0));
-            return info(true, true, true, true, true, true, (min_length == 1 && u.str.max_length(e->get_arg(0)) == 1), l_false, min_length, 0);
+            is_value = m.is_value(e->get_arg(0));
+            nullable = (is_value && min_length == 0 ? l_true : (min_length > 0 ? l_false : l_undef));
+            return info(true, true, is_value, true, true, true, (min_length == 1 && u.str.max_length(e->get_arg(0)) == 1), nullable, min_length, 0);
         case OP_RE_REVERSE:
             return get_info_rec(e->get_arg(0));
         case OP_RE_PLUS:
             i1 = get_info_rec(e->get_arg(0));
-            //r+ is not normalized if r is nullable, the normalized form would be r*
-            return info(i1.classical, i1.classical, i1.interpreted, i1.nonbranching, (i1.nullable == l_false ? i1.normalized : false), i1.monadic, false, l_true, 0, i1.star_height + 1);
+            return i1.plus();
         case OP_RE_COMPLEMENT:
             i1 = get_info_rec(e->get_arg(0));
-            nullable = (i1.nullable == l_true ? l_false : (i1.nullable == l_false ? l_true : l_undef));
-            min_length = (nullable == l_false ? 1 : 0);
-            return info(false, i1.standard, i1.interpreted, i1.nonbranching, i1.normalized, i1.monadic, false, nullable, min_length, i1.star_height);
+            return i1.compl();
         case OP_RE_LOOP:
             i1 = get_info_rec(e->get_arg(0));
             lower_bound = e->get_decl()->get_parameter(0).get_int();
-            //r{l,m} is not normalized if r is nullable but l > 0
-            normalized = (i1.nullable == l_false && lower_bound > 0 ? false : i1.normalized);
-            nullable = (i1.nullable == l_true || lower_bound == 0 ? l_true : i1.nullable);
-            return info(i1.classical, i1.classical, i1.interpreted, i1.nonbranching, normalized, i1.singleton, false, nullable, u.max_mul(i1.min_length, lower_bound), i1.star_height);
+            return i1.loop(lower_bound);
         case OP_RE_DIFF:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
-            return info(false,
-                i1.standard & i2.standard,
-                i1.interpreted & i2.interpreted,
-                i1.nonbranching & i2.nonbranching,
-                i1.normalized & i2.normalized,
-                i1.monadic & i2.monadic,
-                false,
-                ((i1.nullable == l_true && i2.nullable == l_false) ? l_true : ((i1.nullable == l_false || i2.nullable == l_false) ? l_false : l_undef)),
-                std::max(i1.min_length, i2.min_length),
-                std::max(i1.star_height, i2.star_height));
+            return i1.diff(i2);
         }
-        return invalid_info;
+        return unknown_info;
     }
     expr* c, * t, * f;
     if (u.m.is_ite(e, c, t, f)) {
         i1 = get_info_rec(t);
         i2 = get_info_rec(f);
-        min_length = std::min(i1.min_length, i2.min_length);
-        nullable = (i1.nullable == i2.nullable ? i1.nullable : l_undef);
-        //TBD: whether ite is interpreted or not depends on whether the condition is interpreted and both branches are interpreted
-        return info(false, false, false, false, i1.normalized && i2.normalized, i1.monadic && i2.monadic, i1.singleton && i2.singleton, nullable, min_length, std::max(i1.star_height, i2.star_height));
+        return i1.orelse(i2);
     }
-    return invalid_info;
+    return unknown_info;
 }
 
 std::ostream& seq_util::rex::info::display(std::ostream& out) const {
-    if (valid) {
+    if (is_known()) {
         out << "info("
             << "nullable=" << (nullable == l_true ? "T" : (nullable == l_false ? "F" : "U")) << ", "
             << "classical=" << (classical ? "T" : "F") << ", "
@@ -1761,8 +1719,10 @@ std::ostream& seq_util::rex::info::display(std::ostream& out) const {
             << "min_length=" << min_length << ", "
             << "star_height=" << star_height << ")";
     }
+    else if (is_valid())
+        out << "UNKNOWN";
     else
-        out << "UNDEF";
+        out << "INVALID";
     return out;
 }
 
@@ -1773,6 +1733,149 @@ std::string seq_util::rex::info::str() const {
     std::ostringstream out;
     display(out);
     return out.str();
+}
+
+seq_util::rex::info seq_util::rex::info::star() const {
+    //if is_known() is false then all mentioned properties will remain false
+    return seq_util::rex::info(classical, classical, interpreted, nonbranching, normalized, monadic, false, l_true, 0, star_height + 1);
+}
+
+seq_util::rex::info seq_util::rex::info::plus() const {
+    if (is_known()) {
+        //r+ is not normalized if r is nullable, the normalized form would be r*
+        info(classical, classical, interpreted, nonbranching, (nullable == l_false ? normalized : false), monadic, false, nullable, min_length, star_height + 1);
+    }
+    else
+        return *this;
+}
+
+seq_util::rex::info seq_util::rex::info::opt() const {
+    //if is_known() is false then all mentioned properties will remain false
+    return seq_util::rex::info(classical, classical, interpreted, nonbranching, normalized, monadic, false, l_true, 0, star_height);
+}
+
+seq_util::rex::info seq_util::rex::info::compl() const {
+    if (is_known()) {
+        lbool compl_nullable = (nullable == l_true ? l_false : (nullable == l_false ? l_true : l_undef));
+        unsigned compl_min_length = (compl_nullable == l_false ? 1 : 0);
+        return info(false, standard, interpreted, nonbranching, normalized, monadic, false, compl_nullable, compl_min_length, star_height);
+    }
+    else
+        return *this;
+}
+
+seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info & rhs, bool lhs_is_concat) const {
+    if (is_known()) {
+        if (rhs.is_known()) {
+            unsigned m = min_length + rhs.min_length;
+            if (m < min_length || m < rhs.min_length)
+                m = UINT_MAX;
+            return info(classical & rhs.classical,
+                classical && rhs.classical, //both args of concat must be classical for it to be standard
+                interpreted && rhs.interpreted,
+                nonbranching && rhs.nonbranching,
+                (normalized && !lhs_is_concat && rhs.normalized),
+                monadic && rhs.monadic,
+                false,
+                ((nullable == l_false || rhs.nullable == l_false) ? l_false : ((nullable == l_true && rhs.nullable == l_true) ? l_true : l_undef)),
+                m,
+                std::max(star_height, rhs.star_height));
+        }
+        else
+            return rhs;
+    }
+    else
+        return *this;
+}
+
+seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info& rhs) const {
+    if (is_known() || rhs.is_known()) {
+        //works correctly if one of the arguments is unknown
+        info(classical & rhs.classical,
+            standard && rhs.standard,
+            interpreted && rhs.interpreted,
+            nonbranching && rhs.nonbranching,
+            normalized && rhs.normalized,
+            monadic && rhs.monadic,
+            singleton && rhs.singleton,
+            ((nullable == l_true || rhs.nullable == l_true) ? l_true : ((nullable == l_false && rhs.nullable == l_false) ? l_false : l_undef)),
+            std::min(min_length, rhs.min_length),
+            std::max(star_height, rhs.star_height));
+    }
+    else
+        return rhs;
+}
+
+seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info& rhs) const {
+    if (is_known()) {
+        if (rhs.is_known()) {
+            return info(false,
+                standard && rhs.standard,
+                interpreted && rhs.interpreted,
+                nonbranching && rhs.nonbranching,
+                normalized && rhs.normalized,
+                monadic && rhs.monadic,
+                singleton && rhs.singleton,
+                ((nullable == l_true && rhs.nullable == l_true) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
+                std::max(min_length, rhs.min_length),
+                std::max(star_height, rhs.star_height));
+        }
+        else
+            return rhs;
+    }
+    else
+        return *this;
+}
+
+seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info& rhs) const {
+    if (is_known()) {
+        if (rhs.is_known()) {
+            info(false,
+                standard & rhs.standard,
+                interpreted & rhs.interpreted,
+                nonbranching & rhs.nonbranching,
+                normalized & rhs.normalized,
+                monadic & rhs.monadic,
+                false,
+                ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
+                std::max(min_length, rhs.min_length),
+                std::max(star_height, rhs.star_height));
+        }
+        else
+            return rhs;
+    }
+    else
+        return *this;
+}
+
+seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info& i) const {
+    if (is_known()) {
+        if (i.is_known()) {
+            unsigned ite_min_length = std::min(min_length, i.min_length);
+            lbool ite_nullable = (nullable == i.nullable ? nullable : l_undef);
+            //TBD: whether ite is interpreted or not depends on whether the condition is interpreted and both branches are interpreted
+            return info(false, false, false, false, normalized && i.normalized, monadic && i.monadic, singleton && i.singleton, nullable, min_length, std::max(star_height, i.star_height));
+        }
+        else
+            return i;
+    }
+    else
+        return *this;
+}
+
+seq_util::rex::info seq_util::rex::info::loop(unsigned lower) const {
+    if (is_known()) {
+        //r{l,m} is not normalized if r is nullable but l > 0
+        unsigned m = min_length * lower;
+        if (m < min_length || m < lower)
+            m = UINT_MAX;
+        bool loop_normalized = (nullable == l_false && lower > 0 ? false : normalized);
+        lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);
+        //TBD: pass also upper bound and if upper bound is UINT_MAX then this is * and the loop is thus not normalized
+        return info(classical, classical, interpreted, nonbranching, loop_normalized, singleton, false, loop_nullable, m, star_height);
+    }
+    else
+        return *this;
 }
 
 

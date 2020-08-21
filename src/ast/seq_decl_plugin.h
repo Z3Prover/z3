@@ -412,49 +412,54 @@ public:
     class rex {
     public:
         struct info {
-            /* Value is well-defined. */
-            bool valid;
+            /* Value is either undefined (known=l_undef) or defined and known (l_true) or defined but unknown (l_false)*/
+            bool known{ l_undef };
             /* No complement, no intersection, no difference, and no if-then-else is used. Reverse is allowed. */
-            bool classical;
+            bool classical{ false };
             /* Boolean-reverse combination of classical regexes (using reverse, union, complement, intersection or difference). */
-            bool standard;
+            bool standard{ false };
             /* There are no uninterpreted symbols. */
-            bool interpreted;
+            bool interpreted{ false };
             /* No if-then-else is used. */
-            bool nonbranching;
+            bool nonbranching{ false };
             /* Concatenations are right associative and if a loop body is nullable then the lower bound is zero. */
-            bool normalized;
+            bool normalized{ false };
             /* All bounded loops have a body that is a singleton. */
-            bool monadic;
+            bool monadic{ false };
             /* Positive Boolean combination of ranges or predicates or singleton sequences. */
-            bool singleton;
+            bool singleton{ false };
             /* If l_true then empty word is accepted, if l_false then empty word is not accepted. */
-            lbool nullable;
-            /* Lower bound on the length of all accepted words. */
-            unsigned min_length;
+            lbool nullable{ l_false };
+            /* Lower bound  on the length of all accepted words. */
+            unsigned min_length{ 0 };
             /* Maximum nesting depth of Kleene stars. */
-            unsigned star_height;
+            unsigned star_height{ 0 };
 
-            /* 
-              Constructs an invalid info
+            /*
+              Default constructor of invalid info.
             */
-            info() : valid(false) {}
+            info() {}
 
-            /* 
+            /*
+              Used for constructing either an invalid info that is only used to indicate uninitialzed entry, or valid but unknown info value.
+            */
+            info(lbool is_known) : known(is_known) {}
+
+            /*
               General info constructor.
             */
-            info(bool is_classical, 
-                bool is_standard, 
-                bool is_interpreted, 
-                bool is_nonbranching, 
-                bool is_normalized, 
-                bool is_monadic, 
+            info(bool is_classical,
+                bool is_standard,
+                bool is_interpreted,
+                bool is_nonbranching,
+                bool is_normalized,
+                bool is_monadic,
                 bool is_singleton,
-                lbool is_nullable, 
-                unsigned min_l, 
+                lbool is_nullable,
+                unsigned min_l,
                 unsigned star_h) :
-                valid(true), classical(is_classical), standard(is_standard), interpreted(is_interpreted), nonbranching(is_nonbranching),
-                normalized(is_normalized), monadic(is_monadic), nullable(is_nullable), singleton(is_singleton), 
+                known(l_true), classical(is_classical), standard(is_standard), interpreted(is_interpreted), nonbranching(is_nonbranching),
+                normalized(is_normalized), monadic(is_monadic), singleton(is_singleton), nullable(is_nullable),
                 min_length(min_l), star_height(star_h) {}
 
             /*
@@ -467,7 +472,20 @@ public:
             */
             std::string str() const;
 
-            bool is_valid() const { return valid; }
+            bool is_valid() const { return known != l_undef; }
+
+            bool is_known() const { return known == l_true; }
+
+            info star() const;
+            info plus() const;
+            info opt() const;
+            info concat(info & rhs, bool lhs_is_concat) const;
+            info disj(info& rhs) const;
+            info conj(info& rhs) const;
+            info diff(info& rhs) const;
+            info orelse(info& rhs) const;
+            info loop(unsigned lower) const;
+            info compl() const;
         };
     private:
         seq_util&    u;
@@ -475,7 +493,8 @@ public:
         family_id    m_fid;
         vector<info> mutable m_infos;
         expr_ref_vector mutable m_info_pinned;
-        info invalid_info;
+        info invalid_info{ info(l_undef) };
+        info unknown_info{ info(l_false) };
 
         bool has_valid_info(expr* r) const;
         info get_info_rec(expr* r) const;
