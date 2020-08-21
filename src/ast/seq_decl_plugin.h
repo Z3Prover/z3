@@ -429,7 +429,7 @@ public:
             /* Positive Boolean combination of ranges or predicates or singleton sequences. */
             bool singleton{ false };
             /* If l_true then empty word is accepted, if l_false then empty word is not accepted. */
-            lbool nullable{ l_false };
+            lbool nullable{ l_undef };
             /* Lower bound  on the length of all accepted words. */
             unsigned min_length{ 0 };
             /* Maximum nesting depth of Kleene stars. */

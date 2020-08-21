@@ -1867,7 +1867,7 @@ seq_util::rex::info seq_util::rex::info::loop(unsigned lower) const {
     if (is_known()) {
         //r{l,m} is not normalized if r is nullable but l > 0
         unsigned m = min_length * lower;
-        if (m < min_length || m < lower)
+        if (m > 0 && (m < min_length || m < lower))
             m = UINT_MAX;
         bool loop_normalized = (nullable == l_false && lower > 0 ? false : normalized);
         lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);
