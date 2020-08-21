@@ -1689,7 +1689,7 @@ namespace smt {
          */
         void user_propagate_init(
             void* ctx, 
-            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
             std::function<void*(void*)>&                 fresh_eh);
@@ -1700,13 +1700,6 @@ namespace smt {
             return m_user_propagator->add_expr(e);
         }
         
-        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
-            if (!m_user_propagator) 
-                throw default_exception("user propagator must be initialized");
-            m_user_propagator->add_propagation(sz, ids, conseq);
-        }
-
-
         bool watches_fixed(enode* n) const;
 
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);

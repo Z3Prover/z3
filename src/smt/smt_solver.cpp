@@ -210,7 +210,7 @@ namespace {
 
         void user_propagate_init(
             void* ctx, 
-            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
             std::function<void*(void*)>&                 fresh_eh) override {
@@ -220,10 +220,6 @@ namespace {
         unsigned user_propagate_register(expr* e) override { 
             return m_context.user_propagate_register(e);
         }
-
-        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) override {
-            m_context.user_propagate_consequence(sz, ids, conseq);
-        }        
 
         struct scoped_minimize_core {
             smt_solver& s;

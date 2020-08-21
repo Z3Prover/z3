@@ -10513,13 +10513,16 @@ def user_prop_push(ctx):
 def user_prop_pop(ctx, num_scopes):
     _user_propagate_bases[ctx].pop(num_scopes)
 
-def user_prop_fixed(ctx, id, value):
+def user_prop_fixed(ctx, cb, id, value):
     prop = _user_propagate_bases[ctx]
+    prop.cb = cb
     prop.fixed(id, _to_expr_ref(ctypes.c_void_p(value), prop.ctx))
+    prop.cb = None
 
 def user_prop_fresh(ctx):
     prop = _user_propagate_bases[ctx]
-    new_prop = prop.fresh()
+    new_prop = UsePropagateBase(None, prop.ctx)
+    _user_prop_bases[new_prop.id] = new_prop.fresh()
     return ctypes.c_void_p(new_prop.id)
     
 
@@ -10530,18 +10533,20 @@ _user_prop_fresh = fresh_eh_type(user_prop_fresh)
 
 class UserPropagateBase:
 
-    def __init__(self, s):
+    def __init__(self, s, ctx = None):
         self.id = len(_user_propagate_bases) + 3
         self.solver = s
-        self.ctx = s.ctx
+        self.ctx = s.ctx if s is not None else ctx
+        self.cb = None
         _user_propagate_bases[self.id] = self
-        Z3_solver_propagate_init(s.ctx.ref(),
-                                 s.solver,
-                                 ctypes.c_void_p(self.id),
-                                 _user_prop_push,
-                                 _user_prop_pop,
-                                 _user_prop_fixed,
-                                 _user_prop_fresh)
+        if s:
+            Z3_solver_propagate_init(s.ctx.ref(),
+                                     s.solver,
+                                     ctypes.c_void_p(self.id),
+                                     _user_prop_push,
+                                     _user_prop_pop,
+                                     _user_prop_fixed,
+                                     _user_prop_fresh)
         
     def push(self):
         raise Z3Exception("push has not been overwritten")
@@ -10551,19 +10556,23 @@ class UserPropagateBase:
 
     def fixed(self, id, e):
         raise Z3Exception("fixed has not been overwritten")
-
-    def fresh(self):
+    
+    def fresh(self, prop_base):
         raise Z3Exception("fresh has not been overwritten")
         
     def add(self, e):
+        assert self.solver
         return Z3_solver_propagate_register(self.ctx.ref(), self.solver.solver, e.ast)
 
+    #
+    # Propagation can only be invoked as during a fixed-callback.
+    # 
     def propagate(self, ids, e):
         sz = len(ids)
         _ids = (ctypes.c_uint * sz)()
         for i in range(sz):
             _ids[i] = ids[i]
-        Z3_solver_propagate_consequence(self.ctx.ref(), self.solver.solver, sz, _ids, e.ast)
+        Z3_solver_propagate_consequence(self.ctx.ref(), self.cb, sz, _ids, e.ast)
 
     def conflict(self, ids):
         self.propagate(ids, BoolVal(False, self.ctx))

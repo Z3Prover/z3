@@ -1826,7 +1826,7 @@ _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
 push_eh_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 pop_eh_type   = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
-fixed_eh_type = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p)
+fixed_eh_type = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p)
 fresh_eh_type = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p)
 
 _lib.Z3_solver_propagate_init.restype = None

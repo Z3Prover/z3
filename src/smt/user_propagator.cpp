@@ -49,7 +49,7 @@ unsigned user_propagator::add_expr(expr* e) {
     return v;
 }
 
-void user_propagator::add_propagation(unsigned sz, unsigned const* ids, expr* conseq) {
+void user_propagator::propagate(unsigned sz, unsigned const* ids, expr* conseq) {
     m_prop.push_back(prop_info(sz, ids, expr_ref(conseq, m)));
 }
 
@@ -63,7 +63,7 @@ theory * user_propagator::mk_fresh(context * new_ctx) {
 void user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits) {
     force_push();
     m_id2justification.setx(v, literal_vector(num_lits, jlits), literal_vector());
-    m_fixed_eh(m_user_context, v, value);
+    m_fixed_eh(m_user_context, this, v, value);
 }
 
 void user_propagator::push_scope_eh() {

@@ -2951,7 +2951,7 @@ namespace smt {
 
     void context::user_propagate_init(
         void* ctx, 
-        std::function<void(void*, unsigned, expr*)>& fixed_eh,
+        std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
         std::function<void(void*, unsigned)>&        pop_eh,
         std::function<void*(void*)>&                 fresh_eh) {

@@ -26,11 +26,12 @@ Revision History:
 --*/
 #pragma once
 
-#include "ast/ast.h"
 #include "util/params.h"
-#include "model/model.h"
 #include "util/lbool.h"
 #include "util/statistics.h"
+#include "ast/ast.h"
+#include "model/model.h"
+#include "solver/solver.h"
 #include "smt/smt_failure.h"
 
 struct smt_params;
@@ -289,7 +290,7 @@ namespace smt {
         */
         void user_propagate_init(
             void* ctx, 
-            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
             std::function<void*(void*)>&                 fresh_eh);
@@ -298,13 +299,6 @@ namespace smt {
            \brief register an expression to be tracked fro user propagation.
         */
         unsigned user_propagate_register(expr* e);
-
-
-        /**
-           \brief accept a user-propagation callback (issued during fixed_he).
-        */
-        
-        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq);
         
 
         /**

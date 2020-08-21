@@ -235,7 +235,7 @@ namespace smt {
 
         void user_propagate_init(
             void* ctx, 
-            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
             std::function<void*(void*)>&                 fresh_eh) {
@@ -246,9 +246,6 @@ namespace smt {
             return m_kernel.user_propagate_register(e);
         }
         
-        void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
-            m_kernel.user_propagate_consequence(sz, ids, conseq);
-        }
     };
 
     kernel::kernel(ast_manager & m, smt_params & fp, params_ref const & p) {
@@ -463,7 +460,7 @@ namespace smt {
 
     void kernel::user_propagate_init(
         void* ctx, 
-        std::function<void(void*, unsigned, expr*)>& fixed_eh,
+        std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
         std::function<void(void*, unsigned)>&        pop_eh,
         std::function<void*(void*)>&                 fresh_eh) {
@@ -472,12 +469,6 @@ namespace smt {
 
     unsigned kernel::user_propagate_register(expr* e) {
         return m_imp->user_propagate_register(e);
-    }
-        
-    void kernel::user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {
-        m_imp->user_propagate_consequence(sz, ids, conseq);
-    }
-
-
+    }        
 
 };

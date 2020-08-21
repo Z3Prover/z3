@@ -899,7 +899,7 @@ extern "C" {
         init_solver(c, s);
         std::function<void(void*)> _push = push_eh;
         std::function<void(void*,unsigned)> _pop = pop_eh;
-        std::function<void(void*,unsigned,expr*)> _fixed = (void(*)(void*,unsigned,expr*))fixed_eh; 
+        std::function<void(void*,solver::propagate_callback*,unsigned,expr*)> _fixed = (void(*)(void*,solver::propagate_callback*,unsigned,expr*))fixed_eh; 
         std::function<void*(void*)> _fresh = fresh_eh;
         to_solver_ref(s)->user_propagate_init(user_context, _fixed, _push, _pop, _fresh);
         Z3_CATCH;
@@ -913,11 +913,11 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver s, unsigned sz, unsigned const* ids, Z3_ast conseq) {
+    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback s, unsigned sz, unsigned const* ids, Z3_ast conseq) {
         Z3_TRY;
         LOG_Z3_solver_propagate_consequence(c, s, sz, ids, conseq);
         RESET_ERROR_CODE();
-        to_solver_ref(s)->user_propagate_consequence(sz, ids, to_expr(conseq));
+        reinterpret_cast<solver::propagate_callback*>(s)->propagate(sz, ids, to_expr(conseq));
         Z3_CATCH;        
     }
 

@@ -25,11 +25,12 @@ Notes:
 #pragma once
 
 #include "smt/smt_theory.h"
+#include "solver/solver.h"
 
 namespace smt {
-    class user_propagator : public theory {
+    class user_propagator : public theory, public solver::propagate_callback {
         void* m_user_context;
-        std::function<void(void*, unsigned, expr*)> m_fixed_eh;
+        std::function<void(void*, solver::propagate_callback*, unsigned, expr*)> m_fixed_eh;
         std::function<void(void*)>                  m_push_eh;
         std::function<void(void*, unsigned)>        m_pop_eh;
         std::function<void*(void*)>                 m_fresh_eh;
@@ -60,7 +61,7 @@ namespace smt {
          */
         void add(
             void* ctx, 
-            std::function<void(void*, unsigned, expr*)>& fixed_eh,
+            std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
             std::function<void*(void*)>&                 fresh_eh) {
@@ -73,7 +74,7 @@ namespace smt {
 
         unsigned add_expr(expr* e);
 
-        void add_propagation(unsigned sz, unsigned const* ids, expr* conseq);
+        void propagate(unsigned sz, unsigned const* ids, expr* conseq) override;
 
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
 

@@ -238,9 +238,14 @@ public:
 
     virtual expr_ref get_implied_upper_bound(expr* e) = 0;
 
+    class propagate_callback {
+    public:
+        virtual void propagate(unsigned sz, unsigned const* ids, expr* conseq) = 0;
+    };
+
     virtual void user_propagate_init(
         void* ctx, 
-        std::function<void(void*, unsigned, expr*)>& fixed_eh,
+        std::function<void(void*, propagate_callback*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
         std::function<void(void*, unsigned)>&        pop_eh,
         std::function<void*(void*)>&                 fresh_eh) {
@@ -248,8 +253,6 @@ public:
     }
 
     virtual unsigned user_propagate_register(expr* e) { return 0; }
-
-    virtual void user_propagate_consequence(unsigned sz, unsigned const* ids, expr* conseq) {}
 
 
     /**
