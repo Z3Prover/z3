@@ -25,6 +25,7 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/bv_decl_plugin.h"
 #include <string>
+#include "util/lbool.h"
 
 #define Z3_USE_UNICODE 0
 
@@ -411,13 +412,62 @@ public:
     class rex {
     public:
         struct info {
+            /* Value is well-defined. */
             bool valid;
+            /* No complement, no intersection, no difference, and no if-then-else is used. Reverse is allowed. */
+            bool classical;
+            /* Boolean-reverse combination of classical regexes (using reverse, union, complement, intersection or difference). */
+            bool standard;
+            /* There are no uninterpreted symbols. */
+            bool interpreted;
+            /* No if-then-else is used. */
+            bool nonbranching;
+            /* Concatenations are right associative and if a loop body is nullable then the lower bound is zero. */
+            bool normalized;
+            /* All bounded loops have a body that is a singleton. */
+            bool monadic;
+            /* Positive Boolean combination of ranges or predicates or singleton sequences. */
+            bool singleton;
+            /* If l_true then empty word is accepted, if l_false then empty word is not accepted. */
+            lbool nullable;
+            /* Lower bound on the length of all accepted words. */
             unsigned min_length;
-            info() : valid(false), min_length(0) {}
-            info(unsigned k) : valid(true), min_length(k) {}
-            bool is_valid() { return valid; }
+            /* Maximum nesting depth of Kleene stars. */
+            unsigned star_height;
+
+            /* 
+              Constructs an invalid info
+            */
+            info() : valid(false) {}
+
+            /* 
+              General info constructor.
+            */
+            info(bool is_classical, 
+                bool is_standard, 
+                bool is_interpreted, 
+                bool is_nonbranching, 
+                bool is_normalized, 
+                bool is_monadic, 
+                bool is_singleton,
+                lbool is_nullable, 
+                unsigned min_l, 
+                unsigned star_h) :
+                valid(true), classical(is_classical), standard(is_standard), interpreted(is_interpreted), nonbranching(is_nonbranching),
+                normalized(is_normalized), monadic(is_monadic), nullable(is_nullable), singleton(is_singleton), 
+                min_length(min_l), star_height(star_h) {}
+
+            /*
+              Appends a string representation of the info into the stream.
+            */
             std::ostream& display(std::ostream&) const;
+
+            /*
+              Returns a string representation of the info.
+            */
             std::string str() const;
+
+            bool is_valid() const { return valid; }
         };
     private:
         seq_util&    u;
@@ -536,3 +586,4 @@ public:
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::pp const & p) { return p.display(out); }
 
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::info const& p) { return p.display(out); }
+

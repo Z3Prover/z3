@@ -1637,45 +1637,102 @@ seq_util::rex::info seq_util::rex::get_info_rec(expr* e) const {
 */
 seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     info i1, i2;
+    lbool nullable(l_false);
+    unsigned min_length(0), lower_bound(0);
+    bool normalized(false);
     if (e->get_family_id() == u.get_family_id()) {
         switch (e->get_decl()->get_decl_kind())
         {
         case OP_RE_EMPTY_SET:
-            return info(UINT_MAX);
+            return info(true, true, true, true, true, true, false, l_false, UINT_MAX, 0);
         case OP_RE_FULL_SEQ_SET:
+            return info(true, true, true, true, true, true, false, l_true, 0, 1);
         case OP_RE_STAR:
+            i1 = get_info_rec(e->get_arg(0));
+            return info(i1.classical, i1.classical, i1.interpreted, i1.nonbranching, i1.normalized, i1.monadic, false, l_true, 0, i1.star_height + 1);
         case OP_RE_OPTION:
-            return info(0);
+            i1 = get_info_rec(e->get_arg(0));
+            return info(i1.classical, i1.classical, i1.interpreted, i1.nonbranching, i1.normalized, i1.monadic, false, l_true, 0, i1.star_height);
         case OP_RE_RANGE:
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:
-            return info(1);
+            //TBD: check if the character predicate contains uninterpreted symbols or is nonground or is unsat
+            //TBD: check if the range is unsat
+            return info(true, true, true, true, true, true, true, l_false, 1, 0);
         case OP_RE_CONCAT:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
-            return info(u.max_plus(i1.min_length, i2.min_length));
+            return info(i1.classical & i2.classical,
+                i1.classical && i2.classical, //both args of concat must be classical for it to be standard
+                i1.interpreted && i2.interpreted,
+                i1.nonbranching && i2.nonbranching,
+                (i1.normalized && !u.re.is_concat(e->get_arg(0)) && i2.normalized),
+                i1.monadic && i2.monadic,
+                false,
+                ((i1.nullable == l_false || i2.nullable == l_false) ? l_false : ((i1.nullable == l_true && i2.nullable == l_true) ? l_true : l_undef)),
+                u.max_plus(i1.min_length, i2.min_length),
+                std::max(i1.star_height, i2.star_height));
         case OP_RE_UNION:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
-            return info(std::min(i1.min_length, i2.min_length));
+            return info(i1.classical & i2.classical,
+                i1.standard && i2.standard,
+                i1.interpreted && i2.interpreted,
+                i1.nonbranching && i2.nonbranching,
+                i1.normalized && i2.normalized,
+                i1.monadic && i2.monadic,
+                i1.singleton && i2.singleton,
+                ((i1.nullable == l_true || i2.nullable == l_true) ? l_true : ((i1.nullable == l_false && i2.nullable == l_false) ? l_false : l_undef)),
+                std::min(i1.min_length, i2.min_length),
+                std::max(i1.star_height, i2.star_height));
         case OP_RE_INTERSECT:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
-            return info(std::max(i1.min_length, i2.min_length));
+            return info(false,
+                i1.standard && i2.standard,
+                i1.interpreted && i2.interpreted,
+                i1.nonbranching && i2.nonbranching,
+                i1.normalized && i2.normalized,
+                i1.monadic && i2.monadic,
+                i1.singleton && i2.singleton,
+                ((i1.nullable == l_true && i2.nullable == l_true) ? l_true : ((i1.nullable == l_false || i2.nullable == l_false) ? l_false : l_undef)),
+                std::max(i1.min_length, i2.min_length),
+                std::max(i1.star_height, i2.star_height));
         case OP_SEQ_TO_RE:
-            return info(u.str.min_length(e->get_arg(0)));
+            //TBD: the sequence is not a concrete value
+            min_length = u.str.min_length(e->get_arg(0));
+            return info(true, true, true, true, true, true, (min_length == 1 && u.str.max_length(e->get_arg(0)) == 1), l_false, min_length, 0);
         case OP_RE_REVERSE:
-        case OP_RE_PLUS:
             return get_info_rec(e->get_arg(0));
+        case OP_RE_PLUS:
+            i1 = get_info_rec(e->get_arg(0));
+            //r+ is not normalized if r is nullable, the normalized form would be r*
+            return info(i1.classical, i1.classical, i1.interpreted, i1.nonbranching, (i1.nullable == l_false ? i1.normalized : false), i1.monadic, false, l_true, 0, i1.star_height + 1);
         case OP_RE_COMPLEMENT:
-            return info(0); 
+            i1 = get_info_rec(e->get_arg(0));
+            nullable = (i1.nullable == l_true ? l_false : (i1.nullable == l_false ? l_true : l_undef));
+            min_length = (nullable == l_false ? 1 : 0);
+            return info(false, i1.standard, i1.interpreted, i1.nonbranching, i1.normalized, i1.monadic, false, nullable, min_length, i1.star_height);
         case OP_RE_LOOP:
             i1 = get_info_rec(e->get_arg(0));
-            return info(u.max_mul(i1.min_length, e->get_decl()->get_parameter(0).get_int()));
+            lower_bound = e->get_decl()->get_parameter(0).get_int();
+            //r{l,m} is not normalized if r is nullable but l > 0
+            normalized = (i1.nullable == l_false && lower_bound > 0 ? false : i1.normalized);
+            nullable = (i1.nullable == l_true || lower_bound == 0 ? l_true : i1.nullable);
+            return info(i1.classical, i1.classical, i1.interpreted, i1.nonbranching, normalized, i1.singleton, false, nullable, u.max_mul(i1.min_length, lower_bound), i1.star_height);
         case OP_RE_DIFF:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
-            return info(std::max(i1.min_length, i2.min_length > 0 ? 0 : UINT_MAX));
+            return info(false,
+                i1.standard & i2.standard,
+                i1.interpreted & i2.interpreted,
+                i1.nonbranching & i2.nonbranching,
+                i1.normalized & i2.normalized,
+                i1.monadic & i2.monadic,
+                false,
+                ((i1.nullable == l_true && i2.nullable == l_false) ? l_true : ((i1.nullable == l_false || i2.nullable == l_false) ? l_false : l_undef)),
+                std::max(i1.min_length, i2.min_length),
+                std::max(i1.star_height, i2.star_height));
         }
         return invalid_info;
     }
@@ -1683,21 +1740,39 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     if (u.m.is_ite(e, c, t, f)) {
         i1 = get_info_rec(t);
         i2 = get_info_rec(f);
-        return info(std::min(i1.min_length, i2.min_length));
+        min_length = std::min(i1.min_length, i2.min_length);
+        nullable = (i1.nullable == i2.nullable ? i1.nullable : l_undef);
+        //TBD: whether ite is interpreted or not depends on whether the condition is interpreted and both branches are interpreted
+        return info(false, false, false, false, i1.normalized && i2.normalized, i1.monadic && i2.monadic, i1.singleton && i2.singleton, nullable, min_length, std::max(i1.star_height, i2.star_height));
     }
     return invalid_info;
 }
 
 std::ostream& seq_util::rex::info::display(std::ostream& out) const {
-    if (valid)
-        out << "info(" << "min_length=" << min_length << ")";
+    if (valid) {
+        out << "info("
+            << "nullable=" << (nullable == l_true ? "T" : (nullable == l_false ? "F" : "U")) << ", "
+            << "classical=" << (classical ? "T" : "F") << ", "
+            << "standard=" << (standard ? "T" : "F") << ", "
+            << "nonbranching=" << (nonbranching ? "T" : "F") << ", "
+            << "normalized=" << (normalized ? "T" : "F") << ", "
+            << "monadic=" << (monadic ? "T" : "F") << ", "
+            << "singleton=" << (singleton ? "T" : "F") << ", "
+            << "min_length=" << min_length << ", "
+            << "star_height=" << star_height << ")";
+    }
     else
-        out << "invalid_info";
+        out << "UNDEF";
     return out;
 }
 
+/*
+  String representation of the info.
+*/
 std::string seq_util::rex::info::str() const {
     std::ostringstream out;
     display(out);
     return out.str();
 }
+
+
