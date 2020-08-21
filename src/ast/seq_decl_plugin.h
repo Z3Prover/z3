@@ -413,7 +413,7 @@ public:
     public:
         struct info {
             /* Value is either undefined (known=l_undef) or defined and known (l_true) or defined but unknown (l_false)*/
-            bool known{ l_undef };
+            lbool known{ l_undef };
             /* No complement, no intersection, no difference, and no if-then-else is used. Reverse is allowed. */
             bool classical{ false };
             /* Boolean-reverse combination of classical regexes (using reverse, union, complement, intersection or difference). */
