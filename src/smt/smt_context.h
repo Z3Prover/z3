@@ -232,6 +232,9 @@ namespace smt {
         literal2assumption         m_literal2assumption; // maps an expression associated with a literal to the original assumption
         expr_ref_vector            m_unsat_core;
 
+        unsigned                   m_last_position_log { 0 };
+        svector<size_t>            m_last_positions;
+
         // -----------------------------------
         //
         // Theory case split
@@ -1567,6 +1570,8 @@ namespace smt {
         void preferred_sat(literal_vector& literals);
 
         void display_partial_assignment(std::ostream& out, expr_ref_vector const& asms, unsigned min_core_size);
+
+        void log_stats();
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());

@@ -2648,7 +2648,6 @@ namespace smt {
         }
 
         TRACE("simplify_clauses_detail", tout << "before:\n"; display_clauses(tout, m_lemmas););
-        IF_VERBOSE(2, verbose_stream() << "(smt.simplifying-clause-set"; verbose_stream().flush(););
 
         SASSERT(check_clauses(m_lemmas));
         SASSERT(check_clauses(m_aux_clauses));
@@ -2681,10 +2680,86 @@ namespace smt {
             num_del_clauses += simplify_clauses(m_aux_clauses, s.m_aux_clauses_lim);
             num_del_clauses += simplify_clauses(m_lemmas, bs.m_lemmas_lim);
         }
+        m_stats.m_num_del_clauses += num_del_clauses;
+        m_stats.m_num_simplifications++;
         TRACE("simp_counter", tout << "simp_counter: " << m_simp_counter << " scope_lvl: " << m_scope_lvl << "\n";);
-        IF_VERBOSE(2, verbose_stream() << " :num-deleted-clauses " << num_del_clauses << ")" << std::endl;);
         TRACE("simplify_clauses_detail", tout << "after:\n"; display_clauses(tout, m_lemmas););
         SASSERT(check_clauses(m_lemmas) && check_clauses(m_aux_clauses));
+    }
+
+    void context::log_stats() {
+        size_t bin_lemmas = 0;
+        for (watch_list const& w : m_watches) {
+            bin_lemmas += w.end_literals() - w.begin_literals();
+        }
+        bin_lemmas /= 2;
+        std::stringstream strm;
+        strm << "(smt.stats " 
+             << std::setw(4) << m_stats.m_num_restarts << " "
+             << std::setw(6) << m_stats.m_num_conflicts << " "
+             << std::setw(6) << m_stats.m_num_decisions << " " 
+             << std::setw(6) << m_stats.m_num_propagations << " "
+             << std::setw(5) << m_aux_clauses.size() << "/" << bin_lemmas << " "
+             << std::setw(5) << m_lemmas.size() << " "
+             << std::setw(5) << m_stats.m_num_simplifications << " "
+             << std::setw(4) << m_stats.m_num_del_clauses << " "
+             << std::setw(7) << mem_stat() << ")\n";
+
+        std::string str(strm.str());
+        svector<size_t> offsets;
+        for (size_t i = 0; i < str.size(); ++i) {
+            while (i < str.size() && str[i] != ' ') ++i;
+            while (i < str.size() && str[i] == ' ') ++i;
+            // position of first character after space
+            if (i < str.size()) {
+                offsets.push_back(i);
+            }
+        }   
+        bool same = m_last_positions.size() == offsets.size();
+        size_t diff = 0;
+        for (unsigned i = 0; i < offsets.size() && same; ++i) {
+            if (m_last_positions[i] > offsets[i]) diff += m_last_positions[i] - offsets[i];
+            if (m_last_positions[i] < offsets[i]) diff += offsets[i] - m_last_positions[i];
+        }
+
+        if (m_last_positions.empty() || 
+            m_stats.m_num_restarts >= 20 + m_last_position_log ||
+            (m_stats.m_num_restarts >= 6 + m_last_position_log && (!same || diff > 3))) {
+            m_last_position_log = m_stats.m_num_restarts;
+            // restarts       decisions      clauses    simplifications  memory
+            //      conflicts       propagations    lemmas       deletions
+            int adjust[9] = { -3, -3, -3, -3, -3, -3, -4, -4, -1 };
+            char const* tag[9] = { ":restarts ", ":conflicts ", ":decisions ", ":propagations ", ":clauses/bin ", ":lemmas ", ":simplify ", ":deletions", ":memory" };
+
+            std::stringstream l1, l2;
+            l1 << "(sat.stats ";
+            l2 << "(sat.stats ";
+            size_t p1 = 11, p2 = 11;
+            SASSERT(offsets.size() == 9);
+            for (unsigned i = 0; i < offsets.size(); ++i) {
+                size_t p = offsets[i];
+                if (i & 0x1) {
+                    // odd positions
+                    for (; p2 < p + adjust[i]; ++p2) l2 << " ";
+                    p2 += strlen(tag[i]);
+                    l2 << tag[i];
+                }
+                else {
+                    // even positions
+                    for (; p1 < p + adjust[i]; ++p1) l1 << " ";
+                    p1 += strlen(tag[i]);
+                    l1 << tag[i];
+                }                               
+            }
+            for (; p1 + 2 < str.size(); ++p1) l1 << " ";            
+            for (; p2 + 2 < str.size(); ++p2) l2 << " ";            
+            l1 << ")\n";
+            l2 << ")\n";
+            IF_VERBOSE(1, verbose_stream() << l1.str() << l2.str());
+            m_last_positions.reset();
+            m_last_positions.append(offsets);
+        }
+        IF_VERBOSE(1, verbose_stream() << str);
     }
 
     struct clause_lt {
@@ -3722,16 +3797,7 @@ namespace smt {
         inc_limits();
         if (status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
             SASSERT(!inconsistent());
-            IF_VERBOSE(2, verbose_stream() << "(smt.restarting :propagations " << m_stats.m_num_propagations
-                       << " :decisions " << m_stats.m_num_decisions
-                       << " :conflicts " << m_stats.m_num_conflicts << " :restart " << m_restart_threshold;
-                       if (m_fparams.m_restart_strategy == RS_IN_OUT_GEOMETRIC) {
-                           verbose_stream() << " :restart-outer " << m_restart_outer_threshold;
-                       }
-                       if (m_fparams.m_restart_adaptive) {
-                           verbose_stream() << " :agility " << m_agility;
-                       }
-                       verbose_stream() << ")\n");
+            log_stats();
             // execute the restart
             m_stats.m_num_restarts++;
             m_num_restarts++;

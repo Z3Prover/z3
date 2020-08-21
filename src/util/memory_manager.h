@@ -20,6 +20,7 @@ Revision History:
 
 #include<cstdlib>
 #include<ostream>
+#include<iomanip>
 #include "util/z3_exception.h"
 
 #ifndef __has_builtin
@@ -125,6 +126,14 @@ template<typename T>
 void dealloc_svect(T * ptr) {
     if (ptr == nullptr) return;
     memory::deallocate(ptr);
+}
+
+struct mem_stat {
+};
+
+inline std::ostream & operator<<(std::ostream & out, mem_stat const & m) {
+    double mem = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
+    return out << std::fixed << std::setprecision(2) << mem;
 }
 
 

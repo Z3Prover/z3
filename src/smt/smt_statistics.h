@@ -45,6 +45,8 @@ namespace smt {
         unsigned m_max_generation;
         unsigned m_num_minimized_lits;
         unsigned m_num_checks;
+        unsigned m_num_simplifications;
+        unsigned m_num_del_clauses;
         statistics() {
             reset();
         }
