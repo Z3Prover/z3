@@ -53,7 +53,7 @@ bool reslimit::inc(unsigned offset) {
 }
 
 void reslimit::push(unsigned delta_limit) {
-    uint64_t new_limit = delta_limit + m_count;
+    uint64_t new_limit = delta_limit ? delta_limit + m_count : std::numeric_limits<uint64_t>::max();
     if (new_limit <= m_count) {
         new_limit = std::numeric_limits<uint64_t>::max();
     }
