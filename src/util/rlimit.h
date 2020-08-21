@@ -40,7 +40,7 @@ class reslimit {
 
 public:
     reslimit();
-    void push(unsigned delta_limit);
+    void push(uint64_t delta_limit);
     void pop();
     void push_child(reslimit* r);
     void pop_child();
@@ -63,7 +63,7 @@ public:
 class scoped_rlimit {
     reslimit& m_limit;
 public:
-    scoped_rlimit(reslimit& r, unsigned l): m_limit(r) {
+    scoped_rlimit(reslimit& r, uint64_t l): m_limit(r) {
         r.push(l);
     }
     ~scoped_rlimit() { m_limit.pop(); }

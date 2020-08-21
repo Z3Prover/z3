@@ -35,7 +35,7 @@ context_params::context_params() {
     m_smtlib2_compliant = false;
     m_well_sorted_check = false;
     m_timeout = UINT_MAX;
-    m_rlimit  = 0;
+    m_rlimit  = std::numeric_limits<uint64_t>::max();
     m_statistics = false;
     updt_params();
 }
@@ -86,7 +86,9 @@ void context_params::set(char const * param, char const * value) {
         set_uint(m_timeout, param, value);
     }
     else if (p == "rlimit") {
-        set_uint(m_rlimit, param, value);
+        unsigned _rlimit;
+        set_uint(_rlimit, param, value);
+        m_rlimit = _rlimit;
     }
     else if (p == "type_check" || p == "well_sorted_check") {
         set_bool(m_well_sorted_check, param, value);

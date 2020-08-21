@@ -1056,7 +1056,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
-        scoped_rlimit no_limit(m().limit(), 0);
+        scoped_rlimit no_limit(m().limit(), std::numeric_limits<uint64_t>::max());
         result = subst(_t, coerced_args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
@@ -1316,8 +1316,9 @@ void cmd_context::reset(bool finalize) {
     SASSERT(!m_own_manager || !has_manager());
 }
 
+
 void cmd_context::assert_expr(expr * t) {
-    scoped_rlimit no_limit(m().limit(), 0);
+    scoped_rlimit no_limit(m().limit(), std::numeric_limits<uint64_t>::max());
     if (!m_check_logic(t))
         throw cmd_exception(m_check_logic.get_last_error());
     m_check_sat_result = nullptr;
@@ -1336,7 +1337,7 @@ void cmd_context::assert_expr(symbol const & name, expr * t) {
         assert_expr(t);
         return;
     }
-    scoped_rlimit no_limit(m().limit(), 0);
+    scoped_rlimit no_limit(m().limit(), std::numeric_limits<uint64_t>::max());
 
     m_check_sat_result = nullptr;
     m().inc_ref(t);
@@ -1504,7 +1505,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     init_manager();
     TRACE("before_check_sat", dump_assertions(tout););
     unsigned timeout = m_params.m_timeout;
-    unsigned rlimit  = m_params.rlimit();
+    uint64_t rlimit  = m_params.rlimit();
     scoped_watch sw(*this);
     lbool r;
 
@@ -1789,7 +1790,7 @@ void cmd_context::complete_model(model_ref& md) const {
     model_evaluator evaluator(*(md.get()), p);
     evaluator.set_expand_array_equalities(false);
 
-    scoped_rlimit _rlimit(m().limit(), 0);
+    scoped_rlimit _rlimit(m().limit(), std::numeric_limits<uint64_t>::max());
     cancel_eh<reslimit> eh(m().limit());
     expr_ref r(m());
     scoped_ctrl_c ctrlc(eh);
@@ -1858,7 +1859,7 @@ void cmd_context::validate_model() {
     evaluator.set_expand_array_equalities(false);
     contains_underspecified_op_proc contains_underspecified(m());
     {
-        scoped_rlimit _rlimit(m().limit(), 0);
+        scoped_rlimit _rlimit(m().limit(), std::numeric_limits<uint64_t>::max());
         cancel_eh<reslimit> eh(m().limit());
         expr_ref r(m());
         scoped_ctrl_c ctrlc(eh);
