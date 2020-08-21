@@ -479,13 +479,13 @@ public:
             info star() const;
             info plus() const;
             info opt() const;
+            info compl() const;
             info concat(info & rhs, bool lhs_is_concat) const;
             info disj(info& rhs) const;
             info conj(info& rhs) const;
             info diff(info& rhs) const;
             info orelse(info& rhs) const;
             info loop(unsigned lower) const;
-            info compl() const;
         };
     private:
         seq_util&    u;

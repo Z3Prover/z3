@@ -1743,7 +1743,7 @@ seq_util::rex::info seq_util::rex::info::star() const {
 seq_util::rex::info seq_util::rex::info::plus() const {
     if (is_known()) {
         //r+ is not normalized if r is nullable, the normalized form would be r*
-        info(classical, classical, interpreted, nonbranching, (nullable == l_false ? normalized : false), monadic, false, nullable, min_length, star_height + 1);
+        return info(classical, classical, interpreted, nonbranching, (nullable == l_false ? normalized : false), monadic, false, nullable, min_length, star_height + 1);
     }
     else
         return *this;
@@ -1791,7 +1791,7 @@ seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info & rhs, bool 
 seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info& rhs) const {
     if (is_known() || rhs.is_known()) {
         //works correctly if one of the arguments is unknown
-        info(classical & rhs.classical,
+        return info(classical & rhs.classical,
             standard && rhs.standard,
             interpreted && rhs.interpreted,
             nonbranching && rhs.nonbranching,
@@ -1830,7 +1830,7 @@ seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info& rhs) const {
 seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info& rhs) const {
     if (is_known()) {
         if (rhs.is_known()) {
-            info(false,
+            return info(false,
                 standard & rhs.standard,
                 interpreted & rhs.interpreted,
                 nonbranching & rhs.nonbranching,
