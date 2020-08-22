@@ -1639,7 +1639,7 @@ seq_util::rex::info seq_util::rex::get_info_rec(expr* e) const {
 seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     info i1, i2;
     lbool nullable(l_false);
-    unsigned min_length(0), lower_bound(0);
+    unsigned min_length(0), lower_bound(0), upper_bound(UINT_MAX);
     bool is_value(false);
     bool normalized(false);
     if (e->get_family_id() == u.get_family_id()) {
@@ -1688,8 +1688,11 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             return i1.complement();
         case OP_RE_LOOP:
             i1 = get_info_rec(e->get_arg(0));
-            lower_bound = e->get_decl()->get_parameter(0).get_int();
-            return i1.loop(lower_bound);
+            if (e->get_decl()->get_num_parameters() >= 1)
+                lower_bound = e->get_decl()->get_parameter(0).get_int();
+            if (e->get_decl()->get_num_parameters() == 2)
+                upper_bound = e->get_decl()->get_parameter(1).get_int();
+            return i1.loop(lower_bound, upper_bound);
         case OP_RE_DIFF:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
@@ -1742,8 +1745,8 @@ seq_util::rex::info seq_util::rex::info::star() const {
 
 seq_util::rex::info seq_util::rex::info::plus() const {
     if (is_known()) {
-        //r+ is not normalized if r is nullable, the normalized form would be r*
-        return info(classical, classical, interpreted, nonbranching, (nullable == l_false ? normalized : false), monadic, false, nullable, min_length, star_height + 1);
+        //plus never occurs in a normalized regex
+        return info(classical, classical, interpreted, nonbranching, false, monadic, false, nullable, min_length, star_height + 1);
     }
     else
         return *this;
@@ -1751,7 +1754,8 @@ seq_util::rex::info seq_util::rex::info::plus() const {
 
 seq_util::rex::info seq_util::rex::info::opt() const {
     //if is_known() is false then all mentioned properties will remain false
-    return seq_util::rex::info(classical, classical, interpreted, nonbranching, normalized, monadic, false, l_true, 0, star_height);
+    //optional construct never occurs in a normalized regex
+    return seq_util::rex::info(classical, classical, interpreted, nonbranching, false, monadic, false, l_true, 0, star_height);
 }
 
 seq_util::rex::info seq_util::rex::info::complement() const {
@@ -1764,7 +1768,7 @@ seq_util::rex::info seq_util::rex::info::complement() const {
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info & rhs, bool lhs_is_concat) const {
+seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info const& rhs, bool lhs_is_concat) const {
     if (is_known()) {
         if (rhs.is_known()) {
             unsigned m = min_length + rhs.min_length;
@@ -1788,7 +1792,7 @@ seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info & rhs, bool 
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info& rhs) const {
+seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info const& rhs) const {
     if (is_known() || rhs.is_known()) {
         //works correctly if one of the arguments is unknown
         return info(classical & rhs.classical,
@@ -1806,7 +1810,7 @@ seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info& rhs) const {
         return rhs;
 }
 
-seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info& rhs) const {
+seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info const& rhs) const {
     if (is_known()) {
         if (rhs.is_known()) {
             return info(false,
@@ -1827,7 +1831,7 @@ seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info& rhs) const {
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info& rhs) const {
+seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) const {
     if (is_known()) {
         if (rhs.is_known()) {
             return info(false,
@@ -1848,7 +1852,7 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info& rhs) const {
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info& i) const {
+seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) const {
     if (is_known()) {
         if (i.is_known()) {
             unsigned ite_min_length = std::min(min_length, i.min_length);
@@ -1863,16 +1867,27 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info& i) const {
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::loop(unsigned lower) const {
+seq_util::rex::info seq_util::rex::info::loop(unsigned lower, unsigned upper) const {
     if (is_known()) {
-        //r{l,m} is not normalized if r is nullable but l > 0
         unsigned m = min_length * lower;
         if (m > 0 && (m < min_length || m < lower))
             m = UINT_MAX;
-        bool loop_normalized = (nullable == l_false && lower > 0 ? false : normalized);
         lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);
-        //TBD: pass also upper bound and if upper bound is UINT_MAX then this is * and the loop is thus not normalized
-        return info(classical, classical, interpreted, nonbranching, loop_normalized, singleton, false, loop_nullable, m, star_height);
+        if (upper == UINT_MAX) {
+            //this means the loop is r{lower,*} and is therefore not normalized
+            //normalized regex would be r{lower,lower}r* and would in particular not use r{0,} for r*
+            return info(classical, classical, interpreted, nonbranching, false, singleton, false, loop_nullable, m, star_height + 1);
+        }
+        else {
+            bool loop_normalized = normalized;
+            //r{lower,upper} is not normalized if r is nullable but lower > 0
+            //r{0,1} is not normalized: it should be ()|r
+            //r{1,1} is not normalized: it should be r
+            //r{lower,upper} is not normalized if lower > upper it should then be [] (empty)
+            if ((nullable == l_true && lower > 0) || upper == 1 || lower > upper)
+                loop_normalized = false;
+            return info(classical, classical, interpreted, nonbranching, loop_normalized, singleton, false, loop_nullable, m, star_height);
+        }
     }
     else
         return *this;
