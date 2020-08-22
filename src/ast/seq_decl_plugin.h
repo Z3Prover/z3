@@ -485,7 +485,7 @@ public:
             info conj(info& rhs) const; 
             info diff(info& rhs) const;
             info orelse(info& rhs) const;
-            info loop(unsigned lower) const;
+            info loop(unsigned lower, unsigned upper) const;
         };
     private:
         seq_util&    u;
