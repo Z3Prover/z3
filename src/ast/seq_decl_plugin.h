@@ -413,27 +413,27 @@ public:
     public:
         struct info {
             /* Value is either undefined (known=l_undef) or defined and known (l_true) or defined but unknown (l_false)*/
-            lbool known{ l_undef };
+            lbool known { l_undef };
             /* No complement, no intersection, no difference, and no if-then-else is used. Reverse is allowed. */
-            bool classical{ false };
+            bool classical { false };
             /* Boolean-reverse combination of classical regexes (using reverse, union, complement, intersection or difference). */
-            bool standard{ false };
+            bool standard { false };
             /* There are no uninterpreted symbols. */
-            bool interpreted{ false };
+            bool interpreted { false };
             /* No if-then-else is used. */
-            bool nonbranching{ false };
+            bool nonbranching { false };
             /* Concatenations are right associative and if a loop body is nullable then the lower bound is zero. */
-            bool normalized{ false };
+            bool normalized { false };
             /* All bounded loops have a body that is a singleton. */
-            bool monadic{ false };
+            bool monadic { false };
             /* Positive Boolean combination of ranges or predicates or singleton sequences. */
-            bool singleton{ false };
+            bool singleton { false };
             /* If l_true then empty word is accepted, if l_false then empty word is not accepted. */
-            lbool nullable{ l_undef };
+            lbool nullable { l_undef };
             /* Lower bound  on the length of all accepted words. */
-            unsigned min_length{ 0 };
+            unsigned min_length { 0 };
             /* Maximum nesting depth of Kleene stars. */
-            unsigned star_height{ 0 };
+            unsigned star_height { 0 };
 
             /*
               Default constructor of invalid info.
@@ -480,11 +480,11 @@ public:
             info plus() const;
             info opt() const;
             info complement() const;
-            info concat(info & rhs, bool lhs_is_concat) const;
-            info disj(info& rhs) const;
-            info conj(info& rhs) const; 
-            info diff(info& rhs) const;
-            info orelse(info& rhs) const;
+            info concat(info const& rhs, bool lhs_is_concat) const;
+            info disj(info const& rhs) const;
+            info conj(info const& rhs) const; 
+            info diff(info const& rhs) const;
+            info orelse(info const& rhs) const;
             info loop(unsigned lower, unsigned upper) const;
         };
     private:
@@ -493,8 +493,8 @@ public:
         family_id    m_fid;
         vector<info> mutable m_infos;
         expr_ref_vector mutable m_info_pinned;
-        info invalid_info{ info(l_undef) };
-        info unknown_info{ info(l_false) };
+        info invalid_info { info(l_undef) };
+        info unknown_info { info(l_false) };
 
         bool has_valid_info(expr* r) const;
         info get_info_rec(expr* r) const;

@@ -1768,7 +1768,7 @@ seq_util::rex::info seq_util::rex::info::complement() const {
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info & rhs, bool lhs_is_concat) const {
+seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info const& rhs, bool lhs_is_concat) const {
     if (is_known()) {
         if (rhs.is_known()) {
             unsigned m = min_length + rhs.min_length;
@@ -1792,7 +1792,7 @@ seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info & rhs, bool 
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info& rhs) const {
+seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info const& rhs) const {
     if (is_known() || rhs.is_known()) {
         //works correctly if one of the arguments is unknown
         return info(classical & rhs.classical,
@@ -1810,7 +1810,7 @@ seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info& rhs) const {
         return rhs;
 }
 
-seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info& rhs) const {
+seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info const& rhs) const {
     if (is_known()) {
         if (rhs.is_known()) {
             return info(false,
@@ -1831,7 +1831,7 @@ seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info& rhs) const {
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info& rhs) const {
+seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) const {
     if (is_known()) {
         if (rhs.is_known()) {
             return info(false,
@@ -1852,7 +1852,7 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info& rhs) const {
         return *this;
 }
 
-seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info& i) const {
+seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) const {
     if (is_known()) {
         if (i.is_known()) {
             unsigned ite_min_length = std::min(min_length, i.min_length);
