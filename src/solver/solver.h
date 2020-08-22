@@ -25,6 +25,7 @@ Notes:
 class solver;
 class model_converter;
 
+
 class solver_factory {
 public:
     virtual ~solver_factory() {}
@@ -238,21 +239,42 @@ public:
 
     virtual expr_ref get_implied_upper_bound(expr* e) = 0;
 
-    class propagate_callback {
-    public:
-        virtual void propagate(unsigned sz, unsigned const* ids, expr* conseq) = 0;
-    };
-
     virtual void user_propagate_init(
         void* ctx, 
-        std::function<void(void*, propagate_callback*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
         std::function<void(void*, unsigned)>&        pop_eh,
         std::function<void*(void*)>&                 fresh_eh) {
         throw default_exception("user-propagators are only supported on the SMT solver");
     }
 
-    virtual unsigned user_propagate_register(expr* e) { return 0; }
+    class propagate_callback {
+    public:
+        virtual void propagate(unsigned sz, unsigned const* ids, expr* conseq) = 0;
+    };
+    
+    typedef std::function<void(void*, solver::propagate_callback*)> final_eh_t;
+    typedef std::function<void(void*, solver::propagate_callback*, unsigned, expr*)> fixed_eh_t;
+    typedef std::function<void(void*, solver::propagate_callback*, unsigned, unsigned)> eq_eh_t;
+
+    virtual void user_propagate_register_fixed(fixed_eh_t& fixed_eh) {
+        throw default_exception("user-propagators are only supported on the SMT solver");
+    }
+
+    virtual void user_propagate_register_final(final_eh_t& final_eh) {
+        throw default_exception("user-propagators are only supported on the SMT solver");
+    }
+
+    virtual void user_propagate_register_eq(eq_eh_t& eq_eh) {
+        throw default_exception("user-propagators are only supported on the SMT solver");
+    }
+
+    virtual void user_propagate_register_diseq(eq_eh_t& diseq_eh) {
+        throw default_exception("user-propagators are only supported on the SMT solver");
+    }
+
+    virtual unsigned user_propagate_register(expr* e) { 
+        throw default_exception("user-propagators are only supported on the SMT solver");
+    }
 
 
     /**

@@ -17,6 +17,7 @@ and literals = ptr
 and constructor = ptr
 and constructor_list = ptr
 and solver = ptr
+and solver_callback = ptr
 and goal = ptr
 and tactic = ptr
 and params = ptr

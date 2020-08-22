@@ -1689,10 +1689,33 @@ namespace smt {
          */
         void user_propagate_init(
             void* ctx, 
-            std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
             std::function<void*(void*)>&                 fresh_eh);
+
+        void user_propagate_register_final(solver::final_eh_t& final_eh) {
+            if (!m_user_propagator) 
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->register_final(final_eh);
+        }
+
+        void user_propagate_register_fixed(solver::fixed_eh_t& fixed_eh) {
+            if (!m_user_propagator) 
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->register_fixed(fixed_eh);
+        }
+        
+        void user_propagate_register_eq(solver::eq_eh_t& eq_eh) {
+            if (!m_user_propagator) 
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->register_eq(eq_eh);
+        }
+        
+        void user_propagate_register_diseq(solver::eq_eh_t& diseq_eh) {
+            if (!m_user_propagator) 
+                throw default_exception("user propagator must be initialized");
+            m_user_propagator->register_diseq(diseq_eh);
+        }
 
         unsigned user_propagate_register(expr* e) {
             if (!m_user_propagator) 

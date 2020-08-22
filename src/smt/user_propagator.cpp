@@ -56,11 +56,25 @@ void user_propagator::propagate(unsigned sz, unsigned const* ids, expr* conseq) 
 theory * user_propagator::mk_fresh(context * new_ctx) { 
     auto* th = alloc(user_propagator, *new_ctx); 
     void* ctx = m_fresh_eh(m_user_context);
-    th->add(ctx, m_fixed_eh, m_push_eh, m_pop_eh, m_fresh_eh);
+    th->add(ctx, m_push_eh, m_pop_eh, m_fresh_eh);
+    if ((bool)m_fixed_eh) th->register_fixed(m_fixed_eh);
+    if ((bool)m_final_eh) th->register_final(m_final_eh);
+    if ((bool)m_eq_eh) th->register_eq(m_eq_eh);
+    if ((bool)m_diseq_eh) th->register_diseq(m_diseq_eh);
     return th;
 }
 
+final_check_status user_propagator::final_check_eh() {
+    if (!(bool)m_final_eh)
+        return FC_DONE;
+    unsigned sz = m_prop.size();
+    m_final_eh(m_user_context, this);
+    return sz == m_prop.size() ? FC_DONE : FC_CONTINUE;
+}
+
 void user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits) {
+    if (!m_fixed_eh)
+        return;
     force_push();
     m_id2justification.setx(v, literal_vector(num_lits, jlits), literal_vector());
     m_fixed_eh(m_user_context, this, v, value);

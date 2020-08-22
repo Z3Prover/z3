@@ -235,11 +235,26 @@ namespace smt {
 
         void user_propagate_init(
             void* ctx, 
-            std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
             std::function<void*(void*)>&                 fresh_eh) {
-            m_kernel.user_propagate_init(ctx, fixed_eh, push_eh, pop_eh, fresh_eh);
+            m_kernel.user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
+        }
+
+        void user_propagate_register_final(solver::final_eh_t& final_eh) {
+            m_kernel.user_propagate_register_final(final_eh);
+        }
+
+        void user_propagate_register_fixed(solver::fixed_eh_t& fixed_eh) {
+            m_kernel.user_propagate_register_fixed(fixed_eh);
+        }
+        
+        void user_propagate_register_eq(solver::eq_eh_t& eq_eh) {
+            m_kernel.user_propagate_register_eq(eq_eh);
+        }
+        
+        void user_propagate_register_diseq(solver::eq_eh_t& diseq_eh) {
+            m_kernel.user_propagate_register_diseq(diseq_eh);
         }
 
         unsigned user_propagate_register(expr* e) {
@@ -460,11 +475,26 @@ namespace smt {
 
     void kernel::user_propagate_init(
         void* ctx, 
-        std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
         std::function<void(void*, unsigned)>&        pop_eh,
         std::function<void*(void*)>&                 fresh_eh) {
-        m_imp->user_propagate_init(ctx, fixed_eh, push_eh, pop_eh, fresh_eh);
+        m_imp->user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
+    }
+
+    void kernel::user_propagate_register_fixed(solver::fixed_eh_t& fixed_eh) {
+        m_imp->user_propagate_register_fixed(fixed_eh);
+    }
+    
+    void kernel::user_propagate_register_final(solver::final_eh_t& final_eh) {
+        m_imp->user_propagate_register_final(final_eh);
+    }
+    
+    void kernel::user_propagate_register_eq(solver::eq_eh_t& eq_eh) {
+        m_imp->user_propagate_register_eq(eq_eh);
+    }
+    
+    void kernel::user_propagate_register_diseq(solver::eq_eh_t& diseq_eh) {
+        m_imp->user_propagate_register_diseq(diseq_eh);
     }
 
     unsigned kernel::user_propagate_register(expr* e) {

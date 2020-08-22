@@ -10505,59 +10505,123 @@ def TransitiveClosure(f):
     return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
 
 
-_user_propagate_bases = {}
+class PropClosures:
+#    import thread
+    def __init__(self):
+        self.bases = {}
+#        self.lock = thread.Lock()
+
+    def get(self, ctx):
+#        self.lock.acquire()
+        r = self.bases[ctx]
+#        self.lock.release()
+        return r
+
+    def set(self, ctx, r):
+#        self.lock.acquire()
+        self.bases[ctx] = r
+#        self.lock.release()
+
+    def insert(self, r):
+#        self.lock.acquire()
+        id = len(self.bases) + 3
+        self.bases[id] = r
+#       self.lock.release()
+        return id
+
+_prop_closures = PropClosures()
 
 def user_prop_push(ctx):
-    _user_propagate_bases[ctx].push();
+    _prop_closures.get(ctx).push();
 
 def user_prop_pop(ctx, num_scopes):
-    _user_propagate_bases[ctx].pop(num_scopes)
+    _prop_closures.get(ctx).pop(num_scopes)
+
+def user_prop_fresh(ctx):
+    prop = _prop_closures.get(ctx)
+    new_prop = UsePropagateBase(None, prop.ctx)
+    _prop_closures.set(new_prop.id, new_prop.fresh())
+    return ctypes.c_void_p(new_prop.id)
 
 def user_prop_fixed(ctx, cb, id, value):
-    prop = _user_propagate_bases[ctx]
+    prop = _prop_closures.get(ctx)
     prop.cb = cb
     prop.fixed(id, _to_expr_ref(ctypes.c_void_p(value), prop.ctx))
     prop.cb = None
 
-def user_prop_fresh(ctx):
-    prop = _user_propagate_bases[ctx]
-    new_prop = UsePropagateBase(None, prop.ctx)
-    _user_prop_bases[new_prop.id] = new_prop.fresh()
-    return ctypes.c_void_p(new_prop.id)
-    
+def user_prop_final(ctx, cb):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    prop.final()
+    prop.cb = None
+
+def user_prop_eq(ctx, cb, x, y):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    prop.eq(x, y)
+    prop.cb = None
+
+def user_prop_diseq(ctx, cb, x, y):
+    prop = _prop_closures.get(ctx)
+    prop.cb = cb
+    prop.diseq(x, y)
+    prop.cb = None
 
 _user_prop_push  = push_eh_type(user_prop_push)
 _user_prop_pop   = pop_eh_type(user_prop_pop)
-_user_prop_fixed = fixed_eh_type(user_prop_fixed)
 _user_prop_fresh = fresh_eh_type(user_prop_fresh)
+_user_prop_fixed = fixed_eh_type(user_prop_fixed)
+_user_prop_final = final_eh_type(user_prop_final)
+_user_prop_eq    = eq_eh_type(user_prop_eq)
+_user_prop_diseq = eq_eh_type(user_prop_diseq)
 
 class UserPropagateBase:
 
     def __init__(self, s, ctx = None):
-        self.id = len(_user_propagate_bases) + 3
-        self.solver = s
+        self.solver = s        
         self.ctx = s.ctx if s is not None else ctx
         self.cb = None
-        _user_propagate_bases[self.id] = self
+        self.id = _prop_closures.insert(self)
+        self.fixed = None
+        self.final = None
+        self.eq    = None
+        self.diseq = None
         if s:
             Z3_solver_propagate_init(s.ctx.ref(),
                                      s.solver,
                                      ctypes.c_void_p(self.id),
                                      _user_prop_push,
                                      _user_prop_pop,
-                                     _user_prop_fixed,
                                      _user_prop_fresh)
+            
         
+    def add_fixed(self, fixed):
+        assert not self.fixed
+        Z3_solver_propagate_fixed(self.ctx.ref(), self.solver.solver, _user_prop_fixed)
+        self.fixed = fixed
+ 
+    def add_final(self, final):
+        assert not self.final
+        Z3_solver_propagate_final(self.ctx.ref(), self.solver.solver, _user_prop_final)
+        self.final = final
+
+    def add_eq(self, eq):
+        assert not self.eq
+        Z3_solver_propagate_eq(self.ctx.ref(), self.solver.solver, _user_prop_eq)
+        self.eq = eq
+
+    def add_diseq(self, diseq):
+        assert not self.diseq
+        Z3_solver_propagate_diseq(self.ctx.ref(), self.solver.solver, _user_prop_diseq)
+        self.diseq = diseq
+
     def push(self):
         raise Z3Exception("push has not been overwritten")
 
     def pop(self, num_scopes):
         raise Z3Exception("pop has not been overwritten")
 
-    def fixed(self, id, e):
-        raise Z3Exception("fixed has not been overwritten")
-    
-    def fresh(self, prop_base):
+    def fresh(self):
         raise Z3Exception("fresh has not been overwritten")
         
     def add(self, e):

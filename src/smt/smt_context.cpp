@@ -2951,13 +2951,12 @@ namespace smt {
 
     void context::user_propagate_init(
         void* ctx, 
-        std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
         std::function<void(void*)>&                  push_eh,
         std::function<void(void*, unsigned)>&        pop_eh,
         std::function<void*(void*)>&                 fresh_eh) {
         setup_context(m_fparams.m_auto_config);
         m_user_propagator = alloc(user_propagator, *this);
-        m_user_propagator->add(ctx, fixed_eh, push_eh, pop_eh, fresh_eh);
+        m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
         for (unsigned i = m_scopes.size(); i-- > 0; ) 
             m_user_propagator->push_scope_eh();
         register_plugin(m_user_propagator);

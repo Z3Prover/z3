@@ -30,10 +30,14 @@ Notes:
 namespace smt {
     class user_propagator : public theory, public solver::propagate_callback {
         void* m_user_context;
-        std::function<void(void*, solver::propagate_callback*, unsigned, expr*)> m_fixed_eh;
         std::function<void(void*)>                  m_push_eh;
         std::function<void(void*, unsigned)>        m_pop_eh;
         std::function<void*(void*)>                 m_fresh_eh;
+        solver::final_eh_t  m_final_eh;
+        solver::fixed_eh_t  m_fixed_eh;
+        solver::eq_eh_t     m_eq_eh;
+        solver::eq_eh_t     m_diseq_eh;
+
         struct prop_info {
             unsigned_vector m_ids;
             expr_ref        m_conseq;
@@ -61,18 +65,21 @@ namespace smt {
          */
         void add(
             void* ctx, 
-            std::function<void(void*, solver::propagate_callback*, unsigned, expr*)>& fixed_eh,
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
             std::function<void*(void*)>&                 fresh_eh) {
             m_user_context = ctx;
-            m_fixed_eh     = fixed_eh;
             m_push_eh      = push_eh;
             m_pop_eh       = pop_eh;
             m_fresh_eh     = fresh_eh;
         }
 
         unsigned add_expr(expr* e);
+
+        void register_final(solver::final_eh_t& final_eh) { m_final_eh = final_eh; }
+        void register_fixed(solver::fixed_eh_t& fixed_eh) { m_fixed_eh = fixed_eh; }
+        void register_eq(solver::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
+        void register_diseq(solver::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
 
         void propagate(unsigned sz, unsigned const* ids, expr* conseq) override;
 
@@ -81,11 +88,11 @@ namespace smt {
         theory * mk_fresh(context * new_ctx) override;
         bool internalize_atom(app * atom, bool gate_ctx) override { UNREACHABLE(); return false; }
         bool internalize_term(app * term) override { UNREACHABLE(); return false; }
-        void new_eq_eh(theory_var v1, theory_var v2) override { }
-        void new_diseq_eh(theory_var v1, theory_var v2) override { }
-        bool use_diseqs() const override { return false; }
+        void new_eq_eh(theory_var v1, theory_var v2) override { if (m_eq_eh) m_eq_eh(m_user_context, this, v1, v2); }
+        void new_diseq_eh(theory_var v1, theory_var v2) override { if (m_diseq_eh) m_diseq_eh(m_user_context, this, v1, v2); }
+        bool use_diseqs() const override { return ((bool)m_diseq_eh); }
         bool build_models() const override { return false; }
-        final_check_status final_check_eh() override { return FC_DONE; }
+        final_check_status final_check_eh() override;
         void reset_eh() override {}
         void assign_eh(bool_var v, bool is_true) override { }
         void init_search_eh() override {}

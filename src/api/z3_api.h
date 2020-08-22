@@ -1420,8 +1420,10 @@ typedef void Z3_error_handler(Z3_context c, Z3_error_code e);
 */
 typedef void Z3_push_eh(void* ctx);
 typedef void Z3_pop_eh(void* ctx, unsigned num_scopes);
-typedef void Z3_fixed_eh(void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value);
 typedef void* Z3_fresh_eh(void* ctx);
+typedef void Z3_fixed_eh(void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value);
+typedef void Z3_eq_eh(void* ctx, Z3_solver_callback cb, unsigned x, unsigned y);
+typedef void Z3_final_eh(void* ctx, Z3_solver_callback cb);
 
 /**
    \brief A Goal is essentially a set of formulas.
@@ -6537,8 +6539,37 @@ extern "C" {
         void*       user_context,
         Z3_push_eh  push_eh,
         Z3_pop_eh   pop_eh,
-        Z3_fixed_eh fixed_eh,
         Z3_fresh_eh fresh_eh);
+
+    /**
+       \brief register a callback for when an expression is bound to a fixed value.
+       The supported expression types are
+       - Booleans
+       - Bit-vectors
+     */
+
+    void Z3_API Z3_solver_propagate_fixed(Z3_context c, Z3_solver s, Z3_fixed_eh fixed_eh);
+
+    /**
+       \brief register a callback on final check.
+       This provides freedom to the propagator to delay actions or implement a branch-and bound solver.
+
+       The final_eh callback takes as argument the original user_context that was used
+       when calling \c Z3_solver_propagate_init, and it takes a callback context for propagations.
+       If may use the callback context to invoke the \c Z3_solver_propagate_consequence function.
+       If the callback context gets used, the solver continues. 
+     */
+    void Z3_API Z3_solver_propagate_final(Z3_context c, Z3_solver s, Z3_final_eh final_eh);
+    
+    /**
+       \brief register a callback on expression equalities.
+    */
+    void Z3_API Z3_solver_propagate_eq(Z3_context c, Z3_solver s, Z3_eq_eh eq_eh);
+
+    /**
+       \brief register a callback on expression dis-equalities.
+    */
+    void Z3_API Z3_solver_propagate_diseq(Z3_context c, Z3_solver s, Z3_eq_eh eq_eh);
 
     /**
        \brief register an expression to propagate on with the solver.
@@ -6547,7 +6578,7 @@ extern "C" {
        def_API('Z3_solver_propagate_register', UINT, (_in(CONTEXT), _in(SOLVER), _in(AST)))
     */
 
-    unsigned Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e);
+    unsigned Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e);   
 
     /**
        \brief propagate a consequence based on fixed values.
