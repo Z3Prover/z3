@@ -479,7 +479,7 @@ public:
             info star() const;
             info plus() const;
             info opt() const;
-            info compl() const;
+            info complement() const;
             info concat(info & rhs, bool lhs_is_concat) const;
             info disj(info& rhs) const;
             info conj(info& rhs) const; 

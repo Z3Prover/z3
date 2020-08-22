@@ -1685,7 +1685,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             return i1.plus();
         case OP_RE_COMPLEMENT:
             i1 = get_info_rec(e->get_arg(0));
-            return i1.compl();
+            return i1.complement();
         case OP_RE_LOOP:
             i1 = get_info_rec(e->get_arg(0));
             lower_bound = e->get_decl()->get_parameter(0).get_int();
@@ -1754,7 +1754,7 @@ seq_util::rex::info seq_util::rex::info::opt() const {
     return seq_util::rex::info(classical, classical, interpreted, nonbranching, normalized, monadic, false, l_true, 0, star_height);
 }
 
-seq_util::rex::info seq_util::rex::info::compl() const {
+seq_util::rex::info seq_util::rex::info::complement() const {
     if (is_known()) {
         lbool compl_nullable = (nullable == l_true ? l_false : (nullable == l_false ? l_true : l_undef));
         unsigned compl_min_length = (compl_nullable == l_false ? 1 : 0);
