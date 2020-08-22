@@ -10636,7 +10636,7 @@ class UserPropagateBase:
         _ids = (ctypes.c_uint * sz)()
         for i in range(sz):
             _ids[i] = ids[i]
-        Z3_solver_propagate_consequence(self.ctx.ref(), self.cb, sz, _ids, e.ast)
+        Z3_solver_propagate_consequence(self.ctx.ref(), ctypes.c_void_p(self.cb), sz, _ids, e.ast)
 
     def conflict(self, ids):
         self.propagate(ids, BoolVal(False, self.ctx))
