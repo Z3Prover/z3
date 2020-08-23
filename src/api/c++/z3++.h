@@ -3608,7 +3608,7 @@ namespace z3 {
         Z3_solver_callback cb { nullptr };
 
         Z3_context ctx() {
-            return c ? c : s->ctx();
+            return c ? c : (Z3_context)s->ctx();
         }
 
         struct scoped_cb {
