@@ -108,27 +108,28 @@ void user_propagator::propagate() {
         return;
     force_push();
     unsigned qhead = m_qhead;
-    enode_pair_vector eqs;
     justification* js;
     while (qhead < m_prop.size() && !ctx.inconsistent()) {
         auto const& prop = m_prop[qhead];
         m_lits.reset();   
-        eqs.reset();
+        m_eqs.reset();
         for (unsigned id : prop.m_ids)
             m_lits.append(m_id2justification[id]);
         for (auto const& p : prop.m_eqs)
-            eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
+            m_eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
+        DEBUG_CODE(for (auto const& p : m_eqs) SASSERT(p.first->get_root() == p.second->get_root()););
+
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
                 ext_theory_conflict_justification(
-                    get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr));
+                    get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), 0, nullptr));
             ctx.set_conflict(js);
         }
         else {
             literal lit = mk_literal(prop.m_conseq);
             js = ctx.mk_justification(
                 ext_theory_propagation_justification(
-                    get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), eqs.size(), eqs.c_ptr(), lit));
+                    get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit));
             ctx.assign(lit, js);
         }
         ++m_stats.m_num_propagations;

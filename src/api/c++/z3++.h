@@ -3653,13 +3653,27 @@ namespace z3 {
 
 
     public:
-        user_propagator_base(solver* s, Z3_context c): s(s), c(c) {
-            assert(!s || !c);
-            assert(s || c);            
-        }
+        user_propagator_base(solver* s): s(s), c(nullptr) {}
+        user_propagator_base(Z3_context c): s(nullptr), c(c) {}
+
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
+
+        /**
+           \brief user_propagators created using \c fresh() are created during 
+           search and their lifetimes are restricted to search time. They should
+           be garbage collected by the propagator used to invoke \c fresh().
+           The life-time of the Z3_context object can only be assumed valid during
+           callbacks, such as \c fixed(), which contains expressions based on the
+           context.
+        */
         virtual user_propagator_base* fresh(Z3_context ctx) = 0;
+
+        /**
+           \brief register callbacks.
+           Callbacks can only be registered with user_propagators
+           that were created using a solver. 
+        */
 
         void fixed(fixed_eh_t& f) { 
             assert(s);
@@ -3673,11 +3687,33 @@ namespace z3 {
             Z3_solver_propagate_eq(ctx(), *s, eq_eh); 
         }
 
+        /**
+           \brief register a callback on final-check.
+           During the final check stage, all propagations have been processed.
+           This is an opportunity for the user-propagator to delay some analysis
+           that could be expensive to perform incrementally. It is also an opportunity
+           for the propagator to implement branch and bound optimization. 
+        */
+
         void final(final_eh_t& f) { 
             assert(s);
             m_final_eh = f; 
             Z3_solver_propagate_final(ctx(), *s, final_eh); 
         }
+
+        /**
+           \brief tracks \c e by a unique identifier that is returned by the call.
+
+           If the \c fixed() callback is registered and if \c e is a Boolean or Bit-vector, 
+           the \c fixed() callback gets invoked when \c e is bound to a value.
+           If the \c eq() callback is registered, then equalities between registered expressions
+           are reported. 
+           A consumer can use the \c propagate or \c conflict functions to invoke propagations
+           or conflicts as a consequence of these callbacks. These functions take a list of identifiers
+           for registered expressions that have been fixed. The list of identifiers must correspond to
+           already fixed values. Similarly, a list of propagated equalities can be supplied. These must
+           correspond to equalities that have been registered during a callback.
+         */
 
         unsigned add(expr const& e) {
             assert(s);
@@ -3693,11 +3729,13 @@ namespace z3 {
 
         void propagate(unsigned num_fixed, unsigned const* fixed, expr const& conseq) {
             assert(cb);
+            assert(conseq.ctx() == ctx());
             Z3_solver_propagate_consequence(ctx(), cb, num_fixed, fixed, 0, nullptr, nullptr, conseq);
         }
 
         void propagate(unsigned num_fixed, unsigned const* fixed, unsigned num_eqs, unsigned const* lhs, unsigned const * rhs, expr const& conseq) {
             assert(cb);
+            assert(conseq.ctx() == ctx());
             Z3_solver_propagate_consequence(ctx(), cb, num_fixed, fixed, num_eqs, lhs, rhs, conseq);
         }
     };

@@ -62,6 +62,7 @@ namespace smt {
         vector<literal_vector> m_id2justification;
         unsigned               m_num_scopes { 0 };
         literal_vector         m_lits;
+        enode_pair_vector      m_eqs;
         stats                  m_stats;
 
         void force_push();
