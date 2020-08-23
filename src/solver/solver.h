@@ -243,11 +243,14 @@ public:
     public:
         virtual void propagate(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) = 0;
     };
-    
+    class context_obj {
+    public:
+        virtual ~context_obj() {}
+    };
     typedef std::function<void(void*, solver::propagate_callback*)> final_eh_t;
     typedef std::function<void(void*, solver::propagate_callback*, unsigned, expr*)> fixed_eh_t;
     typedef std::function<void(void*, solver::propagate_callback*, unsigned, unsigned)> eq_eh_t;
-    typedef std::function<void*(void*, ast_manager&, void*&)> fresh_eh_t;
+    typedef std::function<void*(void*, ast_manager&, solver::context_obj*&)> fresh_eh_t;
     typedef std::function<void(void*)>                 push_eh_t;
     typedef std::function<void(void*,unsigned)>        pop_eh_t;
 

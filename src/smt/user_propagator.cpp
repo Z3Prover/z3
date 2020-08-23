@@ -27,7 +27,7 @@ user_propagator::user_propagator(context& ctx):
 {}
 
 user_propagator::~user_propagator() {
-    if (m_api_context) memory::deallocate(m_api_context);
+    dealloc(m_api_context);
 }
 
 void user_propagator::force_push() {
@@ -48,7 +48,10 @@ unsigned user_propagator::add_expr(expr* e) {
     return v;
 }
 
-void user_propagator::propagate(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) {
+void user_propagator::propagate(
+    unsigned num_fixed, unsigned const* fixed_ids, 
+    unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, 
+    expr* conseq) {
     m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
 }
 

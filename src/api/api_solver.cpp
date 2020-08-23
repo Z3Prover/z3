@@ -886,6 +886,13 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    class api_context_obj : public solver::context_obj {
+        api::context* c;
+    public:
+        api_context_obj(api::context* c):c(c) {}
+        ~api_context_obj() override { dealloc(c); }
+    };
+
     void Z3_API Z3_solver_propagate_init(
         Z3_context  c, 
         Z3_solver   s, 
@@ -898,12 +905,12 @@ extern "C" {
         init_solver(c, s);
         solver::push_eh_t _push = push_eh;
         solver::pop_eh_t _pop = pop_eh;
-        solver::fresh_eh_t _fresh = [&](void * user_ctx, ast_manager& m, void*& _ctx) {
+        solver::fresh_eh_t _fresh = [&](void * user_ctx, ast_manager& m, solver::context_obj*& _ctx) {
             context_params params;
             params.set_foreign_manager(&m);
-            auto* ctx = reinterpret_cast<Z3_context>(alloc(api::context, &params, false));
-            _ctx = ctx;
-            return fresh_eh(user_ctx, ctx);
+            auto* ctx = alloc(api::context, &params, false);
+            _ctx = alloc(api_context_obj, ctx);
+            return fresh_eh(user_ctx, reinterpret_cast<Z3_context>(ctx));
         };
         to_solver_ref(s)->user_propagate_init(user_context, _push, _pop, _fresh);
         Z3_CATCH;

@@ -57,7 +57,7 @@ namespace smt {
         solver::fixed_eh_t  m_fixed_eh;
         solver::eq_eh_t     m_eq_eh;
         solver::eq_eh_t     m_diseq_eh;
-        void*               m_api_context { nullptr };
+        solver::context_obj*   m_api_context { nullptr };
 
         unsigned               m_qhead { 0 };
         vector<prop_info>      m_prop;
