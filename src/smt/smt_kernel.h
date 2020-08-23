@@ -290,9 +290,9 @@ namespace smt {
         */
         void user_propagate_init(
             void* ctx, 
-            std::function<void(void*)>&                  push_eh,
-            std::function<void(void*, unsigned)>&        pop_eh,
-            std::function<void*(void*)>&                 fresh_eh);
+            solver::push_eh_t&      push_eh,
+            solver::pop_eh_t&       pop_eh,
+            solver::fresh_eh_t&     fresh_eh);
 
         void user_propagate_register_fixed(solver::fixed_eh_t& fixed_eh);
 

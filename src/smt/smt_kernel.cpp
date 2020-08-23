@@ -234,10 +234,10 @@ namespace smt {
         }
 
         void user_propagate_init(
-            void* ctx, 
-            std::function<void(void*)>&                  push_eh,
-            std::function<void(void*, unsigned)>&        pop_eh,
-            std::function<void*(void*)>&                 fresh_eh) {
+            void*                    ctx, 
+            solver::push_eh_t&       push_eh,
+            solver::pop_eh_t&        pop_eh,
+            solver::fresh_eh_t&      fresh_eh) {
             m_kernel.user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
         }
 
@@ -474,10 +474,10 @@ namespace smt {
     }
 
     void kernel::user_propagate_init(
-        void* ctx, 
-        std::function<void(void*)>&                  push_eh,
-        std::function<void(void*, unsigned)>&        pop_eh,
-        std::function<void*(void*)>&                 fresh_eh) {
+        void*                ctx, 
+        solver::push_eh_t&   push_eh,
+        solver::pop_eh_t&    pop_eh,
+        solver::fresh_eh_t&  fresh_eh) {
         m_imp->user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
     }
 

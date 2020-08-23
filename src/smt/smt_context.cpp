@@ -183,12 +183,13 @@ namespace smt {
 
         dst_ctx.setup_context(dst_ctx.m_fparams.m_auto_config);
         dst_ctx.internalize_assertions();
+        
+        dst_ctx.copy_user_propagator(src_ctx);
 
         TRACE("smt_context",
               src_ctx.display(tout);
               dst_ctx.display(tout););
     }
-
 
     context::~context() {
         flush();
@@ -202,6 +203,19 @@ namespace smt {
             if (!new_th)
                 throw default_exception("theory cannot be copied");
             dst.register_plugin(new_th);
+        }
+    }
+
+    void context::copy_user_propagator(context& src_ctx) {
+        if (!src_ctx.m_user_propagator) 
+            return;
+        ast_translation tr(src_ctx.m, m, false);
+        auto* p = get_theory(m.mk_family_id("user_propagator"));
+        m_user_propagator = reinterpret_cast<user_propagator*>(p);
+        SASSERT(m_user_propagator);
+        for (unsigned i = 0; i < src_ctx.m_user_propagator->get_num_vars(); ++i) {
+            app* e = src_ctx.m_user_propagator->get_expr(i);
+            m_user_propagator->add_expr(tr(e));
         }
     }
 
@@ -2950,10 +2964,10 @@ namespace smt {
     }
 
     void context::user_propagate_init(
-        void* ctx, 
-        std::function<void(void*)>&                  push_eh,
-        std::function<void(void*, unsigned)>&        pop_eh,
-        std::function<void*(void*)>&                 fresh_eh) {
+        void*                    ctx, 
+        solver::push_eh_t&       push_eh,
+        solver::pop_eh_t&        pop_eh,
+        solver::fresh_eh_t&      fresh_eh) {
         setup_context(m_fparams.m_auto_config);
         m_user_propagator = alloc(user_propagator, *this);
         m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
@@ -2963,7 +2977,7 @@ namespace smt {
     }
 
     bool context::watches_fixed(enode* n) const {
-        return m_user_propagator && n->get_th_var(m_user_propagator->get_family_id()) != null_theory_var;
+        return m_user_propagator && m_user_propagator->has_fixed() && n->get_th_var(m_user_propagator->get_family_id()) != null_theory_var;
     }
 
     void context::assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain) {

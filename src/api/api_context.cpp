@@ -116,6 +116,8 @@ namespace api {
             DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
             dealloc(val);
         }
+        if (m_params.owns_manager())
+            m_manager.detach();
     }
 
     context::set_interruptable::set_interruptable(context & ctx, event_handler & i):

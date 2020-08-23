@@ -23,10 +23,12 @@ Author:
 using namespace smt;
 
 user_propagator::user_propagator(context& ctx):
-    theory(ctx, ctx.get_manager().mk_family_id("user_propagator")),
-    m_qhead(0),
-    m_num_scopes(0)
+    theory(ctx, ctx.get_manager().mk_family_id("user_propagator"))
 {}
+
+user_propagator::~user_propagator() {
+    dealloc(m_api_context);
+}
 
 void user_propagator::force_push() {
     for (; m_num_scopes > 0; --m_num_scopes) {
@@ -35,9 +37,6 @@ void user_propagator::force_push() {
         m_prop_lim.push_back(m_prop.size());
     }
 }
-
-// TODO: check type of 'e', either Bool or Bit-vector.
-//
 
 unsigned user_propagator::add_expr(expr* e) {
     force_push();
@@ -49,13 +48,13 @@ unsigned user_propagator::add_expr(expr* e) {
     return v;
 }
 
-void user_propagator::propagate(unsigned sz, unsigned const* ids, expr* conseq) {
-    m_prop.push_back(prop_info(sz, ids, expr_ref(conseq, m)));
+void user_propagator::propagate(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) {
+    m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
 }
 
 theory * user_propagator::mk_fresh(context * new_ctx) { 
     auto* th = alloc(user_propagator, *new_ctx); 
-    void* ctx = m_fresh_eh(m_user_context);
+    void* ctx = m_fresh_eh(m_user_context, new_ctx->get_manager(), th->m_api_context);
     th->add(ctx, m_push_eh, m_pop_eh, m_fresh_eh);
     if ((bool)m_fixed_eh) th->register_fixed(m_fixed_eh);
     if ((bool)m_final_eh) th->register_final(m_final_eh);
@@ -110,9 +109,12 @@ void user_propagator::propagate() {
     justification* js;
     while (qhead < m_prop.size() && !ctx.inconsistent()) {
         auto const& prop = m_prop[qhead];
-        m_lits.reset();        
+        m_lits.reset();   
+        eqs.reset();
         for (unsigned id : prop.m_ids)
             m_lits.append(m_id2justification[id]);
+        for (auto const& p : prop.m_eqs)
+            eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
                 ext_theory_conflict_justification(
@@ -126,10 +128,16 @@ void user_propagator::propagate() {
                     get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), eqs.size(), eqs.c_ptr(), lit));
             ctx.assign(lit, js);
         }
+        ++m_stats.m_num_propagations;
         ++qhead;
     }
     ctx.push_trail(value_trail<context, unsigned>(m_qhead));
     m_qhead = qhead;
+}
+
+void user_propagator::collect_statistics(::statistics & st) const {
+    st.update("user-propagations", m_stats.m_num_propagations);
+    st.update("user-watched",      get_num_vars());
 }
 
 

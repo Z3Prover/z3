@@ -896,9 +896,15 @@ extern "C" {
         Z3_TRY;
         RESET_ERROR_CODE();
         init_solver(c, s);
-        std::function<void(void*)> _push = push_eh;
-        std::function<void(void*,unsigned)> _pop = pop_eh;
-        std::function<void*(void*)> _fresh = fresh_eh;
+        solver::push_eh_t _push = push_eh;
+        solver::pop_eh_t _pop = pop_eh;
+        solver::fresh_eh_t _fresh = [&](void * user_ctx, ast_manager& m, void*& _ctx) {
+            context_params params;
+            params.set_foreign_manager(&m);
+            auto* ctx = reinterpret_cast<Z3_context>(alloc(api::context, &params, false));
+            _ctx = ctx;
+            return fresh_eh(user_ctx, ctx);
+        };
         to_solver_ref(s)->user_propagate_init(user_context, _push, _pop, _fresh);
         Z3_CATCH;
     }
@@ -955,11 +961,11 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback s, unsigned sz, unsigned const* ids, Z3_ast conseq) {
+    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback s, unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, Z3_ast conseq) {
         Z3_TRY;
-        LOG_Z3_solver_propagate_consequence(c, s, sz, ids, conseq);
+        LOG_Z3_solver_propagate_consequence(c, s, num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, conseq);
         RESET_ERROR_CODE();
-        reinterpret_cast<solver::propagate_callback*>(s)->propagate(sz, ids, to_expr(conseq));
+        reinterpret_cast<solver::propagate_callback*>(s)->propagate(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, to_expr(conseq));
         Z3_CATCH;        
     }
 

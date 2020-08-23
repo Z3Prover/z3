@@ -239,22 +239,26 @@ public:
 
     virtual expr_ref get_implied_upper_bound(expr* e) = 0;
 
-    virtual void user_propagate_init(
-        void* ctx, 
-        std::function<void(void*)>&                  push_eh,
-        std::function<void(void*, unsigned)>&        pop_eh,
-        std::function<void*(void*)>&                 fresh_eh) {
-        throw default_exception("user-propagators are only supported on the SMT solver");
-    }
-
     class propagate_callback {
     public:
-        virtual void propagate(unsigned sz, unsigned const* ids, expr* conseq) = 0;
+        virtual void propagate(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) = 0;
     };
     
     typedef std::function<void(void*, solver::propagate_callback*)> final_eh_t;
     typedef std::function<void(void*, solver::propagate_callback*, unsigned, expr*)> fixed_eh_t;
     typedef std::function<void(void*, solver::propagate_callback*, unsigned, unsigned)> eq_eh_t;
+    typedef std::function<void*(void*, ast_manager&, void*&)> fresh_eh_t;
+    typedef std::function<void(void*)>                 push_eh_t;
+    typedef std::function<void(void*,unsigned)>        pop_eh_t;
+
+    virtual void user_propagate_init(
+        void* ctx, 
+        push_eh_t&                                   push_eh,
+        pop_eh_t&                                    pop_eh,
+        fresh_eh_t&                                  fresh_eh) {
+        throw default_exception("user-propagators are only supported on the SMT solver");
+    }
+
 
     virtual void user_propagate_register_fixed(fixed_eh_t& fixed_eh) {
         throw default_exception("user-propagators are only supported on the SMT solver");

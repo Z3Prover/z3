@@ -29,45 +29,59 @@ Notes:
 
 namespace smt {
     class user_propagator : public theory, public solver::propagate_callback {
-        void* m_user_context;
-        std::function<void(void*)>                  m_push_eh;
-        std::function<void(void*, unsigned)>        m_pop_eh;
-        std::function<void*(void*)>                 m_fresh_eh;
-        solver::final_eh_t  m_final_eh;
-        solver::fixed_eh_t  m_fixed_eh;
-        solver::eq_eh_t     m_eq_eh;
-        solver::eq_eh_t     m_diseq_eh;
 
         struct prop_info {
             unsigned_vector m_ids;
             expr_ref        m_conseq;
-            prop_info(unsigned sz, unsigned const* ids, expr_ref const& c):
-                m_ids(sz, ids),
+            svector<std::pair<unsigned, unsigned>> m_eqs;
+            prop_info(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr_ref const& c):
+                m_ids(num_fixed, fixed_ids),
                 m_conseq(c)
-            {}
+            {
+                for (unsigned i = 0; i < num_eqs; ++i)
+                    m_eqs.push_back(std::make_pair(eq_lhs[i], eq_rhs[i]));
+            }
         };
-        unsigned               m_qhead;
+
+        struct stats {
+            unsigned m_num_propagations;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+
+        void*               m_user_context;
+        solver::push_eh_t   m_push_eh;
+        solver::pop_eh_t    m_pop_eh;
+        solver::fresh_eh_t  m_fresh_eh;
+        solver::final_eh_t  m_final_eh;
+        solver::fixed_eh_t  m_fixed_eh;
+        solver::eq_eh_t     m_eq_eh;
+        solver::eq_eh_t     m_diseq_eh;
+        void*               m_api_context { nullptr };
+
+        unsigned               m_qhead { 0 };
         vector<prop_info>      m_prop;
         unsigned_vector        m_prop_lim;
         vector<literal_vector> m_id2justification;
-        unsigned               m_num_scopes;
+        unsigned               m_num_scopes { 0 };
         literal_vector         m_lits;
+        stats                  m_stats;
 
         void force_push();
 
     public:
         user_propagator(context& ctx);
         
-        ~user_propagator() override {}
+        ~user_propagator() override;
 
         /*
          * \brief initial setup for user propagator.
          */
         void add(
-            void* ctx, 
-            std::function<void(void*)>&                  push_eh,
-            std::function<void(void*, unsigned)>&        pop_eh,
-            std::function<void*(void*)>&                 fresh_eh) {
+            void*                ctx, 
+            solver::push_eh_t&    push_eh,
+            solver::pop_eh_t&     pop_eh,
+            solver::fresh_eh_t&   fresh_eh) {
             m_user_context = ctx;
             m_push_eh      = push_eh;
             m_pop_eh       = pop_eh;
@@ -81,7 +95,9 @@ namespace smt {
         void register_eq(solver::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
         void register_diseq(solver::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
 
-        void propagate(unsigned sz, unsigned const* ids, expr* conseq) override;
+        bool has_fixed() const { return (bool)m_fixed_eh; }
+
+        void propagate(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* lhs, unsigned const* rhs, expr* conseq) override;
 
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
 
@@ -99,7 +115,7 @@ namespace smt {
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
         void restart_eh() override {}
-        void collect_statistics(::statistics & st) const override {}
+        void collect_statistics(::statistics & st) const override;
         model_value_proc * mk_value(enode * n, model_generator & mg) override { return nullptr; }
         void init_model(model_generator & m) override {}
         bool include_func_interp(func_decl* f) override { return false; }

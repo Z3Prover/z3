@@ -24,19 +24,6 @@ Notes:
 #include "solver/solver.h"
 
 context_params::context_params() {
-    m_unsat_core     = false;
-    m_model          = true;
-    m_model_validate = false;
-    m_dump_models    = false;
-    m_auto_config    = true;
-    m_proof          = false;
-    m_trace          = false;
-    m_debug_ref_count = false;
-    m_smtlib2_compliant = false;
-    m_well_sorted_check = false;
-    m_timeout = UINT_MAX;
-    m_rlimit  = 0;
-    m_statistics = false;
     updt_params();
 }
 
@@ -204,6 +191,8 @@ void context_params::get_solver_params(ast_manager const & m, params_ref & p, bo
 }
 
 ast_manager * context_params::mk_ast_manager() {
+    if (m_manager)
+        return m_manager;
     ast_manager * r = alloc(ast_manager,
                             m_proof ? PGM_ENABLED : PGM_DISABLED,
                             m_trace ? m_trace_file_name.c_str() : nullptr);

@@ -26,24 +26,24 @@ class context_params {
     void set_bool(bool & opt, char const * param, char const * value);
     void set_uint(unsigned & opt, char const * param, char const * value);
 
-    unsigned    m_rlimit;
+    unsigned    m_rlimit { 0 };
+    ast_manager* m_manager { nullptr };
 
 public:
-    bool        m_auto_config;
-    bool        m_proof;
+    bool        m_auto_config { true };
+    bool        m_proof { false };
     std::string m_dot_proof_file;
-    bool        m_interpolants;
-    bool        m_debug_ref_count;
-    bool        m_trace;
+    bool        m_debug_ref_count { false };
+    bool        m_trace { false };
     std::string m_trace_file_name;
-    bool        m_well_sorted_check;
-    bool        m_model;
-    bool        m_model_validate;
-    bool        m_dump_models;
-    bool        m_unsat_core;
-    bool        m_smtlib2_compliant; // it must be here because it enable/disable the use of coercions in the ast_manager.
-    unsigned    m_timeout;
-    bool        m_statistics;
+    bool        m_well_sorted_check { false };
+    bool        m_model { true };
+    bool        m_model_validate { false };
+    bool        m_dump_models { false };
+    bool        m_unsat_core { false };
+    bool        m_smtlib2_compliant { false }; // it must be here because it enable/disable the use of coercions in the ast_manager.
+    unsigned    m_timeout { UINT_MAX } ;
+    bool        m_statistics { false };
 
     unsigned rlimit() const { return m_rlimit; }
     context_params();
@@ -74,6 +74,9 @@ public:
        \brief Create an AST manager using this configuration.
     */
     ast_manager * mk_ast_manager();
+
+    void set_foreign_manager(ast_manager* m) { m_manager = m; }
+    bool owns_manager() const { return m_manager != nullptr; }
 };
 
 

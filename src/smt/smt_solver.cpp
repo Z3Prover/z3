@@ -212,7 +212,7 @@ namespace {
             void* ctx, 
             std::function<void(void*)>&                  push_eh,
             std::function<void(void*, unsigned)>&        pop_eh,
-            std::function<void*(void*)>&                 fresh_eh) override {
+            solver::fresh_eh_t&                          fresh_eh) override {
             m_context.user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
         }
         

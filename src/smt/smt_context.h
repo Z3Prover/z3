@@ -1573,6 +1573,8 @@ namespace smt {
 
         void log_stats();
 
+        void copy_user_propagator(context& src);
+
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
 
@@ -1688,10 +1690,10 @@ namespace smt {
          * user-propagator
          */
         void user_propagate_init(
-            void* ctx, 
-            std::function<void(void*)>&                  push_eh,
-            std::function<void(void*, unsigned)>&        pop_eh,
-            std::function<void*(void*)>&                 fresh_eh);
+            void*                 ctx, 
+            solver::push_eh_t&    push_eh,
+            solver::pop_eh_t&     pop_eh,
+            solver::fresh_eh_t&   fresh_eh);
 
         void user_propagate_register_final(solver::final_eh_t& final_eh) {
             if (!m_user_propagator) 

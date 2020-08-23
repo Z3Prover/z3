@@ -1420,7 +1420,7 @@ typedef void Z3_error_handler(Z3_context c, Z3_error_code e);
 */
 typedef void Z3_push_eh(void* ctx);
 typedef void Z3_pop_eh(void* ctx, unsigned num_scopes);
-typedef void* Z3_fresh_eh(void* ctx);
+typedef void* Z3_fresh_eh(void* ctx, Z3_context new_context);
 typedef void Z3_fixed_eh(void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value);
 typedef void Z3_eq_eh(void* ctx, Z3_solver_callback cb, unsigned x, unsigned y);
 typedef void Z3_final_eh(void* ctx, Z3_solver_callback cb);
@@ -6586,10 +6586,10 @@ extern "C" {
        The callback adds a propagation consequence based on the fixed values of the
        \c ids. 
        
-       def_API('Z3_solver_propagate_consequence', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, UINT), _in(AST)))
+       def_API('Z3_solver_propagate_consequence', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, UINT), _in(UINT), _in_array(4, UINT), _in_array(4, UINT), _in(AST)))
     */
     
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback, unsigned sz, unsigned const* ids, Z3_ast conseq);
+    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback, unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, Z3_ast conseq);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
