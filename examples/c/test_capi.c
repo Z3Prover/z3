@@ -1539,6 +1539,7 @@ void two_contexts_example1()
     x1 = Z3_mk_const(ctx1, Z3_mk_int_symbol(ctx1,0), Z3_mk_bool_sort(ctx1));
     x2 = Z3_mk_const(ctx2, Z3_mk_int_symbol(ctx2,0), Z3_mk_bool_sort(ctx2));
 
+    (void)x1;
     Z3_del_context(ctx1);
 
     /* ctx2 can still be used. */
@@ -2104,6 +2105,7 @@ void forest_example() {
     (void)f3;
     (void)f2;
     (void)t4;
+    (void)t3;
     (void)t2;
 
     /* nil != cons(nil,nil) */
