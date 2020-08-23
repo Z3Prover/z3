@@ -27,7 +27,7 @@ user_propagator::user_propagator(context& ctx):
 {}
 
 user_propagator::~user_propagator() {
-    dealloc(m_api_context);
+    if (m_api_context) memory::deallocate(m_api_context);
 }
 
 void user_propagator::force_push() {
