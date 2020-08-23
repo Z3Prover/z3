@@ -9,15 +9,13 @@ Abstract:
 
     User-propagator plugin.
     Adds user plugins to propagate based on 
-    terms receiving fixed values.
+    terms receiving fixed values or equalities.
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2020-08-17
 
 Notes:
-
-- could also be complemented with disequalities to fixed values to narrow range of variables.
 
 
 --*/
@@ -49,16 +47,15 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        void*               m_user_context;
-        solver::push_eh_t   m_push_eh;
-        solver::pop_eh_t    m_pop_eh;
-        solver::fresh_eh_t  m_fresh_eh;
-        solver::final_eh_t  m_final_eh;
-        solver::fixed_eh_t  m_fixed_eh;
-        solver::eq_eh_t     m_eq_eh;
-        solver::eq_eh_t     m_diseq_eh;
+        void*                  m_user_context;
+        solver::push_eh_t      m_push_eh;
+        solver::pop_eh_t       m_pop_eh;
+        solver::fresh_eh_t     m_fresh_eh;
+        solver::final_eh_t     m_final_eh;
+        solver::fixed_eh_t     m_fixed_eh;
+        solver::eq_eh_t        m_eq_eh;
+        solver::eq_eh_t        m_diseq_eh;
         solver::context_obj*   m_api_context { nullptr };
-
         unsigned               m_qhead { 0 };
         vector<prop_info>      m_prop;
         unsigned_vector        m_prop_lim;
@@ -78,7 +75,7 @@ namespace smt {
          * \brief initial setup for user propagator.
          */
         void add(
-            void*                ctx, 
+            void*                 ctx, 
             solver::push_eh_t&    push_eh,
             solver::pop_eh_t&     pop_eh,
             solver::fresh_eh_t&   fresh_eh) {

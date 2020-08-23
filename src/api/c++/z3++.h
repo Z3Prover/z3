@@ -2864,7 +2864,10 @@ namespace z3 {
             assert(e.is_bool());
             Z3_optimize_assert_and_track(ctx(), m_opt, e, t);
         }
-
+        void add(expr const& e, char const* p) {
+            assert(e.is_bool());
+            add(e, ctx().bool_const(p));
+        }
         handle add_soft(expr const& e, unsigned weight) {
             assert(e.is_bool());
             auto str = std::to_string(weight);
