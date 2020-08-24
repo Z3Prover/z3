@@ -190,7 +190,7 @@ public:
     void try_add_equation_with_lp_fixed_tables(const vertex *v) {
         SASSERT(m_fixed_vertex);
         unsigned v_j = v->column();
-        unsigned j;
+        unsigned j = null_lpvar;
         if (!lp().find_in_fixed_tables(val(v_j), is_int(v_j), j)) 
             return;
         TRACE("cheap_eq", tout << "found j=" << j << " for v=";

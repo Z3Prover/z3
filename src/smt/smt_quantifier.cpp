@@ -206,9 +206,9 @@ namespace smt {
         }
 
         void log_causality(
-                fingerprint* f,
-                app * pat,
-                vector<std::tuple<enode *, enode *>> & used_enodes) {
+            fingerprint* f,
+            app * pat,
+            vector<std::tuple<enode *, enode *>> & used_enodes) {
 
             if (pat != nullptr) {
                 if (used_enodes.size() > 0) {
@@ -219,6 +219,7 @@ namespace smt {
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
                     enode *substituted = std::get<1>(n);
+                    (void) substituted;
                     if (orig == nullptr) {
                         STRACE("causality", tout << " #" << substituted->get_owner_id(););
                     }

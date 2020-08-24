@@ -1139,7 +1139,6 @@ namespace smt {
             bool_var watch_var = null_bool_var;
             it1 = bits1.begin();
             it2 = bits2.begin();
-            unsigned h = hash_u_u(v1, v2);
             unsigned act = m_diseq_activity[hash_u_u(v1, v2) & 0xFF]++;
             
             for (; it1 != end1 && ((act & 0x3) != 0x3); ++it1, ++it2) {
