@@ -25,6 +25,9 @@ Revision History:
 #include "util/approx_set.h"
 
 namespace smt {
+
+    class context;
+
     /**
        \brief Justification for the transitivity rule.
     */
