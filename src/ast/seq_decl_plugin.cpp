@@ -1855,8 +1855,8 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) co
 seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) const {
     if (is_known()) {
         if (i.is_known()) {
-            unsigned ite_min_length = std::min(min_length, i.min_length);
-            lbool ite_nullable = (nullable == i.nullable ? nullable : l_undef);
+            // unsigned ite_min_length = std::min(min_length, i.min_length);
+            // lbool ite_nullable = (nullable == i.nullable ? nullable : l_undef);
             //TBD: whether ite is interpreted or not depends on whether the condition is interpreted and both branches are interpreted
             return info(false, false, false, false, normalized && i.normalized, monadic && i.monadic, singleton && i.singleton, nullable, min_length, std::max(star_height, i.star_height));
         }

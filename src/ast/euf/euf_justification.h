@@ -53,6 +53,7 @@ namespace euf {
         
         bool   is_external() const { return m_kind == external_t; }
         bool   is_congruence() const { return m_kind == congruence_t; }
+        bool   is_commutative() const { return m_comm; }
         template <typename T>
         T*  ext() const { SASSERT(is_external()); return static_cast<T*>(m_external); }            
     };
