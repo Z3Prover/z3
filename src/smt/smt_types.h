@@ -47,8 +47,6 @@ namespace smt {
     typedef std::pair<enode *, enode *> enode_pair;
     typedef svector<enode_pair> enode_pair_vector;
 
-    class context;
-
     class theory;
 
     class justification;

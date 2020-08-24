@@ -36,6 +36,7 @@ add_executable(test-z3
   dl_table.cpp
   dl_util.cpp
   doc.cpp
+  egraph.cpp
   escaped.cpp
   ex.cpp
   expr_rand.cpp

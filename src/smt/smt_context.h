@@ -57,11 +57,7 @@ Revision History:
 // the case that each context only references a few expressions.
 // Using a map instead of a vector for the literals can compress space
 // consumption.
-#ifdef SPARSE_MAP
-#define USE_BOOL_VAR_VECTOR 0
-#else
 #define USE_BOOL_VAR_VECTOR 1
-#endif
 
 namespace smt {
 

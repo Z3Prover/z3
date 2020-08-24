@@ -3733,7 +3733,9 @@ namespace z3 {
             Z3_solver_propagate_consequence(ctx(), cb, num_fixed, fixed, 0, nullptr, nullptr, conseq);
         }
 
-        void propagate(unsigned num_fixed, unsigned const* fixed, unsigned num_eqs, unsigned const* lhs, unsigned const * rhs, expr const& conseq) {
+        void propagate(unsigned num_fixed, unsigned const* fixed, 
+                       unsigned num_eqs, unsigned const* lhs, unsigned const * rhs, 
+                       expr const& conseq) {
             assert(cb);
             assert(conseq.ctx() == ctx());
             Z3_solver_propagate_consequence(ctx(), cb, num_fixed, fixed, num_eqs, lhs, rhs, conseq);

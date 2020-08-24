@@ -44,21 +44,7 @@ namespace smt {
     referencing few nodes from a large ast manager. There is some
     unknown performance penalty for this. */
 
-    // #define SPARSE_MAP
-
-#ifndef SPARSE_MAP
     typedef ptr_vector<enode> app2enode_t;    // app -> enode
-#else
-    class app2enode_t : public u_map<enode *> {
-    public:
-        void setx(unsigned x, enode *val, enode *def){
-            if (val == 0)
-                erase(x);
-            else
-                insert(x,val);
-      }
-    };
-#endif
 
     class tmp_enode;
 
@@ -111,7 +97,6 @@ namespace smt {
         enode *             m_args[0];          //!< Cached args
         
         friend class context;
-        friend class euf_manager;
         friend class conflict_resolution;
         friend class quantifier_manager;
         
@@ -244,12 +229,6 @@ namespace smt {
         };
 
         const_args get_const_args() const { return const_args(this); }
-
-        // args get_args() { return args(this); }
-
-        // unsigned get_id() const { 
-        //    return m_id; 
-        // }
 
         unsigned get_class_size() const { 
             return m_class_size; 

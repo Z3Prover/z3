@@ -23,6 +23,9 @@ Revision History:
 #include <tuple>
 
 namespace smt {
+
+    class context;
+
     /**
        \brief Matching Abstract Machine (MAM)
     */

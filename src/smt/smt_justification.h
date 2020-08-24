@@ -26,6 +26,7 @@ Revision History:
 namespace smt {
     
     class conflict_resolution;
+    class context;
 
     typedef ptr_vector<justification> justification_vector;
 

@@ -30,6 +30,7 @@ struct smt_params;
 namespace smt {
     class quantifier_manager_plugin;
     class quantifier_stat;
+    class context;
 
     class quantifier_manager {
         struct imp;

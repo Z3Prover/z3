@@ -1,0 +1,9 @@
+z3_add_component(euf
+  SOURCES
+    euf_enode.cpp
+    euf_etable.cpp
+    euf_egraph.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    util
+)

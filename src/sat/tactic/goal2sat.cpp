@@ -637,7 +637,6 @@ struct goal2sat::imp {
         }
         m_ext->add_at_least(v2, lits, lits.size() - k.get_unsigned());
 
-
         if (root && !sign) {
             m_result_stack.reset();
         }
@@ -769,15 +768,14 @@ struct goal2sat::imp {
             return t->get_arg(idx);
         }
     }
-    
-    void process(expr * n) {
-        //SASSERT(m_result_stack.empty());
-        TRACE("goal2sat", tout << "converting: " << mk_bounded_pp(n, m, 2) << "\n";);
-        if (visit(n, true, false)) {
+
+    void process(expr* n, bool is_root) {
+        unsigned sz = m_frame_stack.size();
+        if (visit(n, is_root, false)) {
             SASSERT(m_result_stack.empty());
             return;
         }
-        while (!m_frame_stack.empty()) {
+        while (m_frame_stack.size() > sz) {
         loop:
             if (!m.inc())
                 throw tactic_exception(m.limit().get_cancel_msg());
@@ -812,6 +810,20 @@ struct goal2sat::imp {
             convert(t, root, sign);
             m_frame_stack.pop_back();
         }
+    }
+
+    sat::literal internalize(expr* n) {
+        SASSERT(m_result_stack.empty());
+        process(n, false);
+        SASSERT(m_result_stack.size() == 1);
+        sat::literal result = m_result_stack.back();
+        m_result_stack.reset();
+        return result;
+    }
+    
+    void process(expr * n) {
+        m_result_stack.reset();
+        process(n, true);
         CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());
     }
@@ -868,7 +880,7 @@ struct goal2sat::imp {
                     }
                     fmls.push_back(d_new);
                 }                
-                f = m.mk_or(fmls.size(), fmls.c_ptr());
+                f = m.mk_or(fmls);
             }
             TRACE("goal2sat", tout << mk_bounded_pp(f, m, 2) << "\n";);
             process(f);
@@ -1187,7 +1199,7 @@ struct sat2goal::imp {
                 for (sat::literal l : c) {
                     lits.push_back(lit2expr(mc, l));
                 }
-                r.assert_expr(m.mk_or(lits.size(), lits.c_ptr()));
+                r.assert_expr(m.mk_or(lits));
             }
         }
     }

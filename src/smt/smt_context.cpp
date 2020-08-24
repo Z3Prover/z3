@@ -623,7 +623,10 @@ namespace smt {
     */
     void context::reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js) {
         enode_vector & r2_parents  = r2->m_parents;
-        for (enode * parent : enode::parents(r1)) {
+        enode_vector & r1_parents  = r1->m_parents;
+        unsigned num_r1_parents = r1_parents.size();
+        for (unsigned i = 0; i < num_r1_parents; ++i) {
+            enode* parent = r1_parents[i];
             if (!parent->is_marked())
                 continue;
             parent->unset_mark();
