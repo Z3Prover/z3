@@ -10556,7 +10556,7 @@ def user_prop_fresh(id, ctx):
 def user_prop_fixed(ctx, cb, id, value):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
-    prop.fixed(id, _to_expr_ref(ctypes.c_void_p(value), prop.ctx))
+    prop.fixed(id, _to_expr_ref(ctypes.c_void_p(value), prop.ctx()))
     prop.cb = None
 
 def user_prop_final(ctx, cb):
@@ -10684,7 +10684,7 @@ class UserPropagateBase:
         for i in range(num_eqs):
             _lhs[i] = eqs[i][0]
             _rhs[i] = eqs[i][1]
-        Z3_solver_propagate_consequence(self.ctx_ref(), ctypes.c_void_p(self.cb), num_fixed, _ids, num_eqs, _lhs, _rhs, e.ast)
+        Z3_solver_propagate_consequence(e.ctx.ref(), ctypes.c_void_p(self.cb), num_fixed, _ids, num_eqs, _lhs, _rhs, e.ast)
 
     def conflict(self, ids):
-        self.propagate(ids, BoolVal(False, self.ctx_ref()))
+        self.propagate(BoolVal(False, self.ctx()), ids, eqs=[])
