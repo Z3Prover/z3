@@ -23,7 +23,7 @@ def init_project_def():
     add_lib('realclosure', ['interval'], 'math/realclosure')
     add_lib('subpaving', ['interval'], 'math/subpaving')
     add_lib('ast', ['util', 'polynomial'])
-    add_lib('euf' ['ast','util'], 'ast/euf')
+    add_lib('euf', ['ast','util'], 'ast/euf')
     add_lib('grobner', ['ast', 'dd', 'simplex'], 'math/grobner')    
     add_lib('sat', ['util','dd', 'grobner'])    
     add_lib('nlsat', ['polynomial', 'sat'])
