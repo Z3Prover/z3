@@ -35,10 +35,10 @@ static void test1() {
     expr_ref fa = mk_app("f", a, S);
     expr_ref ffa = mk_app("f", fa, S);
     expr_ref fffa = mk_app("f", ffa, S);
-    euf::enode* na = g.mk(a, nullptr); 
-    euf::enode* nfa = g.mk(fa, &na);
-    euf::enode* nffa = g.mk(ffa, &nfa);
-    euf::enode* nfffa = g.mk(fffa, &nffa);
+    euf::enode* na = g.mk(a, 0, nullptr); 
+    euf::enode* nfa = g.mk(fa, 1, &na);
+    euf::enode* nffa = g.mk(ffa, 1, &nfa);
+    euf::enode* nfffa = g.mk(fffa, 1, &nffa);
     std::cout << g << "\n";
     g.merge(na, nffa, nullptr);
     g.merge(na, nfffa, nullptr);
@@ -59,13 +59,13 @@ static void test2() {
         std::string xn("x");
         xn += std::to_string(i);
         expr_ref x = mk_const(m, xn.c_str(), S);
-        euf::enode* n = g.mk(x, nullptr); 
+        euf::enode* n = g.mk(x, 0, nullptr); 
         nodes.push_back(n);
         for (unsigned j = 0; j < d; ++j) {
             std::string f("f");
             f += std::to_string(j);
             x = mk_app(f.c_str(), x, S);
-            n = g.mk(x, &n);
+            n = g.mk(x, 1, &n);
         }
         top_nodes.push_back(n);
         pinned.push_back(x);
@@ -99,14 +99,14 @@ static void test3() {
     expr_ref u = mk_const(m, "u", I);
     expr_ref fx = mk_app("f", x, I);
     expr_ref fy = mk_app("f", y, I);
-    euf::enode* nx = g.mk(x, nullptr);
-    euf::enode* ny = g.mk(y, nullptr);
-    euf::enode* nz = g.mk(z, nullptr);
-    euf::enode* nu = g.mk(u, nullptr);
-    euf::enode* n0 = g.mk(zero, nullptr);
-    euf::enode* n1 = g.mk(one, nullptr);
-    euf::enode* nfx = g.mk(fx, &nx);
-    euf::enode* nfy = g.mk(fy, &ny);
+    euf::enode* nx = g.mk(x, 0, nullptr);
+    euf::enode* ny = g.mk(y, 0, nullptr);
+    euf::enode* nz = g.mk(z, 0, nullptr);
+    euf::enode* nu = g.mk(u, 0, nullptr);
+    euf::enode* n0 = g.mk(zero, 0, nullptr);
+    euf::enode* n1 = g.mk(one, 0, nullptr);
+    euf::enode* nfx = g.mk(fx, 1, &nx);
+    euf::enode* nfy = g.mk(fy, 1, &ny);
     int justifications[5] = { 1, 2, 3, 4, 5 };
     g.merge(nfx, n0, justifications + 0);
     g.merge(nfy, n1, justifications + 1);

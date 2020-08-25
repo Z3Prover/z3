@@ -163,8 +163,10 @@ namespace euf_sat {
             s().set_external(lit.var());
             return n;
         }
-        if (is_app(e) && to_app(e)->get_num_args() > 0)
+        if (is_app(e) && to_app(e)->get_num_args() > 0) {
+            m_stack.push_back(frame(e));
             return nullptr;
+        }
         n = m_egraph.mk(e, 0, nullptr);
         attach_bool_var(si, n);
         return n;
