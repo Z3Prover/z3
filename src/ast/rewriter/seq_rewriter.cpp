@@ -3260,7 +3260,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = m().mk_ite(m().mk_eq(str().mk_length(a), m_autil.mk_int(0)),
             m().mk_true(),
             re().mk_in_re(a, b1));
-        return BR_REWRITE1;
+        return BR_REWRITE_FULL;
     }
     if (str().is_empty(a)) {
         result = is_nullable(b);
