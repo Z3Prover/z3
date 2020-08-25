@@ -58,13 +58,14 @@ namespace euf {
         enode                  *m_n2 { nullptr };
         justification          m_justification;
         enode_vector           m_new_eqs;
+        enode_vector           m_new_lits;
         enode_vector           m_todo;
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
             m_eqs.push_back(add_eq_record(r1, n1, r2_num_parents));
         }
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
-        enode* mk_enode(expr* f, enode * const* args);
+        enode* mk_enode(expr* f, unsigned num_args, enode * const* args);
         void reinsert(enode* n);
         void force_push();
         void set_conflict(enode* n1, enode* n2, justification j);
@@ -72,15 +73,30 @@ namespace euf {
         void merge_justification(enode* n1, enode* n2, justification j);
         void unmerge_justification(enode* n1);
         void dedup_equalities();
-        bool is_equality(enode* n) const;
         void reinsert_equality(enode* p);
         void update_children(enode* n);
+        void push_lca(enode* a, enode* b);
+        void push_congruence(enode* n1, enode* n2, bool commutative);
+        void push_todo(enode* n);
+        template <typename T>
+        void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, justification const& j) {
+            if (j.is_external())
+                justifications.push_back(j.ext<T>());
+            else if (j.is_congruence()) 
+                push_congruence(a, b, j.is_commutative());
+        }
+        template <typename T>
+        void explain_todo(ptr_vector<T>& justifications);
+        
     public:
         egraph(ast_manager& m): m(m), m_table(m), m_exprs(m) {}
         enode* find(expr* f) { return m_expr2enode.get(f->get_id(), nullptr); }
-        enode* mk(expr* f, enode *const* args);
+        enode* mk(expr* f, unsigned n, enode *const* args);
         void push() { ++m_num_scopes; }
         void pop(unsigned num_scopes);
+
+        bool is_equality(enode* n) const;
+
         /**
            \brief merge nodes, all effects are deferred to the propagation step.
          */
@@ -98,45 +114,11 @@ namespace euf {
         void propagate();
         bool inconsistent() const { return m_inconsistent; }
         enode_vector const& new_eqs() const { return m_new_eqs; }
+        enode_vector const& new_lits() const { return m_new_lits; }
         template <typename T>
-        void explain(ptr_vector<T>& justifications) {
-            SASSERT(m_inconsistent);
-            SASSERT(m_todo.empty());
-            auto push_congruence = [&](enode* p, enode* q) {
-                SASSERT(p->get_decl() == q->get_decl());
-                for (enode* arg : enode_args(p))
-                    m_todo.push_back(arg);
-                for (enode* arg : enode_args(q))
-                    m_todo.push_back(arg);
-            };
-            auto explain_node = [&](enode* n) {
-                if (!n->m_target)
-                    return;
-                if (n->is_marked1())
-                    return;
-                n->mark1();
-                if (n->m_justification.is_external())
-                    justifications.push_back(n->m_justification.ext<T>());
-                else if (n->m_justification.is_congruence()) 
-                    push_congruence(n, n->m_target);
-                n = n->m_target;
-                if (!n->is_marked1())
-                    m_todo.push_back(n);
-            };
-            m_todo.push_back(m_n1);
-            m_todo.push_back(m_n2);
-            if (m_justification.is_external())
-                justifications.push_back(m_justification.ext<T>());
-            else if (m_justification.is_congruence())
-                push_congruence(m_n1, m_n2);
-            for (unsigned i = 0; i < m_todo.size(); ++i) 
-                explain_node(m_todo[i]);
-            for (enode* n : m_todo) 
-                n->unmark1();
-            m_todo.reset();
-        }
-        
-        
+        void explain(ptr_vector<T>& justifications);
+        template <typename T>
+        void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, bool comm);
         void invariant();
         std::ostream& display(std::ostream& out) const;        
     };

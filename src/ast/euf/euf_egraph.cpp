@@ -35,8 +35,7 @@ namespace euf {
         unmerge_justification(n1);
     }
 
-    enode* egraph::mk_enode(expr* f, enode * const* args) {
-        unsigned num_args = is_app(f) ? to_app(f)->get_num_args() : 0;
+    enode* egraph::mk_enode(expr* f, unsigned num_args, enode * const* args) {
         enode* n = enode::mk(m_region, f, num_args, args);
         m_nodes.push_back(n);
         m_exprs.push_back(f);
@@ -98,15 +97,15 @@ namespace euf {
         n->set_update_children();            
     }
 
-    enode* egraph::mk(expr* f, enode *const* args) {
+    enode* egraph::mk(expr* f, unsigned num_args, enode *const* args) {
         SASSERT(!find(f));
         force_push();
-        enode *n = mk_enode(f, args);
+        enode *n = mk_enode(f, num_args, args);
         SASSERT(n->class_size() == 1);
         m_expr2enode.setx(f->get_id(), n, nullptr);
-        if (n->num_args() == 0 && m.is_unique_value(f))
+        if (num_args == 0 && m.is_unique_value(f))
             n->mark_interpreted();
-        if (n->num_args() == 0) 
+        if (num_args == 0) 
             return n;
         if (is_equality(n)) {
             update_children(n);
@@ -171,6 +170,8 @@ namespace euf {
             std::swap(r1, r2);
             std::swap(n1, n2);
         }
+        if ((m.is_true(r2->get_owner()) || m.is_false(r2->get_owner())) && j.is_congruence())
+            m_new_lits.push_back(n1);
         for (enode* p : enode_parents(n1)) 
             m_table.erase(p);            
         for (enode* p : enode_parents(n2)) 
@@ -187,6 +188,7 @@ namespace euf {
 
     void egraph::propagate() {
         m_new_eqs.reset();
+        m_new_lits.reset();
         SASSERT(m_num_scopes == 0 || m_worklist.empty());
         unsigned head = 0, tail = m_worklist.size();
         while (head < tail && m.limit().inc() && !inconsistent()) {
@@ -239,6 +241,88 @@ namespace euf {
         SASSERT(n1->get_root()->m_target == nullptr);
     }
 
+    /**
+       \brief generate an explanation for a congruence.
+       Each pair of children under a congruence have the same roots
+       and therefore have a least common ancestor. We only need
+       explanations up to the least common ancestors.
+     */
+    void egraph::push_congruence(enode* n1, enode* n2, bool comm) {
+        SASSERT(n1->get_decl() == n2->get_decl());
+        if (comm && 
+            n1->get_arg(0)->get_root() == n2->get_arg(1)->get_root() &&
+            n1->get_arg(1)->get_root() == n2->get_arg(0)->get_root()) {
+            push_lca(n1->get_arg(0), n2->get_arg(1));
+            push_lca(n1->get_arg(1), n2->get_arg(0));
+            return;
+        }
+            
+        for (unsigned i = 0; i < n1->num_args(); ++i) 
+            push_lca(n1->get_arg(i), n2->get_arg(i));
+    }
+
+    void egraph::push_lca(enode* a, enode* b) {
+        SASSERT(a->get_root() == b->get_root());
+        enode* n = a;
+        while (n) {
+            n->mark2();
+            n = n->m_target;
+        }
+        n = b;
+        while (n) {
+            if (n->is_marked2()) 
+                n->unmark2();   
+            else if (!n->is_marked1()) 
+                m_todo.push_back(n);
+            n = n->m_target;
+        }
+        n = a;
+        while (n->is_marked2()) {            
+            n->unmark2();
+            if (!n->is_marked1())
+                m_todo.push_back(n);
+            n = n->m_target;
+        }
+    }
+
+    void egraph::push_todo(enode* n) {
+        while (n) {
+            m_todo.push_back(n);
+            n = n->m_target;
+        }
+    }
+
+    template <typename T>
+    void egraph::explain(ptr_vector<T>& justifications) {
+        SASSERT(m_inconsistent);
+        SASSERT(m_todo.empty());
+        push_todo(m_n1);
+        push_todo(m_n2);
+        explain_eq(justifications, m_n1, m_n2, m_justification);
+        explain_todo(justifications);
+    }
+
+    template <typename T>
+    void egraph::explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, bool comm) {
+        SASSERT(m_todo.empty());
+        push_congruence(a, b, comm);
+        explain_todo(justifications);
+    }
+
+    template <typename T>
+    void egraph::explain_todo(ptr_vector<T>& justifications) {
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            enode* n = m_todo[i];
+            if (n->m_target && !n->is_marked1()) {
+                n->mark1();
+                explain_eq(justifications, n, n->m_target, n->m_justification);
+            }
+        }
+        for (enode* n : m_todo) 
+            n->unmark1();
+        m_todo.reset();        
+    }
+
     void egraph::invariant() {
         for (enode* n : m_nodes)
             n->invariant();
@@ -267,3 +351,12 @@ namespace euf {
         return out;
     }
 }
+
+template void euf::egraph::explain(ptr_vector<int>& justifications);
+template void euf::egraph::explain_todo(ptr_vector<int>& justifications);
+template void euf::egraph::explain_eq(ptr_vector<int>& justifications, enode* a, enode* b, bool comm);
+
+template void euf::egraph::explain(ptr_vector<unsigned>& justifications);
+template void euf::egraph::explain_todo(ptr_vector<unsigned>& justifications);
+template void euf::egraph::explain_eq(ptr_vector<unsigned>& justifications, enode* a, enode* b, bool comm);
+

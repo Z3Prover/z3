@@ -42,7 +42,7 @@ Notes:
 #include "tactic/generic_model_converter.h"
 #include<sstream>
 
-struct goal2sat::imp {
+struct goal2sat::imp : public sat_internalizer {
     struct frame {
         app *    m_t;
         unsigned m_root:1;
@@ -131,6 +131,18 @@ struct goal2sat::imp {
         return m_true;
     }
 
+    sat::bool_var add_bool_var(expr* t) override {
+        sat::bool_var v = m_map.to_bool_var(t);
+        if (v == sat::null_bool_var) {
+            v = m_solver.add_var(true);
+            m_map.insert(t, v);
+        }
+        else {
+            m_solver.set_external(v);
+        }
+        return v;
+    }
+
    void convert_atom(expr * t, bool root, bool sign) {
         SASSERT(m.is_bool(t));
         sat::literal  l;
@@ -149,7 +161,7 @@ struct goal2sat::imp {
             }
             else {
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
-                sat::bool_var v = m_solver.add_var(ext);
+                v = m_solver.add_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
@@ -812,13 +824,37 @@ struct goal2sat::imp {
         }
     }
 
-    sat::literal internalize(expr* n) {
+    sat::literal internalize(expr* n) override {
         SASSERT(m_result_stack.empty());
         process(n, false);
         SASSERT(m_result_stack.size() == 1);
         sat::literal result = m_result_stack.back();
         m_result_stack.reset();
         return result;
+    }
+
+    bool is_bool_op(expr* t) const override {
+        if (!is_app(t))
+            return false;
+        if (to_app(t)->get_family_id() == m.get_basic_family_id()) {
+            switch (to_app(t)->get_decl_kind()) {
+            case OP_OR:
+            case OP_AND:             
+            case OP_TRUE:
+            case OP_FALSE:
+            case OP_NOT:
+                return true;
+            case OP_ITE:
+            case OP_EQ:
+                return m.is_bool(to_app(t)->get_arg(1));
+            default:
+                return false;
+            }
+        }
+        else if (to_app(t)->get_family_id() == pb.get_family_id()) 
+            return true;        
+        else 
+            return false;       
     }
     
     void process(expr * n) {

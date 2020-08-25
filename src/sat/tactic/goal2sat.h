@@ -34,6 +34,14 @@ Notes:
 #include "tactic/generic_model_converter.h"
 #include "sat/tactic/atom2bool_var.h"
 
+
+class sat_internalizer {
+public:
+    virtual bool is_bool_op(expr* e) const = 0;
+    virtual sat::literal internalize(expr* e) = 0;
+    virtual sat::bool_var add_bool_var(expr* e)  = 0;
+};
+
 class goal2sat {
     struct imp;
     imp *  m_imp;

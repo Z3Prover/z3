@@ -43,6 +43,7 @@ namespace euf {
         enode*        m_root;
         enode*        m_target { nullptr };
         justification m_justification;
+        unsigned      m_num_args;
         enode*        m_args[0];        
 
         friend class enode_args;
@@ -56,12 +57,14 @@ namespace euf {
         }
 
         static enode* mk(region& r, expr* f, unsigned num_args, enode* const* args) {
+            SASSERT(num_args <= (is_app(f) ? to_app(f)->get_num_args() : 0));
             void* mem = r.allocate(get_enode_size(num_args));
             enode* n = new (mem) enode();
             n->m_owner = f;
             n->m_next = n;
             n->m_root = n;
             n->m_commutative = num_args == 2 && is_app(f) && to_app(f)->get_decl()->is_commutative();
+            n->m_num_args = num_args;
             for (unsigned i = 0; i < num_args; ++i) {
                 SASSERT(to_app(f)->get_arg(i) == args[i]->get_owner());
                 n->m_args[i] = args[i];
@@ -83,9 +86,10 @@ namespace euf {
         }
 
         enode* const* args() const { return m_args; }
-        unsigned num_args() const { return is_app(m_owner) ? to_app(m_owner)->get_num_args() : 0; }                
+        unsigned num_args() const { return m_num_args; }
         unsigned num_parents() const { return m_parents.size(); }
         bool interpreted() const { return m_interpreted; }
+        bool commutative() const { return m_commutative; }
         void mark_interpreted() { SASSERT(num_args() == 0); m_interpreted = true; }
 
         enode* get_arg(unsigned i) const { SASSERT(i < num_args()); return m_args[i]; }        
@@ -97,6 +101,9 @@ namespace euf {
         void mark1() { m_mark1 = true; }
         void unmark1() { m_mark1 = false; }
         bool is_marked1() { return m_mark1; }
+        void mark2() { m_mark2 = true; }
+        void unmark2() { m_mark2 = false; }
+        bool is_marked2() { return m_mark2; }
         void add_parent(enode* p) { m_parents.push_back(p); }
         unsigned class_size() const { return m_class_size; }
         enode* get_root() const { return m_root; }
