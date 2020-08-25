@@ -1502,6 +1502,9 @@ bool theory_seq::internalize_term(app* term) {
 
     if (m.is_bool(term) && 
         (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
+        if (m_util.str.is_in_re(term)) {
+            mk_var(ensure_enode(term->get_arg(0)));
+        }
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);

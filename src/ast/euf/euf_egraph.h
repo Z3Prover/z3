@@ -99,8 +99,44 @@ namespace euf {
         bool inconsistent() const { return m_inconsistent; }
         enode_vector const& new_eqs() const { return m_new_eqs; }
         template <typename T>
-        void explain(ptr_vector<T>& justifications);
-
+        void explain(ptr_vector<T>& justifications) {
+            SASSERT(m_inconsistent);
+            SASSERT(m_todo.empty());
+            auto push_congruence = [&](enode* p, enode* q) {
+                SASSERT(p->get_decl() == q->get_decl());
+                for (enode* arg : enode_args(p))
+                    m_todo.push_back(arg);
+                for (enode* arg : enode_args(q))
+                    m_todo.push_back(arg);
+            };
+            auto explain_node = [&](enode* n) {
+                if (!n->m_target)
+                    return;
+                if (n->is_marked1())
+                    return;
+                n->mark1();
+                if (n->m_justification.is_external())
+                    justifications.push_back(n->m_justification.ext<T>());
+                else if (n->m_justification.is_congruence()) 
+                    push_congruence(n, n->m_target);
+                n = n->m_target;
+                if (!n->is_marked1())
+                    m_todo.push_back(n);
+            };
+            m_todo.push_back(m_n1);
+            m_todo.push_back(m_n2);
+            if (m_justification.is_external())
+                justifications.push_back(m_justification.ext<T>());
+            else if (m_justification.is_congruence())
+                push_congruence(m_n1, m_n2);
+            for (unsigned i = 0; i < m_todo.size(); ++i) 
+                explain_node(m_todo[i]);
+            for (enode* n : m_todo) 
+                n->unmark1();
+            m_todo.reset();
+        }
+        
+        
         void invariant();
         std::ostream& display(std::ostream& out) const;        
     };

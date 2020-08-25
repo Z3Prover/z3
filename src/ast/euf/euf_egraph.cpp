@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "ast/euf/euf_egraph.h"
+#include "ast/ast_pp.h"
 
 namespace euf {
 
@@ -59,6 +60,7 @@ namespace euf {
     }
 
     void egraph::reinsert_equality(enode* p) {
+        SASSERT(is_equality(p));
         if (p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
             m_new_eqs.push_back(p);
     }
@@ -162,10 +164,10 @@ namespace euf {
         if (r1 == r2)
             return;
         if (r1->interpreted() && r2->interpreted()) {
-            set_conflict(r1, r2, j);
+            set_conflict(n1, n2, j);
             return;
         }
-        if ((r1->class_size() > r2->class_size() && !r1->interpreted()) || r2->interpreted()) {
+        if ((r1->class_size() > r2->class_size() && !r2->interpreted()) || r1->interpreted()) {
             std::swap(r1, r2);
             std::swap(n1, n2);
         }
@@ -235,41 +237,6 @@ namespace euf {
         // n2 -> ... -> r2
         SASSERT(n1->reaches(n1->get_root()));
         SASSERT(n1->get_root()->m_target == nullptr);
-    }
-
-    template <typename T>
-    void egraph::explain(ptr_vector<T>& justifications) {
-        SASSERT(m_inconsistent);
-        SASSERT(m_todo.empty());
-        m_todo.push_back(m_n1);
-        m_todo.push_back(m_n2);
-        auto push_congruence = [&](enode* p, enode* q) {
-            SASSERT(p->get_decl() == q->get_decl());
-            for (enode* arg : enode_args(p))
-                m_todo.push_back(arg);
-            for (enode* arg : enode_args(q))
-                m_todo.push_back(arg);
-        };
-        auto explain_node = [&](enode* n) {
-            if (!n->m_target)
-                return;
-            if (n->is_marked1())
-                return;
-            n->mark1();
-            if (n->m_justification.is_external())
-                justifications.push_back(n->m_justification.ext<T>());
-            else if (n->m_justification.is_congruence()) 
-                push_congruence(n, n->m_target);
-            n = n->m_target;
-            if (!n->is_marked1())
-                m_todo.push_back(n);
-        };
-        if (m_justification.is_external())
-            justifications.push_back(m_justification.ext<T>());
-        for (unsigned i = 0; i < m_todo.size(); ++i) 
-            explain_node(m_todo[i]);
-        for (enode* n : m_todo) 
-            n->unmark1();
     }
 
     void egraph::invariant() {

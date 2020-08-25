@@ -8,6 +8,7 @@ Copyright (c) 2020 Microsoft Corporation
 #include "ast/euf/euf_egraph.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
     return expr_ref(m.mk_const(symbol(name), s), m);
@@ -85,13 +86,47 @@ static void test2() {
 static void test3() {
     ast_manager m;
     reg_decl_plugins(m);
+    arith_util a(m);
     euf::egraph g(m);
-    sort_ref S(m.mk_uninterpreted_sort(symbol("S")), m);
-
+    sort_ref I(a.mk_int(), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref x = mk_const(m, "x", I);
+    expr_ref y = mk_const(m, "y", I);
+    expr_ref z = mk_const(m, "z", I);
+    expr_ref u = mk_const(m, "u", I);
+    expr_ref fx = mk_app("f", x, I);
+    expr_ref fy = mk_app("f", y, I);
+    euf::enode* nx = g.mk(x, nullptr);
+    euf::enode* ny = g.mk(y, nullptr);
+    euf::enode* nz = g.mk(z, nullptr);
+    euf::enode* nu = g.mk(u, nullptr);
+    euf::enode* n0 = g.mk(zero, nullptr);
+    euf::enode* n1 = g.mk(one, nullptr);
+    euf::enode* nfx = g.mk(fx, &nx);
+    euf::enode* nfy = g.mk(fy, &ny);
+    int justifications[5] = { 1, 2, 3, 4, 5 };
+    g.merge(nfx, n0, justifications + 0);
+    g.merge(nfy, n1, justifications + 1);
+    g.merge(nx,  nz, justifications + 2);
+    g.merge(nx,  nu, justifications + 3);
+    g.propagate();
+    SASSERT(!g.inconsistent());
+    g.merge(nx, ny, justifications + 4);
+    std::cout << g << "\n";
+    g.propagate();
+    std::cout << g << "\n";
+    SASSERT(g.inconsistent());
+    ptr_vector<int> js;
+    g.explain<int>(js);
+    for (int* j : js) {
+        std::cout << "conflict: " << *j << "\n";
+    }
 }
 
 void tst_egraph() {
     enable_trace("euf");
+    test3();
     test1();
     test2();
 }

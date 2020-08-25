@@ -63,6 +63,7 @@ namespace euf {
             n->m_root = n;
             n->m_commutative = num_args == 2 && is_app(f) && to_app(f)->get_decl()->is_commutative();
             for (unsigned i = 0; i < num_args; ++i) {
+                SASSERT(to_app(f)->get_arg(i) == args[i]->get_owner());
                 n->m_args[i] = args[i];
             }
             return n;
