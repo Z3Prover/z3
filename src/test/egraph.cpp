@@ -83,6 +83,8 @@ static void test2() {
     }    
 }
 
+
+
 static void test3() {
     ast_manager m;
     reg_decl_plugins(m);
