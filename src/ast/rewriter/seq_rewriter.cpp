@@ -2265,7 +2265,7 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
         result = m().mk_ite(cond, is_nullable(r1), is_nullable(r2));
     }
     else if (m_util.is_re(r, seq_sort)) {
-        result = re().mk_in_re(str().mk_empty(seq_sort), r);
+        result = is_nullable_symbolic_regex(r, seq_sort);
     }
     else if (str().is_concat(r, r1, r2)) {
         m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
@@ -2283,6 +2283,31 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
         SASSERT(m_util.is_seq(r));
         result = m().mk_eq(str().mk_empty(m().get_sort(r)), r);
     }
+    return result;
+}
+
+expr_ref seq_rewriter::is_nullable_symbolic_regex(expr* r, sort* seq_sort) {
+    SASSERT(m_util.is_re(r));
+    expr* elem = nullptr, * r2 = nullptr, * s = nullptr;
+    expr_ref elems(str().mk_empty(seq_sort), m());
+    expr_ref result(m());
+    while (re().is_derivative(r, elem, r2)) {
+        if (str().is_empty(elems))
+            elems = str().mk_unit(elem);
+        else
+            elems = str().mk_concat(str().mk_unit(elem), elems);
+        r = r2;
+    }
+    if (re().is_to_re(r, s)) {
+        // r is nullable  
+        // iff after taking the derivatives the remaining sequence is empty 
+        // iff the inner sequence equals to the sequence of derivative elements in reverse
+        result = m().mk_eq(elems, s);
+        return result;
+    }
+    // the default case when either r is not a derivative
+    // or when the nested derivatives are not applied to a sequence
+    result = re().mk_in_re(str().mk_empty(seq_sort), r);
     return result;
 }
 
@@ -3203,6 +3228,11 @@ Disabled rewrite:
    disjunctions that cover cases where s overlaps given that "ab" does
    not overlap with any of the sequences.
    It is disabled because the solver doesn't handle disjunctions of regexes well.
+
+TBD:
+Enable rewrite when R = R1|R2 and derivative cannot make progress: 's in R' ==> 's in R1' | 's in R2'
+cannot make progress here means that R1 or R2 starts with an uninterpreted symbol
+This will help propagate cases like "abc"X in opt(to_re(X)) to equalities.
 */
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
@@ -3220,6 +3250,16 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     expr* b1 = nullptr;
     if (re().is_to_re(b, b1)) {
         result = m_br.mk_eq_rw(a, b1);
+        return BR_REWRITE1;
+    }
+    expr* eps = nullptr;
+    if (re().is_opt(b, b1) ||
+        (re().is_union(b, b1, eps) && re().is_epsilon(eps)) ||
+        (re().is_union(b, eps, b1) && re().is_epsilon(eps)))
+    {
+        result = m().mk_ite(m().mk_eq(str().mk_length(a), m_autil.mk_int(0)),
+            m().mk_true(),
+            re().mk_in_re(a, b1));
         return BR_REWRITE1;
     }
     if (str().is_empty(a)) {
