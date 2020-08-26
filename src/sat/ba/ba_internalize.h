@@ -46,6 +46,7 @@ namespace sat {
         literal internalize_xor(expr* e, bool sign, bool root);
     public:
         ba_internalize(ba_solver& ba, solver_core& s, ast_manager& m) : m(m), pb(m), ba(ba), m_solver(s) {}
+        ~ba_internalize() override {}
         literal internalize(sat_internalizer& si, expr* e, bool sign, bool root) override;
         
     };

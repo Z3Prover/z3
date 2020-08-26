@@ -49,6 +49,7 @@ namespace sat {
     class th_internalizer {
     public:
         virtual literal internalize(sat_internalizer& si, expr* e, bool sign, bool root) = 0;
+        virtual ~th_internalizer() {}
     };
 
     class index_base {

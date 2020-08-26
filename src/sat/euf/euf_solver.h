@@ -93,6 +93,7 @@ namespace euf {
             m_eq_idx(this, 1),
             m_lit_idx(this, 2)
         {}
+        ~solver() override {}
 
         void set_solver(sat::solver* s) override { m_solver = s; }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
