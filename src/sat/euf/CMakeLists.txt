@@ -1,6 +1,7 @@
 z3_add_component(sat_euf
   SOURCES
     euf_solver.cpp
+    euf_model.cpp
   COMPONENT_DEPENDENCIES
     sat
     sat_smt

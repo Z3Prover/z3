@@ -61,8 +61,10 @@ namespace euf {
         unsigned_vector       m_bool_var_lim;
         scoped_ptr_vector<sat::extension> m_extensions;
         ptr_vector<sat::extension>        m_id2extension;
-        ptr_vector<sat::th_internalizer> m_id2internalize;
+        ptr_vector<sat::th_internalizer>  m_id2internalize;
         scoped_ptr_vector<sat::th_internalizer>        m_internalizers;
+        scoped_ptr_vector<sat::th_model_builder>       m_model_builders;
+        ptr_vector<sat::th_model_builder>              m_id2model_builder;
         euf_base              m_conflict_idx, m_eq_idx, m_lit_idx;
 
         sat::solver& s() { return *m_solver; }
@@ -72,11 +74,18 @@ namespace euf {
         void attach_bool_var(sat::bool_var v, bool sign, euf::enode* n);
         solver* copy_core();
         sat::extension* get_extension(sat::bool_var v);
+        sat::extension* get_extension(expr* e);
         void add_extension(family_id fid, sat::extension* e);
         sat::th_internalizer* get_internalizer(expr* e);
 
+        sat::th_model_builder* get_model_builder(expr* e);
+
         void propagate();
         void get_antecedents(literal l, euf_base& j, literal_vector& r);
+
+        void dependencies2values(sat::th_dependencies& deps, expr_ref_vector& values);
+        void collect_dependencies(sat::th_dependencies& deps);        
+        void sort_dependencies(sat::th_dependencies& deps);
 
     public:
         solver(ast_manager& m, atom2bool_var& expr2var):
@@ -138,8 +147,7 @@ namespace euf {
         sat::literal internalize(sat::sat_internalizer& si, expr* e, bool sign, bool root) override;
         model_converter* get_model();
 
-
-        sat::extension* get_extension(expr* e);
+        
 
     };
 };

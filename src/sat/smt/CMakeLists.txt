@@ -4,5 +4,6 @@ z3_add_component(sat_smt
   COMPONENT_DEPENDENCIES
     sat
     ast
+    euf
 )
 

@@ -130,6 +130,7 @@ namespace euf {
         void explain(ptr_vector<T>& justifications);
         template <typename T>
         void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, bool comm);
+        enode_vector const& nodes() const { return m_nodes; }
         void invariant();
         void copy_from(egraph const& src, std::function<void*(void*)>& copy_justification);
         std::ostream& display(std::ostream& out) const;        

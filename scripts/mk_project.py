@@ -38,7 +38,7 @@ def init_project_def():
     add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
     add_lib('solver', ['model', 'tactic', 'proofs'])
     add_lib('cmd_context', ['solver', 'rewriter'])
-    add_lib('sat_smt', ['sat', 'tactic'], 'sat/smt')
+    add_lib('sat_smt', ['sat', 'euf', 'tactic'], 'sat/smt')
     add_lib('sat_ba',  ['sat', 'sat_smt'], 'sat/ba')    
     add_lib('sat_euf', ['sat', 'euf', 'sat_ba'], 'sat/euf')    
     add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_euf'], 'sat/tactic')        

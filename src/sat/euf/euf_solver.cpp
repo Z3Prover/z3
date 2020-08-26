@@ -334,6 +334,12 @@ namespace euf {
         }
         return nullptr;
     }
+
+    sat::th_model_builder* solver::get_model_builder(expr* e) {
+        if (is_app(e))
+            return m_id2model_builder.get(to_app(e)->get_family_id(), nullptr);
+        return nullptr;
+    }
    
     sat::literal solver::internalize(sat::sat_internalizer& si, expr* e, bool sign, bool root) {
         auto* ext = get_internalizer(e);
@@ -412,11 +418,6 @@ namespace euf {
         SASSERT(m_var2node[v].first == nullptr);
         m_var2node[v] = euf::enode_bool_pair(n, sign);
         m_bool_var_trail.push_back(v);
-    }
-
-    model_converter* solver::get_model() {
-        NOT_IMPLEMENTED_YET();
-        return nullptr;
     }
 
     bool solver::extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
