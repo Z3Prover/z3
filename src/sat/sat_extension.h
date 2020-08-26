@@ -87,7 +87,7 @@ namespace sat {
 
         virtual bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                                 std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {
-            return true;
+            return false;
         }
     };
 
