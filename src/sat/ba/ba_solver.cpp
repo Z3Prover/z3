@@ -5052,6 +5052,91 @@ namespace sat {
         return ok;
     }
 
+    bool ba_solver::extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& add_cardinality,
+                               std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& add_pb) {
+        
+        unsigned_vector coeffs;
+        literal_vector lits;
+        for (constraint* cp : m_constraints) {
+            switch (cp->tag()) {
+            case card_t: {
+                card const& c = cp->to_card();
+                unsigned n = c.size();
+                unsigned k = c.k();
+                
+                if (c.lit() == null_literal) {
+                    //    c.lits() >= k 
+                    // <=> 
+                    //    ~c.lits() <= n - k
+                    lits.reset();
+                    for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
+                    add_cardinality(lits.size(), lits.c_ptr(), n - k);
+                }
+                else {
+                    //
+                    // c.lit() <=> c.lits() >= k
+                    // 
+                    //    (c.lits() < k) or c.lit()
+                    // =  (c.lits() + (n - k + 1)*~c.lit()) <= n    
+                    //
+                    //    ~c.lit() or (c.lits() >= k)
+                    // =  ~c.lit() or (~c.lits() <= n - k)
+                    // =  k*c.lit() + ~c.lits() <= n 
+                    // 
+                    lits.reset();
+                    coeffs.reset();
+                    for (literal l : c) lits.push_back(l), coeffs.push_back(1);
+                    lits.push_back(~c.lit()); coeffs.push_back(n - k + 1);
+                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
+                    
+                    lits.reset();
+                    coeffs.reset();
+                    for (literal l : c) lits.push_back(~l), coeffs.push_back(1);
+                    lits.push_back(c.lit()); coeffs.push_back(k);
+                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
+                }
+                break;
+            }
+            case ba_solver::pb_t: {
+                ba_solver::pb const& p = cp->to_pb();
+                lits.reset();
+                coeffs.reset();
+                unsigned sum = 0;
+                for (ba_solver::wliteral wl : p) sum += wl.first;
+                
+                if (p.lit() == null_literal) {
+                    //   w1 + .. + w_n >= k
+                    // <=> 
+                    //  ~wl + ... + ~w_n <= sum_of_weights - k
+                    for (ba_solver::wliteral wl : p) lits.push_back(~(wl.second)), coeffs.push_back(wl.first);
+                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum - p.k());
+                }
+                else {
+                    //    lit <=> w1 + .. + w_n >= k
+                    // <=>
+                    //     lit or w1 + .. + w_n <= k - 1
+                    //    ~lit or w1 + .. + w_n >= k
+                    // <=> 
+                    //     (sum - k + 1)*~lit + w1 + .. + w_n <= sum
+                    //     k*lit + ~wl + ... + ~w_n <= sum
+                    lits.push_back(p.lit()), coeffs.push_back(p.k());
+                    for (ba_solver::wliteral wl : p) lits.push_back(~(wl.second)), coeffs.push_back(wl.first);
+                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
+                    
+                    lits.reset();
+                    coeffs.reset();
+                    lits.push_back(~p.lit()), coeffs.push_back(sum + 1 - p.k());
+                    for (ba_solver::wliteral wl : p) lits.push_back(wl.second), coeffs.push_back(wl.first);
+                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
+                }
+                break;
+            }
+            case ba_solver::xr_t:
+                return false;
+            }
+        }
+        return true;
+    }
     
 };
 

@@ -131,6 +131,10 @@ namespace euf {
         bool check_model(sat::model const& m) const override;
         unsigned max_var(unsigned w) const override;
 
+        bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
+                        std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override;
+
+
         sat::literal internalize(sat::sat_internalizer& si, expr* e, bool sign, bool root) override;
         model_converter* get_model();
 

@@ -418,5 +418,14 @@ namespace euf {
         NOT_IMPLEMENTED_YET();
         return nullptr;
     }
- 
+
+    bool solver::extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
+                            std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {
+        if (m_true)
+            return false;
+        for (auto* e : m_extensions)
+            if (!e->extract_pb(card, pb))
+                return false;
+        return true;
+    }
 }

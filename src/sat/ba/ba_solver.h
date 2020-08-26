@@ -579,6 +579,9 @@ namespace sat {
 
         bool validate() override;
 
+        bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& add_cardinlaity,
+                        std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& add_pb) override;
+
 
     };
 

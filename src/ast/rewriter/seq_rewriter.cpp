@@ -13,8 +13,7 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2015-12-5
     Murphy Berzish 2017-02-21
-
-Notes:
+    Caleb Stanford 2020-07-07
 
 --*/
 

@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include <functional>
 #include "sat/sat_types.h"
 #include "util/params.h"
 #include "util/statistics.h"
@@ -83,6 +84,11 @@ namespace sat {
         virtual bool is_blocked(literal l, ext_constraint_idx) = 0;
         virtual bool check_model(model const& m) const = 0;
         virtual unsigned max_var(unsigned w) const = 0;
+
+        virtual bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
+                                std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {
+            return true;
+        }
     };
 
 };
