@@ -86,6 +86,8 @@ namespace sat {
         virtual void user_push() { throw default_exception("optional API not supported"); }
         virtual void user_pop(unsigned num_scopes) {};
         virtual unsigned num_user_scopes() const { return 0;}
+        virtual unsigned num_scopes() const { return 0; }
+
 
         // hooks for extension solver. really just ba_solver atm.
         virtual extension* get_extension() const { return nullptr; }

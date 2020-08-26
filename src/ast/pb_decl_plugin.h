@@ -94,6 +94,7 @@ public:
     app * mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
     app * mk_eq(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
     app * mk_lt(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
+    bool is_pb(expr* t) const { return is_app(t) && to_app(t)->get_family_id() == get_family_id(); }
     bool is_at_most_k(func_decl *a) const;
     bool is_at_most_k(expr *a) const { return is_app(a) && is_at_most_k(to_app(a)->get_decl()); }
     bool is_at_most_k(expr *a, rational& k) const;

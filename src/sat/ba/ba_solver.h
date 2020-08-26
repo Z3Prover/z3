@@ -24,6 +24,7 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/sat_lookahead.h"
 #include "sat/sat_big.h"
+#include "sat/smt/sat_smt.h"
 #include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
@@ -64,7 +65,7 @@ namespace sat {
         class xr;
         class pb_base;
 
-        class constraint {
+        class constraint : public index_base {
         protected:
             tag_t          m_tag;
             bool           m_removed;
@@ -78,7 +79,8 @@ namespace sat {
             unsigned       m_id;
             bool           m_pure;        // is the constraint pure (only positive occurrences)
         public:
-            constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): 
+            constraint(extension* e, tag_t t, unsigned id, literal l, unsigned sz, size_t osz): 
+                index_base(e),
             m_tag(t), m_removed(false), m_lit(l), m_watch(null_literal), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id), m_pure(false) {}
             ext_constraint_idx index() const { return reinterpret_cast<ext_constraint_idx>(this); }
             unsigned id() const { return m_id; }
@@ -132,7 +134,8 @@ namespace sat {
         protected:
             unsigned       m_k;
         public:
-            pb_base(tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): constraint(t, id, l, sz, osz), m_k(k) { VERIFY(k < 4000000000); }
+            pb_base(extension* e, tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): 
+                constraint(e, t, id, l, sz, osz), m_k(k) { VERIFY(k < 4000000000); }
             virtual void set_k(unsigned k) { VERIFY(k < 4000000000);  m_k = k; }
             virtual unsigned get_coeff(unsigned i) const { UNREACHABLE(); return 0; }
             unsigned k() const { return m_k; }
@@ -143,7 +146,7 @@ namespace sat {
             literal        m_lits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(literal); }
-            card(unsigned id, literal lit, literal_vector const& lits, unsigned k);
+            card(extension* e, unsigned id, literal lit, literal_vector const& lits, unsigned k);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal& operator[](unsigned i) { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
@@ -167,7 +170,7 @@ namespace sat {
             wliteral       m_wlits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
-            pb(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
+            pb(extension* e, unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
             literal lit() const { return m_lit; }
             wliteral operator[](unsigned i) const { return m_wlits[i]; }
             wliteral& operator[](unsigned i) { return m_wlits[i]; }
@@ -195,7 +198,7 @@ namespace sat {
             literal        m_lits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(xr) + num_lits * sizeof(literal); }
-            xr(unsigned id, literal_vector const& lits);
+            xr(extension* e, unsigned id, literal_vector const& lits);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return begin() + m_size; }

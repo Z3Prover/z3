@@ -19,7 +19,6 @@ Notes:
 
 #include "sat/sat_local_search.h"
 #include "sat/sat_solver.h"
-#include "sat/ba_solver.h"
 #include "sat/sat_params.hpp"
 #include "util/timer.h"
 
@@ -415,6 +414,10 @@ namespace sat {
         }
         m_num_non_binary_clauses = s.m_clauses.size();
 
+        if (s.get_extension())
+            throw default_exception("local search is incompatible with extensions");
+
+#if 0
         // copy cardinality clauses
         ba_solver* ext = dynamic_cast<ba_solver*>(s.get_extension());
         if (ext) {
@@ -502,6 +505,8 @@ namespace sat {
                 }
             }
         }
+#endif
+
         if (_init) {
             init();
         }

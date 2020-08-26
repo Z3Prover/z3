@@ -56,5 +56,19 @@ namespace euf {
         bool   is_commutative() const { return m_comm; }
         template <typename T>
         T*  ext() const { SASSERT(is_external()); return static_cast<T*>(m_external); }            
+
+        justification copy(std::function<void*(void*)>& copy_justification) const {
+            switch (m_kind) {
+            case external_t:
+                return external(copy_justification(m_external));
+            case axiom_t:
+                return axiom();
+            case congruence_t:
+                return congruence(m_comm);
+            default:
+                UNREACHABLE();
+                return axiom();
+            }
+        }
     };
 }

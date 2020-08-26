@@ -17,6 +17,7 @@ Author:
 
 #include "ast/euf/euf_egraph.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_translation.h"
 
 namespace euf {
 
@@ -60,8 +61,10 @@ namespace euf {
 
     void egraph::reinsert_equality(enode* p) {
         SASSERT(is_equality(p));
-        if (p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
+        if (p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) {
             m_new_eqs.push_back(p);
+            ++m_stats.m_num_eqs;
+        }
     }
 
     bool egraph::is_equality(enode* p) const {
@@ -162,6 +165,7 @@ namespace euf {
         enode* r2 = n2->get_root();
         if (r1 == r2)
             return;
+        ++m_stats.m_num_merge;
         if (r1->interpreted() && r2->interpreted()) {
             set_conflict(n1, n2, j);
             return;
@@ -170,8 +174,10 @@ namespace euf {
             std::swap(r1, r2);
             std::swap(n1, n2);
         }
-        if ((m.is_true(r2->get_owner()) || m.is_false(r2->get_owner())) && j.is_congruence())
+        if ((m.is_true(r2->get_owner()) || m.is_false(r2->get_owner())) && j.is_congruence()) {
             m_new_lits.push_back(n1);
+            ++m_stats.m_num_lits;
+        }
         for (enode* p : enode_parents(n1)) 
             m_table.erase(p);            
         for (enode* p : enode_parents(n2)) 
@@ -211,6 +217,7 @@ namespace euf {
     }
 
     void egraph::set_conflict(enode* n1, enode* n2, justification j) {
+        ++m_stats.m_num_conflicts;
         if (m_inconsistent)
             return;
         m_inconsistent = true;
@@ -305,7 +312,8 @@ namespace euf {
     template <typename T>
     void egraph::explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, bool comm) {
         SASSERT(m_todo.empty());
-        push_congruence(a, b, comm);
+        SASSERT(a->get_root() == b->get_root());
+        push_lca(a, b);
         explain_todo(justifications);
     }
 
@@ -330,6 +338,10 @@ namespace euf {
 
     std::ostream& egraph::display(std::ostream& out) const {
         m_table.display(out);
+        unsigned max_args = 0;
+        for (enode* n : m_nodes)
+            max_args = std::max(max_args, n->num_args());
+
         for (enode* n : m_nodes) {
             out << std::setw(5)
                 << n->get_owner_id() << " := ";
@@ -342,13 +354,54 @@ namespace euf {
             else 
                 out << "v ";
             for (enode* arg : enode_args(n)) 
-                out << arg->get_owner_id() << " ";            
-            out << std::setw(20) << " parents: ";
+                out << arg->get_owner_id() << " ";   
+            for (unsigned i = n->num_args(); i < max_args; ++i)
+                out << "   ";
+            out << "\t";
             for (enode* p : enode_parents(n)) 
                 out << p->get_owner_id() << " ";
             out << "\n";            
         }
         return out;
+    }
+
+    void egraph::collect_statistics(statistics& st) const {
+        st.update("euf merge", m_stats.m_num_merge);
+        st.update("euf conflicts", m_stats.m_num_conflicts);
+        st.update("euf eq prop", m_stats.m_num_eqs);
+        st.update("euf lit prop", m_stats.m_num_lits);
+    }
+
+    void egraph::copy_from(egraph const& src, std::function<void*(void*)>& copy_justification) {
+        SASSERT(m_scopes.empty());
+        SASSERT(src.m_scopes.empty());
+        SASSERT(m_nodes.empty());
+        ptr_vector<enode> old_expr2new_enode, args;
+        ast_translation tr(src.m, m);
+        for (unsigned i = 0; i < src.m_nodes.size(); ++i) {
+            enode* n1 = src.m_nodes[i];
+            expr* e1 = src.m_exprs[i];
+            args.reset();
+            for (unsigned j = 0; j < n1->num_args(); ++j) {
+                args.push_back(old_expr2new_enode[n1->get_arg(j)->get_owner_id()]);
+            }
+            expr*  e2 = tr(e1);
+            enode* n2 = mk(e2, args.size(), args.c_ptr());
+            m_exprs.push_back(e2);
+            m_nodes.push_back(n2);
+            old_expr2new_enode.setx(e1->get_id(), n2, nullptr);
+        }
+        for (unsigned i = 0; i < src.m_nodes.size(); ++i) {            
+            enode* n1 = src.m_nodes[i];
+            enode* n1t = n1->m_target;
+            enode* n2 = m_nodes[i];
+            enode* n2t = n1t ? old_expr2new_enode[n1t->get_owner_id()] : nullptr;
+            SASSERT(!n1t || n2t);
+            if (n1t && n2->get_root() != n2t->get_root()) {
+                merge(n2, n2t, n1->m_justification.copy(copy_justification));
+            }
+        }
+        propagate();
     }
 }
 

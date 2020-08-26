@@ -16,53 +16,91 @@ Author:
 --*/
 #pragma once
 
+#include "util/scoped_ptr_vector.h"
 #include "sat/sat_extension.h"
 #include "ast/euf/euf_egraph.h"
-#include "sat/tactic/atom2bool_var.h"
-#include "sat/tactic/goal2sat.h"
+#include "ast/ast_translation.h"
+#include "sat/smt/sat_smt.h"
+#include "sat/smt/atom2bool_var.h"
+#include "tactic/model_converter.h"
 
-namespace euf_sat {
+namespace euf {
     typedef sat::literal literal;
     typedef sat::ext_constraint_idx ext_constraint_idx;
     typedef sat::ext_justification_idx ext_justification_idx;
     typedef sat::literal_vector literal_vector;
     typedef sat::bool_var bool_var;
 
-    struct frame {
-        expr* m_e;
-        unsigned m_idx;
-        frame(expr* e) : m_e(e), m_idx(0) {}
+    class euf_base : public sat::index_base {
+        unsigned m_id;
+    public:
+        euf_base(sat::extension* e, unsigned id) :
+            index_base(e), m_id(id)
+        {}
+        unsigned id() const { return m_id; }
+        static euf_base* from_idx(size_t z) { return reinterpret_cast<euf_base*>(z); }
     };
 
-    class solver : public sat::extension {
+    class solver : public sat::extension, public sat::th_internalizer {
         ast_manager& m;
         atom2bool_var&        m_expr2var;
         euf::egraph           m_egraph;
         sat::solver*          m_solver;
+        sat::lookahead*       m_lookahead;
+        ast_translation*      m_translate;
+        atom2bool_var*        m_translate_expr2var;
 
         euf::enode*           m_true;
         euf::enode*           m_false;
         svector<euf::enode_bool_pair> m_var2node;
         ptr_vector<unsigned>  m_explain;
         euf::enode_vector     m_args;
-        svector<frame>        m_stack;
+        svector<sat::frame>   m_stack;
+        unsigned              m_num_scopes { 0 };
+        unsigned_vector       m_bool_var_trail;
+        unsigned_vector       m_bool_var_lim;
+        scoped_ptr_vector<sat::extension> m_extensions;
+        ptr_vector<sat::extension>        m_id2extension;
+        ptr_vector<sat::th_internalizer> m_id2internalize;
+        scoped_ptr_vector<sat::th_internalizer>        m_internalizers;
+        euf_base              m_conflict_idx, m_eq_idx, m_lit_idx;
 
         sat::solver& s() { return *m_solver; }
         unsigned * base_ptr() { return reinterpret_cast<unsigned*>(this); }
-        euf::enode* visit(sat_internalizer& si, expr* e);
-        void attach_bool_var(sat_internalizer& si, euf::enode* n);
+        euf::enode* visit(sat::sat_internalizer& si, expr* e);
+        void attach_bool_var(sat::sat_internalizer& si, euf::enode* n);
         void attach_bool_var(sat::bool_var v, bool sign, euf::enode* n);
+        solver* copy_core();
+        sat::extension* get_extension(sat::bool_var v);
+        void add_extension(family_id fid, sat::extension* e);
+        sat::th_internalizer* get_internalizer(expr* e);
+
+        void propagate();
+        void get_antecedents(literal l, euf_base& j, literal_vector& r);
 
     public:
         solver(ast_manager& m, atom2bool_var& expr2var):
             m(m),
             m_expr2var(expr2var),
             m_egraph(m),
-            m_solver(nullptr)
+            m_solver(nullptr),
+            m_lookahead(nullptr),
+            m_translate(nullptr),
+            m_translate_expr2var(nullptr),
+            m_true(nullptr),
+            m_false(nullptr),
+            m_conflict_idx(this, 0),
+            m_eq_idx(this, 1),
+            m_lit_idx(this, 2)
         {}
 
         void set_solver(sat::solver* s) override { m_solver = s; }
-        void set_lookahead(sat::lookahead* s) override { }
+        void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
+        struct scoped_set_translate {
+            solver& s;
+            scoped_set_translate(solver& s, ast_translation& t, atom2bool_var& a2b):s(s) { s.m_translate = &t; s.m_translate_expr2var = &a2b; }
+            ~scoped_set_translate() { s.m_translate = nullptr; s. m_translate_expr2var = nullptr; }
+        };
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override { return 0; }
         bool is_extended_binary(ext_justification_idx idx, literal_vector & r) override { return false; }
 
@@ -92,7 +130,11 @@ namespace euf_sat {
         bool check_model(sat::model const& m) const override;
         unsigned max_var(unsigned w) const override;
 
-        void internalize(sat_internalizer& si, expr* e);
+        sat::literal internalize(sat::sat_internalizer& si, expr* e, bool sign, bool root) override;
+        model_converter* get_model();
+
+
+        sat::extension* get_extension(expr* e);
 
     };
 };

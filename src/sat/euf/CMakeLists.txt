@@ -3,6 +3,6 @@ z3_add_component(sat_euf
     euf_solver.cpp
   COMPONENT_DEPENDENCIES
     sat
-    sat_tactic
+    sat_smt
     euf
 )

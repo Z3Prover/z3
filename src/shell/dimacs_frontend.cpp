@@ -25,7 +25,7 @@ Revision History:
 #include "sat/dimacs.h"
 #include "sat/sat_params.hpp"
 #include "sat/sat_solver.h"
-#include "sat/ba_solver.h"
+#include "sat/ba/ba_solver.h"
 #include "sat/tactic/goal2sat.h"
 #include "ast/reg_decl_plugins.h"
 #include "tactic/tactic.h"

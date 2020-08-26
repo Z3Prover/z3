@@ -32,15 +32,8 @@ Notes:
 #include "sat/sat_solver.h"
 #include "tactic/model_converter.h"
 #include "tactic/generic_model_converter.h"
-#include "sat/tactic/atom2bool_var.h"
-
-
-class sat_internalizer {
-public:
-    virtual bool is_bool_op(expr* e) const = 0;
-    virtual sat::literal internalize(expr* e) = 0;
-    virtual sat::bool_var add_bool_var(expr* e)  = 0;
-};
+#include "sat/smt/atom2bool_var.h"
+#include "sat/smt/sat_smt.h"
 
 class goal2sat {
     struct imp;
@@ -57,7 +50,6 @@ public:
     static void collect_param_descrs(param_descrs & r);
 
     static bool has_unsupported_bool(goal const & s);
-
 
     /**
        \brief "Compile" the goal into the given sat solver.

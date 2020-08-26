@@ -1,13 +1,14 @@
 z3_add_component(sat_tactic
   SOURCES
-    atom2bool_var.cpp
     goal2sat.cpp
     sat_tactic.cpp
   COMPONENT_DEPENDENCIES
     sat
     tactic
     solver
-    euf
+    sat_smt
+    sat_ba
+    sat_euf
   TACTIC_HEADERS
     sat_tactic.h
 )

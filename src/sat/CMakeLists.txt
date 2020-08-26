@@ -1,6 +1,5 @@
 z3_add_component(sat
   SOURCES
-    ba_solver.cpp
     dimacs.cpp
     sat_aig_cuts.cpp
     sat_aig_finder.cpp

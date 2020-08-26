@@ -34,15 +34,17 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "sat/tactic/goal2sat.h"
-#include "sat/ba_solver.h"
 #include "sat/sat_cut_simplifier.h"
+#include "sat/ba/ba_internalize.h"
+#include "sat/ba/ba_solver.h"
+#include "sat/euf/euf_solver.h"
 #include "model/model_evaluator.h"
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
 #include "tactic/generic_model_converter.h"
 #include<sstream>
 
-struct goal2sat::imp : public sat_internalizer {
+struct goal2sat::imp : public sat::sat_internalizer {
     struct frame {
         app *    m_t;
         unsigned m_root:1;
@@ -53,7 +55,6 @@ struct goal2sat::imp : public sat_internalizer {
     };
     ast_manager &               m;
     pb_util                     pb;
-    sat::ba_solver*             m_ext;
     sat::cut_simplifier*        m_aig;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
@@ -69,12 +70,13 @@ struct goal2sat::imp : public sat_internalizer {
     expr_ref_vector             m_interpreted_atoms;
     bool                        m_default_external;
     bool                        m_xor_solver;
+    bool                        m_euf;
     bool                        m_is_lemma;
+
     
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
         pb(m),
-        m_ext(nullptr),
         m_aig(nullptr),
         m_solver(s),
         m_map(map),
@@ -92,7 +94,7 @@ struct goal2sat::imp : public sat_internalizer {
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
-        if (m_xor_solver) ensure_extension();
+        m_euf = false;
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -107,12 +109,12 @@ struct goal2sat::imp : public sat_internalizer {
 
     void set_lemma_mode(bool f) { m_is_lemma = f; }
 
-    void mk_clause(sat::literal l1, sat::literal l2) {
+    void mk_clause(sat::literal l1, sat::literal l2) override {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
         m_solver.add_clause(l1, l2, m_is_lemma);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, bool is_lemma = false) {
+    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, bool is_lemma = false) override {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
         m_solver.add_clause(l1, l2, l3, m_is_lemma || is_lemma);
     }
@@ -143,6 +145,10 @@ struct goal2sat::imp : public sat_internalizer {
         return v;
     }
 
+    void cache(app* t, sat::literal l) override {
+        m_cache.insert(t, l);
+    }
+
    void convert_atom(expr * t, bool root, bool sign) {
         SASSERT(m.is_bool(t));
         sat::literal  l;
@@ -166,7 +172,12 @@ struct goal2sat::imp : public sat_internalizer {
                 l = sat::literal(v, sign);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
                 if (!is_uninterp_const(t)) {
-                    m_interpreted_atoms.push_back(t);
+                    if (m_euf) {
+                        convert_euf(t, root, sign);
+                        return;
+                    }
+                    else
+                        m_interpreted_atoms.push_back(t);
                 }
             }
         }
@@ -183,8 +194,7 @@ struct goal2sat::imp : public sat_internalizer {
     }
 
     bool convert_app(app* t, bool root, bool sign) {
-        if (t->get_family_id() == pb.get_family_id()) {
-            ensure_extension();
+        if (pb.is_pb(t)) {
             m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
             return false;
         }
@@ -208,7 +218,6 @@ struct goal2sat::imp : public sat_internalizer {
         return false;
     }
 
-
     bool visit(expr * t, bool root, bool sign) {
         if (!is_app(t)) {
             convert_atom(t, root, sign);
@@ -216,9 +225,8 @@ struct goal2sat::imp : public sat_internalizer {
         }
         if (process_cached(to_app(t), root, sign))
             return true;
-        if (to_app(t)->get_family_id() != m.get_basic_family_id()) {
-            return convert_app(to_app(t), root, sign);
-        }
+        if (to_app(t)->get_family_id() != m.get_basic_family_id()) 
+            return convert_app(to_app(t), root, sign);        
         switch (to_app(t)->get_decl_kind()) {
         case OP_NOT:
         case OP_OR:
@@ -341,11 +349,11 @@ struct goal2sat::imp : public sat_internalizer {
             mk_clause(num+1, lits);
             if (m_aig) {
                 m_aig->add_and(l, num, aig_lits.c_ptr());
-            }
-            unsigned old_sz = m_result_stack.size() - num - 1;
-            m_result_stack.shrink(old_sz);
+            }                       
             if (sign)
                 l.neg();
+            unsigned old_sz = m_result_stack.size() - num - 1;
+            m_result_stack.shrink(old_sz);
             m_result_stack.push_back(l);
             TRACE("goal2sat", tout << m_result_stack << "\n";);
         }
@@ -382,9 +390,9 @@ struct goal2sat::imp : public sat_internalizer {
                 mk_clause(t,  e, ~l, false);
             }
             if (m_aig) m_aig->add_ite(l, c, t, e);
-            m_result_stack.shrink(sz-3);
             if (sign)
                 l.neg();
+            m_result_stack.shrink(sz-3);
             m_result_stack.push_back(l);
         }
     }
@@ -415,268 +423,70 @@ struct goal2sat::imp : public sat_internalizer {
             mk_clause(~l, ~l1, l2);
             mk_clause(l,  l1, l2);
             mk_clause(l, ~l1, ~l2);
-            if (m_aig) m_aig->add_iff(l, l1, l2);
-            m_result_stack.shrink(sz-2);
+            if (m_aig) m_aig->add_iff(l, l1, l2);            
             if (sign)
                 l.neg();
+            m_result_stack.shrink(sz - 2);
             m_result_stack.push_back(l);
         }
     }
 
     void convert_iff(app * t, bool root, bool sign) {
         TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
-        unsigned sz = m_result_stack.size();
-        unsigned num = get_num_args(t);
-        SASSERT(sz >= num && num >= 2);
-        if (num == 2) {
+        if (is_xor(t))
+            convert_ba(t, root, sign);
+        else               
             convert_iff2(t, root, sign);
+    }
+
+    void convert_euf(expr* e, bool root, bool sign) {
+        sat::extension* ext = m_solver.get_extension();
+        euf::solver* euf = nullptr;
+        if (!ext) {
+            euf = alloc(euf::solver, m, m_map);
+            m_solver.set_extension(euf);
+            for (unsigned i = m_solver.num_scopes(); i-- > 0; )
+                euf->push();
+        }
+        else {
+            euf = dynamic_cast<euf::solver*>(ext);
+        }
+        if (!euf)
+            throw default_exception("cannot convert to euf");
+        sat::literal lit = euf->internalize(*this, e, sign, root);
+        if (root)
+            m_result_stack.reset();
+        if (lit == sat::null_literal)
             return;
-        }
-        sat::literal_vector lits;
-        sat::bool_var v = m_solver.add_var(true);
-        lits.push_back(sat::literal(v, true));
-        convert_pb_args(num, lits);
-        // ensure that = is converted to xor
-        for (unsigned i = 1; i + 1 < lits.size(); ++i) {
-            lits[i].neg();
-        }
-        ensure_extension();
-        m_ext->add_xr(lits);
-        if (m_aig) m_aig->add_xor(~lits.back(), lits.size() - 1, lits.c_ptr() + 1);
-        sat::literal lit(v, sign);
-        if (root) {            
-            m_result_stack.reset();
+        if (root)
             mk_clause(lit);
-        }
-        else {
-            m_result_stack.shrink(sz - num);
+        else
             m_result_stack.push_back(lit);
-        }
     }
 
-    void convert_pb_args(unsigned num_args, sat::literal_vector& lits) {
-        unsigned sz = m_result_stack.size();
-        for (unsigned i = 0; i < num_args; ++i) {
-            sat::literal lit(m_result_stack[sz - num_args + i]);
-            if (!m_solver.is_external(lit.var())) {
-                m_solver.set_external(lit.var());
-            }
-            lits.push_back(lit);
-        }
-    }
-
-    typedef std::pair<unsigned, sat::literal> wliteral;
-
-    void check_unsigned(rational const& c) {
-        if (!c.is_unsigned()) {
-            throw default_exception("unsigned coefficient expected");
-        }
-    }
-
-    void convert_to_wlits(app* t, sat::literal_vector const& lits, svector<wliteral>& wlits) {
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            rational c = pb.get_coeff(t, i);
-            check_unsigned(c);
-            wlits.push_back(std::make_pair(c.get_unsigned(), lits[i]));
-        }
-    }
-
-    void convert_pb_args(app* t, svector<wliteral>& wlits) {
-        sat::literal_vector lits;
-        convert_pb_args(t->get_num_args(), lits);
-        convert_to_wlits(t, lits, wlits);        
-    }
-
-    void push_result(bool root, sat::literal lit, unsigned num_args) {
-        if (root) {
-            m_result_stack.reset();
-            mk_clause(lit);                
+    void convert_ba(app* t, bool root, bool sign) {
+        sat::extension* ext = m_solver.get_extension();
+        sat::ba_solver* ba = nullptr;
+        if (!ext) {
+            ba = alloc(sat::ba_solver);
+            m_solver.set_extension(ba);
+            ba->push_scopes(m_solver.num_scopes());
         }
         else {
-            m_result_stack.shrink(m_result_stack.size() - num_args);
-            m_result_stack.push_back(lit);
+            ba = dynamic_cast<sat::ba_solver*>(ext);            
         }
-    }
-
-    void convert_pb_ge(app* t, bool root, bool sign) {
-        rational k = pb.get_k(t);
-        check_unsigned(k);                
-        svector<wliteral> wlits;
-        convert_pb_args(t, wlits);
-        if (root && m_solver.num_user_scopes() == 0) {
+        if (!ba)
+            throw default_exception("cannot convert to pb");
+        sat::ba_internalize internalize(*ba, m_solver, m);
+        sat::literal lit = internalize.internalize(*this, t, sign, root);
+        if (root)
             m_result_stack.reset();
-            unsigned k1 = k.get_unsigned();
-            if (sign) {
-                k1 = 1 - k1;
-                for (wliteral& wl : wlits) {
-                    wl.second.neg();
-                    k1 += wl.first;
-                }
-            }
-            m_ext->add_pb_ge(sat::null_bool_var, wlits, k1);
-        }
-        else {
-            sat::bool_var v = m_solver.add_var(true);
-            sat::literal lit(v, sign);
-            m_ext->add_pb_ge(v, wlits, k.get_unsigned());
-            TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            push_result(root, lit, t->get_num_args());
-        }
-    }
-
-    void convert_pb_le(app* t, bool root, bool sign) {
-        rational k = pb.get_k(t);
-        k.neg();
-        svector<wliteral> wlits;
-        convert_pb_args(t, wlits);
-        for (wliteral& wl : wlits) {
-            wl.second.neg();
-            k += rational(wl.first);
-        }
-        check_unsigned(k);
-        if (root && m_solver.num_user_scopes() == 0) {
-            m_result_stack.reset();
-            unsigned k1 = k.get_unsigned();
-            if (sign) {
-                k1 = 1 - k1;
-                for (wliteral& wl : wlits) {
-                    wl.second.neg();
-                    k1 += wl.first;
-                }
-            }
-            m_ext->add_pb_ge(sat::null_bool_var, wlits, k1);
-        }
-        else {
-            sat::bool_var v = m_solver.add_var(true);
-            sat::literal lit(v, sign);
-            m_ext->add_pb_ge(v, wlits, k.get_unsigned());
-            TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            push_result(root, lit, t->get_num_args());
-        }
-    }
-
-    void convert_pb_eq(app* t, bool root, bool sign) {
-        rational k = pb.get_k(t);
-        SASSERT(k.is_unsigned());
-        svector<wliteral> wlits;
-        convert_pb_args(t, wlits);
-        bool base_assert = (root && !sign && m_solver.num_user_scopes() == 0);
-        sat::bool_var v1 = base_assert ? sat::null_bool_var : m_solver.add_var(true);
-        sat::bool_var v2 = base_assert ? sat::null_bool_var : m_solver.add_var(true);
-        m_ext->add_pb_ge(v1, wlits, k.get_unsigned());        
-        k.neg();
-        for (wliteral& wl : wlits) {
-            wl.second.neg();
-            k += rational(wl.first);
-        }
-        check_unsigned(k);
-        m_ext->add_pb_ge(v2, wlits, k.get_unsigned());
-        if (base_assert) {
-            m_result_stack.reset();
-        }
-        else {
-            sat::literal l1(v1, false), l2(v2, false);
-            sat::bool_var v = m_solver.add_var(false);
-            sat::literal l(v, false);
-            mk_clause(~l, l1);
-            mk_clause(~l, l2);
-            mk_clause(~l1, ~l2, l);
-            m_cache.insert(t, l);
-            if (sign) l.neg();
-            push_result(root, l, t->get_num_args());
-        }
-    }
-
-    void convert_at_least_k(app* t, rational const& k, bool root, bool sign) {
-        SASSERT(k.is_unsigned());
-        sat::literal_vector lits;
-        convert_pb_args(t->get_num_args(), lits);
-        unsigned k2 = k.get_unsigned();
-        if (root && m_solver.num_user_scopes() == 0) {
-            m_result_stack.reset();
-            if (sign) {
-                for (sat::literal& l : lits) l.neg();
-                k2 = lits.size() + 1 - k2;
-            }
-            m_ext->add_at_least(sat::null_bool_var, lits, k2);
-        }
-        else {
-            sat::bool_var v = m_solver.add_var(true);
-            sat::literal lit(v, false);
-            m_ext->add_at_least(v, lits, k.get_unsigned());
-            m_cache.insert(t, lit);
-            if (sign) lit.neg();
-            TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            push_result(root, lit, t->get_num_args());
-        }
-    }
-
-    void convert_at_most_k(app* t, rational const& k, bool root, bool sign) {
-        SASSERT(k.is_unsigned());
-        sat::literal_vector lits;
-        convert_pb_args(t->get_num_args(), lits);
-        for (sat::literal& l : lits) {
-            l.neg();
-        }
-        unsigned k2 = lits.size() - k.get_unsigned();
-        if (root && m_solver.num_user_scopes() == 0) {
-            m_result_stack.reset();
-            if (sign) {
-                for (sat::literal& l : lits) l.neg();
-                k2 = lits.size() + 1 - k2;
-            }
-            m_ext->add_at_least(sat::null_bool_var, lits, k2);
-        }
-        else {
-            sat::bool_var v = m_solver.add_var(true);
-            sat::literal lit(v, false);
-            m_ext->add_at_least(v, lits, k2);
-            m_cache.insert(t, lit);
-            if (sign) lit.neg();
-            push_result(root, lit, t->get_num_args());
-        }        
-    }
-
-    void convert_eq_k(app* t, rational const& k, bool root, bool sign) {
-        SASSERT(k.is_unsigned());
-        sat::literal_vector lits;
-        convert_pb_args(t->get_num_args(), lits);
-        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.add_var(true);
-        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.add_var(true);
-        m_ext->add_at_least(v1, lits, k.get_unsigned());        
-        for (sat::literal& l : lits) {
-            l.neg();
-        }
-        m_ext->add_at_least(v2, lits, lits.size() - k.get_unsigned());
-
-        if (root && !sign) {
-            m_result_stack.reset();
-        }
-        else {
-            sat::literal l1(v1, false), l2(v2, false);
-            sat::bool_var v = m_solver.add_var(false);
-            sat::literal l(v, false);
-            mk_clause(~l, l1);
-            mk_clause(~l, l2);
-            mk_clause(~l1, ~l2, l);
-            m_cache.insert(t, l);
-            if (sign) l.neg();
-            push_result(root, l, t->get_num_args());
-        }
-    }
-
-    void ensure_extension() {
-        if (!m_ext) {
-            sat::extension* ext = m_solver.get_extension();
-            if (ext) {
-                m_ext = dynamic_cast<sat::ba_solver*>(ext);
-                SASSERT(m_ext);
-            }
-            if (!m_ext) {
-                m_ext = alloc(sat::ba_solver);
-                m_solver.set_extension(m_ext);
-            }
-        }        
+        if (lit == sat::null_literal)
+            return;
+        if (root) 
+            mk_clause(lit);        
+        else 
+            m_result_stack.push_back(lit);      
     }
 
     void convert(app * t, bool root, bool sign) {
@@ -698,95 +508,45 @@ struct goal2sat::imp : public sat_internalizer {
                 UNREACHABLE();
             }
         }
-        else if (t->get_family_id() == pb.get_family_id()) {
-            ensure_extension();
-            rational k;
-            switch (t->get_decl_kind()) {
-            case OP_AT_MOST_K:
-                k = pb.get_k(t);
-                convert_at_most_k(t, k, root, sign);
-                break;
-            case OP_AT_LEAST_K:
-                k = pb.get_k(t);
-                convert_at_least_k(t, k, root, sign);
-                break;
-            case OP_PB_LE:
-                if (pb.has_unit_coefficients(t)) {
-                    k = pb.get_k(t);
-                    convert_at_most_k(t, k, root, sign);
-                }
-                else {
-                    convert_pb_le(t, root, sign);
-                }
-                break;
-            case OP_PB_GE:
-                if (pb.has_unit_coefficients(t)) {
-                    k = pb.get_k(t);
-                    convert_at_least_k(t, k, root, sign);
-                }
-                else {
-                    convert_pb_ge(t, root, sign);
-                }
-                break;
-            case OP_PB_EQ:
-                if (pb.has_unit_coefficients(t)) {
-                    k = pb.get_k(t);
-                    convert_eq_k(t, k, root, sign);
-                }
-                else {
-                    convert_pb_eq(t, root, sign);
-                }
-                break;
-            default:
-                UNREACHABLE();
-            }
+        else if (pb.is_pb(t)) {
+            convert_ba(t, root, sign);
         }
         else {
             UNREACHABLE();
         }
     }
 
-
-    unsigned get_num_args(app* t) {
-        
-        if (m.is_iff(t) && m_xor_solver) {
-            unsigned n = 2;
-            while (m.is_iff(t->get_arg(1))) {
-                ++n;
-                t = to_app(t->get_arg(1));
-            }
-            return n;
-        }
-        else {
-            return t->get_num_args();
-        }
+    bool is_xor(app* t) const {
+        return m_xor_solver && m.is_iff(t) && m.is_iff(t->get_arg(1));
     }
 
-    expr* get_arg(app* t, unsigned idx) {
-        if (m.is_iff(t) && m_xor_solver) {        
-            while (idx >= 1) {
-                SASSERT(m.is_iff(t));
-                t = to_app(t->get_arg(1));
-                --idx;
+    struct scoped_stack {
+        sat::literal_vector& r;
+        unsigned rsz;
+        svector<frame>& frames;
+        unsigned fsz;
+        bool is_root;
+        scoped_stack(imp& x, bool is_root) :
+            r(x.m_result_stack), rsz(r.size()), frames(x.m_frame_stack), fsz(frames.size()), is_root(is_root)
+        {}
+        ~scoped_stack() {
+            if (frames.size() > fsz) {
+                frames.shrink(fsz);
+                r.shrink(rsz);
+                return;
             }
-            if (m.is_iff(t)) {
-                return t->get_arg(idx);
-            }
-            else {
-                return t;
-            }
+            SASSERT(frames.size() == fsz);
+            SASSERT(!is_root || rsz == r.size());
+            SASSERT(is_root || rsz + 1 == r.size());
         }
-        else {
-            return t->get_arg(idx);
-        }
-    }
+    };
 
     void process(expr* n, bool is_root) {
+        scoped_stack _sc(*this, is_root);
         unsigned sz = m_frame_stack.size();
-        if (visit(n, is_root, false)) {
-            SASSERT(m_result_stack.empty());
+        if (visit(n, is_root, false)) 
             return;
-        }
+        
         while (m_frame_stack.size() > sz) {
         loop:
             if (!m.inc())
@@ -809,9 +569,14 @@ struct goal2sat::imp : public sat_internalizer {
                 visit(t->get_arg(0), root, !sign);
                 continue;
             }
-            unsigned num = get_num_args(t);
+            if (is_xor(t)) {
+                convert_ba(t, root, sign);
+                m_frame_stack.pop_back();
+                continue;
+            }
+            unsigned num = t->get_num_args();
             while (fr.m_idx < num) {
-                expr * arg = get_arg(t, fr.m_idx);
+                expr * arg = t->get_arg(fr.m_idx);
                 fr.m_idx++;
                 if (!visit(arg, false, false))
                     goto loop;
@@ -825,11 +590,11 @@ struct goal2sat::imp : public sat_internalizer {
     }
 
     sat::literal internalize(expr* n) override {
-        SASSERT(m_result_stack.empty());
+        unsigned sz = m_result_stack.size();
         process(n, false);
-        SASSERT(m_result_stack.size() == 1);
+        SASSERT(m_result_stack.size() == sz + 1);
         sat::literal result = m_result_stack.back();
-        m_result_stack.reset();
+        m_result_stack.pop_back();
         return result;
     }
 

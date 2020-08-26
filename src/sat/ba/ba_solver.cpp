@@ -18,7 +18,7 @@ Revision History:
 --*/
 
 #include <cmath>
-#include "sat/ba_solver.h"
+#include "sat/ba/ba_solver.h"
 #include "sat/sat_types.h"
 #include "util/mpz.h"
 #include "sat/sat_simplifier_params.hpp"
@@ -128,8 +128,8 @@ namespace sat {
     // ----------------------
     // card
 
-    ba_solver::card::card(unsigned id, literal lit, literal_vector const& lits, unsigned k):
-        pb_base(card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {        
+    ba_solver::card::card(extension* e, unsigned id, literal lit, literal_vector const& lits, unsigned k):
+        pb_base(e, card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {        
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -155,8 +155,8 @@ namespace sat {
     // -----------------------------------
     // pb
 
-    ba_solver::pb::pb(unsigned id, literal lit, svector<ba_solver::wliteral> const& wlits, unsigned k):
-        pb_base(pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
+    ba_solver::pb::pb(extension* e, unsigned id, literal lit, svector<ba_solver::wliteral> const& wlits, unsigned k):
+        pb_base(e, pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
         m_slack(0),
         m_num_watch(0),
         m_max_sum(0) {
@@ -208,8 +208,8 @@ namespace sat {
     // -----------------------------------
     // xr
     
-    ba_solver::xr::xr(unsigned id, literal_vector const& lits):
-    constraint(xr_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
+    ba_solver::xr::xr(extension* e, unsigned id, literal_vector const& lits):
+    constraint(e, xr_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -1897,7 +1897,7 @@ namespace sat {
             return nullptr;
         }
         void * mem = m_allocator.allocate(card::get_obj_size(lits.size()));
-        card* c = new (mem) card(next_id(), lit, lits, k);
+        card* c = new (mem) card(this, next_id(), lit, lits, k);
         c->set_learned(learned);
         add_constraint(c);
         return c;
@@ -1966,7 +1966,7 @@ namespace sat {
             return add_at_least(lit, lits, k, learned);
         }
         void * mem = m_allocator.allocate(pb::get_obj_size(wlits.size()));
-        pb* p = new (mem) pb(next_id(), lit, wlits, k);
+        pb* p = new (mem) pb(this, next_id(), lit, wlits, k);
         p->set_learned(learned);
         add_constraint(p);
         return p;
@@ -2082,7 +2082,7 @@ namespace sat {
             break;
         }
         void * mem = m_allocator.allocate(xr::get_obj_size(lits.size()));
-        xr* x = new (mem) xr(next_id(), lits);
+        xr* x = new (mem) xr(this, next_id(), lits);
         x->set_learned(learned);
         add_constraint(x);
         return x;

@@ -24,6 +24,7 @@ Notes:
 --*/
 
 #pragma once
+#include "util/statistics.h"
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_etable.h"
 
@@ -43,6 +44,14 @@ namespace euf {
             unsigned m_num_eqs;
             unsigned m_num_nodes;
         };
+        struct stats {
+            unsigned m_num_merge;
+            unsigned m_num_lits;
+            unsigned m_num_eqs;
+            unsigned m_num_conflicts;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
         ast_manager&           m;
         region                 m_region;
         enode_vector           m_worklist;
@@ -60,6 +69,8 @@ namespace euf {
         enode_vector           m_new_eqs;
         enode_vector           m_new_lits;
         enode_vector           m_todo;
+        stats                  m_stats;
+            
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
             m_eqs.push_back(add_eq_record(r1, n1, r2_num_parents));
@@ -120,7 +131,9 @@ namespace euf {
         template <typename T>
         void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, bool comm);
         void invariant();
+        void copy_from(egraph const& src, std::function<void*(void*)>& copy_justification);
         std::ostream& display(std::ostream& out) const;        
+        void collect_statistics(statistics& st) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, egraph const& g) { return g.display(out); }

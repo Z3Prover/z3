@@ -47,8 +47,9 @@ namespace sat {
     };
 
     class extension {
-    public:
+    public:        
         virtual ~extension() {}
+        virtual unsigned get_id() const { return 0; }
         virtual void set_solver(solver* s) = 0;
         virtual void set_lookahead(lookahead* s) = 0;
         virtual bool propagate(literal l, ext_constraint_idx idx) = 0;
@@ -59,6 +60,7 @@ namespace sat {
         virtual check_result check() = 0;
         virtual lbool resolve_conflict() { return l_undef; } // stores result in sat::solver::m_lemma
         virtual void push() = 0;
+        void push_scopes(unsigned n) { for (unsigned i = 0; i < n; ++i) push(); }
         virtual void pop(unsigned n) = 0;
         virtual void pre_simplify() = 0;
         virtual void simplify() = 0;

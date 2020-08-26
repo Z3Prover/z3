@@ -635,6 +635,7 @@ namespace sat {
         void user_pop(unsigned num_scopes) override;
         void pop_to_base_level() override;
         unsigned num_user_scopes() const override { return m_user_scope_literals.size(); }
+        unsigned num_scopes() const override { return m_scopes.size(); }
         reslimit& rlimit() { return m_rlimit; }
         params_ref const& params() { return m_params; }
         // -----------------------

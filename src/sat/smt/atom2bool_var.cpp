@@ -20,7 +20,7 @@ Notes:
 #include "util/ref_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "tactic/goal.h"
-#include "sat/tactic/atom2bool_var.h"
+#include "sat/smt/atom2bool_var.h"
 
 void atom2bool_var::mk_inv(expr_ref_vector & lit2expr) const {
     for (auto const& kv : m_mapping) {
