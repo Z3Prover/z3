@@ -173,7 +173,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
                 if (!is_uninterp_const(t)) {
                     if (m_euf) {
-                        convert_euf(t, root, sign);
+                        convert_euf(t, root, sign);                        
                         return;
                     }
                     else
@@ -186,6 +186,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             l = sat::literal(v, sign);
             m_solver.set_eliminated(v, false);
         }
+        if (root)
+            m_result_stack.reset();
         SASSERT(l != sat::null_literal);
         if (root)
             mk_clause(l);
@@ -330,7 +332,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;
-
 
             // l => /\ lits
             for (unsigned i = 0; i < num; i++) {
@@ -481,6 +482,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::literal lit = internalize.internalize(*this, t, sign, root);
         if (root)
             m_result_stack.reset();
+        else 
+            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
         if (lit == sat::null_literal)
             return;
         if (root) 
@@ -507,6 +510,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             default:
                 UNREACHABLE();
             }
+            SASSERT(!root || m_result_stack.empty());
         }
         else if (pb.is_pb(t)) {
             convert_ba(t, root, sign);
@@ -780,7 +784,6 @@ void sat2goal::mc::flush_smc(sat::solver_core& s, atom2bool_var const& map) {
     map.mk_var_inv(m_var2expr);
     flush_gmc();
 }
-
 
 void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
