@@ -17,8 +17,6 @@ Author:
 
 #include "ast/euf/euf_enode.h"
 
-#pragma once
-
 namespace euf {
 
     void enode::invariant() {
