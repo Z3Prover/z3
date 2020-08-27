@@ -85,6 +85,7 @@ struct scoped_assumption_push {
 };
 
 lbool solver::get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
+    scoped_solver_time st(*this);
     try {
         return get_consequences_core(asms, vars, consequences);
     }
@@ -326,6 +327,7 @@ expr_ref_vector solver::get_non_units() {
 
 lbool solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
     lbool r = l_undef;
+    scoped_solver_time _st(*this);
     try {
         r = check_sat_core(num_assumptions, assumptions);
     }

@@ -727,6 +727,7 @@ extern "C" {
         to_solver_ref(s)->collect_statistics(st->m_stats);
         get_memory_statistics(st->m_stats);
         get_rlimit_statistics(mk_c(c)->m().limit(), st->m_stats);
+        to_solver_ref(s)->collect_timer_stats(st->m_stats);
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);

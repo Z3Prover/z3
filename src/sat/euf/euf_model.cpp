@@ -23,10 +23,8 @@ namespace euf {
 
     model_converter* solver::get_model() {
         sat::th_dependencies deps;
-#if 0
         collect_dependencies(deps);
-        sort_dependencies(deps);
-#endif
+        // deps.sort();
         expr_ref_vector values(m);
         dependencies2values(deps, values);
         return nullptr;
@@ -36,9 +34,6 @@ namespace euf {
 
     }
 
-    void solver::sort_dependencies(sat::th_dependencies& deps) {
-
-    }
 
     void solver::dependencies2values(sat::th_dependencies& deps, expr_ref_vector& values) {
 

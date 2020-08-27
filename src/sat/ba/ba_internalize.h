@@ -18,7 +18,7 @@ Author:
 
 #pragma once
 
-#include "sat/smt/sat_smt.h"
+#include "sat/smt/sat_th.h"
 #include "sat/ba/ba_solver.h"
 #include "ast/pb_decl_plugin.h"
 

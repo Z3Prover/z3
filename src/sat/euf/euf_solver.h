@@ -20,8 +20,8 @@ Author:
 #include "sat/sat_extension.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/ast_translation.h"
-#include "sat/smt/sat_smt.h"
 #include "sat/smt/atom2bool_var.h"
+#include "sat/smt/sat_th.h"
 #include "tactic/model_converter.h"
 
 namespace euf {
