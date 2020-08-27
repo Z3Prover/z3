@@ -1452,20 +1452,24 @@ app* seq_util::rex::mk_epsilon(sort* seq_sort) {
 */
 std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) const {
     SASSERT(re.u.is_seq(s));
-    if (re.u.str.is_concat(s)) {
-        expr_ref_vector es(re.m);
-        re.u.str.get_concat(s, es);
-        for (expr* e : es) {
-            if (re.u.str.is_unit(e))
-                seq_unit(out, e);
-            else
-                out << mk_pp(e, re.m);
+    if (re.m.is_value(s)) {
+        if (re.u.str.is_concat(s)) {
+            expr_ref_vector es(re.m);
+            re.u.str.get_concat(s, es);
+            for (expr* e : es) {
+                if (re.u.str.is_unit(e))
+                    seq_unit(out, e);
+                else
+                    out << mk_pp(e, re.m);
+            }
         }
+        else if (re.u.str.is_empty(s))
+            out << "()";
+        else
+            seq_unit(out, s);
     }
-    else if (re.u.str.is_empty(s))
-        out << "()";
-    else
-        seq_unit(out, s);
+    else 
+        out << "(to_re " << mk_pp(s, re.m) << ")";
     return out;
 }
 

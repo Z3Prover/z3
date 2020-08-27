@@ -257,6 +257,10 @@ class seq_rewriter {
     bool non_overlap(zstring const& p1, zstring const& p2) const;
     bool rewrite_contains_pattern(expr* a, expr* b, expr_ref& result);
     bool has_fixed_length_constraint(expr* a, unsigned& len);
+    /* r = ite(c1,ite(c2,to_re(s),to_re(t)),to_re(u)) ==> returns true, result = ite(c1,ite(c2,s,t),u)*/
+    bool lift_str_from_to_re_ite(expr * r, expr_ref & result);
+    /* same as lift_to_re_from_ite and also: r = to_re(u) ==> returns true, result = u */
+    bool lift_str_from_to_re(expr * r, expr_ref & result);
 
     br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
     br_status mk_eq_helper(expr* a, expr* b, expr_ref& result);
