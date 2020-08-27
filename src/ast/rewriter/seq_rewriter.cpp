@@ -3840,7 +3840,15 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         result = re().mk_star(re().mk_union(b1, c1));
         return BR_REWRITE2;
     }
+    if (m().is_ite(a, c, b1, c1))
+    {
+        if ((re().is_full_char(b1) || re().is_full_seq(b1)) &&
+            (re().is_full_char(c1) || re().is_full_seq(c1))) {
+            result = re().mk_full_seq(m().get_sort(b1));
+            return BR_REWRITE2;
+        }
 
+    }
     return BR_FAILED;
 }
 
