@@ -63,6 +63,9 @@ namespace sat {
 
     class th_model_builder {
     public:
+
+        virtual ~th_model_builder() {}
+
         /**
            \brief compute the value for enode \c n and store the value in \c values 
            for the root of the class of \c n.
