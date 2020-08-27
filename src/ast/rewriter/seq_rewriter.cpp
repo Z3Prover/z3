@@ -728,9 +728,11 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
+#if 0
     if (st == BR_FAILED) {
         st = lift_ites_throttled(f, num_args, args, result);
     }
+#endif
     CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     SASSERT(st == BR_FAILED || m().get_sort(result) == f->get_range());
     return st;
@@ -3246,11 +3248,12 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = m().mk_true();
         return BR_DONE;
     }
-    expr* b1 = nullptr;
-    if (re().is_to_re(b, b1)) {
-        result = m_br.mk_eq_rw(a, b1);
-        return BR_REWRITE1;
+    expr_ref b_s(m());
+    if (lift_str_from_to_re(b, b_s)) {
+       result = m_br.mk_eq_rw(a, b_s);
+       return BR_REWRITE_FULL;
     }
+    expr* b1 = nullptr;
     expr* eps = nullptr;
     if (re().is_opt(b, b1) ||
         (re().is_union(b, b1, eps) && re().is_epsilon(eps)) ||
@@ -3337,6 +3340,30 @@ bool seq_rewriter::has_fixed_length_constraint(expr* a, unsigned& len) {
     return minl == maxl;
 }
 
+bool seq_rewriter::lift_str_from_to_re_ite(expr* r, expr_ref& result)
+{
+    expr* cond = nullptr, * then_r = nullptr, * else_r = nullptr;
+    expr_ref then_s(m());
+    expr_ref else_s(m());
+    if (m().is_ite(r, cond, then_r, else_r) &&
+        lift_str_from_to_re(then_r, then_s) &&
+        lift_str_from_to_re(else_r, else_s)) {
+        result = m().mk_ite(cond, then_s, else_s);
+        return true;
+    }
+    return false;
+}
+
+bool seq_rewriter::lift_str_from_to_re(expr* r, expr_ref& result)
+{
+    expr* s = nullptr;
+    if (re().is_to_re(r, s)) {
+        result = s;
+        return true;
+    }
+    return lift_str_from_to_re_ite(r, result);
+}
+
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
@@ -3375,11 +3402,13 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    expr* a1 = nullptr, *b1 = nullptr;
-    if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
-        result = re().mk_to_re(str().mk_concat(a1, b1));
+    expr_ref a_str(m());
+    expr_ref b_str(m());
+    if (lift_str_from_to_re(a, a_str) && lift_str_from_to_re(b, b_str)) {
+        result = re().mk_to_re(str().mk_concat(a_str, b_str));
         return BR_REWRITE2;
     }
+    expr* a1 = nullptr, *b1 = nullptr;
     if (re().is_star(a, a1) && re().is_star(b, b1) && a1 == b1) {
         result = a;
         return BR_DONE;
