@@ -836,7 +836,6 @@ private:
         if (m_fmls_head == m_fmls.size()) {
             return l_true;
         }
-        dep2asm_t dep2asm;
         goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
         for (unsigned i = m_fmls_head ; i < m_fmls.size(); ++i) {
             expr* fml = m_fmls.get(i);
@@ -877,13 +876,13 @@ private:
                 }
             }
         }
-        CTRACE("sat", dep2asm.size() != m_asms.size(), 
-               tout << dep2asm.size() << " vs " << m_asms.size() << "\n";
+        CTRACE("sat", m_dep2asm.size() != m_asms.size(), 
+               tout << m_dep2asm.size() << " vs " << m_asms.size() << "\n";
                tout << m_asms << "\n";
-               for (auto const& kv : dep2asm) {
+               for (auto const& kv : m_dep2asm) {
                    tout << mk_pp(kv.m_key, m) << " " << kv.m_value << "\n";
                });
-        SASSERT(dep2asm.size() == m_asms.size());
+        SASSERT(m_dep2asm.size() == m_asms.size());
     }
 
     void extract_asm2dep(u_map<expr*>& asm2dep) {
@@ -897,7 +896,7 @@ private:
         extract_asm2dep(asm2dep);
         sat::literal_vector const& core = m_solver.get_core();
         TRACE("sat",
-              for (auto kv : dep2asm) {
+              for (auto kv : m_dep2asm) {
                   tout << mk_pp(kv.m_key, m) << " |-> " << sat::literal(kv.m_value) << "\n";
               }
               tout << "asm2fml: ";
