@@ -38,7 +38,7 @@ def init_project_def():
     add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
     add_lib('solver', ['model', 'tactic', 'proofs'])
     add_lib('cmd_context', ['solver', 'rewriter'])
-    add_lib('sat_smt', ['sat', 'euf', 'tactic'], 'sat/smt')
+    add_lib('sat_smt', ['sat', 'euf', 'tactic', 'smt_params'], 'sat/smt')
     add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')        
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'rewriter'], 'ast/pattern')
