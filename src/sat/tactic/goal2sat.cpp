@@ -760,10 +760,10 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core
             g.m_imp->m_cache.reset();
         }
     };
-    scoped_reset _reset(*this);
-
-    (*m_imp)(g);
-
+    {
+        scoped_reset _reset(*this);
+        (*m_imp)(g);
+    }
 
     m_interpreted_atoms = alloc(expr_ref_vector, g.m());
     m_interpreted_atoms->append(m_imp->m_interpreted_atoms);
