@@ -249,6 +249,7 @@ class seq_rewriter {
     br_status mk_re_derivative(expr* ele, expr* r, expr_ref& result);
 
     br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+    bool lift_ites_filter(func_decl* f, expr* ite);
 
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);

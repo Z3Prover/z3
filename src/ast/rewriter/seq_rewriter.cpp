@@ -728,11 +728,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
-#if 0
     if (st == BR_FAILED) {
         st = lift_ites_throttled(f, num_args, args, result);
     }
-#endif
     CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     SASSERT(st == BR_FAILED || m().get_sort(result) == f->get_range());
     return st;
@@ -862,11 +860,12 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     used in the normal form for derivatives in mk_re_derivative.
 */
 br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
-    expr* c = nullptr, *t = nullptr, *e = nullptr;
-    for (unsigned i = 0; i < n; ++i) {        
-        if (m().is_ite(args[i], c, t, e) && 
+    expr* c = nullptr, * t = nullptr, * e = nullptr;
+    for (unsigned i = 0; i < n; ++i)
+        if (m().is_ite(args[i], c, t, e) &&
+            lift_ites_filter(f, args[i]) &&
             (get_depth(t) <= 2 || t->get_ref_count() == 1 ||
-             get_depth(e) <= 2 || e->get_ref_count() == 1)) {
+                get_depth(e) <= 2 || e->get_ref_count() == 1)) {
             ptr_buffer<expr> new_args;
             for (unsigned j = 0; j < n; ++j) new_args.push_back(args[j]);
             new_args[i] = t;
@@ -874,10 +873,26 @@ br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* cons
             new_args[i] = e;
             expr_ref arg2(m().mk_app(f, new_args), m());
             result = m().mk_ite(c, arg1, arg2);
+            TRACE("seq_verbose", tout << "lifting ite: " << mk_pp(result, m()) << std::endl;);
             return BR_REWRITE2;
         }
-    }
     return BR_FAILED;
+}
+
+/* returns false iff the ite must not be lifted */
+bool seq_rewriter::lift_ites_filter(func_decl* f, expr* ite)
+{
+    // do not lift over regexes
+    // for example DO NOT lift to_re(ite(c, s, t)) to ite(c, to_re(s), to_re(t))
+    if (is_sort_of(f->get_range(), get_fid(), RE_SORT))
+        return false;
+    // The following check is intended to avoid lifting cases such as 
+    // substring(s,0,ite(c,e1,e2)) ==> ite(c, substring(s,0,e1), substring(s,0,e2))
+    // TBD: not sure if this is too restrictive though and may block cases when such lifting is desired
+    if (is_sort_of(m().get_sort(ite), m_autil.get_family_id(), INT_SORT) &&
+        is_sort_of(f->get_range(), get_fid(), SEQ_SORT))
+        return false;
+    return true;
 }
 
 
@@ -3406,6 +3421,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     expr_ref b_str(m());
     if (lift_str_from_to_re(a, a_str) && lift_str_from_to_re(b, b_str)) {
         result = re().mk_to_re(str().mk_concat(a_str, b_str));
+        std::string test = re().to_str(result.get());
         return BR_REWRITE2;
     }
     expr* a1 = nullptr, *b1 = nullptr;
@@ -3840,8 +3856,7 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         result = re().mk_star(re().mk_union(b1, c1));
         return BR_REWRITE2;
     }
-    if (m().is_ite(a, c, b1, c1))
-    {
+    if (m().is_ite(a, c, b1, c1)) {
         if ((re().is_full_char(b1) || re().is_full_seq(b1)) &&
             (re().is_full_char(c1) || re().is_full_seq(c1))) {
             result = re().mk_full_seq(m().get_sort(b1));
