@@ -880,17 +880,15 @@ br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* cons
 }
 
 /* returns false iff the ite must not be lifted */
-bool seq_rewriter::lift_ites_filter(func_decl* f, expr* ite)
-{
+bool seq_rewriter::lift_ites_filter(func_decl* f, expr* ite) {
     // do not lift over regexes
     // for example DO NOT lift to_re(ite(c, s, t)) to ite(c, to_re(s), to_re(t))
-    if (is_sort_of(f->get_range(), get_fid(), RE_SORT))
+    if (u().is_re(f->get_range()))
         return false;
     // The following check is intended to avoid lifting cases such as 
     // substring(s,0,ite(c,e1,e2)) ==> ite(c, substring(s,0,e1), substring(s,0,e2))
     // TBD: not sure if this is too restrictive though and may block cases when such lifting is desired
-    if (is_sort_of(m().get_sort(ite), m_autil.get_family_id(), INT_SORT) &&
-        is_sort_of(f->get_range(), get_fid(), SEQ_SORT))
+    if (m_autil.is_int(m().get_sort(ite)) && u().is_seq(f->get_range()))
         return false;
     return true;
 }
