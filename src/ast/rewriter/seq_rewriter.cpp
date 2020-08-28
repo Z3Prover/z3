@@ -3421,7 +3421,6 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     expr_ref b_str(m());
     if (lift_str_from_to_re(a, a_str) && lift_str_from_to_re(b, b_str)) {
         result = re().mk_to_re(str().mk_concat(a_str, b_str));
-        std::string test = re().to_str(result.get());
         return BR_REWRITE2;
     }
     expr* a1 = nullptr, *b1 = nullptr;
