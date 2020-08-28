@@ -40,6 +40,7 @@ Notes:
 #include "model/model_evaluator.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_params.hpp"
+#include "sat/smt/euf_solver.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_simplifier_params.hpp"
@@ -79,6 +80,8 @@ class inc_sat_solver : public solver {
     expr_ref_vector     m_internalized_fmls;      // formulas in internalized format
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
+
+    dep2asm_t          m_dep2asm;
 
     bool is_internalized() const { return m_fmls_head == m_fmls.size(); }
 public:
@@ -120,7 +123,15 @@ public:
         ast_translation tr(m, dst_m);
         m_solver.pop_to_base_level();
         inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p, is_incremental());
-        result->m_solver.copy(m_solver);
+        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        if (ext) {
+            auto& si = result->m_goal2sat.si(dst_m, m_params, result->m_solver, result->m_map, result->m_dep2asm, is_incremental());
+            euf::solver::scoped_set_translate st(*ext, tr, result->m_map, si);  
+            result->m_solver.copy(m_solver);
+        }        
+        else {
+            result->m_solver.copy(m_solver);
+        }
         result->m_fmls_head = m_fmls_head;
         for (expr* f : m_fmls) result->m_fmls.push_back(tr(f));
         for (expr* f : m_asmsf) result->m_asmsf.push_back(tr(f));
@@ -145,7 +156,7 @@ public:
         }
         init_preprocess();
         m_solver.pop_to_base_level();
-        dep2asm_t dep2asm;
+        m_dep2asm.reset();
         expr_ref_vector asms(m);
         for (unsigned i = 0; i < sz; ++i) {
             expr_ref a(m.mk_fresh_const("s", m.mk_bool_sort()), m);
@@ -154,7 +165,7 @@ public:
             asms.push_back(a);
         }
         VERIFY(l_true == internalize_formulas());
-        VERIFY(l_true == internalize_assumptions(sz, asms.c_ptr(), dep2asm));
+        VERIFY(l_true == internalize_assumptions(sz, asms.c_ptr()));
         svector<unsigned> nweights;
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             nweights.push_back((unsigned) m_weights[i]);
@@ -190,10 +201,10 @@ public:
         }
 
         TRACE("sat", tout << _assumptions << "\n";);
-        dep2asm_t dep2asm;
+        m_dep2asm.reset();
         lbool r = internalize_formulas();
         if (r != l_true) return r;
-        r = internalize_assumptions(sz, _assumptions.c_ptr(), dep2asm);
+        r = internalize_assumptions(sz, _assumptions.c_ptr());
         if (r != l_true) return r;
 
         init_reason_unknown();
@@ -216,13 +227,13 @@ public:
                 r = l_undef;
             }
             else if (sz > 0) {
-                check_assumptions(dep2asm);
+                check_assumptions();
             }
             break;
         case l_false:
             // TBD: expr_dependency core is not accounted for.
             if (!m_asms.empty()) {
-                extract_core(dep2asm, asm2fml);
+                extract_core(asm2fml);
             }
             break;
         default:
@@ -438,19 +449,19 @@ public:
         sat::literal_vector asms;
         sat::bool_var_vector bvars;
         vector<sat::literal_vector> lconseq;
-        dep2asm_t dep2asm;
+        m_dep2asm.reset();
         obj_map<expr, expr*> asm2fml;
         m_solver.pop_to_base_level();
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_vars(vars, bvars);
         if (r != l_true) return r;
-        r = internalize_assumptions(assumptions.size(), assumptions.c_ptr(), dep2asm);
+        r = internalize_assumptions(assumptions.size(), assumptions.c_ptr());
         if (r != l_true) return r;
         r = m_solver.get_consequences(m_asms, bvars, lconseq);
         if (r == l_false) {
             if (!m_asms.empty()) {
-                extract_core(dep2asm, asm2fml);
+                extract_core(asm2fml);
             }
             return r;
         }
@@ -465,10 +476,10 @@ public:
 
         // extract original fixed variables
         u_map<expr*> asm2dep;
-        extract_asm2dep(dep2asm, asm2dep);
+        extract_asm2dep(asm2dep);
         for (auto v : vars) {
             expr_ref cons(m);
-            if (extract_fixed_variable(dep2asm, asm2dep, v, bool_var2conseq, lconseq, cons)) {
+            if (extract_fixed_variable(asm2dep, v, bool_var2conseq, lconseq, cons)) {
                 conseq.push_back(cons);
             }
         }
@@ -615,7 +626,7 @@ public:
 
 private:
 
-    lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm) {
+    lbool internalize_goal(goal_ref& g) {        
         m_solver.pop_to_base_level();
         if (m_solver.inconsistent()) 
             return l_false;
@@ -662,7 +673,7 @@ private:
 
         // ensure that if goal is already internalized, then import mc from m_solver.
 
-        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, is_incremental());
+        m_goal2sat(*g, m_params, m_solver, m_map, m_dep2asm, is_incremental());
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
         m_sat_mc->flush_smc(m_solver, m_map);
@@ -678,7 +689,7 @@ private:
         return l_true;
     }
 
-    lbool internalize_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
+    lbool internalize_assumptions(unsigned sz, expr* const* asms) {
         if (sz == 0 && get_num_assumptions() == 0) {
             m_asms.shrink(0);
             return l_true;
@@ -690,9 +701,9 @@ private:
         for (unsigned i = 0; i < get_num_assumptions(); ++i) {
             g->assert_expr(get_assumption(i), m.mk_leaf(get_assumption(i)));
         }
-        lbool res = internalize_goal(g, dep2asm);
+        lbool res = internalize_goal(g);
         if (res == l_true) {
-            extract_assumptions(sz, asms, dep2asm);
+            extract_assumptions(sz, asms);
         }
         return res;
     }
@@ -741,7 +752,7 @@ private:
         return internalized;
     }
 
-    bool extract_fixed_variable(dep2asm_t& dep2asm, u_map<expr*>& asm2dep, expr* v, u_map<unsigned> const& bool_var2conseq, vector<sat::literal_vector> const& lconseq, expr_ref& conseq) {
+    bool extract_fixed_variable(u_map<expr*>& asm2dep, expr* v, u_map<unsigned> const& bool_var2conseq, vector<sat::literal_vector> const& lconseq, expr_ref& conseq) {
 
         sat::bool_var_vector bvars;
         if (!internalize_var(v, bvars)) {
@@ -831,7 +842,7 @@ private:
             expr* fml = m_fmls.get(i);
             g->assert_expr(fml);
         }
-        lbool res = internalize_goal(g, dep2asm);
+        lbool res = internalize_goal(g);
         if (res != l_undef) {
             m_fmls_head = m_fmls.size();
         }
@@ -839,13 +850,13 @@ private:
         return res;
     }
 
-    void extract_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
+    void extract_assumptions(unsigned sz, expr* const* asms) {
         m_asms.reset();
         unsigned j = 0;
         sat::literal lit;
         sat::literal_set seen;
         for (unsigned i = 0; i < sz; ++i) {
-            if (dep2asm.find(asms[i], lit)) {
+            if (m_dep2asm.find(asms[i], lit)) {
                 SASSERT(lit.var() <= m_solver.num_vars());
                 if (!seen.contains(lit)) {
                     m_asms.push_back(lit);
@@ -858,7 +869,7 @@ private:
             }
         }
         for (unsigned i = 0; i < get_num_assumptions(); ++i) {
-            if (dep2asm.find(get_assumption(i), lit)) {
+            if (m_dep2asm.find(get_assumption(i), lit)) {
                 SASSERT(lit.var() <= m_solver.num_vars());
                 if (!seen.contains(lit)) {
                     m_asms.push_back(lit);
@@ -875,15 +886,15 @@ private:
         SASSERT(dep2asm.size() == m_asms.size());
     }
 
-    void extract_asm2dep(dep2asm_t const& dep2asm, u_map<expr*>& asm2dep) {
-        for (auto const& kv : dep2asm) {
+    void extract_asm2dep(u_map<expr*>& asm2dep) {
+        for (auto const& kv : m_dep2asm) {
             asm2dep.insert(kv.m_value.index(), kv.m_key);
         }
     }
 
-    void extract_core(dep2asm_t& dep2asm, obj_map<expr, expr*> const& asm2fml) {
+    void extract_core(obj_map<expr, expr*> const& asm2fml) {
         u_map<expr*> asm2dep;
-        extract_asm2dep(dep2asm, asm2dep);
+        extract_asm2dep(asm2dep);
         sat::literal_vector const& core = m_solver.get_core();
         TRACE("sat",
               for (auto kv : dep2asm) {
@@ -908,9 +919,9 @@ private:
         }
     }
 
-    void check_assumptions(dep2asm_t& dep2asm) {
+    void check_assumptions() {
         sat::model const & ll_m = m_solver.get_model();
-        for (auto const& kv : dep2asm) {
+        for (auto const& kv : m_dep2asm) {
             sat::literal lit = kv.m_value;
             if (sat::value_at(lit, ll_m) != l_true) {
                 IF_VERBOSE(0, verbose_stream() << mk_pp(kv.m_key, m) << " does not evaluate to true\n";

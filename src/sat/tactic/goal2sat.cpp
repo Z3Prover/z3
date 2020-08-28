@@ -770,6 +770,13 @@ bool goal2sat::has_interpreted_atoms() const {
 }
 
 
+sat::sat_internalizer& goal2sat::si(ast_manager& m, params_ref const& p, sat::solver_core& t, atom2bool_var& a2b, dep2asm_map& dep2asm, bool default_external) {
+    if (!m_imp)
+        m_imp = alloc(imp, m, p, t, a2b, dep2asm, default_external);
+    return *m_imp;
+}
+
+
 
 sat2goal::mc::mc(ast_manager& m): m(m), m_var2expr(m) {}
 

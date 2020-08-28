@@ -62,6 +62,7 @@ namespace euf {
         sat::lookahead*       m_lookahead { nullptr };
         ast_translation*      m_translate { nullptr };
         atom2bool_var*        m_translate_expr2var { nullptr };
+        sat::sat_internalizer* m_translate_si{ nullptr };
         scoped_ptr<ackerman>  m_ackerman;
 
         euf::enode*           m_true { nullptr };
@@ -137,8 +138,13 @@ namespace euf {
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
         struct scoped_set_translate {
             solver& s;
-            scoped_set_translate(solver& s, ast_translation& t, atom2bool_var& a2b):s(s) { s.m_translate = &t; s.m_translate_expr2var = &a2b; }
-            ~scoped_set_translate() { s.m_translate = nullptr; s. m_translate_expr2var = nullptr; }
+            scoped_set_translate(solver& s, ast_translation& t, atom2bool_var& a2b, sat::sat_internalizer& si) :
+                s(s) { 
+                s.m_translate = &t; 
+                s.m_translate_expr2var = &a2b; 
+                s.m_translate_si = &si; 
+            }
+            ~scoped_set_translate() { s.m_translate = nullptr; s.m_translate_expr2var = nullptr; s.m_translate_si = nullptr;  }
         };
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override { return 0; }
         bool is_extended_binary(ext_justification_idx idx, literal_vector & r) override { return false; }

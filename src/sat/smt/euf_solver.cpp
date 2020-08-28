@@ -264,7 +264,8 @@ namespace euf {
     solver* solver::copy_core() {
         ast_manager& to = m_translate ? m_translate->to() : m;
         atom2bool_var& a2b = m_translate_expr2var ? *m_translate_expr2var : m_expr2var;
-        auto* r = alloc(solver, to, a2b, si);
+        sat::sat_internalizer& to_si = m_translate_si ? *m_translate_si : si;
+        auto* r = alloc(solver, to, a2b, to_si);
         r->m_config = m_config;
         std::function<void*(void*)> copy_justification = [&](void* x) { return (void*)(r->base_ptr() + ((unsigned*)x - base_ptr())); };
         r->m_egraph.copy_from(m_egraph, copy_justification);

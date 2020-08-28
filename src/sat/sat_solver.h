@@ -454,7 +454,7 @@ namespace sat {
         
         void display_lookahead_scores(std::ostream& out);
 
-        stats const& stats() const { return m_stats; }
+        stats const& get_stats() const { return m_stats; }
 
     protected:
 
