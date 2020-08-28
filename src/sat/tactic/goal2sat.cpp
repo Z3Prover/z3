@@ -624,6 +624,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     
     void process(expr * n) {
         m_result_stack.reset();
+        TRACE("goal2sat", tout << mk_pp(n, m) << "\n";);
         process(n, true);
         CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());
@@ -650,7 +651,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void operator()(goal const & g) {
-        m_interface_vars.reset();
         collect_boolean_interface(g, m_interface_vars);
         unsigned size = g.size();
         expr_ref f(m), d_new(m);
@@ -690,6 +690,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
+#if 0
     void operator()(unsigned sz, expr * const * fs) {
         m_interface_vars.reset();
         collect_boolean_interface(m, sz, fs, m_interface_vars);
@@ -697,6 +698,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         for (unsigned i = 0; i < sz; i++)
             process(fs[i]);
     }
+#endif
 
 };
 
@@ -750,7 +752,19 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core
     if (!m_imp) 
         m_imp = alloc(imp, g.m(), p, t, m, dep2asm, default_external);
         
+    struct scoped_reset {
+        goal2sat& g;
+        scoped_reset(goal2sat& g):g(g) {}
+        ~scoped_reset() { 
+            g.m_imp->m_interface_vars.reset();
+            g.m_imp->m_cache.reset();
+        }
+    };
+    scoped_reset _reset(*this);
+
     (*m_imp)(g);
+
+
     m_interpreted_atoms = alloc(expr_ref_vector, g.m());
     m_interpreted_atoms->append(m_imp->m_interpreted_atoms);
     if (!t.get_extension()) {
