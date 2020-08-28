@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    INternalize methods for Boolean algebra operators.
+    Internalize methods for Boolean algebra operators.
 
 Author:
 
@@ -16,12 +16,11 @@ Author:
 --*/
 
 
-#include "sat/ba/ba_internalize.h"
+#include "sat/smt/ba_internalize.h"
 
 namespace sat {
 
-    literal ba_internalize::internalize(sat_internalizer& si, expr* e, bool sign, bool root) {
-        m_si = &si;
+    literal ba_internalize::internalize(expr* e, bool sign, bool root) {
         if (pb.is_pb(e)) 
             return internalize_pb(e, sign, root);
         if (m.is_xor(e))
@@ -35,7 +34,7 @@ namespace sat {
         sat::bool_var v = m_solver.add_var(true);
         lits.push_back(literal(v, true));
         auto add_expr = [&](expr* a) {
-            literal lit = m_si->internalize(a);
+            literal lit = si.internalize(a);
             m_solver.set_external(lit.var());
             lits.push_back(lit);
         };
@@ -100,7 +99,7 @@ namespace sat {
 
     void ba_internalize::convert_pb_args(app* t, literal_vector& lits) {
         for (expr* arg : *t) {
-            lits.push_back(m_si->internalize(arg));
+            lits.push_back(si.internalize(arg));
             m_solver.set_external(lits.back().var());
         }
     }
@@ -192,10 +191,10 @@ namespace sat {
             literal l1(v1, false), l2(v2, false);
             bool_var v = m_solver.add_var(false);
             literal l(v, false);
-            m_si->mk_clause(~l, l1);
-            m_si->mk_clause(~l, l2);
-            m_si->mk_clause(~l1, ~l2, l);
-            m_si->cache(t, l);
+            si.mk_clause(~l, l1);
+            si.mk_clause(~l, l2);
+            si.mk_clause(~l1, ~l2, l);
+            si.cache(t, l);
             if (sign) l.neg();
             return l;
         }
@@ -218,7 +217,7 @@ namespace sat {
             bool_var v = m_solver.add_var(true);
             literal lit(v, false);
             ba.add_at_least(v, lits, k.get_unsigned());
-            m_si->cache(t, lit);
+            si.cache(t, lit);
             if (sign) lit.neg();
             TRACE("ba", tout << "root: " << root << " lit: " << lit << "\n";);
             return lit;
@@ -245,7 +244,7 @@ namespace sat {
             bool_var v = m_solver.add_var(true);
             literal lit(v, false);
             ba.add_at_least(v, lits, k2);
-            m_si->cache(t, lit);
+            si.cache(t, lit);
             if (sign) lit.neg();
             return lit;
         }
@@ -267,15 +266,74 @@ namespace sat {
             literal l1(v1, false), l2(v2, false);
             bool_var v = m_solver.add_var(false);
             literal l(v, false);
-            m_si->mk_clause(~l, l1);
-            m_si->mk_clause(~l, l2);
-            m_si->mk_clause(~l1, ~l2, l);
-            m_si->cache(t, l);
+            si.mk_clause(~l, l1);
+            si.mk_clause(~l, l2);
+            si.mk_clause(~l1, ~l2, l);
+            si.cache(t, l);
             if (sign) l.neg();
             return l;
         }
         else {
             return null_literal;
         }
+    }
+
+    expr_ref ba_decompile::get_card(std::function<expr_ref(sat::literal)>& lit2expr, ba_solver::card const& c) {
+        ptr_buffer<expr> lits;
+        for (sat::literal l : c) {
+            lits.push_back(lit2expr(l));
+        }
+        expr_ref fml(pb.mk_at_least_k(c.size(), lits.c_ptr(), c.k()), m);
+
+        if (c.lit() != sat::null_literal) {
+            fml = m.mk_eq(lit2expr(c.lit()), fml);
+        }
+        return fml;
+    }
+
+    expr_ref ba_decompile::get_pb(std::function<expr_ref(sat::literal)>& lit2expr, ba_solver::pb const& p)  {
+        ptr_buffer<expr> lits;
+        vector<rational> coeffs;
+        for (auto const& wl : p) {
+            lits.push_back(lit2expr(wl.second));
+            coeffs.push_back(rational(wl.first));
+        }
+        rational k(p.k());
+        expr_ref fml(pb.mk_ge(p.size(), coeffs.c_ptr(), lits.c_ptr(), k), m);
+
+        if (p.lit() != sat::null_literal) {
+            fml = m.mk_eq(lit2expr(p.lit()), fml);
+        }
+        return fml;
+    }
+
+    expr_ref ba_decompile::get_xor(std::function<expr_ref(sat::literal)>& lit2expr, ba_solver::xr const& x) {
+        ptr_buffer<expr> lits;
+        for (sat::literal l : x) {
+            lits.push_back(lit2expr(l));
+        }
+        expr_ref fml(m.mk_xor(x.size(), lits.c_ptr()), m);
+
+        if (x.lit() != sat::null_literal) {
+            fml = m.mk_eq(lit2expr(x.lit()), fml);
+        }
+        return fml;
+    }
+
+    bool ba_decompile::to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) {
+        for (auto* c : ba.constraints()) {
+            switch (c->tag()) {
+            case ba_solver::card_t:
+                fmls.push_back(get_card(l2e, c->to_card()));
+                break;
+            case sat::ba_solver::pb_t:
+                fmls.push_back(get_pb(l2e, c->to_pb()));
+                break;
+            case sat::ba_solver::xr_t:
+                fmls.push_back(get_xor(l2e, c->to_xr()));
+                break;
+            }
+        }
+        return true;
     }
 }

@@ -454,6 +454,8 @@ namespace sat {
         
         void display_lookahead_scores(std::ostream& out);
 
+        stats const& stats() const { return m_stats; }
+
     protected:
 
         unsigned m_conflicts_since_init;

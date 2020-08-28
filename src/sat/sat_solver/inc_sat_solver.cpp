@@ -615,7 +615,7 @@ public:
 
 private:
 
-    lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
+    lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm) {
         m_solver.pop_to_base_level();
         if (m_solver.inconsistent()) 
             return l_false;
@@ -662,7 +662,7 @@ private:
 
         // ensure that if goal is already internalized, then import mc from m_solver.
 
-        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, is_incremental(), is_lemma);
+        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, is_incremental());
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
         m_sat_mc->flush_smc(m_solver, m_map);
@@ -690,7 +690,7 @@ private:
         for (unsigned i = 0; i < get_num_assumptions(); ++i) {
             g->assert_expr(get_assumption(i), m.mk_leaf(get_assumption(i)));
         }
-        lbool res = internalize_goal(g, dep2asm, false);
+        lbool res = internalize_goal(g, dep2asm);
         if (res == l_true) {
             extract_assumptions(sz, asms, dep2asm);
         }
@@ -831,7 +831,7 @@ private:
             expr* fml = m_fmls.get(i);
             g->assert_expr(fml);
         }
-        lbool res = internalize_goal(g, dep2asm, false);
+        lbool res = internalize_goal(g, dep2asm);
         if (res != l_undef) {
             m_fmls_head = m_fmls.size();
         }

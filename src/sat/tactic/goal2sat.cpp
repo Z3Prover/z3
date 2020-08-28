@@ -35,9 +35,9 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/sat_cut_simplifier.h"
-#include "sat/ba/ba_internalize.h"
-#include "sat/ba/ba_solver.h"
-#include "sat/euf/euf_solver.h"
+#include "sat/smt/ba_internalize.h"
+#include "sat/smt/ba_solver.h"
+#include "sat/smt/euf_solver.h"
 #include "model/model_evaluator.h"
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
@@ -71,7 +71,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     bool                        m_default_external;
     bool                        m_xor_solver;
     bool                        m_euf;
-    bool                        m_is_lemma;
 
     
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
@@ -83,8 +82,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_dep2asm(dep2asm),
         m_trail(m),
         m_interpreted_atoms(m),
-        m_default_external(default_external),
-        m_is_lemma(false) {
+        m_default_external(default_external) {
         updt_params(p);
         m_true = sat::null_literal;
         m_aig = s.get_cut_simplifier();
@@ -107,21 +105,19 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_solver.add_clause(1, &l, false);
     }
 
-    void set_lemma_mode(bool f) { m_is_lemma = f; }
-
     void mk_clause(sat::literal l1, sat::literal l2) override {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, m_is_lemma);
+        m_solver.add_clause(l1, l2, false);
     }
 
     void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, bool is_lemma = false) override {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_lemma || is_lemma);
+        m_solver.add_clause(l1, l2, l3, is_lemma);
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, m_is_lemma);
+        m_solver.add_clause(num, lits, false);
     }
 
     sat::literal mk_true() {
@@ -444,7 +440,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::extension* ext = m_solver.get_extension();
         euf::solver* euf = nullptr;
         if (!ext) {
-            euf = alloc(euf::solver, m, m_map);
+            euf = alloc(euf::solver, m, m_map, *this);
             m_solver.set_extension(euf);
             for (unsigned i = m_solver.num_scopes(); i-- > 0; )
                 euf->push();
@@ -454,7 +450,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (!euf)
             throw default_exception("cannot convert to euf");
-        sat::literal lit = euf->internalize(*this, e, sign, root);
+        sat::literal lit = euf->internalize(e, sign, root);
         if (root)
             m_result_stack.reset();
         if (lit == sat::null_literal)
@@ -478,8 +474,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (!ba)
             throw default_exception("cannot convert to pb");
-        sat::ba_internalize internalize(*ba, m_solver, m);
-        sat::literal lit = internalize.internalize(*this, t, sign, root);
+        sat::ba_internalize internalize(*ba, m_solver, *this, m);
+        sat::literal lit = internalize.internalize(t, sign, root);
         if (root)
             m_result_stack.reset();
         else 
@@ -735,7 +731,13 @@ bool goal2sat::has_unsupported_bool(goal const & g) {
     return test<unsupported_bool_proc>(g);
 }
 
-goal2sat::goal2sat():m_imp(nullptr), m_interpreted_atoms(nullptr) {
+goal2sat::goal2sat():
+    m_imp(nullptr), 
+    m_interpreted_atoms(nullptr) {
+}
+
+goal2sat::~goal2sat() {
+    dealloc(m_imp);
 }
 
 void goal2sat::collect_param_descrs(param_descrs & r) {
@@ -743,25 +745,18 @@ void goal2sat::collect_param_descrs(param_descrs & r) {
     r.insert("ite_extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
 }
 
-struct goal2sat::scoped_set_imp {
-    goal2sat * m_owner; 
-    scoped_set_imp(goal2sat * o, goal2sat::imp * i):m_owner(o) {
-        m_owner->m_imp = i;        
-    }
-    ~scoped_set_imp() {
-        m_owner->m_imp = nullptr;
-    }
-};
 
-
-void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external, bool is_lemma) {
-    imp proc(g.m(), p, t, m, dep2asm, default_external);
-    scoped_set_imp set(this, &proc);
-    proc.set_lemma_mode(is_lemma);
-    proc(g);
-    dealloc(m_interpreted_atoms);
+void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external) {
+    if (!m_imp) 
+        m_imp = alloc(imp, g.m(), p, t, m, dep2asm, default_external);
+        
+    (*m_imp)(g);
     m_interpreted_atoms = alloc(expr_ref_vector, g.m());
-    m_interpreted_atoms->append(proc.m_interpreted_atoms);
+    m_interpreted_atoms->append(m_imp->m_interpreted_atoms);
+    if (!t.get_extension()) {
+        dealloc(m_imp);
+        m_imp = nullptr;
+    }
 }
 
 void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {
@@ -948,50 +943,6 @@ struct sat2goal::imp {
         return m_lit2expr.get(l.index());
     }
 
-    void assert_pb(ref<mc>& mc, goal& r, sat::ba_solver::pb const& p) {
-        pb_util pb(m);
-        ptr_buffer<expr> lits;
-        vector<rational> coeffs;
-        for (auto const& wl : p) {
-            lits.push_back(lit2expr(mc, wl.second));
-            coeffs.push_back(rational(wl.first));
-        }
-        rational k(p.k());
-        expr_ref fml(pb.mk_ge(p.size(), coeffs.c_ptr(), lits.c_ptr(), k), m);
-        
-        if (p.lit() != sat::null_literal) {
-            fml = m.mk_eq(lit2expr(mc, p.lit()), fml);            
-        }
-        r.assert_expr(fml);
-    }
-
-    void assert_card(ref<mc>& mc, goal& r, sat::ba_solver::card const& c) {
-        pb_util pb(m);
-        ptr_buffer<expr> lits;
-        for (sat::literal l : c) {
-            lits.push_back(lit2expr(mc, l));
-        }
-        expr_ref fml(pb.mk_at_least_k(c.size(), lits.c_ptr(), c.k()), m);
-        
-        if (c.lit() != sat::null_literal) {
-            fml = m.mk_eq(lit2expr(mc, c.lit()), fml);            
-        }
-        r.assert_expr(fml);
-    }
-
-    void assert_xor(ref<mc>& mc, goal & r, sat::ba_solver::xr const& x) {
-        ptr_buffer<expr> lits;
-        for (sat::literal l : x) {
-            lits.push_back(lit2expr(mc, l));
-        }
-        expr_ref fml(m.mk_xor(x.size(), lits.c_ptr()), m);
-        
-        if (x.lit() != sat::null_literal) {
-            fml = m.mk_eq(lit2expr(mc, x.lit()), fml);            
-        }
-        r.assert_expr(fml);
-    }
-
     void assert_clauses(ref<mc>& mc, sat::solver_core const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
         ptr_buffer<expr> lits;
         unsigned small_lbd = 3; // s.get_config().m_gc_small_lbd;
@@ -1006,10 +957,6 @@ struct sat2goal::imp {
                 r.assert_expr(m.mk_or(lits));
             }
         }
-    }
-
-    sat::ba_solver* get_ba_solver(sat::solver_core const& s) {
-        return dynamic_cast<sat::ba_solver*>(s.get_extension());
     }
 
     void operator()(sat::solver_core & s, atom2bool_var const & map, goal & r, ref<mc> & mc) {
@@ -1039,21 +986,21 @@ struct sat2goal::imp {
         // collect clauses
         assert_clauses(mc, s, s.clauses(), r, true);
 
-        sat::ba_solver* ext = get_ba_solver(s);
+        auto* ext = s.get_extension();
         if (ext) {
-            for (auto* c : ext->constraints()) {
-                switch (c->tag()) {
-                case sat::ba_solver::card_t: 
-                    assert_card(mc, r, c->to_card());
-                    break;
-                case sat::ba_solver::pb_t: 
-                    assert_pb(mc, r, c->to_pb());
-                    break;
-                case sat::ba_solver::xr_t: 
-                    assert_xor(mc, r, c->to_xr());
-                    break;
-                }
+            std::function<expr_ref(sat::literal)> l2e = [&](sat::literal lit) {
+                return expr_ref(lit2expr(mc, lit), m);
+            };
+            expr_ref_vector fmls(m);
+            sat::ba_solver* ba = dynamic_cast<sat::ba_solver*>(ext);
+            if (ba) {                
+                sat::ba_decompile decompile(*ba, s, m);
+                decompile.to_formulas(l2e, fmls);
             }
+            else 
+                dynamic_cast<euf::solver*>(ext)->to_formulas(l2e, fmls);            
+            for (expr* f : fmls)
+                r.assert_expr(f);            
         }
     }
 

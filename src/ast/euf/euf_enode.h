@@ -104,11 +104,29 @@ namespace euf {
         void mark2() { m_mark2 = true; }
         void unmark2() { m_mark2 = false; }
         bool is_marked2() { return m_mark2; }
+
+        template<bool m> void mark1_targets() {
+            enode* n = this;
+            while (n) {
+                if (m) n->mark1(); else n->unmark1();
+                n = n->m_target;
+            }
+        }
+        template<bool m> void mark2_targets() {
+            enode* n = this;
+            while (n) {
+                if (m) n->mark2(); else n->unmark2();
+                n = n->m_target;
+            }
+        }
+
         void add_parent(enode* p) { m_parents.push_back(p); }
         unsigned class_size() const { return m_class_size; }
+        bool is_root() const { return m_root == this; }
         enode* get_root() const { return m_root; }
         expr*  get_owner() const { return m_owner; }
         unsigned get_owner_id() const { return m_owner->get_id(); }
+        unsigned get_root_id() const { return m_root->m_owner->get_id(); }
         void inc_class_size(unsigned n) { m_class_size += n; }
         void dec_class_size(unsigned n) { m_class_size -= n; }
 

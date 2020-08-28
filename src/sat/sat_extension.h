@@ -86,7 +86,7 @@ namespace sat {
         virtual unsigned max_var(unsigned w) const = 0;
 
         virtual bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
-                                std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {
+                                std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {                                
             return false;
         }
     };

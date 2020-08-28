@@ -255,7 +255,10 @@ namespace euf {
        explanations up to the least common ancestors.
      */
     void egraph::push_congruence(enode* n1, enode* n2, bool comm) {
+        SASSERT(is_app(n1->get_owner()));
         SASSERT(n1->get_decl() == n2->get_decl());
+        if (m_used_cc) 
+            m_used_cc(to_app(n1->get_owner()), to_app(n2->get_owner()));
         if (comm && 
             n1->get_arg(0)->get_root() == n2->get_arg(1)->get_root() &&
             n1->get_arg(1)->get_root() == n2->get_arg(0)->get_root()) {
@@ -268,28 +271,26 @@ namespace euf {
             push_lca(n1->get_arg(i), n2->get_arg(i));
     }
 
-    void egraph::push_lca(enode* a, enode* b) {
+    enode* egraph::find_lca(enode* a, enode* b) {
         SASSERT(a->get_root() == b->get_root());
-        enode* n = a;
-        while (n) {
-            n->mark2();
+        a->mark2_targets<true>();
+        while (!b->is_marked2()) 
+            b = b->m_target;
+        a->mark2_targets<false>();
+        return b;
+    }
+    
+    void egraph::push_to_lca(enode* n, enode* lca) {
+        while (n != lca) {
+            m_todo.push_back(n);
             n = n->m_target;
         }
-        n = b;
-        while (n) {
-            if (n->is_marked2()) 
-                n->unmark2();   
-            else if (!n->is_marked1()) 
-                m_todo.push_back(n);
-            n = n->m_target;
-        }
-        n = a;
-        while (n->is_marked2()) {            
-            n->unmark2();
-            if (!n->is_marked1())
-                m_todo.push_back(n);
-            n = n->m_target;
-        }
+    }
+
+    void egraph::push_lca(enode* a, enode* b) {
+        enode* lca = find_lca(a, b);
+        push_to_lca(a, lca);
+        push_to_lca(b, lca);
     }
 
     void egraph::push_todo(enode* n) {
@@ -313,7 +314,11 @@ namespace euf {
     void egraph::explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, bool comm) {
         SASSERT(m_todo.empty());
         SASSERT(a->get_root() == b->get_root());
-        push_lca(a, b);
+        enode* lca = find_lca(a, b);
+        push_to_lca(a, lca);
+        push_to_lca(b, lca);
+        if (m_used_eq)
+            m_used_eq(a->get_owner(), b->get_owner(), lca->get_owner());
         explain_todo(justifications);
     }
 

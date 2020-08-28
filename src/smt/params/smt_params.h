@@ -18,7 +18,6 @@ Revision History:
 --*/
 #pragma once
 
-#include "ast/ast.h"
 #include "smt/params/dyn_ack_params.h"
 #include "smt/params/qi_params.h"
 #include "smt/params/theory_arith_params.h"

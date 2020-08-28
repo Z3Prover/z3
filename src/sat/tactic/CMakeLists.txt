@@ -7,8 +7,6 @@ z3_add_component(sat_tactic
     tactic
     solver
     sat_smt
-    sat_ba
-    sat_euf
   TACTIC_HEADERS
     sat_tactic.h
 )

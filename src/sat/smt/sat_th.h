@@ -16,33 +16,26 @@ Author:
 --*/
 #pragma once
 
+#include "util/top_sort.h"
 #include "sat/smt/sat_smt.h"
 #include "ast/euf/euf_egraph.h"
 
 namespace sat {
     
-
-    class th_dependencies {
-    public:
-        th_dependencies() {}
-        euf::enode * const* begin() const { return nullptr; }
-        euf::enode * const* end() const { return nullptr; }
-
-        /*
-         * \brief add dependency: dst depends on src.
-         */
-        void add(euf::enode* src, euf::enode* dst);
-
-        /*
-         * \brief sort dependencies.
-         */
-        void sort();
-    };
-
     class th_internalizer {
     public:
-        virtual literal internalize(sat_internalizer& si, expr* e, bool sign, bool root) = 0;
         virtual ~th_internalizer() {}
+
+        virtual literal internalize(expr* e, bool sign, bool root) = 0;
+
+
+    };
+
+    class th_decompile {
+    public:
+        virtual ~th_decompile() {}
+
+        virtual bool to_formulas(std::function<expr_ref(sat::literal)>& lit2expr, expr_ref_vector& fmls) = 0;
     };
 
     class th_model_builder {
@@ -59,7 +52,12 @@ namespace sat {
         /**
            \brief compute dependencies for node n
          */
-        virtual void add_dep(euf::enode* n, th_dependencies& dep) = 0;
+        virtual void add_dep(euf::enode* n, top_sort<euf::enode>& dep) = 0;
+
+        /**
+           \brief should function be included in model.
+        */
+        virtual bool include_func_interp(func_decl* f) const { return false; }
     };
 
 

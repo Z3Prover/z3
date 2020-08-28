@@ -70,7 +70,8 @@ namespace euf {
         enode_vector           m_new_lits;
         enode_vector           m_todo;
         stats                  m_stats;
-            
+        std::function<void(expr*,expr*,expr*)> m_used_eq;
+        std::function<void(app*,app*)>        m_used_cc;            
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
             m_eqs.push_back(add_eq_record(r1, n1, r2_num_parents));
@@ -87,6 +88,8 @@ namespace euf {
         void reinsert_equality(enode* p);
         void update_children(enode* n);
         void push_lca(enode* a, enode* b);
+        enode* find_lca(enode* a, enode* b);
+        void push_to_lca(enode* a, enode* lca);
         void push_congruence(enode* n1, enode* n2, bool commutative);
         void push_todo(enode* n);
         template <typename T>
@@ -126,6 +129,10 @@ namespace euf {
         bool inconsistent() const { return m_inconsistent; }
         enode_vector const& new_eqs() const { return m_new_eqs; }
         enode_vector const& new_lits() const { return m_new_lits; }
+
+        void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
+        void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
+
         template <typename T>
         void explain(ptr_vector<T>& justifications);
         template <typename T>

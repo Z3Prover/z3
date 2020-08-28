@@ -17,12 +17,14 @@ Author:
 #pragma once
 
 #include "util/scoped_ptr_vector.h"
-#include "sat/sat_extension.h"
-#include "ast/euf/euf_egraph.h"
 #include "ast/ast_translation.h"
+#include "ast/euf/euf_egraph.h"
+#include "smt/params/smt_params.h"
+#include "tactic/model_converter.h"
+#include "sat/sat_extension.h"
 #include "sat/smt/atom2bool_var.h"
 #include "sat/smt/sat_th.h"
-#include "tactic/model_converter.h"
+#include "sat/smt/euf_ackerman.h"
 
 namespace euf {
     typedef sat::literal literal;
@@ -31,66 +33,89 @@ namespace euf {
     typedef sat::literal_vector literal_vector;
     typedef sat::bool_var bool_var;
 
-    class euf_base : public sat::index_base {
+    class constraint : public sat::index_base {
         unsigned m_id;
     public:
-        euf_base(sat::extension* e, unsigned id) :
+        constraint(sat::extension* e, unsigned id) :
             index_base(e), m_id(id)
         {}
         unsigned id() const { return m_id; }
-        static euf_base* from_idx(size_t z) { return reinterpret_cast<euf_base*>(z); }
+        static constraint* from_idx(size_t z) { return reinterpret_cast<constraint*>(z); }
     };
 
-    class solver : public sat::extension, public sat::th_internalizer {
-        ast_manager& m;
-        atom2bool_var&        m_expr2var;
-        euf::egraph           m_egraph;
-        sat::solver*          m_solver;
-        sat::lookahead*       m_lookahead;
-        ast_translation*      m_translate;
-        atom2bool_var*        m_translate_expr2var;
+    class solver : public sat::extension, public sat::th_internalizer, public sat::th_decompile {
+        typedef top_sort<euf::enode> deps_t;
+        friend class ackerman;
+        struct stats {
+            unsigned m_num_dynack;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
 
-        euf::enode*           m_true;
-        euf::enode*           m_false;
-        svector<euf::enode_bool_pair> m_var2node;
-        ptr_vector<unsigned>  m_explain;
-        euf::enode_vector     m_args;
-        svector<sat::frame>   m_stack;
-        unsigned              m_num_scopes { 0 };
-        unsigned_vector       m_bool_var_trail;
-        unsigned_vector       m_bool_var_lim;
-        scoped_ptr_vector<sat::extension> m_extensions;
-        ptr_vector<sat::extension>        m_id2extension;
-        ptr_vector<sat::th_internalizer>  m_id2internalize;
-        scoped_ptr_vector<sat::th_internalizer>        m_internalizers;
-        scoped_ptr_vector<sat::th_model_builder>       m_model_builders;
-        ptr_vector<sat::th_model_builder>              m_id2model_builder;
-        euf_base              m_conflict_idx, m_eq_idx, m_lit_idx;
+        ast_manager&          m;
+        atom2bool_var&        m_expr2var;
+        sat::sat_internalizer& si;
+        smt_params            m_config;
+        euf::egraph           m_egraph;
+        stats                 m_stats;
+        sat::solver*          m_solver { nullptr };
+        sat::lookahead*       m_lookahead { nullptr };
+        ast_translation*      m_translate { nullptr };
+        atom2bool_var*        m_translate_expr2var { nullptr };
+        scoped_ptr<ackerman>  m_ackerman;
+
+        euf::enode*           m_true { nullptr };
+        euf::enode*           m_false { nullptr };
+        svector<euf::enode_bool_pair>                   m_var2node;
+        ptr_vector<unsigned>                            m_explain;
+        euf::enode_vector                               m_args;
+        svector<sat::frame>                             m_stack;
+        unsigned                                        m_num_scopes { 0 };
+        unsigned_vector                                 m_bool_var_trail;
+        unsigned_vector                                 m_bool_var_lim;
+        scoped_ptr_vector<sat::extension>               m_extensions;
+        ptr_vector<sat::extension>                      m_id2extension;
+        ptr_vector<sat::th_internalizer>                m_id2internalize;
+        scoped_ptr_vector<sat::th_internalizer>         m_internalizers;
+        scoped_ptr_vector<sat::th_model_builder>        m_model_builders;
+        ptr_vector<sat::th_model_builder>               m_id2model_builder;
+        scoped_ptr_vector<sat::th_decompile>            m_decompilers;
+        constraint              m_conflict_idx, m_eq_idx, m_lit_idx;
 
         sat::solver& s() { return *m_solver; }
         unsigned * base_ptr() { return reinterpret_cast<unsigned*>(this); }
-        euf::enode* visit(sat::sat_internalizer& si, expr* e);
-        void attach_bool_var(sat::sat_internalizer& si, euf::enode* n);
+
+        // internalization
+        sat::th_internalizer* get_internalizer(expr* e);
+        euf::enode* visit(expr* e);
+        void attach_bool_var(euf::enode* n);
         void attach_bool_var(sat::bool_var v, bool sign, euf::enode* n);
         solver* copy_core();
+
+        // extensions
         sat::extension* get_extension(sat::bool_var v);
         sat::extension* get_extension(expr* e);
         void add_extension(family_id fid, sat::extension* e);
-        sat::th_internalizer* get_internalizer(expr* e);
+        void init_ackerman();
 
-        sat::th_model_builder* get_model_builder(expr* e);
+        // model building
+        bool include_func_interp(func_decl* f) const;
+        sat::th_model_builder* get_model_builder(expr* e) const;
+        sat::th_model_builder* get_model_builder(func_decl* f) const;
+        void register_macros(model& mdl);
+        void dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref const& mdl);
+        void collect_dependencies(deps_t& deps);        
+        void values2model(deps_t const& deps, expr_ref_vector const& values, model_ref& mdl);
 
+        // solving
         void propagate();
-        void get_antecedents(literal l, euf_base& j, literal_vector& r);
-
-        void dependencies2values(sat::th_dependencies& deps, expr_ref_vector& values);
-        void collect_dependencies(sat::th_dependencies& deps);        
-        void sort_dependencies(sat::th_dependencies& deps);
+        void get_antecedents(literal l, constraint& j, literal_vector& r);
 
     public:
-        solver(ast_manager& m, atom2bool_var& expr2var):
+       solver(ast_manager& m, atom2bool_var& expr2var, sat::sat_internalizer& si, params_ref const& p = params_ref()):
             m(m),
             m_expr2var(expr2var),
+            si(si),
             m_egraph(m),
             m_solver(nullptr),
             m_lookahead(nullptr),
@@ -101,9 +126,13 @@ namespace euf {
             m_conflict_idx(this, 0),
             m_eq_idx(this, 1),
             m_lit_idx(this, 2)
-        {}
+        {
+            updt_params(p);
+        }
+
         ~solver() override {}
 
+        void updt_params(params_ref const& p);
         void set_solver(sat::solver* s) override { m_solver = s; }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
         struct scoped_set_translate {
@@ -143,11 +172,9 @@ namespace euf {
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override;
 
-
-        sat::literal internalize(sat::sat_internalizer& si, expr* e, bool sign, bool root) override;
-        model_converter* get_model();
-
-        
-
+        bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls);
+        sat::literal internalize(expr* e, bool sign, bool root) override;
+        void update_model(model_ref& mdl);
+       
     };
 };

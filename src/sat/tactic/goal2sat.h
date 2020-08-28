@@ -38,12 +38,11 @@ Notes:
 class goal2sat {
     struct imp;
     imp *  m_imp;
-    struct scoped_set_imp;
-    expr_ref_vector* m_interpreted_atoms;
+    scoped_ptr<expr_ref_vector> m_interpreted_atoms;
 
 public:
     goal2sat();
-    ~goal2sat() { dealloc(m_interpreted_atoms); }
+    ~goal2sat();
 
     typedef obj_map<expr, sat::literal> dep2asm_map;
 
@@ -61,7 +60,7 @@ public:
        \warning conversion throws a tactic_exception, if it is interrupted (by set_cancel),
        an unsupported operator is found, or memory consumption limit is reached (set with param :max-memory).
     */
-    void operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false, bool is_lemma = false);
+    void operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false);
 
     void get_interpreted_atoms(expr_ref_vector& atoms);
 

@@ -18,11 +18,11 @@ Revision History:
 
 #pragma once
 
-#include "util/obj_hashtable.h"
-#include "util/vector.h"
 #include<algorithm>
 #include<type_traits>
 #include<memory.h>
+#include "util/obj_hashtable.h"
+#include "util/vector.h"
 #include "util/memory_manager.h"
 
 
@@ -52,12 +52,13 @@ class top_sort {
         else {
             m_dfs_num.insert(f, m_next_preorder++);        
             m_stack_S.push_back(f);
-            m_stack_P.push_back(f);  
-            for (T* g : *m_deps[f]) {
-                traverse(g);
-            }        
-            if (f == m_stack_P.back()) {
-                
+            m_stack_P.push_back(f);
+            if (m_deps[f]) { 
+                for (T* g : *m_deps[f]) {
+                    traverse(g);
+                }        
+            }
+            if (f == m_stack_P.back()) {                
                 p_id = m_top_sorted.size();            
                 T* s_f;
                 do {
@@ -94,7 +95,16 @@ public:
         m_deps.insert(t, s); 
     }
 
-    ptr_vector<T> const& top_sorted() { return m_top_sorted; }    
+    void add(T* t, T* s) {
+        T_set* tb = nullptr;
+        if (!m_deps.find(t, tb)) {
+            tb = alloc(T_set);
+            insert(s, tb);
+        }
+        t->insert(s);
+    }
+
+    ptr_vector<T> const& top_sorted() const { return m_top_sorted; }    
 
     obj_map<T, unsigned> const& partition_ids() const { return m_partition_id; }
 

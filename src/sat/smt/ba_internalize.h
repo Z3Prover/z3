@@ -19,7 +19,7 @@ Author:
 #pragma once
 
 #include "sat/smt/sat_th.h"
-#include "sat/ba/ba_solver.h"
+#include "sat/smt/ba_solver.h"
 #include "ast/pb_decl_plugin.h"
 
 
@@ -31,7 +31,7 @@ namespace sat {
         pb_util pb;
         ba_solver& ba;
         solver_core& m_solver;
-        sat_internalizer* m_si;
+        sat_internalizer& si;
         literal convert_eq_k(app* t, rational const& k, bool root, bool sign);
         literal convert_at_most_k(app* t, rational const& k, bool root, bool sign);
         literal convert_at_least_k(app* t, rational const& k, bool root, bool sign);
@@ -44,10 +44,30 @@ namespace sat {
         void convert_pb_args(app* t, literal_vector& lits);
         literal internalize_pb(expr* e, bool sign, bool root);
         literal internalize_xor(expr* e, bool sign, bool root);
+
     public:
-        ba_internalize(ba_solver& ba, solver_core& s, ast_manager& m) : m(m), pb(m), ba(ba), m_solver(s) {}
+        ba_internalize(ba_solver& ba, solver_core& s, sat_internalizer& si, ast_manager& m) : 
+            m(m), pb(m), ba(ba), m_solver(s), si(si) {}
         ~ba_internalize() override {}
-        literal internalize(sat_internalizer& si, expr* e, bool sign, bool root) override;
-        
+        literal internalize(expr* e, bool sign, bool root) override;
+       
+    };
+
+    class ba_decompile : public sat::th_decompile {
+        ast_manager& m;
+        ba_solver& ba;
+        solver_core& m_solver;
+        pb_util pb;
+
+        expr_ref get_card(std::function<expr_ref(sat::literal)>& l2e, ba_solver::card const& c);
+        expr_ref get_pb(std::function<expr_ref(sat::literal)>& l2e, ba_solver::pb const& p);
+        expr_ref get_xor(std::function<expr_ref(sat::literal)>& l2e, ba_solver::xr const& x);
+    public:
+        ba_decompile(ba_solver& ba, solver_core& s, ast_manager& m) :
+            m(m),  ba(ba), m_solver(s), pb(m) {}
+
+        ~ba_decompile() override {}
+
+        bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
     };
 }
