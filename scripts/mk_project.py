@@ -38,6 +38,7 @@ def init_project_def():
     add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
     add_lib('solver', ['model', 'tactic', 'proofs'])
     add_lib('cmd_context', ['solver', 'rewriter'])
+    add_lib('smt_params', ['ast', 'rewriter', 'pattern'], 'smt/params')
     add_lib('sat_smt', ['sat', 'euf', 'tactic', 'smt_params'], 'sat/smt')
     add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')        
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
@@ -50,7 +51,6 @@ def init_project_def():
     add_lib('ackermannization', ['model', 'rewriter', 'ast', 'solver', 'tactic'], 'ackermannization')
     add_lib('fpa', ['ast', 'util', 'rewriter', 'model'], 'ast/fpa')
     add_lib('bit_blaster', ['rewriter', 'rewriter'], 'ast/rewriter/bit_blaster')
-    add_lib('smt_params', ['ast', 'rewriter', 'pattern', 'bit_blaster'], 'smt/params')
     add_lib('proto_model', ['model', 'rewriter', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
                     'substitution', 'grobner', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp'])
