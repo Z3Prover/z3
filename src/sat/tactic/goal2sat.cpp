@@ -87,6 +87,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_true = sat::null_literal;
         m_aig = s.get_cut_simplifier();
     }
+
+    ~imp() override {}
         
     void updt_params(params_ref const & p) {
         m_ite_extra  = p.get_bool("ite_extra", true);

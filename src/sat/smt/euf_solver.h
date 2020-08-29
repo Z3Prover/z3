@@ -178,7 +178,7 @@ namespace euf {
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override;
 
-        bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls);
+        bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
         sat::literal internalize(expr* e, bool sign, bool root) override;
         void update_model(model_ref& mdl);
        
