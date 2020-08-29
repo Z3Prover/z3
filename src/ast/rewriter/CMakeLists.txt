@@ -38,6 +38,7 @@ z3_add_component(rewriter
     mk_extract_proc.cpp
   COMPONENT_DEPENDENCIES
     ast
+    params
     automata
     polynomial
   PYG_FILES
