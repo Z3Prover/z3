@@ -58,7 +58,6 @@ namespace euf {
         inference*    m_queue { nullptr };
         inference*    m_tmp_inference { nullptr };
         unsigned      m_gc_threshold { 1 };
-        unsigned      m_propagate_threshold { 0 };
         unsigned      m_num_propagations_since_last_gc { 0 };
  
         void reset();
