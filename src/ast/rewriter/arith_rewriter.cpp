@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
+#include "params/arith_rewriter_params.hpp"
 #include "ast/rewriter/arith_rewriter.h"
-#include "ast/rewriter/arith_rewriter_params.hpp"
 #include "ast/rewriter/poly_rewriter_def.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "ast/ast_pp.h"

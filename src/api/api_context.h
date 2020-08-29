@@ -36,7 +36,7 @@ Revision History:
 #include "smt/smt_kernel.h"
 #include "smt/smt_solver.h"
 #include "cmd_context/tactic_manager.h"
-#include "cmd_context/context_params.h"
+#include "params/context_params.h"
 #include "cmd_context/cmd_context.h"
 #include "solver/solver.h"
 #include "api/z3.h"

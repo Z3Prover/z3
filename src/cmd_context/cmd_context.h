@@ -39,7 +39,7 @@ Notes:
 #include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
 #include "cmd_context/check_logic.h"
-#include "cmd_context/context_params.h"
+#include "params/context_params.h"
 
 
 class func_decls {

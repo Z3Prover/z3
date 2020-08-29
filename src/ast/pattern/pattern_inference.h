@@ -20,7 +20,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
-#include "ast/pattern/pattern_inference_params.h"
+#include "params/pattern_inference_params.h"
 #include "util/vector.h"
 #include "util/uint_set.h"
 #include "util/nat_set.h"

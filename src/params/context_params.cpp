@@ -17,11 +17,10 @@ Author:
 Notes:
 
 --*/
-#include "cmd_context/context_params.h"
 #include "util/gparams.h"
 #include "util/params.h"
 #include "ast/ast.h"
-#include "solver/solver.h"
+#include "params/context_params.h"
 
 context_params::context_params() {
     updt_params();

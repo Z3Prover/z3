@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "ast/pattern/pattern_inference_params.h"
-#include "ast/pattern/pattern_inference_params_helper.hpp"
+#include "params/pattern_inference_params.h"
+#include "params/pattern_inference_params_helper.hpp"
 
 void pattern_inference_params::updt_params(params_ref const & _p) {
     pattern_inference_params_helper p(_p);

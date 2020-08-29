@@ -28,7 +28,7 @@ Revision History:
 #include "smt/params/theory_pb_params.h"
 #include "smt/params/theory_datatype_params.h"
 #include "smt/params/preprocessor_params.h"
-#include "cmd_context/context_params.h"
+#include "params/context_params.h"
 
 enum phase_selection {
     PS_ALWAYS_FALSE,

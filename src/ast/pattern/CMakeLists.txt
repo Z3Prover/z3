@@ -23,7 +23,6 @@ z3_add_component(pattern
   SOURCES
     expr_pattern_match.cpp
     pattern_inference.cpp
-    pattern_inference_params.cpp
     # Let CMake know this target depends on this generated
     # header file
     ${CMAKE_CURRENT_BINARY_DIR}/database.h
@@ -31,6 +30,4 @@ z3_add_component(pattern
     normal_forms
     rewriter
     smt2parser
-  PYG_FILES
-    pattern_inference_params_helper.pyg
 )

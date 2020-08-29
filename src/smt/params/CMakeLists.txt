@@ -11,7 +11,7 @@ z3_add_component(smt_params
     theory_seq_params.cpp
     theory_str_params.cpp
   COMPONENT_DEPENDENCIES
-    pattern
+    params
   PYG_FILES
     smt_params_helper.pyg
 )
