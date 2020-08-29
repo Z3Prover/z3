@@ -95,6 +95,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
         m_euf = false;
+        m_euf = true;
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -194,7 +195,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     bool convert_app(app* t, bool root, bool sign) {
-        if (pb.is_pb(t)) {
+        if (!m_euf && pb.is_pb(t)) {
             m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
             return false;
         }
@@ -432,7 +433,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void convert_iff(app * t, bool root, bool sign) {
         TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
-        if (is_xor(t))
+        if (!m_euf && is_xor(t))
             convert_ba(t, root, sign);
         else               
             convert_iff2(t, root, sign);
@@ -443,6 +444,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         euf::solver* euf = nullptr;
         if (!ext) {
             euf = alloc(euf::solver, m, m_map, *this);
+            std::cout << "set euf\n";
             m_solver.set_extension(euf);
             for (unsigned i = m_solver.num_scopes(); i-- > 0; )
                 euf->push();
@@ -464,6 +466,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void convert_ba(app* t, bool root, bool sign) {
+        SASSERT(!m_euf);
+        std::cout << "convert ba\n";
         sat::extension* ext = m_solver.get_extension();
         sat::ba_solver* ba = nullptr;
         if (!ext) {
@@ -510,7 +514,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
             SASSERT(!root || m_result_stack.empty());
         }
-        else if (pb.is_pb(t)) {
+        else if (!m_euf && pb.is_pb(t)) {
             convert_ba(t, root, sign);
         }
         else {
@@ -571,7 +575,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 visit(t->get_arg(0), root, !sign);
                 continue;
             }
-            if (is_xor(t)) {
+            if (!m_euf && is_xor(t)) {
                 convert_ba(t, root, sign);
                 m_frame_stack.pop_back();
                 continue;
@@ -618,7 +622,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 return false;
             }
         }
-        else if (to_app(t)->get_family_id() == pb.get_family_id()) 
+        else if (!m_euf && to_app(t)->get_family_id() == pb.get_family_id()) 
             return true;        
         else 
             return false;       

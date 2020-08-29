@@ -19,6 +19,7 @@ Author:
 
 #pragma once
 #include "ast/ast.h"
+#include "ast/ast_pp.h"
 #include "sat/sat_solver.h"
 
 namespace sat {
@@ -50,9 +51,9 @@ namespace sat {
     class index_base {
         extension* ex;
     public:
-        index_base(extension* e): ex(e) {}
-        static extension* to_extension(size_t s) { return from_index(s)->ex; }
+    index_base(extension* e) : ex(e) { to_index(); }
+        static extension* to_extension(size_t s) { std::cout << "to_extension: " << from_index(s) << " " << from_index(s)->ex << " " << s << "\n"; return from_index(s)->ex; }
         static index_base* from_index(size_t s) { return reinterpret_cast<index_base*>(s); }
-        size_t to_index() const { return reinterpret_cast<size_t>(this); }
+        size_t to_index() const { std::cout << "to_index " << this << " " << ex << " " << reinterpret_cast<size_t>(this) << "\n";  return reinterpret_cast<size_t>(this); }
     };
 }

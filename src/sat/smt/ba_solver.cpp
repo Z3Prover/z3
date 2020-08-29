@@ -1734,6 +1734,7 @@ namespace sat {
         : m_solver(nullptr), m_lookahead(nullptr), 
           m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
         TRACE("ba", tout << this << "\n";);
+        std::cout << "mk " << this << "\n";
         m_num_propagations_since_pop = 0;
     }
 

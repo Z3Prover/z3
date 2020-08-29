@@ -81,8 +81,17 @@ namespace sat {
         public:
             constraint(extension* e, tag_t t, unsigned id, literal l, unsigned sz, size_t osz): 
                 index_base(e),
-            m_tag(t), m_removed(false), m_lit(l), m_watch(null_literal), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id), m_pure(false) {}
-            ext_constraint_idx index() const { return reinterpret_cast<ext_constraint_idx>(this); }
+            m_tag(t), m_removed(false), m_lit(l), m_watch(null_literal), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id), m_pure(false) {
+                    std::cout << "constraint ext: " << t << " " << e << "\n";
+                    size_t idx = reinterpret_cast<ext_constraint_idx>(this);
+                    std::cout << "index " << idx << "\n";
+                    std::cout << this << " " << index_base::from_index(idx) << "\n";
+                    std::cout << e << " " << index_base::to_extension(idx) << "\n";
+                    std::cout.flush();
+                }
+            ext_constraint_idx index() const { 
+                return reinterpret_cast<ext_constraint_idx>(this); 
+            }
             unsigned id() const { return m_id; }
             tag_t tag() const { return m_tag; }
             literal lit() const { return m_lit; }

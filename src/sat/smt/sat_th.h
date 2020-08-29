@@ -60,5 +60,27 @@ namespace sat {
         virtual bool include_func_interp(func_decl* f) const { return false; }
     };
 
+    class th_solver : public extension, public th_model_builder, public th_decompile, public th_internalizer {
+
+        virtual ~th_solver() {}
+
+        /**
+           \brief compute the value for enode \c n and store the value in \c values 
+           for the root of the class of \c n.
+         */
+        virtual void add_value(euf::enode* n, expr_ref_vector& values) = 0;
+
+        /**
+           \brief compute dependencies for node n
+         */
+        virtual void add_dep(euf::enode* n, top_sort<euf::enode>& dep) = 0;
+
+        /**
+           \brief should function be included in model.
+        */
+        virtual bool include_func_interp(func_decl* f) const { return false; }
+        
+    };
+
 
 }

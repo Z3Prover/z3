@@ -64,6 +64,7 @@ namespace euf {
                 m_internalizers.push_back(bai);
                 m_decompilers.push_back(alloc(sat::ba_decompile, *ba, s(), m));
                 ba->push_scopes(s().num_scopes());
+				std::cout << "extension ba " << ba << "\n";
                 return ba;
             }
         }
@@ -72,6 +73,7 @@ namespace euf {
 
     bool solver::propagate(literal l, ext_constraint_idx idx) { 
         auto* ext = sat::index_base::to_extension(idx);
+		std::cout << "extension " << ext << " " << idx << "\n";
         SASSERT(ext != this);
         return ext->propagate(l, idx);
     }
@@ -275,8 +277,12 @@ namespace euf {
     sat::extension* solver::copy(sat::solver* s) { 
         auto* r = copy_core();
         r->set_solver(s);
-        for (auto* e : m_extensions)
-            r->m_extensions.push_back(e->copy(s));
+		for (unsigned i = 0; i < m_id2extension.size(); ++i) {
+			auto* e = m_id2extension[i];
+			if (e)
+				r->add_extension(i, e->copy(s));
+		}
+		
         return r;
     }
 
@@ -284,8 +290,11 @@ namespace euf {
         (void) learned;
         auto* r = copy_core();
         r->set_lookahead(s);
-        for (auto* e : m_extensions)
-            r->m_extensions.push_back(e->copy(s, learned));
+		for (unsigned i = 0; i < m_id2extension.size(); ++i) {
+			auto* e = m_id2extension[i];
+			if (e)
+				r->add_extension(i, e->copy(s, learned));
+		}
         return r;
     }
 
@@ -378,6 +387,7 @@ namespace euf {
             m_true  = visit(m.mk_true());
             m_false = visit(m.mk_false());
         }
+        std::cout << mk_pp(e, m) << "\n";
         SASSERT(!si.is_bool_op(e));
         sat::scoped_stack _sc(m_stack);
         unsigned sz = m_stack.size();
@@ -417,6 +427,11 @@ namespace euf {
             return n;
         if (si.is_bool_op(e)) {
             sat::literal lit = si.internalize(e);
+            enode_bool_pair bp(nullptr, false);
+            n = m_var2node.get(lit.var(), bp).first;
+            if (n)
+                return n;
+            
             n = m_egraph.mk(e, 0, nullptr);
             attach_bool_var(lit.var(), lit.sign(), n);
             if (!m.is_true(e) && !m.is_false(e)) 
@@ -436,6 +451,7 @@ namespace euf {
         expr* e = n->get_owner();
         if (m.is_bool(e)) {
             sat::bool_var v = si.add_bool_var(e);
+            std::cout << "attach " << v << "\n";
             attach_bool_var(v, false, n);
         }
     }
