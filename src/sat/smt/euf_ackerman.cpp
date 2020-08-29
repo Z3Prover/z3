@@ -14,7 +14,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2020-08-28
 
 --*/
-#pragma once
 
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/euf_ackerman.h"
