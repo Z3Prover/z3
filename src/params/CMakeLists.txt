@@ -1,0 +1,14 @@
+z3_add_component(params
+  SOURCES
+    pattern_inference_params.cpp
+    context_params.cpp
+  COMPONENT_DEPENDENCIES
+    util
+    ast
+  PYG_FILES
+    pattern_inference_params_helper.pyg
+    bv_rewriter_params.pyg
+    arith_rewriter_params.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    context_params.h
+)
