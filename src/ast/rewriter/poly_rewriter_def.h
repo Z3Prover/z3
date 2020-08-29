@@ -20,7 +20,7 @@ Notes:
 #include "util/container_util.h"
 #include "ast/rewriter/poly_rewriter.h"
 #include "ast/rewriter/poly_rewriter_params.hpp"
-#include "ast/rewriter/arith_rewriter_params.hpp"
+#include "params/arith_rewriter_params.hpp"
 #include "ast/ast_lt.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
