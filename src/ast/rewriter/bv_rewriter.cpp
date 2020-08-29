@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
+#include "param/bv_rewriter_params.hpp"
 #include "ast/rewriter/bv_rewriter.h"
-#include "ast/rewriter/bv_rewriter_params.hpp"
 #include "ast/rewriter/poly_rewriter_def.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_lt.h"
