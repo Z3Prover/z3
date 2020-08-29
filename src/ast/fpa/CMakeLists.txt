@@ -8,6 +8,4 @@ z3_add_component(fpa
     rewriter
     model
     util
-  PYG_FILES
-    fpa2bv_rewriter_params.pyg
 )

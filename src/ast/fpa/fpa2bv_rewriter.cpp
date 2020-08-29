@@ -20,7 +20,7 @@ Notes:
 
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/fpa/fpa2bv_rewriter.h"
-#include "ast/fpa/fpa2bv_rewriter_params.hpp"
+#include "params/fpa2bv_rewriter_params.hpp"
 
 
 fpa2bv_rewriter_cfg::fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, params_ref const & p) :

@@ -11,6 +11,7 @@ z3_add_component(params
     bool_rewriter_params.pyg
     bv_rewriter_params.pyg
     fpa_rewriter_params.pyg
+    fpa2bv_rewriter_params.pyg
     pattern_inference_params_helper.pyg
     poly_rewriter_params.pyg
     rewriter_params.pyg
