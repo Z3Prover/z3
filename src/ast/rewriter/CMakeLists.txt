@@ -41,11 +41,4 @@ z3_add_component(rewriter
     params
     automata
     polynomial
-  PYG_FILES
-    array_rewriter_params.pyg
-    bool_rewriter_params.pyg
-    fpa_rewriter_params.pyg
-    poly_rewriter_params.pyg
-    rewriter_params.pyg
-    seq_rewriter_params.pyg
 )

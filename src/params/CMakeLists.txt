@@ -6,9 +6,15 @@ z3_add_component(params
     util
     ast
   PYG_FILES
-    pattern_inference_params_helper.pyg
-    bv_rewriter_params.pyg
     arith_rewriter_params.pyg
+    array_rewriter_params.pyg
+    bool_rewriter_params.pyg
+    bv_rewriter_params.pyg
+    fpa_rewriter_params.pyg
+    pattern_inference_params_helper.pyg
+    poly_rewriter_params.pyg
+    rewriter_params.pyg
+    seq_rewriter_params.pyg
   EXTRA_REGISTER_MODULE_HEADERS
     context_params.h
 )

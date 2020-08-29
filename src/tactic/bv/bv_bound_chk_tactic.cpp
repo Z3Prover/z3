@@ -16,10 +16,10 @@
 --*/
 #include "tactic/bv/bv_bound_chk_tactic.h"
 #include "ast/ast.h"
+#include "params/rewriter_params.hpp"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/bv_bounds.h"
-#include "ast/rewriter/rewriter_params.hpp"
 #include "ast/rewriter/bool_rewriter.h"
 
 struct bv_bound_chk_stats {

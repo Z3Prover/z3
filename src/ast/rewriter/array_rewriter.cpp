@@ -17,12 +17,12 @@ Notes:
 
 --*/
 #include "ast/rewriter/array_rewriter.h"
-#include "ast/rewriter/array_rewriter_params.hpp"
 #include "ast/ast_lt.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/var_subst.h"
+#include "params/array_rewriter_params.hpp"
 
 void array_rewriter::updt_params(params_ref const & _p) {
     array_rewriter_params p(_p);

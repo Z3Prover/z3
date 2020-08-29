@@ -27,7 +27,7 @@ Author:
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
-#include "ast/rewriter/seq_rewriter_params.hpp"
+#include "params/seq_rewriter_params.hpp"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata_def.h"
 
