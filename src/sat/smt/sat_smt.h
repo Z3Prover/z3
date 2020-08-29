@@ -38,6 +38,7 @@ namespace sat {
 
     class sat_internalizer {
     public:
+        virtual ~sat_internalizer() {}
         virtual bool is_bool_op(expr* e) const = 0;
         virtual sat::literal internalize(expr* e) = 0;
         virtual sat::bool_var add_bool_var(expr* e)  = 0;
