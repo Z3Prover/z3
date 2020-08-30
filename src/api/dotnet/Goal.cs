@@ -225,9 +225,9 @@ namespace Microsoft.Z3
         /// Goal to DIMACS formatted string conversion.
         /// </summary>
         /// <returns>A string representation of the Goal.</returns>
-        public string ToDimacs()
+        public string ToDimacs(bool include_names = true)
         {
-            return Native.Z3_goal_to_dimacs_string(Context.nCtx, NativeObject);
+            return Native.Z3_goal_to_dimacs_string(Context.nCtx, NativeObject, include_names);
         }
 
         /// <summary>

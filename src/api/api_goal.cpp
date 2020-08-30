@@ -193,16 +193,16 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_string Z3_API Z3_goal_to_dimacs_string(Z3_context c, Z3_goal g) {
+    Z3_string Z3_API Z3_goal_to_dimacs_string(Z3_context c, Z3_goal g, bool include_names) {
         Z3_TRY;
-        LOG_Z3_goal_to_dimacs_string(c, g);
+        LOG_Z3_goal_to_dimacs_string(c, g, include_names);
         RESET_ERROR_CODE();
         std::ostringstream buffer;
         if (!to_goal_ref(g)->is_cnf()) { 
             SET_ERROR_CODE(Z3_INVALID_ARG, "If this is not what you want, then preprocess by optional bit-blasting and applying tseitin-cnf");
             RETURN_Z3(nullptr);
         }
-        to_goal_ref(g)->display_dimacs(buffer, true);
+        to_goal_ref(g)->display_dimacs(buffer, include_names);
         // Hack for removing the trailing '\n'
         std::string result = buffer.str();
         SASSERT(result.size() > 0);

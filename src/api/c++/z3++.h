@@ -2630,7 +2630,7 @@ namespace z3 {
                 return expr(ctx(), Z3_mk_and(ctx(), n, args.ptr()));
             }
         }
-        std::string dimacs() const { return std::string(Z3_goal_to_dimacs_string(ctx(), m_goal)); }
+        std::string dimacs(bool include_names = true) const { return std::string(Z3_goal_to_dimacs_string(ctx(), m_goal, include_names)); }
         friend std::ostream & operator<<(std::ostream & out, goal const & g);
     };
     inline std::ostream & operator<<(std::ostream & out, goal const & g) { out << Z3_goal_to_string(g.ctx(), g); return out; }
