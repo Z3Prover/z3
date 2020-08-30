@@ -25,15 +25,17 @@ Revision History:
 #include "sat/sat_lookahead.h"
 #include "sat/sat_big.h"
 #include "sat/smt/sat_smt.h"
+#include "sat/smt/sat_th.h"
 #include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
+#include "ast/pb_decl_plugin.h"
 
 namespace sat {
 
     class xor_finder;
     
-    class ba_solver : public extension {
+    class ba_solver : public th_solver {
 
         friend class local_search;
 
@@ -65,7 +67,7 @@ namespace sat {
         class xr;
         class pb_base;
 
-        class constraint : public index_base {
+        class constraint {
         protected:
             tag_t          m_tag;
             bool           m_removed;
@@ -79,19 +81,11 @@ namespace sat {
             unsigned       m_id;
             bool           m_pure;        // is the constraint pure (only positive occurrences)
         public:
-            constraint(extension* e, tag_t t, unsigned id, literal l, unsigned sz, size_t osz): 
-                index_base(e),
+            constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): 
             m_tag(t), m_removed(false), m_lit(l), m_watch(null_literal), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id), m_pure(false) {
-                    std::cout << "constraint ext: " << t << " " << e << "\n";
-                    size_t idx = reinterpret_cast<ext_constraint_idx>(this);
-                    std::cout << "index " << idx << "\n";
-                    std::cout << this << " " << index_base::from_index(idx) << "\n";
-                    std::cout << e << " " << index_base::to_extension(idx) << "\n";
-                    std::cout.flush();
-                }
-            ext_constraint_idx index() const { 
-                return reinterpret_cast<ext_constraint_idx>(this); 
             }
+            ext_constraint_idx cindex() const { return constraint_base::mem2base(this); }
+            void deallocate(small_object_allocator& a) { a.deallocate(obj_size(), constraint_base::mem2base_ptr(this)); }
             unsigned id() const { return m_id; }
             tag_t tag() const { return m_tag; }
             literal lit() const { return m_lit; }
@@ -143,8 +137,8 @@ namespace sat {
         protected:
             unsigned       m_k;
         public:
-            pb_base(extension* e, tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): 
-                constraint(e, t, id, l, sz, osz), m_k(k) { VERIFY(k < 4000000000); }
+            pb_base(tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): 
+                constraint(t, id, l, sz, osz), m_k(k) { VERIFY(k < 4000000000); }
             virtual void set_k(unsigned k) { VERIFY(k < 4000000000);  m_k = k; }
             virtual unsigned get_coeff(unsigned i) const { UNREACHABLE(); return 0; }
             unsigned k() const { return m_k; }
@@ -154,8 +148,8 @@ namespace sat {
         class card : public pb_base {
             literal        m_lits[0];
         public:
-            static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(literal); }
-            card(extension* e, unsigned id, literal lit, literal_vector const& lits, unsigned k);
+            static size_t get_obj_size(unsigned num_lits) { return constraint_base::obj_size(sizeof(card) + num_lits * sizeof(literal)); }
+            card(unsigned id, literal lit, literal_vector const& lits, unsigned k);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal& operator[](unsigned i) { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
@@ -178,8 +172,8 @@ namespace sat {
             unsigned       m_max_sum;
             wliteral       m_wlits[0];
         public:
-            static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
-            pb(extension* e, unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
+            static size_t get_obj_size(unsigned num_lits) { return constraint_base::obj_size(sizeof(pb) + num_lits * sizeof(wliteral)); }
+            pb(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
             literal lit() const { return m_lit; }
             wliteral operator[](unsigned i) const { return m_wlits[i]; }
             wliteral& operator[](unsigned i) { return m_wlits[i]; }
@@ -206,8 +200,8 @@ namespace sat {
         class xr : public constraint {
             literal        m_lits[0];
         public:
-            static size_t get_obj_size(unsigned num_lits) { return sizeof(xr) + num_lits * sizeof(literal); }
-            xr(extension* e, unsigned id, literal_vector const& lits);
+            static size_t get_obj_size(unsigned num_lits) { return constraint_base::obj_size(sizeof(xr) + num_lits * sizeof(literal)); }
+            xr(unsigned id, literal_vector const& lits);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return begin() + m_size; }
@@ -237,6 +231,10 @@ namespace sat {
             void weaken(unsigned i);
             bool contains(literal l) const { for (auto wl : m_wlits) if (wl.second == l) return true; return false; }
         };
+
+        ast_manager&           m;
+        sat_internalizer&      si;
+        pb_util                m_pb;
 
         solver*                m_solver;
         lookahead*             m_lookahead;
@@ -343,7 +341,7 @@ namespace sat {
         void remove_constraint(constraint& c, char const* reason);
 
         // constraints
-        constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(idx); }        
+        constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(constraint_base::from_index(idx)->mem()); }
         void pop_constraint();
         void unwatch_literal(literal w, constraint& c);
         void watch_literal(literal w, constraint& c);
@@ -545,8 +543,27 @@ namespace sat {
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
 
+        // Internalize
+        literal convert_eq_k(app* t, rational const& k, bool root, bool sign);
+        literal convert_at_most_k(app* t, rational const& k, bool root, bool sign);
+        literal convert_at_least_k(app* t, rational const& k, bool root, bool sign);
+        literal convert_pb_eq(app* t, bool root, bool sign);
+        literal convert_pb_le(app* t, bool root, bool sign);
+        literal convert_pb_ge(app* t, bool root, bool sign);
+        void check_unsigned(rational const& c);
+        void convert_to_wlits(app* t, sat::literal_vector const& lits, svector<wliteral>& wlits);
+        void convert_pb_args(app* t, svector<wliteral>& wlits);
+        void convert_pb_args(app* t, literal_vector& lits);
+        literal internalize_pb(expr* e, bool sign, bool root);
+        literal internalize_xor(expr* e, bool sign, bool root);
+
+        // Decompile
+        expr_ref get_card(std::function<expr_ref(sat::literal)>& l2e, ba_solver::card const& c);
+        expr_ref get_pb(std::function<expr_ref(sat::literal)>& l2e, ba_solver::pb const& p);
+        expr_ref get_xor(std::function<expr_ref(sat::literal)>& l2e, ba_solver::xr const& x);
+
     public:
-        ba_solver();
+        ba_solver(ast_manager& m, sat_internalizer& si);
         ~ba_solver() override;
         void set_solver(solver* s) override { m_solver = s; }
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
@@ -572,7 +589,6 @@ namespace sat {
         std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
         extension* copy(solver* s) override;
-        extension* copy(lookahead* s, bool learned) override;
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override;
         void pop_reinit() override;
         void gc() override;
@@ -582,6 +598,10 @@ namespace sat {
         void init_use_list(ext_use_list& ul) override;
         bool is_blocked(literal l, ext_constraint_idx idx) override;
         bool check_model(model const& m) const override;
+
+        literal internalize(expr* e, bool sign, bool root) override;
+        bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
+        th_solver* fresh(solver* s, ast_manager& m, sat_internalizer& si) override;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
         std::ostream& display(std::ostream& out, constraint const& c, bool values) const;

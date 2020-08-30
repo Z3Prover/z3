@@ -22,7 +22,6 @@ Notes:
 
 #include <cmath>
 #include "sat/sat_solver.h"
-#include "sat/sat_extension.h"
 #include "sat/sat_lookahead.h"
 #include "sat/sat_scc.h"
 #include "util/union_find.h"
@@ -1037,9 +1036,6 @@ namespace sat {
             }
         }
         
-        if (m_s.m_ext) {
-            // m_ext = m_s.m_ext->copy(this, learned);
-        }
         propagate();
         m_qhead = m_trail.size();
         m_init_freevars = m_freevars.size();

@@ -33,8 +33,8 @@ namespace sat {
         return static_cast<xr const&>(*this);
     }
 
-    ba_solver::xr::xr(extension* e, unsigned id, literal_vector const& lits):
-    constraint(e, xr_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
+    ba_solver::xr::xr(unsigned id, literal_vector const& lits):
+        constraint(xr_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -264,7 +264,8 @@ namespace sat {
             break;
         }
         void * mem = m_allocator.allocate(xr::get_obj_size(lits.size()));
-        xr* x = new (mem) xr(this, next_id(), lits);
+        constraint_base::initialize(mem, this);
+        xr* x = new (constraint_base::ptr2mem(mem)) xr(next_id(), lits);
         x->set_learned(learned);
         add_constraint(x);
         return x;

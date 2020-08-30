@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    ba_solver.cpp
+    ba_core.cpp
 
 Abstract:
 
@@ -119,8 +119,8 @@ namespace sat {
     // ----------------------
     // card
 
-    ba_solver::card::card(extension* e, unsigned id, literal lit, literal_vector const& lits, unsigned k):
-        pb_base(e, card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {        
+    ba_solver::card::card(unsigned id, literal lit, literal_vector const& lits, unsigned k):
+        pb_base(card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {        
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -146,8 +146,8 @@ namespace sat {
     // -----------------------------------
     // pb
 
-    ba_solver::pb::pb(extension* e, unsigned id, literal lit, svector<ba_solver::wliteral> const& wlits, unsigned k):
-        pb_base(e, pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
+    ba_solver::pb::pb(unsigned id, literal lit, svector<ba_solver::wliteral> const& wlits, unsigned k):
+        pb_base(pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
         m_slack(0),
         m_num_watch(0),
         m_max_sum(0) {
@@ -302,7 +302,7 @@ namespace sat {
         SASSERT(validate_conflict(c));
         if (c.is_xr() && value(lit) == l_true) lit.neg();
         SASSERT(value(lit) == l_false);
-        set_conflict(justification::mk_ext_justification(s().scope_lvl(), c.index()), ~lit);
+        set_conflict(justification::mk_ext_justification(s().scope_lvl(), c.cindex()), ~lit);
         SASSERT(inconsistent());
     }
 
@@ -327,7 +327,7 @@ namespace sat {
                 ps.push_back(drat::premise(drat::s_ext(), c.lit())); // null_literal case.
                 drat_add(lits, ps);
             }
-            assign(lit, justification::mk_ext_justification(s().scope_lvl(), c.index()));
+            assign(lit, justification::mk_ext_justification(s().scope_lvl(), c.cindex()));
             break;
         }
     }
@@ -1730,21 +1730,21 @@ namespace sat {
         return p;        
     }
 
-    ba_solver::ba_solver()
-        : m_solver(nullptr), m_lookahead(nullptr), 
+    ba_solver::ba_solver(ast_manager& m, sat_internalizer& si)
+        : m(m), si(si), m_pb(m),
+          m_solver(nullptr), m_lookahead(nullptr), 
           m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
         TRACE("ba", tout << this << "\n";);
-        std::cout << "mk " << this << "\n";
         m_num_propagations_since_pop = 0;
     }
 
     ba_solver::~ba_solver() {
         m_stats.reset();
         for (constraint* c : m_constraints) {
-            m_allocator.deallocate(c->obj_size(), c);
+            c->deallocate(m_allocator);
         }
         for (constraint* c : m_learned) {
-            m_allocator.deallocate(c->obj_size(), c);
+            c->deallocate(m_allocator);
         }
     }
 
@@ -1763,7 +1763,8 @@ namespace sat {
             return nullptr;
         }
         void * mem = m_allocator.allocate(card::get_obj_size(lits.size()));
-        card* c = new (mem) card(this, next_id(), lit, lits, k);
+        constraint_base::initialize(mem, this);
+        card* c = new (constraint_base::ptr2mem(mem)) card(next_id(), lit, lits, k);
         c->set_learned(learned);
         add_constraint(c);
         return c;
@@ -1832,7 +1833,8 @@ namespace sat {
             return add_at_least(lit, lits, k, learned);
         }
         void * mem = m_allocator.allocate(pb::get_obj_size(wlits.size()));
-        pb* p = new (mem) pb(this, next_id(), lit, wlits, k);
+        constraint_base::initialize(mem, this);
+        pb* p = new (constraint_base::ptr2mem(mem)) pb(next_id(), lit, wlits, k);
         p->set_learned(learned);
         add_constraint(p);
         return p;
@@ -2108,11 +2110,11 @@ namespace sat {
     }
 
     bool ba_solver::is_watched(literal lit, constraint const& c) const {
-        return get_wlist(~lit).contains(watched(c.index()));
+        return get_wlist(~lit).contains(watched(c.cindex()));
     }
     
     void ba_solver::unwatch_literal(literal lit, constraint& c) {
-        watched w(c.index());
+        watched w(c.cindex());
         get_wlist(~lit).erase(w);
         SASSERT(!is_watched(lit, c));
     }
@@ -2120,7 +2122,7 @@ namespace sat {
     void ba_solver::watch_literal(literal lit, constraint& c) {
         if (c.is_pure() && lit == ~c.lit()) return;
         SASSERT(!is_watched(lit, c));
-        watched w(c.index());
+        watched w(c.cindex());
         get_wlist(~lit).push_back(w);
     }
 
@@ -2425,7 +2427,7 @@ namespace sat {
             constraint* c = m_learned[i];
             if (!m_constraint_to_reinit.contains(c)) {
                 remove_constraint(*c, "gc");
-                m_allocator.deallocate(c->obj_size(), c);
+                c->deallocate(m_allocator);
                 ++removed;
             }
             else {
@@ -2639,7 +2641,7 @@ namespace sat {
                 get_wlist(lit).size() == 1 && 
                 m_clause_use_list.get(~lit).empty()) { 
                 cp->set_pure();
-                get_wlist(~lit).erase(watched(cp->index())); // just ignore assignments to false
+                get_wlist(~lit).erase(watched(cp->cindex())); // just ignore assignments to false
             }
         }
     }
@@ -3403,7 +3405,7 @@ namespace sat {
             if (c.was_removed()) {
                 clear_watch(c);
                 nullify_tracking_literal(c);
-                m_allocator.deallocate(c.obj_size(), &c);
+                c.deallocate(m_allocator);
             }
             else if (learned && !c.learned()) {
                 m_constraints.push_back(&c);
@@ -3537,10 +3539,10 @@ namespace sat {
             }
             card& c2 = c->to_card();
 
-            SASSERT(c1.index() != c2.index());
+            SASSERT(&c1 != &c2);
             if (subsumes(c1, c2, slit)) {
                 if (slit.empty()) {
-                    TRACE("ba", tout << "subsume cardinality\n" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
+                    TRACE("ba", tout << "subsume cardinality\n" << c1 << "\n" << c2 << "\n";);
                     remove_constraint(c2, "subsumed");
                     ++m_stats.m_num_pb_subsumes;
                     set_non_learned(c1);
@@ -3713,22 +3715,14 @@ namespace sat {
     }
 
     extension* ba_solver::copy(solver* s) {
-        ba_solver* result = alloc(ba_solver);
+        return fresh(s, m, si);
+    }
+
+    th_solver* ba_solver::fresh(solver* s, ast_manager& m, sat_internalizer& si) {
+        ba_solver* result = alloc(ba_solver, m, si);
         result->set_solver(s);
-        copy_core(result, false);
-        return result;
-    }
-
-    extension* ba_solver::copy(lookahead* s, bool learned) {
-        ba_solver* result = alloc(ba_solver);
-        result->set_lookahead(s);
-        copy_core(result, learned);
-        return result;
-    }
-
-    void ba_solver::copy_core(ba_solver* result, bool learned) {
         copy_constraints(result, m_constraints);
-        if (learned) copy_constraints(result, m_learned);
+        return result;
     }
 
     void ba_solver::copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints) {
@@ -3768,7 +3762,7 @@ namespace sat {
     void ba_solver::init_use_list(ext_use_list& ul) {
         ul.init(s().num_vars());
         for (constraint const* cp : m_constraints) {
-            ext_constraint_idx idx = cp->index();
+            ext_constraint_idx idx = cp->cindex();
             if (cp->lit() != null_literal) {
                 ul.insert(cp->lit(), idx);
                 ul.insert(~cp->lit(), idx);                

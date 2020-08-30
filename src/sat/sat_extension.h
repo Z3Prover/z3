@@ -75,7 +75,6 @@ namespace sat {
         virtual std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const = 0;
         virtual void collect_statistics(statistics& st) const = 0;
         virtual extension* copy(solver* s) = 0;       
-        virtual extension* copy(lookahead* s, bool learned) = 0;       
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) = 0;
         virtual void gc() = 0;
         virtual void pop_reinit() = 0;

@@ -35,7 +35,6 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/sat_cut_simplifier.h"
-#include "sat/smt/ba_internalize.h"
 #include "sat/smt/ba_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "model/model_evaluator.h"
@@ -95,7 +94,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
         m_euf = false;
-        m_euf = true;
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -220,6 +218,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     bool visit(expr * t, bool root, bool sign) {
+        SASSERT(m.is_bool(t));
         if (!is_app(t)) {
             convert_atom(t, root, sign);
             return true;
@@ -232,10 +231,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
         case OP_NOT:
         case OP_OR:
         case OP_AND:
+        case OP_ITE:
+        case OP_XOR:
+        case OP_IMPLIES:
             m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
             return false;
-        case OP_ITE:
-        case OP_EQ:
+        case OP_EQ:            
             if (m.is_bool(to_app(t)->get_arg(1))) {
                 m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
                 return false;
@@ -244,8 +245,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 convert_atom(t, root, sign);
                 return true;
             }
-        case OP_XOR:
-        case OP_IMPLIES:
         case OP_DISTINCT: {
             TRACE("goal2sat_not_handled", tout << mk_ismt2_pp(t, m) << "\n";);
             std::ostringstream strm;
@@ -397,7 +396,40 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
+    void convert_implies(app* t, bool root, bool sign) {
+        SASSERT(t->get_num_args() == 2);
+        unsigned sz = m_result_stack.size();
+        SASSERT(sz >= 2);
+        sat::literal  l1 = m_result_stack[sz - 1];
+        sat::literal  l2 = m_result_stack[sz - 2];
+        if (root) {
+            SASSERT(sz == 2);
+            if (sign) {
+                mk_clause(l1);
+                mk_clause(~l2);
+            }
+            else {
+                mk_clause(~l1, l2);
+            }
+            m_result_stack.reset();
+        }
+        else {
+            sat::bool_var k = m_solver.add_var(false);
+            sat::literal  l(k, false);
+            m_cache.insert(t, l);
+            // l <=> (l1 => l2)
+            mk_clause(~l, ~l1, l2);
+            mk_clause(l1, l);
+            mk_clause(~l2, l);
+            if (sign)
+                l.neg();
+            m_result_stack.shrink(sz - 2);
+            m_result_stack.push_back(l);
+        }
+    }
+
     void convert_iff2(app * t, bool root, bool sign) {
+        SASSERT(t->get_num_args() == 2);
         TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 2);
@@ -467,11 +499,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void convert_ba(app* t, bool root, bool sign) {
         SASSERT(!m_euf);
-        std::cout << "convert ba\n";
         sat::extension* ext = m_solver.get_extension();
         sat::ba_solver* ba = nullptr;
         if (!ext) {
-            ba = alloc(sat::ba_solver);
+            ba = alloc(sat::ba_solver, m, *this);
             m_solver.set_extension(ba);
             ba->push_scopes(m_solver.num_scopes());
         }
@@ -480,8 +511,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (!ba)
             throw default_exception("cannot convert to pb");
-        sat::ba_internalize internalize(*ba, m_solver, *this, m);
-        sat::literal lit = internalize.internalize(t, sign, root);
+        sat::literal lit = ba->internalize(t, sign, root);
         if (root)
             m_result_stack.reset();
         else 
@@ -508,6 +538,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 break;
             case OP_EQ:
                 convert_iff(t, root, sign);
+                break;
+            case OP_XOR:
+                convert_iff(t, root, !sign);
+                break;
+            case OP_IMPLIES:
+                convert_implies(t, root, sign);
                 break;
             default:
                 UNREACHABLE();
@@ -614,6 +650,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             case OP_TRUE:
             case OP_FALSE:
             case OP_NOT:
+            case OP_IMPLIES:
+            case OP_XOR:
                 return true;
             case OP_ITE:
             case OP_EQ:
@@ -657,6 +695,15 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void operator()(goal const & g) {
+        struct scoped_reset {
+            imp& i;
+            scoped_reset(imp& i) :i(i) {}
+            ~scoped_reset() {
+                i.m_interface_vars.reset();
+                i.m_cache.reset();
+            }
+        };
+        scoped_reset _reset(*this);
         collect_boolean_interface(g, m_interface_vars);
         unsigned size = g.size();
         expr_ref f(m), d_new(m);
@@ -696,16 +743,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
-#if 0
-    void operator()(unsigned sz, expr * const * fs) {
-        m_interface_vars.reset();
-        collect_boolean_interface(m, sz, fs, m_interface_vars);
-        
-        for (unsigned i = 0; i < sz; i++)
-            process(fs[i]);
-    }
-#endif
-
 };
 
 struct unsupported_bool_proc {
@@ -717,8 +754,6 @@ struct unsupported_bool_proc {
     void operator()(app * n) { 
         if (n->get_family_id() == m.get_basic_family_id()) {
             switch (n->get_decl_kind()) {
-            case OP_XOR:
-            case OP_IMPLIES:
             case OP_DISTINCT:
                 throw found();
             default:
@@ -758,19 +793,8 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core
     if (!m_imp) 
         m_imp = alloc(imp, g.m(), p, t, m, dep2asm, default_external);
         
-    struct scoped_reset {
-        goal2sat& g;
-        scoped_reset(goal2sat& g):g(g) {}
-        ~scoped_reset() { 
-            g.m_imp->m_interface_vars.reset();
-            g.m_imp->m_cache.reset();
-        }
-    };
-    {
-        scoped_reset _reset(*this);
-        (*m_imp)(g);
-    }
-
+    (*m_imp)(g);
+    
     m_interpreted_atoms = alloc(expr_ref_vector, g.m());
     m_interpreted_atoms->append(m_imp->m_interpreted_atoms);
     if (!t.get_extension()) {
@@ -1021,8 +1045,7 @@ struct sat2goal::imp {
             expr_ref_vector fmls(m);
             sat::ba_solver* ba = dynamic_cast<sat::ba_solver*>(ext);
             if (ba) {                
-                sat::ba_decompile decompile(*ba, s, m);
-                decompile.to_formulas(l2e, fmls);
+                ba->to_formulas(l2e, fmls);
             }
             else 
                 dynamic_cast<euf::solver*>(ext)->to_formulas(l2e, fmls);            

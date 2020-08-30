@@ -490,6 +490,7 @@ namespace smt {
         expr_ref is_nullable = is_nullable_wrapper(r);
         if (m.is_true(is_nullable)) 
             return;
+
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);

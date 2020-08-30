@@ -30,20 +30,10 @@ namespace euf {
         values2model(deps, values, mdl);
     }
 
-    sat::th_model_builder* solver::get_model_builder(expr* e) const {
-        if (is_app(e))
-            return get_model_builder(to_app(e)->get_decl());
-        return nullptr;
-    }
-
-    sat::th_model_builder* solver::get_model_builder(func_decl* f) const {
-        return m_id2model_builder.get(f->get_family_id(), nullptr);
-    }
-
-    bool solver::include_func_interp(func_decl* f) const {
+    bool solver::include_func_interp(func_decl* f) {
         if (f->get_family_id() == null_family_id)
             return true;
-        sat::th_model_builder* mb = get_model_builder(f);
+        sat::th_model_builder* mb = get_solver(f);
         return mb && mb->include_func_interp(f);
     }
 
@@ -53,7 +43,7 @@ namespace euf {
                 deps.insert(n, nullptr);
                 continue;
             }
-            auto* mb = get_model_builder(n->get_owner());
+            auto* mb = get_solver(n->get_owner());
             if (mb)
                 mb->add_dep(n, deps);
             else
@@ -87,7 +77,7 @@ namespace euf {
                 }
                 continue;
             }
-            auto* mb = get_model_builder(e);
+            auto* mb = get_solver(e);
             if (mb) 
                 mb->add_value(n, values);
             else if (m.is_uninterp(m.get_sort(e))) {

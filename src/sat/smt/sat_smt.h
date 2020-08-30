@@ -15,9 +15,6 @@ Author:
 
 --*/
 #pragma once
-
-
-#pragma once
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "sat/sat_solver.h"
@@ -41,19 +38,59 @@ namespace sat {
     public:
         virtual ~sat_internalizer() {}
         virtual bool is_bool_op(expr* e) const = 0;
-        virtual sat::literal internalize(expr* e) = 0;
-        virtual sat::bool_var add_bool_var(expr* e)  = 0;
+        virtual literal internalize(expr* e) = 0;
+        virtual bool_var add_bool_var(expr* e)  = 0;
         virtual void mk_clause(literal a, literal b) = 0;
         virtual void mk_clause(literal l1, literal l2, literal l3, bool is_lemma = false) = 0;
         virtual void cache(app* t, literal l) = 0;
     };
     
-    class index_base {
-        extension* ex;
+    class constraint_base {
+        extension* m_ex;
+        unsigned   m_mem[0];
+        static size_t ext_size() {
+            return sizeof(((constraint_base*)nullptr)->m_ex);
+        }
+
     public:
-    index_base(extension* e) : ex(e) { to_index(); }
-        static extension* to_extension(size_t s) { std::cout << "to_extension: " << from_index(s) << " " << from_index(s)->ex << " " << s << "\n"; return from_index(s)->ex; }
-        static index_base* from_index(size_t s) { return reinterpret_cast<index_base*>(s); }
-        size_t to_index() const { std::cout << "to_index " << this << " " << ex << " " << reinterpret_cast<size_t>(this) << "\n";  return reinterpret_cast<size_t>(this); }
+        constraint_base(): m_ex(nullptr) {}
+        void*  mem() { return m_mem; }
+
+        static size_t obj_size(size_t sz) { 
+            return ext_size() + sz; 
+        }
+
+        static extension* to_extension(size_t s) { 
+            return from_index(s)->m_ex; 
+        }
+
+        static constraint_base* from_index(size_t s) {
+            return reinterpret_cast<constraint_base*>(s);
+        }
+
+        size_t to_index() const { 
+            return reinterpret_cast<size_t>(this); 
+        }
+
+        static constraint_base const* mem2base_ptr(void const* mem) {
+            return reinterpret_cast<constraint_base const*>((unsigned char const*)(mem) - ext_size());
+        }
+
+        static constraint_base* mem2base_ptr(void* mem) {
+            return reinterpret_cast<constraint_base*>((unsigned char*)(mem) - ext_size());
+        }
+
+        static size_t mem2base(void const* mem) { 
+            return reinterpret_cast<size_t>(mem2base_ptr(mem));
+        }
+
+        static void initialize(void* ptr, extension* ext) {
+            reinterpret_cast<constraint_base*>(ptr)->m_ex = ext;
+        }
+
+        static void* ptr2mem(void* ptr) {
+            return reinterpret_cast<void*>(((unsigned char*) ptr) + ext_size());
+        }    
+            
     };
 }

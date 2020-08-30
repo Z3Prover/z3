@@ -20,7 +20,6 @@ Author:
 #include "sat/sat_solver.h"
 #include "sat/smt/sat_smt.h"
 #include "sat/smt/ba_solver.h"
-#include "sat/smt/ba_internalize.h"
 #include "sat/smt/euf_solver.h"
 
 namespace euf {
@@ -32,54 +31,52 @@ namespace euf {
     /**
     * retrieve extension that is associated with Boolean variable.
     */
-    sat::extension* solver::get_extension(sat::bool_var v) {
+    sat::th_solver* solver::get_solver(sat::bool_var v) {
         if (v >= m_var2node.size())
             return nullptr;
         euf::enode* n = m_var2node[v].first;
         if (!n)
             return nullptr;
-        return get_extension(n->get_owner());
+        return get_solver(n->get_owner());
     }
 
-    void solver::add_extension(family_id fid, sat::extension* e) {
-        m_extensions.push_back(e);
-        m_id2extension.setx(fid, e, nullptr);
-    }
-
-    sat::extension* solver::get_extension(expr* e) {
-        if (is_app(e)) {
-            auto fid = to_app(e)->get_family_id();
-            if (fid == null_family_id)
-                return nullptr;
-            auto* ext = m_id2extension.get(fid, nullptr);
-            if (ext)
-                return ext;
-            pb_util pb(m);
-            if (pb.is_pb(e)) {
-                auto* ba = alloc(sat::ba_solver);
-                ba->set_solver(m_solver);
-                add_extension(pb.get_family_id(), ba);
-                auto* bai = alloc(sat::ba_internalize, *ba, s(), si, m);
-                m_id2internalize.setx(pb.get_family_id(), bai, nullptr);
-                m_internalizers.push_back(bai);
-                m_decompilers.push_back(alloc(sat::ba_decompile, *ba, s(), m));
-                ba->push_scopes(s().num_scopes());
-				std::cout << "extension ba " << ba << "\n";
-                return ba;
-            }
-        }
+    sat::th_solver* solver::get_solver(expr* e) {
+        if (is_app(e)) 
+            return fid2solver(to_app(e)->get_family_id());        
         return nullptr;
     }
 
+    sat::th_solver* solver::fid2solver(family_id fid) {
+        if (fid == null_family_id)
+            return nullptr;
+        auto* ext = m_id2solver.get(fid, nullptr);
+        if (ext)
+            return ext;
+        pb_util pb(m);
+        if (pb.get_family_id() == fid) {
+            sat::ba_solver* ba = alloc(sat::ba_solver, m, si);
+            ba->set_solver(m_solver);
+            add_solver(pb.get_family_id(), ba);
+            ba->push_scopes(s().num_scopes());
+            return ba;
+        }
+
+        return nullptr;
+    }
+
+    void solver::add_solver(family_id fid, sat::th_solver* th) {
+        m_solvers.push_back(th);
+        m_id2solver.setx(fid, th, nullptr);
+    }
+
     bool solver::propagate(literal l, ext_constraint_idx idx) { 
-        auto* ext = sat::index_base::to_extension(idx);
-		std::cout << "extension " << ext << " " << idx << "\n";
+        auto* ext = sat::constraint_base::to_extension(idx);
         SASSERT(ext != this);
         return ext->propagate(l, idx);
     }
 
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r) {
-        auto* ext = sat::index_base::to_extension(idx);
+        auto* ext = sat::constraint_base::to_extension(idx);
         if (ext == this)
             get_antecedents(l, *constraint::from_idx(idx), r);
         else
@@ -110,7 +107,7 @@ namespace euf {
             break;
         case 2:
             SASSERT(m.is_bool(n->get_owner()));
-            m_egraph.explain_eq<unsigned>(m_explain, n, (sign ? m_false : m_true), false);
+            m_egraph.explain_eq<unsigned>(m_explain, n, (sign ? mk_false() : mk_true()), false);
             break;
         default:
             UNREACHABLE();
@@ -120,7 +117,7 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-        auto* ext = get_extension(l.var());
+        auto* ext = get_solver(l.var());
         if (ext) {
             ext->asserted(l);
             return;
@@ -138,7 +135,7 @@ namespace euf {
             m_egraph.merge(na, nb, base_ptr() + l.index());
         }
         else {
-            euf::enode* nb = sign ? m_false : m_true;
+            euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, base_ptr() + l.index());
         }
         // TBD: delay propagation?
@@ -148,7 +145,7 @@ namespace euf {
     void solver::propagate() {        
         m_egraph.propagate();
         if (m_egraph.inconsistent()) {       
-            s().set_conflict(sat::justification::mk_ext_justification(s().scope_lvl(), m_conflict_idx.to_index()));
+            s().set_conflict(sat::justification::mk_ext_justification(s().scope_lvl(), conflict_constraint().to_index()));
             return;
         }
         for (euf::enode* eq : m_egraph.new_eqs()) {
@@ -156,7 +153,7 @@ namespace euf {
             expr* a = nullptr, *b = nullptr;
             if (s().value(v) == l_false && m_ackerman && m.is_eq(eq->get_owner(), a, b))
                 m_ackerman->cg_conflict_eh(a, b);
-            s().assign(literal(v, false), sat::justification::mk_ext_justification(s().scope_lvl(), m_eq_idx.to_index()));
+            s().assign(literal(v, false), sat::justification::mk_ext_justification(s().scope_lvl(), eq_constraint().to_index()));
         }
         for (euf::enode* p : m_egraph.new_lits()) {
             expr* e = p->get_owner();
@@ -167,14 +164,31 @@ namespace euf {
             literal lit(v, sign);
             if (s().value(lit) == l_false && m_ackerman) 
                 m_ackerman->cg_conflict_eh(p->get_owner(), p->get_root()->get_owner());
-            s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), m_lit_idx.to_index()));
+            s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), lit_constraint().to_index()));
         }
+    }
+
+    constraint& solver::mk_constraint(constraint*& c, unsigned id) {
+        if (!c) {
+            void* mem = memory::allocate(sat::constraint_base::obj_size(sizeof(constraint)));
+            c = new (sat::constraint_base::ptr2mem(mem)) constraint(id);
+            sat::constraint_base::initialize(mem, this);
+        }
+        return *c;
+    }
+
+    enode* solver::mk_true() {
+        return visit(m.mk_true());
+    }
+
+    enode* solver::mk_false() {
+        return visit(m.mk_false());
     }
 
     sat::check_result solver::check() { 
         bool give_up = false;
         bool cont = false;
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             switch (e->check()) {
             case sat::CR_CONTINUE: cont = true; break;
             case sat::CR_GIVEUP: give_up = true; break;
@@ -188,7 +202,7 @@ namespace euf {
     }
 
     void solver::push() {
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->push();
         m_egraph.push();
         ++m_num_scopes;
@@ -196,7 +210,7 @@ namespace euf {
 
     void solver::pop(unsigned n) {
         m_egraph.pop(n);
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->pop(n);
         if (n <= m_num_scopes) {
             m_num_scopes -= n;
@@ -212,24 +226,24 @@ namespace euf {
     }
 
     void solver::pre_simplify() {
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->pre_simplify();
     }
 
     void solver::simplify() {
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->simplify();
         if (m_ackerman)
             m_ackerman->propagate();
     }
 
     void solver::clauses_modifed() {
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->clauses_modifed();
     }
 
     lbool solver::get_phase(bool_var v) { 
-        auto* ext = get_extension(v);
+        auto* ext = get_solver(v);
         if (ext)
             return ext->get_phase(v);
         return l_undef; 
@@ -237,20 +251,20 @@ namespace euf {
 
     std::ostream& solver::display(std::ostream& out) const {
         m_egraph.display(out);
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->display(out);
         return out; 
     }
 
     std::ostream& solver::display_justification(std::ostream& out, ext_justification_idx idx) const { 
-        auto* ext = sat::index_base::to_extension(idx);
+        auto* ext = sat::constraint_base::to_extension(idx);
         if (ext != this)
             return ext->display_justification(out, idx);
         return out; 
     }
 
     std::ostream& solver::display_constraint(std::ostream& out, ext_constraint_idx idx) const { 
-        auto* ext = sat::index_base::to_extension(idx);
+        auto* ext = sat::constraint_base::to_extension(idx);
         if (ext != this)
             return ext->display_constraint(out, idx);
         return out; 
@@ -258,89 +272,68 @@ namespace euf {
 
     void solver::collect_statistics(statistics& st) const {
         m_egraph.collect_statistics(st);
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->collect_statistics(st);
         st.update("euf dynack", m_stats.m_num_dynack);
     }
 
-    solver* solver::copy_core() {
-        ast_manager& to = m_translate ? m_translate->to() : m;
-        atom2bool_var& a2b = m_translate_expr2var ? *m_translate_expr2var : m_expr2var;
-        sat::sat_internalizer& to_si = m_translate_si ? *m_translate_si : si;
-        auto* r = alloc(solver, to, a2b, to_si);
-        r->m_config = m_config;
-        std::function<void*(void*)> copy_justification = [&](void* x) { return (void*)(r->base_ptr() + ((unsigned*)x - base_ptr())); };
-        r->m_egraph.copy_from(m_egraph, copy_justification);
-        return r;
-    }
-
     sat::extension* solver::copy(sat::solver* s) { 
-        auto* r = copy_core();
-        r->set_solver(s);
-		for (unsigned i = 0; i < m_id2extension.size(); ++i) {
-			auto* e = m_id2extension[i];
-			if (e)
-				r->add_extension(i, e->copy(s));
-		}
-		
-        return r;
-    }
-
-    sat::extension* solver::copy(sat::lookahead* s, bool learned) { 
-        (void) learned;
-        auto* r = copy_core();
-        r->set_lookahead(s);
-		for (unsigned i = 0; i < m_id2extension.size(); ++i) {
-			auto* e = m_id2extension[i];
-			if (e)
-				r->add_extension(i, e->copy(s, learned));
-		}
+        auto* r = alloc(solver, *m_to_m, *m_to_expr2var, *m_to_si);
+        r->m_config = m_config;
+        std::function<void* (void*)> copy_justification = [&](void* x) { return (void*)(r->base_ptr() + ((unsigned*)x - base_ptr())); };
+        r->m_egraph.copy_from(m_egraph, copy_justification);        
+        r->set_solver(s);		
+        for (unsigned i = 0; i < m_id2solver.size(); ++i) {
+            auto* e = m_id2solver[i];
+            if (e)
+                r->add_solver(i, e->fresh(s, *m_to_m, *m_to_si));
+        }
         return r;
     }
 
     void solver::find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->find_mutexes(lits, mutexes);
     }
 
     void solver::gc() {
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->gc();
     }
 
     void solver::pop_reinit() {
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->pop_reinit();
     }
 
     bool solver::validate() { 
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             if (!e->validate())
                 return false;
         return true; 
     }
 
     void solver::init_use_list(sat::ext_use_list& ul) {
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             e->init_use_list(ul);
     }
 
     bool solver::is_blocked(literal l, ext_constraint_idx idx) { 
-        auto* ext = sat::index_base::to_extension(idx);
+        auto* ext = sat::constraint_base::to_extension(idx);
         if (ext != this)
             return is_blocked(l, idx);
         return false; 
     }
 
     bool solver::check_model(sat::model const& m) const { 
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             if (!e->check_model(m))
                 return false;
         return true;
     }
 
     unsigned solver::max_var(unsigned w) const { 
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             w = e->max_var(w);
         for (unsigned sz = m_var2node.size(); sz-- > 0; ) {
             euf::enode* n = m_var2node[sz].first;
@@ -368,25 +361,10 @@ namespace euf {
         m_egraph.set_used_cc(used_cc);
     }
 
-
-    sat::th_internalizer* solver::get_internalizer(expr* e) {
-        if (is_app(e))
-            return m_id2internalize.get(to_app(e)->get_family_id(), nullptr);
-        if (m.is_iff(e)) {
-            pb_util pb(m);
-            return m_id2internalize.get(pb.get_family_id(), nullptr);
-        }
-        return nullptr;
-    }
-   
     sat::literal solver::internalize(expr* e, bool sign, bool root) {
-        auto* ext = get_internalizer(e);
+        auto* ext = get_solver(e);
         if (ext)
             return ext->internalize(e, sign, root);
-        if (!m_true) {
-            m_true  = visit(m.mk_true());
-            m_false = visit(m.mk_false());
-        }
         std::cout << mk_pp(e, m) << "\n";
         SASSERT(!si.is_bool_op(e));
         sat::scoped_stack _sc(m_stack);
@@ -466,7 +444,7 @@ namespace euf {
     }
 
     bool solver::to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) {
-        for (auto* th : m_decompilers) {            
+        for (auto* th : m_solvers) {            
             if (!th->to_formulas(l2e, fmls))
                 return false;
         }
@@ -479,9 +457,7 @@ namespace euf {
 
     bool solver::extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                             std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {
-        if (m_true)
-            return false;
-        for (auto* e : m_extensions)
+        for (auto* e : m_solvers)
             if (!e->extract_pb(card, pb))
                 return false;
         return true;
