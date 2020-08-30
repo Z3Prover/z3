@@ -161,6 +161,7 @@ struct pb2bv_rewriter::imp {
             }
 
             if (m_pb_solver == "segmented") {
+				throw default_exception("segmented encoding is disabled, use a different value for pb.solver");
                 switch (is_le) {
                 case l_true:  return mk_seg_le(k);
                 case l_false: return mk_seg_ge(k);
@@ -565,14 +566,15 @@ struct pb2bv_rewriter::imp {
         }
 
         expr_ref mk_seg_le_rec(vector<ptr_vector<expr>> const& outs, vector<rational> const& coeffs, unsigned i, rational const& k) {
+			if (k.is_neg()) {
+				return expr_ref(m.mk_false(), m);
+			}
+			if (i == outs.size()) {
+				return expr_ref(m.mk_true(), m);
+			}
             rational const& c = coeffs[i];
             ptr_vector<expr> const& out = outs[i];     
-            if (k.is_neg()) {
-                return expr_ref(m.mk_false(), m);
-            }
-            if (i == outs.size()) {
-                return expr_ref(m.mk_true(), m);
-            }
+
             if (i + 1 == outs.size() && k >= rational(out.size()-1)*c) {
                 return expr_ref(m.mk_true(), m);
             }
@@ -1038,6 +1040,7 @@ struct pb2bv_rewriter::imp {
     void collect_param_descrs(param_descrs& r) const {
         r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: false) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");
         r.insert("pb.solver", CPK_SYMBOL, "(default: solver) retain pb constraints (don't bit-blast them) and use built-in pb solver");
+        r.insert("cardinality.encoding", CPK_SYMBOL, "(default: none) grouped, bimander, ordered, unate, circuit");
     }
 
     unsigned get_num_steps() const { return m_rw.get_num_steps(); }

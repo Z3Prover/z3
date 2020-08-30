@@ -2519,6 +2519,7 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
+    force_push();
     if (ctx.get_fparams().m_seq_use_unicode)
         m_unicode.propagate();
     if (m_regex.can_propagate())

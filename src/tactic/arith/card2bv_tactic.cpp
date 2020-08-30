@@ -48,6 +48,8 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {  
         r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints for solver");        
+        pb2bv_rewriter rw(m, m_params);
+        rw.collect_param_descrs(r);
     }
 
     
