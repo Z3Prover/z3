@@ -88,7 +88,11 @@ namespace sat {
 
         static void* ptr2mem(void* ptr) {
             return reinterpret_cast<void*>(((unsigned char*) ptr) + ext_size());
-        }    
+        }   
+
+        static void* idx2mem(size_t idx) {
+            return ptr2mem(from_index(idx));
+        }
             
     };
 }

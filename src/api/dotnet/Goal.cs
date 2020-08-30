@@ -227,7 +227,7 @@ namespace Microsoft.Z3
         /// <returns>A string representation of the Goal.</returns>
         public string ToDimacs(bool include_names = true)
         {
-            return Native.Z3_goal_to_dimacs_string(Context.nCtx, NativeObject, include_names);
+            return Native.Z3_goal_to_dimacs_string(Context.nCtx, NativeObject, (byte)(include_names ? 1 : 0));
         }
 
         /// <summary>

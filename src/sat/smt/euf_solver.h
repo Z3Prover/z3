@@ -42,7 +42,9 @@ namespace euf {
     public:
         constraint(kind_t k) : m_kind(k) {}
         kind_t kind() const { return m_kind; }
-        static constraint* from_idx(size_t z) { return reinterpret_cast<constraint*>(z); }
+        static constraint& from_idx(size_t z) { 
+            return *reinterpret_cast<constraint*>(sat::constraint_base::idx2mem(z)); 
+        }
         size_t to_index() const { return sat::constraint_base::mem2base(this); }
     };
 
@@ -54,11 +56,11 @@ namespace euf {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
-		struct scope {
-			unsigned m_bool_var_lim;
-			unsigned m_trail_lim;
-		};
-		typedef ptr_vector<trail<solver> > trail_stack;
+        struct scope {
+            unsigned m_lit_lim;
+            unsigned m_trail_lim;
+        };
+        typedef ptr_vector<trail<solver> > trail_stack;
 
         ast_manager&          m;
         atom2bool_var&        m_expr2var;
@@ -66,8 +68,9 @@ namespace euf {
         smt_params            m_config;
         euf::egraph           m_egraph;
         stats                 m_stats;
-		
-		trail_stack           m_trail;
+        region                m_region;
+        func_decl_ref_vector  m_unhandled_functions;
+        trail_stack           m_trail;
 
         sat::solver*           m_solver { nullptr };
         sat::lookahead*        m_lookahead { nullptr };
@@ -76,13 +79,13 @@ namespace euf {
         sat::sat_internalizer* m_to_si;
         scoped_ptr<euf::ackerman>   m_ackerman;
 
-        svector<euf::enode_bool_pair>                   m_var2node;
+        ptr_vector<euf::enode>                          m_lit2node;
         ptr_vector<unsigned>                            m_explain;
         euf::enode_vector                               m_args;
         svector<sat::frame>                             m_stack;
         unsigned                                        m_num_scopes { 0 };
-        unsigned_vector                                 m_bool_var_trail;
-		svector<scope>                                  m_scopes;
+        unsigned_vector                                 m_lit_trail;
+        svector<scope>                                  m_scopes;
         scoped_ptr_vector<sat::th_solver>               m_solvers;
         ptr_vector<sat::th_solver>                      m_id2solver;
 
@@ -96,7 +99,7 @@ namespace euf {
         // internalization
         euf::enode* visit(expr* e);
         void attach_bool_var(euf::enode* n);
-        void attach_bool_var(sat::bool_var v, bool sign, euf::enode* n);
+        void attach_lit(sat::literal lit, euf::enode* n);
         euf::enode* mk_true();
         euf::enode* mk_false();
 
@@ -118,7 +121,7 @@ namespace euf {
         // solving
         void propagate();
         void get_antecedents(literal l, constraint& j, literal_vector& r);
-		void force_push();
+        void force_push();
 
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
@@ -131,6 +134,7 @@ namespace euf {
             m_expr2var(expr2var),
             si(si),
             m_egraph(m),
+            m_unhandled_functions(m),
             m_solver(nullptr),
             m_lookahead(nullptr),
             m_to_m(&m),
@@ -197,6 +201,8 @@ namespace euf {
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
         sat::literal internalize(expr* e, bool sign, bool root) override;
         void update_model(model_ref& mdl);
+
+        func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
        
     };
 };

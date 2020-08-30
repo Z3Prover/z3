@@ -341,6 +341,28 @@ namespace euf {
             n->invariant();
     }
 
+    std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
+        out << std::setw(5)
+            << n->get_owner_id() << " := ";
+        out << n->get_root()->get_owner_id() << " ";
+        expr* f = n->get_owner();
+        if (is_app(f))
+            out << to_app(f)->get_decl()->get_name() << " ";
+        else if (is_quantifier(f))
+            out << "q ";
+        else
+            out << "v ";
+        for (enode* arg : enode_args(n))
+            out << arg->get_owner_id() << " ";
+        for (unsigned i = n->num_args(); i < max_args; ++i)
+            out << "   ";
+        out << "\t";
+        for (enode* p : enode_parents(n))
+            out << p->get_owner_id() << " ";
+        out << "\n";
+        return out;
+    }
+
     std::ostream& egraph::display(std::ostream& out) const {
         m_table.display(out);
         unsigned max_args = 0;
@@ -348,24 +370,7 @@ namespace euf {
             max_args = std::max(max_args, n->num_args());
 
         for (enode* n : m_nodes) {
-            out << std::setw(5)
-                << n->get_owner_id() << " := ";
-            out << n->get_root()->get_owner_id() << " ";
-            expr* f = n->get_owner();
-            if (is_app(f)) 
-                out << to_app(f)->get_decl()->get_name() << " ";
-            else if (is_quantifier(f)) 
-                out << "q ";
-            else 
-                out << "v ";
-            for (enode* arg : enode_args(n)) 
-                out << arg->get_owner_id() << " ";   
-            for (unsigned i = n->num_args(); i < max_args; ++i)
-                out << "   ";
-            out << "\t";
-            for (enode* p : enode_parents(n)) 
-                out << p->get_owner_id() << " ";
-            out << "\n";            
+            display(out, max_args, n);          
         }
         return out;
     }
@@ -392,16 +397,16 @@ namespace euf {
             }
             expr*  e2 = tr(e1);
             enode* n2 = mk(e2, args.size(), args.c_ptr());
-            m_exprs.push_back(e2);
-            m_nodes.push_back(n2);
             old_expr2new_enode.setx(e1->get_id(), n2, nullptr);
         }
-        for (unsigned i = 0; i < src.m_nodes.size(); ++i) {            
+        for (unsigned i = 0; i < src.m_nodes.size(); ++i) {             
             enode* n1 = src.m_nodes[i];
-            enode* n1t = n1->m_target;
+            enode* n1t = n1->m_target;      
             enode* n2 = m_nodes[i];
-            enode* n2t = n1t ? old_expr2new_enode[n1t->get_owner_id()] : nullptr;
+            enode* n2t = n1t ? old_expr2new_enode[n1->get_owner_id()] : nullptr;
             SASSERT(!n1t || n2t);
+            SASSERT(!n1t || src.m.get_sort(n1->get_owner()) == src.m.get_sort(n1t->get_owner()));
+            SASSERT(!n1t || m.get_sort(n2->get_owner()) == m.get_sort(n2t->get_owner()));
             if (n1t && n2->get_root() != n2t->get_root()) {
                 merge(n2, n2t, n1->m_justification.copy(copy_justification));
             }

@@ -32,9 +32,10 @@ namespace euf {
     * retrieve extension that is associated with Boolean variable.
     */
     sat::th_solver* solver::get_solver(sat::bool_var v) {
-        if (v >= m_var2node.size())
+        unsigned idx = literal(v, false).index();
+        if (idx >= m_lit2node.size())
             return nullptr;
-        euf::enode* n = m_var2node[v].first;
+        euf::enode* n = m_lit2node[idx];
         if (!n)
             return nullptr;
         return get_solver(n->get_owner());
@@ -53,6 +54,8 @@ namespace euf {
         auto* ext = m_id2solver.get(fid, nullptr);
         if (ext)
             return ext;
+        if (fid == m.get_basic_family_id())
+            return nullptr;
         pb_util pb(m);
         if (pb.get_family_id() == fid) {
             ext = alloc(sat::ba_solver, m, si);
@@ -74,8 +77,11 @@ namespace euf {
     }
 
     void solver::unhandled_function(func_decl* f) {
+        if (m_unhandled_functions.contains(f))
+            return;
+        m_unhandled_functions.push_back(f);
+        m_trail.push_back(new (m_region) push_back_vector<solver, func_decl_ref_vector>(m_unhandled_functions));
         IF_VERBOSE(0, verbose_stream() << mk_pp(f, m) << " not handled\n");
-        // TBD: set some state with the unhandled function.
     }
 
     bool solver::propagate(literal l, ext_constraint_idx idx) { 
@@ -88,7 +94,7 @@ namespace euf {
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r) {
         auto* ext = sat::constraint_base::to_extension(idx);
         if (ext == this)
-            get_antecedents(l, *constraint::from_idx(idx), r);
+            get_antecedents(l, constraint::from_idx(idx), r);
         else
             ext->get_antecedents(l, idx, r);
     }
@@ -96,8 +102,6 @@ namespace euf {
     void solver::get_antecedents(literal l, constraint& j, literal_vector& r) {
         m_explain.reset();
         euf::enode* n = nullptr;
-        bool sign = false;
-        enode_bool_pair p;
 
         // init_ackerman();
 
@@ -107,20 +111,19 @@ namespace euf {
             m_egraph.explain<unsigned>(m_explain);
             break;
         case constraint::kind_t::eq:
-            n = m_var2node[l.var()].first;
+            n = m_lit2node[l.index()];
             SASSERT(n);
             SASSERT(m_egraph.is_equality(n));
             m_egraph.explain_eq<unsigned>(m_explain, n->get_arg(0), n->get_arg(1), n->commutative());
             break;
         case constraint::kind_t::lit:
-            p = m_var2node[l.var()];
-            n = p.first;
-            sign = l.sign() != p.second;
+            n = m_lit2node[l.index()];
             SASSERT(n);
             SASSERT(m.is_bool(n->get_owner()));
-            m_egraph.explain_eq<unsigned>(m_explain, n, (sign ? mk_false() : mk_true()), false);
+            m_egraph.explain_eq<unsigned>(m_explain, n, (l.sign() ? mk_false() : mk_true()), false);
             break;
         default:
+            std::cout << (unsigned)j.kind() << "\n";
             UNREACHABLE();
         }
         for (unsigned* idx : m_explain) 
@@ -135,20 +138,22 @@ namespace euf {
             return;
         }
 
-        auto p = m_var2node.get(l.var(), enode_bool_pair(nullptr, false));
-        if (!p.first)
+        bool sign = l.sign();
+        unsigned idx = sat::literal(l.var(), false).index();
+        auto n = m_lit2node.get(idx, nullptr);
+        if (!n)
             return;
         force_push();
-        bool sign = p.second != l.sign();
-        euf::enode* n = p.first;
+        
         expr* e = n->get_owner();
         if (m.is_eq(e) && !sign) {
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
             m_egraph.merge(na, nb, base_ptr() + l.index());
         }
-        else {
+        else {            
             euf::enode* nb = sign ? mk_false() : mk_true();
+            std::cout << "merge " << n->get_owner_id() << " " << sign << " " << nb->get_owner_id() << "\n";
             m_egraph.merge(n, nb, base_ptr() + l.index());
         }
         // TBD: delay propagation?
@@ -216,39 +221,36 @@ namespace euf {
     }
 
     void solver::push() {
-        ++m_num_scopes;
+		scope s;
+		s.m_lit_lim = m_lit_trail.size();
+		s.m_trail_lim = m_trail.size();
+		m_scopes.push_back(s);
+		m_region.push_scope();
+		for (auto* e : m_solvers)
+			e->push();
+		m_egraph.push();
     }
 
     void solver::force_push() {
         for (; m_num_scopes > 0; --m_num_scopes) {
-            scope s;
-            s.m_bool_var_lim = m_bool_var_trail.size();
-            s.m_trail_lim = m_trail.size();
-            m_scopes.push_back(s);
-            for (auto* e : m_solvers)
-                e->push();
-            m_egraph.push();
+
         }
     }
 
     void solver::pop(unsigned n) {
-        if (n <= m_num_scopes) {
-            m_num_scopes -= n;
-            return;
-        }
-        n -= m_num_scopes;
         m_egraph.pop(n);
         for (auto* e : m_solvers)
             e->pop(n);
 
-        scope & s = m_scopes[m_scopes.size() - n];
+        scope const & s = m_scopes[m_scopes.size() - n];
 
-        for (unsigned i = m_bool_var_trail.size(); i-- > s.m_bool_var_lim; )
-            m_var2node[m_bool_var_trail[i]] = enode_bool_pair(nullptr, false);
-        m_bool_var_trail.shrink(s.m_bool_var_lim);
+        for (unsigned i = m_lit_trail.size(); i-- > s.m_lit_lim; )
+            m_lit2node[m_lit_trail[i]] = nullptr;
+        m_lit_trail.shrink(s.m_lit_lim);
         
         undo_trail_stack(*this, m_trail, s.m_trail_lim);
-        
+
+        m_region.pop_scope(n);
         m_scopes.shrink(m_scopes.size() - n);
     }
 
@@ -278,6 +280,10 @@ namespace euf {
 
     std::ostream& solver::display(std::ostream& out) const {
         m_egraph.display(out);
+        for (unsigned idx : m_lit_trail) {
+            euf::enode* n = m_lit2node[idx];
+            out << sat::to_literal(idx) << ": " << m_egraph.pp(n);
+        }
         for (auto* e : m_solvers)
             e->display(out);
         return out; 
@@ -363,8 +369,8 @@ namespace euf {
     unsigned solver::max_var(unsigned w) const { 
         for (auto* e : m_solvers)
             w = e->max_var(w);
-        for (unsigned sz = m_var2node.size(); sz-- > 0; ) {
-            euf::enode* n = m_var2node[sz].first;
+        for (unsigned sz = m_lit2node.size(); sz-- > 0; ) {
+            euf::enode* n = m_lit2node[sz];
             if (n && m.is_bool(n->get_owner())) {
                 w = std::max(w, sz);
                 break;
@@ -452,13 +458,12 @@ namespace euf {
             return n;
         if (si.is_bool_op(e)) {
             sat::literal lit = si.internalize(e);
-            enode_bool_pair bp(nullptr, false);
-            n = m_var2node.get(lit.var(), bp).first;
+            n = m_lit2node.get(lit.index(), nullptr);
             if (n)
                 return n;
             
             n = m_egraph.mk(e, 0, nullptr);
-            attach_bool_var(lit.var(), lit.sign(), n);
+            attach_lit(lit, n);
             if (!m.is_true(e) && !m.is_false(e)) 
                 s().set_external(lit.var());
             return n;
@@ -476,15 +481,16 @@ namespace euf {
         expr* e = n->get_owner();
         if (m.is_bool(e)) {
             sat::bool_var v = si.add_bool_var(e);
-            attach_bool_var(v, false, n);
+            attach_lit(literal(v, false),  n);
         }
     }
 
-    void solver::attach_bool_var(sat::bool_var v, bool sign, euf::enode* n) {
-        m_var2node.reserve(v + 1, enode_bool_pair(nullptr, false));
-        SASSERT(m_var2node[v].first == nullptr);
-        m_var2node[v] = euf::enode_bool_pair(n, sign);
-        m_bool_var_trail.push_back(v);
+    void solver::attach_lit(literal lit, euf::enode* n) {
+        unsigned v = lit.index();
+        m_lit2node.reserve(v + 1, nullptr);
+        SASSERT(m_lit2node[v] == nullptr);
+        m_lit2node[v] = n;
+        m_lit_trail.push_back(v);
     }
 
     bool solver::to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) {

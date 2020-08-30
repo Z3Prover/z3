@@ -101,6 +101,8 @@ namespace euf {
         }
         template <typename T>
         void explain_todo(ptr_vector<T>& justifications);
+
+        std::ostream& display(std::ostream& out, unsigned max_args, enode* n) const;
         
     public:
         egraph(ast_manager& m): m(m), m_table(m), m_exprs(m) {}
@@ -140,9 +142,17 @@ namespace euf {
         enode_vector const& nodes() const { return m_nodes; }
         void invariant();
         void copy_from(egraph const& src, std::function<void*(void*)>& copy_justification);
-        std::ostream& display(std::ostream& out) const;        
+        struct e_pp {
+            egraph const& g;
+            enode*  n;
+            e_pp(egraph const& g, enode* n) : g(g), n(n) {}
+            std::ostream& display(std::ostream& out) const { return g.display(out, 0, n); }
+        };
+        e_pp pp(enode* n) const { return e_pp(*this, n); }
+        std::ostream& display(std::ostream& out) const; 
         void collect_statistics(statistics& st) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, egraph const& g) { return g.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, egraph::e_pp const& p) { return p.display(out); }
 }

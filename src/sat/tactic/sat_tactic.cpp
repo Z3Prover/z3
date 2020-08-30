@@ -50,11 +50,12 @@ class sat_tactic : public tactic {
             obj_map<expr, sat::literal> dep2asm;
             sat::literal_vector assumptions;
             m_goal2sat(*g, m_params, *m_solver, map, dep2asm);
-            TRACE("sat", tout << "interpreted_atoms: " << map.interpreted_atoms() << "\n";
-                  for (auto const& kv : map) {
-                      if (!is_uninterp_const(kv.m_key))
-                          tout << mk_ismt2_pp(kv.m_key, m) << "\n";
-                  });
+            TRACE("sat", tout << "interpreted_atoms: " << m_goal2sat.has_interpreted_funs() << "\n";
+                  func_decl_ref_vector funs(m);
+                  m_goal2sat.get_interpreted_funs(funs);
+                  for (func_decl* f : funs) 
+                      tout << mk_ismt2_pp(f, m) << "\n";
+                  );
             g->reset();
             g->m().compact_memory();
 
@@ -78,7 +79,7 @@ class sat_tactic : public tactic {
                 }
                 g->assert_expr(m.mk_false(), nullptr, lcore);
             }
-            else if (r == l_true && !map.interpreted_atoms()) {
+            else if (r == l_true && !m_goal2sat.has_interpreted_funs()) {
                 // register model
                 if (produce_models) {
                     model_ref md = alloc(model, m);
@@ -99,6 +100,7 @@ class sat_tactic : public tactic {
                             break;
                         }
                     }
+                    m_goal2sat.update_model(md);
                     TRACE("sat_tactic", model_v2_pp(tout, *md););
                     g->add(model2model_converter(md.get()));
                 }
