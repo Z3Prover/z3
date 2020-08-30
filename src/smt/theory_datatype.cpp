@@ -369,6 +369,7 @@ namespace smt {
     }
 
     void theory_datatype::apply_sort_cnstr(enode * n, sort * s) {
+        force_push();
         // Remark: If s is an infinite sort, then it is not necessary to create
         // a theory variable. 
         // 
@@ -397,6 +398,7 @@ namespace smt {
     }
 
     void theory_datatype::new_eq_eh(theory_var v1, theory_var v2) {
+        force_push();
         m_find.merge(v1, v2);
     }
 
@@ -409,6 +411,7 @@ namespace smt {
     }
 
     void theory_datatype::assign_eh(bool_var v, bool is_true) {
+        force_push();
         enode * n     = ctx.bool_var2enode(v);
         if (!is_recognizer(n))
             return;
@@ -441,6 +444,7 @@ namespace smt {
     }
 
     void theory_datatype::relevant_eh(app * n) {
+        force_push();
         TRACE("datatype", tout << "relevant_eh: " << mk_pp(n, m) << "\n";);
         SASSERT(ctx.relevancy());
         if (is_recognizer(n)) {
@@ -472,6 +476,7 @@ namespace smt {
     }
 
     final_check_status theory_datatype::final_check_eh() {
+        force_push();
         int num_vars = get_num_vars();
         final_check_status r = FC_DONE;
         final_check_st _guard(this); 

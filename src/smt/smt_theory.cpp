@@ -40,27 +40,23 @@ namespace smt {
     }
 
     bool theory::lazy_push() {
-        if (m_is_lazy) {
+        if (m_lazy)
             ++m_lazy_scopes;
-        }
-        return m_is_lazy;
+        return m_lazy;
     }
 
-    bool theory::lazy_pop(unsigned num_scopes) {
-        if (m_is_lazy) {
-            SASSERT(m_lazy_scopes >= num_scopes);
-            m_lazy_scopes -= num_scopes;
-        }
-        return m_is_lazy;
+    bool theory::lazy_pop(unsigned& num_scopes) {
+        unsigned n = std::min(num_scopes, m_lazy_scopes);
+        num_scopes -= n;
+        m_lazy_scopes -= n;
+        return num_scopes == 0;
     }
 
     void theory::force_push() {
-        if (m_is_lazy) {       
-            m_is_lazy = false;
-            for (unsigned i = m_lazy_scopes; i-- > 0; ) {
-                push_scope_eh();
-            }
-        } 
+        flet<bool> _lazy(m_lazy, false);
+        for (; m_lazy_scopes > 0; --m_lazy_scopes) {
+            push_scope_eh();
+        }
     }
 
     void theory::display_var2enode(std::ostream & out) const {
@@ -175,8 +171,8 @@ namespace smt {
         m_id(fid),
         ctx(ctx),
         m(ctx.get_manager()),
-        m_is_lazy(true),
-        m_lazy_scopes(0) {
+        m_lazy_scopes(0),
+        m_lazy(true) {
     }
 
     theory::~theory() {

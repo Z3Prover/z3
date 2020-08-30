@@ -4080,9 +4080,11 @@ bool theory_lra::internalize_term(app * term) {
     return m_imp->internalize_term(term);
 }
 void theory_lra::internalize_eq_eh(app * atom, bool_var v) {
+    force_push();
     m_imp->internalize_eq_eh(atom, v);
 }
 void theory_lra::assign_eh(bool_var v, bool is_true) {
+    force_push();
     m_imp->assign_eh(v, is_true);
 }
 lbool theory_lra::get_phase(bool_var v) {
@@ -4095,9 +4097,11 @@ bool theory_lra::use_diseqs() const {
     return m_imp->use_diseqs();
 }
 void theory_lra::new_diseq_eh(theory_var v1, theory_var v2) {
+    force_push();
     m_imp->new_diseq_eh(v1, v2);
 }
 void theory_lra::apply_sort_cnstr(enode* n, sort* s) {
+    force_push();
     m_imp->apply_sort_cnstr(n, s);
 }
 void theory_lra::push_scope_eh() {
@@ -4122,6 +4126,7 @@ void theory_lra::init_search_eh() {
     m_imp->init_search_eh();
 }
 final_check_status theory_lra::final_check_eh() {
+    force_push();
     return m_imp->final_check_eh();
 }
 bool theory_lra::is_shared(theory_var v) const {
@@ -4131,6 +4136,7 @@ bool theory_lra::can_propagate() {
     return m_imp->can_propagate();
 }
 void theory_lra::propagate() {
+    force_push();
     m_imp->propagate();
 }
 justification * theory_lra::why_is_diseq(theory_var v1, theory_var v2) {

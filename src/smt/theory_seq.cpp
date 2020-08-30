@@ -318,6 +318,7 @@ struct scoped_enable_trace {
 };
 
 final_check_status theory_seq::final_check_eh() {
+    force_push();
     if (!m_has_seq) {
         return FC_DONE;
     }
@@ -1620,6 +1621,7 @@ bool theory_seq::check_int_string(expr* e) {
     
 
 void theory_seq::apply_sort_cnstr(enode* n, sort* s) {
+    force_push();
     mk_var(n);
 }
 
@@ -3146,6 +3148,7 @@ void theory_seq::restart_eh() {
 }
 
 void theory_seq::relevant_eh(app* n) {
+    force_push();
     if (m_util.str.is_index(n)   ||
         m_util.str.is_replace(n) ||
         m_util.str.is_extract(n) ||
