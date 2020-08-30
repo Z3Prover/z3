@@ -42,11 +42,12 @@ namespace euf {
 
     sat::th_solver* solver::get_solver(expr* e) {
         if (is_app(e)) 
-            return fid2solver(to_app(e)->get_family_id());        
+            return get_solver(to_app(e)->get_decl());        
         return nullptr;
     }
 
-    sat::th_solver* solver::fid2solver(family_id fid) {
+    sat::th_solver* solver::get_solver(func_decl* f) {
+        family_id fid = f->get_family_id();
         if (fid == null_family_id)
             return nullptr;
         auto* ext = m_id2solver.get(fid, nullptr);
@@ -54,19 +55,27 @@ namespace euf {
             return ext;
         pb_util pb(m);
         if (pb.get_family_id() == fid) {
-            sat::ba_solver* ba = alloc(sat::ba_solver, m, si);
-            ba->set_solver(m_solver);
-            add_solver(pb.get_family_id(), ba);
-            ba->push_scopes(s().num_scopes());
-            return ba;
+            ext = alloc(sat::ba_solver, m, si);
         }
-
-        return nullptr;
+        if (ext) {
+            ext->set_solver(m_solver);
+            ext->push_scopes(s().num_scopes());
+            add_solver(fid, ext);
+        }
+        else {
+            unhandled_function(f);
+        }
+        return ext;
     }
 
     void solver::add_solver(family_id fid, sat::th_solver* th) {
         m_solvers.push_back(th);
         m_id2solver.setx(fid, th, nullptr);
+    }
+
+    void solver::unhandled_function(func_decl* f) {
+        IF_VERBOSE(0, verbose_stream() << mk_pp(f, m) << " not handled\n");
+        // TBD: set some state with the unhandled function.
     }
 
     bool solver::propagate(literal l, ext_constraint_idx idx) { 
@@ -87,25 +96,26 @@ namespace euf {
         m_explain.reset();
         euf::enode* n = nullptr;
         bool sign = false;
-        if (j.id() != 0) {
-            auto p = m_var2node[l.var()];
-            n = p.first;  
-            SASSERT(n);
-            sign = l.sign() != p.second;
-        }
+        enode_bool_pair p;
 
         // init_ackerman();
 
-        switch (j.id()) {
-        case 0:
+        switch (j.kind()) {
+        case constraint::conflict:
             SASSERT(m_egraph.inconsistent());
             m_egraph.explain<unsigned>(m_explain);
             break;
-        case 1:
+        case constraint::eq:
+            n = m_var2node[l.var()].first;
+            SASSERT(n);
             SASSERT(m_egraph.is_equality(n));
             m_egraph.explain_eq<unsigned>(m_explain, n->get_arg(0), n->get_arg(1), n->commutative());
             break;
-        case 2:
+        case constraint::lit:
+            p = m_var2node[l.var()];
+            n = p.first;
+            sign = l.sign() != p.second;
+            SASSERT(n);
             SASSERT(m.is_bool(n->get_owner()));
             m_egraph.explain_eq<unsigned>(m_explain, n, (sign ? mk_false() : mk_true()), false);
             break;
@@ -168,10 +178,10 @@ namespace euf {
         }
     }
 
-    constraint& solver::mk_constraint(constraint*& c, unsigned id) {
+    constraint& solver::mk_constraint(constraint*& c, constraint::kind_t k) {
         if (!c) {
             void* mem = memory::allocate(sat::constraint_base::obj_size(sizeof(constraint)));
-            c = new (sat::constraint_base::ptr2mem(mem)) constraint(id);
+            c = new (sat::constraint_base::ptr2mem(mem)) constraint(k);
             sat::constraint_base::initialize(mem, this);
         }
         return *c;
@@ -321,7 +331,7 @@ namespace euf {
     bool solver::is_blocked(literal l, ext_constraint_idx idx) { 
         auto* ext = sat::constraint_base::to_extension(idx);
         if (ext != this)
-            return is_blocked(l, idx);
+            return ext->is_blocked(l, idx);
         return false; 
     }
 
@@ -345,6 +355,24 @@ namespace euf {
         return w; 
     }
 
+    double solver::get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const {
+        double r = 0;
+        for (auto* e : m_solvers) {
+            r = e->get_reward(l, idx, occs);
+            if (r != 0)
+                return r;
+        }
+        return r;
+    }
+
+    bool solver::is_extended_binary(ext_justification_idx idx, literal_vector& r) {
+        for (auto* e : m_solvers) {
+            if (e->is_extended_binary(idx, r))
+                return true;
+        }
+        return false;
+    }
+
     void solver::init_ackerman() {
         if (m_ackerman) 
             return;
@@ -365,7 +393,7 @@ namespace euf {
         auto* ext = get_solver(e);
         if (ext)
             return ext->internalize(e, sign, root);
-        std::cout << mk_pp(e, m) << "\n";
+        IF_VERBOSE(0, verbose_stream() << "internalize: " << mk_pp(e, m) << "\n");
         SASSERT(!si.is_bool_op(e));
         sat::scoped_stack _sc(m_stack);
         unsigned sz = m_stack.size();
@@ -429,7 +457,6 @@ namespace euf {
         expr* e = n->get_owner();
         if (m.is_bool(e)) {
             sat::bool_var v = si.add_bool_var(e);
-            std::cout << "attach " << v << "\n";
             attach_bool_var(v, false, n);
         }
     }

@@ -40,8 +40,6 @@ namespace sat {
         virtual bool is_bool_op(expr* e) const = 0;
         virtual literal internalize(expr* e) = 0;
         virtual bool_var add_bool_var(expr* e)  = 0;
-        virtual void mk_clause(literal a, literal b) = 0;
-        virtual void mk_clause(literal l1, literal l2, literal l3, bool is_lemma = false) = 0;
         virtual void cache(app* t, literal l) = 0;
     };
     

@@ -192,9 +192,9 @@ namespace sat {
             literal l1(v1, false), l2(v2, false);
             bool_var v = s().add_var(false);
             literal l(v, false);
-            si.mk_clause(~l, l1);
-            si.mk_clause(~l, l2);
-            si.mk_clause(~l1, ~l2, l);
+            s().mk_clause(~l, l1);
+            s().mk_clause(~l, l2);
+            s().mk_clause(~l1, ~l2, l);
             si.cache(t, l);
             if (sign) l.neg();
             return l;
@@ -267,9 +267,9 @@ namespace sat {
             literal l1(v1, false), l2(v2, false);
             bool_var v = s().add_var(false);
             literal l(v, false);
-            si.mk_clause(~l, l1);
-            si.mk_clause(~l, l2);
-            si.mk_clause(~l1, ~l2, l);
+            s().mk_clause(~l, l1);
+            s().mk_clause(~l, l2);
+            s().mk_clause(~l1, ~l2, l);
             si.cache(t, l);
             if (sign) l.neg();
             return l;

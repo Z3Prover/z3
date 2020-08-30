@@ -567,9 +567,9 @@ namespace sat {
         ~ba_solver() override;
         void set_solver(solver* s) override { m_solver = s; }
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
-        void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
-        void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
-        void    add_xr(literal_vector const& lits);
+        void add_at_least(bool_var v, literal_vector const& lits, unsigned k);
+        void add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
+        void add_xr(literal_vector const& lits);
 
         bool propagate(literal l, ext_constraint_idx idx) override;
         lbool resolve_conflict() override;

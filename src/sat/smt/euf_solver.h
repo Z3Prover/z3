@@ -34,12 +34,13 @@ namespace euf {
     typedef sat::bool_var bool_var;
 
     class constraint {
-        unsigned m_id;
     public:
-        constraint(unsigned id) :
-        m_id(id)
-        {}
-        unsigned id() const { return m_id; }
+        enum kind_t { conflict, eq, lit};
+    private:
+        kind_t m_kind;
+    public:
+        constraint(kind_t k) : m_kind(k) {}
+        unsigned kind() const { return m_kind; }
         static constraint* from_idx(size_t z) { return reinterpret_cast<constraint*>(z); }
         size_t to_index() const { return sat::constraint_base::mem2base(this); }
     };
@@ -61,10 +62,10 @@ namespace euf {
         stats                 m_stats;
         sat::solver*          m_solver { nullptr };
         sat::lookahead*       m_lookahead { nullptr };
-        ast_manager*           m_to_m { nullptr };
-        atom2bool_var*         m_to_expr2var { nullptr };
-        sat::sat_internalizer* m_to_si{ nullptr };
-        scoped_ptr<ackerman>   m_ackerman;
+        ast_manager*           m_to_m;
+        atom2bool_var*         m_to_expr2var;
+        sat::sat_internalizer* m_to_si;
+        scoped_ptr<euf::ackerman>   m_ackerman;
 
         svector<euf::enode_bool_pair>                   m_var2node;
         ptr_vector<unsigned>                            m_explain;
@@ -91,11 +92,11 @@ namespace euf {
         euf::enode* mk_false();
 
         // extensions
-        sat::th_solver* get_solver(func_decl* f) { return fid2solver(f->get_family_id()); }
+        sat::th_solver* get_solver(func_decl* f);
         sat::th_solver* get_solver(expr* e);
         sat::th_solver* get_solver(sat::bool_var v);
-        sat::th_solver* fid2solver(family_id fid);
         void add_solver(family_id fid, sat::th_solver* th);
+        void unhandled_function(func_decl* f);
         void init_ackerman();
 
         // model building
@@ -109,10 +110,10 @@ namespace euf {
         void propagate();
         void get_antecedents(literal l, constraint& j, literal_vector& r);
 
-        constraint& mk_constraint(constraint*& c, unsigned id);
-        constraint& conflict_constraint() { return mk_constraint(m_conflict, 0); }
-        constraint& eq_constraint() { return mk_constraint(m_eq, 1); }
-        constraint& lit_constraint() { return mk_constraint(m_lit, 2); }
+        constraint& mk_constraint(constraint*& c, constraint::kind_t k);
+        constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::conflict); }
+        constraint& eq_constraint() { return mk_constraint(m_eq, constraint::eq); }
+        constraint& lit_constraint() { return mk_constraint(m_lit, constraint::lit); }
 
     public:
        solver(ast_manager& m, atom2bool_var& expr2var, sat::sat_internalizer& si, params_ref const& p = params_ref()):
@@ -146,11 +147,15 @@ namespace euf {
                 s.m_to_expr2var = &a2b; 
                 s.m_to_si = &si; 
             }
-            ~scoped_set_translate() { s.m_to_m = &s.m; s.m_to_expr2var = &s.m_expr2var; s.m_to_si = &s.si;  }
+            ~scoped_set_translate() { 
+                s.m_to_m = &s.m; 
+                s.m_to_expr2var = &s.m_expr2var; 
+                s.m_to_si = &s.si;  
+            }
         };
-        double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override { return 0; }
-        bool is_extended_binary(ext_justification_idx idx, literal_vector & r) override { return false; }
 
+        double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
+        bool is_extended_binary(ext_justification_idx idx, literal_vector& r) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
         void asserted(literal l) override;

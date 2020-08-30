@@ -106,14 +106,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_solver.add_clause(1, &l, false);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2) override {
+    void mk_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
         m_solver.add_clause(l1, l2, false);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, bool is_lemma = false) override {
+    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, is_lemma);
+        m_solver.add_clause(l1, l2, l3, false);
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
@@ -385,8 +385,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
             mk_clause(l,  ~c, ~t);
             mk_clause(l,   c, ~e);
             if (m_ite_extra) {
-                mk_clause(~t, ~e, l, false);
-                mk_clause(t,  e, ~l, false);
+                mk_clause(~t, ~e, l);
+                mk_clause(t,  e, ~l);
             }
             if (m_aig) m_aig->add_ite(l, c, t, e);
             if (sign)
@@ -801,6 +801,7 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core
         dealloc(m_imp);
         m_imp = nullptr;
     }
+
 }
 
 void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {

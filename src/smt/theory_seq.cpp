@@ -1724,9 +1724,11 @@ std::ostream& theory_seq::display_deps(std::ostream& out, literal_vector const& 
     smt2_pp_environment_dbg env(m);
     params_ref p;
     for (auto const& eq : eqs) {
+        if (eq.first->get_root() != eq.second->get_root())
+            out << "invalid: ";
         out << "  (= " << mk_bounded_pp(eq.first->get_owner(), m, 2)
             << "\n     " << mk_bounded_pp(eq.second->get_owner(), m, 2) 
-            << ")\n";
+            << ")\n";        
     }
     for (literal l : lits) {
         display_lit(out, l) << "\n";
@@ -2908,6 +2910,7 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
 }
 
 void theory_seq::assign_eh(bool_var v, bool is_true) {
+    force_push();
     expr* e = ctx.bool_var2expr(v);
     expr* e1 = nullptr, *e2 = nullptr;
     expr_ref f(m);
@@ -3023,6 +3026,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
 }
 
 void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
+    force_push();
     enode* n1 = get_enode(v1);
     enode* n2 = get_enode(v2);
     expr* o1 = n1->get_owner();
@@ -3066,6 +3070,7 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
 }
 
 void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
+    force_push();
     enode* n1 = get_enode(v1);
     enode* n2 = get_enode(v2);    
     expr_ref e1(n1->get_owner(), m);

@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    ba_core.cpp
+    ba_solver.cpp
 
 Abstract:
 
@@ -12,8 +12,6 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2017-01-30
-
-Revision History:
 
 --*/
 
@@ -1844,8 +1842,6 @@ namespace sat {
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         add_pb_ge(lit, wlits, k, false);
     }
-
-
 
     /*
       \brief return true to keep watching literal.

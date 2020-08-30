@@ -18,7 +18,7 @@ Author:
 
 #include "util/top_sort.h"
 #include "sat/smt/sat_smt.h"
-#include "ast/euf/euf_egraph.h"
+#include "ast/euf/euf_enode.h"
 
 namespace sat {
     
@@ -27,8 +27,6 @@ namespace sat {
         virtual ~th_internalizer() {}
 
         virtual literal internalize(expr* e, bool sign, bool root) = 0;
-
-
     };
 
     class th_decompile {
@@ -64,8 +62,7 @@ namespace sat {
     public:
         virtual ~th_solver() {}
 
-        virtual th_solver* fresh(solver* s, ast_manager& m, sat_internalizer& si) = 0;
-        
+        virtual th_solver* fresh(solver* s, ast_manager& m, sat_internalizer& si) = 0;        
     };
 
 
