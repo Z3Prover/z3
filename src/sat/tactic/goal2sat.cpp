@@ -93,7 +93,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
-        m_euf = false;
+        m_euf = false; // true;
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -700,7 +700,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void operator()(goal const & g) {
-        g.display(std::cout);
         struct scoped_reset {
             imp& i;
             scoped_reset(imp& i) :i(i) {}
