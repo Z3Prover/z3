@@ -17,6 +17,7 @@ Author:
 #pragma once
 
 #include "util/scoped_ptr_vector.h"
+#include "util/trail.h"
 #include "ast/ast_translation.h"
 #include "ast/euf/euf_egraph.h"
 #include "smt/params/smt_params.h"
@@ -35,12 +36,12 @@ namespace euf {
 
     class constraint {
     public:
-        enum kind_t { conflict, eq, lit};
+        enum class kind_t { conflict, eq, lit};
     private:
         kind_t m_kind;
     public:
         constraint(kind_t k) : m_kind(k) {}
-        unsigned kind() const { return m_kind; }
+        kind_t kind() const { return m_kind; }
         static constraint* from_idx(size_t z) { return reinterpret_cast<constraint*>(z); }
         size_t to_index() const { return sat::constraint_base::mem2base(this); }
     };
@@ -53,6 +54,11 @@ namespace euf {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
+		struct scope {
+			unsigned m_bool_var_lim;
+			unsigned m_trail_lim;
+		};
+		typedef ptr_vector<trail<solver> > trail_stack;
 
         ast_manager&          m;
         atom2bool_var&        m_expr2var;
@@ -60,8 +66,11 @@ namespace euf {
         smt_params            m_config;
         euf::egraph           m_egraph;
         stats                 m_stats;
-        sat::solver*          m_solver { nullptr };
-        sat::lookahead*       m_lookahead { nullptr };
+		
+		trail_stack           m_trail;
+
+        sat::solver*           m_solver { nullptr };
+        sat::lookahead*        m_lookahead { nullptr };
         ast_manager*           m_to_m;
         atom2bool_var*         m_to_expr2var;
         sat::sat_internalizer* m_to_si;
@@ -73,7 +82,7 @@ namespace euf {
         svector<sat::frame>                             m_stack;
         unsigned                                        m_num_scopes { 0 };
         unsigned_vector                                 m_bool_var_trail;
-        unsigned_vector                                 m_bool_var_lim;
+		svector<scope>                                  m_scopes;
         scoped_ptr_vector<sat::th_solver>               m_solvers;
         ptr_vector<sat::th_solver>                      m_id2solver;
 
@@ -109,11 +118,12 @@ namespace euf {
         // solving
         void propagate();
         void get_antecedents(literal l, constraint& j, literal_vector& r);
+		void force_push();
 
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
-        constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::conflict); }
-        constraint& eq_constraint() { return mk_constraint(m_eq, constraint::eq); }
-        constraint& lit_constraint() { return mk_constraint(m_lit, constraint::lit); }
+        constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
+        constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
+        constraint& lit_constraint() { return mk_constraint(m_lit, constraint::kind_t::lit); }
 
     public:
        solver(ast_manager& m, atom2bool_var& expr2var, sat::sat_internalizer& si, params_ref const& p = params_ref()):

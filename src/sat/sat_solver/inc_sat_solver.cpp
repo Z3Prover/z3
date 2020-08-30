@@ -666,7 +666,7 @@ private:
             return l_undef;
         }
         g = m_subgoals[0];
-        expr_ref_vector atoms(m);
+        func_decl_ref_vector funs(m);
         m_pc = g->pc();
         m_mcs.set(m_mcs.size()-1, concat(m_mcs.back(), g->mc()));
         TRACE("sat", g->display_with_dependencies(tout););
@@ -674,13 +674,13 @@ private:
         // ensure that if goal is already internalized, then import mc from m_solver.
 
         m_goal2sat(*g, m_params, m_solver, m_map, m_dep2asm, is_incremental());
-        m_goal2sat.get_interpreted_atoms(atoms);
+        m_goal2sat.get_interpreted_funs(funs);
         if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
         m_sat_mc->flush_smc(m_solver, m_map);
-        if (!atoms.empty()) {
+        if (!funs.empty()) {
             m_has_uninterpreted = true;
             std::stringstream strm;
-            strm << "(sat.giveup interpreted atoms sent to SAT solver " << atoms <<")";
+            strm << "(sat.giveup interpreted functions sent to SAT solver " << funs <<")";
             TRACE("sat", tout << strm.str() << "\n";);
             IF_VERBOSE(1, verbose_stream() << strm.str() << "\n";);
             set_reason_unknown(strm.str());

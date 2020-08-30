@@ -38,7 +38,6 @@ Notes:
 class goal2sat {
     struct imp;
     imp *  m_imp;
-    scoped_ptr<expr_ref_vector> m_interpreted_atoms;
 
 public:
     goal2sat();
@@ -62,9 +61,9 @@ public:
     */
     void operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false);
 
-    void get_interpreted_atoms(expr_ref_vector& atoms);
+    void get_interpreted_funs(func_decl_ref_vector& atoms);
 
-    bool has_interpreted_atoms() const;
+    bool has_interpreted_funs() const;
 
     sat::sat_internalizer& si(ast_manager& m, params_ref const& p, sat::solver_core& t, atom2bool_var& a2b, dep2asm_map& dep2asm, bool default_external = false);
 

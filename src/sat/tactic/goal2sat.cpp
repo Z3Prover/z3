@@ -66,11 +66,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     expr_ref_vector             m_trail;
-    expr_ref_vector             m_interpreted_atoms;
+    func_decl_ref_vector        m_interpreted_funs;
     bool                        m_default_external;
     bool                        m_xor_solver;
     bool                        m_euf;
-
+    sat::literal_vector         aig_lits;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
@@ -80,7 +80,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_map(map),
         m_dep2asm(dep2asm),
         m_trail(m),
-        m_interpreted_atoms(m),
+        m_interpreted_funs(m),
         m_default_external(default_external) {
         updt_params(p);
         m_true = sat::null_literal;
@@ -174,7 +174,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                         return;
                     }
                     else
-                        m_interpreted_atoms.push_back(t);
+                        m_interpreted_funs.push_back(to_app(t)->get_decl());
                 }
             }
         }
@@ -256,8 +256,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             return true;
         }
     }
-
-    sat::literal_vector aig_lits;
 
     void convert_or(app * t, bool root, bool sign) {
         TRACE("goal2sat", tout << "convert_or:\n" << mk_bounded_pp(t, m, 2) << "\n";);
@@ -775,8 +773,7 @@ bool goal2sat::has_unsupported_bool(goal const & g) {
 }
 
 goal2sat::goal2sat():
-    m_imp(nullptr), 
-    m_interpreted_atoms(nullptr) {
+    m_imp(nullptr) {
 }
 
 goal2sat::~goal2sat() {
@@ -795,23 +792,21 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core
         
     (*m_imp)(g);
     
-    m_interpreted_atoms = alloc(expr_ref_vector, g.m());
-    m_interpreted_atoms->append(m_imp->m_interpreted_atoms);
-    if (!t.get_extension()) {
+    if (!t.get_extension() && m_imp->m_interpreted_funs.empty()) {
         dealloc(m_imp);
         m_imp = nullptr;
     }
 
 }
 
-void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {
-    if (m_interpreted_atoms) {
-        atoms.append(*m_interpreted_atoms);
+void goal2sat::get_interpreted_funs(func_decl_ref_vector& atoms) {
+    if (m_imp) {
+        atoms.append(m_imp->m_interpreted_funs);
     }
 }
 
-bool goal2sat::has_interpreted_atoms() const {
-    return m_interpreted_atoms && !m_interpreted_atoms->empty();
+bool goal2sat::has_interpreted_funs() const {
+    return m_imp && !m_imp->m_interpreted_funs.empty(); 
 }
 
 

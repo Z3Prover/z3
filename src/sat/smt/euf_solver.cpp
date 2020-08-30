@@ -79,6 +79,7 @@ namespace euf {
     }
 
     bool solver::propagate(literal l, ext_constraint_idx idx) { 
+		force_push();
         auto* ext = sat::constraint_base::to_extension(idx);
         SASSERT(ext != this);
         return ext->propagate(l, idx);
@@ -101,17 +102,17 @@ namespace euf {
         // init_ackerman();
 
         switch (j.kind()) {
-        case constraint::conflict:
+        case constraint::kind_t::conflict:
             SASSERT(m_egraph.inconsistent());
             m_egraph.explain<unsigned>(m_explain);
             break;
-        case constraint::eq:
+        case constraint::kind_t::eq:
             n = m_var2node[l.var()].first;
             SASSERT(n);
             SASSERT(m_egraph.is_equality(n));
             m_egraph.explain_eq<unsigned>(m_explain, n->get_arg(0), n->get_arg(1), n->commutative());
             break;
-        case constraint::lit:
+        case constraint::kind_t::lit:
             p = m_var2node[l.var()];
             n = p.first;
             sign = l.sign() != p.second;
@@ -127,8 +128,10 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
+		
         auto* ext = get_solver(l.var());
         if (ext) {
+			force_push();
             ext->asserted(l);
             return;
         }
@@ -136,6 +139,7 @@ namespace euf {
         auto p = m_var2node.get(l.var(), enode_bool_pair(nullptr, false));
         if (!p.first)
             return;
+		force_push();
         bool sign = p.second != l.sign();
         euf::enode* n = p.first;
         expr* e = n->get_owner();
@@ -152,7 +156,7 @@ namespace euf {
         propagate();
     }
 
-    void solver::propagate() {        
+    void solver::propagate() {     
         m_egraph.propagate();
         if (m_egraph.inconsistent()) {       
             s().set_conflict(sat::justification::mk_ext_justification(s().scope_lvl(), conflict_constraint().to_index()));
@@ -196,6 +200,7 @@ namespace euf {
     }
 
     sat::check_result solver::check() { 
+		force_push();
         bool give_up = false;
         bool cont = false;
         for (auto* e : m_solvers)
@@ -212,27 +217,40 @@ namespace euf {
     }
 
     void solver::push() {
-        for (auto* e : m_solvers)
-            e->push();
-        m_egraph.push();
         ++m_num_scopes;
     }
 
+	void solver::force_push() {
+		for (; m_num_scopes > 0; --m_num_scopes) {
+			scope s;
+			s.m_bool_var_lim = m_bool_var_trail.size();
+			s.m_trail_lim = m_trail.size();
+			m_scopes.push_back(s);
+			for (auto* e : m_solvers)
+				e->push();
+			m_egraph.push();
+		}
+	}
+
     void solver::pop(unsigned n) {
-        m_egraph.pop(n);
-        for (auto* e : m_solvers)
-            e->pop(n);
         if (n <= m_num_scopes) {
             m_num_scopes -= n;
             return;
         }
         n -= m_num_scopes;
-        unsigned old_lim = m_bool_var_lim.size() - n;
-        unsigned old_sz = m_bool_var_lim[old_lim];
-        for (unsigned i = m_bool_var_trail.size(); i-- > old_sz; )
+        m_egraph.pop(n);
+        for (auto* e : m_solvers)
+            e->pop(n);
+
+		scope & s = m_scopes[m_scopes.size() - n];
+
+        for (unsigned i = m_bool_var_trail.size(); i-- > s.m_bool_var_lim; )
             m_var2node[m_bool_var_trail[i]] = enode_bool_pair(nullptr, false);
-        m_bool_var_trail.shrink(old_sz);
-        m_bool_var_lim.shrink(old_lim);
+        m_bool_var_trail.shrink(s.m_bool_var_lim);
+
+		undo_trail_stack(*this, m_trail, s.m_trail_lim);
+
+        m_scopes.shrink(m_scopes.size() - n);
     }
 
     void solver::pre_simplify() {
@@ -312,6 +330,7 @@ namespace euf {
     }
 
     void solver::pop_reinit() {
+		force_push();
         for (auto* e : m_solvers)
             e->pop_reinit();
     }
@@ -390,6 +409,7 @@ namespace euf {
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root) {
+		force_push();
         auto* ext = get_solver(e);
         if (ext)
             return ext->internalize(e, sign, root);
@@ -463,8 +483,6 @@ namespace euf {
 
     void solver::attach_bool_var(sat::bool_var v, bool sign, euf::enode* n) {
         m_var2node.reserve(v + 1, enode_bool_pair(nullptr, false));
-        for (; m_num_scopes > 0; --m_num_scopes) 
-            m_bool_var_lim.push_back(m_bool_var_trail.size());   
         SASSERT(m_var2node[v].first == nullptr);
         m_var2node[v] = euf::enode_bool_pair(n, sign);
         m_bool_var_trail.push_back(v);
