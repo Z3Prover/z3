@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    ba_core.h
+    ba_internalize.cpp
 
 Abstract:
 
