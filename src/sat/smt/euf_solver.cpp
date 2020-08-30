@@ -79,7 +79,7 @@ namespace euf {
     }
 
     bool solver::propagate(literal l, ext_constraint_idx idx) { 
-		force_push();
+        force_push();
         auto* ext = sat::constraint_base::to_extension(idx);
         SASSERT(ext != this);
         return ext->propagate(l, idx);
@@ -128,10 +128,9 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-		
         auto* ext = get_solver(l.var());
         if (ext) {
-			force_push();
+            force_push();
             ext->asserted(l);
             return;
         }
@@ -139,7 +138,7 @@ namespace euf {
         auto p = m_var2node.get(l.var(), enode_bool_pair(nullptr, false));
         if (!p.first)
             return;
-		force_push();
+        force_push();
         bool sign = p.second != l.sign();
         euf::enode* n = p.first;
         expr* e = n->get_owner();
@@ -200,7 +199,7 @@ namespace euf {
     }
 
     sat::check_result solver::check() { 
-		force_push();
+        force_push();
         bool give_up = false;
         bool cont = false;
         for (auto* e : m_solvers)
@@ -220,17 +219,17 @@ namespace euf {
         ++m_num_scopes;
     }
 
-	void solver::force_push() {
-		for (; m_num_scopes > 0; --m_num_scopes) {
-			scope s;
-			s.m_bool_var_lim = m_bool_var_trail.size();
-			s.m_trail_lim = m_trail.size();
-			m_scopes.push_back(s);
-			for (auto* e : m_solvers)
-				e->push();
-			m_egraph.push();
-		}
-	}
+    void solver::force_push() {
+        for (; m_num_scopes > 0; --m_num_scopes) {
+            scope s;
+            s.m_bool_var_lim = m_bool_var_trail.size();
+            s.m_trail_lim = m_trail.size();
+            m_scopes.push_back(s);
+            for (auto* e : m_solvers)
+                e->push();
+            m_egraph.push();
+        }
+    }
 
     void solver::pop(unsigned n) {
         if (n <= m_num_scopes) {
@@ -242,14 +241,14 @@ namespace euf {
         for (auto* e : m_solvers)
             e->pop(n);
 
-		scope & s = m_scopes[m_scopes.size() - n];
+        scope & s = m_scopes[m_scopes.size() - n];
 
         for (unsigned i = m_bool_var_trail.size(); i-- > s.m_bool_var_lim; )
             m_var2node[m_bool_var_trail[i]] = enode_bool_pair(nullptr, false);
         m_bool_var_trail.shrink(s.m_bool_var_lim);
-
-		undo_trail_stack(*this, m_trail, s.m_trail_lim);
-
+        
+        undo_trail_stack(*this, m_trail, s.m_trail_lim);
+        
         m_scopes.shrink(m_scopes.size() - n);
     }
 
@@ -310,7 +309,7 @@ namespace euf {
         r->m_config = m_config;
         std::function<void* (void*)> copy_justification = [&](void* x) { return (void*)(r->base_ptr() + ((unsigned*)x - base_ptr())); };
         r->m_egraph.copy_from(m_egraph, copy_justification);        
-        r->set_solver(s);		
+        r->set_solver(s);
         for (unsigned i = 0; i < m_id2solver.size(); ++i) {
             auto* e = m_id2solver[i];
             if (e)
@@ -330,7 +329,7 @@ namespace euf {
     }
 
     void solver::pop_reinit() {
-		force_push();
+        force_push();
         for (auto* e : m_solvers)
             e->pop_reinit();
     }
@@ -409,7 +408,7 @@ namespace euf {
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root) {
-		force_push();
+        force_push();
         auto* ext = get_solver(e);
         if (ext)
             return ext->internalize(e, sign, root);
