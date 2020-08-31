@@ -106,6 +106,7 @@ namespace euf {
         
     public:
         egraph(ast_manager& m): m(m), m_table(m), m_exprs(m) {}
+        ~egraph();
         enode* find(expr* f) { return m_expr2enode.get(f->get_id(), nullptr); }
         enode* mk(expr* f, unsigned n, enode *const* args);
         void push() { ++m_num_scopes; }

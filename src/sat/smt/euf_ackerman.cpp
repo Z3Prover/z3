@@ -189,11 +189,11 @@ namespace euf {
         unsigned sz = a->get_num_args();
         for (unsigned i = 0; i < sz; ++i) {
             expr_ref eq(m.mk_eq(a->get_arg(i), b->get_arg(i)), m);
-            sat::literal lit = s.internalize(eq, true, false);
+            sat::literal lit = s.internalize(eq, true, false, true);
             lits.push_back(~lit);
         }
         expr_ref eq(m.mk_eq(a, b), m);
-        lits.push_back(s.internalize(eq, false, false));
+        lits.push_back(s.internalize(eq, false, false, true));
         s.s().mk_clause(lits, true);
     }
 
@@ -202,9 +202,9 @@ namespace euf {
         expr_ref eq1(m.mk_eq(a, c), m);
         expr_ref eq2(m.mk_eq(b, c), m);
         expr_ref eq3(m.mk_eq(a, b), m);
-        lits[0] = s.internalize(eq1, true, false);
-        lits[1] = s.internalize(eq2, true, false);
-        lits[2] = s.internalize(eq3, false, false);
+        lits[0] = s.internalize(eq1, true, false, true);
+        lits[1] = s.internalize(eq2, true, false, true);
+        lits[2] = s.internalize(eq3, false, false, true);
         s.s().mk_clause(3, lits, true);
     }
 }

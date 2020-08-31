@@ -169,7 +169,7 @@ namespace euf {
         binary_table* tb = UNTAG(binary_table*, t);
         out << "b ";
         for (enode* n : *tb) {
-            out << n->get_owner_id() << " " << cg_binary_hash()(n) << " ";
+            out << n->get_owner_id() << " ";
         }
         out << "\n";
     }

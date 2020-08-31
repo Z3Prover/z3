@@ -130,6 +130,11 @@ namespace euf {
         return n;
     }
 
+    void egraph::~egraph() {
+        for (enode* n : m_nodes) 
+            n->~enode();        
+    }
+
     void egraph::pop(unsigned num_scopes) {
         if (num_scopes <= m_num_scopes) {
             m_num_scopes -= num_scopes;

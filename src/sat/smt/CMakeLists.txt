@@ -5,6 +5,7 @@ z3_add_component(sat_smt
     xor_solver.cpp
     ba_internalize.cpp
     euf_ackerman.cpp
+    euf_internalize.cpp
     euf_solver.cpp
     euf_model.cpp
   COMPONENT_DEPENDENCIES

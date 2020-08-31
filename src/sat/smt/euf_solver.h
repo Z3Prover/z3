@@ -57,7 +57,7 @@ namespace euf {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
         struct scope {
-            unsigned m_lit_lim;
+            unsigned m_var_lim;
             unsigned m_trail_lim;
         };
         typedef ptr_vector<trail<solver> > trail_stack;
@@ -79,12 +79,12 @@ namespace euf {
         sat::sat_internalizer* m_to_si;
         scoped_ptr<euf::ackerman>   m_ackerman;
 
-        ptr_vector<euf::enode>                          m_lit2node;
+        ptr_vector<euf::enode>                          m_var2node;
         ptr_vector<unsigned>                            m_explain;
         euf::enode_vector                               m_args;
         svector<sat::frame>                             m_stack;
         unsigned                                        m_num_scopes { 0 };
-        unsigned_vector                                 m_lit_trail;
+        unsigned_vector                                 m_var_trail;
         svector<scope>                                  m_scopes;
         scoped_ptr_vector<sat::th_solver>               m_solvers;
         ptr_vector<sat::th_solver>                      m_id2solver;
@@ -97,9 +97,14 @@ namespace euf {
         unsigned * base_ptr() { return reinterpret_cast<unsigned*>(this); }
 
         // internalization
+        bool m_is_redundant { false };
         euf::enode* visit(expr* e);
-        void attach_bool_var(euf::enode* n);
+        void attach_node(euf::enode* n);
         void attach_lit(sat::literal lit, euf::enode* n);
+        void add_distinct_axiom(app* e, euf::enode* const* args);
+        void add_not_distinct_axiom(app* e, euf::enode* const* args);
+        void axiomatize_basic(enode* n);
+        bool internalize_root(app* e, enode* const* args, bool sign);
         euf::enode* mk_true();
         euf::enode* mk_false();
 
@@ -199,7 +204,7 @@ namespace euf {
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override;
 
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
-        sat::literal internalize(expr* e, bool sign, bool root) override;
+        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void update_model(model_ref& mdl);
 
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }

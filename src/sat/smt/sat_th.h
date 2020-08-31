@@ -26,7 +26,7 @@ namespace sat {
     public:
         virtual ~th_internalizer() {}
 
-        virtual literal internalize(expr* e, bool sign, bool root) = 0;
+        virtual literal internalize(expr* e, bool sign, bool root, bool redundant) = 0;
     };
 
     class th_decompile {

@@ -16,7 +16,6 @@ Author:
 --*/
 
 #include "ast/pb_decl_plugin.h"
-#include "tactic/tactic_exception.h"
 #include "sat/sat_solver.h"
 #include "sat/smt/sat_smt.h"
 #include "sat/smt/ba_solver.h"
@@ -32,10 +31,9 @@ namespace euf {
     * retrieve extension that is associated with Boolean variable.
     */
     sat::th_solver* solver::get_solver(sat::bool_var v) {
-        unsigned idx = literal(v, false).index();
-        if (idx >= m_lit2node.size())
+        if (v >= m_var2node.size())
             return nullptr;
-        euf::enode* n = m_lit2node[idx];
+        euf::enode* n = m_var2node[v];
         if (!n)
             return nullptr;
         return get_solver(n->get_owner());
@@ -111,19 +109,20 @@ namespace euf {
             m_egraph.explain<unsigned>(m_explain);
             break;
         case constraint::kind_t::eq:
-            n = m_lit2node[l.index()];
+            n = m_var2node[l.var()];
             SASSERT(n);
             SASSERT(m_egraph.is_equality(n));
+            SASSERT(!l.sign());
             m_egraph.explain_eq<unsigned>(m_explain, n->get_arg(0), n->get_arg(1), n->commutative());
             break;
         case constraint::kind_t::lit:
-            n = m_lit2node[l.index()];
+            n = m_var2node[l.var()];
             SASSERT(n);
             SASSERT(m.is_bool(n->get_owner()));
             m_egraph.explain_eq<unsigned>(m_explain, n, (l.sign() ? mk_false() : mk_true()), false);
             break;
         default:
-            std::cout << (unsigned)j.kind() << "\n";
+            IF_VERBOSE(0, verbose_stream() << (unsigned)j.kind() << "\n");
             UNREACHABLE();
         }
         for (unsigned* idx : m_explain) 
@@ -133,27 +132,25 @@ namespace euf {
     void solver::asserted(literal l) {
         auto* ext = get_solver(l.var());
         if (ext) {
-            force_push();
             ext->asserted(l);
             return;
         }
 
         bool sign = l.sign();
-        unsigned idx = sat::literal(l.var(), false).index();
-        auto n = m_lit2node.get(idx, nullptr);
+        auto n = m_var2node.get(l.var(), nullptr);
         if (!n)
             return;
-        force_push();
         
         expr* e = n->get_owner();
         if (m.is_eq(e) && !sign) {
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
+            TRACE("euf", tout << "merge " << na->get_owner_id() << nb->get_owner_id() << "\n";);
             m_egraph.merge(na, nb, base_ptr() + l.index());
         }
         else {            
             euf::enode* nb = sign ? mk_false() : mk_true();
-            std::cout << "merge " << n->get_owner_id() << " " << sign << " " << nb->get_owner_id() << "\n";
+            TRACE("euf", tout << "merge " << n->get_owner_id() << " " << mk_pp(nb->get_owner(), m)  << "\n";);
             m_egraph.merge(n, nb, base_ptr() + l.index());
         }
         // TBD: delay propagation?
@@ -222,7 +219,7 @@ namespace euf {
 
     void solver::push() {
 		scope s;
-		s.m_lit_lim = m_lit_trail.size();
+		s.m_var_lim = m_var_trail.size();
 		s.m_trail_lim = m_trail.size();
 		m_scopes.push_back(s);
 		m_region.push_scope();
@@ -244,9 +241,9 @@ namespace euf {
 
         scope const & s = m_scopes[m_scopes.size() - n];
 
-        for (unsigned i = m_lit_trail.size(); i-- > s.m_lit_lim; )
-            m_lit2node[m_lit_trail[i]] = nullptr;
-        m_lit_trail.shrink(s.m_lit_lim);
+        for (unsigned i = m_var_trail.size(); i-- > s.m_var_lim; )
+            m_var2node[m_var_trail[i]] = nullptr;
+        m_var_trail.shrink(s.m_var_lim);
         
         undo_trail_stack(*this, m_trail, s.m_trail_lim);
 
@@ -280,9 +277,11 @@ namespace euf {
 
     std::ostream& solver::display(std::ostream& out) const {
         m_egraph.display(out);
-        for (unsigned idx : m_lit_trail) {
-            euf::enode* n = m_lit2node[idx];
-            out << sat::to_literal(idx) << ": " << m_egraph.pp(n);
+
+        out << "bool-vars\n";
+        for (unsigned v : m_var_trail) {
+            euf::enode* n = m_var2node[v];
+            out << v << ": " << m_egraph.pp(n);
         }
         for (auto* e : m_solvers)
             e->display(out);
@@ -369,8 +368,8 @@ namespace euf {
     unsigned solver::max_var(unsigned w) const { 
         for (auto* e : m_solvers)
             w = e->max_var(w);
-        for (unsigned sz = m_lit2node.size(); sz-- > 0; ) {
-            euf::enode* n = m_lit2node[sz];
+        for (unsigned sz = m_var2node.size(); sz-- > 0; ) {
+            euf::enode* n = m_var2node[sz];
             if (n && m.is_bool(n->get_owner())) {
                 w = std::max(w, sz);
                 break;
@@ -411,86 +410,6 @@ namespace euf {
         };
         m_egraph.set_used_eq(used_eq);
         m_egraph.set_used_cc(used_cc);
-    }
-
-    sat::literal solver::internalize(expr* e, bool sign, bool root) {
-        force_push();
-        auto* ext = get_solver(e);
-        if (ext)
-            return ext->internalize(e, sign, root);
-        IF_VERBOSE(0, verbose_stream() << "internalize: " << mk_pp(e, m) << "\n");
-        SASSERT(!si.is_bool_op(e));
-        sat::scoped_stack _sc(m_stack);
-        unsigned sz = m_stack.size();
-        euf::enode* n = visit(e);
-        while (m_stack.size() > sz) {
-        loop:
-            if (!m.inc())
-                throw tactic_exception(m.limit().get_cancel_msg());
-            sat::frame & fr = m_stack.back();
-            expr* e = fr.m_e;
-            if (m_egraph.find(e)) {
-                m_stack.pop_back();
-                continue;
-            }
-            unsigned num = is_app(e) ? to_app(e)->get_num_args() : 0;
-            
-            while (fr.m_idx < num) {
-                expr* arg = to_app(e)->get_arg(fr.m_idx);
-                fr.m_idx++;
-                n = visit(arg);
-                if (!n)
-                    goto loop;
-            }
-            m_args.reset();
-            for (unsigned i = 0; i < num; ++i)
-                m_args.push_back(m_egraph.find(to_app(e)->get_arg(i)));
-            n = m_egraph.mk(e, num, m_args.c_ptr());
-            attach_bool_var(n);
-        }        
-        SASSERT(m_egraph.find(e));
-        return literal(m_expr2var.to_bool_var(e), sign);
-    }
-
-    euf::enode* solver::visit(expr* e) {
-        euf::enode* n = m_egraph.find(e);
-        if (n)
-            return n;
-        if (si.is_bool_op(e)) {
-            sat::literal lit = si.internalize(e);
-            n = m_lit2node.get(lit.index(), nullptr);
-            if (n)
-                return n;
-            
-            n = m_egraph.mk(e, 0, nullptr);
-            attach_lit(lit, n);
-            if (!m.is_true(e) && !m.is_false(e)) 
-                s().set_external(lit.var());
-            return n;
-        }
-        if (is_app(e) && to_app(e)->get_num_args() > 0) {
-            m_stack.push_back(sat::frame(e));
-            return nullptr;
-        }
-        n = m_egraph.mk(e, 0, nullptr);
-        attach_bool_var(n);
-        return n;
-    }
-
-    void solver::attach_bool_var(euf::enode* n) {
-        expr* e = n->get_owner();
-        if (m.is_bool(e)) {
-            sat::bool_var v = si.add_bool_var(e);
-            attach_lit(literal(v, false),  n);
-        }
-    }
-
-    void solver::attach_lit(literal lit, euf::enode* n) {
-        unsigned v = lit.index();
-        m_lit2node.reserve(v + 1, nullptr);
-        SASSERT(m_lit2node[v] == nullptr);
-        m_lit2node[v] = n;
-        m_lit_trail.push_back(v);
     }
 
     bool solver::to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) {

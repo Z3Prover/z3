@@ -554,6 +554,7 @@ namespace sat {
         void convert_to_wlits(app* t, sat::literal_vector const& lits, svector<wliteral>& wlits);
         void convert_pb_args(app* t, svector<wliteral>& wlits);
         void convert_pb_args(app* t, literal_vector& lits);
+        bool m_is_redundant{ false };
         literal internalize_pb(expr* e, bool sign, bool root);
         literal internalize_xor(expr* e, bool sign, bool root);
 
@@ -599,7 +600,7 @@ namespace sat {
         bool is_blocked(literal l, ext_constraint_idx idx) override;
         bool check_model(model const& m) const override;
 
-        literal internalize(expr* e, bool sign, bool root) override;
+        literal internalize(expr* e, bool sign, bool root, bool redundant) override;
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
         th_solver* fresh(solver* s, ast_manager& m, sat_internalizer& si) override;
 

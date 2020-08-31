@@ -1748,7 +1748,7 @@ namespace sat {
 
     void ba_solver::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
-        add_at_least(lit, lits, k, false);
+        add_at_least(lit, lits, k, m_is_redundant);
     }
 
     ba_solver::constraint* ba_solver::add_at_least(literal lit, literal_vector const& lits, unsigned k, bool learned) {
@@ -1840,7 +1840,7 @@ namespace sat {
 
     void ba_solver::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
-        add_pb_ge(lit, wlits, k, false);
+        add_pb_ge(lit, wlits, k, m_is_redundant);
     }
 
     /*

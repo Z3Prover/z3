@@ -70,6 +70,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     bool                        m_default_external;
     bool                        m_xor_solver;
     bool                        m_euf;
+    bool                        m_is_redundant { false };
     sat::literal_vector         aig_lits;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
@@ -93,7 +94,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
-        m_euf = false; // true;
+        m_euf = true; // false; // true;
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -103,22 +104,22 @@ struct goal2sat::imp : public sat::sat_internalizer {
     
     void mk_clause(sat::literal l) {
         TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.add_clause(1, &l, false);
+        m_solver.add_clause(1, &l, m_is_redundant);
     }
 
     void mk_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, false);
+        m_solver.add_clause(l1, l2, m_is_redundant);
     }
 
     void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, false);
+        m_solver.add_clause(l1, l2, l3, m_is_redundant);
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, false);
+        m_solver.add_clause(num, lits, m_is_redundant);
     }
 
     sat::literal mk_true() {
@@ -246,6 +247,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 return true;
             }
         case OP_DISTINCT: {
+            if (m_euf) {
+                convert_euf(t, root, sign);
+                return true;
+            }                
             TRACE("goal2sat_not_handled", tout << mk_ismt2_pp(t, m) << "\n";);
             std::ostringstream strm;
             strm << mk_ismt2_pp(t, m);
@@ -481,7 +486,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         euf::solver* euf = nullptr;
         if (!ext) {
             euf = alloc(euf::solver, m, m_map, *this);
-            std::cout << "set euf\n";
             m_solver.set_extension(euf);
             for (unsigned i = m_solver.num_scopes(); i-- > 0; )
                 euf->push();
@@ -491,7 +495,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (!euf)
             throw default_exception("cannot convert to euf");
-        sat::literal lit = euf->internalize(e, sign, root);
+        sat::literal lit = euf->internalize(e, sign, root, m_is_redundant);
         if (root)
             m_result_stack.reset();
         if (lit == sat::null_literal)
@@ -516,7 +520,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (!ba)
             throw default_exception("cannot convert to pb");
-        sat::literal lit = ba->internalize(t, sign, root);
+        sat::literal lit = ba->internalize(t, sign, root, m_is_redundant);
         if (root)
             m_result_stack.reset();
         else 
@@ -588,7 +592,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     };
 
-    void process(expr* n, bool is_root) {
+    void process(expr* n, bool is_root, bool redundant) {
+        flet<bool> _is_redundant(m_is_redundant, redundant);
         scoped_stack _sc(*this, is_root);
         unsigned sz = m_frame_stack.size();
         if (visit(n, is_root, false)) 
@@ -636,9 +641,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
-    sat::literal internalize(expr* n) override {
+    sat::literal internalize(expr* n, bool redundant) override {
         unsigned sz = m_result_stack.size();
-        process(n, false);
+        process(n, false, redundant);
         SASSERT(m_result_stack.size() == sz + 1);
         sat::literal result = m_result_stack.back();
         m_result_stack.pop_back();
@@ -674,7 +679,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     void process(expr * n) {
         m_result_stack.reset();
         TRACE("goal2sat", tout << mk_pp(n, m) << "\n";);
-        process(n, true);
+        process(n, true, m_is_redundant);
         CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());
     }
@@ -782,7 +787,7 @@ struct unsupported_bool_proc {
       :blast-distinct true
 */
 bool goal2sat::has_unsupported_bool(goal const & g) {
-    return test<unsupported_bool_proc>(g);
+    return false && test<unsupported_bool_proc>(g);
 }
 
 goal2sat::goal2sat():

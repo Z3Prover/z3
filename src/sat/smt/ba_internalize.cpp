@@ -21,7 +21,8 @@ Author:
 
 namespace sat {
 
-    literal ba_solver::internalize(expr* e, bool sign, bool root) {
+    literal ba_solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+        flet<bool> _redundant(m_is_redundant, redundant);
         if (m_pb.is_pb(e)) 
             return internalize_pb(e, sign, root);
         if (m.is_xor(e))
@@ -35,7 +36,7 @@ namespace sat {
         sat::bool_var v = s().add_var(true);
         lits.push_back(literal(v, true));
         auto add_expr = [&](expr* a) {
-            literal lit = si.internalize(a);
+            literal lit = si.internalize(a, m_is_redundant);
             s().set_external(lit.var());
             lits.push_back(lit);
         };
@@ -47,7 +48,7 @@ namespace sat {
         for (unsigned i = 1; i + 1 < lits.size(); ++i) {
             lits[i].neg();
         }
-        add_xr(lits);
+        add_xr(lits, m_is_redundant);
         auto* aig = s().get_cut_simplifier();
         if (aig) aig->add_xor(~lits.back(), lits.size() - 1, lits.c_ptr() + 1);
         sat::literal lit(v, sign);
@@ -100,7 +101,7 @@ namespace sat {
 
     void ba_solver::convert_pb_args(app* t, literal_vector& lits) {
         for (expr* arg : *t) {
-            lits.push_back(si.internalize(arg));
+            lits.push_back(si.internalize(arg, m_is_redundant));
             s().set_external(lits.back().var());
         }
     }
