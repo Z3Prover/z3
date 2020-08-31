@@ -36,7 +36,7 @@ namespace euf {
         loop:
             if (!m.inc())
                 throw tactic_exception(m.limit().get_cancel_msg());
-            sat::frame & fr = m_stack.back();
+            sat::eframe & fr = m_stack.back();
             expr* e = fr.m_e;
             if (m_egraph.find(e)) {
                 m_stack.pop_back();
@@ -80,7 +80,7 @@ namespace euf {
             return n;
         }
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
-            m_stack.push_back(sat::frame(e));
+            m_stack.push_back(sat::eframe(e));
             return nullptr;
         }
         n = m_egraph.mk(e, 0, nullptr);

@@ -21,16 +21,16 @@ Author:
 
 namespace sat {
     
-    struct frame {
+    struct eframe {
         expr* m_e;
         unsigned m_idx;
-        frame(expr* e) : m_e(e), m_idx(0) {}
+        eframe(expr* e) : m_e(e), m_idx(0) {}
     };
 
     struct scoped_stack {
-        svector<frame>& s;
+        svector<eframe>& s;
         unsigned sz;
-        scoped_stack(svector<frame>& s):s(s), sz(s.size()) {}
+        scoped_stack(svector<eframe>& s):s(s), sz(s.size()) {}
         ~scoped_stack() { s.shrink(sz); }
     };
 

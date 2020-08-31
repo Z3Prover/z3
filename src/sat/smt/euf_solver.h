@@ -82,7 +82,7 @@ namespace euf {
         ptr_vector<euf::enode>                          m_var2node;
         ptr_vector<unsigned>                            m_explain;
         euf::enode_vector                               m_args;
-        svector<sat::frame>                             m_stack;
+        svector<sat::eframe>                            m_stack;
         unsigned                                        m_num_scopes { 0 };
         unsigned_vector                                 m_var_trail;
         svector<scope>                                  m_scopes;
