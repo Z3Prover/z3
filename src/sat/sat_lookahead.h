@@ -524,7 +524,7 @@ namespace sat {
         void update_lookahead_reward(literal l, unsigned level);
         bool dl_enabled(literal l) const { return m_lits[l.index()].m_double_lookahead != m_istamp_id; }
         void dl_disable(literal l) { m_lits[l.index()].m_double_lookahead = m_istamp_id; }
-        bool dl_no_overflow(unsigned base) const { return base + 2 * m_lookahead.size() * static_cast<uint64_t>(m_config.m_dl_max_iterations + 1) < c_fixed_truth; }
+        bool dl_no_overflow(unsigned base) const { return base + static_cast < uint64_t>(2 * m_lookahead.size()) * static_cast <uint64_t>(m_config.m_dl_max_iterations + 1) < c_fixed_truth; }
 
         unsigned do_double(literal l, unsigned& base);
         unsigned double_look(literal l, unsigned& base);

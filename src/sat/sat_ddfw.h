@@ -90,11 +90,11 @@ namespace sat {
         indexed_uint_set m_unsat;
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
-        unsigned         m_num_non_binary_clauses;
-        unsigned         m_restart_count, m_reinit_count, m_parsync_count;
-        uint64_t         m_restart_next,  m_reinit_next,  m_parsync_next;
-        uint64_t         m_flips, m_last_flips, m_shifts;
-        unsigned         m_min_sz;
+        unsigned         m_num_non_binary_clauses{ 0 };
+        unsigned         m_restart_count{ 0 }, m_reinit_count{ 0 }, m_parsync_count{ 0 };
+        uint64_t         m_restart_next{ 0 }, m_reinit_next{ 0 }, m_parsync_next{ 0 };
+        uint64_t         m_flips{ 0 }, m_last_flips{ 0 }, m_shifts{ 0 };
+        unsigned         m_min_sz{ 0 };
         hashtable<unsigned, unsigned_hash, default_eq<unsigned>> m_models;
         stopwatch        m_stopwatch;
 

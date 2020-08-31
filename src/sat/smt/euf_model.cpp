@@ -69,7 +69,19 @@ namespace euf {
             }
             // model of s() must have been fixed.
             if (m.is_bool(e)) {
-                switch (s().value(m_expr2var.to_bool_var(e))) {
+                if (m.is_true(e)) {
+                    values.set(id, m.mk_true());
+                    continue;
+                }
+                if (m.is_false(e)) {
+                    values.set(id, m.mk_false());
+                    continue;
+                }
+                if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
+                    continue;
+                sat::bool_var v = m_expr2var.to_bool_var(e);
+                SASSERT(v != sat::null_bool_var);
+                switch (s().value(v)) {
                 case l_true:
                     values.set(id, m.mk_true());
                     break;

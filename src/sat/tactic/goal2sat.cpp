@@ -433,7 +433,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void convert_iff2(app * t, bool root, bool sign) {
         SASSERT(t->get_num_args() == 2);
-        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 2);
         sat::literal  l1 = m_result_stack[sz-1];
@@ -467,7 +466,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void convert_iff(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         if (!m_euf && is_xor(t))
             convert_ba(t, root, sign);
         else               
@@ -678,7 +676,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     
     void process(expr * n) {
         m_result_stack.reset();
-        TRACE("goal2sat", tout << mk_pp(n, m) << "\n";);
+        TRACE("goal2sat", tout << "assert: "<< mk_pp(n, m) << "\n";);
         process(n, true, m_is_redundant);
         CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());

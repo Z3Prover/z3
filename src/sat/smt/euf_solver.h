@@ -66,6 +66,7 @@ namespace euf {
         atom2bool_var&        m_expr2var;
         sat::sat_internalizer& si;
         smt_params            m_config;
+        bool                  m_drat { false };
         euf::egraph           m_egraph;
         stats                 m_stats;
         region                m_region;
@@ -104,7 +105,7 @@ namespace euf {
         void add_distinct_axiom(app* e, euf::enode* const* args);
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
         void axiomatize_basic(enode* n);
-        bool internalize_root(app* e, enode* const* args, bool sign);
+        bool internalize_root(app* e, bool sign);
         euf::enode* mk_true();
         euf::enode* mk_false();
 
@@ -127,6 +128,10 @@ namespace euf {
         void propagate();
         void get_antecedents(literal l, constraint& j, literal_vector& r);
         void force_push();
+        void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
+        void log_antecedents(literal l, literal_vector const& r);
+        void log_node(enode* n);
+        void log_bool_var(sat::bool_var v, enode* n);
 
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
@@ -155,26 +160,28 @@ namespace euf {
            if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
        }
 
+       struct scoped_set_translate {
+           solver& s;
+           scoped_set_translate(solver& s, ast_manager& m, atom2bool_var& a2b, sat::sat_internalizer& si) :
+               s(s) {
+               s.m_to_m = &m;
+               s.m_to_expr2var = &a2b;
+               s.m_to_si = &si;
+           }
+           ~scoped_set_translate() {
+               s.m_to_m = &s.m;
+               s.m_to_expr2var = &s.m_expr2var;
+               s.m_to_si = &s.si;
+           }
+       };
+
         void updt_params(params_ref const& p);
         void set_solver(sat::solver* s) override { m_solver = s; }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
-        struct scoped_set_translate {
-            solver& s;
-            scoped_set_translate(solver& s, ast_manager& m, atom2bool_var& a2b, sat::sat_internalizer& si) :
-                s(s) { 
-                s.m_to_m = &m; 
-                s.m_to_expr2var = &a2b; 
-                s.m_to_si = &si; 
-            }
-            ~scoped_set_translate() { 
-                s.m_to_m = &s.m; 
-                s.m_to_expr2var = &s.m_expr2var; 
-                s.m_to_si = &s.si;  
-            }
-        };
-
+        void init_search() override;
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
         bool is_extended_binary(ext_justification_idx idx, literal_vector& r) override;
+        bool is_external(bool_var v) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
         void asserted(literal l) override;

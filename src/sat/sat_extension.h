@@ -45,6 +45,12 @@ namespace sat {
         ext_constraint_list & get(literal l) { return m_use_list[l.index()]; }
         ext_constraint_list const & get(literal l) const { return m_use_list[l.index()]; }
         void finalize() { m_use_list.finalize(); }
+        bool contains(bool_var v) const {
+            if (m_use_list.size() <= 2*v)
+                return false;
+            literal lit(v, false);
+            return !get(lit).empty() || !get(~lit).empty();
+        }
     };
 
     class extension {
@@ -53,7 +59,9 @@ namespace sat {
         virtual unsigned get_id() const { return 0; }
         virtual void set_solver(solver* s) = 0;
         virtual void set_lookahead(lookahead* s) = 0;
+        virtual void init_search() {}
         virtual bool propagate(literal l, ext_constraint_idx idx) = 0;
+        virtual bool is_external(bool_var v) = 0;
         virtual double get_reward(literal l, ext_constraint_idx idx, literal_occs_fun& occs) const = 0;
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) = 0;
         virtual bool is_extended_binary(ext_justification_idx idx, literal_vector & r) = 0;

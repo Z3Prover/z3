@@ -50,6 +50,7 @@ static char const * g_input_file          = nullptr;
 static bool         g_standard_input      = false;
 static input_kind   g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
+bool                g_display_model       = false;
 static bool         g_display_istatistics = false;
 
 static void error(const char * msg) {
@@ -84,6 +85,7 @@ void display_usage() {
     std::cout << "  -lp         use parser for a modest subset of CPLEX LP input format.\n";
     std::cout << "  -log        use parser for Z3 log input format.\n";
     std::cout << "  -in         read formula from standard input.\n";
+    std::cout << "  -model      display model for satisfiable SMT.\n";
     std::cout << "\nMiscellaneous:\n";
     std::cout << "  -h, -?      prints this message.\n";
     std::cout << "  -version    prints version number of Z3.\n";
@@ -207,6 +209,9 @@ static void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "st") == 0) {
                 g_display_statistics = true; 
                 gparams::set("stats", "true");
+            }
+            else if (strcmp(opt_name, "model") == 0) {
+                g_display_model = true;
             }
             else if (strcmp(opt_name, "ist") == 0) {
                 g_display_istatistics = true; 

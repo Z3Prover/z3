@@ -107,7 +107,7 @@ public:
     }
 
     mpz& operator=(mpz const& other) = delete;
-    mpz& operator=(mpz &&other) {
+    mpz& operator=(mpz &&other) noexcept {
         swap(other);
         return *this;
     }

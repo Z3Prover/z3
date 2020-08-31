@@ -76,12 +76,17 @@ namespace sat {
     watch_list const & simplifier::get_wlist(literal l) const { return s.get_wlist(l); }
 
     bool simplifier::is_external(bool_var v) const { 
-        return 
-            s.is_assumption(v) ||
-            (s.is_external(v) && s.is_incremental()) ||
-            (s.is_external(v) && s.m_ext &&
-             (!m_ext_use_list.get(literal(v, false)).empty() ||
-              !m_ext_use_list.get(literal(v, true)).empty()));
+        if (!s.is_external(v))
+            return s.is_assumption(v);
+        if (s.is_incremental())
+            return true;
+        if (!s.m_ext)
+            return false;
+        if (s.m_ext->is_external(v))
+            return true;
+        if (m_ext_use_list.contains(v))
+            return true;
+        return false;
     }
 
     inline bool simplifier::was_eliminated(bool_var v) const { return s.was_eliminated(v); }

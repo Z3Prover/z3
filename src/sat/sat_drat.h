@@ -21,20 +21,8 @@ Notes:
 namespace sat {
     class drat {
     public:
-        struct s_ext {};
-        struct s_unit {};
-        struct premise {
-            enum { t_clause, t_unit, t_ext } m_type;
-            union {
-                clause* m_clause;
-                unsigned m_literal;                
-            };
-            premise(s_ext, literal l): m_type(t_ext), m_literal(l.index()) {}
-            premise(s_unit, literal l): m_type(t_unit), m_literal(l.index()) {}
-            premise(clause* c): m_type(t_clause), m_clause(c) {}
-        };
+        enum status { asserted, learned, deleted, ba, euf };
     private:
-        enum status { asserted, learned, deleted, external };
         struct watched_clause {
             clause* m_clause;
             literal m_l1, m_l2;
@@ -91,8 +79,17 @@ namespace sat {
         void add(literal l, bool learned);
         void add(literal l1, literal l2, bool learned);
         void add(clause& c, bool learned);
-        void add(literal_vector const& c, svector<premise> const& premises);
+        void add(literal_vector const& c, status st);
         void add(literal_vector const& c); // add learned clause
+
+        // support for SMT - connect Boolean variables with AST nodes
+        // associate AST node id with Boolean variable v
+        void bool_def(bool_var v, unsigned n);
+
+        // declare AST node n with 'name' and arguments arg
+        void def_begin(unsigned n, symbol const& name);
+        void def_add_arg(unsigned arg);
+        void def_end();
 
         bool is_cleaned(clause& c) const;        
         void del(literal l);

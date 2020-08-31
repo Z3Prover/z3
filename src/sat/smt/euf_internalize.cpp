@@ -54,7 +54,7 @@ namespace euf {
             m_args.reset();
             for (unsigned i = 0; i < num; ++i)
                 m_args.push_back(m_egraph.find(to_app(e)->get_arg(i)));
-            if (root && internalize_root(to_app(e), m_args.c_ptr(), sign))
+            if (root && internalize_root(to_app(e), sign))
                 return sat::null_literal;
             n = m_egraph.mk(e, num, m_args.c_ptr());
             attach_node(n);
@@ -90,8 +90,10 @@ namespace euf {
 
     void solver::attach_node(euf::enode* n) {
         expr* e = n->get_owner();
+        log_node(n);
         if (m.is_bool(e)) {
             sat::bool_var v = si.add_bool_var(e);
+            log_bool_var(v, n);
             attach_lit(literal(v, false),  n);
         }
         axiomatize_basic(n);
@@ -112,12 +114,13 @@ namespace euf {
         m_var_trail.push_back(v);
     }
 
-    bool solver::internalize_root(app* e, enode* const* args, bool sign) {
+    bool solver::internalize_root(app* e, bool sign) {
         if (m.is_distinct(e)) {
+            enode_vector _args(m_args);
             if (sign)
-                add_not_distinct_axiom(e, args);
+                add_not_distinct_axiom(e, _args.c_ptr());
             else
-                add_distinct_axiom(e, args);
+                add_distinct_axiom(e, _args.c_ptr());
             return true;
         }
         return false;
@@ -129,7 +132,7 @@ namespace euf {
         if (sz <= 1)
             return;
 
-        static const unsigned distinct_max_args = 24;
+        static const unsigned distinct_max_args = 32;
         if (sz <= distinct_max_args) {
             sat::literal_vector lits;
             for (unsigned i = 0; i < sz; ++i) {
@@ -157,19 +160,19 @@ namespace euf {
                 expr_ref gapp(m.mk_app(g, fapp.get()), m);
                 expr_ref eq(m.mk_eq(gapp, arg), m);
                 sat::literal lit = internalize(eq, false, false, m_is_redundant);
-                s().add_clause(1, &lit, false);
+                s().add_clause(1, &lit, m_is_redundant);
                 eqs.push_back(m.mk_eq(fapp, a));
             }
             pb_util pb(m);
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.c_ptr(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
-            s().mk_clause(1, &lit, false);
+            s().mk_clause(1, &lit, m_is_redundant);
         }
     }
 
     void solver::add_distinct_axiom(app* e, enode* const* args) {
         SASSERT(m.is_distinct(e));
-        static const unsigned distinct_max_args = 24;
+        static const unsigned distinct_max_args = 32;
         unsigned sz = e->get_num_args();
         if (sz <= 1) {
             s().mk_clause(0, nullptr, m_is_redundant);
@@ -211,6 +214,7 @@ namespace euf {
             expr* el = a->get_arg(2);
             sat::bool_var v = m_expr2var.to_bool_var(c);
             SASSERT(v != sat::null_bool_var);
+            SASSERT(!m.is_bool(e));
             expr_ref eq_th(m.mk_eq(a, th), m);
             expr_ref eq_el(m.mk_eq(a, el), m);
             sat::literal lit_th = internalize(eq_th, false, false, m_is_redundant);

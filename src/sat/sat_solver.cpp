@@ -1843,6 +1843,8 @@ namespace sat {
         m_min_core.reset();
         m_simplifier.init_search();
         m_mc.init_search(*this);
+        if (m_ext)
+            m_ext->init_search();
         TRACE("sat", display(tout););
     }
 
@@ -2983,16 +2985,15 @@ namespace sat {
             level = update_max_level(js.get_literal2(), level, unique_max);
             return level;
         case justification::CLAUSE: 
-            for (literal l : get_clause(js)) {
+            for (literal l : get_clause(js)) 
                 level = update_max_level(l, level, unique_max);
-            }
             return level;
-        case justification::EXT_JUSTIFICATION: 
-            SASSERT(not_l != null_literal);
-            fill_ext_antecedents(~not_l, js);
-            for (literal l : m_ext_antecedents) {
+        case justification::EXT_JUSTIFICATION:
+            if (not_l != null_literal) 
+                not_l.neg();
+            fill_ext_antecedents(not_l, js);
+            for (literal l : m_ext_antecedents) 
                 level = update_max_level(l, level, unique_max);
-            }
             return level;
         default:
             UNREACHABLE();

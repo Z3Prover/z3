@@ -35,6 +35,7 @@ Revision History:
 static mutex *display_stats_mux = new mutex;
 
 extern bool g_display_statistics;
+extern bool g_display_model;
 static clock_t             g_start_time;
 static cmd_context *       g_cmd_context = nullptr;
 
@@ -51,6 +52,14 @@ static void display_statistics() {
     }
 }
 
+static void display_model() {
+    if (g_display_model && g_cmd_context) {
+        model_ref mdl;
+        if (g_cmd_context->is_model_available(mdl))
+            g_cmd_context->display_model(mdl);
+    }
+}
+
 static void on_timeout() {
     display_statistics();
     exit(0);    
@@ -63,10 +72,19 @@ static void STD_CALL on_ctrl_c(int) {
 }
 
 void help_tactics() {
+    struct cmp {
+        bool operator()(tactic_cmd* a, tactic_cmd* b) const {
+            return a->get_name().str() < b->get_name().str();
+        }
+    };
     cmd_context ctx;
-    for (auto cmd : ctx.tactics()) {
+    ptr_vector<tactic_cmd> cmds;
+    for (auto cmd : ctx.tactics()) 
+        cmds.push_back(cmd);
+    cmp lt;
+    std::sort(cmds.begin(), cmds.end(), lt);
+    for (auto cmd : cmds) 
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
-    }
 }
 
 void help_tactic(char const* name) {
@@ -82,10 +100,19 @@ void help_tactic(char const* name) {
 }
 
 void help_probes() {
+    struct cmp {
+        bool operator()(probe_info* a, probe_info* b) const {
+            return a->get_name().str() < b->get_name().str();
+        }
+    };
     cmd_context ctx;
-    for (auto cmd : ctx.probes()) {
+    ptr_vector<probe_info> cmds;
+    for (auto cmd : ctx.probes()) 
+        cmds.push_back(cmd);
+    cmp lt;
+    std::sort(cmds.begin(), cmds.end(), lt);
+    for (auto cmd : cmds) 
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
-    }
 }
 
 unsigned read_smtlib2_commands(char const * file_name) {
@@ -118,8 +145,8 @@ unsigned read_smtlib2_commands(char const * file_name) {
         result = parse_smt2_commands(ctx, std::cin, true);
     }
 
-
     display_statistics();
+    display_model();
     g_cmd_context = nullptr;
     return result ? 0 : 1;
 }

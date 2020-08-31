@@ -203,7 +203,6 @@ namespace euf {
         SASSERT(m_num_scopes == 0 || m_worklist.empty());
         unsigned head = 0, tail = m_worklist.size();
         while (head < tail && m.limit().inc() && !inconsistent()) {
-            TRACE("euf", tout << "iterate: " << head << " " << tail << "\n";);
             for (unsigned i = head; i < tail && !inconsistent(); ++i) {
                 enode* n = m_worklist[i]->get_root();
                 if (!n->is_marked1()) {
@@ -349,7 +348,8 @@ namespace euf {
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
         out << std::setw(5)
             << n->get_owner_id() << " := ";
-        out << n->get_root()->get_owner_id() << " ";
+        if (!n->is_root()) 
+            out << "[" << n->get_root()->get_owner_id() << "] ";
         expr* f = n->get_owner();
         if (is_app(f))
             out << to_app(f)->get_decl()->get_name() << " ";
@@ -373,10 +373,8 @@ namespace euf {
         unsigned max_args = 0;
         for (enode* n : m_nodes)
             max_args = std::max(max_args, n->num_args());
-
-        for (enode* n : m_nodes) {
+        for (enode* n : m_nodes) 
             display(out, max_args, n);          
-        }
         return out;
     }
 
@@ -397,9 +395,8 @@ namespace euf {
             enode* n1 = src.m_nodes[i];
             expr* e1 = src.m_exprs[i];
             args.reset();
-            for (unsigned j = 0; j < n1->num_args(); ++j) {
+            for (unsigned j = 0; j < n1->num_args(); ++j) 
                 args.push_back(old_expr2new_enode[n1->get_arg(j)->get_owner_id()]);
-            }
             expr*  e2 = tr(e1);
             enode* n2 = mk(e2, args.size(), args.c_ptr());
             old_expr2new_enode.setx(e1->get_id(), n2, nullptr);
@@ -412,9 +409,8 @@ namespace euf {
             SASSERT(!n1t || n2t);
             SASSERT(!n1t || src.m.get_sort(n1->get_owner()) == src.m.get_sort(n1t->get_owner()));
             SASSERT(!n1t || m.get_sort(n2->get_owner()) == m.get_sort(n2t->get_owner()));
-            if (n1t && n2->get_root() != n2t->get_root()) {
+            if (n1t && n2->get_root() != n2t->get_root()) 
                 merge(n2, n2t, n1->m_justification.copy(copy_justification));
-            }
         }
         propagate();
     }

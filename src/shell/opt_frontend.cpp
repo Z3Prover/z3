@@ -22,32 +22,40 @@ Copyright (c) 2015 Microsoft Corporation
 #include "opt/opt_parse.h"
 
 extern bool g_display_statistics;
+extern bool g_display_model;
 static bool g_first_interrupt = true;
 static opt::context* g_opt = nullptr;
 static double g_start_time = 0;
 static unsigned_vector g_handles;
 static mutex *display_stats_mux = new mutex;
 
+static void display_model(std::ostream& out) {
+    if (!g_opt)
+        return;
+    model_ref mdl;
+    g_opt->get_model(mdl);
+    if (mdl) {
+        model_smt2_pp(out, g_opt->get_manager(), *mdl, 0); 
+    }
+    for (unsigned h : g_handles) {
+        expr_ref lo = g_opt->get_lower(h);
+        expr_ref hi = g_opt->get_upper(h);
+        if (lo == hi) {
+            out << "   " << lo << "\n";
+        }
+        else {
+            out << "  [" << lo << ":" << hi << "]\n";
+        }
+    }
+}
+
+static void display_model() {
+    if (g_display_model)
+        display_model(std::cout);
+}
 
 static void display_results() {
-    IF_VERBOSE(1, 
-               if (g_opt) {
-                   model_ref mdl;
-                   g_opt->get_model(mdl);
-                   if (mdl) {
-                       model_smt2_pp(verbose_stream(), g_opt->get_manager(), *mdl, 0); 
-                   }
-                   for (unsigned h : g_handles) {
-                       expr_ref lo = g_opt->get_lower(h);
-                       expr_ref hi = g_opt->get_upper(h);
-                       if (lo == hi) {
-                           std::cout << "   " << lo << "\n";
-                       }
-                       else {
-                           std::cout << "  [" << lo << ":" << hi << "]\n";
-                       }
-                   }
-               });
+    IF_VERBOSE(1, display_model(verbose_stream()));
 }
 
 static void display_statistics() {
@@ -128,6 +136,7 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
         std::cerr << ex.msg() << "\n";
     }
     display_statistics();
+    display_model();
     g_opt = nullptr;
     return 0;
 }

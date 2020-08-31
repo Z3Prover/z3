@@ -73,28 +73,48 @@ namespace sat {
         case drat::status::learned:  return out << "l";
         case drat::status::asserted: return out << "a";
         case drat::status::deleted:  return out << "d";
-        case drat::status::external: return out << "e";
+        case drat::status::ba:       return out << "c ba";
+        case drat::status::euf:      return out << "c euf";
         default: return out;
         }
     }
 
     void drat::dump(unsigned n, literal const* c, status st) {
-        if (st == status::asserted || st == status::external) {
+        if (st == status::asserted)
             return;
-        }
-        if (m_activity && ((m_num_add % 1000) == 0)) {
+        if (m_activity && ((m_num_add % 1000) == 0)) 
             dump_activity();
-        }
         
         char buffer[10000];
         char digits[20];     // enough for storing unsigned
         char* lastd = digits + sizeof(digits);
         
         unsigned len = 0;
-        if (st == status::deleted) {
+        switch (st) {
+        case status::deleted:
             buffer[0] = 'd';
             buffer[1] = ' ';
             len = 2;
+            break;
+        case status::euf:
+            buffer[0] = 'c';
+            buffer[1] = ' ';
+            buffer[2] = 'e';
+            buffer[3] = 'u';
+            buffer[4] = 'f';
+            buffer[5] = ' ';
+            len = 6;
+            break;
+        case status::ba:
+            buffer[0] = 'c';
+            buffer[1] = ' ';
+            buffer[2] = 'b';
+            buffer[3] = 'a';
+            buffer[4] = ' ';
+            len = 5;
+            break;
+        default:
+            break;
         }
         for (unsigned i = 0; i < n; ++i) {
             literal lit = c[i];
@@ -133,7 +153,8 @@ namespace sat {
         unsigned char ch = 0;
         switch (st) {
         case status::asserted: return;
-        case status::external: return; 
+        case status::ba: return; 
+        case status::euf: return; 
         case status::learned: ch = 'a'; break;
         case status::deleted: ch = 'd'; break;
         default: UNREACHABLE(); break;
@@ -236,6 +257,27 @@ namespace sat {
             }
         }
     }
+
+    void drat::bool_def(bool_var v, unsigned n) {
+        if (m_out)
+            (*m_out) << "bool " << v << " := " << n << "\n";
+    }
+
+    void drat::def_begin(unsigned n, symbol const& name) {
+        if (m_out) 
+            (*m_out) << "def " << n << " := " << name;
+    }
+
+    void drat::def_add_arg(unsigned arg) {
+        if (m_out) 
+            (*m_out) << " " << arg;
+    }
+
+    void drat::def_end() {
+        if (m_out) 
+            (*m_out) << "\n";
+    }
+
 
 #if 0
     // debugging code
@@ -439,7 +481,7 @@ namespace sat {
         SASSERT(lits.size() == n);
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             status st = m_status[i];
-            if (m_proof[i] && m_proof[i]->size() > 1 && (st == status::asserted || st == status::external)) {
+            if (m_proof[i] && m_proof[i]->size() > 1 && st == status::asserted) {
                 clause& c = *m_proof[i];
                 unsigned j = 0;
                 for (; j < c.size() && c[j] != ~l; ++j) {}
@@ -698,15 +740,15 @@ namespace sat {
             append(*cl, get_status(learned));
         }
     }
-    void drat::add(literal_vector const& lits, svector<premise> const& premises) {
+    void drat::add(literal_vector const& lits, status th) {
         ++m_num_add;
         if (m_check) {
             switch (lits.size()) {
             case 0: add(); break;
-            case 1: append(lits[0], status::external); break;
+            case 1: append(lits[0], th); break;
             default: {
                 clause* c = m_alloc.mk_clause(lits.size(), lits.c_ptr(), true);
-                append(*c, status::external);
+                append(*c, th);
                 break;
             }
             }
@@ -724,7 +766,7 @@ namespace sat {
             default: {
                 verify(c.size(), c.begin());
                 clause* cl = m_alloc.mk_clause(c.size(), c.c_ptr(), true);
-                append(*cl, status::external);                
+                append(*cl, status::ba);                
                 break;
             }
             }

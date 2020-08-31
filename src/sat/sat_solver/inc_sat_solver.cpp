@@ -973,6 +973,7 @@ private:
         if (m_sat_mc) {
             (*m_sat_mc)(mdl);
         }
+        m_goal2sat.update_model(mdl);
         if (m_mcs.back()) {      
             TRACE("sat", m_mcs.back()->display(tout););
             (*m_mcs.back())(mdl);

@@ -318,7 +318,6 @@ struct scoped_enable_trace {
 };
 
 final_check_status theory_seq::final_check_eh() {
-    force_push();
     if (!m_has_seq) {
         return FC_DONE;
     }
@@ -1493,7 +1492,6 @@ bool theory_seq::internalize_atom(app* a, bool) {
 }
 
 bool theory_seq::internalize_term(app* term) {
-    force_push();
     m_has_seq = true;
     if (ctx.e_internalized(term)) {
         enode* e = ctx.get_enode(term);
@@ -1621,7 +1619,6 @@ bool theory_seq::check_int_string(expr* e) {
     
 
 void theory_seq::apply_sort_cnstr(enode* n, sort* s) {
-    force_push();
     mk_var(n);
 }
 
@@ -2521,7 +2518,6 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
-    force_push();
     if (ctx.get_fparams().m_seq_use_unicode)
         m_unicode.propagate();
     if (m_regex.can_propagate())
@@ -2913,7 +2909,6 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
 }
 
 void theory_seq::assign_eh(bool_var v, bool is_true) {
-    force_push();
     expr* e = ctx.bool_var2expr(v);
     expr* e1 = nullptr, *e2 = nullptr;
     expr_ref f(m);
@@ -3029,7 +3024,6 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
 }
 
 void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
-    force_push();
     enode* n1 = get_enode(v1);
     enode* n2 = get_enode(v2);
     expr* o1 = n1->get_owner();
@@ -3073,7 +3067,6 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
 }
 
 void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
-    force_push();
     enode* n1 = get_enode(v1);
     enode* n2 = get_enode(v2);    
     expr_ref e1(n1->get_owner(), m);
@@ -3109,8 +3102,6 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
 }
 
 void theory_seq::push_scope_eh() {
-    if (lazy_push()) 
-        return;
     theory::push_scope_eh();
     m_rep.push_scope();
     m_exclude.push_scope();
@@ -3125,8 +3116,6 @@ void theory_seq::push_scope_eh() {
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
-    if (lazy_pop(num_scopes))
-        return;
     m_trail_stack.pop_scope(num_scopes);
     theory::pop_scope_eh(num_scopes);
     m_dm.pop_scope(num_scopes);
@@ -3148,7 +3137,6 @@ void theory_seq::restart_eh() {
 }
 
 void theory_seq::relevant_eh(app* n) {
-    force_push();
     if (m_util.str.is_index(n)   ||
         m_util.str.is_replace(n) ||
         m_util.str.is_extract(n) ||

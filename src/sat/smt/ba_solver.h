@@ -469,7 +469,6 @@ namespace sat {
             else m_solver->set_conflict(j, l); 
         }
         inline config const& get_config() const { return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); }
-        inline void drat_add(literal_vector const& c, svector<drat::premise> const& premises) { if (m_solver) m_solver->m_drat.add(c, premises); }
 
 
         mutable bool m_overflow;
@@ -572,6 +571,7 @@ namespace sat {
         void add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void add_xr(literal_vector const& lits);
 
+        bool is_external(bool_var v) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
         lbool resolve_conflict() override;
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;

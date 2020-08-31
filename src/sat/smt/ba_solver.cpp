@@ -317,14 +317,6 @@ namespace sat {
             m_num_propagations_since_pop++;
             //TRACE("ba", tout << "#prop: " << m_stats.m_num_propagations << " - " << c.lit() << " => " << lit << "\n";);
             SASSERT(validate_unit_propagation(c, lit));
-            if (get_config().m_drat) {
-                svector<drat::premise> ps;
-                literal_vector lits;
-                get_antecedents(lit, c, lits);
-                lits.push_back(lit);
-                ps.push_back(drat::premise(drat::s_ext(), c.lit())); // null_literal case.
-                drat_add(lits, ps);
-            }
             assign(lit, justification::mk_ext_justification(s().scope_lvl(), c.cindex()));
             break;
         }
@@ -1604,9 +1596,8 @@ namespace sat {
 
         TRACE("ba", tout << m_lemma << "\n";);
 
-        if (get_config().m_drat) {
-            svector<drat::premise> ps; // TBD fill in
-            drat_add(m_lemma, ps);
+        if (get_config().m_drat && m_solver) {
+            s().m_drat.add(m_lemma, sat::drat::status::ba);
         }
 
         s().m_lemma.reset();
@@ -1841,6 +1832,10 @@ namespace sat {
     void ba_solver::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         add_pb_ge(lit, wlits, k, m_is_redundant);
+    }
+
+    bool ba_solver::is_external(bool_var v) {
+        return false;
     }
 
     /*
@@ -2128,6 +2123,13 @@ namespace sat {
         case pb_t: get_antecedents(l, c.to_pb(), r); break;
         case xr_t: get_antecedents(l, c.to_xr(), r); break;
         default: UNREACHABLE(); break;
+        }
+        if (get_config().m_drat && m_solver) {
+            literal_vector lits;
+            for (literal lit : r) 
+                lits.push_back(~lit);
+            lits.push_back(l);
+            s().m_drat.add(lits, sat::drat::status::ba);
         }
     }
 
