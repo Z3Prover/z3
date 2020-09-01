@@ -342,7 +342,7 @@ void hwf_manager::minimum(hwf const & x, hwf const & y, hwf & o) {
     _mm_store_sd(&o.value, _mm_min_sd(_mm_set_sd(x.value), _mm_set_sd(y.value)));
 #else
     // use __min ?
-    if (is_nan(x) || is_nan(x))
+    if (is_nan(x))
         o.value = y.value;
     else if (is_nan(y))
         o.value = x.value;
