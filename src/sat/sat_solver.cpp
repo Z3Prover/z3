@@ -1602,7 +1602,7 @@ namespace sat {
     }
 
     lbool solver::bounded_search() {
-#if 0
+#if 1
         lbool is_sat = l_undef;
         while (is_sat == l_undef && !should_cancel()) {
             if (inconsistent()) is_sat = resolve_conflict_core();
