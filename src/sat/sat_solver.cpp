@@ -86,7 +86,7 @@ namespace sat {
         m_cuber                   = nullptr;
         m_local_search            = nullptr;
         m_mc.set_solver(this);
-        mk_var(false, false);
+        //mk_var(false, false);
     }
 
     solver::~solver() {
@@ -138,7 +138,7 @@ namespace sat {
         m_qhead = 0;
         m_trail.reset();
         m_scopes.reset();
-        mk_var(false, false);
+        //mk_var(false, false);
 
         if (src.inconsistent()) {
             set_conflict();
