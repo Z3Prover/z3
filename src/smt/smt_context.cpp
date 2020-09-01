@@ -781,10 +781,10 @@ namespace smt {
 
         if (r2->m_th_var_list.get_next() == nullptr && r1->m_th_var_list.get_next() == nullptr) {
             // Common case: r2 and r1 have at most one theory var.
-            theory_id  t2 = r2->m_th_var_list.get_th_id();
-            theory_id  t1 = r1->m_th_var_list.get_th_id();
-            theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t2) : r2->m_th_var_list.get_th_var();
-            theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : r1->m_th_var_list.get_th_var();
+            theory_id  t2 = r2->m_th_var_list.get_id();
+            theory_id  t1 = r1->m_th_var_list.get_id();
+            theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t2) : r2->m_th_var_list.get_var();
+            theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : r1->m_th_var_list.get_var();
             TRACE("merge_theory_vars",
                   tout << "v2: " << v2 << " #" << r2->get_owner_id() << ", v1: " << v1 << " #" << r1->get_owner_id()
                   << ", t2: " << t2 << ", t1: " << t1 << "\n";);
@@ -805,8 +805,8 @@ namespace smt {
                 push_new_th_diseqs(r1, v2, get_theory(t2));
             }
             else if (v1 != null_theory_var && v2 == null_theory_var) {
-                r2->m_th_var_list.set_th_var(v1);
-                r2->m_th_var_list.set_th_id(t1);
+                r2->m_th_var_list.set_var(v1);
+                r2->m_th_var_list.set_id(t1);
                 TRACE("merge_theory_vars", tout << "push_new_th_diseqs v1: " << v1 << ", t1: " << t1 << "\n";);
                 push_new_th_diseqs(r2, v1, get_theory(t1));
             }
@@ -819,8 +819,8 @@ namespace smt {
 
             theory_var_list * l2 = r2->get_th_var_list();
             while (l2) {
-                theory_id  t2 = l2->get_th_id();
-                theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t2) : l2->get_th_var();
+                theory_id  t2 = l2->get_id();
+                theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t2) : l2->get_var();
                 SASSERT(v2 != null_theory_var);
                 SASSERT(t2 != null_theory_id);
                 theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t2) : r1->get_th_var(t2);
@@ -838,8 +838,8 @@ namespace smt {
 
             theory_var_list * l1 = r1->get_th_var_list();
             while (l1) {
-                theory_id  t1 = l1->get_th_id();
-                theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : l1->get_th_var();
+                theory_id  t1 = l1->get_id();
+                theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : l1->get_var();
                 SASSERT(v1 != null_theory_var);
                 SASSERT(t1 != null_theory_id);
                 theory_var v2 = r2->get_th_var(t1);
@@ -973,13 +973,13 @@ namespace smt {
         // restore theory vars
         if (r2->m_th_var_list.get_next() == nullptr) {
             // common case: r2 has at most one variable
-            theory_var v2 = r2->m_th_var_list.get_th_var();
+            theory_var v2 = r2->m_th_var_list.get_var();
             if (v2 != null_theory_var) {
-                theory_id  t2 = r2->m_th_var_list.get_th_id();
+                theory_id  t2 = r2->m_th_var_list.get_id();
                 if (get_theory(t2)->get_enode(v2)->get_root() != r2) {
                     SASSERT(get_theory(t2)->get_enode(v2)->get_root() == r1);
-                    r2->m_th_var_list.set_th_var(null_theory_var); //remove variable from r2
-                    r2->m_th_var_list.set_th_id(null_theory_id);
+                    r2->m_th_var_list.set_var(null_theory_var); //remove variable from r2
+                    r2->m_th_var_list.set_id(null_theory_id);
                 }
             }
         }
@@ -1019,8 +1019,8 @@ namespace smt {
         theory_var_list * new_l2  = nullptr;
         theory_var_list * l2      = r2->get_th_var_list();
         while (l2) {
-            theory_var v2 = l2->get_th_var();
-            theory_id t2  = l2->get_th_id();
+            theory_var v2 = l2->get_var();
+            theory_id t2  = l2->get_id();
 
             if (get_theory(t2)->get_enode(v2)->get_root() != r2) {
                 SASSERT(get_theory(t2)->get_enode(v2)->get_root() == r1);
@@ -1043,7 +1043,7 @@ namespace smt {
             new_l2->set_next(nullptr);
         }
         else {
-            r2->m_th_var_list.set_th_var(null_theory_var);
+            r2->m_th_var_list.set_var(null_theory_var);
             r2->m_th_var_list.set_next(nullptr);
         }
     }
@@ -1070,7 +1070,7 @@ namespace smt {
             TRACE("add_diseq_inconsistent", tout << "add_diseq #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " inconsistency, scope_lvl: " << m_scope_lvl << "\n";);
             //return false;
 
-            theory_id  t1 = r1->m_th_var_list.get_th_id();
+            theory_id  t1 = r1->m_th_var_list.get_id();
             if (t1 == null_theory_id) return false;
             return get_theory(t1)->use_diseqs();
         }
@@ -1078,15 +1078,15 @@ namespace smt {
         // Propagate disequalities to theories
         if (r1->m_th_var_list.get_next() == nullptr && r2->m_th_var_list.get_next() == nullptr) {
             // common case: r2 and r1 have at most one theory var.
-            theory_id  t1 = r1->m_th_var_list.get_th_id();
-            theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : r1->m_th_var_list.get_th_var();
-            theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t1) : r2->m_th_var_list.get_th_var();
+            theory_id  t1 = r1->m_th_var_list.get_id();
+            theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : r1->m_th_var_list.get_var();
+            theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t1) : r2->m_th_var_list.get_var();
             TRACE("add_diseq", tout << "one theory diseq\n";
                   tout << v1 << " != " << v2 << "\n";
-                  tout << "th1: " << t1 << " th2: " << r2->m_th_var_list.get_th_id() << "\n";
+                  tout << "th1: " << t1 << " th2: " << r2->m_th_var_list.get_id() << "\n";
                   );
             if (t1 != null_theory_id && v1 != null_theory_var && v2 != null_theory_var &&
-                t1 == r2->m_th_var_list.get_th_id()) {
+                t1 == r2->m_th_var_list.get_id()) {
                 if (get_theory(t1)->use_diseqs())
                     push_new_th_diseq(t1, v1, v2);
             }
@@ -1094,8 +1094,8 @@ namespace smt {
         else {
             theory_var_list * l1 = r1->get_th_var_list();
             while (l1) {
-                theory_id  t1 = l1->get_th_id();
-                theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : l1->get_th_var();
+                theory_id  t1 = l1->get_id();
+                theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : l1->get_var();
                 theory * th   = get_theory(t1);
                 TRACE("add_diseq", tout << m.get_family_name(t1) << "\n";);
                 if (th->use_diseqs()) {
@@ -1586,7 +1586,7 @@ namespace smt {
                 enode *           e = get_enode(n);
                 theory_var_list * l = e->get_th_var_list();
                 while (l) {
-                    theory_id  th_id = l->get_th_id();
+                    theory_id  th_id = l->get_id();
                     theory *   th    = get_theory(th_id);
                     // I don't want to invoke relevant_eh twice for the same n.
                     if (th != propagated_th)
@@ -4509,7 +4509,7 @@ namespace smt {
             // contains a parent application.
 
             theory_var_list * l = n->get_th_var_list();
-            theory_id th_id     = l->get_th_id();
+            theory_id th_id     = l->get_id();
 
             for (enode * parent : enode::parents(n)) {
                 app* p = parent->get_owner();
@@ -4548,7 +4548,7 @@ namespace smt {
             // the theories of (array int int) and (array (array int int) int).
             // Remark: The inconsistency is not going to be detected if they are
             // not marked as shared.
-            return get_theory(th_id)->is_shared(l->get_th_var());
+            return get_theory(th_id)->is_shared(l->get_var());
         }
         default:
             return true;

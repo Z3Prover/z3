@@ -127,13 +127,13 @@ namespace euf {
             SASSERT(n);
             SASSERT(m_egraph.is_equality(n));
             SASSERT(!l.sign());
-            m_egraph.explain_eq<unsigned>(m_explain, n->get_arg(0), n->get_arg(1), n->commutative());
+            m_egraph.explain_eq<unsigned>(m_explain, n->get_arg(0), n->get_arg(1));
             break;
         case constraint::kind_t::lit:
             n = m_var2node[l.var()];
             SASSERT(n);
             SASSERT(m.is_bool(n->get_owner()));
-            m_egraph.explain_eq<unsigned>(m_explain, n, (l.sign() ? mk_false() : mk_true()), false);
+            m_egraph.explain_eq<unsigned>(m_explain, n, (l.sign() ? mk_false() : mk_true()));
             break;
         default:
             IF_VERBOSE(0, verbose_stream() << (unsigned)j.kind() << "\n");

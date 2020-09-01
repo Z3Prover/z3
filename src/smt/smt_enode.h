@@ -18,11 +18,12 @@ Revision History:
 --*/
 #pragma once
 
+#include "util/id_var_list.h"
+#include "util/approx_set.h"
 #include "ast/ast.h"
 #include "smt/smt_types.h"
 #include "smt/smt_eq_justification.h"
-#include "smt/smt_theory_var_list.h"
-#include "util/approx_set.h"
+
 
 namespace smt {
 
@@ -48,6 +49,7 @@ namespace smt {
     unknown performance penalty for this. */
 
     typedef ptr_vector<enode> app2enode_t;    // app -> enode
+    typedef id_var_list<null_family_id, null_theory_var> theory_var_list;
 
     class tmp_enode;
 
@@ -91,7 +93,7 @@ namespace smt {
           then the congruent f(b) in m_parents will also be relevant. 
         */
         enode_vector        m_parents;          //!< Parent enodes of the equivalence class.
-        theory_var_list     m_th_var_list;      //!< List of theories that 'care' about this enode.
+        id_var_list<>       m_th_var_list;      //!< List of theories that 'care' about this enode.
         trans_justification m_trans;            //!< A justification for the enode being equal to its root.
         bool                m_proof_is_logged;  //!< Indicates that the proof for the enode being equal to its root is in the log.
         signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
@@ -105,7 +107,7 @@ namespace smt {
         
 
         theory_var_list * get_th_var_list() { 
-            return m_th_var_list.get_th_var() == null_theory_var ? nullptr : &m_th_var_list;
+            return m_th_var_list.get_var() == null_theory_var ? nullptr : &m_th_var_list;
         }
 
         friend class set_merge_tf_trail;
@@ -356,11 +358,11 @@ namespace smt {
         iterator end() { return iterator(this, this); }
         
         theory_var_list const * get_th_var_list() const { 
-            return m_th_var_list.get_th_var() == null_theory_var ? nullptr : &m_th_var_list;
+            return m_th_var_list.get_var() == null_theory_var ? nullptr : &m_th_var_list;
         }
 
         bool has_th_vars() const {
-            return m_th_var_list.get_th_var() != null_theory_var;
+            return m_th_var_list.get_var() != null_theory_var;
         }
 
         unsigned get_num_th_vars() const;

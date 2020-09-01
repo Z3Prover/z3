@@ -25,6 +25,7 @@ Notes:
 
 #pragma once
 #include "util/statistics.h"
+#include "util/trail.h"
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_etable.h"
 
@@ -37,12 +38,24 @@ namespace euf {
         add_eq_record(enode* r1, enode* n1, unsigned r2_num_parents):
             r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
     };
+
+    struct th_eq {
+        theory_id  m_id;
+        theory_var m_v1;
+        theory_var m_v2;
+        enode* m_child;
+        enode* m_root;
+        th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) :
+            m_id(id), m_v1(v1), m_v2(v2), m_child(c), m_root(r) {}
+    };
     
     class egraph {        
+        typedef ptr_vector<trail<egraph> > trail_stack;
         struct scope {
             bool     m_inconsistent;
             unsigned m_num_eqs;
             unsigned m_num_nodes;
+            unsigned m_trail_sz;
         };
         struct stats {
             unsigned m_num_merge;
@@ -53,6 +66,7 @@ namespace euf {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
         ast_manager&           m;
+        trail_stack            m_trail;
         region                 m_region;
         enode_vector           m_worklist;
         etable                 m_table;
@@ -68,10 +82,11 @@ namespace euf {
         justification          m_justification;
         enode_vector           m_new_eqs;
         enode_vector           m_new_lits;
+        svector<th_eq>         m_new_th_eqs;
         enode_vector           m_todo;
         stats                  m_stats;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
-        std::function<void(app*,app*)>        m_used_cc;            
+        std::function<void(app*,app*)>        m_used_cc;  
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
             m_eqs.push_back(add_eq_record(r1, n1, r2_num_parents));
@@ -82,6 +97,7 @@ namespace euf {
         void force_push();
         void set_conflict(enode* n1, enode* n2, justification j);
         void merge(enode* n1, enode* n2, justification j);
+        void merge_th_eq(enode* n, enode* root);
         void merge_justification(enode* n1, enode* n2, justification j);
         void unmerge_justification(enode* n1);
         void dedup_equalities();
@@ -132,6 +148,9 @@ namespace euf {
         bool inconsistent() const { return m_inconsistent; }
         enode_vector const& new_eqs() const { return m_new_eqs; }
         enode_vector const& new_lits() const { return m_new_lits; }
+        svector<th_eq> const& new_th_eqs() const { return m_new_th_eqs;  }
+
+        void add_th_var(enode* n, theory_var v, theory_id id);
 
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
@@ -139,7 +158,7 @@ namespace euf {
         template <typename T>
         void explain(ptr_vector<T>& justifications);
         template <typename T>
-        void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, bool comm);
+        void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b);
         enode_vector const& nodes() const { return m_nodes; }
         void invariant();
         void copy_from(egraph const& src, std::function<void*(void*)>& copy_justification);

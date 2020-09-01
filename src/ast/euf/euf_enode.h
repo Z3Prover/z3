@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "util/vector.h"
+#include "util/id_var_list.h"
 #include "ast/ast.h"
 #include "ast/euf/euf_justification.h"
 
@@ -28,6 +29,11 @@ namespace euf {
     typedef ptr_vector<enode> enode_vector;
     typedef std::pair<enode*,enode*> enode_pair;
     typedef svector<enode_pair> enode_pair_vector;
+    typedef id_var_list<> th_var_list;
+    typedef int theory_var;
+    typedef int theory_id;
+    const theory_var null_var = -1;
+    const theory_id null_id = -1;
 
     class enode {
         expr*         m_owner;
@@ -42,6 +48,7 @@ namespace euf {
         enode*        m_next;
         enode*        m_root;
         enode*        m_target { nullptr };
+        th_var_list   m_th_vars;
         justification m_justification;
         unsigned      m_num_args;
         enode*        m_args[0];        
@@ -49,6 +56,7 @@ namespace euf {
         friend class enode_args;
         friend class enode_parents;
         friend class enode_class;
+        friend class enode_th_vars;
         friend class etable;
         friend class egraph;
 
@@ -73,6 +81,12 @@ namespace euf {
         }
         
         void set_update_children() { m_update_children = true; }
+
+        friend class add_th_var_trail;
+        void add_th_var(theory_var v, theory_id id, region & r) { m_th_vars.add_var(v, id, r); }
+        void replace_th_var(theory_var v, theory_id id) { m_th_vars.replace(v, id); }
+        void del_th_var(theory_id id) { m_th_vars.del_var(id); }        
+
     public:
         ~enode() { 
             SASSERT(m_root == this); 
@@ -127,6 +141,9 @@ namespace euf {
         expr*  get_owner() const { return m_owner; }
         unsigned get_owner_id() const { return m_owner->get_id(); }
         unsigned get_root_id() const { return m_root->m_owner->get_id(); }
+        theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }
+        bool has_th_vars() const { return !m_th_vars.empty(); }
+
         void inc_class_size(unsigned n) { m_class_size += n; }
         void dec_class_size(unsigned n) { m_class_size -= n; }
 
@@ -177,4 +194,24 @@ namespace euf {
         iterator begin() const { return iterator(&n, nullptr); }
         iterator end() const { return iterator(&n, &n); }
     };
+
+    class enode_th_vars {
+        enode& n;
+    public:
+        class iterator {
+            th_var_list* m_th_vars;
+        public:
+            iterator(th_var_list* n) : m_th_vars(n) {}
+            th_var_list operator*() { return *m_th_vars; }
+            iterator& operator++() { m_th_vars = m_th_vars->get_next(); return *this; }
+            iterator operator++(int) { iterator tmp = *this; ++* this; return tmp; }
+            bool operator==(iterator const& other) const { return m_th_vars == other.m_th_vars; }
+            bool operator!=(iterator const& other) const { return !(*this == other); }
+        };
+        enode_th_vars(enode& _n) :n(_n) {}
+        enode_th_vars(enode* _n) :n(*_n) {}
+        iterator begin() const { return iterator(n.m_th_vars.empty() ? nullptr : &n.m_th_vars); }
+        iterator end() const { return iterator(nullptr); }
+    };
+
 }

@@ -21,6 +21,28 @@ Author:
 
 namespace euf {
 
+    /**
+       \brief Trail for add_th_var
+    */
+    class add_th_var_trail : public trail<egraph> {
+        enode *    m_enode;
+        theory_id  m_th_id;
+    public:
+        add_th_var_trail(enode * n, theory_id th_id):
+            m_enode(n),
+            m_th_id(th_id) {
+        }
+        
+        void undo(egraph & ctx) override {
+            theory_var v = m_enode->get_th_var(m_th_id);
+            SASSERT(v != null_var);
+            m_enode->del_th_var(m_th_id);
+            enode * root = m_enode->get_root();
+            if (root != m_enode && root->get_th_var(m_th_id) == v) 
+                root->del_th_var(m_th_id);
+        }
+    };
+
     void egraph::undo_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
         enode* r2 = r1->get_root();
         r2->dec_class_size(r1->class_size());
@@ -89,6 +111,7 @@ namespace euf {
             s.m_inconsistent = m_inconsistent;
             s.m_num_eqs = m_eqs.size();
             s.m_num_nodes = m_nodes.size();
+            s.m_trail_sz = m_trail.size();
             m_scopes.push_back(s);
             m_region.push_scope();
         }
@@ -135,6 +158,14 @@ namespace euf {
             n->m_parents.finalize();
     }
 
+    void egraph::add_th_var(enode* n, theory_var v, theory_id id) {
+        force_push();
+        SASSERT(null_var == n->get_th_var(id));
+        SASSERT(n->class_size() == 1);
+        n->add_th_var(v, id, m_region);
+        m_trail.push_back(new (m_region) add_th_var_trail(n, id));
+    }
+
     void egraph::pop(unsigned num_scopes) {
         if (num_scopes <= m_num_scopes) {
             m_num_scopes -= num_scopes;
@@ -154,6 +185,7 @@ namespace euf {
             m_expr2enode[n->get_owner_id()] = nullptr;
             n->~enode();
         }
+        undo_trail_stack<egraph>(*this, m_trail, s.m_trail_sz);
         m_inconsistent = s.m_inconsistent;
         m_eqs.shrink(s.m_num_eqs);
         m_nodes.shrink(s.m_num_nodes);
@@ -194,12 +226,30 @@ namespace euf {
         std::swap(r1->m_next, r2->m_next);
         r2->inc_class_size(r1->class_size());   
         r2->m_parents.append(r1->m_parents);
+        merge_th_eq(r1, r2);
         m_worklist.push_back(r2);
+    }
+
+    void egraph::merge_th_eq(enode* n, enode* root) {
+        SASSERT(n != root);
+        for (auto iv : enode_th_vars(n)) {
+            theory_id id = iv.get_id();
+            theory_var v = root->get_th_var(id);
+            if (v == null_var) {
+                root->add_th_var(iv.get_var(), id, m_region);                
+                m_trail.push_back(new (m_region) add_th_var_trail(root, id));
+            }
+            else {
+                SASSERT(v != iv.get_var());
+                m_new_th_eqs.push_back(th_eq(id, v, iv.get_var(), n, root));
+            }
+        }
     }
 
     void egraph::propagate() {
         m_new_eqs.reset();
         m_new_lits.reset();
+        m_new_th_eqs.reset();
         SASSERT(m_num_scopes == 0 || m_worklist.empty());
         unsigned head = 0, tail = m_worklist.size();
         while (head < tail && m.limit().inc() && !inconsistent()) {
@@ -315,7 +365,7 @@ namespace euf {
     }
 
     template <typename T>
-    void egraph::explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, bool comm) {
+    void egraph::explain_eq(ptr_vector<T>& justifications, enode* a, enode* b) {
         SASSERT(m_todo.empty());
         SASSERT(a->get_root() == b->get_root());
         enode* lca = find_lca(a, b);
@@ -394,6 +444,7 @@ namespace euf {
         for (unsigned i = 0; i < src.m_nodes.size(); ++i) {
             enode* n1 = src.m_nodes[i];
             expr* e1 = src.m_exprs[i];
+            SASSERT(!n1->has_th_vars());
             args.reset();
             for (unsigned j = 0; j < n1->num_args(); ++j) 
                 args.push_back(old_expr2new_enode[n1->get_arg(j)->get_owner_id()]);
@@ -418,9 +469,9 @@ namespace euf {
 
 template void euf::egraph::explain(ptr_vector<int>& justifications);
 template void euf::egraph::explain_todo(ptr_vector<int>& justifications);
-template void euf::egraph::explain_eq(ptr_vector<int>& justifications, enode* a, enode* b, bool comm);
+template void euf::egraph::explain_eq(ptr_vector<int>& justifications, enode* a, enode* b);
 
 template void euf::egraph::explain(ptr_vector<unsigned>& justifications);
 template void euf::egraph::explain_todo(ptr_vector<unsigned>& justifications);
-template void euf::egraph::explain_eq(ptr_vector<unsigned>& justifications, enode* a, enode* b, bool comm);
+template void euf::egraph::explain_eq(ptr_vector<unsigned>& justifications, enode* a, enode* b);
 
