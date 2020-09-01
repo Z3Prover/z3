@@ -282,7 +282,7 @@ namespace smt {
                           << mk_pp(m.get_sort(lhs->get_owner()), m) << "\n";);
                     theory_var_list * l = lhs->get_th_var_list();
                     while (l) {
-                        theory_id th_id = l->get_th_id();
+                        theory_id th_id = l->get_id();
                         theory * th = get_theory(th_id);
                         TRACE("check_th_diseq_propagation", tout << "checking theory: " << m.get_family_name(th_id) << "\n";);
                         // if the theory doesn't use diseqs, then the diseqs are not propagated.
