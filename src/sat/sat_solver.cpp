@@ -86,7 +86,7 @@ namespace sat {
         m_cuber                   = nullptr;
         m_local_search            = nullptr;
         m_mc.set_solver(this);
-        mk_var(false, false);  // reserve var 0 to internal.
+        mk_var(false, false);
     }
 
     solver::~solver() {
@@ -121,6 +121,7 @@ namespace sat {
         m_justification.reset();
         m_decision.reset();
         m_eliminated.reset();
+        m_external.reset();
         m_activity.reset();
         m_mark.reset();
         m_lit_mark.reset();
@@ -137,6 +138,7 @@ namespace sat {
         m_qhead = 0;
         m_trail.reset();
         m_scopes.reset();
+        mk_var(false, false);
 
         if (src.inconsistent()) {
             set_conflict();
@@ -1240,10 +1242,9 @@ namespace sat {
             while (is_sat == l_undef && !should_cancel()) {
                 if (inconsistent()) is_sat = resolve_conflict_core();
                 else if (should_propagate()) propagate(true);
-                else if (m_conflicts_since_init > 0 && do_cleanup(false)) continue;
+                else if (do_cleanup(false)) continue;
                 else if (should_gc()) do_gc();
                 else if (should_rephase()) do_rephase();
-                else if (should_reorder()) do_reorder();
                 else if (should_restart()) do_restart(!m_config.m_restart_fast);
                 else if (should_simplify()) do_simplify();
                 else if (!decide()) is_sat = final_check();
@@ -1601,6 +1602,19 @@ namespace sat {
     }
 
     lbool solver::bounded_search() {
+#if 0
+        lbool is_sat = l_undef;
+        while (is_sat == l_undef && !should_cancel()) {
+            if (inconsistent()) is_sat = resolve_conflict_core();
+            else if (should_propagate()) propagate(true);
+            else if (do_cleanup(false)) continue;
+            else if (should_gc()) do_gc();
+            else if (should_rephase()) do_rephase();
+            else if (should_restart()) return l_undef;
+            else if (!decide()) is_sat = final_check();
+        }
+        return is_sat;
+#else
         while (true) {
             checkpoint();
             bool done = false;
@@ -1619,6 +1633,7 @@ namespace sat {
                 }
             }
         }
+#endif
     }
 
     bool solver::should_propagate() const {        
@@ -2168,7 +2183,7 @@ namespace sat {
         IF_VERBOSE(1, verbose_stream() << str);            
     }
 
-    void solver::do_restart(bool to_base) {
+    void solver::do_restart(bool to_base) {        
         m_stats.m_restart++;
         m_restarts++;
         if (m_conflicts_since_init >= m_restart_next_out && get_verbosity_level() >= 1) {
@@ -4308,6 +4323,8 @@ namespace sat {
     //
     // -----------------------
     bool solver::do_cleanup(bool force) {
+        if (m_conflicts_since_init == 0 && !force)
+            return false;
         if (at_base_lvl() && !inconsistent() && m_cleaner(force)) {
             if (m_ext)
                 m_ext->clauses_modifed();

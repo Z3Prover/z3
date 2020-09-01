@@ -817,9 +817,9 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core
 
 }
 
-void goal2sat::get_interpreted_funs(func_decl_ref_vector& atoms) {
+void goal2sat::get_interpreted_funs(func_decl_ref_vector& funs) {
     if (m_imp) {
-        atoms.append(m_imp->interpreted_funs());
+        funs.append(m_imp->interpreted_funs());
     }
 }
 
