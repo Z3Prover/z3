@@ -15,6 +15,29 @@ Author:
 
 Notes:
 
+    For DIMACS input it produces DRAT proofs.
+
+    For SMT extensions are as follows:
+
+    Input assertion (trusted modulo internalizer):
+      c a <literal>* 0
+
+    Bridge from ast-node to boolean variable:
+      c b <bool-var-id> := <ast-node-id> 0
+
+    Definition of an ast node:
+      c n <ast-node-id> := <name> <ast-node-id>* 0
+
+    Theory lemma
+      c <theory-id> <literal>* 0
+
+    Available theories are:
+      - euf   The theory lemma should be a consequence of congruence closure.
+      - ba    TBD (need to also log cardinality and pb constraints)
+
+    Life times of theory lemmas is TBD. When they are used for conflict resolution
+    they are only used for the next lemma.
+
 --*/
 #pragma once
 
@@ -90,6 +113,9 @@ namespace sat {
         void def_begin(unsigned n, symbol const& name);
         void def_add_arg(unsigned arg);
         void def_end();
+
+        // ad-hoc logging until a format is developed
+        void log_adhoc(std::function<void(std::ostream&)>& fn);
 
         bool is_cleaned(clause& c) const;        
         void del(literal l);

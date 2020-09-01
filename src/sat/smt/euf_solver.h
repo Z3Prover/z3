@@ -176,7 +176,7 @@ namespace euf {
        };
 
         void updt_params(params_ref const& p);
-        void set_solver(sat::solver* s) override { m_solver = s; }
+        void set_solver(sat::solver* s) override { m_solver = s; m_drat = s->get_config().m_drat; }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
         void init_search() override;
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;

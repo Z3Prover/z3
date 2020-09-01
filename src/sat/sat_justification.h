@@ -54,6 +54,7 @@ namespace sat {
         
         bool is_ext_justification() const { return m_val2 == EXT_JUSTIFICATION; }
         ext_justification_idx get_ext_justification_idx() const { return m_val1; }
+
     };
 
     inline std::ostream & operator<<(std::ostream & out, justification const & j) {
@@ -77,5 +78,6 @@ namespace sat {
         out << " @" << j.level();
         return out;
     }
+
 };
 

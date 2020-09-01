@@ -1783,6 +1783,12 @@ namespace sat {
             watch_literal(~lit, *c);
         }        
         SASSERT(c->well_formed());
+        if (m_solver && m_solver->get_config().m_drat) {
+            std::function<void(std::ostream& out)> fn = [&](std::ostream& out) {
+                out << "c ba constraint " << *c << " 0\n";
+            };
+            m_solver->get_drat().log_adhoc(fn);
+        }
     }
 
 
@@ -2122,7 +2128,7 @@ namespace sat {
         case card_t: get_antecedents(l, c.to_card(), r); break;
         case pb_t: get_antecedents(l, c.to_pb(), r); break;
         case xr_t: get_antecedents(l, c.to_xr(), r); break;
-        default: UNREACHABLE(); break;
+        default: UNREACHABLE(); break;            
         }
         if (get_config().m_drat && m_solver) {
             literal_vector lits;

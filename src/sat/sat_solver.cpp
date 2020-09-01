@@ -86,6 +86,7 @@ namespace sat {
         m_cuber                   = nullptr;
         m_local_search            = nullptr;
         m_mc.set_solver(this);
+        mk_var(false, false);  // reserve var 0 to internal.
     }
 
     solver::~solver() {
@@ -2603,6 +2604,13 @@ namespace sat {
         if (m_step_size > m_config.m_step_size_min) {
             m_step_size -= m_config.m_step_size_dec;
         }
+        struct reset_cache {
+            solver& s;
+            bool active;
+            reset_cache(solver& s) :s(s), active(true) {}
+            ~reset_cache() { if (active) s.m_cached_antecedent_js = 0; }
+        };
+        reset_cache _reset(*this);
         bool unique_max;
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
         justification js = m_conflict;
@@ -2614,6 +2622,8 @@ namespace sat {
         }
 
         if (m_conflict_lvl == 0) {
+            if (m_config.m_drat && m_ext) 
+                resolve_conflict_for_unsat_core();                
             TRACE("sat", tout << "conflict level is 0\n";);
             return l_false;
         }
@@ -2627,6 +2637,7 @@ namespace sat {
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
             m_force_conflict_analysis = true;
             ++m_stats.m_backtracks;
+            _reset.active = false;
             return l_undef;
         }
         m_force_conflict_analysis = false;
@@ -2635,7 +2646,7 @@ namespace sat {
 
         if (m_ext) {
             switch (m_ext->resolve_conflict()) {
-            case l_true:
+            case l_true:                
                 learn_lemma_and_backjump();
                 return l_undef;
             case l_undef:
@@ -2737,6 +2748,7 @@ namespace sat {
 
         m_lemma[0] = ~consequent;
         learn_lemma_and_backjump();
+
         return l_undef;
     }
 
@@ -3050,8 +3062,13 @@ namespace sat {
     void solver::fill_ext_antecedents(literal consequent, justification js) {
         SASSERT(js.is_ext_justification());
         SASSERT(m_ext);
+        auto idx = js.get_ext_justification_idx();
+        if (consequent == m_cached_antecedent_consequent && idx == m_cached_antecedent_js)
+            return;
         m_ext_antecedents.reset();
-        m_ext->get_antecedents(consequent, js.get_ext_justification_idx(), m_ext_antecedents);
+        m_ext->get_antecedents(consequent, idx, m_ext_antecedents);
+        m_cached_antecedent_consequent = consequent;
+        m_cached_antecedent_js = idx;
     }
 
     bool solver::is_two_phase() const {

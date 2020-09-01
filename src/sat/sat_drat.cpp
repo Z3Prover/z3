@@ -71,8 +71,8 @@ namespace sat {
     std::ostream& operator<<(std::ostream& out, drat::status st) {
         switch (st) {
         case drat::status::learned:  return out << "l";
-        case drat::status::asserted: return out << "a";
         case drat::status::deleted:  return out << "d";
+        case drat::status::asserted: return out << "c a";
         case drat::status::ba:       return out << "c ba";
         case drat::status::euf:      return out << "c euf";
         default: return out;
@@ -80,7 +80,7 @@ namespace sat {
     }
 
     void drat::dump(unsigned n, literal const* c, status st) {
-        if (st == status::asserted)
+        if (st == status::asserted && !s.m_ext)
             return;
         if (m_activity && ((m_num_add % 1000) == 0)) 
             dump_activity();
@@ -91,6 +91,13 @@ namespace sat {
         
         unsigned len = 0;
         switch (st) {
+        case status::asserted:
+            buffer[0] = 'c';
+            buffer[1] = ' ';
+            buffer[2] = 'a';
+            buffer[3] = ' ';
+            len = 4;
+            break;
         case status::deleted:
             buffer[0] = 'd';
             buffer[1] = ' ';
@@ -121,6 +128,7 @@ namespace sat {
             unsigned v = lit.var();            
             if (lit.sign()) buffer[len++] = '-';
             char* d = lastd;
+            SASSERT(v > 0);
             while (v > 0) {                
                 d--;
                 *d = (v % 10) + '0';
@@ -260,12 +268,12 @@ namespace sat {
 
     void drat::bool_def(bool_var v, unsigned n) {
         if (m_out)
-            (*m_out) << "bool " << v << " := " << n << "\n";
+            (*m_out) << "c b " << v << " := " << n << " 0\n";
     }
 
     void drat::def_begin(unsigned n, symbol const& name) {
         if (m_out) 
-            (*m_out) << "def " << n << " := " << name;
+            (*m_out) << "c n " << n << " := " << name;
     }
 
     void drat::def_add_arg(unsigned arg) {
@@ -275,7 +283,12 @@ namespace sat {
 
     void drat::def_end() {
         if (m_out) 
-            (*m_out) << "\n";
+            (*m_out) << " 0\n";
+    }
+
+    void drat::log_adhoc(std::function<void(std::ostream&)>& fn) {
+        if (m_out)
+            fn(*m_out);
     }
 
 
@@ -506,7 +519,7 @@ namespace sat {
         } 
         if (!is_drup(n, c) && !is_drat(n, c)) {
             literal_vector lits(n, c);
-            std::cout << "Verification of " << lits << " failed\n";
+            IF_VERBOSE(0, verbose_stream() << "Verification of " << lits << " failed\n");
             // s.display(std::cout);
             std::string line;
             std::getline(std::cin, line);                
@@ -752,7 +765,9 @@ namespace sat {
                 break;
             }
             }
-        }                        
+        }              
+        if (m_out) 
+            dump(lits.size(), lits.c_ptr(), th);
     }
     void drat::add(literal_vector const& c) {
         ++m_num_add;

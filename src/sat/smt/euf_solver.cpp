@@ -26,7 +26,7 @@ namespace euf {
 
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
-        m_drat = s().get_config().m_drat;
+        m_drat = m_solver && m_solver->get_config().m_drat;
     }
 
     /**
@@ -98,7 +98,6 @@ namespace euf {
     }
 
     bool solver::propagate(literal l, ext_constraint_idx idx) { 
-        force_push();
         auto* ext = sat::constraint_base::to_extension(idx);
         SASSERT(ext != this);
         return ext->propagate(l, idx);
@@ -225,7 +224,6 @@ namespace euf {
     }
 
     sat::check_result solver::check() { 
-        force_push();
         bool give_up = false;
         bool cont = false;
         for (auto* e : m_solvers)
@@ -358,7 +356,6 @@ namespace euf {
     }
 
     void solver::pop_reinit() {
-        force_push();
         for (auto* e : m_solvers)
             e->pop_reinit();
     }

@@ -33,14 +33,15 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
-#include "sat/tactic/goal2sat.h"
-#include "sat/sat_cut_simplifier.h"
-#include "sat/smt/ba_solver.h"
-#include "sat/smt/euf_solver.h"
 #include "model/model_evaluator.h"
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
 #include "tactic/generic_model_converter.h"
+#include "sat/sat_cut_simplifier.h"
+#include "sat/tactic/goal2sat.h"
+#include "sat/smt/ba_solver.h"
+#include "sat/smt/euf_solver.h"
+#include "sat/sat_params.hpp"
 #include<sstream>
 
 struct goal2sat::imp : public sat::sat_internalizer {
@@ -91,10 +92,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
     ~imp() override {}
         
     void updt_params(params_ref const & p) {
+        sat_params sp(p);
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
-        m_euf = false;
+        m_euf = sp.euf();
     }
 
     void throw_op_not_handled(std::string const& s) {
