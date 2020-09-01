@@ -1602,7 +1602,6 @@ namespace sat {
     }
 
     lbool solver::bounded_search() {
-#if 1
         lbool is_sat = l_undef;
         while (is_sat == l_undef && !should_cancel()) {
             if (inconsistent()) is_sat = resolve_conflict_core();
@@ -1614,56 +1613,12 @@ namespace sat {
             else if (!decide()) is_sat = final_check();
         }
         return is_sat;
-#else
-        while (true) {
-            checkpoint();
-            bool done = false;
-            while (!done) {
-                lbool is_sat = propagate_and_backjump_step(done);
-                if (is_sat != l_true) return is_sat;
-            }
-
-            SASSERT(!inconsistent());
-            do_gc();
-
-            if (!decide()) {
-                lbool is_sat = final_check();
-                if (is_sat != l_undef) {
-                    return is_sat;
-                }
-            }
-        }
-#endif
     }
 
     bool solver::should_propagate() const {        
         return !inconsistent() && m_qhead < m_trail.size();
     }
 
-
-    lbool solver::propagate_and_backjump_step(bool& done) {
-        done = true;
-        propagate(true);
-        if (!inconsistent()) {
-            return should_restart() ? l_undef : l_true; 
-        }
-        if (!resolve_conflict())
-            return l_false;
-        if (reached_max_conflicts()) 
-            return l_undef;
-        if (should_rephase()) 
-            do_rephase();
-        if (at_base_lvl()) {
-            do_cleanup(false); // cleaner may propagate frozen clauses
-            if (inconsistent()) {
-                TRACE("sat", tout << "conflict at level 0\n";);
-                return l_false;
-            }
-            do_gc();
-        }
-        done = false;
-        return l_true;
-    }
 
     lbool solver::final_check() {
         if (m_ext) {

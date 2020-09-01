@@ -459,29 +459,28 @@ namespace sat {
 
     protected:
 
-        unsigned m_conflicts_since_init;
-        unsigned m_restarts;
-        unsigned m_restart_next_out;
-        unsigned m_conflicts_since_restart;
-        bool     m_force_conflict_analysis;
-        unsigned m_simplifications;
-        unsigned m_restart_threshold;
-        unsigned m_luby_idx;
-        unsigned m_conflicts_since_gc;
-        unsigned m_gc_threshold;
-        unsigned m_defrag_threshold;
-        unsigned m_num_checkpoints;
-        double   m_min_d_tk;
-        unsigned m_next_simplify;
+        unsigned m_conflicts_since_init { 0 };
+        unsigned m_restarts { 0 };
+        unsigned m_restart_next_out { 0 };
+        unsigned m_conflicts_since_restart { 0 };
+        bool     m_force_conflict_analysis { false };
+        unsigned m_simplifications { 0 };
+        unsigned m_restart_threshold { 0 };
+        unsigned m_luby_idx { 0 };
+        unsigned m_conflicts_since_gc { 0 };
+        unsigned m_gc_threshold { 0 };
+        unsigned m_defrag_threshold { 0 };
+        unsigned m_num_checkpoints { 0 };
+        double   m_min_d_tk { 0 } ;
+        unsigned m_next_simplify { 0 };
         bool decide();
         bool_var next_var();
         lbool bounded_search();
         lbool final_check();
-        lbool propagate_and_backjump_step(bool& done);
         void init_search();
         
         literal_vector m_min_core;
-        bool           m_min_core_valid;
+        bool           m_min_core_valid { false };
         void init_reason_unknown() { m_reason_unknown = "no reason given"; }
         void init_assumptions(unsigned num_lits, literal const* lits);
         void reassert_min_core();

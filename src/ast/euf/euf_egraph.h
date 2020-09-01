@@ -39,6 +39,13 @@ namespace euf {
             r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
     };
 
+    /***
+      \brief store derived theory equalities.
+      Theory 'id' is notified with the equality of theory variables v1, v2
+      that are merged into the common root of child and root (their roots may
+      have been updated since the equality was derived, but the explanation for
+      v1 == v2 is provided by explaining the equality child == root.
+    */
     struct th_eq {
         theory_id  m_id;
         theory_var m_v1;

@@ -18,7 +18,7 @@ Author:
 
 #include "util/top_sort.h"
 #include "sat/smt/sat_smt.h"
-#include "ast/euf/euf_enode.h"
+#include "ast/euf/euf_egraph.h"
 
 namespace sat {
     
@@ -63,6 +63,8 @@ namespace sat {
         virtual ~th_solver() {}
 
         virtual th_solver* fresh(solver* s, ast_manager& m, sat_internalizer& si) = 0;        
+
+        virtual void new_eq_eh(euf::th_eq const& eq) {}
     };
 
 

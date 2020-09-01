@@ -190,6 +190,8 @@ namespace euf {
             if (s().value(lit) == l_true)
                 continue;
             s().assign(literal(v, false), sat::justification::mk_ext_justification(lvl, eq_constraint().to_index()));
+            if (s().inconsistent())
+                return;
         }
         for (euf::enode* p : m_egraph.new_lits()) {
             expr* e = p->get_owner();
@@ -203,6 +205,11 @@ namespace euf {
             if (s().value(lit) == l_false && m_ackerman) 
                 m_ackerman->cg_conflict_eh(p->get_owner(), p->get_root()->get_owner());
             s().assign(lit, sat::justification::mk_ext_justification(lvl, lit_constraint().to_index()));
+            if (s().inconsistent())
+                return;
+        }
+        for (euf::th_eq const& eq : m_egraph.new_th_eqs()) {
+            // m_id2solver[eq.m_id]->new_eq_eh(eq);
         }
     }
 

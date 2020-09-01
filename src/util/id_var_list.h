@@ -21,6 +21,7 @@ Revision History:
 #pragma once
 
 #include "util/region.h"
+#include "util/debug.h"
 
 template <int null_id = -1, int null_var = -1>
 class id_var_list {
