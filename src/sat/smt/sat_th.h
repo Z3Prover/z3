@@ -29,6 +29,12 @@ namespace euf {
         virtual ~th_internalizer() {}
 
         virtual sat::literal internalize(expr* e, bool sign, bool root, bool redundant) = 0;
+
+        /**
+           \brief Apply (interpreted) sort constraints on the given enode.
+        */
+        virtual void apply_sort_cnstr(enode * n, sort * s) {}
+
     };
 
     class th_decompile {
@@ -63,13 +69,22 @@ namespace euf {
     class th_solver : public sat::extension, public th_model_builder, public th_decompile, public th_internalizer {
     protected:
         ast_manager &       m;
-        euf::theory_id      m_id;
+        theory_id           m_id;
     public:
         th_solver(ast_manager& m, euf::theory_id id): m(m), m_id(id) {}
+
+        unsigned get_id() const override { return m_id; }
 
         virtual th_solver* fresh(sat::solver* s, euf::solver& ctx) = 0;  
 
         virtual void new_eq_eh(euf::th_eq const& eq) {}
+
+        /**
+           \brief Parametric theories (e.g. Arrays) should implement this method.
+        */
+        virtual bool is_shared(theory_var v) const { return false; }
+
+
     };
 
     class th_euf_solver : public th_solver {
@@ -89,13 +104,11 @@ namespace euf {
             return v;
         }
 
+        unsigned get_num_vars() const { return m_var2enode.size();}
         enode* get_enode(theory_var v) const { return m_var2enode[v]; }
-
-        euf::theory_var get_th_var(expr* e) const;
-
-        euf::theory_var get_th_var(euf::enode* n) const {
-            return n->get_th_var(get_id());
-        }
+        expr* get_expr(theory_var v) const { return get_enode(v)->get_owner(); }
+        theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
+        theory_var get_th_var(expr* e) const;
 
         bool is_attached_to_var(enode* n) const {
             theory_var v = n->get_th_var(get_id());
