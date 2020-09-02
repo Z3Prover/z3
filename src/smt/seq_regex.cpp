@@ -25,7 +25,8 @@ namespace smt {
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
-        m_state_to_expr(m)
+        m_state_to_expr(m),
+        m_const_to_expr(m, false)
     {}
 
     seq_util& seq_regex::u() { return th.m_util; }
@@ -143,13 +144,46 @@ namespace smt {
             }
         }
 
+        /*
+        //if r is uninterpreted then taking a derivative may diverge try to obtain the 
+        //value from equations providing r a definition
+        if (is_uninterp(r)) {
+            if (m_const_to_expr.contains(r)) {
+                proof* _not_used = nullptr;
+                m_const_to_expr.get(r, r, _not_used);
+                if (is_uninterp(r)) {
+                    if (m_const_to_expr.contains(r)) {
+                        m_const_to_expr.get(r, r, _not_used);
+                    }
+                }
+            }
+            else {
+                //add the literal back
+                expr_ref r_alias(m.mk_fresh_const(symbol(r->get_id()), m.get_sort(r), false), m);
+                expr_ref s_in_r_alias(re().mk_in_re(s, r_alias), m);
+                literal s_in_r_alias_lit = th.mk_literal(s_in_r_alias);
+                m_const_to_expr.insert(r_alias, r, nullptr);
+                th.add_axiom(s_in_r_alias_lit);
+                return;
+            }
+        }
+        */
+
+        /*
+        if (is_uninterp(r)) {
+            th.add_unhandled_expr(e);
+            return;
+        }
+        */
+
         expr_ref zero(a().mk_int(0), m);
-        expr_ref acc = sk().mk_accept(s, zero, r);
-        literal acc_lit = th.mk_literal(acc);
+        expr_ref acc(sk().mk_accept(s, zero, r), m);
 
         TRACE("seq", tout << "propagate " << acc << "\n";);
 
-        th.propagate_lit(nullptr, 1, &lit, acc_lit);
+        literal acc_lit = th.mk_literal(acc);
+        //th.propagate_lit(nullptr, 1, &lit, acc_lit);
+        th.add_axiom(acc_lit);
     }
 
     /**
@@ -439,13 +473,23 @@ namespace smt {
         TRACE("seq_regex", tout << "propagate EQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PEQ ";);
 
+        if (is_uninterp(r1) || is_uninterp(r2)) {
+            th.add_axiom(th.mk_eq(r1, r2, false));
+           /* if (is_uninterp(r1))
+                m_const_to_expr.insert(r1, r2, nullptr);
+            else 
+                m_const_to_expr.insert(r2, r1, nullptr);
+            return;*/
+        }
+
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);       
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_empty = sk().mk_is_empty(r, r, n);
-        th.add_axiom(~th.mk_eq(r1, r2, false), th.mk_literal(is_empty));
+        //axiom: (r1 =!= r2) ==>  isempty((r1-r2)|(r2-r1))
+        th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_empty));
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
@@ -458,6 +502,7 @@ namespace smt {
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
+        //Bug ??? axiom: (r1 != r2) ==>  symdiff(r1,r2)!=[]
         th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));
     }
 
