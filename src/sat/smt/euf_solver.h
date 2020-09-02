@@ -219,6 +219,8 @@ namespace euf {
 
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
+        void attach_th_var(enode* n, th_solver* th, theory_var v) { m_egraph.add_th_var(n, v, th->get_id()); }
+
         void update_model(model_ref& mdl);
 
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }       

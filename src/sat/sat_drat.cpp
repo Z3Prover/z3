@@ -68,7 +68,7 @@ namespace sat {
         m_activity = s.get_config().m_drat_activity;
     }
 
-    std::ostream& operator<<(std::ostream& out, status st) {
+    std::ostream& drat::pp(std::ostream& out, status st) const {
         if (st.is_redundant())
             out << "l";
         else if (st.is_deleted())
@@ -76,10 +76,8 @@ namespace sat {
         else if (st.is_asserted())
             out << "a";
         
-        if (st.is_ba())
-            out << " ba";
-        else if (st.is_euf())
-            out << " euf";
+        if (!st.is_sat())
+            out << " " << m_theory[st.get_th()];
         return out;        
     }
 
@@ -103,15 +101,9 @@ namespace sat {
             buffer[len++] = ' ';
         }
 
-        if (st.is_euf()) {
-            buffer[len++] = 'e';
-            buffer[len++] = 'u';
-            buffer[len++] = 'f';
-            buffer[len++] = ' ';
-        }
-        else if (st.is_ba()) {
-            buffer[len++] = 'b';
-            buffer[len++] = 'a';
+        if (!st.is_sat()) {
+            for (char ch : m_theory[st.get_th()])
+                buffer[len++] = ch;
             buffer[len++] = ' ';
         }
         for (unsigned i = 0; i < n; ++i) {
@@ -138,8 +130,6 @@ namespace sat {
 	buffer[len++] = '0';
 	buffer[len++] = '\n';
 	m_out->write(buffer, len);               
-
-        m_out->flush();
 
     }
 
@@ -192,7 +182,7 @@ namespace sat {
     }
 
     void drat::trace(std::ostream& out, unsigned n, literal const* c, status st) {
-        out << st << " ";
+        pp(out, st) << " ";
         literal last = null_literal;
         for (unsigned i = 0; i < n; ++i) {
             if (c[i] != last) {
@@ -204,7 +194,7 @@ namespace sat {
     }
 
     void drat::append(literal l, status st) {
-        TRACE("sat_drat", tout << st << " " << l << "\n";);
+        TRACE("sat_drat", pp(tout, st) << " " << l << "\n";);
 
         declare(l);
         IF_VERBOSE(20, trace(verbose_stream(), 1, &l, st););
@@ -222,7 +212,7 @@ namespace sat {
     }
 
     void drat::append(literal l1, literal l2, status st) {
-        TRACE("sat_drat", tout << st << " " << l1 << " " << l2 << "\n";);
+        TRACE("sat_drat", pp(tout, st) << " " << l1 << " " << l2 << "\n";);
         declare(l1); 
         declare(l2);
         literal lits[2] = { l1, l2 };
@@ -305,7 +295,7 @@ namespace sat {
 #endif
 
     void drat::append(clause& c, status st) {
-        TRACE("sat_drat", tout << st << " " << c << "\n";);
+        TRACE("sat_drat", pp(tout, st) << " " << c << "\n";);
         for (literal lit : c) declare(lit);
         unsigned n = c.size();
         IF_VERBOSE(20, trace(verbose_stream(), n, c.begin(), st););
@@ -609,7 +599,7 @@ namespace sat {
                 if (num_true == 0 && num_undef == 1) {
                     out << "Unit ";
                 }
-                out << m_status[i] << " " << i << ": " << *c << "\n";
+                pp(out, m_status[i]) <<  " " << i << ": " << *c << "\n";
             }
         }
         for (unsigned i = 0; i < m_assignment.size(); ++i) {

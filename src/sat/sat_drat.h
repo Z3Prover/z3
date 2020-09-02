@@ -64,6 +64,7 @@ namespace sat {
         literal_vector          m_units;
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
+        svector<std::string>    m_theory;
         bool                    m_inconsistent;
         unsigned                m_num_add, m_num_del;
         bool                    m_check_unsat, m_check_sat, m_check, m_activity;
@@ -77,7 +78,7 @@ namespace sat {
 
         bool is_clause(clause& c, literal l1, literal l2, literal l3, status st1, status st2);
 
-        friend std::ostream& operator<<(std::ostream & out, status st);
+        std::ostream& pp(std::ostream & out, status st) const;
         status get_status(bool learned) const;
 
         void declare(literal l);
@@ -99,6 +100,8 @@ namespace sat {
         ~drat();  
 
         void updt_config();
+
+        void add_theory(int id, symbol const& s) { m_theory.setx(id, s.str(), std::string()); }
         void add();
         void add(literal l, bool learned);
         void add(literal l1, literal l2, status st);

@@ -3,6 +3,7 @@ z3_add_component(sat_smt
     atom2bool_var.cpp
     ba_internalize.cpp
     ba_solver.cpp
+    bv_internalize.cpp
     xor_solver.cpp
     euf_ackerman.cpp
     euf_internalize.cpp

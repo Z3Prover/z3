@@ -360,7 +360,7 @@ namespace sat {
         }
         if (p.k() == 1 && p.lit() == null_literal) {
             literal_vector lits(p.literals());
-            s().mk_clause(lits.size(), lits.c_ptr(), status::ba(p.learned()));
+            s().mk_clause(lits.size(), lits.c_ptr(), status::th(p.learned(), get_id()));
             IF_VERBOSE(100, display(verbose_stream() << "add clause: " << lits << "\n", p, true););
             remove_constraint(p, "implies clause");
         }
@@ -412,7 +412,7 @@ namespace sat {
 
             if (k == 1 && p.lit() == null_literal) {
                 literal_vector lits(sz, p.literals().c_ptr());
-                s().mk_clause(sz, lits.c_ptr(), status::ba(p.learned()));
+                s().mk_clause(sz, lits.c_ptr(), status::th(p.learned(), get_id()));
                 remove_constraint(p, "is clause");
                 return;
             }
@@ -795,7 +795,7 @@ namespace sat {
 
         else if (k == 1 && p.lit() == null_literal) {
             literal_vector lits(sz, p.literals().c_ptr());
-            s().mk_clause(sz, lits.c_ptr(), status::ba(p.learned()));
+            s().mk_clause(sz, lits.c_ptr(), status::th(p.learned(), get_id()));
             remove_constraint(p, "recompiled to clause");
             return;
         }
@@ -1598,7 +1598,7 @@ namespace sat {
         TRACE("ba", tout << m_lemma << "\n";);
 
         if (get_config().m_drat && m_solver) {
-            s().m_drat.add(m_lemma, sat::status::ba(true));
+            s().m_drat.add(m_lemma, sat::status::th(true, get_id()));
         }
 
         s().m_lemma.reset();
@@ -1750,7 +1750,7 @@ namespace sat {
     ba_solver::constraint* ba_solver::add_at_least(literal lit, literal_vector const& lits, unsigned k, bool learned) {
         if (k == 1 && lit == null_literal) {
             literal_vector _lits(lits);
-            s().mk_clause(_lits.size(), _lits.c_ptr(), status::ba(learned));
+            s().mk_clause(_lits.size(), _lits.c_ptr(), status::th(learned, get_id()));
             return nullptr;
         }
         if (!learned && clausify(lit, lits.size(), lits.c_ptr(), k)) {
@@ -2140,7 +2140,7 @@ namespace sat {
             for (literal lit : r) 
                 lits.push_back(~lit);
             lits.push_back(l);
-            s().m_drat.add(lits, sat::status::ba(true));
+            s().m_drat.add(lits, sat::status::th(true, get_id()));
         }
     }
 
@@ -2899,7 +2899,7 @@ namespace sat {
 
         if (k == 1 && c.lit() == null_literal) {
             literal_vector lits(sz, c.literals().c_ptr());
-            s().mk_clause(sz, lits.c_ptr(), sat::status::ba(c.learned()));
+            s().mk_clause(sz, lits.c_ptr(), sat::status::th(c.learned(), get_id()));
             remove_constraint(c, "recompiled to clause");
             return;
         }
@@ -2907,27 +2907,27 @@ namespace sat {
         if (sz == 0) {
             if (c.lit() == null_literal) {
                 if (k > 0) {
-                    s().mk_clause(0, nullptr, status::ba_asserted());
+                    s().mk_clause(0, nullptr, status::th(false, get_id()));
                 }
             }
             else if (k > 0) {
                 literal lit = ~c.lit();
-                s().mk_clause(1, &lit, status::ba(c.learned()));
+                s().mk_clause(1, &lit, status::th(c.learned(), get_id()));
             }
             else {
                 literal lit = c.lit();
-                s().mk_clause(1, &lit, status::ba(c.learned()));
+                s().mk_clause(1, &lit, status::th(c.learned(), get_id()));
             }
             remove_constraint(c, "recompiled to clause");
             return;
         }
         if (all_units && sz < k) {
             if (c.lit() == null_literal) {
-                s().mk_clause(0, nullptr, status::ba(c.learned()));
+                s().mk_clause(0, nullptr, status::th(c.learned(), get_id()));
             }
             else {
                 literal lit = ~c.lit();
-                s().mk_clause(1, &lit, status::ba(c.learned()));
+                s().mk_clause(1, &lit, status::th(c.learned(), get_id()));
             }
             remove_constraint(c, "recompiled to clause");
             return;            

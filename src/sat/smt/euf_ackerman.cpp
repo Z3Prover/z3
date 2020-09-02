@@ -194,7 +194,7 @@ namespace euf {
         }
         expr_ref eq(m.mk_eq(a, b), m);
         lits.push_back(s.internalize(eq, false, false, true));
-        s.s().mk_clause(lits, sat::status::euf(true));
+        s.s().mk_clause(lits, sat::status::th(true, m.get_basic_family_id()));
     }
 
     void ackerman::add_eq(expr* a, expr* b, expr* c) {
@@ -205,6 +205,6 @@ namespace euf {
         lits[0] = s.internalize(eq1, true, false, true);
         lits[1] = s.internalize(eq2, true, false, true);
         lits[2] = s.internalize(eq3, false, false, true);
-        s.s().mk_clause(3, lits, sat::status::euf(true));
+        s.s().mk_clause(3, lits, sat::status::th(true, m.get_basic_family_id()));
     }
 }

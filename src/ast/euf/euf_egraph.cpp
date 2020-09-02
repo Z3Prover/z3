@@ -245,7 +245,7 @@ namespace euf {
             std::swap(n1, n2);
         }
         if ((m.is_true(r2->get_owner()) || m.is_false(r2->get_owner())) && j.is_congruence()) {
-            m_new_lits.push_back(enode_pair(n1, false));
+            m_new_lits.push_back(enode_bool_pair(n1, false));
             ++m_stats.m_num_lits;
         }
         for (enode* p : enode_parents(n1)) 

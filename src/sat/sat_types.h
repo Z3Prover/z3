@@ -255,30 +255,24 @@ namespace sat {
     class status {
     public:
         enum class st { asserted, redundant, deleted };
-        enum class orig { sat, ba, euf };
+        int m_orig;
         st m_st;
-        orig m_orig;
     public:
-        status(enum st s, enum orig o) : m_st(s), m_orig(o) {};
+        status(enum st s, int o) : m_st(s), m_orig(o) {};
         status(status const& s) : m_st(s.m_st), m_orig(s.m_orig) {}
-        status(status&& s) noexcept { m_st = st::asserted; m_orig = orig::sat; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); }
-        static status redundant() { return status(status::st::redundant, status::orig::sat); }
-        static status asserted() { return status(status::st::asserted, status::orig::sat); }
-        static status deleted() { return status(status::st::deleted, status::orig::sat); }
+        status(status&& s) noexcept { m_st = st::asserted; m_orig = -1; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); }
+        static status redundant() { return status(status::st::redundant, -1); }
+        static status asserted() { return status(status::st::asserted, -1); }
+        static status deleted() { return status(status::st::deleted, -1); }
 
-        static status euf(bool redundant) { return status(redundant ? st::redundant : st::asserted, orig::euf); }
-
-        static status ba(bool redundant) { return redundant ? ba_redundant() : ba_asserted(); }
-        static status ba_redundant() { return status(status::st::redundant, status::orig::ba); }
-        static status ba_asserted() { return status(status::st::asserted, status::orig::ba); }
+        static status th(bool redundant, int id) { return status(redundant ? st::redundant : st::asserted, id); }
 
         bool is_redundant() const { return st::redundant == m_st; }
         bool is_asserted() const { return st::asserted == m_st; }
         bool is_deleted() const { return st::deleted == m_st; }
 
-        bool is_sat() const { return orig::sat == m_orig; }
-        bool is_ba() const { return orig::ba == m_orig; }
-        bool is_euf() const { return orig::euf == m_orig; }
+        bool is_sat() const { return -1 == m_orig; }
+        int  get_th() const { return m_orig;  }
     };
 
 

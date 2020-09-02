@@ -84,7 +84,6 @@ namespace euf {
         */
         virtual bool is_shared(theory_var v) const { return false; }
 
-
     };
 
     class th_euf_solver : public th_solver {

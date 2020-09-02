@@ -49,7 +49,7 @@ namespace euf {
             for (literal lit : r) lits.push_back(~lit);
             if (l != sat::null_literal)
                 lits.push_back(l);
-            s().get_drat().add(lits, sat::status::euf(true));
+            s().get_drat().add(lits, sat::status::th(true, m.get_basic_family_id()));
         }
     }
 

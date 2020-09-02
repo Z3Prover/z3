@@ -27,6 +27,8 @@ namespace euf {
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
         m_drat = m_solver && m_solver->get_config().m_drat;
+        if (m_drat) 
+            m_solver->get_drat().add_theory(m.get_basic_family_id(), symbol("euf"));
     }
 
     /**
@@ -59,6 +61,8 @@ namespace euf {
         pb_util pb(m);
         if (pb.get_family_id() == fid) {
             ext = alloc(sat::ba_solver, *this, fid);
+            if (m_drat)
+                m_solver->get_drat().add_theory(fid, symbol("ba"));
         }
         if (ext) {
             ext->set_solver(m_solver);
