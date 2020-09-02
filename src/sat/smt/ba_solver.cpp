@@ -1598,7 +1598,7 @@ namespace sat {
         TRACE("ba", tout << m_lemma << "\n";);
 
         if (get_config().m_drat && m_solver) {
-            s().m_drat.add(m_lemma, sat::status::ba_redundant());
+            s().m_drat.add(m_lemma, sat::status::ba(true));
         }
 
         s().m_lemma.reset();
@@ -2140,7 +2140,7 @@ namespace sat {
             for (literal lit : r) 
                 lits.push_back(~lit);
             lits.push_back(l);
-            s().m_drat.add(lits, sat::status::ba_redundant());
+            s().m_drat.add(lits, sat::status::ba(true));
         }
     }
 
@@ -2923,7 +2923,7 @@ namespace sat {
         }
         if (all_units && sz < k) {
             if (c.lit() == null_literal) {
-                s().mk_clause(0, nullptr, status::ba_redundant());            
+                s().mk_clause(0, nullptr, status::ba(c.learned()));
             }
             else {
                 literal lit = ~c.lit();

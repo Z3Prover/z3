@@ -103,8 +103,8 @@ namespace euf {
         if (lit.sign()) {
             sat::bool_var v = si.add_bool_var(n->get_owner());
             sat::literal lit2 = literal(v, false);
-            s().mk_clause(~lit, lit2, sat::status::euf_asserted());
-            s().mk_clause(lit, ~lit2, sat::status::euf_asserted());
+            s().mk_clause(~lit, lit2, sat::status::euf(false));
+            s().mk_clause(lit, ~lit2, sat::status::euf(false));
             lit = lit2;
         }
         sat::bool_var v = lit.var();
@@ -132,7 +132,7 @@ namespace euf {
         if (sz <= 1)
             return;
 
-        sat::status st = m_is_redundant ? sat::status::euf_learned() : sat::status::euf_asserted();
+        sat::status st = sat::status::euf(m_is_redundant);
         static const unsigned distinct_max_args = 32;
         if (sz <= distinct_max_args) {
             sat::literal_vector lits;
@@ -175,7 +175,7 @@ namespace euf {
         SASSERT(m.is_distinct(e));
         static const unsigned distinct_max_args = 32;
         unsigned sz = e->get_num_args();
-        sat::status st = m_is_redundant ? sat::status::euf_learned() : sat::status::euf_asserted();
+        sat::status st = sat::status::euf(m_is_redundant);
         if (sz <= 1) {
             s().mk_clause(0, nullptr, st);
             return;
@@ -209,7 +209,7 @@ namespace euf {
 
     void solver::axiomatize_basic(enode* n) {
         expr* e = n->get_owner();
-        sat::status st = m_is_redundant ? sat::status::euf_learned() : sat::status::euf_asserted();
+        sat::status st = sat::status::euf(m_is_redundant);
         if (m.is_ite(e)) {        
             app* a = to_app(e);
             expr* c = a->get_arg(0);

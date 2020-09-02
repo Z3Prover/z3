@@ -76,11 +76,11 @@ namespace sat {
         else if (st.is_asserted())
             out << "a";
         
-        switch (st.orig) {
-        case status::orig::ba:       return out << " ba";
-        case status::orig::euf:      return out << " euf";
-        default: return out;
-        }
+        if (st.is_ba())
+            out << " ba";
+        else if (st.is_euf())
+            out << " euf";
+        return out;        
     }
 
     void drat::dump(unsigned n, literal const* c, status st) {
@@ -94,32 +94,25 @@ namespace sat {
         char* lastd = digits + sizeof(digits);
         
         unsigned len = 0;
-        switch (st.st) {
-        case status::st::asserted:
+        if (st.is_asserted()) {
             buffer[len++] = 'a';
             buffer[len++] = ' ';           
-            break;
-        case status::st::deleted:
+        }
+        else if (st.is_deleted()) {
             buffer[len++] = 'd';
             buffer[len++] = ' ';
-            break;
-        default:
-            break;
         }
-        switch (st.orig) {
-        case status::orig::euf:
+
+        if (st.is_euf()) {
             buffer[len++] = 'e';
             buffer[len++] = 'u';
             buffer[len++] = 'f';
             buffer[len++] = ' ';
-            break;
-        case status::orig::ba:
+        }
+        else if (st.is_ba()) {
             buffer[len++] = 'b';
             buffer[len++] = 'a';
             buffer[len++] = ' ';
-            break;
-        default:
-            break;
         }
         for (unsigned i = 0; i < n; ++i) {
             literal lit = c[i];
@@ -160,12 +153,11 @@ namespace sat {
 
     void drat::bdump(unsigned n, literal const* c, status st) {
         unsigned char ch = 0;
-        switch (st.st) {
-        case status::st::asserted: return;
-        case status::st::redundant: ch = 'a'; break;
-        case status::st::deleted: ch = 'd'; break;
-        default: UNREACHABLE(); break;
-        }
+        if (st.is_redundant())
+            ch = 'a'; 
+        else if (st.is_deleted())
+            ch = 'd'; 
+        else return;
         char buffer[10000];
         int len = 0;
         buffer[len++] = ch;
@@ -497,7 +489,7 @@ namespace sat {
                 clause& c = *m_proof[i];
                 unsigned j = 0;
                 for (; j < c.size() && c[j] != ~l; ++j) {}
-                if (st.orig == status::orig::sat && j != c.size()) {
+                if (st.is_sat() && j != c.size()) {
                     lits.append(j, c.begin());
                     lits.append(c.size() - j - 1, c.begin() + j + 1);
                     if (!is_drup(lits.size(), lits.c_ptr())) 

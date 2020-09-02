@@ -501,7 +501,7 @@ namespace sat {
     clause * solver::mk_nary_clause(unsigned num_lits, literal * lits, sat::status st) {
         m_stats.m_mk_clause++;
         clause * r = alloc_clause(num_lits, lits, st.is_redundant());
-        SASSERT(!st.is_learned() || r->is_learned());
+        SASSERT(!st.is_redundant() || r->is_learned());
         bool reinit = attach_nary_clause(*r);
         if (reinit && !st.is_redundant()) push_reinit_stack(*r);
         if (st.is_redundant()) {
