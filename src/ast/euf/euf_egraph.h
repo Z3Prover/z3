@@ -63,6 +63,10 @@ namespace euf {
             unsigned m_num_eqs;
             unsigned m_num_nodes;
             unsigned m_trail_sz;
+            unsigned m_new_lits_sz;
+            unsigned m_new_th_eqs_sz;
+            unsigned m_new_lits_qhead;
+            unsigned m_new_th_eqs_qhead;
         };
         struct stats {
             unsigned m_num_merge;
@@ -87,8 +91,9 @@ namespace euf {
         enode                  *m_n1 { nullptr };
         enode                  *m_n2 { nullptr };
         justification          m_justification;
-        enode_vector           m_new_eqs;
-        enode_vector           m_new_lits;
+        unsigned               m_new_lits_qhead { 0 };
+        unsigned               m_new_th_eqs_qhead { 0 };
+        svector<enode_bool_pair>  m_new_lits;
         svector<th_eq>         m_new_th_eqs;
         enode_vector           m_todo;
         stats                  m_stats;
@@ -107,7 +112,6 @@ namespace euf {
         void merge_th_eq(enode* n, enode* root);
         void merge_justification(enode* n1, enode* n2, justification j);
         void unmerge_justification(enode* n1);
-        void dedup_equalities();
         void reinsert_equality(enode* p);
         void update_children(enode* n);
         void push_lca(enode* a, enode* b);
@@ -151,11 +155,22 @@ namespace euf {
            equated nodes are merged. Use then new_eqs() to extract the vector
            of new equalities.
         */
-        void propagate();
+        bool propagate();
         bool inconsistent() const { return m_inconsistent; }
-        enode_vector const& new_eqs() const { return m_new_eqs; }
-        enode_vector const& new_lits() const { return m_new_lits; }
-        svector<th_eq> const& new_th_eqs() const { return m_new_th_eqs;  }
+
+        /**
+           \brief Maintain and update cursor into propagated consequences.
+           The result of get_literal() is a pair (n, is_eq)
+           where \c n is an enode and \c is_eq indicates whether the enode
+           is an equality consequence. 
+         */
+        bool       has_literal() const { return m_new_lits_qhead < m_new_lits.size(); }
+        bool       has_th_eq() const { return m_new_th_eqs_qhead < m_new_th_eqs.size(); }
+        enode_bool_pair get_literal() const { return m_new_lits[m_new_lits_qhead]; }
+        th_eq      get_th_eq() const { return m_new_th_eqs[m_new_th_eqs_qhead]; }
+        void       next_literal() { SASSERT(m_new_lits_qhead < m_new_lits.size()); m_new_lits_qhead++; }
+        void       next_th_eq() { SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }
+
 
         void add_th_var(enode* n, theory_var v, theory_id id);
 

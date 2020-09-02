@@ -207,7 +207,7 @@ namespace sat {
                     c.update_approx();
                 }
                 if (m_solver.m_config.m_drat) {
-                    m_solver.m_drat.add(c, true);
+                    m_solver.m_drat.add(c, status::redundant());
                     drat_delete_clause();
                 }
 
@@ -237,8 +237,8 @@ namespace sat {
                 // cannot really eliminate v, since we have to notify extension of future assignments
                 if (m_solver.m_config.m_drat && m_solver.m_config.m_drat_file.is_null()) {
                     std::cout << "DRAT\n";
-                    m_solver.m_drat.add(~l, r, true);
-                    m_solver.m_drat.add(l, ~r, true);
+                    m_solver.m_drat.add(~l, r, sat::status::redundant());
+                    m_solver.m_drat.add(l, ~r, sat::status::redundant());
                 }
                 m_solver.mk_bin_clause(~l, r, false);
                 m_solver.mk_bin_clause(l, ~r, false);

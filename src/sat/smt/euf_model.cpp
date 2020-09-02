@@ -37,7 +37,7 @@ namespace euf {
             return true;
         if (f->get_family_id() == m.get_basic_family_id())
             return false;
-        sat::th_model_builder* mb = get_solver(f);
+        euf::th_model_builder* mb = get_solver(f);
         return mb && mb->include_func_interp(f);
     }
 

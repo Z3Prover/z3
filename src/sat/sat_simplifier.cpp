@@ -681,7 +681,7 @@ namespace sat {
         if (s.m_config.m_drat && c.contains(l)) {
             unsigned sz = c.size();
             c.elim(l);
-            s.m_drat.add(c, true); 
+            s.m_drat.add(c, status::redundant());
             c.restore(sz);
             s.m_drat.del(c);
             c.shrink(sz-1);
@@ -2005,7 +2005,7 @@ namespace sat {
                         s.m_stats.m_mk_clause++;
                     clause * new_c = s.alloc_clause(m_new_cls.size(), m_new_cls.c_ptr(), false);
 
-                    if (s.m_config.m_drat) s.m_drat.add(*new_c, true);
+                    if (s.m_config.m_drat) s.m_drat.add(*new_c, status::redundant());
                     s.m_clauses.push_back(new_c);
 
                     m_use_list.insert(*new_c);

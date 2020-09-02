@@ -251,5 +251,31 @@ namespace sat {
         virtual double get_priority(bool_var v) const { return 0; }
 
     };
+
+    class status {
+    public:
+        enum class st { asserted, redundant, deleted } st;
+        enum class orig { sat, ba, euf } orig;
+        status(enum st s, enum orig o) : st(s), orig(o) {};
+        status(status const& s) : st(s.st), orig(s.orig) {}
+        status(status&& s) noexcept { st = st::asserted; orig = orig::sat; std::swap(st, s.st); std::swap(orig, s.orig); }
+        static status redundant() { return status(status::st::redundant, status::orig::sat); }
+        static status asserted() { return status(status::st::asserted, status::orig::sat); }
+        static status deleted() { return status(status::st::deleted, status::orig::sat); }
+
+        static status euf_learned() { return status(status::st::redundant, status::orig::euf); }
+        static status euf_asserted() { return status(status::st::asserted, status::orig::euf); }
+
+        static status ba(bool redundant) { return redundant ? ba_redundant() : ba_asserted(); }
+        static status ba_redundant() { return status(status::st::redundant, status::orig::ba); }
+        static status ba_asserted() { return status(status::st::asserted, status::orig::ba); }
+
+        bool is_redundant() const { return st::redundant == st; }
+        bool is_asserted() const { return st::asserted == st; }
+        bool is_deleted() const { return st::deleted == st; }
+        bool operator==(status const& s) const { return s.orig == orig && s.st == st; }
+    };
+
+
 };
 

@@ -48,9 +48,10 @@ namespace euf {
         size_t to_index() const { return sat::constraint_base::mem2base(this); }
     };
 
-    class solver : public sat::extension, public sat::th_internalizer, public sat::th_decompile {
+    class solver : public sat::extension, public th_internalizer, public th_decompile {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
+        // friend class sat::ba_solver;
         struct stats {
             unsigned m_num_dynack;
             stats() { reset(); }
@@ -87,8 +88,8 @@ namespace euf {
         unsigned                                        m_num_scopes { 0 };
         unsigned_vector                                 m_var_trail;
         svector<scope>                                  m_scopes;
-        scoped_ptr_vector<sat::th_solver>               m_solvers;
-        ptr_vector<sat::th_solver>                      m_id2solver;
+        scoped_ptr_vector<th_solver>                    m_solvers;
+        ptr_vector<th_solver>                           m_id2solver;
 
         constraint* m_conflict { nullptr };
         constraint* m_eq       { nullptr };
@@ -110,10 +111,10 @@ namespace euf {
         euf::enode* mk_false();
 
         // extensions
-        sat::th_solver* get_solver(func_decl* f);
-        sat::th_solver* get_solver(expr* e);
-        sat::th_solver* get_solver(sat::bool_var v);
-        void add_solver(family_id fid, sat::th_solver* th);
+        th_solver* get_solver(func_decl* f);
+        th_solver* get_solver(expr* e);
+        th_solver* get_solver(sat::bool_var v);
+        void add_solver(family_id fid, th_solver* th);
         void unhandled_function(func_decl* f);
         void init_ackerman();
 
@@ -126,6 +127,8 @@ namespace euf {
 
         // solving
         void propagate();
+        void propagate_literals();
+        void propagate_th_eqs();
         void get_antecedents(literal l, constraint& j, literal_vector& r);
         void force_push();
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
@@ -175,6 +178,10 @@ namespace euf {
            }
        };
 
+        sat::sat_internalizer& get_si() { return si; }
+        ast_manager& get_manager() { return m; }
+        enode* get_enode(expr* e) { return m_egraph.find(e); }
+
         void updt_params(params_ref const& p);
         void set_solver(sat::solver* s) override { m_solver = s; m_drat = s->get_config().m_drat; }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
@@ -214,7 +221,6 @@ namespace euf {
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void update_model(model_ref& mdl);
 
-        func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
-       
+        func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }       
     };
 };

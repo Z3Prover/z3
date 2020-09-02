@@ -9,6 +9,7 @@ z3_add_component(sat_smt
     euf_model.cpp
     euf_proof.cpp
     euf_solver.cpp
+    sat_th.cpp
   COMPONENT_DEPENDENCIES
     sat
     ast

@@ -343,7 +343,7 @@ namespace sat {
     void binspr::block_binary(literal lit1, literal lit2, bool learned) {
         IF_VERBOSE(2, verbose_stream() << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n");
         TRACE("sat", tout << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n";);
-        s->mk_clause(~lit1, ~lit2, learned);
+        s->mk_clause(~lit1, ~lit2, learned ? sat::status::redundant() : sat::status::asserted());
         ++m_bin_clauses;
     }
 

@@ -41,6 +41,7 @@ Notes:
 #include "sat/tactic/goal2sat.h"
 #include "sat/smt/ba_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "sat/smt/sat_th.h"
 #include "sat/sat_params.hpp"
 #include<sstream>
 
@@ -106,22 +107,22 @@ struct goal2sat::imp : public sat::sat_internalizer {
     
     void mk_clause(sat::literal l) {
         TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.add_clause(1, &l, m_is_redundant);
+        m_solver.add_clause(1, &l, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
     }
 
     void mk_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, m_is_redundant);
+        m_solver.add_clause(l1, l2, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
     }
 
     void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_redundant);
+        m_solver.add_clause(l1, l2, l3, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, m_is_redundant);
+        m_solver.add_clause(num, lits, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
     }
 
     sat::literal mk_true() {
@@ -509,18 +510,17 @@ struct goal2sat::imp : public sat::sat_internalizer {
     void convert_ba(app* t, bool root, bool sign) {
         SASSERT(!m_euf);
         sat::extension* ext = m_solver.get_extension();
-        sat::ba_solver* ba = nullptr;
+        euf::th_solver* th = nullptr;
         if (!ext) {
-            ba = alloc(sat::ba_solver, m, *this);
-            m_solver.set_extension(ba);
-            ba->push_scopes(m_solver.num_scopes());
+            th = alloc(sat::ba_solver, m, *this, pb.get_family_id());
+            m_solver.set_extension(th);
+            th->push_scopes(m_solver.num_scopes());
         }
         else {
-            ba = dynamic_cast<sat::ba_solver*>(ext);            
+            th = dynamic_cast<euf::th_solver*>(ext);
+            SASSERT(th);
         }
-        if (!ba)
-            throw default_exception("cannot convert to pb");
-        sat::literal lit = ba->internalize(t, sign, root, m_is_redundant);
+        auto lit = th->internalize(t, sign, root, m_is_redundant);
         if (root)
             m_result_stack.reset();
         else 

@@ -213,7 +213,7 @@ namespace sat {
                 if (c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8) || copy_learned) {
                     buffer.reset();
                     for (literal l : *c) buffer.push_back(l);
-                    clause* c1 = mk_clause_core(buffer.size(), buffer.c_ptr(), true);
+                    clause* c1 = mk_clause_core(buffer.size(), buffer.c_ptr(), sat::status::redundant());
                     if (c1) {
                         ++num_learned;
                         c1->set_glue(c->glue());
@@ -305,7 +305,7 @@ namespace sat {
     }
 
 
-    clause* solver::mk_clause(unsigned num_lits, literal * lits, bool learned) {
+    clause* solver::mk_clause(unsigned num_lits, literal * lits, sat::status st) {
         m_model_is_current = false;
         DEBUG_CODE({
                 for (unsigned i = 0; i < num_lits; i++) {
@@ -315,24 +315,24 @@ namespace sat {
         });
 
         if (m_user_scope_literals.empty()) {
-            return mk_clause_core(num_lits, lits, learned);
+            return mk_clause_core(num_lits, lits, st);
         }
         else {
             m_aux_literals.reset();
             m_aux_literals.append(num_lits, lits);
             m_aux_literals.append(m_user_scope_literals);
-            return mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), learned);
+            return mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), st);
         }
     }
 
-    clause* solver::mk_clause(literal l1, literal l2, bool learned) {
+    clause* solver::mk_clause(literal l1, literal l2, sat::status st) {
         literal ls[2] = { l1, l2 };
-        return mk_clause(2, ls, learned);
+        return mk_clause(2, ls, st);
     }
 
-    clause* solver::mk_clause(literal l1, literal l2, literal l3, bool learned) {
+    clause* solver::mk_clause(literal l1, literal l2, literal l3, sat::status st) {
         literal ls[3] = { l1, l2, l3 };
-        return mk_clause(3, ls, learned);
+        return mk_clause(3, ls, st);
     }
 
     void solver::del_clause(clause& c) {
@@ -350,9 +350,10 @@ namespace sat {
             m_stats.m_del_clause++;
     }
 
-    clause * solver::mk_clause_core(unsigned num_lits, literal * lits, bool learned) {
-        TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (learned?" learned":" aux") << "\n";);
-        if (!learned) {
+    clause * solver::mk_clause_core(unsigned num_lits, literal * lits, sat::status st) {
+        bool redundant = st.is_redundant();
+        TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (redundant?" learned":" aux") << "\n";);
+        if (!redundant) {
             unsigned old_sz = num_lits;
             bool keep = simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
@@ -360,17 +361,17 @@ namespace sat {
                 return nullptr; // clause is equivalent to true.
             }
             // if an input clause is simplified, then log the simplified version as learned
-            if (!learned && old_sz > num_lits && m_config.m_drat) {
+            if (old_sz > num_lits && m_config.m_drat) {
                 m_lemma.reset();
                 m_lemma.append(num_lits, lits);
-                m_drat.add(m_lemma);
+                m_drat.add(m_lemma, st);
             }
             ++m_stats.m_non_learned_generation;
             if (!m_searching) {
                 m_mc.add_clause(num_lits, lits);
             }
-        }
-        
+        }       
+
         switch (num_lits) {
         case 0:
             set_conflict();
@@ -379,55 +380,56 @@ namespace sat {
             assign_unit(lits[0]);
             return nullptr;
         case 2:
-            mk_bin_clause(lits[0], lits[1], learned);
-            if (learned && m_par) m_par->share_clause(*this, lits[0], lits[1]);
+            mk_bin_clause(lits[0], lits[1], st);
+            if (redundant && m_par) m_par->share_clause(*this, lits[0], lits[1]);
             return nullptr;
         case 3:
             if (ENABLE_TERNARY) {
-                return mk_ter_clause(lits, learned);
+                return mk_ter_clause(lits, st);
             }
         default:
-            return mk_nary_clause(num_lits, lits, learned);
+            return mk_nary_clause(num_lits, lits, st);
         }
     }
 
-    void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
+    void solver::mk_bin_clause(literal l1, literal l2, sat::status st) {
+        bool redundant = st.is_redundant();
         m_touched[l1.var()] = m_touch_index;
         m_touched[l2.var()] = m_touch_index;
         
-        if (learned && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
+        if (redundant && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
             assign_unit(l1);
             return;
         }
-        if (learned && find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
+        if (redundant && find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
             assign_unit(l2);
             return;
         }
-        watched* w0 = learned ? find_binary_watch(get_wlist(~l1), l2) : nullptr;
+        watched* w0 = redundant ? find_binary_watch(get_wlist(~l1), l2) : nullptr;
         if (w0) {
             TRACE("sat", tout << "found binary " << l1 << " " << l2 << "\n";);
-            if (w0->is_learned() && !learned) {
+            if (w0->is_learned() && !redundant) {
                 w0->set_learned(false);
                 w0 = find_binary_watch(get_wlist(~l2), l1);            
                 VERIFY(w0);
                 w0->set_learned(false);                        
             }
-            if (propagate_bin_clause(l1, l2) && !learned && !at_base_lvl() && !at_search_lvl()) {
+            if (propagate_bin_clause(l1, l2) && !redundant && !at_base_lvl() && !at_search_lvl()) {
                 m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
             }
             return;
         }
         if (m_config.m_drat) 
-            m_drat.add(l1, l2, learned);
+            m_drat.add(l1, l2, st);
         if (propagate_bin_clause(l1, l2)) {
             if (at_base_lvl())
                 return;
-            if (!learned && !at_search_lvl()) 
+            if (!redundant && !at_search_lvl()) 
                 m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
         }
         m_stats.m_mk_bin_clause++;
-        get_wlist(~l1).push_back(watched(l2, learned));
-        get_wlist(~l2).push_back(watched(l1, learned));
+        get_wlist(~l1).push_back(watched(l2, redundant));
+        get_wlist(~l2).push_back(watched(l1, redundant));
     }
 
     bool solver::propagate_bin_clause(literal l1, literal l2) {
@@ -451,13 +453,13 @@ namespace sat {
     }
 
 
-    clause * solver::mk_ter_clause(literal * lits, bool learned) {
+    clause * solver::mk_ter_clause(literal * lits, sat::status st) {
         VERIFY(ENABLE_TERNARY);
         m_stats.m_mk_ter_clause++;
-        clause * r = alloc_clause(3, lits, learned);
+        clause * r = alloc_clause(3, lits, st.is_redundant());
         bool reinit = attach_ter_clause(*r);
-        if (reinit && !learned) push_reinit_stack(*r);
-        if (learned)
+        if (reinit && !st.is_redundant()) push_reinit_stack(*r);
+        if (st.is_redundant())
             m_learned.push_back(r);
         else
             m_clauses.push_back(r);
@@ -470,7 +472,7 @@ namespace sat {
     bool solver::attach_ter_clause(clause & c) {
         VERIFY(ENABLE_TERNARY);
         bool reinit = false;
-        if (m_config.m_drat) m_drat.add(c, c.is_learned());
+        if (m_config.m_drat) m_drat.add(c, c.is_learned() ? status::redundant() : status::asserted());
         TRACE("sat_verbose", tout << c << "\n";);
         SASSERT(!c.was_removed());
         m_watches[(~c[0]).index()].push_back(watched(c[1], c[2]));
@@ -496,20 +498,20 @@ namespace sat {
         return reinit;
     }
 
-    clause * solver::mk_nary_clause(unsigned num_lits, literal * lits, bool learned) {
+    clause * solver::mk_nary_clause(unsigned num_lits, literal * lits, sat::status st) {
         m_stats.m_mk_clause++;
-        clause * r = alloc_clause(num_lits, lits, learned);
-        SASSERT(!learned || r->is_learned());
+        clause * r = alloc_clause(num_lits, lits, st.is_redundant());
+        SASSERT(!st.is_learned() || r->is_learned());
         bool reinit = attach_nary_clause(*r);
-        if (reinit && !learned) push_reinit_stack(*r);
-        if (learned) {
+        if (reinit && !st.is_redundant()) push_reinit_stack(*r);
+        if (st.is_redundant()) {
             m_learned.push_back(r);
         }
         else {
             m_clauses.push_back(r);
         }
         if (m_config.m_drat) {
-            m_drat.add(*r, learned);
+            m_drat.add(*r, st);
         }
         for (literal l : *r) {
             m_touched[l.var()] = m_touch_index;
@@ -571,15 +573,15 @@ namespace sat {
             reinit = attach_nary_clause(c);
     }
 
-    void solver::set_learned(clause& c, bool learned) {
-        if (c.is_learned() != learned) 
-            c.set_learned(learned);
+    void solver::set_learned(clause& c, bool redundant) {
+        if (c.is_learned() != redundant) 
+            c.set_learned(redundant);
     }
 
-    void solver::set_learned1(literal l1, literal l2, bool learned) {
+    void solver::set_learned1(literal l1, literal l2, bool redundant) {
         for (watched& w : get_wlist(~l1)) {
             if (w.is_binary_clause() && l2 == w.get_literal() && !w.is_learned()) {
-                w.set_learned(learned);
+                w.set_learned(redundant);
                 break;
             }
         }
@@ -594,7 +596,7 @@ namespace sat {
                 m_touched[l.var()] = m_touch_index;
             }
             if (m_config.m_drat) {
-                m_drat.add(c, true);
+                m_drat.add(c, status::redundant());
                 c.restore(old_sz);
                 m_drat.del(c);
                 c.shrink(new_sz);
@@ -687,9 +689,9 @@ namespace sat {
     }
 
 
-    void solver::set_learned(literal l1, literal l2, bool learned) {
-        set_learned1(l1, l2, learned);
-        set_learned1(l2, l1, learned);
+    void solver::set_learned(literal l1, literal l2, bool redundant) {
+        set_learned1(l1, l2, redundant);
+        set_learned1(l2, l1, redundant);
     }
 
     /**
@@ -809,9 +811,9 @@ namespace sat {
             return simplify_clause_core<false>(num_lits, lits);
     }
 
-    void solver::detach_bin_clause(literal l1, literal l2, bool learned) {
-        get_wlist(~l1).erase(watched(l2, learned));
-        get_wlist(~l2).erase(watched(l1, learned));
+    void solver::detach_bin_clause(literal l1, literal l2, bool redundant) {
+        get_wlist(~l1).erase(watched(l2, redundant));
+        get_wlist(~l2).erase(watched(l1, redundant));
         if (m_config.m_drat) m_drat.del(l1, l2);       
     }
 
@@ -2727,7 +2729,7 @@ namespace sat {
         
         if (m_lemma.empty()) {
             pop_reinit(m_scope_lvl);
-            mk_clause_core(0, nullptr, true);
+            mk_clause_core(0, nullptr, sat::status::redundant());
             return;
         }
         
@@ -2777,7 +2779,7 @@ namespace sat {
             ++m_stats.m_backtracks;
             pop_reinit(m_scope_lvl - backtrack_lvl + 1);
         }
-        clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
+        clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), sat::status::redundant());
         if (lemma) {
             lemma->set_glue(glue);
         }
@@ -3795,9 +3797,9 @@ namespace sat {
         }
     }
 
-    bool_var solver::max_var(bool learned, bool_var v) {
+    bool_var solver::max_var(bool redundant, bool_var v) {
         m_user_bin_clauses.reset();
-        collect_bin_clauses(m_user_bin_clauses, learned, false);
+        collect_bin_clauses(m_user_bin_clauses, redundant, false);
         for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
             literal l1 = m_user_bin_clauses[i].first;
             literal l2 = m_user_bin_clauses[i].second;
@@ -3977,8 +3979,8 @@ namespace sat {
     // Iterators
     //
     // -----------------------
-    void solver::collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only) const {
-        SASSERT(learned || !learned_only);  
+    void solver::collect_bin_clauses(svector<bin_clause> & r, bool redundant, bool learned_only) const {
+        SASSERT(redundant || !learned_only);  
         unsigned sz = m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; l_idx++) {
             literal l = to_literal(l_idx);
@@ -3986,9 +3988,9 @@ namespace sat {
             for (watched const& w : m_watches[l_idx]) {
                 if (!w.is_binary_clause())
                     continue;
-                if (!learned && w.is_learned())
+                if (!redundant && w.is_learned())
                     continue;
-                else if (learned && learned_only && !w.is_learned()) 
+                else if (redundant && learned_only && !w.is_learned()) 
                     continue;
                 literal l2 = w.get_literal();
                 if (l.index() > l2.index())
@@ -4121,14 +4123,14 @@ namespace sat {
         return num_cls + m_clauses.size() + m_learned.size();
     }
 
-    void solver::num_binary(unsigned& given, unsigned& learned) const {
-        given = learned = 0;
+    void solver::num_binary(unsigned& given, unsigned& redundant) const {
+        given = redundant = 0;
         unsigned l_idx = 0;
         for (auto const& wl : m_watches) {
             literal l = ~to_literal(l_idx++);
             for (auto const& w : wl) {
                 if (w.is_binary_clause() && l.index() < w.get_literal().index()) {
-                    if (w.is_learned()) ++learned; else ++given;
+                    if (w.is_learned()) ++redundant; else ++given;
                 }
             }
         }
@@ -4288,10 +4290,10 @@ namespace sat {
         return false;
     }
 
-    void solver::simplify(bool learned) {
+    void solver::simplify(bool redundant) {
         if (!at_base_lvl() || inconsistent())
             return;
-        m_simplifier(learned);
+        m_simplifier(redundant);
         m_simplifier.finalize();
         if (m_ext)
             m_ext->clauses_modifed();
@@ -4921,10 +4923,10 @@ namespace sat {
     }
 
     void mk_stat::display(std::ostream & out) const {
-        unsigned given, learned;
-        m_solver.num_binary(given, learned);
+        unsigned given, redundant;
+        m_solver.num_binary(given, redundant);
         out << " " << std::setw(5) << m_solver.m_clauses.size() + given << "/" << given;
-        out << " " << std::setw(5) << (m_solver.m_learned.size() + learned - m_solver.m_num_frozen) << "/" << learned;
+        out << " " << std::setw(5) << (m_solver.m_learned.size() + redundant - m_solver.m_num_frozen) << "/" << redundant;
         out << " " << std::setw(3)  << m_solver.init_trail_size();
         out << " " << std::setw(7)  << m_solver.m_stats.m_gc_clause << " ";
         out << " " << std::setw(7)  << mem_stat();

@@ -32,8 +32,8 @@ namespace euf {
     typedef id_var_list<> th_var_list;
     typedef int theory_var;
     typedef int theory_id;
-    const theory_var null_var = -1;
-    const theory_id null_id = -1;
+    const theory_var null_theory_var = -1;
+    const theory_id null_theory_id = -1;
 
     class enode {
         expr*         m_owner;
@@ -83,6 +83,7 @@ namespace euf {
         void set_update_children() { m_update_children = true; }
 
         friend class add_th_var_trail;
+        friend class replace_th_var_trail;
         void add_th_var(theory_var v, theory_id id, region & r) { m_th_vars.add_var(v, id, r); }
         void replace_th_var(theory_var v, theory_id id) { m_th_vars.replace(v, id); }
         void del_th_var(theory_id id) { m_th_vars.del_var(id); }        

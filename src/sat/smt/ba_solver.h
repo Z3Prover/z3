@@ -35,7 +35,7 @@ namespace sat {
 
     class xor_finder;
     
-    class ba_solver : public th_solver {
+    class ba_solver : public euf::th_solver {
 
         friend class local_search;
 
@@ -232,7 +232,6 @@ namespace sat {
             bool contains(literal l) const { for (auto wl : m_wlits) if (wl.second == l) return true; return false; }
         };
 
-        ast_manager&           m;
         sat_internalizer&      si;
         pb_util                m_pb;
 
@@ -305,6 +304,9 @@ namespace sat {
         bool_vector             m_root_vars;
         unsigned_vector           m_weights;
         svector<wliteral>         m_wlits;
+
+        euf::th_solver* ba_solver::fresh(sat::solver* new_s, ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
+
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, bool& self);
         bool subsumed(card& c1, literal l1, literal l2);
@@ -563,7 +565,8 @@ namespace sat {
         expr_ref get_xor(std::function<expr_ref(sat::literal)>& l2e, ba_solver::xr const& x);
 
     public:
-        ba_solver(ast_manager& m, sat_internalizer& si);
+        ba_solver(euf::solver& ctx, euf::theory_id id);
+        ba_solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
         ~ba_solver() override;
         void set_solver(solver* s) override { m_solver = s; }
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
@@ -602,7 +605,7 @@ namespace sat {
 
         literal internalize(expr* e, bool sign, bool root, bool redundant) override;
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
-        th_solver* fresh(solver* s, ast_manager& m, sat_internalizer& si) override;
+        euf::th_solver* fresh(solver* s, euf::solver& ctx) override;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
         std::ostream& display(std::ostream& out, constraint const& c, bool values) const;

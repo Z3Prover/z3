@@ -468,7 +468,7 @@ namespace sat {
             if (w.is_binary_clause() && v == w.get_literal())
                 return;
         certify_implies(u, v, c);
-        s.mk_clause(~u, v, true);
+        s.mk_clause(~u, v, sat::status::redundant());
         // m_bins owns reference to ~u or v created by certify_implies
         m_bins.insert(p); 
         ++m_stats.m_num_learned_implies;
@@ -524,7 +524,7 @@ namespace sat {
 
     void cut_simplifier::track_binary(literal u, literal v) {
         if (s.m_config.m_drat) {
-            s.m_drat.add(u, v, true);
+            s.m_drat.add(u, v, sat::status::redundant());
         }
     }
 

@@ -55,7 +55,7 @@ namespace sat {
         for (unsigned i = old_tr_sz; i < tr_sz; i++) {
             entry.m_lits.push_back(s.m_trail[i]);
             if (s.m_config.m_drat) {
-                s.m_drat.add(~l, s.m_trail[i], true);
+                s.m_drat.add(~l, s.m_trail[i], status::redundant());
             }
         }
     }
@@ -71,8 +71,8 @@ namespace sat {
             for (literal lit : *implied_lits) {
                 if (m_assigned.contains(lit)) {
                     if (s.m_config.m_drat) {
-                        s.m_drat.add(l, lit, true);
-                        s.m_drat.add(~l, lit, true);
+                        s.m_drat.add(l, lit, status::redundant());
+                        s.m_drat.add(~l, lit, status::redundant());
                     }
                     s.assign_scoped(lit);
                     m_num_assigned++;
@@ -106,8 +106,8 @@ namespace sat {
 
             for (literal lit : m_to_assert) {
                 if (s.m_config.m_drat) {
-                    s.m_drat.add(l, lit, true);
-                    s.m_drat.add(~l, lit, true);
+                    s.m_drat.add(l, lit, status::redundant());
+                    s.m_drat.add(~l, lit, status::redundant());
                 }
                 s.assign_scoped(lit);
                 m_num_assigned++;

@@ -32,7 +32,7 @@ namespace euf {
     /**
     * retrieve extension that is associated with Boolean variable.
     */
-    sat::th_solver* solver::get_solver(sat::bool_var v) {
+    th_solver* solver::get_solver(sat::bool_var v) {
         if (v >= m_var2node.size())
             return nullptr;
         euf::enode* n = m_var2node[v];
@@ -41,13 +41,13 @@ namespace euf {
         return get_solver(n->get_owner());
     }
 
-    sat::th_solver* solver::get_solver(expr* e) {
+    th_solver* solver::get_solver(expr* e) {
         if (is_app(e)) 
             return get_solver(to_app(e)->get_decl());        
         return nullptr;
     }
 
-    sat::th_solver* solver::get_solver(func_decl* f) {
+    th_solver* solver::get_solver(func_decl* f) {
         family_id fid = f->get_family_id();
         if (fid == null_family_id)
             return nullptr;
@@ -58,7 +58,7 @@ namespace euf {
             return nullptr;
         pb_util pb(m);
         if (pb.get_family_id() == fid) {
-            ext = alloc(sat::ba_solver, m, si);
+            ext = alloc(sat::ba_solver, *this, fid);
         }
         if (ext) {
             ext->set_solver(m_solver);
@@ -71,7 +71,7 @@ namespace euf {
         return ext;
     }
 
-    void solver::add_solver(family_id fid, sat::th_solver* th) {
+    void solver::add_solver(family_id fid, th_solver* th) {
         m_solvers.push_back(th);
         m_id2solver.setx(fid, th, nullptr);
     }
@@ -173,43 +173,52 @@ namespace euf {
         propagate();
     }
 
-    void solver::propagate() {     
-        m_egraph.propagate();
-        unsigned lvl = s().scope_lvl();
+    void solver::propagate() {  
+        while (m_egraph.propagate() && !s().inconsistent()) {
+            if (m_egraph.inconsistent()) {  
+                unsigned lvl = s().scope_lvl();
+                s().set_conflict(sat::justification::mk_ext_justification(lvl, conflict_constraint().to_index()));
+                return;
+            }
+            propagate_literals();
+            propagate_th_eqs();
+        }
+    }
 
-        if (m_egraph.inconsistent()) {  
-            s().set_conflict(sat::justification::mk_ext_justification(lvl, conflict_constraint().to_index()));
-            return;
-        }
-        for (euf::enode* eq : m_egraph.new_eqs()) {
-            bool_var v = m_expr2var.to_bool_var(eq->get_owner());
+    void solver::propagate_literals() {
+        for (; m_egraph.has_literal() && !s().inconsistent() && !m_egraph.inconsistent(); m_egraph.next_literal()) {
+            euf::enode_bool_pair p = m_egraph.get_literal();
+            euf::enode* n = p.first;
+            bool is_eq = p.second;
+            expr* e = n->get_owner();
             expr* a = nullptr, *b = nullptr;
-            if (s().value(v) == l_false && m_ackerman && m.is_eq(eq->get_owner(), a, b))
-                m_ackerman->cg_conflict_eh(a, b);
-            literal lit(v, false);
-            if (s().value(lit) == l_true)
-                continue;
-            s().assign(literal(v, false), sat::justification::mk_ext_justification(lvl, eq_constraint().to_index()));
-            if (s().inconsistent())
-                return;
-        }
-        for (euf::enode* p : m_egraph.new_lits()) {
-            expr* e = p->get_owner();
-            bool sign = m.is_false(p->get_root()->get_owner());
-            SASSERT(m.is_bool(e));
-            SASSERT(m.is_true(p->get_root()->get_owner()) || sign);
             bool_var v = m_expr2var.to_bool_var(e);
-            literal lit(v, sign);
-            if (s().value(lit) == l_true)
-                continue;
+            SASSERT(m.is_bool(e));
+            size_t cnstr;
+            literal lit;
+            if (is_eq) {
+                VERIFY(m.is_eq(e, a, b));
+                cnstr = eq_constraint().to_index();
+                lit = literal(v, false);
+            }
+            else {
+                a = e, b = n->get_root()->get_owner();
+                SASSERT(m.is_true(a) || m.is_false(b));
+                cnstr = lit_constraint().to_index();
+                lit = literal(v, m.is_false(b));
+            }
             if (s().value(lit) == l_false && m_ackerman) 
-                m_ackerman->cg_conflict_eh(p->get_owner(), p->get_root()->get_owner());
-            s().assign(lit, sat::justification::mk_ext_justification(lvl, lit_constraint().to_index()));
-            if (s().inconsistent())
-                return;
+                m_ackerman->cg_conflict_eh(a, b);
+            unsigned lvl = s().scope_lvl();
+            if (s().value(lit) != l_true)
+                s().assign(lit, sat::justification::mk_ext_justification(lvl, cnstr));
         }
-        for (euf::th_eq const& eq : m_egraph.new_th_eqs()) {
-            // m_id2solver[eq.m_id]->new_eq_eh(eq);
+    }
+
+    void solver::propagate_th_eqs() {
+        for (; m_egraph.has_th_eq() && !s().inconsistent() && !m_egraph.inconsistent(); m_egraph.next_th_eq()) {
+            th_eq eq = m_egraph.get_th_eq();
+            m_id2solver[eq.m_id]->new_eq_eh(eq);
         }
     }
 
@@ -347,7 +356,7 @@ namespace euf {
         for (unsigned i = 0; i < m_id2solver.size(); ++i) {
             auto* e = m_id2solver[i];
             if (e)
-                r->add_solver(i, e->fresh(s, *m_to_m, *m_to_si));
+                r->add_solver(i, e->fresh(s, *r));
         }
         return r;
     }

@@ -249,15 +249,15 @@ namespace sat {
         // Variable & Clause creation
         //
         // -----------------------
-        void add_clause(unsigned num_lits, literal * lits, bool learned) override { mk_clause(num_lits, lits, learned); }
+        void add_clause(unsigned num_lits, literal * lits, sat::status st) override { mk_clause(num_lits, lits, st); }
         bool_var add_var(bool ext) override { return mk_var(ext, true); }
 
         bool_var mk_var(bool ext = false, bool dvar = true);
 
-        clause* mk_clause(literal_vector const& lits, bool learned = false) { return mk_clause(lits.size(), lits.c_ptr(), learned); }
-        clause* mk_clause(unsigned num_lits, literal * lits, bool learned = false);
-        clause* mk_clause(literal l1, literal l2, bool learned = false);
-        clause* mk_clause(literal l1, literal l2, literal l3, bool learned = false);        
+        clause* mk_clause(literal_vector const& lits, sat::status st = sat::status::asserted()) { return mk_clause(lits.size(), lits.c_ptr(), st); }
+        clause* mk_clause(unsigned num_lits, literal * lits, sat::status st = sat::status::asserted());
+        clause* mk_clause(literal l1, literal l2, sat::status st = sat::status::asserted());
+        clause* mk_clause(literal l1, literal l2, literal l3, sat::status st = sat::status::asserted());
 
         random_gen& rand() { return m_rand; }
 
@@ -271,15 +271,16 @@ namespace sat {
         bool should_defrag();
         bool memory_pressure();
         void del_clause(clause & c);
-        clause * mk_clause_core(unsigned num_lits, literal * lits, bool learned);
+        clause * mk_clause_core(unsigned num_lits, literal * lits, sat::status st);
         clause * mk_clause_core(literal_vector const& lits) { return mk_clause_core(lits.size(), lits.c_ptr()); }
-        clause * mk_clause_core(unsigned num_lits, literal * lits) { return mk_clause_core(num_lits, lits, false); }
+        clause * mk_clause_core(unsigned num_lits, literal * lits) { return mk_clause_core(num_lits, lits, sat::status::asserted()); }
         void mk_clause_core(literal l1, literal l2) { literal lits[2] = { l1, l2 }; mk_clause_core(2, lits); }
-        void mk_bin_clause(literal l1, literal l2, bool learned);
+        void mk_bin_clause(literal l1, literal l2, sat::status st);
+        void mk_bin_clause(literal l1, literal l2, bool learned) { mk_bin_clause(l1, l2, learned ? sat::status::redundant() : sat::status::asserted()); }
         bool propagate_bin_clause(literal l1, literal l2);
-        clause * mk_ter_clause(literal * lits, bool learned);
+        clause * mk_ter_clause(literal * lits, status st);
         bool attach_ter_clause(clause & c);
-        clause * mk_nary_clause(unsigned num_lits, literal * lits, bool learned);
+        clause * mk_nary_clause(unsigned num_lits, literal * lits, status st);
         bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }

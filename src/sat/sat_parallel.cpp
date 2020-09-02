@@ -194,7 +194,7 @@ namespace sat {
             IF_VERBOSE(3, verbose_stream() << s.m_par_id << ": retrieve " << m_lits << "\n";);
             SASSERT(n >= 2);
             if (usable_clause) {
-                s.mk_clause_core(m_lits.size(), m_lits.c_ptr(), true);
+                s.mk_clause_core(m_lits.size(), m_lits.c_ptr(), sat::status::redundant());
             }
         }        
     }

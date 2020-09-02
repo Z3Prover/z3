@@ -19,17 +19,18 @@ Notes:
 
     For SMT extensions are as follows:
 
-    Input assertion (trusted modulo internalizer):
-      c a <literal>* 0
+    Assertion (trusted modulo internalizer):
+      a [<theory-id>] <literal>* 0
+    The optional theory id indicates the assertion is irredundant
 
     Bridge from ast-node to boolean variable:
-      c b <bool-var-id> := <ast-node-id> 0
+      b <bool-var-id> <ast-node-id> 0
 
     Definition of an ast node:
-      c n <ast-node-id> := <name> <ast-node-id>* 0
+      n <ast-node-id> <name> <ast-node-id>* 0
 
     Theory lemma
-      c <theory-id> <literal>* 0
+      <theory-id> <literal>* 0
 
     Available theories are:
       - euf   The theory lemma should be a consequence of congruence closure.
@@ -41,10 +42,10 @@ Notes:
 --*/
 #pragma once
 
+#include "sat_types.h"
+
 namespace sat {
     class drat {
-    public:
-        enum status { asserted, learned, deleted, ba, euf };
     private:
         struct watched_clause {
             clause* m_clause;
@@ -100,8 +101,8 @@ namespace sat {
         void updt_config();
         void add();
         void add(literal l, bool learned);
-        void add(literal l1, literal l2, bool learned);
-        void add(clause& c, bool learned);
+        void add(literal l1, literal l2, status st);
+        void add(clause& c, status st);
         void add(literal_vector const& c, status st);
         void add(literal_vector const& c); // add learned clause
 

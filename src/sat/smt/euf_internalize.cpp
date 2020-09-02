@@ -22,11 +22,11 @@ Author:
 
 namespace euf {
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
-        flet<bool> _is_learned(m_is_redundant, learned);
+    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+        flet<bool> _is_learned(m_is_redundant, redundant);
         auto* ext = get_solver(e);
         if (ext)
-            return ext->internalize(e, sign, root, learned);
+            return ext->internalize(e, sign, root, redundant);
         IF_VERBOSE(110, verbose_stream() << "internalize: " << mk_pp(e, m) << "\n");
         SASSERT(!si.is_bool_op(e));
         sat::scoped_stack _sc(m_stack);
@@ -103,8 +103,8 @@ namespace euf {
         if (lit.sign()) {
             sat::bool_var v = si.add_bool_var(n->get_owner());
             sat::literal lit2 = literal(v, false);
-            s().mk_clause(~lit, lit2, false);
-            s().mk_clause(lit, ~lit2, false);
+            s().mk_clause(~lit, lit2, sat::status::euf_asserted());
+            s().mk_clause(lit, ~lit2, sat::status::euf_asserted());
             lit = lit2;
         }
         sat::bool_var v = lit.var();
@@ -132,6 +132,7 @@ namespace euf {
         if (sz <= 1)
             return;
 
+        sat::status st = m_is_redundant ? sat::status::euf_learned() : sat::status::euf_asserted();
         static const unsigned distinct_max_args = 32;
         if (sz <= distinct_max_args) {
             sat::literal_vector lits;
@@ -142,7 +143,7 @@ namespace euf {
                     lits.push_back(lit);
                 }
             }
-            s().mk_clause(lits, false);
+            s().mk_clause(lits, st);
         }
         else {
             // g(f(x_i)) = x_i
@@ -160,13 +161,13 @@ namespace euf {
                 expr_ref gapp(m.mk_app(g, fapp.get()), m);
                 expr_ref eq(m.mk_eq(gapp, arg), m);
                 sat::literal lit = internalize(eq, false, false, m_is_redundant);
-                s().add_clause(1, &lit, m_is_redundant);
+                s().add_clause(1, &lit, st);
                 eqs.push_back(m.mk_eq(fapp, a));
             }
             pb_util pb(m);
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.c_ptr(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
-            s().mk_clause(1, &lit, m_is_redundant);
+            s().mk_clause(1, &lit, st);
         }
     }
 
@@ -174,8 +175,9 @@ namespace euf {
         SASSERT(m.is_distinct(e));
         static const unsigned distinct_max_args = 32;
         unsigned sz = e->get_num_args();
+        sat::status st = m_is_redundant ? sat::status::euf_learned() : sat::status::euf_asserted();
         if (sz <= 1) {
-            s().mk_clause(0, nullptr, m_is_redundant);
+            s().mk_clause(0, nullptr, st);
             return;
         }           
         if (sz <= distinct_max_args) {
@@ -183,7 +185,7 @@ namespace euf {
                 for (unsigned j = i + 1; j < sz; ++j) {
                     expr_ref eq(m.mk_eq(args[i]->get_owner(), args[j]->get_owner()), m);
                     sat::literal lit = internalize(eq, true, false, m_is_redundant);
-                    s().add_clause(1, &lit, m_is_redundant);
+                    s().add_clause(1, &lit, st);
                 }
             }
         }
@@ -200,13 +202,14 @@ namespace euf {
                 n->mark_interpreted();
                 expr_ref eq(m.mk_eq(fapp, fresh), m);
                 sat::literal lit = internalize(eq, false, false, m_is_redundant);
-                s().add_clause(1, &lit, m_is_redundant);
+                s().add_clause(1, &lit, st);
             }
         }
     }
 
     void solver::axiomatize_basic(enode* n) {
         expr* e = n->get_owner();
+        sat::status st = m_is_redundant ? sat::status::euf_learned() : sat::status::euf_asserted();
         if (m.is_ite(e)) {        
             app* a = to_app(e);
             expr* c = a->get_arg(0);
@@ -221,8 +224,8 @@ namespace euf {
             sat::literal lit_el = internalize(eq_el, false, false, m_is_redundant);
             literal lits1[2] = { literal(v, true),  lit_th };
             literal lits2[2] = { literal(v, false), lit_el };
-            s().add_clause(2, lits1, m_is_redundant);
-            s().add_clause(2, lits2, m_is_redundant);
+            s().add_clause(2, lits1, st);
+            s().add_clause(2, lits2, st);
         }
         else if (m.is_distinct(e)) {
             expr_ref_vector eqs(m);
@@ -238,8 +241,8 @@ namespace euf {
             sat::literal some_eq = si.internalize(fml, m_is_redundant);
             sat::literal lits1[2] = { ~dist, ~some_eq };
             sat::literal lits2[2] = { dist, some_eq };
-            s().add_clause(2, lits1, m_is_redundant);
-            s().add_clause(2, lits2, m_is_redundant);            
+            s().add_clause(2, lits1, st);
+            s().add_clause(2, lits2, st);            
         }
     }
 

@@ -19,6 +19,7 @@ Author:
 #include "util/mpz.h"
 #include "sat/sat_types.h"
 #include "sat/smt/ba_solver.h"
+#include "sat/smt/euf_solver.h"
 #include "sat/sat_simplifier_params.hpp"
 #include "sat/sat_xor_finder.h"
 
@@ -359,7 +360,7 @@ namespace sat {
         }
         if (p.k() == 1 && p.lit() == null_literal) {
             literal_vector lits(p.literals());
-            s().mk_clause(lits.size(), lits.c_ptr(), p.learned());
+            s().mk_clause(lits.size(), lits.c_ptr(), status::ba(p.learned()));
             IF_VERBOSE(100, display(verbose_stream() << "add clause: " << lits << "\n", p, true););
             remove_constraint(p, "implies clause");
         }
@@ -411,7 +412,7 @@ namespace sat {
 
             if (k == 1 && p.lit() == null_literal) {
                 literal_vector lits(sz, p.literals().c_ptr());
-                s().mk_clause(sz, lits.c_ptr(), p.learned());
+                s().mk_clause(sz, lits.c_ptr(), status::ba(p.learned()));
                 remove_constraint(p, "is clause");
                 return;
             }
@@ -794,7 +795,7 @@ namespace sat {
 
         else if (k == 1 && p.lit() == null_literal) {
             literal_vector lits(sz, p.literals().c_ptr());
-            s().mk_clause(sz, lits.c_ptr(), p.learned());
+            s().mk_clause(sz, lits.c_ptr(), status::ba(p.learned()));
             remove_constraint(p, "recompiled to clause");
             return;
         }
@@ -1597,7 +1598,7 @@ namespace sat {
         TRACE("ba", tout << m_lemma << "\n";);
 
         if (get_config().m_drat && m_solver) {
-            s().m_drat.add(m_lemma, sat::drat::status::ba);
+            s().m_drat.add(m_lemma, sat::status::ba_redundant());
         }
 
         s().m_lemma.reset();
@@ -1719,8 +1720,12 @@ namespace sat {
         return p;        
     }
 
-    ba_solver::ba_solver(ast_manager& m, sat_internalizer& si)
-        : m(m), si(si), m_pb(m),
+    ba_solver::ba_solver(euf::solver& ctx, euf::theory_id id) :
+        ba_solver(ctx.get_manager(), ctx.get_si(), id) {}
+
+    ba_solver::ba_solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
+        : euf::th_solver(m, id),
+          si(si), m_pb(m),
           m_solver(nullptr), m_lookahead(nullptr), 
           m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
         TRACE("ba", tout << this << "\n";);
@@ -1745,7 +1750,7 @@ namespace sat {
     ba_solver::constraint* ba_solver::add_at_least(literal lit, literal_vector const& lits, unsigned k, bool learned) {
         if (k == 1 && lit == null_literal) {
             literal_vector _lits(lits);
-            s().mk_clause(_lits.size(), _lits.c_ptr(), learned);
+            s().mk_clause(_lits.size(), _lits.c_ptr(), status::ba(learned));
             return nullptr;
         }
         if (!learned && clausify(lit, lits.size(), lits.c_ptr(), k)) {
@@ -2135,7 +2140,7 @@ namespace sat {
             for (literal lit : r) 
                 lits.push_back(~lit);
             lits.push_back(l);
-            s().m_drat.add(lits, sat::drat::status::ba);
+            s().m_drat.add(lits, sat::status::ba_redundant());
         }
     }
 
@@ -2894,7 +2899,7 @@ namespace sat {
 
         if (k == 1 && c.lit() == null_literal) {
             literal_vector lits(sz, c.literals().c_ptr());
-            s().mk_clause(sz, lits.c_ptr(), c.learned());
+            s().mk_clause(sz, lits.c_ptr(), sat::status::ba(c.learned()));
             remove_constraint(c, "recompiled to clause");
             return;
         }
@@ -2902,27 +2907,27 @@ namespace sat {
         if (sz == 0) {
             if (c.lit() == null_literal) {
                 if (k > 0) {
-                    s().mk_clause(0, nullptr, true);
+                    s().mk_clause(0, nullptr, status::ba_asserted());
                 }
             }
             else if (k > 0) {
                 literal lit = ~c.lit();
-                s().mk_clause(1, &lit, c.learned());
+                s().mk_clause(1, &lit, status::ba(c.learned()));
             }
             else {
                 literal lit = c.lit();
-                s().mk_clause(1, &lit, c.learned());
+                s().mk_clause(1, &lit, status::ba(c.learned()));
             }
             remove_constraint(c, "recompiled to clause");
             return;
         }
         if (all_units && sz < k) {
             if (c.lit() == null_literal) {
-                s().mk_clause(0, nullptr, true);            
+                s().mk_clause(0, nullptr, status::ba_redundant());            
             }
             else {
                 literal lit = ~c.lit();
-                s().mk_clause(1, &lit, c.learned());
+                s().mk_clause(1, &lit, status::ba(c.learned()));
             }
             remove_constraint(c, "recompiled to clause");
             return;            
@@ -3719,12 +3724,16 @@ namespace sat {
     }
 
     extension* ba_solver::copy(solver* s) {
-        return fresh(s, m, si);
+        return fresh(s, m, si, m_id);
     }
 
-    th_solver* ba_solver::fresh(solver* s, ast_manager& m, sat_internalizer& si) {
-        ba_solver* result = alloc(ba_solver, m, si);
-        result->set_solver(s);
+    euf::th_solver* ba_solver::fresh(solver* new_s, euf::solver& new_ctx) {
+        return fresh(new_s, new_ctx.get_manager(), new_ctx.get_si(), get_id());
+    }
+
+    euf::th_solver* ba_solver::fresh(solver* new_s, ast_manager& m, sat::sat_internalizer& si, euf::theory_id id) {
+        ba_solver* result = alloc(ba_solver, m, si, id);
+        result->set_solver(new_s);
         copy_constraints(result, m_constraints);
         return result;
     }
