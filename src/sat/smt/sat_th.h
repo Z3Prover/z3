@@ -93,28 +93,17 @@ namespace euf {
         euf::enode_vector   m_var2enode;
         unsigned_vector     m_var2enode_lim;
     public:
+        th_euf_solver(euf::solver& ctx, euf::theory_id id);
         virtual ~th_euf_solver() {}
-
-        th_euf_solver(euf::solver& ctx, euf::theory_id id);           
-
-        virtual euf::theory_var mk_var(enode * n) {
-            SASSERT(!is_attached_to_var(n));
-            euf::theory_var v = m_var2enode.size();
-            m_var2enode.push_back(n);
-            return v;
-        }
-
+        virtual theory_var mk_var(enode * n);
         unsigned get_num_vars() const { return m_var2enode.size();}
         enode* get_enode(theory_var v) const { return m_var2enode[v]; }
         expr* get_expr(theory_var v) const { return get_enode(v)->get_owner(); }
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
         theory_var get_th_var(expr* e) const;
-
-        bool is_attached_to_var(enode* n) const {
-            theory_var v = n->get_th_var(get_id());
-            return v != null_theory_var && get_enode(v) == n;
-        }
-
+        bool is_attached_to_var(enode* n) const;
+        void push() override;
+        void pop(unsigned n) override;
     };
 
 
