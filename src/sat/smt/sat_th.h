@@ -19,12 +19,23 @@ Author:
 #include "util/top_sort.h"
 #include "sat/smt/sat_smt.h"
 #include "ast/euf/euf_egraph.h"
+#include "smt/params/smt_params.h"
 
 namespace euf {
 
     class solver;
     
     class th_internalizer {
+    protected:
+        euf::enode_vector     m_args;
+        svector<sat::eframe>  m_stack;
+        bool                  m_is_redundant { false };
+
+        bool visit_rec(ast_manager& m, expr* e, bool sign, bool root, bool redundant);
+
+        virtual bool visit(expr* e) { return false; }
+        virtual bool visited(expr* e) { return false; }
+        virtual bool post_visit(expr* e, bool sign, bool root) { return false; }
     public:
         virtual ~th_internalizer() {}
 
@@ -91,11 +102,16 @@ namespace euf {
         solver &            ctx;
         euf::enode_vector   m_var2enode;
         unsigned_vector     m_var2enode_lim;
+
+        smt_params const& get_config() const;
+        sat::literal get_literal(expr* e) const;
+        region& get_region();
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);
         virtual ~th_euf_solver() {}
         virtual theory_var mk_var(enode * n);
         unsigned get_num_vars() const { return m_var2enode.size();}
+        enode* get_enode(expr* e) const; 
         enode* get_enode(theory_var v) const { return m_var2enode[v]; }
         expr* get_expr(theory_var v) const { return get_enode(v)->get_owner(); }
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }

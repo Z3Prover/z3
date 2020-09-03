@@ -236,11 +236,13 @@ namespace euf {
     }
 
     enode* solver::mk_true() {
-        return visit(m.mk_true());
+        VERIFY(visit(m.mk_true()));
+        return m_egraph.find(m.mk_true());
     }
 
     enode* solver::mk_false() {
-        return visit(m.mk_false());
+        VERIFY(visit(m.mk_false()));
+        return m_egraph.find(m.mk_false());
     }
 
     sat::check_result solver::check() { 

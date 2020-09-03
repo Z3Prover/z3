@@ -4,13 +4,14 @@ z3_add_component(sat_smt
     ba_internalize.cpp
     ba_solver.cpp
     bv_internalize.cpp
-    xor_solver.cpp
+    bv_solver.cpp
     euf_ackerman.cpp
     euf_internalize.cpp
     euf_model.cpp
     euf_proof.cpp
     euf_solver.cpp
     sat_th.cpp
+    xor_solver.cpp
   COMPONENT_DEPENDENCIES
     sat
     ast

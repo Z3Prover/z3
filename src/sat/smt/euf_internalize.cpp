@@ -17,56 +17,27 @@ Author:
 
 #include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"
-#include "tactic/tactic_exception.h"
 #include "sat/smt/euf_solver.h"
 
 namespace euf {
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
-        flet<bool> _is_learned(m_is_redundant, redundant);
+        if (si.is_bool_op(e))
+            return si.internalize(e, redundant);
         auto* ext = get_solver(e);
         if (ext)
             return ext->internalize(e, sign, root, redundant);
-        IF_VERBOSE(110, verbose_stream() << "internalize: " << mk_pp(e, m) << "\n");
-        SASSERT(!si.is_bool_op(e));
-        sat::scoped_stack _sc(m_stack);
-        unsigned sz = m_stack.size();
-        euf::enode* n = visit(e);
-        while (m_stack.size() > sz) {
-        loop:
-            if (!m.inc())
-                throw tactic_exception(m.limit().get_cancel_msg());
-            sat::eframe & fr = m_stack.back();
-            expr* e = fr.m_e;
-            if (m_egraph.find(e)) {
-                m_stack.pop_back();
-                continue;
-            }
-            unsigned num = is_app(e) ? to_app(e)->get_num_args() : 0;
-            
-            while (fr.m_idx < num) {
-                expr* arg = to_app(e)->get_arg(fr.m_idx);
-                fr.m_idx++;
-                n = visit(arg);
-                if (!n)
-                    goto loop;
-            }
-            m_args.reset();
-            for (unsigned i = 0; i < num; ++i)
-                m_args.push_back(m_egraph.find(to_app(e)->get_arg(i)));
-            if (root && internalize_root(to_app(e), sign))
-                return sat::null_literal;
-            n = m_egraph.mk(e, num, m_args.c_ptr());
-            attach_node(n);
-        }        
+
+        if (!visit_rec(m, e, sign, root, redundant))
+            return sat::null_literal;
         SASSERT(m_egraph.find(e));
         return literal(m_expr2var.to_bool_var(e), sign);
     }
 
-    euf::enode* solver::visit(expr* e) {
+    bool solver::visit(expr* e) {
         euf::enode* n = m_egraph.find(e);
         if (n)
-            return n;
+            return true;
         if (si.is_bool_op(e)) {
             sat::literal lit = si.internalize(e, m_is_redundant);
             n = m_var2node.get(lit.var(), nullptr);
@@ -77,15 +48,31 @@ namespace euf {
             attach_lit(lit, n);
             if (!m.is_true(e) && !m.is_false(e)) 
                 s().set_external(lit.var());
-            return n;
+            return true;
         }
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
             m_stack.push_back(sat::eframe(e));
-            return nullptr;
+            return false;
         }
         n = m_egraph.mk(e, 0, nullptr);
         attach_node(n);
-        return n;
+        return true;
+    }
+
+    bool solver::post_visit(expr* e, bool sign, bool root) {
+        unsigned num = is_app(e) ? to_app(e)->get_num_args() : 0;
+        m_args.reset();
+        for (unsigned i = 0; i < num; ++i)
+            m_args.push_back(m_egraph.find(to_app(e)->get_arg(i)));
+        if (root && internalize_root(to_app(e), sign))
+            return false;
+        enode* n = m_egraph.mk(e, num, m_args.c_ptr());
+        attach_node(n);
+        return true;
+    }
+
+    bool solver::visited(expr* e) {
+        return m_egraph.find(e) != nullptr;
     }
 
     void solver::attach_node(euf::enode* n) {

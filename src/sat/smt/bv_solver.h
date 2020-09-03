@@ -17,6 +17,7 @@ Author:
 #pragma once
 
 #include "sat/smt/sat_th.h"
+#include "ast/rewriter/bit_blaster/bit_blaster.h"
 
 namespace bv {
 
@@ -85,10 +86,9 @@ namespace bv {
             bool is_bit() const override { return false; }
         };
 
-        euf::solver&             ctx;
-        bv_util                  m_util;
+        bv_util                  bv;
         arith_util               m_autil;
-//        bit_blaster              m_bb;
+        bit_blaster              m_bb;
         th_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
         ptr_vector<expr>         m_bits_expr;
@@ -96,11 +96,59 @@ namespace bv {
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
 //        bool_var2atom            m_bool_var2atom;
         sat::solver* m_solver;
-        svector<sat::eframe>     m_stack;
-        bool                     m_is_redundant{ false };
+        sat::solver& s() { return *m_solver;  }
 
-        bool visit(expr* e);
-        bool visited(expr* e);
+        // internalize:
+        sat::literal false_literal;
+        sat::literal true_literal;
+        bool visit(expr* e) override;
+        bool visited(expr* e) override;
+        bool post_visit(expr* e, bool sign, bool root) override;
+        unsigned get_bv_size(euf::enode* n);
+        euf::enode* mk_enode(app* n, ptr_vector<euf::enode> const& args);
+        void fixed_var_eh(theory_var v);
+        void register_true_false_bit(theory_var v, unsigned i);
+        void add_bit(theory_var v, sat::literal lit);
+        void init_bits(euf::enode * n, expr_ref_vector const & bits);
+        void internalize_num(app * n, theory_var v);
+        void internalize_add(app * n);
+        void internalize_sub(app * n);
+        void internalize_mul(app * n);
+        void internalize_udiv(app * n);
+        void internalize_sdiv(app * n);
+        void internalize_urem(app * n);
+        void internalize_srem(app * n);
+        void internalize_smod(app * n);
+        void internalize_shl(app * n);
+        void internalize_lshr(app * n);
+        void internalize_ashr(app * n);
+        void internalize_ext_rotate_left(app * n);
+        void internalize_ext_rotate_right(app * n);
+        void internalize_and(app * n);
+        void internalize_or(app * n);
+        void internalize_not(app * n);
+        void internalize_nand(app * n);
+        void internalize_nor(app * n);
+        void internalize_xor(app * n);
+        void internalize_xnor(app * n);
+        void internalize_concat(app * n);
+        void internalize_sign_extend(app * n);
+        void internalize_zero_extend(app * n);
+        void internalize_extract(app * n);
+        void internalize_redand(app * n);
+        void internalize_redor(app * n);
+        void internalize_comp(app * n);
+        void internalize_rotate_left(app * n);
+        void internalize_rotate_right(app * n);
+        void internalize_bv2int(app* n);
+        void internalize_int2bv(app* n);
+        void internalize_mkbv(app* n);
+        void internalize_umul_no_overflow(app *n);
+        void internalize_smul_no_overflow(app *n);
+        void internalize_smul_no_underflow(app *n);
+
+        void find_wpos(theory_var v);
+
     public:
         solver(euf::solver& ctx);
         ~solver() override {}
