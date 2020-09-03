@@ -108,4 +108,30 @@ namespace bv {
 #endif
         return out;
     }
+
+    double solver::get_reward(literal l, sat::ext_constraint_idx idx, sat::literal_occs_fun& occs) const { return 0; }
+    bool solver::is_extended_binary(sat::ext_justification_idx idx, literal_vector& r) { return false; }
+    bool solver::is_external(bool_var v) { return true; }
+    bool solver::propagate(literal l, sat::ext_constraint_idx idx) { return false; }
+    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r) {}
+    void solver::asserted(literal l) {}
+    sat::check_result solver::check() { return sat::check_result::CR_DONE; }
+    void solver::push() {}
+    void solver::pop(unsigned n) {}
+    void solver::pre_simplify() {}
+    void solver::simplify() {}
+    void solver::clauses_modifed() {}
+    lbool solver::get_phase(bool_var v) { return l_undef; }
+    std::ostream& solver::display(std::ostream& out) const { return out; }
+    std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { return out; }
+    std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { return out; }
+    void solver::collect_statistics(statistics& st) const {}
+    sat::extension* solver::copy(sat::solver* s) { return nullptr; }
+    void solver::pop_reinit() {}
+    bool solver::validate() { return true; }
+    void solver::init_use_list(sat::ext_use_list& ul) {}
+    bool solver::is_blocked(literal l, sat::ext_constraint_idx) { return false; }
+    bool solver::check_model(sat::model const& m) const { return true; }
+    unsigned solver::max_var(unsigned w) const { return 0;}
+ 
 }

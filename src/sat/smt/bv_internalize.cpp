@@ -179,7 +179,7 @@ namespace bv {
 #endif
 
 
-    euf::enode * solver::mk_enode(app * n, ptr_vector<euf::enode> const& args) {
+    euf::enode * solver::mk_enode(expr * n, ptr_vector<euf::enode> const& args) {
         euf::enode * e = ctx.get_enode(n);
         if (!e) {
             e = ctx.mk_enode(n, args.size(), args.c_ptr());
@@ -304,6 +304,46 @@ namespace bv {
         fixed_var_eh(v);
     }
 
+    void solver::internalize_mkbv(app* n) {
+        expr_ref_vector bits(m);
+        euf::enode * e = mk_enode(n, m_args);
+        bits.append(n->get_num_args(), n->get_args());
+        init_bits(e, bits);
+    }
+
+    void solver::internalize_bv2int(app* n) {
+        mk_enode(n, m_args);
+        assert_bv2int_axiom(n);        
+    }
+
+    void solver::assert_bv2int_axiom(app * n) {
+        // 
+        // create the axiom:
+        // n = bv2int(k) = ite(bit2bool(k[sz-1],2^{sz-1},0) + ... + ite(bit2bool(k[0],1,0))
+        // 
+        expr* k = nullptr;
+        sort * int_sort = m.get_sort(n);
+        SASSERT(bv.is_bv2int(n, k));
+        SASSERT(bv.is_bv_sort(m.get_sort(k)));
+        expr_ref_vector k_bits(m);
+        euf::enode * k_enode = mk_enode(k, m_args);
+        get_bits(k_enode, k_bits);
+        unsigned sz = bv.get_bv_size(k);
+        expr_ref_vector args(m);
+        expr_ref zero(bv.mk_numeral(numeral(0), int_sort), m);
+        numeral num(1);
+        for (expr* b : k_bits) {
+            expr_ref n(m_autil.mk_numeral(num, int_sort), m);
+            args.push_back(m.mk_ite(b, n, zero));
+            num *= numeral(2);
+        }
+        expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
+        expr_ref eq(m.mk_eq(n, sum), m);
+        sat::literal lit = ctx.internalize(eq, false, false, m_is_redundant);
+        s().add_clause(1, &lit, sat::status::th(m_is_redundant, get_id())); 
+    }
+
+
     void solver::internalize_add(app* n) {}
     void solver::internalize_sub(app* n) {}
     void solver::internalize_mul(app* n) {}
@@ -333,9 +373,7 @@ namespace bv {
     void solver::internalize_comp(app* n) {}
     void solver::internalize_rotate_left(app* n) {}
     void solver::internalize_rotate_right(app* n) {}
-    void solver::internalize_bv2int(app* n) {}
     void solver::internalize_int2bv(app* n) {}
-    void solver::internalize_mkbv(app* n) {}
     void solver::internalize_umul_no_overflow(app* n) {}
     void solver::internalize_smul_no_overflow(app* n) {}
     void solver::internalize_smul_no_underflow(app* n) {}

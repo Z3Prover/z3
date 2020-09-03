@@ -131,7 +131,7 @@ namespace bv {
         void get_bits(euf::enode* n, expr_ref_vector& r);
         void get_arg_bits(euf::enode* n, unsigned idx, expr_ref_vector& r);
         void get_arg_bits(app* n, unsigned idx, expr_ref_vector& r);
-        euf::enode* mk_enode(app* n, ptr_vector<euf::enode> const& args);
+        euf::enode* mk_enode(expr* n, ptr_vector<euf::enode> const& args);
         void fixed_var_eh(theory_var v);
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
@@ -175,6 +175,8 @@ namespace bv {
         void internalize_smul_no_overflow(app *n);
         void internalize_smul_no_underflow(app *n);
 
+        void assert_bv2int_axiom(app * n);
+
         // solving
         void find_wpos(theory_var v);
         void find_new_diseq_axioms(var_pos_occ* occs, theory_var v, unsigned idx);
@@ -196,7 +198,7 @@ namespace bv {
         sat::check_result check() override;
         void push() override;
         void pop(unsigned n) override;
-        void pre_simplify() override;
+        void pre_simplify() override;        
         void simplify() override;
         void clauses_modifed() override;
         lbool get_phase(bool_var v) override;
