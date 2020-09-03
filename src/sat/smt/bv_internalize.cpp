@@ -267,6 +267,10 @@ namespace bv {
         }
     }
 
+    void solver::add_unit(sat::literal lit) {
+        s().add_clause(1, &lit, status());
+    }
+
     void solver::init_bits(euf::enode * n, expr_ref_vector const & bits) {
         SASSERT(get_bv_size(n) == bits.size());
         SASSERT(euf::null_theory_var != n->get_th_var(get_id()));
@@ -316,11 +320,12 @@ namespace bv {
         assert_bv2int_axiom(n);        
     }
 
+    /**
+     * create the axiom:
+     * n = bv2int(k) = ite(bit2bool(k[sz-1],2^{sz-1},0) + ... + ite(bit2bool(k[0],1,0))
+     */
+
     void solver::assert_bv2int_axiom(app * n) {
-        // 
-        // create the axiom:
-        // n = bv2int(k) = ite(bit2bool(k[sz-1],2^{sz-1},0) + ... + ite(bit2bool(k[0],1,0))
-        // 
         expr* k = nullptr;
         sort * int_sort = m.get_sort(n);
         SASSERT(bv.is_bv2int(n, k));
@@ -340,7 +345,60 @@ namespace bv {
         expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
         expr_ref eq(m.mk_eq(n, sum), m);
         sat::literal lit = ctx.internalize(eq, false, false, m_is_redundant);
-        s().add_clause(1, &lit, sat::status::th(m_is_redundant, get_id())); 
+        add_unit(lit);
+    }
+
+
+    void solver::internalize_int2bv(app* n) {
+        SASSERT(bv.is_int2bv(n));
+        euf::enode* e = mk_enode(n, m_args);
+        theory_var v = e->get_th_var(get_id());
+        mk_bits(v);
+        assert_int2bv_axiom(n);        
+    }
+
+    /**
+     * create the axiom:
+     *   bv2int(n) = e mod 2^bit_width 
+     * where n = int2bv(e)
+     *
+     * Create the axioms:
+     *   bit2bool(i,n) == ((e div 2^i) mod 2 != 0)
+     * for i = 0,.., sz-1
+     */
+    void solver::assert_int2bv_axiom(app* n) {        
+        SASSERT(bv.is_int2bv(n));
+        expr* e = n->get_arg(0);
+        euf::enode* n_enode = mk_enode(n, m_args);
+        parameter param(m_autil.mk_int());
+        expr* n_expr = n;
+        expr_ref lhs(m), rhs(m);
+        lhs = m.mk_app(get_id(), OP_BV2INT, 1, &param, 1, &n_expr);
+        unsigned sz = bv.get_bv_size(n);
+        numeral mod = power(numeral(2), sz);
+        rhs = m_autil.mk_mod(e, m_autil.mk_numeral(mod, true));
+        expr_ref eq(m.mk_eq(lhs, rhs), m);
+        literal l = ctx.internalize(eq, false, false, m_is_redundant);
+        add_unit(l);
+
+        TRACE("bv", tout << eq << "\n";);
+
+        expr_ref_vector n_bits(m);
+        
+        get_bits(n_enode, n_bits);
+
+        for (unsigned i = 0; i < sz; ++i) {
+            numeral div = power(numeral(2), i);
+            mod = numeral(2);
+            rhs = m_autil.mk_idiv(e, m_autil.mk_numeral(div, true));
+            rhs = m_autil.mk_mod(rhs, m_autil.mk_numeral(mod, true));
+            rhs = m.mk_eq(rhs, m_autil.mk_numeral(rational(1), true));
+            lhs = n_bits.get(i);            
+            expr_ref eq(m.mk_eq(lhs, rhs), m);
+            TRACE("bv", tout << eq << "\n";);
+            l = ctx.internalize(eq, false, false, m_is_redundant);
+            add_unit(l);
+        }
     }
 
 
@@ -373,7 +431,6 @@ namespace bv {
     void solver::internalize_comp(app* n) {}
     void solver::internalize_rotate_left(app* n) {}
     void solver::internalize_rotate_right(app* n) {}
-    void solver::internalize_int2bv(app* n) {}
     void solver::internalize_umul_no_overflow(app* n) {}
     void solver::internalize_smul_no_overflow(app* n) {}
     void solver::internalize_smul_no_underflow(app* n) {}

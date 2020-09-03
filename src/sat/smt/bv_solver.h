@@ -121,7 +121,7 @@ namespace bv {
         sat::literal true_literal;
         bool visit(expr* e) override;
         bool visited(expr* e) override;
-        bool post_visit(expr* e, bool sign, bool root) override;
+        bool post_visit(expr* e, bool sign, bool root) override { return true; }
         unsigned get_bv_size(euf::enode* n);
         unsigned get_bv_size(theory_var v);
         theory_var get_var(euf::enode* n);
@@ -133,6 +133,9 @@ namespace bv {
         void get_arg_bits(app* n, unsigned idx, expr_ref_vector& r);
         euf::enode* mk_enode(expr* n, ptr_vector<euf::enode> const& args);
         void fixed_var_eh(theory_var v);
+
+        sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
+        void add_unit(sat::literal lit);
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
         void init_bits(euf::enode * n, expr_ref_vector const & bits);
@@ -176,6 +179,7 @@ namespace bv {
         void internalize_smul_no_underflow(app *n);
 
         void assert_bv2int_axiom(app * n);
+        void assert_int2bv_axiom(app* n);
 
         // solving
         void find_wpos(theory_var v);
