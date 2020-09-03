@@ -255,8 +255,8 @@ namespace sat {
     class status {
     public:
         enum class st { asserted, redundant, deleted };
-        int m_orig;
         st m_st;
+        int m_orig;
     public:
         status(enum st s, int o) : m_st(s), m_orig(o) {};
         status(status const& s) : m_st(s.m_st), m_orig(s.m_orig) {}

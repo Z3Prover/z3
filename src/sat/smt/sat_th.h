@@ -114,6 +114,7 @@ namespace euf {
         enode* get_enode(expr* e) const; 
         enode* get_enode(theory_var v) const { return m_var2enode[v]; }
         expr* get_expr(theory_var v) const { return get_enode(v)->get_owner(); }
+        expr_ref get_expr(sat::literal lit) const { expr* e = get_expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
         theory_var get_th_var(expr* e) const;
         bool is_attached_to_var(enode* n) const;

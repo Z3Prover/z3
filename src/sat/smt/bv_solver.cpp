@@ -81,8 +81,8 @@ namespace bv {
         TRACE("bv_solver", tout << "found new diseq axiom\n" << pp(v1) << pp(v2);); 
         m_stats.m_num_diseq_static++;
         expr_ref eq(m.mk_eq(get_expr(v1), get_expr(v2)), m);
-        sat::literal not_eq = ctx.internalize(eq, true, false, m_is_redundant);
-        s().add_clause(1, &not_eq, sat::status::th(m_is_redundant, get_id()));
+        sat::literal neq = ctx.internalize(eq, true, false, m_is_redundant);
+        s().add_clause(1, &neq, sat::status::th(m_is_redundant, get_id()));
     }
 
     std::ostream& solver::display(std::ostream& out, theory_var v) const {

@@ -93,6 +93,92 @@ namespace bv {
         return get_enode(e) != nullptr;
     }
 
+    void solver::mk_bits(theory_var v) {
+        TRACE("bv", tout << "v" << v << "\n";);
+        expr* e = get_expr(v);
+        unsigned bv_size = get_bv_size(v);
+        literal_vector& bits = m_bits[v];
+        bits.reset();
+        for (unsigned i = 0; i < bv_size; i++) {
+            expr_ref b2b = mk_bit2bool(e, i);
+            bits.push_back(ctx.internalize(b2b, false, false, m_is_redundant));
+        }
+    }
+
+    expr_ref solver::mk_bit2bool(expr* e, unsigned idx) {
+        parameter p(idx);
+        expr* args[1] = { e };
+        return expr_ref(m.mk_app(get_id(), OP_BIT2BOOL, 1, &p, 1, args), m);
+    }
+
+#if 0
+        SASSERT(!ctx.b_internalized(n));
+
+        TRACE("bv", tout << "bit2bool: " << mk_pp(n, ctx.get_manager()) << "\n";);
+        expr* first_arg = n->get_arg(0);
+
+        if (!ctx.e_internalized(first_arg)) {
+            // This may happen if bit2bool(x) is in a conflict
+            // clause that is being reinitialized, and x was not reinitialized
+            // yet.
+            // So, we internalize x (i.e., arg)
+            ctx.internalize(first_arg, false);
+            SASSERT(ctx.e_internalized(first_arg));
+            // In most cases, when x is internalized, its bits are created.
+            // They are created because x is a bit-vector operation or apply_sort_cnstr is invoked.
+            // However, there is an exception. The method apply_sort_cnstr is not invoked for ite-terms.
+            // So, I execute get_var on the enode attached to first_arg. 
+            // This will force a theory variable to be created if it does not already exist.
+            // This will also force the creation of all bits for x.
+            enode* first_arg_enode = ctx.get_enode(first_arg);
+            get_var(first_arg_enode);
+        }
+
+        enode* arg = ctx.get_enode(first_arg);
+        // The argument was already internalized, but it may not have a theory variable associated with it.
+        // For example, for ite-terms the method apply_sort_cnstr is not invoked.
+        // See comment in the then-branch.
+        theory_var v_arg = arg->get_th_var(get_id());
+        if (v_arg == null_theory_var) {
+            // The method get_var will create a theory variable for arg. 
+            // As a side-effect the bits for arg will also be created.
+            get_var(arg);
+            SASSERT(ctx.b_internalized(n));
+        }
+        else if (!ctx.b_internalized(n)) {
+            SASSERT(v_arg != null_theory_var);
+            bool_var bv = ctx.mk_bool_var(n);
+            ctx.set_var_theory(bv, get_id());
+            bit_atom* a = new (get_region()) bit_atom();
+            insert_bv2a(bv, a);
+            m_trail_stack.push(mk_atom_trail(bv));
+            unsigned idx = n->get_decl()->get_parameter(0).get_int();
+            SASSERT(a->m_occs == 0);
+            a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
+            // Fix for #2182, and SPACER bit-vector
+            if (idx < m_bits[v_arg].size()) {
+                ctx.mk_th_axiom(get_id(), m_bits[v_arg][idx], literal(bv, true));
+                ctx.mk_th_axiom(get_id(), ~m_bits[v_arg][idx], literal(bv, false));
+            }
+        }
+        // axiomatize bit2bool on constants.
+        rational val;
+        unsigned sz;
+        if (m_util.is_numeral(first_arg, val, sz)) {
+            rational bit;
+            unsigned idx = n->get_decl()->get_parameter(0).get_int();
+            div(val, rational::power_of_two(idx), bit);
+            mod(bit, rational(2), bit);
+            literal lit = ctx.get_literal(n);
+            if (bit.is_zero()) lit.neg();
+            ctx.mark_as_relevant(lit);
+            ctx.mk_th_axiom(get_id(), 1, &lit);
+        }
+
+    }
+#endif
+
+
     euf::enode * solver::mk_enode(app * n, ptr_vector<euf::enode> const& args) {
         euf::enode * e = ctx.get_enode(n);
         if (!e) {
@@ -100,6 +186,49 @@ namespace bv {
             mk_var(e);
         }
         return e;
+    }
+
+    euf::theory_var solver::get_var(euf::enode* n) {
+        theory_var v = n->get_th_var(get_id());
+        if (v == euf::null_theory_var) {
+            v = mk_var(n);
+            mk_bits(v);
+        }
+        return v;
+    }
+
+    euf::enode* solver::get_arg(euf::enode* n, unsigned idx) {
+        if (get_config().m_bv_reflect) {
+            return n->get_arg(idx);
+        }
+        else {
+            expr* arg = n->get_arg(idx)->get_owner();
+            return ctx.get_enode(arg);
+        }
+    }
+
+    inline euf::theory_var solver::get_arg_var(euf::enode* n, unsigned idx) {
+        return get_var(get_arg(n, idx));
+    }
+
+    void solver::get_bits(theory_var v, expr_ref_vector& r) {
+        literal_vector& bits = m_bits[v];
+        for (literal lit : bits) {
+            r.push_back(get_expr(lit));
+        }
+    }
+
+    inline void solver::get_bits(euf::enode* n, expr_ref_vector& r) {
+        get_bits(get_var(n), r);
+    }
+
+    inline void solver::get_arg_bits(euf::enode* n, unsigned idx, expr_ref_vector& r) {
+        get_bits(get_arg_var(n, idx), r);
+    }
+
+    inline void solver::get_arg_bits(app* n, unsigned idx, expr_ref_vector& r) {
+        app* arg = to_app(n->get_arg(idx));
+        get_bits(ctx.get_enode(arg), r);
     }
 
     void solver::register_true_false_bit(theory_var v, unsigned idx) {
@@ -123,17 +252,17 @@ namespace bv {
             atom * a = get_bv2a(l.var());
             SASSERT(!a || a->is_bit());
             if (a) {
-                bit_atom * b = new (get_region()) bit_atom();
+                bit_atom* b = static_cast<bit_atom*>(a);
+                find_new_diseq_axioms(b->m_occs, v, idx);
+                ctx.push(add_var_pos_trail(b));
+                b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);
+            }
+            else {
+                bit_atom* b = new (get_region()) bit_atom();
                 insert_bv2a(l.var(), b);
                 ctx.push(mk_atom_trail(l.var(), *this));
                 SASSERT(b->m_occs == 0);
                 b->m_occs = new (get_region()) var_pos_occ(v, idx);
-            }
-            else {
-                bit_atom * b = static_cast<bit_atom*>(a);
-                find_new_diseq_axioms(b->m_occs, v, idx);
-                ctx.push(add_var_pos_trail(b));
-                b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);                
             }
         }
     }
