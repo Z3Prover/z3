@@ -141,6 +141,8 @@ namespace bv {
         void init_bits(euf::enode * n, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
         expr_ref mk_bit2bool(expr* b, unsigned idx);
+        void blast_unary(app* n, expr_ref_vector const& arg_bits, expr_ref_vector& bits);
+        void internalize_unary(app* n);
         void internalize_num(app * n, theory_var v);
         void internalize_add(app * n);
         void internalize_sub(app * n);

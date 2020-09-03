@@ -84,6 +84,7 @@ namespace bv {
 
         switch (a->get_decl_kind()) {
         case OP_BV_NUM:         internalize_num(a, v); break;
+        case OP_BNOT:           internalize_unary(a); break;
         default:                break;
         }
         return true;
@@ -310,13 +311,11 @@ namespace bv {
 
     void solver::internalize_mkbv(app* n) {
         expr_ref_vector bits(m);
-        euf::enode * e = mk_enode(n, m_args);
         bits.append(n->get_num_args(), n->get_args());
-        init_bits(e, bits);
+        init_bits(get_enode(n), bits);
     }
 
     void solver::internalize_bv2int(app* n) {
-        mk_enode(n, m_args);
         assert_bv2int_axiom(n);        
     }
 
@@ -331,7 +330,7 @@ namespace bv {
         SASSERT(bv.is_bv2int(n, k));
         SASSERT(bv.is_bv_sort(m.get_sort(k)));
         expr_ref_vector k_bits(m);
-        euf::enode * k_enode = mk_enode(k, m_args);
+        euf::enode* k_enode = get_enode(k);
         get_bits(k_enode, k_bits);
         unsigned sz = bv.get_bv_size(k);
         expr_ref_vector args(m);
@@ -370,10 +369,8 @@ namespace bv {
         SASSERT(bv.is_int2bv(n));
         expr* e = n->get_arg(0);
         euf::enode* n_enode = mk_enode(n, m_args);
-        parameter param(m_autil.mk_int());
-        expr* n_expr = n;
         expr_ref lhs(m), rhs(m);
-        lhs = m.mk_app(get_id(), OP_BV2INT, 1, &param, 1, &n_expr);
+        lhs = bv.mk_bv2int(n);
         unsigned sz = bv.get_bv_size(n);
         numeral mod = power(numeral(2), sz);
         rhs = m_autil.mk_mod(e, m_autil.mk_numeral(mod, true));
@@ -401,6 +398,25 @@ namespace bv {
         }
     }
 
+    void solver::internalize_unary(app* n) {
+        SASSERT(n->get_num_args() == 1);       
+        euf::enode* e = get_enode(n);
+        expr_ref_vector arg1_bits(m), bits(m);                          
+        get_arg_bits(e, 0, arg1_bits);                                  
+        blast_unary(n, arg1_bits, bits);
+        init_bits(e, bits);
+    }
+
+    void solver::blast_unary(app* n, expr_ref_vector const& arg_bits, expr_ref_vector& bits) {
+        switch (n->get_decl_kind()) {
+        case OP_BNOT:
+            m_bb.mk_not(arg_bits.size(), arg_bits.c_ptr(), bits);
+            break;
+        default:
+            UNREACHABLE();
+            break;
+        }
+    }
 
     void solver::internalize_add(app* n) {}
     void solver::internalize_sub(app* n) {}
@@ -451,7 +467,6 @@ namespace bv {
         case OP_BSMOD_I:        internalize_smod(term); return true;
         case OP_BAND:           internalize_and(term); return true;
         case OP_BOR:            internalize_or(term); return true;
-        case OP_BNOT:           internalize_not(term); return true;
         case OP_BXOR:           internalize_xor(term); return true;
         case OP_BNAND:          internalize_nand(term); return true;
         case OP_BNOR:           internalize_nor(term); return true;
