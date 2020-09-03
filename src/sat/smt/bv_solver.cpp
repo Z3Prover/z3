@@ -52,5 +52,60 @@ namespace bv {
         fixed_var_eh(v);
     }
 
+    /**
+   \brief v[idx] = ~v'[idx], then v /= v' is a theory axiom.
+*/
+    void solver::find_new_diseq_axioms(var_pos_occ* occs, theory_var v, unsigned idx) {
+        literal l = m_bits[v][idx];
+        l.neg();
+        while (occs) {
+            theory_var v2 = occs->m_var;
+            unsigned   idx2 = occs->m_idx;
+            if (idx == idx2 && m_bits[v2][idx2] == l && get_bv_size(v2) == get_bv_size(v))
+                mk_new_diseq_axiom(v, v2, idx);
+            occs = occs->m_next;
+        }
+    }
 
+
+    /**
+       \brief v1[idx] = ~v2[idx], then v1 /= v2 is a theory axiom.
+    */
+    void solver::mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx) {
+        if (!get_config().m_bv_eq_axioms)
+            return;
+
+        // TBD: disabled until new literal creation is supported
+        return;
+        SASSERT(m_bits[v1][idx] == ~m_bits[v2][idx]);
+        TRACE("bv_solver", tout << "found new diseq axiom\n" << pp(v1) << pp(v2);); 
+        m_stats.m_num_diseq_static++;
+        expr_ref eq(m.mk_eq(get_expr(v1), get_expr(v2)), m);
+        sat::literal not_eq = ctx.internalize(eq, true, false, m_is_redundant);
+        s().add_clause(1, &not_eq, sat::status::th(m_is_redundant, get_id()));
+    }
+
+    std::ostream& solver::display(std::ostream& out, theory_var v) const {
+        out << "v";
+        out.width(4);
+        out << std::left << v;
+        out << " #";
+        out.width(4);
+        out << get_enode(v)->get_owner_id() << " -> #";
+        out.width(4);
+#if 0
+        out << get_enode(find(v))->get_owner_id();
+        out << std::right << ", bits:";
+        literal_vector const& bits = m_bits[v];
+        for (literal lit : bits) {
+            out << " " << lit << ":";
+            ctx.display_literal(out, lit);
+        }
+        numeral val;
+        if (get_fixed_value(v, val))
+            out << ", value: " << val;
+        out << "\n";
+#endif
+        return out;
+    }
 }

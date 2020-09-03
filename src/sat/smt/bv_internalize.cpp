@@ -22,6 +22,28 @@ Author:
 
 namespace bv {
 
+    class add_var_pos_trail : public trail<euf::solver> {
+        solver::bit_atom * m_atom;
+    public:
+        add_var_pos_trail(solver::bit_atom * a):m_atom(a) {}
+        void undo(euf::solver & euf) override {
+            SASSERT(m_atom->m_occs);
+            m_atom->m_occs = m_atom->m_occs->m_next;
+        }
+    };
+
+    class mk_atom_trail : public trail<euf::solver> {
+        solver& th;
+        sat::bool_var m_var;
+    public:
+        mk_atom_trail(sat::bool_var v, solver& th):m_var(v), th(th) {}
+        void undo(euf::solver & euf) override {
+            solver::atom * a = th.get_bv2a(m_var);
+            a->~atom();
+            th.erase_bv2a(m_var);
+        }
+    };
+
     euf::theory_var solver::mk_var(euf::enode* n) {
         theory_var r = euf::th_euf_solver::mk_var(n);
         m_find.mk_var();
@@ -80,8 +102,11 @@ namespace bv {
         return e;
     }
 
-    void solver::register_true_false_bit(theory_var v, unsigned i) {
-
+    void solver::register_true_false_bit(theory_var v, unsigned idx) {
+        SASSERT(s().value(m_bits[v][idx]) != l_undef);
+        bool is_true = (s().value(m_bits[v][idx]) == l_true);
+        zero_one_bits & bits = m_zero_one_bits[v];
+        bits.push_back(zero_one_bit(v, idx, is_true));
     }
 
     /**
@@ -91,32 +116,26 @@ namespace bv {
         literal_vector & bits = m_bits[v];
         unsigned idx          = bits.size();
         bits.push_back(l);
-#if 0
-        if (l.var() == true_bool_var) {
+        if (s().value(l) != l_undef && s().lvl(l) == 0) {
             register_true_false_bit(v, idx);
         }
         else {
-            theory_id th_id = ctx.get_var_theory(l.var());
-            if (th_id == get_id()) {
-                atom * a = get_bv2a(l.var());
-                SASSERT(a && a->is_bit());
-                bit_atom * b = static_cast<bit_atom*>(a);
-                find_new_diseq_axioms(b->m_occs, v, idx);
-                ctx.push(add_var_pos_trail(b));
-                b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);
-            }
-            else {
-                SASSERT(th_id == null_theory_id);
-                ctx.set_var_theory(l.var(), get_id());
-                SASSERT(ctx.get_var_theory(l.var()) == get_id());
+            atom * a = get_bv2a(l.var());
+            SASSERT(!a || a->is_bit());
+            if (a) {
                 bit_atom * b = new (get_region()) bit_atom();
                 insert_bv2a(l.var(), b);
-                ctx.push(mk_atom_trail(l.var()));
+                ctx.push(mk_atom_trail(l.var(), *this));
                 SASSERT(b->m_occs == 0);
                 b->m_occs = new (get_region()) var_pos_occ(v, idx);
             }
+            else {
+                bit_atom * b = static_cast<bit_atom*>(a);
+                find_new_diseq_axioms(b->m_occs, v, idx);
+                ctx.push(add_var_pos_trail(b));
+                b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);                
+            }
         }
-#endif
     }
 
     void solver::init_bits(euf::enode * n, expr_ref_vector const & bits) {
@@ -132,6 +151,10 @@ namespace bv {
 
     unsigned solver::get_bv_size(euf::enode* n) {
         return bv.get_bv_size(n->get_owner());
+    }
+
+    unsigned solver::get_bv_size(theory_var v) {
+        return get_bv_size(get_enode(v));
     }
 
     void solver::internalize_num(app* n, theory_var v) {

@@ -34,6 +34,14 @@ namespace bv {
         typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
         typedef union_find<solver>  th_union_find;
 
+        struct stats {
+            unsigned   m_num_diseq_static, m_num_diseq_dynamic, m_num_bit2core, m_num_th2core_eq, m_num_conflicts;
+            unsigned   m_num_eq_dynamic;
+            void reset() { memset(this, 0, sizeof(stats)); }
+            stats() { reset(); }
+        };
+
+
         /**
            \brief Structure used to store the position of a bitvector variable that
            contains the true_literal/false_literal.
@@ -86,25 +94,36 @@ namespace bv {
             bool is_bit() const override { return false; }
         };
 
+        friend class add_var_pos_trail;
+        friend class mk_atom_trail;
+        typedef ptr_vector<atom> bool_var2atom;
+
         bv_util                  bv;
         arith_util               m_autil;
+        stats                    m_stats;
         bit_blaster              m_bb;
         th_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
         ptr_vector<expr>         m_bits_expr;
         svector<unsigned>        m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
-//        bool_var2atom            m_bool_var2atom;
+        bool_var2atom            m_bool_var2atom;
         sat::solver* m_solver;
         sat::solver& s() { return *m_solver;  }
 
         // internalize:
+
+        void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
+        void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = 0; }
+        atom * get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, 0); }
+
         sat::literal false_literal;
         sat::literal true_literal;
         bool visit(expr* e) override;
         bool visited(expr* e) override;
         bool post_visit(expr* e, bool sign, bool root) override;
         unsigned get_bv_size(euf::enode* n);
+        unsigned get_bv_size(theory_var v);
         euf::enode* mk_enode(app* n, ptr_vector<euf::enode> const& args);
         void fixed_var_eh(theory_var v);
         void register_true_false_bit(theory_var v, unsigned i);
@@ -147,7 +166,11 @@ namespace bv {
         void internalize_smul_no_overflow(app *n);
         void internalize_smul_no_underflow(app *n);
 
+        // solving
         void find_wpos(theory_var v);
+        void find_new_diseq_axioms(var_pos_occ* occs, theory_var v, unsigned idx);
+        void mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
+
 
     public:
         solver(euf::solver& ctx);
@@ -189,7 +212,14 @@ namespace bv {
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         euf::theory_var mk_var(euf::enode* n) override;
 
+
+        // disagnostics
+        std::ostream& display(std::ostream& out, theory_var v) const;
+        typedef std::pair<solver const*, theory_var> pp_var;
+        pp_var pp(theory_var v) const { return pp_var(this, v); }
     };
+
+    inline std::ostream& operator<<(std::ostream& out, solver::pp_var const& p) { return p.first->display(out, p.second); }
 
 
 }
