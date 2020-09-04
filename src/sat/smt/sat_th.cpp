@@ -65,6 +65,10 @@ namespace euf {
         return ctx.get_region();
     }
 
+    ptr_vector<trail<euf::solver> >& th_euf_solver::get_trail_stack() {
+        return ctx.get_trail_stack();
+    }
+
     enode* th_euf_solver::get_enode(expr* e) const { 
         return ctx.get_enode(e); 
     }

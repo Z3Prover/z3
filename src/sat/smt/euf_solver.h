@@ -187,6 +187,7 @@ namespace euf {
         region& get_region() { return m_region; }
         template <typename C>
         void push(C const& c) { m_trail.push_back(new (m_region) C(c));  }
+        trail_stack& get_trail_stack() { return m_trail; }
 
         void updt_params(params_ref const& p);
         void set_solver(sat::solver* s) override { m_solver = s; m_drat = s->get_config().m_drat; }

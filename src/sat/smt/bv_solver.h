@@ -19,6 +19,10 @@ Author:
 #include "sat/smt/sat_th.h"
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
 
+namespace euf {
+    class solver;
+}
+
 namespace bv {
 
     class solver : public euf::th_euf_solver {
@@ -33,6 +37,7 @@ namespace bv {
         typedef pair_hash<obj_hash<numeral>, unsigned_hash> value_sort_pair_hash;
         typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
         typedef union_find<solver>  th_union_find;
+        typedef std::pair<theory_var, unsigned> var_pos;
 
         struct stats {
             unsigned   m_num_diseq_static, m_num_diseq_dynamic, m_num_bit2core, m_num_th2core_eq, m_num_conflicts;
@@ -93,11 +98,6 @@ namespace bv {
             ~le_atom() override {}
             bool is_bit() const override { return false; }
         };
-
-        typedef std::pair<numeral, unsigned> value_sort_pair;
-        typedef pair_hash<obj_hash<numeral>, unsigned_hash> value_sort_pair_hash;
-        typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
-
         friend class add_var_pos_trail;
         friend class mk_atom_trail;
         typedef ptr_vector<atom> bool_var2atom;
@@ -175,11 +175,18 @@ namespace bv {
         void find_new_diseq_axioms(var_pos_occ* occs, theory_var v, unsigned idx);
         void mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
         bool get_fixed_value(theory_var v, numeral& result) const;
-        void add_fixed_eq(theory_var v1, theory_var v2);
+        void add_fixed_eq(theory_var v1, theory_var v2);      
+        svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
+        bool merge_zero_one_bits(theory_var r1, theory_var r2);
+
+        // invariants
+        bool check_zero_one_bits(theory_var v);
 
 
+        literal_vector           m_tmp_literals;
+        svector<var_pos>         m_prop_queue;
 
-
+       
     public:
         solver(euf::solver& ctx);
         ~solver() override {}
@@ -213,6 +220,11 @@ namespace bv {
         bool check_model(sat::model const& m) const override;
         unsigned max_var(unsigned w) const override;
 
+        void new_eq_eh(euf::th_eq const& eq) override;
+
+        void add_value(euf::enode* n, expr_ref_vector& values) override;
+        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override {}
+
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override { return false; }
 
@@ -220,7 +232,10 @@ namespace bv {
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;
-
+        
+        void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
+        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
+        void unmerge_eh(theory_var v1, theory_var v2);
 
         // disagnostics
         std::ostream& display(std::ostream& out, theory_var v) const;
