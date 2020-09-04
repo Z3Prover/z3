@@ -117,4 +117,9 @@ namespace euf {
         ctx.s().add_clause(3, lits, sat::status::th(m_is_redundant, get_id()));
     }
 
+    void th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d) {
+        sat::literal lits[4] = { a, b, c, d };
+        ctx.s().add_clause(4, lits, sat::status::th(m_is_redundant, get_id()));
+    }
+
 }

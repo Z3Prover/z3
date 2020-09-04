@@ -173,20 +173,32 @@ namespace euf {
             TRACE("euf", tout << (sign ? "not ": " ") << mk_pp(n->get_owner(), m)  << "\n";);
             m_egraph.merge(n, nb, base_ptr() + l.index());
         }
-        // TBD: delay propagation?
-        propagate();
     }
 
-    void solver::propagate() {  
-        while (m_egraph.propagate() && !s().inconsistent()) {
+    bool solver::propagate() {
+        bool propagated = false;
+        while (!s().inconsistent()) {
             if (m_egraph.inconsistent()) {  
                 unsigned lvl = s().scope_lvl();
                 s().set_conflict(sat::justification::mk_ext_justification(lvl, conflict_constraint().to_index()));
-                return;
+                return true;
             }
-            propagate_literals();
-            propagate_th_eqs();
+            bool propagated1 = false;
+            if (m_egraph.propagate()) {
+                propagate_literals();
+                propagate_th_eqs();
+                propagated1 = true;
+            }
+
+            for (auto* s : m_solvers) {
+                if (s->propagate())
+                    propagated1 = true;
+            }
+            if (!propagated1)
+                break;
+            propagated = true;             
         }
+        return propagated;
     }
 
     void solver::propagate_literals() {

@@ -576,6 +576,7 @@ namespace sat {
 
         bool is_external(bool_var v) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
+        bool propagate() override { return false; }
         lbool resolve_conflict() override;
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
         void asserted(literal l) override;

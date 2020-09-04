@@ -100,7 +100,7 @@ namespace euf {
         bool visit(expr* e) override;
         bool visited(expr* e) override;
         bool post_visit(expr* e, bool sign, bool root) override;
-        void attach_node(euf::enode* n);
+        
         void attach_lit(sat::literal lit, euf::enode* n);
         void add_distinct_axiom(app* e, euf::enode* const* args);
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
@@ -126,7 +126,6 @@ namespace euf {
         void values2model(deps_t const& deps, expr_ref_vector const& values, model_ref& mdl);
 
         // solving
-        void propagate();
         void propagate_literals();
         void propagate_th_eqs();
         void get_antecedents(literal l, constraint& j, literal_vector& r);
@@ -197,6 +196,7 @@ namespace euf {
         bool is_extended_binary(ext_justification_idx idx, literal_vector& r) override;
         bool is_external(bool_var v) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
+        bool propagate() override;
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
         void asserted(literal l) override;
         sat::check_result check() override;
@@ -231,6 +231,7 @@ namespace euf {
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool learned) override;
         void attach_th_var(enode* n, th_solver* th, theory_var v) { m_egraph.add_th_var(n, v, th->get_id()); }
+        void attach_node(euf::enode* n);
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
 
         void update_model(model_ref& mdl);

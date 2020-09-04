@@ -79,6 +79,7 @@ namespace bv {
     }
 
     bool solver::post_visit(expr* e, bool sign, bool root) {
+        SASSERT(!get_enode(e));
         m_args.reset();
         app* a = to_app(e);
         if (get_config().m_bv_reflect || m.is_considered_uninterpreted(a->get_decl())) {
@@ -89,6 +90,7 @@ namespace bv {
         }
         euf::enode* n = mk_enode(a, m_args);
         theory_var v = n->get_th_var(get_id());
+        ctx.attach_node(n);
 
         std::function<void(unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits)> bin;
         std::function<void(unsigned sz, expr* const* xs, expr* const* ys, expr_ref& bit)> ebin;
@@ -180,8 +182,10 @@ namespace bv {
         theory_var v = n->get_th_var(get_id());
         if (v == euf::null_theory_var) {
             v = mk_var(n);
-            if (bv.is_bv(n->get_owner()))
+            if (bv.is_bv(n->get_owner())) {
+                IF_VERBOSE(0, verbose_stream() << "bits delay initialized\n");
                 mk_bits(v);
+            }
         }
         return v;
     }
@@ -234,7 +238,7 @@ namespace bv {
             SASSERT(!a || a->is_bit());
             if (a) {
                 bit_atom* b = static_cast<bit_atom*>(a);
-                find_new_diseq_axioms(b->m_occs, v, idx);
+                find_new_diseq_axioms(*b, v, idx);
                 ctx.push(add_var_pos_trail(b));
                 b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);
             }
@@ -275,10 +279,11 @@ namespace bv {
         m_bb.num2bits(val, sz, bits);
         SASSERT(bits.size() == sz);
         SASSERT(m_bits[v].empty());
+        sat::literal true_literal = ctx.internalize(m.mk_true(), false, false, false);
         for (unsigned i = 0; i < sz; i++) {
             expr* l = bits.get(i);
             SASSERT(m.is_true(l) || m.is_false(l));
-            m_bits[v].push_back(m.is_true(l) ? true_literal : false_literal);
+            m_bits[v].push_back(m.is_true(l) ? true_literal : ~true_literal);
             register_true_false_bit(v, i);
         }
         fixed_var_eh(v);
@@ -393,10 +398,6 @@ namespace bv {
         literal l1 = ctx.get_literal(n->get_arg(0));
         literal l2 = ctx.get_literal(n->get_arg(1));
         literal l3 = ctx.get_literal(n->get_arg(2));
-        auto add_clause = [&](literal a, literal b, literal c) {
-            sat::literal lits[3] = { a, b, c };
-            s().add_clause(3, lits, status());
-        };
         add_clause(~r, l1, l2);
         add_clause(~r, l1, l3);
         add_clause(~r, l2, l3);
@@ -411,10 +412,6 @@ namespace bv {
         literal l1 = get_literal(n->get_arg(0));
         literal l2 = get_literal(n->get_arg(1));
         literal l3 = get_literal(n->get_arg(2));
-        auto add_clause = [&](literal a, literal b, literal c, literal d) {
-            sat::literal lits[4] = { a, b, c, d };
-            s().add_clause(4, lits, status());
-        };
         add_clause(~r, l1, l2, l3);
         add_clause(~r, ~l1, ~l2, l3);
         add_clause(~r, ~l1, l2, ~l3);
@@ -424,7 +421,6 @@ namespace bv {
         add_clause(r, l1, l2, ~l3);
         add_clause(r, ~l1, ~l2, ~l3);
     }
-
 
     void solver::internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn) {
         SASSERT(n->get_num_args() == 1);
@@ -491,8 +487,8 @@ namespace bv {
         ctx.push(mk_atom_trail(l.var(), *this));
         sat::literal lits1[2] = { l, ~def };
         sat::literal lits2[2] = { ~l, def };
-        s().add_clause(2, lits1, status());
-        s().add_clause(2, lits2, status());
+        add_binary(l, ~def);
+        add_binary(def, ~l);
     }
 
     void solver::internalize_concat(app* n) {

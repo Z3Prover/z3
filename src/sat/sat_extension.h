@@ -61,6 +61,7 @@ namespace sat {
         virtual void set_lookahead(lookahead* s) = 0;
         virtual void init_search() {}
         virtual bool propagate(literal l, ext_constraint_idx idx) = 0;
+        virtual bool propagate() = 0;
         virtual bool is_external(bool_var v) = 0;
         virtual double get_reward(literal l, ext_constraint_idx idx, literal_occs_fun& occs) const = 0;
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) = 0;

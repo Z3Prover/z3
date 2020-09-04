@@ -46,6 +46,24 @@ namespace bv {
             stats() { reset(); }
         };
 
+        struct bit_eq_constraint {
+            theory_var m_v1;
+            theory_var m_v2;
+            sat::literal m_consequent;
+            sat::literal m_antecedent;
+            bit_eq_constraint(theory_var v1, theory_var v2, sat::literal c, sat::literal a):
+                m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+            sat::ext_constraint_idx to_index() const { 
+                return sat::constraint_base::mem2base(this); 
+            }
+            static bit_eq_constraint& from_index(size_t idx) {
+                return *reinterpret_cast<bit_eq_constraint*>(sat::constraint_base::from_index(idx)->mem());
+            }
+            static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(bit_eq_constraint)); }
+        };
+
+        sat::justification mk_bit_eq_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a);
+ 
 
         /**
            \brief Structure used to store the position of a bitvector variable that
@@ -78,10 +96,20 @@ namespace bv {
         };
 
         struct var_pos_occ {
-            theory_var    m_var;
-            unsigned      m_idx;
+            var_pos       m_vp;
             var_pos_occ * m_next;
-            var_pos_occ(theory_var v = euf::null_theory_var, unsigned idx = 0, var_pos_occ * next = nullptr):m_var(v), m_idx(idx), m_next(next) {}
+            var_pos_occ(theory_var v = euf::null_theory_var, unsigned idx = 0, var_pos_occ * next = nullptr):m_vp(v, idx), m_next(next) {}
+        };
+
+        class var_pos_it {
+            var_pos_occ* m_first;
+        public:
+            var_pos_it(var_pos_occ* c) : m_first(c) {}
+            var_pos operator*() { return m_first->m_vp; }
+            var_pos_it& operator++() { m_first = m_first->m_next; return *this; }
+            var_pos_it operator++(int) { var_pos_it tmp = *this; ++* this; return tmp; }
+            bool operator==(var_pos_it const& other) const { return m_first == other.m_first; }
+            bool operator!=(var_pos_it const& other) const { return !(*this == other); }
         };
 
         struct bit_atom : public atom {
@@ -89,6 +117,8 @@ namespace bv {
             bit_atom():m_occs(nullptr) {}
             ~bit_atom() override {}
             bool is_bit() const override { return true; }
+            var_pos_it begin() const { return var_pos_it(m_occs); }
+            var_pos_it end() const { return var_pos_it(nullptr); }
         };
 
         struct le_atom : public atom {
@@ -115,7 +145,10 @@ namespace bv {
         value2var                m_fixed_var_table;
         mutable vector<rational> m_power2;
         unsigned char            m_eq_activity[256];
-
+        literal_vector           m_tmp_literals;
+        svector<var_pos>         m_prop_queue;
+        unsigned_vector          m_prop_queue_lim;
+        unsigned                 m_prop_queue_head;
 
 
         sat::solver* m_solver;
@@ -126,9 +159,6 @@ namespace bv {
         void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
         void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = 0; }
         atom * get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, 0); }
-
-        sat::literal false_literal;
-        sat::literal true_literal;
         bool visit(expr* e) override;
         bool visited(expr* e) override;
         bool post_visit(expr* e, bool sign, bool root) override;
@@ -172,20 +202,18 @@ namespace bv {
         // solving
         theory_var find(theory_var v) const { return m_find.find(v); }
         void find_wpos(theory_var v);
-        void find_new_diseq_axioms(var_pos_occ* occs, theory_var v, unsigned idx);
+        void find_new_diseq_axioms(bit_atom& a, theory_var v, unsigned idx);
         void mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
         bool get_fixed_value(theory_var v, numeral& result) const;
         void add_fixed_eq(theory_var v1, theory_var v2);      
         svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
+        void assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
+        void propagate_bits(var_pos const& entry);
+        numeral const& power2(unsigned i) const;
 
         // invariants
         bool check_zero_one_bits(theory_var v);
-
-
-        literal_vector           m_tmp_literals;
-        svector<var_pos>         m_prop_queue;
-
        
     public:
         solver(euf::solver& ctx);
@@ -221,6 +249,7 @@ namespace bv {
         unsigned max_var(unsigned w) const override;
 
         void new_eq_eh(euf::th_eq const& eq) override;
+        bool propagate() override;
 
         void add_value(euf::enode* n, expr_ref_vector& values) override;
         void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override {}
@@ -241,6 +270,7 @@ namespace bv {
         std::ostream& display(std::ostream& out, theory_var v) const;
         typedef std::pair<solver const*, theory_var> pp_var;
         pp_var pp(theory_var v) const { return pp_var(this, v); }
+
     };
 
     inline std::ostream& operator<<(std::ostream& out, solver::pp_var const& p) { return p.first->display(out, p.second); }

@@ -114,6 +114,7 @@ namespace euf {
         void add_unit(sat::literal lit);
         void add_binary(sat::literal a, sat::literal b);
         void add_clause(sat::literal a, sat::literal b, sat::literal c);
+        void add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
 
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);
