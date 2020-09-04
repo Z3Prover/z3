@@ -47,23 +47,29 @@ namespace bv {
             stats() { reset(); }
         };
 
-        struct bit_eq_constraint {
+        struct bv_justification {
+            enum kind_t { bv2bit, bit2bv };
+            kind_t     m_kind;
             theory_var m_v1;
             theory_var m_v2;
             sat::literal m_consequent;
             sat::literal m_antecedent;
-            bit_eq_constraint(theory_var v1, theory_var v2, sat::literal c, sat::literal a):
-                m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+            bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a):
+                m_kind(bv2bit), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+            bv_justification(theory_var v1, theory_var v2):
+                m_kind(bit2bv), m_v1(v1), m_v2(v2) {}
             sat::ext_constraint_idx to_index() const { 
                 return sat::constraint_base::mem2base(this); 
             }
-            static bit_eq_constraint& from_index(size_t idx) {
-                return *reinterpret_cast<bit_eq_constraint*>(sat::constraint_base::from_index(idx)->mem());
+            static bv_justification& from_index(size_t idx) {
+                return *reinterpret_cast<bv_justification*>(sat::constraint_base::from_index(idx)->mem());
             }
-            static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(bit_eq_constraint)); }
+            static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(bv_justification)); }
         };
 
-        sat::justification mk_bit_eq_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a);
+        sat::justification mk_bv2bit_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a);
+        sat::ext_justification_idx mk_bit2bv_justification(theory_var v1, theory_var v2);
+        void log_drat(bv_justification const& c);
  
 
         /**
@@ -270,7 +276,7 @@ namespace bv {
         th_trail_stack& get_trail_stack() { return m_trail;  }
 
         // disagnostics
-        std::ostream& display(std::ostream& out, theory_var v) const;
+        std::ostream& display(std::ostream& out, theory_var v) const;        
         typedef std::pair<solver const*, theory_var> pp_var;
         pp_var pp(theory_var v) const { return pp_var(this, v); }
 

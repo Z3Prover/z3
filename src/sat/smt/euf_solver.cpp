@@ -108,15 +108,34 @@ namespace euf {
     }
 
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r) {
+        m_explain.reset();
+        unsigned qhead = 0;
         auto* ext = sat::constraint_base::to_extension(idx);
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r);
         else
             ext->get_antecedents(l, idx, r);
+        for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
+            size_t* e = m_explain[qhead];
+            if (is_literal(e))
+                r.push_back(get_literal(e));
+            else {
+                size_t idx = get_justification(e);
+                auto* ext = sat::constraint_base::to_extension(idx);
+                SASSERT(ext != this);
+                sat::literal lit = sat::null_literal;
+                ext->get_antecedents(lit, idx, r);
+            }
+        }
+        log_antecedents(l, r);
     }
 
+    void solver::propagate(enode* a, enode* b, ext_justification_idx idx) {
+        m_egraph.merge(a, b, to_ptr(idx));
+    }
+
+
     void solver::get_antecedents(literal l, constraint& j, literal_vector& r) {
-        m_explain.reset();
         euf::enode* n = nullptr;
 
         // init_ackerman();
@@ -124,29 +143,25 @@ namespace euf {
         switch (j.kind()) {
         case constraint::kind_t::conflict:
             SASSERT(m_egraph.inconsistent());
-            m_egraph.explain<unsigned>(m_explain);
+            m_egraph.explain<size_t>(m_explain);
             break;
         case constraint::kind_t::eq:
             n = m_var2node[l.var()];
             SASSERT(n);
             SASSERT(m_egraph.is_equality(n));
             SASSERT(!l.sign());
-            m_egraph.explain_eq<unsigned>(m_explain, n->get_arg(0), n->get_arg(1));
+            m_egraph.explain_eq<size_t>(m_explain, n->get_arg(0), n->get_arg(1));
             break;
         case constraint::kind_t::lit:
             n = m_var2node[l.var()];
             SASSERT(n);
             SASSERT(m.is_bool(n->get_owner()));
-            m_egraph.explain_eq<unsigned>(m_explain, n, (l.sign() ? mk_false() : mk_true()));
+            m_egraph.explain_eq<size_t>(m_explain, n, (l.sign() ? mk_false() : mk_true()));
             break;
         default:
             IF_VERBOSE(0, verbose_stream() << (unsigned)j.kind() << "\n");
             UNREACHABLE();
         }
-        for (unsigned* idx : m_explain) 
-            r.push_back(sat::to_literal((unsigned)(idx - base_ptr())));
-
-        log_antecedents(l, r);
     }
 
     void solver::asserted(literal l) {
@@ -161,17 +176,20 @@ namespace euf {
         if (!n)
             return;
         
+
+        size_t* c = to_ptr(l);
+        SASSERT(l == get_literal(c) && is_literal(c));
         expr* e = n->get_owner();
         if (m.is_eq(e) && !sign) {
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
             TRACE("euf", tout << mk_pp(e, m) << "\n";);
-            m_egraph.merge(na, nb, base_ptr() + l.index());
+            m_egraph.merge(na, nb, c);
         }
         else {            
             euf::enode* nb = sign ? mk_false() : mk_true();
             TRACE("euf", tout << (sign ? "not ": " ") << mk_pp(n->get_owner(), m)  << "\n";);
-            m_egraph.merge(n, nb, base_ptr() + l.index());
+            m_egraph.merge(n, nb, c);
         }
     }
 
@@ -368,7 +386,7 @@ namespace euf {
     sat::extension* solver::copy(sat::solver* s) { 
         auto* r = alloc(solver, *m_to_m, *m_to_expr2var, *m_to_si);
         r->m_config = m_config;
-        std::function<void* (void*)> copy_justification = [&](void* x) { return (void*)(r->base_ptr() + ((unsigned*)x - base_ptr())); };
+        std::function<void* (void*)> copy_justification = [&](void* x) { return (void*)(r->base_ptr() + ((size_t*)x - base_ptr())); };
         r->m_egraph.copy_from(m_egraph, copy_justification);        
         r->set_solver(s);
         for (unsigned i = 0; i < m_id2solver.size(); ++i) {

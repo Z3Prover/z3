@@ -48,6 +48,8 @@ namespace euf {
         size_t to_index() const { return sat::constraint_base::mem2base(this); }
     };
 
+
+
     class solver : public sat::extension, public th_internalizer, public th_decompile {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
@@ -62,6 +64,21 @@ namespace euf {
             unsigned m_trail_lim;
         };
         typedef ptr_vector<trail<solver> > trail_stack;
+
+
+        size_t* base_ptr() { return reinterpret_cast<size_t*>(this); }
+        size_t const* base_ptr() const { return reinterpret_cast<size_t const*>(this); }
+        size_t* to_ptr(sat::literal l) { return TAG(size_t*, base_ptr() + (l.index() << 4), 1); }
+        size_t* to_ptr(size_t jst) { return TAG(size_t*, reinterpret_cast<size_t*>(jst), 2); }
+        bool is_literal(size_t* p) const { return GET_TAG(p) == 2; }
+        bool is_justification(size_t* p) const { return GET_TAG(p) == 2; }
+        sat::literal get_literal(size_t* p) {
+            unsigned idx = (unsigned)(UNTAG(size_t*, p) - base_ptr());
+            return sat::to_literal(idx >> 4);
+        }
+        size_t get_justification(size_t* p) const {
+            return reinterpret_cast<size_t>(UNTAG(size_t*, p));
+        }
 
         ast_manager&          m;
         atom2bool_var&        m_expr2var;
@@ -82,7 +99,7 @@ namespace euf {
         scoped_ptr<euf::ackerman>   m_ackerman;
 
         ptr_vector<euf::enode>                          m_var2node;
-        ptr_vector<unsigned>                            m_explain;
+        ptr_vector<size_t>                              m_explain;
         unsigned                                        m_num_scopes { 0 };
         unsigned_vector                                 m_var_trail;
         svector<scope>                                  m_scopes;
@@ -92,8 +109,6 @@ namespace euf {
         constraint* m_conflict { nullptr };
         constraint* m_eq       { nullptr };
         constraint* m_lit      { nullptr };
-
-        unsigned * base_ptr() { return reinterpret_cast<unsigned*>(this); }
 
         // internalization
 
@@ -197,6 +212,8 @@ namespace euf {
         bool is_external(bool_var v) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
         bool propagate() override;
+        void propagate(enode* a, enode* b, ext_justification_idx);
+
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
         void asserted(literal l) override;
         sat::check_result check() override;

@@ -504,7 +504,7 @@ template void euf::egraph::explain(ptr_vector<int>& justifications);
 template void euf::egraph::explain_todo(ptr_vector<int>& justifications);
 template void euf::egraph::explain_eq(ptr_vector<int>& justifications, enode* a, enode* b);
 
-template void euf::egraph::explain(ptr_vector<unsigned>& justifications);
-template void euf::egraph::explain_todo(ptr_vector<unsigned>& justifications);
-template void euf::egraph::explain_eq(ptr_vector<unsigned>& justifications, enode* a, enode* b);
+template void euf::egraph::explain(ptr_vector<size_t>& justifications);
+template void euf::egraph::explain_todo(ptr_vector<size_t>& justifications);
+template void euf::egraph::explain_eq(ptr_vector<size_t>& justifications, enode* a, enode* b);
 

@@ -52,11 +52,7 @@ namespace bv {
                 TRACE("fixed_var_eh", tout << "detected equality: v" << v << " = v" << v2 << "\n" << pp(v) << pp(v2););
                 m_stats.m_num_th2core_eq++;
                 add_fixed_eq(v, v2);
-#if 0
-                // TODO
-                justification* js = ctx.mk_justification(fixed_eq_justification(*this, v, v2));
-                ctx.assign_eq(n, get_enode(v2), eq_justification(js));
-#endif
+                ctx.propagate(n, get_enode(v2), mk_bit2bv_justification(v, v2));
                 m_fixed_var_table.insert(key, v2);
             }
             else {
@@ -118,10 +114,9 @@ namespace bv {
                 break;
             case l_undef:
                 return false;
-            case l_true: {
+            case l_true: 
                 result += power2(i);
-                break;
-            }
+                break;            
             }
             ++i;
         }
@@ -135,17 +130,10 @@ namespace bv {
         literal_vector const& bits = m_bits[v];
         unsigned sz = bits.size();
         unsigned& wpos = m_wpos[v];
-        unsigned init = wpos;
-        for (; wpos < sz; wpos++) {
-            TRACE("find_wpos", tout << "curr bit: " << bits[wpos] << "\n";);
-            if (s().value(bits[wpos]) == l_undef) {
-                TRACE("find_wpos", tout << "moved wpos of v" << v << " to " << wpos << "\n";);
-                return;
-            }
-        }
-        wpos = 0;
-        for (; wpos < init; wpos++) {
-            if (s().value(bits[wpos]) == l_undef) {
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned idx = (i + wpos) % sz;
+            if (s().value(bits[idx]) == l_undef) {
+                wpos = idx;
                 TRACE("find_wpos", tout << "moved wpos of v" << v << " to " << wpos << "\n";);
                 return;
             }
@@ -168,7 +156,6 @@ namespace bv {
         }
     }
 
-
     /**
        \brief v1[idx] = ~v2[idx], then v1 /= v2 is a theory axiom.
     */
@@ -186,22 +173,38 @@ namespace bv {
     }
 
     std::ostream& solver::display(std::ostream& out, theory_var v) const {
+        expr* e = get_expr(v);
         out << "v";
         out.width(4);
         out << std::left << v;
         out << " #";
         out.width(4);
-        out << get_enode(v)->get_owner_id() << " -> #";
+        out << e->get_id() << " -> #";
         out.width(4);
         out << get_enode(find(v))->get_owner_id();
-        out << std::right << ", bits:";
-        literal_vector const& bits = m_bits[v];
-        for (literal lit : bits) {
-            out << " " << lit << ":" << get_expr(lit) << "\n";
+        out << std::right;
+        
+        atom* a = nullptr;
+        if (is_bv(v)) {
+            out << ", bits:";
+            literal_vector const& bits = m_bits[v];
+            for (literal lit : bits) {
+                out << " " << lit << ":" << get_expr(lit) << "\n";
+            }
+            numeral val;
+            if (get_fixed_value(v, val))
+                out << ", value: " << val;
         }
-        numeral val;
-        if (get_fixed_value(v, val))
-            out << ", value: " << val;
+        else if (m.is_bool(e) && (a = m_bool_var2atom[get_literal(e).var()])) {
+            if (a->is_bit()) {
+                for (var_pos vp : *reinterpret_cast<bit_atom*>(a))
+                    out << " #" << get_enode(vp.first)->get_owner_id() << "[" << vp.second << "]";
+            }
+            else
+                out << "def-atom";
+        }
+        else
+            out << "foreign";
         out << "\n";
         return out;
     }
@@ -217,9 +220,63 @@ namespace bv {
     bool solver::propagate(literal l, sat::ext_constraint_idx idx) { return false; }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r) {
-        auto& c = bit_eq_constraint::from_index(idx);
-        r.push_back(c.m_antecedent);
-        TRACE("bv", tout << c.m_antecedent << " => " << c.m_consequent << " " << c.m_v1 << " == " << c.m_v2 << "\n";);
+        auto& c = bv_justification::from_index(idx);
+        auto add_bit = [&](sat::literal lit) {
+            SASSERT(s().value(lit) != l_undef);
+            if (s().value(lit) == l_false)
+                lit.neg();
+            r.push_back(lit);
+        };
+        auto same_values = [&](literal_vector const& a, literal_vector const& b) {
+            SASSERT(a.size() == b.size());
+            for (unsigned i = 0; i < a.size(); ++i) 
+                VERIFY(s().value(a[i]) == s().value(b[i]));
+        };
+
+        switch (c.m_kind) {
+        case bv_justification::kind_t::bv2bit:
+            r.push_back(c.m_antecedent);
+            TRACE("bv", tout << c.m_antecedent << " <= " << c.m_consequent << " v" << c.m_v1 << " == v" << c.m_v2 << "\n";);
+            break;
+        case bv_justification::kind_t::bit2bv: 
+            for (sat::literal bit : m_bits[c.m_v1])
+                add_bit(bit);
+            for (sat::literal bit : m_bits[c.m_v2])
+                add_bit(bit);
+            DEBUG_CODE(same_values(m_bits[c.m_v1], m_bits[c.m_v2]););
+            TRACE("bv", tout << m_bits[c.m_v1] << " == " << m_bits[c.m_v2] << " => v" << c.m_v1 << " == v" << c.m_v2 << "\n";);
+            break;
+        }        
+        if (s().get_config().m_drat) {
+            log_drat(c);
+        }
+    }
+
+    void solver::log_drat(bv_justification const& c) {
+        // this has a side-effect so changes provability:
+        expr_ref eq(m.mk_eq(get_expr(c.m_v1), get_expr(c.m_v2)), m);
+        sat::literal leq = ctx.internalize(eq, false, false, false);
+        sat::literal_vector lits;                
+        auto add_bit = [&](sat::literal lit) {
+            if (s().value(lit) == l_true)
+                lit.neg();
+            lits.push_back(lit);
+        };
+        switch (c.m_kind) {
+        case bv_justification::kind_t::bv2bit:
+            lits.push_back(~leq);
+            lits.push_back(c.m_antecedent);
+            lits.push_back(~c.m_consequent);            
+            break;
+        case bv_justification::kind_t::bit2bv:
+            lits.push_back(leq);
+            for (sat::literal bit : m_bits[c.m_v1])
+                add_bit(bit);
+            for (sat::literal bit : m_bits[c.m_v2])
+                add_bit(bit);
+            break;
+        }
+        s().get_drat().add(lits, status());
     }
 
     void solver::asserted(literal l) {
@@ -275,26 +332,36 @@ namespace bv {
 
     void solver::push() {
         th_euf_solver::push();
-        m_trail.push_scope();
         m_prop_queue_lim.push_back(m_prop_queue.size());
+        m_trail.push_scope();        
     }
 
-    void solver::pop(unsigned n) {
-        unsigned old_sz = m_var2enode_lim[m_var2enode_lim.size() - n];
-        m_bits.shrink(old_sz);
-        m_wpos.shrink(old_sz);
-        m_zero_one_bits.shrink(old_sz);
-        m_prop_queue.shrink(m_prop_queue_lim[old_sz]);
-        m_prop_queue_lim.shrink(old_sz);
+    void solver::pop(unsigned n) {              
         m_trail.pop_scope(n);
-        th_euf_solver::pop(n);
+        unsigned old_sz = m_prop_queue_lim.size() - n;
+        m_prop_queue.shrink(m_prop_queue_lim[old_sz]);
+        m_prop_queue_lim.shrink(old_sz);        
+        old_sz = m_var2enode_lim[m_var2enode_lim.size() - n];
+        if (old_sz < get_num_vars()) {
+            m_bits.shrink(old_sz);
+            m_wpos.shrink(old_sz);
+            m_zero_one_bits.shrink(old_sz);            
+        }
+        th_euf_solver::pop(n);                     
     }
 
     void solver::pre_simplify() {}
     void solver::simplify() {}
     void solver::clauses_modifed() {}
     lbool solver::get_phase(bool_var v) { return l_undef; }
-    std::ostream& solver::display(std::ostream& out) const { NOT_IMPLEMENTED_YET(); return out; }
+    std::ostream& solver::display(std::ostream& out) const { 
+        unsigned num_vars = get_num_vars();
+        if (num_vars > 0) 
+            out << "bv-solver:\n";
+        for (unsigned v = 0; v < num_vars; v++) 
+            out << pp(v);        
+        return out; 
+    }
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { return out; }
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { return out; }
 
@@ -368,11 +435,18 @@ namespace bv {
         }
     }
 
-    sat::justification solver::mk_bit_eq_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) {
-        void* mem = get_region().allocate(bit_eq_constraint::get_obj_size());
+    sat::justification solver::mk_bv2bit_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) {
+        void* mem = get_region().allocate(bv_justification::get_obj_size());
         sat::constraint_base::initialize(mem, this);
-        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) bit_eq_constraint(v1, v2, c, a);
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) bv_justification(v1, v2, c, a);
         return sat::justification::mk_ext_justification(s().scope_lvl(), constraint->to_index());
+    }
+
+    sat::ext_justification_idx solver::mk_bit2bv_justification(theory_var v1, theory_var v2) {
+        void* mem = get_region().allocate(bv_justification::get_obj_size());
+        sat::constraint_base::initialize(mem, this);
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) bv_justification(v1, v2);
+        return constraint->to_index();
     }
 
     void solver::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
@@ -381,9 +455,10 @@ namespace bv {
         SASSERT(ctx.s().value(antecedent) == l_true);
         SASSERT(m_bits[v2][idx].var() == consequent.var());
         SASSERT(consequent.var() != antecedent.var());
-        s().assign(consequent, mk_bit_eq_justification(v1, v2, consequent, antecedent));
+        s().assign(consequent, mk_bv2bit_justification(v1, v2, consequent, antecedent));
         if (s().value(consequent) == l_false) {
             m_stats.m_num_conflicts++;
+            SASSERT(s().inconsistent());
         }
         else {
             if (get_config().m_bv_eq_axioms) {
@@ -394,9 +469,6 @@ namespace bv {
 
             if (m_wpos[v2] == idx)
                 find_wpos(v2);
-            // REMARK: bit_eq_justification is marked as a theory_bv justification.
-            // Thus, the assignment to consequent will not be notified back to the theory.
-            // So, we need to propagate the assignment to other bits.
             bool_var cv = consequent.var();
             atom* a = get_bv2a(cv);
             SASSERT(a->is_bit());
@@ -419,20 +491,10 @@ namespace bv {
         // v1 was the root of the equivalence class
         // I must remove the zero_one_bits that are from v2.
 
-        // REMARK: it is unsafe to invoke check_zero_one_bits, since
-        // the enode associated with v1 and v2 may have already been
-        // deleted. 
-        //
-        // The logical context trail_stack is popped before
-        // the theories pop_scope_eh is invoked.
-
         zero_one_bits& bits = m_zero_one_bits[v1];
-        if (bits.empty()) {
-            return;
-        }
-        unsigned j = bits.size();
-        while (j > 0) {
-            --j;
+        if (bits.empty()) 
+            return;        
+        for (unsigned j = bits.size(); j-- > 0; ) {
             zero_one_bit& bit = bits[j];
             if (find(bit.m_owner) == v1) {
                 bits.shrink(j + 1);
@@ -480,10 +542,9 @@ namespace bv {
                 mk_new_diseq_axiom(v1, v2, zo.m_idx);
                 return false;
             }
-            if (m_merge_aux[zo.m_is_true][zo.m_idx] == euf::null_theory_var) {
-                // copy missing variable to bits1
-                bits1.push_back(zo);
-            }
+            // copy missing variable to bits1
+            if (m_merge_aux[zo.m_is_true][zo.m_idx] == euf::null_theory_var)                 
+                bits1.push_back(zo);            
         }
         // reset m_merge_aux vector
         DEBUG_CODE(for (unsigned i = 0; i < bv_size; i++) { SASSERT(m_merge_aux[0][i] == euf::null_theory_var || m_merge_aux[1][i] == euf::null_theory_var); });
