@@ -147,7 +147,7 @@ namespace euf {
         void force_push();
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
-        void log_node(enode* n);
+        void log_node(expr* n);
         void log_bool_var(sat::bool_var v, enode* n);
 
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
@@ -215,6 +215,7 @@ namespace euf {
         void propagate(enode* a, enode* b, ext_justification_idx);
 
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
+        void add_antecedent(enode* a, enode* b);
         void asserted(literal l) override;
         sat::check_result check() override;
         void push() override;

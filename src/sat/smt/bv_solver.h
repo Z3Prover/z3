@@ -176,15 +176,13 @@ namespace bv {
         inline theory_var get_arg_var(euf::enode* n, unsigned idx);
         void get_bits(theory_var v, expr_ref_vector& r);
         void get_bits(euf::enode* n, expr_ref_vector& r);
-        void get_arg_bits(euf::enode* n, unsigned idx, expr_ref_vector& r);
         void get_arg_bits(app* n, unsigned idx, expr_ref_vector& r);
-        euf::enode* mk_enode(expr* n, ptr_vector<euf::enode> const& args);
         void fixed_var_eh(theory_var v);
         bool is_bv(theory_var v) const { return bv.is_bv(get_expr(v)); }
         sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
-        void init_bits(euf::enode * n, expr_ref_vector const & bits);
+        void init_bits(expr* e, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
         void add_def(sat::literal def, sat::literal l);
         void internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn);

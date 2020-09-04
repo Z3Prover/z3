@@ -120,7 +120,9 @@ static void test3() {
     std::cout << g << "\n";
     SASSERT(g.inconsistent());
     ptr_vector<int> js;
+    g.begin_explain();
     g.explain<int>(js);
+    g.end_explain();
     for (int* j : js) {
         std::cout << "conflict: " << *j << "\n";
     }

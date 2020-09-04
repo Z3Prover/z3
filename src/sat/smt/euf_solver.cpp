@@ -108,6 +108,7 @@ namespace euf {
     }
 
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r) {
+        m_egraph.begin_explain();
         m_explain.reset();
         unsigned qhead = 0;
         auto* ext = sat::constraint_base::to_extension(idx);
@@ -127,7 +128,12 @@ namespace euf {
                 ext->get_antecedents(lit, idx, r);
             }
         }
+        m_egraph.end_explain();
         log_antecedents(l, r);
+    }
+
+    void solver::add_antecedent(enode* a, enode* b) {
+        m_egraph.explain_eq<size_t>(m_explain, a, b);
     }
 
     void solver::propagate(enode* a, enode* b, ext_justification_idx idx) {

@@ -87,7 +87,8 @@ namespace euf {
 
     void solver::attach_node(euf::enode* n) {
         expr* e = n->get_owner();
-        log_node(n);
+        if (m_drat)
+            log_node(e);
         if (m.is_bool(e)) {
             sat::bool_var v = si.add_bool_var(e);
             log_bool_var(v, n);

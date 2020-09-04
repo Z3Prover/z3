@@ -236,7 +236,8 @@ namespace bv {
         switch (c.m_kind) {
         case bv_justification::kind_t::bv2bit:
             r.push_back(c.m_antecedent);
-            TRACE("bv", tout << c.m_antecedent << " <= " << c.m_consequent << " v" << c.m_v1 << " == v" << c.m_v2 << "\n";);
+            ctx.add_antecedent(get_enode(c.m_v1), get_enode(c.m_v2));
+            TRACE("bv", tout << c.m_consequent << " <= " << c.m_antecedent << " v" << c.m_v1 << " == v" << c.m_v2 << "\n";);
             break;
         case bv_justification::kind_t::bit2bv: 
             for (sat::literal bit : m_bits[c.m_v1])

@@ -387,10 +387,19 @@ namespace euf {
         }
     }
 
+    void egraph::begin_explain() {
+        SASSERT(m_todo.empty());
+    }
+
+    void egraph::end_explain() {
+        for (enode* n : m_todo) 
+            n->unmark1();
+        m_todo.reset();        
+    }
+
     template <typename T>
     void egraph::explain(ptr_vector<T>& justifications) {
         SASSERT(m_inconsistent);
-        SASSERT(m_todo.empty());
         push_todo(m_n1);
         push_todo(m_n2);
         explain_eq(justifications, m_n1, m_n2, m_justification);
@@ -399,7 +408,6 @@ namespace euf {
 
     template <typename T>
     void egraph::explain_eq(ptr_vector<T>& justifications, enode* a, enode* b) {
-        SASSERT(m_todo.empty());
         SASSERT(a->get_root() == b->get_root());
         enode* lca = find_lca(a, b);
         push_to_lca(a, lca);
@@ -418,9 +426,6 @@ namespace euf {
                 explain_eq(justifications, n, n->m_target, n->m_justification);
             }
         }
-        for (enode* n : m_todo) 
-            n->unmark1();
-        m_todo.reset();        
     }
 
     void egraph::invariant() {

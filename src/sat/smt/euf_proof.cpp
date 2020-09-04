@@ -19,20 +19,16 @@ Author:
 
 namespace euf {
 
-    void solver::log_node(enode* n) {
-        if (m_drat) {
-            expr* e = n->get_owner();
-            if (is_app(e)) {
-                symbol const& name = to_app(e)->get_name();
-                s().get_drat().def_begin(n->get_owner_id(), name);
-                for (enode* arg : enode_args(n)) {
-                    s().get_drat().def_add_arg(arg->get_owner_id());
-                }
-                s().get_drat().def_end();
-            }
-            else {
-                IF_VERBOSE(0, verbose_stream() << "logging binders is TBD\n");
-            }
+    void solver::log_node(expr* e) {
+        if (is_app(e)) {
+            symbol const& name = to_app(e)->get_name();
+            s().get_drat().def_begin(e->get_id(), name);
+            for (expr* arg : *to_app(e)) 
+                s().get_drat().def_add_arg(arg->get_id());
+            s().get_drat().def_end();
+        }
+        else {
+            IF_VERBOSE(0, verbose_stream() << "logging binders is TBD\n");
         }
     }
 
@@ -42,6 +38,14 @@ namespace euf {
         }
     }
 
+    /**
+     * \brief logs antecedents to a proof trail.
+     * 
+     * NB with theories, this is not a pure EUF justification,
+     * It is true modulo EUF and previously logged certificates
+     * so it isn't necessarily an axiom over EUF, 
+     * We will here leave it to the EUF checker to perform resolution steps.
+     */
     void solver::log_antecedents(literal l, literal_vector const& r) {
         TRACE("euf", log_antecedents(tout, l, r););
         if (m_drat) {

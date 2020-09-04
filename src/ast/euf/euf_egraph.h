@@ -177,6 +177,8 @@ namespace euf {
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
 
+        void begin_explain();
+        void end_explain();
         template <typename T>
         void explain(ptr_vector<T>& justifications);
         template <typename T>
