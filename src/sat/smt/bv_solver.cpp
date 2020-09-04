@@ -23,7 +23,98 @@ Author:
 namespace bv {
 
     void solver::fixed_var_eh(theory_var v) {
-        
+        numeral val;
+        VERIFY(get_fixed_value(v, val));
+        euf::enode* n = get_enode(v);
+        unsigned sz = m_bits[v].size();
+        value_sort_pair key(val, sz);
+        theory_var v2;
+        if (m_fixed_var_table.find(key, v2)) {
+            numeral val2;
+            if (v2 < static_cast<int>(get_num_vars()) && is_bv(v2) &&
+                get_bv_size(v2) == sz && get_fixed_value(v2, val2) && val == val2) {
+                if (n->get_root() != get_enode(v2)->get_root()) {
+                    SASSERT(get_bv_size(v) == get_bv_size(v2));
+                    TRACE("fixed_var_eh", tout << "detected equality: v" << v << " = v" << v2 << "\n" << pp(v) << pp(v2););
+                    m_stats.m_num_th2core_eq++;
+                    add_fixed_eq(v, v2);
+#if 0
+                    // TODO
+                    justification* js = ctx.mk_justification(fixed_eq_justification(*this, v, v2));
+                    ctx.assign_eq(get_enode(v), get_enode(v2), eq_justification(js));
+#endif
+                    m_fixed_var_table.insert(key, v2);
+                }
+                else {
+                    // the original fixed variable v2 was deleted or it is not fixed anymore.
+                    m_fixed_var_table.erase(key);
+                    m_fixed_var_table.insert(key, v);
+                }
+            }
+            else {
+                m_fixed_var_table.insert(key, v);
+            }
+        }
+    }
+
+    void solver::add_fixed_eq(theory_var v1, theory_var v2) {
+        if (!get_config().m_bv_eq_axioms)
+            return;
+
+        if (v1 > v2) {
+            std::swap(v1, v2);
+        }
+
+        unsigned act = m_eq_activity[hash_u_u(v1, v2) & 0xFF]++;
+        if ((act & 0xFF) != 0xFF) {
+            return;
+        }
+        ++m_stats.m_num_eq_dynamic;
+        expr* o1 = get_expr(v1);
+        expr* o2 = get_expr(v2);
+        expr_ref oe(m.mk_eq(o1, o2), m);
+        literal oeq = ctx.internalize(oe, false, false, m_is_redundant);
+        unsigned sz = get_bv_size(v1);
+        TRACE("bv", tout << oe << "\n";);
+        literal_vector eqs;
+        for (unsigned i = 0; i < sz; ++i) {
+            literal l1 = m_bits[v1][i];
+            literal l2 = m_bits[v2][i];
+            expr_ref e1(m), e2(m);
+            e1 = bv.mk_bit2bool(o1, i);
+            e2 = bv.mk_bit2bool(o2, i);
+            expr_ref e(m.mk_eq(e1, e2), m);
+            literal eq = ctx.internalize(e, false, false, m_is_redundant);
+            add_clause(l1, ~l2, ~eq);
+            add_clause(~l1, l2, ~eq);
+            add_clause(l1, l2, eq);
+            add_clause(~l1, ~l2, eq);
+            add_binary(eq, ~oeq);
+            eqs.push_back(~eq);
+        }
+        eqs.push_back(oeq);
+        s().add_clause(eqs.size(), eqs.c_ptr(), sat::status::th(m_is_redundant, get_id()));
+    }
+
+    bool solver::get_fixed_value(theory_var v, numeral& result) const {
+        result.reset();
+        unsigned i = 0;
+        for (literal b : m_bits[v]) {
+            switch (ctx.s().value(b)) {
+            case l_false:
+                break;
+            case l_undef:
+                return false;
+            case l_true: {
+                for (unsigned j = m_power2.size(); j <= i; ++j)
+                    m_power2.push_back(m_bb.power(j));
+                result += m_power2[i];
+                break;
+            }
+            }
+            ++i;
+        }
+        return true;
     }
 
     /**
@@ -93,19 +184,16 @@ namespace bv {
         out.width(4);
         out << get_enode(v)->get_owner_id() << " -> #";
         out.width(4);
-#if 0
         out << get_enode(find(v))->get_owner_id();
         out << std::right << ", bits:";
         literal_vector const& bits = m_bits[v];
         for (literal lit : bits) {
-            out << " " << lit << ":";
-            ctx.display_literal(out, lit);
+            out << " " << lit << ":" << get_expr(lit) << "\n";
         }
         numeral val;
         if (get_fixed_value(v, val))
             out << ", value: " << val;
         out << "\n";
-#endif
         return out;
     }
 

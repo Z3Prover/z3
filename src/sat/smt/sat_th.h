@@ -36,10 +36,13 @@ namespace euf {
         virtual bool visit(expr* e) { return false; }
         virtual bool visited(expr* e) { return false; }
         virtual bool post_visit(expr* e, bool sign, bool root) { return false; }
+
     public:
         virtual ~th_internalizer() {}
 
         virtual sat::literal internalize(expr* e, bool sign, bool root, bool redundant) = 0;
+
+        virtual void internalize(expr* e, bool redundant) = 0;
 
         /**
            \brief Apply (interpreted) sort constraints on the given enode.
@@ -106,6 +109,11 @@ namespace euf {
         smt_params const& get_config() const;
         sat::literal get_literal(expr* e) const;
         region& get_region();
+
+        void add_unit(sat::literal lit);
+        void add_binary(sat::literal a, sat::literal b);
+        void add_clause(sat::literal a, sat::literal b, sat::literal c);
+
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);
         virtual ~th_euf_solver() {}

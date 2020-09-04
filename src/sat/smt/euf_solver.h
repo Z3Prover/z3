@@ -93,7 +93,6 @@ namespace euf {
         constraint* m_eq       { nullptr };
         constraint* m_lit      { nullptr };
 
-        sat::solver& s() { return *m_solver; }
         unsigned * base_ptr() { return reinterpret_cast<unsigned*>(this); }
 
         // internalization
@@ -179,6 +178,7 @@ namespace euf {
            }
        };
 
+        sat::solver& s() { return *m_solver; }
         sat::sat_internalizer& get_si() { return si; }
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) { return m_egraph.find(e); }
@@ -228,6 +228,7 @@ namespace euf {
 
         // internalize
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
+        void internalize(expr* e, bool learned) override;
         void attach_th_var(enode* n, th_solver* th, theory_var v) { m_egraph.add_th_var(n, v, th->get_id()); }
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
 

@@ -21,17 +21,27 @@ Author:
 
 namespace euf {
 
+    void solver::internalize(expr* e, bool redundant) {
+        if (si.is_bool_op(e)) 
+            si.internalize(e, redundant);
+        else if (auto* ext = get_solver(e))
+            ext->internalize(e, redundant);
+        else
+            visit_rec(m, e, false, false, redundant);
+        SASSERT(m_egraph.find(e));
+    }
+
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         if (si.is_bool_op(e))
             return si.internalize(e, redundant);
-        auto* ext = get_solver(e);
-        if (ext)
+        if (auto* ext = get_solver(e))
             return ext->internalize(e, sign, root, redundant);
-
         if (!visit_rec(m, e, sign, root, redundant))
             return sat::null_literal;
         SASSERT(m_egraph.find(e));
-        return literal(m_expr2var.to_bool_var(e), sign);
+        if (m.is_bool(e))
+            return literal(m_expr2var.to_bool_var(e), sign);
+        return sat::null_literal;
     }
 
     bool solver::visit(expr* e) {

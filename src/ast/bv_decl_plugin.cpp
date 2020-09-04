@@ -131,12 +131,8 @@ void bv_decl_plugin::finalize() {
 
     DEC_REF(m_int2bv);
     DEC_REF(m_bv2int);
-    vector<ptr_vector<func_decl> >::iterator it  = m_bit2bool.begin();
-    vector<ptr_vector<func_decl> >::iterator end = m_bit2bool.end();
-    for (; it != end; ++it) {
-        ptr_vector<func_decl> & ds = *it;
+    for (auto& ds : m_bit2bool)
         DEC_REF(ds);
-    }
     DEC_REF(m_mkbv);
 }
 
@@ -826,6 +822,14 @@ bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, ex
 bool bv_recognizers::is_bv2int(expr const* e, expr*& r) const {
     if (!is_bv2int(e)) return false;
     r = to_app(e)->get_arg(0);
+    return true;
+}
+
+bool bv_recognizers::is_bit2bool(expr* e, expr*& bv, unsigned& idx) const {
+    if (!is_bit2bool(e))
+        return false;
+    bv = to_app(e)->get_arg(0);
+    idx = to_app(e)->get_parameter(0).get_int();
     return true;
 }
 

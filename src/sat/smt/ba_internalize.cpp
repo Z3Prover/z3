@@ -21,6 +21,10 @@ Author:
 
 namespace sat {
 
+    void ba_solver::internalize(expr* e, bool redundant) {
+        internalize(e, false, false, redundant);
+    }
+
     literal ba_solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         flet<bool> _redundant(m_is_redundant, redundant);
         if (m_pb.is_pb(e)) 

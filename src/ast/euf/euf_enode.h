@@ -143,6 +143,7 @@ namespace euf {
         unsigned get_owner_id() const { return m_owner->get_id(); }
         unsigned get_root_id() const { return m_root->m_owner->get_id(); }
         theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }
+        bool is_attached_to(theory_id id) const { return get_th_var(id) != null_theory_var; }
         bool has_th_vars() const { return !m_th_vars.empty(); }
 
         void inc_class_size(unsigned n) { m_class_size += n; }

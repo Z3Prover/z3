@@ -94,6 +94,10 @@ namespace bv {
             bool is_bit() const override { return false; }
         };
 
+        typedef std::pair<numeral, unsigned> value_sort_pair;
+        typedef pair_hash<obj_hash<numeral>, unsigned_hash> value_sort_pair_hash;
+        typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
+
         friend class add_var_pos_trail;
         friend class mk_atom_trail;
         typedef ptr_vector<atom> bool_var2atom;
@@ -108,6 +112,12 @@ namespace bv {
         svector<unsigned>        m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
         bool_var2atom            m_bool_var2atom;
+        value2var                m_fixed_var_table;
+        mutable vector<rational> m_power2;
+        unsigned char            m_eq_activity[256];
+
+
+
         sat::solver* m_solver;
         sat::solver& s() { return *m_solver;  }
 
@@ -121,7 +131,7 @@ namespace bv {
         sat::literal true_literal;
         bool visit(expr* e) override;
         bool visited(expr* e) override;
-        bool post_visit(expr* e, bool sign, bool root) override { return true; }
+        bool post_visit(expr* e, bool sign, bool root) override;
         unsigned get_bv_size(euf::enode* n);
         unsigned get_bv_size(theory_var v);
         theory_var get_var(euf::enode* n);
@@ -133,60 +143,41 @@ namespace bv {
         void get_arg_bits(app* n, unsigned idx, expr_ref_vector& r);
         euf::enode* mk_enode(expr* n, ptr_vector<euf::enode> const& args);
         void fixed_var_eh(theory_var v);
-
+        bool is_bv(theory_var v) const { return bv.is_bv(get_expr(v)); }
         sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
-        void add_unit(sat::literal lit);
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
         void init_bits(euf::enode * n, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
-        expr_ref mk_bit2bool(expr* b, unsigned idx);
-        void blast_unary(app* n, expr_ref_vector const& arg_bits, expr_ref_vector& bits);
-        void internalize_unary(app* n);
-        void internalize_num(app * n, theory_var v);
-        void internalize_add(app * n);
-        void internalize_sub(app * n);
-        void internalize_mul(app * n);
-        void internalize_udiv(app * n);
-        void internalize_sdiv(app * n);
-        void internalize_urem(app * n);
-        void internalize_srem(app * n);
-        void internalize_smod(app * n);
-        void internalize_shl(app * n);
-        void internalize_lshr(app * n);
-        void internalize_ashr(app * n);
-        void internalize_ext_rotate_left(app * n);
-        void internalize_ext_rotate_right(app * n);
-        void internalize_and(app * n);
-        void internalize_or(app * n);
-        void internalize_not(app * n);
-        void internalize_nand(app * n);
-        void internalize_nor(app * n);
-        void internalize_xor(app * n);
-        void internalize_xnor(app * n);
-        void internalize_concat(app * n);
-        void internalize_sign_extend(app * n);
-        void internalize_zero_extend(app * n);
-        void internalize_extract(app * n);
-        void internalize_redand(app * n);
-        void internalize_redor(app * n);
-        void internalize_comp(app * n);
-        void internalize_rotate_left(app * n);
-        void internalize_rotate_right(app * n);
+        void internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn);
+        void internalize_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
+        void internalize_ac_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
+        void internalize_punary(app* n, std::function<void(unsigned, expr* const*, unsigned p, expr_ref_vector&)>& fn);
+        void internalize_novfl(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref&)>& fn);
+        void internalize_num(app * n, theory_var v);       
+        void internalize_concat(app * n);        
         void internalize_bv2int(app* n);
         void internalize_int2bv(app* n);
         void internalize_mkbv(app* n);
-        void internalize_umul_no_overflow(app *n);
-        void internalize_smul_no_overflow(app *n);
-        void internalize_smul_no_underflow(app *n);
-
+        void internalize_xor3(app* n);
+        void internalize_carry(app* n);
+        void internalize_sub(app* n);
+        void internalize_extract(app* n);
+        void internalize_bit2bool(app* n);
+        template<bool Signed>
+        void internalize_le(app* n);
         void assert_bv2int_axiom(app * n);
         void assert_int2bv_axiom(app* n);
 
         // solving
+        theory_var find(theory_var v) const { return m_find.find(v); }
         void find_wpos(theory_var v);
         void find_new_diseq_axioms(var_pos_occ* occs, theory_var v, unsigned idx);
         void mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
+        bool get_fixed_value(theory_var v, numeral& result) const;
+        void add_fixed_eq(theory_var v1, theory_var v2);
+
+
 
 
     public:
@@ -227,6 +218,7 @@ namespace bv {
 
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override { return false; }
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
+        void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;
 
 

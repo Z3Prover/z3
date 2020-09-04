@@ -99,4 +99,18 @@ namespace euf {
         m_var2enode_lim.shrink(new_lvl);
     }
 
+    void th_euf_solver::add_unit(sat::literal lit) {
+        ctx.s().add_clause(1, &lit, sat::status::th(m_is_redundant, get_id())); 
+    }
+
+    void th_euf_solver::add_binary(sat::literal a, sat::literal b) {
+        sat::literal lits[2] = { a, b };
+        ctx.s().add_clause(2, lits, sat::status::th(m_is_redundant, get_id()));
+    }
+
+    void th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c) {
+        sat::literal lits[3] = { a, b, c };
+        ctx.s().add_clause(3, lits, sat::status::th(m_is_redundant, get_id()));
+    }
+
 }
