@@ -26,8 +26,7 @@ namespace smt {
         ctx(th.get_context()),
         m(th.get_manager()),
         m_state_to_expr(m),
-        m_const_to_expr(m, false)
-    {}
+        m_state_graph(this, pp_state) { }
 
     seq_util& seq_regex::u() { return th.m_util; }
     class seq_util::rex& seq_regex::re() { return th.m_util.re; }
@@ -178,12 +177,12 @@ namespace smt {
 
         expr_ref zero(a().mk_int(0), m);
         expr_ref acc(sk().mk_accept(s, zero, r), m);
+        literal acc_lit = th.mk_literal(acc);
 
         TRACE("seq", tout << "propagate " << acc << "\n";);
 
-        literal acc_lit = th.mk_literal(acc);
         //th.propagate_lit(nullptr, 1, &lit, acc_lit);
-        th.add_axiom(acc_lit);
+        th.add_axiom(~lit, acc_lit);
     }
 
     /**
@@ -397,9 +396,11 @@ namespace smt {
 
     expr_ref seq_regex::symmetric_diff(expr* r1, expr* r2) {
         expr_ref r(m);
-        if (re().is_empty(r1)) 
-            std::swap(r1, r2);
-        if (re().is_empty(r2))
+        if (r1 == r2)
+            r = re().mk_empty(m.get_sort(r1));
+        else if (re().is_empty(r1)) 
+            r = r2;
+        else if (re().is_empty(r2))
             r = r1;
         else 
             r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
@@ -473,36 +474,46 @@ namespace smt {
         TRACE("seq_regex", tout << "propagate EQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PEQ ";);
 
+        /*
         if (is_uninterp(r1) || is_uninterp(r2)) {
             th.add_axiom(th.mk_eq(r1, r2, false));
-           /* if (is_uninterp(r1))
+           if (is_uninterp(r1))
                 m_const_to_expr.insert(r1, r2, nullptr);
             else 
                 m_const_to_expr.insert(r2, r1, nullptr);
-            return;*/
+           
         }
+        */
 
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
-        expr_ref r = symmetric_diff(r1, r2);       
+        expr_ref r = symmetric_diff(r1, r2);
+        if (re().is_empty(r))
+            //trivially true
+            return;
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
-        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
-        expr_ref is_empty = sk().mk_is_empty(r, r, n);
-        //axiom: (r1 =!= r2) ==>  isempty((r1-r2)|(r2-r1))
-        th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_empty));
+        expr_ref f(m.mk_fresh_const("re.char", seq_sort), m); 
+        expr_ref is_empty = sk().mk_is_empty(r, r, f);
+        // is_empty : (re,re,seq) -> Bool is a Skolem function 
+        // f is a fresh internal Skolem constant of sort seq
+        // the literal is satisfiable when emptiness check succeeds
+        // meaning that r is not nullable and 
+        // that all derivatives of r (if any) are also empty
+        // TBD: rewrite to use state_graph
+        th.add_axiom(~th.mk_eq(r1, r2, false), th.mk_literal(is_empty));
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
         TRACE("seq_regex", tout << "propagate NEQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PNEQ ";);
-
+        // TBD: rewrite to use state_graph
+        // why is is_non_empty even needed, why not just not(in_empty)
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
         expr_ref emp(re().mk_empty(m.get_sort(r)), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
-        //Bug ??? axiom: (r1 != r2) ==>  symdiff(r1,r2)!=[]
         th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));
     }
 
@@ -611,6 +622,29 @@ namespace smt {
                     _temp_bool_owner.push_back(b);
                     re_to_bool.find(e) = b;
                 }
+                /*
+                else if (re().is_empty(e))
+                {
+                    re_to_bool.find(e) = m.mk_false();
+                }
+                else if (re().is_epsilon(e))
+                {
+                    expr* iplus1 = a().mk_int(i);
+                    expr* one = a().mk_int(1);
+                    _temp_bool_owner.push_back(iplus1);
+                    _temp_bool_owner.push_back(one);
+                    //the substring starting after position iplus1 must be empty
+                    expr* s_end = str().mk_substr(s, iplus1, one);
+                    expr* s_end_is_epsilon = m.mk_eq(s_end, str().mk_empty(m.get_sort(s)));
+
+                    _temp_bool_owner.push_back(s_end_is_epsilon);
+                    re_to_bool.find(e) = s_end_is_epsilon;
+
+                    STRACE("seq_regex_verbose", tout
+                        << "added empty sequence leaf: "
+                        << mk_pp(s_end_is_epsilon, m) << std::endl;);
+                }
+                */
                 else if (re().is_union(e, e1, e2)) {
                     expr* b1 = re_to_bool.find(e1);
                     expr* b2 = re_to_bool.find(e2);
@@ -805,13 +839,14 @@ namespace smt {
             STRACE("seq_regex", tout
                 << "New state ID: " << new_id
                 << " = " << mk_pp(e, m) << std::endl;);
+            SASSERT(get_expr_from_id(new_id) == e);
         }
         return m_expr_to_state.find(e);
     }
     expr* seq_regex::get_expr_from_id(unsigned id) {
         SASSERT(id >= 1);
         SASSERT(id <= m_state_to_expr.size());
-        return m_state_to_expr.get(id);
+        return m_state_to_expr.get(id - 1);
     }
 
 

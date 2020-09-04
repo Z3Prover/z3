@@ -83,6 +83,15 @@ private:
     edge_rel   m_targets;
     edge_rel   m_sources_maybecycle;
 
+    /* 
+        Pointer to pretty printer that must be passed as the first argument to m_pp_state 
+    */
+    void* m_printer;
+    /* 
+        Pointer to function that pretty prints a state label into the stream
+    */
+    void (*m_pp_state)(void*, std::ostream&, unsigned, bool);
+
     /*
         CLASS INVARIANTS
 
@@ -151,10 +160,18 @@ private:
     void mark_dead_recursive(state s);
     state merge_all_cycles(state s);
 
+    /* call back to m_printer using m_pp_state to pretty print state_id to the given stream */
+   void pp_state_label(std::ostream& out, unsigned state_id) { 
+        if (m_printer && m_pp_state) 
+            (*m_pp_state)(m_printer, out, state_id, true); 
+    }
+
+    std::string state_graph::encode_html(const std::string& html) const;
+
 public:
-    state_graph():
+    state_graph(void* printer, void (*pp_state)(void*, std::ostream&, unsigned, bool)):
         m_live(), m_dead(), m_unknown(), m_unexplored(), m_seen(),
-        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle()
+        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle(), m_printer(printer), m_pp_state(pp_state)
     {
         CASSERT("state_graph", check_invariant());
     }

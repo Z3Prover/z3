@@ -17,6 +17,7 @@ Author:
 --*/
 
 #include "state_graph.h"
+#include <sstream>
 
 void state_graph::add_state_core(state s) {
     STRACE("state_graph", tout << "add(" << s << ") ";);
@@ -432,6 +433,16 @@ bool state_graph::write_dgml() {
             do {
                 if (r != s)
                     dgml << "," << r;
+                r = m_state_ufind.next(r);
+            } while (r != s);
+            dgml << "\" Value=\""; 
+            r = s;
+            pp_state_label(dgml, r);
+            do {
+                if (r != s) {
+                    dgml << "\n";
+                    pp_state_label(dgml, r);
+                }
                 r = m_state_ufind.next(r);
             } while (r != s);
             dgml << "\" Category=\"State\">" << std::endl;

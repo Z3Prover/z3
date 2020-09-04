@@ -576,13 +576,14 @@ public:
         class pp {
             seq_util::rex& re;
             expr* e;
+            bool html_encode;
             bool can_skip_parenth(expr* r) const;
             std::ostream& seq_unit(std::ostream& out, expr* s) const;
             std::ostream& compact_helper_seq(std::ostream& out, expr* s) const;
             std::ostream& compact_helper_range(std::ostream& out, expr* s1, expr* s2) const;
 
         public:
-            pp(seq_util::rex& r, expr* e) : re(r), e(e) {}
+            pp(seq_util::rex& r, expr* e, bool html = false) : re(r), e(e), html_encode(html) {}
             std::ostream& display(std::ostream&) const;
         };
     };

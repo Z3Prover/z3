@@ -1485,7 +1485,7 @@ std::ostream& seq_util::rex::pp::compact_helper_range(std::ostream& out, expr* s
 */
 bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
     expr* s;
-    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r));
+    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r) || re.is_full_char(r));
 }
 
 /*
@@ -1506,8 +1506,22 @@ std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
             out << "\\s";
         else if (c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']' || c == '.' || c == '\\')
             out << "\\" << c;
-        else if (32 < n && n < 127)
-            out << c;
+        else if (32 < n && n < 127) {
+            if (html_encode) {
+                if (c == '<')
+                    out << "&lt;";
+                else if (c == '>')
+                    out << "&gt;";
+                else if (c == '&')
+                    out << "&amp;";
+                else if (c == '\"')
+                    out << "&quot;";
+                else
+                    out << "\\x" << std::hex << n;
+            }
+            else
+                out << c;
+        }
         else if (n <= 0xF)
             out << "\\x0" << std::hex << n;
         else if (n <= 0xFF)
@@ -1545,7 +1559,7 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
     else if (re.is_union(e, r1, r2)) 
         return out << pp(re, r1) << "|" << pp(re, r2);
     else if (re.is_intersection(e, r1, r2)) 
-        return out << "(" << pp(re, r1) << ")&(" << pp(re, r2) << ")";
+        return out << "(" << pp(re, r1) << (html_encode ? ")&amp;(": ")&(" ) << pp(re, r2) << ")";
     else if (re.is_complement(e, r1)) {
         if (can_skip_parenth(r1))
             return out << "~" << pp(re, r1);
@@ -1571,10 +1585,18 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
             return out << "(" << pp(re, r1) << "){" << lo << ",}";
     }
     else if (re.is_loop(e, r1, lo, hi)) {
-        if (can_skip_parenth(r1))
-            return out << pp(re, r1) << "{" << lo << "," << hi << "}";
-        else
-            return out << "(" << pp(re, r1) << "){" << lo << "," << hi << "}";
+        if (can_skip_parenth(r1)) {
+            if (lo == hi)
+                return out << pp(re, r1) << "{" << lo << "}";
+            else 
+                return out << pp(re, r1) << "{" << lo << "," << hi << "}";
+        }
+        else {
+            if (lo == hi)
+                return out << "(" << pp(re, r1) << "){" << lo << "}";
+            else
+                return out << "(" << pp(re, r1) << "){" << lo << "," << hi << "}";
+        }
     }
     else if (re.is_diff(e, r1, r2)) 
         return out << "(" << pp(re, r1) << ")\\(" << pp(re, r2) << ")";

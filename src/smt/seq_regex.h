@@ -115,7 +115,7 @@ namespace smt {
         ptr_addr_map<expr, unsigned>   m_expr_to_state;
         expr_ref_vector                m_state_to_expr;
         /* map from uninterpreted regex constants to assigned regex expressions by EQ */
-        expr_map                       m_const_to_expr;
+        // expr_map                       m_const_to_expr;
         unsigned                       m_max_state_graph_size { 10000 };
         // Convert between expressions and states (IDs)
         unsigned get_state_id(expr* e);
@@ -167,6 +167,22 @@ namespace smt {
         void get_cofactors(expr* r, expr_ref_pair_vector& result);
         void get_cofactors_rec(expr* r, expr_ref_vector& conds,
                                expr_ref_pair_vector& result);
+
+        /* 
+           Pretty print the regex of the state id to the out stream, 
+           seq_regex_ptr must be a pointer to seq_regex and the 
+           id must be a valid state id or else nothing is printed. 
+        */
+        static void pp_state(void* seq_regex_ptr, std::ostream& out, unsigned id, bool html_encode) {
+            seq_regex* sr = (seq_regex*)seq_regex_ptr;
+            if (sr) {
+                seq_util::rex re_util(sr->re());
+                if (1 <= id && id <= sr->m_state_to_expr.size()) {
+                    expr* r = sr->get_expr_from_id(id);
+                    seq_util::rex::pp(re_util, r, html_encode).display(out);
+                }
+            }
+        }
 
     public:
 
