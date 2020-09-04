@@ -23,6 +23,18 @@ Author:
 
 namespace bv {
 
+    class solver::bit_trail : public trail<euf::solver> {
+        solver& s;
+        solver::var_pos vp;
+        sat::literal lit;
+    public:
+        bit_trail(solver& s, var_pos vp) : s(s), vp(vp), lit(s.m_bits[vp.first][vp.second]) {}
+
+        virtual void undo(euf::solver& euf) {
+            s.m_bits[vp.first][vp.second] = lit;
+        }
+    };
+
     solver::solver(euf::solver& ctx, theory_id id) :
         euf::th_euf_solver(ctx, id),
         bv(m),
@@ -197,7 +209,7 @@ namespace bv {
         }
         else if (m.is_bool(e) && (a = m_bool_var2atom[get_literal(e).var()])) {
             if (a->is_bit()) {
-                for (var_pos vp : *reinterpret_cast<bit_atom*>(a))
+                for (var_pos vp : a->to_bit())
                     out << " #" << get_enode(vp.first)->get_owner_id() << "[" << vp.second << "]";
             }
             else
@@ -233,11 +245,11 @@ namespace bv {
                 VERIFY(s().value(a[i]) == s().value(b[i]));
         };
 
+        TRACE("bv", display_constraint(tout, idx););
         switch (c.m_kind) {
         case bv_justification::kind_t::bv2bit:
             r.push_back(c.m_antecedent);
-            ctx.add_antecedent(get_enode(c.m_v1), get_enode(c.m_v2));
-            TRACE("bv", tout << c.m_consequent << " <= " << c.m_antecedent << " v" << c.m_v1 << " == v" << c.m_v2 << "\n";);
+            ctx.add_antecedent(get_enode(c.m_v1), get_enode(c.m_v2));            
             break;
         case bv_justification::kind_t::bit2bv: 
             for (sat::literal bit : m_bits[c.m_v1])
@@ -245,7 +257,6 @@ namespace bv {
             for (sat::literal bit : m_bits[c.m_v2])
                 add_bit(bit);
             DEBUG_CODE(same_values(m_bits[c.m_v1], m_bits[c.m_v2]););
-            TRACE("bv", tout << m_bits[c.m_v1] << " == " << m_bits[c.m_v2] << " => v" << c.m_v1 << " == v" << c.m_v2 << "\n";);
             break;
         }        
         if (s().get_config().m_drat) {
@@ -283,7 +294,7 @@ namespace bv {
     void solver::asserted(literal l) {
         atom* a = get_bv2a(l.var());
         if (a->is_bit()) {
-            for (auto vp : *static_cast<bit_atom*>(a))
+            for (auto vp : a->to_bit())
                 m_prop_queue.push_back(vp);
         }
     }
@@ -353,6 +364,22 @@ namespace bv {
 
     void solver::pre_simplify() {}
     void solver::simplify() {}
+
+    bool solver::set_root(literal l, literal r) {
+        atom* a = get_bv2a(l.var());
+        if (!a || !a->is_bit())
+            return true;
+        for (auto vp : a->to_bit()) {
+            sat::literal l2 = m_bits[vp.first][vp.second]; 
+            sat::literal r2 = (l.sign() == l2.sign()) ? r : ~r;
+            SASSERT(l2.var() == l.var());
+            ctx.push(bit_trail(*this, vp)); 
+            m_bits[vp.first][vp.second] = r2;            
+            set_bit_eh(vp.first, r2, vp.second);
+        }
+        return true;
+    }
+
     void solver::clauses_modifed() {}
     lbool solver::get_phase(bool_var v) { return l_undef; }
     std::ostream& solver::display(std::ostream& out) const { 
@@ -363,8 +390,23 @@ namespace bv {
             out << pp(v);        
         return out; 
     }
-    std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { return out; }
-    std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { return out; }
+    std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { 
+        return display_constraint(out, idx);
+    }
+
+    std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { 
+        auto& c = bv_justification::from_index(idx);
+        switch (c.m_kind) {
+        case bv_justification::kind_t::bv2bit:
+            return out << c.m_consequent << " <= " << c.m_antecedent << " v" << c.m_v1 << " == v" << c.m_v2 << "\n";
+        case bv_justification::kind_t::bit2bv:
+            return out << m_bits[c.m_v1] << " == " << m_bits[c.m_v2] << " => v" << c.m_v1 << " == v" << c.m_v2 << "\n";
+        default:
+            UNREACHABLE();
+            break;
+        }
+        return out; 
+    }
 
     void solver::collect_statistics(statistics& st) const {
         st.update("bv conflicts", m_stats.m_num_conflicts);
@@ -451,7 +493,6 @@ namespace bv {
     }
 
     void solver::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
-
         m_stats.m_num_bit2core++;
         SASSERT(ctx.s().value(antecedent) == l_true);
         SASSERT(m_bits[v2][idx].var() == consequent.var());
@@ -472,8 +513,7 @@ namespace bv {
                 find_wpos(v2);
             bool_var cv = consequent.var();
             atom* a = get_bv2a(cv);
-            SASSERT(a->is_bit());
-            for (auto curr : *static_cast<bit_atom*>(a)) {
+            for (auto curr : a->to_bit()) {
                 TRACE("assign_bit_bug", tout << "curr_v" << curr.first << ", curr_idx: " << curr.second << ", v2: v" << v2 << ", idx: " << idx << "\n";
                 tout << "find(curr->m_var): v" << find(curr.first) << ", find(v2): v" << find(v2) << "\n";
                 tout << "is bit of #" << get_enode(curr.first)->get_owner_id() << "\n";

@@ -22,6 +22,16 @@ Author:
 
 namespace bv {
 
+    solver::bit_atom& solver::atom::to_bit() {
+        SASSERT(is_bit());
+        return dynamic_cast<bit_atom&>(*this);
+    }
+
+    solver::def_atom& solver::atom::to_def() {
+        SASSERT(!is_bit());
+        return dynamic_cast<def_atom&>(*this);
+    }
+
     class add_var_pos_trail : public trail<euf::solver> {
         solver::bit_atom* m_atom;
     public:
@@ -214,14 +224,18 @@ namespace bv {
     void solver::add_bit(theory_var v, literal l) {
         unsigned idx = m_bits[v].size();
         m_bits[v].push_back(l);
-        if (s().value(l) != l_undef && s().lvl(l) == 0) {
+        set_bit_eh(v, l, idx);
+    }
+
+    void solver::set_bit_eh(theory_var v, literal l, unsigned idx) {
+        if (s().value(l) != l_undef && s().lvl(l) == 0) 
             register_true_false_bit(v, idx);
-        }
         else {
             atom* a = get_bv2a(l.var());
-            SASSERT(!a || a->is_bit());
-            if (a) {
-                bit_atom* b = static_cast<bit_atom*>(a);
+            if (a && !a->is_bit()) 
+                ;
+            else if (a) {
+                bit_atom* b = &a->to_bit();
                 find_new_diseq_axioms(*b, v, idx);
                 ctx.push(add_var_pos_trail(b));
                 b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);

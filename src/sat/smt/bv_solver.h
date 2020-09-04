@@ -96,10 +96,14 @@ namespace bv {
 
         typedef svector<zero_one_bit> zero_one_bits;
 
+        struct bit_atom;
+        struct def_atom;
         class atom {
         public:
             virtual ~atom() {}
             virtual bool is_bit() const = 0;
+            bit_atom& to_bit();
+            def_atom& to_def();
         };
 
         struct var_pos_occ {
@@ -136,6 +140,7 @@ namespace bv {
             bool is_bit() const override { return false; }
         };
 
+        class bit_trail;
         friend class add_var_pos_trail;
         friend class mk_atom_trail;
         typedef ptr_vector<atom> bool_var2atom;
@@ -182,6 +187,7 @@ namespace bv {
         sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
+        void set_bit_eh(theory_var v, literal l, unsigned idx);
         void init_bits(expr* e, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
         void add_def(sat::literal def, sat::literal l);
@@ -238,6 +244,7 @@ namespace bv {
         void pop(unsigned n) override;
         void pre_simplify() override;        
         void simplify() override;
+        bool set_root(literal l, literal r) override;
         void clauses_modifed() override;
         lbool get_phase(bool_var v) override;
         std::ostream& display(std::ostream& out) const override;
