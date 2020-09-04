@@ -99,7 +99,7 @@ namespace bv {
 #define internalize_bin(F) bin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits) { m_bb.F(sz, xs, ys, bits); }; internalize_binary(a, bin);
 #define internalize_un(F) un = [&](unsigned sz, expr* const* xs, expr_ref_vector& bits) { m_bb.F(sz, xs, bits);}; internalize_unary(a, un);
 #define internalize_ac(F) bin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits) { m_bb.F(sz, xs, ys, bits); }; internalize_ac_binary(a, bin);
-#define internalize_pun(F) pun = [&](unsigned sz, expr* const* xs, unsigned p, expr_ref_vector& bits) { m_bb.F(sz, xs, p, bits);}; internalize_punary(a, pun);
+#define internalize_pun(F) pun = [&](unsigned sz, expr* const* xs, unsigned p, expr_ref_vector& bits) { m_bb.F(sz, xs, p, bits);}; internalize_par_unary(a, pun);
 #define internalize_nfl(F) ebin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref& out) { m_bb.F(sz, xs, ys, out);}; internalize_novfl(a, ebin);
 
         switch (a->get_decl_kind()) {
@@ -386,10 +386,7 @@ namespace bv {
         else
             m_bb.mk_ule(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), le);
         literal def = ctx.internalize(le, false, false, m_is_redundant);
-        literal l = get_literal(n);
-        le_atom* a = new (get_region()) le_atom(l, def);
-        insert_bv2a(l.var(), a);
-        ctx.push(mk_atom_trail(l.var(), *this));
+        add_def(def, get_literal(n));
     }
 
     void solver::internalize_carry(app* n) {
@@ -431,7 +428,7 @@ namespace bv {
         init_bits(e, bits);
     }
 
-    void solver::internalize_punary(app* n, std::function<void(unsigned, expr* const*, unsigned p, expr_ref_vector&)>& fn) {
+    void solver::internalize_par_unary(app* n, std::function<void(unsigned, expr* const*, unsigned p, expr_ref_vector&)>& fn) {
         SASSERT(n->get_num_args() == 1);
         euf::enode* e = get_enode(n);
         expr_ref_vector arg1_bits(m), bits(m);
@@ -480,15 +477,15 @@ namespace bv {
         expr_ref out(m);
         fn(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), out);
         sat::literal def = ctx.internalize(out, false, false, m_is_redundant);
-        sat::literal l = ctx.get_literal(n);
-        SASSERT(get_enode(n)->is_attached_to(get_id()));
-        le_atom* a = new (get_region()) le_atom(l, def); /* abuse le_atom */
+        add_def(def, ctx.get_literal(n));
+    }
+
+    void solver::add_def(sat::literal def, sat::literal l) {        
+        def_atom* a = new (get_region()) def_atom(l, def);
         insert_bv2a(l.var(), a);
         ctx.push(mk_atom_trail(l.var(), *this));
-        sat::literal lits1[2] = { l, ~def };
-        sat::literal lits2[2] = { ~l, def };
-        add_binary(l, ~def);
-        add_binary(def, ~l);
+        add_clause(l, ~def);
+        add_clause(def, ~l);
     }
 
     void solver::internalize_concat(app* n) {
@@ -543,8 +540,8 @@ namespace bv {
         insert_bv2a(b, a);
         ctx.push(mk_atom_trail(b, *this));        
         SASSERT(idx < m_bits[v_arg].size());
-        add_binary(m_bits[v_arg][idx], literal(b, true));
-        add_binary(~m_bits[v_arg][idx], literal(b, false));
+        add_clause(m_bits[v_arg][idx], literal(b, true));
+        add_clause(~m_bits[v_arg][idx], literal(b, false));
 
         // axiomatize bit2bool on constants.
         rational val;

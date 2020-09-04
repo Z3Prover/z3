@@ -23,6 +23,16 @@ Author:
 
 namespace bv {
 
+    solver::solver(euf::solver& ctx, theory_id id) :
+        euf::th_euf_solver(ctx, id),
+        bv(m),
+        m_autil(m),
+        m_bb(m, get_config()),
+        m_trail(*this),
+        m_find(*this) {
+        memset(m_eq_activity, 0, sizeof(m_eq_activity));
+    }
+
     void solver::fixed_var_eh(theory_var v) {
         numeral val;
         VERIFY(get_fixed_value(v, val));
@@ -30,12 +40,12 @@ namespace bv {
         unsigned sz = m_bits[v].size();
         value_sort_pair key(val, sz);
         theory_var v2;
-        if (!m_fixed_var_table.find(key, v2)) 
+        if (!m_fixed_var_table.find(key, v2))
             return;
         numeral val2;
-        if (v2 < static_cast<int>(get_num_vars()) && 
+        if (v2 < static_cast<int>(get_num_vars()) &&
             is_bv(v2) &&
-            get_bv_size(v2) == sz && 
+            get_bv_size(v2) == sz &&
             get_fixed_value(v2, val2) && val == val2) {
             if (n->get_root() != get_enode(v2)->get_root()) {
                 SASSERT(get_bv_size(v) == get_bv_size(v2));
@@ -92,7 +102,7 @@ namespace bv {
             add_clause(~l1, l2, ~eq);
             add_clause(l1, l2, eq);
             add_clause(~l1, ~l2, eq);
-            add_binary(eq, ~oeq);
+            add_clause(eq, ~oeq);
             eqs.push_back(~eq);
         }
         eqs.push_back(oeq);
@@ -265,6 +275,7 @@ namespace bv {
 
     void solver::push() {
         th_euf_solver::push();
+        m_trail.push_scope();
         m_prop_queue_lim.push_back(m_prop_queue.size());
     }
 
@@ -275,6 +286,7 @@ namespace bv {
         m_zero_one_bits.shrink(old_sz);
         m_prop_queue.shrink(m_prop_queue_lim[old_sz]);
         m_prop_queue_lim.shrink(old_sz);
+        m_trail.pop_scope(n);
         th_euf_solver::pop(n);
     }
 
@@ -330,48 +342,30 @@ namespace bv {
         }
         SASSERT(m_bits[v1].size() == m_bits[v2].size());
         unsigned sz = m_bits[v1].size();
-        bool changed = true;
         TRACE("bv", tout << "bits size: " << sz << "\n";);
-        do {
-            // This outerloop is necessary to avoid missing propagation steps.
-            // For example, let's assume that bits1 and bits2 contains the following
-            // sequence of bits:
-            //        b4 b3 b2 b1
-            //        b5 b4 b3 b2
-            // Let's also assume that b1 is assigned, and b2, b3, b4, and b5 are not.
-            // Only the propagation from b1 to b2 is performed by the first iteration of this
-            // loop. 
-            //
-            // In the worst case, we need to execute this loop bits1.size() times.
-            //
-            // Remark: the assignment to b2 is marked as a bv theory propagation,
-            // then it is not notified to the bv theory.
-            changed = false;
-            for (unsigned idx = 0; idx < sz; idx++) {
-                literal bit1 = m_bits[v1][idx];
-                literal bit2 = m_bits[v2][idx];
-                CTRACE("bv_bug", bit1 == ~bit2, tout << pp(v1) << pp(v2) << "idx: " << idx << "\n";);
-                SASSERT(bit1 != ~bit2);
-                lbool val1 = s().value(bit1);
-                lbool val2 = s().value(bit2);
-                TRACE("bv", tout << "merge v" << v1 << " " << bit1 << ":= " << val1 << " " << bit2 << ":= " << val2 << "\n";);
-                if (val1 == val2)
-                    continue;
-                changed = true;
-                CTRACE("bv", (val1 != l_undef && val2 != l_undef), tout << "inconsistent "; tout << pp(v1) << pp(v2) << "idx: " << idx << "\n";);
-                if (val1 == l_false)
-                    assign_bit(~bit2, v1, v2, idx, ~bit1, true);
-                else if (val1 == l_true)
-                    assign_bit(bit2, v1, v2, idx, bit1, true);
-                else if (val2 == l_false)
-                    assign_bit(~bit1, v1, v2, idx, ~bit2, true);
-                else if (val2 == l_true)
-                    assign_bit(bit1, v1, v2, idx, bit2, true);
-                if (s().inconsistent())
-                    return;
-                SASSERT(val1 == val2 || (val1 != l_undef && val2 == l_undef));
-            }
-        } while (changed);
+        for (unsigned idx = 0; idx < sz; idx++) {
+            literal bit1 = m_bits[v1][idx];
+            literal bit2 = m_bits[v2][idx];
+            CTRACE("bv_bug", bit1 == ~bit2, tout << pp(v1) << pp(v2) << "idx: " << idx << "\n";);
+            SASSERT(bit1 != ~bit2);
+            lbool val1 = s().value(bit1);
+            lbool val2 = s().value(bit2);
+            TRACE("bv", tout << "merge v" << v1 << " " << bit1 << ":= " << val1 << " " << bit2 << ":= " << val2 << "\n";);
+            if (val1 == val2)
+                continue;
+            CTRACE("bv", (val1 != l_undef && val2 != l_undef), tout << "inconsistent "; tout << pp(v1) << pp(v2) << "idx: " << idx << "\n";);
+            if (val1 == l_false)
+                assign_bit(~bit2, v1, v2, idx, ~bit1, true);
+            else if (val1 == l_true)
+                assign_bit(bit2, v1, v2, idx, bit1, true);
+            else if (val2 == l_false)
+                assign_bit(~bit1, v1, v2, idx, ~bit2, true);
+            else if (val2 == l_true)
+                assign_bit(bit1, v1, v2, idx, bit2, true);
+            if (s().inconsistent())
+                return;
+            SASSERT(val1 == val2 || (val1 != l_undef && val2 == l_undef));
+        }
     }
 
     sat::justification solver::mk_bit_eq_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) {

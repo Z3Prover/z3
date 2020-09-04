@@ -109,10 +109,10 @@ namespace euf {
         smt_params const& get_config() const;
         sat::literal get_literal(expr* e) const;
         region& get_region();
-        ptr_vector<trail<euf::solver> >& get_trail_stack();
+        
 
         void add_unit(sat::literal lit);
-        void add_binary(sat::literal a, sat::literal b);
+        void add_clause(sat::literal a, sat::literal b);
         void add_clause(sat::literal a, sat::literal b, sat::literal c);
         void add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
 
@@ -127,6 +127,7 @@ namespace euf {
         expr_ref get_expr(sat::literal lit) const { expr* e = get_expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
         theory_var get_th_var(expr* e) const;
+        ptr_vector<trail<euf::solver> >& get_trail_stack();
         bool is_attached_to_var(enode* n) const;
         bool is_root(theory_var v) const { return get_enode(v)->is_root(); }
         void push() override;

@@ -36,6 +36,7 @@ namespace bv {
         typedef std::pair<numeral, unsigned> value_sort_pair;
         typedef pair_hash<obj_hash<numeral>, unsigned_hash> value_sort_pair_hash;
         typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
+        typedef trail_stack<solver> th_trail_stack;
         typedef union_find<solver>  th_union_find;
         typedef std::pair<theory_var, unsigned> var_pos;
 
@@ -121,13 +122,14 @@ namespace bv {
             var_pos_it end() const { return var_pos_it(nullptr); }
         };
 
-        struct le_atom : public atom {
+        struct def_atom : public atom {
             literal    m_var;
             literal    m_def;
-            le_atom(literal v, literal d):m_var(v), m_def(d) {}
-            ~le_atom() override {}
+            def_atom(literal v, literal d):m_var(v), m_def(d) {}
+            ~def_atom() override {}
             bool is_bit() const override { return false; }
         };
+
         friend class add_var_pos_trail;
         friend class mk_atom_trail;
         typedef ptr_vector<atom> bool_var2atom;
@@ -136,10 +138,10 @@ namespace bv {
         arith_util               m_autil;
         stats                    m_stats;
         bit_blaster              m_bb;
+        th_trail_stack           m_trail;
         th_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
-        ptr_vector<expr>         m_bits_expr;
-        svector<unsigned>        m_wpos;     // per var, watch position for fixed variable detection. 
+        unsigned_vector          m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
         bool_var2atom            m_bool_var2atom;
         value2var                m_fixed_var_table;
@@ -154,8 +156,7 @@ namespace bv {
         sat::solver* m_solver;
         sat::solver& s() { return *m_solver;  }
 
-        // internalize:
-
+        // internalize
         void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
         void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = 0; }
         atom * get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, 0); }
@@ -179,10 +180,11 @@ namespace bv {
         void add_bit(theory_var v, sat::literal lit);
         void init_bits(euf::enode * n, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
+        void add_def(sat::literal def, sat::literal l);
         void internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn);
         void internalize_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
         void internalize_ac_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
-        void internalize_punary(app* n, std::function<void(unsigned, expr* const*, unsigned p, expr_ref_vector&)>& fn);
+        void internalize_par_unary(app* n, std::function<void(unsigned, expr* const*, unsigned p, expr_ref_vector&)>& fn);
         void internalize_novfl(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref&)>& fn);
         void internalize_num(app * n, theory_var v);       
         void internalize_concat(app * n);        
@@ -216,7 +218,7 @@ namespace bv {
         bool check_zero_one_bits(theory_var v);
        
     public:
-        solver(euf::solver& ctx);
+        solver(euf::solver& ctx, theory_id id);
         ~solver() override {}
         void set_solver(sat::solver* s) override { m_solver = s; }
         void set_lookahead(sat::lookahead* s) override { }
@@ -265,6 +267,7 @@ namespace bv {
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
         void unmerge_eh(theory_var v1, theory_var v2);
+        th_trail_stack& get_trail_stack() { return m_trail;  }
 
         // disagnostics
         std::ostream& display(std::ostream& out, theory_var v) const;
