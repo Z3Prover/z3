@@ -435,17 +435,17 @@ bool state_graph::write_dgml() {
                     dgml << "," << r;
                 r = m_state_ufind.next(r);
             } while (r != s);
-            dgml << "\" Value=\""; 
             r = s;
-            pp_state_label(dgml, r);
+            dgml << "\" Value_of_" << r << "=\"";
+            pp_state_label(dgml, r) << "\"";
             do {
                 if (r != s) {
-                    dgml << "\n";
-                    pp_state_label(dgml, r);
+                    dgml << " Value_of_" << r << "=\"";
+                    pp_state_label(dgml, r) << "\"";
                 }
                 r = m_state_ufind.next(r);
             } while (r != s);
-            dgml << "\" Category=\"State\">" << std::endl;
+            dgml << " Category=\"State\">" << std::endl;
             if (m_dead.contains(s))
                 dgml << "<Category Ref=\"Dead\"/>" << std::endl;
             if (m_live.contains(s))

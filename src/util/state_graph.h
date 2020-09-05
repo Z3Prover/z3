@@ -161,9 +161,10 @@ private:
     state merge_all_cycles(state s);
 
     /* call back to m_printer using m_pp_state to pretty print state_id to the given stream */
-   void pp_state_label(std::ostream& out, unsigned state_id) { 
+    std::ostream& pp_state_label(std::ostream& out, unsigned state_id) const {
         if (m_printer && m_pp_state) 
             (*m_pp_state)(m_printer, out, state_id, true); 
+        return out;
     }
 
 public:
