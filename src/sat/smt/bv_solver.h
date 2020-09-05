@@ -17,6 +17,7 @@ Author:
 #pragma once
 
 #include "sat/smt/sat_th.h"
+#include "sat/smt/bv_ackerman.h"
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
 
 namespace euf {
@@ -38,6 +39,8 @@ namespace bv {
         typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
         typedef union_find<solver, euf::solver>  bv_union_find;
         typedef std::pair<theory_var, unsigned> var_pos;
+
+        friend class ackerman;
 
         struct stats {
             unsigned   m_num_diseq_static, m_num_diseq_dynamic, m_num_bit2core, m_num_th2core_eq, m_num_conflicts;
@@ -147,6 +150,7 @@ namespace bv {
         bv_util                  bv;
         arith_util               m_autil;
         stats                    m_stats;
+        ackerman                 m_ackerman;
         bit_blaster              m_bb;
         bv_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
@@ -155,7 +159,6 @@ namespace bv {
         bool_var2atom            m_bool_var2atom;
         value2var                m_fixed_var_table;
         mutable vector<rational> m_power2;
-        unsigned char            m_eq_activity[256];
         literal_vector           m_tmp_literals;
         svector<var_pos>         m_prop_queue;
         unsigned_vector          m_prop_queue_lim;
@@ -208,6 +211,7 @@ namespace bv {
         void internalize_le(app* n);
         void assert_bv2int_axiom(app * n);
         void assert_int2bv_axiom(app* n);
+        void assert_ackerman(theory_var v1, theory_var v2);
 
         // solving
         theory_var find(theory_var v) const { return m_find.find(v); }

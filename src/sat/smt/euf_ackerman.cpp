@@ -97,9 +97,8 @@ namespace euf {
             m.inc_ref(inf->a);
             m.inc_ref(inf->b);
             m.inc_ref(inf->c);
-        }
-        else 
             new_tmp();        
+        }
         other->m_count++;
         push_to_front(other);
     }

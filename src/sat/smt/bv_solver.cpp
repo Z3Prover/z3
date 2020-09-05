@@ -3,11 +3,11 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    bv_internalize.cpp
+    bv_solver.cpp
 
 Abstract:
 
-    Internalize utilities for bit-vector solver plugin.
+    Solving utilities for bit-vectors.
 
 Author:
 
@@ -39,9 +39,9 @@ namespace bv {
         euf::th_euf_solver(ctx, id),
         bv(m),
         m_autil(m),
+        m_ackerman(*this),
         m_bb(m, get_config()),
         m_find(*this) {
-        memset(m_eq_activity, 0, sizeof(m_eq_activity));
     }
 
     void solver::fixed_var_eh(theory_var v) {
@@ -82,40 +82,7 @@ namespace bv {
     void solver::add_fixed_eq(theory_var v1, theory_var v2) {
         if (!get_config().m_bv_eq_axioms)
             return;
-
-        if (v1 > v2) {
-            std::swap(v1, v2);
-        }
-
-        unsigned act = m_eq_activity[hash_u_u(v1, v2) & 0xFF]++;
-        if ((act & 0xFF) != 0xFF) {
-            return;
-        }
-        ++m_stats.m_num_eq_dynamic;
-        expr* o1 = var2expr(v1);
-        expr* o2 = var2expr(v2);
-        expr_ref oe(m.mk_eq(o1, o2), m);
-        literal oeq = ctx.internalize(oe, false, false, m_is_redundant);
-        unsigned sz = get_bv_size(v1);
-        TRACE("bv", tout << oe << "\n";);
-        literal_vector eqs;
-        for (unsigned i = 0; i < sz; ++i) {
-            literal l1 = m_bits[v1][i];
-            literal l2 = m_bits[v2][i];
-            expr_ref e1(m), e2(m);
-            e1 = bv.mk_bit2bool(o1, i);
-            e2 = bv.mk_bit2bool(o2, i);
-            expr_ref e(m.mk_eq(e1, e2), m);
-            literal eq = ctx.internalize(e, false, false, m_is_redundant);
-            add_clause(l1, ~l2, ~eq);
-            add_clause(~l1, l2, ~eq);
-            add_clause(l1, l2, eq);
-            add_clause(~l1, ~l2, eq);
-            add_clause(eq, ~oeq);
-            eqs.push_back(~eq);
-        }
-        eqs.push_back(oeq);
-        s().add_clause(eqs.size(), eqs.c_ptr(), sat::status::th(m_is_redundant, get_id()));
+        m_ackerman.used_eq_eh(v1, v2);
     }
 
     bool solver::get_fixed_value(theory_var v, numeral& result) const {
@@ -365,7 +332,10 @@ namespace bv {
     }
 
     void solver::pre_simplify() {}
-    void solver::simplify() {}
+
+    void solver::simplify() {
+        m_ackerman.propagate();
+    }
 
     bool solver::set_root(literal l, literal r) {
         atom* a = get_bv2a(l.var());

@@ -553,4 +553,32 @@ namespace bv {
             add_unit(lit);
         }
     }
+
+    void solver::assert_ackerman(theory_var v1, theory_var v2) {
+        flet<bool> _red(m_is_redundant, true);
+        expr* o1 = var2expr(v1);
+        expr* o2 = var2expr(v2);
+        expr_ref oe(m.mk_eq(o1, o2), m);
+        literal oeq = ctx.internalize(oe, false, false, m_is_redundant);
+        unsigned sz = get_bv_size(v1);
+        TRACE("bv", tout << oe << "\n";);
+        literal_vector eqs;
+        for (unsigned i = 0; i < sz; ++i) {
+            literal l1 = m_bits[v1][i];
+            literal l2 = m_bits[v2][i];
+            expr_ref e1(m), e2(m);
+            e1 = bv.mk_bit2bool(o1, i);
+            e2 = bv.mk_bit2bool(o2, i);
+            expr_ref e(m.mk_eq(e1, e2), m);
+            literal eq = ctx.internalize(e, false, false, m_is_redundant);
+            add_clause(l1, ~l2, ~eq);
+            add_clause(~l1, l2, ~eq);
+            add_clause(l1, l2, eq);
+            add_clause(~l1, ~l2, eq);
+            add_clause(eq, ~oeq);
+            eqs.push_back(~eq);
+        }
+        eqs.push_back(oeq);
+        s().add_clause(eqs.size(), eqs.c_ptr(), sat::status::th(m_is_redundant, get_id()));
+    }
 }
