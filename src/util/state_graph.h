@@ -166,8 +166,6 @@ private:
             (*m_pp_state)(m_printer, out, state_id, true); 
     }
 
-    std::string state_graph::encode_html(const std::string& html) const;
-
 public:
     state_graph(void* printer, void (*pp_state)(void*, std::ostream&, unsigned, bool)):
         m_live(), m_dead(), m_unknown(), m_unexplored(), m_seen(),
