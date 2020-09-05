@@ -437,11 +437,11 @@ bool state_graph::write_dgml() {
             } while (r != s);
             r = s;
             dgml << "\" Value_of_" << r << "=\"";
-            pp_state_label(dgml, r) << "\"";
+            m_state_pp.pp_state_label(dgml, r) << "\"";
             do {
                 if (r != s) {
                     dgml << " Value_of_" << r << "=\"";
-                    pp_state_label(dgml, r) << "\"";
+                    m_state_pp.pp_state_label(dgml, r) << "\"";
                 }
                 r = m_state_ufind.next(r);
             } while (r != s);

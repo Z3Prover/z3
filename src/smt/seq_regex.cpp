@@ -26,7 +26,7 @@ namespace smt {
         ctx(th.get_context()),
         m(th.get_manager()),
         m_state_to_expr(m),
-        m_state_graph(this, pp_state) { }
+        m_state_graph(state_graph::state_pp(this, pp_state)) { }
 
     seq_util& seq_regex::u() { return th.m_util; }
     class seq_util::rex& seq_regex::re() { return th.m_util.re; }

@@ -47,6 +47,26 @@ Author:
 */
 class state_graph {
 public:
+    /* Wrapper for custom callback function for pretty printing states */
+    struct state_pp {
+        /* Pointer to pretty printer that must be passed as the first argument to m_pp_state */
+        void* m_printer;
+        /* Pointer to function that pretty prints a state label into the stream, html-encoded if the third argument is true  */
+        void (*m_pp_state)(void*, std::ostream&, unsigned, bool);
+        state_pp(
+            /* Pointer to pretty printer that must be passed as the first argument to m_pp_state  */
+            void* p, 
+            /* Pointer to function that pretty prints a state label into the stream, html-encoded if the third argument is true */
+            void (*f)(void*, std::ostream&, unsigned, bool)) : m_printer(p), m_pp_state(f) {}
+
+        /* call back to m_printer using m_pp_state to pretty print state_id to the given stream (in html-encoded form by default) */
+        std::ostream& pp_state_label(std::ostream& out, unsigned state_id, bool html_encode = true) const {
+            if (m_printer && m_pp_state)
+                (*m_pp_state)(m_printer, out, state_id, html_encode);
+            return out;
+        }
+    };
+
     typedef unsigned           state;
     typedef uint_set           state_set;
     typedef u_map<state_set>   edge_rel;
@@ -84,13 +104,9 @@ private:
     edge_rel   m_sources_maybecycle;
 
     /* 
-        Pointer to pretty printer that must be passed as the first argument to m_pp_state 
+        Pretty printer for states 
     */
-    void* m_printer;
-    /* 
-        Pointer to function that pretty prints a state label into the stream
-    */
-    void (*m_pp_state)(void*, std::ostream&, unsigned, bool);
+    state_pp m_state_pp;
 
     /*
         CLASS INVARIANTS
@@ -160,17 +176,10 @@ private:
     void mark_dead_recursive(state s);
     state merge_all_cycles(state s);
 
-    /* call back to m_printer using m_pp_state to pretty print state_id to the given stream */
-    std::ostream& pp_state_label(std::ostream& out, unsigned state_id) const {
-        if (m_printer && m_pp_state) 
-            (*m_pp_state)(m_printer, out, state_id, true); 
-        return out;
-    }
-
 public:
-    state_graph(void* printer, void (*pp_state)(void*, std::ostream&, unsigned, bool)):
+    state_graph(state_pp p):
         m_live(), m_dead(), m_unknown(), m_unexplored(), m_seen(),
-        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle(), m_printer(printer), m_pp_state(pp_state)
+        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle(), m_state_pp(p)
     {
         CASSERT("state_graph", check_invariant());
     }
