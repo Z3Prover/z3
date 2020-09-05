@@ -85,13 +85,12 @@ namespace euf {
 
     void solver::attach_node(euf::enode* n) {
         expr* e = n->get_owner();
-        log_node(e);
-        if (m.is_bool(e)) {
-            sat::bool_var v = si.add_bool_var(e);
-            log_bool_var(v, e);
-            attach_lit(literal(v, false),  e);
-        }
-        else if (m.get_sort(e)->get_family_id() != null_family_id) {
+        if (!m.is_bool(e))
+            log_node(e);
+        else 
+            attach_lit(literal(si.add_bool_var(e), false),  e);        
+
+        if (!m.is_bool(e) && m.get_sort(e)->get_family_id() != null_family_id) {
             auto* e_ext = get_solver(e);
             auto* s_ext = get_solver(m.get_sort(e));
             if (s_ext && s_ext != e_ext)
@@ -101,12 +100,9 @@ namespace euf {
     }
 
     sat::literal solver::attach_lit(literal lit, expr* n) {
-        if (!m_egraph.find(n))
-            log_node(n);
         if (lit.sign()) {
             sat::bool_var v = si.add_bool_var(n);
             sat::literal lit2 = literal(v, false);
-            log_bool_var(v, n);
             s().mk_clause(~lit, lit2, sat::status::th(false, m.get_basic_family_id()));
             s().mk_clause(lit, ~lit2, sat::status::th(false, m.get_basic_family_id()));
             lit = lit2;

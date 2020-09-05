@@ -148,7 +148,6 @@ namespace euf {
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
         void log_node(expr* n);
-        void log_bool_var(sat::bool_var v, expr* n);
         bool m_drat_initialized{ false };
         void init_drat();
         

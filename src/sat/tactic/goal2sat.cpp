@@ -29,6 +29,7 @@ Notes:
 #include "util/ref_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_util.h"
@@ -38,6 +39,7 @@ Notes:
 #include "tactic/tactic.h"
 #include "tactic/generic_model_converter.h"
 #include "sat/sat_cut_simplifier.h"
+#include "sat/sat_drat.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/smt/ba_solver.h"
 #include "sat/smt/euf_solver.h"
@@ -72,6 +74,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     bool                        m_default_external;
     bool                        m_xor_solver;
     bool                        m_euf;
+    bool                        m_drat;
     bool                        m_is_redundant { false };
     sat::literal_vector         aig_lits;
     
@@ -98,6 +101,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
         m_euf = sp.euf();
+        m_drat = sp.drat_file() != symbol();
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -125,10 +129,37 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_solver.add_clause(num, lits, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
     }
 
+    sat::bool_var add_var(bool is_ext, expr* n) {
+        auto v = m_solver.add_var(is_ext);
+        log_node(v, n);
+        return v;
+    }
+
+    void log_node(sat::bool_var v, expr* n) {
+        if (m_drat && m_solver.get_drat_ptr()) {
+            sat::drat* drat = m_solver.get_drat_ptr();
+            if (is_app(n)) {
+                app* a = to_app(n);
+                std::stringstream strm;
+                strm << mk_ismt2_func(a->get_decl(), m);
+                drat->def_begin(n->get_id(), strm.str());
+                for (expr* arg : *a)
+                    drat->def_add_arg(arg->get_id());
+                drat->def_end();
+            }
+            else {
+                IF_VERBOSE(0, verbose_stream() << "skipping DRAT of non-app\n");
+            }
+            drat->bool_def(v, n->get_id());
+        }
+    }
+
+
+
     sat::literal mk_true() {
         if (m_true == sat::null_literal) {
             // create fake variable to represent true;
-            m_true = sat::literal(m_solver.add_var(false), false);
+            m_true = sat::literal(add_var(false, m.mk_true()), false);
             mk_clause(m_true); // v is true
         }
         return m_true;
@@ -137,7 +168,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     sat::bool_var add_bool_var(expr* t) override {
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) {
-            v = m_solver.add_var(true);
+            v = add_var(true, t);
             m_map.insert(t, v);
         }
         else {
@@ -166,12 +197,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 strm << mk_ismt2_pp(t, m);
                 throw_op_not_handled(strm.str());
             }
-            else {
-                bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
-                v = m_solver.add_var(ext);
-                m_map.insert(t, v);
-                l = sat::literal(v, sign);
-                TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
+            else {                
                 if (!is_uninterp_const(t)) {
                     if (m_euf) {
                         convert_euf(t, root, sign);                        
@@ -180,6 +206,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
                     else
                         m_unhandled_funs.push_back(to_app(t)->get_decl());
                 }
+                bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
+                v = add_var(ext, t);
+                m_map.insert(t, v);
+                l = sat::literal(v, sign);
+                TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
             }
         }
         else {
@@ -285,7 +316,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         else {
             SASSERT(num <= m_result_stack.size());
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;           
@@ -332,7 +363,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         else {
             SASSERT(num <= m_result_stack.size());
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;
@@ -383,7 +414,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = add_var(false, n);
             sat::literal  l(k, false);
             m_cache.insert(n, l);
             mk_clause(~l, ~c, t);
@@ -420,7 +451,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             // l <=> (l1 => l2)
@@ -453,7 +484,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             mk_clause(~l, l1, ~l2);

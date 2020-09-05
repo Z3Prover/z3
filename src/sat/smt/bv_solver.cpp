@@ -357,7 +357,7 @@ namespace bv {
         m_prop_queue_lim.shrink(old_sz);
         n = lazy_pop(n);
         if (n > 0) {
-            old_sz = m_var2enode_lim[m_var2enode_lim.size() - n];
+            old_sz = get_num_vars();
             m_bits.shrink(old_sz);
             m_wpos.shrink(old_sz);
             m_zero_one_bits.shrink(old_sz);
@@ -423,7 +423,43 @@ namespace bv {
         st.update("bv dynamic eqs", m_stats.m_num_eq_dynamic);
     }
 
-    sat::extension* solver::copy(sat::solver* s) { NOT_IMPLEMENTED_YET(); return nullptr; }
+    sat::extension* solver::copy(sat::solver* s) { UNREACHABLE(); return nullptr; }
+
+    euf::th_solver* solver::fresh(sat::solver* s, euf::solver& ctx) {        
+        bv::solver* result = alloc(bv::solver, ctx, get_id());
+        ast_translation tr(m, ctx.get_manager());
+        for (unsigned i = 0; i < get_num_vars(); ++i) {
+            expr* e1 = var2expr(i);
+            expr* e2 = tr(e1);
+            euf::enode* n2 = ctx.get_enode(e2);
+            SASSERT(n2);
+            result->mk_var(n2);
+            result->m_bits[i].append(m_bits[i]);
+            result->m_zero_one_bits[i].append(m_zero_one_bits[i]);                            
+        }
+        for (unsigned i = 0; i < get_num_vars(); ++i) 
+            if (find(i) != i)
+                result->m_find.merge(i, find(i));
+        result->m_prop_queue.append(m_prop_queue);
+        for (unsigned i = 0; i < m_bool_var2atom.size(); ++i) {
+            atom* a = m_bool_var2atom[i];
+            if (!a)
+                continue;
+            
+            if (a->is_bit()) {
+                bit_atom* new_a = new (result->get_region()) bit_atom();
+                m_bool_var2atom.setx(i, new_a, nullptr);
+                for (auto vp : a->to_bit())
+                    new_a->m_occs = new (result->get_region()) var_pos_occ(vp.first, vp.second, new_a->m_occs);
+            }
+            else {
+                def_atom* new_a = new (result->get_region()) def_atom(a->to_def().m_var, a->to_def().m_def);
+                m_bool_var2atom.setx(i, new_a, nullptr);
+            }
+        }
+        return result;
+    }
+
     void solver::pop_reinit() {}
     bool solver::validate() { return true; }
     void solver::init_use_list(sat::ext_use_list& ul) {}

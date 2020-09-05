@@ -69,11 +69,11 @@ namespace sat {
 
         // encodes one of var, and, !and, xor, !xor, ite, !ite.
         class node {
-            bool     m_sign;
-            bool_op  m_op;
-            uint64_t m_lut;
-            unsigned m_size;
-            unsigned m_offset;
+            bool     m_sign{ false };
+            bool_op  m_op{ no_op };
+            uint64_t m_lut{ 0 };
+            unsigned m_size{ 0 };
+            unsigned m_offset{ 0 };
         public:
             node(): 
                 m_sign(false), m_op(no_op), m_size(UINT_MAX), m_offset(UINT_MAX) {}

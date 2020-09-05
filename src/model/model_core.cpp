@@ -56,7 +56,6 @@ void model_core::register_decl(func_decl * d, expr * v) {
     TRACE("model", tout << "register " << d->get_name() << "\n";
           if (v) tout << mk_pp(v, m) << "\n";
           );
-    SASSERT(!d->get_family_id() == m.get_basic_family_id());
     auto& value = m_interp.insert_if_not_there(d, nullptr);
     if (value == nullptr) {
         // new entry

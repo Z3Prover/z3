@@ -41,11 +41,6 @@ namespace euf {
         }
     }
 
-    void solver::log_bool_var(sat::bool_var v, expr* n) {
-        if (use_drat())
-            get_drat().bool_def(v, n->get_id());
-    }
-
     /**
      * \brief logs antecedents to a proof trail.
      *

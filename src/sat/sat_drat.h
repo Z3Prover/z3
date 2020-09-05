@@ -26,8 +26,8 @@ Notes:
     Bridge from ast-node to boolean variable:
       b <bool-var-id> <ast-node-id> 0
 
-    Definition of an ast node:
-      n <ast-node-id> <name> <ast-node-id>* 0
+    Definition of an expression (ast-node):
+      e <ast-node-id> <name> <ast-node-id>* 0
 
     Theory lemma
       <theory-id> <literal>* 0
@@ -45,6 +45,8 @@ Notes:
 #include "sat_types.h"
 
 namespace sat {
+    class justification;
+    class clause;
     class drat {
     private:
         struct watched_clause {

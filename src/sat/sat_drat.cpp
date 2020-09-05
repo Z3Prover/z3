@@ -253,7 +253,7 @@ namespace sat {
 
     void drat::def_begin(unsigned n, std::string const& name) {
         if (m_out)
-            (*m_out) << "n " << n << " " << name;
+            (*m_out) << "e " << n << " " << name;
     }
 
     void drat::def_add_arg(unsigned arg) {

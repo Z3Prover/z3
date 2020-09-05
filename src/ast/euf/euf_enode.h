@@ -36,7 +36,7 @@ namespace euf {
     const theory_id null_theory_id = -1;
 
     class enode {
-        expr*         m_owner;
+        expr*         m_owner{ nullptr };
         bool          m_mark1 { false };
         bool          m_mark2 { false };
         bool          m_commutative { false };
@@ -45,12 +45,12 @@ namespace euf {
         unsigned      m_class_size { 1 };
         unsigned      m_table_id { UINT_MAX };
         enode_vector  m_parents;
-        enode*        m_next;
-        enode*        m_root;
+        enode*        m_next{ nullptr };
+        enode*        m_root{ nullptr };
         enode*        m_target { nullptr };
         th_var_list   m_th_vars;
         justification m_justification;
-        unsigned      m_num_args;
+        unsigned      m_num_args { 0 };
         enode*        m_args[0];        
 
         friend class enode_args;

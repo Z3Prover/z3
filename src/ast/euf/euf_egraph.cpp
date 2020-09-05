@@ -443,17 +443,12 @@ namespace euf {
         if (!n->is_root()) 
             out << "[" << n->get_root()->get_owner_id() << "] ";
         expr* f = n->get_owner();
-        out << mk_bounded_pp(f, m, 1);
-#if 0
         if (is_app(f))
-            out << mk_ismt2_func(to_app(f)->get_decl(), m) << " ";
+            out << mk_bounded_pp(f, m, 1);
         else if (is_quantifier(f))
-            out << "q ";
+            out << "q:" << f->get_id();
         else
-            out << "v ";
-        for (enode* arg : enode_args(n))
-            out << arg->get_owner_id() << " ";
-#endif
+            out << "v:" << f->get_id();
         out << "\n";
         if (!n->m_parents.empty()) {
             out << "    ";

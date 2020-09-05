@@ -109,12 +109,15 @@ namespace euf {
     }
 
     unsigned th_euf_solver::lazy_pop(unsigned n) {
-        unsigned k = std::min(m_num_scopes, n);
-        m_num_scopes -= k;
-        n -= k;
-        if (n > 0)
+        if (n <= m_num_scopes) {
+            m_num_scopes -= n;
+            return 0;
+        }
+        else {
+            n -= m_num_scopes;
             pop(n);
-        return n;
+            return n;
+        }
     }
 
     void th_euf_solver::add_unit(sat::literal lit) {

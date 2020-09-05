@@ -53,10 +53,10 @@ namespace bv {
             theory_var m_v2;
             sat::literal m_consequent;
             sat::literal m_antecedent;
-            bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a):
-                m_kind(bv2bit), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+            bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
+                m_kind(kind_t::bv2bit), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
             bv_justification(theory_var v1, theory_var v2):
-                m_kind(bit2bv), m_v1(v1), m_v2(v2) {}
+                m_kind(kind_t::bit2bv), m_v1(v1), m_v2(v2) {}
             sat::ext_constraint_idx to_index() const { 
                 return sat::constraint_base::mem2base(this); 
             }
@@ -250,7 +250,7 @@ namespace bv {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
-        euf::th_solver* fresh(sat::solver* s, euf::solver& ctx) override { NOT_IMPLEMENTED_YET(); return nullptr; }
+        euf::th_solver* fresh(sat::solver* s, euf::solver& ctx) override;
         extension* copy(sat::solver* s) override;       
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override {}
         void gc() override {}
