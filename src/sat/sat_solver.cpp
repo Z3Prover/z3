@@ -86,7 +86,7 @@ namespace sat {
         m_cuber                   = nullptr;
         m_local_search            = nullptr;
         m_mc.set_solver(this);
-        //mk_var(false, false);
+        mk_var(false, false);
     }
 
     solver::~solver() {
@@ -138,7 +138,7 @@ namespace sat {
         m_qhead = 0;
         m_trail.reset();
         m_scopes.reset();
-        //mk_var(false, false);
+        mk_var(false, false);
 
         if (src.inconsistent()) {
             set_conflict();
@@ -1104,7 +1104,7 @@ namespace sat {
             }
             wlist.set_end(it2);
             if (m_ext) {
-                m_ext->propagate();
+                m_ext->unit_propagate();
                 if (inconsistent())
                     return false;
             }
@@ -1210,9 +1210,9 @@ namespace sat {
         }
         try {
             init_search();
-            if (inconsistent()) return l_false;
+            if (check_inconsistent()) return l_false;
             propagate(false);
-            if (inconsistent()) return l_false;
+            if (check_inconsistent()) return l_false;
             init_assumptions(num_lits, lits);
             propagate(false);
             if (check_inconsistent()) return l_false;
@@ -1649,7 +1649,9 @@ namespace sat {
 
     bool solver::check_inconsistent() {
         if (inconsistent()) {
-            if (tracking_assumptions())
+            if (tracking_assumptions() && at_search_lvl())
+                resolve_conflict();
+            else if (m_config.m_drat && at_base_lvl())
                 resolve_conflict();
             return true;
         }

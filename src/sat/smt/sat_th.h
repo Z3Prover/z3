@@ -105,9 +105,10 @@ namespace euf {
         solver &            ctx;
         euf::enode_vector   m_var2enode;
         unsigned_vector     m_var2enode_lim;
+        unsigned            m_num_scopes{ 0 };
 
         smt_params const& get_config() const;
-        sat::literal get_literal(expr* e) const;
+        sat::literal expr2literal(expr* e) const;
         region& get_region();
         
 
@@ -121,17 +122,22 @@ namespace euf {
         virtual ~th_euf_solver() {}
         virtual theory_var mk_var(enode * n);
         unsigned get_num_vars() const { return m_var2enode.size();}
-        enode* get_enode(expr* e) const; 
-        enode* get_enode(theory_var v) const { return m_var2enode[v]; }
-        expr* get_expr(theory_var v) const { return get_enode(v)->get_owner(); }
-        expr_ref get_expr(sat::literal lit) const { expr* e = get_expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
+        enode* expr2enode(expr* e) const; 
+        enode* var2enode(theory_var v) const { return m_var2enode[v]; }
+        expr* var2expr(theory_var v) const { return var2enode(v)->get_owner(); }
+        expr* bool_var2expr(sat::bool_var v) const;
+        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
         theory_var get_th_var(expr* e) const;
-        ptr_vector<trail<euf::solver> >& get_trail_stack();
+        trail_stack<euf::solver> & get_trail_stack();
         bool is_attached_to_var(enode* n) const;
-        bool is_root(theory_var v) const { return get_enode(v)->is_root(); }
+        bool is_root(theory_var v) const { return var2enode(v)->is_root(); }
         void push() override;
         void pop(unsigned n) override;
+
+        void lazy_push() { ++m_num_scopes; }
+        void force_push() { for (; m_num_scopes > 0; --m_num_scopes) push(); }
+        unsigned lazy_pop(unsigned n);
     };
 
 

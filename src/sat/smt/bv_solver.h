@@ -36,8 +36,7 @@ namespace bv {
         typedef std::pair<numeral, unsigned> value_sort_pair;
         typedef pair_hash<obj_hash<numeral>, unsigned_hash> value_sort_pair_hash;
         typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
-        typedef trail_stack<solver> th_trail_stack;
-        typedef union_find<solver>  th_union_find;
+        typedef union_find<solver, euf::solver>  bv_union_find;
         typedef std::pair<theory_var, unsigned> var_pos;
 
         struct stats {
@@ -149,8 +148,7 @@ namespace bv {
         arith_util               m_autil;
         stats                    m_stats;
         bit_blaster              m_bb;
-        th_trail_stack           m_trail;
-        th_union_find            m_find;
+        bv_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
         unsigned_vector          m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
@@ -183,7 +181,7 @@ namespace bv {
         void get_bits(euf::enode* n, expr_ref_vector& r);
         void get_arg_bits(app* n, unsigned idx, expr_ref_vector& r);
         void fixed_var_eh(theory_var v);
-        bool is_bv(theory_var v) const { return bv.is_bv(get_expr(v)); }
+        bool is_bv(theory_var v) const { return bv.is_bv(var2expr(v)); }
         sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
@@ -264,7 +262,7 @@ namespace bv {
         unsigned max_var(unsigned w) const override;
 
         void new_eq_eh(euf::th_eq const& eq) override;
-        bool propagate() override;
+        bool unit_propagate() override;
 
         void add_value(euf::enode* n, expr_ref_vector& values) override;
         void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override {}
@@ -282,7 +280,7 @@ namespace bv {
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
         void unmerge_eh(theory_var v1, theory_var v2);
-        th_trail_stack& get_trail_stack() { return m_trail;  }
+        trail_stack<euf::solver>& get_trail_stack();
 
         // disagnostics
         std::ostream& display(std::ostream& out, theory_var v) const;        

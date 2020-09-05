@@ -61,9 +61,8 @@ namespace euf {
         };
         struct scope {
             unsigned m_var_lim;
-            unsigned m_trail_lim;
         };
-        typedef ptr_vector<trail<solver> > trail_stack;
+        typedef trail_stack<solver> euf_trail_stack;
 
 
         size_t* base_ptr() { return reinterpret_cast<size_t*>(this); }
@@ -84,12 +83,11 @@ namespace euf {
         atom2bool_var&        m_expr2var;
         sat::sat_internalizer& si;
         smt_params            m_config;
-        bool                  m_drat { false };
         euf::egraph           m_egraph;
+        euf_trail_stack       m_trail;
         stats                 m_stats;
-        region                m_region;
         func_decl_ref_vector  m_unhandled_functions;
-        trail_stack           m_trail;
+        
 
         sat::solver*           m_solver { nullptr };
         sat::lookahead*        m_lookahead { nullptr };
@@ -98,7 +96,7 @@ namespace euf {
         sat::sat_internalizer* m_to_si;
         scoped_ptr<euf::ackerman>   m_ackerman;
 
-        ptr_vector<euf::enode>                          m_var2node;
+        ptr_vector<expr>                                m_var2expr;
         ptr_vector<size_t>                              m_explain;
         unsigned                                        m_num_scopes { 0 };
         unsigned_vector                                 m_var_trail;
@@ -116,11 +114,11 @@ namespace euf {
         bool visited(expr* e) override;
         bool post_visit(expr* e, bool sign, bool root) override;
         
-        void attach_lit(sat::literal lit, euf::enode* n);
+        sat::literal attach_lit(sat::literal lit, expr* e);
         void add_distinct_axiom(app* e, euf::enode* const* args);
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
         void axiomatize_basic(enode* n);
-        bool internalize_root(app* e, bool sign);
+        bool internalize_root(app* e, bool sign, ptr_vector<enode> const& args);
         euf::enode* mk_true();
         euf::enode* mk_false();
         
@@ -150,7 +148,10 @@ namespace euf {
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
         void log_node(expr* n);
-        void log_bool_var(sat::bool_var v, enode* n);
+        void log_bool_var(sat::bool_var v, expr* n);
+        bool m_drat_initialized{ false };
+        void init_drat();
+        
 
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
@@ -163,6 +164,7 @@ namespace euf {
             m_expr2var(expr2var),
             si(si),
             m_egraph(m),
+            m_trail(*this),
             m_unhandled_functions(m),
             m_solver(nullptr),
             m_lookahead(nullptr),
@@ -201,20 +203,20 @@ namespace euf {
         enode* get_enode(expr* e) { return m_egraph.find(e); }
         sat::literal get_literal(expr* e) { return literal(m_expr2var.to_bool_var(e), false); }
         smt_params const& get_config() { return m_config; }
-        region& get_region() { return m_region; }
+        region& get_region() { return m_trail.get_region(); }
         template <typename C>
-        void push(C const& c) { m_trail.push_back(new (m_region) C(c));  }
-        trail_stack& get_trail_stack() { return m_trail; }
+        void push(C const& c) { m_trail.push(c);  }
+        euf_trail_stack& get_trail_stack() { return m_trail; }
 
         void updt_params(params_ref const& p);
-        void set_solver(sat::solver* s) override { m_solver = s; m_drat = s->get_config().m_drat; }
+        void set_solver(sat::solver* s) override { m_solver = s; }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
         void init_search() override;
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
         bool is_extended_binary(ext_justification_idx idx, literal_vector& r) override;
         bool is_external(bool_var v) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
-        bool propagate() override;
+        bool unit_propagate() override;
         void propagate(enode* a, enode* b, ext_justification_idx);
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
@@ -244,6 +246,9 @@ namespace euf {
         bool check_model(sat::model const& m) const override;
         unsigned max_var(unsigned w) const override;
 
+        bool use_drat() { return s().get_config().m_drat && (init_drat(), true);  }
+        sat::drat& get_drat() { return s().get_drat(); }
+
         // decompile
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override;
@@ -256,6 +261,7 @@ namespace euf {
         void attach_th_var(enode* n, th_solver* th, theory_var v) { m_egraph.add_th_var(n, v, th->get_id()); }
         void attach_node(euf::enode* n);
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
+        expr* bool_var2expr(sat::bool_var v) { return m_var2expr.get(v, nullptr); }
 
         void update_model(model_ref& mdl);
 

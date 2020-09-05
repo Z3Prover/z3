@@ -27,21 +27,18 @@ namespace euf {
 
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
-        m_drat = m_solver && m_solver->get_config().m_drat;
-        if (m_drat) 
-            m_solver->get_drat().add_theory(m.get_basic_family_id(), symbol("euf"));
     }
 
     /**
     * retrieve extension that is associated with Boolean variable.
     */
     th_solver* solver::get_solver(sat::bool_var v) {
-        if (v >= m_var2node.size())
+        if (v >= m_var2expr.size())
             return nullptr;
-        euf::enode* n = m_var2node[v];
-        if (!n)
+        expr* e = m_var2expr[v];
+        if (!e)
             return nullptr;
-        return get_solver(n->get_owner());
+        return get_solver(e);
     }
 
     th_solver* solver::get_solver(expr* e) {
@@ -62,13 +59,13 @@ namespace euf {
         bv_util bvu(m);
         if (pb.get_family_id() == fid) {
             ext = alloc(sat::ba_solver, *this, fid);
-            if (m_drat)
-                m_solver->get_drat().add_theory(fid, symbol("ba"));
+            if (use_drat())
+                s().get_drat().add_theory(fid, symbol("ba"));
         }
         else if (bvu.get_family_id() == fid) {
             ext = alloc(bv::solver, *this, fid);
-            if (m_drat)
-                m_solver->get_drat().add_theory(fid, symbol("bv"));            
+            if (use_drat())
+                s().get_drat().add_theory(fid, symbol("bv"));            
         }
         if (ext) {
             ext->set_solver(m_solver);
@@ -89,7 +86,7 @@ namespace euf {
         if (m_unhandled_functions.contains(f))
             return;
         m_unhandled_functions.push_back(f);
-        m_trail.push_back(new (m_region) push_back_vector<solver, func_decl_ref_vector>(m_unhandled_functions));
+        m_trail.push(push_back_vector<solver, func_decl_ref_vector>(m_unhandled_functions));
         IF_VERBOSE(0, verbose_stream() << mk_pp(f, m) << " not handled\n");
     }
 
@@ -98,7 +95,7 @@ namespace euf {
     }
 
     bool solver::is_external(bool_var v) {
-        if (nullptr != m_var2node.get(v, nullptr))
+        if (nullptr != m_var2expr.get(v, nullptr))
             return true;
         for (auto* s : m_solvers)
             if (s->is_external(v))
@@ -147,6 +144,7 @@ namespace euf {
 
 
     void solver::get_antecedents(literal l, constraint& j, literal_vector& r) {
+        expr* e = nullptr;
         euf::enode* n = nullptr;
 
         // init_ackerman();
@@ -157,14 +155,16 @@ namespace euf {
             m_egraph.explain<size_t>(m_explain);
             break;
         case constraint::kind_t::eq:
-            n = m_var2node[l.var()];
+            e = m_var2expr[l.var()];
+            n = m_egraph.find(e);
             SASSERT(n);
             SASSERT(m_egraph.is_equality(n));
             SASSERT(!l.sign());
             m_egraph.explain_eq<size_t>(m_explain, n->get_arg(0), n->get_arg(1));
             break;
         case constraint::kind_t::lit:
-            n = m_var2node[l.var()];
+            e = m_var2expr[l.var()];
+            n = m_egraph.find(e);
             SASSERT(n);
             SASSERT(m.is_bool(n->get_owner()));
             m_egraph.explain_eq<size_t>(m_explain, n, (l.sign() ? mk_false() : mk_true()));
@@ -176,13 +176,13 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-        auto n = m_var2node.get(l.var(), nullptr);
-        if (!n)
+        expr* e = m_var2expr.get(l.var(), nullptr);
+        if (!e)
             return;
 
         bool sign = l.sign();        
-        expr* e = n->get_owner();
         TRACE("euf", tout << (sign ? "not ": " ") << mk_pp(e, m)  << "\n";);
+        euf::enode* n = m_egraph.find(e);
         for (auto th : enode_th_vars(n))           
             m_id2solver[th.get_id()]->asserted(l);
 
@@ -200,7 +200,7 @@ namespace euf {
         }
     }
 
-    bool solver::propagate() {
+    bool solver::unit_propagate() {
         bool propagated = false;
         while (!s().inconsistent()) {
             if (m_egraph.inconsistent()) {  
@@ -216,7 +216,7 @@ namespace euf {
             }
 
             for (auto* s : m_solvers) {
-                if (s->propagate())
+                if (s->unit_propagate())
                     propagated1 = true;
             }
             if (!propagated1)
@@ -302,9 +302,8 @@ namespace euf {
     void solver::push() {
         scope s;
         s.m_var_lim = m_var_trail.size();
-        s.m_trail_lim = m_trail.size();
         m_scopes.push_back(s);
-        m_region.push_scope();
+        m_trail.push_scope();
         for (auto* e : m_solvers)
             e->push();
         m_egraph.push();
@@ -320,16 +319,11 @@ namespace euf {
         m_egraph.pop(n);
         for (auto* e : m_solvers)
             e->pop(n);
-
         scope const & s = m_scopes[m_scopes.size() - n];
-
         for (unsigned i = m_var_trail.size(); i-- > s.m_var_lim; )
-            m_var2node[m_var_trail[i]] = nullptr;
-        m_var_trail.shrink(s.m_var_lim);
-        
-        undo_trail_stack(*this, m_trail, s.m_trail_lim);
-
-        m_region.pop_scope(n);
+            m_var2expr[m_var_trail[i]] = nullptr;
+        m_var_trail.shrink(s.m_var_lim);        
+        m_trail.pop_scope(n);
         m_scopes.shrink(m_scopes.size() - n);
     }
 
@@ -374,8 +368,8 @@ namespace euf {
         m_egraph.display(out);
         out << "bool-vars\n";
         for (unsigned v : m_var_trail) {
-            euf::enode* n = m_var2node[v];
-            out << v << ": " << n->get_owner_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(n->get_owner(), m, 1) << "\n";        
+            expr* e = m_var2expr[v];
+            out << v << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1) << "\n";        
         }
         for (auto* e : m_solvers)
             e->display(out);
@@ -461,9 +455,9 @@ namespace euf {
     unsigned solver::max_var(unsigned w) const { 
         for (auto* e : m_solvers)
             w = e->max_var(w);
-        for (unsigned sz = m_var2node.size(); sz-- > 0; ) {
-            euf::enode* n = m_var2node[sz];
-            if (n && m.is_bool(n->get_owner())) {
+        for (unsigned sz = m_var2expr.size(); sz-- > 0; ) {
+            expr* n = m_var2expr[sz];
+            if (n && m.is_bool(n)) {
                 w = std::max(w, sz);
                 break;
             }           

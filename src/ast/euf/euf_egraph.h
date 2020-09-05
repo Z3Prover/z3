@@ -31,12 +31,15 @@ Notes:
 
 namespace euf {
 
-    struct add_eq_record {
+    struct egraph_update_record {
         enode* r1;
         enode* n1;
         unsigned r2_num_parents;
-        add_eq_record(enode* r1, enode* n1, unsigned r2_num_parents):
+        egraph_update_record(enode* r1, enode* n1, unsigned r2_num_parents):
             r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
+        egraph_update_record(enode* n):
+            r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
+        bool is_node() const { return r2_num_parents == UINT_MAX; }
     };
 
     /***
@@ -60,8 +63,7 @@ namespace euf {
         typedef ptr_vector<trail<egraph> > trail_stack;
         struct scope {
             bool     m_inconsistent;
-            unsigned m_num_eqs;
-            unsigned m_num_nodes;
+            unsigned m_num_updates;
             unsigned m_trail_sz;
             unsigned m_new_lits_sz;
             unsigned m_new_th_eqs_sz;
@@ -81,7 +83,7 @@ namespace euf {
         region                 m_region;
         enode_vector           m_worklist;
         etable                 m_table;
-        svector<add_eq_record> m_eqs;
+        svector<egraph_update_record> m_updates;
         svector<scope>         m_scopes;
         enode_vector           m_expr2enode;
         enode_vector           m_nodes;
@@ -101,8 +103,9 @@ namespace euf {
         std::function<void(app*,app*)>        m_used_cc;  
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
-            m_eqs.push_back(add_eq_record(r1, n1, r2_num_parents));
+            m_updates.push_back(egraph_update_record(r1, n1, r2_num_parents));
         }
+        void push_node(enode* n) { m_updates.push_back(egraph_update_record(n)); }
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
         enode* mk_enode(expr* f, unsigned num_args, enode * const* args);
         void reinsert(enode* n);

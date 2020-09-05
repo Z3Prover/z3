@@ -64,7 +64,7 @@ namespace sat {
         literal_vector          m_units;
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
-        svector<std::string>    m_theory;
+        vector<std::string>     m_theory;
         bool                    m_inconsistent;
         unsigned                m_num_add, m_num_del;
         bool                    m_check_unsat, m_check_sat, m_check, m_activity;
@@ -114,7 +114,7 @@ namespace sat {
         void bool_def(bool_var v, unsigned n);
 
         // declare AST node n with 'name' and arguments arg
-        void def_begin(unsigned n, symbol const& name);
+        void def_begin(unsigned n, std::string const& name);
         void def_add_arg(unsigned arg);
         void def_end();
 

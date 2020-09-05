@@ -17,6 +17,7 @@ Author:
 
 #include "ast/euf/euf_egraph.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/ast_translation.h"
 
 namespace euf {
@@ -82,6 +83,7 @@ namespace euf {
         enode* n = enode::mk(m_region, f, num_args, args);
         m_nodes.push_back(n);
         m_exprs.push_back(f);
+        push_node(n);
         return n;
     }
 
@@ -117,8 +119,7 @@ namespace euf {
         for (; m_num_scopes > 0; --m_num_scopes) {
             scope s;
             s.m_inconsistent = m_inconsistent;
-            s.m_num_eqs = m_eqs.size();
-            s.m_num_nodes = m_nodes.size();
+            s.m_num_updates = m_updates.size();
             s.m_trail_sz  = m_trail.size();
             s.m_new_lits_sz   = m_new_lits.size();
             s.m_new_th_eqs_sz = m_new_th_eqs.size();
@@ -203,24 +204,28 @@ namespace euf {
         num_scopes -= m_num_scopes;
         unsigned old_lim = m_scopes.size() - num_scopes;
         scope s = m_scopes[old_lim];
-        for (unsigned i = m_eqs.size(); i-- > s.m_num_eqs; ) {
-            auto const& p = m_eqs[i];
-            undo_eq(p.r1, p.n1, p.r2_num_parents);
-        }        
-        for (unsigned i = m_nodes.size(); i-- > s.m_num_nodes; ) {
-            enode* n = m_nodes[i];
+        unsigned num_nodes = m_nodes.size();
+        auto undo_node = [&](enode* n) {
             if (n->num_args() > 1)
                 m_table.erase(n);
             m_expr2enode[n->get_owner_id()] = nullptr;
             n->~enode();
-        }
+            --num_nodes;
+        };
+        for (unsigned i = m_updates.size(); i-- > s.m_num_updates; ) {
+            auto const& p = m_updates[i];
+            if (p.is_node())
+                undo_node(p.r1);
+            else 
+                undo_eq(p.r1, p.n1, p.r2_num_parents);
+        }        
         undo_trail_stack<egraph>(*this, m_trail, s.m_trail_sz);
         m_inconsistent = s.m_inconsistent;
         m_new_lits_qhead = s.m_new_lits_qhead;
         m_new_th_eqs_qhead = s.m_new_th_eqs_qhead;
-        m_eqs.shrink(s.m_num_eqs);
-        m_nodes.shrink(s.m_num_nodes);
-        m_exprs.shrink(s.m_num_nodes);
+        m_updates.shrink(s.m_num_updates);
+        m_nodes.shrink(num_nodes);
+        m_exprs.shrink(num_nodes);
         m_new_lits.shrink(s.m_new_lits_sz);
         m_new_th_eqs.shrink(s.m_new_th_eqs_sz);
         m_scopes.shrink(old_lim);        
@@ -438,6 +443,8 @@ namespace euf {
         if (!n->is_root()) 
             out << "[" << n->get_root()->get_owner_id() << "] ";
         expr* f = n->get_owner();
+        out << mk_bounded_pp(f, m, 1);
+#if 0
         if (is_app(f))
             out << mk_ismt2_func(to_app(f)->get_decl(), m) << " ";
         else if (is_quantifier(f))
@@ -446,8 +453,7 @@ namespace euf {
             out << "v ";
         for (enode* arg : enode_args(n))
             out << arg->get_owner_id() << " ";
-        for (unsigned i = n->num_args(); i < max_args; ++i)
-            out << "   ";
+#endif
         out << "\n";
         if (!n->m_parents.empty()) {
             out << "    ";

@@ -88,13 +88,18 @@ class sat_tactic : public tactic {
                     for (auto const& kv : map) {
                         expr * n   = kv.m_key;
                         sat::bool_var v = kv.m_value;
+                        if (!is_app(n))
+                            continue;
+                        app* a = to_app(n);
+                        if (!is_uninterp_const(a))
+                            continue;
                         TRACE("sat_tactic", tout << "extracting value of " << mk_ismt2_pp(n, m) << "\nvar: " << v << "\n";);
                         switch (sat::value_at(v, ll_m)) {
                         case l_true: 
-                            md->register_decl(to_app(n)->get_decl(), m.mk_true()); 
+                            md->register_decl(a->get_decl(), m.mk_true()); 
                             break;
                         case l_false:
-                            md->register_decl(to_app(n)->get_decl(), m.mk_false());
+                            md->register_decl(a->get_decl(), m.mk_false());
                             break;
                         default:
                             break;

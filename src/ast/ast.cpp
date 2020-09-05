@@ -2282,6 +2282,7 @@ void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
                    << " for function " << mk_pp(f,*this)
                    << " supplied sort is "
                    << mk_pp(actual_sort, *this);
+            SASSERT(false);
             throw ast_exception(buffer.str());
         }
     }
