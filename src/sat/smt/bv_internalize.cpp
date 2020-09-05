@@ -32,7 +32,7 @@ namespace bv {
         return dynamic_cast<def_atom&>(*this);
     }
 
-    class add_var_pos_trail : public trail<euf::solver> {
+    class solver::add_var_pos_trail : public trail<euf::solver> {
         solver::bit_atom* m_atom;
     public:
         add_var_pos_trail(solver::bit_atom* a) :m_atom(a) {}
@@ -42,7 +42,7 @@ namespace bv {
         }
     };
 
-    class mk_atom_trail : public trail<euf::solver> {
+    class solver::mk_atom_trail : public trail<euf::solver> {
         solver& th;
         sat::bool_var m_var;
     public:
@@ -55,6 +55,7 @@ namespace bv {
     };
 
     euf::theory_var solver::mk_var(euf::enode* n) {
+        TRACE("bv", tout << mk_pp(n->get_owner(), m) << "\n";);
         theory_var r = euf::th_euf_solver::mk_var(n);
         m_find.mk_var();
         m_bits.push_back(sat::literal_vector());
@@ -62,6 +63,10 @@ namespace bv {
         m_zero_one_bits.push_back(zero_one_bits());
         ctx.attach_th_var(n, this, r);
         return r;
+    }
+
+    void solver::apply_sort_cnstr(euf::enode * n, sort * s) {
+        get_var(n);
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
@@ -75,7 +80,7 @@ namespace bv {
         visit_rec(m, e, false, false, redundant);
     }
 
-    bool solver::visit(expr* e) {
+    bool solver::visit(expr* e) {        
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
             ctx.internalize(e, m_is_redundant);
             return true;
@@ -85,21 +90,30 @@ namespace bv {
     }
 
     bool solver::visited(expr* e) {
-        return get_enode(e) != nullptr;
+        euf::enode* n = get_enode(e);
+        std::cout << "visited " << mk_pp(e, m) << " " << (n && n->is_attached_to(get_id())) << "\n";
+        return n && n->is_attached_to(get_id());        
     }
 
     bool solver::post_visit(expr* e, bool sign, bool root) {
-        SASSERT(!get_enode(e));
-        m_args.reset();
+        std::cout << "visit " << mk_pp(e, m) << "\n";
+        euf::enode* n = get_enode(e);
         app* a = to_app(e);
-        if (get_config().m_bv_reflect || m.is_considered_uninterpreted(a->get_decl())) {
-            for (expr* arg : *a) 
-                m_args.push_back(get_enode(arg));                        
+        
+        SASSERT(!n || !n->is_attached_to(get_id()));
+        if (!n) {
+            m_args.reset();            
+            if (get_config().m_bv_reflect || m.is_considered_uninterpreted(a->get_decl())) {
+                for (expr* arg : *a)
+                    m_args.push_back(get_enode(arg));
+            }
+            DEBUG_CODE(for (auto* n : m_args) VERIFY(n););
+            n = ctx.mk_enode(e, m_args.size(), m_args.c_ptr());
+            ctx.attach_node(n);
         }
-        DEBUG_CODE(for (auto* n : m_args) VERIFY(n););
-        euf::enode* n = ctx.mk_enode(e, m_args.size(), m_args.c_ptr());
+
         theory_var v = mk_var(n);
-        ctx.attach_node(n);
+        SASSERT(n->is_attached_to(get_id()));
 
         std::function<void(unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits)> bin;
         std::function<void(unsigned sz, expr* const* xs, expr* const* ys, expr_ref& bit)> ebin;
@@ -180,10 +194,8 @@ namespace bv {
         theory_var v = n->get_th_var(get_id());
         if (v == euf::null_theory_var) {
             v = mk_var(n);
-            if (bv.is_bv(n->get_owner())) {
-                IF_VERBOSE(0, verbose_stream() << "bits delay initialized\n");
-                mk_bits(v);
-            }
+            if (bv.is_bv(n->get_owner())) 
+                mk_bits(v);            
         }
         return v;
     }
@@ -436,6 +448,8 @@ namespace bv {
         SASSERT(arg1_bits.size() == arg2_bits.size());
         fn(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits);
         init_bits(n, bits);
+        std::cout << bits << "\n";
+        s().display(std::cout);
     }
 
     void solver::internalize_ac_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
@@ -525,11 +539,11 @@ namespace bv {
         bit_atom* a = new (get_region()) bit_atom();
         a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
         insert_bv2a(b, a);
-        ctx.push(mk_atom_trail(b, *this));        
-        SASSERT(idx < m_bits[v_arg].size());
-        add_clause(m_bits[v_arg][idx], literal(b, true));
-        add_clause(~m_bits[v_arg][idx], literal(b, false));
-
+        ctx.push(mk_atom_trail(b, *this));           
+        if (idx < m_bits[v_arg].size()) {
+            add_clause(m_bits[v_arg][idx], literal(b, true));
+            add_clause(~m_bits[v_arg][idx], literal(b, false));
+        }
         // axiomatize bit2bool on constants.
         rational val;
         unsigned sz;

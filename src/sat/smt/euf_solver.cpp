@@ -20,6 +20,7 @@ Author:
 #include "sat/sat_solver.h"
 #include "sat/smt/sat_smt.h"
 #include "sat/smt/ba_solver.h"
+#include "sat/smt/bv_solver.h"
 #include "sat/smt/euf_solver.h"
 
 namespace euf {
@@ -49,8 +50,7 @@ namespace euf {
         return nullptr;
     }
 
-    th_solver* solver::get_solver(func_decl* f) {
-        family_id fid = f->get_family_id();
+    th_solver* solver::get_solver(family_id fid, func_decl* f) {
         if (fid == null_family_id)
             return nullptr;
         auto* ext = m_id2solver.get(fid, nullptr);
@@ -59,19 +59,24 @@ namespace euf {
         if (fid == m.get_basic_family_id())
             return nullptr;
         pb_util pb(m);
+        bv_util bvu(m);
         if (pb.get_family_id() == fid) {
             ext = alloc(sat::ba_solver, *this, fid);
             if (m_drat)
                 m_solver->get_drat().add_theory(fid, symbol("ba"));
+        }
+        else if (bvu.get_family_id() == fid) {
+            ext = alloc(bv::solver, *this, fid);
+            if (m_drat)
+                m_solver->get_drat().add_theory(fid, symbol("bv"));            
         }
         if (ext) {
             ext->set_solver(m_solver);
             ext->push_scopes(s().num_scopes());
             add_solver(fid, ext);
         }
-        else {
+        else if (f) 
             unhandled_function(f);
-        }
         return ext;
     }
 
@@ -171,30 +176,26 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-        auto* ext = get_solver(l.var());
-        if (ext) {
-            ext->asserted(l);
-            return;
-        }
-
-        bool sign = l.sign();
         auto n = m_var2node.get(l.var(), nullptr);
         if (!n)
             return;
-        
+
+        bool sign = l.sign();        
+        expr* e = n->get_owner();
+        TRACE("euf", tout << (sign ? "not ": " ") << mk_pp(e, m)  << "\n";);
+        for (auto th : enode_th_vars(n))           
+            m_id2solver[th.get_id()]->asserted(l);
 
         size_t* c = to_ptr(l);
-        SASSERT(l == get_literal(c) && is_literal(c));
-        expr* e = n->get_owner();
+        SASSERT(is_literal(c));
+        SASSERT(l == get_literal(c));
         if (m.is_eq(e) && !sign) {
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
-            TRACE("euf", tout << mk_pp(e, m) << "\n";);
             m_egraph.merge(na, nb, c);
         }
         else {            
             euf::enode* nb = sign ? mk_false() : mk_true();
-            TRACE("euf", tout << (sign ? "not ": " ") << mk_pp(n->get_owner(), m)  << "\n";);
             m_egraph.merge(n, nb, c);
         }
     }
@@ -282,6 +283,7 @@ namespace euf {
     }
 
     sat::check_result solver::check() { 
+        TRACE("euf", display(tout););
         bool give_up = false;
         bool cont = false;
         for (auto* e : m_solvers)
@@ -355,13 +357,25 @@ namespace euf {
         return l_undef; 
     }
 
+    bool solver::set_root(literal l, literal r) {
+        bool ok = true;
+        for (auto* s : m_solvers)
+            if (!s->set_root(l, r))
+                ok = false;
+        return ok;
+    }
+
+    void solver::flush_roots() {
+        for (auto* s : m_solvers)
+            s->flush_roots();
+    }
+
     std::ostream& solver::display(std::ostream& out) const {
         m_egraph.display(out);
-
         out << "bool-vars\n";
         for (unsigned v : m_var_trail) {
             euf::enode* n = m_var2node[v];
-            out << v << ": " << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m, 1) << "\n";        
+            out << v << ": " << n->get_owner_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(n->get_owner(), m, 1) << "\n";        
         }
         for (auto* e : m_solvers)
             e->display(out);
@@ -458,21 +472,15 @@ namespace euf {
     }
 
     double solver::get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const {
-        double r = 0;
-        for (auto* e : m_solvers) {
-            r = e->get_reward(l, idx, occs);
-            if (r != 0)
-                return r;
-        }
-        return r;
+        auto* ext = sat::constraint_base::to_extension(idx);
+        SASSERT(ext);        
+        return (ext == this) ? 0 : ext->get_reward(l, idx, occs);        
     }
 
     bool solver::is_extended_binary(ext_justification_idx idx, literal_vector& r) {
-        for (auto* e : m_solvers) {
-            if (e->is_extended_binary(idx, r))
-                return true;
-        }
-        return false;
+        auto* ext = sat::constraint_base::to_extension(idx);
+        SASSERT(ext);        
+        return (ext != this) && ext->is_extended_binary(idx, r);
     }
 
     void solver::init_ackerman() {

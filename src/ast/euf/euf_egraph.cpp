@@ -434,13 +434,12 @@ namespace euf {
     }
 
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
-        out << std::setw(5)
-            << n->get_owner_id() << " := ";
+        out << n->get_owner_id() << " := ";
         if (!n->is_root()) 
             out << "[" << n->get_root()->get_owner_id() << "] ";
         expr* f = n->get_owner();
         if (is_app(f))
-            out << to_app(f)->get_decl()->get_name() << " ";
+            out << mk_ismt2_func(to_app(f)->get_decl(), m) << " ";
         else if (is_quantifier(f))
             out << "q ";
         else
@@ -449,10 +448,19 @@ namespace euf {
             out << arg->get_owner_id() << " ";
         for (unsigned i = n->num_args(); i < max_args; ++i)
             out << "   ";
-        out << "\t";
-        for (enode* p : enode_parents(n))
-            out << p->get_owner_id() << " ";
         out << "\n";
+        if (!n->m_parents.empty()) {
+            out << "    ";
+            for (enode* p : enode_parents(n))
+                out << p->get_owner_id() << " ";
+            out << "\n";
+        }
+        if (n->has_th_vars()) {
+            out << "    ";
+            for (auto v : enode_th_vars(n))
+                out << v.get_id() << ":" << v.get_var() << " ";
+            out << "\n";
+        }
         return out;
     }
 

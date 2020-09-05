@@ -1103,8 +1103,11 @@ namespace sat {
                 }
             }
             wlist.set_end(it2);
-            if (m_ext) 
+            if (m_ext) {
                 m_ext->propagate();
+                if (inconsistent())
+                    return false;
+            }
         }
         SASSERT(m_qhead == m_trail.size());
         SASSERT(!m_inconsistent);

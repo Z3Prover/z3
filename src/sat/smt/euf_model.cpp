@@ -100,6 +100,8 @@ namespace euf {
                 expr* v = user_sort.get_fresh_value(m.get_sort(e));
                 values.set(id, v);
             }
+            else if (mb = get_solver(m.get_sort(e))) 
+                mb->add_value(n, values);
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
@@ -119,6 +121,9 @@ namespace euf {
             if (m.is_bool(e) && is_uninterp_const(e) && mdl->get_const_interp(f))
                 continue;
             expr* v = values.get(n->get_root_id());
+            CTRACE("euf", !v, tout << "no value for " << mk_pp(e, m) << "\n";);
+            if (!v)
+                continue;
             unsigned arity = f->get_arity();
             if (arity == 0) 
                 mdl->register_decl(f, v);

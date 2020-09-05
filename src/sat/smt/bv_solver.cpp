@@ -52,8 +52,10 @@ namespace bv {
         unsigned sz = m_bits[v].size();
         value_sort_pair key(val, sz);
         theory_var v2;
-        if (!m_fixed_var_table.find(key, v2))
+        if (!m_fixed_var_table.find(key, v2)) {
+            m_fixed_var_table.insert(key, v);
             return;
+        }
         numeral val2;
         if (v2 < static_cast<int>(get_num_vars()) &&
             is_bv(v2) &&
@@ -233,18 +235,6 @@ namespace bv {
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r) {
         auto& c = bv_justification::from_index(idx);
-        auto add_bit = [&](sat::literal lit) {
-            SASSERT(s().value(lit) != l_undef);
-            if (s().value(lit) == l_false)
-                lit.neg();
-            r.push_back(lit);
-        };
-        auto same_values = [&](literal_vector const& a, literal_vector const& b) {
-            SASSERT(a.size() == b.size());
-            for (unsigned i = 0; i < a.size(); ++i) 
-                VERIFY(s().value(a[i]) == s().value(b[i]));
-        };
-
         TRACE("bv", display_constraint(tout, idx););
         switch (c.m_kind) {
         case bv_justification::kind_t::bv2bit:
@@ -252,16 +242,25 @@ namespace bv {
             ctx.add_antecedent(get_enode(c.m_v1), get_enode(c.m_v2));            
             break;
         case bv_justification::kind_t::bit2bv: 
-            for (sat::literal bit : m_bits[c.m_v1])
-                add_bit(bit);
-            for (sat::literal bit : m_bits[c.m_v2])
-                add_bit(bit);
-            DEBUG_CODE(same_values(m_bits[c.m_v1], m_bits[c.m_v2]););
+            SASSERT(m_bits[c.m_v1].size() == m_bits[c.m_v2].size());
+            for (unsigned i = m_bits[c.m_v1].size(); i-- > 0; ) {
+                sat::literal a = m_bits[c.m_v1][i];
+                sat::literal b = m_bits[c.m_v2][i];
+                SASSERT(a == b || s().value(a) != l_undef);
+                SASSERT(s().value(a) == s().value(b));
+                if (a == b)
+                    continue;
+                if (s().value(a) == l_false) {
+                    a.neg();
+                    b.neg();
+                }
+                r.push_back(a);
+                r.push_back(b);
+            }           
             break;
         }        
-        if (s().get_config().m_drat) {
-            log_drat(c);
-        }
+        if (s().get_config().m_drat) 
+            log_drat(c);        
     }
 
     void solver::log_drat(bv_justification const& c) {
@@ -277,15 +276,19 @@ namespace bv {
         switch (c.m_kind) {
         case bv_justification::kind_t::bv2bit:
             lits.push_back(~leq);
-            lits.push_back(c.m_antecedent);
-            lits.push_back(~c.m_consequent);            
+            lits.push_back(~c.m_antecedent);
+            lits.push_back(c.m_consequent);            
             break;
         case bv_justification::kind_t::bit2bv:
             lits.push_back(leq);
-            for (sat::literal bit : m_bits[c.m_v1])
-                add_bit(bit);
-            for (sat::literal bit : m_bits[c.m_v2])
-                add_bit(bit);
+            for (unsigned i = m_bits[c.m_v1].size(); i-- > 0; ) {
+                sat::literal a = m_bits[c.m_v1][i];
+                sat::literal b = m_bits[c.m_v2][i];
+                if (a != b) {
+                    add_bit(a);
+                    add_bit(b);
+                }
+            }
             break;
         }
         s().get_drat().add(lits, status());
@@ -293,10 +296,10 @@ namespace bv {
 
     void solver::asserted(literal l) {
         atom* a = get_bv2a(l.var());
-        if (a->is_bit()) {
+        TRACE("bv", tout << l << "\n";);
+        if (a->is_bit()) 
             for (auto vp : a->to_bit())
                 m_prop_queue.push_back(vp);
-        }
     }
 
     bool solver::propagate() {
@@ -311,16 +314,15 @@ namespace bv {
     void solver::propagate_bits(var_pos const& entry) {
         theory_var v1 = entry.first;
         unsigned idx = entry.second;
-
         if (m_wpos[v1] == idx)
             find_wpos(v1);
 
         literal_vector& bits = m_bits[v1];
         literal bit1 = bits[idx];
         lbool   val = s().value(bit1);
+        TRACE("bv", tout << "propagating v" << v1 << " #" << get_enode(v1)->get_owner_id() << "[" << idx << "] = " << val << "\n";);
         if (val == l_undef)
             return;
-        TRACE("bv", tout << "propagating v" << v1 << " #" << get_enode(v1)->get_owner_id() << "[" << idx << "] = " << val << "\n";);
 
         if (val == l_false)
             bit1.neg();
@@ -339,6 +341,7 @@ namespace bv {
     }
 
     sat::check_result solver::check() {
+        SASSERT(m_prop_queue.size() == m_prop_queue_head);
         return sat::check_result::CR_DONE;
     }
 
@@ -378,6 +381,10 @@ namespace bv {
             set_bit_eh(vp.first, r2, vp.second);
         }
         return true;
+    }
+
+    void solver::flush_roots() {
+        TRACE("bv", tout << "infer new equations for bit-vectors that are now equal\n";);
     }
 
     void solver::clauses_modifed() {}
@@ -440,7 +447,7 @@ namespace bv {
             }
             ++i;
         }
-        values[n->get_root_id()] = bv.mk_numeral(val, m_bits.size());
+        values[n->get_root_id()] = bv.mk_numeral(val, m_bits[v].size());
     }
 
     void solver::merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
@@ -453,7 +460,7 @@ namespace bv {
         SASSERT(m_bits[v1].size() == m_bits[v2].size());
         unsigned sz = m_bits[v1].size();
         TRACE("bv", tout << "bits size: " << sz << "\n";);
-        for (unsigned idx = 0; idx < sz; idx++) {
+        for (unsigned idx = 0; !s().inconsistent() && idx < sz; idx++) {
             literal bit1 = m_bits[v1][idx];
             literal bit2 = m_bits[v2][idx];
             CTRACE("bv_bug", bit1 == ~bit2, tout << pp(v1) << pp(v2) << "idx: " << idx << "\n";);
@@ -472,8 +479,6 @@ namespace bv {
                 assign_bit(~bit1, v1, v2, idx, ~bit2, true);
             else if (val2 == l_true)
                 assign_bit(bit1, v1, v2, idx, bit2, true);
-            if (s().inconsistent())
-                return;
             SASSERT(val1 == val2 || (val1 != l_undef && val2 == l_undef));
         }
     }
@@ -505,24 +510,20 @@ namespace bv {
         else {
             if (get_config().m_bv_eq_axioms) {
                 expr_ref eq(m.mk_eq(get_expr(v1), get_expr(v2)), m);
-                literal eq_lit = ctx.internalize(eq, false, false, m_is_redundant);
-                add_clause(~consequent, antecedent, ~eq_lit);
+                flet<bool> _is_redundant(m_is_redundant, true);
+                literal eq_lit = ctx.internalize(eq, false, false, m_is_redundant);                
+                add_clause(~antecedent, ~eq_lit, consequent);
+                add_clause(antecedent, ~eq_lit, ~consequent);
             }
 
             if (m_wpos[v2] == idx)
                 find_wpos(v2);
             bool_var cv = consequent.var();
             atom* a = get_bv2a(cv);
-            for (auto curr : a->to_bit()) {
-                TRACE("assign_bit_bug", tout << "curr_v" << curr.first << ", curr_idx: " << curr.second << ", v2: v" << v2 << ", idx: " << idx << "\n";
-                tout << "find(curr->m_var): v" << find(curr.first) << ", find(v2): v" << find(v2) << "\n";
-                tout << "is bit of #" << get_enode(curr.first)->get_owner_id() << "\n";
-                );
-                // If find(curr->m_var) == find(v2) && curr->m_idx == idx and propagate_eqc == false, then
-                // this bit will be propagated to the equivalence class of v2 by assign_bit caller.
-                if (propagate_eqc || find(curr.first) != find(v2) || curr.second != idx)
-                    m_prop_queue.push_back(curr);
-            }
+            if (a && a->is_bit()) 
+                for (auto curr : a->to_bit()) 
+                    if (propagate_eqc || find(curr.first) != find(v2) || curr.second != idx)
+                        m_prop_queue.push_back(curr);            
         }
     }
 
@@ -593,7 +594,7 @@ namespace bv {
     }
 
     rational const& solver::power2(unsigned i) const {
-        while (m_power2.size() < i)
+        while (m_power2.size() <= i)
             m_power2.push_back(m_bb.power(m_power2.size()));
         return m_power2[i];
     }

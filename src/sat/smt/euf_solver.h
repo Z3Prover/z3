@@ -70,7 +70,7 @@ namespace euf {
         size_t const* base_ptr() const { return reinterpret_cast<size_t const*>(this); }
         size_t* to_ptr(sat::literal l) { return TAG(size_t*, base_ptr() + (l.index() << 4), 1); }
         size_t* to_ptr(size_t jst) { return TAG(size_t*, reinterpret_cast<size_t*>(jst), 2); }
-        bool is_literal(size_t* p) const { return GET_TAG(p) == 2; }
+        bool is_literal(size_t* p) const { return GET_TAG(p) == 1; }
         bool is_justification(size_t* p) const { return GET_TAG(p) == 2; }
         sat::literal get_literal(size_t* p) {
             unsigned idx = (unsigned)(UNTAG(size_t*, p) - base_ptr());
@@ -126,7 +126,9 @@ namespace euf {
         
 
         // extensions
-        th_solver* get_solver(func_decl* f);
+        th_solver* get_solver(family_id fid, func_decl* f);
+        th_solver* get_solver(sort* s) { return get_solver(s->get_family_id(), nullptr); }
+        th_solver* get_solver(func_decl* f) { return get_solver(f->get_family_id(), f); }
         th_solver* get_solver(expr* e);
         th_solver* get_solver(sat::bool_var v);
         void add_solver(family_id fid, th_solver* th);
@@ -193,6 +195,7 @@ namespace euf {
        };
 
         sat::solver& s() { return *m_solver; }
+        sat::solver const& s() const { return *m_solver; }
         sat::sat_internalizer& get_si() { return si; }
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) { return m_egraph.find(e); }
@@ -213,6 +216,8 @@ namespace euf {
         bool propagate(literal l, ext_constraint_idx idx) override;
         bool propagate() override;
         void propagate(enode* a, enode* b, ext_justification_idx);
+        bool set_root(literal l, literal r) override;
+        void flush_roots() override;
 
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
         void add_antecedent(enode* a, enode* b);

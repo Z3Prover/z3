@@ -94,6 +94,11 @@ namespace euf {
             log_bool_var(v, n);
             attach_lit(literal(v, false),  n);
         }
+        else if (m.get_sort(e)->get_family_id() != null_family_id) {
+            auto* ext = get_solver(m.get_sort(e));
+            if (ext)
+                ext->apply_sort_cnstr(n, m.get_sort(e));
+        }
         axiomatize_basic(n);
     }
 

@@ -141,8 +141,8 @@ namespace bv {
         };
 
         class bit_trail;
-        friend class add_var_pos_trail;
-        friend class mk_atom_trail;
+        class add_var_pos_trail;
+        class mk_atom_trail;
         typedef ptr_vector<atom> bool_var2atom;
 
         bv_util                  bv;
@@ -161,7 +161,7 @@ namespace bv {
         literal_vector           m_tmp_literals;
         svector<var_pos>         m_prop_queue;
         unsigned_vector          m_prop_queue_lim;
-        unsigned                 m_prop_queue_head;
+        unsigned                 m_prop_queue_head { 0 };
 
 
         sat::solver* m_solver;
@@ -245,12 +245,14 @@ namespace bv {
         void pre_simplify() override;        
         void simplify() override;
         bool set_root(literal l, literal r) override;
+        void flush_roots() override;
         void clauses_modifed() override;
         lbool get_phase(bool_var v) override;
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
+        euf::th_solver* fresh(sat::solver* s, euf::solver& ctx) override { NOT_IMPLEMENTED_YET(); return nullptr; }
         extension* copy(sat::solver* s) override;       
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override {}
         void gc() override {}
@@ -274,6 +276,8 @@ namespace bv {
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;
+        void apply_sort_cnstr(euf::enode * n, sort * s) override;
+
         
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
