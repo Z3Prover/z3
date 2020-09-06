@@ -49,17 +49,17 @@ class state_graph {
 public:
     /* Wrapper for custom callback function for pretty printing states */
     struct state_pp {
-        /* Pointer to pretty printer that must be passed as the first argument to m_pp_state */
+        /* Pointer to object that owns m_pp_state, it must be passed as the first argument to m_pp_state */
         void* m_printer;
-        /* Pointer to function that pretty prints a state label into the stream, html-encoded if the third argument is true  */
+        /* Pointer to function that pretty prints a state label into the stream (html-encoded if the last argument is true)  */
         void (*m_pp_state)(void*, std::ostream&, unsigned, bool);
         state_pp(
-            /* Pointer to pretty printer that must be passed as the first argument to m_pp_state  */
+            /* Pointer to object that owns f  */
             void* p, 
-            /* Pointer to function that pretty prints a state label into the stream, html-encoded if the third argument is true */
+            /* Pointer to function that pretty prints a state label into the stream (html-encoded if the last argument is true) */
             void (*f)(void*, std::ostream&, unsigned, bool)) : m_printer(p), m_pp_state(f) {}
 
-        /* call back to m_printer using m_pp_state to pretty print state_id to the given stream (in html-encoded form by default) */
+        /* call back to m_printer using m_pp_state to pretty print state_id to the given stream (html-encoded by default) */
         std::ostream& pp_state_label(std::ostream& out, unsigned state_id, bool html_encode = true) const {
             if (m_printer && m_pp_state)
                 (*m_pp_state)(m_printer, out, state_id, html_encode);
