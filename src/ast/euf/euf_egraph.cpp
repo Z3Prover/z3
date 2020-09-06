@@ -22,48 +22,6 @@ Author:
 
 namespace euf {
 
-    /**
-       \brief Trail for add_th_var
-    */
-    class add_th_var_trail : public trail<egraph> {
-        enode *    m_enode;
-        theory_id  m_th_id;
-    public:
-        add_th_var_trail(enode * n, theory_id th_id):
-            m_enode(n),
-            m_th_id(th_id) {
-        }
-        
-        void undo(egraph & ctx) override {
-            theory_var v = m_enode->get_th_var(m_th_id);
-            SASSERT(v != null_theory_var);
-            m_enode->del_th_var(m_th_id);
-            enode * root = m_enode->get_root();
-            if (root != m_enode && root->get_th_var(m_th_id) == v) 
-                root->del_th_var(m_th_id);
-        }
-    };
-
-    /**
-       \brief Trail for replace_th_var
-    */
-    class replace_th_var_trail : public trail<egraph> {
-        enode *    m_enode;
-        unsigned   m_th_id:8;
-        unsigned   m_old_th_var:24;
-    public:
-        replace_th_var_trail(enode * n, theory_id th_id, theory_var old_var):
-            m_enode(n),
-            m_th_id(th_id),
-            m_old_th_var(old_var) {
-        }
-        
-        void undo(egraph & ctx) override {
-            SASSERT(m_enode->get_th_var(m_th_id) != null_theory_var);
-            m_enode->replace_th_var(m_old_th_var, m_th_id);
-        }
-    };
-
     void egraph::undo_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
         enode* r2 = r1->get_root();
         r2->dec_class_size(r1->class_size());
@@ -84,6 +42,8 @@ namespace euf {
         m_nodes.push_back(n);
         m_exprs.push_back(f);
         push_node(n);
+        for (unsigned i = 0; i < num_args; ++i)
+            set_merge_enabled(args[i], true);
         return n;
     }
 
@@ -107,6 +67,7 @@ namespace euf {
         SASSERT(is_equality(p));
         if (p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) {
             m_new_lits.push_back(enode_bool_pair(p, true));
+            m_updates.push_back(update_record(update_record::new_lit()));
             ++m_stats.m_num_eqs;
         }
     }
@@ -120,8 +81,6 @@ namespace euf {
             scope s;
             s.m_inconsistent = m_inconsistent;
             s.m_num_updates = m_updates.size();
-            s.m_trail_sz  = m_trail.size();
-            s.m_new_lits_sz   = m_new_lits.size();
             s.m_new_th_eqs_sz = m_new_th_eqs.size();
             s.m_new_lits_qhead = m_new_lits_qhead;
             s.m_new_th_eqs_qhead = m_new_th_eqs_qhead;
@@ -171,6 +130,11 @@ namespace euf {
             n->m_parents.finalize();
     }
 
+    void egraph::add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) {
+        m_new_th_eqs.push_back(th_eq(id, v1, v2, c, r));
+        m_updates.push_back(update_record(update_record::new_th_eq()));
+    }
+
     void egraph::add_th_var(enode* n, theory_var v, theory_id id) {
         force_push();
         theory_var w = n->get_th_var(id);
@@ -178,21 +142,37 @@ namespace euf {
 
         if (w == null_theory_var) {
             n->add_th_var(v, id, m_region);
-            m_trail.push_back(new (m_region) add_th_var_trail(n, id));
+            m_updates.push_back(update_record(n, id, update_record::add_th_var()));
             if (r != n) {
                 theory_var u = r->get_th_var(id);
                 if (u == null_theory_var) 
                     r->add_th_var(v, id, m_region);
                 else
-                    m_new_th_eqs.push_back(th_eq(id, v, u, n, r));
+                    add_th_eq(id, v, u, n, r);
             }
         }
         else {
             theory_var u = r->get_th_var(id);
             SASSERT(u != v && u != null_theory_var);
             n->replace_th_var(v, id);
-            m_trail.push_back(new (m_region) replace_th_var_trail(n, id, u));
-            m_new_th_eqs.push_back(th_eq(id, v, u, n, r));
+            m_updates.push_back(update_record(n, id, u, update_record::replace_th_var()));
+            add_th_eq(id, v, u, n, r);
+        }
+    }
+
+    void egraph::undo_add_th_var(enode* n, theory_id tid) {
+        theory_var v = n->get_th_var(tid);
+        SASSERT(v != null_theory_var);
+        n->del_th_var(tid);
+        enode* root = n->get_root();
+        if (root != n && root->get_th_var(tid) == v)
+            root->del_th_var(tid);
+    }
+
+    void egraph::set_merge_enabled(enode* n, bool enable_merge) {
+        if (enable_merge != n->merge_enabled()) {
+            m_updates.push_back(update_record(n, update_record::toggle_merge()));
+            n->set_merge_enabled(enable_merge);
         }
     }
 
@@ -204,32 +184,52 @@ namespace euf {
         num_scopes -= m_num_scopes;
         unsigned old_lim = m_scopes.size() - num_scopes;
         scope s = m_scopes[old_lim];
-        unsigned num_nodes = m_nodes.size();
         auto undo_node = [&](enode* n) {
             if (n->num_args() > 1)
                 m_table.erase(n);
             m_expr2enode[n->get_owner_id()] = nullptr;
             n->~enode();
-            --num_nodes;
+            m_nodes.pop_back();
+            m_exprs.pop_back();
         };
         for (unsigned i = m_updates.size(); i-- > s.m_num_updates; ) {
             auto const& p = m_updates[i];
-            if (p.is_node())
+            switch (p.tag) {
+            case update_record::tag_t::is_add_node:
                 undo_node(p.r1);
-            else 
+                break;
+            case update_record::tag_t::is_toggle_merge:
+                p.r1->set_merge_enabled(!p.r1->merge_enabled());
+                break;
+            case update_record::tag_t::is_set_parent:
                 undo_eq(p.r1, p.n1, p.r2_num_parents);
+                break;
+            case update_record::tag_t::is_add_th_var:
+                undo_add_th_var(p.r1, p.r2_num_parents);
+                break;
+            case update_record::tag_t::is_replace_th_var:
+                SASSERT(p.r1->get_th_var(p.m_th_id) != null_theory_var);
+                p.r1->replace_th_var(p.m_old_th_var, p.m_th_id);
+                break;
+            case update_record::tag_t::is_new_lit:
+                m_new_lits.pop_back();
+                break;
+            case update_record::tag_t::is_new_th_eq:
+                m_new_th_eqs.pop_back();
+                break;
+            default:
+                UNREACHABLE();
+                break;
+            }                
         }        
-        undo_trail_stack<egraph>(*this, m_trail, s.m_trail_sz);
+        
         m_inconsistent = s.m_inconsistent;
         m_new_lits_qhead = s.m_new_lits_qhead;
         m_new_th_eqs_qhead = s.m_new_th_eqs_qhead;
         m_updates.shrink(s.m_num_updates);
-        m_nodes.shrink(num_nodes);
-        m_exprs.shrink(num_nodes);
-        m_new_lits.shrink(s.m_new_lits_sz);
-        m_new_th_eqs.shrink(s.m_new_th_eqs_sz);
         m_scopes.shrink(old_lim);        
         m_region.pop_scope(num_scopes);  
+        m_worklist.reset();
     }
 
     void egraph::merge(enode* n1, enode* n2, justification j) {
@@ -251,6 +251,7 @@ namespace euf {
         }
         if ((m.is_true(r2->get_owner()) || m.is_false(r2->get_owner())) && j.is_congruence()) {
             m_new_lits.push_back(enode_bool_pair(n1, false));
+            m_updates.push_back(update_record(update_record::new_lit()));
             ++m_stats.m_num_lits;
         }
         for (enode* p : enode_parents(n1)) 
@@ -273,13 +274,13 @@ namespace euf {
         for (auto iv : enode_th_vars(n)) {
             theory_id id = iv.get_id();
             theory_var v = root->get_th_var(id);
-            if (v == null_theory_var) {
-                root->add_th_var(iv.get_var(), id, m_region);                
-                m_trail.push_back(new (m_region) add_th_var_trail(root, id));
+            if (v == null_theory_var) {                
+                root->add_th_var(iv.get_var(), id, m_region);   
+                m_updates.push_back(update_record(root, id, update_record::add_th_var()));
             }
             else {
                 SASSERT(v != iv.get_var());
-                m_new_th_eqs.push_back(th_eq(id, v, iv.get_var(), n, root));
+                add_th_eq(id, v, iv.get_var(), n, root);
             }
         }
     }

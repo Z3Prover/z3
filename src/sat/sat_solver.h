@@ -566,8 +566,6 @@ namespace sat {
         unsigned       m_conflict_lvl;
         literal_vector m_lemma;
         literal_vector m_ext_antecedents;
-        literal        m_cached_antecedent_consequent;
-        ext_justification_idx m_cached_antecedent_js { 0 };
         bool use_backjumping(unsigned num_scopes);
         bool resolve_conflict();
         lbool resolve_conflict_core();
@@ -651,6 +649,7 @@ namespace sat {
         // -----------------------
     public:
         bool do_cleanup(bool force);
+        void set_should_simplify() { m_next_simplify = m_conflicts_since_init; }
         void simplify(bool learned = true);
         void asymmetric_branching();
         unsigned scc_bin();

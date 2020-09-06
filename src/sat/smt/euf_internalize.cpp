@@ -99,9 +99,9 @@ namespace euf {
         axiomatize_basic(n);
     }
 
-    sat::literal solver::attach_lit(literal lit, expr* n) {
+    sat::literal solver::attach_lit(literal lit, expr* e) {
         if (lit.sign()) {
-            sat::bool_var v = si.add_bool_var(n);
+            sat::bool_var v = si.add_bool_var(e);
             sat::literal lit2 = literal(v, false);
             s().mk_clause(~lit, lit2, sat::status::th(false, m.get_basic_family_id()));
             s().mk_clause(lit, ~lit2, sat::status::th(false, m.get_basic_family_id()));
@@ -110,10 +110,12 @@ namespace euf {
         sat::bool_var v = lit.var();
         m_var2expr.reserve(v + 1, nullptr);
         SASSERT(m_var2expr[v] == nullptr);
-        m_var2expr[v] = n;
+        m_var2expr[v] = e;
         m_var_trail.push_back(v);
-        if (!m_egraph.find(n))
-            m_egraph.mk(n, 0, nullptr);
+        if (!m_egraph.find(e)) {
+            enode* n = m_egraph.mk(e, 0, nullptr);
+            m_egraph.set_merge_enabled(n, false);
+        }
         return lit;
     }
 

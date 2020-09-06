@@ -87,6 +87,7 @@ namespace euf {
             inf->m_prev = m_queue->m_prev;
             inf->m_next = m_queue;
             m_queue->m_prev = inf;
+            m_queue = inf;
         }
     }
 

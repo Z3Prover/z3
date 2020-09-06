@@ -353,7 +353,7 @@ namespace sat {
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, sat::status st) {
         bool redundant = st.is_redundant();
         TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (redundant?" learned":" aux") << "\n";);
-        if (!redundant) {
+        if (!redundant || !st.is_sat()) {
             unsigned old_sz = num_lits;
             bool keep = simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
@@ -2583,13 +2583,6 @@ namespace sat {
         if (m_step_size > m_config.m_step_size_min) {
             m_step_size -= m_config.m_step_size_dec;
         }
-        struct reset_cache {
-            solver& s;
-            bool active;
-            reset_cache(solver& s) :s(s), active(true) {}
-            ~reset_cache() { if (active) s.m_cached_antecedent_js = 0; }
-        };
-        reset_cache _reset(*this);
         bool unique_max;
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
         justification js = m_conflict;
@@ -2616,7 +2609,6 @@ namespace sat {
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
             m_force_conflict_analysis = true;
             ++m_stats.m_backtracks;
-            _reset.active = false;
             return l_undef;
         }
         m_force_conflict_analysis = false;
@@ -3042,12 +3034,8 @@ namespace sat {
         SASSERT(js.is_ext_justification());
         SASSERT(m_ext);
         auto idx = js.get_ext_justification_idx();
-        if (consequent == m_cached_antecedent_consequent && idx == m_cached_antecedent_js)
-            return;
         m_ext_antecedents.reset();
         m_ext->get_antecedents(consequent, idx, m_ext_antecedents);
-        m_cached_antecedent_consequent = consequent;
-        m_cached_antecedent_js = idx;
     }
 
     bool solver::is_two_phase() const {

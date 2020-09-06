@@ -42,10 +42,11 @@ namespace bv {
         vv* n = m_tmp_vv;
         n->v1 = v1;
         n->v2 = v2;
-        vv* other = m_table.insert_if_not_there(n);
+        vv* other = m_table.insert_if_not_there(n);        
         other->m_count++;
+        if (other->m_count > 1000)
+            s.s().set_should_simplify();
         push_to_front(other);
-
         if (other == n) {
             new_tmp();        
             gc();
@@ -78,6 +79,7 @@ namespace bv {
             p->m_prev = m_queue->m_prev;
             p->m_next = m_queue;
             m_queue->m_prev = p;
+            m_queue = p;
         }
     }
 
@@ -115,8 +117,8 @@ namespace bv {
         num_prop = std::min(num_prop, m_table.size());
         for (unsigned i = 0; i < num_prop; ++i, n = k) {
             k = n->m_next;
-            if (n->m_count < s.get_config().m_dack_threshold) 
-                continue;
+            if (n->m_count < s.get_config().m_dack_threshold)
+                continue;            
             add_cc(n->v1, n->v2);
             remove(n);
         }
@@ -132,6 +134,7 @@ namespace bv {
         sort* s2 = s.m.get_sort(s.var2expr(v2));
         if (s1 != s2 || !s.bv.is_bv_sort(s1))
             return;
+        IF_VERBOSE(0, verbose_stream() << "assert ackerman " << v1 << " " << v2 << "\n");
         s.assert_ackerman(v1, v2);
     }
 

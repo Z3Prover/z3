@@ -44,7 +44,7 @@ namespace bv {
 
         struct stats {
             unsigned   m_num_diseq_static, m_num_diseq_dynamic, m_num_bit2core, m_num_th2core_eq, m_num_conflicts;
-            unsigned   m_num_eq_dynamic;
+            unsigned   m_ackerman;
             void reset() { memset(this, 0, sizeof(stats)); }
             stats() { reset(); }
         };
@@ -223,7 +223,7 @@ namespace bv {
         svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
         void assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
-        void propagate_bits(var_pos const& entry);
+        void propagate_bits(var_pos entry);
         numeral const& power2(unsigned i) const;
 
         // invariants
@@ -269,7 +269,6 @@ namespace bv {
         bool unit_propagate() override;
 
         void add_value(euf::enode* n, expr_ref_vector& values) override;
-        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override {}
 
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override { return false; }

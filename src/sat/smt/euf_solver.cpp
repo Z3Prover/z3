@@ -177,19 +177,23 @@ namespace euf {
 
     void solver::asserted(literal l) {
         expr* e = m_var2expr.get(l.var(), nullptr);
-        if (!e)
+        if (!e) {
             return;
+        }
 
         bool sign = l.sign();        
-        TRACE("euf", tout << (sign ? "not ": " ") << mk_pp(e, m)  << "\n";);
+        TRACE("euf", tout << "asserted: " << l << " " << (sign ? "not ": " ") << e->get_id()  << "\n";);
         euf::enode* n = m_egraph.find(e);
+        if (!n)
+            return;
         for (auto th : enode_th_vars(n))           
             m_id2solver[th.get_id()]->asserted(l);
-
+        if (!n->merge_enabled())
+            return;
         size_t* c = to_ptr(l);
         SASSERT(is_literal(c));
         SASSERT(l == get_literal(c));
-        if (m.is_eq(e) && !sign) {
+        if (m.is_eq(e) && !sign && n->num_args() == 2) {
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
             m_egraph.merge(na, nb, c);
@@ -244,7 +248,7 @@ namespace euf {
             }
             else {
                 a = e, b = n->get_root()->get_owner();
-                SASSERT(m.is_true(a) || m.is_false(b));
+                SASSERT(m.is_true(b) || m.is_false(b));
                 cnstr = lit_constraint().to_index();
                 lit = literal(v, m.is_false(b));
             }
@@ -283,7 +287,7 @@ namespace euf {
     }
 
     sat::check_result solver::check() { 
-        TRACE("euf", display(tout););
+        TRACE("euf", s().display(tout););
         bool give_up = false;
         bool cont = false;
         for (auto* e : m_solvers)

@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "sat/smt/euf_solver.h"
 #include "model/value_factory.h"
 
@@ -134,8 +135,11 @@ namespace euf {
                     mdl->register_decl(f, fi);
                 }
                 args.reset();
-                for (enode* arg : enode_args(n)) 
+                for (enode* arg : enode_args(n)) {
                     args.push_back(values.get(arg->get_root_id()));
+                    SASSERT(args.back());
+                }
+                SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.c_ptr()))
                     fi->insert_new_entry(args.c_ptr(), v);
             }

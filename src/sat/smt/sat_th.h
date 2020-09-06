@@ -72,7 +72,7 @@ namespace euf {
         /**
            \brief compute dependencies for node n
          */
-        virtual void add_dep(euf::enode* n, top_sort<euf::enode>& dep) {}
+        virtual void add_dep(euf::enode* n, top_sort<euf::enode>& dep) { dep.insert(n, nullptr);  }
 
         /**
            \brief should function be included in model.

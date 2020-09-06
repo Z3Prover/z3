@@ -55,13 +55,14 @@ namespace bv {
     };
 
     euf::theory_var solver::mk_var(euf::enode* n) {
-        TRACE("bv", tout << mk_pp(n->get_owner(), m) << "\n";);
         theory_var r = euf::th_euf_solver::mk_var(n);
         m_find.mk_var();
         m_bits.push_back(sat::literal_vector());
         m_wpos.push_back(0);
         m_zero_one_bits.push_back(zero_one_bits());       
         ctx.attach_th_var(n, this, r);
+        
+        TRACE("bv", tout << "mk-var: " << r << " " << n->get_owner_id() << " " << mk_pp(n->get_owner(), m) << "\n";);
         return r;
     }
 
@@ -186,7 +187,8 @@ namespace bv {
         m_bits[v].reset();
         for (unsigned i = 0; i < bv_size; i++) {
             expr_ref b2b(bv.mk_bit2bool(e, i), m);
-            m_bits[v].push_back(ctx.internalize(b2b, false, false, m_is_redundant));
+            sat::literal lit = ctx.internalize(b2b, false, false, m_is_redundant);
+            m_bits[v].push_back(lit);
         }
     }
 
@@ -236,6 +238,7 @@ namespace bv {
     void solver::add_bit(theory_var v, literal l) {
         unsigned idx = m_bits[v].size();
         m_bits[v].push_back(l);
+        s().set_external(l.var());
         set_bit_eh(v, l, idx);
     }
 
@@ -256,7 +259,7 @@ namespace bv {
                 bit_atom* b = new (get_region()) bit_atom();
                 insert_bv2a(l.var(), b);
                 ctx.push(mk_atom_trail(l.var(), *this));
-                SASSERT(b->m_occs == 0);
+                SASSERT(!b->m_occs);
                 b->m_occs = new (get_region()) var_pos_occ(v, idx);
             }
         }
@@ -268,8 +271,11 @@ namespace bv {
         SASSERT(euf::null_theory_var != n->get_th_var(get_id()));
         theory_var v = n->get_th_var(get_id());
         m_bits[v].reset();
+        for (expr* bit : bits) 
+            add_bit(v, ctx.internalize(bit, false, false, m_is_redundant));        
         for (expr* bit : bits)
-            add_bit(v, ctx.internalize(bit, false, false, m_is_redundant));
+            get_var(expr2enode(bit));
+        SASSERT(get_bv_size(n) == bits.size());
         find_wpos(v);
     }
 
@@ -452,9 +458,7 @@ namespace bv {
 
     void solver::internalize_ac_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
         SASSERT(n->get_num_args() >= 2);
-        expr_ref_vector arg_bits(m);
-        expr_ref_vector bits(m);
-        expr_ref_vector new_bits(m);
+        expr_ref_vector bits(m), new_bits(m), arg_bits(m);
         unsigned i = n->get_num_args() - 1;        
         get_arg_bits(n, i, bits);
         for (; i-- > 0; ) {
@@ -535,6 +539,7 @@ namespace bv {
         sat::literal lit = expr2literal(n);
         sat::bool_var b = lit.var();
         bit_atom* a = new (get_region()) bit_atom();
+        SASSERT(idx < get_bv_size(v_arg));
         a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
         insert_bv2a(b, a);
         ctx.push(mk_atom_trail(b, *this));           
@@ -556,6 +561,7 @@ namespace bv {
 
     void solver::assert_ackerman(theory_var v1, theory_var v2) {
         flet<bool> _red(m_is_redundant, true);
+        ++m_stats.m_ackerman;
         expr* o1 = var2expr(v1);
         expr* o2 = var2expr(v2);
         expr_ref oe(m.mk_eq(o1, o2), m);
