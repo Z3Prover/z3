@@ -147,7 +147,7 @@ namespace euf {
         expr* e = nullptr;
         euf::enode* n = nullptr;
 
-        // init_ackerman();
+        init_ackerman();
 
         switch (j.kind()) {
         case constraint::kind_t::conflict:
@@ -182,7 +182,7 @@ namespace euf {
         }
 
         bool sign = l.sign();        
-        TRACE("euf", tout << "asserted: " << l << " " << (sign ? "not ": " ") << e->get_id()  << "\n";);
+        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " " << (sign ? "not ": " ") << e->get_id()  << "\n";);
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
@@ -237,7 +237,7 @@ namespace euf {
             bool is_eq = p.second;
             expr* e = n->get_owner();
             expr* a = nullptr, *b = nullptr;
-            bool_var v = m_expr2var.to_bool_var(e);
+            bool_var v = si.to_bool_var(e);
             SASSERT(m.is_bool(e));
             size_t cnstr;
             literal lit;
@@ -263,7 +263,7 @@ namespace euf {
     void solver::propagate_th_eqs() {
         for (; m_egraph.has_th_eq() && !s().inconsistent() && !m_egraph.inconsistent(); m_egraph.next_th_eq()) {
             th_eq eq = m_egraph.get_th_eq();
-            m_id2solver[eq.m_id]->new_eq_eh(eq);
+            m_id2solver[eq.m_id]->new_eq_eh(eq);            
         }
     }
 
@@ -304,6 +304,7 @@ namespace euf {
     }
 
     void solver::push() {
+        si.push();
         scope s;
         s.m_var_lim = m_var_trail.size();
         m_scopes.push_back(s);
@@ -311,12 +312,6 @@ namespace euf {
         for (auto* e : m_solvers)
             e->push();
         m_egraph.push();
-    }
-
-    void solver::force_push() {
-        for (; m_num_scopes > 0; --m_num_scopes) {
-
-        }
     }
 
     void solver::pop(unsigned n) {
@@ -329,6 +324,32 @@ namespace euf {
         m_var_trail.shrink(s.m_var_lim);        
         m_trail.pop_scope(n);
         m_scopes.shrink(m_scopes.size() - n);
+        si.pop(n);
+    }
+
+    void solver::start_reinit(unsigned n) {
+        sat::literal_vector lits;
+        m_reinit_vars.reset();
+        m_reinit_exprs.reset();
+        s().get_reinit_literals(n, lits);
+        for (sat::literal lit : lits) {
+            sat::bool_var v = lit.var();
+            expr* e = bool_var2expr(v);
+            if (m_reinit_vars.contains(v) || !e)
+                continue;
+            m_reinit_vars.push_back(v);
+            m_reinit_exprs.push_back(e);
+        }
+    }
+
+    void solver::finish_reinit() {
+        unsigned sz = m_reinit_vars.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            euf::enode* n = get_enode(m_reinit_exprs.get(i));
+            if (n)
+                continue;
+
+        }
     }
 
     void solver::pre_simplify() {
@@ -360,6 +381,14 @@ namespace euf {
         for (auto* s : m_solvers)
             if (!s->set_root(l, r))
                 ok = false;
+        expr* e = bool_var2expr(l.var());
+        if (e) {
+            if (m.is_eq(e) && !m.is_iff(e))
+                ok = false;
+            euf::enode* n = get_enode(e);
+            if (n && n->merge_enabled())
+                ok = false;
+        }
         return ok;
     }
 
@@ -398,11 +427,11 @@ namespace euf {
         m_egraph.collect_statistics(st);
         for (auto* e : m_solvers)
             e->collect_statistics(st);
-        st.update("euf dynack", m_stats.m_num_dynack);
+        st.update("euf ackerman", m_stats.m_ackerman);
     }
 
     sat::extension* solver::copy(sat::solver* s) { 
-        auto* r = alloc(solver, *m_to_m, *m_to_expr2var, *m_to_si);
+        auto* r = alloc(solver, *m_to_m, *m_to_si);
         r->m_config = m_config;
         std::function<void* (void*)> copy_justification = [&](void* x) { return (void*)(r->base_ptr() + ((size_t*)x - base_ptr())); };
         r->m_egraph.copy_from(m_egraph, copy_justification);        
@@ -434,6 +463,9 @@ namespace euf {
         for (auto* e : m_solvers)
             if (!e->validate())
                 return false;
+        check_eqc_bool_assignment();
+        check_missing_bool_enode_propagation();
+        m_egraph.invariant();
         return true; 
     }
 

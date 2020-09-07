@@ -126,7 +126,7 @@ public:
         auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
         if (ext) {
             auto& si = result->m_goal2sat.si(dst_m, m_params, result->m_solver, result->m_map, result->m_dep2asm, is_incremental());
-            euf::solver::scoped_set_translate st(*ext, dst_m, result->m_map, si);  
+            euf::solver::scoped_set_translate st(*ext, dst_m, si);  
             result->m_solver.copy(m_solver);
         }        
         else {

@@ -58,6 +58,7 @@ namespace euf {
         inf.b = b;
         inf.c = nullptr;
         inf.is_cc = true;
+        inf.m_count = 0;
         insert();
     }
 
@@ -80,11 +81,11 @@ namespace euf {
             m_queue = inf;
         }
         else if (m_queue != inf) {
-            auto* next = inf->m_next;
             auto* prev = inf->m_prev;
-            prev->m_next = next;
-            next->m_prev = prev;
-            inf->m_prev = m_queue->m_prev;
+            prev->m_next = inf->m_next;
+            inf->m_next->m_prev = prev;
+            m_queue->m_prev->m_next = inf;
+            inf->m_prev = m_queue->m_prev;            
             inf->m_next = m_queue;
             m_queue->m_prev = inf;
             m_queue = inf;
@@ -101,6 +102,8 @@ namespace euf {
             new_tmp();        
         }
         other->m_count++;
+        if (other->m_count > m_high_watermark) 
+            s.s().set_should_simplify();
         push_to_front(other);
     }
 
@@ -116,12 +119,9 @@ namespace euf {
     void ackerman::new_tmp() {
         m_tmp_inference = alloc(inference);
         m_tmp_inference->m_next = m_tmp_inference->m_prev = m_tmp_inference;
-        m_tmp_inference->m_count = 0;
     }
 
     void ackerman::cg_conflict_eh(expr * n1, expr * n2) {
-        if (s.m_config.m_dack != DACK_ROOT)
-            return;
         if (!is_app(n1) || !is_app(n2))
             return;
         app* a = to_app(n1);
@@ -133,8 +133,6 @@ namespace euf {
     }
 
     void ackerman::used_eq_eh(expr* a, expr* b, expr* c) {
-        if (!s.m_config.m_dack_eq)
-            return;
         if (a == b || a == c || b == c)
             return;
         insert(a, b, c);
@@ -142,8 +140,6 @@ namespace euf {
     }
         
     void ackerman::used_cc_eh(app* a, app* b) {
-        if (s.m_config.m_dack != DACK_CR)
-            return;
         SASSERT(a->get_decl() == b->get_decl());
         SASSERT(a->get_num_args() == b->get_num_args());        
         insert(a, b);
@@ -174,10 +170,13 @@ namespace euf {
             k = n->m_next;
             if (n->m_count < s.m_config.m_dack_threshold) 
                 continue;
+            if (n->m_count >= m_high_watermark && num_prop < m_table.size())
+                ++num_prop;
             if (n->is_cc) 
                 add_cc(n->a, n->b);
             else 
-                add_eq(n->a, n->b, n->c);           
+                add_eq(n->a, n->b, n->c);       
+            ++s.m_stats.m_ackerman;
             remove(n);
         }
     }

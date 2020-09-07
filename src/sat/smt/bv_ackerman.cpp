@@ -22,6 +22,7 @@ namespace bv {
 
     ackerman::ackerman(solver& s): s(s) {
         new_tmp();
+        m_propagate_low_watermark = s.get_config().m_dack_threshold;
     }
 
     ackerman::~ackerman() {
@@ -44,7 +45,8 @@ namespace bv {
         n->v2 = v2;
         vv* other = m_table.insert_if_not_there(n);        
         other->m_count++;
-        if (other->m_count > 1000)
+        update_glue(*other);
+        if (other->m_count > m_propagate_high_watermark || other->m_glue == 0)
             s.s().set_should_simplify();
         push_to_front(other);
         if (other == n) {
@@ -52,6 +54,46 @@ namespace bv {
             gc();
         }
     }
+
+    void ackerman::update_glue(vv& v) {
+        unsigned sz = s.m_bits[v.v1].size();
+        m_diff_levels.reserve(s.s().scope_lvl() + 1, false);
+        unsigned glue = 0;
+        unsigned max_glue = v.m_glue;
+        auto const& bitsa = s.m_bits[v.v1];
+        auto const& bitsb = s.m_bits[v.v2];
+        unsigned i = 0;
+        for (; i < sz && i < max_glue; ++i) {
+            sat::literal a = bitsa[i];
+            sat::literal b = bitsb[i];
+            if (a == b)
+                continue;
+            SASSERT(s.s().value(a) != l_undef);
+            SASSERT(s.s().value(b) == s.s().value(a));
+            unsigned lvl_a = s.s().lvl(a);
+            unsigned lvl_b = s.s().lvl(b);
+            if (!m_diff_levels[lvl_a]) {
+                m_diff_levels[lvl_a] = true;
+                ++glue;
+            }
+            if (!m_diff_levels[lvl_b]) {
+                m_diff_levels[lvl_b] = true;
+                ++glue;
+            }            
+        }
+        for (; i-- > 0; ) {
+            sat::literal a = bitsa[i];
+            sat::literal b = bitsb[i];
+            if (a != b) {
+                m_diff_levels[s.s().lvl(a)] = false;
+                m_diff_levels[s.s().lvl(b)] = false;
+            }
+        }
+        
+        if (glue < max_glue) 
+            v.m_glue = glue <= sz ? 0 : glue;
+    }
+
 
     void ackerman::remove_from_queue(vv* p) {
         if (m_queue->m_next == m_queue) {
@@ -93,6 +135,7 @@ namespace bv {
         m_tmp_vv = alloc(vv);
         m_tmp_vv->m_next = m_tmp_vv->m_prev = m_tmp_vv;
         m_tmp_vv->m_count = 0;
+        m_tmp_vv->m_glue = UINT_MAX;
     }
         
     void ackerman::gc() {
@@ -117,7 +160,7 @@ namespace bv {
         num_prop = std::min(num_prop, m_table.size());
         for (unsigned i = 0; i < num_prop; ++i, n = k) {
             k = n->m_next;
-            if (n->m_count < s.get_config().m_dack_threshold)
+            if (n->m_count < m_propagate_low_watermark && n->m_glue != 0)
                 continue;            
             add_cc(n->v1, n->v2);
             remove(n);

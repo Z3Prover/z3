@@ -255,7 +255,7 @@ namespace bv {
         atom* a = get_bv2a(l.var());
         TRACE("bv", tout << "asserted: " << l << "\n";);
         if (a->is_bit())
-            for (auto vp : a->to_bit()) 
+            for (auto vp : a->to_bit())
                 m_prop_queue.push_back(vp);
     }
 
@@ -340,7 +340,35 @@ namespace bv {
         return true;
     }
 
+    /**
+    * Instantiate Ackerman axioms for bit-vectors that have become equal after roots have been added.
+    */
     void solver::flush_roots() {
+        struct eq {
+            solver& s;
+            eq(solver& s) :s(s) {}
+            bool operator()(theory_var v1, theory_var v2) const {
+                return s.m_bits[v1] == s.m_bits[v2];
+            }
+        };
+        struct hash {
+            solver& s;
+            hash(solver& s) :s(s) {}
+            bool operator()(theory_var v) const {
+                literal_vector const& a = s.m_bits[v];
+                return string_hash(reinterpret_cast<char*>(a.c_ptr()), a.size() * sizeof(sat::literal), 3);
+            }
+        };
+        eq eq_proc(*this);
+        hash hash_proc(*this);
+        map<theory_var, theory_var, hash, eq> table(hash_proc, eq_proc);
+        for (unsigned v = 0; v < get_num_vars(); ++v) {
+            if (!m_bits[v].empty()) {
+                theory_var w = table.insert_if_not_there(v, v);
+                if (v != w && m_find.find(v) != m_find.find(w))
+                    assert_ackerman(v, w);
+            }
+        }    
         TRACE("bv", tout << "infer new equations for bit-vectors that are now equal\n";);
     }
 
@@ -354,6 +382,7 @@ namespace bv {
             out << pp(v);
         return out;
     }
+
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const {
         return display_constraint(out, idx);
     }
@@ -423,7 +452,7 @@ namespace bv {
     void solver::init_use_list(sat::ext_use_list& ul) {}
     bool solver::is_blocked(literal l, sat::ext_constraint_idx) { return false; }
     bool solver::check_model(sat::model const& m) const { return true; }
-    unsigned solver::max_var(unsigned w) const { return 0; }
+    unsigned solver::max_var(unsigned w) const { return w; }
 
     void solver::add_value(euf::enode* n, expr_ref_vector& values) {
         SASSERT(bv.is_bv(n->get_owner()));

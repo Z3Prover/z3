@@ -19,9 +19,15 @@ Notes:
 
     For SMT extensions are as follows:
 
-    Assertion (trusted modulo internalizer):
+    Input assertion:
+      i <literal>* 0
+
+    Assertion (true modulo a theory):
       a [<theory-id>] <literal>* 0
-    The optional theory id indicates the assertion is irredundant
+    The if no theory id is given, the assertion is a tautology
+    modulo Tseitin converison. Theory ids track whether the
+    tautology is modulo a theory.
+    Assertions are irredundant.
 
     Bridge from ast-node to boolean variable:
       b <bool-var-id> <ast-node-id> 0
@@ -29,8 +35,8 @@ Notes:
     Definition of an expression (ast-node):
       e <ast-node-id> <name> <ast-node-id>* 0
 
-    Theory lemma
-      <theory-id> <literal>* 0
+    Redundant clause (theory lemma if theory id is given)
+      [r [<theory-id>]] <literal>* 0
 
     Available theories are:
       - euf   The theory lemma should be a consequence of congruence closure.
@@ -47,6 +53,7 @@ Notes:
 namespace sat {
     class justification;
     class clause;
+
     class drat {
     private:
         struct watched_clause {
@@ -142,6 +149,8 @@ namespace sat {
 
         void check_model(model const& m);
     };
+
+    std::ostream& operator<<(std::ostream& out, status const& st);
 
 };
 

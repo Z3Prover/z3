@@ -45,6 +45,7 @@ Revision History:
 #include "util/trace.h"
 #include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/scoped_limit_trail.h"
 
 namespace sat {
 
@@ -172,6 +173,7 @@ namespace sat {
             bool     m_inconsistent;
         };
         svector<scope>          m_scopes;
+        scoped_limit_trail      m_vars_lim;
         stopwatch               m_stopwatch;
         params_ref              m_params;
         scoped_ptr<solver>      m_clone; // for debugging purposes
@@ -620,6 +622,8 @@ namespace sat {
         void push();
         void pop(unsigned num_scopes);
         void pop_reinit(unsigned num_scopes);
+        void shrink_vars(unsigned v);
+        void pop_vars(unsigned num_scopes);
 
         void unassign_vars(unsigned old_sz, unsigned new_lvl);
         void reinit_clauses(unsigned old_sz);
@@ -634,6 +638,14 @@ namespace sat {
         bool_var max_var(clause_vector& clauses, bool_var v);
         bool_var max_var(bool learned, bool_var v);
 
+        // -----------------------
+        //
+        // External
+        //
+        // -----------------------
+    public:
+        void set_should_simplify() { m_next_simplify = m_conflicts_since_init; }
+        void get_reinit_literals(unsigned num_scopes, literal_vector& r);
     public:
         void user_push() override;
         void user_pop(unsigned num_scopes) override;
@@ -649,7 +661,6 @@ namespace sat {
         // -----------------------
     public:
         bool do_cleanup(bool force);
-        void set_should_simplify() { m_next_simplify = m_conflicts_since_init; }
         void simplify(bool learned = true);
         void asymmetric_branching();
         unsigned scc_bin();
@@ -798,4 +809,3 @@ namespace sat {
 
     std::ostream & operator<<(std::ostream & out, mk_stat const & stat);
 };
-

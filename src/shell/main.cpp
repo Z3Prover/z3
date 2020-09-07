@@ -38,15 +38,17 @@ Revision History:
 #include "util/env_params.h"
 #include "util/file_path.h"
 #include "shell/lp_frontend.h"
+#include "shell/drat_frontend.h"
 
 #if defined( _WINDOWS ) && defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
 #include <crtdbg.h>
 #endif
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS, IN_DRAT } input_kind;
 
 static std::string  g_aux_input_file;
 static char const * g_input_file          = nullptr;
+static char const * g_drat_input_file     = nullptr;
 static bool         g_standard_input      = false;
 static input_kind   g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
@@ -301,12 +303,14 @@ static void parse_cmd_line_args(int argc, char ** argv) {
             gparams::set(key, value);
         }
         else {
-            if (g_input_file) {
+            if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {
+                g_input_kind = IN_DRAT;
+                g_drat_input_file = arg;
+            }
+            else if (g_input_file) 
                 warning_msg("input file was already specified.");
-            }
-            else {
+            else 
                 g_input_file = arg;
-            }
         }
         i++;
     }
@@ -361,7 +365,7 @@ int STD_CALL main(int argc, char ** argv) {
                     g_input_kind = IN_MPS;
                 }
             }
-    }
+        }
         switch (g_input_kind) {
         case IN_SMTLIB_2:
             memory::exit_when_out_of_memory(true, "(error \"out of memory\")");
@@ -387,6 +391,9 @@ int STD_CALL main(int argc, char ** argv) {
             break;
         case IN_MPS:
             return_value = read_mps_file(g_input_file);
+            break;
+        case IN_DRAT:
+            return_value = read_drat(g_drat_input_file, g_input_file);
             break;
         default:
             UNREACHABLE();

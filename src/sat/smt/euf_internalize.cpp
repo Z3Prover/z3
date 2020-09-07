@@ -40,7 +40,7 @@ namespace euf {
             return sat::null_literal;
         SASSERT(m_egraph.find(e));
         if (m.is_bool(e))
-            return literal(m_expr2var.to_bool_var(e), sign);
+            return literal(si.to_bool_var(e), sign);
         return sat::null_literal;
     }
 
@@ -49,9 +49,7 @@ namespace euf {
         if (n)
             return true;
         if (si.is_bool_op(e)) {
-            sat::literal lit = attach_lit(si.internalize(e, m_is_redundant), e);
-            if (!m.is_true(e) && !m.is_false(e)) 
-                s().set_external(lit.var());
+            attach_lit(si.internalize(e, m_is_redundant), e);
             return true;
         }
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
@@ -102,6 +100,7 @@ namespace euf {
     sat::literal solver::attach_lit(literal lit, expr* e) {
         if (lit.sign()) {
             sat::bool_var v = si.add_bool_var(e);
+            s().set_external(v);
             sat::literal lit2 = literal(v, false);
             s().mk_clause(~lit, lit2, sat::status::th(false, m.get_basic_family_id()));
             s().mk_clause(lit, ~lit2, sat::status::th(false, m.get_basic_family_id()));
@@ -112,6 +111,7 @@ namespace euf {
         SASSERT(m_var2expr[v] == nullptr);
         m_var2expr[v] = e;
         m_var_trail.push_back(v);
+        s().set_external(v);
         if (!m_egraph.find(e)) {
             enode* n = m_egraph.mk(e, 0, nullptr);
             m_egraph.set_merge_enabled(n, false);
@@ -220,7 +220,7 @@ namespace euf {
             expr* c = a->get_arg(0);
             expr* th = a->get_arg(1);
             expr* el = a->get_arg(2);
-            sat::bool_var v = m_expr2var.to_bool_var(c);
+            sat::bool_var v = si.to_bool_var(c);
             SASSERT(v != sat::null_bool_var);
             SASSERT(!m.is_bool(e));
             expr_ref eq_th(m.mk_eq(a, th), m);
@@ -242,7 +242,7 @@ namespace euf {
                 }
             }
             expr_ref fml(m.mk_or(eqs), m);
-            sat::literal dist(m_expr2var.to_bool_var(e), false);
+            sat::literal dist(si.to_bool_var(e), false);
             sat::literal some_eq = si.internalize(fml, m_is_redundant);
             sat::literal lits1[2] = { ~dist, ~some_eq };
             sat::literal lits2[2] = { dist, some_eq };

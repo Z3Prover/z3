@@ -2785,6 +2785,7 @@ namespace sat {
         if (m_par && lemma) {
             m_par->share_clause(*this, *lemma);
         }
+        m_lemma.reset();
         TRACE("sat_conflict_detail", tout << "consistent " << (!m_inconsistent) << " scopes: " << scope_lvl() << " backtrack: " << backtrack_lvl << " backjump: " << backjump_lvl << "\n";);
         decay_activity();
         updt_phase_counters();
@@ -3652,6 +3653,7 @@ namespace sat {
         s.m_trail_lim = m_trail.size();
         s.m_clauses_to_reinit_lim = m_clauses_to_reinit.size();
         s.m_inconsistent = m_inconsistent;
+        // m_vars_lim.push(num_vars());
         if (m_ext)
             m_ext->push();
     }
@@ -3663,11 +3665,46 @@ namespace sat {
         m_stats.m_units = init_trail_size();
     }
 
+    void solver::pop_vars(unsigned num_scopes) {
+        unsigned old_num_vars = m_vars_lim.pop(num_scopes);
+        if (old_num_vars == num_vars()) 
+            return;
+        IF_VERBOSE(0, verbose_stream() << "new variables created under scope\n";);
+        for (unsigned v = old_num_vars; v < num_vars(); ++v) {
+            
+        }
+    }
+
+    void solver::shrink_vars(unsigned v) {
+        for (bool_var i = v; i < m_justification.size(); ++i) {
+            m_case_split_queue.del_var_eh(i);
+            m_probing.reset_cache(literal(i, true));
+            m_probing.reset_cache(literal(i, false));
+        }
+        m_watches.shrink(2*v);
+        m_assignment.shrink(2*v);
+        m_justification.shrink(v);
+        m_decision.shrink(v);
+        m_eliminated.shrink(v);
+        m_external.shrink(v);
+        m_touched.shrink(v);
+        m_activity.shrink(v);
+        m_mark.shrink(v);
+        m_lit_mark.shrink(2*v);
+        m_phase.shrink(v);
+        m_best_phase.shrink(v);
+        m_prev_phase.shrink(v);
+        m_assigned_since_gc.shrink(v);
+        m_simplifier.reset_todos();
+    }
+
     void solver::pop(unsigned num_scopes) {
         if (num_scopes == 0)
             return;
-        if (m_ext)
+        if (m_ext) {
+            // pop_vars(num_scopes);
             m_ext->pop(num_scopes);
+        }
         SASSERT(num_scopes <= scope_lvl());
         unsigned new_lvl = scope_lvl() - num_scopes;
         scope & s        = m_scopes[new_lvl];
@@ -3704,10 +3741,25 @@ namespace sat {
         m_qhead = m_trail.size();
         if (!m_replay_assign.empty()) IF_VERBOSE(20, verbose_stream() << "replay assign: " << m_replay_assign.size() << "\n");
         for (unsigned i = m_replay_assign.size(); i-- > 0; ) {
-            m_trail.push_back(m_replay_assign[i]);            
+            literal lit = m_replay_assign[i];
+            if (m_ext && m_external[lit.var()])
+                m_ext->asserted(lit);
+            m_trail.push_back(lit);            
         }
         
         m_replay_assign.reset();
+    }
+
+    void solver::get_reinit_literals(unsigned n, literal_vector& r) {
+        unsigned new_lvl = scope_lvl() - n;
+        unsigned old_sz = m_scopes[new_lvl].m_clauses_to_reinit_lim;
+        for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; ) {
+            clause_wrapper cw = m_clauses_to_reinit[i];
+            for (unsigned j = cw.size(); j-- > 0; )
+                r.push_back(cw[j]);
+        }
+        for (literal lit : m_lemma)
+            r.push_back(lit);
     }
 
     void solver::reinit_clauses(unsigned old_sz) {
@@ -3829,26 +3881,7 @@ namespace sat {
         
         // v is an index of a variable that does not occur in solver state.
         if (v < m_justification.size()) {
-            for (bool_var i = v; i < m_justification.size(); ++i) {
-                m_case_split_queue.del_var_eh(i);
-                m_probing.reset_cache(literal(i, true));
-                m_probing.reset_cache(literal(i, false));
-            }
-            m_watches.shrink(2*v);
-            m_assignment.shrink(2*v);
-            m_justification.shrink(v);
-            m_decision.shrink(v);
-            m_eliminated.shrink(v);
-            m_external.shrink(v);
-            m_touched.shrink(v);
-            m_activity.shrink(v);
-            m_mark.shrink(v);
-            m_lit_mark.shrink(2*v);
-            m_phase.shrink(v);
-            m_best_phase.shrink(v);
-            m_prev_phase.shrink(v);
-            m_assigned_since_gc.shrink(v);
-            m_simplifier.reset_todos();
+            shrink_vars(v);
         }
     }
 

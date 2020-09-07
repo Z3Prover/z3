@@ -75,6 +75,8 @@ namespace sat {
             out << "d";
         else if (st.is_asserted())
             out << "a";
+        else if (st.is_input())
+            out << "i";
 
         if (!st.is_sat())
             out << " " << m_theory[st.get_th()];
@@ -98,6 +100,14 @@ namespace sat {
         }
         else if (st.is_deleted()) {
             buffer[len++] = 'd';
+            buffer[len++] = ' ';
+        }
+        else if (st.is_input()) {
+            buffer[len++] = 'i';
+            buffer[len++] = ' ';
+        }
+        else if (st.is_redundant() && !st.is_sat()) {
+            buffer[len++] = 'r';
             buffer[len++] = ' ';
         }
 
@@ -825,6 +835,20 @@ namespace sat {
     }
 
     void drat::check_model(model const& m) {
+    }
+
+    std::ostream& operator<<(std::ostream& out, status const& st) {
+        if (st.is_deleted())
+            out << "d";
+        else if (st.is_input())
+            out << "i";
+        else if (st.is_asserted())
+            out << "a";
+        else if (st.is_redundant() && !st.is_sat())
+            out << "r";
+        if (!st.is_sat())
+            out << " th" << st.m_orig;
+        return out;
     }
 
 }

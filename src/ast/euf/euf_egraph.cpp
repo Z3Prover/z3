@@ -66,9 +66,7 @@ namespace euf {
     void egraph::reinsert_equality(enode* p) {
         SASSERT(is_equality(p));
         if (p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) {
-            m_new_lits.push_back(enode_bool_pair(p, true));
-            m_updates.push_back(update_record(update_record::new_lit()));
-            ++m_stats.m_num_eqs;
+            add_literal(p, true);
         }
     }
 
@@ -77,16 +75,14 @@ namespace euf {
     }
 
     void egraph::force_push() {
+        if (m_num_scopes == 0)
+            return;
         for (; m_num_scopes > 0; --m_num_scopes) {
-            scope s;
-            s.m_inconsistent = m_inconsistent;
-            s.m_num_updates = m_updates.size();
-            s.m_new_th_eqs_sz = m_new_th_eqs.size();
-            s.m_new_lits_qhead = m_new_lits_qhead;
-            s.m_new_th_eqs_qhead = m_new_th_eqs_qhead;
-            m_scopes.push_back(s);
+            m_scopes.push_back(m_updates.size());
             m_region.push_scope();
         }
+        m_updates.push_back(update_record(m_new_lits_qhead, update_record::new_lits_qhead()));
+        m_updates.push_back(update_record(m_new_th_eqs_qhead, update_record::new_th_eq_qhead()));
     }
 
     void egraph::update_children(enode* n) {
@@ -107,6 +103,7 @@ namespace euf {
             return n;
         if (is_equality(n)) {
             update_children(n);
+            reinsert_equality(n);
             return n;
         }
         enode_bool_pair p = m_table.insert(n);
@@ -133,6 +130,13 @@ namespace euf {
     void egraph::add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) {
         m_new_th_eqs.push_back(th_eq(id, v1, v2, c, r));
         m_updates.push_back(update_record(update_record::new_th_eq()));
+        m_stats.m_num_th_eqs;
+    }
+
+    void egraph::add_literal(enode* n, bool is_eq) {
+        m_new_lits.push_back(enode_bool_pair(n, is_eq));
+        m_updates.push_back(update_record(update_record::new_lit()));
+        if (is_eq) ++m_stats.m_num_eqs; else ++m_stats.m_num_lits;
     }
 
     void egraph::add_th_var(enode* n, theory_var v, theory_id id) {
@@ -183,7 +187,7 @@ namespace euf {
         }
         num_scopes -= m_num_scopes;
         unsigned old_lim = m_scopes.size() - num_scopes;
-        scope s = m_scopes[old_lim];
+        unsigned num_updates = m_scopes[old_lim];
         auto undo_node = [&](enode* n) {
             if (n->num_args() > 1)
                 m_table.erase(n);
@@ -192,7 +196,7 @@ namespace euf {
             m_nodes.pop_back();
             m_exprs.pop_back();
         };
-        for (unsigned i = m_updates.size(); i-- > s.m_num_updates; ) {
+        for (unsigned i = m_updates.size(); i-- > num_updates; ) {
             auto const& p = m_updates[i];
             switch (p.tag) {
             case update_record::tag_t::is_add_node:
@@ -217,16 +221,22 @@ namespace euf {
             case update_record::tag_t::is_new_th_eq:
                 m_new_th_eqs.pop_back();
                 break;
+            case update_record::tag_t::is_new_th_eq_qhead:
+                m_new_th_eqs_qhead = p.qhead;
+                break;
+            case update_record::tag_t::is_new_lits_qhead:
+                m_new_lits_qhead = p.qhead;
+                break;
+            case update_record::tag_t::is_inconsistent:
+                m_inconsistent = p.m_inconsistent;
+                break;
             default:
                 UNREACHABLE();
                 break;
             }                
         }        
-        
-        m_inconsistent = s.m_inconsistent;
-        m_new_lits_qhead = s.m_new_lits_qhead;
-        m_new_th_eqs_qhead = s.m_new_th_eqs_qhead;
-        m_updates.shrink(s.m_num_updates);
+       
+        m_updates.shrink(num_updates);
         m_scopes.shrink(old_lim);        
         m_region.pop_scope(num_scopes);  
         m_worklist.reset();
@@ -250,9 +260,7 @@ namespace euf {
             std::swap(n1, n2);
         }
         if ((m.is_true(r2->get_owner()) || m.is_false(r2->get_owner())) && j.is_congruence()) {
-            m_new_lits.push_back(enode_bool_pair(n1, false));
-            m_updates.push_back(update_record(update_record::new_lit()));
-            ++m_stats.m_num_lits;
+            add_literal(n1, false);
         }
         for (enode* p : enode_parents(n1)) 
             m_table.erase(p);            
@@ -314,6 +322,7 @@ namespace euf {
         if (m_inconsistent)
             return;
         m_inconsistent = true;
+        m_updates.push_back(update_record(false, update_record::inconsistent()));
         m_n1 = n1;
         m_n2 = n2;
         m_justification = j;
@@ -479,8 +488,9 @@ namespace euf {
     void egraph::collect_statistics(statistics& st) const {
         st.update("euf merge", m_stats.m_num_merge);
         st.update("euf conflicts", m_stats.m_num_conflicts);
-        st.update("euf eq prop", m_stats.m_num_eqs);
-        st.update("euf lit prop", m_stats.m_num_lits);
+        st.update("euf equality propagations", m_stats.m_num_eqs);
+        st.update("euf theory equality propagations", m_stats.m_num_th_eqs);
+        st.update("euf literal propagations", m_stats.m_num_lits);
     }
 
     void egraph::copy_from(egraph const& src, std::function<void*(void*)>& copy_justification) {

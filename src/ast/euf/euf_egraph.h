@@ -50,15 +50,9 @@ namespace euf {
     
     class egraph {        
         typedef ptr_vector<trail<egraph> > trail_stack;
-        struct scope {
-            bool     m_inconsistent;
-            unsigned m_num_updates;
-            unsigned m_new_th_eqs_sz;
-            unsigned m_new_lits_qhead;
-            unsigned m_new_th_eqs_qhead;
-        };
         struct stats {
             unsigned m_num_merge;
+            unsigned m_num_th_eqs;
             unsigned m_num_lits;
             unsigned m_num_eqs;
             unsigned m_num_conflicts;
@@ -71,7 +65,12 @@ namespace euf {
             struct replace_th_var {};
             struct new_lit {};
             struct new_th_eq {};
-            enum tag_t { is_set_parent, is_add_node, is_toggle_merge, is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq };
+            struct new_th_eq_qhead {};
+            struct new_lits_qhead {};
+            struct inconsistent {};
+            enum tag_t { is_set_parent, is_add_node, is_toggle_merge, 
+                         is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
+                         is_new_th_eq_qhead, is_new_lits_qhead, is_inconsistent };
             tag_t  tag;
             enode* r1;
             enode* n1;
@@ -81,6 +80,8 @@ namespace euf {
                     unsigned   m_th_id : 8;
                     unsigned   m_old_th_var : 24;
                 };
+                unsigned qhead;
+                bool     m_inconsistent;
             };
             update_record(enode* r1, enode* n1, unsigned r2_num_parents) :
                 tag(tag_t::is_set_parent), r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
@@ -96,13 +97,19 @@ namespace euf {
                 tag(tag_t::is_new_lit), r1(nullptr), n1(nullptr), r2_num_parents(0) {}
             update_record(new_th_eq) :
                 tag(tag_t::is_new_th_eq), r1(nullptr), n1(nullptr), r2_num_parents(0) {}
+            update_record(unsigned qh, new_th_eq_qhead):
+                tag(tag_t::is_new_th_eq_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
+            update_record(unsigned qh, new_lits_qhead):
+                tag(tag_t::is_new_lits_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
+            update_record(bool inc, inconsistent) :
+                tag(tag_t::is_inconsistent), m_inconsistent(inc) {}
         };
         ast_manager&           m;
         enode_vector           m_worklist;
         etable                 m_table;
         region                 m_region;
         svector<update_record> m_updates;
-        svector<scope>         m_scopes;
+        unsigned_vector        m_scopes;
         enode_vector           m_expr2enode;
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
@@ -126,6 +133,7 @@ namespace euf {
         void push_node(enode* n) { m_updates.push_back(update_record(n)); }
 
         void add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r);
+        void add_literal(enode* n, bool is_eq);
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
         void undo_add_th_var(enode* n, theory_id id);
         enode* mk_enode(expr* f, unsigned num_args, enode * const* args);

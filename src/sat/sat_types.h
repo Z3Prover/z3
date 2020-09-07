@@ -254,19 +254,22 @@ namespace sat {
 
     class status {
     public:
-        enum class st { asserted, redundant, deleted };
+        enum class st { input, asserted, redundant, deleted };
         st m_st;
         int m_orig;
     public:
         status(enum st s, int o) : m_st(s), m_orig(o) {};
         status(status const& s) : m_st(s.m_st), m_orig(s.m_orig) {}
         status(status&& s) noexcept { m_st = st::asserted; m_orig = -1; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); }
+        status& operator=(status const& other) { m_st = other.m_st; m_orig = other.m_orig; return *this; }
         static status redundant() { return status(status::st::redundant, -1); }
         static status asserted() { return status(status::st::asserted, -1); }
         static status deleted() { return status(status::st::deleted, -1); }
+        static status input() { return status(status::st::input, -1); }
 
         static status th(bool redundant, int id) { return status(redundant ? st::redundant : st::asserted, id); }
 
+        bool is_input() const { return st::input == m_st; }
         bool is_redundant() const { return st::redundant == m_st; }
         bool is_asserted() const { return st::asserted == m_st; }
         bool is_deleted() const { return st::deleted == m_st; }
@@ -274,7 +277,6 @@ namespace sat {
         bool is_sat() const { return -1 == m_orig; }
         int  get_th() const { return m_orig;  }
     };
-
 
 };
 

@@ -30,6 +30,7 @@ namespace bv {
             vv* m_next{ nullptr };
             vv* m_prev{ nullptr };
             unsigned   m_count{ 0 };
+            unsigned   m_glue{ UINT_MAX };
             vv():v1(euf::null_theory_var), v2(euf::null_theory_var) {}
             vv(euf::theory_var v1, euf::theory_var v2):v1(v1), v2(v2) {}
         };
@@ -53,8 +54,12 @@ namespace bv {
         vv*           m_queue { nullptr };
         vv*           m_tmp_vv { nullptr };
         unsigned      m_gc_threshold { 1 };
+        unsigned      m_propagate_high_watermark { 10000 };
+        unsigned      m_propagate_low_watermark { 10 };
         unsigned      m_num_propagations_since_last_gc { 0 };
- 
+        bool_vector   m_diff_levels;
+
+        void update_glue(vv& v);
         void reset();
         void new_tmp();
         void remove(vv* inf);

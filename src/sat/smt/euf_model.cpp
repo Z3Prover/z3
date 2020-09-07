@@ -80,7 +80,7 @@ namespace euf {
                 }
                 if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
                     continue;
-                sat::bool_var v = m_expr2var.to_bool_var(e);
+                sat::bool_var v = si.to_bool_var(e);
                 SASSERT(v != sat::null_bool_var);
                 switch (s().value(v)) {
                 case l_true:

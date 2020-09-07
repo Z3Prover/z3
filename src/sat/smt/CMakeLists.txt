@@ -8,6 +8,7 @@ z3_add_component(sat_smt
     bv_solver.cpp
     euf_ackerman.cpp
     euf_internalize.cpp
+    euf_invariant.cpp
     euf_model.cpp
     euf_proof.cpp
     euf_solver.cpp

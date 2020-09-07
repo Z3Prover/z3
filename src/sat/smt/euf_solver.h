@@ -55,7 +55,7 @@ namespace euf {
         friend class ackerman;
         // friend class sat::ba_solver;
         struct stats {
-            unsigned m_num_dynack;
+            unsigned m_ackerman;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -80,7 +80,6 @@ namespace euf {
         }
 
         ast_manager&          m;
-        atom2bool_var&        m_expr2var;
         sat::sat_internalizer& si;
         smt_params            m_config;
         euf::egraph           m_egraph;
@@ -92,7 +91,6 @@ namespace euf {
         sat::solver*           m_solver { nullptr };
         sat::lookahead*        m_lookahead { nullptr };
         ast_manager*           m_to_m;
-        atom2bool_var*         m_to_expr2var;
         sat::sat_internalizer* m_to_si;
         scoped_ptr<euf::ackerman>   m_ackerman;
 
@@ -109,11 +107,9 @@ namespace euf {
         constraint* m_lit      { nullptr };
 
         // internalization
-
         bool visit(expr* e) override;
         bool visited(expr* e) override;
-        bool post_visit(expr* e, bool sign, bool root) override;
-        
+        bool post_visit(expr* e, bool sign, bool root) override;        
         sat::literal attach_lit(sat::literal lit, expr* e);
         void add_distinct_axiom(app* e, euf::enode* const* args);
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
@@ -121,7 +117,13 @@ namespace euf {
         bool internalize_root(app* e, bool sign, ptr_vector<enode> const& args);
         euf::enode* mk_true();
         euf::enode* mk_false();
+
+        // replay
+        expr_ref_vector      m_reinit_exprs;
+        sat::bool_var_vector m_reinit_vars;
         
+        void start_reinit(unsigned num_scopes);
+        void finish_reinit();
 
         // extensions
         th_solver* get_solver(family_id fid, func_decl* f);
@@ -144,13 +146,17 @@ namespace euf {
         void propagate_literals();
         void propagate_th_eqs();
         void get_antecedents(literal l, constraint& j, literal_vector& r);
-        void force_push();
+
+        // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
         void log_node(expr* n);
         bool m_drat_initialized{ false };
         void init_drat();
-        
+
+        // invariant
+        void check_eqc_bool_assignment() const;
+        void check_missing_bool_enode_propagation() const;        
 
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
@@ -158,9 +164,8 @@ namespace euf {
         constraint& lit_constraint() { return mk_constraint(m_lit, constraint::kind_t::lit); }
 
     public:
-       solver(ast_manager& m, atom2bool_var& expr2var, sat::sat_internalizer& si, params_ref const& p = params_ref()):
+       solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p = params_ref()):
             m(m),
-            m_expr2var(expr2var),
             si(si),
             m_egraph(m),
             m_trail(*this),
@@ -168,8 +173,8 @@ namespace euf {
             m_solver(nullptr),
             m_lookahead(nullptr),
             m_to_m(&m),
-            m_to_expr2var(&expr2var),
-            m_to_si(&si)
+            m_to_si(&si),
+            m_reinit_exprs(m)
         {
             updt_params(p);
         }
@@ -182,15 +187,13 @@ namespace euf {
 
        struct scoped_set_translate {
            solver& s;
-           scoped_set_translate(solver& s, ast_manager& m, atom2bool_var& a2b, sat::sat_internalizer& si) :
+           scoped_set_translate(solver& s, ast_manager& m, sat::sat_internalizer& si) :
                s(s) {
                s.m_to_m = &m;
-               s.m_to_expr2var = &a2b;
                s.m_to_si = &si;
            }
            ~scoped_set_translate() {
                s.m_to_m = &s.m;
-               s.m_to_expr2var = &s.m_expr2var;
                s.m_to_si = &s.si;
            }
        };
@@ -200,7 +203,8 @@ namespace euf {
         sat::sat_internalizer& get_si() { return si; }
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) { return m_egraph.find(e); }
-        sat::literal get_literal(expr* e) { return literal(m_expr2var.to_bool_var(e), false); }
+        sat::literal get_literal(expr* e) const { return literal(si.to_bool_var(e), false); }
+        sat::literal get_literal(enode* e) const { return get_literal(e->get_owner()); }
         smt_params const& get_config() { return m_config; }
         region& get_region() { return m_trail.get_region(); }
         template <typename C>
@@ -265,5 +269,9 @@ namespace euf {
         void update_model(model_ref& mdl);
 
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }       
-    };
+    };    
 };
+
+inline std::ostream& operator<<(std::ostream& out, euf::solver const& s) {
+    return s.display(out);
+}
