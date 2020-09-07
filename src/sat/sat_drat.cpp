@@ -36,7 +36,8 @@ namespace sat {
         m_check(false),
         m_activity(false)
     {
-        if (s.get_config().m_drat && s.get_config().m_drat_file != symbol()) {
+        if (s.get_config().m_drat && s.get_config().m_drat_file.is_non_empty_string()) {
+            std::cout << "DRAT " << s.get_config().m_drat_file << "\n";
             auto mode = s.get_config().m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;
             m_out = alloc(std::ofstream, s.get_config().m_drat_file.str(), mode);
             if (s.get_config().m_drat_binary) {
@@ -61,7 +62,7 @@ namespace sat {
         m_bout = nullptr;
     }
 
-    void drat::updt_config() {
+    void drat::updt_config() {            
         m_check_unsat = s.get_config().m_drat_check_unsat;
         m_check_sat = s.get_config().m_drat_check_sat;
         m_check = m_check_unsat || m_check_sat;

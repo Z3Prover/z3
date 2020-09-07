@@ -1,3 +1,8 @@
+/*++
+Copyright (c) 2020 Microsoft Corporation
+
+--*/
+
 #include<iostream>
 #include<fstream>
 #include "util/memory_manager.h"
@@ -31,27 +36,49 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     drat.set_read_theory(read_theory);
     params_ref p;
     reslimit lim;
+    p.set_bool("sat.drat.check_unsat",true);
     p.set_bool("drat.check_unsat",true);
     sat::solver solver(p, lim);
     sat::drat drat_checker(solver);
+    drat_checker.updt_config();
 
     expr_ref_vector bool_var2expr(ctx.m());
-    expr_ref_vector exprs(ctx.m());
-    
+    expr_ref_vector exprs(ctx.m()), args(ctx.m());
+    func_decl* f = nullptr;
+    ptr_vector<sort> sorts;
     
     for (auto const& r : drat) {
         std::cout << r;
+        std::cout.flush();
         switch (r.m_tag) {
         case dimacs::drat_record::tag_t::is_clause:
-            // TODO check propositional and SMT consequences here
-            // drat_checker.add(r.m_lits, r.m_status);
+            for (sat::literal lit : r.m_lits)
+                while (lit.var() >= solver.num_vars())
+                    solver.mk_var(true);
+            drat_checker.add(r.m_lits, r.m_status);
             break;
         case dimacs::drat_record::tag_t::is_node:
-            // TODO: create AST nodes
+            args.reset();
+            sorts.reset();
+            for (auto n : r.m_args) {
+                args.push_back(exprs.get(n));
+                sorts.push_back(ctx.m().get_sort(args.back()));
+            }
+            if (r.m_name[0] == '(') {
+                std::cout << "parsing sexprs is TBD\n";
+                exit(0);
+            }
+            f = ctx.find_func_decl(symbol(r.m_name.c_str()), 0, nullptr, args.size(), sorts.c_ptr(), nullptr);
+            if (!f) {
+                std::cout << "could not find function\n";
+                exit(0);
+            }
+            exprs.reserve(r.m_node_id+1);
+            exprs.set(r.m_node_id, ctx.m().mk_app(f, args.size(), args.c_ptr()));
             break;
         case dimacs::drat_record::is_bool_def:
-            // TODO: map bool-vars to AST nodes.
-            // bool_var2expr.set(r.m_node_id, exprs.get(r.m_args[0]));
+            bool_var2expr.reserve(r.m_node_id+1);
+            bool_var2expr.set(r.m_node_id, exprs.get(r.m_args[0]));
             break;
         default:
             UNREACHABLE();
