@@ -306,6 +306,7 @@ void cmd_context::insert_macro(symbol const& s, unsigned arity, sort*const* doma
     else {
         VERIFY(decls.insert(m(), arity, domain, t));
     }
+    model_add(s, arity, domain, t);
 }
 
 void cmd_context::erase_macro(symbol const& s) {

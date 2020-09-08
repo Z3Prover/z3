@@ -260,9 +260,8 @@ extern "C" {
         bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
-        for (expr* e : ctx->tracked_assertions()) {
+        for (expr* e : ctx->tracked_assertions()) 
             to_solver(s)->assert_expr(e);
-        }
         to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
     }
 
