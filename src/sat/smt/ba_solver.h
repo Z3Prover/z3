@@ -361,7 +361,7 @@ namespace sat {
         void set_conflict(constraint& c, literal lit);
         void assign(constraint& c, literal lit);
         bool assigned_above(literal above, literal below);
-        void get_antecedents(literal l, constraint const& c, literal_vector & r);
+        void get_antecedents(literal l, constraint const& c, literal_vector & r, bool probing);
         bool validate_conflict(constraint const& c) const;
         bool validate_unit_propagation(constraint const& c, literal alit) const;
         void validate_eliminated();
@@ -576,8 +576,9 @@ namespace sat {
 
         bool is_external(bool_var v) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
+        bool unit_propagate() override { return false; }
         lbool resolve_conflict() override;
-        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
+        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) override;
         void asserted(literal l) override;
         check_result check() override;
         void push() override;
@@ -604,6 +605,7 @@ namespace sat {
         bool check_model(model const& m) const override;
 
         literal internalize(expr* e, bool sign, bool root, bool redundant) override;
+        void internalize(expr* e, bool redundant) override;
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
         euf::th_solver* fresh(solver* s, euf::solver& ctx) override;
 

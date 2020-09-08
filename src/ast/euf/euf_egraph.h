@@ -31,14 +31,6 @@ Notes:
 
 namespace euf {
 
-    struct add_eq_record {
-        enode* r1;
-        enode* n1;
-        unsigned r2_num_parents;
-        add_eq_record(enode* r1, enode* n1, unsigned r2_num_parents):
-            r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
-    };
-
     /***
       \brief store derived theory equalities.
       Theory 'id' is notified with the equality of theory variables v1, v2
@@ -58,31 +50,66 @@ namespace euf {
     
     class egraph {        
         typedef ptr_vector<trail<egraph> > trail_stack;
-        struct scope {
-            bool     m_inconsistent;
-            unsigned m_num_eqs;
-            unsigned m_num_nodes;
-            unsigned m_trail_sz;
-            unsigned m_new_lits_sz;
-            unsigned m_new_th_eqs_sz;
-            unsigned m_new_lits_qhead;
-            unsigned m_new_th_eqs_qhead;
-        };
         struct stats {
             unsigned m_num_merge;
+            unsigned m_num_th_eqs;
             unsigned m_num_lits;
             unsigned m_num_eqs;
             unsigned m_num_conflicts;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
+        struct update_record {
+            struct toggle_merge {};
+            struct add_th_var {};
+            struct replace_th_var {};
+            struct new_lit {};
+            struct new_th_eq {};
+            struct new_th_eq_qhead {};
+            struct new_lits_qhead {};
+            struct inconsistent {};
+            enum tag_t { is_set_parent, is_add_node, is_toggle_merge, 
+                         is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
+                         is_new_th_eq_qhead, is_new_lits_qhead, is_inconsistent };
+            tag_t  tag;
+            enode* r1;
+            enode* n1;
+            union {
+                unsigned r2_num_parents;
+                struct {
+                    unsigned   m_th_id : 8;
+                    unsigned   m_old_th_var : 24;
+                };
+                unsigned qhead;
+                bool     m_inconsistent;
+            };
+            update_record(enode* r1, enode* n1, unsigned r2_num_parents) :
+                tag(tag_t::is_set_parent), r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
+            update_record(enode* n) :
+                tag(tag_t::is_add_node), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
+            update_record(enode* n, toggle_merge) :
+                tag(tag_t::is_toggle_merge), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
+            update_record(enode* n, unsigned id, add_th_var) :
+                tag(tag_t::is_add_th_var), r1(n), n1(nullptr), r2_num_parents(id) {}
+            update_record(enode* n, theory_id id, theory_var v, replace_th_var) :
+                tag(tag_t::is_replace_th_var), r1(n), n1(nullptr), m_th_id(id), m_old_th_var(v) {}
+            update_record(new_lit) :
+                tag(tag_t::is_new_lit), r1(nullptr), n1(nullptr), r2_num_parents(0) {}
+            update_record(new_th_eq) :
+                tag(tag_t::is_new_th_eq), r1(nullptr), n1(nullptr), r2_num_parents(0) {}
+            update_record(unsigned qh, new_th_eq_qhead):
+                tag(tag_t::is_new_th_eq_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
+            update_record(unsigned qh, new_lits_qhead):
+                tag(tag_t::is_new_lits_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
+            update_record(bool inc, inconsistent) :
+                tag(tag_t::is_inconsistent), m_inconsistent(inc) {}
+        };
         ast_manager&           m;
-        trail_stack            m_trail;
-        region                 m_region;
         enode_vector           m_worklist;
         etable                 m_table;
-        svector<add_eq_record> m_eqs;
-        svector<scope>         m_scopes;
+        region                 m_region;
+        svector<update_record> m_updates;
+        unsigned_vector        m_scopes;
         enode_vector           m_expr2enode;
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
@@ -101,9 +128,14 @@ namespace euf {
         std::function<void(app*,app*)>        m_used_cc;  
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
-            m_eqs.push_back(add_eq_record(r1, n1, r2_num_parents));
+            m_updates.push_back(update_record(r1, n1, r2_num_parents));
         }
+        void push_node(enode* n) { m_updates.push_back(update_record(n)); }
+
+        void add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r);
+        void add_literal(enode* n, bool is_eq);
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
+        void undo_add_th_var(enode* n, theory_id id);
         enode* mk_enode(expr* f, unsigned num_args, enode * const* args);
         void reinsert(enode* n);
         void force_push();
@@ -173,10 +205,13 @@ namespace euf {
 
 
         void add_th_var(enode* n, theory_var v, theory_id id);
+        void set_merge_enabled(enode* n, bool enable_merge);
 
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
 
+        void begin_explain();
+        void end_explain();
         template <typename T>
         void explain(ptr_vector<T>& justifications);
         template <typename T>

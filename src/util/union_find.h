@@ -36,10 +36,10 @@ private:
     _trail_stack m_stack;
 };
 
-template<typename Ctx = union_find_default_ctx>
+template<typename Ctx = union_find_default_ctx, typename StackCtx = Ctx>
 class union_find {
     Ctx &                         m_ctx;
-    trail_stack<Ctx> &            m_trail_stack;
+    trail_stack<StackCtx> &       m_trail_stack;
     svector<unsigned>             m_find;
     svector<unsigned>             m_size;
     svector<unsigned>             m_next;
@@ -47,12 +47,12 @@ class union_find {
     class mk_var_trail;
     friend class mk_var_trail;
 
-    class mk_var_trail : public trail<Ctx> {
+    class mk_var_trail : public trail<StackCtx> {
         union_find & m_owner;
     public:
         mk_var_trail(union_find & o):m_owner(o) {}
         ~mk_var_trail() override {}
-        void undo(Ctx & ctx) override {
+        void undo(StackCtx& ctx) override {
             m_owner.m_find.pop_back();
             m_owner.m_size.pop_back();
             m_owner.m_next.pop_back();
@@ -64,13 +64,13 @@ class union_find {
     class merge_trail;
     friend class merge_trail;
 
-    class merge_trail : public trail<Ctx> {
+    class merge_trail : public trail<StackCtx> {
         union_find & m_owner;
         unsigned     m_r1;
     public:
         merge_trail(union_find & o, unsigned r1):m_owner(o), m_r1(r1) {}
         ~merge_trail() override {}
-        void undo(Ctx & ctx) override { m_owner.unmerge(m_r1); }
+        void undo(StackCtx& ctx) override { m_owner.unmerge(m_r1); }
     };
 
     void unmerge(unsigned r1) {

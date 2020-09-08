@@ -1900,7 +1900,6 @@ namespace sat {
     }
 
     bool simplifier::try_eliminate(bool_var v) {
-        TRACE("sat_simplifier", tout << "processing: " << v << "\n";);
         if (value(v) != l_undef)
             return false;
 
@@ -1963,7 +1962,7 @@ namespace sat {
                 }
             }
         }
-        TRACE("sat_simplifier", tout << "found var to eliminate, before: " << before_clauses << " after: " << after_clauses << "\n";);
+        TRACE("sat_simplifier", tout << "eliminate " << v << ", before: " << before_clauses << " after: " << after_clauses << "\n";);
         m_elim_counter -= num_pos * num_neg + before_lits;
 
         m_elim_counter -= num_pos * num_neg + before_lits;

@@ -21,17 +21,27 @@ Author:
 
 namespace euf {
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+    void solver::internalize(expr* e, bool redundant) {
         if (si.is_bool_op(e))
-            return si.internalize(e, redundant);
-        auto* ext = get_solver(e);
-        if (ext)
-            return ext->internalize(e, sign, root, redundant);
+            attach_lit(si.internalize(e, redundant), e);        
+        else if (auto* ext = get_solver(e))
+            ext->internalize(e, redundant);
+        else
+            visit_rec(m, e, false, false, redundant);
+        SASSERT(m_egraph.find(e));
+    }
 
+    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+        if (si.is_bool_op(e)) 
+            return attach_lit(si.internalize(e, redundant), e);        
+        if (auto* ext = get_solver(e))
+            return ext->internalize(e, sign, root, redundant);
         if (!visit_rec(m, e, sign, root, redundant))
             return sat::null_literal;
         SASSERT(m_egraph.find(e));
-        return literal(m_expr2var.to_bool_var(e), sign);
+        if (m.is_bool(e))
+            return literal(si.to_bool_var(e), sign);
+        return sat::null_literal;
     }
 
     bool solver::visit(expr* e) {
@@ -39,15 +49,7 @@ namespace euf {
         if (n)
             return true;
         if (si.is_bool_op(e)) {
-            sat::literal lit = si.internalize(e, m_is_redundant);
-            n = m_var2node.get(lit.var(), nullptr);
-            if (n && !lit.sign())
-                return n;
-            
-            n = m_egraph.mk(e, 0, nullptr);
-            attach_lit(lit, n);
-            if (!m.is_true(e) && !m.is_false(e)) 
-                s().set_external(lit.var());
+            attach_lit(si.internalize(e, m_is_redundant), e);
             return true;
         }
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
@@ -64,8 +66,12 @@ namespace euf {
         m_args.reset();
         for (unsigned i = 0; i < num; ++i)
             m_args.push_back(m_egraph.find(to_app(e)->get_arg(i)));
-        if (root && internalize_root(to_app(e), sign))
+        if (root && internalize_root(to_app(e), sign, m_args))
             return false;
+        if (auto* s = get_solver(e)) {
+            s->internalize(e, m_is_redundant);
+            return true;
+        }
         enode* n = m_egraph.mk(e, num, m_args.c_ptr());
         attach_node(n);
         return true;
@@ -77,33 +83,45 @@ namespace euf {
 
     void solver::attach_node(euf::enode* n) {
         expr* e = n->get_owner();
-        log_node(n);
-        if (m.is_bool(e)) {
-            sat::bool_var v = si.add_bool_var(e);
-            log_bool_var(v, n);
-            attach_lit(literal(v, false),  n);
+        if (!m.is_bool(e))
+            log_node(e);
+        else 
+            attach_lit(literal(si.add_bool_var(e), false),  e);        
+
+        if (!m.is_bool(e) && m.get_sort(e)->get_family_id() != null_family_id) {
+            auto* e_ext = get_solver(e);
+            auto* s_ext = get_solver(m.get_sort(e));
+            if (s_ext && s_ext != e_ext)
+                s_ext->apply_sort_cnstr(n, m.get_sort(e));
         }
         axiomatize_basic(n);
     }
 
-    void solver::attach_lit(literal lit, euf::enode* n) {
+    sat::literal solver::attach_lit(literal lit, expr* e) {
         if (lit.sign()) {
-            sat::bool_var v = si.add_bool_var(n->get_owner());
+            sat::bool_var v = si.add_bool_var(e);
+            s().set_external(v);
             sat::literal lit2 = literal(v, false);
-            s().mk_clause(~lit, lit2, sat::status::th(false, m.get_basic_family_id()));
-            s().mk_clause(lit, ~lit2, sat::status::th(false, m.get_basic_family_id()));
+            s().mk_clause(~lit, lit2, sat::status::asserted());
+            s().mk_clause(lit, ~lit2, sat::status::asserted());
             lit = lit2;
         }
         sat::bool_var v = lit.var();
-        m_var2node.reserve(v + 1, nullptr);
-        SASSERT(m_var2node[v] == nullptr);
-        m_var2node[v] = n;
+        m_var2expr.reserve(v + 1, nullptr);
+        SASSERT(m_var2expr[v] == nullptr);
+        m_var2expr[v] = e;
         m_var_trail.push_back(v);
+        s().set_external(v);
+        if (!m_egraph.find(e)) {
+            enode* n = m_egraph.mk(e, 0, nullptr);
+            m_egraph.set_merge_enabled(n, false);
+        }
+        return lit;
     }
 
-    bool solver::internalize_root(app* e, bool sign) {
+    bool solver::internalize_root(app* e, bool sign, enode_vector const& args) {
         if (m.is_distinct(e)) {
-            enode_vector _args(m_args);
+            enode_vector _args(args);
             if (sign)
                 add_not_distinct_axiom(e, _args.c_ptr());
             else
@@ -202,7 +220,7 @@ namespace euf {
             expr* c = a->get_arg(0);
             expr* th = a->get_arg(1);
             expr* el = a->get_arg(2);
-            sat::bool_var v = m_expr2var.to_bool_var(c);
+            sat::bool_var v = si.to_bool_var(c);
             SASSERT(v != sat::null_bool_var);
             SASSERT(!m.is_bool(e));
             expr_ref eq_th(m.mk_eq(a, th), m);
@@ -224,7 +242,7 @@ namespace euf {
                 }
             }
             expr_ref fml(m.mk_or(eqs), m);
-            sat::literal dist(m_expr2var.to_bool_var(e), false);
+            sat::literal dist(si.to_bool_var(e), false);
             sat::literal some_eq = si.internalize(fml, m_is_redundant);
             sat::literal lits1[2] = { ~dist, ~some_eq };
             sat::literal lits2[2] = { dist, some_eq };

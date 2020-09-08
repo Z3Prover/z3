@@ -45,6 +45,7 @@ Revision History:
 #include "util/trace.h"
 #include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/scoped_limit_trail.h"
 
 namespace sat {
 
@@ -172,6 +173,7 @@ namespace sat {
             bool     m_inconsistent;
         };
         svector<scope>          m_scopes;
+        scoped_limit_trail      m_vars_lim;
         stopwatch               m_stopwatch;
         params_ref              m_params;
         scoped_ptr<solver>      m_clone; // for debugging purposes
@@ -399,6 +401,7 @@ namespace sat {
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() const { return m_config; }
         drat& get_drat() { return m_drat; }
+        drat* get_drat_ptr() override { return &m_drat;  }
         void set_incremental(bool b) { m_config.m_incremental = b; }
         bool is_incremental() const { return m_config.m_incremental; }
         extension* get_extension() const override { return m_ext.get(); }
@@ -565,8 +568,6 @@ namespace sat {
         unsigned       m_conflict_lvl;
         literal_vector m_lemma;
         literal_vector m_ext_antecedents;
-        literal        m_cached_antecedent_consequent;
-        ext_justification_idx m_cached_antecedent_js { 0 };
         bool use_backjumping(unsigned num_scopes);
         bool resolve_conflict();
         lbool resolve_conflict_core();
@@ -582,7 +583,7 @@ namespace sat {
         void resolve_conflict_for_unsat_core();
         void process_antecedent_for_unsat_core(literal antecedent);
         void process_consequent_for_unsat_core(literal consequent, justification const& js);
-        void fill_ext_antecedents(literal consequent, justification js);
+        void fill_ext_antecedents(literal consequent, justification js, bool probing);
         unsigned skip_literals_above_conflict_level();
         void updt_phase_of_vars();
         void updt_phase_counters();
@@ -621,6 +622,8 @@ namespace sat {
         void push();
         void pop(unsigned num_scopes);
         void pop_reinit(unsigned num_scopes);
+        void shrink_vars(unsigned v);
+        void pop_vars(unsigned num_scopes);
 
         void unassign_vars(unsigned old_sz, unsigned new_lvl);
         void reinit_clauses(unsigned old_sz);
@@ -635,6 +638,14 @@ namespace sat {
         bool_var max_var(clause_vector& clauses, bool_var v);
         bool_var max_var(bool learned, bool_var v);
 
+        // -----------------------
+        //
+        // External
+        //
+        // -----------------------
+    public:
+        void set_should_simplify() { m_next_simplify = m_conflicts_since_init; }
+        void get_reinit_literals(unsigned num_scopes, literal_vector& r);
     public:
         void user_push() override;
         void user_pop(unsigned num_scopes) override;
@@ -798,4 +809,3 @@ namespace sat {
 
     std::ostream & operator<<(std::ostream & out, mk_stat const & stat);
 };
-

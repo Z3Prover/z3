@@ -18,6 +18,9 @@ Revision History:
 --*/
 #pragma once
 
+#if 0
+-- unused
+
 /**
    Add element \c elem to the list headed by \c head.
    NextProc and PrevProc must have the methods:
@@ -130,6 +133,53 @@ bool dlist_check_invariant(T * head, NextProc const & next = NextProc(), PrevPro
     }
     return true;
 }
+
+#endif
+
+template<typename T>
+class dll_base {
+    T* m_next { nullptr };
+    T* m_prev { nullptr };
+public:
+
+    T* prev() { return m_prev; }
+    T* next() { return m_next; }
+
+    void init(T* t) {
+        m_next = t;
+        m_prev = t;
+    }
+    
+    static void remove_from(T*& list, T* elem) {
+        if (list->m_next == list) {
+            SASSERT(elem == list);
+            list = nullptr;
+            return;
+        }            
+        if (list == elem)
+            list = elem->m_next;
+        auto* next = elem->m_next;
+        auto* prev = elem->m_prev;
+        prev->m_next = next;
+        next->m_prev = prev;        
+    }
+
+    static void push_to_front(T*& list, T* elem) {
+        if (!list) {
+            list = elem;
+            elem->m_next = elem;
+            elem->m_prev = elem;            
+        }
+        else if (list != elem) {
+            remove_from(list, elem);
+            list->m_prev->m_next = elem;
+            elem->m_prev = list->m_prev;
+            elem->m_next = list;
+            list->m_prev = elem;
+            list = elem;
+        }
+    }
+};
 
 
 

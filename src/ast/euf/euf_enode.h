@@ -36,21 +36,22 @@ namespace euf {
     const theory_id null_theory_id = -1;
 
     class enode {
-        expr*         m_owner;
+        expr*         m_owner{ nullptr };
         bool          m_mark1 { false };
         bool          m_mark2 { false };
         bool          m_commutative { false };
         bool          m_update_children { false };
         bool          m_interpreted { false };
+        bool          m_merge_enabled { true };
         unsigned      m_class_size { 1 };
         unsigned      m_table_id { UINT_MAX };
         enode_vector  m_parents;
-        enode*        m_next;
-        enode*        m_root;
+        enode*        m_next{ nullptr };
+        enode*        m_root{ nullptr };
         enode*        m_target { nullptr };
         th_var_list   m_th_vars;
         justification m_justification;
-        unsigned      m_num_args;
+        unsigned      m_num_args { 0 };
         enode*        m_args[0];        
 
         friend class enode_args;
@@ -73,6 +74,7 @@ namespace euf {
             n->m_root = n;
             n->m_commutative = num_args == 2 && is_app(f) && to_app(f)->get_decl()->is_commutative();
             n->m_num_args = num_args;
+            n->m_merge_enabled = true;
             for (unsigned i = 0; i < num_args; ++i) {
                 SASSERT(to_app(f)->get_arg(i) == args[i]->get_owner());
                 n->m_args[i] = args[i];
@@ -86,7 +88,8 @@ namespace euf {
         friend class replace_th_var_trail;
         void add_th_var(theory_var v, theory_id id, region & r) { m_th_vars.add_var(v, id, r); }
         void replace_th_var(theory_var v, theory_id id) { m_th_vars.replace(v, id); }
-        void del_th_var(theory_id id) { m_th_vars.del_var(id); }        
+        void del_th_var(theory_id id) { m_th_vars.del_var(id); }   
+        void set_merge_enabled(bool m) { m_merge_enabled = m; }
 
     public:
         ~enode() { 
@@ -106,6 +109,7 @@ namespace euf {
         bool interpreted() const { return m_interpreted; }
         bool commutative() const { return m_commutative; }
         void mark_interpreted() { SASSERT(num_args() == 0); m_interpreted = true; }
+        bool merge_enabled() { return m_merge_enabled; }
 
         enode* get_arg(unsigned i) const { SASSERT(i < num_args()); return m_args[i]; }        
         unsigned hash() const { return m_owner->hash(); }
@@ -143,6 +147,7 @@ namespace euf {
         unsigned get_owner_id() const { return m_owner->get_id(); }
         unsigned get_root_id() const { return m_root->m_owner->get_id(); }
         theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }
+        bool is_attached_to(theory_id id) const { return get_th_var(id) != null_theory_var; }
         bool has_th_vars() const { return !m_th_vars.empty(); }
 
         void inc_class_size(unsigned n) { m_class_size += n; }

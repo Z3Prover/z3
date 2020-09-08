@@ -37,7 +37,6 @@ Revision History:
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
-#include "smt/theory_jobscheduler.h"
 
 namespace smt {
 
@@ -123,8 +122,6 @@ namespace smt {
             setup_UFLRA();
         else if (m_logic == "LRA")
             setup_LRA();
-        else if (m_logic == "CSP")
-            setup_CSP();
         else if (m_logic == "QF_FP")
             setup_QF_FP();
         else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
@@ -203,8 +200,6 @@ namespace smt {
                 setup_QF_DT();
             else if (m_logic == "LRA")
                 setup_LRA();
-            else if (m_logic == "CSP")
-                setup_CSP();
             else 
                 setup_unknown(st);
         }
@@ -930,11 +925,6 @@ namespace smt {
 
     void setup::setup_seq() {
         m_context.register_plugin(alloc(smt::theory_seq, m_context));
-    }
-
-    void setup::setup_CSP() {
-        setup_unknown();
-        m_context.register_plugin(alloc(smt::theory_jobscheduler, m_context));
     }
 
     void setup::setup_special_relations() {

@@ -25,6 +25,7 @@ namespace sat {
 
     class cut_simplifier;
     class extension;
+    class drat;
 
     class solver_core {
     protected:
@@ -94,6 +95,8 @@ namespace sat {
         virtual void       set_extension(extension* e) { if (e) throw default_exception("optional API not supported"); }
 
         virtual cut_simplifier* get_cut_simplifier() { return nullptr; }
+
+        virtual drat* get_drat_ptr() { return nullptr;  }
 
 
         // The following methods are used when converting the state from the SAT solver back

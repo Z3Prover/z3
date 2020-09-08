@@ -36,10 +36,13 @@ namespace euf {
         virtual bool visit(expr* e) { return false; }
         virtual bool visited(expr* e) { return false; }
         virtual bool post_visit(expr* e, bool sign, bool root) { return false; }
+
     public:
         virtual ~th_internalizer() {}
 
         virtual sat::literal internalize(expr* e, bool sign, bool root, bool redundant) = 0;
+
+        virtual void internalize(expr* e, bool redundant) = 0;
 
         /**
            \brief Apply (interpreted) sort constraints on the given enode.
@@ -69,7 +72,7 @@ namespace euf {
         /**
            \brief compute dependencies for node n
          */
-        virtual void add_dep(euf::enode* n, top_sort<euf::enode>& dep) {}
+        virtual void add_dep(euf::enode* n, top_sort<euf::enode>& dep) { dep.insert(n, nullptr);  }
 
         /**
            \brief should function be included in model.
@@ -102,24 +105,39 @@ namespace euf {
         solver &            ctx;
         euf::enode_vector   m_var2enode;
         unsigned_vector     m_var2enode_lim;
+        unsigned            m_num_scopes{ 0 };
 
         smt_params const& get_config() const;
-        sat::literal get_literal(expr* e) const;
+        sat::literal expr2literal(expr* e) const;
         region& get_region();
+        
+
+        void add_unit(sat::literal lit);
+        void add_clause(sat::literal a, sat::literal b);
+        void add_clause(sat::literal a, sat::literal b, sat::literal c);
+        void add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
+
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);
         virtual ~th_euf_solver() {}
         virtual theory_var mk_var(enode * n);
         unsigned get_num_vars() const { return m_var2enode.size();}
-        enode* get_enode(expr* e) const; 
-        enode* get_enode(theory_var v) const { return m_var2enode[v]; }
-        expr* get_expr(theory_var v) const { return get_enode(v)->get_owner(); }
-        expr_ref get_expr(sat::literal lit) const { expr* e = get_expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
+        enode* expr2enode(expr* e) const; 
+        enode* var2enode(theory_var v) const { return m_var2enode[v]; }
+        expr* var2expr(theory_var v) const { return var2enode(v)->get_owner(); }
+        expr* bool_var2expr(sat::bool_var v) const;
+        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
         theory_var get_th_var(expr* e) const;
+        trail_stack<euf::solver> & get_trail_stack();
         bool is_attached_to_var(enode* n) const;
+        bool is_root(theory_var v) const { return var2enode(v)->is_root(); }
         void push() override;
         void pop(unsigned n) override;
+
+        void lazy_push() { ++m_num_scopes; }
+        void force_push() { for (; m_num_scopes > 0; --m_num_scopes) push(); }
+        unsigned lazy_pop(unsigned n);
     };
 
 

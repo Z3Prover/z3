@@ -65,15 +65,24 @@ namespace euf {
         return ctx.get_region();
     }
 
-    enode* th_euf_solver::get_enode(expr* e) const { 
+    trail_stack<euf::solver>& th_euf_solver::get_trail_stack() {
+        return ctx.get_trail_stack();
+    }
+
+    enode* th_euf_solver::expr2enode(expr* e) const { 
         return ctx.get_enode(e); 
     }
 
-    sat::literal th_euf_solver::get_literal(expr* e) const {
+    sat::literal th_euf_solver::expr2literal(expr* e) const {
         return ctx.get_literal(e);
     }
 
+    expr* th_euf_solver::bool_var2expr(sat::bool_var v) const {
+        return ctx.bool_var2expr(v);
+    }
+
     theory_var th_euf_solver::mk_var(enode * n) {
+        force_push();
         SASSERT(!is_attached_to_var(n));
         euf::theory_var v = m_var2enode.size();
         m_var2enode.push_back(n);
@@ -82,7 +91,7 @@ namespace euf {
 
     bool th_euf_solver::is_attached_to_var(enode* n) const {
         theory_var v = n->get_th_var(get_id());
-        return v != null_theory_var && get_enode(v) == n;
+        return v != null_theory_var && var2enode(v) == n;
     }
 
     theory_var th_euf_solver::get_th_var(expr* e) const {
@@ -97,6 +106,37 @@ namespace euf {
         unsigned new_lvl = m_var2enode_lim.size() - num_scopes;
         m_var2enode.shrink(m_var2enode_lim[new_lvl]);
         m_var2enode_lim.shrink(new_lvl);
+    }
+
+    unsigned th_euf_solver::lazy_pop(unsigned n) {
+        if (n <= m_num_scopes) {
+            m_num_scopes -= n;
+            return 0;
+        }
+        else {
+            n -= m_num_scopes;
+            pop(n);
+            return n;
+        }
+    }
+
+    void th_euf_solver::add_unit(sat::literal lit) {
+        ctx.s().add_clause(1, &lit, sat::status::th(m_is_redundant, get_id())); 
+    }
+
+    void th_euf_solver::add_clause(sat::literal a, sat::literal b) {
+        sat::literal lits[2] = { a, b };
+        ctx.s().add_clause(2, lits, sat::status::th(m_is_redundant, get_id()));
+    }
+
+    void th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c) {
+        sat::literal lits[3] = { a, b, c };
+        ctx.s().add_clause(3, lits, sat::status::th(m_is_redundant, get_id()));
+    }
+
+    void th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d) {
+        sat::literal lits[4] = { a, b, c, d };
+        ctx.s().add_clause(4, lits, sat::status::th(m_is_redundant, get_id()));
     }
 
 }

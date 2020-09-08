@@ -16,6 +16,7 @@ Author:
 --*/
 #pragma once
 
+#include "util/dlist.h"
 #include "ast/euf/euf_egraph.h"
 #include "sat/smt/atom2bool_var.h"
 #include "sat/smt/sat_th.h"
@@ -24,13 +25,12 @@ namespace euf {
 
     class solver;
 
+
     class ackerman {
 
-        struct inference {
+        struct inference : dll_base<inference>{
             bool is_cc;
             expr* a, *b, *c;
-            inference* m_next{ nullptr };
-            inference* m_prev{ nullptr };
             unsigned   m_count{ 0 };
             inference():is_cc(false), a(nullptr), b(nullptr), c(nullptr) {}
             inference(app* a, app* b):is_cc(true), a(a), b(b), c(nullptr) {}
@@ -58,6 +58,7 @@ namespace euf {
         inference*    m_queue { nullptr };
         inference*    m_tmp_inference { nullptr };
         unsigned      m_gc_threshold { 1 };
+        unsigned      m_high_watermark { 1000 };
         unsigned      m_num_propagations_since_last_gc { 0 };
  
         void reset();
@@ -69,8 +70,6 @@ namespace euf {
         void add_cc(expr* a, expr* b);
         void add_eq(expr* a, expr* b, expr* c);        
         void gc();
-        void push_to_front(inference* inf);        
-        void remove_from_queue(inference* inf);
 
     public:
         ackerman(solver& s, ast_manager& m);

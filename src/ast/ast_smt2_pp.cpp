@@ -1342,6 +1342,17 @@ std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p) {
     return out;
 }
 
+std::ostream& operator<<(std::ostream& out, mk_ismt2_func const& p) {
+    smt2_pp_environment_dbg env(p.m);        
+    format_ref r(fm(p.m));
+    unsigned len = 0;
+    r = env.pp_fdecl(p.m_fn, len);
+    params_ref pa;
+    pp(out, r.get(), p.m, pa);
+    return out;
+}
+
+
 std::ostream& operator<<(std::ostream& out, expr_ref const&  e) {
     return out << mk_ismt2_pp(e.get(), e.get_manager());
 }
@@ -1387,6 +1398,8 @@ std::ostream& operator<<(std::ostream& out, sort_ref_vector const&  e) {
         out << mk_ismt2_pp(s, e.get_manager()) << "\n";
     return out;
 }
+
+
 
 #ifdef Z3DEBUG
 void pp(expr const * n, ast_manager & m) {

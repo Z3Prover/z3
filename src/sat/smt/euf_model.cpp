@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "sat/smt/euf_solver.h"
 #include "model/value_factory.h"
 
@@ -79,7 +80,7 @@ namespace euf {
                 }
                 if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
                     continue;
-                sat::bool_var v = m_expr2var.to_bool_var(e);
+                sat::bool_var v = si.to_bool_var(e);
                 SASSERT(v != sat::null_bool_var);
                 switch (s().value(v)) {
                 case l_true:
@@ -100,6 +101,8 @@ namespace euf {
                 expr* v = user_sort.get_fresh_value(m.get_sort(e));
                 values.set(id, v);
             }
+            else if ((mb = get_solver(m.get_sort(e))))
+                mb->add_value(n, values);
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
@@ -119,6 +122,9 @@ namespace euf {
             if (m.is_bool(e) && is_uninterp_const(e) && mdl->get_const_interp(f))
                 continue;
             expr* v = values.get(n->get_root_id());
+            CTRACE("euf", !v, tout << "no value for " << mk_pp(e, m) << "\n";);
+            if (!v)
+                continue;
             unsigned arity = f->get_arity();
             if (arity == 0) 
                 mdl->register_decl(f, v);
@@ -129,8 +135,11 @@ namespace euf {
                     mdl->register_decl(f, fi);
                 }
                 args.reset();
-                for (enode* arg : enode_args(n)) 
+                for (enode* arg : enode_args(n)) {
                     args.push_back(values.get(arg->get_root_id()));
+                    SASSERT(args.back());
+                }
+                SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.c_ptr()))
                     fi->insert_new_entry(args.c_ptr(), v);
             }

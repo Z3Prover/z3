@@ -58,37 +58,10 @@ namespace euf {
         inf.b = b;
         inf.c = nullptr;
         inf.is_cc = true;
+        inf.m_count = 0;
         insert();
     }
 
-    void ackerman::remove_from_queue(inference* inf) {
-        if (m_queue->m_next == m_queue) {
-            SASSERT(inf == m_queue);
-            m_queue = nullptr;
-            return;
-        }            
-        if (m_queue == inf) 
-            m_queue = inf->m_next;
-        auto* next = inf->m_next;
-        auto* prev = inf->m_prev;
-        prev->m_next = next;
-        next->m_prev = prev;        
-    }
-
-    void ackerman::push_to_front(inference* inf) {
-        if (!m_queue) {
-            m_queue = inf;
-        }
-        else if (m_queue != inf) {
-            auto* next = inf->m_next;
-            auto* prev = inf->m_prev;
-            prev->m_next = next;
-            next->m_prev = prev;
-            inf->m_prev = m_queue->m_prev;
-            inf->m_next = m_queue;
-            m_queue->m_prev = inf;
-        }
-    }
 
     void ackerman::insert() {
         inference* inf = m_tmp_inference;
@@ -97,15 +70,16 @@ namespace euf {
             m.inc_ref(inf->a);
             m.inc_ref(inf->b);
             m.inc_ref(inf->c);
-        }
-        else 
             new_tmp();        
+        }
         other->m_count++;
-        push_to_front(other);
+        if (other->m_count > m_high_watermark) 
+            s.s().set_should_simplify();
+        inference::push_to_front(m_queue, other);
     }
 
     void ackerman::remove(inference* inf) {
-        remove_from_queue(inf);
+        inference::remove_from(m_queue, inf);
         m_table.erase(inf);
         m.dec_ref(inf->a);
         m.dec_ref(inf->b);
@@ -115,13 +89,10 @@ namespace euf {
 
     void ackerman::new_tmp() {
         m_tmp_inference = alloc(inference);
-        m_tmp_inference->m_next = m_tmp_inference->m_prev = m_tmp_inference;
-        m_tmp_inference->m_count = 0;
+        m_tmp_inference->init(m_tmp_inference);
     }
 
     void ackerman::cg_conflict_eh(expr * n1, expr * n2) {
-        if (s.m_config.m_dack != DACK_ROOT)
-            return;
         if (!is_app(n1) || !is_app(n2))
             return;
         app* a = to_app(n1);
@@ -133,8 +104,6 @@ namespace euf {
     }
 
     void ackerman::used_eq_eh(expr* a, expr* b, expr* c) {
-        if (!s.m_config.m_dack_eq)
-            return;
         if (a == b || a == c || b == c)
             return;
         insert(a, b, c);
@@ -142,8 +111,6 @@ namespace euf {
     }
         
     void ackerman::used_cc_eh(app* a, app* b) {
-        if (s.m_config.m_dack != DACK_CR)
-            return;
         SASSERT(a->get_decl() == b->get_decl());
         SASSERT(a->get_num_args() == b->get_num_args());        
         insert(a, b);
@@ -157,8 +124,8 @@ namespace euf {
         m_num_propagations_since_last_gc = 0;
         
         while (m_table.size() > m_gc_threshold) 
-            remove(m_queue->m_prev);     
-
+            remove(m_queue->prev());
+    
         m_gc_threshold *= 110;
         m_gc_threshold /= 100;
         m_gc_threshold++;
@@ -171,13 +138,16 @@ namespace euf {
         unsigned num_prop = static_cast<unsigned>(s.s().get_stats().m_conflict * s.m_config.m_dack_factor);
         num_prop = std::min(num_prop, m_table.size());
         for (unsigned i = 0; i < num_prop; ++i, n = k) {
-            k = n->m_next;
+            k = n->next();
             if (n->m_count < s.m_config.m_dack_threshold) 
                 continue;
+            if (n->m_count >= m_high_watermark && num_prop < m_table.size())
+                ++num_prop;
             if (n->is_cc) 
                 add_cc(n->a, n->b);
             else 
-                add_eq(n->a, n->b, n->c);           
+                add_eq(n->a, n->b, n->c);       
+            ++s.m_stats.m_ackerman;
             remove(n);
         }
     }

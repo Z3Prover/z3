@@ -38,13 +38,13 @@ namespace sat {
 
         solver&                              m_solver;
         scoped_ptr<solver>                   s;
-        unsigned                             m_bin_clauses;
-        unsigned                             m_stopped_at;
+        unsigned                             m_bin_clauses{ 0 };
+        unsigned                             m_stopped_at{ 0 };
         vector<clause_vector>                m_use_list;
-        unsigned                             m_limit1, m_limit2;
+        unsigned                             m_limit1{ 0 }, m_limit2{ 0 };
         bool_vector                        m_mark, m_mark2;
         literal_vector                       m_must_candidates, m_may_candidates;
-        unsigned                             m_state;
+        unsigned                             m_state{ 0 };
 
         void init_g() { m_state = 0x7; }
         void g_add_binary(literal l1, literal l2, bool flip2);

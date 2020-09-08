@@ -99,7 +99,7 @@ unsigned get_max_len(ptr_buffer<char> & keys) {
     return max;
 }
 
-void statistics::display_smt2(std::ostream & out) const {   
+std::ostream& statistics::display_smt2(std::ostream & out) const {   
 #define INIT_DISPLAY()                                  \
     key2val m_u;                                        \
     key2dval m_d;                                       \
@@ -140,9 +140,10 @@ void statistics::display_smt2(std::ostream & out) const {
         }
     }
     out << ")\n";
+    return out;
 }
 
-void statistics::display(std::ostream & out) const {
+std::ostream& statistics::display(std::ostream & out) const {
     INIT_DISPLAY();
 
 #undef DISPLAY_KEY
@@ -169,6 +170,7 @@ void statistics::display(std::ostream & out) const {
             out << " " << std::fixed << std::setprecision(2) << d_val << "\n";
         }
     }
+    return out;
 }
 
 template<typename M>

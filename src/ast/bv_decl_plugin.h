@@ -368,6 +368,9 @@ public:
     MATCH_BINARY(is_bv_sdivi);
     MATCH_BINARY(is_bv_udivi);
     MATCH_BINARY(is_bv_smodi);
+    MATCH_UNARY(is_bit2bool);
+    MATCH_UNARY(is_int2bv);
+    bool is_bit2bool(expr* e, expr*& bv, unsigned& idx) const;
 
     rational norm(rational const & val, unsigned bv_size, bool is_signed) const ;
     rational norm(rational const & val, unsigned bv_size) const { return norm(val, bv_size, false); }
@@ -432,6 +435,7 @@ public:
     app * mk_bvsmul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_OVFL, n, m); }
     app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_UDFL, n, m); }
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
+    app * mk_bit2bool(expr* e, unsigned idx) { parameter p(idx); return m_manager.mk_app(get_fid(), OP_BIT2BOOL, 1, &p, 1, &e); }
 
     private:
     void log_bv_from_exprs(app * r, unsigned n, expr* const* es) {

@@ -20,6 +20,7 @@ endforeach()
 add_executable(shell
   datalog_frontend.cpp
   dimacs_frontend.cpp
+  drat_frontend.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
   "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   main.cpp

@@ -45,14 +45,14 @@ class expr_pattern_match {
             m_kind(k), m_offset(o), m_next(next), m_app(app), m_count(count) {}
 
         instr_kind      m_kind;
-        unsigned        m_offset;
-        unsigned        m_next;
-        app*            m_app;
-        expr*           m_pat;
-        unsigned        m_reg;
-        unsigned        m_other_reg;
-        unsigned        m_count;
-        unsigned        m_num_bound;
+        unsigned        m_offset{ 0 };
+        unsigned        m_next{ 0 };
+        app*            m_app{ nullptr };
+        expr*           m_pat{ nullptr };
+        unsigned        m_reg{ 0 };
+        unsigned        m_other_reg{ 0 };
+        unsigned        m_count{ 0 };
+        unsigned        m_num_bound{ 0 };
     };
 
     typedef obj_map<func_decl, unsigned> subst;

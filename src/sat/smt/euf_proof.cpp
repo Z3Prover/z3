@@ -19,53 +19,60 @@ Author:
 
 namespace euf {
 
-    void solver::log_node(enode* n) {
-        if (m_drat) {
-            expr* e = n->get_owner();
-            if (is_app(e)) {
-                symbol const& name = to_app(e)->get_name();
-                s().get_drat().def_begin(n->get_owner_id(), name);
-                for (enode* arg : enode_args(n)) {
-                    s().get_drat().def_add_arg(arg->get_owner_id());
-                }
-                s().get_drat().def_end();
-            }
-            else {
-                IF_VERBOSE(0, verbose_stream() << "logging binders is TBD\n");
-            }
+    void solver::init_drat() {
+        if (!m_drat_initialized)
+            get_drat().add_theory(m.get_basic_family_id(), symbol("euf"));
+        m_drat_initialized = true;
+    }
+
+    void solver::log_node(expr* e) {
+        if (!use_drat())
+            return;
+        if (is_app(e)) {
+            std::stringstream strm;
+            strm << mk_ismt2_func(to_app(e)->get_decl(), m);
+            get_drat().def_begin(e->get_id(), strm.str());
+            for (expr* arg : *to_app(e))
+                get_drat().def_add_arg(arg->get_id());
+            get_drat().def_end();
+        }
+        else {
+            IF_VERBOSE(0, verbose_stream() << "logging binders is TBD\n");
         }
     }
 
-    void solver::log_bool_var(sat::bool_var v, enode* n) {
-        if (m_drat) {
-            s().get_drat().bool_def(v, n->get_owner_id());
-        }
-    }
-
+    /**
+     * \brief logs antecedents to a proof trail.
+     *
+     * NB with theories, this is not a pure EUF justification,
+     * It is true modulo EUF and previously logged certificates
+     * so it isn't necessarily an axiom over EUF,
+     * We will here leave it to the EUF checker to perform resolution steps.
+     */
     void solver::log_antecedents(literal l, literal_vector const& r) {
         TRACE("euf", log_antecedents(tout, l, r););
-        if (m_drat) {
-            literal_vector lits;
-            for (literal lit : r) lits.push_back(~lit);
-            if (l != sat::null_literal)
-                lits.push_back(l);
-            s().get_drat().add(lits, sat::status::th(true, m.get_basic_family_id()));
-        }
+        if (!use_drat())
+            return;
+        literal_vector lits;
+        for (literal lit : r) lits.push_back(~lit);
+        if (l != sat::null_literal)
+            lits.push_back(l);
+        get_drat().add(lits, sat::status::th(true, m.get_basic_family_id()));
     }
 
     void solver::log_antecedents(std::ostream& out, literal l, literal_vector const& r) {
         for (sat::literal l : r) {
-            enode* n = m_var2node[l.var()];
+            expr* n = m_var2expr[l.var()];
             out << ~l << ": ";
             if (!l.sign()) out << "! ";
-            out << mk_pp(n->get_owner(), m) << "\n";
+            out << mk_pp(n, m) << "\n";
             SASSERT(s().value(l) == l_true);
         }
         if (l != sat::null_literal) {
             out << l << ": ";
             if (l.sign()) out << "! ";
-            enode* n = m_var2node[l.var()];
-            out << mk_pp(n->get_owner(), m) << "\n";            
+            expr* n = m_var2expr[l.var()];
+            out << mk_pp(n, m) << "\n";
         }
     }
 

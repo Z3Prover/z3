@@ -19,18 +19,24 @@ Notes:
 
     For SMT extensions are as follows:
 
-    Assertion (trusted modulo internalizer):
+    Input assertion:
+      i <literal>* 0
+
+    Assertion (true modulo a theory):
       a [<theory-id>] <literal>* 0
-    The optional theory id indicates the assertion is irredundant
+    The if no theory id is given, the assertion is a tautology
+    modulo Tseitin converison. Theory ids track whether the
+    tautology is modulo a theory.
+    Assertions are irredundant.
 
     Bridge from ast-node to boolean variable:
       b <bool-var-id> <ast-node-id> 0
 
-    Definition of an ast node:
-      n <ast-node-id> <name> <ast-node-id>* 0
+    Definition of an expression (ast-node):
+      e <ast-node-id> <name> <ast-node-id>* 0
 
-    Theory lemma
-      <theory-id> <literal>* 0
+    Redundant clause (theory lemma if theory id is given)
+      [r [<theory-id>]] <literal>* 0
 
     Available theories are:
       - euf   The theory lemma should be a consequence of congruence closure.
@@ -45,8 +51,16 @@ Notes:
 #include "sat_types.h"
 
 namespace sat {
+    class justification;
+    class clause;
+
     class drat {
-    private:
+        struct stats {
+            unsigned m_num_drup { 0 };
+            unsigned m_num_drat { 0 };
+            unsigned m_num_add { 0 };
+            unsigned m_num_del { 0 };
+        };
         struct watched_clause {
             clause* m_clause;
             literal m_l1, m_l2;
@@ -64,10 +78,10 @@ namespace sat {
         literal_vector          m_units;
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
-        svector<std::string>    m_theory;
+        vector<std::string>     m_theory;
         bool                    m_inconsistent;
-        unsigned                m_num_add, m_num_del;
         bool                    m_check_unsat, m_check_sat, m_check, m_activity;
+        stats                   m_stats;
 
         void dump_activity();
         void dump(unsigned n, literal const* c, status st);
@@ -96,6 +110,7 @@ namespace sat {
         bool match(unsigned n, literal const* lits, clause const& c) const;
 
     public:
+
         drat(solver& s);
         ~drat();  
 
@@ -114,7 +129,7 @@ namespace sat {
         void bool_def(bool_var v, unsigned n);
 
         // declare AST node n with 'name' and arguments arg
-        void def_begin(unsigned n, symbol const& name);
+        void def_begin(unsigned n, std::string const& name);
         void def_add_arg(unsigned arg);
         void def_end();
 
@@ -139,7 +154,11 @@ namespace sat {
         bool contains(literal c, justification const& j);
 
         void check_model(model const& m);
+
+        void collect_statistics(statistics& st) const;
     };
+
+    std::ostream& operator<<(std::ostream& out, status const& st);
 
 };
 

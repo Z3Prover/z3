@@ -122,6 +122,7 @@ struct mk_ismt2_pp {
     mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
 };
 
+
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p);
 
 std::ostream& operator<<(std::ostream& out, expr_ref const& e);
@@ -136,3 +137,10 @@ std::ostream& operator<<(std::ostream& out, var_ref_vector const& e);
 std::ostream& operator<<(std::ostream& out, func_decl_ref_vector const& e);
 std::ostream& operator<<(std::ostream& out, sort_ref_vector const& e);
 
+struct mk_ismt2_func {
+    func_decl* m_fn;
+    ast_manager &m;
+    mk_ismt2_func(func_decl* f, ast_manager& m): m_fn(f), m(m) {}
+};
+
+std::ostream& operator<<(std::ostream& out, mk_ismt2_func const& f);

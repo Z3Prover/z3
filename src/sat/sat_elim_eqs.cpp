@@ -236,7 +236,6 @@ namespace sat {
             if (m_solver.is_assumption(v) || (m_solver.is_external(v) && (m_solver.is_incremental() || !root_ok))) {
                 // cannot really eliminate v, since we have to notify extension of future assignments
                 if (m_solver.m_config.m_drat && m_solver.m_config.m_drat_file.is_null()) {
-                    std::cout << "DRAT\n";
                     m_solver.m_drat.add(~l, r, sat::status::redundant());
                     m_solver.m_drat.add(l, ~r, sat::status::redundant());
                 }
