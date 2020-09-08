@@ -16,6 +16,7 @@ Author:
 --*/
 #pragma once
 
+#include "util/dlist.h"
 #include "sat/smt/atom2bool_var.h"
 #include "sat/smt/sat_th.h"
 
@@ -25,10 +26,8 @@ namespace bv {
 
     class ackerman {
 
-        struct vv {
+        struct vv : dll_base<vv> {
             euf::theory_var v1, v2;
-            vv* m_next{ nullptr };
-            vv* m_prev{ nullptr };
             unsigned   m_count{ 0 };
             unsigned   m_glue{ UINT_MAX };
             vv():v1(euf::null_theory_var), v2(euf::null_theory_var) {}
@@ -64,8 +63,6 @@ namespace bv {
         void new_tmp();
         void remove(vv* inf);
         void gc();
-        void push_to_front(vv* inf);        
-        void remove_from_queue(vv* inf);
         void add_cc(euf::theory_var v1, euf::theory_var v2);
 
     public:

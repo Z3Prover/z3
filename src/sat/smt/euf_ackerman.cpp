@@ -62,35 +62,6 @@ namespace euf {
         insert();
     }
 
-    void ackerman::remove_from_queue(inference* inf) {
-        if (m_queue->m_next == m_queue) {
-            SASSERT(inf == m_queue);
-            m_queue = nullptr;
-            return;
-        }            
-        if (m_queue == inf) 
-            m_queue = inf->m_next;
-        auto* next = inf->m_next;
-        auto* prev = inf->m_prev;
-        prev->m_next = next;
-        next->m_prev = prev;        
-    }
-
-    void ackerman::push_to_front(inference* inf) {
-        if (!m_queue) {
-            m_queue = inf;
-        }
-        else if (m_queue != inf) {
-            auto* prev = inf->m_prev;
-            prev->m_next = inf->m_next;
-            inf->m_next->m_prev = prev;
-            m_queue->m_prev->m_next = inf;
-            inf->m_prev = m_queue->m_prev;            
-            inf->m_next = m_queue;
-            m_queue->m_prev = inf;
-            m_queue = inf;
-        }
-    }
 
     void ackerman::insert() {
         inference* inf = m_tmp_inference;
@@ -104,11 +75,11 @@ namespace euf {
         other->m_count++;
         if (other->m_count > m_high_watermark) 
             s.s().set_should_simplify();
-        push_to_front(other);
+        inference::push_to_front(m_queue, other);
     }
 
     void ackerman::remove(inference* inf) {
-        remove_from_queue(inf);
+        inference::remove_from(m_queue, inf);
         m_table.erase(inf);
         m.dec_ref(inf->a);
         m.dec_ref(inf->b);
@@ -118,7 +89,7 @@ namespace euf {
 
     void ackerman::new_tmp() {
         m_tmp_inference = alloc(inference);
-        m_tmp_inference->m_next = m_tmp_inference->m_prev = m_tmp_inference;
+        m_tmp_inference->init(m_tmp_inference);
     }
 
     void ackerman::cg_conflict_eh(expr * n1, expr * n2) {
@@ -153,8 +124,8 @@ namespace euf {
         m_num_propagations_since_last_gc = 0;
         
         while (m_table.size() > m_gc_threshold) 
-            remove(m_queue->m_prev);     
-
+            remove(m_queue->prev());
+    
         m_gc_threshold *= 110;
         m_gc_threshold /= 100;
         m_gc_threshold++;
@@ -167,7 +138,7 @@ namespace euf {
         unsigned num_prop = static_cast<unsigned>(s.s().get_stats().m_conflict * s.m_config.m_dack_factor);
         num_prop = std::min(num_prop, m_table.size());
         for (unsigned i = 0; i < num_prop; ++i, n = k) {
-            k = n->m_next;
+            k = n->next();
             if (n->m_count < s.m_config.m_dack_threshold) 
                 continue;
             if (n->m_count >= m_high_watermark && num_prop < m_table.size())

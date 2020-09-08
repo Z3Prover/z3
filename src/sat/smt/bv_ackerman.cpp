@@ -48,7 +48,7 @@ namespace bv {
         update_glue(*other);
         if (other->m_count > m_propagate_high_watermark || other->m_glue == 0)
             s.s().set_should_simplify();
-        push_to_front(other);
+        vv::push_to_front(m_queue, other);
         if (other == n) {
             new_tmp();        
             gc();
@@ -94,46 +94,15 @@ namespace bv {
             v.m_glue = glue <= sz ? 0 : glue;
     }
 
-
-    void ackerman::remove_from_queue(vv* p) {
-        if (m_queue->m_next == m_queue) {
-            SASSERT(p == m_queue);
-            m_queue = nullptr;
-            return;
-        }            
-        if (m_queue == p) 
-            m_queue = p->m_next;
-        auto* next = p->m_next;
-        auto* prev = p->m_prev;
-        prev->m_next = next;
-        next->m_prev = prev;        
-    }
-
-    void ackerman::push_to_front(vv* p) {
-        if (!m_queue) {
-            m_queue = p;
-        }
-        else if (m_queue != p) {
-            auto* next = p->m_next;
-            auto* prev = p->m_prev;
-            prev->m_next = next;
-            next->m_prev = prev;
-            p->m_prev = m_queue->m_prev;
-            p->m_next = m_queue;
-            m_queue->m_prev = p;
-            m_queue = p;
-        }
-    }
-
     void ackerman::remove(vv* p) {
-        remove_from_queue(p);
+        vv::remove_from(m_queue, p);
         m_table.erase(p);
         dealloc(p);
     }
 
     void ackerman::new_tmp() {
         m_tmp_vv = alloc(vv);
-        m_tmp_vv->m_next = m_tmp_vv->m_prev = m_tmp_vv;
+        m_tmp_vv->init(m_tmp_vv);
         m_tmp_vv->m_count = 0;
         m_tmp_vv->m_glue = UINT_MAX;
     }
@@ -145,7 +114,7 @@ namespace bv {
         m_num_propagations_since_last_gc = 0;
         
         while (m_table.size() > m_gc_threshold) 
-            remove(m_queue->m_prev);     
+            remove(m_queue->prev());     
 
         m_gc_threshold *= 110;
         m_gc_threshold /= 100;
@@ -159,7 +128,7 @@ namespace bv {
         unsigned num_prop = static_cast<unsigned>(s.s().get_stats().m_conflict * s.get_config().m_dack_factor);
         num_prop = std::min(num_prop, m_table.size());
         for (unsigned i = 0; i < num_prop; ++i, n = k) {
-            k = n->m_next;
+            k = n->next();
             if (n->m_count < m_propagate_low_watermark && n->m_glue != 0)
                 continue;            
             add_cc(n->v1, n->v2);
