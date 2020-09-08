@@ -190,18 +190,24 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         }
     }
 
-    unsigned m_keypos;
+    unsigned m_keypos { 0 };
 
     void start_rewrite() {
         m_keypos = m_keys.size();
     }
 
     void end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
-        for (unsigned i = m_keypos; i < m_keys.size(); ++i) {
-            const2bits.insert(m_keys[i].get(), m_values[i].get());
-        }
-        for (func_decl* f : m_newbits) newbits.push_back(f);
-        
+        for (unsigned i = m_keypos; i < m_keys.size(); ++i) 
+            const2bits.insert(m_keys.get(i), m_values.get(i));
+        for (func_decl* f : m_newbits) 
+            newbits.push_back(f);        
+    }
+
+    void get_translation(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
+        for (unsigned i = 0; i < m_keys.size(); ++i) 
+            const2bits.insert(m_keys.get(i), m_values.get(i));
+        for (func_decl* f : m_newbits) 
+            newbits.push_back(f);        
     }
 
     template<typename V>
@@ -679,6 +685,7 @@ struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
     void pop(unsigned s) { m_cfg.pop(s); }
     void start_rewrite() { m_cfg.start_rewrite(); }
     void end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) { m_cfg.end_rewrite(const2bits, newbits); }
+    void get_translation(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) { m_cfg.get_translation(const2bits, newbits); }
     unsigned get_num_scopes() const { return m_cfg.get_num_scopes(); }
 };
 
@@ -733,4 +740,8 @@ void bit_blaster_rewriter::start_rewrite() {
 
 void bit_blaster_rewriter::end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
     m_imp->end_rewrite(const2bits, newbits);
+}
+
+void bit_blaster_rewriter::get_translation(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
+    m_imp->get_translation(const2bits, newbits);
 }

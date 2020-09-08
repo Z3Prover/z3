@@ -718,7 +718,7 @@ private:
     bool internalize_var(expr* v, sat::bool_var_vector& bvars) {
         obj_map<func_decl, expr*> const2bits;
         ptr_vector<func_decl> newbits;
-        m_bb_rewriter->end_rewrite(const2bits, newbits);
+        m_bb_rewriter->get_translation(const2bits, newbits);
         expr* bv;
         bv_util bvutil(m);
         bool internalized = false;

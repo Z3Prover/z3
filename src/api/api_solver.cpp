@@ -79,22 +79,24 @@ extern "C" {
     }
 
     void solver2smt2_pp::check(unsigned n, expr* const* asms) {
-        for (unsigned i = 0; i < n; ++i) {
+        for (unsigned i = 0; i < n; ++i) 
             m_pp_util.collect(asms[i]);
-        }
         m_pp_util.display_decls(m_out);
         m_out << "(check-sat";        
-        for (unsigned i = 0; i < n; ++i) {
+        for (unsigned i = 0; i < n; ++i) 
             m_pp_util.display_expr(m_out << "\n", asms[i]);            
-        }
-        for (expr* e : m_tracked) {
+        for (expr* e : m_tracked) 
             m_pp_util.display_expr(m_out << "\n", e);
-        }
         m_out << ")\n";
         m_out.flush();
     }
 
     void solver2smt2_pp::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& variables) {
+        for (expr* a : assumptions)
+            m_pp_util.collect(a);
+        for (expr* v : variables)
+            m_pp_util.collect(v);
+        m_pp_util.display_decls(m_out);        
         m_out << "(get-consequences (";
         for (expr* f : assumptions) {
             m_out << "\n";
@@ -105,7 +107,7 @@ extern "C" {
             m_out << "\n";
             m_pp_util.display_expr(m_out, f);
         }
-        m_out << ")\n";
+        m_out << "))\n";
         m_out.flush();
     }
 

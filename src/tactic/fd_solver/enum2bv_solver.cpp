@@ -146,6 +146,7 @@ public:
         m_rewriter.flush_side_constraints(bounds);
         m_solver->assert_expr(bounds);
 
+
         // translate enumeration constants to bit-vectors.
         for (expr* v : vars) {
             func_decl* f = nullptr;
@@ -159,12 +160,13 @@ public:
         lbool r = m_solver->get_consequences(asms, bvars, consequences);
 
         // translate bit-vector consequences back to enumeration types
-        for (unsigned i = 0; i < consequences.size(); ++i) {
+        unsigned i = 0;
+        for (expr* c : consequences) {
             expr* a = nullptr, *b = nullptr, *u = nullptr, *v = nullptr;
             func_decl* f;
             rational num;
             unsigned bvsize;
-            VERIFY(m.is_implies(consequences[i].get(), a, b));
+            VERIFY(m.is_implies(c, a, b));
             if (m.is_eq(b, u, v) && is_uninterp_const(u) && m_rewriter.bv2enum().find(to_app(u)->get_decl(), f) && bv.is_numeral(v, num, bvsize)) {
                 SASSERT(num.is_unsigned());
                 expr_ref head(m);
@@ -174,6 +176,7 @@ public:
                     consequences[i] = m.mk_implies(a, head);
                 }
             }
+            ++i;
         }
         return r;
     }
