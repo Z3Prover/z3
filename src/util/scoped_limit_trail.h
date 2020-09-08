@@ -15,6 +15,7 @@ class scoped_limit_trail {
         else {
             for (; m_scopes > 0; --m_scopes)
                 m_lim.push_back(m_last);
+            m_lim.push_back(n);
             m_last = n;
         }
     }
