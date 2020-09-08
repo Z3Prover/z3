@@ -112,7 +112,6 @@ namespace euf {
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
         m_egraph.begin_explain();
         m_explain.reset();
-        unsigned qhead = 0;
         auto* ext = sat::constraint_base::to_extension(idx);
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);

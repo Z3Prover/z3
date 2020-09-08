@@ -101,7 +101,7 @@ namespace euf {
                 expr* v = user_sort.get_fresh_value(m.get_sort(e));
                 values.set(id, v);
             }
-            else if (mb = get_solver(m.get_sort(e))) 
+            else if ((mb = get_solver(m.get_sort(e))))
                 mb->add_value(n, values);
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");

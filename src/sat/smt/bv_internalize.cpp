@@ -46,7 +46,7 @@ namespace bv {
         solver& th;
         sat::bool_var m_var;
     public:
-        mk_atom_trail(sat::bool_var v, solver& th) :m_var(v), th(th) {}
+        mk_atom_trail(sat::bool_var v, solver& th) : th(th), m_var(v) {}
         void undo(euf::solver& euf) override {
             solver::atom* a = th.get_bv2a(m_var);
             a->~atom();

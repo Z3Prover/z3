@@ -722,6 +722,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     sat::literal internalize(expr* n, bool redundant) override {
         unsigned sz = m_result_stack.size();
+        (void)sz;
         process(n, false, redundant);
         SASSERT(m_result_stack.size() == sz + 1);
         sat::literal result = m_result_stack.back();

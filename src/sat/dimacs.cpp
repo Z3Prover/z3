@@ -173,8 +173,14 @@ namespace dimacs {
         unsigned lp = 0;
         while (!is_whitespace(in) || lp > 0) {
             m_buffer.push_back(*in);
-            if (*in == '(') ++lp;
-            if (*in == ')') if (lp == 0) throw lex_error(); else --lp;
+            if (*in == '(') 
+                ++lp;
+            else if (*in == ')') {
+                if (lp == 0) { 
+                    throw lex_error(); 
+                } 
+                else --lp;
+            }
             ++in;
         }
         m_buffer.push_back(0);
