@@ -115,6 +115,7 @@ namespace sat {
         clause_vector           m_clauses;
         clause_vector           m_learned;
         unsigned                m_num_frozen;
+        unsigned_vector         m_active_vars, m_free_vars, m_vars_to_reinit;
         vector<watch_list>      m_watches;
         svector<lbool>          m_assignment;
         svector<justification>  m_justification; 
@@ -264,6 +265,8 @@ namespace sat {
         random_gen& rand() { return m_rand; }
 
     protected:
+        void reset_var(bool_var v, bool ext, bool dvar);
+
         inline clause_allocator& cls_allocator() { return m_cls_allocator[m_cls_allocator_idx]; }
         inline clause_allocator const& cls_allocator() const { return m_cls_allocator[m_cls_allocator_idx]; }
         inline clause * alloc_clause(unsigned num_lits, literal const * lits, bool learned) { return cls_allocator().mk_clause(num_lits, lits, learned); }
@@ -645,7 +648,7 @@ namespace sat {
         // -----------------------
     public:
         void set_should_simplify() { m_next_simplify = m_conflicts_since_init; }
-        void get_reinit_literals(unsigned num_scopes, literal_vector& r);
+        bool_var_vector const& get_vars_to_reinit() const { return m_vars_to_reinit;  }
     public:
         void user_push() override;
         void user_pop(unsigned num_scopes) override;

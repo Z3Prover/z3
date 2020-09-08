@@ -171,7 +171,10 @@ public:
             elem->m_prev = elem;            
         }
         else if (list != elem) {
-            remove_from(list, elem);
+            auto* next = elem->m_next;
+            auto* prev = elem->m_prev;
+            prev->m_next = next;
+            next->m_prev = prev;        
             list->m_prev->m_next = elem;
             elem->m_prev = list->m_prev;
             elem->m_next = list;

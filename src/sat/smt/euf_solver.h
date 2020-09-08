@@ -118,7 +118,6 @@ namespace euf {
 
         // replay
         expr_ref_vector      m_reinit_exprs;
-        sat::bool_var_vector m_reinit_vars;
         
         void start_reinit(unsigned num_scopes);
         void finish_reinit();

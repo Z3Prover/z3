@@ -102,7 +102,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     dimacs::drat_parser drat(ins, std::cerr);
     std::function<int(char const* read_theory)> read_theory = [&](char const* r) {
         if (strcmp(r, "euf") == 0)
-            return 0;
+            return ctx.m().get_basic_family_id();
         return ctx.m().mk_family_id(symbol(r));
     };
     drat.set_read_theory(read_theory);

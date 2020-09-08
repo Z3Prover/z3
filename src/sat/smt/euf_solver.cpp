@@ -315,6 +315,7 @@ namespace euf {
     }
 
     void solver::pop(unsigned n) {
+        start_reinit(n);
         m_egraph.pop(n);
         for (auto* e : m_solvers)
             e->pop(n);
@@ -328,28 +329,31 @@ namespace euf {
     }
 
     void solver::start_reinit(unsigned n) {
-        sat::literal_vector lits;
-        m_reinit_vars.reset();
         m_reinit_exprs.reset();
-        s().get_reinit_literals(n, lits);
-        for (sat::literal lit : lits) {
-            sat::bool_var v = lit.var();
+        for (sat::bool_var v : s().get_vars_to_reinit()) {
             expr* e = bool_var2expr(v);
-            if (m_reinit_vars.contains(v) || !e)
-                continue;
-            m_reinit_vars.push_back(v);
             m_reinit_exprs.push_back(e);
         }
     }
 
     void solver::finish_reinit() {
-        unsigned sz = m_reinit_vars.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            euf::enode* n = get_enode(m_reinit_exprs.get(i));
-            if (n)
+        SASSERT(s().get_vars_to_reinit().size() == m_reinit_exprs.size());
+        if (s().get_vars_to_reinit().empty())
+            return;
+        unsigned i = 0;
+        obj_map<expr, sat::bool_var> expr2var_replay;
+        for (sat::bool_var v : s().get_vars_to_reinit()) {
+            expr* e = m_reinit_exprs.get(i++);
+            if (!e)
                 continue;
-
+            expr2var_replay.insert(e, v);
         }
+        if (expr2var_replay.empty())
+            return;
+        si.set_expr2var_replay(&expr2var_replay);
+        for (auto const& kv : expr2var_replay)
+            si.internalize(kv.m_key, true);
+        si.set_expr2var_replay(nullptr);        
     }
 
     void solver::pre_simplify() {
@@ -461,6 +465,7 @@ namespace euf {
     }
 
     void solver::pop_reinit() {
+        finish_reinit();
         for (auto* e : m_solvers)
             e->pop_reinit();
     }

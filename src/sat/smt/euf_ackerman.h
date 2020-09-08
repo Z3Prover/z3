@@ -57,7 +57,7 @@ namespace euf {
         table_t       m_table;
         inference*    m_queue { nullptr };
         inference*    m_tmp_inference { nullptr };
-        unsigned      m_gc_threshold { 1 };
+        unsigned      m_gc_threshold { 100 };
         unsigned      m_high_watermark { 1000 };
         unsigned      m_num_propagations_since_last_gc { 0 };
  
