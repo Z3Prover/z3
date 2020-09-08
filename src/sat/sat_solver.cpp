@@ -2684,7 +2684,7 @@ namespace sat {
                 break;
             }
             case justification::EXT_JUSTIFICATION: {
-                fill_ext_antecedents(consequent, js);
+                fill_ext_antecedents(consequent, js, false);
                 for (literal l : m_ext_antecedents) 
                     process_antecedent(l, num_marks);
                 break;
@@ -2847,7 +2847,7 @@ namespace sat {
             break;
         }
         case justification::EXT_JUSTIFICATION: {
-            fill_ext_antecedents(consequent, js);
+            fill_ext_antecedents(consequent, js, true);
             for (literal l : m_ext_antecedents) {
                 process_antecedent_for_unsat_core(l);
             }
@@ -2975,7 +2975,7 @@ namespace sat {
         case justification::EXT_JUSTIFICATION:
             if (not_l != null_literal) 
                 not_l.neg();
-            fill_ext_antecedents(not_l, js);
+            fill_ext_antecedents(not_l, js, true);
             for (literal l : m_ext_antecedents) 
                 level = update_max_level(l, level, unique_max);
             return level;
@@ -3031,12 +3031,12 @@ namespace sat {
     /**
        \brief js is an external justification. Collect its antecedents and store at m_ext_antecedents.
     */
-    void solver::fill_ext_antecedents(literal consequent, justification js) {
+    void solver::fill_ext_antecedents(literal consequent, justification js, bool probing) {
         SASSERT(js.is_ext_justification());
         SASSERT(m_ext);
         auto idx = js.get_ext_justification_idx();
         m_ext_antecedents.reset();
-        m_ext->get_antecedents(consequent, idx, m_ext_antecedents);
+        m_ext->get_antecedents(consequent, idx, m_ext_antecedents, probing);
     }
 
     bool solver::is_two_phase() const {
@@ -3350,7 +3350,7 @@ namespace sat {
             }
             case justification::EXT_JUSTIFICATION: {
                 literal consequent(var, value(var) == l_false);
-                fill_ext_antecedents(consequent, js);
+                fill_ext_antecedents(consequent, js, false);
                 for (literal l : m_ext_antecedents) {
                     if (!process_antecedent_for_minimization(l)) {
                         reset_unmark(old_size);
@@ -3492,7 +3492,7 @@ namespace sat {
                 break;
             }
             case justification::EXT_JUSTIFICATION: {
-                fill_ext_antecedents(~m_lemma[i], js);
+                fill_ext_antecedents(~m_lemma[i], js, true);
                 for (literal l : m_ext_antecedents) {
                     update_lrb_reasoned(l);
                 }
@@ -4794,7 +4794,7 @@ namespace sat {
             break;
         }
         case justification::EXT_JUSTIFICATION: {
-            fill_ext_antecedents(lit, js);
+            fill_ext_antecedents(lit, js, true);
             for (literal l : m_ext_antecedents) {
                 if (check_domain(lit, l) && all_found) {
                     s |= m_antecedents.find(l.var());

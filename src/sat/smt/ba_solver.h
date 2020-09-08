@@ -361,7 +361,7 @@ namespace sat {
         void set_conflict(constraint& c, literal lit);
         void assign(constraint& c, literal lit);
         bool assigned_above(literal above, literal below);
-        void get_antecedents(literal l, constraint const& c, literal_vector & r);
+        void get_antecedents(literal l, constraint const& c, literal_vector & r, bool probing);
         bool validate_conflict(constraint const& c) const;
         bool validate_unit_propagation(constraint const& c, literal alit) const;
         void validate_eliminated();
@@ -578,7 +578,7 @@ namespace sat {
         bool propagate(literal l, ext_constraint_idx idx) override;
         bool unit_propagate() override { return false; }
         lbool resolve_conflict() override;
-        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
+        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) override;
         void asserted(literal l) override;
         check_result check() override;
         void push() override;

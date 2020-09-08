@@ -102,8 +102,8 @@ namespace euf {
             sat::bool_var v = si.add_bool_var(e);
             s().set_external(v);
             sat::literal lit2 = literal(v, false);
-            s().mk_clause(~lit, lit2, sat::status::th(false, m.get_basic_family_id()));
-            s().mk_clause(lit, ~lit2, sat::status::th(false, m.get_basic_family_id()));
+            s().mk_clause(~lit, lit2, sat::status::asserted());
+            s().mk_clause(lit, ~lit2, sat::status::asserted());
             lit = lit2;
         }
         sat::bool_var v = lit.var();

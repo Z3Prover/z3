@@ -109,15 +109,15 @@ namespace euf {
         return ext->propagate(l, idx);
     }
 
-    void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r) {
+    void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
         m_egraph.begin_explain();
         m_explain.reset();
         unsigned qhead = 0;
         auto* ext = sat::constraint_base::to_extension(idx);
         if (ext == this)
-            get_antecedents(l, constraint::from_idx(idx), r);
+            get_antecedents(l, constraint::from_idx(idx), r, probing);
         else
-            ext->get_antecedents(l, idx, r);
+            ext->get_antecedents(l, idx, r, probing);
         for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
             size_t* e = m_explain[qhead];
             if (is_literal(e))
@@ -127,11 +127,12 @@ namespace euf {
                 auto* ext = sat::constraint_base::to_extension(idx);
                 SASSERT(ext != this);
                 sat::literal lit = sat::null_literal;
-                ext->get_antecedents(lit, idx, r);
+                ext->get_antecedents(lit, idx, r, probing);
             }
         }
         m_egraph.end_explain();
-        log_antecedents(l, r);
+        if (!probing)
+            log_antecedents(l, r);
     }
 
     void solver::add_antecedent(enode* a, enode* b) {
@@ -143,7 +144,7 @@ namespace euf {
     }
 
 
-    void solver::get_antecedents(literal l, constraint& j, literal_vector& r) {
+    void solver::get_antecedents(literal l, constraint& j, literal_vector& r, bool probing) {
         expr* e = nullptr;
         euf::enode* n = nullptr;
 
@@ -433,7 +434,13 @@ namespace euf {
     sat::extension* solver::copy(sat::solver* s) { 
         auto* r = alloc(solver, *m_to_m, *m_to_si);
         r->m_config = m_config;
-        std::function<void* (void*)> copy_justification = [&](void* x) { return (void*)(r->base_ptr() + ((size_t*)x - base_ptr())); };
+        sat::literal true_lit = sat::null_literal;
+        if (s->init_trail_size() > 0)
+            true_lit = s->trail_literal(0); 
+        std::function<void* (void*)> copy_justification = [&](void* x) { 
+            SASSERT(true_lit != sat::null_literal); 
+            return (void*)(r->to_ptr(true_lit)); 
+        };
         r->m_egraph.copy_from(m_egraph, copy_justification);        
         r->set_solver(s);
         for (unsigned i = 0; i < m_id2solver.size(); ++i) {

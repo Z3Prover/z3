@@ -65,14 +65,12 @@ namespace euf {
         typedef trail_stack<solver> euf_trail_stack;
 
 
-        size_t* base_ptr() { return reinterpret_cast<size_t*>(this); }
-        size_t const* base_ptr() const { return reinterpret_cast<size_t const*>(this); }
-        size_t* to_ptr(sat::literal l) { return TAG(size_t*, base_ptr() + (l.index() << 4), 1); }
+        size_t* to_ptr(sat::literal l) { return TAG(size_t*, reinterpret_cast<size_t*>((size_t)(l.index() << 4)), 1); }
         size_t* to_ptr(size_t jst) { return TAG(size_t*, reinterpret_cast<size_t*>(jst), 2); }
         bool is_literal(size_t* p) const { return GET_TAG(p) == 1; }
         bool is_justification(size_t* p) const { return GET_TAG(p) == 2; }
         sat::literal get_literal(size_t* p) {
-            unsigned idx = (unsigned)(UNTAG(size_t*, p) - base_ptr());
+            unsigned idx = static_cast<unsigned>(reinterpret_cast<size_t>(UNTAG(size_t*, p)));
             return sat::to_literal(idx >> 4);
         }
         size_t get_justification(size_t* p) const {
@@ -145,7 +143,7 @@ namespace euf {
         // solving
         void propagate_literals();
         void propagate_th_eqs();
-        void get_antecedents(literal l, constraint& j, literal_vector& r);
+        void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
 
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
@@ -224,7 +222,7 @@ namespace euf {
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
 
-        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
+        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) override;
         void add_antecedent(enode* a, enode* b);
         void asserted(literal l) override;
         sat::check_result check() override;

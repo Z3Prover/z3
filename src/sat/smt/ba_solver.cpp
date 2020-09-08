@@ -2107,8 +2107,8 @@ namespace sat {
     // ----------------------------
     // constraint generic methods
 
-    void ba_solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
-        get_antecedents(l, index2constraint(idx), r);
+    void ba_solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) {
+        get_antecedents(l, index2constraint(idx), r, probing);
     }
 
     bool ba_solver::is_watched(literal lit, constraint const& c) const {
@@ -2128,14 +2128,14 @@ namespace sat {
         get_wlist(~lit).push_back(w);
     }
 
-    void ba_solver::get_antecedents(literal l, constraint const& c, literal_vector& r) {
+    void ba_solver::get_antecedents(literal l, constraint const& c, literal_vector& r, bool probing) {
         switch (c.tag()) {
         case card_t: get_antecedents(l, c.to_card(), r); break;
         case pb_t: get_antecedents(l, c.to_pb(), r); break;
         case xr_t: get_antecedents(l, c.to_xr(), r); break;
         default: UNREACHABLE(); break;            
         }
-        if (get_config().m_drat && m_solver) {
+        if (get_config().m_drat && m_solver && !probing) {
             literal_vector lits;
             for (literal lit : r) 
                 lits.push_back(~lit);

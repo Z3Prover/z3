@@ -190,7 +190,7 @@ namespace bv {
     bool solver::is_external(bool_var v) { return true; }
     bool solver::propagate(literal l, sat::ext_constraint_idx idx) { return false; }
 
-    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r) {
+    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
         auto& c = bv_justification::from_index(idx);
         TRACE("bv", display_constraint(tout, idx););
         switch (c.m_kind) {
@@ -216,7 +216,7 @@ namespace bv {
             }
             break;
         }
-        if (ctx.use_drat())
+        if (!probing && ctx.use_drat())
             log_drat(c);
     }
 

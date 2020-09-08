@@ -583,7 +583,7 @@ namespace sat {
         void resolve_conflict_for_unsat_core();
         void process_antecedent_for_unsat_core(literal antecedent);
         void process_consequent_for_unsat_core(literal consequent, justification const& js);
-        void fill_ext_antecedents(literal consequent, justification js);
+        void fill_ext_antecedents(literal consequent, justification js, bool probing);
         unsigned skip_literals_above_conflict_level();
         void updt_phase_of_vars();
         void updt_phase_counters();

@@ -6,12 +6,84 @@ Copyright (c) 2020 Microsoft Corporation
 #include<iostream>
 #include<fstream>
 #include "util/memory_manager.h"
+#include "util/statistics.h"
 #include "sat/dimacs.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
+#include "smt/smt_solver.h"
 #include "shell/drat_frontend.h"
 #include "parsers/smt2/smt2parser.h"
 #include "cmd_context/cmd_context.h"
+
+class smt_checker {
+    ast_manager& m;
+    expr_ref_vector const& m_b2e;
+    expr_ref_vector m_fresh_exprs;
+    expr_ref_vector m_core;
+    params_ref m_params;
+    scoped_ptr<solver> m_solver;
+
+    expr* fresh(expr* e) {
+        unsigned i = e->get_id();
+        m_fresh_exprs.reserve(i + 1);
+        expr* r = m_fresh_exprs.get(i);
+        if (!r) {
+            r = m.mk_fresh_const("sk", m.get_sort(e));
+            m_fresh_exprs[i] = r;
+        }
+        return r;
+    }
+
+    expr_ref define(expr* e, unsigned depth) {
+        expr_ref r(fresh(e), m);
+        m_core.push_back(m.mk_eq(r, e));
+        if (depth == 0)
+            return r;
+        r = e;
+        if (is_app(e)) {
+            expr_ref_vector args(m);
+            for (expr* arg : *to_app(e)) 
+                args.push_back(define(arg, depth - 1));
+            r = m.mk_app(to_app(e)->get_decl(), args.size(), args.c_ptr());
+        }
+        return r;
+    }
+
+    void unfold1(sat::literal_vector const& lits) {
+        m_core.reset();
+        for (sat::literal lit : lits) {
+            expr* e = m_b2e[lit.var()];
+            expr_ref fml = define(e, 2);
+            if (!lit.sign())
+                fml = m.mk_not(fml);
+            m_core.push_back(fml);
+        }
+    }
+public:
+    smt_checker(expr_ref_vector const& b2e): 
+        m(b2e.m()), m_b2e(b2e), m_fresh_exprs(m), m_core(m) {
+        m_solver = mk_smt_solver(m, m_params, symbol());
+    }
+    
+    void check_shallow(sat::literal_vector const& lits) {
+        unfold1(lits);
+        m_solver->push();
+        for (auto* c : m_core)
+            m_solver->assert_expr(c);
+        lbool is_sat = m_solver->check_sat();
+        m_solver->pop(1);
+        if (is_sat == l_true) {
+            std::cout << "did not verify: " << lits << "\n" << m_core << "\n";
+            for (sat::literal lit : lits) {
+                expr_ref e(m_b2e[lit.var()], m);
+                if (lit.sign())
+                    e = m.mk_not(e);
+                std::cout << e << " ";                
+            }
+            std::cout << "\n";
+        }
+    }
+};
 
 static void verify_smt(char const* drat_file, char const* smt_file) {
     cmd_context ctx;
@@ -36,8 +108,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     drat.set_read_theory(read_theory);
     params_ref p;
     reslimit lim;
-    p.set_bool("sat.drat.check_unsat",true);
-    p.set_bool("drat.check_unsat",true);
+    p.set_bool("drat.check_unsat", true);
     sat::solver solver(p, lim);
     sat::drat drat_checker(solver);
     drat_checker.updt_config();
@@ -46,6 +117,28 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     expr_ref_vector exprs(ctx.m()), args(ctx.m());
     func_decl* f = nullptr;
     ptr_vector<sort> sorts;
+
+    smt_checker checker(bool_var2expr);
+
+    auto check_smt = [&](dimacs::drat_record const& r) {
+        auto const& st = r.m_status;
+        if (st.is_input())
+            ;
+        else if (st.is_sat() && st.is_asserted()) {
+            std::cout << "Tseitin tautology " << r;
+            checker.check_shallow(r.m_lits);
+        }
+        else if (st.is_sat())
+            ;
+        else if (st.is_deleted())
+            ;
+        else {
+            std::cout << "check smt " << r;
+            checker.check_shallow(r.m_lits);
+            // TBD: shallow check may fail because it doesn't include
+            // all RUP units, whish are sometimes required.
+        }
+    };
     
     for (auto const& r : drat) {
         std::cout << r;
@@ -56,6 +149,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
                 while (lit.var() >= solver.num_vars())
                     solver.mk_var(true);
             drat_checker.add(r.m_lits, r.m_status);
+            check_smt(r);
             break;
         case dimacs::drat_record::tag_t::is_node:
             args.reset();
@@ -85,19 +179,17 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             break;
         }
     }
+    statistics st;
+    drat_checker.collect_statistics(st);
+    std::cout << st << "\n";
 }
 
-static void verify_cnf(char const* drat_file, char const* cnf_file) {
-
-}
 
 unsigned read_drat(char const* drat_file, char const* problem_file) {
-#if 0
     if (!problem_file) {
         std::cerr << "No smt2 file provided to checker\n";
         return -1;
     }
-#endif
     verify_smt(drat_file, problem_file);
     return 0;
 }

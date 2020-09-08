@@ -55,7 +55,12 @@ namespace sat {
     class clause;
 
     class drat {
-    private:
+        struct stats {
+            unsigned m_num_drup { 0 };
+            unsigned m_num_drat { 0 };
+            unsigned m_num_add { 0 };
+            unsigned m_num_del { 0 };
+        };
         struct watched_clause {
             clause* m_clause;
             literal m_l1, m_l2;
@@ -75,8 +80,8 @@ namespace sat {
         svector<lbool>          m_assignment;
         vector<std::string>     m_theory;
         bool                    m_inconsistent;
-        unsigned                m_num_add, m_num_del;
         bool                    m_check_unsat, m_check_sat, m_check, m_activity;
+        stats                   m_stats;
 
         void dump_activity();
         void dump(unsigned n, literal const* c, status st);
@@ -105,6 +110,7 @@ namespace sat {
         bool match(unsigned n, literal const* lits, clause const& c) const;
 
     public:
+
         drat(solver& s);
         ~drat();  
 
@@ -148,6 +154,8 @@ namespace sat {
         bool contains(literal c, justification const& j);
 
         void check_model(model const& m);
+
+        void collect_statistics(statistics& st) const;
     };
 
     std::ostream& operator<<(std::ostream& out, status const& st);
