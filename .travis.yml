@@ -70,7 +70,7 @@ matrix:
     # very slow so we should keep the number of configurations we test on this
     # OS to a minimum.
     - os: osx
-      osx_image: xcode8.3
+      osx_image: xcode9.2
       env: Z3_BUILD_TYPE=RelWithDebInfo DOTNET_BINDINGS=0
 script:
   # Use `travis_wait` when doing LTO builds because this configuration will

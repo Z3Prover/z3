@@ -337,6 +337,7 @@ namespace euf {
     }
 
     void solver::finish_reinit() {
+
         SASSERT(s().get_vars_to_reinit().size() == m_reinit_exprs.size());
         if (s().get_vars_to_reinit().empty())
             return;

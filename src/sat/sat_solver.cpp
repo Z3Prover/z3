@@ -3811,6 +3811,18 @@ namespace sat {
         m_replay_assign.reset();
     }
 
+    void solver::get_reinit_literals(unsigned n, literal_vector& r) {
+        unsigned new_lvl = scope_lvl() - n;
+        unsigned old_sz = m_scopes[new_lvl].m_clauses_to_reinit_lim;
+        for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; ) {
+            clause_wrapper cw = m_clauses_to_reinit[i];
+            for (unsigned j = cw.size(); j-- > 0; )
+                r.push_back(cw[j]);
+        }
+        for (literal lit : m_lemma)
+            r.push_back(lit);
+    }
+
     void solver::reinit_clauses(unsigned old_sz) {
         unsigned sz = m_clauses_to_reinit.size();
         SASSERT(old_sz <= sz);

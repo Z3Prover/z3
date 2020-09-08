@@ -47,6 +47,26 @@ Author:
 */
 class state_graph {
 public:
+    /* Wrapper for custom callback function for pretty printing states */
+    struct state_pp {
+        /* Pointer to object that owns m_pp_state, it must be passed as the first argument to m_pp_state */
+        void* m_printer;
+        /* Pointer to function that pretty prints a state label into the stream (html-encoded if the last argument is true)  */
+        void (*m_pp_state)(void*, std::ostream&, unsigned, bool);
+        state_pp(
+            /* Pointer to object that owns f  */
+            void* p, 
+            /* Pointer to function that pretty prints a state label into the stream (html-encoded if the last argument is true) */
+            void (*f)(void*, std::ostream&, unsigned, bool)) : m_printer(p), m_pp_state(f) {}
+
+        /* call back to m_printer using m_pp_state to pretty print state_id to the given stream (html-encoded by default) */
+        std::ostream& pp_state_label(std::ostream& out, unsigned state_id, bool html_encode = true) const {
+            if (m_printer && m_pp_state)
+                (*m_pp_state)(m_printer, out, state_id, html_encode);
+            return out;
+        }
+    };
+
     typedef unsigned           state;
     typedef uint_set           state_set;
     typedef u_map<state_set>   edge_rel;
@@ -82,6 +102,11 @@ private:
     edge_rel   m_sources;
     edge_rel   m_targets;
     edge_rel   m_sources_maybecycle;
+
+    /* 
+        Pretty printer for states 
+    */
+    state_pp m_state_pp;
 
     /*
         CLASS INVARIANTS
@@ -152,9 +177,9 @@ private:
     state merge_all_cycles(state s);
 
 public:
-    state_graph():
+    state_graph(state_pp p):
         m_live(), m_dead(), m_unknown(), m_unexplored(), m_seen(),
-        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle()
+        m_state_ufind(), m_sources(), m_targets(), m_sources_maybecycle(), m_state_pp(p)
     {
         CASSERT("state_graph", check_invariant());
     }

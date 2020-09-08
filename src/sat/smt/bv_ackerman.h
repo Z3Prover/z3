@@ -52,6 +52,7 @@ namespace bv {
         table_t       m_table;
         vv*           m_queue { nullptr };
         vv*           m_tmp_vv { nullptr };
+
         unsigned      m_gc_threshold { 100 };
         unsigned      m_propagate_high_watermark { 10000 };
         unsigned      m_propagate_low_watermark { 10 };

@@ -4,8 +4,10 @@ z3_add_component(fd_solver
     enum2bv_solver.cpp
     fd_solver.cpp
     pb2bv_solver.cpp
+    smtfd_solver.cpp
   COMPONENT_DEPENDENCIES
     sat_solver
   TACTIC_HEADERS
     fd_solver.h
+    smtfd_solver.h
 )

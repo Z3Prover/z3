@@ -190,6 +190,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         return m_map.to_bool_var(e);
     }
 
+
     void set_expr2var_replay(obj_map<expr, sat::bool_var>* r) override {
         m_expr2var_replay = r;
     }

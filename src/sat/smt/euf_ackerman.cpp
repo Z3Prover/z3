@@ -63,6 +63,7 @@ namespace euf {
         insert();
     }
 
+
     void ackerman::insert() {
         inference* inf = m_tmp_inference;
         inference* other = m_table.insert_if_not_there(inf);

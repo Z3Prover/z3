@@ -860,11 +860,12 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     used in the normal form for derivatives in mk_re_derivative.
 */
 br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
-    expr* c = nullptr, *t = nullptr, *e = nullptr;
-    for (unsigned i = 0; i < n; ++i) {        
-        if (m().is_ite(args[i], c, t, e) && 
+    expr* c = nullptr, * t = nullptr, * e = nullptr;
+    for (unsigned i = 0; i < n; ++i)
+        if (m().is_ite(args[i], c, t, e) &&
+            lift_ites_filter(f, args[i]) &&
             (get_depth(t) <= 2 || t->get_ref_count() == 1 ||
-             get_depth(e) <= 2 || e->get_ref_count() == 1)) {
+                get_depth(e) <= 2 || e->get_ref_count() == 1)) {
             ptr_buffer<expr> new_args;
             for (unsigned j = 0; j < n; ++j) new_args.push_back(args[j]);
             new_args[i] = t;
@@ -872,10 +873,24 @@ br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* cons
             new_args[i] = e;
             expr_ref arg2(m().mk_app(f, new_args), m());
             result = m().mk_ite(c, arg1, arg2);
+            TRACE("seq_verbose", tout << "lifting ite: " << mk_pp(result, m()) << std::endl;);
             return BR_REWRITE2;
         }
-    }
     return BR_FAILED;
+}
+
+/* returns false iff the ite must not be lifted */
+bool seq_rewriter::lift_ites_filter(func_decl* f, expr* ite) {
+    // do not lift ites from sequences over regexes
+    // for example DO NOT lift to_re(ite(c, s, t)) to ite(c, to_re(s), to_re(t))
+    if (u().is_re(f->get_range()) && u().is_seq(m().get_sort(ite)))
+        return false;
+    // The following check is intended to avoid lifting cases such as 
+    // substring(s,0,ite(c,e1,e2)) ==> ite(c, substring(s,0,e1), substring(s,0,e2))
+    // TBD: not sure if this is too restrictive though and may block cases when such lifting is desired
+    // if (m_autil.is_int(m().get_sort(ite)) && u().is_seq(f->get_range()))
+    //    return false;
+    return true;
 }
 
 
@@ -3246,11 +3261,12 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = m().mk_true();
         return BR_DONE;
     }
-    expr* b1 = nullptr;
-    if (re().is_to_re(b, b1)) {
-        result = m_br.mk_eq_rw(a, b1);
-        return BR_REWRITE1;
+    expr_ref b_s(m());
+    if (lift_str_from_to_re(b, b_s)) {
+       result = m_br.mk_eq_rw(a, b_s);
+       return BR_REWRITE_FULL;
     }
+    expr* b1 = nullptr;
     expr* eps = nullptr;
     if (re().is_opt(b, b1) ||
         (re().is_union(b, b1, eps) && re().is_epsilon(eps)) ||
@@ -3337,6 +3353,30 @@ bool seq_rewriter::has_fixed_length_constraint(expr* a, unsigned& len) {
     return minl == maxl;
 }
 
+bool seq_rewriter::lift_str_from_to_re_ite(expr* r, expr_ref& result)
+{
+    expr* cond = nullptr, * then_r = nullptr, * else_r = nullptr;
+    expr_ref then_s(m());
+    expr_ref else_s(m());
+    if (m().is_ite(r, cond, then_r, else_r) &&
+        lift_str_from_to_re(then_r, then_s) &&
+        lift_str_from_to_re(else_r, else_s)) {
+        result = m().mk_ite(cond, then_s, else_s);
+        return true;
+    }
+    return false;
+}
+
+bool seq_rewriter::lift_str_from_to_re(expr* r, expr_ref& result)
+{
+    expr* s = nullptr;
+    if (re().is_to_re(r, s)) {
+        result = s;
+        return true;
+    }
+    return lift_str_from_to_re_ite(r, result);
+}
+
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
@@ -3375,11 +3415,13 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    expr* a1 = nullptr, *b1 = nullptr;
-    if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
-        result = re().mk_to_re(str().mk_concat(a1, b1));
+    expr_ref a_str(m());
+    expr_ref b_str(m());
+    if (lift_str_from_to_re(a, a_str) && lift_str_from_to_re(b, b_str)) {
+        result = re().mk_to_re(str().mk_concat(a_str, b_str));
         return BR_REWRITE2;
     }
+    expr* a1 = nullptr, *b1 = nullptr;
     if (re().is_star(a, a1) && re().is_star(b, b1) && a1 == b1) {
         result = a;
         return BR_DONE;
@@ -3811,7 +3853,14 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         result = re().mk_star(re().mk_union(b1, c1));
         return BR_REWRITE2;
     }
+    if (m().is_ite(a, c, b1, c1)) {
+        if ((re().is_full_char(b1) || re().is_full_seq(b1)) &&
+            (re().is_full_char(c1) || re().is_full_seq(c1))) {
+            result = re().mk_full_seq(m().get_sort(b1));
+            return BR_REWRITE2;
+        }
 
+    }
     return BR_FAILED;
 }
 
