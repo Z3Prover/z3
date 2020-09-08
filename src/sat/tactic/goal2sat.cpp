@@ -66,6 +66,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     sat::solver_core &          m_solver;
     atom2bool_var &             m_map;
     dep2asm_map &               m_dep2asm;
+    obj_map<expr, sat::bool_var>* m_expr2var_replay { nullptr };
     sat::literal                m_true;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
@@ -189,16 +190,26 @@ struct goal2sat::imp : public sat::sat_internalizer {
         return m_map.to_bool_var(e);
     }
 
+
+    void set_expr2var_replay(obj_map<expr, sat::bool_var>* r) override {
+        m_expr2var_replay = r;
+    }
+
+    sat::bool_var mk_bool_var(expr* t) {
+        force_push();
+        sat::bool_var v;
+        if (!m_expr2var_replay || !m_expr2var_replay->find(t, v))  
+            v = add_var(true, t);
+        m_map.insert(t, v);
+        return v;
+    }
+
     sat::bool_var add_bool_var(expr* t) override {
         sat::bool_var v = m_map.to_bool_var(t);
-        if (v == sat::null_bool_var) {
-            v = add_var(true, t);
-            force_push();
-            m_map.insert(t, v);
-        }
-        else {
+        if (v == sat::null_bool_var) 
+            v = mk_bool_var(t);
+        else 
             m_solver.set_external(v);
-        }
         return v;
     }
 
@@ -254,9 +265,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                         m_unhandled_funs.push_back(to_app(t)->get_decl());
                 }
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
-                v = add_var(ext, t);
-                force_push();
-                m_map.insert(t, v);
+                v = mk_bool_var(t);
                 l = sat::literal(v, sign);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
             }

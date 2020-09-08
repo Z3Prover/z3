@@ -38,6 +38,7 @@ Revision History:
 #endif
 
 #define ENABLE_TERNARY true
+#define DYNAMIC_VARS true
 
 namespace sat {
 
@@ -243,10 +244,45 @@ namespace sat {
     //
     // -----------------------
 
+    void solver::reset_var(bool_var v, bool ext, bool dvar) {
+        m_watches[2*v].reset();
+        m_watches[2*v+1].reset();
+        m_assignment[2*v] = l_undef;
+        m_assignment[2*v+1] = l_undef;
+        m_justification[2*v] = justification(UINT_MAX);
+        m_decision[v] = dvar;
+        m_eliminated[v] = false;
+        m_external[v] = ext;
+        m_touched[v] = 0;
+        m_activity[v] = 0;
+        m_mark[v] = false;
+        m_lit_mark[2*v] = false;
+        m_lit_mark[2*v+1] = false;
+        m_phase[v] = false;
+        m_best_phase[v] = false;
+        m_prev_phase[v] = false;
+        m_assigned_since_gc[v] = false;
+        m_last_conflict[v] = 0;        
+        m_last_propagation[v] = 0;
+        m_participated[v] = 0;
+        m_canceled[v] = 0;
+        m_reasoned[v] = 0;
+        m_case_split_queue.mk_var_eh(v);
+        m_simplifier.insert_elim_todo(v);
+    }
+
     bool_var solver::mk_var(bool ext, bool dvar) {
         m_model_is_current = false;
         m_stats.m_mk_var++;
         bool_var v = m_justification.size();
+        if (!m_free_vars.empty()) {
+            v = m_free_vars.back();
+            m_free_vars.pop_back();
+            m_active_vars.push_back(v);
+            reset_var(v, ext, dvar);
+            return v;
+        }
+        m_active_vars.push_back(v);
         m_watches.push_back(watch_list());
         m_watches.push_back(watch_list());
         m_assignment.push_back(l_undef);
@@ -3212,7 +3248,7 @@ namespace sat {
         for (unsigned i = 0; i < num; i++) {
             SASSERT(value(lits[i]) != l_undef);
             unsigned lit_lvl = lvl(lits[i]);
-            if (m_diff_levels[lit_lvl] == false) {
+            if (!m_diff_levels[lit_lvl]) {
                 m_diff_levels[lit_lvl] = true;
                 r++;
             }
@@ -3230,14 +3266,13 @@ namespace sat {
         for (; i < num && glue < max_glue; i++) {
             SASSERT(value(lits[i]) != l_undef);
             unsigned lit_lvl = lvl(lits[i]);
-            if (m_diff_levels[lit_lvl] == false) {
+            if (!m_diff_levels[lit_lvl]) {
                 m_diff_levels[lit_lvl] = true;
                 glue++;
             }
-        }
-        num = i;
+        }       
         // reset m_diff_levels.
-        for (i = 0; i < num; i++)
+        for (; i-- > 0; )
             m_diff_levels[lvl(lits[i])] = false;
         return glue < max_glue;        
     }
@@ -3249,15 +3284,14 @@ namespace sat {
         for (; i < num && glue < max_glue; i++) {
             if (value(lits[i]) == l_false) {
                 unsigned lit_lvl = lvl(lits[i]);
-                if (m_diff_levels[lit_lvl] == false) {
+                if (!m_diff_levels[lit_lvl]) {
                     m_diff_levels[lit_lvl] = true;
                     glue++;
                 }
             }
         }
-        num = i;
         // reset m_diff_levels.
-        for (i = 0; i < num; i++) {
+        for (; i-- > 0;) {
             literal lit = lits[i];
             if (value(lit) == l_false) {
                 VERIFY(lvl(lit) < m_diff_levels.size());
@@ -3653,9 +3687,12 @@ namespace sat {
         s.m_trail_lim = m_trail.size();
         s.m_clauses_to_reinit_lim = m_clauses_to_reinit.size();
         s.m_inconsistent = m_inconsistent;
-        // m_vars_lim.push(num_vars());
-        if (m_ext)
+        if (m_ext) {
+#if DYNAMIC_VARS
+            m_vars_lim.push(m_active_vars.size());
+#endif
             m_ext->push();
+        }
     }
 
     void solver::pop_reinit(unsigned num_scopes) {
@@ -3666,13 +3703,35 @@ namespace sat {
     }
 
     void solver::pop_vars(unsigned num_scopes) {
+        m_vars_to_reinit.reset();
         unsigned old_num_vars = m_vars_lim.pop(num_scopes);
-        if (old_num_vars == num_vars()) 
+        if (old_num_vars == m_active_vars.size())
             return;
-        IF_VERBOSE(0, verbose_stream() << "new variables created under scope\n";);
-        for (unsigned v = old_num_vars; v < num_vars(); ++v) {
-            
+        init_visited();
+        unsigned new_lvl = scope_lvl() - num_scopes;
+        unsigned old_sz = m_scopes[new_lvl].m_clauses_to_reinit_lim;
+        for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; ) {
+            clause_wrapper const& cw = m_clauses_to_reinit[i];
+            for (unsigned j = cw.size(); j-- > 0; )
+                mark_visited(cw[j]);
         }
+        for (literal lit : m_lemma)
+            mark_visited(lit);
+               
+        unsigned sz = m_active_vars.size(), j = old_num_vars;
+        for (unsigned i = old_num_vars; i < sz; ++i) {
+            bool_var v = m_active_vars[i];
+            if (is_visited(v)) {
+                m_vars_to_reinit.push_back(v);
+                m_active_vars[j++] = v;
+            }
+            else {
+                set_eliminated(v, true);
+                m_free_vars.push_back(v);
+            }
+        }
+        m_active_vars.shrink(j);
+        IF_VERBOSE(0, verbose_stream() << "vars to reinit: " << m_vars_to_reinit << " free vars " << m_free_vars << "\n");
     }
 
     void solver::shrink_vars(unsigned v) {
@@ -3702,7 +3761,9 @@ namespace sat {
         if (num_scopes == 0)
             return;
         if (m_ext) {
-            // pop_vars(num_scopes);
+#if DYNAMIC_VARS
+            pop_vars(num_scopes);
+#endif
             m_ext->pop(num_scopes);
         }
         SASSERT(num_scopes <= scope_lvl());
@@ -3713,7 +3774,7 @@ namespace sat {
         m_scope_lvl -= num_scopes;
         m_scopes.shrink(new_lvl);
         reinit_clauses(s.m_clauses_to_reinit_lim);
-        if (m_ext)
+        if (m_ext) 
             m_ext->pop_reinit();
     }
 
@@ -3748,18 +3809,6 @@ namespace sat {
         }
         
         m_replay_assign.reset();
-    }
-
-    void solver::get_reinit_literals(unsigned n, literal_vector& r) {
-        unsigned new_lvl = scope_lvl() - n;
-        unsigned old_sz = m_scopes[new_lvl].m_clauses_to_reinit_lim;
-        for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; ) {
-            clause_wrapper cw = m_clauses_to_reinit[i];
-            for (unsigned j = cw.size(); j-- > 0; )
-                r.push_back(cw[j]);
-        }
-        for (literal lit : m_lemma)
-            r.push_back(lit);
     }
 
     void solver::reinit_clauses(unsigned old_sz) {

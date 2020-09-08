@@ -47,6 +47,7 @@ namespace euf {
         inf.b = b;
         inf.c = lca;
         inf.is_cc = false;
+        inf.m_count = 0;
         insert();
     }
 
