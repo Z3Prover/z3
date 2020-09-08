@@ -249,6 +249,7 @@ class seq_rewriter {
     br_status mk_re_derivative(expr* ele, expr* r, expr_ref& result);
 
     br_status lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+    bool lift_ites_filter(func_decl* f, expr* ite);
 
     br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
     br_status reduce_re_is_empty(expr* r, expr_ref& result);
@@ -257,6 +258,10 @@ class seq_rewriter {
     bool non_overlap(zstring const& p1, zstring const& p2) const;
     bool rewrite_contains_pattern(expr* a, expr* b, expr_ref& result);
     bool has_fixed_length_constraint(expr* a, unsigned& len);
+    /* r = ite(c1,ite(c2,to_re(s),to_re(t)),to_re(u)) ==> returns true, result = ite(c1,ite(c2,s,t),u)*/
+    bool lift_str_from_to_re_ite(expr * r, expr_ref & result);
+    /* same as lift_to_re_from_ite and also: r = to_re(u) ==> returns true, result = u */
+    bool lift_str_from_to_re(expr * r, expr_ref & result);
 
     br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
     br_status mk_eq_helper(expr* a, expr* b, expr_ref& result);

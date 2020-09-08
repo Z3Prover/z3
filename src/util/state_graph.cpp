@@ -17,6 +17,7 @@ Author:
 --*/
 
 #include "state_graph.h"
+#include <sstream>
 
 void state_graph::add_state_core(state s) {
     STRACE("state_graph", tout << "add(" << s << ") ";);
@@ -434,7 +435,17 @@ bool state_graph::write_dgml() {
                     dgml << "," << r;
                 r = m_state_ufind.next(r);
             } while (r != s);
-            dgml << "\" Category=\"State\">" << std::endl;
+            r = s;
+            dgml << "\" Value_of_" << r << "=\"";
+            m_state_pp.pp_state_label(dgml, r) << "\"";
+            do {
+                if (r != s) {
+                    dgml << " Value_of_" << r << "=\"";
+                    m_state_pp.pp_state_label(dgml, r) << "\"";
+                }
+                r = m_state_ufind.next(r);
+            } while (r != s);
+            dgml << " Category=\"State\">" << std::endl;
             if (m_dead.contains(s))
                 dgml << "<Category Ref=\"Dead\"/>" << std::endl;
             if (m_live.contains(s))

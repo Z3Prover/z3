@@ -1452,20 +1452,21 @@ app* seq_util::rex::mk_epsilon(sort* seq_sort) {
 */
 std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) const {
     SASSERT(re.u.is_seq(s));
-    if (re.u.str.is_concat(s)) {
+    if (re.u.str.is_empty(s))
+        out << "()";
+    else if (re.u.str.is_unit(s))
+        seq_unit(out, s);
+    else if (re.u.str.is_concat(s)) {
         expr_ref_vector es(re.m);
         re.u.str.get_concat(s, es);
-        for (expr* e : es) {
-            if (re.u.str.is_unit(e))
-                seq_unit(out, e);
-            else
-                out << mk_pp(e, re.m);
-        }
+        for (expr* e : es)
+            compact_helper_seq(out, e);
     }
-    else if (re.u.str.is_empty(s))
-        out << "()";
-    else
-        seq_unit(out, s);
+    //using braces to indicate 'full' output
+    //for example an uninterpreted constant X will be printed as {X}
+    //while a unit sequence "X" will be printed as X
+    //thus for example (concat "X" "Y" Z "W") where Z is uninterpreted is printed as XY{Z}W
+    else out << "{" << mk_pp(s, re.m) << "}";
     return out;
 }
 
@@ -1484,7 +1485,7 @@ std::ostream& seq_util::rex::pp::compact_helper_range(std::ostream& out, expr* s
 */
 bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
     expr* s;
-    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r));
+    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r) || re.is_full_char(r));
 }
 
 /*
@@ -1494,15 +1495,44 @@ std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
     expr* e;
     unsigned n = 0;
     if (re.u.str.is_unit(s, e) && re.u.is_const_char(e, n)) {
-        if (32 < n && n < 127)
-            out << (char)n;
-        else if (n < 16)
+        char c = (char)n;
+        if (c == '\n')
+            out << "\\n";
+        else if (c == '\r')
+            out << "\\r";
+        else if (c == '\f')
+            out << "\\f";
+        else if (c == ' ')
+            out << "\\s";
+        else if (c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']' || c == '.' || c == '\\')
+            out << "\\" << c;
+        else if (32 < n && n < 127) {
+            if (html_encode) {
+                if (c == '<')
+                    out << "&lt;";
+                else if (c == '>')
+                    out << "&gt;";
+                else if (c == '&')
+                    out << "&amp;";
+                else if (c == '\"')
+                    out << "&quot;";
+                else
+                    out << "\\x" << std::hex << n;
+            }
+            else
+                out << c;
+        }
+        else if (n <= 0xF)
             out << "\\x0" << std::hex << n;
-        else
+        else if (n <= 0xFF)
             out << "\\x" << std::hex << n;
+        else if (n <= 0xFFF)
+            out << "\\u0" << std::hex << n;
+        else 
+            out << "\\u" << std::hex << n;
     }
     else
-        out << mk_pp(s, re.m);
+        out << "{" << mk_pp(s, re.m) << "}";
     return out;
 }
 
@@ -1516,7 +1546,7 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
         return out << ".";
     else if (re.is_full_seq(e))
         return out << ".*";
-    else if (re.is_to_re(e, s)) 
+    else if (re.is_to_re(e, s))
         return compact_helper_seq(out, s);
     else if (re.is_range(e, s, s2)) 
         return compact_helper_range(out, s, s2);
@@ -1529,7 +1559,7 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
     else if (re.is_union(e, r1, r2)) 
         return out << pp(re, r1) << "|" << pp(re, r2);
     else if (re.is_intersection(e, r1, r2)) 
-        return out << "(" << pp(re, r1) << ")&(" << pp(re, r2) << ")";
+        return out << "(" << pp(re, r1) << (html_encode ? ")&amp;(": ")&(" ) << pp(re, r2) << ")";
     else if (re.is_complement(e, r1)) {
         if (can_skip_parenth(r1))
             return out << "~" << pp(re, r1);
@@ -1555,10 +1585,18 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
             return out << "(" << pp(re, r1) << "){" << lo << ",}";
     }
     else if (re.is_loop(e, r1, lo, hi)) {
-        if (can_skip_parenth(r1))
-            return out << pp(re, r1) << "{" << lo << "," << hi << "}";
-        else
-            return out << "(" << pp(re, r1) << "){" << lo << "," << hi << "}";
+        if (can_skip_parenth(r1)) {
+            if (lo == hi)
+                return out << pp(re, r1) << "{" << lo << "}";
+            else 
+                return out << pp(re, r1) << "{" << lo << "," << hi << "}";
+        }
+        else {
+            if (lo == hi)
+                return out << "(" << pp(re, r1) << "){" << lo << "}";
+            else
+                return out << "(" << pp(re, r1) << "){" << lo << "," << hi << "}";
+        }
     }
     else if (re.is_diff(e, r1, r2)) 
         return out << "(" << pp(re, r1) << ")\\(" << pp(re, r2) << ")";
@@ -1574,7 +1612,7 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
         return out << "reverse(" << pp(re, r1) << ")";
     else
         // Else: derivative or is_of_pred
-        return out << mk_pp(e, re.m);
+        return out << "{" << mk_pp(e, re.m) << "}";
 }
 
 /*
@@ -1643,8 +1681,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     bool is_value(false);
     bool normalized(false);
     if (e->get_family_id() == u.get_family_id()) {
-        switch (e->get_decl()->get_decl_kind())
-        {
+        switch (e->get_decl()->get_decl_kind()) {
         case OP_RE_EMPTY_SET:
             return info(true, true, true, true, true, true, false, l_false, UINT_MAX, 0);
         case OP_RE_FULL_SEQ_SET:
