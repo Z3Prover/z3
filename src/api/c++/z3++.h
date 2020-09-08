@@ -2310,7 +2310,7 @@ namespace z3 {
 
         friend std::ostream & operator<<(std::ostream & out, model const & m);
 
-        std::string to_string() const { return std::string(Z3_model_to_string(ctx(), m_model); }
+        std::string to_string() const { return std::string(Z3_model_to_string(ctx(), m_model)); }
     };
     inline std::ostream & operator<<(std::ostream & out, model const & m) { out << Z3_model_to_string(m.ctx(), m); return out; }
 
