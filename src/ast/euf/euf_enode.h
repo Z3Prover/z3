@@ -113,7 +113,6 @@ namespace euf {
 
         enode* get_arg(unsigned i) const { SASSERT(i < num_args()); return m_args[i]; }        
         unsigned hash() const { return m_owner->hash(); }
-        func_decl* get_decl() const { return is_app(m_owner) ? to_app(m_owner)->get_decl() : nullptr; } 
         unsigned get_table_id() const { return m_table_id; }
         void     set_table_id(unsigned t) { m_table_id = t; }
 
@@ -144,6 +143,8 @@ namespace euf {
         bool is_root() const { return m_root == this; }
         enode* get_root() const { return m_root; }
         expr*  get_owner() const { return m_owner; }
+        app*  get_app() const { return to_app(m_owner); }
+        func_decl* get_decl() const { return is_app(m_owner) ? to_app(m_owner)->get_decl() : nullptr; }
         unsigned get_owner_id() const { return m_owner->get_id(); }
         unsigned get_root_id() const { return m_root->m_owner->get_id(); }
         theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }

@@ -121,6 +121,7 @@ namespace euf {
         void add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
 
         euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
+        euf::enode* mk_enode(expr* e, bool suppress_args);
 
         void rewrite(expr_ref& a) { }
 

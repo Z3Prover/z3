@@ -32,6 +32,8 @@ namespace array {
         typedef sat::literal literal;
         typedef sat::bool_var bool_var;
         typedef sat::literal_vector literal_vector;
+        typedef union_find<solver, euf::solver>  array_union_find;
+
 
         struct stats {
             unsigned   m_num_store_axiom1, m_num_store_axiom2a, m_num_axiom2b, m_num_extensionality_axiom, m_num_eq_splits;
@@ -44,45 +46,96 @@ namespace array {
 
         // void log_drat(array_justification const& c);
 
+        struct var_data {
+            bool               m_prop_upward { false };
+            bool               m_is_array { false };
+            bool               m_is_select { false };
+            var_data() {}
+        };
         
  
         array_util        a;
         stats             m_stats;
         sat::solver*      m_solver { nullptr };
-        ast2ast_trailmap<sort, app> m_sort2epsilon;
-        ast2ast_trailmap<sort, func_decl> m_sort2diag;
+        scoped_ptr_vector<var_data>          m_var_data;
+        ast2ast_trailmap<sort, app>          m_sort2epsilon;
+        ast2ast_trailmap<sort, func_decl>    m_sort2diag;
         obj_map<sort, func_decl_ref_vector*> m_sort2diff;
+        array_union_find                     m_find;
 
         sat::solver& s() { return *m_solver;  }
+        theory_var find(theory_var v) { return m_find.find(v); }
 
         // internalize
+        bool visit(expr* e) override;
+        bool visited(expr* e) override;
+        bool post_visit(expr* e, bool sign, bool root) override;
+        void ensure_var(euf::enode* n);
+        void internalize_store(euf::enode* n); 
+        void internalize_select(euf::enode* n);
+        void internalize_const(euf::enode* n); 
+        void internalize_ext(euf::enode* n); 
+        void internalize_default(euf::enode* n); 
+        void internalize_map(euf::enode* n); 
+        void internalize_as_array(euf::enode* n); 
 
         // axioms
+        struct axiom_record {
+            enum class kind_t {
+                is_store,
+                is_select,
+                is_extensionality, 
+                is_default                    
+            };
+            kind_t      m_kind;
+            euf::enode* n;
+            euf::enode* select;           
+            axiom_record(kind_t k, euf::enode* n, euf::enode* select = nullptr): m_kind(k), n(n), select(select) {}
+        };
+        svector<axiom_record> m_axiom_trail;
+        void push_axiom(axiom_record const& r) { m_axiom_trail.push_back(r); }
+        void assert_axiom(axiom_record const& r);
+
+        axiom_record select_axiom(euf::enode* s, euf::enode* n) { return axiom_record(axiom_record::kind_t::is_select, n, s); }
+        axiom_record default_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_default, n); }
+        axiom_record store_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_store, n); }
+        axiom_record extensionality_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_extensionality, n); }
+        
+
         sat::ext_justification_idx array_axiom() { return 0; }
-        sat::ext_justification_idx store_axiom1() { return array_axiom(); }
-        sat::ext_justification_idx store_axiom2() { return array_axiom(); }
+        sat::ext_justification_idx store_axiom() { return array_axiom(); }
+        sat::ext_justification_idx select_store_axiom() { return array_axiom(); }
         sat::ext_justification_idx select_const_axiom() { return array_axiom(); }
+        sat::ext_justification_idx select_as_array_axiom() { return array_axiom(); }
+        sat::ext_justification_idx select_map_axiom() { return array_axiom(); }
         sat::ext_justification_idx map_axiom() { return array_axiom(); }
         sat::ext_justification_idx default_map_axiom() { return array_axiom(); }
         sat::ext_justification_idx default_const_axiom() { return array_axiom(); }
         sat::ext_justification_idx default_store_axiom() { return array_axiom(); }
-        sat::ext_justification_idx select_as_array_axiom() { return array_axiom(); }
 
-        void assert_store_axiom1(expr* _e);
-        void assert_store_axiom2(expr* _store, expr* _select);
-        void assert_select_const_axiom(expr* cnts, expr* _select);
-        void assert_extensionality(expr* e1, expr* e2);
-        void assert_map(expr* _select, expr* _map);
-        void assert_default_map(expr* _map);
-        void assert_default_const(expr * cnst);
-        void assert_select_as_array_axiom(expr* _select, expr* _arr);
-        void assert_default_store_axiom(expr* _store);
+
+        void assert_store_axiom(app* _e);
+        void assert_select_store_axiom(app* select, app* store);
+        void assert_select_const_axiom(app* select, app* cnst);
+        void assert_select_as_array_axiom(app* select, app* arr);
+        void assert_select_map_axiom(app* select, app* map);
+        void assert_extensionality(expr* e1, expr* e2);        
+        void assert_default_map_axiom(app* map);
+        void assert_default_const_axiom(app * cnst);
+        
+        void assert_default_store_axiom(app* store);
+        void assert_default_as_array_axiom(app* as_array);
+        
 
         bool has_unitary_domain(app* array_term);
         bool has_large_domain(app* array_term);
         std::pair<app*,func_decl*> mk_epsilon(sort* s);
 
         // solving
+        void add_parent(euf::enode* child, euf::enode* parent);
+        var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
+        var_data& get_var_data(theory_var v) { return *m_var_data[find(v)]; }
+
         // invariants
        
     public:
@@ -108,5 +161,8 @@ namespace array {
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode * n, sort * s) override;        
+
+        void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
+        // trail_stack<euf::solver>& get_trail_stack();
     };
 }

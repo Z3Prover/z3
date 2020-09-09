@@ -129,7 +129,6 @@ namespace euf {
         th_solver* get_solver(expr* e);
         th_solver* get_solver(sat::bool_var v);
         void add_solver(family_id fid, th_solver* th);
-        void unhandled_function(func_decl* f);
         void init_ackerman();
 
         // model building
@@ -262,6 +261,7 @@ namespace euf {
         void attach_node(euf::enode* n);
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
         expr* bool_var2expr(sat::bool_var v) { return m_var2expr.get(v, nullptr); }
+        void unhandled_function(func_decl* f);
 
         void update_model(model_ref& mdl);
 
