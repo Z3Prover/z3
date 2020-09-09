@@ -44,6 +44,8 @@ namespace euf {
 
         virtual void internalize(expr* e, bool redundant) = 0;
 
+        sat::literal b_internalize(expr* e) { return internalize(e, false, false, m_is_redundant); }
+
         /**
            \brief Apply (interpreted) sort constraints on the given enode.
         */
@@ -55,7 +57,7 @@ namespace euf {
     public:
         virtual ~th_decompile() {}
 
-        virtual bool to_formulas(std::function<expr_ref(sat::literal)>& lit2expr, expr_ref_vector& fmls) = 0;
+        virtual bool to_formulas(std::function<expr_ref(sat::literal)>& lit2expr, expr_ref_vector& fmls) { return false; }
     };
 
     class th_model_builder {
@@ -113,9 +115,14 @@ namespace euf {
         
 
         void add_unit(sat::literal lit);
+        void add_clause(sat::literal lit) { add_unit(lit); }
         void add_clause(sat::literal a, sat::literal b);
         void add_clause(sat::literal a, sat::literal b, sat::literal c);
         void add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
+
+        euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
+
+        void rewrite(expr_ref& a) { }
 
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);

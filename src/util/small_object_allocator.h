@@ -27,8 +27,8 @@ class small_object_allocator {
     static const unsigned SMALL_OBJ_SIZE = 256;
     static const unsigned NUM_SLOTS      = (SMALL_OBJ_SIZE >> PTR_ALIGNMENT);
     struct chunk {
-        chunk * m_next;
-        char  * m_curr;
+        chunk* m_next{ nullptr };
+        char* m_curr{ nullptr };
         char    m_data[CHUNK_SIZE];
         chunk():m_curr(m_data) {}
     };

@@ -53,7 +53,7 @@ namespace datatype {
         symbol    m_name;
         sort_ref  m_range;
         unsigned m_index;    // reference to recursive data-type may only get resolved after all mutually recursive data-types are procssed.
-        constructor* m_constructor;
+        constructor* m_constructor{ nullptr };
     public:
         accessor(ast_manager& m, symbol const& n, sort* range):
             m_name(n),

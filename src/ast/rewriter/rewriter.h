@@ -150,9 +150,9 @@ public:
        - (VAR i + s2) if i < b 
 */
 class var_shifter : public var_shifter_core {
-    unsigned  m_bound;
-    unsigned  m_shift1;
-    unsigned  m_shift2;
+    unsigned  m_bound  { 0 };
+    unsigned  m_shift1 { 0 };
+    unsigned  m_shift2 { 0 };
     void process_var(var * v) override;
 public:
     var_shifter(ast_manager & m):var_shifter_core(m) {}

@@ -88,33 +88,24 @@ namespace sat {
         };
         
         struct var_info {
-            bool m_value;                        // current solution
-            unsigned m_bias;                     // bias for current solution in percentage.
+            bool m_value{ true };                        // current solution
+            unsigned m_bias{ 50 };                     // bias for current solution in percentage.
                                                  // if bias is 0, then value is always false, if 100, then always true
-            bool m_unit;                         // is this a unit literal
+            bool m_unit{ false };                         // is this a unit literal
             literal m_explain;                   // explanation for unit assignment
-            bool m_conf_change;                  // whether its configure changes since its last flip
-            bool m_in_goodvar_stack;
-            int  m_score;
-            int  m_slack_score;
-            int  m_time_stamp;                   // the flip time stamp                 
+            bool m_conf_change{ true };                  // whether its configure changes since its last flip
+            bool m_in_goodvar_stack{ false };
+            int  m_score{ 0 };
+            int  m_slack_score{ 0 };
+            int  m_time_stamp{ 0 };                   // the flip time stamp                 
             bool_var_vector m_neighbors;         // neighborhood variables
             coeff_vector m_watch[2];
             literal_vector m_bin[2];
-            unsigned m_flips;
+            unsigned m_flips{ 0 };
             ema  m_slow_break;
-            double m_break_prob;
+            double m_break_prob{ 0 };
             var_info():
-                m_value(true),
-                m_bias(50), 
-                m_unit(false),
-                m_conf_change(true),
-                m_in_goodvar_stack(false),
-                m_score(0),
-                m_slack_score(0),
-                m_flips(0),
-                m_slow_break(1e-5),
-                m_break_prob(0)
+                m_slow_break(1e-5)
             {}
         };
 

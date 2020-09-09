@@ -199,6 +199,10 @@ public:
         return mk_select(args.size(), args.c_ptr());
     }
 
+    app * mk_select(ptr_buffer<expr> const& args) {
+        return mk_select(args.size(), args.c_ptr());
+    }
+
     app * mk_select(expr_ref_vector const& args) {
         return mk_select(args.size(), args.c_ptr());
     }

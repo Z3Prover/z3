@@ -71,7 +71,7 @@ namespace sat {
         void collect_candidates(literal lit, literal const* begin, literal const* end);
         void strengthen_clause(literal lit, literal const* begin, literal const* end);
 
-        bool_var m_p, m_q, m_u, m_v; 
+        bool_var m_p{ 0 }, m_q{ 0 }, m_u{ 0 }, m_v{ 0 };
         lbool m_vals[4];
 
         void algorithm2();
