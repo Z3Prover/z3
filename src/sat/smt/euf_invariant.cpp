@@ -26,14 +26,14 @@ namespace euf {
 
     void solver::check_eqc_bool_assignment() const {
         for (enode* n : m_egraph.nodes()) {
-            VERIFY(!m.is_bool(n->get_owner()) || 
+            VERIFY(!m.is_bool(n->get_expr()) || 
                    s().value(get_literal(n)) == s().value(get_literal(n->get_root())));        
         }
     }
 
     void solver::check_missing_bool_enode_propagation() const {
         for (enode* n : m_egraph.nodes()) 
-            if (m.is_bool(n->get_owner()) && l_undef == s().value(get_literal(n))) {
+            if (m.is_bool(n->get_expr()) && l_undef == s().value(get_literal(n))) {
                 if (!n->is_root()) {
                     VERIFY(l_undef == s().value(get_literal(n->get_root())));
                 }

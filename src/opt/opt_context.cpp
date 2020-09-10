@@ -387,6 +387,7 @@ namespace opt {
 
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
+        CTRACE("opt", mdl, tout << *mdl;);
         fix_model(mdl);
         if (mdl) mdl->set_model_completion(true);
         CTRACE("opt", mdl, tout << *mdl;);

@@ -59,10 +59,10 @@ public:
     struct key_data {
         Key *  m_key;
         Value  m_value;
-        key_data():m_key(nullptr) {
+        key_data():m_key(nullptr), m_value() {
         }
         key_data(Key * k):
-            m_key(k) {
+            m_key(k), m_value() {
         }
         key_data(Key * k, Value const & v):
             m_key(k),

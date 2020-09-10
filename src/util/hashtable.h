@@ -43,12 +43,12 @@ typedef enum { HT_FREE,
 
 template<typename T>
 class default_hash_entry {
-    unsigned         m_hash; //!< cached hash code
+    unsigned         m_hash{ 0 }; //!< cached hash code
     hash_entry_state m_state;
     T                m_data;
 public:
     typedef T         data;
-    default_hash_entry():m_state(HT_FREE) {}
+    default_hash_entry():m_state(HT_FREE), m_data() {}
     unsigned get_hash() const  { return m_hash; }
     bool is_free() const { return m_state == HT_FREE; }
     bool is_deleted() const { return m_state == HT_DELETED; }

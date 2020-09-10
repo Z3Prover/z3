@@ -19,6 +19,7 @@ Author:
 #include "util/top_sort.h"
 #include "sat/smt/sat_smt.h"
 #include "ast/euf/euf_egraph.h"
+#include "model/model.h"
 #include "smt/params/smt_params.h"
 
 namespace euf {
@@ -44,6 +45,8 @@ namespace euf {
 
         virtual void internalize(expr* e, bool redundant) = 0;
 
+        sat::literal b_internalize(expr* e) { return internalize(e, false, false, m_is_redundant); }
+
         /**
            \brief Apply (interpreted) sort constraints on the given enode.
         */
@@ -55,7 +58,7 @@ namespace euf {
     public:
         virtual ~th_decompile() {}
 
-        virtual bool to_formulas(std::function<expr_ref(sat::literal)>& lit2expr, expr_ref_vector& fmls) = 0;
+        virtual bool to_formulas(std::function<expr_ref(sat::literal)>& lit2expr, expr_ref_vector& fmls) { return false; }
     };
 
     class th_model_builder {
@@ -67,7 +70,7 @@ namespace euf {
            \brief compute the value for enode \c n and store the value in \c values 
            for the root of the class of \c n.
          */
-        virtual void add_value(euf::enode* n, expr_ref_vector& values) {}
+        virtual void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {}
 
         /**
            \brief compute dependencies for node n
@@ -113,9 +116,15 @@ namespace euf {
         
 
         void add_unit(sat::literal lit);
+        void add_clause(sat::literal lit) { add_unit(lit); }
         void add_clause(sat::literal a, sat::literal b);
         void add_clause(sat::literal a, sat::literal b, sat::literal c);
         void add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
+
+        euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
+        euf::enode* mk_enode(expr* e, bool suppress_args);
+
+        void rewrite(expr_ref& a);
 
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);
@@ -124,7 +133,7 @@ namespace euf {
         unsigned get_num_vars() const { return m_var2enode.size();}
         enode* expr2enode(expr* e) const; 
         enode* var2enode(theory_var v) const { return m_var2enode[v]; }
-        expr* var2expr(theory_var v) const { return var2enode(v)->get_owner(); }
+        expr* var2expr(theory_var v) const { return var2enode(v)->get_expr(); }
         expr* bool_var2expr(sat::bool_var v) const;
         expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }

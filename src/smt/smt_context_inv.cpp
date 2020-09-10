@@ -93,7 +93,7 @@ namespace smt {
             (!is_true_eq && (!n->is_cgc_enabled() || n->is_cgr() == (m_cg_table.contains_ptr(n)))) ||
             (is_true_eq && !m_cg_table.contains_ptr(n));
         CTRACE("check_enode", !cg_inv,
-               tout << "n: #" << n->get_owner_id() << ", m_cg: #" << n->m_cg->get_owner_id() << ", contains: " << m_cg_table.contains(n) << "\n"; display(tout););
+               tout << "n: #" << n->get_expr_id() << ", m_cg: #" << n->m_cg->get_expr_id() << ", contains: " << m_cg_table.contains(n) << "\n"; display(tout););
         SASSERT(cg_inv);
         return true;
     }
@@ -235,8 +235,8 @@ namespace smt {
             if (m.is_bool(e->get_owner())) {
                 enode * r = e->get_root();
                 CTRACE("eqc_bool", get_assignment(e) != get_assignment(r), 
-                       tout << "#" << e->get_owner_id() << "\n" << mk_pp(e->get_owner(), m) << "\n";
-                       tout << "#" << r->get_owner_id() << "\n" << mk_pp(r->get_owner(), m) << "\n";
+                       tout << "#" << e->get_expr_id() << "\n" << mk_pp(e->get_owner(), m) << "\n";
+                       tout << "#" << r->get_expr_id() << "\n" << mk_pp(r->get_owner(), m) << "\n";
                        tout << "assignments: " << get_assignment(e) << " " << get_assignment(r) << "\n";
                        display(tout););
                 SASSERT(get_assignment(e) == get_assignment(r));
@@ -271,7 +271,7 @@ namespace smt {
             if (has_enode(v)) {
                 enode * n = bool_var2enode(v);
                 if (n->is_eq() && is_relevant(n) && get_assignment(v) == l_false && !m.is_iff(n->get_owner())) {
-                    TRACE("check_th_diseq_propagation", tout << "checking: #" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m) << "\n";);
+                    TRACE("check_th_diseq_propagation", tout << "checking: #" << n->get_expr_id() << " " << mk_bounded_pp(n->get_owner(), m) << "\n";);
                     enode * lhs = n->get_arg(0)->get_root();
                     enode * rhs = n->get_arg(1)->get_root();
                     if (rhs->is_interpreted() && lhs->is_interpreted())
@@ -305,9 +305,9 @@ namespace smt {
                             CTRACE("check_th_diseq_propagation", !found,
                                    tout 
                                    << "checking theory: " << m.get_family_name(th_id) << "\n"
-                                   << "root: #" << n->get_root()->get_owner_id() << " node: #" << n->get_owner_id() << "\n"
+                                   << "root: #" << n->get_root()->get_expr_id() << " node: #" << n->get_expr_id() << "\n"
                                    << mk_pp(n->get_owner(), m) << "\n"
-                                   << "lhs: #" << lhs->get_owner_id() << ", rhs: #" << rhs->get_owner_id() << "\n"
+                                   << "lhs: #" << lhs->get_expr_id() << ", rhs: #" << rhs->get_expr_id() << "\n"
                                    << mk_bounded_pp(lhs->get_owner(), m) << " " << mk_bounded_pp(rhs->get_owner(), m) << "\n";);
                             VERIFY(found);
                         }
@@ -325,8 +325,8 @@ namespace smt {
             enode * n2 = p.second;
             if (n1->get_root() == n2->get_root()) {
                 TRACE("diseq_bug", 
-                      tout << "n1: #" << n1->get_owner_id() << ", n2: #" << n2->get_owner_id() <<
-                      ", r: #" << n1->get_root()->get_owner_id() << "\n";
+                      tout << "n1: #" << n1->get_expr_id() << ", n2: #" << n2->get_expr_id() <<
+                      ", r: #" << n1->get_root()->get_expr_id() << "\n";
                       tout << "n1 parents:\n"; display_parent_eqs(tout, n1);
                       tout << "n2 parents:\n"; display_parent_eqs(tout, n2);
                       tout << "r parents:\n"; display_parent_eqs(tout, n1->get_root());

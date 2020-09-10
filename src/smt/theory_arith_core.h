@@ -2278,9 +2278,9 @@ namespace smt {
         if (m_blands_rule)
             return select_smallest_var();
         switch (m_params.m_arith_pivot_strategy) {
-        case ARITH_PIVOT_GREATEST_ERROR:
+        case arith_pivot_strategy::ARITH_PIVOT_GREATEST_ERROR:
             return select_greatest_error_var();
-        case ARITH_PIVOT_LEAST_ERROR:
+        case arith_pivot_strategy::ARITH_PIVOT_LEAST_ERROR:
             return select_least_error_var();
         default:
             return select_smallest_var();

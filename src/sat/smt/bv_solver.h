@@ -268,7 +268,7 @@ namespace bv {
         void new_eq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override;
 
-        void add_value(euf::enode* n, expr_ref_vector& values) override;
+        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
 
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override { return false; }

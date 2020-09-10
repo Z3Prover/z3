@@ -71,7 +71,7 @@ namespace euf {
     }
 
     bool egraph::is_equality(enode* p) const {
-        return m.is_eq(p->get_owner());
+        return m.is_eq(p->get_expr());
     }
 
     void egraph::force_push() {
@@ -112,7 +112,7 @@ namespace euf {
             update_children(n);
         }
         else {
-            SASSERT(r->get_owner() != n->get_owner());
+            SASSERT(r->get_expr() != n->get_expr());
             merge_justification(n, r, justification::congruence(p.second));
             std::swap(n->m_next, r->m_next);
             n->m_root = r;
@@ -191,7 +191,7 @@ namespace euf {
         auto undo_node = [&](enode* n) {
             if (n->num_args() > 1)
                 m_table.erase(n);
-            m_expr2enode[n->get_owner_id()] = nullptr;
+            m_expr2enode[n->get_expr_id()] = nullptr;
             n->~enode();
             m_nodes.pop_back();
             m_exprs.pop_back();
@@ -243,8 +243,8 @@ namespace euf {
     }
 
     void egraph::merge(enode* n1, enode* n2, justification j) {
-        SASSERT(m.get_sort(n1->get_owner()) == m.get_sort(n2->get_owner()));
-        TRACE("euf", tout << n1->get_owner_id() << " == " << n2->get_owner_id() << "\n";);
+        SASSERT(m.get_sort(n1->get_expr()) == m.get_sort(n2->get_expr()));
+        TRACE("euf", tout << n1->get_expr_id() << " == " << n2->get_expr_id() << "\n";);
         force_push();
         enode* r1 = n1->get_root();
         enode* r2 = n2->get_root();
@@ -259,7 +259,7 @@ namespace euf {
             std::swap(r1, r2);
             std::swap(n1, n2);
         }
-        if ((m.is_true(r2->get_owner()) || m.is_false(r2->get_owner())) && j.is_congruence()) {
+        if ((m.is_true(r2->get_expr()) || m.is_false(r2->get_expr())) && j.is_congruence()) {
             add_literal(n1, false);
         }
         for (enode* p : enode_parents(n1)) 
@@ -357,10 +357,10 @@ namespace euf {
        explanations up to the least common ancestors.
      */
     void egraph::push_congruence(enode* n1, enode* n2, bool comm) {
-        SASSERT(is_app(n1->get_owner()));
+        SASSERT(is_app(n1->get_expr()));
         SASSERT(n1->get_decl() == n2->get_decl());
         if (m_used_cc) 
-            m_used_cc(to_app(n1->get_owner()), to_app(n2->get_owner()));
+            m_used_cc(to_app(n1->get_expr()), to_app(n2->get_expr()));
         if (comm && 
             n1->get_arg(0)->get_root() == n2->get_arg(1)->get_root() &&
             n1->get_arg(1)->get_root() == n2->get_arg(0)->get_root()) {
@@ -428,7 +428,7 @@ namespace euf {
         push_to_lca(a, lca);
         push_to_lca(b, lca);
         if (m_used_eq)
-            m_used_eq(a->get_owner(), b->get_owner(), lca->get_owner());
+            m_used_eq(a->get_expr(), b->get_expr(), lca->get_expr());
         explain_todo(justifications);
     }
 
@@ -449,10 +449,10 @@ namespace euf {
     }
 
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
-        out << n->get_owner_id() << " := ";
+        out << n->get_expr_id() << " := ";
         if (!n->is_root()) 
-            out << "[" << n->get_root()->get_owner_id() << "] ";
-        expr* f = n->get_owner();
+            out << "[" << n->get_root()->get_expr_id() << "] ";
+        expr* f = n->get_expr();
         if (is_app(f))
             out << mk_bounded_pp(f, m, 1);
         else if (is_quantifier(f))
@@ -463,7 +463,7 @@ namespace euf {
         if (!n->m_parents.empty()) {
             out << "    ";
             for (enode* p : enode_parents(n))
-                out << p->get_owner_id() << " ";
+                out << p->get_expr_id() << " ";
             out << "\n";
         }
         if (n->has_th_vars()) {
@@ -505,7 +505,7 @@ namespace euf {
             SASSERT(!n1->has_th_vars());
             args.reset();
             for (unsigned j = 0; j < n1->num_args(); ++j) 
-                args.push_back(old_expr2new_enode[n1->get_arg(j)->get_owner_id()]);
+                args.push_back(old_expr2new_enode[n1->get_arg(j)->get_expr_id()]);
             expr*  e2 = tr(e1);
             enode* n2 = mk(e2, args.size(), args.c_ptr());
             old_expr2new_enode.setx(e1->get_id(), n2, nullptr);
@@ -514,10 +514,10 @@ namespace euf {
             enode* n1 = src.m_nodes[i];
             enode* n1t = n1->m_target;      
             enode* n2 = m_nodes[i];
-            enode* n2t = n1t ? old_expr2new_enode[n1->get_owner_id()] : nullptr;
+            enode* n2t = n1t ? old_expr2new_enode[n1->get_expr_id()] : nullptr;
             SASSERT(!n1t || n2t);
-            SASSERT(!n1t || src.m.get_sort(n1->get_owner()) == src.m.get_sort(n1t->get_owner()));
-            SASSERT(!n1t || m.get_sort(n2->get_owner()) == m.get_sort(n2t->get_owner()));
+            SASSERT(!n1t || src.m.get_sort(n1->get_expr()) == src.m.get_sort(n1t->get_expr()));
+            SASSERT(!n1t || m.get_sort(n2->get_expr()) == m.get_sort(n2t->get_expr()));
             if (n1t && n2->get_root() != n2t->get_root()) 
                 merge(n2, n2t, n1->m_justification.copy(copy_justification));
         }

@@ -68,27 +68,27 @@ namespace sat {
          *
          */
 
-        enum op_code { pp, pn, np, nn, none };
+        enum class op_code { pp, pn, np, nn, none };
 
         struct bin_rel {
             unsigned u, v;
             op_code op;
-            bin_rel(unsigned _u, unsigned _v): u(_u), v(_v), op(none) {
+            bin_rel(unsigned _u, unsigned _v): u(_u), v(_v), op(op_code::none) {
                 if (u > v) std::swap(u, v);
             }
             // convert binary clause into a bin-rel
-            bin_rel(literal _u, literal _v): u(_u.var()), v(_v.var()), op(none) {
-                if (_u.sign() && _v.sign()) op = pp;
-                else if (_u.sign()) op = pn;
-                else if (_v.sign()) op = np;
-                else op = nn;
+            bin_rel(literal _u, literal _v): u(_u.var()), v(_v.var()), op(op_code::none) {
+                if (_u.sign() && _v.sign()) op = op_code::pp;
+                else if (_u.sign()) op = op_code::pn;
+                else if (_v.sign()) op = op_code::np;
+                else op = op_code::nn;
                 if (u > v) {
                     std::swap(u, v);
-                    if (op == np) op = pn;
-                    else if (op == pn) op = np;
+                    if (op == op_code::np) op = op_code::pn;
+                    else if (op == op_code::pn) op = op_code::np;
                 }
             }
-            bin_rel(): u(UINT_MAX), v(UINT_MAX), op(none) {}
+            bin_rel(): u(UINT_MAX), v(UINT_MAX), op(op_code::none) {}
 
             struct hash {
                 unsigned operator()(bin_rel const& p) const { 
@@ -102,10 +102,10 @@ namespace sat {
             };
             void to_binary(literal& lu, literal& lv) const {
                 switch (op) {
-                case pp: lu = literal(u, true); lv = literal(v, true); break;
-                case pn: lu = literal(u, true); lv = literal(v, false); break;
-                case np: lu = literal(u, false); lv = literal(v, true); break;
-                case nn: lu = literal(u, false); lv = literal(v, false); break;
+                case op_code::pp: lu = literal(u, true); lv = literal(v, true); break;
+                case op_code::pn: lu = literal(u, true); lv = literal(v, false); break;
+                case op_code::np: lu = literal(u, false); lv = literal(v, true); break;
+                case op_code::nn: lu = literal(u, false); lv = literal(v, false); break;
                 default: UNREACHABLE(); break;
                 }
             }

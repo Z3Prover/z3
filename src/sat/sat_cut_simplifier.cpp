@@ -460,7 +460,7 @@ namespace sat {
             return;
         }
         bin_rel q, p(~u, v);
-        if (m_bins.find(p, q) && q.op != none) 
+        if (m_bins.find(p, q) && q.op != op_code::none)
             return;
         if (big.connected(u, v)) 
             return;
@@ -614,20 +614,16 @@ namespace sat {
      */
     void cut_simplifier::cuts2bins(vector<cut_set> const& cuts) {
         svector<bin_rel> dcs;
-        for (auto const& p : m_bins) {
-            if (p.op != none) 
-                dcs.push_back(p);
-        }
+        for (auto const& p : m_bins) 
+            if (p.op != op_code::none)
+                dcs.push_back(p);        
         m_bins.reset();
-        for (auto const& cs : cuts) {
-            for (auto const& c : cs) {
-                for (unsigned i = c.size(); i-- > 0; ) {
-                    for (unsigned j = i; j-- > 0; ) {
+        for (auto const& cs : cuts) 
+            for (auto const& c : cs) 
+                for (unsigned i = c.size(); i-- > 0; ) 
+                    for (unsigned j = i; j-- > 0; ) 
                         m_bins.insert(bin_rel(c[j],c[i]));
-                    }
-                }
-            }
-        }
+
         // don't lose previous don't cares
         for (auto const& p : dcs) {
             if (m_bins.contains(p)) {
@@ -646,27 +642,27 @@ namespace sat {
         big b(s.rand());
         b.init(s, true);
         for (auto& p : m_bins) {
-            if (p.op != none) continue;
+            if (p.op != op_code::none) continue;
             literal u(p.u, false), v(p.v, false);
             // u -> v, then u & ~v is impossible
             if (b.connected(u, v)) {
-                p.op = pn;
+                p.op = op_code::pn;
             }
             else if (b.connected(u, ~v)) {                
-                p.op = pp;
+                p.op = op_code::pp;
             }
             else if (b.connected(~u, v)) {
-                p.op = nn;
+                p.op = op_code::nn;
             }
             else if (b.connected(~u, ~v)) {
-                p.op = np;
+                p.op = op_code::np;
             }
-            if (p.op != none) {
+            if (p.op != op_code::none) {
                 track_binary(p);
             }
         }
         IF_VERBOSE(2, {
-                unsigned n = 0; for (auto const& p : m_bins) if (p.op != none) ++n;
+                unsigned n = 0; for (auto const& p : m_bins) if (p.op != op_code::none) ++n;
                 verbose_stream() << n << " / " << m_bins.size() << " don't cares\n";
             });
     }
@@ -698,10 +694,10 @@ namespace sat {
      */ 
     uint64_t cut_simplifier::op2dont_care(unsigned i, unsigned j, bin_rel const& p) {
         SASSERT(i < j && j < 6);
-        if (p.op == none) return 0ull;
+        if (p.op == op_code::none) return 0ull;
         // first position of mask is offset into output bits contributed by i and j
-        bool i_is_0 = (p.op == np || p.op == nn);
-        bool j_is_0 = (p.op == pn || p.op == nn);
+        bool i_is_0 = (p.op == op_code::np || p.op == op_code::nn);
+        bool j_is_0 = (p.op == op_code::pn || p.op == op_code::nn);
         uint64_t first = (i_is_0 ? 0 : (1 << i)) + (j_is_0 ? 0 : (1 << j));
         uint64_t inc = 1ull << (j + 1);
         uint64_t r = 1ull << first; 
@@ -719,7 +715,7 @@ namespace sat {
         for (unsigned i = 0; i < c.size(); ++i) {
             for (unsigned j = i + 1; j < c.size(); ++j) {
                 bin_rel p(c[i], c[j]);
-                if (m_bins.find(p, p) && p.op != none) {
+                if (m_bins.find(p, p) && p.op != op_code::none) {
                     dc |= op2dont_care(i, j, p);
                 }
             }

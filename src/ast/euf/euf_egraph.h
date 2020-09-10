@@ -68,7 +68,7 @@ namespace euf {
             struct new_th_eq_qhead {};
             struct new_lits_qhead {};
             struct inconsistent {};
-            enum tag_t { is_set_parent, is_add_node, is_toggle_merge, 
+            enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, 
                          is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
                          is_new_th_eq_qhead, is_new_lits_qhead, is_inconsistent };
             tag_t  tag;

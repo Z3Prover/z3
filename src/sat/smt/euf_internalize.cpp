@@ -23,7 +23,7 @@ namespace euf {
 
     void solver::internalize(expr* e, bool redundant) {
         if (si.is_bool_op(e))
-            attach_lit(si.internalize(e, redundant), e);        
+            attach_lit(si.internalize(e, redundant), e);
         else if (auto* ext = get_solver(e))
             ext->internalize(e, redundant);
         else
@@ -32,8 +32,8 @@ namespace euf {
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
-        if (si.is_bool_op(e)) 
-            return attach_lit(si.internalize(e, redundant), e);        
+        if (si.is_bool_op(e))
+            return attach_lit(si.internalize(e, redundant), e);
         if (auto* ext = get_solver(e))
             return ext->internalize(e, sign, root, redundant);
         if (!visit_rec(m, e, sign, root, redundant))
@@ -82,11 +82,11 @@ namespace euf {
     }
 
     void solver::attach_node(euf::enode* n) {
-        expr* e = n->get_owner();
+        expr* e = n->get_expr();
         if (!m.is_bool(e))
             log_node(e);
-        else 
-            attach_lit(literal(si.add_bool_var(e), false),  e);        
+        else
+            attach_lit(literal(si.add_bool_var(e), false), e);
 
         if (!m.is_bool(e) && m.get_sort(e)->get_family_id() != null_family_id) {
             auto* e_ext = get_solver(e);
@@ -143,7 +143,7 @@ namespace euf {
             sat::literal_vector lits;
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
-                    expr_ref eq(m.mk_eq(args[i]->get_owner(), args[j]->get_owner()), m);
+                    expr_ref eq(m.mk_eq(args[i]->get_expr(), args[j]->get_expr()), m);
                     sat::literal lit = internalize(eq, false, false, m_is_redundant);
                     lits.push_back(lit);
                 }
@@ -184,11 +184,11 @@ namespace euf {
         if (sz <= 1) {
             s().mk_clause(0, nullptr, st);
             return;
-        }           
+        }
         if (sz <= distinct_max_args) {
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
-                    expr_ref eq(m.mk_eq(args[i]->get_owner(), args[j]->get_owner()), m);
+                    expr_ref eq(m.mk_eq(args[i]->get_expr(), args[j]->get_expr()), m);
                     sat::literal lit = internalize(eq, true, false, m_is_redundant);
                     s().add_clause(1, &lit, st);
                 }
@@ -213,9 +213,9 @@ namespace euf {
     }
 
     void solver::axiomatize_basic(enode* n) {
-        expr* e = n->get_owner();
+        expr* e = n->get_expr();
         sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
-        if (m.is_ite(e)) {        
+        if (m.is_ite(e)) {
             app* a = to_app(e);
             expr* c = a->get_arg(0);
             expr* th = a->get_arg(1);
@@ -237,7 +237,7 @@ namespace euf {
             unsigned sz = n->num_args();
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
-                    expr_ref eq(m.mk_eq(n->get_arg(i)->get_owner(), n->get_arg(j)->get_owner()), m);
+                    expr_ref eq(m.mk_eq(n->get_arg(i)->get_expr(), n->get_arg(j)->get_expr()), m);
                     eqs.push_back(eq);
                 }
             }
@@ -247,8 +247,65 @@ namespace euf {
             sat::literal lits1[2] = { ~dist, ~some_eq };
             sat::literal lits2[2] = { dist, some_eq };
             s().add_clause(2, lits1, st);
-            s().add_clause(2, lits2, st);            
+            s().add_clause(2, lits2, st);
         }
     }
 
+
+    bool solver::is_shared(enode* n) const {
+        n = n->get_root();
+
+        if (m.is_ite(n->get_expr()))
+            return true;
+
+        theory_id th_id = null_theory_id;
+        for (auto p : euf::enode_th_vars(n)) {
+            if (th_id == null_theory_id)
+                th_id = p.get_id();
+            else
+                return true;
+        }
+        if (th_id == null_theory_id)
+            return false;
+
+        // the variable is shared if the equivalence class of n
+        // contains a parent application.
+
+        for (euf::enode* parent : euf::enode_parents(n)) {
+            app* p = to_app(parent->get_expr());
+            family_id fid = p->get_family_id();
+            if (fid != th_id && fid != m.get_basic_family_id())
+                return true;
+        }
+
+        // Some theories implement families of theories. Examples:
+        // Arrays and Tuples.  For example, array theory is a
+        // parametric theory, that is, it implements several theories:
+        // (array int int), (array int (array int int)), ...
+        //
+        // Example:
+        //
+        // a : (array int int)
+        // b : (array int int)
+        // x : int
+        // y : int
+        // v : int
+        // w : int
+        // A : (array (array int int) int)
+        //
+        // assert (= b (store a x v))
+        // assert (= b (store a y w))
+        // assert (not (= x y))
+        // assert (not (select A a))
+        // assert (not (select A b))
+        // check
+        //
+        // In the example above, 'a' and 'b' are shared variables between
+        // the theories of (array int int) and (array (array int int) int).
+        // Remark: The inconsistency is not going to be detected if they are
+        // not marked as shared.
+        return true;
+        // TODO
+        // return get_theory(th_id)->is_shared(l->get_var());
+    }
 }

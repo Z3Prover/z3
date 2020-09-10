@@ -451,7 +451,7 @@ namespace {
             if (p->is_ground()) {
                 enode * e = get_enode(*m_context, p);
                 SASSERT(e->has_lbl_hash());
-                out << "#" << e->get_owner_id() << ":" << e->get_lbl_hash() << " ";
+                out << "#" << e->get_expr_id() << ":" << e->get_lbl_hash() << " ";
             }
             else {
                 out << p->get_decl()->get_name() << ":" << m_lbl_hasher(p->get_decl()) << " ";
@@ -2240,7 +2240,7 @@ namespace {
             out << "nil\n";
         }
         else {
-            out << "#" << n->get_owner_id() << ", root: " << n->get_root()->get_owner_id();
+            out << "#" << n->get_expr_id() << ", root: " << n->get_root()->get_expr_id();
             if (m_use_filters)
                 out << ", lbls: " << n->get_root()->get_lbls() << " ";
             out << "\n";
@@ -3940,7 +3940,7 @@ namespace {
                     TRACE("missing_instance",
                           tout << "qa:\n" << mk_ll_pp(qa, m) << "\npat:\n" << mk_ll_pp(pat, m);
                           for (unsigned i = 0; i < num_bindings; i++)
-                              tout << "#" << bindings[i]->get_owner_id() << "\n" << mk_ll_pp(bindings[i]->get_owner(), m) << "\n";
+                              tout << "#" << bindings[i]->get_expr_id() << "\n" << mk_ll_pp(bindings[i]->get_owner(), m) << "\n";
                           );
                     UNREACHABLE();
                 }

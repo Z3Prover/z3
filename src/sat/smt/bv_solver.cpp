@@ -153,7 +153,7 @@ namespace bv {
         out.width(4);
         out << e->get_id() << " -> ";
         out.width(4);
-        out << var2enode(find(v))->get_owner_id();
+        out << var2enode(find(v))->get_expr_id();
         out << std::right;
         out.flush();
         atom* a = nullptr;
@@ -168,7 +168,7 @@ namespace bv {
         else if (m.is_bool(e) && (a = m_bool_var2atom.get(expr2literal(e).var(), nullptr))) {
             if (a->is_bit()) {
                 for (var_pos vp : a->to_bit())
-                    out << " " << var2enode(vp.first)->get_owner_id() << "[" << vp.second << "]";
+                    out << " " << var2enode(vp.first)->get_expr_id() << "[" << vp.second << "]";
             }
             else
                 out << "def-atom";
@@ -277,7 +277,7 @@ namespace bv {
 
         literal bit1 = m_bits[v1][idx];
         lbool   val = s().value(bit1);
-        TRACE("bv", tout << "propagating v" << v1 << " #" << var2enode(v1)->get_owner_id() << "[" << idx << "] = " << val << "\n";);
+        TRACE("bv", tout << "propagating v" << v1 << " #" << var2enode(v1)->get_expr_id() << "[" << idx << "] = " << val << "\n";);
         if (val == l_undef)
             return;
 
@@ -287,7 +287,7 @@ namespace bv {
         for (theory_var v2 = m_find.next(v1); v2 != v1 && !s().inconsistent(); v2 = m_find.next(v2)) {
             literal bit2 = m_bits[v2][idx];
             SASSERT(m_bits[v1][idx] != ~m_bits[v2][idx]);
-            TRACE("bv", tout << "propagating #" << var2enode(v2)->get_owner_id() << "[" << idx << "] = " << s().value(bit2) << "\n";);
+            TRACE("bv", tout << "propagating #" << var2enode(v2)->get_expr_id() << "[" << idx << "] = " << s().value(bit2) << "\n";);
 
             if (val == l_false)
                 bit2.neg();
@@ -454,8 +454,8 @@ namespace bv {
     bool solver::check_model(sat::model const& m) const { return true; }
     unsigned solver::max_var(unsigned w) const { return w; }
 
-    void solver::add_value(euf::enode* n, expr_ref_vector& values) {
-        SASSERT(bv.is_bv(n->get_owner()));
+    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
+        SASSERT(bv.is_bv(n->get_expr()));
         theory_var v = n->get_th_var(get_id());
         rational val;
         unsigned i = 0;
@@ -477,7 +477,7 @@ namespace bv {
     }
 
     void solver::merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
-        TRACE("bv", tout << "merging: v" << v1 << " #" << var2enode(v1)->get_owner_id() << " v" << v2 << " #" << var2enode(v2)->get_owner_id() << "\n";);
+        TRACE("bv", tout << "merging: v" << v1 << " #" << var2enode(v1)->get_expr_id() << " v" << v2 << " #" << var2enode(v2)->get_expr_id() << "\n";);
         if (!merge_zero_one_bits(r1, r2)) {
             TRACE("bv", tout << "conflict detected\n";);
             return; // conflict was detected

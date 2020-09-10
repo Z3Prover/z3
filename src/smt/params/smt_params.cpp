@@ -51,9 +51,9 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_logic = _p.get_sym("logic", m_logic);
     m_string_solver = p.string_solver();
     if (_p.get_bool("arith.greatest_error_pivot", false))
-        m_arith_pivot_strategy = ARITH_PIVOT_GREATEST_ERROR;
+        m_arith_pivot_strategy = arith_pivot_strategy::ARITH_PIVOT_GREATEST_ERROR;
     else if (_p.get_bool("arith.least_error_pivot", false))
-        m_arith_pivot_strategy = ARITH_PIVOT_LEAST_ERROR;
+        m_arith_pivot_strategy = arith_pivot_strategy::ARITH_PIVOT_LEAST_ERROR;
     theory_array_params::updt_params(_p);
     m_dump_benchmarks = false;
     m_dump_min_time = 0.5;

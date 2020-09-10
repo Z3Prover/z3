@@ -74,7 +74,69 @@ static void tst2(unsigned num_bits) {
     }
 }
 
+// prints all don't care pareto fronts for 8-bit multiplier.
+static void test_dc() {
+    unsigned a = 0;
+    unsigned b = 0;
+    unsigned num_bits = 8;
+    unsigned num_vals = 1 << num_bits;
+    tbv_manager m(num_bits*2);
+    tbv::eq eq(m);
+    tbv::hash hash(m);
+    ptr_vector<tbv> tbvs, todo;
+    map<tbv*, tbit, tbv::hash, tbv::eq> eval(hash, eq);
+
+    for (unsigned a = 0; a < num_vals; ++a) {
+        for (unsigned b = 0; b < num_vals; ++b) {
+            unsigned c = a*b;
+            unsigned bits = a + (b << num_bits); 
+            bool value = (c & (1 << (num_bits-1))) != 0;
+            tbv* t = m.allocate(bits);
+            tbvs.push_back(t);
+            eval.insert(t, value ? BIT_1 : BIT_0);
+            todo.push_back(t);
+        }
+    }
+    std::cout << todo.size() << "\n";
+    for (unsigned i = 0; i < todo.size(); ++i) {
+        tbv* t = todo[i];
+        todo.pop_back();
+        bool found = false;
+        tbit tvalue = eval[t];
+        SASSERT(tvalue != BIT_z);
+        for (unsigned j = 0; j < 2*num_bits; ++j) {
+            tbit tb = (*t)[j];
+            if (tb == BIT_x)
+                continue;
+            tbv* nt = m.allocate(*t);
+            tbvs.push_back(nt);
+            m.set(*nt, j, neg(tb));
+            if (!eval.contains(nt))
+                continue;
+            tbit nvalue = eval[nt];
+            m.set(*nt, j, BIT_x);
+            if (eval.contains(nt))
+                continue;
+            if (tvalue == nvalue) {
+                todo.push_back(nt);
+                eval.insert(nt, tvalue);                
+                found = true;
+            }
+            else 
+                eval.insert(nt, BIT_z);
+        }
+        if (!found) 
+            m.display(std::cout, *t) << " := " << (eval[t] == BIT_0 ? 0 : 1) << "\n";
+    }
+
+
+    for (auto* t : tbvs)
+        m.deallocate(t);
+    
+}
+
 void tst_tbv() {
+    // test_dc();
     tst0();
     
     tst1(31);

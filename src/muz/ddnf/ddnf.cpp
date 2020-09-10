@@ -453,10 +453,8 @@ namespace datalog {
         }
 
         void display(std::ostream& out) const {
-            u_map<ddnf_mgr*>::iterator it = m_mgrs.begin(), end = m_mgrs.end();
-            for (; it != end; ++it) {
-                it->m_value->display(out);
-            }
+            for (auto const& kv : m_mgrs)
+                kv.m_value->display(out);
         }
 
     private:
@@ -558,13 +556,9 @@ namespace datalog {
             m_todo.reset();
             m_cache.reset();
             m_expr2tbv.reset();
-            datalog::rule_set::iterator it  = rules.begin();
-            datalog::rule_set::iterator end = rules.end();
-            for (; it != end; ++it) {
-                if (!pre_process_rule(**it)) {
+            for (auto* r : rules) 
+                if (!pre_process_rule(*r)) 
                     return false;
-                }
-            }
             return true;
         }
 

@@ -36,7 +36,7 @@ namespace euf {
     const theory_id null_theory_id = -1;
 
     class enode {
-        expr*         m_owner{ nullptr };
+        expr*         m_expr{ nullptr };
         bool          m_mark1 { false };
         bool          m_mark2 { false };
         bool          m_commutative { false };
@@ -69,14 +69,14 @@ namespace euf {
             SASSERT(num_args <= (is_app(f) ? to_app(f)->get_num_args() : 0));
             void* mem = r.allocate(get_enode_size(num_args));
             enode* n = new (mem) enode();
-            n->m_owner = f;
+            n->m_expr = f;
             n->m_next = n;
             n->m_root = n;
             n->m_commutative = num_args == 2 && is_app(f) && to_app(f)->get_decl()->is_commutative();
             n->m_num_args = num_args;
             n->m_merge_enabled = true;
             for (unsigned i = 0; i < num_args; ++i) {
-                SASSERT(to_app(f)->get_arg(i) == args[i]->get_owner());
+                SASSERT(to_app(f)->get_arg(i) == args[i]->get_expr());
                 n->m_args[i] = args[i];
             }
             return n;
@@ -112,8 +112,7 @@ namespace euf {
         bool merge_enabled() { return m_merge_enabled; }
 
         enode* get_arg(unsigned i) const { SASSERT(i < num_args()); return m_args[i]; }        
-        unsigned hash() const { return m_owner->hash(); }
-        func_decl* get_decl() const { return is_app(m_owner) ? to_app(m_owner)->get_decl() : nullptr; } 
+        unsigned hash() const { return m_expr->hash(); }
         unsigned get_table_id() const { return m_table_id; }
         void     set_table_id(unsigned t) { m_table_id = t; }
 
@@ -143,9 +142,11 @@ namespace euf {
         unsigned class_size() const { return m_class_size; }
         bool is_root() const { return m_root == this; }
         enode* get_root() const { return m_root; }
-        expr*  get_owner() const { return m_owner; }
-        unsigned get_owner_id() const { return m_owner->get_id(); }
-        unsigned get_root_id() const { return m_root->m_owner->get_id(); }
+        expr*  get_expr() const { return m_expr; }
+        app*  get_app() const { return to_app(m_expr); }
+        func_decl* get_decl() const { return is_app(m_expr) ? to_app(m_expr)->get_decl() : nullptr; }
+        unsigned get_expr_id() const { return m_expr->get_id(); }
+        unsigned get_root_id() const { return m_root->m_expr->get_id(); }
         theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }
         bool is_attached_to(theory_id id) const { return get_th_var(id) != null_theory_var; }
         bool has_th_vars() const { return !m_th_vars.empty(); }
@@ -201,6 +202,7 @@ namespace euf {
         iterator end() const { return iterator(&n, &n); }
     };
 
+    
     class enode_th_vars {
         enode& n;
     public:
@@ -208,7 +210,7 @@ namespace euf {
             th_var_list* m_th_vars;
         public:
             iterator(th_var_list* n) : m_th_vars(n) {}
-            th_var_list operator*() { return *m_th_vars; }
+            th_var_list const& operator*() { return *m_th_vars; }
             iterator& operator++() { m_th_vars = m_th_vars->get_next(); return *this; }
             iterator operator++(int) { iterator tmp = *this; ++* this; return tmp; }
             bool operator==(iterator const& other) const { return m_th_vars == other.m_th_vars; }

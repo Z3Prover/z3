@@ -20,6 +20,7 @@ Author:
 #include "util/trail.h"
 #include "ast/ast_translation.h"
 #include "ast/euf/euf_egraph.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "tactic/model_converter.h"
 #include "sat/sat_extension.h"
 #include "sat/smt/atom2bool_var.h"
@@ -83,6 +84,7 @@ namespace euf {
         euf::egraph           m_egraph;
         euf_trail_stack       m_trail;
         stats                 m_stats;
+        th_rewriter           m_rewriter;
         func_decl_ref_vector  m_unhandled_functions;
         
 
@@ -129,13 +131,12 @@ namespace euf {
         th_solver* get_solver(expr* e);
         th_solver* get_solver(sat::bool_var v);
         void add_solver(family_id fid, th_solver* th);
-        void unhandled_function(func_decl* f);
         void init_ackerman();
 
         // model building
         bool include_func_interp(func_decl* f);
         void register_macros(model& mdl);
-        void dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref const& mdl);
+        void dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref& mdl);
         void collect_dependencies(deps_t& deps);        
         void values2model(deps_t const& deps, expr_ref_vector const& values, model_ref& mdl);
 
@@ -166,6 +167,7 @@ namespace euf {
             si(si),
             m_egraph(m),
             m_trail(*this),
+            m_rewriter(m),
             m_unhandled_functions(m),
             m_solver(nullptr),
             m_lookahead(nullptr),
@@ -201,7 +203,7 @@ namespace euf {
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) { return m_egraph.find(e); }
         sat::literal get_literal(expr* e) const { return literal(si.to_bool_var(e), false); }
-        sat::literal get_literal(enode* e) const { return get_literal(e->get_owner()); }
+        sat::literal get_literal(enode* e) const { return get_literal(e->get_expr()); }
         smt_params const& get_config() { return m_config; }
         region& get_region() { return m_trail.get_region(); }
         template <typename C>
@@ -217,7 +219,7 @@ namespace euf {
         bool is_external(bool_var v) override;
         bool propagate(literal l, ext_constraint_idx idx) override;
         bool unit_propagate() override;
-        void propagate(enode* a, enode* b, ext_justification_idx);
+        bool propagate(enode* a, enode* b, ext_justification_idx);
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
 
@@ -262,6 +264,9 @@ namespace euf {
         void attach_node(euf::enode* n);
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
         expr* bool_var2expr(sat::bool_var v) { return m_var2expr.get(v, nullptr); }
+        void unhandled_function(func_decl* f);
+        th_rewriter& get_rewriter() { return m_rewriter; }
+        bool is_shared(euf::enode* n) const;
 
         void update_model(model_ref& mdl);
 

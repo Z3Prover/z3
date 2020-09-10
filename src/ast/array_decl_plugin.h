@@ -161,6 +161,8 @@ public:
     bool is_as_array(func_decl* f) const { return is_decl_of(f, m_fid, OP_AS_ARRAY); }
     bool is_set_has_size(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_HAS_SIZE); }
     bool is_set_card(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_CARD); }
+    bool is_default(func_decl* f) const { return is_decl_of(f, m_fid, OP_ARRAY_DEFAULT); }
+    bool is_default(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_DEFAULT); }
     bool is_as_array(func_decl* f, func_decl*& g) const { return is_decl_of(f, m_fid, OP_AS_ARRAY) && (g = get_as_array_func_decl(f), true); }
     func_decl * get_as_array_func_decl(expr * n) const;
     func_decl * get_as_array_func_decl(func_decl* f) const;
@@ -196,6 +198,10 @@ public:
     }
 
     app * mk_select(ptr_vector<expr> const& args) {
+        return mk_select(args.size(), args.c_ptr());
+    }
+
+    app * mk_select(ptr_buffer<expr> const& args) {
         return mk_select(args.size(), args.c_ptr());
     }
 

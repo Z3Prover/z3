@@ -42,11 +42,13 @@ enum arith_prop_strategy {
     ARITH_PROP_PROPORTIONAL
 };
 
-enum arith_pivot_strategy {
+enum class arith_pivot_strategy {
     ARITH_PIVOT_SMALLEST,
     ARITH_PIVOT_GREATEST_ERROR,
     ARITH_PIVOT_LEAST_ERROR
 };
+
+inline std::ostream& operator<<(std::ostream& out, arith_pivot_strategy st) { return out << (int)st; }
 
 struct theory_arith_params {
     bool                    m_arith_eq2ineq;
@@ -141,7 +143,7 @@ struct theory_arith_params {
         m_arith_adaptive_gcd(false),
         m_arith_propagation_threshold(UINT_MAX),
         m_arith_bounded_expansion(false),
-        m_arith_pivot_strategy(ARITH_PIVOT_SMALLEST),
+        m_arith_pivot_strategy(arith_pivot_strategy::ARITH_PIVOT_SMALLEST),
         m_arith_add_binary_bounds(false),
         m_arith_propagation_strategy(ARITH_PROP_PROPORTIONAL),
         m_arith_eq_bounds(false),
