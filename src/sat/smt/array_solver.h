@@ -42,6 +42,7 @@ namespace array {
             unsigned m_num_select_const_axiom, m_num_select_store_axiom_delayed;
             unsigned m_num_default_store_axiom, m_num_default_map_axiom;
             unsigned m_num_default_const_axiom, m_num_default_as_array_axiom;
+            unsigned m_num_select_lambda_axiom;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
@@ -50,13 +51,9 @@ namespace array {
 
         struct var_data {
             bool                m_prop_upward{ false };            
-//            bool                m_is_array{ false };
-//            bool                m_is_select{ false };
             euf::enode_vector   m_beta;                // equivalent nodes that have beta reduction properties
             euf::enode_vector   m_parent_beta;         // parents that have beta reduction properties
             euf::enode_vector   m_parent_selects;      // parents that use array in select position
-//            euf::enode_vector   m_parent_stores, m_parent_selects, m_parent_maps;
-//            euf::enode_vector   m_stores, m_as_arrays, m_consts, m_maps;
             var_data() {}
         };
 
@@ -165,8 +162,8 @@ namespace array {
         void add_parent_beta(theory_var v_child, euf::enode* beta);
 
         void propagate_select_axioms(var_data const& d, euf::enode* a);
-        void propagate_parent_beta_default(theory_var v);
-        void propagate_parent_select_beta_axioms(theory_var v);
+        void propagate_parent_select_axioms(theory_var v);
+        void propagate_parent_default(theory_var v);        
 
         void set_prop_upward(theory_var v);
         void set_prop_upward(var_data& d);

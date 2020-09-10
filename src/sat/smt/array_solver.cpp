@@ -130,18 +130,19 @@ namespace array {
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { return out; }
 
     void solver::collect_statistics(statistics& st) const {
-        st.update("array store", m_stats.m_num_store_axiom);
-        st.update("array sel/store", m_stats.m_num_select_store_axiom);
-        st.update("array sel/const", m_stats.m_num_select_const_axiom);
-        st.update("array sel/map", m_stats.m_num_select_map_axiom);
+        st.update("array store",        m_stats.m_num_store_axiom);
+        st.update("array sel/store",    m_stats.m_num_select_store_axiom);
+        st.update("array sel/const",    m_stats.m_num_select_const_axiom);
+        st.update("array sel/map",      m_stats.m_num_select_map_axiom);
         st.update("array sel/as array", m_stats.m_num_select_as_array_axiom);
-        st.update("array def/map", m_stats.m_num_default_map_axiom);
-        st.update("array def/const", m_stats.m_num_default_const_axiom);
-        st.update("array def/store", m_stats.m_num_default_store_axiom);
-        st.update("array ext ax", m_stats.m_num_extensionality_axiom);
-        st.update("array cong ax", m_stats.m_num_congruence_axiom);
-        st.update("array exp ax2", m_stats.m_num_select_store_axiom_delayed);
-        st.update("array splits", m_stats.m_num_eq_splits);
+        st.update("array sel/lambda",   m_stats.m_num_select_lambda_axiom);
+        st.update("array def/map",      m_stats.m_num_default_map_axiom);
+        st.update("array def/const",    m_stats.m_num_default_const_axiom);
+        st.update("array def/store",    m_stats.m_num_default_store_axiom);
+        st.update("array ext ax",       m_stats.m_num_extensionality_axiom);
+        st.update("array cong ax",      m_stats.m_num_congruence_axiom);        
+        st.update("array exp ax2",      m_stats.m_num_select_store_axiom_delayed);
+        st.update("array splits",       m_stats.m_num_eq_splits);
     }
 
     euf::th_solver* solver::fresh(sat::solver* s, euf::solver& ctx) {
@@ -211,8 +212,7 @@ namespace array {
 
     void solver::add_beta(theory_var v, euf::enode* beta) {
         SASSERT(can_beta_reduce(beta));
-        v = find(v);
-        auto& d = get_var_data(v);
+        auto& d = get_var_data(find(v));
         if (should_set_prop_upward(d))
             set_prop_upward(d);
         tracked_push(d.m_beta, beta);
@@ -223,20 +223,18 @@ namespace array {
 
     void solver::add_parent_beta(theory_var v_child, euf::enode* beta) {
         SASSERT(can_beta_reduce(beta));
-        v_child = find(v_child);
-        auto& d = get_var_data(v_child);
+        auto& d = get_var_data(find(v_child));
         tracked_push(d.m_parent_beta, beta);
         propagate_select_axioms(d, beta);
     }
 
     void solver::add_parent_default(theory_var v, euf::enode* def) {
         SASSERT(a.is_default(def->get_expr()));
-        v = find(v);
-        auto& d = get_var_data(v);
+        auto& d = get_var_data(find(v));
         for (euf::enode* beta : d.m_beta)
             push_axiom(default_axiom(beta));
         if (should_prop_upward(d))
-            propagate_parent_beta_default(v);
+            propagate_parent_default(v);
     }
 
     void solver::propagate_select_axioms(var_data const& d, euf::enode* a) {
@@ -245,14 +243,13 @@ namespace array {
                 push_axiom(select_axiom(select, a));
     }
 
-    void solver::propagate_parent_beta_default(theory_var v) {
-        v = find(v);
-        auto& d = get_var_data(v);
+    void solver::propagate_parent_default(theory_var v) {
+        auto& d = get_var_data(find(v));
         for (euf::enode* beta : d.m_parent_beta)
             push_axiom(default_axiom(beta));
     }
 
-    void solver::propagate_parent_select_beta_axioms(theory_var v) {
+    void solver::propagate_parent_select_axioms(theory_var v) {
         v = find(v);
         expr* e = var2expr(v);
         if (!a.is_array(e))
@@ -270,7 +267,7 @@ namespace array {
         ctx.push(reset_flag_trail<euf::solver>(d.m_prop_upward));
         d.m_prop_upward = true;
         if (should_prop_upward(d))
-            propagate_parent_select_beta_axioms(v);
+            propagate_parent_select_axioms(v);
         set_prop_upward(d);
     }
 
