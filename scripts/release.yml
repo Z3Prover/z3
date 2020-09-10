@@ -325,4 +325,4 @@ stages:
     - script: pip install --upgrade pip
     - script: python3 -m pip install --user -U setuptools importlib_metadata wheel twine 
     # Uncomment on release:
-#    - script: python3 -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
+    - script: python3 -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
