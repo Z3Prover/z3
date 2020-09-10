@@ -138,8 +138,11 @@ namespace euf {
         m_egraph.explain_eq<size_t>(m_explain, a, b);
     }
 
-    void solver::propagate(enode* a, enode* b, ext_justification_idx idx) {
+    bool solver::propagate(enode* a, enode* b, ext_justification_idx idx) {
+        if (a->get_root() == b->get_root())
+            return false;
         m_egraph.merge(a, b, to_ptr(idx));
+        return true;
     }
 
 
@@ -560,4 +563,5 @@ namespace euf {
                 return false;
         return true;
     }
+
 }

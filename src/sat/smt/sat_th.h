@@ -123,7 +123,7 @@ namespace euf {
         euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
         euf::enode* mk_enode(expr* e, bool suppress_args);
 
-        void rewrite(expr_ref& a) { }
+        void rewrite(expr_ref& a);
 
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);

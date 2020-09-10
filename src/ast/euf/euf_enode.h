@@ -202,6 +202,7 @@ namespace euf {
         iterator end() const { return iterator(&n, &n); }
     };
 
+    
     class enode_th_vars {
         enode& n;
     public:
@@ -209,7 +210,7 @@ namespace euf {
             th_var_list* m_th_vars;
         public:
             iterator(th_var_list* n) : m_th_vars(n) {}
-            th_var_list operator*() { return *m_th_vars; }
+            th_var_list const& operator*() { return *m_th_vars; }
             iterator& operator++() { m_th_vars = m_th_vars->get_next(); return *this; }
             iterator operator++(int) { iterator tmp = *this; ++* this; return tmp; }
             bool operator==(iterator const& other) const { return m_th_vars == other.m_th_vars; }
