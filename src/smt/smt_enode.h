@@ -165,13 +165,11 @@ namespace smt {
 
         void del_eh(ast_manager & m, bool update_children_parent = true);
         
-        app * get_owner() const { 
-            return m_owner; 
-        }
+        app * get_owner() const { return m_owner; }
+        app * get_expr() const { return m_owner; }
 
-        unsigned get_owner_id() const {
-            return m_owner->get_id();
-        }
+        unsigned get_owner_id() const { return m_owner->get_id(); }
+        unsigned get_expr_id() const { return m_owner->get_id(); }
 
         func_decl * get_decl() const {
             return m_owner->get_decl();

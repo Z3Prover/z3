@@ -169,7 +169,7 @@ namespace euf {
             e = m_var2expr[l.var()];
             n = m_egraph.find(e);
             SASSERT(n);
-            SASSERT(m.is_bool(n->get_owner()));
+            SASSERT(m.is_bool(n->get_expr()));
             m_egraph.explain_eq<size_t>(m_explain, n, (l.sign() ? mk_false() : mk_true()));
             break;
         default:
