@@ -50,10 +50,13 @@ namespace array {
 
         struct var_data {
             bool                m_prop_upward{ false };            
-            bool                m_is_array{ false };
-            bool                m_is_select{ false };
-            euf::enode_vector   m_parent_stores, m_parent_selects, m_parent_maps, m_parent_defaults;
-            euf::enode_vector   m_stores, m_as_arrays, m_consts, m_maps;
+//            bool                m_is_array{ false };
+//            bool                m_is_select{ false };
+            euf::enode_vector   m_beta;                // equivalent nodes that have beta reduction properties
+            euf::enode_vector   m_parent_beta;         // parents that have beta reduction properties
+            euf::enode_vector   m_parent_selects;      // parents that use array in select position
+//            euf::enode_vector   m_parent_stores, m_parent_selects, m_parent_maps;
+//            euf::enode_vector   m_stores, m_as_arrays, m_consts, m_maps;
             var_data() {}
         };
 
@@ -145,7 +148,6 @@ namespace array {
         bool assert_default_map_axiom(app* map);
         bool assert_default_const_axiom(app* cnst);
         bool assert_default_store_axiom(app* store);
-        bool assert_default_as_array_axiom(app* as_array);
         bool assert_congruent_axiom(expr* e1, expr* e2);
         bool add_delayed_axioms();
         
@@ -158,22 +160,21 @@ namespace array {
 
         // solving          
         void add_parent_select(theory_var v_child, euf::enode* select);
-        void add_parent_store(theory_var v_child, euf::enode* store);
-        void add_parent_map(theory_var v_child, euf::enode* map);
         void add_parent_default(theory_var v_child, euf::enode* def);
-        void add_store(theory_var v, euf::enode* store);
-        void add_const(theory_var v, euf::enode* cnst);
-        void add_map(theory_var v, euf::enode* map);
-        void add_as_array(theory_var v, euf::enode* as_array);
+        void add_beta(theory_var v, euf::enode* beta);
+        void add_parent_beta(theory_var v_child, euf::enode* beta);
+
         void propagate_select_axioms(var_data const& d, euf::enode* a);
-        void propagate_parent_stores_default(theory_var v);
-        void propagate_parent_map_axioms(theory_var v);
+        void propagate_parent_beta_default(theory_var v);
+        void propagate_parent_select_beta_axioms(theory_var v);
+
         void set_prop_upward(theory_var v);
         void set_prop_upward(var_data& d);
         void set_prop_upward(euf::enode* n);
-        void push_parent_select_store_axioms(theory_var v);
-        unsigned get_lambda_equiv_size(var_data const& d);
-        bool should_set_prop_upward(var_data const& d);
+        unsigned get_lambda_equiv_size(var_data const& d) const;
+        bool should_set_prop_upward(var_data const& d) const;
+        bool should_prop_upward(var_data const& d) const;
+        bool can_beta_reduce(euf::enode* n) const;
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }

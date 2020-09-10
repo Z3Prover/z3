@@ -57,16 +57,15 @@ namespace array {
                 UNREACHABLE();
             break;
         case axiom_record::kind_t::is_default:
+            SASSERT(is_beta_reducible(r.n));
             if (a.is_const(child))
                 return assert_default_const_axiom(to_app(child));
             else if (a.is_store(child))
                 return assert_default_store_axiom(to_app(child));
             else if (a.is_map(child))
                 return assert_default_map_axiom(to_app(child));
-            else if (a.is_as_array(child))
-                return assert_default_as_array_axiom(to_app(child));
             else
-                UNREACHABLE();
+                return true;                
             break;
         case axiom_record::kind_t::is_extensionality:
             return assert_extensionality(r.n->get_arg(0)->get_expr(), r.n->get_arg(1)->get_expr());
@@ -285,11 +284,6 @@ namespace array {
         return ctx.propagate(expr2enode(val), e_internalize(def), array_axiom());
     }
 
-    bool solver::assert_default_as_array_axiom(app* as_array) {
-        // no-op
-        return false;
-    }
-
 
     /**
      * let n := store(a, i, v)
@@ -443,26 +437,15 @@ namespace array {
         return std::make_pair(eps, diag);
     }
 
-    void solver::push_parent_select_store_axioms(theory_var v) {
-        expr* e = var2expr(v);
-        if (!a.is_array(e))
-            return;
-        auto& d = get_var_data(v);
-        for (euf::enode* store : d.m_parent_stores)
-            for (euf::enode* sel : d.m_parent_selects)
-                push_axiom(select_axiom(sel, store));                        
-    }
-
     bool solver::add_delayed_axioms() {
         if (!get_config().m_array_delay_exp_axiom)
             return false;
         unsigned num_vars = get_num_vars();
         for (unsigned v = 0; v < num_vars; v++) {
-            push_parent_select_store_axioms(v);
-            propagate_parent_map_axioms(v);
+            propagate_parent_select_beta_axioms(v);
             auto& d = get_var_data(v);
             if (d.m_prop_upward)
-                propagate_parent_stores_default(v);
+                propagate_parent_beta_default(v);
         }
         return unit_propagate();
     }
