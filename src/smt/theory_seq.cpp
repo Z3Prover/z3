@@ -1791,7 +1791,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
 
 void theory_seq::init_search_eh() {
     auto as = get_fparams().m_arith_mode;
-    if (m_has_seq && as != AS_OLD_ARITH && as != AS_NEW_ARITH) {
+    if (m_has_seq && as != arith_solver_id::AS_OLD_ARITH && as != arith_solver_id::AS_NEW_ARITH) {
         throw default_exception("illegal arithmetic solver used with string solver");
     }
 }

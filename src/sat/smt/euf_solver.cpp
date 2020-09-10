@@ -295,15 +295,15 @@ namespace euf {
         bool cont = false;
         for (auto* e : m_solvers)
             switch (e->check()) {
-            case sat::CR_CONTINUE: cont = true; break;
-            case sat::CR_GIVEUP: give_up = true; break;
+            case sat::check_result::CR_CONTINUE: cont = true; break;
+            case sat::check_result::CR_GIVEUP: give_up = true; break;
             default: break;
             }
         if (cont)
-            return sat::CR_CONTINUE;
+            return sat::check_result::CR_CONTINUE;
         if (give_up)
-            return sat::CR_GIVEUP;
-        return sat::CR_DONE; 
+            return sat::check_result::CR_GIVEUP;
+        return sat::check_result::CR_DONE;
     }
 
     void solver::push() {
@@ -531,7 +531,7 @@ namespace euf {
     void solver::init_ackerman() {
         if (m_ackerman) 
             return;
-        if (m_config.m_dack == DACK_DISABLED)
+        if (m_config.m_dack == dyn_ack_strategy::DACK_DISABLED)
             return;
         m_ackerman = alloc(ackerman, *this, m);
         std::function<void(expr*,expr*,expr*)> used_eq = [&](expr* a, expr* b, expr* lca) {

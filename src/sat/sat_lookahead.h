@@ -42,7 +42,7 @@ namespace sat {
         return out;
     }
 
-    enum lookahead_mode {
+    enum class lookahead_mode {
         searching,         // normal search
         lookahead1,        // lookahead mode
         lookahead2         // double lookahead
@@ -100,8 +100,8 @@ namespace sat {
                 m_delta_rho = (double)0.7;
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
-                m_reward_type = ternary_reward;
-                m_cube_cutoff = adaptive_freevars_cutoff;
+                m_reward_type = reward_t::ternary_reward;
+                m_cube_cutoff = cutoff_t::adaptive_freevars_cutoff;
                 m_cube_depth = 10;
                 m_cube_fraction = 0.4;
                 m_cube_freevars = 0.8;

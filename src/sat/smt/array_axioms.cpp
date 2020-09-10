@@ -429,7 +429,6 @@ namespace array {
         return false;
     }
 
-
     std::pair<app*, func_decl*> solver::mk_epsilon(sort* s) {
         app* eps = nullptr;
         func_decl* diag = nullptr;
@@ -449,19 +448,22 @@ namespace array {
         if (!a.is_array(e))
             return;
         auto& d = get_var_data(v);
-        for (euf::enode* store : d.m_parents)
-            if (a.is_store(store->get_expr()))
-                for (euf::enode* sel : d.m_parents)
-                    if (a.is_select(sel->get_expr()))
-                        push_axiom(select_axiom(sel, store));                        
+        for (euf::enode* store : d.m_parent_stores)
+            for (euf::enode* sel : d.m_parent_selects)
+                push_axiom(select_axiom(sel, store));                        
     }
 
     bool solver::add_delayed_axioms() {
         if (!get_config().m_array_delay_exp_axiom)
             return false;
         unsigned num_vars = get_num_vars();
-        for (unsigned v = 0; v < num_vars; v++) 
+        for (unsigned v = 0; v < num_vars; v++) {
             push_parent_select_store_axioms(v);
+            propagate_parent_map_axioms(v);
+            auto& d = get_var_data(v);
+            if (d.m_prop_upward)
+                propagate_parent_stores_default(v);
+        }
         return unit_propagate();
     }
 
@@ -471,13 +473,13 @@ namespace array {
         bool prop = false;
         for (unsigned i = roots.size(); i-- > 0; ) {
             theory_var v1 = roots[i];
-            euf::enode* n1 = var2enode(v1);
+            expr* e1 = var2expr(v1);
             for (unsigned j = i; j-- > 0; ) {
                 theory_var v2 = roots[j];
-                euf::enode* n2 = var2enode(v2);
-                if (m.get_sort(n1->get_expr()) != m.get_sort(n2->get_expr()))
+                expr* e2 = var2expr(v2);
+                if (m.get_sort(e1) != m.get_sort(e2))
                     continue;
-                expr_ref eq(m.mk_eq(n1->get_expr(), n2->get_expr()), m);
+                expr_ref eq(m.mk_eq(e1, e2), m);
                 sat::literal lit = b_internalize(eq);
                 if (s().value(lit) == l_undef)
                     prop = true;
@@ -501,12 +503,9 @@ namespace array {
             // arrays used as indices in other arrays have to be treated as shared.
             // issue #3532, #3529
             // 
-            if (ctx.is_shared(r) || is_select_arg(r)) {
-                TRACE("array", tout << "new shared var: #" << r->get_expr_id() << "\n";);
-                theory_var r_th_var = r->get_th_var(get_id());
-                SASSERT(r_th_var != euf::null_theory_var);
-                roots.push_back(r_th_var);
-            }
+            if (ctx.is_shared(r) || is_select_arg(r)) 
+                roots.push_back(r->get_th_var(get_id()));
+            
             r->mark1();
             to_unmark.push_back(r);            
         }

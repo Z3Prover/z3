@@ -53,7 +53,7 @@ namespace array {
         mdl.register_decl(f, fi);
 
         for (euf::enode* p : euf::enode_parents(n)) {
-            if (!a.is_select(p->get_expr()))
+            if (!a.is_select(p->get_expr()) || p->get_arg(0)->get_root() != n->get_root())
                 continue;
             args.reset();
             for (unsigned i = 1; i < p->num_args(); ++i) 

@@ -44,7 +44,7 @@ struct theory_array_params {
     theory_array_params():
         m_array_canonize_simplify(false),
         m_array_simplify(true),
-        m_array_mode(AR_FULL),
+        m_array_mode(array_solver_id::AR_FULL),
         m_array_weak(false),
         m_array_extensional(true),
         m_array_laziness(1),

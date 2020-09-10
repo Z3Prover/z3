@@ -34,7 +34,7 @@ namespace sat {
     }
 
     ba_solver::xr::xr(unsigned id, literal_vector const& lits):
-        constraint(xr_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
+        constraint(tag_t::xr_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }

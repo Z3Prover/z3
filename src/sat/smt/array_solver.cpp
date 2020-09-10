@@ -21,7 +21,7 @@ Author:
 
 namespace array {
 
-    solver::solver(euf::solver& ctx, theory_id id):
+    solver::solver(euf::solver& ctx, theory_id id) :
         th_euf_solver(ctx, id),
         a(m),
         m_sort2epsilon(m),
@@ -40,16 +40,12 @@ namespace array {
         bool turn[2] = { false, false };
         turn[s().rand()(2)] = true;
         for (unsigned idx = 0; idx < 2; ++idx) {
-            if (turn[idx]) {
-                if (add_delayed_axioms())
-                    return sat::CR_CONTINUE;
-            }
-            else {
-                if (add_interface_equalities())
-                    return sat::CR_CONTINUE;
-            }
+            if (turn[idx] && add_delayed_axioms())
+                return sat::check_result::CR_CONTINUE;
+            else if (!turn[idx] && add_interface_equalities())
+                return sat::check_result::CR_CONTINUE;
         }
-        return sat::CR_DONE;
+        return sat::check_result::CR_DONE;
     }
 
     void solver::push() {
@@ -57,17 +53,34 @@ namespace array {
     }
 
     void solver::pop(unsigned n) {
-        n = lazy_pop(n);    
+        n = lazy_pop(n);
         if (n == 0)
             return;
         m_var_data.resize(get_num_vars());
     }
 
-    std::ostream& solver::display(std::ostream& out) const { 
+    std::ostream& solver::display(std::ostream& out) const {
         for (unsigned i = 0; i < get_num_vars(); ++i) {
+            auto& d = get_var_data(i);
             out << var2enode(i)->get_expr_id() << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
+            display_info(out, "parent stores", d.m_parent_stores);
+            display_info(out, "parent select", d.m_parent_selects);
+            display_info(out, "parent maps  ", d.m_parent_maps);
+            display_info(out, "parent defs  ", d.m_parent_defaults);
+            display_info(out, "maps         ", d.m_maps);
+            display_info(out, "consts       ", d.m_consts);
+            display_info(out, "as-arrays    ", d.m_as_arrays);
         }
-        return out; 
+        return out;
+    }
+    std::ostream& solver::display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const {
+        if (v.empty())
+            return out;
+        out << id << ": ";
+        for (euf::enode* p : v)
+            out << mk_bounded_pp(p->get_expr(), m, 2) << " ";
+        out << "\n";
+        return out;
     }
 
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { return out; }
@@ -88,7 +101,7 @@ namespace array {
         st.update("array splits", m_stats.m_num_eq_splits);
     }
 
-    euf::th_solver* solver::fresh(sat::solver* s, euf::solver& ctx) {        
+    euf::th_solver* solver::fresh(sat::solver* s, euf::solver& ctx) {
         auto* result = alloc(solver, ctx, get_id());
         ast_translation tr(m, ctx.get_manager());
         for (unsigned i = 0; i < get_num_vars(); ++i) {
@@ -97,21 +110,21 @@ namespace array {
             euf::enode* n = ctx.get_enode(e2);
             result->mk_var(n);
         }
-        return result; 
+        return result;
     }
 
     void solver::new_eq_eh(euf::th_eq const& eq) {
         m_find.merge(eq.m_v1, eq.m_v2);
     }
 
-    bool solver::unit_propagate() { 
+    bool solver::unit_propagate() {
         if (m_qhead == m_axiom_trail.size())
             return false;
         bool prop = false;
         ctx.push(value_trail<euf::solver, unsigned>(m_qhead));
-        for (; m_qhead < m_axiom_trail.size() && !s().inconsistent(); ++m_qhead) 
+        for (; m_qhead < m_axiom_trail.size() && !s().inconsistent(); ++m_qhead)
             if (assert_axiom(m_qhead))
-                prop = true;        
+                prop = true;
         return prop;
     }
 
@@ -121,74 +134,146 @@ namespace array {
         SASSERT(n1->get_root() == n2->get_root());
         SASSERT(n1->is_root() || n2->is_root());
         SASSERT(v1 == find(v1));
-
         expr* e1 = n1->get_expr();
         expr* e2 = n2->get_expr();
         auto& d1 = get_var_data(v1);
         auto& d2 = get_var_data(v2);
-        if (d2.m_prop_upward && !d1.m_prop_upward) 
+        if (d2.m_prop_upward && !d1.m_prop_upward)
             set_prop_upward(v1);
-        if (a.is_array(e1))
-            for (euf::enode* parent : d2.m_parents) {
-                add_parent(v1, parent);
-                if (a.is_store(parent->get_expr()))
-                    add_store(v1, parent);
-            }
+        for (euf::enode* store : d2.m_stores)
+            add_store(v1, store);
+        for (euf::enode* store : d2.m_parent_stores)
+            add_parent_store(v1, store);
+        for (euf::enode* select : d2.m_parent_selects)            
+            add_parent_select(v1, select);
+        for (euf::enode* map : d2.m_parent_maps)
+            add_parent_map(v1, map);
+        for (euf::enode* cnst : d2.m_consts)
+            add_const(v1, cnst);
+        for (euf::enode* aa : d2.m_as_arrays)
+            add_as_array(v1, aa);
         if (is_lambda(e1) || is_lambda(e2))
             push_axiom(congruence_axiom(n1, n2));
     }
 
-    void solver::unmerge_eh(theory_var v1, theory_var v2) {
-        auto& p1 = get_var_data(v1).m_parents;
-        auto& p2 = get_var_data(v2).m_parents;
-        p1.shrink(p1.size() - p2.size());
+    void solver::tracked_push(euf::enode_vector& v, euf::enode* n) {
+        v.push_back(n);
+        ctx.push(push_back_trail<euf::solver, euf::enode*, false>(v));
     }
 
     void solver::add_store(theory_var v, euf::enode* store) {
         SASSERT(a.is_store(store->get_expr()));
         auto& d = get_var_data(v);
-        unsigned lambda_equiv_class_size = get_lambda_equiv_size(d);
-        if (get_config().m_array_always_prop_upward || lambda_equiv_class_size >= 1) 
-            set_prop_upward(d);
-        for (euf::enode* n : d.m_parents)
-            if (a.is_select(n->get_expr()))
-                push_axiom(select_axiom(n, store));
-        if (get_config().m_array_always_prop_upward || lambda_equiv_class_size >= 1)
+        if (should_set_prop_upward(d)) 
+            set_prop_upward(d);        
+        tracked_push(d.m_stores, store);
+        if (should_set_prop_upward(d))
             set_prop_upward(store);
+        for (euf::enode* select : d.m_parent_selects)
+            push_axiom(select_axiom(select, store));
     }
 
-    void solver::add_parent(theory_var v_child, euf::enode* parent) {
-        SASSERT(parent->is_root());
-        get_var_data(v_child).m_parents.push_back(parent);
-        euf::enode* child = var2enode(v_child);
-        euf::enode* r = child->get_root();
-        expr* p = parent->get_expr();
-        expr* c = child->get_expr();
-        if (a.is_select(p) && parent->get_arg(0)->get_root() == r) {
-            if (a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c)) 
-                push_axiom(select_axiom(parent, child));   
-#if 0
-            if (!get_config().m_array_delay_exp_axiom && d.m_prop_upward) {
-                auto& d = get_var_data(v_child);
-                for (euf::enode* p2 : d.m_parents)
-                    if (a.is_store(p2->get_expr()))
-                        push_axiom(select_axiom(parent, p2));
-            }
-#endif
-        }       
-        else if (a.mk_default(p)) {
-            if (a.is_const(c) || a.is_store(c) || a.is_map(c) || a.is_as_array(c)) 
-                push_axiom(default_axiom(child));
-        }
+    void solver::add_map(theory_var v, euf::enode* map) {
+        SASSERT(a.is_map(map->get_expr()));
+        v = find(v);
+        auto& d = get_var_data(v);
+        set_prop_upward(d);
+        tracked_push(d.m_maps, map);
+        propagate_select_axioms(d, map);
+        set_prop_upward(map);
     }
+
+    void solver::add_as_array(theory_var v, euf::enode* aa) {
+        SASSERT(a.is_as_array(aa->get_expr()));
+        v = find(v);
+        auto& d = get_var_data(v);
+        if (should_set_prop_upward(d))
+            set_prop_upward(d);
+        tracked_push(d.m_as_arrays, aa);
+        push_axiom(default_axiom(aa));
+        propagate_select_axioms(d, aa);
+    }
+
+    void solver::add_const(theory_var v, euf::enode* cnst) {
+        v = find(v);
+        SASSERT(a.is_const(cnst->get_expr()));
+        SASSERT(var2enode(v)->get_root() == cnst->get_root());
+
+        tracked_push(get_var_data(v).m_consts, cnst);
+        auto& d = get_var_data(v);
+        if (should_set_prop_upward(d)) 
+            set_prop_upward(d);
+        propagate_select_axioms(d, cnst);
+    }
+
+    void solver::add_parent_select(theory_var v_child, euf::enode* select) {
+        v_child = find(v_child);
+        tracked_push(get_var_data(v_child).m_parent_selects, select);
+        euf::enode* child = var2enode(v_child);
+        expr* c = child->get_expr();
+        SASSERT(a.is_select(select->get_expr()));
+        SASSERT(select->get_arg(0)->get_root() == child->get_root());
+        if (a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c))
+            push_axiom(select_axiom(select, child));
+    }
+
+    void solver::add_parent_store(theory_var v_child, euf::enode* store) {
+        SASSERT(a.is_store(store->get_expr()));
+        SASSERT(store->get_arg(0)->get_root() == var2enode(v_child)->get_root());
+        v_child = find(v_child);
+        auto& d = get_var_data(v_child);
+        tracked_push(d.m_parent_stores, store);
+        propagate_select_axioms(d, store);
+    }
+
+    void solver::add_parent_map(theory_var v_child, euf::enode* map) {
+        SASSERT(a.is_map(map->get_expr()));
+        v_child = find(v_child);
+        auto& d = get_var_data(v_child);
+        tracked_push(d.m_parent_maps, map);
+        propagate_select_axioms(d, map);
+    }
+
+    void solver::propagate_select_axioms(var_data const& d, euf::enode* a) {
+        if (d.m_prop_upward && !get_config().m_array_delay_exp_axiom)
+            for (euf::enode* select : d.m_parent_selects)
+                push_axiom(select_axiom(select, a));
+    }
+
+    void solver::propagate_parent_stores_default(theory_var v) {
+        v = find(v);
+        auto& d = get_var_data(v);
+        for (euf::enode* store : d.m_parent_stores)
+            push_axiom(default_axiom(store));
+    }
+
+    void solver::add_parent_default(theory_var v, euf::enode* def) {
+        SASSERT(a.is_default(def->get_expr()));
+        v = find(v);
+        auto& d = get_var_data(v);
+        for (euf::enode* store : d.m_stores)
+            push_axiom(default_axiom(store));
+        if (!get_config().m_array_delay_exp_axiom && d.m_prop_upward)             
+            propagate_parent_stores_default(v);            
+    }
+
+    void solver::propagate_parent_map_axioms(theory_var v) {
+        auto& d = get_var_data(v);
+        for (auto* n : d.m_parent_maps)
+            for (euf::enode* select : d.m_parent_selects)
+                push_axiom(select_axiom(select, n));        
+    }
+
 
     void solver::set_prop_upward(theory_var v) {
         auto& d = get_var_data(find(v));
         if (!d.m_prop_upward) {
             ctx.push(reset_flag_trail<euf::solver>(d.m_prop_upward));
             d.m_prop_upward = true;
-            if (!get_config().m_array_delay_exp_axiom)
+            if (!get_config().m_array_delay_exp_axiom) {
                 push_parent_select_store_axioms(v);
+                propagate_parent_map_axioms(v);
+            }
             set_prop_upward(d);
         }
     }
@@ -199,22 +284,19 @@ namespace array {
     }
 
     void solver::set_prop_upward(var_data& d) {
-        for (auto* p : d.m_parents)
+        for (auto* p : d.m_stores)
             set_prop_upward(p);
     }
 
     /**
-       \brief Return the size of the equivalence class for array terms 
+       \brief Return the size of the equivalence class for array terms
               that can be expressed as \lambda i : Index . [.. (select a i) ..]
      */
     unsigned solver::get_lambda_equiv_size(var_data const& d) {
-        unsigned sz = 0;
-        for (auto* p : d.m_parents)
-            if (a.is_store(p->get_expr()))
-                ++sz;
-        return sz;
+        return d.m_parent_selects.size() + 2 * (d.m_maps.size() + d.m_consts.size());
     }
 
-
-
+    bool solver::should_set_prop_upward(var_data const& d) {
+        return get_config().m_array_always_prop_upward || get_lambda_equiv_size(d) >= 1;
+    }
 }

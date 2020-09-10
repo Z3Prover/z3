@@ -329,13 +329,13 @@ namespace sat {
     bool ba_solver::to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) {
         for (auto* c : constraints()) {
             switch (c->tag()) {
-            case ba_solver::card_t:
+            case ba_solver::tag_t::card_t:
                 fmls.push_back(get_card(l2e, c->to_card()));
                 break;
-            case ba_solver::pb_t:
+            case ba_solver::tag_t::pb_t:
                 fmls.push_back(get_pb(l2e, c->to_pb()));
                 break;
-            case ba_solver::xr_t:
+            case ba_solver::tag_t::xr_t:
                 fmls.push_back(get_xor(l2e, c->to_xr()));
                 break;
             }

@@ -49,18 +49,19 @@ namespace array {
 
     void solver::internalize_store(euf::enode* n) {
         if (get_config().m_array_laziness == 0)
-            add_parent(n->get_arg(0), n);   
+            add_parent_store(n->get_arg(0)->get_th_var(get_id()), n);   
         push_axiom(store_axiom(n));
     }
 
     void solver::internalize_select(euf::enode* n) {
         if (get_config().m_array_laziness == 0)
-            add_parent(n->get_arg(0), n);        
+            add_parent_select(n->get_arg(0)->get_th_var(get_id()), n);        
     }
 
     void solver::internalize_const(euf::enode* n) {
-        push_axiom(default_axiom(n));
         set_prop_upward(n);
+        push_axiom(default_axiom(n));
+        add_const(n->get_th_var(get_id()), n);
     }
 
     void solver::internalize_ext(euf::enode* n) {
@@ -68,13 +69,13 @@ namespace array {
     }
 
     void solver::internalize_default(euf::enode* n) {
-        add_parent(n->get_arg(0), n);
+        add_parent_default(n->get_arg(0)->get_th_var(get_id()), n);
         set_prop_upward(n);
     }
 
     void solver::internalize_map(euf::enode* n) {
         for (auto* arg : euf::enode_args(n)) {          
-            add_parent(arg, n);
+            add_parent_map(arg->get_th_var(get_id()), n);
             set_prop_upward(arg);
         }
         push_axiom(default_axiom(n));

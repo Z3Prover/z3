@@ -1308,7 +1308,7 @@ namespace sat {
                 }
             }
             break;
-        case lookahead2:
+        case lookahead_mode::lookahead2:
             // this could create a conflict from propagation, but we complete the loop.
             for (binary const& b : m_ternary[(~l).index()]) {
                 if (sz-- == 0) break;

@@ -666,7 +666,7 @@ namespace opt {
         opt_params p(m_params);        
         if (p.optsmt_engine() == symbol("symba") ||
             p.optsmt_engine() == symbol("farkas")) {
-            auto str = std::to_string(AS_OPTINF);
+            auto str = std::to_string((unsigned)(arith_solver_id::AS_OPTINF));
             gparams::set("smt.arith.solver", str.c_str());
         }
     }

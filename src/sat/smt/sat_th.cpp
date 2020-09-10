@@ -146,14 +146,8 @@ namespace euf {
                 m_args.push_back(expr2enode(arg));
         euf::enode* n = ctx.mk_enode(e, m_args.size(), m_args.c_ptr());
         ctx.attach_node(n);
-        if (m.is_bool(e)) {
-            sat::bool_var v = ctx.get_si().add_bool_var(e);
-            NOT_IMPLEMENTED_YET();
-            // TODO: ctx.attach_lit(literal(v, false), e);
-        }
         return n;
     }
-
 
     void th_euf_solver::rewrite(expr_ref& a) {
         ctx.get_rewriter()(a);

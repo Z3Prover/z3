@@ -65,7 +65,7 @@ namespace sat {
     std::ostream& operator<<(std::ostream& out, ba_solver::constraint const& cnstr) {
         if (cnstr.lit() != null_literal) out << cnstr.lit() << " == ";
         switch (cnstr.tag()) {
-        case ba_solver::card_t: {
+        case ba_solver::tag_t::card_t: {
             ba_solver::card const& c = cnstr.to_card();
             for (literal l : c) {
                 out << l << " ";
@@ -73,7 +73,7 @@ namespace sat {
             out << " >= " << c.k();
             break;
         }
-        case ba_solver::pb_t: {
+        case ba_solver::tag_t::pb_t: {
             ba_solver::pb const& p = cnstr.to_pb();
             bool first = true;
             for (ba_solver::wliteral wl : p) {
@@ -85,7 +85,7 @@ namespace sat {
             out << " >= " << p.k();
             break;
         }
-        case ba_solver::xr_t: {
+        case ba_solver::tag_t::xr_t: {
             ba_solver::xr const& x = cnstr.to_xr();
             for (unsigned i = 0; i < x.size(); ++i) {
                 out << x[i] << " ";
@@ -119,7 +119,7 @@ namespace sat {
     // card
 
     ba_solver::card::card(unsigned id, literal lit, literal_vector const& lits, unsigned k):
-        pb_base(card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {        
+        pb_base(tag_t::card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -146,7 +146,7 @@ namespace sat {
     // pb
 
     ba_solver::pb::pb(unsigned id, literal lit, svector<ba_solver::wliteral> const& wlits, unsigned k):
-        pb_base(pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
+        pb_base(tag_t::pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
         m_slack(0),
         m_num_watch(0),
         m_max_sum(0) {
@@ -1099,13 +1099,13 @@ namespace sat {
                 constraint& cnstr = index2constraint(js.get_ext_justification_idx());
                 ++m_stats.m_num_resolves;
                 switch (cnstr.tag()) {
-                case card_t: {
+                case tag_t::card_t: {
                     card& c = cnstr.to_card();
                     inc_bound(static_cast<int64_t>(offset) * c.k());
                     process_card(c, offset);
                     break;
                 }
-                case pb_t: {
+                case tag_t::pb_t: {
                     pb& p = cnstr.to_pb();
                     m_lemma.reset();
                     inc_bound(offset);
@@ -1119,7 +1119,7 @@ namespace sat {
                     for (literal l : m_lemma) process_antecedent(~l, offset);
                     break;
                 }
-                case xr_t: {
+                case tag_t::xr_t: {
                     // jus.push_back(js);
                     m_lemma.reset();
                     inc_bound(offset);
@@ -1431,8 +1431,8 @@ namespace sat {
                 constraint& cnstr = index2constraint(index);
                 SASSERT(!cnstr.was_removed());
                 switch (cnstr.tag()) {
-                case card_t: 
-                case pb_t: {
+                case tag_t::card_t:
+                case tag_t::pb_t: {
                     pb_base const& p = cnstr.to_pb_base();
                     unsigned k = p.k(), sz = p.size();
                     m_A.reset(0);
@@ -1800,9 +1800,9 @@ namespace sat {
     bool ba_solver::init_watch(constraint& c) {
         if (inconsistent()) return false;
         switch (c.tag()) {
-        case card_t: return init_watch(c.to_card()); 
-        case pb_t: return init_watch(c.to_pb());
-        case xr_t: return init_watch(c.to_xr()); 
+        case tag_t::card_t: return init_watch(c.to_card());
+        case tag_t::pb_t: return init_watch(c.to_pb());
+        case tag_t::xr_t: return init_watch(c.to_xr());
         }
         UNREACHABLE();
         return false;
@@ -1810,9 +1810,9 @@ namespace sat {
 
     lbool ba_solver::add_assign(constraint& c, literal l) {
         switch (c.tag()) {
-        case card_t: return add_assign(c.to_card(), l); 
-        case pb_t: return add_assign(c.to_pb(), l); 
-        case xr_t: return add_assign(c.to_xr(), l);
+        case tag_t::card_t: return add_assign(c.to_card(), l);
+        case tag_t::pb_t: return add_assign(c.to_pb(), l);
+        case tag_t::xr_t: return add_assign(c.to_xr(), l);
         }
         UNREACHABLE();
         return l_undef;
@@ -1911,9 +1911,9 @@ namespace sat {
     double ba_solver::get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const {
         constraint const& c = index2constraint(idx);
         switch (c.tag()) {
-        case card_t: return get_reward(c.to_card(), occs);
-        case pb_t: return get_reward(c.to_pb(), occs); 
-        case xr_t: return 0;
+        case tag_t::card_t: return get_reward(c.to_card(), occs);
+        case tag_t::pb_t: return get_reward(c.to_pb(), occs);
+        case tag_t::xr_t: return 0;
         default: UNREACHABLE(); return 0;
         }
     }
@@ -2062,7 +2062,7 @@ namespace sat {
     bool ba_solver::is_extended_binary(ext_justification_idx idx, literal_vector & r) {
         constraint const& c = index2constraint(idx);
         switch (c.tag()) {
-        case card_t: {
+        case tag_t::card_t: {
             card const& ca = c.to_card();
             if (ca.size() == ca.k() + 1 && ca.lit() == null_literal) {
                 r.reset();
@@ -2130,9 +2130,9 @@ namespace sat {
 
     void ba_solver::get_antecedents(literal l, constraint const& c, literal_vector& r, bool probing) {
         switch (c.tag()) {
-        case card_t: get_antecedents(l, c.to_card(), r); break;
-        case pb_t: get_antecedents(l, c.to_pb(), r); break;
-        case xr_t: get_antecedents(l, c.to_xr(), r); break;
+        case tag_t::card_t: get_antecedents(l, c.to_card(), r); break;
+        case tag_t::pb_t: get_antecedents(l, c.to_pb(), r); break;
+        case tag_t::xr_t: get_antecedents(l, c.to_xr(), r); break;
         default: UNREACHABLE(); break;            
         }
         if (get_config().m_drat && m_solver && !probing) {
@@ -2154,13 +2154,13 @@ namespace sat {
 
     void ba_solver::clear_watch(constraint& c) {
         switch (c.tag()) {
-        case card_t:
+        case tag_t::card_t:
             clear_watch(c.to_card());
             break;
-        case pb_t:
+        case tag_t::pb_t:
             clear_watch(c.to_pb());
             break;
-        case xr_t:
+        case tag_t::xr_t:
             clear_watch(c.to_xr());
             break;
         default:
@@ -2183,9 +2183,9 @@ namespace sat {
     bool ba_solver::validate_unit_propagation(constraint const& c, literal l) const {
         return true;
         switch (c.tag()) {
-        case card_t:  return validate_unit_propagation(c.to_card(), l); 
-        case pb_t: return validate_unit_propagation(c.to_pb(), l);
-        case xr_t: return true;
+        case tag_t::card_t:  return validate_unit_propagation(c.to_card(), l);
+        case tag_t::pb_t: return validate_unit_propagation(c.to_pb(), l);
+        case tag_t::xr_t: return true;
         default: UNREACHABLE(); break;
         }
         return false;
@@ -2198,9 +2198,9 @@ namespace sat {
     lbool ba_solver::eval(constraint const& c) const {
         lbool v1 = c.lit() == null_literal ? l_true : value(c.lit());
         switch (c.tag()) {
-        case card_t: return eval(v1, eval(c.to_card())); 
-        case pb_t:   return eval(v1, eval(c.to_pb()));
-        case xr_t:  return eval(v1, eval(c.to_xr()));
+        case tag_t::card_t: return eval(v1, eval(c.to_card()));
+        case tag_t::pb_t:   return eval(v1, eval(c.to_pb()));
+        case tag_t::xr_t:  return eval(v1, eval(c.to_xr()));
         default: UNREACHABLE(); break;
         }
         return l_undef;        
@@ -2209,9 +2209,9 @@ namespace sat {
     lbool ba_solver::eval(model const& m, constraint const& c) const {
         lbool v1 = c.lit() == null_literal ? l_true : value(m, c.lit());
         switch (c.tag()) {
-        case card_t: return eval(v1, eval(m, c.to_card())); 
-        case pb_t:   return eval(v1, eval(m, c.to_pb()));
-        case xr_t:   return eval(v1, eval(m, c.to_xr()));
+        case tag_t::card_t: return eval(v1, eval(m, c.to_card()));
+        case tag_t::pb_t:   return eval(v1, eval(m, c.to_pb()));
+        case tag_t::xr_t:   return eval(v1, eval(m, c.to_xr()));
         default: UNREACHABLE(); break;
         }
         return l_undef;        
@@ -2391,12 +2391,12 @@ namespace sat {
     void ba_solver::update_psm(constraint& c) const {
         unsigned r = 0;
         switch (c.tag()) {            
-        case card_t: 
+        case tag_t::card_t:
             for (literal l : c.to_card()) {                
                 if (s().m_phase[l.var()] == !l.sign()) ++r;
             }
             break;
-        case pb_t:
+        case tag_t::pb_t:
             for (wliteral l : c.to_pb()) {                
                 if (s().m_phase[l.second.var()] == !l.second.sign()) ++r;
             }
@@ -2533,7 +2533,7 @@ namespace sat {
     }
 
 
-    check_result ba_solver::check() { return CR_DONE; }
+    check_result ba_solver::check() { return check_result::CR_DONE; }
 
     void ba_solver::push() {
         m_constraint_to_reinit_lim.push_back(m_constraint_to_reinit.size());
@@ -2562,13 +2562,13 @@ namespace sat {
     void ba_solver::simplify(constraint& c) {
         SASSERT(s().at_base_lvl());
         switch (c.tag()) {
-        case card_t:
+        case tag_t::card_t:
             simplify(c.to_card());
             break;
-        case pb_t:
+        case tag_t::pb_t:
             simplify(c.to_pb());
             break;
-        case xr_t:
+        case tag_t::xr_t:
             simplify(c.to_xr());
             break;
         default:
@@ -2827,13 +2827,13 @@ namespace sat {
             IF_VERBOSE(0, display(verbose_stream() << "recompile\n", c, true););
         }
         switch (c.tag()) {
-        case card_t:
+        case tag_t::card_t:
             recompile(c.to_card());
             break;
-        case pb_t:
+        case tag_t::pb_t:
             recompile(c.to_pb());
             break;
-        case xr_t:
+        case tag_t::xr_t:
             add_xr(c.to_xr().literals(), c.learned());
             remove_constraint(c, "recompile xor");
             break;
@@ -3036,9 +3036,9 @@ namespace sat {
 
     void ba_solver::split_root(constraint& c) {
         switch (c.tag()) {
-        case card_t: split_root(c.to_card()); break;
-        case pb_t: split_root(c.to_pb()); break;
-        case xr_t: NOT_IMPLEMENTED_YET(); break;
+        case tag_t::card_t: split_root(c.to_card()); break;
+        case tag_t::pb_t: split_root(c.to_pb()); break;
+        case tag_t::xr_t: NOT_IMPLEMENTED_YET(); break;
         }
     }
 
@@ -3131,7 +3131,7 @@ namespace sat {
                 m_cnstr_use_list[(~lit).index()].push_back(cp);
             }
             switch (cp->tag()) {
-            case card_t: {
+            case tag_t::card_t: {
                 card& c = cp->to_card();
                 for (literal l : c) {
                     m_cnstr_use_list[l.index()].push_back(&c);
@@ -3139,7 +3139,7 @@ namespace sat {
                 }  
                 break;
             }
-            case pb_t: {
+            case tag_t::pb_t: {
                 pb& p = cp->to_pb();
                 for (wliteral wl : p) {
                     literal l = wl.second;
@@ -3148,7 +3148,7 @@ namespace sat {
                 }
                 break;
             }
-            case xr_t: {
+            case tag_t::xr_t: {
                 xr& x = cp->to_xr();
                 for (literal l : x) {
                     m_cnstr_use_list[l.index()].push_back(&x);
@@ -3167,8 +3167,8 @@ namespace sat {
             constraint& c = *cp;
             literal lit = c.lit();
             switch (c.tag()) {
-            case card_t: 
-            case pb_t: {
+            case tag_t::card_t:
+            case tag_t::pb_t: {
                 if (lit != null_literal &&
                     value(lit) == l_undef && 
                     use_count(lit) == 1 &&
@@ -3276,10 +3276,10 @@ namespace sat {
     void ba_solver::unit_strengthen(big& big, constraint& c) {
         if (c.was_removed()) return;
         switch (c.tag()) {
-        case card_t: 
+        case tag_t::card_t:
             unit_strengthen(big, c.to_card());
             break;
-        case pb_t: 
+        case tag_t::pb_t:
             unit_strengthen(big, c.to_pb());
             break;
         default:
@@ -3346,12 +3346,12 @@ namespace sat {
     void ba_solver::subsumption(constraint& cnstr) {
         if (cnstr.was_removed()) return;
         switch (cnstr.tag()) {
-        case card_t: {
+        case tag_t::card_t: {
             card& c = cnstr.to_card();
             if (c.k() > 1) subsumption(c);
             break;
         }
-        case pb_t: {
+        case tag_t::pb_t: {
             pb& p = cnstr.to_pb();
             if (p.k() > 1) subsumption(p);
             break;
@@ -3510,10 +3510,10 @@ namespace sat {
             if (c == &p1 || c->was_removed()) continue;
             bool s = false;
             switch (c->tag()) {
-            case card_t: 
+            case tag_t::card_t:
                 s = subsumes(p1, c->to_card()); 
                 break;
-            case pb_t: 
+            case tag_t::pb_t:
                 s = subsumes(p1, c->to_pb()); 
                 break;
             default: 
@@ -3605,13 +3605,13 @@ namespace sat {
             s().set_external(lit.var());
         }
         switch (c.tag()) {
-        case card_t:
+        case tag_t::card_t:
             for (literal lit : c.to_card()) {
                 s().set_external(lit.var());             
                 SASSERT(!s().was_eliminated(lit.var()));
             }
             break;
-        case pb_t:
+        case tag_t::pb_t:
             for (wliteral wl : c.to_pb()) {
                 s().set_external(wl.second.var());
                 SASSERT(!s().was_eliminated(wl.second.var()));
@@ -3743,14 +3743,14 @@ namespace sat {
         svector<wliteral> wlits;
         for (constraint* cp : constraints) {
             switch (cp->tag()) {
-            case card_t: {
+            case tag_t::card_t: {
                 card const& c = cp->to_card();
                 lits.reset();
                 for (literal l : c) lits.push_back(l);
                 result->add_at_least(c.lit(), lits, c.k(), c.learned());        
                 break;
             }
-            case pb_t: {
+            case tag_t::pb_t: {
                 pb const& p = cp->to_pb();
                 wlits.reset();
                 for (wliteral w : p) {
@@ -3759,7 +3759,7 @@ namespace sat {
                 result->add_pb_ge(p.lit(), wlits, p.k(), p.learned());
                 break;
             }
-            case xr_t: {
+            case tag_t::xr_t: {
                 xr const& x = cp->to_xr();
                 lits.reset();
                 for (literal l : x) lits.push_back(l);
@@ -3781,21 +3781,21 @@ namespace sat {
                 ul.insert(~cp->lit(), idx);                
             }
             switch (cp->tag()) {
-            case card_t: {
+            case tag_t::card_t: {
                 card const& c = cp->to_card();
                 for (literal l : c) {
                     ul.insert(l, idx);
                 }
                 break;
             }
-            case pb_t: {
+            case tag_t::pb_t: {
                 pb const& p = cp->to_pb();
                 for (wliteral w : p) {
                     ul.insert(w.second, idx);
                 }
                 break;
             }
-            case xr_t: {
+            case tag_t::xr_t: {
                 xr const& x = cp->to_xr();
                 for (literal l : x) {
                     ul.insert(l, idx);
@@ -3819,7 +3819,7 @@ namespace sat {
         simplifier& sim = s().m_simplifier;
         if (c.lit() != null_literal) return false;
         switch (c.tag()) {
-        case card_t: {
+        case tag_t::card_t: {
             card const& ca = c.to_card();
             unsigned weight = 0;
             for (literal l2 : ca) {
@@ -3827,7 +3827,7 @@ namespace sat {
             }
             return weight >= ca.k();
         }
-        case pb_t: {
+        case tag_t::pb_t: {
             pb const& p = c.to_pb();
             unsigned weight = 0, offset = 0;
             for (wliteral l2 : p) {
@@ -3950,9 +3950,9 @@ namespace sat {
 
     std::ostream& ba_solver::display(std::ostream& out, constraint const& c, bool values) const {
         switch (c.tag()) {
-        case card_t: display(out, c.to_card(), values); break;
-        case pb_t: display(out, c.to_pb(), values); break;
-        case xr_t: display(out, c.to_xr(), values); break;
+        case tag_t::card_t: display(out, c.to_card(), values); break;
+        case tag_t::pb_t: display(out, c.to_pb(), values); break;
+        case tag_t::xr_t: display(out, c.to_xr(), values); break;
         default: UNREACHABLE(); break;
         }
         return out;
@@ -4283,21 +4283,21 @@ namespace sat {
 
     void ba_solver::constraint2pb(constraint& cnstr, literal lit, unsigned offset, ineq& ineq) {
         switch (cnstr.tag()) {
-        case card_t: {
+        case tag_t::card_t: {
             card& c = cnstr.to_card();
             ineq.reset(offset*c.k());
             for (literal l : c) ineq.push(l, offset);
             if (c.lit() != null_literal) ineq.push(~c.lit(), offset*c.k());                
             break;
         }
-        case pb_t: {
+        case tag_t::pb_t: {
             pb& p = cnstr.to_pb();
             ineq.reset(offset * p.k());
             for (wliteral wl : p) ineq.push(wl.second, offset * wl.first);
             if (p.lit() != null_literal) ineq.push(~p.lit(), offset * p.k());
             break;
         }
-        case xr_t: {
+        case tag_t::xr_t: {
             xr& x = cnstr.to_xr();
             literal_vector ls;
             SASSERT(lit != null_literal);
@@ -4546,7 +4546,7 @@ namespace sat {
         literal_vector lits;
         for (constraint* cp : m_constraints) {
             switch (cp->tag()) {
-            case card_t: {
+            case tag_t::card_t: {
                 card const& c = cp->to_card();
                 unsigned n = c.size();
                 unsigned k = c.k();
@@ -4584,7 +4584,7 @@ namespace sat {
                 }
                 break;
             }
-            case ba_solver::pb_t: {
+            case tag_t::pb_t: {
                 ba_solver::pb const& p = cp->to_pb();
                 lits.reset();
                 coeffs.reset();
@@ -4618,7 +4618,7 @@ namespace sat {
                 }
                 break;
             }
-            case ba_solver::xr_t:
+            case tag_t::xr_t:
                 return false;
             }
         }

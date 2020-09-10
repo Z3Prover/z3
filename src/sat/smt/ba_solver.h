@@ -56,7 +56,7 @@ namespace sat {
         };
 
     public:        
-        enum tag_t {
+        enum class tag_t {
             card_t,
             pb_t,
             xr_t
@@ -117,9 +117,9 @@ namespace sat {
             pb const&  to_pb() const;
             xr const& to_xr() const;
             pb_base const& to_pb_base() const; 
-            bool is_card() const { return m_tag == card_t; }
-            bool is_pb() const { return m_tag == pb_t; }
-            bool is_xr() const { return m_tag == xr_t; }
+            bool is_card() const { return m_tag == tag_t::card_t; }
+            bool is_pb() const { return m_tag == tag_t::pb_t; }
+            bool is_xr() const { return m_tag == tag_t::xr_t; }
             
             virtual bool is_watching(literal l) const { UNREACHABLE(); return false; };
             virtual literal_vector literals() const { UNREACHABLE(); return literal_vector(); }
@@ -235,29 +235,28 @@ namespace sat {
         sat_internalizer&      si;
         pb_util                m_pb;
 
-        solver*                m_solver;
-        lookahead*             m_lookahead;
+        solver*                m_solver{ nullptr };
+        lookahead*             m_lookahead{ nullptr };
         stats                  m_stats; 
         small_object_allocator m_allocator;
        
-
         ptr_vector<constraint> m_constraints;
         ptr_vector<constraint> m_learned;
         ptr_vector<constraint> m_constraint_to_reinit;
         unsigned_vector        m_constraint_to_reinit_lim;
-        unsigned               m_constraint_to_reinit_last_sz;
-        unsigned               m_constraint_id;
+        unsigned               m_constraint_to_reinit_last_sz{ 0 };
+        unsigned               m_constraint_id{ 0 };
 
         // conflict resolution
-        unsigned          m_num_marks;
-        unsigned          m_conflict_lvl;
+        unsigned          m_num_marks{ 0 };
+        unsigned          m_conflict_lvl{ 0 };
         svector<int64_t>  m_coeffs;
         svector<bool_var> m_active_vars;
-        unsigned          m_bound;
+        unsigned          m_bound{ 0 };
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
         literal_vector    m_skipped;
-        unsigned          m_num_propagations_since_pop;
+        unsigned          m_num_propagations_since_pop{ 0 };
         unsigned_vector   m_parity_marks;
         literal_vector    m_parity_trail;
 
@@ -297,11 +296,11 @@ namespace sat {
 
         vector<svector<constraint*>>    m_cnstr_use_list;
         use_list                  m_clause_use_list;
-        bool                      m_simplify_change;
-        bool                      m_clause_removed;
-        bool                      m_constraint_removed;
+        bool                      m_simplify_change{ false };
+        bool                      m_clause_removed{ false };
+        bool                      m_constraint_removed{ false };
         literal_vector            m_roots;
-        bool_vector             m_root_vars;
+        bool_vector               m_root_vars;
         unsigned_vector           m_weights;
         svector<wliteral>         m_wlits;
 
@@ -411,7 +410,7 @@ namespace sat {
         lbool eval(model const& m, xr const& x) const;
         
         // pb functionality
-        unsigned m_a_max;
+        unsigned m_a_max{ 0 };
         bool init_watch(pb& p);
         lbool add_assign(pb& p, literal alit);
         void add_index(pb& p, unsigned index, literal lit);
@@ -473,7 +472,7 @@ namespace sat {
         inline config const& get_config() const { return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); }
 
 
-        mutable bool m_overflow;
+        mutable bool m_overflow{ false };
         void reset_active_var_set();
         bool test_and_set_active(bool_var v);
         void inc_coeff(literal l, unsigned offset);

@@ -1666,12 +1666,12 @@ namespace sat {
     lbool solver::final_check() {
         if (m_ext) {
             switch (m_ext->check()) {
-            case CR_DONE:
+            case check_result::CR_DONE:
                 mk_model();
                 return l_true;
-            case CR_CONTINUE:
+            case check_result::CR_CONTINUE:
                 break;
-            case CR_GIVEUP:
+            case check_result::CR_GIVEUP:
                 throw abort_solver();
             }
             return l_undef;

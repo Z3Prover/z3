@@ -25,7 +25,7 @@ Revision History:
 
 namespace sat {
 
-    enum check_result {
+    enum class check_result {
         CR_DONE, CR_CONTINUE, CR_GIVEUP
     };
 

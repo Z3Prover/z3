@@ -27,7 +27,7 @@ class sexpr_manager;
 
 class sexpr {
 public:
-    enum kind_t {
+    enum class kind_t {
         COMPOSITE, NUMERAL, BV_NUMERAL, STRING, KEYWORD, SYMBOL
     };
 protected:
@@ -44,12 +44,12 @@ public:
     unsigned get_line() const { return m_line; }
     unsigned get_pos() const { return m_pos; }
     kind_t get_kind() const { return m_kind; }
-    bool is_composite() const { return get_kind() == COMPOSITE; }
-    bool is_numeral() const { return get_kind() == NUMERAL; }
-    bool is_bv_numeral() const { return get_kind() == BV_NUMERAL; }
-    bool is_string() const { return get_kind() == STRING; }
-    bool is_keyword() const { return get_kind() == KEYWORD; }
-    bool is_symbol() const { return get_kind() == SYMBOL; }
+    bool is_composite() const { return get_kind() == kind_t::COMPOSITE; }
+    bool is_numeral() const { return get_kind() == kind_t::NUMERAL; }
+    bool is_bv_numeral() const { return get_kind() == kind_t::BV_NUMERAL; }
+    bool is_string() const { return get_kind() == kind_t::STRING; }
+    bool is_keyword() const { return get_kind() == kind_t::KEYWORD; }
+    bool is_symbol() const { return get_kind() == kind_t::SYMBOL; }
     rational const & get_numeral() const;
     unsigned get_bv_size() const;
     symbol get_symbol() const;

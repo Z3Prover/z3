@@ -49,10 +49,11 @@ namespace array {
         // void log_drat(array_justification const& c);
 
         struct var_data {
-            bool                   m_prop_upward{ false };            
-            bool                   m_is_array{ false };
-            bool                   m_is_select{ false };
-            ptr_vector<euf::enode> m_parents;
+            bool                m_prop_upward{ false };            
+            bool                m_is_array{ false };
+            bool                m_is_select{ false };
+            euf::enode_vector   m_parent_stores, m_parent_selects, m_parent_maps, m_parent_defaults;
+            euf::enode_vector   m_stores, m_as_arrays, m_consts, m_maps;
             var_data() {}
         };
 
@@ -155,22 +156,33 @@ namespace array {
         bool add_interface_equalities();
         bool is_select_arg(euf::enode* r);
 
-        // solving
-        void add_parent(theory_var v_child, euf::enode* parent);
-        void add_parent(euf::enode* child, euf::enode* parent) { add_parent(child->get_th_var(get_id()), parent); }
-        void add_store(theory_var v, euf::enode* store);        
+        // solving          
+        void add_parent_select(theory_var v_child, euf::enode* select);
+        void add_parent_store(theory_var v_child, euf::enode* store);
+        void add_parent_map(theory_var v_child, euf::enode* map);
+        void add_parent_default(theory_var v_child, euf::enode* def);
+        void add_store(theory_var v, euf::enode* store);
+        void add_const(theory_var v, euf::enode* cnst);
+        void add_map(theory_var v, euf::enode* map);
+        void add_as_array(theory_var v, euf::enode* as_array);
+        void propagate_select_axioms(var_data const& d, euf::enode* a);
+        void propagate_parent_stores_default(theory_var v);
+        void propagate_parent_map_axioms(theory_var v);
         void set_prop_upward(theory_var v);
         void set_prop_upward(var_data& d);
         void set_prop_upward(euf::enode* n);
         void push_parent_select_store_axioms(theory_var v);
         unsigned get_lambda_equiv_size(var_data const& d);
+        bool should_set_prop_upward(var_data const& d);
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }
+        var_data const& get_var_data(theory_var v) const { return *m_var_data[v]; }
         
 
-        // invariants
+        // diagnostics
 
+        std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const;
     public:
         solver(euf::solver& ctx, theory_id id);
         ~solver() override {}
@@ -196,8 +208,10 @@ namespace array {
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
 
+        void tracked_push(euf::enode_vector& v, euf::enode* n);
+
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
-        void unmerge_eh(theory_var v1, theory_var v2);
+        void unmerge_eh(theory_var v1, theory_var v2) {}
     };
 }
