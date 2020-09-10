@@ -82,7 +82,7 @@ namespace euf {
     }
 
     void solver::attach_node(euf::enode* n) {
-        expr* e = n->get_owner();
+        expr* e = n->get_expr();
         if (!m.is_bool(e))
             log_node(e);
         else
@@ -143,7 +143,7 @@ namespace euf {
             sat::literal_vector lits;
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
-                    expr_ref eq(m.mk_eq(args[i]->get_owner(), args[j]->get_owner()), m);
+                    expr_ref eq(m.mk_eq(args[i]->get_expr(), args[j]->get_expr()), m);
                     sat::literal lit = internalize(eq, false, false, m_is_redundant);
                     lits.push_back(lit);
                 }
@@ -188,7 +188,7 @@ namespace euf {
         if (sz <= distinct_max_args) {
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
-                    expr_ref eq(m.mk_eq(args[i]->get_owner(), args[j]->get_owner()), m);
+                    expr_ref eq(m.mk_eq(args[i]->get_expr(), args[j]->get_expr()), m);
                     sat::literal lit = internalize(eq, true, false, m_is_redundant);
                     s().add_clause(1, &lit, st);
                 }
@@ -213,7 +213,7 @@ namespace euf {
     }
 
     void solver::axiomatize_basic(enode* n) {
-        expr* e = n->get_owner();
+        expr* e = n->get_expr();
         sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
         if (m.is_ite(e)) {
             app* a = to_app(e);
@@ -237,7 +237,7 @@ namespace euf {
             unsigned sz = n->num_args();
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
-                    expr_ref eq(m.mk_eq(n->get_arg(i)->get_owner(), n->get_arg(j)->get_owner()), m);
+                    expr_ref eq(m.mk_eq(n->get_arg(i)->get_expr(), n->get_arg(j)->get_expr()), m);
                     eqs.push_back(eq);
                 }
             }
@@ -255,7 +255,7 @@ namespace euf {
     bool solver::is_shared(enode* n) const {
         n = n->get_root();
 
-        if (m.is_ite(n->get_owner()))
+        if (m.is_ite(n->get_expr()))
             return true;
 
         theory_id th_id = null_theory_id;
@@ -272,7 +272,7 @@ namespace euf {
         // contains a parent application.
 
         for (euf::enode* parent : euf::enode_parents(n)) {
-            app* p = to_app(parent->get_owner());
+            app* p = to_app(parent->get_expr());
             family_id fid = p->get_family_id();
             if (fid != th_id && fid != m.get_basic_family_id())
                 return true;

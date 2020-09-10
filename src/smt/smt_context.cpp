@@ -1279,9 +1279,9 @@ namespace smt {
                     SASSERT(e_internalized(arg));
                     enode * _arg = get_enode(arg);
                     CTRACE("eq_to_bug", args[i]->get_root() != _arg->get_root(),
-                           tout << "#" << args[i]->get_owner_id() << " #" << args[i]->get_root()->get_owner_id()
-                           << " #" << _arg->get_owner_id() << " #" << _arg->get_root()->get_owner_id() << "\n";
-                           tout << "#" << r->get_owner_id() << "\n";
+                           tout << "#" << args[i]->get_expr_id() << " #" << args[i]->get_root()->get_expr_id()
+                           << " #" << _arg->get_expr_id() << " #" << _arg->get_root()->get_expr_id() << "\n";
+                           tout << "#" << r->get_expr_id() << "\n";
                            display(tout););
                     SASSERT(args[i]->get_root() == _arg->get_root());
                 }

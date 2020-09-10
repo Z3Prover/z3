@@ -65,7 +65,7 @@ namespace array {
 
     std::ostream& solver::display(std::ostream& out) const { 
         for (unsigned i = 0; i < get_num_vars(); ++i) {
-            out << var2enode(i)->get_owner_id() << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
+            out << var2enode(i)->get_expr_id() << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
         }
         return out; 
     }
@@ -122,8 +122,8 @@ namespace array {
         SASSERT(n1->is_root() || n2->is_root());
         SASSERT(v1 == find(v1));
 
-        expr* e1 = n1->get_owner();
-        expr* e2 = n2->get_owner();
+        expr* e1 = n1->get_expr();
+        expr* e2 = n2->get_expr();
         auto& d1 = get_var_data(v1);
         auto& d2 = get_var_data(v2);
         if (d2.m_prop_upward && !d1.m_prop_upward) 
@@ -131,7 +131,7 @@ namespace array {
         if (a.is_array(e1))
             for (euf::enode* parent : d2.m_parents) {
                 add_parent(v1, parent);
-                if (a.is_store(parent->get_owner()))
+                if (a.is_store(parent->get_expr()))
                     add_store(v1, parent);
             }
         if (is_lambda(e1) || is_lambda(e2))
@@ -145,13 +145,13 @@ namespace array {
     }
 
     void solver::add_store(theory_var v, euf::enode* store) {
-        SASSERT(a.is_store(store->get_owner()));
+        SASSERT(a.is_store(store->get_expr()));
         auto& d = get_var_data(v);
         unsigned lambda_equiv_class_size = get_lambda_equiv_size(d);
         if (get_config().m_array_always_prop_upward || lambda_equiv_class_size >= 1) 
             set_prop_upward(d);
         for (euf::enode* n : d.m_parents)
-            if (a.is_select(n->get_owner()))
+            if (a.is_select(n->get_expr()))
                 push_axiom(select_axiom(n, store));
         if (get_config().m_array_always_prop_upward || lambda_equiv_class_size >= 1)
             set_prop_upward(store);
@@ -162,8 +162,8 @@ namespace array {
         get_var_data(v_child).m_parents.push_back(parent);
         euf::enode* child = var2enode(v_child);
         euf::enode* r = child->get_root();
-        expr* p = parent->get_owner();
-        expr* c = child->get_owner();
+        expr* p = parent->get_expr();
+        expr* c = child->get_expr();
         if (a.is_select(p) && parent->get_arg(0)->get_root() == r) {
             if (a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c)) 
                 push_axiom(select_axiom(parent, child));   
@@ -171,7 +171,7 @@ namespace array {
             if (!get_config().m_array_delay_exp_axiom && d.m_prop_upward) {
                 auto& d = get_var_data(v_child);
                 for (euf::enode* p2 : d.m_parents)
-                    if (a.is_store(p2->get_owner()))
+                    if (a.is_store(p2->get_expr()))
                         push_axiom(select_axiom(parent, p2));
             }
 #endif
@@ -194,7 +194,7 @@ namespace array {
     }
 
     void solver::set_prop_upward(euf::enode* n) {
-        if (a.is_store(n->get_owner()))
+        if (a.is_store(n->get_expr()))
             set_prop_upward(n->get_arg(0)->get_th_var(get_id()));
     }
 
@@ -210,7 +210,7 @@ namespace array {
     unsigned solver::get_lambda_equiv_size(var_data const& d) {
         unsigned sz = 0;
         for (auto* p : d.m_parents)
-            if (a.is_store(p->get_owner()))
+            if (a.is_store(p->get_expr()))
                 ++sz;
         return sz;
     }

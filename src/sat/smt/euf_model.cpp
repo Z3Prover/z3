@@ -48,7 +48,7 @@ namespace euf {
                 deps.insert(n, nullptr);
                 continue;
             }
-            auto* mb = get_solver(n->get_owner());
+            auto* mb = get_solver(n->get_expr());
             if (mb)
                 mb->add_dep(n, deps);
             else
@@ -62,7 +62,7 @@ namespace euf {
             unsigned id = n->get_root_id();
             if (values.get(id, nullptr))
                 continue;
-            expr* e = n->get_owner();
+            expr* e = n->get_expr();
             values.reserve(id + 1);
             if (m.is_bool(e) && is_uninterp_const(e) && mdl->get_const_interp(to_app(e)->get_decl())) {
                 values.set(id, mdl->get_const_interp(to_app(e)->get_decl()));
@@ -112,7 +112,7 @@ namespace euf {
     void solver::values2model(deps_t const& deps, expr_ref_vector const& values, model_ref& mdl) {
         ptr_vector<expr> args;
         for (enode* n : deps.top_sorted()) {
-            expr* e = n->get_owner();
+            expr* e = n->get_expr();
             if (!is_app(e))
                 continue;
             app* a = to_app(e);

@@ -133,7 +133,7 @@ namespace euf {
         unsigned get_num_vars() const { return m_var2enode.size();}
         enode* expr2enode(expr* e) const; 
         enode* var2enode(theory_var v) const { return m_var2enode[v]; }
-        expr* var2expr(theory_var v) const { return var2enode(v)->get_owner(); }
+        expr* var2expr(theory_var v) const { return var2enode(v)->get_expr(); }
         expr* bool_var2expr(sat::bool_var v) const;
         expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }

@@ -495,7 +495,7 @@ namespace smt {
             if (ctx.is_relevant(n) && ctx.is_shared(n)) {
                 enode * r = n->get_root();
                 if (!r->is_marked() && is_array_sort(r)) {
-                    TRACE("array_shared", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+                    TRACE("array_shared", tout << "new shared var: #" << r->get_expr_id() << "\n";);
                     r->set_mark();
                     to_unmark.push_back(r);
                     theory_var r_th_var = r->get_var(get_id());

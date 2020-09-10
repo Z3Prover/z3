@@ -35,7 +35,7 @@ namespace array {
             return false;
         m_axioms.insert(idx);
         ctx.push(insert_map<euf::solver, axiom_table_t, unsigned>(m_axioms, idx));
-        expr* child = r.n->get_owner();
+        expr* child = r.n->get_expr();
         app* select;
         switch (r.m_kind) {
         case axiom_record::kind_t::is_store:
@@ -69,9 +69,9 @@ namespace array {
                 UNREACHABLE();
             break;
         case axiom_record::kind_t::is_extensionality:
-            return assert_extensionality(r.n->get_arg(0)->get_owner(), r.n->get_arg(1)->get_owner());
+            return assert_extensionality(r.n->get_arg(0)->get_expr(), r.n->get_arg(1)->get_expr());
         case axiom_record::kind_t::is_congruence:
-            return assert_congruent_axiom(child, r.select->get_owner());
+            return assert_congruent_axiom(child, r.select->get_expr());
         default:
             UNREACHABLE();
             break;
@@ -134,7 +134,7 @@ namespace array {
             euf::enode* r2 = expr2enode(idx2)->get_root();
             if (r1 == r2)
                 continue;
-            if (m.are_distinct(r1->get_owner(), r2->get_owner())) {
+            if (m.are_distinct(r1->get_expr(), r2->get_expr())) {
                 add_clause(sel_eq);
                 break;
             }
@@ -450,9 +450,9 @@ namespace array {
             return;
         auto& d = get_var_data(v);
         for (euf::enode* store : d.m_parents)
-            if (a.is_store(store->get_owner()))
+            if (a.is_store(store->get_expr()))
                 for (euf::enode* sel : d.m_parents)
-                    if (a.is_select(sel->get_owner()))
+                    if (a.is_select(sel->get_expr()))
                         push_axiom(select_axiom(sel, store));                        
     }
 
@@ -475,9 +475,9 @@ namespace array {
             for (unsigned j = i; j-- > 0; ) {
                 theory_var v2 = roots[j];
                 euf::enode* n2 = var2enode(v2);
-                if (m.get_sort(n1->get_owner()) != m.get_sort(n2->get_owner()))
+                if (m.get_sort(n1->get_expr()) != m.get_sort(n2->get_expr()))
                     continue;
-                expr_ref eq(m.mk_eq(n1->get_owner(), n2->get_owner()), m);
+                expr_ref eq(m.mk_eq(n1->get_expr(), n2->get_expr()), m);
                 sat::literal lit = b_internalize(eq);
                 if (s().value(lit) == l_undef)
                     prop = true;
@@ -491,7 +491,7 @@ namespace array {
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
             euf::enode * n = var2enode(i);
-            if (!a.is_array(n->get_owner())) {
+            if (!a.is_array(n->get_expr())) {
                 continue;
             }
             euf::enode * r = n->get_root();
@@ -502,7 +502,7 @@ namespace array {
             // issue #3532, #3529
             // 
             if (ctx.is_shared(r) || is_select_arg(r)) {
-                TRACE("array", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+                TRACE("array", tout << "new shared var: #" << r->get_expr_id() << "\n";);
                 theory_var r_th_var = r->get_th_var(get_id());
                 SASSERT(r_th_var != euf::null_theory_var);
                 roots.push_back(r_th_var);
@@ -517,7 +517,7 @@ namespace array {
 
     bool solver::is_select_arg(euf::enode* r) {
         for (euf::enode* n : euf::enode_parents(r)) 
-            if (a.is_select(n->get_owner())) 
+            if (a.is_select(n->get_expr())) 
                 for (unsigned i = 1; i < n->num_args(); ++i) 
                     if (r == n->get_arg(i)->get_root()) 
                         return true;

@@ -203,7 +203,7 @@ namespace euf {
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) { return m_egraph.find(e); }
         sat::literal get_literal(expr* e) const { return literal(si.to_bool_var(e), false); }
-        sat::literal get_literal(enode* e) const { return get_literal(e->get_owner()); }
+        sat::literal get_literal(enode* e) const { return get_literal(e->get_expr()); }
         smt_params const& get_config() { return m_config; }
         region& get_region() { return m_trail.get_region(); }
         template <typename C>

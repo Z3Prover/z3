@@ -238,7 +238,7 @@ namespace euf {
             euf::enode_bool_pair p = m_egraph.get_literal();
             euf::enode* n = p.first;
             bool is_eq = p.second;
-            expr* e = n->get_owner();
+            expr* e = n->get_expr();
             expr* a = nullptr, *b = nullptr;
             bool_var v = si.to_bool_var(e);
             SASSERT(m.is_bool(e));
@@ -250,7 +250,7 @@ namespace euf {
                 lit = literal(v, false);
             }
             else {
-                a = e, b = n->get_root()->get_owner();
+                a = e, b = n->get_root()->get_expr();
                 SASSERT(m.is_true(b) || m.is_false(b));
                 cnstr = lit_constraint().to_index();
                 lit = literal(v, m.is_false(b));
@@ -551,7 +551,7 @@ namespace euf {
         }
         for (euf::enode* n : m_egraph.nodes()) {
             if (!n->is_root()) 
-                fmls.push_back(m.mk_eq(n->get_owner(), n->get_root()->get_owner()));            
+                fmls.push_back(m.mk_eq(n->get_expr(), n->get_root()->get_expr()));
         }
         return true;
     }

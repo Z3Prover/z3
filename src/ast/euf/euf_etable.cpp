@@ -169,7 +169,7 @@ namespace euf {
         binary_table* tb = UNTAG(binary_table*, t);
         out << "b ";
         for (enode* n : *tb) {
-            out << n->get_owner_id() << " ";
+            out << n->get_expr_id() << " ";
         }
         out << "\n";
     }
@@ -178,7 +178,7 @@ namespace euf {
         comm_table* tb = UNTAG(comm_table*, t);
         out << "bc ";
         for (enode* n : *tb) {
-            out << n->get_owner_id() << " ";
+            out << n->get_expr_id() << " ";
         }
         out << "\n";
     }
@@ -187,7 +187,7 @@ namespace euf {
         unary_table* tb = UNTAG(unary_table*, t);
         out << "un ";
         for (enode* n : *tb) {
-            out << n->get_owner_id() << " ";
+            out << n->get_expr_id() << " ";
         }
         out << "\n";
     }
@@ -196,7 +196,7 @@ namespace euf {
         table* tb = UNTAG(table*, t);
         out << "nary ";
         for (enode* n : *tb) {
-            out << n->get_owner_id() << " ";
+            out << n->get_expr_id() << " ";
         }
         out << "\n";
     }
@@ -205,8 +205,8 @@ namespace euf {
     enode_bool_pair etable::insert(enode * n) {
         // it doesn't make sense to insert a constant.
         SASSERT(n->num_args() > 0);
-        SASSERT(!m_manager.is_and(n->get_owner()));
-        SASSERT(!m_manager.is_or(n->get_owner()));
+        SASSERT(!m_manager.is_and(n->get_expr()));
+        SASSERT(!m_manager.is_or(n->get_expr()));
         enode * n_prime;
         void * t = get_table(n); 
         switch (static_cast<table_kind>(GET_TAG(t))) {
@@ -215,7 +215,7 @@ namespace euf {
             return enode_bool_pair(n_prime, false);
         case BINARY:
             n_prime = UNTAG(binary_table*, t)->insert_if_not_there(n);
-            TRACE("euf", tout << "insert: " << n->get_owner_id() << " " << cg_binary_hash()(n) << " inserted: " << (n == n_prime) << " " << n_prime->get_owner_id() << "\n";
+            TRACE("euf", tout << "insert: " << n->get_expr_id() << " " << cg_binary_hash()(n) << " inserted: " << (n == n_prime) << " " << n_prime->get_expr_id() << "\n";
                   display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";); 
             return enode_bool_pair(n_prime, false);
         case BINARY_COMM:
@@ -236,7 +236,7 @@ namespace euf {
             UNTAG(unary_table*, t)->erase(n);
             break;
         case BINARY:
-            TRACE("euf", tout << "erase: " << n->get_owner_id() << " " << cg_binary_hash()(n) << " contains: " << contains_ptr(n) << "\n";);
+            TRACE("euf", tout << "erase: " << n->get_expr_id() << " " << cg_binary_hash()(n) << " contains: " << contains_ptr(n) << "\n";);
             UNTAG(binary_table*, t)->erase(n);
             break;
         case BINARY_COMM:

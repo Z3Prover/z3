@@ -62,7 +62,7 @@ namespace bv {
         m_zero_one_bits.push_back(zero_one_bits());       
         ctx.attach_th_var(n, this, r);
         
-        TRACE("bv", tout << "mk-var: " << r << " " << n->get_owner_id() << " " << mk_pp(n->get_owner(), m) << "\n";);
+        TRACE("bv", tout << "mk-var: " << r << " " << n->get_expr_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
         return r;
     }
 
@@ -188,14 +188,14 @@ namespace bv {
         theory_var v = n->get_th_var(get_id());
         if (v == euf::null_theory_var) {
             v = mk_var(n);
-            if (bv.is_bv(n->get_owner())) 
+            if (bv.is_bv(n->get_expr())) 
                 mk_bits(v);            
         }
         return v;
     }
 
     euf::enode* solver::get_arg(euf::enode* n, unsigned idx) {
-        app* o = to_app(n->get_owner());
+        app* o = to_app(n->get_expr());
         return ctx.get_enode(o->get_arg(idx));
     }
 
@@ -272,7 +272,7 @@ namespace bv {
     }
 
     unsigned solver::get_bv_size(euf::enode* n) {
-        return bv.get_bv_size(n->get_owner());
+        return bv.get_bv_size(n->get_expr());
     }
 
     unsigned solver::get_bv_size(theory_var v) {

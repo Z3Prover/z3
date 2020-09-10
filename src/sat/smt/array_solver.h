@@ -101,7 +101,7 @@ namespace array {
                 hash(solver& s) :s(s) {}
                 unsigned operator()(unsigned idx) const {
                     auto const& r = s.m_axiom_trail[idx];
-                    return mk_mix(r.n->get_owner_id(), (unsigned)r.m_kind, r.select ? r.select->get_owner_id() : 1);
+                    return mk_mix(r.n->get_expr_id(), (unsigned)r.m_kind, r.select ? r.select->get_expr_id() : 1);
                 }
             };
 
