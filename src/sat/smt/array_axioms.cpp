@@ -444,21 +444,24 @@ namespace array {
         return std::make_pair(eps, diag);
     }
 
+    void solver::push_parent_select_store_axioms(theory_var v) {
+        expr* e = var2expr(v);
+        if (!a.is_array(e))
+            return;
+        auto& d = get_var_data(v);
+        for (euf::enode* store : d.m_parents)
+            if (a.is_store(store->get_owner()))
+                for (euf::enode* sel : d.m_parents)
+                    if (a.is_select(sel->get_owner()))
+                        push_axiom(select_axiom(sel, store));                        
+    }
 
     bool solver::add_delayed_axioms() {
         if (!get_config().m_array_delay_exp_axiom)
             return false;
         unsigned num_vars = get_num_vars();
-        for (unsigned v = 0; v < num_vars; v++) {
-            var_data * d = m_var_data[v];
-            euf::enode* n = var2enode(v);
-            if (d->m_prop_upward) 
-                for (euf::enode* n1 : euf::enode_parents(n))
-                    if (a.is_store(n1->get_owner()))
-                        for (euf::enode* n2 : euf::enode_parents(n))
-                            if (a.is_select(n2->get_owner()))
-                                push_axiom(select_axiom(n2, n1));
-        }
+        for (unsigned v = 0; v < num_vars; v++) 
+            push_parent_select_store_axioms(v);
         return unit_propagate();
     }
 

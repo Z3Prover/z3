@@ -115,37 +115,106 @@ namespace array {
         return prop;
     }
 
-    void solver::add_value(euf::enode* n, expr_ref_vector& values) {
-        NOT_IMPLEMENTED_YET();
-    }
-
-    void solver::merge_eh(theory_var v1, theory_var v2, theory_var u, theory_var v) {
-        SASSERT(v1 == find(v1));
-        // parents(v2) is a suffix of parents(v1) in the egraph
-        // add new axioms for the updated parent/child relations.
+    void solver::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
         euf::enode* n1 = var2enode(v1);
         euf::enode* n2 = var2enode(v2);
-        if (a.is_array(n1->get_owner()))
-            for (euf::enode* parent : euf::enode_parents(n2)) 
-                add_parent(n1, parent);
-        if (is_lambda(n1->get_owner()) || is_lambda(n2->get_owner()))
+        SASSERT(n1->get_root() == n2->get_root());
+        SASSERT(n1->is_root() || n2->is_root());
+        SASSERT(v1 == find(v1));
+
+        expr* e1 = n1->get_owner();
+        expr* e2 = n2->get_owner();
+        auto& d1 = get_var_data(v1);
+        auto& d2 = get_var_data(v2);
+        if (d2.m_prop_upward && !d1.m_prop_upward) 
+            set_prop_upward(v1);
+        if (a.is_array(e1))
+            for (euf::enode* parent : d2.m_parents) {
+                add_parent(v1, parent);
+                if (a.is_store(parent->get_owner()))
+                    add_store(v1, parent);
+            }
+        if (is_lambda(e1) || is_lambda(e2))
             push_axiom(congruence_axiom(n1, n2));
     }
 
-    void solver::add_parent(euf::enode* child, euf::enode* parent) {
+    void solver::unmerge_eh(theory_var v1, theory_var v2) {
+        auto& p1 = get_var_data(v1).m_parents;
+        auto& p2 = get_var_data(v2).m_parents;
+        p1.shrink(p1.size() - p2.size());
+    }
+
+    void solver::add_store(theory_var v, euf::enode* store) {
+        SASSERT(a.is_store(store->get_owner()));
+        auto& d = get_var_data(v);
+        unsigned lambda_equiv_class_size = get_lambda_equiv_size(d);
+        if (get_config().m_array_always_prop_upward || lambda_equiv_class_size >= 1) 
+            set_prop_upward(d);
+        for (euf::enode* n : d.m_parents)
+            if (a.is_select(n->get_owner()))
+                push_axiom(select_axiom(n, store));
+        if (get_config().m_array_always_prop_upward || lambda_equiv_class_size >= 1)
+            set_prop_upward(store);
+    }
+
+    void solver::add_parent(theory_var v_child, euf::enode* parent) {
         SASSERT(parent->is_root());
-        var_data& d = get_var_data(child);
+        get_var_data(v_child).m_parents.push_back(parent);
+        euf::enode* child = var2enode(v_child);
         euf::enode* r = child->get_root();
         expr* p = parent->get_owner();
         expr* c = child->get_owner();
         if (a.is_select(p) && parent->get_arg(0)->get_root() == r) {
-            if (a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c))
-                push_axiom(select_axiom(parent, child));
+            if (a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c)) 
+                push_axiom(select_axiom(parent, child));   
+#if 0
+            if (!get_config().m_array_delay_exp_axiom && d.m_prop_upward) {
+                auto& d = get_var_data(v_child);
+                for (euf::enode* p2 : d.m_parents)
+                    if (a.is_store(p2->get_owner()))
+                        push_axiom(select_axiom(parent, p2));
+            }
+#endif
         }       
         else if (a.mk_default(p)) {
-            if (a.is_const(c) || a.is_store(c) || a.is_map(c) || a.is_as_array(c))
+            if (a.is_const(c) || a.is_store(c) || a.is_map(c) || a.is_as_array(c)) 
                 push_axiom(default_axiom(child));
         }
     }
+
+    void solver::set_prop_upward(theory_var v) {
+        auto& d = get_var_data(find(v));
+        if (!d.m_prop_upward) {
+            ctx.push(reset_flag_trail<euf::solver>(d.m_prop_upward));
+            d.m_prop_upward = true;
+            if (!get_config().m_array_delay_exp_axiom)
+                push_parent_select_store_axioms(v);
+            set_prop_upward(d);
+        }
+    }
+
+    void solver::set_prop_upward(euf::enode* n) {
+        if (a.is_store(n->get_owner()))
+            set_prop_upward(n->get_arg(0)->get_th_var(get_id()));
+    }
+
+    void solver::set_prop_upward(var_data& d) {
+        for (auto* p : d.m_parents)
+            set_prop_upward(p);
+    }
+
+    /**
+       \brief Return the size of the equivalence class for array terms 
+              that can be expressed as \lambda i : Index . [.. (select a i) ..]
+     */
+    unsigned solver::get_lambda_equiv_size(var_data const& d) {
+        unsigned sz = 0;
+        for (auto* p : d.m_parents)
+            if (a.is_store(p->get_owner()))
+                ++sz;
+        return sz;
+    }
+
+
 
 }

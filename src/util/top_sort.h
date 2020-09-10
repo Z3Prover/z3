@@ -99,9 +99,9 @@ public:
         T_set* tb = nullptr;
         if (!m_deps.find(t, tb)) {
             tb = alloc(T_set);
-            insert(s, tb);
+            insert(t, tb);
         }
-        t->insert(s);
+        tb->insert(s);
     }
 
     ptr_vector<T> const& top_sorted() const { return m_top_sorted; }    

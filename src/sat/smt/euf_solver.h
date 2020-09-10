@@ -136,7 +136,7 @@ namespace euf {
         // model building
         bool include_func_interp(func_decl* f);
         void register_macros(model& mdl);
-        void dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref const& mdl);
+        void dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref& mdl);
         void collect_dependencies(deps_t& deps);        
         void values2model(deps_t const& deps, expr_ref_vector const& values, model_ref& mdl);
 

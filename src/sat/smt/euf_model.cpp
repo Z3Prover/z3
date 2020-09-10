@@ -56,7 +56,7 @@ namespace euf {
         }
     }
 
-    void solver::dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref const& mdl) {
+    void solver::dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref& mdl) {
         user_sort_factory user_sort(m);
         for (enode* n : deps.top_sorted()) {
             unsigned id = n->get_root_id();
@@ -96,13 +96,13 @@ namespace euf {
             }
             auto* mb = get_solver(e);
             if (mb) 
-                mb->add_value(n, values);
+                mb->add_value(n, *mdl, values);
             else if (m.is_uninterp(m.get_sort(e))) {
                 expr* v = user_sort.get_fresh_value(m.get_sort(e));
                 values.set(id, v);
             }
             else if ((mb = get_solver(m.get_sort(e))))
-                mb->add_value(n, values);
+                mb->add_value(n, *mdl, values);
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                

@@ -2749,8 +2749,8 @@ namespace smt {
             char const* tag[9] = { ":restarts ", ":conflicts ", ":decisions ", ":propagations ", ":clauses/bin ", ":lemmas ", ":simplify ", ":deletions", ":memory" };
 
             std::stringstream l1, l2;
-            l1 << "(sat.stats ";
-            l2 << "(sat.stats ";
+            l1 << "(smt.stats ";
+            l2 << "(smt.stats ";
             size_t p1 = 11, p2 = 11;
             SASSERT(offsets.size() == 9);
             for (unsigned i = 0; i < offsets.size(); ++i) {

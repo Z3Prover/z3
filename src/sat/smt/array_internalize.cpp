@@ -60,7 +60,7 @@ namespace array {
 
     void solver::internalize_const(euf::enode* n) {
         push_axiom(default_axiom(n));
-        // set_prop_upward(n);
+        set_prop_upward(n);
     }
 
     void solver::internalize_ext(euf::enode* n) {
@@ -69,13 +69,13 @@ namespace array {
 
     void solver::internalize_default(euf::enode* n) {
         add_parent(n->get_arg(0), n);
-        // set_prop_upward(n);
+        set_prop_upward(n);
     }
 
     void solver::internalize_map(euf::enode* n) {
         for (auto* arg : euf::enode_args(n)) {          
             add_parent(arg, n);
-            // set_prop_upward(arg);
+            set_prop_upward(arg);
         }
         push_axiom(default_axiom(n));
     }

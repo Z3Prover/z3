@@ -454,7 +454,7 @@ namespace bv {
     bool solver::check_model(sat::model const& m) const { return true; }
     unsigned solver::max_var(unsigned w) const { return w; }
 
-    void solver::add_value(euf::enode* n, expr_ref_vector& values) {
+    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
         SASSERT(bv.is_bv(n->get_owner()));
         theory_var v = n->get_th_var(get_id());
         rational val;

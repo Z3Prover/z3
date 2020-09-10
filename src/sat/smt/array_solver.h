@@ -49,9 +49,10 @@ namespace array {
         // void log_drat(array_justification const& c);
 
         struct var_data {
-            bool               m_prop_upward{ false };
-            bool               m_is_array{ false };
-            bool               m_is_select{ false };
+            bool                   m_prop_upward{ false };            
+            bool                   m_is_array{ false };
+            bool                   m_is_select{ false };
+            ptr_vector<euf::enode> m_parents;
             var_data() {}
         };
 
@@ -155,9 +156,18 @@ namespace array {
         bool is_select_arg(euf::enode* r);
 
         // solving
-        void add_parent(euf::enode* child, euf::enode* parent);
+        void add_parent(theory_var v_child, euf::enode* parent);
+        void add_parent(euf::enode* child, euf::enode* parent) { add_parent(child->get_th_var(get_id()), parent); }
+        void add_store(theory_var v, euf::enode* store);        
+        void set_prop_upward(theory_var v);
+        void set_prop_upward(var_data& d);
+        void set_prop_upward(euf::enode* n);
+        void push_parent_select_store_axioms(theory_var v);
+        unsigned get_lambda_equiv_size(var_data const& d);
+
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
-        var_data& get_var_data(theory_var v) { return *m_var_data[find(v)]; }
+        var_data& get_var_data(theory_var v) { return *m_var_data[v]; }
+        
 
         // invariants
 
@@ -179,14 +189,15 @@ namespace array {
         euf::th_solver* fresh(sat::solver* s, euf::solver& ctx) override;
         void new_eq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override;
-        void add_value(euf::enode* n, expr_ref_vector& values) override;
+        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
+        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
 
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
-        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
-        void unmerge_eh(theory_var v1, theory_var v2) {}
+        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
+        void unmerge_eh(theory_var v1, theory_var v2);
     };
 }

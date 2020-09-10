@@ -2,6 +2,7 @@ z3_add_component(sat_smt
   SOURCES
     array_axioms.cpp
     array_internalize.cpp
+    array_model.cpp
     array_solver.cpp
     atom2bool_var.cpp
     ba_internalize.cpp

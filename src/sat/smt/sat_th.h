@@ -19,6 +19,7 @@ Author:
 #include "util/top_sort.h"
 #include "sat/smt/sat_smt.h"
 #include "ast/euf/euf_egraph.h"
+#include "model/model.h"
 #include "smt/params/smt_params.h"
 
 namespace euf {
@@ -69,7 +70,7 @@ namespace euf {
            \brief compute the value for enode \c n and store the value in \c values 
            for the root of the class of \c n.
          */
-        virtual void add_value(euf::enode* n, expr_ref_vector& values) {}
+        virtual void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {}
 
         /**
            \brief compute dependencies for node n
