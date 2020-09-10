@@ -5,13 +5,26 @@ Version 4.8.next
 - Planned features
   - rewritten arithmetic solver replacing legacy arithmetic solver and on by default
   - self-contained character theory, direct support for UTF8, Unicode character sets
-  - improvements to regular expression processing
   - specialized solver support for QF_ABV and ABV based on lazy SMT and dual reduction
     - the smtfd solver and tactic implement this strategy, but is not prime for users.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
   - circuit optimization techniques for BV in-processing are available as the sat.cut
     option, but at this point does not translate into benefits. It is currently 
     turned off by default.
+
+Version 4.8.9
+=============
+- New features
+  - significant improvements to regular expression solving
+  - expose user theory plugin. It is a leaner user theory plugin that was once available.
+    It allows for registering callbacks that react to when bit-vector and Boolean variables
+    receive fixed values.
+- Bug fixes
+  - many
+- Notes
+  - the new arithmetic theory is turned on by default. It _does_ introduce regressions on 
+    several scenarios, but has its own advantages. Users can turn on the old solver by setting smt.arith.solver=2.
+    Depending on feedback, we may turn toggle this default setting again back to smt.arith.solver=2.
 
 Version 4.8.8
 =============
