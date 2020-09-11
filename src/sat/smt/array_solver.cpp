@@ -216,16 +216,18 @@ namespace array {
         if (should_set_prop_upward(d))
             set_prop_upward(d);
         tracked_push(d.m_beta, beta);
-        if (should_set_prop_upward(d))
+        if (should_set_prop_upward(d)) {
             set_prop_upward(beta);
-        propagate_select_axioms(d, beta);
+            propagate_select_axioms(d, beta);
+        }
     }
 
     void solver::add_parent_beta(theory_var v_child, euf::enode* beta) {
         SASSERT(can_beta_reduce(beta));
         auto& d = get_var_data(find(v_child));
         tracked_push(d.m_parent_beta, beta);
-        propagate_select_axioms(d, beta);
+        if (should_set_prop_upward(d))
+            propagate_select_axioms(d, beta);
     }
 
     void solver::add_parent_default(theory_var v, euf::enode* def) {
@@ -237,10 +239,9 @@ namespace array {
             propagate_parent_default(v);
     }
 
-    void solver::propagate_select_axioms(var_data const& d, euf::enode* a) {
-        if (should_prop_upward(d))
-            for (euf::enode* select : d.m_parent_selects)
-                push_axiom(select_axiom(select, a));
+    void solver::propagate_select_axioms(var_data const& d, euf::enode* beta) {
+        for (euf::enode* select : d.m_parent_selects)
+            push_axiom(select_axiom(select, beta));
     }
 
     void solver::propagate_parent_default(theory_var v) {
@@ -256,8 +257,7 @@ namespace array {
             return;
         auto& d = get_var_data(v);
         for (euf::enode* beta : d.m_parent_beta)
-            for (euf::enode* select : d.m_parent_selects)
-                push_axiom(select_axiom(select, beta));
+            propagate_select_axioms(d, beta);
     }
 
     void solver::set_prop_upward(theory_var v) {

@@ -149,7 +149,7 @@ namespace array {
         bool add_delayed_axioms();
         
         bool has_unitary_domain(app* array_term);
-        bool has_large_domain(app* array_term);
+        bool has_large_domain(expr* array_term);
         std::pair<app*, func_decl*> mk_epsilon(sort* s);
         void collect_shared_vars(sbuffer<theory_var>& roots);
         bool add_interface_equalities();
@@ -177,6 +177,8 @@ namespace array {
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }
         var_data const& get_var_data(theory_var v) const { return *m_var_data[v]; }
         
+        // models
+        bool have_different_model_values(theory_var v1, theory_var v2);
 
         // diagnostics
 

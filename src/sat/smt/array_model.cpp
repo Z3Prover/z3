@@ -74,4 +74,67 @@ namespace array {
         values.set(n->get_root_id(), m.mk_app(get_id(), OP_AS_ARRAY, 1, &p));
     }
 
+
+    bool solver::have_different_model_values(theory_var v1, theory_var v2) {
+        euf::enode* else1 = nullptr, * else2 = nullptr;
+        euf::enode* n1 = var2enode(v1), *n2 = var2enode(v2);
+        euf::enode* r1 = n1->get_root(), * r2 = n2->get_root();
+        expr* v = nullptr;
+        expr* e1 = n1->get_expr();
+        expr* e;
+        if (!a.is_array(e1))
+            return true;
+        auto find_else = [&](theory_var v, euf::enode* r) {
+            var_data& d = get_var_data(find(v));
+            for (euf::enode* c : d.m_beta)
+                if (a.is_const(c->get_expr(), e))
+                    return expr2enode(e);
+            for (euf::enode* p : euf::enode_parents(r))
+                for (euf::enode* pe : euf::enode_class(p))
+                    if (a.is_default(pe->get_expr()))
+                        return pe;
+            return (euf::enode*)nullptr;
+        };
+        else1 = find_else(v1, r1);
+        else2 = find_else(v2, r2);
+        if (else1 && else2 && else1->get_root() != else2->get_root() && has_large_domain(e1))
+            return true;
+        struct eq {
+            solver& s;
+            eq(solver& s) :s(s) {}
+            bool operator()(euf::enode* n1, euf::enode* n2) const {
+                SASSERT(s.a.is_select(n1->get_owner()));
+                SASSERT(s.a.is_select(n2->get_owner()));
+                for (unsigned i = n1->num_args(); i-- > 1; ) 
+                    if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
+                        return false;
+                return true;                
+            }
+        };
+        struct hash {
+            solver& s;
+            hash(solver& s) :s(s) {}
+            unsigned operator()(euf::enode* n) const {
+                SASSERT(s.a.is_select(n->get_owner()));
+                unsigned h = 33;
+                for (unsigned i = n->num_args(); i-- > 1; )
+                    h = hash_u_u(h, n->get_arg(i)->get_root_id());
+                return h;
+            }
+        };
+        eq eq_proc(*this);
+        hash hash_proc(*this);
+        hashtable<euf::enode*, hash, eq> table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, hash_proc, eq_proc);
+        euf::enode* p2 = nullptr;
+        for (euf::enode* p : euf::enode_parents(r1)) 
+            if (a.is_select(p->get_expr()) && r1 == p->get_arg(0)->get_root())
+                table.insert(p);
+        for (euf::enode* p : euf::enode_parents(r1))
+            if (a.is_select(p->get_expr()) && r1 == p->get_arg(0)->get_root())
+                if (table.find(p, p2))
+                    if (p2->get_root() != p->get_root())
+                        return true;
+        return false;
+    }
+
 }

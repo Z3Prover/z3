@@ -27,6 +27,8 @@ namespace array {
         m_axiom_trail.push_back(r); 
         if (m_axioms.contains(idx))
             m_axiom_trail.pop_back();
+        else
+            ctx.push(push_back_vector<euf::solver, svector<axiom_record>>(m_axiom_trail));
     }
 
     bool solver::assert_axiom(unsigned idx) {
@@ -268,10 +270,9 @@ namespace array {
         SASSERT(a.is_map(map));
         func_decl* f = a.get_map_func_decl(map);
         SASSERT(map->get_num_args() == f->get_arity());
-        ptr_buffer<expr> args2;
+        expr_ref_vector args2(m);
         for (expr* arg : *map)
             args2.push_back(a.mk_default(arg));
-
         expr_ref def1(a.mk_default(map), m);
         expr_ref def2(m.mk_app(f, args2), m);
         rewrite(def2);
@@ -411,7 +412,7 @@ namespace array {
         return true;
     }
 
-    bool solver::has_large_domain(app* array_term) {
+    bool solver::has_large_domain(expr* array_term) {
         SASSERT(a.is_array(array_term));
         sort* s = m.get_sort(array_term);
         unsigned dim = get_array_arity(s);
@@ -450,8 +451,8 @@ namespace array {
         for (unsigned v = 0; v < num_vars; v++) {
             propagate_parent_select_axioms(v);
             auto& d = get_var_data(v);
-            if (d.m_prop_upward)
-                propagate_parent_default(v);
+            if (d.m_prop_upward) 
+                propagate_parent_default(v);            
         }
         return unit_propagate();
     }
@@ -467,6 +468,8 @@ namespace array {
                 theory_var v2 = roots[j];
                 expr* e2 = var2expr(v2);
                 if (m.get_sort(e1) != m.get_sort(e2))
+                    continue;
+                if (have_different_model_values(v1, v2))
                     continue;
                 expr_ref eq(m.mk_eq(e1, e2), m);
                 sat::literal lit = b_internalize(eq);
@@ -489,9 +492,7 @@ namespace array {
             if (r->is_marked1()) {
                 continue;
             }
-            // arrays used as indices in other arrays have to be treated as shared.
-            // issue #3532, #3529
-            // 
+            // arrays used as indices in other arrays have to be treated as shared issue #3532, #3529            
             if (ctx.is_shared(r) || is_select_arg(r)) 
                 roots.push_back(r->get_th_var(get_id()));
             
@@ -504,6 +505,7 @@ namespace array {
     }
 
     bool solver::is_select_arg(euf::enode* r) {
+        SASSERT(r->is_root());
         for (euf::enode* n : euf::enode_parents(r)) 
             if (a.is_select(n->get_expr())) 
                 for (unsigned i = 1; i < n->num_args(); ++i) 
