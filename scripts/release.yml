@@ -289,13 +289,15 @@ stages:
         title: 'z3-$(ReleaseVersion)'
         releaseNotesSource: 'input'
         releaseNotes: '$(ReleaseVersion) release'
-        assets: '$(Agent.TempDirectory)/*.zip'
+        assets: |
+           '$(Agent.TempDirectory)/*.zip'
+           '$(Agent.TempDirectory)/*.nupkg'
         isDraft: true
         isPreRelease: false
 
   # Enable on release:
   - job: NuGetPublish
-    condition: eq(1,1)
+    condition: eq(0,1)
     displayName: "Publish to NuGet.org"
     steps:
     - task: DownloadPipelineArtifact@2
