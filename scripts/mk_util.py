@@ -359,7 +359,7 @@ def check_java():
     oo = TempFile('output')
     eo = TempFile('errout')
     try:
-        subprocess.call([JAVAC, 'Hello.java', '-verbose'], stdout=oo.fname, stderr=eo.fname)
+        subprocess.call([JAVAC, 'Hello.java', '-verbose', '-source', '1.8', '-target', '1.8' ], stdout=oo.fname, stderr=eo.fname)
         oo.commit()
         eo.commit()
     except:
@@ -1792,9 +1792,9 @@ class JavaDLLComponent(Component):
             #if IS_WINDOWS:
             JAVAC = '"%s"' % JAVAC
             JAR = '"%s"' % JAR
-            t = ('\t%s %s.java -d %s\n' % (JAVAC, os.path.join(self.to_src_dir, 'enumerations', '*'), os.path.join('api', 'java', 'classes')))
+            t = ('\t%s -source 1.8 -target 1.8 %s.java -d %s\n' % (JAVAC, os.path.join(self.to_src_dir, 'enumerations', '*'), os.path.join('api', 'java', 'classes')))
             out.write(t)
-            t = ('\t%s -cp %s %s.java -d %s\n' % (JAVAC,
+            t = ('\t%s -source 1.8 -target 1.8 -cp %s %s.java -d %s\n' % (JAVAC,
                                                   os.path.join('api', 'java', 'classes'),
                                                   os.path.join(self.to_src_dir, '*'),
                                                   os.path.join('api', 'java', 'classes')))
