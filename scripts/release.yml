@@ -273,6 +273,11 @@ stages:
       inputs:
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download NuGet Package'
+      inputs:
+        artifact: 'NuGetPackage'
+        path: $(Agent.TempDirectory)
     - task: GitHubRelease@0
       inputs:
         gitHubConnection: Z3GitHub
@@ -288,8 +293,9 @@ stages:
         isDraft: true
         isPreRelease: false
 
+  # Enable on release:
   - job: NuGetPublish
-    condition: eq(0,1)
+    condition: eq(1,1)
     displayName: "Publish to NuGet.org"
     steps:
     - task: DownloadPipelineArtifact@2
@@ -308,8 +314,9 @@ stages:
         publishFeedCredentials: Z3Nuget
         packagesToPush: $(Agent.TempDirectory)/*.nupkg
 
+  # Enable on release:
   - job: PyPIPublish
-    condition: eq(0,1)
+    condition: eq(1,1)
     displayName: "Publish to PyPI"
     pool:
       vmImage: "ubuntu-16.04"
@@ -322,7 +329,6 @@ stages:
       name: pypirc
       inputs:
         secureFile: 'pypirc'
-    - script: pip install --upgrade pip
+    - script: python3 -m pip install --upgrade pip
     - script: python3 -m pip install --user -U setuptools importlib_metadata wheel twine 
-    # Uncomment on release:
     - script: python3 -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
