@@ -296,6 +296,9 @@ namespace sat {
         void add_ate(clause& c) { m_mc.add_ate(c); }        
         void add_ate(literal l1, literal l2) { m_mc.add_ate(l1, l2); }        
         void add_ate(literal_vector const& lits) { m_mc.add_ate(lits); }
+        void drat_log_unit(literal lit, justification j);
+        void drat_log_clause(unsigned sz, literal const* lits, status st);
+        void drat_explain_conflict();
 
         class scoped_disable_checkpoint {
             solver& s;

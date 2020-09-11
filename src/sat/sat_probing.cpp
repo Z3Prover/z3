@@ -82,12 +82,15 @@ namespace sat {
         else {
             m_to_assert.reset();
             s.push();
+            TRACE("sat", tout << "probing " << l << "\n";);
             s.assign_scoped(l);
             m_counter--;
             unsigned old_tr_sz = s.m_trail.size();
             s.propagate(false);
             if (s.inconsistent()) {
+                TRACE("sat", tout << "probe failed: " << ~l << "\n";);
                 // ~l must be true
+                s.drat_explain_conflict();
                 s.pop(1);
                 s.assign_scoped(~l);
                 s.propagate(false);
@@ -125,10 +128,14 @@ namespace sat {
         s.push();
         literal l(v, false);
         s.assign_scoped(l);
+        TRACE("sat", tout << "probing " << l << "\n";);
         unsigned old_tr_sz = s.m_trail.size();
         s.propagate(false);
         if (s.inconsistent()) {
             // ~l must be true
+            TRACE("sat", tout << "probe failed: " << ~l << "\n";
+                  s.display(tout););
+            s.drat_explain_conflict();
             s.pop(1);
             s.assign_scoped(~l);
             s.propagate(false);

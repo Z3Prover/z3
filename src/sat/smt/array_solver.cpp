@@ -18,8 +18,8 @@ Notes:
 A node n has attribtes:
 
     parent_selects:   { A[i] | A ~ n }
-    parent_beta:      { store(A,i,v) | A ~ n } u { map(f, .., A, ..) | A ~ n }
-    beta:               { const(v) | const(v) ~ n }
+    parent_lambdas:     { store(A,i,v) | A ~ n } u { map(f, .., A, ..) | A ~ n }
+    lambdas:            { const(v) | const(v) ~ n }
                       u { map(f,..) | map(f,..) ~ n }
                       u { store(A,i,v) | store(A,i,v) ~ n }
                       u { as-array(f) | as-array(f) ~ n }
@@ -30,31 +30,32 @@ The merge also looks for new redexes.
 
 Let A[j] in parent_selects(n2) :
 
-        beta in parent_beta(n1)
+        lambda in parent_lambdas(n1)
     -------------------------------
-     beta[j] = beta-reduce(beta[j])
+     lambda[j] = beta-reduce(lambda[j])
 
-            beta in beta(n1)
+            lambda in lambdas(n1)
     -------------------------------
-     beta[j] = beta-reduce(beta[j])
+     lambda[j] = beta-reduce(lambda[j])
 
 Beta reduction rules are:
-      beta-reduct(store(A,j,v)[i]) = if(i = j, A[j], v)
-      beta-reduce(map(f,..)[i]) = f(...[i])
+      beta-reduce(store(A,j,v)[i]) = if(i = j, v, A[j])
+      beta-reduce(map(f,A,B)[i]) = f(A[i],B[i])
       beta-reduce(as-array(f)[i]) = f(i)
       beta-reduce(const(v)[i]) = v
       beta-reduce((lambda x M[x])[i]) = M[i]
 
 For enforcing
-      store(A,j,v)[i] = beta-reduct(store(A,j,v)[i])
+      store(A,j,v)[i] = beta-reduce(store(A,j,v)[i])
 
       only the following axiom is instantiated:
       - i = j or store(A,j,v)[i] = A[i]
 
-The other required axiom, i != j or store(A,j,v)[i] = v
+The other required axiom, store(A,j,v)[j] = v
 is added eagerly whenever store(A,j,v) is created.
 
-Current setup: to enforce extensionality on lambdas, also currently:
+Current setup: to enforce extensionality on lambdas, 
+also currently, as a base-line it is eager:
 
         A ~ B, A = lambda x. M[x]
     -------------------------------

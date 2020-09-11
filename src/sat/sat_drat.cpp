@@ -87,7 +87,7 @@ namespace sat {
             return;
         if (m_activity && ((m_stats.m_num_add % 1000) == 0))
             dump_activity();
-
+        
         char buffer[10000];
         char digits[20];     // enough for storing unsigned
         char* lastd = digits + sizeof(digits);

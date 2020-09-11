@@ -386,13 +386,29 @@ namespace sat {
             m_stats.m_del_clause++;
     }
 
+    void solver::drat_explain_conflict() {
+        if (m_config.m_drat && m_ext) {
+            bool unique_max;
+            m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
+            resolve_conflict_for_unsat_core();                
+        }
+    }
+
+    void solver::drat_log_unit(literal lit, justification j) {
+        if (j.get_kind() == justification::EXT_JUSTIFICATION) 
+            fill_ext_antecedents(lit, j, false);
+        m_drat.add(lit, m_searching);
+    }
+
+    void solver::drat_log_clause(unsigned num_lits, literal const* lits, sat::status st) {
+        m_lemma.reset();
+        m_lemma.append(num_lits, lits);
+        m_drat.add(m_lemma, st);
+    }
+
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, sat::status st) {
         bool redundant = st.is_redundant();
-        auto add_drat = [&]() {
-            m_lemma.reset();
-            m_lemma.append(num_lits, lits);
-            m_drat.add(m_lemma, st);
-        };
+
         TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (redundant?" learned":" aux") << "\n";);
         if (!redundant || !st.is_sat()) {
             unsigned old_sz = num_lits;
@@ -403,7 +419,7 @@ namespace sat {
             }
             // if an input clause is simplified, then log the simplified version as learned
             if (m_config.m_drat && old_sz > num_lits)
-                add_drat();
+                drat_log_clause(num_lits, lits, st);
 
             ++m_stats.m_non_learned_generation;
             if (!m_searching) {
@@ -417,7 +433,7 @@ namespace sat {
             return nullptr;
         case 1:
             if (m_config.m_drat && st.is_input())
-                add_drat();
+                drat_log_clause(num_lits, lits, st);
             assign_unit(lits[0]);
             return nullptr;
         case 2:
@@ -895,7 +911,9 @@ namespace sat {
         SASSERT(value(l) == l_undef);
         TRACE("sat_assign_core", tout << l << " " << j << "\n";);
         if (j.level() == 0) {
-            if (m_config.m_drat) m_drat.add(l, m_searching);
+            if (m_config.m_drat) 
+                drat_log_unit(l, j);
+            
             j = justification(0); // erase justification for level 0
         }
         else {
@@ -2635,8 +2653,7 @@ namespace sat {
         }
 
         if (m_conflict_lvl == 0) {
-            if (m_config.m_drat && m_ext) 
-                resolve_conflict_for_unsat_core();                
+            drat_explain_conflict();
             TRACE("sat", tout << "conflict level is 0\n";);
             return l_false;
         }
@@ -2888,7 +2905,7 @@ namespace sat {
             break;
         }
         case justification::EXT_JUSTIFICATION: {
-            fill_ext_antecedents(consequent, js, true);
+            fill_ext_antecedents(consequent, js, false);
             for (literal l : m_ext_antecedents) {
                 process_antecedent_for_unsat_core(l);
             }
@@ -2919,7 +2936,7 @@ namespace sat {
               );
 
         m_core.reset();
-        if (m_conflict_lvl == 0) {
+        if (!m_config.m_drat && m_conflict_lvl == 0) {
             return;
         }
         SASSERT(m_unmark.empty());

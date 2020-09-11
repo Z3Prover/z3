@@ -130,6 +130,7 @@ namespace euf {
             }
         }
         m_egraph.end_explain();
+        TRACE("euf", tout << "eplain " << l << " <- " << r << " " << probing << "\n";);
         if (!probing)
             log_antecedents(l, r);
     }
@@ -258,8 +259,14 @@ namespace euf {
             if (s().value(lit) == l_false && m_ackerman) 
                 m_ackerman->cg_conflict_eh(a, b);
             unsigned lvl = s().scope_lvl();
-            if (s().value(lit) != l_true)
+            switch (s().value(lit)) {
+            case l_true:
+                break;
+            case l_undef:
+            case l_false:
                 s().assign(lit, sat::justification::mk_ext_justification(lvl, cnstr));
+                break;
+            }
         }
     }
 
