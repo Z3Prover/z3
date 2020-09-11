@@ -289,9 +289,7 @@ stages:
         title: 'z3-$(ReleaseVersion)'
         releaseNotesSource: 'input'
         releaseNotes: '$(ReleaseVersion) release'
-        assets: |
-           '$(Agent.TempDirectory)/*.zip'
-           '$(Agent.TempDirectory)/*.nupkg'
+        assets: '$(Agent.TempDirectory)/*.*'
         isDraft: true
         isPreRelease: false
 
