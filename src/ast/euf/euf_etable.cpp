@@ -215,8 +215,6 @@ namespace euf {
             return enode_bool_pair(n_prime, false);
         case BINARY:
             n_prime = UNTAG(binary_table*, t)->insert_if_not_there(n);
-            TRACE("euf", tout << "insert: " << n->get_expr_id() << " " << cg_binary_hash()(n) << " inserted: " << (n == n_prime) << " " << n_prime->get_expr_id() << "\n";
-                  display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";); 
             return enode_bool_pair(n_prime, false);
         case BINARY_COMM:
             m_commutativity = false;
@@ -236,7 +234,6 @@ namespace euf {
             UNTAG(unary_table*, t)->erase(n);
             break;
         case BINARY:
-            TRACE("euf", tout << "erase: " << n->get_expr_id() << " " << cg_binary_hash()(n) << " contains: " << contains_ptr(n) << "\n";);
             UNTAG(binary_table*, t)->erase(n);
             break;
         case BINARY_COMM:

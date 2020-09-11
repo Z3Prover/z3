@@ -152,27 +152,38 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     sat::bool_var add_var(bool is_ext, expr* n) {
         auto v = m_solver.add_var(is_ext);
-        log_node(v, n);
+        log_node(n);
+        log_def(v, n);
         return v;
     }
 
-    void log_node(sat::bool_var v, expr* n) {
+    void log_def(sat::bool_var v, expr* n) {
+        if (m_drat && m_solver.get_drat_ptr()) 
+            m_solver.get_drat_ptr()->bool_def(v, n->get_id());
+    }
+
+    void log_node(expr* n) {
         if (m_drat && m_solver.get_drat_ptr()) {
-            sat::drat* drat = m_solver.get_drat_ptr();
             if (is_app(n)) {
-                app* a = to_app(n);
-                std::stringstream strm;
-                strm << mk_ismt2_func(a->get_decl(), m);
-                drat->def_begin(n->get_id(), strm.str());
-                for (expr* arg : *a)
-                    drat->def_add_arg(arg->get_id());
-                drat->def_end();
+                for (expr* arg : *to_app(n))
+                    if (m.is_not(arg))
+                        log_node(arg);
+                log_app(to_app(n));
             }
             else {
                 IF_VERBOSE(0, verbose_stream() << "skipping DRAT of non-app\n");
             }
-            drat->bool_def(v, n->get_id());
         }
+    }
+
+    void log_app(app* a) {
+        sat::drat* drat = m_solver.get_drat_ptr();
+        std::stringstream strm;
+        strm << mk_ismt2_func(a->get_decl(), m);
+        drat->def_begin(a->get_id(), strm.str());
+        for (expr* arg : *a)
+            drat->def_add_arg(arg->get_id());
+        drat->def_end();
     }
 
 
@@ -208,8 +219,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) 
             v = mk_bool_var(t);
-        else 
+        else {
             m_solver.set_external(v);
+        }
         return v;
     }
 

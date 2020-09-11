@@ -51,8 +51,8 @@ namespace array {
 
         struct var_data {
             bool                m_prop_upward{ false };            
-            euf::enode_vector   m_beta;                // equivalent nodes that have beta reduction properties
-            euf::enode_vector   m_parent_beta;         // parents that have beta reduction properties
+            euf::enode_vector   m_lambdas;             // equivalent nodes that have beta reduction properties
+            euf::enode_vector   m_parent_lambdas;      // parents that have beta reduction properties
             euf::enode_vector   m_parent_selects;      // parents that use array in select position
             var_data() {}
         };
@@ -77,11 +77,10 @@ namespace array {
         void ensure_var(euf::enode* n);
         void internalize_store(euf::enode* n);
         void internalize_select(euf::enode* n);
-        void internalize_const(euf::enode* n);
+        void internalize_lambda(euf::enode* n);
         void internalize_ext(euf::enode* n);
         void internalize_default(euf::enode* n);
         void internalize_map(euf::enode* n);
-        void internalize_as_array(euf::enode* n);
 
         // axioms
         struct axiom_record {
@@ -158,8 +157,8 @@ namespace array {
         // solving          
         void add_parent_select(theory_var v_child, euf::enode* select);
         void add_parent_default(theory_var v_child, euf::enode* def);
-        void add_beta(theory_var v, euf::enode* beta);
-        void add_parent_beta(theory_var v_child, euf::enode* beta);
+        void add_lambda(theory_var v, euf::enode* lambda);
+        void add_parent_lambda(theory_var v_child, euf::enode* lambda);
 
         void propagate_select_axioms(var_data const& d, euf::enode* a);
         void propagate_parent_select_axioms(theory_var v);

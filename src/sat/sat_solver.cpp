@@ -388,6 +388,11 @@ namespace sat {
 
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, sat::status st) {
         bool redundant = st.is_redundant();
+        auto add_drat = [&]() {
+            m_lemma.reset();
+            m_lemma.append(num_lits, lits);
+            m_drat.add(m_lemma, st);
+        };
         TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (redundant?" learned":" aux") << "\n";);
         if (!redundant || !st.is_sat()) {
             unsigned old_sz = num_lits;
@@ -397,11 +402,9 @@ namespace sat {
                 return nullptr; // clause is equivalent to true.
             }
             // if an input clause is simplified, then log the simplified version as learned
-            if (old_sz > num_lits && m_config.m_drat) {
-                m_lemma.reset();
-                m_lemma.append(num_lits, lits);
-                m_drat.add(m_lemma, st);
-            }
+            if (m_config.m_drat && old_sz > num_lits)
+                add_drat();
+
             ++m_stats.m_non_learned_generation;
             if (!m_searching) {
                 m_mc.add_clause(num_lits, lits);
@@ -413,6 +416,8 @@ namespace sat {
             set_conflict();
             return nullptr;
         case 1:
+            if (m_config.m_drat && st.is_input())
+                add_drat();
             assign_unit(lits[0]);
             return nullptr;
         case 2:

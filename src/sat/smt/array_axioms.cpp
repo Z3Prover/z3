@@ -48,6 +48,9 @@ namespace array {
             SASSERT(a.is_select(select));
             SASSERT(can_beta_reduce(r.n));
             TRACE("array", tout << "select-axiom: " << mk_bounded_pp(select, m, 2) << " " << mk_bounded_pp(child, m, 2) << "\n";);
+            if (r.select->get_arg(0)->get_root() != r.n->get_root()) {
+                IF_VERBOSE(0, verbose_stream() << "could delay " << mk_pp(select, m) << " " << mk_pp(child, m) << "\n");
+            }
             if (a.is_const(child))
                 return assert_select_const_axiom(select, to_app(child));
             else if (a.is_as_array(child))
@@ -150,9 +153,8 @@ namespace array {
                 break;
             }
             sat::literal idx_eq = b_internalize(m.mk_eq(idx1, idx2));
-            if (s().value(idx_eq) != l_true)
+            if (add_clause(idx_eq, sel_eq))
                 new_prop = true;
-            add_clause(idx_eq, sel_eq);            
         }
         return new_prop;
     }
@@ -197,10 +199,7 @@ namespace array {
         expr_ref sel1_eq_sel2(m.mk_eq(sel1, sel2), m);
         literal lit1 = b_internalize(n1_eq_n2);
         literal lit2 = b_internalize(sel1_eq_sel2);
-        if (s().value(lit1) == l_true || s().value(lit2) == l_false)
-            return false;
-        add_clause(lit1, ~lit2);
-        return true;
+        return add_clause(lit1, ~lit2);
     }
 
     /**
@@ -393,11 +392,8 @@ namespace array {
         expr_ref q(m.mk_forall(dimension, sorts.c_ptr(), names.c_ptr(), eq), m);
         rewrite(q);
         sat::literal fa_eq = b_internalize(q);
-        sat::literal neq = b_internalize(n1_eq_n2);
-        if (s().value(fa_eq) == l_true || s().value(neq) == l_false)
-            return false;
-        add_clause(~neq, fa_eq);
-        return true;
+        sat::literal neq = b_internalize(n1_eq_n2);        
+        return add_clause(~neq, fa_eq);
     }
 
     bool solver::has_unitary_domain(app* array_term) {

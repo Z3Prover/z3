@@ -115,11 +115,16 @@ namespace euf {
         region& get_region();
         
 
-        void add_unit(sat::literal lit);
-        void add_clause(sat::literal lit) { add_unit(lit); }
-        void add_clause(sat::literal a, sat::literal b);
-        void add_clause(sat::literal a, sat::literal b, sat::literal c);
-        void add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
+        bool add_unit(sat::literal lit);
+        bool add_clause(sat::literal lit) { return add_unit(lit); }
+        bool add_clause(sat::literal a, sat::literal b);
+        bool add_clause(sat::literal a, sat::literal b, sat::literal c);
+        bool add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
+
+        bool is_true(sat::literal lit);
+        bool is_true(sat::literal a, sat::literal b) { return is_true(a) || is_true(b); }
+        bool is_true(sat::literal a, sat::literal b, sat::literal c) { return is_true(a) || is_true(b, c); }
+        bool is_true(sat::literal a, sat::literal b, sat::literal c, sat::literal d) { return is_true(a) || is_true(b, c, c); }
 
         euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
         euf::enode* mk_enode(expr* e, bool suppress_args);

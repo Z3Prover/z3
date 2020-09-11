@@ -17,6 +17,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 class smt_checker {
     ast_manager& m;
+    sat::drat& m_drat;
     expr_ref_vector const& m_b2e;
     expr_ref_vector m_fresh_exprs;
     expr_ref_vector m_core;
@@ -60,8 +61,8 @@ class smt_checker {
         }
     }
 public:
-    smt_checker(expr_ref_vector const& b2e): 
-        m(b2e.m()), m_b2e(b2e), m_fresh_exprs(m), m_core(m) {
+    smt_checker(sat::drat& drat, expr_ref_vector const& b2e): 
+        m(b2e.m()), m_drat(drat), m_b2e(b2e), m_fresh_exprs(m), m_core(m) {
         m_solver = mk_smt_solver(m, m_params, symbol());
     }
     
@@ -71,8 +72,13 @@ public:
         for (auto* c : m_core)
             m_solver->assert_expr(c);
         lbool is_sat = m_solver->check_sat();
-        m_solver->pop(1);
         if (is_sat == l_true) {
+            for (auto lit : m_drat.units())
+                m_solver->assert_expr(lit.sign() ? m.mk_not(m_b2e[lit.var()]) : m_b2e[lit.var()]);
+            is_sat = m_solver->check_sat();
+        }
+        m_solver->pop(1);
+        if (is_sat == l_true) {            
             std::cout << "did not verify: " << lits << "\n" << m_core << "\n";
             for (sat::literal lit : lits) {
                 expr_ref e(m_b2e[lit.var()], m);
@@ -118,14 +124,14 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     func_decl* f = nullptr;
     ptr_vector<sort> sorts;
 
-    smt_checker checker(bool_var2expr);
+    smt_checker checker(drat_checker, bool_var2expr);
 
     auto check_smt = [&](dimacs::drat_record const& r) {
         auto const& st = r.m_status;
         if (st.is_input())
             ;
         else if (st.is_sat() && st.is_asserted()) {
-            std::cout << "Tseitin tautology " << r;
+            // std::cout << "Tseitin tautology " << r;
             checker.check_shallow(r.m_lits);
         }
         else if (st.is_sat())

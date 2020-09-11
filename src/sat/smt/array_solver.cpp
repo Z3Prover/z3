@@ -110,9 +110,9 @@ namespace array {
         for (unsigned i = 0; i < get_num_vars(); ++i) {
             auto& d = get_var_data(i);
             out << var2enode(i)->get_expr_id() << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
-            display_info(out, "parent beta", d.m_parent_beta);
+            display_info(out, "parent beta", d.m_parent_lambdas);
             display_info(out, "parent select", d.m_parent_selects);
-            display_info(out, "beta         ", d.m_beta);
+            display_info(out, "beta         ", d.m_lambdas);
         }
         return out;
     }
@@ -184,10 +184,10 @@ namespace array {
         auto& d2 = get_var_data(v2);
         if (d2.m_prop_upward && !d1.m_prop_upward)
             set_prop_upward(v1);
-        for (euf::enode* beta : d2.m_beta)
-            add_beta(v1, beta);
-        for (euf::enode* beta : d2.m_parent_beta)
-            add_parent_beta(v1, beta);
+        for (euf::enode* lambda : d2.m_lambdas)
+            add_lambda(v1, lambda);
+        for (euf::enode* lambda : d2.m_parent_lambdas)
+            add_parent_lambda(v1, lambda);
         for (euf::enode* select : d2.m_parent_selects)
             add_parent_select(v1, select);
         if (is_lambda(e1) || is_lambda(e2))
@@ -210,44 +210,44 @@ namespace array {
             push_axiom(select_axiom(select, child));
     }
 
-    void solver::add_beta(theory_var v, euf::enode* beta) {
-        SASSERT(can_beta_reduce(beta));
+    void solver::add_lambda(theory_var v, euf::enode* lambda) {
+        SASSERT(can_beta_reduce(lambda));
         auto& d = get_var_data(find(v));
         if (should_set_prop_upward(d))
             set_prop_upward(d);
-        tracked_push(d.m_beta, beta);
+        tracked_push(d.m_lambdas, lambda);
         if (should_set_prop_upward(d)) {
-            set_prop_upward(beta);
-            propagate_select_axioms(d, beta);
+            set_prop_upward(lambda);
+            propagate_select_axioms(d, lambda);
         }
     }
 
-    void solver::add_parent_beta(theory_var v_child, euf::enode* beta) {
-        SASSERT(can_beta_reduce(beta));
+    void solver::add_parent_lambda(theory_var v_child, euf::enode* lambda) {
+        SASSERT(can_beta_reduce(lambda));
         auto& d = get_var_data(find(v_child));
-        tracked_push(d.m_parent_beta, beta);
+        tracked_push(d.m_parent_lambdas, lambda);
         if (should_set_prop_upward(d))
-            propagate_select_axioms(d, beta);
+            propagate_select_axioms(d, lambda);
     }
 
     void solver::add_parent_default(theory_var v, euf::enode* def) {
         SASSERT(a.is_default(def->get_expr()));
         auto& d = get_var_data(find(v));
-        for (euf::enode* beta : d.m_beta)
-            push_axiom(default_axiom(beta));
+        for (euf::enode* lambda : d.m_lambdas)
+            push_axiom(default_axiom(lambda));
         if (should_prop_upward(d))
             propagate_parent_default(v);
     }
 
-    void solver::propagate_select_axioms(var_data const& d, euf::enode* beta) {
+    void solver::propagate_select_axioms(var_data const& d, euf::enode* lambda) {
         for (euf::enode* select : d.m_parent_selects)
-            push_axiom(select_axiom(select, beta));
+            push_axiom(select_axiom(select, lambda));
     }
 
     void solver::propagate_parent_default(theory_var v) {
         auto& d = get_var_data(find(v));
-        for (euf::enode* beta : d.m_parent_beta)
-            push_axiom(default_axiom(beta));
+        for (euf::enode* lambda : d.m_parent_lambdas)
+            push_axiom(default_axiom(lambda));
     }
 
     void solver::propagate_parent_select_axioms(theory_var v) {
@@ -256,8 +256,8 @@ namespace array {
         if (!a.is_array(e))
             return;
         auto& d = get_var_data(v);
-        for (euf::enode* beta : d.m_parent_beta)
-            propagate_select_axioms(d, beta);
+        for (euf::enode* lambda : d.m_parent_lambdas)
+            propagate_select_axioms(d, lambda);
     }
 
     void solver::set_prop_upward(theory_var v) {
@@ -277,7 +277,7 @@ namespace array {
     }
 
     void solver::set_prop_upward(var_data& d) {
-        for (auto* p : d.m_beta)
+        for (auto* p : d.m_lambdas)
             set_prop_upward(p);
     }
 
@@ -286,7 +286,7 @@ namespace array {
               that can be expressed as \lambda i : Index . [.. (select a i) ..]
      */
     unsigned solver::get_lambda_equiv_size(var_data const& d) const {
-        return d.m_parent_selects.size() + 2 * d.m_beta.size();
+        return d.m_parent_selects.size() + 2 * d.m_lambdas.size();
     }
 
     bool solver::should_set_prop_upward(var_data const& d) const {

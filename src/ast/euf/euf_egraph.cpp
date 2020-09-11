@@ -244,12 +244,12 @@ namespace euf {
 
     void egraph::merge(enode* n1, enode* n2, justification j) {
         SASSERT(m.get_sort(n1->get_expr()) == m.get_sort(n2->get_expr()));
-        TRACE("euf", tout << n1->get_expr_id() << " == " << n2->get_expr_id() << "\n";);
-        force_push();
         enode* r1 = n1->get_root();
         enode* r2 = n2->get_root();
         if (r1 == r2)
             return;
+        TRACE("euf", tout << n1->get_expr_id() << " == " << n2->get_expr_id() << "\n";);
+        force_push();
         ++m_stats.m_num_merge;
         if (r1->interpreted() && r2->interpreted()) {
             set_conflict(n1, n2, j);

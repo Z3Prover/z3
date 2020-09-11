@@ -20,16 +20,19 @@ Author:
 
 namespace array {
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) { 
-        // TODO
-        return sat::null_literal;  
+    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) { 
+        SASSERT(m.is_bool(e));
+        if (!visit_rec(m, e, sign, root, redundant))
+            return sat::null_literal;
+        return expr2literal(e);
     }
 
     void solver::internalize(expr* e, bool redundant) {
-        // TODO
+        visit_rec(m, e, false, false, redundant);
     }
 
     euf::theory_var solver::mk_var(euf::enode* n) {
+        expr* e = n->get_expr();
         theory_var r = euf::th_euf_solver::mk_var(n);
         m_find.mk_var();
         ctx.attach_th_var(n, this, r);
@@ -39,8 +42,11 @@ namespace array {
 
     void solver::ensure_var(euf::enode* n) {
         theory_var v = n->get_th_var(get_id());
-        if (v == euf::null_theory_var) 
+        if (v == euf::null_theory_var) {
             mk_var(n);
+            if (is_lambda(n->get_expr()))
+                internalize_lambda(n);
+        }
     }
 
     void solver::apply_sort_cnstr(euf::enode * n, sort * s) {
@@ -48,20 +54,30 @@ namespace array {
     }
 
     void solver::internalize_store(euf::enode* n) {
-        if (get_config().m_array_laziness == 0)
-            add_parent_beta(n->get_arg(0)->get_th_var(get_id()), n);   
+        add_parent_lambda(n->get_arg(0)->get_th_var(get_id()), n);   
         push_axiom(store_axiom(n));
+        add_lambda(n->get_th_var(get_id()), n);
+        SASSERT(!get_var_data(n->get_th_var(get_id())).m_prop_upward);
+    }
+
+    void solver::internalize_map(euf::enode* n) {
+        for (auto* arg : euf::enode_args(n)) {
+            add_parent_lambda(arg->get_th_var(get_id()), n);
+            set_prop_upward(arg);
+        }
+        push_axiom(default_axiom(n));
+        add_lambda(n->get_th_var(get_id()), n);
+        SASSERT(!get_var_data(n->get_th_var(get_id())).m_prop_upward);
+    }
+
+    void solver::internalize_lambda(euf::enode* n) {
+        set_prop_upward(n);
+        push_axiom(default_axiom(n));
+        add_lambda(n->get_th_var(get_id()), n);
     }
 
     void solver::internalize_select(euf::enode* n) {
-        if (get_config().m_array_laziness == 0)
-            add_parent_select(n->get_arg(0)->get_th_var(get_id()), n);        
-    }
-
-    void solver::internalize_const(euf::enode* n) {
-        set_prop_upward(n);
-        push_axiom(default_axiom(n));
-        add_beta(n->get_th_var(get_id()), n);
+        add_parent_select(n->get_arg(0)->get_th_var(get_id()), n);
     }
 
     void solver::internalize_ext(euf::enode* n) {
@@ -73,20 +89,6 @@ namespace array {
         set_prop_upward(n);
     }
 
-    void solver::internalize_map(euf::enode* n) {
-        for (auto* arg : euf::enode_args(n)) {          
-            add_parent_beta(arg->get_th_var(get_id()), n);
-            set_prop_upward(arg);
-        }
-        push_axiom(default_axiom(n));
-    }
-
-    void solver::internalize_as_array(euf::enode* n) {
-        // TBD: delay verdict whether model is undetermined
-        ctx.unhandled_function(n->get_decl());
-        push_axiom(default_axiom(n));
-    }
-
     bool solver::visited(expr* e) {
         euf::enode* n = expr2enode(e);
         return n && n->is_attached_to(get_id());        
@@ -95,7 +97,8 @@ namespace array {
     bool solver::visit(expr* e) {
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
             ctx.internalize(e, m_is_redundant);
-            ensure_var(expr2enode(e));
+            euf::enode* n = expr2enode(e);
+            ensure_var(n);
             return true;
         }
         m_stack.push_back(sat::eframe(e));
@@ -119,8 +122,9 @@ namespace array {
         case OP_SELECT:          
             internalize_select(n); 
             break;
+        case OP_AS_ARRAY:
         case OP_CONST_ARRAY:     
-            internalize_const(n); 
+            internalize_lambda(n); 
             break;
         case OP_ARRAY_EXT:       
             internalize_ext(n); 
@@ -130,9 +134,6 @@ namespace array {
             break;
         case OP_ARRAY_MAP:       
             internalize_map(n); 
-            break;
-        case OP_AS_ARRAY:        
-            internalize_as_array(n); 
             break;
         case OP_SET_UNION:       
         case OP_SET_INTERSECT:   

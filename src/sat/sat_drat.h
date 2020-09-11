@@ -156,6 +156,8 @@ namespace sat {
         void check_model(model const& m);
 
         void collect_statistics(statistics& st) const;
+
+        literal_vector const& units() { return m_units; }
     };
 
     std::ostream& operator<<(std::ostream& out, status const& st);

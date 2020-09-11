@@ -261,7 +261,7 @@ namespace sat {
     }
 
     void drat::def_begin(unsigned n, std::string const& name) {
-        if (m_out)
+        if (m_out) 
             (*m_out) << "e " << n << " " << name;
     }
 
