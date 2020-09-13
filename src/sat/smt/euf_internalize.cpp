@@ -215,14 +215,11 @@ namespace euf {
     void solver::axiomatize_basic(enode* n) {
         expr* e = n->get_expr();
         sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
-        if (m.is_ite(e)) {
+        expr* c = nullptr, * th = nullptr, * el = nullptr;
+        if (!m.is_bool(e) && m.is_ite(e, c, th, el)) {
             app* a = to_app(e);
-            expr* c = a->get_arg(0);
-            expr* th = a->get_arg(1);
-            expr* el = a->get_arg(2);
             sat::bool_var v = si.to_bool_var(c);
             SASSERT(v != sat::null_bool_var);
-            SASSERT(!m.is_bool(e));
             expr_ref eq_th(m.mk_eq(a, th), m);
             expr_ref eq_el(m.mk_eq(a, el), m);
             sat::literal lit_th = internalize(eq_th, false, false, m_is_redundant);

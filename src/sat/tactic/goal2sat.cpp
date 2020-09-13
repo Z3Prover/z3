@@ -187,6 +187,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     sat::bool_var to_bool_var(expr* e) override {
+        sat::literal l;
+        if (is_app(e) && m_cache.find(to_app(e), l) && !l.sign()) 
+            return l.var();
         return m_map.to_bool_var(e);
     }
 
@@ -737,6 +740,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         SASSERT(m_result_stack.size() == sz + 1);
         sat::literal result = m_result_stack.back();
         m_result_stack.pop_back();
+        if (!result.sign() && m_map.to_bool_var(n) == sat::null_bool_var) 
+            m_map.insert(n, result.var());
         return result;
     }
 

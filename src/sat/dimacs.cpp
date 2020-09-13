@@ -147,8 +147,8 @@ bool parse_dimacs(std::istream & in, std::ostream& err, sat::solver & solver) {
 namespace dimacs {
 
     std::ostream& operator<<(std::ostream& out, drat_record const& r) {
-        std::function<symbol(int)> fn = [&](int th) { return symbol(th); }
-        drat_pp pp(r, th);
+        std::function<symbol(int)> fn = [&](int th) { return symbol(th); };
+        drat_pp pp(r, fn);
         return out << pp;
     }
 
