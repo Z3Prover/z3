@@ -73,7 +73,7 @@ namespace dimacs {
     };
 
     std::ostream& operator<<(std::ostream& out, drat_record const& r);
-    std::ostream& operator<<(std::ostream& out, drat_pp& r);
+    std::ostream& operator<<(std::ostream& out, drat_pp const& r);
 
     class drat_parser {
         dimacs::stream_buffer      in;

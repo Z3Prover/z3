@@ -20,7 +20,6 @@ Revision History:
 #undef max
 #undef min
 #include "sat/sat_solver.h"
-#include "sat/sat_drat.h"
 
 template<typename Buffer>
 static bool is_whitespace(Buffer & in) {
@@ -152,11 +151,12 @@ namespace dimacs {
         return out << pp;
     }
 
-    std::ostream& operator<<(std::ostream& out, drat_pp& p) {
+    std::ostream& operator<<(std::ostream& out, drat_pp const& p) {
         auto const& r = p.r;
+        sat::status_pp pp(r.m_status, p.th);
         switch (r.m_tag) {
         case drat_record::tag_t::is_clause:
-            return out << sat::status_pp(r.m_status, p.th) << " " << r.m_lits << " 0\n";
+            return out << pp << " " << r.m_lits << " 0\n";
         case drat_record::tag_t::is_node:
             return out << "e " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
         case drat_record::tag_t::is_bool_def:

@@ -164,8 +164,6 @@ namespace sat {
         solver& get_solver() { return s; }
     };
 
-    std::ostream& operator<<(std::ostream& out, status const& st);
-    std::ostream& operator<<(std::ostream& out, status_pp& p);
+}
 
-};
 

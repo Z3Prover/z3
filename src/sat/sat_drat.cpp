@@ -879,12 +879,20 @@ namespace sat {
     void drat::check_model(model const& m) {
     }
 
-    std::ostream& operator<<(std::ostream& out, status const& st) {
-        std::function<symbol(int)> th = [&](int id) { return symbol(id); };
-        return out << status_pp(st, th);
+    void drat::collect_statistics(statistics& st) const {
+        st.update("num-drup", m_stats.m_num_drup);
+        st.update("num-drat", m_stats.m_num_drat);
+        st.update("num-add", m_stats.m_num_add);
+        st.update("num-del", m_stats.m_num_del);
     }
 
-    std::ostream& operator<<(std::ostream& out, status_pp& p) {
+
+    std::ostream& operator<<(std::ostream& out, sat::status const& st) {
+        std::function<symbol(int)> th = [&](int id) { return symbol(id); };
+        return out << sat::status_pp(st, th);
+    }
+    
+    std::ostream& operator<<(std::ostream& out, sat::status_pp const& p) {
         auto st = p.st;
         if (st.is_deleted())
             out << "d";
@@ -898,12 +906,5 @@ namespace sat {
             out << " " << p.th(st.get_th());
         return out;
     }    
-
-    void drat::collect_statistics(statistics& st) const {
-        st.update("num-drup", m_stats.m_num_drup);
-        st.update("num-drat", m_stats.m_num_drat);
-        st.update("num-add", m_stats.m_num_add);
-        st.update("num-del", m_stats.m_num_del);
-    }
 
 }

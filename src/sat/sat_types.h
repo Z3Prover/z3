@@ -284,5 +284,11 @@ namespace sat {
         std::function<symbol(int)>& th;
         status_pp(status const& st, std::function<symbol(int)>& th) : st(st), th(th) {}
     };
+
+    std::ostream& operator<<(std::ostream& out, sat::status const& st);
+    std::ostream& operator<<(std::ostream& out, sat::status_pp const& p);
+
 };
+
+
 
