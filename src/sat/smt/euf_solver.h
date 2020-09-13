@@ -86,8 +86,6 @@ namespace euf {
         stats                 m_stats;
         th_rewriter           m_rewriter;
         func_decl_ref_vector  m_unhandled_functions;
-        family_id             m_id{ null_family_id };
-        
 
         sat::solver*           m_solver { nullptr };
         sat::lookahead*        m_lookahead { nullptr };
@@ -173,8 +171,6 @@ namespace euf {
            if (m_eq) dealloc(sat::constraint_base::mem2base_ptr(m_eq));
            if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
        }
-
-       unsigned get_id() const override { return m_id; }
 
        struct scoped_set_translate {
            solver& s;

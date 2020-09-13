@@ -534,6 +534,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         SASSERT(sz >= 2);
         sat::literal  l1 = m_result_stack[sz-1];
         sat::literal  l2 = m_result_stack[sz-2];
+        m_result_stack.shrink(sz - 2);
         if (root) {
             SASSERT(sz == 2);
             if (sign) {
@@ -543,8 +544,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             else {
                 mk_root_clause(l1, ~l2);
                 mk_root_clause(~l1, l2);
-            }
-            m_result_stack.shrink(sz - 2);
+            }            
         }
         else {
             sat::bool_var k = add_var(false, t);
@@ -557,7 +557,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             if (m_aig) m_aig->add_iff(l, l1, l2);            
             if (sign)
                 l.neg();
-            m_result_stack.shrink(sz - 2);
             m_result_stack.push_back(l);
         }
     }

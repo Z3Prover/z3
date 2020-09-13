@@ -56,9 +56,11 @@ namespace sat {
     class extension {
     protected:
         bool m_drating { false };
+        int  m_id { 0 };
     public:        
+        extension(int id): m_id(id) {}
         virtual ~extension() {}
-        virtual unsigned get_id() const { return 0; }
+        virtual int get_id() const { return m_id; }
         virtual void set_solver(solver* s) = 0;
         virtual void set_lookahead(lookahead* s) {};
         class scoped_drating {

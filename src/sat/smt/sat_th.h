@@ -86,11 +86,8 @@ namespace euf {
     class th_solver : public sat::extension, public th_model_builder, public th_decompile, public th_internalizer {
     protected:
         ast_manager &       m;
-        theory_id           m_id;
     public:
-        th_solver(ast_manager& m, euf::theory_id id): m(m), m_id(id) {}
-
-        unsigned get_id() const override { return m_id; }
+        th_solver(ast_manager& m, euf::theory_id id): extension(id), m(m) {}
 
         virtual th_solver* fresh(sat::solver* s, euf::solver& ctx) = 0;  
 

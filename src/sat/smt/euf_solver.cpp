@@ -26,6 +26,7 @@ Author:
 namespace euf {
 
     solver::solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p) :
+        extension(m.mk_family_id("euf")),
         m(m),
         si(si),
         m_egraph(m),
@@ -39,7 +40,6 @@ namespace euf {
         m_reinit_exprs(m)
     {
         updt_params(p);
-        m_id = m.mk_family_id("euf");
 
         std::function<void(std::ostream&, void*)> disp =
             [&](std::ostream& out, void* j) { display_justification_ptr(out, reinterpret_cast<size_t*>(j)); };

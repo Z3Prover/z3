@@ -362,7 +362,7 @@ namespace bv {
         eq eq_proc(*this);
         hash hash_proc(*this);
         map<theory_var, theory_var, hash, eq> table(hash_proc, eq_proc);
-        for (unsigned v = 0; v < get_num_vars(); ++v) {
+        for (theory_var v = 0; v < static_cast<theory_var>(get_num_vars()); ++v) {
             if (!m_bits[v].empty()) {
                 theory_var w = table.insert_if_not_there(v, v);
                 if (v != w && m_find.find(v) != m_find.find(w))
@@ -424,7 +424,7 @@ namespace bv {
             result->m_bits[i].append(m_bits[i]);
             result->m_zero_one_bits[i].append(m_zero_one_bits[i]);
         }
-        for (unsigned i = 0; i < get_num_vars(); ++i)
+        for (theory_var i = 0; i < static_cast<theory_var>(get_num_vars()); ++i)
             if (find(i) != i)
                 result->m_find.merge(i, find(i));
         result->m_prop_queue.append(m_prop_queue);
