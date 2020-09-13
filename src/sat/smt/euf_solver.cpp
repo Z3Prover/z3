@@ -385,14 +385,13 @@ namespace euf {
             if (!e)
                 continue;
             expr2var_replay.insert(e, v);
-            IF_VERBOSE(0, verbose_stream() << "replay " << mk_pp(e, m) << "\n");
         }
         if (expr2var_replay.empty())
             return;
         si.set_expr2var_replay(&expr2var_replay);
         for (auto const& kv : expr2var_replay)
-            si.internalize(kv.m_key, true);
-        si.set_expr2var_replay(nullptr);        
+            attach_lit(si.internalize(kv.m_key, true), kv.m_key);
+        si.set_expr2var_replay(nullptr);      
     }
 
     void solver::pre_simplify() {

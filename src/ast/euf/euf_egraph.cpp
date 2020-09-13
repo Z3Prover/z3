@@ -109,17 +109,23 @@ namespace euf {
             return n;
         }
         enode_bool_pair p = m_table.insert(n);
-        enode* r = p.first;
-        if (r == n) {
+        enode* n2 = p.first;
+        if (n2 == n) {
             update_children(n);
         }
         else {
-            SASSERT(r->get_expr() != n->get_expr());
-            merge_justification(n, r, justification::congruence(p.second));
-            std::swap(n->m_next, r->m_next);
-            n->m_root = r;
-            r->inc_class_size(n->class_size());
-            push_eq(n, n, r->num_parents());
+            merge(n, n2, justification::congruence(p.second));
+#if 0
+            SASSERT(n2->get_expr() != n->get_expr());
+            SASSERT(n->class_size() == 1);
+            SASSERT(n->is_root());
+            merge_justification(n, n2, justification::congruence(p.second));            
+            enode* r2 = n2->get_root();
+            std::swap(n->m_next, r2->m_next);
+            n->m_root = r2;
+            r2->inc_class_size(n->class_size());
+            push_eq(n, n, r2->num_parents());
+#endif
         }
         return n;
     }
@@ -304,7 +310,6 @@ namespace euf {
     }
 
     bool egraph::propagate() {
-        
         SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_num_scopes == 0 || m_worklist.empty());
         unsigned head = 0, tail = m_worklist.size();
@@ -342,11 +347,18 @@ namespace euf {
     }
 
     void egraph::merge_justification(enode* n1, enode* n2, justification j) {
+        SASSERT(!n1->get_root()->m_target);
+        SASSERT(!n2->get_root()->m_target);
         SASSERT(n1->reaches(n1->get_root()));
+        SASSERT(!n2->reaches(n1->get_root()));
+        SASSERT(!n2->reaches(n1));
         n1->reverse_justification();
         n1->m_target = n2;
         n1->m_justification = j;
+        SASSERT(n1->acyclic());
+        SASSERT(n2->acyclic());
         SASSERT(n1->get_root()->reaches(n1));
+        SASSERT(!n2->get_root()->m_target);
         TRACE("euf_verbose", tout << "merge " << n1->get_expr_id() << " " << n2->get_expr_id() << " updates: " << m_updates.size() << "\n";);
     }
 
@@ -355,6 +367,7 @@ namespace euf {
         // r1 -> ..  -> n1 -> n2 -> ... -> r2
         // where n2 = n1->m_target
         SASSERT(n1->get_root()->reaches(n1));
+        SASSERT(n1->m_target);
         n1->m_target        = nullptr;
         n1->m_justification = justification::axiom();
         n1->get_root()->reverse_justification();
@@ -362,7 +375,7 @@ namespace euf {
         // n1 -> ... -> r1
         // n2 -> ... -> r2
         SASSERT(n1->reaches(n1->get_root()));
-        SASSERT(n1->get_root()->m_target == nullptr);
+        SASSERT(!n1->get_root()->m_target);
     }
 
     /**
@@ -485,19 +498,19 @@ namespace euf {
             out << "v:" << f->get_id();
         out << "\n";
         if (!n->m_parents.empty()) {
-            out << "    ";
+            out << "    parents ";
             for (enode* p : enode_parents(n))
                 out << p->get_expr_id() << " ";
             out << "\n";
         }
         if (n->has_th_vars()) {
-            out << "    ";
+            out << "    theories ";
             for (auto v : enode_th_vars(n))
                 out << v.get_id() << ":" << v.get_var() << " ";
             out << "\n";
         }
         if (n->m_target && m_display_justification)
-            n->m_justification.display(out << "    = " << n->m_target->get_expr_id() << " ", m_display_justification) << "\n";
+            n->m_justification.display(out << "    = " << n->m_target->get_expr_id() << " j: ", m_display_justification) << "\n";
         return out;
     }
 

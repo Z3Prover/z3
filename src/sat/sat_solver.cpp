@@ -249,7 +249,7 @@ namespace sat {
         m_watches[2*v+1].reset();
         m_assignment[2*v] = l_undef;
         m_assignment[2*v+1] = l_undef;
-        m_justification[2*v] = justification(UINT_MAX);
+        m_justification[v] = justification(UINT_MAX);
         m_decision[v] = dvar;
         m_eliminated[v] = false;
         m_external[v] = ext;
@@ -337,6 +337,8 @@ namespace sat {
     }
 
     void solver::set_eliminated(bool_var v, bool f) { 
+        if (m_eliminated[v] && !f) 
+            reset_var(v, m_external[v], m_decision[v]);
         m_eliminated[v] = f; 
     }
 
@@ -3741,11 +3743,14 @@ namespace sat {
         }
         for (literal lit : m_lemma)
             mark_visited(lit);
+        auto is_active = [&](bool_var v) {
+            return value(v) != l_undef && lvl(v) <= new_lvl;
+        };
                
         unsigned sz = m_active_vars.size(), j = old_num_vars;
         for (unsigned i = old_num_vars; i < sz; ++i) {
             bool_var v = m_active_vars[i];
-            if (is_visited(v)) {
+            if (is_visited(v) || is_active(v)) {
                 m_vars_to_reinit.push_back(v);
                 m_active_vars[j++] = v;
             }
@@ -3755,7 +3760,9 @@ namespace sat {
             }
         }
         m_active_vars.shrink(j);
-        IF_VERBOSE(0, verbose_stream() << "vars to reinit: " << m_vars_to_reinit << " free vars " << m_free_vars << "\n");
+        IF_VERBOSE(11, verbose_stream() << "vars to reinit: " << m_vars_to_reinit << " free vars " << m_free_vars << "\n";
+                   display(verbose_stream()););
+        
     }
 
     void solver::shrink_vars(unsigned v) {

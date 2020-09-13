@@ -173,7 +173,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                     if (m.is_not(arg))
                         log_node(arg);
             }
-            dynamic_cast<euf::solver*>(m_solver.get_extension())->drat_log_node(n);
+            ensure_euf()->drat_log_node(n);
         }
     }
 
@@ -575,8 +575,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         return m_unhandled_funs;
     }
 
-    void convert_euf(expr* e, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert-euf " << mk_bounded_pp(e, m, 2) << " root " << root << "\n";);
+    euf::solver* ensure_euf() {
         sat::extension* ext = m_solver.get_extension();
         euf::solver* euf = nullptr;
         if (!ext) {
@@ -590,6 +589,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (!euf)
             throw default_exception("cannot convert to euf");
+        return euf;
+    }
+
+    void convert_euf(expr* e, bool root, bool sign) {
+        TRACE("goal2sat", tout << "convert-euf " << mk_bounded_pp(e, m, 2) << " root " << root << "\n";);
+        euf::solver* euf = ensure_euf();
         sat::literal lit = euf->internalize(e, sign, root, m_is_redundant);
         if (lit == sat::null_literal)
             return;

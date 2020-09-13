@@ -98,20 +98,23 @@ namespace euf {
     }
 
     sat::literal solver::attach_lit(literal lit, expr* e) {
+        sat::bool_var v = lit.var();
+        s().set_external(v);
+        s().set_eliminated(v, false);
+
         if (lit.sign()) {
-            sat::bool_var v = si.add_bool_var(e);
+            v = si.add_bool_var(e);
             s().set_external(v);
+            s().set_eliminated(v, false);
             sat::literal lit2 = literal(v, false);
             s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
             s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
             lit = lit2;
         }
-        sat::bool_var v = lit.var();
         m_var2expr.reserve(v + 1, nullptr);
         SASSERT(m_var2expr[v] == nullptr);
         m_var2expr[v] = e;
         m_var_trail.push_back(v);
-        s().set_external(v);
         if (!m_egraph.find(e)) {
             enode* n = m_egraph.mk(e, 0, nullptr);
             m_egraph.set_merge_enabled(n, false);

@@ -31,7 +31,8 @@ namespace euf {
         VERIFY(found_root);
         VERIFY(found_this);
         VERIFY(this != m_root || class_size == m_class_size);
-        if (this == m_root) {
+        if (is_root()) {
+            VERIFY(!m_target);
             for (enode* p : enode_parents(this)) {
                 bool found = false;
                 for (enode* arg : enode_args(p)) {
@@ -69,8 +70,24 @@ namespace euf {
         return true;
     }
 
+    bool enode::acyclic() const {
+        enode const* n = this;
+        enode const* p = this;
+        while (n) {
+            n = n->m_target;
+            if (n) {
+                p = p->m_target;
+                n = n->m_target;
+            }  
+            if (n == p)
+                return false;
+        }
+        return true;
+    }
+
     bool enode::reaches(enode* n) const {
         enode const* r = this;
+        SASSERT(acyclic());
         while (r) {
             if (r == n)
                 return true;
