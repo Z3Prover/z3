@@ -125,7 +125,8 @@ namespace euf {
         enode_vector           m_todo;
         stats                  m_stats;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
-        std::function<void(app*,app*)>        m_used_cc;  
+        std::function<void(app*,app*)>         m_used_cc;  
+        std::function<void(std::ostream&, void*)>   m_display_justification;
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
             m_updates.push_back(update_record(r1, n1, r2_num_parents));
@@ -151,6 +152,7 @@ namespace euf {
         void push_to_lca(enode* a, enode* lca);
         void push_congruence(enode* n1, enode* n2, bool commutative);
         void push_todo(enode* n);
+
         template <typename T>
         void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, justification const& j) {
             if (j.is_external())
@@ -200,8 +202,8 @@ namespace euf {
         bool       has_th_eq() const { return m_new_th_eqs_qhead < m_new_th_eqs.size(); }
         enode_bool_pair get_literal() const { return m_new_lits[m_new_lits_qhead]; }
         th_eq      get_th_eq() const { return m_new_th_eqs[m_new_th_eqs_qhead]; }
-        void       next_literal() { SASSERT(m_new_lits_qhead < m_new_lits.size()); m_new_lits_qhead++; }
-        void       next_th_eq() { SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }
+        void       next_literal() { force_push();  SASSERT(m_new_lits_qhead < m_new_lits.size()); m_new_lits_qhead++; }
+        void       next_th_eq() { force_push(); SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }
 
 
         void add_th_var(enode* n, theory_var v, theory_id id);
@@ -209,7 +211,8 @@ namespace euf {
 
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
-
+        void set_display_justification(std::function<void (std::ostream&, void*)> & d) { m_display_justification = d; }
+        
         void begin_explain();
         void end_explain();
         template <typename T>
@@ -228,6 +231,8 @@ namespace euf {
         e_pp pp(enode* n) const { return e_pp(*this, n); }
         std::ostream& display(std::ostream& out) const; 
         void collect_statistics(statistics& st) const;
+
+        unsigned num_scopes() const { return m_scopes.size() + m_num_scopes; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, egraph const& g) { return g.display(out); }

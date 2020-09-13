@@ -54,11 +54,19 @@ namespace sat {
     };
 
     class extension {
+    protected:
+        bool m_drating { false };
     public:        
         virtual ~extension() {}
         virtual unsigned get_id() const { return 0; }
         virtual void set_solver(solver* s) = 0;
         virtual void set_lookahead(lookahead* s) {};
+        class scoped_drating {
+            extension& ext;
+        public:
+            scoped_drating(extension& e) :ext(e) { ext.m_drating = true;  }
+            ~scoped_drating() { ext.m_drating = false;  }
+        };
         virtual void init_search() {}
         virtual bool propagate(literal l, ext_constraint_idx idx) = 0;
         virtual bool unit_propagate() = 0;

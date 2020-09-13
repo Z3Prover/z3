@@ -63,22 +63,14 @@ namespace sat {
                         // consume tautology
                         continue;
                     }
-#if 0
-                    if (l1 != r1) {
-                        // add half r1 => r2, the other half ~r2 => ~r1 is added when traversing l2 
-                        m_solver.m_watches[(~r1).index()].push_back(watched(r2, it->is_learned()));
-                        continue;
-                    }
-                    it->set_literal(r2); // keep it.
-#else
                     if (l1 != r1 || l2 != r2) {
                         if (r1.index() < r2.index()) {
+                            TRACE("elim_eqs", tout << l1 << " " << l2 << " " << r1 << " " << r2 << "\n";);
                             m_new_bin.push_back(bin(r1, r2, it->is_learned()));
                         }
                         continue;
                     }
                     // keep it
-#endif
                 }
                 *itprev = *it;
                 itprev++;
@@ -233,9 +225,10 @@ namespace sat {
             if (m_solver.m_cut_simplifier) m_solver.m_cut_simplifier->set_root(v, r);
             bool set_root = m_solver.set_root(l, r);
             bool root_ok = !m_solver.is_external(v) || set_root;
+            TRACE("elim_eqs", tout << l << " " << r << "\n";);
             if (m_solver.is_assumption(v) || (m_solver.is_external(v) && (m_solver.is_incremental() || !root_ok))) {
                 // cannot really eliminate v, since we have to notify extension of future assignments
-                if (m_solver.m_config.m_drat && m_solver.m_config.m_drat_file.is_null()) {
+                if (m_solver.m_config.m_drat) {
                     m_solver.m_drat.add(~l, r, sat::status::redundant());
                     m_solver.m_drat.add(l, ~r, sat::status::redundant());
                 }
@@ -291,6 +284,7 @@ namespace sat {
     }
 
     void elim_eqs::operator()(union_find<>& uf) {
+        TRACE("elim_eqs", tout << "before union-find bin\n";);
         literal_vector roots(m_solver.num_vars(), null_literal);
         bool_var_vector to_elim;
         for (unsigned i = m_solver.num_vars(); i-- > 0; ) {
@@ -299,6 +293,7 @@ namespace sat {
             if (idx != l1.index()) {
                 roots[i] = to_literal(idx);
                 to_elim.push_back(i);
+                TRACE("elim_eqs", tout << "remove " << roots[i] << "\n";);
             }
             else {
                 roots[i] = l1;

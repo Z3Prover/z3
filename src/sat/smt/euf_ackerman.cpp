@@ -96,10 +96,12 @@ namespace euf {
     void ackerman::cg_conflict_eh(expr * n1, expr * n2) {
         if (!is_app(n1) || !is_app(n2))
             return;
+        SASSERT(!s.m_drating);
         app* a = to_app(n1);
         app* b = to_app(n2);
         if (a->get_decl() != b->get_decl() || a->get_num_args() != b->get_num_args())
             return;
+        TRACE("ack", tout << "conflict eh: " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n";);
         insert(a, b);
         gc();
     }
@@ -107,13 +109,19 @@ namespace euf {
     void ackerman::used_eq_eh(expr* a, expr* b, expr* c) {
         if (a == b || a == c || b == c)
             return;
+        if (s.m_drating)
+            return;
+        TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << "\n";);
         insert(a, b, c);
         gc();
     }
         
     void ackerman::used_cc_eh(app* a, app* b) {
+        if (s.m_drating)
+            return;
+        TRACE("ack", tout << "used cc: " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n";);
         SASSERT(a->get_decl() == b->get_decl());
-        SASSERT(a->get_num_args() == b->get_num_args());        
+        SASSERT(a->get_num_args() == b->get_num_args());
         insert(a, b);
         gc();
     }
@@ -153,15 +161,15 @@ namespace euf {
         }
     }
 
-    void ackerman::add_cc(expr* _a, expr* _b) {
+    void ackerman::add_cc(expr* _a, expr* _b) {        
         app* a = to_app(_a);
         app* b = to_app(_b);
+        TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
         sat::literal_vector lits;
         unsigned sz = a->get_num_args();
         for (unsigned i = 0; i < sz; ++i) {
             expr_ref eq(m.mk_eq(a->get_arg(i), b->get_arg(i)), m);
-            sat::literal lit = s.internalize(eq, true, false, true);
-            lits.push_back(~lit);
+            lits.push_back(s.internalize(eq, true, false, true));
         }
         expr_ref eq(m.mk_eq(a, b), m);
         lits.push_back(s.internalize(eq, false, false, true));
@@ -173,6 +181,7 @@ namespace euf {
         expr_ref eq1(m.mk_eq(a, c), m);
         expr_ref eq2(m.mk_eq(b, c), m);
         expr_ref eq3(m.mk_eq(a, b), m);
+        TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << "\n";);
         lits[0] = s.internalize(eq1, true, false, true);
         lits[1] = s.internalize(eq2, true, false, true);
         lits[2] = s.internalize(eq3, false, false, true);

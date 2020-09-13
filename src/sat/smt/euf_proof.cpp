@@ -20,19 +20,26 @@ Author:
 namespace euf {
 
     void solver::init_drat() {
-        if (!m_drat_initialized)
-            get_drat().add_theory(m.get_basic_family_id(), symbol("euf"));
+        if (!m_drat_initialized) {
+            get_drat().add_theory(get_id(), symbol("euf"));
+            get_drat().add_theory(m.get_basic_family_id(), symbol("bool"));
+        }
         m_drat_initialized = true;
     }
 
-    void solver::log_node(expr* e) {
+    void solver::drat_log_node(expr* e) {
         if (!use_drat())
             return;
         if (is_app(e)) {
-            std::stringstream strm;
-            strm << mk_ismt2_func(to_app(e)->get_decl(), m);
-            get_drat().def_begin(e->get_id(), strm.str());
-            for (expr* arg : *to_app(e))
+            app* a = to_app(e);
+            if (a->get_num_parameters() == 0)
+                get_drat().def_begin(e->get_id(), a->get_decl()->get_name().str());
+            else {
+                std::stringstream strm;
+                strm << mk_ismt2_func(a->get_decl(), m);
+                get_drat().def_begin(e->get_id(), strm.str());
+            }
+            for (expr* arg : *a)
                 get_drat().def_add_arg(arg->get_id());
             get_drat().def_end();
         }
@@ -57,7 +64,7 @@ namespace euf {
         for (literal lit : r) lits.push_back(~lit);
         if (l != sat::null_literal)
             lits.push_back(l);
-        get_drat().add(lits, sat::status::th(true, m.get_basic_family_id()));
+        get_drat().add(lits, sat::status::th(true, get_id()));
     }
 
     void solver::log_antecedents(std::ostream& out, literal l, literal_vector const& r) {

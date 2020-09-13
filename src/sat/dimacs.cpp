@@ -147,13 +147,20 @@ bool parse_dimacs(std::istream & in, std::ostream& err, sat::solver & solver) {
 namespace dimacs {
 
     std::ostream& operator<<(std::ostream& out, drat_record const& r) {
+        std::function<symbol(int)> fn = [&](int th) { return symbol(th); }
+        drat_pp pp(r, th);
+        return out << pp;
+    }
+
+    std::ostream& operator<<(std::ostream& out, drat_pp& p) {
+        auto const& r = p.r;
         switch (r.m_tag) {
         case drat_record::tag_t::is_clause:
-            return out << r.m_status << " " << r.m_lits << "\n";
+            return out << sat::status_pp(r.m_status, p.th) << " " << r.m_lits << " 0\n";
         case drat_record::tag_t::is_node:
-            return out << "e " << r.m_node_id << " " << r.m_name << " " << r.m_args << "\n"; 
-        case drat_record::is_bool_def:
-            return out << "b " << r.m_node_id << " " << r.m_args << "\n";
+            return out << "e " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
+        case drat_record::tag_t::is_bool_def:
+            return out << "b " << r.m_node_id << " " << r.m_args << "0\n";
         }
         return out;
     }

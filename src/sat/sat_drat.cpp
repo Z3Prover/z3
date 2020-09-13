@@ -35,7 +35,6 @@ namespace sat {
         m_activity(false)
     {
         if (s.get_config().m_drat && s.get_config().m_drat_file.is_non_empty_string()) {
-            std::cout << "DRAT " << s.get_config().m_drat_file << "\n";
             auto mode = s.get_config().m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;
             m_out = alloc(std::ofstream, s.get_config().m_drat_file.str(), mode);
             if (s.get_config().m_drat_binary) {
@@ -93,11 +92,8 @@ namespace sat {
         char* lastd = digits + sizeof(digits);
 
         unsigned len = 0;
-        if (st.is_asserted()) {
-            buffer[len++] = 'a';
-            buffer[len++] = ' ';
-        }
-        else if (st.is_deleted()) {
+
+        if (st.is_deleted()) {
             buffer[len++] = 'd';
             buffer[len++] = ' ';
         }
@@ -105,9 +101,15 @@ namespace sat {
             buffer[len++] = 'i';
             buffer[len++] = ' ';
         }
-        else if (st.is_redundant() && !st.is_sat()) {
-            buffer[len++] = 'r';
-            buffer[len++] = ' ';
+        else if (!st.is_sat()) {
+            if (st.is_redundant()) {
+                buffer[len++] = 'r';
+                buffer[len++] = ' ';
+            }
+            else if (st.is_asserted()) {
+                buffer[len++] = 'a';
+                buffer[len++] = ' ';
+            }
         }
 
         if (!st.is_sat()) {
@@ -373,8 +375,33 @@ namespace sat {
         }
     }
 
+    bool drat::is_drup(unsigned n, literal const* c, literal_vector& units) {
+        if (m_inconsistent) 
+            return true;
+        if (n == 0)
+            return false;
+
+        unsigned num_units = m_units.size();
+        for (unsigned i = 0; !m_inconsistent && i < n; ++i) {
+            declare(c[i]);
+            assign_propagate(~c[i]);
+        }
+
+        for (unsigned i = num_units; i < m_units.size(); ++i) {
+            m_assignment[m_units[i].var()] = l_undef;
+        }
+        units.append(m_units.size() - num_units, m_units.c_ptr() + num_units);
+        m_units.shrink(num_units);
+        bool ok = m_inconsistent;
+        m_inconsistent = false;
+        return ok;
+    }
+
     bool drat::is_drup(unsigned n, literal const* c) {
-        if (m_inconsistent || n == 0) return true;
+        if (m_inconsistent) 
+            return true;
+        if (n == 0)
+            return false;
         unsigned num_units = m_units.size();
         for (unsigned i = 0; !m_inconsistent && i < n; ++i) {
             assign_propagate(~c[i]);
@@ -448,6 +475,7 @@ namespace sat {
     }
 
     bool drat::is_drat(unsigned n, literal const* c) {
+        return false;
         if (m_inconsistent || n == 0) 
             return true;
         for (unsigned i = 0; i < n; ++i) 
@@ -486,7 +514,7 @@ namespace sat {
                 clause& c = *m_proof[i];
                 unsigned j = 0;
                 for (; j < c.size() && c[j] != ~l; ++j) {}
-                if (st.is_sat() && j != c.size()) {
+                if (j != c.size()) {
                     lits.append(j, c.begin());
                     lits.append(c.size() - j - 1, c.begin() + j + 1);
                     if (!is_drup(lits.size(), lits.c_ptr()))
@@ -520,6 +548,8 @@ namespace sat {
         // s.display(std::cout);
         std::string line;
         std::getline(std::cin, line);
+        exit(0);
+#if 0
         SASSERT(false);
         INVOKE_DEBUGGER();
         exit(0);
@@ -530,6 +560,7 @@ namespace sat {
               display(tout);
               s.display(tout););
         UNREACHABLE();
+#endif
     }
 
     bool drat::contains(literal c, justification const& j) {
@@ -723,6 +754,7 @@ namespace sat {
         if (m_out) (*m_out) << "0\n";
         if (m_bout) bdump(0, nullptr, status::redundant());
         if (m_check_unsat) {
+            verify(0, nullptr);
             SASSERT(m_inconsistent);
         }
     }
@@ -756,24 +788,29 @@ namespace sat {
         }
     }
     void drat::add(literal_vector const& lits, status st) {
+        add(lits.size(), lits.c_ptr(), st);
+    }
+
+    void drat::add(unsigned sz, literal const* lits, status st) {
         if (st.is_deleted())
             ++m_stats.m_num_del;
         else
             ++m_stats.m_num_add;
         if (m_check) {
-            switch (lits.size()) {
+            switch (sz) {
             case 0: add(); break;
             case 1: append(lits[0], st); break;
             default: {
-                clause* c = m_alloc.mk_clause(lits.size(), lits.c_ptr(), st.is_redundant());
+                clause* c = m_alloc.mk_clause(sz, lits, st.is_redundant());
                 append(*c, st);
                 break;
             }
             }
         }
         if (m_out)
-            dump(lits.size(), lits.c_ptr(), st);
+            dump(sz, lits, st);
     }
+
     void drat::add(literal_vector const& c) {
         ++m_stats.m_num_add;
         if (m_out) dump(c.size(), c.begin(), status::redundant());
@@ -843,6 +880,12 @@ namespace sat {
     }
 
     std::ostream& operator<<(std::ostream& out, status const& st) {
+        std::function<symbol(int)> th = [&](int id) { return symbol(id); };
+        return out << status_pp(st, th);
+    }
+
+    std::ostream& operator<<(std::ostream& out, status_pp& p) {
+        auto st = p.st;
         if (st.is_deleted())
             out << "d";
         else if (st.is_input())
@@ -852,9 +895,9 @@ namespace sat {
         else if (st.is_redundant() && !st.is_sat())
             out << "r";
         if (!st.is_sat())
-            out << " th" << st.m_orig;
+            out << " " << p.th(st.get_th());
         return out;
-    }
+    }    
 
     void drat::collect_statistics(statistics& st) const {
         st.update("num-drup", m_stats.m_num_drup);

@@ -26,6 +26,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/uint_set.h"
 #include "util/stopwatch.h"
+#include "util/symbol.h"
 
 class params_ref;
 class reslimit;
@@ -278,5 +279,10 @@ namespace sat {
         int  get_th() const { return m_orig;  }
     };
 
+    struct status_pp {
+        status const& st;
+        std::function<symbol(int)>& th;
+        status_pp(status const& st, std::function<symbol(int)>& th) : st(st), th(th) {}
+    };
 };
 

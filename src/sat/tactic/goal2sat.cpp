@@ -109,45 +109,49 @@ struct goal2sat::imp : public sat::sat_internalizer {
         std::string s0 = "operator " + s + " not supported, apply simplifier before invoking translator";
         throw tactic_exception(std::move(s0));
     }
+
+    sat::status mk_status() const {
+        return sat::status::th(m_is_redundant, m.get_basic_family_id());
+    }
     
     void mk_clause(sat::literal l) {
         TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.add_clause(1, &l, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
+        m_solver.add_clause(1, &l, mk_status());
     }
 
     void mk_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
+        m_solver.add_clause(l1, l2, mk_status());
     }
 
     void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
+        m_solver.add_clause(l1, l2, l3, mk_status());
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
+        m_solver.add_clause(num, lits, mk_status());
     }
 
     void mk_root_clause(sat::literal l) {
         TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.add_clause(1, &l, m_is_redundant ? sat::status::redundant() : sat::status::input());
+        m_solver.add_clause(1, &l, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     void mk_root_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, m_is_redundant ? sat::status::redundant() : sat::status::input());
+        m_solver.add_clause(l1, l2, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     void mk_root_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_redundant ? sat::status::redundant() : sat::status::input());
+        m_solver.add_clause(l1, l2, l3, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     void mk_root_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, m_is_redundant ? sat::status::redundant() : sat::status::input());
+        m_solver.add_clause(num, lits, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     sat::bool_var add_var(bool is_ext, expr* n) {
@@ -168,25 +172,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 for (expr* arg : *to_app(n))
                     if (m.is_not(arg))
                         log_node(arg);
-                log_app(to_app(n));
             }
-            else {
-                IF_VERBOSE(0, verbose_stream() << "skipping DRAT of non-app\n");
-            }
+            dynamic_cast<euf::solver*>(m_solver.get_extension())->drat_log_node(n);
         }
     }
-
-    void log_app(app* a) {
-        sat::drat* drat = m_solver.get_drat_ptr();
-        std::stringstream strm;
-        strm << mk_ismt2_func(a->get_decl(), m);
-        drat->def_begin(a->get_id(), strm.str());
-        for (expr* arg : *a)
-            drat->def_add_arg(arg->get_id());
-        drat->def_end();
-    }
-
-
 
     sat::literal mk_true() {
         if (m_true == sat::null_literal) {

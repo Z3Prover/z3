@@ -284,7 +284,7 @@ namespace sat {
         void mk_bin_clause(literal l1, literal l2, bool learned) { mk_bin_clause(l1, l2, learned ? sat::status::redundant() : sat::status::asserted()); }
         bool propagate_bin_clause(literal l1, literal l2);
         clause * mk_ter_clause(literal * lits, status st);
-        bool attach_ter_clause(clause & c);
+        bool attach_ter_clause(clause & c, status st);
         clause * mk_nary_clause(unsigned num_lits, literal * lits, status st);
         bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
