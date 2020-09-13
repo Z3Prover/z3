@@ -444,7 +444,10 @@ namespace euf {
         SASSERT(a->get_root() == b->get_root());
         
         enode* lca = find_lca(a, b);
-        TRACE("euf", tout << "explain-eq: " << a->get_expr_id() << " = " << b->get_expr_id() << ": " << mk_pp(a->get_expr(), m) << " == " << mk_pp(b->get_expr(), m) << " lca: " << mk_pp(lca->get_expr(), m) << "\n";);
+        TRACE("euf_verbose", tout << "explain-eq: " << a->get_expr_id() << " = " << b->get_expr_id() 
+            << ": " << mk_bounded_pp(a->get_expr(), m) 
+            << " == " << mk_bounded_pp(b->get_expr(), m) 
+            << " lca: " << mk_bounded_pp(lca->get_expr(), m) << "\n";);
         push_to_lca(a, lca);
         push_to_lca(b, lca);
         if (m_used_eq)

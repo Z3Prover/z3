@@ -15,6 +15,7 @@ Author:
 
 --*/
 
+#include "ast/ast_ll_pp.h"
 #include "sat/smt/euf_solver.h"
 
 namespace euf {
@@ -72,14 +73,14 @@ namespace euf {
             expr* n = m_var2expr[l.var()];
             out << ~l << ": ";
             if (!l.sign()) out << "! ";
-            out << mk_pp(n, m) << "\n";
+            out << mk_bounded_pp(n, m) << "\n";
             SASSERT(s().value(l) == l_true);
         }
         if (l != sat::null_literal) {
             out << l << ": ";
             if (l.sign()) out << "! ";
             expr* n = m_var2expr[l.var()];
-            out << mk_pp(n, m) << "\n";
+            out << mk_bounded_pp(n, m) << "\n";
         }
     }
 

@@ -31,17 +31,17 @@ namespace euf {
         loop:
             if (!m.inc())
                 throw tactic_exception(m.limit().get_cancel_msg());
-            sat::eframe& fr = m_stack.back();
-            expr* e = fr.m_e;
+            unsigned fsz = m_stack.size();
+            expr* e = m_stack[fsz-1].m_e;
             if (visited(e)) {
                 m_stack.pop_back();
                 continue;
             }
             unsigned num = is_app(e) ? to_app(e)->get_num_args() : 0;
 
-            while (fr.m_idx < num) {
-                expr* arg = to_app(e)->get_arg(fr.m_idx);
-                fr.m_idx++;
+            while (m_stack[fsz - 1].m_idx < num) {
+                expr* arg = to_app(e)->get_arg(m_stack[fsz - 1].m_idx);
+                m_stack[fsz - 1].m_idx++;
                 if (!visit(arg))
                     goto loop;
             }

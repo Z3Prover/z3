@@ -282,7 +282,7 @@ namespace euf {
             }
             unsigned lvl = s().scope_lvl();
 
-            CTRACE("euf", s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << is_eq << " " << mk_pp(a, m) << " = " << mk_pp(b, m) << "\n";);
+            CTRACE("euf", s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << is_eq << " " << mk_bounded_pp(a, m) << " = " << mk_bounded_pp(b, m) << "\n";);
             if (s().value(lit) == l_false && m_ackerman) 
                 m_ackerman->cg_conflict_eh(a, b);
             switch (s().value(lit)) {
