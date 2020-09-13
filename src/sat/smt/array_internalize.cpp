@@ -32,7 +32,6 @@ namespace array {
     }
 
     euf::theory_var solver::mk_var(euf::enode* n) {
-        expr* e = n->get_expr();
         theory_var r = euf::th_euf_solver::mk_var(n);
         m_find.mk_var();
         ctx.attach_th_var(n, this, r);
@@ -112,7 +111,7 @@ namespace array {
         if (!n) 
             n = mk_enode(e, false);
         SASSERT(!n->is_attached_to(get_id()));
-        theory_var v = mk_var(n);
+        mk_var(n);
         for (auto* arg : euf::enode_args(n))
             ensure_var(arg);  
         switch (a->get_decl_kind()) {

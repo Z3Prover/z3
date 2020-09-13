@@ -79,7 +79,6 @@ namespace array {
         euf::enode* else1 = nullptr, * else2 = nullptr;
         euf::enode* n1 = var2enode(v1), *n2 = var2enode(v2);
         euf::enode* r1 = n1->get_root(), * r2 = n2->get_root();
-        expr* v = nullptr;
         expr* e1 = n1->get_expr();
         expr* e;
         if (!a.is_array(e1))

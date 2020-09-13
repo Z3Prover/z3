@@ -213,7 +213,6 @@ namespace array {
         SASSERT(map->get_num_args() > 0);
         func_decl* f = a.get_map_func_decl(map);
         unsigned num_args = select->get_num_args();
-        unsigned num_arrays = map->get_num_args();
         ptr_buffer<expr> args1, args2;
         vector<ptr_vector<expr> > args2l;
         args1.push_back(map);

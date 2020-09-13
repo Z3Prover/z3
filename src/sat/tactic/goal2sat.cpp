@@ -102,7 +102,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
         m_euf = sp.euf();
-        m_drat = sp.drat_file() != symbol();
+        m_drat = sp.drat_file().is_non_empty_string();
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -211,9 +211,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) 
             v = mk_bool_var(t);
-        else {
-            m_solver.set_external(v);
-        }
+        else 
+            m_solver.set_external(v);        
         return v;
     }
 
@@ -268,9 +267,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
                     else
                         m_unhandled_funs.push_back(to_app(t)->get_decl());
                 }
-                bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
                 v = mk_bool_var(t);
                 l = sat::literal(v, sign);
+                bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
+                if (ext) 
+                    m_solver.set_external(v);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
             }
         }
@@ -576,6 +577,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     euf::solver* ensure_euf() {
+        SASSERT(m_euf);
         sat::extension* ext = m_solver.get_extension();
         euf::solver* euf = nullptr;
         if (!ext) {
@@ -593,6 +595,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void convert_euf(expr* e, bool root, bool sign) {
+        SASSERT(m_euf);
         TRACE("goal2sat", tout << "convert-euf " << mk_bounded_pp(e, m, 2) << " root " << root << "\n";);
         euf::solver* euf = ensure_euf();
         sat::literal lit = euf->internalize(e, sign, root, m_is_redundant);
@@ -606,7 +609,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void convert_ba(app* t, bool root, bool sign) {
         SASSERT(!m_euf);
-        sat::extension* ext = m_solver.get_extension();
+        sat::extension* ext = dynamic_cast<sat::ba_solver*>(m_solver.get_extension());
         euf::th_solver* th = nullptr;
         if (!ext) {
             th = alloc(sat::ba_solver, m, *this, pb.get_family_id());

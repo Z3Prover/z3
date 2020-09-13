@@ -438,8 +438,7 @@ namespace euf {
     void egraph::end_explain() {
         for (enode* n : m_todo) 
             n->unmark1();
-        for (enode* n : m_nodes)
-            SASSERT(!n->is_marked1());
+        DEBUG_CODE(for (enode* n : m_nodes) SASSERT(!n->is_marked1()););
         m_todo.reset();        
     }
 
