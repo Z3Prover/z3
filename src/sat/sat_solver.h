@@ -574,7 +574,8 @@ namespace sat {
         unsigned       m_conflict_lvl;
         literal_vector m_lemma;
         literal_vector m_ext_antecedents;
-        bool use_backjumping(unsigned num_scopes);
+        bool use_backjumping(unsigned num_scopes) const;
+        bool allow_backtracking() const;
         bool resolve_conflict();
         lbool resolve_conflict_core();
         void learn_lemma_and_backjump();

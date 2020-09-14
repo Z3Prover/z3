@@ -995,6 +995,7 @@ namespace sat {
         literal l, not_l, l1, l2;
         lbool val1, val2;
         bool keep;
+    prop_again:
         while (m_qhead < m_trail.size()) {
             checkpoint();
             m_cleaner.dec();
@@ -1163,11 +1164,13 @@ namespace sat {
                 }
             }
             wlist.set_end(it2);
-            if (m_ext) {
-                m_ext->unit_propagate();
-                if (inconsistent())
-                    return false;
-            }
+        }
+        if (m_ext) {
+            m_ext->unit_propagate();
+            if (inconsistent())
+                return false;
+            if (m_qhead < m_trail.size())
+                goto prop_again;
         }
         SASSERT(m_qhead == m_trail.size());
         SASSERT(!m_inconsistent);
@@ -2665,7 +2668,7 @@ namespace sat {
         // at the backtracking level. This is the case where the external theories miss propagations
         // that only get triggered after decisions.
         
-        if (unique_max && !m_force_conflict_analysis) {
+        if (allow_backtracking() && unique_max && !m_force_conflict_analysis) {
             TRACE("sat", tout << "unique max " << js << " " << m_not_l << "\n";);
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
             m_force_conflict_analysis = true;
@@ -2748,6 +2751,14 @@ namespace sat {
                 fill_ext_antecedents(consequent, js, false);
                 for (literal l : m_ext_antecedents) 
                     process_antecedent(l, num_marks);
+#if 0
+                if (m_ext_antecedents.size() <= 1) {
+                    for (literal& l : m_ext_antecedents) 
+                        l.neg();
+                    m_ext_antecedents.push_back(consequent);
+                    mk_clause(m_ext_antecedents.size(), m_ext_antecedents.c_ptr(), sat::status::redundant());
+                }
+#endif
                 break;
             }
             default:
@@ -2852,11 +2863,14 @@ namespace sat {
         updt_phase_counters();
     }
 
-    bool solver::use_backjumping(unsigned num_scopes) {
+    bool solver::use_backjumping(unsigned num_scopes) const {
         return 
             num_scopes > 0 && 
-            (num_scopes <= m_config.m_backtrack_scopes || 
-             m_conflicts_since_init <= m_config.m_backtrack_init_conflicts);
+            (num_scopes <= m_config.m_backtrack_scopes || !allow_backtracking());
+    }
+
+    bool solver::allow_backtracking() const {
+        return m_conflicts_since_init > m_config.m_backtrack_init_conflicts;
     }
 
     void solver::process_antecedent_for_unsat_core(literal antecedent) {
