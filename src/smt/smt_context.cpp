@@ -2705,20 +2705,23 @@ namespace smt {
     }
 
     void context::log_stats() {
-        size_t bin_lemmas = 0;
+        size_t bin_clauses = 0, bin_lemmas = 0;
         for (watch_list const& w : m_watches) {
-            bin_lemmas += w.end_literals() - w.begin_literals();
+            bin_clauses += w.end_literals() - w.begin_literals();
         }
-        bin_lemmas /= 2;
+        bin_clauses /= 2;
+        for (clause* cp : m_lemmas)
+            if (cp->get_num_literals() == 2)
+                ++bin_lemmas;
         std::stringstream strm;
         strm << "(smt.stats " 
              << std::setw(4) << m_stats.m_num_restarts << " "
              << std::setw(6) << m_stats.m_num_conflicts << " "
              << std::setw(6) << m_stats.m_num_decisions << " " 
              << std::setw(6) << m_stats.m_num_propagations << " "
-             << std::setw(5) << m_aux_clauses.size() << "/" << bin_lemmas << " "
-             << std::setw(5) << m_lemmas.size() << " "
-             << std::setw(5) << m_stats.m_num_simplifications << " "
+             << std::setw(5) << (m_aux_clauses.size() + bin_clauses) << "/" << bin_clauses << " "
+             << std::setw(5) << m_lemmas.size(); if (bin_lemmas > 0) strm << "/" << bin_lemmas << " ";
+        strm << std::setw(5) << m_stats.m_num_simplifications << " "
              << std::setw(4) << m_stats.m_num_del_clauses << " "
              << std::setw(7) << mem_stat() << ")\n";
 
