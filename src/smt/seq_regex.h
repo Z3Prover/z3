@@ -111,9 +111,9 @@ namespace smt {
         /*
             state_graph for dead state detection, and associated methods
         */
-        state_graph                    m_state_graph;
         ptr_addr_map<expr, unsigned>   m_expr_to_state;
         expr_ref_vector                m_state_to_expr;
+        state_graph                    m_state_graph;
         /* map from uninterpreted regex constants to assigned regex expressions by EQ */
         // expr_map                       m_const_to_expr;
         unsigned                       m_max_state_graph_size { 10000 };

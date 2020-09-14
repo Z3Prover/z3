@@ -102,80 +102,80 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
         m_euf = sp.euf();
-        m_drat = sp.drat_file() != symbol();
+        m_drat = sp.drat_file().is_non_empty_string();
     }
 
     void throw_op_not_handled(std::string const& s) {
         std::string s0 = "operator " + s + " not supported, apply simplifier before invoking translator";
         throw tactic_exception(std::move(s0));
     }
+
+    sat::status mk_status() const {
+        return sat::status::th(m_is_redundant, m.get_basic_family_id());
+    }
     
     void mk_clause(sat::literal l) {
         TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.add_clause(1, &l, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
+        m_solver.add_clause(1, &l, mk_status());
     }
 
     void mk_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
+        m_solver.add_clause(l1, l2, mk_status());
     }
 
     void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
+        m_solver.add_clause(l1, l2, l3, mk_status());
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, m_is_redundant ? sat::status::redundant() : sat::status::asserted());
+        m_solver.add_clause(num, lits, mk_status());
     }
 
     void mk_root_clause(sat::literal l) {
         TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.add_clause(1, &l, m_is_redundant ? sat::status::redundant() : sat::status::input());
+        m_solver.add_clause(1, &l, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     void mk_root_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, m_is_redundant ? sat::status::redundant() : sat::status::input());
+        m_solver.add_clause(l1, l2, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     void mk_root_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_redundant ? sat::status::redundant() : sat::status::input());
+        m_solver.add_clause(l1, l2, l3, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     void mk_root_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, m_is_redundant ? sat::status::redundant() : sat::status::input());
+        m_solver.add_clause(num, lits, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     sat::bool_var add_var(bool is_ext, expr* n) {
         auto v = m_solver.add_var(is_ext);
-        log_node(v, n);
+        log_node(n);
+        log_def(v, n);
         return v;
     }
 
-    void log_node(sat::bool_var v, expr* n) {
-        if (m_drat && m_solver.get_drat_ptr()) {
-            sat::drat* drat = m_solver.get_drat_ptr();
-            if (is_app(n)) {
-                app* a = to_app(n);
-                std::stringstream strm;
-                strm << mk_ismt2_func(a->get_decl(), m);
-                drat->def_begin(n->get_id(), strm.str());
-                for (expr* arg : *a)
-                    drat->def_add_arg(arg->get_id());
-                drat->def_end();
-            }
-            else {
-                IF_VERBOSE(0, verbose_stream() << "skipping DRAT of non-app\n");
-            }
-            drat->bool_def(v, n->get_id());
-        }
+    void log_def(sat::bool_var v, expr* n) {
+        if (m_drat && m_solver.get_drat_ptr()) 
+            m_solver.get_drat_ptr()->bool_def(v, n->get_id());
     }
 
-
+    void log_node(expr* n) {
+        if (m_drat && m_solver.get_drat_ptr()) {
+            if (is_app(n)) {
+                for (expr* arg : *to_app(n))
+                    if (m.is_not(arg))
+                        log_node(arg);
+            }
+            ensure_euf()->drat_log_node(n);
+        }
+    }
 
     sat::literal mk_true() {
         if (m_true == sat::null_literal) {
@@ -187,6 +187,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     sat::bool_var to_bool_var(expr* e) override {
+        sat::literal l;
+        if (is_app(e) && m_cache.find(to_app(e), l) && !l.sign()) 
+            return l.var();
         return m_map.to_bool_var(e);
     }
 
@@ -209,7 +212,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (v == sat::null_bool_var) 
             v = mk_bool_var(t);
         else 
-            m_solver.set_external(v);
+            m_solver.set_external(v);        
         return v;
     }
 
@@ -264,9 +267,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
                     else
                         m_unhandled_funs.push_back(to_app(t)->get_decl());
                 }
-                bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
                 v = mk_bool_var(t);
                 l = sat::literal(v, sign);
+                bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
+                if (ext) 
+                    m_solver.set_external(v);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
             }
         }
@@ -275,8 +280,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             l = sat::literal(v, sign);
             m_solver.set_eliminated(v, false);
         }
-        if (root)
-            m_result_stack.reset();
         SASSERT(l != sat::null_literal);
         if (root)
             mk_root_clause(l);
@@ -354,8 +357,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void convert_or(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_or:\n" << mk_bounded_pp(t, m, 2) << "\n";);
+        TRACE("goal2sat", tout << "convert_or:\n" << mk_bounded_pp(t, m, 2) << " root " << root << " stack " << m_result_stack.size() << "\n";);        
         unsigned num = t->get_num_args();
+        SASSERT(num <= m_result_stack.size());
+        unsigned old_sz = m_result_stack.size() - num;
         if (root) {
             SASSERT(num == m_result_stack.size());
             if (sign) {
@@ -369,7 +374,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             else {
                 mk_root_clause(m_result_stack.size(), m_result_stack.c_ptr());
             }
-            m_result_stack.reset();
+            m_result_stack.shrink(old_sz);
         }
         else {
             SASSERT(num <= m_result_stack.size());
@@ -392,8 +397,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             mk_clause(num+1, lits);
             if (m_aig) {
                 m_aig->add_or(l, num, aig_lits.c_ptr());
-            }
-            unsigned old_sz = m_result_stack.size() - num - 1;
+            }            
             m_result_stack.shrink(old_sz);
             if (sign)
                 l.neg();
@@ -402,8 +406,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void convert_and(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_and:\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_and:\n" << mk_bounded_pp(t, m, 2) << " root: " << root  << " result stack: " << m_result_stack.size() << "\n";);
+
         unsigned num = t->get_num_args();
+        unsigned old_sz = m_result_stack.size() - num;
+        SASSERT(num <= m_result_stack.size());
         if (root) {
             if (sign) {
                 for (unsigned i = 0; i < num; ++i) {
@@ -416,7 +423,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                     mk_root_clause(m_result_stack[i]);
                 }
             }
-            m_result_stack.reset();
+            m_result_stack.shrink(old_sz);
         }
         else {
             SASSERT(num <= m_result_stack.size());
@@ -445,7 +452,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }                       
             if (sign)
                 l.neg();
-            unsigned old_sz = m_result_stack.size() - num - 1;
+            
             m_result_stack.shrink(old_sz);
             m_result_stack.push_back(l);
             TRACE("goal2sat", tout << m_result_stack << "\n";);
@@ -458,6 +465,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::literal  c = m_result_stack[sz-3];
         sat::literal  t = m_result_stack[sz-2];
         sat::literal  e = m_result_stack[sz-1];
+        m_result_stack.shrink(sz - 3);
         if (root) {
             SASSERT(sz == 3);
             if (sign) {
@@ -468,7 +476,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 mk_root_clause(~c, t);
                 mk_root_clause(c, e);
             }
-            m_result_stack.reset();
         }
         else {
             sat::bool_var k = add_var(false, n);
@@ -485,7 +492,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             if (m_aig) m_aig->add_ite(l, c, t, e);
             if (sign)
                 l.neg();
-            m_result_stack.shrink(sz-3);
+
             m_result_stack.push_back(l);
         }
     }
@@ -496,6 +503,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         SASSERT(sz >= 2);
         sat::literal  l2 = m_result_stack[sz - 1];
         sat::literal  l1 = m_result_stack[sz - 2];
+        m_result_stack.shrink(sz - 2);
         if (root) {
             SASSERT(sz == 2);
             if (sign) {
@@ -504,8 +512,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
             else {
                 mk_root_clause(~l1, l2);
-            }
-            m_result_stack.reset();
+            }            
         }
         else {
             sat::bool_var k = add_var(false, t);
@@ -517,7 +524,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             mk_clause(~l2, l);
             if (sign)
                 l.neg();
-            m_result_stack.shrink(sz - 2);
             m_result_stack.push_back(l);
         }
     }
@@ -528,6 +534,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         SASSERT(sz >= 2);
         sat::literal  l1 = m_result_stack[sz-1];
         sat::literal  l2 = m_result_stack[sz-2];
+        m_result_stack.shrink(sz - 2);
         if (root) {
             SASSERT(sz == 2);
             if (sign) {
@@ -537,8 +544,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             else {
                 mk_root_clause(l1, ~l2);
                 mk_root_clause(~l1, l2);
-            }
-            m_result_stack.reset();
+            }            
         }
         else {
             sat::bool_var k = add_var(false, t);
@@ -551,7 +557,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             if (m_aig) m_aig->add_iff(l, l1, l2);            
             if (sign)
                 l.neg();
-            m_result_stack.shrink(sz - 2);
             m_result_stack.push_back(l);
         }
     }
@@ -570,7 +575,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         return m_unhandled_funs;
     }
 
-    void convert_euf(expr* e, bool root, bool sign) {
+    euf::solver* ensure_euf() {
+        SASSERT(m_euf);
         sat::extension* ext = m_solver.get_extension();
         euf::solver* euf = nullptr;
         if (!ext) {
@@ -584,9 +590,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (!euf)
             throw default_exception("cannot convert to euf");
+        return euf;
+    }
+
+    void convert_euf(expr* e, bool root, bool sign) {
+        SASSERT(m_euf);
+        TRACE("goal2sat", tout << "convert-euf " << mk_bounded_pp(e, m, 2) << " root " << root << "\n";);
+        euf::solver* euf = ensure_euf();
         sat::literal lit = euf->internalize(e, sign, root, m_is_redundant);
-        if (root)
-            m_result_stack.reset();
         if (lit == sat::null_literal)
             return;
         if (root)
@@ -597,7 +608,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void convert_ba(app* t, bool root, bool sign) {
         SASSERT(!m_euf);
-        sat::extension* ext = m_solver.get_extension();
+        sat::extension* ext = dynamic_cast<sat::ba_solver*>(m_solver.get_extension());
         euf::th_solver* th = nullptr;
         if (!ext) {
             th = alloc(sat::ba_solver, m, *this, pb.get_family_id());
@@ -609,10 +620,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             SASSERT(th);
         }
         auto lit = th->internalize(t, sign, root, m_is_redundant);
-        if (root)
-            m_result_stack.reset();
-        else 
-            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
+        m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
         if (lit == sat::null_literal)
             return;
         if (root) 
@@ -681,6 +689,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
     };
 
     void process(expr* n, bool is_root, bool redundant) {
+        TRACE("goal2sat", tout << "process-begin " << mk_bounded_pp(n, m, 3) 
+            << " root: " << is_root 
+            << " result-stack: " << m_result_stack.size() 
+            << " frame-stack: " << m_frame_stack.size() << "\n";);
         flet<bool> _is_redundant(m_is_redundant, redundant);
         scoped_stack _sc(*this, is_root);
         unsigned sz = m_frame_stack.size();
@@ -693,14 +705,16 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 throw tactic_exception(m.limit().get_cancel_msg());
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
-            frame & fr = m_frame_stack.back();
-            app * t    = fr.m_t;
-            bool root  = fr.m_root;
-            bool sign  = fr.m_sign;
+            unsigned fsz = m_frame_stack.size();
+            frame const& _fr = m_frame_stack[fsz-1];
+            app * t    = _fr.m_t;
+            bool root  = _fr.m_root;
+            bool sign  = _fr.m_sign;
             TRACE("goal2sat_bug", tout << "result stack\n";
-                  tout << mk_ismt2_pp(t, m) << " root: " << root << " sign: " << sign << "\n";
+            tout << "ref-count: " << t->get_ref_count() << "\n";
+                  tout << mk_bounded_pp(t, m, 3) << " root: " << root << " sign: " << sign << "\n";
                   tout << m_result_stack << "\n";);
-            if (fr.m_idx == 0 && process_cached(t, root, sign)) {
+            if (_fr.m_idx == 0 && process_cached(t, root, sign)) {
                 m_frame_stack.pop_back();
                 continue;
             }
@@ -715,27 +729,37 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 continue;
             }
             unsigned num = t->get_num_args();
-            while (fr.m_idx < num) {
-                expr * arg = t->get_arg(fr.m_idx);
-                fr.m_idx++;
+            while (m_frame_stack[fsz-1].m_idx < num) {
+                expr * arg = t->get_arg(m_frame_stack[fsz-1].m_idx);
+                m_frame_stack[fsz - 1].m_idx++;
                 if (!visit(arg, false, false))
                     goto loop;
+                TRACE("goal2sat_bug", tout << "visit " << mk_bounded_pp(t, m, 2) << " result stack: " << m_result_stack.size() << "\n";);
             }
             TRACE("goal2sat_bug", tout << "converting\n";
-                  tout << mk_ismt2_pp(t, m) << " root: " << root << " sign: " << sign << "\n";
+                  tout << mk_bounded_pp(t, m, 2) << " root: " << root << " sign: " << sign << "\n";
                   tout << m_result_stack << "\n";);
+            SASSERT(m_frame_stack.size() > sz);
             convert(t, root, sign);
-            m_frame_stack.pop_back();
+            m_frame_stack.pop_back();            
         }
+        TRACE("goal2sat", tout 
+            << "done process: " << mk_bounded_pp(n, m, 3) 
+            << " frame-stack: " << m_frame_stack.size() 
+            << " result-stack: " << m_result_stack.size() << "\n";);
     }
 
     sat::literal internalize(expr* n, bool redundant) override {
         unsigned sz = m_result_stack.size();
         (void)sz;
+        SASSERT(n->get_ref_count() > 0);
+        TRACE("goal2sat", tout << "internalize " << mk_bounded_pp(n, m, 2) << "\n";);
         process(n, false, redundant);
         SASSERT(m_result_stack.size() == sz + 1);
         sat::literal result = m_result_stack.back();
         m_result_stack.pop_back();
+        if (!result.sign() && m_map.to_bool_var(n) == sat::null_bool_var) 
+            m_map.insert(n, result.var());        
         return result;
     }
 
@@ -766,8 +790,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
     
     void process(expr * n) {
-        m_result_stack.reset();
-        TRACE("goal2sat", tout << "assert: "<< mk_pp(n, m) << "\n";);
+        VERIFY(m_result_stack.empty());
+        TRACE("goal2sat", tout << "assert: " << mk_bounded_pp(n, m, 3) << "\n";);
         process(n, true, m_is_redundant);
         CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());

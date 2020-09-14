@@ -25,6 +25,27 @@ Author:
 
 namespace euf {
 
+    solver::solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p) :
+        extension(m.mk_family_id("euf")),
+        m(m),
+        si(si),
+        m_egraph(m),
+        m_trail(*this),
+        m_rewriter(m),
+        m_unhandled_functions(m),
+        m_solver(nullptr),
+        m_lookahead(nullptr),
+        m_to_m(&m),
+        m_to_si(&si),
+        m_reinit_exprs(m)
+    {
+        updt_params(p);
+
+        std::function<void(std::ostream&, void*)> disp =
+            [&](std::ostream& out, void* j) { display_justification_ptr(out, reinterpret_cast<size_t*>(j)); };
+        m_egraph.set_display_justification(disp);
+    }
+
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
     }
@@ -129,7 +150,9 @@ namespace euf {
                 ext->get_antecedents(lit, idx, r, probing);
             }
         }
-        m_egraph.end_explain();
+        m_egraph.end_explain();        
+        TRACE("euf", tout << "eplain " << l << " <- " << r << " " << probing << "\n";);
+        DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
         if (!probing)
             log_antecedents(l, r);
     }
@@ -150,7 +173,8 @@ namespace euf {
         expr* e = nullptr;
         euf::enode* n = nullptr;
 
-        init_ackerman();
+        if (!probing && !m_drating)
+            init_ackerman();
 
         switch (j.kind()) {
         case constraint::kind_t::conflict:
@@ -185,7 +209,7 @@ namespace euf {
         }
 
         bool sign = l.sign();        
-        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " " << (sign ? "not ": " ") << e->get_id()  << "\n";);
+        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << "\n";);
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
@@ -230,6 +254,7 @@ namespace euf {
                 break;
             propagated = true;             
         }
+        DEBUG_CODE(if (!s().inconsistent()) check_missing_eq_propagation(););
         return propagated;
     }
 
@@ -255,11 +280,19 @@ namespace euf {
                 cnstr = lit_constraint().to_index();
                 lit = literal(v, m.is_false(b));
             }
+            unsigned lvl = s().scope_lvl();
+
+            CTRACE("euf", s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << is_eq << " " << mk_bounded_pp(a, m) << " = " << mk_bounded_pp(b, m) << "\n";);
             if (s().value(lit) == l_false && m_ackerman) 
                 m_ackerman->cg_conflict_eh(a, b);
-            unsigned lvl = s().scope_lvl();
-            if (s().value(lit) != l_true)
+            switch (s().value(lit)) {
+            case l_true:
+                break;
+            case l_undef:
+            case l_false:
                 s().assign(lit, sat::justification::mk_ext_justification(lvl, cnstr));
+                break;
+            }
         }
     }
 
@@ -295,15 +328,15 @@ namespace euf {
         bool cont = false;
         for (auto* e : m_solvers)
             switch (e->check()) {
-            case sat::CR_CONTINUE: cont = true; break;
-            case sat::CR_GIVEUP: give_up = true; break;
+            case sat::check_result::CR_CONTINUE: cont = true; break;
+            case sat::check_result::CR_GIVEUP: give_up = true; break;
             default: break;
             }
         if (cont)
-            return sat::CR_CONTINUE;
+            return sat::check_result::CR_CONTINUE;
         if (give_up)
-            return sat::CR_GIVEUP;
-        return sat::CR_DONE; 
+            return sat::check_result::CR_GIVEUP;
+        return sat::check_result::CR_DONE;
     }
 
     void solver::push() {
@@ -329,6 +362,7 @@ namespace euf {
         m_trail.pop_scope(n);
         m_scopes.shrink(m_scopes.size() - n);
         si.pop(n);
+        SASSERT(m_egraph.num_scopes() == m_scopes.size());
     }
 
     void solver::start_reinit(unsigned n) {
@@ -356,8 +390,8 @@ namespace euf {
             return;
         si.set_expr2var_replay(&expr2var_replay);
         for (auto const& kv : expr2var_replay)
-            si.internalize(kv.m_key, true);
-        si.set_expr2var_replay(nullptr);        
+            attach_lit(si.internalize(kv.m_key, true), kv.m_key);
+        si.set_expr2var_replay(nullptr);      
     }
 
     void solver::pre_simplify() {
@@ -397,6 +431,7 @@ namespace euf {
             if (n && n->merge_enabled())
                 ok = false;
         }
+        TRACE("euf", tout << ok << " " << l << " -> " << r << "\n";);
         return ok;
     }
 
@@ -415,6 +450,13 @@ namespace euf {
         for (auto* e : m_solvers)
             e->display(out);
         return out; 
+    }
+
+    std::ostream& solver::display_justification_ptr(std::ostream& out, size_t* j) const {
+        if (is_literal(j))
+            return out << get_literal(j) << " ";
+        else
+            return display_justification(out, get_justification(j)) << " ";
     }
 
     std::ostream& solver::display_justification(std::ostream& out, ext_justification_idx idx) const { 
@@ -480,6 +522,7 @@ namespace euf {
                 return false;
         check_eqc_bool_assignment();
         check_missing_bool_enode_propagation();
+        check_missing_eq_propagation();
         m_egraph.invariant();
         return true; 
     }
@@ -531,7 +574,7 @@ namespace euf {
     void solver::init_ackerman() {
         if (m_ackerman) 
             return;
-        if (m_config.m_dack == DACK_DISABLED)
+        if (m_config.m_dack == dyn_ack_strategy::DACK_DISABLED)
             return;
         m_ackerman = alloc(ackerman, *this, m);
         std::function<void(expr*,expr*,expr*)> used_eq = [&](expr* a, expr* b, expr* lca) {

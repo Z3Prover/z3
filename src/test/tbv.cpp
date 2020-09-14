@@ -74,10 +74,9 @@ static void tst2(unsigned num_bits) {
     }
 }
 
+#if 0
 // prints all don't care pareto fronts for 8-bit multiplier.
 static void test_dc() {
-    unsigned a = 0;
-    unsigned b = 0;
     unsigned num_bits = 8;
     unsigned num_vals = 1 << num_bits;
     tbv_manager m(num_bits*2);
@@ -134,6 +133,7 @@ static void test_dc() {
         m.deallocate(t);
     
 }
+#endif
 
 void tst_tbv() {
     // test_dc();

@@ -123,6 +123,7 @@ namespace sat {
         void add(clause& c, status st);
         void add(literal_vector const& c, status st);
         void add(literal_vector const& c); // add learned clause
+        void add(unsigned sz, literal const* lits, status st);
 
         // support for SMT - connect Boolean variables with AST nodes
         // associate AST node id with Boolean variable v
@@ -156,9 +157,13 @@ namespace sat {
         void check_model(model const& m);
 
         void collect_statistics(statistics& st) const;
+
+        bool inconsistent() const { return m_inconsistent; }
+        literal_vector const& units() { return m_units; }
+        bool is_drup(unsigned n, literal const* c, literal_vector& units);
+        solver& get_solver() { return s; }
     };
 
-    std::ostream& operator<<(std::ostream& out, status const& st);
+}
 
-};
 

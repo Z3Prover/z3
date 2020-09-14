@@ -20,7 +20,6 @@ Revision History:
 #undef max
 #undef min
 #include "sat/sat_solver.h"
-#include "sat/sat_drat.h"
 
 template<typename Buffer>
 static bool is_whitespace(Buffer & in) {
@@ -147,13 +146,21 @@ bool parse_dimacs(std::istream & in, std::ostream& err, sat::solver & solver) {
 namespace dimacs {
 
     std::ostream& operator<<(std::ostream& out, drat_record const& r) {
+        std::function<symbol(int)> fn = [&](int th) { return symbol(th); };
+        drat_pp pp(r, fn);
+        return out << pp;
+    }
+
+    std::ostream& operator<<(std::ostream& out, drat_pp const& p) {
+        auto const& r = p.r;
+        sat::status_pp pp(r.m_status, p.th);
         switch (r.m_tag) {
         case drat_record::tag_t::is_clause:
-            return out << r.m_status << " " << r.m_lits << "\n";
+            return out << pp << " " << r.m_lits << " 0\n";
         case drat_record::tag_t::is_node:
-            return out << "e " << r.m_node_id << " " << r.m_name << " " << r.m_args << "\n"; 
-        case drat_record::is_bool_def:
-            return out << "b " << r.m_node_id << " " << r.m_args << "\n";
+            return out << "e " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
+        case drat_record::tag_t::is_bool_def:
+            return out << "b " << r.m_node_id << " " << r.m_args << "0\n";
         }
         return out;
     }

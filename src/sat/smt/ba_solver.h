@@ -26,6 +26,10 @@ Revision History:
 #include "sat/sat_big.h"
 #include "sat/smt/sat_smt.h"
 #include "sat/smt/sat_th.h"
+#include "sat/smt/ba_constraint.h"
+#include "sat/smt/ba_card.h"
+#include "sat/smt/ba_pb.h"
+#include "sat/smt/ba_xor.h"
 #include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
@@ -33,9 +37,16 @@ Revision History:
 
 namespace sat {
 
+    typedef ba::constraint constraint;
+    typedef ba::wliteral wliteral;
+    typedef ba::card card;
+    typedef ba::xr xr;
+    typedef ba::pb_base pb_base;
+    typedef ba::pb pb;
+
     class xor_finder;
     
-    class ba_solver : public euf::th_solver {
+    class ba_solver : public euf::th_solver, public ba::solver_interface {
 
         friend class local_search;
 
@@ -54,167 +65,7 @@ namespace sat {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
-
-    public:        
-        enum tag_t {
-            card_t,
-            pb_t,
-            xr_t
-        };
-
-        class card;
-        class pb;
-        class xr;
-        class pb_base;
-
-        class constraint {
-        protected:
-            tag_t          m_tag;
-            bool           m_removed;
-            literal        m_lit;
-            literal        m_watch;
-            unsigned       m_glue;
-            unsigned       m_psm;
-            unsigned       m_size;
-            size_t         m_obj_size;
-            bool           m_learned;
-            unsigned       m_id;
-            bool           m_pure;        // is the constraint pure (only positive occurrences)
-        public:
-            constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): 
-            m_tag(t), m_removed(false), m_lit(l), m_watch(null_literal), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id), m_pure(false) {
-            }
-            ext_constraint_idx cindex() const { return constraint_base::mem2base(this); }
-            void deallocate(small_object_allocator& a) { a.deallocate(obj_size(), constraint_base::mem2base_ptr(this)); }
-            unsigned id() const { return m_id; }
-            tag_t tag() const { return m_tag; }
-            literal lit() const { return m_lit; }
-            unsigned size() const { return m_size; }
-            void set_size(unsigned sz) { SASSERT(sz <= m_size); m_size = sz; }
-            void update_literal(literal l) { m_lit = l; }
-            bool was_removed() const { return m_removed; }
-            void set_removed() { m_removed = true; }
-            void nullify_literal() { m_lit = null_literal; }
-            unsigned glue() const { return m_glue; }
-            void set_glue(unsigned g) { m_glue = g; }          
-            unsigned psm() const { return m_psm; }
-            void set_psm(unsigned p) { m_psm = p; }
-            void set_learned(bool f) { m_learned = f; }
-            bool learned() const { return m_learned; }            
-            bool is_watched() const { return m_watch == m_lit && m_lit != null_literal; }
-            void set_watch() { m_watch = m_lit; }
-            void clear_watch() { m_watch = null_literal; }
-            bool is_clear() const { return m_watch == null_literal && m_lit != null_literal; }
-            bool is_pure() const { return m_pure; }
-            void set_pure() { m_pure = true; }
-            unsigned fold_max_var(unsigned w) const;
-
-            size_t obj_size() const { return m_obj_size; }
-            card& to_card();
-            pb&  to_pb();
-            xr& to_xr();
-            card const& to_card() const;
-            pb const&  to_pb() const;
-            xr const& to_xr() const;
-            pb_base const& to_pb_base() const; 
-            bool is_card() const { return m_tag == card_t; }
-            bool is_pb() const { return m_tag == pb_t; }
-            bool is_xr() const { return m_tag == xr_t; }
-            
-            virtual bool is_watching(literal l) const { UNREACHABLE(); return false; };
-            virtual literal_vector literals() const { UNREACHABLE(); return literal_vector(); }
-            virtual void swap(unsigned i, unsigned j) { UNREACHABLE(); }
-            virtual literal get_lit(unsigned i) const { UNREACHABLE(); return null_literal; }
-            virtual void set_lit(unsigned i, literal l) { UNREACHABLE(); }
-            virtual bool well_formed() const { return true; }
-            virtual void negate() { UNREACHABLE(); }
-        };
-
-        friend std::ostream& operator<<(std::ostream& out, constraint const& c);
-        
-        // base class for pb and cardinality constraints
-        class pb_base : public constraint {
-        protected:
-            unsigned       m_k;
-        public:
-            pb_base(tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): 
-                constraint(t, id, l, sz, osz), m_k(k) { VERIFY(k < 4000000000); }
-            virtual void set_k(unsigned k) { VERIFY(k < 4000000000);  m_k = k; }
-            virtual unsigned get_coeff(unsigned i) const { UNREACHABLE(); return 0; }
-            unsigned k() const { return m_k; }
-            bool well_formed() const override;
-        };
-
-        class card : public pb_base {
-            literal        m_lits[0];
-        public:
-            static size_t get_obj_size(unsigned num_lits) { return constraint_base::obj_size(sizeof(card) + num_lits * sizeof(literal)); }
-            card(unsigned id, literal lit, literal_vector const& lits, unsigned k);
-            literal operator[](unsigned i) const { return m_lits[i]; }
-            literal& operator[](unsigned i) { return m_lits[i]; }
-            literal const* begin() const { return m_lits; }
-            literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
-            void negate() override;
-            void swap(unsigned i, unsigned j) override { std::swap(m_lits[i], m_lits[j]); }
-            literal_vector literals() const override { return literal_vector(m_size, m_lits); }
-            bool is_watching(literal l) const override;
-            literal get_lit(unsigned i) const override { return m_lits[i]; }
-            void set_lit(unsigned i, literal l) override { m_lits[i] = l; }
-            unsigned get_coeff(unsigned i) const override { return 1; }
-        };
-
-        
-        typedef std::pair<unsigned, literal> wliteral;
-
-        class pb : public pb_base {
-            unsigned       m_slack;
-            unsigned       m_num_watch;
-            unsigned       m_max_sum;
-            wliteral       m_wlits[0];
-        public:
-            static size_t get_obj_size(unsigned num_lits) { return constraint_base::obj_size(sizeof(pb) + num_lits * sizeof(wliteral)); }
-            pb(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
-            literal lit() const { return m_lit; }
-            wliteral operator[](unsigned i) const { return m_wlits[i]; }
-            wliteral& operator[](unsigned i) { return m_wlits[i]; }
-            wliteral const* begin() const { return m_wlits; }
-            wliteral const* end() const { return begin() + m_size; }
-
-            unsigned slack() const { return m_slack; }
-            void set_slack(unsigned s) { m_slack = s; }
-            unsigned num_watch() const { return m_num_watch; }
-            unsigned max_sum() const { return m_max_sum; }
-            void update_max_sum();
-            void set_num_watch(unsigned s) { m_num_watch = s; }
-            bool is_cardinality() const;
-            void negate() override;
-            void set_k(unsigned k) override { m_k = k; VERIFY(k < 4000000000); update_max_sum(); }
-            void swap(unsigned i, unsigned j) override { std::swap(m_wlits[i], m_wlits[j]); }
-            literal_vector literals() const override { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
-            bool is_watching(literal l) const override;
-            literal get_lit(unsigned i) const override { return m_wlits[i].second; }
-            void set_lit(unsigned i, literal l) override { m_wlits[i].second = l; }
-            unsigned get_coeff(unsigned i) const override { return m_wlits[i].first; }
-        };
-
-        class xr : public constraint {
-            literal        m_lits[0];
-        public:
-            static size_t get_obj_size(unsigned num_lits) { return constraint_base::obj_size(sizeof(xr) + num_lits * sizeof(literal)); }
-            xr(unsigned id, literal_vector const& lits);
-            literal operator[](unsigned i) const { return m_lits[i]; }
-            literal const* begin() const { return m_lits; }
-            literal const* end() const { return begin() + m_size; }
-            void negate() override { m_lits[0].neg(); }
-            void swap(unsigned i, unsigned j) override { std::swap(m_lits[i], m_lits[j]); }
-            bool is_watching(literal l) const override;
-            literal_vector literals() const override { return literal_vector(size(), begin()); }
-            literal get_lit(unsigned i) const override { return m_lits[i]; }
-            void set_lit(unsigned i, literal l) override { m_lits[i] = l; }
-            bool well_formed() const override;
-        };
-
-
+ 
     protected:
 
         struct ineq {
@@ -235,29 +86,28 @@ namespace sat {
         sat_internalizer&      si;
         pb_util                m_pb;
 
-        solver*                m_solver;
-        lookahead*             m_lookahead;
+        solver*                m_solver{ nullptr };
+        lookahead*             m_lookahead{ nullptr };
         stats                  m_stats; 
         small_object_allocator m_allocator;
        
-
-        ptr_vector<constraint> m_constraints;
-        ptr_vector<constraint> m_learned;
-        ptr_vector<constraint> m_constraint_to_reinit;
+        ptr_vector<ba::constraint> m_constraints;
+        ptr_vector<ba::constraint> m_learned;
+        ptr_vector<ba::constraint> m_constraint_to_reinit;
         unsigned_vector        m_constraint_to_reinit_lim;
-        unsigned               m_constraint_to_reinit_last_sz;
-        unsigned               m_constraint_id;
+        unsigned               m_constraint_to_reinit_last_sz{ 0 };
+        unsigned               m_constraint_id{ 0 };
 
         // conflict resolution
-        unsigned          m_num_marks;
-        unsigned          m_conflict_lvl;
+        unsigned          m_num_marks{ 0 };
+        unsigned          m_conflict_lvl{ 0 };
         svector<int64_t>  m_coeffs;
         svector<bool_var> m_active_vars;
-        unsigned          m_bound;
+        unsigned          m_bound{ 0 };
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
         literal_vector    m_skipped;
-        unsigned          m_num_propagations_since_pop;
+        unsigned          m_num_propagations_since_pop{ 0 };
         unsigned_vector   m_parity_marks;
         literal_vector    m_parity_trail;
 
@@ -297,11 +147,11 @@ namespace sat {
 
         vector<svector<constraint*>>    m_cnstr_use_list;
         use_list                  m_clause_use_list;
-        bool                      m_simplify_change;
-        bool                      m_clause_removed;
-        bool                      m_constraint_removed;
+        bool                      m_simplify_change{ false };
+        bool                      m_clause_removed{ false };
+        bool                      m_constraint_removed{ false };
         literal_vector            m_roots;
-        bool_vector             m_root_vars;
+        bool_vector               m_root_vars;
         unsigned_vector           m_weights;
         svector<wliteral>         m_wlits;
 
@@ -324,9 +174,9 @@ namespace sat {
         unsigned elim_pure();
         bool elim_pure(literal lit);
         void unit_strengthen();
-        void unit_strengthen(big& big, constraint& cs);
+        void unit_strengthen(big& big, ba::constraint& cs);
         void unit_strengthen(big& big, pb_base& p);
-        void subsumption(constraint& c1);
+        void subsumption(ba::constraint& c1);
         void subsumption(card& c1);
         void gc_half(char const* _method);
         void update_psm(constraint& c) const;
@@ -345,10 +195,7 @@ namespace sat {
         // constraints
         constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(constraint_base::from_index(idx)->mem()); }
         void pop_constraint();
-        void unwatch_literal(literal w, constraint& c);
-        void watch_literal(literal w, constraint& c);
-        void watch_literal(wliteral w, pb& p);
-        bool is_watched(literal l, constraint const& c) const;
+        // void watch_literal(wliteral w, pb& p);
         void add_constraint(constraint* c);
         bool init_watch(constraint& c);
         void init_watch(bool_var v);
@@ -357,9 +204,8 @@ namespace sat {
         bool incremental_mode() const;
         void simplify(constraint& c);
         void pre_simplify(xor_finder& xu, constraint& c);
-        void nullify_tracking_literal(constraint& c);
-        void set_conflict(constraint& c, literal lit);
-        void assign(constraint& c, literal lit);
+        void set_conflict(constraint& c, literal lit) override;
+        void assign(constraint& c, literal lit) override;
         bool assigned_above(literal above, literal below);
         void get_antecedents(literal l, constraint const& c, literal_vector & r, bool probing);
         bool validate_conflict(constraint const& c) const;
@@ -377,12 +223,10 @@ namespace sat {
         void split_root(constraint& c);
         unsigned next_id() { return m_constraint_id++; }
         void set_non_learned(constraint& c);
-
+        double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const override;
 
         // cardinality
-        bool init_watch(card& c);
         lbool add_assign(card& c, literal lit);
-        void clear_watch(card& c);
         void reset_coeffs();
         void reset_marked_literals();
         void get_antecedents(literal l, card const& c, literal_vector & r);
@@ -392,13 +236,9 @@ namespace sat {
         bool clausify(literal lit, unsigned n, literal const* lits, unsigned k);
         lbool eval(card const& c) const;
         lbool eval(model const& m, card const& c) const;
-        double get_reward(card const& c, literal_occs_fun& occs) const;
 
 
         // xr specific functionality
-        void clear_watch(xr& x);
-        bool init_watch(xr& x);
-        bool parity(xr const& x, unsigned offset) const;
         lbool add_assign(xr& x, literal alit);
         void get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r);
         void get_antecedents(literal l, xr const& x, literal_vector & r);
@@ -411,11 +251,9 @@ namespace sat {
         lbool eval(model const& m, xr const& x) const;
         
         // pb functionality
-        unsigned m_a_max;
-        bool init_watch(pb& p);
+        unsigned m_a_max{ 0 };
         lbool add_assign(pb& p, literal alit);
         void add_index(pb& p, unsigned index, literal lit);
-        void clear_watch(pb& p);
         void get_antecedents(literal l, pb const& p, literal_vector & r);
         void split_root(pb_base& p);
         void simplify(pb_base& p);
@@ -427,7 +265,6 @@ namespace sat {
         bool is_cardinality(pb const& p, literal_vector& lits);
         lbool eval(pb const& p) const;
         lbool eval(model const& m, pb const& p) const;
-        double get_reward(pb const& p, literal_occs_fun& occs) const;
 
         // RoundingPb conflict resolution
         lbool resolve_conflict_rs();
@@ -449,31 +286,32 @@ namespace sat {
 
 
         // access solver
-        inline lbool value(bool_var v) const { return value(literal(v, false)); }
-        inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
-        inline lbool value(model const& m, literal l) const { return l.sign() ? ~m[l.var()] : m[l.var()]; }
-        inline bool is_false(literal lit) const { return l_false == value(lit); }
+        inline lbool value(bool_var v) const override { return value(literal(v, false)); }
+        inline lbool value(literal lit) const override { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
+        inline bool is_false(literal lit) const override { return l_false == value(lit); }
 
-        inline unsigned lvl(literal lit) const { return m_lookahead ? 0 : m_solver->lvl(lit); }
-        inline unsigned lvl(bool_var v) const { return m_lookahead ? 0 : m_solver->lvl(v); }
-        inline bool inconsistent() const { 
+        inline unsigned lvl(literal lit) const override { return m_lookahead ? 0 : m_solver->lvl(lit); }
+        inline unsigned lvl(bool_var v) const override { return m_lookahead ? 0 : m_solver->lvl(v); }
+        inline bool inconsistent() const override { 
             if (m_lookahead) return m_lookahead->inconsistent(); 
             return m_solver->inconsistent(); 
         }
-        inline watch_list& get_wlist(literal l) { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
-        inline watch_list const& get_wlist(literal l) const { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
-        inline void assign(literal l, justification j) { 
+        inline watch_list& get_wlist(literal l) override { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
+        inline watch_list const& get_wlist(literal l) const override { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
+        inline void assign(literal l, justification j) override { 
             if (m_lookahead) m_lookahead->assign(l); 
             else m_solver->assign(l, j);
         }
-        inline void set_conflict(justification j, literal l) { 
+        inline void set_conflict(justification j, literal l) override { 
             if (m_lookahead) m_lookahead->set_conflict(); 
             else m_solver->set_conflict(j, l); 
         }
-        inline config const& get_config() const { return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); }
+        inline config const& get_config() const override { 
+            return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); 
+        }
 
 
-        mutable bool m_overflow;
+        mutable bool m_overflow{ false };
         void reset_active_var_set();
         bool test_and_set_active(bool_var v);
         void inc_coeff(literal l, unsigned offset);
@@ -499,10 +337,7 @@ namespace sat {
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
         bool validate_ineq(ineq const& ineq) const;
-        bool validate_unit_propagation(card const& c, literal alit) const;
-        bool validate_unit_propagation(pb const& p, literal alit) const;
         bool validate_unit_propagation(pb const& p, literal_vector const& r, literal alit) const;
-        bool validate_unit_propagation(xr const& x, literal alit) const;
         bool validate_conflict(literal_vector const& lits, ineq& p);
         bool validate_watch_literals() const;
         bool validate_watch_literal(literal lit) const;
@@ -528,9 +363,6 @@ namespace sat {
         unsigned get_coeff(ineq const& pb, literal lit);
 
         void display(std::ostream& out, ineq const& p, bool values = false) const;
-        void display(std::ostream& out, card const& c, bool values) const;
-        void display(std::ostream& out, pb const& p, bool values) const;
-        void display(std::ostream& out, xr const& c, bool values) const;
         void display_lit(std::ostream& out, literal l, unsigned sz, bool values) const;
 
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
@@ -560,9 +392,9 @@ namespace sat {
         literal internalize_xor(expr* e, bool sign, bool root);
 
         // Decompile
-        expr_ref get_card(std::function<expr_ref(sat::literal)>& l2e, ba_solver::card const& c);
-        expr_ref get_pb(std::function<expr_ref(sat::literal)>& l2e, ba_solver::pb const& p);
-        expr_ref get_xor(std::function<expr_ref(sat::literal)>& l2e, ba_solver::xr const& x);
+        expr_ref get_card(std::function<expr_ref(sat::literal)>& l2e, card const& c);
+        expr_ref get_pb(std::function<expr_ref(sat::literal)>& l2e, pb const& p);
+        expr_ref get_xor(std::function<expr_ref(sat::literal)>& l2e, xr const& x);
 
     public:
         ba_solver(euf::solver& ctx, euf::theory_id id);
@@ -598,7 +430,6 @@ namespace sat {
         void pop_reinit() override;
         void gc() override;
         unsigned max_var(unsigned w) const override;
-        double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const override;
         bool is_extended_binary(ext_justification_idx idx, literal_vector & r) override;
         void init_use_list(ext_use_list& ul) override;
         bool is_blocked(literal l, ext_constraint_idx idx) override;

@@ -5,8 +5,12 @@ z3_add_component(sat_smt
     array_model.cpp
     array_solver.cpp
     atom2bool_var.cpp
+    ba_card.cpp
+    ba_constraint.cpp
     ba_internalize.cpp
+    ba_pb.cpp
     ba_solver.cpp
+    ba_xor.cpp
     bv_ackerman.cpp
     bv_internalize.cpp
     bv_solver.cpp

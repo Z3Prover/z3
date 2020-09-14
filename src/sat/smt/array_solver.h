@@ -42,6 +42,7 @@ namespace array {
             unsigned m_num_select_const_axiom, m_num_select_store_axiom_delayed;
             unsigned m_num_default_store_axiom, m_num_default_map_axiom;
             unsigned m_num_default_const_axiom, m_num_default_as_array_axiom;
+            unsigned m_num_select_lambda_axiom;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
@@ -49,10 +50,10 @@ namespace array {
         // void log_drat(array_justification const& c);
 
         struct var_data {
-            bool                   m_prop_upward{ false };            
-            bool                   m_is_array{ false };
-            bool                   m_is_select{ false };
-            ptr_vector<euf::enode> m_parents;
+            bool                m_prop_upward{ false };            
+            euf::enode_vector   m_lambdas;             // equivalent nodes that have beta reduction properties
+            euf::enode_vector   m_parent_lambdas;      // parents that have beta reduction properties
+            euf::enode_vector   m_parent_selects;      // parents that use array in select position
             var_data() {}
         };
 
@@ -76,11 +77,10 @@ namespace array {
         void ensure_var(euf::enode* n);
         void internalize_store(euf::enode* n);
         void internalize_select(euf::enode* n);
-        void internalize_const(euf::enode* n);
+        void internalize_lambda(euf::enode* n);
         void internalize_ext(euf::enode* n);
         void internalize_default(euf::enode* n);
         void internalize_map(euf::enode* n);
-        void internalize_as_array(euf::enode* n);
 
         // axioms
         struct axiom_record {
@@ -144,33 +144,44 @@ namespace array {
         bool assert_default_map_axiom(app* map);
         bool assert_default_const_axiom(app* cnst);
         bool assert_default_store_axiom(app* store);
-        bool assert_default_as_array_axiom(app* as_array);
         bool assert_congruent_axiom(expr* e1, expr* e2);
         bool add_delayed_axioms();
         
         bool has_unitary_domain(app* array_term);
-        bool has_large_domain(app* array_term);
+        bool has_large_domain(expr* array_term);
         std::pair<app*, func_decl*> mk_epsilon(sort* s);
         void collect_shared_vars(sbuffer<theory_var>& roots);
         bool add_interface_equalities();
         bool is_select_arg(euf::enode* r);
 
-        // solving
-        void add_parent(theory_var v_child, euf::enode* parent);
-        void add_parent(euf::enode* child, euf::enode* parent) { add_parent(child->get_th_var(get_id()), parent); }
-        void add_store(theory_var v, euf::enode* store);        
+        // solving          
+        void add_parent_select(theory_var v_child, euf::enode* select);
+        void add_parent_default(theory_var v_child, euf::enode* def);
+        void add_lambda(theory_var v, euf::enode* lambda);
+        void add_parent_lambda(theory_var v_child, euf::enode* lambda);
+
+        void propagate_select_axioms(var_data const& d, euf::enode* a);
+        void propagate_parent_select_axioms(theory_var v);
+        void propagate_parent_default(theory_var v);        
+
         void set_prop_upward(theory_var v);
         void set_prop_upward(var_data& d);
         void set_prop_upward(euf::enode* n);
-        void push_parent_select_store_axioms(theory_var v);
-        unsigned get_lambda_equiv_size(var_data const& d);
+        unsigned get_lambda_equiv_size(var_data const& d) const;
+        bool should_set_prop_upward(var_data const& d) const;
+        bool should_prop_upward(var_data const& d) const;
+        bool can_beta_reduce(euf::enode* n) const;
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }
+        var_data const& get_var_data(theory_var v) const { return *m_var_data[v]; }
         
+        // models
+        bool have_different_model_values(theory_var v1, theory_var v2);
 
-        // invariants
+        // diagnostics
 
+        std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const;
     public:
         solver(euf::solver& ctx, theory_id id);
         ~solver() override {}
@@ -196,8 +207,10 @@ namespace array {
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
 
+        void tracked_push(euf::enode_vector& v, euf::enode* n);
+
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
-        void unmerge_eh(theory_var v1, theory_var v2);
+        void unmerge_eh(theory_var v1, theory_var v2) {}
     };
 }

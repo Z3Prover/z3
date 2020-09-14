@@ -156,6 +156,7 @@ namespace euf {
 
         void reverse_justification();
         bool reaches(enode* n) const;
+        bool acyclic() const;
 
         enode* const* begin_parents() const { return m_parents.begin(); }
         enode* const* end_parents() const { return m_parents.end(); }

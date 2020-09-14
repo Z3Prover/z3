@@ -17,11 +17,14 @@ Copyright (c) 2020 Microsoft Corporation
 
 class smt_checker {
     ast_manager& m;
+    sat::drat& m_drat;
     expr_ref_vector const& m_b2e;
     expr_ref_vector m_fresh_exprs;
     expr_ref_vector m_core;
+    expr_ref_vector m_inputs;
     params_ref m_params;
-    scoped_ptr<solver> m_solver;
+    scoped_ptr<solver> m_lemma_solver, m_input_solver;
+    sat::literal_vector m_units;
 
     expr* fresh(expr* e) {
         unsigned i = e->get_id();
@@ -59,29 +62,103 @@ class smt_checker {
             m_core.push_back(fml);
         }
     }
-public:
-    smt_checker(expr_ref_vector const& b2e): 
-        m(b2e.m()), m_b2e(b2e), m_fresh_exprs(m), m_core(m) {
-        m_solver = mk_smt_solver(m, m_params, symbol());
+
+    expr_ref lit2expr(sat::literal lit) {
+        return expr_ref(lit.sign() ? m.mk_not(m_b2e[lit.var()]) : m_b2e[lit.var()], m);
     }
-    
-    void check_shallow(sat::literal_vector const& lits) {
-        unfold1(lits);
-        m_solver->push();
-        for (auto* c : m_core)
-            m_solver->assert_expr(c);
-        lbool is_sat = m_solver->check_sat();
-        m_solver->pop(1);
-        if (is_sat == l_true) {
-            std::cout << "did not verify: " << lits << "\n" << m_core << "\n";
+
+    void add_units() {
+        auto const& units = m_drat.units();
+        for (unsigned i = m_units.size(); i < units.size(); ++i) {
+            sat::literal lit = units[i];            
+            m_lemma_solver->assert_expr(lit2expr(lit));
+        }
+        m_units.append(units.size() - m_units.size(), units.c_ptr() + m_units.size());
+    }
+
+    void check_assertion_redundant(sat::literal_vector const& input) {
+        expr_ref_vector args(m);
+        for (auto lit : input)
+            args.push_back(lit2expr(lit));
+        m_inputs.push_back(args.size() == 1 ? args.back() : m.mk_or(args));
+
+        m_input_solver->push();
+        for (auto lit : input) {
+            m_input_solver->assert_expr(lit2expr(~lit));
+        }
+        lbool is_sat = m_input_solver->check_sat();
+        if (is_sat != l_false) {
+            std::cout << "Failed to verify input\n";
+            exit(0);
+        }
+        m_input_solver->pop(1);
+    }
+
+
+    /**
+    * Validate a lemma using the following attempts:
+    * 1. check if it is propositional DRUP
+    * 2. establish the negation of literals is unsat using a limited unfolding.
+    * 3. check that it is DRUP modulo theories by taking propositional implicants from DRUP validation
+    */
+    sat::literal_vector drup_units;
+
+    void check_clause(sat::literal_vector const& lits) {
+        
+        add_units();
+        drup_units.reset();
+        if (m_drat.is_drup(lits.size(), lits.c_ptr(), drup_units)) {
+            std::cout << "drup\n";
+            return;
+        }
+        m_lemma_solver->push();
+        for (auto lit : drup_units)
+            m_lemma_solver->assert_expr(lit2expr(lit));
+        lbool is_sat = m_lemma_solver->check_sat();
+        if (is_sat != l_false) {
+            std::cout << "did not verify: " << lits << "\n";
             for (sat::literal lit : lits) {
-                expr_ref e(m_b2e[lit.var()], m);
-                if (lit.sign())
-                    e = m.mk_not(e);
-                std::cout << e << " ";                
+                std::cout << lit2expr(lit) << "\n";
             }
             std::cout << "\n";
+            m_lemma_solver->display(std::cout);
+            exit(0);
         }
+        m_lemma_solver->pop(1);
+        std::cout << "smt\n";
+        check_assertion_redundant(lits);
+    }
+
+public:
+    smt_checker(sat::drat& drat, expr_ref_vector const& b2e): 
+        m(b2e.m()), m_drat(drat), m_b2e(b2e), m_fresh_exprs(m), m_core(m), m_inputs(m) {
+        m_lemma_solver = mk_smt_solver(m, m_params, symbol());
+        m_input_solver = mk_smt_solver(m, m_params, symbol());
+    }
+
+    void add(sat::literal_vector const& lits, sat::status const& st) {
+        for (sat::literal lit : lits)
+            while (lit.var() >= m_drat.get_solver().num_vars())
+                m_drat.get_solver().mk_var(true);
+        if (st.is_input())
+            check_assertion_redundant(lits);
+        else if (!st.is_sat() && !st.is_deleted()) 
+            check_clause(lits);        
+        m_drat.add(lits, st);
+    }    
+
+    /**
+    * Add an assertion from the source file
+    */
+    void add_assertion(expr* a) {
+        m_input_solver->assert_expr(a);
+    }
+
+    void display_input() {
+        scoped_ptr<solver> s = mk_smt_solver(m, m_params, symbol());
+        for (auto* e : m_inputs)
+            s->assert_expr(e);
+        s->display(std::cout);
     }
 };
 
@@ -100,10 +177,12 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     
     std::ifstream ins(drat_file);
     dimacs::drat_parser drat(ins, std::cerr);
+    ast_manager& m = ctx.m();
     std::function<int(char const* read_theory)> read_theory = [&](char const* r) {
-        if (strcmp(r, "euf") == 0)
-            return ctx.m().get_basic_family_id();
-        return ctx.m().mk_family_id(symbol(r));
+        return m.mk_family_id(symbol(r));
+    };
+    std::function<symbol(int)> write_theory = [&](int th) {
+        return m.get_family_name(th);
     };
     drat.set_read_theory(read_theory);
     params_ref p;
@@ -113,43 +192,24 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     sat::drat drat_checker(solver);
     drat_checker.updt_config();
 
-    expr_ref_vector bool_var2expr(ctx.m());
-    expr_ref_vector exprs(ctx.m()), args(ctx.m());
+    expr_ref_vector bool_var2expr(m);
+    expr_ref_vector exprs(m), args(m), inputs(m);
     func_decl* f = nullptr;
     ptr_vector<sort> sorts;
 
-    smt_checker checker(bool_var2expr);
+    smt_checker checker(drat_checker, bool_var2expr);
 
-    auto check_smt = [&](dimacs::drat_record const& r) {
-        auto const& st = r.m_status;
-        if (st.is_input())
-            ;
-        else if (st.is_sat() && st.is_asserted()) {
-            std::cout << "Tseitin tautology " << r;
-            checker.check_shallow(r.m_lits);
-        }
-        else if (st.is_sat())
-            ;
-        else if (st.is_deleted())
-            ;
-        else {
-            std::cout << "check smt " << r;
-            checker.check_shallow(r.m_lits);
-            // TBD: shallow check may fail because it doesn't include
-            // all RUP units, whish are sometimes required.
-        }
-    };
+    for (expr* a : ctx.assertions())
+        checker.add_assertion(a);
     
     for (auto const& r : drat) {
-        std::cout << r;
+        std::cout << dimacs::drat_pp(r, write_theory); 
         std::cout.flush();
         switch (r.m_tag) {
         case dimacs::drat_record::tag_t::is_clause:
-            for (sat::literal lit : r.m_lits)
-                while (lit.var() >= solver.num_vars())
-                    solver.mk_var(true);
-            drat_checker.add(r.m_lits, r.m_status);
-            check_smt(r);
+            checker.add(r.m_lits, r.m_status);
+            if (drat_checker.inconsistent()) 
+                std::cout << "inconsistent\n";            
             break;
         case dimacs::drat_record::tag_t::is_node:
             args.reset();
@@ -170,7 +230,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             exprs.reserve(r.m_node_id+1);
             exprs.set(r.m_node_id, ctx.m().mk_app(f, args.size(), args.c_ptr()));
             break;
-        case dimacs::drat_record::is_bool_def:
+        case dimacs::drat_record::tag_t::is_bool_def:
             bool_var2expr.reserve(r.m_node_id+1);
             bool_var2expr.set(r.m_node_id, exprs.get(r.m_args[0]));
             break;
@@ -182,6 +242,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     statistics st;
     drat_checker.collect_statistics(st);
     std::cout << st << "\n";
+
 }
 
 

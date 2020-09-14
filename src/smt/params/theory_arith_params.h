@@ -21,7 +21,7 @@ Revision History:
 #include<climits>
 #include "util/params.h"
 
-enum arith_solver_id {
+enum class arith_solver_id {
     AS_NO_ARITH,              // 0
     AS_DIFF_LOGIC,            // 1
     AS_OLD_ARITH,             // 2
@@ -31,13 +31,13 @@ enum arith_solver_id {
     AS_NEW_ARITH              // 6
 };
 
-enum bound_prop_mode {
+enum class bound_prop_mode {
     BP_NONE,
     BP_SIMPLE, // only used for implying literals   
     BP_REFINE  // adds new literals, but only refines finite bounds
 };
 
-enum arith_prop_strategy {
+enum class arith_prop_strategy {
     ARITH_PROP_AGILITY,
     ARITH_PROP_PROPORTIONAL
 };
@@ -114,11 +114,11 @@ struct theory_arith_params {
     theory_arith_params(params_ref const & p = params_ref()):
         m_arith_eq2ineq(false),
         m_arith_process_all_eqs(false),
-        m_arith_mode(AS_NEW_ARITH),
+        m_arith_mode(arith_solver_id::AS_NEW_ARITH),
         m_arith_auto_config_simplex(false),
         m_arith_blands_rule_threshold(1000),
         m_arith_propagate_eqs(true),
-        m_arith_bound_prop(BP_REFINE),
+        m_arith_bound_prop(bound_prop_mode::BP_REFINE),
         m_arith_stronger_lemmas(true),
         m_arith_skip_rows_with_big_coeffs(true),
         m_arith_max_lemma_size(128),
@@ -145,7 +145,7 @@ struct theory_arith_params {
         m_arith_bounded_expansion(false),
         m_arith_pivot_strategy(arith_pivot_strategy::ARITH_PIVOT_SMALLEST),
         m_arith_add_binary_bounds(false),
-        m_arith_propagation_strategy(ARITH_PROP_PROPORTIONAL),
+        m_arith_propagation_strategy(arith_prop_strategy::ARITH_PROP_PROPORTIONAL),
         m_arith_eq_bounds(false),
         m_arith_lazy_adapter(false),
         m_arith_fixnum(false),

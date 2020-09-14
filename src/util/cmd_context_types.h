@@ -97,7 +97,7 @@ public:
     // command invocation
     void set_line_pos(int line, int pos) { m_line = line; m_pos = pos; }
     virtual void prepare(cmd_context & ctx) {}
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { UNREACHABLE(); return CPK_UINT; }
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { UNREACHABLE(); return cmd_arg_kind::CPK_UINT; }
     virtual void set_next_arg(cmd_context & ctx, unsigned val) { UNREACHABLE(); }
     virtual void set_next_arg(cmd_context & ctx, bool val) { UNREACHABLE(); }
     virtual void set_next_arg(cmd_context & ctx, rational const & val) { UNREACHABLE(); }

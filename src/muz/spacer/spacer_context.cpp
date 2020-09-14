@@ -2613,7 +2613,7 @@ void context::init_global_smt_params() {
     m.toggle_proof_mode(PGM_ENABLED);
     params_ref p;
     if (!m_use_eq_prop) {
-        p.set_uint("arith.propagation_mode", BP_NONE);
+        p.set_uint("arith.propagation_mode", (unsigned)bound_prop_mode::BP_NONE);
         p.set_bool("arith.auto_config_simplex", true);
         p.set_bool("arith.propagate_eqs", false);
         p.set_bool("arith.eager_eq_axioms", false);

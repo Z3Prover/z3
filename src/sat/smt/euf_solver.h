@@ -70,7 +70,7 @@ namespace euf {
         size_t* to_ptr(size_t jst) { return TAG(size_t*, reinterpret_cast<size_t*>(jst), 2); }
         bool is_literal(size_t* p) const { return GET_TAG(p) == 1; }
         bool is_justification(size_t* p) const { return GET_TAG(p) == 2; }
-        sat::literal get_literal(size_t* p) {
+        sat::literal get_literal(size_t* p) const {
             unsigned idx = static_cast<unsigned>(reinterpret_cast<size_t>(UNTAG(size_t*, p)));
             return sat::to_literal(idx >> 4);
         }
@@ -86,7 +86,6 @@ namespace euf {
         stats                 m_stats;
         th_rewriter           m_rewriter;
         func_decl_ref_vector  m_unhandled_functions;
-        
 
         sat::solver*           m_solver { nullptr };
         sat::lookahead*        m_lookahead { nullptr };
@@ -148,13 +147,16 @@ namespace euf {
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
-        void log_node(expr* n);
+        
         bool m_drat_initialized{ false };
         void init_drat();
 
         // invariant
         void check_eqc_bool_assignment() const;
-        void check_missing_bool_enode_propagation() const;        
+        void check_missing_bool_enode_propagation() const; 
+        void check_missing_eq_propagation() const;
+
+        std::ostream& display_justification_ptr(std::ostream& out, size_t* j) const;
 
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
@@ -162,21 +164,7 @@ namespace euf {
         constraint& lit_constraint() { return mk_constraint(m_lit, constraint::kind_t::lit); }
 
     public:
-       solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p = params_ref()):
-            m(m),
-            si(si),
-            m_egraph(m),
-            m_trail(*this),
-            m_rewriter(m),
-            m_unhandled_functions(m),
-            m_solver(nullptr),
-            m_lookahead(nullptr),
-            m_to_m(&m),
-            m_to_si(&si),
-            m_reinit_exprs(m)
-        {
-            updt_params(p);
-        }
+        solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p = params_ref());
 
        ~solver() override {
            if (m_conflict) dealloc(sat::constraint_base::mem2base_ptr(m_conflict));
@@ -267,6 +255,7 @@ namespace euf {
         void unhandled_function(func_decl* f);
         th_rewriter& get_rewriter() { return m_rewriter; }
         bool is_shared(euf::enode* n) const;
+        void drat_log_node(expr* n);
 
         void update_model(model_ref& mdl);
 

@@ -992,7 +992,7 @@ public:
         smt_params_helper lpar(ctx().get_params());
         lp().settings().set_resource_limit(m_resource_limit);
         lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
-        lp().settings().bound_propagation() = BP_NONE != propagation_mode();
+        lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
         lp().settings().enable_hnf() = lpar.arith_enable_hnf();
         lp().settings().print_external_var_name() = lpar.arith_print_ext_var_names();
         lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
@@ -2320,11 +2320,11 @@ public:
     }
 
     bool should_propagate() const {
-        return BP_NONE != propagation_mode();
+        return bound_prop_mode::BP_NONE != propagation_mode();
     }
 
     bool should_refine_bounds() const {
-        return BP_REFINE == propagation_mode() && ctx().at_search_level();
+        return bound_prop_mode::BP_REFINE == propagation_mode() && ctx().at_search_level();
     }
 
     void consume(rational const& v, lp::constraint_index j) {
@@ -2807,7 +2807,7 @@ public:
     //   x <= hi -> ~(x >= hi')
 
     void propagate_bound(bool_var bv, bool is_true, lp_api::bound& b) {
-        if (BP_NONE == propagation_mode()) {
+        if (bound_prop_mode::BP_NONE == propagation_mode()) {
             return;
         }
         lp_api::bound_kind k = b.get_bound_kind();
@@ -3113,7 +3113,7 @@ public:
 
     bool propagate_eqs() const { return params().m_arith_propagate_eqs && m_num_conflicts < params().m_arith_propagation_threshold; }
 
-    bound_prop_mode propagation_mode() const { return m_num_conflicts < params().m_arith_propagation_threshold ? params().m_arith_bound_prop : BP_NONE; }
+    bound_prop_mode propagation_mode() const { return m_num_conflicts < params().m_arith_propagation_threshold ? params().m_arith_bound_prop : bound_prop_mode::BP_NONE; }
 
     unsigned small_lemma_size() const { return params().m_arith_small_lemma_size; }
 
@@ -3568,10 +3568,10 @@ public:
     struct scoped_arith_mode {
         smt_params& p;
         scoped_arith_mode(smt_params& p) : p(p) {
-            p.m_arith_mode = AS_OLD_ARITH;
+            p.m_arith_mode = arith_solver_id::AS_OLD_ARITH;
         }
         ~scoped_arith_mode() {
-            p.m_arith_mode = AS_NEW_ARITH;
+            p.m_arith_mode = arith_solver_id::AS_NEW_ARITH;
         }
     };
 
@@ -3582,7 +3582,7 @@ public:
     }
 
     bool validate_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
-        if (params().m_arith_mode != AS_NEW_ARITH) return true;
+        if (params().m_arith_mode != arith_solver_id::AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
@@ -3601,7 +3601,7 @@ public:
     }
 
     bool validate_assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs) {
-        if (params().m_arith_mode != AS_NEW_ARITH) return true;
+        if (params().m_arith_mode != arith_solver_id::AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         m_core.push_back(~lit);
@@ -3616,7 +3616,7 @@ public:
     }
 
     bool validate_eq(enode* x, enode* y) {
-        if (params().m_arith_mode == AS_NEW_ARITH) return true;
+        if (params().m_arith_mode == arith_solver_id::AS_NEW_ARITH) return true;
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
         nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));

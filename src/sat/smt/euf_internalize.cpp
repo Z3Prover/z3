@@ -84,7 +84,7 @@ namespace euf {
     void solver::attach_node(euf::enode* n) {
         expr* e = n->get_expr();
         if (!m.is_bool(e))
-            log_node(e);
+            drat_log_node(e);
         else
             attach_lit(literal(si.add_bool_var(e), false), e);
 
@@ -98,20 +98,23 @@ namespace euf {
     }
 
     sat::literal solver::attach_lit(literal lit, expr* e) {
+        sat::bool_var v = lit.var();
+        s().set_external(v);
+        s().set_eliminated(v, false);
+
         if (lit.sign()) {
-            sat::bool_var v = si.add_bool_var(e);
+            v = si.add_bool_var(e);
             s().set_external(v);
+            s().set_eliminated(v, false);
             sat::literal lit2 = literal(v, false);
-            s().mk_clause(~lit, lit2, sat::status::asserted());
-            s().mk_clause(lit, ~lit2, sat::status::asserted());
+            s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
+            s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
             lit = lit2;
         }
-        sat::bool_var v = lit.var();
         m_var2expr.reserve(v + 1, nullptr);
         SASSERT(m_var2expr[v] == nullptr);
         m_var2expr[v] = e;
         m_var_trail.push_back(v);
-        s().set_external(v);
         if (!m_egraph.find(e)) {
             enode* n = m_egraph.mk(e, 0, nullptr);
             m_egraph.set_merge_enabled(n, false);
@@ -215,14 +218,11 @@ namespace euf {
     void solver::axiomatize_basic(enode* n) {
         expr* e = n->get_expr();
         sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
-        if (m.is_ite(e)) {
+        expr* c = nullptr, * th = nullptr, * el = nullptr;
+        if (!m.is_bool(e) && m.is_ite(e, c, th, el)) {
             app* a = to_app(e);
-            expr* c = a->get_arg(0);
-            expr* th = a->get_arg(1);
-            expr* el = a->get_arg(2);
             sat::bool_var v = si.to_bool_var(c);
             SASSERT(v != sat::null_bool_var);
-            SASSERT(!m.is_bool(e));
             expr_ref eq_th(m.mk_eq(a, th), m);
             expr_ref eq_el(m.mk_eq(a, el), m);
             sat::literal lit_th = internalize(eq_th, false, false, m_is_redundant);

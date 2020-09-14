@@ -31,17 +31,17 @@ namespace euf {
         loop:
             if (!m.inc())
                 throw tactic_exception(m.limit().get_cancel_msg());
-            sat::eframe& fr = m_stack.back();
-            expr* e = fr.m_e;
+            unsigned fsz = m_stack.size();
+            expr* e = m_stack[fsz-1].m_e;
             if (visited(e)) {
                 m_stack.pop_back();
                 continue;
             }
             unsigned num = is_app(e) ? to_app(e)->get_num_args() : 0;
 
-            while (fr.m_idx < num) {
-                expr* arg = to_app(e)->get_arg(fr.m_idx);
-                fr.m_idx++;
+            while (m_stack[fsz - 1].m_idx < num) {
+                expr* arg = to_app(e)->get_arg(m_stack[fsz - 1].m_idx);
+                m_stack[fsz - 1].m_idx++;
                 if (!visit(arg))
                     goto loop;
             }
@@ -120,24 +120,26 @@ namespace euf {
         }
     }
 
-    void th_euf_solver::add_unit(sat::literal lit) {
-        ctx.s().add_clause(1, &lit, sat::status::th(m_is_redundant, get_id())); 
+    bool th_euf_solver::add_unit(sat::literal lit) {
+        return !is_true(lit) && (ctx.s().add_clause(1, &lit, sat::status::th(m_is_redundant, get_id())), true);
     }
 
-    void th_euf_solver::add_clause(sat::literal a, sat::literal b) {
+    bool th_euf_solver::add_clause(sat::literal a, sat::literal b) {
         sat::literal lits[2] = { a, b };
-        ctx.s().add_clause(2, lits, sat::status::th(m_is_redundant, get_id()));
+        return !is_true(a, b) && (ctx.s().add_clause(2, lits, sat::status::th(m_is_redundant, get_id())), true);
     }
 
-    void th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c) {
+    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c) {
         sat::literal lits[3] = { a, b, c };
-        ctx.s().add_clause(3, lits, sat::status::th(m_is_redundant, get_id()));
+        return !is_true(a, b, c) && (ctx.s().add_clause(3, lits, sat::status::th(m_is_redundant, get_id())), true);
     }
 
-    void th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d) {
+    bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d) {
         sat::literal lits[4] = { a, b, c, d };
-        ctx.s().add_clause(4, lits, sat::status::th(m_is_redundant, get_id()));
+        return !is_true(a, b, c, d) && (ctx.s().add_clause(4, lits, sat::status::th(m_is_redundant, get_id())), true);
     }
+
+    bool th_euf_solver::is_true(sat::literal lit) { return ctx.s().value(lit) == l_true; }
 
     euf::enode* th_euf_solver::mk_enode(expr* e, bool suppress_args) {
         m_args.reset();
@@ -146,14 +148,8 @@ namespace euf {
                 m_args.push_back(expr2enode(arg));
         euf::enode* n = ctx.mk_enode(e, m_args.size(), m_args.c_ptr());
         ctx.attach_node(n);
-        if (m.is_bool(e)) {
-            sat::bool_var v = ctx.get_si().add_bool_var(e);
-            NOT_IMPLEMENTED_YET();
-            // TODO: ctx.attach_lit(literal(v, false), e);
-        }
         return n;
     }
-
 
     void th_euf_solver::rewrite(expr_ref& a) {
         ctx.get_rewriter()(a);

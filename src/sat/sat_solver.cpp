@@ -249,7 +249,7 @@ namespace sat {
         m_watches[2*v+1].reset();
         m_assignment[2*v] = l_undef;
         m_assignment[2*v+1] = l_undef;
-        m_justification[2*v] = justification(UINT_MAX);
+        m_justification[v] = justification(UINT_MAX);
         m_decision[v] = dvar;
         m_eliminated[v] = false;
         m_external[v] = ext;
@@ -337,6 +337,8 @@ namespace sat {
     }
 
     void solver::set_eliminated(bool_var v, bool f) { 
+        if (m_eliminated[v] && !f) 
+            reset_var(v, m_external[v], m_decision[v]);
         m_eliminated[v] = f; 
     }
 
@@ -386,9 +388,29 @@ namespace sat {
             m_stats.m_del_clause++;
     }
 
+    void solver::drat_explain_conflict() {
+        if (m_config.m_drat && m_ext) {
+            extension::scoped_drating _sd(*m_ext);
+            bool unique_max;
+            m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
+            resolve_conflict_for_unsat_core();                
+        }
+    }
+
+    void solver::drat_log_unit(literal lit, justification j) {
+        extension::scoped_drating _sd(*m_ext.get());
+        if (j.get_kind() == justification::EXT_JUSTIFICATION) 
+            fill_ext_antecedents(lit, j, false);
+        m_drat.add(lit, m_searching);
+    }
+
+    void solver::drat_log_clause(unsigned num_lits, literal const* lits, sat::status st) {
+        m_drat.add(num_lits, lits, st);
+    }
+
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, sat::status st) {
         bool redundant = st.is_redundant();
-        TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (redundant?" learned":" aux") << "\n";);
+        TRACE("sat", tout << "mk_clause: "  << mk_lits_pp(num_lits, lits) << (redundant?" learned":" aux") << "\n";);
         if (!redundant || !st.is_sat()) {
             unsigned old_sz = num_lits;
             bool keep = simplify_clause(num_lits, lits);
@@ -397,11 +419,9 @@ namespace sat {
                 return nullptr; // clause is equivalent to true.
             }
             // if an input clause is simplified, then log the simplified version as learned
-            if (old_sz > num_lits && m_config.m_drat) {
-                m_lemma.reset();
-                m_lemma.append(num_lits, lits);
-                m_drat.add(m_lemma, st);
-            }
+            if (m_config.m_drat && old_sz > num_lits)
+                drat_log_clause(num_lits, lits, st);
+
             ++m_stats.m_non_learned_generation;
             if (!m_searching) {
                 m_mc.add_clause(num_lits, lits);
@@ -413,6 +433,8 @@ namespace sat {
             set_conflict();
             return nullptr;
         case 1:
+            if (m_config.m_drat && (!st.is_sat() || st.is_input()))
+                drat_log_clause(num_lits, lits, st);
             assign_unit(lits[0]);
             return nullptr;
         case 2:
@@ -493,7 +515,7 @@ namespace sat {
         VERIFY(ENABLE_TERNARY);
         m_stats.m_mk_ter_clause++;
         clause * r = alloc_clause(3, lits, st.is_redundant());
-        bool reinit = attach_ter_clause(*r);
+        bool reinit = attach_ter_clause(*r, st);
         if (reinit && !st.is_redundant()) push_reinit_stack(*r);
         if (st.is_redundant())
             m_learned.push_back(r);
@@ -505,10 +527,10 @@ namespace sat {
         return r;
     }
 
-    bool solver::attach_ter_clause(clause & c) {
+    bool solver::attach_ter_clause(clause & c, sat::status st) {
         VERIFY(ENABLE_TERNARY);
         bool reinit = false;
-        if (m_config.m_drat) m_drat.add(c, c.is_learned() ? status::redundant() : status::asserted());
+        if (m_config.m_drat) m_drat.add(c, st);
         TRACE("sat_verbose", tout << c << "\n";);
         SASSERT(!c.was_removed());
         m_watches[(~c[0]).index()].push_back(watched(c[1], c[2]));
@@ -604,7 +626,7 @@ namespace sat {
         SASSERT(c.size() > 2);
         reinit = false;
         if (ENABLE_TERNARY && c.size() == 3)
-            reinit = attach_ter_clause(c);
+            reinit = attach_ter_clause(c, c.is_learned() ? sat::status::redundant() : sat::status::asserted());
         else
             reinit = attach_nary_clause(c);
     }
@@ -890,7 +912,9 @@ namespace sat {
         SASSERT(value(l) == l_undef);
         TRACE("sat_assign_core", tout << l << " " << j << "\n";);
         if (j.level() == 0) {
-            if (m_config.m_drat) m_drat.add(l, m_searching);
+            if (m_config.m_drat) 
+                drat_log_unit(l, j);
+            
             j = justification(0); // erase justification for level 0
         }
         else {
@@ -1666,12 +1690,12 @@ namespace sat {
     lbool solver::final_check() {
         if (m_ext) {
             switch (m_ext->check()) {
-            case CR_DONE:
+            case check_result::CR_DONE:
                 mk_model();
                 return l_true;
-            case CR_CONTINUE:
+            case check_result::CR_CONTINUE:
                 break;
-            case CR_GIVEUP:
+            case check_result::CR_GIVEUP:
                 throw abort_solver();
             }
             return l_undef;
@@ -2630,8 +2654,9 @@ namespace sat {
         }
 
         if (m_conflict_lvl == 0) {
-            if (m_config.m_drat && m_ext) 
-                resolve_conflict_for_unsat_core();                
+            drat_explain_conflict();
+            if (m_config.m_drat)
+                drat_log_clause(0, nullptr, sat::status::redundant());
             TRACE("sat", tout << "conflict level is 0\n";);
             return l_false;
         }
@@ -2883,7 +2908,7 @@ namespace sat {
             break;
         }
         case justification::EXT_JUSTIFICATION: {
-            fill_ext_antecedents(consequent, js, true);
+            fill_ext_antecedents(consequent, js, false);
             for (literal l : m_ext_antecedents) {
                 process_antecedent_for_unsat_core(l);
             }
@@ -2896,7 +2921,7 @@ namespace sat {
     }
 
     void solver::resolve_conflict_for_unsat_core() {
-        TRACE("sat", display(tout);
+        TRACE("sat_verbose", display(tout);
               unsigned level = 0;
               for (literal l : m_trail) {
                   if (level != lvl(l)) {
@@ -2914,7 +2939,7 @@ namespace sat {
               );
 
         m_core.reset();
-        if (m_conflict_lvl == 0) {
+        if (!m_config.m_drat && m_conflict_lvl == 0) {
             return;
         }
         SASSERT(m_unmark.empty());
@@ -3044,6 +3069,7 @@ namespace sat {
         bool_var var     = antecedent.var();
         unsigned var_lvl = lvl(var);
         SASSERT(var < num_vars());
+        TRACE("sat", tout << "process " << var << "@" << var_lvl << " marked " << is_marked(var) << " conflict " << m_conflict_lvl << "\n";);
         if (!is_marked(var) && var_lvl > 0) {
             mark(var);
             switch (m_config.m_branching_heuristic) {
@@ -3717,11 +3743,14 @@ namespace sat {
         }
         for (literal lit : m_lemma)
             mark_visited(lit);
+        auto is_active = [&](bool_var v) {
+            return value(v) != l_undef && lvl(v) <= new_lvl;
+        };
                
         unsigned sz = m_active_vars.size(), j = old_num_vars;
         for (unsigned i = old_num_vars; i < sz; ++i) {
             bool_var v = m_active_vars[i];
-            if (is_visited(v)) {
+            if (is_visited(v) || is_active(v)) {
                 m_vars_to_reinit.push_back(v);
                 m_active_vars[j++] = v;
             }
@@ -3731,7 +3760,9 @@ namespace sat {
             }
         }
         m_active_vars.shrink(j);
-        IF_VERBOSE(0, verbose_stream() << "vars to reinit: " << m_vars_to_reinit << " free vars " << m_free_vars << "\n");
+        IF_VERBOSE(11, verbose_stream() << "vars to reinit: " << m_vars_to_reinit << " free vars " << m_free_vars << "\n";
+                   display(verbose_stream()););
+        
     }
 
     void solver::shrink_vars(unsigned v) {

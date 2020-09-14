@@ -22,104 +22,11 @@ Revision History:
 #include "sat/sat_simplifier_params.hpp"
 #include "sat/sat_xor_finder.h"
 
+
 namespace sat {
-    ba_solver::xr& ba_solver::constraint::to_xr() {
-        SASSERT(is_xr());
-        return static_cast<xr&>(*this);
-    }
-
-    ba_solver::xr const& ba_solver::constraint::to_xr() const{
-        SASSERT(is_xr());
-        return static_cast<xr const&>(*this);
-    }
-
-    ba_solver::xr::xr(unsigned id, literal_vector const& lits):
-        constraint(xr_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
-        for (unsigned i = 0; i < size(); ++i) {
-            m_lits[i] = lits[i];
-        }
-    }
-
-    bool ba_solver::xr::is_watching(literal l) const {
-        return 
-            l == (*this)[0] || l == (*this)[1] ||
-            ~l == (*this)[0] || ~l == (*this)[1];            
-    }
-
-    bool ba_solver::xr::well_formed() const {
-        uint_set vars;        
-        if (lit() != null_literal) vars.insert(lit().var());
-        for (literal l : *this) {
-            bool_var v = l.var();
-            if (vars.contains(v)) return false;
-            vars.insert(v);            
-        }
-        return true;
-    }
 
     // --------------------
     // xr:
-
-    void ba_solver::clear_watch(xr& x) {
-        x.clear_watch();
-        unwatch_literal(x[0], x);
-        unwatch_literal(x[1], x);         
-        unwatch_literal(~x[0], x);
-        unwatch_literal(~x[1], x);         
-    }
-
-    bool ba_solver::parity(xr const& x, unsigned offset) const {
-        bool odd = false;
-        unsigned sz = x.size();
-        for (unsigned i = offset; i < sz; ++i) {
-            SASSERT(value(x[i]) != l_undef);
-            if (value(x[i]) == l_true) {
-                odd = !odd;
-            }
-        }
-        return odd;
-    }
-
-    bool ba_solver::init_watch(xr& x) {
-        clear_watch(x);
-        VERIFY(x.lit() == null_literal);
-        TRACE("ba", display(tout, x, true););
-        unsigned sz = x.size();
-        unsigned j = 0;
-        for (unsigned i = 0; i < sz && j < 2; ++i) {
-            if (value(x[i]) == l_undef) {
-                x.swap(i, j);
-                ++j;
-            }
-        }
-        switch (j) {
-        case 0: 
-            if (!parity(x, 0)) {
-                unsigned l = lvl(x[0]);
-                j = 1;
-                for (unsigned i = 1; i < sz; ++i) {
-                    if (lvl(x[i]) > l) {
-                        j = i;
-                        l = lvl(x[i]);
-                    } 
-                }
-                set_conflict(x, x[j]);
-            }
-            return false;
-        case 1: 
-            SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
-            assign(x, parity(x, 1) ? ~x[0] : x[0]);
-            return false;
-        default: 
-            SASSERT(j == 2);
-            watch_literal(x[0], x);
-            watch_literal(x[1], x);
-            watch_literal(~x[0], x);
-            watch_literal(~x[1], x);
-            return true;
-        }
-    }
-
 
     lbool ba_solver::add_assign(xr& x, literal alit) {
         // literal is assigned     
@@ -136,10 +43,10 @@ namespace sat {
             literal lit = x[i];
             if (value(lit) == l_undef) {
                 x.swap(index, i);
-                unwatch_literal(~alit, x);
+                x.unwatch_literal(*this, ~alit);
                 // alit gets unwatched by propagate_core because we return l_undef
-                watch_literal(lit, x);
-                watch_literal(~lit, x);
+                x.watch_literal(*this, lit);
+                x.watch_literal(*this, ~lit);
                 TRACE("ba", tout << "swap in: " << lit << " " << x << "\n";);
                 return l_undef;
             }
@@ -150,10 +57,10 @@ namespace sat {
         // alit resides at index 1.
         VERIFY(x[1].var() == alit.var());        
         if (value(x[0]) == l_undef) {
-            bool p = parity(x, 1);
+            bool p = x.parity(*this, 1);
             assign(x, p ? ~x[0] : x[0]);            
         }
-        else if (!parity(x, 0)) {
+        else if (!x.parity(*this, 0)) {
             set_conflict(x, ~x[1]);
         }      
         return inconsistent() ? l_false : l_true;  
@@ -232,7 +139,7 @@ namespace sat {
     }
 
 
-    ba_solver::constraint* ba_solver::add_xr(literal_vector const& _lits, bool learned) {
+    constraint* ba_solver::add_xr(literal_vector const& _lits, bool learned) {
         literal_vector lits;
         u_map<bool> var2sign;
         bool sign = false, odd = false;
@@ -400,31 +307,6 @@ namespace sat {
         }
     }
 
-    lbool ba_solver::eval(xr const& x) const {
-        bool odd = false;
-        
-        for (auto l : x) {
-            switch (value(l)) {
-            case l_true: odd = !odd; break;
-            case l_false: break;
-            default: return l_undef;
-            }
-        }
-        return odd ? l_true : l_false;
-    }
-
-    lbool ba_solver::eval(model const& m, xr const& x) const {
-        bool odd = false;
-        
-        for (auto l : x) {
-            switch (value(m, l)) {
-            case l_true: odd = !odd; break;
-            case l_false: break;
-            default: return l_undef;
-            }
-        }
-        return odd ? l_true : l_false;
-    }
 
     void ba_solver::pre_simplify(xor_finder& xf, constraint& c) {
         if (c.is_xr() && c.size() <= xf.max_xor_size()) {
@@ -532,30 +414,5 @@ namespace sat {
         }
     }
 
-    void ba_solver::display(std::ostream& out, xr const& x, bool values) const {
-        out << "xr: ";
-        for (literal l : x) {
-            out << l;
-            if (values) {
-                out << "@(" << value(l);
-                if (value(l) != l_undef) {
-                    out << ":" << lvl(l);
-                }
-                out << ") ";
-            }
-            else {
-                out << " ";
-            }
-        }        
-        out << "\n";
-    }
-
-    bool ba_solver::validate_unit_propagation(xr const& x, literal alit) const {
-        if (value(x.lit()) != l_true) return false;
-        for (unsigned i = 1; i < x.size(); ++i) {
-            if (value(x[i]) == l_undef) return false;
-        }
-        return true;
-    }
 
 }

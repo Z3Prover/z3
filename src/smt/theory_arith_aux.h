@@ -1151,8 +1151,8 @@ namespace smt {
      */
     template<typename Ext>
     void theory_arith<Ext>::enable_record_conflict(expr* bound) {
-        m_params.m_arith_bound_prop = BP_NONE;
-        SASSERT(propagation_mode() == BP_NONE); // bound propagation rules are not (yet) handled.
+        m_params.m_arith_bound_prop = bound_prop_mode::BP_NONE;
+        SASSERT(propagation_mode() == bound_prop_mode::BP_NONE); // bound propagation rules are not (yet) handled.
         if (bound) {
             m_bound_watch = ctx.get_bool_var(bound);
         }

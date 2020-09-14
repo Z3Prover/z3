@@ -20,11 +20,13 @@ static expr_ref mk_app(char const* name, expr_ref const& arg, sort* s) {
     return expr_ref(m.mk_app(f, arg.get()), m);
 }
 
+#if 0
 static expr_ref mk_app(char const* name, expr_ref const& arg1, expr_ref const& arg2, sort* s) {
     ast_manager& m = arg1.m();
     func_decl_ref f(m.mk_func_decl(symbol(name), m.get_sort(arg1), m.get_sort(arg2), s), m);
     return expr_ref(m.mk_app(f, arg1.get(), arg2.get()), m);
 }
+#endif
 
 static void test1() {
     ast_manager m;

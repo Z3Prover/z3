@@ -92,7 +92,10 @@ namespace sat {
 
     public:
 
-        binspr(solver& s): m_solver(s), m_stopped_at(0), m_limit1(1000), m_limit2(300) {}
+        binspr(solver& s): m_solver(s), m_stopped_at(0), m_limit1(1000), m_limit2(300) {
+            memset(m_true, 0, sizeof(unsigned) * max_lits);
+            memset(m_false, 0, sizeof(unsigned) * max_lits);
+        }
 
         ~binspr() {}
 

@@ -284,7 +284,7 @@ namespace sat {
         void mk_bin_clause(literal l1, literal l2, bool learned) { mk_bin_clause(l1, l2, learned ? sat::status::redundant() : sat::status::asserted()); }
         bool propagate_bin_clause(literal l1, literal l2);
         clause * mk_ter_clause(literal * lits, status st);
-        bool attach_ter_clause(clause & c);
+        bool attach_ter_clause(clause & c, status st);
         clause * mk_nary_clause(unsigned num_lits, literal * lits, status st);
         bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
@@ -296,6 +296,9 @@ namespace sat {
         void add_ate(clause& c) { m_mc.add_ate(c); }        
         void add_ate(literal l1, literal l2) { m_mc.add_ate(l1, l2); }        
         void add_ate(literal_vector const& lits) { m_mc.add_ate(lits); }
+        void drat_log_unit(literal lit, justification j);
+        void drat_log_clause(unsigned sz, literal const* lits, status st);
+        void drat_explain_conflict();
 
         class scoped_disable_checkpoint {
             solver& s;

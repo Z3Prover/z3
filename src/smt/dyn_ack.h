@@ -97,7 +97,7 @@ namespace smt {
            \brief This method is invoked when the congruence rule was used during conflict resolution.
         */
         void used_cg_eh(app * n1, app * n2) {
-            if (m_params.m_dack == DACK_CR)
+            if (m_params.m_dack == dyn_ack_strategy::DACK_CR)
                 cg_eh(n1, n2);
         }
 
@@ -105,7 +105,7 @@ namespace smt {
            \brief This method is invoked when the congruence rule is the root of a conflict.
         */
         void cg_conflict_eh(app * n1, app * n2) {
-            if (m_params.m_dack == DACK_ROOT)
+            if (m_params.m_dack == dyn_ack_strategy::DACK_ROOT)
                 cg_eh(n1, n2);
         }
 
