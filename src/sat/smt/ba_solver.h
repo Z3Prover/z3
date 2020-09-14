@@ -223,7 +223,7 @@ namespace sat {
         void split_root(constraint& c);
         unsigned next_id() { return m_constraint_id++; }
         void set_non_learned(constraint& c);
-        double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const;
+        double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const override;
 
         // cardinality
         lbool add_assign(card& c, literal lit);
