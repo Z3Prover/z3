@@ -180,4 +180,13 @@ namespace ba {
         }
         return odd ? l_true : l_false;
     }
+
+    void xr::init_use_list(sat::ext_use_list& ul) const {
+        auto idx = cindex();
+        for (auto l : *this) {
+            ul.insert(l, idx);
+            ul.insert(~l, idx);
+        }
+    }
+
 }

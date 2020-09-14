@@ -35,12 +35,6 @@ Revision History:
 #include "util/sorting_network.h"
 #include "ast/pb_decl_plugin.h"
 
-namespace ba {
-
-    std::ostream& operator<<(std::ostream& out, constraint const& c);
-
-}
-
 namespace sat {
 
     typedef ba::constraint constraint;

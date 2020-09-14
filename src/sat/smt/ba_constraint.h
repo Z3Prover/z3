@@ -99,6 +99,7 @@ namespace ba {
         virtual bool init_watch(solver_interface& s) = 0;
         virtual lbool eval(sat::model const& m) const = 0;
         virtual lbool eval(solver_interface const& s) const = 0;
+        virtual bool is_blocked(sat::simplifier& s, literal lit) const = 0;
 
         virtual bool validate_unit_propagation(solver_interface const& s, literal alit) const = 0;
         
@@ -114,7 +115,29 @@ namespace ba {
         virtual double get_reward(solver_interface const& s, sat::literal_occs_fun& occs) const { return 0; }
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual std::ostream& display(std::ostream& out, solver_interface const& s, bool values) const = 0;
+        virtual void init_use_list(sat::ext_use_list& ul) const = 0;
         
+        class iterator {
+            constraint const& c;
+            unsigned idx;
+        public:
+            iterator(constraint const& c, unsigned idx) : c(c), idx(idx) {}
+            literal operator*() { return c.get_lit(idx); }
+            iterator& operator++() { ++idx; return *this; }
+            bool operator==(iterator const& other) const { SASSERT(&c == &other.c); return idx == other.idx; }
+            bool operator!=(iterator const& other) const { SASSERT(&c == &other.c); return idx != other.idx; }
+        };
+        
+        class literal_iterator {
+            constraint const& c;
+        public:
+            literal_iterator(constraint const& c):c(c) {}
+            iterator begin() const { return iterator(c, 0); }
+            iterator end() const { return iterator(c, c.size()); }
+        };
     };
+
+    std::ostream& operator<<(std::ostream& out, constraint const& c);
+
 
 }

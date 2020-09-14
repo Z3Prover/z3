@@ -17,6 +17,7 @@ Author:
 
 #include "sat/smt/ba_card.h"
 #include "sat/smt/ba_solver.h"
+#include "sat/sat_simplifier.h"
 
 namespace ba {
 
@@ -272,5 +273,18 @@ namespace ba {
         return l_undef;        
     }
 
+    void card::init_use_list(sat::ext_use_list& ul) const {
+        auto idx = cindex();
+        for (auto l : *this)
+            ul.insert(l, idx);
+    }
+
+    bool card::is_blocked(sat::simplifier& sim, literal lit) const {
+        unsigned weight = 0;
+         for (literal l2 : *this) 
+            if (sim.is_marked(~l2)) ++weight;
+        
+        return weight >= k();
+    }
     
 }

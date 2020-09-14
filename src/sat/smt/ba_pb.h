@@ -60,6 +60,8 @@ namespace ba {
         bool validate_unit_propagation(solver_interface const& s, literal alit) const override;
         lbool eval(sat::model const& m) const override;
         lbool eval(solver_interface const& s) const override;
+        void init_use_list(sat::ext_use_list& ul) const override;
+        bool is_blocked(sat::simplifier& s, literal lit) const override;
     };
 
 }

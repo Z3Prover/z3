@@ -282,4 +282,27 @@ namespace ba {
         if (trues >= p.k()) return l_true;
         return l_undef;        
     }
+
+    void pb::init_use_list(sat::ext_use_list& ul) const {
+        auto idx = cindex();
+        for (auto l : *this)
+            ul.insert(l.second, idx);
+    }
+
+    bool pb::is_blocked(sat::simplifier& sim, literal lit) const {
+        unsigned weight = 0, offset = 0;
+        for (wliteral l2 : *this) {
+            if (~l2.second == lit) {
+                offset = l2.first;
+                break;
+            }
+        }
+        SASSERT(offset != 0);
+        for (wliteral l2 : *this) {
+            if (sim.is_marked(~l2.second)) {
+                weight += std::min(offset, l2.first);
+            }
+        }
+        return weight >= k();
+    }
 }

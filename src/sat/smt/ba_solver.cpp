@@ -23,11 +23,6 @@ Author:
 #include "sat/sat_simplifier_params.hpp"
 #include "sat/sat_xor_finder.h"
 
-namespace ba {
-
-
-}
-
 namespace sat {
 
     static unsigned _bad_id = 11111111; // 2759; //
@@ -2263,23 +2258,8 @@ namespace sat {
     void ba_solver::validate_eliminated(ptr_vector<constraint> const& cs) {
         for (constraint const* c : cs) {
             if (c->learned()) continue;
-            switch (c->tag()) {
-            case ba::tag_t::card_t:
-                for (literal l : c->to_card()) {
-                    VERIFY(!s().was_eliminated(l.var()));
-                }
-                break;
-            case ba::tag_t::pb_t:
-                for (wliteral wl : c->to_pb()) {
-                    VERIFY(!s().was_eliminated(wl.second.var()));
-                }
-                break;
-            case ba::tag_t::xr_t:
-                for (literal l : c->to_xr()) {
-                    VERIFY(!s().was_eliminated(l.var()));
-                }
-                break;                
-            }
+            for (auto l : constraint::literal_iterator(*c))
+                VERIFY(!s().was_eliminated(l.var()));
         }
     }
 
@@ -2592,31 +2572,19 @@ namespace sat {
                 m_cnstr_use_list[(~lit).index()].push_back(cp);
             }
             switch (cp->tag()) {
-            case ba::tag_t::card_t: {
-                card& c = cp->to_card();
-                for (literal l : c) {
-                    m_cnstr_use_list[l.index()].push_back(&c);
-                    if (lit != null_literal) m_cnstr_use_list[(~l).index()].push_back(&c);
+            case ba::tag_t::card_t: 
+            case ba::tag_t::pb_t: 
+                for (literal l : constraint::literal_iterator(*cp)) {
+                    m_cnstr_use_list[l.index()].push_back(cp);
+                    if (lit != null_literal) m_cnstr_use_list[(~l).index()].push_back(cp);
                 }  
-                break;
-            }
-            case ba::tag_t::pb_t: {
-                pb& p = cp->to_pb();
-                for (wliteral wl : p) {
-                    literal l = wl.second;
-                    m_cnstr_use_list[l.index()].push_back(&p);
-                    if (lit != null_literal) m_cnstr_use_list[(~l).index()].push_back(&p);
-                }
-                break;
-            }
-            case ba::tag_t::xr_t: {
-                xr& x = cp->to_xr();
-                for (literal l : x) {
-                    m_cnstr_use_list[l.index()].push_back(&x);
-                    m_cnstr_use_list[(~l).index()].push_back(&x);
+                break;            
+            case ba::tag_t::xr_t: 
+                for (literal l : cp->to_xr()) {
+                    m_cnstr_use_list[l.index()].push_back(cp);
+                    m_cnstr_use_list[(~l).index()].push_back(cp);
                 }             
-                break;
-            }
+                break;            
             }
         }
     }
@@ -3065,25 +3033,9 @@ namespace sat {
         if (lit != null_literal) {
             s().set_external(lit.var());
         }
-        switch (c.tag()) {
-        case ba::tag_t::card_t:
-            for (literal lit : c.to_card()) {
-                s().set_external(lit.var());             
-                SASSERT(!s().was_eliminated(lit.var()));
-            }
-            break;
-        case ba::tag_t::pb_t:
-            for (wliteral wl : c.to_pb()) {
-                s().set_external(wl.second.var());
-                SASSERT(!s().was_eliminated(wl.second.var()));
-            }
-            break;
-        default:
-            for (literal lit : c.to_xr()) {
-                s().set_external(lit.var());
-                SASSERT(!s().was_eliminated(lit.var()));
-            }
-            break;
+        for (literal lit : constraint::literal_iterator(c)) {
+            s().set_external(lit.var());             
+            SASSERT(!s().was_eliminated(lit.var()));
         }
         c.set_learned(false);
     }
@@ -3233,7 +3185,7 @@ namespace sat {
         }
     }
 
-    void ba_solver::init_use_list(ext_use_list& ul) {
+    void ba_solver::init_use_list(sat::ext_use_list& ul) {
         ul.init(s().num_vars());
         for (constraint const* cp : m_constraints) {
             ext_constraint_idx idx = cp->cindex();
@@ -3241,32 +3193,7 @@ namespace sat {
                 ul.insert(cp->lit(), idx);
                 ul.insert(~cp->lit(), idx);                
             }
-            switch (cp->tag()) {
-            case ba::tag_t::card_t: {
-                card const& c = cp->to_card();
-                for (literal l : c) {
-                    ul.insert(l, idx);
-                }
-                break;
-            }
-            case ba::tag_t::pb_t: {
-                pb const& p = cp->to_pb();
-                for (wliteral w : p) {
-                    ul.insert(w.second, idx);
-                }
-                break;
-            }
-            case ba::tag_t::xr_t: {
-                xr const& x = cp->to_xr();
-                for (literal l : x) {
-                    ul.insert(l, idx);
-                    ul.insert(~l, idx);
-                }
-                break;
-            }
-            default:
-                UNREACHABLE();
-            }                            
+            cp->init_use_list(ul);
         }
     }
 
@@ -3279,36 +3206,7 @@ namespace sat {
         constraint const& c = index2constraint(idx);
         simplifier& sim = s().m_simplifier;
         if (c.lit() != null_literal) return false;
-        switch (c.tag()) {
-        case ba::tag_t::card_t: {
-            card const& ca = c.to_card();
-            unsigned weight = 0;
-            for (literal l2 : ca) {
-                if (sim.is_marked(~l2)) ++weight;
-            }
-            return weight >= ca.k();
-        }
-        case ba::tag_t::pb_t: {
-            pb const& p = c.to_pb();
-            unsigned weight = 0, offset = 0;
-            for (wliteral l2 : p) {
-                if (~l2.second == l) {
-                    offset = l2.first;
-                    break;
-                }
-            }
-            SASSERT(offset != 0);
-            for (wliteral l2 : p) {
-                if (sim.is_marked(~l2.second)) {
-                    weight += std::min(offset, l2.first);
-                }
-            }
-            return weight >= p.k();
-        }
-        default:
-            break;
-        }
-        return false;
+        return c.is_blocked(sim, l);
     }
 
 
