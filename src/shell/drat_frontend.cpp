@@ -5,6 +5,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 #include<iostream>
 #include<fstream>
+#include "ast/bv_decl_plugin.h"
 #include "util/memory_manager.h"
 #include "util/statistics.h"
 #include "sat/dimacs.h"
@@ -25,6 +26,7 @@ class smt_checker {
     params_ref m_params;
     scoped_ptr<solver> m_lemma_solver, m_input_solver;
     sat::literal_vector m_units;
+    bool m_check_inputs { false };
 
     expr* fresh(expr* e) {
         unsigned i = e->get_id();
@@ -140,7 +142,7 @@ public:
         for (sat::literal lit : lits)
             while (lit.var() >= m_drat.get_solver().num_vars())
                 m_drat.get_solver().mk_var(true);
-        if (st.is_input())
+        if (st.is_input() && m_check_inputs)
             check_assertion_redundant(lits);
         else if (!st.is_sat() && !st.is_deleted()) 
             check_clause(lits);        
@@ -159,6 +161,69 @@ public:
         for (auto* e : m_inputs)
             s->assert_expr(e);
         s->display(std::cout);
+    }
+
+    symbol name;
+    unsigned_vector params;
+    ptr_vector<sort> sorts;
+
+    void parse_sexpr(sexpr_ref const& sexpr, cmd_context& ctx, expr_ref_vector const& args, expr_ref& result) {
+        params.reset();
+        sorts.reset();
+        for (expr* arg : args) 
+            sorts.push_back(m.get_sort(arg));
+        sort_ref rng(m);
+        switch (sexpr->get_kind()) {
+        case sexpr::kind_t::COMPOSITE: {
+            unsigned sz = sexpr->get_num_children();
+            if (sz == 0) 
+                goto bail;
+            if (sexpr->get_child(0)->get_symbol() == symbol("_")) {
+                name = sexpr->get_child(1)->get_symbol();
+                if (name == "bv" && sz == 4) {
+                    bv_util bvu(m);
+                    auto val = sexpr->get_child(2)->get_numeral();
+                    auto n   = sexpr->get_child(3)->get_numeral().get_unsigned();
+                    result = bvu.mk_numeral(val, n);
+                    return;
+                }
+                for (unsigned i = 2; i < sz; ++i) {
+                    auto* child = sexpr->get_child(i);
+                    if (child->is_numeral() && child->get_numeral().is_unsigned())
+                        params.push_back(child->get_numeral().get_unsigned());
+                    else 
+                        goto bail;                
+                }
+                break;
+            }
+            goto bail;
+        }
+        case sexpr::kind_t::SYMBOL:
+            name = sexpr->get_symbol();
+            break;
+        case sexpr::kind_t::BV_NUMERAL: {
+            std::cout << "bv numeral\n";
+            goto bail;            
+            unsigned sz = sexpr->get_bv_size();
+            rational r = sexpr->get_numeral();
+            break;
+        }
+        case sexpr::kind_t::STRING:
+        case sexpr::kind_t::KEYWORD:
+        case sexpr::kind_t::NUMERAL:
+        default:
+            goto bail;
+        }
+        func_decl* f = ctx.find_func_decl(name, params.size(), params.c_ptr(), args.size(), sorts.c_ptr(), rng.get());
+        if (!f) 
+            goto bail;
+        result = ctx.m().mk_app(f, args);
+        return;
+    bail:
+        std::cout << "Could not parse expression\n";
+        sexpr->display(std::cout);
+        std::cout << "\n";
+        exit(0);        
     }
 };
 
@@ -194,14 +259,14 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
 
     expr_ref_vector bool_var2expr(m);
     expr_ref_vector exprs(m), args(m), inputs(m);
-    func_decl* f = nullptr;
-    ptr_vector<sort> sorts;
+    sort_ref_vector sargs(m), sorts(m);
+    func_decl_ref_vector decls(m);
 
     smt_checker checker(drat_checker, bool_var2expr);
 
     for (expr* a : ctx.assertions())
         checker.add_assertion(a);
-    
+
     for (auto const& r : drat) {
         std::cout << dimacs::drat_pp(r, write_theory); 
         std::cout.flush();
@@ -211,25 +276,39 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             if (drat_checker.inconsistent()) 
                 std::cout << "inconsistent\n";            
             break;
-        case dimacs::drat_record::tag_t::is_node:
+        case dimacs::drat_record::tag_t::is_node: {
+            expr_ref e(m);
             args.reset();
-            sorts.reset();
-            for (auto n : r.m_args) {
+            for (auto n : r.m_args) 
                 args.push_back(exprs.get(n));
-                sorts.push_back(ctx.m().get_sort(args.back()));
-            }
-            if (r.m_name[0] == '(') {
-                std::cout << "parsing sexprs is TBD\n";
-                exit(0);
-            }
-            f = ctx.find_func_decl(symbol(r.m_name.c_str()), 0, nullptr, args.size(), sorts.c_ptr(), nullptr);
-            if (!f) {
-                std::cout << "could not find function\n";
-                exit(0);
-            }
+            std::istringstream strm(r.m_name);
+            auto sexpr = parse_sexpr(ctx, strm, p, drat_file);
+            checker.parse_sexpr(sexpr, ctx, args, e);
             exprs.reserve(r.m_node_id+1);
-            exprs.set(r.m_node_id, ctx.m().mk_app(f, args.size(), args.c_ptr()));
+            exprs.set(r.m_node_id, e);
             break;
+        }
+        case dimacs::drat_record::tag_t::is_decl: {
+            std::istringstream strm(r.m_name);
+            ctx.set_allow_duplicate_declarations();
+            parse_smt2_commands(ctx, strm);
+            break;
+        }
+        case dimacs::drat_record::tag_t::is_sort: {
+            sort_ref srt(m);
+            symbol name = symbol(r.m_name.c_str());
+            sargs.reset();
+            for (auto n : r.m_args) 
+                sargs.push_back(sorts.get(n));
+            psort_decl* pd = ctx.find_psort_decl(name);
+            if (pd) 
+                srt = pd->instantiate(ctx.pm(), sargs.size(), sargs.c_ptr());
+            else 
+                srt = m.mk_uninterpreted_sort(name);
+            sorts.reserve(r.m_node_id+1);
+            sorts.set(r.m_node_id, srt);
+            break;
+        }
         case dimacs::drat_record::tag_t::is_bool_def:
             bool_var2expr.reserve(r.m_node_id+1);
             bool_var2expr.set(r.m_node_id, exprs.get(r.m_args[0]));

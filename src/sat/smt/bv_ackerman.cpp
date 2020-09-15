@@ -91,7 +91,7 @@ namespace bv {
         }
         
         if (glue < max_glue) 
-            v.m_glue = glue <= sz ? 0 : glue;
+            v.m_glue = 2*glue <= sz ? 0 : glue;
     }
 
     void ackerman::remove(vv* p) {
@@ -146,7 +146,7 @@ namespace bv {
         sort* s2 = s.m.get_sort(s.var2expr(v2));
         if (s1 != s2 || !s.bv.is_bv_sort(s1))
             return;
-        IF_VERBOSE(0, verbose_stream() << "assert ackerman " << v1 << " " << v2 << "\n");
+        // IF_VERBOSE(0, verbose_stream() << "assert ackerman " << v1 << " " << v2 << "\n");
         s.assert_ackerman(v1, v2);
     }
 

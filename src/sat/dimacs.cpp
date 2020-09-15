@@ -159,6 +159,10 @@ namespace dimacs {
             return out << pp << " " << r.m_lits << " 0\n";
         case drat_record::tag_t::is_node:
             return out << "e " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
+        case drat_record::tag_t::is_sort:
+            return out << "s " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
+        case drat_record::tag_t::is_decl:
+            return out << "f " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
         case drat_record::tag_t::is_bool_def:
             return out << "b " << r.m_node_id << " " << r.m_args << "0\n";
         }
@@ -208,6 +212,24 @@ namespace dimacs {
 
     bool drat_parser::next() {
         int n, b, e, theory_id;
+        auto parse_ast = [&](drat_record::tag_t tag) {
+            ++in;
+            skip_whitespace(in);
+            n = parse_int(in, err);                    
+            skip_whitespace(in);
+            m_record.m_name = parse_sexpr();
+            m_record.m_tag = tag;
+            m_record.m_node_id = n;
+            m_record.m_args.reset();
+            while (true) {
+                n = parse_int(in, err);
+                if (n == 0)
+                    break;
+                if (n < 0)
+                    throw lex_error();
+                m_record.m_args.push_back(n);
+            }
+        };
         try {
         loop:
             skip_whitespace(in);
@@ -235,22 +257,13 @@ namespace dimacs {
                 m_record.m_status = sat::status::th(false, theory_id);
                 break;
             case 'e':
-                ++in;
-                skip_whitespace(in);
-                n = parse_int(in, err);                    
-                skip_whitespace(in);
-                m_record.m_name = parse_sexpr();
-                m_record.m_tag = drat_record::tag_t::is_node;
-                m_record.m_node_id = n;
-                m_record.m_args.reset();
-                while (true) {
-                    n = parse_int(in, err);
-                    if (n == 0)
-                        break;
-                    if (n < 0)
-                        throw lex_error();
-                    m_record.m_args.push_back(n);
-                }
+                parse_ast(drat_record::tag_t::is_node);
+                break;
+            case 'f':
+                parse_ast(drat_record::tag_t::is_decl);
+                break;
+            case 's':
+                parse_ast(drat_record::tag_t::is_sort);
                 break;
             case 'b':
                 ++in;

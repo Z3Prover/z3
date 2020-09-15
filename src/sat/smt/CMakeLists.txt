@@ -13,6 +13,7 @@ z3_add_component(sat_smt
     ba_xor.cpp
     bv_ackerman.cpp
     bv_internalize.cpp
+    bv_invariant.cpp
     bv_solver.cpp
     euf_ackerman.cpp
     euf_internalize.cpp

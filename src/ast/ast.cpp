@@ -959,6 +959,7 @@ void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("=", OP_EQ));
     op_names.push_back(builtin_name("distinct", OP_DISTINCT));
     op_names.push_back(builtin_name("ite", OP_ITE));
+    op_names.push_back(builtin_name("if", OP_ITE));
     op_names.push_back(builtin_name("and", OP_AND));
     op_names.push_back(builtin_name("or", OP_OR));
     op_names.push_back(builtin_name("xor", OP_XOR));
@@ -969,7 +970,6 @@ void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
         op_names.push_back(builtin_name("implies", OP_IMPLIES));
         op_names.push_back(builtin_name("iff", OP_EQ));
         op_names.push_back(builtin_name("if_then_else", OP_ITE));
-        op_names.push_back(builtin_name("if", OP_ITE));
         op_names.push_back(builtin_name("&&", OP_AND));
         op_names.push_back(builtin_name("||", OP_OR));
         op_names.push_back(builtin_name("equals", OP_EQ));

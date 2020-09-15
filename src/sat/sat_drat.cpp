@@ -86,6 +86,9 @@ namespace sat {
             return;
         if (m_activity && ((m_stats.m_num_add % 1000) == 0))
             dump_activity();
+
+        SASSERT(!(n == 2 && c[0] == literal(3802, true) && c[1] == literal(3808, false)));
+        VERIFY(!(n == 2 && c[0] == literal(3802, true) && c[1] == literal(3808, false)));
         
         char buffer[10000];
         char digits[20];     // enough for storing unsigned
@@ -262,9 +265,9 @@ namespace sat {
             (*m_out) << "b " << v << " " << n << " 0\n";
     }
 
-    void drat::def_begin(unsigned n, std::string const& name) {
+    void drat::def_begin(char id, unsigned n, std::string const& name) {
         if (m_out) 
-            (*m_out) << "e " << n << " " << name;
+            (*m_out) << id << " " << n << " " << name;
     }
 
     void drat::def_add_arg(unsigned arg) {

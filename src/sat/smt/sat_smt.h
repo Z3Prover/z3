@@ -17,6 +17,7 @@ Author:
 #pragma once
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "sat/sat_solver.h"
 
 namespace sat {

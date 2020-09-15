@@ -15,7 +15,6 @@ Author:
 
 --*/
 
-#include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "sat/smt/euf_solver.h"
 
@@ -98,9 +97,9 @@ namespace euf {
     }
 
     sat::literal solver::attach_lit(literal lit, expr* e) {
-        sat::bool_var v = lit.var();
+        sat::bool_var v = lit.var();       
         s().set_external(v);
-        s().set_eliminated(v, false);
+        s().set_eliminated(v, false);   
 
         if (lit.sign()) {
             v = si.add_bool_var(e);
@@ -112,7 +111,8 @@ namespace euf {
             lit = lit2;
         }
         m_var2expr.reserve(v + 1, nullptr);
-        SASSERT(m_var2expr[v] == nullptr);
+        if (m_var2expr[v])
+            return lit;
         m_var2expr[v] = e;
         m_var_trail.push_back(v);
         if (!m_egraph.find(e)) {

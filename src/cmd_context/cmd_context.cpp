@@ -803,6 +803,8 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
 #endif
     func_decls & fs = m_func_decls.insert_if_not_there(s, func_decls());
     if (!fs.insert(m(), f)) {
+        if (m_allow_duplicate_declarations)
+            return;
         std::string msg = "invalid declaration, ";
         msg += f->get_arity() == 0 ? "constant" : "function";
         msg += " '";

@@ -145,7 +145,9 @@ namespace bv {
         class bit_trail;
         class add_var_pos_trail;
         class mk_atom_trail;
+        class bit_occs_trail;
         typedef ptr_vector<atom> bool_var2atom;
+        typedef vector<literal_vector> bits_vector;
 
         bv_util                  bv;
         arith_util               m_autil;
@@ -153,7 +155,7 @@ namespace bv {
         ackerman                 m_ackerman;
         bit_blaster              m_bb;
         bv_union_find            m_find;
-        vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
+        bits_vector              m_bits;     // per var, the bits of a given variable.
         unsigned_vector          m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
         bool_var2atom            m_bool_var2atom;
@@ -188,6 +190,7 @@ namespace bv {
         sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
+        bit_atom* mk_bit_atom(sat::bool_var bv);
         void set_bit_eh(theory_var v, literal l, unsigned idx);
         void init_bits(expr* e, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
@@ -228,6 +231,7 @@ namespace bv {
 
         // invariants
         bool check_zero_one_bits(theory_var v);
+        void validate_atoms() const;
        
     public:
         solver(euf::solver& ctx, theory_id id);

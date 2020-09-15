@@ -381,11 +381,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
             sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
-            sat::literal * lits = m_result_stack.end() - num;           
-
-            for (unsigned i = 0; i < num; i++) {
+            sat::literal * lits = m_result_stack.end() - num;       
+            for (unsigned i = 0; i < num; i++) 
                 mk_clause(~lits[i], l);
-            }
+                       
             m_result_stack.push_back(~l);
             lits = m_result_stack.end() - num - 1;
             if (m_aig) {
@@ -395,9 +394,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
             // remark: mk_clause may perform destructive updated to lits.
             // I have to execute it after the binary mk_clause above.
             mk_clause(num+1, lits);
-            if (m_aig) {
+            if (m_aig) 
                 m_aig->add_or(l, num, aig_lits.c_ptr());
-            }            
+                        
             m_result_stack.shrink(old_sz);
             if (sign)
                 l.neg();

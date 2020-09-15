@@ -147,6 +147,8 @@ namespace euf {
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
+        void drat_log_decl(func_decl* f);
+        obj_hashtable<ast> m_drat_asts;
         
         bool m_drat_initialized{ false };
         void init_drat();

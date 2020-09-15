@@ -130,7 +130,7 @@ namespace sat {
         void bool_def(bool_var v, unsigned n);
 
         // declare AST node n with 'name' and arguments arg
-        void def_begin(unsigned n, std::string const& name);
+        void def_begin(char id, unsigned n, std::string const& name);
         void def_add_arg(unsigned arg);
         void def_end();
 

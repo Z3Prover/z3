@@ -126,6 +126,28 @@ public:
     }
 };
 
+template<typename Ctx, typename V, typename T>
+class vector2_value_trail : public trail<Ctx> {
+    V             & m_vector;
+    unsigned        m_i;
+    unsigned        m_j;
+    T               m_old_value;
+public:
+    vector2_value_trail(V& v, unsigned i, unsigned j):
+        m_vector(v),
+        m_i(i),
+        m_j(j),
+        m_old_value(v[i][j]) {
+    }
+
+    ~vector2_value_trail() override {
+    }
+
+    void undo(Ctx & ctx) override {
+        m_vector[m_i][m_j] = m_old_value;
+    }
+};
+
 
 template<typename Ctx, typename D, typename R>
 class insert_obj_map : public trail<Ctx> {

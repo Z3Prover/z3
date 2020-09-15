@@ -74,7 +74,10 @@ namespace bv {
         SASSERT(m.is_bool(e));
         if (!visit_rec(m, e, sign, root, redundant))
             return sat::null_literal;
-        return expr2literal(e);
+        sat::literal lit = expr2literal(e);
+        if (sign)
+            lit.neg();
+        return lit;
     }
 
     void solver::internalize(expr* e, bool redundant) {
@@ -179,8 +182,9 @@ namespace bv {
         m_bits[v].reset();
         for (unsigned i = 0; i < bv_size; i++) {
             expr_ref b2b(bv.mk_bit2bool(e, i), m);
+            m_bits[v].push_back(sat::null_literal);
             sat::literal lit = ctx.internalize(b2b, false, false, m_is_redundant);
-            m_bits[v].push_back(lit);
+            SASSERT(m_bits[v].back() == lit);
         }
     }
 
@@ -234,7 +238,15 @@ namespace bv {
         set_bit_eh(v, l, idx);
     }
 
+    solver::bit_atom* solver::mk_bit_atom(sat::bool_var bv) {
+        bit_atom* b = new (get_region()) bit_atom();
+        insert_bv2a(bv, b);
+        ctx.push(mk_atom_trail(bv, *this));
+        return b;
+    }
+
     void solver::set_bit_eh(theory_var v, literal l, unsigned idx) {
+        SASSERT(m_bits[v][idx] == l);
         if (s().value(l) != l_undef && s().lvl(l) == 0) 
             register_true_false_bit(v, idx);
         else {
@@ -248,9 +260,7 @@ namespace bv {
                 b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);
             }
             else {
-                bit_atom* b = new (get_region()) bit_atom();
-                insert_bv2a(l.var(), b);
-                ctx.push(mk_atom_trail(l.var(), *this));
+                bit_atom* b = mk_bit_atom(l.var());
                 SASSERT(!b->m_occs);
                 b->m_occs = new (get_region()) var_pos_occ(v, idx);
             }
@@ -460,7 +470,7 @@ namespace bv {
             new_bits.reset();
             fn(arg_bits.size(), arg_bits.c_ptr(), bits.c_ptr(), new_bits);
             bits.swap(new_bits);
-        }
+        }        
         init_bits(n, bits);
         TRACE("bv_verbose", tout << arg_bits << " " << bits << " " << new_bits << "\n";);
     }
@@ -505,17 +515,18 @@ namespace bv {
         init_bits(n, bits);
     }
 
-    void solver::internalize_extract(app* n) {
-        SASSERT(n->get_num_args() == 1);
-        euf::enode* e = expr2enode(n);
-        theory_var v = e->get_th_var(get_id());
-        theory_var arg = get_arg_var(e, 0);
-        unsigned start = n->get_decl()->get_parameter(1).get_int();
-        unsigned end = n->get_decl()->get_parameter(0).get_int();
-        SASSERT(start <= end && end < get_bv_size(v));
+    void solver::internalize_extract(app* e) {
+        expr* arg_e = nullptr;
+        unsigned lo = 0, hi = 0;
+        VERIFY(bv.is_extract(e, lo, hi, arg_e));
+        euf::enode* n = expr2enode(e);
+        theory_var v = n->get_th_var(get_id());    
+        theory_var arg_v = get_arg_var(n, 0);
+        SASSERT(hi - lo + 1 == get_bv_size(v));
+        SASSERT(lo <= hi && hi < get_bv_size(arg_v));
         m_bits[v].reset();
-        for (unsigned i = start; i <= end; ++i)
-            add_bit(v, m_bits[arg][i]);
+        for (unsigned i = lo; i <= hi; ++i)
+            add_bit(v, m_bits[arg_v][i]);
         find_wpos(v);
     }
 
@@ -528,17 +539,22 @@ namespace bv {
             mk_var(argn);
         }        
         theory_var v_arg = argn->get_th_var(get_id());
-        sat::literal lit = expr2literal(n);
-        sat::bool_var b = lit.var();
-        bit_atom* a = new (get_region()) bit_atom();
         SASSERT(idx < get_bv_size(v_arg));
-        a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
-        insert_bv2a(b, a);
-        ctx.push(mk_atom_trail(b, *this));           
-        if (idx < m_bits[v_arg].size() && lit != m_bits[v_arg][idx]) {
-            add_clause(m_bits[v_arg][idx], ~lit);
-            add_clause(~m_bits[v_arg][idx], lit);
+        sat::literal lit = expr2literal(n);
+        sat::literal lit0 = m_bits[v_arg][idx];
+        if (lit0 == sat::null_literal) {
+            m_bits[v_arg][idx] = lit;
+            bit_atom* a = new (get_region()) bit_atom();
+            a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
+            insert_bv2a(lit.var(), a);
+            ctx.push(mk_atom_trail(lit.var(), *this));
         }
+        else if (lit != lit0) {
+            add_clause(lit0, ~lit);
+            add_clause(~lit0, lit);
+        }
+
+        // validate_atoms();
         // axiomatize bit2bool on constants.
         rational val;
         unsigned sz;

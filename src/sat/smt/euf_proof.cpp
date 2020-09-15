@@ -15,7 +15,6 @@ Author:
 
 --*/
 
-#include "ast/ast_ll_pp.h"
 #include "sat/smt/euf_solver.h"
 
 namespace euf {
@@ -33,12 +32,13 @@ namespace euf {
             return;
         if (is_app(e)) {
             app* a = to_app(e);
+            drat_log_decl(a->get_decl());
             if (a->get_num_parameters() == 0)
-                get_drat().def_begin(e->get_id(), a->get_decl()->get_name().str());
+                get_drat().def_begin('e', e->get_id(), a->get_decl()->get_name().str());
             else {
                 std::stringstream strm;
                 strm << mk_ismt2_func(a->get_decl(), m);
-                get_drat().def_begin(e->get_id(), strm.str());
+                get_drat().def_begin('e', e->get_id(), strm.str());
             }
             for (expr* arg : *a)
                 get_drat().def_add_arg(arg->get_id());
@@ -47,6 +47,20 @@ namespace euf {
         else {
             IF_VERBOSE(0, verbose_stream() << "logging binders is TBD\n");
         }
+    }
+
+    void solver::drat_log_decl(func_decl* f) {
+        if (f->get_family_id() != null_family_id) 
+            return;
+        if (m_drat_asts.contains(f))
+            return;
+        m_drat_asts.insert(f);
+        push(insert_obj_trail<solver, ast>(m_drat_asts, f));
+        std::ostringstream strm;
+        smt2_pp_environment_dbg env(m);
+        ast_smt2_pp(strm, f, env);
+        get_drat().def_begin('f', f->get_decl_id(), strm.str());
+        get_drat().def_end();
     }
 
     /**

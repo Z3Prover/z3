@@ -36,6 +36,20 @@ namespace bv {
         }
     };
 
+    class solver::bit_occs_trail : public trail<euf::solver> {
+        solver& s;
+        bit_atom& a;
+        var_pos_occ* m_occs;
+
+    public:
+        bit_occs_trail(solver& s, bit_atom& a):s(s), a(a), m_occs(a.m_occs) {}
+        
+        virtual void undo(euf::solver& euf) {
+            std::cout << "add back occurrences " << & a << "\n";
+            a.m_occs = m_occs;
+        }
+    };
+
     solver::solver(euf::solver& ctx, theory_id id) :
         euf::th_euf_solver(ctx, id),
         bv(m),
@@ -254,7 +268,7 @@ namespace bv {
     void solver::asserted(literal l) {
         atom* a = get_bv2a(l.var());
         TRACE("bv", tout << "asserted: " << l << "\n";);
-        if (a->is_bit())
+        if (a && a->is_bit())
             for (auto vp : a->to_bit())
                 m_prop_queue.push_back(vp);
     }
@@ -327,16 +341,25 @@ namespace bv {
 
     bool solver::set_root(literal l, literal r) {
         atom* a = get_bv2a(l.var());
+        atom* b = get_bv2a(r.var());
         if (!a || !a->is_bit())
             return true;
-        for (auto vp : a->to_bit()) {
+        if (b && !b->is_bit())
+            return false;
+        for (auto vp : a->to_bit()) {            
             sat::literal l2 = m_bits[vp.first][vp.second];
-            sat::literal r2 = (l.sign() == l2.sign()) ? r : ~r;
+            if (l2.var() == r.var())
+                continue;
             SASSERT(l2.var() == l.var());
-            ctx.push(bit_trail(*this, vp));
+            VERIFY(l2.var() == l.var());
+            sat::literal r2 = (l.sign() == l2.sign()) ? r : ~r;
+            ctx.push(vector2_value_trail<euf::solver, bits_vector, sat::literal>(m_bits, vp.first, vp.second));
             m_bits[vp.first][vp.second] = r2;
             set_bit_eh(vp.first, r2, vp.second);
         }
+        ctx.push(bit_occs_trail(*this, a->to_bit()));
+        a->to_bit().m_occs = nullptr;
+        // validate_atoms();
         return true;
     }
 
@@ -443,6 +466,7 @@ namespace bv {
                 def_atom* new_a = new (result->get_region()) def_atom(a->to_def().m_var, a->to_def().m_def);
                 m_bool_var2atom.setx(i, new_a, nullptr);
             }
+            validate_atoms();
         }
         return result;
     }
@@ -456,6 +480,10 @@ namespace bv {
 
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
         SASSERT(bv.is_bv(n->get_expr()));
+        if (bv.is_numeral(n->get_expr())) {
+            values[n->get_root_id()] = n->get_expr();
+            return;
+        }
         theory_var v = n->get_th_var(get_id());
         rational val;
         unsigned i = 0;
@@ -619,52 +647,4 @@ namespace bv {
         return m_power2[i];
     }
 
-    /**
-        \brief Check whether m_zero_one_bits is an accurate summary of the bits in the
-        equivalence class rooted by v.
-        \remark The method does nothing if v is not the root of the equivalence class.
-    */
-    bool solver::check_zero_one_bits(theory_var v) {
-        if (s().inconsistent())
-            return true; // property is only valid if the context is not in a conflict.
-        if (!is_root(v) || !is_bv(v))
-            return true;
-        bool_vector bits[2];
-        unsigned      num_bits = 0;
-        unsigned      bv_sz = get_bv_size(v);
-        bits[0].resize(bv_sz, false);
-        bits[1].resize(bv_sz, false);
-
-        theory_var curr = v;
-        do {
-            literal_vector const& lits = m_bits[curr];
-            for (unsigned i = 0; i < lits.size(); i++) {
-                literal l = lits[i];
-                if (s().value(l) != l_undef) {
-                    unsigned is_true = s().value(l) == l_true;
-                    if (bits[!is_true][i]) {
-                        // expect a conflict later on.
-                        return true;
-                    }
-                    if (!bits[is_true][i]) {
-                        bits[is_true][i] = true;
-                        num_bits++;
-                    }
-                }
-            }
-            curr = m_find.next(curr);
-        } while (curr != v);
-
-        zero_one_bits const& _bits = m_zero_one_bits[v];
-        SASSERT(_bits.size() == num_bits);
-        bool_vector already_found;
-        already_found.resize(bv_sz, false);
-        for (auto& zo : _bits) {
-            SASSERT(find(zo.m_owner) == v);
-            SASSERT(bits[zo.m_is_true][zo.m_idx]);
-            SASSERT(!already_found[zo.m_idx]);
-            already_found[zo.m_idx] = true;
-        }
-        return true;
-    }
 }
