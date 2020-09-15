@@ -86,9 +86,6 @@ namespace sat {
             return;
         if (m_activity && ((m_stats.m_num_add % 1000) == 0))
             dump_activity();
-
-        SASSERT(!(n == 2 && c[0] == literal(3802, true) && c[1] == literal(3808, false)));
-        VERIFY(!(n == 2 && c[0] == literal(3802, true) && c[1] == literal(3808, false)));
         
         char buffer[10000];
         char digits[20];     // enough for storing unsigned

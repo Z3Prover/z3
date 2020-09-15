@@ -1,0 +1,84 @@
+/*++
+Copyright (c) 2020 Microsoft Corporation
+
+Module Name:
+
+    bv_invariant.cpp
+
+Abstract:
+
+    Invariants for bv_solver
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2020-08-28
+
+--*/
+
+#include "sat/smt/bv_solver.h"
+
+namespace bv {
+
+    void solver::validate_atoms() const {
+        sat::bool_var v = 0;
+        for (auto* a : m_bool_var2atom) {
+            if (a && a->is_bit()) {
+                for (auto vp : a->to_bit()) {
+                    SASSERT(m_bits[vp.first][vp.second].var() == v);
+                    VERIFY(m_bits[vp.first][vp.second].var() == v);
+                }
+            }
+            ++v;
+        }
+    }
+
+    /**
+        \brief Check whether m_zero_one_bits is an accurate summary of the bits in the
+        equivalence class rooted by v.
+        \remark The method does nothing if v is not the root of the equivalence class.
+    */
+    bool solver::check_zero_one_bits(theory_var v) {
+        if (s().inconsistent())
+            return true; // property is only valid if the context is not in a conflict.
+        if (!is_root(v) || !is_bv(v))
+            return true;
+        bool_vector bits[2];
+        unsigned      num_bits = 0;
+        unsigned      bv_sz = get_bv_size(v);
+        bits[0].resize(bv_sz, false);
+        bits[1].resize(bv_sz, false);
+
+        theory_var curr = v;
+        do {
+            literal_vector const& lits = m_bits[curr];
+            for (unsigned i = 0; i < lits.size(); i++) {
+                literal l = lits[i];
+                if (s().value(l) != l_undef) {
+                    unsigned is_true = s().value(l) == l_true;
+                    if (bits[!is_true][i]) {
+                        // expect a conflict later on.
+                        return true;
+                    }
+                    if (!bits[is_true][i]) {
+                        bits[is_true][i] = true;
+                        num_bits++;
+                    }
+                }
+            }
+            curr = m_find.next(curr);
+        } while (curr != v);
+
+        zero_one_bits const& _bits = m_zero_one_bits[v];
+        SASSERT(_bits.size() == num_bits);
+        bool_vector already_found;
+        already_found.resize(bv_sz, false);
+        for (auto& zo : _bits) {
+            SASSERT(find(zo.m_owner) == v);
+            SASSERT(bits[zo.m_is_true][zo.m_idx]);
+            SASSERT(!already_found[zo.m_idx]);
+            already_found[zo.m_idx] = true;
+        }
+        return true;
+    }
+
+}
