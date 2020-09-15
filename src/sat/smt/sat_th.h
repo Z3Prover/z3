@@ -93,6 +93,10 @@ namespace euf {
 
         virtual void new_eq_eh(euf::th_eq const& eq) {}
 
+        virtual bool use_diseqs() const { return false; }
+
+        virtual void new_diseq_eh(euf::enode* a, euf::enode* b) {}
+
         /**
            \brief Parametric theories (e.g. Arrays) should implement this method.
         */

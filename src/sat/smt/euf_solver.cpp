@@ -53,18 +53,18 @@ namespace euf {
     /**
     * retrieve extension that is associated with Boolean variable.
     */
-    th_solver* solver::get_solver(sat::bool_var v) {
+    th_solver* solver::bool_var2solver(sat::bool_var v) {
         if (v >= m_var2expr.size())
             return nullptr;
         expr* e = m_var2expr[v];
         if (!e)
             return nullptr;
-        return get_solver(e);
+        return expr2solver(e);
     }
 
-    th_solver* solver::get_solver(expr* e) {
+    th_solver* solver::expr2solver(expr* e) {
         if (is_app(e)) 
-            return get_solver(to_app(e)->get_decl());        
+            return func_decl2solver(to_app(e)->get_decl());        
         return nullptr;
     }
 
@@ -112,7 +112,7 @@ namespace euf {
     }
 
     void solver::init_search() {
-        TRACE("euf", display(tout););
+        TRACE("before_search", s().display(tout););
     }
 
     bool solver::is_external(bool_var v) {
@@ -220,14 +220,30 @@ namespace euf {
         size_t* c = to_ptr(l);
         SASSERT(is_literal(c));
         SASSERT(l == get_literal(c));
-        if (m.is_eq(e) && !sign && n->num_args() == 2) {
+        if (m.is_eq(e) && n->num_args() == 2) {
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
-            m_egraph.merge(na, nb, c);
+            if (!sign) {
+                m_egraph.merge(na, nb, c);
+                return;
+            }
+            else 
+                new_diseq(na, nb, l);
         }
-        else {            
-            euf::enode* nb = sign ? mk_false() : mk_true();
-            m_egraph.merge(n, nb, c);
+        euf::enode* nb = sign ? mk_false() : mk_true();
+        m_egraph.merge(n, nb, c);        
+    }
+
+    void solver::new_diseq(enode* n1, enode* n2, literal lit) {
+        enode * r1 = n1->get_root();
+        enode * r2 = n2->get_root();
+        if (r1 == r2) 
+            return;
+        if (r1->has_one_th_var() && r2->has_one_th_var() && r1->get_first_th_id() == r2->get_first_th_id()) {
+            theory_id id = r1->get_first_th_id();
+            theory_var v1 = r1->get_th_var(id);
+            theory_var v2 = r2->get_th_var(id);
+            fid2solver(id)->new_diseq_eh(r1, r2);
         }
     }
 
@@ -412,7 +428,7 @@ namespace euf {
     }
 
     lbool solver::get_phase(bool_var v) { 
-        auto* ext = get_solver(v);
+        auto* ext = bool_var2solver(v);
         if (ext)
             return ext->get_phase(v);
         return l_undef; 

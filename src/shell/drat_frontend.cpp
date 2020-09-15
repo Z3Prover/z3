@@ -173,6 +173,7 @@ public:
         for (expr* arg : args) 
             sorts.push_back(m.get_sort(arg));
         sort_ref rng(m);
+        func_decl* f = nullptr;
         switch (sexpr->get_kind()) {
         case sexpr::kind_t::COMPOSITE: {
             unsigned sz = sexpr->get_num_children();
@@ -214,7 +215,7 @@ public:
         default:
             goto bail;
         }
-        func_decl* f = ctx.find_func_decl(name, params.size(), params.c_ptr(), args.size(), sorts.c_ptr(), rng.get());
+        f = ctx.find_func_decl(name, params.size(), params.c_ptr(), args.size(), sorts.c_ptr(), rng.get());
         if (!f) 
             goto bail;
         result = ctx.m().mk_app(f, args);

@@ -65,9 +65,9 @@ namespace smt {
         else if (l == false_literal)
             out << "false";
         else if (l.sign())
-            out << "(not p" << l.var() << ")";
+            out << "-" << l.var();
         else
-            out << "p" << l.var();
+            out << l.var();
         return out;
     }
 

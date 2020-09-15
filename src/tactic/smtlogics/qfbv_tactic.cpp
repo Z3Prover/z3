@@ -30,6 +30,7 @@ Notes:
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
+#include "tactic/smtlogics/smt_tactic_select.h"
 
 #define MEMLIMIT 300
 
@@ -122,8 +123,8 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
     tactic * new_sat = cond(mk_produce_proofs_probe(),
-                            and_then(mk_simplify_tactic(m), mk_smt_tactic(m)),
+                            and_then(mk_simplify_tactic(m), mk_smt_tactic_select(m, p)),
                             mk_psat_tactic(m, p));
-    return mk_qfbv_tactic(m, p, new_sat, mk_smt_tactic(m, p));
+    return mk_qfbv_tactic(m, p, new_sat, mk_smt_tactic_select(m, p));
 
 }

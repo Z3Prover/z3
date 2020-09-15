@@ -38,7 +38,7 @@ namespace euf {
             return true;
         if (f->get_family_id() == m.get_basic_family_id())
             return false;
-        euf::th_model_builder* mb = get_solver(f);
+        euf::th_model_builder* mb = func_decl2solver(f);
         return mb && mb->include_func_interp(f);
     }
 
@@ -48,7 +48,7 @@ namespace euf {
                 deps.insert(n, nullptr);
                 continue;
             }
-            auto* mb = get_solver(n->get_expr());
+            auto* mb = expr2solver(n->get_expr());
             if (mb)
                 mb->add_dep(n, deps);
             else
@@ -94,14 +94,14 @@ namespace euf {
                 }
                 continue;
             }
-            auto* mb = get_solver(e);
+            auto* mb = expr2solver(e);
             if (mb) 
                 mb->add_value(n, *mdl, values);
             else if (m.is_uninterp(m.get_sort(e))) {
                 expr* v = user_sort.get_fresh_value(m.get_sort(e));
                 values.set(id, v);
             }
-            else if ((mb = get_solver(m.get_sort(e))))
+            else if ((mb = sort2solver(m.get_sort(e))))
                 mb->add_value(n, *mdl, values);
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");

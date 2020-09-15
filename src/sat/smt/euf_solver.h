@@ -125,10 +125,11 @@ namespace euf {
 
         // extensions
         th_solver* get_solver(family_id fid, func_decl* f);
-        th_solver* get_solver(sort* s) { return get_solver(s->get_family_id(), nullptr); }
-        th_solver* get_solver(func_decl* f) { return get_solver(f->get_family_id(), f); }
-        th_solver* get_solver(expr* e);
-        th_solver* get_solver(sat::bool_var v);
+        th_solver* sort2solver(sort* s) { return get_solver(s->get_family_id(), nullptr); }
+        th_solver* func_decl2solver(func_decl* f) { return get_solver(f->get_family_id(), f); }
+        th_solver* expr2solver(expr* e);
+        th_solver* bool_var2solver(sat::bool_var v);
+        th_solver* fid2solver(family_id fid) { return m_id2solver.get(fid, nullptr); }
         void add_solver(family_id fid, th_solver* th);
         void init_ackerman();
 
@@ -143,6 +144,7 @@ namespace euf {
         void propagate_literals();
         void propagate_th_eqs();
         void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
+        void new_diseq(enode* a, enode* b, literal lit);
 
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);

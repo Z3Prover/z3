@@ -23,7 +23,7 @@ namespace euf {
     void solver::internalize(expr* e, bool redundant) {
         if (si.is_bool_op(e))
             attach_lit(si.internalize(e, redundant), e);
-        else if (auto* ext = get_solver(e))
+        else if (auto* ext = expr2solver(e))
             ext->internalize(e, redundant);
         else
             visit_rec(m, e, false, false, redundant);
@@ -33,7 +33,7 @@ namespace euf {
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         if (si.is_bool_op(e))
             return attach_lit(si.internalize(e, redundant), e);
-        if (auto* ext = get_solver(e))
+        if (auto* ext = expr2solver(e))
             return ext->internalize(e, sign, root, redundant);
         if (!visit_rec(m, e, sign, root, redundant))
             return sat::null_literal;
@@ -67,7 +67,7 @@ namespace euf {
             m_args.push_back(m_egraph.find(to_app(e)->get_arg(i)));
         if (root && internalize_root(to_app(e), sign, m_args))
             return false;
-        if (auto* s = get_solver(e)) {
+        if (auto* s = expr2solver(e)) {
             s->internalize(e, m_is_redundant);
             return true;
         }
@@ -88,8 +88,8 @@ namespace euf {
             attach_lit(literal(si.add_bool_var(e), false), e);
 
         if (!m.is_bool(e) && m.get_sort(e)->get_family_id() != null_family_id) {
-            auto* e_ext = get_solver(e);
-            auto* s_ext = get_solver(m.get_sort(e));
+            auto* e_ext = expr2solver(e);
+            auto* s_ext = sort2solver(m.get_sort(e));
             if (s_ext && s_ext != e_ext)
                 s_ext->apply_sort_cnstr(n, m.get_sort(e));
         }

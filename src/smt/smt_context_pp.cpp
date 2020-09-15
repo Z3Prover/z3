@@ -178,14 +178,15 @@ namespace smt {
 
     std::ostream& context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
         for (clause* cp : v) {
-            display_clause_smt2(out, *cp);
-            out << "\n";
+            out << "(";
+            for (auto lit : *cp)
+                out << lit << " ";
+            out << ")\n";
         }
         return out;
     }
 
     std::ostream& context::display_binary_clauses(std::ostream & out) const {
-        bool first = true;
         unsigned l_idx = 0;
         for (watch_list const& wl : m_watches) {
             literal l1 = to_literal(l_idx++);
@@ -195,21 +196,13 @@ namespace smt {
             for (; it2 != end2; ++it2) {
                 literal l2 = *it2;
                 if (l1.index() < l2.index()) {
-                    if (first) {
-                        out << "binary clauses:\n";
-                        first = false;
-                    }
+                    out << "(" << neg_l1 << " " << l2 << ")\n";
+#if 0
                     expr_ref t1(m), t2(m);
                     literal2expr(neg_l1, t1);
                     literal2expr(l2, t2);
                     expr_ref disj(m.mk_or(t1, t2), m);
                     out << mk_bounded_pp(disj, m, 3) << "\n";
-#if 0
-                    out << "(clause ";
-                    display_literal(out, neg_l1);
-                    out << " ";
-                    display_literal(out, l2);
-                    out << ")\n";
 #endif
                 }
             }
@@ -327,6 +320,7 @@ namespace smt {
         display_bool_var_defs(out);
         display_enode_defs(out);
         display_asserted_formulas(out);
+        display_binary_clauses(out);
         if (!m_aux_clauses.empty()) {
             out << "auxiliary clauses:\n";
             display_clauses(out, m_aux_clauses);
@@ -335,7 +329,6 @@ namespace smt {
             out << "lemmas:\n";
             display_clauses(out, m_lemmas);
         }
-        display_binary_clauses(out);
         display_assignment(out);
         display_eqc(out);
         m_cg_table.display_compact(out);
