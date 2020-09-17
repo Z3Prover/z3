@@ -133,6 +133,7 @@ namespace euf {
         svector<update_record> m_updates;
         unsigned_vector        m_scopes;
         enode_vector           m_expr2enode;
+        enode*                 m_tmp_eq { nullptr };
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
         unsigned               m_num_scopes { 0 };
@@ -194,7 +195,7 @@ namespace euf {
         std::ostream& display(std::ostream& out, unsigned max_args, enode* n) const;
         
     public:
-        egraph(ast_manager& m): m(m), m_table(m), m_exprs(m) {}
+        egraph(ast_manager& m);
         ~egraph();
         enode* find(expr* f) { return m_expr2enode.get(f->get_id(), nullptr); }
         enode* mk(expr* f, unsigned n, enode *const* args);
@@ -219,6 +220,11 @@ namespace euf {
         */
         bool propagate();
         bool inconsistent() const { return m_inconsistent; }
+
+        /**
+        * \brief check if two nodes are known to be disequal.
+        */
+        bool are_diseq(enode* a, enode* b) const;
 
         /**
            \brief Maintain and update cursor into propagated consequences.

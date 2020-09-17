@@ -117,6 +117,10 @@ namespace euf {
         return n;
     }
 
+    egraph::egraph(ast_manager& m) : m(m), m_table(m), m_exprs(m) {
+        m_tmp_eq = enode::mk_tmp(m_region, 2);
+    }
+
     egraph::~egraph() {
         for (enode* n : m_nodes) 
             n->m_parents.finalize();
@@ -440,6 +444,25 @@ namespace euf {
         // n2 -> ... -> r2
         SASSERT(n1->reaches(n1->get_root()));
         SASSERT(!n1->get_root()->m_target);
+    }
+
+    bool egraph::are_diseq(enode* a, enode* b) const {
+        enode* ra = a->get_root(), * rb = b->get_root();
+        if (ra == rb)
+            return false;
+        if (ra->interpreted() && rb->interpreted())
+            return true;
+        if (m.get_sort(ra->get_expr()) != m.get_sort(rb->get_expr()))
+            return true;
+        expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
+        m_tmp_eq->m_args[0] = a;
+        m_tmp_eq->m_args[1] = b;
+        m_tmp_eq->m_expr = eq;
+        SASSERT(m_tmp_eq->num_args() == 2);
+        enode* r = m_table.find(m_tmp_eq);
+        if (r && m_value(r->get_root()) == l_false)
+            return true;
+        return false;
     }
 
     /**
