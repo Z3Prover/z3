@@ -167,9 +167,11 @@ namespace sat {
             return;
 
         if (m_probing_binary) {
-            watch_list & wlist = s.get_wlist(~l);
-            for (unsigned i = 0; i < wlist.size(); ++i) {
+            unsigned sz = s.get_wlist(~l).size();
+            for (unsigned i = 0; i < sz; ++i) {
+                watch_list& wlist = s.get_wlist(~l);
                 watched & w = wlist[i];
+                sz = wlist.size();
                 if (!w.is_binary_clause())
                     continue;
                 literal l2 = w.get_literal();
@@ -177,7 +179,8 @@ namespace sat {
                     continue;
                 if (s.value(l2) != l_undef)
                     continue;
-                // Note: that try_lit calls propagate, which may update the watch lists.
+                // Note: that try_lit calls propagate, which may update the watch lists
+                // and potentially change the set of variables.
                 if (!try_lit(l2, false))
                     return;
                 if (s.inconsistent())

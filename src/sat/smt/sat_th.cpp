@@ -74,7 +74,7 @@ namespace euf {
     }
 
     sat::literal th_euf_solver::expr2literal(expr* e) const {
-        return ctx.get_literal(e);
+        return ctx.expr2literal(e);
     }
 
     expr* th_euf_solver::bool_var2expr(sat::bool_var v) const {
@@ -98,26 +98,23 @@ namespace euf {
         return get_th_var(ctx.get_enode(e));
     }
     
-    void th_euf_solver::push() {
+    void th_euf_solver::push_core() {
+        TRACE("euf", tout << "push-core\n";);
         m_var2enode_lim.push_back(m_var2enode.size());
     }
 
-    void th_euf_solver::pop(unsigned num_scopes) {
+    void th_euf_solver::pop_core(unsigned num_scopes) {
         unsigned new_lvl = m_var2enode_lim.size() - num_scopes;
         m_var2enode.shrink(m_var2enode_lim[new_lvl]);
         m_var2enode_lim.shrink(new_lvl);
     }
 
-    unsigned th_euf_solver::lazy_pop(unsigned n) {
-        if (n <= m_num_scopes) {
-            m_num_scopes -= n;
-            return 0;
-        }
-        else {
-            n -= m_num_scopes;
-            pop(n);
-            return n;
-        }
+    void th_euf_solver::pop(unsigned n) {
+        unsigned k = std::min(m_num_scopes, n);
+        m_num_scopes -= k;
+        n -= k;
+        if (n > 0)
+            pop_core(n);        
     }
 
     bool th_euf_solver::add_unit(sat::literal lit) {
@@ -154,4 +151,9 @@ namespace euf {
     void th_euf_solver::rewrite(expr_ref& a) {
         ctx.get_rewriter()(a);
     }
+
+    expr_ref th_euf_solver::mk_eq(expr* e1, expr* e2) { 
+        return ctx.mk_eq(e1, e2); 
+    }
+
 }

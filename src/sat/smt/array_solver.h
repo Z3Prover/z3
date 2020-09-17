@@ -175,6 +175,8 @@ namespace array {
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }
         var_data const& get_var_data(theory_var v) const { return *m_var_data[v]; }
+
+        void pop_core(unsigned n) override;
         
         // models
         bool have_different_model_values(theory_var v1, theory_var v2);
@@ -191,8 +193,7 @@ namespace array {
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override {}
         void asserted(literal l) override {}
         sat::check_result check() override;
-        void push() override;
-        void pop(unsigned n) override;
+
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;

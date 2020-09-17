@@ -49,8 +49,6 @@ namespace euf {
         size_t to_index() const { return sat::constraint_base::mem2base(this); }
     };
 
-
-
     class solver : public sat::extension, public th_internalizer, public th_decompile {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
@@ -194,10 +192,11 @@ namespace euf {
         sat::sat_internalizer& get_si() { return si; }
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) { return m_egraph.find(e); }
-        sat::literal get_literal(expr* e) const { return literal(si.to_bool_var(e), false); }
-        sat::literal get_literal(enode* e) const { return get_literal(e->get_expr()); }
+        sat::literal expr2literal(expr* e) const { return literal(si.to_bool_var(e), false); }
+        sat::literal enode2literal(enode* e) const { return expr2literal(e->get_expr()); }
         smt_params const& get_config() { return m_config; }
         region& get_region() { return m_trail.get_region(); }
+        egraph& get_egraph() { return m_egraph; }
         template <typename C>
         void push(C const& c) { m_trail.push(c);  }
         euf_trail_stack& get_trail_stack() { return m_trail; }
@@ -254,6 +253,8 @@ namespace euf {
         void internalize(expr* e, bool learned) override;
         void attach_th_var(enode* n, th_solver* th, theory_var v) { m_egraph.add_th_var(n, v, th->get_id()); }
         void attach_node(euf::enode* n);
+        expr_ref mk_eq(expr* e1, expr* e2);
+        expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
         expr* bool_var2expr(sat::bool_var v) { return m_var2expr.get(v, nullptr); }
         void unhandled_function(func_decl* f);

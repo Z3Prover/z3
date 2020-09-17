@@ -246,8 +246,8 @@ namespace bv {
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing) override;
         void asserted(literal l) override;
         sat::check_result check() override;
-        void push() override;
-        void pop(unsigned n) override;
+        void push_core() override;
+        void pop_core(unsigned n) override;
         void pre_simplify() override;        
         void simplify() override;
         bool set_root(literal l, literal r) override;
@@ -270,6 +270,8 @@ namespace bv {
         unsigned max_var(unsigned w) const override;
 
         void new_eq_eh(euf::th_eq const& eq) override;
+        void new_diseq_eh(euf::th_eq const& ne) override;
+        bool use_diseqs() const override { return true; }
         bool unit_propagate() override;
 
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;

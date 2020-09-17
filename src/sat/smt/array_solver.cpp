@@ -84,6 +84,7 @@ namespace array {
     }
 
     sat::check_result solver::check() {
+        force_push();
         // flet<bool> _is_redundant(m_is_redundant, true);
         bool turn[2] = { false, false };
         turn[s().rand()(2)] = true;
@@ -96,14 +97,8 @@ namespace array {
         return sat::check_result::CR_DONE;
     }
 
-    void solver::push() {
-        th_euf_solver::lazy_push();
-    }
-
-    void solver::pop(unsigned n) {
-        n = lazy_pop(n);
-        if (n == 0)
-            return;
+    void solver::pop_core(unsigned n) {
+        th_euf_solver::pop_core(n);
         m_var_data.resize(get_num_vars());
     }
 
@@ -111,9 +106,9 @@ namespace array {
         for (unsigned i = 0; i < get_num_vars(); ++i) {
             auto& d = get_var_data(i);
             out << var2enode(i)->get_expr_id() << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
-            display_info(out, "parent beta", d.m_parent_lambdas);
+            display_info(out, "parent lambdas", d.m_parent_lambdas);
             display_info(out, "parent select", d.m_parent_selects);
-            display_info(out, "beta         ", d.m_lambdas);
+            display_info(out, "b         ", d.m_lambdas);
         }
         return out;
     }
@@ -159,12 +154,14 @@ namespace array {
     }
 
     void solver::new_eq_eh(euf::th_eq const& eq) {
-        m_find.merge(eq.m_v1, eq.m_v2);
+        force_push();
+        m_find.merge(eq.v1(), eq.v2());
     }
 
     bool solver::unit_propagate() {
         if (m_qhead == m_axiom_trail.size())
             return false;
+        force_push();
         bool prop = false;
         ctx.push(value_trail<euf::solver, unsigned>(m_qhead));
         for (; m_qhead < m_axiom_trail.size() && !s().inconsistent(); ++m_qhead)

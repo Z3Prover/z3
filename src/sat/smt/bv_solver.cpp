@@ -57,6 +57,7 @@ namespace bv {
         m_ackerman(*this),
         m_bb(m, get_config()),
         m_find(*this) {
+        ctx.get_egraph().set_th_propagates_diseqs(id);
     }
 
     void solver::fixed_var_eh(theory_var v1) {
@@ -194,9 +195,37 @@ namespace bv {
     }
 
     void solver::new_eq_eh(euf::th_eq const& eq) {
-        TRACE("bv", tout << "new eq " << eq.m_v1 << " == " << eq.m_v2 << "\n";);
-        if (is_bv(eq.m_v1))
-            m_find.merge(eq.m_v1, eq.m_v2);
+        force_push();
+        TRACE("bv", tout << "new eq " << eq.v1() << " == " << eq.v2() << "\n";);
+        if (is_bv(eq.v1()))
+            m_find.merge(eq.v1(), eq.v2());
+    }
+
+    void solver::new_diseq_eh(euf::th_eq const& ne) {
+        theory_var v1 = ne.v1(), v2 = ne.v2();
+        if (!is_bv(v1))
+            return;
+        if (!get_config().m_bv_eq_axioms)
+            return;
+
+        TRACE("bv", tout << "diff: " << v1 << " != " << v2 << "\n";);
+        unsigned sz = m_bits[v1].size();
+        for (unsigned i = 0; i < sz; ++i) {
+            sat::literal a = m_bits[v1][i];
+            sat::literal b = m_bits[v2][i];
+            if (a == ~b)                
+                return;
+            auto va = s().value(a);
+            auto vb = s().value(b);
+            if (va != l_undef && vb != l_undef && va != vb)
+                return;
+        }
+        if (s().at_search_lvl()) {
+            force_push();
+            assert_ackerman(v1, v2);
+        }
+        else
+            m_ackerman.used_diseq_eh(v1, v2);        
     }
 
     double solver::get_reward(literal l, sat::ext_constraint_idx idx, sat::literal_occs_fun& occs) const { return 0; }
@@ -209,6 +238,7 @@ namespace bv {
         TRACE("bv", display_constraint(tout, idx););
         switch (c.m_kind) {
         case bv_justification::kind_t::bv2bit:
+            SASSERT(s().value(c.m_antecedent) == l_true);
             r.push_back(c.m_antecedent);
             ctx.add_antecedent(var2enode(c.m_v1), var2enode(c.m_v2));
             break;
@@ -235,9 +265,16 @@ namespace bv {
     }
 
     void solver::log_drat(bv_justification const& c) {
-        // this has a side-effect so changes provability:
-        expr_ref eq(m.mk_eq(var2expr(c.m_v1), var2expr(c.m_v2)), m);
-        sat::literal leq = ctx.internalize(eq, false, false, false);
+        // introduce dummy literal for equality.
+        sat::literal leq(s().num_vars() + 1, false);
+        expr* e1 = var2expr(c.m_v1);
+        expr* e2 = var2expr(c.m_v2);
+        expr_ref eq(m.mk_eq(e1, e2), m);
+        ctx.get_drat().def_begin('e', eq->get_id(), std::string("="));
+        ctx.get_drat().def_add_arg(e1->get_id());
+        ctx.get_drat().def_add_arg(e2->get_id());
+        ctx.get_drat().def_end();
+        ctx.get_drat().bool_def(leq.var(), eq->get_id());
         sat::literal_vector lits;
         auto add_bit = [&](sat::literal lit) {
             if (s().value(lit) == l_true)
@@ -263,19 +300,24 @@ namespace bv {
             break;
         }
         ctx.get_drat().add(lits, status());
+        ctx.get_drat().log_gc_var(leq.var());
     }
 
     void solver::asserted(literal l) {
+
         atom* a = get_bv2a(l.var());
         TRACE("bv", tout << "asserted: " << l << "\n";);
-        if (a && a->is_bit())
+        if (a && a->is_bit()) {
+            force_push();
             for (auto vp : a->to_bit())
                 m_prop_queue.push_back(vp);
+        }
     }
 
     bool solver::unit_propagate() {
         if (m_prop_queue_head == m_prop_queue.size())
             return false;
+        force_push();
         ctx.push(value_trail<euf::solver, unsigned>(m_prop_queue_head));
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head)
             propagate_bits(m_prop_queue[m_prop_queue_head]);
@@ -311,26 +353,26 @@ namespace bv {
     }
 
     sat::check_result solver::check() {
+        force_push();
         SASSERT(m_prop_queue.size() == m_prop_queue_head);
         return sat::check_result::CR_DONE;
     }
 
-    void solver::push() {
-        th_euf_solver::lazy_push();
+    void solver::push_core() {
+        th_euf_solver::push_core();
         m_prop_queue_lim.push_back(m_prop_queue.size());
     }
 
-    void solver::pop(unsigned n) {
+    void solver::pop_core(unsigned n) {
+        SASSERT(m_num_scopes == 0);
         unsigned old_sz = m_prop_queue_lim.size() - n;
         m_prop_queue.shrink(m_prop_queue_lim[old_sz]);
         m_prop_queue_lim.shrink(old_sz);
-        n = lazy_pop(n);
-        if (n > 0) {
-            old_sz = get_num_vars();
-            m_bits.shrink(old_sz);
-            m_wpos.shrink(old_sz);
-            m_zero_one_bits.shrink(old_sz);
-        }
+        th_euf_solver::pop_core(n);
+        old_sz = get_num_vars();        
+        m_bits.shrink(old_sz);
+        m_wpos.shrink(old_sz);
+        m_zero_one_bits.shrink(old_sz);
     }
 
     void solver::pre_simplify() {}
@@ -559,8 +601,7 @@ namespace bv {
             SASSERT(s().inconsistent());
         }
         else {
-            if (get_config().m_bv_eq_axioms && false) {
-                // TODO - enable when pop_reinit is available
+            if (false && get_config().m_bv_eq_axioms) {
                 expr_ref eq(m.mk_eq(var2expr(v1), var2expr(v2)), m);
                 flet<bool> _is_redundant(m_is_redundant, true);
                 literal eq_lit = ctx.internalize(eq, false, false, m_is_redundant);

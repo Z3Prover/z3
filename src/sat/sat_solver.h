@@ -124,6 +124,7 @@ namespace sat {
         bool_vector             m_lit_mark;
         bool_vector             m_eliminated;
         bool_vector             m_external;
+        unsigned_vector         m_var_scope;
         unsigned_vector         m_touched;
         unsigned                m_touch_index;
         literal_vector          m_replay_assign;
@@ -286,6 +287,8 @@ namespace sat {
         clause * mk_ter_clause(literal * lits, status st);
         bool attach_ter_clause(clause & c, status st);
         clause * mk_nary_clause(unsigned num_lits, literal * lits, status st);
+        bool has_variables_to_reinit(clause const& c) const;
+        bool has_variables_to_reinit(literal l1, literal l2) const;
         bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
@@ -320,6 +323,7 @@ namespace sat {
         void detach_nary_clause(clause & c);
         void detach_ter_clause(clause & c);
         void push_reinit_stack(clause & c);
+        void push_reinit_stack(literal l1, literal l2);
 
         void init_visited();
         void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
@@ -441,6 +445,7 @@ namespace sat {
     protected:
         bool should_propagate() const;
         bool propagate_core(bool update);
+        bool propagate_literal(literal l, bool update);
         
         // -----------------------
         //
@@ -545,6 +550,10 @@ namespace sat {
         unsigned psm(clause const & c) const;
         bool can_delete(clause const & c) const;
         bool can_delete3(literal l1, literal l2, literal l3) const;
+
+        // gc for lemmas in the reinit-stack
+        void gc_reinit_stack(unsigned num_scopes);
+        bool is_asserting(unsigned new_lvl, clause_wrapper const& cw) const;
 
         clause& get_clause(watch_list::iterator it) const {
             SASSERT(it->get_kind() == watched::CLAUSE);

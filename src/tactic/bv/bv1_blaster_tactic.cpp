@@ -152,8 +152,8 @@ class bv1_blaster_tactic : public tactic {
             SASSERT(t_bits.size() == e_bits.size());
             bit_buffer new_ites;
             unsigned num = t_bits.size();
-            for (unsigned i = 0; i < num; i++)
-                new_ites.push_back(m().mk_ite(c, t_bits[i], e_bits[i]));
+            for (unsigned i = 0; i < num; i++)             
+                new_ites.push_back(t_bits[i] == e_bits[i] ? t_bits[i] : m().mk_ite(c, t_bits[i], e_bits[i]));
             result = butil().mk_concat(new_ites.size(), new_ites.c_ptr());
         }
         

@@ -257,6 +257,22 @@ namespace sat {
         }
     }
 
+    void drat::gc_var(bool_var v) {
+        sat::literal l(v, false);
+        // TBD: we want to remove all clauses that mention v.
+        std::cout << "GC " << v << "\n";
+        m_watches[l.index()].reset();
+        m_watches[(~l).index()].reset();
+        if (m_assignment[l.var()] != l_undef) {
+            unsigned j = 0;
+            for (literal lit : m_units)
+                if (lit.var() != v)
+                    m_units[j++] = lit;
+            m_units.shrink(j);
+            m_assignment[l.var()] = l_undef;
+        }
+    }
+
     void drat::bool_def(bool_var v, unsigned n) {
         if (m_out)
             (*m_out) << "b " << v << " " << n << " 0\n";
@@ -275,6 +291,11 @@ namespace sat {
     void drat::def_end() {
         if (m_out)
             (*m_out) << " 0\n";
+    }
+
+    void drat::log_gc_var(bool_var v) {
+        if (m_out)
+            (*m_out) << "g " << v << " 0\n";
     }
 
     void drat::log_adhoc(std::function<void(std::ostream&)>& fn) {
