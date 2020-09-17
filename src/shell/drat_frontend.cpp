@@ -205,9 +205,6 @@ public:
         case sexpr::kind_t::BV_NUMERAL: {
             std::cout << "bv numeral\n";
             goto bail;            
-            unsigned sz = sexpr->get_bv_size();
-            rational r = sexpr->get_numeral();
-            break;
         }
         case sexpr::kind_t::STRING:
         case sexpr::kind_t::KEYWORD:

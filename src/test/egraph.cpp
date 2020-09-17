@@ -81,7 +81,7 @@ static void test2() {
     g.propagate();
     std::cout << "propagated " << t.get_seconds() << "\n";
     for (euf::enode* n : top_nodes) {
-        SASSERT(n->get_root() == top_nodes[0]->get_root());
+        VERIFY(n->get_root() == top_nodes[0]->get_root());
     }    
 }
 

@@ -37,15 +37,14 @@ namespace bv {
     };
 
     class solver::bit_occs_trail : public trail<euf::solver> {
-        solver& s;
         bit_atom& a;
         var_pos_occ* m_occs;
 
     public:
-        bit_occs_trail(solver& s, bit_atom& a):s(s), a(a), m_occs(a.m_occs) {}
+        bit_occs_trail(solver& s, bit_atom& a): a(a), m_occs(a.m_occs) {}
         
         virtual void undo(euf::solver& euf) {
-            std::cout << "add back occurrences " << & a << "\n";
+            IF_VERBOSE(1, verbose_stream() << "add back occurrences " << & a << "\n");
             a.m_occs = m_occs;
         }
     };
