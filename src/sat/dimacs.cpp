@@ -235,12 +235,15 @@ namespace dimacs {
             skip_whitespace(in);
             switch (*in) {
             case EOF:
-                return false;
+                return false;                
             case 'c':
+                // parse comment line
             case 'p':
+                // parse meta-data information
                 skip_line(in);
                 goto loop;
             case 'i':
+                // parse input clause
                 ++in;
                 skip_whitespace(in);
                 read_clause(in, err, m_record.m_lits);
@@ -248,6 +251,7 @@ namespace dimacs {
                 m_record.m_status = sat::status::input();
                 break;
             case 'a':
+                // parse non-redundant theory clause
                 ++in;
                 skip_whitespace(in);
                 theory_id = read_theory_id();
@@ -256,16 +260,32 @@ namespace dimacs {
                 m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::th(false, theory_id);
                 break;
+            case 'g':
+                // parse garbage collected Boolean variable
+                ++in;
+                skip_whitespace(in);
+                b = parse_int(in, err);
+                e = parse_int(in, err);
+                if (e != 0 || b <= 0)
+                    throw lex_error();
+                m_record.m_tag = drat_record::tag_t::is_var_gc;
+                m_record.m_node_id = b;
+                break;
             case 'e':
+                // parse expression definition
                 parse_ast(drat_record::tag_t::is_node);
                 break;
             case 'f':
+                // parse function declaration
                 parse_ast(drat_record::tag_t::is_decl);
                 break;
             case 's':
+                // parse sort declaration (not used)
                 parse_ast(drat_record::tag_t::is_sort);
                 break;
             case 'b':
+                // parse bridge between Boolean variable identifier b 
+                // and expression identifier e, which is of type Bool
                 ++in;
                 skip_whitespace(in);
                 b = parse_int(in, err);
@@ -279,6 +299,7 @@ namespace dimacs {
                 m_record.m_args.push_back(n);
                 break;
             case 'd':
+                // parse clause deletion
                 ++in;
                 skip_whitespace(in);
                 read_clause(in, err, m_record.m_lits);
@@ -286,6 +307,8 @@ namespace dimacs {
                 m_record.m_status = sat::status::deleted();
                 break;
             case 'r':
+                // parse redundant theory clause
+                // the clause must be DRUP redundant modulo T
                 ++in;
                 skip_whitespace(in);
                 theory_id = read_theory_id();
@@ -294,6 +317,7 @@ namespace dimacs {
                 m_record.m_status = sat::status::th(true, theory_id);
                 break;
             default:
+                // parse clause redundant modulo DRAT (or mostly just DRUP)
                 read_clause(in, err, m_record.m_lits);
                 m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::redundant();

@@ -128,7 +128,7 @@ class smt_checker {
         }
         m_lemma_solver->pop(1);
         std::cout << "smt\n";
-        check_assertion_redundant(lits);
+        // check_assertion_redundant(lits);
     }
 
 public:
@@ -205,9 +205,6 @@ public:
         case sexpr::kind_t::BV_NUMERAL: {
             std::cout << "bv numeral\n";
             goto bail;            
-            unsigned sz = sexpr->get_bv_size();
-            rational r = sexpr->get_numeral();
-            break;
         }
         case sexpr::kind_t::STRING:
         case sexpr::kind_t::KEYWORD:
@@ -313,6 +310,9 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
         case dimacs::drat_record::tag_t::is_bool_def:
             bool_var2expr.reserve(r.m_node_id+1);
             bool_var2expr.set(r.m_node_id, exprs.get(r.m_args[0]));
+            break;
+        case dimacs::drat_record::tag_t::is_var_gc:
+            drat_checker.gc_var(r.m_node_id);
             break;
         default:
             UNREACHABLE();

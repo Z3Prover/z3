@@ -70,6 +70,21 @@ namespace euf {
         return true;
     }
 
+    /*
+     * Find the theory var that that is heuristically 
+     * linked with the fewest equality justifications.
+     */
+    theory_var enode::get_closest_th_var(theory_id id) const {
+        enode const* n = this;
+        while (n) {
+            theory_var v = n->get_th_var(id);
+            if (v != null_theory_var)
+                return v;
+            n = n->m_target;
+        }
+        return null_theory_var;
+    }
+
     bool enode::acyclic() const {
         enode const* n = this;
         enode const* p = this;

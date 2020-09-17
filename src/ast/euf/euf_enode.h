@@ -36,23 +36,23 @@ namespace euf {
     const theory_id null_theory_id = -1;
 
     class enode {
-        expr*         m_expr{ nullptr };
-        bool          m_mark1 { false };
-        bool          m_mark2 { false };
-        bool          m_commutative { false };
-        bool          m_update_children { false };
-        bool          m_interpreted { false };
-        bool          m_merge_enabled { true };
-        unsigned      m_class_size { 1 };
-        unsigned      m_table_id { UINT_MAX };
+        expr* m_expr{ nullptr };
+        bool          m_mark1{ false };
+        bool          m_mark2{ false };
+        bool          m_commutative{ false };
+        bool          m_update_children{ false };
+        bool          m_interpreted{ false };
+        bool          m_merge_enabled{ true };
+        unsigned      m_class_size{ 1 };
+        unsigned      m_table_id{ UINT_MAX };
         enode_vector  m_parents;
-        enode*        m_next{ nullptr };
-        enode*        m_root{ nullptr };
-        enode*        m_target { nullptr };
+        enode* m_next{ nullptr };
+        enode* m_root{ nullptr };
+        enode* m_target{ nullptr };
         th_var_list   m_th_vars;
         justification m_justification;
-        unsigned      m_num_args { 0 };
-        enode*        m_args[0];        
+        unsigned      m_num_args{ 0 };
+        enode* m_args[0];
 
         friend class enode_args;
         friend class enode_parents;
@@ -81,6 +81,20 @@ namespace euf {
             }
             return n;
         }
+
+        static enode* mk_tmp(region& r, unsigned num_args) {
+            void* mem = r.allocate(get_enode_size(num_args));
+            enode* n = new (mem) enode();
+            n->m_expr = nullptr;
+            n->m_next = n;
+            n->m_root = n;
+            n->m_commutative = true;
+            n->m_num_args = 2;
+            n->m_merge_enabled = true;
+            for (unsigned i = 0; i < num_args; ++i) 
+                n->m_args[i] = nullptr;            
+            return n;
+        }    
         
         void set_update_children() { m_update_children = true; }
 
@@ -148,10 +162,12 @@ namespace euf {
         unsigned get_expr_id() const { return m_expr->get_id(); }
         unsigned get_root_id() const { return m_root->m_expr->get_id(); }
         theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }
+        theory_var get_closest_th_var(theory_id id) const;
         bool is_attached_to(theory_id id) const { return get_th_var(id) != null_theory_var; }
         bool has_th_vars() const { return !m_th_vars.empty(); }
         bool has_one_th_var() const { return !m_th_vars.empty() && !m_th_vars.get_next();}
         theory_var get_first_th_id() const { SASSERT(has_th_vars()); return m_th_vars.get_id(); }
+        
 
         void inc_class_size(unsigned n) { m_class_size += n; }
         void dec_class_size(unsigned n) { m_class_size -= n; }

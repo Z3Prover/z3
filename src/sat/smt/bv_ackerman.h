@@ -72,6 +72,8 @@ namespace bv {
 
         void used_eq_eh(euf::theory_var v1, euf::theory_var v2);
 
+        void used_diseq_eh(euf::theory_var v1, euf::theory_var v2);
+
         void propagate();
     };
 

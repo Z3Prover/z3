@@ -55,6 +55,25 @@ namespace bv {
         }
     }
 
+    void ackerman::used_diseq_eh(euf::theory_var v1, euf::theory_var v2) {
+        if (v1 == v2)
+            return;
+        if (v1 > v2)
+            std::swap(v1, v2);
+        vv* n = m_tmp_vv;
+        n->v1 = v1;
+        n->v2 = v2;
+        vv* other = m_table.insert_if_not_there(n);
+        other->m_count++;
+        if (other->m_count > m_propagate_high_watermark || other->m_glue == 0)
+            s.s().set_should_simplify();
+        vv::push_to_front(m_queue, other);
+        if (other == n) {
+            new_tmp();
+            gc();
+        }
+    }
+
     void ackerman::update_glue(vv& v) {
         unsigned sz = s.m_bits[v.v1].size();
         m_diff_levels.reserve(s.s().scope_lvl() + 1, false);

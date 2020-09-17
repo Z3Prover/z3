@@ -62,15 +62,17 @@ namespace bv {
         m_zero_one_bits.push_back(zero_one_bits());       
         ctx.attach_th_var(n, this, r);
         
-        TRACE("bv", tout << "mk-var: " << r << " " << n->get_expr_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
+        TRACE("bv", tout << "mk-var: " << r << " " << n->get_expr_id() << " " << mk_bounded_pp(n->get_expr(), m) << "\n";);
         return r;
     }
 
     void solver::apply_sort_cnstr(euf::enode * n, sort * s) {
+        force_push();
         get_var(n);
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+        force_push();
         SASSERT(m.is_bool(e));
         if (!visit_rec(m, e, sign, root, redundant))
             return sat::null_literal;
@@ -81,6 +83,7 @@ namespace bv {
     }
 
     void solver::internalize(expr* e, bool redundant) {
+        force_push();
         visit_rec(m, e, false, false, redundant);
     }
 
@@ -337,7 +340,7 @@ namespace bv {
         for (expr* b : k_bits) 
             args.push_back(m.mk_ite(b, m_autil.mk_int(power2(i++)), zero));        
         expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
-        expr_ref eq(m.mk_eq(n, sum), m);
+        expr_ref eq = mk_eq(n, sum);
         sat::literal lit = ctx.internalize(eq, false, false, m_is_redundant);
         add_unit(lit);
     }
@@ -367,7 +370,7 @@ namespace bv {
         unsigned sz = bv.get_bv_size(n);
         numeral mod = power(numeral(2), sz);
         rhs = m_autil.mk_mod(e, m_autil.mk_int(mod));
-        expr_ref eq(m.mk_eq(lhs, rhs), m);
+        expr_ref eq = mk_eq(lhs, rhs);
         TRACE("bv", tout << eq << "\n";);
         add_unit(ctx.internalize(eq, false, false, m_is_redundant));
        
@@ -378,9 +381,9 @@ namespace bv {
             numeral div = power2(i);
             rhs = m_autil.mk_idiv(e, m_autil.mk_int(div));
             rhs = m_autil.mk_mod(rhs, m_autil.mk_int(2));
-            rhs = m.mk_eq(rhs, m_autil.mk_int(1));
+            rhs = mk_eq(rhs, m_autil.mk_int(1));
             lhs = n_bits.get(i);
-            expr_ref eq(m.mk_eq(lhs, rhs), m);
+            expr_ref eq = mk_eq(lhs, rhs);
             TRACE("bv", tout << eq << "\n";);
             add_unit(ctx.internalize(eq, false, false, m_is_redundant));
         }
@@ -403,10 +406,10 @@ namespace bv {
 
     void solver::internalize_carry(app* n) {
         SASSERT(n->get_num_args() == 3);
-        literal r = ctx.get_literal(n);
-        literal l1 = ctx.get_literal(n->get_arg(0));
-        literal l2 = ctx.get_literal(n->get_arg(1));
-        literal l3 = ctx.get_literal(n->get_arg(2));
+        literal r = expr2literal(n);
+        literal l1 = expr2literal(n->get_arg(0));
+        literal l2 = expr2literal(n->get_arg(1));
+        literal l3 = expr2literal(n->get_arg(2));
         add_clause(~r, l1, l2);
         add_clause(~r, l1, l3);
         add_clause(~r, l2, l3);
@@ -417,7 +420,7 @@ namespace bv {
 
     void solver::internalize_xor3(app* n) {
         SASSERT(n->get_num_args() == 3);
-        literal r = ctx.get_literal(n);
+        literal r = expr2literal(n);
         literal l1 = expr2literal(n->get_arg(0));
         literal l2 = expr2literal(n->get_arg(1));
         literal l3 = expr2literal(n->get_arg(2));
@@ -483,7 +486,7 @@ namespace bv {
         expr_ref out(m);
         fn(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), out);
         sat::literal def = ctx.internalize(out, false, false, m_is_redundant);
-        add_def(def, ctx.get_literal(n));
+        add_def(def, expr2literal(n));
     }
 
     void solver::add_def(sat::literal def, sat::literal l) {        
@@ -568,14 +571,18 @@ namespace bv {
     }
 
     void solver::assert_ackerman(theory_var v1, theory_var v2) {
-        flet<bool> _red(m_is_redundant, true);
+        if (v1 == v2)
+            return;
+        if (v1 > v2)
+            std::swap(v1, v2);
+        flet<bool> _red(m_is_redundant, true);        
         ++m_stats.m_ackerman;
         expr* o1 = var2expr(v1);
         expr* o2 = var2expr(v2);
-        expr_ref oe(m.mk_eq(o1, o2), m);
+        expr_ref oe = mk_var_eq(v1, v2);
         literal oeq = ctx.internalize(oe, false, false, m_is_redundant);
-        unsigned sz = get_bv_size(v1);
-        TRACE("bv", tout << oe << "\n";);
+        unsigned sz = m_bits[v1].size();
+        TRACE("bv", tout << "ackerman-eq: " << s().scope_lvl() << " " << oe << "\n";);
         literal_vector eqs;
         for (unsigned i = 0; i < sz; ++i) {
             literal l1 = m_bits[v1][i];
@@ -583,7 +590,7 @@ namespace bv {
             expr_ref e1(m), e2(m);
             e1 = bv.mk_bit2bool(o1, i);
             e2 = bv.mk_bit2bool(o2, i);
-            expr_ref e(m.mk_eq(e1, e2), m);
+            expr_ref e = mk_eq(e1, e2);
             literal eq = ctx.internalize(e, false, false, m_is_redundant);
             add_clause(l1, ~l2, ~eq);
             add_clause(~l1, l2, ~eq);

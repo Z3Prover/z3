@@ -95,12 +95,14 @@ namespace euf {
 
         virtual bool use_diseqs() const { return false; }
 
-        virtual void new_diseq_eh(euf::enode* a, euf::enode* b) {}
+        virtual void new_diseq_eh(euf::th_eq const& eq) {}
 
         /**
            \brief Parametric theories (e.g. Arrays) should implement this method.
         */
         virtual bool is_shared(theory_var v) const { return false; }
+
+
 
     };
 
@@ -129,8 +131,14 @@ namespace euf {
 
         euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
         euf::enode* mk_enode(expr* e, bool suppress_args);
+        expr_ref mk_eq(expr* e1, expr* e2);
+        expr_ref mk_var_eq(theory_var v1, theory_var v2) { return mk_eq(var2expr(v1), var2expr(v2)); }
 
         void rewrite(expr_ref& a);
+
+        virtual void push_core();
+        virtual void pop_core(unsigned n);
+        void force_push() { for (; m_num_scopes > 0; --m_num_scopes) push_core(); }
 
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);
@@ -147,12 +155,9 @@ namespace euf {
         trail_stack<euf::solver> & get_trail_stack();
         bool is_attached_to_var(enode* n) const;
         bool is_root(theory_var v) const { return var2enode(v)->is_root(); }
-        void push() override;
-        void pop(unsigned n) override;
+        void push() override { m_num_scopes++; }
+        void pop(unsigned n) override;       
 
-        void lazy_push() { ++m_num_scopes; }
-        void force_push() { for (; m_num_scopes > 0; --m_num_scopes) push(); }
-        unsigned lazy_pop(unsigned n);
     };
 
 

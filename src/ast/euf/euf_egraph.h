@@ -26,26 +26,47 @@ Notes:
 #pragma once
 #include "util/statistics.h"
 #include "util/trail.h"
+#include "util/lbool.h"
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_etable.h"
 
 namespace euf {
 
     /***
-      \brief store derived theory equalities.
-      Theory 'id' is notified with the equality of theory variables v1, v2
-      that are merged into the common root of child and root (their roots may
+      \brief store derived theory equalities and disequalities
+      Theory 'id' is notified with the equality/disequality of theory variables v1, v2.
+      For equalities, v1 and v2 are merged into the common root of child and root (their roots may
       have been updated since the equality was derived, but the explanation for
       v1 == v2 is provided by explaining the equality child == root.
+      For disequalities, m_child refers to an equality atom of the form e1 == e2.
+      It is equal to false under the current context.
+      The explanation for the disequality v1 != v2 is derived from explaining the 
+      equality between the expression for v1 and e1, and the expression for v2 and e2 
+      and the equality of m_eq and false: the literal corresponding to m_eq is false in the
+      current assignment stack, or m_child is congruent to false in the egraph.
     */
-    struct th_eq {
+    class th_eq {
+
         theory_id  m_id;
         theory_var m_v1;
         theory_var m_v2;
-        enode* m_child;
+        union {            
+            enode* m_child;
+            expr* m_eq;
+        };
         enode* m_root;
+    public:
+        bool is_eq() const { return m_root != nullptr; }
+        theory_id id() const { return m_id; }
+        theory_var v1() const { return m_v1; }
+        theory_var v2() const { return m_v2; }
+        enode* child() const { SASSERT(is_eq()); return m_child; }
+        enode* root() const { SASSERT(is_eq()); return m_root; }
+        expr* eq() const { SASSERT(!is_eq()); return m_eq; }
         th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) :
             m_id(id), m_v1(v1), m_v2(v2), m_child(c), m_root(r) {}
+        th_eq(theory_id id, theory_var v1, theory_var v2, expr* eq) :
+            m_id(id), m_v1(v1), m_v2(v2), m_eq(eq), m_root(nullptr) {}
     };
     
     class egraph {        
@@ -53,6 +74,7 @@ namespace euf {
         struct stats {
             unsigned m_num_merge;
             unsigned m_num_th_eqs;
+            unsigned m_num_th_diseqs;
             unsigned m_num_lits;
             unsigned m_num_eqs;
             unsigned m_num_conflicts;
@@ -111,6 +133,7 @@ namespace euf {
         svector<update_record> m_updates;
         unsigned_vector        m_scopes;
         enode_vector           m_expr2enode;
+        enode*                 m_tmp_eq { nullptr };
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
         unsigned               m_num_scopes { 0 };
@@ -122,11 +145,13 @@ namespace euf {
         unsigned               m_new_th_eqs_qhead { 0 };
         svector<enode_bool_pair>  m_new_lits;
         svector<th_eq>         m_new_th_eqs;
+        bool_vector            m_th_propagates_diseqs;
         enode_vector           m_todo;
         stats                  m_stats;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
         std::function<void(app*,app*)>         m_used_cc;  
         std::function<void(std::ostream&, void*)>   m_display_justification;
+        std::function<lbool(enode*)>               m_value;
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
             m_updates.push_back(update_record(r1, n1, r2_num_parents));
@@ -134,6 +159,10 @@ namespace euf {
         void push_node(enode* n) { m_updates.push_back(update_record(n)); }
 
         void add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r);
+        
+        void new_diseq(enode* n1);
+        void add_th_diseqs(theory_id id, theory_var v1, enode* r);
+        bool th_propagates_diseqs(theory_id id) const;
         void add_literal(enode* n, bool is_eq);
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
         void undo_add_th_var(enode* n, theory_id id);
@@ -166,7 +195,7 @@ namespace euf {
         std::ostream& display(std::ostream& out, unsigned max_args, enode* n) const;
         
     public:
-        egraph(ast_manager& m): m(m), m_table(m), m_exprs(m) {}
+        egraph(ast_manager& m);
         ~egraph();
         enode* find(expr* f) { return m_expr2enode.get(f->get_id(), nullptr); }
         enode* mk(expr* f, unsigned n, enode *const* args);
@@ -193,11 +222,17 @@ namespace euf {
         bool inconsistent() const { return m_inconsistent; }
 
         /**
+        * \brief check if two nodes are known to be disequal.
+        */
+        bool are_diseq(enode* a, enode* b) const;
+
+        /**
            \brief Maintain and update cursor into propagated consequences.
            The result of get_literal() is a pair (n, is_eq)
            where \c n is an enode and \c is_eq indicates whether the enode
            is an equality consequence. 
          */
+        void       add_th_diseq(theory_id id, theory_var v1, theory_var v2, expr* eq);
         bool       has_literal() const { return m_new_lits_qhead < m_new_lits.size(); }
         bool       has_th_eq() const { return m_new_th_eqs_qhead < m_new_th_eqs.size(); }
         enode_bool_pair get_literal() const { return m_new_lits[m_new_lits_qhead]; }
@@ -205,13 +240,14 @@ namespace euf {
         void       next_literal() { force_push();  SASSERT(m_new_lits_qhead < m_new_lits.size()); m_new_lits_qhead++; }
         void       next_th_eq() { force_push(); SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }
 
-
         void add_th_var(enode* n, theory_var v, theory_id id);
+        void set_th_propagates_diseqs(theory_id id);
         void set_merge_enabled(enode* n, bool enable_merge);
 
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
         void set_display_justification(std::function<void (std::ostream&, void*)> & d) { m_display_justification = d; }
+        void set_eval(std::function<lbool(enode*)>& eval) { m_value = eval; }
         
         void begin_explain();
         void end_explain();

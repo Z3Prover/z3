@@ -165,6 +165,7 @@ namespace sat {
         explicit clause_wrapper(clause & c):m_cls(&c), m_l2_idx(null_literal.to_uint()) {}
 
         bool is_binary() const { return m_l2_idx != null_literal.to_uint(); }
+        bool is_ternary() const { return size() == 3; }
         unsigned size() const { return is_binary() ? 2 : m_cls->size(); }
         literal operator[](unsigned idx) const {
             SASSERT(idx < size());
@@ -178,6 +179,20 @@ namespace sat {
         bool contains(bool_var v) const;
         clause * get_clause() const { SASSERT(!is_binary()); return m_cls; }
         bool was_removed() const { return !is_binary() && get_clause()->was_removed(); }
+        bool is_learned() const { return !is_binary() && get_clause()->is_learned(); }
+
+        class iterator {
+            unsigned m_idx;
+            clause_wrapper const& m_cw;
+        public:
+            iterator(clause_wrapper const& c, unsigned idx): m_idx(idx), m_cw(c) {}
+            iterator& operator++() { ++m_idx; return *this; }
+            literal operator*() { return m_cw[m_idx]; }
+            bool operator==(iterator const& other) const { SASSERT(&m_cw == &other.m_cw); return m_idx == other.m_idx; }
+            bool operator!=(iterator const& other) const { SASSERT(&m_cw == &other.m_cw); return m_idx != other.m_idx; }
+        };
+        iterator begin() const { return iterator(*this, 0); }
+        iterator end() const { return iterator(*this, size()); }
     };
 
     typedef svector<clause_wrapper> clause_wrapper_vector;

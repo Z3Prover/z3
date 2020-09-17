@@ -155,7 +155,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     sat::bool_var add_var(bool is_ext, expr* n) {
-        auto v = m_solver.add_var(is_ext);
+        sat::bool_var v;
+        if (m_expr2var_replay && m_expr2var_replay->find(n, v))
+            return v;
+        v = m_solver.add_var(is_ext);
         log_node(n);
         log_def(v, n);
         return v;
@@ -298,18 +301,17 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
-    bool process_cached(app * t, bool root, bool sign) {
-        sat::literal l;
-        if (m_cache.find(t, l)) {
-            if (sign)
-                l.neg();
-            if (root)
-                mk_root_clause(l);
-            else
-                m_result_stack.push_back(l);
-            return true;
-        }
-        return false;
+    bool process_cached(app* t, bool root, bool sign) {
+        sat::literal l = sat::null_literal;
+        if (!m_cache.find(t, l))
+            return false;
+        if (sign)
+            l.neg();
+        if (root)
+            mk_root_clause(l);
+        else
+            m_result_stack.push_back(l);
+        return true;
     }
 
     bool visit(expr * t, bool root, bool sign) {
@@ -321,7 +323,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (process_cached(to_app(t), root, sign))
             return true;
         if (to_app(t)->get_family_id() != m.get_basic_family_id()) 
-            return convert_app(to_app(t), root, sign);        
+            return convert_app(to_app(t), root, sign);   
         switch (to_app(t)->get_decl_kind()) {
         case OP_NOT:
         case OP_OR:
