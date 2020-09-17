@@ -579,7 +579,7 @@ namespace bv {
         ++m_stats.m_ackerman;
         expr* o1 = var2expr(v1);
         expr* o2 = var2expr(v2);
-        expr_ref oe = mk_eq(v1, v2);
+        expr_ref oe = mk_var_eq(v1, v2);
         literal oeq = ctx.internalize(oe, false, false, m_is_redundant);
         unsigned sz = m_bits[v1].size();
         TRACE("bv", tout << "ackerman-eq: " << s().scope_lvl() << " " << oe << "\n";);

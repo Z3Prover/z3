@@ -132,7 +132,7 @@ namespace euf {
         euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
         euf::enode* mk_enode(expr* e, bool suppress_args);
         expr_ref mk_eq(expr* e1, expr* e2);
-        expr_ref mk_eq(theory_var v1, theory_var v2) { return mk_eq(var2expr(v1), var2expr(v2)); }
+        expr_ref mk_var_eq(theory_var v1, theory_var v2) { return mk_eq(var2expr(v1), var2expr(v2)); }
 
         void rewrite(expr_ref& a);
 
