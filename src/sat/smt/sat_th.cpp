@@ -99,7 +99,6 @@ namespace euf {
     }
     
     void th_euf_solver::push_core() {
-        TRACE("euf", tout << "push-core\n";);
         m_var2enode_lim.push_back(m_var2enode.size());
     }
 

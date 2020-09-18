@@ -573,30 +573,30 @@ namespace euf {
 
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
         out << n->get_expr_id() << " := ";
-        if (!n->is_root()) 
-            out << "[" << n->get_root()->get_expr_id() << "] ";
         expr* f = n->get_expr();
         if (is_app(f))
-            out << mk_bounded_pp(f, m, 1);
+            out << mk_bounded_pp(f, m, 1) << " ";
         else if (is_quantifier(f))
-            out << "q:" << f->get_id();
+            out << "q:" << f->get_id() << " ";
         else
-            out << "v:" << f->get_id();
-        out << "\n";
+            out << "v:" << f->get_id() << " ";
+        if (!n->is_root()) 
+            out << "[r " << n->get_root()->get_expr_id() << "] ";
         if (!n->m_parents.empty()) {
-            out << "    parents ";
+            out << "[p";
             for (enode* p : enode_parents(n))
-                out << p->get_expr_id() << " ";
-            out << "\n";
+                out << " " << p->get_expr_id();
+            out << "] ";
         }
         if (n->has_th_vars()) {
-            out << "    theories ";
+            out << "[t";
             for (auto v : enode_th_vars(n))
-                out << v.get_id() << ":" << v.get_var() << " ";
-            out << "\n";
+                out << " " << v.get_id() << ":" << v.get_var();
+            out << "] ";
         }
         if (n->m_target && m_display_justification)
-            n->m_justification.display(out << "    = " << n->m_target->get_expr_id() << " j: ", m_display_justification) << "\n";
+            n->m_justification.display(out << "[j " << n->m_target->get_expr_id() << " ", m_display_justification) << "] ";
+        out << "\n";
         return out;
     }
 

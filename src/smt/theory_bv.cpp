@@ -1178,6 +1178,12 @@ namespace smt {
             literal arg = ctx.get_literal(diff);
             lits.push_back(arg);
         }
+        TRACE("bv", 
+              tout << mk_pp(get_enode(v1)->get_owner(), m) << " = " << mk_pp(get_enode(v2)->get_owner(), m) << " " 
+              << ctx.get_scope_level() 
+              << "\n";
+              ctx.display_literals_smt2(tout, lits););
+
         m_stats.m_num_diseq_dynamic++;
         scoped_trace_stream st(*this, lits);
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());

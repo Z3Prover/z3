@@ -669,13 +669,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     struct scoped_stack {
+        imp& i;
         sat::literal_vector& r;
         unsigned rsz;
         svector<frame>& frames;
         unsigned fsz;
         bool is_root;
         scoped_stack(imp& x, bool is_root) :
-            r(x.m_result_stack), rsz(r.size()), frames(x.m_frame_stack), fsz(frames.size()), is_root(is_root)
+            i(x), r(i.m_result_stack), rsz(r.size()), frames(x.m_frame_stack), fsz(frames.size()), is_root(is_root)
         {}
         ~scoped_stack() {
             if (frames.size() > fsz) {
@@ -683,9 +684,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 r.shrink(rsz);
                 return;
             }
-            SASSERT(frames.size() == fsz);
-            SASSERT(!is_root || rsz == r.size());
-            SASSERT(is_root || rsz + 1 == r.size());
+            SASSERT(i.m.limit().is_canceled() || frames.size() == fsz);
+            SASSERT(i.m.limit().is_canceled() || !is_root || rsz == r.size());
+            SASSERT(i.m.limit().is_canceled() || is_root || rsz + 1 == r.size());
         }
     };
 

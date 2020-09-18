@@ -1934,12 +1934,24 @@ namespace sat {
         }
         log_stats();
         m_simplifications++;
-        IF_VERBOSE(2, verbose_stream() << "(sat.simplify :simplifications " << m_simplifications << ")\n";);
 
         TRACE("sat", tout << "simplify\n";);
 
         pop(scope_lvl());
-
+        struct report {
+            solver&   s;
+            stopwatch m_watch;
+            report(solver& s):s(s) { 
+                m_watch.start(); 
+                s.log_stats();
+                IF_VERBOSE(2, verbose_stream() << "(sat.simplify :simplifications " << s.m_simplifications << ")\n";);
+            }
+            ~report() { 
+                m_watch.stop(); 
+                s.log_stats();
+            }
+        };
+        report _rprt(*this);
         SASSERT(at_base_lvl());
 
         m_cleaner(m_config.m_force_cleanup);
@@ -3943,9 +3955,8 @@ namespace sat {
             break;
         }
         case justification::EXT_JUSTIFICATION:
-            if (m_ext) {
-                m_ext->display_justification(out << " ", js.get_ext_justification_idx());
-            }
+            if (m_ext) 
+                m_ext->display_justification(out, js.get_ext_justification_idx());            
             break;
         default:
             break;

@@ -93,6 +93,12 @@ namespace euf {
             if (s_ext && s_ext != e_ext)
                 s_ext->apply_sort_cnstr(n, m.get_sort(e));
         }
+        expr* a = nullptr, * b = nullptr;
+        if (m.is_eq(e, a, b) && m.get_sort(a)->get_family_id() != null_family_id) {
+            auto* s_ext = sort2solver(m.get_sort(a));
+            if (s_ext)
+                s_ext->eq_internalized(n);
+        }
         axiomatize_basic(n);
     }
 
