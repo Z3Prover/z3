@@ -3854,6 +3854,7 @@ namespace smt {
                 TRACE("final_check_result", tout << "fcs: " << fcs << " last_search_failure: " << m_last_search_failure << "\n";);
                 switch (fcs) {
                 case FC_DONE:
+                    log_stats();
                     return l_true;
                 case FC_CONTINUE:
                     break;

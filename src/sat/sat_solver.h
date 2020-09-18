@@ -662,6 +662,7 @@ namespace sat {
     public:
         void set_should_simplify() { m_next_simplify = m_conflicts_since_init; }
         bool_var_vector const& get_vars_to_reinit() const { return m_vars_to_reinit;  }
+        bool is_probing() const { return m_probing.active(); }
 
     public:
         void user_push() override;

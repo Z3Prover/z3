@@ -43,23 +43,29 @@ namespace bv {
         friend class ackerman;
 
         struct stats {
-            unsigned   m_num_diseq_static, m_num_diseq_dynamic, m_num_bit2core, m_num_th2core_eq, m_num_conflicts;
+            unsigned   m_num_diseq_static, m_num_diseq_dynamic,  m_num_conflicts;
+            unsigned   m_num_bit2core, m_num_th2core_eq, m_num_th2core_diseq, m_num_nbit2core;
             unsigned   m_ackerman;
             void reset() { memset(this, 0, sizeof(stats)); }
             stats() { reset(); }
         };
 
         struct bv_justification {
-            enum kind_t { bv2bit, bit2bv };
+            enum kind_t { eq2bit, ne2bit, bit2eq, bit2ne };
             kind_t     m_kind;
-            theory_var m_v1;
-            theory_var m_v2;
+            theory_var m_v1{ euf::null_theory_var };
+            theory_var m_v2 { euf::null_theory_var };
+            unsigned   m_idx{ UINT_MAX };
             sat::literal m_consequent;
             sat::literal m_antecedent;
             bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
-                m_kind(kind_t::bv2bit), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+                m_kind(bv_justification::kind_t::eq2bit), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
             bv_justification(theory_var v1, theory_var v2):
-                m_kind(kind_t::bit2bv), m_v1(v1), m_v2(v2) {}
+                m_kind(bv_justification::kind_t::bit2eq), m_v1(v1), m_v2(v2) {}
+            bv_justification(unsigned idx, sat::literal c) :
+                m_kind(bv_justification::kind_t::bit2ne), m_idx(idx), m_consequent(c) {}
+            bv_justification(unsigned idx, theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
+                m_kind(bv_justification::kind_t::ne2bit), m_idx(idx), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
             sat::ext_constraint_idx to_index() const { 
                 return sat::constraint_base::mem2base(this); 
             }
@@ -69,8 +75,10 @@ namespace bv {
             static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(bv_justification)); }
         };
 
-        sat::justification mk_bv2bit_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a);
-        sat::ext_justification_idx mk_bit2bv_justification(theory_var v1, theory_var v2);
+        sat::justification mk_eq2bit_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a);
+        sat::ext_justification_idx mk_bit2eq_justification(theory_var v1, theory_var v2);
+        sat::justification mk_bit2ne_justification(unsigned idx, sat::literal c);
+        sat::justification mk_ne2bit_justification(unsigned idx, theory_var v1, theory_var v2, sat::literal c, sat::literal a);
         void log_drat(bv_justification const& c);
  
 
@@ -125,13 +133,46 @@ namespace bv {
             bool operator!=(var_pos_it const& other) const { return !(*this == other); }
         };
 
+        struct eq_occurs {
+            unsigned    m_idx;
+            theory_var  m_v1;
+            theory_var  m_v2;
+            euf::enode* m_node;
+            eq_occurs*  m_next;
+            eq_occurs(unsigned idx, theory_var v1, theory_var v2, euf::enode* n, eq_occurs* next = nullptr):
+                m_idx(idx), m_v1(v1), m_v2(v2), m_node(n), m_next(next) {}
+        };
+
+        class eq_occurs_it {
+            eq_occurs* m_first;
+        public:
+            eq_occurs_it(eq_occurs* c) : m_first(c) {}
+            eq_occurs operator*() { return *m_first; }
+            eq_occurs_it& operator++() { m_first = m_first->m_next; return *this; }
+            eq_occurs_it operator++(int) { eq_occurs_it tmp = *this; ++* this; return tmp; }
+            bool operator==(eq_occurs_it const& other) const { return m_first == other.m_first; }
+            bool operator!=(eq_occurs_it const& other) const { return !(*this == other); }
+        };
+
         struct bit_atom : public atom {
             var_pos_occ * m_occs;
-            bit_atom():m_occs(nullptr) {}
+            eq_occurs   * m_eqs;
+            bit_atom():m_occs(nullptr), m_eqs(nullptr) {}
             ~bit_atom() override {}
             bool is_bit() const override { return true; }
             var_pos_it begin() const { return var_pos_it(m_occs); }
             var_pos_it end() const { return var_pos_it(nullptr); }
+            bool is_fresh() const { return !m_occs && !m_eqs; }
+            
+            class eqs_iterator {
+                bit_atom const& a;
+            public:
+                eqs_iterator(bit_atom const& a):a(a) {}
+                eq_occurs_it begin() const { return eq_occurs_it(a.m_eqs); }
+                eq_occurs_it end() const { return eq_occurs_it(nullptr); }
+            };
+
+            eqs_iterator eqs() const { return eqs_iterator(*this); }
         };
 
         struct def_atom : public atom {
@@ -142,8 +183,17 @@ namespace bv {
             bool is_bit() const override { return false; }
         };
 
+        struct propagation_item {
+            var_pos m_vp { var_pos(0, 0) };
+            bit_atom* m_atom{ nullptr };
+            explicit propagation_item(bit_atom* a) : m_atom(a) {}
+            explicit propagation_item(var_pos const& vp) : m_vp(vp) {}            
+        };
+
+
         class bit_trail;
         class add_var_pos_trail;
+        class add_eq_occurs_trail;
         class mk_atom_trail;
         class bit_occs_trail;
         typedef ptr_vector<atom> bool_var2atom;
@@ -160,15 +210,16 @@ namespace bv {
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
         bool_var2atom            m_bool_var2atom;
         value2var                m_fixed_var_table;
-        mutable vector<rational> m_power2;
-        literal_vector           m_tmp_literals;
-        svector<var_pos>         m_prop_queue;
-        unsigned_vector          m_prop_queue_lim;
-        unsigned                 m_prop_queue_head { 0 };
+        mutable vector<rational>   m_power2;
+        literal_vector             m_tmp_literals;
+        svector<propagation_item>  m_prop_queue;
+        unsigned_vector            m_prop_queue_lim;
+        unsigned                   m_prop_queue_head { 0 };
 
 
         sat::solver* m_solver;
         sat::solver& s() { return *m_solver;  }
+        sat::solver const& s() const { return *m_solver;  }
 
         // internalize
         void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
@@ -191,6 +242,8 @@ namespace bv {
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
         bit_atom* mk_bit_atom(sat::bool_var bv);
+        void eq_internalized(sat::bool_var b, unsigned idx, theory_var v1, theory_var v2, euf::enode* n);
+
         void set_bit_eh(theory_var v, literal l, unsigned idx);
         void init_bits(expr* e, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
@@ -227,10 +280,12 @@ namespace bv {
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
         void assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
         void propagate_bits(var_pos entry);
+        void propagate_eq_occurs(eq_occurs const& occ);
         numeral const& power2(unsigned i) const;
 
         // invariants
         bool check_zero_one_bits(theory_var v);
+        void check_missing_propagation() const;
         void validate_atoms() const;
        
     public:
@@ -282,6 +337,7 @@ namespace bv {
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override { return false; }
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
+        void eq_internalized(euf::enode* n) override;
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode * n, sort * s) override;
 

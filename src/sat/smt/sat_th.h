@@ -52,6 +52,11 @@ namespace euf {
         */
         virtual void apply_sort_cnstr(enode * n, sort * s) {}
 
+        /**
+           \record that an equality has been internalized.
+         */
+        virtual void eq_internalized(enode* n) {}
+
     };
 
     class th_decompile {
@@ -138,7 +143,10 @@ namespace euf {
 
         virtual void push_core();
         virtual void pop_core(unsigned n);
-        void force_push() { for (; m_num_scopes > 0; --m_num_scopes) push_core(); }
+        void force_push() { 
+            CTRACE("euf", m_num_scopes > 0, tout << "push-core " << m_num_scopes << "\n";);
+            for (; m_num_scopes > 0; --m_num_scopes) push_core(); 
+        }
 
     public:
         th_euf_solver(euf::solver& ctx, euf::theory_id id);

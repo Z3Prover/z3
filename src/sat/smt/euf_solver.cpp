@@ -352,6 +352,7 @@ namespace euf {
             return sat::check_result::CR_CONTINUE;
         if (give_up)
             return sat::check_result::CR_GIVEUP;
+        TRACE("after_search", s().display(tout););
         return sat::check_result::CR_DONE;
     }
 
@@ -390,34 +391,47 @@ namespace euf {
         }
     }
 
+    /**
+    * After a pop has completed, re-initialize the association between Boolean variables 
+    * and the theories by re-creating the expression/variable mapping used for Booleans
+    * and replaying internalization.
+    */
     void solver::finish_reinit() {
-
         SASSERT(s().get_vars_to_reinit().size() == m_reinit_exprs.size());
         if (s().get_vars_to_reinit().empty())
             return;
+
+        struct scoped_set_replay {
+            solver& s;
+            obj_map<expr, sat::bool_var> m;
+            scoped_set_replay(solver& s) :s(s) {
+                s.si.set_expr2var_replay(&m);
+            }
+            ~scoped_set_replay() { 
+                s.si.set_expr2var_replay(nullptr); 
+            }
+        };
+        scoped_set_replay replay(*this);
         unsigned i = 0;
-        obj_map<expr, sat::bool_var> expr2var_replay;
         for (sat::bool_var v : s().get_vars_to_reinit()) {
             expr* e = m_reinit_exprs.get(i++);
-            if (!e)
-                continue;
-            expr2var_replay.insert(e, v);
+            if (e)
+                replay.m.insert(e, v);
         }
-        if (expr2var_replay.empty())
+        if (replay.m.empty())
             return;
-        si.set_expr2var_replay(&expr2var_replay);
-        TRACE("euf", for (auto const& kv : expr2var_replay) tout << "replay: " << kv.m_value << " " << mk_bounded_pp(kv.m_key, m) << "\n";);
-        for (auto const& kv : expr2var_replay) {
+        
+        TRACE("euf", for (auto const& kv : replay.m) tout << "replay: " << kv.m_value << " " << mk_bounded_pp(kv.m_key, m) << "\n";);
+        for (auto const& kv : replay.m) {
             sat::literal lit;
             expr* e = kv.m_key;
             if (si.is_bool_op(e)) 
-                lit = literal(expr2var_replay[e], false);
+                lit = literal(replay.m[e], false);
             else 
                 lit = si.internalize(kv.m_key, true);
             VERIFY(lit.var() == kv.m_value);
             attach_lit(lit, kv.m_key);            
         }
-        si.set_expr2var_replay(nullptr);   
         TRACE("euf", tout << "replay done\n";);
     }
 
@@ -439,9 +453,13 @@ namespace euf {
     }
 
     lbool solver::get_phase(bool_var v) { 
+        TRACE("euf", tout << "phase: " << v << "\n";);            
         auto* ext = bool_var2solver(v);
         if (ext)
             return ext->get_phase(v);
+        expr* e = bool_var2expr(v);
+        if (e && m.is_eq(e))
+            return l_true;
         return l_undef; 
     }
 
@@ -481,14 +499,28 @@ namespace euf {
 
     std::ostream& solver::display_justification_ptr(std::ostream& out, size_t* j) const {
         if (is_literal(j))
-            return out << get_literal(j) << " ";
+            return out << "sat: " << get_literal(j);
         else
-            return display_justification(out, get_justification(j)) << " ";
+            return display_justification(out, get_justification(j));
     }
 
     std::ostream& solver::display_justification(std::ostream& out, ext_justification_idx idx) const { 
         auto* ext = sat::constraint_base::to_extension(idx);
-        if (ext != this)
+        if (ext == this) {
+            constraint& c = constraint::from_idx(idx);
+            switch (c.kind()) {
+            case constraint::kind_t::conflict:
+                return out << "euf conflict";
+            case constraint::kind_t::eq:
+                return out << "euf equality propagation";
+            case constraint::kind_t::lit:
+                return out << "euf literal propagation";
+            default:
+                UNREACHABLE();
+                return out;
+            }                
+        }
+        else 
             return ext->display_justification(out, idx);
         return out; 
     }
@@ -497,7 +529,7 @@ namespace euf {
         auto* ext = sat::constraint_base::to_extension(idx);
         if (ext != this)
             return ext->display_constraint(out, idx);
-        return out; 
+        return display_justification(out, idx);
     }
 
     void solver::collect_statistics(statistics& st) const {

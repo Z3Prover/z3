@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "sat/smt/bv_solver.h"
+#include "sat/smt/euf_solver.h"
 
 namespace bv {
 
@@ -29,6 +30,27 @@ namespace bv {
                 }
             }
             ++v;
+        }
+    }
+
+    void solver::check_missing_propagation() const {
+        for (euf::enode* n : ctx.get_egraph().nodes()) {
+            expr* e = n->get_expr(), *a = nullptr, *b = nullptr;
+            if (m.is_eq(e, a, b) && bv.is_bv(a) && s().value(expr2literal(e)) == l_undef) {
+                theory_var v1 = n->get_arg(0)->get_th_var(get_id());
+                theory_var v2 = n->get_arg(1)->get_th_var(get_id());
+                SASSERT(v1 != euf::null_theory_var);
+                SASSERT(v2 != euf::null_theory_var);
+                unsigned sz = m_bits[v1].size();
+                for (unsigned i = 0; i < sz; ++i) {
+                    lbool val1 = s().value(m_bits[v1][i]);
+                    lbool val2 = s().value(m_bits[v2][i]);
+                    if (val1 != l_undef && val2 != l_undef && val1 != val2) {
+                        IF_VERBOSE(0, verbose_stream() << "missing " << mk_bounded_pp(e, m) << "\n");
+                        break;
+                    }
+                }
+            }
         }
     }
 

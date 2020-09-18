@@ -42,6 +42,16 @@ namespace bv {
         }
     };
 
+    class solver::add_eq_occurs_trail : public trail<euf::solver> {
+        solver::bit_atom* m_atom;
+    public:
+        add_eq_occurs_trail(solver::bit_atom* a) :m_atom(a) {}
+        void undo(euf::solver& euf) override {
+            SASSERT(m_atom->m_eqs);
+            m_atom->m_eqs = m_atom->m_eqs->m_next;
+        }
+    };    
+
     class solver::mk_atom_trail : public trail<euf::solver> {
         solver& th;
         sat::bool_var m_var;
@@ -242,10 +252,15 @@ namespace bv {
     }
 
     solver::bit_atom* solver::mk_bit_atom(sat::bool_var bv) {
-        bit_atom* b = new (get_region()) bit_atom();
-        insert_bv2a(bv, b);
-        ctx.push(mk_atom_trail(bv, *this));
-        return b;
+        atom* a = get_bv2a(bv);
+        if (a) 
+            return a->is_bit() ? &a->to_bit() : nullptr;
+        else {
+            bit_atom* b = new (get_region()) bit_atom();
+            insert_bv2a(bv, b);
+            ctx.push(mk_atom_trail(bv, *this));
+            return b;
+        }
     }
 
     void solver::set_bit_eh(theory_var v, literal l, unsigned idx) {
@@ -253,19 +268,13 @@ namespace bv {
         if (s().value(l) != l_undef && s().lvl(l) == 0) 
             register_true_false_bit(v, idx);
         else {
-            atom* a = get_bv2a(l.var());
-            if (a && !a->is_bit()) 
-                ;
-            else if (a) {
-                bit_atom* b = &a->to_bit();
-                find_new_diseq_axioms(*b, v, idx);
-                ctx.push(add_var_pos_trail(b));
+            bit_atom* b = mk_bit_atom(l.var());
+            if (b) {
+                if (b->m_occs)
+                    find_new_diseq_axioms(*b, v, idx);
+                if (!b->is_fresh()) 
+                    ctx.push(add_var_pos_trail(b));                
                 b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);
-            }
-            else {
-                bit_atom* b = mk_bit_atom(l.var());
-                SASSERT(!b->m_occs);
-                b->m_occs = new (get_region()) var_pos_occ(v, idx);
             }
         }
     }
@@ -570,12 +579,34 @@ namespace bv {
         }
     }
 
+    void solver::eq_internalized(euf::enode* n) {
+        SASSERT(m.is_eq(n->get_expr()));
+        theory_var v1 = n->get_arg(0)->get_th_var(get_id());
+        theory_var v2 = n->get_arg(1)->get_th_var(get_id());
+        SASSERT(v1 != euf::null_theory_var);
+        SASSERT(v2 != euf::null_theory_var);
+        unsigned sz = m_bits[v1].size();
+        for (unsigned i = 0; i < sz; ++i) {
+            eq_internalized(m_bits[v1][i].var(), i, v1, v2, n);
+            eq_internalized(m_bits[v2][i].var(), i, v2, v1, n);
+        }
+    }
+
+    void solver::eq_internalized(sat::bool_var b, unsigned idx, theory_var v1, theory_var v2, euf::enode* n) {
+        bit_atom* a = mk_bit_atom(b);
+        if (a) {
+            if (!a->is_fresh()) 
+                ctx.push(add_eq_occurs_trail(a));
+            a->m_eqs = new (get_region()) eq_occurs(idx, v1, v2, n, a->m_eqs);
+        }
+    }
+
     void solver::assert_ackerman(theory_var v1, theory_var v2) {
         if (v1 == v2)
             return;
         if (v1 > v2)
             std::swap(v1, v2);
-        flet<bool> _red(m_is_redundant, true);        
+        flet<bool> _red(m_is_redundant, true);
         ++m_stats.m_ackerman;
         expr* o1 = var2expr(v1);
         expr* o2 = var2expr(v2);
@@ -584,6 +615,7 @@ namespace bv {
         unsigned sz = m_bits[v1].size();
         TRACE("bv", tout << "ackerman-eq: " << s().scope_lvl() << " " << oe << "\n";);
         literal_vector eqs;
+        eqs.push_back(oeq);
         for (unsigned i = 0; i < sz; ++i) {
             literal l1 = m_bits[v1][i];
             literal l2 = m_bits[v2][i];
@@ -592,14 +624,10 @@ namespace bv {
             e2 = bv.mk_bit2bool(o2, i);
             expr_ref e = mk_eq(e1, e2);
             literal eq = ctx.internalize(e, false, false, m_is_redundant);
-            add_clause(l1, ~l2, ~eq);
-            add_clause(~l1, l2, ~eq);
-            add_clause(l1, l2, eq);
-            add_clause(~l1, ~l2, eq);
             add_clause(eq, ~oeq);
             eqs.push_back(~eq);
         }
-        eqs.push_back(oeq);
+        TRACE("bv", for (auto l : eqs) tout << mk_bounded_pp(literal2expr(l), m) << " "; tout << "\n";);
         s().add_clause(eqs.size(), eqs.c_ptr(), sat::status::th(m_is_redundant, get_id()));
     }
 }
