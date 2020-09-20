@@ -46,6 +46,7 @@ namespace euf {
         bool          m_merge_enabled{ true };
         bool          m_is_equality{ false };
         lbool         m_value;
+        unsigned      m_bool_var { UINT_MAX };
         unsigned      m_class_size{ 1 };
         unsigned      m_table_id{ UINT_MAX };
         enode_vector  m_parents;
@@ -109,6 +110,7 @@ namespace euf {
         void set_merge_enabled(bool m) { m_merge_enabled = m; }
         void set_value(lbool v) { m_value = v; }
         void set_is_equality() { m_is_equality = true;  }
+        void set_bool_var(unsigned v) { m_bool_var = v; }
 
     public:
         ~enode() { 
@@ -128,6 +130,7 @@ namespace euf {
         bool interpreted() const { return m_interpreted; }
         bool is_equality() const { return m_is_equality; }
         lbool value() const { return m_value;  }
+        unsigned bool_var() const { return m_bool_var; }
 
         bool commutative() const { return m_commutative; }
         void mark_interpreted() { SASSERT(num_args() == 0); m_interpreted = true; }

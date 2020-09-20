@@ -40,6 +40,6 @@ public:
     void pop(unsigned num_scopes);
     void flush_side_constraints(expr_ref_vector& side_constraints);
     unsigned num_translated() const;
-    void collect_statistics(statistics & st) const;
+    void collect_statistics(::statistics & st) const;
 };
 

@@ -277,7 +277,7 @@ namespace euf {
             bool is_eq = p.second;
             expr* e = n->get_expr();
             expr* a = nullptr, *b = nullptr;
-            bool_var v = si.to_bool_var(e);
+            bool_var v = n->bool_var();
             SASSERT(m.is_bool(e));
             size_t cnstr;
             literal lit;            

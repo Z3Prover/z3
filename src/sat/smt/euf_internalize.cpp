@@ -124,7 +124,8 @@ namespace euf {
         m_var_trail.push_back(v);
         enode* n = m_egraph.find(e);
         if (!n) 
-            n = m_egraph.mk(e, 0, nullptr);           
+            n = m_egraph.mk(e, 0, nullptr); 
+        m_egraph.set_bool_var(n, v);
         if (!m.is_true(e) && !m.is_false(e))
             m_egraph.set_merge_enabled(n, false);
         return lit;

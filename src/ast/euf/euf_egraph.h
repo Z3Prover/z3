@@ -245,6 +245,7 @@ namespace euf {
         void set_th_propagates_diseqs(theory_id id);
         void set_merge_enabled(enode* n, bool enable_merge);
         void set_value(enode* n, lbool value);
+        void set_bool_var(enode* n, unsigned v) { n->set_bool_var(v); }
 
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
