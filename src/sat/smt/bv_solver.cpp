@@ -152,7 +152,7 @@ namespace bv {
         SASSERT(m_bits[v1][idx] == ~m_bits[v2][idx]);
         TRACE("bv", tout << "found new diseq axiom\n" << pp(v1) << pp(v2););
         m_stats.m_num_diseq_static++;
-        expr_ref eq(m.mk_eq(var2expr(v1), var2expr(v2)), m);
+        expr_ref eq = mk_var_eq(v1, v2);
         add_unit(~ctx.internalize(eq, false, false, m_is_redundant));
     }
 
@@ -252,7 +252,7 @@ namespace bv {
             force_push();
             assert_ackerman(v1, v2);
         }
-        else         
+        else 
             m_ackerman.used_diseq_eh(v1, v2);        
     }
 
@@ -410,7 +410,7 @@ namespace bv {
     }
 
     void solver::propagate_eq_occurs(eq_occurs const& occ) {
-        auto lit = expr2literal(occ.m_node->get_expr());
+        auto lit = occ.m_literal;
         if (s().value(lit) != l_undef)
             return;
         lbool val1 = s().value(m_bits[occ.m_v1][occ.m_idx]);
@@ -438,16 +438,24 @@ namespace bv {
         if (val == l_false)
             bit1.neg();
 
-        for (theory_var v2 = m_find.next(v1); v2 != v1 && !s().inconsistent(); v2 = m_find.next(v2)) {
+        unsigned num_bits = 0, num_assigned = 0;
+        for (theory_var v2 = m_find.next(v1); v2 != v1; v2 = m_find.next(v2)) {
             literal bit2 = m_bits[v2][idx];
             SASSERT(m_bits[v1][idx] != ~m_bits[v2][idx]);
             TRACE("bv", tout << "propagating #" << var2enode(v2)->get_expr_id() << "[" << idx << "] = " << s().value(bit2) << "\n";);
 
             if (val == l_false)
                 bit2.neg();
-            if (l_true != s().value(bit2))
-                assign_bit(bit2, v1, v2, idx, bit1, false);
+            ++num_bits;
+            if (num_bits > 4 && num_assigned == 0)
+                break;
+            if (s().value(bit2) == l_true) 
+                continue;
+            ++num_assigned;
+            if (!assign_bit(bit2, v1, v2, idx, bit1, false))
+                break;
         }
+        // std::cout << num_bits << " " << num_assigned << "\n"; 
     }
 
     sat::check_result solver::check() {
@@ -718,7 +726,9 @@ namespace bv {
         return sat::justification::mk_ext_justification(s().scope_lvl(), constraint->to_index());
     }
 
-    void solver::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
+
+    bool solver::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
+
         m_stats.m_num_bit2core++;
         SASSERT(ctx.s().value(antecedent) == l_true);
         SASSERT(m_bits[v2][idx].var() == consequent.var());
@@ -727,10 +737,11 @@ namespace bv {
         if (s().value(consequent) == l_false) {
             m_stats.m_num_conflicts++;
             SASSERT(s().inconsistent());
+            return false;
         }
         else {
             if (false && get_config().m_bv_eq_axioms) {
-                expr_ref eq(m.mk_eq(var2expr(v1), var2expr(v2)), m);
+                expr_ref eq = mk_var_eq(v1, v2);
                 flet<bool> _is_redundant(m_is_redundant, true);
                 literal eq_lit = ctx.internalize(eq, false, false, m_is_redundant);
                 add_clause(~antecedent, ~eq_lit, consequent);
@@ -744,7 +755,8 @@ namespace bv {
             if (a && a->is_bit())
                 for (auto curr : a->to_bit())
                     if (propagate_eqc || find(curr.first) != find(v2) || curr.second != idx) 
-                        m_prop_queue.push_back(propagation_item(curr));                    
+                        m_prop_queue.push_back(propagation_item(curr));  
+            return true;
         }
     }
 

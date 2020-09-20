@@ -171,6 +171,7 @@ namespace sat {
         TRACE("asymm_branch_detail", s.display(tout););
         report rpt(*this);
         bool_vector saved_phase(s.m_phase);
+        flet<bool> _is_probing(s.m_is_probing, true);
 
         bool change = true;
         unsigned counter = 0;

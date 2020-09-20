@@ -597,7 +597,7 @@ namespace bv {
         if (a) {
             if (!a->is_fresh()) 
                 ctx.push(add_eq_occurs_trail(a));
-            a->m_eqs = new (get_region()) eq_occurs(idx, v1, v2, n, a->m_eqs);
+            a->m_eqs = new (get_region()) eq_occurs(idx, v1, v2, expr2literal(n->get_expr()), n, a->m_eqs);
         }
     }
 

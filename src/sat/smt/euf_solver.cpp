@@ -45,12 +45,7 @@ namespace euf {
             [&](std::ostream& out, void* j) { 
             display_justification_ptr(out, reinterpret_cast<size_t*>(j)); 
         };
-        std::function<lbool(enode* n)> eval = [&](enode* n) { 
-            sat::literal lit = expr2literal(n->get_expr());
-            return (lit == sat::null_literal) ? l_undef : s().value(lit); 
-        };
         m_egraph.set_display_justification(disp);
-        m_egraph.set_eval(eval);
     }
 
     void solver::updt_params(params_ref const& p) {
@@ -197,7 +192,7 @@ namespace euf {
             e = m_var2expr[l.var()];
             n = m_egraph.find(e);
             SASSERT(n);
-            SASSERT(m_egraph.is_equality(n));
+            SASSERT(n->is_equality());
             SASSERT(!l.sign());
             m_egraph.explain_eq<size_t>(m_explain, n->get_arg(0), n->get_arg(1));
             break;
@@ -219,27 +214,31 @@ namespace euf {
         if (!e) 
             return;        
 
-        bool sign = l.sign();        
-        
+        TRACE("euf", tout << "asserted: " << mk_bounded_pp(e, m) << " := " << l << "@" << s().scope_lvl() << "\n";);
         euf::enode* n = m_egraph.find(e);
-        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << "\n";);
         if (!n)
             return;
-        for (auto th : enode_th_vars(n))           
+        bool sign = l.sign();                
+        m_egraph.set_value(n, sign ? l_false : l_true);
+        auto const & j = s().get_justification(l);
+        for (auto th : enode_th_vars(n))
             m_id2solver[th.get_id()]->asserted(l);
-        if (!n->merge_enabled())
-            return;
+
         size_t* c = to_ptr(l);
         SASSERT(is_literal(c));
         SASSERT(l == get_literal(c));
         if (m.is_eq(e) && n->num_args() == 2 && !sign) {
+            SASSERT(!m.is_iff(e));
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
             m_egraph.merge(na, nb, c);
         }
-        else {
+        else if (n->merge_enabled()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
+        }
+        else if (m.is_eq(e) && n->num_args() == 2 && sign) {
+            m_egraph.new_diseq(n);
         }
     }
 
@@ -278,7 +277,7 @@ namespace euf {
             bool is_eq = p.second;
             expr* e = n->get_expr();
             expr* a = nullptr, *b = nullptr;
-            bool_var v = si.to_bool_var(e);
+            bool_var v = n->bool_var();
             SASSERT(m.is_bool(e));
             size_t cnstr;
             literal lit;            
@@ -288,10 +287,12 @@ namespace euf {
                 lit = literal(v, false);
             }
             else {
-                a = e, b = n->get_root()->get_expr();
-                SASSERT(m.is_true(b) || m.is_false(b));
+                lbool val = n->get_root()->value();
+                a = e;
+                b = (val == l_true) ? m.mk_true() : m.mk_false();
+                SASSERT(val != l_undef);
                 cnstr = lit_constraint().to_index();
-                lit = literal(v, m.is_false(b));
+                lit = literal(v, val == l_false);
             }
             unsigned lvl = s().scope_lvl();
 
@@ -457,10 +458,7 @@ namespace euf {
         auto* ext = bool_var2solver(v);
         if (ext)
             return ext->get_phase(v);
-        expr* e = bool_var2expr(v);
-        if (e && m.is_eq(e))
-            return l_true;
-        return l_undef; 
+        return l_undef;
     }
 
     bool solver::set_root(literal l, literal r) {

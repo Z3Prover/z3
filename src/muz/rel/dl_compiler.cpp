@@ -1006,7 +1006,7 @@ namespace datalog {
         SASSERT(global_deltas.empty());
 
         rule_dependencies deps(m_rule_set.get_dependencies());
-        deps.restrict(preds);
+        deps.restrict_dependencies(preds);
         cycle_breaker(deps, global_deltas)();
         VERIFY( deps.sort_deps(ordered_preds) );
 
