@@ -896,6 +896,7 @@ private:
             r.erase("elim_and");            
         }
         
+
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
             TRACE("pb2bv", g->display(tout););
@@ -904,7 +905,7 @@ private:
             m_produce_unsat_cores = g->unsat_core_enabled();
             result.reset();
             tactic_report report("pb2bv", *g);
-            m_bm.reset(); m_rw.reset(); m_new_deps.reset();
+            m_bm.reset(); m_rw.reset(); m_new_deps.reset(); m_pb_rw.cleanup();
 
             if (g->inconsistent()) {
                 result.push_back(g.get());
@@ -955,13 +956,20 @@ private:
             }
 
             for (unsigned idx = 0; idx < size; idx++)
-                g->update(idx, new_exprs[idx].get(), nullptr, (m_produce_unsat_cores) ? new_deps[idx].get() : g->dep(idx));
+                g->update(idx, new_exprs.get(idx), nullptr, (m_produce_unsat_cores) ? new_deps.get(idx) : g->dep(idx));
+
+            expr_ref_vector fmls(m);
+            m_pb_rw.flush_side_constraints(fmls);
+            for (expr* e : fmls) 
+                g->assert_expr(e);
 
             if (m_produce_models) {
                 model_converter_ref mc;
                 generic_model_converter * mc1 = alloc(generic_model_converter, m, "pb2bv");
                 for (auto const& kv : m_const2bit) 
                     mc1->hide(kv.m_value);
+                for (func_decl* f : m_pb_rw.fresh_constants()) 
+                    mc1->hide(f);
                 // store temp int constants in the filter
                 unsigned num_temps = m_temporary_ints.size();
                 for (unsigned i = 0; i < num_temps; i++)
