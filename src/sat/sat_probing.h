@@ -77,7 +77,6 @@ namespace sat {
 
         void collect_statistics(statistics & st) const;
         void reset_statistics();
-        bool active() const { return m_active; }
 
         // return the literals implied by l.
         // return 0, if the cache is not available
