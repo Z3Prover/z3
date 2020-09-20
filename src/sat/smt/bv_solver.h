@@ -137,10 +137,11 @@ namespace bv {
             unsigned    m_idx;
             theory_var  m_v1;
             theory_var  m_v2;
+            sat::literal m_literal;
             euf::enode* m_node;
             eq_occurs*  m_next;
-            eq_occurs(unsigned idx, theory_var v1, theory_var v2, euf::enode* n, eq_occurs* next = nullptr):
-                m_idx(idx), m_v1(v1), m_v2(v2), m_node(n), m_next(next) {}
+            eq_occurs(unsigned idx, theory_var v1, theory_var v2, sat::literal lit, euf::enode* n, eq_occurs* next = nullptr):
+                m_idx(idx), m_v1(v1), m_v2(v2), m_literal(lit), m_node(n), m_next(next) {}
         };
 
         class eq_occurs_it {
@@ -278,7 +279,7 @@ namespace bv {
         void add_fixed_eq(theory_var v1, theory_var v2);      
         svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
-        void assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
+        bool assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
         void propagate_bits(var_pos entry);
         void propagate_eq_occurs(eq_occurs const& occ);
         numeral const& power2(unsigned i) const;

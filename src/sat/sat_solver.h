@@ -103,6 +103,7 @@ namespace sat {
         scc                     m_scc;
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
+        bool                    m_is_probing { false };
         mus                     m_mus;           // MUS for minimal core extraction
         binspr                  m_binspr;
         bool                    m_inconsistent;
@@ -350,6 +351,7 @@ namespace sat {
         bool was_eliminated(bool_var v) const { return m_eliminated[v]; }
         void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
+        void set_phase(literal l) override { m_phase[l.var()] = !l.sign(); }
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
         bool  at_search_lvl() const { return m_scope_lvl == m_search_lvl; }
@@ -662,7 +664,7 @@ namespace sat {
     public:
         void set_should_simplify() { m_next_simplify = m_conflicts_since_init; }
         bool_var_vector const& get_vars_to_reinit() const { return m_vars_to_reinit;  }
-        bool is_probing() const { return m_probing.active(); }
+        bool is_probing() const { return m_is_probing; }
 
     public:
         void user_push() override;

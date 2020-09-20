@@ -17,6 +17,7 @@ Author:
 
 #include "util/vector.h"
 #include "util/id_var_list.h"
+#include "util/lbool.h"
 #include "ast/ast.h"
 #include "ast/euf/euf_justification.h"
 
@@ -43,6 +44,8 @@ namespace euf {
         bool          m_update_children{ false };
         bool          m_interpreted{ false };
         bool          m_merge_enabled{ true };
+        bool          m_is_equality{ false };
+        lbool         m_value;
         unsigned      m_class_size{ 1 };
         unsigned      m_table_id{ UINT_MAX };
         enode_vector  m_parents;
@@ -104,6 +107,8 @@ namespace euf {
         void replace_th_var(theory_var v, theory_id id) { m_th_vars.replace(v, id); }
         void del_th_var(theory_id id) { m_th_vars.del_var(id); }   
         void set_merge_enabled(bool m) { m_merge_enabled = m; }
+        void set_value(lbool v) { m_value = v; }
+        void set_is_equality() { m_is_equality = true;  }
 
     public:
         ~enode() { 
@@ -121,6 +126,9 @@ namespace euf {
         unsigned num_args() const { return m_num_args; }
         unsigned num_parents() const { return m_parents.size(); }
         bool interpreted() const { return m_interpreted; }
+        bool is_equality() const { return m_is_equality; }
+        lbool value() const { return m_value;  }
+
         bool commutative() const { return m_commutative; }
         void mark_interpreted() { SASSERT(num_args() == 0); m_interpreted = true; }
         bool merge_enabled() { return m_merge_enabled; }

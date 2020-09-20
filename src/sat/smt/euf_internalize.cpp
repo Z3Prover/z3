@@ -82,10 +82,11 @@ namespace euf {
 
     void solver::attach_node(euf::enode* n) {
         expr* e = n->get_expr();
+        sat::literal lit;
         if (!m.is_bool(e))
             drat_log_node(e);
         else
-            attach_lit(literal(si.add_bool_var(e), false), e);
+            lit = attach_lit(literal(si.add_bool_var(e), false), e);
 
         if (!m.is_bool(e) && m.get_sort(e)->get_family_id() != null_family_id) {
             auto* e_ext = expr2solver(e);
@@ -93,7 +94,8 @@ namespace euf {
             if (s_ext && s_ext != e_ext)
                 s_ext->apply_sort_cnstr(n, m.get_sort(e));
         }
-        expr* a = nullptr, * b = nullptr;
+        expr* a = nullptr, * b = nullptr;                   
+        
         if (m.is_eq(e, a, b) && m.get_sort(a)->get_family_id() != null_family_id) {
             auto* s_ext = sort2solver(m.get_sort(a));
             if (s_ext)
@@ -121,10 +123,11 @@ namespace euf {
             return lit;
         m_var2expr[v] = e;
         m_var_trail.push_back(v);
-        if (!m_egraph.find(e)) {
-            enode* n = m_egraph.mk(e, 0, nullptr);
+        enode* n = m_egraph.find(e);
+        if (!n) 
+            n = m_egraph.mk(e, 0, nullptr);           
+        if (!m.is_true(e) && !m.is_false(e))
             m_egraph.set_merge_enabled(n, false);
-        }
         return lit;
     }
 
@@ -261,6 +264,19 @@ namespace euf {
             sat::literal lits2[2] = { dist, some_eq };
             s().add_clause(2, lits1, st);
             s().add_clause(2, lits2, st);
+        }
+        else if (m.is_eq(e, th, el) && !m.is_iff(e)) {
+            sat::literal lit1 = expr2literal(e);
+            s().set_phase(lit1);
+            expr_ref e2(m.mk_eq(el, th), m);
+            enode* n2 = m_egraph.find(e2);
+            if (n2) {
+                sat::literal lit2 = expr2literal(e2);
+                sat::literal lits1[2] = { ~lit1, lit2 };
+                sat::literal lits2[2] = { lit1, ~lit2 };
+                s().add_clause(2, lits1, st);
+                s().add_clause(2, lits2, st);
+            }
         }
     }
 

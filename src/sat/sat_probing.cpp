@@ -237,7 +237,7 @@ namespace sat {
         if (m_probing_cache && memory::get_allocation_size() > m_probing_cache_limit)
             m_cached_bins.finalize();
 
-        flet<bool> _probing(m_active, true);
+        flet<bool> _is_probing(s.m_is_probing, true);
         report rpt(*this);
         bool r    = true;
         m_counter = 0;

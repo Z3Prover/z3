@@ -137,7 +137,7 @@ namespace datalog {
         return *e->get_data().get_value();
     }
 
-    void rule_dependencies::restrict(const item_set & allowed) {
+    void rule_dependencies::restrict_dependencies(const item_set & allowed) {
         ptr_vector<func_decl> to_remove;
         for (auto const& kv : *this) {
             func_decl * pred = kv.m_key;
@@ -154,10 +154,8 @@ namespace datalog {
 
     void rule_dependencies::remove(func_decl * itm) {
         remove_m_data_entry(itm);
-        for (auto const& kv : *this) {
-            item_set & itms = *kv.get_value();
-            itms.remove(itm);
-        }
+        for (auto const& kv : *this) 
+            kv.get_value()->remove(itm);        
     }
 
     void rule_dependencies::remove(const item_set & to_remove) {

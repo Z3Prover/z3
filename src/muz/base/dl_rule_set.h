@@ -62,7 +62,7 @@ namespace datalog {
 
         void populate(const rule_set & rules);
         void populate(unsigned n, rule * const * rules);
-        void restrict(const item_set & allowed);
+        void restrict_dependencies(const item_set & allowed);
         void remove(func_decl * itm);
         void remove(const item_set & to_remove);
 

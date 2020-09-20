@@ -955,9 +955,11 @@ namespace sat {
         m_assigned_since_gc[v]     = true;
         m_trail.push_back(l);
 
-        if (m_ext && m_external[v])
+        if (m_ext && m_external[v] && (!is_probing() || at_base_lvl()))
             m_ext->asserted(l);
-
+//        else 
+//            std::cout << "assert " << l << "\n";
+        
         switch (m_config.m_branching_heuristic) {
         case BH_VSIDS: 
             break;
@@ -1339,6 +1341,7 @@ namespace sat {
                 m_conflicts_since_restart = 0;
                 m_restart_threshold = m_config.m_restart_initial;
             }
+            log_stats();
             lbool is_sat = l_undef;
             while (is_sat == l_undef && !should_cancel()) {
                 if (inconsistent()) is_sat = resolve_conflict_core();

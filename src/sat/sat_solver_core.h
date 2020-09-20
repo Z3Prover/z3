@@ -81,6 +81,7 @@ namespace sat {
         virtual void set_external(bool_var v) {}
         virtual void set_non_external(bool_var v) {}
         virtual void set_eliminated(bool_var v, bool f) {}
+        virtual void set_phase(literal l) { }
 
         // optional support for user-scopes. Not relevant for sat_tactic integration. 
         // it is only relevant for incremental mode SAT, which isn't wrapped (yet)

@@ -90,9 +90,10 @@ namespace euf {
             struct new_th_eq_qhead {};
             struct new_lits_qhead {};
             struct inconsistent {};
+            struct value_assignment {};
             enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, 
                          is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
-                         is_new_th_eq_qhead, is_new_lits_qhead, is_inconsistent };
+                         is_new_th_eq_qhead, is_new_lits_qhead, is_inconsistent, is_value_assignment };
             tag_t  tag;
             enode* r1;
             enode* n1;
@@ -124,7 +125,9 @@ namespace euf {
             update_record(unsigned qh, new_lits_qhead):
                 tag(tag_t::is_new_lits_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
             update_record(bool inc, inconsistent) :
-                tag(tag_t::is_inconsistent), m_inconsistent(inc) {}
+                tag(tag_t::is_inconsistent), r1(nullptr), n1(nullptr), m_inconsistent(inc) {}
+            update_record(enode* n, value_assignment) :
+                tag(tag_t::is_value_assignment), r1(n), n1(nullptr), qhead(0) {}
         };
         ast_manager&           m;
         enode_vector           m_worklist;
@@ -151,7 +154,6 @@ namespace euf {
         std::function<void(expr*,expr*,expr*)> m_used_eq;
         std::function<void(app*,app*)>         m_used_cc;  
         std::function<void(std::ostream&, void*)>   m_display_justification;
-        std::function<lbool(enode*)>               m_value;
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
             m_updates.push_back(update_record(r1, n1, r2_num_parents));
@@ -160,7 +162,6 @@ namespace euf {
 
         void add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r);
         
-        void new_diseq(enode* n1);
         void add_th_diseqs(theory_id id, theory_var v1, enode* r);
         bool th_propagates_diseqs(theory_id id) const;
         void add_literal(enode* n, bool is_eq);
@@ -202,12 +203,12 @@ namespace euf {
         void push() { ++m_num_scopes; }
         void pop(unsigned num_scopes);
 
-        bool is_equality(enode* n) const;
-
         /**
            \brief merge nodes, all effects are deferred to the propagation step.
          */
         void merge(enode* n1, enode* n2, void* reason) { merge(n1, n2, justification::external(reason)); }        
+        void new_diseq(enode* n1);
+
 
         /**
            \brief propagate set of merges. 
@@ -243,11 +244,11 @@ namespace euf {
         void add_th_var(enode* n, theory_var v, theory_id id);
         void set_th_propagates_diseqs(theory_id id);
         void set_merge_enabled(enode* n, bool enable_merge);
+        void set_value(enode* n, lbool value);
 
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
         void set_display_justification(std::function<void (std::ostream&, void*)> & d) { m_display_justification = d; }
-        void set_eval(std::function<lbool(enode*)>& eval) { m_value = eval; }
         
         void begin_explain();
         void end_explain();

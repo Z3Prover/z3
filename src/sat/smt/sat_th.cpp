@@ -135,7 +135,9 @@ namespace euf {
         return !is_true(a, b, c, d) && (ctx.s().add_clause(4, lits, sat::status::th(m_is_redundant, get_id())), true);
     }
 
-    bool th_euf_solver::is_true(sat::literal lit) { return ctx.s().value(lit) == l_true; }
+    bool th_euf_solver::is_true(sat::literal lit) { 
+        return ctx.s().value(lit) == l_true; 
+    }
 
     euf::enode* th_euf_solver::mk_enode(expr* e, bool suppress_args) {
         m_args.reset();
