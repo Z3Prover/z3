@@ -726,7 +726,9 @@ namespace bv {
         return sat::justification::mk_ext_justification(s().scope_lvl(), constraint->to_index());
     }
 
+
     bool solver::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
+
         m_stats.m_num_bit2core++;
         SASSERT(ctx.s().value(antecedent) == l_true);
         SASSERT(m_bits[v2][idx].var() == consequent.var());

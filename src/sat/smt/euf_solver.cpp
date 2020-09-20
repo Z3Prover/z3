@@ -454,6 +454,7 @@ namespace euf {
     }
 
     lbool solver::get_phase(bool_var v) { 
+        TRACE("euf", tout << "phase: " << v << "\n";);            
         auto* ext = bool_var2solver(v);
         if (ext)
             return ext->get_phase(v);
