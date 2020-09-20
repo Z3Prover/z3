@@ -801,7 +801,7 @@ public:
         bool first_def = true;
         for (datatype::def* d : defs) {
             if (!first_def) m_out << "\n    "; else first_def = false;
-            m_out << "(" << d->name() << " " << d->params().size() << ")";
+            m_out << "(" << ensure_quote(d->name()) << " " << d->params().size() << ")";
         }
         m_out << ") (";
         bool first_sort = true;

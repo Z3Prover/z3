@@ -33,6 +33,8 @@ Revision History:
 #include "ast/ast_smt_pp.h"
 #include "util/smt2_util.h"
 
+std::string ensure_quote(symbol const& s);
+
 class smt2_pp_environment {
 protected:
     mutable smt_renaming m_renaming;
