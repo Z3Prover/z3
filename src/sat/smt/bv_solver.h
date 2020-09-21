@@ -44,7 +44,7 @@ namespace bv {
 
         struct stats {
             unsigned   m_num_diseq_static, m_num_diseq_dynamic,  m_num_conflicts;
-            unsigned   m_num_bit2core, m_num_th2core_eq, m_num_th2core_diseq, m_num_nbit2core;
+            unsigned   m_num_bit2eq, m_num_bit2ne, m_num_eq2bit, m_num_ne2bit;
             unsigned   m_ackerman;
             void reset() { memset(this, 0, sizeof(stats)); }
             stats() { reset(); }
@@ -106,14 +106,53 @@ namespace bv {
 
         typedef svector<zero_one_bit> zero_one_bits;
 
+        struct eq_occurs {
+            sat::bool_var m_bv1;
+            sat::bool_var m_bv2;
+            unsigned    m_idx;
+            theory_var  m_v1;
+            theory_var  m_v2;
+            sat::literal m_literal;
+            euf::enode* m_node;
+            eq_occurs* m_next;
+            eq_occurs* m_prev;
+            eq_occurs(sat::bool_var b1, sat::bool_var b2, unsigned idx, theory_var v1, theory_var v2, sat::literal lit, euf::enode* n, eq_occurs* next = nullptr) :
+                m_bv1(b1), m_bv2(b2), m_idx(idx), m_v1(v1), m_v2(v2), m_literal(lit), m_node(n), m_next(next), m_prev(nullptr) {}
+        };
+
+        class eq_occurs_it {
+            eq_occurs* m_first;
+        public:
+            eq_occurs_it(eq_occurs* c) : m_first(c) {}
+            eq_occurs operator*() { return *m_first; }
+            eq_occurs_it& operator++() { m_first = m_first->m_next; return *this; }
+            eq_occurs_it operator++(int) { eq_occurs_it tmp = *this; ++* this; return tmp; }
+            bool operator==(eq_occurs_it const& other) const { return m_first == other.m_first; }
+            bool operator!=(eq_occurs_it const& other) const { return !(*this == other); }
+        };
+
+        class eqs_iterator {
+            eq_occurs* o;
+        public:
+            eqs_iterator(eq_occurs* o) :o(o) {}
+            eq_occurs_it begin() const { return eq_occurs_it(o); }
+            eq_occurs_it end() const { return eq_occurs_it(nullptr); }
+        };
+
         struct bit_atom;
         struct def_atom;
+        struct eq_atom;
         class atom {
         public:
+
+            atom()  {}
             virtual ~atom() {}
-            virtual bool is_bit() const = 0;
+            virtual bool is_bit() const { return false; }
+            virtual bool is_eq() const { return false; }
             bit_atom& to_bit();
             def_atom& to_def();
+            eq_atom& to_eq();
+
         };
 
         struct var_pos_occ {
@@ -133,47 +172,24 @@ namespace bv {
             bool operator!=(var_pos_it const& other) const { return !(*this == other); }
         };
 
-        struct eq_occurs {
-            unsigned    m_idx;
-            theory_var  m_v1;
-            theory_var  m_v2;
-            sat::literal m_literal;
-            euf::enode* m_node;
-            eq_occurs*  m_next;
-            eq_occurs(unsigned idx, theory_var v1, theory_var v2, sat::literal lit, euf::enode* n, eq_occurs* next = nullptr):
-                m_idx(idx), m_v1(v1), m_v2(v2), m_literal(lit), m_node(n), m_next(next) {}
-        };
-
-        class eq_occurs_it {
-            eq_occurs* m_first;
-        public:
-            eq_occurs_it(eq_occurs* c) : m_first(c) {}
-            eq_occurs operator*() { return *m_first; }
-            eq_occurs_it& operator++() { m_first = m_first->m_next; return *this; }
-            eq_occurs_it operator++(int) { eq_occurs_it tmp = *this; ++* this; return tmp; }
-            bool operator==(eq_occurs_it const& other) const { return m_first == other.m_first; }
-            bool operator!=(eq_occurs_it const& other) const { return !(*this == other); }
-        };
-
         struct bit_atom : public atom {
+            eq_occurs*    m_eqs;
             var_pos_occ * m_occs;
-            eq_occurs   * m_eqs;
-            bit_atom():m_occs(nullptr), m_eqs(nullptr) {}
+            bit_atom() :m_eqs(nullptr), m_occs(nullptr) {}
             ~bit_atom() override {}
             bool is_bit() const override { return true; }
             var_pos_it begin() const { return var_pos_it(m_occs); }
             var_pos_it end() const { return var_pos_it(nullptr); }
             bool is_fresh() const { return !m_occs && !m_eqs; }
-            
-            class eqs_iterator {
-                bit_atom const& a;
-            public:
-                eqs_iterator(bit_atom const& a):a(a) {}
-                eq_occurs_it begin() const { return eq_occurs_it(a.m_eqs); }
-                eq_occurs_it end() const { return eq_occurs_it(nullptr); }
-            };
+            eqs_iterator eqs() const { return eqs_iterator(m_eqs); }           
+        };
 
-            eqs_iterator eqs() const { return eqs_iterator(*this); }
+        struct eq_atom : public atom {
+            eq_atom(){}
+            ~eq_atom() override { m_eqs.clear();  }
+            bool is_bit() const override { return false; }
+            bool is_eq() const override { return true; }
+            svector<std::pair<bit_atom*,eq_occurs*>> m_eqs;
         };
 
         struct def_atom : public atom {
@@ -181,7 +197,6 @@ namespace bv {
             literal    m_def;
             def_atom(literal v, literal d):m_var(v), m_def(d) {}
             ~def_atom() override {}
-            bool is_bit() const override { return false; }
         };
 
         struct propagation_item {
@@ -195,6 +210,7 @@ namespace bv {
         class bit_trail;
         class add_var_pos_trail;
         class add_eq_occurs_trail;
+        class del_eq_occurs_trail;
         class mk_atom_trail;
         class bit_occs_trail;
         typedef ptr_vector<atom> bool_var2atom;
@@ -242,8 +258,10 @@ namespace bv {
         sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
-        bit_atom* mk_bit_atom(sat::bool_var bv);
-        void eq_internalized(sat::bool_var b, unsigned idx, theory_var v1, theory_var v2, euf::enode* n);
+        bit_atom* mk_bit_atom(sat::bool_var b);
+        eq_atom* mk_eq_atom(sat::bool_var b);
+        void eq_internalized(sat::bool_var b1, sat::bool_var b2, unsigned idx, theory_var v1, theory_var v2, sat::literal eq, euf::enode* n);
+        void del_eq_occurs(bit_atom* a, eq_occurs* occ);
 
         void set_bit_eh(theory_var v, literal l, unsigned idx);
         void init_bits(expr* e, expr_ref_vector const & bits);
@@ -280,8 +298,8 @@ namespace bv {
         svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
         bool assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
-        void propagate_bits(var_pos entry);
-        void propagate_eq_occurs(eq_occurs const& occ);
+        bool propagate_bits(var_pos entry);
+        bool propagate_eq_occurs(eq_occurs const& occ);
         numeral const& power2(unsigned i) const;
 
         // invariants
@@ -348,7 +366,7 @@ namespace bv {
         void unmerge_eh(theory_var v1, theory_var v2);
         trail_stack<euf::solver>& get_trail_stack();
 
-        // disagnostics
+        // diagnostics
         std::ostream& display(std::ostream& out, theory_var v) const;        
         typedef std::pair<solver const*, theory_var> pp_var;
         pp_var pp(theory_var v) const { return pp_var(this, v); }

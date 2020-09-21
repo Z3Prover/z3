@@ -207,7 +207,7 @@ namespace euf {
            \brief merge nodes, all effects are deferred to the propagation step.
          */
         void merge(enode* n1, enode* n2, void* reason) { merge(n1, n2, justification::external(reason)); }        
-        void new_diseq(enode* n1);
+        void new_diseq(enode* n);
 
 
         /**

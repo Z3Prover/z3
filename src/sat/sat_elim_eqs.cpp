@@ -218,10 +218,12 @@ namespace sat {
 
     void elim_eqs::save_elim(literal_vector const & roots, bool_var_vector const & to_elim) {
         model_converter & mc = m_solver.m_mc;
+
         for (bool_var v : to_elim) {
             literal  l(v, false);
             literal r  = roots[v];
             SASSERT(v != r.var());
+
             if (m_solver.m_cut_simplifier) m_solver.m_cut_simplifier->set_root(v, r);
             bool set_root = m_solver.set_root(l, r);
             bool root_ok = !m_solver.is_external(v) || set_root;
