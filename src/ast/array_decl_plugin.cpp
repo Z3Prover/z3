@@ -460,6 +460,7 @@ func_decl * array_decl_plugin::mk_set_has_size(unsigned arity, sort * const* dom
         m_manager->raise_exception("set-has-size takes two arguments");
         return nullptr;
     }    
+    m_manager->raise_exception("set-has-size is not supported");
     // domain[0] is a Boolean array,
     // domain[1] is Int
     arith_util arith(*m_manager);
