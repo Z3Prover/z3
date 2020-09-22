@@ -290,7 +290,7 @@ namespace sat {
         clause * mk_nary_clause(unsigned num_lits, literal * lits, status st);
         bool has_variables_to_reinit(clause const& c) const;
         bool has_variables_to_reinit(literal l1, literal l2) const;
-        bool attach_nary_clause(clause & c);
+        bool attach_nary_clause(clause & c, bool is_asserting);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
         void set_learned(clause& c, bool learned);

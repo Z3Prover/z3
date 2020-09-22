@@ -227,7 +227,7 @@ namespace euf {
         size_t* c = to_ptr(l);
         SASSERT(is_literal(c));
         SASSERT(l == get_literal(c));
-        if (m.is_eq(e) && n->num_args() == 2 && !sign) {
+        if (!sign && n->is_equality()) {
             SASSERT(!m.is_iff(e));
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
@@ -237,9 +237,8 @@ namespace euf {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
         }
-        else if (m.is_eq(e) && n->num_args() == 2 && sign) {
-            m_egraph.new_diseq(n);
-        }
+        else if (sign && n->is_equality())
+            m_egraph.new_diseq(n);        
     }
 
 
@@ -462,20 +461,23 @@ namespace euf {
     }
 
     bool solver::set_root(literal l, literal r) {
+        expr* e = bool_var2expr(l.var());
+        if (!e)
+            return true;
         bool ok = true;
         for (auto* s : m_solvers)
             if (!s->set_root(l, r))
                 ok = false;
-        expr* e = bool_var2expr(l.var());
-        if (e) {
-            if (m.is_eq(e) && !m.is_iff(e))
-                ok = false;
-            euf::enode* n = get_enode(e);
-            if (n && n->merge_enabled())
-                ok = false;
-        }
+        if (m.is_eq(e) && !m.is_iff(e))
+            ok = false;
+        euf::enode* n = get_enode(e);
+        if (n && n->merge_enabled())
+            ok = false;
+        
+        (void)ok;
         TRACE("euf", tout << ok << " " << l << " -> " << r << "\n";);
-        return ok;
+        // roots cannot be eliminated as long as the egraph contains the expressions.
+        return false;
     }
 
     void solver::flush_roots() {

@@ -203,6 +203,7 @@ namespace sat {
                             in_s[l2_idx] = false;
                             literal  l2 = to_literal(l2_idx);
                             bool_var v2 = l2.var();
+
                             if (roots[v2] == null_literal) {
                                 if (l2.sign()) {
                                     roots[v2] = ~r;

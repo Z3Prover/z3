@@ -318,24 +318,7 @@ namespace sat {
     }
 
     void solver::set_external(bool_var v) {
-        if (m_external[v]) return;
         m_external[v] = true;
-        if (!m_ext) return;
-        
-        lbool val = value(v);
-
-        switch (val) {
-        case l_true: {
-            m_ext->asserted(literal(v, false));
-            break;
-        }
-        case l_false: {
-            m_ext->asserted(literal(v, true));
-            break;
-        }
-        default:
-            break;
-        }
     }
 
     void solver::set_eliminated(bool_var v, bool f) { 
@@ -347,10 +330,13 @@ namespace sat {
 
     clause* solver::mk_clause(unsigned num_lits, literal * lits, sat::status st) {
         m_model_is_current = false;
+        for (unsigned i = 0; i < num_lits; i++) 
+            VERIFY(!was_eliminated(lits[i]));
+        
         DEBUG_CODE({
                 for (unsigned i = 0; i < num_lits; i++) {
-                    CTRACE("sat", m_eliminated[lits[i].var()], tout << lits[i] << " was eliminated\n";);
-                    SASSERT(m_eliminated[lits[i].var()] == false);
+                    CTRACE("sat", was_eliminated(lits[i]), tout << lits[i] << " was eliminated\n";);
+                    SASSERT(!was_eliminated(lits[i]));
                 }
         });
 
@@ -587,7 +573,7 @@ namespace sat {
         m_stats.m_mk_clause++;
         clause * r = alloc_clause(num_lits, lits, st.is_redundant());
         SASSERT(!st.is_redundant() || r->is_learned());
-        bool reinit = attach_nary_clause(*r);
+        bool reinit = attach_nary_clause(*r, st.is_sat() && st.is_redundant());
         if (reinit || has_variables_to_reinit(*r)) push_reinit_stack(*r);
         if (st.is_redundant()) {
             m_learned.push_back(r);
@@ -604,11 +590,11 @@ namespace sat {
         return r;
     }
 
-    bool solver::attach_nary_clause(clause & c) {
+    bool solver::attach_nary_clause(clause & c, bool is_asserting) {
         bool reinit = false;
         clause_offset cls_off = cls_allocator().get_offset(&c);
         if (!at_base_lvl()) {
-            if (c.is_learned() && !c.on_reinit_stack()) {
+            if (is_asserting) {
                 unsigned w2_idx = select_learned_watch_lit(c);
                 std::swap(c[1], c[w2_idx]);
             }
@@ -626,7 +612,7 @@ namespace sat {
                     level = std::max(level, lvl(c[i]));
                 }
                 assign(c[1], justification(level, cls_off));
-                reinit = !c.is_learned();
+                reinit |= !c.is_learned();
             }
             else if (value(c[1]) == l_false) {
                 m_stats.m_propagate++;
@@ -635,7 +621,7 @@ namespace sat {
                     level = std::max(level, lvl(c[i]));
                 }
                 assign(c[0], justification(level, cls_off));
-                reinit = !c.is_learned();
+                reinit |= !c.is_learned();
             }
         }
         unsigned some_idx = c.size() >> 1;
@@ -655,7 +641,7 @@ namespace sat {
         if (ENABLE_TERNARY && c.size() == 3)
             reinit = attach_ter_clause(c, c.is_learned() ? sat::status::redundant() : sat::status::asserted());
         else
-            reinit = attach_nary_clause(c);
+            reinit = attach_nary_clause(c, c.is_learned() && !c.on_reinit_stack());
     }
 
     void solver::set_learned(clause& c, bool redundant) {
@@ -1332,16 +1318,18 @@ namespace sat {
                 return l_undef;
             }
 
-            if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
+            log_stats();
+            if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {               
                 m_restart_threshold = m_config.m_burst_search;
                 lbool r = bounded_search();
-                if (r != l_undef)
+                log_stats();
+                if (r != l_undef) 
                     return r;
+                
                 pop_reinit(scope_lvl());
                 m_conflicts_since_restart = 0;
                 m_restart_threshold = m_config.m_restart_initial;
             }
-            log_stats();
             lbool is_sat = l_undef;
             while (is_sat == l_undef && !should_cancel()) {
                 if (inconsistent()) is_sat = resolve_conflict_core();
@@ -1353,6 +1341,7 @@ namespace sat {
                 else if (should_simplify()) do_simplify();
                 else if (!decide()) is_sat = final_check();
             }
+            log_stats();
             return is_sat;
         }
         catch (const abort_solver &) {
@@ -3588,8 +3577,6 @@ namespace sat {
         if (!m_replay_assign.empty()) IF_VERBOSE(20, verbose_stream() << "replay assign: " << m_replay_assign.size() << "\n");
         for (unsigned i = m_replay_assign.size(); i-- > 0; ) {
             literal lit = m_replay_assign[i];
-            if (m_ext && m_external[lit.var()])
-                m_ext->asserted(lit);
             m_trail.push_back(lit);            
         }
         

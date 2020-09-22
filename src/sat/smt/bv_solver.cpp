@@ -77,7 +77,7 @@ namespace bv {
         else if (var2enode(v1)->get_root() != var2enode(v2)->get_root()) {
             SASSERT(get_bv_size(v1) == get_bv_size(v2));
             TRACE("bv", tout << "detected equality: v" << v1 << " = v" << v2 << "\n" << pp(v1) << pp(v2););
-            m_stats.m_num_th2core_eq++;
+            m_stats.m_num_bit2eq++;
             add_fixed_eq(v1, v2);
             ctx.propagate(var2enode(v1), var2enode(v2), mk_bit2eq_justification(v1, v2));
         }
@@ -146,9 +146,6 @@ namespace bv {
        \brief v1[idx] = ~v2[idx], then v1 /= v2 is a theory axiom.
     */
     void solver::mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx) {
-        if (!get_config().m_bv_eq_axioms)
-            return;
-
         SASSERT(m_bits[v1][idx] == ~m_bits[v2][idx]);
         TRACE("bv", tout << "found new diseq axiom\n" << pp(v1) << pp(v2););
         m_stats.m_num_diseq_static++;
@@ -194,8 +191,10 @@ namespace bv {
     void solver::new_eq_eh(euf::th_eq const& eq) {
         force_push();
         TRACE("bv", tout << "new eq " << mk_bounded_pp(var2expr(eq.v1()), m) << " == " << mk_bounded_pp(var2expr(eq.v2()), m) << "\n";);
-        if (is_bv(eq.v1()))
+        if (is_bv(eq.v1())) {
             m_find.merge(eq.v1(), eq.v2());
+            VERIFY(eq.is_eq());
+        }
     }
 
     void solver::new_diseq_eh(euf::th_eq const& ne) {
@@ -207,6 +206,8 @@ namespace bv {
         
         TRACE("bv", tout << "diff: " << v1 << " != " << v2 << " @" << s().scope_lvl() << "\n";);
         unsigned sz = m_bits[v1].size();
+        if (sz == 1)
+            return;
         unsigned num_undef = 0;
         int undef_idx = 0;
         for (unsigned i = 0; i < sz; ++i) {
@@ -245,7 +246,7 @@ namespace bv {
             SASSERT(s().value(b) != l_undef);
             if (s().value(b) == l_true)
                 consequent.neg();
-            ++m_stats.m_num_nbit2core;
+            ++m_stats.m_num_ne2bit;
             s().assign(consequent, mk_ne2bit_justification(undef_idx, v1, v2, consequent, antecedent));
         }
         else if (s().at_search_lvl()) {
@@ -387,6 +388,11 @@ namespace bv {
             force_push();
             m_prop_queue.push_back(propagation_item(&a->to_bit()));
         }
+        else if (a && a->is_eq()) {
+            for (auto p : a->to_eq().m_eqs) {
+                del_eq_occurs(p.first, p.second);
+            }
+        }
     }
 
     bool solver::unit_propagate() {
@@ -397,10 +403,21 @@ namespace bv {
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
             auto const p = m_prop_queue[m_prop_queue_head];
             if (p.m_atom) {
-                for (auto vp : *p.m_atom)
-                    propagate_bits(vp);
-                for (auto const& eq : p.m_atom->eqs())
-                    propagate_eq_occurs(eq);
+                unsigned num_atoms = 0, num_eqs = 0, num_assigned = 0, num_eq_assigned = 0, num_lit_assigned = 0;
+                for (auto vp : *p.m_atom) {
+                    if (propagate_bits(vp))
+                        ++num_assigned;
+                    ++num_atoms;
+                }
+                for (auto const& eq : p.m_atom->eqs()) {
+                    ++num_eqs;
+                    if (s().value(eq.m_literal) != l_undef)
+                        ++num_lit_assigned;
+                    if (propagate_eq_occurs(eq)) {
+                        ++num_eq_assigned;
+                    }
+                }
+                IF_VERBOSE(20, verbose_stream() << "atoms: " << num_atoms << " eqs: " << num_eqs << " atoms-assigned:" << num_assigned << " eqs-assigned: " << num_eq_assigned << " lits: " << num_lit_assigned << "\n");
             }
             else 
                 propagate_bits(p.m_vp);            
@@ -409,20 +426,35 @@ namespace bv {
         return true;
     }
 
-    void solver::propagate_eq_occurs(eq_occurs const& occ) {
+    bool solver::propagate_eq_occurs(eq_occurs const& occ) {
         auto lit = occ.m_literal;
-        if (s().value(lit) != l_undef)
-            return;
-        lbool val1 = s().value(m_bits[occ.m_v1][occ.m_idx]);
-        lbool val2 = s().value(m_bits[occ.m_v2][occ.m_idx]);
+
+        if (s().value(lit) != l_undef) {
+            IF_VERBOSE(20, verbose_stream() << "assigned " << lit << " " << s().value(lit) << "\n");
+            return false;
+        }
+        literal bit1 = m_bits[occ.m_v1][occ.m_idx];
+        literal bit2 = m_bits[occ.m_v2][occ.m_idx];
+        lbool val2 = s().value(bit2);
+        
+        if (val2 == l_undef) {
+            IF_VERBOSE(20, verbose_stream() << "add " << occ.m_bv2 << " " << occ.m_v2 << "\n");
+            eq_internalized(occ.m_bv2, occ.m_bv1, occ.m_idx, occ.m_v2, occ.m_v1, occ.m_literal, occ.m_node);
+            return false;
+        }
+        lbool val1 = s().value(bit1);
         SASSERT(val1 != l_undef);
         if (val1 != val2 && val2 != l_undef) {
-            ++m_stats.m_num_th2core_diseq;
+            ++m_stats.m_num_bit2ne;
+            IF_VERBOSE(20, verbose_stream() << "assign " << ~lit << "\n");
             s().assign(~lit, mk_bit2ne_justification(occ.m_idx, ~lit));
+            return true;
         }
+        IF_VERBOSE(20, verbose_stream() << "eq " << lit << "\n");
+        return false;
     }
 
-    void solver::propagate_bits(var_pos entry) {
+    bool solver::propagate_bits(var_pos entry) {
         theory_var v1 = entry.first;
         unsigned idx = entry.second;
         SASSERT(idx < m_bits[v1].size());
@@ -433,7 +465,7 @@ namespace bv {
         lbool   val = s().value(bit1);
         TRACE("bv", tout << "propagating v" << v1 << " #" << var2enode(v1)->get_expr_id() << "[" << idx << "] = " << val << "\n";);
         if (val == l_undef)
-            return;
+            return false;
 
         if (val == l_false)
             bit1.neg();
@@ -447,7 +479,7 @@ namespace bv {
             if (val == l_false)
                 bit2.neg();
             ++num_bits;
-            if (num_bits > 4 && num_assigned == 0)
+            if (num_bits > 3 && num_assigned == 0)
                 break;
             if (s().value(bit2) == l_true) 
                 continue;
@@ -455,7 +487,7 @@ namespace bv {
             if (!assign_bit(bit2, v1, v2, idx, bit1, false))
                 break;
         }
-        // std::cout << num_bits << " " << num_assigned << "\n"; 
+        return num_assigned > 0;
     }
 
     sat::check_result solver::check() {
@@ -590,10 +622,10 @@ namespace bv {
         st.update("bv conflicts", m_stats.m_num_conflicts);
         st.update("bv diseqs", m_stats.m_num_diseq_static);
         st.update("bv dynamic diseqs", m_stats.m_num_diseq_dynamic);
-        st.update("bv eq2bit", m_stats.m_num_bit2core);
-        st.update("bv ne2bit", m_stats.m_num_nbit2core);
-        st.update("bv bit2eq", m_stats.m_num_th2core_eq);
-        st.update("bv bit2ne", m_stats.m_num_th2core_diseq);
+        st.update("bv eq2bit", m_stats.m_num_eq2bit);
+        st.update("bv ne2bit", m_stats.m_num_ne2bit);
+        st.update("bv bit2eq", m_stats.m_num_bit2eq);
+        st.update("bv bit2ne", m_stats.m_num_bit2ne);
         st.update("bv ackerman", m_stats.m_ackerman);
     }
 
@@ -625,6 +657,12 @@ namespace bv {
                 m_bool_var2atom.setx(i, new_a, nullptr);
                 for (auto vp : a->to_bit())
                     new_a->m_occs = new (result->get_region()) var_pos_occ(vp.first, vp.second, new_a->m_occs);
+                for (auto const& occ : a->to_bit().eqs()) {
+                    expr* e = occ.m_node->get_expr();
+                    expr_ref e2(tr(e), tr.to());
+                    euf::enode* n = ctx.get_enode(e2);
+                    new_a->m_eqs = new (result->get_region()) eq_occurs(occ.m_bv1, occ.m_bv2, occ.m_idx, occ.m_v1, occ.m_v2, occ.m_literal, n, new_a->m_eqs);
+                }
             }
             else {
                 def_atom* new_a = new (result->get_region()) def_atom(a->to_def().m_var, a->to_def().m_def);
@@ -669,6 +707,7 @@ namespace bv {
     }
 
     void solver::merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
+
         TRACE("bv", tout << "merging: v" << v1 << " #" << var2enode(v1)->get_expr_id() << " v" << v2 << " #" << var2enode(v2)->get_expr_id() << "\n";);
         if (!merge_zero_one_bits(r1, r2)) {
             TRACE("bv", tout << "conflict detected\n";);
@@ -676,10 +715,16 @@ namespace bv {
         }
         SASSERT(m_bits[v1].size() == m_bits[v2].size());
         unsigned sz = m_bits[v1].size();
+        if (sz == 1)
+            return;
         for (unsigned idx = 0; !s().inconsistent() && idx < sz; idx++) {
             literal bit1 = m_bits[v1][idx];
             literal bit2 = m_bits[v2][idx];
             CTRACE("bv", bit1 == ~bit2, tout << pp(v1) << pp(v2) << "idx: " << idx << "\n";);
+            if (bit1 == ~bit2) {
+                mk_new_diseq_axiom(v1, v2, idx);
+                return;
+            }
             SASSERT(bit1 != ~bit2);
             lbool val1 = s().value(bit1);
             lbool val2 = s().value(bit2);
@@ -729,7 +774,7 @@ namespace bv {
 
     bool solver::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
 
-        m_stats.m_num_bit2core++;
+        m_stats.m_num_eq2bit++;
         SASSERT(ctx.s().value(antecedent) == l_true);
         SASSERT(m_bits[v2][idx].var() == consequent.var());
         SASSERT(consequent.var() != antecedent.var());
@@ -740,14 +785,6 @@ namespace bv {
             return false;
         }
         else {
-            if (false && get_config().m_bv_eq_axioms) {
-                expr_ref eq = mk_var_eq(v1, v2);
-                flet<bool> _is_redundant(m_is_redundant, true);
-                literal eq_lit = ctx.internalize(eq, false, false, m_is_redundant);
-                add_clause(~antecedent, ~eq_lit, consequent);
-                add_clause(antecedent, ~eq_lit, ~consequent);
-            }
-
             if (m_wpos[v2] == idx)
                 find_wpos(v2);
             bool_var cv = consequent.var();

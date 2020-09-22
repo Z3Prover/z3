@@ -41,18 +41,22 @@ namespace bv {
         if (v1 > v2)
             std::swap(v1, v2);
         vv* n = m_tmp_vv;
-        n->v1 = v1;
-        n->v2 = v2;
+        n->set_var(v1, v2);
         vv* other = m_table.insert_if_not_there(n);        
         other->m_count++;
         update_glue(*other);
-        if (other->m_count > m_propagate_high_watermark || other->m_glue == 0)
-            s.s().set_should_simplify();
+
         vv::push_to_front(m_queue, other);
         if (other == n) {
             new_tmp();        
             gc();
         }
+        if (other->m_glue == 0) {
+            remove(other);
+            add_cc(v1, v2);
+        }
+        else if (other->m_count > m_propagate_high_watermark) 
+            s.s().set_should_simplify();
     }
 
     void ackerman::used_diseq_eh(euf::theory_var v1, euf::theory_var v2) {
@@ -61,17 +65,17 @@ namespace bv {
         if (v1 > v2)
             std::swap(v1, v2);
         vv* n = m_tmp_vv;
-        n->v1 = v1;
-        n->v2 = v2;
+        n->set_var(v1, v2);
         vv* other = m_table.insert_if_not_there(n);
         other->m_count++;
-        if (other->m_count > m_propagate_high_watermark || other->m_glue == 0)
-            s.s().set_should_simplify();
+
         vv::push_to_front(m_queue, other);
         if (other == n) {
             new_tmp();
             gc();
         }
+        if (other->m_count > m_propagate_high_watermark) 
+            s.s().set_should_simplify();
     }
 
     void ackerman::update_glue(vv& v) {

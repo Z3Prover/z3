@@ -22,6 +22,7 @@ Author:
 
 namespace euf {
 
+
     void egraph::undo_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
         enode* r2 = r1->get_root();
         r2->dec_class_size(r1->class_size());
@@ -113,6 +114,7 @@ namespace euf {
 
     egraph::egraph(ast_manager& m) : m(m), m_table(m), m_exprs(m) {
         m_tmp_eq = enode::mk_tmp(m_region, 2);
+        // m_updates.reserve(10000, update_record(nullptr));
     }
 
     egraph::~egraph() {
@@ -143,14 +145,15 @@ namespace euf {
         if (is_eq) ++m_stats.m_num_eqs; else ++m_stats.m_num_lits;
     }
 
-    void egraph::new_diseq(enode* n1) {
-        SASSERT(n1->is_equality());
-        enode* arg1 = n1->get_arg(0), * arg2 = n1->get_arg(1);
+    void egraph::new_diseq(enode* n) {
+        SASSERT(n->is_equality());
+        SASSERT(n->value() == l_false);
+        enode* arg1 = n->get_arg(0), * arg2 = n->get_arg(1);
         enode* r1 = arg1->get_root();
         enode* r2 = arg2->get_root();
         TRACE("euf", tout << "new-diseq:  " << mk_pp(r1->get_expr(), m) << " " << mk_pp(r2->get_expr(), m) << ": " << r1->has_th_vars() << " " << r2->has_th_vars() << "\n";);
         if (r1 == r2) {
-            add_literal(n1, true);
+            add_literal(n, true);
             return;
         }
         if (!r1->has_th_vars())
@@ -163,7 +166,7 @@ namespace euf {
                 return;
             theory_var v1 = arg1->get_closest_th_var(id);
             theory_var v2 = arg2->get_closest_th_var(id);
-            add_th_diseq(id, v1, v2, n1->get_expr());
+            add_th_diseq(id, v1, v2, n->get_expr());
             return;
         }
         for (auto p : euf::enode_th_vars(r1)) {
@@ -171,7 +174,7 @@ namespace euf {
                 continue;
             for (auto q : euf::enode_th_vars(r2))
                 if (p.get_id() == q.get_id()) 
-                    add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n1->get_expr());
+                    add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n->get_expr());
         }
     }
 
@@ -250,9 +253,9 @@ namespace euf {
         }
     }
 
-    void egraph::set_value(enode* n, lbool value) {
+    void egraph::set_value(enode* n, lbool value) {        
         force_push();
-        VERIFY(n->value() == l_undef);
+        SASSERT(n->value() == l_undef);
         n->set_value(value);
         m_updates.push_back(update_record(n, update_record::value_assignment()));
     }
@@ -331,9 +334,8 @@ namespace euf {
     }
 
     void egraph::merge(enode* n1, enode* n2, justification j) {
-        if (!n1->merge_enabled() && !n2->merge_enabled()) {
-            return;
-        }
+        if (!n1->merge_enabled() && !n2->merge_enabled()) 
+            return;        
         SASSERT(m.get_sort(n1->get_expr()) == m.get_sort(n2->get_expr()));
         enode* r1 = n1->get_root();
         enode* r2 = n2->get_root();
@@ -357,7 +359,7 @@ namespace euf {
         if (j.is_congruence() && (m.is_false(r2->get_expr()) || m.is_true(r2->get_expr()))) {
             add_literal(n1, false);
         }
-        if (n1->is_equality() && r2->value() == l_false)
+        if (n1->is_equality() && n1->value() == l_false)
             new_diseq(n1);       
         unsigned num_merge = 0, num_eqs = 0;
         for (enode* p : enode_parents(n1)) {

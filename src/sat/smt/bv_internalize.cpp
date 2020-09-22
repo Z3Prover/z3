@@ -29,7 +29,13 @@ namespace bv {
 
     solver::def_atom& solver::atom::to_def() {
         SASSERT(!is_bit());
+        SASSERT(!is_eq());
         return dynamic_cast<def_atom&>(*this);
+    }
+
+    solver::eq_atom& solver::atom::to_eq() {
+        SASSERT(is_eq());
+        return dynamic_cast<eq_atom&>(*this);
     }
 
     class solver::add_var_pos_trail : public trail<euf::solver> {
@@ -43,14 +49,42 @@ namespace bv {
     };
 
     class solver::add_eq_occurs_trail : public trail<euf::solver> {
-        solver::bit_atom* m_atom;
+        bit_atom* m_atom;
     public:
-        add_eq_occurs_trail(solver::bit_atom* a) :m_atom(a) {}
+        add_eq_occurs_trail(bit_atom* a) :m_atom(a) {}
         void undo(euf::solver& euf) override {
             SASSERT(m_atom->m_eqs);
             m_atom->m_eqs = m_atom->m_eqs->m_next;
+            if (m_atom->m_eqs)  
+                m_atom->m_eqs->m_prev = nullptr;
         }
     };    
+
+    class solver::del_eq_occurs_trail : public trail<euf::solver> {
+        bit_atom* m_atom;
+        eq_occurs* m_node;
+    public:
+        del_eq_occurs_trail(bit_atom* a, eq_occurs* n) : m_atom(a), m_node(n) {}
+        void undo(euf::solver& euf) override {
+            if (m_node->m_next)
+                m_node->m_next->m_prev = m_node;
+            if (m_node->m_prev) 
+                m_node->m_prev->m_next = m_node;
+            else
+                m_atom->m_eqs = m_node;
+        }
+    };
+
+    void solver::del_eq_occurs(bit_atom* a, eq_occurs* occ) {
+        eq_occurs* prev = occ->m_prev;
+        if (prev)
+            prev->m_next = occ->m_next;
+        else
+            a->m_eqs = occ->m_next;
+        if (occ->m_next)
+            occ->m_next->m_prev = prev;
+        ctx.push(del_eq_occurs_trail(a, occ));
+    }
 
     class solver::mk_atom_trail : public trail<euf::solver> {
         solver& th;
@@ -263,11 +297,24 @@ namespace bv {
         }
     }
 
+    solver::eq_atom* solver::mk_eq_atom(sat::bool_var bv) {
+        atom* a = get_bv2a(bv);
+        if (a)
+            return a->is_eq() ? &a->to_eq() : nullptr;
+        else {
+            eq_atom* b = new (get_region()) eq_atom();
+            insert_bv2a(bv, b);
+            ctx.push(mk_atom_trail(bv, *this));
+            return b;
+        }
+    }
+
+
     void solver::set_bit_eh(theory_var v, literal l, unsigned idx) {
         SASSERT(m_bits[v][idx] == l);
         if (s().value(l) != l_undef && s().lvl(l) == 0) 
             register_true_false_bit(v, idx);
-        else {
+        else if (m_bits[v].size() > 1) {
             bit_atom* b = mk_bit_atom(l.var());
             if (b) {
                 if (b->m_occs)
@@ -551,15 +598,18 @@ namespace bv {
             mk_var(argn);
         }        
         theory_var v_arg = argn->get_th_var(get_id());
-        SASSERT(idx < get_bv_size(v_arg));
+        unsigned arg_sz = get_bv_size(v_arg);
+        SASSERT(idx < arg_sz);
         sat::literal lit = expr2literal(n);
         sat::literal lit0 = m_bits[v_arg][idx];
         if (lit0 == sat::null_literal) {
             m_bits[v_arg][idx] = lit;
-            bit_atom* a = new (get_region()) bit_atom();
-            a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
-            insert_bv2a(lit.var(), a);
-            ctx.push(mk_atom_trail(lit.var(), *this));
+            if (arg_sz > 1) {
+                bit_atom* a = new (get_region()) bit_atom();
+                a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
+                insert_bv2a(lit.var(), a);
+                ctx.push(mk_atom_trail(lit.var(), *this));
+            }
         }
         else if (lit != lit0) {
             add_clause(lit0, ~lit);
@@ -581,24 +631,60 @@ namespace bv {
 
     void solver::eq_internalized(euf::enode* n) {
         SASSERT(m.is_eq(n->get_expr()));
+        sat::literal lit = literal(n->bool_var(), false);
         theory_var v1 = n->get_arg(0)->get_th_var(get_id());
         theory_var v2 = n->get_arg(1)->get_th_var(get_id());
         SASSERT(v1 != euf::null_theory_var);
         SASSERT(v2 != euf::null_theory_var);
+        
+#if 0
+        if (!n->is_attached_to(get_id()))
+            mk_var(n);
+#endif   
+        
         unsigned sz = m_bits[v1].size();
+        if (sz == 1) {
+            literal bit1 = m_bits[v1][0];
+            literal bit2 = m_bits[v2][0];
+            add_clause(~lit, ~bit1, bit2);
+            add_clause(~lit, ~bit2, bit1);
+            add_clause(~bit1, ~bit2, lit);
+            add_clause(bit2, bit1, lit);
+            return;
+        }
         for (unsigned i = 0; i < sz; ++i) {
-            eq_internalized(m_bits[v1][i].var(), i, v1, v2, n);
-            eq_internalized(m_bits[v2][i].var(), i, v2, v1, n);
+            literal bit1 = m_bits[v1][i];
+            literal bit2 = m_bits[v2][i];
+            lbool val1 = s().value(bit1);
+            lbool val2 = s().value(bit2);
+            if (val1 != l_undef)
+                eq_internalized(bit2.var(), bit1.var(), i, v2, v1, lit, n);
+            else if (val2 != l_undef)
+                eq_internalized(bit1.var(), bit2.var(), i, v1, v2, lit, n);
+            else if ((s().rand()() % 2) == 0)
+                eq_internalized(bit2.var(), bit1.var(), i, v2, v1, lit, n);
+            else 
+                eq_internalized(bit1.var(), bit2.var(), i, v1, v2, lit, n);
         }
     }
 
-    void solver::eq_internalized(sat::bool_var b, unsigned idx, theory_var v1, theory_var v2, euf::enode* n) {
-        bit_atom* a = mk_bit_atom(b);
+    void solver::eq_internalized(sat::bool_var b1, sat::bool_var b2, unsigned idx, theory_var v1, theory_var v2, literal lit, euf::enode* n) {
+        bit_atom* a = mk_bit_atom(b1);
+//        eq_atom* b = mk_eq_atom(lit.var());
         if (a) {
             if (!a->is_fresh()) 
-                ctx.push(add_eq_occurs_trail(a));
-            a->m_eqs = new (get_region()) eq_occurs(idx, v1, v2, expr2literal(n->get_expr()), n, a->m_eqs);
-        }
+                ctx.push(add_eq_occurs_trail(a));            
+            auto* next = a->m_eqs;
+            a->m_eqs = new (get_region()) eq_occurs(b1, b2, idx, v1, v2, lit, n, next);
+            if (next)
+                next->m_prev = a->m_eqs;
+#if 0
+            if (b) {
+                b->m_eqs.push_back(std::make_pair(a, a->m_eqs));
+                ctx.push(push_back_vector<euf::solver, svector<std::pair<bit_atom*,eq_occurs*>>>(b->m_eqs));
+            }
+#endif
+        }        
     }
 
     void solver::assert_ackerman(theory_var v1, theory_var v2) {

@@ -31,6 +31,14 @@ namespace euf {
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+        euf::enode* n = m_egraph.find(e);
+        if (n) {
+            if (m.is_bool(e)) {
+                VERIFY(!s().was_eliminated(n->bool_var()));
+                return literal(n->bool_var(), sign);
+            }
+            return sat::null_literal;
+        }
         if (si.is_bool_op(e))
             return attach_lit(si.internalize(e, redundant), e);
         if (auto* ext = expr2solver(e))
@@ -117,9 +125,13 @@ namespace euf {
             s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
             lit = lit2;
         }
+
         m_var2expr.reserve(v + 1, nullptr);
-        if (m_var2expr[v])
+        if (m_var2expr[v]) {
+            SASSERT(m_egraph.find(e));
+            SASSERT(m_egraph.find(e)->bool_var() == v);
             return lit;
+        }
         m_var2expr[v] = e;
         m_var_trail.push_back(v);
         enode* n = m_egraph.find(e);

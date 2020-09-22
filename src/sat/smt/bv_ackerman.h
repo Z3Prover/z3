@@ -32,6 +32,7 @@ namespace bv {
             unsigned   m_glue{ UINT_MAX };
             vv():v1(euf::null_theory_var), v2(euf::null_theory_var) {}
             vv(euf::theory_var v1, euf::theory_var v2):v1(v1), v2(v2) {}
+            void set_var(euf::theory_var x, euf::theory_var y) { v1 = x; v2 = y; m_count = 0; m_glue = UINT_MAX; }
         };
 
         struct vv_eq {
