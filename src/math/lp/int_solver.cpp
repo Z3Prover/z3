@@ -89,6 +89,9 @@ void int_solver::patcher::patch_nbasic_column(unsigned j) {
           if (inf_u) tout << "oo"; else tout << u;
           tout << "]";
           tout << ", m: " << m << ", val: " << val << ", is_int: " << lra.column_is_int(j) << "\n";);
+    if (m.is_big() || (!inf_l && l.x.is_big()) || (!inf_u && u.x.is_big())) {
+        return;
+    }
     if (!inf_l) {
         l = impq(m_is_one ? ceil(l) : m * ceil(l / m));
         if (inf_u || l <= u) {
