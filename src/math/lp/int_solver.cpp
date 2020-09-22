@@ -486,6 +486,19 @@ std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_inde
     auto & rslv = lrac.m_r_solver;
     bool first = true;
     for (const auto &c: rslv.m_A.m_rows[row_index]) {
+        if (is_fixed(c.var())) {
+            if (!get_value(c.var()).is_zero()) {
+                impq val = get_value(c.var())*c.coeff();
+                if (!first && val.is_pos())
+                    out << "+";
+                if (val.y.is_zero())
+                    out << val.x << " ";
+                else 
+                    out << val << " ";
+            }
+            first = false;
+            continue;
+        }
         if (c.coeff().is_one()) {
             if (!first)
                 out << "+";
@@ -508,6 +521,8 @@ std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_inde
     }
     out << "\n";
     for (const auto& c: rslv.m_A.m_rows[row_index]) {
+        if (is_fixed(c.var()))
+            continue;
         rslv.print_column_info(c.var(), out);
         if (is_base(c.var())) out << "j" << c.var() << " base\n";
     }

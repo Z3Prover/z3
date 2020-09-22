@@ -388,15 +388,11 @@ int gomory::find_basic_var() {
     int result = -1;
     unsigned n = 0;
     unsigned min_row_size = UINT_MAX;
-#if 0
-    bool boxed = false;
-    mpq min_range;
-#endif
-
 
     // Prefer smaller row size
     // Prefer boxed to non-boxed
     // Prefer smaller ranges
+
 
     for (unsigned j : lra.r_basis()) {
         if (!lia.column_is_int_inf(j))
@@ -405,28 +401,7 @@ int gomory::find_basic_var() {
         if (!is_gomory_cut_target(row)) 
             continue;
 
-#if 0
-        if (is_boxed(j) && (min_row_size == UINT_MAX || 4*row.size() < 5*min_row_size)) {
-            lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
-            auto new_range = lclia.m_r_upper_bounds()[j].x - lclia.m_r_lower_bounds()[j].x;
-            if (!boxed) {
-                result = j;
-                n = 1;
-                min_row_size = row.size();
-                boxed = true;
-                min_range = new_range;
-                continue;
-            }
-            if (min_range > 2*new_range || ((5*min_range > 4*new_range && (random() % (++n)) == 0))) { 
-                result = j;
-                n = 1;
-                min_row_size = row.size();
-                min_range = std::min(min_range, new_range);
-                continue;
-            }
-        }
-#endif
-
+        IF_VERBOSE(20, lia.display_row_info(verbose_stream(), lia.row_of_basic_column(j)));
         if (min_row_size == UINT_MAX || 
             2*row.size() < min_row_size || 
             (4*row.size() < 5*min_row_size && lia.random() % (++n) == 0)) {
