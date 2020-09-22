@@ -285,7 +285,8 @@ bool cmd_context::contains_func_decl(symbol const& s, unsigned n, sort* const* d
 }
 
 bool cmd_context::contains_macro(symbol const& s) const {
-    return m_macros.contains(s);
+    macro_decls decls;
+    return m_macros.find(s, decls) && !decls.empty();
 }
 
 bool cmd_context::contains_macro(symbol const& s, func_decl* f) const {
@@ -851,6 +852,7 @@ void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, 
     insert_macro(s, arity, domain, t);
     if (!m_global_decls) {
         m_macros_stack.push_back(s);
+        
     }
 }
 
@@ -890,6 +892,8 @@ void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domai
     fs.insert(m(), fn);
     VERIFY(fn->get_range() == m().get_sort(t));
     m_mc0->add(fn, t);
+    if (!m_global_decls)
+        m_func_decls_stack.push_back(sf_pair(s, fn));
 }
 
 void cmd_context::model_del(func_decl* f) {
@@ -1424,10 +1428,8 @@ void cmd_context::restore_macros(unsigned old_sz) {
     SASSERT(old_sz <= m_macros_stack.size());
     svector<symbol>::iterator it  = m_macros_stack.begin() + old_sz;
     svector<symbol>::iterator end = m_macros_stack.end();
-    for (; it != end; ++it) {
-        symbol const & s = *it;
-        erase_macro(s);
-    }
+    for (; it != end; ++it) 
+        erase_macro(*it);    
     m_macros_stack.shrink(old_sz);
 }
 
