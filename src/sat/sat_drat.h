@@ -140,8 +140,6 @@ namespace sat {
         void def_add_arg(unsigned arg);
         void def_end();
 
-        void log_gc_var(bool_var v);
-
         // ad-hoc logging until a format is developed
         void log_adhoc(std::function<void(std::ostream&)>& fn);
 

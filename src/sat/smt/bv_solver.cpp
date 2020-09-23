@@ -378,7 +378,7 @@ namespace bv {
             break;
         }
         ctx.get_drat().add(lits, status());
-        ctx.get_drat().log_gc_var(leq.var()); // TBD, a proper way would be to delete the lemma after use.
+        // TBD, a proper way would be to delete the lemma after use.
     }
 
     void solver::asserted(literal l) {
