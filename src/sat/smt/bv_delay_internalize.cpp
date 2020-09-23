@@ -61,9 +61,16 @@ namespace bv {
         if (val_mul == val)
             return true;
 
+        // Some possible approaches:
+
         // check base cases: val_mul = 0 or val = 0, some values in product are 1, 
 
         // check discrepancies in low-order bits
+        // Add axioms for multiplication when fixing high-order bits to 0
+      
+        // Hensel lifting:
+        // The idea is dual to fixing high-order bits. Fix the low order bits where multiplication
+        // is correct, and propagate on the next bit that shows a discrepancy.
 
         // check Montgommery properties: (x*y) mod p = (x mod p)*(y mod p) for small primes p
 
@@ -71,9 +78,7 @@ namespace bv {
 
         // check tangets hi >= y >= y0 and hi' >= x => x*y >= x*y0
 
-        // Hensel lifting
-
-        // compute S-polys and reduce...
+        // compute S-polys for a set of constraints.
 
         set_delay_internalize(e, internalize_mode::no_delay_i);
         internalize_circuit(e, v);
