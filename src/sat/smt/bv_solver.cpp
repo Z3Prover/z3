@@ -494,7 +494,7 @@ namespace bv {
         force_push();
         SASSERT(m_prop_queue.size() == m_prop_queue_head);
         bool ok = true;
-        for (auto kv : m_delay_compiled) {
+        for (auto kv : m_delay_internalize) {
             if (ctx.is_relevant(kv.m_key) && 
                 kv.m_value == internalize_mode::init_bits_i &&
                 !check_delay_internalized(expr2enode(kv.m_key)))
