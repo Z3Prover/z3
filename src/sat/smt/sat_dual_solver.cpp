@@ -39,32 +39,42 @@ namespace sat {
         m_tracked_lim.shrink(old_sz);
     }
 
+    bool_var dual_solver::ext2var(bool_var v) {
+        bool_var w = m_ext2var.get(v, null_bool_var);
+        if (null_bool_var == w) {
+            w = m_solver.mk_var();
+            m_ext2var.setx(v, w, null_bool_var);
+            m_var2ext.setx(w, v, null_bool_var);
+        }
+        return w;
+    }
+
     void dual_solver::track_relevancy(bool_var v) {
+        v = ext2var(v);
         if (!m_is_tracked.get(v, false)) {
             m_is_tracked.setx(v, true, false);
             m_tracked_stack.push_back(v);
         }
     }
 
-    void dual_solver::add_literal(literal lit) {
-        bool_var v = lit.var();
-        while (m_solver.num_vars() <= v)
-            m_solver.mk_var();
+    literal dual_solver::ext2lit(literal lit) {
+        return literal(ext2var(lit.var()), lit.sign());
+    }
+
+    literal dual_solver::lit2ext(literal lit) {
+        return literal(m_var2ext[lit.var()], lit.sign());
     }
 
     void dual_solver::add_root(literal lit, unsigned sz, literal const* clause) {
-        add_literal(lit);
-        for (unsigned i = 0; i < sz; ++i) 
-            add_literal(clause[i]);
         for (unsigned i = 0; i < sz; ++i)
-            m_solver.mk_clause(lit, ~clause[i], status::input());
-        m_roots.push_back(~lit);
+            m_solver.mk_clause(ext2lit(lit), ~ext2lit(clause[i]), status::input());
+        m_roots.push_back(~ext2lit(lit));
     }
 
     void dual_solver::add_aux(unsigned sz, literal const* clause) {
+        m_lits.reset();
         for (unsigned i = 0; i < sz; ++i) 
-            add_literal(clause[i]);
-        m_lits.init(sz, clause);
+            m_lits.push_back(ext2lit(clause[i]));
         m_solver.mk_clause(sz, m_lits.c_ptr(), status::input());
     }
 
@@ -73,10 +83,12 @@ namespace sat {
         m_solver.add_clause(m_roots.size(), m_roots.c_ptr(), status::input());
         m_lits.reset();
         for (bool_var v : m_tracked_stack)
-            m_lits.push_back(literal(v, l_false == s.value(v)));
+            m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
         lbool is_sat = m_solver.check(m_lits.size(), m_lits.c_ptr());
-        if (is_sat == l_false)
-            m_core.init(m_solver.get_core());
+        m_core.reset();
+        if (is_sat == l_false) 
+            for (literal lit : m_solver.get_core())
+                m_core.push_back(lit2ext(lit));
         TRACE("euf", m_solver.display(tout << m_core << "\n"););
         m_solver.user_pop(1);
         return is_sat == l_false;

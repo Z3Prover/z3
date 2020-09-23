@@ -24,8 +24,15 @@ namespace sat {
         literal_vector  m_roots, m_lits, m_core;
         bool_var_vector m_is_tracked;
         unsigned_vector m_tracked_stack;
+        unsigned_vector m_ext2var;
+        unsigned_vector m_var2ext;
         unsigned_vector m_roots_lim, m_tracked_lim;
         void add_literal(literal lit);
+
+        bool_var ext2var(bool_var v);
+        bool_var var2ext(bool_var v);
+        literal  ext2lit(literal lit);
+        literal  lit2ext(literal lit);
     public:
         dual_solver(reslimit& l);
         void push();

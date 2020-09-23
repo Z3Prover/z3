@@ -35,6 +35,7 @@ struct theory_bv_params {
     unsigned     m_bv_blast_max_size;
     bool         m_bv_enable_int2bv2int;
     bool         m_bv_watch_diseq;
+    bool         m_bv_delay;
     theory_bv_params(params_ref const & p = params_ref()):
         m_bv_mode(bv_solver_id::BS_BLASTER),
         m_hi_div0(false),
@@ -44,7 +45,8 @@ struct theory_bv_params {
         m_bv_eq_axioms(true),
         m_bv_blast_max_size(INT_MAX),
         m_bv_enable_int2bv2int(true),
-        m_bv_watch_diseq(false) {
+        m_bv_watch_diseq(false),
+        m_bv_delay(true) {
         updt_params(p);
     }
     

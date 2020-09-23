@@ -57,7 +57,7 @@ namespace bv {
         theory_var v = n->get_th_var(get_id());
         VERIFY(get_fixed_value(v, val));
         val_mul = mod(val_mul, power2(get_bv_size(v)));
-        std::cout << "check_mul " << mk_bounded_pp(n->get_expr(), m) << " "  << val_mul << " =? " << val << "\n";
+        IF_VERBOSE(12, verbose_stream() << "check_mul " << mk_bounded_pp(n->get_expr(), m) << " " << args << " = " << val_mul << " =? " << val << "\n");
         if (val_mul == val)
             return true;
 
@@ -117,6 +117,8 @@ namespace bv {
 
     solver::internalize_mode solver::get_internalize_mode(expr* e) {
         if (!bv.is_bv(e))
+            return internalize_mode::no_delay_i;
+        if (!get_config().m_bv_delay)
             return internalize_mode::no_delay_i;
         switch (to_app(e)->get_decl_kind()) {
         case OP_BMUL: 
