@@ -53,9 +53,9 @@ namespace bv {
         struct bv_justification {
             enum kind_t { eq2bit, ne2bit, bit2eq, bit2ne };
             kind_t     m_kind;
+            unsigned   m_idx{ UINT_MAX };
             theory_var m_v1{ euf::null_theory_var };
             theory_var m_v2 { euf::null_theory_var };
-            unsigned   m_idx{ UINT_MAX };
             sat::literal m_consequent;
             sat::literal m_antecedent;
             bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
@@ -297,6 +297,7 @@ namespace bv {
 
         obj_map<expr, internalize_mode> m_delay_internalize;
         bool should_bit_blast(expr * n);
+        bool check_delay_internalized(euf::enode* n);
         bool check_mul(euf::enode* n);
         bool check_eval(euf::enode* n);
         internalize_mode get_internalize_mode(expr* e);
@@ -386,8 +387,6 @@ namespace bv {
         std::ostream& display(std::ostream& out, theory_var v) const;        
         typedef std::pair<solver const*, theory_var> pp_var;
         pp_var pp(theory_var v) const { return pp_var(this, v); }
-
-        bool check_delay_internalized(euf::enode* n) override;
 
     };
 

@@ -293,11 +293,6 @@ namespace sat {
             (*m_out) << " 0\n";
     }
 
-    void drat::log_gc_var(bool_var v) {
-        if (m_out)
-            (*m_out) << "g " << v << " 0\n";
-    }
-
     void drat::log_adhoc(std::function<void(std::ostream&)>& fn) {
         if (m_out)
             fn(*m_out);

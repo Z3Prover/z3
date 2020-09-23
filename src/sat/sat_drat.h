@@ -131,8 +131,6 @@ namespace sat {
         void add(literal_vector const& c); // add learned clause
         void add(unsigned sz, literal const* lits, status st);
 
-        void gc_var(bool_var v);
-
         // support for SMT - connect Boolean variables with AST nodes
         // associate AST node id with Boolean variable v
         void bool_def(bool_var v, unsigned n);

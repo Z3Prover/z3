@@ -14,7 +14,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2020-08-25
 
 --*/
-#pragma once
 #include "sat/smt/sat_dual_solver.h"
 
 namespace sat {
