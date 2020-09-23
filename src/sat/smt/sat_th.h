@@ -107,7 +107,7 @@ namespace euf {
         */
         virtual bool is_shared(theory_var v) const { return false; }
 
-
+        virtual bool check_delay_internalized(euf::enode* n) { return true; }
 
     };
 

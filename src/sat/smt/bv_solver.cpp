@@ -493,7 +493,14 @@ namespace bv {
     sat::check_result solver::check() {
         force_push();
         SASSERT(m_prop_queue.size() == m_prop_queue_head);
-        return sat::check_result::CR_DONE;
+        bool ok = true;
+        for (auto kv : m_delay_compiled) {
+            if (ctx.is_relevant(kv.m_key) && 
+                kv.m_value == internalize_mode::init_bits_i &&
+                !check_delay_internalized(expr2enode(kv.m_key)))
+                ok = false;
+        }
+        return ok ? sat::check_result::CR_DONE : sat::check_result::CR_CONTINUE;
     }
 
     void solver::push_core() {

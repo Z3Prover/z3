@@ -515,6 +515,18 @@ public:
         }
     }
 
+    void init(vector<T, CallDestructors> const& other) {
+        if (this == &other)
+            return;
+        reset();
+        append(other);
+    }
+
+    void init(SZ sz, T const* data) {
+        reset();
+        append(sz, data);
+    }
+
     T * c_ptr() const {
         return m_data;
     }

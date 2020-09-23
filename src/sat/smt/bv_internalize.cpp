@@ -148,15 +148,23 @@ namespace bv {
     bool solver::post_visit(expr* e, bool sign, bool root) {
         euf::enode* n = expr2enode(e);
         app* a = to_app(e);
-        
+
         SASSERT(!n || !n->is_attached_to(get_id()));
         bool suppress_args = !get_config().m_bv_reflect && !m.is_considered_uninterpreted(a->get_decl());
-        if (!n) 
+        if (!n)
             n = mk_enode(e, suppress_args);
 
         SASSERT(!n->is_attached_to(get_id()));
         theory_var v = mk_var(n);
         SASSERT(n->is_attached_to(get_id()));
+        if (internalize_mode::init_bits_i == get_internalize_mode(a)) 
+            mk_bits(n->get_th_var(get_id()));
+        else
+            internalize_circuit(a, v);
+        return true;
+    }
+
+    bool solver::internalize_circuit(app* a, theory_var v) {
 
         std::function<void(unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits)> bin;
         std::function<void(unsigned sz, expr* const* xs, expr* const* ys, expr_ref& bit)> ebin;
@@ -507,30 +515,30 @@ namespace bv {
         init_bits(n, bits);
     }
 
-    void solver::internalize_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
-        SASSERT(n->get_num_args() == 2);
+    void solver::internalize_binary(app* e, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
+        SASSERT(e->get_num_args() == 2);
         expr_ref_vector arg1_bits(m), arg2_bits(m), bits(m);
-        get_arg_bits(n, 0, arg1_bits);
-        get_arg_bits(n, 1, arg2_bits);
+        get_arg_bits(e, 0, arg1_bits);
+        get_arg_bits(e, 1, arg2_bits);
         SASSERT(arg1_bits.size() == arg2_bits.size());
         fn(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits);
-        init_bits(n, bits);
+        init_bits(e, bits);
     }
 
-    void solver::internalize_ac_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
-        SASSERT(n->get_num_args() >= 2);
+    void solver::internalize_ac_binary(app* e, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
+        SASSERT(e->get_num_args() >= 2);
         expr_ref_vector bits(m), new_bits(m), arg_bits(m);
-        unsigned i = n->get_num_args() - 1;        
-        get_arg_bits(n, i, bits);
+        unsigned i = e->get_num_args() - 1;
+        get_arg_bits(e, i, bits);
         for (; i-- > 0; ) {
             arg_bits.reset();
-            get_arg_bits(n, i, arg_bits);
+            get_arg_bits(e, i, arg_bits);
             SASSERT(arg_bits.size() == bits.size());
             new_bits.reset();
             fn(arg_bits.size(), arg_bits.c_ptr(), bits.c_ptr(), new_bits);
             bits.swap(new_bits);
         }        
-        init_bits(n, bits);
+        init_bits(e, bits);
         TRACE("bv_verbose", tout << arg_bits << " " << bits << " " << new_bits << "\n";);
     }
 

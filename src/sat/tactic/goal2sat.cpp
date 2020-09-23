@@ -74,9 +74,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
     func_decl_ref_vector        m_unhandled_funs;
     bool                        m_default_external;
     bool                        m_xor_solver;
-    bool                        m_euf;
-    bool                        m_drat;
+    bool                        m_euf { false };
+    bool                        m_drat { false };
     bool                        m_is_redundant { false };
+    bool                        m_top_level { false };
     sat::literal_vector         aig_lits;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
@@ -113,45 +114,60 @@ struct goal2sat::imp : public sat::sat_internalizer {
     sat::status mk_status() const {
         return sat::status::th(m_is_redundant, m.get_basic_family_id());
     }
+
+
+    bool top_level_relevant() {
+        return m_top_level && m_euf && ensure_euf()->relevancy_enabled();
+    }
+
+    void add_dual_def(unsigned n, sat::literal const* lits) {
+        if (top_level_relevant())
+            ensure_euf()->add_aux(n, lits);        
+    }
+
+    void add_dual_root(unsigned n, sat::literal const* lits) {
+        if (top_level_relevant())
+            ensure_euf()->add_root(n, lits);
+    }
     
     void mk_clause(sat::literal l) {
-        TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.add_clause(1, &l, mk_status());
+        mk_clause(1, &l);
     }
 
     void mk_clause(sat::literal l1, sat::literal l2) {
-        TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, mk_status());
+        sat::literal lits[2] = { l1, l2 };
+        mk_clause(2, lits);
     }
 
     void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
-        TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, mk_status());
+        sat::literal lits[3] = { l1, l2, l3 };
+        mk_clause(3, lits);
     }
 
-    void mk_clause(unsigned num, sat::literal * lits) {
-        TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, mk_status());
+    void mk_clause(unsigned n, sat::literal * lits) {
+        TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
+        add_dual_def(n, lits);
+        m_solver.add_clause(n, lits, mk_status());
     }
 
     void mk_root_clause(sat::literal l) {
-        TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.add_clause(1, &l, m_is_redundant ? mk_status() : sat::status::input());        
+        mk_root_clause(1, &l);
     }
 
     void mk_root_clause(sat::literal l1, sat::literal l2) {
-        TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.add_clause(l1, l2, m_is_redundant ? mk_status() : sat::status::input());
+        sat::literal lits[2] = { l1, l2 };
+        mk_root_clause(2, lits);
     }
 
     void mk_root_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
-        TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_redundant ? mk_status() : sat::status::input());
+        sat::literal lits[3] = { l1, l2, l3 };
+        mk_root_clause(3, lits);
     }
 
-    void mk_root_clause(unsigned num, sat::literal * lits) {
-        TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.add_clause(num, lits, m_is_redundant ? mk_status() : sat::status::input());
+    void mk_root_clause(unsigned n, sat::literal * lits) {
+        TRACE("goal2sat", tout << "mk_root_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
+        add_dual_root(n, lits);
+        m_solver.add_clause(n, lits, m_is_redundant ? mk_status() : sat::status::input());
     }
 
     sat::bool_var add_var(bool is_ext, expr* n) {
@@ -161,6 +177,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         v = m_solver.add_var(is_ext);
         log_node(n);
         log_def(v, n);
+        if (top_level_relevant() && !is_bool_op(n))
+            ensure_euf()->track_relevancy(v);
         return v;
     }
 
@@ -603,9 +621,15 @@ struct goal2sat::imp : public sat::sat_internalizer {
         SASSERT(m_euf);
         TRACE("goal2sat", tout << "convert-euf " << mk_bounded_pp(e, m, 2) << " root " << root << "\n";);
         euf::solver* euf = ensure_euf();
-        sat::literal lit = euf->internalize(e, sign, root, m_is_redundant);
+        sat::literal lit;
+        {
+            flet<bool> _top(m_top_level, false);
+            lit = euf->internalize(e, sign, root, m_is_redundant);           
+        }
         if (lit == sat::null_literal)
             return;
+        if (top_level_relevant())
+            euf->track_relevancy(lit.var());
         if (root)
             mk_root_clause(lit);
         else
@@ -757,6 +781,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     sat::literal internalize(expr* n, bool redundant) override {
+        flet<bool> _top(m_top_level, false);
         unsigned sz = m_result_stack.size();
         (void)sz;
         SASSERT(n->get_ref_count() > 0);
@@ -797,6 +822,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
     
     void process(expr * n) {
+        flet<bool> _top(m_top_level, true);
         VERIFY(m_result_stack.empty());
         TRACE("goal2sat", tout << "assert: " << mk_bounded_pp(n, m, 3) << "\n";);
         process(n, true, m_is_redundant);
