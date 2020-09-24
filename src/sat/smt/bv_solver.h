@@ -53,9 +53,9 @@ namespace bv {
         struct bv_justification {
             enum kind_t { eq2bit, ne2bit, bit2eq, bit2ne };
             kind_t     m_kind;
+            unsigned   m_idx{ UINT_MAX };
             theory_var m_v1{ euf::null_theory_var };
             theory_var m_v2 { euf::null_theory_var };
-            unsigned   m_idx{ UINT_MAX };
             sat::literal m_consequent;
             sat::literal m_antecedent;
             bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
@@ -267,6 +267,7 @@ namespace bv {
         void init_bits(expr* e, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
         void add_def(sat::literal def, sat::literal l);
+        bool internalize_circuit(app* a, theory_var v);
         void internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn);
         void internalize_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
         void internalize_ac_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
@@ -288,6 +289,21 @@ namespace bv {
         void assert_int2bv_axiom(app* n);
         void assert_ackerman(theory_var v1, theory_var v2);
 
+        // delay internalize
+        enum class internalize_mode {
+            no_delay_i,
+            init_bits_i
+        };
+
+        obj_map<expr, internalize_mode> m_delay_internalize;
+        bool should_bit_blast(expr * n);
+        bool check_delay_internalized(euf::enode* n);
+        bool check_mul(euf::enode* n);
+        bool check_eval(euf::enode* n);
+        internalize_mode get_internalize_mode(expr* e);
+        void set_delay_internalize(expr* e, internalize_mode mode);
+        void eval_args(euf::enode* n, vector<rational>& args);
+
         // solving
         theory_var find(theory_var v) const { return m_find.find(v); }
         void find_wpos(theory_var v);
@@ -301,6 +317,7 @@ namespace bv {
         bool propagate_bits(var_pos entry);
         bool propagate_eq_occurs(eq_occurs const& occ);
         numeral const& power2(unsigned i) const;
+
 
         // invariants
         bool check_zero_one_bits(theory_var v);

@@ -515,6 +515,18 @@ public:
         }
     }
 
+    void init(vector<T, CallDestructors> const& other) {
+        if (this == &other)
+            return;
+        reset();
+        append(other);
+    }
+
+    void init(SZ sz, T const* data) {
+        reset();
+        append(sz, data);
+    }
+
     T * c_ptr() const {
         return m_data;
     }
@@ -637,3 +649,14 @@ struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data> > 
 
 template<typename Hash>
 struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
+
+
+template<typename T>
+inline std::ostream& operator<<(std::ostream& out, vector<T> const& v) {
+    bool first = true;
+    for (auto const& t : v) {
+        if (first) first = false; else out << " ";
+        out << t;
+    }
+    return out;
+ }

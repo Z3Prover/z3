@@ -260,17 +260,6 @@ namespace dimacs {
                 m_record.m_tag = drat_record::tag_t::is_clause;
                 m_record.m_status = sat::status::th(false, theory_id);
                 break;
-            case 'g':
-                // parse garbage collected Boolean variable
-                ++in;
-                skip_whitespace(in);
-                b = parse_int(in, err);
-                e = parse_int(in, err);
-                if (e != 0 || b <= 0)
-                    throw lex_error();
-                m_record.m_tag = drat_record::tag_t::is_var_gc;
-                m_record.m_node_id = b;
-                break;
             case 'e':
                 // parse expression definition
                 parse_ast(drat_record::tag_t::is_node);

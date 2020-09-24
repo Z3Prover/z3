@@ -25,6 +25,7 @@ Author:
 #include "sat/sat_extension.h"
 #include "sat/smt/atom2bool_var.h"
 #include "sat/smt/sat_th.h"
+#include "sat/smt/sat_dual_solver.h"
 #include "sat/smt/euf_ackerman.h"
 #include "smt/params/smt_params.h"
 
@@ -37,14 +38,14 @@ namespace euf {
 
     class constraint {
     public:
-        enum class kind_t { conflict, eq, lit};
+        enum class kind_t { conflict, eq, lit };
     private:
         kind_t m_kind;
     public:
         constraint(kind_t k) : m_kind(k) {}
         kind_t kind() const { return m_kind; }
-        static constraint& from_idx(size_t z) { 
-            return *reinterpret_cast<constraint*>(sat::constraint_base::idx2mem(z)); 
+        static constraint& from_idx(size_t z) {
+            return *reinterpret_cast<constraint*>(sat::constraint_base::idx2mem(z));
         }
         size_t to_index() const { return sat::constraint_base::mem2base(this); }
     };
@@ -76,7 +77,7 @@ namespace euf {
             return reinterpret_cast<size_t>(UNTAG(size_t*, p));
         }
 
-        ast_manager&          m;
+        ast_manager& m;
         sat::sat_internalizer& si;
         smt_params            m_config;
         euf::egraph           m_egraph;
@@ -85,28 +86,29 @@ namespace euf {
         th_rewriter           m_rewriter;
         func_decl_ref_vector  m_unhandled_functions;
 
-        sat::solver*           m_solver { nullptr };
-        sat::lookahead*        m_lookahead { nullptr };
-        ast_manager*           m_to_m;
+        sat::solver* m_solver{ nullptr };
+        sat::lookahead* m_lookahead{ nullptr };
+        ast_manager* m_to_m;
         sat::sat_internalizer* m_to_si;
         scoped_ptr<euf::ackerman>   m_ackerman;
+        scoped_ptr<sat::dual_solver> m_dual_solver;
 
         ptr_vector<expr>                                m_var2expr;
         ptr_vector<size_t>                              m_explain;
-        unsigned                                        m_num_scopes { 0 };
+        unsigned                                        m_num_scopes{ 0 };
         unsigned_vector                                 m_var_trail;
         svector<scope>                                  m_scopes;
         scoped_ptr_vector<th_solver>                    m_solvers;
         ptr_vector<th_solver>                           m_id2solver;
 
-        constraint* m_conflict { nullptr };
-        constraint* m_eq       { nullptr };
-        constraint* m_lit      { nullptr };
+        constraint* m_conflict{ nullptr };
+        constraint* m_eq{ nullptr };
+        constraint* m_lit{ nullptr };
 
         // internalization
         bool visit(expr* e) override;
         bool visited(expr* e) override;
-        bool post_visit(expr* e, bool sign, bool root) override;        
+        bool post_visit(expr* e, bool sign, bool root) override;
         sat::literal attach_lit(sat::literal lit, expr* e);
         void add_distinct_axiom(app* e, euf::enode* const* args);
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
@@ -117,7 +119,7 @@ namespace euf {
 
         // replay
         expr_ref_vector      m_reinit_exprs;
-        
+
         void start_reinit(unsigned num_scopes);
         void finish_reinit();
 
@@ -135,7 +137,7 @@ namespace euf {
         bool include_func_interp(func_decl* f);
         void register_macros(model& mdl);
         void dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref& mdl);
-        void collect_dependencies(deps_t& deps);        
+        void collect_dependencies(deps_t& deps);
         void values2model(deps_t const& deps, expr_ref_vector const& values, model_ref& mdl);
 
         // solving
@@ -149,17 +151,24 @@ namespace euf {
         void log_antecedents(literal l, literal_vector const& r);
         void drat_log_decl(func_decl* f);
         obj_hashtable<ast> m_drat_asts;
-        
         bool m_drat_initialized{ false };
         void init_drat();
 
+        // relevancy
+        bool_vector m_relevant_expr_ids;
+        void ensure_dual_solver();
+        bool init_relevancy();
+
+
         // invariant
         void check_eqc_bool_assignment() const;
-        void check_missing_bool_enode_propagation() const; 
+        void check_missing_bool_enode_propagation() const;
         void check_missing_eq_propagation() const;
 
+        // diagnosis
         std::ostream& display_justification_ptr(std::ostream& out, size_t* j) const;
 
+        // constraints
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
@@ -168,25 +177,26 @@ namespace euf {
     public:
         solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p = params_ref());
 
-       ~solver() override {
-           if (m_conflict) dealloc(sat::constraint_base::mem2base_ptr(m_conflict));
-           if (m_eq) dealloc(sat::constraint_base::mem2base_ptr(m_eq));
-           if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
-       }
+        ~solver() override {
+            if (m_conflict) dealloc(sat::constraint_base::mem2base_ptr(m_conflict));
+            if (m_eq) dealloc(sat::constraint_base::mem2base_ptr(m_eq));
+            if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
+        }
 
-       struct scoped_set_translate {
-           solver& s;
-           scoped_set_translate(solver& s, ast_manager& m, sat::sat_internalizer& si) :
-               s(s) {
-               s.m_to_m = &m;
-               s.m_to_si = &si;
-           }
-           ~scoped_set_translate() {
-               s.m_to_m = &s.m;
-               s.m_to_si = &s.si;
-           }
-       };
+        struct scoped_set_translate {
+            solver& s;
+            scoped_set_translate(solver& s, ast_manager& m, sat::sat_internalizer& si) :
+                s(s) {
+                s.m_to_m = &m;
+                s.m_to_si = &si;
+            }
+            ~scoped_set_translate() {
+                s.m_to_m = &s.m;
+                s.m_to_si = &s.si;
+            }
+        };
 
+        // accessors
         sat::solver& s() { return *m_solver; }
         sat::solver const& s() const { return *m_solver; }
         sat::sat_internalizer& get_si() { return si; }
@@ -194,11 +204,11 @@ namespace euf {
         enode* get_enode(expr* e) { return m_egraph.find(e); }
         sat::literal expr2literal(expr* e) const { return literal(si.to_bool_var(e), false); }
         sat::literal enode2literal(enode* e) const { return expr2literal(e->get_expr()); }
-        smt_params const& get_config() { return m_config; }
+        smt_params const& get_config() const { return m_config; }
         region& get_region() { return m_trail.get_region(); }
         egraph& get_egraph() { return m_egraph; }
         template <typename C>
-        void push(C const& c) { m_trail.push(c);  }
+        void push(C const& c) { m_trail.push(c); }
         euf_trail_stack& get_trail_stack() { return m_trail; }
 
         void updt_params(params_ref const& p);
@@ -214,7 +224,7 @@ namespace euf {
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
 
-        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) override;
+        void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
         void add_antecedent(enode* a, enode* b);
         void asserted(literal l) override;
         sat::check_result check() override;
@@ -229,8 +239,8 @@ namespace euf {
         std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
-        extension* copy(sat::solver* s) override;       
-        void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override;
+        extension* copy(sat::solver* s) override;
+        void find_mutexes(literal_vector& lits, vector<literal_vector>& mutexes) override;
         void gc() override;
         void pop_reinit() override;
         bool validate() override;
@@ -239,12 +249,12 @@ namespace euf {
         bool check_model(sat::model const& m) const override;
         unsigned max_var(unsigned w) const override;
 
-        bool use_drat() { return s().get_config().m_drat && (init_drat(), true);  }
+        bool use_drat() { return s().get_config().m_drat && (init_drat(), true); }
         sat::drat& get_drat() { return s().get_drat(); }
 
         // decompile
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
-                        std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override;
+            std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override;
 
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
 
@@ -262,10 +272,20 @@ namespace euf {
         bool is_shared(euf::enode* n) const;
         void drat_log_node(expr* n);
 
+        // relevancy
+        bool relevancy_enabled() const { return get_config().m_relevancy_lvl > 0; }
+        void add_root(unsigned n, sat::literal const* lits);
+        void add_aux(unsigned n, sat::literal const* lits);
+        void track_relevancy(sat::bool_var v);
+        bool is_relevant(expr* e) const { return m_relevant_expr_ids.get(e->get_id(), true); }
+        bool is_relevant(enode* n) const { return m_relevant_expr_ids.get(n->get_expr_id(), true); }
+
+        // model construction
         void update_model(model_ref& mdl);
 
-        func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }       
-    };    
+        // diagnostics
+        func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
+    };
 };
 
 inline std::ostream& operator<<(std::ostream& out, euf::solver const& s) {

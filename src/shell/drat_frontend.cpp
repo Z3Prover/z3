@@ -311,9 +311,6 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             bool_var2expr.reserve(r.m_node_id+1);
             bool_var2expr.set(r.m_node_id, exprs.get(r.m_args[0]));
             break;
-        case dimacs::drat_record::tag_t::is_var_gc:
-            drat_checker.gc_var(r.m_node_id);
-            break;
         default:
             UNREACHABLE();
             break;

@@ -131,8 +131,6 @@ namespace sat {
         void add(literal_vector const& c); // add learned clause
         void add(unsigned sz, literal const* lits, status st);
 
-        void gc_var(bool_var v);
-
         // support for SMT - connect Boolean variables with AST nodes
         // associate AST node id with Boolean variable v
         void bool_def(bool_var v, unsigned n);
@@ -141,8 +139,6 @@ namespace sat {
         void def_begin(char id, unsigned n, std::string const& name);
         void def_add_arg(unsigned arg);
         void def_end();
-
-        void log_gc_var(bool_var v);
 
         // ad-hoc logging until a format is developed
         void log_adhoc(std::function<void(std::ostream&)>& fn);

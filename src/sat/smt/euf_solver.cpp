@@ -342,6 +342,10 @@ namespace euf {
         TRACE("euf", s().display(tout););
         bool give_up = false;
         bool cont = false;
+
+        if (!init_relevancy())
+            give_up = true;
+
         for (auto* e : m_solvers)
             switch (e->check()) {
             case sat::check_result::CR_CONTINUE: cont = true; break;

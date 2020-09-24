@@ -12,6 +12,7 @@ z3_add_component(sat_smt
     ba_solver.cpp
     ba_xor.cpp
     bv_ackerman.cpp
+    bv_delay_internalize.cpp
     bv_internalize.cpp
     bv_invariant.cpp
     bv_solver.cpp
@@ -20,7 +21,9 @@ z3_add_component(sat_smt
     euf_invariant.cpp
     euf_model.cpp
     euf_proof.cpp
+    euf_relevancy.cpp
     euf_solver.cpp
+    sat_dual_solver.cpp
     sat_th.cpp
     xor_solver.cpp
   COMPONENT_DEPENDENCIES
