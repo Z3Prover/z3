@@ -974,7 +974,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_propagate_consequence(c, s, num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, conseq);
         RESET_ERROR_CODE();
-        reinterpret_cast<solver::propagate_callback*>(s)->propagate(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, to_expr(conseq));
+        reinterpret_cast<solver::propagate_callback*>(s)->propagate_cb(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, to_expr(conseq));
         Z3_CATCH;        
     }
 
