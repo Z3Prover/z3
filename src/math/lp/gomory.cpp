@@ -417,6 +417,7 @@ lia_move gomory::operator()() {
     lra.move_non_basic_columns_to_bounds();
     int j = find_basic_var();
     if (j == -1) return lia_move::undef;
+    std::cout << "gcut on " << j << std::endl;
     unsigned r = lia.row_of_basic_column(j);
     const row_strip<mpq>& row = lra.get_row(r);
     SASSERT(lra.row_is_correct(r));
