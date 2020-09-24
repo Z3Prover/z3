@@ -62,9 +62,14 @@ namespace bv {
     void solver::fixed_var_eh(theory_var v1) {
         numeral val1, val2;
         VERIFY(get_fixed_value(v1, val1));
+        euf::enode* n1 = var2enode(v1);
         unsigned sz = m_bits[v1].size();
         value_sort_pair key(val1, sz);
         theory_var v2;
+        if (ctx.watches_fixed(n1)) {
+            expr_ref value(bv.mk_numeral(val1, sz), m);
+            ctx.assign_fixed(n1, value, m_bits[v1]);
+        }
         bool is_current =
             m_fixed_var_table.find(key, v2) &&
             v2 < static_cast<int>(get_num_vars()) &&
@@ -74,12 +79,12 @@ namespace bv {
 
         if (!is_current)
             m_fixed_var_table.insert(key, v1);
-        else if (var2enode(v1)->get_root() != var2enode(v2)->get_root()) {
+        else if (n1->get_root() != var2enode(v2)->get_root()) {
             SASSERT(get_bv_size(v1) == get_bv_size(v2));
             TRACE("bv", tout << "detected equality: v" << v1 << " = v" << v2 << "\n" << pp(v1) << pp(v2););
             m_stats.m_num_bit2eq++;
             add_fixed_eq(v1, v2);
-            ctx.propagate(var2enode(v1), var2enode(v2), mk_bit2eq_justification(v1, v2));
+            ctx.propagate(n1, var2enode(v2), mk_bit2eq_justification(v1, v2));
         }
     }
 

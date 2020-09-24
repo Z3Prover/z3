@@ -174,6 +174,12 @@ namespace euf {
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
         constraint& lit_constraint() { return mk_constraint(m_lit, constraint::kind_t::lit); }
 
+        // user propagator
+        void check_for_user_propagator() {
+            if (!m_user_propagator)
+                throw default_exception("user propagator must be initialized");
+        }
+
     public:
         solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p = params_ref());
 
@@ -292,6 +298,31 @@ namespace euf {
             ::solver::fresh_eh_t& fresh_eh);
         bool watches_fixed(enode* n) const;
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
+        void assign_fixed(enode* n, expr* val, literal_vector const& explain) { assign_fixed(n, val, explain.size(), explain.c_ptr()); }
+        void assign_fixed(enode* n, expr* val, literal explain) { assign_fixed(n, val, 1, &explain); }
+
+        void user_propagate_register_final(::solver::final_eh_t& final_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_final(final_eh);
+        }
+        void user_propagate_register_fixed(::solver::fixed_eh_t& fixed_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_fixed(fixed_eh);
+        }
+        void user_propagate_register_eq(::solver::eq_eh_t& eq_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_eq(eq_eh);
+        }
+        void user_propagate_register_diseq(::solver::eq_eh_t& diseq_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_diseq(diseq_eh);
+        }
+        unsigned user_propagate_register(expr* e) {
+            check_for_user_propagator();
+            return m_user_propagator->add_expr(e);
+        }
+
+
     };
 };
 

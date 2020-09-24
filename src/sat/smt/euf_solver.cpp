@@ -679,6 +679,7 @@ namespace euf {
         for (unsigned i = m_scopes.size(); i-- > 0; )
             m_user_propagator->push();
         m_solvers.push_back(m_user_propagator);
+        m_id2solver.setx(m_user_propagator->get_id(), m_user_propagator, nullptr);
     }
 
     bool solver::watches_fixed(enode* n) const {

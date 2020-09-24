@@ -624,6 +624,39 @@ public:
         m_preprocess->reset();
     }
 
+    euf::solver* ensure_euf() {
+        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        return ext;
+    }
+
+    void user_propagate_init(
+        void*                ctx, 
+        solver::push_eh_t&   push_eh,
+        solver::pop_eh_t&    pop_eh,
+        solver::fresh_eh_t&  fresh_eh) override {
+        ensure_euf()->user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
+    }
+        
+    void user_propagate_register_fixed(solver::fixed_eh_t& fixed_eh) override {
+        ensure_euf()->user_propagate_register_fixed(fixed_eh);
+    }
+    
+    void user_propagate_register_final(solver::final_eh_t& final_eh) override {
+        ensure_euf()->user_propagate_register_final(final_eh);
+    }
+    
+    void user_propagate_register_eq(solver::eq_eh_t& eq_eh) override {
+        ensure_euf()->user_propagate_register_eq(eq_eh);
+    }
+    
+    void user_propagate_register_diseq(solver::eq_eh_t& diseq_eh) override {
+        ensure_euf()->user_propagate_register_diseq(diseq_eh);
+    }
+    
+    unsigned user_propagate_register(expr* e) override { 
+        return ensure_euf()->user_propagate_register(e);
+    }
+
 private:
 
     lbool internalize_goal(goal_ref& g) {        
