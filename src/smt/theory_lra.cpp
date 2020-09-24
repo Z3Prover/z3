@@ -3864,9 +3864,10 @@ public:
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {
             auto t = get_tv(v);
+            auto vi = lp().external_to_column_index(v);
             if (!ctx().is_relevant(get_enode(v))) out << "irr: ";
             out << "v" << v << " ";
-            if (t.is_null()) out << "null"; else out << (t.is_term() ? "t":"j") << t.id();
+            if (t.is_null()) out << "null"; else out << (t.is_term() ? "t":"j") << vi;
             if (use_nra_model() && can_get_ivalue(v)) m_nla->am().display(out << " = ", nl_value(v, *m_a1));
             else if (can_get_value(v)) out << " = " << get_value(v); 
             if (is_int(v)) out << ", int";
