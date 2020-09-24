@@ -921,6 +921,12 @@ class theory_lra::imp {
             init_left_side(st);
             lpvar vi = get_lpvar(v);
             if (vi == UINT_MAX) {
+                if (m_left_side.empty()) {
+                    vi = lp().add_var(v, a.is_int(term));
+                    add_def_constraint_and_equality(vi, lp::GE, st.offset());
+                    add_def_constraint_and_equality(vi, lp::LE, st.offset());
+                    return v;
+                }
                 if (!st.offset().is_zero()) {
                     m_left_side.push_back(std::make_pair(st.offset(), get_one(a.is_int(term))));
                 }

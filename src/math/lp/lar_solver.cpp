@@ -867,15 +867,6 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
     }
 }
 
-
-bool lar_solver::try_to_set_fixed(column_info<mpq> & ci) {
-    if (ci.upper_bound_is_set() && ci.lower_bound_is_set() && ci.get_upper_bound() == ci.get_lower_bound() && !ci.is_fixed()) {
-        ci.set_fixed_value(ci.get_upper_bound());
-        return true;
-    }
-    return false;
-}
-
 bool lar_solver::all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side) {
     for (auto it : left_side) {
         if (! var_is_registered(it.second))
