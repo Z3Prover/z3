@@ -1365,7 +1365,7 @@ namespace sat {
     ba_solver::ba_solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
         : euf::th_solver(m, id),
           si(si), m_pb(m),
-          m_solver(nullptr), m_lookahead(nullptr), 
+          m_lookahead(nullptr), 
           m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
         TRACE("ba", tout << this << "\n";);
         m_num_propagations_since_pop = 0;
@@ -3579,14 +3579,14 @@ namespace sat {
         switch (cnstr.tag()) {
         case ba::tag_t::card_t: {
             card& c = cnstr.to_card();
-            ineq.reset(offset*c.k());
+            ineq.reset(static_cast<uint64_t>(offset)*c.k());
             for (literal l : c) ineq.push(l, offset);
             if (c.lit() != null_literal) ineq.push(~c.lit(), offset*c.k());                
             break;
         }
         case ba::tag_t::pb_t: {
             pb& p = cnstr.to_pb();
-            ineq.reset(offset * p.k());
+            ineq.reset(static_cast<uint64_t>(offset) * p.k());
             for (wliteral wl : p) ineq.push(wl.second, offset * wl.first);
             if (p.lit() != null_literal) ineq.push(~p.lit(), offset * p.k());
             break;

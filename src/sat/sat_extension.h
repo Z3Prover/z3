@@ -57,11 +57,15 @@ namespace sat {
     protected:
         bool m_drating { false };
         int  m_id { 0 };
+        solver* m_solver { nullptr };
     public:        
         extension(int id): m_id(id) {}
         virtual ~extension() {}
-        virtual int get_id() const { return m_id; }
-        virtual void set_solver(solver* s) = 0;
+        int get_id() const { return m_id; }
+        void set_solver(solver* s) { m_solver = s; }        
+        solver& s() { return *m_solver; }
+        solver const& s() const { return *m_solver; }
+
         virtual void set_lookahead(lookahead* s) {};
         class scoped_drating {
             extension& ext;
@@ -70,13 +74,13 @@ namespace sat {
             ~scoped_drating() { ext.m_drating = false;  }
         };
         virtual void init_search() {}
-        virtual bool propagate(literal l, ext_constraint_idx idx) = 0;
-        virtual bool unit_propagate() = 0;
-        virtual bool is_external(bool_var v) = 0;
+        virtual bool propagate(sat::literal l, sat::ext_constraint_idx idx) { UNREACHABLE(); return false; }
+        virtual bool unit_propagate() = 0;        
+        virtual bool is_external(bool_var v) { return false; }
         virtual double get_reward(literal l, ext_constraint_idx idx, literal_occs_fun& occs) const { return 0; }
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) = 0;
         virtual bool is_extended_binary(ext_justification_idx idx, literal_vector & r) { return false; }
-        virtual void asserted(literal l) = 0;
+        virtual void asserted(literal l) {};
         virtual check_result check() = 0;
         virtual lbool resolve_conflict() { return l_undef; } // stores result in sat::solver::m_lemma
         virtual void push() = 0;

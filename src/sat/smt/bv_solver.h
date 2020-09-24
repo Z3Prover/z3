@@ -233,11 +233,6 @@ namespace bv {
         unsigned_vector            m_prop_queue_lim;
         unsigned                   m_prop_queue_head { 0 };
 
-
-        sat::solver* m_solver;
-        sat::solver& s() { return *m_solver;  }
-        sat::solver const& s() const { return *m_solver;  }
-
         // internalize
         void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
         void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = 0; }
@@ -327,7 +322,6 @@ namespace bv {
     public:
         solver(euf::solver& ctx, theory_id id);
         ~solver() override {}
-        void set_solver(sat::solver* s) override { m_solver = s; }
         void set_lookahead(sat::lookahead* s) override { }
         void init_search() override {}
         double get_reward(literal l, sat::ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;

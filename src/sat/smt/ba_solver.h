@@ -86,7 +86,6 @@ namespace sat {
         sat_internalizer&      si;
         pb_util                m_pb;
 
-        solver*                m_solver{ nullptr };
         lookahead*             m_lookahead{ nullptr };
         stats                  m_stats; 
         small_object_allocator m_allocator;
@@ -139,9 +138,6 @@ namespace sat {
         unsigned get_parity(bool_var v);
         void     inc_parity(bool_var v);
         void     reset_parity(bool_var v);
-
-        solver& s() const { return *m_solver; }
-
 
         // simplification routines
 
@@ -400,7 +396,6 @@ namespace sat {
         ba_solver(euf::solver& ctx, euf::theory_id id);
         ba_solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
         ~ba_solver() override;
-        void set_solver(solver* s) override { m_solver = s; }
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
         void add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);

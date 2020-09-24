@@ -27,6 +27,7 @@ Author:
 #include "sat/smt/sat_th.h"
 #include "sat/smt/sat_dual_solver.h"
 #include "sat/smt/euf_ackerman.h"
+#include "sat/smt/user_solver.h"
 #include "smt/params/smt_params.h"
 
 namespace euf {
@@ -85,13 +86,12 @@ namespace euf {
         stats                 m_stats;
         th_rewriter           m_rewriter;
         func_decl_ref_vector  m_unhandled_functions;
-
-        sat::solver* m_solver{ nullptr };
-        sat::lookahead* m_lookahead{ nullptr };
-        ast_manager* m_to_m;
+        sat::lookahead*       m_lookahead{ nullptr };
+        ast_manager*           m_to_m;
         sat::sat_internalizer* m_to_si;
         scoped_ptr<euf::ackerman>   m_ackerman;
         scoped_ptr<sat::dual_solver> m_dual_solver;
+        user::solver*          m_user_propagator{ nullptr };
 
         ptr_vector<expr>                                m_var2expr;
         ptr_vector<size_t>                              m_explain;
@@ -174,6 +174,12 @@ namespace euf {
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
         constraint& lit_constraint() { return mk_constraint(m_lit, constraint::kind_t::lit); }
 
+        // user propagator
+        void check_for_user_propagator() {
+            if (!m_user_propagator)
+                throw default_exception("user propagator must be initialized");
+        }
+
     public:
         solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p = params_ref());
 
@@ -197,8 +203,7 @@ namespace euf {
         };
 
         // accessors
-        sat::solver& s() { return *m_solver; }
-        sat::solver const& s() const { return *m_solver; }
+        
         sat::sat_internalizer& get_si() { return si; }
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) { return m_egraph.find(e); }
@@ -212,7 +217,6 @@ namespace euf {
         euf_trail_stack& get_trail_stack() { return m_trail; }
 
         void updt_params(params_ref const& p);
-        void set_solver(sat::solver* s) override { m_solver = s; }
         void set_lookahead(sat::lookahead* s) override { m_lookahead = s; }
         void init_search() override;
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
@@ -285,6 +289,40 @@ namespace euf {
 
         // diagnostics
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
+
+        // user propagator
+        void user_propagate_init(
+            void* ctx,
+            ::solver::push_eh_t& push_eh,
+            ::solver::pop_eh_t& pop_eh,
+            ::solver::fresh_eh_t& fresh_eh);
+        bool watches_fixed(enode* n) const;
+        void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
+        void assign_fixed(enode* n, expr* val, literal_vector const& explain) { assign_fixed(n, val, explain.size(), explain.c_ptr()); }
+        void assign_fixed(enode* n, expr* val, literal explain) { assign_fixed(n, val, 1, &explain); }
+
+        void user_propagate_register_final(::solver::final_eh_t& final_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_final(final_eh);
+        }
+        void user_propagate_register_fixed(::solver::fixed_eh_t& fixed_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_fixed(fixed_eh);
+        }
+        void user_propagate_register_eq(::solver::eq_eh_t& eq_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_eq(eq_eh);
+        }
+        void user_propagate_register_diseq(::solver::eq_eh_t& diseq_eh) {
+            check_for_user_propagator();
+            m_user_propagator->register_diseq(diseq_eh);
+        }
+        unsigned user_propagate_register(expr* e) {
+            check_for_user_propagator();
+            return m_user_propagator->add_expr(e);
+        }
+
+
     };
 };
 

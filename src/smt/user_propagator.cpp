@@ -48,7 +48,7 @@ unsigned user_propagator::add_expr(expr* e) {
     return v;
 }
 
-void user_propagator::propagate(
+void user_propagator::propagate_cb(
     unsigned num_fixed, unsigned const* fixed_ids, 
     unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, 
     expr* conseq) {
