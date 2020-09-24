@@ -33,7 +33,6 @@ namespace euf {
         m_trail(*this),
         m_rewriter(m),
         m_unhandled_functions(m),
-        m_solver(nullptr),
         m_lookahead(nullptr),
         m_to_m(&m),
         m_to_si(&si),
@@ -669,5 +668,27 @@ namespace euf {
                 return false;
         return true;
     }
+
+    void solver::user_propagate_init(
+        void* ctx,
+        ::solver::push_eh_t& push_eh,
+        ::solver::pop_eh_t& pop_eh,
+        ::solver::fresh_eh_t& fresh_eh) {
+        m_user_propagator = alloc(user::solver, *this);
+        m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
+        for (unsigned i = m_scopes.size(); i-- > 0; )
+            m_user_propagator->push();
+        m_solvers.push_back(m_user_propagator);
+    }
+
+    bool solver::watches_fixed(enode* n) const {
+        return m_user_propagator && m_user_propagator->has_fixed() && n->get_th_var(m_user_propagator->get_id()) != null_theory_var;
+    }
+
+    void solver::assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain) {
+        theory_var v = n->get_th_var(m_user_propagator->get_id());
+        m_user_propagator->new_fixed_eh(v, val, sz, explain);
+    }
+
 
 }

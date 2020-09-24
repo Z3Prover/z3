@@ -60,14 +60,12 @@ namespace array {
 
         array_util        a;
         stats             m_stats;
-        sat::solver*      m_solver{ nullptr };
         scoped_ptr_vector<var_data>          m_var_data;
         ast2ast_trailmap<sort, app>          m_sort2epsilon;
         ast2ast_trailmap<sort, func_decl>    m_sort2diag;
         obj_map<sort, func_decl_ref_vector*> m_sort2diff;
         array_union_find                     m_find;
 
-        sat::solver& s() { return *m_solver; }
         theory_var find(theory_var v) { return m_find.find(v); }
 
         // internalize
@@ -187,7 +185,6 @@ namespace array {
     public:
         solver(euf::solver& ctx, theory_id id);
         ~solver() override {}
-        void set_solver(sat::solver* s) override { m_solver = s; }
         bool is_external(bool_var v) override { return false; }
         bool propagate(literal l, sat::ext_constraint_idx idx) override { UNREACHABLE(); return false; }
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override {}

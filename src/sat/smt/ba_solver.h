@@ -140,9 +140,6 @@ namespace sat {
         void     inc_parity(bool_var v);
         void     reset_parity(bool_var v);
 
-        solver& s() const { return *m_solver; }
-
-
         // simplification routines
 
         vector<svector<constraint*>>    m_cnstr_use_list;
@@ -400,7 +397,6 @@ namespace sat {
         ba_solver(euf::solver& ctx, euf::theory_id id);
         ba_solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
         ~ba_solver() override;
-        void set_solver(solver* s) override { m_solver = s; }
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
         void add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);

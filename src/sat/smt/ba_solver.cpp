@@ -3579,14 +3579,14 @@ namespace sat {
         switch (cnstr.tag()) {
         case ba::tag_t::card_t: {
             card& c = cnstr.to_card();
-            ineq.reset(offset*c.k());
+            ineq.reset(static_cast<uint64_t>(offset)*c.k());
             for (literal l : c) ineq.push(l, offset);
             if (c.lit() != null_literal) ineq.push(~c.lit(), offset*c.k());                
             break;
         }
         case ba::tag_t::pb_t: {
             pb& p = cnstr.to_pb();
-            ineq.reset(offset * p.k());
+            ineq.reset(static_cast<uint64_t>(offset) * p.k());
             for (wliteral wl : p) ineq.push(wl.second, offset * wl.first);
             if (p.lit() != null_literal) ineq.push(~p.lit(), offset * p.k());
             break;
