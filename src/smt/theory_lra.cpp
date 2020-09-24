@@ -2385,6 +2385,7 @@ public:
         TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
 
         ensure_bounds(v);
+
             
         if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) {
             TRACE("arith", tout << "return\n";);

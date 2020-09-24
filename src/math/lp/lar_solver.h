@@ -134,9 +134,6 @@ class lar_solver : public column_namer {
     void add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index);
     void add_basic_var_to_core_fields();
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq & rhs);
-    // columns
-    bool column_is_int(column_index const& j) const { return column_is_int((unsigned)j); }
-    const impq& get_value(column_index const& j) const { return get_column_value(j); }
 
 
     void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, unsigned&);
@@ -626,6 +623,9 @@ public:
     inline bool column_value_is_int(unsigned j) const { return m_mpq_lar_core_solver.m_r_x[j].is_int(); }
     inline static_matrix<mpq, impq> & A_r() { return m_mpq_lar_core_solver.m_r_A; }
     inline const static_matrix<mpq, impq> & A_r() const { return m_mpq_lar_core_solver.m_r_A; }
+    // columns
+    bool column_is_int(column_index const& j) const { return column_is_int((unsigned)j); }
+    const impq& get_value(column_index const& j) const { return get_column_value(j); }
     const impq& get_column_value(unsigned j) const { return m_mpq_lar_core_solver.m_r_x[j]; }
     inline
     var_index external_to_local(unsigned j) const {

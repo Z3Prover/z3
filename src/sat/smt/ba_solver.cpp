@@ -1365,7 +1365,7 @@ namespace sat {
     ba_solver::ba_solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
         : euf::th_solver(m, id),
           si(si), m_pb(m),
-          m_solver(nullptr), m_lookahead(nullptr), 
+          m_lookahead(nullptr), 
           m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
         TRACE("ba", tout << this << "\n";);
         m_num_propagations_since_pop = 0;

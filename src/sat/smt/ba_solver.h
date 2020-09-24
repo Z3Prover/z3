@@ -86,7 +86,6 @@ namespace sat {
         sat_internalizer&      si;
         pb_util                m_pb;
 
-        solver*                m_solver{ nullptr };
         lookahead*             m_lookahead{ nullptr };
         stats                  m_stats; 
         small_object_allocator m_allocator;
