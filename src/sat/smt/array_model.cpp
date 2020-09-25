@@ -30,6 +30,11 @@ namespace array {
             return;
         }
         for (euf::enode* p : euf::enode_parents(n)) {
+            if (a.is_default(p->get_expr())) {
+                dep.add(n, p);
+                continue;
+            }
+
             if (!a.is_select(p->get_expr()))
                 continue;
             dep.add(n, p);
@@ -55,9 +60,14 @@ namespace array {
             for (euf::enode* k : euf::enode_class(n))
                 if (a.is_const(k->get_expr()))
                     fi->set_else(values.get(k->get_arg(0)->get_root_id()));
+
+        if (!fi->get_else())
+            for (euf::enode* p : euf::enode_parents(n))
+                if (a.is_default(p->get_expr()))
+                    fi->set_else(values.get(p->get_root_id()));
     
-        expr* else_value = fi->get_else();
-        if (!else_value) {
+        if (!fi->get_else()) {
+            expr* else_value = nullptr;
             unsigned max_occ_num = 0;
             obj_map<expr, unsigned> num_occ;
             for (euf::enode* p : euf::enode_parents(n)) {
@@ -75,15 +85,15 @@ namespace array {
                     }
                 }
             }
+            if (else_value)
+                fi->set_else(else_value);
         }
-        if (else_value && !fi->get_else())
-            fi->set_else(else_value);
 
         for (euf::enode* p : euf::enode_parents(n)) {
             if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n->get_root()) {
                 std::cout << "parent " << mk_bounded_pp(p->get_expr(), m) << "\n";
                 expr* value = values.get(p->get_root_id());
-                if (!value || value == else_value)
+                if (!value || value == fi->get_else())
                     continue;
                 args.reset();
                 bool relevant = true;

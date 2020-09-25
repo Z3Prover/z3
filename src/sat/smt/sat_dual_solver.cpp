@@ -65,10 +65,11 @@ namespace sat {
         return literal(m_var2ext[lit.var()], lit.sign());
     }
 
-    void dual_solver::add_root(literal lit, unsigned sz, literal const* clause) {
+    void dual_solver::add_root(unsigned sz, literal const* clause) {
+        literal root(m_solver.mk_var(), false);
         for (unsigned i = 0; i < sz; ++i)
-            m_solver.mk_clause(ext2lit(lit), ~ext2lit(clause[i]), status::input());
-        m_roots.push_back(~ext2lit(lit));
+            m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
+        m_roots.push_back(~root);
     }
 
     void dual_solver::add_aux(unsigned sz, literal const* clause) {
@@ -89,7 +90,7 @@ namespace sat {
         if (is_sat == l_false) 
             for (literal lit : m_solver.get_core())
                 m_core.push_back(lit2ext(lit));
-        TRACE("euf", m_solver.display(tout << m_core << "\n"););
+        TRACE("euf", m_solver.display(tout << "is-sat: " << is_sat << " core: " << m_core << "\n"););
         m_solver.user_pop(1);
         return is_sat == l_false;
     }

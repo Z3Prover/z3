@@ -294,11 +294,13 @@ namespace bv {
         bool should_bit_blast(expr * n);
         bool check_delay_internalized(euf::enode* n);
         bool check_mul(euf::enode* n);
+        bool check_mul_invertibility(app* n, expr_ref_vector const& arg_values, expr* value);
         bool check_eval(euf::enode* n);
         internalize_mode get_internalize_mode(expr* e);
         void set_delay_internalize(expr* e, internalize_mode mode);
-        void eval_args(euf::enode* n, vector<rational>& args);
-
+        expr_ref eval_args(euf::enode* n, expr_ref_vector& eargs);
+        expr_ref eval_bv(euf::enode* n);
+        
         // solving
         theory_var find(theory_var v) const { return m_find.find(v); }
         void find_wpos(theory_var v);

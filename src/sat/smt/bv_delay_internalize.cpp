@@ -37,32 +37,35 @@ namespace bv {
         return bv.get_bv_size(e) <= 10;
     }
 
-    void solver::eval_args(euf::enode* n, vector<rational>& args) {
-        rational val;
-        for (euf::enode* arg : euf::enode_args(n)) {
-            theory_var v = arg->get_th_var(get_id());
-            VERIFY(get_fixed_value(v, val));
-            args.push_back(val);
-        }
+    expr_ref solver::eval_args(euf::enode* n, expr_ref_vector& args) {
+        for (euf::enode* arg : euf::enode_args(n)) 
+            args.push_back(eval_bv(arg));
+        expr_ref r(m.mk_app(n->get_decl(), args), m);
+        ctx.get_rewriter()(r);
+        return r;
+    }
+
+    expr_ref solver::eval_bv(euf::enode* n) {
+        rational val;        
+        theory_var v = n->get_th_var(get_id());
+        VERIFY(get_fixed_value(v, val));
+        return expr_ref(bv.mk_numeral(val, get_bv_size(v)), m);
     }
 
     bool solver::check_mul(euf::enode* n) {
         SASSERT(n->num_args() >= 2);
         app* e = to_app(n->get_expr());
-        rational val, val_mul(1);        
-        vector<rational> args;
-        eval_args(n, args);
-        for (rational const& val_arg : args)
-            val_mul *= val_arg;
-        theory_var v = n->get_th_var(get_id());
-        VERIFY(get_fixed_value(v, val));
-        val_mul = mod(val_mul, power2(get_bv_size(v)));
-        IF_VERBOSE(12, verbose_stream() << "check_mul " << mk_bounded_pp(n->get_expr(), m) << " " << args << " = " << val_mul << " =? " << val << "\n");
-        if (val_mul == val)
+        expr_ref_vector args(m);
+        auto r1 = eval_bv(n);
+        auto r2 = eval_args(n, args);
+        if (r1 == r2)
             return true;
 
         // Some possible approaches:
 
+        if (!check_mul_invertibility(n->get_app(), args, r1))
+            return false;
+        
         // check base cases: val_mul = 0 or val = 0, some values in product are 1, 
 
         // check discrepancies in low-order bits
@@ -81,31 +84,66 @@ namespace bv {
         // compute S-polys for a set of constraints.
 
         set_delay_internalize(e, internalize_mode::no_delay_i);
-        internalize_circuit(e, v);
+        internalize_circuit(e, n->get_th_var(get_id()));
         return false;
+    }
+
+    /**
+     * Add invertibility condition for multiplication
+     * 
+     * x * y = z => (y | -y) & z = z
+     * 
+     * This propagator relates to Niemetz and Preiner's consistency and invertibility conditions.
+     * The idea is that the side-conditions for ensuring invertibility are valid
+     * and in some cases are cheap to bit-blast. For multiplication, we include only
+     * the _consistency_ condition because the side-constraints for invertibility
+     * appear expensive (to paraphrase FMCAD 2020 paper):
+     *  x * s = t => (s = 0 or mcb(x << c, y << c))
+     * 
+     *  for c = ctz(s) and y = (t >> c) / (s >> c)
+     *
+     * mcb(x,t/s) just mean that the bit-vectors are compatible as ternary bit-vectors, 
+     * which for propagation means that they are the same.
+     */
+
+    bool solver::check_mul_invertibility(app* n, expr_ref_vector const& arg_values, expr* value) {
+
+        expr_ref inv(m), eq(m);
+
+        auto invert = [&](expr* s, expr* t) {
+            return bv.mk_bv_and(bv.mk_bv_or(s, bv.mk_bv_neg(s)), t);
+        };
+        auto check_invert = [&](expr* s) {
+            inv = invert(s, value);
+            ctx.get_rewriter()(inv);
+            return inv == value;
+        };
+        auto add_inv = [&](expr* s) {
+            inv = invert(s, n);
+            ctx.get_rewriter()(inv);
+            expr_ref eq(m.mk_eq(inv, n), m);
+            add_clause(ctx.internalize(eq, true, false, true));            
+        };
+        bool ok = true;
+        for (unsigned i = 0; i < arg_values.size(); ++i) {
+            if (!check_invert(arg_values[i])) {
+                add_inv(n->get_arg(i));
+                ok = false;
+            }
+        }
+        return ok;
     }
 
     bool solver::check_eval(euf::enode* n) {
         expr_ref_vector args(m);
-        expr_ref r1(m), r2(m);
-        rational val;
-        app* a = to_app(n->get_expr());
-        theory_var v = n->get_th_var(get_id());
-        VERIFY(get_fixed_value(v, val));
-        r1 = bv.mk_numeral(val, get_bv_size(v));
         SASSERT(bv.is_bv(a));
-        for (euf::enode* arg : euf::enode_args(n)) {
-            SASSERT(bv.is_bv(arg->get_expr()));
-            theory_var v_arg = arg->get_th_var(get_id());
-            VERIFY(get_fixed_value(v_arg, val));
-            args.push_back(bv.mk_numeral(val, get_bv_size(v_arg)));
-        }
-        r2 = m.mk_app(a->get_decl(), args);        
-        ctx.get_rewriter()(r2);
+        auto r1 = eval_bv(n);
+        auto r2 = eval_args(n, args);
         if (r1 == r2)
             return true;
+        app* a = n->get_app();
         set_delay_internalize(a, internalize_mode::no_delay_i);
-        internalize_circuit(a, v);
+        internalize_circuit(a, n->get_th_var(get_id()));
         return false;
     }
 
@@ -122,9 +160,9 @@ namespace bv {
             return internalize_mode::no_delay_i;
         switch (to_app(e)->get_decl_kind()) {
         case OP_BMUL: 
-        case OP_BSMUL_NO_OVFL:
-        case OP_BSMUL_NO_UDFL:
-        case OP_BUMUL_NO_OVFL:
+        //case OP_BSMUL_NO_OVFL:
+        //case OP_BSMUL_NO_UDFL:
+        //case OP_BUMUL_NO_OVFL:
         case OP_BSMOD_I:
         case OP_BUREM_I:
         case OP_BSREM_I:

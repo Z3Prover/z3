@@ -28,9 +28,8 @@ namespace euf {
     }
 
     void solver::add_root(unsigned n, sat::literal const* lits) {
-        bool_var v = s().add_var(false);
         ensure_dual_solver();
-        m_dual_solver->add_root(sat::literal(v, false), n, lits);
+        m_dual_solver->add_root(n, lits);
     }
 
     void solver::add_aux(unsigned n, sat::literal const* lits) {
@@ -70,9 +69,26 @@ namespace euf {
                 m_relevant_expr_ids.setx(e->get_id(), true, false);
             if (!is_app(e))
                 continue;
+            expr* c = nullptr, *th = nullptr, *el = nullptr;
+            if (m.is_ite(e, c, th, el)) {
+                sat::literal lit = expr2literal(c);
+                todo.push_back(c);
+                switch (s().value(lit)) {
+                case l_true:
+                    todo.push_back(th);
+                    break;
+                case l_false:
+                    todo.push_back(el);
+                    break;
+                default:
+                    todo.push_back(th);
+                    todo.push_back(el);
+                    break;
+                }
+                continue;
+            }
             for (expr* arg : *to_app(e))
-                if (!visited.get(arg->get_id(), false))
-                    todo.push_back(arg);
+                todo.push_back(arg);
         }
 
         TRACE("euf",
