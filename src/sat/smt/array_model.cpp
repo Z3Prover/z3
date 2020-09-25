@@ -23,6 +23,7 @@ namespace array {
     
     
     void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) { 
+        std::cout << "add-dep " << mk_bounded_pp(n->get_expr(), m) << "\n";
         if (!a.is_array(n->get_expr())) {
             dep.insert(n, nullptr);
             return;
@@ -65,6 +66,7 @@ namespace array {
     
         if (!fi->get_else()) {
             expr* else_value = nullptr;
+
             unsigned max_occ_num = 0;
             obj_map<expr, unsigned> num_occ;
             for (euf::enode* p : euf::enode_parents(n)) {
@@ -82,6 +84,7 @@ namespace array {
                     }
                 }
             }
+
             if (else_value)
                 fi->set_else(else_value);
         }
@@ -100,8 +103,6 @@ namespace array {
                     continue;
                 for (unsigned i = 1; i < p->num_args(); ++i) 
                     args.push_back(values.get(p->get_arg(i)->get_root_id()));    
-//                for (expr* arg : args)
-//                    std::cout << "arg " << mk_bounded_pp(arg, m) << "\n";
                 fi->insert_entry(args.c_ptr(), value);
             }
         }
