@@ -399,15 +399,23 @@ bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {
     auto & lcs = m_mpq_lar_core_solver;
     auto & val = lcs.m_r_x[j];
     switch (lcs.m_column_types()[j]) {
-    case column_type::boxed:
-        if (val != lcs.m_r_lower_bounds()[j] && val != lcs.m_r_upper_bounds()[j]) {
+    case column_type::boxed: {
+        bool at_l = val == lcs.m_r_lower_bounds()[j];
+        bool at_u = !at_l || val == lcs.m_r_upper_bounds()[j];
+        if (!at_l  && ! at_u) {
             if (m_settings.random_next() % 2 == 0)
                 set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
             else
                 set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
             return true;
-        }
-        break;
+        } else if (m_settings.random_next() % 10) {
+            set_value_for_nbasic_column(j,
+             at_l?lcs.m_r_upper_bounds()[j]:lcs.m_r_lower_bounds()[j]);
+            return true;
+        } 
+    } 
+    
+    break;
     case column_type::lower_bound:
         if (val != lcs.m_r_lower_bounds()[j]) {
             set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
