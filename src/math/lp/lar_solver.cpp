@@ -408,7 +408,7 @@ bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {
             else
                 set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
             return true;
-        } else if (m_settings.random_next() % 10) {
+        } else if (m_settings.random_next() % 500 == 0) {
             set_value_for_nbasic_column(j,
              at_l?lcs.m_r_upper_bounds()[j]:lcs.m_r_lower_bounds()[j]);
             return true;
