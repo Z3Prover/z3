@@ -401,7 +401,7 @@ bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {
     switch (lcs.m_column_types()[j]) {
     case column_type::boxed: {
         bool at_l = val == lcs.m_r_lower_bounds()[j];
-        bool at_u = !at_l || val == lcs.m_r_upper_bounds()[j];
+        bool at_u = at_l? false : val == lcs.m_r_upper_bounds()[j];
         if (!at_l  && ! at_u) {
             if (m_settings.random_next() % 2 == 0)
                 set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
