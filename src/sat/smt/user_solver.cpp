@@ -146,7 +146,7 @@ namespace user {
         return display_justification(out, idx);     
     }
 
-    euf::th_solver* solver::fresh(sat::solver* dst_s, euf::solver& dst_ctx) {
+    euf::th_solver* solver::clone(sat::solver* dst_s, euf::solver& dst_ctx) {
         auto* result = alloc(solver, dst_ctx);
         result->set_solver(dst_s);
         ast_translation tr(m, dst_ctx.get_manager(), false);

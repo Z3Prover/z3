@@ -94,7 +94,7 @@ namespace euf {
     public:
         th_solver(ast_manager& m, euf::theory_id id): extension(id), m(m) {}
 
-        virtual th_solver* fresh(sat::solver* s, euf::solver& ctx) = 0;  
+        virtual th_solver* clone(sat::solver* s, euf::solver& ctx) = 0;  
 
         virtual void new_eq_eh(euf::th_eq const& eq) {}
 

@@ -107,8 +107,8 @@ namespace array {
             auto& d = get_var_data(i);
             out << var2enode(i)->get_expr_id() << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
             display_info(out, "parent lambdas", d.m_parent_lambdas);
-            display_info(out, "parent select", d.m_parent_selects);
-            display_info(out, "b         ", d.m_lambdas);
+            display_info(out, "parent select",  d.m_parent_selects);
+            display_info(out, "lambdas",        d.m_lambdas);
         }
         return out;
     }
@@ -141,7 +141,7 @@ namespace array {
         st.update("array splits",       m_stats.m_num_eq_splits);
     }
 
-    euf::th_solver* solver::fresh(sat::solver* s, euf::solver& ctx) {
+    euf::th_solver* solver::clone(sat::solver* s, euf::solver& ctx) {
         auto* result = alloc(solver, ctx, get_id());
         ast_translation tr(m, ctx.get_manager());
         for (unsigned i = 0; i < get_num_vars(); ++i) {
@@ -165,7 +165,7 @@ namespace array {
         bool prop = false;
         ctx.push(value_trail<euf::solver, unsigned>(m_qhead));
         for (; m_qhead < m_axiom_trail.size() && !s().inconsistent(); ++m_qhead)
-            if (assert_axiom(m_qhead))
+            if (propagate_axiom(m_qhead))
                 prop = true;
         return prop;
     }
@@ -174,7 +174,6 @@ namespace array {
         euf::enode* n1 = var2enode(v1);
         euf::enode* n2 = var2enode(v2);
         SASSERT(n1->get_root() == n2->get_root());
-        SASSERT(n1->is_root() || n2->is_root());
         SASSERT(v1 == find(v1));
         expr* e1 = n1->get_expr();
         expr* e2 = n2->get_expr();

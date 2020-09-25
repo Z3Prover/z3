@@ -3137,14 +3137,14 @@ namespace sat {
     }
 
     extension* ba_solver::copy(solver* s) {
-        return fresh(s, m, si, m_id);
+        return clone_aux(s, m, si, m_id);
     }
 
-    euf::th_solver* ba_solver::fresh(solver* new_s, euf::solver& new_ctx) {
-        return fresh(new_s, new_ctx.get_manager(), new_ctx.get_si(), get_id());
+    euf::th_solver* ba_solver::clone(solver* new_s, euf::solver& new_ctx) {
+        return clone_aux(new_s, new_ctx.get_manager(), new_ctx.get_si(), get_id());
     }
 
-    euf::th_solver* ba_solver::fresh(solver* new_s, ast_manager& m, sat::sat_internalizer& si, euf::theory_id id) {
+    euf::th_solver* ba_solver::clone_aux(solver* new_s, ast_manager& m, sat::sat_internalizer& si, euf::theory_id id) {
         ba_solver* result = alloc(ba_solver, m, si, id);
         result->set_solver(new_s);
         copy_constraints(result, m_constraints);

@@ -653,13 +653,14 @@ namespace euf {
         for (unsigned i = 0; i < src.m_nodes.size(); ++i) {
             enode* n1 = src.m_nodes[i];
             expr* e1 = src.m_exprs[i];
-            SASSERT(!n1->has_th_vars());
             args.reset();
             for (unsigned j = 0; j < n1->num_args(); ++j) 
                 args.push_back(old_expr2new_enode[n1->get_arg(j)->get_expr_id()]);
             expr*  e2 = tr(e1);
             enode* n2 = mk(e2, args.size(), args.c_ptr());
             old_expr2new_enode.setx(e1->get_id(), n2, nullptr);
+            n2->set_value(n2->value());
+            n2->m_bool_var = n1->m_bool_var;
         }
         for (unsigned i = 0; i < src.m_nodes.size(); ++i) {             
             enode* n1 = src.m_nodes[i];

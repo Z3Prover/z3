@@ -643,7 +643,7 @@ namespace bv {
 
     sat::extension* solver::copy(sat::solver* s) { UNREACHABLE(); return nullptr; }
 
-    euf::th_solver* solver::fresh(sat::solver* s, euf::solver& ctx) {
+    euf::th_solver* solver::clone(sat::solver* s, euf::solver& ctx) {
         bv::solver* result = alloc(bv::solver, ctx, get_id());
         ast_translation tr(m, ctx.get_manager());
         for (unsigned i = 0; i < get_num_vars(); ++i) {

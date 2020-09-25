@@ -54,6 +54,7 @@ namespace euf {
     class solver : public sat::extension, public th_internalizer, public th_decompile {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
+        class user_sort;
         // friend class sat::ba_solver;
         struct stats {
             unsigned m_ackerman;

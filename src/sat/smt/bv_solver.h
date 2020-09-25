@@ -343,7 +343,7 @@ namespace bv {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
-        euf::th_solver* fresh(sat::solver* s, euf::solver& ctx) override;
+        euf::th_solver* clone(sat::solver* s, euf::solver& ctx) override;
         extension* copy(sat::solver* s) override;       
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override {}
         void gc() override {}

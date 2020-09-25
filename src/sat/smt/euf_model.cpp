@@ -44,20 +44,55 @@ namespace euf {
 
     void solver::collect_dependencies(deps_t& deps) {
         for (enode* n : m_egraph.nodes()) {
-            if (n->num_args() == 0) {
-                deps.insert(n, nullptr);
-                continue;
-            }
-            auto* mb = expr2solver(n->get_expr());
+            auto* mb = sort2solver(m.get_sort(n->get_expr()));
             if (mb)
                 mb->add_dep(n, deps);
             else
                 deps.insert(n, nullptr);
         }
+
+        TRACE("euf",
+              for (auto const& d : deps.deps()) 
+                  if (d.m_value) {
+                      tout << mk_bounded_pp(d.m_key->get_expr(), m) << ":\n";
+                      for (auto* n : *d.m_value)
+                          tout << "   " << mk_bounded_pp(n->get_expr(), m) << " " << mk_bounded_pp(n->get_root()->get_expr(), m) << "\n";
+                  }
+              );
     }
 
+    class solver::user_sort {
+        solver&           s;
+        ast_manager&      m;
+        model_ref&        mdl;
+        expr_ref_vector&  values;
+        user_sort_factory factory;
+        scoped_ptr_vector<expr_ref_vector> sort_values;
+        obj_map<sort, expr_ref_vector*>    sort2values;
+    public:
+        user_sort(solver& s, expr_ref_vector& values, model_ref& mdl): 
+            s(s), m(s.m), mdl(mdl), values(values), factory(m) {}
+
+        ~user_sort() {
+            for (auto kv : sort2values) 
+                mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->c_ptr());
+        }
+
+        void add(unsigned id, sort* srt) {
+            expr_ref value(factory.get_fresh_value(srt), m);
+            values.set(id, value);     
+            expr_ref_vector* vals = nullptr;
+            if (!sort2values.find(srt, vals)) {
+                vals = alloc(expr_ref_vector, m);
+                sort2values.insert(srt, vals);
+                sort_values.push_back(vals);
+            }
+            vals->push_back(value);            
+        }        
+    };
+
     void solver::dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref& mdl) {
-        user_sort_factory user_sort(m);
+        user_sort user_sort(*this, values, mdl);
         for (enode* n : deps.top_sorted()) {
             unsigned id = n->get_root_id();
             if (values.get(id, nullptr))
@@ -94,16 +129,15 @@ namespace euf {
                 }
                 continue;
             }
-            auto* mb = expr2solver(e);
-            if (mb) 
-                mb->add_value(n, *mdl, values);
-            else if (m.is_uninterp(m.get_sort(e))) {
-                expr* v = user_sort.get_fresh_value(m.get_sort(e));
-                values.set(id, v);
-            }
-            else if ((mb = sort2solver(m.get_sort(e))))
-                mb->add_value(n, *mdl, values);
-            else {
+            std::cout << "value for " << mk_bounded_pp(e, m) << "\n";
+            sort* srt = m.get_sort(e);
+            if (m.is_uninterp(srt)) 
+                user_sort.add(id, srt);            
+            else if (auto* mbS = sort2solver(srt))
+                mbS->add_value(n, *mdl, values);
+            else if (auto* mbE = expr2solver(e))
+                mbE->add_value(n, *mdl, values);
+            else  {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
         }
