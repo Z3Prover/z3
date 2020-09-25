@@ -210,7 +210,7 @@ lp_status lar_solver::solve() {
             detect_rows_with_changed_bounds();
     }
        
-    m_columns_with_changed_bound.clear();
+    clear_columns_with_changed_bounds();
     return m_status;
 }
 
@@ -272,7 +272,7 @@ void lar_solver::pop(unsigned k) {
 
     m_mpq_lar_core_solver.pop(k);
     remove_non_fixed_from_fixed_var_table();
-    clean_popped_elements(n, m_columns_with_changed_bound);
+    clean_popped_elements(n, m_columns_with_changed_bounds);
     clean_popped_elements(n, m_incorrect_columns);
     
     unsigned m = A_r().row_count();
@@ -335,7 +335,7 @@ bool lar_solver::reduced_costs_are_zeroes_for_r_solver() const {
 void lar_solver::set_costs_to_zero(const lar_term& term) {
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
     auto & jset = m_mpq_lar_core_solver.m_r_solver.inf_set(); // hijack this set that should be empty right now
-    lp_assert(jset.is_empty());
+    lp_assert(jset.empty());
         
     for (const auto & p : term) {
         unsigned j = p.column();
@@ -422,18 +422,21 @@ bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {
             return true;
         }
         break;
+    case column_type::fixed:
     case column_type::upper_bound:
         if (val != lcs.m_r_upper_bounds()[j]) {
             set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
             return true;
         }
         break;
-    default:
+    case column_type::free_column:
         if (column_is_int(j) && !val.is_int()) {
             set_value_for_nbasic_column(j, impq(floor(val)));
             return true;
         }
         break;
+    default:
+        SASSERT(false);        
     }
     return false;
 }
@@ -736,17 +739,17 @@ void lar_solver::detect_rows_with_changed_bounds_for_column(unsigned j) {
 }
     
 void lar_solver::detect_rows_with_changed_bounds() {
-    for (auto j : m_columns_with_changed_bound)
+    for (auto j : m_columns_with_changed_bounds)
         detect_rows_with_changed_bounds_for_column(j);
 }
 
 void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds() {
-    for (auto j : m_columns_with_changed_bound)
+    for (auto j : m_columns_with_changed_bounds)
         update_x_and_inf_costs_for_column_with_changed_bounds(j);
 }
 
 void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
-    for (auto j : m_columns_with_changed_bound)
+    for (auto j : m_columns_with_changed_bounds)
         update_x_and_inf_costs_for_column_with_changed_bounds(j);
 
     if (tableau_with_costs()) {
@@ -1113,7 +1116,8 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
 
 // (x, y) != (x', y') => (x + delta*y) != (x' + delta*y')
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
-    if (!(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE)) {
+    if (!(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE) ||
+        !m_columns_with_changed_bounds.empty()) {
         variable_values.clear();
         return;
     }
@@ -1548,7 +1552,7 @@ bool lar_solver::external_is_used(unsigned v) const {
 void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
     register_new_ext_var_index(ext_j, is_int);
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
-    m_columns_with_changed_bound.increase_size_by_one();
+    increase_by_one_columns_with_changed_bounds();
     add_new_var_to_core_fields_for_mpq(false); // false for not adding a row
     if (use_lu())
         add_new_var_to_core_fields_for_doubles(false);
@@ -1709,7 +1713,7 @@ void lar_solver::add_basic_var_to_core_fields() {
     bool use_lu = m_mpq_lar_core_solver.need_to_presolve_with_double_solver();
     lp_assert(!use_lu || A_r().column_count() == A_d().column_count());
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
-    m_columns_with_changed_bound.increase_size_by_one();
+    increase_by_one_columns_with_changed_bounds();
     m_incorrect_columns.increase_size_by_one();
     m_rows_with_changed_bounds.increase_size_by_one();
     add_new_var_to_core_fields_for_mpq(true);
@@ -2018,7 +2022,7 @@ void lar_solver::update_bound_with_ub_lb(var_index j, lconstraint_kind kind, con
             if (up >= m_mpq_lar_core_solver.m_r_upper_bounds[j]) return;
             m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
             set_upper_bound_witness(j, ci);
-            m_columns_with_changed_bound.insert(j);
+            insert_to_columns_with_changed_bounds(j);
 	}
 	break;
     case GT:
@@ -2033,7 +2037,7 @@ void lar_solver::update_bound_with_ub_lb(var_index j, lconstraint_kind kind, con
                 return;
             }
             m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
-            m_columns_with_changed_bound.insert(j);
+            insert_to_columns_with_changed_bounds(j);
             set_lower_bound_witness(j, ci);
             m_mpq_lar_core_solver.m_column_types[j] = (low == m_mpq_lar_core_solver.m_r_upper_bounds[j]? column_type::fixed : column_type::boxed);
 	}
@@ -2073,7 +2077,7 @@ void lar_solver::update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, 
             }
             m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
             set_upper_bound_witness(j, ci);
-            m_columns_with_changed_bound.insert(j);
+            insert_to_columns_with_changed_bounds(j);
             m_mpq_lar_core_solver.m_column_types[j] = (up == m_mpq_lar_core_solver.m_r_lower_bounds[j]? column_type::fixed : column_type::boxed);
 	}
 	break;
@@ -2086,7 +2090,7 @@ void lar_solver::update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, 
                 return;
             }
             m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
-            m_columns_with_changed_bound.insert(j);
+            insert_to_columns_with_changed_bounds(j);
             set_lower_bound_witness(j, ci);
 	}
 	break;
@@ -2123,7 +2127,7 @@ void lar_solver::update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, 
             if (up >= m_mpq_lar_core_solver.m_r_upper_bounds[j]) return;
             m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
             set_upper_bound_witness(j, ci);
-            m_columns_with_changed_bound.insert(j);
+            insert_to_columns_with_changed_bounds(j);
 	}
 	break;
     case GT:
@@ -2135,7 +2139,7 @@ void lar_solver::update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, 
                 set_infeasible_column(j);
             }
             m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
-            m_columns_with_changed_bound.insert(j);
+            insert_to_columns_with_changed_bounds(j);
             set_lower_bound_witness(j, ci);
             m_mpq_lar_core_solver.m_column_types[j] = (low == m_mpq_lar_core_solver.m_r_upper_bounds[j]? column_type::fixed : column_type::boxed);
 	}
@@ -2160,7 +2164,7 @@ void lar_solver::update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, 
 }
 void lar_solver::update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lp_assert(!column_has_lower_bound(j) && !column_has_upper_bound(j));
-    m_columns_with_changed_bound.insert(j);
+    insert_to_columns_with_changed_bounds(j);
 
     mpq y_of_bound(0);
     switch (kind) {
@@ -2180,7 +2184,7 @@ void lar_solver::update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kin
 	{
             auto low = numeric_pair<mpq>(right_side, y_of_bound);
             m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
-            m_columns_with_changed_bound.insert(j);
+            insert_to_columns_with_changed_bounds(j);
             set_lower_bound_witness(j, ci);
             m_mpq_lar_core_solver.m_column_types[j] = column_type::lower_bound;
 	}

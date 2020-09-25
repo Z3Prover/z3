@@ -88,7 +88,7 @@ class lar_solver : public column_namer {
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
     constraint_set                                      m_constraints;
     // the set of column indices j such that bounds have changed for j
-    u_set                                               m_columns_with_changed_bound;
+    u_set                                               m_columns_with_changed_bounds;
     u_set                                               m_rows_with_changed_bounds;
     u_set                                               m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the the corresponding row in the tableau
@@ -138,6 +138,12 @@ class lar_solver : public column_namer {
     bool column_is_int(column_index const& j) const { return column_is_int((unsigned)j); }
     const impq& get_value(column_index const& j) const { return get_column_value(j); }
 
+    inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.clear(); }
+    inline void increase_by_one_columns_with_changed_bounds() { m_columns_with_changed_bounds.increase_size_by_one(); }
+    inline void insert_to_columns_with_changed_bounds(unsigned j) {
+        m_columns_with_changed_bounds.insert(j);
+    }
+    
 
     void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, unsigned&);
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
