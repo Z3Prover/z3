@@ -361,7 +361,7 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
 void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {        
     TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
     m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
-    move_non_basic_columns_to_bounds();
+    move_non_basic_columns_to_bounds(false);
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
     rslv.set_using_infeas_costs(false);
     lp_assert(costs_are_zeros_for_r_solver());
@@ -379,41 +379,15 @@ void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
     lp_assert(rslv.reduced_costs_are_correct_tableau());
 }
 
-void lar_solver::move_non_basic_columns_to_bounds() {
+void lar_solver::move_non_basic_columns_to_bounds(bool shift_randomly) {
     auto & lcs = m_mpq_lar_core_solver;
     bool change = false;
     for (unsigned j : lcs.m_r_nbasis) {
-        if (move_non_basic_column_to_bounds(j, false))
+        if (move_non_basic_column_to_bounds(j, shift_randomly))
             change = true;
     }
     if (!change)
         return;
-    if (settings().simplex_strategy() == simplex_strategy_enum::tableau_costs)
-        update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
-    
-    find_feasible_solution();
-}
-
-void lar_solver::randomly_change_a_base_bounded_column() {
-    unsigned n = 0;
-    auto & lcs = m_mpq_lar_core_solver;
-    int p = -1; // column to change
-    for (unsigned j : lcs.m_r_nbasis) {
-        if (!column_is_bounded(j))
-            continue;
-        if (p == -1) {
-            p = j; n = 1;
-        } else if (m_settings.random_next() % (++n) == 0) {
-            p = j;
-        }
-    }
-
-    if (p == -1)
-        return;
-
-    if (!move_non_basic_column_to_bounds(p, true)) // true to force change
-        return;
-
     if (settings().simplex_strategy() == simplex_strategy_enum::tableau_costs)
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     
@@ -428,12 +402,12 @@ bool lar_solver::move_non_basic_column_to_bounds(unsigned j, bool force_change) 
         bool at_l = val == lcs.m_r_lower_bounds()[j];
         bool at_u = !at_l && (val == lcs.m_r_upper_bounds()[j]);
         if (!at_l  && !at_u) {
-            if (m_settings.random_next() % 2 == 0)
+            if (m_settings.random_next() % 2)
                 set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
             else
                 set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
             return true;
-        } else if (force_change) {
+        } else if (force_change && m_settings.random_next() % 3 == 0) {
             set_value_for_nbasic_column(j,
              at_l?lcs.m_r_upper_bounds()[j]:lcs.m_r_lower_bounds()[j]);
             return true;

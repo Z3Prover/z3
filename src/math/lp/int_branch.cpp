@@ -60,13 +60,11 @@ int int_branch::find_inf_int_column() {
     unsigned prev_usage = 0; // to quiet down the compile
     unsigned usage;
     unsigned j = 0;
-    unsigned n_of_inf_ints = 0; // 
     // this loop looks for a column with the most usages, but breaks when
     // a column with a small span of bounds is found
     for (; j < lra.column_count(); j++) {
         if (!lia.column_is_int_inf(j))
             continue;
-        n_of_inf_ints ++;
         usage = lra.usage_in_terms(j);
         if (lia.is_boxed(j) &&  (range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_range_thresold) {
             result = j++;
@@ -84,9 +82,7 @@ int int_branch::find_inf_int_column() {
 
     // this loop looks for boxed columns with a small span
     for (; j < lra.column_count(); j++) {
-        if (!lia.column_is_int_inf(j))
-        n_of_inf_ints++;
-        if (!lia.is_boxed(j))
+        if (!lia.column_is_int_inf(j) || !lia.is_boxed(j))
             continue;
         usage = lra.usage_in_terms(j);
         new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage);
@@ -97,9 +93,6 @@ int int_branch::find_inf_int_column() {
         } else if (new_range == range && (lia.random() % (++n) == 0)) {
             result = j;                    
         }
-    }
-    if (n_of_inf_ints == 1) {
-        lra.randomly_change_a_base_bounded_column();
     }
     return result;    
 }
