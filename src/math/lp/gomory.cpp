@@ -388,7 +388,7 @@ int gomory::find_basic_var() {
     int result = -1;
     unsigned n = 0;
     unsigned min_row_size = UINT_MAX;
-
+    unsigned n_of_gomory_targets = 0;
     // Prefer smaller row size
     // Prefer boxed to non-boxed
     // Prefer smaller ranges
@@ -400,7 +400,7 @@ int gomory::find_basic_var() {
         const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(j));
         if (!is_gomory_cut_target(row)) 
             continue;
-
+        n_of_gomory_targets ++;
         IF_VERBOSE(20, lia.display_row_info(verbose_stream(), lia.row_of_basic_column(j)));
         if (min_row_size == UINT_MAX || 
             2*row.size() < min_row_size || 
@@ -410,6 +410,8 @@ int gomory::find_basic_var() {
             min_row_size = std::min(min_row_size, row.size());
         }
     }
+    if (n_of_gomory_targets == 1)
+        lra.randomly_change_a_base_bounded_column();
     return result;
 }
     

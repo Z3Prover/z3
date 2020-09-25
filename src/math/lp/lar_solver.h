@@ -598,7 +598,8 @@ public:
     inline const lar_term & get_term(tv const& t) const { lp_assert(t.is_term()); return *m_terms[t.id()]; }
     lp_status find_feasible_solution();   
     void move_non_basic_columns_to_bounds();
-    bool move_non_basic_column_to_bounds(unsigned j);
+    bool move_non_basic_column_to_bounds(unsigned j, bool);
+    void randomly_change_a_base_bounded_column();
     inline bool r_basis_has_inf_int() const {
         for (unsigned j : r_basis()) {
             if (column_is_int(j) && ! column_value_is_int(j))

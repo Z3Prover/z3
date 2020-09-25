@@ -383,32 +383,57 @@ void lar_solver::move_non_basic_columns_to_bounds() {
     auto & lcs = m_mpq_lar_core_solver;
     bool change = false;
     for (unsigned j : lcs.m_r_nbasis) {
-        if (move_non_basic_column_to_bounds(j))
+        if (move_non_basic_column_to_bounds(j, false))
             change = true;
     }
-
-    if (settings().simplex_strategy() == simplex_strategy_enum::tableau_costs && change)
+    if (!change)
+        return;
+    if (settings().simplex_strategy() == simplex_strategy_enum::tableau_costs)
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     
-    if (change) {
-        find_feasible_solution();
-    }
+    find_feasible_solution();
 }
 
-bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {
+void lar_solver::randomly_change_a_base_bounded_column() {
+    unsigned n = 0;
+    auto & lcs = m_mpq_lar_core_solver;
+    int p = -1; // column to change
+    for (unsigned j : lcs.m_r_nbasis) {
+        if (!column_is_bounded(j))
+            continue;
+        if (p == -1) {
+            p = j; n = 1;
+        } else if (m_settings.random_next() % (++n) == 0) {
+            p = j;
+        }
+    }
+
+    if (p == -1)
+        return;
+
+    if (!move_non_basic_column_to_bounds(p, true)) // true to force change
+        return;
+
+    if (settings().simplex_strategy() == simplex_strategy_enum::tableau_costs)
+        update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
+    
+    find_feasible_solution();
+}
+
+bool lar_solver::move_non_basic_column_to_bounds(unsigned j, bool force_change) {
     auto & lcs = m_mpq_lar_core_solver;
     auto & val = lcs.m_r_x[j];
     switch (lcs.m_column_types()[j]) {
     case column_type::boxed: {
         bool at_l = val == lcs.m_r_lower_bounds()[j];
-        bool at_u = at_l? false : val == lcs.m_r_upper_bounds()[j];
-        if (!at_l  && ! at_u) {
+        bool at_u = !at_l && (val == lcs.m_r_upper_bounds()[j]);
+        if (!at_l  && !at_u) {
             if (m_settings.random_next() % 2 == 0)
                 set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
             else
                 set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
             return true;
-        } else if (m_settings.random_next() % 90 == 0) {
+        } else if (force_change) {
             set_value_for_nbasic_column(j,
              at_l?lcs.m_r_upper_bounds()[j]:lcs.m_r_lower_bounds()[j]);
             return true;
