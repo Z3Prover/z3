@@ -77,6 +77,7 @@ namespace bv {
         if (!check_mul_one(e, args, r1, r2))
             return false;
 
+
         // Add propagation axiom for arguments
         if (!check_mul_invertibility(e, args, r1))
             return false;
@@ -156,6 +157,7 @@ namespace bv {
         }
         return ok;
     }
+
 
     /*
     * Check that multiplication with 0 is correctly propagated.
@@ -423,9 +425,9 @@ namespace bv {
         internalize_mode mode;
         switch (to_app(e)->get_decl_kind()) {
         case OP_BMUL: 
-        case OP_BSMUL_NO_OVFL:
-        case OP_BSMUL_NO_UDFL:
-        case OP_BUMUL_NO_OVFL:
+        //case OP_BSMUL_NO_OVFL:
+        //case OP_BSMUL_NO_UDFL:
+        //case OP_BUMUL_NO_OVFL:
         case OP_BSMOD_I:
         case OP_BUREM_I:
         case OP_BSREM_I:

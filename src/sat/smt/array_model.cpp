@@ -66,7 +66,6 @@ namespace array {
     
         if (!fi->get_else()) {
             expr* else_value = nullptr;
-
             unsigned max_occ_num = 0;
             obj_map<expr, unsigned> num_occ;
             for (euf::enode* p : euf::enode_parents(n)) {
@@ -84,7 +83,6 @@ namespace array {
                     }
                 }
             }
-
             if (else_value)
                 fi->set_else(else_value);
         }
