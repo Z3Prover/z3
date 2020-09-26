@@ -217,10 +217,11 @@ namespace euf {
 
     void solver::asserted(literal l) {
         expr* e = m_var2expr.get(l.var(), nullptr);
-        if (!e) 
+        if (!e) {
+            TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << "\n";);
             return;        
-
-        TRACE("euf", tout << "asserted: " << mk_bounded_pp(e, m) << " := " << l << "@" << s().scope_lvl() << "\n";);
+        }
+        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
@@ -431,8 +432,9 @@ namespace euf {
         if (replay.m.empty())
             return;
         
-        TRACE("euf", for (auto const& kv : replay.m) tout << "replay: " << kv.m_value << " " << mk_bounded_pp(kv.m_key, m) << "\n";);
+        TRACE("euf", for (auto const& kv : replay.m) tout << kv.m_value << "\n";);
         for (auto const& kv : replay.m) {
+            TRACE("euf", tout << "replay: " << kv.m_value << " " << mk_bounded_pp(kv.m_key, m) << "\n";);
             sat::literal lit;
             expr* e = kv.m_key;
             if (si.is_bool_op(e)) 

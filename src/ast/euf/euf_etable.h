@@ -113,11 +113,19 @@ namespace euf {
         };
 
         typedef chashtable<enode*, cg_hash, cg_eq> table;
+        typedef std::pair<func_decl*, unsigned> decl_info;
+        struct decl_hash {
+            unsigned operator()(decl_info const& d) const { return d.first->hash(); }
+        };
+        struct decl_eq {
+            bool operator()(decl_info const& a, decl_info const& b) const { return a == b; }
+        };
+
 
         ast_manager &                 m_manager;
         bool                          m_commutativity; //!< true if the last found congruence used commutativity
         ptr_vector<void>              m_tables;
-        obj_map<func_decl, unsigned>  m_func_decl2id;
+        map<decl_info, unsigned, decl_hash, decl_eq>  m_func_decl2id;
 
         enum table_kind {
             UNARY,
@@ -126,7 +134,7 @@ namespace euf {
             NARY
         };
 
-        void * mk_table_for(func_decl * d);
+        void * mk_table_for(unsigned n, func_decl * d);
         unsigned set_table_id(enode * n);
         
         void * get_table(enode * n) {

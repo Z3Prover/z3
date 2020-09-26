@@ -191,7 +191,7 @@ public:
 
     void add_delta_to_entering(unsigned entering, const X & delta);
 
-    const T & get_var_value(unsigned j) const {
+    const X & get_var_value(unsigned j) const {
         return m_x[j];
     }
 
@@ -618,9 +618,9 @@ public:
         return out;
     }
 
-    bool column_is_free(unsigned j) const { return this->m_column_type[j] == column_type::free_column; }
+    bool column_is_free(unsigned j) const { return this->m_column_types[j] == column_type::free_column; }
 
-    bool column_is_fixed(unsigned j) const { return this->m_column_type[j] == column_type::fixed; }
+    bool column_is_fixed(unsigned j) const { return this->m_column_types[j] == column_type::fixed; }
 
     
     bool column_has_upper_bound(unsigned j) const {

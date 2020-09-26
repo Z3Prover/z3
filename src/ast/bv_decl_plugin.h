@@ -349,6 +349,7 @@ public:
     bool is_bv_lshr(expr const * e) const { return is_app_of(e, get_fid(), OP_BLSHR); }
     bool is_bv_shl(expr const * e) const { return is_app_of(e, get_fid(), OP_BSHL); }
     bool is_sign_ext(expr const * e) const { return is_app_of(e, get_fid(), OP_SIGN_EXT); }
+    bool is_bv_umul_no_ovfl(expr const* e) const { return is_app_of(e, get_fid(), OP_BUMUL_NO_OVFL); }
 
     MATCH_BINARY(is_bv_add);
     MATCH_BINARY(is_bv_mul);

@@ -69,31 +69,25 @@ namespace euf {
         reset();
     }
 
-    void * etable::mk_table_for(func_decl * d) {
+    void * etable::mk_table_for(unsigned arity, func_decl * d) {
         void * r;
         SASSERT(d->get_arity() >= 1);
-        switch (d->get_arity()) {
+        SASSERT(arity >= d->get_arity());
+        switch (arity) {
         case 1:
             r = TAG(void*, alloc(unary_table), UNARY);
             SASSERT(GET_TAG(r) == UNARY);
             return r;
         case 2:
-            if (d->is_flat_associative()) {
-                // applications of declarations that are flat-assoc (e.g., +) may have many arguments.
-                r = TAG(void*, alloc(table), NARY);
-                SASSERT(GET_TAG(r) == NARY);
-                return r;
-            }
-            else if (d->is_commutative()) {
+            if (d->is_commutative()) {
                 r = TAG(void*, alloc(comm_table, cg_comm_hash(), cg_comm_eq(m_commutativity)), BINARY_COMM);
                 SASSERT(GET_TAG(r) == BINARY_COMM);
-                return r;
             }
             else {
                 r = TAG(void*, alloc(binary_table), BINARY);
                 SASSERT(GET_TAG(r) == BINARY);
-                return r;
             }
+            return r;
         default: 
             r = TAG(void*, alloc(table), NARY);
             SASSERT(GET_TAG(r) == NARY);
@@ -104,18 +98,20 @@ namespace euf {
     unsigned etable::set_table_id(enode * n) {
         func_decl * f = n->get_decl();
         unsigned tid;
-        if (!m_func_decl2id.find(f, tid)) {
+        decl_info d(f, n->num_args());
+        if (!m_func_decl2id.find(d, tid)) {
             tid = m_tables.size();
-            m_func_decl2id.insert(f, tid);
+            m_func_decl2id.insert(d, tid);
             m_manager.inc_ref(f);
             SASSERT(tid <= m_tables.size());
-            m_tables.push_back(mk_table_for(f));
+            m_tables.push_back(mk_table_for(n->num_args(), f));
         }
         SASSERT(tid < m_tables.size());
         n->set_table_id(tid);
         DEBUG_CODE({
-            unsigned tid_prime;
-            SASSERT(m_func_decl2id.find(n->get_decl(), tid_prime) && tid == tid_prime);
+            decl_info d(n->get_decl(), n->num_args());
+            SASSERT(m_func_decl2id.contains(d));
+            SASSERT(m_func_decl2id[d] == tid);
         });
         return tid;
     }
@@ -139,7 +135,7 @@ namespace euf {
         }
         m_tables.reset();
         for (auto const& kv : m_func_decl2id) {
-            m_manager.dec_ref(kv.m_key);
+            m_manager.dec_ref(kv.m_key.first);
         }
         m_func_decl2id.reset();
     }
@@ -147,7 +143,7 @@ namespace euf {
     void etable::display(std::ostream & out) const {
         for (auto const& kv : m_func_decl2id) {
             void * t = m_tables[kv.m_value];
-            out << mk_pp(kv.m_key, m_manager) << ": ";
+            out << mk_pp(kv.m_key.first, m_manager) << ": ";
             switch (GET_TAG(t)) {
             case UNARY: 
                 display_unary(out, t);

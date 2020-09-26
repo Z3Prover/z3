@@ -269,7 +269,7 @@ namespace bv {
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
         auto& c = bv_justification::from_index(idx);
-        TRACE("bv", display_constraint(tout, idx););
+        TRACE("bv", display_constraint(tout, idx) << "\n";);
         switch (c.m_kind) {
         case bv_justification::kind_t::eq2bit:
             SASSERT(s().value(c.m_antecedent) == l_true);
@@ -422,7 +422,6 @@ namespace bv {
                         ++num_eq_assigned;
                     }
                 }
-                IF_VERBOSE(20, verbose_stream() << "atoms: " << num_atoms << " eqs: " << num_eqs << " atoms-assigned:" << num_assigned << " eqs-assigned: " << num_eq_assigned << " lits: " << num_lit_assigned << "\n");
             }
             else 
                 propagate_bits(p.m_vp);            
@@ -499,16 +498,20 @@ namespace bv {
         force_push();
         SASSERT(m_prop_queue.size() == m_prop_queue_head);
         bool ok = true;
-        for (auto kv : m_delay_internalize) {
-            if (ctx.is_relevant(kv.m_key) && 
-                kv.m_value == internalize_mode::init_bits_i &&
-                !check_delay_internalized(expr2enode(kv.m_key)))
+        svector<std::pair<expr*, internalize_mode>> delay;
+        for (auto kv : m_delay_internalize)
+            delay.push_back(std::make_pair(kv.m_key, kv.m_value));
+        for (auto kv : delay) {
+            if (ctx.is_relevant(kv.first) && 
+                kv.second == internalize_mode::init_bits_i &&
+                !check_delay_internalized(expr2enode(kv.first)))
                 ok = false;
         }
         return ok ? sat::check_result::CR_DONE : sat::check_result::CR_CONTINUE;
     }
 
     void solver::push_core() {
+        TRACE("bv", tout << "push: " << get_num_vars() << "@" << m_prop_queue_lim.size() << "\n";);
         th_euf_solver::push_core();
         m_prop_queue_lim.push_back(m_prop_queue.size());
     }
@@ -523,6 +526,7 @@ namespace bv {
         m_bits.shrink(old_sz);
         m_wpos.shrink(old_sz);
         m_zero_one_bits.shrink(old_sz);
+        TRACE("bv", tout << "num vars " << old_sz << "@" << m_prop_queue_lim.size() << "\n";);
     }
 
     void solver::pre_simplify() {}

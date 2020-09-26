@@ -101,8 +101,16 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_m_
             for (const auto & c : m_core_solver.m_A.m_columns[column]){
                 t[c.var()] = m_core_solver.m_A.get_val(c);
             }
-                
-            string name = m_core_solver.column_name(column);
+
+            auto const& value = m_core_solver.get_var_value(column);
+             
+            if (m_core_solver.column_is_fixed(column) && is_zero(value)) 
+                continue;
+            string name;
+            if (m_core_solver.column_is_fixed(column)) 
+                name = "*" + T_to_string(value);
+            else 
+                name = m_core_solver.column_name(column);
             for (unsigned row = 0; row < nrows(); row ++) {
                 m_A[row].resize(ncols(), "");
                 m_signs[row].resize(ncols(),"");
