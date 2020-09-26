@@ -378,6 +378,18 @@ namespace euf {
         m_egraph.push();
     }
 
+    void solver::user_push() {
+        push();
+        if (m_dual_solver)
+            m_dual_solver->push();
+    }
+
+    void solver::user_pop(unsigned n) {
+        pop(n);
+        if (m_dual_solver)
+            m_dual_solver->pop(n);
+    }
+
     void solver::pop(unsigned n) {
         start_reinit(n);
         m_trail.pop_scope(n);

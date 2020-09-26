@@ -95,7 +95,6 @@ namespace array {
         for (unsigned i = 1; i < select->get_num_args(); ++i)
             if (!ctx.is_relevant(select->get_arg(i)))
                 return false;
-        // std::cout << "relevant\n";
         TRACE("array", tout << "select-axiom: " << mk_bounded_pp(select, m, 2) << " " << mk_bounded_pp(child, m, 2) << "\n";);
 //        if (r.select->get_arg(0)->get_root() != r.n->get_root())
 //            std::cout << "delayed: " << r.m_delayed << "\n";
@@ -493,9 +492,6 @@ namespace array {
         bool change = false;
         unsigned sz = m_axiom_trail.size();
         m_delay_qhead = 0;
-        if (m_delay_qhead < sz)
-            ctx.push(value_trail<euf::solver, unsigned>(m_delay_qhead));
-        IF_VERBOSE(11, verbose_stream() << "delay " << m_delay_qhead << " " << sz << "\n");
         for (; m_delay_qhead < sz; ++m_delay_qhead) 
             if (m_axiom_trail[m_delay_qhead].m_delayed && assert_axiom(m_delay_qhead))
                 change = true;        
@@ -518,9 +514,11 @@ namespace array {
                     continue;
                 if (have_different_model_values(v1, v2))
                     continue;
-                expr_ref eq(m.mk_eq(e1, e2), m);
+                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2)))
+                    continue;
+                expr_ref eq(m.mk_eq(e1, e2), m);                
                 sat::literal lit = b_internalize(eq);
-                if (s().value(lit) == l_undef)
+                if (s().value(lit) == l_undef) 
                     prop = true;
             }
         }

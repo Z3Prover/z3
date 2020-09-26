@@ -131,18 +131,6 @@ namespace smt {
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
             return m_kernel.find_mutexes(vars, mutexes);
         }
-
-        expr_ref get_implied_value(expr* e) {
-            return m_kernel.get_implied_value(e);
-        }
-
-        expr_ref get_implied_lower_bound(expr* e) {
-            return m_kernel.get_implied_lower_bound(e);
-        }
-
-        expr_ref get_implied_upper_bound(expr* e) {
-            return m_kernel.get_implied_upper_bound(e);
-        }
         
         void get_model(model_ref & m) {
             m_kernel.get_model(m);
@@ -459,18 +447,6 @@ namespace smt {
 
     expr_ref_vector kernel::get_trail() {
         return m_imp->get_trail();
-    }
-
-    expr_ref kernel::get_implied_value(expr* e) {
-        return m_imp->get_implied_value(e);
-    }
-    
-    expr_ref kernel::get_implied_lower_bound(expr* e) {
-        return m_imp->get_implied_lower_bound(e);
-    }
-    
-    expr_ref kernel::get_implied_upper_bound(expr* e) {
-        return m_imp->get_implied_upper_bound(e);
     }
 
     void kernel::user_propagate_init(

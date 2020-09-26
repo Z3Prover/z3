@@ -224,16 +224,6 @@ namespace smt {
         */
         expr_ref_vector cubes(unsigned depth);
 
-        /**
-           \brief retrieve upper/lower bound for arithmetic term, if it is implied.
-           retrieve implied values if terms are fixed to a value.
-        */
-
-        expr_ref get_implied_value(expr* e);
-
-        expr_ref get_implied_lower_bound(expr* e);
-
-        expr_ref get_implied_upper_bound(expr* e);
 
         /**
            \brief retrieve depth of variables from decision stack.

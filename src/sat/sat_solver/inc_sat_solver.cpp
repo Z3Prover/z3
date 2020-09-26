@@ -123,7 +123,7 @@ public:
         ast_translation tr(m, dst_m);
         m_solver.pop_to_base_level();
         inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p, is_incremental());
-        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        auto* ext = get_euf();
         if (ext) {
             auto& si = result->m_goal2sat.si(dst_m, m_params, result->m_solver, result->m_map, result->m_dep2asm, is_incremental());
             euf::solver::scoped_set_translate st(*ext, dst_m, si);  
@@ -258,6 +258,8 @@ public:
 
     void push_internal() {
         m_solver.user_push();
+        if (get_euf())
+            get_euf()->user_push();
         ++m_num_scopes;
         m_mcs.push_back(m_mcs.back());
         m_fmls_lim.push_back(m_fmls.size());
@@ -280,6 +282,8 @@ public:
         m_num_scopes -= n;
         // ? m_internalized_converted = false;
         m_has_uninterpreted.pop(n);
+        if (get_euf())
+            get_euf()->user_pop(n);
         while (n > 0) {
             m_mcs.pop_back();
             m_fmls_head = m_fmls_head_lim.back();
@@ -337,6 +341,11 @@ public:
         m_params.set_sym("pb.solver", p1.pb_solver());
         m_solver.updt_params(m_params);
         m_solver.set_incremental(is_incremental() && !override_incremental());
+        if (p1.euf() && !get_euf()) {
+            ensure_euf();
+            for (unsigned i = 0; i < m_num_scopes; ++i)
+                get_euf()->user_push();
+        }
 
     }
     void collect_statistics(statistics & st) const override {
@@ -372,19 +381,6 @@ public:
 
     proof * get_proof() override {
         return nullptr;
-    }
-
-    // TODO
-    expr_ref get_implied_value(expr* e) override {
-        return expr_ref(e, m);
-    }
-
-    expr_ref get_implied_lower_bound(expr* e) override {
-        return expr_ref(e, m);
-    }
-
-    expr_ref get_implied_upper_bound(expr* e) override {
-        return expr_ref(e, m);
     }
 
     expr_ref_vector last_cube(bool is_sat) {
@@ -622,6 +618,10 @@ public:
             m_bb_rewriter->push();
         }
         m_preprocess->reset();
+    }
+
+    euf::solver* get_euf() {
+        return dynamic_cast<euf::solver*>(m_solver.get_extension());
     }
 
     euf::solver* ensure_euf() {

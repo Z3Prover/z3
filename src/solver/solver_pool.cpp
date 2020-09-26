@@ -127,18 +127,6 @@ public:
         return m_base->get_trail();
     }
 
-    expr_ref get_implied_value(expr* e) override {
-        return expr_ref(e, m);
-    }
-
-    expr_ref get_implied_lower_bound(expr* e) override {
-        return expr_ref(e, m);
-    }
-
-    expr_ref get_implied_upper_bound(expr* e) override {
-        return expr_ref(e, m);
-    }
-
     lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         m_proof.reset();
