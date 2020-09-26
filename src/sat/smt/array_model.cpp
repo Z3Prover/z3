@@ -23,7 +23,6 @@ namespace array {
     
     
     void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) { 
-        std::cout << "add-dep " << mk_bounded_pp(n->get_expr(), m) << "\n";
         if (!a.is_array(n->get_expr())) {
             dep.insert(n, nullptr);
             return;

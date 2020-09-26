@@ -500,7 +500,6 @@ namespace bv {
         svector<std::pair<expr*, internalize_mode>> delay;
         for (auto kv : m_delay_internalize)
             delay.push_back(std::make_pair(kv.m_key, kv.m_value));
-
         flet<bool> _cheap1(m_cheap_axioms, true);
         for (auto kv : delay) 
             if (!check_delay_internalized(kv.first))

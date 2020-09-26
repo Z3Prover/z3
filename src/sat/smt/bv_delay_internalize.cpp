@@ -180,7 +180,6 @@ namespace bv {
                 set_delay_internalize(r, internalize_mode::init_bits_only_i); // do not bit-blast this multiplier.
                 expr_ref eq(m.mk_eq(r, arg_value), m);
                 args[i] = n->get_arg(i);
-                std::cout << eq << "@" << s().scope_lvl() << "\n";
                 add_unit(b_internalize(eq));
             }
             return false;
@@ -299,8 +298,6 @@ namespace bv {
         set_delay_internalize(rhs, internalize_mode::no_delay_i);
         expr_ref eq(m.mk_eq(lhs, rhs), m);
         add_unit(b_internalize(eq));
-        TRACE("bv", tout << "low-bits: " << eq << "\n";);
-        std::cout << "low bits\n";
         return false;     
     }
 
@@ -321,7 +318,10 @@ namespace bv {
     };
 
     /**
+<<<<<<< HEAD
 
+=======
+>>>>>>> 055902df2... bv
      * The i'th bit in xs is 1 if the least significant bit of x is i or lower.
      */
     void solver::encode_lsb_tail(expr* x, expr_ref_vector& xs) {
@@ -388,7 +388,6 @@ namespace bv {
         auto r2 = eval_args(n, args);
         if (r1 == r2)
             return true;
-
         if (m_cheap_axioms)
             return true;
         set_delay_internalize(a, internalize_mode::no_delay_i);
