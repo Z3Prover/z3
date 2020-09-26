@@ -494,6 +494,11 @@ namespace bv {
         return num_assigned > 0;
     }
 
+    /**
+    * Check each delay internalized bit-vector operation for compliance.
+    * 
+    * TBD: add model-repair attempt after cheap propagation axioms have been added
+    */
     sat::check_result solver::check() {
         force_push();
         SASSERT(m_prop_queue.size() == m_prop_queue_head);
@@ -501,13 +506,23 @@ namespace bv {
         svector<std::pair<expr*, internalize_mode>> delay;
         for (auto kv : m_delay_internalize)
             delay.push_back(std::make_pair(kv.m_key, kv.m_value));
-        for (auto kv : delay) {
-            if (ctx.is_relevant(kv.first) && 
-                kv.second == internalize_mode::init_bits_i &&
-                !check_delay_internalized(expr2enode(kv.first)))
+        flet<bool> _cheap1(m_cheap_axioms, true);
+        for (auto kv : delay) 
+            if (!check_delay_internalized(kv.first))
                 ok = false;
-        }
-        return ok ? sat::check_result::CR_DONE : sat::check_result::CR_CONTINUE;
+        if (!ok)
+            return sat::check_result::CR_CONTINUE;
+
+        // if (repair_model()) return sat::check_result::DONE;
+
+        flet<bool> _cheap2(m_cheap_axioms, false);
+        for (auto kv : delay) 
+            if (!check_delay_internalized(kv.first))
+                ok = false;
+        
+        if (!ok)
+            return sat::check_result::CR_CONTINUE;
+        return sat::check_result::CR_DONE;
     }
 
     void solver::push_core() {
@@ -625,8 +640,7 @@ namespace bv {
             return out << "bv <- v" << v1 << "[" << cidx << "] != v" << v2 << "[" << cidx << "] " << m_bits[v1][cidx] << " != " << m_bits[v2][cidx];
         }
         case bv_justification::kind_t::ne2bit: 
-            return out << "bv <- " << m_bits[v1] << " != " << m_bits[v2] << " @" << cidx;
-            break;                                                     
+            return out << "bv <- " << m_bits[v1] << " != " << m_bits[v2] << " @" << cidx;                                                 
         default:
             UNREACHABLE();
             break;
@@ -787,9 +801,7 @@ namespace bv {
         return sat::justification::mk_ext_justification(s().scope_lvl(), constraint->to_index());
     }
 
-
     bool solver::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
-
         m_stats.m_num_eq2bit++;
         SASSERT(ctx.s().value(antecedent) == l_true);
         SASSERT(m_bits[v2][idx].var() == consequent.var());

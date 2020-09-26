@@ -121,30 +121,38 @@ namespace euf {
     }
 
     bool th_euf_solver::add_unit(sat::literal lit) {
-        return !is_true(lit) && (ctx.s().add_clause(1, &lit, mk_status()), true);
+        bool was_true = is_true(lit);
+        ctx.s().add_clause(1, &lit, mk_status());
+        return !was_true;
     }
 
     bool th_euf_solver::add_clause(sat::literal a, sat::literal b) {
+        bool was_true = is_true(a, b);
         sat::literal lits[2] = { a, b };
-        return !is_true(a, b) && (ctx.s().add_clause(2, lits, mk_status()), true);
+        ctx.s().add_clause(2, lits, mk_status());
+        return !was_true;
     }
 
     bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c) {
+        bool was_true = is_true(a, b, c);
         sat::literal lits[3] = { a, b, c };
-        return !is_true(a, b, c) && (ctx.s().add_clause(3, lits, mk_status()), true);
+        ctx.s().add_clause(3, lits, mk_status());
+        return !was_true;
     }
 
     bool th_euf_solver::add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d) {
+        bool was_true = is_true(a, b, c, d);
         sat::literal lits[4] = { a, b, c, d };
-        return !is_true(a, b, c, d) && (ctx.s().add_clause(4, lits, mk_status()), true);
+        ctx.s().add_clause(4, lits, mk_status());
+        return !was_true;
     }
 
     bool th_euf_solver::add_clause(sat::literal_vector const& lits) {
+        bool was_true = false;
         for (auto lit : lits)
-            if (is_true(lit))
-                return false;
+            was_true |= is_true(lit);
         s().add_clause(lits.size(), lits.c_ptr(), mk_status());
-        return true;
+        return !was_true;
     }
 
     bool th_euf_solver::is_true(sat::literal lit) { 

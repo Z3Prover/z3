@@ -157,7 +157,7 @@ namespace bv {
         SASSERT(!n->is_attached_to(get_id()));
         theory_var v = mk_var(n);
         SASSERT(n->is_attached_to(get_id()));
-        if (internalize_mode::init_bits_i == get_internalize_mode(a)) 
+        if (internalize_mode::no_delay_i != get_internalize_mode(a)) 
             mk_bits(n->get_th_var(get_id()));
         else
             internalize_circuit(a);

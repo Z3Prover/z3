@@ -298,6 +298,7 @@ public:
     bool is_numeral(expr const * n) const { return is_app_of(n, get_fid(), OP_BV_NUM); }
     bool is_allone(expr const * e) const;
     bool is_zero(expr const * e) const;
+    bool is_one(expr const* e) const;
     bool is_bv_sort(sort const * s) const;
     bool is_bv(expr const* e) const {  return is_bv_sort(get_sort(e)); }
 

@@ -129,7 +129,7 @@ namespace euf {
                 }
                 continue;
             }
-            std::cout << "value for " << mk_bounded_pp(e, m) << "\n";
+            TRACE("euf", tout << "value for " << mk_bounded_pp(e, m) << "\n";);
             sort* srt = m.get_sort(e);
             if (m.is_uninterp(srt)) 
                 user_sort.add(id, srt);            

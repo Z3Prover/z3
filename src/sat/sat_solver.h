@@ -371,8 +371,12 @@ namespace sat {
             switch (value(l)) {
             case l_false: set_conflict(j, ~l); break;
             case l_undef: assign_core(l, j); break;
-            case l_true:  return;
+            case l_true:  update_assign(l, j); break;
             }
+        }
+        void update_assign(literal l, justification j) {
+            if (lvl(l) > j.level())
+                m_justification[l.var()] = j;
         }
         void assign_unit(literal l) { assign(l, justification(0)); }
         void assign_scoped(literal l) { assign(l, justification(scope_lvl())); }

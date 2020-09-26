@@ -286,16 +286,20 @@ namespace bv {
 
         // delay internalize
         enum class internalize_mode {
+            delay_i,
             no_delay_i,
-            init_bits_i
+            init_bits_only_i
         };
 
         obj_map<expr, internalize_mode> m_delay_internalize;
+        bool m_cheap_axioms{ true };
         bool should_bit_blast(expr * n);
-        bool check_delay_internalized(euf::enode* n);
-        bool check_mul(euf::enode* n);
+        bool check_delay_internalized(expr* e);
+        bool check_mul(app* e);
         bool check_mul_invertibility(app* n, expr_ref_vector const& arg_values, expr* value);
         bool check_mul_zero(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2);
+        bool check_mul_one(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2);
+        bool check_mul_low_bits(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2);
         bool check_umul_no_overflow(app* n, expr_ref_vector const& arg_values, expr* value);
         bool check_bv_eval(euf::enode* n);
         bool check_bool_eval(euf::enode* n);

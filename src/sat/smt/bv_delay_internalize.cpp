@@ -20,25 +20,28 @@ Author:
 
 namespace bv {
 
-    bool solver::check_delay_internalized(euf::enode* n) {
-        expr* e = n->get_expr();
+    bool solver::check_delay_internalized(expr* e) {
+        if (!ctx.is_relevant(e))
+            return true;
+        if (get_internalize_mode(e) != internalize_mode::delay_i)
+            return true;
         SASSERT(bv.is_bv(e));
         SASSERT(get_internalize_mode(e) != internalize_mode::no_delay_i);
         switch (to_app(e)->get_decl_kind()) {
         case OP_BMUL:
-            return check_mul(n);
+            return check_mul(to_app(e));
         case OP_BSMUL_NO_OVFL:
         case OP_BSMUL_NO_UDFL:
         case OP_BUMUL_NO_OVFL:
-            return check_bool_eval(n);
+            return check_bool_eval(expr2enode(e));
         default:
-            return check_bv_eval(n);
+            return check_bv_eval(expr2enode(e));
         }
         return true;
     }
 
     bool solver::should_bit_blast(expr* e) {
-        return bv.get_bv_size(e) <= 2;
+        return bv.get_bv_size(e) <= 12;
     }
 
     expr_ref solver::eval_args(euf::enode* n, expr_ref_vector& args) {
@@ -57,26 +60,38 @@ namespace bv {
         return expr_ref(bv.mk_numeral(val, get_bv_size(v)), m);
     }
 
-    bool solver::check_mul(euf::enode* n) {
-        SASSERT(n->num_args() >= 2);
-        app* e = to_app(n->get_expr());
+    bool solver::check_mul(app* e) {
+        SASSERT(e->get_num_args() >= 2);
         expr_ref_vector args(m);
+        euf::enode* n = expr2enode(e);
         auto r1 = eval_bv(n);
         auto r2 = eval_args(n, args);
         if (r1 == r2)
             return true;
 
-        // Some possible approaches:
-
         TRACE("bv", tout << mk_bounded_pp(e, m) << " evaluates to " << r1 << " arguments: " << args << "\n";);
+        // check x*0 = 0
         if (!check_mul_zero(e, args, r1, r2))
             return false;
+
+        // check x*1 = x
+        if (!check_mul_one(e, args, r1, r2))
+            return false;
+
+        // Add propagation axiom for arguments
         if (!check_mul_invertibility(n->get_app(), args, r1))
             return false;
-        // check base cases: val_mul = 0 or val = 0, some values in product are 1, 
 
         // check discrepancies in low-order bits
-        // Add axioms for multiplication when fixing high-order bits to 0
+        // Add axioms for multiplication when fixing high-order bits
+        if (!check_mul_low_bits(e, args, r1, r2))
+            return false;
+
+
+        // Some other possible approaches:
+        // algebraic rules:
+        // x*(y+z), and there are nodes for x*y or x*z -> x*(y+z) = x*y + x*z
+        // compute S-polys for a set of constraints.
       
         // Hensel lifting:
         // The idea is dual to fixing high-order bits. Fix the low order bits where multiplication
@@ -88,7 +103,9 @@ namespace bv {
 
         // check tangets hi >= y >= y0 and hi' >= x => x*y >= x*y0
 
-        // compute S-polys for a set of constraints.
+
+        if (m_cheap_axioms)
+            return true;
 
         set_delay_internalize(e, internalize_mode::no_delay_i);
         internalize_circuit(e);
@@ -129,7 +146,7 @@ namespace bv {
             inv = invert(s, n);
             expr_ref eq(m.mk_eq(inv, n), m);
             TRACE("bv", tout << "enforce " << eq << "\n";);
-            add_unit(ctx.internalize(eq, false, true, true));            
+            add_unit(b_internalize(eq));
         };
         bool ok = true;
         for (unsigned i = 0; i < arg_values.size(); ++i) {
@@ -144,6 +161,8 @@ namespace bv {
     /*
     * Check that multiplication with 0 is correctly propagated.
     * If not, create algebraic axioms enforcing 0*x = 0 and x*0 = 0
+    * 
+    * z = 0, then lsb(x) + 1 + lsb(y) + 1 >= sz
     */
     bool solver::check_mul_zero(app* n, expr_ref_vector const& arg_values, expr* mul_value, expr* arg_value) {
         SASSERT(mul_value != arg_value);
@@ -153,21 +172,128 @@ namespace bv {
             unsigned sz = n->get_num_args();
             expr_ref_vector args(m, sz, n->get_args());
             for (unsigned i = 0; i < sz && !s().inconsistent(); ++i) {
-                expr* arg = args.get(i);
                 args[i] = arg_value;
                 expr_ref r(m.mk_app(n->get_decl(), args), m);
+                set_delay_internalize(r, internalize_mode::init_bits_only_i); // do not bit-blast this multiplier.
                 expr_ref eq(m.mk_eq(r, arg_value), m);
-                args[i] = arg;
-                sat::literal lit = ctx.internalize(eq, false, false, false);
-                add_unit(lit);
+                args[i] = n->get_arg(i);
+                add_unit(b_internalize(eq));
             }
             return false;
         }
         if (bv.is_zero(mul_value)) {
+            return true;
+#if 0
+            vector<expr_ref_vector> lsb_bits;
+            for (expr* arg : *n) {
+                expr_ref_vector bits(m);
+                encode_lsb_tail(arg, bits);
+                lsb_bits.push_back(bits);
+            }
+            expr_ref_vector zs(m);
+            literal_vector lits;
+            expr_ref eq(m.mk_eq(n, mul_value), m);
+            lits.push_back(~b_internalize(eq));
+
+            for (unsigned i = 0; i < lsb_bits.size(); ++i) {
+            }
+            expr_ref z(m.mk_or(zs), m);
+            add_clause(lits);
             // sum of lsb should be at least sz
             return true;
+#endif
         }
         return true;
+    }
+
+    /***
+    * check that 1*y = y, x*1 = x
+    */
+    bool solver::check_mul_one(app* n, expr_ref_vector const& arg_values, expr* mul_value, expr* arg_value) {
+        if (arg_values.size() != 2)
+            return true;
+        if (bv.is_one(arg_values[0])) {
+            expr_ref mul1(m.mk_app(n->get_decl(), arg_values[0], n->get_arg(1)), m);
+            set_delay_internalize(mul1, internalize_mode::init_bits_only_i);
+            expr_ref eq(m.mk_eq(mul1, n->get_arg(1)), m);
+            add_unit(b_internalize(eq));
+            return false;
+        }
+        if (bv.is_one(arg_values[1])) {
+            expr_ref mul1(m.mk_app(n->get_decl(), n->get_arg(0), arg_values[1]), m);
+            set_delay_internalize(mul1, internalize_mode::init_bits_only_i);
+            expr_ref eq(m.mk_eq(mul1, n->get_arg(0)), m);
+            add_unit(b_internalize(eq));
+            return false;
+        }
+        return true;
+    }
+
+    /**
+    * Check for discrepancies in low-order bits.
+    * Add bit-blasting axioms if there are discrepancies within low order bits.
+    */
+    bool solver::check_mul_low_bits(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2) {
+        rational v0, v1, two(2);
+        unsigned sz;
+        VERIFY(bv.is_numeral(value1, v0, sz));
+        VERIFY(bv.is_numeral(value2, v1));
+        unsigned num_bits = 10;
+        if (sz <= num_bits)
+            return true;
+        bool diff = false;
+        for (unsigned i = 0; !diff && i < num_bits; ++i) {
+            rational b0 = mod(v0, two);
+            rational b1 = mod(v1, two);
+            diff = b0 != b1;
+            div(v0, two, v0);
+            div(v1, two, v1);
+        }
+        if (!diff)
+            return true;
+
+        auto safe_for_fixing_bits = [&](expr* e) {
+            euf::enode* n = expr2enode(e);
+            theory_var v = n->get_th_var(get_id());
+            for (unsigned i = num_bits; i < sz; ++i) {
+                sat::literal lit = m_bits[v][i];
+                if (s().value(lit) == l_true && s().lvl(lit) > s().search_lvl())
+                    return false;
+            }
+            return true;
+        };
+        for (expr* arg : *n)
+            if (!safe_for_fixing_bits(arg))
+                return true;
+        if (!safe_for_fixing_bits(n))
+            return true;
+
+        auto value_for_bv = [&](expr* e) {
+            euf::enode* n = expr2enode(e);
+            theory_var v = n->get_th_var(get_id());
+            rational val(0);
+            for (unsigned i = num_bits; i < sz; ++i) {
+                sat::literal lit = m_bits[v][i];
+                if (s().value(lit) == l_true && s().lvl(lit) <= s().search_lvl())
+                    val += power2(i - num_bits);
+            }
+            return val;
+        };
+        auto extract_low_bits = [&](expr* e) {
+            rational val = value_for_bv(e);
+            expr_ref lo(bv.mk_extract(num_bits - 1, 0, e), m);
+            expr_ref hi(bv.mk_numeral(val, sz - num_bits), m);
+            return expr_ref(bv.mk_concat(lo, hi), m);
+        };
+        expr_ref_vector args(m);
+        for (expr* arg : *n) 
+            args.push_back(extract_low_bits(arg));
+        expr_ref lhs(extract_low_bits(n), m);
+        expr_ref rhs(m.mk_app(n->get_decl(), args), m);
+        set_delay_internalize(rhs, internalize_mode::no_delay_i);
+        expr_ref eq(m.mk_eq(lhs, rhs), m);
+        add_unit(b_internalize(eq));
+        return false;     
     }
 
     /**
@@ -187,7 +313,7 @@ namespace bv {
     };
 
     /**
-     * The i'th bit in xs is 1 if the most least bit of x is i or lower.
+     * The i'th bit in xs is 1 if the least significant bit of x is i or lower.
      */
     void solver::encode_lsb_tail(expr* x, expr_ref_vector& xs) {
         theory_var v = expr2enode(x)->get_th_var(get_id());
@@ -219,26 +345,27 @@ namespace bv {
         unsigned msb1 = v1.get_num_bits();
         expr_ref_vector xs(m), ys(m), zs(m);
 
-        if (m.is_true(value) && msb0 + msb1 > sz) {
+        if (m.is_true(value) && msb0 + msb1 > sz && !v0.is_zero() && !v1.is_zero()) {
+            sat::literal no_overflow = expr2literal(n);
             encode_msb_tail(n->get_arg(0), xs);
             encode_msb_tail(n->get_arg(1), ys);
-            for (unsigned i = 0; i < sz; ++i) {
-                zs.push_back(m.mk_not(m.mk_and(xs.get(i), ys.get(sz-i))));
+            for (unsigned i = 1; i <= sz; ++i) {
+                sat::literal bit0 = b_internalize(xs.get(i - 1));
+                sat::literal bit1 = b_internalize(ys.get(sz - i));
+                add_clause(~no_overflow, ~bit0, ~bit1);
             }
-            expr_ref z(m.mk_and(zs), m);
-            sat::literal bits_are_low = ctx.internalize(z, false, false, false);
-            add_clause(~expr2literal(n), bits_are_low);
             return false;
         }
         else if (m.is_false(value) && msb0 + msb1 < sz) {
             encode_msb_tail(n->get_arg(0), xs);
             encode_msb_tail(n->get_arg(1), ys);
-            for (unsigned i = 0; i + 1 < sz; ++i) {
-                zs.push_back(m.mk_not(m.mk_and(xs.get(i), ys.get(sz - 1 - i))));
+            sat::literal_vector lits;
+            lits.push_back(expr2literal(n));
+            for (unsigned i = 1; i < sz; ++i) {
+                expr_ref msb_ge_sz(m.mk_and(xs.get(i - 1), ys.get(sz - i - 1)), m);
+                lits.push_back(b_internalize(msb_ge_sz));
             }
-            expr_ref z(m.mk_and(zs), m);
-            sat::literal bits_are_very_low = ctx.internalize(z, false, false, false);
-            add_clause(~bits_are_very_low, expr2literal(n));
+            add_clause(lits);
             return false;
         }
         return true;
@@ -251,6 +378,8 @@ namespace bv {
         auto r1 = eval_bv(n);
         auto r2 = eval_args(n, args);
         if (r1 == r2)
+            return true;
+        if (m_cheap_axioms)
             return true;
         set_delay_internalize(a, internalize_mode::no_delay_i);
         internalize_circuit(a);
@@ -268,6 +397,8 @@ namespace bv {
         app* a = n->get_app();
         if (bv.is_bv_umul_no_ovfl(a) && !check_umul_no_overflow(a, args, r1))
             return false;
+        if (m_cheap_axioms)
+            return true;
         set_delay_internalize(a, internalize_mode::no_delay_i);
         internalize_circuit(a);
         return false;
@@ -299,9 +430,8 @@ namespace bv {
         case OP_BSDIV_I: 
             if (should_bit_blast(e))
                 return internalize_mode::no_delay_i;
-            mode = internalize_mode::init_bits_i;
-            if (!m_delay_internalize.find(e, mode))
-                set_delay_internalize(e, mode);
+            mode = internalize_mode::delay_i;
+            m_delay_internalize.find(e, mode);
             return mode;
         
         default:

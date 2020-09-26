@@ -89,18 +89,18 @@ namespace array {
         app* select = r.select->get_app();
         SASSERT(a.is_select(select));
         SASSERT(can_beta_reduce(r.n));
-        std::cout << mk_bounded_pp(child, m) << " " << ctx.is_relevant(child) << " " << mk_bounded_pp(select, m) << "\n";
+        //std::cout << mk_bounded_pp(child, m) << " " << ctx.is_relevant(child) << " " << mk_bounded_pp(select, m) << "\n";
         if (!ctx.is_relevant(child))
             return false;
         for (unsigned i = 1; i < select->get_num_args(); ++i)
             if (!ctx.is_relevant(select->get_arg(i)))
                 return false;
-        std::cout << "relevant\n";
+        // std::cout << "relevant\n";
         TRACE("array", tout << "select-axiom: " << mk_bounded_pp(select, m, 2) << " " << mk_bounded_pp(child, m, 2) << "\n";);
-        if (r.select->get_arg(0)->get_root() != r.n->get_root())
-            std::cout << "delayed: " << r.m_delayed << "\n";
+//        if (r.select->get_arg(0)->get_root() != r.n->get_root())
+//            std::cout << "delayed: " << r.m_delayed << "\n";
         if (get_config().m_array_delay_exp_axiom && r.select->get_arg(0)->get_root() != r.n->get_root() && !r.m_delayed) {
-            std::cout << "delay: " << mk_bounded_pp(child, m) << " " << mk_bounded_pp(select, m) << "\n";
+            IF_VERBOSE(11, verbose_stream() << "delay: " << mk_bounded_pp(child, m) << " " << mk_bounded_pp(select, m) << "\n");
             ctx.push(set_delay_bit(*this, idx));
             r.m_delayed = true;
             return false;
@@ -490,7 +490,7 @@ namespace array {
         m_delay_qhead = 0;
         if (m_delay_qhead < sz)
             ctx.push(value_trail<euf::solver, unsigned>(m_delay_qhead));
-        std::cout << "delay " << m_delay_qhead << " " << sz << "\n";
+        IF_VERBOSE(11, verbose_stream() << "delay " << m_delay_qhead << " " << sz << "\n");
         for (; m_delay_qhead < sz; ++m_delay_qhead) 
             if (m_axiom_trail[m_delay_qhead].m_delayed && assert_axiom(m_delay_qhead))
                 change = true;        
