@@ -130,7 +130,7 @@ namespace euf {
         th_solver* func_decl2solver(func_decl* f) { return get_solver(f->get_family_id(), f); }
         th_solver* expr2solver(expr* e);
         th_solver* bool_var2solver(sat::bool_var v);
-        th_solver* fid2solver(family_id fid) { return m_id2solver.get(fid, nullptr); }
+        th_solver* fid2solver(family_id fid) const { return m_id2solver.get(fid, nullptr); }
         void add_solver(family_id fid, th_solver* th);
         void init_ackerman();
 

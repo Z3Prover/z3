@@ -203,7 +203,7 @@ namespace array {
         v_child = find(v_child);
         tracked_push(get_var_data(v_child).m_parent_selects, select);
         euf::enode* child = var2enode(v_child);
-        if (can_beta_reduce(child))
+        if (can_beta_reduce(child) && child != select->get_arg(0))
             push_axiom(select_axiom(select, child));
     }
 

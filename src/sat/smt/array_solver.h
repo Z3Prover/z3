@@ -186,7 +186,6 @@ namespace array {
         bool have_different_model_values(theory_var v1, theory_var v2);
 
         // diagnostics
-
         std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const;
     public:
         solver(euf::solver& ctx, theory_id id);
@@ -210,6 +209,7 @@ namespace array {
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
+        bool is_shared(theory_var v) const override;
 
         void tracked_push(euf::enode_vector& v, euf::enode* n);
 

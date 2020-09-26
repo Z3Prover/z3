@@ -56,7 +56,7 @@ namespace euf {
                   if (d.m_value) {
                       tout << mk_bounded_pp(d.m_key->get_expr(), m) << ":\n";
                       for (auto* n : *d.m_value)
-                          tout << "   " << mk_bounded_pp(n->get_expr(), m) << " " << mk_bounded_pp(n->get_root()->get_expr(), m) << "\n";
+                          tout << "   " << mk_bounded_pp(n->get_expr(), m) << "\n";
                   }
               );
     }

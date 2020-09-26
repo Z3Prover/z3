@@ -324,7 +324,6 @@ namespace array {
         return ctx.propagate(expr2enode(val), e_internalize(def), array_axiom());
     }
 
-
     /**
      * let n := store(a, i, v)
      * Assert:
@@ -482,7 +481,13 @@ namespace array {
         for (unsigned v = 0; v < num_vars; v++) {
             propagate_parent_select_axioms(v);
             auto& d = get_var_data(v);
-            if (d.m_prop_upward) 
+            if (!d.m_prop_upward)
+                continue;
+            euf::enode* n = var2enode(v);
+            bool has_default = false;
+            for (euf::enode* p : euf::enode_parents(n))
+                has_default |= a.is_default(p->get_expr());
+            if (has_default)
                 propagate_parent_default(v);            
         }
         bool change = false;

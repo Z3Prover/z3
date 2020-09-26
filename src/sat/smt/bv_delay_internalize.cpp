@@ -26,7 +26,6 @@ namespace bv {
         if (get_internalize_mode(e) != internalize_mode::delay_i)
             return true;
         SASSERT(bv.is_bv(e));
-        SASSERT(get_internalize_mode(e) != internalize_mode::no_delay_i);
         switch (to_app(e)->get_decl_kind()) {
         case OP_BMUL:
             return check_mul(to_app(e));
@@ -79,7 +78,7 @@ namespace bv {
             return false;
 
         // Add propagation axiom for arguments
-        if (!check_mul_invertibility(n->get_app(), args, r1))
+        if (!check_mul_invertibility(e, args, r1))
             return false;
 
         // check discrepancies in low-order bits
@@ -432,8 +431,7 @@ namespace bv {
                 return internalize_mode::no_delay_i;
             mode = internalize_mode::delay_i;
             m_delay_internalize.find(e, mode);
-            return mode;
-        
+            return mode;        
         default:
             return internalize_mode::no_delay_i;
         }

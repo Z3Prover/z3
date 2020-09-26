@@ -300,18 +300,16 @@ namespace euf {
         if (m.is_ite(n->get_expr()))
             return true;
 
-        theory_id th_id = null_theory_id;
-        for (auto p : euf::enode_th_vars(n)) {
-            if (th_id == null_theory_id)
-                th_id = p.get_id();
-            else
-                return true;
-        }
-        if (th_id == null_theory_id)
-            return false;
-
         // the variable is shared if the equivalence class of n
         // contains a parent application.
+
+        family_id th_id = m.get_basic_family_id();
+        for (auto p : euf::enode_th_vars(n)) {
+            if (m.get_basic_family_id() != p.get_id()) {
+                th_id = p.get_id();
+                break;
+            }
+        }
 
         for (euf::enode* parent : euf::enode_parents(n)) {
             app* p = to_app(parent->get_expr());
@@ -346,9 +344,13 @@ namespace euf {
         // the theories of (array int int) and (array (array int int) int).
         // Remark: The inconsistency is not going to be detected if they are
         // not marked as shared.
-        return true;
-        // TODO
-        // return get_theory(th_id)->is_shared(l->get_var());
+
+        for (auto p : euf::enode_th_vars(n)) 
+            if (fid2solver(p.get_id())->is_shared(p.get_var()))
+                return true;
+
+        return false;
+
     }
 
     expr_ref solver::mk_eq(expr* e1, expr* e2) {
