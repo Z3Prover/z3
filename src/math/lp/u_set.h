@@ -87,7 +87,7 @@ public:
    
     unsigned data_size() const {  return m_data.size(); }
     unsigned size() const { return m_index.size();}
-    bool is_empty() const { return size() == 0; }
+    bool empty() const { return size() == 0; }
     void clear() {
         for (unsigned j : m_index)
             m_data[j] = -1;

@@ -88,7 +88,7 @@ class lar_solver : public column_namer {
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
     constraint_set                                      m_constraints;
     // the set of column indices j such that bounds have changed for j
-    u_set                                               m_columns_with_changed_bound;
+    u_set                                               m_columns_with_changed_bounds;
     u_set                                               m_rows_with_changed_bounds;
     u_set                                               m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the the corresponding row in the tableau
@@ -135,6 +135,12 @@ class lar_solver : public column_namer {
     void add_basic_var_to_core_fields();
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq & rhs);
 
+    inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.clear(); }
+    inline void increase_by_one_columns_with_changed_bounds() { m_columns_with_changed_bounds.increase_size_by_one(); }
+    inline void insert_to_columns_with_changed_bounds(unsigned j) {
+        m_columns_with_changed_bounds.insert(j);
+    }
+    
 
     void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, unsigned&);
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
@@ -588,8 +594,8 @@ public:
     inline const int_solver * get_int_solver() const { return m_int_solver; }
     inline const lar_term & get_term(tv const& t) const { lp_assert(t.is_term()); return *m_terms[t.id()]; }
     lp_status find_feasible_solution();   
-    void move_non_basic_columns_to_bounds();
-    bool move_non_basic_column_to_bounds(unsigned j);
+    void move_non_basic_columns_to_bounds(bool);
+    bool move_non_basic_column_to_bounds(unsigned j, bool);
     inline bool r_basis_has_inf_int() const {
         for (unsigned j : r_basis()) {
             if (column_is_int(j) && ! column_value_is_int(j))
