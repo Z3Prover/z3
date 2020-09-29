@@ -23,7 +23,7 @@ Notes:
 
 #pragma once
 
-    enum sorting_network_encoding {
+    enum class sorting_network_encoding {
         sorted_at_most,
         grouped_at_most,
         bimander_at_most,
@@ -34,12 +34,12 @@ Notes:
 
     inline std::ostream& operator<<(std::ostream& out, sorting_network_encoding enc) {
         switch (enc) {
-        case grouped_at_most: return out << "grouped";
-        case bimander_at_most: return out << "bimander";
-        case ordered_at_most: return out << "ordered";
-        case sorted_at_most: return out << "sorted";
-        case unate_at_most: return out << "unate";
-        case circuit_at_most: return out << "circuit";
+        case sorting_network_encoding::grouped_at_most: return out << "grouped";
+        case sorting_network_encoding::bimander_at_most: return out << "bimander";
+        case sorting_network_encoding::ordered_at_most: return out << "ordered";
+        case sorting_network_encoding::sorted_at_most: return out << "sorted";
+        case sorting_network_encoding::unate_at_most: return out << "unate";
+        case sorting_network_encoding::circuit_at_most: return out << "circuit";
         }
         return out << "???";
     }
@@ -47,7 +47,7 @@ Notes:
     struct sorting_network_config {
         sorting_network_encoding m_encoding;
         sorting_network_config() {
-            m_encoding = sorted_at_most;
+            m_encoding = sorting_network_encoding::sorted_at_most;
         }
     };
 
@@ -245,18 +245,18 @@ Notes:
             }
             else {
                 switch (m_cfg.m_encoding) {
-                case sorted_at_most:
-                case bimander_at_most:
-                case ordered_at_most:
-                case grouped_at_most:
+                case sorting_network_encoding::sorted_at_most:
+                case sorting_network_encoding::bimander_at_most:
+                case sorting_network_encoding::ordered_at_most:
+                case sorting_network_encoding::grouped_at_most:
                     SASSERT(2*k <= n);
                     m_t = full?GE_FULL:GE;
                     // scoped_stats _ss(m_stats, k, n);
                     psort_nw<psort_expr>::card(k, n, xs, out);                
                     return out[k-1]; 
-                case unate_at_most:
+                case sorting_network_encoding::unate_at_most:
                     return unate_ge(full, k, n, xs);
-                case circuit_at_most:
+                case sorting_network_encoding::circuit_at_most:
                     return circuit_ge(full, k, n, xs); 
                 default:
                     UNREACHABLE();
@@ -278,14 +278,14 @@ Notes:
                 literal_vector ors;
                 // scoped_stats _ss(m_stats, k, n);
                 switch (m_cfg.m_encoding) {
-                case grouped_at_most:
-                case sorted_at_most:
-                case unate_at_most:
-                case circuit_at_most:
+                case sorting_network_encoding::grouped_at_most:
+                case sorting_network_encoding::sorted_at_most:
+                case sorting_network_encoding::unate_at_most:
+                case sorting_network_encoding::circuit_at_most:
                     return mk_at_most_1(full, n, xs, ors, false);
-                case bimander_at_most:
+                case sorting_network_encoding::bimander_at_most:
                     return mk_at_most_1_bimander(full, n, xs, ors);
-                case ordered_at_most:
+                case sorting_network_encoding::ordered_at_most:
                     return mk_ordered_atmost_1(full, n, xs);
                     
                 default:
@@ -295,18 +295,18 @@ Notes:
             }
             else {
                 switch (m_cfg.m_encoding) {
-                case sorted_at_most:
-                case bimander_at_most:
-                case ordered_at_most:
-                case grouped_at_most:
+                case sorting_network_encoding::sorted_at_most:
+                case sorting_network_encoding::bimander_at_most:
+                case sorting_network_encoding::ordered_at_most:
+                case sorting_network_encoding::grouped_at_most:
                     SASSERT(2*k <= n);
                     m_t = full?LE_FULL:LE;
                     // scoped_stats _ss(m_stats, k, n);
                     card(k + 1, n, xs, out);
                     return mk_not(out[k]);
-                case unate_at_most:
+                case sorting_network_encoding::unate_at_most:
                     return unate_le(full, k, n, xs); 
-                case circuit_at_most:
+                case sorting_network_encoding::circuit_at_most:
                     return circuit_le(full, k, n, xs); 
                 default:                    
                     UNREACHABLE();
@@ -330,10 +330,10 @@ Notes:
             }
             else {
                 switch (m_cfg.m_encoding) {
-                case sorted_at_most:
-                case bimander_at_most:
-                case grouped_at_most:
-                case ordered_at_most:
+                case sorting_network_encoding::sorted_at_most:
+                case sorting_network_encoding::bimander_at_most:
+                case sorting_network_encoding::grouped_at_most:
+                case sorting_network_encoding::ordered_at_most:
                     // scoped_stats _ss(m_stats, k, n);
                     SASSERT(2*k <= n);
                     m_t = EQ;
@@ -345,9 +345,9 @@ Notes:
                     else {
                         return mk_min(out[k-1], mk_not(out[k]));
                     }
-                case unate_at_most:
+                case sorting_network_encoding::unate_at_most:
                     return unate_eq(k, n, xs);              
-                case circuit_at_most:
+                case sorting_network_encoding::circuit_at_most:
                     return circuit_eq(k, n, xs);        
                 default:                    
                     UNREACHABLE();
@@ -698,16 +698,16 @@ Notes:
             literal_vector ors;
             literal r1;
             switch (m_cfg.m_encoding) {
-            case grouped_at_most:
-            case sorted_at_most:
-            case unate_at_most:
-            case circuit_at_most:
+            case sorting_network_encoding::grouped_at_most:
+            case sorting_network_encoding::sorted_at_most:
+            case sorting_network_encoding::unate_at_most:
+            case sorting_network_encoding::circuit_at_most:
                 r1 = mk_at_most_1(full, n, xs, ors, true);
                 break;
-            case bimander_at_most:
+            case sorting_network_encoding::bimander_at_most:
                 r1 = mk_at_most_1_bimander(full, n, xs, ors);                
                 break;
-            case ordered_at_most:
+            case sorting_network_encoding::ordered_at_most:
                 return mk_ordered_exactly_1(full, n, xs);
             default:
                 UNREACHABLE();

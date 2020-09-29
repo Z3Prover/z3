@@ -1015,7 +1015,7 @@ struct pb2bv_rewriter::imp {
         if (enc == symbol("ordered")) return sorting_network_encoding::ordered_at_most;
         if (enc == symbol("unate")) return sorting_network_encoding::unate_at_most;
         if (enc == symbol("circuit")) return sorting_network_encoding::circuit_at_most;
-        return grouped_at_most;
+        return sorting_network_encoding::grouped_at_most;
     }
     
 

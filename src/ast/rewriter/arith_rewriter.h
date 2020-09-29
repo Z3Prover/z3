@@ -27,9 +27,9 @@ protected:
     typedef rational numeral;
     arith_util  m_util;
     scoped_ptr<seq_util> m_seq;
-    bool        m_expand_power;
-    bool        m_mul2power;
-    bool        m_expand_tan;
+    bool        m_expand_power{ false };
+    bool        m_mul2power{ false };
+    bool        m_expand_tan{ false };
     
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
