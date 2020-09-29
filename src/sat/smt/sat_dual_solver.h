@@ -21,12 +21,12 @@ namespace sat {
 
     class dual_solver {
         solver          m_solver;
-        literal_vector  m_roots, m_lits, m_core;
+        literal_vector  m_roots, m_lits, m_core, m_units;
         bool_var_vector m_is_tracked;
         unsigned_vector m_tracked_stack;
         unsigned_vector m_ext2var;
         unsigned_vector m_var2ext;
-        unsigned_vector m_roots_lim, m_tracked_lim;
+        unsigned_vector m_roots_lim, m_tracked_lim, m_units_lim;
         void add_literal(literal lit);
 
         bool_var ext2var(bool_var v);

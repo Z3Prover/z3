@@ -26,17 +26,20 @@ namespace sat {
         m_solver.user_push(); 
         m_roots_lim.push_back(m_roots.size());     
         m_tracked_lim.push_back(m_tracked_stack.size());
+        m_units_lim.push_back(m_units.size());
     }
 
     void dual_solver::pop(unsigned num_scopes) {
         m_solver.user_pop(num_scopes);
         unsigned old_sz = m_roots_lim.size() - num_scopes;
-        m_roots.shrink(m_roots_lim[old_sz]);
-        m_roots_lim.shrink(old_sz);
         for (unsigned v = m_tracked_stack.size(); v-- > m_tracked_lim[old_sz]; ) 
             m_is_tracked[v] = false; 
+        m_roots.shrink(m_roots_lim[old_sz]);
         m_tracked_stack.shrink(m_tracked_lim[old_sz]);
+        m_units.shrink(m_units_lim[old_sz]);
+        m_roots_lim.shrink(old_sz);
         m_tracked_lim.shrink(old_sz);
+        m_units_lim.shrink(old_sz);
     }
 
     bool_var dual_solver::ext2var(bool_var v) {
@@ -87,6 +90,7 @@ namespace sat {
             m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
         lbool is_sat = m_solver.check(m_lits.size(), m_lits.c_ptr());
         m_core.reset();
+        m_core.append(m_units);
         if (is_sat == l_false) 
             for (literal lit : m_solver.get_core())
                 m_core.push_back(lit2ext(lit));
