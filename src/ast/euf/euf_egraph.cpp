@@ -19,36 +19,63 @@ Each node has a congruence closure root, cg.
 cg is set to the representative in the cc table 
 (first insertion of congruent node).
 Each node n has a set of parents, denoted n.P.
+The table maintains the invariant
+ - p.cg = find(p)
 
-set r2 to the root of r1:
+Merge sets r2 to the root of r1 
+(r2 and r1 are both considered roots before the merge).
+The operation Unmerge reverses the effect of Merge.
 
-Merge:  Erase:
-            for each p r1.P such that p.cg == p:
-              erase from table
-        Update root:
-            r1.root := r2
-        Insert:
-            for each p in r1.P:
+
+Merge(r1, r2)
+-------------
+
+Erase:        for each p in r1.P such that p.cg == p:
+                 erase from table        
+Update root:  r1.root := r2
+Insert:       for each p in r1.P:
                  p.cg = insert p in table
                  if p.cg == p:
                    append p to r2.P
                  else 
-                   add p.cg, p to worklist
+                   add (p.cg == p) to 'to_merge' 
 
-Unmerge:  Erase:
-             for each p in added nodes:
-                erase p from table 
-          Revert root:
-             r1.root := r1
-          Insert:
-             for each p in r1.P:
-                insert p if n was cc root before merge
+Unmerge(r1, r2)
+---------------
+
+Erase:        for each p in r2.P added from r1.P:
+                 erase p from table 
+Revert root:  r1.root := r1
+Insert:       for each p in r1.P:
+                 insert p if n was cc root before merge
 
 condition for being cc root before merge:
-  p->cg == p
-  congruent(p, p->cg)
+  p.cg == p or !congruent(p, p.cg)
 
-congruent(p,q) := roots of p.children = roots of q.children
+congruent(p,q) := roots of p.args = roots of q.args
+
+The algorithm orients r1, r2 such that class_size(r1) <= class_size(r2).
+With N nodes, there can be at most N calls to Merge.
+Each of the calls traverse r1.P from the smaller class size.
+Label a merge tree with nodes from the larger class size.
+In other words, if Merge(r2,r1); Merge(r3,r1) is a sequence
+of calls where r1 is selected root, then the merge tree is
+
+    r1 
+  /   \
+ r1    r3  
+   \
+   r2
+
+Note that parent lists are re-examined only for nodes that join
+from right subtrees (with lesser class sizes).
+Claim: a node participates in a path along right adjoining sub-trees at most O(log(N)) times.
+Justification (very roughly): the size of a right adjoining subtree can at most 
+be equal to the left adjoining sub-tree. This entails a logarithmic number of 
+re-examinations from the right adjoining tree.
+(TBD check how Hopcroft's main argument is phrased)
+
+The parent lists are bounded by the maximal arity of functions.
 
 Example:
 
@@ -491,14 +518,9 @@ namespace euf {
     bool egraph::propagate() {
         SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_num_scopes == 0 || m_to_merge.empty());
-        unsigned head = 0, tail = m_to_merge.size();
-        while (head < tail && m.limit().inc() && !inconsistent()) {
-            for (unsigned i = head; i < tail && !inconsistent(); ++i) {
-                auto const& w = m_to_merge[i];
-                merge(w.a, w.b, justification::congruence(w.commutativity));                
-            }
-            head = tail;
-            tail = m_to_merge.size();
+        for (unsigned i = 0; i < m_to_merge.size() && m_limit().inc() && !inconsistent(); ++i) {
+            auto const& w = m_to_merge[i];
+            merge(w.a, w.b, justification::congruence(w.commutativity));                
         }
         m_to_merge.reset();
         force_push();

@@ -24,22 +24,19 @@ namespace sat {
 
     void dual_solver::push() {
         m_solver.user_push(); 
-        m_roots_lim.push_back(m_roots.size());     
-        m_tracked_lim.push_back(m_tracked_stack.size());
-        m_units_lim.push_back(m_units.size());
+        m_roots.push_scope();
+        m_tracked_vars.push_scope();
+        m_units.push_scope();
     }
 
     void dual_solver::pop(unsigned num_scopes) {
         m_solver.user_pop(num_scopes);
-        unsigned old_sz = m_roots_lim.size() - num_scopes;
-        for (unsigned v = m_tracked_stack.size(); v-- > m_tracked_lim[old_sz]; ) 
-            m_is_tracked[v] = false; 
-        m_roots.shrink(m_roots_lim[old_sz]);
-        m_tracked_stack.shrink(m_tracked_lim[old_sz]);
-        m_units.shrink(m_units_lim[old_sz]);
-        m_roots_lim.shrink(old_sz);
-        m_tracked_lim.shrink(old_sz);
-        m_units_lim.shrink(old_sz);
+        unsigned old_sz = m_tracked_vars.old_size(num_scopes);
+        for (unsigned i = m_tracked_vars.size(); i-- > old_sz; )
+            m_is_tracked[m_tracked_vars[i]] = false; 
+        m_units.pop_scope(num_scopes);
+        m_roots.pop_scope(num_scopes);
+        m_tracked_vars.pop_scope(num_scopes);
     }
 
     bool_var dual_solver::ext2var(bool_var v) {
@@ -56,7 +53,7 @@ namespace sat {
         v = ext2var(v);
         if (!m_is_tracked.get(v, false)) {
             m_is_tracked.setx(v, true, false);
-            m_tracked_stack.push_back(v);
+            m_tracked_vars.push_back(v);
         }
     }
 
@@ -69,6 +66,10 @@ namespace sat {
     }
 
     void dual_solver::add_root(unsigned sz, literal const* clause) {
+        if (sz == 1) {
+            m_units.push_back(clause[0]);
+            return;
+        }
         literal root(m_solver.mk_var(), false);
         for (unsigned i = 0; i < sz; ++i)
             m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
@@ -86,7 +87,7 @@ namespace sat {
         m_solver.user_push();
         m_solver.add_clause(m_roots.size(), m_roots.c_ptr(), status::input());
         m_lits.reset();
-        for (bool_var v : m_tracked_stack)
+        for (bool_var v : m_tracked_vars)
             m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
         lbool is_sat = m_solver.check(m_lits.size(), m_lits.c_ptr());
         m_core.reset();

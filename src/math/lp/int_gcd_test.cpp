@@ -13,7 +13,35 @@ Author:
     Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
 
-Revision History:
+Notes:
+
+Basic:
+    For each row a*x + b = 0, where fixed variables are replaced by b, 
+    check if gcd(a) divides b 
+
+Extended:
+    For each row a*x + b*y + c = 0, where 
+    - the coefficients in a are all the same and smaller than the coefficients in b
+    - the variables x are bounded
+    Let l := a*lb(x), u := a*ub(x)
+    - that is the lower and upper bounds for a*x based on the bounds for x.
+    let ll := ceil  (l / gcd(b,c))
+        uu := floor (u / gcd(b,c))
+    If uu > ll, there is no space to find solutions for x within the bounds
+
+Accumulative:
+    For each row a*x + b*y - c = 0, where |a| = 1 < |b|, and x is a single variable,
+    (it could also be a group of variables) accumulate constraint x = c mod b
+
+    If there are row gcd constraints, such that 
+    - x = c1 mod b1, from rows R1
+    - x = c2 mod b2, from rows R2
+    
+    - If c1 mod gcd(b1,b2) != c2 mod gcd(b1,b2) report conflict for the rows involved.
+   
+    - Otherwise accumulate x = (c1 * lcm(b1,b2) / b2) + (c2 * lcm(b1,b2) / b1) mod lcm(b,b2)
+      and accumulate the rows from R1, R2
+
 --*/
 
 #include "math/lp/int_solver.h"
@@ -28,15 +56,7 @@ namespace lp {
 
         if (!lia.settings().int_run_gcd_test())
             return false;
-#if 1
         return true;
-#else
-        if (m_delay == 0) {
-            return true;
-        }
-        --m_delay;
-        return false;
-#endif
     }
 
     lia_move int_gcd_test::operator()() {              

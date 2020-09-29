@@ -8,6 +8,8 @@ Module Name:
 Abstract:
 
     Solver for obtaining implicant.
+    Based on an idea by Armin Biere to use dual propagation 
+    for representation of negated goal.
 
 Author:
 
@@ -15,18 +17,19 @@ Author:
 
 --*/
 #pragma once
+#include "util/lim_vector.h"
 #include "sat/sat_solver.h"
 
 namespace sat {
 
     class dual_solver {
         solver          m_solver;
-        literal_vector  m_roots, m_lits, m_core, m_units;
+        lim_svector<literal> m_units, m_roots;
+        lim_svector<bool_var> m_tracked_vars;
+        literal_vector  m_lits, m_core;
         bool_var_vector m_is_tracked;
-        unsigned_vector m_tracked_stack;
         unsigned_vector m_ext2var;
         unsigned_vector m_var2ext;
-        unsigned_vector m_roots_lim, m_tracked_lim, m_units_lim;
         void add_literal(literal lit);
 
         bool_var ext2var(bool_var v);
