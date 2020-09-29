@@ -23,6 +23,8 @@ z3_add_component(sat_smt
     euf_proof.cpp
     euf_relevancy.cpp
     euf_solver.cpp
+    q_mbi.cpp
+    q_solver.cpp
     sat_dual_solver.cpp
     sat_th.cpp
     user_solver.cpp

@@ -61,6 +61,11 @@ also currently, as a base-line it is eager:
     -------------------------------
     A = B => forall i . M[i] = B[i]
 
+A hypothetical refinement could use some limited HO pattern unification steps.
+For example
+    lambda x y z . Y z y x = lambda x y z . X x z y
+-> Y = lambda x y z . X ....
+
 --*/
 
 #include "ast/ast_ll_pp.h"
@@ -191,17 +196,12 @@ namespace array {
             push_axiom(congruence_axiom(n1, n2));
     }
 
-    void solver::tracked_push(euf::enode_vector& v, euf::enode* n) {
-        v.push_back(n);
-        ctx.push(push_back_trail<euf::solver, euf::enode*, false>(v));
-    }
-
     void solver::add_parent_select(theory_var v_child, euf::enode* select) {
         SASSERT(a.is_select(select->get_expr()));
         SASSERT(m.get_sort(select->get_arg(0)->get_expr()) == m.get_sort(var2expr(v_child)));
 
         v_child = find(v_child);
-        tracked_push(get_var_data(v_child).m_parent_selects, select);
+        ctx.push_vec(get_var_data(v_child).m_parent_selects, select);
         euf::enode* child = var2enode(v_child);
         if (can_beta_reduce(child) && child != select->get_arg(0))
             push_axiom(select_axiom(select, child));
@@ -212,7 +212,7 @@ namespace array {
         auto& d = get_var_data(find(v));
         if (should_set_prop_upward(d))
             set_prop_upward(d);
-        tracked_push(d.m_lambdas, lambda);
+        ctx.push_vec(d.m_lambdas, lambda);
         if (should_set_prop_upward(d)) {
             set_prop_upward(lambda);
             propagate_select_axioms(d, lambda);
@@ -222,7 +222,7 @@ namespace array {
     void solver::add_parent_lambda(theory_var v_child, euf::enode* lambda) {
         SASSERT(can_beta_reduce(lambda));
         auto& d = get_var_data(find(v_child));
-        tracked_push(d.m_parent_lambdas, lambda);
+        ctx.push_vec(d.m_parent_lambdas, lambda);
         if (should_set_prop_upward(d))
             propagate_select_axioms(d, lambda);
     }

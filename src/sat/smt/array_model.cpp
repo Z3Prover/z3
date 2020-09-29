@@ -88,7 +88,6 @@ namespace array {
 
         for (euf::enode* p : euf::enode_parents(n)) {
             if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n->get_root()) {
-//                std::cout << "parent " << mk_bounded_pp(p->get_expr(), m) << "\n";
                 expr* value = values.get(p->get_root_id());
                 if (!value || value == fi->get_else())
                     continue;

@@ -215,6 +215,16 @@ namespace euf {
         egraph& get_egraph() { return m_egraph; }
         template <typename C>
         void push(C const& c) { m_trail.push(c); }
+        template <typename V>
+        void push_vec(ptr_vector<V>& vec, V* val) {
+            vec.push_back(val);
+            push(push_back_trail<solver, V*, false>(vec));
+        }
+        template <typename V>
+        void push_vec(svector<V>& vec, V val) {
+            vec.push_back(val);
+            push(push_back_trail<solver, V, false>(vec));
+        }
         euf_trail_stack& get_trail_stack() { return m_trail; }
 
         void updt_params(params_ref const& p);

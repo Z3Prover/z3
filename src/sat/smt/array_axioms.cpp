@@ -89,15 +89,12 @@ namespace array {
         app* select = r.select->get_app();
         SASSERT(a.is_select(select));
         SASSERT(can_beta_reduce(r.n));
-        //std::cout << mk_bounded_pp(child, m) << " " << ctx.is_relevant(child) << " " << mk_bounded_pp(select, m) << "\n";
         if (!ctx.is_relevant(child))
             return false;
         for (unsigned i = 1; i < select->get_num_args(); ++i)
             if (!ctx.is_relevant(select->get_arg(i)))
                 return false;
         TRACE("array", tout << "select-axiom: " << mk_bounded_pp(select, m, 2) << " " << mk_bounded_pp(child, m, 2) << "\n";);
-//        if (r.select->get_arg(0)->get_root() != r.n->get_root())
-//            std::cout << "delayed: " << r.m_delayed << "\n";
         if (get_config().m_array_delay_exp_axiom && r.select->get_arg(0)->get_root() != r.n->get_root() && !r.m_delayed) {
             IF_VERBOSE(11, verbose_stream() << "delay: " << mk_bounded_pp(child, m) << " " << mk_bounded_pp(select, m) << "\n");
             ctx.push(set_delay_bit(*this, idx));
@@ -117,7 +114,7 @@ namespace array {
         else if (is_lambda(child))
             return assert_select_lambda_axiom(select, child);
         else
-           UNREACHABLE();
+            UNREACHABLE();
         return false;
     }
 

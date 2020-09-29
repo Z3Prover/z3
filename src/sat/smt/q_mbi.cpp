@@ -1,0 +1,200 @@
+/*++
+Copyright (c) 2020 Microsoft Corporation
+
+Module Name:
+
+    q_mbi.cpp
+
+Abstract:
+
+    Model-based quantifier instantiation plugin
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2020-09-29
+
+--*/
+#pragma once
+
+#include "ast/ast_trail.h"
+#include "ast/rewriter/var_subst.h"
+#include "sat/smt/sat_th.h"
+#include "sat/smt/q_mbi.h"
+#include "sat/smt/q_solver.h"
+#include "sat/smt/euf_solver.h"
+
+
+namespace q {
+
+    mbqi::mbqi(euf::solver& ctx, solver& s): 
+        ctx(ctx), qs(s), m(s.get_manager())  {}
+
+
+    void mbqi::restrict_to_universe(expr * sk, ptr_vector<expr> const & universe) {
+        SASSERT(!universe.empty());
+        expr_ref_vector eqs(m);
+        for (expr * e : universe) {
+            eqs.push_back(m.mk_eq(sk, e));
+        }
+        expr_ref fml(m.mk_or(eqs), m);
+        m_solver->assert_expr(fml);
+    }
+
+    void mbqi::register_value(expr* e) {
+        sort* s = m.get_sort(e);
+        obj_hashtable<expr>* values = nullptr;
+        if (!m_fresh.find(s, values)) {
+            values = alloc(obj_hashtable<expr>);
+            m_fresh.insert(s, values);
+            m_values.push_back(values);
+        }
+        if (!values->contains(e)) {
+            NOT_IMPLEMENTED_YET();
+#if 0
+            for (expr* b : *values) {
+                m_context.add(m.mk_not(m.mk_eq(e, b)), __FUNCTION__);
+            }
+#endif
+            values->insert(e);
+#if 0
+            m_fresh_trail.push_back(e);
+#endif
+        }
+    }
+
+    // sort -> [ value -> expr ]
+    // for fixed value return expr
+    // new fixed value is distinct from other expr
+    expr_ref mbqi::replace_model_value(expr* e) {
+        if (m.is_model_value(e)) { 
+            register_value(e);
+            expr_ref r(e, m);
+            return r;
+        }
+        if (is_app(e) && to_app(e)->get_num_args() > 0) {
+            expr_ref_vector args(m);
+            for (expr* arg : *to_app(e)) {
+                args.push_back(replace_model_value(arg));
+            }
+            return expr_ref(m.mk_app(to_app(e)->get_decl(), args.size(), args.c_ptr()), m);
+        }
+        return expr_ref(e, m);
+    }
+    
+    lbool mbqi::check_forall(quantifier* q) {
+        expr_ref_vector vars(m);
+        expr_ref body = specialize(q, vars);        
+        init_solver();
+        ::solver::scoped_push _sp(*m_solver);
+        m_solver->assert_expr(body);
+        lbool r = m_solver->check_sat(0, nullptr);
+        if (r == l_undef)
+            return r;
+        if (r == l_false)
+            return l_true;
+        model_ref mdl;        
+        m_solver->get_model(mdl);
+        expr_ref proj = project(*mdl, q, vars);
+        if (!proj)
+            return l_undef;
+        if (is_forall(q))
+            qs.add_clause(~ctx.expr2literal(q), ctx.b_internalize(proj));
+        else
+            qs.add_clause(ctx.expr2literal(q), ~ctx.b_internalize(proj));
+        return l_true;
+    }
+
+    expr_ref mbqi::specialize(quantifier* q, expr_ref_vector& vars) {
+        expr_ref tmp(m);
+        unsigned sz = q->get_num_decls();
+        if (!m_model->eval_expr(q->get_expr(), tmp, true))
+            return expr_ref(m);
+        vars.resize(sz, nullptr);
+        for (unsigned i = 0; i < sz; ++i) {
+            sort* s = q->get_decl_sort(i);
+            vars[i] = m.mk_fresh_const(q->get_decl_name(i), s, false);    
+            if (m_model->has_uninterpreted_sort(s)) 
+                restrict_to_universe(vars.get(i), m_model->get_universe(s));            
+        }
+        var_subst subst(m);
+        expr_ref body = subst(tmp, vars.size(), vars.c_ptr());        
+        if (is_forall(q)) 
+            body = m.mk_not(body);        
+        return body;
+    }
+
+    expr_ref mbqi::project(model& mdl, quantifier* q, expr_ref_vector& vars) {
+        return basic_project(mdl, q, vars);
+    }
+
+    /**
+    * A most rudimentary projection operator that only tries to find proxy terms from the set of existing terms.
+    * Refinements:
+    * - grammar based from MBQI paper 
+    * - quantifier elimination based on projection operators defined in qe.
+    */
+    expr_ref mbqi::basic_project(model& mdl, quantifier* q, expr_ref_vector& vars) {
+        unsigned sz = q->get_num_decls();
+        expr_ref_vector vals(m);
+        vals.resize(sz, nullptr);
+        for (unsigned i = 0; i < sz; ++i) {
+            app* v = to_app(vars.get(i));
+            func_decl* f = v->get_decl();
+            expr_ref val(mdl.get_some_const_interp(f), m);
+            if (!val)
+                return expr_ref(m);
+            expr* t = nullptr;
+            NOT_IMPLEMENTED_YET();
+#if 0
+            if (m_val2term.find(val, m.get_sort(v), t)) {
+                val = t;
+            }
+            else {
+                val = replace_model_value(val);
+            }
+            vals[i] = val;
+#endif
+        }
+        var_subst subst(m);
+        expr_ref body = subst(q->get_expr(), vals.size(), vals.c_ptr());
+        return body;        
+    }
+
+
+    lbool mbqi::operator()() {
+        lbool result = l_true;
+        m_model = nullptr;
+        for (sat::literal lit : qs.m_universal) {
+            quantifier* q = to_quantifier(ctx.bool_var2expr(lit.var()));
+            if (!ctx.is_relevant(q))
+                continue;
+            init_model();
+            switch (check_forall(q)) {
+            case l_false:
+                result = l_false;
+                break;
+            case l_undef:
+                if (result == l_true)
+                    result = l_undef;
+                break;
+            default:
+                break;
+            }
+        }
+        return result;
+    }
+
+    void mbqi::init_model() {
+        if (m_model)
+            return;
+        m_model = alloc(model, m);
+        ctx.update_model(m_model);
+    }
+
+    void mbqi::init_solver() {
+        if (m_solver)
+            return;
+        NOT_IMPLEMENTED_YET();
+    }
+
+}
