@@ -19,19 +19,19 @@ Author:
 #include "util/vector.h"
 
 template<typename T>
-class lim_svector : public svector<T> {
+class lim_svector : public svector<T, unsigned> {
     unsigned_vector  m_lim;
 public:
     lim_svector() {}
 
     void push_scope() {
-        m_lim.push_back(size());
+        m_lim.push_back(this->size());
     }
 
     void pop_scope(unsigned num_scopes) {
         SASSERT(num_scopes > 0);
         unsigned old_sz = m_lim.size() - num_scopes;
-        shrink(m_lim[old_sz]);
+        this->shrink(m_lim[old_sz]);
         m_lim.shrink(old_sz);
     }
 

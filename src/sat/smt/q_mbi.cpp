@@ -117,7 +117,7 @@ namespace q {
                 restrict_to_universe(vars.get(i), m_model->get_universe(s));            
         }
         var_subst subst(m);
-        expr_ref body = subst(body, vars);        
+        body = subst(body, vars);        
         if (is_forall(q)) 
             body = m.mk_not(body);        
         return body;
