@@ -28,7 +28,7 @@ namespace lp {
         class int_solver& lia;
         class lar_solver& lra;
         lia_move create_branch_on_column(int j);
-        int find_inf_int_column();
+        int find_inf_int_base_column();
 
     public:
         int_branch(int_solver& lia);

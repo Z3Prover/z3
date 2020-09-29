@@ -25,7 +25,8 @@ namespace lp {
 int_branch::int_branch(int_solver& lia):lia(lia), lra(lia.lra) {}
 
 lia_move int_branch::operator()() {
-    int j = find_inf_int_column();
+    lra.move_non_basic_columns_to_bounds(true);
+    int j = find_inf_int_base_column();
     return j == -1? lia_move::sat : create_branch_on_column(j);        
 }
 
@@ -50,7 +51,7 @@ lia_move int_branch::create_branch_on_column(int j) {
 }
 
 
-int int_branch::find_inf_int_column() {
+int int_branch::find_inf_int_base_column() {
     int result = -1;
     mpq range;
     mpq new_range;
@@ -58,16 +59,19 @@ int int_branch::find_inf_int_column() {
     unsigned n = 0;
     lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
     unsigned prev_usage = 0; // to quiet down the compile
+    unsigned k = 0;
     unsigned usage;
-    unsigned j = 0;
+    unsigned j;
     // this loop looks for a column with the most usages, but breaks when
     // a column with a small span of bounds is found
-    for (; j < lra.column_count(); j++) {
+    for (; k < lra.r_basis().size(); k++) {
+        j = lra.r_basis()[k];
         if (!lia.column_is_int_inf(j))
             continue;
         usage = lra.usage_in_terms(j);
         if (lia.is_boxed(j) &&  (range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_range_thresold) {
-            result = j++;
+            result = j;
+            k++;            
             n = 1;
             break;
         }
@@ -79,11 +83,13 @@ int int_branch::find_inf_int_column() {
             result = j;
         }
     }
-
+    SASSERT(k == lra.r_basis().size() || n == 1);
     // this loop looks for boxed columns with a small span
-    for (; j < lra.column_count(); j++) {
+    for (; k < lra.r_basis().size(); k++) {
+        j = lra.r_basis()[k];
         if (!lia.column_is_int_inf(j) || !lia.is_boxed(j))
             continue;
+        SASSERT(!lia.is_fixed(j));
         usage = lra.usage_in_terms(j);
         new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage);
         if (new_range < range) {
