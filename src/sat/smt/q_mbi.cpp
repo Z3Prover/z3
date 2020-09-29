@@ -105,9 +105,9 @@ namespace q {
     }
 
     expr_ref mbqi::specialize(quantifier* q, expr_ref_vector& vars) {
-        expr_ref tmp(m);
+        expr_ref body(m);
         unsigned sz = q->get_num_decls();
-        if (!m_model->eval_expr(q->get_expr(), tmp, true))
+        if (!m_model->eval_expr(q->get_expr(), body, true))
             return expr_ref(m);
         vars.resize(sz, nullptr);
         for (unsigned i = 0; i < sz; ++i) {
@@ -117,7 +117,7 @@ namespace q {
                 restrict_to_universe(vars.get(i), m_model->get_universe(s));            
         }
         var_subst subst(m);
-        expr_ref body = subst(tmp, vars.size(), vars.c_ptr());        
+        expr_ref body = subst(body, vars);        
         if (is_forall(q)) 
             body = m.mk_not(body);        
         return body;
@@ -156,8 +156,7 @@ namespace q {
 #endif
         }
         var_subst subst(m);
-        expr_ref body = subst(q->get_expr(), vals.size(), vals.c_ptr());
-        return body;        
+        return subst(q->get_expr(), vals);   
     }
 
 
