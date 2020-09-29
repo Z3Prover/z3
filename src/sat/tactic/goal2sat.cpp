@@ -608,6 +608,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
             m_solver.set_extension(euf);
             for (unsigned i = m_solver.num_scopes(); i-- > 0; )
                 euf->push();
+#if 0
+            std::function<solver*(void)> mk_solver = [&]() {
+                return mk_inc_sat_solver(m, m_params, true);
+            };
+            euf->set_mk_solver(mk_solver);
+#endif
         }
         else {
             euf = dynamic_cast<euf::solver*>(ext);

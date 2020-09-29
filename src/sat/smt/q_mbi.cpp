@@ -27,7 +27,7 @@ Author:
 namespace q {
 
     mbqi::mbqi(euf::solver& ctx, solver& s): 
-        ctx(ctx), qs(s), m(s.get_manager())  {}
+        ctx(ctx), qs(s), m(s.get_manager()), m_fresh_trail(m)  {}
 
 
     void mbqi::restrict_to_universe(expr * sk, ptr_vector<expr> const & universe) {
@@ -49,16 +49,12 @@ namespace q {
             m_values.push_back(values);
         }
         if (!values->contains(e)) {
-            NOT_IMPLEMENTED_YET();
-#if 0
             for (expr* b : *values) {
-                m_context.add(m.mk_not(m.mk_eq(e, b)), __FUNCTION__);
+                expr_ref eq = ctx.mk_eq(e, b);
+                qs.add_unit(~qs.b_internalize(eq));
             }
-#endif
             values->insert(e);
-#if 0
             m_fresh_trail.push_back(e);
-#endif
         }
     }
 
@@ -76,9 +72,19 @@ namespace q {
             for (expr* arg : *to_app(e)) {
                 args.push_back(replace_model_value(arg));
             }
-            return expr_ref(m.mk_app(to_app(e)->get_decl(), args.size(), args.c_ptr()), m);
+            return expr_ref(m.mk_app(to_app(e)->get_decl(), args), m);
         }
         return expr_ref(e, m);
+    }
+
+    expr_ref mbqi::choose_term(euf::enode* r) {
+        unsigned sz = r->class_size();
+        unsigned start = ctx.s().rand()() % sz;
+        unsigned i = 0;
+        for (euf::enode* n : euf::enode_class(r)) 
+            if (i++ >= start)
+                return expr_ref(n->get_expr(), m);
+        return expr_ref(nullptr, m);
     }
     
     lbool mbqi::check_forall(quantifier* q) {
@@ -137,6 +143,7 @@ namespace q {
         unsigned sz = q->get_num_decls();
         expr_ref_vector vals(m);
         vals.resize(sz, nullptr);
+        auto const& v2r = ctx.values2root();
         for (unsigned i = 0; i < sz; ++i) {
             app* v = to_app(vars.get(i));
             func_decl* f = v->get_decl();
@@ -144,21 +151,15 @@ namespace q {
             if (!val)
                 return expr_ref(m);
             expr* t = nullptr;
-            NOT_IMPLEMENTED_YET();
-#if 0
-            if (m_val2term.find(val, m.get_sort(v), t)) {
-                val = t;
-            }
-            else {
-                val = replace_model_value(val);
-            }
-            vals[i] = val;
-#endif
+            euf::enode* r = nullptr;
+            if (v2r.find(val, r))
+                vals[i] = choose_term(r);
+            if (!vals.get(i))
+                vals[i] = replace_model_value(val);
         }
         var_subst subst(m);
         return subst(q->get_expr(), vals);   
     }
-
 
     lbool mbqi::operator()() {
         lbool result = l_true;
@@ -191,9 +192,8 @@ namespace q {
     }
 
     void mbqi::init_solver() {
-        if (m_solver)
-            return;
-        NOT_IMPLEMENTED_YET();
+        if (!m_solver)
+            m_solver = ctx.mk_solver();
     }
 
 }

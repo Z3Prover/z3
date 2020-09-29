@@ -35,10 +35,12 @@ namespace q {
         ref<::solver>                          m_solver;
         obj_map<sort, obj_hashtable<expr>*>    m_fresh;
         scoped_ptr_vector<obj_hashtable<expr>> m_values;
+        expr_ref_vector                        m_fresh_trail;
 
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
         void register_value(expr* e);
         expr_ref replace_model_value(expr* e);
+        expr_ref choose_term(euf::enode* r);
         lbool check_forall(quantifier* q);
         expr_ref specialize(quantifier* q, expr_ref_vector& vars);
         expr_ref project(model& mdl, quantifier* q, expr_ref_vector& vars);

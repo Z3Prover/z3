@@ -101,6 +101,7 @@ namespace euf {
         svector<scope>                                  m_scopes;
         scoped_ptr_vector<th_solver>                    m_solvers;
         ptr_vector<th_solver>                           m_id2solver;
+        std::function<::solver*(void)>                  m_mk_solver;
 
         constraint* m_conflict{ nullptr };
         constraint* m_eq{ nullptr };
@@ -135,11 +136,13 @@ namespace euf {
         void init_ackerman();
 
         // model building
+        expr_ref_vector m_values;
+        obj_map<expr, enode*> m_values2root;
         bool include_func_interp(func_decl* f);
         void register_macros(model& mdl);
-        void dependencies2values(deps_t& deps, expr_ref_vector& values, model_ref& mdl);
+        void dependencies2values(deps_t& deps, model_ref& mdl);
         void collect_dependencies(deps_t& deps);
-        void values2model(deps_t const& deps, expr_ref_vector const& values, model_ref& mdl);
+        void values2model(deps_t const& deps, model_ref& mdl);
 
         // solving
         void propagate_literals();
@@ -299,6 +302,7 @@ namespace euf {
 
         // model construction
         void update_model(model_ref& mdl);
+        obj_map<expr, enode*> const& values2root();
 
         // diagnostics
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
@@ -334,6 +338,10 @@ namespace euf {
             check_for_user_propagator();
             return m_user_propagator->add_expr(e);
         }
+
+        // solver factory
+        ::solver* mk_solver() { return m_mk_solver(); }
+        void set_mk_solver(std::function<::solver*(void)>& mk) { m_mk_solver = mk; }
 
 
     };

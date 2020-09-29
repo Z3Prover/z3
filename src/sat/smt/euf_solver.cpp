@@ -37,7 +37,8 @@ namespace euf {
         m_lookahead(nullptr),
         m_to_m(&m),
         m_to_si(&si),
-        m_reinit_exprs(m)
+        m_reinit_exprs(m),
+        m_values(m)
     {
         updt_params(p);
 
