@@ -518,7 +518,7 @@ namespace euf {
     bool egraph::propagate() {
         SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_num_scopes == 0 || m_to_merge.empty());
-        for (unsigned i = 0; i < m_to_merge.size() && m_limit().inc() && !inconsistent(); ++i) {
+        for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
             auto const& w = m_to_merge[i];
             merge(w.a, w.b, justification::congruence(w.commutativity));                
         }
