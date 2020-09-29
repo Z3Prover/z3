@@ -15,7 +15,6 @@ Author:
 
 --*/
 
-#include "ast/ast_ll_pp.h"
 #include "model/array_factory.h"
 #include "sat/smt/array_solver.h"
 #include "sat/smt/euf_solver.h"
@@ -29,6 +28,10 @@ namespace array {
             return;
         }
         for (euf::enode* p : euf::enode_parents(n)) {
+            if (a.is_default(p->get_expr())) {
+                dep.add(n, p);
+                continue;
+            }
             if (!a.is_select(p->get_expr()))
                 continue;
             dep.add(n, p);
@@ -37,9 +40,7 @@ namespace array {
         }
         for (euf::enode* k : euf::enode_class(n)) 
             if (a.is_const(k->get_expr()))
-                dep.add(n, k);    
-            else if (a.is_default(k->get_expr()))
-                dep.add(n, k);
+                dep.add(n, k->get_arg(0));    
     }
 
 
@@ -52,23 +53,58 @@ namespace array {
         func_interp * fi = alloc(func_interp, m, arity);
         mdl.register_decl(f, fi);
 
-        for (euf::enode* p : euf::enode_parents(n)) {
-            if (!a.is_select(p->get_expr()) || p->get_arg(0)->get_root() != n->get_root())
-                continue;
-            args.reset();
-            for (unsigned i = 1; i < p->num_args(); ++i) 
-                args.push_back(values.get(p->get_arg(i)->get_root_id()));
-            expr* value = values.get(p->get_root_id());
-            fi->insert_entry(args.c_ptr(), value);
-        }
-        if (!fi->get_else()) 
-            for (euf::enode* k : euf::enode_class(n))             
-                if (a.is_const(k->get_expr())) 
-                    fi->set_else(k->get_arg(0)->get_root()->get_expr());
         if (!fi->get_else())
-            for (euf::enode* k : euf::enode_parents(n))             
-                if (a.is_default(k->get_expr())) 
-                    fi->set_else(k->get_root()->get_expr());
+            for (euf::enode* k : euf::enode_class(n))
+                if (a.is_const(k->get_expr()))
+                    fi->set_else(values.get(k->get_arg(0)->get_root_id()));
+
+        if (!fi->get_else())
+            for (euf::enode* p : euf::enode_parents(n))
+                if (a.is_default(p->get_expr()))
+                    fi->set_else(values.get(p->get_root_id()));
+    
+        if (!fi->get_else()) {
+            expr* else_value = nullptr;
+            unsigned max_occ_num = 0;
+            obj_map<expr, unsigned> num_occ;
+            for (euf::enode* p : euf::enode_parents(n)) {
+                if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n->get_root()) {
+                    expr* v = values.get(p->get_root_id());
+                    if (!v)
+                        continue;
+                    unsigned no = 0;
+                    num_occ.find(v, no);
+                    ++no;
+                    num_occ.insert(v, no);
+                    if (no > max_occ_num) {
+                        else_value = v;
+                        max_occ_num = no;
+                    }
+                }
+            }
+            if (else_value)
+                fi->set_else(else_value);
+        }
+
+        for (euf::enode* p : euf::enode_parents(n)) {
+            if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n->get_root()) {
+//                std::cout << "parent " << mk_bounded_pp(p->get_expr(), m) << "\n";
+                expr* value = values.get(p->get_root_id());
+                if (!value || value == fi->get_else())
+                    continue;
+                args.reset();
+                bool relevant = true;
+                for (unsigned i = 1; relevant && i < p->num_args(); ++i)
+                    relevant = ctx.is_relevant(p->get_arg(i)->get_root());
+                if (!relevant)
+                    continue;
+                for (unsigned i = 1; i < p->num_args(); ++i) 
+                    args.push_back(values.get(p->get_arg(i)->get_root_id()));    
+//                for (expr* arg : args)
+//                    std::cout << "arg " << mk_bounded_pp(arg, m) << "\n";
+                fi->insert_entry(args.c_ptr(), value);
+            }
+        }
         
         parameter p(f);
         values.set(n->get_root_id(), m.mk_app(get_id(), OP_AS_ARRAY, 1, &p));

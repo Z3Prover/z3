@@ -227,17 +227,6 @@ public:
 
     virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
 
-    /**
-       \brief retrieve fixed value assignment in current solver state, if it is implied.
-    */
-    virtual expr_ref get_implied_value(expr* e) = 0;
-
-    /**
-       \brief retrieve upper/lower bound for arithmetic term, if it is implied.
-    */
-    virtual expr_ref get_implied_lower_bound(expr* e) = 0;
-
-    virtual expr_ref get_implied_upper_bound(expr* e) = 0;
 
     class propagate_callback {
     public:

@@ -47,7 +47,7 @@ namespace sat {
         * Add a root clause from the input problem.
         * At least one literal has to be satisfied in every root.
         */
-        void add_root(literal lit, unsigned sz, literal const* clause);
+        void add_root(unsigned sz, literal const* clause);
 
         /*
         * Add auxiliary clauses that originate from compiling definitions.

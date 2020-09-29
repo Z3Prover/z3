@@ -809,10 +809,8 @@ namespace smt {
         bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
         bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
 
-        for (obj_hashtable<func_decl>::iterator it = seen.begin();
-             it != seen.end();
-             it++)
-            mdl.unregister_decl(*it);
+        for (func_decl* f : seen) 
+            mdl.unregister_decl(f);
 
         for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
             func_decl * f = new_model.get_constant(i);

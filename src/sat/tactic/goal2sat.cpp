@@ -791,7 +791,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::literal result = m_result_stack.back();
         m_result_stack.pop_back();
         if (!result.sign() && m_map.to_bool_var(n) == sat::null_bool_var) 
-            m_map.insert(n, result.var());        
+            m_map.insert(n, result.var());    
         return result;
     }
 

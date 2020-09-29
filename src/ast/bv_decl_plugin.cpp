@@ -811,6 +811,14 @@ bool bv_recognizers::is_zero(expr const * n) const {
     return decl->get_parameter(0).get_rational().is_zero();
 }
 
+bool bv_recognizers::is_one(expr const* n) const {
+    if (!is_app_of(n, get_fid(), OP_BV_NUM)) {
+        return false;
+    }
+    func_decl* decl = to_app(n)->get_decl();
+    return decl->get_parameter(0).get_rational().is_one();
+}
+
 bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, expr*& b) const {
     if (!is_extract(e)) return false;
     low = get_extract_low(e);

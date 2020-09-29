@@ -22,7 +22,7 @@ namespace euf {
 
     // one table per func_decl implementation
     unsigned etable::cg_hash::operator()(enode * n) const {
-        SASSERT(n->get_decl()->is_flat_associative() || n->num_args() >= 3);
+        SASSERT(decl(n)->is_flat_associative() || num_args(n) >= 3);
         unsigned a, b, c;
         a = b = 0x9e3779b9;
         c = 11;    
@@ -30,33 +30,33 @@ namespace euf {
         unsigned i = n->num_args();
         while (i >= 3) {
             i--;
-            a += n->get_arg(i)->get_root()->hash();
+            a += get_root(n, i)->hash();
             i--;
-            b += n->get_arg(i)->get_root()->hash();
+            b += get_root(n, i)->hash();
             i--;
-            c += n->get_arg(i)->get_root()->hash();
+            c += get_root(n, i)->hash();
             mix(a, b, c);
         }
         
         switch (i) {
         case 2:
-            b += n->get_arg(1)->get_root()->hash();
+            b += get_root(n, 1)->hash();
             Z3_fallthrough;
         case 1:
-            c += n->get_arg(0)->get_root()->hash();
+            c += get_root(n, 0)->hash();
         }
         mix(a, b, c);
         return c;
     }
 
     bool etable::cg_eq::operator()(enode * n1, enode * n2) const {
-        SASSERT(n1->get_decl() == n2->get_decl());
-        unsigned num = n1->num_args();
-        if (num != n2->num_args()) {
+        SASSERT(decl(n1) == decl(n2));
+        unsigned num = num_args(n1);
+        if (num != num_args(n2)) {
             return false;
         }
         for (unsigned i = 0; i < num; i++) 
-            if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
+            if (get_root(n1, i) != get_root(n2, i))
                 return false;
         return true;
     }
@@ -69,31 +69,25 @@ namespace euf {
         reset();
     }
 
-    void * etable::mk_table_for(func_decl * d) {
+    void * etable::mk_table_for(unsigned arity, func_decl * d) {
         void * r;
         SASSERT(d->get_arity() >= 1);
-        switch (d->get_arity()) {
+        SASSERT(arity >= d->get_arity());
+        switch (arity) {
         case 1:
             r = TAG(void*, alloc(unary_table), UNARY);
             SASSERT(GET_TAG(r) == UNARY);
             return r;
         case 2:
-            if (d->is_flat_associative()) {
-                // applications of declarations that are flat-assoc (e.g., +) may have many arguments.
-                r = TAG(void*, alloc(table), NARY);
-                SASSERT(GET_TAG(r) == NARY);
-                return r;
-            }
-            else if (d->is_commutative()) {
+            if (d->is_commutative()) {
                 r = TAG(void*, alloc(comm_table, cg_comm_hash(), cg_comm_eq(m_commutativity)), BINARY_COMM);
                 SASSERT(GET_TAG(r) == BINARY_COMM);
-                return r;
             }
             else {
                 r = TAG(void*, alloc(binary_table), BINARY);
                 SASSERT(GET_TAG(r) == BINARY);
-                return r;
             }
+            return r;
         default: 
             r = TAG(void*, alloc(table), NARY);
             SASSERT(GET_TAG(r) == NARY);
@@ -104,18 +98,20 @@ namespace euf {
     unsigned etable::set_table_id(enode * n) {
         func_decl * f = n->get_decl();
         unsigned tid;
-        if (!m_func_decl2id.find(f, tid)) {
+        decl_info d(f, n->num_args());
+        if (!m_func_decl2id.find(d, tid)) {
             tid = m_tables.size();
-            m_func_decl2id.insert(f, tid);
+            m_func_decl2id.insert(d, tid);
             m_manager.inc_ref(f);
             SASSERT(tid <= m_tables.size());
-            m_tables.push_back(mk_table_for(f));
+            m_tables.push_back(mk_table_for(n->num_args(), f));
         }
         SASSERT(tid < m_tables.size());
         n->set_table_id(tid);
         DEBUG_CODE({
-            unsigned tid_prime;
-            SASSERT(m_func_decl2id.find(n->get_decl(), tid_prime) && tid == tid_prime);
+            decl_info d(n->get_decl(), n->num_args());
+            SASSERT(m_func_decl2id.contains(d));
+            SASSERT(m_func_decl2id[d] == tid);
         });
         return tid;
     }
@@ -139,7 +135,7 @@ namespace euf {
         }
         m_tables.reset();
         for (auto const& kv : m_func_decl2id) {
-            m_manager.dec_ref(kv.m_key);
+            m_manager.dec_ref(kv.m_key.first);
         }
         m_func_decl2id.reset();
     }
@@ -147,7 +143,7 @@ namespace euf {
     void etable::display(std::ostream & out) const {
         for (auto const& kv : m_func_decl2id) {
             void * t = m_tables[kv.m_value];
-            out << mk_pp(kv.m_key, m_manager) << ": ";
+            out << mk_pp(kv.m_key.first, m_manager) << ": ";
             switch (GET_TAG(t)) {
             case UNARY: 
                 display_unary(out, t);
@@ -243,6 +239,41 @@ namespace euf {
             UNTAG(table*, t)->erase(n);
             break;
         }
+    }
+
+    bool etable::contains(enode* n) const {
+        SASSERT(n->num_args() > 0);
+        void* t = const_cast<etable*>(this)->get_table(n);
+        switch (static_cast<table_kind>(GET_TAG(t))) {
+        case UNARY:
+            return UNTAG(unary_table*, t)->contains(n);
+        case BINARY:
+            return UNTAG(binary_table*, t)->contains(n);
+        case BINARY_COMM:
+            return UNTAG(comm_table*, t)->contains(n);
+        default:
+            return UNTAG(table*, t)->contains(n);
+        }
+    }
+
+    enode* etable::find(enode* n) const {
+        SASSERT(n->num_args() > 0);
+        enode* r = nullptr;
+        void* t = const_cast<etable*>(this)->get_table(n);
+        switch (static_cast<table_kind>(GET_TAG(t))) {
+        case UNARY:
+            return UNTAG(unary_table*, t)->find(n, r) ? r : nullptr;
+        case BINARY:
+            return UNTAG(binary_table*, t)->find(n, r) ? r : nullptr;
+        case BINARY_COMM:
+            return UNTAG(comm_table*, t)->find(n, r) ? r : nullptr;
+        default:
+            return UNTAG(table*, t)->find(n, r) ? r : nullptr;
+        }
+    }
+
+    bool etable::contains_ptr(enode* n) const {
+        return find(n) == n;
     }
 
 };

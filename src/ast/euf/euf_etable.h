@@ -1,5 +1,4 @@
-/*++
-Copyright (c) 2006 Microsoft Corporation
+/*++ Copyright (c) 2006 Microsoft Corporation
 
 Module Name:
 
@@ -22,28 +21,33 @@ Revision History:
 #include "util/chashtable.h"
 
 namespace euf {
-
-    typedef std::pair<enode *, bool> enode_bool_pair;
     
     // one table per function symbol
+
+    static unsigned num_args(enode* n) { return n->num_args(); }
+    static func_decl* decl(enode* n) { return n->get_decl(); }
+
 
     /**
        \brief Congruence table.
     */
     class etable {
+        static enode* get_root(enode* n, unsigned idx) { return n->get_arg(idx)->get_root(); }
+
         struct cg_unary_hash {
             unsigned operator()(enode * n) const {
-                SASSERT(n->num_args() == 1);
-                return n->get_arg(0)->get_root()->hash();
+                SASSERT(num_args(n) == 1);
+                return get_root(n, 0)->hash();
             }
         };
 
         struct cg_unary_eq {
+
             bool operator()(enode * n1, enode * n2) const {
-                SASSERT(n1->num_args() == 1);
-                SASSERT(n2->num_args() == 1);
-                SASSERT(n1->get_decl() == n2->get_decl());
-                return n1->get_arg(0)->get_root() == n2->get_arg(0)->get_root();
+                SASSERT(num_args(n1) == 1);
+                SASSERT(num_args(n2) == 1);
+                SASSERT(decl(n1) == decl(n2));
+                return get_root(n1, 0) == get_root(n2, 0);
             }
         };
 
@@ -51,19 +55,19 @@ namespace euf {
         
         struct cg_binary_hash {
             unsigned operator()(enode * n) const {
-                SASSERT(n->num_args() == 2);
-                return combine_hash(n->get_arg(0)->get_root()->hash(), n->get_arg(1)->get_root()->hash());
+                SASSERT(num_args(n) == 2);
+                return combine_hash(get_root(n, 0)->hash(), get_root(n, 1)->hash());
             }
         };
 
         struct cg_binary_eq {
             bool operator()(enode * n1, enode * n2) const {
-                SASSERT(n1->num_args() == 2);
-                SASSERT(n2->num_args() == 2);
-                SASSERT(n1->get_decl() == n2->get_decl());
-                return 
-                    n1->get_arg(0)->get_root() == n2->get_arg(0)->get_root() &&
-                    n1->get_arg(1)->get_root() == n2->get_arg(1)->get_root();
+                SASSERT(num_args(n1) == 2);
+                SASSERT(num_args(n2) == 2);
+                SASSERT(decl(n1) == decl(n2));
+                return
+                    get_root(n1, 0) == get_root(n2, 0) &&
+                    get_root(n1, 1) == get_root(n2, 1);
             }
         };
 
@@ -71,9 +75,9 @@ namespace euf {
         
         struct cg_comm_hash {
             unsigned operator()(enode * n) const {
-                SASSERT(n->num_args() == 2);
-                unsigned h1 = n->get_arg(0)->get_root()->hash();
-                unsigned h2 = n->get_arg(1)->get_root()->hash();
+                SASSERT(num_args(n) == 2);
+                unsigned h1 = get_root(n, 0)->hash();
+                unsigned h2 = get_root(n, 1)->hash(); 
                 if (h1 > h2)
                     std::swap(h1, h2);
                 return hash_u((h1 << 16) | (h2 & 0xFFFF));
@@ -82,15 +86,16 @@ namespace euf {
         
         struct cg_comm_eq {
             bool & m_commutativity;
-            cg_comm_eq(bool & c):m_commutativity(c) {}
+            cg_comm_eq( bool & c): m_commutativity(c) {}
             bool operator()(enode * n1, enode * n2) const {
-                SASSERT(n1->num_args() == 2);
-                SASSERT(n2->num_args() == 2);
-                SASSERT(n1->get_decl() == n2->get_decl());
-                enode * c1_1 = n1->get_arg(0)->get_root();
-                enode * c1_2 = n1->get_arg(1)->get_root();
-                enode * c2_1 = n2->get_arg(0)->get_root();
-                enode * c2_2 = n2->get_arg(1)->get_root();
+                SASSERT(num_args(n1) == 2);
+                SASSERT(num_args(n2) == 2);
+
+                SASSERT(decl(n1) == decl(n2));
+                enode* c1_1 = get_root(n1, 0);  
+                enode* c1_2 = get_root(n1, 1); 
+                enode* c2_1 = get_root(n2, 0); 
+                enode* c2_2 = get_root(n2, 1); 
                 if (c1_1 == c2_1 && c1_2 == c2_2) {
                     return true;
                 }
@@ -113,11 +118,19 @@ namespace euf {
         };
 
         typedef chashtable<enode*, cg_hash, cg_eq> table;
+        typedef std::pair<func_decl*, unsigned> decl_info;
+        struct decl_hash {
+            unsigned operator()(decl_info const& d) const { return d.first->hash(); }
+        };
+        struct decl_eq {
+            bool operator()(decl_info const& a, decl_info const& b) const { return a == b; }
+        };
+
 
         ast_manager &                 m_manager;
-        bool                          m_commutativity; //!< true if the last found congruence used commutativity
+        bool                          m_commutativity{ false }; //!< true if the last found congruence used commutativity
         ptr_vector<void>              m_tables;
-        obj_map<func_decl, unsigned>  m_func_decl2id;
+        map<decl_info, unsigned, decl_hash, decl_eq>  m_func_decl2id;
 
         enum table_kind {
             UNARY,
@@ -126,7 +139,7 @@ namespace euf {
             NARY
         };
 
-        void * mk_table_for(func_decl * d);
+        void * mk_table_for(unsigned n, func_decl * d);
         unsigned set_table_id(enode * n);
         
         void * get_table(enode * n) {
@@ -157,52 +170,11 @@ namespace euf {
 
         void erase(enode * n);
 
-        bool contains(enode * n) const {
-            SASSERT(n->num_args() > 0);
-            void * t = const_cast<etable*>(this)->get_table(n); 
-            switch (static_cast<table_kind>(GET_TAG(t))) {
-            case UNARY:
-                return UNTAG(unary_table*, t)->contains(n);
-            case BINARY:
-                return UNTAG(binary_table*, t)->contains(n);
-            case BINARY_COMM:
-                return UNTAG(comm_table*, t)->contains(n);
-            default:
-                return UNTAG(table*, t)->contains(n);
-            }
-        }
+        bool contains(enode* n) const;
 
-        enode * find(enode * n) const {
-            SASSERT(n->num_args() > 0);
-            enode * r = nullptr;
-            void * t = const_cast<etable*>(this)->get_table(n); 
-            switch (static_cast<table_kind>(GET_TAG(t))) {
-            case UNARY:
-                return UNTAG(unary_table*, t)->find(n, r) ? r : nullptr;
-            case BINARY:
-                return UNTAG(binary_table*, t)->find(n, r) ? r : nullptr;
-            case BINARY_COMM:
-                return UNTAG(comm_table*, t)->find(n, r) ? r : nullptr;
-            default:
-                return UNTAG(table*, t)->find(n, r) ? r : nullptr;
-            }
-        }
+        enode* find(enode* n) const;
 
-        bool contains_ptr(enode * n) const {
-            enode * r;
-            SASSERT(n->num_args() > 0);
-            void * t = const_cast<etable*>(this)->get_table(n); 
-            switch (static_cast<table_kind>(GET_TAG(t))) {
-            case UNARY:
-                return UNTAG(unary_table*, t)->find(n, r) && n == r;
-            case BINARY:
-                return UNTAG(binary_table*, t)->find(n, r) && n == r;
-            case BINARY_COMM:
-                return UNTAG(comm_table*, t)->find(n, r) && n == r;
-            default:
-                return UNTAG(table*, t)->find(n, r) && n == r;
-            }
-        }
+        bool contains_ptr(enode* n) const;
 
         void reset();
 

@@ -92,6 +92,7 @@ namespace array {
             kind_t      m_kind;
             euf::enode* n;
             euf::enode* select;
+            bool        m_delayed { false };
             axiom_record(kind_t k, euf::enode* n, euf::enode* select = nullptr) : m_kind(k), n(n), select(select) {}
 
             struct hash {
@@ -119,8 +120,13 @@ namespace array {
         axiom_table_t         m_axioms;
         svector<axiom_record> m_axiom_trail;
         unsigned              m_qhead { 0 };
+        unsigned              m_delay_qhead { 0 };
+        struct set_delay_bit;
         void push_axiom(axiom_record const& r);
+        bool propagate_axiom(unsigned idx);
         bool assert_axiom(unsigned idx);
+        bool assert_select(unsigned idx, axiom_record & r);
+        bool assert_default(axiom_record & r);
 
         axiom_record select_axiom(euf::enode* s, euf::enode* n) { return axiom_record(axiom_record::kind_t::is_select, n, s); }
         axiom_record default_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_default, n); }
@@ -180,7 +186,6 @@ namespace array {
         bool have_different_model_values(theory_var v1, theory_var v2);
 
         // diagnostics
-
         std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const;
     public:
         solver(euf::solver& ctx, theory_id id);
@@ -195,7 +200,7 @@ namespace array {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
-        euf::th_solver* fresh(sat::solver* s, euf::solver& ctx) override;
+        euf::th_solver* clone(sat::solver* s, euf::solver& ctx) override;
         void new_eq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override;
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
@@ -204,6 +209,7 @@ namespace array {
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
+        bool is_shared(theory_var v) const override;
 
         void tracked_push(euf::enode_vector& v, euf::enode* n);
 

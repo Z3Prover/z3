@@ -22,6 +22,7 @@ Author:
 #include "sat/smt/ba_solver.h"
 #include "sat/smt/bv_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "sat/smt/array_solver.h"
 
 namespace euf {
 
@@ -79,6 +80,7 @@ namespace euf {
             return nullptr;
         pb_util pb(m);
         bv_util bvu(m);
+        array_util au(m);
         if (pb.get_family_id() == fid) {
             ext = alloc(sat::ba_solver, *this, fid);
             if (use_drat())
@@ -88,6 +90,11 @@ namespace euf {
             ext = alloc(bv::solver, *this, fid);
             if (use_drat())
                 s().get_drat().add_theory(fid, symbol("bv"));            
+        }
+        else if (au.get_family_id() == fid) {
+            ext = alloc(array::solver, *this, fid);
+            if (use_drat())
+                s().get_drat().add_theory(fid, symbol("array"));
         }
         if (ext) {
             ext->set_solver(m_solver);
@@ -210,10 +217,11 @@ namespace euf {
 
     void solver::asserted(literal l) {
         expr* e = m_var2expr.get(l.var(), nullptr);
-        if (!e) 
+        if (!e) {
+            TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << "\n";);
             return;        
-
-        TRACE("euf", tout << "asserted: " << mk_bounded_pp(e, m) << " := " << l << "@" << s().scope_lvl() << "\n";);
+        }
+        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
@@ -370,18 +378,30 @@ namespace euf {
         m_egraph.push();
     }
 
+    void solver::user_push() {
+        push();
+        if (m_dual_solver)
+            m_dual_solver->push();
+    }
+
+    void solver::user_pop(unsigned n) {
+        pop(n);
+        if (m_dual_solver)
+            m_dual_solver->pop(n);
+    }
+
     void solver::pop(unsigned n) {
         start_reinit(n);
-        m_egraph.pop(n);
+        m_trail.pop_scope(n);
         for (auto* e : m_solvers)
             e->pop(n);
+        si.pop(n);
+        m_egraph.pop(n);
         scope const & s = m_scopes[m_scopes.size() - n];
         for (unsigned i = m_var_trail.size(); i-- > s.m_var_lim; )
             m_var2expr[m_var_trail[i]] = nullptr;
         m_var_trail.shrink(s.m_var_lim);        
-        m_trail.pop_scope(n);
         m_scopes.shrink(m_scopes.size() - n);
-        si.pop(n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
         TRACE("euf", tout << "pop to: " << m_scopes.size() << "\n";);
     }
@@ -424,8 +444,9 @@ namespace euf {
         if (replay.m.empty())
             return;
         
-        TRACE("euf", for (auto const& kv : replay.m) tout << "replay: " << kv.m_value << " " << mk_bounded_pp(kv.m_key, m) << "\n";);
+        TRACE("euf", for (auto const& kv : replay.m) tout << kv.m_value << "\n";);
         for (auto const& kv : replay.m) {
+            TRACE("euf", tout << "replay: " << kv.m_value << " " << mk_bounded_pp(kv.m_key, m) << "\n";);
             sat::literal lit;
             expr* e = kv.m_key;
             if (si.is_bool_op(e)) 
@@ -557,7 +578,7 @@ namespace euf {
         for (unsigned i = 0; i < m_id2solver.size(); ++i) {
             auto* e = m_id2solver[i];
             if (e)
-                r->add_solver(i, e->fresh(s, *r));
+                r->add_solver(i, e->clone(s, *r));
         }
         return r;
     }

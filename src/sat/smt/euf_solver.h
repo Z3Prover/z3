@@ -54,6 +54,7 @@ namespace euf {
     class solver : public sat::extension, public th_internalizer, public th_decompile {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
+        class user_sort;
         // friend class sat::ba_solver;
         struct stats {
             unsigned m_ackerman;
@@ -129,7 +130,7 @@ namespace euf {
         th_solver* func_decl2solver(func_decl* f) { return get_solver(f->get_family_id(), f); }
         th_solver* expr2solver(expr* e);
         th_solver* bool_var2solver(sat::bool_var v);
-        th_solver* fid2solver(family_id fid) { return m_id2solver.get(fid, nullptr); }
+        th_solver* fid2solver(family_id fid) const { return m_id2solver.get(fid, nullptr); }
         void add_solver(family_id fid, th_solver* th);
         void init_ackerman();
 
@@ -234,6 +235,8 @@ namespace euf {
         sat::check_result check() override;
         void push() override;
         void pop(unsigned n) override;
+        void user_push();
+        void user_pop(unsigned n);
         void pre_simplify() override;
         void simplify() override;
         // have a way to replace l by r in all constraints

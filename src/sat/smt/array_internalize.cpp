@@ -71,7 +71,8 @@ namespace array {
 
     void solver::internalize_lambda(euf::enode* n) {
         set_prop_upward(n);
-        push_axiom(default_axiom(n));
+        if (!a.is_store(n->get_expr()))
+            push_axiom(default_axiom(n));
         add_lambda(n->get_th_var(get_id()), n);
     }
 
@@ -148,6 +149,47 @@ namespace array {
             break;            
         }
         return true;
+    }
+
+    /**
+        \brief Return true if v is shared between two different "instances" of the array theory.
+        It is shared if it is used in more than one role. The possible roles are: array, index, and value.
+        Example:
+          (store v i j) <--- v is used as an array
+          (select A v)  <--- v is used as an index
+          (store A i v) <--- v is used as an value
+     */
+    bool solver::is_shared(theory_var v) const {
+        euf::enode* n = var2enode(v);
+        euf::enode* r = n->get_root();
+        bool is_array = false;
+        bool is_index = false;
+        bool is_value = false;
+        auto set_array = [&](euf::enode* arg) { if (arg->get_root() == r) is_array = true; };
+        auto set_index = [&](euf::enode* arg) { if (arg->get_root() == r) is_index = true; };
+        auto set_value = [&](euf::enode* arg) { if (arg->get_root() == r) is_value = true; };
+
+        for (euf::enode* parent : euf::enode_parents(r)) {
+            app* p = parent->get_app();
+            unsigned num_args = parent->num_args();
+            if (a.is_store(p)) {
+                set_array(parent->get_arg(0));
+                for (unsigned i = 1; i < num_args - 1; i++)
+                    set_index(parent->get_arg(i));
+                set_value(parent->get_arg(num_args - 1));
+            }
+            else if (a.is_select(p)) {
+                set_array(parent->get_arg(0));
+                for (unsigned i = 1; i < num_args - 1; i++)
+                    set_index(parent->get_arg(i));
+            }
+            else if (a.is_const(p)) {
+                set_value(parent->get_arg(0));
+            }
+            if (is_array + is_index + is_value > 1)
+                return true;
+        }
+        return false;
     }
 
 }

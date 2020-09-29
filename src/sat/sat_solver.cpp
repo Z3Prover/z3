@@ -940,11 +940,6 @@ namespace sat {
         m_phase[v]                 = !l.sign();
         m_assigned_since_gc[v]     = true;
         m_trail.push_back(l);
-
-        if (m_ext && m_external[v] && (!is_probing() || at_base_lvl()))
-            m_ext->asserted(l);
-//        else 
-//            std::cout << "assert " << l << "\n";
         
         switch (m_config.m_branching_heuristic) {
         case BH_VSIDS: 
@@ -1042,7 +1037,7 @@ namespace sat {
         lbool val1, val2;
         bool keep;
         unsigned curr_level = lvl(l);
-        TRACE("sat_propagate", tout << "propagating: " << l << " " << m_justification[l.var()] << "\n"; );
+        TRACE("sat_propagate", tout << "propagating: " << l << "@" << curr_level << " " << m_justification[l.var()] << "\n"; );
 
         literal not_l = ~l;
         SASSERT(value(l) == l_true);
@@ -1204,6 +1199,9 @@ namespace sat {
             }
         }
         wlist.set_end(it2);
+        if (m_ext && m_external[l.var()] && (!is_probing() || at_base_lvl()))
+            m_ext->asserted(l);
+
         return true;
     }
 
@@ -3575,6 +3573,7 @@ namespace sat {
         m_trail.shrink(old_sz);        
         m_qhead = m_trail.size();
         if (!m_replay_assign.empty()) IF_VERBOSE(20, verbose_stream() << "replay assign: " << m_replay_assign.size() << "\n");
+        CTRACE("sat", !m_replay_assign.empty(), tout << "replay-assign: " << m_replay_assign << "\n";);
         for (unsigned i = m_replay_assign.size(); i-- > 0; ) {
             literal lit = m_replay_assign[i];
             m_trail.push_back(lit);            
