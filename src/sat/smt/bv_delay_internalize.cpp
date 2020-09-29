@@ -166,7 +166,6 @@ namespace bv {
     bool solver::check_mul_zero(app* n, expr_ref_vector const& arg_values, expr* mul_value, expr* arg_value) {
         SASSERT(mul_value != arg_value);
         SASSERT(!(bv.is_zero(mul_value) && bv.is_zero(arg_value)));
-
         if (bv.is_zero(arg_value)) {
             unsigned sz = n->get_num_args();
             expr_ref_vector args(m, sz, n->get_args());
@@ -176,6 +175,7 @@ namespace bv {
                 set_delay_internalize(r, internalize_mode::init_bits_only_i); // do not bit-blast this multiplier.
                 expr_ref eq(m.mk_eq(r, arg_value), m);
                 args[i] = n->get_arg(i);
+                std::cout << eq << "@" << s().scope_lvl() << "\n";
                 add_unit(b_internalize(eq));
             }
             return false;
@@ -216,6 +216,7 @@ namespace bv {
             set_delay_internalize(mul1, internalize_mode::init_bits_only_i);
             expr_ref eq(m.mk_eq(mul1, n->get_arg(1)), m);
             add_unit(b_internalize(eq));
+            TRACE("bv", tout << eq << "\n";);
             return false;
         }
         if (bv.is_one(arg_values[1])) {
@@ -223,6 +224,7 @@ namespace bv {
             set_delay_internalize(mul1, internalize_mode::init_bits_only_i);
             expr_ref eq(m.mk_eq(mul1, n->get_arg(0)), m);
             add_unit(b_internalize(eq));
+            TRACE("bv", tout << eq << "\n";);
             return false;
         }
         return true;
@@ -292,6 +294,8 @@ namespace bv {
         set_delay_internalize(rhs, internalize_mode::no_delay_i);
         expr_ref eq(m.mk_eq(lhs, rhs), m);
         add_unit(b_internalize(eq));
+        TRACE("bv", tout << "low-bits: " << eq << "\n";);
+        std::cout << "low bits\n";
         return false;     
     }
 
@@ -430,7 +434,8 @@ namespace bv {
             if (should_bit_blast(e))
                 return internalize_mode::no_delay_i;
             mode = internalize_mode::delay_i;
-            m_delay_internalize.find(e, mode);
+            if (!m_delay_internalize.find(e, mode))
+                m_delay_internalize.insert(e, mode);
             return mode;        
         default:
             return internalize_mode::no_delay_i;

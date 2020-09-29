@@ -179,8 +179,12 @@ namespace smt {
     std::ostream& context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
         for (clause* cp : v) {
             out << "(";
-            for (auto lit : *cp)
-                out << lit << " ";
+            bool first = true;
+            for (auto lit : *cp) {
+                if (!first) out << " "; 
+                first = false;
+                out << lit;
+            }
             out << ")\n";
         }
         return out;

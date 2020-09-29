@@ -37,11 +37,11 @@ namespace bv {
     };
 
     class solver::bit_occs_trail : public trail<euf::solver> {
-        bit_atom& a;
+        atom& a;
         var_pos_occ* m_occs;
 
     public:
-        bit_occs_trail(solver& s, bit_atom& a): a(a), m_occs(a.m_occs) {}
+        bit_occs_trail(solver& s, atom& a): a(a), m_occs(a.m_occs) {}
         
         virtual void undo(euf::solver& euf) {
             IF_VERBOSE(1, verbose_stream() << "add back occurrences " << & a << "\n");
@@ -134,7 +134,7 @@ namespace bv {
     /**
      *\brief v[idx] = ~v'[idx], then v /= v' is a theory axiom.
     */
-    void solver::find_new_diseq_axioms(bit_atom& a, theory_var v, unsigned idx) {
+    void solver::find_new_diseq_axioms(atom& a, theory_var v, unsigned idx) {
         if (!get_config().m_bv_eq_axioms)
             return;
         literal l = m_bits[v][idx];
@@ -180,12 +180,8 @@ namespace bv {
             }
         }
         else if (m.is_bool(e) && (a = m_bool_var2atom.get(expr2literal(e).var(), nullptr))) {
-            if (a->is_bit()) {
-                for (var_pos vp : a->to_bit())
-                    out << " " << var2enode(vp.first)->get_expr_id() << "[" << vp.second << "]";
-            }
-            else
-                out << "def-atom";
+            for (var_pos vp : *a)
+                out << " " << var2enode(vp.first)->get_expr_id() << "[" << vp.second << "]";
         }
         else
             out << " " << mk_bounded_pp(e, m, 1);
@@ -389,12 +385,10 @@ namespace bv {
     void solver::asserted(literal l) {
         atom* a = get_bv2a(l.var());
         TRACE("bv", tout << "asserted: " << l << "\n";);
-        if (a && a->is_bit()) {
+        if (a) {
             force_push();
-            m_prop_queue.push_back(propagation_item(&a->to_bit()));
-        }
-        else if (a && a->is_eq()) {
-            for (auto p : a->to_eq().m_eqs) {
+            m_prop_queue.push_back(propagation_item(a));
+            for (auto p : a->m_bit2occ) {
                 del_eq_occurs(p.first, p.second);
             }
         }
@@ -544,20 +538,15 @@ namespace bv {
         TRACE("bv", tout << "num vars " << old_sz << "@" << m_prop_queue_lim.size() << "\n";);
     }
 
-    void solver::pre_simplify() {}
-
     void solver::simplify() {
         m_ackerman.propagate();
     }
 
     bool solver::set_root(literal l, literal r) {
         atom* a = get_bv2a(l.var());
-        atom* b = get_bv2a(r.var());
-        if (!a || !a->is_bit())
+        if (!a)
             return true;
-        if (b && !b->is_bit())
-            return false;
-        for (auto vp : a->to_bit()) {            
+        for (auto vp : *a) {            
             sat::literal l2 = m_bits[vp.first][vp.second];
             if (l2.var() == r.var())
                 continue;
@@ -568,8 +557,8 @@ namespace bv {
             m_bits[vp.first][vp.second] = r2;
             set_bit_eh(vp.first, r2, vp.second);
         }
-        ctx.push(bit_occs_trail(*this, a->to_bit()));
-        a->to_bit().m_occs = nullptr;
+        ctx.push(bit_occs_trail(*this, *a));
+        a->m_occs = nullptr;
         // validate_atoms();
         return true;
     }
@@ -682,22 +671,18 @@ namespace bv {
             if (!a)
                 continue;
 
-            if (a->is_bit()) {
-                bit_atom* new_a = new (result->get_region()) bit_atom();
-                m_bool_var2atom.setx(i, new_a, nullptr);
-                for (auto vp : a->to_bit())
-                    new_a->m_occs = new (result->get_region()) var_pos_occ(vp.first, vp.second, new_a->m_occs);
-                for (auto const& occ : a->to_bit().eqs()) {
-                    expr* e = occ.m_node->get_expr();
-                    expr_ref e2(tr(e), tr.to());
-                    euf::enode* n = ctx.get_enode(e2);
-                    new_a->m_eqs = new (result->get_region()) eq_occurs(occ.m_bv1, occ.m_bv2, occ.m_idx, occ.m_v1, occ.m_v2, occ.m_literal, n, new_a->m_eqs);
-                }
+            atom* new_a = new (result->get_region()) atom();
+            m_bool_var2atom.setx(i, new_a, nullptr);
+            for (auto vp : *a)
+                new_a->m_occs = new (result->get_region()) var_pos_occ(vp.first, vp.second, new_a->m_occs);
+            for (auto const& occ : a->eqs()) {
+                expr* e = occ.m_node->get_expr();
+                expr_ref e2(tr(e), tr.to());
+                euf::enode* n = ctx.get_enode(e2);
+                new_a->m_eqs = new (result->get_region()) eq_occurs(occ.m_bv1, occ.m_bv2, occ.m_idx, occ.m_v1, occ.m_v2, occ.m_literal, n, new_a->m_eqs);
             }
-            else {
-                def_atom* new_a = new (result->get_region()) def_atom(a->to_def().m_var, a->to_def().m_def);
-                m_bool_var2atom.setx(i, new_a, nullptr);
-            }
+            new_a->m_def = a->m_def;
+            new_a->m_var = a->m_var;
             validate_atoms();
         }
         return result;
@@ -817,8 +802,8 @@ namespace bv {
                 find_wpos(v2);
             bool_var cv = consequent.var();
             atom* a = get_bv2a(cv);
-            if (a && a->is_bit())
-                for (auto curr : a->to_bit())
+            if (a)
+                for (auto curr : *a)
                     if (propagate_eqc || find(curr.first) != find(v2) || curr.second != idx) 
                         m_prop_queue.push_back(propagation_item(curr));  
             return true;

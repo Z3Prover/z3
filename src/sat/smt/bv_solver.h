@@ -139,26 +139,10 @@ namespace bv {
             eq_occurs_it end() const { return eq_occurs_it(nullptr); }
         };
 
-        struct bit_atom;
-        struct def_atom;
-        struct eq_atom;
-        class atom {
-        public:
-
-            atom()  {}
-            virtual ~atom() {}
-            virtual bool is_bit() const { return false; }
-            virtual bool is_eq() const { return false; }
-            bit_atom& to_bit();
-            def_atom& to_def();
-            eq_atom& to_eq();
-
-        };
-
         struct var_pos_occ {
             var_pos       m_vp;
-            var_pos_occ * m_next;
-            var_pos_occ(theory_var v = euf::null_theory_var, unsigned idx = 0, var_pos_occ * next = nullptr):m_vp(v, idx), m_next(next) {}
+            var_pos_occ* m_next;
+            var_pos_occ(theory_var v = euf::null_theory_var, unsigned idx = 0, var_pos_occ* next = nullptr) :m_vp(v, idx), m_next(next) {}
         };
 
         class var_pos_it {
@@ -172,37 +156,24 @@ namespace bv {
             bool operator!=(var_pos_it const& other) const { return !(*this == other); }
         };
 
-        struct bit_atom : public atom {
+        struct atom {
             eq_occurs*    m_eqs;
             var_pos_occ * m_occs;
-            bit_atom() :m_eqs(nullptr), m_occs(nullptr) {}
-            ~bit_atom() override {}
-            bool is_bit() const override { return true; }
+            svector<std::pair<atom*, eq_occurs*>> m_bit2occ;
+            literal    m_var { sat::null_literal };
+            literal    m_def { sat::null_literal };
+            atom() :m_eqs(nullptr), m_occs(nullptr) {}
+            ~atom() { m_bit2occ.clear(); }
             var_pos_it begin() const { return var_pos_it(m_occs); }
             var_pos_it end() const { return var_pos_it(nullptr); }
             bool is_fresh() const { return !m_occs && !m_eqs; }
-            eqs_iterator eqs() const { return eqs_iterator(m_eqs); }           
-        };
-
-        struct eq_atom : public atom {
-            eq_atom(){}
-            ~eq_atom() override { m_eqs.clear();  }
-            bool is_bit() const override { return false; }
-            bool is_eq() const override { return true; }
-            svector<std::pair<bit_atom*,eq_occurs*>> m_eqs;
-        };
-
-        struct def_atom : public atom {
-            literal    m_var;
-            literal    m_def;
-            def_atom(literal v, literal d):m_var(v), m_def(d) {}
-            ~def_atom() override {}
+            eqs_iterator eqs() const { return eqs_iterator(m_eqs); }  
         };
 
         struct propagation_item {
             var_pos m_vp { var_pos(0, 0) };
-            bit_atom* m_atom{ nullptr };
-            explicit propagation_item(bit_atom* a) : m_atom(a) {}
+            atom* m_atom{ nullptr };
+            explicit propagation_item(atom* a) : m_atom(a) {}
             explicit propagation_item(var_pos const& vp) : m_vp(vp) {}            
         };
 
@@ -253,10 +224,9 @@ namespace bv {
         sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
-        bit_atom* mk_bit_atom(sat::bool_var b);
-        eq_atom* mk_eq_atom(sat::bool_var b);
+        atom* mk_atom(sat::bool_var b);
         void eq_internalized(sat::bool_var b1, sat::bool_var b2, unsigned idx, theory_var v1, theory_var v2, sat::literal eq, euf::enode* n);
-        void del_eq_occurs(bit_atom* a, eq_occurs* occ);
+        void del_eq_occurs(atom* a, eq_occurs* occ);
 
         void set_bit_eh(theory_var v, literal l, unsigned idx);
         void init_bits(expr* e, expr_ref_vector const & bits);
@@ -278,7 +248,9 @@ namespace bv {
         void internalize_sub(app* n);
         void internalize_extract(app* n);
         void internalize_bit2bool(app* n);
-        template<bool Signed>
+        void internalize_udiv(app* n);
+        void internalize_udiv_i(app* n);
+        template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
         void assert_bv2int_axiom(app * n);
         void assert_int2bv_axiom(app* n);
@@ -313,7 +285,7 @@ namespace bv {
         // solving
         theory_var find(theory_var v) const { return m_find.find(v); }
         void find_wpos(theory_var v);
-        void find_new_diseq_axioms(bit_atom& a, theory_var v, unsigned idx);
+        void find_new_diseq_axioms(atom& a, theory_var v, unsigned idx);
         void mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
         bool get_fixed_value(theory_var v, numeral& result) const;
         void add_fixed_eq(theory_var v1, theory_var v2);      
@@ -343,8 +315,7 @@ namespace bv {
         void asserted(literal l) override;
         sat::check_result check() override;
         void push_core() override;
-        void pop_core(unsigned n) override;
-        void pre_simplify() override;        
+        void pop_core(unsigned n) override;   
         void simplify() override;
         bool set_root(literal l, literal r) override;
         void flush_roots() override;

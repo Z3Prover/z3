@@ -23,8 +23,8 @@ namespace bv {
     void solver::validate_atoms() const {
         sat::bool_var v = 0;
         for (auto* a : m_bool_var2atom) {
-            if (a && a->is_bit()) {
-                for (auto vp : a->to_bit()) {
+            if (a) {
+                for (auto vp : *a) {
                     SASSERT(m_bits[vp.first][vp.second].var() == v);
                     VERIFY(m_bits[vp.first][vp.second].var() == v);
                 }

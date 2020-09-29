@@ -426,6 +426,18 @@ public:
     app * mk_bv_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BADD, arg1, arg2); }
     app * mk_bv_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSUB, arg1, arg2); }
     app * mk_bv_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BMUL, arg1, arg2); }
+    app * mk_bv_udiv(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUDIV, arg1, arg2); }
+    app * mk_bv_udiv_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUDIV_I, arg1, arg2); }
+    app * mk_bv_udiv0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BUDIV0, arg); }
+    app * mk_bv_sdiv(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSDIV, arg1, arg2); }
+    app * mk_bv_sdiv_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSDIV_I, arg1, arg2); }
+    app * mk_bv_sdiv0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BSDIV0, arg); }
+    app * mk_bv_srem_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSREM_I, arg1, arg2); }
+    app * mk_bv_srem0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BSREM0, arg); }
+    app * mk_bv_urem_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM_I, arg1, arg2); }
+    app * mk_bv_urem0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BUREM0, arg); }
+    app * mk_bv_smod_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSMOD_I, arg1, arg2); }
+    app * mk_bv_smod0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BSMOD0, arg); }
     app * mk_zero_extend(unsigned n, expr* e) {
         parameter p(n);
         return m_manager.mk_app(get_fid(), OP_ZERO_EXT, 1, &p, 1, &e);

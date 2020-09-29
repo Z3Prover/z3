@@ -30,6 +30,8 @@ namespace euf {
     typedef ptr_vector<enode> enode_vector;
     typedef std::pair<enode*,enode*> enode_pair;
     typedef svector<enode_pair> enode_pair_vector;
+    typedef std::pair<enode*,bool> enode_bool_pair;
+    typedef svector<enode_bool_pair> enode_bool_pair_vector;
     typedef id_var_list<> th_var_list;
     typedef int theory_var;
     typedef int theory_id;
@@ -48,11 +50,12 @@ namespace euf {
         lbool         m_value;
         unsigned      m_bool_var { UINT_MAX };
         unsigned      m_class_size{ 1 };
-        unsigned      m_table_id{ UINT_MAX };
+        unsigned      m_table_id{ UINT_MAX };        
         enode_vector  m_parents;
         enode* m_next{ nullptr };
         enode* m_root{ nullptr };
         enode* m_target{ nullptr };
+        enode* m_cg { nullptr };
         th_var_list   m_th_vars;
         justification m_justification;
         unsigned      m_num_args{ 0 };
@@ -102,6 +105,7 @@ namespace euf {
         
         void set_update_children() { m_update_children = true; }
 
+
         friend class add_th_var_trail;
         friend class replace_th_var_trail;
         void add_th_var(theory_var v, theory_id id, region & r) { m_th_vars.add_var(v, id, r); }
@@ -131,7 +135,7 @@ namespace euf {
         bool is_equality() const { return m_is_equality; }
         lbool value() const { return m_value;  }
         unsigned bool_var() const { return m_bool_var; }
-
+        bool is_cgr() const { return this == m_cg; }
         bool commutative() const { return m_commutative; }
         void mark_interpreted() { SASSERT(num_args() == 0); m_interpreted = true; }
         bool merge_enabled() { return m_merge_enabled; }
@@ -172,6 +176,8 @@ namespace euf {
         func_decl* get_decl() const { return is_app(m_expr) ? to_app(m_expr)->get_decl() : nullptr; }
         unsigned get_expr_id() const { return m_expr->get_id(); }
         unsigned get_root_id() const { return m_root->m_expr->get_id(); }
+        bool children_are_roots() const;
+
         theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }
         theory_var get_closest_th_var(theory_id id) const;
         bool is_attached_to(theory_id id) const { return get_th_var(id) != null_theory_var; }
@@ -190,15 +196,15 @@ namespace euf {
         enode* const* begin_parents() const { return m_parents.begin(); }
         enode* const* end_parents() const { return m_parents.end(); }
 
-        void invariant();
+        void invariant(class egraph& g);
         bool congruent(enode* n) const;
     };
 
     class enode_args {
-        enode& n;
+        enode const& n;
     public:
-        enode_args(enode& _n):n(_n) {}
-        enode_args(enode* _n):n(*_n) {}
+        enode_args(enode const& _n):n(_n) {}
+        enode_args(enode const* _n):n(*_n) {}
         enode* const* begin() const { return n.m_args; }
         enode* const* end()   const { return n.m_args + n.num_args(); }
     };

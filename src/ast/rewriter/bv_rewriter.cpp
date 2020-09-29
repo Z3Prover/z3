@@ -1012,7 +1012,7 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
         r2 = m_util.norm(r2, bv_size, true);
         if (r2.is_zero()) {
             if (!hi_div0) {
-                result = m().mk_app(get_fid(), OP_BSDIV0, arg1);
+                result = m_util.mk_bv_sdiv0(arg1);
                 return BR_REWRITE1;
             }
             else {
@@ -1035,19 +1035,19 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
             return BR_DONE;
         }
 
-        result = m().mk_app(get_fid(), OP_BSDIV_I, arg1, arg2);
+        result = m_util.mk_bv_sdiv_i(arg1, arg2);
         return BR_DONE;
     }
 
     if (hi_div0) {
-        result = m().mk_app(get_fid(), OP_BSDIV_I, arg1, arg2);
+        result = m_util.mk_bv_sdiv_i(arg1, arg2);
         return BR_DONE;
     }
 
     bv_size = get_bv_size(arg2);
     result = m().mk_ite(m().mk_eq(arg2, mk_numeral(0, bv_size)),
-                        m().mk_app(get_fid(), OP_BSDIV0, arg1),
-                        m().mk_app(get_fid(), OP_BSDIV_I, arg1, arg2));
+                        m_util.mk_bv_sdiv0(arg1),
+                        m_util.mk_bv_sdiv_i(arg1, arg2));
     return BR_REWRITE2;
 }
 
@@ -1061,7 +1061,7 @@ br_status bv_rewriter::mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, e
         r2 = m_util.norm(r2, bv_size);
         if (r2.is_zero()) {
             if (!hi_div0) {
-                result = m().mk_app(get_fid(), OP_BUDIV0, arg1);
+                result = m_util.mk_bv_udiv0(arg1);
                 return BR_REWRITE1;
             }
             else {
@@ -1090,19 +1090,19 @@ br_status bv_rewriter::mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, e
         }
 
 
-        result = m().mk_app(get_fid(), OP_BUDIV_I, arg1, arg2);
+        result = m_util.mk_bv_udiv_i(arg1, arg2);
         return BR_DONE;
     }
 
     if (hi_div0) {
-        result = m().mk_app(get_fid(), OP_BUDIV_I, arg1, arg2);
+        result = m_util.mk_bv_udiv_i(arg1, arg2);
         return BR_DONE;
     }
 
     bv_size = get_bv_size(arg2);
     result = m().mk_ite(m().mk_eq(arg2, mk_numeral(0, bv_size)),
-                        m().mk_app(get_fid(), OP_BUDIV0, arg1),
-                        m().mk_app(get_fid(), OP_BUDIV_I, arg1, arg2));
+        m_util.mk_bv_udiv0(arg1),
+        m_util.mk_bv_udiv_i(arg1, arg2));
 
     TRACE("bv_udiv", tout << mk_ismt2_pp(arg1, m()) << "\n" << mk_ismt2_pp(arg2, m()) << "\n---->\n" << mk_ismt2_pp(result, m()) << "\n";);
     return BR_REWRITE2;
@@ -1201,7 +1201,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
         r2 = m_util.norm(r2, bv_size);
         if (r2.is_zero()) {
             if (!hi_div0) {
-                result = m().mk_app(get_fid(), OP_BUREM0, arg1);
+                result = m_util.mk_bv_urem0(arg1);
                 return BR_REWRITE1;
             }
             else {
@@ -1233,7 +1233,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
             return BR_REWRITE2;
         }
 
-        result = m().mk_app(get_fid(), OP_BUREM_I, arg1, arg2);
+        result = m_util.mk_bv_urem_i(arg1, arg2);
         return BR_DONE;
     }
 
@@ -1242,7 +1242,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
         if (is_num1 && r1.is_zero()) {
             expr * zero = arg1;
             result = m().mk_ite(m().mk_eq(arg2, zero),
-                                m().mk_app(get_fid(), OP_BUREM0, zero),
+                                m_util.mk_bv_urem0(zero),
                                 zero);
             return BR_REWRITE2;
         }
@@ -1254,7 +1254,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
             expr * x_minus_1 = arg1;
             expr * minus_one = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
             result = m().mk_ite(m().mk_eq(x, mk_numeral(0, bv_size)),
-                                m().mk_app(get_fid(), OP_BUREM0, minus_one),
+                                m_util.mk_bv_urem0(minus_one),
                                 x_minus_1);
             return BR_REWRITE2;
         }
@@ -1278,14 +1278,14 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
     }
 
     if (hi_div0) {
-        result = m().mk_app(get_fid(), OP_BUREM_I, arg1, arg2);
+        result = m_util.mk_bv_urem_i(arg1, arg2);
         return BR_DONE;
     }
 
     bv_size = get_bv_size(arg2);
     result = m().mk_ite(m().mk_eq(arg2, mk_numeral(0, bv_size)),
-                        m().mk_app(get_fid(), OP_BUREM0, arg1),
-                        m().mk_app(get_fid(), OP_BUREM_I, arg1, arg2));
+                        m_util.mk_bv_urem0(arg1),
+                        m_util.mk_bv_urem_i(arg1, arg2));
     return BR_REWRITE2;
 }
 
@@ -1297,7 +1297,7 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
     if (is_num1) {
         r1 = m_util.norm(r1, bv_size, true);
         if (r1.is_zero()) {
-            result = m().mk_app(get_fid(), OP_BUREM, arg1, arg2);
+            result = m_util.mk_bv_urem(arg1, arg2);
             return BR_REWRITE1;
         }
     }
@@ -1306,7 +1306,7 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
         r2 = m_util.norm(r2, bv_size, true);
         if (r2.is_zero()) {
             if (!hi_div0)
-                result = m().mk_app(get_fid(), OP_BSMOD0, arg1);
+                result = m_util.mk_bv_smod0(arg1);
             else
                 result = arg1;
             return BR_DONE;

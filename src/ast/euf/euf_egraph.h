@@ -18,9 +18,11 @@ Notes:
     It relies on
     - data structures form the (legacy) SMT solver.
       - it still uses eager path compression.
-    - delayed congruence table reconstruction from egg. 
-      - it does not deduplicate parents.
 
+    NB. The worklist is in reality inheritied from the legacy SMT solver. 
+    It is claimed to have the same effect as delayed congruence table reconstruction from egg.
+    Similar to the legacy solver, parents are partially deduplicated.
+    
 --*/
 
 #pragma once
@@ -29,6 +31,7 @@ Notes:
 #include "util/lbool.h"
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_etable.h"
+#include "ast/ast_ll_pp.h"
 
 namespace euf {
 
@@ -70,7 +73,15 @@ namespace euf {
     };
     
     class egraph {        
+
         typedef ptr_vector<trail<egraph> > trail_stack;
+
+        struct to_merge {
+            enode* a, * b;
+            bool commutativity;
+            to_merge(enode* a, enode* b, bool c) : a(a), b(b), commutativity(c) {}
+        };
+
         struct stats {
             unsigned m_num_merge;
             unsigned m_num_th_eqs;
@@ -130,7 +141,7 @@ namespace euf {
                 tag(tag_t::is_value_assignment), r1(n), n1(nullptr), qhead(0) {}
         };
         ast_manager&           m;
-        enode_vector           m_worklist;
+        svector<to_merge>     m_to_merge;
         etable                 m_table;
         region                 m_region;
         svector<update_record> m_updates;
@@ -168,12 +179,13 @@ namespace euf {
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
         void undo_add_th_var(enode* n, theory_id id);
         enode* mk_enode(expr* f, unsigned num_args, enode * const* args);
-        void reinsert(enode* n);
         void force_push();
         void set_conflict(enode* n1, enode* n2, justification j);
         void merge(enode* n1, enode* n2, justification j);
         void merge_th_eq(enode* n, enode* root);
         void merge_justification(enode* n1, enode* n2, justification j);
+        void reinsert_parents(enode* r1, enode* r2);
+        void remove_parents(enode* r1, enode* r2);
         void unmerge_justification(enode* n1);
         void reinsert_equality(enode* p);
         void update_children(enode* n);
@@ -182,6 +194,8 @@ namespace euf {
         void push_to_lca(enode* a, enode* lca);
         void push_congruence(enode* n1, enode* n2, bool commutative);
         void push_todo(enode* n);
+
+        enode_bool_pair insert_table(enode* p);
 
         template <typename T>
         void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, justification const& j) {
@@ -267,7 +281,15 @@ namespace euf {
             std::ostream& display(std::ostream& out) const { return g.display(out, 0, n); }
         };
         e_pp pp(enode* n) const { return e_pp(*this, n); }
+        struct b_pp {
+            egraph const& g;
+            enode* n;
+            b_pp(egraph const& g, enode* n) : g(g), n(n) {}
+            std::ostream& display(std::ostream& out) const { return out << n->get_expr_id() << ": " << mk_bounded_pp(n->get_expr(), g.m); }
+        };
+        b_pp bpp(enode* n) const { return b_pp(*this, n); }
         std::ostream& display(std::ostream& out) const; 
+        
         void collect_statistics(statistics& st) const;
 
         unsigned num_scopes() const { return m_scopes.size() + m_num_scopes; }
@@ -275,4 +297,5 @@ namespace euf {
 
     inline std::ostream& operator<<(std::ostream& out, egraph const& g) { return g.display(out); }
     inline std::ostream& operator<<(std::ostream& out, egraph::e_pp const& p) { return p.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, egraph::b_pp const& p) { return p.display(out); }
 }

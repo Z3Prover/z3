@@ -16,10 +16,11 @@ Author:
 --*/
 
 #include "ast/euf/euf_enode.h"
+#include "ast/euf/euf_egraph.h"
 
 namespace euf {
 
-    void enode::invariant() {
+    void enode::invariant(egraph& g) {
         unsigned class_size = 0;
         bool     found_root = false;
         bool     found_this = false;        
@@ -27,6 +28,7 @@ namespace euf {
             VERIFY(c->m_root == m_root);
             found_root |= c == m_root;
             found_this |= c == this;
+            ++class_size;
         }
         VERIFY(found_root);
         VERIFY(found_this);
@@ -34,20 +36,26 @@ namespace euf {
         if (is_root()) {
             VERIFY(!m_target);
             for (enode* p : enode_parents(this)) {
+                if (!p->merge_enabled())
+                    continue;
                 bool found = false;
                 for (enode* arg : enode_args(p)) {
                     found |= arg->get_root() == this;
                 }
+                CTRACE("euf", !found, tout  << g.bpp(p) << " does not have a child with root: " << g.bpp(this) << "\n";);
                 VERIFY(found);
             }
             for (enode* c : enode_class(this)) {
                 if (c == this)
                     continue;
                 for (enode* p : enode_parents(c)) {
+                    if (!p->merge_enabled())
+                        continue;
                     bool found = false;
                     for (enode* q : enode_parents(this)) {
                         found |= p->congruent(q);
                     }
+                    CTRACE("euf", !found, tout << "parent " << g.bpp(p) << " of " << g.bpp(c) << " is not congruent to a parent of " << g.bpp(this) << "\n";);
                     VERIFY(found);
                 }
             }
@@ -118,7 +126,6 @@ namespace euf {
         prev->m_target = nullptr;
         prev->m_justification = justification::axiom();
         while (curr != nullptr) {
-
             enode* new_curr = curr->m_target;
             justification new_js = curr->m_justification;
             curr->m_target = prev;
@@ -127,5 +134,12 @@ namespace euf {
             js = new_js;
             curr = new_curr;
         }
+    }
+
+    bool enode::children_are_roots() const {
+        for (auto* child : enode_args(this))
+            if (!child->is_root())
+                return false;
+        return true;
     }
 }
