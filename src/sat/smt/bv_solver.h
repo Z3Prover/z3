@@ -272,6 +272,7 @@ namespace bv {
         bool check_mul_zero(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2);
         bool check_mul_one(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2);
         bool check_mul_low_bits(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2);
+
         bool check_umul_no_overflow(app* n, expr_ref_vector const& arg_values, expr* value);
         bool check_bv_eval(euf::enode* n);
         bool check_bool_eval(euf::enode* n);

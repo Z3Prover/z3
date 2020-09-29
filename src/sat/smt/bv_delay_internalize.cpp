@@ -77,7 +77,6 @@ namespace bv {
         if (!check_mul_one(e, args, r1, r2))
             return false;
 
-
         // Add propagation axiom for arguments
         if (!check_mul_invertibility(e, args, r1))
             return false;
@@ -159,19 +158,23 @@ namespace bv {
     }
 
 
+
     /*
     * Check that multiplication with 0 is correctly propagated.
     * If not, create algebraic axioms enforcing 0*x = 0 and x*0 = 0
     * 
     * z = 0, then lsb(x) + 1 + lsb(y) + 1 >= sz
+
     */
     bool solver::check_mul_zero(app* n, expr_ref_vector const& arg_values, expr* mul_value, expr* arg_value) {
         SASSERT(mul_value != arg_value);
         SASSERT(!(bv.is_zero(mul_value) && bv.is_zero(arg_value)));
+
         if (bv.is_zero(arg_value)) {
             unsigned sz = n->get_num_args();
             expr_ref_vector args(m, sz, n->get_args());
             for (unsigned i = 0; i < sz && !s().inconsistent(); ++i) {
+
                 args[i] = arg_value;
                 expr_ref r(m.mk_app(n->get_decl(), args), m);
                 set_delay_internalize(r, internalize_mode::init_bits_only_i); // do not bit-blast this multiplier.
@@ -318,6 +321,7 @@ namespace bv {
     };
 
     /**
+
      * The i'th bit in xs is 1 if the least significant bit of x is i or lower.
      */
     void solver::encode_lsb_tail(expr* x, expr_ref_vector& xs) {
@@ -384,6 +388,7 @@ namespace bv {
         auto r2 = eval_args(n, args);
         if (r1 == r2)
             return true;
+
         if (m_cheap_axioms)
             return true;
         set_delay_internalize(a, internalize_mode::no_delay_i);
@@ -425,9 +430,9 @@ namespace bv {
         internalize_mode mode;
         switch (to_app(e)->get_decl_kind()) {
         case OP_BMUL: 
-        //case OP_BSMUL_NO_OVFL:
-        //case OP_BSMUL_NO_UDFL:
-        //case OP_BUMUL_NO_OVFL:
+        case OP_BSMUL_NO_OVFL:
+        case OP_BSMUL_NO_UDFL:
+        case OP_BUMUL_NO_OVFL:
         case OP_BSMOD_I:
         case OP_BUREM_I:
         case OP_BSREM_I:
