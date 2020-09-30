@@ -399,8 +399,7 @@ namespace smt {
             unsigned                  m_next_node_id;
             key2node                  m_uvars;
             key2node                  m_A_f_is;
-
-            context *                 m_context;
+            random_gen                m_rand;
 
             // Mapping from sort to auxiliary constant.
             // This auxiliary constant is used as a "witness" that is asserted as different from a
@@ -472,21 +471,17 @@ namespace smt {
                 m_bv(m),
                 m_array(m),
                 m_next_node_id(0),
-                m_context(nullptr),
                 m_ks(m),
                 m_model(nullptr),
                 m_eval_cache_range(m),
-                m_new_constraints(nullptr) {
+                m_new_constraints(nullptr),
+                m_rand(static_cast<unsigned>(m.limit().count())) {
+                m.limit().inc();
             }
 
             virtual ~auf_solver() {
                 flush_nodes();
                 reset_eval_cache();
-            }
-
-            void set_context(context * ctx) {
-                SASSERT(m_context== nullptr);
-                m_context = ctx;
             }
             
             ast_manager & get_manager() const { return m; }
@@ -1075,7 +1070,7 @@ namespace smt {
             }
 
             void mk_inverses() {
-                unsigned offset = m_context->get_random_value();
+                unsigned offset = m_rand();
                 for (unsigned i = m_root_nodes.size(); i-- > 0; ) {
                     node* n = m_root_nodes[(i + offset) % m_root_nodes.size()];
                     SASSERT(n->is_root());
@@ -1121,7 +1116,10 @@ namespace smt {
            The subclasses are defined in the .cpp file.
         */
         class qinfo {
+        protected:
+            ast_manager& m;
         public:
+            qinfo(ast_manager& m) :m(m) {}
             virtual ~qinfo() {}
             virtual char const * get_kind() const = 0;
             virtual bool is_equal(qinfo const * qi) const = 0;
@@ -1144,7 +1142,7 @@ namespace smt {
             unsigned    m_arg_i;
             unsigned    m_var_j;
         public:
-            f_var(func_decl * f, unsigned i, unsigned j):m_f(f), m_arg_i(i), m_var_j(j) {}
+            f_var(ast_manager& m, func_decl * f, unsigned i, unsigned j): qinfo(m), m_f(f), m_arg_i(i), m_var_j(j) {}
             ~f_var() override {}
 
             char const * get_kind() const override {
@@ -1166,7 +1164,6 @@ namespace smt {
                 node * n1 = s.get_A_f_i(m_f, m_arg_i);
                 node * n2 = s.get_uvar(q, m_var_j);
                 CTRACE("model_finder", n1->get_sort() != n2->get_sort(),
-                       ast_manager & m = ctx->get_manager();
                        tout << "sort bug:\n" << mk_ismt2_pp(q->get_expr(), m) << "\n" << mk_ismt2_pp(q, m) << "\n";
                        tout << "decl(0): " << q->get_decl_name(0) << "\n";
                        tout << "f: " << m_f->get_name() << " i: " << m_arg_i << "\n";
@@ -1224,7 +1221,7 @@ namespace smt {
             expr_ref    m_offset;
         public:
             f_var_plus_offset(ast_manager & m, func_decl * f, unsigned i, unsigned j, expr * offset):
-                f_var(f, i, j),
+                f_var(m, f, i, j),
                 m_offset(offset, m) {
             }
             ~f_var_plus_offset() override {}
@@ -1261,12 +1258,12 @@ namespace smt {
                     node * S_j = s.get_uvar(q, m_var_j);
                     for (enode * n : ctx->enodes_of(m_f)) {
                         if (ctx->is_relevant(n)) {
-                            arith_rewriter arith_rw(ctx->get_manager());
-                            bv_util bv(ctx->get_manager());
-                            bv_rewriter bv_rw(ctx->get_manager());
+                            arith_rewriter arith_rw(m);
+                            bv_util bv(m);
+                            bv_rewriter bv_rw(m);
                             enode * e_arg = n->get_arg(m_arg_i);
                             expr * arg    = e_arg->get_owner();
-                            expr_ref arg_minus_k(ctx->get_manager());
+                            expr_ref arg_minus_k(m);
                             if (bv.is_bv(arg))                                
                                 bv_rw.mk_sub(arg, m_offset, arg_minus_k);
                             else
@@ -1376,7 +1373,6 @@ namespace smt {
 
         class select_var : public qinfo {
         protected:
-            ast_manager & m;
             array_util    m_array;
             app *         m_select; // It must satisfy is_auf_select... see bool is_auf_select(expr * t) const
             unsigned      m_arg_i;
@@ -1393,7 +1389,7 @@ namespace smt {
             }
 
         public:
-            select_var(ast_manager & m, app * s, unsigned i, unsigned j):m(m), m_array(m), m_select(s), m_arg_i(i), m_var_j(j) {}
+            select_var(ast_manager & m, app * s, unsigned i, unsigned j):qinfo(m), m_array(m), m_select(s), m_arg_i(i), m_var_j(j) {}
             ~select_var() override {}
 
             char const * get_kind() const override {
@@ -1459,7 +1455,7 @@ namespace smt {
             unsigned    m_var_i;
             unsigned    m_var_j;
         public:
-            var_pair(unsigned i, unsigned j):m_var_i(i), m_var_j(j) {
+            var_pair(ast_manager& m, unsigned i, unsigned j): qinfo(m), m_var_i(i), m_var_j(j) {
                 if (m_var_i > m_var_j)
                     std::swap(m_var_i, m_var_j);
             }
@@ -1484,7 +1480,7 @@ namespace smt {
 
         class x_eq_y : public var_pair {
         public:
-            x_eq_y(unsigned i, unsigned j):var_pair(i, j) {}
+            x_eq_y(ast_manager& m, unsigned i, unsigned j):var_pair(m, i, j) {}
             char const * get_kind() const override { return "x_eq_y"; }
 
             void process_auf(quantifier * q, auf_solver & s, context * ctx) override {
@@ -1498,7 +1494,7 @@ namespace smt {
 
         class x_neq_y : public var_pair {
         public:
-            x_neq_y(unsigned i, unsigned j):var_pair(i, j) {}
+            x_neq_y(ast_manager& m, unsigned i, unsigned j):var_pair(m, i, j) {}
             char const * get_kind() const override { return "x_neq_y"; }
 
             void process_auf(quantifier * q, auf_solver & s, context * ctx) override {
@@ -1510,7 +1506,7 @@ namespace smt {
 
         class x_leq_y : public var_pair {
         public:
-            x_leq_y(unsigned i, unsigned j):var_pair(i, j) {}
+            x_leq_y(ast_manager& m, unsigned i, unsigned j):var_pair(m, i, j) {}
             char const * get_kind() const override { return "x_leq_y"; }
 
             void process_auf(quantifier * q, auf_solver & s, context * ctx) override {
@@ -1524,7 +1520,7 @@ namespace smt {
         // signed bit-vector comparison
         class x_sleq_y : public x_leq_y {
         public:
-            x_sleq_y(unsigned i, unsigned j):x_leq_y(i, j) {}
+            x_sleq_y(ast_manager& m, unsigned i, unsigned j):x_leq_y(m, i, j) {}
             char const * get_kind() const override { return "x_sleq_y"; }
 
             void process_auf(quantifier * q, auf_solver & s, context * ctx) override {
@@ -1542,6 +1538,7 @@ namespace smt {
             expr_ref    m_t;
         public:
             var_expr_pair(ast_manager & m, unsigned i, expr * t):
+                qinfo(m),
                 m_var_i(i), m_t(t, m) {}
             ~var_expr_pair() override {}
 
@@ -1553,7 +1550,7 @@ namespace smt {
             }
 
             void display(std::ostream & out) const override {
-                out << "(" << get_kind() << ":v!" << m_var_i << ":" << mk_bounded_pp(m_t.get(), m_t.get_manager()) << ")";
+                out << "(" << get_kind() << ":v!" << m_var_i << ":" << mk_bounded_pp(m_t.get(), m) << ")";
             }
         };
 
@@ -1570,7 +1567,6 @@ namespace smt {
 
             void populate_inst_sets(quantifier * q, auf_solver & slv, context * ctx) override {
                 unsigned num_vars = q->get_num_decls();
-                ast_manager & m = ctx->get_manager();
                 sort * s = q->get_decl_sort(num_vars - m_var_i - 1);
                 if (m.is_uninterp(s)) {
                     // For uninterpreted sorts, we add all terms in the context.
@@ -2101,7 +2097,7 @@ namespace smt {
                     expr * arg = t->get_arg(i);
                     if (is_var(arg)) {
                         SASSERT(t->get_decl()->get_domain(i) == to_var(arg)->get_sort());
-                        insert_qinfo(alloc(f_var, t->get_decl(), i, to_var(arg)->get_idx()));
+                        insert_qinfo(alloc(f_var, m, t->get_decl(), i, to_var(arg)->get_idx()));
                         continue;
                     }
 
@@ -2231,17 +2227,17 @@ namespace smt {
                     }
                     else if (is_x_eq_y_atom(atom, v1, v2)) {
                         if (sign)
-                            insert_qinfo(alloc(x_neq_y, v1->get_idx(), v2->get_idx()));
+                            insert_qinfo(alloc(x_neq_y, m, v1->get_idx(), v2->get_idx()));
                         else {
                             m_info->m_has_x_eq_y = true; // this atom is in the fringe of AUF
-                            insert_qinfo(alloc(x_eq_y, v1->get_idx(), v2->get_idx()));
+                            insert_qinfo(alloc(x_eq_y, m, v1->get_idx(), v2->get_idx()));
                         }
                     }
                     else if (sign && is_x_gle_y_atom(atom, v1, v2)) {
                         if (is_signed_le(atom))
-                            insert_qinfo(alloc(x_sleq_y, v1->get_idx(), v2->get_idx()));
+                            insert_qinfo(alloc(x_sleq_y, m, v1->get_idx(), v2->get_idx()));
                         else
-                            insert_qinfo(alloc(x_leq_y, v1->get_idx(), v2->get_idx()));
+                            insert_qinfo(alloc(x_leq_y, m, v1->get_idx(), v2->get_idx()));
                     }
                     else if (is_x_gle_t_atom(atom, sign, v, t)) {
                         insert_qinfo(alloc(x_gle_t, m, v->get_idx(), t));
@@ -3191,9 +3187,8 @@ namespace smt {
     }
 
     void model_finder::set_context(context * ctx) {
-        SASSERT(m_context == 0);
+        SASSERT(m_context == nullptr);
         m_context = ctx;
-        m_auf_solver->set_context(ctx);
         m_nm_solver->set_params(ctx->get_fparams());
     }
 

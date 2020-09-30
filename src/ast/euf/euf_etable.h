@@ -24,7 +24,6 @@ namespace euf {
     
     // one table per function symbol
 
-    static unsigned num_args(enode* n) { return n->num_args(); }
     static func_decl* decl(enode* n) { return n->get_decl(); }
 
 
@@ -36,7 +35,7 @@ namespace euf {
 
         struct cg_unary_hash {
             unsigned operator()(enode * n) const {
-                SASSERT(num_args(n) == 1);
+                SASSERT(n->num_args() == 1);
                 return get_root(n, 0)->hash();
             }
         };
@@ -44,8 +43,8 @@ namespace euf {
         struct cg_unary_eq {
 
             bool operator()(enode * n1, enode * n2) const {
-                SASSERT(num_args(n1) == 1);
-                SASSERT(num_args(n2) == 1);
+                SASSERT(n1->num_args() == 1);
+                SASSERT(n2->num_args() == 1);
                 SASSERT(decl(n1) == decl(n2));
                 return get_root(n1, 0) == get_root(n2, 0);
             }
@@ -55,15 +54,15 @@ namespace euf {
         
         struct cg_binary_hash {
             unsigned operator()(enode * n) const {
-                SASSERT(num_args(n) == 2);
+                SASSERT(n->num_args() == 2);
                 return combine_hash(get_root(n, 0)->hash(), get_root(n, 1)->hash());
             }
         };
 
         struct cg_binary_eq {
             bool operator()(enode * n1, enode * n2) const {
-                SASSERT(num_args(n1) == 2);
-                SASSERT(num_args(n2) == 2);
+                SASSERT(n1->num_args() == 2);
+                SASSERT(n2->num_args() == 2);
                 SASSERT(decl(n1) == decl(n2));
                 return
                     get_root(n1, 0) == get_root(n2, 0) &&
@@ -75,7 +74,7 @@ namespace euf {
         
         struct cg_comm_hash {
             unsigned operator()(enode * n) const {
-                SASSERT(num_args(n) == 2);
+                SASSERT(n->num_args() == 2);
                 unsigned h1 = get_root(n, 0)->hash();
                 unsigned h2 = get_root(n, 1)->hash(); 
                 if (h1 > h2)
@@ -88,8 +87,8 @@ namespace euf {
             bool & m_commutativity;
             cg_comm_eq( bool & c): m_commutativity(c) {}
             bool operator()(enode * n1, enode * n2) const {
-                SASSERT(num_args(n1) == 2);
-                SASSERT(num_args(n2) == 2);
+                SASSERT(n1->num_args() == 2);
+                SASSERT(n2->num_args() == 2);
 
                 SASSERT(decl(n1) == decl(n2));
                 enode* c1_1 = get_root(n1, 0);  

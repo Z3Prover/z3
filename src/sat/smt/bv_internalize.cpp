@@ -753,8 +753,6 @@ namespace bv {
         literal_vector eqs;
         eqs.push_back(oeq);
         for (unsigned i = 0; i < sz; ++i) {
-            literal l1 = m_bits[v1][i];
-            literal l2 = m_bits[v2][i];
             expr_ref e1(m), e2(m);
             e1 = bv.mk_bit2bool(o1, i);
             e2 = bv.mk_bit2bool(o2, i);

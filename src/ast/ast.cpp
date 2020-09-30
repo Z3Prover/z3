@@ -1785,8 +1785,9 @@ bool ast_manager::slow_not_contains(ast const * n) {
 }
 #endif
 
-static unsigned s_count = 0;
 #if 0
+static unsigned s_count = 0;
+
 static void track_id(ast_manager& m, ast* n, unsigned id) {
     if (n->get_id() != id) return;
     ++s_count;
@@ -1826,7 +1827,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
 //  track_id(*this, n, 3);
     
-    TRACE("ast", tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
+//    TRACE("ast", tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
     // increment reference counters
     switch (n->get_kind()) {

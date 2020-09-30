@@ -22,7 +22,7 @@ namespace euf {
 
     // one table per func_decl implementation
     unsigned etable::cg_hash::operator()(enode * n) const {
-        SASSERT(decl(n)->is_flat_associative() || num_args(n) >= 3);
+        SASSERT(decl(n)->is_flat_associative() || n->num_args() >= 3);
         unsigned a, b, c;
         a = b = 0x9e3779b9;
         c = 11;    
@@ -51,8 +51,8 @@ namespace euf {
 
     bool etable::cg_eq::operator()(enode * n1, enode * n2) const {
         SASSERT(decl(n1) == decl(n2));
-        unsigned num = num_args(n1);
-        if (num != num_args(n2)) {
+        unsigned num = n1->num_args();
+        if (num != n2->num_args()) {
             return false;
         }
         for (unsigned i = 0; i < num; i++) 
@@ -96,7 +96,7 @@ namespace euf {
     }
 
     unsigned etable::set_table_id(enode * n) {
-        func_decl * f = n->get_decl();
+        func_decl * f = decl(n);
         unsigned tid;
         decl_info d(f, n->num_args());
         if (!m_func_decl2id.find(d, tid)) {
