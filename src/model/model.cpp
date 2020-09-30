@@ -502,6 +502,17 @@ void model::remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s)
     decls.shrink(j);
 }
 
+expr_ref model::unfold_as_array(expr* e) {
+    func_decl* f = nullptr;
+    array_util autil(m);
+    if (!autil.is_as_array(e, f))
+        return expr_ref(e, m);
+    auto* fi = get_func_interp(f);
+    if (!fi)
+        return expr_ref(e, m);
+    return fi->get_array_interp(f);
+}
+
 
 expr_ref model::get_inlined_const_interp(func_decl* f) {
     expr* v = get_const_interp(f);

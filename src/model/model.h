@@ -78,6 +78,7 @@ public:
     bool has_uninterpreted_sort(sort * s) const;
 
     expr_ref get_inlined_const_interp(func_decl* f);
+    expr_ref unfold_as_array(expr* e);
 
     //
     // Primitives for building models

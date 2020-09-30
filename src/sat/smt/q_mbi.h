@@ -16,8 +16,10 @@ Author:
 --*/
 #pragma once
 
-#include "sat/smt/sat_th.h"
 #include "solver/solver.h"
+#include "sat/smt/sat_th.h"
+#include "sat/smt/q_model_finder.h"
+
 
 namespace euf {
     class solver;
@@ -31,6 +33,7 @@ namespace q {
         euf::solver&                           ctx;
         solver&                                qs;
         ast_manager&                           m;
+        model_finder                           m_model_finder;
         model_ref                              m_model;
         ref<::solver>                          m_solver;
         obj_map<sort, obj_hashtable<expr>*>    m_fresh;
@@ -44,8 +47,7 @@ namespace q {
         expr_ref choose_term(euf::enode* r);
         lbool check_forall(quantifier* q);
         expr_ref specialize(quantifier* q, expr_ref_vector& vars);
-        expr_ref project(model& mdl, quantifier* q, expr_ref_vector& vars);
-        expr_ref basic_project(model& mdl, quantifier* q, expr_ref_vector& vars);
+        expr_ref project(model& mdl, quantifier* q, expr_ref_vector& vars, bool inv);
         void init_model();
         void init_solver();
 

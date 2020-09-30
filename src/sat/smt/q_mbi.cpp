@@ -25,8 +25,8 @@ Author:
 
 namespace q {
 
-    mbqi::mbqi(euf::solver& ctx, solver& s):
-        ctx(ctx), qs(s), m(s.get_manager()), m_fresh_trail(m)  {}
+    mbqi::mbqi(euf::solver& ctx, solver& s): 
+        ctx(ctx), qs(s), m(s.get_manager()), m_model_finder(ctx), m_fresh_trail(m)  {}
 
 
     void mbqi::restrict_to_universe(expr * sk, ptr_vector<expr> const & universe) {
@@ -86,10 +86,10 @@ namespace q {
     }
     
     lbool mbqi::check_forall(quantifier* q) {
-        expr_ref_vector vars(m);
-        expr_ref body = specialize(q, vars);        
         init_solver();
         ::solver::scoped_push _sp(*m_solver);
+        expr_ref_vector vars(m);
+        expr_ref body = specialize(q, vars);        
         m_solver->assert_expr(body);
         lbool r = m_solver->check_sat(0, nullptr);
         if (r == l_undef)
@@ -99,8 +99,8 @@ namespace q {
         model_ref mdl0, mdl1;        
         m_solver->get_model(mdl0);       
         expr_ref proj(m);
-        auto add_projection = [&](model& mdl) {
-            proj = project(*mdl1, q, vars);
+        auto add_projection = [&](model& mdl, bool inv) {
+            proj = project(mdl, q, vars, inv);
             if (!proj)
                 return;
             if (is_forall(q))
@@ -110,10 +110,10 @@ namespace q {
         };
         bool added = false;
 #if 0
-        restrict_vars_to_instantiation_sets(mdl0, q, vars);
+        m_model_finder.restrict_instantiations(*m_solver, *mdl0, q, vars);
         for (unsigned i = 0; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
             m_solver->get_model(mdl1);
-            add_projection(*mdl1);
+            add_projection(*mdl1, true);
             if (!proj)
                 break;
             added = true;
@@ -121,7 +121,7 @@ namespace q {
         }
 #endif
         if (!added) {
-            add_projection(*mdl0);
+            add_projection(*mdl0, false);
             added = proj;
         }
         return added ? l_false : l_undef;
@@ -146,18 +146,18 @@ namespace q {
         return body;
     }
 
-    expr_ref mbqi::project(model& mdl, quantifier* q, expr_ref_vector& vars) {
-        return basic_project(mdl, q, vars);
-    }
-
     /**
     * A most rudimentary projection operator that only tries to find proxy terms from the set of existing terms.
     * Refinements:
     * - grammar based from MBQI paper 
     * - quantifier elimination based on projection operators defined in qe.
+    * 
+    * - eliminate as-array terms, use lambda
+    * - have mode with inv-term from model-finder
     */
-    expr_ref mbqi::basic_project(model& mdl, quantifier* q, expr_ref_vector& vars) {
+    expr_ref mbqi::project(model& mdl, quantifier* q, expr_ref_vector& vars, bool inv) {
         unsigned sz = q->get_num_decls();
+        unsigned max_generation = 0;
         expr_ref_vector vals(m);
         vals.resize(sz, nullptr);
         auto const& v2r = ctx.values2root();
@@ -167,9 +167,13 @@ namespace q {
             expr_ref val(mdl.get_some_const_interp(f), m);
             if (!val)
                 return expr_ref(m);
-            expr* t = nullptr;
+            val = mdl.unfold_as_array(val);
+            if (!val)
+                return expr_ref(m);
+            if (inv)
+                vals[i] = m_model_finder.inv_term(mdl, q, i, val, max_generation);            
             euf::enode* r = nullptr;
-            if (v2r.find(val, r))
+            if (!vals.get(i) && v2r.find(val, r))
                 vals[i] = choose_term(r);
             if (!vals.get(i))
                 vals[i] = replace_model_value(val);
