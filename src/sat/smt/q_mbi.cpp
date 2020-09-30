@@ -14,7 +14,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2020-09-29
 
 --*/
-#pragma once
 
 #include "ast/ast_trail.h"
 #include "ast/rewriter/var_subst.h"
@@ -26,7 +25,7 @@ Author:
 
 namespace q {
 
-    mbqi::mbqi(euf::solver& ctx, solver& s): 
+    mbqi::mbqi(euf::solver& ctx, solver& s):
         ctx(ctx), qs(s), m(s.get_manager()), m_fresh_trail(m)  {}
 
 

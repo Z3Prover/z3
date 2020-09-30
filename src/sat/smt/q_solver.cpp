@@ -14,7 +14,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2020-09-29
 
 --*/
-#pragma once
 
 #include "ast/rewriter/var_subst.h"
 #include "sat/smt/q_solver.h"
@@ -23,7 +22,7 @@ Author:
 
 
 namespace q {
-    
+
     solver::solver(euf::solver& ctx):
         th_euf_solver(ctx, ctx.get_manager().get_family_id(name())),
         m_mbqi(ctx, *this)
@@ -47,7 +46,7 @@ namespace q {
         switch (m_mbqi()) {
         case l_true: return sat::check_result::CR_DONE;
         case l_false: return sat::check_result::CR_CONTINUE;
-        case l_undef: return sat::check_result::CR_GIVEUP;            
+        case l_undef: return sat::check_result::CR_GIVEUP;
         }
         return sat::check_result::CR_GIVEUP;
     }
