@@ -36,6 +36,7 @@ namespace q {
         obj_map<sort, obj_hashtable<expr>*>    m_fresh;
         scoped_ptr_vector<obj_hashtable<expr>> m_values;
         expr_ref_vector                        m_fresh_trail;
+        unsigned                               m_max_cex{ 10 };
 
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
         void register_value(expr* e);
@@ -53,6 +54,8 @@ namespace q {
         mbqi(euf::solver& ctx, solver& s);
             
         lbool operator()();
+
+        void init_search();
     };
 
 }

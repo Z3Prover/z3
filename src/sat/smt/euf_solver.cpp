@@ -23,6 +23,7 @@ Author:
 #include "sat/smt/bv_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/array_solver.h"
+#include "sat/smt/q_solver.h"
 
 namespace euf {
 
@@ -67,8 +68,22 @@ namespace euf {
 
     th_solver* solver::expr2solver(expr* e) {
         if (is_app(e)) 
-            return func_decl2solver(to_app(e)->get_decl());        
+            return func_decl2solver(to_app(e)->get_decl());     
+        if (is_forall(e) || is_exists(e))
+            return quantifier2solver();
         return nullptr;
+    }
+
+    th_solver* solver::quantifier2solver() {
+        family_id fid = m.mk_family_id(q::solver::name());
+        auto* ext = m_id2solver.get(fid, nullptr);
+        if (ext)
+            return ext;
+        ext = alloc(q::solver, *this);
+        ext->set_solver(m_solver);
+        ext->push_scopes(s().num_scopes());
+        add_solver(fid, ext);
+        return ext;
     }
 
     th_solver* solver::get_solver(family_id fid, func_decl* f) {
@@ -122,6 +137,8 @@ namespace euf {
 
     void solver::init_search() {
         TRACE("before_search", s().display(tout););
+        for (auto* s : m_solvers)
+            s->init_search();
     }
 
     bool solver::is_external(bool_var v) {

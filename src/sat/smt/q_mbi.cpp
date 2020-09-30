@@ -64,8 +64,7 @@ namespace q {
     expr_ref mbqi::replace_model_value(expr* e) {
         if (m.is_model_value(e)) { 
             register_value(e);
-            expr_ref r(e, m);
-            return r;
+            return expr_ref(e, m);
         }
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
             expr_ref_vector args(m);
@@ -98,16 +97,35 @@ namespace q {
             return r;
         if (r == l_false)
             return l_true;
-        model_ref mdl;        
-        m_solver->get_model(mdl);
-        expr_ref proj = project(*mdl, q, vars);
-        if (!proj)
-            return l_undef;
-        if (is_forall(q))
-            qs.add_clause(~ctx.expr2literal(q), ctx.b_internalize(proj));
-        else
-            qs.add_clause(ctx.expr2literal(q), ~ctx.b_internalize(proj));
-        return l_true;
+        model_ref mdl0, mdl1;        
+        m_solver->get_model(mdl0);       
+        expr_ref proj(m);
+        auto add_projection = [&](model& mdl) {
+            proj = project(*mdl1, q, vars);
+            if (!proj)
+                return;
+            if (is_forall(q))
+                qs.add_clause(~ctx.expr2literal(q), ctx.b_internalize(proj));
+            else
+                qs.add_clause(ctx.expr2literal(q), ~ctx.b_internalize(proj));
+        };
+        bool added = false;
+#if 0
+        restrict_vars_to_instantiation_sets(mdl0, q, vars);
+        for (unsigned i = 0; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
+            m_solver->get_model(mdl1);
+            add_projection(*mdl1);
+            if (!proj)
+                break;
+            added = true;
+            m_solver->assert_expr(m.mk_not(proj));
+        }
+#endif
+        if (!added) {
+            add_projection(*mdl0);
+            added = proj;
+        }
+        return added ? l_false : l_undef;
     }
 
     expr_ref mbqi::specialize(quantifier* q, expr_ref_vector& vars) {
@@ -181,6 +199,7 @@ namespace q {
                 break;
             }
         }
+        m_max_cex += ctx.get_config().m_mbqi_max_cexs;
         return result;
     }
 
@@ -193,7 +212,11 @@ namespace q {
 
     void mbqi::init_solver() {
         if (!m_solver)
-            m_solver = ctx.mk_solver();
+            m_solver = mk_smt2_solver(m, ctx.s().params());
+    }
+
+    void mbqi::init_search() {
+        m_max_cex = ctx.get_config().m_mbqi_max_cexs;
     }
 
 }

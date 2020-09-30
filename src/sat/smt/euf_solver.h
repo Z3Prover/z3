@@ -111,7 +111,7 @@ namespace euf {
         bool visit(expr* e) override;
         bool visited(expr* e) override;
         bool post_visit(expr* e, bool sign, bool root) override;
-        sat::literal attach_lit(sat::literal lit, expr* e);
+
         void add_distinct_axiom(app* e, euf::enode* const* args);
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
         void axiomatize_basic(enode* n);
@@ -129,6 +129,7 @@ namespace euf {
         th_solver* get_solver(family_id fid, func_decl* f);
         th_solver* sort2solver(sort* s) { return get_solver(s->get_family_id(), nullptr); }
         th_solver* func_decl2solver(func_decl* f) { return get_solver(f->get_family_id(), f); }
+        th_solver* quantifier2solver();
         th_solver* expr2solver(expr* e);
         th_solver* bool_var2solver(sat::bool_var v);
         th_solver* fid2solver(family_id fid) const { return m_id2solver.get(fid, nullptr); }
@@ -287,6 +288,7 @@ namespace euf {
         expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
         expr* bool_var2expr(sat::bool_var v) { return m_var2expr.get(v, nullptr); }
+        sat::literal attach_lit(sat::literal lit, expr* e);
         void unhandled_function(func_decl* f);
         th_rewriter& get_rewriter() { return m_rewriter; }
         bool is_shared(euf::enode* n) const;

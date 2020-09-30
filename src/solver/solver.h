@@ -34,6 +34,8 @@ public:
 
 solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
 
+solver* mk_smt2_solver(ast_manager& m, params_ref const& p);
+
 /**
    \brief Abstract interface for making solvers available in the Z3
    API and front-ends such as SMT 2.0 and (legacy) SMT 1.0.

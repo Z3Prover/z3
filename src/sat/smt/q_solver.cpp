@@ -25,7 +25,7 @@ Author:
 namespace q {
     
     solver::solver(euf::solver& ctx):
-        th_euf_solver(ctx, ctx.get_manager().get_family_id("quant")),
+        th_euf_solver(ctx, ctx.get_manager().get_family_id(name())),
         m_mbqi(ctx, *this)
     {}
 
@@ -38,7 +38,7 @@ namespace q {
         }
         else {
             // universal force
-            add_clause(~l, uskolemize(to_quantifier(e)));
+//          add_clause(~l, uskolemize(to_quantifier(e)));
             ctx.push_vec(m_universal, l);
         }
     }
@@ -106,5 +106,16 @@ namespace q {
         NOT_IMPLEMENTED_YET();
         return sat::null_literal;
     }
-    
+
+    void solver::init_search() {
+        m_mbqi.init_search();
+    }
+
+    sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
+        SASSERT(is_forall(e) || is_exists(e));
+        sat::bool_var v = ctx.get_si().add_bool_var(e);
+        sat::literal lit = ctx.attach_lit(sat::literal(v, sign), e);
+        mk_var(ctx.get_egraph().find(e));
+        return lit;
+    }
 }

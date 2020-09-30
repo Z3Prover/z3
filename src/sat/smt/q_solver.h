@@ -51,6 +51,7 @@ namespace q {
 
         solver(euf::solver& ctx);
         ~solver() override {}
+        static char const* name() { return "quant"; }
         bool is_external(sat::bool_var v) override { return false; }
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override {}
         void asserted(sat::literal l) override;
@@ -62,9 +63,10 @@ namespace q {
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(sat::solver* s, euf::solver& ctx) override;
         bool unit_propagate() override;
-        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override { UNREACHABLE(); return sat::null_literal; }
+        sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override { UNREACHABLE(); }
         euf::theory_var mk_var(euf::enode* n) override;
+        void init_search() override;
 
         ast_manager& get_manager() { return m; }
     };

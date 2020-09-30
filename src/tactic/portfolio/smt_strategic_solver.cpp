@@ -168,3 +168,6 @@ solver_factory * mk_smt_strategic_solver_factory(symbol const & logic) {
     return alloc(smt_strategic_solver_factory, logic);
 }
 
+solver* mk_smt2_solver(ast_manager& m, params_ref const& p) {
+    return mk_inc_sat_solver(m, p);
+}
