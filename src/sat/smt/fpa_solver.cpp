@@ -159,7 +159,7 @@ namespace fpa {
         SASSERT(s->get_family_id() == get_id());
         SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
         SASSERT(m_fpa_util.is_float(n->get_expr()) || m_fpa_util.is_rm(n->get_expr()));
-        SASSERT(n->get_expr()->get_decl()->get_range() == s);
+        SASSERT(n->get_decl()->get_range() == s);
 
         expr * owner = n->get_expr();
 
@@ -278,7 +278,7 @@ namespace fpa {
     void solver::asserted(sat::literal l) {
         expr* e = ctx.bool_var2expr(l.var());
 
-        TRACE("t_fpa", tout << "assign_eh for: " << v << " (" << is_true << "):\n" << mk_ismt2_pp(e, m) << "\n";);
+        TRACE("t_fpa", tout << "assign_eh for: " << l << "\n" << mk_ismt2_pp(e, m) << "\n";);
 
         sat::literal c = b_internalize(convert(e));
         sat::literal_vector conds = mk_side_conditions();
@@ -316,8 +316,10 @@ namespace fpa {
         }
         else if (m_fpa_util.is_rm(e) && is_wrapped()) 
             value = bv2rm_value(values.get(expr2enode(wrapped)->get_root_id()));        
-        else if (m_fpa_util.is_float(e) && is_wrapped()) 
-            value = bvs2fpa_value(m.get_sort(e), expr2enode(wrapped), nullptr, nullptr);        
+        else if (m_fpa_util.is_float(e) && is_wrapped()) {
+            expr* a = values.get(expr2enode(wrapped)->get_root_id());
+            value = bvs2fpa_value(m.get_sort(e), a, nullptr, nullptr);
+        }
         else {
             unsigned ebits = m_fpa_util.get_ebits(m.get_sort(e));
             unsigned sbits = m_fpa_util.get_sbits(m.get_sort(e));
