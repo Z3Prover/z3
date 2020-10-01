@@ -273,18 +273,18 @@ bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & res
 template class rewriter_tpl<fpa2bv_rewriter_cfg>;
 
 expr_ref fpa2bv_rewriter::convert_atom(th_rewriter& rw, expr * e) {
-    TRACE("t_fpa_detail", tout << "converting atom: " << mk_ismt2_pp(e, m) << std::endl;);
+    TRACE("t_fpa_detail", tout << "converting atom: " << mk_ismt2_pp(e, m_cfg.m()) << std::endl;);
     expr_ref res(m_cfg.m());
     proof_ref pr(m_cfg.m());
     (*this)(e, res);
     rw(res, res);
     SASSERT(is_app(res));
-    SASSERT(m.is_bool(res));
+    SASSERT(m_cfg.m().is_bool(res));
     return res;
 }
 
 expr_ref fpa2bv_rewriter::convert_term(th_rewriter& rw, expr * e) {
-    SASSERT(m_fpa_util.is_rm(e) || m_fpa_util.is_float(e));
+    SASSERT(fu().is_rm(e) || fu().is_float(e));
     ast_manager& m = m_cfg.m();
     
     expr_ref e_conv(m), res(m);
@@ -295,20 +295,20 @@ expr_ref fpa2bv_rewriter::convert_term(th_rewriter& rw, expr * e) {
     TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, m) << std::endl;
           tout << "converted term: " << mk_ismt2_pp(e_conv, m) << std::endl;);
     
-    if (m_cfg.m_conv.m_util.is_rm(e)) {
-        SASSERT(m_cfg.m_conv.m_util.is_bv2rm(e_conv));
+    if (fu().is_rm(e)) {
+        SASSERT(fu().is_bv2rm(e_conv));
         expr_ref bv_rm(m);
         rw(to_app(e_conv)->get_arg(0), bv_rm);
-        res = m_cfg.m_conv.m_util.mk_bv2rm(bv_rm);
+        res = fu().mk_bv2rm(bv_rm);
     }
-    else if (m_cfg.m_conv.m_util.is_float(e)) {
-        SASSERT(m_cfg.m_conv.m_util.is_fp(e_conv));
+    else if (fu().is_float(e)) {
+        SASSERT(fu().is_fp(e_conv));
         expr_ref sgn(m), sig(m), exp(m);
         m_cfg.m_conv.split_fp(e_conv, sgn, exp, sig);
         rw(sgn);
         rw(exp);
         rw(sig);
-        res = m_cfg.m_conv.m_util.mk_fp(sgn, exp, sig);
+        res = fu().mk_fp(sgn, exp, sig);
     }
     else
         UNREACHABLE();
@@ -317,7 +317,7 @@ expr_ref fpa2bv_rewriter::convert_term(th_rewriter& rw, expr * e) {
 }
 
 expr_ref fpa2bv_rewriter::convert_conversion_term(th_rewriter& rw, expr * e) {
-    SASSERT(to_app(e)->get_family_id() == m_cfg.m_conv.m_util.get_family_id());
+    SASSERT(to_app(e)->get_family_id() == fu().get_family_id());
     /* This is for the conversion functions fp.to_* */
     expr_ref res(m_cfg.m());
     (*this)(e, res);
@@ -330,11 +330,11 @@ expr_ref fpa2bv_rewriter::convert(th_rewriter& rw, expr * e) {
     expr_ref res(m);
     TRACE("t_fpa", tout << "converting " << mk_ismt2_pp(e, m) << std::endl;);
     
-    if (m_cfg.m_conv.m_util.is_fp(e))
+    if (fu().is_fp(e))
         res = e;
     else if (m.is_bool(e))
         res = convert_atom(rw, e);
-    else if (m_cfg.m_conv.m_util.is_float(e) || m_cfg.m_conv.m_util.is_rm(e))
+    else if (fu().is_float(e) || fu().is_rm(e))
         res = convert_term(rw, e);
     else
         res = convert_conversion_term(rw, e);

@@ -4297,7 +4297,7 @@ app_ref fpa2bv_converter_wrapped::wrap(expr* e) {
         if (is_rm(es))
             bv_srt = m_bv_util.mk_sort(3);
         else {
-            SASSERT(m_converter.is_float(es));
+            SASSERT(is_float(es));
             unsigned ebits = m_util.get_ebits(es);
             unsigned sbits = m_util.get_sbits(es);
             bv_srt = m_bv_util.mk_sort(ebits + sbits);

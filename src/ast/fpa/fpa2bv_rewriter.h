@@ -79,5 +79,7 @@ struct fpa2bv_rewriter : public rewriter_tpl<fpa2bv_rewriter_cfg> {
     expr_ref convert_term(th_rewriter& rw, expr * e);
     expr_ref convert_conversion_term(th_rewriter& rw, expr * e);
     expr_ref convert(th_rewriter& rw, expr * e);
+
+    fpa_util& fu() { return m_cfg.m_conv.fu();  }
 };
 

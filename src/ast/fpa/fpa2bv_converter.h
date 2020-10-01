@@ -44,6 +44,7 @@ protected:
     arith_util                 m_arith_util;
     datatype_util              m_dt_util;
     seq_util                   m_seq_util;
+    fpa_util                   m_util;
     mpf_manager              & m_mpf_manager;
     unsynch_mpz_manager      & m_mpz_manager;
     fpa_decl_plugin          * m_plugin;
@@ -58,7 +59,6 @@ protected:
     friend class bv2fpa_converter;
 
 public:
-    fpa_util                   m_util;
 
     fpa2bv_converter(ast_manager & m);
     ~fpa2bv_converter();
