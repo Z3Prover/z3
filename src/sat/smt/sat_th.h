@@ -123,11 +123,15 @@ namespace euf {
 
         sat::status mk_status();
         bool add_unit(sat::literal lit);
+        bool add_units(sat::literal_vector const& lits);
         bool add_clause(sat::literal lit) { return add_unit(lit); }
         bool add_clause(sat::literal a, sat::literal b);
         bool add_clause(sat::literal a, sat::literal b, sat::literal c);
         bool add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
         bool add_clause(sat::literal_vector const& lits);
+        void add_equiv(sat::literal a, sat::literal b);
+        void add_equiv_and(sat::literal a, sat::literal_vector const& bs);
+       
 
         bool is_true(sat::literal lit);
         bool is_true(sat::literal a, sat::literal b) { return is_true(a) || is_true(b); }

@@ -126,6 +126,14 @@ namespace euf {
         return !was_true;
     }
 
+    bool th_euf_solver::add_units(sat::literal_vector const& lits) {
+        bool is_new = false;
+        for (auto lit : lits)
+            if (add_unit(lit))
+                is_new = true;
+        return is_new;
+    }
+
     bool th_euf_solver::add_clause(sat::literal a, sat::literal b) {
         bool was_true = is_true(a, b);
         sat::literal lits[2] = { a, b };
@@ -153,6 +161,21 @@ namespace euf {
             was_true |= is_true(lit);
         s().add_clause(lits.size(), lits.c_ptr(), mk_status());
         return !was_true;
+    }
+
+    void th_euf_solver::add_equiv(sat::literal a, sat::literal b) {
+        add_clause(~a, b);
+        add_clause(a, ~b);
+    }
+
+    void th_euf_solver::add_equiv_and(sat::literal a, sat::literal_vector const& bs) {
+        for (auto b : bs)
+            add_clause(~a, b);
+        sat::literal_vector _bs;
+        for (auto b : bs)
+            _bs.push_back(~b);
+        _bs.push_back(a);
+        add_clause(_bs);
     }
 
     bool th_euf_solver::is_true(sat::literal lit) { 

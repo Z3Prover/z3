@@ -25,24 +25,6 @@ Revision History:
 
 namespace smt {
 
-    class fpa2bv_conversion_trail_elem : public trail<theory_fpa> {
-        ast_manager & m;
-        obj_map<expr, expr*> & m_map;
-        expr_ref key;
-    public:
-        fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & map, expr * e) :
-            m(m), m_map(map), key(e, m) { }
-        ~fpa2bv_conversion_trail_elem() override { }
-        void undo(theory_fpa & th) override {
-            expr * val = m_map.find(key);
-            m_map.remove(key);
-            m.dec_ref(key);
-            m.dec_ref(val);
-            key = nullptr;
-        }
-    };
-
-
     theory_fpa::theory_fpa(context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("fpa")),
         m_th_rw(ctx.get_manager()),
@@ -206,7 +188,7 @@ namespace smt {
             m_conversions.insert(e, res);
             m.inc_ref(e);
             m.inc_ref(res);
-            m_trail_stack.push(fpa2bv_conversion_trail_elem(m, m_conversions, e));
+            m_trail_stack.push(fpa2bv_conversion_trail_elem<theory_fpa>(m, m_conversions, e));
         }
 
         return res;
@@ -250,7 +232,6 @@ namespace smt {
     }
 
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
-        force_push();
         TRACE("t_fpa_internalize", tout << "internalizing atom: " << mk_ismt2_pp(atom, m) << std::endl;);
         SASSERT(atom->get_family_id() == get_family_id());
 
@@ -272,7 +253,6 @@ namespace smt {
     }
 
     bool theory_fpa::internalize_term(app * term) {
-        force_push();
         TRACE("t_fpa_internalize", tout << "internalizing term: " << mk_ismt2_pp(term, m) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
         SASSERT(!ctx.e_internalized(term));
@@ -374,8 +354,6 @@ namespace smt {
         c_eq_iff = m.mk_iff(xe_eq_ye, c);
         assert_cnstr(c_eq_iff);
         assert_cnstr(mk_side_conditions());
-
-        return;
     }
 
     void theory_fpa::new_diseq_eh(theory_var x, theory_var y) {
@@ -418,8 +396,6 @@ namespace smt {
         c_eq_iff = m.mk_iff(not_xe_eq_ye, c);
         assert_cnstr(c_eq_iff);
         assert_cnstr(mk_side_conditions());
-
-        return;
     }
 
     theory* theory_fpa::mk_fresh(context* new_ctx) {
@@ -427,15 +403,11 @@ namespace smt {
     }
 
     void theory_fpa::push_scope_eh() {
-        if (lazy_push())
-            return;
         theory::push_scope_eh();
         m_trail_stack.push_scope();
     }
 
     void theory_fpa::pop_scope_eh(unsigned num_scopes) {
-        if (lazy_pop(num_scopes))
-            return;
         m_trail_stack.pop_scope(num_scopes);
         TRACE("t_fpa", tout << "pop " << num_scopes << "; now " << m_trail_stack.get_num_scopes() << "\n";);
         theory::pop_scope_eh(num_scopes);
@@ -446,8 +418,8 @@ namespace smt {
 
         TRACE("t_fpa", tout << "assign_eh for: " << v << " (" << is_true << "):\n" << mk_ismt2_pp(e, m) << "\n";);
 
-        expr_ref converted(m);
-        converted = m.mk_and(convert(e), mk_side_conditions());
+        expr_ref converted = convert(e);
+        converted = m.mk_and(converted, mk_side_conditions());
 
         expr_ref cnstr(m);
         cnstr = (is_true) ? m.mk_implies(e, converted) : m.mk_implies(converted, e);
