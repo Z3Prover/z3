@@ -74,5 +74,10 @@ struct fpa2bv_rewriter : public rewriter_tpl<fpa2bv_rewriter_cfg> {
         rewriter_tpl<fpa2bv_rewriter_cfg>(m, m.proofs_enabled(), m_cfg),
         m_cfg(m, c, p) {
     }
+
+    expr_ref convert_atom(th_rewriter& rw, expr * e);
+    expr_ref convert_term(th_rewriter& rw, expr * e);
+    expr_ref convert_conversion_term(th_rewriter& rw, expr * e);
+    expr_ref convert(th_rewriter& rw, expr * e);
 };
 

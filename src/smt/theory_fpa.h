@@ -85,16 +85,6 @@ namespace smt {
     protected:
         typedef trail_stack<theory_fpa> th_trail_stack;
 
-        class fpa2bv_converter_wrapped : public fpa2bv_converter {
-        public:
-            theory_fpa & m_th;
-            fpa2bv_converter_wrapped(ast_manager & m, theory_fpa * th) :
-                fpa2bv_converter(m),
-                m_th(*th) {}
-            virtual ~fpa2bv_converter_wrapped() {}
-            void mk_const(func_decl * f, expr_ref & result) override;
-            void mk_rm_const(func_decl * f, expr_ref & result) override;
-        };
 
         class fpa_value_proc : public model_value_proc {
         protected:
@@ -144,9 +134,9 @@ namespace smt {
         };
 
     protected:
+        th_rewriter               m_th_rw;
         fpa2bv_converter_wrapped  m_converter;
         fpa2bv_rewriter           m_rw;
-        th_rewriter               m_th_rw;
         th_trail_stack            m_trail_stack;
         fpa_value_factory *       m_factory;
         fpa_util                & m_fpa_util;
@@ -184,15 +174,10 @@ namespace smt {
     protected:
         expr_ref mk_side_conditions();
         expr_ref convert(expr * e);
-        expr_ref convert_atom(expr * e);
-        expr_ref convert_term(expr * e);
-        expr_ref convert_conversion_term(expr * e);
 
         void attach_new_th_var(enode * n);
         void assert_cnstr(expr * e);
 
-        app_ref wrap(expr * e);
-        app_ref unwrap(expr * e, sort * s);
 
         enode* ensure_enode(expr* e);
         enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }

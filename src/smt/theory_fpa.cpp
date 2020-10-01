@@ -42,53 +42,12 @@ namespace smt {
         }
     };
 
-    void theory_fpa::fpa2bv_converter_wrapped::mk_const(func_decl * f, expr_ref & result) {
-        SASSERT(f->get_family_id() == null_family_id);
-        SASSERT(f->get_arity() == 0);
-        expr * r;
-        if (m_const2bv.find(f, r)) {
-            result = r;
-        }
-        else {
-            sort * s = f->get_range();
-            expr_ref bv(m);
-            bv = m_th.wrap(m.mk_const(f));
-            unsigned bv_sz = m_th.m_bv_util.get_bv_size(bv);
-            unsigned sbits = m_th.m_fpa_util.get_sbits(s);
-            SASSERT(bv_sz == m_th.m_fpa_util.get_ebits(s) + sbits);
-            result = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
-                                  m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
-                                  m_bv_util.mk_extract(sbits - 2, 0, bv));
-            SASSERT(m_th.m_fpa_util.is_float(result));
-            m_const2bv.insert(f, result);
-            m.inc_ref(f);
-            m.inc_ref(result);
-        }
-    }
-
-    void theory_fpa::fpa2bv_converter_wrapped::mk_rm_const(func_decl * f, expr_ref & result) {
-        SASSERT(f->get_family_id() == null_family_id);
-        SASSERT(f->get_arity() == 0);
-        expr * r;
-        if (m_rm_const2bv.find(f, r)) {
-            result = r;
-        }
-        else {
-            SASSERT(is_rm(f->get_range()));
-            expr_ref bv(m);
-            bv = m_th.wrap(m.mk_const(f));
-            result = m_util.mk_bv2rm(bv);
-            m_rm_const2bv.insert(f, result);
-            m.inc_ref(f);
-            m.inc_ref(result);
-        }
-    }
 
     theory_fpa::theory_fpa(context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("fpa")),
-        m_converter(ctx.get_manager(), this),
-        m_rw(ctx.get_manager(), m_converter, params_ref()),
         m_th_rw(ctx.get_manager()),
+        m_converter(ctx.get_manager(), m_th_rw),
+        m_rw(ctx.get_manager(), m_converter, params_ref()),
         m_trail_stack(*this),
         m_fpa_util(m_converter.fu()),
         m_bv_util(m_converter.bu()),
@@ -224,117 +183,6 @@ namespace smt {
         return result;
     }
 
-    app_ref theory_fpa::wrap(expr * e) {
-        SASSERT(m_fpa_util.is_float(e) || m_fpa_util.is_rm(e));
-        SASSERT(!m_fpa_util.is_bvwrap(e));
-        app_ref res(m);
-
-        if (m_fpa_util.is_fp(e)) {
-            expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
-            expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);
-            m_th_rw(tmp);
-            res = to_app(tmp);
-        }
-        else {
-            sort * es = m.get_sort(e);
-
-            sort_ref bv_srt(m);
-            if (m_converter.is_rm(es))
-                bv_srt = m_bv_util.mk_sort(3);
-            else {
-                SASSERT(m_converter.is_float(es));
-                unsigned ebits = m_fpa_util.get_ebits(es);
-                unsigned sbits = m_fpa_util.get_sbits(es);
-                bv_srt = m_bv_util.mk_sort(ebits + sbits);
-            }
-
-            func_decl_ref wrap_fd(m);
-            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_BVWRAP, 0, nullptr, 1, &es, bv_srt);
-            res = m.mk_app(wrap_fd, e);
-        }
-
-        return res;
-    }
-
-    app_ref theory_fpa::unwrap(expr * e, sort * s) {
-        SASSERT(!m_fpa_util.is_fp(e));
-        SASSERT(m_bv_util.is_bv(e));
-        SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
-        app_ref res(m);
-
-        unsigned bv_sz = m_bv_util.get_bv_size(e);
-
-        if (m_fpa_util.is_rm(s)) {
-            SASSERT(bv_sz == 3);
-            res = m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3)), m_fpa_util.mk_round_nearest_ties_to_away(),
-                  m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3)), m_fpa_util.mk_round_nearest_ties_to_even(),
-                  m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TO_NEGATIVE, 3)), m_fpa_util.mk_round_toward_negative(),
-                  m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3)), m_fpa_util.mk_round_toward_positive(),
-                           m_fpa_util.mk_round_toward_zero()))));
-        }
-        else {
-            SASSERT(m_fpa_util.is_float(s));
-            unsigned sbits = m_fpa_util.get_sbits(s);
-            SASSERT(bv_sz == m_fpa_util.get_ebits(s) + sbits);
-            res = m_fpa_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, e),
-                                   m_bv_util.mk_extract(bv_sz - 2, sbits - 1, e),
-                                   m_bv_util.mk_extract(sbits - 2, 0, e));
-        }
-
-        return res;
-    }
-
-    expr_ref theory_fpa::convert_atom(expr * e) {
-        TRACE("t_fpa_detail", tout << "converting atom: " << mk_ismt2_pp(e, m) << std::endl;);
-        expr_ref res(m);
-        proof_ref pr(m);
-        m_rw(e, res);
-        m_th_rw(res, res);
-        SASSERT(is_app(res));
-        SASSERT(m.is_bool(res));
-        return res;
-    }
-
-    expr_ref theory_fpa::convert_term(expr * e) {
-        SASSERT(m_fpa_util.is_rm(e) || m_fpa_util.is_float(e));
-
-        expr_ref e_conv(m), res(m);
-        proof_ref pr(m);
-
-        m_rw(e, e_conv);
-
-        TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, m) << std::endl;
-                              tout << "converted term: " << mk_ismt2_pp(e_conv, m) << std::endl;);
-
-        if (m_fpa_util.is_rm(e)) {
-            SASSERT(m_fpa_util.is_bv2rm(e_conv));
-            expr_ref bv_rm(m);
-            m_th_rw(to_app(e_conv)->get_arg(0), bv_rm);
-            res = m_fpa_util.mk_bv2rm(bv_rm);
-        }
-        else if (m_fpa_util.is_float(e)) {
-            SASSERT(m_fpa_util.is_fp(e_conv));
-            expr_ref sgn(m), sig(m), exp(m);
-            m_converter.split_fp(e_conv, sgn, exp, sig);
-            m_th_rw(sgn);
-            m_th_rw(exp);
-            m_th_rw(sig);
-            res = m_fpa_util.mk_fp(sgn, exp, sig);
-        }
-        else
-            UNREACHABLE();
-
-        return res;
-    }
-
-    expr_ref theory_fpa::convert_conversion_term(expr * e) {
-        SASSERT(to_app(e)->get_family_id() == get_family_id());
-        /* This is for the conversion functions fp.to_* */
-        expr_ref res(m);
-        m_rw(e, res);
-        m_th_rw(res, res);
-        return res;
-    }
 
     expr_ref theory_fpa::convert(expr * e)
     {
@@ -349,14 +197,7 @@ namespace smt {
                 mk_ismt2_pp(res, m) << std::endl;);
         }
         else {
-            if (m_fpa_util.is_fp(e))
-                res = e;
-            else if (m.is_bool(e))
-                res = convert_atom(e);
-            else if (m_fpa_util.is_float(e) || m_fpa_util.is_rm(e))
-                res = convert_term(e);
-            else
-                res = convert_conversion_term(e);
+            res = m_rw.convert(m_th_rw, e);
 
             TRACE("t_fpa_detail", tout << "converted; caching:" << std::endl;
                                   tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
@@ -421,7 +262,7 @@ namespace smt {
         literal l(ctx.mk_bool_var(atom));
         ctx.set_var_theory(l.var(), get_id());
 
-        expr_ref bv_atom(convert_atom(atom));
+        expr_ref bv_atom(m_rw.convert_atom(m_th_rw, atom));
         expr_ref bv_atom_w_side_c(m), atom_eq(m);
         bv_atom_w_side_c = m.mk_and(bv_atom, mk_side_conditions());
         m_th_rw(bv_atom_w_side_c);
@@ -486,7 +327,7 @@ namespace smt {
                 if (!m_fpa_util.is_bv2rm(owner)) {
                     expr_ref valid(m), limit(m);
                     limit = m_bv_util.mk_numeral(4, 3);
-                    valid = m_bv_util.mk_ule(wrap(owner), limit);
+                    valid = m_bv_util.mk_ule(m_converter.wrap(owner), limit);
                     assert_cnstr(valid);
                 }
             }
@@ -622,7 +463,7 @@ namespace smt {
         if (m_fpa_util.is_float(n) || m_fpa_util.is_rm(n)) {
             if (!m_fpa_util.is_fp(n)) {
                 expr_ref wrapped(m), c(m);
-                wrapped = wrap(n);
+                wrapped = m_converter.wrap(n);
                 mpf_rounding_mode rm;
                 scoped_mpf val(mpfm);
                 if (m_fpa_util.is_rm_numeral(n, rm)) {
@@ -646,7 +487,7 @@ namespace smt {
                 }
                 else {
                     expr_ref wu(m);
-                    wu = m.mk_eq(unwrap(wrapped, m.get_sort(n)), n);
+                    wu = m.mk_eq(m_converter.unwrap(wrapped, m.get_sort(n)), n);
                     TRACE("t_fpa", tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
                     assert_cnstr(wu);
                 }
@@ -736,7 +577,7 @@ namespace smt {
         model_value_proc * res = nullptr;
 
         app_ref wrapped(m);
-        wrapped = wrap(owner);
+        wrapped = m_converter.wrap(owner);
         SASSERT(m_bv_util.is_bv(wrapped));
 
         CTRACE("t_fpa_detail", !ctx.e_internalized(wrapped),

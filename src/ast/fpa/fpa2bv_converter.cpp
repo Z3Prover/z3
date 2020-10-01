@@ -4254,3 +4254,107 @@ func_decl * fpa2bv_converter::mk_bv_uf(func_decl * f, sort * const * domain, sor
     }
     return res;
 }
+
+void fpa2bv_converter_wrapped::mk_const(func_decl* f, expr_ref& result) {
+    SASSERT(f->get_family_id() == null_family_id);
+    SASSERT(f->get_arity() == 0);
+    expr* r;
+    if (m_const2bv.find(f, r)) {
+        result = r;
+    }
+    else {
+        sort* s = f->get_range();
+        expr_ref bv(m);
+        bv = wrap(m.mk_const(f));
+        unsigned bv_sz = m_bv_util.get_bv_size(bv);
+        unsigned sbits = m_util.get_sbits(s);
+        SASSERT(bv_sz == m_util.get_ebits(s) + sbits);
+        result = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
+            m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
+            m_bv_util.mk_extract(sbits - 2, 0, bv));
+        SASSERT(m_util.is_float(result));
+        m_const2bv.insert(f, result);
+        m.inc_ref(f);
+        m.inc_ref(result);
+    }
+}
+
+app_ref fpa2bv_converter_wrapped::wrap(expr* e) {
+    SASSERT(m_util.is_float(e) || m_util.is_rm(e));
+    SASSERT(!m_util.is_bvwrap(e));
+    app_ref res(m);
+
+    if (m_util.is_fp(e)) {
+        expr* cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
+        expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);        
+        m_rw(tmp);
+        res = to_app(tmp);
+    }
+    else {
+        sort* es = m.get_sort(e);
+
+        sort_ref bv_srt(m);
+        if (is_rm(es))
+            bv_srt = m_bv_util.mk_sort(3);
+        else {
+            SASSERT(m_converter.is_float(es));
+            unsigned ebits = m_util.get_ebits(es);
+            unsigned sbits = m_util.get_sbits(es);
+            bv_srt = m_bv_util.mk_sort(ebits + sbits);
+        }
+
+        func_decl_ref wrap_fd(m);
+        wrap_fd = m.mk_func_decl(m_util.get_family_id(), OP_FPA_BVWRAP, 0, nullptr, 1, &es, bv_srt);
+        res = m.mk_app(wrap_fd, e);
+    }
+
+    return res;
+}
+
+app_ref fpa2bv_converter_wrapped::unwrap(expr* e, sort* s) {
+    SASSERT(!m_util.is_fp(e));
+    SASSERT(m_bv_util.is_bv(e));
+    SASSERT(m_util.is_float(s) || m_util.is_rm(s));
+    app_ref res(m);
+
+    unsigned bv_sz = m_bv_util.get_bv_size(e);
+
+    if (m_util.is_rm(s)) {
+        SASSERT(bv_sz == 3);
+        res = m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3)), m_util.mk_round_nearest_ties_to_away(),
+            m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3)), m_util.mk_round_nearest_ties_to_even(),
+                m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TO_NEGATIVE, 3)), m_util.mk_round_toward_negative(),
+                    m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3)), m_util.mk_round_toward_positive(),
+                        m_util.mk_round_toward_zero()))));
+    }
+    else {
+        SASSERT(m_util.is_float(s));
+        unsigned sbits = m_util.get_sbits(s);
+        SASSERT(bv_sz == m_util.get_ebits(s) + sbits);
+        res = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, e),
+            m_bv_util.mk_extract(bv_sz - 2, sbits - 1, e),
+            m_bv_util.mk_extract(sbits - 2, 0, e));
+    }
+
+    return res;
+}
+
+
+void fpa2bv_converter_wrapped::mk_rm_const(func_decl* f, expr_ref& result) {
+    SASSERT(f->get_family_id() == null_family_id);
+    SASSERT(f->get_arity() == 0);
+    expr* r;
+    if (m_rm_const2bv.find(f, r)) {
+        result = r;
+    }
+    else {
+        SASSERT(is_rm(f->get_range()));
+        expr_ref bv(m);
+        bv = wrap(m.mk_const(f));
+        result = m_util.mk_bv2rm(bv);
+        m_rm_const2bv.insert(f, result);
+        m.inc_ref(f);
+        m.inc_ref(result);
+    }
+}
+

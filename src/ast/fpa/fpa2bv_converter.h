@@ -29,6 +29,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 
 class fpa2bv_converter {
 public:
@@ -39,7 +40,6 @@ public:
 protected:
     ast_manager              & m;
     bool_rewriter              m_simp;
-    fpa_util                   m_util;
     bv_util                    m_bv_util;
     arith_util                 m_arith_util;
     datatype_util              m_dt_util;
@@ -58,6 +58,8 @@ protected:
     friend class bv2fpa_converter;
 
 public:
+    fpa_util                   m_util;
+
     fpa2bv_converter(ast_manager & m);
     ~fpa2bv_converter();
 
@@ -222,5 +224,20 @@ private:
     expr_ref nan_wrap(expr * n);
 
     expr_ref extra_quantify(expr * e);
+};
+
+class fpa2bv_converter_wrapped : public fpa2bv_converter {
+    th_rewriter& m_rw;
+ public:
+
+    fpa2bv_converter_wrapped(ast_manager & m, th_rewriter& rw) :
+        fpa2bv_converter(m),
+        m_rw(rw) {}
+    virtual ~fpa2bv_converter_wrapped() {}
+    void mk_const(func_decl * f, expr_ref & result) override;
+    void mk_rm_const(func_decl * f, expr_ref & result) override;
+    app_ref wrap(expr * e);
+    app_ref unwrap(expr * e, sort * s);
+    
 };
 
