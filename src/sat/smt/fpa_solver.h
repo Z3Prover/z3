@@ -36,7 +36,6 @@ namespace fpa {
         bv_util                 & m_bv_util;
         arith_util              & m_arith_util;
         obj_map<expr, expr*>      m_conversions;
-        obj_hashtable<func_decl>  m_is_added_to_model;
 
         bool visit(expr* e) override;
         bool visited(expr* e) override;
@@ -49,6 +48,8 @@ namespace fpa {
         void ensure_equality_relation(theory_var x, theory_var y);
         expr* bv2rm_value(expr* b);
         expr* bvs2fpa_value(sort* s, expr* a, expr* b, expr* c);
+
+        void finalize_model(model& mdl);
 
 
     public:

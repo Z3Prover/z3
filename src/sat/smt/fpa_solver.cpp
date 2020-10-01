@@ -18,6 +18,7 @@ Revision History:
 --*/
 
 #include "sat/smt/fpa_solver.h"
+#include "ast/fpa/bv2fpa_converter.h"
 
 namespace fpa {
 
@@ -36,10 +37,8 @@ namespace fpa {
     }
 
     solver::~solver() {
-        dec_ref_map_key_values(m, m_conversions);
-        dec_ref_collection_values(m, m_is_added_to_model);                
-        SASSERT(m_conversions.empty());
-        SASSERT(m_is_added_to_model.empty());
+        dec_ref_map_key_values(m, m_conversions);            
+        SASSERT(m_conversions.empty());        
     }
 
 
@@ -66,7 +65,7 @@ namespace fpa {
             m.inc_ref(e);
             m.inc_ref(res);
 
-            // ctx.push(fpa2bv_conversion_trail_elem(m, m_conversions, e));
+            ctx.push(fpa2bv_conversion_trail_elem<euf::solver>(m, m_conversions, e));
         }
         return res;
     }
@@ -474,6 +473,31 @@ namespace fpa {
             out << n->get_root_id() << " --> " << mk_ismt2_pp(e, m) << std::endl;
         }
         return out;
+    }
+
+
+    void solver::finalize_model(model& mdl) {
+        model new_model(m);
+
+        bv2fpa_converter bv2fp(m, m_converter);
+
+        obj_hashtable<func_decl> seen;
+        bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
+        bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
+
+        for (func_decl* f : seen)
+            mdl.unregister_decl(f);
+
+        for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
+            func_decl* f = new_model.get_constant(i);
+            mdl.register_decl(f, new_model.get_const_interp(f));
+        }
+
+        for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
+            func_decl* f = new_model.get_function(i);
+            func_interp* fi = new_model.get_func_interp(f)->copy();
+            mdl.register_decl(f, fi);
+        }
     }
 
 };
