@@ -184,6 +184,7 @@ namespace fpa {
         mpf_manager& mpfm = m_fpa_util.fm();
 
         if (m_fpa_util.is_float(n) || m_fpa_util.is_rm(n)) {
+            expr* a = nullptr, * b = nullptr, * c = nullptr;
             if (!m_fpa_util.is_fp(n)) {
                 app_ref wrapped = m_converter.wrap(n);
                 mpf_rounding_mode rm;
@@ -194,14 +195,10 @@ namespace fpa {
                     add_unit(b_internalize(ctx.mk_eq(wrapped, rm_num)));
                 }
                 else if (m_fpa_util.is_numeral(n, val)) {
-                    expr_ref bv_val_e(m), cc_args(m);
-                    bv_val_e = convert(n);
-                    SASSERT(is_app(bv_val_e));
-                    SASSERT(to_app(bv_val_e)->get_num_args() == 3);
-                    app_ref bv_val_a(m);
-                    bv_val_a = to_app(bv_val_e.get());
-                    expr* args[] = { bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2) };
-                    cc_args = m_bv_util.mk_concat(3, args);
+                    expr_ref bv_val_e(convert(n), m);
+                    VERIFY(m_fpa_util.is_fp(bv_val_e, a, b, c));
+                    expr* args[] = { a, b, c };
+                    expr_ref cc_args(m_bv_util.mk_concat(3, args), m);
                     add_unit(b_internalize(ctx.mk_eq(wrapped, cc_args)));
                     add_units(mk_side_conditions());
                 }
@@ -217,12 +214,7 @@ namespace fpa {
             SASSERT(!m_fpa_util.is_float(n) && !m_fpa_util.is_rm(n));
         }
         else {
-            /* Theory variables can be merged when (= bv-term (bvwrap fp-term)),
-               in which case context::relevant_eh may call solver::relevant_eh
-               after theory_bv::relevant_eh, regardless of whether solver is
-               interested in this term. But, this can only happen because of
-               (bvwrap ...) terms, i.e., `n' must be a bit-vector expression,
-               which we can safely ignore. */
+            /* Theory variables can be merged when (= bv-term (bvwrap fp-term)) */
             SASSERT(m_bv_util.is_bv(n));
         }
     }
