@@ -238,6 +238,9 @@ class fpa2bv_converter_wrapped : public fpa2bv_converter {
     void mk_rm_const(func_decl * f, expr_ref & result) override;
     app_ref wrap(expr * e);
     app_ref unwrap(expr * e, sort * s);
+
+    expr* bv2rm_value(expr* b);
+    expr* bv2fpa_value(sort* s, expr* a, expr* b = nullptr, expr* c = nullptr);
     
 };
 

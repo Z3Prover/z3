@@ -4358,3 +4358,95 @@ void fpa2bv_converter_wrapped::mk_rm_const(func_decl* f, expr_ref& result) {
     }
 }
 
+
+expr* fpa2bv_converter_wrapped::bv2rm_value(expr* b) {
+    app* result = nullptr;
+    unsigned bv_sz;
+    rational val(0);
+    VERIFY(m_bv_util.is_numeral(b, val, bv_sz));
+    SASSERT(bv_sz == 3);
+    
+    switch (val.get_uint64()) {        
+    case BV_RM_TIES_TO_AWAY: result = m_util.mk_round_nearest_ties_to_away(); break;
+    case BV_RM_TIES_TO_EVEN: result = m_util.mk_round_nearest_ties_to_even(); break;
+    case BV_RM_TO_NEGATIVE: result = m_util.mk_round_toward_negative(); break;
+    case BV_RM_TO_POSITIVE: result = m_util.mk_round_toward_positive(); break;
+    case BV_RM_TO_ZERO:
+    default: result = m_util.mk_round_toward_zero();
+    }
+    
+    TRACE("t_fpa", tout << "result: " << mk_ismt2_pp(result, m) << std::endl;);
+    return result;
+}
+
+expr* fpa2bv_converter_wrapped::bv2fpa_value(sort* s, expr* a, expr* b, expr* c) {
+    mpf_manager& mpfm = m_util.fm();
+    unsynch_mpz_manager& mpzm = mpfm.mpz_manager();
+    app* result;
+    unsigned ebits = m_util.get_ebits(s);
+    unsigned sbits = m_util.get_sbits(s);
+    
+    scoped_mpz bias(mpzm);
+    mpzm.power(mpz(2), ebits - 1, bias);
+    mpzm.dec(bias);
+    
+    scoped_mpz sgn_z(mpzm), sig_z(mpzm), exp_z(mpzm);
+    unsigned bv_sz;
+    
+    if (b == nullptr) {
+        SASSERT(m_bv_util.is_bv(a));
+        SASSERT(m_bv_util.get_bv_size(a) == (ebits + sbits));
+        
+        rational all_r(0);
+        scoped_mpz all_z(mpzm);
+        
+        VERIFY(m_bv_util.is_numeral(a, all_r, bv_sz));
+        SASSERT(bv_sz == (ebits + sbits));
+        SASSERT(all_r.is_int());
+        mpzm.set(all_z, all_r.to_mpq().numerator());
+        
+        mpzm.machine_div2k(all_z, ebits + sbits - 1, sgn_z);
+        mpzm.mod(all_z, mpfm.m_powers2(ebits + sbits - 1), all_z);
+        
+        mpzm.machine_div2k(all_z, sbits - 1, exp_z);
+        mpzm.mod(all_z, mpfm.m_powers2(sbits - 1), all_z);
+        
+        mpzm.set(sig_z, all_z);
+    }
+    else {
+        SASSERT(b);
+        SASSERT(c);
+        rational sgn_r(0), exp_r(0), sig_r(0);
+        
+        bool r = m_bv_util.is_numeral(a, sgn_r, bv_sz);
+        SASSERT(r && bv_sz == 1);
+        r = m_bv_util.is_numeral(b, exp_r, bv_sz);
+        SASSERT(r && bv_sz == ebits);
+        r = m_bv_util.is_numeral(c, sig_r, bv_sz);
+        SASSERT(r && bv_sz == sbits - 1);
+        (void)r;
+        
+        SASSERT(mpzm.is_one(sgn_r.to_mpq().denominator()));
+        SASSERT(mpzm.is_one(exp_r.to_mpq().denominator()));
+        SASSERT(mpzm.is_one(sig_r.to_mpq().denominator()));
+        
+        mpzm.set(sgn_z, sgn_r.to_mpq().numerator());
+        mpzm.set(exp_z, exp_r.to_mpq().numerator());
+        mpzm.set(sig_z, sig_r.to_mpq().numerator());
+    }
+    
+    scoped_mpz exp_u = exp_z - bias;
+    SASSERT(mpzm.is_int64(exp_u));
+    
+    scoped_mpf f(mpfm);
+    mpfm.set(f, ebits, sbits, mpzm.is_one(sgn_z), mpzm.get_int64(exp_u), sig_z);
+    result = m_util.mk_value(f);
+    
+    TRACE("t_fpa", tout << "result: [" <<
+          mpzm.to_string(sgn_z) << "," <<
+          mpzm.to_string(exp_z) << "," <<
+          mpzm.to_string(sig_z) << "] --> " <<
+          mk_ismt2_pp(result, m) << std::endl;);
+    
+    return result;
+}

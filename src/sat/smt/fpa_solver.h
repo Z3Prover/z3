@@ -45,12 +45,7 @@ namespace fpa {
         sat::literal_vector mk_side_conditions();
         void attach_new_th_var(enode* n);
         void activate(expr* e);
-        void ensure_equality_relation(theory_var x, theory_var y);
-        expr* bv2rm_value(expr* b);
-        expr* bvs2fpa_value(sort* s, expr* a, expr* b, expr* c);
-
-        void finalize_model(model& mdl);
-
+        void ensure_equality_relation(theory_var x, theory_var y);      
 
     public:
         solver(euf::solver& ctx);
@@ -66,10 +61,20 @@ namespace fpa {
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
 
         std::ostream& display(std::ostream& out) const override;
-
+        std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { UNREACHABLE(); return out; }
+        std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override { UNREACHABLE(); return out; }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        void finalize_model(model& mdl) override;
+
+        bool unit_propagate() override { return false; }
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override { UNREACHABLE(); }
+        sat::check_result check() override { return sat::check_result::CR_DONE; }
+
+        euf::th_solver* clone(sat::solver*, euf::solver& ctx) { return alloc(solver, ctx); }
+
     };
 
 }
+
 

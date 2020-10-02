@@ -96,7 +96,7 @@ namespace sat {
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const = 0;
         virtual std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const = 0;
-        virtual void collect_statistics(statistics& st) const = 0;
+        virtual void collect_statistics(statistics& st) const {}
         virtual extension* copy(solver* s) { UNREACHABLE(); return nullptr; }       
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {}
         virtual void gc() {}

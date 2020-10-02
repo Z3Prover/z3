@@ -86,6 +86,11 @@ namespace euf {
            \brief should function be included in model.
         */
         virtual bool include_func_interp(func_decl* f) const { return false; }
+
+        /**
+          \brief conclude model building
+        */
+        virtual void finalize_model(model& mdl) {}
     };
 
     class th_solver : public sat::extension, public th_model_builder, public th_decompile, public th_internalizer {

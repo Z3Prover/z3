@@ -30,9 +30,9 @@ class fpa_value_factory : public value_factory {
     }
     
  public:
- fpa_value_factory(ast_manager & m, family_id fid) :
-    value_factory(m, fid),
-    m_util(m) {}
+    fpa_value_factory(ast_manager & m, family_id fid) :
+        value_factory(m, fid),
+        m_util(m) {}
     
     ~fpa_value_factory() override {}
     

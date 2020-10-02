@@ -36,6 +36,7 @@ Revision History:
 #include "model/seq_factory.h"
 #include "model/datatype_factory.h"
 #include "model/numeral_factory.h"
+#include "model/fpa_factory.h"
 
 
 model::model(ast_manager & m):
@@ -99,11 +100,13 @@ bool model::eval_expr(expr * e, expr_ref & result, bool model_completion) {
 value_factory* model::get_factory(sort* s) {
     if (m_factories.plugins().empty()) {
         seq_util su(m);
+        fpa_util fu(m);
         m_factories.register_plugin(alloc(array_factory, m, *this));
         m_factories.register_plugin(alloc(datatype_factory, m, *this));
         m_factories.register_plugin(alloc(bv_factory, m));
         m_factories.register_plugin(alloc(arith_factory, m));
         m_factories.register_plugin(alloc(seq_factory, m, su.get_family_id(), *this));
+        m_factories.register_plugin(alloc(fpa_value_factory, m, fu.get_family_id()));
     }
     family_id fid = s->get_family_id();
     return m_factories.get_plugin(fid);

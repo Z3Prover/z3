@@ -29,6 +29,8 @@ namespace euf {
         deps.topological_sort();
         dependencies2values(deps, mdl);
         values2model(deps, mdl);
+        for (auto* mb : m_solvers)
+            mb->finalize_model(*mdl);
     }
 
     bool solver::include_func_interp(func_decl* f) {
