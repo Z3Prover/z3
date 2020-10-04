@@ -70,21 +70,4 @@ public:
     array_model convert_array_func_interp(model_core * mc, func_decl * f, func_decl * bv_f);
 };
 
-template <typename T>
-class fpa2bv_conversion_trail_elem : public trail<T> {
-    ast_manager& m;
-    obj_map<expr, expr*>& m_map;
-    expr_ref key;
-public:
-    fpa2bv_conversion_trail_elem(ast_manager& m, obj_map<expr, expr*>& map, expr* e) :
-        m(m), m_map(map), key(e, m) { }
-    ~fpa2bv_conversion_trail_elem() override { }
-    void undo(T& s) override {
-        expr* val = m_map.find(key);
-        m_map.remove(key);
-        m.dec_ref(key);
-        m.dec_ref(val);
-        key = nullptr;
-    }
-};
 

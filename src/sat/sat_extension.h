@@ -57,14 +57,16 @@ namespace sat {
     protected:
         bool m_drating { false };
         int  m_id { 0 };
+        symbol m_name;
         solver* m_solver { nullptr };
     public:        
-        extension(int id): m_id(id) {}
+        extension(symbol const& name, int id): m_id(id), m_name(name) {}
         virtual ~extension() {}
         int get_id() const { return m_id; }
         void set_solver(solver* s) { m_solver = s; }        
         solver& s() { return *m_solver; }
         solver const& s() const { return *m_solver; }
+        symbol const& name() const { return m_name;  }
 
         virtual void set_lookahead(lookahead* s) {};
         class scoped_drating {

@@ -47,8 +47,11 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/func_decl_dependencies.h"
+#include "model/model_macro_solver.h"
 #include "smt/proto_model/proto_model.h"
 #include "tactic/tactic_exception.h"
+
+class model_instantiation_set;
 
 namespace smt {
     class context;
@@ -59,18 +62,13 @@ namespace smt {
         class auf_solver;
         class simple_macro_solver;
         class hint_solver;
-        class non_auf_macro_solver;
-        class instantiation_set;
+        class non_auf_macro_solver;        
     };
         
-    class model_finder {
+    class model_finder : public quantifier2macro_infos {
         typedef mf::quantifier_analyzer        quantifier_analyzer;
         typedef mf::quantifier_info            quantifier_info;
         typedef mf::auf_solver                 auf_solver;
-        typedef mf::simple_macro_solver        simple_macro_solver;
-        typedef mf::hint_solver                hint_solver;
-        typedef mf::non_auf_macro_solver       non_auf_macro_solver;
-        typedef mf::instantiation_set          instantiation_set;
 
         ast_manager &                          m;
         context *                              m_context;
@@ -79,9 +77,6 @@ namespace smt {
         obj_map<quantifier, quantifier_info *> m_q2info;
         ptr_vector<quantifier>                 m_quantifiers;
         func_decl_dependencies                 m_dependencies;
-        scoped_ptr<simple_macro_solver>        m_sm_solver;
-        scoped_ptr<hint_solver>                m_hint_solver;
-        scoped_ptr<non_auf_macro_solver>       m_nm_solver;
         
         struct scope {
             unsigned                           m_quantifiers_lim;
@@ -99,7 +94,7 @@ namespace smt {
         void process_hint_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
         void process_non_auf_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
         void process_auf(ptr_vector<quantifier> const & qs, proto_model * m);
-        instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i);
+        model_instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i);
         void checkpoint();
 
 
@@ -122,6 +117,9 @@ namespace smt {
         void restart_eh();
 
         void checkpoint(char const* component);
+
+        quantifier_macro_info* operator()(quantifier* q);
+
     };
 };
 

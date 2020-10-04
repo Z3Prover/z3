@@ -37,9 +37,23 @@ namespace q {
 
         model_finder(euf::solver& ctx);
 
+        /**
+         * Compute an instantiation terms for the i'th bound variable in quantifier q.
+         */
         expr_ref inv_term(model& mdl, quantifier* q, unsigned idx, expr* value, unsigned& generation);
 
+        /**
+         * Pre-restrict instantiations of vars, by adding constraints to solver s
+         */
         void restrict_instantiations(::solver& s, model& mdl, quantifier* q, expr_ref_vector const& vars);
+
+        /**
+         * Update model in order to best satisfy quantifiers.
+         * For the array property fragment, update the model
+         * such that the range of functions behaves monotonically 
+         * based on regions over the inputs.
+         */
+        void adjust_model(model& mdl);
         
     };
 

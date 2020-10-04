@@ -36,4 +36,8 @@ namespace q {
         
     }
 
+    void model_finder::adjust_model(model& mdl) {
+
+    }
+
 }

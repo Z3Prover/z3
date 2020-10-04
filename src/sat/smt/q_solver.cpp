@@ -19,13 +19,13 @@ Author:
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
-
+#include "ast/normal_forms/pull_quant.h"
 
 namespace q {
 
     solver::solver(euf::solver& ctx):
-        th_euf_solver(ctx, ctx.get_manager().get_family_id(name())),
-        m_mbqi(ctx, *this)
+        th_euf_solver(ctx, symbol("quant"), ctx.get_manager().get_family_id(symbol("quant"))),
+        m_mbqi(ctx,  *this)
     {}
 
     void solver::asserted(sat::literal l) {
@@ -43,10 +43,12 @@ namespace q {
     }
 
     sat::check_result solver::check() {
-        switch (m_mbqi()) {
-        case l_true: return sat::check_result::CR_DONE;
-        case l_false: return sat::check_result::CR_CONTINUE;
-        case l_undef: return sat::check_result::CR_GIVEUP;
+        if (ctx.get_config().m_mbqi) {
+            switch (m_mbqi()) {
+            case l_true: return sat::check_result::CR_DONE;
+            case l_false: return sat::check_result::CR_CONTINUE;
+            case l_undef: return sat::check_result::CR_GIVEUP;
+            }
         }
         return sat::check_result::CR_GIVEUP;
     }
@@ -116,5 +118,28 @@ namespace q {
         sat::literal lit = ctx.attach_lit(sat::literal(v, sign), e);
         mk_var(ctx.get_egraph().find(e));
         return lit;
+    }
+
+    void solver::finalize_model(model& mdl) {
+        m_mbqi.finalize_model(mdl);
+    }
+
+    quantifier* solver::flatten(quantifier* q) {
+        quantifier* q_flat = nullptr;
+        if (!has_quantifiers(q->get_expr())) 
+            return q;
+        if (m_flat.find(q, q_flat))
+            return q_flat;
+        proof_ref pr(m);
+        expr_ref  new_q(m);
+        pull_quant pull(m);
+        pull(q, new_q, pr);
+        SASSERT(is_well_sorted(m, new_q));
+        q_flat = to_quantifier(new_q);
+        m.inc_ref(q_flat);
+        m.inc_ref(q);
+        m_flat.insert(q, q_flat);
+        ctx.push(insert_ref2_map<euf::solver, ast_manager, quantifier, quantifier>(m, m_flat, q, q_flat));
+        return q_flat;
     }
 }

@@ -50,7 +50,7 @@ namespace bv {
     };
 
     solver::solver(euf::solver& ctx, theory_id id) :
-        euf::th_euf_solver(ctx, id),
+        euf::th_euf_solver(ctx, symbol("bv"), id),
         bv(m),
         m_autil(m),
         m_ackerman(*this),

@@ -26,8 +26,13 @@ Author:
 namespace q {
 
     mbqi::mbqi(euf::solver& ctx, solver& s): 
-        ctx(ctx), qs(s), m(s.get_manager()), m_model_finder(ctx), m_fresh_trail(m)  {}
-
+        ctx(ctx), 
+        qs(s), 
+        m(s.get_manager()), 
+        m_model_fixer(ctx, qs),
+        m_model_finder(ctx), 
+        m_fresh_trail(m) 
+    {}
 
     void mbqi::restrict_to_universe(expr * sk, ptr_vector<expr> const & universe) {
         SASSERT(!universe.empty());
@@ -97,7 +102,7 @@ namespace q {
         if (r == l_false)
             return l_true;
         model_ref mdl0, mdl1;        
-        m_solver->get_model(mdl0);       
+        m_solver->get_model(mdl0); 
         expr_ref proj(m);
         auto add_projection = [&](model& mdl, bool inv) {
             proj = project(mdl, q, vars, inv);
@@ -220,6 +225,10 @@ namespace q {
 
     void mbqi::init_search() {
         m_max_cex = ctx.get_config().m_mbqi_max_cexs;
+    }
+
+    void mbqi::finalize_model(model& mdl) {
+        m_model_fixer(mdl);
     }
 
 }

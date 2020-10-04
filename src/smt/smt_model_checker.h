@@ -54,7 +54,7 @@ namespace smt {
         obj_map<expr, expr *>                       m_value2expr;
         expr_ref_vector                             m_fresh_exprs;
 
-        friend class instantiation_set;
+        friend class model_instantiation_set;
 
         void init_aux_context();
         void init_value2expr();

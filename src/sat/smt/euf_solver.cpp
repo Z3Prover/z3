@@ -29,7 +29,7 @@ Author:
 namespace euf {
 
     solver::solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p) :
-        extension(m.mk_family_id("euf")),
+        extension(symbol("euf"), m.mk_family_id("euf")),
         m(m),
         si(si),
         m_egraph(m),
@@ -76,7 +76,7 @@ namespace euf {
     }
 
     th_solver* solver::quantifier2solver() {
-        family_id fid = m.mk_family_id(q::solver::name());
+        family_id fid = m.mk_family_id(symbol("quant"));
         auto* ext = m_id2solver.get(fid, nullptr);
         if (ext)
             return ext;
@@ -99,27 +99,18 @@ namespace euf {
         bv_util bvu(m);
         array_util au(m);
         fpa_util fpa(m);
-        if (pb.get_family_id() == fid) {
+        if (pb.get_family_id() == fid) 
             ext = alloc(sat::ba_solver, *this, fid);
-            if (use_drat())
-                s().get_drat().add_theory(fid, symbol("ba"));
-        }
-        else if (bvu.get_family_id() == fid) {
+        else if (bvu.get_family_id() == fid) 
             ext = alloc(bv::solver, *this, fid);
-            if (use_drat())
-                s().get_drat().add_theory(fid, symbol("bv"));            
-        }
-        else if (au.get_family_id() == fid) {
+        else if (au.get_family_id() == fid) 
             ext = alloc(array::solver, *this, fid);
-            if (use_drat())
-                s().get_drat().add_theory(fid, symbol("array"));
-        }
-        else if (fpa.get_family_id() == fid) {
+        else if (fpa.get_family_id() == fid) 
             ext = alloc(fpa::solver, *this);
-            if (use_drat())
-                s().get_drat().add_theory(fid, symbol("fpa"));
-        }
+
         if (ext) {
+            if (use_drat())
+                s().get_drat().add_theory(fid, ext->name());
             ext->set_solver(m_solver);
             ext->push_scopes(s().num_scopes());
             add_solver(fid, ext);
