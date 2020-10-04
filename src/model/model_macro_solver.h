@@ -20,6 +20,7 @@ Author:
 
 class quantifier2macro_infos {
 public:
+    virtual ~quantifier2macro_infos() {}
     virtual quantifier_macro_info* operator()(quantifier* q) = 0;
 };
 

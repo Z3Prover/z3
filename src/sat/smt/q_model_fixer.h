@@ -45,6 +45,7 @@ namespace q {
     public:
 
         model_fixer(euf::solver& ctx, solver& qs);
+        ~model_fixer() override {}
 
         /**
          * Update model in order to best satisfy quantifiers.

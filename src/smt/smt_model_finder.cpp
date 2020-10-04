@@ -67,10 +67,9 @@ namespace smt {
             bv_util                   m_bv;
             array_util                m_array;
             ptr_vector<node>          m_nodes;
-            unsigned                  m_next_node_id;
+            unsigned                  m_next_node_id { 0 };
             key2node                  m_uvars;
             key2node                  m_A_f_is;
-            random_gen                m_rand;
 
             // Mapping from sort to auxiliary constant.
             // This auxiliary constant is used as a "witness" that is asserted as different from a
@@ -80,13 +79,15 @@ namespace smt {
             expr_ref_vector           m_ks; // range of m_sort2k
 
             // Support for evaluating expressions in the current model.
-            proto_model *              m_model;
+            proto_model *              m_model { nullptr };
             obj_map<expr, expr *>     m_eval_cache[2];
             expr_ref_vector           m_eval_cache_range;
 
             ptr_vector<node>          m_root_nodes;
 
-            expr_ref_vector *         m_new_constraints;
+            expr_ref_vector *         m_new_constraints { nullptr };
+            random_gen                m_rand;
+
 
             void reset_sort2k() {
                 m_sort2k.reset();
@@ -141,11 +142,8 @@ namespace smt {
                 m_arith(m),
                 m_bv(m),
                 m_array(m),
-                m_next_node_id(0),
                 m_ks(m),
-                m_model(nullptr),
                 m_eval_cache_range(m),
-                m_new_constraints(nullptr),
                 m_rand(static_cast<unsigned>(m.limit().count())) {
                 m.limit().inc();
             }

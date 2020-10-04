@@ -116,7 +116,6 @@ namespace euf {
 
     enode_bool_pair egraph::insert_table(enode* p) {
         auto rc = m_table.insert(p);
-        enode* p_other = rc.first;
         p->m_cg = rc.first;
         return rc;
     }

@@ -100,7 +100,7 @@ namespace smt {
 
     public:
         model_finder(ast_manager & m);
-        ~model_finder();
+        ~model_finder() override;
         void set_context(context * ctx);
         
         void register_quantifier(quantifier * q);
