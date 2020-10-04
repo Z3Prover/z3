@@ -20,6 +20,7 @@ Author:
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
 #include "ast/normal_forms/pull_quant.h"
+#include "ast/well_sorted.h"
 
 namespace q {
 

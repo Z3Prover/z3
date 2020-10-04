@@ -248,7 +248,7 @@ bool hint_macro_solver::check_satisfied_residue_invariant() {
     DEBUG_CODE(
         for (quantifier* q : m_satisfied) {
             SASSERT(!m_residue.contains(q));
-            quantifier_info* qi = get_qinfo(q);
+            auto* qi = get_qinfo(q);
             SASSERT(qi != nullptr);
             SASSERT(qi->get_the_one() != nullptr);
         });

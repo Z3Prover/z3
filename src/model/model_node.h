@@ -83,8 +83,8 @@ public:
     void merge(model_node* other) {
         model_node* r1 = get_root();
         model_node* r2 = other->get_root();
-        SASSERT(r1->m_set == nullptr);
-        SASSERT(r2->m_set == nullptr);
+        SASSERT(!r1->m_set);
+        SASSERT(!r2->m_set);
         SASSERT(r1->get_sort() == r2->get_sort());
         if (r1 == r2)
             return;
