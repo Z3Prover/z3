@@ -16,6 +16,7 @@ Author:
 Revision History:
 
 --*/
+#include "ast/ast_pp.h"
 #include "ast/macros/quantifier_macro_info.h"
 
 quantifier_macro_info::quantifier_macro_info(ast_manager& m, quantifier* q) :
@@ -52,7 +53,7 @@ bool quantifier_macro_info::unary_function_fragment() const {
 }
 
 std::ostream& quantifier_macro_info::display(std::ostream& out) const {
-    out << "info for quantifier:\n" << m_flat_q << "\n";
+    out << "info for quantifier:\n" << mk_pp(m_flat_q, m) << "\n";
     out << "IS_AUF: " << m_is_auf << ", has x=y: " << m_has_x_eq_y << "\n";
     out << "unary function fragment: " << unary_function_fragment() << "\n";
     out << "ng decls: ";
