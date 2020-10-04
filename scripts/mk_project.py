@@ -32,7 +32,7 @@ def init_project_def():
     add_lib('rewriter', ['ast', 'polynomial', 'automata', 'params'], 'ast/rewriter')
     add_lib('macros', ['rewriter'], 'ast/macros')
     add_lib('normal_forms', ['rewriter'], 'ast/normal_forms')
-    add_lib('model', ['rewriter'])
+    add_lib('model', ['rewriter', 'macros'])
     add_lib('tactic', ['ast', 'model'])
     add_lib('substitution', ['ast', 'rewriter'], 'ast/substitution')
     add_lib('parser_util', ['ast'], 'parsers/util')
