@@ -1353,6 +1353,7 @@ namespace smt {
 
             ~quantifier_info() override {
                 std::for_each(m_qinfo_vect.begin(), m_qinfo_vect.end(), delete_proc<qinfo>());
+                reset_the_one();
             }
 
             std::ostream& display(std::ostream & out) const override {
