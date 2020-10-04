@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#pragma once
 #include "ast/macros/quantifier_macro_info.h"
 
 quantifier_macro_info::quantifier_macro_info(ast_manager& m, quantifier* q) :
