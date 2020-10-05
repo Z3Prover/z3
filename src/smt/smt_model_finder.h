@@ -62,13 +62,15 @@ namespace smt {
         class auf_solver;
         class simple_macro_solver;
         class hint_solver;
-        class non_auf_macro_solver;        
+        class non_auf_macro_solver;  
+        class instantiation_set;
     };
         
     class model_finder : public quantifier2macro_infos {
         typedef mf::quantifier_analyzer        quantifier_analyzer;
         typedef mf::quantifier_info            quantifier_info;
         typedef mf::auf_solver                 auf_solver;
+        typedef mf::instantiation_set          instantiation_set;
 
         ast_manager &                          m;
         context *                              m_context;
@@ -94,7 +96,7 @@ namespace smt {
         void process_hint_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
         void process_non_auf_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
         void process_auf(ptr_vector<quantifier> const & qs, proto_model * m);
-        model_instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i);
+        instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i);
         void checkpoint();
 
 

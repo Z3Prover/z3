@@ -19,14 +19,10 @@ Notes:
 
 --*/
 
-#include "util/backtrackable_set.h"
-#include "util/obj_pair_hashtable.h"
-#include "ast/macros/cond_macro.h"
-#include "ast/macros/macro_util.h"
-#include "ast/macros/quantifier_macro_info.h"
-#include "ast/func_decl_dependencies.h"
+
 #include "ast/for_each_expr.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 #include "model/model_macro_solver.h"
 #include "sat/smt/q_model_fixer.h"
 #include "sat/smt/q_solver.h"
@@ -80,7 +76,6 @@ namespace q {
             return;
 
         m_dependencies.reset();
-
         ptr_vector<quantifier> residue;               
         
         simple_macro_solver sms(m, *this);
@@ -121,6 +116,8 @@ namespace q {
         func_interp* fi = mdl.get_func_interp(f);
         if (!fi) 
             return;
+        if (fi->is_constant())
+            return;
         expr_ref_vector args(m);
         for (unsigned i = 0; i < f->get_arity(); ++i) 
             args.push_back(add_projection_function(mdl, f, i));
@@ -160,7 +157,7 @@ namespace q {
         expr_ref pi(values.get(sz-1), m);
         for (unsigned i = sz - 1; i >= 1; i--) {
             expr* c = proj->mk_lt(var, values[i]);
-            pi = m.mk_ite(c, values[i], pi);
+            pi = m.mk_ite(c, values[i - 1], pi);
         }
         func_interp* rpi = alloc(func_interp, m, 1);
         rpi->set_else(pi);
