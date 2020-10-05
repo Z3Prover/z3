@@ -97,7 +97,7 @@ namespace euf {
     protected:
         ast_manager &       m;
     public:
-        th_solver(ast_manager& m, euf::theory_id id): extension(id), m(m) {}
+        th_solver(ast_manager& m, symbol const& name, euf::theory_id id): extension(name, id), m(m) {}
 
         virtual th_solver* clone(sat::solver* s, euf::solver& ctx) = 0;  
 
@@ -158,7 +158,7 @@ namespace euf {
         }
 
     public:
-        th_euf_solver(euf::solver& ctx, euf::theory_id id);
+        th_euf_solver(euf::solver& ctx, symbol const& name, euf::theory_id id);
         virtual ~th_euf_solver() {}
         virtual theory_var mk_var(enode * n);
         unsigned get_num_vars() const { return m_var2enode.size();}

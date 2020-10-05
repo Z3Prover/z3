@@ -52,8 +52,8 @@ namespace euf {
         return true;
     }
 
-    th_euf_solver::th_euf_solver(euf::solver& ctx, euf::theory_id id):
-        th_solver(ctx.get_manager(), id),
+    th_euf_solver::th_euf_solver(euf::solver& ctx, symbol const& name, euf::theory_id id):
+        th_solver(ctx.get_manager(), name, id),
         ctx(ctx)
     {}
 

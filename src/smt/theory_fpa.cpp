@@ -188,7 +188,7 @@ namespace smt {
             m_conversions.insert(e, res);
             m.inc_ref(e);
             m.inc_ref(res);
-            m_trail_stack.push(fpa2bv_conversion_trail_elem<theory_fpa>(m, m_conversions, e));
+            m_trail_stack.push(insert_ref2_map<theory_fpa, ast_manager, expr, expr>(m, m_conversions, e, res.get()));
         }
 
         return res;

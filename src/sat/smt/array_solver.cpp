@@ -75,7 +75,7 @@ For example
 namespace array {
 
     solver::solver(euf::solver& ctx, theory_id id) :
-        th_euf_solver(ctx, id),
+        th_euf_solver(ctx, symbol("array"), id),
         a(m),
         m_sort2epsilon(m),
         m_sort2diag(m),

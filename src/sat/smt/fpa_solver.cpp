@@ -23,7 +23,7 @@ Revision History:
 namespace fpa {
 
     solver::solver(euf::solver& ctx) :
-        euf::th_euf_solver(ctx, ctx.get_manager().mk_family_id("fpa")),
+        euf::th_euf_solver(ctx, symbol("fpa"), ctx.get_manager().mk_family_id("fpa")),
         m_th_rw(ctx.get_manager()),
         m_converter(ctx.get_manager(), m_th_rw),
         m_rw(ctx.get_manager(), m_converter, params_ref()),
@@ -65,7 +65,7 @@ namespace fpa {
             m.inc_ref(e);
             m.inc_ref(res);
 
-            ctx.push(fpa2bv_conversion_trail_elem<euf::solver>(m, m_conversions, e));
+            ctx.push(insert_ref2_map<euf::solver, ast_manager, expr, expr>(m, m_conversions, e, res.get()));
         }
         return res;
     }

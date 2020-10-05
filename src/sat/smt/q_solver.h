@@ -30,6 +30,7 @@ namespace q {
     class solver : public euf::th_euf_solver {
 
         typedef obj_map<quantifier, sat::literal> skolem_table;
+        typedef obj_map<quantifier, quantifier*> flat_table;
         friend class mbqi;
 
         struct stats {
@@ -42,6 +43,7 @@ namespace q {
         mbqi                   m_mbqi;
 
         skolem_table           m_skolems;
+        flat_table             m_flat;
         sat::literal_vector    m_universal;
 
         sat::literal skolemize(quantifier* q);
@@ -51,7 +53,6 @@ namespace q {
 
         solver(euf::solver& ctx);
         ~solver() override {}
-        static char const* name() { return "quant"; }
         bool is_external(sat::bool_var v) override { return false; }
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override {}
         void asserted(sat::literal l) override;
@@ -67,7 +68,10 @@ namespace q {
         void internalize(expr* e, bool redundant) override { UNREACHABLE(); }
         euf::theory_var mk_var(euf::enode* n) override;
         void init_search() override;
+        void finalize_model(model& mdl) override;
 
         ast_manager& get_manager() { return m; }
+        sat::literal_vector const& universal() const { return m_universal; }
+        quantifier* flatten(quantifier* q);
     };
 }

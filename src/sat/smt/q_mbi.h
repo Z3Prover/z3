@@ -19,7 +19,7 @@ Author:
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_model_finder.h"
-
+#include "sat/smt/q_model_fixer.h"
 
 namespace euf {
     class solver;
@@ -33,13 +33,14 @@ namespace q {
         euf::solver&                           ctx;
         solver&                                qs;
         ast_manager&                           m;
+        model_fixer                            m_model_fixer;
         model_finder                           m_model_finder;
         model_ref                              m_model;
         ref<::solver>                          m_solver;
         obj_map<sort, obj_hashtable<expr>*>    m_fresh;
         scoped_ptr_vector<obj_hashtable<expr>> m_values;
         expr_ref_vector                        m_fresh_trail;
-        unsigned                               m_max_cex{ 10 };
+        unsigned                               m_max_cex{ 1 };
 
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
         void register_value(expr* e);
@@ -58,6 +59,8 @@ namespace q {
         lbool operator()();
 
         void init_search();
+
+        void finalize_model(model& mdl);
     };
 
 }

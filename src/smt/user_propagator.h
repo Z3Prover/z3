@@ -22,6 +22,7 @@ Notes:
 
 #pragma once
 
+#include "util/uint_set.h"
 #include "smt/smt_theory.h"
 #include "solver/solver.h"
 
@@ -57,6 +58,7 @@ namespace smt {
         solver::eq_eh_t        m_diseq_eh;
         solver::context_obj*   m_api_context { nullptr };
         unsigned               m_qhead { 0 };
+        uint_set               m_fixed;
         vector<prop_info>      m_prop;
         unsigned_vector        m_prop_lim;
         vector<literal_vector> m_id2justification;

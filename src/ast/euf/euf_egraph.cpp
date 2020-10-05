@@ -107,6 +107,11 @@ namespace euf {
         enode* n = enode::mk(m_region, f, num_args, args);
         m_nodes.push_back(n);
         m_exprs.push_back(f);
+        if (is_app(f) && num_args > 0) {
+           unsigned id = to_app(f)->get_decl()->get_decl_id();
+           m_decl2enodes.reserve(id+1);
+           m_decl2enodes[id].push_back(n);
+        }
         m_expr2enode.setx(f->get_id(), n, nullptr);
         push_node(n);
         for (unsigned i = 0; i < num_args; ++i)
@@ -114,9 +119,15 @@ namespace euf {
         return n;
     }
 
+    enode_vector const& egraph::enodes_of(func_decl* f) {
+        unsigned id = f->get_decl_id();
+        if (id < m_decl2enodes.size())
+            return m_decl2enodes[id];
+        return m_empty_enodes;
+    }
+
     enode_bool_pair egraph::insert_table(enode* p) {
         auto rc = m_table.insert(p);
-        enode* p_other = rc.first;
         p->m_cg = rc.first;
         return rc;
     }
@@ -338,6 +349,8 @@ namespace euf {
             
             m_expr2enode[e->get_id()] = nullptr;
             n->~enode();
+            if (is_app(e) && n->num_args() > 0)
+               m_decl2enodes[to_app(e)->get_decl()->get_decl_id()].pop_back();
             m_nodes.pop_back();
             m_exprs.pop_back();
         };

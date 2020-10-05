@@ -24,8 +24,6 @@ namespace euf {
     
     // one table per function symbol
 
-    static func_decl* decl(enode* n) { return n->get_decl(); }
-
 
     /**
        \brief Congruence table.
@@ -45,7 +43,7 @@ namespace euf {
             bool operator()(enode * n1, enode * n2) const {
                 SASSERT(n1->num_args() == 1);
                 SASSERT(n2->num_args() == 1);
-                SASSERT(decl(n1) == decl(n2));
+                SASSERT(n1->get_decl() == n2->get_decl());
                 return get_root(n1, 0) == get_root(n2, 0);
             }
         };
@@ -63,7 +61,7 @@ namespace euf {
             bool operator()(enode * n1, enode * n2) const {
                 SASSERT(n1->num_args() == 2);
                 SASSERT(n2->num_args() == 2);
-                SASSERT(decl(n1) == decl(n2));
+                SASSERT(n1->get_decl() == n2->get_decl());
                 return
                     get_root(n1, 0) == get_root(n2, 0) &&
                     get_root(n1, 1) == get_root(n2, 1);
@@ -90,7 +88,7 @@ namespace euf {
                 SASSERT(n1->num_args() == 2);
                 SASSERT(n2->num_args() == 2);
 
-                SASSERT(decl(n1) == decl(n2));
+                SASSERT(n1->get_decl() == n2->get_decl());
                 enode* c1_1 = get_root(n1, 0);  
                 enode* c1_2 = get_root(n1, 1); 
                 enode* c2_1 = get_root(n2, 0); 

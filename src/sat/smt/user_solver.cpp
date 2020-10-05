@@ -21,7 +21,7 @@ Author:
 namespace user {
 
     solver::solver(euf::solver& ctx) :
-        th_euf_solver(ctx, ctx.get_manager().mk_family_id("user"))
+        th_euf_solver(ctx, symbol("user"), ctx.get_manager().mk_family_id("user"))
     {}
 
     solver::~solver() {

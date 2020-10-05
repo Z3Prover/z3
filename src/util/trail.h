@@ -192,6 +192,18 @@ public:
     virtual void undo(Ctx & ctx) { m_map.remove(m_obj); m.dec_ref(m_obj); }
 };
 
+template<typename Ctx, typename Mgr, typename D, typename R>
+class insert_ref2_map : public trail<Ctx> {
+    Mgr&           m;
+    obj_map<D,R*>&  m_map;
+    D*             m_obj;
+    R*             m_val;
+public:
+    insert_ref2_map(Mgr& m, obj_map<D,R*>& t, D*o, R*r) : m(m), m_map(t), m_obj(o), m_val(r) {}
+    virtual ~insert_ref2_map() {}
+    virtual void undo(Ctx & ctx) { m_map.remove(m_obj); m.dec_ref(m_obj); m.dec_ref(m_val); }
+};
+
 
 template<typename Ctx, typename V>
 class push_back_vector : public trail<Ctx> {

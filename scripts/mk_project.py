@@ -32,7 +32,7 @@ def init_project_def():
     add_lib('rewriter', ['ast', 'polynomial', 'automata', 'params'], 'ast/rewriter')
     add_lib('macros', ['rewriter'], 'ast/macros')
     add_lib('normal_forms', ['rewriter'], 'ast/normal_forms')
-    add_lib('model', ['rewriter'])
+    add_lib('model', ['rewriter', 'macros'])
     add_lib('tactic', ['ast', 'model'])
     add_lib('substitution', ['ast', 'rewriter'], 'ast/substitution')
     add_lib('parser_util', ['ast'], 'parsers/util')
@@ -49,7 +49,7 @@ def init_project_def():
     add_lib('core_tactics', ['tactic', 'macros', 'normal_forms', 'rewriter', 'pattern'], 'tactic/core')
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
 
-    add_lib('sat_smt', ['sat', 'euf', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa'], 'sat/smt')
+    add_lib('sat_smt', ['sat', 'euf', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'normal_forms'], 'sat/smt')
     add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')
     add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')

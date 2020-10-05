@@ -1363,7 +1363,7 @@ namespace sat {
         ba_solver(ctx.get_manager(), ctx.get_si(), id) {}
 
     ba_solver::ba_solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
-        : euf::th_solver(m, id),
+        : euf::th_solver(m, symbol("ba"), id),
           si(si), m_pb(m),
           m_lookahead(nullptr), 
           m_constraint_id(0), m_ba(*this), m_sort(m_ba) {

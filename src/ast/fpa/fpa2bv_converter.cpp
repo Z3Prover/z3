@@ -32,11 +32,11 @@ Notes:
 fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
     m(m),
     m_simp(m),
-    m_util(m),
     m_bv_util(m),
     m_arith_util(m),
     m_dt_util(m),
     m_seq_util(m),
+    m_util(m),
     m_mpf_manager(m_util.fm()),
     m_mpz_manager(m_mpf_manager.mpz_manager()),
     m_hi_fp_unspecified(true),

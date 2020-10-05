@@ -141,7 +141,7 @@ namespace euf {
                 tag(tag_t::is_value_assignment), r1(n), n1(nullptr), qhead(0) {}
         };
         ast_manager&           m;
-        svector<to_merge>     m_to_merge;
+        svector<to_merge>      m_to_merge;
         etable                 m_table;
         region                 m_region;
         svector<update_record> m_updates;
@@ -150,6 +150,8 @@ namespace euf {
         enode*                 m_tmp_eq { nullptr };
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
+        vector<enode_vector>   m_decl2enodes;
+        enode_vector           m_empty_enodes;
         unsigned               m_num_scopes { 0 };
         bool                   m_inconsistent { false };
         enode                  *m_n1 { nullptr };
@@ -214,6 +216,7 @@ namespace euf {
         ~egraph();
         enode* find(expr* f) { return m_expr2enode.get(f->get_id(), nullptr); }
         enode* mk(expr* f, unsigned n, enode *const* args);
+        enode_vector const& enodes_of(func_decl* f);
         void push() { ++m_num_scopes; }
         void pop(unsigned num_scopes);
 
