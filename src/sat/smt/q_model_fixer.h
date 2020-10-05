@@ -35,12 +35,28 @@ namespace q {
 
     class solver;
 
+    typedef obj_hashtable<func_decl> func_decl_set;
+
+    class projection_function {
+    public:
+        virtual ~projection_function() {}
+        virtual void sort(ptr_buffer<expr>& values) = 0;
+        virtual expr* mk_lt(expr* a, expr* b) = 0;
+    };
+
     class model_fixer : public quantifier2macro_infos {
         euf::solver&        ctx;      
-        solver&             qs;
+        solver&             m_qs;
         ast_manager&        m;
         obj_map<quantifier, quantifier_macro_info*> m_q2info;
-        func_decl_dependencies m_dependencies;
+        func_decl_dependencies                      m_dependencies;
+        obj_map<sort, projection_function*>         m_projections;
+
+        void add_projection_functions(model& mdl, ptr_vector<quantifier> const& qs);
+        void add_projection_functions(model& mdl, func_decl* f);
+        expr_ref add_projection_function(model& mdl, func_decl* f, unsigned idx);
+        void collect_partial_functions(ptr_vector<quantifier> const& qs, func_decl_set& fns);
+        projection_function* get_projection(sort* srt);
 
     public:
 

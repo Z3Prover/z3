@@ -68,6 +68,7 @@ public:
     void register_decl(func_decl * d, expr * v);
     void register_decl(func_decl * f, func_interp * fi);
     void unregister_decl(func_decl * d);
+    func_interp* update_func_interp(func_decl* f, func_interp* fi);
 
     virtual expr * get_some_value(sort * s) = 0;
     virtual expr * get_fresh_value(sort * s) = 0;

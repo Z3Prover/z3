@@ -74,9 +74,15 @@ void model_core::register_decl(func_decl * d, expr * v) {
 }
 
 void model_core::register_decl(func_decl * d, func_interp * fi) {
+    func_interp* old_fi = update_func_interp(d, fi);
+    dealloc(old_fi);
+}
+
+func_interp* model_core::update_func_interp(func_decl* d, func_interp* fi) {
     TRACE("model", tout << "register " << d->get_name() << "\n";);
     SASSERT(d->get_arity() > 0);
     SASSERT(&fi->m() == &m);
+    func_interp* old_fi = nullptr;
     auto& value = m_finterp.insert_if_not_there(d, nullptr);
     if (value == nullptr) {
         // new entry
@@ -87,10 +93,10 @@ void model_core::register_decl(func_decl * d, func_interp * fi) {
     }
     else {
         // replacing entry
-        if (fi != value)
-            dealloc(value);
+        old_fi = value;
         value = fi;
     }
+    return old_fi;
 }
 
 void model_core::unregister_decl(func_decl * d) {
