@@ -1143,11 +1143,13 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_DISTINCT: {
         func_decl_info info(m_family_id, OP_DISTINCT);
         info.set_pairwise();
+        ptr_buffer<sort> sorts;
         for (unsigned i = 1; i < arity; i++) {
             if (domain[i] != domain[0]) {
-                std::ostringstream buffer;
-                buffer << "Sort mismatch between first argument and argument " << (i+1);
-                throw ast_exception(buffer.str());
+                sort* srt = join(arity, domain);
+                for (unsigned j = 0; j < arity; ++j) 
+                    sorts.push_back(srt);
+                domain = sorts.c_ptr();
             }
         }
         return m_manager->mk_func_decl(symbol("distinct"), arity, domain, m_bool_sort, info);
