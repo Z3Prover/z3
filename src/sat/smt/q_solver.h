@@ -29,12 +29,11 @@ namespace q {
 
     class solver : public euf::th_euf_solver {
 
-        typedef obj_map<quantifier, sat::literal> skolem_table;
         typedef obj_map<quantifier, quantifier*> flat_table;
         friend class mbqi;
 
         struct stats {
-            unsigned m_num_inst;
+            unsigned m_num_quantifier_asserts;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
@@ -42,12 +41,15 @@ namespace q {
         stats                  m_stats;
         mbqi                   m_mbqi;
 
-        skolem_table           m_skolems;
         flat_table             m_flat;
         sat::literal_vector    m_universal;
+        obj_map<sort, expr*>   m_unit_table;
 
+        sat::literal instantiate(quantifier* q, std::function<expr* (quantifier*, unsigned)>& mk_var);
         sat::literal skolemize(quantifier* q);
-        sat::literal uskolemize(quantifier* q);
+        sat::literal specialize(quantifier* q);
+        void init_units();
+        expr* get_unit(sort* s);
 
     public:
 
