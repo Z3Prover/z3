@@ -313,10 +313,10 @@ namespace smt {
                 m_num_instances++;
             }
 
-            CTRACE("quantifier_", f != nullptr, 
-                  tout << expr_ref(q, m()) << " ";
+            CTRACE("bindings", f != nullptr, 
+                  tout << expr_ref(q, m()) << "\n";
                   for (unsigned i = 0; i < num_bindings; ++i) {
-                      tout << expr_ref(bindings[i]->get_owner(), m()) << " ";
+                      tout << expr_ref(bindings[i]->get_owner(), m()) << " [r " << bindings[i]->get_root()->get_owner_id() << "] ";
                   }
                   tout << "\n";
                   );

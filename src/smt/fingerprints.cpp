@@ -66,18 +66,13 @@ namespace smt {
         fingerprint * d = mk_dummy(data, data_hash, num_args, args);
         if (m_set.contains(d)) 
             return nullptr;
-        TRACE("fingerprint_bug", tout << "1) inserting: " << data_hash << " num_args: " << num_args;
-              for (unsigned i = 0; i < num_args; i++) tout << " " << args[i]->get_owner_id(); 
-              tout << "\n";);
         for (unsigned i = 0; i < num_args; i++)
             d->m_args[i] = d->m_args[i]->get_root();
         if (m_set.contains(d)) {
-            TRACE("fingerprint_bug", tout << "failed: " << data_hash << " num_args: " << num_args;
-                  for (unsigned i = 0; i < num_args; i++) tout << " " << d->m_args[i]->get_owner_id(); 
-                  tout << "\n";);
+            TRACE("fingerprint_bug", tout << "failed: " << *d;);
             return nullptr;
         }
-        TRACE("fingerprint_bug", tout << "2) inserting: " << *d;);
+        TRACE("fingerprint_bug", tout << "inserting @" << m_scopes.size() << " " << *d;);
         fingerprint * f = new (m_region) fingerprint(m_region, data, data_hash, def, num_args, d->m_args);
         m_fingerprints.push_back(f);
         m_defs.push_back(def);
@@ -117,6 +112,7 @@ namespace smt {
         m_fingerprints.shrink(old_size);
         m_defs.shrink(old_size);
         m_scopes.shrink(new_lvl);
+        TRACE("fingerprint_bug", tout << "pop @" << m_scopes.size() << "\n";);
     }
 
     void fingerprint_set::display(std::ostream & out) const {
