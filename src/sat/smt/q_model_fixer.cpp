@@ -43,22 +43,20 @@ namespace q {
     class arith_projection : public projection_function {
         ast_manager& m;
         arith_util   a;
-    public:
-        bool operator()(expr* e1, expr* e2) const { return lt(a, e1, e2); }
+    public:        
         arith_projection(ast_manager& m): m(m), a(m) {}
         ~arith_projection() override {}
-        void sort(ptr_buffer<expr>& values) override { std::sort(values.begin(), values.end(), *this); }
+        bool operator()(expr* e1, expr* e2) const override { return lt(a, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return a.mk_lt(x, y); }
     };
 
     class ubv_projection : public projection_function {
         ast_manager& m;
         bv_util bvu;
-    public:
-        bool operator()(expr* e1, expr* e2) const { return lt(bvu, e1, e2); }
+    public:        
         ubv_projection(ast_manager& m): m(m), bvu(m) {}
         ~ubv_projection() override {}
-        void sort(ptr_buffer<expr>& values) override { std::sort(values.begin(), values.end(), *this); }
+        bool operator()(expr* e1, expr* e2) const override { return lt(bvu, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return m.mk_not(bvu.mk_ule(y, x)); }        
     };
 
@@ -76,6 +74,8 @@ namespace q {
             return;
 
         m_dependencies.reset();
+        m_projection_data.reset();
+        m_projection_pinned.reset();
         ptr_vector<quantifier> residue;               
         
         simple_macro_solver sms(m, *this);
@@ -140,24 +140,38 @@ namespace q {
         projection_function* proj = get_projection(srt);
         if (!proj)
             return expr_ref(m.mk_var(idx, srt), m);
-        ptr_buffer<expr> values;
-        for (euf::enode* n : ctx.get_egraph().enodes_of(f)) 
-            values.push_back(mdl(n->get_arg(idx)->get_expr()));
+        scoped_ptr<projection_meta_data> md = alloc(projection_meta_data, m);
+        expr_ref_vector& values = md->values;
+        for (euf::enode* n : ctx.get_egraph().enodes_of(f)) {
+            expr* t = n->get_arg(idx)->get_expr();
+            values.push_back(mdl(t));
+            md->v2t.insert(values.back(), t);
+            md->t2v.insert(t, values.back());
+        }
         if (values.empty())
             return expr_ref(m.mk_var(idx, srt), m);
-        proj->sort(values);
+        struct lt {
+            projection_function* p;
+            lt(projection_function* p) : p(p) {}
+            bool operator()(expr* a, expr* b) const { return (*p)(a, b); }
+        };
+        lt _lt(proj);
+        std::sort(values.c_ptr(), values.c_ptr() + values.size(), _lt);
         unsigned j = 0;
         for (unsigned i = 0; i < values.size(); ++i) 
-            if (i == 0 || values[i-1] != values[i])
-                values[j++] = values[i];
+            if (i == 0 || values.get(i-1) != values.get(i))
+                values[j++] = values.get(i);
         values.shrink(j);
+
+        m_projection_data.insert(indexed_decl(f, idx), md.get());
+        m_projection_pinned.push_back(md.detach());
 
         unsigned sz = values.size();
         expr_ref var(m.mk_var(0, srt), m);
         expr_ref pi(values.get(sz-1), m);
         for (unsigned i = sz - 1; i >= 1; i--) {
-            expr* c = proj->mk_lt(var, values[i]);
-            pi = m.mk_ite(c, values[i - 1], pi);
+            expr* c = proj->mk_lt(var, values.get(i));
+            pi = m.mk_ite(c, values.get(i - 1), pi);
         }
         func_interp* rpi = alloc(func_interp, m, 1);
         rpi->set_else(pi);

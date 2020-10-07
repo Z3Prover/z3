@@ -736,6 +736,7 @@ sig
   (** Create a quantifier pattern. *)
   val mk_pattern : context -> Expr.expr list -> Pattern.pattern
 
+
   (** Create a universal Quantifier. *)
   val mk_forall : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 

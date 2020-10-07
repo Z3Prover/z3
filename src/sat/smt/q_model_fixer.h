@@ -40,8 +40,29 @@ namespace q {
     class projection_function {
     public:
         virtual ~projection_function() {}
-        virtual void sort(ptr_buffer<expr>& values) = 0;
         virtual expr* mk_lt(expr* a, expr* b) = 0;
+        virtual bool operator()(expr* a, expr* b) const = 0;
+    };
+
+    /**
+    * meta-data for a projection function for f at index idx (indexed-decl).
+    * The meta-data contains the set of model values that the idx'th argument of f
+    * has and a map from model values to terms and back.
+    */
+    struct projection_meta_data {
+        projection_meta_data(ast_manager& m) : values(m) {}
+        expr_ref_vector values;
+        obj_map<expr, expr*> v2t;
+        obj_map<expr, expr*> t2v;
+    };
+
+    struct indexed_decl {
+        func_decl* f;
+        unsigned   idx;
+        indexed_decl() : f(nullptr), idx(0) {}
+        indexed_decl(func_decl* f, unsigned idx): f(f), idx(idx) {}
+        struct hash { unsigned operator()(indexed_decl const& d) const { return d.idx + d.f->hash(); } };
+        struct eq { bool operator()(indexed_decl const& a, indexed_decl const& b) const { return a.idx == b.idx && a.f == b.f; } };
     };
 
     class model_fixer : public quantifier2macro_infos {
@@ -51,6 +72,8 @@ namespace q {
         obj_map<quantifier, quantifier_macro_info*> m_q2info;
         func_decl_dependencies                      m_dependencies;
         obj_map<sort, projection_function*>         m_projections;
+        map<indexed_decl, projection_meta_data*, indexed_decl::hash, indexed_decl::eq>    m_projection_data;
+        scoped_ptr_vector<projection_meta_data>     m_projection_pinned;
 
         void add_projection_functions(model& mdl, ptr_vector<quantifier> const& qs);
         void add_projection_functions(model& mdl, func_decl* f);
@@ -72,6 +95,12 @@ namespace q {
         void operator()(model& mdl);
 
         quantifier_macro_info* operator()(quantifier* q);
+
+        projection_meta_data* operator()(func_decl* f, unsigned idx) const {
+            projection_meta_data* r = nullptr;
+            m_projection_data.find(indexed_decl(f, idx), r);
+            return r;
+        }
         
     };
 
