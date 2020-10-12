@@ -81,6 +81,7 @@ namespace smt {
     };
 
     void arith_eq_adapter::mk_axioms(enode * n1, enode * n2) {
+        context & ctx = get_context();
         if (n1 == n2)
             return;
         ast_manager & m = get_manager();
@@ -90,6 +91,13 @@ namespace smt {
             std::swap(n1, n2);
         app * t1        = n1->get_owner();
         app * t2        = n2->get_owner();
+        if (m.are_distinct(t1, t2)) {
+            expr_ref eq(m.mk_eq(t1, t2), m);
+            ctx.internalize(eq, true);
+            literal lit(ctx.get_bool_var(eq));
+            ctx.assign(~lit, nullptr, false);
+            return;
+        }
         if (m.is_value(t1) && m.is_value(t2)) {
             // Nothing to be done
             // We don't need to create axioms for 2 = 3
@@ -99,7 +107,6 @@ namespace smt {
             return;
         }
         
-        context & ctx = get_context();
         CTRACE("arith_eq_adapter_relevancy", !(ctx.is_relevant(n1) && ctx.is_relevant(n2)),
                tout << "is_relevant(n1): #" << n1->get_owner_id() << " " << ctx.is_relevant(n1) << "\n";
                tout << "is_relevant(n2): #" << n2->get_owner_id() << " " << ctx.is_relevant(n2) << "\n";
@@ -123,8 +130,7 @@ namespace smt {
               tout << "mk_detail " << mk_bounded_pp(n1->get_owner(), m, 5) << " " << 
               mk_bounded_pp(n2->get_owner(), m, 5) << "\n";);
         
-        app_ref t1_eq_t2(m);
-        
+        app_ref t1_eq_t2(m);        
         t1_eq_t2 = ctx.mk_eq_atom(t1, t2);
         SASSERT(!m.is_false(t1_eq_t2));
         
