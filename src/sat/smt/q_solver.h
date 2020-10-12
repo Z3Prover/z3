@@ -45,7 +45,7 @@ namespace q {
         sat::literal_vector    m_universal;
         obj_map<sort, expr*>   m_unit_table;
 
-        sat::literal instantiate(quantifier* q, std::function<expr* (quantifier*, unsigned)>& mk_var);
+        sat::literal instantiate(quantifier* q, bool negate, std::function<expr* (quantifier*, unsigned)>& mk_var);
         sat::literal skolemize(quantifier* q);
         sat::literal specialize(quantifier* q);
         void init_units();

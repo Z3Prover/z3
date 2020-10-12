@@ -76,10 +76,17 @@ namespace q {
         return v;
     }
 
-    sat::literal solver::instantiate(quantifier* q, std::function<expr* (quantifier*, unsigned)>& mk_var) {
+    sat::literal solver::instantiate(quantifier* _q, bool negate, std::function<expr* (quantifier*, unsigned)>& mk_var) {
         sat::literal sk;
         expr_ref tmp(m);
+        quantifier_ref q(_q, m);
         expr_ref_vector vars(m);
+        if (negate) {
+            q = m.mk_quantifier(
+                is_forall(q) ? quantifier_kind::exists_k : quantifier_kind::forall_k,
+                q->get_num_decls(), q->get_decl_sorts(), q->get_decl_names(), m.mk_not(q->get_expr()), 
+                q->get_weight(), q->get_qid(), q->get_skid());                
+        }
         quantifier* q_flat = flatten(q);
         unsigned sz = q_flat->get_num_decls();
         vars.resize(sz, nullptr);
@@ -95,10 +102,7 @@ namespace q {
         std::function<expr* (quantifier*, unsigned)> mk_var = [&](quantifier* q, unsigned i) {
             return m.mk_fresh_const(q->get_decl_name(i), q->get_decl_sort(i));
         };
-        sat::literal sk = instantiate(q, mk_var);
-        if (is_forall(q))
-            sk.neg();
-        return sk;
+        return instantiate(q, is_forall(q), mk_var);
     }
 
     /*
@@ -109,10 +113,7 @@ namespace q {
         std::function<expr* (quantifier*, unsigned)> mk_var = [&](quantifier* q, unsigned i) {
             return get_unit(q->get_decl_sort(i));
         };
-        sat::literal sk = instantiate(q, mk_var);
-        if (is_exists(q))
-            sk.neg();
-        return sk;
+        return instantiate(q, is_exists(q), mk_var);
     }
 
     void solver::init_search() {
@@ -154,7 +155,7 @@ namespace q {
         if (!m_unit_table.empty())
             return;
         for (euf::enode* n : ctx.get_egraph().nodes()) {
-            if (!n->interpreted())
+            if (!n->interpreted() && !m.is_uninterp(m.get_sort(n->get_expr())))
                 continue;
             expr* e = n->get_expr();
             sort* s = m.get_sort(e);
