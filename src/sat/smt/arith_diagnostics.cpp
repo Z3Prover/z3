@@ -14,7 +14,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2020-09-08
 
 --*/
-#pragma once
 
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/arith_solver.h"
