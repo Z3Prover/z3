@@ -1,5 +1,9 @@
 z3_add_component(sat_smt
   SOURCES
+    arith_axioms.cpp
+    arith_diagnostics.cpp
+    arith_internalize.cpp
+    arith_solver.cpp
     array_axioms.cpp
     array_internalize.cpp
     array_model.cpp

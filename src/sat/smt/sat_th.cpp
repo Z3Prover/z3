@@ -200,4 +200,9 @@ namespace euf {
         return ctx.mk_eq(e1, e2); 
     }
 
+    sat::literal th_euf_solver::eq_internalize(expr* a, expr* b) { 
+        return b_internalize(ctx.mk_eq(a, b)); 
+    }
+
+
 }
