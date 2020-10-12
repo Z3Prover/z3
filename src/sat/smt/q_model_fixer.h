@@ -94,7 +94,7 @@ namespace q {
          */
         void operator()(model& mdl);
 
-        quantifier_macro_info* operator()(quantifier* q);
+        quantifier_macro_info* operator()(quantifier* q) override;
 
         projection_meta_data* operator()(func_decl* f, unsigned idx) const {
             projection_meta_data* r = nullptr;

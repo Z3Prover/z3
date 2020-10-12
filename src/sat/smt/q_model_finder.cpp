@@ -25,7 +25,7 @@ Notes:
 
 namespace q {
 
-    model_finder::model_finder(euf::solver&):
+    model_finder::model_finder(euf::solver& ctx):
         ctx(ctx), m(ctx.get_manager()) {}
 
     expr_ref model_finder::inv_term(model& mdl, quantifier* q, unsigned idx, expr* value, unsigned& generation) {

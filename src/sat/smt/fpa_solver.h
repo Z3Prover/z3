@@ -71,7 +71,7 @@ namespace fpa {
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override { UNREACHABLE(); }
         sat::check_result check() override { return sat::check_result::CR_DONE; }
 
-        euf::th_solver* clone(sat::solver*, euf::solver& ctx) { return alloc(solver, ctx); }
+        euf::th_solver* clone(sat::solver*, euf::solver& ctx) override { return alloc(solver, ctx); }
 
     };
 
