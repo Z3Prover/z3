@@ -1565,9 +1565,10 @@ public:
         if (m_variable_values.count(t.index()) > 0)
             return m_variable_values[t.index()];
         
-        if (!t.is_term()) {
+        if (!t.is_term() && lp().is_fixed(t.id())) 
+            return lp().column_lower_bound(t.id()).x;
+        if (!t.is_term()) 
             return rational::zero();
-        }
         
         m_todo_terms.push_back(std::make_pair(t, rational::one()));
         rational result(0);
