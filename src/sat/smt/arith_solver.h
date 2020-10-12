@@ -52,6 +52,8 @@ namespace arith {
 
         // axioms
         void mk_div_axiom(expr* p, expr* q);
+        void solver::mk_to_int_axiom(app* n);
+        void mk_is_int_axiom(app* n);
 
         void pop_core(unsigned n) override;
         

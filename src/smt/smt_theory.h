@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "ast/ast_pp.h"
 #include "smt/smt_enode.h"
 #include "smt/smt_quantifier.h"
 #include "util/obj_hashtable.h"
@@ -527,7 +528,7 @@ namespace smt {
             ast_manager& m = get_manager();
             if (lhs->get_id() > rhs->get_id())
                 std::swap(lhs, rhs);
-            if (m.are_distinct(lhs, rhs))
+            if (m.are_distinct(lhs, rhs))                
                 return m.mk_false();
             if (m.are_equal(lhs, rhs))
                 return m.mk_true();

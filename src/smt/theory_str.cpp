@@ -279,9 +279,10 @@ namespace smt {
         if (opt_VerifyFinalCheckProgress) {
             finalCheckProgressIndicator = true;
         }
-
-        if (get_manager().is_true(_e)) return;
         ast_manager& m = get_manager();
+        SASSERT(!m.is_true(_e));
+
+        if (m.is_true(_e)) return;
         TRACE("str", tout << "asserting " << mk_ismt2_pp(_e, m) << std::endl;);
         expr_ref e(_e, m);
         //th_rewriter rw(m);
@@ -1974,7 +1975,7 @@ namespace smt {
                 // inconsistency check: value
                 if (!can_two_nodes_eq(eqc_nn1, eqc_nn2)) {
                     TRACE("str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
-                    expr_ref to_assert(mk_not(m, ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
+                    expr_ref to_assert(mk_not(m, m.mk_eq(eqc_nn1, eqc_nn2)), m);
                     assert_axiom(to_assert);
                     // this shouldn't use the integer theory at all, so we don't allow the option of quick-return
                     return false;
