@@ -26,6 +26,7 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_solver.h"
 #include "math/lp/lp_types.h"
+#include "math/lp/lp_api.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "util/nat_set.h"
@@ -50,91 +51,6 @@
 
 typedef lp::var_index lpvar;
 
-namespace lp_api {
-enum bound_kind { lower_t, upper_t };
-
-std::ostream& operator<<(std::ostream& out, bound_kind const& k) {
-    switch (k) {
-    case lower_t: return out << "<=";
-    case upper_t: return out << ">=";
-    }
-    return out;
-}
-
-class bound { 
-    smt::bool_var    m_bv;
-    smt::theory_var  m_var;
-    lpvar            m_vi;
-    bool             m_is_int;
-    rational         m_value;
-    bound_kind       m_bound_kind;
-    lp::constraint_index m_constraints[2];
-
-public:
-    bound(smt::bool_var bv, smt::theory_var v, lpvar vi, bool is_int, rational const & val, bound_kind k, lp::constraint_index ct, lp::constraint_index cf):
-        m_bv(bv),
-        m_var(v),
-        m_vi(vi),
-        m_is_int(is_int),
-        m_value(val),
-        m_bound_kind(k) {
-        m_constraints[0] = cf;
-        m_constraints[1] = ct;
-    }
-    virtual ~bound() {}
-    smt::theory_var get_var() const { return m_var; }
-    lp::tv tv() const { return lp::tv::raw(m_vi); }
-    smt::bool_var get_bv() const { return m_bv; }
-    bound_kind get_bound_kind() const { return m_bound_kind; }
-    bool is_int() const { return m_is_int; }
-    rational const& get_value() const { return m_value; }
-    lp::constraint_index get_constraint(bool b) const { return m_constraints[b]; }
-    inf_rational get_value(bool is_true) const { 
-        if (is_true) return inf_rational(m_value);                         // v >= value or v <= value
-        if (m_is_int) {
-            SASSERT(m_value.is_int());
-            if (m_bound_kind == lower_t) return inf_rational(m_value - rational::one()); // v <= value - 1
-            return inf_rational(m_value + rational::one());                              // v >= value + 1
-        }
-        else {
-            if (m_bound_kind == lower_t) return inf_rational(m_value, false);  // v <= value - epsilon
-            return inf_rational(m_value, true);                                // v >= value + epsilon
-        }
-    } 
-    virtual std::ostream& display(std::ostream& out) const {
-        return out << m_value << "  " << get_bound_kind() << " v" << get_var();
-    }
-};
-
-std::ostream& operator<<(std::ostream& out, bound const& b) {
-    return b.display(out);
-}
-
-struct stats {
-    unsigned m_assert_lower;
-    unsigned m_assert_upper;
-    unsigned m_bounds_propagations;
-    unsigned m_num_iterations;
-    unsigned m_num_iterations_with_no_progress;
-    unsigned m_need_to_solve_inf;
-    unsigned m_fixed_eqs;
-    unsigned m_conflicts;
-    unsigned m_bound_propagations1;
-    unsigned m_bound_propagations2;
-    unsigned m_assert_diseq;
-    unsigned m_gomory_cuts;
-    unsigned m_assume_eqs;
-    unsigned m_branch;
-    stats() { reset(); }
-    void reset() {
-        memset(this, 0, sizeof(*this));
-    }
-};
-
-typedef optional<inf_rational> opt_inf_rational;
-
-
-}
 
 namespace smt {
 
@@ -703,7 +619,7 @@ class theory_lra::imp {
         return th.is_attached_to_var(e);
     }
 
-    void ensure_bounds(theory_var v) {
+    void reserve_bounds(theory_var v) {
         while (m_bounds.size() <= static_cast<unsigned>(v)) {
             m_bounds.push_back(lp_bounds());
             m_unassigned_bounds.push_back(0);
@@ -720,7 +636,7 @@ class theory_lra::imp {
             v = th.mk_var(e);
             TRACE("arith", tout << "fresh var: v" << v << " " << mk_pp(n, m) << "\n";);
             SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
-            ensure_bounds(v);
+            reserve_bounds(v);
             ctx().attach_th_var(e, &th, v);
         }
         else {
@@ -1918,7 +1834,7 @@ public:
             expr* n = m_idiv_terms[i];
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
-            theory_var v  = mk_var(n);
+            theory_var v = mk_var(n);
             theory_var v1 = mk_var(p);
 
             if (!can_get_ivalue(v1))
@@ -2391,7 +2307,7 @@ public:
 
         TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
 
-        ensure_bounds(v);
+        reserve_bounds(v);
 
             
         if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) {

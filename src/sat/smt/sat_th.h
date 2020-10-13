@@ -47,6 +47,8 @@ namespace euf {
 
         sat::literal b_internalize(expr* e) { return internalize(e, false, false, m_is_redundant); }
 
+        sat::literal mk_literal(expr* e) { return b_internalize(e); }
+
         /**
            \brief Apply (interpreted) sort constraints on the given enode.
         */
