@@ -114,6 +114,8 @@ namespace euf {
         */
         virtual bool is_shared(theory_var v) const { return false; }
 
+        sat::status status() const { return sat::status::th(m_is_redundant, get_id()); }
+
     };
 
     class th_euf_solver : public th_solver {

@@ -48,8 +48,7 @@ namespace arith {
         lp().settings().report_frequency = lpar.arith_rep_freq();
         lp().settings().print_statistics = lpar.arith_print_stats();
         lp().settings().cheap_eqs() = lpar.arith_cheap_eqs();
-        unsigned branch_cut_ratio = get_config().m_arith_branch_cut_ratio;
-        lp().set_cut_strategy(branch_cut_ratio);
+        lp().set_cut_strategy(get_config().m_arith_branch_cut_ratio);
         lp().settings().int_run_gcd_test() = get_config().m_arith_gcd_test;
         lp().settings().set_random_seed(get_config().m_random_seed);
 
@@ -63,8 +62,32 @@ namespace arith {
     }
 
     euf::th_solver* solver::clone(sat::solver* s, euf::solver& ctx) {
+        arith::solver* result = alloc(arith::solver, ctx, get_id());
+        ast_translation tr(m, ctx.get_manager());
+        for (unsigned i = result->get_num_vars(); i < get_num_vars(); ++i) {
+            expr* e1 = var2expr(i);
+            expr* e2 = tr(e1);
+            result->mk_evar(e2);
+        }
+
+        unsigned v = 0;
+        result->m_bounds.resize(m_bounds.size());
+        for (auto const& bounds : m_bounds) {            
+            for (auto* b : bounds) {
+                auto* b2 = result->mk_var_bound(b->get_bv(), v, b->get_bound_kind(), b->get_value());
+                result->m_bounds[v].push_back(b2);
+                result->m_bounds_trail.push_back(v);
+                result->updt_unassigned_bounds(v, +1);
+                result->m_bool_var2bound.insert(b->get_bv(), b2);
+                result->m_new_bounds.push_back(b2);
+            }
+            ++v;
+        }
+
+        // clone rows into m_solver, m_nla, m_lia
         NOT_IMPLEMENTED_YET();
-        return nullptr;
+
+        return result;        
     }
 
     bool solver::unit_propagate() {
@@ -73,23 +96,18 @@ namespace arith {
 
         flush_bound_axioms();
 
+        unsigned qhead = m_asserted_qhead;
         while (m_asserted_qhead < m_asserted.size() && !s().inconsistent() && m.inc()) {
             literal lit = m_asserted[m_asserted_qhead];
-            m_to_check.push_back(lit.var());
             lp_api::bound* b = nullptr;
             TRACE("arith", tout << "propagate: " << lit << "\n";);
-            if (m_bool_var2bound.find(lit.var(), b)) {
-                assert_bound(lit.var(), !lit.sign(), *b);
-            }
-            else {
-                TRACE("arith", tout << "not found " << lit << "\n";);
-            }
+            CTRACE("arith", !m_bool_var2bound.contains(lit.var()), tout << "not found " << lit << "\n";);
+            if (m_bool_var2bound.find(lit.var(), b)) 
+                assert_bound(!lit.sign(), *b);
             ++m_asserted_qhead;
         }
-        if (s().inconsistent()) {
-            m_to_check.reset();
+        if (s().inconsistent())
             return true;
-        }
 
         lbool lbl = make_feasible();
         if (!m.inc())
@@ -101,7 +119,7 @@ namespace arith {
             get_infeasibility_explanation_and_set_conflict();
             break;
         case l_true:
-            propagate_basic_bounds();
+            propagate_basic_bounds(qhead);
             propagate_bounds_with_lp_solver();
             break;
         case l_undef:
@@ -110,16 +128,13 @@ namespace arith {
         return true;
     }
 
-    void solver::propagate_basic_bounds() {
-        for (auto const& bv : m_to_check) {
-            lp_api::bound* b = nullptr;
-            if (m_bool_var2bound.find(bv, b)) {
-                propagate_bound(bv, s().value(bv) == l_true, *b);
-                if (s().inconsistent())
-                    break;
-            }
+    void solver::propagate_basic_bounds(unsigned qhead) {
+        lp_api::bound* b = nullptr;
+        for (; qhead < m_asserted_qhead && !s().inconsistent(); ++qhead) {
+            literal lit = m_asserted[qhead];
+            if (m_bool_var2bound.find(lit.var(), b)) 
+                propagate_bound(lit, *b);            
         }
-        m_to_check.reset();
     }
 
     // for glb lo': lo' < lo:
@@ -129,10 +144,11 @@ namespace arith {
     //   x <= hi -> x <= hi'
     //   x <= hi -> ~(x >= hi')
 
-    void solver::propagate_bound(bool_var bv, bool is_true, lp_api::bound& b) {
+    void solver::propagate_bound(literal lit1, lp_api::bound& b) {
         if (bound_prop_mode::BP_NONE == propagation_mode())
             return;
 
+        bool is_true = !lit1.sign();
         lp_api::bound_kind k = b.get_bound_kind();
         theory_var v = b.get_var();
         inf_rational val = b.get_value(is_true);
@@ -141,7 +157,6 @@ namespace arith {
         if (bounds.size() == 1) return;
         if (m_unassigned_bounds[v] == 0) return;
         bool v_is_int = b.is_int();
-        literal lit1(bv, !is_true);
         literal lit2 = sat::null_literal;
         bool find_glb = (is_true == (k == lp_api::lower_t));
         TRACE("arith", tout << "v" << v << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
@@ -357,7 +372,7 @@ namespace arith {
     }
 
 
-    void solver::assert_bound(bool_var bv, bool is_true, lp_api::bound& b) {
+    void solver::assert_bound(bool is_true, lp_api::bound& b) {
         TRACE("arith", tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
@@ -588,7 +603,6 @@ namespace arith {
         m_scopes.resize(old_size);
         lp().pop(num_scopes);
         m_new_bounds.reset();
-        m_to_check.reset();
         if (m_nla)
             m_nla->pop(num_scopes);
         TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
@@ -984,7 +998,7 @@ namespace arith {
         return st;
     }
 
-    nlsat::anum const& solver::nl_value(theory_var v, scoped_anum& r) {
+    nlsat::anum const& solver::nl_value(theory_var v, scoped_anum& r) const {
         SASSERT(use_nra_model());
         auto t = get_tv(v);
         if (t.is_term()) {
@@ -1320,17 +1334,14 @@ namespace arith {
             else
                 args.push_back(a.mk_mul(a.mk_numeral(kv.m_value, is_int), o));
         }
-        if (!offset.is_zero()) {
+
+        if (!offset.is_zero() || args.empty()) 
             args.push_back(a.mk_numeral(offset, is_int));
-        }
-        switch (args.size()) {
-        case 0:
-            return app_ref(a.mk_numeral(rational::zero(), is_int), m);
-        case 1:
+
+        if (args.size() == 1)
             return app_ref(to_app(args[0].get()), m);
-        default:
-            return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
-        }
+
+        return app_ref(a.mk_add(args.size(), args.c_ptr()), m);        
     }
 
     app_ref solver::mk_term(lp::lar_term const& term, bool is_int) {
@@ -1341,16 +1352,13 @@ namespace arith {
 
     rational solver::gcd_reduce(u_map<rational>& coeffs) {
         rational g(0);
-        for (auto const& kv : coeffs) {
-            g = gcd(g, kv.m_value);
-        }
+        for (auto const& kv : coeffs) 
+            g = gcd(g, kv.m_value);        
         if (g.is_zero())
             return rational::one();
-        if (!g.is_one()) {
-            for (auto& kv : coeffs) {
-                kv.m_value /= g;
-            }
-        }
+        if (!g.is_one()) 
+            for (auto& kv : coeffs) 
+                kv.m_value /= g;                    
         return g;
     }
 
@@ -1412,5 +1420,23 @@ namespace arith {
             break;
         }
         return r;
+    }
+
+    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
+        auto& jst = euf::th_propagation::from_index(idx);
+        for (auto lit : euf::th_propagation::lits(jst))
+            r.push_back(lit);
+        for (auto eq : euf::th_propagation::eqs(jst))
+            ctx.add_antecedent(eq.first, eq.second);
+
+        if (!probing && ctx.use_drat()) {
+            literal_vector lits;
+            for (auto lit : euf::th_propagation::lits(jst))
+                lits.push_back(~lit);
+            lits.push_back(l);
+            ctx.get_drat().add(lits, status());
+            for (auto eq : euf::th_propagation::eqs(jst))
+                IF_VERBOSE(0, verbose_stream() << "drat-log with equalities is TBD " << eq.first->get_expr_id() << "\n");
+        }
     }
 }

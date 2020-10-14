@@ -321,7 +321,7 @@ public:
     var_index add_named_var(unsigned ext_j, bool is_integer, const std::string&);
     lp_status maximize_term(unsigned j_or_term, impq &term_max);
     inline 
-    core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) { return
+    core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const { return
             core_solver_pretty_printer<lp::mpq, lp::impq>(m_mpq_lar_core_solver.m_r_solver, out); }
     void get_infeasibility_explanation(explanation &) const;
     inline void backup_x() { m_backup_x = m_mpq_lar_core_solver.m_r_x; }

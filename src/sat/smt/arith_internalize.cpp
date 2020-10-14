@@ -104,7 +104,6 @@ namespace arith {
 
     }
 
-
     lpvar solver::add_const(int c, lpvar& var, bool is_int) {
         if (var != UINT_MAX) {
             return var;

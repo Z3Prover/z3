@@ -109,6 +109,22 @@ namespace lp_api {
         void reset() {
             memset(this, 0, sizeof(*this));
         }
+        void collect_statistics(statistics& st) const {
+            st.update("arith-lower", m_assert_lower);
+            st.update("arith-upper", m_assert_upper);
+            st.update("arith-propagations", m_bounds_propagations);
+            st.update("arith-iterations", m_num_iterations);
+            st.update("arith-pivots", m_need_to_solve_inf);
+            st.update("arith-plateau-iterations", m_num_iterations_with_no_progress);
+            st.update("arith-fixed-eqs", m_fixed_eqs);
+            st.update("arith-conflicts", m_conflicts);
+            st.update("arith-bound-propagations-lp", m_bound_propagations1);
+            st.update("arith-bound-propagations-cheap", m_bound_propagations2);
+            st.update("arith-diseq", m_assert_diseq);
+            st.update("arith-gomory-cuts", m_gomory_cuts);
+            st.update("arith-assume-eqs", m_assume_eqs);
+            st.update("arith-branch", m_branch);
+        }
     };
 
 

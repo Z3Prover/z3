@@ -3763,38 +3763,9 @@ public:
 
     void collect_statistics(::statistics & st) const {
         m_arith_eq_adapter.collect_statistics(st);
-        st.update("arith-lower", m_stats.m_assert_lower);
-        st.update("arith-upper", m_stats.m_assert_upper);
-        st.update("arith-propagations", m_stats.m_bounds_propagations);
-        st.update("arith-iterations", m_stats.m_num_iterations);
-        st.update("arith-factorizations", lp().settings().stats().m_num_factorizations);
-        st.update("arith-pivots", m_stats.m_need_to_solve_inf);
-        st.update("arith-plateau-iterations", m_stats.m_num_iterations_with_no_progress);
-        st.update("arith-fixed-eqs", m_stats.m_fixed_eqs);
-        st.update("arith-conflicts", m_stats.m_conflicts);
-        st.update("arith-bound-propagations-lp", m_stats.m_bound_propagations1);
-        st.update("arith-bound-propagations-cheap", m_stats.m_bound_propagations2);
-        st.update("arith-diseq", m_stats.m_assert_diseq);
-        st.update("arith-make-feasible", lp().settings().stats().m_make_feasible);
-        st.update("arith-max-columns", lp().settings().stats().m_max_cols);
-        st.update("arith-max-rows", lp().settings().stats().m_max_rows);
-        st.update("arith-gcd-calls", lp().settings().stats().m_gcd_calls);
-        st.update("arith-gcd-conflict", lp().settings().stats().m_gcd_conflicts);
-        st.update("arith-cube-calls", lp().settings().stats().m_cube_calls);
-        st.update("arith-cube-success", lp().settings().stats().m_cube_success);
-        st.update("arith-patches", lp().settings().stats().m_patches);
-        st.update("arith-patches-success", lp().settings().stats().m_patches_success);
-        st.update("arith-hnf-calls", lp().settings().stats().m_hnf_cutter_calls);
-        st.update("arith-horner-calls", lp().settings().stats().m_horner_calls);
-        st.update("arith-horner-conflicts", lp().settings().stats().m_horner_conflicts);
-        st.update("arith-horner-cross-nested-forms", lp().settings().stats().m_cross_nested_forms);
-        st.update("arith-grobner-calls", lp().settings().stats().m_grobner_calls);
-        st.update("arith-grobner-conflicts", lp().settings().stats().m_grobner_conflicts);
+        m_stats.collect_statistics(st);
+        lp().settings().stats().collect_statistics(st);
         if (m_nla) m_nla->collect_statistics(st);
-        st.update("arith-gomory-cuts", m_stats.m_gomory_cuts);
-        st.update("arith-assume-eqs", m_stats.m_assume_eqs);
-        st.update("arith-branch", m_stats.m_branch);
-        st.update("arith-cheap-eqs", lp().settings().stats().m_cheap_eqs);
     }        
 
     /*

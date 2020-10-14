@@ -177,8 +177,6 @@ namespace arith {
         unsigned_vector        m_bounds_trail;
         unsigned               m_asserted_qhead{ 0 };
 
-        svector<unsigned>       m_to_check;    // rows that should be checked for theory propagation
-
         svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates;
         unsigned                                          m_assume_eq_head{ 0 };
         lp::u_set                                         m_tmp_var_set;
@@ -295,13 +293,13 @@ namespace arith {
             bool& found_compatible);
 
         void propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, lp_api::bound& b, rational const& value);
-        void propagate_basic_bounds();
+        void propagate_basic_bounds(unsigned qhead);
         void propagate_bounds_with_lp_solver();
-        void propagate_bound(bool_var bv, bool is_true, lp_api::bound& b);
+        void propagate_bound(literal lit, lp_api::bound& b);
         void propagate_lp_solver_bound(const lp::implied_bound& be);
         void refine_bound(theory_var v, const lp::implied_bound& be);
         literal is_bound_implied(lp::lconstraint_kind k, rational const& value, lp_api::bound const& b) const;
-        void assert_bound(bool_var bv, bool is_true, lp_api::bound& b);
+        void assert_bound(bool is_true, lp_api::bound& b);
         void mk_eq_axiom(theory_var v1, theory_var v2);
         void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r);
         lp_api::bound* mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound);
@@ -352,7 +350,7 @@ namespace arith {
         void add_variable_bound(expr* t, rational const& offset);
         bool is_infeasible() const;
 
-        nlsat::anum const& nl_value(theory_var v, scoped_anum& r);
+        nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const;
 
 
         bool has_bound(lpvar vi, lp::constraint_index& ci, rational const& bound, bool is_lower);
@@ -413,7 +411,7 @@ namespace arith {
         ~solver() override;
         bool is_external(bool_var v) override { return false; }
         bool propagate(literal l, sat::ext_constraint_idx idx) override { UNREACHABLE(); return false; }
-        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override {}
+        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override;
         void asserted(literal l) override;
         sat::check_result check() override;
 
