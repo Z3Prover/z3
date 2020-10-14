@@ -495,6 +495,12 @@ public:
 
     bool is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args, func_decl_ref& f_out);
 
+    bool is_underspecified(expr* e) const;
+
+    bool is_bounded(expr* e) const;
+
+    bool is_extended_numeral(expr* e, rational& r) const;
+
 };
 
 

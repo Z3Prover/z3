@@ -317,6 +317,28 @@ public:
     }
 };
 
+
+template<typename Ctx, typename T, bool CallDestructors = true>
+class history_trail : public trail<Ctx> {
+    vector<T, CallDestructors>& m_dst;
+    unsigned                     m_idx;
+    vector<T, CallDestructors>& m_hist;
+public:
+    history_trail(vector<T, CallDestructors>& v, unsigned idx, vector<T, CallDestructors>& hist) :
+        m_dst(v),
+        m_idx(idx),
+        m_hist(hist) {}
+    
+    ~history_trail() override {
+    }
+    
+    void undo(Ctx& ctx) override {
+        m_dst[m_idx] = m_hist.back();
+        m_hist.pop_back();
+    }
+};
+
+
 template<typename Ctx, typename T>
 class new_obj_trail : public trail<Ctx> {
     T * m_obj;

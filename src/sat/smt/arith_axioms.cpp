@@ -25,15 +25,15 @@ namespace arith {
     void solver::mk_div_axiom(expr* p, expr* q) {
         if (a.is_zero(q)) return;
         literal eqz = eq_internalize(q, a.mk_real(0));
-        literal eq  = eq_internalize(a.mk_mul(q, a.mk_div(p, q)), p);
+        literal eq = eq_internalize(a.mk_mul(q, a.mk_div(p, q)), p);
         add_clause(eqz, eq);
     }
 
     // to_int (to_real x) = x
     // to_real(to_int(x)) <= x < to_real(to_int(x)) + 1
     void solver::mk_to_int_axiom(app* n) {
-        expr* x = nullptr, *y = nullptr;
-        VERIFY (a.is_to_int(n, x));            
+        expr* x = nullptr, * y = nullptr;
+        VERIFY(a.is_to_int(n, x));
         if (a.is_to_real(x, y)) {
             literal eq = eq_internalize(y, n);
             add_clause(eq);
@@ -220,26 +220,26 @@ namespace arith {
 
         if (kind1 == lp_api::lower_t) {
             if (kind2 == lp_api::lower_t) {
-                if (k2 <= k1) 
-                    add_clause(~l1, l2);                
-                else 
-                    add_clause(l1, ~l2);                
+                if (k2 <= k1)
+                    add_clause(~l1, l2);
+                else
+                    add_clause(l1, ~l2);
             }
-            else if (k1 <= k2) 
+            else if (k1 <= k2)
                 // k1 <= k2, k1 <= x or x <= k2
-                add_clause(l1, l2);            
+                add_clause(l1, l2);
             else {
                 // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
                 add_clause(~l1, ~l2);
                 if (v_is_int && k1 == k2 + rational(1))
                     // k1 <= x or x <= k1-1
-                    add_clause(l1, l2);                
+                    add_clause(l1, l2);
             }
         }
         else if (kind2 == lp_api::lower_t) {
-            if (k1 >= k2) 
+            if (k1 >= k2)
                 // k1 >= lo_inf, k1 >= x or lo_inf <= x
-                add_clause(l1, l2);            
+                add_clause(l1, l2);
             else {
                 // k1 < k2, k2 <= x => ~(x <= k1)
                 add_clause(~l1, ~l2);
@@ -250,12 +250,12 @@ namespace arith {
         }
         else {
             // kind1 == A_UPPER, kind2 == A_UPPER
-            if (k1 >= k2) 
+            if (k1 >= k2)
                 // k1 >= k2, x <= k2 => x <= k1
-                add_clause(l1, ~l2);            
-            else 
+                add_clause(l1, ~l2);
+            else
                 // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
-                add_clause(~l1, l2);            
+                add_clause(~l1, l2);
         }
     }
 
@@ -328,32 +328,14 @@ namespace arith {
     }
 
     /**
-  * n = (div p q)
-  *
-  * (div p q) * q + (mod p q) = p, (mod p q) >= 0
-  *
-  * 0 < q => (p/q <= v(p)/v(q) => n <= floor(v(p)/v(q)))
-  * 0 < q => (v(p)/v(q) <= p/q => v(p)/v(q) - 1 < n)
-  *
-  */
-
-    bool solver::is_bounded(expr* n) {
-        expr* x = nullptr, * y = nullptr;
-        while (true) {
-            if (a.is_idiv(n, x, y) && a.is_numeral(y)) {
-                n = x;
-            }
-            else if (a.is_mod(n, x, y) && a.is_numeral(y)) {
-                return true;
-            }
-            else if (a.is_numeral(n)) {
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-    }
+      * n = (div p q)
+      *
+      * (div p q) * q + (mod p q) = p, (mod p q) >= 0   
+      *
+      * 0 < q => (p/q <= v(p)/v(q) => n <= floor(v(p)/v(q)))
+      * 0 < q => (v(p)/v(q) <= p/q => v(p)/v(q) - 1 < n)
+      *
+      */
 
     bool solver::check_idiv_bounds() {
         if (m_idiv_terms.empty()) {
@@ -364,8 +346,8 @@ namespace arith {
             expr* n = m_idiv_terms[i];
             expr* p = nullptr, * q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
-            theory_var v = mk_var(n);
-            theory_var v1 = mk_var(p);
+            theory_var v = mk_evar(n);
+            theory_var v1 = mk_evar(p);
 
             if (!can_get_ivalue(v1))
                 continue;
@@ -383,7 +365,7 @@ namespace arith {
             }
 
             if (a.is_numeral(q, r2) && r2.is_pos()) {
-                if (!is_bounded(n)) {
+                if (!a.is_bounded(n)) {
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
@@ -403,7 +385,7 @@ namespace arith {
                 // used to normalize inequalities so they 
                 // don't appear as 8*x >= 15, but x >= 2
                 expr* n1 = nullptr, * n2 = nullptr;
-                if (a.is_mul(p, n1, n2) && is_numeral(n1, mul) && mul.is_pos()) {
+                if (a.is_mul(p, n1, n2) && a.is_extended_numeral(n1, mul) && mul.is_pos()) {
                     p = n2;
                     hi = floor(hi / mul);
                     lo = ceil(lo / mul);

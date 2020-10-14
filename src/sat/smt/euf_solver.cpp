@@ -23,6 +23,7 @@ Author:
 #include "sat/smt/bv_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/array_solver.h"
+#include "sat/smt/arith_solver.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/fpa_solver.h"
 
@@ -99,6 +100,7 @@ namespace euf {
         bv_util bvu(m);
         array_util au(m);
         fpa_util fpa(m);
+        arith_util arith(m);
         if (pb.get_family_id() == fid) 
             ext = alloc(sat::ba_solver, *this, fid);
         else if (bvu.get_family_id() == fid) 
@@ -107,7 +109,9 @@ namespace euf {
             ext = alloc(array::solver, *this, fid);
         else if (fpa.get_family_id() == fid) 
             ext = alloc(fpa::solver, *this);
-
+        else if (arith.get_family_id() == fid)
+            ext = alloc(arith::solver, *this, fid);
+        
         if (ext) {
             if (use_drat())
                 s().get_drat().add_theory(fid, ext->name());

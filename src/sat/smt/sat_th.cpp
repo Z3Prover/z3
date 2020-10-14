@@ -204,5 +204,27 @@ namespace euf {
         return b_internalize(ctx.mk_eq(a, b)); 
     }
 
+    unsigned th_propagation::get_obj_size(unsigned num_lits, unsigned num_eqs) {
+        return sizeof(th_propagation) + sizeof(sat::literal) * num_lits + sizeof(enode_pair) * num_eqs;
+    }
 
+    th_propagation::th_propagation(sat::literal_vector const& lits, enode_pair_vector const& eqs) {
+        m_num_literals = lits.size();
+        m_num_eqs = eqs.size();
+        m_literals = reinterpret_cast<literal*>(reinterpret_cast<char*>(this) + sizeof(th_propagation));
+        unsigned i = 0;
+        for (sat::literal lit : lits)
+            m_literals[i++] = lit;
+        m_eqs = reinterpret_cast<enode_pair*>(reinterpret_cast<char*>(this) + sizeof(th_propagation) + sizeof(literal) * m_num_literals);
+        i = 0;
+        for (auto eq : eqs)
+            m_eqs[i++] = eq;
+    }
+
+    th_propagation* th_propagation::mk(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs) {
+        region& r = th.ctx.get_region();
+        void* mem = r.allocate(get_obj_size(lits.size(), eqs.size()));
+        sat::constraint_base::initialize(mem, &th);
+        return new (sat::constraint_base::ptr2mem(mem)) th_propagation(lits, eqs);
+    }
 }

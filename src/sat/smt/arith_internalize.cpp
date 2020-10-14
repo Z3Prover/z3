@@ -20,9 +20,7 @@ Author:
 
 namespace arith {
 
-    void solver::ensure_var(euf::enode* n) {}
-
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) { 
+    sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
         flet<bool> _is_learned(m_is_redundant, learned);
         internalize_atom(e);
         literal lit = ctx.expr2literal(e);
@@ -35,9 +33,6 @@ namespace arith {
         flet<bool> _is_learned(m_is_redundant, redundant);
         internalize_term(e);
     }
-
-    euf::theory_var solver::mk_var(euf::enode* n) { return euf::null_theory_var; }
-    bool solver::is_shared(theory_var v) const { return false; }   
 
     lpvar solver::get_one(bool is_int) {
         return add_const(1, is_int ? m_one_var : m_rone_var, is_int);
@@ -81,27 +76,8 @@ namespace arith {
         m_not_handled = n;
     }
 
-    bool solver::is_underspecified(app* n) const {
-        if (n->get_family_id() == get_id()) {
-            switch (n->get_decl_kind()) {
-            case OP_DIV:
-            case OP_IDIV:
-            case OP_REM:
-            case OP_MOD:
-            case OP_DIV0:
-            case OP_IDIV0:
-            case OP_REM0:
-            case OP_MOD0:
-                return true;
-            default:
-                break;
-            }
-        }
-        return false;
-    }
-
     void solver::found_underspecified(expr* n) {
-        if (is_app(n) && is_underspecified(to_app(n))) {
+        if (a.is_underspecified(n)) {
             TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
             m_underspecified.push_back(to_app(n));
         }
@@ -128,40 +104,18 @@ namespace arith {
 
     }
 
-    bool solver::is_numeral(expr* term, rational& r) {
-        rational mul(1);
-        do {
-            if (a.is_numeral(term, r)) {
-                r *= mul;
-                return true;
-            }
-            if (a.is_uminus(term, term)) {
-                mul.neg();
-                continue;
-            }
-            if (a.is_to_real(term, term)) {
-                continue;
-            }
-            return false;
-        } while (false);
-        return false;
-    }
-
 
     lpvar solver::add_const(int c, lpvar& var, bool is_int) {
         if (var != UINT_MAX) {
             return var;
         }
         app_ref cnst(a.mk_numeral(rational(c), is_int), m);
-#if 0
         mk_enode(cnst);
-        theory_var v = mk_var(cnst);
+        theory_var v = mk_evar(cnst);
         var = lp().add_var(v, is_int);
         lp().push();
-
         add_def_constraint_and_equality(var, lp::GE, rational(c));
         add_def_constraint_and_equality(var, lp::LE, rational(c));
-#endif
         TRACE("arith", tout << "add " << cnst << ", var = " << var << "\n";);
         return var;
     }
@@ -172,7 +126,6 @@ namespace arith {
             return lpv;
         return lp().add_var(v, is_int(v));
     }
-        
 
     void solver::linearize_term(expr* term, scoped_internalize_state& st) {
         st.push(term, rational::one());
@@ -210,12 +163,12 @@ namespace arith {
                     st.push(to_app(n)->get_arg(i), -coeffs[index]);
                 }
             }
-            else if (a.is_mul(n, n1, n2) && is_numeral(n1, r)) {
+            else if (a.is_mul(n, n1, n2) && a.is_extended_numeral(n1, r)) {
                 coeffs[index] *= r;
                 terms[index] = n2;
                 st.to_ensure_enode().push_back(n1);
             }
-            else if (a.is_mul(n, n1, n2) && is_numeral(n2, r)) {
+            else if (a.is_mul(n, n1, n2) && a.is_extended_numeral(n2, r)) {
                 coeffs[index] *= r;
                 terms[index] = n1;
                 st.to_ensure_enode().push_back(n2);
@@ -226,7 +179,7 @@ namespace arith {
                 vars.push_back(v);
                 ++index;
             }
-            else if (a.is_power(n, n1, n2) && is_app(n1) && is_numeral(n2, r) && r.is_unsigned() && r <= 10) {
+            else if (a.is_power(n, n1, n2) && is_app(n1) && a.is_extended_numeral(n2, r) && r.is_unsigned() && r <= 10) {
                 theory_var v = internalize_power(to_app(n), to_app(n1), r.get_unsigned());
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
@@ -246,8 +199,8 @@ namespace arith {
                     app* t = to_app(n);
                     VERIFY(internalize_term(to_app(n1)));
                     mk_enode(t);
-                    theory_var v = mk_var(n);
-                    theory_var w = mk_var(n1);
+                    theory_var v = mk_evar(n);
+                    theory_var w = mk_evar(n1);
                     lpvar vj = register_theory_var_in_lar_solver(v);
                     lpvar wj = register_theory_var_in_lar_solver(w);
                     auto lu_constraints = lp().add_equality(vj, wj);
@@ -256,11 +209,11 @@ namespace arith {
                 }
             }
             else if (is_app(n) && a.get_family_id() == to_app(n)->get_family_id()) {
-                bool is_first = nullptr == ctx.get_enode(n); 
+                bool is_first = nullptr == ctx.get_enode(n);
                 app* t = to_app(n);
                 internalize_args(t);
                 mk_enode(t);
-                theory_var v = mk_var(n);
+                theory_var v = mk_evar(n);
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
                 ++index;
@@ -307,7 +260,7 @@ namespace arith {
                 if (is_app(n)) {
                     internalize_args(to_app(n));
                 }
-                theory_var v = mk_var(n);
+                theory_var v = mk_evar(n);
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
                 ++index;
@@ -335,24 +288,24 @@ namespace arith {
         expr* n1, * n2;
         rational r;
         lp_api::bound_kind k;
-        theory_var v = euf::null_theory_var;        
+        theory_var v = euf::null_theory_var;
         bool_var bv = ctx.get_si().add_bool_var(atom);
         m_bool_var2bound.erase(bv);
         ctx.attach_lit(literal(bv, false), atom);
-        
-        if (a.is_le(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
+
+        if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n2, r) && is_app(n1)) {
             v = internalize_def(to_app(n1));
             k = lp_api::upper_t;
         }
-        else if (a.is_ge(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
+        else if (a.is_ge(atom, n1, n2) && a.is_extended_numeral(n2, r) && is_app(n1)) {
             v = internalize_def(to_app(n1));
             k = lp_api::lower_t;
         }
-        else if (a.is_le(atom, n1, n2) && is_numeral(n1, r) && is_app(n2)) {
+        else if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n1, r) && is_app(n2)) {
             v = internalize_def(to_app(n2));
             k = lp_api::lower_t;
         }
-        else if (a.is_ge(atom, n1, n2) && is_numeral(n1, r) && is_app(n2)) {
+        else if (a.is_ge(atom, n1, n2) && a.is_extended_numeral(n1, r) && is_app(n2)) {
             v = internalize_def(to_app(n2));
             k = lp_api::upper_t;
         }
@@ -385,28 +338,25 @@ namespace arith {
 
     bool solver::internalize_term(expr* term) {
         if (!has_var(term))
-            internalize_def(term);        
+            internalize_def(term);
         return true;
     }
 
     theory_var solver::internalize_def(expr* term, scoped_internalize_state& st) {
         TRACE("arith", tout << expr_ref(term, m) << "\n";);
-        if (ctx.get_enode(term)) {
-            IF_VERBOSE(0, verbose_stream() << "repeated term\n";);
-            return mk_var(term);
-        }
+        if (ctx.get_enode(term))
+            return mk_evar(term);
+
         linearize_term(term, st);
-        if (is_unit_var(st)) {
+        if (is_unit_var(st))
             return st.vars()[0];
-        }
-        else {
-            theory_var v = mk_var(term);
-            SASSERT(euf::null_theory_var != v);
-            st.coeffs().resize(st.vars().size() + 1);
-            st.coeffs()[st.vars().size()] = rational::minus_one();
-            st.vars().push_back(v);
-            return v;
-        }
+
+        theory_var v = mk_evar(term);
+        SASSERT(euf::null_theory_var != v);
+        st.coeffs().resize(st.vars().size() + 1);
+        st.coeffs()[st.vars().size()] = rational::minus_one();
+        st.vars().push_back(v);
+        return v;
     }
 
     // term - v = 0
@@ -420,17 +370,17 @@ namespace arith {
         if (!force && !reflect(t))
             return;
         for (expr* arg : *t)
-            e_internalize(arg);        
+            e_internalize(arg);
     }
 
     theory_var solver::internalize_power(app* t, app* n, unsigned p) {
         internalize_args(t, true);
         bool _has_var = has_var(t);
         mk_enode(t);
-        theory_var v = mk_var(t);
+        theory_var v = mk_evar(t);
         if (_has_var)
             return v;
-        theory_var w = mk_var(n);
+        theory_var w = mk_evar(n);
         svector<lpvar> vars;
         for (unsigned i = 0; i < p; ++i)
             vars.push_back(register_theory_var_in_lar_solver(w));
@@ -445,14 +395,14 @@ namespace arith {
         internalize_args(t, true);
         bool _has_var = has_var(t);
         mk_enode(t);
-        theory_var v = mk_var(t);
+        theory_var v = mk_evar(t);
 
         if (!_has_var) {
             svector<lpvar> vars;
             for (expr* n : *t) {
                 if (is_app(n)) VERIFY(internalize_term(to_app(n)));
                 SASSERT(ctx.get_enode(n));
-                theory_var v = mk_var(n);
+                theory_var v = mk_evar(n);
                 vars.push_back(register_theory_var_in_lar_solver(v));
             }
             TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
@@ -464,12 +414,12 @@ namespace arith {
     }
 
     theory_var solver::internalize_linearized_def(expr* term, scoped_internalize_state& st) {
-        theory_var v = mk_var(term);
+        theory_var v = mk_evar(term);
         TRACE("arith", tout << mk_bounded_pp(term, m) << " v" << v << "\n";);
 
         if (is_unit_var(st) && v == st.vars()[0]) {
             return st.vars()[0];
-    }
+        }
         else if (is_one(st) && a.is_numeral(term)) {
             return get_one(a.is_int(term));
         }
@@ -503,7 +453,6 @@ namespace arith {
                     lp().print_term(lp().get_term(lp::tv::raw(vi)), tout) << "\n";);
                 }
             }
-
             return v;
         }
     }
@@ -548,18 +497,20 @@ namespace arith {
     }
 
 
-
     enode* solver::mk_enode(app* e) {
         TRACE("arith", tout << expr_ref(e, m) << "\n";);
         enode* n = ctx.get_enode(e);
-#if 0
-        if (!n)
-            n = mk_enode(e, !reflect(e));
-#endif
+        if (n)
+            return n;
+        ptr_buffer<enode> args;
+        if (reflect(e))
+            for (expr* arg : *e)
+                args.push_back(e_internalize(e));
+        n = ctx.mk_enode(e, args.size(), args.c_ptr());
         return n;
     }
 
-    theory_var solver::mk_var(expr* n) {
+    theory_var solver::mk_evar(expr* n) {
         enode* e = e_internalize(n);
         theory_var v;
         if (e->is_attached_to(get_id())) {
@@ -607,12 +558,12 @@ namespace arith {
         lpvar vi_equal;
         lp::constraint_index ci = lp().add_var_bound_check_on_equal(vi, kind, bound, vi_equal);
         add_def_constraint(ci);
-        if (vi_equal != lp::null_lpvar) 
-            report_equality_of_fixed_vars(vi, vi_equal);        
+        if (vi_equal != lp::null_lpvar)
+            report_equality_of_fixed_vars(vi, vi_equal);
     }
 
     bool solver::reflect(app* n) const {
-        return get_config().m_arith_reflect || is_underspecified(n);
+        return get_config().m_arith_reflect || a.is_underspecified(n);
     }
 
     lpvar solver::get_lpvar(theory_var v) const {
@@ -621,6 +572,43 @@ namespace arith {
 
     lp::tv solver::get_tv(theory_var v) const {
         return lp::tv::raw(get_lpvar(v));
+    }
+
+    /**
+   \brief We must redefine this method, because theory of arithmetic contains
+   underspecified operators such as division by 0.
+   (/ a b) is essentially an uninterpreted function when b = 0.
+   Thus, 'a' must be considered a shared var if it is the child of an underspecified operator.
+
+   if merge(a / b, x + y) and a / b is root, then x + y become shared and all z + u in equivalence class of x + y.
+
+
+   TBD: when the set of underspecified subterms is small, compute the shared variables below it.
+   Recompute the set if there are merges that invalidate it.
+   Use the set to determine if a variable is shared.
+*/
+    bool solver::is_shared(theory_var v) const {
+        if (m_underspecified.empty()) {
+            return false;
+        }
+        enode* n = var2enode(v);
+        enode* r = n->get_root();
+        unsigned usz = m_underspecified.size();
+        if (r->num_parents() > 2 * usz) {
+            for (unsigned i = 0; i < usz; ++i) {
+                app* u = m_underspecified[i];
+                unsigned sz = u->get_num_args();
+                for (unsigned j = 0; j < sz; ++j)
+                    if (expr2enode(u->get_arg(j))->get_root() == r)
+                        return true;
+            }
+        }
+        else {
+            for (enode* parent : euf::enode_parents(r))
+                if (a.is_underspecified(parent->get_expr()))
+                    return true;
+        }
+        return false;
     }
 
 }
