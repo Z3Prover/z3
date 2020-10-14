@@ -426,7 +426,8 @@ namespace euf {
             set_conflict(n1, n2, j);
             return;
         }
-        if ((r1->class_size() > r2->class_size() && !r2->interpreted()) || r1->interpreted() || r1->value() != l_undef) {
+        if (!r2->interpreted() && 
+             (r1->class_size() > r2->class_size() || r1->interpreted() || r1->value() != l_undef)) {
             std::swap(r1, r2);
             std::swap(n1, n2);
         }

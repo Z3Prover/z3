@@ -56,7 +56,6 @@ namespace bv {
         m_ackerman(*this),
         m_bb(m, get_config()),
         m_find(*this) {
-        ctx.get_egraph().set_th_propagates_diseqs(id);
     }
 
     void solver::fixed_var_eh(theory_var v1) {

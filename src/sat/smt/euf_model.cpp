@@ -139,7 +139,7 @@ namespace euf {
                 mbS->add_value(n, *mdl, m_values);
             else if (auto* mbE = expr2solver(e))
                 mbE->add_value(n, *mdl, m_values);
-            else  {
+            else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
         }

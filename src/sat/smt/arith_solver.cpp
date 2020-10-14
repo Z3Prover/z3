@@ -999,7 +999,8 @@ namespace arith {
     }
 
     nlsat::anum const& solver::nl_value(theory_var v, scoped_anum& r) const {
-        SASSERT(use_nra_model());
+        SASSERT(m_nla);
+        SASSERT(m_nla->use_nra_model());
         auto t = get_tv(v);
         if (t.is_term()) {
 

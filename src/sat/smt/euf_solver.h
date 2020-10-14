@@ -192,6 +192,7 @@ namespace euf {
             if (m_conflict) dealloc(sat::constraint_base::mem2base_ptr(m_conflict));
             if (m_eq) dealloc(sat::constraint_base::mem2base_ptr(m_eq));
             if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
+            m_trail.reset();
         }
 
         struct scoped_set_translate {
@@ -299,8 +300,8 @@ namespace euf {
         void add_root(unsigned n, sat::literal const* lits);
         void add_aux(unsigned n, sat::literal const* lits);
         void track_relevancy(sat::bool_var v);
-        bool is_relevant(expr* e) const { return m_relevant_expr_ids.get(e->get_id(), true); }
-        bool is_relevant(enode* n) const { return m_relevant_expr_ids.get(n->get_expr_id(), true); }
+        bool is_relevant(expr* e) const;
+        bool is_relevant(enode* n) const;
 
         // model construction
         void update_model(model_ref& mdl);

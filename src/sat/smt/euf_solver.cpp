@@ -118,6 +118,8 @@ namespace euf {
             ext->set_solver(m_solver);
             ext->push_scopes(s().num_scopes());
             add_solver(fid, ext);
+            if (ext->use_diseqs())
+                m_egraph.set_th_propagates_diseqs(fid);
         }
         else if (f) 
             unhandled_function(f);
@@ -264,7 +266,7 @@ namespace euf {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
         }
-        else if (sign && n->is_equality())
+        else if (sign && n->is_equality()) 
             m_egraph.new_diseq(n);        
     }
 
@@ -497,7 +499,6 @@ namespace euf {
     }
 
     lbool solver::get_phase(bool_var v) { 
-        TRACE("euf", tout << "phase: " << v << "\n";);            
         auto* ext = bool_var2solver(v);
         if (ext)
             return ext->get_phase(v);

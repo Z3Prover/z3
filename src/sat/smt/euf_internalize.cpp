@@ -139,7 +139,7 @@ namespace euf {
         if (!n) 
             n = m_egraph.mk(e, 0, nullptr); 
         m_egraph.set_bool_var(n, v);
-        if (!m.is_true(e) && !m.is_false(e))
+        if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
             m_egraph.set_merge_enabled(n, false);
         return lit;
     }
@@ -174,7 +174,9 @@ namespace euf {
                 }
             }
             s().mk_clause(lits, st);
-        }
+            if (relevancy_enabled())
+                add_root(lits.size(), lits.c_ptr());
+    }
         else {
             // g(f(x_i)) = x_i
             // f(x_1) = a + .... + f(x_n) = a >= 2
@@ -198,6 +200,8 @@ namespace euf {
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.c_ptr(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
             s().mk_clause(1, &lit, st);
+            if (relevancy_enabled())
+                add_root(1, &lit);
         }
     }
 
@@ -216,6 +220,8 @@ namespace euf {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
                     sat::literal lit = internalize(eq, true, false, m_is_redundant);
                     s().add_clause(1, &lit, st);
+                    if (relevancy_enabled())
+                        add_root(1, &lit);
                 }
             }
         }
@@ -233,6 +239,8 @@ namespace euf {
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = internalize(eq, false, false, m_is_redundant);
                 s().add_clause(1, &lit, st);
+                if (relevancy_enabled())
+                    add_root(1, &lit);
             }
         }
     }

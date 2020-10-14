@@ -49,7 +49,7 @@ namespace array {
         case axiom_record::kind_t::is_default:
             return assert_default(r);
         case axiom_record::kind_t::is_extensionality:
-            return assert_extensionality(r.n->get_arg(0)->get_expr(), r.n->get_arg(1)->get_expr());
+            return assert_extensionality(r.n->get_expr(), r.select->get_expr());
         case axiom_record::kind_t::is_congruence:
             return assert_congruent_axiom(r.n->get_expr(), r.select->get_expr());
         default:
@@ -214,12 +214,11 @@ namespace array {
     bool solver::assert_extensionality(expr* e1, expr* e2) {
         TRACE("array", tout << "extensionality-axiom: " << mk_bounded_pp(e1, m) << " == " << mk_bounded_pp(e2, m) << "\n";);
         ++m_stats.m_num_extensionality_axiom;
-        func_decl_ref_vector* funcs = nullptr;
-        VERIFY(m_sort2diff.find(m.get_sort(e1), funcs));
+        func_decl_ref_vector const& funcs = sort2diff(m.get_sort(e1));
         expr_ref_vector args1(m), args2(m);
         args1.push_back(e1);
         args2.push_back(e2);
-        for (func_decl* f : *funcs) {
+        for (func_decl* f : funcs) {
             expr* k = m.mk_app(f, e1, e2);
             args1.push_back(k);
             args2.push_back(k);
@@ -527,6 +526,7 @@ namespace array {
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
             euf::enode * n = var2enode(i);
+            
             if (!a.is_array(n->get_expr())) {
                 continue;
             }
