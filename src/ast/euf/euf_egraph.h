@@ -214,7 +214,7 @@ namespace euf {
     public:
         egraph(ast_manager& m);
         ~egraph();
-        enode* find(expr* f) { return m_expr2enode.get(f->get_id(), nullptr); }
+        enode* find(expr* f) const { return m_expr2enode.get(f->get_id(), nullptr); }
         enode* mk(expr* f, unsigned n, enode *const* args);
         enode_vector const& enodes_of(func_decl* f);
         void push() { ++m_num_scopes; }

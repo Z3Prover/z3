@@ -425,7 +425,7 @@ namespace euf {
         m_var_trail.shrink(s.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
-        TRACE("euf", tout << "pop to: " << m_scopes.size() << "\n";);
+        TRACE("euf", display(tout << "pop to: " << m_scopes.size() << "\n"););
     }
 
     void solver::start_reinit(unsigned n) {
@@ -478,7 +478,7 @@ namespace euf {
             VERIFY(lit.var() == kv.m_value);
             attach_lit(lit, kv.m_key);            
         }
-        TRACE("euf", tout << "replay done\n";);
+        TRACE("euf", display(tout << "replay done\n"););
     }
 
     void solver::pre_simplify() {

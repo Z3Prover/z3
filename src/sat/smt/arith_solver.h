@@ -110,7 +110,7 @@ namespace arith {
             }
         };
         ptr_vector<internalize_state> m_internalize_states;
-        unsigned                      m_internalize_head;
+        unsigned                      m_internalize_head{ 0 };
 
         class scoped_internalize_state {
             solver& m_imp;
@@ -246,12 +246,12 @@ namespace arith {
         bool is_unit_var(scoped_internalize_state& st);
         bool is_one(scoped_internalize_state& st);
         bool is_zero(scoped_internalize_state& st);
-        enode* mk_enode(app* e);
+        enode* mk_enode(expr* e);
 
         lpvar register_theory_var_in_lar_solver(theory_var v);
         theory_var mk_evar(expr* e);
         bool has_var(expr* e);
-        bool reflect(app* n) const;
+        bool reflect(expr* n) const;
 
         lpvar get_lpvar(theory_var v) const;
         lp::tv get_tv(theory_var v) const;

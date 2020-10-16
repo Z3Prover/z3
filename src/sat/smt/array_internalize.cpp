@@ -22,8 +22,10 @@ namespace array {
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) { 
         SASSERT(m.is_bool(e));
-        if (!visit_rec(m, e, sign, root, redundant))
+        if (!visit_rec(m, e, sign, root, redundant)) {
+            TRACE("array", tout << mk_pp(e, m) << "\n";);
             return sat::null_literal;
+        }
         return expr2literal(e);
     }
 
@@ -95,6 +97,8 @@ namespace array {
     }
 
     bool solver::visit(expr* e) {
+        if (visited(e))
+            return true;
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
             ctx.internalize(e, m_is_redundant);
             euf::enode* n = expr2enode(e);

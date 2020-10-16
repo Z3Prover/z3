@@ -38,7 +38,7 @@ namespace arith {
         get_zero(true);
         get_zero(false);
 
-        smt_params_helper lpar(s().params());
+        smt_params_helper lpar(ctx.s().params());
         lp().settings().set_resource_limit(m_resource_limit);
         lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();

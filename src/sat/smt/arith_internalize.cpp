@@ -496,34 +496,30 @@ namespace arith {
     }
 
 
-    enode* solver::mk_enode(app* e) {
+    enode* solver::mk_enode(expr* e) {
         TRACE("arith", tout << expr_ref(e, m) << "\n";);
         enode* n = ctx.get_enode(e);
         if (n)
             return n;
         ptr_buffer<enode> args;
         if (reflect(e))
-            for (expr* arg : *e)
-                args.push_back(e_internalize(e));
+            for (expr* arg : *to_app(e))
+                args.push_back(e_internalize(arg));
         n = ctx.mk_enode(e, args.size(), args.c_ptr());
         return n;
     }
 
     theory_var solver::mk_evar(expr* n) {
-        enode* e = e_internalize(n);
-        theory_var v;
-        if (e->is_attached_to(get_id())) {
-            v = mk_var(e);
-            TRACE("arith", tout << "fresh var: v" << v << " " << mk_pp(n, m) << "\n";);
-            SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
-            reserve_bounds(v);
-            ctx.attach_th_var(e, this, v);
-        }
-        else {
-            v = e->get_th_var(get_id());
-        }
-        SASSERT(euf::null_theory_var != v);
+        enode* e = mk_enode(n);
+        if (e->is_attached_to(get_id()))
+            return e->get_th_var(get_id());
+        theory_var v = mk_var(e);
+        TRACE("arith", tout << "fresh var: v" << v << " " << mk_pp(n, m) << "\n";);
+        SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
+        reserve_bounds(v);
+        ctx.attach_th_var(e, this, v);
         TRACE("arith", tout << mk_pp(n, m) << " " << v << "\n";);
+        SASSERT(euf::null_theory_var != v);
         return v;
     }
 
@@ -561,7 +557,7 @@ namespace arith {
             report_equality_of_fixed_vars(vi, vi_equal);
     }
 
-    bool solver::reflect(app* n) const {
+    bool solver::reflect(expr* n) const {
         return get_config().m_arith_reflect || a.is_underspecified(n);
     }
 

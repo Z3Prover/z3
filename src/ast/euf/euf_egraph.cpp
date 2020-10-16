@@ -324,6 +324,7 @@ namespace euf {
 
     void egraph::set_value(enode* n, lbool value) {        
         force_push();
+        TRACE("euf", tout << bpp(n) << "\n";);
         SASSERT(n->value() == l_undef);
         n->set_value(value);
         m_updates.push_back(update_record(n, update_record::value_assignment()));
@@ -431,8 +432,6 @@ namespace euf {
             std::swap(r1, r2);
             std::swap(n1, n2);
         }
-        if (r1->value() != l_undef)
-            return;
         if (j.is_congruence() && (m.is_false(r2->get_expr()) || m.is_true(r2->get_expr())))
             add_literal(n1, false);
         if (n1->is_equality() && n1->value() == l_false)

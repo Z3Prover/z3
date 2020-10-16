@@ -212,9 +212,9 @@ namespace euf {
         
         sat::sat_internalizer& get_si() { return si; }
         ast_manager& get_manager() { return m; }
-        enode* get_enode(expr* e) { return m_egraph.find(e); }
-        sat::literal expr2literal(expr* e) const { return literal(si.to_bool_var(e), false); }
-        sat::literal enode2literal(enode* e) const { return expr2literal(e->get_expr()); }
+        enode* get_enode(expr* e) const { return m_egraph.find(e); }
+        sat::literal expr2literal(expr* e) const { return enode2literal(get_enode(e)); }
+        sat::literal enode2literal(enode* e) const { return sat::literal(e->bool_var(), false); }
         smt_params const& get_config() const { return m_config; }
         region& get_region() { return m_trail.get_region(); }
         egraph& get_egraph() { return m_egraph; }
