@@ -22,8 +22,10 @@ namespace array {
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) { 
         SASSERT(m.is_bool(e));
-        if (!visit_rec(m, e, sign, root, redundant))
+        if (!visit_rec(m, e, sign, root, redundant)) {
+            TRACE("array", tout << mk_pp(e, m) << "\n";);
             return sat::null_literal;
+        }
         return expr2literal(e);
     }
 
@@ -81,7 +83,7 @@ namespace array {
     }
 
     void solver::internalize_ext(euf::enode* n) {
-        push_axiom(extensionality_axiom(n));
+        push_axiom(extensionality_axiom(n->get_arg(0), n->get_arg(1)));
     }
 
     void solver::internalize_default(euf::enode* n) {
@@ -95,6 +97,8 @@ namespace array {
     }
 
     bool solver::visit(expr* e) {
+        if (visited(e))
+            return true;
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
             ctx.internalize(e, m_is_redundant);
             euf::enode* n = expr2enode(e);
@@ -190,6 +194,21 @@ namespace array {
                 return true;
         }
         return false;
+    }
+
+    func_decl_ref_vector const& solver::sort2diff(sort* s) {
+        func_decl_ref_vector* result = nullptr;
+        if (m_sort2diff.find(s, result))
+            return *result;
+        
+        unsigned dimension = get_array_arity(s);
+        result = alloc(func_decl_ref_vector, m);
+        for (unsigned i = 0; i < dimension; ++i) 
+            result->push_back(a.mk_array_ext(s, i));
+        m_sort2diff.insert(s, result);
+        ctx.push(insert_map<euf::solver, obj_map<sort, func_decl_ref_vector*>, sort*>(m_sort2diff, s));
+        ctx.push(new_obj_trail<euf::solver,func_decl_ref_vector>(result));
+        return *result;
     }
 
 }

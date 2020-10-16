@@ -22,6 +22,14 @@ Author:
 
 namespace euf {
 
+    bool solver::is_relevant(expr* e) const { 
+        return m_relevant_expr_ids.get(e->get_id(), true); 
+    }
+
+    bool solver::is_relevant(enode* n) const { 
+        return m_relevant_expr_ids.get(n->get_expr_id(), true); 
+    }
+
     void solver::ensure_dual_solver() {
         if (!m_dual_solver)
             m_dual_solver = alloc(sat::dual_solver, s().rlimit());

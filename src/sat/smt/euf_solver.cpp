@@ -23,6 +23,7 @@ Author:
 #include "sat/smt/bv_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/array_solver.h"
+#include "sat/smt/arith_solver.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/fpa_solver.h"
 
@@ -99,6 +100,7 @@ namespace euf {
         bv_util bvu(m);
         array_util au(m);
         fpa_util fpa(m);
+        arith_util arith(m);
         if (pb.get_family_id() == fid) 
             ext = alloc(sat::ba_solver, *this, fid);
         else if (bvu.get_family_id() == fid) 
@@ -107,13 +109,17 @@ namespace euf {
             ext = alloc(array::solver, *this, fid);
         else if (fpa.get_family_id() == fid) 
             ext = alloc(fpa::solver, *this);
-
+        else if (arith.get_family_id() == fid)
+            ext = alloc(arith::solver, *this, fid);
+        
         if (ext) {
             if (use_drat())
                 s().get_drat().add_theory(fid, ext->name());
             ext->set_solver(m_solver);
             ext->push_scopes(s().num_scopes());
             add_solver(fid, ext);
+            if (ext->use_diseqs())
+                m_egraph.set_th_propagates_diseqs(fid);
         }
         else if (f) 
             unhandled_function(f);
@@ -260,7 +266,7 @@ namespace euf {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
         }
-        else if (sign && n->is_equality())
+        else if (sign && n->is_equality()) 
             m_egraph.new_diseq(n);        
     }
 
@@ -419,7 +425,7 @@ namespace euf {
         m_var_trail.shrink(s.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
-        TRACE("euf", tout << "pop to: " << m_scopes.size() << "\n";);
+        TRACE("euf", display(tout << "pop to: " << m_scopes.size() << "\n"););
     }
 
     void solver::start_reinit(unsigned n) {
@@ -472,7 +478,7 @@ namespace euf {
             VERIFY(lit.var() == kv.m_value);
             attach_lit(lit, kv.m_key);            
         }
-        TRACE("euf", tout << "replay done\n";);
+        TRACE("euf", display(tout << "replay done\n"););
     }
 
     void solver::pre_simplify() {
@@ -493,7 +499,6 @@ namespace euf {
     }
 
     lbool solver::get_phase(bool_var v) { 
-        TRACE("euf", tout << "phase: " << v << "\n";);            
         auto* ext = bool_var2solver(v);
         if (ext)
             return ext->get_phase(v);

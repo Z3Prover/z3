@@ -257,12 +257,6 @@ namespace bv {
     }
 
     void solver::get_bits(theory_var v, expr_ref_vector& r) {
-        for (literal lit : m_bits[v]) {
-            if (!literal2expr(lit))
-                ctx.display(std::cout << "Missing expression: " << lit << "\n");
-            SASSERT(literal2expr(lit));
-        }
-
         for (literal lit : m_bits[v]) 
             r.push_back(literal2expr(lit));        
     }

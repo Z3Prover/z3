@@ -67,6 +67,7 @@ namespace array {
         array_union_find                     m_find;
 
         theory_var find(theory_var v) { return m_find.find(v); }
+        func_decl_ref_vector const& sort2diff(sort* s);
 
         // internalize
         bool visit(expr* e) override;
@@ -131,7 +132,7 @@ namespace array {
         axiom_record select_axiom(euf::enode* s, euf::enode* n) { return axiom_record(axiom_record::kind_t::is_select, n, s); }
         axiom_record default_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_default, n); }
         axiom_record store_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_store, n); }
-        axiom_record extensionality_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_extensionality, n); }
+        axiom_record extensionality_axiom(euf::enode* x, euf::enode* y) { return axiom_record(axiom_record::kind_t::is_extensionality, x, y); }
         axiom_record congruence_axiom(euf::enode* a, euf::enode* b) { return axiom_record(axiom_record::kind_t::is_congruence, a, b); }
 
         scoped_ptr<sat::constraint_base> m_constraint;
@@ -189,7 +190,7 @@ namespace array {
         std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const;
     public:
         solver(euf::solver& ctx, theory_id id);
-        ~solver() override {}
+        ~solver() override;
         bool is_external(bool_var v) override { return false; }
         bool propagate(literal l, sat::ext_constraint_idx idx) override { UNREACHABLE(); return false; }
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override {}
@@ -202,6 +203,8 @@ namespace array {
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(sat::solver* s, euf::solver& ctx) override;
         void new_eq_eh(euf::th_eq const& eq) override;
+        bool use_diseqs() const override { return true; }
+        void new_diseq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override;
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;

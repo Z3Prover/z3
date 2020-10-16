@@ -221,7 +221,6 @@ namespace bv {
         void get_arg_bits(app* n, unsigned idx, expr_ref_vector& r);
         void fixed_var_eh(theory_var v);
         bool is_bv(theory_var v) const { return bv.is_bv(var2expr(v)); }
-        sat::status status() const { return sat::status::th(m_is_redundant, get_id());  }
         void register_true_false_bit(theory_var v, unsigned i);
         void add_bit(theory_var v, sat::literal lit);
         atom* mk_atom(sat::bool_var b);

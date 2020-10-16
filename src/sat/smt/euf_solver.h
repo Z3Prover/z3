@@ -192,6 +192,7 @@ namespace euf {
             if (m_conflict) dealloc(sat::constraint_base::mem2base_ptr(m_conflict));
             if (m_eq) dealloc(sat::constraint_base::mem2base_ptr(m_eq));
             if (m_lit) dealloc(sat::constraint_base::mem2base_ptr(m_lit));
+            m_trail.reset();
         }
 
         struct scoped_set_translate {
@@ -211,9 +212,9 @@ namespace euf {
         
         sat::sat_internalizer& get_si() { return si; }
         ast_manager& get_manager() { return m; }
-        enode* get_enode(expr* e) { return m_egraph.find(e); }
-        sat::literal expr2literal(expr* e) const { return literal(si.to_bool_var(e), false); }
-        sat::literal enode2literal(enode* e) const { return expr2literal(e->get_expr()); }
+        enode* get_enode(expr* e) const { return m_egraph.find(e); }
+        sat::literal expr2literal(expr* e) const { return enode2literal(get_enode(e)); }
+        sat::literal enode2literal(enode* e) const { return sat::literal(e->bool_var(), false); }
         smt_params const& get_config() const { return m_config; }
         region& get_region() { return m_trail.get_region(); }
         egraph& get_egraph() { return m_egraph; }
@@ -299,8 +300,8 @@ namespace euf {
         void add_root(unsigned n, sat::literal const* lits);
         void add_aux(unsigned n, sat::literal const* lits);
         void track_relevancy(sat::bool_var v);
-        bool is_relevant(expr* e) const { return m_relevant_expr_ids.get(e->get_id(), true); }
-        bool is_relevant(enode* n) const { return m_relevant_expr_ids.get(n->get_expr_id(), true); }
+        bool is_relevant(expr* e) const;
+        bool is_relevant(enode* n) const;
 
         // model construction
         void update_model(model_ref& mdl);

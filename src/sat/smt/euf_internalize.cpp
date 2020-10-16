@@ -21,6 +21,9 @@ Author:
 namespace euf {
 
     void solver::internalize(expr* e, bool redundant) {
+        SASSERT(!get_enode(e) || get_enode(e)->bool_var() < UINT_MAX);
+        if (get_enode(e))
+            return;
         if (si.is_bool_op(e))
             attach_lit(si.internalize(e, redundant), e);
         else if (auto* ext = expr2solver(e))
@@ -31,23 +34,28 @@ namespace euf {
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
-        euf::enode* n = m_egraph.find(e);
+        euf::enode* n = get_enode(e);
         if (n) {
             if (m.is_bool(e)) {
                 VERIFY(!s().was_eliminated(n->bool_var()));
+                SASSERT(n->bool_var() != UINT_MAX);
                 return literal(n->bool_var(), sign);
             }
+            TRACE("euf", tout << "non-bool\n";);
             return sat::null_literal;
         }
         if (si.is_bool_op(e))
             return attach_lit(si.internalize(e, redundant), e);
         if (auto* ext = expr2solver(e))
             return ext->internalize(e, sign, root, redundant);
-        if (!visit_rec(m, e, sign, root, redundant))
+        if (!visit_rec(m, e, sign, root, redundant)) {
+            TRACE("euf", tout << "visit-rec\n";);          
             return sat::null_literal;
-        SASSERT(m_egraph.find(e));
+        }
+        SASSERT(get_enode(e));
         if (m.is_bool(e))
             return literal(si.to_bool_var(e), sign);
+        std::cout << "internalize-non-bool\n";
         return sat::null_literal;
     }
 
@@ -138,8 +146,9 @@ namespace euf {
         enode* n = m_egraph.find(e);
         if (!n) 
             n = m_egraph.mk(e, 0, nullptr); 
+        SASSERT(n->bool_var() == UINT_MAX || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
-        if (!m.is_true(e) && !m.is_false(e))
+        if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
             m_egraph.set_merge_enabled(n, false);
         return lit;
     }
@@ -174,7 +183,9 @@ namespace euf {
                 }
             }
             s().mk_clause(lits, st);
-        }
+            if (relevancy_enabled())
+                add_root(lits.size(), lits.c_ptr());
+    }
         else {
             // g(f(x_i)) = x_i
             // f(x_1) = a + .... + f(x_n) = a >= 2
@@ -198,6 +209,8 @@ namespace euf {
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.c_ptr(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
             s().mk_clause(1, &lit, st);
+            if (relevancy_enabled())
+                add_root(1, &lit);
         }
     }
 
@@ -216,6 +229,8 @@ namespace euf {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
                     sat::literal lit = internalize(eq, true, false, m_is_redundant);
                     s().add_clause(1, &lit, st);
+                    if (relevancy_enabled())
+                        add_root(1, &lit);
                 }
             }
         }
@@ -233,6 +248,8 @@ namespace euf {
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = internalize(eq, false, false, m_is_redundant);
                 s().add_clause(1, &lit, st);
+                if (relevancy_enabled())
+                    add_root(1, &lit);
             }
         }
     }

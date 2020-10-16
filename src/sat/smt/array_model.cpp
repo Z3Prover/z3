@@ -92,11 +92,6 @@ namespace array {
                 if (!value || value == fi->get_else())
                     continue;
                 args.reset();
-                bool relevant = true;
-                for (unsigned i = 1; relevant && i < p->num_args(); ++i)
-                    relevant = ctx.is_relevant(p->get_arg(i)->get_root());
-                if (!relevant)
-                    continue;
                 for (unsigned i = 1; i < p->num_args(); ++i) 
                     args.push_back(values.get(p->get_arg(i)->get_root_id()));    
                 fi->insert_entry(args.c_ptr(), value);

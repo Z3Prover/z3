@@ -285,7 +285,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             else {                
                 if (!is_uninterp_const(t)) {
                     if (m_euf) {
-                        convert_euf(t, root, sign);                        
+                        convert_euf(t, root, sign);  
                         return;
                     }
                     else
@@ -632,7 +632,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             flet<bool> _top(m_top_level, false);
             lit = euf->internalize(e, sign, root, m_is_redundant);           
         }
-        if (lit == sat::null_literal)
+        if (lit == sat::null_literal) 
             return;
         if (top_level_relevant())
             euf->track_relevancy(lit.var());

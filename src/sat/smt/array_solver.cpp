@@ -88,6 +88,8 @@ namespace array {
         m_constraint->initialize(m_constraint.get(), this);
     }
 
+    solver::~solver() {}
+
     sat::check_result solver::check() {
         force_push();
         // flet<bool> _is_redundant(m_is_redundant, true);
@@ -108,6 +110,8 @@ namespace array {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
+        if (get_num_vars() > 0)
+            out << "array\n";
         for (unsigned i = 0; i < get_num_vars(); ++i) {
             auto& d = get_var_data(i);
             out << var2enode(i)->get_expr_id() << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
@@ -117,6 +121,7 @@ namespace array {
         }
         return out;
     }
+
     std::ostream& solver::display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const {
         if (v.empty())
             return out;
@@ -161,6 +166,11 @@ namespace array {
     void solver::new_eq_eh(euf::th_eq const& eq) {
         force_push();
         m_find.merge(eq.v1(), eq.v2());
+    }
+
+    void solver::new_diseq_eh(euf::th_eq const& eq) {
+        force_push();
+        push_axiom(extensionality_axiom(var2enode(eq.v1()), var2enode(eq.v2())));
     }
 
     bool solver::unit_propagate() {

@@ -26,6 +26,7 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_solver.h"
 #include "math/lp/lp_types.h"
+#include "math/lp/lp_api.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "util/nat_set.h"
@@ -50,91 +51,6 @@
 
 typedef lp::var_index lpvar;
 
-namespace lp_api {
-enum bound_kind { lower_t, upper_t };
-
-std::ostream& operator<<(std::ostream& out, bound_kind const& k) {
-    switch (k) {
-    case lower_t: return out << "<=";
-    case upper_t: return out << ">=";
-    }
-    return out;
-}
-
-class bound { 
-    smt::bool_var    m_bv;
-    smt::theory_var  m_var;
-    lpvar            m_vi;
-    bool             m_is_int;
-    rational         m_value;
-    bound_kind       m_bound_kind;
-    lp::constraint_index m_constraints[2];
-
-public:
-    bound(smt::bool_var bv, smt::theory_var v, lpvar vi, bool is_int, rational const & val, bound_kind k, lp::constraint_index ct, lp::constraint_index cf):
-        m_bv(bv),
-        m_var(v),
-        m_vi(vi),
-        m_is_int(is_int),
-        m_value(val),
-        m_bound_kind(k) {
-        m_constraints[0] = cf;
-        m_constraints[1] = ct;
-    }
-    virtual ~bound() {}
-    smt::theory_var get_var() const { return m_var; }
-    lp::tv tv() const { return lp::tv::raw(m_vi); }
-    smt::bool_var get_bv() const { return m_bv; }
-    bound_kind get_bound_kind() const { return m_bound_kind; }
-    bool is_int() const { return m_is_int; }
-    rational const& get_value() const { return m_value; }
-    lp::constraint_index get_constraint(bool b) const { return m_constraints[b]; }
-    inf_rational get_value(bool is_true) const { 
-        if (is_true) return inf_rational(m_value);                         // v >= value or v <= value
-        if (m_is_int) {
-            SASSERT(m_value.is_int());
-            if (m_bound_kind == lower_t) return inf_rational(m_value - rational::one()); // v <= value - 1
-            return inf_rational(m_value + rational::one());                              // v >= value + 1
-        }
-        else {
-            if (m_bound_kind == lower_t) return inf_rational(m_value, false);  // v <= value - epsilon
-            return inf_rational(m_value, true);                                // v >= value + epsilon
-        }
-    } 
-    virtual std::ostream& display(std::ostream& out) const {
-        return out << m_value << "  " << get_bound_kind() << " v" << get_var();
-    }
-};
-
-std::ostream& operator<<(std::ostream& out, bound const& b) {
-    return b.display(out);
-}
-
-struct stats {
-    unsigned m_assert_lower;
-    unsigned m_assert_upper;
-    unsigned m_bounds_propagations;
-    unsigned m_num_iterations;
-    unsigned m_num_iterations_with_no_progress;
-    unsigned m_need_to_solve_inf;
-    unsigned m_fixed_eqs;
-    unsigned m_conflicts;
-    unsigned m_bound_propagations1;
-    unsigned m_bound_propagations2;
-    unsigned m_assert_diseq;
-    unsigned m_gomory_cuts;
-    unsigned m_assume_eqs;
-    unsigned m_branch;
-    stats() { reset(); }
-    void reset() {
-        memset(this, 0, sizeof(*this));
-    }
-};
-
-typedef optional<inf_rational> opt_inf_rational;
-
-
-}
 
 namespace smt {
 
@@ -387,7 +303,7 @@ class theory_lra::imp {
     }
 
     void found_underspecified(expr* n) {
-        if (is_app(n) && is_underspecified(to_app(n))) {
+        if (a.is_underspecified(n)) {
             TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
             m_underspecified.push_back(to_app(n));
         }
@@ -413,26 +329,6 @@ class theory_lra::imp {
             ctx().assign(lit, nullptr);
         }
 
-    }
-
-    bool is_numeral(expr* term, rational& r) {
-        rational mul(1);
-        do {
-            if (a.is_numeral(term, r)) {
-                r *= mul;
-                return true;
-            }
-            if (a.is_uminus(term, term)) {
-                mul.neg();
-                continue;
-            }
-            if (a.is_to_real(term, term)) {
-                continue;
-            }                
-            return false;
-        }
-        while (false);
-        return false;
     }
 
     void linearize_term(expr* term, scoped_internalize_state& st) {
@@ -471,12 +367,12 @@ class theory_lra::imp {
                     st.push(to_app(n)->get_arg(i), -coeffs[index]);
                 }
             }
-            else if (a.is_mul(n, n1, n2) && is_numeral(n1, r)) {
+            else if (a.is_mul(n, n1, n2) && a.is_extended_numeral(n1, r)) {
                 coeffs[index] *= r;
                 terms[index] = n2;
                 st.to_ensure_enode().push_back(n1);
             }
-            else if (a.is_mul(n, n1, n2) && is_numeral(n2, r)) {
+            else if (a.is_mul(n, n1, n2) && a.is_extended_numeral(n2, r)) {
                 coeffs[index] *= r;
                 terms[index] = n1;
                 st.to_ensure_enode().push_back(n2);
@@ -487,7 +383,7 @@ class theory_lra::imp {
                 vars.push_back(v);
                 ++index;
             }
-            else if(a.is_power(n, n1, n2) && is_app(n1) && is_numeral(n2, r) && r.is_unsigned() && r <= 10) {
+            else if(a.is_power(n, n1, n2) && is_app(n1) && a.is_extended_numeral(n2, r) && r.is_unsigned() && r <= 10) {
                 theory_var v = internalize_power(to_app(n), to_app(n1), r.get_unsigned());
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
@@ -672,27 +568,9 @@ class theory_lra::imp {
         ctx().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
-    bool is_underspecified(app* n) const {
-        if (n->get_family_id() == get_id()) {
-            switch (n->get_decl_kind()) {
-            case OP_DIV:
-            case OP_IDIV:
-            case OP_REM:
-            case OP_MOD:
-            case OP_DIV0:
-            case OP_IDIV0:
-            case OP_REM0:
-            case OP_MOD0:
-                return true;
-            default:
-                break;
-            }
-        }
-        return false;
-    }
 
     bool reflect(app* n) const {
-        return params().m_arith_reflect || is_underspecified(n);          
+        return params().m_arith_reflect || a.is_underspecified(n);          
     }
 
     bool has_var(expr* n) {
@@ -703,7 +581,7 @@ class theory_lra::imp {
         return th.is_attached_to_var(e);
     }
 
-    void ensure_bounds(theory_var v) {
+    void reserve_bounds(theory_var v) {
         while (m_bounds.size() <= static_cast<unsigned>(v)) {
             m_bounds.push_back(lp_bounds());
             m_unassigned_bounds.push_back(0);
@@ -720,7 +598,7 @@ class theory_lra::imp {
             v = th.mk_var(e);
             TRACE("arith", tout << "fresh var: v" << v << " " << mk_pp(n, m) << "\n";);
             SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
-            ensure_bounds(v);
+            reserve_bounds(v);
             ctx().attach_th_var(e, &th, v);
         }
         else {
@@ -1032,19 +910,19 @@ public:
         bool_var bv = ctx().mk_bool_var(atom);
         m_bool_var2bound.erase(bv);
         ctx().set_var_theory(bv, get_id());
-        if (a.is_le(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
+        if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n2, r) && is_app(n1)) {
             v = internalize_def(to_app(n1));
             k = lp_api::upper_t;
         }
-        else if (a.is_ge(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
+        else if (a.is_ge(atom, n1, n2) && a.is_extended_numeral(n2, r) && is_app(n1)) {
             v = internalize_def(to_app(n1));
             k = lp_api::lower_t;
         }  
-        else if (a.is_le(atom, n1, n2) && is_numeral(n1, r) && is_app(n2)) {
+        else if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n1, r) && is_app(n2)) {
             v = internalize_def(to_app(n2));
             k = lp_api::lower_t;
         }
-        else if (a.is_ge(atom, n1, n2) && is_numeral(n1, r) && is_app(n2)) {
+        else if (a.is_ge(atom, n1, n2) && a.is_extended_numeral(n1, r) && is_app(n2)) {
             v = internalize_def(to_app(n2));
             k = lp_api::upper_t;
         }
@@ -1891,24 +1769,6 @@ public:
      * 
      */
 
-    bool is_bounded(expr* n) {
-        expr* x = nullptr, *y = nullptr;
-        while (true) {
-            if (a.is_idiv(n, x, y) && a.is_numeral(y)) {
-                n = x;
-            }
-            else if (a.is_mod(n, x, y) && a.is_numeral(y)) {
-                return true;
-            }
-            else if (a.is_numeral(n)) {
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-    }
-
     bool check_idiv_bounds() {
         if (m_idiv_terms.empty()) {
             return true;
@@ -1918,7 +1778,7 @@ public:
             expr* n = m_idiv_terms[i];
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
-            theory_var v  = mk_var(n);
+            theory_var v = mk_var(n);
             theory_var v1 = mk_var(p);
 
             if (!can_get_ivalue(v1))
@@ -1937,7 +1797,7 @@ public:
             }
 
             if (a.is_numeral(q, r2) && r2.is_pos()) {
-                if (!is_bounded(n)) {
+                if (!a.is_bounded(n)) {
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
@@ -1957,7 +1817,7 @@ public:
                 // used to normalize inequalities so they 
                 // don't appear as 8*x >= 15, but x >= 2
                 expr *n1 = nullptr, *n2 = nullptr;
-                if (a.is_mul(p, n1, n2) && is_numeral(n1, mul) && mul.is_pos()) {
+                if (a.is_mul(p, n1, n2) && a.is_extended_numeral(n1, mul) && mul.is_pos()) {
                     p = n2;
                     hi = floor(hi/mul);
                     lo = ceil(lo/mul);
@@ -2271,7 +2131,7 @@ public:
         }
         else {
             for (enode * parent : r->get_const_parents()) {
-                if (is_underspecified(parent->get_owner())) {
+                if (a.is_underspecified(parent->get_owner())) {
                     return true;
                 }
             }
@@ -2391,7 +2251,7 @@ public:
 
         TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
 
-        ensure_bounds(v);
+        reserve_bounds(v);
 
             
         if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) {
@@ -3132,26 +2992,6 @@ public:
     bool set_lower_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, true);   }
 
     vector<constraint_bound> m_history;
-    template<typename Ctx, typename T, bool CallDestructors=true>
-    class history_trail : public trail<Ctx> {
-        vector<T, CallDestructors> & m_dst;
-        unsigned                     m_idx;
-        vector<T, CallDestructors> & m_hist;
-    public:
-        history_trail(vector<T, CallDestructors> & v, unsigned idx, vector<T, CallDestructors> & hist):
-            m_dst(v),
-            m_idx(idx),
-            m_hist(hist) {}
-
-        ~history_trail() override {
-        }
-
-        void undo(Ctx & ctx) override {
-            m_dst[m_idx] = m_hist.back();
-            m_hist.pop_back();
-        }
-    };
-
 
     bool set_bound(lp::tv tv, lp::constraint_index ci, rational const& v, bool is_lower) {
         if (tv.is_term()) {
@@ -3923,38 +3763,9 @@ public:
 
     void collect_statistics(::statistics & st) const {
         m_arith_eq_adapter.collect_statistics(st);
-        st.update("arith-lower", m_stats.m_assert_lower);
-        st.update("arith-upper", m_stats.m_assert_upper);
-        st.update("arith-propagations", m_stats.m_bounds_propagations);
-        st.update("arith-iterations", m_stats.m_num_iterations);
-        st.update("arith-factorizations", lp().settings().stats().m_num_factorizations);
-        st.update("arith-pivots", m_stats.m_need_to_solve_inf);
-        st.update("arith-plateau-iterations", m_stats.m_num_iterations_with_no_progress);
-        st.update("arith-fixed-eqs", m_stats.m_fixed_eqs);
-        st.update("arith-conflicts", m_stats.m_conflicts);
-        st.update("arith-bound-propagations-lp", m_stats.m_bound_propagations1);
-        st.update("arith-bound-propagations-cheap", m_stats.m_bound_propagations2);
-        st.update("arith-diseq", m_stats.m_assert_diseq);
-        st.update("arith-make-feasible", lp().settings().stats().m_make_feasible);
-        st.update("arith-max-columns", lp().settings().stats().m_max_cols);
-        st.update("arith-max-rows", lp().settings().stats().m_max_rows);
-        st.update("arith-gcd-calls", lp().settings().stats().m_gcd_calls);
-        st.update("arith-gcd-conflict", lp().settings().stats().m_gcd_conflicts);
-        st.update("arith-cube-calls", lp().settings().stats().m_cube_calls);
-        st.update("arith-cube-success", lp().settings().stats().m_cube_success);
-        st.update("arith-patches", lp().settings().stats().m_patches);
-        st.update("arith-patches-success", lp().settings().stats().m_patches_success);
-        st.update("arith-hnf-calls", lp().settings().stats().m_hnf_cutter_calls);
-        st.update("arith-horner-calls", lp().settings().stats().m_horner_calls);
-        st.update("arith-horner-conflicts", lp().settings().stats().m_horner_conflicts);
-        st.update("arith-horner-cross-nested-forms", lp().settings().stats().m_cross_nested_forms);
-        st.update("arith-grobner-calls", lp().settings().stats().m_grobner_calls);
-        st.update("arith-grobner-conflicts", lp().settings().stats().m_grobner_conflicts);
+        m_stats.collect_statistics(st);
+        lp().settings().stats().collect_statistics(st);
         if (m_nla) m_nla->collect_statistics(st);
-        st.update("arith-gomory-cuts", m_stats.m_gomory_cuts);
-        st.update("arith-assume-eqs", m_stats.m_assume_eqs);
-        st.update("arith-branch", m_stats.m_branch);
-        st.update("arith-cheap-eqs", lp().settings().stats().m_cheap_eqs);
     }        
 
     /*
