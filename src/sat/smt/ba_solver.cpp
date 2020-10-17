@@ -3137,17 +3137,16 @@ namespace sat {
     }
 
     extension* ba_solver::copy(solver* s) {
-        auto* r = clone_aux(m, si, m_id);
-        r->set_solver(s);
-        return r;
+        return clone_aux(m, *s, si, m_id);
     }
 
     euf::th_solver* ba_solver::clone(euf::solver& new_ctx) {
-        return clone_aux(new_ctx.get_manager(), new_ctx.get_si(), get_id());
+        return clone_aux(new_ctx.get_manager(), new_ctx.s(), new_ctx.get_si(), get_id());
     }
 
-    euf::th_solver* ba_solver::clone_aux(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id) {
+    euf::th_solver* ba_solver::clone_aux(ast_manager& m, sat::solver& s, sat::sat_internalizer& si, euf::theory_id id) {
         ba_solver* result = alloc(ba_solver, m, si, id);
+        result->set_solver(&s);
         copy_constraints(result, m_constraints);
         return result;
     }

@@ -201,43 +201,52 @@ namespace euf {
     }
 
     sat::literal th_euf_solver::eq_internalize(expr* a, expr* b) { 
-        return b_internalize(ctx.mk_eq(a, b)); 
+        expr_ref eq(ctx.mk_eq(a, b), m);
+        return b_internalize(eq); 
     }
 
     unsigned th_propagation::get_obj_size(unsigned num_lits, unsigned num_eqs) {
         return sizeof(th_propagation) + sizeof(sat::literal) * num_lits + sizeof(enode_pair) * num_eqs;
     }
 
-    th_propagation::th_propagation(sat::literal_vector const& lits, enode_pair_vector const& eqs) {
-        m_num_literals = lits.size();
-        m_num_eqs = eqs.size();
+    th_propagation::th_propagation(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs) {
+        m_num_literals = n_lits;
+        m_num_eqs = n_eqs;
         m_literals = reinterpret_cast<literal*>(reinterpret_cast<char*>(this) + sizeof(th_propagation));
-        unsigned i = 0;
-        for (sat::literal lit : lits)
-            m_literals[i++] = lit;
-        m_eqs = reinterpret_cast<enode_pair*>(reinterpret_cast<char*>(this) + sizeof(th_propagation) + sizeof(literal) * m_num_literals);
-        i = 0;
-        for (auto eq : eqs)
-            m_eqs[i++] = eq;
+        for (unsigned i = 0; i < n_lits; ++i)
+            m_literals[i] = lits[i];
+        m_eqs = reinterpret_cast<enode_pair*>(reinterpret_cast<char*>(this) + sizeof(th_propagation) + sizeof(literal) * n_lits);
+        for (unsigned i = 0; i < n_eqs; ++i)
+            m_eqs[i] = eqs[i];        
     }
 
     th_propagation* th_propagation::mk(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs) {
+        return mk(th, lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr());
+    }
+
+    th_propagation* th_propagation::mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs) {
         region& r = th.ctx.get_region();
-        void* mem = r.allocate(get_obj_size(lits.size(), eqs.size()));
+        void* mem = r.allocate(get_obj_size(n_lits, n_eqs));
         sat::constraint_base::initialize(mem, &th);
-        return new (sat::constraint_base::ptr2mem(mem)) th_propagation(lits, eqs);
+        return new (sat::constraint_base::ptr2mem(mem)) th_propagation(n_lits, lits, n_eqs, eqs);
+    }
+
+    th_propagation* th_propagation::mk(th_euf_solver& th, enode_pair_vector const& eqs) {
+        return mk(th, 0, nullptr, eqs.size(), eqs.c_ptr());
     }
 
     th_propagation* th_propagation::mk(th_euf_solver& th, sat::literal lit) {
-        sat::literal_vector lits;
-        lits.push_back(lit);
-        return mk(th, lits, enode_pair_vector());
+        return mk(th, 1, &lit, 0, nullptr);
+    }
+
+    th_propagation* th_propagation::mk(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y) {
+        enode_pair eq(x, y);
+        return mk(th, 1, &lit, 1, &eq);
     }
 
     th_propagation* th_propagation::mk(th_euf_solver& th, euf::enode* x, euf::enode* y) {
-        euf::enode_pair_vector eqs;
-        eqs.push_back(euf::enode_pair(x, y));
-        return mk(th, sat::literal_vector(), eqs);
+        enode_pair eq(x, y);
+        return mk(th, 0, nullptr, 1, &eq);
     }
 
     std::ostream& th_propagation::display(std::ostream& out) const {

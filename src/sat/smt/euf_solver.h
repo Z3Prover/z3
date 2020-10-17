@@ -247,6 +247,10 @@ namespace euf {
         bool propagate(enode* a, enode* b, ext_justification_idx idx);
         void set_conflict(ext_justification_idx idx);
 
+        void propagate(literal lit, th_propagation* p) { propagate(lit, p->to_index()); }
+        bool propagate(enode* a, enode* b, th_propagation* p) { return propagate(a, b, p->to_index()); }
+        void set_conflict(th_propagation* p) { set_conflict(p->to_index()); }
+
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
 

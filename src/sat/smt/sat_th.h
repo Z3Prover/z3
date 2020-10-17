@@ -150,7 +150,7 @@ namespace euf {
         sat::literal eq_internalize(expr* a, expr* b);
 
         euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
-        euf::enode* mk_enode(expr* e, bool suppress_args);
+        euf::enode* mk_enode(expr* e, bool suppress_args = false);
         expr_ref mk_eq(expr* e1, expr* e2);
         expr_ref mk_var_eq(theory_var v1, theory_var v2) { return mk_eq(var2expr(v1), var2expr(v2)); }
 
@@ -187,15 +187,18 @@ namespace euf {
 
 
     class th_propagation {
-        unsigned    m_num_literals;
-        unsigned    m_num_eqs;
-        sat::literal*    m_literals;
-        enode_pair* m_eqs;
+        unsigned       m_num_literals;
+        unsigned       m_num_eqs;
+        sat::literal*  m_literals;
+        enode_pair*    m_eqs;
         static unsigned get_obj_size(unsigned num_lits, unsigned num_eqs);
-        th_propagation(sat::literal_vector const& lits, enode_pair_vector const& eqs);
+        th_propagation(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
     public:
         static th_propagation* mk(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs);
+        static th_propagation* mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
+        static th_propagation* mk(th_euf_solver& th, enode_pair_vector const& eqs);
         static th_propagation* mk(th_euf_solver& th, sat::literal lit);
+        static th_propagation* mk(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
         static th_propagation* mk(th_euf_solver& th, euf::enode* x, euf::enode* y);
 
         sat::ext_constraint_idx to_index() const {

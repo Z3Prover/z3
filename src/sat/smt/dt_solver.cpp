@@ -38,25 +38,30 @@ namespace dt {
         m_var_data.reset();
     }
 
-    euf::th_solver* solver::clone(euf::solver& dst_ctx) { 
+    void solver::clone_var(solver& src, theory_var v) {
+        enode* n = src.ctx.copy(ctx, src.var2enode(v));
+        VERIFY(v == th_euf_solver::mk_var(n));
+        m_var_data.push_back(alloc(var_data));
+        var_data* d_dst = m_var_data[v];
+        var_data* d_src = src.m_var_data[v];
+        ctx.attach_th_var(n, this, v);
+        if (d_src->m_constructor && !d_dst->m_constructor)
+            d_dst->m_constructor = src.ctx.copy(ctx, d_src->m_constructor);
+        for (auto* r : d_src->m_recognizers)
+            d_dst->m_recognizers.push_back(src.ctx.copy(ctx, r));
+    }
+
+    euf::th_solver* solver::clone(euf::solver& dst_ctx) {
         auto* result = alloc(solver, dst_ctx, get_id());
-        for (unsigned v = 0; v < get_num_vars(); ++v) {
-            result->mk_var(ctx.copy(dst_ctx, var2enode(v)));
-            auto* d_src = m_var_data[v];
-            auto* d_dst = result->m_var_data[v];
-            if (d_src->m_constructor && !d_dst->m_constructor)
-                d_dst->m_constructor = ctx.copy(dst_ctx, d_src->m_constructor);
-            for (auto* r : d_src->m_recognizers) 
-                d_dst->m_recognizers.push_back(ctx.copy(dst_ctx, r));            
-        }
-        return result; 
-    } 
+        for (unsigned v = 0; v < get_num_vars(); ++v)
+            result->clone_var(*this, v);
+        return result;
+    }
 
     solver::final_check_st::final_check_st(solver& s) : s(s) {
         SASSERT(s.m_to_unmark1.empty());
         SASSERT(s.m_to_unmark2.empty());
         s.m_used_eqs.reset();
-        s.m_dfs.reset();
         s.m_dfs.reset();
     }
 
@@ -95,14 +100,14 @@ namespace dt {
        antecedent may be null_literal
     */
     void solver::assert_eq_axiom(enode* lhs, expr* rhs, literal antecedent) {
-        if (antecedent == sat::null_literal) 
-            add_unit(eq_internalize(lhs->get_expr(), rhs));        
+        if (antecedent == sat::null_literal)
+            add_unit(eq_internalize(lhs->get_expr(), rhs));
         else if (s().value(antecedent) == l_true) {
             euf::th_propagation* jst = euf::th_propagation::mk(*this, antecedent);
-            ctx.propagate(lhs, e_internalize(rhs), jst->to_index());
+            ctx.propagate(lhs, e_internalize(rhs), jst);
         }
-        else 
-            add_clause(~antecedent, eq_internalize(lhs->get_expr(), rhs));        
+        else
+            add_clause(~antecedent, eq_internalize(lhs->get_expr(), rhs));
     }
 
     /**
@@ -120,8 +125,8 @@ namespace dt {
         m_args.reset();
         ptr_vector<func_decl> const& accessors = *dt.get_constructor_accessors(c);
         SASSERT(c->get_arity() == accessors.size());
-        for (func_decl* d : accessors) 
-            m_args.push_back(m.mk_app(d, e));        
+        for (func_decl* d : accessors)
+            m_args.push_back(m.mk_app(d, e));
         expr_ref con(m.mk_app(c, m_args), m);
         assert_eq_axiom(n, con, antecedent);
     }
@@ -155,13 +160,12 @@ namespace dt {
         SASSERT(is_recognizer(r));
         SASSERT(dt.get_recognizer_constructor(r->get_decl()) == c->get_decl());
         SASSERT(c->get_root() == r->get_arg(0)->get_root());
-        TRACE("recognizer_conflict", tout << ctx.bpp(c) << "\n" << ctx.bpp(r) << "\n";);
+        TRACE("dt", tout << ctx.bpp(c) << "\n" << ctx.bpp(r) << "\n";);
         literal l = ctx.enode2literal(r);
         SASSERT(s().value(l) == l_false);
-        euf::enode_pair p(c, r->get_arg(0));
         clear_mark();
-        auto* jst = euf::th_propagation::mk(*this, c, r->get_arg(0));
-        ctx.propagate(~l, jst->to_index());
+        auto* jst = euf::th_propagation::mk(*this, ~l, c, r->get_arg(0));
+        ctx.set_conflict(jst);
     }
 
     /**
@@ -191,8 +195,7 @@ namespace dt {
             }
             else {
                 acc_app = m.mk_app(acc1, arg1);
-                ctx.internalize(acc_app, false);
-                arg = ctx.get_enode(acc_app);
+                arg = e_internalize(acc_app);
             }
             app_ref acc_own(m.mk_app(acc1, own), m);
             assert_eq_axiom(arg, acc_own, is_con);
@@ -246,7 +249,7 @@ namespace dt {
         SASSERT(d->m_constructor == nullptr);
         func_decl* r = nullptr;
 
-        TRACE("datatype_bug", tout << "non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
+        TRACE("dt", tout << "non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
 
         enode* recognizer = d->m_recognizers.get(non_rec_idx, nullptr);
         if (recognizer == nullptr)
@@ -274,7 +277,7 @@ namespace dt {
         }
         SASSERT(r != nullptr);
         app_ref r_app(m.mk_app(r, n->get_expr()), m);
-        TRACE("datatype", tout << "creating split: " << mk_pp(r_app, m) << "\n";);
+        TRACE("dt", tout << "creating split: " << mk_pp(r_app, m) << "\n";);
         b_internalize(r_app);
     }
 
@@ -291,8 +294,8 @@ namespace dt {
         //   (assert (> (len a) 1)
         //   
         // If the theory variable is not created for 'a', then a wrong model will be generated.
-        TRACE("datatype", tout << "apply_sort_cnstr: #" << n->get_expr_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
-        TRACE("datatype_bug",
+        TRACE("dt", tout << "apply_sort_cnstr: #" << n->get_expr_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
+        TRACE("dt_bug",
             tout << "apply_sort_cnstr:\n" << mk_pp(n->get_expr(), m) << " ";
             tout << dt.is_datatype(s) << " ";
             if (dt.is_datatype(s)) tout << "is-infinite: " << s->is_infinite() << " ";
@@ -318,7 +321,7 @@ namespace dt {
         enode* n = bool_var2enode(lit.var());
         if (!is_recognizer(n))
             return;
-        TRACE("datatype", tout << "assigning recognizer: #" << n->get_expr_id() << " " << ctx.bpp(n) << "\n";);
+        TRACE("dt", tout << "assigning recognizer: #" << n->get_expr_id() << " " << ctx.bpp(n) << "\n";);
         SASSERT(n->num_args() == 1);
         enode* arg = n->get_arg(0);
         theory_var tv = arg->get_th_var(get_id());
@@ -351,7 +354,7 @@ namespace dt {
         unsigned c_idx = dt.get_recognizer_constructor_idx(recognizer->get_decl());
         if (d->m_recognizers[c_idx] == nullptr) {
             lbool val = ctx.value(recognizer);
-            TRACE("datatype", tout << "adding recognizer to v" << v << " rec: #" << recognizer->get_expr_id() << " val: " << val << "\n";);
+            TRACE("dt", tout << "adding recognizer to v" << v << " rec: #" << recognizer->get_expr_id() << " val: " << val << "\n";);
             if (val == l_true) {
                 // do nothing... 
                 // If recognizer assignment was already processed, then
@@ -392,7 +395,7 @@ namespace dt {
             SASSERT(w != euf::null_theory_var);
             add_recognizer(w, recognizer);
         }
-        CTRACE("datatype", d->m_recognizers.empty(), ctx.display(tout););
+        CTRACE("dt", d->m_recognizers.empty(), ctx.display(tout););
         SASSERT(!d->m_recognizers.empty());
         literal_vector lits;
         enode_pair_vector eqs;
@@ -418,9 +421,9 @@ namespace dt {
             }
             ++idx;
         }
-        TRACE("datatype", tout << "propagate " << num_unassigned << " eqs: " << eqs.size() << "\n";);
+        TRACE("dt", tout << "propagate " << num_unassigned << " eqs: " << eqs.size() << "\n";);
         if (num_unassigned == 0)
-            ctx.set_conflict(euf::th_propagation::mk(*this, lits, eqs)->to_index());
+            ctx.set_conflict(euf::th_propagation::mk(*this, lits, eqs));
         else if (num_unassigned == 1) {
             // propagate remaining recognizer
             SASSERT(!lits.empty());
@@ -434,7 +437,7 @@ namespace dt {
             }
             else
                 consequent = ctx.enode2literal(r);
-            ctx.propagate(consequent, euf::th_propagation::mk(*this, lits, eqs)->to_index());
+            ctx.propagate(consequent, euf::th_propagation::mk(*this, lits, eqs));
         }
         else if (get_config().m_dt_lazy_splits == 0 || (!srt->is_infinite() && get_config().m_dt_lazy_splits == 1))
             // there are more than 2 unassigned recognizers...
@@ -444,7 +447,7 @@ namespace dt {
 
     void solver::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
         // v1 is the new root
-        TRACE("datatype", tout << "merging v" << v1 << " v" << v2 << "\n";);
+        TRACE("dt", tout << "merging v" << v1 << " v" << v2 << "\n";);
         SASSERT(v1 == static_cast<int>(m_find.find(v1)));
         var_data* d1 = m_var_data[v1];
         var_data* d2 = m_var_data[v2];
@@ -472,38 +475,11 @@ namespace dt {
                 add_recognizer(v1, e);
     }
 
-    std::ostream& solver::display(std::ostream& out) const {
-        unsigned num_vars = get_num_vars();
-        if (num_vars > 0)
-            out << "Theory datatype:\n";
-        for (unsigned v = 0; v < num_vars; v++)
-            display_var(out, v);
-        return out;
-    }
-
-    void solver::collect_statistics(::statistics& st) const {
-        st.update("datatype occurs check", m_stats.m_occurs_check);
-        st.update("datatype splits", m_stats.m_splits);
-        st.update("datatype constructor ax", m_stats.m_assert_cnstr);
-        st.update("datatype accessor ax", m_stats.m_assert_accessor);
-        st.update("datatype update ax", m_stats.m_assert_update_field);
-    }
-
-    void solver::display_var(std::ostream& out, theory_var v) const {
-        var_data* d = m_var_data[v];
-        out << "v" << v << " #" << var2expr(v)->get_id() << " -> v" << m_find.find(v) << " ";
-        if (d->m_constructor)
-            out << ctx.bpp(d->m_constructor);
-        else
-            out << "(null)";
-        out << "\n";
-    }
-
     ptr_vector<euf::enode> const& solver::get_array_args(enode* n) {
         m_array_args.reset();
         array::solver* th = dynamic_cast<array::solver*>(ctx.fid2solver(m_autil.get_family_id()));
-        for (enode* p : th->parent_selects(n)) 
-            m_array_args.push_back(p);        
+        for (enode* p : th->parent_selects(n))
+            m_array_args.push_back(p);
         app_ref def(m_autil.mk_default(n->get_expr()), m);
         m_array_args.push_back(ctx.get_enode(def));
         return m_array_args;
@@ -526,32 +502,26 @@ namespace dt {
 
         // collect equalities on all children that may have been used.
         bool found = false;
-        for (enode* arg : euf::enode_args(parentc)) {
-            // found an argument which is equal to root
+        auto add = [&](enode* arg) {
             if (arg->get_root() == child->get_root()) {
-                if (arg != child) {
+                if (arg != child)
                     m_used_eqs.push_back(enode_pair(arg, child));
-                }
                 found = true;
             }
+        };
+        for (enode* arg : euf::enode_args(parentc)) {
+            add(arg);
             sort* s = m.get_sort(arg->get_expr());
-            if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s))) {
-                for (enode* aarg : get_array_args(arg)) {
-                    if (aarg->get_root() == child->get_root()) {
-                        if (aarg != child) {
-                            m_used_eqs.push_back(enode_pair(aarg, child));
-                        }
-                        found = true;
-                    }
-                }
-            }
+            if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s)))
+                for (enode* aarg : get_array_args(arg))
+                    add(aarg);
         }
         VERIFY(found);
     }
 
     // explain the cycle root -> ... -> app -> root
     void solver::occurs_check_explain(enode* app, enode* root) {
-        TRACE("datatype", tout << "occurs_check_explain " << ctx.bpp(app) << " <-> " << ctx.bpp(root) << "\n";);
+        TRACE("dt", tout << "occurs_check_explain " << ctx.bpp(app) << " <-> " << ctx.bpp(root) << "\n";);
 
         // first: explain that root=v, given that app=cstor(...,v,...)
 
@@ -569,7 +539,7 @@ namespace dt {
         if (app != root)
             m_used_eqs.push_back(enode_pair(app, root));
 
-        TRACE("datatype",
+        TRACE("dt",
             tout << "occurs_check\n"; for (enode_pair const& p : m_used_eqs) tout << ctx.bpp(p.first) << " - " << ctx.bpp(p.second) << " ";);
     }
 
@@ -586,9 +556,8 @@ namespace dt {
         enode* parent = d->m_constructor;
         oc_mark_on_stack(parent);
         for (enode* arg : euf::enode_args(parent)) {
-            if (oc_cycle_free(arg)) {
+            if (oc_cycle_free(arg))
                 continue;
-            }
             if (oc_on_stack(arg)) {
                 // arg was explored before app, and is still on the stack: cycle
                 occurs_check_explain(parent, arg);
@@ -603,9 +572,8 @@ namespace dt {
             }
             else if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s))) {
                 for (enode* aarg : get_array_args(arg)) {
-                    if (oc_cycle_free(aarg)) {
+                    if (oc_cycle_free(aarg))
                         continue;
-                    }
                     if (oc_on_stack(aarg)) {
                         occurs_check_explain(parent, aarg);
                         return true;
@@ -628,7 +596,7 @@ namespace dt {
        a3 = cons(v3, a1)
     */
     bool solver::occurs_check(enode* n) {
-        TRACE("datatype", tout << "occurs check: " << ctx.bpp(n) << "\n";);
+        TRACE("dt", tout << "occurs check: " << ctx.bpp(n) << "\n";);
         m_stats.m_occurs_check++;
 
         bool res = false;
@@ -640,10 +608,10 @@ namespace dt {
             enode* app = m_dfs.back().second;
             m_dfs.pop_back();
 
-            if (oc_cycle_free(app)) 
+            if (oc_cycle_free(app))
                 continue;
 
-            TRACE("datatype", tout << "occurs check loop: " << ctx.bpp(app) << (op == ENTER ? " enter" : " exit") << "\n";);
+            TRACE("dt", tout << "occurs check loop: " << ctx.bpp(app) << (op == ENTER ? " enter" : " exit") << "\n";);
 
             switch (op) {
             case ENTER:
@@ -658,7 +626,7 @@ namespace dt {
 
         if (res) {
             clear_mark();
-            ctx.set_conflict(euf::th_propagation::mk(*this, literal_vector(), m_used_eqs)->to_index());
+            ctx.set_conflict(euf::th_propagation::mk(*this, m_used_eqs));
         }
         return res;
     }
@@ -675,11 +643,9 @@ namespace dt {
                 enode* node = var2enode(v);
                 if (!is_datatype(node))
                     continue;
-                if (!oc_cycle_free(node) && occurs_check(node)) {
+                if (!oc_cycle_free(node) && occurs_check(node))
                     // conflict was detected... 
-                    // return...
                     return sat::check_result::CR_CONTINUE;
-                }
                 if (get_config().m_dt_lazy_splits > 0) {
                     // using lazy case splits...
                     var_data* d = m_var_data[v];
@@ -716,18 +682,18 @@ namespace dt {
         m_args.reset();
         for (enode* arg : euf::enode_args(m_var_data[v]->m_constructor))
             m_args.push_back(values.get(arg->get_root_id()));
-        values.set(n->get_root_id(), m.mk_app(c_decl, m_args));    
+        values.set(n->get_root_id(), m.mk_app(c_decl, m_args));
     }
 
     void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
         theory_var v = n->get_th_var(get_id());
         for (enode* arg : euf::enode_args(m_var_data[m_find.find(v)]->m_constructor))
-            dep.add(n, arg);        
+            dep.add(n, arg);
     }
 
-    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) { 
+    sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         if (!visit_rec(m, e, sign, root, redundant)) {
-            TRACE("array", tout << mk_pp(e, m) << "\n";);
+            TRACE("dt", tout << mk_pp(e, m) << "\n";);
             return sat::null_literal;
         }
         auto lit = ctx.expr2literal(e);
@@ -746,7 +712,7 @@ namespace dt {
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
             ctx.internalize(e, m_is_redundant);
             if (is_datatype(e))
-               mk_var(expr2enode(e));
+                mk_var(expr2enode(e));
             return true;
         }
         m_stack.push_back(sat::eframe(e));
@@ -759,21 +725,20 @@ namespace dt {
     }
 
     bool solver::post_visit(expr* term, bool sign, bool root) {
-        euf::enode* n = expr2enode(term);      
+        euf::enode* n = expr2enode(term);
         SASSERT(!n || !n->is_attached_to(get_id()));
         if (!n)
-            n = mk_enode(term, false);
+            n = mk_enode(term);
         SASSERT(!n->is_attached_to(get_id()));
         if (is_constructor(term) || is_update_field(term)) {
             for (enode* arg : euf::enode_args(n)) {
                 sort* s = m.get_sort(arg->get_expr());
-                if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s))) {
-                    app_ref def(m_autil.mk_default(arg->get_expr()), m);
-                    ctx.internalize(def, m_is_redundant);
-                    arg = ctx.get_enode(def);
-                }
                 if (dt.is_datatype(s))
                     mk_var(arg);
+                else if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s))) {
+                    app_ref def(m_autil.mk_default(arg->get_expr()), m);
+                    mk_var(e_internalize(def));
+                }
             }
             mk_var(n);
         }
@@ -791,4 +756,30 @@ namespace dt {
         return true;
     }
 
+    void solver::collect_statistics(::statistics& st) const {
+        st.update("datatype occurs check", m_stats.m_occurs_check);
+        st.update("datatype splits", m_stats.m_splits);
+        st.update("datatype constructor ax", m_stats.m_assert_cnstr);
+        st.update("datatype accessor ax", m_stats.m_assert_accessor);
+        st.update("datatype update ax", m_stats.m_assert_update_field);
+    }
+
+    std::ostream& solver::display(std::ostream& out) const {
+        unsigned num_vars = get_num_vars();
+        if (num_vars > 0)
+            out << "Theory datatype:\n";
+        for (unsigned v = 0; v < num_vars; v++)
+            display_var(out, v);
+        return out;
+    }
+
+    void solver::display_var(std::ostream& out, theory_var v) const {
+        var_data* d = m_var_data[v];
+        out << "v" << v << " #" << var2expr(v)->get_id() << " -> v" << m_find.find(v) << " ";
+        if (d->m_constructor)
+            out << ctx.bpp(d->m_constructor);
+        else
+            out << "(null)";
+        out << "\n";
+    }
 }

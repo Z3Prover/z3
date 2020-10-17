@@ -151,7 +151,7 @@ namespace sat {
         unsigned_vector           m_weights;
         svector<wliteral>         m_wlits;
 
-        euf::th_solver* clone_aux(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
+        euf::th_solver* clone_aux(ast_manager& m, sat::solver& s, sat::sat_internalizer& si, euf::theory_id id);
 
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, bool& self);
