@@ -101,7 +101,7 @@ namespace euf {
     public:
         th_solver(ast_manager& m, symbol const& name, euf::theory_id id) : extension(name, id), m(m) {}
 
-        virtual th_solver* clone(sat::solver* s, euf::solver& ctx) = 0;
+        virtual th_solver* clone(euf::solver& ctx) = 0;
 
         virtual void new_eq_eh(euf::th_eq const& eq) {}
 
@@ -195,6 +195,8 @@ namespace euf {
         th_propagation(sat::literal_vector const& lits, enode_pair_vector const& eqs);
     public:
         static th_propagation* mk(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs);
+        static th_propagation* mk(th_euf_solver& th, sat::literal lit);
+        static th_propagation* mk(th_euf_solver& th, euf::enode* x, euf::enode* y);
 
         sat::ext_constraint_idx to_index() const {
             return sat::constraint_base::mem2base(this);
@@ -203,18 +205,24 @@ namespace euf {
             return *reinterpret_cast<th_propagation*>(sat::constraint_base::from_index(idx)->mem());
         }
 
+        sat::extension& ext() const {
+            return *sat::constraint_base::to_extension(to_index());
+        }
+
+        std::ostream& display(std::ostream& out) const;
+
         class lits {
-            th_propagation& th;
+            th_propagation const& th;
         public:
-            lits(th_propagation& th) : th(th) {}
+            lits(th_propagation const& th) : th(th) {}
             sat::literal const* begin() const { return th.m_literals; }
             sat::literal const* end() const { return th.m_literals + th.m_num_literals; }
         };
 
         class eqs {
-            th_propagation& th;
+            th_propagation const& th;
         public:
-            eqs(th_propagation& th) : th(th) {}
+            eqs(th_propagation const& th) : th(th) {}
             enode_pair const* begin() const { return th.m_eqs; }
             enode_pair const* end() const { return th.m_eqs + th.m_num_eqs; }
         };

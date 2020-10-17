@@ -124,7 +124,7 @@ namespace user {
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
-        euf::th_solver* clone(sat::solver* s, euf::solver& ctx) override;
+        euf::th_solver* clone(euf::solver& ctx) override;
 
     };
 };

@@ -20,6 +20,7 @@ z3_add_component(sat_smt
     bv_internalize.cpp
     bv_invariant.cpp
     bv_solver.cpp
+    dt_solver.cpp
     euf_ackerman.cpp
     euf_internalize.cpp
     euf_invariant.cpp

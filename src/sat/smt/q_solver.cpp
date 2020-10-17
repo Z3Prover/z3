@@ -61,7 +61,7 @@ namespace q {
         st.update("quantifier asserts", m_stats.m_num_quantifier_asserts);
     }
 
-    euf::th_solver* solver::clone(sat::solver* s, euf::solver& ctx) {
+    euf::th_solver* solver::clone(euf::solver& ctx) {
         return alloc(solver, ctx);
     }
 

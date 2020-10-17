@@ -227,4 +227,26 @@ namespace euf {
         sat::constraint_base::initialize(mem, &th);
         return new (sat::constraint_base::ptr2mem(mem)) th_propagation(lits, eqs);
     }
+
+    th_propagation* th_propagation::mk(th_euf_solver& th, sat::literal lit) {
+        sat::literal_vector lits;
+        lits.push_back(lit);
+        return mk(th, lits, enode_pair_vector());
+    }
+
+    th_propagation* th_propagation::mk(th_euf_solver& th, euf::enode* x, euf::enode* y) {
+        euf::enode_pair_vector eqs;
+        eqs.push_back(euf::enode_pair(x, y));
+        return mk(th, sat::literal_vector(), eqs);
+    }
+
+    std::ostream& th_propagation::display(std::ostream& out) const {
+        for (auto lit : euf::th_propagation::lits(*this))
+            out << lit << " ";
+        for (auto eq : euf::th_propagation::eqs(*this))
+            out << eq.first->get_expr_id() << " == " << eq.second->get_expr_id() << " ";
+        return out;
+    }
+
+
 }

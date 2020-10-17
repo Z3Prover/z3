@@ -76,7 +76,7 @@ namespace sat {
             ~scoped_drating() { ext.m_drating = false;  }
         };
         virtual void init_search() {}
-        virtual bool propagate(sat::literal l, sat::ext_constraint_idx idx) { UNREACHABLE(); return false; }
+        virtual bool propagated(sat::literal l, sat::ext_constraint_idx idx) { UNREACHABLE(); return false; }
         virtual bool unit_propagate() = 0;        
         virtual bool is_external(bool_var v) { return false; }
         virtual double get_reward(literal l, ext_constraint_idx idx, literal_occs_fun& occs) const { return 0; }

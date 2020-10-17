@@ -1354,7 +1354,7 @@ namespace sat {
         watch_list::iterator it = wlist.begin(), it2 = it, end = wlist.end();
         for (; it != end && !inconsistent(); ++it) {
             SASSERT(it->get_kind() == watched::EXT_CONSTRAINT);
-            bool keep = m_s.m_ext->propagate(l, it->get_ext_constraint_idx());
+            bool keep = m_s.m_ext->propagated(l, it->get_ext_constraint_idx());
             if (m_search_mode == lookahead_mode::lookahead1 && !m_inconsistent) {
                 lookahead_literal_occs_fun literal_occs_fn(*this);
                 m_lookahead_reward += m_s.m_ext->get_reward(l, it->get_ext_constraint_idx(), literal_occs_fn);

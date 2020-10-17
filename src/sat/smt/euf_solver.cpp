@@ -154,10 +154,18 @@ namespace euf {
         return false;
     }
 
-    bool solver::propagate(literal l, ext_constraint_idx idx) { 
+    bool solver::propagated(literal l, ext_constraint_idx idx) { 
         auto* ext = sat::constraint_base::to_extension(idx);
         SASSERT(ext != this);
-        return ext->propagate(l, idx);
+        return ext->propagated(l, idx);
+    }
+
+    void solver::set_conflict(ext_constraint_idx idx) {
+        s().set_conflict(sat::justification::mk_ext_justification(s().scope_lvl(), idx));
+    }
+
+    void solver::propagate(literal lit, ext_justification_idx idx) {
+        s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
@@ -190,6 +198,23 @@ namespace euf {
 
         if (!probing)
             log_antecedents(l, r);
+    }
+
+    void solver::get_antecedents(literal l, th_propagation& jst, literal_vector& r, bool probing) {
+        for (auto lit : euf::th_propagation::lits(jst))
+            r.push_back(lit);
+        for (auto eq : euf::th_propagation::eqs(jst))
+            add_antecedent(eq.first, eq.second);
+
+        if (!probing && use_drat()) {
+            literal_vector lits;
+            for (auto lit : euf::th_propagation::lits(jst))
+                lits.push_back(~lit);
+            lits.push_back(l);
+            get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id()));
+            for (auto eq : euf::th_propagation::eqs(jst))
+                IF_VERBOSE(0, verbose_stream() << "drat-log with equalities is TBD " << eq.first->get_expr_id() << "\n");
+        }
     }
 
     void solver::add_antecedent(enode* a, enode* b) {
@@ -584,6 +609,17 @@ namespace euf {
         st.update("euf ackerman", m_stats.m_ackerman);
     }
 
+    enode* solver::copy(solver& dst_ctx, enode* src_n) {
+        if (!src_n)
+            return nullptr;
+        ast_translation tr(m, dst_ctx.get_manager(), false);
+        expr* e1 = src_n->get_expr();
+        expr* e2 = tr(e1);
+        euf::enode* n2 = dst_ctx.get_enode(e2);
+        SASSERT(n2);
+        return n2;
+    }
+
     sat::extension* solver::copy(sat::solver* s) { 
         auto* r = alloc(solver, *m_to_m, *m_to_si);
         r->m_config = m_config;
@@ -598,8 +634,11 @@ namespace euf {
         r->set_solver(s);
         for (unsigned i = 0; i < m_id2solver.size(); ++i) {
             auto* e = m_id2solver[i];
-            if (e)
-                r->add_solver(i, e->clone(s, *r));
+            if (e) {
+                auto* c = e->clone(*r);
+                r->add_solver(i, c);
+                c->set_solver(s);
+            }
         }
         return r;
     }

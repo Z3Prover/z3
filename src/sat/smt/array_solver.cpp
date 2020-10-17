@@ -151,15 +151,10 @@ namespace array {
         st.update("array splits",       m_stats.m_num_eq_splits);
     }
 
-    euf::th_solver* solver::clone(sat::solver* s, euf::solver& ctx) {
-        auto* result = alloc(solver, ctx, get_id());
-        ast_translation tr(m, ctx.get_manager());
-        for (unsigned i = 0; i < get_num_vars(); ++i) {
-            expr* e1 = var2expr(i);
-            expr* e2 = tr(e1);
-            euf::enode* n = ctx.get_enode(e2);
-            result->mk_var(n);
-        }
+    euf::th_solver* solver::clone(euf::solver& dst_ctx) {
+        auto* result = alloc(solver, dst_ctx, get_id());
+        for (unsigned i = 0; i < get_num_vars(); ++i)          
+            result->mk_var(ctx.copy(dst_ctx, var2enode(i)));        
         return result;
     }
 

@@ -260,7 +260,6 @@ namespace bv {
     double solver::get_reward(literal l, sat::ext_constraint_idx idx, sat::literal_occs_fun& occs) const { return 0; }
     bool solver::is_extended_binary(sat::ext_justification_idx idx, literal_vector& r) { return false; }
     bool solver::is_external(bool_var v) { return true; }
-    bool solver::propagate(literal l, sat::ext_constraint_idx idx) { return false; }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
         auto& c = bv_justification::from_index(idx);
@@ -649,7 +648,7 @@ namespace bv {
 
     sat::extension* solver::copy(sat::solver* s) { UNREACHABLE(); return nullptr; }
 
-    euf::th_solver* solver::clone(sat::solver* s, euf::solver& ctx) {
+    euf::th_solver* solver::clone(euf::solver& ctx) {
         bv::solver* result = alloc(bv::solver, ctx, get_id());
         ast_translation tr(m, ctx.get_manager());
         for (unsigned i = 0; i < get_num_vars(); ++i) {

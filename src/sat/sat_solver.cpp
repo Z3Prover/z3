@@ -1180,7 +1180,7 @@ namespace sat {
             }
             case watched::EXT_CONSTRAINT:
                 SASSERT(m_ext);
-                keep = m_ext->propagate(l, it->get_ext_constraint_idx());
+                keep = m_ext->propagated(l, it->get_ext_constraint_idx());
                 if (m_inconsistent) {
                     if (!keep) {
                         ++it;

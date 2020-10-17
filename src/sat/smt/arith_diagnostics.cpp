@@ -53,12 +53,7 @@ namespace arith {
     }
 
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { 
-        auto& jst = euf::th_propagation::from_index(idx);
-        for (auto lit : euf::th_propagation::lits(jst))
-            out << lit << " ";
-        for (auto eq : euf::th_propagation::eqs(jst))
-            out << eq.first->get_expr_id() << " == " << eq.second->get_expr_id() << " ";
-        return out;
+        return euf::th_propagation::from_index(idx).display(out);
     }
 
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { 
