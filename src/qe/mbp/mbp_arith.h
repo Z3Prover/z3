@@ -7,11 +7,11 @@ Copyright (c) 2015 Microsoft Corporation
 
 #pragma once
 
-#include "model/model.h"
 #include "ast/arith_decl_plugin.h"
-#include "qe/qe_mbp.h"
+#include "model/model.h"
+#include "qe/mbp/mbp_plugin.h"
 
-namespace qe {
+namespace mbp {
 
     /**
        Loos-Weispfenning model-based projection for a basic conjunction.

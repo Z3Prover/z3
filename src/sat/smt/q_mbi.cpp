@@ -94,7 +94,8 @@ namespace q {
         init_solver();
         ::solver::scoped_push _sp(*m_solver);
         expr_ref_vector vars(m);
-        expr_ref body = specialize(q, vars);        
+        quantifier* q_flat = qs.flatten(q);
+        expr_ref body = specialize(q_flat, vars);    
         m_solver->assert_expr(body);
         lbool r = m_solver->check_sat(0, nullptr);
         if (r == l_undef)
@@ -105,17 +106,17 @@ namespace q {
         m_solver->get_model(mdl0); 
         expr_ref proj(m);
         auto add_projection = [&](model& mdl, bool inv) {
-            proj = project(mdl, q, vars, inv);
+            proj = project(mdl, q_flat, vars, inv);
             if (!proj)
                 return;
             if (is_forall(q))
                 qs.add_clause(~ctx.expr2literal(q), ctx.b_internalize(proj));
             else
-                qs.add_clause(ctx.expr2literal(q), ~ctx.b_internalize(proj));
+                qs.add_clause(ctx.expr2literal(q),  ~ctx.b_internalize(proj));
         };
         bool added = false;
 #if 0
-        m_model_finder.restrict_instantiations(*m_solver, *mdl0, q, vars);
+        m_model_finder.restrict_instantiations(*m_solver, *mdl0, q_flat, vars);
         for (unsigned i = 0; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
             m_solver->get_model(mdl1);
             add_projection(*mdl1, true);

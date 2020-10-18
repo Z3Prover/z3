@@ -3,7 +3,7 @@ Copyright (c) Arie Gurfinkel
 
 Module Name:
 
-    qe_term_graph.h
+    mbp_term_graph.h
 
 Abstract:
 
@@ -19,12 +19,12 @@ Notes:
 #pragma once
 
 #include "ast/ast.h"
+#include "ast/is_variable_test.h"
 #include "util/plugin_manager.h"
-#include "qe/qe_solve_plugin.h"
-#include "qe/qe_vartest.h"
+#include "qe/mbp/mbp_solve_plugin.h"
 #include "model/model.h"
 
-namespace qe {
+namespace mbp {
 
     class term;
 
@@ -53,7 +53,7 @@ namespace qe {
         ast_ref_vector    m_pinned;
         projector*        m_projector;
         u_map<expr*>      m_term2app;
-        plugin_manager<qe::solve_plugin> m_plugins;
+        plugin_manager<solve_plugin> m_plugins;
         ptr_hashtable<term, term_hash, term_eq> m_cg_table;
         vector<std::pair<term*,term*>> m_merge;
 

@@ -32,7 +32,7 @@ Revision History:
 #include "qe/nlarith_util.h"
 #include "model/model_evaluator.h"
 #include "smt/smt_kernel.h"
-#include "qe/qe_arith.h"
+#include "qe/mbp/mbp_arith.h"
 
 namespace qe {
 

@@ -4,7 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "qe/qe_arith.h"
+#include "qe/mbp/mbp_arith.h"
 #include "qe/qe.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "parsers/smt2/smt2parser.h"
@@ -80,7 +80,7 @@ static void test(app* var, expr_ref& fml) {
         if (result != l_true) return;
         ctx.get_model(md);
     }    
-    VERIFY(qe::arith_project(*md, var, lits));
+    VERIFY(mbp::arith_project(*md, var, lits));
     pr = mk_and(lits);
    
     std::cout << "original:  " << mk_pp(fml, m) << "\n";
@@ -265,7 +265,7 @@ static void test2(char const *ex) {
     fml2 = m.mk_exists(bound.size(), sorts.c_ptr(), names.c_ptr(), fml2);
     qe::expr_quant_elim qe(m, params);
     for (unsigned i = 0; i < vars.size(); ++i) {
-        VERIFY(qe::arith_project(*md, vars[i].get(), lits));
+        VERIFY(mbp::arith_project(*md, vars[i].get(), lits));
     }
     pr1 = mk_and(lits);
     qe(m.mk_true(), fml2, pr2);
@@ -382,7 +382,7 @@ static void add_random_ineq(
 }
 
 static void test_maximize(opt::model_based_opt& mbo, ast_manager& m, unsigned num_vars, expr_ref_vector const& fmls, app* t) {
-    qe::arith_project_plugin plugin(m);
+    mbp::arith_project_plugin plugin(m);
     model mdl(m);    
     arith_util a(m);
     for (unsigned i = 0; i < num_vars; ++i) {
@@ -442,7 +442,7 @@ static void check_random_ineqs() {
 static void test_project() {
     ast_manager m;
     reg_decl_plugins(m);    
-    qe::arith_project_plugin plugin(m);    
+    mbp::arith_project_plugin plugin(m);    
     arith_util a(m);
     app_ref_vector vars(m);
     expr_ref_vector lits(m), ds(m);

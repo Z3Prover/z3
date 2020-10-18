@@ -24,10 +24,10 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "ast/occurs.h"
-#include "qe/qe_term_graph.h"
 #include "model/model_evaluator.h"
+#include "qe/mbp/mbp_term_graph.h"
 
-namespace qe {
+namespace mbp {
 
     static expr_ref mk_neq(ast_manager &m, expr *e1, expr *e2) {
         expr *t = nullptr;
@@ -245,8 +245,8 @@ namespace qe {
     bool term_graph::term_eq::operator()(term const* a, term const* b) const { return term::cg_eq(a, b); }
 
     term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m), m_projector(nullptr) {
-        m_plugins.register_plugin(mk_basic_solve_plugin(m, m_is_var));
-        m_plugins.register_plugin(mk_arith_solve_plugin(m, m_is_var));
+        m_plugins.register_plugin(mbp::mk_basic_solve_plugin(m, m_is_var));
+        m_plugins.register_plugin(mbp::mk_arith_solve_plugin(m, m_is_var));
     }
 
     term_graph::~term_graph() {
@@ -283,7 +283,7 @@ namespace qe {
         for (unsigned i = 0; i < lits.size(); ++i) {
             l = lits.get(i);
             family_id fid = get_family_id(m, l);
-            qe::solve_plugin *pin = m_plugins.get_plugin(fid);
+            mbp::solve_plugin *pin = m_plugins.get_plugin(fid);
             lit = pin ? (*pin)(l) : l;
             if (m.is_and(lit)) {
                 lits.append(::to_app(lit)->get_num_args(), ::to_app(lit)->get_args());

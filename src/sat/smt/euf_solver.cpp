@@ -26,6 +26,7 @@ Author:
 #include "sat/smt/arith_solver.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/fpa_solver.h"
+#include "sat/smt/dt_solver.h"
 
 namespace euf {
 
@@ -101,16 +102,19 @@ namespace euf {
         array_util au(m);
         fpa_util fpa(m);
         arith_util arith(m);
-        if (pb.get_family_id() == fid) 
+        datatype_util dt(m);
+        if (pb.get_family_id() == fid)
             ext = alloc(sat::ba_solver, *this, fid);
-        else if (bvu.get_family_id() == fid) 
+        else if (bvu.get_family_id() == fid)
             ext = alloc(bv::solver, *this, fid);
-        else if (au.get_family_id() == fid) 
+        else if (au.get_family_id() == fid)
             ext = alloc(array::solver, *this, fid);
-        else if (fpa.get_family_id() == fid) 
+        else if (fpa.get_family_id() == fid)
             ext = alloc(fpa::solver, *this);
         else if (arith.get_family_id() == fid)
             ext = alloc(arith::solver, *this, fid);
+        else if (dt.get_family_id() == fid)
+            ext = alloc(dt::solver, *this, fid);
         
         if (ext) {
             if (use_drat())

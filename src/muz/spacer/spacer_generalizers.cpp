@@ -30,7 +30,7 @@ Revision History:
 #include "ast/substitution/matcher.h"
 #include "ast/expr_functors.h"
 #include "smt/smt_solver.h"
-#include "qe/qe_term_graph.h"
+#include "qe/mbp/mbp_term_graph.h"
 
 namespace spacer {
 void lemma_sanity_checker::operator()(lemma_ref &lemma) {
@@ -309,14 +309,13 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     {TRACE("core_array_eq", tout << "Not-Inductive!\n";);}
 }
 
-void lemma_eq_generalizer::operator() (lemma_ref &lemma)
-{
+void lemma_eq_generalizer::operator() (lemma_ref &lemma) {
     TRACE("core_eq", tout << "Transforming equivalence classes\n";);
 
     if (lemma->get_cube().empty()) return;
 
     ast_manager &m = m_ctx.get_ast_manager();
-    qe::term_graph egraph(m);
+    mbp::term_graph egraph(m);
     egraph.add_lits(lemma->get_cube());
 
     // -- expand the cube with all derived equalities

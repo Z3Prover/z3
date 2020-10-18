@@ -19,20 +19,19 @@ Revision History:
 
 --*/
 
-#include "qe/qe_arith.h"
-#include "qe/qe_mbp.h"
+#include "qe/mbp/mbp_arith.h"
 #include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "model/model_v2_pp.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/expr_functors.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "math/simplex/model_based_opt.h"
 #include "model/model_evaluator.h"
 #include "model/model_smt2_pp.h"
+#include "model/model_v2_pp.h"
 
-namespace qe {
+namespace mbp {
     
     struct arith_project_plugin::imp {
 
@@ -475,14 +474,7 @@ namespace qe {
         }        
 
         expr_ref mk_add(expr_ref_vector const& ts) {
-            switch (ts.size()) {
-            case 0:
-                return expr_ref(a.mk_int(0), m);
-            case 1:
-                return expr_ref(ts.get(0), m);
-            default:
-                return expr_ref(a.mk_add(ts.size(), ts.c_ptr()), m);
-            }
+            return a.mk_add_simplify(ts);
         }
 
         opt::inf_eps maximize(expr_ref_vector const& fmls0, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {

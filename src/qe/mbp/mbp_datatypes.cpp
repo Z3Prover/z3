@@ -17,16 +17,15 @@ Revision History:
 
 --*/
 
-#include "qe/qe_arith.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/expr_functors.h"
 #include "model/model_v2_pp.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "util/obj_pair_hashtable.h"
-#include "qe/qe_datatypes.h"
+#include "qe/mbp/mbp_datatypes.h"
 
-namespace qe {
+namespace mbp {
     
     struct datatype_project_plugin::imp  {
         ast_manager&              m;
