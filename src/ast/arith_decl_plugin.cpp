@@ -896,6 +896,34 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
         if (is_to_real(term, term)) {
             continue;
         }
+        if (is_mul(term)) {
+            rational r(mul), n(0);
+            for (expr* arg : *to_app(term)) {
+                if (!is_extended_numeral(arg, n))
+                    return false;
+                r *= n;
+            }
+            return true;
+        }
+        if (is_add(term)) {
+            rational r(0), n(0);
+            for (expr* arg : *to_app(term)) {
+                if (!is_extended_numeral(arg, n))
+                    return false;
+                r += n;
+            }
+            r *= mul;
+            return true;
+        }
+        rational k1, k2;
+        expr* t1, *t2;
+        if (is_sub(term, t1, t2) && 
+            is_extended_numeral(t1, k1) &&
+            is_extended_numeral(t2, k2)) {
+            r = k1 - k2;
+            r *= mul;
+            return true;
+        }
         return false;
     } while (false);
     return false;

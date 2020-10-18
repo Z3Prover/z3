@@ -284,7 +284,8 @@ namespace mbp {
         
     };
     
-    datatype_project_plugin::datatype_project_plugin(ast_manager& m) {
+    datatype_project_plugin::datatype_project_plugin(ast_manager& m):
+        project_plugin(m) {
         m_imp = alloc(imp, m);
     }
     

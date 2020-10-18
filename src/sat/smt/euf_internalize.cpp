@@ -367,12 +367,15 @@ namespace euf {
                 return true;
 
         return false;
-
     }
 
     expr_ref solver::mk_eq(expr* e1, expr* e2) {
-        if (e1 == e2)
+        expr_ref _e1(e1, m);
+        expr_ref _e2(e2, m);
+        if (m.are_equal(e1, e2))
             return expr_ref(m.mk_true(), m);
+        if (m.are_distinct(e1, e2))
+            return expr_ref(m.mk_false(), m);
         expr_ref r(m.mk_eq(e2, e1), m);
         if (!m_egraph.find(r))
             r = m.mk_eq(e1, e2);

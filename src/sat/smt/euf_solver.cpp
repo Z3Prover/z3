@@ -634,12 +634,11 @@ namespace euf {
         };
         r->m_egraph.copy_from(m_egraph, copy_justification);        
         r->set_solver(s);
-        for (unsigned i = 0; i < m_id2solver.size(); ++i) {
-            auto* e = m_id2solver[i];
-            if (e) {
-                auto* c = e->clone(*r);
-                r->add_solver(c);
-                c->set_solver(s);
+        for (auto* s_orig : m_id2solver) {
+            if (s_orig) {
+                auto* s_clone = s_orig->clone(*r);
+                r->add_solver(s_clone);
+                s_clone->set_solver(s);
             }
         }
         return r;

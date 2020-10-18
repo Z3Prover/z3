@@ -40,11 +40,9 @@ using namespace qe;
 
 class mbproj::impl {
     ast_manager& m;
-    params_ref                 m_params;
-    th_rewriter m_rw;
+    params_ref                      m_params;
+    th_rewriter                     m_rw;
     ptr_vector<mbp::project_plugin> m_plugins;
-    expr_mark m_visited;
-    expr_mark m_bool_visited;
 
     // parameters
     bool m_reduce_all_selects;
@@ -52,13 +50,13 @@ class mbproj::impl {
 
     void add_plugin(mbp::project_plugin* p) {
         family_id fid = p->get_family_id();
-        SASSERT(!m_plugins.get(fid, 0));
-        m_plugins.setx(fid, p, 0);
+        SASSERT(!m_plugins.get(fid, nullptr));
+        m_plugins.setx(fid, p, nullptr);
     }
 
     mbp::project_plugin* get_plugin(app* var) {
         family_id fid = m.get_sort(var)->get_family_id();
-        return m_plugins.get(fid, 0);
+        return m_plugins.get(fid, nullptr);
     }
 
     bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
@@ -67,12 +65,12 @@ class mbproj::impl {
             return false;
         }
         bool reduced = false;
-        for (unsigned i = 0; i < vars.size(); ++i) { 
-            is_var.mark(vars[i].get());
-        }
-        expr_ref tmp(m), t(m), v(m);            
+        for (expr* v : vars)
+            is_var.mark(v);
+        expr_ref tmp(m), t(m), v(m);
+
         for (unsigned i = 0; i < lits.size(); ++i) {
-            expr* e = lits[i].get(), *l, *r;
+            expr* e = lits.get(i), * l, * r;
             if (m.is_eq(e, l, r) && reduce_eq(is_var, l, r, v, t)) {
                 reduced = true;
                 mbp::project_plugin::erase(lits, i);
@@ -80,7 +78,7 @@ class mbproj::impl {
                 sub.insert(v, t);
                 is_rem.mark(v);
                 for (unsigned j = 0; j < lits.size(); ++j) {
-                    sub(lits[j].get(), tmp);
+                    sub(lits.get(j), tmp);
                     m_rw(tmp);
                     lits[j] = tmp;
                 }
@@ -88,20 +86,17 @@ class mbproj::impl {
         }
         if (reduced) {
             unsigned j = 0;
-            for (app* v : vars) {
-                if (!is_rem.is_marked(v)) {
+            for (app* v : vars)
+                if (!is_rem.is_marked(v))
                     vars[j++] = v;
-                }
-            }
             vars.shrink(j);
         }
         return reduced;
     }
 
     bool reduce_eq(expr_mark& is_var, expr* l, expr* r, expr_ref& v, expr_ref& t) {
-        if (is_var.is_marked(r)) {
-            std::swap(l, r);
-        }
+        if (is_var.is_marked(r)) 
+            std::swap(l, r);        
         if (is_var.is_marked(l)) {
             contains_app cont(m, to_app(l));
             if (!cont(r)) {
@@ -113,188 +108,121 @@ class mbproj::impl {
         return false;
     }
 
-
     void filter_variables(model& model, app_ref_vector& vars, expr_ref_vector& lits, expr_ref_vector& unused_lits) {
         expr_mark lit_visited;
         mbp::project_plugin::mark_rec(lit_visited, lits);
         unsigned j = 0;
-        for (app* var : vars) {
-            if (lit_visited.is_marked(var)) {
+        for (app* var : vars)
+            if (lit_visited.is_marked(var))
                 vars[j++] = var;
-                }
-            }
         vars.shrink(j);
-    }
-
-    // over-approximation
-    bool contains_uninterpreted(expr* v) {
-        return true;
-    }
-
-    bool extract_bools(model_evaluator& eval, expr_ref_vector& fmls, expr* fml) {
-        TRACE("qe", tout << "extract bools: " << mk_pp(fml, m) << "\n";);
-        ptr_vector<expr> todo;
-        expr_safe_replace sub(m);
-        m_visited.reset();
-        bool found_bool = false;
-        if (is_app(fml)) {
-            todo.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());
-        }
-        while (!todo.empty()) {
-            expr* e = todo.back();
-            todo.pop_back();
-            if (m_visited.is_marked(e)) {
-                continue;
-            }
-            m_visited.mark(e);
-            if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e) && m.inc()) {
-                expr_ref val = eval(e);
-                TRACE("qe", tout << "found: " << mk_pp(e, m) << " " << val << "\n";);
-                if (!m.inc())
-                    continue;
-                if (!m.is_true(val) && !m.is_false(val) && contains_uninterpreted(val)) {
-                    throw default_exception("could not evaluate Boolean in model");
-                }
-                SASSERT(m.is_true(val) || m.is_false(val));
-
-                if (!m_bool_visited.is_marked(e)) {
-                    fmls.push_back(m.is_true(val) ? e : mk_not(m, e));
-                }
-                sub.insert(e, val);
-                m_bool_visited.mark(e);                
-                found_bool = true;
-            }
-            else if (is_app(e)) {
-                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            }
-            else {
-                TRACE("qe", tout << "expression not handled " << mk_pp(e, m) << "\n";);
-            }
-        }
-        if (found_bool) {
-            expr_ref tmp(m);
-            sub(fml, tmp);
-            expr_ref val = eval(tmp);
-            if (!m.is_true(val) && !m.is_false(val))
-                return false;
-            fmls.push_back(m.is_true(val) ? tmp : mk_not(m, tmp));
-        }
-        return found_bool;
     }
 
     void project_bools(model& mdl, app_ref_vector& vars, expr_ref_vector& fmls) {
         expr_safe_replace sub(m);
         expr_ref val(m);
-        model_evaluator eval(mdl, m_params);        
+        model_evaluator eval(mdl, m_params);
         eval.set_model_completion(true);
         unsigned j = 0;
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            app* var = vars[i].get();
-            if (m.is_bool(var)) {
-                sub.insert(var, eval(var));
-            }
-            else {
-                vars[j++] = var;
-                }
-            }
-        if (j == vars.size()) {
-            return;
+        for (app* var : vars) {
+            if (m.is_bool(var)) 
+                sub.insert(var, eval(var));            
+            else 
+                vars[j++] = var;            
         }
+        if (j == vars.size()) 
+            return;        
         vars.shrink(j);
-            j = 0;
-            for (unsigned i = 0; i < fmls.size(); ++i) {
-            expr* fml = fmls[i].get();
+        j = 0;
+        for (expr* fml : fmls) {
             sub(fml, val);
-                m_rw(val);
-                if (!m.is_true(val)) {
+            m_rw(val);
+            if (!m.is_true(val)) {
                 TRACE("qe", tout << mk_pp(fml, m) << " -> " << val << "\n";);
                 fmls[j++] = val;
-                    }
-                }
-        fmls.shrink(j);
             }
+        }
+        fmls.shrink(j);
+    }
 
 
     void subst_vars(model_evaluator& eval, app_ref_vector const& vars, expr_ref& fml) {
-        expr_safe_replace sub (m);
-        for (app * v : vars) {
-            sub.insert(v, eval(v));
-            }
+        expr_safe_replace sub(m);
+        for (app* v : vars) 
+            sub.insert(v, eval(v));        
         sub(fml);
-        }
+    }
 
     struct index_term_finder {
-        ast_manager&     m;
+        ast_manager& m;
         array_util       m_array;
         app_ref          m_var;
         expr_ref_vector& m_res;
 
-        index_term_finder (ast_manager &mgr, app* v, expr_ref_vector &res): 
-            m(mgr), m_array (m), m_var (v, m), m_res (res) {}
+        index_term_finder(ast_manager& mgr, app* v, expr_ref_vector& res) :
+            m(mgr), m_array(m), m_var(v, m), m_res(res) {}
 
-        void operator() (var *n) {}
-        void operator() (quantifier *n) {}
-        void operator() (app *n) {
-            expr *e1, *e2;
-            if (m_array.is_select (n)) {
-                for (expr * arg : *n) {
-                    if (m.get_sort(arg) == m.get_sort(m_var) && arg != m_var) 
-                        m_res.push_back (arg);
-                } 
+        void operator() (var* n) {}
+        void operator() (quantifier* n) {}
+        void operator() (app* n) {
+            expr* e1, * e2;
+            if (m_array.is_select(n)) {
+                for (expr* arg : *n) {
+                    if (m.get_sort(arg) == m.get_sort(m_var) && arg != m_var)
+                        m_res.push_back(arg);
+                }
             }
             else if (m.is_eq(n, e1, e2)) {
-                if (e1 == m_var) 
-                    m_res.push_back(e2); 
-                else if (e2 == m_var) 
-                    m_res.push_back(e1); 
+                if (e1 == m_var)
+                    m_res.push_back(e2);
+                else if (e2 == m_var)
+                    m_res.push_back(e1);
             }
         }
     };
 
-    bool project_var (model_evaluator& eval, app* var, expr_ref& fml) {
+    bool project_var(model_evaluator& eval, app* var, expr_ref& fml) {
         expr_ref val = eval(var);
-        
-        TRACE ("mbqi_project_verbose", tout << "MBQI: var: " << mk_pp (var, m) << "\n" << "fml: " << fml << "\n";);
-        expr_ref_vector terms (m);
-        index_term_finder finder (m, var, terms);
-        for_each_expr (finder, fml);        
-        
-        TRACE ("mbqi_project_verbose", tout << "terms:\n" << terms;);
-        
-        for (expr * term : terms) {
+
+        TRACE("mbqi_project_verbose", tout << "MBQI: var: " << mk_pp(var, m) << "\n" << "fml: " << fml << "\n";);
+        expr_ref_vector terms(m);
+        index_term_finder finder(m, var, terms);
+        for_each_expr(finder, fml);
+
+        TRACE("mbqi_project_verbose", tout << "terms:\n" << terms;);
+
+        for (expr* term : terms) {
             expr_ref tval = eval(term);
-            
-            TRACE ("mbqi_project_verbose", tout << "term: " << mk_pp (term, m) << " tval: " << tval << " val: " << val << "\n";);
+
+            TRACE("mbqi_project_verbose", tout << "term: " << mk_pp(term, m) << " tval: " << tval << " val: " << val << "\n";);
 
             // -- if the term does not contain an occurrence of var
             // -- and is in the same equivalence class in the model
-            if (tval == val && !occurs (var, term)) {
-                TRACE ("mbqi_project",
-                       tout << "MBQI: replacing " << mk_pp (var, m) << " with " << mk_pp (term, m) << "\n";);
+            if (tval == val && !occurs(var, term)) {
+                TRACE("mbqi_project",
+                    tout << "MBQI: replacing " << mk_pp(var, m) << " with " << mk_pp(term, m) << "\n";);
                 expr_safe_replace sub(m);
-                sub.insert (var, term);
-                sub (fml);
+                sub.insert(var, term);
+                sub(fml);
                 return true;
             }
         }
 
-        TRACE ("mbqi_project",
-               tout << "MBQI: failed to eliminate " << mk_pp (var, m) << " from " << fml << "\n";);
+        TRACE("mbqi_project",
+            tout << "MBQI: failed to eliminate " << mk_pp(var, m) << " from " << fml << "\n";);
 
         return false;
     }
 
-    void project_vars (model &M, app_ref_vector &vars, expr_ref &fml)  {
+    void project_vars(model& M, app_ref_vector& vars, expr_ref& fml) {
         model_evaluator eval(M);
         eval.set_model_completion(false);
         // -- evaluate to initialize eval cache
-        (void) eval (fml);
+        eval(fml);
         unsigned j = 0;
-        for (app * v : vars) {
-            if (!project_var (eval, v, fml)) {
-                vars[j++] = v;
-            }
-        }
+        for (app* v : vars) 
+            if (!project_var(eval, v, fml)) 
+                vars[j++] = v;                    
         vars.shrink(j);
     }
 
@@ -305,130 +233,12 @@ public:
         return arith.maximize(fmls, mdl, t, ge, gt);
     }
 
-    void extract_literals(model& model, expr_ref_vector& fmls) {
-        expr_ref val(m);
-        model_evaluator eval(model);
-        eval.set_expand_array_equalities(true);
-        TRACE("qe", tout << fmls << "\n";);
-        for (unsigned i = 0; i < fmls.size(); ++i) {
-            expr* fml = fmls[i].get(), *nfml, *f1, *f2, *f3;
-            SASSERT(m.is_bool(fml));
-            if (m.is_not(fml, nfml) && m.is_distinct(nfml)) {
-                fmls[i] = mbp::project_plugin::pick_equality(m, model, nfml);
-                --i;
-            }
-            else if (m.is_or(fml)) {
-                for (unsigned j = 0; j < to_app(fml)->get_num_args(); ++j) {
-                    val = eval(to_app(fml)->get_arg(j));
-                    if (m.is_true(val)) {
-                        fmls[i] = to_app(fml)->get_arg(j);
-                        --i;
-                        break;
-                    }
-                }
-            }
-            else if (m.is_and(fml)) {
-                fmls.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());
-                mbp::project_plugin::erase(fmls, i);
-            }
-            else if (m.is_iff(fml, f1, f2) || (m.is_not(fml, nfml) && m.is_xor(nfml, f1, f2))) {
-                val = eval(f1);
-                if (m.is_false(val)) {
-                    f1 = mk_not(m, f1);
-                    f2 = mk_not(m, f2);
-                }
-                fmls[i] = f1;
-                mbp::project_plugin::push_back(fmls, f2);
-                --i;
-            }
-            else if (m.is_implies(fml, f1, f2)) {
-                val = eval(f2);
-                if (m.is_true(val)) {
-                    fmls[i] = f2;
-                }
-                else {
-                    fmls[i] = mk_not(m, f1);
-                }
-                --i;
-            }
-            else if (m.is_ite(fml, f1, f2, f3)) {
-                val = eval(f1);                
-                if (m.is_true(val)) {
-                    mbp::project_plugin::push_back(fmls, f1);
-                    mbp::project_plugin::push_back(fmls, f2);
-                }
-                else {
-                    mbp::project_plugin::push_back(fmls, mk_not(m, f1));
-                    mbp::project_plugin::push_back(fmls, f3);
-                }
-                mbp::project_plugin::erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml) && m.is_not(nfml, nfml)) {
-                mbp::project_plugin::push_back(fmls, nfml);
-                mbp::project_plugin::erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml) && m.is_and(nfml)) {
-                for (unsigned j = 0; j < to_app(nfml)->get_num_args(); ++j) {
-                    val = eval(to_app(nfml)->get_arg(j));
-                    if (m.is_false(val)) {
-                        fmls[i] = mk_not(m, to_app(nfml)->get_arg(j));
-                        --i;
-                        break;
-                    }
-                }
-            }
-            else if (m.is_not(fml, nfml) && m.is_or(nfml)) {
-                for (unsigned j = 0; j < to_app(nfml)->get_num_args(); ++j) {
-                    mbp::project_plugin::push_back(fmls, mk_not(m, to_app(nfml)->get_arg(j)));
-                }
-                mbp::project_plugin::erase(fmls, i);                
-            }
-            else if ((m.is_not(fml, nfml) && m.is_iff(nfml, f1, f2)) || m.is_xor(fml, f1, f2)) {
-                val = eval(f1);
-                if (m.is_true(val)) {
-                    f2 = mk_not(m, f2);
-                }
-                else {
-                    f1 = mk_not(m, f1);
-                }
-                mbp::project_plugin::push_back(fmls, f1);
-                mbp::project_plugin::push_back(fmls, f2);
-                mbp::project_plugin::erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml) && m.is_implies(nfml, f1, f2)) {
-                mbp::project_plugin::push_back(fmls, f1);
-                mbp::project_plugin::push_back(fmls, mk_not(m, f2));
-                mbp::project_plugin::erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml) && m.is_ite(nfml, f1, f2, f3)) {
-                val = eval(f1);                
-                if (m.is_true(val)) {
-                    mbp::project_plugin::push_back(fmls, f1);
-                    mbp::project_plugin::push_back(fmls, mk_not(m, f2));
-                }
-                else {
-                    mbp::project_plugin::push_back(fmls, mk_not(m, f1));
-                    mbp::project_plugin::push_back(fmls, mk_not(m, f3));
-                }
-                mbp::project_plugin::erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml)) {
-                if (extract_bools(eval, fmls, nfml)) {
-                    mbp::project_plugin::erase(fmls, i);
-                }
-            }
-            else {
-                if (extract_bools(eval, fmls, fml)) {
-                    mbp::project_plugin::erase(fmls, i);
-                }
-                // TBD other Boolean operations.
-            }
-        }
-        TRACE("qe", tout << fmls << "\n";);
-        m_bool_visited.reset();
+    void extract_literals(model& model, app_ref_vector const& vars, expr_ref_vector& fmls) {
+        mbp::project_plugin proj(m);
+        proj.extract_literals(model, vars, fmls);
     }
 
-    impl(ast_manager& m, params_ref const& p):m(m), m_params(p), m_rw(m) {
+    impl(ast_manager& m, params_ref const& p) :m(m), m_params(p), m_rw(m) {
         add_plugin(alloc(mbp::arith_project_plugin, m));
         add_plugin(alloc(mbp::datatype_project_plugin, m));
         add_plugin(alloc(mbp::array_project_plugin, m));
@@ -442,11 +252,11 @@ public:
     void updt_params(params_ref const& p) {
         m_params.append(p);
         m_reduce_all_selects = m_params.get_bool("reduce_all_selects", false);
-        m_dont_sub   = m_params.get_bool("dont_sub", false);
+        m_dont_sub = m_params.get_bool("dont_sub", false);
     }
 
     void preprocess_solve(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
-        extract_literals(model, fmls);
+        extract_literals(model, vars, fmls);
         bool change = true;
         while (change && !vars.empty()) {
             change = solve(model, vars, fmls);
@@ -455,13 +265,13 @@ public:
                     change = true;
                 }
             }
-        }        
+        }
     }
 
     bool validate_model(model& model, expr_ref_vector const& fmls) {
         expr_ref val(m);
         model_evaluator eval(model);
-        for (expr * f : fmls) {
+        for (expr* f : fmls) {
             VERIFY(!model.is_false(f));
         }
         return true;
@@ -479,7 +289,7 @@ public:
         while (progress && !vars.empty() && !fmls.empty() && m.limit().inc()) {
             app_ref_vector new_vars(m);
             progress = false;
-            for (mbp::project_plugin * p : m_plugins) {
+            for (mbp::project_plugin* p : m_plugins) {
                 if (p) {
                     (*p)(model, vars, fmls);
                 }
@@ -501,19 +311,17 @@ public:
                 expr_safe_replace sub(m);
                 val = model(var);
                 sub.insert(var, val);
-                for (unsigned i = 0; i < fmls.size(); ++i) {
-                    sub(fmls[i].get(), tmp);
+                unsigned j = 0;
+                for (expr* f : fmls) {
+                    sub(f, tmp);
                     m_rw(tmp);
-                    if (m.is_true(tmp)) {
-                        mbp::project_plugin::erase(fmls, i);
-                    }
-                    else {
-                        fmls[i] = tmp;
-                    }
-                }            
+                    if (!m.is_true(tmp))
+                        fmls[j++] = tmp;
+                }
+                fmls.shrink(j);
                 progress = true;
-            }        
-            if (!m.limit().inc()) 
+            }
+            if (!m.limit().inc())
                 return;
             vars.append(new_vars);
             if (progress) {
@@ -527,13 +335,13 @@ public:
         SASSERT(validate_model(model, fmls));
         TRACE("qe", tout << vars << " " << fmls << "\n";);
     }
-    
+
     void do_qe_lite(app_ref_vector& vars, expr_ref& fml) {
         qe_lite qe(m, m_params, false);
-        qe (vars, fml);
-        m_rw (fml);            
-        TRACE ("qe", tout << "After qe_lite:\n" << fml << "\n" << "Vars: " << vars << "\n";);        
-        SASSERT (!m.is_false (fml));
+        qe(vars, fml);
+        m_rw(fml);
+        TRACE("qe", tout << "After qe_lite:\n" << fml << "\n" << "Vars: " << vars << "\n";);
+        SASSERT(!m.is_false(fml));
     }
 
     void do_qe_bool(model& mdl, app_ref_vector& vars, expr_ref& fml) {
@@ -544,130 +352,122 @@ public:
     }
 
     void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml) {
-        TRACE ("qe", tout << "Before projection:\n" << fml << "\n" << "Vars: " << vars << "\n";);
+        TRACE("qe", tout << "Before projection:\n" << fml << "\n" << "Vars: " << vars << "\n";);
 
-        model_evaluator eval(mdl, m_params);        
+        model_evaluator eval(mdl, m_params);
         eval.set_model_completion(true);
-        app_ref_vector other_vars (m);
-        app_ref_vector array_vars (m);
-        array_util arr_u (m);
-        arith_util ari_u (m);
+        app_ref_vector other_vars(m);
+        app_ref_vector array_vars(m);
+        array_util arr_u(m);
+        arith_util ari_u(m);
 
         flatten_and(fml);
-
 
         while (!vars.empty()) {
 
             do_qe_lite(vars, fml);
 
             do_qe_bool(mdl, vars, fml);
-            
+
             // sort out vars into bools, arith (int/real), and arrays
             for (app* v : vars) {
                 if (arr_u.is_array(v)) {
-                    array_vars.push_back (v);
-                } 
-                else {
-                    other_vars.push_back (v);
+                    array_vars.push_back(v);
                 }
-            }        
-            
-            TRACE ("qe", tout << "Array vars: " << array_vars << "\n";);
-            
-            vars.reset ();
-            
+                else {
+                    other_vars.push_back(v);
+                }
+            }
+
+            TRACE("qe", tout << "Array vars: " << array_vars << "\n";);
+
+            vars.reset();
+
             // project arrays
             mbp::array_project_plugin ap(m);
             ap(mdl, array_vars, fml, vars, m_reduce_all_selects);
-            SASSERT (array_vars.empty ());
-            m_rw (fml);
-            SASSERT (!m.is_false (fml));
+            SASSERT(array_vars.empty());
+            m_rw(fml);
+            SASSERT(!m.is_false(fml));
 
-            TRACE ("qe",
-                   tout << "extended model:\n" << mdl;
-                   tout << "Vars: " << vars << "\n";
-                   );            
+            TRACE("qe",
+                tout << "extended model:\n" << mdl;
+                tout << "Vars: " << vars << "\n";);
         }
-                        
+
         // project reals, ints and other variables.
-        if (!other_vars.empty ()) {
-            TRACE ("qe", tout << "Other vars: " << other_vars << "\n" << mdl;);
-                        
+        if (!other_vars.empty()) {
+            TRACE("qe", tout << "Other vars: " << other_vars << "\n" << mdl;);
+
             expr_ref_vector fmls(m);
-            flatten_and (fml, fmls);
-            
+            flatten_and(fml, fmls);
+
             (*this)(false, other_vars, mdl, fmls);
-            fml = mk_and (fmls);
+            fml = mk_and(fmls);
             m_rw(fml);
-                        
-            TRACE ("qe",
-                   tout << "Projected other vars:\n" << fml << "\n";
-                   tout << "Remaining other vars:\n" << other_vars << "\n";);
-            SASSERT (!m.is_false (fml));
+
+            TRACE("qe",
+                tout << "Projected other vars:\n" << fml << "\n";
+            tout << "Remaining other vars:\n" << other_vars << "\n";);
+            SASSERT(!m.is_false(fml));
         }
-        
-        if (!other_vars.empty ()) {
-            project_vars (mdl, other_vars, fml);
+
+        if (!other_vars.empty()) {
+            project_vars(mdl, other_vars, fml);
             m_rw(fml);
         }
-        
+
         // substitute any remaining other vars
-        if (!m_dont_sub && !other_vars.empty ()) {
-            subst_vars (eval, other_vars, fml);
-            TRACE ("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
+        if (!m_dont_sub && !other_vars.empty()) {
+            subst_vars(eval, other_vars, fml);
+            TRACE("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
             // an extra round of simplification because subst_vars is not simplifying
             m_rw(fml);
             other_vars.reset();
         }
-        
+
         SASSERT(!eval.is_false(fml));
-                
-        vars.reset ();
+
+        vars.reset();
         vars.append(other_vars);
-    }    
-    
+    }
+
 };
-    
+
 mbproj::mbproj(ast_manager& m, params_ref const& p) {
-    scoped_no_proof _sp (m);
+    scoped_no_proof _sp(m);
     m_impl = alloc(impl, m, p);
 }
-        
+
 mbproj::~mbproj() {
     dealloc(m_impl);
 }
-        
+
 void mbproj::updt_params(params_ref const& p) {
     m_impl->updt_params(p);
 }
-       
-void mbproj::get_param_descrs(param_descrs & r) {
+
+void mbproj::get_param_descrs(param_descrs& r) {
     r.insert("reduce_all_selects", CPK_BOOL, "(default: false) reduce selects");
     r.insert("dont_sub", CPK_BOOL, "(default: false) disable substitution of values for free variables");
 }
-        
+
 void mbproj::operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls) {
-    scoped_no_proof _sp (fmls.get_manager());
+    scoped_no_proof _sp(fmls.get_manager());
     (*m_impl)(force_elim, vars, mdl, fmls);
 }
 
 void mbproj::spacer(app_ref_vector& vars, model& mdl, expr_ref& fml) {
-    scoped_no_proof _sp (fml.get_manager());
+    scoped_no_proof _sp(fml.get_manager());
     m_impl->spacer(vars, mdl, fml);
 }
 
 void mbproj::solve(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
-    scoped_no_proof _sp (fmls.get_manager());
+    scoped_no_proof _sp(fmls.get_manager());
     m_impl->preprocess_solve(model, vars, fmls);
 }
-        
-void mbproj::extract_literals(model& model, expr_ref_vector& lits) {
-    scoped_no_proof _sp (lits.get_manager());
-    m_impl->extract_literals(model, lits);
-}
-
 
 opt::inf_eps mbproj::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
-    scoped_no_proof _sp (fmls.get_manager());
+    scoped_no_proof _sp(fmls.get_manager());
     return m_impl->maximize(fmls, mdl, t, ge, gt);
 }

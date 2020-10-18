@@ -36,14 +36,24 @@ namespace mbp {
     };
 
     class project_plugin {
+        ast_manager& m;
+        expr_mark m_visited;
+        expr_mark m_bool_visited;
+
+        bool extract_bools(model_evaluator& eval, expr_ref_vector& fmls, expr* fml);
+        // over-approximation
+        bool contains_uninterpreted(expr* v) { return true; }
+
+        void push_back(expr_ref_vector& lits, expr* lit);
     public:
+        project_plugin(ast_manager& m) :m(m) {}
         virtual ~project_plugin() {}
-        virtual bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) = 0;
+        virtual bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) { return false; }
         /**
            \brief partial solver.
         */
-        virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) = 0;
-        virtual family_id get_family_id() = 0;
+        virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) { return false; }
+        virtual family_id get_family_id() { return null_family_id; }
 
         virtual void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) { };
 
@@ -54,18 +64,28 @@ namespace mbp {
            - returns set of definitions
              (TBD: in triangular form, the last definition can be substituted into definitions that come before)
         */
-        virtual vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) = 0;
+        virtual vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) { return vector<def>(); }
 
         /**
            \brief model based saturation. Saturates theory axioms to equi-satisfiable literals over EUF,
            such that 'shared' are not retained for EUF.
          */
-        virtual void saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) = 0;
+        virtual void saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {}
 
+
+        /*
+        * extract top-level literals
+        */
+        void extract_literals(model& model, app_ref_vector const& vars, expr_ref_vector& fmls);
+
+        /*
+        * Purify literals into linear inequalities or constraints without arithmetic variables.
+        */
+        void purify(model& model, app_ref_vector const& vars, expr_ref_vector& fmls);
 
         static expr_ref pick_equality(ast_manager& m, model& model, expr* t);
         static void erase(expr_ref_vector& lits, unsigned& i);
-        static void push_back(expr_ref_vector& lits, expr* lit);
+
         static void mark_rec(expr_mark& visited, expr* e);
         static void mark_rec(expr_mark& visited, expr_ref_vector const& es);
     };
