@@ -8,4 +8,5 @@ z3_add_component(mbp
     mbp_term_graph.cpp
   COMPONENT_DEPENDENCIES
     model   
+    simplex
 )

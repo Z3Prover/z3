@@ -82,10 +82,8 @@ namespace euf {
         auto* ext = m_id2solver.get(fid, nullptr);
         if (ext)
             return ext;
-        ext = alloc(q::solver, *this);
-        ext->set_solver(m_solver);
-        ext->push_scopes(s().num_scopes());
-        add_solver(fid, ext);
+        ext = alloc(q::solver, *this, fid);
+        add_solver(ext);
         return ext;
     }
 
@@ -116,23 +114,23 @@ namespace euf {
         else if (dt.get_family_id() == fid)
             ext = alloc(dt::solver, *this, fid);
         
-        if (ext) {
-            if (use_drat())
-                s().get_drat().add_theory(fid, ext->name());
-            ext->set_solver(m_solver);
-            ext->push_scopes(s().num_scopes());
-            add_solver(fid, ext);
-            if (ext->use_diseqs())
-                m_egraph.set_th_propagates_diseqs(fid);
-        }
+        if (ext) 
+            add_solver(ext);        
         else if (f) 
             unhandled_function(f);
         return ext;
     }
 
-    void solver::add_solver(family_id fid, th_solver* th) {
+    void solver::add_solver(th_solver* th) {
+        family_id fid = th->get_id();
+        if (use_drat())
+            s().get_drat().add_theory(fid, th->name());
+        th->set_solver(m_solver);
+        th->push_scopes(s().num_scopes());
         m_solvers.push_back(th);
         m_id2solver.setx(fid, th, nullptr);
+        if (th->use_diseqs())
+            m_egraph.set_th_propagates_diseqs(fid);
     }
 
     void solver::unhandled_function(func_decl* f) {
@@ -640,7 +638,7 @@ namespace euf {
             auto* e = m_id2solver[i];
             if (e) {
                 auto* c = e->clone(*r);
-                r->add_solver(i, c);
+                r->add_solver(c);
                 c->set_solver(s);
             }
         }

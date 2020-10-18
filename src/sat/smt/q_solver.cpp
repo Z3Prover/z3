@@ -24,8 +24,8 @@ Author:
 
 namespace q {
 
-    solver::solver(euf::solver& ctx):
-        th_euf_solver(ctx, symbol("quant"), ctx.get_manager().get_family_id(symbol("quant"))),
+    solver::solver(euf::solver& ctx, family_id fid) :
+        th_euf_solver(ctx, ctx.get_manager().get_family_name(fid), fid),
         m_mbqi(ctx,  *this)
     {}
 
@@ -62,7 +62,8 @@ namespace q {
     }
 
     euf::th_solver* solver::clone(euf::solver& ctx) {
-        return alloc(solver, ctx);
+        family_id fid = ctx.get_manager().mk_family_id(symbol("quant"));
+        return alloc(solver, ctx, fid);
     }
 
     bool solver::unit_propagate() {

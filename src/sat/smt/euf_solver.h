@@ -132,7 +132,7 @@ namespace euf {
         th_solver* quantifier2solver();
         th_solver* expr2solver(expr* e);
         th_solver* bool_var2solver(sat::bool_var v);
-        void add_solver(family_id fid, th_solver* th);
+        void add_solver(th_solver* th);
         void init_ackerman();
 
         // model building
